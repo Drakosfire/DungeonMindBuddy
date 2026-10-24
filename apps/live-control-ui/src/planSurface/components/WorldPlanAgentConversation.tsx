@@ -3595,7 +3595,7 @@ export function WorldPlanAgentConversation({
     const submittedPresentationFenceKey = askPresentationFenceKey;
     setSubmittedMessage({ id: submittedTurnId, scopeKey, conversationId: pointerSnapshot.conversation_id,
       pointerRevision: pointerSnapshot.pointer_revision, message, kind: "discuss" });
-    if (!sharedConversation) setComposerMessage((current) => current === composerSnapshotAtSubmit ? "" : current);
+    if (!sharedConversation && composerEditGenerationRef.current === composerGenerationAtSubmit) setComposerMessage((current) => current === composerSnapshotAtSubmit ? "" : current);
     setSending(true);
     setError(null);
     setConversationNotice(null);
@@ -3681,7 +3681,7 @@ export function WorldPlanAgentConversation({
       }
       refreshPendingAskList();
       sharedConversation?.setPendingTurn({ surface: "plan", turnId: request.turn_id });
-      if (sharedConversation) setComposerMessage((current) => current === composerSnapshotAtSubmit ? "" : current);
+      if (sharedConversation && composerEditGenerationRef.current === composerGenerationAtSubmit) setComposerMessage((current) => current === composerSnapshotAtSubmit ? "" : current);
       requestRef.current = null;
       setSending(false);
       await sendPendingAsk({ storageKey, serialized, envelope, error: null }, true, composerSnapshotAtSubmit, composerGenerationAtSubmit);
@@ -3859,6 +3859,7 @@ export function WorldPlanAgentConversation({
     const admittedRun = playMode?.admittedRun;
     const source = buildMode?.savedSource;
     const message = (questionOverride ?? composerMessage).trim();
+    const composerGenerationAtSubmit = composerEditGenerationRef.current;
     if (!isBuild && playMode && playEditMode && questionOverride === undefined) {
       if (!visible || !admittedRun || admittedRun.worldId !== verifiedWorldId || !message
         || sending || playCompose.busy || requestRef.current || sharedConversation?.pendingTurn || pendingPlayTurn) return;
@@ -3895,7 +3896,8 @@ export function WorldPlanAgentConversation({
           if (latestRef.current.mounted && latestRef.current.buildPlacementFenceKey === placementFence
             && latestRef.current.buildPlacementEpoch === epoch
             && latestRef.current.buildPlacementBridge === bridge
-            && composerEditGenerationRef.current === generation) {
+            && (questionOverride !== undefined || composerEditGenerationRef.current === generation)) {
+            if(questionOverride !== undefined)throw reason instanceof Error?reason:new Error("The page insertion point could not be prepared.");
             setBuildPlacementFailure({ fenceKey: placementFence, epoch, message, generation, bridge,
               reason: reason instanceof Error ? reason.message : "The page insertion point could not be prepared." });
           }
@@ -3908,7 +3910,7 @@ export function WorldPlanAgentConversation({
           || latestRef.current.buildPlacementFenceKey !== placementFence
           || latestRef.current.buildPlacementEpoch !== epoch
           || latestRef.current.buildPlacementBridge !== bridge
-          || composerEditGenerationRef.current !== generation) return;
+          || (questionOverride === undefined && composerEditGenerationRef.current !== generation)) return;
       }
       setBuildPlacementFailure(null);
       const storageKey = pendingPlayTurnStorageKey(source.worldId);
@@ -3920,7 +3922,7 @@ export function WorldPlanAgentConversation({
       } catch (reason) { setError(String(reason)); return; }
       const stored = { storageKey, serialized, request };
       setPendingPlayTurn(stored);
-      setComposerMessage(current => current.trim() === message ? "" : current);
+      if(composerEditGenerationRef.current===composerGenerationAtSubmit)setComposerMessage(current => current.trim() === message ? "" : current);
       await dispatchSavedPlayTurn(stored);
       return;
     }
@@ -3959,7 +3961,7 @@ export function WorldPlanAgentConversation({
     }
     const stored = { storageKey, serialized, request };
     setPendingPlayTurn(stored);
-    setComposerMessage((current) => current.trim() === message ? "" : current);
+    if(composerEditGenerationRef.current===composerGenerationAtSubmit)setComposerMessage((current) => current.trim() === message ? "" : current);
     await dispatchSavedPlayTurn(stored);
   }
 

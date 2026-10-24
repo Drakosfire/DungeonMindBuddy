@@ -675,6 +675,32 @@ describe("one App-level World conversation host across Plan and Play", () => {
     expect(screen.queryByLabelText("Turn surface")).not.toBeInTheDocument();
   });
 
+  it.each([false,true])("shows an exact Build retry placement failure while preserving its draft: %s",async otherDraft=>{
+    const prior=turn('plan',1,'');const terminal={...prior,lifecycle_status:'interrupted' as const,
+      provenance:{...prior.provenance,surface_id:'build',primary_work:{...prior.provenance.primary_work,object_id:'source-one'}}};
+    vi.mocked(getWorldAgentConversationHistory).mockResolvedValue(history([terminal]));
+    const bridge:BuildComposeBridge={capture:vi.fn(async()=>{throw new Error('Choose a page caret for this retry');}),insert:vi.fn()};
+    render(<Harness initial="build" buildBridge={bridge}/>);fireEvent.click(await screen.findByRole('button',{name:'Open',exact:true}));
+    const retry=await screen.findByRole('button',{name:'Retry question'});await waitFor(()=>expect(retry).toBeEnabled());
+    const input=screen.getByLabelText('Message DungeonBuddy');if(otherDraft)fireEvent.change(input,{target:{value:'My other thought'}});
+    fireEvent.click(retry);expect(await screen.findByText('Choose a page caret for this retry')).toHaveAttribute('role','alert');
+    expect(input).toHaveValue(otherDraft?'My other thought':'');expect(postWorldBuildAgentTurn).not.toHaveBeenCalled();expect(retry).toBeEnabled();
+  });
+  it('continues Build retry capture independently of newer conversation typing',async()=>{
+    const prior=turn('plan',1,'');const terminal={...prior,lifecycle_status:'interrupted' as const,
+      provenance:{...prior.provenance,surface_id:'build',primary_work:{...prior.provenance.primary_work,object_id:'source-one'}}};
+    vi.mocked(getWorldAgentConversationHistory).mockResolvedValue(history([terminal]));
+    vi.mocked(postWorldBuildAgentTurn).mockImplementation(()=>new Promise(()=>{}));
+    let finish!:(value:ReturnType<typeof insertionCapture>)=>void;
+    const bridge:BuildComposeBridge={capture:vi.fn(()=>new Promise(resolve=>{finish=resolve;})),insert:vi.fn()};
+    render(<Harness initial="build" buildBridge={bridge}/>);fireEvent.click(await screen.findByRole('button',{name:'Open',exact:true}));
+    const retry=await screen.findByRole('button',{name:'Retry question'});await waitFor(()=>expect(retry).toBeEnabled());fireEvent.click(retry);
+    await waitFor(()=>expect(bridge.capture).toHaveBeenCalledTimes(1));
+    const input=screen.getByLabelText('Message DungeonBuddy');fireEvent.change(input,{target:{value:prior.user_text}});
+    await act(async()=>finish(insertionCapture()));await waitFor(()=>expect(postWorldBuildAgentTurn).toHaveBeenCalledTimes(1));
+    expect(input).toHaveValue(prior.user_text);
+  });
+
   it.each(["failed", "interrupted"] as const)("labels a historical Build %s with its saved source while viewing Plan", async lifecycle => {
     const historical = { ...turn("plan", 1, ""), lifecycle_status: lifecycle,
       provenance: { ...turn("plan", 1, "").provenance, surface_id: "build", surface_instance_id: "build-instance",
