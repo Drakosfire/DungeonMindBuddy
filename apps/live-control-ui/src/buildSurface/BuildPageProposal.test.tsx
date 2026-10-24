@@ -52,7 +52,7 @@ it('stages outside editor JSON, edits and keeps once at its original position wi
  await writeSuggestion('An authored revision.');
  expect(editor.getJSON()).toEqual(before);
  act(()=>editor.commands.setTextSelection(1));
- fireEvent.click(screen.getByRole('button',{name:'Keep on page'}));
+ fireEvent.click(screen.getByRole('button',{name:'Save',exact:true}));
  await waitFor(()=>expect(saved.state).toBe('applied'));
  const md=tiptapJsonToSemanticMarkdown(editor.getJSON());expect(md.indexOf('Before')).toBeLessThan(md.indexOf('An authored revision.'));expect(md.indexOf('An authored revision.')).toBeLessThan(md.indexOf('After'));
  expect(saved.markdown).toContain('An authored revision.');expect(complete).toHaveBeenCalledTimes(1);
@@ -65,19 +65,21 @@ it('retains unsaved suggestion typing through remount without entering page cont
  view.unmount();render(<Review/>);await screen.findByRole('textbox',{name:'Suggestion text'});
 
  expect(screen.getByRole('textbox',{name:'Suggestion text'})).toHaveTextContent('My unfinished local copy');expect(editor.getJSON()).toEqual(before);
- fireEvent.click(screen.getByRole('button',{name:'Save suggestion'}));
- await waitFor(()=>expect(saved.markdown.trim()).toBe('My unfinished local copy'));expect(editor.getJSON()).toEqual(before);
+ fireEvent.click(screen.getByRole('button',{name:'Save',exact:true}));
+ await waitFor(()=>expect(saved.state).toBe('applied'));
+ expect(saved.markdown.trim()).toBe('My unfinished local copy');
+ expect(tiptapJsonToSemanticMarkdown(editor.getJSON())).toContain('My unfinished local copy');
 });
 it('discards durably without changing page JSON or undo history',async()=>{
- const before=editor.getJSON();const view=render(<Review/>);await screen.findByRole('button',{name:'Discard suggestion'});
- fireEvent.click(screen.getByRole('button',{name:'Discard suggestion'}));await waitFor(()=>expect(saved.state).toBe('discarded'));
+ const before=editor.getJSON();const view=render(<Review/>);await screen.findByRole('button',{name:'Dismiss suggestion'});
+ fireEvent.click(screen.getByRole('button',{name:'Dismiss suggestion'}));await waitFor(()=>expect(saved.state).toBe('discarded'));
  expect(editor.getJSON()).toEqual(before);view.unmount();render(<Review/>);
  await waitFor(()=>expect(status).toHaveBeenLastCalledWith('Suggestion discarded'));
  expect(screen.queryByRole('region',{name:'Proposed page change'})).not.toBeInTheDocument();expect(editor.getJSON()).toEqual(before);
 });
 it('recovers lost acknowledgment by recognizing the result without a second insertion',async()=>{
- lostAck=true;const apply=vi.spyOn(bridge,'applyPrepared');const view=render(<Review/>);await screen.findByRole('button',{name:'Keep on page'});
- fireEvent.click(screen.getByRole('button',{name:'Keep on page'}));
+ lostAck=true;const apply=vi.spyOn(bridge,'applyPrepared');const view=render(<Review/>);await screen.findByRole('button',{name:'Save',exact:true});
+ fireEvent.click(screen.getByRole('button',{name:'Save',exact:true}));
  await screen.findByRole('button',{name:'Check insertion'});await screen.findByRole('alert');
  const after=editor.getJSON();expect(apply).toHaveBeenCalledTimes(1);expect(saved.state).toBe('applying');
  view.unmount();lostAck=false;render(<Review/>);
@@ -85,20 +87,20 @@ it('recovers lost acknowledgment by recognizing the result without a second inse
  await waitFor(()=>expect(saved.state).toBe('applied'));expect(apply).toHaveBeenCalledTimes(1);expect(editor.getJSON()).toEqual(after);
 });
 it('rejects intervening page changes and removes stale placement without erasing writing',async()=>{
- render(<Review/>);await screen.findByRole('button',{name:'Keep on page'});
+ render(<Review/>);await screen.findByRole('button',{name:'Save',exact:true});
  act(()=>editor.commands.insertContent('My new page text.'));
- await screen.findByRole('status');expect(screen.queryByRole('button',{name:'Keep on page'})).not.toBeInTheDocument();
+ await screen.findByRole('status');expect(screen.queryByRole('button',{name:'Save',exact:true})).not.toBeInTheDocument();
  expect(editor.getText()).toContain('My new page text.');expect(saved.state).toBe('editing');
 });
 it('leaves invalid Markdown editable without inserting it',async()=>{
  const before=editor.getJSON();render(<Review/>);await screen.findByRole('textbox',{name:'Suggestion text'});
 await writeSuggestion('<script>bad</script>');
- fireEvent.click(screen.getByRole('button',{name:'Keep on page'}));await screen.findByRole('alert');expect(editor.getJSON()).toEqual(before);expect(saved.state).toBe('editing');
+ fireEvent.click(screen.getByRole('button',{name:'Save',exact:true}));await screen.findByRole('alert');expect(editor.getJSON()).toEqual(before);expect(saved.state).toBe('editing');
 });
 
 it('recovers a lost prepare response before any insertion, without reserving another apply',async()=>{
  lostPrepare=true;const apply=vi.spyOn(bridge,'applyPrepared');render(<Review/>);
- fireEvent.click(await screen.findByRole('button',{name:'Keep on page'}));
+ fireEvent.click(await screen.findByRole('button',{name:'Save',exact:true}));
  await screen.findByRole('button',{name:'Check insertion'});expect(apply).not.toHaveBeenCalled();
  fireEvent.click(screen.getByRole('button',{name:'Check insertion'}));
  await waitFor(()=>expect(saved.state).toBe('applied'));expect(apply).toHaveBeenCalledTimes(1);
@@ -113,7 +115,7 @@ it('drops a late prepared response after a page switch without applying it to ei
   return result;
  });
  const apply=vi.spyOn(bridge,'applyPrepared');const before=editor.getJSON();const view=render(<Review/>);
- fireEvent.click(await screen.findByRole('button',{name:'Keep on page'}));
+ fireEvent.click(await screen.findByRole('button',{name:'Save',exact:true}));
  await waitFor(()=>expect(finish).toBeTypeOf('function'));
  state.documentId='other';view.rerender(<Review source="other:1"/>);
  await act(async()=>{finish(structuredClone(saved));});
@@ -125,7 +127,7 @@ it('retains conflicting local review text and requires a deliberate copy choice'
  await writeSuggestion('My local copy');
  view.unmount();saved={...saved,revision:saved.revision+1,markdown:'A saved edit from elsewhere'};
  render(<Review/>);await screen.findByRole('button',{name:'Use saved suggestion'});
- expect(screen.getByRole('button',{name:'Keep on page'})).toBeDisabled();
+ expect(screen.getByRole('button',{name:'Save',exact:true})).toBeDisabled();
  fireEvent.click(screen.getByRole('button',{name:'Review my local copy'}));
 
  expect(screen.getByRole('textbox',{name:'Suggestion text'})).toHaveTextContent('My local copy');
@@ -136,13 +138,15 @@ it('moves a directly edited suggestion without changing page bytes and retains i
  const before=editor.getJSON();const view=render(<Review/>);await writeSuggestion('Authored custom.');
  const input=screen.getByRole('textbox',{name:'Suggestion text'});
  act(()=>editor.commands.setTextSelection(1));
- fireEvent.click(screen.getByRole('button',{name:'Place at caret'}));
+ fireEvent.click(screen.getByRole('button',{name:'Move',exact:true}));
+ vi.spyOn(editor.view,'posAtCoords').mockReturnValue({pos:editor.state.selection.from,inside:0});
+ fireEvent.click(editor.view.dom,{clientX:10,clientY:10});
  await waitFor(()=>expect(saved.placement_caret).toBe(1));
  expect(editor.getJSON()).toEqual(before);
  expect(screen.getByRole('textbox',{name:'Suggestion text'})).toBe(input);
  expect(input).toHaveTextContent('Authored custom.');
- view.unmount();render(<Review/>);await screen.findByRole('button',{name:'Keep on page'});
- fireEvent.click(screen.getByRole('button',{name:'Keep on page'}));
+ view.unmount();render(<Review/>);await screen.findByRole('button',{name:'Save',exact:true});
+ fireEvent.click(screen.getByRole('button',{name:'Save',exact:true}));
  await waitFor(()=>expect(saved.state).toBe('applied'));
  const md=tiptapJsonToSemanticMarkdown(editor.getJSON());
  expect(md.indexOf('Authored custom.')).toBeLessThan(md.indexOf('Before'));
@@ -153,9 +157,11 @@ it('recovers a lost move response by reading the saved placement, never repeatin
  const send=vi.mocked(proposalReview).getMockImplementation()!;
  vi.mocked(proposalReview).mockImplementation(async(world,action,command)=>{const result=await send(world,action,command);if(command?.operation==='move')throw new Error('Move response unavailable');return result;});
  render(<Review/>);await screen.findByRole('textbox',{name:'Suggestion text'});
- act(()=>editor.commands.setTextSelection(0));fireEvent.click(screen.getByRole('button',{name:'Place at caret'}));
- await screen.findByRole('alert');await waitFor(()=>expect(screen.getByRole('button',{name:'Keep on page'})).toBeEnabled());
- fireEvent.click(screen.getByRole('button',{name:'Keep on page'}));await waitFor(()=>expect(saved.state).toBe('applied'));
+ act(()=>editor.commands.setTextSelection(0));fireEvent.click(screen.getByRole('button',{name:'Move',exact:true}));
+ vi.spyOn(editor.view,'posAtCoords').mockReturnValue({pos:editor.state.selection.from,inside:0});
+ fireEvent.click(editor.view.dom,{clientX:10,clientY:10});
+ await screen.findByRole('alert');await waitFor(()=>expect(screen.getByRole('button',{name:'Save',exact:true})).toBeEnabled());
+ fireEvent.click(screen.getByRole('button',{name:'Save',exact:true}));await waitFor(()=>expect(saved.state).toBe('applied'));
  expect(saved.apply?.placement_caret).toBe(1);
  expect(vi.mocked(proposalReview).mock.calls.filter(([, ,command])=>command?.operation==='move')).toHaveLength(1);
 });
@@ -199,11 +205,11 @@ it.each([false,true])('keeps an explicitly labelled selected-passage revision an
  const captured=await bridge.capture();record.reservation.basis=captured.basis;saved.placement_caret=captured.basis.caret;
  const before=editor.getJSON();lostAck=lose;
  const view=render(<Review/>);
- await screen.findByText('Replaces your selected passage when you Keep it.');
- expect(screen.queryByRole('button',{name:'Drag suggestion to another place'})).not.toBeInTheDocument();
+ await screen.findByText('Replaces your selected passage when you Save.');
+ expect(screen.queryByRole('button',{name:'Drag suggestion'})).not.toBeInTheDocument();
  expect(editor.getJSON()).toEqual(before);
  await writeSuggestion('Revised passage');
- fireEvent.click(screen.getByRole('button',{name:'Keep on page'}));
+ fireEvent.click(screen.getByRole('button',{name:'Save',exact:true}));
  if(lose){
   await screen.findByRole('button',{name:'Check insertion'});await screen.findByRole('alert');
   const after=editor.getJSON();view.unmount();lostAck=false;render(<Review/>);
@@ -218,10 +224,10 @@ it.each([false,true])('keeps an explicitly labelled selected-passage revision an
 
 it('keeps a staged proposal after its exact captured draft is saved and the review reopens',async()=>{
  const before=editor.getJSON();const view=render(<Review/>);
- await screen.findByRole('button',{name:'Keep on page'});
+ await screen.findByRole('button',{name:'Save',exact:true});
  view.unmount();state.revision+=1;state.contentSha256=record.reservation.basis.draft_sha256;
  render(<Review source="doc:2"/>);
- fireEvent.click(await screen.findByRole('button',{name:'Keep on page'}));
+ fireEvent.click(await screen.findByRole('button',{name:'Save',exact:true}));
  await waitFor(()=>expect(saved.state).toBe('applied'));
  expect(editor.getText()).toContain('A proposed custom.');
  expect(editor.getText()).toContain('Before');expect(editor.getText()).toContain('After');
@@ -232,11 +238,36 @@ it('keeps a staged proposal after its exact captured draft is saved and the revi
 
 it('recovers a lost prepare after the unchanged draft saves without preparing or inserting twice',async()=>{
  lostPrepare=true;const apply=vi.spyOn(bridge,'applyPrepared');const view=render(<Review/>);
- fireEvent.click(await screen.findByRole('button',{name:'Keep on page'}));
+ fireEvent.click(await screen.findByRole('button',{name:'Save',exact:true}));
  await screen.findByRole('button',{name:'Check insertion'});expect(apply).not.toHaveBeenCalled();
  view.unmount();state.revision+=1;state.contentSha256=record.reservation.basis.draft_sha256;
  render(<Review source="doc:2"/>);
  fireEvent.click(await screen.findByRole('button',{name:'Check insertion'}));
  await waitFor(()=>expect(saved.state).toBe('applied'));expect(apply).toHaveBeenCalledTimes(1);
  expect(vi.mocked(proposalReview).mock.calls.filter(([, ,command])=>command?.operation==='prepare')).toHaveLength(1);
+});
+
+
+it('offers only Save, with details under Debug and a small dismiss control',async()=>{
+ record.proposal!.assumptions=['A proposed custom'];render(<Review/>);
+ await screen.findByRole('button',{name:'Save',exact:true});
+ expect(screen.queryByRole('button',{name:'Keep on page'})).not.toBeInTheDocument();
+ expect(screen.queryByRole('button',{name:'Save suggestion'})).not.toBeInTheDocument();
+ expect(screen.getByRole('button',{name:'Dismiss suggestion'})).toHaveTextContent('×');
+ expect(screen.queryByText('A proposed custom')).not.toBeInTheDocument();
+ fireEvent.click(screen.getByText('Debug',{exact:true}));
+ await screen.findByText('A proposed custom');
+});
+it('cancels click placement without moving or changing text and removes its listeners',async()=>{
+ const before=editor.getJSON();const view=render(<Review/>);await writeSuggestion('My suggestion');
+ const point=vi.spyOn(editor.view,'posAtCoords').mockReturnValue({pos:1,inside:0});
+ fireEvent.click(screen.getByRole('button',{name:'Move',exact:true}));
+ expect(editor.view.dom).toHaveClass('is-suggestion-placement-target');
+ fireEvent.keyDown(document,{key:'Escape'});
+ expect(editor.view.dom).not.toHaveClass('is-suggestion-placement-target');
+ fireEvent.click(editor.view.dom,{clientX:10,clientY:10});
+ expect(saved.placement_caret).toBe(7);expect(editor.getJSON()).toEqual(before);
+ fireEvent.click(screen.getByRole('button',{name:'Move',exact:true}));
+ view.unmount();point.mockClear();fireEvent.click(editor.view.dom,{clientX:10,clientY:10});
+ expect(point).not.toHaveBeenCalled();expect(editor.view.dom).not.toHaveClass('is-suggestion-placement-target');
 });

@@ -1,8 +1,8 @@
 # Buddy roadmap — author, plan, play, remember
 
 **Status:** current product execution ledger; reconciled2026-10-24.
-**Evidence anchor:** API `1f01a28ccc841903c3017b7d7f94e58c5ea869bf`, UI `ada13b16ab0b6c1b8b009df02461b2af380e2028`
-(#1700/#1697), ports8000/5202, APP0061/native0017, Core617635c.
+**Evidence anchor:** API `b3aadea4798fdff10436f8c48609d0a18bddb1d4`, UI `ada13b16ab0b6c1b8b009df02461b2af380e2028`
+(#1701/#1697), ports8000/5202, APP0061/native0017, Core95f4498.
 **Owner:** DungeonMindBuddy; [steward mandate](../Plans/STEWARDS-HANDOFF-demo.md).
 
 ## Active goal and next milestone
@@ -48,8 +48,12 @@ real image generation, save/library reopen and rehearsal-page placement/resize
 surviving reload and API restart. Original Plan bytes stayed unchanged. One journey
 does not establish repeated grounding quality/performance or operator acceptance.
 [Paired object read adoption](../Plans/HANDOFF-MIND-pinned-object-views-adoption.md)
-is active after Core #140 merged. It removes repeated projection establishment;
-Buddy deployment and repeated ordinary timing/quality verification remain open.
+is delivered after Core #140 and Buddy #1701: one pinned native snapshot supplies
+both object views. Protected API delivery preserved retained state. Repeated
+ordinary timing/quality verification remains open.
+[Suggestion Save and placement](../Plans/HANDOFF-SURFACE-suggestion-save-placement.md)
+is active from current dogfood: one Save through existing page autosave, editable
+colored suggestion, scrollable movement and supporting details under Debug.
 
 Preserve and verify the shipped scene→encounter→immutable mechanics successor→
 explicit adoption→Play→reload/resume loop. Use Of Conks and Cons and A Wild Sheep

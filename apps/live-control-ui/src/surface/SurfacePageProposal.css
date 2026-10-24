@@ -16,3 +16,8 @@
 .surface-proposal-review__editor .tiptap:focus { border-color:#648097; border-radius:.3rem; }
 .surface-proposal-review__editor .tiptap > :first-child { margin-block-start:0; }
 .surface-proposal-review__editor .tiptap > :last-child { margin-block-end:0; }
+
+.surface-proposal-review header { justify-content:space-between; }
+.surface-proposal-review__dismiss { margin-inline-start:auto; }
+.is-suggestion-placement-target { cursor:copy; }
+.is-suggestion-placement-target .surface-page-proposal { cursor:default; }
