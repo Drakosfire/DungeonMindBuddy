@@ -12,6 +12,7 @@ from generationengine.providers.openai_text import OpenAITextProvider
 from generationengine.text_dispatch import TextDispatchGate
 
 from application_state.agent_conversation import AgentConversationService
+from application_state.agent_conversation.dialogue_projection import project_dialogue, expand_dialogue, dialogue_rule
 from application_state.errors import ApplicationStateNotFoundError
 from application_state.build_proposal.service import BuildProposalService
 from application_state.build_proposal.types import BuildGeneratedProposal, BuildProviderAuthorization
@@ -213,7 +214,7 @@ async def _compose(request: BuildDocumentProposalRequest, *, transport=None, wri
             if event.text is not None:
                 advance("response_received", raw_response=event.text)
         result = await client.generate_structured(TextRequest(provider="openai", model=model,
-            user_prompt=packet, system_prompt=SYSTEM, temperature=None, max_output_tokens=4096,
+            user_prompt=packet, system_prompt=expected["instructions"], temperature=None, max_output_tokens=4096,
             reasoning_effort="low", json_schema=schema, schema_name="build_document_proposal",
             max_conformance_retries=0, max_transport_retries=0), on_attempt_completed=preserve_attempt)
         if not isinstance(result.text, str):
@@ -248,7 +249,9 @@ def _writer_request(request, snapshot, model, *, frozen_history=None):
         history = AgentConversationService().list_turns(world, reservation.conversation_id, limit=6)
         messages = [{"user": turn.user_text, "assistant": turn.assistant_text} for turn in history if turn.status == "completed"]
     else:
+        frozen_history = expand_dialogue(list(frozen_history))
         messages = [{"user": item["user"], "assistant": item["assistant"]} for item in frozen_history]
+    messages = project_dialogue(messages)
     packet = json.dumps({"schema": "dmb_build_compose_input_v1", "recent_dialogue": messages,
         **({"dialogue_sources": [{key: item[key] for key in ("turn_id", "user_sha256", "assistant_sha256")}
             for item in frozen_history]} if frozen_history is not None else {}),
@@ -257,7 +260,7 @@ def _writer_request(request, snapshot, model, *, frozen_history=None):
         "source_title": snapshot.record.title, "source_basis": reservation.basis.model_dump(mode="json"),
         "instruction": reservation.instruction, "draft_markdown": request.draft_markdown}, ensure_ascii=False, separators=(",", ":"))
     schema = BuildGeneratedProposal.model_json_schema()
-    expected = {"model": model, "input": packet, "instructions": SYSTEM,
+    expected = {"model": model, "input": packet, "instructions": SYSTEM + dialogue_rule(messages),
         "max_output_tokens": 4096, "reasoning": {"effort": "low"},
         "text": {"format": {"type": "json_schema", "name": "build_document_proposal", "schema": schema, "strict": True}}, "tools": [], "stream": False}
     return expected

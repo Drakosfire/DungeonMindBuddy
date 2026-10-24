@@ -267,8 +267,9 @@ def with_dialogue(staged: WriterProjection, history: tuple | list) -> WriterProj
             if hashlib.sha256(pair[role].encode()).hexdigest() != pair[f"{role}_sha256"]:
                 raise ValueError("Frozen dialogue text differs from its parent digest")
     packet = json.loads(staged.input_json)
-    packet["dialogue_reference"] = list(history)
-    packet["dialogue_policy"] = "conversation_reference_only_not_source_evidence"
+    from application_state.agent_conversation.dialogue_projection import project_dialogue, dialogue_rule
+    packet["dialogue_reference"] = project_dialogue(list(history))
+    packet["dialogue_policy"] = "conversation_reference_only_not_source_evidence" + dialogue_rule(packet["dialogue_reference"])
     return replace(staged, input_json=json.dumps(packet, ensure_ascii=False,
         separators=(",", ":"), sort_keys=True, allow_nan=False))
 

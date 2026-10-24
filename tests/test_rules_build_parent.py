@@ -277,7 +277,7 @@ def test_next_real_build_turn_uses_full_mixed_history_as_reference_only(
         "user_sha256": sha256(first.envelope.user_text.encode()).hexdigest(),
         "assistant_sha256": sha256(first.assistant_text.encode()).hexdigest(),
     }]
-    assert interaction["history_policy"] == "newest_complete_pairs_up_to_6_and_12000_chars_reference_only_v1"
+    assert interaction["history_policy"] == "newest_complete_pairs_up_to_6_provider_capacity_reference_only_v1"
     # Historical Rules text carries no producing support capsules or new lookup.
     assert "rules_projection" not in json.loads(json.loads(writer.calls[0].content)["input"])
     with psycopg.connect(application_state_dsn) as conn:

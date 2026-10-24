@@ -1,6 +1,14 @@
 # Preserve author corrections in page proposals
 
-ACTIVE serial PRIME implementation; branch codex/build-draft-correction-priority,
+SETTLED: PR #1698 merged at baee545074120817cdeb66d54d2253059e1edde4;
+reviewed head 10c375f1b1f795759e8b244b1c42c016703ba696. Independent Bugbot
+passed 45 owner/shared-writer checks. Protected API delivery preserved retained
+state. An ordinary owned on-page request used the exact deployed prompt, surfaced
+an unresolved current-page conflict, collapsed chat for review and survived discard/
+reload with its saved source unchanged. Full quality/goal acceptance remains open.
+Successor: HANDOFF-BUILD-exact-dialogue-reuse.md.
+
+Original serial PRIME implementation; branch codex/build-draft-correction-priority,
 base ada13b16ab0b6c1b8b009df02461b2af380e2028; existing buddy-context-loop checkout.
 One capability/PR. Open hosted/Combat/Ingest lanes are disjoint. PRIME owns API8000
 and UI5202. Check for active operator requests before any live quality check.

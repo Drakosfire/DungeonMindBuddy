@@ -1078,3 +1078,55 @@ def test_page_proposal_followup_keeps_complete_long_exchange(build_case, monkeyp
     assert action.state == "proposed" and action.proposal.replacement_markdown.startswith("| NPC |")
     assert current.status == "completed" and result.answer.text == ledger.BUILD_PROPOSAL_READY_TEXT
     assert (tmp_path / source.record.target_relpath).read_text() == source.markdown
+
+
+def test_exact_repeated_followup_pairs_share_text_but_keep_distinct_turns(build_case, monkeypatch, tmp_path):
+    from application_state.agent_conversation.dialogue_projection import expand_dialogue
+    case, _ = ordinary_case(build_case, monkeypatch, authoring=True)
+    source, request, bootstrap = case
+    request = request.model_copy(update={"message": "Discuss possible gate encounters. " * 20})
+    decisions, writer = DecisionWire(), WriterWire()
+    from tests.test_build_jev_estimated_continuations import counter
+    harness = BuildJevHarness(decision_transport=decisions, writer_transport=writer, accounting=counter())
+    first = execute((source, request, bootstrap), tmp_path, harness)
+    repeated = request.model_copy(update={"turn_id": str(uuid4())})
+    second = execute((source, repeated, bootstrap), tmp_path, harness)
+    assert first.answer.text == second.answer.text
+    reads = []
+    original = AgentConversationService.list_turns
+    def counted(self, *args, **kwargs):
+        if kwargs.get("limit") == 6:
+            reads.append((args, kwargs))
+        return original(self, *args, **kwargs)
+    monkeypatch.setattr(AgentConversationService, "list_turns", counted)
+    decisions.operation = "propose_build_insertion"
+    followup_start = len(decisions.calls)
+    result = execute((source, request.model_copy(update={"turn_id": str(uuid4()),
+        "message": "Place that as a table on the page."}), bootstrap), tmp_path, harness)
+    assert len(reads) == 1
+    def interactions(value):
+        if isinstance(value, dict):
+            if "history_policy" in value:
+                yield value
+            for nested in value.values():
+                yield from interactions(nested)
+        elif isinstance(value, list):
+            for nested in value:
+                yield from interactions(nested)
+    captured = list(interactions(json.loads(decisions.calls[followup_start].content)))
+    assert captured and all(value == captured[0] for value in captured)
+    first_input = captured[0]
+    assert len(first_input["history"]) == 2
+    assert first_input["history"][1]["same_text_as"] == 0
+    expanded = expand_dialogue(first_input["history"])
+    assert len({item["turn_id"] for item in expanded}) == 2
+    assert all(item["user"] == request.message and item["assistant"] == first.answer.text for item in expanded)
+    packet = json.loads(json.loads(writer.calls[-1].content)["input"])
+    assert packet["recent_dialogue"][1] == {"same_text_as": 0}
+    assert expand_dialogue(packet["recent_dialogue"]) == [
+        {"user": item["user"], "assistant": item["assistant"]} for item in expanded]
+    assert packet["dialogue_sources"] == [
+        {key: item[key] for key in ("turn_id", "user_sha256", "assistant_sha256")} for item in expanded]
+    action = BuildProposalService().get("elderwyld", result.knowledge_context.completion.action_id)
+    assert action.state == "proposed" and not action.inserted_in_draft
+    assert (tmp_path / source.record.target_relpath).read_text() == source.markdown
