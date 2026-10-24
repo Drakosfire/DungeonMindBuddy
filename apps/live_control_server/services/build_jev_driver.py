@@ -101,6 +101,14 @@ def freeze_interaction(adapter):
             "The conversation changed since this request was prepared. Send the question again to use the current editor context. Your source was not changed.",
             code="build_editor_context_changed", status_code=409, provider_dispatched=False,
         )
+    draft = adapter.request.build_draft_context
+    if draft is not None and (draft.conversation_id != conversation_id
+        or draft.expected_pointer_revision != pointer.revision):
+        if adapter.turn is not None:
+            raise ValueError("Captured working-draft conversation changed for an admitted turn")
+        from .agent_turn_service import AgentTurnServiceError
+        raise AgentTurnServiceError("The conversation changed while the working draft was captured. Send again.",
+            code="build_editor_context_changed", status_code=409, provider_dispatched=False)
     rows = adapter.service.list_turns(adapter.world_id, conversation_id, limit=6) if conversation_id else []
     history, remaining = [], 12000
     for row in reversed(rows):
@@ -121,6 +129,7 @@ def freeze_interaction(adapter):
         "capability_sha256": digest(capability.model_dump(mode="json")) if capability else None,
         "conversation_id": str(conversation_id) if conversation_id else None,
         "pointer_revision": pointer.revision, "history": list(reversed(history)),
+        "working_draft": draft.snapshot.reference() if draft is not None else None,
         "page_target": ({"kind": "replace_selection", "text": capability.basis.selection.text}
             if capability and capability.basis.selection is not None else
             {"kind": "insert_at_caret"} if capability else None),
@@ -239,6 +248,11 @@ class BuildJevDriver:
         )
 
         basis = self._base["source_basis"]
+        draft = adapter.request.build_draft_context
+        if draft is not None and draft.snapshot.saved_basis() != basis:
+            from .agent_turn_service import AgentTurnServiceError
+            raise AgentTurnServiceError("The saved page basis changed while the working draft was captured. Send again.",
+                code="build_editor_context_changed", status_code=409, provider_dispatched=False)
         expected_artifact = build_worldbuilding_source_artifact_id(
             workspace_document_id=basis["document_id"],
             workspace_document_revision=basis["registry_revision"],
@@ -793,6 +807,13 @@ class BuildJevDriver:
                     "no Graph/source/section evidence is included in this request. "
                     "The historical assessment commitment does not expose its evidence."
                 )
+        draft_record = getattr(a, "build_draft_record", None)
+        if draft_record is not None and intent.phase in {"navigate", "assess"}:
+            from application_state.agent_conversation.build_draft_context import writer_reference
+            state["working_draft_context"] = writer_reference(draft_record)
+            state["interpretation"] += (
+                " Current working_draft_context is the authored page captured on Send, not saved or World evidence. "
+                "Use it as primary writing context; source evidence retains its own authority.")
         accounting = getattr(a, "_build_jev_accounting", None)
         initial_accounting = (a.budget.get("buildJevActions") or {}).get("controller_initial_accounting")
         if initial_accounting is not None and (accounting is None or initial_accounting != accounting.descriptor):

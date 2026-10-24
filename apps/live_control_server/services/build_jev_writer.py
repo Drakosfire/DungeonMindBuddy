@@ -246,6 +246,17 @@ def with_dialogue(staged: WriterProjection, history: tuple | list) -> WriterProj
         separators=(",", ":"), sort_keys=True, allow_nan=False))
 
 
+def with_working_draft(staged: WriterProjection, execution) -> WriterProjection:
+    from application_state.agent_conversation.build_draft_context import POLICY, context_record, writer_reference
+    if getattr(execution.policy, "working_draft_context_policy", None) != POLICY:
+        return staged
+    captured = context_record(execution)
+    packet = json.loads(staged.input_json)
+    packet["working_draft_context"] = writer_reference(captured.record)
+    return replace(staged, input_json=json.dumps(packet, ensure_ascii=False,
+        separators=(",", ":"), sort_keys=True, allow_nan=False))
+
+
 def with_disposition(staged: WriterProjection, disposition) -> WriterProjection:
     if disposition is None:
         return staged

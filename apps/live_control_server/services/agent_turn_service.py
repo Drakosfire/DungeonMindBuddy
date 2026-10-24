@@ -1288,6 +1288,10 @@ def _freeze_policy_receipt(
                 policy_class = (graph_types.BuildNamedWorldContextImagePolicyV1
                     if (budget.get("buildJevActions") or {}).get("image_preparation_policy") is not None
                     else graph_types.BuildNamedWorldContextPolicyV1)
+            if (budget.get("buildJevActions") or {}).get("working_draft_context_policy") is not None:
+                policy_class = (graph_types.BuildDraftWorldContextImagePolicyV1
+                    if (budget.get("buildJevActions") or {}).get("image_preparation_policy") is not None
+                    else graph_types.BuildDraftWorldContextPolicyV1)
             policy = policy_class(
                 **({"driver_schema": "dmb_plan_jev_retrieval_v1",
                     "native_source_section_policy":"exact_native_source_sections_v1"} if plan_jev_request is not None else {}),
@@ -2192,6 +2196,24 @@ class _PolicyExecutionAdapter:
                         if (target in allowed and set(refs).issubset(operation.evidence_ref_ids)
                                 and set(refs).issubset(evidence)):
                             build_closures.append((kind, target, refs))
+            if (self._is_build_turn() and self.budget.get("apiMode") == "typesafe_decision"
+                and not getattr(active_writer, "authoring", False)):
+                from application_state.agent_conversation.build_draft_context import POLICY as DRAFT_POLICY, context_record, writer_reference
+                carrier = json.loads(body["input"]) if writing else body.get("state", {})
+                draft_value = carrier.get("working_draft_context")
+                if draft_value is not None:
+                    captured = context_record(execution)
+                    if draft_value != writer_reference(captured.record):
+                        raise ValueError("Prepared provider draft differs from the admitted working page")
+                    inclusion = graph_types.BuildDraftProviderInclusionV1(
+                        event_id=uuid4(), sequence=len(execution.events), kind="build_draft_provider_inclusion_v1",
+                        provider_attempt_id=provider_attempt_id, envelope_sha256=view["payloadSha256"],
+                        draft_event_id=captured.event_id, snapshot_sha256=captured.record.snapshot.snapshot_sha256)
+                    self.turn = _require_fresh_execution_append(self.fence.append(
+                        "record_build_draft_inclusion", "inclusion", inclusion, prepared_request_json=view["payloadJson"]))
+                    execution = self._broker_execution()
+                elif writing and getattr(execution.policy, "working_draft_context_policy", None) == DRAFT_POLICY:
+                    raise ValueError("Working-draft writer cannot omit its admitted page context")
             if self.budget.get("apiMode") == "typesafe_decision":
                 section_state = json.loads(body["input"]) if writing else body.get("state", {})
                 selected = section_state.get("exposure", {}).get("saved_sections", [])
@@ -2516,6 +2538,7 @@ class _PolicyExecutionAdapter:
             getattr(self, "build_frozen_history", ()))
         self._build_controller_exposure = None
         staged = writer.with_disposition(staged, getattr(self, "build_retrieval_disposition", None))
+        staged = writer.with_working_draft(staged, self._broker_execution())
         self._build_writer_projection = staged
         return staged
 
@@ -2531,6 +2554,7 @@ class _PolicyExecutionAdapter:
         staged = writer.with_dialogue(staged, getattr(self, "build_frozen_history", ()))
         self._build_controller_exposure = None
         staged = writer.with_disposition(staged, getattr(self, "build_retrieval_disposition", None))
+        staged = writer.with_working_draft(staged, self._broker_execution())
         if isinstance(self._broker_execution().policy, _app_state_graph_execution_types().BuildCitedSourceActionControllerWriterPolicyV1):
             staged = writer.with_cited_output(staged)
         if self.rules_runtime is not None:
@@ -4840,7 +4864,8 @@ def _submitted_turn_intent(
         graph_selection=graph_selection,
     )
     if _governed_build_turn(request):
-        return BuildGraphIntentV1(**common, build_write_capability_sha256=(
+        return BuildGraphIntentV1(**common, build_draft_context_sha256=(
+            None if request.build_draft_context is None else _canonical_sha256(request.build_draft_context.model_dump(mode="json", by_alias=True))), build_write_capability_sha256=(
             None if request.build_write_capability is None else _canonical_sha256(request.build_write_capability.model_dump(mode="json"))))
     if request.surface.surface_id == "play" and primary_work is not None and request.graph_request.mode == "none":
         if request.play_target is None:

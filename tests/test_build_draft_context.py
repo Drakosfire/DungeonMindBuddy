@@ -7,7 +7,7 @@ import pytest
 from pydantic import ValidationError
 
 from application_state.agent_conversation.build_draft_context import (
-    POLICY, BuildDraftSnapshotV1, BuildDraftContextRecordV1,
+    POLICY, BuildDraftSnapshotV1, BuildDraftContextRequestV1, BuildDraftContextRecordV1, digest,
     validate_record, validate_writer_reference, writer_reference,
 )
 
@@ -22,11 +22,12 @@ def snapshot(text="Unsaved orchid keepers 🌸"):
 def owner(snap=None):
     snap = snap or snapshot()
     record = BuildDraftContextRecordV1(record_id=UUID(int=1), turn_id=UUID(int=2),
-        conversation_id=UUID(int=3), attempt=1, request_fingerprint="c" * 64, snapshot=snap)
-    turn = SimpleNamespace(turn_id=record.turn_id, conversation_id=record.conversation_id,
-        world_id=snap.world_id, attempt=1, request_fingerprint=record.request_fingerprint,
+        conversation_id=UUID(int=3), attempt=1, submitted_intent_fingerprint="c" * 64, expected_pointer_revision=1, snapshot=snap)
+    context_sha = digest(BuildDraftContextRequestV1(snapshot=snap, conversation_id=record.conversation_id, expected_pointer_revision=1).model_dump(mode="json", by_alias=True))
+    turn = SimpleNamespace(submitted_intent_v2=SimpleNamespace(build_draft_context_sha256=context_sha), turn_id=record.turn_id, conversation_id=record.conversation_id,
+        world_id=snap.world_id, attempt=1, submitted_intent_fingerprint_v2=record.submitted_intent_fingerprint,
         graph_context_execution=SimpleNamespace(policy=SimpleNamespace(
-            working_draft_context_policy=POLICY, working_draft_snapshot_sha256=snap.snapshot_sha256)),
+            working_draft_context_policy=POLICY, working_draft_snapshot_sha256=snap.snapshot_sha256, working_draft_context_sha256=context_sha)),
         graph_context_receipt=SimpleNamespace(source_basis=SimpleNamespace(
             model_dump=lambda **_: snap.saved_basis())))
     return record, turn
@@ -53,7 +54,7 @@ def test_no_new_arbitrary_length_limit_and_exact_utf8_digest(text):
 
 @pytest.mark.parametrize("field,value", [
     ("world_id", "another-world"), ("attempt", 2), ("turn_id", UUID(int=4)),
-    ("conversation_id", UUID(int=4)), ("request_fingerprint", "d" * 64),
+    ("conversation_id", UUID(int=4)), ("submitted_intent_fingerprint_v2", "d" * 64),
 ])
 def test_frozen_turn_identity_rejects_other_attempt_or_owner(field, value):
     record, turn = owner()
@@ -87,3 +88,145 @@ def test_newer_work_is_an_independent_snapshot_without_mutating_previous_record(
 def test_malformed_capture_identity_is_rejected(field, value):
     with pytest.raises(ValidationError):
         BuildDraftSnapshotV1.model_validate({**snapshot().model_dump(), field: value})
+
+
+@pytest.fixture
+def draft_build_case(tmp_path, monkeypatch, application_state_dsn):
+    from tests.test_agent_build_jev_ordinary_harness import build_case
+    return build_case.__wrapped__(tmp_path, monkeypatch, application_state_dsn)
+
+
+def test_actual_governed_turn_freezes_read_only_draft_with_request_identity(
+    draft_build_case, monkeypatch, tmp_path,
+):
+    from uuid import uuid4
+    from application_state.agent_conversation import AgentConversationService, types as t
+    from apps.live_control_server.models.agent_turn import AgentTurnRequest
+    from apps.live_control_server.services.build_jev_harness import BuildJevHarness
+    from tests.application_state.test_agent_conversation_postgres import _new
+    from tests.test_build_world_context import world_case, WorldDecisions
+    from tests.test_agent_build_jev_ordinary_harness import WriterWire
+    from tests.test_agent_build_governed_graph import execute
+    from tests.test_build_jev_estimated_continuations import counter
+
+    (source, request, bootstrap), _ = world_case(draft_build_case, monkeypatch)
+    service = AgentConversationService()
+    conversation = _new(service, "elderwyld")
+    pointer = service.get_world_pointer("elderwyld")
+    text = "New unsaved prose not in the stored page."
+    snap = BuildDraftSnapshotV1(world_id="elderwyld", document_id=source.record.document_id,
+        registry_revision=source.loaded_revision, content_sha256=source.content_sha256,
+        visibility="internal", draft_markdown=text, draft_sha256=sha256(text.encode()).hexdigest(),
+        editor_sha256="b" * 64, draft_generation=1)
+    context = BuildDraftContextRequestV1(snapshot=snap, conversation_id=conversation.conversation_id,
+        expected_pointer_revision=pointer.revision)
+    request = AgentTurnRequest.model_validate({**request.model_dump(mode="json", by_alias=True),
+        "turn_id": str(uuid4()), "client_work_state": "saved_dirty",
+        "build_draft_context": context.model_dump(mode="json", by_alias=True)})
+    harness = BuildJevHarness(world_context=True, named_citations=True,
+        decision_transport=WorldDecisions(), writer_transport=WriterWire(), accounting=counter())
+    response = execute((source, request, bootstrap), tmp_path, harness)
+    assert response.answer.status == "ok"
+    import json
+    packet = json.loads(json.loads(harness.writer_transport.calls[0].content)["input"])
+    assert packet["working_draft_context"]["draft_markdown"] == text
+    assert json.dumps(packet, ensure_ascii=False).count(text) == 1
+    (turn,) = service.list_turns("elderwyld", conversation.conversation_id)
+    events = [e for e in turn.graph_context_execution.events if isinstance(e, t.BuildDraftContextCapturedV1)]
+    assert len(events) == 1
+    inclusions = [e for e in turn.graph_context_execution.events if isinstance(e, t.BuildDraftProviderInclusionV1)]
+    assert inclusions
+    assert all(e.draft_event_id == events[0].event_id for e in inclusions)
+    writer_auth = next(e for e in turn.graph_context_execution.events if isinstance(e, t.ProviderAttemptAuthorizedEventV1)
+        and (e.provider, e.model, e.api_mode) == turn.graph_context_execution.policy.provider_roles.writer.identity())
+    assert any(e.provider_attempt_id == writer_auth.provider_attempt_id and e.envelope_sha256 == writer_auth.envelope_sha256 for e in inclusions)
+    from application_state.agent_conversation.build_draft_context import validate_inclusion_input
+    producing = next(e for e in inclusions if e.provider_attempt_id == writer_auth.provider_attempt_id)
+    raw_input = harness.writer_transport.calls[0].content.decode()
+    validate_inclusion_input(producing, turn.graph_context_execution, raw_input)
+    forged = json.loads(raw_input)
+    forged_packet = json.loads(forged["input"])
+    forged_packet["working_draft_context"]["draft_markdown"] = "Substituted saved text"
+    forged["input"] = json.dumps(forged_packet)
+    forged_json = json.dumps(forged)
+    forged_inclusion = producing.model_copy(update={"envelope_sha256": sha256(forged_json.encode()).hexdigest()})
+    with pytest.raises(ValueError, match="admitted context"):
+        validate_inclusion_input(forged_inclusion, turn.graph_context_execution, forged_json)
+    # Ambiguous JSON must not conceal an extra model-visible draft body.
+    duplicated = raw_input[:-1] + ',"model":"gpt-6-luna"}'
+    duplicate_inclusion = producing.model_copy(update={"envelope_sha256": sha256(duplicated.encode()).hexdigest()})
+    with pytest.raises(ValueError, match="Duplicate"):
+        validate_inclusion_input(duplicate_inclusion, turn.graph_context_execution, duplicated)
+    record = events[0].record
+    assert record.snapshot == snap and record.conversation_id == conversation.conversation_id
+    assert turn.graph_context_execution.policy.working_draft_context_sha256 == digest(context.model_dump(mode="json", by_alias=True))
+    assert record.submitted_intent_fingerprint == turn.submitted_intent_fingerprint_v2
+    validate_record(record, turn)
+    # Reopened APP rows independently bind draft records to their owning attempt.
+    for field, replacement in (("turn_id", str(uuid4())), ("conversation_id", str(uuid4())),
+        ("submitted_intent_fingerprint", "d" * 64), ("attempt", turn.attempt + 1)):
+        payload = turn.model_dump(mode="json", by_alias=True)
+        retained = next(e for e in payload["graph_context_execution"]["events"] if e["kind"] == "build_draft_context_captured_v1")
+        retained["record"][field] = replacement
+        with pytest.raises(ValidationError, match="accepted turn|frozen context capability"):
+            t.Turn.model_validate(payload)
+    # Same IDs with a different working copy are a conflict, never an implicit retry.
+    from apps.live_control_server.services.agent_turn_service import AgentTurnServiceError
+    changed = request.model_dump(mode="json", by_alias=True)
+    changed_text = text + " A newer edit."
+    changed["build_draft_context"]["snapshot"].update(draft_markdown=changed_text,
+        draft_sha256=sha256(changed_text.encode()).hexdigest(), draft_generation=2)
+    altered = AgentTurnRequest.model_validate(changed)
+    before_calls = (len(harness.decision_transport.calls), len(harness.writer_transport.calls))
+    with pytest.raises(AgentTurnServiceError) as conflict:
+        execute((source, altered, bootstrap), tmp_path, harness)
+    assert conflict.value.code == "turn_idempotency_conflict"
+    assert (len(harness.decision_transport.calls), len(harness.writer_transport.calls)) == before_calls
+    # Source visibility is server-owned and must be checked before any new model call.
+    stale = request.model_dump(mode="json", by_alias=True)
+    stale["turn_id"] = str(uuid4())
+    stale["build_draft_context"]["snapshot"]["visibility"] = "player_safe"
+    stale_request = AgentTurnRequest.model_validate(stale)
+    with pytest.raises(AgentTurnServiceError) as stale_failure:
+        execute((source, stale_request, bootstrap), tmp_path, harness)
+    assert stale_failure.value.code == "build_editor_context_changed"
+    assert stale_failure.value.provider_dispatched is False
+    assert (len(harness.decision_transport.calls), len(harness.writer_transport.calls)) == before_calls
+    assert source.markdown != text
+    from apps.live_control_server.services.workspace_document_registry import get_workspace_document_snapshot
+    assert get_workspace_document_snapshot(tmp_path, source.record.document_id).markdown == source.markdown
+
+
+def test_draft_context_does_not_replace_the_existing_proposal_authority(draft_build_case, monkeypatch, tmp_path):
+    from application_state.agent_conversation import AgentConversationService, types as t
+    from application_state.build_proposal.service import BuildProposalService
+    from apps.live_control_server.models.agent_turn import AgentTurnRequest
+    from apps.live_control_server.services.build_jev_harness import BuildJevHarness
+    from tests.test_agent_build_jev_ordinary_harness import ordinary_case, DecisionWire, WriterWire
+    from tests.test_agent_build_governed_graph import execute
+    from tests.test_build_jev_estimated_continuations import counter
+
+    (source, request, bootstrap), _ = ordinary_case(draft_build_case, monkeypatch, authoring=True)
+    cap = request.build_write_capability
+    cap = cap.model_copy(update={"basis": cap.basis.model_copy(update={"editor_sha256": "b" * 64})})
+    snap = BuildDraftSnapshotV1(**{k: getattr(cap.basis, k) for k in (
+        "world_id", "document_id", "registry_revision", "content_sha256", "visibility",
+        "draft_sha256", "editor_sha256", "draft_generation")}, draft_markdown=cap.draft_markdown)
+    context = BuildDraftContextRequestV1(snapshot=snap, conversation_id=cap.conversation_id,
+        expected_pointer_revision=cap.expected_pointer_revision)
+    payload = {**request.model_dump(mode="json", by_alias=True),
+        "build_write_capability": cap.model_dump(mode="json", by_alias=True),
+        "build_draft_context": context.model_dump(mode="json", by_alias=True)}
+    request = AgentTurnRequest.model_validate(payload)
+    harness = BuildJevHarness(world_context=True, named_citations=True, accounting=counter(),
+        decision_transport=DecisionWire(operation="propose_build_insertion"), writer_transport=WriterWire())
+    response = execute((source, request, bootstrap), tmp_path, harness)
+    assert isinstance(response.knowledge_context.completion, t.BuildAuthoringCompletionV1)
+    record = BuildProposalService().get("elderwyld", response.knowledge_context.completion.action_id)
+    assert record.reservation.basis == cap.basis and not record.inserted_in_draft
+    turn = AgentConversationService().list_turns("elderwyld", cap.conversation_id)[0]
+    assert len([e for e in turn.graph_context_execution.events if isinstance(e,t.BuildDraftContextCapturedV1)]) == 1
+    # A write target cannot quietly borrow a different readable working copy.
+    payload["build_draft_context"]["snapshot"].update(draft_generation=999)
+    with pytest.raises(ValidationError, match="same capture"):
+        AgentTurnRequest.model_validate(payload)

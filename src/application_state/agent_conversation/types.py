@@ -21,6 +21,7 @@ from uuid import UUID, uuid4
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from .rules_authority_types import ClosedRulesModel, Digest, canonical_bytes, canonical_sha256
+from .build_draft_context import BuildDraftContextRecordV1
 
 Resolution = Literal["resolved", "absent", "unresolved", "unavailable"]
 ConversationStatus = Literal["active", "archived"]
@@ -1001,6 +1002,7 @@ class BuildGraphIntentV1(SubmittedTurnIntentV1):
     )
     surface_id: Literal["build"]
     build_write_capability_sha256: str | None = Field(default=None, pattern=r"^[a-f0-9]{64}$")
+    build_draft_context_sha256: str | None = Field(default=None, pattern=r"^[a-f0-9]{64}$")
     client_work_state: Literal["saved_clean", "saved_dirty"]
     primary_work: SubmittedPrimaryWorkIntentV1
     playable_target: None = None
@@ -1087,6 +1089,8 @@ def submitted_turn_intent_fingerprint_v2(intent: SubmittedTurnIntentV2 | BuildGr
     )
     if payload.get("build_write_capability_sha256") is None:
         payload.pop("build_write_capability_sha256", None)
+    if payload.get("build_draft_context_sha256") is None:
+        payload.pop("build_draft_context_sha256", None)
     primary_work_payload = payload.get("primary_work")
     if isinstance(primary_work_payload, dict) and primary_work_payload.get("play_content_basis") is None:
         primary_work_payload.pop("play_content_basis", None)
@@ -2654,10 +2658,35 @@ class BuildContainedActionControllerWriterPolicyV1(BuildPhaseActionControllerWri
     evidence_codec: Literal["contained_passage_slices_v1"]
 
 
+class BuildDraftWorldContextPolicyV1(BuildNamedWorldContextPolicyV1):
+    working_draft_context_policy: Literal["captured_build_working_draft_context_v1"]
+    working_draft_snapshot_sha256: str = Field(pattern=r"^[a-f0-9]{64}$")
+    working_draft_context_sha256: str = Field(pattern=r"^[a-f0-9]{64}$")
+
+
+class BuildDraftWorldContextImagePolicyV1(BuildNamedWorldContextImagePolicyV1):
+    working_draft_context_policy: Literal["captured_build_working_draft_context_v1"]
+    working_draft_snapshot_sha256: str = Field(pattern=r"^[a-f0-9]{64}$")
+    working_draft_context_sha256: str = Field(pattern=r"^[a-f0-9]{64}$")
+
+
 class GraphExecutionEventBaseV1(StrictModel):
     event_id: UUID
     sequence: int = Field(strict=True, ge=0, le=2047)
     kind: str
+
+
+class BuildDraftContextCapturedV1(GraphExecutionEventBaseV1):
+    kind: Literal["build_draft_context_captured_v1"]
+    record: BuildDraftContextRecordV1
+
+
+class BuildDraftProviderInclusionV1(GraphExecutionEventBaseV1):
+    kind: Literal["build_draft_provider_inclusion_v1"]
+    provider_attempt_id: UUID
+    envelope_sha256: str = Field(pattern=r"^[a-f0-9]{64}$")
+    draft_event_id: UUID
+    snapshot_sha256: str = Field(pattern=r"^[a-f0-9]{64}$")
 
 
 class ValidatedGraphOperationEventV1(GraphExecutionEventBaseV1):
@@ -3628,7 +3657,7 @@ def validate_graph_execution_record(execution, *, dynamic_source_scope: bool, al
                 RelatedRecapContextAuthorizationEventV2,
                 ValidatedRelatedRecapContextEventV2,
                 RelatedRecapContextProviderInclusionEventV2,
-                BuildSectionReadAuthorizationV1, ValidatedBuildSectionReadV1, BuildWorldReadSelectionV1,
+                BuildDraftContextCapturedV1, BuildDraftProviderInclusionV1, BuildSectionReadAuthorizationV1, ValidatedBuildSectionReadV1, BuildWorldReadSelectionV1,
                 BuildSectionProviderInclusionV1, BuildSectionAnswerBindingV1,
                 BuildJevActionSelectionV1, BuildWriterEvidenceSelectionV1, PlanJevRetrievalSelectionV1,
             ),
@@ -3895,7 +3924,7 @@ GraphExecutionEventV3 = Annotated[
     | SourceScopeExtensionEventV3 | SourceReadAuthorizationEventV2 | ValidatedSourceReadEventV2 | SourcePassageReuseEventV1
     | RelatedRecapContextAuthorizationEventV2 | ValidatedRelatedRecapContextEventV2
     | RelatedRecapContextProviderInclusionEventV2
-    | BuildSectionReadAuthorizationV1 | ValidatedBuildSectionReadV1
+    | BuildDraftContextCapturedV1 | BuildDraftProviderInclusionV1 | BuildSectionReadAuthorizationV1 | ValidatedBuildSectionReadV1
     | BuildSectionProviderInclusionV1 | BuildSectionAnswerBindingV1 | BuildJevActionSelectionV1 | BuildWorldReadSelectionV1
     | BuildWriterEvidenceSelectionV1 | PlanJevRetrievalSelectionV1 | NativeSourceNavigationAuthorizedV1 | NativeSourceCatalogObservedV1
     | NativeSourceSectionAuthorizedV1 | NativeSourceSectionObservedV1 | NativeSourceProviderInclusionV1,
@@ -3908,11 +3937,14 @@ class PlanWorldGraphExecutionV3(PlanWorldGraphExecutionV2):
     schema_: Literal["dmb_agent_plan_world_graph_execution_v3"] = Field(
         default="dmb_agent_plan_world_graph_execution_v3", alias="schema"
     )
-    policy: BuildNamedWorldContextImagePolicyV1 | BuildNamedWorldContextPolicyV1 | PlanNativeSourceSectionsPolicyV1 | PlanJevRetrievalPolicyV1 | BuildWorldContextImagePolicyV1 | BuildWorldContextPolicyV1 | BuildPrimaryWorkStatusImagePolicyV1 | BuildPrimaryWorkStatusPolicyV1 | BuildPrimaryWorkImagePolicyV1 | BuildPrimaryWorkPolicyV1 | BuildImageActionPolicyV1 | BuildEncodedAssessmentPolicyV1 | BuildInitialEstimatedSelectedSourcePolicyV1 | BuildSelectedSourceActionControllerWriterPolicyV1 | BuildCitedSourceActionControllerWriterPolicyV1 | BuildReadBatchActionControllerWriterPolicyV1 | BuildWriterBudgetActionControllerWriterPolicyV1 | BuildJointSupportActionControllerWriterPolicyV1 | BuildEstimatedActionControllerWriterPolicyV1 | BuildContainedActionControllerWriterPolicyV1 | BuildPhaseActionControllerWriterPolicyV1 | BuildFrontierActionControllerWriterPolicyV1 | BuildContinuationActionControllerWriterPolicyV1 | BuildCompactActionControllerWriterPolicyV1 | BuildActionControllerWriterPolicyV1 | BuildSectionControllerWriterPolicyV1 | ControllerWriterGraphExecutionPolicyV3 | SettledGraphExecutionPolicyV3 | GraphExecutionPolicyV3
+    policy: BuildDraftWorldContextImagePolicyV1 | BuildDraftWorldContextPolicyV1 | BuildNamedWorldContextImagePolicyV1 | BuildNamedWorldContextPolicyV1 | PlanNativeSourceSectionsPolicyV1 | PlanJevRetrievalPolicyV1 | BuildWorldContextImagePolicyV1 | BuildWorldContextPolicyV1 | BuildPrimaryWorkStatusImagePolicyV1 | BuildPrimaryWorkStatusPolicyV1 | BuildPrimaryWorkImagePolicyV1 | BuildPrimaryWorkPolicyV1 | BuildImageActionPolicyV1 | BuildEncodedAssessmentPolicyV1 | BuildInitialEstimatedSelectedSourcePolicyV1 | BuildSelectedSourceActionControllerWriterPolicyV1 | BuildCitedSourceActionControllerWriterPolicyV1 | BuildReadBatchActionControllerWriterPolicyV1 | BuildWriterBudgetActionControllerWriterPolicyV1 | BuildJointSupportActionControllerWriterPolicyV1 | BuildEstimatedActionControllerWriterPolicyV1 | BuildContainedActionControllerWriterPolicyV1 | BuildPhaseActionControllerWriterPolicyV1 | BuildFrontierActionControllerWriterPolicyV1 | BuildContinuationActionControllerWriterPolicyV1 | BuildCompactActionControllerWriterPolicyV1 | BuildActionControllerWriterPolicyV1 | BuildSectionControllerWriterPolicyV1 | ControllerWriterGraphExecutionPolicyV3 | SettledGraphExecutionPolicyV3 | GraphExecutionPolicyV3
     events: list[GraphExecutionEventV3] = Field(max_length=2048)
 
     @model_validator(mode="after")
     def validate_controller_writer_phases(self) -> "PlanWorldGraphExecutionV3":
+        from .build_draft_context import validate_execution_records, validate_provider_inclusions
+        validate_execution_records(self)
+        validate_provider_inclusions(self)
         if not isinstance(self.policy, ControllerWriterGraphExecutionPolicyV3):
             if any(isinstance(event, (PlanJevRetrievalSelectionV1, PlanJevProviderAuthorizedV1, PlanJevWriterAuthorizedV1)) for event in self.events):
                 raise ValueError("Plan decision requires its frozen Plan policy")
@@ -4457,6 +4489,10 @@ def validate_selected_source_binding(
         return
     validate_graph_selected_source_binding(_ask_graph_validation_inputs(receipt), execution)
     for event in execution.events if execution is not None else ():
+        if isinstance(event, BuildDraftContextCapturedV1):
+            if (not isinstance(receipt, BuildGraphContextReceiptV1)
+                or event.record.snapshot.saved_basis() != receipt.source_basis.model_dump(mode="json", by_alias=True)):
+                raise ValueError("Working draft differs from its frozen Build source basis")
         if isinstance(event, (BuildSectionReadAuthorizationV1, ValidatedBuildSectionReadV1,
                 BuildSectionProviderInclusionV1, BuildSectionAnswerBindingV1)):
             if (not isinstance(receipt, BuildGraphContextReceiptV1)
@@ -5442,6 +5478,9 @@ def _validate_build_submission(submission: TurnSubmission) -> None:
     _validate_build_receipt_provenance(receipt, provenance)
     if not isinstance(submission.graph_context_execution, PlanWorldGraphExecutionV2):
         raise ValueError("Build requires governed Graph source-read execution")
+    policy = submission.graph_context_execution.policy
+    if intent.build_draft_context_sha256 != getattr(policy, "working_draft_context_sha256", None):
+        raise ValueError("Build working draft policy differs from the normalized submitted intent")
     _validate_initial_graph_execution(receipt, submission.graph_context_execution)
 
 
@@ -5716,6 +5755,10 @@ class Turn(StrictModel):
             completion=self.completion,
             assistant_text=self.assistant_text,
         )
+        from .build_draft_context import validate_record
+        for event in self.graph_context_execution.events if self.graph_context_execution is not None else ():
+            if isinstance(event, BuildDraftContextCapturedV1):
+                validate_record(event.record, self)
         return self
 
 

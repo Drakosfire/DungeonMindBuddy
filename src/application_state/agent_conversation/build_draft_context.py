@@ -71,7 +71,8 @@ class BuildDraftContextRecordV1(_Frozen):
     turn_id: UUID
     conversation_id: UUID
     attempt: int = Field(strict=True, ge=1)
-    request_fingerprint: str = Field(pattern=r"^[a-f0-9]{64}$")
+    submitted_intent_fingerprint: str = Field(pattern=r"^[a-f0-9]{64}$")
+    expected_pointer_revision: int = Field(strict=True, ge=0)
     role: Literal["authored_working_draft_not_world_or_played_truth"] = ROLE
     snapshot: BuildDraftSnapshotV1
 
@@ -79,13 +80,16 @@ class BuildDraftContextRecordV1(_Frozen):
 def validate_record(record: BuildDraftContextRecordV1, turn) -> None:
     """Reconstruct the accepted identity at APP's owning boundary, without IO."""
     execution = turn.graph_context_execution
+    context_sha = digest({"snapshot": record.snapshot.model_dump(mode="json", by_alias=True),
+        "conversation_id": str(record.conversation_id), "expected_pointer_revision": record.expected_pointer_revision})
     receipt = turn.graph_context_receipt
     if (execution is None or receipt is None
         or getattr(execution.policy, "working_draft_context_policy", None) != POLICY
-        or getattr(execution.policy, "working_draft_snapshot_sha256", None) != record.snapshot.snapshot_sha256):
+        or getattr(execution.policy, "working_draft_snapshot_sha256", None) != record.snapshot.snapshot_sha256
+        or getattr(execution.policy, "working_draft_context_sha256", None) != context_sha):
         raise ValueError("Working draft lacks its frozen context capability")
     if (record.turn_id != turn.turn_id or record.conversation_id != turn.conversation_id
-        or record.attempt != turn.attempt or record.request_fingerprint != turn.request_fingerprint
+        or record.attempt != turn.attempt or record.submitted_intent_fingerprint != turn.submitted_intent_fingerprint_v2
         or record.snapshot.world_id != turn.world_id
         or record.snapshot.saved_basis() != receipt.source_basis.model_dump(mode="json", by_alias=True)):
         raise ValueError("Working draft differs from its accepted turn and saved basis")
@@ -102,3 +106,71 @@ def validate_writer_reference(value, record: BuildDraftContextRecordV1, turn) ->
     validate_record(record, turn)
     if value != writer_reference(record):
         raise ValueError("Writer working draft differs from its included context record")
+
+
+def validate_execution_records(execution) -> None:
+    from .types import BuildDraftContextCapturedV1, ProviderAttemptAuthorizedEventV1, BuildWriterEvidenceSelectionV1
+    rows = [e for e in execution.events if isinstance(e, BuildDraftContextCapturedV1)]
+    if len(rows) > 1:
+        raise ValueError("A turn captures one immutable working draft")
+    for event in rows:
+        if (getattr(execution.policy, "working_draft_context_policy", None) != POLICY
+            or getattr(execution.policy, "working_draft_snapshot_sha256", None) != event.record.snapshot.snapshot_sha256):
+            raise ValueError("Working draft differs from its frozen execution capability")
+        if any(isinstance(e, BuildWriterEvidenceSelectionV1) or
+            (isinstance(e, ProviderAttemptAuthorizedEventV1)
+                and (e.provider,e.model,e.api_mode) == execution.policy.provider_roles.writer.identity())
+            for e in execution.events[:event.sequence]):
+            raise ValueError("Working draft cannot change after writer selection or authorization")
+
+
+def context_record(execution):
+    from .types import BuildDraftContextCapturedV1
+    rows = [e for e in execution.events if isinstance(e, BuildDraftContextCapturedV1)]
+    if len(rows) != 1:
+        raise ValueError("Provider draft context requires one admitted snapshot")
+    return rows[0]
+
+
+def validate_inclusion_input(inclusion, execution, prepared_request_json):
+    if not isinstance(prepared_request_json, str) or sha256(prepared_request_json.encode()).hexdigest() != inclusion.envelope_sha256:
+        raise ValueError("Working draft inclusion requires its exact prepared envelope")
+    from .source_writer_output import strict_json
+    body = strict_json(prepared_request_json)
+    if not isinstance(body, dict):
+        raise ValueError("Working draft provider envelope must be an object")
+    carrier = strict_json(body["input"]) if isinstance(body.get("input"), str) else body.get("state")
+    captured = context_record(execution)
+    if (inclusion.draft_event_id != captured.event_id
+        or inclusion.snapshot_sha256 != captured.record.snapshot.snapshot_sha256
+        or not isinstance(carrier, dict)
+        or carrier.get("working_draft_context") != writer_reference(captured.record)):
+        raise ValueError("Provider working draft differs from its admitted context")
+
+
+def validate_provider_inclusions(execution):
+    from .types import (BuildDraftProviderInclusionV1, ProviderAttemptAuthorizedEventV1,
+        BuildSectionProviderInclusionV1, RelatedRecapContextProviderInclusionEventV2)
+    rows = [e for e in execution.events if isinstance(e, BuildDraftProviderInclusionV1)]
+    if not rows:
+        return
+    captured = context_record(execution)
+    seen = set()
+    for inclusion in rows:
+        if (inclusion.provider_attempt_id in seen or inclusion.sequence <= captured.sequence
+            or inclusion.draft_event_id != captured.event_id
+            or inclusion.snapshot_sha256 != captured.record.snapshot.snapshot_sha256):
+            raise ValueError("Working draft provider inclusion is repeated or has the wrong snapshot")
+        seen.add(inclusion.provider_attempt_id)
+        attempts = [e for e in execution.events if isinstance(e, ProviderAttemptAuthorizedEventV1)
+            and e.provider_attempt_id == inclusion.provider_attempt_id]
+        # Inclusion precedes durable provider authorization, matching the existing section protocol.
+        if attempts:
+            if len(attempts) != 1 or attempts[0].sequence <= inclusion.sequence or attempts[0].envelope_sha256 != inclusion.envelope_sha256:
+                raise ValueError("Working draft inclusion differs from its provider authorization")
+        end = attempts[0].sequence if attempts else len(execution.events)
+        for between in execution.events[inclusion.sequence+1:end]:
+            if (not isinstance(between, (BuildSectionProviderInclusionV1, RelatedRecapContextProviderInclusionEventV2))
+                or between.provider_attempt_id != inclusion.provider_attempt_id
+                or between.envelope_sha256 != inclusion.envelope_sha256):
+                raise ValueError("Draft inclusion must precede the exact provider authorization bundle")
