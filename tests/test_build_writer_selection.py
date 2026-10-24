@@ -150,6 +150,23 @@ def test_sdk_app_selection_and_exact_single_writer_reopen(build_case, monkeypatc
     pointer = service.get_world_pointer("elderwyld")
     turn, = service.list_turns("elderwyld", pointer.active_conversation_id)
     execution = turn.graph_context_execution
+    # Every actual response survives, not only the selection needed for APP proof.
+    traces = service.list_context_trace_attempts(world_id="elderwyld", turn_id=turn.turn_id)
+    controller_auth = [e for e in execution.events if isinstance(e, ledger.ProviderAttemptAuthorizedEventV3)
+                       and e.provider == "typesafe"]
+    captured = [m for trace in traces for observation in trace.observations
+                if observation.kind == "context_snapshot" for m in observation.materials
+                if m.item_id.startswith("unvalidated-controller-decision:")]
+    assert len(captured) == len(controller_auth) == len(decisions.calls)
+    from generationengine.types import DecisionResult
+    from apps.live_control_server.services.build_jev_driver import sdk_answers
+    for auth, request in zip(controller_auth, decisions.calls, strict=True):
+        item_id = f"unvalidated-controller-decision:{auth.provider_attempt_id}:{turn.graph_context_receipt.context_receipt_sha256}"
+        material, = [m for m in captured if m.item_id == item_id]
+        actual = DecisionResult.model_validate_json(material.text)
+        assert set(sdk_answers(actual)) == set(json.loads(request.content)["questions"])
+        assert actual.observation.input_tokens == 23
+        assert actual.observation.output_tokens == 4
     settled, = [event for event in execution.events if isinstance(event, ledger.BuildWriterEvidenceSelectionV1)]
     selection_wires = [json.loads(request.content) for request in decisions.calls
                        if json.loads(request.content)["state"].get("writer_selection_policy")]
@@ -339,3 +356,30 @@ def test_accounted_authoring_keeps_its_separate_path(build_case, monkeypatch, tm
     turn, = service.list_turns("elderwyld", service.get_world_pointer("elderwyld").active_conversation_id)
     assert isinstance(turn.graph_context_execution.policy, ledger.BuildSelectedSourceActionControllerWriterPolicyV1)
     assert not any(isinstance(event, ledger.BuildWriterEvidenceSelectionV1) for event in turn.graph_context_execution.events)
+
+
+@pytest.mark.parametrize("timeout", [False, True])
+def test_failed_decision_keeps_only_actual_received_response(build_case, monkeypatch, tmp_path, accounting, timeout):
+    case, _ = ordinary_case(build_case, monkeypatch, authoring=True)
+    decisions = DecisionWire(operation="cannot_select", timeout=timeout)
+    writer = WriterWire()
+    harness = BuildJevHarness(decision_transport=decisions, writer_transport=writer, accounting=accounting)
+    with pytest.raises(Exception, match="could not complete safely"):
+        execute(case, tmp_path, harness)
+    assert len(decisions.calls) == 1 and not writer.calls
+    service = AgentConversationService()
+    turn, = service.list_turns("elderwyld", case[1].build_write_capability.conversation_id)
+    traces = service.list_context_trace_attempts(world_id="elderwyld", turn_id=turn.turn_id)
+    captures = [m for trace in traces for observation in trace.observations
+                if observation.kind == "context_snapshot" for m in observation.materials
+                if m.item_id.startswith("unvalidated-controller-decision:")]
+    assert len(captures) == (0 if timeout else 1)
+    failures = [o.code for trace in traces for o in trace.observations if o.kind == "failure"]
+    assert ("build_controller_decision_rejected" in failures) is not timeout
+    assert turn.completion is None and turn.status == "interrupted"
+    if not timeout:
+        from generationengine.types import DecisionResult
+        from apps.live_control_server.services.build_jev_driver import sdk_answers
+        actual = DecisionResult.model_validate_json(captures[0].text)
+        assert sdk_answers(actual)["operation"]["selected"] == "cannot_select"
+        assert len(harness.calls) == 1 and harness.calls[0]["usage"]["status"] == "reported"
