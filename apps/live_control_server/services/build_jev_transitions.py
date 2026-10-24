@@ -455,6 +455,20 @@ class BuildJevTransitions:
             "relevance_threshold": self._relevant_min,
             "unread_exclusion_threshold": self._exclusion_min,
         }
+        # Build can ask for new authored material as well as established facts.
+        # Adequate context for invention is not evidence that the invention exists.
+        authoring_rule = (
+            "For requested brainstorming or invented writing, judge whether acquired context "
+            "is adequate to create the requested hypothetical material consistently. The new "
+            "names, details or possibilities do not need to exist in sources. Require actual "
+            "support for any established facts the user asks to retrieve, verify or preserve, "
+            "including factual parts of mixed creative/factual requests. Creative permission "
+            "does not turn suggestions into established or played facts. Additional inspiration "
+            "alone is not a missing fact or required coverage."
+            if isinstance(self._scope, BuildContextScope) else ""
+        )
+        if authoring_rule:
+            state["authoring_support_rule"] = authoring_rule
         from .build_jev_compaction import CONTAINED_CODEC, CONTAINED_RULE
 
         if CONTAINED_CODEC in presentation:
@@ -506,7 +520,8 @@ class BuildJevTransitions:
                 DecisionQuestion(
                     name="next",
                     kind="choice",
-                    question="Which legal unread action most usefully supplies the missing support or necessary relation? Choose none to stop selecting.",
+                    question="Which legal unread action most usefully supplies the missing support or necessary relation? Choose none to stop selecting."
+                    + (" Apply authoring_support_rule: do not select optional inspiration when context is adequate." if authoring_rule else ""),
                     options=("none", *(a.id for a in available)),
                 ),
             )
@@ -516,6 +531,12 @@ class BuildJevTransitions:
                 "or competing claim for the exact question. Choose unknown when hints are ambiguous. "
                 "Different subjects or times are not automatically contradictions. Hints are never evidence."
             )
+            if authoring_rule:
+                state["coverage_rule"] += (
+                    " Apply authoring_support_rule. For hypothetical writing with adequate context, "
+                    "an unrelated entity or an optional source of inspiration is not_useful, not unknown. "
+                    "Use unknown when a hint may resolve a specific required factual gap or contradiction."
+                )
             questions = tuple(
                 DecisionQuestion(
                     name=f"use_{i}",
@@ -539,7 +560,8 @@ class BuildJevTransitions:
                 DecisionQuestion(
                     name="sufficiency",
                     kind="choice",
-                    question="Does acquired evidence alone suffice for a correctly qualified answer to the whole question?",
+                    question="Does acquired evidence alone suffice for a correctly qualified answer to the whole question?"
+                    + (" Apply authoring_support_rule: adequate context can suffice for requested hypothetical writing." if authoring_rule else ""),
                     options=("sufficient", "more_evidence", "conflict", "uncertain"),
                 ),
             )
@@ -550,7 +572,8 @@ class BuildJevTransitions:
                     "support a correctly qualified answer to every part of the question? Different units may "
                     "supply different facts or necessary hops; no single unit must answer everything. "
                     "Required links, qualifications and support must be present. Shared names, relevance alone "
-                    "and unresolved contradictions are insufficient. Missing evidence is not proof of absence.",
+                    "and unresolved contradictions are insufficient. Missing evidence is not proof of absence."
+                    + (" Apply authoring_support_rule: support the factual context and constraints; do not require proof of the requested inventions themselves." if authoring_rule else ""),
                 ),)
             elif viewed:
                 questions += (

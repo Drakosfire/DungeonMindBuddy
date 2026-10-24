@@ -1,6 +1,10 @@
 # One-click terminal question retry
 
-ACTIVE serial PRIME slice on codex/surface-one-click-retry, base
+MERGED and UI-delivered as9b1d8e05 after exact Bugbot7006b07ed. Ordinary
+Retry dispatched once with a fresh identity and unchanged saved page; underlying
+retrieval interrupted before writer delivery. Successor: HANDOFF-BUILD-creative-context.md.
+
+Former serial PRIME slice on codex/surface-one-click-retry, base
 358895739c41e67756a4ed964ce579caf827bb6f, existing buddy-context-loop checkout.
 Operator explicitly requests a simple circular-arrow Retry button that sends the
 question again, without restore/review/Send ceremony. Applies to the shared
