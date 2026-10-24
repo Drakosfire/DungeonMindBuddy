@@ -344,3 +344,19 @@ it("synchronizes placement across shared dock owners without replacing either co
  expect(document.querySelectorAll('[data-placement="bottom"]')).toHaveLength(2);
  expect(screen.getByLabelText('A')).toBe(drafts[0]);expect(screen.getByLabelText('B')).toBe(drafts[1]);
 })
+
+it("keeps the session selection when storage reads succeed but writes fail", () => {
+ window.localStorage.setItem('buddy.conversation.placement','side');
+ vi.spyOn(Storage.prototype,'setItem').mockImplementation(()=>{throw new Error('quota')});
+ const view=render(<ConversationDock reader="Page" initialExpanded messages="Reply" composer={<input aria-label="Retained draft" defaultValue="Keep"/>}/>);
+ const draft=screen.getByLabelText('Retained draft');
+ fireEvent.click(screen.getByTitle('Conversation options'));
+ fireEvent.click(screen.getByRole('button',{name:'Bottom',exact:true}));
+ expect(view.container.firstChild).toHaveAttribute('data-placement','bottom');
+ expect(window.localStorage.getItem('buddy.conversation.placement')).toBe('side');
+ fireEvent.click(screen.getByRole('button',{name:'Float',exact:true}));
+ expect(view.container.firstChild).toHaveAttribute('data-placement','float');
+ expect(screen.getByLabelText('Retained draft')).toBe(draft);
+ fireEvent(window,new StorageEvent('storage',{key:'buddy.conversation.placement'}));
+ expect(view.container.firstChild).toHaveAttribute('data-placement','side');
+})
