@@ -61,8 +61,14 @@ is delivered with exact Core141: selected objects share lazy context/ancestry,
 source and Rules work stay outside. Two ordinary original grounding runs completed
 in9.02s/8.21s; full quality and client performance remain open.
 [Relevant grounding replies](../Plans/HANDOFF-SURFACE-relevant-grounding-replies.md)
-is active: improve shared model selection/prose without weakening literal support
-or citation authority.
+is delivered via1705, but its live7.86s reply still included long excerpts and a
+spurious gap; relevance acceptance remains open.
+[Discuss/Create proof](../Plans/HANDOFF-AGENT-discuss-create-proof.md) merged1706
+after independent Bugbot review. The sequential fork underperformed captured flat
+routing on dogfood and is not adopted.
+[Routing context ablation](../Plans/HANDOFF-AGENT-routing-context-ablation.md) is
+active proof-only: isolate diagnostic overhead and exact duplicate interaction
+from substantive evidence removal before recommending runtime changes.
 
 
 Preserve and verify the shipped scene→encounter→immutable mechanics successor→
