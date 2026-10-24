@@ -1,6 +1,14 @@
 # Preserve requested image subject across follow-ups
 
-ACTIVE serial PRIME slice; base 1c77d61afcd20fef55a82da105512b79eb162313,
+SETTLED: #1700 merged at 1f01a28ccc841903c3017b7d7f94e58c5ea869bf and
+protected API delivery completed. The original ordinary image follow-up produced
+the requested broken crossing; real generation, CDN save, library reopen and
+placement/resize/reload/restart in an owned rehearsal page passed. Original Plan
+bytes were unchanged. This is one real journey, not repeated grounding quality or
+operator acceptance. Private evidence remains local. Next retrieval work is
+separately leased in HANDOFF-MIND-pinned-object-views-adoption.md.
+
+Historical serial PRIME slice; base 1c77d61afcd20fef55a82da105512b79eb162313,
 branch codex/image-followup-intent in the existing buddy-context-loop checkout.
 One capability/PR; other hosted/Combat/Ingest lanes are disjoint. PRIME owns
 API8000/UI5202. Retained World/page writes use ordinary UI only; check for active

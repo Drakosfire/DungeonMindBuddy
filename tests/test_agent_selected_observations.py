@@ -82,23 +82,20 @@ def bounded_case(monkeypatch):
     calls = []
 
     class Retrieval:
-        def get_object(self, request, **kwargs):
+        def get_object_views(self, request, **kwargs):
             calls.append(request.revision_pin)
             return SimpleNamespace(
-                snapshot=snapshot,
-                found=True,
-                object=SimpleNamespace(object_id="npc:keeper"),
-            )
-
-        def get_complete_object(self, request, **kwargs):
-            calls.append(request.revision_pin)
-            return SimpleNamespace(
-                snapshot=snapshot,
-                found=True,
-                object=SimpleNamespace(object_id="npc:keeper"),
-                reviewed_source_observations=observations,
-                anchors=(),
-                coverage=SimpleNamespace(gap_codes=(), missing_ids=()),
+                bounded=SimpleNamespace(
+                    snapshot=snapshot, found=True,
+                    object=SimpleNamespace(object_id="npc:keeper"),
+                ),
+                complete=SimpleNamespace(
+                    snapshot=snapshot, found=True,
+                    object=SimpleNamespace(object_id="npc:keeper"),
+                    reviewed_source_observations=observations,
+                    anchors=(),
+                    coverage=SimpleNamespace(gap_codes=(), missing_ids=()),
+                ),
             )
 
     services = SimpleNamespace(
@@ -144,7 +141,7 @@ def test_selection_precedes_anchor_admission_and_reports_partial(bounded_case):
     assert [a.evidence_ref_id for a in selected[0].source_anchors] == ["ev:2"]
     assert selected[2] == ["reviewed_source_observation_selection"]
     assert selected[0].outcome == "partial"
-    assert calls == ["rev:published"] * 4
+    assert calls == ["rev:published"] * 2
 
 
 def test_unknown_or_foreign_subject_assertion_is_not_admitted(bounded_case):
@@ -202,19 +199,20 @@ def test_native_selected_records_preserve_exact_pins_and_openable_sources(
 
 def test_missing_selected_evidence_rejects_without_partial_claim(bounded_case):
     services, request, _ = bounded_case
-    original = services.retrieval.get_complete_object
+    original = services.retrieval.get_object_views
 
     def larger(*args, **kwargs):
-        native = original(*args, **kwargs)
+        views = original(*args, **kwargs)
+        native = views.complete
         native.reviewed_source_observations = (
             replace(
                 native.reviewed_source_observations[0],
                 evidence_ref_ids=("ev:0", "ev:missing"),
             ),
         )
-        return native
+        return views
 
-    services.retrieval.get_complete_object = larger
+    services.retrieval.get_object_views = larger
     with pytest.raises(direct.DirectWorldGraphReadError) as error:
         direct._get_object_with_reviewed_sources_direct(
             services, request, observation_ids=("obs:0",)
@@ -243,19 +241,20 @@ def test_nongoverned_executor_rejects_selector_without_native_io(monkeypatch):
 
 def test_selected_record_over_bound_is_omitted_whole(bounded_case, monkeypatch):
     services, request, _ = bounded_case
-    original = services.retrieval.get_complete_object
+    original = services.retrieval.get_object_views
 
     def larger(*args, **kwargs):
-        native = original(*args, **kwargs)
+        views = original(*args, **kwargs)
+        native = views.complete
         native.reviewed_source_observations = (
             replace(
                 native.reviewed_source_observations[0],
                 evidence_ref_ids=("ev:0", "ev:1"),
             ),
         )
-        return native
+        return views
 
-    services.retrieval.get_complete_object = larger
+    services.retrieval.get_object_views = larger
     anchors = [
         _anchor().model_copy(
             update={
@@ -343,13 +342,14 @@ def test_selected_union_over_budget_admits_none(bounded_case, monkeypatch):
 def test_selected_records_share_evidence_budget(bounded_case, monkeypatch):
     services, request, _ = bounded_case
     _canonical_saturation(monkeypatch)
-    original = services.retrieval.get_complete_object
+    original = services.retrieval.get_object_views
     def shared(*args, **kwargs):
-        native = original(*args, **kwargs)
+        views = original(*args, **kwargs)
+        native = views.complete
         native.reviewed_source_observations = tuple(
             replace(o, evidence_ref_ids=('ev:shared',)) for o in native.reviewed_source_observations)
-        return native
-    services.retrieval.get_complete_object = shared
+        return views
+    services.retrieval.get_object_views = shared
     monkeypatch.setattr(direct, '_source_anchor_views', lambda *_a, **_k: [
         _anchor().model_copy(update={'anchor_id': 'shared', 'evidence_ref_id': 'ev:shared',
                                     'supporting_assertion_ids': ['obs:0', 'obs:1', 'obs:2']})])
@@ -368,3 +368,27 @@ def test_remaining_canonical_capacity_is_filled_deterministically(bounded_case, 
         services, request, observation_ids=('obs:2',))
     assert observations
     assert [a.anchor_id for a in result.source_anchors] == ['a:2', 'canonical:0', 'canonical:1']
+
+
+@pytest.mark.parametrize("field,value", [
+    ("revision_id", "rev:foreign"), ("head_revision_id", "rev:later"),
+    ("projected_at", 2), ("found", False), ("object", None),
+])
+def test_combined_views_reject_disagreement_before_claims(bounded_case, field, value):
+    services, request, calls = bounded_case
+    original = services.retrieval.get_object_views
+
+    def tampered(*args, **kwargs):
+        views = original(*args, **kwargs)
+        if field in ("found", "object"):
+            setattr(views.complete, field, value)
+        else:
+            views.complete.snapshot = SimpleNamespace(**vars(views.complete.snapshot))
+            setattr(views.complete.snapshot, field, value)
+        return views
+
+    services.retrieval.get_object_views = tampered
+    with pytest.raises(direct.DirectWorldGraphReadError) as error:
+        direct._get_object_with_reviewed_sources_direct(services, request)
+    assert error.value.code == "projection_integrity_error"
+    assert calls == ["rev:published"]
