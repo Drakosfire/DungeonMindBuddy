@@ -34,6 +34,18 @@ confirms it. Follow the current surface's answer contract and approval workflow.
 """.strip()
 
 
+IMAGE_DIRECTION_INSTRUCTIONS = """
+For image drafting, recover the requested subject, its condition/action and visual
+constraints from the relevant user request, including a follow-up's antecedent.
+Apply later explicit user revisions. Dialogue establishes intent, not source facts.
+Keep the requested subject and condition central; a more descriptive neighboring
+passage must not substitute a different scene or state. Keep preparation and played
+versions scoped to their own moments. Use supplied evidence to ground the chosen
+moment; leave unspecified composition as artistic interpretation. Before returning
+the prompt, check it still depicts the user's requested subject in the requested state.
+"""
+
+
 def buddy_agent_class(base: type[Any]) -> type[Any]:
     """Override both SDK assembly seams so compression cannot restore host context.
 

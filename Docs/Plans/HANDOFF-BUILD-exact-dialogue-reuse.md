@@ -1,6 +1,13 @@
 # Reuse exact repeated dialogue without losing occurrences
 
-ACTIVE serial PRIME slice; base baee545074120817cdeb66d54d2253059e1edde4,
+SETTLED: PR #1699 merged at 1c77d61afcd20fef55a82da105512b79eb162313;
+reviewed head 48f2c14a01d4fd82c062ee6126249b1c3bf48205. Independent Bugbot
+passed 52 codec/dispatch/mixed-history/capacity checks. Protected API delivery
+preserved all retained rows, native authority, product and frozen bytes. Full
+latency and journey acceptance remain open.
+Successor: HANDOFF-SURFACE-image-followup-intent.md.
+
+Original serial PRIME slice; base baee545074120817cdeb66d54d2253059e1edde4,
 branch codex/build-exact-dialogue-reuse in the existing buddy-context-loop checkout.
 One capability/PR; open hosted/Combat/Ingest lanes are disjoint. PRIME owns API8000
 and UI5202. No operator World mutation or model checks while an operator turn runs.

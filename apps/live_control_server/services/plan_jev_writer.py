@@ -11,7 +11,7 @@ from application_state.agent_conversation.plan_jev_graph_packet import project
 from application_state.agent_conversation.rules_authority_types import canonical_bytes, canonical_sha256
 from application_state.agent_conversation.source_writer_output import strict_json
 from application_state.agent_conversation.surface_source_answer import SOURCE_ATTRIBUTION_INSTRUCTIONS
-from .hermes_product_prompt import BUDDY_SYSTEM_PROMPT
+from .hermes_product_prompt import BUDDY_SYSTEM_PROMPT, IMAGE_DIRECTION_INSTRUCTIONS
 from .native_rules_capture import NativeProviderReply
 
 from application_state.agent_conversation.surface_evidence_answer import INSTRUCTIONS as EVIDENCE_INSTRUCTIONS
@@ -104,7 +104,7 @@ class PlanJevWriter:
         if self.projection.frame.get('answer_policy') == SELECTOR_POLICY:
             instructions=instructions.replace('exact block_handle','exact selection_id')
         self.instructions = '\n\n'.join((BUDDY_SYSTEM_PROMPT, instructions,
-            RULES_INSTRUCTIONS if rule_frame.lookups else ''))
+            RULES_INSTRUCTIONS if rule_frame.lookups else '')) + IMAGE_DIRECTION_INSTRUCTIONS
         self.model = adapter._broker_execution().policy.provider_roles.writer.model
         self.prepared = self.authorization = self.call = None
         self._usage_recorded = False
