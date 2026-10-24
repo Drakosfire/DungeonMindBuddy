@@ -57,8 +57,12 @@ place/Save/reload succeeded without altering the operator page. Full goal and
 operator acceptance remain open.
 
 [Selected object acquisition](../Plans/HANDOFF-PLAN-selected-object-wave.md)
-is active: adopt Core141 lazy context/ancestry reuse while keeping source and
-Rules work outside its lifetime. End-to-end timing and quality remain open.
+is delivered with exact Core141: selected objects share lazy context/ancestry,
+source and Rules work stay outside. Two ordinary original grounding runs completed
+in9.02s/8.21s; full quality and client performance remain open.
+[Relevant grounding replies](../Plans/HANDOFF-SURFACE-relevant-grounding-replies.md)
+is active: improve shared model selection/prose without weakening literal support
+or citation authority.
 
 
 Preserve and verify the shipped scene→encounter→immutable mechanics successor→
