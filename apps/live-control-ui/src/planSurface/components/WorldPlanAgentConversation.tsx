@@ -6071,7 +6071,7 @@ export function WorldPlanAgentConversation({
         <p className="world-plan-agent-conversation__saving" role="status">Conversation paused while the Plan is saving.</p>
       ) : null}
       <section className="world-plan-agent-conversation__turns" aria-label="World conversation transcript" aria-live="polite" aria-busy={historyLoading || !history}>
-        <h3>Conversation</h3>
+
         {historyLoading && !history ? <p className="world-plan-agent-conversation__loading" role="status">Loading conversation…</p> : null}
         {historyError ? (
           <div role="group" aria-label="World history unavailable">
@@ -6106,7 +6106,7 @@ export function WorldPlanAgentConversation({
             <p><strong>You:</strong> {submittedMessage.message}</p>
             {uncertainPlayNoticeRef.current?.turnId === submittedMessage.id ? <div className="world-plan-agent-conversation__reply-failure" role="alert">
               <p>Buddy couldn’t finish this reply. Your message is saved. Open Conversation options to check its status or retry.</p>
-              <details><summary>Technical details</summary><p>{uncertainPlayNoticeRef.current.message}</p></details>
+              <details className="world-plan-agent-conversation__technical-details"><summary>Technical details</summary><p>{uncertainPlayNoticeRef.current.message}</p></details>
             </div> : null}
             {uncertainPlanNoticeRef.current?.turnId === submittedMessage.id ? (
               <div className="world-plan-agent-conversation__turn-debug">
@@ -6228,7 +6228,7 @@ export function WorldPlanAgentConversation({
             <button type="button" aria-describedby={BUILD_SOURCE_REQUIRED_DESCRIPTION_ID} onClick={openBuildSourceActions}>Open source actions</button>
           </> : null}
           {isBuild && !useWorldGraphForAsk ? <p role="note">Discussion only. Page proposals are available with World facts enabled.</p> : null}
-          <p id="world-plan-agent-composer-hint">
+          <p id="world-plan-agent-composer-hint" className="sr-only">
             {buildSourceMissing
               ? "Sending is disabled until a saved source is available."
               : !isReadOnly && detectedComposerIntent === "propose"
@@ -6275,11 +6275,9 @@ export function WorldPlanAgentConversation({
         <ConversationDock className="plan-conversation-dock world-agent-conversation__dock" reader={null} readerLabel={isBuild ? "Build workspace" : "Play workspace"}
           conversationLabel="World conversation" title="Conversation" showTitle={false}
           contextLabel={isBuild ? `${worldName} · ${buildMode?.savedSource?.title ?? "Build"}` : `${worldName} · Play${admittedRun?.beatTitle ? ` · ${admittedRun.beatTitle}` : ""}${admittedRun?.sceneTitle ? ` · ${admittedRun.sceneTitle}` : ""}`}
-          initialHeight={360} minHeight={240} minimumReaderHeight={0} collapseMode="launcher"
+          initialHeight={360} minHeight={240} minimumReaderHeight={0} collapseMode="launcher" fullscreenEnabled
           expanded={agent.paneState.isOpen} onExpandedChange={agent.setPaneOpen}
-          headerActions={<>{newConversationButton}<details ref={connectionOptionsRef} className="plan-conversation-dock__management" aria-label="Conversation options">
-            <summary>Conversation options</summary><div>{headerActions}{managementDetails}</div>
-          </details></>}
+          headerActions={newConversationButton} menuRef={connectionOptionsRef} menuActions={<>{headerActions}{managementDetails}</>}
           contextDetails={isBuild ? buildContextDetails : playContextDetails}
           messages={<div ref={playMessagesHostRef} className="plan-conversation-dock__messages">{messages}</div>}
           composer={<div className="plan-conversation-dock__composer">{composer}

@@ -1,4 +1,4 @@
-import { useId, useLayoutEffect, useRef, useState, type CSSProperties, type KeyboardEvent, type PointerEvent, type ReactNode } from "react";
+import { useEffect, useId, useLayoutEffect, useRef, useState, type CSSProperties, type KeyboardEvent, type PointerEvent, type ReactNode, type RefObject } from "react";
 import "./ConversationDock.css";
 
 export interface ConversationDockProps {
@@ -16,6 +16,8 @@ export interface ConversationDockProps {
   launcher?: ReactNode;
   fullscreenEnabled?: boolean;
   headerActions?: ReactNode;
+  menuActions?: ReactNode;
+  menuRef?: RefObject<HTMLDetailsElement | null>;
   initialExpanded?: boolean;
   expanded?: boolean;
   initialHeight?: number;
@@ -36,11 +38,29 @@ export interface ConversationDockProps {
  */
 export function ConversationDock({
   reader, readerLabel = "Workspace content", conversationLabel, messages, composer, title = "Buddy", showTitle = true, contextLabel = "Context",
-  contextDetails, collapsedPreview, collapseMode = "composer", launcher, fullscreenEnabled = false, headerActions, initialExpanded = false, expanded: controlledExpanded,
+  contextDetails, collapsedPreview, collapseMode = "composer", launcher, fullscreenEnabled = false, headerActions, menuActions, menuRef, initialExpanded = false, expanded: controlledExpanded,
   initialHeight, minHeight = 280, maxHeight = 1440,
   minimumReaderHeight = 160, onExpandedChange, className = "", style,
 }: ConversationDockProps) {
   const id = useId();
+  const ownMenu = useRef<HTMLDetailsElement>(null);
+  const menu = menuRef ?? ownMenu;
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [diagnosticsVisible, setDiagnosticsVisible] = useState(false);
+  useEffect(() => {
+    const outside = (event: globalThis.PointerEvent) => {
+      if (menu.current?.open && event.target instanceof Node && !menu.current.contains(event.target)) { menu.current.open = false; setMenuOpen(false); }
+    };
+    const escape = (event: globalThis.KeyboardEvent) => {
+      if (event.key === "Escape" && menu.current?.open) {
+        event.preventDefault(); event.stopPropagation(); menu.current.open = false; setMenuOpen(false);
+        menu.current.querySelector<HTMLElement>("summary")?.focus({preventScroll:true});
+      }
+    };
+    document.addEventListener("pointerdown", outside, true);
+    document.addEventListener("keydown", escape, true);
+    return () => { document.removeEventListener("pointerdown", outside, true); document.removeEventListener("keydown", escape, true); };
+  }, [menu]);
   const root = useRef<HTMLDivElement>(null);
   const messageRegion = useRef<HTMLDivElement>(null);
   const composerRegion = useRef<HTMLDivElement>(null);
@@ -91,6 +111,8 @@ export function ConversationDock({
   useLayoutEffect(() => {
     if (expanded && messageRegion.current) messageRegion.current.scrollTop = scrollPosition.current;
     if (!expanded) {
+      if (menu.current) menu.current.open = false;
+      setMenuOpen(false);
       setContextOpen(false);
       setFullscreen(false);
       if (collapseMode === "launcher" && previousExpanded.current) launcherRegion.current?.querySelector<HTMLElement>("button,a")?.focus({ preventScroll: true });
@@ -180,7 +202,7 @@ export function ConversationDock({
   } as CSSProperties;
 
   return (
-    <div ref={root} className={`conversation-dock ${hasReader ? "has-reader" : ""} ${narrowWorkspace ? "is-narrow" : ""} ${expanded ? "is-expanded" : ""} ${resizing ? "is-resizing" : ""} ${fullscreen ? "is-fullscreen" : ""} ${collapseMode === "launcher" ? "has-launcher-collapse" : ""} ${className}`.trim()} style={variables}>
+    <div ref={root} data-diagnostics-visible={diagnosticsVisible} className={`conversation-dock ${hasReader ? "has-reader" : ""} ${narrowWorkspace ? "is-narrow" : ""} ${expanded ? "is-expanded" : ""} ${resizing ? "is-resizing" : ""} ${fullscreen ? "is-fullscreen" : ""} ${collapseMode === "launcher" ? "has-launcher-collapse" : ""} ${className}`.trim()} style={variables}>
       <div className="conversation-dock__reader" hidden={fullscreen} role="region" aria-label={readerLabel}>{reader}</div>
       <section ref={conversationRegion} id={`${id}-conversation`} className="conversation-dock__conversation" hidden={collapseMode === "launcher" && !expanded} role={fullscreen ? "dialog" : undefined} aria-modal={fullscreen || undefined} onKeyDown={fullscreenKeys} onSubmitCapture={() => setContextOpen(false)} aria-label={conversationLabel ?? `${title} conversation`}>
         <button type="button" role="separator" aria-label={title === "Conversation" ? "Resize conversation" : `Resize ${title} conversation`} aria-orientation="horizontal"
@@ -191,12 +213,19 @@ export function ConversationDock({
         </button>
         <header className="conversation-dock__header">
           {showTitle && <strong>{title}</strong>}
-          {hasContext && <button type="button" className="conversation-dock__context-toggle"
-            aria-expanded={contextOpen} aria-controls={`${id}-context`} title={`${contextOpen ? "Hide" : "Show"} ${contextLabel}`}
-            onClick={() => { changeExpanded(true); setContextVisited(true); setContextOpen(!contextOpen); }}>
-            <span>{contextOpen ? "Hide" : "Show"} {contextLabel}</span><span aria-hidden="true">{contextOpen ? "▴" : "▾"}</span>
-          </button>}
-          <div className="conversation-dock__actions">{headerActions}</div>
+          <div className="conversation-dock__actions">{headerActions}
+            <details ref={menu} className="conversation-dock__menu" aria-label="Conversation options" onToggle={event => setMenuOpen(event.currentTarget.open)}>
+              <summary aria-label="Conversation options" title="Conversation options" onClick={event => { event.preventDefault(); if (menu.current) { menu.current.open = !menu.current.open; setMenuOpen(menu.current.open); } }}><svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h16" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round"/></svg></summary>
+              <div hidden={!menuOpen}>
+                {hasContext && <button type="button" aria-expanded={contextOpen} aria-controls={`${id}-context`}
+                  onClick={() => { changeExpanded(true); setContextVisited(true); setContextOpen(!contextOpen); }}>
+                  {contextOpen ? "Hide" : "Show"} {contextLabel}
+                </button>}
+                <label className="conversation-dock__diagnostics"><input type="checkbox" checked={diagnosticsVisible} onChange={event => setDiagnosticsVisible(event.target.checked)}/>Technical details</label>
+                {menuActions}
+              </div>
+            </details>
+          </div>
           {fullscreenEnabled && expanded && <button ref={fullscreenButton} className="conversation-dock__icon-button" type="button" title={fullscreen ? "Restore dock" : "Fullscreen"} aria-label={fullscreen ? "Restore conversation dock" : "Expand conversation fullscreen"} aria-pressed={fullscreen} onClick={toggleFullscreen}>
             <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d={fullscreen ? "M3 8h5V3M21 8h-5V3M8 21v-5H3M16 21v-5h5" : "M8 3H3v5M16 3h5v5M3 16v5h5M21 16v5h-5"} fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" /></svg>
           </button>}

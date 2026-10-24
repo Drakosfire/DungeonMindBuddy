@@ -29,6 +29,7 @@ describe("ConversationDock", () => {
     expect(mounted).not.toHaveBeenCalled();
     expect(screen.queryByLabelText("Context query")).toBeNull();
     const reader = screen.getByLabelText("Reader"), composer = screen.getByLabelText("Question");
+    fireEvent.click(screen.getByTitle("Conversation options"));
     fireEvent.click(screen.getByRole("button", { name: "Show Context" }));
     expect(mounted).toHaveBeenCalledTimes(1);
     const query = screen.getByLabelText("Context query");
@@ -37,6 +38,7 @@ describe("ConversationDock", () => {
     view.rerender(<ConversationDock {...props} contextDetails={<Context label="Updated scope" />} />);
     fireEvent.click(screen.getByRole("button", { name: "Collapse" }));
     fireEvent.click(screen.getByRole("button", { name: "Open chat" }));
+    fireEvent.click(screen.getByTitle("Conversation options"));
     fireEvent.click(screen.getByRole("button", { name: "Show Context" }));
     expect(screen.getByText("Updated scope")).toBeVisible();
     expect(screen.getByLabelText("Context query")).toBe(query);
@@ -153,6 +155,7 @@ describe("ConversationDock", () => {
 
   it("names context visibility explicitly and closes it on submit without clearing input", () => {
     render(<ConversationDock reader="Page" messages="Reply" initialExpanded contextLabel="context" contextDetails="Saved page" composer={<form><textarea defaultValue="Keep my draft" /><button type="submit">Send</button></form>} />);
+    fireEvent.click(screen.getByTitle("Conversation options"));
     fireEvent.click(screen.getByRole("button", {name:"Show context"}));
     expect(screen.getByRole("button", {name:"Hide context"})).toHaveAttribute("aria-expanded","true");
     fireEvent.submit(screen.getByRole("textbox").closest("form")!);
@@ -164,6 +167,7 @@ describe("ConversationDock", () => {
     const user = userEvent.setup();
     const onExpandedChange = vi.fn();
     render(<Fixture onExpandedChange={onExpandedChange} />);
+    await user.click(screen.getByTitle("Conversation options"));
     const context = screen.getByRole("button", {name:/This scene/});
     await user.click(context);
     expect(context).toHaveAttribute("aria-expanded", "true");
@@ -248,6 +252,7 @@ describe("ConversationDock", () => {
     const user = userEvent.setup();
     const composer = <input aria-label="Draft" defaultValue="Keep this" />;
     const view = render(<ConversationDock reader="Reader" messages="Messages" composer={composer} contextDetails="Source details" />);
+    await user.click(screen.getByTitle("Conversation options"));
     await user.click(screen.getByRole("button", {name:/Context/}));
     const input = screen.getByLabelText("Draft");
     view.rerender(<ConversationDock reader="Reader" messages="Messages" composer={composer} contextDetails={null} />);
@@ -287,4 +292,22 @@ it("can omit the repeated visual heading while retaining conversation accessibil
   expect(screen.queryByText("Conversation", { selector: "strong" })).not.toBeInTheDocument();
   expect(screen.getByRole("separator", { name: "Resize conversation" })).toBeInTheDocument();
   expect(screen.getByRole("button", { name: "Expand conversation fullscreen" })).toBeInTheDocument();
+});
+
+it("keeps context and diagnostics behind one icon menu without losing draft state",async()=>{
+  const user=userEvent.setup();
+  render(<ConversationDock reader="Page" showTitle={false} initialExpanded fullscreenEnabled contextLabel="context" contextDetails={<input aria-label="Context filter"/>} messages="Reply" composer={<textarea aria-label="Draft" defaultValue="Keep this"/>} headerActions={<button aria-label="New conversation">+</button>} menuActions={<button>Explore Graph</button>}/>);
+  expect(screen.queryByRole("button",{name:"Show context"})).toBeNull();
+  expect(screen.queryByRole("button",{name:"Explore Graph"})).toBeNull();
+  const menu=screen.getByTitle("Conversation options");
+  expect(menu).not.toHaveTextContent("Conversation options");
+  await user.click(menu);
+  await user.click(screen.getByRole("checkbox",{name:"Technical details"}));
+  expect(screen.getByRole("log").closest(".conversation-dock")).toHaveAttribute("data-diagnostics-visible","true");
+  await user.click(screen.getByRole("button",{name:"Show context"}));
+  expect(screen.getByLabelText("Context filter")).toBeVisible();
+  expect(screen.getByLabelText("Draft")).toHaveValue("Keep this");
+  fireEvent.keyDown(menu,{key:"Escape"});
+  expect(menu.parentElement).not.toHaveAttribute("open");
+  expect(menu).toHaveFocus();
 });

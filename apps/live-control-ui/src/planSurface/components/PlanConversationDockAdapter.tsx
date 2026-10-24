@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
+import { useCallback, useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import { ConversationDock } from "../../ui/ConversationDock";
 import { useAskPluginSlotOptional } from "../../agentInteraction/AskPluginSlot";
 import { useAgentInteraction } from "../../agentInteraction/useAgentInteraction";
@@ -29,26 +29,6 @@ export const PlanConversationDockAdapter = DocumentConversationDock;
 function MountedPlanDock({reader,contextLabel,children,slot,surface="plan"}:AdapterProps & {slot:NonNullable<ReturnType<typeof useAskPluginSlotOptional>>}) {
   const {paneState,setPaneOpen}=useAgentInteraction();
   const management = useRef<HTMLDetailsElement>(null);
-  useEffect(() => {
-    const dismissOutside = (event: globalThis.PointerEvent) => {
-      if (management.current?.open && event.target instanceof Node && !management.current.contains(event.target)) management.current.open = false;
-    };
-    const dismissEscape = (event: globalThis.KeyboardEvent) => {
-      if (event.key === "Escape" && management.current?.open) {
-        event.preventDefault();
-        event.stopPropagation();
-        management.current.open = false;
-        management.current.querySelector<HTMLElement>("summary")?.focus({ preventScroll: true });
-      }
-    };
-    document.addEventListener("pointerdown", dismissOutside, true);
-    document.addEventListener("keydown", dismissEscape, true);
-    return () => {
-      document.removeEventListener("pointerdown", dismissOutside, true);
-      document.removeEventListener("keydown", dismissEscape, true);
-    };
-  }, []);
-  useLayoutEffect(() => { if (!paneState.isOpen && management.current) management.current.open = false; }, [paneState.isOpen]);
   const {setLayoutOwner,setHostElement,setLauncherHost}=slot;
   const [hosts,setHosts]=useState<PlanConversationPresentationHosts>({header:null,newConversation:null,context:null,messages:null,composer:null});
   const bind=useCallback((key:keyof PlanConversationPresentationHosts,node:HTMLElement|null)=>{
@@ -65,7 +45,8 @@ function MountedPlanDock({reader,contextLabel,children,slot,surface="plan"}:Adap
       conversationLabel="World conversation"
       title="Conversation" showTitle={false} contextLabel="context" collapseMode="launcher" fullscreenEnabled expanded={paneState.isOpen} onExpandedChange={setPaneOpen}
       minHeight={280} minimumReaderHeight={0}
-      headerActions={<><div ref={newConversation} className="plan-conversation-dock__new-conversation"/><details ref={management} className="plan-conversation-dock__management" aria-label="Conversation options"><summary>Conversation options</summary><div ref={header}/></details></>}
+      headerActions={<div ref={newConversation} className="plan-conversation-dock__new-conversation"/>}
+      menuRef={management} menuActions={<div ref={header}/>}
       launcher={<div ref={setLauncherHost} className="plan-conversation-dock__launcher"/>}
       contextDetails={<><p className="plan-conversation-dock__scope">{contextLabel.replace(/\s*·\s*Full saved Plan$/, "")}</p><div ref={context}/></>}
       messages={<div ref={messages} className="plan-conversation-dock__messages"/>}
