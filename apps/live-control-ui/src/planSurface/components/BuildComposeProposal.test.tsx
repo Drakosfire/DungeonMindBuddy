@@ -19,7 +19,7 @@ const history: WorldAgentConversationHistoryResponse = { schema: 'dmb_agent_conv
 const captured = { basis, draftMarkdown: '# Edge', editorJson: '{}', editor: {} } as CapturedBuildInsertion;
 function receipt(request?: api.BuildProposalRequest): api.BuildProposalRecord {
   return { schema_version: 'dmb_build_document_proposal_v1', action_id: request?.idempotency_key ?? 'action',
-    reservation: request ?? { idempotency_key: 'action', conversation_id: 'conversation', expected_pointer_revision: 1, basis, instruction: 'Create a table' },
+    reservation: request ?? { idempotency_key: 'action', conversation_id: 'conversation', expected_pointer_revision: 1, basis: {...basis}, instruction: 'Create a table' },
     request_fingerprint: 'c'.repeat(64), after_turn_sequence: 0, revision: 5, state: 'proposed', created_at: '', updated_at: '', claim_expires_at: '',
     authorization: null, failure_code: null, inserted_in_draft: false,
     proposal: { replacement_markdown: '| NPC | Job |\n| --- | --- |\n| Nella | Baker |', summary: 'Proposed NPC', assumptions: ['Invented'] } };
