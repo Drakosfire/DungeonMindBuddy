@@ -258,3 +258,67 @@ def test_forged_phase_input_is_rejected_before_dispatch(
             BuildJevHarness(decision_transport=decisions, writer_transport=writer),
         )
     assert rejected == [False] and len(decisions.calls) == 3 and not writer.calls
+
+
+def _authoring_machine(question):
+    from uuid import uuid4
+    from application_state.agent_conversation.build_world_context import (
+        BuildContextScope, FrozenBuildBasis, PrimarySectionOrigin,
+    )
+    from apps.live_control_server.services.build_jev_transitions import (
+        ContextEvidence, ReadAction, WorldReadAction, JOINT_SUPPORT_POLICY,
+    )
+    basis = FrozenBuildBasis(world_id="world:test", document_id="doc:test",
+        registry_revision=1, content_sha256="f" * 64, visibility="internal")
+    scope = BuildContextScope(managed_world_id="world:test", world_id="native:test",
+        binding_version=1, graph_revision="rev:1", primary_basis=basis,
+        client_thread_id="thread:test", client_turn_id="turn:test")
+    m = BuildJevTransitions(question, scope, (
+        ReadAction(id="page", label="Current authored page", kind="saved_build_section", unit_ids=("page",)),
+        WorldReadAction(id="world-object:other", label="World entity: Harbor Watch", kind="world_object"),
+    ), frontier_policy=FRONTIER_POLICY, phase_input_policy=policy.PHASE_POLICY,
+        support_policy=JOINT_SUPPORT_POLICY)
+    assert "authoring_support_rule" in m.step.state
+    answer(m, next_id="page")
+    text = "Lantern Hill is an orchard town. Its founders valued self-reliance; lantern keepers tend the trees."
+    m.accept_acquisition({"page": (ContextEvidence(id="page", scope=scope,
+        origin=PrimarySectionOrigin(source_basis=basis, section_event_id=uuid4(), read_id=uuid4()),
+        subject="Current authored page", text=text, content_sha256=sha256(text.encode()).hexdigest(),
+        source_class="saved_build_world_reference", provenance=({"section_read_id": "read:page"},)),)})
+    return m
+
+
+def test_authoring_context_is_bound_through_assessment_and_coverage_without_minting_facts():
+    m = _authoring_machine("Invent ten folksy names fitting the town's culture.")
+    assess = m.step
+    rule = assess.state["authoring_support_rule"]
+    assert "do not need to exist in sources" in rule
+    assert "established facts" in rule and "mixed creative/factual" in rule
+    questions = {q.name: q.question for q in assess.questions}
+    assert "authoring_support_rule" in questions["sufficiency"]
+    assert "requested inventions themselves" in questions["joint_support"]
+    original = project_evidence(m._scope, m._view_units())
+    assert {k: assess.state[k] for k in original} == original
+    coverage = answer(m, label="sufficient", relevance={"joint_support": .99})
+    assert coverage.state["assessment_binding"]["request_id"] == assess.request_id
+    assert coverage.state["authoring_support_rule"] == rule
+    assert "optional source of inspiration is not_useful" in coverage.state["coverage_rule"]
+    end = coverage_reply(m, [negative(.99)])
+    assert end.status == "provisionally_supported" and end.acquired_action_ids == ("page",)
+    assert len(end.evidence) == 1 and end.evidence[0].text == m._units["page"].text
+    # A semantic judgment permits writing; it does not create source evidence.
+    assert end.coverage_status != "catalog_exhausted"
+
+
+def test_mixed_authoring_request_still_needs_actual_missing_factual_support():
+    m = _authoring_machine("Verify the Harbor Watch captain, then invent a fitting town nickname.")
+    navigation = answer(m, label="more_evidence", relevance={"joint_support": .01})
+    assert navigation.phase == "navigate"
+    assert navigation.state["assessment_binding"]["supported"] is False
+    assert "authoring_support_rule" in navigation.questions[0].question
+    read = answer(m, next_id="world-object:other")
+    assert [a.id for a in read.actions] == ["world-object:other"]
+    # A factual-only scope gets no authoring permission, even with creative words.
+    source_only = BuildJevTransitions("Invent a name", SCOPE, actions("Source"),
+        frontier_policy=FRONTIER_POLICY, phase_input_policy=policy.PHASE_POLICY)
+    assert "authoring_support_rule" not in source_only.step.state
