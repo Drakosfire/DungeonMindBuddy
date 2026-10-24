@@ -2413,6 +2413,7 @@ export function WorldPlanAgentConversation({
   function restoreSubmittedDraft(snapshot: string, generation: number) {
     setComposerMessage((current) => current === "" && composerEditGenerationRef.current === generation ? snapshot : current);
   }
+  const [retryPresentationOrigin, setRetryPresentationOrigin] = useState<{scopeKey:string;turnId:string}|null>(null);
   const [submittedMessage, setSubmittedMessage] = useState<{
     id: string; scopeKey: string; conversationId: string | null; pointerRevision: number | null;
     message: string; kind: "discuss" | "propose";
@@ -3578,6 +3579,7 @@ export function WorldPlanAgentConversation({
 
   async function submit(event: Pick<FormEvent<HTMLFormElement>, "preventDefault">, intent = composerIntent, questionOverride?: string) {
     event.preventDefault();
+    if (questionOverride === undefined) setRetryPresentationOrigin(null);
     const composerSnapshotAtSubmit = questionOverride ?? composerMessage;
     const message = composerSnapshotAtSubmit.trim();
     const pointerSnapshot = historySnapshotRef.current;
@@ -3857,6 +3859,7 @@ export function WorldPlanAgentConversation({
 
   async function submitPlay(event?: Pick<FormEvent<HTMLFormElement>, "preventDefault">, discussionOnly = false, questionOverride?: string) {
     event?.preventDefault();
+    if (questionOverride === undefined) setRetryPresentationOrigin(null);
     const admittedRun = playMode?.admittedRun;
     const source = buildMode?.savedSource;
     const message = (questionOverride ?? composerMessage).trim();
@@ -5494,6 +5497,9 @@ export function WorldPlanAgentConversation({
         && turn.user_text === submittedMessage.message));
   const lastDisplayEvent = conversationDisplay.events.at(-1);
   const pendingRetryTurnId = unmatchedSubmittedMessage && lastDisplayEvent?.kind === "world"
+    && retryPresentationOrigin?.scopeKey === scopeKey
+    && retryPresentationOrigin.turnId === lastDisplayEvent.turn.turn_id
+    && !buildCompose.items.some(item => item.afterSequence >= lastDisplayEvent.turn.sequence)
     && isUnansweredFailure(lastDisplayEvent.turn)
     && lastDisplayEvent.turn.user_text === submittedMessage?.message
     && lastDisplayEvent.turn.provenance.surface_id === (isBuild ? "build" : isReadOnly ? "play" : "plan")
@@ -5580,6 +5586,7 @@ export function WorldPlanAgentConversation({
             && turn.provenance.primary_work.object_id === (isBuild ? buildMode?.savedSource?.documentId : isReadOnly ? playMode?.admittedRun?.runId : documentId)
             ? <ConversationRecovery question={turn.user_text} blocked={composerBusy}
                 onRetry={async(question)=>{
+                  setRetryPresentationOrigin({scopeKey,turnId:turn.turn_id});
                   if(isReadOnly)await submitPlay(undefined,false,question);
                   else await submit({preventDefault:()=>undefined},"discuss",question);
                 }} /> : null}
