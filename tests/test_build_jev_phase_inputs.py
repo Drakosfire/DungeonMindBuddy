@@ -278,7 +278,10 @@ def _authoring_machine(question):
         WorldReadAction(id="world-object:other", label="World entity: Harbor Watch", kind="world_object"),
     ), frontier_policy=FRONTIER_POLICY, phase_input_policy=policy.PHASE_POLICY,
         support_policy=JOINT_SUPPORT_POLICY)
-    assert "authoring_support_rule" in m.step.state
+    rule = m.step.state["authoring_support_rule"]
+    assert "not conversation history, source titles or discovery hints" in rule
+    assert "first read the relevant saved_build_section actions" in rule
+    assert "open relevant saved sections before judging context adequate" in m.step.questions[0].question
     answer(m, next_id="page")
     text = "Lantern Hill is an orchard town. Its founders valued self-reliance; lantern keepers tend the trees."
     m.accept_acquisition({"page": (ContextEvidence(id="page", scope=scope,
