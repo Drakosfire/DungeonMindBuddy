@@ -1,6 +1,13 @@
 # SURFACE — direct suggestion Save and usable placement
 
-ACTIVE serial PRIME slice from Buddy b3aadea4798fdff10436f8c48609d0a18bddb1d4,
+MERGED/DEPLOYED: #1702 at c6580a40c906e9a75d42f7712e15d55b996c70d1;
+independent Bugbot approved,72tests/typecheck/production build passed. Protected
+UI delivery preserved APIb3aadea4 and retained APP rows. An ordinary suggestion
+was generated, but live editing exposed a queued reveal focus race. Complete
+ordinary edit/move/Save/reload acceptance remains open. Repair is separately
+leased in HANDOFF-SURFACE-suggestion-reveal-focus.md.
+
+Historical serial PRIME slice from Buddy b3aadea4798fdff10436f8c48609d0a18bddb1d4,
 branch codex/suggestion-save-placement in existing buddy-context-loop checkout.
 Authority: operator's Bog Blossom Hill dogfood comments: one Save action; remove
 visible draft/Keep/save-suggestion distinctions; retain colored editable suggestion;

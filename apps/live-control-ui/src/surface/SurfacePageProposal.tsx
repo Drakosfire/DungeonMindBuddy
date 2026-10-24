@@ -83,7 +83,11 @@ export function SurfacePageProposal({editor,position,editorJson,children,onStale
   useEffect(()=>{if(host&&!editor.isDestroyed)editor.view.dispatch(editor.state.tr.setMeta('surfacePageProposalPosition',position));},[editor,host,position]);
   useEffect(()=>{
     if(!host||!revealKey)return;
-    const frame=requestAnimationFrame(()=>{host.scrollIntoView?.({block:'center',behavior:'auto'});host.focus({preventScroll:true});});
+    const frame=requestAnimationFrame(()=>{
+      // The author may have started typing after reveal was scheduled.
+      if(document.activeElement!==host&&host.contains(document.activeElement))return;
+      host.scrollIntoView?.({block:'center',behavior:'auto'});host.focus({preventScroll:true});
+    });
     return()=>cancelAnimationFrame(frame);
   },[host,revealKey]);
   return host?createPortal(<>
