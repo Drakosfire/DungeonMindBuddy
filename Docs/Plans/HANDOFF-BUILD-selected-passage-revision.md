@@ -4,8 +4,8 @@ SETTLED predecessor: PR #1688 merged as
 df2f6fed8d9b6af14f64dfdae196dc16728dcf65 after independent Bugbot approval of
 682c658bfaf10e639530c1bd02d22a030edc05bd. API8000/UI5202 run that merge.
 53 focused UI tests, 72 owner/SDK tests and shared integration checks passed;
-protected delivery preserved all 2,456 APP rows, native rows, 27 frozen components
-and 89 mechanics files. Ordinary retained Build loaded Saved after delivery.
+protected delivery preserved retained APP/native rows, frozen components
+and mechanics files. Ordinary retained Build loaded Saved after delivery.
 Live model-driven replacement, full journey and operator acceptance remain open.
 Original serial lane: codex/build-selected-passage-revision, base
 41d22cd2709530582332023180179ee3598f03e7, existing buddy-context-loop checkout.
