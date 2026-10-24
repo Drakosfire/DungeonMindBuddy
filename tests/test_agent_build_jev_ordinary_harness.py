@@ -978,3 +978,14 @@ def test_stale_editor_conversation_is_definitively_unadmitted(build_case, monkey
     assert not decisions.calls and not writer.calls
     assert reads == {"graph": 0, "source": 0}
     assert service.list_turns("elderwyld", cap.conversation_id) == before
+
+
+def test_admitted_editor_context_mismatch_never_claims_no_dispatch():
+    from types import SimpleNamespace
+    from apps.live_control_server.services.build_jev_driver import freeze_interaction
+    current = SimpleNamespace(active_conversation_id=uuid4(), revision=2)
+    adapter = SimpleNamespace(world_id="synthetic", turn=object(),
+        request=SimpleNamespace(build_write_capability=SimpleNamespace(conversation_id=uuid4(), expected_pointer_revision=1)),
+        service=SimpleNamespace(get_world_pointer=lambda _: current))
+    with pytest.raises(ValueError, match="admitted turn"):
+        freeze_interaction(adapter)
