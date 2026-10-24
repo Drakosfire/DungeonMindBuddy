@@ -27,3 +27,15 @@ Independent Bugbot reviews exact cumulative diff and results. A positive result
 would support only this prompt hypothesis, not product execution, full-context
 routing, latency noninferiority or operator acceptance. Runtime design/adoption
 remains separate; failed variants remain preserved.
+
+Operator clarified after inference: brainstorming a requested list of ten names
+should stage a page suggestion. Add host-only adjudication of stored responses,
+keyed by exact question digest and explicit authority; never rewrite frozen gold
+or call the model. Report raw counts and equal-utterance weighting. This reverses
+the initial raw fork comparison on the repeated-name cohort; it does not establish
+a unique-utterance gain or runtime readiness. Original evidence remains intact.
+
+Operator also wants visible table construction on the page: real progress cues,
+progressive rows/fields and a preview-render beat, directly editable before Save.
+This slice records that authoring direction; it does not implement streaming or
+claim intermediate generation events currently exist.

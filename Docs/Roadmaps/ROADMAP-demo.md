@@ -17,7 +17,11 @@ intended page location → edit, keep or discard it → save → reload and cont
 The authored working page is primary context; retrieved World evidence and played
 facts retain separate authority. Page results belong in a shared on-page proposal
 host; conversation carries concise discussion/acknowledgments and compact named
-citations. Floating conversation design follows that ownership. Preserve original
+citations. Floating conversation design follows that ownership. Requested concrete lists
+belong in page suggestions, including a brainstormed list of names. The operator
+also wants tables to visibly take shape on the page, using actual construction
+progress and progressive rows/fields with a preview-render beat; this remains
+forward authoring work, with direct editing and Save as the completion flow. Preserve original
 provider output and independently recover edited proposal/review state. Never
 silently substitute a discussion answer when a requested page operation is blocked.
 The delivered authoring foundation includes explicit placement failure, original
@@ -64,14 +68,18 @@ in9.02s/8.21s; full quality and client performance remain open.
 is delivered via1705, but its live7.86s reply still included long excerpts and a
 spurious gap; relevance acceptance remains open.
 [Discuss/Create proof](../Plans/HANDOFF-AGENT-discuss-create-proof.md) merged1706
-after independent Bugbot review. The sequential fork underperformed captured flat
-routing on dogfood and is not adopted.
+after independent Bugbot review. Initial frozen gold treated a requested name list
+as discussion. Operator clarified it should stage a suggestion: separate stored-
+response adjudication reverses the raw repeated-input comparison, while equal-
+utterance coarse scores tie83.3%. Neither result authorizes runtime adoption.
 [Routing context ablation](../Plans/HANDOFF-AGENT-routing-context-ablation.md) is
 delivered proof-only via1707: exact duplicate references worsened routing; removing
 diagnostics saved1.9%input tokens on the reused cohort. No runtime adoption.
 [Question instruction proof](../Plans/HANDOFF-AGENT-routing-question-instructions.md)
 is active: move identical candidate routing semantics from context into the actual
 Jev question instructions before drawing broader conclusions from the prototype.
+The measured instruction move alone did not materially improve routing. Original
+frozen scores and explicit operator adjudication remain separate evidence.
 
 
 Preserve and verify the shipped scene→encounter→immutable mechanics successor→

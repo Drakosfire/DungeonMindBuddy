@@ -121,3 +121,25 @@ def test_instruction_variant_moves_identical_guidance_only():
         altered=deepcopy(case);altered['gold']={'secret':'must_not_leak'};altered['id']='secret_identity'
         assert request(altered,'instruction_flat')==request(case,'instruction_flat')
         DecisionRequest.model_validate(sdk_request(request(case,'instruction_flat')))
+
+
+def test_operator_adjudication_preserves_original_run_and_reports_unique_weight():
+    from evals.utterance_intent.adjudication import adjudicate
+    from evals.utterance_intent.proof import digest
+    import pytest
+    case={'id':'names','question':'Brainstorm a list of ten names.',
+          'gold':{'intent':'discuss','outcome':'reply','branches':['brainstorm']}}
+    manifest={'cases':[case]}
+    report={'manifest_sha256':digest(manifest),'rows':[{'family':'dogfood','variant':'candidate','case_id':'names',
+             'actual':{'intent':'create','outcome':'writing','branch':'writing'}}]*2}
+    originals=deepcopy((manifest,report))
+    override={'case_id':'names','question_sha256':digest(case['question']),
+              'authority':'Explicit operator clarification: stage a page suggestion',
+              'gold':{'intent':'create','outcome':'writing','branches':['writing']}}
+    result=adjudicate(manifest,report,[override])
+    assert result['groups'][0]['complete']==2
+    assert result['groups'][0]['unique_utterances']==1
+    assert result['groups'][0]['utterance_macro_intent_outcome']==1
+    assert (manifest,report)==originals
+    override['question_sha256']='wrong'
+    with pytest.raises(ValueError,match='question differs'):adjudicate(manifest,report,[override])
