@@ -1,6 +1,9 @@
 # AGENT — prove Discuss/Create before runtime adoption
 
-ACTIVE serial PRIME evaluation lease from d68320086b46a68e2b812b00588bf3d494063c25,
+DELIVERED proof-only via PR1706, merge44708dcf4. Independent Bugbot approved
+exacte150daa21; routing fork rejected from measured results, no runtime adoption.
+
+Original serial PRIME evaluation lease from d68320086b46a68e2b812b00588bf3d494063c25,
 branch codex/discuss-create-proof, existing Buddy context-loop checkout. Operator
 explicitly requests proof across modeled benchmarks before changing routing.
 No production registry, classifier, provider menu, APP contract or runtime edits.

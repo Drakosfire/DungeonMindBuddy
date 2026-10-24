@@ -75,3 +75,34 @@ def test_flat_and_fork_leaf_definitions_match():
         fork=sdk_request(request(case,'fork',intent))['questions'][0]
         assert flat['question']==fork['question']
         assert all(flat['option_descriptions'][o]==fork['option_descriptions'][o] for o in fork['options'])
+
+
+def test_ablation_reconstructs_exact_interaction_and_keeps_semantic_context():
+    interaction={'history':[{'user':'Read the page','assistant':'Source context'}],
+                 'allowed_operations':['answer_from_sources'],'page_target':{'body':'Keep current draft'}}
+    payload={'model':'jev-1.14.0','questions':{'operation':{'type':'choice','instructions':'Choose','criteria':{'answer_from_sources':None}}},
+             'state':{'context_accounting':{'request_limit_tokens':100},
+                      'interaction':interaction,'initialClaimPacket':{'evidence':['Retain all facts']},
+                      'graph_scope':{'revision':7},'rules_projection':{'authorization':'unchanged'},
+                      'decision':{'model':'jev-1.14.0','request_id':'diagnostic','kind':'operation',
+                                  'state':{'interaction':deepcopy(interaction),'user_question':'Read the page'}}}}
+    case={'baseline_request':payload}
+    for variant in ('metadata_only','deduplicated','dedup_metadata'):
+        actual=request(case,variant)
+        assert actual['questions']==payload['questions']
+        if variant in ('deduplicated','dedup_metadata'):
+            assert actual['state']['decision']['state']['interaction']=={'exact_reference':'state.interaction'}
+            actual['state']['decision']['state']['interaction']=deepcopy(actual['state']['interaction'])
+        if variant in ('metadata_only','dedup_metadata'):
+            actual['state']['context_accounting']=deepcopy(payload['state']['context_accounting'])
+            for key in ('model','request_id'):actual['state']['decision'][key]=payload['state']['decision'][key]
+        assert actual==payload
+    assert case['baseline_request']==payload
+
+
+def test_different_interactions_are_never_collapsed():
+    import pytest
+    case={'baseline_request':{'state':{'interaction':{'history':['new']},
+                                     'decision':{'state':{'interaction':{'history':['old']}}}}}}
+    with pytest.raises(ValueError,match='copies differ'):
+        request(case,'deduplicated')

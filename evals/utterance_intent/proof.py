@@ -12,7 +12,8 @@ import statistics
 import time
 
 MODEL = 'jev-1.14.0'
-POLICY = 'discuss_create_proof_v2'
+POLICY = 'routing_context_ablation_v1'
+FLAT_VARIANTS = ('captured_flat','normalized_flat','metadata_only','deduplicated','dedup_metadata')
 SEMANTICS = '''Classify the user's requested next work, using history only to resolve references.
 Discuss means understanding, retrieving context, comparing, brainstorming or answering questions.
 Create means producing or revising a concrete artifact, including a requested section, table, image,
@@ -73,8 +74,18 @@ def normalized(case):
 
 
 def request(case, variant, intent=None):
-    if variant=='captured_flat':
-        return deepcopy(case['baseline_request'])
+    if variant in ('captured_flat','metadata_only','deduplicated','dedup_metadata'):
+        payload=deepcopy(case['baseline_request'])
+        if variant in ('deduplicated','dedup_metadata'):
+            state=payload['state']
+            if state['decision']['state']['interaction']!=state['interaction']:
+                raise ValueError('Interaction copies differ; no deduplication permitted')
+            state['decision']['state']['interaction']={'exact_reference':'state.interaction'}
+        if variant in ('metadata_only','dedup_metadata'):
+            payload['state'].pop('context_accounting',None)
+            for key in ('request_id','model'):
+                payload['state']['decision'].pop(key,None)
+        return payload
     state=normalized(case)
     if variant=='normalized_flat':
         original=case['baseline_request']
@@ -174,7 +185,7 @@ async def one(case,variant,repeat,evaluate,output):
         return raw
     try:
         first=await call(request(case,variant))
-        if variant in ('captured_flat','normalized_flat'):
+        if variant in FLAT_VARIANTS:
             op=selection(first,'operation')
             if op=='prepare_build_image' and first['answers']['operation']['probabilities'][op]<0.9:
                 raise ValueError('Existing image-preparation confidence gate')
@@ -203,11 +214,12 @@ async def one(case,variant,repeat,evaluate,output):
     return row
 
 
-async def run(cases,evaluate,output,repeats=2,concurrency=4):
+async def run(cases,evaluate,output,repeats=2,concurrency=4,variants=None):
     validate_cases(cases)
     output.mkdir(mode=0o700,parents=True,exist_ok=False)
     manifest={'policy':POLICY,'guidance':SEMANTICS,'cases':cases,'repeats':repeats,'concurrency':concurrency,
-              'variants':['captured_flat','normalized_flat','intent_flat','fork']}
+              'variants':variants or ['captured_flat','normalized_flat','intent_flat','fork'],
+              'evaluator_sha256':sha256(Path(__file__).read_bytes()).hexdigest()}
     frozen=canonical(manifest);(output/'frozen.json').write_text(frozen);(output/'frozen.json').chmod(0o600)
     semaphore=asyncio.Semaphore(concurrency);rows=[]
     async def bounded(case,variant,repeat):
@@ -218,10 +230,10 @@ async def run(cases,evaluate,output,repeats=2,concurrency=4):
     jobs=[]
     for repeat in range(repeats):
         for case in cases:
-            variants=['captured_flat','normalized_flat','intent_flat','fork'] if 'baseline_request' in case else ['intent_flat','fork']
+            case_variants=list(variants or (['captured_flat','normalized_flat','intent_flat','fork'] if 'baseline_request' in case else ['intent_flat','fork']))
             # Alternate order without tuning or resubmitting failed requests.
-            if repeat%2:variants.reverse()
-            jobs.extend(bounded(case,v,repeat) for v in variants)
+            if repeat%2:case_variants.reverse()
+            jobs.extend(bounded(case,v,repeat) for v in case_variants)
     await asyncio.gather(*jobs)
     groups=[]
     for family,variant in sorted({(r['family'],r['variant']) for r in rows}):
@@ -245,6 +257,7 @@ async def run(cases,evaluate,output,repeats=2,concurrency=4):
 async def main():
     parser=argparse.ArgumentParser(description=__doc__);parser.add_argument('--cases',type=Path,required=True)
     parser.add_argument('--output',type=Path,required=True);parser.add_argument('--credential-file',type=Path,required=True)
+    parser.add_argument('--context-ablation',action='store_true')
     args=parser.parse_args();os.umask(0o077)
     from dotenv import dotenv_values
     key=dotenv_values(args.credential_file).get('TYPESAFE_JEV_API_KEY')
@@ -256,7 +269,7 @@ async def main():
     async def evaluate(payload):
         # Actual SDK: no transport retries, no writer, raw usage retained.
         return (await client.decide(DecisionRequest.model_validate(sdk_request(payload)))).model_dump(mode='json')
-    try:report=await run(json.loads(args.cases.read_text()),evaluate,args.output)
+    try:report=await run(json.loads(args.cases.read_text()),evaluate,args.output,variants=['captured_flat','metadata_only','deduplicated','dedup_metadata'] if args.context_ablation else None)
     finally:await client.aclose()
     print(json.dumps({'manifest_sha256':report['manifest_sha256'],'case_count':report['case_count'],'groups':report['groups']}))
 
