@@ -1,6 +1,11 @@
 # Resolve saved Build identity without an arbitrary body-size refusal
 
-ACTIVE serial PRIME implementation, branch codex/build-source-provider-admission,
+SETTLED: PR #1694 merged at 3b6556ea0ab01b810fc358aec5cc07e6bfc16f92;
+reviewed head 0294f84c3e5634e130ad744e6ba734cef343408f. Independent Bugbot
+repeated 52 owner tests and 2 mounted UI checks. API/UI delivered, retained state
+preserved. Live quality acceptance remains open. Successor: HANDOFF-BUILD-admission-diagnostics.md.
+
+Original serial PRIME implementation, branch codex/build-source-provider-admission,
 base 9b0713e09410870b15d48f3264b51c2434935a1e, existing buddy-context-loop checkout.
 One capability/PR; current hosted/Combat/Ingest lanes are disjoint.
 

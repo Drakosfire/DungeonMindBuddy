@@ -171,3 +171,35 @@ def test_writer_runtime_budget_drift_cannot_expand_frozen_policy(build_case, mon
         execute(case, tmp_path, BuildJevHarness(decision_transport=decisions,
             writer_transport=writer, accounting=counter()))
     assert len(decisions.calls) == 5 and writer.calls == []
+
+
+def test_selection_capacity_refusal_reopens_in_debug_without_a_fake_call(build_case, monkeypatch, tmp_path):
+    from apps.live_control_server.services import build_jev_writer_selection as selecting
+    from apps.live_control_server.services.build_jev_accounting import DecisionCapacityError
+    from apps.live_control_server.services.agent_turn_service import AgentTurnServiceError
+    from tests.test_build_writer_selection import SelectionWire
+
+    case, _ = ordinary_case(build_case, monkeypatch)
+    original = selecting.prepared_driver_view
+    def refuse_capacity(*args, **kwargs):
+        original(*args, **kwargs)
+        raise DecisionCapacityError("Decision request context exceeds experimental estimate",
+            code="decision_request_capacity_exceeded")
+    monkeypatch.setattr(selecting, "prepared_driver_view", refuse_capacity)
+    decisions, writer = SelectionWire("saved_only"), WriterWire()
+    harness = BuildJevHarness(decision_transport=decisions, writer_transport=writer,
+        accounting=counter(), world_context=True, named_citations=True)
+    with pytest.raises(AgentTurnServiceError) as refusal:
+        execute(case, tmp_path, harness)
+    assert refusal.value.code == "provider_envelope_over_budget"
+    assert not writer.calls
+    assert decisions.calls and not any(json.loads(call.content)["state"].get("writer_selection_policy") for call in decisions.calls)
+    service = AgentConversationService()
+    turn, = service.list_turns("elderwyld", service.get_world_pointer("elderwyld").active_conversation_id)
+    assert turn.status == "interrupted" and turn.completion is None
+    traces = service.list_context_trace_attempts(world_id="elderwyld", turn_id=turn.turn_id)
+    assert any(event.kind == "failure" and event.phase == "context_build"
+        and event.code == "decision_request_capacity_exceeded" for trace in traces for event in trace.observations)
+    authorizations = [event for event in turn.graph_context_execution.events if isinstance(event, ledger.ProviderAttemptAuthorizedEventV1)]
+    assert len(authorizations) == len(decisions.calls) == len(harness.calls)
+    assert all(call["status"] == "ok" for call in harness.calls)

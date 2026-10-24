@@ -15,6 +15,7 @@ from application_state.agent_conversation.rules_authority_reads import MixedComp
 from apps.live_control_server.models.world_graph_object_projection import (
     WorldGraphObjectReviewedSourceObservation,
 )
+from .build_jev_accounting import DecisionCapacityError
 from .build_jev_dispatch import first_state, PHASE_SCHEMA, PHASE_POLICY, phase_binding
 from .build_jev_compaction import CONTAINED_CODEC
 from .build_jev_transitions import (
@@ -911,6 +912,9 @@ class BuildJevDriver:
                 plan.section_read_ids,
             ):
                 return False
+        except DecisionCapacityError as exc:
+            self.admission_failure = exc
+            return False
         except (AttributeError, KeyError, TypeError, ValueError):
             return False
         a._prepared_build_authorizing = view
