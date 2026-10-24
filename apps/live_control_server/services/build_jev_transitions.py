@@ -307,7 +307,7 @@ class BuildJevTransitions:
             a
             for key, a in self._actions.items()
             if key not in self._visited
-            and any(uid not in self._units for uid in a.unit_ids)
+            and (isinstance(a, WorldReadAction) or any(uid not in self._units for uid in a.unit_ids))
         ]
 
     def _basis(self) -> str:

@@ -1,6 +1,7 @@
 # Build related World source context
 
-ACTIVE serial PRIME vertical slice from71034133aa5fbf1e65406d2200510b3ecc4acf7e,
+ACTIVE serial PRIME vertical slice, re-anchored fromb693c78b13d7b3c871d915067fa6d03b08f7a203
+after composer/retry delivery. Original scope began at71034133aa5fbf1e65406d2200510b3ecc4acf7e,
 branch codex/build-world-context, reused buddy-context-loop. Operator authorizes the
 reported saved-page + related World-location discussion and continuing foundations.
 Architecture reviewed the single-machine/per-origin design and this bounded V2

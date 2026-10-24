@@ -70,7 +70,9 @@ class WorldPassageOrigin(_Frozen):
 
     @model_validator(mode="after")
     def ordered_lines(self):
-        if (self.line_start is None) != (self.line_end is None) or (self.line_start is not None and self.line_end < self.line_start):
+        if (self.line_start is None) != (self.line_end is None) or (
+            self.line_start is not None and self.line_end < self.line_start
+        ):
             raise ValueError("World passage line range is reversed")
         return self
 
@@ -241,7 +243,8 @@ def validate_world_events(execution):
                 not enabled
                 or provider is None
                 or outcome != "response_received"
-                or (provider.provider, provider.model, provider.api_mode) != execution.policy.provider_roles.controller.identity()
+                or (provider.provider, provider.model, provider.api_mode)
+                != execution.policy.provider_roles.controller.identity()
                 or provider.provider_attempt_id != event.controller_attempt_id
                 or provider.envelope_sha256 != event.controller_envelope_sha256
                 or event.context_receipt_sha256 != execution.context_receipt_sha256
@@ -258,23 +261,40 @@ def validate_world_events(execution):
                 seen.add(action.action_id)
 
 
-def opened_world_passages(execution, operation_ids, read_ids, graph_payloads, source_payloads):
+def opened_world_passages(
+    execution, operation_ids, read_ids, graph_payloads, source_payloads
+):
     """Reconstruct each origin from actual selected operations and real V2 reads."""
     from hashlib import sha256
     from . import types as t
     from .source_writer_output import strict_json
+
     events = {str(e.event_id): e for e in execution.events}
-    permitted = {a.request_arguments_sha256 for e in execution.events
-                 if isinstance(e, t.BuildWorldReadSelectionV1) for a in e.actions}
     pins, donor_for = {}, {}
     for identity in operation_ids:
         operation = events.get(str(identity))
-        if (not isinstance(operation, t.ValidatedGraphOperationEventV3)
-                or operation.request_arguments_sha256 not in permitted
-                or operation.graph_revision != execution.policy.source_read_scope.graph_revision):
-            raise ValueError("World passage lacks its selected current object operation")
+        permitted = {
+            a.request_arguments_sha256
+            for e in execution.events
+            if isinstance(e, t.BuildWorldReadSelectionV1)
+            and e.sequence < getattr(operation, "sequence", -1)
+            for a in e.actions
+        }
+        if (
+            not isinstance(operation, t.ValidatedGraphOperationEventV3)
+            or operation.request_arguments_sha256 not in permitted
+            or operation.graph_revision
+            != execution.policy.source_read_scope.graph_revision
+        ):
+            raise ValueError(
+                "World passage lacks its selected current object operation"
+            )
         raw = strict_json(graph_payloads[operation.event_id])
-        native = {k: v for k, v in raw.items() if k not in {"retrievalSessionId", "addedClaimIds", "claimLedger"}}
+        native = {
+            k: v
+            for k, v in raw.items()
+            if k not in {"retrievalSessionId", "addedClaimIds", "claimLedger"}
+        }
         if t.canonical_sha256(native) != operation.result_packet_sha256:
             raise ValueError("World object body differs from its committed operation")
         for pin in operation.returned_source_pins:
@@ -297,41 +317,63 @@ def opened_world_passages(execution, operation_ids, read_ids, graph_payloads, so
             pin = pins.get(receipt.anchor_id)
             if pin is None:
                 continue  # Other selected units must represent whole batch siblings.
-            if (receipt.evidence_ref_id != pin.evidence_ref_id
-                    or receipt.source_artifact_id != pin.source_artifact_id
-                    or receipt.source_revision_id != pin.source_revision_id
-                    or receipt.outcome != "enough" or receipt.truncated
-                    or receipt.evidence_sufficiency_status != "sufficient"
-                    or body.get("outcome") != receipt.outcome or body.get("truncated", False)
-                    or body.get("anchorId") != receipt.anchor_id or body.get("evidenceRefId") != receipt.evidence_ref_id
-                    or body.get("sourceArtifactId") != receipt.source_artifact_id
-                    or body.get("lineStart") != receipt.line_start or body.get("lineEnd") != receipt.line_end
-                    or not isinstance(body.get("content"), str) or len(body["content"]) != receipt.returned_chars
-                    or sha256(body["content"].encode()).hexdigest() != receipt.content_sha256):
-                raise ValueError("World passage differs from exact selected pin/read bytes")
+            if (
+                receipt.evidence_ref_id != pin.evidence_ref_id
+                or receipt.source_artifact_id != pin.source_artifact_id
+                or receipt.source_revision_id != pin.source_revision_id
+                or receipt.outcome != "enough"
+                or receipt.truncated
+                or receipt.evidence_sufficiency_status != "sufficient"
+                or body.get("outcome") != receipt.outcome
+                or body.get("truncated", False)
+                or body.get("anchorId") != receipt.anchor_id
+                or body.get("evidenceRefId") != receipt.evidence_ref_id
+                or body.get("sourceArtifactId") != receipt.source_artifact_id
+                or body.get("lineStart") != receipt.line_start
+                or body.get("lineEnd") != receipt.line_end
+                or not isinstance(body.get("content"), str)
+                or len(body["content"]) != receipt.returned_chars
+                or sha256(body["content"].encode()).hexdigest()
+                != receipt.content_sha256
+            ):
+                raise ValueError(
+                    "World passage differs from exact selected pin/read bytes"
+                )
             name = body.get("sourceName")
             if not isinstance(name, str) or not name.strip():
                 raise ValueError("World passage lacks its host-provided source name")
-            origin = WorldPassageOrigin(operation_event_id=donor_for[pin.anchor_id], source_read_event_id=event.event_id,
-                source_read_id=receipt.source_read_id, anchor_id=pin.anchor_id, evidence_ref_id=pin.evidence_ref_id,
-                source_artifact_id=pin.source_artifact_id, source_revision_id=pin.source_revision_id,
-                content_sha256=receipt.content_sha256, line_start=receipt.line_start, line_end=receipt.line_end)
+            origin = WorldPassageOrigin(
+                operation_event_id=donor_for[pin.anchor_id],
+                source_read_event_id=event.event_id,
+                source_read_id=receipt.source_read_id,
+                anchor_id=pin.anchor_id,
+                evidence_ref_id=pin.evidence_ref_id,
+                source_artifact_id=pin.source_artifact_id,
+                source_revision_id=pin.source_revision_id,
+                content_sha256=receipt.content_sha256,
+                line_start=receipt.line_start,
+                line_end=receipt.line_end,
+            )
             result.append((origin, body["content"], name.strip()))
     return result
 
 
 def scope_presentation(scope):
     if isinstance(scope, BuildContextScope):
-        return {"kind": "primary_authored_page_and_opened_world_sources",
-                "primary_role": "authored_reference_not_played_truth",
-                "world_role": "opened_source_evidence_not_graph_truth"}
+        return {
+            "kind": "primary_authored_page_and_opened_world_sources",
+            "primary_role": "authored_reference_not_played_truth",
+            "world_role": "opened_source_evidence_not_graph_truth",
+        }
     return scope.model_dump(mode="json")
 
 
 def verify_named_input(packet, turn, trace):
     """Display names come from protected read captures, never writer or caller text."""
     execution = turn.graph_context_execution
-    if packet.get("world_context_policy") != getattr(execution.policy, "world_context_policy", None):
+    if packet.get("world_context_policy") != getattr(
+        execution.policy, "world_context_policy", None
+    ):
         raise ValueError("Named source capability differs from frozen execution")
     if getattr(execution.policy, "world_context_policy", None) != POLICY:
         return
@@ -339,13 +381,23 @@ def verify_named_input(packet, turn, trace):
     for row in trace.get("observations", []):
         if row.get("kind") not in {"source_passage", "source_passage_reuse"}:
             continue
-        key = (row.get("source_artifact_id"), row.get("source_revision_id"),
-               row.get("line_start"), row.get("line_end"), row.get("text"))
+        key = (
+            row.get("source_artifact_id"),
+            row.get("source_revision_id"),
+            row.get("line_start"),
+            row.get("line_end"),
+            row.get("text"),
+        )
         if key in captured and captured[key] != row.get("source_name"):
             raise ValueError("Ambiguous captured source owner name")
         captured[key] = row.get("source_name")
     for passage in packet.get("opened_passages", []):
-        key = (passage.get("source_artifact_id"), passage.get("source_revision_id"),
-               passage.get("line_start"), passage.get("line_end"), passage.get("text"))
+        key = (
+            passage.get("source_artifact_id"),
+            passage.get("source_revision_id"),
+            passage.get("line_start"),
+            passage.get("line_end"),
+            passage.get("text"),
+        )
         if key not in captured or passage.get("source_name") != captured[key]:
             raise ValueError("Writer source name differs from protected source read")

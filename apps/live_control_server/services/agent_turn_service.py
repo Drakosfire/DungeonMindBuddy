@@ -2375,7 +2375,8 @@ class _PolicyExecutionAdapter:
         expected_budget = request_budget()
         if self.budget.get("buildJevActions") is not None:
             from .build_jev_harness import BuildJevHarness
-            expected_budget = BuildJevHarness.budget(self.request, accounting=getattr(self, "_build_jev_accounting", None))
+            expected_budget = BuildJevHarness.budget(self.request, accounting=getattr(self, "_build_jev_accounting", None),
+                world_context=getattr(self._broker_execution().policy, "world_context_policy", None) == "build_world_opened_source_context_v1")
         if self.failure is not None or self.fence is None or self.budget != expected_budget:
             raise ValueError("Controller exposure requires an active admitted Build turn")
         execution = self._broker_execution()

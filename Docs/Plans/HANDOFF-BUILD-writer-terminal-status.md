@@ -1,6 +1,12 @@
 # Build writer terminal-status admission
 
-ACTIVE serial PRIME follow-up from5c58cfcf7ad7c6b2435da250201bd16c98cddbf8,
+SETTLED: #1665 merged at71034133aa5fbf1e65406d2200510b3ecc4acf7e and
+protected API delivery preserved retained state. Ordinary saved-page discussion
+completed with exact primary context, truthful partial status and captured output;
+reload/reopen retained the answer and the source remained unchanged. Related World
+retrieval is governed by HANDOFF-BUILD-world-context.md, not completion of this slice.
+
+Original serial PRIME follow-up from5c58cfcf7ad7c6b2435da250201bd16c98cddbf8,
 branch codex/build-writer-terminal-status, reused buddy-context-loop. Operator
 continues page-aware Build discussion and inspectable failed Debug output. No
 open overlapping implementation PR; remote/main and active lanes rechecked.
