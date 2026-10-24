@@ -93,7 +93,13 @@ def freeze_interaction(adapter):
     conversation_id = pointer.active_conversation_id
     if capability is not None and (capability.conversation_id != conversation_id
             or capability.expected_pointer_revision != pointer.revision):
-        raise ValueError("Captured editor conversation changed")
+        if adapter.turn is not None:
+            raise ValueError("Captured editor conversation changed for an admitted turn")
+        from .agent_turn_service import AgentTurnServiceError
+        raise AgentTurnServiceError(
+            "The conversation changed since this request was prepared. Send the question again to use the current editor context. Your source was not changed.",
+            code="build_editor_context_changed", status_code=409, provider_dispatched=False,
+        )
     rows = adapter.service.list_turns(adapter.world_id, conversation_id, limit=6) if conversation_id else []
     history, remaining = [], 12000
     for row in reversed(rows):

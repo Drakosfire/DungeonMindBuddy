@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import logging
 import time
 from dataclasses import dataclass
 from uuid import UUID
@@ -128,6 +129,8 @@ class BuildJevHarness:
         try:
             completed = self.execute(adapter)
         except Exception as exc:
+            if adapter.turn is None and not self.calls:
+                logging.getLogger(__name__).exception("Build preparation failed before durable admission or provider dispatch")
             trace.complete_phase(span, status="error")
             if adapter.turn is not None and not isinstance(adapter.turn, MixedCompletedTurnV1) and adapter.turn.status == "running":
                 _interrupt_policy_delivery(adapter.service, adapter.turn)

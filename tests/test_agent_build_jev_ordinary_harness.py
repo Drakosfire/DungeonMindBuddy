@@ -957,3 +957,35 @@ def test_ordinary_deferred_actions_stay_unread_and_citations_survive_reopen(
     restored = TypeAdapter(ledger.BuildFrontierActionControllerWriterPolicyV1 | ledger.BuildContinuationActionControllerWriterPolicyV1).validate_python(old)
     assert type(restored) is ledger.BuildContinuationActionControllerWriterPolicyV1
     assert "frontier_policy" not in restored.model_dump()
+
+
+@pytest.mark.parametrize("mismatch", ["pointer", "conversation"])
+def test_stale_editor_conversation_is_definitively_unadmitted(build_case, monkeypatch, tmp_path, mismatch):
+    from apps.live_control_server.services.agent_turn_service import AgentTurnServiceError
+    case, reads = ordinary_case(build_case, monkeypatch, authoring=True)
+    source, request, bootstrap = case
+    cap = request.build_write_capability
+    changed = {"expected_pointer_revision": cap.expected_pointer_revision + 1} if mismatch == "pointer" else {"conversation_id": uuid4()}
+    request = request.model_copy(update={"build_write_capability": cap.model_copy(update=changed)})
+    decisions, writer = DecisionWire(), WriterWire()
+    service = AgentConversationService()
+    before = service.list_turns("elderwyld", cap.conversation_id)
+    with pytest.raises(AgentTurnServiceError) as failed:
+        execute((source, request, bootstrap), tmp_path, BuildJevHarness(decision_transport=decisions, writer_transport=writer))
+    assert failed.value.code == "build_editor_context_changed"
+    assert failed.value.provider_dispatched is False
+    assert failed.value.status_code == 409
+    assert not decisions.calls and not writer.calls
+    assert reads == {"graph": 0, "source": 0}
+    assert service.list_turns("elderwyld", cap.conversation_id) == before
+
+
+def test_admitted_editor_context_mismatch_never_claims_no_dispatch():
+    from types import SimpleNamespace
+    from apps.live_control_server.services.build_jev_driver import freeze_interaction
+    current = SimpleNamespace(active_conversation_id=uuid4(), revision=2)
+    adapter = SimpleNamespace(world_id="synthetic", turn=object(),
+        request=SimpleNamespace(build_write_capability=SimpleNamespace(conversation_id=uuid4(), expected_pointer_revision=1)),
+        service=SimpleNamespace(get_world_pointer=lambda _: current))
+    with pytest.raises(ValueError, match="admitted turn"):
+        freeze_interaction(adapter)
