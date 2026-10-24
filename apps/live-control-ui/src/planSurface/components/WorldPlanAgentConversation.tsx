@@ -5575,13 +5575,6 @@ export function WorldPlanAgentConversation({
           </div>
         ) : failed || interrupted ? (
           <div className="world-plan-agent-conversation__turn-status">
-          <p role="status">
-            {pendingRetryTurnId === turn.turn_id && !historicalAttempt
-              ? sending ? "Retrying your question…" : "Checking the retried request…"
-              : failed
-              ? turn.provenance.surface_id === "play" ? "Buddy couldn’t finish this reply. No Run change was applied." : turn.provenance.surface_id === "build" ? "Buddy couldn’t finish this reply. Your saved source was not changed." : "Buddy couldn’t finish this reply. Your Plan was not changed."
-              : turn.provenance.surface_id === "play" ? "This reply stopped before it finished. No Run change was applied." : turn.provenance.surface_id === "build" ? "This reply stopped before it finished. Your saved source was not changed." : "This reply stopped before it finished. Your Plan was not changed."}
-          </p>
           {!historicalAttempt && turn.provenance.surface_id === (isBuild ? "build" : isReadOnly ? "play" : "plan")
             && turn.provenance.primary_work.object_id === (isBuild ? buildMode?.savedSource?.documentId : isReadOnly ? playMode?.admittedRun?.runId : documentId)
             ? <ConversationRecovery question={turn.user_text} blocked={composerBusy}
@@ -5599,6 +5592,15 @@ export function WorldPlanAgentConversation({
             setOpenedTraceTurns(current => current[key] === open ? current : { ...current, [key]: open });
           }}>
             <summary>Debug</summary>
+            {failed || interrupted ? (
+              <p role="status">
+                {pendingRetryTurnId === turn.turn_id && !historicalAttempt
+                  ? sending ? "Retrying your question…" : "Checking the retried request…"
+                  : failed
+                  ? turn.provenance.surface_id === "play" ? "Buddy couldn’t finish this reply. No Run change was applied." : turn.provenance.surface_id === "build" ? "Buddy couldn’t finish this reply. Your saved source was not changed." : "Buddy couldn’t finish this reply. Your Plan was not changed."
+                  : turn.provenance.surface_id === "play" ? "This reply stopped before it finished. No Run change was applied." : turn.provenance.surface_id === "build" ? "This reply stopped before it finished. Your saved source was not changed." : "This reply stopped before it finished. Your Plan was not changed."}
+              </p>
+            ) : null}
             {openedTraceTurns[`${verifiedWorldId}\u001f${turn.turn_id}`] && previousAttempts.length ? <details>
               <summary>Previous attempts · {previousAttempts.length}</summary>
               {previousAttempts.map(attempt => renderConversationEvent(attempt, [], true))}

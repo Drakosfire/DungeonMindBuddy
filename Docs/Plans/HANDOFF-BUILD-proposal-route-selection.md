@@ -1,6 +1,10 @@
 # Reversible proposal route selection
 
-ACTIVE serial PRIME slice, codex/build-reversible-proposal-routing, base
+SETTLED: #1683 merged 73ec0bd78 after exact Bugbot approval and protected API delivery.
+78 checks plus 16 independent checks passed; saved rows and source files were preserved.
+Ordinary operator dogfood remains open; no live inference probe was run during writing.
+
+Completed serial PRIME slice, codex/build-reversible-proposal-routing, base
 c9493edc0905879b0a3fe6cffb369c0d78160542, existing buddy-context-loop checkout.
 
 ## Invariant and critique
