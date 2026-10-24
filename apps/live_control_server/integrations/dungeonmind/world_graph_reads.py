@@ -1965,9 +1965,9 @@ def _get_object_with_reviewed_sources_direct(
 ]:
     """Keep bounded object semantics while adding Core's reviewed source facet.
 
-    The ordinary object result remains the existing bounded retrieval. A second
-    read at its exact pinned revision supplies only finalized observations and
-    their admitted anchors. No contribution records are inspected in Buddy.
+    One Core operation supplies bounded selection plus complete finalized
+    observations and their admitted anchors from the same captured context.
+    No contribution records or private read contexts are inspected in Buddy.
     """
     try:
         if (
@@ -1982,23 +1982,14 @@ def _get_object_with_reviewed_sources_direct(
         native_request = _map_retrieval_context(request, services.binding)
         if native_request.revision_pin is None:
             raise ValueError("Harness object expansion requires an exact revision pin")
-        bounded = services.retrieval.get_object(
+        views = services.retrieval.get_object_views(
             native_request,
             object_id=request.node_id,
             bounds=_retrieval_bounds(request.bounds),
         )
-        complete = services.retrieval.get_complete_object(
-            native_request, object_id=request.node_id
-        )
-        snapshot_fields = (
-            "schema_version", "world_id", "campaign_id", "focus", "admissibility",
-            "scope_mode", "revision_id",
-        )
+        bounded, complete = views.bounded, views.complete
         if (
-            any(
-                getattr(bounded.snapshot, field, None) != getattr(complete.snapshot, field, None)
-                for field in snapshot_fields
-            )
+            bounded.snapshot != complete.snapshot
             or bounded.found != complete.found
             or ((bounded.object is None) != (complete.object is None))
             or (

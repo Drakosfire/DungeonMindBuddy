@@ -1,8 +1,8 @@
 # Buddy roadmap — author, plan, play, remember
 
 **Status:** current product execution ledger; reconciled2026-10-24.
-**Evidence anchor:** API `1c77d61afcd20fef55a82da105512b79eb162313`, UI `ada13b16ab0b6c1b8b009df02461b2af380e2028`
-(#1699/#1697), ports8000/5202, APP0061/native0017, Core617635c.
+**Evidence anchor:** API `1f01a28ccc841903c3017b7d7f94e58c5ea869bf`, UI `ada13b16ab0b6c1b8b009df02461b2af380e2028`
+(#1700/#1697), ports8000/5202, APP0061/native0017, Core617635c.
 **Owner:** DungeonMindBuddy; [steward mandate](../Plans/STEWARDS-HANDOFF-demo.md).
 
 ## Active goal and next milestone
@@ -39,13 +39,17 @@ not establish the original grounding benchmark or full authoring quality.
 [Draft correction priority](../Plans/HANDOFF-BUILD-draft-correction-priority.md) is
 delivered after independent review and an ordinary conflict-aware page proposal,
 review collapse and discard/reload check. This is narrow quality evidence.
-[Exact repeated dialogue reuse](../Plans/HANDOFF-BUILD-exact-dialogue-reuse.md) is the
+[Exact repeated dialogue reuse](../Plans/HANDOFF-BUILD-exact-dialogue-reuse.md) is
 delivered with exact occurrence metadata and strict reversible references across
 Build decisions/discussion/proposal/image calls. Its measured private-request saving
 was small, not a latency claim. [Image follow-up intent](../Plans/HANDOFF-SURFACE-image-followup-intent.md)
-is active after an ordinary original-workflow repeat preserved the wrong visual
-state despite having the requested subject in its exact input. Broader quality and
-performance acceptance remain open.
+is delivered: the original follow-up retained the requested broken crossing, with
+real image generation, save/library reopen and rehearsal-page placement/resize
+surviving reload and API restart. Original Plan bytes stayed unchanged. One journey
+does not establish repeated grounding quality/performance or operator acceptance.
+[Paired object read adoption](../Plans/HANDOFF-MIND-pinned-object-views-adoption.md)
+is active after Core #140 merged. It removes repeated projection establishment;
+Buddy deployment and repeated ordinary timing/quality verification remain open.
 
 Preserve and verify the shipped scene→encounter→immutable mechanics successor→
 explicit adoption→Play→reload/resume loop. Use Of Conks and Cons and A Wild Sheep

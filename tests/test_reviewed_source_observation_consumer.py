@@ -186,34 +186,29 @@ def _anchor() -> WorldGraphSourceAnchor:
 
 
 def test_pinned_native_observation_reaches_ordinary_harness_claim_and_event(monkeypatch):
-    """The second native read uses the same pin; tool claims retain provenance."""
+    """One paired native call retains the exact pin and tool claim provenance."""
     bounded_snapshot = SimpleNamespace(
         revision_id="rev:published", head_revision_id="rev:published",
         is_head=True, projected_at=1,
     )
-    complete_snapshot = SimpleNamespace(
-        revision_id="rev:published", head_revision_id="rev:later",
-        is_head=False, projected_at=2,
-    )
+    complete_snapshot = SimpleNamespace(**vars(bounded_snapshot))
     observed_requests = []
 
     class Retrieval:
-        def get_object(self, request, *, object_id, bounds):
-            observed_requests.append(("bounded", request.revision_pin, object_id, bounds))
+        def get_object_views(self, request, *, object_id, bounds):
+            observed_requests.append(("views", request.revision_pin, object_id, bounds))
             return SimpleNamespace(
-                snapshot=bounded_snapshot, found=True,
-                object=SimpleNamespace(object_id="npc:keeper"),
-            )
-
-        def get_complete_object(self, request, *, object_id):
-            observed_requests.append(("complete", request.revision_pin, object_id))
-            return SimpleNamespace(
-                snapshot=complete_snapshot,
-                found=True,
-                object=SimpleNamespace(object_id="npc:keeper"),
-                reviewed_source_observations=(_observation(),),
-                anchors=(object(),),
-                coverage=SimpleNamespace(gap_codes=(), missing_ids=()),
+                bounded=SimpleNamespace(
+                    snapshot=bounded_snapshot, found=True,
+                    object=SimpleNamespace(object_id="npc:keeper"),
+                ),
+                complete=SimpleNamespace(
+                    snapshot=complete_snapshot, found=True,
+                    object=SimpleNamespace(object_id="npc:keeper"),
+                    reviewed_source_observations=(_observation(),),
+                    anchors=(object(),),
+                    coverage=SimpleNamespace(gap_codes=(), missing_ids=()),
+                ),
             )
 
     services = SimpleNamespace(
@@ -244,7 +239,7 @@ def test_pinned_native_observation_reaches_ordinary_harness_claim_and_event(monk
     result, observations, gaps, missing = direct.get_object_with_reviewed_sources_direct(
         services, request
     )
-    assert [kind for kind, *_ in observed_requests] == ["bounded", "complete"]
+    assert [kind for kind, *_ in observed_requests] == ["views"]
     assert {pin for _, pin, *_ in observed_requests} == {"rev:published"}
     assert observations[0].review_id == "review:1"
     assert result.attributes == []
@@ -351,16 +346,16 @@ def test_missing_review_authority_is_reported_without_inventing_observation(monk
     snapshot = SimpleNamespace(revision_id="rev:published")
 
     class Retrieval:
-        def get_object(self, *_a, **_k):
-            return SimpleNamespace(snapshot=snapshot, found=False, object=None)
-
-        def get_complete_object(self, *_a, **_k):
+        def get_object_views(self, *_a, **_k):
             return SimpleNamespace(
-                snapshot=snapshot, found=False, object=None,
-                reviewed_source_observations=(), anchors=(),
-                coverage=SimpleNamespace(
-                    gap_codes=("review_authority_unavailable",),
-                    missing_ids=("review:missing",),
+                bounded=SimpleNamespace(snapshot=snapshot, found=False, object=None),
+                complete=SimpleNamespace(
+                    snapshot=snapshot, found=False, object=None,
+                    reviewed_source_observations=(), anchors=(),
+                    coverage=SimpleNamespace(
+                        gap_codes=("review_authority_unavailable",),
+                        missing_ids=("review:missing",),
+                    ),
                 ),
             )
 
@@ -392,3 +387,47 @@ def test_missing_review_authority_is_reported_without_inventing_observation(monk
     assert gaps == ["review_authority_unavailable"]
     assert missing == ["review:missing"]
     assert result.diagnostics[0].code == "review_authority_unavailable"
+
+
+@pytest.mark.parametrize("node_id", ["obj:tavern", "obj:absent"])
+def test_real_core_pair_reaches_broker_with_one_projection(monkeypatch, node_id):
+    from dungeonmind.contracts.graph import PublishRevisionCommand
+    from dungeonmind.infrastructure.memory import InMemoryWorldGraphRepository
+    from tests._cutover_direct_dungeonmind_read_helpers import (
+        NOW, WORLD_ID, _FakeBundle, _payload, _receipt, _seed_sources,
+    )
+
+    graph = InMemoryWorldGraphRepository()
+    published = graph.publish_revision(PublishRevisionCommand(
+        world_id=WORLD_ID, parent_revision_id=None, expected_parent_revision_id=None,
+        operation_ids=["op:paired-read"], graph_schema="dm_union_graph_v6",
+        graph_payload=_payload(), created_at=NOW,
+    ))
+    services = direct.direct_services_from_bundle(
+        _FakeBundle(graph, _seed_sources(), _receipt(WORLD_ID, published.revision_id)),
+        WORLD_ID,
+    )
+    calls = []
+    original = services.projection.open_read_context
+
+    def counted(request):
+        calls.append(request.revision_pin)
+        return original(request)
+
+    monkeypatch.setattr(services.projection, "open_read_context", counted)
+    request = WorldGraphObjectRequest.model_validate({
+        "schema": RETRIEVAL_OBJECT_REQUEST_SCHEMA, "worldId": WORLD_ID,
+        "scopeMode": "campaign", "campaignId": "camp:one",
+        "revisionPin": published.revision_id, "nodeId": node_id,
+        "bounds": {"maxAttributes": 1, "maxSourceAnchors": 8},
+    })
+    resolved = direct.get_object_with_reviewed_sources_direct_v3(services, request)
+    assert calls == [published.revision_id]
+    assert resolved.result.requested_node_id == node_id
+    if node_id == "obj:tavern":
+        assert resolved.result.nodes[0].node_id == node_id
+        assert resolved.source_pins
+        assert all(pin.graph_revision == published.revision_id for pin in resolved.source_pins)
+    else:
+        assert resolved.result.nodes == []
+        assert not resolved.source_pins
