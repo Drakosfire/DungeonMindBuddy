@@ -31,7 +31,7 @@
   gap: 0.35rem;
   min-inline-size: 0;
   min-block-size: 0;
-  padding: calc(var(--conversation-dock-resize-hit-size) / 2 + 2px) 0.9rem 0.65rem;
+  padding: calc(var(--conversation-dock-resize-hit-size) / 2 + 2px) 0.5rem 0.5rem;
   background: var(--conversation-dock-chat-background);
   border: 1px solid var(--conversation-dock-border);
   border-radius: .85rem;

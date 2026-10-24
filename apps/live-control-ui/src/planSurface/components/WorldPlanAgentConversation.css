@@ -948,7 +948,7 @@
 .world-plan-agent-conversation__message--user {
   justify-self: start;
   inline-size: fit-content;
-  max-inline-size: min(88%, 46rem);
+  max-inline-size: min(100%, 46rem);
   background: transparent;
   border: 0;
   padding-inline: 0;
@@ -957,8 +957,8 @@
 .world-plan-agent-conversation__message--assistant {
   justify-self: end;
   inline-size: fit-content;
-  max-inline-size: min(92%, 52rem);
-  padding: 0.65rem 0.8rem;
+  max-inline-size: min(100%, 52rem);
+  padding: 0.5rem;
   border: 1px solid var(--ui-border-subtle, #3c4b54);
   border-radius: 0.8rem;
   background: color-mix(in srgb, var(--ui-background-surface, #202a33) 72%, transparent);
@@ -1231,3 +1231,20 @@
 .conversation-recovery__retry:focus-visible { outline:2px solid var(--ui-accent-action,#d9a441); outline-offset:2px; }
 
 .world-plan-agent-conversation__older-page { align-self: center; margin-block: .35rem .75rem; }
+
+/* Quoted evidence shares the same text measure as the reply. Browser defaults
+   otherwise add 40px per figure/blockquote level inside an already narrow pane. */
+.world-plan-agent-conversation__message figure {
+  min-inline-size: 0;
+  margin: .5rem 0;
+}
+.world-plan-agent-conversation__message blockquote {
+  margin: .5rem 0;
+  padding-inline: .6rem 0;
+  border-inline-start: 2px solid var(--ui-border-subtle, #3c4b54);
+}
+.world-plan-agent-conversation__message blockquote blockquote {
+  margin: .25rem 0;
+  padding-inline: 0;
+  border-inline-start: 0;
+}
