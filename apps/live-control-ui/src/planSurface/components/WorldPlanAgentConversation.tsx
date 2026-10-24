@@ -1,3 +1,4 @@
+import { groupConversationAttempts, isUnansweredFailure } from "../../agentInteraction/conversationAttemptGroups";
 import {isSurfaceEvidenceCompletion,surfaceEvidenceReceiptBound} from "../../shared/surfaceEvidenceProtocol";
 import {SurfaceEvidenceAnswer} from "./SurfaceEvidenceAnswer";
 import { classifySurfaceComposerIntent } from "../../agentInteraction/surfaceComposerIntent";
@@ -2412,6 +2413,7 @@ export function WorldPlanAgentConversation({
   function restoreSubmittedDraft(snapshot: string, generation: number) {
     setComposerMessage((current) => current === "" && composerEditGenerationRef.current === generation ? snapshot : current);
   }
+  const [retryPresentationOrigin, setRetryPresentationOrigin] = useState<{scopeKey:string;turnId:string}|null>(null);
   const [submittedMessage, setSubmittedMessage] = useState<{
     id: string; scopeKey: string; conversationId: string | null; pointerRevision: number | null;
     message: string; kind: "discuss" | "propose";
@@ -3577,6 +3579,7 @@ export function WorldPlanAgentConversation({
 
   async function submit(event: Pick<FormEvent<HTMLFormElement>, "preventDefault">, intent = composerIntent, questionOverride?: string) {
     event.preventDefault();
+    if (questionOverride === undefined) setRetryPresentationOrigin(null);
     const composerSnapshotAtSubmit = questionOverride ?? composerMessage;
     const message = composerSnapshotAtSubmit.trim();
     const pointerSnapshot = historySnapshotRef.current;
@@ -3856,6 +3859,7 @@ export function WorldPlanAgentConversation({
 
   async function submitPlay(event?: Pick<FormEvent<HTMLFormElement>, "preventDefault">, discussionOnly = false, questionOverride?: string) {
     event?.preventDefault();
+    if (questionOverride === undefined) setRetryPresentationOrigin(null);
     const admittedRun = playMode?.admittedRun;
     const source = buildMode?.savedSource;
     const message = (questionOverride ?? composerMessage).trim();
@@ -5483,7 +5487,26 @@ export function WorldPlanAgentConversation({
       ) : null}
     </article>
   );
-  const renderConversationEvent = (event: WorldConversationDisplayEvent) => {
+  const unmatchedSubmittedMessage = submittedMessage?.scopeKey === scopeKey
+    && (submittedMessage.conversationId === null
+      ? submittedMessage.pointerRevision === (history?.pointer_revision ?? null)
+      : submittedMessage.conversationId === history?.conversation_id)
+    && !history?.turns.some(turn => turn.turn_id === submittedMessage.id
+      || (submittedMessage.idempotencyKey && "idempotency_key" in turn
+        && turn.idempotency_key === submittedMessage.idempotencyKey
+        && turn.user_text === submittedMessage.message));
+  const lastDisplayEvent = conversationDisplay.events.at(-1);
+  const pendingRetryTurnId = unmatchedSubmittedMessage && lastDisplayEvent?.kind === "world"
+    && retryPresentationOrigin?.scopeKey === scopeKey
+    && retryPresentationOrigin.turnId === lastDisplayEvent.turn.turn_id
+    && !buildCompose.items.some(item => item.afterSequence >= lastDisplayEvent.turn.sequence)
+    && isUnansweredFailure(lastDisplayEvent.turn)
+    && lastDisplayEvent.turn.user_text === submittedMessage?.message
+    && lastDisplayEvent.turn.provenance.surface_id === (isBuild ? "build" : isReadOnly ? "play" : "plan")
+    && lastDisplayEvent.turn.provenance.primary_work.object_id === (isBuild ? buildMode?.savedSource?.documentId : isReadOnly ? playMode?.admittedRun?.runId : documentId)
+    ? lastDisplayEvent.turn.turn_id : null;
+  const renderConversationEvent = (event: WorldConversationDisplayEvent,
+    previousAttempts: WorldConversationDisplayEvent[] = [], historicalAttempt = false): React.ReactNode => {
     if (event.kind === "proposal") return renderProposalEvent(event.turn, event.position, false);
     const turn = event.turn;
     const failed = turn.lifecycle_status !== "interrupted" && (isHistoryTurnFailureConfirmed(turn.turn_id)
@@ -5553,14 +5576,17 @@ export function WorldPlanAgentConversation({
         ) : failed || interrupted ? (
           <div className="world-plan-agent-conversation__turn-status">
           <p role="status">
-            {failed
+            {pendingRetryTurnId === turn.turn_id && !historicalAttempt
+              ? sending ? "Retrying your question…" : "Checking the retried request…"
+              : failed
               ? turn.provenance.surface_id === "play" ? "Buddy couldn’t finish this reply. No Run change was applied." : turn.provenance.surface_id === "build" ? "Buddy couldn’t finish this reply. Your saved source was not changed." : "Buddy couldn’t finish this reply. Your Plan was not changed."
               : turn.provenance.surface_id === "play" ? "This reply stopped before it finished. No Run change was applied." : turn.provenance.surface_id === "build" ? "This reply stopped before it finished. Your saved source was not changed." : "This reply stopped before it finished. Your Plan was not changed."}
           </p>
-          {turn.provenance.surface_id === (isBuild ? "build" : isReadOnly ? "play" : "plan")
+          {!historicalAttempt && turn.provenance.surface_id === (isBuild ? "build" : isReadOnly ? "play" : "plan")
             && turn.provenance.primary_work.object_id === (isBuild ? buildMode?.savedSource?.documentId : isReadOnly ? playMode?.admittedRun?.runId : documentId)
             ? <ConversationRecovery question={turn.user_text} blocked={composerBusy}
                 onRetry={async(question)=>{
+                  setRetryPresentationOrigin({scopeKey,turnId:turn.turn_id});
                   if(isReadOnly)await submitPlay(undefined,false,question);
                   else await submit({preventDefault:()=>undefined},"discuss",question);
                 }} /> : null}
@@ -5573,6 +5599,12 @@ export function WorldPlanAgentConversation({
             setOpenedTraceTurns(current => current[key] === open ? current : { ...current, [key]: open });
           }}>
             <summary>Debug</summary>
+            {openedTraceTurns[`${verifiedWorldId}\u001f${turn.turn_id}`] && previousAttempts.length ? <details>
+              <summary>Previous attempts · {previousAttempts.length}</summary>
+              {previousAttempts.map(attempt => renderConversationEvent(attempt, [], true))}
+            </details> : null}
+            {pendingRetryTurnId === turn.turn_id && !historicalAttempt && (uncertainPlayNoticeRef.current || uncertainPlanNoticeRef.current)
+              ? <p>{uncertainPlayNoticeRef.current?.message ?? uncertainPlanNoticeRef.current?.message}</p> : null}
             {verifiedWorldId && history?.conversation_id ? <BuddyContextTraceLoader
               enabled={openedTraceTurns[`${verifiedWorldId}\u001f${turn.turn_id}`] === true}
               worldId={verifiedWorldId} turnId={turn.turn_id} conversationId={history.conversation_id}
@@ -5592,10 +5624,13 @@ export function WorldPlanAgentConversation({
     );
   };
   const displayedConversation = [
-    ...conversationDisplay.events.map((event, index) => ({
-      order: event.kind === "world" ? event.turn.sequence : event.position.afterSequence + .25,
-      ordinal: index, element: renderConversationEvent(event),
-    })),
+    ...groupConversationAttempts(conversationDisplay.events,
+      event => event.kind === "world" ? event.turn : null,
+      new Set(buildCompose.items.map(item=>item.afterSequence)))
+      .map(({item:event,previous}, index) => ({
+        order: event.kind === "world" ? event.turn.sequence : event.position.afterSequence + .25,
+        ordinal: index, element: renderConversationEvent(event, previous),
+      })),
     ...buildCompose.items.map((item, index) => ({ order: item.afterSequence + .5, ordinal: index, element: item.element })),
   ].sort((left, right) => left.order - right.order || left.ordinal - right.ordinal);
   const latestConversationEvent = displayedConversation.at(-1)?.element ?? null;
@@ -6029,14 +6064,7 @@ export function WorldPlanAgentConversation({
         {isBuild && buildCompose.error ? <p role="alert">{buildCompose.error}</p> : null}
         {!isReadOnly ? conversationActions.map(renderConsultedAction) : null}
         {!isReadOnly && conversationActionsError ? <p role="alert">{conversationActionsError}</p> : null}
-        {submittedMessage?.scopeKey === scopeKey
-          && (submittedMessage.conversationId === null
-            ? (submittedMessage.pointerRevision === (history?.pointer_revision ?? null))
-            : submittedMessage.conversationId === history?.conversation_id)
-          && !history?.turns.some((turn) => turn.turn_id === submittedMessage.id
-            || (submittedMessage.idempotencyKey && "idempotency_key" in turn
-              && turn.idempotency_key === submittedMessage.idempotencyKey
-              && turn.user_text === submittedMessage.message)) ? (
+        {unmatchedSubmittedMessage && submittedMessage && !pendingRetryTurnId ? (
           <article aria-label="Submitted message">
             <p><strong>You:</strong> {submittedMessage.message}</p>
             {uncertainPlayNoticeRef.current?.turnId === submittedMessage.id ? <div className="world-plan-agent-conversation__reply-failure" role="alert">
