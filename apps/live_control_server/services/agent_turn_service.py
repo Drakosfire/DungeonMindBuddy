@@ -1284,6 +1284,10 @@ def _freeze_policy_receipt(
                 policy_class = (graph_types.BuildWorldContextImagePolicyV1
                     if (budget.get("buildJevActions") or {}).get("image_preparation_policy") is not None
                     else graph_types.BuildWorldContextPolicyV1)
+            if (budget.get("buildJevActions") or {}).get("source_citation_names_policy") is not None:
+                policy_class = (graph_types.BuildNamedWorldContextImagePolicyV1
+                    if (budget.get("buildJevActions") or {}).get("image_preparation_policy") is not None
+                    else graph_types.BuildNamedWorldContextPolicyV1)
             policy = policy_class(
                 **({"driver_schema": "dmb_plan_jev_retrieval_v1",
                     "native_source_section_policy":"exact_native_source_sections_v1"} if plan_jev_request is not None else {}),
@@ -2376,7 +2380,8 @@ class _PolicyExecutionAdapter:
         if self.budget.get("buildJevActions") is not None:
             from .build_jev_harness import BuildJevHarness
             expected_budget = BuildJevHarness.budget(self.request, accounting=getattr(self, "_build_jev_accounting", None),
-                world_context=getattr(self._broker_execution().policy, "world_context_policy", None) == "build_world_opened_source_context_v1")
+                world_context=getattr(self._broker_execution().policy, "world_context_policy", None) == "build_world_opened_source_context_v1",
+                named_citations=getattr(self._broker_execution().policy, "source_citation_names_policy", None) == "build_verified_source_names_v1")
         if self.failure is not None or self.fence is None or self.budget != expected_budget:
             raise ValueError("Controller exposure requires an active admitted Build turn")
         execution = self._broker_execution()

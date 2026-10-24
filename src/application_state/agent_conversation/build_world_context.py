@@ -427,6 +427,9 @@ def verify_named_input(packet, turn, trace):
         raise ValueError("Named source capability differs from frozen execution")
     if getattr(execution.policy, "world_context_policy", None) != POLICY:
         return
+    names_policy = getattr(execution.policy, "source_citation_names_policy", None)
+    if packet.get("source_citation_names_policy") != names_policy:
+        raise ValueError("Citation names differ from frozen Build capability")
     captured = {}
     for row in trace.get("observations", []):
         if row.get("kind") not in {"source_passage", "source_passage_reuse"}:
@@ -449,5 +452,10 @@ def verify_named_input(packet, turn, trace):
             passage.get("line_end"),
             passage.get("text"),
         )
+        if names_policy is not None and (
+            not isinstance(passage.get("source_name"), str)
+            or not passage["source_name"].strip()
+        ):
+            raise ValueError("Named Build citation lacks a source owner name")
         if key not in captured or passage.get("source_name") != captured[key]:
             raise ValueError("Writer source name differs from protected source read")

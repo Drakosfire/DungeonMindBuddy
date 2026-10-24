@@ -1,8 +1,8 @@
 import {getAgentSourcePassage,getAgentNativeSourceSection} from '../../api/liveApi';
-import type {WorldBuildGraphCompletionV2,SurfaceSourceCompletionV1,SurfaceEvidenceCompletion,SurfaceEvidenceCompletionV3} from '../../api/types';
+import type {WorldBuildSourceCompletion,SurfaceSourceCompletionV1,SurfaceEvidenceCompletion,SurfaceEvidenceCompletionV3} from '../../api/types';
 import {exact,canonical} from '../../shared/sourcePassageProtocol';
 import type {CitationChoice} from './SourceCitationEvidence';
-export type PassageCompletion=WorldBuildGraphCompletionV2|SurfaceSourceCompletionV1|SurfaceEvidenceCompletion;
+export type PassageCompletion=WorldBuildSourceCompletion|SurfaceSourceCompletionV1|SurfaceEvidenceCompletion;
 async function hash(content:string){
   const digest=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(content));
   return Array.from(new Uint8Array(digest),b=>b.toString(16).padStart(2,'0')).join('');

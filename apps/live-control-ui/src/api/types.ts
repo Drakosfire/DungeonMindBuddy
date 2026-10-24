@@ -1154,6 +1154,12 @@ export interface WorldBuildGraphCompletionV2 {
   citation_map: null;
   source_citations: WorldBuildSourcePassageCitationV1[];
 }
+export interface WorldBuildNamedGraphCompletionV3 extends Omit<WorldBuildGraphCompletionV2,'schema'|'source_citations'> {
+  schema: "dmb_build_graph_completion_v3";
+  source_citations: (WorldBuildSourcePassageCitationV1 & {source_name:string})[];
+}
+export type WorldBuildSourceCompletion = WorldBuildGraphCompletionV2 | WorldBuildNamedGraphCompletionV3;
+
 export interface SurfaceSourceCompletionV1 {
   schema: "dmb_surface_source_completion_v1";
   surface_id: "plan" | "play";
@@ -1257,7 +1263,7 @@ export interface WorldBuildKnowledgeContextV1 extends Omit<WorldPlanAgentPlanCon
   saved_source_name: string | null;
   saved_source_sections?: SavedBuildSectionTargetV1[];
   receipt: WorldBuildGraphReceiptV1;
-  completion: WorldBuildGraphCompletionV1 | WorldBuildGraphCompletionV2 | WorldBuildAuthoringCompletionV1 | WorldBuildImagePreparationCompletionV1 | null;
+  completion: WorldBuildGraphCompletionV1 | WorldBuildSourceCompletion | WorldBuildAuthoringCompletionV1 | WorldBuildImagePreparationCompletionV1 | null;
 }
 
 export interface WorldPlanEvidenceAnchorStatusV1 {

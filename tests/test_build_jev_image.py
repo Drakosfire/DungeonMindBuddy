@@ -97,6 +97,7 @@ def setup(build_case, monkeypatch, *, world_context=False, **wire_options):
     wire = ImageWire(**wire_options)
     runtime = BuildJevHarness(
         world_context=world_context,
+        named_citations=world_context,
         decision_transport=decision,
         writer_transport=wire,
         accounting=ExperimentalAccounting(

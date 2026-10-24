@@ -163,7 +163,12 @@ def ordinary_case(build_case, monkeypatch, *, authoring=False):
     original_source_read = expansion_executor.execute_read_graph_source
 
     def synthetic_source_read(arguments, *, receipt_version, root, native_services=None):
-        return original_source_read(arguments, receipt_version=receipt_version, root=root)
+        value = original_source_read(arguments, receipt_version=receipt_version, root=root)
+        # Mock the source owner's display metadata alongside its exact body.
+        if receipt_version == 2:
+            for row in value.get("reads", []):
+                row["result"]["sourceName"] = source.record.title
+        return value
 
     monkeypatch.setattr(expansion_executor, "execute_read_graph_source", synthetic_source_read)
     # The native selected-observation adapter, with all host admission/persistence

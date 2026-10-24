@@ -22,6 +22,7 @@ from application_state.agent_conversation.types import (
     PlayContentBasis, PlayRunTurnContextReceiptV1,
     GraphContextReceipt,
     BuildGraphCompletionV1,
+    BuildNamedGraphCompletionV3,
     BuildGraphCompletionV2,
     BuildAuthoringCompletionV1,
     BuildImagePreparationCompletionV1,
@@ -719,7 +720,7 @@ class AgentBuildGraphContextResponseV1(AgentPlanWorldGraphContextResponseV2):
     )
     receipt: BuildGraphContextReceiptV1
     saved_source_sections: list[AgentSavedBuildSectionTargetV1] = Field(default_factory=list, max_length=16384)
-    completion: BuildGraphCompletionV1 | BuildGraphCompletionV2 | BuildAuthoringCompletionV1 | BuildImagePreparationCompletionV1 | None
+    completion: BuildNamedGraphCompletionV3 | BuildGraphCompletionV1 | BuildGraphCompletionV2 | BuildAuthoringCompletionV1 | BuildImagePreparationCompletionV1 | None
 
 
 class AgentBuildGraphTurnResponseV1(AgentTurnResponse):

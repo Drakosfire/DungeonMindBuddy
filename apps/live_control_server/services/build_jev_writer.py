@@ -497,6 +497,8 @@ def source_projection(
             packet["writer_status_policy"] = execution.policy.writer_status_policy
     if getattr(execution.policy, "world_context_policy", None) is not None:
         packet["world_context_policy"] = execution.policy.world_context_policy
+    if getattr(execution.policy, "source_citation_names_policy", None) is not None:
+        packet["source_citation_names_policy"] = execution.policy.source_citation_names_policy
     return WriterProjection(
         json.dumps(
             packet,
@@ -529,6 +531,9 @@ def source_completion(
     }:
         raise ValueError("Source writer answer has unsupported fields")
     handles = json.loads(projection.source_bindings_json)
+    packet = json.loads(projection.input_json)
+    named = packet.get("source_citation_names_policy") == "build_verified_source_names_v1"
+    names = {p["handle"]: p.get("source_name") for p in packet.get("opened_passages", [])}
     segments, citations = [], []
     for i, segment in enumerate(candidate["answer_segments"]):
         if segment.get("kind") == "source_passage_claim":
@@ -560,6 +565,7 @@ def source_completion(
                     citations.append(
                         {
                             **mapping,
+                            **({"source_name": names[h]} if named else {}),
                             "segment_index": i,
                             "text_sha256": hashlib.sha256(
                                 segment["text"].encode()
@@ -573,7 +579,7 @@ def source_completion(
         else:
             raise ValueError("Source-only writer cannot emit Graph claims")
     saved = any(s["kind"] == "saved_source_claim" for s in segments)
-    return t.BuildGraphCompletionV2(
+    return (t.BuildNamedGraphCompletionV3 if named else t.BuildGraphCompletionV2)(
         context_receipt_sha256=receipt_hash,
         answer_basis="saved_source_and_opened_passages"
         if saved

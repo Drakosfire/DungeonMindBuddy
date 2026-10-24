@@ -102,3 +102,19 @@ it.each(['plan','play'] as const)('opens a named source citation for %s using th
   fireEvent.click(screen.getByRole('button',{name:'Read Gatekeepers journal · lines 1–1'}));
   await screen.findByText('western gate');expect(load).toHaveBeenCalledWith('world',id,0);
 });
+
+
+it('opens a verified named Build citation with the shared numbered control',async()=>{
+  const c={...completion(),schema:'dmb_build_graph_completion_v3' as const,
+    source_citations:completion().source_citations.map(c=>({...c,source_name:'River Watch — synthetic source'}))};
+  expect(isBuildSourceCompletion(c,'a'.repeat(64),'b'.repeat(64))).toBe(true);
+  expect(isBuildSourceCompletion({...c,source_citations:c.source_citations.map(c=>({...c,source_name:' '}))},'a'.repeat(64),'b'.repeat(64))).toBe(false);
+  expect(isBuildSourceCompletion({...c,schema:'dmb_build_graph_completion_v2'},'a'.repeat(64),'b'.repeat(64))).toBe(false);
+  load.mockResolvedValue({...response(completion()),citation:c.source_citations[0]!});
+  render(<BuildSourcePassageEvidence completion={c} worldId="world" turnId={id}/>);
+  const control=screen.getByRole('button',{name:'Read River Watch — synthetic source · lines 1–1'});
+  expect(control).toHaveTextContent('1');
+  fireEvent.click(control);
+  await screen.findByText('western gate');
+  expect(screen.getByLabelText('Opened source passage')).toHaveTextContent('River Watch — synthetic source');
+});
