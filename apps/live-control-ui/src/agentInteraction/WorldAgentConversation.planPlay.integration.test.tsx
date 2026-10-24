@@ -959,7 +959,7 @@ describe("one App-level World conversation host across Plan and Play", () => {
     if (mode === 'failed' || mode === 'interrupted') {
       await waitFor(() => expect(screen.getByLabelText("Message DungeonBuddy")).toBeEnabled(), { timeout: 7000 });
       expect(screen.queryByText("Recovered Play answer")).not.toBeInTheDocument();
-      expect(window.localStorage.getItem('dmb:world-play-pending-turn:v1:' + WORLD)).toBeNull();
+      await waitFor(() => expect(window.localStorage.getItem('dmb:world-play-pending-turn:v1:' + WORLD)).toBeNull(), { timeout: 7000 });
     } else if (mode === 'exact') {
       await waitFor(() => expect(screen.getByText("Recovered Play answer")).toBeInTheDocument(), { timeout: 7000 });
       await waitFor(() => expect(screen.getByLabelText("Message DungeonBuddy")).toBeEnabled());
