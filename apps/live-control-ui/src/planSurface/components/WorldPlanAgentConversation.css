@@ -1229,6 +1229,6 @@
 /* Play uses the available pane width in either chat orientation. */
 .agent-interaction-shell[data-surface-id="play"] .world-plan-agent-conversation__message { max-inline-size: 100%; margin-inline: 0; }
 
-.conversation-recovery__retry { display:inline-flex; align-items:center; justify-content:center; inline-size:2rem; block-size:2rem; padding:.3rem; border-radius:50%; vertical-align:middle; }
+.conversation-recovery__retry { color:var(--ui-text-danger,#ffb6a6); display:inline-flex; align-items:center; justify-content:center; inline-size:2rem; block-size:2rem; padding:.3rem; border-radius:50%; vertical-align:middle; }
 .conversation-recovery__retry[aria-busy="true"] svg { opacity:.5; }
 .conversation-recovery__retry:focus-visible { outline:2px solid var(--ui-accent-action,#d9a441); outline-offset:2px; }

@@ -662,6 +662,16 @@ describe("one App-level World conversation host across Plan and Play", () => {
     fireEvent.click(await screen.findByRole("button", {name:"Open"}));
     const retry = await screen.findByRole("button", {name:"Retry question"});
     await waitFor(() => expect(retry).toBeEnabled());
+    const failureText = screen.getByText(surface === 'build'
+      ? 'This reply stopped before it finished. Your saved source was not changed.'
+      : surface === 'play' ? 'This reply stopped before it finished. No Run change was applied.'
+      : 'This reply stopped before it finished. Your Plan was not changed.');
+    const debug = failureText.closest('details')!;
+    expect(debug).not.toHaveAttribute('open');
+    expect(retry.closest('.world-plan-agent-conversation__turn-status')).not.toContainElement(failureText);
+    fireEvent.click(within(debug).getByText('Debug', {exact:true}));
+    expect(debug).toHaveAttribute('open');
+    fireEvent.click(within(debug).getByText('Debug', {exact:true}));
     const input=screen.getByLabelText("Message DungeonBuddy");
     if(otherDraft)fireEvent.change(input,{target:{value:"Keep my unsent draft"}});
     fireEvent.click(retry);fireEvent.click(retry);
