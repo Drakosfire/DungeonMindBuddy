@@ -366,8 +366,9 @@ def test_default_ordinary_route_selects_jev_without_a_test_runtime_override(
     assert factory.accounting is not None
     response = execute(case, tmp_path, None, build_runtime_factory=factory)
     assert (
-        response.knowledge_context.completion.schema_ == "dmb_build_graph_completion_v2"
+        response.knowledge_context.completion.schema_ == "dmb_build_graph_completion_v3"
     )
+    assert {c.source_name for c in response.knowledge_context.completion.source_citations} == {case[0].record.title}
     assert len(writer.calls) == 1 and len(decisions.calls) == 5
 
 
