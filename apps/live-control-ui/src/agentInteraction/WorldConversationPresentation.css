@@ -117,7 +117,7 @@
   block-size: 2.1rem;
 }
 
-.plan-conversation-dock__management {
+.conversation-dock__menu {
   position: relative;
 }
 
@@ -131,7 +131,7 @@
   min-block-size: var(--conversation-dock-control-hit-size);
 }
 
-.plan-conversation-dock__management > summary {
+.conversation-dock__menu > summary {
   display: flex;
   align-items: center;
   min-block-size: var(--conversation-dock-control-hit-size);
@@ -140,12 +140,12 @@
   white-space: nowrap;
 }
 
-.plan-conversation-dock__management > summary::after {
+.conversation-dock__menu > summary::after {
   content: "▾";
   margin-inline-start: 0.3rem;
 }
 
-.plan-conversation-dock__management > div {
+.conversation-dock__menu > div {
   position: absolute;
   top: calc(100% + 0.35rem);
   bottom: auto;
@@ -160,13 +160,13 @@
   background: var(--conversation-dock-chat-background);
 }
 
-.plan-conversation-dock__management:not([open]) > div {
+.conversation-dock__menu:not([open]) > div {
   display: none;
 }
 
 .plan-conversation-dock .conversation-dock__header > strong { position: static; inline-size: auto; block-size: auto; clip-path: none; overflow: visible; white-space: nowrap; }
 .plan-conversation-dock .conversation-dock__header { display: flex; }
-.plan-conversation-dock .conversation-dock__context-toggle { max-inline-size: 35%; }
+
 
 @media (max-width: 42rem) {
   .plan-conversation-dock .conversation-dock__header {
@@ -182,21 +182,11 @@
     overflow: hidden;
   }
 
-  .plan-conversation-dock .conversation-dock__context-toggle {
-    max-inline-size: 100%;
-  }
 
-  .plan-conversation-dock .conversation-dock__context-toggle span:first-child {
-    position: absolute;
-    inline-size: 1px;
-    block-size: 1px;
-    clip-path: inset(50%);
-    overflow: hidden;
-  }
 
-  .plan-conversation-dock .conversation-dock__context-toggle::before {
-    content: "Context";
-  }
+
+
+
 
   .plan-conversation-dock .conversation-dock__actions {
     grid-column: 2;
@@ -213,7 +203,7 @@
 
 .plan-conversation-dock__scope { margin: .5rem 0; font-weight: 600; }
 .plan-conversation-dock__messages { max-inline-size:72rem; margin-inline:auto; }
-.plan-conversation-dock__management > div {
+.conversation-dock__menu > div {
   position: absolute;
   top: calc(100% + 0.5rem);
   bottom: auto;
@@ -228,25 +218,31 @@
 .plan-conversation-dock .conversation-dock__context p { margin-block: .35rem; }
 .plan-conversation-dock .conversation-dock__context button { padding: .3rem .5rem; font-size: 13px; }
 .plan-conversation-dock .conversation-dock__header { min-block-size: 2rem; gap: .3rem; }
-.plan-conversation-dock .conversation-dock__header button, .plan-conversation-dock__management > summary { font-size: 13px; }
+.plan-conversation-dock .conversation-dock__header button, .conversation-dock__menu > summary { font-size: 13px; }
 .plan-conversation-dock .plan-conversation-dock__composer .world-plan-agent-conversation__composer textarea {
   min-block-size: 2.5rem; max-block-size: 10rem; field-sizing: content;
   font-size: 14px; line-height: 1.4; padding: .55rem .65rem;
 }
 @media (max-width: 42rem) {
-  .plan-conversation-dock .conversation-dock__context-toggle span:first-child { position: static; inline-size: auto; block-size: auto; clip-path: none; overflow: visible; }
-  .plan-conversation-dock .conversation-dock__context-toggle::before { content: none; }
+
+
 }
 
-.plan-conversation-dock.is-fullscreen .plan-conversation-dock__management > div { max-block-size: calc(100dvh - 8rem); }
+.plan-conversation-dock.is-fullscreen .conversation-dock__menu > div { max-block-size: calc(100dvh - 8rem); }
 
 @media (max-width: 42rem) {
   .plan-conversation-dock .conversation-dock__header { position: relative; }
-  .plan-conversation-dock__management { position: static; }
-  .plan-conversation-dock__management > div {
+  .conversation-dock__menu { position: static; }
+  .conversation-dock__menu > div {
     left: 0;
     right: 0;
     inline-size: 100%;
     max-block-size: min(28rem, calc(var(--conversation-dock-height) - 10rem));
   }
 }
+
+/* Routine writing keeps diagnostics available through the shared menu. */
+.conversation-dock[data-diagnostics-visible="false"] .world-plan-agent-conversation__turn-debug,
+.conversation-dock[data-diagnostics-visible="false"] .world-plan-agent-conversation__evidence-trail { display: none; }
+.conversation-dock__menu > summary::after { content: none; }
+.conversation-dock[data-diagnostics-visible="false"] .world-plan-agent-conversation__technical-details { display: none; }

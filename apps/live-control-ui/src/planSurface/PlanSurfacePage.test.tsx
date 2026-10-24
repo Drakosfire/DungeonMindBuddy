@@ -185,6 +185,8 @@ async function openPlanConversation() {
 
 function savedWorldPlanConversation() {
   const region = screen.getByRole("region", { name: "World conversation" });
+  const options = screen.getByTitle("Conversation options");
+  if (!(options.closest("details") as HTMLDetailsElement).open) fireEvent.click(options);
   const context = screen.getByRole("button", { name: /^(Show|Hide) context$/ });
   if (context.getAttribute("aria-expanded") !== "true") fireEvent.click(context);
   return region;
@@ -201,7 +203,7 @@ function sendDiscussMessage(conversation = savedWorldPlanConversation()) {
 }
 
 function openAdvancedDetails(conversation = savedWorldPlanConversation()) {
-  const more = screen.getByText("Conversation options", { exact: true }).closest("details");
+  const more = screen.getByTitle("Conversation options").closest("details");
   if (more && !more.open) fireEvent.click(more.querySelector("summary")!);
   fireEvent.click(within(conversation).getByText("Advanced details"));
 }
@@ -1310,8 +1312,8 @@ it("connects and revokes the local Agent and Graph session from Settings", async
   expect(newConversation.closest(".conversation-dock__header")).toBeInTheDocument();
   expect(newConversation.querySelector("svg")).toBeInTheDocument();
   expect(newConversation).toHaveAttribute("title", "New conversation");
-  fireEvent.click(screen.getByText("Conversation options", {exact:true}));
-  expect(screen.getByText("Conversation options").closest("details")).not.toContainElement(newConversation);
+  fireEvent.click(screen.getByTitle("Conversation options"));
+  expect(screen.getByTitle("Conversation options").closest("details")).not.toContainElement(newConversation);
   fireEvent.click(await screen.findByRole("button", { name: "Settings" }));
   expect(screen.queryByLabelText("Local operator credential")).not.toBeInTheDocument();
   fireEvent.click(screen.getByRole("button", { name: "Connect local session" }));
