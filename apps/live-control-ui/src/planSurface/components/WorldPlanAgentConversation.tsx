@@ -2893,8 +2893,9 @@ export function WorldPlanAgentConversation({
         if (pendingPlayTurn && readOnlyConfirmed) {
           sharedConversation?.setPendingTurn(current => current?.turnId === pendingPlayTurn.request.turn_id ? null : current);
           try {
-            if (window.localStorage.getItem(pendingPlayTurn.storageKey) === pendingPlayTurn.serialized) {
-              window.localStorage.removeItem(pendingPlayTurn.storageKey);
+            const storedBytes = window.localStorage.getItem(pendingPlayTurn.storageKey);
+            if (storedBytes === null || storedBytes === pendingPlayTurn.serialized) {
+              if (storedBytes === pendingPlayTurn.serialized) window.localStorage.removeItem(pendingPlayTurn.storageKey);
               setPendingPlayTurn(null);
               setPendingPlayLoadError(null);
             } else {
