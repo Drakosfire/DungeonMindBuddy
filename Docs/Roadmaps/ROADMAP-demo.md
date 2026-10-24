@@ -1,8 +1,8 @@
 # Buddy roadmap — author, plan, play, remember
 
 **Status:** current product execution ledger; reconciled2026-10-24.
-**Evidence anchor:** API `45effa24e02c9a87a642f35e37c589840d88d618`, UI `ada13b16ab0b6c1b8b009df02461b2af380e2028`
-(#1696/#1697), ports8000/5202, APP0061/native0017, Core617635c.
+**Evidence anchor:** API `baee545074120817cdeb66d54d2253059e1edde4`, UI `ada13b16ab0b6c1b8b009df02461b2af380e2028`
+(#1698/#1697), ports8000/5202, APP0061/native0017, Core617635c.
 **Owner:** DungeonMindBuddy; [steward mandate](../Plans/STEWARDS-HANDOFF-demo.md).
 
 ## Active goal and next milestone
@@ -37,9 +37,10 @@ of the edited review→Keep/Save→API restart→reopen. Exact draft and both pr
 requests were inspected; the simple writing trace used two model calls. This does
 not establish the original grounding benchmark or full authoring quality.
 [Draft correction priority](../Plans/HANDOFF-BUILD-draft-correction-priority.md) is
-the active bounded writer-quality correction after a current author note was
-missed. Duplicate historical exchanges and broader quality/performance acceptance
-remain open.
+delivered after independent review and an ordinary conflict-aware page proposal,
+review collapse and discard/reload check. This is narrow quality evidence.
+[Exact repeated dialogue reuse](../Plans/HANDOFF-BUILD-exact-dialogue-reuse.md) is the
+active bounded efficiency slice; broader quality/performance acceptance remains open.
 
 Preserve and verify the shipped scene→encounter→immutable mechanics successor→
 explicit adoption→Play→reload/resume loop. Use Of Conks and Cons and A Wild Sheep
@@ -51,7 +52,7 @@ operator acceptance. Detailed chronology remains in Git/PRs.
 
 | Goal area | Delivered or directly witnessed | Still open |
 |---|---|---|
-| Plan discovery and conversation | Ordinary World selector opens Session 29 and survives reload. Shared conversation/composer/Retry recovery, exact current-draft context, related World retrieval, named citations and inspectable prompts/usage are delivered. On-page editable/movable proposals, selected replacement, exact-save recovery and floating conversation are delivered. One real synthetic table loop retained direct edits, placement, Save and restart; operator Worlds were preserved. | Current author-correction quality, richer media review, representative fresh multi-turn quality and original swamp/Edge repeated roughly 10-second acceptance |
+| Plan discovery and conversation | Ordinary World selector opens Session 29 and survives reload. Shared conversation/composer/Retry recovery, exact current-draft context, related World retrieval, named citations and inspectable prompts/usage are delivered. On-page editable/movable proposals, selected replacement, exact-save recovery and floating conversation are delivered. One real synthetic table loop retained direct edits, placement, Save and restart; operator Worlds were preserved. | Broader author-correction quality, richer media review, representative fresh multi-turn quality and original swamp/Edge repeated roughly 10-second acceptance |
 | Evidence efficiency and exact excerpts | Retained-source reuse; #1640–#1643 exact native source navigation and acquisition progress; #1644 request-local authored selectors with canonical saved excerpts. Original swamp queries completed in13.4s/14.8s; #1647 shared registered naming measured10.26s/12.36s with named exact citations. #1648 removes ineligible catalog calls; repeated13.43s/12.10s runs still make4 decisions with peripheral entity exploration; named sources and exact session review reopened after reload. #1649 guidance and #1652 typed entity navigation are merged/API-delivered. Authorized original-query repeats completed in10.85s/11.78s before types; afterward12.58s completed and17.07s interrupted. Types reach actual requests, but an incidental entity is still read; #1653 now retains failed writer text and rejecting phase in Debug; an ordinary10.82s interruption exposed an empty support list, correctly refused. Strict finite current writer output shipped #1654 with unchanged host truth checks. #1660 claim-local attribution guidance is present in actual captured requests; original repeats14.20s/12.57s remain above target. Exact citation inspection found a passage claim borrowing a Graph-only detail; its subsequent repeat used the Graph record correctly. Quality acceptance remains open. Fresh original14.51s completed; follow-up image prompt7.09s completed with6 source reuses and exact Debug schema inspected. Prompt staged in Image Studio; real generation remains unproved. No speed/quality acceptance claim | Repeated roughly10-second quality/latency acceptance, remaining unavailable reads and complete image journey |
 | Image workflow | Fresh authored/prepared prompt→real generation→Save→library reopen proved in Build/Plan | Original grounding→discussion→chosen image as a complete repeated journey, selected scene association |
 | Combat foundations | Shared Plan/Play hosting/recovery, World/manual assembly, exact immutable snapshots, saved turn/HP/conditions/notes/groups; #1619/#1620 durable manual armor/HP revisions; #1621 explicit selected-actor exact-version adoption, tracker changes and reopen/restart; #1623 Plan-scene templates, immutable encounter history and scoped shared editing/recovery | Run capture/materialization shipped #1625/#1626; Conks connected witnesses passed twice (second Run preserved through navigation/reload/API restart; original versions/template/prior fight isolated). Sheep successor/adoption passed; save→Start canonical-byte correction shipped #1645. Sheep connected rehearsal passed once through restart and closing reflections; full repeated journey remains open |

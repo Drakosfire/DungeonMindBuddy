@@ -11,6 +11,7 @@ import json
 from dataclasses import dataclass
 
 from application_state.agent_conversation import types as ledger
+from application_state.agent_conversation.dialogue_projection import project_dialogue, dialogue_rule
 from application_state.agent_conversation.rules_authority_reads import MixedCompletedTurnV1
 from apps.live_control_server.models.world_graph_object_projection import (
     WorldGraphObjectReviewedSourceObservation,
@@ -122,15 +123,16 @@ def freeze_interaction(adapter):
             "assistant": row.assistant_text,
             "user_sha256": hashlib.sha256(envelope.user_text.encode()).hexdigest(),
             "assistant_sha256": hashlib.sha256(row.assistant_text.encode()).hexdigest()})
+    history = project_dialogue(list(reversed(history)))
     return {"allowed_operations": (adapter.budget.get("buildJevActions") or {}).get("allowed_surface_operations", ["answer_from_sources"] + (["propose_build_insertion"] if capability else [])),
         "capability_sha256": digest(capability.model_dump(mode="json")) if capability else None,
         "conversation_id": str(conversation_id) if conversation_id else None,
-        "pointer_revision": pointer.revision, "history": list(reversed(history)),
+        "pointer_revision": pointer.revision, "history": history,
         "working_draft": draft.snapshot.reference() if draft is not None else None,
         "page_target": ({"kind": "replace_selection", "text": capability.basis.selection.text}
             if capability and capability.basis.selection is not None else
             {"kind": "insert_at_caret"} if capability else None),
-        "history_policy": "newest_complete_pairs_up_to_6_provider_capacity_reference_only_v1"}
+        "history_policy": "newest_complete_pairs_up_to_6_provider_capacity_reference_only_v1" + dialogue_rule(history)}
 
 
 def verify_selected_presentation(raw, payloads, selector):

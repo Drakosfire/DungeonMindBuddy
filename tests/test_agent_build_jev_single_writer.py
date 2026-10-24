@@ -227,7 +227,7 @@ def test_prepared_wire_cannot_add_tools_or_replace_evidence(build_case,monkeypat
 
 
 def test_writer_reserve_counts_against_shared_context_limit():
-    projected=policy.WriterProjection('x'*61_000,0,str(uuid4()))
+    projected=policy.WriterProjection(json.dumps({'user_question': 'x'*61_000}),0,str(uuid4()))
     with pytest.raises(ValueError,match='context allowance'):
         policy.validate_body(json.dumps(projected.kwargs()),projected)
 

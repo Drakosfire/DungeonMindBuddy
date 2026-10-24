@@ -274,3 +274,39 @@ def test_new_writer_rejects_missing_or_unknown_purpose(build_case, monkeypatch, 
     assert len(wire.calls) == 1
     with pytest.raises(ApplicationStateNotFoundError):
         BuildImageService().get(uuid5(case[1].build_write_capability.idempotency_key, "image"), "local_operator")
+
+
+def test_image_writer_reuses_duplicate_dialogue_with_occurrence_proof(build_case, monkeypatch, tmp_path):
+    from uuid import uuid4
+    from application_state.agent_conversation.dialogue_projection import expand_dialogue, RULE
+    from tests.test_agent_build_jev_ordinary_harness import WriterWire
+    case, _ = ordinary_case(build_case, monkeypatch, authoring=True)
+    source, request, bootstrap = case
+    request = request.model_copy(update={"message": "Discuss a possible quarry-gate scene. " * 25})
+    seed = BuildJevHarness(decision_transport=DecisionWire(), writer_transport=WriterWire(),
+        accounting=ExperimentalAccounting("synthetic-owner-test", lambda text: len(text) // 4))
+    first = execute((source, request, bootstrap), tmp_path, seed)
+    execute((source, request.model_copy(update={"turn_id": str(uuid4())}), bootstrap), tmp_path, seed)
+    # The discussion writer shares the same projection on a subsequent discussion.
+    execute((source, request.model_copy(update={"turn_id": str(uuid4()), "message": "Discuss that scene."}), bootstrap), tmp_path, seed)
+    discussion = json.loads(json.loads(seed.writer_transport.calls[-1].content)["input"])
+    assert discussion["dialogue_reference"][1]["same_text_as"] == 0
+    assert len(expand_dialogue(discussion["dialogue_reference"])) == 2
+    assert discussion["dialogue_policy"].endswith(RULE)
+    monkeypatch.setattr(image_writer, "_model", lambda: "gpt-6-luna")
+    wire = ImageWire()
+    runtime = BuildJevHarness(decision_transport=DecisionWire(operation="prepare_build_image"),
+        writer_transport=wire, accounting=ExperimentalAccounting("synthetic-owner-test", lambda text: len(text) // 4))
+    result = execute((source, request.model_copy(update={"turn_id": str(uuid4()),
+        "message": "Prepare a map prompt for this scene."}), bootstrap), tmp_path, runtime, operator_subject="local_operator")
+    body = json.loads(wire.calls[0].content)
+    packet = json.loads(body["input"])
+    assert any("same_text_as" in item for item in packet["recent_dialogue"])
+    expanded = expand_dialogue(packet["recent_dialogue"])
+    assert len(expanded) == len({item["turn_id"] for item in expanded}) == 3
+    assert sum(item["user"] == request.message and item["assistant"] == first.answer.text for item in expanded) == 2
+    assert body["instructions"] == image_writer.SYSTEM + RULE
+    image = BuildImageService().get(result.knowledge_context.completion.action_id, "local_operator")
+    assert image.writer_proof.authorization.payload_sha256 == sha256(wire.calls[0].content).hexdigest()
+    assert image.asset_id is None
+    assert (tmp_path / source.record.target_relpath).read_text() == source.markdown

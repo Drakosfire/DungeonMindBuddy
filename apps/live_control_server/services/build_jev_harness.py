@@ -194,10 +194,12 @@ class BuildJevHarness:
         if self.rules_capability is not None:
             adapter.enable_rules_lookup(self.rules_capability)
         driver = adapter.create_build_jev_driver(with_actions=True)
-        adapter.build_frozen_history = driver._interaction["history"]
+        from application_state.agent_conversation.dialogue_projection import expand_dialogue
+        history = expand_dialogue(driver._interaction["history"])
+        adapter.build_frozen_history = history
         adapter.build_history_for_inclusion = tuple(
             (UUID(item["turn_id"]), item["assistant"])
-            for item in driver._interaction["history"]
+            for item in history
         )
         try:
             asyncio.run(self._decide(adapter, driver))
@@ -594,7 +596,7 @@ class BuildJevHarness:
             instruction=adapter.request.message,
             origin=origin,
         )
-        history = driver._interaction["history"]
+        history = adapter.build_frozen_history
         expected = proposal_owner.prepare_writer_request(
             request, frozen_history=history
         )

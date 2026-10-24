@@ -10,6 +10,7 @@ from generationengine import GenerationClient, TextRequest
 from generationengine.providers.openai_text import OpenAITextProvider
 from generationengine.text_dispatch import TextDispatchGate
 from application_state.agent_conversation import types as ledger
+from application_state.agent_conversation.dialogue_projection import project_dialogue, dialogue_rule
 from application_state.build_proposal.images import BuildImageService
 from application_state.build_proposal.types import (
     BuildImageWriterProof,
@@ -38,6 +39,7 @@ POLICY = "captured_build_image_prompt_alt_purpose_v2"
 
 def writer_request(capability, question, history):
     snapshot = _source(capability)
+    history = project_dialogue(list(history))
     packet = json.dumps(
         {
             "schema": "dmb_build_image_direction_input_v1",
@@ -55,7 +57,7 @@ def writer_request(capability, question, history):
     return {
         "model": _model(),
         "input": packet,
-        "instructions": SYSTEM,
+        "instructions": SYSTEM + dialogue_rule(history),
         "max_output_tokens": 4096,
         "reasoning": {"effort": "low"},
         "text": {
@@ -123,7 +125,7 @@ def prepare_image(harness, adapter, driver):
                     provider="openai",
                     model=expected["model"],
                     user_prompt=expected["input"],
-                    system_prompt=SYSTEM,
+                    system_prompt=expected["instructions"],
                     max_output_tokens=4096,
                     temperature=None,
                     reasoning_effort="low",
