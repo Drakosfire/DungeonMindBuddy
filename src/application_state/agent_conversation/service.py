@@ -321,8 +321,12 @@ def _validated_base_execution_locked(
                 if isinstance(result, RulesCitedSourceTurnResultV1):
                     from .rules_authority_output import validate_build_base_completion
                     rules_execution, output_proof, answer = mixed_output_context
+                    captured = conn.execute(
+                        "SELECT payload FROM agent.turn_context_trace WHERE turn_id=%s AND attempt=%s",
+                        (turn.turn_id, turn.attempt),
+                    ).fetchone()
                     validate_build_base_completion(result, turn, rules_execution=rules_execution,
-                        output_proof=output_proof, answer=answer)
+                        output_proof=output_proof, answer=answer, trace=captured[0] if captured else {})
                 else:
                     captured = conn.execute(
                         "SELECT payload FROM agent.turn_context_trace WHERE turn_id=%s AND attempt=%s",
@@ -1246,6 +1250,7 @@ class AgentConversationService:
         native_play_prepared_request_json: str | None = None,
         plan_jev_input_proof: dict | None = None,
         plan_jev_selection_proof: dict | None = None,
+        build_world_selection_proof: dict | None = None,
         plan_jev_writer_proof: dict | None = None,
         native_source_materializer=None,
     ) -> tuple[Turn, bool]:
@@ -1403,6 +1408,15 @@ class AgentConversationService:
                             if calls != observed:
                                 raise ValueError("Plan retrieval cannot finish with an unresolved Rules read")
                 except (ValueError, TypeError, KeyError, AttributeError) as exc:
+                    raise ApplicationStateValidationError(str(exc)) from exc
+            from .types import BuildWorldReadSelectionV1
+            if isinstance(event, BuildWorldReadSelectionV1):
+                from .build_world_context import verify_world_selection
+                captured = conn.execute("SELECT payload FROM agent.turn_context_trace WHERE turn_id=%s AND attempt=%s",
+                    (turn.turn_id, turn.attempt)).fetchone()
+                try:
+                    verify_world_selection(turn, event, build_world_selection_proof, captured[0] if captured else {})
+                except (ValueError, KeyError, TypeError, AttributeError) as exc:
                     raise ApplicationStateValidationError(str(exc)) from exc
             section_inclusion = None
             from .native_source_input import CAPABILITIES, prove_input
@@ -1591,6 +1605,15 @@ class AgentConversationService:
         return self._append_graph_execution_event(world_id, conversation_id, turn_id,
             expected_revision=expected_revision, expected_attempt=expected_attempt,
             event=selection, duplicate_key="event_id")
+
+    def record_build_world_read_selection(self, world_id, conversation_id, turn_id, *,
+            expected_revision, expected_attempt, selection, producer_proof):
+        from .types import BuildWorldReadSelectionV1
+        if not isinstance(selection, BuildWorldReadSelectionV1):
+            raise ApplicationStateValidationError("A typed Build World selection is required")
+        return self._append_graph_execution_event(world_id, conversation_id, turn_id,
+            expected_revision=expected_revision, expected_attempt=expected_attempt,
+            event=selection, duplicate_key="event_id", build_world_selection_proof=producer_proof)
 
     def record_build_writer_evidence_selection(self, world_id, conversation_id, turn_id, *,
             expected_revision, expected_attempt, selection, producer_proof=None):

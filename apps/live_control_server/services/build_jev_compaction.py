@@ -6,6 +6,7 @@ from copy import deepcopy
 import hashlib
 import json
 from typing import TYPE_CHECKING
+from application_state.agent_conversation.build_world_context import scope_presentation, PrimaryObservationOrigin
 
 if TYPE_CHECKING:
     from .build_jev_transitions import AcquiredEvidence, SourceScope
@@ -34,8 +35,8 @@ def _structured(unit: AcquiredEvidence) -> bool:
     for passage in unit.opened_passages:
         if (
             passage.end_line < passage.start_line
-            or passage.source_artifact_id != unit.scope.source_artifact_id
-            or passage.source_revision != unit.scope.source_revision_id
+            or passage.source_artifact_id != (unit.origin.source_artifact_id if isinstance(getattr(unit, "origin", None), PrimaryObservationOrigin) else unit.scope.source_artifact_id)
+            or passage.source_revision != (unit.origin.source_revision_id if isinstance(getattr(unit, "origin", None), PrimaryObservationOrigin) else unit.scope.source_revision_id)
         ):
             raise ValueError("opened passage source differs")
     text = (
@@ -107,7 +108,7 @@ def verify_projection(
         return
     if set(payload) != {"scope", "evidence", "passages"} or payload[
         "scope"
-    ] != scope.model_dump(mode="json"):
+    ] != scope_presentation(scope):
         raise ValueError("compact projection scope/schema differs")
     dictionary = payload["passages"]
     if not isinstance(dictionary, dict) or not all(
@@ -183,7 +184,7 @@ def project_evidence(
             view["text"] = [int(keys[unit.text][1:])]
         views.append(view)
     payload = {
-        "scope": scope.model_dump(mode="json"),
+        "scope": scope_presentation(scope),
         "evidence": views,
         "passages": dictionary,
     }

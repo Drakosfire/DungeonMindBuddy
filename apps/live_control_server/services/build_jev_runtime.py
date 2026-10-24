@@ -100,6 +100,7 @@ class PreparedBuildJevRuntime:
                 self.unavailable_reason or "tokenizer_not_prepared"
             )
         return BuildJevHarness(
+            world_context=True,
             accounting=self.accounting, rules_capability=rules_capability(graph=True)
         )
 
