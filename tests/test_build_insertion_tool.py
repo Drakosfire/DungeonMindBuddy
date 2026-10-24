@@ -54,11 +54,13 @@ def setup_tool(request, monkeypatch, *, timeout=False):
 
 def test_tool_uses_real_generator_receipt_and_replays_without_second_call(request_case, monkeypatch):
     request, source, root = request_case
+    request = request.model_copy(update={'basis': request.basis.model_copy(update={'editor_sha256': 'e' * 64})})
     tool, message, wire, _ = setup_tool(request, monkeypatch)
     reply = json.loads(tool.dispatch(message)['resultJson'])
     assert reply['status'] == 'awaiting_approval'
     row = BuildProposalService().get('elderwyld', request.idempotency_key)
     assert row.proposal.replacement_markdown == TABLE and row.reservation.origin is not None
+    assert row.reservation.basis.editor_sha256 == 'e' * 64
     assert row.reservation.origin.arguments_sha256 == sha256(json.dumps(message['arguments'], ensure_ascii=False, sort_keys=True, separators=(',', ':')).encode()).hexdigest()
     assert row.authorization and row.raw_response and row.observation
     assert json.loads(wire.calls[0].content)['tools'] == []

@@ -1,6 +1,6 @@
 # Explicit Build placement failure
 
-ACTIVE serial PRIME slice on codex/build-explicit-placement-failure, based on
+SETTLED serial PRIME slice on codex/build-explicit-placement-failure, based on
 origin/main1dfbc8dfb09e769019b24458b14f64aa44039ced. Reuse buddy-context-loop.
 No overlapping open product implementation lane. Existing API8000/UI5202 owned
 by PRIME; preserve user tabs, sources, draft copies and retained state.
@@ -45,3 +45,9 @@ Exact cumulative diff and independent Bugbot. PRIME merge; protected UI-only
 adoption with API/state unchanged; ordinary synthetic selection-related refusal,
 explicit discussion and corrected-caret send without modifying the operator page.
 Settle the roadmap for the new authoring priority and shipped citation predecessor.
+
+Merged as af77b2984f1c9444bdd4322d4156eeacfad86fec after independent Bugbot
+approval of 9a9720c83ac4111f75b08ba92c190e87783242f1. Protected UI adoption
+preserved the running API and retained state. Ordinary selection refusal created
+no turn; explicit discussion completed; correcting the caret produced a durable
+authoring proposal. Page staging remains outstanding.
