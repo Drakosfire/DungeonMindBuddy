@@ -648,27 +648,30 @@ describe("one App-level World conversation host across Plan and Play", () => {
     expect(postWorldBuildAgentTurn).toHaveBeenCalledTimes(1);
   });
 
-  it.each(["plan", "play", "build"] as const)("restores a terminal %s question without replaying it or replacing another draft", async surface => {
+  it.each((["plan", "play", "build"] as const).flatMap(surface => [false,true].map(otherDraft=>({surface,otherDraft}))))("retries terminal $surface in one click and preserves another draft: $otherDraft", async ({surface,otherDraft}) => {
     const prior = turn(surface === "build" ? "plan" : surface, 1, "");
     const terminal = {...prior, lifecycle_status: "interrupted" as const,
       provenance: {...prior.provenance, surface_id: surface,
         primary_work: {...prior.provenance.primary_work,
           object_id: surface === "build" ? "source-one" : prior.provenance.primary_work.object_id}}};
     vi.mocked(getWorldAgentConversationHistory).mockResolvedValue(history([terminal]));
+    vi.mocked(postWorldPlanAgentTurn).mockImplementation(()=>new Promise(()=>{}));
+    vi.mocked(postWorldPlayAgentTurn).mockImplementation(()=>new Promise(()=>{}));
+    vi.mocked(postWorldBuildAgentTurn).mockImplementation(()=>new Promise(()=>{}));
     render(<Harness initial={surface} />);
     fireEvent.click(await screen.findByRole("button", {name:"Open"}));
-    const retry = await screen.findByRole("button", {name:"Retry question…"});
+    const retry = await screen.findByRole("button", {name:"Retry question"});
     await waitFor(() => expect(retry).toBeEnabled());
-    fireEvent.click(retry);
-    const input = screen.getByRole("textbox");
-    expect(input).toHaveValue(prior.user_text);
-    expect(postWorldPlanAgentTurn).not.toHaveBeenCalled();
-    expect(postWorldPlayAgentTurn).not.toHaveBeenCalled();
-    expect(postWorldBuildAgentTurn).not.toHaveBeenCalled();
-    fireEvent.change(input, {target:{value:"Keep my unsent draft"}});
-    expect(retry).toBeDisabled();
-    fireEvent.click(retry);
-    expect(input).toHaveValue("Keep my unsent draft");
+    const input=screen.getByLabelText("Message DungeonBuddy");
+    if(otherDraft)fireEvent.change(input,{target:{value:"Keep my unsent draft"}});
+    fireEvent.click(retry);fireEvent.click(retry);
+    const post=surface==='build'?postWorldBuildAgentTurn:surface==='play'?postWorldPlayAgentTurn:postWorldPlanAgentTurn;
+    await waitFor(()=>expect(post).toHaveBeenCalledTimes(1));
+    const request=vi.mocked(post).mock.calls[0][0];
+    expect(request.message).toBe(prior.user_text);expect(request.turn_id).not.toBe(prior.turn_id);
+    expect(input).toHaveValue(otherDraft?"Keep my unsent draft":"");
+    fireEvent.change(input,{target:{value:"Keep my newer typing"}});
+    expect(input).toHaveValue("Keep my newer typing");expect(retry).toBeDisabled();
     expect(screen.queryByLabelText("Turn surface")).not.toBeInTheDocument();
   });
 
@@ -684,7 +687,7 @@ describe("one App-level World conversation host across Plan and Play", () => {
       ? "Buddy couldn’t finish this reply. Your saved source was not changed."
       : "This reply stopped before it finished. Your saved source was not changed.");
     expect(screen.queryByLabelText("Turn surface")).not.toBeInTheDocument();
-    expect(screen.queryByRole("button", {name: "Retry question…"})).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", {name: "Retry question"})).not.toBeInTheDocument();
     expect(screen.queryByText(/Your Plan was not changed/)).not.toBeInTheDocument();
     expect(postWorldBuildAgentTurn).not.toHaveBeenCalled();
   });

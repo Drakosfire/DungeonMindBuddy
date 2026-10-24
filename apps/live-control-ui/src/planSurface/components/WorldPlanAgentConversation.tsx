@@ -3575,9 +3575,9 @@ export function WorldPlanAgentConversation({
     }
   }
 
-  async function submit(event: FormEvent<HTMLFormElement>, intent = composerIntent) {
+  async function submit(event: Pick<FormEvent<HTMLFormElement>, "preventDefault">, intent = composerIntent, questionOverride?: string) {
     event.preventDefault();
-    const composerSnapshotAtSubmit = composerMessage;
+    const composerSnapshotAtSubmit = questionOverride ?? composerMessage;
     const message = composerSnapshotAtSubmit.trim();
     const pointerSnapshot = historySnapshotRef.current;
     const targetAtSubmit = playableTarget;
@@ -3854,12 +3854,12 @@ export function WorldPlanAgentConversation({
     }
   }
 
-  async function submitPlay(event?: Pick<FormEvent<HTMLFormElement>, "preventDefault">, discussionOnly = false) {
+  async function submitPlay(event?: Pick<FormEvent<HTMLFormElement>, "preventDefault">, discussionOnly = false, questionOverride?: string) {
     event?.preventDefault();
     const admittedRun = playMode?.admittedRun;
     const source = buildMode?.savedSource;
-    const message = composerMessage.trim();
-    if (!isBuild && playMode && playEditMode) {
+    const message = (questionOverride ?? composerMessage).trim();
+    if (!isBuild && playMode && playEditMode && questionOverride === undefined) {
       if (!visible || !admittedRun || admittedRun.worldId !== verifiedWorldId || !message
         || sending || playCompose.busy || requestRef.current || sharedConversation?.pendingTurn || pendingPlayTurn) return;
       if (await playCompose.submit(message)) setComposerMessage(current => current === message ? "" : current);
@@ -3920,7 +3920,7 @@ export function WorldPlanAgentConversation({
       } catch (reason) { setError(String(reason)); return; }
       const stored = { storageKey, serialized, request };
       setPendingPlayTurn(stored);
-      setComposerMessage("");
+      setComposerMessage(current => current.trim() === message ? "" : current);
       await dispatchSavedPlayTurn(stored);
       return;
     }
@@ -3959,7 +3959,7 @@ export function WorldPlanAgentConversation({
     }
     const stored = { storageKey, serialized, request };
     setPendingPlayTurn(stored);
-    setComposerMessage((current) => current === composerMessage ? "" : current);
+    setComposerMessage((current) => current.trim() === message ? "" : current);
     await dispatchSavedPlayTurn(stored);
   }
 
@@ -5557,11 +5557,10 @@ export function WorldPlanAgentConversation({
           </p>
           {turn.provenance.surface_id === (isBuild ? "build" : isReadOnly ? "play" : "plan")
             && turn.provenance.primary_work.object_id === (isBuild ? buildMode?.savedSource?.documentId : isReadOnly ? playMode?.admittedRun?.runId : documentId)
-            ? <ConversationRecovery question={turn.user_text} draft={composerMessage} blocked={composerBusy}
-                onRestore={(question) => {
-                  setComposerMessage(question);
-                  composerEditGenerationRef.current += 1;
-                  requestAnimationFrame(() => composerInputRef.current?.focus());
+            ? <ConversationRecovery question={turn.user_text} blocked={composerBusy}
+                onRetry={async(question)=>{
+                  if(isReadOnly)await submitPlay(undefined,false,question);
+                  else await submit({preventDefault:()=>undefined},"discuss",question);
                 }} /> : null}
           </div>
         ) : null}
