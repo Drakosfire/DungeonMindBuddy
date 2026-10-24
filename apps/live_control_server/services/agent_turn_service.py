@@ -2837,8 +2837,8 @@ class _PolicyExecutionAdapter:
                 or not isinstance(driver._primary_scope, SourceScope)
                 or source.get("world_id") != scope.world_id
                 or source.get("graph_revision") != scope.revision_id
-                or source.get("source_artifact_id") != driver._scope.source_artifact_id
-                or source.get("source_revision_id") != driver._scope.source_revision_id
+                or source.get("source_artifact_id") != driver._primary_scope.source_artifact_id
+                or source.get("source_revision_id") != driver._primary_scope.source_revision_id
                 or scope.world_id != driver._primary_scope.world_id
                 or scope.revision_id != driver._primary_scope.graph_revision):
             raise ValueError("native acquisition source scope differs")

@@ -441,7 +441,7 @@ class BuildJevTransitions:
             "legal_action_kinds": {
                 kind: [a.id for a in available if a.kind == kind]
                 for kind in ("graph_observations", "saved_build_section", "world_search", "world_object")
-                if any(a.kind == kind for a in available)
+                if kind in {"graph_observations", "saved_build_section"} or any(a.kind == kind for a in available)
             },
             "truncated_discovery_hints": [a.id for a in available if len(a.label) > 96],
             "rules": "In text/observation segment lists, strings are literal text and integer N inserts passages.pN. Expand "

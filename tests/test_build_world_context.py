@@ -313,3 +313,26 @@ def test_search_discovers_then_opens_a_new_world_candidate(
     assert (
         packet["opened_passages"][0]["source_name"] == "River Watch — synthetic source"
     )
+
+
+def test_partial_world_read_cannot_become_writer_evidence(build_case, monkeypatch, tmp_path):
+    from tests.test_build_writer_selection import SavedWriter
+    from graph_memory.interaction import expansion_executor
+    case, reads = world_case(build_case, monkeypatch)
+    original = expansion_executor.execute_read_graph_source
+    def partial(*args, **kwargs):
+        value = original(*args, **kwargs)
+        for row in value["reads"]:
+            row["result"].update(outcome="partial")
+            row["receipt"].update(outcome="partial")
+        return value
+    monkeypatch.setattr(expansion_executor, "execute_read_graph_source", partial)
+    decisions, writer = WorldDecisions(), SavedWriter()
+    harness = BuildJevHarness(world_context=True, decision_transport=decisions, writer_transport=writer, accounting=counter())
+    execute(case, tmp_path, harness)
+    packet = json.loads(json.loads(writer.calls[0].content)["input"])
+    assert packet["opened_passages"] == []
+    assert packet["artifact_under_edit"]["sections"]
+    execution = harness.adapter._broker_execution()
+    assert any(r.outcome == "partial" for e in execution.events if isinstance(e, t.ValidatedSourceReadEventV2) for r in e.receipts)
+    assert reads == {"graph": 1, "source": 1}
