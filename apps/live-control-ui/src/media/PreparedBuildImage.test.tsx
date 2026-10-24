@@ -26,6 +26,7 @@ describe('prepared image conversation action',()=>{
   fireEvent.click(screen.getByRole('button',{name:'Open Image Studio'}));
   expect(await screen.findByLabelText('What would you like to see?')).toHaveValue('Prepared Edge');
   expect(fixture.calls.some(item=>item.includes('/generate'))).toBe(false);
+  await waitFor(()=>expect(screen.getByRole('button',{name:'Generate image'})).not.toBeDisabled());
   fireEvent.click(screen.getByRole('button',{name:'Generate image'}));
   fireEvent.click(await screen.findByRole('button',{name:'Save image'}));
   fireEvent.click(await screen.findByRole('button',{name:'Place on page'}));

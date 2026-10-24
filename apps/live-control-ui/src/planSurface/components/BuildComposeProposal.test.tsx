@@ -1,3 +1,4 @@
+import {proposalReview} from '../../api/buildProposalReviewApi';
 import { act, fireEvent, render, renderHook, screen, waitFor } from '@testing-library/react';
 import { useState } from 'react';
 import { beforeEach, expect, it, vi } from 'vitest';
@@ -7,6 +8,7 @@ import * as media from '../../media/PreparedBuildImage';
 import type { WorldAgentConversationHistoryResponse } from '../../api/types';
 import type { CapturedBuildInsertion, BuildComposeBridge } from '../../buildSurface/buildComposeBridge';
 import { BuildComposeProposal, useBuildCompose } from './BuildComposeProposal';
+vi.mock('../../api/buildProposalReviewApi',()=>({proposalReview:vi.fn()}));
 vi.mock('../../api/buildDocumentProposalApi', () => ({ composeBuildProposal: vi.fn(), getBuildProposal: vi.fn(),
   getBuildProposalPrompt: vi.fn(), listBuildProposals: vi.fn(), reportBuildInsertion: vi.fn() }));
 vi.mock('../../api/liveApi', () => ({ getWorldAgentConversationHistory: vi.fn(), postWorldAgentNewConversation: vi.fn(), getWorldAgentTurnPrompt: vi.fn() }));
@@ -17,14 +19,14 @@ const history: WorldAgentConversationHistoryResponse = { schema: 'dmb_agent_conv
 const captured = { basis, draftMarkdown: '# Edge', editorJson: '{}', editor: {} } as CapturedBuildInsertion;
 function receipt(request?: api.BuildProposalRequest): api.BuildProposalRecord {
   return { schema_version: 'dmb_build_document_proposal_v1', action_id: request?.idempotency_key ?? 'action',
-    reservation: request ?? { idempotency_key: 'action', conversation_id: 'conversation', expected_pointer_revision: 1, basis, instruction: 'Create a table' },
+    reservation: request ?? { idempotency_key: 'action', conversation_id: 'conversation', expected_pointer_revision: 1, basis: {...basis}, instruction: 'Create a table' },
     request_fingerprint: 'c'.repeat(64), after_turn_sequence: 0, revision: 5, state: 'proposed', created_at: '', updated_at: '', claim_expires_at: '',
     authorization: null, failure_code: null, inserted_in_draft: false,
     proposal: { replacement_markdown: '| NPC | Job |\n| --- | --- |\n| Nella | Baker |', summary: 'Proposed NPC', assumptions: ['Invented'] } };
 }
 let bridge: BuildComposeBridge;
 beforeEach(() => {
-  vi.resetAllMocks(); bridge = { capture: vi.fn().mockResolvedValue(captured), restore: vi.fn().mockResolvedValue(captured), insert: vi.fn(), insertProposal: vi.fn() };
+  vi.resetAllMocks(); bridge = { capture: vi.fn().mockResolvedValue(captured), restore: vi.fn().mockResolvedValue(captured), insert: vi.fn(), insertProposal: vi.fn(), prepareProposal:vi.fn(), applyPrepared:vi.fn(), inspectProposal:vi.fn() };
   vi.mocked(api.listBuildProposals).mockResolvedValue([]);
   vi.spyOn(media, 'listPreparedImages').mockResolvedValue([]);
   vi.mocked(api.composeBuildProposal).mockImplementation(async request => receipt(request));
@@ -55,46 +57,14 @@ it('does not refetch conversation sidecars for turn lifecycle changes, but refre
     expect(media.listPreparedImages).toHaveBeenCalledTimes(3);
   });
 });
-it('keeps one write request, reviews inline and inserts only once', async () => {
-  const hook = renderHook(() => useBuildCompose({ worldId: 'world', history, bridge, enabled: true, onHistory: vi.fn() }));
-  await act(async () => { await hook.result.current.submit('Create a table'); });
+it('keeps generated prose out of conversation and exposes the page-owned review', async () => {
+  const hook = renderHook(() => useBuildCompose({worldId:'world',history,bridge,enabled:true,onHistory:vi.fn()}));
+  await act(async()=>{await hook.result.current.submit('Create a table');});
+  render(<>{hook.result.current.items.map(item=>item.element)}</>);
+  expect(screen.getByRole('button',{name:'Review suggestion on page'})).toBeInTheDocument();
+  expect(screen.queryByRole('table')).not.toBeInTheDocument();
+  expect(hook.result.current.pageElement).not.toBeNull();
   expect(api.composeBuildProposal).toHaveBeenCalledTimes(1);
-  const view = render(<>{hook.result.current.items.map(item => item.element)}</>);
-  expect(screen.getByRole('table')).toHaveTextContent('Nella');
-  await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Insert into page' })); });
-  view.rerender(<>{hook.result.current.items.map(item => item.element)}</>);
-  expect(bridge.insertProposal).toHaveBeenCalledTimes(1);
-  expect(screen.queryByRole('button', { name: 'Insert into page' })).not.toBeInTheDocument();
-});
-it('recovers a stored proposal after remount without generation and inserts only on explicit approval', async () => {
-  const record = receipt();
-  record.proposal!.replacement_markdown = '| d20 | Name |\n|---:|---|\n| 1 | Mara |';
-  vi.mocked(api.listBuildProposals).mockResolvedValue([record]);
-  const hook = renderHook(() => useBuildCompose({ worldId: 'world', history, bridge, enabled: true, onHistory: vi.fn() }));
-  await waitFor(() => expect(hook.result.current.items).toHaveLength(1));
-  const view = render(<>{hook.result.current.items.map(item => item.element)}</>);
-  expect(bridge.capture).not.toHaveBeenCalled();
-  expect(bridge.insertProposal).not.toHaveBeenCalled();
-  expect(screen.getByRole('table')).toHaveTextContent('Mara');
-  await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Insert at original position' })); });
-  expect(bridge.insertProposal).toHaveBeenCalledWith(captured, '| d20 | Name |\n|---|---|\n| 1 | Mara |');
-  expect(api.composeBuildProposal).not.toHaveBeenCalled();
-  view.rerender(<>{hook.result.current.items.map(item => item.element)}</>);
-  expect(screen.queryByRole('button', { name: /Insert/ })).not.toBeInTheDocument();
-});
-it('drops a delayed recovered capture when the World changes and prevents double approval', async () => {
-  vi.mocked(api.listBuildProposals).mockResolvedValue([receipt()]);
-  let finish!: (value: CapturedBuildInsertion) => void;
-  vi.mocked(bridge.restore).mockImplementation(() => new Promise(resolve => { finish = resolve; }));
-  const hook = renderHook(({ world }) => useBuildCompose({ worldId: world, history: { ...history, world_id: world }, bridge, enabled: true, onHistory: vi.fn() }), { initialProps: { world: 'world' } });
-  await waitFor(() => expect(hook.result.current.items).toHaveLength(1));
-  render(<>{hook.result.current.items.map(item => item.element)}</>);
-  fireEvent.click(screen.getByRole('button', { name: 'Insert at original position' }));
-  fireEvent.click(screen.getByRole('button', { name: 'Insert at original position' }));
-  expect(bridge.restore).toHaveBeenCalledTimes(1);
-  hook.rerender({ world: 'foreign' });
-  await act(async () => { finish(captured); });
-  expect(bridge.insertProposal).not.toHaveBeenCalled();
 });
 it('opens the first durable World conversation before composing', async () => {
   vi.mocked(live.postWorldAgentNewConversation).mockResolvedValue({ schema: 'dmb_agent_new_conversation_response_v1', world_id: 'world',
@@ -131,7 +101,7 @@ it('discards an old result after World A → B → A', async () => {
   expect(hook.result.current.items).toHaveLength(0);
 });
 it('keeps reopened proposals readable without executable editor authority', () => {
-  render(<BuildComposeProposal record={receipt()} canInsert={false} onInsert={vi.fn()} />);
+  render(<BuildComposeProposal record={receipt()} />);
   expect(screen.getByRole('table')).toHaveTextContent('Nella');
   expect(screen.queryByRole('button', { name: 'Insert into page' })).not.toBeInTheDocument();
 });
@@ -147,7 +117,8 @@ it.each([true, false])('places a Harness proposal after its requesting turn when
   await waitFor(() => expect(hook.result.current.items).toHaveLength(1));
   expect(hook.result.current.items[0].afterSequence).toBe(matching ? 5 : 4);
   render(<>{hook.result.current.items[0].element}</>);
-  expect(screen.getByText('Writing details').closest('details')).not.toHaveAttribute('open');
+  expect(screen.queryByText('Writing details')).not.toBeInTheDocument();
+  expect(screen.getByRole('button',{name:'Review suggestion on page'})).toBeInTheDocument();
 });
 
 it('keeps a historical proposal readable without manufacturing an original anchor', async () => {
@@ -156,7 +127,23 @@ it('keeps a historical proposal readable without manufacturing an original ancho
   const hook = renderHook(() => useBuildCompose({ worldId: 'world', history, bridge, enabled: true, onHistory: vi.fn() }));
   await waitFor(() => expect(hook.result.current.items).toHaveLength(1));
   render(<>{hook.result.current.items.map(item => item.element)}</>);
+  const details=screen.getByText('Earlier page suggestion').closest('details')!;
+  details.open=true;fireEvent(details,new Event('toggle'));
   expect(screen.getByRole('table')).toHaveTextContent('Nella');
   expect(screen.queryByRole('button', {name: /Insert/})).not.toBeInTheDocument();
   expect(bridge.restore).not.toHaveBeenCalled();
+});
+
+it('reopens the author-reviewed text separately from original generated prose',async()=>{
+ const record=receipt();record.inserted_in_draft=true;
+ vi.mocked(api.listBuildProposals).mockResolvedValue([record]);
+ vi.mocked(proposalReview).mockResolvedValue({schema:'dmb_build_proposal_review_v1',world_id:'world',action_id:'action',reservation_sha256:record.request_fingerprint,
+  revision:4,state:'applied',markdown:'The author’s retained review edit.',markdown_sha256:'a'.repeat(64),apply:null,updated_at:''});
+ const hook=renderHook(()=>useBuildCompose({worldId:'world',history,bridge,enabled:true,onHistory:vi.fn()}));
+ await waitFor(()=>expect(hook.result.current.items).toHaveLength(1));
+ render(<>{hook.result.current.items.map(item=>item.element)}</>);
+ expect(hook.result.current.pageElement).toBeNull();expect(proposalReview).not.toHaveBeenCalled();
+ const details=screen.getByText('Kept page suggestion').closest('details')!;details.open=true;fireEvent(details,new Event('toggle'));
+ expect(await screen.findByText('The author’s retained review edit.')).toBeInTheDocument();
+ expect(screen.queryByText('Authored suggestion for your page')).not.toBeInTheDocument();
 });

@@ -1,6 +1,8 @@
+import { proposalReview, type BuildProposalReview } from '../../api/buildProposalReviewApi';
+import { BuildPageProposal } from '../../buildSurface/BuildPageProposal';
 import { PreparedBuildImage, listPreparedImages, type PreparedImage } from "../../media/PreparedBuildImage";
 import { useEffect, useRef, useState } from 'react';
-import { composeBuildProposal, getBuildProposal, getBuildProposalPrompt, listBuildProposals, reportBuildInsertion,
+import { composeBuildProposal, getBuildProposal, getBuildProposalPrompt, listBuildProposals,
   type BuildProposalRecord } from '../../api/buildDocumentProposalApi';
 import { getWorldAgentConversationHistory, postWorldAgentNewConversation } from '../../api/liveApi';
 import type { WorldAgentConversationHistoryResponse } from '../../api/types';
@@ -12,9 +14,9 @@ import { PreparedRequestInspector } from './PreparedRequestInspector';
 import './BuildComposeProposal.css';
 import { buildProposalMarkdown } from '../../buildSurface/buildProposalMarkdown';
 
-export function useBuildCompose({ worldId, history, bridge, enabled, onHistory }: {
+export function useBuildCompose({ worldId, history, bridge, enabled, onHistory, sourceKey = '' }: {
   worldId: string; history: WorldAgentConversationHistoryResponse | null; bridge: BuildComposeBridge | null;
-  enabled: boolean; onHistory: (history: WorldAgentConversationHistoryResponse) => void;
+  enabled: boolean; sourceKey?: string; onHistory: (history: WorldAgentConversationHistoryResponse) => void;
 }) {
   const scope = enabled ? `${worldId}:${history?.conversation_id ?? ''}` : '';
   const generation = useRef({ scope, epoch: 0 });
@@ -28,7 +30,8 @@ export function useBuildCompose({ worldId, history, bridge, enabled, onHistory }
   const [error, setError] = useState<string | null>(null);
   const running = useRef(false);
   const captures = useRef(new Map<string, CapturedBuildInsertion>());
-  const inserting = useRef(new Set<string>());
+  const [opened,setOpened]=useState<{action:string;generation:number}|null>(null);
+  const [reviewStatus,setReviewStatus]=useState<Record<string,string>>({});
   const mounted = useRef(true);
   useEffect(() => { mounted.current = true; return () => { mounted.current = false; }; }, []);
   useEffect(() => {
@@ -87,28 +90,6 @@ export function useBuildCompose({ worldId, history, bridge, enabled, onHistory }
       return false;
     } finally { running.current = false; if (mounted.current) setBusy(false); }
   }
-  async function insert(record: BuildProposalRecord) {
-    const start = current.current;
-    if (inserting.current.has(record.action_id) || !start.bridge || record.inserted_in_draft || !record.proposal
-      || !record.reservation.basis.editor_sha256
-      || start.history?.active_conversation_id !== record.reservation.conversation_id
-      || start.history.pointer_revision !== record.reservation.expected_pointer_revision) return;
-    inserting.current.add(record.action_id);
-    try {
-      let captured = captures.current.get(record.action_id);
-      if (!captured) {
-        captured = await start.bridge.restore(record.reservation.basis);
-      }
-      if (!mounted.current || current.current.scope !== start.scope || current.current.epoch !== start.epoch
-        || current.current.history?.pointer_revision !== record.reservation.expected_pointer_revision) return;
-      start.bridge.insertProposal(captured, buildProposalMarkdown(record.proposal.replacement_markdown).markdown);
-      captures.current.delete(record.action_id);
-      put({ ...record, inserted_in_draft: true }, start.scope);
-      try { put(await reportBuildInsertion(start.worldId, record), start.scope); }
-      catch { setError('Inserted into your draft. Its history receipt could not be updated; save the page normally.'); }
-    } catch (reason) { if (mounted.current && current.current.scope === start.scope && current.current.epoch === start.epoch) setError(reason instanceof Error ? reason.message : 'This proposal cannot be inserted here.'); }
-    finally { inserting.current.delete(record.action_id); }
-  }
   async function prepareHarnessCapability() {
     const start = current.current;
     if (!start.enabled || !start.bridge || !start.history?.conversation_id
@@ -120,16 +101,51 @@ export function useBuildCompose({ worldId, history, bridge, enabled, onHistory }
     return { idempotency_key: action, conversation_id: start.history.conversation_id,
       expected_pointer_revision: start.history.pointer_revision, basis: captured.basis, draft_markdown: captured.draftMarkdown };
   }
+  const values=records.scope===scope?records.values:[];
+  const latest=[...values].reverse().find(record=>record.proposal&&record.reservation.basis.editor_sha256);
+  const active=values.find(record=>record.action_id===(opened?.action??latest?.action_id));
   return { busy, error, submit, prepareHarnessCapability, refresh: () => setRefreshNonce(value => value + 1),
-    items: [...(records.scope === scope ? records.values.map(record => ({ key: record.action_id, afterSequence: Math.max(record.after_turn_sequence,
-      history?.turns.find(turn => turn.turn_id === record.reservation.origin?.durable_turn_id)?.sequence ?? record.after_turn_sequence),
-      element: <BuildComposeProposal key={record.action_id} record={record}
-        recovered={!captures.current.has(record.action_id)} canInsert={Boolean(bridge) && Boolean(record.reservation.basis.editor_sha256)
-          && history?.active_conversation_id === record.reservation.conversation_id
-          && history.pointer_revision === record.reservation.expected_pointer_revision} onInsert={() => { void insert(record); }} /> })) : []),
-      ...(imageRecords.scope===scope ? imageRecords.values.map(record=>({key:record.action_id,afterSequence:Math.max(record.after_turn_sequence, history?.turns.find(turn=>turn.turn_id===record.reservation.origin?.durable_turn_id)?.sequence ?? record.after_turn_sequence),
+    pageElement: enabled&&bridge&&active?.proposal&&!active.inserted_in_draft&&active.reservation.basis.editor_sha256
+      &&history?.active_conversation_id===active.reservation.conversation_id
+      &&history.pointer_revision===active.reservation.expected_pointer_revision
+      ? <BuildPageProposal key={`${scope}:${active.action_id}`} record={active} bridge={bridge} sourceKey={sourceKey}
+          requestKey={opened?.generation??0} inspector={<BuildPrompt record={active}/>} onStatus={text=>setReviewStatus(previous=>({...previous,[active.action_id]:text}))}
+          onComplete={state=>{if(state==='applied')setRecords(previous=>previous.scope===scope?{...previous,values:previous.values.map(value=>value.action_id===active.action_id?{...value,inserted_in_draft:true}:value)}:previous);}}/>:null,
+    items: [...values.map(record=>({key:record.action_id,afterSequence:Math.max(record.after_turn_sequence,
+      history?.turns.find(turn=>turn.turn_id===record.reservation.origin?.durable_turn_id)?.sequence??record.after_turn_sequence),
+      element:record.proposal&&bridge&&record.reservation.basis.editor_sha256&&!record.inserted_in_draft&&reviewStatus[record.action_id]!=='Suggestion discarded'
+        ? <button type="button" key={record.action_id} onClick={()=>setOpened(previous=>({action:record.action_id,generation:(previous?.generation??0)+1}))}>
+            {reviewStatus[record.action_id]??(record.inserted_in_draft?'Kept on page':'Review suggestion on page')}
+          </button>
+        : <EarlierBuildProposal key={record.action_id} record={record} label={reviewStatus[record.action_id]}/>})),
+      ...(imageRecords.scope===scope?imageRecords.values.map(record=>({key:record.action_id,afterSequence:Math.max(record.after_turn_sequence,history?.turns.find(turn=>turn.turn_id===record.reservation.origin?.durable_turn_id)?.sequence??record.after_turn_sequence),
         element:<PreparedBuildImage key={record.action_id} record={record} bridge={bridge}
-          active={history?.active_conversation_id===record.reservation.conversation_id&&history.pointer_revision===record.reservation.expected_pointer_revision} />})):[])] };
+          active={history?.active_conversation_id===record.reservation.conversation_id&&history.pointer_revision===record.reservation.expected_pointer_revision}/>})):[])]};
+}
+
+function EarlierBuildProposal({record,label}:{record:BuildProposalRecord;label?:string}) {
+  const [open,setOpen]=useState(false);
+  return <details onToggle={event=>setOpen(event.currentTarget.open)}><summary>{label??(record.inserted_in_draft?'Kept page suggestion':'Earlier page suggestion')}</summary>
+    {open?<SavedProposalHistory record={record}/>:null}
+  </details>;
+}
+
+function SavedProposalHistory({record}:{record:BuildProposalRecord}) {
+  const [saved,setSaved]=useState<BuildProposalReview|null>(null);
+  const [originalOpen,setOriginalOpen]=useState(false);
+  const [unavailable,setUnavailable]=useState(false);
+  useEffect(()=>{
+    if(!record.reservation.basis.editor_sha256)return;
+    let active=true;
+    proposalReview(record.reservation.basis.world_id,record.action_id).then(value=>{
+      if(value.reservation_sha256!==record.request_fingerprint)throw new Error('Review basis differs');
+      if(active)setSaved(value);
+    }).catch(()=>{if(active)setUnavailable(true);});
+    return()=>{active=false;};
+  },[record.action_id,record.request_fingerprint,record.reservation.basis.world_id,record.reservation.basis.editor_sha256]);
+  return saved?<section aria-label="Saved suggestion review"><p>{saved.state==='discarded'?'Discarded suggestion':saved.state==='applied'?'Kept suggestion':'Saved review text'}</p>
+    <WorldPlanAgentAnswer answer={saved.markdown}/><details onToggle={event=>setOriginalOpen(event.currentTarget.open)}><summary>Original generated suggestion and prompt</summary>{originalOpen?<BuildComposeProposal record={record}/>:null}</details></section>
+    : <>{unavailable?<p>The saved review is unavailable. The original generated suggestion follows.</p>:null}<BuildComposeProposal record={record}/></>;
 }
 
 function BuildPrompt({ record }: { record: BuildProposalRecord }) {
@@ -153,7 +169,7 @@ function BuildPrompt({ record }: { record: BuildProposalRecord }) {
     : error ? <p role="alert">The captured request is unavailable.</p>
     : payload ? <PreparedRequestInspector payloadJson={payload} /> : <p role="status">Loading captured request…</p>;
 }
-export function BuildComposeProposal({ record, canInsert, onInsert, recovered = false }: { record: BuildProposalRecord; canInsert: boolean; onInsert: () => void; recovered?: boolean }) {
+export function BuildComposeProposal({ record }: { record: BuildProposalRecord }) {
   return <article className="build-compose-proposal" aria-label="Page proposal">
     <div className="build-compose-proposal__request">{record.reservation.origin
       ? <details><summary>Writing details</summary><p>{record.reservation.instruction}</p></details>
@@ -164,7 +180,6 @@ export function BuildComposeProposal({ record, canInsert, onInsert, recovered = 
       {buildProposalMarkdown(record.proposal.replacement_markdown).alignmentAdjusted ? <p>Column alignment will use the page’s default when inserted.</p> : null}
       {record.proposal.assumptions.length ? <details><summary>Creative assumptions</summary><ul>{record.proposal.assumptions.map((text, i) => <li key={i}>{text}</li>)}</ul></details> : null}
       {record.inserted_in_draft ? <p role="status">Inserted into the draft. Save the page when you’re ready.</p>
-        : canInsert ? <button type="button" onClick={onInsert}>{recovered ? 'Insert at original position' : 'Insert into page'}</button>
         : <p>This earlier proposal remains available to read. Ask again to choose a new insertion point.</p>}
     </div> : <p role="status">{record.state === 'unknown' ? 'The request outcome is uncertain. It will not be repeated automatically.'
       : record.state === 'failed' ? 'The proposal could not be prepared.' : 'The proposal has not completed. It will not be repeated automatically.'}</p>}

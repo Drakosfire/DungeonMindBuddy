@@ -2,7 +2,7 @@ import { pickMediaInsertion } from '../documentEditing/pickMediaInsertion';
 import type { Editor } from '@tiptap/core';
 import type { BuildProposalBasis } from '../api/buildDocumentProposalApi';
 import { tiptapJsonToSemanticMarkdown } from '../tiptap/markdown/calloutMarkdown';
-import { admitMarkdownInsertion, insertReviewedMarkdown, insertReviewedMarkdownAtAnchor } from '../documentEditing/markdownInsertion';
+import { admitMarkdownInsertion, insertReviewedMarkdown, insertReviewedMarkdownAtAnchor, prepareReviewedMarkdownAtAnchor } from '../documentEditing/markdownInsertion';
 
 export interface BuildComposeEditorState {
   editor: Editor; worldId: string; documentId: string; revision: number; contentSha256: string;
@@ -11,10 +11,16 @@ export interface BuildComposeEditorState {
 export interface CapturedBuildInsertion {
   basis: BuildProposalBasis; draftMarkdown: string; editor: Editor; editorJson: string;
 }
+export interface PreparedBuildProposal {
+  captured: CapturedBuildInsertion; markdown: string; afterEditorSha256: string; afterDraftSha256: string;
+}
 export interface BuildComposeBridge {
   capture: () => Promise<CapturedBuildInsertion>;
   pickInsertion?: (options: { signal: AbortSignal; mode: 'click' | 'drag'; assetId: string }) => Promise<CapturedBuildInsertion>;
   insert: (captured: CapturedBuildInsertion, markdown: string) => void;
+  prepareProposal: (captured: CapturedBuildInsertion, markdown: string) => Promise<PreparedBuildProposal>;
+  applyPrepared: (prepared: PreparedBuildProposal) => void;
+  inspectProposal: (basis: BuildProposalBasis, afterEditor: string, afterDraft: string) => Promise<'before'|'after'|'changed'>;
   restore: (basis: BuildProposalBasis) => Promise<CapturedBuildInsertion>;
   insertProposal: (captured: CapturedBuildInsertion, markdown: string) => void;
 }
@@ -50,6 +56,29 @@ export function createBuildComposeBridge(getCurrent: () => BuildComposeEditorSta
           editor_sha256: await sha256(editorJson), caret, draft_generation: draftGeneration, selection_generation: selectionGeneration } };
       assertSame(captured);
       return captured;
+    },
+    async prepareProposal(captured, markdown) {
+      const admitted = admitMarkdownInsertion(markdown);
+      assertSame(captured, true);
+      const result = prepareReviewedMarkdownAtAnchor(captured.editor,captured.basis.caret,admitted.content,captured.editorJson);
+      const prepared = {captured, markdown: admitted.markdown, afterEditorSha256: await sha256(JSON.stringify(result)),
+        afterDraftSha256: await sha256(tiptapJsonToSemanticMarkdown(result))};
+      assertSame(captured, true);
+      return prepared;
+    },
+    applyPrepared(prepared) { bridge.insertProposal(prepared.captured,prepared.markdown); },
+    async inspectProposal(basis,afterEditor,afterDraft) {
+      const now=getCurrent();
+      if(!now||now.editor.isDestroyed||now.worldId!==basis.world_id||now.documentId!==basis.document_id||now.visibility!==basis.visibility)return 'changed';
+      const json=JSON.stringify(now.editor.getJSON());const markdown=tiptapJsonToSemanticMarkdown(now.editor.getJSON());
+      const editorDigest=await sha256(json);const draftDigest=await sha256(markdown);
+      const current=getCurrent();
+      if(!current||current.editor!==now.editor||current.worldId!==now.worldId||current.documentId!==now.documentId
+        ||current.visibility!==now.visibility||JSON.stringify(current.editor.getJSON())!==json)return 'changed';
+      if(editorDigest===afterEditor&&draftDigest===afterDraft)return 'after';
+      if(editorDigest===basis.editor_sha256&&draftDigest===basis.draft_sha256
+        &&current.revision===basis.registry_revision&&current.contentSha256===basis.content_sha256)return 'before';
+      return 'changed';
     },
     async restore(basis) {
       if (!basis.editor_sha256) throw new Error('This earlier proposal has no saved insertion anchor. Ask again where you want the new text.');

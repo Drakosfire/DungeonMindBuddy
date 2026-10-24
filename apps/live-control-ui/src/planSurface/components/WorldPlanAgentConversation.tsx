@@ -2627,7 +2627,7 @@ export function WorldPlanAgentConversation({
   const playCompose = usePlaySceneEdits({ worldId, runId: playMode?.admittedRun?.runId ?? null,
     bridge: playMode?.sceneEditBridge ?? null });
   const buildCompose = useBuildCompose({ worldId, history,
-    bridge: buildMode?.composeBridge ?? null, enabled: visible,
+    bridge: buildMode?.composeBridge ?? null, enabled: visible, sourceKey: JSON.stringify([buildMode?.savedSource?.worldId, buildMode?.savedSource?.documentId, buildMode?.savedSource?.revision, buildMode?.savedSource?.contentSha256]),
     onHistory: next => { historySnapshotRef.current = next; setHistory(next); } });
 
   const conversationDisplay = useMemo(
@@ -6226,6 +6226,7 @@ export function WorldPlanAgentConversation({
   }
   if (presentationHosts) {
     return <>
+      {buildCompose.pageElement}
       {presentationHosts.header && createPortal(<>{headerActions}{managementDetails}</>, presentationHosts.header)}
       {presentationHosts.newConversation && createPortal(newConversationButton, presentationHosts.newConversation)}
       {presentationHosts.context && createPortal(contextDetails, presentationHosts.context)}
