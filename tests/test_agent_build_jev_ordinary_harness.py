@@ -636,12 +636,20 @@ def test_ordinary_retry_recovers_persisted_proposal_without_model_replay(
     assert len(decisions.calls) == len(writer.calls) == 1
 
 
+@pytest.mark.parametrize("long_exchange", [False, True])
 def test_ordinary_followup_writer_receives_exact_frozen_dialogue(
-    build_case, monkeypatch, tmp_path
+    build_case, monkeypatch, tmp_path, long_exchange
 ):
     case, _ = ordinary_case(build_case, monkeypatch)
+    if long_exchange:
+        source, request, bootstrap = case
+        request = request.model_copy(update={"message": "Discuss the gate. " + "Detailed author context. " * 550})
+        assert len(request.message) > 12000
+        case = source, request, bootstrap
     decisions, writer = DecisionWire(), WriterWire()
-    runtime = BuildJevHarness(decision_transport=decisions, writer_transport=writer)
+    from tests.test_build_jev_estimated_continuations import counter
+    runtime = BuildJevHarness(decision_transport=decisions, writer_transport=writer,
+        accounting=counter() if long_exchange else None)
     first = execute(case, tmp_path, runtime)
     source, request, bootstrap = case
     followup = request.model_copy(
@@ -1037,3 +1045,36 @@ def test_ordinary_selected_revision_reaches_same_proposal_owner(build_case, monk
     state=json.loads(decisions.calls[0].content)["state"]
     assert state["interaction"]["page_target"] == {"kind":"replace_selection","text":"Old town"}
     assert len(writer.calls)==1 and calls=={"graph":0,"source":0}
+
+
+def test_page_proposal_followup_keeps_complete_long_exchange(build_case, monkeypatch, tmp_path):
+    case, _ = ordinary_case(build_case, monkeypatch, authoring=True)
+    source, request, bootstrap = case
+    request = request.model_copy(update={"message": "Discuss possible gate encounters. " + "Detailed author context. " * 550})
+    assert len(request.message) > 12000
+    decisions, writer = DecisionWire(), WriterWire()
+    from tests.test_build_jev_estimated_continuations import counter
+    harness = BuildJevHarness(decision_transport=decisions, writer_transport=writer, accounting=counter())
+    first = execute((source, request, bootstrap), tmp_path, harness)
+    decisions.operation = "propose_build_insertion"
+    history_reads = []
+    original_list = AgentConversationService.list_turns
+    def counted_history(self, *args, **kwargs):
+        if kwargs.get("limit") == 6:
+            history_reads.append((args, kwargs))
+        return original_list(self, *args, **kwargs)
+    monkeypatch.setattr(AgentConversationService, "list_turns", counted_history)
+    followup = request.model_copy(update={"turn_id": str(uuid4()), "message": "Place that as a table on the page."})
+    result = execute((source, followup, bootstrap), tmp_path, harness)
+    assert len(history_reads) == 1
+    packet = json.loads(json.loads(writer.calls[-1].content)["input"])
+    assert packet["recent_dialogue"] == [{"user": request.message, "assistant": first.answer.text}]
+    service = AgentConversationService()
+    prior, current = service.list_turns("elderwyld", request.build_write_capability.conversation_id)
+    assert packet["dialogue_sources"] == [{"turn_id": str(prior.turn_id),
+        "user_sha256": sha256(request.message.encode()).hexdigest(),
+        "assistant_sha256": sha256(first.answer.text.encode()).hexdigest()}]
+    action = BuildProposalService().get("elderwyld", request.build_write_capability.idempotency_key)
+    assert action.state == "proposed" and action.proposal.replacement_markdown.startswith("| NPC |")
+    assert current.status == "completed" and result.answer.text == ledger.BUILD_PROPOSAL_READY_TEXT
+    assert (tmp_path / source.record.target_relpath).read_text() == source.markdown

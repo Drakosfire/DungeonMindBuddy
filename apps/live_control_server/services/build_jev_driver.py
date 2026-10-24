@@ -111,17 +111,13 @@ def freeze_interaction(adapter):
         raise AgentTurnServiceError("The conversation changed while the working draft was captured. Send again.",
             code="build_editor_context_changed", status_code=409, provider_dispatched=False)
     rows = adapter.service.list_turns(adapter.world_id, conversation_id, limit=6) if conversation_id else []
-    history, remaining = [], 12000
+    history = []
     for row in reversed(rows):
         # A mixed answer has an explicit lifecycle envelope and full visible text.
         # Its approved base is only a subsequence, never the historical answer.
         envelope = row.envelope if isinstance(row, MixedCompletedTurnV1) else row
         if envelope.status != "completed" or not row.assistant_text:
             continue
-        size = len(envelope.user_text) + len(row.assistant_text)
-        if size > remaining:
-            continue
-        remaining -= size
         history.append({"turn_id": str(envelope.turn_id), "user": envelope.user_text,
             "assistant": row.assistant_text,
             "user_sha256": hashlib.sha256(envelope.user_text.encode()).hexdigest(),
@@ -134,7 +130,7 @@ def freeze_interaction(adapter):
         "page_target": ({"kind": "replace_selection", "text": capability.basis.selection.text}
             if capability and capability.basis.selection is not None else
             {"kind": "insert_at_caret"} if capability else None),
-        "history_policy": "newest_complete_pairs_up_to_6_and_12000_chars_reference_only_v1"}
+        "history_policy": "newest_complete_pairs_up_to_6_provider_capacity_reference_only_v1"}
 
 
 def verify_selected_presentation(raw, payloads, selector):

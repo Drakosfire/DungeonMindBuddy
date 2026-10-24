@@ -1,6 +1,12 @@
 # Preserve decision capacity refusals in Debug
 
-ACTIVE serial PRIME implementation; branch codex/build-admission-diagnostics,
+SETTLED: PR #1695 merged at 573d6a4dec7f91fa8d1e2f0c7734c8cf4335f0aa;
+reviewed head 857548a129c0cdfe5cfdff3222d51408f01024dd. Independent Bugbot
+passed 52 affected checks. API delivered with retained state preserved. Live
+authoring/presentation/latency acceptance remains open. Successor:
+HANDOFF-BUILD-complete-followup-history.md.
+
+Original serial PRIME implementation; branch codex/build-admission-diagnostics,
 base 3b6556ea0ab01b810fc358aec5cc07e6bfc16f92; existing buddy-context-loop checkout.
 One capability/PR. Hosted/Combat/Ingest open lanes are disjoint. PRIME owns API8000
 and UI5202; no live model probes while operator dogfood continues.
