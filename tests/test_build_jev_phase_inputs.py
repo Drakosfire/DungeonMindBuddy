@@ -299,7 +299,11 @@ def test_authoring_context_is_bound_through_assessment_and_coverage_without_mint
     assert "established facts" in rule and "mixed creative/factual" in rule
     questions = {q.name: q.question for q in assess.questions}
     assert "authoring_support_rule" in questions["sufficiency"]
-    assert "requested inventions themselves" in questions["joint_support"]
+    assert "invented names or details need not already exist" in questions["joint_support"]
+    assert "factual or mixed requests" in questions["joint_support"]
+    assert "acquired material page" in questions["relevant_0"]
+    assert "contextual material is relevant" in questions["relevant_0"]
+    assert "shared names alone are insufficient" in questions["relevant_0"]
     original = project_evidence(m._scope, m._view_units())
     assert {k: assess.state[k] for k in original} == original
     coverage = answer(m, label="sufficient", relevance={"joint_support": .99})
