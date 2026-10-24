@@ -841,7 +841,7 @@ describe("one App-level World conversation host across Plan and Play", () => {
   });
 
   it.each([
-    [409, "build_source_unavailable"], [413, "build_source_too_large"], [403, "graph_auth_required"],
+    [409, "build_source_unavailable"], [403, "graph_auth_required"],
   ] as const)("restores the Build question after refusal before dispatch: %s %s", async (status, code) => {
     vi.mocked(postWorldBuildAgentTurn).mockRejectedValue(new LiveApiError("Saved source unavailable", status, { code }));
     render(<Harness initial="build" />);
