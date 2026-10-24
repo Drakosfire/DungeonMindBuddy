@@ -10,8 +10,10 @@
 /* Page artwork uses its saved width and centers within the available text measure.
    The reader adds an asset-reference span around the shared image component. */
 p > .document-media-image,
-p > span[data-media-asset-id] > .document-media-image {
+p > span[data-media-asset-id] > .document-media-image,
+p > .node-mediaImage > .document-media-image {
   display: block;
   margin-inline: auto;
 }
-p > span[data-media-asset-id] { display: block; }
+p > span[data-media-asset-id],
+p > .node-mediaImage { display: block; }
