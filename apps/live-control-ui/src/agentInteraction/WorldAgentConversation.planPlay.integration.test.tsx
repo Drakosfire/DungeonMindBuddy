@@ -859,19 +859,17 @@ describe("one App-level World conversation host across Plan and Play", () => {
     expect(screen.queryByRole("button", {name: "Connect local session"})).not.toBeInTheDocument();
   });
 
-  it("keeps Build tools and keyboard help in Options and grows a compact composer", async () => {
+  it("keeps Build tools and keyboard help in Options with native composer sizing", async () => {
     render(<Harness initial="build" />);
     fireEvent.click(await screen.findByRole("button", { name: "Open" }));
     const input = await screen.findByLabelText("Message DungeonBuddy");
     await waitFor(() => expect(input).toBeEnabled());
     expect(input).toHaveAttribute("rows", "1");
-    expect(input).toHaveStyle({ height: "40px" });
-    Object.defineProperty(input, "scrollHeight", { configurable: true, value: 120 });
+    expect(input.style.height).toBe("");
     fireEvent.change(input, { target: { value: "First line\nSecond line\nThird line" } });
-    expect(input).toHaveStyle({ height: "120px" });
-    Object.defineProperty(input, "scrollHeight", { configurable: true, value: 20 });
+    expect(input).toHaveValue("First line\nSecond line\nThird line");
     fireEvent.change(input, { target: { value: "" } });
-    expect(input).toHaveStyle({ height: "40px" });
+    expect(input).toHaveValue("");
     const options = screen.getByLabelText("Conversation options");
     expect(options).toContainElement(screen.getByLabelText("Agent tools and access"));
     fireEvent.click(within(options).getByText("Conversation options", { selector: "summary" }));

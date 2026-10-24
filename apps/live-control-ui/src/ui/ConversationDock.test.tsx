@@ -48,6 +48,26 @@ describe("ConversationDock", () => {
     expect(unmounted).not.toHaveBeenCalled();
   });
 
+  it("adapts the floating workspace without remounting page or conversation drafts", () => {
+    let geometry = {height:800,width:1200} as DOMRect;
+    vi.spyOn(HTMLElement.prototype,"getBoundingClientRect").mockImplementation(()=>geometry);
+    let resized!:()=>void;
+    vi.stubGlobal("ResizeObserver",class {constructor(callback:()=>void){resized=callback;} observe(){} disconnect(){}});
+    render(<ConversationDock reader={<textarea aria-label="Page draft" defaultValue="Authored work"/>}
+      messages={<p>Existing discussion</p>} composer={<textarea aria-label="Conversation draft" defaultValue="My next thought"/>} initialExpanded minimumReaderHeight={0}/>);
+    const page=screen.getByLabelText("Page draft"), draft=screen.getByLabelText("Conversation draft");
+    const root=page.closest('.conversation-dock')!;
+    expect(root).toHaveClass('has-reader');expect(root).not.toHaveClass('is-narrow');
+    expect(screen.getByRole('separator')).toHaveAttribute('aria-valuenow','640');
+    geometry={height:800,width:600} as DOMRect;
+    act(()=>resized());
+    expect(root).toHaveClass('is-narrow');
+    expect(screen.getByRole('separator')).toHaveAttribute('aria-valuenow','496');
+    expect(screen.getByLabelText('Page draft')).toBe(page);
+    expect(screen.getByLabelText('Conversation draft')).toBe(draft);
+    expect(draft).toHaveValue('My next thought');
+  });
+
   it("uses accessible icons for fullscreen and close without removing their keyboard names", () => {
     render(<ConversationDock reader={<p>Plan</p>} messages={<p>Reply</p>} composer={<textarea aria-label="Message Buddy" />} collapseMode="launcher" fullscreenEnabled initialExpanded />);
     const fullscreen = screen.getByRole("button", { name: "Expand conversation fullscreen" });
@@ -67,8 +87,8 @@ describe("ConversationDock", () => {
     render(<ConversationDock reader={<p>Plan</p>} messages={<p>Conversation</p>} composer={<textarea aria-label="Message Buddy" />} expanded />);
     const resize = screen.getByRole("separator", { name: "Resize Buddy conversation" });
     fireEvent.keyDown(resize, {key:"End"});
-    expect(resize).toHaveAttribute("aria-valuemax", "740");
-    expect(resize).toHaveAttribute("aria-valuenow", "740");
+    expect(resize).toHaveAttribute("aria-valuemax", "708");
+    expect(resize).toHaveAttribute("aria-valuenow", "708");
   });
 
   it("follows external launcher state without replacing the reader, draft or message position", () => {
@@ -197,8 +217,8 @@ describe("ConversationDock", () => {
     render(<Fixture expanded />);
     const separator = screen.getByRole("separator");
     fireEvent.keyDown(separator, {key:"End"});
-    expect(separator).toHaveAttribute("aria-valuemax", "336");
-    expect(separator).toHaveAttribute("aria-valuenow", "336");
+    expect(separator).toHaveAttribute("aria-valuemax", "304");
+    expect(separator).toHaveAttribute("aria-valuenow", "304");
     rect.mockRestore();
   });
 
@@ -218,8 +238,8 @@ describe("ConversationDock", () => {
     expect(observe).toHaveBeenCalledTimes(1);
     rect.mockReturnValue({height:360} as DOMRect);
     act(() => callback?.());
-    expect(screen.getByRole("separator")).toHaveAttribute("aria-valuemax", "252");
-    expect(screen.getByRole("separator")).toHaveAttribute("aria-valuenow", "252");
+    expect(screen.getByRole("separator")).toHaveAttribute("aria-valuemax", "220");
+    expect(screen.getByRole("separator")).toHaveAttribute("aria-valuenow", "220");
     view.unmount();
     expect(disconnect).toHaveBeenCalledTimes(1);
   });

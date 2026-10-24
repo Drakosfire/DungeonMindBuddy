@@ -1,6 +1,11 @@
 # Retain every received Build decision for Debug
 
-ACTIVE serial PRIME slice on codex/build-decision-response-debug, base
+SETTLED: #1685 merged 7f5d3ca75 after exact Bugbot approval and protected API delivery.
+69 source-proof and four mixed Rules checks passed; independent review ran 22 checks.
+Retained APP/native rows, frozen components and mechanics files were preserved.
+No live model request was sent; ordinary dogfood remains separate acceptance.
+
+Completed serial PRIME slice on codex/build-decision-response-debug, base
 644c18a857d652745e16c624f6aa8dd545f38d7f, existing buddy-context-loop checkout.
 
 ## Capability / critique
