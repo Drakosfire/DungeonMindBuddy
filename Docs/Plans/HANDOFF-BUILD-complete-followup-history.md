@@ -1,6 +1,12 @@
 # Preserve complete recent authoring exchanges
 
-ACTIVE serial PRIME implementation; branch codex/build-complete-followup-history,
+SETTLED: PR #1696 merged at 45effa24e02c9a87a642f35e37c589840d88d618;
+reviewed head a9efbf757bfd58f15f320cc955c055fab400f952. Bugbot independently
+verified follow-up dialogue, bounded read/order/hash behavior and 20 accounting
+tests. API delivered with retained state preserved. Live acceptance remains open.
+Successor: HANDOFF-SURFACE-proposal-acknowledgment.md.
+
+Original serial PRIME implementation; branch codex/build-complete-followup-history,
 base 573d6a4dec7f91fa8d1e2f0c7734c8cf4335f0aa; existing buddy-context-loop checkout.
 One capability/PR; open hosted/Combat/Ingest lanes are disjoint. PRIME owns API8000
 and UI5202; no live model probes while operator dogfood continues.
