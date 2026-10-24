@@ -4,6 +4,7 @@ export interface BuildProposalBasis {
   world_id: string; document_id: string; registry_revision: number; content_sha256: string;
   visibility: 'internal' | 'player_safe'; draft_sha256: string; caret: number;
   draft_generation: number; selection_generation: number; editor_sha256?: string | null;
+  selection?: { end: number; text: string } | null;
 }
 export interface BuildProposalRequest {
   idempotency_key: string; conversation_id: string; expected_pointer_revision: number;

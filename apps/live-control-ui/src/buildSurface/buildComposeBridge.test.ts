@@ -162,3 +162,71 @@ it('rejects an editor replacement during asynchronous original-anchor recovery',
   await expect(pending).rejects.toThrow('changed');expect(replacement.getJSON()).toEqual(editor.getJSON());
  } finally {editor.destroy();replacement?.destroy();}
 });
+
+
+it.each(['inline','block'])('stages an exact %s selection replacement and restores it after editor recreation',async kind=>{
+ const first=setup();
+ first.editor.commands.setContent(kind==='inline'?'<p>Before old text after.</p>':'<p>Before</p><p>Old text</p><p>After</p>');
+ const from=kind==='inline'?8:9,to=from+8;
+ first.editor.commands.setTextSelection({from,to});
+ const captured=await first.bridge.capture(), before=first.editor.getJSON();
+ expect(captured.basis.selection).toEqual({end:to,text:kind==='inline'?'old text':'Old text'});
+ const prepared=await first.bridge.prepareProposal(captured,'New wording');
+ expect(first.editor.getJSON()).toEqual(before);
+ first.editor.destroy();
+ const next=setup();next.editor.commands.setContent(before);next.editor.commands.setTextSelection(1);
+ try{
+  const restored=await next.bridge.restore(captured.basis);
+  const reopened=await next.bridge.prepareProposal(restored,'New wording');
+  expect(reopened.afterEditorSha256).toBe(prepared.afterEditorSha256);
+  next.bridge.applyPrepared(reopened);
+  expect(next.editor.getText()).toContain('Before');
+  expect(next.editor.getText()).toContain(kind==='inline'?'after.':'After');
+  expect(next.editor.getText()).not.toContain(kind==='inline'?'old text':'Old text');
+  expect(next.editor.getText()).toContain('New wording');
+  if(kind==='inline')expect(next.editor.state.doc.childCount).toBe(1);
+  expect(()=>next.bridge.applyPrepared(reopened)).toThrow('already');
+  next.editor.commands.undo();expect(next.editor.getJSON()).toEqual(before);
+ }finally{next.editor.destroy();}
+});
+
+
+it('refuses stale or forged replacement targets and never uses a selection for image placement',async()=>{
+ const {editor,bridge,state}=setup();
+ try{
+  editor.commands.setContent('<p>Old text</p><p>Keep this</p>');editor.commands.setTextSelection({from:1,to:9});
+  const captured=await bridge.capture(),before=editor.getJSON();
+  expect(()=>bridge.insert(captured,mediaMarkdown(id,'Image'))).toThrow('requires a caret');
+  await expect(bridge.restore({...captured.basis,selection:{end:9,text:'Forged'}})).rejects.toThrow('selected passage changed');
+  await expect(bridge.restore({...captured.basis,selection:{end:999,text:'Old text'}})).rejects.toThrow();
+  expect(editor.getJSON()).toEqual(before);
+  state.documentId='another';await expect(bridge.prepareProposal(captured,'Revision')).rejects.toThrow('changed');
+  state.documentId='edge';editor.commands.insertContent('New local work');state.draftGeneration++;
+  const changed=editor.getJSON();await expect(bridge.restore(captured.basis)).rejects.toThrow('changed');
+  expect(editor.getJSON()).toEqual(changed);
+ }finally{editor.destroy();}
+});
+
+
+it('replaces a selection spanning paragraphs and refuses a prepared change after new local writing',async()=>{
+ const {editor,bridge,state}=setup();
+ try{
+  editor.commands.setContent('<p>Before</p><p>Old first</p><p>Old second</p><p>After</p>');
+  const from=editor.state.doc.child(0).nodeSize+1;
+  const to=from+editor.state.doc.child(1).nodeSize+editor.state.doc.child(2).content.size;
+  editor.commands.setTextSelection({from,to});
+  const captured=await bridge.capture(),before=editor.getJSON();
+  expect(captured.basis.selection?.text).toBe('Old first\nOld second');
+  const prepared=await bridge.prepareProposal(captured,'New first\n\nNew second');
+  expect(editor.getJSON()).toEqual(before);
+  bridge.applyPrepared(prepared);
+  expect(editor.getText()).toContain('Before');expect(editor.getText()).toContain('After');
+  expect(editor.getText()).not.toContain('Old');expect(editor.getText()).toContain('New second');
+  editor.commands.undo();expect(editor.getJSON()).toEqual(before);
+  const restored=await bridge.restore(captured.basis);
+  const pending=await bridge.prepareProposal(restored,'Another version');
+  editor.commands.setTextSelection(1);editor.commands.insertContent('My newer writing.');state.draftGeneration++;
+  const newer=editor.getJSON();expect(()=>bridge.applyPrepared(pending)).toThrow('changed');
+  expect(editor.getJSON()).toEqual(newer);
+ }finally{editor.destroy();}
+});

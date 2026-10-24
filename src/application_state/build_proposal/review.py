@@ -204,6 +204,8 @@ class BuildProposalReviewService:
                     markdown=command.markdown, markdown_sha256=digest(command.markdown)
                 )
             elif command.operation == "move":
+                if proposal.reservation.basis.selection is not None:
+                    raise ApplicationStateConflictError("A revision stays at its captured selection. Select another passage for a new revision.")
                 update["placement_caret"] = command.placement_caret
             elif command.operation == "discard":
                 update["state"] = "discarded"
@@ -211,6 +213,8 @@ class BuildProposalReviewService:
                 if proposal.inserted_in_draft:
                     raise ApplicationStateConflictError("Proposal was already inserted")
                 basis = proposal.reservation.basis
+                if basis.selection is not None and previous.placement_caret != basis.caret:
+                    raise ApplicationStateConflictError("The revision target differs from its captured selection")
                 update.update(
                     state="applying",
                     apply=ReviewApply(

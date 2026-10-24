@@ -19,6 +19,18 @@ class StrictModel(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
 
+class BuildProposalSelection(StrictModel):
+    """An author-selected text range; never a model-chosen replacement target."""
+    end: int = Field(strict=True, ge=1)
+    text: str = Field(min_length=1)
+
+    @model_validator(mode="after")
+    def require_text(self):
+        if not self.text.strip():
+            raise ValueError("Select a nonempty text passage to revise")
+        return self
+
+
 class BuildProposalBasis(StrictModel):
     world_id: str = Field(min_length=1, max_length=128)
     document_id: str = Field(min_length=1, max_length=128)
@@ -31,6 +43,13 @@ class BuildProposalBasis(StrictModel):
     caret: int = Field(strict=True, ge=0, le=1_000_000)
     draft_generation: int = Field(strict=True, ge=0)
     selection_generation: int = Field(strict=True, ge=0)
+    selection: BuildProposalSelection | None = None
+
+    @model_validator(mode="after")
+    def require_forward_selection(self):
+        if self.selection is not None and self.selection.end <= self.caret:
+            raise ValueError("Replacement selection must end after its captured start")
+        return self
 
 
     @model_serializer(mode="wrap")
@@ -38,6 +57,8 @@ class BuildProposalBasis(StrictModel):
         value = serialize(self)
         if self.editor_sha256 is None:
             value.pop("editor_sha256", None)
+        if self.selection is None:
+            value.pop("selection", None)
         return value
 
 

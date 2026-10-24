@@ -192,3 +192,25 @@ it.each([{key:'Home',ctrlKey:true},{key:'ArrowUp',metaKey:true}])('owns extended
  expect(window.getSelection()?.toString()).toContain('Culture');expect(window.getSelection()?.toString()).toContain('A proposed custom.');
  expect(editor.getJSON()).toEqual(before);
 });
+
+
+it.each([false,true])('keeps an explicitly labelled selected-passage revision and recovers acknowledgment: %s',async lose=>{
+ editor.commands.setTextSelection({from:1,to:7});
+ const captured=await bridge.capture();record.reservation.basis=captured.basis;saved.placement_caret=captured.basis.caret;
+ const before=editor.getJSON();lostAck=lose;
+ const view=render(<Review/>);
+ await screen.findByText('Replaces your selected passage when you Keep it.');
+ expect(screen.queryByRole('button',{name:'Drag suggestion to another place'})).not.toBeInTheDocument();
+ expect(editor.getJSON()).toEqual(before);
+ await writeSuggestion('Revised passage');
+ fireEvent.click(screen.getByRole('button',{name:'Keep on page'}));
+ if(lose){
+  await screen.findByRole('button',{name:'Check insertion'});await screen.findByRole('alert');
+  const after=editor.getJSON();view.unmount();lostAck=false;render(<Review/>);
+  fireEvent.click(await screen.findByRole('button',{name:'Check insertion'}));
+  await waitFor(()=>expect(saved.state).toBe('applied'));expect(editor.getJSON()).toEqual(after);
+ }else await waitFor(()=>expect(saved.state).toBe('applied'));
+ expect(editor.getText()).not.toContain('Before');expect(editor.getText()).toContain('After');
+ expect(editor.getText().match(/Revised passage/g)).toHaveLength(1);
+ act(()=>editor.commands.undo());expect(editor.getJSON()).toEqual(before);
+});

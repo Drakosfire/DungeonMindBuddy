@@ -1,5 +1,6 @@
 import { pickMediaInsertion } from '../documentEditing/pickMediaInsertion';
 import type { Editor } from '@tiptap/core';
+import { TextSelection } from '@tiptap/pm/state';
 import type { BuildProposalBasis } from '../api/buildDocumentProposalApi';
 import { tiptapJsonToSemanticMarkdown } from '../tiptap/markdown/calloutMarkdown';
 import { admitMarkdownInsertion, insertReviewedMarkdown, insertReviewedMarkdownAtAnchor, prepareReviewedMarkdownAtAnchor } from '../documentEditing/markdownInsertion';
@@ -35,17 +36,30 @@ export function createBuildComposeBridge(getCurrent: () => BuildComposeEditorSta
       || now.revision !== basis.registry_revision || now.contentSha256 !== basis.content_sha256
       || now.visibility !== basis.visibility || now.draftGeneration !== basis.draft_generation
       || (!originalAnchor && (now.selectionGeneration !== basis.selection_generation
-        || !now.editor.state.selection.empty || now.editor.state.selection.from !== basis.caret))
+        || now.editor.state.selection.from !== basis.caret
+        || now.editor.state.selection.to !== (basis.selection?.end ?? basis.caret)))
       || JSON.stringify(now.editor.getJSON()) !== captured.editorJson) {
       throw new Error('The page or insertion point changed. Ask again before inserting.');
     }
+    if (basis.selection && (!Number.isInteger(basis.selection.end) || basis.selection.end <= basis.caret
+      || basis.selection.end > now.editor.state.doc.content.size
+      || now.editor.state.doc.textBetween(basis.caret,basis.selection.end,'\n') !== basis.selection.text)) {
+      throw new Error('The selected passage changed. Nothing was replaced.');
+    }
+  }
+  function target(basis:BuildProposalBasis) {
+    return basis.selection ? {from:basis.caret,to:basis.selection.end} : basis.caret;
   }
   const applied = new WeakSet<CapturedBuildInsertion>();
   const bridge: BuildComposeBridge = {
     async capture() {
       const now = getCurrent();
       if (!now?.canEdit || now.editor.isDestroyed) throw new Error('Save and open an editable Build page first.');
-      if (!now.editor.state.selection.empty) throw new Error('Place the caret where the new text should go; selected text will not be replaced.');
+      const selection = now.editor.state.selection;
+      const selectedText = selection.empty ? '' : now.editor.state.doc.textBetween(selection.from,selection.to,'\n');
+      if (!selection.empty && (!(selection instanceof TextSelection) || !selectedText.trim())) {
+        throw new Error('Select a text passage to revise, or place a caret to add something.');
+      }
       const editorJson = JSON.stringify(now.editor.getJSON());
       const draftMarkdown = tiptapJsonToSemanticMarkdown(now.editor.getJSON());
       const caret = now.editor.state.selection.from;
@@ -53,14 +67,15 @@ export function createBuildComposeBridge(getCurrent: () => BuildComposeEditorSta
       const captured: CapturedBuildInsertion = { editor: now.editor, editorJson, draftMarkdown,
         basis: { world_id: now.worldId, document_id: now.documentId, registry_revision: now.revision,
           content_sha256: now.contentSha256, visibility: now.visibility, draft_sha256: await sha256(draftMarkdown),
-          editor_sha256: await sha256(editorJson), caret, draft_generation: draftGeneration, selection_generation: selectionGeneration } };
+          editor_sha256: await sha256(editorJson), caret, draft_generation: draftGeneration, selection_generation: selectionGeneration,
+          ...(!selection.empty ? {selection:{end:selection.to,text:selectedText}} : {}) } };
       assertSame(captured);
       return captured;
     },
     async prepareProposal(captured, markdown) {
       const admitted = admitMarkdownInsertion(markdown);
       assertSame(captured, true);
-      const result = prepareReviewedMarkdownAtAnchor(captured.editor,captured.basis.caret,admitted.content,captured.editorJson);
+      const result = prepareReviewedMarkdownAtAnchor(captured.editor,target(captured.basis),admitted.content,captured.editorJson);
       const prepared = {captured, markdown: admitted.markdown, afterEditorSha256: await sha256(JSON.stringify(result)),
         afterDraftSha256: await sha256(tiptapJsonToSemanticMarkdown(result))};
       assertSame(captured, true);
@@ -100,7 +115,7 @@ export function createBuildComposeBridge(getCurrent: () => BuildComposeEditorSta
       if (applied.has(captured)) throw new Error('This proposal has already been inserted.');
       const admitted = admitMarkdownInsertion(markdown);
       assertSame(captured, true);
-      insertReviewedMarkdownAtAnchor(captured.editor, captured.basis.caret, admitted.content, captured.editorJson);
+      insertReviewedMarkdownAtAnchor(captured.editor, target(captured.basis), admitted.content, captured.editorJson);
       applied.add(captured); changed(captured.editor);
     },
     async pickInsertion(options) {
@@ -113,6 +128,7 @@ export function createBuildComposeBridge(getCurrent: () => BuildComposeEditorSta
       } });
     },
     insert(captured, markdown) {
+      if (captured.basis.selection) throw new Error('Image placement requires a caret; selected text will not be replaced.');
       if (applied.has(captured)) throw new Error('This proposal has already been inserted.');
       const admitted = admitMarkdownInsertion(markdown);
       assertSame(captured);

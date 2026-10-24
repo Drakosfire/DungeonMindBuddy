@@ -211,9 +211,40 @@ def test_historical_basis_keeps_its_exact_serialized_shape_and_fingerprint(reque
     from pydantic import ValidationError
     request, _, _ = request_case
     old = request.basis.model_dump(mode="json")
-    assert "editor_sha256" not in old
+    assert "editor_sha256" not in old and "selection" not in old
     basis = BuildProposalBasis.model_validate(old)
     assert basis.editor_sha256 is None and basis.model_dump(mode="json") == old
     assert request.model_copy(update={"basis": basis}).model_dump(mode="json") == request.model_dump(mode="json")
     with pytest.raises(ValidationError):
         BuildProposalBasis.model_validate({**old, "editor_sha256": "not-a-digest"})
+
+
+def test_selected_revision_target_is_frozen_in_writer_and_reservation(request_case):
+    from application_state.build_proposal.types import BuildProposalSelection
+    request, source, root = request_case
+    selected = BuildProposalSelection(end=18, text="A fort town")
+    request = request.model_copy(update={"basis": request.basis.model_copy(update={"selection": selected}),
+        "instruction": "Revise this passage to emphasize the flooded road."})
+    wire = Wire(request)
+    result = asyncio.run(owner.compose(request, transport=wire))
+    body = json.loads(wire.calls[0].content)
+    packet = json.loads(body["input"])
+    assert packet["source_basis"]["selection"] == selected.model_dump(mode="json")
+    assert "revise only that selected passage" in body["instructions"]
+    assert result.reservation.basis.selection == selected
+    assert get_workspace_document_snapshot(root, source.record.document_id) == source
+    assert asyncio.run(owner.compose(request, transport=wire)) == result
+    assert len(wire.calls) == 1
+    changed = request.model_copy(update={"basis": request.basis.model_copy(update={
+        "selection": BuildProposalSelection(end=19, text="A different target")})})
+    with pytest.raises(owner.BuildComposeError, match="request_changed"):
+        asyncio.run(owner.compose(changed, transport=wire))
+
+
+@pytest.mark.parametrize("selection", [{"end":1,"text":"Text"},{"end":5,"text":"  "},{"end":True,"text":"Text"}])
+def test_invalid_selected_revision_target_is_refused(request_case, selection):
+    from application_state.build_proposal.types import BuildProposalBasis
+    from pydantic import ValidationError
+    request, _, _ = request_case
+    with pytest.raises(ValidationError):
+        BuildProposalBasis.model_validate({**request.basis.model_dump(mode="json"), "selection":selection})
