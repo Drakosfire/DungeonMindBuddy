@@ -8,6 +8,7 @@ from pathlib import Path
 import pytest
 
 from apps.live_control_server.services.build_jev_accounting import (
+    DecisionCapacityError,
     ExperimentalAccounting,
     RAW_WIRE_LIMIT,
 )
@@ -70,14 +71,16 @@ def test_adversarial_content_counted_without_normalization(accounting, text):
 def test_full_question_and_full_request_independent_limits():
     policy = ExperimentalAccounting("synthetic-test", lambda text: len(text))
     raw, state = body_for(policy, "x" * 15000)
-    with pytest.raises(ValueError, match="per-question"):
+    with pytest.raises(DecisionCapacityError, match="per-question") as refusal:
         validate_body(raw, state, accounting=policy)
+    assert refusal.value.code == "decision_question_capacity_exceeded"
     questions = {
         f"q{i}": {"type": "noul", "instructions": "x" * 900} for i in range(35)
     }
     raw, state = body_for(policy, questions=questions)
-    with pytest.raises(ValueError, match="request context"):
+    with pytest.raises(DecisionCapacityError, match="request context") as refusal:
         validate_body(raw, state, accounting=policy)
+    assert refusal.value.code == "decision_request_capacity_exceeded"
 
 
 def test_raw_wire_bound_precedes_tokenizer_and_is_separate():
@@ -86,8 +89,9 @@ def test_raw_wire_bound_precedes_tokenizer_and_is_separate():
 
     policy = ExperimentalAccounting("synthetic-test", forbidden)
     raw, state = body_for(policy, "x" * RAW_WIRE_LIMIT)
-    with pytest.raises(ValueError, match="raw wire"):
+    with pytest.raises(DecisionCapacityError, match="raw wire") as refusal:
         validate_body(raw, state, accounting=policy)
+    assert refusal.value.code == "decision_wire_capacity_exceeded"
 
 
 def test_explicit_policy_and_exact_state_required(accounting):

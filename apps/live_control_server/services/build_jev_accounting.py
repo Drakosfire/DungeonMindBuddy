@@ -10,6 +10,14 @@ POLICY = "o200k_double_plus_4096_experimental_v1"
 RAW_WIRE_LIMIT = 256_000
 
 
+class DecisionCapacityError(ValueError):
+    """Content-free refusal of a prepared decision at its configured capacity."""
+
+    def __init__(self, message: str, *, code: str):
+        super().__init__(message)
+        self.code = code
+
+
 @dataclass(frozen=True)
 class ExperimentalAccounting:
     """Trusted caller supplies an already loaded, offline o200k counter.
@@ -55,7 +63,7 @@ class ExperimentalAccounting:
 
     def validate(self, body: dict, raw: bytes) -> None:
         if len(raw) > RAW_WIRE_LIMIT:
-            raise ValueError("Decision raw wire exceeds experimental byte limit")
+            raise DecisionCapacityError("Decision raw wire exceeds experimental byte limit", code="decision_wire_capacity_exceeded")
         if body["state"].get("context_accounting") != self.descriptor:
             raise ValueError("Decision experimental accounting descriptor differs")
         for name, question in body["questions"].items():
@@ -65,8 +73,9 @@ class ExperimentalAccounting:
                 "questions": {name: question},
             }
             if self.estimate(projected) > 32_000:
-                raise ValueError(
-                    "Decision per-question context exceeds experimental estimate"
+                raise DecisionCapacityError(
+                    "Decision per-question context exceeds experimental estimate",
+                    code="decision_question_capacity_exceeded",
                 )
         if self.estimate(body) > 64_000:
-            raise ValueError("Decision request context exceeds experimental estimate")
+            raise DecisionCapacityError("Decision request context exceeds experimental estimate", code="decision_request_capacity_exceeded")

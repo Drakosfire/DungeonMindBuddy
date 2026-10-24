@@ -374,9 +374,18 @@ class BuildJevHarness:
 
     async def _decide(self, adapter, driver):
         plan, intent = driver.stage(), driver.step
+        admission_failure = None
 
         async def authorize(prepared):
-            return driver.authorize(prepared)
+            nonlocal admission_failure
+            accepted = driver.authorize(prepared)
+            if not accepted:
+                admission_failure = (getattr(driver, "admission_failure", None)
+                    or getattr(adapter, "decision_admission_failure", None))
+                if admission_failure is not None and adapter.context_capture is not None:
+                    adapter.context_capture.observe({"kind": "failure", "phase": "context_build",
+                        "code": admission_failure.code})
+            return accepted
 
         async def record(event):
             acknowledged = adapter.record_prepared_build_decision(event)
@@ -428,6 +437,10 @@ class BuildJevHarness:
                 raise
         except Exception as exc:
             self._failed(exc, started, "controller")
+            if admission_failure is not None:
+                from .agent_turn_service import AgentTurnServiceError
+                raise AgentTurnServiceError(str(admission_failure), code="provider_envelope_over_budget",
+                    status_code=413, provider_dispatched=bool(self.calls)) from exc
             raise
         finally:
             await client.aclose()

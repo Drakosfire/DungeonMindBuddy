@@ -2378,6 +2378,10 @@ class _PolicyExecutionAdapter:
                 })
             return True
         except (AgentTurnServiceError, ApplicationStateError, ValueError, KeyError, TypeError) as exc:
+            from .build_jev_accounting import DecisionCapacityError
+            if isinstance(exc, DecisionCapacityError):
+                self.decision_admission_failure = exc
+                exc = AgentTurnServiceError(str(exc), code="provider_envelope_over_budget", status_code=413)
             self.failure = (
                 exc if isinstance(exc, AgentTurnServiceError)
                 else AgentTurnServiceError(

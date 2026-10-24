@@ -6,6 +6,7 @@ from uuid import uuid4
 
 from application_state.agent_conversation import types as ledger
 from application_state.agent_conversation import writer_evidence_selection as selection
+from .build_jev_accounting import DecisionCapacityError
 from .build_jev_dispatch import continuation_binding, prepared_driver_view
 from .build_jev_driver import DriverDecisionProjection
 from .build_jev_transitions import DecisionIntent, DecisionQuestion
@@ -61,6 +62,9 @@ class WriterSelectionDriver:
             return False
         try:
             view = prepared_driver_view(prepared, plan, accounting=getattr(a, "_build_jev_accounting", None))
+        except DecisionCapacityError as exc:
+            self.admission_failure = exc
+            return False
         except (ValueError, KeyError, TypeError, AttributeError):
             return False
         a._prepared_build_authorizing = view
