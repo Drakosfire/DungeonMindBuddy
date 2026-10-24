@@ -246,3 +246,4 @@
 .conversation-dock[data-diagnostics-visible="false"] .world-plan-agent-conversation__evidence-trail { display: none; }
 .conversation-dock__menu > summary::after { content: none; }
 .conversation-dock[data-diagnostics-visible="false"] .world-plan-agent-conversation__technical-details { display: none; }
+.conversation-dock[data-diagnostics-visible="false"] .world-plan-agent-conversation__answer-basis { display: none; }

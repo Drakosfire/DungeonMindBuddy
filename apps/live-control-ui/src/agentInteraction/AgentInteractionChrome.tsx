@@ -17,7 +17,7 @@ import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type 
  */
 export function AgentInteractionChrome() {
   const { paneState, setPaneOpen, activeThread, activeSurfaceContext } = useAgentInteraction();
-  const { setHostElement, askPluginPresent, layoutOwner, launcherHost } = useAskPluginSlot();
+  const { setHostElement, askPluginPresent, layoutOwner, launcherHost, menuHost } = useAskPluginSlot();
   const workspaceOwned = layoutOwner === "plan-workspace";
   const open = paneState.isOpen;
   const threadTitle = activeThread?.title?.trim() || "New thread";
@@ -233,10 +233,10 @@ export function AgentInteractionChrome() {
         </>
       ) : open && isPlay ? (
         <>
-          {exactPlay ? <div className="agent-interaction-play-layout" role="group" aria-label="Chat layout">
+          {exactPlay && menuHost ? createPortal(<div className="agent-interaction-play-layout" role="group" aria-label="Chat layout">
             <button type="button" aria-pressed={effectivePlayLayout === "side"} disabled={narrowPlay} title={narrowPlay ? "Side chat needs a wider screen" : "Place chat beside the scene"} onClick={() => setPlayLayout("side")}>Side</button>
             <button type="button" aria-pressed={effectivePlayLayout === "bottom"} onClick={() => setPlayLayout("bottom")}>Bottom</button>
-          </div> : null}
+          </div>, menuHost) : null}
           <div className="agent-interaction-ask-host" data-testid="agent-interaction-ask-host" ref={setHostElement} />
         </>
       ) : open ? (

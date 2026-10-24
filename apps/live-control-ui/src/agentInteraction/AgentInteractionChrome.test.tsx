@@ -7,7 +7,7 @@ import { URL as NodeURL } from "node:url";
 
 import { AgentInteractionChrome } from "./AgentInteractionChrome";
 import { AgentInteractionProvider } from "./AgentInteractionProvider";
-import { AskPluginSlotProvider, useRegisterAskPluginPresence } from "./AskPluginSlot";
+import { AskPluginSlotProvider, useRegisterAskPluginPresence, useAskPluginSlot } from "./AskPluginSlot";
 import { usePublishAgentSurfaceContext } from "./usePublishAgentSurfaceContext";
 
 function PublishBuildContext() {
@@ -82,7 +82,8 @@ describe("AgentInteractionChrome", () => {
   afterEach(() => vi.unstubAllGlobals());
   function RegisterAsk({ present = true }: { present?: boolean }) {
     useRegisterAskPluginPresence(present);
-    return null;
+    const {setMenuHost}=useAskPluginSlot();
+    return present ? <div ref={setMenuHost} data-testid="conversation-menu-host"/> : null;
   }
 
   it("opens Play in its companion shell with one conversation close path", async () => {
@@ -102,6 +103,7 @@ describe("AgentInteractionChrome", () => {
     const host = screen.getByTestId("agent-interaction-ask-host");
     expect(host).toBeInTheDocument();
     expect(screen.getByTestId("agent-interaction-chrome")).toHaveAttribute("data-play-layout", "side");
+    expect(screen.getByTestId("conversation-menu-host")).toContainElement(screen.getByRole("button", {name:"Bottom",exact:true}));
     await user.click(screen.getByRole("button", { name: "Bottom", exact: true }));
     expect(screen.getByTestId("agent-interaction-chrome")).toHaveAttribute("data-play-layout", "bottom");
     expect(screen.getByTestId("agent-interaction-ask-host")).toBe(host);

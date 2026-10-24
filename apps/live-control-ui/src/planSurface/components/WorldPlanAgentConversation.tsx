@@ -5782,6 +5782,11 @@ export function WorldPlanAgentConversation({
       </section>
   );
   const managementDetails = (<>
+      {playMode ? <div role="group" aria-label="Play message action">
+          <button type="button" aria-pressed={!playEditMode} onClick={() => setPlayEditMode(false)}>Discuss</button>
+          <button type="button" aria-pressed={playEditMode} onClick={() => setPlayEditMode(true)} disabled={!playMode.sceneEditBridge}>Propose scene edit</button>
+          {playEditMode ? <p>Review a change to the current scene in this session copy. The Plan stays intact.</p> : null}
+        </div> : null}
       <BuddyReadiness active={visible && agent.paneState.isOpen} surface={isBuild ? "build" : isReadOnly ? "play" : "plan"}
         worldGraph={useWorldGraphForAsk} blockedReason={composerBusy ? (
           sending || composing || buildCompose.busy || playCompose.busy ? "A request is running."
@@ -6158,11 +6163,7 @@ export function WorldPlanAgentConversation({
           onClick={() => { void submitPlay(undefined, true); }}>Send as discussion</button>
       </section> : null}
       <form onSubmit={isReadOnly ? (event) => { void submitPlay(event); } : submitComposer}>
-        {playMode ? <div role="group" aria-label="Play message action">
-          <button type="button" aria-pressed={!playEditMode} onClick={() => setPlayEditMode(false)}>Discuss</button>
-          <button type="button" aria-pressed={playEditMode} onClick={() => setPlayEditMode(true)} disabled={!playMode.sceneEditBridge}>Propose scene edit</button>
-          {playEditMode ? <p>Review a change to the current scene in this session copy. The Plan stays intact.</p> : null}
-        </div> : null}
+
 
         {!isReadOnly ? <p className="world-plan-agent-conversation__context" aria-label="Actual Plan change target">{displayedEditScope}</p> : null}
         {!isReadOnly && detectedComposerIntent === "propose" && !effectiveEditTarget && !editorSelectionActive ? (
@@ -6277,7 +6278,7 @@ export function WorldPlanAgentConversation({
           contextLabel={isBuild ? `${worldName} · ${buildMode?.savedSource?.title ?? "Build"}` : `${worldName} · Play${admittedRun?.beatTitle ? ` · ${admittedRun.beatTitle}` : ""}${admittedRun?.sceneTitle ? ` · ${admittedRun.sceneTitle}` : ""}`}
           initialHeight={360} minHeight={240} minimumReaderHeight={0} collapseMode="launcher" fullscreenEnabled
           expanded={agent.paneState.isOpen} onExpandedChange={agent.setPaneOpen}
-          headerActions={newConversationButton} menuRef={connectionOptionsRef} menuActions={<>{headerActions}{managementDetails}</>}
+          headerActions={newConversationButton} menuRef={connectionOptionsRef} menuActions={<><div ref={askSlot.setMenuHost}/>{headerActions}{managementDetails}</>}
           contextDetails={isBuild ? buildContextDetails : playContextDetails}
           messages={<div ref={playMessagesHostRef} className="plan-conversation-dock__messages">{messages}</div>}
           composer={<div className="plan-conversation-dock__composer">{composer}
