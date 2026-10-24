@@ -17,7 +17,10 @@ reference, not source authority. Do not broaden history queries or add another r
 Exclusive writes: this handoff; HANDOFF-BUILD-admission-diagnostics.md and
 Docs/Roadmaps/ROADMAP-demo.md for predecessor settlement;
 apps/live_control_server/services/build_jev_driver.py;
-tests/test_agent_build_jev_ordinary_harness.py.
+tests/test_agent_build_jev_ordinary_harness.py;
+tests/test_build_jev_initial_accounting.py for stale current-contract assertions
+exposed by the required accounting/tamper gate. Remove the test-only historical
+runtime override; retain current durable roundtrip and tamper verification.
 No schema/UI/corpus/dependency or retained user-state mutation.
 
 Prove actual mocked SDK→APP discussion follow-up and page-proposal follow-up retain

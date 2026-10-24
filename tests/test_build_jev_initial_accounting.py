@@ -46,10 +46,10 @@ def test_first_receipt_and_event_reject_forged_accounting(build_case, monkeypatc
     policy = execution.policy.model_dump(mode="json", by_alias=True)
     policy["controller_initial_accounting"]["tokenizer_version"] = "forged"
     with pytest.raises(ValueError, match="differs from continuation"):
-        ledger.BuildEncodedAssessmentPolicyV1.model_validate(policy)
+        type(execution.policy).model_validate(policy)
     del policy["controller_initial_accounting"]
     with pytest.raises(ValueError, match="required"):
-        ledger.BuildEncodedAssessmentPolicyV1.model_validate(policy)
+        type(execution.policy).model_validate(policy)
     assert turn.completion.source_citations and len(writer.calls) == 1
 
 
@@ -100,17 +100,7 @@ def test_first_prepared_mutations_never_reach_transport(build_case, monkeypatch,
     assert pointer.active_conversation_id is None or service.list_turns("elderwyld", pointer.active_conversation_id) == []
 
 
-def test_historical_selected_policy_keeps_first_conservative_and_exact_shape(build_case, monkeypatch, tmp_path):
-    current_budget = BuildJevHarness.budget
-
-    def historical_budget(request, *, accounting=None):
-        budget = current_budget(request, accounting=accounting)
-        budget["buildJevActions"].pop("controller_initial_accounting")
-        budget["buildJevActions"].pop("assessment_codec")
-        return budget
-
-    monkeypatch.setattr(BuildJevHarness, "budget", staticmethod(historical_budget))
-
+def test_current_selected_policy_keeps_initial_estimate_and_exact_shape(build_case, monkeypatch, tmp_path):
     case, _ = ordinary_case(build_case, monkeypatch)
     decisions, writer = DecisionWire(), WriterWire()
     execute(case, tmp_path, BuildJevHarness(decision_transport=decisions,
@@ -118,21 +108,21 @@ def test_historical_selected_policy_keeps_first_conservative_and_exact_shape(bui
     service = AgentConversationService()
     turn = service.list_turns("elderwyld", service.get_world_pointer("elderwyld").active_conversation_id)[0]
     execution = turn.graph_context_execution
-    assert type(execution.policy) is ledger.BuildSelectedSourceActionControllerWriterPolicyV1
-    assert "controller_initial_accounting" not in execution.policy.model_dump()
-    assert "controller_initial_accounting" not in ledger.BuildSelectedSourceActionControllerWriterPolicyV1.model_fields
-    assert "context_accounting" not in json.loads(decisions.calls[0].content)["state"]
+    assert type(execution.policy) is ledger.BuildPrimaryWorkStatusPolicyV1
+    assert execution.policy.controller_initial_accounting == execution.policy.controller_continuation_accounting
+    assert json.loads(decisions.calls[0].content)["state"]["context_accounting"] == counter().descriptor
     first = next(e for e in execution.events if isinstance(e, ledger.ProviderAttemptAuthorizedEventV1))
-    assert first.input_accounting_kind == "conservative_upper_bound"
-    assert first.input_estimator == execution.policy.provider_input_accounting.estimator
-    assert turn.graph_context_receipt.assembled_input.budget_policy_version == "build_jev_first_basis_discovery_v1"
+    assert first.input_accounting_kind == "estimated_token_count"
+    assert first.input_estimator == counter().descriptor["policy"]
+    assert turn.graph_context_receipt.assembled_input.budget_policy_version == "build_jev_initial_estimate_v1"
     original = execution.model_dump(mode="json", by_alias=True)
     loaded = ledger.PlanWorldGraphExecutionV3.model_validate(original)
     assert loaded.model_dump(mode="json", by_alias=True) == original
     assert loaded.execution_policy_sha256 == ledger.graph_execution_policy_digest_v3(loaded.context_receipt_sha256, loaded.policy)
     forged = json.loads(json.dumps(original))
-    forged["events"][0].update(input_accounting_kind="estimated_token_count", input_estimator=counter().descriptor["policy"])
-    with pytest.raises(ValueError, match="accounting"):
+    forged["events"][0].update(input_accounting_kind="conservative_upper_bound",
+        input_estimator=execution.policy.provider_input_accounting.estimator)
+    with pytest.raises(ValueError, match="accounting|initial"):
         ledger.PlanWorldGraphExecutionV3.model_validate(forged)
 
 
@@ -147,9 +137,12 @@ def test_initial_question_limit_refuses_before_any_send(build_case, monkeypatch,
 
     case, _ = ordinary_case(build_case, monkeypatch)
     decisions, writer = DecisionWire(), WriterWire()
-    with pytest.raises(Exception, match="could not complete safely"):
+    from apps.live_control_server.services.agent_turn_service import AgentTurnServiceError
+    with pytest.raises(AgentTurnServiceError, match="per-question context exceeds") as refusal:
         execute(case, tmp_path, BuildJevHarness(decision_transport=decisions,
             writer_transport=writer, accounting=ExperimentalAccounting("synthetic-limit", count)))
+    assert refusal.value.code == "provider_envelope_over_budget"
+    assert refusal.value.provider_dispatched is False
     assert decisions.calls == writer.calls == []
 
 
@@ -173,14 +166,14 @@ def test_encoded_assessment_exposure_and_durable_policy_reopen(build_case, monke
             "questions": {key: question}}) <= 32000 for key, question in body["questions"].items())
     service = AgentConversationService()
     turn = service.list_turns("elderwyld", service.get_world_pointer("elderwyld").active_conversation_id)[0]
-    assert type(turn.graph_context_execution.policy) is ledger.BuildEncodedAssessmentPolicyV1
+    assert type(turn.graph_context_execution.policy) is ledger.BuildPrimaryWorkStatusPolicyV1
     assert turn.graph_context_execution.policy.assessment_codec == CODEC
     snapshot = turn.graph_context_execution.model_dump(mode="json", by_alias=True)
     assert ledger.PlanWorldGraphExecutionV3.model_validate(snapshot).model_dump(mode="json", by_alias=True) == snapshot
     parent = turn.graph_context_execution.policy.model_dump(mode="json", by_alias=True)
     parent.pop("assessment_codec")
-    assert ledger.BuildInitialEstimatedSelectedSourcePolicyV1.model_validate(parent).model_dump(mode="json", by_alias=True) == parent
-    assert "assessment_codec" not in ledger.BuildInitialEstimatedSelectedSourcePolicyV1.model_fields
+    with pytest.raises(ValueError, match="assessment_codec"):
+        type(turn.graph_context_execution.policy).model_validate(parent)
     assert turn.status == "completed" and turn.completion.source_citations
     for body in bodies:
         if body["state"].get("decision", {}).get("phase") != "assess":
