@@ -1,6 +1,13 @@
 # PLAN — reuse native context for one selected object phase
 
-ACTIVE serial PRIME lease from aacad7edde8863675d64878a8dd475382f3182fb,
+MERGED/DEPLOYED #1704 at33427af661628681becdd6493e9ac6bfc299d20d.
+Independent Bugbot approved exact205d0ef88 with43focused passes; author86passed4skip,
+installed exact Core overlay7passed. Protected API delivery retained all2506 APP
+rows, native rows,89products and27frozen components; UIaaca stayed unchanged.
+Ordinary original question twice completed9.024603s/8.2062s with complete traces;
+quality remains open (long authored quotes, incidental recap, generic caveats).
+
+Historical serial PRIME lease from aacad7edde8863675d64878a8dd475382f3182fb,
 branch codex/selected-object-wave in the existing buddy-context-loop checkout.
 Authority: OverMind54 at9c07c957ebfd0b4b6faa6378f50ea84ea568ed8f,
 HANDOFF-MIND-object-acquisition-wave.md. Core141 independently approved exact
