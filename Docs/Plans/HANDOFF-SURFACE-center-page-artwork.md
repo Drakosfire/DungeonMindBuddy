@@ -1,8 +1,8 @@
-# SURFACE — center standalone page artwork
+# SURFACE — center paragraph artwork
 
 ACTIVE PRIME UI-only slice at c74b5082e, codex/center-page-artwork, existing
 context-loop checkout. One serial PR. Operator wants easy centering immediately;
-standalone artwork centers by default in shared edit/read presentation. No new
+paragraph artwork displays on its own centered line by default in shared edit/read presentation. No new
 save schema, model call, source mutation, API change or grid implementation.
 
 Exclusive writes: MediaImageNode.css; Backlog.md high-priority grid constructor
