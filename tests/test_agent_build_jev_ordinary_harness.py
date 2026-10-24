@@ -295,12 +295,37 @@ def test_nonwinning_or_tied_discussion_route_never_calls_writer(build_case, monk
     assert not writer.calls
 
 
-def test_below_threshold_proposal_stays_refused(build_case, monkeypatch, tmp_path):
+@pytest.mark.parametrize("score", [0.88, 0.6])
+def test_unique_winning_proposal_stages_without_mutating_source(build_case, monkeypatch, tmp_path, score):
+    case, calls = ordinary_case(build_case, monkeypatch, authoring=True)
+    writer = WriterWire()
+    scores = {"answer_from_sources": 0.99-score, "propose_build_insertion": score, "cannot_select": 0.01}
+    response = execute(case, tmp_path, BuildJevHarness(
+        decision_transport=DecisionWire(operation="propose_build_insertion", operation_scores=scores),
+        writer_transport=writer))
+    completion = response.knowledge_context.completion
+    assert isinstance(completion, ledger.BuildAuthoringCompletionV1)
+    action = BuildProposalService().get("elderwyld", completion.action_id)
+    assert action.state == "proposed" and not action.inserted_in_draft
+    assert action.reservation.instruction == case[1].message
+    assert len(writer.calls) == 1 and calls == {"graph": 0, "source": 0}
+    from apps.live_control_server.services.workspace_document_registry import get_workspace_document_snapshot
+    reopened = get_workspace_document_snapshot(tmp_path, case[0].record.document_id)
+    assert reopened.markdown == case[0].markdown
+    assert reopened.loaded_revision == case[0].loaded_revision
+
+
+@pytest.mark.parametrize("scores", [
+    {"answer_from_sources": 0.5, "propose_build_insertion": 0.5, "cannot_select": 0.0},
+    {"answer_from_sources": 0.6, "propose_build_insertion": 0.39, "cannot_select": 0.01},
+    {"answer_from_sources": 0.1, "propose_build_insertion": 0.88, "cannot_select": 0.5},
+])
+def test_invalid_or_nonwinning_proposal_does_not_call_writer(build_case, monkeypatch, tmp_path, scores):
     case, _ = ordinary_case(build_case, monkeypatch, authoring=True)
     writer = WriterWire()
-    scores = {"answer_from_sources": 0.1, "propose_build_insertion": 0.89, "cannot_select": 0.01}
     with pytest.raises(Exception, match="could not complete safely"):
-        execute(case, tmp_path, BuildJevHarness(decision_transport=DecisionWire(operation="propose_build_insertion", operation_scores=scores), writer_transport=writer))
+        execute(case, tmp_path, BuildJevHarness(decision_transport=DecisionWire(
+            operation="propose_build_insertion", operation_scores=scores), writer_transport=writer))
     assert not writer.calls
 
 

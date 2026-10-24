@@ -1,6 +1,9 @@
 # Authoring context relevance
 
-ACTIVE serial PRIME slice on codex/build-authoring-context-relevance, base
+SETTLED: #1682 merged c9493edc after exact Bugbot review and protected API delivery.
+The serial synthetic witness improved useful output and reduced calls; full latency acceptance remains open.
+
+Completed serial PRIME slice on codex/build-authoring-context-relevance, base
 c88e14fb2418bb79c8dfb4c080aa08c5d02df086, existing buddy-context-loop checkout.
 Goal authority: page-centered writing and measured reduction of retrieval waste.
 
