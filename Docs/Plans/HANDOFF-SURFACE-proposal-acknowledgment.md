@@ -1,6 +1,13 @@
 # Keep proposal acknowledgments truthful after review
 
-ACTIVE serial PRIME implementation; branch codex/surface-proposal-acknowledgment,
+SETTLED: PR #1697 merged at ada13b16ab0b6c1b8b009df02461b2af380e2028;
+reviewed head acd14bd40b3bfcfa5467e1ff4cf88a66e94f0b16. Independent Bugbot
+passed the mounted regression and 8 Rules/history checks. UI delivered; owned
+rendered history shows neutral acknowledgments/current kept controls, unchanged
+page content and no stale generation-time prose. Live full quality remains open.
+Successor: HANDOFF-BUILD-draft-correction-priority.md.
+
+Original serial PRIME implementation; branch codex/surface-proposal-acknowledgment,
 base 45effa24e02c9a87a642f35e37c589840d88d618; existing buddy-context-loop checkout.
 One capability/PR. Open hosted/Combat/Ingest lanes are disjoint. PRIME owns API8000
 and UI5202; no live model probes during operator dogfood.
