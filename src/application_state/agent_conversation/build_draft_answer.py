@@ -58,6 +58,11 @@ def output_schema(packet):
     source_packet = {key: value for key, value in resolve_body_aliases(packet).items() if key != "working_draft_context"}
     source_schema = finite_output_schema(source_packet, requested_detail_gaps=True)
     schema = DraftWriterAnswerV1.model_json_schema()
+    # The draft wrapper adds authored statuses, but cannot broaden the source
+    # status domain already derived from the exact retrieval disposition.
+    source_statuses = source_schema["properties"]["answer_context_status"]["enum"]
+    if "source_grounded" not in source_statuses:
+        schema["properties"]["answer_context_status"]["enum"].remove("source_grounded")
     schema["$defs"]["DraftReferenceClaimV1"]["properties"]["draft_record_id"] = {
         "type": "string", "enum": [record_id]}
     for name, field in (("PassageFact", "passage_handles"), ("SavedFact", "section_read_ids")):

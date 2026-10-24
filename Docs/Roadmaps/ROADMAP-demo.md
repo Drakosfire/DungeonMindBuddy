@@ -76,10 +76,14 @@ utterance coarse scores tie83.3%. Neither result authorizes runtime adoption.
 delivered proof-only via1707: exact duplicate references worsened routing; removing
 diagnostics saved1.9%input tokens on the reused cohort. No runtime adoption.
 [Question instruction proof](../Plans/HANDOFF-AGENT-routing-question-instructions.md)
-is active: move identical candidate routing semantics from context into the actual
+is delivered proof-only via1708: move identical candidate routing semantics from context into the actual
 Jev question instructions before drawing broader conclusions from the prototype.
 The measured instruction move alone did not materially improve routing. Original
 frozen scores and explicit operator adjudication remain separate evidence.
+[Draft writer status domain](../Plans/HANDOFF-BUILD-draft-writer-status-domain.md)
+is active: an ordinary saved-table follow-up produced the correct edited task but
+failed because its draft schema advertised a source status forbidden by partial
+retrieval. Preserve source-status restrictions while keeping authored support.
 
 
 Preserve and verify the shipped scene→encounter→immutable mechanics successor→
