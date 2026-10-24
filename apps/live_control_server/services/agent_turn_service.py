@@ -1289,13 +1289,15 @@ def _freeze_policy_receipt(
                     if (budget.get("buildJevActions") or {}).get("image_preparation_policy") is not None
                     else graph_types.BuildNamedWorldContextPolicyV1)
             if (budget.get("buildJevActions") or {}).get("working_draft_context_policy") is not None:
-                policy_class = (graph_types.BuildDraftWorldContextImagePolicyV1
+                policy_class = (graph_types.BuildExactSavedLinesDraftImagePolicyV1
                     if (budget.get("buildJevActions") or {}).get("image_preparation_policy") is not None
-                    else graph_types.BuildDraftWorldContextPolicyV1)
+                    else graph_types.BuildExactSavedLinesDraftPolicyV1)
             policy = policy_class(
                 **({"driver_schema": "dmb_plan_jev_retrieval_v1",
                     "native_source_section_policy":"exact_native_source_sections_v1"} if plan_jev_request is not None else {}),
                 **(budget.get("buildJevActions") or {}),
+                **({"saved_source_char_count": len(work.build_source.markdown)}
+                    if (budget.get("buildJevActions") or {}).get("saved_section_read_policy") is not None else {}),
                 **({"saved_source_input_policy": budget["savedSourceInputPolicy"]} if budget.get("savedSourceInputPolicy") is not None else {}),
                 **({"provider_roles": budget["providerRoles"]} if budget.get("providerRoles") is not None else {}),
                 source_read_accounting="settled_receipts_v1",
@@ -2511,7 +2513,9 @@ class _PolicyExecutionAdapter:
             kind="build_section_read_authorized_v1", event_id=uuid4(),
             sequence=len(self._broker_execution().events), read_id=uuid4(), source_basis=basis,
             source_class="saved_authored_source_not_played_truth", line_start=line_start, line_end=line_end,
-            max_chars=self._broker_execution().policy.max_chars_per_source_read)
+            max_chars=(self._broker_execution().policy.saved_source_char_count
+                if getattr(self._broker_execution().policy, "saved_section_read_policy", None) == "exact_saved_lines_provider_capacity_v1"
+                else self._broker_execution().policy.max_chars_per_source_read))
         self.turn = _require_fresh_execution_append(self.fence.append(
             "authorize_build_section_read", "authorization", authorization))
         # No substring is materialized before durable authorization. Full source

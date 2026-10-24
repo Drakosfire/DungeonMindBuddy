@@ -2708,6 +2708,16 @@ class BuildDraftWorldContextImagePolicyV1(BuildNamedWorldContextImagePolicyV1):
     working_draft_context_sha256: str = Field(pattern=r"^[a-f0-9]{64}$")
 
 
+class BuildExactSavedLinesDraftPolicyV1(BuildDraftWorldContextPolicyV1):
+    saved_section_read_policy: Literal["exact_saved_lines_provider_capacity_v1"]
+    saved_source_char_count: int = Field(strict=True, ge=0)
+
+
+class BuildExactSavedLinesDraftImagePolicyV1(BuildDraftWorldContextImagePolicyV1):
+    saved_section_read_policy: Literal["exact_saved_lines_provider_capacity_v1"]
+    saved_source_char_count: int = Field(strict=True, ge=0)
+
+
 class GraphExecutionEventBaseV1(StrictModel):
     event_id: UUID
     sequence: int = Field(strict=True, ge=0, le=2047)
@@ -3786,7 +3796,7 @@ class BuildSectionReadAuthorizationV1(GraphExecutionEventBaseV1):
     source_class: Literal["saved_authored_source_not_played_truth"]
     line_start: int = Field(strict=True, ge=1)
     line_end: int = Field(strict=True, ge=1)
-    max_chars: int = Field(strict=True, ge=1, le=12000)
+    max_chars: int = Field(strict=True, ge=1)
 
     @model_validator(mode="after")
     def validate_range(self):
@@ -3802,7 +3812,7 @@ class ValidatedBuildSectionReadV1(GraphExecutionEventBaseV1):
     source_class: Literal["saved_authored_source_not_played_truth"]
     line_start: int = Field(strict=True, ge=1)
     line_end: int = Field(strict=True, ge=1)
-    text: str = Field(min_length=1, max_length=12000)
+    text: str = Field(min_length=1)
     excerpt_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
 
     @model_validator(mode="after")
@@ -3975,7 +3985,7 @@ class PlanWorldGraphExecutionV3(PlanWorldGraphExecutionV2):
     schema_: Literal["dmb_agent_plan_world_graph_execution_v3"] = Field(
         default="dmb_agent_plan_world_graph_execution_v3", alias="schema"
     )
-    policy: BuildDraftWorldContextImagePolicyV1 | BuildDraftWorldContextPolicyV1 | BuildNamedWorldContextImagePolicyV1 | BuildNamedWorldContextPolicyV1 | PlanNativeSourceSectionsPolicyV1 | PlanJevRetrievalPolicyV1 | BuildWorldContextImagePolicyV1 | BuildWorldContextPolicyV1 | BuildPrimaryWorkStatusImagePolicyV1 | BuildPrimaryWorkStatusPolicyV1 | BuildPrimaryWorkImagePolicyV1 | BuildPrimaryWorkPolicyV1 | BuildImageActionPolicyV1 | BuildEncodedAssessmentPolicyV1 | BuildInitialEstimatedSelectedSourcePolicyV1 | BuildSelectedSourceActionControllerWriterPolicyV1 | BuildCitedSourceActionControllerWriterPolicyV1 | BuildReadBatchActionControllerWriterPolicyV1 | BuildWriterBudgetActionControllerWriterPolicyV1 | BuildJointSupportActionControllerWriterPolicyV1 | BuildEstimatedActionControllerWriterPolicyV1 | BuildContainedActionControllerWriterPolicyV1 | BuildPhaseActionControllerWriterPolicyV1 | BuildFrontierActionControllerWriterPolicyV1 | BuildContinuationActionControllerWriterPolicyV1 | BuildCompactActionControllerWriterPolicyV1 | BuildActionControllerWriterPolicyV1 | BuildSectionControllerWriterPolicyV1 | ControllerWriterGraphExecutionPolicyV3 | SettledGraphExecutionPolicyV3 | GraphExecutionPolicyV3
+    policy: BuildExactSavedLinesDraftImagePolicyV1 | BuildExactSavedLinesDraftPolicyV1 | BuildDraftWorldContextImagePolicyV1 | BuildDraftWorldContextPolicyV1 | BuildNamedWorldContextImagePolicyV1 | BuildNamedWorldContextPolicyV1 | PlanNativeSourceSectionsPolicyV1 | PlanJevRetrievalPolicyV1 | BuildWorldContextImagePolicyV1 | BuildWorldContextPolicyV1 | BuildPrimaryWorkStatusImagePolicyV1 | BuildPrimaryWorkStatusPolicyV1 | BuildPrimaryWorkImagePolicyV1 | BuildPrimaryWorkPolicyV1 | BuildImageActionPolicyV1 | BuildEncodedAssessmentPolicyV1 | BuildInitialEstimatedSelectedSourcePolicyV1 | BuildSelectedSourceActionControllerWriterPolicyV1 | BuildCitedSourceActionControllerWriterPolicyV1 | BuildReadBatchActionControllerWriterPolicyV1 | BuildWriterBudgetActionControllerWriterPolicyV1 | BuildJointSupportActionControllerWriterPolicyV1 | BuildEstimatedActionControllerWriterPolicyV1 | BuildContainedActionControllerWriterPolicyV1 | BuildPhaseActionControllerWriterPolicyV1 | BuildFrontierActionControllerWriterPolicyV1 | BuildContinuationActionControllerWriterPolicyV1 | BuildCompactActionControllerWriterPolicyV1 | BuildActionControllerWriterPolicyV1 | BuildSectionControllerWriterPolicyV1 | ControllerWriterGraphExecutionPolicyV3 | SettledGraphExecutionPolicyV3 | GraphExecutionPolicyV3
     events: list[GraphExecutionEventV3] = Field(max_length=2048)
 
     @model_validator(mode="after")
@@ -4008,7 +4018,9 @@ class PlanWorldGraphExecutionV3(PlanWorldGraphExecutionV2):
             if isinstance(event, BuildSectionReadAuthorizationV1):
                 if (latest_attempt is None or latest_outcome != "response_received"
                         or event.read_id in section_auths
-                        or event.max_chars > self.policy.max_chars_per_source_read):
+                        or event.max_chars > (self.policy.saved_source_char_count if isinstance(self.policy,
+                            (BuildExactSavedLinesDraftPolicyV1, BuildExactSavedLinesDraftImagePolicyV1))
+                            else self.policy.max_chars_per_source_read)):
                     raise ValueError("Build section requires a resolved controller and unique authorization")
                 section_auths[event.read_id] = event
             elif isinstance(event, ValidatedBuildSectionReadV1):

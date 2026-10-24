@@ -125,7 +125,7 @@ class BuildJevHarness:
             if not named_citations:
                 raise ValueError("Working draft requires the current named Build context runtime")
             from application_state.agent_conversation.build_draft_context import POLICY as DRAFT_POLICY
-            budget["buildJevActions"].update(working_draft_context_policy=DRAFT_POLICY,
+            budget["buildJevActions"].update(saved_section_read_policy="exact_saved_lines_provider_capacity_v1", working_draft_context_policy=DRAFT_POLICY,
                 working_draft_snapshot_sha256=draft.snapshot.snapshot_sha256,
                 working_draft_context_sha256=digest(draft.model_dump(mode="json", by_alias=True)))
         return budget

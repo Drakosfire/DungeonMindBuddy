@@ -1330,6 +1330,9 @@ class AgentConversationService:
                             event.line_start, event.line_end)
                     except (TypeError, ValueError, UnicodeError) as exc:
                         raise ApplicationStateValidationError("Immutable Build passage proof is unavailable or invalid") from exc
+                    if (getattr(turn.graph_context_execution.policy, "saved_section_read_policy", None) == "exact_saved_lines_provider_capacity_v1"
+                        and len(build_source_markdown) != turn.graph_context_execution.policy.saved_source_char_count):
+                        raise ApplicationStateValidationError("Saved source size differs from its frozen exact-line policy")
                     if event.text != exact:
                         raise ApplicationStateValidationError("Saved passage is not the exact immutable source slice")
             if isinstance(event, PlaySourceProviderInclusionV1):
