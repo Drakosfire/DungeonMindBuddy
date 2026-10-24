@@ -731,7 +731,7 @@ class AgentSavedBuildSectionReadV1(BaseModel):
     model_config = ConfigDict(extra="forbid")
     schema_: Literal["dmb_saved_build_section_read_v1"] = Field(default="dmb_saved_build_section_read_v1", alias="schema")
     target: AgentSavedBuildSectionTargetV1
-    content: str = Field(min_length=1, max_length=12000)
+    content: str = Field(min_length=1)
 
 
 class AgentBuildGraphContextResponseV1(AgentPlanWorldGraphContextResponseV2):

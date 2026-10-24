@@ -61,7 +61,7 @@ export function BuildSavedSectionEvidence({ targets, basis, segments, worldId, t
       const result = await getAgentSavedSection(target);
       if (!exact(result, ["schema", "target", "content"]) || result.schema !== "dmb_saved_build_section_read_v1"
         || canonical(result.target) !== canonical(target) || typeof result.content !== "string"
-        || !result.content.trim() || [...result.content].length > 12000
+        || !result.content.trim()
         || await hash(result.content) !== target.excerpt_sha256) throw new Error("Historical source differs");
       if (requestEpoch === epoch.current) setOpened({index, status: "ready", content: result.content});
     } catch { if (requestEpoch === epoch.current) setOpened({index, status: "unavailable"}); }

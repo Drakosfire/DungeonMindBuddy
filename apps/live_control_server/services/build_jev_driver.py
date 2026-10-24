@@ -299,11 +299,10 @@ class BuildJevDriver:
         start, size = 1, 0
         ranges = []
         for n, line in enumerate(lines, 1):
-            if len(line) > 12000:
-                raise ValueError(
-                    "Saved source contains a line larger than the read contract"
-                )
-            if size + len(line) > 12000:
+            if len(line) > 12000 and adapter.request.build_draft_context is None:
+                raise ValueError("Saved source contains a line larger than the read contract")
+            # Group small ranges for navigation; never cut or omit a complete line.
+            if size and size + len(line) > 12000:
                 ranges.append((start, n - 1))
                 start, size = n, 0
             size += len(line)

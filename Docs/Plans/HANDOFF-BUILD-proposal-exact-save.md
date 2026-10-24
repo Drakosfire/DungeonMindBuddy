@@ -1,8 +1,10 @@
 # Preserve proposal placement across an exact draft save
 
-ACTIVE serial PRIME implementation, branch codex/build-proposal-exact-save,
-base 2db5a66d9908d26897f85e2569b45770572d57b0, existing buddy-context-loop checkout.
-One capability and one PR. Open hosted, Combat and Ingest lanes are disjoint.
+SETTLED #1691, merged 7fe760d87e3f1c2297211e76e15897cd9af80eb3.
+Independent Bugbot approved 90e6a22c0fbe18d9d77389fe749a6c23e5d5b223,
+with60 owner tests, typecheck/build and exact-diff review. UI-only protected delivery
+on5202 preserved all retained APP rows and API2db5a66d9, APP0061/native0017.
+Ordinary rendered authoring acceptance remains open. No active write lease remains.
 
 Invariant: saving an unchanged captured draft must not invalidate its proposal.
 Permit a newer saved revision only when its hash equals the captured draft hash

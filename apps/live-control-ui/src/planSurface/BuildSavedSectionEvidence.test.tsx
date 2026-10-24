@@ -89,3 +89,19 @@ it('renders source metadata as plain text',()=>{
  expect(screen.getByLabelText('Saved-source evidence')).toHaveTextContent('<img src=x onerror=alert(1)>');
  expect(document.querySelector('img')).toBeNull();
 });
+
+
+it('reopens a complete long saved line only with the exact admitted excerpt hash',async()=>{
+ const content='Orchid keepers at the marsh. '.repeat(600);
+ const t={...target(),excerpt_sha256:hash(content)};
+ load.mockResolvedValue({schema:'dmb_saved_build_section_read_v1',target:t,content});
+ const view=render(<BuildSavedSectionEvidence {...props()} targets={[t]} sourceName="A Named Adventure"/>);
+ fireEvent.click(screen.getByRole('button',{name:'Read A Named Adventure · lines 10–10'}));
+ const opened=await screen.findByLabelText('Opened saved-source section');
+ await waitFor(()=>expect(opened).toHaveTextContent(content.trim()));
+ expect(load).toHaveBeenCalledExactlyOnceWith(t);
+ view.unmount();load.mockResolvedValue({schema:'dmb_saved_build_section_read_v1',target:t,content:content+'Changed'});
+ render(<BuildSavedSectionEvidence {...props()} targets={[t]} sourceName="A Named Adventure"/>);
+ fireEvent.click(screen.getByRole('button',{name:'Read A Named Adventure · lines 10–10'}));
+ expect(await screen.findByText(/No newer text has been substituted/)).toBeInTheDocument();
+});

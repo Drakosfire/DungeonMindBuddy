@@ -350,3 +350,90 @@ def test_optional_write_target_does_not_impose_a_separate_text_limit_on_draft_di
     assert cap.draft_markdown==text
     proposal=BuildDocumentProposalRequest.model_validate({**cap.model_dump(mode="json"),"instruction":"Revise the selected writing."})
     assert proposal.draft_markdown==text
+
+
+@pytest.mark.parametrize("compare_saved,repetitions,expect_veto", [(False,2000,False),(True,700,False),(True,2000,True)])
+def test_long_saved_line_does_not_block_current_draft_or_exact_saved_comparison(draft_build_case,monkeypatch,tmp_path,compare_saved,repetitions,expect_veto):
+    import json
+    import httpx
+    from application_state.agent_conversation import AgentConversationService,types as t
+    from apps.live_control_server.models.agent_turn import AgentTurnRequest
+    from apps.live_control_server.services.workspace_document_registry import get_workspace_document_snapshot
+    from apps.live_control_server.services.build_jev_harness import BuildJevHarness
+    from tests.test_agent_build_jev_ordinary_harness import ordinary_case,WriterWire
+    from tests.test_build_writer_selection import SelectionWire
+    from tests.test_agent_build_governed_graph import execute
+    from tests.test_build_jev_estimated_continuations import counter
+    from apps.live_control_server.services import build_jev_dispatch as dispatch
+    original_view=dispatch.prepared_driver_view
+    admission_failures=[]
+    def diagnostic_view(*args,**kwargs):
+        try:return original_view(*args,**kwargs)
+        except ValueError as exc:
+            admission_failures.append(str(exc));raise
+    monkeypatch.setattr(dispatch,"prepared_driver_view",diagnostic_view)
+    source,request,bootstrap=draft_build_case
+    text="Frank and Sara operate the Rocky Talkie. "+"The marsh is quiet. "*repetitions+"\n"
+    (tmp_path/source.record.target_relpath).write_text(text)
+    source=get_workspace_document_snapshot(tmp_path,source.record.document_id)
+    request=request.model_copy(update={"primary_work":request.primary_work.model_copy(update={"expected_content_sha256":source.content_sha256})})
+    from tests.application_state.test_agent_conversation_postgres import _new
+    service=AgentConversationService();conversation=_new(service,"elderwyld")
+    snap=BuildDraftSnapshotV1(world_id="elderwyld",document_id=source.record.document_id,
+        registry_revision=source.loaded_revision,content_sha256=source.content_sha256,visibility="internal",draft_generation=0,
+        draft_markdown=text,draft_sha256=sha256(text.encode()).hexdigest(),editor_sha256="b"*64)
+    context=BuildDraftContextRequestV1(snapshot=snap,conversation_id=conversation.conversation_id,expected_pointer_revision=service.get_world_pointer("elderwyld").revision)
+    request=AgentTurnRequest.model_validate({**request.model_dump(mode="json",by_alias=True),"build_write_capability":None,
+        "message":"Compare the saved page about the radio." if compare_saved else "Discuss the current draft about the radio.",
+        "build_draft_context":context.model_dump(mode="json",by_alias=True)})
+    (source,request,bootstrap),_=ordinary_case((source,request,bootstrap),monkeypatch)
+    class LongWriter(WriterWire):
+        async def handle_async_request(self,request):
+            response=await super().handle_async_request(request)
+            packet=json.loads(json.loads(request.content)["input"])
+            lane=packet["working_draft_context"]
+            segment=({"kind":"saved_source_claim","text":"Frank and Sara operate the Rocky Talkie.",
+                "section_read_ids":[packet["artifact_under_edit"]["sections"][0]["read_id"]]} if compare_saved else
+                {"kind":"draft_reference_claim","text":"Your draft describes Frank and Sara at the radio.","draft_record_id":lane["record_id"]})
+            data=response.json();data["output"][0]["content"][0]["text"]=json.dumps({
+                "answer_context_status":"source_grounded_partial" if compare_saved else "authored_grounded",
+                "answer_segments":[segment],"limitations":["partial_retrieval"] if compare_saved else [],"requested_detail_gaps":[]})
+            return httpx.Response(200,request=request,json=data)
+    writer=LongWriter()
+    harness=BuildJevHarness(world_context=True,named_citations=True,accounting=counter(),
+        decision_transport=SelectionWire("saved_only" if compare_saved else "empty"),writer_transport=writer)
+    if expect_veto:
+        from apps.live_control_server.services.agent_turn_service import AgentTurnServiceError
+        with pytest.raises(AgentTurnServiceError):execute((source,request,bootstrap),tmp_path,harness)
+        assert admission_failures==["Decision per-question context exceeds experimental estimate"]
+        assert not writer.calls
+        turn=service.list_turns("elderwyld",conversation.conversation_id)[0]
+        assert turn.status=="interrupted" and turn.completion is None
+        assert get_workspace_document_snapshot(tmp_path,source.record.document_id).markdown==text
+        return
+    response=execute((source,request,bootstrap),tmp_path,harness)
+    assert not admission_failures
+    assert response.answer.status=="ok" and len(writer.calls)==1
+    turn=AgentConversationService().list_turns("elderwyld",conversation.conversation_id)[0]
+    assert turn.graph_context_execution.policy.saved_source_char_count==len(text)
+    sections=[e for e in turn.graph_context_execution.events if isinstance(e,t.ValidatedBuildSectionReadV1)]
+    if compare_saved:
+        assert len(sections)==1 and sections[0].text==text
+        assert sections[0].line_start==sections[0].line_end==1
+        from apps.live_control_server.services.agent_saved_sections import saved_section_targets,open_saved_section
+        targets=saved_section_targets(turn)
+        assert len(targets)==1
+        reopened=open_saved_section(world_id=turn.world_id,turn_id=turn.turn_id,
+            segment_index=targets[0].segment_index,section_event_id=targets[0].section_event_id,service=service)
+        assert reopened.content==text
+        packet=json.loads(json.loads(writer.calls[0].content)["input"])
+        assert packet["artifact_under_edit"]["sections"][0]["text_ref"]=="working_draft_context"
+        assert json.dumps(packet).count("The marsh is quiet.")==repetitions
+        payload=turn.graph_context_execution.model_dump(mode="json",by_alias=True)
+        payload["policy"]["saved_source_char_count"]=1
+        payload["execution_policy_sha256"]=t.graph_execution_policy_digest_v3(payload["context_receipt_sha256"],t.BuildExactSavedLinesDraftPolicyV1.model_validate(payload["policy"]))
+        with pytest.raises(ValidationError):t.PlanWorldGraphExecutionV3.model_validate(payload)
+    else:
+        assert not sections
+    assert t.Turn.model_validate_json(turn.model_dump_json(by_alias=True)).completion==turn.completion
+    assert get_workspace_document_snapshot(tmp_path,source.record.document_id).markdown==text
