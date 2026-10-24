@@ -52,8 +52,14 @@ is delivered after Core #140 and Buddy #1701: one pinned native snapshot supplie
 both object views. Protected API delivery preserved retained state. Repeated
 ordinary timing/quality verification remains open.
 [Suggestion Save and placement](../Plans/HANDOFF-SURFACE-suggestion-save-placement.md)
-is active from current dogfood: one Save through existing page autosave, editable
-colored suggestion, scrollable movement and supporting details under Debug.
+is delivered with the queued focus repair: owned ordinary generation/edit/scroll/
+place/Save/reload succeeded without altering the operator page. Full goal and
+operator acceptance remain open.
+
+[Selected object acquisition](../Plans/HANDOFF-PLAN-selected-object-wave.md)
+is active: adopt Core141 lazy context/ancestry reuse while keeping source and
+Rules work outside its lifetime. End-to-end timing and quality remain open.
+
 
 Preserve and verify the shipped scene→encounter→immutable mechanics successor→
 explicit adoption→Play→reload/resume loop. Use Of Conks and Cons and A Wild Sheep

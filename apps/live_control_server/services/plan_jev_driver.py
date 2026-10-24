@@ -116,20 +116,23 @@ class PlanJevDriver:
                 raise ValueError("Plan object cannot be reacquired")
             with self.adapter.plan_graph_acquisition(nodes):
                 for handle in selected.selected_handles:
-                    if handle in native_handles:
-                        try:
-                            self.native_sources.select([handle])
-                        except (ValueError,ApplicationStateValidationError):
-                            self.native_sources.unavailable('source_navigation_unavailable')
-                        continue
-                    if handle == rules_candidate().handle:
-                        if self.rules is None or self.rules.selected: raise ValueError("Plan Rules offer was already used")
-                        self.rules.lookup_selected(dispatch.parent.model_dump_json(by_alias=True))
+                    if handle in native_handles or handle == rules_candidate().handle:
                         continue
                     node, _ = self.catalog[handle]
                     if node in self.attempted_nodes: raise ValueError("Plan object cannot be reacquired")
                     self.attempted_nodes.add(node)  # mark before IO, including failures
                     operations.update(self._graph_read("object", node))
+            self._read_new_sources(operations)
+            for handle in selected.selected_handles:
+                if handle in native_handles:
+                    try:
+                        self.native_sources.select([handle])
+                    except (ValueError, ApplicationStateValidationError):
+                        self.native_sources.unavailable('source_navigation_unavailable')
+                elif handle == rules_candidate().handle:
+                    if self.rules is None or self.rules.selected: raise ValueError("Plan Rules offer was already used")
+                    self.rules.lookup_selected(dispatch.parent.model_dump_json(by_alias=True))
+            return
         self._read_new_sources(operations)
 
     async def run(self, *, transport=None, api_key=None):

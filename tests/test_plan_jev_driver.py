@@ -309,6 +309,8 @@ def test_actual_plan_graph_broker_does_not_build_unusable_recap_routes(plan_adap
     monkeypatch.setattr('apps.live_control_server.integrations.dungeonmind.world_graph_reads.get_object_with_reviewed_sources_direct_v3',lambda *_:native)
     monkeypatch.setattr(a,'_related_recap_offers',lambda *_:pytest.fail('Plan Jev cannot consume recap routes'))
     from contextlib import nullcontext
+    monkeypatch.setattr('apps.live_control_server.integrations.dungeonmind.object_read_wave.object_read_wave',
+        lambda services, request, **kwargs: nullcontext(services))
     with a.plan_graph_acquisition(('pond',)) if reuse_services else nullcontext():
         reply=a.broker_graph_operation({'toolName':'expand_graph_retrieval','arguments':{
             'retrievalSessionId':a.bootstrap.retrieval_session.id,'operation':'object','targets':[{'kind':'node','id':'pond'}]}})
@@ -477,3 +479,47 @@ def test_discovery_types_reach_next_decision_without_repeating_attempted_nodes(p
     driver._collect_candidates({'candidates': [{'kind': 'node', 'id': 'pond', 'label': 'Park pond'}]})
     assert driver.catalog['node:pond'][1].kind == 'World entity: location'
     assert driver.offered() == ()
+
+
+def test_mixed_selection_closes_objects_before_passages_native_and_rules(plan_adapter):
+    from types import SimpleNamespace
+    from application_state.agent_conversation.jev_retrieval_contract import RetrievalCandidate
+    from application_state.agent_conversation.plan_jev_rules_lookup import rules_candidate
+    from apps.live_control_server.services.plan_jev_dispatch import PlanJevDispatch
+    from contextlib import contextmanager
+    a = plan_adapter
+    a.bootstrap.retrieval_session.referents = [GraphReferent(id=n,label=n) for n in ('pond','bridge')]
+    fixture_reads(a)
+    events=[]; active=[False]
+    @contextmanager
+    def objects(nodes):
+        assert tuple(nodes)==('pond','bridge')
+        active[0]=True;events.append('open')
+        try:yield
+        finally:active[0]=False;events.append('close')
+    a.plan_graph_acquisition=objects
+    original=a.broker_graph_operation
+    def graph(message):
+        assert active[0]
+        events.append(message['arguments']['targets'][0]['id'])
+        return original(message)
+    a.broker_graph_operation=graph
+    def outside(event):
+        assert not active[0]
+        events.append(event)
+    rules=SimpleNamespace(selected=False)
+    def lookup(_):
+        outside('rules');rules.selected=True
+    rules.lookup_selected=lookup
+    driver=PlanJevDriver(a,rules=rules)
+    native=RetrievalCandidate(handle='source:synthetic',label='Synthetic source',kind='Source')
+    driver.native_sources=SimpleNamespace(offered=lambda:(native,),
+        select=lambda handles:outside('native'),unavailable=lambda _:pytest.fail('Unexpected unavailable'))
+    driver._read_new_sources=lambda operations:outside('passages')
+    offered=(native,driver.catalog['node:pond'][1],rules_candidate(),driver.catalog['node:bridge'][1])
+    dispatch=PlanJevDispatch(a,offered)
+    asyncio.run(dispatch.run(transport=Decisions(),api_key='synthetic-not-secret'))
+    driver.current=dispatch
+    driver.apply(dispatch)
+    assert events==['open','pond','bridge','close','passages','native','rules']
+    assert rules.selected and driver.attempted_nodes=={'pond','bridge'}

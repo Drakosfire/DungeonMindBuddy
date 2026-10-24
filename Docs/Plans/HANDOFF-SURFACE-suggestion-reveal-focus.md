@@ -1,6 +1,12 @@
 # SURFACE — preserve typing during suggestion reveal
 
-ACTIVE serial PRIME repair lease from c6580a40c906e9a75d42f7712e15d55b996c70d1,
+MERGED/DEPLOYED #1703 at aacad7edde8863675d64878a8dd475382f3182fb.
+Independent Bugbot and24tests passed; regression failed with the guard removed.
+Protected UI delivery preserved APIb3aadea4 and all retained APP rows. Ordinary
+owned rehearsal confirmed continuous typing, edit retention, scroll/place, Save
+and reload. See suggestion-save-placement for the complete bounded witness.
+
+Historical serial PRIME repair lease from c6580a40c906e9a75d42f7712e15d55b996c70d1,
 branch codex/suggestion-reveal-focus, existing buddy-context-loop checkout.
 Ordinary #1702 live rehearsal found delayed reveal focusing the container after
 suggestion typing began, interrupting input. This is a direct in-scope authoring
@@ -16,4 +22,5 @@ owned rehearsal's edit/move/Save/reload. Never edit the operator's actual page.
 #1702 merged/deployed UIc6580a40 with APIb3aadea4 unchanged and all retained APP
 rows preserved. Its72tests/typecheck/build and independent65tests passed. Real
 suggestion generation succeeded; live direct typing then exposed this focus race.
-Its complete ordinary authoring acceptance remains open pending this repair.
+That focus repair and the bounded ordinary authoring rehearsal are now delivered;
+full goal/operator acceptance remains separate.
