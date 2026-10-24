@@ -53,11 +53,17 @@ export async function captureBuildDraftSnapshot(getCurrent: () => BuildComposeEd
 }
 
 export function createBuildComposeBridge(getCurrent: () => BuildComposeEditorState | null, changed: (editor: Editor) => void): BuildComposeBridge {
+  function savedPageMatches(current: BuildComposeEditorState, basis: BuildProposalBasis, allowExactSave = false) {
+    return (current.revision === basis.registry_revision && current.contentSha256 === basis.content_sha256)
+      // Only proposal recovery may cross a save of this exact captured draft.
+      // Callers independently check the complete editor document and anchor.
+      || (allowExactSave && current.revision > basis.registry_revision && current.contentSha256 === basis.draft_sha256);
+  }
   function assertSame(captured: CapturedBuildInsertion, originalAnchor = false) {
     const now = getCurrent(); const basis = captured.basis;
     if (!now?.canEdit || now.editor.isDestroyed || now.editor !== captured.editor
       || now.worldId !== basis.world_id || now.documentId !== basis.document_id
-      || now.revision !== basis.registry_revision || now.contentSha256 !== basis.content_sha256
+      || !savedPageMatches(now, basis, originalAnchor)
       || now.visibility !== basis.visibility || now.draftGeneration !== basis.draft_generation
       || (!originalAnchor && (now.selectionGeneration !== basis.selection_generation
         || now.editor.state.selection.from !== basis.caret
@@ -117,7 +123,7 @@ export function createBuildComposeBridge(getCurrent: () => BuildComposeEditorSta
         ||current.visibility!==now.visibility||JSON.stringify(current.editor.getJSON())!==json)return 'changed';
       if(editorDigest===afterEditor&&draftDigest===afterDraft)return 'after';
       if(editorDigest===basis.editor_sha256&&draftDigest===basis.draft_sha256
-        &&current.revision===basis.registry_revision&&current.contentSha256===basis.content_sha256)return 'before';
+        &&savedPageMatches(current,basis,true))return 'before';
       return 'changed';
     },
     async restore(basis) {

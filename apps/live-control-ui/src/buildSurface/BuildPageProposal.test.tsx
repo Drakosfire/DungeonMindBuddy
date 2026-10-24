@@ -214,3 +214,29 @@ it.each([false,true])('keeps an explicitly labelled selected-passage revision an
  expect(editor.getText().match(/Revised passage/g)).toHaveLength(1);
  act(()=>editor.commands.undo());expect(editor.getJSON()).toEqual(before);
 });
+
+
+it('keeps a staged proposal after its exact captured draft is saved and the review reopens',async()=>{
+ const before=editor.getJSON();const view=render(<Review/>);
+ await screen.findByRole('button',{name:'Keep on page'});
+ view.unmount();state.revision+=1;state.contentSha256=record.reservation.basis.draft_sha256;
+ render(<Review source="doc:2"/>);
+ fireEvent.click(await screen.findByRole('button',{name:'Keep on page'}));
+ await waitFor(()=>expect(saved.state).toBe('applied'));
+ expect(editor.getText()).toContain('A proposed custom.');
+ expect(editor.getText()).toContain('Before');expect(editor.getText()).toContain('After');
+ expect(vi.mocked(proposalReview).mock.calls.filter(([, ,command])=>command?.operation==='prepare')).toHaveLength(1);
+ act(()=>editor.commands.undo());expect(editor.getJSON()).toEqual(before);
+});
+
+
+it('recovers a lost prepare after the unchanged draft saves without preparing or inserting twice',async()=>{
+ lostPrepare=true;const apply=vi.spyOn(bridge,'applyPrepared');const view=render(<Review/>);
+ fireEvent.click(await screen.findByRole('button',{name:'Keep on page'}));
+ await screen.findByRole('button',{name:'Check insertion'});expect(apply).not.toHaveBeenCalled();
+ view.unmount();state.revision+=1;state.contentSha256=record.reservation.basis.draft_sha256;
+ render(<Review source="doc:2"/>);
+ fireEvent.click(await screen.findByRole('button',{name:'Check insertion'}));
+ await waitFor(()=>expect(saved.state).toBe('applied'));expect(apply).toHaveBeenCalledTimes(1);
+ expect(vi.mocked(proposalReview).mock.calls.filter(([, ,command])=>command?.operation==='prepare')).toHaveLength(1);
+});
