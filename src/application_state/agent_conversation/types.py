@@ -21,7 +21,7 @@ from uuid import UUID, uuid4
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from .rules_authority_types import ClosedRulesModel, Digest, canonical_bytes, canonical_sha256
-from .build_draft_context import BuildDraftContextRecordV1
+from .build_draft_context import BuildDraftContextRecordV1, DraftReferenceClaimV1
 
 Resolution = Literal["resolved", "absent", "unresolved", "unavailable"]
 ConversationStatus = Literal["active", "archived"]
@@ -1847,6 +1847,44 @@ class BuildNamedGraphCompletionV3(BuildGraphCompletionV2):
         min_length=0, max_length=MAX_CITATION_SOURCE_READ_IDS)
 
 
+class BuildDraftContextCompletionV1(BuildNamedGraphCompletionV3):
+    """Authored working-copy references with separately governed source citations."""
+    schema_: Literal["dmb_build_draft_context_completion_v1"] = Field(
+        default="dmb_build_draft_context_completion_v1", alias="schema")
+    answer_basis: Literal["working_draft_context"] = "working_draft_context"
+    answer_context_status: Literal["authored_grounded", "authored_grounded_partial", "source_grounded",
+        "source_grounded_partial", "creative_proposal", "insufficient_evidence"]
+    answer_segments: list[Annotated[DraftReferenceClaimV1 | SourcePassageClaimV1 | SavedSourceClaimV1
+        | PlanWorldGraphConnectiveSegmentV1, Field(discriminator="kind")]] = Field(min_length=1, max_length=128)
+
+    @model_validator(mode="after")
+    def validate_shape(self):
+        claims = {i:s for i,s in enumerate(self.answer_segments) if isinstance(s,SourcePassageClaimV1)}
+        if {c.segment_index for c in self.source_citations} != set(claims):
+            raise ValueError("Draft answer source claims require exact separate source citations")
+        for citation in self.source_citations:
+            if citation.text_sha256 != sha256(claims[citation.segment_index].text.encode()).hexdigest():
+                raise ValueError("Draft answer source citation differs from its prose")
+            if (citation.receipt.outcome != "enough" or citation.receipt.truncated
+                or citation.receipt.evidence_sufficiency_status != "sufficient"
+                or not citation.receipt.content_sha256 or not citation.receipt.source_revision_id):
+                raise ValueError("Draft answer source citation requires complete, sufficient evidence")
+        keys = [(c.segment_index,c.read_event_id,c.receipt.source_read_id) for c in self.source_citations]
+        if len(keys) != len(set(keys)):
+            raise ValueError("Draft answer source citations must be distinct")
+        drafts = any(isinstance(s,DraftReferenceClaimV1) for s in self.answer_segments)
+        if self.answer_context_status.startswith("authored_grounded") != drafts:
+            raise ValueError("Authored answer status must follow its draft references")
+        if self.answer_context_status.startswith("source_grounded") and not claims and not any(isinstance(s,SavedSourceClaimV1) for s in self.answer_segments):
+            raise ValueError("Source answer status requires source segments")
+        if self.answer_context_status in {"creative_proposal","insufficient_evidence"} and any(
+            not isinstance(s,PlanWorldGraphConnectiveSegmentV1) for s in self.answer_segments):
+            raise ValueError("Unattributed draft discussion cannot carry factual references")
+        if len(self.model_dump_json(by_alias=True).encode()) > 1_048_576:
+            raise ValueError("Build completion exceeds existing storage capacity")
+        return self
+
+
 class SurfaceSourceCompletionV1(StrictModel):
     """Authored source evidence for Plan/Play, never an admitted Graph claim."""
     schema_: Literal["dmb_surface_source_completion_v1"] = Field(default="dmb_surface_source_completion_v1", alias="schema")
@@ -2034,7 +2072,7 @@ class SurfaceEvidenceCompletionV3(SurfaceEvidenceCompletionV2):
         max_length=MAX_CITATION_SOURCE_READ_IDS)
 
 
-GraphTurnCompletion = BuildNamedGraphCompletionV3 | SurfaceEvidenceCompletionV3 | SurfaceEvidenceCompletionV2 | SurfaceEvidenceCompletionV1 | SurfaceSourceCompletionV1 | PlayWorldGraphCompletionV1 | PlanWorldGraphCompletion | BuildGraphCompletionV1 | BuildGraphCompletionV2 | BuildAuthoringCompletionV1 | BuildImagePreparationCompletionV1
+GraphTurnCompletion = BuildDraftContextCompletionV1 | BuildNamedGraphCompletionV3 | SurfaceEvidenceCompletionV3 | SurfaceEvidenceCompletionV2 | SurfaceEvidenceCompletionV1 | SurfaceSourceCompletionV1 | PlayWorldGraphCompletionV1 | PlanWorldGraphCompletion | BuildGraphCompletionV1 | BuildGraphCompletionV2 | BuildAuthoringCompletionV1 | BuildImagePreparationCompletionV1
 
 
 class GraphCompletionRejectionCode(str, Enum):
@@ -5136,8 +5174,11 @@ def validate_build_passage_completion(completion, receipt, execution, attempt_id
             or (producing.provider, producing.model, producing.api_mode) != roles.writer.identity()
             or producing.included_graph_event_ids or producing.included_assertion_ids
             or producing.included_relationship_ids or producing.included_evidence_ref_ids
-            or not included_passage_event_ids(producing)):
+            or (not isinstance(completion, BuildDraftContextCompletionV1) and not included_passage_event_ids(producing))):
         raise ValueError("Passage completion requires a source-only producing writer response")
+    if isinstance(completion, BuildDraftContextCompletionV1):
+        from .build_draft_answer import validate_completion
+        validate_completion(completion, receipt, execution, attempt_id)
     reads = {e.event_id: e for e in execution.events if isinstance(e, SOURCE_PASSAGE_EVENTS)
         and e.event_id in included_passage_event_ids(producing)}
     for citation in completion.source_citations:

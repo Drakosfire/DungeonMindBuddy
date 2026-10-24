@@ -1158,7 +1158,16 @@ export interface WorldBuildNamedGraphCompletionV3 extends Omit<WorldBuildGraphCo
   schema: "dmb_build_graph_completion_v3";
   source_citations: (WorldBuildSourcePassageCitationV1 & {source_name:string})[];
 }
-export type WorldBuildSourceCompletion = WorldBuildGraphCompletionV2 | WorldBuildNamedGraphCompletionV3;
+export interface WorldBuildDraftContextCompletionV1 extends Omit<WorldBuildNamedGraphCompletionV3,
+  'schema' | 'answer_basis' | 'answer_context_status' | 'answer_segments'> {
+  schema: 'dmb_build_draft_context_completion_v1';
+  answer_basis: 'working_draft_context';
+  answer_context_status: 'authored_grounded' | 'authored_grounded_partial' | 'source_grounded'
+    | 'source_grounded_partial' | 'creative_proposal' | 'insufficient_evidence';
+  answer_segments: (WorldBuildGraphCompletionV2['answer_segments'][number]
+    | {kind:'draft_reference_claim'; text:string; draft_record_id:string})[];
+}
+export type WorldBuildSourceCompletion = WorldBuildGraphCompletionV2 | WorldBuildNamedGraphCompletionV3 | WorldBuildDraftContextCompletionV1;
 
 export interface SurfaceSourceCompletionV1 {
   schema: "dmb_surface_source_completion_v1";

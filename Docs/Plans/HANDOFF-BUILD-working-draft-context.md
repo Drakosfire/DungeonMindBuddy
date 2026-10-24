@@ -109,7 +109,7 @@ open; design review and offline tests do not prove the authoring journey.
 
 ## Implementation exclusive writes
 This contract; Docs/Roadmaps/ROADMAP-demo.md;
-src/application_state/agent_conversation/build_draft_context.py, types.py, service.py,
+src/application_state/agent_conversation/build_draft_context.py, build_draft_answer.py, types.py, service.py,
 source_writer_output.py, build_primary_context.py, build_world_context.py and
 rules_authority_build_input.py/rules_authority_output.py as required by exact carriers;
 apps/live_control_server/models/agent_turn.py;
@@ -117,6 +117,8 @@ apps/live_control_server/services/agent_turn_service.py, build_jev_harness.py,
 build_jev_driver.py, build_jev_writer.py, build_jev_writer_selection.py,
 build_jev_transitions.py and build_jev_dispatch.py;
 apps/live-control-ui/src/api/types.ts;
+apps/live-control-ui/src/shared/sourcePassageProtocol.ts and its tests;
+apps/live-control-ui/src/planSurface/components/BuildSourcePassageEvidence.test.tsx;
 apps/live-control-ui/src/buildSurface/buildComposeBridge.ts and .test.ts;
 apps/live-control-ui/src/planSurface/components/BuildComposeProposal.tsx,
 WorldPlanAgentConversation.tsx, WorldPlanAgentAnswer.tsx and affected tests;
@@ -124,7 +126,9 @@ apps/live-control-ui/src/agentInteraction/WorldAgentConversation.planPlay.integr
 apps/live-control-ui/src/buildSurface/BuildCompose.integration.test.tsx;
 tests/test_build_draft_context.py, test_agent_build_jev_ordinary_harness.py,
 test_build_jev_writer.py, test_build_jev_driver.py and test_agent_turn_service.py.
-New durable variants use existing APP JSON storage; no data rewrite or schema change
-is presumed. If inspection proves a migration necessary, amend this contract before
-migration writes. No live model probes while the operator writes. Exact independent
+Inspection confirms agent_turn_graph_completion_check enumerates completion shapes:
+this lease also owns src/application_state/migrations/versions/20261024_0061_build_draft_context_completion.py
+and tests/test_build_draft_context.py migration/reopen coverage. APP0060→0061 admits
+the new authored-context completion without rewriting rows. Downgrade refuses when
+new records exist. Historical proof/read semantics remain intact. No live model probes while the operator writes. Exact independent
 Bugbot, cumulative verification and protected delivery remain required.

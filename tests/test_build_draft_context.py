@@ -230,3 +230,72 @@ def test_draft_context_does_not_replace_the_existing_proposal_authority(draft_bu
     payload["build_draft_context"]["snapshot"].update(draft_generation=999)
     with pytest.raises(ValidationError, match="same capture"):
         AgentTurnRequest.model_validate(payload)
+
+
+def test_draft_only_answer_is_durable_without_saved_or_world_citations(draft_build_case, monkeypatch, tmp_path):
+    import json
+    import httpx
+    from application_state.agent_conversation import AgentConversationService, types as t
+    from apps.live_control_server.models.agent_turn import AgentTurnRequest
+    from apps.live_control_server.services.build_jev_harness import BuildJevHarness
+    from tests.test_agent_build_jev_ordinary_harness import ordinary_case, WriterWire
+    from tests.test_build_writer_selection import SelectionWire
+    from tests.test_agent_build_governed_graph import execute
+    from tests.test_build_jev_estimated_continuations import counter
+
+    class DraftWriter(WriterWire):
+        async def handle_async_request(self, request):
+            response = await super().handle_async_request(request)
+            packet = json.loads(json.loads(request.content)["input"])
+            lane = packet["working_draft_context"]
+            data = response.json()
+            data["output"][0]["content"][0]["text"] = json.dumps({
+                "answer_context_status":"authored_grounded", "limitations":[], "requested_detail_gaps":[],
+                "answer_segments":[{"kind":"draft_reference_claim", "draft_record_id":lane["record_id"],
+                    "text":"Your current draft describes the orchid keepers' midnight lantern custom."}]})
+            return httpx.Response(200, request=request, json=data)
+
+    (source, request, bootstrap), reads = ordinary_case(draft_build_case, monkeypatch, authoring=True)
+    cap = request.build_write_capability
+    text = "Orchid keepers hold a midnight lantern watch."
+    snap = BuildDraftSnapshotV1(**{k:getattr(cap.basis,k) for k in (
+        "world_id","document_id","registry_revision","content_sha256","visibility","draft_generation")},
+        draft_markdown=text,draft_sha256=sha256(text.encode()).hexdigest(),editor_sha256="b"*64)
+    context = BuildDraftContextRequestV1(snapshot=snap, conversation_id=cap.conversation_id,
+        expected_pointer_revision=cap.expected_pointer_revision)
+    payload = {**request.model_dump(mode="json", by_alias=True), "build_write_capability":None,
+        "message":"What does my current draft say about the orchid keepers?", "client_work_state":"saved_dirty",
+        "build_draft_context":context.model_dump(mode="json",by_alias=True)}
+    request = AgentTurnRequest.model_validate(payload)
+    writer = DraftWriter()
+    harness = BuildJevHarness(world_context=True,named_citations=True,accounting=counter(),
+        decision_transport=SelectionWire("empty"),writer_transport=writer)
+    response = execute((source,request,bootstrap),tmp_path,harness)
+    completion = response.knowledge_context.completion
+    assert isinstance(completion,t.BuildDraftContextCompletionV1)
+    assert completion.answer_context_status == "authored_grounded"
+    assert completion.source_citations == [] and completion.citation_map is None
+    assert completion.answer_segments[0].kind == "draft_reference_claim"
+    assert reads == {"graph":0,"source":0}
+    assert len(writer.calls) == 1
+    turn = AgentConversationService().list_turns("elderwyld",cap.conversation_id)[0]
+    assert turn.completion == completion
+    assert t.Turn.model_validate_json(turn.model_dump_json(by_alias=True)).completion == completion
+    from apps.live_control_server.services.workspace_document_registry import get_workspace_document_snapshot
+    assert get_workspace_document_snapshot(tmp_path,source.record.document_id).markdown == source.markdown
+
+    from alembic import command
+    from application_state.cli import alembic_config
+    with pytest.raises(RuntimeError, match="retained working-draft"):
+        command.downgrade(alembic_config(), "20261023_0060")
+    assert AgentConversationService().list_turns("elderwyld",cap.conversation_id)[0].completion == completion
+
+
+def test_draft_answer_does_not_force_an_evidence_gap_into_a_creative_proposal():
+    from application_state.agent_conversation.build_draft_answer import DraftWriterAnswerV1
+    answer = DraftWriterAnswerV1.model_validate({"answer_context_status":"insufficient_evidence",
+        "answer_segments":[{"kind":"discussion","text":"The requested related source was not available."}],
+        "limitations":["missing_requested_details"],"requested_detail_gaps":[]})
+    assert answer.answer_context_status == "insufficient_evidence"
+    with pytest.raises(ValidationError,match="explicit qualification"):
+        DraftWriterAnswerV1.model_validate({**answer.model_dump(mode="json"),"limitations":[]})

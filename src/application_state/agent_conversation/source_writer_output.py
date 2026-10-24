@@ -152,6 +152,9 @@ def strict_json(raw: str):
 
 
 def normalize(raw: str, packet: dict) -> dict:
+    if "working_draft_context" in packet:
+        from .build_draft_answer import normalize as normalize_draft
+        return normalize_draft(raw, packet)
     gap_policy = packet.get("requested_detail_gap_policy")
     if "requested_detail_gap_policy" in packet and gap_policy != GAP_POLICY:
         raise ValueError("Unknown requested-detail gap policy")
@@ -223,6 +226,9 @@ def output_schema() -> dict:
 
 def finite_output_schema(packet: dict, *, requested_detail_gaps: bool = False) -> dict:
     """Narrow selectors to this exact packet; do not infer knowledge authority."""
+    if "working_draft_context" in packet:
+        from .build_draft_answer import output_schema as draft_schema
+        return draft_schema(packet)
     from .types import ValidatedBuildSectionReadV1
 
     if (
@@ -357,6 +363,9 @@ def validate_writer_format(fmt: dict, packet: dict) -> None:
         schema = output_schema()
     elif name == FINITE_SCHEMA_NAME:
         schema = finite_output_schema(packet)
+    elif name == "build_working_draft_answer_v1":
+        from .build_draft_answer import output_schema as draft_schema
+        schema = draft_schema(packet)
     elif name == GAP_SCHEMA_NAME:
         schema = finite_output_schema(packet, requested_detail_gaps=True)
     else:
@@ -467,6 +476,9 @@ def reconstruct(raw_output: str, packet: dict, turn, auth):
     if "requested_detail_gap_policy" in packet and packet.get("user_question") != turn.user_text:
         raise ValueError("Writer gap question differs from its exact original turn")
     candidate = normalize(raw_output, packet)
+    if "working_draft_context" in packet:
+        from .build_draft_answer import validate_packet as validate_draft_packet
+        validate_draft_packet(packet, turn, auth)
     included_ids = set(getattr(auth, "included_source_read_event_ids", ()))
     reads = [
         e
@@ -591,6 +603,10 @@ def reconstruct(raw_output: str, packet: dict, turn, auth):
                 turn.graph_context_receipt.source_basis.content_sha256
             )
         segments.append(segment)
+    if "working_draft_context" in packet:
+        return t.BuildDraftContextCompletionV1(context_receipt_sha256=receipt_sha,
+            answer_context_status=candidate["answer_context_status"], answer_segments=segments,
+            source_citations=citations), bindings
     if not passages or (bindings and not citations):
         status = t.derive_execution_answer_context_status(
             context_receipt_sha256=receipt_sha,

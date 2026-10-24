@@ -16,19 +16,24 @@ export function isSurfaceSourceCompletion(value: unknown, receiptHash: string, s
   return isSourceCompletion(value, receiptHash, undefined, surface);
 }
 function isSourceCompletion(value: unknown, receiptHash: string, sourceHash?: string, surface?: "plan"|"play"): boolean {
-  const named = surface !== undefined || (record(value) && value.schema === "dmb_build_graph_completion_v3");
+  const draft = !surface && record(value) && value.schema === "dmb_build_draft_context_completion_v1";
+  const named = draft || surface !== undefined || (record(value) && value.schema === "dmb_build_graph_completion_v3");
   if (!exact(value, ["schema", "context_receipt_sha256", "answer_basis", "answer_context_status", "answer_segments", "citation_map", "source_citations", ...(surface ? ["surface_id"] : [])])
-    || value.schema !== (surface ? "dmb_surface_source_completion_v1" : named ? "dmb_build_graph_completion_v3" : "dmb_build_graph_completion_v2") || (surface && value.surface_id !== surface) || value.context_receipt_sha256 !== receiptHash
+    || value.schema !== (surface ? "dmb_surface_source_completion_v1" : draft ? "dmb_build_draft_context_completion_v1" : named ? "dmb_build_graph_completion_v3" : "dmb_build_graph_completion_v2") || (surface && value.surface_id !== surface) || value.context_receipt_sha256 !== receiptHash
     || value.citation_map !== null || !Array.isArray(value.answer_segments) || !value.answer_segments.length
     || value.answer_segments.length > 128 || !Array.isArray(value.source_citations) || value.source_citations.length > 16384
-    || !["source_grounded", "source_grounded_partial", "source_insufficient_evidence"].includes(String(value.answer_context_status))) return false;
+    || !(draft ? ["authored_grounded","authored_grounded_partial","source_grounded","source_grounded_partial","creative_proposal","insufficient_evidence"] : ["source_grounded", "source_grounded_partial", "source_insufficient_evidence"]).includes(String(value.answer_context_status))) return false;
   const claimIndices = new Set<number>();
-  let saved = false;
+  let saved = false, hasDraft = false;
   for (const [index, segment] of value.answer_segments.entries()) {
-    if (!record(segment) || !boundedText(segment.text, 4000)) return false;
+    if (!record(segment) || !(draft && segment.kind === "draft_reference_claim"
+      ? typeof segment.text === "string" && !!segment.text.trim() : boundedText(segment.text, 4000))) return false;
     if (segment.kind === "source_passage_claim" || segment.kind === "connective") {
       if (!exact(segment, ["kind", "text"])) return false;
       if (segment.kind === "source_passage_claim") claimIndices.add(index);
+    } else if (draft && segment.kind === "draft_reference_claim") {
+      if (!exact(segment,["kind","text","draft_record_id"]) || !uuid(segment.draft_record_id)) return false;
+      hasDraft = true;
     } else if (surface && segment.kind === "proposal") {
       if (!exact(segment, ["kind", "text", "label"]) || !["invented_idea", "image_prompt"].includes(String(segment.label))) return false;
     } else if (!surface && segment.kind === "saved_source_claim") {
@@ -36,8 +41,10 @@ function isSourceCompletion(value: unknown, receiptHash: string, sourceHash?: st
       saved = true;
     } else return false;
   }
-  if (value.answer_basis !== (saved ? "saved_source_and_opened_passages" : "opened_source_passages")) return false;
-  if ((surface && !["source_grounded", "source_grounded_partial"].includes(String(value.answer_context_status))) || (value.answer_context_status === "source_insufficient_evidence" ? (claimIndices.size > 0 || saved) : !claimIndices.size)) return false;
+  if (value.answer_basis !== (draft ? "working_draft_context" : saved ? "saved_source_and_opened_passages" : "opened_source_passages")) return false;
+  if (draft && (String(value.answer_context_status).startsWith("authored_grounded") !== hasDraft
+    || String(value.answer_context_status).startsWith("source_grounded") && !claimIndices.size && !saved)) return false;
+  if (!draft && ((surface && !["source_grounded", "source_grounded_partial"].includes(String(value.answer_context_status))) || (value.answer_context_status === "source_insufficient_evidence" ? (claimIndices.size > 0 || saved) : !claimIndices.size))) return false;
   const cited = new Set<number>(), seen = new Set<string>();
   for (const citation of value.source_citations) {
     if (!exact(citation, ["segment_index", "text_sha256", "provider_attempt_id", "envelope_sha256", "read_event_id", "receipt", ...(named ? ["source_name"] : [])])

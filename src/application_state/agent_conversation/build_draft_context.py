@@ -174,3 +174,9 @@ def validate_provider_inclusions(execution):
                 or between.provider_attempt_id != inclusion.provider_attempt_id
                 or between.envelope_sha256 != inclusion.envelope_sha256):
                 raise ValueError("Draft inclusion must precede the exact provider authorization bundle")
+
+
+class DraftReferenceClaimV1(_Frozen):
+    kind: Literal["draft_reference_claim"]
+    text: str = Field(min_length=1)
+    draft_record_id: UUID
