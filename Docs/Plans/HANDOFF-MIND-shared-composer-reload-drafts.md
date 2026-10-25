@@ -1,7 +1,7 @@
 # MIND — retain unsent conversation text through reload
 
-BLOCKED pending independent design critique; PRIME owns design and may activate
-only after that gate. Active authoring goal §3 supplies implementation authority.
+ACTIVE PRIME implementation after independent design APPROVED exact head
+8f7150bd1da91886b825281d35960eea3fc3ce72 on2026-10-24. Active authoring goal §3 supplies implementation authority.
 Serial successor to PR1721 merge5829c6e8f96f0a536577da8b1dca164e99bc6bb9.
 Existing buddy-context-loop checkout, branch codex/shared-composer-reload-drafts.
 No overlapping shared-composer lease found among current open PRs. One PR; no

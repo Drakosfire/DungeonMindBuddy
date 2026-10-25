@@ -1,3 +1,4 @@
+import { useConversationComposerDrafts } from "./conversationComposerDrafts";
 import type { PlaySceneEditBridge } from "../playSurface/agentEdit/playSceneEditBridge";
 import type { BuildComposeBridge } from "../buildSurface/buildComposeBridge";
 import { createContext, useCallback, useContext, useLayoutEffect, useMemo, useRef, useState, type Dispatch, type ReactNode, type SetStateAction } from "react";
@@ -49,6 +50,7 @@ interface WorldConversationRegistry {
   registerPlay: (token: symbol, value: AdmittedWorldPlayConversationContext | null, unavailableReason?: string | null) => void;
   unregisterPlay: (token: symbol) => void;
   composerDrafts: Record<string, string>;
+  composerDraftWarning: string | null;
   setComposerDrafts: Dispatch<SetStateAction<Record<string, string>>>;
   history: WorldAgentConversationHistoryResponse | null;
   setHistory: Dispatch<SetStateAction<WorldAgentConversationHistoryResponse | null>>;
@@ -69,7 +71,7 @@ export function WorldAgentConversationProvider({ children, worldId }: { children
   const registerBuild = useCallback((token: symbol, value: BuildConversationRegistration) => setBuild({ token, value }), []);
   const unregisterBuild = useCallback((token: symbol) => setBuild(current => current?.token === token ? null : current), []);
   const [play, setPlay] = useState<Registration<AdmittedWorldPlayConversationContext | null> | null>(null);
-  const [composerDrafts, setComposerDrafts] = useState<Record<string, string>>({});
+  const {composerDrafts,setComposerDrafts,composerDraftWarning} = useConversationComposerDrafts(worldId);
   const [history, setHistory] = useState<WorldAgentConversationHistoryResponse | null>(null);
   const [pendingTurn, setPendingTurn] = useState<{ surface: "plan" | "play" | "build"; turnId: string } | null>(null);
   const [historyRefreshNonce, setHistoryRefreshNonce] = useState(0);
@@ -78,8 +80,8 @@ export function WorldAgentConversationProvider({ children, worldId }: { children
   const registerPlay = useCallback((token: symbol, value: AdmittedWorldPlayConversationContext | null, unavailableReason: string | null = null) => setPlay({ token, value, unavailableReason }), []);
   const unregisterPlay = useCallback((token: symbol) => setPlay((current) => current?.token === token ? null : current), []);
   const value = useMemo(() => ({ worldId, sceneEditor, registerSceneEditor, unregisterSceneEditor, plan, play, build, registerBuild, unregisterBuild, registerPlan, unregisterPlan, registerPlay, unregisterPlay,
-    composerDrafts, setComposerDrafts, history, setHistory, pendingTurn, setPendingTurn, historyRefreshNonce, setHistoryRefreshNonce }),
-  [worldId, sceneEditor, registerSceneEditor, unregisterSceneEditor, plan, play, build, registerBuild, unregisterBuild, registerPlan, unregisterPlan, registerPlay, unregisterPlay, composerDrafts, history, pendingTurn, historyRefreshNonce]);
+    composerDrafts, setComposerDrafts, composerDraftWarning, history, setHistory, pendingTurn, setPendingTurn, historyRefreshNonce, setHistoryRefreshNonce }),
+  [worldId, sceneEditor, registerSceneEditor, unregisterSceneEditor, plan, play, build, registerBuild, unregisterBuild, registerPlan, unregisterPlan, registerPlay, unregisterPlay, composerDrafts, composerDraftWarning, history, pendingTurn, historyRefreshNonce]);
   return <Registry.Provider value={value}>{children}</Registry.Provider>;
 }
 

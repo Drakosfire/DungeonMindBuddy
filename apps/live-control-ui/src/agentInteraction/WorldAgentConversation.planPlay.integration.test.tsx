@@ -1,3 +1,4 @@
+import { COMPOSER_DRAFT_WRITE_WARNING } from "./conversationComposerDrafts";
 import { listBuildProposals } from "../api/buildDocumentProposalApi";
 vi.mock("../api/buildDocumentProposalApi", async (original) => ({
   ...await original<typeof import("../api/buildDocumentProposalApi")>(), listBuildProposals: vi.fn(async () => []),
@@ -187,7 +188,7 @@ function Harness({ initial = "plan", admitted = true, editBridge = null, editCon
   return <AgentInteractionProvider><AskPluginSlotProvider>
     <WorldAgentConversationProvider key={world} worldId={world}>
       <button type="button" onClick={() => setSurface(surface === "plan" ? "play" : "plan")}>Switch surface</button>
-      <button type="button" onClick={() => setDocumentId("plan-two")}>Switch Plan document</button>
+      <button type="button" onClick={() => setDocumentId(value => value === "plan-one" ? "plan-two" : "plan-one")}>Switch Plan document</button>
       <button type="button" onClick={() => { selectedWorld.id = "world-two"; setWorld("world-two"); }}>Switch World</button>
       <button type="button" onClick={() => setSessionCopy(value => !value)}>Use session copy</button>
       <ProposalFixture /><NewerPendingFixture />
@@ -466,6 +467,7 @@ describe("one App-level World conversation host across Plan and Play", () => {
     Object.defineProperty(globalThis, "crypto", { configurable: true, value: webcrypto });
     selectedWorld.id = WORLD;
     window.localStorage.clear();
+    window.sessionStorage.clear();
     vi.mocked(getWorldAgentConversationHistory).mockResolvedValue(history([turn("plan", 1, "Original Plan answer")]));
     vi.mocked(listWorkspaceDocuments).mockResolvedValue({ schema_version: "dmb_workspace_document_registry_v1", records: [] });
     vi.mocked(listWorldContainers).mockResolvedValue({ schema_version: "dmb_world_container_registry_v1", records: [] });
@@ -701,6 +703,7 @@ describe("one App-level World conversation host across Plan and Play", () => {
     fireEvent.click(await screen.findByRole("button", { name: "Open" }));
     openConversationOptions();
     await screen.findByRole("region", { name: "Saved turn recovery" });
+    expect(screen.getByLabelText("Message DungeonBuddy")).toHaveValue("My next thought");
     expect(localStorage.getItem(key)).toBe(envelope);
     expect(postWorldBuildAgentTurn).toHaveBeenCalledTimes(1);
   });
@@ -1635,13 +1638,49 @@ describe("one App-level World conversation host across Plan and Play", () => {
     await waitFor(() => expect(screen.queryByText("Original Plan answer")).not.toBeInTheDocument());
   });
 
-  it("clears a draft when the saved Plan document changes within the World", async () => {
+  it.each(["plan", "play", "build"] as const)("restores complete unsent %s text after remount without sending it", async initial => {
+    const mounted=render(<Harness initial={initial}/>);
+    fireEvent.click(await screen.findByRole("button",{name:"Open",exact:true}));
+    const input=await screen.findByLabelText("Message DungeonBuddy");
+    await waitFor(()=>expect(input).toBeEnabled());
+    const text="  A next thought 🕯️\nKeep the exact wording.  ";
+    fireEvent.change(input,{target:{value:text}});
+    mounted.unmount();
+    render(<Harness initial={initial}/>);
+    fireEvent.click(await screen.findByRole("button",{name:"Open",exact:true}));
+    await waitFor(()=>expect(screen.getByLabelText("Message DungeonBuddy")).toHaveValue(text));
+    expect(postWorldBuildAgentTurn).not.toHaveBeenCalled();
+    expect(postWorldPlanAgentTurn).not.toHaveBeenCalled();
+    expect(postWorldPlayAgentTurn).not.toHaveBeenCalled();
+  });
+
+  it("keeps the composer usable and warns when its tab recovery write fails",async()=>{
+    const write=Storage.prototype.setItem;
+    const denied=vi.spyOn(Storage.prototype,'setItem').mockImplementation(function(key,value){
+      if(this===window.sessionStorage&&key.startsWith('dmb:conversation-composer-drafts:'))throw new DOMException('quota','QuotaExceededError');
+      return write.call(this,key,value);
+    });
+    try{
+      render(<Harness initial="build"/>);
+      fireEvent.click(await screen.findByRole("button",{name:"Open",exact:true}));
+      const input=await screen.findByLabelText("Message DungeonBuddy");
+      await waitFor(()=>expect(input).toBeEnabled());
+      fireEvent.change(input,{target:{value:'Keep this text in memory'}});
+      expect(input).toHaveValue('Keep this text in memory');
+      expect(await screen.findByText(COMPOSER_DRAFT_WRITE_WARNING)).toBeVisible();
+      expect(screen.getByRole("button",{name:"Send message"})).toBeEnabled();
+    }finally{denied.mockRestore();}
+  });
+
+  it("retains each Plan draft in its own document slot while another Plan opens blank", async () => {
     render(<Harness />);
     fireEvent.click(await screen.findByRole("button", { name: "Open" }));
     const composer = await screen.findByLabelText("Message DungeonBuddy");
     fireEvent.change(composer, { target: { value: "Rewrite this Plan scene" } });
     fireEvent.click(screen.getByRole("button", { name: "Switch Plan document" }));
     await waitFor(() => expect(screen.getByLabelText("Message DungeonBuddy")).toHaveValue(""));
+    fireEvent.click(screen.getByRole("button", { name: "Switch Plan document" }));
+    await waitFor(() => expect(screen.getByLabelText("Message DungeonBuddy")).toHaveValue("Rewrite this Plan scene"));
     expect(postWorldPlanAgentTurn).not.toHaveBeenCalled();
   });
   it("retains an unsent Play question while the session note save gate unmounts transport", async () => {
