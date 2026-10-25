@@ -1,8 +1,10 @@
 import {authenticatedApiFetch,LiveApiError} from './liveApi';
 export interface ConversationSummary{conversation_id:string;world_id:string;title:string;name_revision:number;status:'active'|'archived';turn_count:number;created_at:string;updated_at:string}
 export interface LibraryPage{schema:'dmb_conversation_library_v1';world_id:string;status:'all'|'archived';items:ConversationSummary[];next_before:string|null}
-export interface LibraryTurn{turn_id:string;sequence:number;status:string;user_text:string;assistant_text:string|null}
-export interface LibraryTurns{schema:'dmb_conversation_library_turns_v1';world_id:string;conversation_id:string;turns:LibraryTurn[];next_before_sequence:number|null}
+export interface LibraryObjectSource{world_id:string;conversation_id:string;turn_id:string;document_id:string;surface_id:'build'}
+export type LibraryReplyObject=({kind:'questions';questions:{text:string}[]}|{kind:'page_object';object_kind:'plan'|'connected_page'|'relationship'})&{source:LibraryObjectSource};
+export interface LibraryTurn{turn_id:string;sequence:number;status:string;user_text:string;assistant_text:string|null;reply_object:LibraryReplyObject|null}
+export interface LibraryTurns{schema:'dmb_conversation_library_turns_v2';world_id:string;conversation_id:string;turns:LibraryTurn[];next_before_sequence:number|null}
 const uuid=(v:unknown):v is string=>typeof v==='string'&&/^[a-f0-9]{8}-(?:[a-f0-9]{4}-){3}[a-f0-9]{12}$/i.test(v);
 const path=(world:string)=>'/api/live/agent/worlds/'+encodeURIComponent(world)+'/conversations';
 async function read(url:string,init?:RequestInit){
@@ -30,8 +32,24 @@ export async function renameConversation(world:string,id:string,title:string,exp
 export async function readConversationTurns(world:string,id:string,before?:number){
  const q=new URLSearchParams({limit:'50'});if(before!==undefined)q.set('before_sequence',String(before));
  const value=await read(path(world)+'/'+encodeURIComponent(id)+'/turns?'+q);
- if(value.schema!=='dmb_conversation_library_turns_v1'||value.world_id!==world||value.conversation_id!==id||!Array.isArray(value.turns)||value.turns.length>50
+ if(!exactObject(value,['schema','world_id','conversation_id','turns','next_before_sequence'])||value.schema!=='dmb_conversation_library_turns_v2'||value.world_id!==world||value.conversation_id!==id||!Array.isArray(value.turns)||value.turns.length>50
   ||!(value.next_before_sequence===null||Number.isInteger(value.next_before_sequence)&&value.next_before_sequence>0))throw new Error('Transcript differs from the selected conversation.');
- let last=0;for(const t of value.turns){if(!uuid(t.turn_id)||!Number.isInteger(t.sequence)||t.sequence<=last||(before!==undefined&&t.sequence>=before)||typeof t.user_text!=='string'||typeof t.status!=='string'||!(t.assistant_text===null||typeof t.assistant_text==='string'))throw new Error('Transcript order or content is invalid.');last=t.sequence;}
+ let last=0;for(const t of value.turns){if(!exactObject(t,['turn_id','sequence','status','user_text','assistant_text','reply_object'])||!uuid(t.turn_id)||!Number.isInteger(t.sequence)||t.sequence<=last||(before!==undefined&&t.sequence>=before)||typeof t.user_text!=='string'||typeof t.status!=='string'||!(t.assistant_text===null||typeof t.assistant_text==='string'))throw new Error('Transcript order or content is invalid.');validateReplyObject(t.reply_object,world,id,t);last=t.sequence;}
  return value as LibraryTurns;
+}
+
+function exactObject(value:unknown,keys:string[]):boolean{
+ return !!value&&typeof value==='object'&&!Array.isArray(value)&&Object.keys(value).length===keys.length&&keys.every(k=>Object.hasOwn(value,k));
+}
+function validateReplyObject(value:unknown,world:string,conversation:string,turn:LibraryTurn){
+ if(value===null)return;
+ if(turn.status!=='completed'||!value||typeof value!=='object')throw new Error('Transcript object lacks a completed owner.');
+ const obj=value as Record<string,unknown>,source=obj.source as Record<string,unknown>;
+ if(!exactObject(source,['world_id','conversation_id','turn_id','document_id','surface_id'])
+  ||source.world_id!==world||source.conversation_id!==conversation||source.turn_id!==turn.turn_id
+  ||source.surface_id!=='build'||typeof source.document_id!=='string'||!source.document_id.trim())throw new Error('Transcript object differs from its source page.');
+ if(obj.kind==='questions'&&exactObject(obj,['kind','questions','source'])&&Array.isArray(obj.questions)&&obj.questions.length
+  &&obj.questions.every(q=>exactObject(q,['text'])&&typeof q.text==='string'&&q.text.trim()))return;
+ if(obj.kind==='page_object'&&exactObject(obj,['kind','object_kind','source'])&&['plan','connected_page','relationship'].includes(String(obj.object_kind)))return;
+ throw new Error('Transcript object is invalid.');
 }

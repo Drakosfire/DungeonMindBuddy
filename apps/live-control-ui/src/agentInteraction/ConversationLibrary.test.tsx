@@ -6,7 +6,7 @@ vi.mock('../api/conversationLibraryApi',()=>({listConversations:vi.fn(),readConv
 vi.mock('../planSurface/components/BuddyContextTraceLoader',()=>({BuddyContextTraceLoader:()=> <p>Explicit trace</p>}));
 const current='11111111-1111-4111-8111-111111111111',old='22222222-2222-4222-8222-222222222222';
 const meta=(id=current,world='world-one')=>({conversation_id:id,world_id:world,title:id===current?'Current piece':'Archived piece',name_revision:0,status:id===current?'active' as const:'archived' as const,turn_count:1,created_at:'2026-10-24T12:00:00Z',updated_at:'2026-10-24T12:00:00Z'});
-const page=(id=current,world='world-one')=>({schema:'dmb_conversation_library_turns_v1' as const,world_id:world,conversation_id:id,turns:[{turn_id:'33333333-3333-4333-8333-333333333333',sequence:1,status:'completed',user_text:id===current?'Current question':'Archived question',assistant_text:'Saved reply'}],next_before_sequence:null});
+const page=(id=current,world='world-one')=>({schema:'dmb_conversation_library_turns_v2' as const,world_id:world,conversation_id:id,turns:[{turn_id:'33333333-3333-4333-8333-333333333333',sequence:1,status:'completed',user_text:id===current?'Current question':'Archived question',assistant_text:'Saved reply',reply_object:null}],next_before_sequence:null});
 beforeAll(()=>{Object.defineProperty(HTMLDialogElement.prototype,'showModal',{configurable:true,value(this:HTMLDialogElement){this.setAttribute('open','');}});});
 beforeEach(()=>{vi.clearAllMocks();vi.mocked(api.listConversations).mockImplementation(async(world,status)=>({schema:'dmb_conversation_library_v1',world_id:world,status,items:[meta(current,world),meta(old,world)],next_before:null}));vi.mocked(api.readConversationName).mockImplementation(async(world,id)=>meta(id,world));vi.mocked(api.readConversationTurns).mockImplementation(async(world,id)=>page(id,world));});
 afterEach(()=>cleanup());
@@ -39,4 +39,19 @@ it('loads earlier turns and traces only on request',async()=>{
  vi.mocked(api.readConversationTurns).mockResolvedValueOnce({...page(),turns:[{...page().turns[0],sequence:51}],next_before_sequence:51}).mockResolvedValueOnce({...page(),turns:[{...page().turns[0],turn_id:'44444444-4444-4444-8444-444444444444',user_text:'Earlier question'}]});
  render(<ConversationLibrary worldId="world-one" onClose={()=>{}}/>);fireEvent.click(await screen.findByRole('button',{name:'Earlier messages'}));await screen.findByText('Earlier question');expect(api.readConversationTurns).toHaveBeenLastCalledWith('world-one',current,51);
  expect(screen.queryByText('Explicit trace')).not.toBeInTheDocument();fireEvent.click(screen.getAllByText('Trace')[0]);await screen.findByText('Explicit trace');
+});
+
+it('shows saved object-only questions and page object links without editable chat plans',async()=>{
+ const source={world_id:'world-one',conversation_id:current,turn_id:page().turns[0].turn_id,document_id:'source page',surface_id:'build' as const};
+ vi.mocked(api.readConversationTurns).mockResolvedValue({...page(),turns:[
+  {...page().turns[0],assistant_text:'',reply_object:{kind:'questions',source,questions:[{text:'Which shop should we develop?'}]}},
+  {...page().turns[0],turn_id:old,sequence:2,user_text:'Prepare a plan',assistant_text:'Held for review.',reply_object:{kind:'page_object',object_kind:'plan',source:{...source,turn_id:old}}},
+ ]});
+ render(<><textarea aria-label="Current composer" defaultValue="Newer unsent note"/><ConversationLibrary worldId="world-one" onClose={()=>{}}/></>);
+ expect(await screen.findByRole('region',{name:'Saved clarifying questions'})).toHaveTextContent('Which shop should we develop?');
+ expect(screen.queryByText('No saved reply.')).not.toBeInTheDocument();
+ expect(screen.getByRole('link',{name:'Open source page'})).toHaveAttribute('href','/build?world=world-one&documentId=source+page');
+ expect(screen.getByText('Held for review.')).toBeInTheDocument();
+ expect(screen.queryByRole('button',{name:'Continue step'})).not.toBeInTheDocument();
+ expect(screen.getByLabelText('Current composer')).toHaveValue('Newer unsent note');
 });
