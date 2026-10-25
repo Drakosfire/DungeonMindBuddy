@@ -67,12 +67,51 @@ def load_cases(prior, regression):
     for case in frozen['cases']:
         row = json.loads((prior / f"{case['id']}-current-0.json").read_text())
         cases.append({'id':case['id'], 'family':case['family'], 'question':case['question'],
-                      'expected':case['expected_operation'], 'control':row['request']})
+                      'expected':case['expected_operation'], 'control':row['request'],
+                      'origin':'captured_envelope' if 'baseline_request' in case else 'question_substitution',
+                      'gold_authority':case.get('gold_authority'), 'original_gold':case.get('original_gold'),
+                      'gold':case['gold'], 'prior_manifest_sha256':sha256((prior / 'frozen.json').read_bytes()).hexdigest()})
     request = json.loads(regression.read_text())
     cases.append({'id':'observed-page-suggestion', 'family':'observed_current_regression',
                   'question':request['state']['decision']['state']['user_question'],
-                  'expected':'propose_build_insertion', 'control':request})
+                  'expected':'propose_build_insertion', 'control':request,
+                  'origin':'captured_observed_regression',
+                  'gold_authority':'Explicit current-page suggestion request; frozen before inference.'})
     return cases
+
+
+def annotate_existing(cases, output):
+    """Add host-only lineage without altering frozen inputs, evaluator or scores."""
+    frozen = json.loads((output / 'frozen.json').read_text())
+    old = {case['id']:case for case in frozen['cases']}
+    assert set(old) == {case['id'] for case in cases}
+    for case in cases:
+        assert case['control'] == old[case['id']]['control']
+        assert case['expected'] == old[case['id']]['expected']
+        assert case['question'] == old[case['id']]['question']
+    report = json.loads((output / 'report.json').read_text())
+    rows = report['rows']
+    groups = []
+    for variant in VARIANTS:
+        for origin in sorted({case['origin'] for case in cases}):
+            ids = {case['id'] for case in cases if case['origin'] == origin}
+            subset = [r for r in rows if r['case'] in ids and r['variant'] == variant]
+            groups.append({'variant':variant, 'origin':origin, 'runs':len(subset),
+                           'correct':sum(r['correct'] for r in subset),
+                           'negative_runs':sum(r['expected']=='cannot_select' for r in subset),
+                           'negative_correct':sum(r['expected']=='cannot_select' and r['correct'] for r in subset)})
+    artifact = {'policy':'host-only-lineage-annotation-v1',
+                'frozen_file_sha256':sha256((output / 'frozen.json').read_bytes()).hexdigest(),
+                'report_file_sha256':sha256((output / 'report.json').read_bytes()).hexdigest(),
+                'no_new_calls':True, 'no_changed_gold_or_requests':True,
+                'cases':[{k:v for k,v in c.items() if k not in ('question','control')} for c in cases],
+                'groups':groups,
+                'limits':['Inherited family names containing fresh are historical labels, not unseen holdouts.',
+                          'question_substitution uses a captured Build envelope with another utterance, not a rebuilt runtime request.',
+                          'Unavailable labels are negative probes, not useful runtime recovery.']}
+    with (output / 'lineage-annotation.json').open('x') as target:
+        target.write(json.dumps(artifact, indent=2))
+    print(json.dumps({'groups':groups}))
 
 
 def validate(cases):
@@ -158,6 +197,7 @@ def main():
     parser.add_argument('--regression', type=Path, required=True)
     parser.add_argument('--output', type=Path)
     parser.add_argument('--validate-only', action='store_true')
+    parser.add_argument('--annotate-existing', action='store_true')
     args = parser.parse_args()
     cases = load_cases(args.prior, args.regression)
     validate(cases)
@@ -166,7 +206,10 @@ def main():
         return
     if args.output is None:
         parser.error('--output required for provider replay')
-    asyncio.run(run(cases, args.output))
+    if args.annotate_existing:
+        annotate_existing(cases, args.output)
+    else:
+        asyncio.run(run(cases, args.output))
 
 
 if __name__ == '__main__':
