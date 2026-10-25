@@ -16,6 +16,10 @@ const status=vi.fn();const complete=vi.fn();
 async function digest(text:string){return Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256',new TextEncoder().encode(text))),value=>value.toString(16).padStart(2,'0')).join('');}
 beforeEach(async()=>{
  vi.clearAllMocks();sessionStorage.clear();
+ let pending=Promise.resolve();
+ Object.defineProperty(navigator,'locks',{configurable:true,value:{request:vi.fn((_name:string,work:()=>Promise<unknown>)=>{
+   const result=pending.then(work);pending=result.then(()=>undefined,()=>undefined);return result;
+ })}});
  Object.defineProperty(Range.prototype,'getClientRects',{configurable:true,value:()=>[]});
  Object.defineProperty(Range.prototype,'getBoundingClientRect',{configurable:true,value:()=>({top:0,left:0,right:0,bottom:0,width:0,height:0})});
  Object.defineProperty(document,'elementFromPoint',{configurable:true,value:()=>screen.queryByRole('textbox',{name:'Suggestion text'})});lostAck=false;lostPrepare=false;Object.defineProperty(globalThis,'crypto',{value:webcrypto,configurable:true});
@@ -34,7 +38,12 @@ beforeEach(async()=>{
   if(command.operation==='save')saved={...saved,revision:saved.revision+1,markdown:command.markdown!,markdown_sha256:await digest(command.markdown!)};
   if(command.operation==='move')saved={...saved,revision:saved.revision+1,placement_caret:command.placement_caret!};
   if(command.operation==='discard')saved={...saved,revision:saved.revision+1,state:'discarded'};
-  if(command.operation==='prepare')saved={...saved,revision:saved.revision+1,state:'applying',apply:{placement_caret:saved.placement_caret,apply_id:command.apply_id!,before_editor_sha256:record.reservation.basis.editor_sha256!,before_draft_sha256:record.reservation.basis.draft_sha256,
+  if(command.operation==='replace_placement')saved={...saved,schema:'dmb_build_proposal_review_v3',revision:saved.revision+1,
+    placement:command.placement!,state:'editing',apply:null,placement_caret:command.placement!.basis.caret,
+    retired_placements:[...(saved.retired_placements??[]),{basis:{...(saved.placement?.basis??record.reservation.basis),caret:saved.placement_caret},markdown:saved.markdown,
+      markdown_sha256:saved.markdown_sha256,apply:saved.apply,command_id:saved.placement?.command_id??null,
+      disposition:saved.apply?'superseded_unresolved':'superseded_unapplied'}]};
+  if(command.operation==='prepare')saved={...saved,revision:saved.revision+1,state:'applying',apply:{placement_caret:saved.placement_caret,apply_id:command.apply_id!,before_editor_sha256:(saved.placement?.basis??record.reservation.basis).editor_sha256!,before_draft_sha256:(saved.placement?.basis??record.reservation.basis).draft_sha256,
    after_editor_sha256:command.after_editor_sha256!,after_draft_sha256:command.after_draft_sha256!,reviewed_sha256:saved.markdown_sha256}};
   if(command.operation==='prepare'&&lostPrepare)throw new Error('Prepared outcome unavailable');
   if(command.operation==='confirm'){if(lostAck)throw new Error('Acknowledgment unavailable');saved={...saved,revision:saved.revision+1,state:'applied'};}
@@ -300,4 +309,69 @@ it('waits for verified page persistence before confirming and recovers a failed 
  fireEvent.click(screen.getByRole('button',{name:'Check insertion'}));
  await waitFor(()=>expect(saved.state).toBe('applied'));expect(apply).toHaveBeenCalledTimes(1);expect(persist).toHaveBeenCalledTimes(2);
  expect(status).toHaveBeenCalledWith('Saved to page');
+});
+
+
+it('explicitly places retained edited text on a newer page while keeping the uncertain receipt',async()=>{
+ lostAck=true;
+ const view=render(<Review/>);await writeSuggestion('My retained cedar-box sentence.');
+ fireEvent.click(screen.getByRole('button',{name:'Save',exact:true}));
+ await screen.findByRole('button',{name:'Check insertion'});await screen.findByRole('alert');
+ const uncertain=structuredClone(saved.apply);
+ act(()=>{editor.commands.setContent('<p>Newer author writing.</p>');state.revision=2;state.contentSha256='d'.repeat(64);state.draftGeneration++;});
+ view.rerender(<Review source="doc:2"/>);await screen.findByRole('button',{name:'Choose a new position'});
+ vi.spyOn(bridge,'pickInsertion').mockImplementation(async()=>bridge.capture());
+ const before=editor.getJSON();
+ fireEvent.click(screen.getByRole('button',{name:'Choose a new position'}));
+ await screen.findByRole('textbox',{name:'Suggestion text'});
+ expect(editor.getJSON()).toEqual(before);
+ expect(saved.retired_placements?.[0].apply).toEqual(uncertain);
+ expect(screen.getByRole('textbox',{name:'Suggestion text'})).toHaveTextContent('My retained cedar-box sentence.');
+ lostAck=false;
+ fireEvent.click(screen.getByRole('button',{name:'Save',exact:true}));
+ await waitFor(()=>expect(saved.state).toBe('applied'));
+ expect(editor.getText()).toContain('Newer author writing.');
+ expect(editor.getText().match(/My retained cedar-box sentence/g)).toHaveLength(1);
+ expect(saved.apply?.apply_id).not.toBe(uncertain?.apply_id);
+ expect(saved.apply?.before_editor_sha256).toBe(saved.placement?.basis.editor_sha256);
+ expect(bridge.pickInsertion).toHaveBeenCalledTimes(1);
+});
+
+it('holds the tab lock through delayed prepare, then refuses an old callback on newer writing',async()=>{
+ const send=vi.mocked(proposalReview).getMockImplementation()!;
+ let finish!:(value:BuildProposalReview)=>void;
+ vi.mocked(proposalReview).mockImplementation(async(world,action,command)=>{
+   const result=await send(world,action,command);
+   if(command?.operation==='prepare')return new Promise(resolve=>{finish=resolve;});
+   return result;
+ });
+ const first=render(<Review/>);
+ fireEvent.click(await screen.findByRole('button',{name:'Save',exact:true}));
+ await waitFor(()=>expect(finish).toBeTypeOf('function'));
+ act(()=>{editor.commands.setContent('<p>Newer tab writing.</p>');state.revision=2;state.contentSha256='d'.repeat(64);state.draftGeneration++;});
+ const newer=editor.getJSON();
+ let secondEntered=false;
+ const queued=navigator.locks.request('dmb:proposal-review:world:action',async()=>{secondEntered=true;});
+ await act(async()=>{await Promise.resolve();});
+ expect(secondEntered).toBe(false);
+ await act(async()=>{finish(structuredClone(saved));await queued;});
+ expect(secondEntered).toBe(true);
+ expect(editor.getJSON()).toEqual(newer);
+ expect(saved.state).toBe('applying');
+ expect(complete).not.toHaveBeenCalled();
+ first.unmount();
+});
+
+it('refuses a stale recovery callback after another placement superseded its receipt',async()=>{
+ lostAck=true;const view=render(<Review/>);
+ fireEvent.click(await screen.findByRole('button',{name:'Save',exact:true}));
+ await screen.findByRole('button',{name:'Check insertion'});await screen.findByRole('alert');
+ const original=editor.getJSON();const apply=vi.spyOn(bridge,'applyPrepared');apply.mockClear();
+ // Simulate another tab publishing a newer placement while this panel remains open.
+ saved={...saved,revision:saved.revision+1,state:'editing',apply:null};
+ fireEvent.click(screen.getByRole('button',{name:'Check insertion'}));
+ await screen.findByRole('status',{name:'Suggestion placement unavailable'});
+ expect(screen.getByRole('status',{name:'Suggestion placement unavailable'})).toHaveTextContent('retained');
+ expect(apply).not.toHaveBeenCalled();expect(editor.getJSON()).toEqual(original);
+ view.unmount();
 });

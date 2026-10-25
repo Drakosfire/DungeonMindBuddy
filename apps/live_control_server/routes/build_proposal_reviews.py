@@ -39,7 +39,14 @@ def change_review(
 ):
     world = scope(world_id, request)
     try:
-        return BuildProposalReviewService().execute(world, action_id, body)
+        from apps.live_control_server.services.build_document_proposal import _source, BuildComposeError
+        def validate_source(capability):
+            try:
+                _source(capability)
+            except BuildComposeError as exc:
+                from application_state.errors import ApplicationStateConflictError
+                raise ApplicationStateConflictError(str(exc)) from exc
+        return BuildProposalReviewService(validate_source=validate_source).execute(world, action_id, body)
     except ApplicationStateError as exc:
         raise HTTPException(
             exc.status_code,
