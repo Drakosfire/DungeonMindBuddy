@@ -2,7 +2,7 @@ import './BuddyContextTrace.css'
 import { useState } from 'react'
 import { CapturedPrompt } from './BuddyPromptInspector'
 import { traceCostEstimate } from './traceCostEstimate'
-import { buddyTraceText } from './buddyTraceText'
+import { buddyTraceText, traceSnapshotLabel } from './buddyTraceText'
 import { BuddyHistoricalSourcePassage } from './BuddyHistoricalSourcePassage'
 import type { BuddyTraceMaterial, BuddyTraceObservation, BuddyTraceSourcePassage, BuddyTracePromptReference, BuddyTurnContextTrace } from '../../api/buddyContextTraceTypes'
 export type { BuddyTurnContextTrace } from '../../api/buddyContextTraceTypes'
@@ -72,12 +72,7 @@ function ContextSnapshot({ event, trace, passages }: { event: Extract<BuddyTrace
     && (event.snapshot_kind === 'provider_input' ? item.snapshot_kind === 'provider_input'
       : event.snapshot_kind === 'compaction_output' && !!event.comparison_id
         && item.snapshot_kind === 'compaction_input' && item.comparison_id === event.comparison_id)).at(-1)
-  const label = event.snapshot_kind === 'provider_input' ? 'Working context · prepared input'
-    : event.snapshot_kind === 'provider_response' ? 'Provider response · unvalidated'
-    : event.snapshot_kind === 'validated_answer' ? 'Validated reply · captured context'
-    : event.snapshot_kind === 'compaction_input' ? 'Working context · before compaction'
-    : event.snapshot_kind === 'compaction_output' ? 'Working context · after compaction'
-    : `Working context · ${event.stage} this turn`
+  const label = traceSnapshotLabel(event)
   const changes = previous ? [...new Set([...previous.materials.map(item => item.item_id), ...event.materials.map(item => item.item_id)])].flatMap(id => {
     const before = previous.materials.find(item => item.item_id === id)
     const now = event.materials.find(item => item.item_id === id)

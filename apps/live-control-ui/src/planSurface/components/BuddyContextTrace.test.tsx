@@ -1,6 +1,7 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { describe, expect, it, vi } from 'vitest'
 import { BuddyContextTrace, type BuddyTurnContextTrace } from './BuddyContextTrace'
+import {buddyTraceText} from './buddyTraceText'
 import type { BuddyTraceGraphResult, BuddyTraceSourcePassage } from '../../api/buddyContextTraceTypes'
 
 function trace(observations: BuddyTurnContextTrace['observations']): BuddyTurnContextTrace {
@@ -68,7 +69,7 @@ describe('Buddy context trace', () => {
       elapsed_ms:1, materials:[{item_id:'source', state:'retrieval_route', role:'source', source_reads:[],
         route:{route_id:'source', world_id:'world', graph_revision:'rev', anchor_id:'anchor'}}]}])} />)
     fireEvent.click(screen.getByText('Working context · after this turn'))
-    expect(screen.getByText('Present in model context')).toBeInTheDocument()
+    expect(screen.getByText('Captured material')).toBeInTheDocument()
     expect(screen.getByText('Available through retained routes')).toBeInTheDocument()
     expect(screen.getByText(/passage is not currently present/)).toBeInTheDocument()
   })
@@ -305,4 +306,8 @@ it('does not compare unrelated compaction pairs', () => {
   ])} />)
   fireEvent.click(screen.getByText('Working context · after compaction'))
   expect(screen.queryByLabelText('Context changes')).not.toBeInTheDocument()
+})
+
+it('copies response meaning without relabeling it as an input inventory', () => {
+  expect(buddyTraceText(trace([{kind:'context_snapshot',snapshot_kind:'provider_response',stage:'after',sequence:0,elapsed_ms:0,materials:[]}]))).toContain('Provider response · unvalidated · 0 captured material items')
 })
