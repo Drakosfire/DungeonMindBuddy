@@ -1,3 +1,4 @@
+import {ConversationLibrary} from '../../agentInteraction/ConversationLibrary';
 import {useSurfaceConversationRequests,claimSurfaceConversationRequest,acceptSurfaceConversationRequest,failSurfaceConversationRequest,retrySurfaceConversationRequest,cancelSurfaceConversationRequest,cancelSurfaceConversationTarget,ownsSurfaceConversationRequest,type SurfaceConversationRequest} from '../../agentInteraction/surfaceConversationRequests';
 import { groupConversationAttempts, isUnansweredFailure } from "../../agentInteraction/conversationAttemptGroups";
 import {isSurfaceEvidenceCompletion,surfaceEvidenceReceiptBound} from "../../shared/surfaceEvidenceProtocol";
@@ -2318,6 +2319,7 @@ export function WorldPlanAgentConversation({
   const surfaceRequests = useSurfaceConversationRequests();
   const surfacePreparationRef = useRef(false);
   const [surfacePreparing,setSurfacePreparing] = useState(false);
+  const [libraryOpen,setLibraryOpen]=useState(false);
   const surfaceVisibleRef = useRef(visible);surfaceVisibleRef.current=visible;
   const surfaceObjectId=buildMode?.savedSource?.documentId;
   useEffect(()=>{
@@ -5826,6 +5828,9 @@ export function WorldPlanAgentConversation({
       </section>
   );
   const managementDetails = (<>
+      {verifiedWorldId&&<><button type="button" onClick={()=>setLibraryOpen(true)}>Conversations…</button>
+        {libraryOpen&&<ConversationLibrary key={verifiedWorldId} worldId={verifiedWorldId} onClose={()=>setLibraryOpen(false)}/>}</>}
+
       {playMode ? <div role="group" aria-label="Play message action">
           <button type="button" aria-pressed={!playEditMode} onClick={() => setPlayEditMode(false)}>Discuss</button>
           <button type="button" aria-pressed={playEditMode} onClick={() => setPlayEditMode(true)} disabled={!playMode.sceneEditBridge}>Propose scene edit</button>
