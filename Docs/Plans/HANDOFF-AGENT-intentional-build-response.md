@@ -2,18 +2,65 @@
 
 ## Authority and current lane
 
-**Runtime integration ACTIVE; delivery gated by independent cumulative review and ordinary
-acceptance below.** Contract #1771 merged at e4ec48c4bf96b17ef0ab8543a33286664f672639,
-independently approved at13dae8d4bb60431849a7d483c1e57ca6cd7fdd37. The designing steward
-activates its exact prospective exclusive lease below on branch
-`codex/intentional-build-response-runtime`, base e4ec48c4bf96b17ef0ab8543a33286664f672639,
-in the existing buddy-context-loop checkout. Topology: serial, one integration PR. #1764 stays
-parked; no overlapping response lane was open at activation. Services8000/5202, retained data,
-corpus and native Graph remain read-only until protected delivery gates pass. Disposable test
-Postgres and the existing ignored .pytest_cache evidence area are the only test-state writes.
-No additional inference or private payload transfer is activated. Proof #1770 is settled;
-frozen controls and private output assessments remain unchanged. The lease is implementation
-authority, not a claim of completed admission, migration, staging or rollout.
+**Runtime integration delivered through #1772**, merge
+c72a498349a520b7091892badfdf09d775bbfea8, independently reviewed at
+6946e283a44ca0a66903be1c97e1a1fb18355493. API/UI8000/5202 now use that merge,
+APP0070/native0017. Protected delivery and ordinary synthetic writing, inline object-only
+questions and page-plan Save/reload are retained privately. Current-build reload during
+actual table generation resolved by Check saved request with one turn/attempt/writer and a
+newer composer preserved. Genuine failed-generation retry and operator creative-chain
+acceptance remain open. The prior runtime integration source lease is settled.
+
+## Typed library readback follow-up — ACTIVE
+
+The ordinary library calls a completed object-only question “No saved reply.” Its v1 read
+projection drops typed objects. This is a consumer gap, not lost stored work. Designing
+steward scope: one serial readback capability on branch
+`codex/conversation-library-typed-results`, base c72a498349a520b7091892badfdf09d775bbfea8,
+existing buddy-context-loop checkout. No overlapping open lane; #1764 stays parked.
+Independent Bugbot design critique approved the amended mixed-base and exact scope contract
+before implementation. This grants the exclusive lease below; delivery still requires exact
+cumulative implementation review and protected adoption.
+
+- Replace the library transcript projection with closed `dmb_conversation_library_turns_v2`.
+  Existing text/status/order/pagination remain. Every row adds `reply_object`, null unless a
+  completed, validated Build completion contains a supported typed object.
+- Each nonnull object includes `source:{world_id,conversation_id,turn_id,document_id,surface_id:build}`;
+  UI checks the exact outer World/conversation/turn join and a nonblank page identity.
+- Questions project `{kind:questions, questions:[{text}],source}` from that saved completion.
+  They are displayed as read-only inline questions, including when prose is empty.
+- Other supported review objects project `{kind:page_object, object_kind:plan|connected_page|relationship,
+  source}` from the same completed Build turn and its primary page identity. Render a
+  concise result label and link to that page. Do not mirror editable page plans into chat,
+  infer execution/publication or claim that a prepared object was saved on the page.
+- The projected object is a historical artifact, not a new action, citation or source claim.
+  No question answers are invented from local composer state. No raw provider output or
+  unvalidated/incomplete completion enters the projection. For `MixedCompletedTurnV1`, emit
+  an object only when `base_projection.kind == approved` and its approved validated base
+  Turn is Build with the same World/conversation/turn and primary page identity as the
+  wrapper envelope. Otherwise emit null. Always preserve the wrapper’s accepted
+  `assistant_text`; do not derive an object from Rules prose or an unclaimed base.
+- UI decoder admits v2 only and checks exact object keys, kinds, nonblank question text,
+  source-page identity and completed Build scope supplied by the projection. All reads
+  remain under existing authenticated World/conversation ownership and no-pointer-write gates.
+- No data migration, new store, archive activation, retry/executor, routing or provider change.
+  Unknown completion kinds keep their existing prose/lifecycle presentation.
+
+Exclusive prospective write lease: this handoff;
+`src/application_state/agent_conversation/library.py`;
+`apps/live-control-ui/src/api/conversationLibraryApi.ts`;
+`apps/live-control-ui/src/agentInteraction/ConversationLibrary.tsx`;
+`tests/application_state/test_conversation_library.py`;
+`apps/live-control-ui/src/api/conversationLibraryApi.test.ts`;
+`apps/live-control-ui/src/agentInteraction/ConversationLibrary.test.tsx`.
+Existing generic routes only relay the projection and need no implementation change.
+
+Verify real persisted object-only questions through current/archived readback with no pointer
+or turn mutation; read-only page-object labels; mixed prose; malformed/foreign/noncompleted
+object rejection; pagination and departed-scope fencing; typecheck/build. Exact cumulative
+independent Bugbot before PRIME merge and protected paired delivery, preserving APP0070,
+native Graph, product files and drafts. Ordinary library inspection must show the actual
+questions and preserve newer composer text. Keep all detailed evidence private.
 
 This amendment supersedes the prospective output-only routing and host-singleton design
 below its predecessor ref. The earlier implementation is retained history, not an alternate

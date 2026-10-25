@@ -151,6 +151,42 @@ def rename(world: str, conversation: UUID, change: NameChange):
         return _one(conn, world, conversation)
 
 
+def _reply_object(turn, world, conversation):
+    """Project validated historical objects without supplying action authority."""
+    from .types import Turn, BuildCollaborationCompletionV1, BuildIntentionalResponseCompletionV1
+    from .rules_authority_reads import MixedCompletedTurnV1, RulesApprovedBaseV1
+
+    meta = getattr(turn, "envelope", turn)
+    base = turn
+    if isinstance(turn, MixedCompletedTurnV1):
+        if not isinstance(turn.base_projection, RulesApprovedBaseV1):
+            return None
+        base = turn.base_projection.turn
+        if (base.world_id, base.conversation_id, base.turn_id, base.provenance.primary_work) != (
+            meta.world_id, meta.conversation_id, meta.turn_id, meta.provenance.primary_work
+        ):
+            return None
+    if not isinstance(base, Turn) or base.status != "completed" or (
+        base.world_id != world or base.conversation_id != conversation
+        or base.provenance.surface_id != "build"
+        or base.provenance.primary_work.kind != "build"
+        or not base.provenance.primary_work.object_id
+        or not isinstance(base.completion, (BuildCollaborationCompletionV1, BuildIntentionalResponseCompletionV1))
+    ):
+        return None
+    obj = base.completion.collaboration
+    if obj is None:
+        return None
+    source = {"world_id": world, "conversation_id": str(conversation),
+              "turn_id": str(base.turn_id), "document_id": base.provenance.primary_work.object_id,
+              "surface_id": "build"}
+    if obj.kind == "questions":
+        return {"kind": "questions", "questions": [{"text": q.text} for q in obj.questions], "source": source}
+    if obj.kind in {"plan", "connected_page", "relationship"}:
+        return {"kind": "page_object", "object_kind": obj.kind, "source": source}
+    return None
+
+
 def read_turns(
     world: str,
     conversation: UUID,
@@ -173,10 +209,11 @@ def read_turns(
                 "status": meta.status,
                 "user_text": meta.user_text,
                 "assistant_text": turn.assistant_text,
+                "reply_object": _reply_object(turn, world, conversation),
             }
         )
     return {
-        "schema": "dmb_conversation_library_turns_v1",
+        "schema": "dmb_conversation_library_turns_v2",
         "world_id": world,
         "conversation_id": str(conversation),
         "turns": rows,

@@ -73,7 +73,10 @@ export function ConversationLibrary({worldId,onClose}:{worldId:string;onClose:()
    {error&&<p role="alert">{error}</p>}{loading&&<p role="status">Loading messages…</p>}
    {before!==null&&<button type="button" disabled={loading} onClick={()=>void olderTurns()}>Earlier messages</button>}
    {ownDetail&&turns.map(turn=><article key={turn.turn_id}><h3>You</h3><p className="conversation-library__question">{turn.user_text}</p><h3>Buddy</h3>
-    {turn.assistant_text?<WorldPlanAgentAnswer answer={turn.assistant_text}/>:<p>{turn.status==='failed'?'This reply did not finish.':turn.status==='running'?'Reply in progress.':'No saved reply.'}</p>}
+    {turn.assistant_text&&<WorldPlanAgentAnswer answer={turn.assistant_text}/>}
+    {turn.reply_object?.kind==='questions'&&<section aria-label="Saved clarifying questions"><h4>Clarifying questions</h4><ol>{turn.reply_object.questions.map((q,i)=><li key={i}>{q.text}</li>)}</ol></section>}
+    {turn.reply_object?.kind==='page_object'&&<p>{turn.reply_object.object_kind==='plan'?'Work plan proposed on page.':turn.reply_object.object_kind==='connected_page'?'Connected-page review prepared.':'Relationship review prepared.'}{' '}<a href={'/build?'+new URLSearchParams({world:turn.reply_object.source.world_id,documentId:turn.reply_object.source.document_id})}>Open source page</a></p>}
+    {!turn.assistant_text&&!turn.reply_object&&<p>{['failed','interrupted'].includes(turn.status)?'This reply did not finish.':['accepted','running'].includes(turn.status)?'Reply in progress.':'No saved reply.'}</p>}
     <SavedTurnTrace worldId={worldId} conversationId={ownDetail.conversation_id} turnId={turn.turn_id}/>
 
    </article>)}
