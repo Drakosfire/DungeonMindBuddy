@@ -153,6 +153,21 @@ There are no tools. Never invent source selectors or turn a possibility into an 
 """
 
 
+RELATIONSHIP_INSTRUCTIONS = """
+For a requested relationship on the CURRENT saved page, prepare an author review using
+collaboration:{kind:"relationship",read_id:"exact artifact_under_edit section read_id",
+quote:"unique exact quote in that saved section",source:{label:"person/place",kind:"npc or location etc"},
+target:{label:"other person/place",kind:"npc or location etc"},predicate:"relationship predicate",
+label:"readable relationship",context:"explicit temporal/conditional meaning"}.
+Use this review instead of claiming relationships require unsupported separate authoring.
+Endpoints are proposed labels/kinds; the author resolves existing identities or new identities.
+Use only the included CURRENT saved section, never unsaved draft text or another page.
+If the support is not saved, request the needed save or clarification. Preserve past temporary
+work as past temporary work; do not imply current employment or played events.
+This only proposes review. It cannot publish. Acknowledge briefly; author opens, edits, previews
+and explicitly confirms through the existing relationship review. Do not claim the edge exists.
+"""
+
 CONNECTED_PAGE_INSTRUCTIONS = """
 The author can review and create a connected page through a dedicated conversation object.
 When asked to create/develop another person/shop page and enough supplied saved-page context is available,
@@ -247,6 +262,7 @@ class WriterProjection:
         draft_context = "working_draft_context" in json.loads(self.input_json)
         collaboration = json.loads(self.input_json).get("collaboration_output_policy") == "typed_author_review_collaboration_v1"
         connected = json.loads(self.input_json).get("connected_page_review_policy")=="typed_connected_page_review_v1"
+        relationship = json.loads(self.input_json).get("relationship_review_policy") == "typed_saved_relationship_review_v1"
         collaboration_instructions = COLLABORATION_INSTRUCTIONS.replace(
             "These are the supported continuation actions. Creating another page or persisting Graph\nrelationships is not an executor here: explain that boundary and propose a discussion/author\nchoice rather than claiming that those writes will happen automatically. Save is an author action.",
             "These are the supported automatic continuation actions. A connected page has the explicit author review described below; other Graph relationships require separate authoring. Save is an author action."
@@ -294,13 +310,13 @@ class WriterProjection:
             if self.source_only
             else SOURCE_INSTRUCTIONS
             if self.has_saved_sections
-            else INSTRUCTIONS) + primary_instructions + (collaboration_instructions if collaboration else "") + (CONNECTED_PAGE_INSTRUCTIONS if connected else "") + qualification_instructions + quote_instructions,
+            else INSTRUCTIONS) + primary_instructions + (collaboration_instructions if collaboration else "") + (CONNECTED_PAGE_INSTRUCTIONS if connected else "") + (RELATIONSHIP_INSTRUCTIONS if relationship else "") + qualification_instructions + quote_instructions,
             "max_output_tokens": OUTPUT_RESERVE,
             "reasoning": {"effort": "low"},
             "text": {
                 "format": mixed_format or {
                     "type": "json_schema",
-                    "name": QUOTE_FORMAT if quoted else "build_working_draft_answer_v3" if connected else "build_working_draft_answer_v2" if collaboration else "build_working_draft_answer_v1" if draft_context else GAP_SCHEMA_NAME if cited else "build_source_passage_answer",
+                    "name": "build_working_draft_answer_v5" if relationship else QUOTE_FORMAT if quoted else "build_working_draft_answer_v3" if connected else "build_working_draft_answer_v2" if collaboration else "build_working_draft_answer_v1" if draft_context else GAP_SCHEMA_NAME if cited else "build_source_passage_answer",
                     "schema": finite_output_schema(json.loads(self.input_json), requested_detail_gaps=True) if cited else source_answer_schema(),
                     "strict": True,
                 }
@@ -360,6 +376,9 @@ def with_working_draft(staged: WriterProjection, execution) -> WriterProjection:
     collaboration=getattr(execution.policy,"collaboration_output_policy",None)
     if collaboration is not None:
         packet["collaboration_output_policy"]=collaboration
+    relationship=getattr(execution.policy,"relationship_review_policy",None)
+    if relationship is not None:
+        packet["relationship_review_policy"]=relationship
     connected=getattr(execution.policy,"connected_page_review_policy",None)
     if connected is not None:
         packet["connected_page_review_policy"]=connected

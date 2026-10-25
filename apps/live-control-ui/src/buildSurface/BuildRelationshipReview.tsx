@@ -1,4 +1,6 @@
-import {useEffect,useRef,useState} from 'react';
+import {publishRelationshipReviewHost} from './relationshipReviewHost';
+import type {DocumentRelationshipIntent} from '../api/graphDocumentRelationshipApi';
+import {useLayoutEffect,useEffect,useRef,useState} from 'react';
 import {createPortal} from 'react-dom';
 import {useOptionalMarkdownCanvasSession} from '../markdownCanvas/MarkdownCanvasSession';
 import {getGraphObjectAuthoringKinds,postManagedWorldGraphProjection,prepareGraphObjectAuthoringWrite,commitGraphObjectAuthoringWrite} from '../api/liveApi';
@@ -64,6 +66,18 @@ export function BuildRelationshipReview({worldId,documentId,seed,onConsumed}:{wo
    if(alive.current)await persist(p=>p?{...p,receipt}:p);
   }catch(e){if(alive.current)setError(message(e)+' The exact request is retained.');}finally{busyRef.current=false;if(alive.current)setBusy(false);}
  }
+ const openProposal=useRef<(intent:DocumentRelationshipIntent)=>Promise<void>>(async()=>{});
+ openProposal.current=async intent=>{
+  if(busyRef.current||initial.error)throw new Error(initial.error||'Finish the current relationship operation first.');
+  await persist(previous=>{
+   const s=sessionRef.current;
+   if(!alive.current||intent.world_id!==worldId||intent.document_source.documentId!==documentId||s?.record?.world_id!==worldId||s.record.document_id!==documentId||s.dirty||s.activeCommand||s.snapshot?.loaded_revision!==intent.document_source.revision||s.snapshot.content_sha256!==intent.document_source.contentSha256)throw new Error('Open the original clean saved page revision before reviewing this relationship.');
+   if(previous)throw new Error('Resolve the retained relationship review before opening another. Its edits and confirmation were kept.');
+   return {schema:'dmb_saved_relationship_review_v1',intent,request:null,prepared:null,submitted:false,receipt:null};
+  });
+  if(alive.current){setError('');setOpen(true);}
+ };
+ useLayoutEffect(()=>publishRelationshipReviewHost({worldId,documentId,open:intent=>openProposal.current(intent)}),[worldId,documentId]);
  const endpoint=(side:'source'|'target')=>{const e=value!.intent[side];return <fieldset><legend>{side==='source'?'From':'To'}</legend>
   <label>{side} identity<select value={e.node_id??'__new__'} onChange={event=>{const n=nodes.find(n=>n.nodeId===event.target.value);edit(v=>({...v,intent:{...v.intent,[side]:n?{node_id:n.nodeId,label:n.label,kind:n.kind}:{node_id:null,label:'',kind:'npc'}}}));}}><option value="__new__">Create a new identity</option>{nodes.map(n=><option key={n.nodeId} value={n.nodeId}>{n.label} · {n.kind} · {n.nodeId}</option>)}</select></label>
   {!e.node_id&&<><label>{side} name<input value={e.label} onChange={event=>{const label=event.target.value;edit(v=>({...v,intent:{...v.intent,[side]:{...v.intent[side],label}}}));}}/></label>

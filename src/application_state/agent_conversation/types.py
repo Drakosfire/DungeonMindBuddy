@@ -1899,6 +1899,14 @@ class BuildConnectedPageReviewCompletionV1(BuildCollaborationCompletionV1):
     collaboration: ConnectedCollaboration | None
 
 
+from .relationship_review import RelationshipCollaboration
+
+
+class BuildRelationshipReviewCompletionV1(BuildConnectedPageReviewCompletionV1):
+    schema_: Literal["dmb_build_relationship_review_completion_v1"] = Field(default="dmb_build_relationship_review_completion_v1",alias="schema")
+    collaboration: RelationshipCollaboration | None
+
+
 class BuildRelatedPageCompletionV1(BuildDraftContextCompletionV1):
     schema_: Literal["dmb_build_related_page_completion_v1"] = Field(default="dmb_build_related_page_completion_v1",alias="schema")
 
@@ -2090,7 +2098,7 @@ class SurfaceEvidenceCompletionV3(SurfaceEvidenceCompletionV2):
         max_length=MAX_CITATION_SOURCE_READ_IDS)
 
 
-GraphTurnCompletion = BuildConnectedPageReviewCompletionV1 | BuildCollaborationCompletionV1 | BuildRelatedPageCompletionV1 | BuildDraftContextCompletionV1 | BuildNamedGraphCompletionV3 | SurfaceEvidenceCompletionV3 | SurfaceEvidenceCompletionV2 | SurfaceEvidenceCompletionV1 | SurfaceSourceCompletionV1 | PlayWorldGraphCompletionV1 | PlanWorldGraphCompletion | BuildGraphCompletionV1 | BuildGraphCompletionV2 | BuildAuthoringCompletionV1 | BuildImagePreparationCompletionV1
+GraphTurnCompletion = BuildRelationshipReviewCompletionV1 | BuildConnectedPageReviewCompletionV1 | BuildCollaborationCompletionV1 | BuildRelatedPageCompletionV1 | BuildDraftContextCompletionV1 | BuildNamedGraphCompletionV3 | SurfaceEvidenceCompletionV3 | SurfaceEvidenceCompletionV2 | SurfaceEvidenceCompletionV1 | SurfaceSourceCompletionV1 | PlayWorldGraphCompletionV1 | PlanWorldGraphCompletion | BuildGraphCompletionV1 | BuildGraphCompletionV2 | BuildAuthoringCompletionV1 | BuildImagePreparationCompletionV1
 
 
 class GraphCompletionRejectionCode(str, Enum):
@@ -2768,6 +2776,14 @@ class BuildSourceQuotePolicyV1(BuildConnectedPageReviewPolicyV1):
 
 class BuildSourceQuoteImagePolicyV1(BuildConnectedPageReviewImagePolicyV1):
     source_quote_binding_policy: Literal["exact_source_quote_binding_v1"]
+
+
+class BuildRelationshipReviewPolicyV1(BuildSourceQuotePolicyV1):
+    relationship_review_policy: Literal["typed_saved_relationship_review_v1"]
+
+
+class BuildRelationshipReviewImagePolicyV1(BuildSourceQuoteImagePolicyV1):
+    relationship_review_policy: Literal["typed_saved_relationship_review_v1"]
 
 
 class GraphExecutionEventBaseV1(StrictModel):
@@ -4037,7 +4053,7 @@ class PlanWorldGraphExecutionV3(PlanWorldGraphExecutionV2):
     schema_: Literal["dmb_agent_plan_world_graph_execution_v3"] = Field(
         default="dmb_agent_plan_world_graph_execution_v3", alias="schema"
     )
-    policy: BuildSourceQuoteImagePolicyV1 | BuildSourceQuotePolicyV1 | BuildConnectedPageReviewImagePolicyV1 | BuildConnectedPageReviewPolicyV1 | BuildCollaborationImagePolicyV1 | BuildCollaborationPolicyV1 | BuildRelatedPageDraftImagePolicyV1 | BuildRelatedPageDraftPolicyV1 | BuildExactSavedLinesDraftImagePolicyV1 | BuildExactSavedLinesDraftPolicyV1 | BuildDraftWorldContextImagePolicyV1 | BuildDraftWorldContextPolicyV1 | BuildNamedWorldContextImagePolicyV1 | BuildNamedWorldContextPolicyV1 | PlanNativeSourceSectionsPolicyV1 | PlanJevRetrievalPolicyV1 | BuildWorldContextImagePolicyV1 | BuildWorldContextPolicyV1 | BuildPrimaryWorkStatusImagePolicyV1 | BuildPrimaryWorkStatusPolicyV1 | BuildPrimaryWorkImagePolicyV1 | BuildPrimaryWorkPolicyV1 | BuildImageActionPolicyV1 | BuildEncodedAssessmentPolicyV1 | BuildInitialEstimatedSelectedSourcePolicyV1 | BuildSelectedSourceActionControllerWriterPolicyV1 | BuildCitedSourceActionControllerWriterPolicyV1 | BuildReadBatchActionControllerWriterPolicyV1 | BuildWriterBudgetActionControllerWriterPolicyV1 | BuildJointSupportActionControllerWriterPolicyV1 | BuildEstimatedActionControllerWriterPolicyV1 | BuildContainedActionControllerWriterPolicyV1 | BuildPhaseActionControllerWriterPolicyV1 | BuildFrontierActionControllerWriterPolicyV1 | BuildContinuationActionControllerWriterPolicyV1 | BuildCompactActionControllerWriterPolicyV1 | BuildActionControllerWriterPolicyV1 | BuildSectionControllerWriterPolicyV1 | ControllerWriterGraphExecutionPolicyV3 | SettledGraphExecutionPolicyV3 | GraphExecutionPolicyV3
+    policy: BuildRelationshipReviewImagePolicyV1 | BuildRelationshipReviewPolicyV1 | BuildSourceQuoteImagePolicyV1 | BuildSourceQuotePolicyV1 | BuildConnectedPageReviewImagePolicyV1 | BuildConnectedPageReviewPolicyV1 | BuildCollaborationImagePolicyV1 | BuildCollaborationPolicyV1 | BuildRelatedPageDraftImagePolicyV1 | BuildRelatedPageDraftPolicyV1 | BuildExactSavedLinesDraftImagePolicyV1 | BuildExactSavedLinesDraftPolicyV1 | BuildDraftWorldContextImagePolicyV1 | BuildDraftWorldContextPolicyV1 | BuildNamedWorldContextImagePolicyV1 | BuildNamedWorldContextPolicyV1 | PlanNativeSourceSectionsPolicyV1 | PlanJevRetrievalPolicyV1 | BuildWorldContextImagePolicyV1 | BuildWorldContextPolicyV1 | BuildPrimaryWorkStatusImagePolicyV1 | BuildPrimaryWorkStatusPolicyV1 | BuildPrimaryWorkImagePolicyV1 | BuildPrimaryWorkPolicyV1 | BuildImageActionPolicyV1 | BuildEncodedAssessmentPolicyV1 | BuildInitialEstimatedSelectedSourcePolicyV1 | BuildSelectedSourceActionControllerWriterPolicyV1 | BuildCitedSourceActionControllerWriterPolicyV1 | BuildReadBatchActionControllerWriterPolicyV1 | BuildWriterBudgetActionControllerWriterPolicyV1 | BuildJointSupportActionControllerWriterPolicyV1 | BuildEstimatedActionControllerWriterPolicyV1 | BuildContainedActionControllerWriterPolicyV1 | BuildPhaseActionControllerWriterPolicyV1 | BuildFrontierActionControllerWriterPolicyV1 | BuildContinuationActionControllerWriterPolicyV1 | BuildCompactActionControllerWriterPolicyV1 | BuildActionControllerWriterPolicyV1 | BuildSectionControllerWriterPolicyV1 | ControllerWriterGraphExecutionPolicyV3 | SettledGraphExecutionPolicyV3 | GraphExecutionPolicyV3
     events: list[GraphExecutionEventV3] = Field(max_length=2048)
 
     @model_validator(mode="after")
