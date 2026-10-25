@@ -192,3 +192,10 @@ it('accepts connected page review only in its new closed completion schema',()=>
  expect(isBuildSourceCompletion({...c,schema:'dmb_build_collaboration_completion_v1'},'a'.repeat(64),'b'.repeat(64),'world')).toBe(false);
  for(const patch of [{read_id:'invented'},{relationships:['allies']},{node_id:'model-guessed-id'},{person_label:null}])expect(isBuildSourceCompletion({...c,collaboration:{...collaboration,...patch}},'a'.repeat(64),'b'.repeat(64),'world')).toBe(false);
 });
+it('accepts proposed relationships only in their new closed completion schema',()=>{
+ const collaboration={kind:'relationship',read_id:id,quote:'Past temporary work.',source:{label:'Rowan',kind:'npc'},target:{label:'Mara',kind:'npc'},predicate:'works_with',label:'worked together',context:'Past temporary work only.'};
+ const c={schema:'dmb_build_relationship_review_completion_v1',context_receipt_sha256:'a'.repeat(64),answer_basis:'working_draft_context',answer_context_status:'creative_proposal',answer_segments:[{kind:'connective',text:'Ready for review.'}],citation_map:null,source_citations:[],collaboration};
+ expect(isBuildSourceCompletion(c,'a'.repeat(64),'b'.repeat(64),'world')).toBe(true);
+ expect(isBuildSourceCompletion({...c,schema:'dmb_build_connected_page_review_completion_v1'},'a'.repeat(64),'b'.repeat(64),'world')).toBe(false);
+ for(const patch of [{read_id:'invented'},{source:{...collaboration.source,node_id:'model-id'}},{context:'  '},{published:true}])expect(isBuildSourceCompletion({...c,collaboration:{...collaboration,...patch}},'a'.repeat(64),'b'.repeat(64),'world')).toBe(false);
+});

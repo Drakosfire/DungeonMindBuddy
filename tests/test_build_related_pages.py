@@ -61,6 +61,7 @@ class PagesDecision(WorldDecisions):
 class PagesWriter(WriterWire):
     collaboration = None
     connected = False
+    relationship = False
     invalid_quote = False
 
     async def handle_async_request(self, request):
@@ -125,6 +126,10 @@ class PagesWriter(WriterWire):
                 ),
             }
         )
+        if self.relationship:
+            primary = packet["artifact_under_edit"]["sections"][0]
+            self.collaboration = {"kind":"relationship","read_id":primary["read_id"],"quote":primary["text"],"source":{"label":"Proposed keeper","kind":"npc"},"target":{"label":"Proposed trader","kind":"npc"},"predicate":"works_with","label":"proposed past collaboration","context":"A proposed temporary past collaboration; author must review semantic support and identities."}
+            raw = json.dumps({"answer_context_status":"creative_proposal","answer_segments":[{"kind":"suggestion","text":"Review the proposed relationship."}],"limitations":[],"requested_detail_gaps":[],"collaboration":self.collaboration})
         if packet.get("source_quote_binding_policy"):
             value = json.loads(raw)
             for segment in value["answer_segments"]:
@@ -155,6 +160,7 @@ def completed(build_case, monkeypatch, tmp_path, request):
             "typed_plan",
             "typed_questions",
             "connected_page",
+            "relationship_review",
             "invalid_quote",
         }
         else mode
@@ -276,6 +282,7 @@ def completed(build_case, monkeypatch, tmp_path, request):
                 }
             ],
         }
+    writer.relationship = mode == "relationship_review"
     decisions = PagesDecision(operation=operation)
     harness = BuildJevHarness(
         world_context=True,
@@ -568,7 +575,7 @@ def test_typed_workflow_survives_actual_writer_and_app_admission(completed):
     assert (
         packet["collaboration_output_policy"] == "typed_author_review_collaboration_v1"
     )
-    assert request["text"]["format"]["name"] == "build_working_draft_answer_v4"
+    assert request["text"]["format"]["name"] == "build_working_draft_answer_v5"
     assert turn.completion.collaboration.model_dump(mode="json") == writer.collaboration
     reloaded = service.list_turns(turn.world_id, turn.conversation_id)[0]
     assert reloaded.completion == turn.completion
@@ -687,3 +694,38 @@ def test_wrong_page_quote_is_rejected_through_sdk_and_app(completed):
         o.stage == "completion_validation" and o.exception_type == "ValueError"
         for o in failures
     )
+
+
+@pytest.mark.parametrize("completed", ["relationship_review"], indirect=True)
+def test_relationship_review_survives_actual_sdk_app_history_and_refuses_tampered_source(completed):
+    turn, service, _page, _body, _reads, writer, _decisions = completed
+    assert isinstance(turn.completion, t.BuildRelationshipReviewCompletionV1)
+    assert turn.completion.collaboration.model_dump(mode="json") == writer.collaboration
+    wire=json.loads(writer.calls[0].content)
+    assert wire["text"]["format"]["name"] == "build_working_draft_answer_v5"
+    assert json.loads(wire["input"])["relationship_review_policy"] == "typed_saved_relationship_review_v1"
+    loaded=service.list_turns(turn.world_id,turn.conversation_id)[0]
+    assert loaded.completion == turn.completion
+    assert type(turn).model_validate(loaded.model_dump(mode="json",by_alias=True)).completion == turn.completion
+    # The support check is exact membership, not an entailment or identity decision.
+    payload=turn.model_dump(mode="json",by_alias=True)
+    payload["completion"]["collaboration"]["read_id"]=str(uuid4())
+    with pytest.raises(ValidationError):type(turn).model_validate(payload)
+    payload=turn.model_dump(mode="json",by_alias=True)
+    payload["completion"]["collaboration"]["quote"]="Unread invented supporting passage"
+    with pytest.raises(ValidationError):type(turn).model_validate(payload)
+
+
+@pytest.mark.parametrize("completed", ["relationship_review"], indirect=True)
+def test_relationship_review_downgrade_refuses_retained_turn(completed,application_state_dsn):
+    from importlib import import_module
+    from sqlalchemy import create_engine
+    from alembic.migration import MigrationContext
+    from alembic.operations import Operations
+    engine=create_engine(application_state_dsn.replace("postgresql://","postgresql+psycopg://"))
+    try:
+        with engine.begin() as conn:
+            with Operations.context(MigrationContext.configure(conn)):
+                with pytest.raises(RuntimeError,match="Retained relationship reviews"):
+                    import_module("application_state.migrations.versions.20261025_0067_relationship_review").downgrade()
+    finally:engine.dispose()

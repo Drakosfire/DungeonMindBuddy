@@ -86,3 +86,30 @@ it('never reopens shared submission for editing while another tab has an exact r
  expect(await screen.findByRole('alert')).toHaveTextContent('shared submission remains retained');expect(retained().submitted).toBe(true);expect(screen.queryByRole('button',{name:'Discard review'})).not.toBeInTheDocument();expect(screen.queryByRole('button',{name:'Edit relationship'})).not.toBeInTheDocument();
  await act(async()=>finishCommit(receipt));expect(retained().receipt).toEqual(receipt);expect(api.commitGraphObjectAuthoringWrite).toHaveBeenCalledTimes(1);
 });
+
+// Exercise the actual conversation object against the actual existing review owner.
+import {ConversationRelationshipReview} from '../planSurface/components/ConversationRelationshipReview';
+const proposed={kind:'relationship' as const,read_id:'22222222-2222-4222-8222-222222222222',quote:seed.quote,source:{label:'Rowan',kind:'npc'},target:{label:'Brin',kind:'npc'},predicate:'works_with',label:'worked together temporarily',context:'Past temporary work; no current employment.'};
+function AgentReview(){return <><View initial={null}/><ConversationRelationshipReview worldId={world} documentId={doc} source={seed.document_source} proposal={proposed} disabled={false}/></>;}
+it('opens typed conversation proposal in existing editable review without publication and retains it after reload',async()=>{
+ const view=render(<AgentReview/>);fireEvent.click(await screen.findByRole('button',{name:'Review relationship'}));
+ await waitFor(()=>expect(screen.getByLabelText('source name')).toHaveValue('Rowan'));
+ expect(screen.getByLabelText('Context, including when')).toHaveValue(proposed.context);
+ expect(graphDocumentRelationshipRequest).not.toHaveBeenCalled();expect(api.commitGraphObjectAuthoringWrite).not.toHaveBeenCalled();
+ await edit('target identity','node:brin');await edit('Context, including when','Author-edited past context');view.unmount();render(<View initial={null}/>);
+ fireEvent.click(await screen.findByRole('button',{name:'Resume relationship review'}));expect(await screen.findByLabelText('Context, including when')).toHaveValue('Author-edited past context');
+});
+it('refuses typed proposal for changed saved source without retaining or publishing it',async()=>{
+ render(<AgentReview/>);state.session.snapshot.loaded_revision=5;fireEvent.click(await screen.findByRole('button',{name:'Review relationship'}));
+ expect(await screen.findByRole('alert')).toHaveTextContent('original clean saved page');expect(localStorage.getItem(key)).toBeNull();expect(api.commitGraphObjectAuthoringWrite).not.toHaveBeenCalled();
+});
+it('preserves an existing edited review instead of replacing it from conversation',async()=>{
+ const view=render(<View/>);await filled();const raw=localStorage.getItem(key);view.unmount();render(<AgentReview/>);
+ fireEvent.click(await screen.findByRole('button',{name:'Review relationship'}));expect(await screen.findByRole('alert')).toHaveTextContent('Resolve the retained');expect(localStorage.getItem(key)).toBe(raw);
+});
+it('rechecks source when queued opening obtains the storage lock',async()=>{
+ render(<AgentReview/>);let release!:()=>void;const gate=new Promise<void>(resolve=>{release=resolve;});
+ Object.defineProperty(navigator,'locks',{configurable:true,value:{request:async(_key:string,fn:()=>unknown)=>{await gate;return fn();}}});
+ fireEvent.click(await screen.findByRole('button',{name:'Review relationship'}));state.session.dirty=true;await act(async()=>release());
+ expect(await screen.findByRole('alert')).toHaveTextContent('original clean saved page');expect(localStorage.getItem(key)).toBeNull();
+});

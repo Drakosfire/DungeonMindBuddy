@@ -16,17 +16,18 @@ export function isSurfaceSourceCompletion(value: unknown, receiptHash: string, s
   return isSourceCompletion(value, receiptHash, undefined, surface);
 }
 function isSourceCompletion(value: unknown, receiptHash: string, sourceHash?: string, surface?: "plan"|"play", worldId?:string): boolean {
-  const connected = !surface && record(value) && value.schema === "dmb_build_connected_page_review_completion_v1";
+  const relationship = !surface && record(value) && value.schema === "dmb_build_relationship_review_completion_v1";
+  const connected = relationship || !surface && record(value) && value.schema === "dmb_build_connected_page_review_completion_v1";
   const collaboration = connected || !surface && record(value) && value.schema === "dmb_build_collaboration_completion_v1";
   const related = collaboration || !surface && record(value) && value.schema === "dmb_build_related_page_completion_v1";
   const draft = related || !surface && record(value) && value.schema === "dmb_build_draft_context_completion_v1";
   const named = draft || surface !== undefined || (record(value) && value.schema === "dmb_build_graph_completion_v3");
   if (!exact(value, ["schema", "context_receipt_sha256", "answer_basis", "answer_context_status", "answer_segments", "citation_map", "source_citations", ...(surface ? ["surface_id"] : []), ...(collaboration ? ["collaboration"] : [])])
-    || value.schema !== (surface ? "dmb_surface_source_completion_v1" : connected ? "dmb_build_connected_page_review_completion_v1" : collaboration ? "dmb_build_collaboration_completion_v1" : related ? "dmb_build_related_page_completion_v1" : draft ? "dmb_build_draft_context_completion_v1" : named ? "dmb_build_graph_completion_v3" : "dmb_build_graph_completion_v2") || (surface && value.surface_id !== surface) || value.context_receipt_sha256 !== receiptHash
+    || value.schema !== (surface ? "dmb_surface_source_completion_v1" : relationship ? "dmb_build_relationship_review_completion_v1" : connected ? "dmb_build_connected_page_review_completion_v1" : collaboration ? "dmb_build_collaboration_completion_v1" : related ? "dmb_build_related_page_completion_v1" : draft ? "dmb_build_draft_context_completion_v1" : named ? "dmb_build_graph_completion_v3" : "dmb_build_graph_completion_v2") || (surface && value.surface_id !== surface) || value.context_receipt_sha256 !== receiptHash
     || value.citation_map !== null || !Array.isArray(value.answer_segments) || !value.answer_segments.length
     || value.answer_segments.length > 128 || !Array.isArray(value.source_citations) || value.source_citations.length > 16384
     || !(draft ? ["authored_grounded","authored_grounded_partial","source_grounded","source_grounded_partial","creative_proposal","insufficient_evidence"] : ["source_grounded", "source_grounded_partial", "source_insufficient_evidence"]).includes(String(value.answer_context_status))) return false;
-  if (collaboration && !isCollaboration(value.collaboration,connected)) return false;
+  if (collaboration && !isCollaboration(value.collaboration,connected,relationship)) return false;
   const claimIndices = new Set<number>();
   let saved = false, hasDraft = false;
   for (const [index, segment] of value.answer_segments.entries()) {
@@ -88,10 +89,11 @@ export function canonical(value: unknown): string {
 }
 
 
-export function isCollaboration(value:unknown,connected=false):boolean {
+export function isCollaboration(value:unknown,connected=false,relationship=false):boolean {
   if(value===null)return true;
   if(!record(value))return false;
   const text=(v:unknown)=>typeof v==='string'&&!!v.trim();
+  if(relationship&&value.kind==='relationship')return exact(value,['kind','read_id','quote','source','target','predicate','label','context'])&&uuid(value.read_id)&&[value.quote,value.predicate,value.label,value.context].every(text)&&[value.source,value.target].every(e=>exact(e,['label','kind'])&&text(e.label)&&text(e.kind));
   if(connected&&value.kind==='connected_page')return exact(value,['kind','title','read_id','quote','person_label','relationships','instructions'])&&boundedText(value.title,200)&&value.title===value.title.trim()&&!/[\n\r]/.test(value.title)&&uuid(value.read_id)&&boundedText(value.quote,4000)&&typeof value.instructions==='string'&&value.instructions.length<=8000&&(value.person_label===null||boundedText(value.person_label,200)&&value.person_label===value.person_label.trim()&&!/[\n\r]/.test(value.person_label))&&Array.isArray(value.relationships)&&value.relationships.length<=2&&value.relationships.every(x=>['owns','operates'].includes(String(x)))&&new Set(value.relationships).size===value.relationships.length&&Boolean(value.person_label)===Boolean(value.relationships.length);
   if(value.kind==='plan')return exact(value,['kind','steps'])&&Array.isArray(value.steps)&&value.steps.length>0&&value.steps.every(s=>exact(s,['text','kind'])&&text(s.text)&&['discuss','prepare_insertion'].includes(String(s.kind)));
   if(value.kind==='questions')return exact(value,['kind','questions'])&&Array.isArray(value.questions)&&value.questions.length>0&&value.questions.every(q=>exact(q,['text'])&&text(q.text));

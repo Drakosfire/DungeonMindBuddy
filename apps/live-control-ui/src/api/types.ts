@@ -1183,7 +1183,12 @@ export interface WorldBuildConnectedPageReviewCompletionV1 extends Omit<WorldBui
   schema:'dmb_build_connected_page_review_completion_v1';
   collaboration:ConversationCollaboration|ConversationConnectedPageProposal|null;
 }
-export type WorldBuildSourceCompletion = WorldBuildConnectedPageReviewCompletionV1 | WorldBuildCollaborationCompletionV1 | WorldBuildRelatedPageCompletionV1 | WorldBuildGraphCompletionV2 | WorldBuildNamedGraphCompletionV3 | WorldBuildDraftContextCompletionV1;
+export interface ConversationRelationshipProposal {kind:'relationship';read_id:string;quote:string;source:{label:string;kind:string};target:{label:string;kind:string};predicate:string;label:string;context:string}
+export interface WorldBuildRelationshipReviewCompletionV1 extends Omit<WorldBuildConnectedPageReviewCompletionV1,'schema'|'collaboration'> {
+ schema:'dmb_build_relationship_review_completion_v1';
+ collaboration:ConversationCollaboration|ConversationConnectedPageProposal|ConversationRelationshipProposal|null;
+}
+export type WorldBuildSourceCompletion = WorldBuildRelationshipReviewCompletionV1 | WorldBuildConnectedPageReviewCompletionV1 | WorldBuildCollaborationCompletionV1 | WorldBuildRelatedPageCompletionV1 | WorldBuildGraphCompletionV2 | WorldBuildNamedGraphCompletionV3 | WorldBuildDraftContextCompletionV1;
 
 export interface SurfaceSourceCompletionV1 {
   schema: "dmb_surface_source_completion_v1";
