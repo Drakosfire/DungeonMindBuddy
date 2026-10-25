@@ -1,6 +1,7 @@
 import {useEffect,useRef,useState} from 'react';
 import {readRetryAttempts,type TurnRetryContext} from '../api/conversationRetryApi';
 import type {LibraryTurn} from '../api/conversationLibraryApi';
+import {BuddyTurnInspection} from '../planSurface/components/BuddyTurnInspection';
 import {BuddyContextTraceLoader} from '../planSurface/components/BuddyContextTraceLoader';
 
 /** Read-only previous physical attempts; a preview is never a new execution control. */
@@ -17,7 +18,7 @@ export function ConversationRetryAttempts({context}:{context:TurnRetryContext}){
   try{
    const page=await readRetryAttempts(context.world_id,context.conversation_id,context.turn_id,older?cursor??undefined:undefined);
    if(current.current!==owner)return;
-   if(page.turns.some(t=>!t.retry_context||t.retry_context.root_id!==context.root_id||t.retry_context.ordinal>=context.ordinal))throw new Error('Earlier attempts differ from this request.');
+   if(page.turns.some(t=>!['failed','interrupted'].includes(t.status)||!t.retry_context||t.retry_context.root_id!==context.root_id||t.retry_context.ordinal>=context.ordinal))throw new Error('Earlier attempts differ from this request.');
    setRows(prior=>older?[...page.turns,...prior]:page.turns);setCursor(page.next_before_sequence);loaded.current=true;
   }catch(reason){if(current.current===owner)setError(reason instanceof Error?reason.message:'Earlier attempts are unavailable.');}
   finally{if(current.current===owner){busy.current=false;setLoading(false);}}
@@ -29,11 +30,11 @@ export function ConversationRetryAttempts({context}:{context:TurnRetryContext}){
   {cursor!==null&&<button type="button" disabled={loading} onClick={()=>void load(true)}>Earlier attempts</button>}
   {rows.map(turn=><article key={turn.turn_id}><h4>Attempt {(turn.retry_context?.ordinal??0)+1} · {turn.status}</h4>
    {turn.assistant_text&&<p>{turn.assistant_text}</p>}
-   <AttemptTrace context={context} turnId={turn.turn_id}/>
+   <AttemptTrace context={context} turnId={turn.turn_id} lifecycle={turn.status==='failed'?'failed':'interrupted'}/>
   </article>)}
  </details>;
 }
-function AttemptTrace({context,turnId}:{context:TurnRetryContext;turnId:string}){
+function AttemptTrace({context,turnId,lifecycle}:{context:TurnRetryContext;turnId:string;lifecycle:'failed'|'interrupted'}){
  const [open,setOpen]=useState(false);
- return <details onToggle={e=>setOpen(e.currentTarget.open)}><summary>Trace</summary>{open&&<BuddyContextTraceLoader enabled worldId={context.world_id} conversationId={context.conversation_id} turnId={turnId}/>}</details>;
+ return <details onToggle={e=>setOpen(e.currentTarget.open)}><summary>Trace</summary>{open&&<BuddyTurnInspection worldId={context.world_id} conversationId={context.conversation_id} turnId={turnId} lifecycle={lifecycle}><BuddyContextTraceLoader enabled worldId={context.world_id} conversationId={context.conversation_id} turnId={turnId}/></BuddyTurnInspection>}</details>;
 }
