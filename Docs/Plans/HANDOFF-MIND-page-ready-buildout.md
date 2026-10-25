@@ -1,6 +1,8 @@
 # MIND: useful page-ready buildout
 
-ACTIVE serial operator-authorized authoring goal. Base8542c421c4a7fa052dd6983c1ac166122ec5317c; reuse buddy-context-loop branch codex/mind-page-ready-buildout. No competing runtime PR.
+DELIVERED #1750; merged1f7cce00321f16fbbca50f414c0d824ebced5380. Concrete creative buildout instructions and default request shipped; ordinary synthetic direct edit/Save/reload proof retained locally. Full operator connected-authoring acceptance remains open. Consumed by HANDOFF-BUILD-saved-relationship-review.md.
+
+Historical bounded authority: serial operator-authorized authoring goal. Base8542c421c4a7fa052dd6983c1ac166122ec5317c; reuse buddy-context-loop branch codex/mind-page-ready-buildout. No competing runtime PR.
 
 Evidence: ordinary synthetic workshop buildout wrote repeated unknown/not-established qualifications, generic prompts and a roster of source facts rather than concrete workshop detail. Default connected buildout asks only to develop what the source supports. Preserve source limits but explicitly authorize useful proposed invention, with inventions in assumptions and one clearly scoped proposal label; do not repeat caveats or invent played events. Honor explicit author briefs/corrections and immutable quoted origin/relationships. Do not weaken source/quote validation, transform model output after receipt, change schemas/history or claim semantic quality from a mocked provider.
 

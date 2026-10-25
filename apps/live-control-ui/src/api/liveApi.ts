@@ -329,6 +329,7 @@ function requestBodyRecord(body: BodyInit | null | undefined): Record<string, un
 
 function requiresNativeGraphAuthorization(path: string, body: BodyInit | null | undefined): boolean {
   const pathname = path.split("?", 1)[0];
+  if (pathname === "/api/live/graph-authoring/document-relationship/request") return true;
   if (/^\/api\/live\/agent\/worlds\/[^/]+\/conversations\/[a-f0-9]{8}-(?:[a-f0-9]{4}-){3}[a-f0-9]{12}\/work-plans\/[a-f0-9]{8}-(?:[a-f0-9]{4}-){3}[a-f0-9]{12}(?:\/continue)?$/i.test(pathname)) return true;
   if (/^\/api\/live\/agent\/worlds\/[^/]+\/conversations(?:\/[a-f0-9]{8}-(?:[a-f0-9]{4}-){3}[a-f0-9]{12}\/(?:name|turns))?$/i.test(pathname)) return true;
   if (/^\/api\/live\/connected-pages\/(?:prepare|confirm|[a-f0-9]{8}-(?:[a-f0-9]{4}-){3}[a-f0-9]{12})$/i.test(pathname)) return true;

@@ -1,3 +1,5 @@
+import {BuildRelationshipReview} from './BuildRelationshipReview';
+import type {RelationshipSeed} from './buildRelationshipRecovery';
 import {useEffect,useLayoutEffect,useRef,useState} from 'react';
 import {createPortal} from 'react-dom';
 import {useOptionalMarkdownCanvasSession} from '../markdownCanvas/MarkdownCanvasSession';
@@ -17,6 +19,7 @@ export function BuildConnectedPageControl({selectDocument,refreshDocuments,relat
   const session=useOptionalMarkdownCanvasSession(),agent=useOptionalAgentInteraction();
   const current=useRef(session);current.current=session;
   const dialog=useRef<HTMLDialogElement>(null),busyRef=useRef<number|null>(null),mounted=useRef(true);
+  const [relationshipSeed,setRelationshipSeed]=useState<RelationshipSeed|null>(null);
   const [open,setOpen]=useState(false),[busy,setBusy]=useState(false),[error,setError]=useState('');
   const [origin,setOrigin]=useState<ConnectedPageIntent['origin']|null>(null),[retained,setRetained]=useState<ConnectedPageIntent|null>(null);
   const [operation,setOperation]=useState<ConnectedPageOperation|null>(null),[pageOperation,setPageOperation]=useState<ConnectedPageOperation|null>(null);
@@ -156,11 +159,19 @@ export function BuildConnectedPageControl({selectDocument,refreshDocuments,relat
       }catch{/* Absence does not fence a concurrent reservation; retain the exact request. */}
     }finally{if(busyRef.current===epoch)busyRef.current=null;if(isCurrent())setBusy(false);}
   }
+  async function startRelationship(){
+    const before=current.current,editor=before?.editor;
+    if(!before?.record?.world_id||!before.snapshot||!editor||before.dirty||before.activeCommand){setError('Save the page before reviewing a relationship.');return;}
+    try{const capture=await captureSurfaceTextSelection(editor,()=>current.current===before);
+      setRelationshipSeed({document_source:{documentId:before.record.document_id,revision:before.snapshot.loaded_revision,contentSha256:before.snapshot.content_sha256},quote:capture.selected_text});
+    }catch(reason){setError(errorText(reason));}
+  }
   if(!session?.editor||!world||!documentId)return null;
   const frozen=!!retained;
   const displayed=retained;
   return <>
-    <SurfaceSelectionActions editor={session.editor} actions={open?[]:[{id:'new-page',label:'＋ New page',invoke:()=>{void start();}}]}/>
+    <BuildRelationshipReview key={JSON.stringify([world,documentId])} worldId={world} documentId={documentId} seed={relationshipSeed} onConsumed={()=>setRelationshipSeed(null)}/>
+    <SurfaceSelectionActions editor={session.editor} actions={open?[]:[{id:'new-page',label:'＋ New page',invoke:()=>{void start();}},{id:'relationship',label:'Relationship',invoke:()=>{void startRelationship();}}]}/>
     {!open&&reviewSeed&&!retained&&<aside className="connected-page-recovery"><button type="button" onClick={()=>setOpen(true)}>Resume page review</button></aside>}
     {!open&&retained&&<aside className="connected-page-recovery"><button type="button" onClick={()=>{setOrigin(retained.origin);setOpen(true);}}>Resume page creation</button>
       {operation?.page&&<button type="button" onClick={()=>void openCreated(operation,false)}>Open created page</button>}</aside>}
