@@ -1,11 +1,44 @@
 # MIND — retain unsent conversation text through reload
 
-ACTIVE PRIME implementation after independent design APPROVED exact head
+IMPLEMENTATION HOLD pending amended owner critique below. Original design APPROVED exact head
 8f7150bd1da91886b825281d35960eea3fc3ce72 on2026-10-24. Active authoring goal §3 supplies implementation authority.
 Serial successor to PR1721 merge5829c6e8f96f0a536577da8b1dca164e99bc6bb9.
 Existing buddy-context-loop checkout, branch codex/shared-composer-reload-drafts.
 No overlapping shared-composer lease found among current open PRs. One PR; no
 backend, migration, provider, routing or inference work.
+
+## Owner amendment after implementation review
+
+Independent review ofc6ed8953f held three P2s: callbacks retained write authority
+after unmount/A→B→A; failed-write memory was lost on World navigation; extra
+stored envelope fields were overwritten. PRIME pins this amendment for independent
+design critique before changing the owner implementation.
+
+The App's AgentInteractionProvider outlives its World-keyed conversation registry.
+It will host a small ConversationComposerDraftProvider containing a per-World
+snapshot store for this browser page lifetime. World registries consume that
+owner through the existing hook; an isolated registry without the App host gets
+one local owner. There is no second active storage writer and no module-global
+cache. Valid and failed/blocked World snapshots remain in that owner's memory
+through World navigation, including actual registry unmount/remount. The existing
+sessionStorage envelope remains the only reload copy, with the same exact scope.
+No read/write fallback or external synchronization is introduced.
+
+Use useSyncExternalStore with stable per-World snapshots and subscription lifetime
+for React-safe updates. Each consumer setter also requires the mounted consumer,
+exact owner and World lifecycle epoch; string equality cannot reactivate an old
+setter after A→B→A. A retired/unmounted registry cannot mutate storage or owner
+memory. Writes still complete synchronously before publishing the new snapshot.
+Closed top-level envelope shape is exactly schema/world_id/drafts; unknown fields
+fail recovery and retain original bytes. Failed-write/blocked memory and warning
+remain intact when navigating away and back without a reload; a full page reload
+still has the explicit warned limitation if browser storage could not retain it.
+
+Add AgentInteractionProvider.tsx to the exclusive write lease for the wrapper only.
+Regression gates: unmounted setter vs newer same-World remount; first-A setter
+after A→B→A; failed/blocked World snapshots survive keyed registry remount under
+the actual App-level owner; unknown fields are never overwritten. No other
+provider/runtime behavior or new capability is authorized by this amendment.
 
 ## User outcome and contract
 
@@ -50,7 +83,8 @@ IDs, idempotency/CAS recovery, selection, document JSON or undo.
 
 - apps/live-control-ui/src/agentInteraction/conversationComposerDrafts.ts (new shared hook/store)
 - apps/live-control-ui/src/agentInteraction/conversationComposerDrafts.test.tsx (new owning tests)
-- apps/live-control-ui/src/agentInteraction/WorldAgentConversation.tsx (shared owner only)
+- apps/live-control-ui/src/agentInteraction/WorldAgentConversation.tsx (shared consumer only)
+- apps/live-control-ui/src/agentInteraction/AgentInteractionProvider.tsx (page-lifetime draft owner wrapper only)
 - apps/live-control-ui/src/planSurface/components/WorldPlanAgentConversation.tsx
   (concise storage warning and retain prior Plan slot; existing generation fence stays)
 - apps/live-control-ui/src/agentInteraction/WorldAgentConversation.planPlay.integration.test.tsx
