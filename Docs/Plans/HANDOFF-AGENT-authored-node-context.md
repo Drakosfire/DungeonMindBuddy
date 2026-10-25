@@ -328,3 +328,35 @@ remain inline. A view switch must preserve one durable object identity, edits an
 execution state, without copying or executing a plan. This supersedes the earlier
 unconditional page-only presentation rule. These controls are not implemented by the
 reference backend work and must not be reported as delivered.
+
+### Final proposal/image reconstruction owner extension
+
+Inspection found that APP completion/reload validates proposal and image owner records
+in `src/application_state/agent_conversation/build_authoring.py`. Its current checks
+join action, source, selection and producer identities but cannot independently prove
+the new acquired-reference packet. PRIME extends the lease to that exact file, plus
+`tests/test_build_proposal_shared_writer.py` (already listed), to validate the same
+captured producing request and actual source receipts at completion/recovery. No new
+publisher/executor is authorized. Independent critique precedes editing the added owner.
+
+The final reconstruction mechanism is a new immutable APP authored-reference provider
+inclusion event, defined and validated in the already leased `types.py` and
+`authored_graph_references.py`, admitted through `service.py` from the exact validated
+prepared request before its provider authorization. It binds capture event, reference-set
+digest, exact authored source-read IDs/receipts, provider attempt and envelope digest.
+Admission compares actual passage bytes/locators/names with the existing protected
+source-read trace, retaining only digests/identities in the inclusion record. No second
+source-body store is introduced. Proposal completion and prepared-proposal recovery
+require that durable inclusion proof to match the acknowledged producing attempt and
+envelope. Image completion additionally validates its existing retained request_json
+against the same captured reference/source authority. New proof, omission/tampering,
+recovery and old-profile counterexamples belong in the already leased
+`tests/test_build_authored_references.py` and `tests/test_build_proposal_shared_writer.py`.
+
+The next object-control slice also needs an explicit Move to Trash action with a
+recoverable removed-object state and Restore. The current detached six-dot move
+handle should join the object toolbar; retain drag scrolling and keyboard reordering.
+The current World Trash supports document/session trash and restore, not emptying
+or plan objects. An Empty Trash action needs an owned explicit lifecycle operation;
+removing a page projection must preserve the plan identity, dispatches and historical
+conversation evidence. No existing user object or Trash item was removed by this work.

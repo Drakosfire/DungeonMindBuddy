@@ -1268,6 +1268,7 @@ class AgentConversationService:
         requested_work_proof: dict | None = None,
         related_page_materializer=None,
         authored_object_result_proof=None,
+        authored_prepared_request_json=None,
     ) -> tuple[Turn, bool]:
         world_id = _world_id(world_id)
         dsn = _ready_dsn()
@@ -1493,6 +1494,17 @@ class AgentConversationService:
                 from .authored_graph_references import validate_object_result_proof
                 try:
                     validate_object_result_proof(event, execution, authored_object_result_proof)
+                except (ValueError, KeyError, TypeError) as exc:
+                    raise ApplicationStateValidationError(str(exc)) from exc
+            from .types import BuildAuthoredProviderInclusionV1
+            if isinstance(event, BuildAuthoredProviderInclusionV1):
+                from .authored_graph_references import validate_provider_inclusion
+                captured = conn.execute('SELECT payload FROM agent.turn_context_trace WHERE turn_id=%s AND attempt=%s',
+                    (turn.turn_id, turn.attempt)).fetchall()
+                try:
+                    if len(captured) != 1:
+                        raise ValueError('Authored writer input requires its protected source capture')
+                    validate_provider_inclusion(event, execution, authored_prepared_request_json, captured[0][0])
                 except (ValueError, KeyError, TypeError) as exc:
                     raise ApplicationStateValidationError(str(exc)) from exc
             section_inclusion = None
@@ -1827,12 +1839,12 @@ class AgentConversationService:
             duplicate_key="event_id",related_page_proof=producer_proof,related_page_materializer=materializer)
 
     def record_build_authored_reference(self, world_id, conversation_id, turn_id, *,
-        expected_revision, expected_attempt, event, object_result_proof=None):
-        from .types import BuildAuthoredReferencesCapturedV1, BuildAuthoredReferenceAuthorizedV1, BuildAuthoredReferenceReadV1
-        if not isinstance(event, (BuildAuthoredReferencesCapturedV1, BuildAuthoredReferenceAuthorizedV1, BuildAuthoredReferenceReadV1)):
+        expected_revision, expected_attempt, event, object_result_proof=None, prepared_request_json=None):
+        from .types import BuildAuthoredReferencesCapturedV1, BuildAuthoredReferenceAuthorizedV1, BuildAuthoredReferenceReadV1, BuildAuthoredProviderInclusionV1
+        if not isinstance(event, (BuildAuthoredReferencesCapturedV1, BuildAuthoredReferenceAuthorizedV1, BuildAuthoredReferenceReadV1, BuildAuthoredProviderInclusionV1)):
             raise ApplicationStateValidationError('Authored context requires its typed host event')
         return self._append_graph_execution_event(world_id, conversation_id, turn_id,
-            expected_revision=expected_revision, expected_attempt=expected_attempt, event=event, duplicate_key='event_id', authored_object_result_proof=object_result_proof)
+            expected_revision=expected_revision, expected_attempt=expected_attempt, event=event, duplicate_key='event_id', authored_object_result_proof=object_result_proof, authored_prepared_request_json=prepared_request_json)
 
     def record_build_draft_context(self, world_id: str, conversation_id: UUID, turn_id: UUID, *,
         expected_revision: int, expected_attempt: int, event):

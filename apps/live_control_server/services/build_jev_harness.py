@@ -734,8 +734,11 @@ class BuildJevHarness:
         history = adapter.build_frozen_history
         from application_state.agent_conversation.build_related_pages import project as related_page_project
         related_pages=related_page_project(adapter._broker_execution())
+        from .build_authored_references import writer_material
+        authored_material = writer_material(adapter)
         expected = proposal_owner.prepare_writer_request(
-            request, frozen_history=history, related_authored_pages=related_pages
+            request, frozen_history=history, related_authored_pages=related_pages,
+            authored_reference_material=authored_material
         )
         adapter._build_writer_projection = ProposalWriterProjection(
             json.dumps(
@@ -764,6 +767,7 @@ class BuildJevHarness:
                     transport=self.writer_transport,
                     frozen_history=history,
                     related_authored_pages=related_pages,
+                    authored_reference_material=authored_material,
                 )
             )
         except Exception as exc:

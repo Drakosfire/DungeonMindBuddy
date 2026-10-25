@@ -121,9 +121,10 @@ def writer_context(execution):
 
 def validate_execution(execution):
     from . import types as t
-    authored = [e for e in execution.events if getattr(e, 'kind', '').startswith('build_authored_')]
+    authored = [e for e in execution.events if isinstance(e, (t.BuildAuthoredReferencesCapturedV1, t.BuildAuthoredReferenceAuthorizedV1, t.BuildAuthoredReferenceReadV1))]
+    inclusions = [e for e in execution.events if isinstance(e, t.BuildAuthoredProviderInclusionV1)]
     if not policy_enabled(execution.policy):
-        if authored:
+        if authored or inclusions:
             raise ValueError('Historical policy cannot acquire authored Graph context')
         return
     captures = [e for e in authored if e.kind == 'build_authored_references_captured_v1']
@@ -202,8 +203,19 @@ def validate_execution(execution):
                 raise ValueError('Authored Graph reference was marked read without all source support')
     writers = [e for e in execution.events if isinstance(e, t.ProviderAttemptAuthorizedEventV1)
                and (e.provider, e.model, e.api_mode) == execution.policy.provider_roles.writer.identity()]
+    seen_providers = set()
+    for inclusion in inclusions:
+        if (inclusion.provider_attempt_id in seen_providers or inclusion.capture_event_id != c.event_id
+            or inclusion.references_sha256 != c.references.sha256
+            or inclusion.source_read_event_ids != sorted(source_event_ids(execution), key=str)):
+            raise ValueError('Authored provider inclusion differs from frozen acquired references')
+        seen_providers.add(inclusion.provider_attempt_id)
+        if any(e.sequence >= inclusion.sequence for e in authored):
+            raise ValueError('Authored provider inclusion must follow acquisition')
     if writers:
         writer_context(execution)
+        for writer in writers:
+            require_writer_inclusion(execution, writer)
         for event in authored:
             if event.sequence >= writers[0].sequence:
                 raise ValueError('Authored Graph acquisition must settle before writing')
@@ -250,3 +262,94 @@ def validate_object_result_proof(event, execution, proof):
         nodes.update(node['nodeId'] for node in packet.get('nodes', []))
     if event.node_id not in nodes or event.returned_node_ids != sorted(nodes):
         raise ValueError('Authored object result does not contain its selected identity')
+
+
+def require_writer_inclusion(execution, writer):
+    from .types import BuildAuthoredProviderInclusionV1
+    if not policy_enabled(execution.policy):
+        return
+    matches = [e for e in execution.events if isinstance(e, BuildAuthoredProviderInclusionV1)
+        and e.provider_attempt_id == writer.provider_attempt_id]
+    if len(matches) != 1 or matches[0].sequence >= writer.sequence or matches[0].envelope_sha256 != writer.envelope_sha256:
+        raise ValueError('Writer lacks its exact admitted authored-reference input proof')
+
+
+def validate_writer_input(packet, execution, trace):
+    """Compare actual input with protected source bytes; retain only the proof digest."""
+    validate_packet(packet, execution)
+    if not policy_enabled(execution.policy):
+        if 'authored_reference_passages' in packet:
+            raise ValueError('Historical writer cannot gain authored source material')
+        return None
+    from . import types as t
+    captured = {(str(row.get('source_read_event_id')), str(row.get('source_read_id'))): row
+        for row in trace.get('observations', []) if row.get('kind') == 'source_passage'}
+    events = {e.event_id: e for e in execution.events}
+    required = []
+    for read in execution.events:
+        if not isinstance(read, t.BuildAuthoredReferenceReadV1) or read.outcome != 'read':
+            continue
+        pins = {pin.anchor_id: (operation.event_id, pin) for eid in read.operation_event_ids
+            for operation in [events[eid]] for pin in operation.returned_source_pins}
+        for eid in read.source_read_event_ids:
+            for receipt in events[eid].receipts:
+                if receipt.anchor_id not in pins:
+                    continue
+                origin, pin = pins[receipt.anchor_id]
+                row = captured.get((str(eid), str(receipt.source_read_id)))
+                if (row is None or row.get('anchor_id') != receipt.anchor_id
+                    or row.get('evidence_ref_id') != receipt.evidence_ref_id
+                    or row.get('source_artifact_id') != receipt.source_artifact_id
+                    or row.get('source_revision_id') != receipt.source_revision_id
+                    or row.get('line_start') != receipt.line_start or row.get('line_end') != receipt.line_end
+                    or not isinstance(row.get('text'), str)
+                    or sha256(row['text'].encode()).hexdigest() != receipt.content_sha256
+                    or not isinstance(row.get('source_name'), str) or not row['source_name'].strip()):
+                    raise ValueError('Authored writer source differs from protected complete read bytes')
+                from .build_world_context import WorldPassageOrigin
+                proof = WorldPassageOrigin(operation_event_id=origin, source_read_event_id=eid,
+                    source_read_id=receipt.source_read_id, anchor_id=receipt.anchor_id,
+                    evidence_ref_id=receipt.evidence_ref_id, source_artifact_id=receipt.source_artifact_id,
+                    source_revision_id=receipt.source_revision_id, content_sha256=receipt.content_sha256,
+                    line_start=receipt.line_start, line_end=receipt.line_end)
+                required.append({'origin': proof.model_dump(mode='json'), 'text': row['text'], 'source_name': row['source_name'].strip()})
+    if packet.get('schema') in {'dmb_build_compose_input_v1', 'dmb_build_image_direction_input_v1'}:
+        actual = packet.get('authored_reference_passages')
+        key = lambda row: digest(row)
+        if not isinstance(actual, list) or sorted(map(key, actual)) != sorted(map(key, required)):
+            raise ValueError('Authored writer material differs from exact object/source reads')
+    else:
+        actual = packet.get('opened_passages', [])
+        for row in required:
+            origin = row['origin']
+            if not any(p.get('text') == row['text'] and p.get('source_name') == row['source_name']
+                and all(p.get(k) == origin[k] for k in ('source_artifact_id','source_revision_id','line_start','line_end')) for p in actual):
+                raise ValueError('Discussion writer omitted an authored source passage')
+    return digest({'context': writer_context(execution), 'passages': required})
+
+
+def validate_provider_inclusion(event, execution, prepared_request_json, trace):
+    from .source_writer_output import strict_json
+    if not isinstance(prepared_request_json, str) or sha256(prepared_request_json.encode()).hexdigest() != event.envelope_sha256:
+        raise ValueError('Authored writer proof differs from actual prepared request')
+    body = strict_json(prepared_request_json)
+    packet = strict_json(body['input'])
+    if validate_writer_input(packet, execution, trace) != event.material_sha256:
+        raise ValueError('Authored writer proof differs from its acquired material')
+
+
+def validate_stored_writer(conn, turn, writer, request_json=None):
+    """Final proposal/recovery uses admitted proof; images also reopen retained bytes."""
+    execution = turn.graph_context_execution
+    if not policy_enabled(execution.policy):
+        return
+    require_writer_inclusion(execution, writer)
+    if request_json is not None:
+        from .types import BuildAuthoredProviderInclusionV1
+        inclusion = next(e for e in execution.events if isinstance(e, BuildAuthoredProviderInclusionV1)
+            and e.provider_attempt_id == writer.provider_attempt_id)
+        rows = conn.execute('SELECT payload FROM agent.turn_context_trace WHERE turn_id=%s AND attempt=%s',
+            (turn.turn_id, turn.attempt)).fetchall()
+        if len(rows) != 1:
+            raise ValueError('Authored image writer capture is unavailable')
+        validate_provider_inclusion(inclusion, execution, request_json, rows[0][0])

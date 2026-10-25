@@ -330,6 +330,12 @@ def opened_world_passages(
             and e.sequence < getattr(operation, "sequence", -1)
             for a in e.actions
         }
+        from .authored_graph_references import policy_enabled
+        if policy_enabled(execution.policy):
+            authored_reads = [e for e in execution.events if isinstance(e, t.BuildAuthoredReferenceReadV1)
+                and e.outcome == 'read' and operation is not None and operation.event_id in e.operation_event_ids]
+            authorizations = {e.event_id: e for e in execution.events if isinstance(e, t.BuildAuthoredReferenceAuthorizedV1)}
+            permitted.update(authorizations[e.authorization_event_id].arguments_sha256 for e in authored_reads)
         if (
             not isinstance(operation, t.ValidatedGraphOperationEventV3)
             or operation.request_arguments_sha256 not in permitted

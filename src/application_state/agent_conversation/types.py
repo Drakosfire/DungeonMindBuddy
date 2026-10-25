@@ -2968,6 +2968,16 @@ class BuildAuthoredReferenceReadV1(GraphExecutionEventBaseV1):
     outcome: Literal['read', 'read_partial', 'source_gap']
 
 
+class BuildAuthoredProviderInclusionV1(GraphExecutionEventBaseV1):
+    kind: Literal['build_authored_provider_inclusion_v1']
+    capture_event_id: UUID
+    references_sha256: str = Field(pattern=r'^[a-f0-9]{64}$')
+    source_read_event_ids: list[UUID]
+    provider_attempt_id: UUID
+    envelope_sha256: str = Field(pattern=r'^[a-f0-9]{64}$')
+    material_sha256: str = Field(pattern=r'^[a-f0-9]{64}$')
+
+
 class BuildDraftContextCapturedV1(GraphExecutionEventBaseV1):
     kind: Literal["build_draft_context_captured_v1"]
     record: BuildDraftContextRecordV1
@@ -3949,7 +3959,7 @@ def validate_graph_execution_record(execution, *, dynamic_source_scope: bool, al
                 RelatedRecapContextAuthorizationEventV2,
                 ValidatedRelatedRecapContextEventV2,
                 RelatedRecapContextProviderInclusionEventV2,
-                RelatedPagesSelection, RelatedPageRead, RelatedPageInclusion, BuildAuthoredReferencesCapturedV1, BuildAuthoredReferenceAuthorizedV1, BuildAuthoredReferenceReadV1, BuildDraftContextCapturedV1, BuildDraftProviderInclusionV1, BuildSectionReadAuthorizationV1, ValidatedBuildSectionReadV1, BuildWorldReadSelectionV1,
+                RelatedPagesSelection, RelatedPageRead, RelatedPageInclusion, BuildAuthoredReferencesCapturedV1, BuildAuthoredReferenceAuthorizedV1, BuildAuthoredReferenceReadV1, BuildAuthoredProviderInclusionV1, BuildDraftContextCapturedV1, BuildDraftProviderInclusionV1, BuildSectionReadAuthorizationV1, ValidatedBuildSectionReadV1, BuildWorldReadSelectionV1,
                 BuildSectionProviderInclusionV1, BuildSectionAnswerBindingV1,
                 BuildJevActionSelectionV1, BuildReviewedActionSelectionV1, BuildPlanOutputContractV1, BuildWriterEvidenceSelectionV1, PlanJevRetrievalSelectionV1,
             ),
@@ -4266,7 +4276,7 @@ GraphExecutionEventV3 = Annotated[
     | SourceScopeExtensionEventV3 | SourceReadAuthorizationEventV2 | ValidatedSourceReadEventV2 | SourcePassageReuseEventV1
     | RelatedRecapContextAuthorizationEventV2 | ValidatedRelatedRecapContextEventV2
     | RelatedRecapContextProviderInclusionEventV2
-    | BuildAuthoredReferencesCapturedV1 | BuildAuthoredReferenceAuthorizedV1 | BuildAuthoredReferenceReadV1 | RelatedPagesSelection | RelatedPageRead | RelatedPageInclusion | BuildDraftContextCapturedV1 | BuildDraftProviderInclusionV1 | BuildSectionReadAuthorizationV1 | ValidatedBuildSectionReadV1
+    | BuildAuthoredReferencesCapturedV1 | BuildAuthoredReferenceAuthorizedV1 | BuildAuthoredReferenceReadV1 | BuildAuthoredProviderInclusionV1 | RelatedPagesSelection | RelatedPageRead | RelatedPageInclusion | BuildDraftContextCapturedV1 | BuildDraftProviderInclusionV1 | BuildSectionReadAuthorizationV1 | ValidatedBuildSectionReadV1
     | BuildSectionProviderInclusionV1 | BuildSectionAnswerBindingV1 | BuildRequestedWorkResolutionV1 | BuildJevActionSelectionV1 | BuildReviewedActionSelectionV2 | BuildReviewedActionSelectionV1 | BuildWorldReadSelectionV1
     | BuildPlanOutputContractV1 | BuildWriterEvidenceSelectionV1 | PlanJevRetrievalSelectionV1 | NativeSourceNavigationAuthorizedV1 | NativeSourceCatalogObservedV1
     | NativeSourceSectionAuthorizedV1 | NativeSourceSectionObservedV1 | NativeSourceProviderInclusionV1,

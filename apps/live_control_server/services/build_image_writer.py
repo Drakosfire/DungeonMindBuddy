@@ -38,13 +38,14 @@ Nothing has been generated, inserted or saved. The user reviews settings and gen
 POLICY = "captured_build_image_prompt_alt_purpose_v2"
 
 
-def writer_request(capability, question, history, related_authored_pages=None):
+def writer_request(capability, question, history, related_authored_pages=None, authored_reference_material=None):
     snapshot = _source(capability)
     history = project_dialogue(list(history))
     packet = json.dumps(
         {
             "schema": "dmb_build_image_direction_input_v1",
             **({"related_authored_pages":related_authored_pages} if related_authored_pages is not None else {}),
+            **(authored_reference_material or {}),
             "instruction": question,
             "captured_capability": capability.model_dump(mode="json"),
             "source_basis": capability.basis.model_dump(mode="json"),
@@ -93,8 +94,9 @@ def prepare_image(harness, adapter, driver):
             "Image direction requires its selected captured capability and owner"
         )
     from application_state.agent_conversation.build_related_pages import project
+    from .build_authored_references import writer_material
     expected = writer_request(
-        cap, adapter.request.message, driver._interaction["history"], related_authored_pages=project(adapter._broker_execution())
+        cap, adapter.request.message, driver._interaction["history"], related_authored_pages=project(adapter._broker_execution()), authored_reference_material=writer_material(adapter)
     )
     adapter._build_writer_projection = ProposalWriterProjection(
         json.dumps(expected, ensure_ascii=False, sort_keys=True, separators=(",", ":")),

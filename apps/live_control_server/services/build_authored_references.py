@@ -62,8 +62,10 @@ def capture_input(adapter):
         conversation_id=turn.conversation_id, attempt=turn.attempt,
         submitted_intent_fingerprint=turn.submitted_intent_fingerprint_v2))
     if adapter.context_capture:
-        adapter.context_capture.observe({'kind': 'authored_graph_references', 'status': 'selected_unread',
-            'references': adapter.request.build_authored_references.model_dump(mode='json', by_alias=True)})
+        for ref in adapter.request.build_authored_references.references:
+            adapter.context_capture.observe({'kind': 'context_decision', 'action': 'retained',
+                'item_ids': ['Selected, unread · ' + ref.node_id], 'reason_code': 'route_preserved',
+                'policy_version': 'authored_graph_reference_context_v1'})
 
 
 def acquire(adapter):
@@ -108,8 +110,10 @@ def acquire(adapter):
             authorization_event_id=authorization.event_id, node_id=ref.node_id,
             operation_event_ids=sorted(operations, key=str), source_read_event_ids=reads, returned_node_ids=returned_nodes, outcome=outcome), object_result_proof=packets)
         if adapter.context_capture:
-            adapter.context_capture.observe({'kind': 'authored_graph_reference_read', 'node_id': ref.node_id,
-                'status': outcome, 'source_read_event_ids': [str(eid) for eid in reads]})
+            adapter.context_capture.observe({'kind': 'context_decision', 'action': 'retrieved',
+                'item_ids': [outcome + ' · ' + ref.node_id],
+                'reason_code': 'retrieval_sufficient' if outcome == 'read' else 'coverage_gap',
+                'policy_version': 'authored_graph_reference_context_v1'})
         if outcome == 'read_partial':
             raise refusal('The selected object read was incomplete. Your request and reference are retained; inspect its trace before continuing.',
                 'build_authored_reference_partial_object')
@@ -128,3 +132,20 @@ def include_in_projection(adapter, staged):
     packet = json.loads(staged.input_json)
     packet['authored_reference_context'] = context
     return replace(staged, input_json=json.dumps(packet, ensure_ascii=False, sort_keys=True, separators=(',', ':')))
+
+
+def writer_material(adapter):
+    """Exact existing object/source material for proposal and media writers."""
+    from application_state.agent_conversation.authored_graph_references import writer_context
+    from application_state.agent_conversation.build_world_context import opened_world_passages
+    execution = adapter._broker_execution()
+    context = writer_context(execution)
+    if context is None:
+        return None
+    reads = [e for e in execution.events if isinstance(e, t.BuildAuthoredReferenceReadV1) and e.outcome == 'read']
+    operations = sorted({eid for e in reads for eid in e.operation_event_ids}, key=str)
+    sources = sorted({eid for e in reads for eid in e.source_read_event_ids}, key=str)
+    passages = opened_world_passages(execution, operations, sources, adapter.operation_payloads, adapter.source_payloads)
+    return {'authored_reference_context': context, 'authored_reference_passages': [
+        {'origin': origin.model_dump(mode='json'), 'text': text, 'source_name': name}
+        for origin, text, name in passages]}
