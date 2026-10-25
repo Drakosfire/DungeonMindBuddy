@@ -12,7 +12,7 @@ import time
 import jsonschema
 
 from .cases import cases
-from .scaffold import REPLY_SCHEMA, WRITER, decision_request, frame
+from .scaffold import PREPARED_ITEMS, REPLY_SCHEMA, WRITER, decision_request, frame, preparation_request
 
 
 def canonical(value):
@@ -23,10 +23,10 @@ def fingerprint(value):
     return sha256(canonical(value).encode()).hexdigest()
 
 
-def choose(result):
-    answer = result['answers']['next_step']
-    scores = answer['probabilities']
-    options = {'converse', 'research', 'write', 'image'}
+def choose(result, name="next_step", options=None):
+    answer = result["answers"][name]
+    scores = answer["probabilities"]
+    options = set(options) if options is not None else {"converse", "research", "prepare"}
     if set(scores) != options or answer['selected'] not in options:
         raise ValueError('Invalid next-step domain')
     import math
@@ -60,9 +60,16 @@ async def one(case, repeat, decide, write):
         row['calls'].append(decision)
         decision['response'] = await decide(request, decision)
         selected = choose(decision['response'])
-        row.update(selected=selected, expected_step=case['expected_step'])
+        row.update(selected=selected, expected_step=case['expected_step'], cohort=case['cohort'])
         row['passed'] = selected == case['expected_step']
         # Never substitute the gold route to force a conversational output.
+        if selected == 'prepare':
+            item_call = {'role': 'prepared_item_controller', 'request': preparation_request(case), 'response': None}
+            row['calls'].append(item_call)
+            item_call['response'] = await decide(item_call['request'], item_call)
+            item = choose(item_call['response'], 'prepared_item', PREPARED_ITEMS)
+            row.update(prepared_item=item, expected_item=case['expected_item'])
+            row['passed'] &= item == case['expected_item']
         if selected == 'converse':
             reply = {'role': 'writer', 'input': frame(case), 'response': None}
             row['calls'].append(reply)
@@ -94,6 +101,8 @@ async def run(output, decide, write, repeats=2):
                 'limits': ['Synthetic compact contexts, not exact captured product payloads.',
                            'Proof-only schemas; production has no conversation-only branch yet.',
                            'No graph reads, page writes, publication or retained turn executed.',
+                           'Prepare-item classification confers no executable capability; unavailable Build actions stay unavailable.',
+                           'Previously tuned and fresh taxonomy cohorts must be reported separately.',
                            'No-tool writer cannot prove a tool-enabled agent stops; dispatch policy needs product proof.',
                            'Question relevance, tone and execution claims require qualitative review.']}
     (output / 'frozen.json').write_text(canonical(manifest))

@@ -23,5 +23,21 @@ def cases():
         ("ambiguous", "Do that.", [], "converse", None),
         ("new_direction", "Forget the shop for now. Ask two questions about the haunted road instead.", HISTORY, "converse", 2),
     ]
-    return [{"id": name, "question": q, "history": h, "expected_step": step,
-        "expected_questions": count} for name, q, h, step, count in rows]
+    existing = [{"id": name, "question": q, "history": h, "expected_step": "prepare" if step in {"write", "image"} else step,
+        "expected_questions": count, "cohort": "previously_tuned",
+        "expected_item": "image_preparation" if step == "image" else "page_suggestion" if step == "write" else None} for name, q, h, step, count in rows]
+
+    # Fresh taxonomy probes, frozen before any calls with this candidate.
+    holdout = [
+        ("new_shop_page", "Prepare a new connected page for the candle shop mentioned here, preserving its origin passage.", "prepare", "connected_page"),
+        ("map_image", "Prepare a map image of the flooded market for me to review.", "prepare", "image_preparation"),
+        ("table_insertion", "Put a six-row table of possible debts in this page.", "prepare", "page_suggestion"),
+        ("enemy_revision", "Prepare a tougher version of this enemy with 80 HP and AC 17.", "prepare", "mechanics_revision"),
+        ("encounter_roster", "Prepare an encounter with two marsh guards and four lantern thieves.", "prepare", "encounter"),
+        ("ask_before_media", "Before preparing an image or a page, ask me two questions and wait.", "converse", None),
+        ("discuss_object", "Let's discuss whether making the candle shop a separate page is worthwhile. Don't prepare it yet.", "converse", None),
+        ("research_before_object", "Read the existing candle shop source first so we can decide what to prepare afterward.", "research", None),
+    ]
+    return existing + [{"id": name, "question": q, "history": [], "expected_step": step,
+        "expected_item": item, "expected_questions": 2 if name == "ask_before_media" else None,
+        "cohort": "fresh_prepare_taxonomy"} for name, q, step, item in holdout]
