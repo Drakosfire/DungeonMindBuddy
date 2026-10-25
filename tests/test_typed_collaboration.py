@@ -160,3 +160,23 @@ def test_connected_review_schema_is_exact_and_binds_a_unique_actual_excerpt():
     historical.pop("connected_page_review_policy")
     with pytest.raises(ValidationError):
         normalize(json.dumps(answer(proposal)), historical)
+
+
+def test_live_source_claim_omission_remains_rejected_without_repair():
+    from application_state.agent_conversation.build_draft_answer import source_claim_limitations
+    p = packet()
+    p["retrieval_disposition"] = {"status": "provisionally_supported", "coverage_status": "heuristic_partial"}
+    raw = answer(None)
+    raw["answer_segments"].insert(0, {"kind": "saved_source_claim", "text": "The saved page names Mara Vell.", "section_read_ids": [str(uuid4())]})
+    original = json.dumps(raw)
+    assert source_claim_limitations(p) == {"partial_retrieval"}
+    with pytest.raises(ValueError, match="omitted the related-source retrieval qualification"):
+        normalize(original, p)
+    assert json.dumps(raw) == original
+    raw["limitations"] = ["partial_retrieval"]
+    assert normalize(json.dumps(raw), p)["answer_context_status"] == "source_grounded_partial"
+    assert normalize(json.dumps(answer(None)), p)["answer_context_status"] == "creative_proposal"
+    p["retrieval_disposition"]["status"] = "unresolved_conflict"
+    assert source_claim_limitations(p) == {"partial_retrieval", "unresolved_conflict"}
+    p["retrieval_disposition"] = {"status": "provisionally_supported", "coverage_status": "catalog_exhausted"}
+    assert source_claim_limitations(p) == set()

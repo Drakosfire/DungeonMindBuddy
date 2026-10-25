@@ -166,8 +166,10 @@ This prepares a review only. The author reviews title, identities and relationsh
 and chooses scaffold/buildout. You cannot claim a page/relationship was saved. Never substitute a plan for
 an explicitly requested supported review when supplied material is enough. Other relationship predicates,
 such as person-to-person trade, require separate authoring; do not claim this flow persists those edges.
-Acknowledge briefly. Put factual source descriptions in separately cited claim segments; never hide facts
-in suggestion/acknowledgment text. Keep the full action detail in the review object, not repeated prose.
+For a connected_page review, acknowledge preparation in one short suggestion segment without
+recapping source facts: the review object already carries the exact quoted passage and action detail.
+If the user also needs a factual answer, put it in separately cited claim segments with their required
+limitations. Never hide factual source descriptions in a suggestion or acknowledgment.
 """
 
 COLLABORATION_INSTRUCTIONS = """
@@ -253,6 +255,17 @@ class WriterProjection:
             "use a short\nnumbered list of concrete questions, or a short Markdown task list of proposed steps in a suggestion segment.",
             "use the typed collaboration object described below, with a concise acknowledgment in a suggestion segment."
         ) if collaboration else DRAFT_INSTRUCTIONS
+        qualification_instructions = ""
+        if draft_context:
+            from application_state.agent_conversation.build_draft_answer import source_claim_limitations
+            required = sorted(source_claim_limitations(json.loads(self.input_json)))
+            if required:
+                qualification_instructions = (
+                    "\nHost requirement for this exact request: IF answer_segments includes saved_source_claim "
+                    "or source_passage_claim, limitations MUST include these exact codes: "
+                    + json.dumps(required) + ". This condition does not apply to draft_reference_claim, "
+                    "related_page_claim or a review-only discussion acknowledgment. Keep their authority separate.\n"
+                )
         primary = "artifact_under_edit" in json.loads(self.input_json)
         if primary:
             packet_rows(json.loads(self.input_json))
@@ -270,7 +283,7 @@ class WriterProjection:
             if self.source_only
             else SOURCE_INSTRUCTIONS
             if self.has_saved_sections
-            else INSTRUCTIONS) + primary_instructions + (collaboration_instructions if collaboration else "") + (CONNECTED_PAGE_INSTRUCTIONS if connected else ""),
+            else INSTRUCTIONS) + primary_instructions + (collaboration_instructions if collaboration else "") + (CONNECTED_PAGE_INSTRUCTIONS if connected else "") + qualification_instructions,
             "max_output_tokens": OUTPUT_RESERVE,
             "reasoning": {"effort": "low"},
             "text": {
