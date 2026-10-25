@@ -1278,6 +1278,8 @@ def _qualified_edge_update(
     value = json.loads(assertion.value) if assertion.value else {}
     if not isinstance(value, dict):
         value = {}
+    if assertion.predicate == "operates" and not place_operation:
+        raise WorldGraphWriteError("place operation requires explicit graph-review authority", code="governed_write_inexpressible")
     operation = place_operation and assertion.predicate == "operates"
     target = CONNECTED_PLACE_OPERATION_V7_TARGET if operation else CURRENT_V5_TARGET
     existing = value.get("dm_predicate")

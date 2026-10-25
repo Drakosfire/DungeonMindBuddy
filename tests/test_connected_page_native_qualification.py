@@ -21,8 +21,10 @@ def test_explicit_operation_qualifies_without_ownership_or_direction_change():
     update=_qualified_edge_update(edge(),endpoint_kinds={'person':'npc','place':'location'},place_operation=True)
     assert json.loads(update['value'])=={'dm_predicate':'dnd5e:operates'}
     assert 'subject_object_id' not in update and 'object_object_id' not in update
-    with pytest.raises(WorldGraphWriteError,match='no DungeonMind mapping'):
+    with pytest.raises(WorldGraphWriteError,match='explicit graph-review'):
         _qualified_edge_update(edge(),endpoint_kinds={'person':'npc','place':'location'})
+    with pytest.raises(WorldGraphWriteError,match='explicit graph-review'):
+        _qualified_edge_update(edge('{"dm_predicate":"dnd5e:operates"}'),endpoint_kinds={'person':'npc','place':'location'})
 
 
 @pytest.mark.parametrize('kinds',[{'person':'location','place':'npc'}, {'person':'faction','place':'location'}, {'person':'npc','place':'item'}])
@@ -39,7 +41,7 @@ def test_wrong_prequalified_term_refuses():
         _qualified_edge_update(edge('{"dm_predicate":"dnd5e:owns"}'),endpoint_kinds={'person':'npc','place':'location'},place_operation=True)
 
 
-def test_mounted_saga_builds_real_native_candidate_for_both_distinct_edges(case,monkeypatch):
+def test_mounted_saga_builds_real_native_candidate_for_both_distinct_edges(case,monkeypatch):  # noqa: F811
     original=case.authority.publish
     candidates=[]
     def native_boundary(request):
