@@ -51,7 +51,7 @@ class PagesDecision(WorldDecisions):
             if key.startswith("related_page_"):
                 chosen = (
                     "read"
-                    if "Quarry Households" in body["questions"][key]["instructions"]
+                    if not getattr(self, 'skip_pages', False) and "Quarry Households" in body["questions"][key]["instructions"]
                     else "skip"
                 )
                 answer.update(
@@ -77,6 +77,9 @@ class PagesWriter(WriterWire):
         response = await super().handle_async_request(request)
         if wire["text"]["format"]["name"] == "build_document_proposal":
             return response
+        if wire.get('stream') is True:
+            terminal=json.loads(response.content.decode().strip().split('data: ')[-1])
+            response=httpx.Response(200,request=request,json=terminal['response'])
         packet = json.loads(wire["input"])
         from application_state.agent_conversation.build_draft_answer import (
             source_claim_limitations,
@@ -90,7 +93,7 @@ class PagesWriter(WriterWire):
             )
         if self.connected:
             assert "one short suggestion segment without" in wire["instructions"]
-        row = packet["related_authored_pages"]["pages"][0]
+        row = packet["related_authored_pages"]["pages"][0] if packet["related_authored_pages"]["pages"] else {'read_id':None}
         if self.connected:
             self.collaboration = {
                 "kind": "connected_page",
@@ -151,8 +154,17 @@ class PagesWriter(WriterWire):
             value = json.loads(raw)
             value.update(answer_segments=[], answer_context_status='discussion')
             raw = json.dumps(value)
+        if getattr(self, 'bad_plan_schema', False):
+            value = json.loads(raw)
+            value['collaboration']['steps'][0]['kind'] = 'launch'
+            raw = json.dumps(value)
+        self.raw_output=raw
         data = response.json()
         data["output"][0]["content"][0]["text"] = raw
+        if wire.get('stream') is True:
+            events=[{'type':'response.output_text.delta','sequence_number':i+1,'item_id':'msg','output_index':0,'content_index':0,'delta':raw[i:i+1]} for i in range(len(raw))]
+            events.append({'type':'response.completed','sequence_number':len(events)+1,'response':data})
+            return httpx.Response(200,request=request,headers={'content-type':'text/event-stream'},content=''.join('data: '+json.dumps(e)+'\n\n' for e in events).encode())
         return httpx.Response(200, request=request, json=data)
 
 
@@ -164,7 +176,7 @@ def completed(build_case, monkeypatch, tmp_path, request):
         if mode
         in {
             "interrupted",
-            "typed_plan", "typed_plan_only",
+            "typed_plan", "typed_plan_only", "typed_plan_empty", "typed_plan_bad_schema",
             "typed_questions",
             "connected_page",
             "relationship_review",
@@ -237,7 +249,7 @@ def completed(build_case, monkeypatch, tmp_path, request):
         }
 
     monkeypatch.setattr(owner, "materialize", materialize)
-    if operation != "answer_from_sources" or mode in {'typed_plan', 'typed_plan_only'}:
+    if operation != "answer_from_sources" or mode in {'typed_plan', 'typed_plan_only', 'typed_plan_empty', 'typed_plan_bad_schema'}:
         from apps.live_control_server.models.build_document_proposal import (
             BuildWriteCapability,
         )
@@ -267,10 +279,11 @@ def completed(build_case, monkeypatch, tmp_path, request):
         )
         request = request.model_copy(update={"build_write_capability": cap})
     writer = PagesWriter()
-    writer.object_only = mode == 'typed_plan_only'
+    writer.object_only = mode in {'typed_plan_only','typed_plan_empty','typed_plan_bad_schema'}
+    writer.bad_plan_schema = mode == 'typed_plan_bad_schema'
     writer.connected = mode == "connected_page"
     writer.invalid_quote = mode == "invalid_quote"
-    if mode in {'typed_plan', 'typed_plan_only'}:
+    if mode in {'typed_plan', 'typed_plan_only', 'typed_plan_empty', 'typed_plan_bad_schema'}:
         writer.collaboration = {
             "kind": "plan",
             "steps": [
@@ -292,7 +305,8 @@ def completed(build_case, monkeypatch, tmp_path, request):
         }
     writer.relationship = mode == "relationship_review"
     decisions = PagesDecision(operation=operation)
-    decisions.requested_work = {'typed_plan': 'plan', 'typed_plan_only': 'plan', 'typed_questions': 'clarify_request', 'connected_page': 'review_connected_page', 'relationship_review': 'review_relationship', 'invalid_quote': 'review_relationship'}.get(mode, {'answer_from_sources': 'discuss', 'propose_build_insertion': 'write_current_page', 'prepare_build_image': 'prepare_image'}[operation])
+    decisions.skip_pages = mode == 'typed_plan_empty'
+    decisions.requested_work = {'typed_plan': 'plan', 'typed_plan_only': 'plan', 'typed_plan_empty':'plan', 'typed_plan_bad_schema':'plan', 'typed_questions': 'clarify_request', 'connected_page': 'review_connected_page', 'relationship_review': 'review_relationship', 'invalid_quote': 'review_relationship'}.get(mode, {'answer_from_sources': 'discuss', 'propose_build_insertion': 'write_current_page', 'prepare_build_image': 'prepare_image'}[operation])
     harness = BuildJevHarness(
         world_context=True,
         named_citations=True,
@@ -301,6 +315,9 @@ def completed(build_case, monkeypatch, tmp_path, request):
         writer_transport=writer,
         accounting=counter(),
     )
+    from apps.live_control_server.services import build_construction_stream
+    writer.progress_snapshots=[]
+    monkeypatch.setattr(build_construction_stream,'observe',lambda value: writer.progress_snapshots.append((value,service.list_turns('elderwyld',conversation.conversation_id)[0].status)))
     decisions.timeout = mode == "interrupted"
     if mode == "interrupted":
         from apps.live_control_server.services.agent_turn_service import (
@@ -317,7 +334,7 @@ def completed(build_case, monkeypatch, tmp_path, request):
         turn = service.list_turns("elderwyld", conversation.conversation_id)[0]
         assert turn.status == "interrupted" and not reads
         return turn, service, page, body, reads, writer, decisions
-    if mode == "invalid_quote":
+    if mode in {"invalid_quote", "typed_plan_bad_schema"}:
         from apps.live_control_server.services.agent_turn_service import (
             AgentTurnServiceError,
         )
@@ -339,6 +356,7 @@ def completed(build_case, monkeypatch, tmp_path, request):
         harness,
         operator_subject="local_operator",
     )
+    writer.staged = harness.adapter._prepared_build_writer_projection
     assert response.answer.status == "ok"
     turn = service.list_turns("elderwyld", conversation.conversation_id)[0]
     return turn, service, page, body, reads, writer, decisions
@@ -735,19 +753,154 @@ def test_relationship_review_downgrade_refuses_retained_turn(completed,applicati
     try:
         with engine.begin() as conn:
             with Operations.context(MigrationContext.configure(conn)):
-                with pytest.raises(RuntimeError,match="Retained relationship reviews"):
-                    import_module("application_state.migrations.versions.20261025_0067_relationship_review").downgrade()
-    finally:engine.dispose()
+                with pytest.raises(RuntimeError, match="Retained relationship reviews"):
+                    import_module(
+                        "application_state.migrations.versions.20261025_0067_relationship_review"
+                    ).downgrade()
+    finally:
+        engine.dispose()
 
 
-@pytest.mark.parametrize('completed', ['typed_plan_only'], indirect=True)
-def test_object_only_plan_seeds_existing_review_owner_with_exact_empty_text_digest(completed):
+@pytest.mark.parametrize("completed", ["typed_plan_only"], indirect=True)
+def test_object_only_plan_seeds_existing_review_owner_with_exact_empty_text_digest(
+    completed,
+):
     from application_state.agent_conversation import work_plan as owner
+
     turn, service, *_ = completed
-    assert turn.assistant_text == '' and turn.completion.answer_segments == []
-    assert turn.completion.collaboration.kind == 'plan'
-    steps = [owner.Step(step_id=uuid4(), text=s.text, selected=True, kind=s.kind) for s in turn.completion.collaboration.steps]
-    saved = owner.save(turn.world_id, turn.conversation_id, turn.turn_id, owner.Review(expected_revision=0, steps=steps))
-    assert saved['source_answer_sha256'] == sha256(b'').hexdigest()
-    assert owner.read(turn.world_id, turn.conversation_id, turn.turn_id)['plan']['steps'] == saved['steps']
-    assert service.list_turns(turn.world_id, turn.conversation_id)[0].assistant_text == ''
+    assert turn.assistant_text == "" and turn.completion.answer_segments == []
+    assert turn.completion.collaboration.kind == "plan"
+    steps = [
+        owner.Step(step_id=uuid4(), text=s.text, selected=True, kind=s.kind)
+        for s in turn.completion.collaboration.steps
+    ]
+    saved = owner.save(
+        turn.world_id,
+        turn.conversation_id,
+        turn.turn_id,
+        owner.Review(expected_revision=0, steps=steps),
+    )
+    assert saved["source_answer_sha256"] == sha256(b"").hexdigest()
+    assert (
+        owner.read(turn.world_id, turn.conversation_id, turn.turn_id)["plan"]["steps"]
+        == saved["steps"]
+    )
+    assert (
+        service.list_turns(turn.world_id, turn.conversation_id)[0].assistant_text == ""
+    )
+
+
+@pytest.mark.parametrize("completed", ["typed_plan", "typed_plan_empty"], indirect=True)
+def test_stream_plan_rows_precede_real_app_admission_and_exact_producer_reopens(
+    completed,
+):
+    turn, service, _page, _body, reads, writer, _decisions = completed
+    request = json.loads(writer.calls[0].content)
+    assert (
+        request["stream"] is True and request["text"]["format"]["type"] == "json_schema"
+    )
+    values = writer.progress_snapshots
+    assert [len(p["steps"]) for p, _ in values] == [1, 2]
+    assert all(
+        status == "running" and p["status"] == "building" for p, status in values
+    )
+    assert (
+        values[-1][0]["steps"]
+        == turn.completion.collaboration.model_dump(mode="json")["steps"]
+    )
+    auth = [
+        e
+        for e in turn.graph_context_execution.events
+        if e.kind == "provider_attempt_authorized_v3" and e.provider == "openai"
+    ]
+    assert len(auth) == 1 and all(
+        p["provider_attempt_id"] == str(auth[0].provider_attempt_id) for p, _ in values
+    )
+    assert all(
+        p["durable_turn_id"] == str(turn.turn_id) and p["turn_attempt"] == 1
+        for p, _ in values
+    )
+    assert len(writer.calls) == 1
+    assert (
+        service.list_turns(turn.world_id, turn.conversation_id)[0].completion
+        == turn.completion
+    )
+    # Empty acquired related pages still use the closed-schema plan producer.
+    if not json.loads(request["input"])["related_authored_pages"]["pages"]:
+        assert reads == []
+
+
+@pytest.mark.parametrize("completed", ["typed_plan_bad_schema"], indirect=True)
+def test_stream_invalid_schema_final_is_captured_once_without_a_plan_or_retry(
+    completed,
+):
+    turn, service, *_, writer, _decisions = completed
+    assert (
+        turn.status == "interrupted"
+        and turn.completion is None
+        and len(writer.calls) == 1
+    )
+    trace = service.list_context_trace_attempts(
+        world_id=turn.world_id, turn_id=turn.turn_id
+    )[0]
+    value = trace.model_dump(mode="json")
+    raw = [
+        m["text"]
+        for o in value["observations"]
+        if o["kind"] == "context_snapshot"
+        for m in o["materials"]
+        if m["item_id"].startswith("unvalidated-provider-answer:")
+    ]
+    assert raw == [writer.raw_output]
+    assert not any(p["status"] == "ready" for p, _ in writer.progress_snapshots)
+
+
+@pytest.mark.parametrize("completed", ["typed_plan_empty"], indirect=True)
+def test_actual_sdk_refuses_a_stream_flag_different_from_frozen_parent(completed):
+    import asyncio
+    from dataclasses import replace
+    from generationengine import GenerationClient, TextFailed
+    from generationengine.providers.openai_text import OpenAITextProvider
+    from generationengine.text_dispatch import TextDispatchGate
+    from apps.live_control_server.services import build_jev_writer as writer_owner
+
+    *_, writer, _decisions = completed
+    staged = writer.staged
+    wrong = replace(staged, plan_stream=False)
+    calls = []
+
+    async def authorize(prepared):
+        with pytest.raises(ValueError, match="exact parent projection"):
+            writer_owner.prepared_view(prepared, wrong)
+        return False
+
+    async def record(_event):
+        return True
+
+    def transport(request):
+        calls.append(request)
+        raise AssertionError("Denied stream must not reach provider transport")
+
+    async def run():
+        provider = OpenAITextProvider(
+            api_key="synthetic-only",
+            dispatch_gate=TextDispatchGate(authorize, record),
+            transport=httpx.MockTransport(transport),
+        )
+        client = GenerationClient(text_providers={"openai": provider})
+        try:
+            events = [
+                event
+                async for event in client.stream_text(writer_owner.text_request(staged))
+            ]
+            assert len(events) == 1 and isinstance(events[0], TextFailed)
+            # SDK counts its guarded attempt; zero HTTP sends is the owning boundary.
+            assert (
+                str(events[0].failure.code.value)
+                == "ATTEMPT_EVIDENCE_PERSISTENCE_FAILED"
+            )
+        finally:
+            await client.aclose()
+
+    asyncio.run(run())
+    assert calls == []

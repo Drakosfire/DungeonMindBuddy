@@ -3893,6 +3893,7 @@ export function WorldPlanAgentConversation({
         const completedContext=mixed?response.rules_context.base_context:'knowledge_context' in response?response.knowledge_context:undefined;
         const collaboration=isBuildKnowledgeContext(completedContext,request.owner_scope.world_id)&&completedContext.completion&&'collaboration' in completedContext.completion?completedContext.completion.collaboration:null;
         if(collaboration?.kind==='plan'){
+          buildCompose.completePlanConstruction(request.turn_id);
           try{
             const fresh=await getWorldAgentConversationHistory(request.owner_scope.world_id,{includeTurnCorrelation:true});
             if(!isWorldConversationHistory(fresh)||!await areHistoryReceiptDigestsBound(fresh))throw new Error('The completed history could not be verified.');

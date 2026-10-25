@@ -9,7 +9,8 @@ import time
 from dataclasses import dataclass
 from uuid import UUID
 
-from generationengine import GenerationClient
+from generationengine import GenerationClient, GenerationEngineError, TextCompleted, TextDelta, TextFailed
+from generationengine.types import TextResult
 from generationengine.types import (
     BinaryDecisionQuestion,
     ChoiceDecisionQuestion,
@@ -612,6 +613,8 @@ class BuildJevHarness:
         driver.accept_acquisition(bindings)
 
     async def _write(self, adapter, staged):
+        staged = writer_policy.with_plan_stream(staged, adapter.request)
+        adapter._build_writer_projection = staged
         async def authorize(prepared):
             return adapter.authorize_prepared_build_writer(prepared)
 
@@ -629,11 +632,68 @@ class BuildJevHarness:
         started = time.perf_counter()
         try:
             self.failure_stage = "writer_dispatch"
-            result = await client.generate_text(writer_policy.text_request(staged))
+            if staged.plan_stream:
+                result = await self._stream_plan(adapter, staged, provider)
+            else:
+                result = await client.generate_text(writer_policy.text_request(staged))
             self._observe(result, started, "writer")
             return result
         except Exception as exc:
             self._failed(exc, started, "writer")
+            raise
+        finally:
+            await client.aclose()
+
+    async def _stream_plan(self, adapter, staged, provider):
+        from contextlib import aclosing
+        from .build_plan_construction import PlanStepProgress
+        from .build_construction_stream import observe
+
+        decoder = PlanStepProgress(('base_output', 'collaboration') if staged.rules_projection_json else ('collaboration',))
+        sequence = 0
+        capability = adapter.request.build_write_capability
+        snapshot = adapter.request.build_draft_context.snapshot
+
+        def progress(status='building'):
+            nonlocal sequence
+            prepared = getattr(adapter, '_prepared_build_writer', None)
+            if prepared is None:
+                return
+            sequence += 1
+            observe({'schema': 'dmb_build_plan_construction_v1',
+                'placement_id': str(capability.idempotency_key), 'basis': capability.basis.model_dump(mode='json'),
+                'world_id': adapter.turn.world_id, 'conversation_id': str(adapter.turn.conversation_id),
+                'client_turn_id': str(adapter.request.turn_id), 'durable_turn_id': str(adapter.turn.turn_id),
+                'turn_attempt': adapter.turn.attempt, 'working_snapshot_sha256': snapshot.snapshot_sha256,
+                'provider_attempt_id': prepared.attempt_id, 'sequence': sequence,
+                'status': status, 'steps': decoder.steps})
+
+        class ObservedProvider:
+            async def aclose(self):
+                pass  # _write owns the actual provider lifetime.
+
+            async def stream(self, call):
+                async with aclosing(provider.stream(call)) as events:
+                    async for event in events:
+                        if isinstance(event, TextDelta):
+                            if decoder.feed(event.text):
+                                progress('incomplete' if decoder.invalid else 'building')
+                        elif isinstance(event, TextCompleted):
+                            # Preserve actual bytes before GE schema conformance can reject them.
+                            adapter.context_capture.answer_draft(event.final_text,
+                                producing_provider_attempt_id=adapter.producing_provider_attempt_id)
+                        yield event
+
+        client = GenerationClient(text_providers={'openai': ObservedProvider()})
+        try:
+            async for event in client.stream_text(writer_policy.text_request(staged)):
+                if isinstance(event, TextFailed):
+                    raise GenerationEngineError(event.failure, event.observation)
+                if isinstance(event, TextCompleted):
+                    return TextResult(text=event.final_text, observation=event.observation)
+            raise ValueError('Typed plan stream ended without its final response')
+        except Exception:
+            progress('incomplete')
             raise
         finally:
             await client.aclose()

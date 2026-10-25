@@ -1,4 +1,4 @@
-import {readBuildConstructionStream,ConstructionStreamError,type BuildConstructionProgress} from './buildConstructionStream';
+import {readBuildConstructionStream,ConstructionStreamError,type BuildObjectConstructionProgress} from './buildConstructionStream';
 import type {
   ArtifactReadResponse,
   CapabilityReadResponse,
@@ -1833,7 +1833,7 @@ export async function postWorldPlayAgentTurn(
 }
 
 export async function postWorldBuildAgentTurn(request: import("./types").WorldBuildAgentTurnRequestV1,
-  onProgress:(progress:BuildConstructionProgress)=>void=()=>undefined): Promise<WorldPlanAgentTurnResponse> {
+  onProgress:(progress:BuildObjectConstructionProgress)=>void=()=>undefined): Promise<WorldPlanAgentTurnResponse> {
   try{
     return await apiFetch<WorldPlanAgentTurnResponse>("/api/live/agent/turn",
       {method:"POST",body:JSON.stringify(request),headers:{Accept:"text/event-stream"}},

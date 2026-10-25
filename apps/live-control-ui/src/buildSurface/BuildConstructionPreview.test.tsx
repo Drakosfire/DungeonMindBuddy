@@ -44,3 +44,19 @@ it('reveals received prose at its captured page location without taking composer
  expect(screen.getByRole('status')).toHaveTextContent('Incomplete');
  expect(JSON.stringify(editor.getJSON())).toBe(before);expect(composer.value).toBe('A newer unsent message');
 });
+
+it('grows inert typed plan rows at the captured location and retires on an editor change',async()=>{
+ const state:BuildComposeEditorState={editor,worldId:'world',documentId:'doc',revision:1,contentSha256:'a'.repeat(64),visibility:'internal',draftGeneration:0,selectionGeneration:0,canEdit:true};
+ const bridge=createBuildComposeBridge(()=>state,()=>undefined);const captured=await bridge.capture();const before=JSON.stringify(editor.getJSON());
+ const composer=document.createElement('textarea');composer.value='Newer plan note';document.body.append(composer);composer.focus();
+ const progress={schema:'dmb_build_plan_construction_v1' as const,placement_id:'placement',basis:captured.basis,
+ world_id:'world',conversation_id:'conversation',client_turn_id:'client',durable_turn_id:'turn',turn_attempt:1,working_snapshot_sha256:'b'.repeat(64),provider_attempt_id:'provider',sequence:1,status:'building' as const,steps:[{text:'Discuss the lid.',kind:'discuss' as const}]};
+ const view=render(<BuildConstructionPreview progress={progress} bridge={bridge} sourceKey="page"/>);
+ await screen.findByRole('region',{name:'Plan construction'});expect(document.activeElement).toBe(composer);
+ expect(JSON.stringify(editor.getJSON())).toBe(before);expect(screen.queryByRole('checkbox')).toBeNull();
+ view.rerender(<BuildConstructionPreview progress={{...progress,sequence:2,steps:[...progress.steps,{text:'Prepare a check.',kind:'prepare_insertion'}]}} bridge={bridge} sourceKey="page"/>);
+ expect(screen.getAllByRole('listitem')).toHaveLength(2);expect(document.activeElement).toBe(composer);
+ act(()=>{editor.commands.insertContent('newer author text');state.draftGeneration++;});
+ await waitFor(()=>expect(screen.queryByRole('region',{name:'Plan construction'})).toBeNull());
+ expect(composer.value).toBe('Newer plan note');
+});

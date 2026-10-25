@@ -1,4 +1,4 @@
-import type {BuildConstructionProgress} from '../../api/buildConstructionStream';
+import {constructionPlacementId,type BuildObjectConstructionProgress} from '../../api/buildConstructionStream';
 import {BuildConstructionPreview} from '../../buildSurface/BuildConstructionPreview';
 import { proposalReview, type BuildProposalReview } from '../../api/buildProposalReviewApi';
 import { BuildPageProposal, RetiredPlacementHistory } from '../../buildSurface/BuildPageProposal';
@@ -32,7 +32,7 @@ export function useBuildCompose({ worldId, history, bridge, enabled, onHistory, 
     constructionView.current={sourceKey,pageDocumentId,bridge,scope:constructionScope,epoch:constructionView.current.epoch+1};
   const [records, setRecords] = useState<{ scope: string; values: BuildProposalRecord[] }>({ scope: '', values: [] });
   const [imageRecords,setImageRecords] = useState<{scope:string;values:PreparedImage[]}>({scope:'',values:[]});
-  const [construction,setConstruction]=useState<{scope:string;sourceKey:string;viewEpoch:number;progress:BuildConstructionProgress}|null>(null);
+  const [construction,setConstruction]=useState<{scope:string;sourceKey:string;viewEpoch:number;progress:BuildObjectConstructionProgress}|null>(null);
   const [refreshNonce, setRefreshNonce] = useState(0);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -185,14 +185,15 @@ export function useBuildCompose({ worldId, history, bridge, enabled, onHistory, 
   const active=values.find(record=>record.action_id===(selected?.action??latest?.action_id)&&record.reservation.basis.document_id===pageDocumentId);
   const building=construction?.scope===scope&&construction.sourceKey===sourceKey&&construction.viewEpoch===constructionView.current.epoch
     &&construction.progress.basis.document_id===pageDocumentId
-    &&!values.some(value=>value.action_id===construction.progress.action_id&&value.proposal)?construction.progress:null;
+    &&!values.some(value=>value.action_id===constructionPlacementId(construction.progress)&&value.proposal)?construction.progress:null;
   return { busy, error, submit, prepareHarnessTurn,
-    observeConstruction:(progress:BuildConstructionProgress)=>{
+    observeConstruction:(progress:BuildObjectConstructionProgress)=>{
       if(!mounted.current||!current.current.enabled||progress.basis.world_id!==current.current.worldId
         ||progress.basis.document_id!==current.current.pageDocumentId||progress.conversation_id!==current.current.history?.conversation_id)return;
       setConstruction({scope:current.current.scope,sourceKey:current.current.sourceKey,viewEpoch:constructionView.current.epoch,progress});
     },
-    finishConstruction:(action:string|undefined)=>setConstruction(value=>value!==null&&value.progress.action_id===action&&value.progress.status==='building'
+    completePlanConstruction:(clientTurnId:string)=>setConstruction(value=>value?.progress.schema==='dmb_build_plan_construction_v1'&&value.progress.client_turn_id===clientTurnId?null:value),
+    finishConstruction:(action:string|undefined)=>setConstruction(value=>value!==null&&constructionPlacementId(value.progress)===action&&value.progress.status==='building'
       ?{...value,progress:{...value.progress,status:'incomplete'}}:value),
     refresh: () => setRefreshNonce(value => value + 1),
     pageElement: enabled&&bridge&&building

@@ -9,7 +9,7 @@ correction are settled. Ordinary current/library inspection and exact predecesso
 Copy trace passed; private protected-delivery and dogfood evidence is retained.
 Operator creative-chain acceptance remains separate. #1764 stays parked.
 
-## Typed plan construction — design; implementation BLOCKED
+## Typed plan construction — ACTIVE implementation
 
 Design steward: PRIME. The operator requires generated objects to visibly take shape on
 the Surface; editable generated plans are delivered, but their rows appear only after
@@ -83,12 +83,21 @@ not move clarifying questions out of chat or add another plan/execution owner.
 
 ### Gates, topology and expected owners
 
-Status is BLOCKED until independent invariant critique and an exact owner/projection audit
-confirm the SDK request, APP admission and UI replacement boundaries. This design grants no
-runtime activation. Once resolved, PRIME may record one explicit **serial** implementation
-lease in the existing `buddy-context-loop/DungeonMindBuddy` checkout from current remote
-main. No other current PR owns these paths; #1764 remains parked and is not a parent.
-Existing API8000/UI5202 and retained APP/native stores stay intact until reviewed delivery.
+Design #1777 is merged atf79de8f9b7ff4eb68f58fa718fdf34c6581b0164,
+independently reviewed at537ad5c67503915c45488b837030ca041673880c. Independent
+owner/projection audit cleared activation after confirming all12 supported typed-plan
+policy classes inherit the cited-schema policy. The harness always stages their source
+projection, even with empty bindings; `source_only` is a format selector, not a requirement
+for external evidence. A selected plan lacking its expected closed schema is refused
+before dispatch, never silently downgraded to JSON-object or complete-mode generation.
+
+PRIME activates one exclusive **serial** implementation lease on
+`codex/typed-plan-construction` from that merge in the existing
+`buddy-context-loop/DungeonMindBuddy` checkout. This handoff and the paths below are its
+write set. #1764 stays parked; no concurrent open PR owns these paths. Existing
+API8000/UI5202, APP0071/native0017 and retained stores remain unchanged until exact-head
+independent review and protected delivery. No production runtime may consume this handoff.
+Private audit/proof stays local. This activation authorizes implementation, not delivery.
 
 Expected runtime paths (audit/activation must confirm any expansion):
 `apps/live_control_server/services/build_jev_harness.py`, `build_jev_writer.py`,
@@ -105,7 +114,13 @@ Tests: actual SDK/APP integration, `tests/test_build_construction_stream.py`, fo
 writer-envelope tests, and corresponding UI API/preview/shared-conversation tests.
 This handoff is the mutable authority owner. No new service/store/port/environment,
 source export or dependencies are expected. Design and implementation use separate
-reviewed serial PRs; a design merge is not implementation or delivery acceptance.
+reviewed serial PRs; a design merge is not implementation or delivery acceptance. Exact new siblings: `apps/live_control_server/services/build_plan_construction.py`,
+`apps/live-control-ui/src/surface/SurfacePlanConstructionPreview.tsx`, and their corresponding
+`tests/test_build_plan_construction.py` / UI `.test.tsx` tests. Existing integration tests
+include `tests/test_build_related_pages.py`, `tests/test_build_jev_writer_budget.py`, and
+UI `src/api/buildConstructionStream.test.ts`, `src/buildSurface/BuildConstructionPreview.test.tsx`,
+`src/planSurface/components/BuildComposeProposal.test.tsx`. Changes outside these owners
+require an explicit steward amendment before editing.
 
 ### Acceptance
 
