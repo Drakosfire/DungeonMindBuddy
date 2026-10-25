@@ -997,6 +997,9 @@ class PlanContextPolicyV1(StrictModel):
     policy: Literal["auto_plan_world"]
 
 
+from .reviewed_action import ReviewedStepBinding
+
+
 class BuildGraphIntentV1(SubmittedTurnIntentV1):
     """Saved Build source plus an explicitly requested managed World Graph."""
 
@@ -1004,6 +1007,7 @@ class BuildGraphIntentV1(SubmittedTurnIntentV1):
         default="dmb_build_graph_intent_v1", alias="schema"
     )
     surface_id: Literal["build"]
+    reviewed_step: ReviewedStepBinding | None = None
     build_write_capability_sha256: str | None = Field(default=None, pattern=r"^[a-f0-9]{64}$")
     build_draft_context_sha256: str | None = Field(default=None, pattern=r"^[a-f0-9]{64}$")
     client_work_state: Literal["saved_clean", "saved_dirty"]
@@ -1014,6 +1018,8 @@ class BuildGraphIntentV1(SubmittedTurnIntentV1):
 
     @model_validator(mode="after")
     def validate_build(self) -> "BuildGraphIntentV1":
+        if self.reviewed_step is not None and (self.build_draft_context_sha256 is None or self.reviewed_step.kind == "prepare_insertion" and self.build_write_capability_sha256 is None):
+            raise ValueError("A reviewed action requires captured draft and insertion authority")
         ref = self.primary_work
         if (ref.kind != "build"
             or ref.expected_content_sha256 is None
@@ -1090,6 +1096,8 @@ def submitted_turn_intent_fingerprint_v2(intent: SubmittedTurnIntentV2 | BuildGr
     payload = intent.model_dump(
         mode="json", by_alias=True, exclude={"client_thread_id"}
     )
+    if payload.get("reviewed_step") is None:
+        payload.pop("reviewed_step", None)
     if payload.get("build_write_capability_sha256") is None:
         payload.pop("build_write_capability_sha256", None)
     if payload.get("build_draft_context_sha256") is None:
@@ -3773,7 +3781,7 @@ def validate_graph_execution_record(execution, *, dynamic_source_scope: bool, al
                 RelatedRecapContextProviderInclusionEventV2,
                 RelatedPagesSelection, RelatedPageRead, RelatedPageInclusion, BuildDraftContextCapturedV1, BuildDraftProviderInclusionV1, BuildSectionReadAuthorizationV1, ValidatedBuildSectionReadV1, BuildWorldReadSelectionV1,
                 BuildSectionProviderInclusionV1, BuildSectionAnswerBindingV1,
-                BuildJevActionSelectionV1, BuildWriterEvidenceSelectionV1, PlanJevRetrievalSelectionV1,
+                BuildJevActionSelectionV1, BuildReviewedActionSelectionV1, BuildWriterEvidenceSelectionV1, PlanJevRetrievalSelectionV1,
             ),
         ):
             continue
@@ -3783,7 +3791,7 @@ def validate_graph_execution_record(execution, *, dynamic_source_scope: bool, al
                 role = (event.provider, event.model, event.api_mode)
                 controller = execution.policy.provider_roles.controller.identity()
                 writer = execution.policy.provider_roles.writer.identity()
-                if role not in {controller, writer} or (provider_index == 0 and role != controller):
+                if role not in {controller, writer} or (provider_index == 0 and role != controller and not any(isinstance(e, BuildReviewedActionSelectionV1) and e.operation == "propose_build_insertion" and e.sequence < event.sequence for e in execution.events)):
                     raise ValueError("provider accounting role differs from frozen policy")
                 if isinstance(execution.policy, BuildWriterBudgetActionControllerWriterPolicyV1) and role == writer:
                     writer_budget = execution.policy.writer_context_budget
@@ -3984,6 +3992,25 @@ class BuildJevActionSelectionV1(GraphExecutionEventBaseV1):
     arguments_sha256: str = Field(pattern=r"^[a-f0-9]{64}$")
 
 
+class BuildReviewedActionSelectionV1(GraphExecutionEventBaseV1):
+    kind: Literal["build_reviewed_action_selected_v1"]
+    intent: BuildGraphIntentV1
+    operation: Literal["answer_from_sources", "propose_build_insertion"]
+    broker_operation_id: str = Field(min_length=1, max_length=256)
+    capability_sha256: str | None = Field(pattern=r"^[a-f0-9]{64}$")
+    arguments_sha256: str = Field(pattern=r"^[a-f0-9]{64}$")
+
+    @property
+    def binding(self):
+        return self.intent.reviewed_step
+
+    @model_validator(mode="after")
+    def exact_author_action(self):
+        if self.binding is None or self.operation != self.binding.operation:
+            raise ValueError("Reviewed action differs from the author's selected step")
+        return self
+
+
 class BuildWriterEvidenceSelectionV1(GraphExecutionEventBaseV1):
     kind: Literal["build_writer_evidence_selection_v1"]
     policy: Literal["source_unit_selection_event_closure_v1"]
@@ -4039,7 +4066,7 @@ GraphExecutionEventV3 = Annotated[
     | RelatedRecapContextAuthorizationEventV2 | ValidatedRelatedRecapContextEventV2
     | RelatedRecapContextProviderInclusionEventV2
     | RelatedPagesSelection | RelatedPageRead | RelatedPageInclusion | BuildDraftContextCapturedV1 | BuildDraftProviderInclusionV1 | BuildSectionReadAuthorizationV1 | ValidatedBuildSectionReadV1
-    | BuildSectionProviderInclusionV1 | BuildSectionAnswerBindingV1 | BuildJevActionSelectionV1 | BuildWorldReadSelectionV1
+    | BuildSectionProviderInclusionV1 | BuildSectionAnswerBindingV1 | BuildJevActionSelectionV1 | BuildReviewedActionSelectionV1 | BuildWorldReadSelectionV1
     | BuildWriterEvidenceSelectionV1 | PlanJevRetrievalSelectionV1 | NativeSourceNavigationAuthorizedV1 | NativeSourceCatalogObservedV1
     | NativeSourceSectionAuthorizedV1 | NativeSourceSectionObservedV1 | NativeSourceProviderInclusionV1,
     Field(discriminator="kind"),
@@ -4103,6 +4130,13 @@ class PlanWorldGraphExecutionV3(PlanWorldGraphExecutionV2):
             elif isinstance(event, ProviderAttemptAuthorizedEventV1) and set(section_auths) != section_reads:
                 raise ValueError("Provider cannot proceed with an unresolved Build section read")
 
+            if isinstance(event, BuildReviewedActionSelectionV1):
+                if (not isinstance(self.policy, BuildActionControllerWriterPolicyV1)
+                    or action_selection is not None or latest_attempt is not None or writer_attempt is not None
+                    or event.operation not in self.policy.allowed_surface_operations
+                    or event.capability_sha256 != self.policy.action_capability_sha256):
+                    raise ValueError("Reviewed action lacks its unique pre-provider capability binding")
+                action_selection = event
             if isinstance(event, BuildJevActionSelectionV1):
                 prior = authorized_by_id.get(event.controller_attempt_id)
                 if (not isinstance(self.policy, BuildActionControllerWriterPolicyV1)
@@ -4150,7 +4184,7 @@ class PlanWorldGraphExecutionV3(PlanWorldGraphExecutionV2):
                             raise ValueError("Source writer saved sections differ from selected closure")
                     if isinstance(self.policy, BuildActionControllerWriterPolicyV1) and action_selection is None:
                         raise ValueError("Build writer requires a recorded controller-selected operation")
-                    if latest_attempt is None:
+                    if latest_attempt is None and not (isinstance(action_selection, BuildReviewedActionSelectionV1) and action_selection.operation == "propose_build_insertion"):
                         raise ValueError("first provider authorization must be controller")
                     if writer_attempt is not None:
                         raise ValueError("only one writer authorization is permitted")
@@ -4582,6 +4616,11 @@ def validate_graph_provider_envelope(
     previous_attempts = [e for e in execution.events if isinstance(e, ProviderAttemptAuthorizedEventV1)]
     if not previous_attempts:
         assembled = inputs.assembled_input
+        if assembled.assembler_version == "reviewed_author_admission_v1":
+            selected = [e for e in execution.events if isinstance(e, BuildReviewedActionSelectionV1)]
+            if len(selected) != 1 or _canonical_sha256({"schema":"dmb_reviewed_action_admission_v1", "intent":selected[0].intent.model_dump(mode="json", by_alias=True)}) != assembled.assembled_input_sha256:
+                raise ValueError("First provider lacks the exact author-admission manifest")
+            return
         if (
             event.envelope_sha256 != assembled.assembled_input_sha256
             or event.input_tokens != assembled.provider_envelope_input_tokens
@@ -5302,7 +5341,7 @@ def validate_execution_completion(
                 or any(isinstance(s, PlanWorldGraphClaimSegmentV1) for s in completion.answer_segments)):
             raise ValueError("Cited saved-only completion cannot carry Graph authority")
     if isinstance(getattr(execution, "policy", None), BuildActionControllerWriterPolicyV1):
-        selections = [e for e in execution.events if isinstance(e, BuildJevActionSelectionV1)]
+        selections = [e for e in execution.events if isinstance(e, (BuildJevActionSelectionV1, BuildReviewedActionSelectionV1))]
         expected = ("prepare_build_image" if isinstance(completion, BuildImagePreparationCompletionV1) else "propose_build_insertion" if isinstance(completion, BuildAuthoringCompletionV1) else "answer_from_sources")
         if len(selections) != 1 or selections[0].operation != expected:
             raise ValueError("Completion differs from the controller-selected operation")
@@ -5597,6 +5636,36 @@ def _validate_build_submission(submission: TurnSubmission) -> None:
         or any(x is not None for x in (ref.object_revision, ref.work_revision_id, ref.revision_n))
         or provenance.selected_object.resolution != "absent"):
         raise ValueError("Build Graph receipt must match the submitted source and provenance")
+    binding = intent.reviewed_step
+    if binding is not None and binding.reference.conversation_id != submission.conversation_id:
+        raise ValueError("Reviewed action belongs to a different conversation")
+    author_events = [e for e in submission.graph_context_execution.events if isinstance(e, BuildReviewedActionSelectionV1)] if submission.graph_context_execution else []
+    if author_events and (binding is None or len(author_events) != 1 or author_events[0].binding != binding):
+        raise ValueError("Author selection must match the exact admitted reviewed step")
+    if binding is not None and submission.graph_context_execution:
+        events = submission.graph_context_execution.events
+        if any(isinstance(e, BuildJevActionSelectionV1) for e in events):
+            raise ValueError("A reviewed step cannot be selected again by the model")
+        if any(isinstance(e, ProviderAttemptAuthorizedEventV1) for e in events) and not author_events:
+            raise ValueError("Reviewed action must precede provider authorization")
+        if author_events:
+            from .reviewed_action import digest
+            args = {"instruction": intent.message} if binding.kind == "prepare_insertion" else {}
+            if author_events[0].arguments_sha256 != digest(args):
+                raise ValueError("Reviewed action arguments differ from the admitted request")
+    if binding is None and receipt.assembled_input.assembler_version == "reviewed_author_admission_v1":
+        raise ValueError("Host admission cannot shed its reviewed action authority")
+    if binding is not None:
+        from .reviewed_action import digest
+        expected_admission = digest({"schema":"dmb_reviewed_action_admission_v1", "intent":intent.model_dump(mode="json", by_alias=True)})
+        assembled = receipt.assembled_input
+        if (assembled.assembler_version != "reviewed_author_admission_v1"
+            or assembled.assembled_input_sha256 != expected_admission
+            or assembled.provider_envelope_input_tokens != 0 or assembled.output_token_reserve != 0
+            or assembled.provider_model_name != "not_dispatched" or assembled.source_token_accounting
+            or assembled.included_history or assembled.dispatched_assertion_ids or assembled.dispatched_relationship_ids
+            or assembled.dispatched_evidence_ref_ids):
+            raise ValueError("Reviewed action requires its exact model-free host admission")
     _validate_build_receipt_provenance(receipt, provenance)
     if not isinstance(submission.graph_context_execution, PlanWorldGraphExecutionV2):
         raise ValueError("Build requires governed Graph source-read execution")
@@ -5649,6 +5718,8 @@ def _validate_initial_graph_execution(receipt, execution) -> None:
             ):
                 raise ValueError("V2 source-read scope must match the frozen Graph receipt")
         validate_selected_source_binding(receipt, execution)
+        if isinstance(receipt, BuildGraphContextReceiptV1) and receipt.assembled_input.assembler_version == "reviewed_author_admission_v1":
+            return
         if isinstance(execution.policy, BuildInitialEstimatedSelectedSourcePolicyV1):
             descriptor = execution.policy.controller_initial_accounting
             assembled = receipt.assembled_input
@@ -5877,6 +5948,16 @@ class Turn(StrictModel):
             completion=self.completion,
             assistant_text=self.assistant_text,
         )
+        from .reviewed_action import digest
+        for event in self.graph_context_execution.events if self.graph_context_execution is not None else ():
+            if isinstance(event, BuildReviewedActionSelectionV1):
+                if (_canonical_sha256({"schema":"dmb_reviewed_action_admission_v1", "intent":event.intent.model_dump(mode="json", by_alias=True)}) != self.graph_context_receipt.assembled_input.assembled_input_sha256
+                    or submitted_turn_intent_fingerprint_v2(event.intent) != self.submitted_intent_fingerprint_v2
+                    or event.intent.world_id != self.world_id or event.intent.message != self.user_text
+                    or event.binding.reference.conversation_id != self.conversation_id
+                    or event.intent.primary_work.object_id != self.provenance.primary_work.object_id
+                    or event.arguments_sha256 != digest({"instruction":self.user_text} if event.operation == "propose_build_insertion" else {})):
+                    raise ValueError("Retained author action differs from its admitted turn intent")
         from .build_draft_context import validate_record
         for event in self.graph_context_execution.events if self.graph_context_execution is not None else ():
             if isinstance(event, BuildDraftContextCapturedV1):

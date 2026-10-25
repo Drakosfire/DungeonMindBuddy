@@ -96,3 +96,10 @@ it('preserves anonymous observations, different models, other outcomes and every
   const observations=[response(0,null),response(1,null),response(2,'same'),response(3,'same',{model:'writer'}),response(4,'same',{outcome:'failed'}),response(5,'same',{outcome:'unknown'}),response(6,'same'),failure]
   expect(activityObservations(observations).map(e=>e.sequence)).toEqual([0,1,2,3,4,5,7])
 })
+
+it('shows the retained author action without claiming a model call',async()=>{
+  mount(trace([{kind:'context_decision',action:'retained',item_ids:['Reviewed step · Prepare an insertion'],reason_code:'route_preserved',
+    policy_version:'reviewed_author_action_v1',sequence:0,elapsed_ms:1}]))
+  await screen.findByText('Following your reviewed step.')
+  expect(screen.queryByText('A model response just landed.')).not.toBeInTheDocument()
+})

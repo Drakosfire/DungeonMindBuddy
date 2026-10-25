@@ -996,9 +996,9 @@ describe("one App-level World conversation host across Plan and Play", () => {
       steps:[{step_id:stepId,text:'Discuss the shop owner.',selected:true,kind:'discuss' as const}],dispatches:[],execution:[]};
     const dispatch={command_id:stepId,step_id:stepId,client_thread_id:stepId,client_turn_id:clientId,message:'Continue exactly this reviewed discussion step.'};
     vi.mocked(getWorkPlan).mockResolvedValue(p);
-    vi.mocked(continueWorkPlan).mockResolvedValue({plan:{...p,revision:2,dispatches:[dispatch],execution:[{command_id:stepId,step_id:stepId,status:'awaiting_dispatch',turn_id:null,attempt:null,result:null}]},dispatch});
+    vi.mocked(continueWorkPlan).mockResolvedValue({plan:{...p,revision:2,dispatches:[dispatch],execution:[{command_id:stepId,step_id:stepId,status:'awaiting_dispatch',turn_id:null,attempt:null,result:null}]},dispatch,reference:{conversation_id:p.conversation_id,source_turn_id:p.source_turn_id,command_id:dispatch.command_id}});
     vi.mocked(postWorldBuildAgentTurn).mockReturnValue(new Promise(()=>{}));
-    render(<Harness initial='build'/>);
+    render(<Harness initial='build' buildBridge={{captureContext:vi.fn(async()=>draftSnapshot()),capture:vi.fn(async()=>insertionCapture()),insert:vi.fn()}}/>);
     fireEvent.click(await screen.findByRole('button',{name:'Open',exact:true}));
     fireEvent.change(await screen.findByLabelText('Message DungeonBuddy'),{target:{value:'My newer unsent author note'}});
     fireEvent.click(await screen.findByRole('button',{name:'Review plan'}));
@@ -1006,8 +1006,29 @@ describe("one App-level World conversation host across Plan and Play", () => {
     expect(postWorldBuildAgentTurn).not.toHaveBeenCalled();
     fireEvent.click(screen.getByRole('button',{name:'Continue step'}));
     await waitFor(()=>expect(postWorldBuildAgentTurn).toHaveBeenCalledTimes(1));
-    expect(vi.mocked(postWorldBuildAgentTurn).mock.calls[0][0]).toMatchObject({turn_id:clientId,client_thread_id:stepId,message:dispatch.message});
+    expect(vi.mocked(postWorldBuildAgentTurn).mock.calls[0][0]).toMatchObject({turn_id:clientId,client_thread_id:stepId,message:dispatch.message,reviewed_step:{conversation_id:p.conversation_id,source_turn_id:p.source_turn_id,command_id:dispatch.command_id}});
+    expect(vi.mocked(postWorldBuildAgentTurn).mock.calls[0][0].build_draft_context?.conversation_id).toBe(p.conversation_id);
+    expect(vi.mocked(postWorldBuildAgentTurn).mock.calls[0][0].build_write_capability).toBeDefined();
     expect(screen.getByLabelText('Message DungeonBuddy')).toHaveValue('My newer unsent author note');
+  });
+
+  it('keeps failed author-bound steps on their saved-plan retry owner',async()=>{
+    const context=await buildGraphContext();
+    context.receipt.assembled_input.assembler_version='reviewed_author_admission_v1';
+    const {context_receipt_sha256:_oldHash,...receiptBody}=context.receipt;
+    context.receipt.context_receipt_sha256=await sha256Hex(canonicalJson(receiptBody));
+    const base=turn('plan',1,'Continue my reviewed insertion.');
+    const authority=context.receipt.graph_authority;
+    const support=(kind:string,object_id:string,revision:string)=>({...base.provenance.primary_work,kind,object_id,revision,content_sha256:null,object_revision:null});
+    const row={...base,assistant_text:null,lifecycle_status:'failed' as const,
+      knowledge_context:{...context,completion:null,source_open_targets:[],evidence_anchor_statuses:[],related_recap_context_statuses:[],execution:null},provenance:{...base.provenance,surface_id:'build',surface_instance_id:'build-instance',supporting_work:[support('dmb_build_source_visibility_v1','internal','1'),support('dmb_build_graph_binding_v1',authority.native_world_id,String(authority.binding_version)),support('world_graph_revision',authority.native_world_id,authority.graph_revision)],
+        primary_work:{...base.provenance.primary_work,kind:'build',object_id:'source-one',revision:'2',content_sha256:SHA,object_revision:null}}};
+    vi.mocked(getWorldAgentConversationHistory).mockResolvedValue({...history(),schema:'dmb_agent_conversation_history_v2',turns:[row]});
+    render(<Harness initial='build'/>);
+    fireEvent.click(await screen.findByRole('button',{name:'Open',exact:true}));
+    await screen.findByText(/Use “Try step again” in the saved reviewed plan/);
+    expect(screen.queryByRole('button',{name:'Retry question'})).not.toBeInTheDocument();
+    expect(postWorldBuildAgentTurn).not.toHaveBeenCalled();
   });
 
   it('retires a reserved plan continuation across a source round trip',async()=>{
@@ -1032,7 +1053,7 @@ describe("one App-level World conversation host across Plan and Play", () => {
     view.rerender(<Harness initial='build' buildSourceId='other-source'/>);
     await act(async()=>{});
     view.rerender(<Harness initial='build' buildSourceId='source-one'/>);
-    await act(async()=>{resolve({plan:{...p,revision:2,dispatches:[dispatch],execution:[{command_id:stepId,step_id:stepId,status:'awaiting_dispatch',turn_id:null,attempt:null,result:null}]},dispatch});});
+    await act(async()=>{resolve({plan:{...p,revision:2,dispatches:[dispatch],execution:[{command_id:stepId,step_id:stepId,status:'awaiting_dispatch',turn_id:null,attempt:null,result:null}]},dispatch,reference:{conversation_id:p.conversation_id,source_turn_id:p.source_turn_id,command_id:dispatch.command_id}});});
     expect(postWorldBuildAgentTurn).not.toHaveBeenCalled();
   });
 

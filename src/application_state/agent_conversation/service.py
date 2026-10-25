@@ -768,6 +768,8 @@ class AgentConversationService:
             return turn
 
         with unit_of_work(dsn) as conn:
+            from .work_plan import validate_bound_intent
+            validate_bound_intent(conn, world_id, submitted_intent_v2, submission.idempotency_key)
             # Read the receipt before touching mutable pointer/CAS state. The
             # second read under the World pointer lock closes a concurrent
             # first-delivery race before any conversation revision advances.
@@ -821,7 +823,7 @@ class AgentConversationService:
             if advanced is None:
                 raise ApplicationStateConflictError("conversation revision mismatch")
             _, sequence = advanced
-            return repo.insert_turn(
+            admitted = repo.insert_turn(
                 conn,
                 turn_id=uuid4(),
                 request_fingerprint=fingerprint,
@@ -832,6 +834,9 @@ class AgentConversationService:
                 sequence=sequence,
                 now=now,
             )
+            from .work_plan import retain_bound_intent
+            retain_bound_intent(conn, admitted, submitted_intent_v2)
+            return admitted
 
     def reconcile_turn(
         self,
@@ -1264,6 +1269,19 @@ class AgentConversationService:
             turn = _ordinary_mutation_turn(turn, conversation_id)
             if turn is None or turn.conversation_id != conversation_id:
                 raise ApplicationStateNotFoundError("turn not found in verified World conversation")
+            from .work_plan import retained_bound_intent
+            bound_intent = retained_bound_intent(conn, turn)
+            from .types import BuildReviewedActionSelectionV1, BuildJevActionSelectionV1
+            if isinstance(event, BuildReviewedActionSelectionV1):
+                from .work_plan import validate_bound_intent
+                if bound_intent is None or bound_intent != event.intent:
+                    raise ApplicationStateValidationError("Reviewed event differs from admitted intent")
+                validate_bound_intent(conn, world_id, bound_intent, turn.idempotency_key)
+            if bound_intent is not None:
+                if isinstance(event, BuildJevActionSelectionV1):
+                    raise ApplicationStateValidationError("Model cannot select an admitted reviewed action again")
+                if isinstance(event, ProviderAttemptAuthorizedEventV1) and not any(isinstance(e, BuildReviewedActionSelectionV1) for e in turn.graph_context_execution.events):
+                    raise ApplicationStateValidationError("Reviewed action must precede provider authorization")
             from .types import BuildDraftProviderInclusionV1
             if isinstance(event, BuildDraftProviderInclusionV1):
                 from .build_draft_context import validate_inclusion_input
@@ -1634,6 +1652,15 @@ class AgentConversationService:
         from .types import BuildJevActionSelectionV1
         if not isinstance(selection, BuildJevActionSelectionV1):
             raise ApplicationStateValidationError("A typed Build selection is required")
+        return self._append_graph_execution_event(world_id, conversation_id, turn_id,
+            expected_revision=expected_revision, expected_attempt=expected_attempt,
+            event=selection, duplicate_key="event_id")
+
+    def record_build_reviewed_action_selection(self, world_id, conversation_id, turn_id, *,
+            expected_revision, expected_attempt, selection):
+        from .types import BuildReviewedActionSelectionV1
+        if not isinstance(selection, BuildReviewedActionSelectionV1):
+            raise ApplicationStateValidationError("A typed reviewed selection is required")
         return self._append_graph_execution_event(world_id, conversation_id, turn_id,
             expected_revision=expected_revision, expected_attempt=expected_attempt,
             event=selection, duplicate_key="event_id")

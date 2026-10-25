@@ -1019,6 +1019,7 @@ def _freeze_policy_receipt(
     build_jev_expected_state: Mapping[str, Any] | None = None,
     build_jev_accounting: Any = None,
     plan_jev_request: Any = None,
+    reviewed_admission: BuildGraphIntentV1 | None = None,
 ) -> tuple[PlanWorldGraphContextReceiptV1 | BuildGraphContextReceiptV1 | PlayWorldGraphContextReceiptV1, Any, tuple[list[str], list[str], list[str]]]:
     """Freeze exact first-request accounting and source-free initial evidence."""
     if request.surface.surface_id == "play" and request.play_target is not None:
@@ -1036,22 +1037,29 @@ def _freeze_policy_receipt(
             ) from exc
     graph_types = _app_state_graph_execution_types()
     initial_accounting = (budget.get("buildJevActions") or {}).get("controller_initial_accounting")
-    if initial_accounting is not None and (
+    if reviewed_admission is None and initial_accounting is not None and (
             view.get("apiMode") != "typesafe_decision" or build_jev_accounting is None
             or build_jev_accounting.descriptor != initial_accounting
             or initial_accounting != (budget.get("buildJevActions") or {}).get("controller_continuation_accounting")):
         raise ValueError("initial controller accounting lacks trusted preparation")
-    _verify_policy_plan_payload(view, request, work, playable_target, bootstrap,
-        build_jev_expected_state=build_jev_expected_state,
-        build_jev_accounting=build_jev_accounting if initial_accounting is not None else None,
-        plan_jev_request=plan_jev_request)
-    # Jev sees labels only. The initial Graph packet remains a host discovery
-    # commitment, never evidence exposure to the decision model.
-    packet = (_expected_initial_claim_packet(bootstrap) if plan_jev_request is not None else
-        _initial_claim_packet_from_view(
-            type("RequestView", (), {"payload_json": view["payloadJson"], "api_mode": view.get("apiMode")})(), bootstrap))
-    assertions, relationships, evidence = (([], [], []) if plan_jev_request is not None else
-        _initial_packet_membership(packet, bootstrap))
+    if reviewed_admission is not None:
+        from application_state.agent_conversation.work_plan import resolve_request_action
+        if reviewed_admission.reviewed_step is None or resolve_request_action(request, request.owner_scope.world_id) != reviewed_admission.reviewed_step:
+            raise ValueError("Host admission requires verified retained author authority")
+        manifest = {"schema":"dmb_reviewed_action_admission_v1", "intent":reviewed_admission.model_dump(mode="json", by_alias=True)}
+        admission_sha256 = _canonical_sha256(manifest)
+        packet = _expected_initial_claim_packet(bootstrap)
+        assertions, relationships, evidence = [], [], []
+    else:
+        _verify_policy_plan_payload(view, request, work, playable_target, bootstrap,
+            build_jev_expected_state=build_jev_expected_state,
+            build_jev_accounting=build_jev_accounting if initial_accounting is not None else None,
+            plan_jev_request=plan_jev_request)
+        packet = (_expected_initial_claim_packet(bootstrap) if plan_jev_request is not None else
+            _initial_claim_packet_from_view(
+                type("RequestView", (), {"payload_json": view["payloadJson"], "api_mode": view.get("apiMode")})(), bootstrap))
+        assertions, relationships, evidence = (([], [], []) if plan_jev_request is not None else
+            _initial_packet_membership(packet, bootstrap))
     basis = work.build_source if _governed_build_turn(request) else work.content_basis
     if basis is None or not _governed_graph_turn(request):
         raise AgentTurnServiceError("The committed Plan basis is unavailable for receipt freeze.", code="receipt_freeze_failed", status_code=503, provider_dispatched=False)
@@ -1105,8 +1113,8 @@ def _freeze_policy_receipt(
             provider_dispatched=False,
         )
     try:
-        provider_body = json.loads(view["payloadJson"])
-        upper_bound = (build_jev_accounting.estimate(provider_body) if initial_accounting is not None
+        provider_body = {} if reviewed_admission is not None else json.loads(view["payloadJson"])
+        upper_bound = 0 if reviewed_admission is not None else (build_jev_accounting.estimate(provider_body) if initial_accounting is not None
             else view["payloadUtf8Bytes"] + 64 * (1 + _json_node_count(provider_body)))
         if upper_bound + budget["outputReserveTokens"] > budget["contextLimitTokens"]:
             raise AgentTurnServiceError(
@@ -1162,9 +1170,9 @@ def _freeze_policy_receipt(
                 "assembler_version": bootstrap.assembler_version,
                 "budget_policy_version": ("plan_jev_semantic_initial_v1" if plan_jev_request is not None else
                     "build_jev_initial_estimate_v1" if initial_accounting is not None else
-                    "build_jev_first_basis_discovery_v1" if view.get("apiMode") == "typesafe_decision" else "plan_world_graph_budget_v1"),
-                "provider_model_name": view["model"],
-                "provider_model_version": view["model"],
+                    "build_jev_first_basis_discovery_v1" if view is not None and view.get("apiMode") == "typesafe_decision" else "plan_world_graph_budget_v1"),
+                "provider_model_name": "not_dispatched" if reviewed_admission is not None else view["model"],
+                "provider_model_version": "not_dispatched" if reviewed_admission is not None else view["model"],
                 "tokenizer_name": initial_accounting["policy"] if initial_accounting is not None else budget["estimator"],
                 "tokenizer_version": initial_accounting["tokenizer_version"] if initial_accounting is not None else "v1",
                 "provider_envelope_input_tokens": upper_bound,
@@ -1182,10 +1190,17 @@ def _freeze_policy_receipt(
                 }],
                 "included_history": [{"turn_id": str(turn_id), "answer_sha256": sha256(text.encode()).hexdigest()}
                     for turn_id, text in included_history if text and any(text == item for item in _nested_text_values(provider_body))],
-                "assembled_input_sha256": view["payloadSha256"],
+                "assembled_input_sha256": admission_sha256 if reviewed_admission is not None else view["payloadSha256"],
             },
             "evidence_mode": "metadata_only", "source_opened": False,
         }
+        if reviewed_admission is not None:
+            receipt_payload["assembled_input"].update(
+                assembler_version="reviewed_author_admission_v1", budget_policy_version="reviewed_author_admission_v1",
+                provider_model_name="not_dispatched", provider_model_version="not_dispatched",
+                tokenizer_name="not_applicable", tokenizer_version="not_applicable",
+                provider_envelope_input_tokens=0, output_token_reserve=0,
+                source_token_accounting=[], included_history=[], assembled_input_sha256=admission_sha256)
         # Build typed nested values before hashing so every default schema and
         # alias is included exactly as APP-STATE will persist it.
         receipt_type = graph_types.BuildGraphContextReceiptV1 if _governed_build_turn(request) else graph_types.PlanWorldGraphContextReceiptV1
@@ -1881,8 +1896,16 @@ class _PolicyExecutionAdapter:
             _initial_claim_packet_from_view(
                 type("RequestView", (), {"payload_json": view["payloadJson"], "api_mode": view.get("apiMode")})(),
                 self.bootstrap, frozen_projection=self.initial_session_projection))
-        membership = (([], [], []) if plan_jev_request is not None else
-            _initial_packet_membership(initial, self.bootstrap))
+        if plan_jev_request is None:
+            _initial_packet_membership(initial, self.bootstrap)
+        return self._claim_initial(view, plan_jev_request=plan_jev_request)
+
+    def claim_reviewed_action(self):
+        if not isinstance(self.submitted_intent, BuildGraphIntentV1) or self.submitted_intent.reviewed_step is None:
+            raise ValueError("Host admission is reserved for an exact reviewed action")
+        return self._claim_initial(None, reviewed_admission=self.submitted_intent)
+
+    def _claim_initial(self, view, *, plan_jev_request=None, reviewed_admission=None):
         if self.fence is not None:
             receipt = self.fence.turn.graph_context_receipt
             if receipt is None:
@@ -1905,7 +1928,7 @@ class _PolicyExecutionAdapter:
                 build_jev_expected_state=getattr(self, "_active_build_jev_expected_state", None),
                 included_history=getattr(self, "build_history_for_inclusion", ()),
                 build_jev_accounting=getattr(self, "_build_jev_accounting", None),
-                plan_jev_request=plan_jev_request,
+                plan_jev_request=plan_jev_request, reviewed_admission=reviewed_admission,
             )
             provenance = _conversation_provenance(
                 self.request,
@@ -1960,7 +1983,7 @@ class _PolicyExecutionAdapter:
                 or receipt.graph_authority.binding_version
                 != self.bootstrap.binding_version
                 or receipt.assembled_input.assembled_input_sha256
-                != view["payloadSha256"]
+                != (_canonical_sha256({"schema":"dmb_reviewed_action_admission_v1", "intent":reviewed_admission.model_dump(mode="json", by_alias=True)}) if reviewed_admission is not None else view["payloadSha256"])
             ):
                 raise AgentTurnServiceError(
                     "The retry provider envelope differs from the frozen receipt.",
@@ -2623,7 +2646,7 @@ class _PolicyExecutionAdapter:
             return False
         staged = getattr(self, "_build_writer_projection", None)
         if (staged is None or staged.event_sequence != len(self._broker_execution().events)
-                or staged.prior_provider_attempt_id != str(self.last_provider_attempt_id)):
+                or staged.prior_provider_attempt_id != (str(self.last_provider_attempt_id) if self.last_provider_attempt_id else None)):
             return False
         try:
             view = writer.prepared_view(prepared, staged, budget=self._frozen_build_writer_budget())
@@ -4912,7 +4935,12 @@ def _submitted_turn_intent(
         graph_selection=graph_selection,
     )
     if _governed_build_turn(request):
-        return BuildGraphIntentV1(**common, build_draft_context_sha256=(
+        from application_state.agent_conversation.work_plan import resolve_request_action
+        try:
+            reviewed_step = resolve_request_action(request, world_id)
+        except ApplicationStateError as exc:
+            raise AgentTurnServiceError(str(exc), code="reviewed_step_unavailable", status_code=409, provider_dispatched=False) from exc
+        return BuildGraphIntentV1(**common, reviewed_step=reviewed_step, build_draft_context_sha256=(
             None if request.build_draft_context is None else _canonical_sha256(request.build_draft_context.model_dump(mode="json", by_alias=True))), build_write_capability_sha256=(
             None if request.build_write_capability is None else _canonical_sha256(request.build_write_capability.model_dump(mode="json"))))
     if request.surface.surface_id == "play" and primary_work is not None and request.graph_request.mode == "none":

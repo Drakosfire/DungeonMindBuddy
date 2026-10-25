@@ -1,8 +1,10 @@
+import type {ReviewedStepReference} from '../api/types';
 import {useSyncExternalStore} from 'react';
 import {SELECTED_WORLD_LOCATION_CHANGED_EVENT} from '../selectedWorld/SelectedWorldContext';
 
 export interface SurfaceConversationRequest {
   id:string;worldId:string;surfaceId:string;objectId:string;message:string;clientThreadId:string;turnId:string;
+  reviewedStep?:ReviewedStepReference;
   status:'pending'|'claimed'|'failed';isCurrent:()=>boolean;prepare?:(context:unknown)=>Promise<void>;
 }
 let requests:readonly SurfaceConversationRequest[]=[];
@@ -15,7 +17,7 @@ export function queueSurfaceConversationRequest(request:Omit<SurfaceConversation
   if(!request.isCurrent())throw new Error('The authoring destination changed. Open its page to continue.');
   const existing=requests.find(item=>item.id===request.id);
   if(existing){
-    if(existing.worldId!==request.worldId||existing.surfaceId!==request.surfaceId||existing.objectId!==request.objectId||existing.message!==request.message)
+    if(existing.worldId!==request.worldId||existing.surfaceId!==request.surfaceId||existing.objectId!==request.objectId||existing.message!==request.message||JSON.stringify(existing.reviewedStep)!==JSON.stringify(request.reviewedStep))
       throw new Error('A different authoring request already owns this action.');
     if(existing.status==='failed')retrySurfaceConversationRequest(existing.id);
     return;

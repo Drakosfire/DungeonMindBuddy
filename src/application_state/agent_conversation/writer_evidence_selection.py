@@ -267,6 +267,8 @@ def validate_selection_proof(turn, selection, trace, proof):
             "event_sequence": auth.sequence,
             "prior_provider_attempt_id": str(auths[-2].provider_attempt_id),
         }
+        if receipt.assembled_input.assembler_version == "reviewed_author_admission_v1":
+            expected_history["author_admission_sha256"] = receipt.assembled_input.assembled_input_sha256
         preceding = execution.events[auth.sequence - 1] if auth.sequence else None
         if isinstance(preceding, t.BuildSectionProviderInclusionV1):
             expected_history["event_sequence"] -= 1

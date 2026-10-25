@@ -39,7 +39,7 @@ from .build_jev_transitions import (
 class ProposalWriterProjection:
     expected_json: str
     event_sequence: int
-    prior_provider_attempt_id: str
+    prior_provider_attempt_id: str | None
     authoring: bool = True
     source_only: bool = False
     source_event_ids: tuple = ()
@@ -210,7 +210,8 @@ class BuildJevHarness:
         self.failure_stage = "controller_prepare"
         primary_error = False
         try:
-            asyncio.run(self._decide(adapter, driver))
+            if driver._selection_intent is not None:
+                asyncio.run(self._decide(adapter, driver))
             self.failure_stage="context_acquisition"
             from .build_related_pages import acquire_selected_pages
             acquire_selected_pages(adapter)
@@ -664,7 +665,7 @@ class BuildJevHarness:
                 expected, ensure_ascii=False, sort_keys=True, separators=(",", ":")
             ),
             len(adapter._broker_execution().events),
-            str(adapter.last_provider_attempt_id),
+            str(adapter.last_provider_attempt_id) if adapter.last_provider_attempt_id is not None else None,
         )
 
         async def authorize(prepared):

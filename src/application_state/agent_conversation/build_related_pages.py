@@ -105,9 +105,10 @@ def project(execution):
     if catalog(execution.policy) is None:
         return None
     choices = [e for e in execution.events if isinstance(e, RelatedPagesSelection)]
-    if len(choices) != 1 or set(choices[0].document_ids) != {
+    empty_reviewed = not catalog(execution.policy) and not choices and any(e.kind == "build_reviewed_action_selected_v1" for e in execution.events)
+    if not empty_reviewed and (len(choices) != 1 or set(choices[0].document_ids) != {
         e.page.document_id for e in records(execution)
-    }:
+    }):
         raise ValueError("Related authoring context requires all selected saved reads")
     return {
         "policy": POLICY,

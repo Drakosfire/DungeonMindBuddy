@@ -2,7 +2,7 @@
 
 Status: ACTIVE implementation. Design independently approved at46ffef1b4357b1a399d6dad9e0d05b422921f3fb and merged via1757 at154c4d1594f6d6531318dd1d8b4b0e0b56c06f31. Implementation base154c4d1594f6d6531318dd1d8b4b0e0b56c06f31; branch codex/reviewed-action-binding, existing checkout. One serial implementation PR with independent Bugbot and protected paired delivery after verification.
 
-Original design authority: DESIGN REVIEW. PRIME/Buddy stewardship under the active connected-authoring goal. One focused design PR from base0b05bf58152e7f313d752d240be20a97ebddd0d7 on codex/reviewed-action-binding-design in the existing buddy-context-loop checkout. Exclusive design write lease: this file only. No runtime lease, implementation, provider requests, retained data edits or service changes in this PR. Open authoring lanes inspected; no competing implementation PR. Hosted, ingestion and combat lanes remain separate. Independent Bugbot reviews the exact design head before implementation activation.
+Original design authority: DESIGN REVIEW. PRIME/Buddy stewardship under the active connected-authoring goal. One focused design PR from base0b05bf58152e7f313d752d240be20a97ebddd0d7 on codex/reviewed-action-binding-design in the existing buddy-context-loop checkout. The merged design-only PR leased this file only and changed no runtime, provider, retained data or services. The activated implementation lease below supersedes that original design-only write boundary. Open authoring lanes inspected; no competing implementation PR. Hosted, ingestion and combat lanes remain separate. Independent Bugbot reviews the exact design head before implementation activation.
 
 ## Invariant and evidence
 
