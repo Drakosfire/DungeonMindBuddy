@@ -4,7 +4,7 @@ import {useOptionalMarkdownCanvasSession} from '../markdownCanvas/MarkdownCanvas
 import {useOptionalAgentInteraction} from '../agentInteraction/AgentInteractionProvider';
 import {SurfaceSelectionActions,captureSurfaceTextSelection} from '../surfaceInteraction/SurfaceSelectionActions';
 import {prepareConnectedPage,confirmConnectedPage,recoverConnectedPage,type ConnectedPageIntent,type ConnectedPageOperation} from '../api/connectedPageApi';
-import {LiveApiError,postManagedWorldGraphProjection} from '../api/liveApi';
+import {postManagedWorldGraphProjection} from '../api/liveApi';
 import {verifyManagedWorldGraphProjectionResponse} from '../worldGraph/verifyManagedWorldGraphProjectionResponse';
 import type {WorldGraphProjectionNodeView} from '../api/types';
 import {readConnectedPageRecovery,retainConnectedPageRequest,clearConnectedPageRequest,queueConnectedPageBuildOut} from './connectedPageAuthoring';
@@ -25,7 +25,6 @@ export function BuildConnectedPageControl({selectDocument,refreshDocuments,relat
   const [mode,setMode]=useState<'scaffold'|'build_out'>('scaffold'),[instructions,setInstructions]=useState('');
   const [reviewSeed,setReviewSeed]=useState<ConnectedPageReviewSeed|null>(null);
   const [reviewDraftError,setReviewDraftError]=useState('');
-  const [canStartFresh,setCanStartFresh]=useState(false);
   const [nodes,setNodes]=useState<WorldGraphProjectionNodeView[]>([]),[loading,setLoading]=useState(false);
   const world=session?.record?.world_id,documentId=session?.record?.document_id;
   const scope=useRef({world,documentId,epoch:0});
@@ -41,7 +40,7 @@ export function BuildConnectedPageControl({selectDocument,refreshDocuments,relat
   const captureScope=()=>{const epoch=scope.current.epoch;return()=>mounted.current&&scope.current.epoch===epoch;};
   useEffect(()=>{if(open&&dialog.current&&!dialog.current.open)dialog.current.showModal();},[open]);
   useEffect(()=>{
-    let active=true;busyRef.current=null;setBusy(false);setOpen(false);setOrigin(null);setRetained(null);setOperation(null);setPageOperation(null);setError('');setReviewSeed(null);setReviewDraftError('');setCanStartFresh(false);
+    let active=true;busyRef.current=null;setBusy(false);setOpen(false);setOrigin(null);setRetained(null);setOperation(null);setPageOperation(null);setError('');setReviewSeed(null);setReviewDraftError('');
     if(!world||!documentId)return;
     try{
       const saved=readConnectedPageRecovery(world,documentId);
@@ -122,7 +121,7 @@ export function BuildConnectedPageControl({selectDocument,refreshDocuments,relat
   async function create(){
     if(busyRef.current!==null||!world||!documentId||!origin||reviewDraftError)return;
     const isCurrent=captureScope();
-    const epoch=scope.current.epoch;busyRef.current=epoch;setBusy(true);setError('');setCanStartFresh(false);
+    const epoch=scope.current.epoch;busyRef.current=epoch;setBusy(true);setError('');
     try{
       let request=retained;
       if(!request){
@@ -154,19 +153,8 @@ export function BuildConnectedPageControl({selectDocument,refreshDocuments,relat
       try{
         const saved=readConnectedPageRecovery(world,documentId);
         if(saved){const recovered=await recoverConnectedPage(saved);if(isCurrent())setOperation(recovered);}
-      }catch(recoveryError){if(isCurrent()&&reason instanceof LiveApiError&&[409,422].includes(reason.status)&&recoveryError instanceof LiveApiError&&recoveryError.status===404)setCanStartFresh(true);/* Unknown outcomes never authorize replacement. */}
+      }catch{/* Absence does not fence a concurrent reservation; retain the exact request. */}
     }finally{if(busyRef.current===epoch)busyRef.current=null;if(isCurrent())setBusy(false);}
-  }
-  async function startFreshReview(){
-    if(!canStartFresh||!retained||!world||!documentId||busyRef.current!==null)return;
-    const isCurrent=captureScope(),request=retained;setBusy(true);busyRef.current=scope.current.epoch;
-    try{try{await recoverConnectedPage(request);throw new Error('The page operation now exists. Resume it instead.');}
-      catch(reason){if(!(reason instanceof LiveApiError)||reason.status!==404)throw reason;}
-      if(!isCurrent())return;
-      const key='dmb:connected-page-review-history:v1:'+JSON.stringify([world,documentId,request.operation_id]),bytes=JSON.stringify(request);sessionStorage.setItem(key,bytes);if(sessionStorage.getItem(key)!==bytes)throw new Error('The previous request could not be preserved.');
-      clearConnectedPageRequest(request,documentId);sessionStorage.removeItem('dmb:connected-page-review-draft:v1:'+JSON.stringify([world,documentId]));setRetained(null);setReviewSeed(null);setOrigin(null);setOperation(null);setCanStartFresh(false);setOpen(false);setError('Previous review preserved. Ask Buddy to reread the changed source before creating a fresh review.');
-    }catch(reason){if(isCurrent())setError(errorText(reason));}
-    finally{if(isCurrent()){busyRef.current=null;setBusy(false);}}
   }
   if(!session?.editor||!world||!documentId)return null;
   const frozen=!!retained;
@@ -205,7 +193,6 @@ export function BuildConnectedPageControl({selectDocument,refreshDocuments,relat
         {loading&&<p role="status">Finding existing people and places…</p>}
         {error&&<p role="alert">{error}</p>}
         {reviewDraftError&&reviewSeed&&<button type="button" onClick={()=>{setReviewDraftError('');setError('');}}>Try retaining review again</button>}
-        {canStartFresh&&<button type="button" disabled={busy} onClick={()=>{void startFreshReview();}}>Start a fresh review</button>}
         <footer><button type="submit" disabled={busy||loading||!!reviewDraftError||!origin||(!retained&&(!title.trim()||relationships.length>0&&(!personLabel.trim()||!personChoice)))}>{busy?'Creating…':retained?'↻ Retry':'Create page'}</button>
           {operation?.page&&<button type="button" onClick={()=>void openCreated(operation!,false)}>Open created page</button>}
         </footer>

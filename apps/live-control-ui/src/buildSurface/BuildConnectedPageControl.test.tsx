@@ -169,10 +169,10 @@ it('connects the actual conversation review card to the shared form without an e
  expect(vi.mocked(api.prepareConnectedPage).mock.calls[0][0]).toMatchObject({title:'Reviewed Copper Workshop',origin:{kind:'saved_page_excerpt',document_id:page,line_start:2,line_end:2,selected_text:'| Copper House | Repair lantern |'}});expect(editor.getJSON()).toEqual(before);
 });
 
-it('allows fresh review only after a known rejection and confirmed absent operation, preserving the old request',async()=>{
+it('retains the exact request after rejection and an absent recovery result',async()=>{
  vi.mocked(api.prepareConnectedPage).mockRejectedValue(new (await import('../api/liveApi')).LiveApiError('Saved source changed',409));
  vi.mocked(api.recoverConnectedPage).mockRejectedValue(new (await import('../api/liveApi')).LiveApiError('Not found',404));
  render(<><BuildConnectedPageControl selectDocument={vi.fn(async()=>true)} refreshDocuments={vi.fn()}/><ReviewProbe/></>);
- fireEvent.click(screen.getByRole('button',{name:'Open provided review'}));await waitFor(()=>expect(screen.getByRole('button',{name:'Create page'})).toBeEnabled());fireEvent.click(screen.getByRole('button',{name:'Create page'}));fireEvent.click(await screen.findByRole('button',{name:'Start a fresh review'}));
- await screen.findByText('Previous review preserved. Ask Buddy to reread the changed source before creating a fresh review.');expect(workflow.readConnectedPageRecovery('elderwyld',source)).toBeNull();expect(Object.keys(sessionStorage).some(k=>k.startsWith('dmb:connected-page-review-history:'))).toBe(true);
+ fireEvent.click(screen.getByRole('button',{name:'Open provided review'}));await waitFor(()=>expect(screen.getByRole('button',{name:'Create page'})).toBeEnabled());fireEvent.click(screen.getByRole('button',{name:'Create page'}));await screen.findByText('Saved source changed');
+ expect(screen.queryByRole('button',{name:'Start a fresh review'})).not.toBeInTheDocument();expect(workflow.readConnectedPageRecovery('elderwyld',source)?.operation_id).toBe(vi.mocked(api.prepareConnectedPage).mock.calls[0][0].operation_id);
 });
