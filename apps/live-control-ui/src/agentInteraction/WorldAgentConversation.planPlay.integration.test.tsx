@@ -1,3 +1,7 @@
+import { listBuildProposals } from "../api/buildDocumentProposalApi";
+vi.mock("../api/buildDocumentProposalApi", async (original) => ({
+  ...await original<typeof import("../api/buildDocumentProposalApi")>(), listBuildProposals: vi.fn(async () => []),
+}));
 import type { BuildComposeBridge, CapturedBuildInsertion } from "../buildSurface/buildComposeBridge";
 import { nativePlayContextFixture, nativePlayProvenanceFixture, nativePlayRequestFixture, nativePlaySourceFixture } from '../test/nativePlayContextFixture';
 import { rulesAnswerFixture, rulesUnclaimedFixture, fixtureHash } from '../test/rulesAnswerFixture';
@@ -978,13 +982,16 @@ describe("one App-level World conversation host across Plan and Play", () => {
           content_sha256: (scenario === "wrong_hash" || scenario === "removed_wrong_hash") ? "b".repeat(64) : SHA,
           object_revision: null, work_revision_id: null, revision_n: null } },
     }] };
+    const proposalReads = vi.mocked(listBuildProposals).mock.calls.length;
     fireEvent.click(screen.getByRole("button", { name: "Refresh shared history fixture" }));
     await screen.findByText("Frank and Sara operate the Rocky Talkie.");
     if (scenario === "correct" || scenario === "removed") {
       await waitFor(() => expect(screen.getByRole("button", { name: "Send message" })).toBeEnabled());
+      await waitFor(() => expect(vi.mocked(listBuildProposals).mock.calls.length).toBeGreaterThan(proposalReads));
       expect(localStorage.getItem(storedKey)).toBeNull();
       expect(screen.queryByRole("button", { name: "Retry", exact: true })).not.toBeInTheDocument();
     } else {
+      expect(vi.mocked(listBuildProposals).mock.calls.length).toBe(proposalReads);
       expect(screen.getByRole("button", { name: "Send message" })).toBeDisabled();
     }
     expect(screen.getByLabelText("Message DungeonBuddy")).toHaveValue("Keep my next question");

@@ -23,6 +23,23 @@ this handoff only. No row-follow scrolling, document edit, new Surface contract 
 other capability. Independent exact-head review and protected UI delivery remain
 required; ordinary visible growth and disconnect/reload gates remain open.
 
+## Rendered-proof correction — recovered proposal refresh
+
+PR1720 merged656783705258fc31cbae040f757d78b5f0d2cab6; protected UI adoption
+preserved2601 APP rows and unchanged API. Bog Blossom's first actual row appeared
+at6.052s inside the viewport (top383/bottom551 in655px). Ordinary reload at that
+point retired delivery; the exact turn completed once on attempt1 with unchanged
+source revision112/hash. Recovery settled the turn but left the proposal list at
+its earlier in-progress snapshot until another reload.
+PRIME authorizes one serial correction PR from656783705: refresh Build proposals
+only when validated exact pending-turn recovery settles unchanged/absent envelope
+bytes. Exclusive writes: WorldPlanAgentConversation.tsx, its existing mounted
+planPlay integration test, this handoff. No new execution, routing or persistence
+contract; no unrelated draft-storage change. Independent review and protected UI
+adoption plus ordinary reload proof are required. Newer unsent composer text is
+currently memory-only and was lost across reload; that distinct recovery gap
+remains open for its own bounded storage contract.
+
 ## Capability and ownership
 
 A requested Build table visibly grows at its captured page placement from actual

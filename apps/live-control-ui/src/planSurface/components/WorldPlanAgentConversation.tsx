@@ -2949,6 +2949,7 @@ export function WorldPlanAgentConversation({
               if (storedBytes === pendingPlayTurn.serialized) window.localStorage.removeItem(pendingPlayTurn.storageKey);
               setPendingPlayTurn(null);
               setPendingPlayLoadError(null);
+              if (pendingPlayTurn.request.primary_work.kind === "build") buildCompose.refresh();
             } else {
               setPendingPlayLoadError("The saved request changed. Review its recovery record before another turn.");
             }
