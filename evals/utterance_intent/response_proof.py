@@ -178,6 +178,141 @@ def validate(cases):
         assert host in {None, "answer_from_sources"}
 
 
+def image_status(row):
+    response = row.get("response")
+    if response is None:
+        return "unknown" if row.get("routing_provider_calls") else "not_applicable"
+    answer = response.get("answers", {}).get("operation", {})
+    if answer.get("selected") != "prepare_build_image":
+        return "not_applicable"
+    probability = answer.get("probabilities", {}).get("prepare_build_image")
+    if not isinstance(probability, (int, float)) or isinstance(probability, bool):
+        return "unknown"
+    return "passed" if probability >= 0.9 else "refused"
+
+
+def summarize(rows):
+    groups = []
+    for variant in ("captured", "candidate"):
+        for family in sorted({r["family"] for r in rows} | {"all"}):
+            subset = [
+                r
+                for r in rows
+                if r["variant"] == variant
+                and (family == "all" or r["family"] == family)
+            ]
+            scored = [r for r in subset if r["expected"] is not None]
+            unique = {}
+            for row in scored:
+                unique.setdefault(row["question_sha256"], []).append(row)
+            calls = [r for r in subset if r["routing_provider_calls"]]
+            observations = [
+                (r.get("response") or {}).get("observation")
+                or r.get("failure_observation")
+                for r in calls
+            ]
+
+            def known(value, key):
+                return (
+                    isinstance(value, dict)
+                    and isinstance(value.get(key), int)
+                    and not isinstance(value.get(key), bool)
+                )
+
+            groups.append(
+                {
+                    "variant": variant,
+                    "family": family,
+                    "runs": len(subset),
+                    "scored": len(scored),
+                    "correct": sum(r["correct"] is True for r in scored),
+                    "correct_with_image_gate": sum(
+                        r["correct"] is True
+                        and r["error"] is None
+                        and image_status(r) in {"passed", "not_applicable"}
+                        for r in scored
+                    ),
+                    "pending": len(subset) - len(scored),
+                    "unique_scored": len(unique),
+                    "unique_all_correct": sum(
+                        all(r["correct"] for r in group) for group in unique.values()
+                    ),
+                    "errors": sum(r["error"] is not None for r in subset),
+                    "image_gate_failures": sum(
+                        image_status(r) == "refused" for r in subset
+                    ),
+                    "image_gate_unknown": sum(
+                        image_status(r) == "unknown" for r in subset
+                    ),
+                    "sdk_call_attempts": sum(
+                        r["routing_provider_calls"] for r in subset
+                    ),
+                    "known_input_tokens": sum(
+                        o["input_tokens"]
+                        for o in observations
+                        if known(o, "input_tokens")
+                    ),
+                    "known_output_tokens": sum(
+                        o["output_tokens"]
+                        for o in observations
+                        if known(o, "output_tokens")
+                    ),
+                    "usage_complete": all(
+                        known(o, "input_tokens") and known(o, "output_tokens")
+                        for o in observations
+                    ),
+                    "calls_with_unknown_usage": sum(
+                        not (known(o, "input_tokens") and known(o, "output_tokens"))
+                        for o in observations
+                    ),
+                }
+            )
+    return groups
+
+
+def audit_existing(cases, output):
+    frozen = json.loads((output / "frozen.json").read_text())
+    assert frozen["registry_source"] == Path(registry.__file__).read_text()
+    assert frozen["cases"] == cases
+    rows = []
+    for case in cases:
+        for variant in ("captured", "candidate"):
+            for repeat in range(2):
+                row = json.loads(
+                    (output / f"{case['id']}-{variant}-{repeat}.json").read_text()
+                )
+                request, host = (
+                    candidate(case["control"])
+                    if variant == "candidate"
+                    else (case["control"], None)
+                )
+                assert row["request"] == request and row["request_sha256"] == digest(
+                    request
+                )
+                assert (
+                    row["host_channel"] == host and row["expected"] == case["expected"]
+                )
+                rows.append(row)
+    annotation = {
+        "policy": "response-failure-accounting-audit-v1",
+        "no_new_calls": True,
+        "frozen_file_sha256": sha256((output / "frozen.json").read_bytes()).hexdigest(),
+        "original_report_sha256": sha256(
+            (output / "report.json").read_bytes()
+        ).hexdigest(),
+        "audit_evaluator_sha256": sha256(Path(__file__).read_bytes()).hexdigest(),
+        "groups": summarize(rows),
+        "limits": [
+            "Original frozen inputs/evaluator/results unchanged.",
+            "Route-and-image scores do not prove actual APP admission or useful writer output.",
+            "SDK call attempts include auxiliary-only questions on host singleton rows; they are not routing model selections.",
+        ],
+    }
+    with (output / "failure-accounting-audit.json").open("x") as target:
+        target.write(json.dumps(annotation, indent=2))
+    print(json.dumps({"groups": annotation["groups"]}))
+
+
 async def run(cases, output):
     from generationengine import GenerationClient
     from generationengine.types import DecisionRequest
@@ -247,15 +382,14 @@ async def run(cases, output):
                     if case["original_expected"] is None
                     else row["selected"] == case["original_expected"]
                 )
-                answer = (row["response"] or {}).get("answers", {}).get("operation", {})
-                row["image_gate_passed"] = (
-                    row["selected"] != "prepare_build_image"
-                    or answer.get("probabilities", {}).get("prepare_build_image", 0)
-                    >= 0.9
-                )
             except Exception as exc:
                 row["error"] = {"type": type(exc).__name__, "message": str(exc)}
-                row["image_gate_passed"] = False
+                observation = getattr(exc, "observation", None)
+                if hasattr(observation, "model_dump"):
+                    observation = observation.model_dump(mode="json")
+                row["failure_observation"] = (
+                    observation if isinstance(observation, dict) else None
+                )
             row["elapsed_ms"] = (time.monotonic() - start) * 1000
         (output / f"{case['id']}-{variant}-{repeat}.json").write_text(
             json.dumps(row, indent=2)
@@ -275,54 +409,7 @@ async def run(cases, output):
         )
     finally:
         await client.aclose()
-    groups = []
-    for variant in ("captured", "candidate"):
-        for family in sorted({r["family"] for r in rows} | {"all"}):
-            subset = [
-                r
-                for r in rows
-                if r["variant"] == variant
-                and (family == "all" or r["family"] == family)
-            ]
-            scored = [r for r in subset if r["expected"] is not None]
-            unique = {}
-            for row in scored:
-                unique.setdefault(row["question_sha256"], []).append(row)
-            observations = [
-                r["response"]["observation"]
-                for r in subset
-                if r["response"] is not None
-            ]
-            groups.append(
-                {
-                    "variant": variant,
-                    "family": family,
-                    "runs": len(subset),
-                    "scored": len(scored),
-                    "correct": sum(r["correct"] is True for r in scored),
-                    "pending": len(subset) - len(scored),
-                    "unique_scored": len(unique),
-                    "unique_all_correct": sum(
-                        all(r["correct"] for r in group) for group in unique.values()
-                    ),
-                    "errors": sum(r["error"] is not None for r in subset),
-                    "image_gate_failures": sum(
-                        not r["image_gate_passed"] for r in subset
-                    ),
-                    "actual_calls": sum(r["routing_provider_calls"] for r in subset),
-                    "known_input_tokens": sum(
-                        o.get("input_tokens") or 0 for o in observations
-                    ),
-                    "known_output_tokens": sum(
-                        o.get("output_tokens") or 0 for o in observations
-                    ),
-                    "usage_complete": all(
-                        isinstance(o.get("input_tokens"), int)
-                        and isinstance(o.get("output_tokens"), int)
-                        for o in observations
-                    ),
-                }
-            )
+    groups = summarize(rows)
     report = {
         "manifest_sha256": digest(manifest),
         "groups": groups,
@@ -341,6 +428,7 @@ def main():
     parser.add_argument("--regression", type=Path, required=True)
     parser.add_argument("--output", type=Path)
     parser.add_argument("--validate-only", action="store_true")
+    parser.add_argument("--audit-existing", action="store_true")
     args = parser.parse_args()
     cases = cases_for(args.prior, args.regression)
     validate(cases)
@@ -349,7 +437,10 @@ def main():
         return
     if args.output is None:
         parser.error("--output required")
-    asyncio.run(run(cases, args.output))
+    if args.audit_existing:
+        audit_existing(cases, args.output)
+    else:
+        asyncio.run(run(cases, args.output))
 
 
 if __name__ == "__main__":
