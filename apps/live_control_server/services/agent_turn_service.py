@@ -1300,7 +1300,9 @@ def _freeze_policy_receipt(
                 policy_class=(graph_types.BuildCollaborationImagePolicyV1
                     if (budget.get("buildJevActions") or {}).get("image_preparation_policy") is not None
                     else graph_types.BuildCollaborationPolicyV1)
-            if (budget.get("buildJevActions") or {}).get("connected_page_review_policy") is not None:
+            if (budget.get("buildJevActions") or {}).get("source_quote_binding_policy") is not None:
+                policy_class=(graph_types.BuildSourceQuoteImagePolicyV1 if (budget.get("buildJevActions") or {}).get("image_preparation_policy") is not None else graph_types.BuildSourceQuotePolicyV1)
+            elif (budget.get("buildJevActions") or {}).get("connected_page_review_policy") is not None:
                 policy_class=(graph_types.BuildConnectedPageReviewImagePolicyV1 if (budget.get("buildJevActions") or {}).get("image_preparation_policy") is not None else graph_types.BuildConnectedPageReviewPolicyV1)
             policy = policy_class(
                 **({"driver_schema": "dmb_plan_jev_retrieval_v1",
@@ -2435,6 +2437,9 @@ class _PolicyExecutionAdapter:
         collaboration_policy=getattr(self._broker_execution().policy,"collaboration_output_policy",None)
         if collaboration_policy is not None:
             expected_budget["buildJevActions"]["collaboration_output_policy"]=collaboration_policy
+        quote_policy=getattr(self._broker_execution().policy,"source_quote_binding_policy",None)
+        if quote_policy is not None:
+            expected_budget["buildJevActions"]["source_quote_binding_policy"]=quote_policy
         connected_policy=getattr(self._broker_execution().policy,"connected_page_review_policy",None)
         if connected_policy is not None:
             expected_budget["buildJevActions"]["connected_page_review_policy"]=connected_policy

@@ -363,12 +363,16 @@ def validate_writer_format(fmt: dict, packet: dict) -> None:
         schema = output_schema()
     elif name == FINITE_SCHEMA_NAME:
         schema = finite_output_schema(packet)
-    elif name in {"build_working_draft_answer_v1", "build_working_draft_answer_v2", "build_working_draft_answer_v3"}:
+    elif name in {"build_working_draft_answer_v1", "build_working_draft_answer_v2", "build_working_draft_answer_v3", "build_working_draft_answer_v4"}:
         from .collaboration import POLICY as COLLABORATION_POLICY, FORMAT as COLLABORATION_FORMAT
         from .collaboration import CONNECTED_POLICY, CONNECTED_FORMAT
-        if (name==CONNECTED_FORMAT)!=(packet.get("connected_page_review_policy")==CONNECTED_POLICY):
+        from .source_quote_binding import enabled, FORMAT as QUOTE_FORMAT
+        quoted = enabled(packet)
+        if (name == QUOTE_FORMAT) != quoted:
+            raise ValueError("Writer format differs from its source quote capability")
+        if (name in {CONNECTED_FORMAT,QUOTE_FORMAT})!=(packet.get("connected_page_review_policy")==CONNECTED_POLICY):
             raise ValueError("Writer format differs from its connected page review capability")
-        if (name in {COLLABORATION_FORMAT,CONNECTED_FORMAT}) != (packet.get("collaboration_output_policy") == COLLABORATION_POLICY):
+        if (name in {COLLABORATION_FORMAT,CONNECTED_FORMAT,QUOTE_FORMAT}) != (packet.get("collaboration_output_policy") == COLLABORATION_POLICY):
             raise ValueError("Writer format differs from its collaboration capability")
         from .build_draft_answer import output_schema as draft_schema
         schema = draft_schema(packet)

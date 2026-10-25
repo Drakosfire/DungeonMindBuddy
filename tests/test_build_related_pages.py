@@ -61,6 +61,7 @@ class PagesDecision(WorldDecisions):
 class PagesWriter(WriterWire):
     collaboration = None
     connected = False
+    invalid_quote = False
 
     async def handle_async_request(self, request):
         wire = json.loads(request.content)
@@ -73,10 +74,16 @@ class PagesWriter(WriterWire):
         if wire["text"]["format"]["name"] == "build_document_proposal":
             return response
         packet = json.loads(wire["input"])
-        from application_state.agent_conversation.build_draft_answer import source_claim_limitations
+        from application_state.agent_conversation.build_draft_answer import (
+            source_claim_limitations,
+        )
+
         required = sorted(source_claim_limitations(packet))
         if required:
-            assert "limitations MUST include these exact codes: " + json.dumps(required) in wire["instructions"]
+            assert (
+                "limitations MUST include these exact codes: " + json.dumps(required)
+                in wire["instructions"]
+            )
         if self.connected:
             assert "one short suggestion segment without" in wire["instructions"]
         row = packet["related_authored_pages"]["pages"][0]
@@ -118,6 +125,20 @@ class PagesWriter(WriterWire):
                 ),
             }
         )
+        if packet.get("source_quote_binding_policy"):
+            value = json.loads(raw)
+            for segment in value["answer_segments"]:
+                if segment["kind"] == "related_page_claim":
+                    segment["supporting_quotes"] = [
+                        "Unrelated wrong-page passage"
+                        if self.invalid_quote
+                        else "Copper House | Repair the lantern before dusk."
+                    ]
+            raw = json.dumps(value)
+            assert (
+                "A valid ID from a different page is not support"
+                in wire["instructions"]
+            )
         data = response.json()
         data["output"][0]["content"][0]["text"] = raw
         return httpx.Response(200, request=request, json=data)
@@ -128,7 +149,14 @@ def completed(build_case, monkeypatch, tmp_path, request):
     mode = getattr(request, "param", "answer_from_sources")
     operation = (
         "answer_from_sources"
-        if mode in {"interrupted", "typed_plan", "typed_questions", "connected_page"}
+        if mode
+        in {
+            "interrupted",
+            "typed_plan",
+            "typed_questions",
+            "connected_page",
+            "invalid_quote",
+        }
         else mode
     )
     from tests.application_state.test_agent_conversation_postgres import _new
@@ -227,6 +255,7 @@ def completed(build_case, monkeypatch, tmp_path, request):
         request = request.model_copy(update={"build_write_capability": cap})
     writer = PagesWriter()
     writer.connected = mode == "connected_page"
+    writer.invalid_quote = mode == "invalid_quote"
     if mode == "typed_plan":
         writer.collaboration = {
             "kind": "plan",
@@ -271,6 +300,22 @@ def completed(build_case, monkeypatch, tmp_path, request):
             )
         turn = service.list_turns("elderwyld", conversation.conversation_id)[0]
         assert turn.status == "interrupted" and not reads
+        return turn, service, page, body, reads, writer, decisions
+    if mode == "invalid_quote":
+        from apps.live_control_server.services.agent_turn_service import (
+            AgentTurnServiceError,
+        )
+
+        with pytest.raises(AgentTurnServiceError):
+            execute(
+                (source, request, bootstrap),
+                tmp_path,
+                harness,
+                operator_subject="local_operator",
+            )
+        turn = service.list_turns("elderwyld", conversation.conversation_id)[0]
+        assert turn.status == "interrupted" and reads
+        assert turn.completion is None
         return turn, service, page, body, reads, writer, decisions
     response = execute(
         (source, request, bootstrap),
@@ -523,7 +568,7 @@ def test_typed_workflow_survives_actual_writer_and_app_admission(completed):
     assert (
         packet["collaboration_output_policy"] == "typed_author_review_collaboration_v1"
     )
-    assert request["text"]["format"]["name"] == "build_working_draft_answer_v3"
+    assert request["text"]["format"]["name"] == "build_working_draft_answer_v4"
     assert turn.completion.collaboration.model_dump(mode="json") == writer.collaboration
     reloaded = service.list_turns(turn.world_id, turn.conversation_id)[0]
     assert reloaded.completion == turn.completion
@@ -625,3 +670,20 @@ def test_connected_review_downgrade_refuses_retained_capability(
                     ).downgrade()
     finally:
         engine.dispose()
+
+
+@pytest.mark.parametrize("completed", ["invalid_quote"], indirect=True)
+def test_wrong_page_quote_is_rejected_through_sdk_and_app(completed):
+    turn, service, *_ = completed
+    assert turn.completion is None
+    assert turn.failure_code == "plan_context_delivery_failure"
+    traces = service.list_context_trace_attempts(
+        world_id=turn.world_id, turn_id=turn.turn_id
+    )
+    failures = [
+        o for trace in traces for o in trace.observations if o.kind == "failure"
+    ]
+    assert any(
+        o.stage == "completion_validation" and o.exception_type == "ValueError"
+        for o in failures
+    )
