@@ -4,7 +4,7 @@ import {useOptionalMarkdownCanvasSession} from '../markdownCanvas/MarkdownCanvas
 import {useOptionalAgentInteraction} from '../agentInteraction/AgentInteractionProvider';
 import {SurfaceSelectionActions,captureSurfaceTextSelection} from '../surfaceInteraction/SurfaceSelectionActions';
 import {prepareConnectedPage,confirmConnectedPage,recoverConnectedPage,type ConnectedPageIntent,type ConnectedPageOperation} from '../api/connectedPageApi';
-import {postManagedWorldGraphProjection,LiveApiError} from '../api/liveApi';
+import {postManagedWorldGraphProjection} from '../api/liveApi';
 import {verifyManagedWorldGraphProjectionResponse} from '../worldGraph/verifyManagedWorldGraphProjectionResponse';
 import type {WorldGraphProjectionNodeView} from '../api/types';
 import {readConnectedPageRecovery,retainConnectedPageRequest,clearConnectedPageRequest,queueConnectedPageBuildOut} from './connectedPageAuthoring';
@@ -13,9 +13,8 @@ const errorText=(reason:unknown)=>reason instanceof Error?reason.message:'The pa
 export function BuildConnectedPageControl({selectDocument,refreshDocuments}:{selectDocument:(id:string)=>Promise<boolean>;refreshDocuments:()=>unknown}){
   const session=useOptionalMarkdownCanvasSession(),agent=useOptionalAgentInteraction();
   const current=useRef(session);current.current=session;
-  const dialog=useRef<HTMLDialogElement>(null),busyRef=useRef(false),mounted=useRef(true);
+  const dialog=useRef<HTMLDialogElement>(null),busyRef=useRef<number|null>(null),mounted=useRef(true);
   const [open,setOpen]=useState(false),[busy,setBusy]=useState(false),[error,setError]=useState('');
-  const [missingOperation,setMissingOperation]=useState(false);
   const [origin,setOrigin]=useState<ConnectedPageIntent['origin']|null>(null),[retained,setRetained]=useState<ConnectedPageIntent|null>(null);
   const [operation,setOperation]=useState<ConnectedPageOperation|null>(null),[pageOperation,setPageOperation]=useState<ConnectedPageOperation|null>(null);
   const [title,setTitle]=useState(''),[personLabel,setPersonLabel]=useState(''),[personChoice,setPersonChoice]=useState('');
@@ -23,14 +22,17 @@ export function BuildConnectedPageControl({selectDocument,refreshDocuments}:{sel
   const [mode,setMode]=useState<'scaffold'|'build_out'>('scaffold'),[instructions,setInstructions]=useState('');
   const [nodes,setNodes]=useState<WorldGraphProjectionNodeView[]>([]),[loading,setLoading]=useState(false);
   const world=session?.record?.world_id,documentId=session?.record?.document_id;
-  useEffect(()=>{mounted.current=true;return()=>{mounted.current=false;};},[]);
+  const scope=useRef({world,documentId,epoch:0});
+  if(scope.current.world!==world||scope.current.documentId!==documentId)scope.current={world,documentId,epoch:scope.current.epoch+1};
+  useEffect(()=>{mounted.current=true;return()=>{mounted.current=false;scope.current.epoch+=1;};},[]);
+  const captureScope=()=>{const epoch=scope.current.epoch;return()=>mounted.current&&scope.current.epoch===epoch;};
   useEffect(()=>{if(open&&dialog.current&&!dialog.current.open)dialog.current.showModal();},[open]);
   useEffect(()=>{
-    let active=true;setRetained(null);setOperation(null);setPageOperation(null);setError('');setMissingOperation(false);
+    let active=true;busyRef.current=null;setBusy(false);setOpen(false);setOrigin(null);setRetained(null);setOperation(null);setPageOperation(null);setError('');
     if(!world||!documentId)return;
     try{
       const saved=readConnectedPageRecovery(world,documentId);
-      if(saved){setRetained(saved);void recoverConnectedPage(saved).then(result=>{if(active){setOperation(result);setMissingOperation(false);}}).catch(reason=>{if(active&&reason instanceof LiveApiError&&reason.status===404)setMissingOperation(true);});}
+      if(saved){setRetained(saved);void recoverConnectedPage(saved).then(result=>{if(active)setOperation(result);}).catch(()=>{/* Unknown outcomes retain the exact request; absence is not cancellation. */});}
     }catch(reason){setError(errorText(reason));}
     return()=>{active=false;};
   },[world,documentId]);
@@ -78,11 +80,13 @@ export function BuildConnectedPageControl({selectDocument,refreshDocuments}:{sel
   const matches=(label:string,kind:string)=>nodes.filter(n=>n.kind===kind&&(n.label.toLowerCase()===label.trim().toLowerCase()
     ||n.aliases?.some(alias=>alias.toLowerCase()===label.trim().toLowerCase())));
   const people=matches(personLabel,'npc'),places=matches(title,'location');
-  async function openCreated(result:ConnectedPageOperation,buildOut:boolean){
+  async function openCreated(result:ConnectedPageOperation,buildOut:boolean,isCurrent=captureScope()){
+    if(!isCurrent())return;
     if(!result.page)throw new Error("The created page is not available yet.");
     refreshDocuments();
     const applied=await selectDocument(result.page.document_id);
     if(!applied)throw new Error("The page was created. Open it again to continue.");
+    if(!mounted.current)return;
     if(buildOut){queueConnectedPageBuildOut(result);agent?.setPaneOpen(true);}
     if(result.phase==='complete'){
       const pending=readConnectedPageRecovery(result.intent.world_id,result.intent.origin.document_id);
@@ -90,8 +94,9 @@ export function BuildConnectedPageControl({selectDocument,refreshDocuments}:{sel
     }
   }
   async function create(){
-    if(busyRef.current||!world||!documentId||!origin)return;
-    busyRef.current=true;setBusy(true);setError('');
+    if(busyRef.current!==null||!world||!documentId||!origin)return;
+    const isCurrent=captureScope();
+    const epoch=scope.current.epoch;busyRef.current=epoch;setBusy(true);setError('');
     try{
       let request=retained;
       if(!request){
@@ -109,19 +114,22 @@ export function BuildConnectedPageControl({selectDocument,refreshDocuments}:{sel
         retainConnectedPageRequest(request);setRetained(request);
       }
       let result=await prepareConnectedPage(request);
-      if(mounted.current)setOperation(result);
+      if(!isCurrent())return;
+      setOperation(result);
       if(result.phase==='prepared')result=await confirmConnectedPage(result);
+      if(!isCurrent())return;
       if(result.phase!=='complete')throw new Error('The created page is retained; its connections have not finished.');
       if(mounted.current)setOperation(result);
-      await openCreated(result,request.mode==='build_out');
-      if(mounted.current){setOpen(false);setRetained(null);}
+      await openCreated(result,request.mode==='build_out',isCurrent);
+      if(isCurrent()){setOpen(false);setRetained(null);}
     }catch(reason){
-      if(mounted.current)setError(errorText(reason));
+      if(!isCurrent())return;
+      setError(errorText(reason));
       try{
         const saved=readConnectedPageRecovery(world,documentId);
-        if(saved){const recovered=await recoverConnectedPage(saved);if(mounted.current){setOperation(recovered);setMissingOperation(false);}}
-      }catch(readError){if(mounted.current&&readError instanceof LiveApiError&&readError.status===404)setMissingOperation(true);}
-    }finally{busyRef.current=false;if(mounted.current)setBusy(false);}
+        if(saved){const recovered=await recoverConnectedPage(saved);if(isCurrent())setOperation(recovered);}
+      }catch{/* Keep exact intent even on 404: the original request may still be starting. */}
+    }finally{if(busyRef.current===epoch)busyRef.current=null;if(isCurrent())setBusy(false);}
   }
   if(!session?.editor||!world||!documentId)return null;
   const frozen=!!retained;
@@ -143,11 +151,11 @@ export function BuildConnectedPageControl({selectDocument,refreshDocuments}:{sel
         <fieldset disabled={busy||frozen}>
           <label>Page title<input value={displayed?.title??title} onChange={event=>{setTitle(event.target.value);setPlaceChoice('__new__');}} required maxLength={200}/></label>
           <label>Location<select value={displayed?.place.node_id??(displayed?'__new__':placeChoice)} onChange={event=>setPlaceChoice(event.target.value)}>
-            <option value="__new__">New location: {displayed?.place.label??title}</option>{places.map(n=><option key={n.nodeId} value={n.nodeId}>Existing: {n.label}</option>)}
+            <option value="__new__">New location: {displayed?.place.label??title}</option>{places.map(n=><option key={n.nodeId} value={n.nodeId}>Existing: {n.label} ({n.nodeId})</option>)}
           </select></label>
           <label>Related person (optional)<input value={displayed?.person?.label??personLabel} onChange={event=>{setPersonLabel(event.target.value);setPersonChoice('');}} placeholder="Who owns or runs this place?"/></label>
           {(personLabel||displayed?.person)&&<><label>Person identity<select value={displayed?.person?.node_id??(displayed?.person?'__new__':personChoice)} onChange={event=>setPersonChoice(event.target.value)}>
-            <option value="">Choose a person</option>{people.map(n=><option key={n.nodeId} value={n.nodeId}>Existing: {n.label}</option>)}
+            <option value="">Choose a person</option>{people.map(n=><option key={n.nodeId} value={n.nodeId}>Existing: {n.label} ({n.nodeId})</option>)}
             <option value="__new__">New person: {personLabel}</option></select></label>
             <div className="connected-page-relationships">{(['owns','operates'] as const).map(predicate=><label key={predicate}><input type="checkbox" checked={(displayed?.relationships??relationships).includes(predicate)}
               onChange={event=>setRelationships(before=>event.target.checked?[...before,predicate]:before.filter(p=>p!==predicate))}/>{displayed?.person?.label??personLabel} {predicate} {displayed?.title??title}</label>)}</div></>}
@@ -159,10 +167,7 @@ export function BuildConnectedPageControl({selectDocument,refreshDocuments}:{sel
         </fieldset>
         {loading&&<p role="status">Finding existing people and places…</p>}
         {error&&<p role="alert">{error}</p>}
-        <footer>{retained&&missingOperation&&<button type="button" onClick={()=>{
-          try{clearConnectedPageRequest(retained);setRetained(null);setOperation(null);setMissingOperation(false);setOrigin(null);setOpen(false);setError('');}
-          catch(reason){setError(errorText(reason));}
-        }}>Choose a new selection</button>}<button type="submit" disabled={busy||loading||!origin||(!retained&&(!title.trim()||relationships.length>0&&(!personLabel.trim()||!personChoice)))}>{busy?'Creating…':retained?'↻ Retry':'Create page'}</button>
+        <footer><button type="submit" disabled={busy||loading||!origin||(!retained&&(!title.trim()||relationships.length>0&&(!personLabel.trim()||!personChoice)))}>{busy?'Creating…':retained?'↻ Retry':'Create page'}</button>
           {operation?.page&&<button type="button" onClick={()=>void openCreated(operation!,false)}>Open created page</button>}
         </footer>
       </form>

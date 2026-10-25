@@ -79,18 +79,44 @@ it('refuses a source edited after capture before any request',async()=>{
  act(()=>{editor.commands.insertContent('changed');});fireEvent.click(screen.getByRole('button',{name:'Create page'}));
  await screen.findByText('The source changed. Close this form and select the passage again.');expect(api.prepareConnectedPage).not.toHaveBeenCalled();
 });
-it('allows a new capture only after the server confirms no operation exists',async()=>{
+it('retains an uncertain request even when its recovery read returns not found',async()=>{
  const {LiveApiError}=await import('../api/liveApi');
  vi.mocked(api.prepareConnectedPage).mockRejectedValueOnce(new LiveApiError('Saved source changed',409));
  vi.mocked(api.recoverConnectedPage).mockRejectedValue(new LiveApiError('Not found',404));
  render(<BuildConnectedPageControl selectDocument={vi.fn(async()=>true)} refreshDocuments={vi.fn()}/>);await open();
  fireEvent.click(screen.getByRole('button',{name:'Create page'}));
- fireEvent.click(await screen.findByRole('button',{name:'Choose a new selection'}));
- expect(workflow.readConnectedPageRecovery('elderwyld',source)).toBeNull();expect(api.prepareConnectedPage).toHaveBeenCalledTimes(1);
+ await screen.findByText('Saved source changed');
+ expect(screen.queryByRole('button',{name:'Choose a new selection'})).not.toBeInTheDocument();
+ expect(workflow.readConnectedPageRecovery('elderwyld',source)).not.toBeNull();expect(api.prepareConnectedPage).toHaveBeenCalledTimes(1);
 });
 it('does not dispatch creation when this tab cannot retain its exact request',async()=>{
  render(<BuildConnectedPageControl selectDocument={vi.fn(async()=>true)} refreshDocuments={vi.fn()}/>);await open();
  vi.spyOn(Storage.prototype,'setItem').mockImplementation(()=>{throw new Error('Storage unavailable');});
  fireEvent.click(screen.getByRole('button',{name:'Create page'}));await screen.findByText('Storage unavailable');
  expect(api.prepareConnectedPage).not.toHaveBeenCalled();expect(api.confirmConnectedPage).not.toHaveBeenCalled();
+});
+
+it.each(['document','world','unmount'] as const)('does not activate or confirm a late prepare after %s departure',async departure=>{
+ let finish!:(value:ConnectedPageOperation)=>void;let request!:ConnectedPageIntent;
+ vi.mocked(api.prepareConnectedPage).mockImplementation(value=>{request=value;return new Promise(resolve=>{finish=resolve;});});
+ const select=vi.fn(async()=>true),view=render(<BuildConnectedPageControl selectDocument={select} refreshDocuments={vi.fn()}/>);await open();
+ fireEvent.click(screen.getByRole('button',{name:'Create page'}));await waitFor(()=>expect(api.prepareConnectedPage).toHaveBeenCalledTimes(1));
+ if(departure==='unmount')view.unmount();else{state.session={...state.session,record:{...state.session.record,[departure==='world'?'world_id':'document_id']:'other'}};view.rerender(<BuildConnectedPageControl selectDocument={select} refreshDocuments={vi.fn()}/>);}
+ await act(async()=>{finish(operation(request));});expect(api.confirmConnectedPage).not.toHaveBeenCalled();expect(select).not.toHaveBeenCalled();
+ expect(workflow.readConnectedPageRecovery('elderwyld',source)).not.toBeNull();
+});
+it('does not navigate on late confirmation after leaving the source',async()=>{
+ let finish!:(value:ConnectedPageOperation)=>void;let prepared!:ConnectedPageOperation;
+ vi.mocked(api.confirmConnectedPage).mockImplementation(value=>{prepared=value;return new Promise(resolve=>{finish=resolve;});});
+ const select=vi.fn(async()=>true),view=render(<BuildConnectedPageControl selectDocument={select} refreshDocuments={vi.fn()}/>);await open();
+ fireEvent.click(screen.getByRole('button',{name:'Create page'}));await waitFor(()=>expect(api.confirmConnectedPage).toHaveBeenCalledTimes(1));
+ state.session={...state.session,record:{...state.session.record,document_id:'other'}};view.rerender(<BuildConnectedPageControl selectDocument={select} refreshDocuments={vi.fn()}/>);
+ await act(async()=>{finish(operation(prepared.intent,'complete'));});expect(select).not.toHaveBeenCalled();
+});
+
+it('distinguishes same-name canonical people before review',async()=>{
+ vi.mocked(postManagedWorldGraphProjection).mockResolvedValue({projection:{nodes:[{nodeId:'node:brin',label:'Brin',kind:'npc'},{nodeId:'node:other-brin',label:'Brin',kind:'npc'}]}} as any);
+ render(<BuildConnectedPageControl selectDocument={vi.fn(async()=>true)} refreshDocuments={vi.fn()}/>);await open();
+ expect(screen.getByRole('option',{name:'Existing: Brin (node:brin)'})).toBeInTheDocument();
+ expect(screen.getByRole('option',{name:'Existing: Brin (node:other-brin)'})).toBeInTheDocument();
 });
