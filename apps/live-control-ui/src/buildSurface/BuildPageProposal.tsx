@@ -173,10 +173,11 @@ export function BuildPageProposal({record,bridge,sourceKey,requestKey,onStatus,o
     }finally{if(picker.current===controller)picker.current=null;if(current(start))setChoosing(false);}
   });}
   const replacementControls=<>
-    <p>The earlier attempt stays in the trace. Choosing a new position does not remove any text already on the page.</p>
+    <p>Earlier insertion receipts are retained for inspection. Choosing a new position does not remove any text already on the page.</p>
     <button type="button" disabled={busy} onClick={()=>replacePlacement()}>Choose a new position</button>
     <button type="button" disabled={busy} onClick={()=>replacePlacement(true)}>Replace selected text</button>
     {choosing?<p role="status">Click a position on the page. Escape cancels.</p>:null}
+    {review?<RetiredPlacementHistory review={review}/>:null}
   </>;
   const controls=<>
     {review&&basisFor(review).selection ? <>
@@ -195,6 +196,7 @@ export function BuildPageProposal({record,bridge,sourceKey,requestKey,onStatus,o
         if(current(start)){setReview(result);setPlacement(null);clearCache();callbacks.current.onStatus('Suggestion discarded');}
       });}}/>
     <details onToggle={event=>setInspect(event.currentTarget.open)}><summary>Debug</summary>{inspect?<>
+      {review?<RetiredPlacementHistory review={review}/>:null}
       {record.proposal?.assumptions.length?<><strong>Creative assumptions</strong><ul>{record.proposal.assumptions.map((value,index)=><li key={index}>{value}</li>)}</ul></>:null}
       {inspector}
     </>:null}</details>
@@ -209,4 +211,18 @@ export function BuildPageProposal({record,bridge,sourceKey,requestKey,onStatus,o
   if(placement&&review?.state==='editing')return <SurfacePageProposal editor={placement.editor} position={placement.basis.caret}
     editorJson={placement.editorJson} placementId={record.action_id} onMove={basisFor(review).selection ? undefined : move} busy={busy||conflict} revealKey={requestKey} onStale={()=>{if(running.current!==epoch.current){setPlacement(null);setError('The page changed. The saved suggestion is retained; request a new placement.');}}}>{controls}</SurfacePageProposal>;
   return error?<section aria-label="Suggestion placement unavailable" role="status"><p>{error}</p><p>The saved suggestion is retained.</p><blockquote>{text}</blockquote>{review&&replacementControls}</section>:null;
+}
+
+
+/** Read-only retained author transactions; never model thinking or proof of source Save. */
+export function RetiredPlacementHistory({review}:{review:BuildProposalReview}){
+  const attempts=review.retired_placements??[];
+  if(!attempts.length)return null;
+  return <details><summary>Earlier insertion attempts · {attempts.length}</summary>
+    <ol>{attempts.map((attempt,index)=><li key={attempt.command_id??`original:${index}`}>
+      <p>{attempt.disposition==='superseded_unresolved'?'Superseded · outcome unresolved':'Superseded before insertion preparation'} · Page version {attempt.basis.registry_revision}</p>
+      <blockquote>{attempt.markdown}</blockquote>
+      <details><summary>Exact placement and receipt</summary><pre>{JSON.stringify(attempt,null,2)}</pre></details>
+    </li>)}</ol>
+  </details>;
 }

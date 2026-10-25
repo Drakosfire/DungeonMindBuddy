@@ -266,3 +266,25 @@ it('keeps durable review identity through its own committed revision while retir
  expect(after.key).toBe(first.key);expect(after.props.sourceKey).toBe(first.props.sourceKey);
  hook.rerender({sourceKey:'foreign:revision1',pageDocumentId:'foreign'});expect(hook.result.current.pageElement).toBeNull();
 });
+
+
+it('opens exact superseded receipts from the saved suggestion without new generation or placement',async()=>{
+ const record=receipt();record.inserted_in_draft=true;
+ vi.mocked(api.listBuildProposals).mockResolvedValue([record]);
+ const oldApply={placement_caret:1,apply_id:'prior-apply',before_editor_sha256:'e'.repeat(64),before_draft_sha256:'b'.repeat(64),
+   after_editor_sha256:'f'.repeat(64),after_draft_sha256:'d'.repeat(64),reviewed_sha256:'c'.repeat(64)};
+ vi.mocked(proposalReview).mockResolvedValue({schema:'dmb_build_proposal_review_v3',world_id:'world',action_id:'action',reservation_sha256:record.request_fingerprint,
+   placement_caret:1,revision:9,state:'applied',markdown:'Current kept text.',markdown_sha256:'a'.repeat(64),apply:oldApply,updated_at:'',
+   retired_placements:[{basis,markdown:'Earlier edited text.',markdown_sha256:'c'.repeat(64),apply:oldApply,command_id:null,disposition:'superseded_unresolved'}]});
+ const hook=renderHook(()=>useBuildCompose({worldId:'world',pageDocumentId:'doc',history,bridge,enabled:true,onHistory:vi.fn()}));
+ await waitFor(()=>expect(hook.result.current.items).toHaveLength(1));
+ render(<>{hook.result.current.items.map(item=>item.element)}</>);
+ expect(proposalReview).not.toHaveBeenCalled();
+ const kept=screen.getByText('Kept page suggestion').closest('details')!;kept.open=true;fireEvent(kept,new Event('toggle'));
+ const attempts=(await screen.findByText('Earlier insertion attempts · 1')).closest('details')!;attempts.open=true;fireEvent(attempts,new Event('toggle'));
+ expect(screen.getByText(/Superseded · outcome unresolved/)).toHaveTextContent('Page version 1');
+ expect(screen.getByText('Earlier edited text.')).toBeInTheDocument();
+ const exact=screen.getByText('Exact placement and receipt').closest('details')!;exact.open=true;fireEvent(exact,new Event('toggle'));
+ expect(exact).toHaveTextContent('prior-apply');expect(exact).toHaveTextContent('before_editor_sha256');
+ expect(bridge.restore).not.toHaveBeenCalled();expect(api.composeBuildProposal).not.toHaveBeenCalled();
+});

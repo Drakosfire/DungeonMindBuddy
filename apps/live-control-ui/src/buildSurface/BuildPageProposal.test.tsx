@@ -326,6 +326,9 @@ it('explicitly places retained edited text on a newer page while keeping the unc
  await screen.findByRole('textbox',{name:'Suggestion text'});
  expect(editor.getJSON()).toEqual(before);
  expect(saved.retired_placements?.[0].apply).toEqual(uncertain);
+ const debug=screen.getByText('Debug').closest('details')!;debug.open=true;fireEvent(debug,new Event('toggle'));
+ expect(await screen.findByText('Earlier insertion attempts · 1')).toBeInTheDocument();
+ expect(screen.getByText(/Superseded · outcome unresolved/)).toBeInTheDocument();
  expect(screen.getByRole('textbox',{name:'Suggestion text'})).toHaveTextContent('My retained cedar-box sentence.');
  lostAck=false;
  fireEvent.click(screen.getByRole('button',{name:'Save',exact:true}));
