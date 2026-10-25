@@ -495,6 +495,10 @@ def reconstruct(raw_output: str, packet: dict, turn, auth):
     if "working_draft_context" in packet:
         from .build_draft_answer import validate_packet as validate_draft_packet
         validate_draft_packet(packet, turn, auth)
+        from .collaboration_scope import derive, validate_plan
+        # The transient producer proof owns new completion admission. Recompute
+        # from policy even if a historical input omits the new scope metadata.
+        validate_plan(candidate.get("collaboration"), derive(execution))
     included_ids = set(getattr(auth, "included_source_read_event_ids", ()))
     reads = [
         e
