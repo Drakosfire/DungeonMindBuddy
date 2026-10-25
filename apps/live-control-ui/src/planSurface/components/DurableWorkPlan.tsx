@@ -2,8 +2,9 @@ import {SurfaceNavbarIconButton} from '../../surfaceInteraction/contextHost/Surf
 import type {ReviewedStepReference} from '../../api/types'
 import {useEffect,useRef,useState,type ReactNode} from 'react'
 import {getWorkPlan,saveWorkPlan,continueWorkPlan,planObjective,type WorkPlan,type WorkStep,type WorkDispatch,type WorkPlanScope,type WorkExecution} from '../../api/conversationWorkPlanApi'
+export type WorkPlanToolbarControls={add:ReactNode;save:ReactNode}
 export type ReviewedRow={text:string;include:boolean;kind?:'discuss'|'prepare_insertion'}
-export function DurableWorkPlan({scope,disabled,onContinue,renderDraft,saveLabel="Save reviewed plan",renderResult,continuationDisabled=false,beginContinuation}:{continuationDisabled?:boolean;beginContinuation?:(plan:WorkPlan)=>()=>boolean;saveLabel?:string;renderResult?:(execution:WorkExecution)=>ReactNode;scope:WorkPlanScope;disabled:boolean;onContinue:(plan:WorkPlan,dispatch:WorkDispatch,reference:ReviewedStepReference|null)=>void;renderDraft:(save:(rows:ReviewedRow[])=>Promise<void>,busy:boolean)=>ReactNode}){
+export function DurableWorkPlan({scope,disabled,onContinue,renderDraft,saveLabel="Save reviewed plan",renderResult,continuationDisabled=false,beginContinuation,renderToolbar}:{renderToolbar?:(controls:WorkPlanToolbarControls)=>ReactNode;continuationDisabled?:boolean;beginContinuation?:(plan:WorkPlan)=>()=>boolean;saveLabel?:string;renderResult?:(execution:WorkExecution)=>ReactNode;scope:WorkPlanScope;disabled:boolean;onContinue:(plan:WorkPlan,dispatch:WorkDispatch,reference:ReviewedStepReference|null)=>void;renderDraft:(save:(rows:ReviewedRow[])=>Promise<void>,busy:boolean)=>ReactNode}){
  const [plan,setPlan]=useState<WorkPlan|null>(null),[steps,setSteps]=useState<WorkStep[]>([]),[loaded,setLoaded]=useState(false),[busy,setBusy]=useState(false),[error,setError]=useState<string|null>(null)
  const [objective,setObjective]=useState('')
  const [staleDraft,setStaleDraft]=useState(false),[blockedDraft,setBlockedDraft]=useState(false)
@@ -34,7 +35,10 @@ export function DurableWorkPlan({scope,disabled,onContinue,renderDraft,saveLabel
   return()=>{active=false;clearInterval(timer)}
  },[identity,plan?.revision,plan?.execution.map(x=>x.status).join(',')])
  function edit(id:string,update:Partial<WorkStep>){retain(steps.map(s=>s.step_id===id?{...s,...update}:s))}
+ const addControl=<SurfaceNavbarIconButton icon="new" label="Add step" disabled={!plan||disabled||busy} onClick={()=>retain([...steps,{step_id:crypto.randomUUID(),text:'',selected:true,kind:'discuss'}])}/>;
+ const saveControl=<SurfaceNavbarIconButton icon="save" label={saveLabel} disabled={!plan||disabled||busy||staleDraft||blockedDraft||!changed||!objective.trim()||steps.some(s=>!s.text.trim())} onClick={()=>{if(!plan)return;const saved=plan;void run(async()=>{const p=await saveWorkPlan(scope,saved.revision,steps,objective);if(current.current===identity)adopted(p)})}}/>;
  return <section className="surface-work-plan-review" aria-label="Saved work plan">
+  {renderToolbar?.({add:addControl,save:saveControl})}
   {error&&<p role="alert">{error}</p>}
   {error&&!plan&&<button type="button" disabled={busy} onClick={()=>{void run(async()=>{const p=await getWorkPlan(scope);if(current.current===identity){setPlan(p);setObjective(planObjective(p));setSteps(p?restore(p):[]);setLoaded(true)}})}}>Reload saved plan</button>}
   {!loaded?<p role="status">Opening saved plan…</p>:!plan?<><label>Expected outcome<textarea aria-label="Expected outcome" value={objective} disabled={disabled||busy} onChange={e=>setObjective(e.target.value)}/></label>{renderDraft(saveDraft,busy)}</>:<>
@@ -46,6 +50,7 @@ export function DurableWorkPlan({scope,disabled,onContinue,renderDraft,saveLabel
     {!locked(s.step_id)&&<label className="surface-work-plan__include"><input type="checkbox" checked={s.selected} disabled={disabled||busy||locked(s.step_id)} onChange={e=>edit(s.step_id,{selected:e.target.checked})}/><span className="surface-work-plan__sr">Include step {i+1}</span></label>}
     <textarea aria-label={`Saved step ${i+1}`} value={s.text} disabled={disabled||busy||locked(s.step_id)} onChange={e=>edit(s.step_id,{text:e.target.value})}/>
     <label className="surface-work-plan__action"><span className="surface-work-plan__sr">Action</span><select aria-label={`Saved action ${i+1}`} value={s.kind} disabled={disabled||busy||locked(s.step_id)} onChange={e=>edit(s.step_id,{kind:e.target.value as WorkStep['kind']})}><option value="discuss">Discuss</option><option value="prepare_insertion">Prepare an insertion</option></select></label>
+    {!locked(s.step_id)&&<SurfaceNavbarIconButton className="surface-work-plan__remove" icon="remove" label={`Remove step ${i+1}`} disabled={disabled||busy||steps.length<=1} title={steps.length<=1?'A plan needs at least one step':`Remove step ${i+1}`} onClick={()=>retain(steps.filter(row=>row.step_id!==s.step_id))}/>}
     <p className="surface-work-plan__status" role="status">{status==='completed'?'Reply received':status==='prepared'?'Suggestion prepared · review and Save on the page':status==='awaiting_dispatch'?'Ready to resume the same request':status==='needs_attention'?'Result needs attention':status}</p>
     {last?.result?.kind==='reply'&&<div className="surface-work-plan__result">{renderResult?renderResult(last):<p>{last.result.text}</p>}</div>}
     {executions.length>1&&<details><summary>Previous continuations · {executions.length-1}</summary>{executions.slice(0,-1).map(x=><p key={x.command_id}>{x.status} · {x.turn_id??'not admitted'}</p>)}</details>}
@@ -57,8 +62,7 @@ export function DurableWorkPlan({scope,disabled,onContinue,renderDraft,saveLabel
    </>;
     return status==='completed'?<details className="surface-work-plan__finished" key={s.step_id}><summary><span>{i+1}. {s.text}</span><span className="surface-work-plan__badge">Reply received</span></summary><div className="surface-work-plan__step">{body}</div></details>:<div className="surface-work-plan__step" key={s.step_id}><span className="surface-work-plan__number" aria-hidden="true">{i+1}.</span>{body}</div>;
    })}
-   <SurfaceNavbarIconButton icon="new" label="Add step" disabled={disabled||busy} onClick={()=>retain([...steps,{step_id:crypto.randomUUID(),text:'',selected:true,kind:'discuss'}])}/>{' '}
-   <SurfaceNavbarIconButton icon="save" label={saveLabel} disabled={disabled||busy||staleDraft||blockedDraft||!changed||!objective.trim()||steps.some(s=>!s.text.trim())} onClick={()=>{void run(async()=>{const p=await saveWorkPlan(scope,plan.revision,steps,objective);if(current.current===identity)adopted(p)})}}/>{' '}
+   {!renderToolbar&&<>{addControl}{' '}{saveControl}{' '}</>}
    <button type="button" disabled={busy||changed} onClick={()=>{void run(async()=>{const p=await getWorkPlan(scope);if(p&&current.current===identity)adopted(p)})}}>Refresh results</button>
   </>}
  </section>

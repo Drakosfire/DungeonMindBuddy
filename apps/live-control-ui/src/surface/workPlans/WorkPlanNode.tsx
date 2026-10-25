@@ -1,4 +1,5 @@
 import {useEffect,useMemo} from 'react';
+import {SurfaceNavbarIconButton} from '../../surfaceInteraction/contextHost/SurfaceNavbarIconButton';
 import {workPlanMoveHandle} from './workPlanObjectMove';
 import {Node} from '@tiptap/core';
 import {NodeViewWrapper,ReactNodeViewRenderer,type NodeViewProps} from '@tiptap/react';
@@ -10,9 +11,10 @@ function WorkPlanView({node,updateAttributes,editor,getPos}:NodeViewProps){
   try{
     const reference=parseWorkPlanFence(String(node.attrs.source));
     return <NodeViewWrapper contentEditable={false} className="surface-work-plan-node">
-      <button type="button" draggable={editor.isEditable} disabled={!editor.isEditable} aria-label="Move work plan" title="Drag to move; hold near an edge to scroll. Alt+Up/Down to reorder."
-        onDragStart={event=>movement.start(event.nativeEvent)} onKeyDown={event=>movement.key(event.nativeEvent)}>⠿</button>
-      <SurfaceWorkPlan reference={reference} onTitleChange={title=>updateAttributes({source:workPlanFence({...reference,title})})}/>
+      <SurfaceWorkPlan reference={reference} onTitleChange={title=>updateAttributes({source:workPlanFence({...reference,title})})}
+        moveHandle={<SurfaceNavbarIconButton icon="move" label="Move work plan" draggable={editor.isEditable} disabled={!editor.isEditable}
+          title="Drag to move; hold near an edge to scroll. Alt+Up/Down to reorder."
+          onDragStart={event=>movement.start(event.nativeEvent)} onKeyDown={event=>movement.key(event.nativeEvent)}/>}/>
     </NodeViewWrapper>;
   }catch{
     return <NodeViewWrapper contentEditable={false}><p role="alert">This work-plan reference needs recovery. Its source was retained.</p></NodeViewWrapper>;

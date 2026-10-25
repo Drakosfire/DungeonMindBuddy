@@ -36,3 +36,21 @@
  .surface-work-plan__step > .surface-work-plan__status { grid-row:3; }
  .surface-work-plan__step > .surface-work-plan__continue { grid-column:3; grid-row:4; justify-self:start; }
 }
+
+/* Object actions stay with their title while the object scrolls. */
+.surface-work-plan .surface-work-plan__header { position:sticky; top:0; z-index:3; padding:.35rem 0; background:#eef2f4; border-bottom:1px solid #7894; flex-wrap:nowrap; }
+.surface-work-plan .surface-work-plan__title { flex:1 1 10rem; width:10rem; min-width:4rem; font-weight:600; }
+.surface-work-plan__header > .surface-navbar-icon { flex:0 0 2rem; }
+.surface-work-plan__header .surface-object-menu[open] { flex-basis:auto; }
+.surface-work-plan__header .surface-object-menu__panel { position:absolute; inset-inline-end:0; top:100%; width:min(34rem,calc(100vw - 3rem)); background:#eef2f4; box-shadow:0 .3rem 1rem #0003; }
+.surface-work-plan button.surface-navbar-icon--move { color:#253345; background:#e3eaf0; cursor:grab; }
+.surface-work-plan button.surface-navbar-icon--move:active { cursor:grabbing; }
+.surface-work-plan button.surface-navbar-icon--remove { color:#a52d32; border-color:#a52d3255; }
+.surface-work-plan__step { grid-template-columns:1.2rem 1.2rem minmax(0,1fr) minmax(8rem,11rem) 2rem; }
+.surface-work-plan__step > .surface-work-plan__remove { grid-column:5; grid-row:1; margin:0; }
+@media(max-width:600px) {
+ .surface-work-plan__step { grid-template-columns:1.1rem 1.1rem minmax(0,1fr) 2rem; }
+ .surface-work-plan__step > .surface-work-plan__remove { grid-column:4; }
+ .surface-work-plan__header { gap:.25rem; }
+ .surface-work-plan__header button { margin:0; }
+}
