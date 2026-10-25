@@ -1,5 +1,5 @@
-import { fireEvent, render, screen } from '@testing-library/react'
-import { describe, expect, it } from 'vitest'
+import { fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { describe, expect, it, vi } from 'vitest'
 import { BuddyContextTrace, type BuddyTurnContextTrace } from './BuddyContextTrace'
 import type { BuddyTraceGraphResult, BuddyTraceSourcePassage } from '../../api/buddyContextTraceTypes'
 
@@ -221,4 +221,41 @@ it('explains the reproduced source-name failure using a fixed public description
     code:'build_source_name_missing', phase:'delivery', stage:'context_acquisition', exception_type:'ValueError',
     cause_type:'ValueError', diagnostic_id:'private-diagnostic-id', diagnostic_sha256:'a'.repeat(64)}]), terminal_status:'interrupted'}} />)
   expect(screen.getByRole('alert')).toHaveTextContent('A retrieved passage has no verified source name.')
+})
+
+
+describe('copy captured trace', () => {
+  it('copies the selected attempt and complete record with the timeline collapsed', async () => {
+    const writeText = vi.fn().mockResolvedValue(undefined)
+    vi.stubGlobal('navigator', { clipboard: { writeText } })
+    try {
+      const captured = {...trace([passage('A source excerpt with ``` fences.'),
+        {kind:'failure' as const,sequence:1,elapsed_ms:23700,phase:'delivery',code:'build_source_name_missing',stage:'context_acquisition'}]), terminal_status:'interrupted' as const, attempt:2}
+      render(<BuddyContextTrace ownerActive={false} trace={captured} />)
+      expect(screen.getByText('Execution timeline').closest('details')).not.toHaveAttribute('open')
+      fireEvent.click(screen.getByRole('button', {name:'Copy trace',exact:true}))
+      await waitFor(() => expect(screen.getByRole('status')).toHaveTextContent('Trace copied.'))
+      const copied = writeText.mock.calls[0][0] as string
+      expect(copied).toContain('Attempt: 2')
+      expect(copied).toContain('Reply status: interrupted')
+      expect(copied).toContain('23.7s · Execution failed · build_source_name_missing')
+      expect(copied).toContain('Stage: context_acquisition')
+      const record = copied.split('Private exception diagnostic files are not included.\n\n')[1]
+      expect(JSON.parse(record.split('\n').map(line => line.slice(4)).join('\n'))).toEqual(captured)
+      expect(copied).not.toContain('Message DungeonBuddy')
+      expect(copied).not.toContain('Refresh trace')
+    } finally { vi.unstubAllGlobals() }
+  })
+  it('reports clipboard rejection and allows another click', async () => {
+    const writeText = vi.fn().mockRejectedValueOnce(new Error('denied')).mockResolvedValueOnce(undefined)
+    vi.stubGlobal('navigator', { clipboard: { writeText } })
+    try {
+      render(<BuddyContextTrace ownerActive={false} trace={trace([])} />)
+      fireEvent.click(screen.getByRole('button', {name:'Copy trace',exact:true}))
+      await waitFor(() => expect(screen.getByRole('status')).toHaveTextContent('Couldn’t copy'))
+      expect(screen.queryByText('Trace copied.')).not.toBeInTheDocument()
+      fireEvent.click(screen.getByRole('button', {name:'Copy trace',exact:true}))
+      await waitFor(() => expect(screen.getByRole('status')).toHaveTextContent('Trace copied.'))
+    } finally { vi.unstubAllGlobals() }
+  })
 })

@@ -2,6 +2,7 @@ import './BuddyContextTrace.css'
 import { useState } from 'react'
 import { CapturedPrompt } from './BuddyPromptInspector'
 import { traceCostEstimate } from './traceCostEstimate'
+import { buddyTraceText } from './buddyTraceText'
 import { BuddyHistoricalSourcePassage } from './BuddyHistoricalSourcePassage'
 import type { BuddyTraceMaterial, BuddyTraceObservation, BuddyTraceSourcePassage, BuddyTracePromptReference, BuddyTurnContextTrace } from '../../api/buddyContextTraceTypes'
 export type { BuddyTurnContextTrace } from '../../api/buddyContextTraceTypes'
@@ -148,6 +149,22 @@ function traceRows(observations: BuddyTraceObservation[]): TraceRow[] {
   return rows
 }
 
+function CopyTrace({ trace }: { trace: BuddyTurnContextTrace }) {
+  const [status, setStatus] = useState<'idle' | 'copying' | 'copied' | 'failed'>('idle')
+  async function copy() {
+    setStatus('copying')
+    try {
+      await navigator.clipboard.writeText(buddyTraceText(trace))
+      setStatus('copied')
+    } catch {
+      setStatus('failed')
+    }
+  }
+  return <div><button type="button" onClick={() => void copy()} disabled={status === 'copying'}
+    title="Copy this attempt as Markdown, including its captured record">{status === 'copying' ? 'Copying…' : 'Copy trace'}</button>
+    <span role="status">{status === 'copied' ? 'Trace copied.' : status === 'failed' ? 'Couldn’t copy the trace. Try again or allow clipboard access.' : ''}</span></div>
+}
+
 export function BuddyContextTrace({ trace, ownerActive }: { trace: BuddyTurnContextTrace | null; ownerActive: boolean }) {
   if (!trace) return <p className="buddy-context-trace__muted">No execution trace was captured for this turn.</p>
   const failed = trace.terminal_status === 'failed' || trace.terminal_status === 'interrupted'
@@ -158,6 +175,7 @@ export function BuddyContextTrace({ trace, ownerActive }: { trace: BuddyTurnCont
   const passages = trace.observations.filter((event): event is BuddyTraceSourcePassage => event.kind === 'source_passage' || event.kind === 'source_passage_reuse')
   return <section className="buddy-context-trace" aria-label="Buddy context trace">
     <header><div><h4>{failed ? 'Reply error report' : 'How Buddy built this reply'}</h4><p>Observable execution · attempt {trace.attempt}</p></div>
+      <CopyTrace key={`${trace.trace_id}:${trace.attempt}:${trace.observations.length}:${trace.closed_at}`} trace={trace} />
       <span>{trace.capture_status === 'incomplete' || (!ownerActive && !trace.closed_at) ? 'Incomplete capture' : trace.closed_at ? 'Captured' : 'In progress'}{last ? ` · Trace window ${(last.elapsed_ms / 1000).toFixed(1)}s` : ''}</span></header>
     {failed && <section role="alert" className="buddy-context-trace__error-report" aria-label="Reply failure">
       <h5>This attempt stopped before completing a reply.</h5>
