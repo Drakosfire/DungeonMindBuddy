@@ -3,7 +3,11 @@ import {queueSurfaceConversationRequest} from '../agentInteraction/surfaceConver
 import type {BuildComposeBridge} from './buildComposeBridge';
 import type {SavedWorldBuildConversationContext} from '../agentInteraction/WorldAgentConversation';
 export const connectedPageRecoveryKey=(world:string,document:string)=>'dmb:connected-page:v1:'+JSON.stringify([world,document]);
+const reviewRecoveryKey=(world:string,document:string)=>'dmb:connected-page-review:v1:'+JSON.stringify([world,document]);
 export function readConnectedPageRecovery(world:string,document:string):ConnectedPageIntent|null{
+  const review=sessionStorage.getItem(reviewRecoveryKey(world,document));
+  if(review!==null){const v=JSON.parse(review);if(Object.keys(v).sort().join(',')!=='owner_document_id,request,schema'||v.schema!=='dmb_connected_page_review_request_v1'||v.owner_document_id!==document||!validConnectedPageIntent(v.request)||v.request.world_id!==world||!('kind' in v.request.origin))throw new Error('The saved page review is unreadable; its bytes were kept.');if(sessionStorage.getItem(connectedPageRecoveryKey(world,document))!==null)throw new Error('Multiple retained page requests need review; their bytes were kept.');return v.request;}
+
   const raw=sessionStorage.getItem(connectedPageRecoveryKey(world,document));
   if(raw===null)return null;
   const value=JSON.parse(raw);
@@ -12,7 +16,10 @@ export function readConnectedPageRecovery(world:string,document:string):Connecte
     throw new Error('The saved page request could not be read. Its bytes were kept.');
   return value.request;
 }
-export function retainConnectedPageRequest(request:ConnectedPageIntent){
+export function retainConnectedPageRequest(request:ConnectedPageIntent,ownerDocument=request.origin.document_id){
+  if('kind' in request.origin){const prior=readConnectedPageRecovery(request.world_id,ownerDocument);if(prior&&canonicalConnectedIntent(prior)!==canonicalConnectedIntent(request))throw new Error('Resolve the existing page request first.');
+    const key=reviewRecoveryKey(request.world_id,ownerDocument),bytes=JSON.stringify({schema:'dmb_connected_page_review_request_v1',owner_document_id:ownerDocument,request});sessionStorage.setItem(key,bytes);if(sessionStorage.getItem(key)!==bytes)throw new Error('The exact page review could not be retained. Nothing was sent.');return;}
+
   const key=connectedPageRecoveryKey(request.world_id,request.origin.document_id);
   const prior=readConnectedPageRecovery(request.world_id,request.origin.document_id);
   if(prior&&canonicalConnectedIntent(prior)!==canonicalConnectedIntent(request))throw new Error('Resolve the saved page request before starting another.');
@@ -20,10 +27,10 @@ export function retainConnectedPageRequest(request:ConnectedPageIntent){
   sessionStorage.setItem(key,bytes);
   if(sessionStorage.getItem(key)!==bytes)throw new Error('This tab could not retain the exact page request. Nothing was sent.');
 }
-export function clearConnectedPageRequest(request:ConnectedPageIntent){
-  const prior=readConnectedPageRecovery(request.world_id,request.origin.document_id);
+export function clearConnectedPageRequest(request:ConnectedPageIntent,ownerDocument=request.origin.document_id){
+  const prior=readConnectedPageRecovery(request.world_id,ownerDocument);
   if(!prior||canonicalConnectedIntent(prior)!==canonicalConnectedIntent(request))throw new Error('The retained page request changed.');
-  sessionStorage.removeItem(connectedPageRecoveryKey(request.world_id,request.origin.document_id));
+  sessionStorage.removeItem('kind' in request.origin?reviewRecoveryKey(request.world_id,ownerDocument):connectedPageRecoveryKey(request.world_id,request.origin.document_id));
 }
 export function connectedPageBuildOutMessage(operation:ConnectedPageOperation){
   return `Build out this new page, ${operation.intent.title}. Replace only the selected starter sections with useful, grounded page writing. Keep the existing relationship declarations and Origin section. Develop what the source supports; label creative possibilities separately from played facts. Include a practical table if it helps the author.\n\nOriginal selected passage: ${operation.intent.origin.selected_text}\n${operation.intent.instructions?'Author’s brief: '+operation.intent.instructions:''}`;

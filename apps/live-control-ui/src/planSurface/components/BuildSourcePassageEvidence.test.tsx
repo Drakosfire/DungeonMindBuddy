@@ -184,3 +184,11 @@ it('admits only closed typed collaboration objects and keeps historical shapes c
  expect(isBuildSourceCompletion({...c,schema:'dmb_build_related_page_completion_v1'},'a'.repeat(64),'b'.repeat(64),'world')).toBe(false);
  expect(isBuildSourceCompletion({...c,collaboration:null},'a'.repeat(64),'b'.repeat(64),'world')).toBe(true);
 });
+
+it('accepts connected page review only in its new closed completion schema',()=>{
+ const collaboration={kind:'connected_page',title:'Copper Forge',read_id:id,quote:'Copper',person_label:'Ada',relationships:['owns','operates'],instructions:'Proposed workshop'};
+ const c={schema:'dmb_build_connected_page_review_completion_v1',context_receipt_sha256:'a'.repeat(64),answer_basis:'working_draft_context',answer_context_status:'creative_proposal',answer_segments:[{kind:'connective',text:'Ready for review.'}],citation_map:null,source_citations:[],collaboration};
+ expect(isBuildSourceCompletion(c,'a'.repeat(64),'b'.repeat(64),'world')).toBe(true);
+ expect(isBuildSourceCompletion({...c,schema:'dmb_build_collaboration_completion_v1'},'a'.repeat(64),'b'.repeat(64),'world')).toBe(false);
+ for(const patch of [{read_id:'invented'},{relationships:['allies']},{node_id:'model-guessed-id'},{person_label:null}])expect(isBuildSourceCompletion({...c,collaboration:{...collaboration,...patch}},'a'.repeat(64),'b'.repeat(64),'world')).toBe(false);
+});

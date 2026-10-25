@@ -3,21 +3,23 @@ import StarterKit from '@tiptap/starter-kit';
 import {webcrypto} from 'node:crypto';
 import {act,cleanup,fireEvent,render,screen,waitFor} from '@testing-library/react';
 import {afterEach,beforeAll,beforeEach,expect,it,vi} from 'vitest';
+import {useConnectedPageReviewHost,type ConnectedPageReviewSeed} from './connectedPageReviewHost';
 import {BuildConnectedPageControl} from './BuildConnectedPageControl';
 import * as api from '../api/connectedPageApi';
 import * as workflow from './connectedPageAuthoring';
-import {postManagedWorldGraphProjection} from '../api/liveApi';
+import {ConversationConnectedPageReview} from '../planSurface/components/ConversationConnectedPageReview';
+import {getAgentRelatedPage,postManagedWorldGraphProjection} from '../api/liveApi';
 import type {ConnectedPageIntent,ConnectedPageOperation} from '../api/connectedPageApi';
 const state=vi.hoisted(()=>({session:null as any,setPaneOpen:vi.fn()}));
 vi.mock('../markdownCanvas/MarkdownCanvasSession',()=>({useOptionalMarkdownCanvasSession:()=>state.session}));
 vi.mock('../agentInteraction/AgentInteractionProvider',()=>({useOptionalAgentInteraction:()=>({setPaneOpen:state.setPaneOpen})}));
 vi.mock('../worldGraph/verifyManagedWorldGraphProjectionResponse',()=>({verifyManagedWorldGraphProjectionResponse:()=>null}));
-vi.mock('../api/liveApi',async original=>({...await original<typeof import('../api/liveApi')>(),postManagedWorldGraphProjection:vi.fn()}));
+vi.mock('../api/liveApi',async original=>({...await original<typeof import('../api/liveApi')>(),postManagedWorldGraphProjection:vi.fn(),getAgentRelatedPage:vi.fn()}));
 vi.mock('../api/connectedPageApi',async original=>({...await original<typeof import('../api/connectedPageApi')>(),prepareConnectedPage:vi.fn(),confirmConnectedPage:vi.fn(),recoverConnectedPage:vi.fn(),readConnectedPageForPage:vi.fn()}));
 const source='11111111-1111-4111-8111-111111111111',page='22222222-2222-4222-8222-222222222222';
 let editor:Editor;
 function operation(request:ConnectedPageIntent,phase:'prepared'|'complete'='prepared'):ConnectedPageOperation{
- return {schema:'dmb_connected_page_operation_v1',operation_id:request.operation_id,phase,intent:request,
+ return {schema:'kind' in request.origin?'dmb_connected_page_operation_v2':'dmb_connected_page_operation_v1',operation_id:request.operation_id,phase,intent:request,
   page:{document_id:page,world_id:'elderwyld',campaign_id:'elderwyld',kind:'worldbuilding_source',status:'active',connected_page_operation_id:request.operation_id,revision:2} as any,
   initial_source:{documentId:page,revision:2,contentSha256:'b'.repeat(64)},prepared:{confirm_token:'sealed',assertions_preview:[]},
   receipt:phase==='complete'?{committed:true,created_node_ids:{place:'native-place'}}:null,
@@ -134,4 +136,43 @@ it('hosts relationships and origin only in Source actions, without a generation 
   view.rerender(<BuildConnectedPageControl selectDocument={vi.fn(async()=>true)} refreshDocuments={vi.fn()} relationshipsHost={null}/>);
   expect(screen.queryByText('Relationships & origin')).not.toBeInTheDocument();
  }finally{host.remove();}
+});
+
+const reviewSeed:ConnectedPageReviewSeed={worldId:'elderwyld',ownerDocumentId:source,sourceTurnId:'turn',proposal:{kind:'connected_page',title:'Copper Workshop',read_id:page,quote:'Copper',person_label:null,relationships:[],instructions:'A practical workshop'},origin:{kind:'saved_page_excerpt',document_id:page,revision:7,content_sha256:'b'.repeat(64),line_start:3,line_end:3,selected_text:'Copper House keeps a lantern.'}};
+function ReviewProbe(){const host=useConnectedPageReviewHost();return <button disabled={!host} onClick={()=>host!.open(reviewSeed)}>Open provided review</button>;}
+it('retains edited cross-page review through reload, then creates once with no source mutation',async()=>{
+ const select=vi.fn(async()=>true),before=editor.getJSON();let view=render(<><BuildConnectedPageControl selectDocument={select} refreshDocuments={vi.fn()}/><ReviewProbe/></>);
+ fireEvent.click(screen.getByRole('button',{name:'Open provided review'}));await screen.findByRole('dialog',{name:'New page from selection'});
+ expect(api.prepareConnectedPage).not.toHaveBeenCalled();fireEvent.change(screen.getByLabelText('Page title'),{target:{value:'Copper Lantern Workshop'}});
+ fireEvent.click(screen.getByRole('button',{name:'Close new page'}));view.unmount();
+ view=render(<><BuildConnectedPageControl selectDocument={select} refreshDocuments={vi.fn()}/><ReviewProbe/></>);
+ fireEvent.click(await screen.findByRole('button',{name:'Resume page review'}));expect(screen.getByLabelText('Page title')).toHaveValue('Copper Lantern Workshop');
+ await waitFor(()=>expect(screen.getByRole('button',{name:'Create page'})).toBeEnabled());fireEvent.click(screen.getByRole('button',{name:'Create page'}));await waitFor(()=>expect(select).toHaveBeenCalledWith(page));
+ const request=vi.mocked(api.prepareConnectedPage).mock.calls[0][0];expect(request.origin).toEqual(reviewSeed.origin);expect(request.title).toBe('Copper Lantern Workshop');expect(api.confirmConnectedPage).toHaveBeenCalledTimes(1);expect(editor.getJSON()).toEqual(before);
+});
+it('recovers the same cross-page operation after an uncertain prepare without duplicating its identity',async()=>{
+ vi.mocked(api.prepareConnectedPage).mockRejectedValueOnce(new Error('Connection lost'));
+ let view=render(<><BuildConnectedPageControl selectDocument={vi.fn(async()=>true)} refreshDocuments={vi.fn()}/><ReviewProbe/></>);
+ fireEvent.click(screen.getByRole('button',{name:'Open provided review'}));await waitFor(()=>expect(screen.getByRole('button',{name:'Create page'})).toBeEnabled());fireEvent.click(screen.getByRole('button',{name:'Create page'}));await screen.findByText('Connection lost');
+ const first=vi.mocked(api.prepareConnectedPage).mock.calls[0][0];expect(workflow.readConnectedPageRecovery('elderwyld',source)).toEqual(first);view.unmount();
+ view=render(<BuildConnectedPageControl selectDocument={vi.fn(async()=>true)} refreshDocuments={vi.fn()}/>);fireEvent.click(await screen.findByRole('button',{name:'Resume page creation'}));fireEvent.click(screen.getByRole('button',{name:'↻ Retry'}));await waitFor(()=>expect(api.prepareConnectedPage).toHaveBeenCalledTimes(2));expect(vi.mocked(api.prepareConnectedPage).mock.calls[1][0]).toEqual(first);
+});
+
+it('connects the actual conversation review card to the shared form without an editor selection',async()=>{
+ const body='| Name | Task |\n| Copper House | Repair lantern |\n',hash=Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256',new TextEncoder().encode(body))),b=>b.toString(16).padStart(2,'0')).join('');
+ const proposal={...reviewSeed.proposal,quote:'Copper House | Repair lantern'};
+ vi.mocked(getAgentRelatedPage).mockResolvedValue({schema:'dmb_agent_related_page_read_v1',world_id:'elderwyld',turn_id:'turn',read_id:proposal.read_id,page:{world_id:'elderwyld',document_id:page,registry_revision:7,title:'Households',visibility:'internal',content_sha256:hash},markdown:body});
+ editor.commands.setTextSelection(1);const before=editor.getJSON(),select=vi.fn(async()=>true);
+ render(<><BuildConnectedPageControl selectDocument={select} refreshDocuments={vi.fn()}/><ConversationConnectedPageReview worldId='elderwyld' documentId={source} turnId='turn' proposal={proposal} disabled={false}/></>);
+ fireEvent.click(screen.getByRole('button',{name:'Review new page'}));await screen.findByLabelText('Page title');expect(api.prepareConnectedPage).not.toHaveBeenCalled();
+ fireEvent.change(screen.getByLabelText('Page title'),{target:{value:'Reviewed Copper Workshop'}});await waitFor(()=>expect(screen.getByRole('button',{name:'Create page'})).toBeEnabled());fireEvent.click(screen.getByRole('button',{name:'Create page'}));await waitFor(()=>expect(select).toHaveBeenCalledWith(page));
+ expect(vi.mocked(api.prepareConnectedPage).mock.calls[0][0]).toMatchObject({title:'Reviewed Copper Workshop',origin:{kind:'saved_page_excerpt',document_id:page,line_start:2,line_end:2,selected_text:'| Copper House | Repair lantern |'}});expect(editor.getJSON()).toEqual(before);
+});
+
+it('allows fresh review only after a known rejection and confirmed absent operation, preserving the old request',async()=>{
+ vi.mocked(api.prepareConnectedPage).mockRejectedValue(new (await import('../api/liveApi')).LiveApiError('Saved source changed',409));
+ vi.mocked(api.recoverConnectedPage).mockRejectedValue(new (await import('../api/liveApi')).LiveApiError('Not found',404));
+ render(<><BuildConnectedPageControl selectDocument={vi.fn(async()=>true)} refreshDocuments={vi.fn()}/><ReviewProbe/></>);
+ fireEvent.click(screen.getByRole('button',{name:'Open provided review'}));await waitFor(()=>expect(screen.getByRole('button',{name:'Create page'})).toBeEnabled());fireEvent.click(screen.getByRole('button',{name:'Create page'}));fireEvent.click(await screen.findByRole('button',{name:'Start a fresh review'}));
+ await screen.findByText('Previous review preserved. Ask Buddy to reread the changed source before creating a fresh review.');expect(workflow.readConnectedPageRecovery('elderwyld',source)).toBeNull();expect(Object.keys(sessionStorage).some(k=>k.startsWith('dmb:connected-page-review-history:'))).toBe(true);
 });

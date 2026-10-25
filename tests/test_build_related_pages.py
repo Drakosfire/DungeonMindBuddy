@@ -1,7 +1,7 @@
 """Related saved pages through the actual SDK/APP writer proof boundaries."""
 
 from hashlib import sha256
-from uuid import uuid4
+from uuid import UUID, uuid4
 import json
 import httpx2
 import httpx
@@ -60,6 +60,7 @@ class PagesDecision(WorldDecisions):
 
 class PagesWriter(WriterWire):
     collaboration = None
+    connected = False
 
     async def handle_async_request(self, request):
         wire = json.loads(request.content)
@@ -73,10 +74,29 @@ class PagesWriter(WriterWire):
             return response
         packet = json.loads(wire["input"])
         row = packet["related_authored_pages"]["pages"][0]
+        if self.connected:
+            self.collaboration = {
+                "kind": "connected_page",
+                "title": "Copper Workshop",
+                "read_id": row["read_id"],
+                "quote": "Copper House | Repair the lantern before dusk.",
+                "person_label": None,
+                "relationships": [],
+                "instructions": "A practical workshop; keep future encounters unplayed.",
+            }
         raw = json.dumps(
             {
-                "answer_context_status": "authored_grounded",
+                "answer_context_status": "creative_proposal"
+                if self.connected
+                else "authored_grounded",
                 "answer_segments": [
+                    {
+                        "kind": "suggestion",
+                        "text": "Here is the connected page for your review.",
+                    }
+                ]
+                if self.connected
+                else [
                     {
                         "kind": "related_page_claim",
                         "text": "The saved Quarry table lists Copper House with a lantern repair before dusk.",
@@ -102,7 +122,7 @@ def completed(build_case, monkeypatch, tmp_path, request):
     mode = getattr(request, "param", "answer_from_sources")
     operation = (
         "answer_from_sources"
-        if mode in {"interrupted", "typed_plan", "typed_questions"}
+        if mode in {"interrupted", "typed_plan", "typed_questions", "connected_page"}
         else mode
     )
     from tests.application_state.test_agent_conversation_postgres import _new
@@ -200,6 +220,7 @@ def completed(build_case, monkeypatch, tmp_path, request):
         )
         request = request.model_copy(update={"build_write_capability": cap})
     writer = PagesWriter()
+    writer.connected = mode == "connected_page"
     if mode == "typed_plan":
         writer.collaboration = {
             "kind": "plan",
@@ -496,7 +517,7 @@ def test_typed_workflow_survives_actual_writer_and_app_admission(completed):
     assert (
         packet["collaboration_output_policy"] == "typed_author_review_collaboration_v1"
     )
-    assert request["text"]["format"]["name"] == "build_working_draft_answer_v2"
+    assert request["text"]["format"]["name"] == "build_working_draft_answer_v3"
     assert turn.completion.collaboration.model_dump(mode="json") == writer.collaboration
     reloaded = service.list_turns(turn.world_id, turn.conversation_id)[0]
     assert reloaded.completion == turn.completion
@@ -529,6 +550,72 @@ def test_cannot_downgrade_retained_collaboration(completed, application_state_ds
                 with pytest.raises(RuntimeError, match="Retained typed collaboration"):
                     import_module(
                         "application_state.migrations.versions.20261025_0065_typed_collaboration"
+                    ).downgrade()
+    finally:
+        engine.dispose()
+
+
+@pytest.mark.parametrize("completed", ["connected_page"], indirect=True)
+def test_connected_review_reads_exact_producing_page_without_factual_claim(completed):
+    turn, service, page, body, reads, writer, decisions = completed
+    assert isinstance(turn.completion, t.BuildConnectedPageReviewCompletionV1)
+    proposal = turn.completion.collaboration
+    assert proposal.kind == "connected_page"
+    assert turn.completion.answer_segments[0].kind == "connective"
+    from application_state.agent_conversation.collaboration import saved_excerpt
+
+    rows = [
+        e.model_dump(mode="json")
+        for e in turn.graph_context_execution.events
+        if isinstance(e, RelatedPageRead)
+    ]
+    origin = saved_excerpt(proposal, rows)
+    assert origin["line_start"] == 5 and origin["line_end"] == 5
+    assert (
+        origin["selected_text"] == "| Copper House | Repair the lantern before dusk. |"
+    )
+    from apps.live_control_server.services.build_related_pages import open_page
+
+    assert (
+        open_page(service, turn.world_id, turn.turn_id, UUID(proposal.read_id))[
+            "markdown"
+        ]
+        == body
+    )
+    assert (
+        service.list_turns(turn.world_id, turn.conversation_id)[0].completion
+        == turn.completion
+    )
+    payload = turn.model_dump(mode="json", by_alias=True)
+    payload["completion"]["collaboration"]["quote"] = "Unread shop invented here"
+    with pytest.raises(ValidationError):
+        t.Turn.model_validate(payload)
+    payload = turn.model_dump(mode="json", by_alias=True)
+    payload["completion"]["schema"] = "dmb_build_collaboration_completion_v1"
+    with pytest.raises(ValidationError):
+        t.Turn.model_validate(payload)
+
+
+@pytest.mark.parametrize("completed", ["connected_page"], indirect=True)
+def test_connected_review_downgrade_refuses_retained_capability(
+    completed, application_state_dsn
+):
+    from importlib import import_module
+    from sqlalchemy import create_engine
+    from alembic.migration import MigrationContext
+    from alembic.operations import Operations
+
+    engine = create_engine(
+        application_state_dsn.replace("postgresql://", "postgresql+psycopg://")
+    )
+    try:
+        with engine.begin() as conn:
+            with Operations.context(MigrationContext.configure(conn)):
+                with pytest.raises(
+                    RuntimeError, match="Retained connected-page reviews"
+                ):
+                    import_module(
+                        "application_state.migrations.versions.20261025_0066_connected_page_review"
                     ).downgrade()
     finally:
         engine.dispose()

@@ -153,6 +153,23 @@ There are no tools. Never invent source selectors or turn a possibility into an 
 """
 
 
+CONNECTED_PAGE_INSTRUCTIONS = """
+The author can review and create a connected page through a dedicated conversation object.
+When asked to create/develop another person/shop page and enough supplied saved-page context is available,
+return collaboration:{kind:"connected_page", title:"proposed page title", read_id:"exact related page read_id",
+quote:"unique exact contiguous quote from that read", person_label:"proposed person name or null",
+relationships:["owns","operates"], instructions:"concise page writing brief including creative possibilities"}.
+Select existing named people/shops from the requested table before inventing. Quote the actual supplied passage.
+Use person_label:null and relationships:[] when no person relationship is requested; ask a typed question for
+unresolved important choices. Person/location node identities are author choices in the review, not model IDs.
+This prepares a review only. The author reviews title, identities and relationships, then explicitly creates
+and chooses scaffold/buildout. You cannot claim a page/relationship was saved. Never substitute a plan for
+an explicitly requested supported review when supplied material is enough. Other relationship predicates,
+such as person-to-person trade, require separate authoring; do not claim this flow persists those edges.
+Acknowledge briefly. Put factual source descriptions in separately cited claim segments; never hide facts
+in suggestion/acknowledgment text. Keep the full action detail in the review object, not repeated prose.
+"""
+
 COLLABORATION_INSTRUCTIONS = """
 For this request, also return collaboration, either null or one typed review object.
 When the author requests a plan or a complex connected creation workflow that needs agreement,
@@ -227,6 +244,11 @@ class WriterProjection:
         from application_state.agent_conversation.build_primary_context import packet_rows
         draft_context = "working_draft_context" in json.loads(self.input_json)
         collaboration = json.loads(self.input_json).get("collaboration_output_policy") == "typed_author_review_collaboration_v1"
+        connected = json.loads(self.input_json).get("connected_page_review_policy")=="typed_connected_page_review_v1"
+        collaboration_instructions = COLLABORATION_INSTRUCTIONS.replace(
+            "These are the supported continuation actions. Creating another page or persisting Graph\nrelationships is not an executor here: explain that boundary and propose a discussion/author\nchoice rather than claiming that those writes will happen automatically. Save is an author action.",
+            "These are the supported automatic continuation actions. A connected page has the explicit author review described below; other Graph relationships require separate authoring. Save is an author action."
+        ) if connected else COLLABORATION_INSTRUCTIONS
         draft_instructions = DRAFT_INSTRUCTIONS.replace(
             "use a short\nnumbered list of concrete questions, or a short Markdown task list of proposed steps in a suggestion segment.",
             "use the typed collaboration object described below, with a concise acknowledgment in a suggestion segment."
@@ -248,13 +270,13 @@ class WriterProjection:
             if self.source_only
             else SOURCE_INSTRUCTIONS
             if self.has_saved_sections
-            else INSTRUCTIONS) + primary_instructions + (COLLABORATION_INSTRUCTIONS if collaboration else ""),
+            else INSTRUCTIONS) + primary_instructions + (collaboration_instructions if collaboration else "") + (CONNECTED_PAGE_INSTRUCTIONS if connected else ""),
             "max_output_tokens": OUTPUT_RESERVE,
             "reasoning": {"effort": "low"},
             "text": {
                 "format": mixed_format or {
                     "type": "json_schema",
-                    "name": "build_working_draft_answer_v2" if collaboration else "build_working_draft_answer_v1" if draft_context else GAP_SCHEMA_NAME if cited else "build_source_passage_answer",
+                    "name": "build_working_draft_answer_v3" if connected else "build_working_draft_answer_v2" if collaboration else "build_working_draft_answer_v1" if draft_context else GAP_SCHEMA_NAME if cited else "build_source_passage_answer",
                     "schema": finite_output_schema(json.loads(self.input_json), requested_detail_gaps=True) if cited else source_answer_schema(),
                     "strict": True,
                 }
@@ -314,6 +336,9 @@ def with_working_draft(staged: WriterProjection, execution) -> WriterProjection:
     collaboration=getattr(execution.policy,"collaboration_output_policy",None)
     if collaboration is not None:
         packet["collaboration_output_policy"]=collaboration
+    connected=getattr(execution.policy,"connected_page_review_policy",None)
+    if connected is not None:
+        packet["connected_page_review_policy"]=connected
     from application_state.agent_conversation.build_related_pages import project
     related=project(execution)
     if related is not None:
