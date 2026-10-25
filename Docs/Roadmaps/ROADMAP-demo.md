@@ -1,8 +1,8 @@
 # Buddy roadmap — author, plan, play, remember
 
 **Status:** current product execution ledger; reconciled2026-10-24.
-**Current delivery anchor:** API/UI `6fa2e5edd042f4f00360a195eec2f98e2ddb4550` (#1737), ports8000/5202,
-APP0062/native0017, Core `4ccd39a1e433d81569d86c05273ac33ee8f27ef3`,
+**Current delivery anchor:** API/UI `2a87c8711eaf6af9cb0caf4229b9c2b90764ff38` (#1738), ports8000/5202,
+APP0063/native0017, Core `4ccd39a1e433d81569d86c05273ac33ee8f27ef3`,
 GE `3e085168c11bdee0de580b8cfa0f00cee157c157`. Latest protected paired delivery
 preserved2,732 APP rows and native state,
 27 frozen components and89 mechanics files. These are delivery facts, not journey acceptance.
@@ -24,7 +24,8 @@ isolation and host-derived descriptive status. Isolated ordinary card/reload che
 is local working state, not proof of durable agent execution. Fresh ordinary provider
 activity and proposal rendering remain to prove, along with named acquisition and the
 full writing chain. Delivery does not establish operator acceptance.
-Current bounded successor: [exact related saved pages](../Plans/HANDOFF-BUILD-related-saved-pages.md), in progress, not delivered. Read-only source-owner proof confirms Edge committed revision31 contains its tables, with no matching native Graph source artifact. Expose a metadata-only World-scoped catalog, explicit model selection, exact parent/APP source-owner reads, distinct authored context and immutable named citations; do not publish or invent a replacement. An additive APP0063 admission is required for a distinct completion type; deployment/ordinary model proof remain gates.
+Exact related saved-page acquisition is delivered (#1738): explicit metadata-only World catalog, model selection, exact source-owner/APP reads, producing writer inclusion and immutable named citations. Ordinary synthetic fresh conversation read only the selected page revision13, answered the actual table row, reloaded and opened the named saved snapshot. This is source acquisition proof, not the full connected authoring chain or operator acceptance. Edge's saved table has no matching native Graph artifact; the saved-page contract avoids inventing or publishing a replacement.
+Current bounded successor: [live activity turn binding](../Plans/HANDOFF-SURFACE-live-activity-turn-binding.md). The ordinary request exposed client-ID trace polling despite a different admitted durable turn, leaving generic progress. Fix exact persisted correlation, then prove live activity through ordinary controls.
 
 Trace snapshot meaning is delivered (#1737): prepared inputs and responses are separate; only comparable inputs or exact compaction pairs are diffed. Untyped historical snapshots remain inspectable without inferred removals. This is observability proof, not fresh live generation or full collaboration acceptance.
 

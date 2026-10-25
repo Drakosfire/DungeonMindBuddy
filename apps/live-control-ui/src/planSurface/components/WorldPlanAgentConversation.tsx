@@ -6186,10 +6186,26 @@ export function WorldPlanAgentConversation({
   const pendingActivityId = activityBusy ? sharedConversation?.pendingTurn?.turnId
     ?? pendingPlayTurn?.request.turn_id
     ?? (submittedMessage?.scopeKey === scopeKey ? submittedMessage.id : null) : null;
-  const activityTurn = pendingActivityId ? history?.turns.find(turn=>turn.turn_id===pendingActivityId)
-    : [...(history?.turns ?? [])].filter(turn=>!activityBusy||turn.lifecycle_status==='accepted'||turn.lifecycle_status==='running')
-      .sort((a,b)=>b.sequence-a.sequence)[0];
-  const activityTurnId = activityTurn?.turn_id ?? pendingActivityId;
+  // Client request UUIDs are not APP turn UUIDs. History admits the durable
+  // identity through the persisted idempotency key, never through row recency.
+  const pendingActivityMatches = pendingActivityId && history?.world_id === verifiedWorldId
+    ? history.turns.filter(turn => {
+      return submittedMessage?.scopeKey === scopeKey && submittedMessage.id === pendingActivityId
+        && (submittedMessage.conversationId === null
+          ? history.active_conversation_id === history.conversation_id
+          : submittedMessage.conversationId === history.conversation_id)
+        && (turn.turn_id === pendingActivityId || Boolean(submittedMessage.idempotencyKey)
+          && "idempotency_key" in turn && turn.idempotency_key === submittedMessage.idempotencyKey)
+        && turn.user_text === submittedMessage.message
+        && turn.provenance.world_id === verifiedWorldId
+        && turn.provenance.surface_id === (isBuild ? "build" : isReadOnly ? "play" : "plan")
+        && turn.provenance.primary_work.object_id === (isBuild ? buildMode?.savedSource?.documentId
+          : isReadOnly ? playMode?.admittedRun?.runId : documentId);
+    }) : [];
+  const activityTurn = activityBusy
+    ? pendingActivityMatches.length === 1 ? pendingActivityMatches[0] : undefined
+    : [...(history?.turns ?? [])].sort((a,b)=>b.sequence-a.sequence)[0];
+  const activityTurnId = activityTurn?.turn_id;
   const activityLifecycle = activityTurn?.lifecycle_status ?? 'running';
   const composer = (
     <section className="world-plan-agent-conversation__composer" aria-label="Conversation composer">
