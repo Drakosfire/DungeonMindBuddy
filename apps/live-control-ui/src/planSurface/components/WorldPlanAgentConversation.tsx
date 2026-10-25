@@ -3977,7 +3977,13 @@ export function WorldPlanAgentConversation({
           || latestRef.current.buildPlacementBridge !== bridge
           || historySnapshotRef.current?.conversation_id!==request.build_draft_context?.conversation_id
           || historySnapshotRef.current?.pointer_revision!==request.build_draft_context?.expected_pointer_revision
-          || (questionOverride === undefined && composerEditGenerationRef.current !== generation)) return;
+          || (questionOverride === undefined && composerEditGenerationRef.current !== generation)) {
+          // Keep the fence closed, but make an explicit retry's same-page retirement visible.
+          if(questionOverride!==undefined&&latestRef.current.mounted&&surfaceVisibleRef.current
+            &&latestRef.current.verifiedWorldId===source.worldId&&latestRef.current.buildDocumentId===source.documentId)
+            throw new Error('The page or conversation changed while preparing this retry. Nothing was sent. Retry again to use the current page.');
+          return;
+        }
       }
       if(explicitRequest&&!ownsSurfaceConversationRequest(explicitRequest))return;
       setBuildPlacementFailure(null);

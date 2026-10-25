@@ -853,6 +853,44 @@ describe("one App-level World conversation host across Plan and Play", () => {
     expect(input).toHaveValue(prior.user_text);
   });
 
+  it('reports a same-page revision change during retry preparation instead of silently returning',async()=>{
+    const prior=turn('plan',1,'');const terminal={...prior,lifecycle_status:'interrupted' as const,
+      provenance:{...prior.provenance,surface_id:'build',primary_work:{...prior.provenance.primary_work,object_id:'source-one'}}};
+    vi.mocked(getWorldAgentConversationHistory).mockResolvedValue(history([terminal]));
+    let finish!:(value:ReturnType<typeof insertionCapture>)=>void;
+    const bridge:BuildComposeBridge={captureContext:vi.fn(async()=>draftSnapshot()),capture:vi.fn(()=>new Promise(resolve=>{finish=resolve;})),insert:vi.fn()};
+    const view=render(<Harness initial="build" buildBridge={bridge}/>);fireEvent.click(await screen.findByRole('button',{name:'Open',exact:true}));
+    const retry=await screen.findByRole('button',{name:'Retry question'});await waitFor(()=>expect(retry).toBeEnabled());
+    fireEvent.change(screen.getByLabelText('Message DungeonBuddy'),{target:{value:'Keep my next thought'}});
+    fireEvent.click(retry);await waitFor(()=>expect(bridge.capture).toHaveBeenCalledTimes(1));
+    view.rerender(<Harness initial="build" buildBridge={bridge} buildSourceRevision={3}/>);
+    await act(async()=>finish(insertionCapture()));
+    expect(await screen.findByText('The page or conversation changed while preparing this retry. Nothing was sent. Retry again to use the current page.')).toHaveAttribute('role','alert');
+    expect(postWorldBuildAgentTurn).not.toHaveBeenCalled();expect(screen.getByLabelText('Message DungeonBuddy')).toHaveValue('Keep my next thought');
+    vi.mocked(bridge.captureContext).mockResolvedValue({...draftSnapshot(),registry_revision:3});
+    vi.mocked(bridge.capture).mockResolvedValue({...insertionCapture(),basis:{...insertionCapture().basis,registry_revision:3}});
+    vi.mocked(postWorldBuildAgentTurn).mockImplementation(()=>new Promise(()=>{}));
+    fireEvent.click(await screen.findByRole('button',{name:'Retry question'}));
+    await waitFor(()=>expect(postWorldBuildAgentTurn).toHaveBeenCalledTimes(1));
+    expect(vi.mocked(postWorldBuildAgentTurn).mock.calls[0][0].primary_work.expected_revision).toBe(3);
+    expect(screen.getByLabelText('Message DungeonBuddy')).toHaveValue('Keep my next thought');
+  });
+
+  it.each(['page','world'] as const)('retires retry preparation after foreign %s navigation without posting or showing an old error',async change=>{
+    const prior=turn('plan',1,'');const terminal={...prior,lifecycle_status:'interrupted' as const,
+      provenance:{...prior.provenance,surface_id:'build',primary_work:{...prior.provenance.primary_work,object_id:'source-one'}}};
+    vi.mocked(getWorldAgentConversationHistory).mockResolvedValue(history([terminal]));
+    let finish!:(value:ReturnType<typeof insertionCapture>)=>void;
+    const bridge:BuildComposeBridge={captureContext:vi.fn(async()=>draftSnapshot()),capture:vi.fn(()=>new Promise(resolve=>{finish=resolve;})),insert:vi.fn()};
+    const view=render(<Harness initial="build" buildBridge={bridge}/>);fireEvent.click(await screen.findByRole('button',{name:'Open',exact:true}));
+    const retry=await screen.findByRole('button',{name:'Retry question'});await waitFor(()=>expect(retry).toBeEnabled());fireEvent.click(retry);
+    await waitFor(()=>expect(bridge.capture).toHaveBeenCalledTimes(1));
+    if(change==='page')view.rerender(<Harness initial="build" buildBridge={bridge} buildSourceId="foreign-page"/>);
+    else fireEvent.click(screen.getByRole('button',{name:'Switch World'}));
+    await act(async()=>finish(insertionCapture()));
+    expect(postWorldBuildAgentTurn).not.toHaveBeenCalled();expect(screen.queryByText('The page or conversation changed while preparing this retry. Nothing was sent. Retry again to use the current page.')).not.toBeInTheDocument();
+  });
+
   it.each(["failed", "interrupted"] as const)("labels a historical Build %s with its saved source while viewing Plan", async lifecycle => {
     const historical = { ...turn("plan", 1, ""), lifecycle_status: lifecycle,
       provenance: { ...turn("plan", 1, "").provenance, surface_id: "build", surface_instance_id: "build-instance",
