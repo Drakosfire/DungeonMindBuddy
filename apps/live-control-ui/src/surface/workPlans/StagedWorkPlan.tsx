@@ -121,7 +121,7 @@ export function StagedWorkPlan({worldId,documentId,conversationId,turnId,source,
   finally{if(current.current.scope===start.scope)setBusy(false);}
  }
  const review=<section className="surface-work-plan" aria-label="Plan suggestion" contentEditable={false}>
-  <header><strong>Work plan</strong><SurfaceObjectMenu label="Plan suggestion options">{placement&&<details><summary>Placement recovery</summary><pre>{JSON.stringify(placement,null,2)}</pre></details>}</SurfaceObjectMenu><button type="button" aria-label="Dismiss plan suggestion" disabled={disabled||busy||!!placement?.prepared||placement?.phase==='review_saving'} onClick={()=>{
+  <header className="surface-work-plan__header"><strong>Work plan</strong><SurfaceObjectMenu label="Plan suggestion options">{placement&&<details><summary>Placement recovery</summary><pre>{JSON.stringify(placement,null,2)}</pre></details>}</SurfaceObjectMenu><button type="button" aria-label="Dismiss plan suggestion" disabled={disabled||busy||!!placement?.prepared||placement?.phase==='review_saving'} onClick={()=>{
    if(!placement)return;const start=current.current;setBusy(true);void changePlacement(placement,p=>({...p,phase:'discarded'})).then(next=>{assertCurrent(start);setPlacement(next);setCaptured(null);}).catch(reason=>{if(current.current.scope===start.scope)setError(String(reason));}).finally(()=>{if(current.current.scope===start.scope)setBusy(false);});
   }}>×</button></header>
   <label>Expected outcome<textarea aria-label="Expected outcome" value={objective} disabled={disabled||busy||!!placement?.prepared} onChange={event=>retain(rows,event.target.value)}/></label>
