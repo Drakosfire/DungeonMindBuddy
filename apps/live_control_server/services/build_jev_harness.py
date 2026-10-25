@@ -223,6 +223,7 @@ class BuildJevHarness:
                 adapter.rules_runtime.lookup_selected()
             if driver.operation == "prepare_build_image":
                 from .build_image_writer import prepare_image
+                self.failure_stage = "image_prepare"
                 return prepare_image(self, adapter, driver)
             if driver.operation == "propose_build_insertion":
                 return self._proposal(adapter, driver)
@@ -275,6 +276,7 @@ class BuildJevHarness:
                     graph_payloads=graph, section_read_ids=sections
                 )
             result = asyncio.run(self._write(adapter, staged))
+            self.failure_stage = "writer_validation"
             rejection, rejection_code = None, "build_writer_terminal_check_rejected"
             try:
                 if (terminal.status in {"insufficient_evidence", "unresolved_conflict"}
@@ -371,7 +373,10 @@ class BuildJevHarness:
             self.adapter.context_capture.provider_usage([call])
 
     def _entered(self, event, phase):
+        if event.outcome == "response_received":
+            self.failure_stage = phase + "_validation"
         if event.outcome == "sending":
+            self.failure_stage = phase + "_dispatch"
             # GE's immutable prepared attempt is the request identity. Register
             # only after the parent acknowledged its exact sending lifecycle.
             request_id = f"generationengine:{event.request.attempt_id}"
@@ -405,6 +410,7 @@ class BuildJevHarness:
         )
 
     def _observe(self, result, started, phase):
+        self.failure_stage = phase + "_validation"
         self._record_observation(
             result.observation.model_dump(mode="json"),
             (time.perf_counter() - started) * 1000,
@@ -613,6 +619,7 @@ class BuildJevHarness:
             await client.aclose()
 
     def _proposal(self, adapter, driver):
+        self.failure_stage = "proposal_prepare"
         capability = adapter.request.build_write_capability
         if capability is None:
             raise ValueError(
@@ -659,6 +666,7 @@ class BuildJevHarness:
             return acknowledged
 
         started = time.perf_counter()
+        self.failure_stage = "proposal_compose"
         try:
             action = asyncio.run(
                 proposal_owner.compose_with_writer(
@@ -671,6 +679,7 @@ class BuildJevHarness:
         except Exception as exc:
             self._failed(exc, started, "writer")
             raise
+        self.failure_stage = "proposal_validation"
         if action.state != "proposed":
             raise ValueError("Proposal is unresolved; no regeneration or second writer")
         if (
@@ -682,6 +691,7 @@ class BuildJevHarness:
             self._record_observation(
                 action.observation, (time.perf_counter() - started) * 1000, "writer"
             )
+        self.failure_stage = "proposal_completion"
         completion = completion_for_proposal(action, adapter.turn.graph_context_receipt)
         if adapter.context_capture:
             adapter.context_capture.answer_draft(

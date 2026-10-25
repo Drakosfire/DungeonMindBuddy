@@ -800,6 +800,8 @@ def test_failed_structured_writer_keeps_reported_usage(
     assert len(usage) == 2 and all(item.provider_attempt_id is not None for item in usage)
     assert usage[-1].outcome == "failed"
     assert (usage[-1].input_tokens, usage[-1].output_tokens) == (100, 40)
+    failure = [o for trace in traces for o in trace.observations if o.kind == "failure" and o.diagnostic_id][-1]
+    assert failure.stage == "writer_validation"
 
 
 def test_compact_first_sdk_keeps_nonempty_logical_membership_and_wire_hash(

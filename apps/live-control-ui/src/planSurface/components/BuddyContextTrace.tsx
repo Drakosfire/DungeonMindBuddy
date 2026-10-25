@@ -163,7 +163,7 @@ export function BuddyContextTrace({ trace, ownerActive }: { trace: BuddyTurnCont
       <h5>This attempt stopped before completing a reply.</h5>
       {failure ? <><p>{failure.code === 'build_source_name_missing' ? 'A retrieved passage has no verified source name. Buddy stopped while assembling source context.' : 'Recorded failure:'} <code>{failure.code}</code></p><p>Stage: {failure.stage ?? failure.phase}</p>
         {failure.exception_type && <p>Exception: {failure.exception_type}{failure.cause_type && failure.cause_type !== failure.exception_type ? ` · caused by ${failure.cause_type}` : ''}</p>}
-        {failure.diagnostic_id ? <><p>Private diagnostic: <code>{failure.diagnostic_id}</code></p><p>Full exception details were retained privately; they are not source evidence or an accepted answer.</p></>
+        {failure.diagnostic_id ? <><p>Private diagnostic: <code>{failure.diagnostic_id}</code></p><p>Exception diagnostic details were retained privately; they are not source evidence or an accepted answer.</p></>
           : <p>No private exception diagnostic was recorded for this attempt.</p>}</>
         : <p>The specific cause was not recorded for this attempt. The timeline shows recorded activity, not an explanation of why it stopped.</p>}
       <p>Trace capture status is separate from whether the reply succeeded.</p>

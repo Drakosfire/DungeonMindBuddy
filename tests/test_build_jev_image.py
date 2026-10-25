@@ -220,6 +220,11 @@ def test_unknown_writer_does_not_replay_or_create_preparation(
     with pytest.raises(Exception):
         execute(case, tmp_path, runtime, operator_subject="local_operator")
     assert len(wire.calls) == 1
+    service = AgentConversationService()
+    turn = service.list_turns('elderwyld', case[1].build_write_capability.conversation_id)[0]
+    trace = service.list_context_trace_attempts(world_id='elderwyld', turn_id=turn.turn_id)[0]
+    failure = [o for o in trace.observations if o.kind == 'failure' and o.diagnostic_id][-1]
+    assert failure.stage == 'writer_dispatch'
     with pytest.raises(ApplicationStateNotFoundError):
         BuildImageService().get(
             uuid5(case[1].build_write_capability.idempotency_key, "image"),
