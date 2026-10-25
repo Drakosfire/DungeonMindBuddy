@@ -1,6 +1,6 @@
 # MIND: durable Build failure report
 
-ACTIVE operator request: reproduce latest failed Brin attempt and add missing observability. PRIME serial owning implementation in existing buddy-context-loop checkout, branch codex/mind-durable-failure-report from origin/main79b4f6f86b9d00047ab45665378cac93a411cf1f. Relevant open PRs checked; no overlapping active lane. Broad goal stays paused. One PR, independent Bugbot exact cumulative review then PRIME merge/protected API/UI5202 delivery. No routing change, creative execution or broader goal completion.
+FULFILLED by PR #1731, merged and delivered at a77449e973233d0a0c1bb001fe839f605e6f7cad; protected state and ordinary UI/reload checks passed. Original bounded operator request: reproduce latest failed Brin attempt and add missing observability. PRIME serial owning implementation in existing buddy-context-loop checkout, branch codex/mind-durable-failure-report from origin/main79b4f6f86b9d00047ab45665378cac93a411cf1f. Relevant open PRs checked; no overlapping active lane. Broad goal stays paused. One PR, independent Bugbot exact cumulative review then PRIME merge/protected API/UI5202 delivery. No routing change, creative execution or broader goal completion.
 
 ## Contract and critique
 
