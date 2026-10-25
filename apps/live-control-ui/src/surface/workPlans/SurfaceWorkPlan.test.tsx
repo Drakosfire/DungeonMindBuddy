@@ -1,4 +1,4 @@
-import {cleanup,fireEvent,render,screen,waitFor} from '@testing-library/react';
+import {cleanup,fireEvent,render,screen,waitFor,within} from '@testing-library/react';
 import {afterEach,beforeEach,expect,it,vi} from 'vitest';
 import {webcrypto} from 'node:crypto';
 import {SurfaceWorkPlan} from './SurfaceWorkPlan';
@@ -37,4 +37,23 @@ it('shows an exact-turn affordance rather than a second plain-text result',async
  render(<WorkPlanHostProvider host={own}><SurfaceWorkPlan reference={ref}/></WorkPlanHostProvider>);
  fireEvent.click(await screen.findByRole('button',{name:'View reply'}));expect(own.openReply).toHaveBeenCalledWith(turn);
  expect(screen.queryByText('Copied result must not become an uncited second reply.')).not.toBeInTheDocument();
+});
+
+it('composes one editable title, move handle, plus, Save and menu in the object bar',async()=>{
+ const changed=vi.fn();
+ render(<WorkPlanHostProvider host={host()}><SurfaceWorkPlan reference={ref} onTitleChange={changed}
+   moveHandle={<button aria-label="Move work plan">Move</button>}/></WorkPlanHostProvider>);
+ await screen.findByRole('checkbox',{name:'Include step 1'});
+ const bar=within(screen.getByLabelText('Plan toolbar'));
+ expect(bar.getByRole('textbox',{name:'Plan title'})).toHaveValue('Workshop plan');
+ expect(bar.getByRole('button',{name:'Move work plan'})).toBeInTheDocument();
+ expect(bar.getByRole('button',{name:'Add step'})).toBeEnabled();
+ expect(bar.getByRole('button',{name:'Save',exact:true})).toBeDisabled();
+ expect(bar.getByLabelText('Plan options')).toBeInTheDocument();
+ expect(screen.getAllByRole('button',{name:'Add step'})).toHaveLength(1);
+ expect(screen.getAllByRole('button',{name:'Save',exact:true})).toHaveLength(1);
+ const title=bar.getByRole('textbox',{name:'Plan title'});
+ fireEvent.change(title,{target:{value:'Lantern plan'}});fireEvent.blur(title);
+ expect(changed).toHaveBeenCalledWith('Lantern plan');expect(saveWorkPlan).not.toHaveBeenCalled();
+ expect(continueWorkPlan).not.toHaveBeenCalled();
 });
