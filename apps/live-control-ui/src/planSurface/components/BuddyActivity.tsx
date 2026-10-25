@@ -4,6 +4,20 @@ import type { BuddyTraceObservation } from '../../api/buddyContextTraceTypes'
 import { useBuddyTurnInspection } from './BuddyTurnInspection'
 import { BuddyContextTraceLoader } from './BuddyContextTraceLoader'
 
+/** Usage updates for one identified response are not another model arrival.
+ * Keep the first receipt in place; the full trace still owns every observation.
+ */
+export function activityObservations(observations: readonly BuddyTraceObservation[]): BuddyTraceObservation[] {
+  const received = new Set<string>()
+  return observations.filter(event => {
+    if (event.kind !== 'provider_call' || event.outcome !== 'response_received' || !event.provider_attempt_id) return true
+    const key = JSON.stringify([event.provider_attempt_id, event.provider, event.model])
+    if (received.has(key)) return false
+    received.add(key)
+    return true
+  })
+}
+
 function activity(event: BuddyTraceObservation): string {
   switch (event.kind) {
     case 'source_passage':
@@ -13,7 +27,7 @@ function activity(event: BuddyTraceObservation): string {
       : event.outcome === 'response_received' ? 'A model response just landed.' : `Model call · ${event.outcome}.`
     case 'prompt_reference': return 'Notes packed for the next model call.'
     case 'context_snapshot': return event.snapshot_kind === 'provider_input' ? 'Laying out the notes…'
-      : event.snapshot_kind === 'provider_response' ? 'A response landed, ready for checking.'
+      : event.snapshot_kind === 'provider_response' ? 'Response captured for inspection.'
       : event.snapshot_kind === 'validated_answer' ? 'The reply is assembled.'
       : event.snapshot_kind === 'compaction_input' ? 'Taking stock of the notes…'
       : event.snapshot_kind === 'compaction_output' ? 'The notes after a tidy-up.' : 'A captured snapshot of the notes.'
@@ -31,7 +45,8 @@ export function BuddyActivity({ worldId, conversationId, turnId, lifecycle }: { 
   // Running work is observed even while collapsed; terminal traces load on demand.
   const inspection = useBuddyTurnInspection(binding, open || lifecycle === 'accepted' || lifecycle === 'running')
   const trace = inspection.data?.attempts.at(-1)
-  const last = trace?.observations.at(-1)
+  const observations = activityObservations(trace?.observations ?? [])
+  const last = observations.at(-1)
   const failed = lifecycle === 'failed' || lifecycle === 'interrupted' || trace?.terminal_status === 'failed' || trace?.terminal_status === 'interrupted'
   const label = inspection.running ? last ? activity(last) : 'Getting the notes together…'
     : failed ? 'Reply error report' : 'How this reply came together'
@@ -42,11 +57,11 @@ export function BuddyActivity({ worldId, conversationId, turnId, lifecycle }: { 
       {!trace ? <p>{inspection.running ? 'Waiting for recorded activity…' : 'No captured activity is available yet.'}</p> : <>
         <p>Attempt {trace.attempt} · {trace.terminal_status ?? 'in progress'} · recorded activity</p>
         {failed && !trace.observations.some(event => event.kind === 'failure' && event.phase !== 'trace_capture') && <p>The specific cause was not recorded for this attempt.</p>}
-        <ol>{trace.observations.slice(-12).map(event => <li key={event.sequence}>
+        <ol>{observations.slice(-12).map(event => <li key={event.sequence}>
           <time>{(event.elapsed_ms / 1000).toFixed(1)}s</time> · {activity(event)}
           {event.kind === 'failure' && <span> · {event.code}{event.stage ? ` · ${event.stage}` : ''}</span>}
         </li>)}</ol>
-        {trace.observations.length > 12 && <p>Latest 12 observations. The full trace is below.</p>}
+        {observations.length > 12 && <p>Latest 12 activity updates. The full trace is below.</p>}
       </>}
       <details onToggle={event => setTechnical(event.currentTarget.open)}><summary>Prompts and technical details</summary>
         {technical && <BuddyContextTraceLoader {...binding} enabled />}
