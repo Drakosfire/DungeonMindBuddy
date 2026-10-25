@@ -1,11 +1,10 @@
 # Buddy roadmap — author, plan, play, remember
 
 **Status:** current product execution ledger; reconciled2026-10-24.
-**Current delivery anchor:** API `01f3e3687566a6cf73e8620d338c51aa491885d8`
-(#1733), UI `e167cbabf9007b04c7da96b0e003648ac15e78b6` (#1734), ports8000/5202,
+**Current delivery anchor:** API/UI `e89d66798a83c88ff03c694c76580821c541035d` (#1735), ports8000/5202,
 APP0062/native0017, Core `4ccd39a1e433d81569d86c05273ac33ee8f27ef3`,
-GE `3e085168c11bdee0de580b8cfa0f00cee157c157`. Latest protected UI delivery
-preserved2,722 APP rows and the API; prior API delivery preserved native state,
+GE `3e085168c11bdee0de580b8cfa0f00cee157c157`. Latest protected paired delivery
+preserved2,732 APP rows and native state,
 27 frozen components and89 mechanics files. These are delivery facts, not journey acceptance.
 **Owner:** DungeonMindBuddy; [steward mandate](../Plans/STEWARDS-HANDOFF-demo.md).
 
@@ -17,11 +16,14 @@ in Brin’s Blacksmithy/Edge/Bog Blossom Hill before resuming preparation/play w
 read the named Edge table → person/shop relationships → page-ready prose →
 place/edit/save/reload/continue**. Operator acceptance is required.
 
-Current bounded implementation: [conversation workbook](../Plans/HANDOFF-MIND-conversation-workbook.md).
-It is in progress, not delivered or accepted. The initial author-controlled card
-is local working state, not proof of a durable agent execution scratchpad. Verify
-ordinary running activity, not only terminal disclosure or mocked polling. Repair
-heading typography and descriptive-status mismatch while preserving provenance.
+Delivered bounded implementation: [conversation workbook](../Plans/HANDOFF-MIND-conversation-workbook.md).
+Delivered #1735: editable/selectable plan/question cards with local reload recovery,
+composer append, submitted-request activity before history admission, heading typography
+isolation and host-derived descriptive status. Isolated ordinary card/reload checks passed;
+36 backend/173 UI tests and independent exact Bugbot passed. The author-controlled card
+is local working state, not proof of durable agent execution. Fresh ordinary provider
+activity and proposal rendering remain to prove, along with named acquisition and the
+full writing chain. Delivery does not establish operator acceptance.
 Keep plans/questions in conversation and actual requested document content on the page.
 Explicit named acquisition must precede inventing a replacement person/shop.
 
@@ -31,8 +33,9 @@ and archived transcript access (#1728), page relationships moved out of the docu
 registered recap-family naming repair (#1733), and an initial live activity entry
 (#1734). The original failure was reproduced; the name repair passed exact retained
 acquisition replay and ordinary live source reads. None establishes end-to-end
-collaboration quality. The follow-up status failure and planning-as-page output are
-observed unresolved dogfood defects owned by the current gate. Six additional
+collaboration quality. The follow-up status failure has a tested host repair; planning-as-page has prompt
+guidance and review scaffolding. Neither establishes the full collaboration outcome;
+ordinary provider dogfood remains owned by the immediate gate. Six additional
 Worldbuilding title gaps are recorded in #1733; do not guess titles or rewrite retained provenance.
 
 Speed is no longer the immediate optimization priority. Preserve the original
