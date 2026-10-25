@@ -1,3 +1,4 @@
+import type {ReviewedStepReference} from '../../api/types'
 import { DurableWorkPlan,type ReviewedRow } from './DurableWorkPlan'
 import type {WorkPlan,WorkDispatch} from '../../api/conversationWorkPlanApi'
 import { useState } from 'react'
@@ -80,7 +81,7 @@ function Card({source, identity, mode, items, onAdd, disabled, onSavePlan}: {
 
 /** The author chooses the interpretation. Lists are never promoted to facts or executed. */
 export function ConversationWorkbook({source, worldId, conversationId, turnId, onAdd, disabled=false, durable, collaboration}: {
-  collaboration?:ConversationCollaboration|ConversationConnectedPageProposal|ConversationRelationshipProposal|null; source: string; worldId: string; conversationId: string; turnId: string; onAdd: (text: string) => void; disabled?: boolean; durable?:{disabled:boolean;onContinue:(plan:WorkPlan,dispatch:WorkDispatch)=>void}
+  collaboration?:ConversationCollaboration|ConversationConnectedPageProposal|ConversationRelationshipProposal|null; source: string; worldId: string; conversationId: string; turnId: string; onAdd: (text: string) => void; disabled?: boolean; durable?:{disabled:boolean;onContinue:(plan:WorkPlan,dispatch:WorkDispatch,reference:ReviewedStepReference|null)=>void}
 }) {
   const [chosenMode,setMode]=useState<Mode|null|undefined>(undefined)
   const mode=chosenMode===undefined?(collaboration?.kind==='plan'?'plan':collaboration?.kind==='questions'?'questions':null):chosenMode

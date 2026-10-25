@@ -31,7 +31,7 @@ function activity(event: BuddyTraceObservation): string {
       : event.snapshot_kind === 'validated_answer' ? 'The reply is assembled.'
       : event.snapshot_kind === 'compaction_input' ? 'Taking stock of the notes…'
       : event.snapshot_kind === 'compaction_output' ? 'The notes after a tidy-up.' : 'A captured snapshot of the notes.'
-    case 'context_decision': return event.action === 'retrieved' && event.policy_version === 'selected_exact_related_authored_pages_v1'
+    case 'context_decision': if(event.policy_version==='reviewed_author_action_v1')return 'Following your reviewed step.'; return event.action === 'retrieved' && event.policy_version === 'selected_exact_related_authored_pages_v1'
       ? 'Another page joins the reading pile.' : `Tidying the notes · ${event.action}.`
     case 'failure': return event.phase === 'trace_capture' ? 'Some trace details are missing.' : 'Hit a snag—open the report.'
   }

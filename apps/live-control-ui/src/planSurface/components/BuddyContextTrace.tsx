@@ -103,7 +103,7 @@ function Event({ event, passages, trace }: { event: BuddyTraceObservation; passa
     case 'context_snapshot': return <ContextSnapshot event={event} trace={trace} passages={passages} />
     case 'context_decision': return <><strong>{event.action}</strong><p>{event.action === 'retained' && event.policy_version === 'conversation_routes_v1'
       ? 'Visible conversation history retained for follow-ups.'
-      : reasons[event.reason_code] ?? event.reason_code}</p><JsonDetails label="Affected material and policy" value={{ items: event.item_ids, policy: event.policy_version }} /></>
+      : event.policy_version === 'reviewed_author_action_v1' ? 'The author-selected action was preserved without another routing decision.' : reasons[event.reason_code] ?? event.reason_code}</p><JsonDetails label="Affected material and policy" value={{ items: event.item_ids, policy: event.policy_version }} /></>
     case 'graph_tool': return <details><summary>{names[event.tool_name]} · {event.request.operation} <span>{event.result.outcome}</span></summary>
       {event.request.operation === 'search' && <p>Search: {event.request.query_text}</p>}
       <JsonDetails label="Query and selectors" value={event.request} />

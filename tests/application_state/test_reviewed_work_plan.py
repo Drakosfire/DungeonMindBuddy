@@ -389,3 +389,48 @@ def test_readable_continuation_preserves_review_and_result_without_internal_ids(
         assert "Selected · Discuss ·" in message
         assert "Prepare an insertion ·" in message
     assert "editable on-page insertion" in second.message
+
+
+def test_reviewed_reference_resolves_immutable_step_without_plan_revision_pin(case):
+    from application_state.agent_conversation.reviewed_action import ReviewedStepReference
+    from application_state.unit_of_work import unit_of_work
+    service, cid, source, steps, plan = case
+    command = w.Continue(expected_revision=plan['revision'], step_id=steps[0].step_id, command_id=uuid4())
+    response = w.continue_step('world-one', cid, source.turn_id, command)
+    reference = ReviewedStepReference.model_validate(response['reviewed_step'])
+    d = w.Dispatch.model_validate(response['dispatch'])
+    def resolve():
+        with unit_of_work(w._ready_dsn()) as conn:
+            return w.resolve_action(conn, 'world-one', reference, document_id='source-one',
+                client_thread_id=str(d.client_thread_id), client_turn_id=str(d.client_turn_id), message=d.message)
+    binding = resolve()
+    assert binding.kind == 'discuss' and binding.operation == 'answer_from_sources'
+    # Changing another unstarted step must not invalidate the immutable command.
+    w.save('world-one', cid, source.turn_id, w.Review(expected_revision=response['plan']['revision'],
+        steps=[steps[0], steps[1].model_copy(update={'text':'Another future description'})]))
+    assert resolve() == binding
+    actual = accept(service, cid, d.message, uuid5(NAMESPACE_URL, f'dmb-agent-turn:world-one:{d.client_turn_id}'))
+    finish(service, cid, actual, 'Historical unbound response')
+    # Never retrofit new authority to a previously admitted unbound request.
+    assert w.continue_step('world-one', cid, source.turn_id, command)['reviewed_step'] is None
+
+
+@pytest.mark.parametrize('mutation', ['world','page','conversation','source','command','thread','turn','message'])
+def test_reviewed_reference_rejects_foreign_dispatch_inputs(case, mutation):
+    from application_state.agent_conversation.reviewed_action import ReviewedStepReference
+    from application_state.unit_of_work import unit_of_work
+    from application_state.errors import ApplicationStateError
+    _, cid, source, steps, plan = case
+    response = w.continue_step('world-one', cid, source.turn_id,
+        w.Continue(expected_revision=plan['revision'], step_id=steps[0].step_id, command_id=uuid4()))
+    reference = ReviewedStepReference.model_validate(response['reviewed_step'])
+    d = w.Dispatch.model_validate(response['dispatch'])
+    args = dict(document_id='source-one', client_thread_id=str(d.client_thread_id), client_turn_id=str(d.client_turn_id), message=d.message)
+    if mutation in {'conversation','source','command'}:
+        field = {'conversation':'conversation_id','source':'source_turn_id','command':'command_id'}[mutation]
+        reference = reference.model_copy(update={field:uuid4()})
+    elif mutation != 'world':
+        field = {'page':'document_id','thread':'client_thread_id','turn':'client_turn_id','message':'message'}[mutation]
+        args[field] = 'changed'
+    with unit_of_work(w._ready_dsn()) as conn, pytest.raises(ApplicationStateError):
+        w.resolve_action(conn, 'other-world' if mutation == 'world' else 'world-one', reference, **args)

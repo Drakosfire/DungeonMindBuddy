@@ -93,7 +93,7 @@ def validate_stored_proposal(conn, turn, completion):
             )
         from .types import (
             BuildActionControllerWriterPolicyV1,
-            BuildJevActionSelectionV1,
+            BuildJevActionSelectionV1, BuildReviewedActionSelectionV1,
         )
 
         if isinstance(
@@ -102,7 +102,7 @@ def validate_stored_proposal(conn, turn, completion):
             choices = [
                 e
                 for e in turn.graph_context_execution.events
-                if isinstance(e, BuildJevActionSelectionV1)
+                if isinstance(e, (BuildJevActionSelectionV1, BuildReviewedActionSelectionV1))
             ]
             if (
                 len(choices) != 1

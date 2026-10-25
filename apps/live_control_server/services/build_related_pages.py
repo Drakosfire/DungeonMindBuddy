@@ -140,6 +140,8 @@ def acquire_selected_pages(a):
     offered = catalog(a._broker_execution().policy)
     if offered is None:
         return
+    if not offered and any(e.kind == "build_reviewed_action_selected_v1" for e in a._broker_execution().events):
+        return
     selections = [
         e for e in a._broker_execution().events if isinstance(e, RelatedPagesSelection)
     ]

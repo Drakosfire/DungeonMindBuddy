@@ -198,20 +198,22 @@ def continuation_binding(adapter) -> dict:
             or execution.context_receipt_sha256 != receipt.context_receipt_sha256):
         raise ValueError("Continuation policy/receipt differs")
     attempts = [e for e in execution.events if isinstance(e, ledger.ProviderAttemptAuthorizedEventV3)]
-    if not attempts or attempts[0].envelope_sha256 != receipt.assembled_input.assembled_input_sha256:
+    author_admission = receipt.assembled_input.assembler_version == "reviewed_author_admission_v1"
+    if not author_admission and (not attempts or attempts[0].envelope_sha256 != receipt.assembled_input.assembled_input_sha256):
         raise ValueError("Continuation initial envelope differs from frozen receipt")
     prior = adapter.last_provider_attempt_id
     outcomes = [e.outcome for e in execution.events
                 if isinstance(e, ledger.ProviderOutcomeEventV1) and e.provider_attempt_id == prior]
-    if (prior is None or attempts[-1].provider_attempt_id != prior
+    if not (author_admission and not attempts and prior is None) and (prior is None or attempts[-1].provider_attempt_id != prior
             or attempts[-1].provider != PROVIDER or attempts[-1].model != MODEL
             or outcomes[-1:] != ["response_received"]):
         raise ValueError("Continuation requires the last acknowledged controller attempt")
     return dict(context_receipt_sha256=receipt.context_receipt_sha256,
-                initial_envelope_sha256=attempts[0].envelope_sha256,
+                initial_envelope_sha256=attempts[0].envelope_sha256 if attempts else None,
                 execution_policy_sha256=execution.execution_policy_sha256,
                 turn_id=str(turn.turn_id), turn_attempt=turn.attempt,
-                event_sequence=len(execution.events), prior_provider_attempt_id=str(prior))
+                event_sequence=len(execution.events), prior_provider_attempt_id=str(prior) if prior is not None else None,
+                **({"author_admission_sha256":receipt.assembled_input.assembled_input_sha256} if author_admission else {}))
 
 
 def factored_decision(intent) -> dict:

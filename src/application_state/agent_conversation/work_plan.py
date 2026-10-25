@@ -287,6 +287,7 @@ def continue_step(world, conversation, source, command: Continue):
             return {
                 "plan": _projection(conn, p),
                 "dispatch": prior.model_dump(mode="json"),
+                "reviewed_step": _reference_for_dispatch(conn, p, prior),
             }
         if p.revision != command.expected_revision:
             raise ApplicationStateConflictError("The plan changed before continuation")
@@ -305,6 +306,7 @@ def continue_step(world, conversation, source, command: Continue):
                     return {
                         "plan": _projection(conn, p),
                         "dispatch": d.model_dump(mode="json"),
+                        "reviewed_step": _reference_for_dispatch(conn, p, d),
                     }
                 raise ApplicationStateConflictError(
                     "Resolve the existing continuation before starting another"
@@ -387,4 +389,82 @@ def continue_step(world, conversation, source, command: Continue):
         return {
             "plan": _projection(conn, updated),
             "dispatch": d.model_dump(mode="json"),
+            "reviewed_step": _reference_for_dispatch(conn, updated, d),
         }
+
+
+def resolve_action(conn, world, reference, *, document_id, client_thread_id, client_turn_id, message):
+    """Resolve immutable author authority, including during completed archived replay."""
+    from .reviewed_action import ReviewedStepBinding, digest
+    turn = _source(conn, world, reference.conversation_id, reference.source_turn_id)
+    p = _load(conn, world, reference.conversation_id, reference.source_turn_id)
+    if (p is None or p.document_id != document_id
+        or p.source_answer_sha256 != sha256(turn.assistant_text.encode()).hexdigest()):
+        raise ApplicationStateConflictError("The reviewed action has a different source or page")
+    dispatch = next((d for d in p.dispatches if d.command_id == reference.command_id), None)
+    step = next((s for s in p.steps if dispatch and s.step_id == dispatch.step_id), None)
+    if (dispatch is None or step is None or not step.selected
+        or str(dispatch.client_thread_id) != client_thread_id
+        or str(dispatch.client_turn_id) != client_turn_id or dispatch.message != message):
+        raise ApplicationStateConflictError("The reviewed action differs from its retained dispatch")
+    return ReviewedStepBinding(reference=reference, step_id=step.step_id, kind=step.kind,
+        source_answer_sha256=p.source_answer_sha256,
+        dispatch_sha256=digest({"step": step.model_dump(mode="json"), "dispatch": dispatch.model_dump(mode="json")}))
+
+
+def resolve_request_action(request, world):
+    reference = request.reviewed_step
+    if reference is None:
+        return None
+    draft = request.build_draft_context
+    if (draft is None or draft.conversation_id != reference.conversation_id
+        or request.primary_work is None or request.graph_request.mode != "world"):
+        raise ApplicationStateConflictError("The reviewed action requires its current page and conversation")
+    with unit_of_work(_ready_dsn()) as conn:
+        binding = resolve_action(conn, world, reference, document_id=request.primary_work.object_id,
+            client_thread_id=request.client_thread_id, client_turn_id=request.turn_id, message=request.message)
+    if binding.kind == "prepare_insertion" and request.build_write_capability is None:
+        raise ApplicationStateConflictError("The reviewed insertion has no captured page placement; retain this step and restore its page target")
+    return binding
+
+
+def validate_bound_intent(conn, world, intent, key):
+    """APP rechecks retained authority at admission and action append."""
+    binding = getattr(intent, "reviewed_step", None)
+    if binding is None:
+        return
+    p = _load(conn, world, binding.reference.conversation_id, binding.reference.source_turn_id)
+    d = next((d for d in p.dispatches if d.command_id == binding.reference.command_id), None) if p else None
+    if d is None or key != uuid5(NAMESPACE_URL, f"dmb-agent-turn:{world}:{d.client_turn_id}"):
+        raise ApplicationStateConflictError("Reviewed action does not own this turn identity")
+    actual = resolve_action(conn, world, binding.reference, document_id=intent.primary_work.object_id,
+        client_thread_id=intent.client_thread_id, client_turn_id=str(d.client_turn_id), message=intent.message)
+    if actual != binding:
+        raise ApplicationStateConflictError("Reviewed action binding differs from retained author authority")
+
+
+def retain_bound_intent(conn, turn, intent):
+    if getattr(intent, "reviewed_step", None) is not None:
+        conn.execute("INSERT INTO agent.turn_reviewed_action(turn_id,intent) VALUES(%s,%s)",
+            (turn.turn_id, Jsonb(intent.model_dump(mode="json", by_alias=True))))
+
+
+def retained_bound_intent(conn, turn):
+    from .types import BuildGraphIntentV1, submitted_turn_intent_fingerprint_v2
+    row = conn.execute("SELECT intent FROM agent.turn_reviewed_action WHERE turn_id=%s", (turn.turn_id,)).fetchone()
+    if row is None:
+        return None
+    intent = BuildGraphIntentV1.model_validate(row[0])
+    if intent.reviewed_step is None or submitted_turn_intent_fingerprint_v2(intent) != turn.submitted_intent_fingerprint_v2:
+        raise ApplicationStateConflictError("Retained reviewed intent differs from the turn fingerprint")
+    return intent
+
+
+def _reference_for_dispatch(conn, p, dispatch):
+    from .reviewed_action import ReviewedStepReference
+    found = repo.get_turn_by_world_key(conn, p.world_id, uuid5(NAMESPACE_URL, f"dmb-agent-turn:{p.world_id}:{dispatch.client_turn_id}"))
+    # Pre-upgrade admitted turns keep their original intent and recovery request.
+    if found is not None and retained_bound_intent(conn, found[0]) is None:
+        return None
+    return ReviewedStepReference(conversation_id=p.conversation_id, source_turn_id=p.source_turn_id,
+        command_id=dispatch.command_id).model_dump(mode="json")

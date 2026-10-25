@@ -342,7 +342,8 @@ function readPendingPlayTurn(worldId: string): StoredPendingPlayTurn | null {
       "primary_work", "client_work_state", "graph_request", "graph_selection", "message",
       ...(isRecord(value.request) && isRecord(value.request.surface) && value.request.surface.surface_id === "play" ? ["play_target"] : []),
       ...(isRecord(value.request) && "build_write_capability" in value.request ? ["build_write_capability"] : []),
-      ...(isRecord(value.request) && "build_draft_context" in value.request ? ["build_draft_context"] : [])])
+      ...(isRecord(value.request) && "build_draft_context" in value.request ? ["build_draft_context"] : []),
+      ...(isRecord(value.request) && "reviewed_step" in value.request ? ["reviewed_step"] : [])])
     || value.request.schema !== "dmb_agent_turn_request_v1"
     || !commandUuid(value.request.client_thread_id) || !commandUuid(value.request.turn_id)
     || !hasExactKeys(value.request.surface, ["surface_id", "instance_id"])
@@ -366,6 +367,10 @@ function readPendingPlayTurn(worldId: string): StoredPendingPlayTurn | null {
     || !isSavedPlayGraphRequest(value.request.graph_request, worldId)
     || ("build_draft_context" in value.request && (value.request.surface.surface_id!=="build"
       || !isStoredBuildDraftContext(value.request.build_draft_context,value.request)))
+    || ("reviewed_step" in value.request && (value.request.surface.surface_id!=="build"
+      || !hasExactKeys(value.request.reviewed_step,["conversation_id","source_turn_id","command_id"])
+      || !commandUuid(value.request.reviewed_step.conversation_id)||!commandUuid(value.request.reviewed_step.source_turn_id)||!commandUuid(value.request.reviewed_step.command_id)
+      || !isRecord(value.request.build_draft_context)||value.request.reviewed_step.conversation_id!==value.request.build_draft_context.conversation_id))
     || value.request.graph_selection !== null || typeof value.request.message !== "string"
     || !value.request.message.trim()) {
     throw new Error("The saved Play request is malformed. It was retained and cannot be retried automatically.");
@@ -3870,13 +3875,13 @@ export function WorldPlanAgentConversation({
       }
       const rejectedBeforeDispatch = reason instanceof LiveApiError
         && reason.code !== "local_graph_session_changed"
-        && (["play_context_unavailable", "world_owner_unverified", "build_source_unavailable", "build_editor_context_changed"].includes(reason.code ?? "")
+        && (["play_context_unavailable", "world_owner_unverified", "build_source_unavailable", "build_editor_context_changed", "reviewed_step_unavailable"].includes(reason.code ?? "")
           || reason.status === 401 || reason.status === 403);
       if (rejectedBeforeDispatch) {
         if (clearSavedPlayTurn(stored)) {
           sharedConversation?.setPendingTurn((current) => current?.turnId === request.turn_id ? null : current);
           setSubmittedMessage(current => current?.id === request.turn_id ? null : current);
-          setComposerDrafts((drafts) => {
+          if(!(request.primary_work.kind==='build'&&(request as WorldBuildAgentTurnRequestV1).reviewed_step))setComposerDrafts((drafts) => {
             const key = `${request.surface.surface_id}:${request.primary_work.object_id}`;
             return drafts[key] ? drafts : { ...drafts, [key]: request.message };
           });
@@ -3924,7 +3929,9 @@ export function WorldPlanAgentConversation({
         || historyLoading || historyError || !message || sending
         || requestRef.current || sharedConversation?.pendingTurn || pendingPlayTurn || pendingPlayLoadError) return;
       if (discussionOnly && !visibleBuildPlacementFailure) return;
+      if(explicitRequest?.reviewedStep&&!useWorldGraphForAsk)throw new Error('Enable World context, then resume this step from its saved plan. Nothing was sent.');
       const request: WorldBuildAgentTurnRequestV1 = {
+        ...(explicitRequest?.reviewedStep?{reviewed_step:explicitRequest.reviewedStep}:{}),
         schema: "dmb_agent_turn_request_v1", client_thread_id: explicitRequest?.clientThreadId ?? crypto.randomUUID(), turn_id: explicitRequest?.turnId ?? crypto.randomUUID(),
         surface: { surface_id: "build", instance_id: source.surfaceInstanceId },
         owner_scope: { kind: "world", world_id: source.worldId },
@@ -5689,11 +5696,12 @@ export function WorldPlanAgentConversation({
               source={turn.assistant_text} worldId={verifiedWorldId} conversationId={history.conversation_id}
               turnId={turn.turn_id} disabled={composerBusy}
               durable={turn.provenance.surface_id==='build'?{disabled:!isBuild||!visible||history.active_conversation_id!==history.conversation_id||buildMode?.savedSource?.documentId!==turn.provenance.primary_work.object_id,
-                onContinue:(plan,dispatch)=>{
+                onContinue:(plan,dispatch,reference)=>{
                   const expectedFence=buildPlacementFenceKey;
                   const expectedEpoch=buildPlacementEpoch;
                   queueSurfaceConversationRequest({id:`reviewed-plan:${dispatch.client_turn_id}`,worldId:plan.world_id,surfaceId:'build',objectId:plan.document_id,
                     message:dispatch.message,clientThreadId:dispatch.client_thread_id,turnId:dispatch.client_turn_id,
+                    ...(reference?{reviewedStep:reference}:{}),
                     isCurrent:()=>latestRef.current.mounted&&latestRef.current.buildPlacementFenceKey===expectedFence&&latestRef.current.buildPlacementEpoch===expectedEpoch&&latestRef.current.verifiedWorldId===plan.world_id
                       &&latestRef.current.buildDocumentId===plan.document_id&&surfaceVisibleRef.current&&historySnapshotRef.current?.conversation_id===plan.conversation_id
                       &&historySnapshotRef.current?.active_conversation_id===plan.conversation_id});
@@ -5704,7 +5712,9 @@ export function WorldPlanAgentConversation({
           <div className="world-plan-agent-conversation__turn-status">
           {!historicalAttempt && turn.provenance.surface_id === (isBuild ? "build" : isReadOnly ? "play" : "plan")
             && turn.provenance.primary_work.object_id === (isBuild ? buildMode?.savedSource?.documentId : isReadOnly ? playMode?.admittedRun?.runId : documentId)
-            ? <ConversationRecovery question={turn.user_text} blocked={composerBusy}
+            ? graphContextForTurn(turn)?.receipt.assembled_input.assembler_version==='reviewed_author_admission_v1'
+              ? <p>Use “Try step again” in the saved reviewed plan to retain this step’s action.</p>
+              : <ConversationRecovery question={turn.user_text} blocked={composerBusy}
                 onRetry={async(question)=>{
                   setRetryPresentationOrigin({scopeKey,turnId:turn.turn_id});
                   if(isReadOnly)await submitPlay(undefined,false,question);
