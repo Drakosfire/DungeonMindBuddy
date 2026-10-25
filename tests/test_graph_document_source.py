@@ -202,3 +202,26 @@ def test_frozen_components_and_source_not_overwritten_on_retry(case):
     before = (body.read_bytes(), index.read_bytes(), body.stat().st_mtime_ns, index.stat().st_mtime_ns)
     resolve(case)
     assert (body.read_bytes(), index.read_bytes(), body.stat().st_mtime_ns, index.stat().st_mtime_ns) == before
+
+
+@pytest.mark.parametrize('published', [False, True])
+def test_expired_confirmation_recovers_only_already_published_receipt(case, published):
+    from datetime import UTC, datetime, timedelta
+    from unittest.mock import Mock
+    from apps.live_control_server.services.graph_object_authoring_prepare import decode_publication_intent, sign_publication_intent
+    request = prepare(case)
+    if published:
+        assert case.client.post('/api/live/graph-authoring/commit', json=request).status_code == 200
+    intent = decode_publication_intent(request['confirmToken'])
+    intent['expires_at'] = (datetime.now(UTC) - timedelta(days=2)).isoformat()
+    request['confirmToken'] = sign_publication_intent(intent)
+    case.authority.current_head = Mock(side_effect=AssertionError('Expired confirmation must not reach fresh publication'))
+    response = case.client.post('/api/live/graph-authoring/commit', json=request)
+    if published:
+        assert response.status_code == 200, response.text
+        assert case.authority.publish_calls == 1
+    else:
+        assert response.status_code == 409
+        assert response.json()['detail']['code'] == 'confirmation_expired'
+        assert case.authority.publish_calls == 0
+    case.authority.current_head.assert_not_called()

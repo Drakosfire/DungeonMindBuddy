@@ -161,6 +161,7 @@ class WorkspaceDocumentRecord(BaseModel):
     target_relpath: str | None = None
     status: Literal["active", "discarded"] = "active"
     content_status: Literal["draft", "committed"] = "draft"
+    connected_page_operation_id: str | None = None
     revision: int = 1
     created_at: str
     updated_at: str
@@ -703,13 +704,19 @@ def create_workspace_document(
     document_class: str | None = None,
     authority_state: Literal["draft", "reviewed", "canonical"] | None = None,
     visibility_state: Literal["internal", "player_safe"] | None = None,
+    _connected_reservation: tuple[str, str] | None = None,
 ) -> WorkspaceDocumentRecord:
     cleaned_title = _validate_title(title)
     cleaned_campaign = campaign_id.strip()
     if not cleaned_campaign:
         raise WorkspaceDocumentRegistryError("campaign_id is required", status_code=422)
 
-    document_id = str(uuid.uuid4())
+    if _connected_reservation is not None:
+        if kind != "worldbuilding_source" or not world_id or campaign_id != world_id:
+            raise WorkspaceDocumentRegistryError("Connected reservation requires a World Build page", status_code=422)
+        document_id, operation_id = (str(uuid.UUID(value)) for value in _connected_reservation)
+    else:
+        document_id, operation_id = str(uuid.uuid4()), None
     worldbuilding_fields: dict[str, Any] = {
         "source_domain": None,
         "document_class": None,
@@ -790,6 +797,7 @@ def create_workspace_document(
         target_relpath=resolved_target,
         created_at=now,
         updated_at=now,
+        connected_page_operation_id=operation_id,
         **worldbuilding_fields,
     )
     if kind in ("plan", "runbook"):
@@ -820,6 +828,14 @@ def create_workspace_document(
         document, token = _load_unlocked(root)
         if kind == "worldbuilding_source" and resolved_world_id is not None:
             _require_existing_world_markdown_root(root, resolved_world_id)
+        if _connected_reservation is not None:
+            existing = _find_record(document, document_id)
+            if existing is not None:
+                if (existing.connected_page_operation_id != operation_id or existing.kind != kind
+                        or existing.world_id != resolved_world_id or existing.campaign_id != cleaned_campaign
+                        or existing.target_relpath != resolved_target or existing.status != "active"):
+                    raise WorkspaceDocumentRegistryError("Reserved page identity changed", status_code=409)
+                return existing
         _require_unique_target_relpath(document, resolved_target)
         document.records.append(record)
         _save_cas(root, document, expected_token=token)

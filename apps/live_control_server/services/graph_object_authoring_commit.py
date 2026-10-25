@@ -108,7 +108,7 @@ def commit_graph_object_authoring_write(
         )
 
     validate_authoring_campaign_scope(request.campaign_id, request.campaign_rel)
-    intent = decode_publication_intent(request.confirm_token)
+    intent = decode_publication_intent(request.confirm_token, allow_expired_recovery=True)
     if str(intent.get("expressibility") or "") == "INEXPRESSIBLE":
         raise GraphObjectAuthoringError(
             "merge_objects and unknown Graph Review operations cannot be published.",
@@ -283,6 +283,9 @@ def commit_graph_object_authoring_write(
 
     receipt = recovered
     if recovered is None:
+        # Recheck expiry before any fresh publication. A valid expired intent
+        # may only recover the exact already-applied receipt above.
+        decode_publication_intent(request.confirm_token)
         # A recovered publication wins over newer capability checks. This explicit
         # refusal happens before publish and is safe for deliberate proposal editing.
         validate_graph_review_object_kinds(assertions)
