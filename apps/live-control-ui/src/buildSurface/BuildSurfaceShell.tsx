@@ -1,3 +1,4 @@
+import { saveBuildProposal } from './saveBuildProposal';
 import { mediaMarkdown } from "../media/mediaReferences";
 import { MediaImageWizard } from "../media/MediaImageWizard";
 import { createBuildComposeBridge, type BuildComposeBridge, type BuildComposeEditorState } from "./buildComposeBridge";
@@ -325,6 +326,9 @@ export function BuildSurfaceShell({ onEditorTools, onReviewTarget }: { onEditorT
     } : null, [session.record, session.snapshot, session.phase, session.dirty]);
   const composeGeneration = useRef({ draft: 0, selection: 0 });
   const composeCurrent = useRef<BuildComposeEditorState | null>(null);
+  const saveOwner = useRef<MarkdownCanvasSessionValue|null>(session);
+  saveOwner.current=session;
+  useEffect(()=>{saveOwner.current=session;return()=>{saveOwner.current=null;};},[]);
   const composeChanged = useRef(session.handleEditorUpdate);
   composeChanged.current = session.handleEditorUpdate;
   composeCurrent.current = conversationContext && session.editor ? {
@@ -343,7 +347,8 @@ export function BuildSurfaceShell({ onEditorTools, onReviewTarget }: { onEditorT
     return () => { editor.off("update", draft); editor.off("selectionUpdate", selection); };
   }, [session.editor]);
   const composeBridge = useMemo(() => createBuildComposeBridge(() => composeCurrent.current,
-    editor => composeChanged.current(editor.getJSON(), editor, { programmatic: false })), []);
+    editor => composeChanged.current(editor.getJSON(), editor, { programmatic: false }),
+    (basis,afterEditor,afterDraft)=>saveBuildProposal(()=>saveOwner.current,basis,afterEditor,afterDraft)), []);
   const lastAcceptedCampaignRef = useRef<string>("build");
   const [navigationTarget, setNavigationTarget] = useState<BuildSourceNavigationTarget>(
     IDLE_SOURCE_NAVIGATION_TARGET,

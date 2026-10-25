@@ -23,6 +23,7 @@ export interface BuildComposeBridge {
   insert: (captured: CapturedBuildInsertion, markdown: string) => void;
   prepareProposal: (captured: CapturedBuildInsertion, markdown: string) => Promise<PreparedBuildProposal>;
   applyPrepared: (prepared: PreparedBuildProposal) => void;
+  saveProposal: (basis: BuildProposalBasis, afterEditor: string, afterDraft: string) => Promise<void>;
   inspectProposal: (basis: BuildProposalBasis, afterEditor: string, afterDraft: string) => Promise<'before'|'after'|'changed'>;
   restore: (basis: BuildProposalBasis) => Promise<CapturedBuildInsertion>;
   insertProposal: (captured: CapturedBuildInsertion, markdown: string) => void;
@@ -52,7 +53,7 @@ export async function captureBuildDraftSnapshot(getCurrent: () => BuildComposeEd
     editor_sha256:editorDigest, draft_generation:start.draftGeneration});
 }
 
-export function createBuildComposeBridge(getCurrent: () => BuildComposeEditorState | null, changed: (editor: Editor) => void): BuildComposeBridge {
+export function createBuildComposeBridge(getCurrent: () => BuildComposeEditorState | null, changed: (editor: Editor) => void, persist?: BuildComposeBridge['saveProposal']): BuildComposeBridge {
   function savedPageMatches(current: BuildComposeEditorState, basis: BuildProposalBasis, allowExactSave = false) {
     return (current.revision === basis.registry_revision && current.contentSha256 === basis.content_sha256)
       // Only proposal recovery may cross a save of this exact captured draft.
@@ -113,6 +114,10 @@ export function createBuildComposeBridge(getCurrent: () => BuildComposeEditorSta
       return prepared;
     },
     applyPrepared(prepared) { bridge.insertProposal(prepared.captured,prepared.markdown); },
+    async saveProposal(basis,afterEditor,afterDraft) {
+      if(!persist)throw new Error('Page saving is unavailable. Your insertion is retained for recovery.');
+      await persist(basis,afterEditor,afterDraft);
+    },
     async inspectProposal(basis,afterEditor,afterDraft) {
       const now=getCurrent();
       if(!now||now.editor.isDestroyed||now.worldId!==basis.world_id||now.documentId!==basis.document_id||now.visibility!==basis.visibility)return 'changed';

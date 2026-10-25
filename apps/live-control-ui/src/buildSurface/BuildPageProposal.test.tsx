@@ -22,7 +22,7 @@ beforeEach(async()=>{
  editor=new Editor({extensions:DEFAULT_MARKDOWN_EDITOR_EXTENSIONS,content:'<p>Before</p><p>After</p>'});
  document.body.append(editor.view.dom);editor.commands.setTextSelection(7);
  state={editor,worldId:'world',documentId:'doc',revision:1,contentSha256:'a'.repeat(64),visibility:'internal',draftGeneration:0,selectionGeneration:0,canEdit:true};
- bridge=createBuildComposeBridge(()=>state,()=>undefined);const captured=await bridge.capture();
+ bridge=createBuildComposeBridge(()=>state,()=>undefined,vi.fn(async()=>undefined));const captured=await bridge.capture();
  record={schema_version:'dmb_build_document_proposal_v1',action_id:'action',reservation:{idempotency_key:'action',conversation_id:'conversation',expected_pointer_revision:1,basis:captured.basis,instruction:'Add culture'},
  request_fingerprint:'b'.repeat(64),after_turn_sequence:1,revision:5,state:'proposed',created_at:'',updated_at:'',claim_expires_at:'',authorization:null,failure_code:null,inserted_in_draft:false,
  proposal:{replacement_markdown:'## Culture\n\nA proposed custom.',summary:'Culture',assumptions:[]}};
@@ -285,4 +285,19 @@ it('does not let a queued reveal steal focus after suggestion typing begins',asy
   await userEvent.type(box,' Still writing.');
   expect(box).toHaveTextContent('Still writing.');
  }finally{raf.mockRestore();}
+});
+
+it('waits for verified page persistence before confirming and recovers a failed save without reinserting',async()=>{
+ let rejectSave:(reason:Error)=>void=()=>{};
+ const persist=vi.spyOn(bridge,'saveProposal').mockImplementationOnce(()=>new Promise((_resolve,reject)=>{rejectSave=reject;}));
+ const apply=vi.spyOn(bridge,'applyPrepared');render(<Review/>);
+ fireEvent.click(await screen.findByRole('button',{name:'Save',exact:true}));
+ await waitFor(()=>expect(persist).toHaveBeenCalledTimes(1));
+ expect(saved.state).toBe('applying');expect(complete).not.toHaveBeenCalled();
+ expect(vi.mocked(proposalReview).mock.calls.some(([, ,command])=>command?.operation==='confirm')).toBe(false);
+ await act(async()=>rejectSave(new Error('The page save was not verified.')));
+ await screen.findByRole('button',{name:'Check insertion'});expect(saved.state).toBe('applying');
+ fireEvent.click(screen.getByRole('button',{name:'Check insertion'}));
+ await waitFor(()=>expect(saved.state).toBe('applied'));expect(apply).toHaveBeenCalledTimes(1);expect(persist).toHaveBeenCalledTimes(2);
+ expect(status).toHaveBeenCalledWith('Saved to page');
 });

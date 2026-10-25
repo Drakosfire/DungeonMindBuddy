@@ -200,7 +200,8 @@ export function useBuildCompose({ worldId, history, bridge, enabled, onHistory, 
       : enabled&&bridge&&active?.proposal&&!active.inserted_in_draft&&active.reservation.basis.editor_sha256
       &&history?.active_conversation_id===active.reservation.conversation_id
       &&history.pointer_revision===active.reservation.expected_pointer_revision
-      ? <BuildPageProposal key={`${scope}:${active.action_id}`} record={active} bridge={bridge} sourceKey={sourceKey}
+      // Durable review lifetime follows page identity; its own save advances sourceKey.
+      ? <BuildPageProposal key={`${scope}:${active.action_id}`} record={active} bridge={bridge} sourceKey={JSON.stringify([worldId,pageDocumentId])}
           requestKey={selected?.generation??0} inspector={<BuildPrompt record={active}/>} onStatus={text=>setReviewStatus(previous=>({...previous,[active.action_id]:text}))}
           onComplete={state=>{if(state==='applied')setRecords(previous=>previous.scope===scope?{...previous,values:previous.values.map(value=>value.action_id===active.action_id?{...value,inserted_in_draft:true}:value)}:previous);}}/>:null,
     items: [...values.map(record=>({key:record.action_id,afterSequence:Math.max(record.after_turn_sequence,

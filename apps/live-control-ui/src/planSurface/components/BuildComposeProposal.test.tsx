@@ -29,7 +29,7 @@ beforeEach(() => {
   vi.resetAllMocks();window.localStorage.clear(); bridge = { captureContext:vi.fn(async()=>({schema:'dmb_build_draft_snapshot_v1' as const,
     world_id:basis.world_id,document_id:basis.document_id,registry_revision:basis.registry_revision,
     content_sha256:basis.content_sha256,visibility:basis.visibility,draft_markdown:captured.draftMarkdown,
-    draft_sha256:basis.draft_sha256,editor_sha256:basis.editor_sha256,draft_generation:basis.draft_generation})), capture: vi.fn().mockResolvedValue(captured), restore: vi.fn().mockResolvedValue(captured), insert: vi.fn(), insertProposal: vi.fn(), prepareProposal:vi.fn(), applyPrepared:vi.fn(), inspectProposal:vi.fn() };
+    draft_sha256:basis.draft_sha256,editor_sha256:basis.editor_sha256,draft_generation:basis.draft_generation})), capture: vi.fn().mockResolvedValue(captured), restore: vi.fn().mockResolvedValue(captured), insert: vi.fn(), insertProposal: vi.fn(), prepareProposal:vi.fn(), applyPrepared:vi.fn(), inspectProposal:vi.fn(), saveProposal:vi.fn() };
   vi.mocked(api.listBuildProposals).mockResolvedValue([]);
   vi.spyOn(media, 'listPreparedImages').mockResolvedValue([]);
   vi.mocked(api.composeBuildProposal).mockImplementation(async request => receipt(request));
@@ -254,4 +254,15 @@ it('does not resurrect a live preview after leaving and returning to its convers
  act(()=>hook.result.current.observeConstruction(progress));expect(hook.result.current.pageElement).not.toBeNull();
  hook.rerender({snapshot:{...history,conversation_id:'older'}});expect(hook.result.current.pageElement).toBeNull();
  hook.rerender({snapshot:history});expect(hook.result.current.pageElement).toBeNull();
+});
+
+it('keeps durable review identity through its own committed revision while retiring a foreign page',async()=>{
+ vi.mocked(api.listBuildProposals).mockResolvedValue([receipt()]);
+ const hook=renderHook(({sourceKey,pageDocumentId})=>useBuildCompose({worldId:'world',pageDocumentId,sourceKey,history,bridge,enabled:true,onHistory:vi.fn()}),{initialProps:{sourceKey:'doc:revision1',pageDocumentId:'doc'}});
+ await waitFor(()=>expect(hook.result.current.pageElement).not.toBeNull());
+ const first=hook.result.current.pageElement as React.ReactElement<{sourceKey:string}>;
+ hook.rerender({sourceKey:'doc:revision2:committed-hash',pageDocumentId:'doc'});
+ const after=hook.result.current.pageElement as React.ReactElement<{sourceKey:string}>;
+ expect(after.key).toBe(first.key);expect(after.props.sourceKey).toBe(first.props.sourceKey);
+ hook.rerender({sourceKey:'foreign:revision1',pageDocumentId:'foreign'});expect(hook.result.current.pageElement).toBeNull();
 });
