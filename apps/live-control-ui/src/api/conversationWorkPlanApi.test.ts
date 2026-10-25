@@ -13,3 +13,12 @@ it.each(['world','source','hash'])('refuses a mismatched saved-plan %s',async ki
 it('requires the returned dispatch to be retained in this exact plan',async()=>{const dispatch={command_id:id,step_id:id,client_thread_id:id,client_turn_id:other,message:'Exact reviewed request'};response({plan:p,dispatch,reviewed_step:null});await expect(continueWorkPlan(scope,p,id,id)).rejects.toThrow('another step');const next={...p,revision:2,dispatches:[dispatch],execution:[{command_id:id,step_id:id,status:'awaiting_dispatch',turn_id:null,attempt:null,result:null}]};response({plan:next,dispatch,reviewed_step:{conversation_id:id,source_turn_id:other,command_id:id}});expect((await continueWorkPlan(scope,p,id,id)).dispatch).toEqual(dispatch)})
 
 it('refuses a reference for a different command',async()=>{const dispatch={command_id:id,step_id:id,client_thread_id:id,client_turn_id:other,message:'Exact request'};const next={...p,dispatches:[dispatch],execution:[{command_id:id,step_id:id,status:'awaiting_dispatch',turn_id:null,attempt:null,result:null}]};response({plan:next,dispatch,reviewed_step:{conversation_id:id,source_turn_id:other,command_id:other}});await expect(continueWorkPlan(scope,p,id,id)).rejects.toThrow('reference')})
+
+it('reads an exact page reference without embedding the assistant reply',async()=>{
+ response({schema:'dmb_work_plan_response_v1',world_id:scope.worldId,conversation_id:id,source_turn_id:other,plan:p});
+ await expect(getWorkPlan({worldId:scope.worldId,conversationId:id,turnId:other,documentId:'page',sourceSha256:p.source_answer_sha256})).resolves.toEqual(p);
+});
+it('refuses a plan reference copied onto another document',async()=>{
+ response({schema:'dmb_work_plan_response_v1',world_id:scope.worldId,conversation_id:id,source_turn_id:other,plan:p});
+ await expect(getWorkPlan({worldId:scope.worldId,conversationId:id,turnId:other,documentId:'foreign',sourceSha256:p.source_answer_sha256})).rejects.toThrow();
+});

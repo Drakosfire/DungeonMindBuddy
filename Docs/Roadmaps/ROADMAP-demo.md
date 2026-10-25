@@ -1,7 +1,7 @@
 # Buddy roadmap — author, plan, play, remember
 
 **Status:** current product execution ledger; reconciled2026-10-25.
-**Current delivery anchor:** API/UI `bbe6c8418` (#1760), ports8000/5202, APP0069/native0017. Revalidate runtime ownership before delivery. Synthetic proof does not establish operator acceptance; private evidence stays local.
+**Current delivery anchor:** API `bbe6c8418` (#1760), UI `c8a1de0e3` (#1765), ports8000/5202, APP0069/native0017. Revalidate runtime ownership before delivery. Synthetic proof does not establish operator acceptance; private evidence stays local.
 **Owner:** DungeonMindBuddy; [steward mandate](../Plans/STEWARDS-HANDOFF-demo.md).
 
 ## Immediate operator-selected dogfood gate
@@ -12,7 +12,7 @@ in Brin’s Blacksmithy/Edge/Bog Blossom Hill before resuming preparation/play w
 read the named Edge table → person/shop relationships → page-ready prose →
 place/edit/save/reload/continue**. Operator acceptance is required.
 
-Current operator destination: generated writing, tables, media and interactive plan/checklist objects belong on the Surface; clarifying questions remain inline in chat. Discussion and concise activity/acknowledgments stay in conversation. Existing conversation-plan controls are delivered foundations to relocate, not the final destination. [Surface construction](../Plans/HANDOFF-AGENT-surface-construction.md) extends existing actual streamed observation beyond tables; durable plan object placement requires its own pinned object/Save contract. Capability-scoped plan-action PR #1764 remains parked, unmerged and undeployed.
+Current operator destination: generated writing, tables, media and interactive plan/checklist objects belong on the Surface; clarifying questions remain inline in chat. Discussion and concise activity/acknowledgments stay in conversation. Existing conversation-plan controls are delivered foundations to relocate, not the final destination. [Surface construction](../Plans/HANDOFF-AGENT-surface-construction.md) is delivered for actual prose, headings, lists and tables, with ordinary synthetic Save/reload proof. [Interactive page work plans](../Plans/HANDOFF-SURFACE-work-plan-objects.md) has the reviewed reference/Save contract from#1766 and an ACTIVE implementation lease; it reuses the existing saved-plan owner and leaves clarifying questions inline. Implementation and ordinary acceptance remain open. Capability-scoped plan-action PR #1764 remains parked, unmerged and undeployed.
 
 Delivered bounded implementation: [conversation workbook](../Plans/HANDOFF-MIND-conversation-workbook.md).
 Delivered #1735: editable/selectable plan/question cards with local reload recovery,

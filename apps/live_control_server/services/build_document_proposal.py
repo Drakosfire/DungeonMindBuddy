@@ -121,6 +121,8 @@ def _result(text):
         return value
     output = BuildGeneratedProposal.model_validate(json.loads(text, object_pairs_hook=unique))
     markdown = output.replacement_markdown
+    if re.search(r"(?m)^ {0,3}(?:`{3,}|~{3,})dmb-work-plan-v1(?:[ \t]|$)", markdown):
+        raise BuildComposeError("build_compose_unsupported_markdown")
     if (re.search(r"<[^>]*>|dmb-node:|graphNodeReference|dmb-playable-element:|\bnode:[a-z0-9_-]+", markdown, re.I)
             or re.search(r"\[[^\]]+\]\((?:file:|\.{1,2}/|/)", markdown, re.I)):
         raise BuildComposeError("build_compose_unsupported_markdown")

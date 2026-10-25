@@ -1,3 +1,4 @@
+import {parseWorkPlanFence,workPlanIdentity} from "../../surface/workPlans/workPlanReference";
 import {parseTableFence} from "../../preparedTables/tableGrammar";
 import { webSourceHref } from "./webSourceHref";
 import { mediaAssetId, imagePresentation } from "../../media/mediaReferences";
@@ -1279,6 +1280,11 @@ function visitBlockNode(node: RootContent, context: AdmissionContext, state: Vis
     case "table":
       return visitTable(node, context, state);
     case "code": {
+      if(node.lang==='dmb-work-plan-v1'&&context==='document'){
+        const source=spanLines(node,state).join('\n');
+        try{parseWorkPlanFence(source);return [{type:'surfaceWorkPlan',attrs:{source}}];}
+        catch{warn(state,'Invalid or unclosed work-plan reference.',nodeStartLine(node));return [paragraphFromText(node.value)];}
+      }
       if (node.lang === 'dmb-roll-table-v1' && context === 'document') {
         const source=spanLines(node,state).join('\n');
         try {
@@ -1361,6 +1367,7 @@ export function analyzeMarkdownBody(
   const content = visitBlockChildren(parseMarkdownAst(markdownBody).children, "document", state);
   const tableIds=new Set<string>();
   for(const node of content) {
+    if(node.type === 'surfaceWorkPlan'){const ref=parseWorkPlanFence(String(node.attrs?.source));const key='work-plan:'+workPlanIdentity(ref);if(tableIds.has(key))warn(state,'Duplicate work-plan reference.',1);tableIds.add(key);continue;}
     if(node.type !== 'preparedTable')continue;
     const table=parseTableFence(String(node.attrs?.source));
     if(tableIds.has(table.table_id))warn(state,'Duplicate prepared table ID.',1);

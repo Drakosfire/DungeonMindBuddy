@@ -1,3 +1,4 @@
+import {parseWorkPlanFence,workPlanFence,workPlanIdentity} from "../../surface/workPlans/workPlanReference";
 import {parseTableFence} from "../../preparedTables/tableGrammar";
 import { webSourceHref } from "./webSourceHref";
 import { mediaMarkdown } from "../../media/mediaReferences";
@@ -296,13 +297,20 @@ export function serializeDecisionConsequence(node: JsonNode): string {
 
 function serializeNode(node: JsonNode): string {
   switch (node.type) {
+    case "surfaceWorkPlan": return workPlanFence(parseWorkPlanFence(String(node.attrs?.source??'')));
     case "preparedTable": {
       const source=String(node.attrs?.source ?? '');
       parseTableFence(source);
       return source;
     }
-    case "doc":
+    case "doc": {
+      const seen=new Set<string>();
+      for(const child of childNodes(node)){if(child.type==='surfaceWorkPlan'){
+        const key=workPlanIdentity(parseWorkPlanFence(String(child.attrs?.source??'')));
+        if(seen.has(key))throw new Error('Duplicate work-plan reference.');seen.add(key);
+      }}
       return childNodes(node).map(serializeNode).filter(Boolean).join("\n\n");
+    }
     case "text":
       return inlineMarkdown(node);
     case "hardBreak":

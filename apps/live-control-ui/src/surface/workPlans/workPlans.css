@@ -1,0 +1,8 @@
+.surface-work-plan { background:#eef2f4; color:#253345; border:1px solid #648097; border-inline-start:4px solid #648097; border-radius:.55rem; padding:1rem; margin-block:.7rem; font:normal 1rem/1.5 var(--font-sans,system-ui,sans-serif); white-space:normal; }
+.surface-work-plan header { display:flex; gap:.6rem; align-items:center; margin-block-end:.5rem; }
+.surface-work-plan :is(p,label,h4) { font:inherit; color:inherit; }
+.surface-work-plan textarea { display:block; box-sizing:border-box; width:100%; min-height:4.5rem; padding:.5rem; margin-block:.3rem; resize:vertical; background:#fff; color:#253345; font:inherit; border:1px solid #789; border-radius:.3rem; }
+.surface-work-plan :is(button,select,input) { font:inherit; }
+.surface-work-plan button { margin:.25rem; padding:.3rem .55rem; border:1px solid #6f8393; border-radius:.3rem; background:#edf2f4; color:#24384a; }
+.surface-work-plan button:disabled { opacity:.6; }
+.surface-work-plan [aria-label="Saved work plan"] > div { margin-block:.75rem; }

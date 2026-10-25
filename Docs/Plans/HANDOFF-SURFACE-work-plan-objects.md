@@ -1,6 +1,6 @@
 # SURFACE: interactive work-plan objects on the page
 
-Status: DESIGN REVIEW; runtime write lease is not active. Operator explicitly selected generated objects on the page, including the interactive plan/checklist; clarifying questions remain inline in chat. Basec8a1de0e35d3cd01b72a5ba57b367fcc8ce4b7c5; reuse buddy-context-loop checkout/branch codex/surface-work-plan-objects. One design-contract PR, followed by one serial implementation PR after exact design review and an activated owner-path lease; parallel-independent of parked #1764 (backend action-scope paths do not overlap). API bbe6c8418/APP0069 and UI c8a1de0e3 on8000/5202 are checkpoints, not permanent leases. Inspect live ownership before delivery.
+Status: ACTIVE implementation. Design approved at contract SHA-2566e1345d41af76f2e0bae52329a2f17508f5ba76bef1974f1e66984c47c42cc0d and merged via#1766 atc7f73dad4b9f46b624bfdc2efdf5718a946b7d26. Implementation branch codex/surface-work-plan-objects-impl from that remote tip in the same checkout. One serial implementation PR; parked#1764 remains independent and held. No other open implementation lease intersects the paths below. The exact implementation lease at the end activates the expected owners; historical design follows. Operator explicitly selected generated objects on the page, including the interactive plan/checklist; clarifying questions remain inline in chat. Basec8a1de0e35d3cd01b72a5ba57b367fcc8ce4b7c5; reuse buddy-context-loop checkout/branch codex/surface-work-plan-objects. One design-contract PR, followed by one serial implementation PR after exact design review and an activated owner-path lease; parallel-independent of parked #1764 (backend action-scope paths do not overlap). API bbe6c8418/APP0069 and UI c8a1de0e3 on8000/5202 are checkpoints, not permanent leases. Inspect live ownership before delivery.
 
 ## User experience and invariants
 
@@ -73,3 +73,22 @@ Expected implementation owners, not yet an active lease:
 Prove pure canonical round-trip and malformed/duplicate/foreign reference refusal; actual editor Save/reload/undo/movement; zero network/provider/dispatch for selection alone except authorized review persistence; genuine CAS/newer-edit refusal; two tabs racing initial receipt creation against an existing applying/uncertain attempt, preserving its exact predecessor before any new write; generated-plan page placement and inline question exception; archived/current owner checks; late callback retirement; one explicit continuation with correct current-page proposal and no duplicate operation; lost acknowledgment/reload and retained newer composer. Component tests do not establish ordinary acceptance.
 
 Then exact cumulative independent Bugbot, PRIME merge, protected delivery preserving retained sources/Worlds/drafts/versions/state, and ordinary synthetic real typed-plan generation → page object → edit/check/defer → Save → reload → explicit one-step continuation. Actual Brin/Edge chain and operator acceptance remain open; Noll approval remains pending and is not re-asked. Do not activate #1764 or adopt the failed routing candidate to make this object appear successful.
+
+
+## Activated implementation write lease
+
+Pinned implementation basec7f73dad4b9f46b624bfdc2efdf5718a946b7d26. One independently useful capability: generated typed plans become editable/checkable saved page objects connected to their existing retained plan and explicit continuation. No provider/model/routing candidate changes; no APP schema/migration or another publisher. API code changes only reject forged model-generated object fences; runtime delivery uses established protected ports8000/5202 and retained data root after independent review. #1765 predecessor settlement belongs in this implementation PR.
+
+Exclusive expected paths (tests named explicitly):
+- Docs/Plans/HANDOFF-SURFACE-work-plan-objects.md; Docs/Plans/HANDOFF-AGENT-surface-construction.md; Docs/Roadmaps/ROADMAP-demo.md.
+- apps/live-control-ui/src/surface/workPlans/{workPlanReference.ts,workPlanReference.test.ts,WorkPlanNode.tsx,WorkPlanHost.tsx,SurfaceWorkPlan.tsx,StagedWorkPlan.tsx,workPlanPlacement.ts,workPlanPlacement.test.ts,workPlanCapture.ts,workPlanCapture.test.ts,workPlanObjectMove.ts,workPlanObjectMove.test.ts,workPlanRoundTrip.test.ts,SurfaceWorkPlan.test.tsx,StagedWorkPlan.test.tsx,workPlans.css}.
+- apps/live-control-ui/src/tiptap/MarkdownEditorCore.tsx; apps/live-control-ui/src/tiptap/markdown/{markdownAdmission.ts,calloutMarkdown.ts,semanticMarkdownSafety.ts}.
+- apps/live-control-ui/src/api/{conversationWorkPlanApi.ts,conversationWorkPlanApi.test.ts}.
+- apps/live-control-ui/src/planSurface/components/{DurableWorkPlan.tsx,DurableWorkPlan.test.tsx,ConversationWorkbook.tsx,ConversationWorkbook.test.tsx,WorldPlanAgentConversation.tsx,BuildComposeProposal.tsx,BuildComposeProposal.test.tsx}.
+- apps/live-control-ui/src/planSurface/WorldPlanAgentConversation.worldHistory.test.tsx.
+- apps/live-control-ui/src/buildSurface/{BuildWorkPlanHost.tsx,BuildWorkPlanHost.test.tsx,buildComposeBridge.ts,buildComposeBridge.test.ts,BuildSurfaceShell.tsx}.
+- apps/live-control-ui/src/documentEditing/{markdownInsertion.ts,markdownInsertion.test.ts}.
+- apps/live-control-ui/src/tiptap/extensions/{SemanticMarkdownPaste.ts,SemanticMarkdownPaste.test.ts}, solely refuse clipboard manufacture of typed plan references (independent review identified this admission path).
+- apps/live_control_server/services/build_document_proposal.py; tests/test_build_document_proposal.py.
+
+Return to this contract before changing any other owner or persisted vocabulary. The private test evidence/output stays in existing .pytest_cache, no new checkout/dependency environment/ports. Implementation is not complete until full stated acceptance and exact cumulative review; keep a draft PR honest if a continuation checkpoint is needed. No rollout of partial object grammar or inert scaffolding as if it were the interactive capability.

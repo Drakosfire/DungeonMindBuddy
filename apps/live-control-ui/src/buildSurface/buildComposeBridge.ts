@@ -1,3 +1,4 @@
+import {workPlanFence,workPlanBelongsTo,parseWorkPlanFence,workPlanIdentity,type WorkPlanReference} from '../surface/workPlans/workPlanReference';
 import { pickMediaInsertion } from '../documentEditing/pickMediaInsertion';
 import type { Editor } from '@tiptap/core';
 import type { WorldBuildDraftSnapshotV1 } from '../api/types';
@@ -16,7 +17,13 @@ export interface CapturedBuildInsertion {
 export interface PreparedBuildProposal {
   captured: CapturedBuildInsertion; markdown: string; afterEditorSha256: string; afterDraftSha256: string;
 }
+export interface PreparedWorkPlanPlacement {
+  captured:CapturedBuildInsertion;reference:WorkPlanReference;afterEditorJson:string;afterEditorSha256:string;afterDraftSha256:string;
+}
 export interface BuildComposeBridge {
+  observeWorkPlan?: (reference:WorkPlanReference,onPresence:(present:boolean)=>void)=>()=>void;
+  prepareWorkPlan?: (captured:CapturedBuildInsertion,reference:WorkPlanReference)=>Promise<PreparedWorkPlanPlacement>;
+  applyWorkPlan?: (prepared:PreparedWorkPlanPlacement)=>void;
   captureContext: () => Promise<WorldBuildDraftSnapshotV1>;
   capture: () => Promise<CapturedBuildInsertion>;
   pickInsertion?: (options: { signal: AbortSignal; mode: 'click' | 'drag'; assetId: string }) => Promise<CapturedBuildInsertion>;
@@ -83,6 +90,16 @@ export function createBuildComposeBridge(getCurrent: () => BuildComposeEditorSta
   }
   const applied = new WeakSet<CapturedBuildInsertion>();
   const bridge: BuildComposeBridge = {
+    observeWorkPlan(reference,onPresence){
+      const now=getCurrent();if(!now||!workPlanBelongsTo(reference,{worldId:now.worldId,documentId:now.documentId}))return ()=>{};
+      const editor=now.editor;
+      const inspect=()=>{
+        const current=getCurrent();if(!current||current.editor!==editor||editor.isDestroyed||!workPlanBelongsTo(reference,{worldId:current.worldId,documentId:current.documentId})){onPresence(false);return;}
+        let found=false;editor.state.doc.descendants(node=>{if(node.type.name==='surfaceWorkPlan'){
+          try{if(workPlanIdentity(parseWorkPlanFence(String(node.attrs.source)))===workPlanIdentity(reference))found=true;}catch{/* malformed references remain inert */}
+        }});onPresence(found);
+      };inspect();editor.on('transaction',inspect);return()=>editor.off('transaction',inspect);
+    },
     captureContext: () => captureBuildDraftSnapshot(getCurrent),
     async capture() {
       const now = getCurrent();
@@ -114,6 +131,25 @@ export function createBuildComposeBridge(getCurrent: () => BuildComposeEditorSta
       return prepared;
     },
     applyPrepared(prepared) { bridge.insertProposal(prepared.captured,prepared.markdown); },
+    async prepareWorkPlan(captured,reference){
+      assertSame(captured,true);
+      if(captured.basis.selection||!workPlanBelongsTo(reference,{worldId:captured.basis.world_id,documentId:captured.basis.document_id}))
+        throw new Error('Choose an insertion point on the original page for this plan.');
+      const content=[{type:'surfaceWorkPlan',attrs:{source:workPlanFence(reference)}}];
+      const after=prepareReviewedMarkdownAtAnchor(captured.editor,captured.basis.caret,content,captured.editorJson);
+      const result={captured,reference:JSON.parse(JSON.stringify(reference)) as WorkPlanReference,afterEditorJson:JSON.stringify(after),afterEditorSha256:await sha256(JSON.stringify(after)),afterDraftSha256:await sha256(tiptapJsonToSemanticMarkdown(after))};
+      assertSame(captured,true);return result;
+    },
+    applyWorkPlan(prepared){
+      const {captured,reference}=prepared;assertSame(captured,true);
+      if(applied.has(captured)||captured.basis.selection||!workPlanBelongsTo(reference,{worldId:captured.basis.world_id,documentId:captured.basis.document_id}))
+        throw new Error('This plan placement is no longer available. Inspect the page first.');
+      const content=[{type:'surfaceWorkPlan',attrs:{source:workPlanFence(reference)}}];
+      const after=prepareReviewedMarkdownAtAnchor(captured.editor,captured.basis.caret,content,captured.editorJson);
+      if(JSON.stringify(after)!==prepared.afterEditorJson)throw new Error('The prepared object changed. Nothing was inserted.');
+      insertReviewedMarkdownAtAnchor(captured.editor,captured.basis.caret,content,captured.editorJson);
+      applied.add(captured);changed(captured.editor);
+    },
     async saveProposal(basis,afterEditor,afterDraft) {
       if(!persist)throw new Error('Page saving is unavailable. Your insertion is retained for recovery.');
       await persist(basis,afterEditor,afterDraft);

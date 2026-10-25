@@ -1,11 +1,14 @@
 import type {ReviewedStepReference} from '../../api/types'
 import {useEffect,useRef,useState,type ReactNode} from 'react'
-import {getWorkPlan,saveWorkPlan,continueWorkPlan,type WorkPlan,type WorkStep,type WorkDispatch,type WorkPlanScope} from '../../api/conversationWorkPlanApi'
+import {getWorkPlan,saveWorkPlan,continueWorkPlan,type WorkPlan,type WorkStep,type WorkDispatch,type WorkPlanScope,type WorkExecution} from '../../api/conversationWorkPlanApi'
 export type ReviewedRow={text:string;include:boolean;kind?:'discuss'|'prepare_insertion'}
-export function DurableWorkPlan({scope,disabled,onContinue,renderDraft}:{scope:WorkPlanScope;disabled:boolean;onContinue:(plan:WorkPlan,dispatch:WorkDispatch,reference:ReviewedStepReference|null)=>void;renderDraft:(save:(rows:ReviewedRow[])=>Promise<void>,busy:boolean)=>ReactNode}){
+export function DurableWorkPlan({scope,disabled,onContinue,renderDraft,saveLabel="Save reviewed plan",renderResult,continuationDisabled=false,beginContinuation}:{continuationDisabled?:boolean;beginContinuation?:(plan:WorkPlan)=>()=>boolean;saveLabel?:string;renderResult?:(execution:WorkExecution)=>ReactNode;scope:WorkPlanScope;disabled:boolean;onContinue:(plan:WorkPlan,dispatch:WorkDispatch,reference:ReviewedStepReference|null)=>void;renderDraft:(save:(rows:ReviewedRow[])=>Promise<void>,busy:boolean)=>ReactNode}){
  const [plan,setPlan]=useState<WorkPlan|null>(null),[steps,setSteps]=useState<WorkStep[]>([]),[loaded,setLoaded]=useState(false),[busy,setBusy]=useState(false),[error,setError]=useState<string|null>(null)
  const [staleDraft,setStaleDraft]=useState(false),[blockedDraft,setBlockedDraft]=useState(false)
- const identity=JSON.stringify([scope.worldId,scope.conversationId,scope.turnId,scope.source]);const current=useRef<string|null>(null)
+ const identity=JSON.stringify([scope.worldId,scope.conversationId,scope.turnId,scope.source??{sha256:scope.sourceSha256,documentId:scope.documentId}]);const current=useRef<string|null>(null)
+ const lifecycle=useRef({identity,disabled,continuationDisabled,epoch:0});
+ if(lifecycle.current.identity!==identity||lifecycle.current.disabled!==disabled||lifecycle.current.continuationDisabled!==continuationDisabled)
+  lifecycle.current={identity,disabled,continuationDisabled,epoch:lifecycle.current.epoch+1};
  const draftKey=`dmb:reviewed-plan-edit:v1:${identity}`;const edited=useRef(false)
  function retain(next:WorkStep[]){edited.current=true;setSteps(next);if(blockedDraft)return;try{sessionStorage.setItem(draftKey,JSON.stringify({schema:'dmb_reviewed_plan_edit_v1',identity,base_revision:plan?.revision,steps:next}))}catch{setError('These plan edits could not be retained locally. Keep a copy before reloading.')}}
  function restore(p:WorkPlan){
@@ -41,12 +44,16 @@ export function DurableWorkPlan({scope,disabled,onContinue,renderDraft}:{scope:W
     <textarea aria-label={`Saved step ${i+1}`} value={s.text} disabled={disabled||busy||locked(s.step_id)} onChange={e=>edit(s.step_id,{text:e.target.value})}/>
     <label>Action <select aria-label={`Saved action ${i+1}`} value={s.kind} disabled={disabled||busy||locked(s.step_id)} onChange={e=>edit(s.step_id,{kind:e.target.value as WorkStep['kind']})}><option value="discuss">Discuss</option><option value="prepare_insertion">Prepare an insertion</option></select></label>
     <p role="status">{status==='completed'?'Reply received':status==='prepared'?'Suggestion prepared · review and Save on the page':status==='awaiting_dispatch'?'Ready to resume the same request':status==='needs_attention'?'Result needs attention':status}</p>
-    {last?.result?.kind==='reply'&&<p>{last.result.text}</p>}
+    {last?.result?.kind==='reply'&&(renderResult?renderResult(last):<p>{last.result.text}</p>)}
     {executions.length>1&&<details><summary>Previous continuations · {executions.length-1}</summary>{executions.slice(0,-1).map(x=><p key={x.command_id}>{x.status} · {x.turn_id??'not admitted'}</p>)}</details>}
-    <button type="button" disabled={disabled||busy||changed||staleDraft||blockedDraft||!s.selected||['accepted','running','completed','prepared','needs_attention'].includes(status)} onClick={()=>{void run(async()=>{const response=await continueWorkPlan(scope,plan,s.step_id,crypto.randomUUID());if(current.current!==identity)return;adopted(response.plan);onContinue(response.plan,response.dispatch,response.reference)})}}>{status==='awaiting_dispatch'?'Resume step':status==='failed'||status==='interrupted'?'Try step again':'Continue step'}</button>
+    <button type="button" disabled={disabled||continuationDisabled||busy||changed||staleDraft||blockedDraft||!s.selected||['accepted','running','completed','prepared','needs_attention'].includes(status)} onClick={()=>{void run(async()=>{const admitted=beginContinuation?.(plan)??(()=>true),epoch=lifecycle.current.epoch;
+     if(disabled||continuationDisabled||!admitted())throw new Error('Save and open the current page before continuing.');
+     const response=await continueWorkPlan(scope,plan,s.step_id,crypto.randomUUID());if(current.current!==identity)return;
+     if(lifecycle.current.epoch!==epoch||!admitted())throw new Error('The page or conversation changed. The reserved step was retained; refresh results before explicitly resuming.');
+     adopted(response.plan);onContinue(response.plan,response.dispatch,response.reference)})}}>{status==='awaiting_dispatch'?'Resume step':status==='failed'||status==='interrupted'?'Try step again':'Continue step'}</button>
    </div>})}
    <button type="button" disabled={disabled||busy} onClick={()=>retain([...steps,{step_id:crypto.randomUUID(),text:'',selected:true,kind:'discuss'}])}>Add step</button>{' '}
-   <button type="button" disabled={disabled||busy||staleDraft||blockedDraft||!changed||steps.some(s=>!s.text.trim())} onClick={()=>{void run(async()=>{const p=await saveWorkPlan(scope,plan.revision,steps);if(current.current===identity)adopted(p)})}}>Save reviewed plan</button>{' '}
+   <button type="button" disabled={disabled||busy||staleDraft||blockedDraft||!changed||steps.some(s=>!s.text.trim())} onClick={()=>{void run(async()=>{const p=await saveWorkPlan(scope,plan.revision,steps);if(current.current===identity)adopted(p)})}}>{saveLabel}</button>{' '}
    <button type="button" disabled={busy||changed} onClick={()=>{void run(async()=>{const p=await getWorkPlan(scope);if(p&&current.current===identity)adopted(p)})}}>Refresh results</button>
   </>}
  </section>

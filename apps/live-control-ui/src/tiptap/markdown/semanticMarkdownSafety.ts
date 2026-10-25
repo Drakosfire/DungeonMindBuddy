@@ -1,3 +1,4 @@
+import {parseWorkPlanFence,workPlanIdentity} from "../../surface/workPlans/workPlanReference";
 import {parseTableFence} from "../../preparedTables/tableGrammar";
 import { mediaMarkdown } from "../../media/mediaReferences";
 import { webSourceHref } from "./webSourceHref";
@@ -93,6 +94,7 @@ export function semanticMarkdownSerializationDiagnostics(
   document: unknown,
 ): SemanticMarkdownSerializationDiagnostic[] {
   const diagnostics: SemanticMarkdownSerializationDiagnostic[] = [];
+  const seenWorkPlans=new Set<string>();
   const root = asNode(document);
   if (!root) return [warning("Editor document is not valid TipTap JSON.")];
 
@@ -101,6 +103,12 @@ export function semanticMarkdownSerializationDiagnostics(
     const children = childNodes(node);
 
     switch (type) {
+      case "surfaceWorkPlan":
+        if(parentType!=='doc')diagnostics.push(warning('Work plans must be document blocks.',type));
+        try{const key=workPlanIdentity(parseWorkPlanFence(String(node.attrs?.source)));if(seenWorkPlans.has(key))throw new Error('duplicate');seenWorkPlans.add(key);}
+        catch{diagnostics.push(warning('Invalid or duplicate work-plan reference.',type));}
+        if(children.length)diagnostics.push(warning('Work-plan reference has unexpected children.',type));
+        break;
       case "preparedTable":
         if(parentType !== 'doc')diagnostics.push(warning('Prepared tables must be document blocks.',type));
         try {parseTableFence(String(node.attrs?.source));} catch {diagnostics.push(warning('Invalid prepared table.',type));}

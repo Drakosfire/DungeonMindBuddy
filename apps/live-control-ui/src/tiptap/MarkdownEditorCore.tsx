@@ -1,3 +1,4 @@
+import {WorkPlanNode} from "../surface/workPlans/WorkPlanNode";
 import {PreparedTableNode} from "../preparedTables/PreparedTableNode";
 import { useEffect, useMemo, useRef, type ReactNode } from "react";
 import type { AnyExtension, Content, Editor, JSONContent } from "@tiptap/core";
@@ -18,6 +19,7 @@ import { MediaImageNode } from "./extensions/MediaImageNode";
 export const DEFAULT_MARKDOWN_EDITOR_EXTENSIONS: AnyExtension[] = [
   StarterKit,
   PreparedTableNode,
+  WorkPlanNode,
   WebSourceLink,
   PlayableElementHeadingAttributes,
   CalloutNode,

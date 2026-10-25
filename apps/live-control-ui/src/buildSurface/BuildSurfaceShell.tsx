@@ -1,3 +1,4 @@
+import {BuildWorkPlanHost} from "./BuildWorkPlanHost";
 import {BuildEditorToolsPanel} from './BuildEditorToolsPanel';
 import { saveBuildProposal } from './saveBuildProposal';
 import { mediaMarkdown } from "../media/mediaReferences";
@@ -542,7 +543,7 @@ export function BuildSurfaceShell({ onEditorTools, onReviewTarget }: { onEditorT
   };
 
   const projection = (
-    <div className="build-surface-with-graph-context document-projection" data-document-surface="build">
+    <BuildWorkPlanHost session={session} bridge={composeBridge}><div className="build-surface-with-graph-context document-projection" data-document-surface="build">
       {graphPointer && acceptedDocumentCampaignId ? (
         <BuildGraphObjectContext
           documentCampaignId={acceptedDocumentCampaignId}
@@ -562,7 +563,7 @@ export function BuildSurfaceShell({ onEditorTools, onReviewTarget }: { onEditorT
         />
       )}
       <div className="build-run-review-host" ref={onReviewTarget} />
-    </div>
+    </div></BuildWorkPlanHost>
   );
   return <div className="build-workspace-projection">
     <DocumentConversationDock surface="build" contextLabel={session.record?.title ?? "Worldbuilding source"} reader={projection}>
