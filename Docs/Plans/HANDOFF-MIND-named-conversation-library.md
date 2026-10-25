@@ -1,6 +1,6 @@
 # MIND: named conversation library
 
-BLOCKED pending independent design critique. Operator requests viewable archived conversations and names that distinguish separate pieces of work. PRIME solo, existing buddy-context-loop checkout, branchcodex/mind-named-conversation-library base611d27c0a5f9dec1e20217d58f968fbbe8421122. Serial after1727: approved2e449ffa,27tests, UI611d27c0 delivered preserving2668APProws/APIacbdb5d6; ordinary Brin Source actions relationships/origin, source navigation and clear conversation area passed. Broad goal stays paused; no graph chain implementation is selected.
+ACTIVE after independent design approval at3567d4989debf615f3eb27db329dff9f6bb314d7. Operator requests viewable archived conversations and names that distinguish separate pieces of work. PRIME solo, existing buddy-context-loop checkout, branchcodex/mind-named-conversation-library base611d27c0a5f9dec1e20217d58f968fbbe8421122. Serial after1727: approved2e449ffa,27tests, UI611d27c0 delivered preserving2668APProws/APIacbdb5d6; ordinary Brin Source actions relationships/origin, source navigation and clear conversation area passed. Broad goal stays paused; no graph chain implementation is selected.
 
 ## Bounded outcome
 

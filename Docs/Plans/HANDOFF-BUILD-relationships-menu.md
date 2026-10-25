@@ -1,6 +1,8 @@
 # BUILD: page relationships in Source actions
 
-ACTIVE after independent design approval at4f6d9161bc580e21c6042c8dc5338f4df3dcf423, operator-authorized conversation dogfood correction. PRIME solo, existing buddy-context-loop checkout, baseacbdb5d6bff9a203a695676d3d0e71b81197752d, branchcodex/build-relationships-menu. Re-anchor found no overlapping open lease. One serial UI PR, then separate named-conversation library slice after this delivery. Broad preparation/Play goal remains paused.
+DELIVERED in1727 merge/UI611d27c0a5f9dec1e20217d58f968fbbe8421122. Ordinary Source actions association/origin and clear conversation proof passed; retained2668APProws/API unchanged. Original lease below is historical.
+
+Implementation followed independent design approval at4f6d9161bc580e21c6042c8dc5338f4df3dcf423, operator-authorized conversation dogfood correction. PRIME solo, existing buddy-context-loop checkout, baseacbdb5d6bff9a203a695676d3d0e71b81197752d, branchcodex/build-relationships-menu. Re-anchor found no overlapping open lease. One serial UI PR, then separate named-conversation library slice after this delivery. Broad preparation/Play goal remains paused.
 
 Move the existing acknowledged page association panel into Source actions as Relationships & origin. It contains original passage navigation and the actual directed person/place predicates. Remove the misplaced Build out action from this inspection panel; ordinary conversation remains the writing entry. No persistent floating relationships control, viewport positioning or composer overlap. The real pending creation recovery control stays separately owned and unchanged.
 

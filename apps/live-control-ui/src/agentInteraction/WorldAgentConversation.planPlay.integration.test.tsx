@@ -1,3 +1,8 @@
+vi.mock('../api/conversationLibraryApi',()=>({
+ listConversations:vi.fn(async(world:string,status:string)=>({schema:'dmb_conversation_library_v1',world_id:world,status,items:[{conversation_id:'33333333-3333-4333-8333-333333333333',world_id:world,title:'Archived named work',status:'archived',name_revision:1,turn_count:1,created_at:'2026-10-24T00:00:00Z',updated_at:'2026-10-24T00:00:00Z'}],next_before:null})),
+ readConversationName:vi.fn(async(world:string,id:string)=>({conversation_id:id,world_id:world,title:'Archived named work',status:'archived',name_revision:1,turn_count:1,created_at:'2026-10-24T00:00:00Z',updated_at:'2026-10-24T00:00:00Z'})),
+ readConversationTurns:vi.fn(async(world:string,id:string)=>({schema:'dmb_conversation_library_turns_v1',world_id:world,conversation_id:id,turns:[{turn_id:'44444444-4444-4444-8444-444444444444',sequence:1,status:'completed',user_text:'Archived library question',assistant_text:'Archived library answer'}],next_before_sequence:null})),renameConversation:vi.fn(),
+}));
 import {queueSurfaceConversationRequest,cancelSurfaceConversationRequest,claimSurfaceConversationRequest} from "./surfaceConversationRequests";
 import { COMPOSER_DRAFT_WRITE_WARNING } from "./conversationComposerDrafts";
 import { listBuildProposals } from "../api/buildDocumentProposalApi";
@@ -484,6 +489,15 @@ describe("one App-level World conversation host across Plan and Play", () => {
 
 
 
+  it('opens named archives from the agent menu without changing the current composer',async()=>{
+    Object.defineProperty(HTMLDialogElement.prototype,'showModal',{configurable:true,value(this:HTMLDialogElement){this.setAttribute('open','');}});
+    render(<Harness initial="build"/>);fireEvent.click(await screen.findByRole('button',{name:'Open',exact:true}));
+    const input=await screen.findByLabelText('Message DungeonBuddy');await waitFor(()=>expect(input).toBeEnabled());
+    fireEvent.change(input,{target:{value:'Keep current work'}});openConversationOptions();
+    fireEvent.click(screen.getByRole('button',{name:'Conversations…'}));await screen.findByText('Archived library question');
+    expect(input).toHaveValue('Keep current work');expect(postWorldAgentNewConversation).not.toHaveBeenCalled();expect(postWorldBuildAgentTurn).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole('button',{name:'Close conversations'}));expect(input).toHaveValue('Keep current work');
+  });
   it('retires an authoring gesture on document departure while history is still loading',async()=>{
     let finish!:(value:ReturnType<typeof history>)=>void;
     vi.mocked(getWorldAgentConversationHistory).mockImplementation(()=>new Promise(resolve=>{finish=resolve;}));
