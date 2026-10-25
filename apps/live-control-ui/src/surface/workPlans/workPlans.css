@@ -38,7 +38,7 @@
 }
 
 /* Object actions stay with their title while the object scrolls. */
-.surface-work-plan .surface-work-plan__header { position:sticky; top:0; z-index:3; padding:.35rem 0; background:#eef2f4; border-bottom:1px solid #7894; flex-wrap:nowrap; }
+.surface-work-plan .surface-work-plan__header { position:sticky; top:var(--app-chrome-top, 0px); z-index:3; padding:.35rem 0; background:#eef2f4; border-bottom:1px solid #7894; flex-wrap:nowrap; }
 .surface-work-plan .surface-work-plan__title { flex:1 1 10rem; width:10rem; min-width:4rem; font-weight:600; }
 .surface-work-plan__header > .surface-navbar-icon { flex:0 0 2rem; }
 .surface-work-plan__header .surface-object-menu[open] { flex-basis:auto; }
@@ -54,3 +54,6 @@
  .surface-work-plan__header { gap:.25rem; }
  .surface-work-plan__header button { margin:0; }
 }
+
+/* A dock reader already starts below chrome and owns its scrolling. */
+.conversation-dock__reader .surface-work-plan .surface-work-plan__header { top:0; }
