@@ -10,7 +10,7 @@ from pathlib import Path
 from urllib.parse import urlencode
 
 from apps.live_control_server.config import artifact_data_root
-from apps.live_control_server.models.connected_page import ConnectedPageIntent
+from apps.live_control_server.models.connected_page import (ConnectedPageRequest, SavedConnectedPageIntent, SavedPageExcerptOrigin, parse_connected_page_intent)
 from apps.live_control_server.services.graph_document_source import GraphDocumentSource, resolve_graph_document_source
 from apps.live_control_server.services.graph_object_authoring_prepare import (
     GraphObjectAuthoringPrepareRequest, prepare_graph_object_authoring_write,
@@ -123,10 +123,11 @@ def _read(path):
         if path.is_symlink():
             raise ValueError('symlink operation')
         state = json.loads(path.read_text())
-        intent = ConnectedPageIntent.model_validate(state['intent'])
+        intent = parse_connected_page_intent(state['intent'])
         if (set(state) != {'schema', 'intent', 'intent_sha256', 'page_id', 'phase', 'initial_markdown',
                           'working_text_sha256', 'saved_source', 'graph_request', 'prepared', 'receipt'}
-                or state['schema'] != 'dmb_connected_page_operation_v1'
+                or state['schema'] != operation_schema(intent)
+                or (isinstance(intent,SavedConnectedPageIntent) and state['working_text_sha256'] != intent.origin.content_sha256)
                 or state['intent_sha256'] != _sha(_json(intent.model_dump(mode='json')))
                 or str(intent.operation_id) != path.stem
                 or state['phase'] not in ('reserved', 'created', 'saved', 'prepared', 'complete')):
@@ -135,6 +136,27 @@ def _read(path):
         return state
     except (ValueError, TypeError, KeyError, OSError) as exc:
         raise ConnectedPageError('The retained connected-page operation is unavailable or changed') from exc
+
+
+def operation_schema(intent):
+    return 'dmb_connected_page_operation_v2' if isinstance(intent, SavedConnectedPageIntent) else 'dmb_connected_page_operation_v1'
+
+
+def verify_saved_excerpt(root, intent):
+    """The source owner verifies exact saved bytes; no invented editor selection."""
+    source = _ownership(root, intent, initial=True)
+    snapshot = get_workspace_document_snapshot(root, source.document_id)
+    origin = intent.origin
+    if (not snapshot.file_exists or source.content_status != 'committed'
+            or source.source_domain != 'worldbuilding'
+            or snapshot.loaded_revision != origin.revision
+            or snapshot.content_sha256 != origin.content_sha256):
+        raise ConnectedPageError('The exact saved source is unavailable or changed; review the current excerpt again')
+    lines = snapshot.markdown.splitlines()
+    if (origin.line_end > len(lines)
+            or '\n'.join(lines[origin.line_start - 1:origin.line_end]) != origin.selected_text):
+        raise ConnectedPageError('The excerpt does not match those exact saved lines')
+    return snapshot.content_sha256
 
 
 def _ownership(root, intent, *, initial=False):
@@ -176,11 +198,13 @@ def _initial_markdown(intent, source):
     source_url = '/build?' + urlencode({'world': intent.world_id, 'documentId': str(intent.origin.document_id), 'campaign': intent.world_id})
     declaration = '\n\n'.join(_escape(sentence) for sentence in _declarations(intent))
     quote = '\n'.join('> ' + line for line in intent.origin.selected_text.splitlines())
+    origin_label = (f'saved revision {intent.origin.revision}, lines {intent.origin.line_start}–{intent.origin.line_end}'
+        if isinstance(intent.origin,SavedPageExcerptOrigin) else 'captured working copy')
     return (f'# {_escape(intent.title)}\n\n{declaration}\n\n'
         f'## At a glance\n\n_Add the details that matter at your table._\n\n'
         f'## People and activity\n\n_Who is here, and what are they doing?_\n\n'
         f'## The unexpected\n\n_A secret, tension, or possibility to develop._\n\n'
-        f'## Origin\n\n[From {_escape(source.title)}]({source_url}) · captured working copy\n\n{quote}\n')
+        f'## Origin\n\n[From {_escape(source.title)}]({source_url}) · {origin_label}\n\n{quote}\n')
 
 
 def _save_initial(root, state, intent):
@@ -255,16 +279,18 @@ def _response(root, state):
     page = (get_workspace_document(root, state['page_id']) if state['phase'] != 'reserved'
             else next((record for record in list_workspace_documents(root, kind='worldbuilding_source')
                        if record.document_id == state['page_id']), None))
-    intent = ConnectedPageIntent.model_validate(state['intent'])
+    intent = parse_connected_page_intent(state['intent'])
     if page and (page.status != 'active' or page.kind != 'worldbuilding_source'
                  or page.world_id != intent.world_id or page.campaign_id != intent.world_id
                  or page.connected_page_operation_id != str(intent.operation_id)):
         raise ConnectedPageError('The retained created page changed ownership or was discarded')
     receipt = state['receipt']
     ids = receipt.get('created_node_ids', {}) if receipt else {}
-    return {'schema': 'dmb_connected_page_operation_v1', 'operation_id': str(intent.operation_id),
+    return {'schema': operation_schema(intent), 'operation_id': str(intent.operation_id),
         'phase': state['phase'], 'intent': state['intent'], 'page': page.model_dump(mode='json') if page else None,
-        'source_origin': {'kind': 'captured_working_copy', 'working_text_sha256': state['working_text_sha256']},
+        'source_origin': ({'kind':'saved_page_excerpt','source_text_sha256':state['working_text_sha256'],
+            'line_start':intent.origin.line_start,'line_end':intent.origin.line_end}
+            if isinstance(intent.origin,SavedPageExcerptOrigin) else {'kind': 'captured_working_copy', 'working_text_sha256': state['working_text_sha256']}),
         'initial_source': state['saved_source'],
         'prepared': state['prepared'], 'receipt': receipt,
         'connections': {'place_node_id': intent.place.node_id or ids.get('place'),
@@ -272,9 +298,9 @@ def _response(root, state):
             'relationships': intent.relationships} if receipt else None}
 
 
-def prepare_connected_page(root: Path, intent: ConnectedPageIntent):
+def prepare_connected_page(root: Path, intent: ConnectedPageRequest):
     root = artifact_data_root(root)
-    working_hash = verify_origin_capture(intent.origin)
+    working_hash = None if isinstance(intent,SavedConnectedPageIntent) else verify_origin_capture(intent.origin)
     path = _path(root, intent.operation_id)
     with registry_mutation_lock(path):
         state = _read(path)
@@ -283,8 +309,9 @@ def prepare_connected_page(root: Path, intent: ConnectedPageIntent):
             raise ConnectedPageError('This operation already belongs to a different page request')
         source = _ownership(root, intent, initial=state is None)
         if state is None:
+            working_hash = verify_saved_excerpt(root,intent) if isinstance(intent,SavedConnectedPageIntent) else working_hash
             _objects(intent, root)
-            state = {'schema': 'dmb_connected_page_operation_v1', 'intent': intent.model_dump(mode='json'),
+            state = {'schema': operation_schema(intent), 'intent': intent.model_dump(mode='json'),
                 'intent_sha256': digest, 'page_id': str(uuid.uuid4()), 'phase': 'reserved',
                 'initial_markdown': _initial_markdown(intent, source), 'working_text_sha256': working_hash,
                 'saved_source': None, 'graph_request': None, 'prepared': None, 'receipt': None}
@@ -326,7 +353,7 @@ def get_connected_page(root: Path, operation_id, world_id: str):
             raise ConnectedPageError('Connected-page operation not found in this World', status_code=404)
         if state['intent']['world_id'] != world_id:
             raise ConnectedPageError('Connected-page operation not found in this World', status_code=404)
-        _ownership(root, ConnectedPageIntent.model_validate(state['intent']))
+        _ownership(root, parse_connected_page_intent(state['intent']))
         return _response(root, state)
 
 
@@ -342,7 +369,7 @@ def confirm_connected_page(root: Path, operation_id, world_id: str, confirm_toke
             raise ConnectedPageError('Connected-page operation not found in this World', status_code=404)
         if state['intent']['world_id'] != world_id:
             raise ConnectedPageError('Connected-page operation not found in this World', status_code=404)
-        _ownership(root, ConnectedPageIntent.model_validate(state['intent']))
+        _ownership(root, parse_connected_page_intent(state['intent']))
         _response(root, state)
         if not state['prepared'] or state['prepared']['confirm_token'] != confirm_token:
             raise ConnectedPageError('Confirm the exact reviewed connections for this operation')

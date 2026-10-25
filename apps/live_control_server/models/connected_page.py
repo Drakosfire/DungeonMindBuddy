@@ -1,7 +1,7 @@
 """Closed user-reviewed intent for creating a connected Build page."""
 from typing import Literal
 from uuid import UUID
-from pydantic import BaseModel, ConfigDict, Field, model_validator
+from pydantic import BaseModel, ConfigDict, Field, TypeAdapter, model_validator
 
 
 class _Closed(BaseModel):
@@ -47,3 +47,30 @@ class ConnectedPageIntent(_Closed):
         if self.title != self.title.strip() or any(o.label != o.label.strip() for o in [self.place, *([self.person] if self.person else [])]):
             raise ValueError('Names must be nonempty without surrounding whitespace')
         return self
+
+
+class SavedPageExcerptOrigin(_Closed):
+    kind: Literal["saved_page_excerpt"]
+    document_id: UUID
+    revision: int = Field(ge=1, strict=True)
+    content_sha256: str = Field(pattern=r"^[a-f0-9]{64}$")
+    line_start: int = Field(ge=1, strict=True)
+    line_end: int = Field(ge=1, strict=True)
+    selected_text: str = Field(min_length=1, max_length=4000)
+
+    @model_validator(mode="after")
+    def coherent(self):
+        if self.line_end < self.line_start or not self.selected_text.strip():
+            raise ValueError("Choose a nonempty exact saved excerpt")
+        return self
+
+
+class SavedConnectedPageIntent(ConnectedPageIntent):
+    origin: SavedPageExcerptOrigin
+
+
+ConnectedPageRequest = SavedConnectedPageIntent | ConnectedPageIntent
+
+
+def parse_connected_page_intent(value):
+    return TypeAdapter(ConnectedPageRequest).validate_python(value)
