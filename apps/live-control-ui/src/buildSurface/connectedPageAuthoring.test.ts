@@ -4,7 +4,7 @@ import {afterEach,expect,it,vi} from 'vitest';
 import {DEFAULT_MARKDOWN_EDITOR_EXTENSIONS} from '../tiptap/MarkdownEditorCore';
 import {tiptapJsonToSemanticMarkdown} from '../tiptap/markdown/calloutMarkdown';
 import {createBuildComposeBridge} from './buildComposeBridge';
-import {prepareConnectedPageScaffold,readConnectedPageRecovery,retainConnectedPageRequest,connectedPageRecoveryKey} from './connectedPageAuthoring';
+import {prepareConnectedPageScaffold,readConnectedPageRecovery,retainConnectedPageRequest,connectedPageRecoveryKey,connectedPageBuildOutMessage} from './connectedPageAuthoring';
 vi.stubGlobal('crypto',webcrypto);
 afterEach(()=>sessionStorage.clear());
 it('selects only starter sections while preserving relationship and origin content',async()=>{
@@ -26,4 +26,12 @@ it('preserves malformed recovery bytes and refuses to overwrite them',()=>{
  const key=connectedPageRecoveryKey('world-a','source');sessionStorage.setItem(key,'broken-json');
  expect(()=>readConnectedPageRecovery('world-a','source')).toThrow();expect(sessionStorage.getItem(key)).toBe('broken-json');
  expect(()=>retainConnectedPageRequest({world_id:'world-a',origin:{document_id:'source'}} as any)).toThrow();expect(sessionStorage.getItem(key)).toBe('broken-json');
+});
+
+it('carries the author brief and exact origin into an explicitly creative buildout request',()=>{
+ const message=connectedPageBuildOutMessage({intent:{title:'Forge',origin:{selected_text:'The bell signals when the gate opens.'},instructions:'Preserve this condition; do not make Brin react.'}} as any);
+ expect(message).toContain('Original selected passage: The bell signals when the gate opens.');
+ expect(message).toContain('Author’s brief: Preserve this condition; do not make Brin react.');
+ expect(message).toContain('Keep the existing relationship declarations and Origin section.');
+ expect(message).toContain('propose concrete new details');expect(message).toContain('Keep outcomes conditional and unplayed.');
 });

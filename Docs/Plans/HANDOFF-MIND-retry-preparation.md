@@ -1,6 +1,6 @@
 # MIND: explicit retry preparation outcome
 
-ACTIVE serial authorized recovery-dogfood goal. Basef170d9f9f7124d2bc071f6185f401c0c73b762e4; reuse buddy-context-loop branch codex/mind-retry-preparation. No competing runtime implementation PR.
+DELIVERED #1749/UI8542c421c4a7fa052dd6983c1ac166122ec5317c; independent approveda379a4552, owner161 mounted cases/build/type passed, protected2874 rows/API preserved. Specific same-page race reproduced and fixed; archived original attempt/later success inspected ordinarily, but historical click cause and ordinary retry acceptance remain unproven. Original contract: Basef170d9f9f7124d2bc071f6185f401c0c73b762e4; reuse buddy-context-loop branch codex/mind-retry-preparation. No competing runtime implementation PR.
 
 Investigated invariant: terminal-question retry must either dispatch once, expose its concrete pre-dispatch obstacle, or retire when its target is no longer displayed. The Build post-capture fence currently silently returns if the page save/revision changes during preparation, leaving an apparently inert retry on the same page. Reproduce at the real mounted conversation boundary before fixing. Do not assert this caused the earlier uninstrumented inert click. Preserve exact dispatch/recovery envelopes, newer composer text, request identity, World/page/pointer fences, and no post after invalidation. No automatic retry, permissive fence or historical repair.
 
