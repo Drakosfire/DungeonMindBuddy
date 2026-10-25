@@ -10,7 +10,7 @@ import type {WorldGraphProjectionNodeView} from '../api/types';
 import {readConnectedPageRecovery,retainConnectedPageRequest,clearConnectedPageRequest,queueConnectedPageBuildOut} from './connectedPageAuthoring';
 import './BuildConnectedPageControl.css';
 const errorText=(reason:unknown)=>reason instanceof Error?reason.message:'The page request could not finish.';
-export function BuildConnectedPageControl({selectDocument,refreshDocuments}:{selectDocument:(id:string)=>Promise<boolean>;refreshDocuments:()=>unknown}){
+export function BuildConnectedPageControl({selectDocument,refreshDocuments,relationshipsHost=null}:{relationshipsHost?:HTMLElement|null;selectDocument:(id:string)=>Promise<boolean>;refreshDocuments:()=>unknown}){
   const session=useOptionalMarkdownCanvasSession(),agent=useOptionalAgentInteraction();
   const current=useRef(session);current.current=session;
   const dialog=useRef<HTMLDialogElement>(null),busyRef=useRef<number|null>(null),mounted=useRef(true);
@@ -139,11 +139,10 @@ export function BuildConnectedPageControl({selectDocument,refreshDocuments}:{sel
     {!open&&retained&&<aside className="connected-page-recovery"><button type="button" onClick={()=>{setOrigin(retained.origin);setOpen(true);}}>Resume page creation</button>
       {operation?.page&&<button type="button" onClick={()=>void openCreated(operation,false)}>Open created page</button>}</aside>}
     {!open&&error&&<p role="alert">{error}</p>}
-    {pageOperation&&<details className="connected-page-connections"><summary>{pageOperation.phase==='complete'?'Page connections':'Connections pending'}</summary>
+    {pageOperation&&relationshipsHost&&createPortal(<details className="connected-page-connections"><summary>{pageOperation.phase==='complete'?'Relationships & origin':'Connections pending'}</summary>
       <a href={'/build?'+new URLSearchParams({world,documentId:pageOperation.intent.origin.document_id,campaign:world})}>Original passage</a>
       {pageOperation.intent.relationships.map(predicate=><p key={predicate}>{pageOperation.intent.person?.label} → {predicate} → {pageOperation.intent.place.label}</p>)}
-      {pageOperation.phase==='complete'&&<button type="button" onClick={()=>{try{queueConnectedPageBuildOut(pageOperation);agent?.setPaneOpen(true);}catch(reason){setError(errorText(reason));}}}>Build out this page</button>}
-    </details>}
+    </details>,relationshipsHost)}
     {open&&createPortal(<dialog ref={dialog} className="connected-page-dialog" aria-label="New page from selection" onCancel={()=>setOpen(false)} onClose={()=>setOpen(false)}>
       <header><h2>New page</h2><button type="button" aria-label="Close new page" onClick={()=>setOpen(false)}>×</button></header>
       <blockquote>{displayed?.origin.selected_text??origin?.selected_text}</blockquote>

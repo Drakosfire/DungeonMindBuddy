@@ -6,7 +6,7 @@ import { WorkspaceTrashControl } from "../workspaceLifecycle/WorkspaceTrashContr
 import { useSelectedWorld } from "../selectedWorld/SelectedWorldContext";
 import { BuildDraftRecovery } from "./buildMarkdownCanvasAdapter";
 import { BUILD_STUDIO_ACTION, requestBuildStudioAction, type BuildStudioAction } from "./buildStudioActions";
-import { useEffect, useMemo, useRef, type Ref } from "react";
+import { useEffect, useMemo, useRef, useState, type Ref } from "react";
 
 import { buildBuildSurfaceIdentity } from "../agentInteraction/projectionSurfacePublication";
 import { formatReviewCampaignLabel } from "../graphLens/sessionCampaignContext";
@@ -80,6 +80,7 @@ export function BuildSurfaceContext({
   extractionTargetRef,
 }: BuildSurfaceContextProps) {
   const session = useOptionalMarkdownCanvasSession();
+  const [relationshipsHost,setRelationshipsHost]=useState<HTMLDivElement|null>(null);
   const agentInteraction = useOptionalAgentInteraction();
   const openReferenceTool = agentInteraction?.openTool;
   const linkAvailable = agentInteraction?.surfaceInteractionPublication?.tools.some(tool => tool.id === BUILD_FIND_EXISTING_TOOL_ID && tool.availability.status === "enabled") ?? false;
@@ -192,6 +193,7 @@ export function BuildSurfaceContext({
           <details className="build-source-actions">
             <summary>Source actions</summary>
             <div className="build-source-actions__menu">
+              <div ref={setRelationshipsHost}/>
               {campaignBadge ? <SurfaceContextBadge>{campaignBadge}</SurfaceContextBadge> : null}
               {documentClass ? <SurfaceContextBadge>{documentClass}</SurfaceContextBadge> : null}
               {!needsRecovery && session && (session.dirty || session.draftRecoveryAvailable || session.conflictRecovery?.protectedCopies) ?
@@ -300,5 +302,5 @@ export function BuildSurfaceContext({
     content,
   });
 
-  return <BuildConnectedPageControl selectDocument={selectDocument} refreshDocuments={refreshDocuments}/>;
+  return <BuildConnectedPageControl selectDocument={selectDocument} refreshDocuments={refreshDocuments} relationshipsHost={relationshipsHost}/>;
 }

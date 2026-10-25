@@ -120,3 +120,18 @@ it('distinguishes same-name canonical people before review',async()=>{
  expect(screen.getByRole('option',{name:'Existing: Brin (node:brin)'})).toBeInTheDocument();
  expect(screen.getByRole('option',{name:'Existing: Brin (node:other-brin)'})).toBeInTheDocument();
 });
+
+it('hosts relationships and origin only in Source actions, without a generation action',async()=>{
+ const request={operation_id:'33333333-3333-4333-8333-333333333333',world_id:'elderwyld',title:'Brin’s Blacksmithy',origin:{document_id:source,revision:31,content_sha256:'a'.repeat(64)},place:{node_id:null,label:'Brin’s Blacksmithy',kind:'location'},person:{node_id:'node:brin',label:'Brin',kind:'npc'},relationships:['owns','operates'],mode:'scaffold',instructions:''} as ConnectedPageIntent;
+ state.session.record={...state.session.record,document_id:page,connected_page_operation_id:request.operation_id};
+ vi.mocked(api.readConnectedPageForPage).mockResolvedValue(operation(request,'complete'));
+ const host=document.createElement('div');document.body.appendChild(host);
+ try{
+  const view=render(<BuildConnectedPageControl selectDocument={vi.fn(async()=>true)} refreshDocuments={vi.fn()} relationshipsHost={host}/>);
+  const summary=await screen.findByText('Relationships & origin');expect(host.contains(summary)).toBe(true);fireEvent.click(summary);
+  expect(screen.getByRole('link',{name:'Original passage'})).toHaveAttribute('href',expect.stringContaining(source));
+  expect(screen.queryByRole('button',{name:'Build out this page'})).not.toBeInTheDocument();
+  view.rerender(<BuildConnectedPageControl selectDocument={vi.fn(async()=>true)} refreshDocuments={vi.fn()} relationshipsHost={null}/>);
+  expect(screen.queryByText('Relationships & origin')).not.toBeInTheDocument();
+ }finally{host.remove();}
+});
