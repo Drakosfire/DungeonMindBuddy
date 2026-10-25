@@ -5665,10 +5665,11 @@ export function WorldPlanAgentConversation({
               turnId={turn.turn_id} disabled={composerBusy}
               durable={turn.provenance.surface_id==='build'?{disabled:!isBuild||!visible||history.active_conversation_id!==history.conversation_id||buildMode?.savedSource?.documentId!==turn.provenance.primary_work.object_id,
                 onContinue:(plan,dispatch)=>{
-                  const expectedFence=latestRef.current.buildPlacementFenceKey;
+                  const expectedFence=buildPlacementFenceKey;
+                  const expectedEpoch=buildPlacementEpoch;
                   queueSurfaceConversationRequest({id:`reviewed-plan:${dispatch.client_turn_id}`,worldId:plan.world_id,surfaceId:'build',objectId:plan.document_id,
                     message:dispatch.message,clientThreadId:dispatch.client_thread_id,turnId:dispatch.client_turn_id,
-                    isCurrent:()=>latestRef.current.mounted&&latestRef.current.buildPlacementFenceKey===expectedFence&&latestRef.current.verifiedWorldId===plan.world_id
+                    isCurrent:()=>latestRef.current.mounted&&latestRef.current.buildPlacementFenceKey===expectedFence&&latestRef.current.buildPlacementEpoch===expectedEpoch&&latestRef.current.verifiedWorldId===plan.world_id
                       &&latestRef.current.buildDocumentId===plan.document_id&&surfaceVisibleRef.current&&historySnapshotRef.current?.conversation_id===plan.conversation_id
                       &&historySnapshotRef.current?.active_conversation_id===plan.conversation_id});
                 }}:undefined}

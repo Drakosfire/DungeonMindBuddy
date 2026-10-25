@@ -4,7 +4,7 @@ export type ReviewedRow={text:string;include:boolean;kind?:'discuss'|'prepare_in
 export function DurableWorkPlan({scope,disabled,onContinue,renderDraft}:{scope:WorkPlanScope;disabled:boolean;onContinue:(plan:WorkPlan,dispatch:WorkDispatch)=>void;renderDraft:(save:(rows:ReviewedRow[])=>Promise<void>,busy:boolean)=>ReactNode}){
  const [plan,setPlan]=useState<WorkPlan|null>(null),[steps,setSteps]=useState<WorkStep[]>([]),[loaded,setLoaded]=useState(false),[busy,setBusy]=useState(false),[error,setError]=useState<string|null>(null)
  const [staleDraft,setStaleDraft]=useState(false),[blockedDraft,setBlockedDraft]=useState(false)
- const identity=JSON.stringify([scope.worldId,scope.conversationId,scope.turnId,scope.source]);const current=useRef(identity);current.current=identity
+ const identity=JSON.stringify([scope.worldId,scope.conversationId,scope.turnId,scope.source]);const current=useRef<string|null>(null)
  const draftKey=`dmb:reviewed-plan-edit:v1:${identity}`;const edited=useRef(false)
  function retain(next:WorkStep[]){edited.current=true;setSteps(next);if(blockedDraft)return;try{sessionStorage.setItem(draftKey,JSON.stringify({schema:'dmb_reviewed_plan_edit_v1',identity,base_revision:plan?.revision,steps:next}))}catch{setError('These plan edits could not be retained locally. Keep a copy before reloading.')}}
  function restore(p:WorkPlan){
@@ -16,7 +16,7 @@ export function DurableWorkPlan({scope,disabled,onContinue,renderDraft}:{scope:W
   }catch{setBlockedDraft(true);setError('Local plan edits could not be restored; their bytes were left untouched.');return p.steps}
  }
  function adopted(p:WorkPlan){setStaleDraft(false);setBlockedDraft(false);setPlan(p);setSteps(p.steps);edited.current=false;try{sessionStorage.removeItem(draftKey)}catch{setError('The saved plan is durable, but this tab could not clear its older local copy.')}}
- useEffect(()=>{let active=true;setLoaded(false);setError(null);void getWorkPlan(scope).then(p=>{if(active){setPlan(p);setSteps(p?restore(p):[]);setLoaded(true)}}).catch(e=>{if(active)setError(String(e))});return()=>{active=false}},[identity])
+ useEffect(()=>{let active=true;current.current=identity;setLoaded(false);setError(null);void getWorkPlan(scope).then(p=>{if(active){setPlan(p);setSteps(p?restore(p):[]);setLoaded(true)}}).catch(e=>{if(active)setError(String(e))});return()=>{active=false;current.current=null}},[identity])
  async function run(action:()=>Promise<void>){setBusy(true);setError(null);try{await action()}catch(e){if(current.current===identity)setError(e instanceof Error?e.message:String(e))}finally{if(current.current===identity)setBusy(false)}}
  async function saveDraft(rows:ReviewedRow[]){await run(async()=>{const p=await saveWorkPlan(scope,0,rows.map(r=>({step_id:crypto.randomUUID(),text:r.text,selected:r.include,kind:r.kind??'discuss'})));if(current.current===identity)adopted(p)})}
  const changed=!!plan&&JSON.stringify(steps)!==JSON.stringify(plan.steps)
