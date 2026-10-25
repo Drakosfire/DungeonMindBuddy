@@ -1,0 +1,9 @@
+# MIND: proposal Save persists the page
+
+ACTIVE serial operator-authorized authoring goal. Base6146e120a1f54fac8a305f2d1958f95275a1b2d7; reuse buddy-context-loop checkout, branch codex/mind-proposal-save. No competing runtime implementation PR.
+
+Invariant: one proposal Save applies the reviewed insertion and invokes the existing MarkdownCanvas save owner, then verifies exact saved document/body before confirming the proposal. Existing Build autosave is preserved; a committed exact result recovered after lost acknowledgement must not insert or write twice. Failure leaves the durable applying receipt and recoverable working copy. Navigation must never save a different page. Newer editor/composer work must survive. Do not call completion merely because the void save promise resolved. Preserve leading frontmatter and existing CAS, command arbitration, source authority and immutable proposal output. No backend/schema changes.
+
+Lease: this handoff; settle HANDOFF-MIND-inline-source-citations.md and ROADMAP-demo.md; BuildPageProposal.tsx, buildComposeBridge.ts, BuildSurfaceShell.tsx, new saveBuildProposal.ts and directly related tests (BuildPageProposal, bridge, new save helper and mounted Build integration). Shared save implementation remains unchanged; integrate its existing owner. One capability/PR, exact independent Bugbot, PRIME merge, protected UI-only delivery retaining API8bc36104/APP0066/native0017.
+
+Verify exact insertion→save→readback→confirmation ordering; owner failure/silent no-op; exact already-saved recovery without duplicate save; stale revision/foreign snapshot; changed page/editor during read; retained newer edits; frontmatter; lost confirm/prepare response and no duplicate insertion. Mounted ordinary Save/reload proof must show persisted proposal without a second Save. Run focused relevant tests, typecheck/build, inspect cumulative diff, independent review. Full Brin chain/operator acceptance stays open.

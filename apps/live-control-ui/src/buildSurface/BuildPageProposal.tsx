@@ -81,9 +81,11 @@ export function BuildPageProposal({record,bridge,sourceKey,requestKey,onStatus,o
     return proposalReview(world,record.action_id,{operation:'save',expected_revision:saved.revision,markdown});
   }
   async function confirm(saved:BuildProposalReview,start:number){
+    await bridge.saveProposal(record.reservation.basis,saved.apply!.after_editor_sha256,saved.apply!.after_draft_sha256);
+    if(!current(start))return;
     const result=await proposalReview(world,record.action_id,{operation:'confirm',expected_revision:saved.revision,apply_id:saved.apply!.apply_id});
     // Acknowledgment is safe even if navigation occurred after the exact local transaction.
-    if(current(start)){setReview(result);setPlacement(null);clearCache();callbacks.current.onStatus('Added to page');callbacks.current.onComplete('applied');}
+    if(current(start)){setReview(result);setPlacement(null);clearCache();callbacks.current.onStatus('Saved to page');callbacks.current.onComplete('applied');}
   }
   function keep(){void transact(async(saved,start)=>{
     if(saved.state!=='editing')return;
@@ -150,7 +152,7 @@ export function BuildPageProposal({record,bridge,sourceKey,requestKey,onStatus,o
   </>;
   if(review?.state==='applied'||review?.state==='discarded')return null;
   if(review?.state==='applying')return <section className="surface-proposal-review" aria-label="Check suggestion insertion">
-    <p>The insertion needs checking. This checks its exact snapshots before changing the page.</p>
+    <p>Check that this insertion is saved. Your working copy is retained; the page is checked before anything is inserted again.</p>
     <button type="button" disabled={busy} onClick={recover}>Check insertion</button>{error?<p role="alert">{error}</p>:null}
   </section>;
   if(placement&&review?.state==='editing')return <SurfacePageProposal editor={placement.editor} position={placement.basis.caret}
