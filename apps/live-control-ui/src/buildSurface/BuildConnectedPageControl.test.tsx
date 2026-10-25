@@ -8,13 +8,13 @@ import {BuildConnectedPageControl} from './BuildConnectedPageControl';
 import * as api from '../api/connectedPageApi';
 import * as workflow from './connectedPageAuthoring';
 import {ConversationConnectedPageReview} from '../planSurface/components/ConversationConnectedPageReview';
-import {getAgentRelatedPage,postManagedWorldGraphProjection} from '../api/liveApi';
+import {getAgentRelatedPage,postManagedWorldGraphProjection,getGraphObjectAuthoringKinds} from '../api/liveApi';
 import type {ConnectedPageIntent,ConnectedPageOperation} from '../api/connectedPageApi';
 const state=vi.hoisted(()=>({session:null as any,setPaneOpen:vi.fn()}));
 vi.mock('../markdownCanvas/MarkdownCanvasSession',()=>({useOptionalMarkdownCanvasSession:()=>state.session}));
 vi.mock('../agentInteraction/AgentInteractionProvider',()=>({useOptionalAgentInteraction:()=>({setPaneOpen:state.setPaneOpen})}));
 vi.mock('../worldGraph/verifyManagedWorldGraphProjectionResponse',()=>({verifyManagedWorldGraphProjectionResponse:()=>null}));
-vi.mock('../api/liveApi',async original=>({...await original<typeof import('../api/liveApi')>(),postManagedWorldGraphProjection:vi.fn(),getAgentRelatedPage:vi.fn()}));
+vi.mock('../api/liveApi',async original=>({...await original<typeof import('../api/liveApi')>(),postManagedWorldGraphProjection:vi.fn(),getAgentRelatedPage:vi.fn(),getGraphObjectAuthoringKinds:vi.fn()}));
 vi.mock('../api/connectedPageApi',async original=>({...await original<typeof import('../api/connectedPageApi')>(),prepareConnectedPage:vi.fn(),confirmConnectedPage:vi.fn(),recoverConnectedPage:vi.fn(),readConnectedPageForPage:vi.fn()}));
 const source='11111111-1111-4111-8111-111111111111',page='22222222-2222-4222-8222-222222222222';
 let editor:Editor;
@@ -175,4 +175,14 @@ it('retains the exact request after rejection and an absent recovery result',asy
  render(<><BuildConnectedPageControl selectDocument={vi.fn(async()=>true)} refreshDocuments={vi.fn()}/><ReviewProbe/></>);
  fireEvent.click(screen.getByRole('button',{name:'Open provided review'}));await waitFor(()=>expect(screen.getByRole('button',{name:'Create page'})).toBeEnabled());fireEvent.click(screen.getByRole('button',{name:'Create page'}));await screen.findByText('Saved source changed');
  expect(screen.queryByRole('button',{name:'Start a fresh review'})).not.toBeInTheDocument();expect(workflow.readConnectedPageRecovery('elderwyld',source)?.operation_id).toBe(vi.mocked(api.prepareConnectedPage).mock.calls[0][0].operation_id);
+});
+
+it('opens relationship review from the shared selection toolbar only on a saved page',async()=>{
+ localStorage.clear();Object.defineProperty(navigator,'locks',{configurable:true,value:{request:async(_key:string,fn:()=>unknown)=>fn()}});
+ vi.mocked(getGraphObjectAuthoringKinds).mockResolvedValue({objectKinds:['npc','location']});
+ render(<BuildConnectedPageControl selectDocument={vi.fn(async()=>true)} refreshDocuments={vi.fn()}/>);
+ fireEvent.click(screen.getByRole('button',{name:'Relationship'}));expect(await screen.findByRole('alert')).toHaveTextContent('Save the page');expect(screen.queryByRole('dialog',{name:'Review relationship'})).not.toBeInTheDocument();
+ state.session.dirty=false;fireEvent.click(screen.getByRole('button',{name:'Relationship'}));await screen.findByRole('dialog',{name:'Review relationship'});expect(await screen.findByLabelText('Supporting passage')).toHaveValue('Brin’s Blacksmithy');
+ expect(api.prepareConnectedPage).not.toHaveBeenCalled();expect(api.confirmConnectedPage).not.toHaveBeenCalled();
+ localStorage.clear();
 });

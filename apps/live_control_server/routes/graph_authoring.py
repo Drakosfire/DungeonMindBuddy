@@ -7,6 +7,11 @@ from typing import Any
 from fastapi import APIRouter, HTTPException
 from fastapi.responses import JSONResponse
 
+from apps.live_control_server.services.graph_document_relationship import DocumentRelationshipRequest, relationship_request
+from apps.live_control_server.config import repo_root
+from apps.live_control_server.services.source_artifact_registry import SourceArtifactRegistryError
+from apps.live_control_server.services.world_graph_projection import WorldGraphProjectionServiceError
+
 from apps.live_control_server.services.graph_object_authoring_commit import (
     commit_graph_object_authoring_write,
 )
@@ -34,6 +39,14 @@ _STORE_RETIRED = {
 @router.get("/object-kinds")
 def get_graph_object_authoring_kinds() -> dict[str, Any]:
     return {"objectKinds": graph_review_supported_object_kinds()}
+
+
+@router.post("/document-relationship/request")
+def post_document_relationship_request(request: DocumentRelationshipRequest) -> dict[str, Any]:
+    try:
+        return relationship_request(repo_root(), request).model_dump(mode="json", by_alias=True)
+    except (GraphObjectAuthoringError, SourceArtifactRegistryError, WorldGraphProjectionServiceError) as exc:
+        raise HTTPException(status_code=exc.status_code, detail={"code": getattr(exc,"code","relationship_source_unavailable"), "message": str(exc)}) from exc
 
 
 @router.post("/prepare", response_model=GraphObjectAuthoringPrepareResponse)

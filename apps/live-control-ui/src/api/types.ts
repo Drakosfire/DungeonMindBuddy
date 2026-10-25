@@ -4550,6 +4550,7 @@ export interface GraphObjectAuthoringProposalPayload {
 }
 
 export interface GraphObjectAuthoringPrepareRequest {
+  documentSource?: {documentId:string;revision:number;contentSha256:string};
   campaignId: string;
   campaignRel?: string | null;
   sessionId?: string | null;
@@ -4606,6 +4607,7 @@ export interface GraphObjectAuthoringPrepareResponse {
 }
 
 export interface GraphObjectAuthoringCommitRequest {
+  documentSource?: {documentId:string;revision:number;contentSha256:string};
   campaignId: string;
   campaignRel?: string | null;
   sessionId?: string | null;
