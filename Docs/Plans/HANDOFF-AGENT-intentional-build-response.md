@@ -79,6 +79,10 @@ request for encounter *prose* is `write_current_page`; an actual runnable encoun
 `build_encounter`. Concrete name/insect/economy proposals follow the operator's answered
 preference for editable page suggestions; explicit discuss-first remains discussion.
 History resolves references, never supplies current instructions or played facts.
+Intent and presentation destination are separate dimensions: discussion could be page-anchored
+feedback if such a capability were offered. This proof does not add annotation objects or
+threads, and it must not claim they exist. Operator feedback about that possibility does not
+choose either writing or chat as new benchmark gold for an ambiguous utterance.
 
 The host resolves the admitted semantic result against the exact captured capabilities:
 
@@ -170,6 +174,10 @@ Add a versioned writer output/completion contract under the new policy, provisio
 acknowledgments, author-choice clarification and capability explanations with no authored
 or source claims and no evidence limitations. It does not relabel these as creative ideas.
 Questions stay inline in chat; a generated typed plan remains the shared Surface object.
+A valid typed collaboration object may be the entire response, without a filler acknowledgment.
+The new format/completion may therefore carry no prose segments only when the admitted typed
+object is present and valid; an entirely empty response still fails. Do not duplicate a question
+in both prose and its interactive object. Historical formats retain their original constraints.
 
 Derive status from typed output, not the model's preferred enum:
 
