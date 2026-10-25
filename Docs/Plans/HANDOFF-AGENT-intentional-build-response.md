@@ -13,6 +13,94 @@ Detailed evidence stays private. The independent evidence audit verified stored 
 UI observations are direct CUA attestations, not reconstructed from provider traces.
 Operator creative-chain acceptance remains separate. #1764 stays parked.
 
+## Plan expected outcome — BLOCKED design, immediate operator priority
+
+The operator's current dogfood correction is that a work plan must state its objective /
+expected result before listing actions. Add an editable **Expected outcome** above the steps
+in both the staged and saved shared Surface object. This is distinct from the page-owned
+plan title, a step, a generation acknowledgment and proof of completion. The outcome states
+what the work is intended to achieve; it never marks it achieved.
+
+Design owner: PRIME. This lane is `codex/work-plan-outcome-design` from remote main
+2fa84f8786d1879dc80379f49e655b203742d503 in the existing Buddy checkout. This design-only
+lease writes this handoff. Serial topology: independently review the contract and its owner
+amendment before activating implementation. Source-scope design/proof below remains retained
+and unadopted; it is not a dependency of this correction. No runtime changes are activated here.
+
+### Inspected owners and required behavior
+
+1. Generated typed plans must carry one readable nonblank `objective` describing the desired
+   outcome, before their steps. Existing `collaboration.ProposedPlan` contains only kind/steps;
+   the output schema, final conformance/admission and plan construction decoder must evolve
+   coherently. Use the actual generated objective, not a host summary guessed from step text.
+   Render complete incoming objective text observationally before editable admission; partial
+   objective/rows grant no Save/Continue authority. Keep composer focus during construction.
+2. `StagedWorkPlan` exposes an editable labeled multiline Expected outcome above its rows.
+   Save it with the reviewed plan through the same single Save operation and existing placement
+   transaction. Include it in local recovery/CAS state, equality/digest checks, uncertain Save
+   reconciliation, cross-tab protection and retained copies. A field held only in React state,
+   session storage, the title attribute or page Markdown is not durable reviewed context.
+3. APP `work_plan.Plan/Review/save` own the reviewed objective beside selected/deferred rows.
+   The existing table and projection currently accept only v1; introduce explicit new record
+   and request/projection versions, preserving old records and immutable dispatch messages.
+   `DurableWorkPlan` displays/edits the actual reviewed objective on every shared Surface host.
+   Saved plans without an objective show an empty author-editable field when editable and a
+   truthful not-specified read-only state. Do not backfill or silently generate a historical
+   objective. An explicit author Save may upgrade that plan with the author's supplied text.
+   Reading/reloading a historical plan must not rewrite it or invalidate its source binding.
+4. Continuing one selected step includes the saved objective as authored context in the
+   immutable dispatch message, alongside existing step/result context. Preserve expected
+   revision, command idempotency and reviewed-operation binding. The objective does not
+   authorize other steps. Later explicit objective edits affect future continuations only;
+   prior dispatch messages/results remain byte-for-byte unchanged. An in-flight dispatch
+   retains its captured objective/revision; reload/retry must never substitute newer text.
+5. Editing an objective and pressing Save performs no AI call, publication or step execution.
+   It remains distinct from the page Save receipt. Preserve source identity, old rows,
+   selected/deferred state, locks, newer drafts, page placement, undo and generation history.
+   Reuse current APP work-plan and Surface owners; no second planner or executor.
+
+### Versioning and activation audit
+
+Do not add an optional default field that changes old completion serialization/hashes or
+weakens v1 admission. Before implementation, pin the exact new collaboration/feature policy,
+proposed-plan shape, APP review/record/projection, placement recovery and progress versions.
+Audit Pydantic union and history serialization, output-schema filtering, response contracts,
+Rules/image policy class matrix, strict UI decoders and PostgreSQL checks. A historical v1
+reader is for retained evidence, never an old-policy execution fallback. New generated plans
+must use the objective-aware contract; historical objectives stay absent until author Save.
+An additive feature policy on current intentional responses is acceptable only if the audit
+proves exact producer/input/output binding and preserves old serialized forms. Do not guess
+that an unchanged outer completion schema alone makes an old runtime safe.
+
+A migration is expected: `agent.work_plan` currently checks v1, and historical collaboration
+checks restrict plan keys. Inspect actual current constraints before naming the new revision;
+no destructive rewrite or downgrade that discards retained objectives. Audit current startup
+schema guards and protected paired delivery/forward recovery. Existing API8000/UI5202,
+APP0071/native0017, retained sources/stores and #1764 remain unchanged until reviewed delivery.
+
+Expected implementation owners, subject to that explicit audit:
+
+- `src/application_state/agent_conversation/collaboration.py`, `work_plan.py`, `types.py`,
+  `build_intentional_response.py`, source-output/draft validation and the actual owning store
+  validators; an explicitly named migration under `src/application_state/migrations/versions`.
+- `apps/live_control_server/routes/conversation_work_plans.py`, services `build_jev_writer.py`,
+  `build_jev_harness.py`, `build_plan_construction.py`, and actual capability/policy factory.
+- UI `api/types.ts`, `conversationWorkPlanApi.ts`, `buildConstructionStream.ts` and shared
+  `surface/workPlans/{StagedWorkPlan,workPlanPlacement,workPlanCapture,SurfaceWorkPlan}.tsx/ts`,
+  `planSurface/components/DurableWorkPlan.tsx`, `WorldPlanAgentConversation.tsx`, and the shared
+  construction preview. The page-owned title/reference stays a locator; it must not become a
+  second source of truth for the reviewed objective. Name any new sibling before editing.
+- Owning actual SDK/APP/Postgres/migration, continuation and placement/recovery/UI tests.
+
+Acceptance: genuine generated objective and rows appear on the page; directly edit the outcome,
+select/defer rows, Save once, reload, continue one chosen step and inspect the exact objective in
+its immutable request. Change the objective afterward and prove the earlier request/result is
+unchanged. Load an existing objective-less plan without writing or inventing content; explicitly
+supply/save an objective and preserve all prior rows/dispatches. Exercise stale/concurrent edits,
+interrupted Save/reload, wrong-source/World/producer and progress rejection. Independent exact
+cumulative review, PRIME merge and protected delivery precede ordinary dogfood on5202. This
+bounded proof does not establish the pending Brin/Edge creative-chain/operator acceptance.
+
 ## Authored-reference scope — BLOCKED design
 
 Design steward: PRIME. This is a bounded design amendment for deciding **whether other
