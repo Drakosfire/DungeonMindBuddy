@@ -23,5 +23,36 @@ def cases():
         ("ambiguous", "Do that.", [], "converse", None),
         ("new_direction", "Forget the shop for now. Ask two questions about the haunted road instead.", HISTORY, "converse", 2),
     ]
-    return [{"id": name, "question": q, "history": h, "expected_step": step,
-        "expected_questions": count} for name, q, h, step, count in rows]
+    existing = [{"id": name, "question": q, "history": h, "expected_step": "prepare" if step in {"write", "image"} else step,
+        "expected_questions": count, "cohort": "previously_tuned",
+        "expected_item": "image_preparation" if step == "image" else "page_suggestion" if step == "write" else None} for name, q, h, step, count in rows]
+
+    # Fresh taxonomy probes, frozen before any calls with this candidate.
+    holdout = [
+        ("new_shop_page", "Prepare a new connected page for the candle shop mentioned here, preserving its origin passage.", "prepare", "connected_page"),
+        ("map_image", "Prepare a map image of the flooded market for me to review.", "prepare", "image_preparation"),
+        ("table_insertion", "Put a six-row table of possible debts in this page.", "prepare", "page_suggestion"),
+        ("enemy_revision", "Prepare a tougher version of this enemy with 80 HP and AC 17.", "prepare", "mechanics_revision"),
+        ("encounter_roster", "Prepare an encounter with two marsh guards and four lantern thieves.", "prepare", "encounter"),
+        ("ask_before_media", "Before preparing an image or a page, ask me two questions and wait.", "converse", None),
+        ("discuss_object", "Let's discuss whether making the candle shop a separate page is worthwhile. Don't prepare it yet.", "converse", None),
+        ("research_before_object", "Read the existing candle shop source first so we can decide what to prepare afterward.", "research", None),
+    ]
+    taxonomy = [{"id": name, "question": q, "history": [], "expected_step": step,
+        "expected_item": item, "expected_questions": 2 if name == "ask_before_media" else None,
+        "cohort": "fresh_prepare_taxonomy"} for name, q, step, item in holdout]
+
+    for case in taxonomy:
+        if case['id'] == 'new_shop_page':
+            case['context'] = {'selected_passage': "Lark's Candle Shop supplies travelers with tallow candles; Lark owns and runs it.",
+                'origin': 'Captured synthetic passage on the current page; not published Graph truth.'}
+        elif case['id'] == 'enemy_revision':
+            case['context'] = {'selected_enemy': {'name': 'Marsh Guard', 'hp': 40, 'ac': 14},
+                'origin': 'Synthetic selected mechanics object; no revision has been saved.'}
+    ambiguity = [
+        ("missing_action_with_subject", "We are on the candle-shop page. Do whatever we were going to do."),
+        ("missing_object", "Prepare it."),
+    ]
+    return existing + taxonomy + [{"id": name, "question": question, "history": [],
+        "expected_step": "converse", "expected_item": None, "expected_questions": None,
+        "cohort": "fresh_ambiguity_holdout"} for name, question in ambiguity]

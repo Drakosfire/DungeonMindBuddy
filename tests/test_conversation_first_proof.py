@@ -12,13 +12,13 @@ from evals.conversation_first.proof import choose, one
 
 def response(selected):
     return {'answers': {'next_step': {'selected': selected, 'probabilities': {
-        key: int(key == selected) for key in ('converse', 'research', 'write', 'image')}}}}
+        key: int(key == selected) for key in ('converse', 'research', 'prepare')}}}}
 
 
 def test_labels_and_rubrics_never_reach_models():
     for case in cases():
         changed = deepcopy(case)
-        changed.update(id='identity_canary', expected_step='secret_gold', expected_questions=987)
+        changed.update(id='identity_canary', expected_step='secret_gold', expected_questions=987, expected_item='item_gold_canary', cohort='cohort_canary')
         assert decision_request(case) == decision_request(changed)
         assert frame(case) == frame(changed)
         assert 'secret_gold' not in json.dumps(decision_request(changed))
@@ -36,11 +36,11 @@ def test_workflow_ablation_changes_only_catalog():
 
 def test_wrong_route_does_not_use_gold_to_call_writer():
     async def decide(request, entry):
-        return response('write')
+        return response('research')
     async def write(*args):
         pytest.fail('Wrong route must not be repaired using gold')
     row = asyncio.run(one(cases()[1], 0, decide, write))
-    assert not row['passed'] and row['selected'] == 'write' and len(row['calls']) == 1
+    assert not row['passed'] and row['selected'] == 'research' and len(row['calls']) == 1
 
 
 def test_provider_failure_retains_prior_call_and_fails():
@@ -65,9 +65,9 @@ def test_wrong_question_count_and_invalid_schema_fail():
 
 
 @pytest.mark.parametrize('scores', [
-    {'converse': .5, 'research': .5, 'write': 0, 'image': 0},
-    {'converse': float('nan'), 'research': 0, 'write': 0, 'image': 0},
-    {'converse': 1, 'research': 1, 'write': 0, 'image': 0},
+    {'converse': .5, 'research': .5, 'prepare': 0},
+    {'converse': float('nan'), 'research': 0, 'prepare': 0},
+    {'converse': 1, 'research': 1, 'prepare': 0},
 ])
 def test_ambiguous_or_invalid_decision_is_not_success(scores):
     with pytest.raises(ValueError):
@@ -104,3 +104,59 @@ def test_failed_writer_preserves_received_invalid_text_and_known_usage():
     assert not row['passed']
     attempt = row['calls'][1]['attempts'][0]
     assert attempt['text'] == 'invalid JSON' and attempt['input_tokens'] == 100
+
+
+def test_prepared_item_labels_do_not_reach_second_stage():
+    from evals.conversation_first.scaffold import preparation_request
+    for case in cases():
+        changed = deepcopy(case)
+        changed.update(id='identity_canary', expected_item='item_gold_canary', expected_step='secret_gold')
+        assert preparation_request(case) == preparation_request(changed)
+        assert 'item_gold_canary' not in json.dumps(preparation_request(changed))
+        DecisionRequest.model_validate(preparation_request(case))
+
+
+def test_prepare_routes_to_item_stage_without_writer_or_execution():
+    from evals.conversation_first.scaffold import PREPARED_ITEMS
+    case = next(c for c in cases() if c['id'] == 'new_shop_page')
+    async def decide(request, entry):
+        if request['questions'][0]['name'] == 'next_step':
+            return response('prepare')
+        return {'answers': {'prepared_item': {'selected': 'connected_page', 'probabilities': {
+            key: int(key == 'connected_page') for key in PREPARED_ITEMS}}}}
+    async def write(*args):
+        pytest.fail('Classification must not dispatch a writer or create a page')
+    row = asyncio.run(one(case, 0, decide, write))
+    assert row['passed'] and row['prepared_item'] == 'connected_page'
+    assert [c['role'] for c in row['calls']] == ['controller', 'prepared_item_controller']
+
+
+def test_wrong_item_fails_even_when_prepare_route_matches():
+    from evals.conversation_first.scaffold import PREPARED_ITEMS
+    case = next(c for c in cases() if c['id'] == 'new_shop_page')
+    async def decide(request, entry):
+        if request['questions'][0]['name'] == 'next_step':
+            return response('prepare')
+        return {'answers': {'prepared_item': {'selected': 'image_preparation', 'probabilities': {
+            key: int(key == 'image_preparation') for key in PREPARED_ITEMS}}}}
+    async def write(*args):
+        pytest.fail('No writer')
+    row = asyncio.run(one(case, 0, decide, write))
+    assert not row['passed'] and row['selected'] == 'prepare'
+
+
+def test_first_stage_has_only_three_generic_actions():
+    for case in cases():
+        assert decision_request(case)['questions'][0]['options'] == ['converse', 'research', 'prepare']
+
+
+def test_explicit_target_context_is_input_not_expected_artifact():
+    from evals.conversation_first.scaffold import preparation_request
+    shop = next(c for c in cases() if c['id'] == 'new_shop_page')
+    enemy = next(c for c in cases() if c['id'] == 'enemy_revision')
+    assert "Lark's Candle Shop" in decision_request(shop)['state']['target_context']['selected_passage']
+    assert preparation_request(enemy)['state']['target_context']['selected_enemy']['hp'] == 40
+    changed = deepcopy(enemy)
+    changed['expected_item'] = 'gold_canary'
+    assert preparation_request(enemy) == preparation_request(changed)
+    assert decision_request(enemy) == decision_request(changed)
