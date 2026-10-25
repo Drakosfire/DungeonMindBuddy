@@ -182,3 +182,21 @@ def test_production_preset_keeps_real_rules_auxiliary_question_without_rerouting
     assert isinstance(response.knowledge_context.completion,BuildAuthoringCompletionV1)
     assert len(decisions.calls)==1
     assert set(json.loads(decisions.calls[0].content)['questions'])=={'rules_query'}
+
+
+def test_failed_author_admission_stops_the_claim_renewer(build_case,monkeypatch,tmp_path):
+    from application_state.errors import ApplicationStateConflictError
+    from apps.live_control_server.services.agent_turn_service import AgentTurnServiceError
+    case=reviewed_case(build_case,monkeypatch)
+    decisions,writer=DecisionWire(),WriterWire()
+    harness=BuildJevHarness(world_context=True,named_citations=True,accounting=counter(),decision_transport=decisions,writer_transport=writer)
+    def refused(*args,**kwargs):
+        raise ApplicationStateConflictError('Synthetic author event append conflict')
+    monkeypatch.setattr(AgentConversationService,'record_build_reviewed_action_selection',refused)
+    try:
+        with pytest.raises(AgentTurnServiceError):execute(case,tmp_path,harness)
+        assert not decisions.calls and not writer.calls
+        assert not harness.adapter.fence.renewer._thread.is_alive()
+    finally:
+        # Clean the real renewal thread even when proving the pre-fix regression.
+        harness.adapter.fence.renewer.stop_and_join()
