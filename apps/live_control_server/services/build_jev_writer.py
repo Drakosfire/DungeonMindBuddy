@@ -301,6 +301,8 @@ class WriterProjection:
             "answering about a separately read saved page. Do not describe a related page using the current page's ID. "
             "Quotes support attribution; claims must still follow what they actually say.\n"
         ) if quoted else ""
+        from application_state.agent_conversation.collaboration_scope import instructions as scope_instructions
+        action_scope_instructions = scope_instructions(json.loads(self.input_json))
         primary = "artifact_under_edit" in json.loads(self.input_json)
         if primary:
             packet_rows(json.loads(self.input_json))
@@ -318,7 +320,7 @@ class WriterProjection:
             if self.source_only
             else SOURCE_INSTRUCTIONS
             if self.has_saved_sections
-            else INSTRUCTIONS) + primary_instructions + (collaboration_instructions if collaboration else "") + (connected_instructions if connected else "") + (RELATIONSHIP_INSTRUCTIONS if relationship else "") + qualification_instructions + quote_instructions,
+            else INSTRUCTIONS) + primary_instructions + (collaboration_instructions if collaboration else "") + (connected_instructions if connected else "") + (RELATIONSHIP_INSTRUCTIONS if relationship else "") + qualification_instructions + quote_instructions + action_scope_instructions,
             "max_output_tokens": OUTPUT_RESERVE,
             "reasoning": {"effort": "low"},
             "text": {
@@ -384,6 +386,8 @@ def with_working_draft(staged: WriterProjection, execution) -> WriterProjection:
     collaboration=getattr(execution.policy,"collaboration_output_policy",None)
     if collaboration is not None:
         packet["collaboration_output_policy"]=collaboration
+        from application_state.agent_conversation.collaboration_scope import KEY, derive
+        packet[KEY] = derive(execution)
     relationship=getattr(execution.policy,"relationship_review_policy",None)
     if relationship is not None:
         packet["relationship_review_policy"]=relationship

@@ -143,6 +143,10 @@ def validate_inclusion_input(inclusion, execution, prepared_request_json):
     captured = context_record(execution)
     from .build_related_pages import validate_packet as validate_related_packet
     validate_related_packet(carrier,execution)
+    from .collaboration_scope import validate_packet as validate_scope
+    from .collaboration import POLICY as COLLABORATION_POLICY
+    validate_scope(carrier, execution, required=isinstance(body.get("input"), str)
+        and carrier.get("collaboration_output_policy") == COLLABORATION_POLICY)
     if (inclusion.draft_event_id != captured.event_id
         or inclusion.snapshot_sha256 != captured.record.snapshot.snapshot_sha256
         or not isinstance(carrier, dict)

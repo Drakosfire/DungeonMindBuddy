@@ -111,6 +111,10 @@ def output_schema(packet):
         else:
             del schema["$defs"]["ProposedRelationship"]
             schema["properties"]["collaboration"]["anyOf"] = [r for r in schema["properties"]["collaboration"]["anyOf"] if r.get("$ref", "").split("/")[-1] != "ProposedRelationship"]
+    from .collaboration_scope import from_packet
+    scope = from_packet(packet)
+    if scope is not None and "ProposedStep" in schema["$defs"]:
+        schema["$defs"]["ProposedStep"]["properties"]["kind"]["enum"] = scope["allowed_step_kinds"]
     from .source_quote_binding import augment
     return augment(schema, packet)
 
@@ -141,6 +145,8 @@ def normalize(raw, packet):
         body = {**body, "answer_context_status": base + "_partial" if body["limitations"] and base in {"authored_grounded", "source_grounded"} else base}
     typed = packet.get("collaboration_output_policy") == COLLABORATION_POLICY
     answer = (RelationshipWriterAnswer if packet.get(RELATIONSHIP_KEY)==RELATIONSHIP_POLICY else ConnectedPageWriterAnswer if packet.get("connected_page_review_policy")==CONNECTED_POLICY else CollaborationWriterAnswer if typed else DraftWriterAnswerV1).model_validate(body)
+    from .collaboration_scope import from_packet, validate_plan
+    validate_plan(getattr(answer,"collaboration",None), from_packet(packet))
     if isinstance(getattr(answer,"collaboration",None),ProposedConnectedPage):
         saved_excerpt(answer.collaboration,packet.get("related_authored_pages",{}).get("pages",[]))
     if isinstance(getattr(answer,"collaboration",None), ProposedRelationship):
@@ -216,6 +222,8 @@ def validate_packet(packet, turn, auth):
     enabled(packet)
     validate_writer_reference(packet.get("working_draft_context"), captured.record, turn)
     validate_related_packet(packet,turn.graph_context_execution)
+    from .collaboration_scope import validate_packet as validate_scope
+    validate_scope(packet, turn.graph_context_execution)
     included = [e for e in turn.graph_context_execution.events
         if getattr(e,"kind",None) == "build_draft_provider_inclusion_v1"
         and e.provider_attempt_id == auth.provider_attempt_id]
