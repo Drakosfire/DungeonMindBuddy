@@ -1,0 +1,9 @@
+# SURFACE: meaningful light activity per provider call
+
+ACTIVE serial; operator connected-authoring goal authorizes this refinement. Base2a7a5135ff3152d3e2eb6bc809dce96eb5f0aa40; reuse buddy-context-loop on codex/light-activity-call-projection. No competing authoring implementation PR. One UI presentation correction/PR. No new API/schema, polling owner, ports, runtime source trees or story writes.
+
+Captured synthetic dogfood trace has nine distinct call identities, each with response_received receipt followed by a usage observation. The light trace currently announces both as separate arrivals. Invariant: one response arrival per identified provider call; preserve actual separate calls, anonymous observations, other outcomes, source/Graph reads and failure events. Keep first receipt time and ordering; later usage updates must not regress the current activity label. Returned-response snapshots remain distinct captured material, not another arrival or a claim of validation. Full trace, prompts, usage and Copy trace remain unchanged.
+
+Exclusive expected write lease: apps/live-control-ui/src/planSurface/components/BuddyActivity.tsx and BuddyActivity.test.tsx; this handoff; Docs/Plans/HANDOFF-SURFACE-context-input-recovery.md and Docs/Roadmaps/ROADMAP-demo.md for predecessor settlement. Shared turn inspection remains the sole polling owner.
+
+Prove mounted light projection against paired/interleaved calls and a private retained synthetic trace replay, preserving raw observations, distinct/anonymous calls, failures, ordering and current label. Existing trace/usage/Copy/inspection tests, typecheck/build, cumulative diff and independent Bugbot precede PRIME merge and protected UI delivery. Reopen the ordinary captured trace to verify presentation and technical details. Operator acceptance and actual connected-authoring chain remain open. Private evidence stays local.
