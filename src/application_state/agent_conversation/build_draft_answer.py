@@ -97,7 +97,8 @@ def output_schema(packet):
         else:
             del schema["$defs"]["ProposedConnectedPage"]
             schema["properties"]["collaboration"]["anyOf"]=[item for item in schema["properties"]["collaboration"]["anyOf"] if item.get("$ref","").split("/")[-1]!="ProposedConnectedPage"]
-    return schema
+    from .source_quote_binding import augment
+    return augment(schema, packet)
 
 
 def source_claim_limitations(packet):
@@ -112,7 +113,8 @@ def source_claim_limitations(packet):
 
 
 def normalize(raw, packet):
-    body = strict_json(raw)
+    from .source_quote_binding import validate_and_project
+    body = validate_and_project(strict_json(raw), packet)
     # Status is a host-derived description, not a second model judgment. Keep
     # typed segments/limitations and all later provenance checks authoritative.
     if isinstance(body, dict) and body.get("answer_context_status") in STATUSES and isinstance(body.get("answer_segments"), list) and isinstance(body.get("limitations"), list):
@@ -183,6 +185,10 @@ def validate_packet(packet, turn, auth):
         raise ValueError("Writer collaboration capability differs from its frozen policy")
     if packet.get("connected_page_review_policy") != getattr(turn.graph_context_execution.policy,"connected_page_review_policy",None):
         raise ValueError("Connected page review policy differs from the captured writer")
+    from .source_quote_binding import KEY, enabled
+    if packet.get(KEY) != getattr(turn.graph_context_execution.policy, KEY, None):
+        raise ValueError("Source quote capability differs from its frozen writer policy")
+    enabled(packet)
     validate_writer_reference(packet.get("working_draft_context"), captured.record, turn)
     validate_related_packet(packet,turn.graph_context_execution)
     included = [e for e in turn.graph_context_execution.events

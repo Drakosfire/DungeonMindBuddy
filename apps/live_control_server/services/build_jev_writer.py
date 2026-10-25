@@ -266,6 +266,17 @@ class WriterProjection:
                     + json.dumps(required) + ". This condition does not apply to draft_reference_claim, "
                     "related_page_claim or a review-only discussion acknowledgment. Keep their authority separate.\n"
                 )
+        from application_state.agent_conversation.source_quote_binding import enabled, FORMAT as QUOTE_FORMAT
+        quoted = enabled(json.loads(self.input_json))
+        quote_instructions = (
+            "\nEvery saved_source_claim, source_passage_claim and related_page_claim MUST include supporting_quotes: "
+            "one exact nonblank contiguous quote per selector, in selector order (one for related_page_claim). "
+            "Read the quote from the source you select. A valid ID from a different page is not support. "
+            "artifact_under_edit/saved_source_claim is ONLY the current page. The named pages under "
+            "related_authored_pages use related_page_claim and that page's read_id. Prefer that type when "
+            "answering about a separately read saved page. Do not describe a related page using the current page's ID. "
+            "Quotes support attribution; claims must still follow what they actually say.\n"
+        ) if quoted else ""
         primary = "artifact_under_edit" in json.loads(self.input_json)
         if primary:
             packet_rows(json.loads(self.input_json))
@@ -283,13 +294,13 @@ class WriterProjection:
             if self.source_only
             else SOURCE_INSTRUCTIONS
             if self.has_saved_sections
-            else INSTRUCTIONS) + primary_instructions + (collaboration_instructions if collaboration else "") + (CONNECTED_PAGE_INSTRUCTIONS if connected else "") + qualification_instructions,
+            else INSTRUCTIONS) + primary_instructions + (collaboration_instructions if collaboration else "") + (CONNECTED_PAGE_INSTRUCTIONS if connected else "") + qualification_instructions + quote_instructions,
             "max_output_tokens": OUTPUT_RESERVE,
             "reasoning": {"effort": "low"},
             "text": {
                 "format": mixed_format or {
                     "type": "json_schema",
-                    "name": "build_working_draft_answer_v3" if connected else "build_working_draft_answer_v2" if collaboration else "build_working_draft_answer_v1" if draft_context else GAP_SCHEMA_NAME if cited else "build_source_passage_answer",
+                    "name": QUOTE_FORMAT if quoted else "build_working_draft_answer_v3" if connected else "build_working_draft_answer_v2" if collaboration else "build_working_draft_answer_v1" if draft_context else GAP_SCHEMA_NAME if cited else "build_source_passage_answer",
                     "schema": finite_output_schema(json.loads(self.input_json), requested_detail_gaps=True) if cited else source_answer_schema(),
                     "strict": True,
                 }
@@ -352,6 +363,9 @@ def with_working_draft(staged: WriterProjection, execution) -> WriterProjection:
     connected=getattr(execution.policy,"connected_page_review_policy",None)
     if connected is not None:
         packet["connected_page_review_policy"]=connected
+    quote_policy=getattr(execution.policy,"source_quote_binding_policy",None)
+    if quote_policy is not None:
+        packet["source_quote_binding_policy"]=quote_policy
     from application_state.agent_conversation.build_related_pages import project
     related=project(execution)
     if related is not None:
