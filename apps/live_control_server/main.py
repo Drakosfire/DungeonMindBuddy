@@ -5,6 +5,7 @@ from collections.abc import AsyncIterator
 
 from fastapi import FastAPI
 from apps.live_control_server.routes.conversation_library import router as conversation_library_router
+from apps.live_control_server.routes.conversation_work_plans import router as conversation_work_plans_router
 from apps.live_control_server.routes.rules_lookup import router as rules_lookup_router
 
 from apps.live_control_server.routes.media_images import router as media_images_router
@@ -104,6 +105,7 @@ def create_app() -> FastAPI:
     )
     application.include_router(live_router)
     application.include_router(conversation_library_router)
+    application.include_router(conversation_work_plans_router)
     application.include_router(combat_encounters_router)
     application.include_router(combat_scene_templates_router)
     application.include_router(combat_run_encounters_router)

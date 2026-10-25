@@ -1,3 +1,5 @@
+import {getWorkPlan,continueWorkPlan} from '../api/conversationWorkPlanApi';
+vi.mock('../api/conversationWorkPlanApi',()=>({getWorkPlan:vi.fn(async()=>null),saveWorkPlan:vi.fn(),continueWorkPlan:vi.fn()}));
 vi.mock('../api/conversationLibraryApi',()=>({
  listConversations:vi.fn(async(world:string,status:string)=>({schema:'dmb_conversation_library_v1',world_id:world,status,items:[{conversation_id:'33333333-3333-4333-8333-333333333333',world_id:world,title:'Archived named work',status:'archived',name_revision:1,turn_count:1,created_at:'2026-10-24T00:00:00Z',updated_at:'2026-10-24T00:00:00Z'}],next_before:null})),
  readConversationName:vi.fn(async(world:string,id:string)=>({conversation_id:id,world_id:world,title:'Archived named work',status:'archived',name_revision:1,turn_count:1,created_at:'2026-10-24T00:00:00Z',updated_at:'2026-10-24T00:00:00Z'})),
@@ -945,6 +947,55 @@ describe("one App-level World conversation host across Plan and Play", () => {
     else expect(getWorldAgentTurnContextTrace).not.toHaveBeenCalledWith(WORLD,row.turn_id,expect.any(AbortSignal));
     expect(getWorldAgentTurnContextTrace).not.toHaveBeenCalledWith(WORLD,request.turn_id,expect.any(AbortSignal));
     expect(postWorldBuildAgentTurn).toHaveBeenCalledTimes(1);
+  });
+
+  it('continues one durable reviewed step through the existing Build owner without replacing newer composer text',async()=>{
+    const base=turn('plan',1,'1. Discuss the shop owner.\n2. Prepare the shop description.');
+    const row={...base,provenance:{...base.provenance,surface_id:'build',surface_instance_id:'build-instance',primary_work:{...base.provenance.primary_work,kind:'build',object_id:'source-one'}}};
+    vi.mocked(getWorldAgentConversationHistory).mockResolvedValue(history([row]));
+    const stepId='11111111-1111-4111-8111-111111111111',clientId='22222222-2222-4222-8222-222222222222';
+    const p={schema:'dmb_reviewed_work_plan_v1' as const,world_id:WORLD,conversation_id:history().conversation_id!,source_turn_id:row.turn_id,source_answer_sha256:SHA,document_id:'source-one',revision:1,
+      steps:[{step_id:stepId,text:'Discuss the shop owner.',selected:true,kind:'discuss' as const}],dispatches:[],execution:[]};
+    const dispatch={command_id:stepId,step_id:stepId,client_thread_id:stepId,client_turn_id:clientId,message:'Continue exactly this reviewed discussion step.'};
+    vi.mocked(getWorkPlan).mockResolvedValue(p);
+    vi.mocked(continueWorkPlan).mockResolvedValue({plan:{...p,revision:2,dispatches:[dispatch],execution:[{command_id:stepId,step_id:stepId,status:'awaiting_dispatch',turn_id:null,attempt:null,result:null}]},dispatch});
+    vi.mocked(postWorldBuildAgentTurn).mockReturnValue(new Promise(()=>{}));
+    render(<Harness initial='build'/>);
+    fireEvent.click(await screen.findByRole('button',{name:'Open',exact:true}));
+    fireEvent.change(await screen.findByLabelText('Message DungeonBuddy'),{target:{value:'My newer unsent author note'}});
+    fireEvent.click(await screen.findByRole('button',{name:'Review plan'}));
+    await screen.findByLabelText('Saved step 1');
+    expect(postWorldBuildAgentTurn).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole('button',{name:'Continue step'}));
+    await waitFor(()=>expect(postWorldBuildAgentTurn).toHaveBeenCalledTimes(1));
+    expect(vi.mocked(postWorldBuildAgentTurn).mock.calls[0][0]).toMatchObject({turn_id:clientId,client_thread_id:stepId,message:dispatch.message});
+    expect(screen.getByLabelText('Message DungeonBuddy')).toHaveValue('My newer unsent author note');
+  });
+
+  it('retires a reserved plan continuation across a source round trip',async()=>{
+    const base=turn('plan',1,'1. Discuss the shop owner.\n2. Prepare the shop description.');
+    const row={...base,provenance:{...base.provenance,surface_id:'build',surface_instance_id:'build-instance',primary_work:{...base.provenance.primary_work,kind:'build',object_id:'source-one'}}};
+    vi.mocked(getWorldAgentConversationHistory).mockResolvedValue(history([row]));
+    const stepId='11111111-1111-4111-8111-111111111111',clientId='22222222-2222-4222-8222-222222222222';
+    const p={schema:'dmb_reviewed_work_plan_v1' as const,world_id:WORLD,conversation_id:history().conversation_id!,source_turn_id:row.turn_id,source_answer_sha256:SHA,document_id:'source-one',revision:1,
+      steps:[{step_id:stepId,text:'Discuss the shop owner.',selected:true,kind:'discuss' as const}],dispatches:[],execution:[]};
+    const dispatch={command_id:stepId,step_id:stepId,client_thread_id:stepId,client_turn_id:clientId,message:'Continue exactly this reviewed discussion step.'};
+    vi.mocked(getWorkPlan).mockResolvedValue(p);
+    let resolve!:(value:Awaited<ReturnType<typeof continueWorkPlan>>)=>void;vi.mocked(continueWorkPlan).mockReturnValue(new Promise(r=>{resolve=r}));
+    vi.mocked(postWorldBuildAgentTurn).mockReturnValue(new Promise(()=>{}));
+    const view=render(<Harness initial='build'/>);
+    fireEvent.click(await screen.findByRole('button',{name:'Open',exact:true}));
+    fireEvent.change(await screen.findByLabelText('Message DungeonBuddy'),{target:{value:'My newer unsent author note'}});
+    fireEvent.click(await screen.findByRole('button',{name:'Review plan'}));
+    await screen.findByLabelText('Saved step 1');
+    expect(postWorldBuildAgentTurn).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole('button',{name:'Continue step'}));
+    await waitFor(()=>expect(continueWorkPlan).toHaveBeenCalledTimes(1));
+    view.rerender(<Harness initial='build' buildSourceId='other-source'/>);
+    await act(async()=>{});
+    view.rerender(<Harness initial='build' buildSourceId='source-one'/>);
+    await act(async()=>{resolve({plan:{...p,revision:2,dispatches:[dispatch],execution:[{command_id:stepId,step_id:stepId,status:'awaiting_dispatch',turn_id:null,attempt:null,result:null}]},dispatch});});
+    expect(postWorldBuildAgentTurn).not.toHaveBeenCalled();
   });
 
   it('opens a named related saved-page citation through the mounted Build conversation',async()=>{
