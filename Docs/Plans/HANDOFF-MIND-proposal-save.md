@@ -1,6 +1,6 @@
 # MIND: proposal Save persists the page
 
-ACTIVE serial operator-authorized authoring goal. Base6146e120a1f54fac8a305f2d1958f95275a1b2d7; reuse buddy-context-loop checkout, branch codex/mind-proposal-save. No competing runtime implementation PR.
+DELIVERED #1748/UI f170d9f9f7124d2bc071f6185f401c0c73b762e4. Independent approvedc8c092acc after commit-revision lifecycle correction. Protected2874 rows/API unchanged; ordinary generated review, direct edit, one Save, saved revision3/reload preserved Origin and durable applied state. Six broader page-suite failures reproduced on remote-main production modules; not passing evidence. Original contract: Base6146e120a1f54fac8a305f2d1958f95275a1b2d7; reuse buddy-context-loop checkout, branch codex/mind-proposal-save. No competing runtime implementation PR.
 
 Invariant: one proposal Save applies the reviewed insertion and invokes the existing MarkdownCanvas save owner, then verifies exact saved document/body before confirming the proposal. Existing Build autosave is preserved; a committed exact result recovered after lost acknowledgement must not insert or write twice. Failure leaves the durable applying receipt and recoverable working copy. Navigation must never save a different page. Newer editor/composer work must survive. Do not call completion merely because the void save promise resolved. Preserve leading frontmatter and existing CAS, command arbitration, source authority and immutable proposal output. No backend/schema changes.
 
