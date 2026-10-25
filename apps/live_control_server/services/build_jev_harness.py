@@ -201,6 +201,8 @@ class BuildJevHarness:
             (UUID(item["turn_id"]), item["assistant"])
             for item in history
         )
+        self.failure_stage = "controller_prepare"
+        primary_error = False
         try:
             asyncio.run(self._decide(adapter, driver))
             if adapter.request.build_draft_context is not None:
@@ -228,6 +230,7 @@ class BuildJevHarness:
                 if isinstance(driver.step, DecisionIntent):
                     asyncio.run(self._decide(adapter, driver))
                 elif isinstance(driver.step, AcquisitionIntent):
+                    self.failure_stage = "context_acquisition"
                     self._acquire(adapter, driver)
                 else:
                     raise ValueError("Unsupported Jev step")
@@ -239,6 +242,7 @@ class BuildJevHarness:
                 "reason": terminal.reason,
                 "relevant_ids": list(terminal.relevant_ids),
             }
+            self.failure_stage = "writer_prepare"
             graph, sources, sections = driver._material()
             from application_state.agent_conversation.types import BuildSelectedSourceActionControllerWriterPolicyV1
             if isinstance(adapter._broker_execution().policy, BuildSelectedSourceActionControllerWriterPolicyV1):
@@ -299,9 +303,42 @@ class BuildJevHarness:
                     raise
             if rejection is not None:
                 raise rejection
+            self.failure_stage = "completion_validation"
             return adapter.complete_build_writer(result)
+        except Exception as exc:
+            primary_error = True
+            self._capture_failure(adapter, exc)
+            raise
         finally:
-            adapter.stop()
+            try:
+                adapter.stop()
+            except Exception as cleanup_error:
+                if not primary_error:
+                    self.failure_stage = "claim_cleanup"
+                    self._capture_failure(adapter, cleanup_error)
+                    raise
+                logging.getLogger(__name__).error("Build failure cleanup also failed (%s); original exception preserved", type(cleanup_error).__name__)
+
+    def _capture_failure(self, adapter, exc):
+        from .build_failure_diagnostic import store_failure, failure_code
+        stage = getattr(self, "failure_stage", "delivery")
+        logging.getLogger(__name__).error("Build execution failed at %s (%s)", stage, type(exc).__name__)
+        try:
+            turn = adapter.turn
+            metadata = store_failure(exc, stage=stage, turn_id=turn.turn_id if turn else None,
+                attempt=turn.attempt if turn else None)
+            logging.getLogger(__name__).error("Build failure diagnostic %s", metadata["diagnostic_id"])
+            if adapter.context_capture:
+                adapter.context_capture.observe({"kind": "failure", "phase": "delivery",
+                    "code": failure_code(exc), **metadata})
+        except Exception as capture_error:
+            logging.getLogger(__name__).error("Build failure diagnostic capture failed (%s); original exception preserved", type(capture_error).__name__)
+            if adapter.context_capture:
+                try:
+                    adapter.context_capture.observe({"kind": "failure", "phase": "delivery",
+                        "code": "build_failure_diagnostic_unavailable"})
+                except Exception as marker_error:
+                    logging.getLogger(__name__).error("Build failure marker unavailable (%s)", type(marker_error).__name__)
 
     def _record_observation(self, observation, elapsed, phase, *, status="ok"):
         self.timings.append(dict(phase=phase, elapsed_ms=elapsed))
@@ -375,6 +412,7 @@ class BuildJevHarness:
         )
 
     async def _decide(self, adapter, driver):
+        self.failure_stage = "controller_prepare"
         plan, intent = driver.stage(), driver.step
         admission_failure = None
 
@@ -402,6 +440,7 @@ class BuildJevHarness:
         client = GenerationClient(decision_providers={"typesafe": provider})
         started = time.perf_counter()
         try:
+            self.failure_stage = "controller_dispatch"
             result = await client.decide(
                 DecisionRequest(
                     provider=decision_policy.PROVIDER,
@@ -427,6 +466,7 @@ class BuildJevHarness:
                     producing_provider_attempt_id=adapter.last_provider_attempt_id,
                 )
             from .build_jev_writer_selection import WriterSelectionDriver
+            self.failure_stage = "controller_validation"
             try:
                 if isinstance(driver, WriterSelectionDriver):
                     driver.accept_response(result)
@@ -562,6 +602,7 @@ class BuildJevHarness:
         client = GenerationClient(text_providers={"openai": provider})
         started = time.perf_counter()
         try:
+            self.failure_stage = "writer_dispatch"
             result = await client.generate_text(writer_policy.text_request(staged))
             self._observe(result, started, "writer")
             return result

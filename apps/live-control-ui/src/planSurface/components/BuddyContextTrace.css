@@ -45,3 +45,5 @@
 .buddy-prompt__added { border-inline-start: 2px solid #71c89b; padding-inline-start: 10px; }
 .buddy-prompt__removed { border-inline-start: 2px solid #e59b9b; padding-inline-start: 10px; }
 .buddy-prompt__changes h6 { font-size: .85rem; margin: 8px 0; }
+
+.buddy-context-trace__error-report{border:1px solid #b95f55;border-radius:8px;padding:12px;margin:12px 0;background:#482c2c33}.buddy-context-trace__error-report h5{margin:0 0 10px}.buddy-context-trace__error-report code{overflow-wrap:anywhere}

@@ -60,7 +60,7 @@ export type BuddyTraceObservation =
   | BuddyTraceSourcePassage
   | BuddyTracePromptReference
   | (Observation & { kind: 'provider_call'; provider_attempt_id?: string | null; provider: string; model: string; outcome: 'authorized' | 'response_received' | 'denied' | 'failed' | 'unknown'; input_tokens?: number | null; output_tokens?: number | null; input_upper_bound?: number | null; input_estimator?: string | null; duration_ms?: number | null })
-  | (Observation & { kind: 'failure'; code: string; phase: string })
+  | (Observation & { kind: 'failure'; code: string; phase: string; stage?: string | null; diagnostic_id?: string | null; diagnostic_sha256?: string | null; exception_type?: string | null; cause_type?: string | null })
 export interface BuddyTurnContextTrace {
   schema: 'dmb_turn_context_trace_v1'; trace_id: string; world_id: string
   conversation_id: string; turn_id: string; attempt: number; execution_start_sequence: number

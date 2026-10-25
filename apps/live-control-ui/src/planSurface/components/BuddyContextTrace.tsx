@@ -150,18 +150,30 @@ function traceRows(observations: BuddyTraceObservation[]): TraceRow[] {
 
 export function BuddyContextTrace({ trace, ownerActive }: { trace: BuddyTurnContextTrace | null; ownerActive: boolean }) {
   if (!trace) return <p className="buddy-context-trace__muted">No execution trace was captured for this turn.</p>
+  const failed = trace.terminal_status === 'failed' || trace.terminal_status === 'interrupted'
+  const failures = trace.observations.filter((event): event is Extract<BuddyTraceObservation, {kind: 'failure'}> => event.kind === 'failure' && event.phase !== 'trace_capture')
+  const failure = [...failures].reverse().find(event => event.diagnostic_id) ?? failures.at(-1)
   const rows = traceRows(trace.observations)
   const last = trace.observations.at(-1)
   const passages = trace.observations.filter((event): event is BuddyTraceSourcePassage => event.kind === 'source_passage' || event.kind === 'source_passage_reuse')
   return <section className="buddy-context-trace" aria-label="Buddy context trace">
-    <header><div><h4>How Buddy built this reply</h4><p>Observable execution · attempt {trace.attempt}</p></div>
+    <header><div><h4>{failed ? 'Reply error report' : 'How Buddy built this reply'}</h4><p>Observable execution · attempt {trace.attempt}</p></div>
       <span>{trace.capture_status === 'incomplete' || (!ownerActive && !trace.closed_at) ? 'Incomplete capture' : trace.closed_at ? 'Captured' : 'In progress'}{last ? ` · Trace window ${(last.elapsed_ms / 1000).toFixed(1)}s` : ''}</span></header>
+    {failed && <section role="alert" className="buddy-context-trace__error-report" aria-label="Reply failure">
+      <h5>This attempt stopped before completing a reply.</h5>
+      {failure ? <><p>{failure.code === 'build_source_name_missing' ? 'A retrieved passage has no verified source name. Buddy stopped while assembling source context.' : 'Recorded failure:'} <code>{failure.code}</code></p><p>Stage: {failure.stage ?? failure.phase}</p>
+        {failure.exception_type && <p>Exception: {failure.exception_type}{failure.cause_type && failure.cause_type !== failure.exception_type ? ` · caused by ${failure.cause_type}` : ''}</p>}
+        {failure.diagnostic_id ? <><p>Private diagnostic: <code>{failure.diagnostic_id}</code></p><p>Full exception details were retained privately; they are not source evidence or an accepted answer.</p></>
+          : <p>No private exception diagnostic was recorded for this attempt.</p>}</>
+        : <p>The specific cause was not recorded for this attempt. The timeline shows recorded activity, not an explanation of why it stopped.</p>}
+      <p>Trace capture status is separate from whether the reply succeeded.</p>
+    </section>}
     {trace.capture_status === 'incomplete' && <p role="alert" className="buddy-context-trace__failure">Some execution evidence is missing. {trace.capture_failure_code}</p>}
-    <ol>{rows.map(({ event, observations }) => <li key={event.sequence}>
+    <details open={!failed}><summary>Execution timeline</summary><ol>{rows.map(({ event, observations }) => <li key={event.sequence}>
       <span className="buddy-context-trace__time">{(event.elapsed_ms / 1000).toFixed(1)}s</span>
       <div><Event event={event} passages={passages} trace={trace} />
         {observations.length > 1 && <><p className="buddy-context-trace__muted">Same provider call · usage updated at {(observations.at(-1)!.elapsed_ms / 1000).toFixed(1)}s</p>
           <JsonDetails label="Call lifecycle and usage updates" value={observations} /></>}
-      </div></li>)}</ol>
+      </div></li>)}</ol></details>
   </section>
 }

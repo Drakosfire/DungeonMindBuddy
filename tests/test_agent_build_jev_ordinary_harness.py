@@ -1140,3 +1140,28 @@ def test_exact_repeated_followup_pairs_share_text_but_keep_distinct_turns(build_
     action = BuildProposalService().get("elderwyld", result.knowledge_context.completion.action_id)
     assert action.state == "proposed" and not action.inserted_in_draft
     assert (tmp_path / source.record.target_relpath).read_text() == source.markdown
+
+
+def test_acquisition_exception_has_durable_diagnostic_before_claim_stop(build_case, monkeypatch, tmp_path):
+    case, _ = ordinary_case(build_case, monkeypatch, authoring=True)
+    monkeypatch.setattr('apps.live_control_server.services.build_failure_diagnostic.artifact_data_root', lambda: tmp_path)
+    class BrokenAcquire(BuildJevHarness):
+        @staticmethod
+        def _acquire(adapter, driver):
+            raise ValueError('synthetic private acquisition detail')
+    runtime = BrokenAcquire(decision_transport=DecisionWire(), writer_transport=WriterWire())
+    from apps.live_control_server.services.agent_turn_service import AgentTurnServiceError
+    with pytest.raises(AgentTurnServiceError):
+        execute(case, tmp_path, runtime)
+    service = AgentConversationService()
+    turn = service.list_turns('elderwyld', case[1].build_write_capability.conversation_id)[0]
+    traces = service.list_context_trace_attempts(world_id='elderwyld', turn_id=turn.turn_id)
+    failures = [o for tr in traces for o in tr.observations if o.kind == 'failure' and o.diagnostic_id]
+    assert len(failures) == 1
+    failure = failures[0]
+    assert failure.stage == 'context_acquisition' and failure.exception_type == 'ValueError'
+    payload = (tmp_path/'out'/'agent_failure_evidence'/(str(failure.diagnostic_id)+'.json')).read_bytes()
+    assert sha256(payload).hexdigest() == failure.diagnostic_sha256
+    assert 'synthetic private acquisition detail' in json.loads(payload)['traceback']
+    assert 'synthetic private acquisition detail' not in traces[0].model_dump_json()
+    assert turn.status == 'interrupted'
