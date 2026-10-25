@@ -1254,6 +1254,8 @@ class AgentConversationService:
         plan_jev_writer_proof: dict | None = None,
         native_source_materializer=None,
         build_draft_provider_request_json: str | None = None,
+        related_page_proof: dict | None = None,
+        related_page_materializer=None,
     ) -> tuple[Turn, bool]:
         world_id = _world_id(world_id)
         dsn = _ready_dsn()
@@ -1287,6 +1289,18 @@ class AgentConversationService:
             now = repo.database_clock(conn)
             if turn.claim_expires_at is None or turn.claim_expires_at <= now:
                 raise ApplicationStateConflictError("Graph execution claim has expired")
+            from .build_related_pages import RelatedPagesSelection, RelatedPageRead, RelatedPageInclusion, validate_inclusion as validate_related_inclusion, validate_selection as validate_related_selection
+            try:
+                if isinstance(event,RelatedPageInclusion):
+                    validate_related_inclusion(event,turn.graph_context_execution,(related_page_proof or {}).get("request_json"))
+                if isinstance(event,RelatedPagesSelection):
+                    captured=conn.execute("SELECT payload FROM agent.turn_context_trace WHERE turn_id=%s AND attempt=%s",(turn.turn_id,turn.attempt)).fetchone()
+                    validate_related_selection(turn,event,related_page_proof,captured[0] if captured else None)
+                if isinstance(event,RelatedPageRead):
+                    if not callable(related_page_materializer) or related_page_materializer()!=(event.page.model_dump(mode="json")|{"markdown":event.markdown}):
+                        raise ValueError("Related page read lacks its exact source-owner materialization")
+            except (ValueError,KeyError,TypeError,AttributeError) as exc:
+                raise ApplicationStateValidationError(str(exc)) from exc
             from .types import NativeSourceCatalogObservedV1, NativeSourceSectionAuthorizedV1, NativeSourceSectionObservedV1, NativeSourceProviderInclusionV1
             if native_source_materializer is None and isinstance(event, (NativeSourceCatalogObservedV1,
                     NativeSourceSectionAuthorizedV1, NativeSourceSectionObservedV1, NativeSourceProviderInclusionV1)):
@@ -1730,6 +1744,15 @@ class AgentConversationService:
             expected_revision=expected_revision, expected_attempt=expected_attempt,
             event=inclusion, duplicate_key="event_id",
             build_draft_provider_request_json=prepared_request_json)
+
+    def record_build_related_pages(self, world_id, conversation_id, turn_id, *, expected_revision, expected_attempt,
+                                   event, producer_proof=None, materializer=None):
+        from .build_related_pages import RelatedPagesSelection, RelatedPageRead, RelatedPageInclusion
+        if not isinstance(event,(RelatedPagesSelection,RelatedPageRead,RelatedPageInclusion)):
+            raise ApplicationStateValidationError("Related page owner requires its typed event")
+        return self._append_graph_execution_event(world_id,conversation_id,turn_id,
+            expected_revision=expected_revision,expected_attempt=expected_attempt,event=event,
+            duplicate_key="event_id",related_page_proof=producer_proof,related_page_materializer=materializer)
 
     def record_build_draft_context(self, world_id: str, conversation_id: UUID, turn_id: UUID, *,
         expected_revision: int, expected_attempt: int, event):

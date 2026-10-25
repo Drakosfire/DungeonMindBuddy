@@ -3,9 +3,9 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { createHash, webcrypto } from 'node:crypto';
 import { BuildSourcePassageEvidence, isBuildSourceCompletion, isSurfaceSourceCompletion } from './BuildSourcePassageEvidence';
 import { ResponseEvidenceTabs } from './ResponseEvidenceTabs';
-import { getAgentSourcePassage } from '../../api/liveApi';
+import { getAgentSourcePassage, getAgentRelatedPage } from '../../api/liveApi';
 import type { AgentSourcePassageReadResponseV1, WorldBuildGraphCompletionV2, SurfaceSourceCompletionV1 } from '../../api/types';
-vi.mock('../../api/liveApi', () => ({ getAgentSourcePassage: vi.fn() }));
+vi.mock('../../api/liveApi', () => ({ getAgentSourcePassage: vi.fn(),getAgentRelatedPage:vi.fn() }));
 const load = vi.mocked(getAgentSourcePassage);
 const text = 'Frank believes the **western gate** is haunted. 🐐';
 const hash = (s: string) => createHash('sha256').update(s).digest('hex');
@@ -107,7 +107,7 @@ it.each(['plan','play'] as const)('opens a named source citation for %s using th
 it('opens a verified named Build citation with the shared numbered control',async()=>{
   const c={...completion(),schema:'dmb_build_graph_completion_v3' as const,
     source_citations:completion().source_citations.map(c=>({...c,source_name:'River Watch — synthetic source'}))};
-  expect(isBuildSourceCompletion(c,'a'.repeat(64),'b'.repeat(64))).toBe(true);
+  expect(isBuildSourceCompletion(c,'a'.repeat(64),'b'.repeat(64),'world')).toBe(true);
   expect(isBuildSourceCompletion({...c,source_citations:c.source_citations.map(c=>({...c,source_name:' '}))},'a'.repeat(64),'b'.repeat(64))).toBe(false);
   expect(isBuildSourceCompletion({...c,schema:'dmb_build_graph_completion_v2'},'a'.repeat(64),'b'.repeat(64))).toBe(false);
   load.mockResolvedValue({...response(completion()),citation:c.source_citations[0]!});
@@ -127,7 +127,7 @@ it('keeps working-draft references out of source citations and preserves mixed s
     answer_segments:[{kind:'draft_reference_claim',text:'A complete working draft response. '+ 'x'.repeat(4200),draft_record_id:id}],
     source_citations:[],
   };
-  expect(isBuildSourceCompletion(c,'a'.repeat(64),'b'.repeat(64))).toBe(true);
+  expect(isBuildSourceCompletion(c,'a'.repeat(64),'b'.repeat(64),'world')).toBe(true);
   const view=render(<BuildSourcePassageEvidence completion={c} worldId="world" turnId={id}/>);
   expect(screen.queryByRole('button',{name:/Read/})).not.toBeInTheDocument();
   expect(load).not.toHaveBeenCalled();
@@ -139,3 +139,40 @@ it('keeps working-draft references out of source citations and preserves mixed s
   expect(isBuildSourceCompletion({...mixed,source_citations:mixed.source_citations.map(cite=>({...cite,segment_index:0}))},'a'.repeat(64),'b'.repeat(64))).toBe(false);
   expect(isBuildSourceCompletion({...c,answer_segments:[{...c.answer_segments[0],draft_record_id:'forged'}]},'a'.repeat(64),'b'.repeat(64))).toBe(false);
 });
+
+describe('exact saved related page citations',()=>{
+ const body='# Households\n\n| Household | Work |\n| --- | --- |\n| Copper | Lantern before dusk |';
+ function related():import('../../api/types').WorldBuildRelatedPageCompletionV1 {
+  return {schema:'dmb_build_related_page_completion_v1',context_receipt_sha256:'a'.repeat(64),answer_basis:'working_draft_context',answer_context_status:'authored_grounded',citation_map:null,source_citations:[],
+   answer_segments:[{kind:'related_page_claim',text:'The saved table names Copper House.',read_id:id,
+    page:{world_id:'world',document_id:id,registry_revision:9,title:'Households',visibility:'internal',content_sha256:hash(body)}}]};
+ }
+ it('opens the captured page by exact turn/read and verifies its identity and body',async()=>{
+  const c=related(),segment=c.answer_segments[0];if(segment.kind!=='related_page_claim')throw new Error('fixture');
+  vi.mocked(getAgentRelatedPage).mockResolvedValue({schema:'dmb_agent_related_page_read_v1',world_id:'world',turn_id:id,read_id:id,page:segment.page,markdown:body});
+  expect(isBuildSourceCompletion(c,'a'.repeat(64),'b'.repeat(64),'world')).toBe(true);
+  render(<BuildSourcePassageEvidence completion={c} worldId="world" turnId={id}/>);
+  expect(getAgentRelatedPage).not.toHaveBeenCalled();
+  fireEvent.click(screen.getByRole('button',{name:'Read Households · saved revision 9'}));
+  await screen.findByText('Lantern before dusk');
+  expect(getAgentRelatedPage).toHaveBeenCalledWith('world',id,id);
+ });
+ it.each(['world','read','body','page'])('refuses %s substitution without opening a newer page',async mode=>{
+  const c=related(),segment=c.answer_segments[0];if(segment.kind!=='related_page_claim')throw new Error('fixture');
+  const result={schema:'dmb_agent_related_page_read_v1',world_id:'world',turn_id:id,read_id:id,page:segment.page,markdown:body};
+  if(mode==='world')result.world_id='other';if(mode==='read')result.read_id='other';if(mode==='body')result.markdown='Newer body';if(mode==='page')result.page={...segment.page,registry_revision:10};
+  vi.mocked(getAgentRelatedPage).mockResolvedValue(result);
+  render(<BuildSourcePassageEvidence completion={c} worldId="world" turnId={id}/>);
+  fireEvent.click(screen.getByRole('button',{name:'Read Households · saved revision 9'}));
+  await screen.findByText('The exact cited section is unavailable. No newer text has been substituted.');
+ });
+ it('does not admit a related claim under the historical draft completion schema',()=>{
+  expect(isBuildSourceCompletion({...related(),schema:'dmb_build_draft_context_completion_v1'},'a'.repeat(64),'b'.repeat(64),'world')).toBe(false);
+ });
+});
+
+it('requires the verified World when admitting related-page references',()=>{
+ const c:import('../../api/types').WorldBuildRelatedPageCompletionV1={schema:'dmb_build_related_page_completion_v1',context_receipt_sha256:'a'.repeat(64),answer_basis:'working_draft_context',answer_context_status:'authored_grounded',citation_map:null,source_citations:[],answer_segments:[{kind:'related_page_claim',text:'Saved page text.',read_id:id,page:{world_id:'foreign',document_id:id,registry_revision:1,title:'Households',visibility:'internal',content_sha256:'b'.repeat(64)}}]};
+ expect(isBuildSourceCompletion(c,'a'.repeat(64),'b'.repeat(64),'world')).toBe(false);
+ expect(isBuildSourceCompletion(c,'a'.repeat(64),'b'.repeat(64))).toBe(false);
+})

@@ -101,7 +101,7 @@ class PreparedBuildJevRuntime:
             )
         return BuildJevHarness(
             world_context=True,
-            named_citations=True,
+            named_citations=True, related_pages=True,
             accounting=self.accounting, rules_capability=rules_capability(graph=True)
         )
 

@@ -1,4 +1,4 @@
-import {getAgentSourcePassage,getAgentNativeSourceSection} from '../../api/liveApi';
+import {getAgentSourcePassage,getAgentNativeSourceSection,getAgentRelatedPage} from '../../api/liveApi';
 import type {WorldBuildSourceCompletion,SurfaceSourceCompletionV1,SurfaceEvidenceCompletion,SurfaceEvidenceCompletionV3} from '../../api/types';
 import {exact,canonical} from '../../shared/sourcePassageProtocol';
 import type {CitationChoice} from './SourceCitationEvidence';
@@ -9,7 +9,7 @@ async function hash(content:string){
 }
 export function passageChoices(completion:PassageCompletion,worldId:string,turnId:string,segmentIndex?:number):CitationChoice[] {
   const seen=new Set<string>();
-  return completion.source_citations.flatMap((citation,index)=>{
+  const passages: CitationChoice[]=completion.source_citations.flatMap((citation,index)=>{
     if(segmentIndex!==undefined && citation.segment_index!==segmentIndex)return [];
     const r=citation.receipt;
     const key=canonical([citation.segment_index,r.source_artifact_id,r.source_revision_id,r.content_sha256,r.line_start,r.line_end]);
@@ -26,6 +26,21 @@ export function passageChoices(completion:PassageCompletion,worldId:string,turnI
       return result.content;
     }}];
   });
+  const pages: CitationChoice[]=completion.answer_segments.flatMap((segment,index)=>{
+    if(segment.kind!=='related_page_claim' || segmentIndex!==undefined && index!==segmentIndex)return [];
+    const page=segment.page;
+    const title=`${page.title} · saved revision ${page.registry_revision}`;
+    return [{key:`related:${segment.read_id}:${index}`,number:completion.source_citations.length+index+1,segmentIndex:index,
+      title,label:`Read ${title}`,kind:'section' as const,load:async()=>{
+        const result=await getAgentRelatedPage(worldId,turnId,segment.read_id);
+        if(page.world_id!==worldId || !exact(result,['schema','world_id','turn_id','read_id','page','markdown'])
+          || result.schema!=='dmb_agent_related_page_read_v1' || result.world_id!==worldId || result.turn_id!==turnId
+          || result.read_id!==segment.read_id || canonical(result.page)!==canonical(page)
+          || typeof result.markdown!=='string' || await hash(result.markdown)!==page.content_sha256)throw new Error('Related page binding differs');
+        return result.markdown;
+      }}];
+  });
+  return [...passages,...pages];
 }
 export function nativeChoices(completion:SurfaceEvidenceCompletionV3,worldId:string,turnId:string,segmentIndex:number):CitationChoice[] {
   return completion.native_source_citations.flatMap((citation,index)=>citation.segment_index!==segmentIndex ? [] : [{

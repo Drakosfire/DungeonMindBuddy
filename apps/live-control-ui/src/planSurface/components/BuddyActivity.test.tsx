@@ -52,8 +52,23 @@ it('updates the running line from a later recorded observation', async()=>{
   const {load}=mount(initial)
   await screen.findByText('Model call cleared for takeoff…')
   load.mockResolvedValue({schema:'dmb_agent_turn_context_trace_response_v1',world_id:'world',turn_id:'turn',attempts:[trace([
-    {kind:'context_snapshot',sequence:1,elapsed_ms:2000,stage:'after',materials:[]}
+    {kind:'context_snapshot',snapshot_kind:'provider_response',sequence:1,elapsed_ms:2000,stage:'after',materials:[]}
   ])]})
-  await screen.findByText('The working notes have been updated.', {}, {timeout:3500})
+  await screen.findByText('A response landed, ready for checking.', {}, {timeout:3500})
   expect(load).toHaveBeenCalledTimes(2)
+})
+
+it.each([
+  [null,'A captured snapshot of the notes.'],
+  ['provider_response','A response landed, ready for checking.'],
+  ['validated_answer','The reply is assembled.'],
+] as const)('describes %s snapshots without inventing context changes',async(snapshot_kind,label)=>{
+  mount(trace([{kind:'context_snapshot',snapshot_kind,stage:'after',sequence:0,elapsed_ms:1,materials:[]}]))
+  await screen.findByText(label)
+  expect(screen.queryByText('The working notes have been updated.')).not.toBeInTheDocument()
+})
+it('reports an observed saved-page read without claiming any page edit',async()=>{
+  mount(trace([{kind:'context_decision',action:'retrieved',item_ids:['Households · saved revision 9'],reason_code:'question_relevance',
+    policy_version:'selected_exact_related_authored_pages_v1',sequence:0,elapsed_ms:1}]))
+  await screen.findByText('Another page joins the reading pile.')
 })

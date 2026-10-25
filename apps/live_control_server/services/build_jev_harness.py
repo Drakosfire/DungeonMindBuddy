@@ -53,7 +53,8 @@ class BuildJevHarness:
         "buddy-jev", "generationengine", "jev-one-writer", "graph"
     )
 
-    def __init__(self, *, decision_transport=None, writer_transport=None, accounting=None, rules_capability=None, world_context=False, named_citations=False):
+    def __init__(self, *, decision_transport=None, writer_transport=None, accounting=None, rules_capability=None, world_context=False, named_citations=False, related_pages=False):
+        self.related_pages = related_pages
         self.world_context = world_context
         self.named_citations = named_citations
         self.accounting = accounting
@@ -131,7 +132,11 @@ class BuildJevHarness:
         return budget
 
     def configured_budget(self, request):
-        return self.budget(request, accounting=self.accounting, world_context=self.world_context, named_citations=self.named_citations)
+        result=self.budget(request, accounting=self.accounting, world_context=self.world_context, named_citations=self.named_citations)
+        if self.related_pages and request.build_draft_context is not None:
+            from .build_related_pages import discover,POLICY
+            result["buildJevActions"].update(related_page_context_policy=POLICY,related_page_catalog=discover(request))
+        return result
 
     def execute_response(self, adapter, *, owner, trace):
         from .agent_turn_service import (
@@ -205,6 +210,9 @@ class BuildJevHarness:
         primary_error = False
         try:
             asyncio.run(self._decide(adapter, driver))
+            self.failure_stage="context_acquisition"
+            from .build_related_pages import acquire_selected_pages
+            acquire_selected_pages(adapter)
             if adapter.request.build_draft_context is not None:
                 from uuid import uuid4
                 from application_state.agent_conversation.build_draft_context import BuildDraftContextRecordV1
@@ -645,8 +653,10 @@ class BuildJevHarness:
             origin=origin,
         )
         history = adapter.build_frozen_history
+        from application_state.agent_conversation.build_related_pages import project as related_page_project
+        related_pages=related_page_project(adapter._broker_execution())
         expected = proposal_owner.prepare_writer_request(
-            request, frozen_history=history
+            request, frozen_history=history, related_authored_pages=related_pages
         )
         adapter._build_writer_projection = ProposalWriterProjection(
             json.dumps(
@@ -674,6 +684,7 @@ class BuildJevHarness:
                     TextDispatchGate(authorize, record),
                     transport=self.writer_transport,
                     frozen_history=history,
+                    related_authored_pages=related_pages,
                 )
             )
         except Exception as exc:

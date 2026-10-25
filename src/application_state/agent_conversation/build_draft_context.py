@@ -141,6 +141,8 @@ def validate_inclusion_input(inclusion, execution, prepared_request_json):
         raise ValueError("Working draft provider envelope must be an object")
     carrier = strict_json(body["input"]) if isinstance(body.get("input"), str) else body.get("state")
     captured = context_record(execution)
+    from .build_related_pages import validate_packet as validate_related_packet
+    validate_related_packet(carrier,execution)
     if (inclusion.draft_event_id != captured.event_id
         or inclusion.snapshot_sha256 != captured.record.snapshot.snapshot_sha256
         or not isinstance(carrier, dict)

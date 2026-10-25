@@ -1292,6 +1292,10 @@ def _freeze_policy_receipt(
                 policy_class = (graph_types.BuildExactSavedLinesDraftImagePolicyV1
                     if (budget.get("buildJevActions") or {}).get("image_preparation_policy") is not None
                     else graph_types.BuildExactSavedLinesDraftPolicyV1)
+            if (budget.get("buildJevActions") or {}).get("related_page_context_policy") is not None:
+                policy_class=(graph_types.BuildRelatedPageDraftImagePolicyV1
+                    if (budget.get("buildJevActions") or {}).get("image_preparation_policy") is not None
+                    else graph_types.BuildRelatedPageDraftPolicyV1)
             policy = policy_class(
                 **({"driver_schema": "dmb_plan_jev_retrieval_v1",
                     "native_source_section_policy":"exact_native_source_sections_v1"} if plan_jev_request is not None else {}),
@@ -2197,6 +2201,14 @@ class _PolicyExecutionAdapter:
                         if (target in allowed and set(refs).issubset(operation.evidence_ref_ids)
                                 and set(refs).issubset(evidence)):
                             build_closures.append((kind, target, refs))
+            from application_state.agent_conversation.build_related_pages import POLICY as RELATED_POLICY, RelatedPageInclusion, records as related_reads
+            if writing and self._is_build_turn() and getattr(execution.policy,"related_page_context_policy",None)==RELATED_POLICY:
+                related_inclusion=RelatedPageInclusion(event_id=uuid4(),sequence=len(execution.events),
+                    provider_attempt_id=provider_attempt_id,envelope_sha256=view["payloadSha256"],
+                    read_ids=sorted([e.read_id for e in related_reads(execution)],key=str))
+                self.turn=_require_fresh_execution_append(self.fence.append("record_build_related_pages","event",related_inclusion,
+                    producer_proof={"request_json":view["payloadJson"]}))
+                execution=self._broker_execution()
             if (self._is_build_turn() and self.budget.get("apiMode") == "typesafe_decision"
                 and not getattr(active_writer, "authoring", False)):
                 from application_state.agent_conversation.build_draft_context import POLICY as DRAFT_POLICY, context_record, writer_reference
@@ -2409,6 +2421,11 @@ class _PolicyExecutionAdapter:
             expected_budget = BuildJevHarness.budget(self.request, accounting=getattr(self, "_build_jev_accounting", None),
                 world_context=getattr(self._broker_execution().policy, "world_context_policy", None) == "build_world_opened_source_context_v1",
                 named_citations=getattr(self._broker_execution().policy, "source_citation_names_policy", None) == "build_verified_source_names_v1")
+        from application_state.agent_conversation.build_related_pages import catalog as related_catalog, POLICY as RELATED_POLICY
+        offered=related_catalog(self._broker_execution().policy)
+        if offered is not None:
+            expected_budget["buildJevActions"].update(related_page_context_policy=RELATED_POLICY,
+                related_page_catalog=[p.model_dump(mode="json") for p in offered])
         if self.failure is not None or self.fence is None or self.budget != expected_budget:
             raise ValueError("Controller exposure requires an active admitted Build turn")
         execution = self._broker_execution()

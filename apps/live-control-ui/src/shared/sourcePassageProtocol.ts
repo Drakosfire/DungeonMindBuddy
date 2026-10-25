@@ -9,24 +9,25 @@ const uuid = (v: unknown): v is string => typeof v === "string" && /^[a-f0-9]{8}
 const boundedText = (v: unknown, max: number): v is string => typeof v === "string" && !!v.trim() && v.length <= max;
 
 /** Closed V2 presentation shape. APP independently owns actual receipt authorization. */
-export function isBuildSourceCompletion(value: unknown, receiptHash: string, sourceHash: string): value is WorldBuildSourceCompletion {
-  return isSourceCompletion(value, receiptHash, sourceHash);
+export function isBuildSourceCompletion(value: unknown, receiptHash: string, sourceHash: string, worldId?: string): value is WorldBuildSourceCompletion {
+  return isSourceCompletion(value, receiptHash, sourceHash, undefined, worldId);
 }
 export function isSurfaceSourceCompletion(value: unknown, receiptHash: string, surface: "plan"|"play"): value is SurfaceSourceCompletionV1 {
   return isSourceCompletion(value, receiptHash, undefined, surface);
 }
-function isSourceCompletion(value: unknown, receiptHash: string, sourceHash?: string, surface?: "plan"|"play"): boolean {
-  const draft = !surface && record(value) && value.schema === "dmb_build_draft_context_completion_v1";
+function isSourceCompletion(value: unknown, receiptHash: string, sourceHash?: string, surface?: "plan"|"play", worldId?:string): boolean {
+  const related = !surface && record(value) && value.schema === "dmb_build_related_page_completion_v1";
+  const draft = related || !surface && record(value) && value.schema === "dmb_build_draft_context_completion_v1";
   const named = draft || surface !== undefined || (record(value) && value.schema === "dmb_build_graph_completion_v3");
   if (!exact(value, ["schema", "context_receipt_sha256", "answer_basis", "answer_context_status", "answer_segments", "citation_map", "source_citations", ...(surface ? ["surface_id"] : [])])
-    || value.schema !== (surface ? "dmb_surface_source_completion_v1" : draft ? "dmb_build_draft_context_completion_v1" : named ? "dmb_build_graph_completion_v3" : "dmb_build_graph_completion_v2") || (surface && value.surface_id !== surface) || value.context_receipt_sha256 !== receiptHash
+    || value.schema !== (surface ? "dmb_surface_source_completion_v1" : related ? "dmb_build_related_page_completion_v1" : draft ? "dmb_build_draft_context_completion_v1" : named ? "dmb_build_graph_completion_v3" : "dmb_build_graph_completion_v2") || (surface && value.surface_id !== surface) || value.context_receipt_sha256 !== receiptHash
     || value.citation_map !== null || !Array.isArray(value.answer_segments) || !value.answer_segments.length
     || value.answer_segments.length > 128 || !Array.isArray(value.source_citations) || value.source_citations.length > 16384
     || !(draft ? ["authored_grounded","authored_grounded_partial","source_grounded","source_grounded_partial","creative_proposal","insufficient_evidence"] : ["source_grounded", "source_grounded_partial", "source_insufficient_evidence"]).includes(String(value.answer_context_status))) return false;
   const claimIndices = new Set<number>();
   let saved = false, hasDraft = false;
   for (const [index, segment] of value.answer_segments.entries()) {
-    if (!record(segment) || !(draft && segment.kind === "draft_reference_claim"
+    if (!record(segment) || !(draft && (segment.kind === "draft_reference_claim" || segment.kind === "related_page_claim")
       ? typeof segment.text === "string" && !!segment.text.trim() : boundedText(segment.text, 4000))) return false;
     if (segment.kind === "source_passage_claim" || segment.kind === "connective") {
       if (!exact(segment, ["kind", "text"])) return false;
@@ -34,6 +35,15 @@ function isSourceCompletion(value: unknown, receiptHash: string, sourceHash?: st
     } else if (draft && segment.kind === "draft_reference_claim") {
       if (!exact(segment,["kind","text","draft_record_id"]) || !uuid(segment.draft_record_id)) return false;
       hasDraft = true;
+    } else if (related && segment.kind === "related_page_claim") {
+      const page=segment.page;
+      if (!exact(segment,["kind","text","read_id","page"]) || !uuid(segment.read_id)
+        || !exact(page,["world_id","document_id","registry_revision","title","visibility","content_sha256"])
+        || typeof page.world_id!=="string" || !page.world_id || page.world_id!==worldId || !uuid(page.document_id)
+        || !Number.isSafeInteger(page.registry_revision) || (page.registry_revision as number)<1
+        || typeof page.title!=="string" || !page.title.trim() || !["internal","player_safe"].includes(String(page.visibility))
+        || !digest(page.content_sha256)) return false;
+      hasDraft=true;
     } else if (surface && segment.kind === "proposal") {
       if (!exact(segment, ["kind", "text", "label"]) || !["invented_idea", "image_prompt"].includes(String(segment.label))) return false;
     } else if (!surface && segment.kind === "saved_source_claim") {

@@ -362,6 +362,7 @@ function requiresNativeGraphAuthorization(path: string, body: BodyInit | null | 
     || /^\/api\/live\/agent\/worlds\/[^/]+\/conversation\/turns\/[^/]+\/rules-passages\/[a-f0-9-]+$/.test(pathname)
     || /^\/api\/live\/agent\/worlds\/[^/]+\/conversation\/turns\/[^/]+\/source-passages\/\d+$/.test(pathname)
     || /^\/api\/live\/agent\/worlds\/[^/]+\/conversation\/turns\/[^/]+\/native-source-sections\/\d+$/.test(pathname)
+    || /^\/api\/live\/agent\/worlds\/[^/]+\/conversation\/turns\/[^/]+\/related-pages\/[a-f0-9]{8}-(?:[a-f0-9]{4}-){3}[a-f0-9]{12}$/i.test(pathname)
     || /^\/api\/live\/agent\/worlds\/[^/]+\/conversation\/turns\/[^/]+\/saved-sections\/\d+\/[a-f0-9-]+$/i.test(pathname)
     || /^\/api\/live\/agent\/worlds\/[^/]+\/build-proposals(?:\/[^/]+(?:\/(?:prompt|inserted|review))?)?$/.test(pathname)
     || pathname === "/api/live/agent/turn"
@@ -3235,4 +3236,9 @@ export interface BuddyReadinessResponse {
 }
 export function getBuddyReadiness(surface: BuddyReadinessResponse["surface"], worldGraph: boolean): Promise<BuddyReadinessResponse> {
   return apiFetch(`/api/live/agent/readiness?${new URLSearchParams({surface, world_graph: String(worldGraph)})}`);
+}
+
+/** Exact turn-bound related authoring context; never a latest-page substitute. */
+export function getAgentRelatedPage(worldId:string,turnId:string,readId:string):Promise<unknown> {
+  return apiFetch(`/api/live/agent/worlds/${encodeURIComponent(worldId)}/conversation/turns/${encodeURIComponent(turnId)}/related-pages/${encodeURIComponent(readId)}`);
 }

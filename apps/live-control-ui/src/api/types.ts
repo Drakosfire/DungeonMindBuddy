@@ -1168,7 +1168,12 @@ export interface WorldBuildDraftContextCompletionV1 extends Omit<WorldBuildNamed
   answer_segments: (WorldBuildGraphCompletionV2['answer_segments'][number]
     | {kind:'draft_reference_claim'; text:string; draft_record_id:string})[];
 }
-export type WorldBuildSourceCompletion = WorldBuildGraphCompletionV2 | WorldBuildNamedGraphCompletionV3 | WorldBuildDraftContextCompletionV1;
+export interface WorldBuildRelatedPageCompletionV1 extends Omit<WorldBuildDraftContextCompletionV1,'schema'|'answer_segments'> {
+  schema:'dmb_build_related_page_completion_v1';
+  answer_segments:(WorldBuildDraftContextCompletionV1['answer_segments'][number]
+    | {kind:'related_page_claim'; text:string; read_id:string; page:{world_id:string;document_id:string;registry_revision:number;title:string;visibility:'internal'|'player_safe';content_sha256:string}})[];
+}
+export type WorldBuildSourceCompletion = WorldBuildRelatedPageCompletionV1 | WorldBuildGraphCompletionV2 | WorldBuildNamedGraphCompletionV3 | WorldBuildDraftContextCompletionV1;
 
 export interface SurfaceSourceCompletionV1 {
   schema: "dmb_surface_source_completion_v1";

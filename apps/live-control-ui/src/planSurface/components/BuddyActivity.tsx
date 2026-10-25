@@ -12,8 +12,13 @@ function activity(event: BuddyTraceObservation): string {
     case 'provider_call': return event.outcome === 'authorized' ? 'Model call cleared for takeoff…'
       : event.outcome === 'response_received' ? 'A model response just landed.' : `Model call · ${event.outcome}.`
     case 'prompt_reference': return 'Notes packed for the next model call.'
-    case 'context_snapshot': return event.stage === 'before' ? 'Laying out the notes…' : 'The working notes have been updated.'
-    case 'context_decision': return `Tidying the notes · ${event.action}.`
+    case 'context_snapshot': return event.snapshot_kind === 'provider_input' ? 'Laying out the notes…'
+      : event.snapshot_kind === 'provider_response' ? 'A response landed, ready for checking.'
+      : event.snapshot_kind === 'validated_answer' ? 'The reply is assembled.'
+      : event.snapshot_kind === 'compaction_input' ? 'Taking stock of the notes…'
+      : event.snapshot_kind === 'compaction_output' ? 'The notes after a tidy-up.' : 'A captured snapshot of the notes.'
+    case 'context_decision': return event.action === 'retrieved' && event.policy_version === 'selected_exact_related_authored_pages_v1'
+      ? 'Another page joins the reading pile.' : `Tidying the notes · ${event.action}.`
     case 'failure': return event.phase === 'trace_capture' ? 'Some trace details are missing.' : 'Hit a snag—open the report.'
   }
 }
