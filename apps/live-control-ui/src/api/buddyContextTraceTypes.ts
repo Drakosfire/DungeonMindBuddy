@@ -54,7 +54,7 @@ export interface BuddyTraceSourcePassage extends Observation {
   returned_chars: number; content_sha256: string; text: string
 }
 export type BuddyTraceObservation =
-  | (Observation & { kind: 'context_snapshot'; stage: 'before' | 'after'; materials: BuddyTraceMaterial[] })
+  | (Observation & { kind: 'context_snapshot'; stage: 'before' | 'after'; materials: BuddyTraceMaterial[]; snapshot_kind?: 'provider_input' | 'provider_response' | 'validated_answer' | 'compaction_input' | 'compaction_output' | null; comparison_id?: string | null })
   | (Observation & { kind: 'context_decision'; action: 'retrieved' | 'retained' | 'expanded' | 'compacted' | 'pruned'; item_ids: string[]; reason_code: string; policy_version: string })
   | (Observation & { kind: 'graph_tool'; tool_name: 'expand_graph_retrieval'; execution_event_id: string; request_arguments_sha256: string; result_packet_sha256: string; scope_mode: 'campaign' | 'world'; campaign_id: string | null; revision_pin: string; request: BuddyTraceGraphRequest; result: BuddyTraceGraphResult; duration_ms?: number | null })
   | BuddyTraceSourcePassage

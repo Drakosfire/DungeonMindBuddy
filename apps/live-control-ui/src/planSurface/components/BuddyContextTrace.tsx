@@ -27,11 +27,11 @@ function Passage({ passage }: { passage: BuddyTraceSourcePassage }) {
   </details>
 }
 
-function Materials({ materials, passages }: { materials: BuddyTraceMaterial[]; passages: BuddyTraceSourcePassage[] }) {
+function Materials({ materials, passages, heading, showRoutes }: { materials: BuddyTraceMaterial[]; passages: BuddyTraceSourcePassage[]; heading: string; showRoutes: boolean }) {
   const present = materials.filter(item => item.state === 'model_context')
   const routes = materials.filter(item => item.state === 'retrieval_route')
   return <div className="buddy-context-trace__context-columns">
-    <section><h5>Present in model context</h5>{present.length === 0 ? <p>No captured material.</p> : present.map(item =>
+    <section><h5>{heading}</h5>{present.length === 0 ? <p>No captured material.</p> : present.map(item =>
       <details key={item.item_id}><summary>{item.role} · {item.item_id}</summary>{item.role === 'source'
         ? item.historical_source_reads?.length
           ? item.historical_source_reads.map(reference => <BuddyHistoricalSourcePassage key={`${reference.trace_id}:${reference.source_read_id}`} reference={reference} />)
@@ -39,10 +39,10 @@ function Materials({ materials, passages }: { materials: BuddyTraceMaterial[]; p
           ? capturedMaterials(item, passages).map(passage => <Passage key={passage.source_read_id} passage={passage} />)
           : <p>Referenced source passage was not captured in this attempt.</p>
         : <p className="buddy-context-trace__prose">{item.text}</p>}</details>)}</section>
-    <section><h5>Available through retained routes</h5>{routes.length === 0 ? <p>No captured routes.</p> : routes.map(item =>
+    {showRoutes && <section><h5>Available through retained routes</h5>{routes.length === 0 ? <p>No captured routes.</p> : routes.map(item =>
       <details key={item.item_id}><summary>{item.route?.node_id ?? item.route?.anchor_id ?? item.item_id}</summary>
         <p>This handle can retrieve details. Its passage is not currently present in model context.</p>
-        <JsonDetails label="Exact route" value={item.route} /></details>)}</section>
+        <JsonDetails label="Exact route" value={item.route} /></details>)}</section>}
   </div>
 }
 
@@ -68,18 +68,33 @@ function InlinePrompt({ trace, reference }: { trace: BuddyTurnContextTrace; refe
 }
 
 function ContextSnapshot({ event, trace, passages }: { event: Extract<BuddyTraceObservation, {kind: 'context_snapshot'}>; trace: BuddyTurnContextTrace; passages: BuddyTraceSourcePassage[] }) {
-  const previous = trace.observations.filter((item): item is typeof event => item.kind === 'context_snapshot' && item.sequence < event.sequence).at(-1)
+  const previous = trace.observations.filter((item): item is typeof event => item.kind === 'context_snapshot' && item.sequence < event.sequence
+    && (event.snapshot_kind === 'provider_input' ? item.snapshot_kind === 'provider_input'
+      : event.snapshot_kind === 'compaction_output' && !!event.comparison_id
+        && item.snapshot_kind === 'compaction_input' && item.comparison_id === event.comparison_id)).at(-1)
+  const label = event.snapshot_kind === 'provider_input' ? 'Working context · prepared input'
+    : event.snapshot_kind === 'provider_response' ? 'Provider response · unvalidated'
+    : event.snapshot_kind === 'validated_answer' ? 'Validated reply · captured context'
+    : event.snapshot_kind === 'compaction_input' ? 'Working context · before compaction'
+    : event.snapshot_kind === 'compaction_output' ? 'Working context · after compaction'
+    : `Working context · ${event.stage} this turn`
   const changes = previous ? [...new Set([...previous.materials.map(item => item.item_id), ...event.materials.map(item => item.item_id)])].flatMap(id => {
     const before = previous.materials.find(item => item.item_id === id)
     const now = event.materials.find(item => item.item_id === id)
     if (JSON.stringify(before) === JSON.stringify(now)) return []
     return [{ id, label: !before ? 'Added' : !now ? 'Removed' : 'Changed' }]
   }) : []
-  return <details><summary>Working context · {event.stage} this turn</summary>
+  return <details><summary>{label}</summary>
     <p className="buddy-context-trace__muted">Captured material inventory. When captured, the composed input includes the exact instructions and request envelope.</p>
+    {!event.snapshot_kind && <p className="buddy-context-trace__muted">This historical snapshot did not record its purpose. No context changes are inferred.</p>}
+    {event.snapshot_kind === 'provider_response' && <p className="buddy-context-trace__muted">Raw returned response, before validation. This is not an inventory of what the provider received.</p>}
     {previous && <div aria-label="Context changes">{changes.length ? changes.map(change =>
-      <p key={change.id} className={`buddy-prompt__change--${change.label.toLowerCase()}`}>{change.label} · {change.id}</p>) : <p>No material changes since the previous snapshot.</p>}</div>}
-    <Materials materials={event.materials} passages={passages.filter(passage => passage.sequence < event.sequence)} />
+      <p key={change.id} className={`buddy-prompt__change--${change.label.toLowerCase()}`}>{change.label} · {change.id}</p>) : <p>No material changes since the comparable input snapshot.</p>}</div>}
+    <Materials materials={event.materials} passages={passages.filter(passage => passage.sequence < event.sequence)}
+      heading={event.snapshot_kind === 'provider_response' ? 'Returned response'
+        : event.snapshot_kind === 'validated_answer' ? 'Captured request material and reply'
+        : event.snapshot_kind ? 'Present in model context' : 'Captured material'}
+      showRoutes={event.snapshot_kind !== 'provider_response'} />
   </details>
 }
 

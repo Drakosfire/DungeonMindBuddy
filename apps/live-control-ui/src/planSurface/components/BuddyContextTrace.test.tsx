@@ -182,10 +182,10 @@ describe('provider response reconciliation', () => {
 it('calls out material additions, removals and changes without treating routes as prompt prose', () => {
   const item=(item_id:string,text:string)=>({item_id,text,state:'model_context' as const,role:'user' as const,source_reads:[]})
   render(<BuddyContextTrace ownerActive={false} trace={trace([
-    {kind:'context_snapshot',stage:'before',sequence:0,elapsed_ms:0,materials:[item('old','Old'),item('same','Before')]},
-    {kind:'context_snapshot',stage:'after',sequence:1,elapsed_ms:1,materials:[item('same','After'),item('new','New')]},
+    {kind:'context_snapshot',stage:'before',snapshot_kind:'compaction_input',comparison_id:'pair',sequence:0,elapsed_ms:0,materials:[item('old','Old'),item('same','Before')]},
+    {kind:'context_snapshot',stage:'after',snapshot_kind:'compaction_output',comparison_id:'pair',sequence:1,elapsed_ms:1,materials:[item('same','After'),item('new','New')]},
   ])} />)
-  fireEvent.click(screen.getByText('Working context · after this turn'))
+  fireEvent.click(screen.getByText('Working context · after compaction'))
   expect(screen.getByLabelText('Context changes')).toHaveTextContent('Removed · old')
   expect(screen.getByLabelText('Context changes')).toHaveTextContent('Changed · same')
   expect(screen.getByLabelText('Context changes')).toHaveTextContent('Added · new')
@@ -258,4 +258,51 @@ describe('copy captured trace', () => {
       await waitFor(() => expect(screen.getByRole('status')).toHaveTextContent('Trace copied.'))
     } finally { vi.unstubAllGlobals() }
   })
+})
+
+it('never infers question or source removal from a response-only snapshot', () => {
+  render(<BuddyContextTrace ownerActive={false} trace={trace([
+    {kind:'context_snapshot',snapshot_kind:'provider_input',stage:'before',sequence:0,elapsed_ms:0,
+      materials:[{item_id:'current-question',state:'model_context',role:'user',text:'Read Edge.'}]},
+    {kind:'context_snapshot',snapshot_kind:'provider_response',stage:'after',sequence:1,elapsed_ms:1,
+      materials:[{item_id:'unvalidated-answer',state:'model_context',role:'assistant',text:'Returned plan'}]},
+  ])} />)
+  fireEvent.click(screen.getByText('Provider response · unvalidated'))
+  expect(screen.queryByLabelText('Context changes')).not.toBeInTheDocument()
+  expect(screen.getByText(/not an inventory of what the provider received/)).toBeInTheDocument()
+  expect(screen.getByRole('heading',{name:'Returned response'})).toBeInTheDocument()
+  fireEvent.click(screen.getByText('assistant · unvalidated-answer'))
+  expect(screen.getByText('Returned plan')).toBeInTheDocument()
+})
+it('compares successive prepared inputs across an interleaved response', () => {
+  render(<BuddyContextTrace ownerActive={false} trace={trace([
+    {kind:'context_snapshot',snapshot_kind:'provider_input',stage:'before',sequence:0,elapsed_ms:0,
+      materials:[{item_id:'question',state:'model_context',role:'user',text:'Same question'}]},
+    {kind:'context_snapshot',snapshot_kind:'provider_response',stage:'after',sequence:1,elapsed_ms:1,
+      materials:[{item_id:'response',state:'model_context',role:'assistant',text:'Decision'}]},
+    {kind:'context_snapshot',snapshot_kind:'provider_input',stage:'before',sequence:2,elapsed_ms:2,
+      materials:[{item_id:'question',state:'model_context',role:'user',text:'Same question'},
+        {item_id:'source',state:'model_context',role:'source',text:'New passage'}]},
+  ])} />)
+  fireEvent.click(screen.getAllByText('Working context · prepared input')[1])
+  expect(screen.getByLabelText('Context changes')).toHaveTextContent('Added · source')
+  expect(screen.getByLabelText('Context changes')).not.toHaveTextContent('response')
+  expect(screen.getByLabelText('Context changes')).not.toHaveTextContent('Removed')
+})
+it('retains untyped historical inventories without inventing comparisons', () => {
+  render(<BuddyContextTrace ownerActive={false} trace={trace([
+    {kind:'context_snapshot',stage:'before',sequence:0,elapsed_ms:0,materials:[]},
+    {kind:'context_snapshot',stage:'after',sequence:1,elapsed_ms:1,materials:[]},
+  ])} />)
+  fireEvent.click(screen.getByText('Working context · after this turn'))
+  expect(screen.getAllByText(/historical snapshot did not record its purpose/)).toHaveLength(2)
+  expect(screen.queryByLabelText('Context changes')).not.toBeInTheDocument()
+})
+it('does not compare unrelated compaction pairs', () => {
+  render(<BuddyContextTrace ownerActive={false} trace={trace([
+    {kind:'context_snapshot',snapshot_kind:'compaction_input',comparison_id:'one',stage:'before',sequence:0,elapsed_ms:0,materials:[]},
+    {kind:'context_snapshot',snapshot_kind:'compaction_output',comparison_id:'two',stage:'after',sequence:1,elapsed_ms:1,materials:[]},
+  ])} />)
+  fireEvent.click(screen.getByText('Working context · after compaction'))
+  expect(screen.queryByLabelText('Context changes')).not.toBeInTheDocument()
 })

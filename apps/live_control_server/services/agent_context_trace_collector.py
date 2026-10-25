@@ -302,7 +302,7 @@ class ContextTraceCollector:
                 materials.append({"item_id": f"source:{event.event_id}", "state": "model_context",
                                   "role": "source", "source_read_event_id": event.event_id,
                                   "source_reads": refs})
-        self.observe({"kind": "context_snapshot", "stage": "before", "materials": materials})
+        self.observe({"kind": "context_snapshot", "stage": "before", "snapshot_kind": "provider_input", "materials": materials})
         self.current_provider_materials = materials
 
     def answer_draft(self, answer: str, *, producing_provider_attempt_id: Any) -> None:
@@ -356,7 +356,7 @@ class ContextTraceCollector:
                 self._mark_incomplete_locked("answer_draft_event_limit")
                 return
             observation = _OBSERVATION.validate_python({
-                "kind": "context_snapshot", "stage": "after",
+                "kind": "context_snapshot", "stage": "after", "snapshot_kind": "provider_response",
                 "sequence": len(self.trace.observations), "elapsed_ms": self.elapsed_ms,
                 "materials": [{"item_id": item_id, "state": "model_context",
                     "role": "assistant", "text": answer}],
@@ -378,7 +378,7 @@ class ContextTraceCollector:
         materials = [*getattr(self, "current_provider_materials", []),
                      {"item_id": "validated-answer", "state": "model_context",
                       "role": "assistant", "text": answer}]
-        self.observe({"kind": "context_snapshot", "stage": "after", "materials": materials})
+        self.observe({"kind": "context_snapshot", "stage": "after", "snapshot_kind": "validated_answer", "materials": materials})
 
     def compaction(self, report: ContextCompactionReport, *, graph_world_id: str) -> None:
         turn = self.fence.turn
@@ -425,7 +425,9 @@ class ContextTraceCollector:
                 continue
             before.append({"item_id": candidate.item_id, "state": "model_context", "role": "source",
                            "historical_source_reads": references})
-        self.observe({"kind": "context_snapshot", "stage": "before", "materials": before})
+        comparison_id = uuid4()
+        self.observe({"kind": "context_snapshot", "stage": "before", "snapshot_kind": "compaction_input",
+                      "comparison_id": comparison_id, "materials": before})
         after = [{"item_id": item.item_id, "state": "model_context", "role": item.role,
                   "text": item.text} for item in report.after_visible]
         for kind in ("nodes", "sources"):
@@ -440,7 +442,8 @@ class ContextTraceCollector:
                 handle["route_id"] = f"{kind}:{index}"
                 after.append({"item_id": f"route:{kind}:{index}", "state": "retrieval_route",
                               "role": "source" if kind == "sources" else "fact", "route": handle})
-        self.observe({"kind": "context_snapshot", "stage": "after", "materials": after})
+        self.observe({"kind": "context_snapshot", "stage": "after", "snapshot_kind": "compaction_output",
+                      "comparison_id": comparison_id, "materials": after})
         self.compacted_report = report
         self.compacted_materials = after
         for decision in report.decisions:

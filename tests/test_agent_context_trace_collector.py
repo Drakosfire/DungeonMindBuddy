@@ -309,6 +309,10 @@ def test_compaction_matches_observed_bytes_to_exact_prior_trace_and_keeps_only_r
     store.list_turns = lambda *args, **kwargs: prior_turns
     store.list_context_trace_attempts = lambda **kwargs: [prior_traces[kwargs["turn_id"]]]
     capture.compaction(report, graph_world_id="native-world")
+    pair = [o for o in capture.trace.observations if o.kind == "context_snapshot"]
+    assert pair[0].snapshot_kind == "compaction_input"
+    assert pair[1].snapshot_kind == "compaction_output"
+    assert pair[0].comparison_id == pair[1].comparison_id is not None
     before, after = store.trace.observations[:2]
     remembered = next(item for item in before.materials if item.role == "source")
     ref = remembered.historical_source_reads[0]
@@ -326,6 +330,10 @@ def test_missing_historical_capture_is_explicit_without_rewriting_history_or_blo
     original = report.model_dump_json()
     store.list_turns = lambda *args, **kwargs: []
     capture.compaction(report, graph_world_id="native-world")
+    pair = [o for o in capture.trace.observations if o.kind == "context_snapshot"]
+    assert pair[0].snapshot_kind == "compaction_input"
+    assert pair[1].snapshot_kind == "compaction_output"
+    assert pair[0].comparison_id == pair[1].comparison_id is not None
     assert store.trace.capture_failure_code == "historical_source_unavailable"
     assert report.model_dump_json() == original
     assert not any(item.role == "source" for item in store.trace.observations[0].materials)
@@ -341,11 +349,13 @@ def test_provider_context_distinguishes_included_current_sources_from_other_read
     store.trace = store.trace.model_copy(update={"observations": [first, second.model_copy(update={"sequence": 1})]})
     capture.refresh_after_source_capture()
     capture.provider_context("Tell me about Mirathorn.", [event])
+    assert capture.trace.observations[-1].snapshot_kind == "provider_input"
     snapshot = store.trace.observations[-1]
     sources = [item for item in snapshot.materials if item.role == "source"]
     assert len(sources) == 1 and sources[0].source_read_event_id == event.event_id
     assert snapshot.materials[0].text == "Tell me about Mirathorn."
     capture.answer_context("The evidence names Frank and Sara.")
+    assert capture.trace.observations[-1].snapshot_kind == "validated_answer"
     after = store.trace.observations[-1]
     assert after.stage == "after"
     assert after.materials[-1].text == "The evidence names Frank and Sara."
@@ -366,6 +376,10 @@ def test_retained_knowledge_and_routes_are_present_only_if_the_actual_request_co
     _, report = compaction_fixture()
     store.list_turns = lambda *args, **kwargs: []
     capture.compaction(report, graph_world_id="native-world")
+    pair = [o for o in capture.trace.observations if o.kind == "context_snapshot"]
+    assert pair[0].snapshot_kind == "compaction_input"
+    assert pair[1].snapshot_kind == "compaction_output"
+    assert pair[0].comparison_id == pair[1].comparison_id is not None
     capture.provider_context("Who are its operators?", [], body={"input": [
         {"role": item.role, "content": [{"type": "input_text", "text": item.text}]} for item in report.after_visible
     ]})
@@ -407,7 +421,9 @@ def test_unvalidated_answer_capture_exact_idempotent_and_not_authority():
     capture, store, turn, producer = answer_capture_case()
     answer = '{"citation_map":{"broken":[]},"text":"Ω quoted draft"}'
     capture.answer_draft(answer, producing_provider_attempt_id=producer)
+    assert capture.trace.observations[-1].snapshot_kind == "provider_response"
     capture.answer_draft(answer, producing_provider_attempt_id=producer)
+    assert capture.trace.observations[-1].snapshot_kind == "provider_response"
     snapshot, = store.trace.observations
     item, = snapshot.materials
     assert item.text == answer and item.role == 'assistant'
@@ -553,3 +569,13 @@ def test_source_capture_does_not_fabricate_unavailable_names(title):
     passage = capture.source_passages(source_event("Exact text"), [{"content": "Exact text", "sourceName": title}],
         world_id="world", graph_revision="revision")[0]
     assert passage.source_name is None
+
+def test_snapshot_purpose_is_explicit_and_historical_serialization_unchanged():
+    from application_state.agent_conversation.context_trace import TraceContextSnapshot
+    from pydantic import ValidationError
+    old = dict(kind="context_snapshot", stage="before", sequence=0, elapsed_ms=0.0, materials=[])
+    assert TraceContextSnapshot.model_validate(old).model_dump(mode="json") == old
+    with pytest.raises(ValidationError, match="comparison identity"):
+        TraceContextSnapshot.model_validate({**old, "snapshot_kind": "compaction_input"})
+    with pytest.raises(ValidationError, match="captured purpose"):
+        TraceContextSnapshot.model_validate({**old, "snapshot_kind": "provider_response"})
