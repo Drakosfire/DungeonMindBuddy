@@ -385,4 +385,7 @@ def test_readable_continuation_preserves_review_and_result_without_internal_ids(
         and "reviewed_plan" not in second.message
         and "source_answer_sha256" not in second.message
     )
+    for message in (first.message, second.message):
+        assert "Selected · Discuss ·" in message
+        assert "Prepare an insertion ·" in message
     assert "editable on-page insertion" in second.message

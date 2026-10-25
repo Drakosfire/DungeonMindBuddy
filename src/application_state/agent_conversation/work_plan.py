@@ -340,7 +340,8 @@ def continue_step(world, conversation, source, command: Continue):
                 else "deferred"
             )
             choice = "Selected" if reviewed.selected else "Deferred"
-            lines.append(f"{i}. {choice} · {status}: {reviewed.text}")
+            action = "Discuss" if reviewed.kind == "discuss" else "Prepare an insertion"
+            lines.append(f"{i}. {choice} · {action} · {status}: {reviewed.text}")
             if result and result["result"] and result["result"]["kind"] == "reply":
                 lines.append(
                     "Earlier reply: "
