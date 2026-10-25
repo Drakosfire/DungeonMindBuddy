@@ -18,7 +18,7 @@ from enum import Enum
 from typing import Annotated, ClassVar, Literal, NoReturn, Protocol
 from uuid import UUID, uuid4
 
-from pydantic import BaseModel, ConfigDict, Field, model_validator
+from pydantic import BaseModel, ConfigDict, Field, model_validator, model_serializer
 
 from .rules_authority_types import ClosedRulesModel, Digest, canonical_bytes, canonical_sha256
 from .collaboration import Collaboration, ConnectedCollaboration
@@ -1000,6 +1000,11 @@ class PlanContextPolicyV1(StrictModel):
 from .reviewed_action import ReviewedStepBinding
 
 
+class RetryTurnReference(StrictModel):
+    turn_id: UUID
+    revision: int = Field(strict=True, ge=1)
+
+
 class BuildGraphIntentV1(SubmittedTurnIntentV1):
     """Saved Build source plus an explicitly requested managed World Graph."""
 
@@ -1007,6 +1012,7 @@ class BuildGraphIntentV1(SubmittedTurnIntentV1):
         default="dmb_build_graph_intent_v1", alias="schema"
     )
     surface_id: Literal["build"]
+    retry_of: RetryTurnReference | None = None
     reviewed_step: ReviewedStepBinding | None = None
     build_write_capability_sha256: str | None = Field(default=None, pattern=r"^[a-f0-9]{64}$")
     build_draft_context_sha256: str | None = Field(default=None, pattern=r"^[a-f0-9]{64}$")
@@ -1016,8 +1022,17 @@ class BuildGraphIntentV1(SubmittedTurnIntentV1):
     selected_knowledge: None = None
     graph_selection: None = None
 
+    @model_serializer(mode="wrap")
+    def preserve_ordinary_intent(self, serialize):
+        value = serialize(self)
+        if self.retry_of is None:
+            value.pop("retry_of", None)
+        return value
+
     @model_validator(mode="after")
     def validate_build(self) -> "BuildGraphIntentV1":
+        if self.retry_of is not None and (self.reviewed_step is not None or self.build_draft_context_sha256 is None):
+            raise ValueError("Retry requires fresh ordinary Build draft context")
         if self.reviewed_step is not None and (self.build_draft_context_sha256 is None or self.reviewed_step.kind == "prepare_insertion" and self.build_write_capability_sha256 is None):
             raise ValueError("A reviewed action requires captured draft and insertion authority")
         ref = self.primary_work
@@ -1096,6 +1111,8 @@ def submitted_turn_intent_fingerprint_v2(intent: SubmittedTurnIntentV2 | BuildGr
     payload = intent.model_dump(
         mode="json", by_alias=True, exclude={"client_thread_id"}
     )
+    if payload.get("retry_of") is None:
+        payload.pop("retry_of", None)
     if payload.get("reviewed_step") is None:
         payload.pop("reviewed_step", None)
     if payload.get("build_write_capability_sha256") is None:

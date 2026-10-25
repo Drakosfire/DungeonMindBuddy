@@ -164,6 +164,7 @@ def test_uses_mixed_projection_answer_not_raw_completion(
                     sequence=1,
                     status="completed",
                     user_text="Mixed question",
+                    provenance=SimpleNamespace(surface_id="plan", primary_work=SimpleNamespace(kind="plan")),
                 ),
                 assistant_text="Projected mixed answer",
             )
@@ -266,7 +267,7 @@ def test_persisted_object_only_questions_survive_archived_readback_without_point
     from tests.test_build_intentional_response import run_no_editor
     turn, service, _, _ = run_no_editor(tmp_path, monkeypatch, application_state_dsn, "clarify_request")
     page = library.read_turns(turn.world_id, turn.conversation_id)
-    assert page["schema"] == "dmb_conversation_library_turns_v2"
+    assert page["schema"] == "dmb_conversation_library_turns_v3"
     row = page["turns"][0]
     assert row["assistant_text"] == ""
     assert row["reply_object"] == {

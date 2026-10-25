@@ -22,7 +22,7 @@ from application_state.agent_conversation.build_draft_context import BuildDraftC
 from application_state.agent_conversation.rules_authority_types import RulesAcceptedBindingV1, canonical_sha256
 
 from application_state.agent_conversation.types import (
-    PlayContentBasis, PlayRunTurnContextReceiptV1,
+    RetryTurnReference, PlayContentBasis, PlayRunTurnContextReceiptV1,
     GraphContextReceipt,
     BuildGraphCompletionV1, BuildIntentionalResponseCompletionV1,
     BuildRelationshipReviewCompletionV1, BuildNamedGraphCompletionV3, BuildDraftContextCompletionV1, BuildRelatedPageCompletionV1, BuildCollaborationCompletionV1, BuildConnectedPageReviewCompletionV1,
@@ -253,6 +253,7 @@ class AgentTurnRequest(BaseModel):
     selected_knowledge: AgentKnowledgeSelection | None = None
     build_write_capability: BuildWriteCapability | None = None
     build_draft_context: BuildDraftContextRequestV1 | None = None
+    retry_of: RetryTurnReference | None = None
     reviewed_step: ReviewedStepReference | None = None
     plan_context_policy: PlanContextPolicyV1 | None = None
     message: str = Field(min_length=1)
@@ -273,6 +274,8 @@ class AgentTurnRequest(BaseModel):
 
     @model_validator(mode="after")
     def reject_contradictory_unsaved_work(self) -> AgentTurnRequest:
+        if self.retry_of is not None and (self.surface.surface_id != "build" or self.graph_request.mode != "world" or self.build_draft_context is None or self.reviewed_step is not None):
+            raise ValueError("Retry requires fresh ordinary World Build context")
         if self.reviewed_step is not None and (self.surface.surface_id != "build" or self.graph_request.mode != "world" or self.build_draft_context is None):
             raise ValueError("A reviewed step requires its captured Build page and World")
         draft = self.build_draft_context

@@ -212,8 +212,14 @@ def read_turns(
                 "reply_object": _reply_object(turn, world, conversation),
             }
         )
+    from .retry import context
+
+    with unit_of_work(_ready_dsn()) as conn:
+        conn.execute("SET TRANSACTION READ ONLY")
+        for row, turn in zip(rows, turns, strict=True):
+            row["retry_context"] = context(conn, turn, active=False)
     return {
-        "schema": "dmb_conversation_library_turns_v2",
+        "schema": "dmb_conversation_library_turns_v3",
         "world_id": world,
         "conversation_id": str(conversation),
         "turns": rows,
@@ -221,3 +227,59 @@ def read_turns(
         if len(rows) == limit
         else None,
     }
+
+
+def read_retry_attempts(
+    world, conversation, turn_id, *, limit=50, before_sequence=None
+):
+    from . import repository as repo
+    from .retry import context, _edges
+
+    if not 1 <= limit <= 50 or before_sequence is not None and before_sequence < 1:
+        raise ApplicationStateValidationError("Invalid retry history cursor")
+    with unit_of_work(_ready_dsn()) as conn:
+        conn.execute("SET TRANSACTION ISOLATION LEVEL REPEATABLE READ READ ONLY")
+        owner = repo.get_conversation(conn, world, conversation)
+        turn = repo.get_turn(conn, world, turn_id)
+        meta = getattr(turn, "envelope", turn)
+        if owner is None or turn is None or meta.conversation_id != conversation:
+            raise ApplicationStateNotFoundError(
+                "Retry history unavailable in this conversation"
+            )
+        incoming, _ = _edges(conn, meta)
+        root = incoming[0] if incoming else turn_id
+        before = meta.sequence if before_sequence is None else before_sequence
+        if before > meta.sequence:
+            raise ApplicationStateValidationError(
+                "Retry history cursor follows its selected attempt"
+            )
+        ids = conn.execute(
+            """SELECT t.turn_id FROM agent.turn t LEFT JOIN agent.turn_retry r ON r.successor_id=t.turn_id
+            WHERE t.world_id=%s AND t.conversation_id=%s AND (t.turn_id=%s OR r.root_id=%s)
+            AND t.sequence<%s ORDER BY t.sequence DESC LIMIT %s""",
+            (world, conversation, root, root, before, limit + 1),
+        ).fetchall()
+        more = len(ids) > limit
+        turns = [repo.get_turn(conn, world, row[0]) for row in reversed(ids[:limit])]
+        active = False  # Library inspection never grants a retry control.
+        rows = []
+        for item in turns:
+            m = getattr(item, "envelope", item)
+            rows.append(
+                {
+                    "turn_id": str(m.turn_id),
+                    "sequence": m.sequence,
+                    "status": m.status,
+                    "user_text": m.user_text,
+                    "assistant_text": item.assistant_text,
+                    "reply_object": _reply_object(item, world, conversation),
+                    "retry_context": context(conn, item, active=active),
+                }
+            )
+        return {
+            "schema": "dmb_conversation_library_turns_v3",
+            "world_id": world,
+            "conversation_id": str(conversation),
+            "turns": rows,
+            "next_before_sequence": rows[0]["sequence"] if more else None,
+        }

@@ -83,3 +83,20 @@ def test_strict_selectors_and_exact_target(client):
         ).status_code
         == 422
     )
+
+
+def test_retry_context_is_authenticated_and_uses_exact_scoped_turn_ids(client,monkeypatch):
+    from application_state.agent_conversation import retry
+    read=Mock(return_value={'schema':'dmb_turn_retry_context_v1'})
+    monkeypatch.setattr(retry,'read_context',read)
+    cid,tid=uuid4(),uuid4()
+    url=f'/api/live/agent/worlds/world-one/conversations/{cid}/retry-context'
+    response=client.client.get(url,params={'turn_ids':str(tid)})
+    assert response.status_code==200
+    read.assert_called_once_with('world-one',cid,[tid])
+    read.reset_mock()
+    assert client.client.get(url,params={'turn_ids':str(tid),'extra':'bad'}).status_code==422
+    assert client.client.get(url,params={'turn_ids':'not-a-turn'}).status_code==422
+    assert not read.called
+    assert client.client.get(url,params={'turn_ids':str(tid)},headers={'Authorization':'Bearer invalid'}).status_code in {401,403}
+    assert not read.called

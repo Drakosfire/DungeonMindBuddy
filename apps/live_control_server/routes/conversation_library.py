@@ -69,3 +69,40 @@ def rename(
     world_id: str, conversation_id: UUID, body: library.NameChange, request: Request
 ):
     return call(library.rename, scope(request, world_id, ()), conversation_id, body)
+
+
+@router.get("/{conversation_id}/retry-context")
+def retry_context(
+    world_id: str, conversation_id: UUID, request: Request, turn_ids: str
+):
+    from application_state.agent_conversation.retry import read_context
+
+    world = scope(request, world_id, {"turn_ids"})
+    parts = turn_ids.split(",")
+    if not 1 <= len(parts) <= 100:
+        raise HTTPException(422, detail="Select one to 100 turns")
+    try:
+        ids = [UUID(value) for value in parts]
+    except ValueError as exc:
+        raise HTTPException(422, detail="Invalid retry turn identity") from exc
+    return call(read_context, world, conversation_id, ids)
+
+
+@router.get("/{conversation_id}/turns/{turn_id}/retry-attempts")
+def retry_attempts(
+    world_id: str,
+    conversation_id: UUID,
+    turn_id: UUID,
+    request: Request,
+    limit: int = Query(50, ge=1, le=50),
+    before_sequence: int | None = Query(None, gt=0),
+):
+    world = scope(request, world_id, {"limit", "before_sequence"})
+    return call(
+        library.read_retry_attempts,
+        world,
+        conversation_id,
+        turn_id,
+        limit=limit,
+        before_sequence=before_sequence,
+    )

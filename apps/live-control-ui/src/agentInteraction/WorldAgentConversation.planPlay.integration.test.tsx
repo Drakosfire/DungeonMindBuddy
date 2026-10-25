@@ -110,6 +110,13 @@ function buildSourceSnapshot(): WorkspaceDocumentSnapshot {
 }
 
 function history(turns: WorldAgentConversationHistoryResponseV1["turns"] = []): WorldAgentConversationHistoryResponseV1 {
+  turns=turns.map(row=>{
+    if(row.provenance.surface_id!=='build'||!['failed','interrupted'].includes(row.lifecycle_status)||row.assistant_text||row.retry_context)return row;
+    const id=`22222222-2222-4222-8222-${String(row.sequence).padStart(12,'0')}`;
+    return {...row,turn_id:id,provenance:{...row.provenance,primary_work:{...row.provenance.primary_work,kind:'build'}},
+      retry_context:{world_id:WORLD,conversation_id:'11111111-1111-4111-8111-111111111111',turn_id:id,revision:4,root_id:id,
+        predecessor_id:null,successor_id:null,ordinal:0,eligible:true,reason:'ready'}};
+  });
   return { schema: "dmb_agent_conversation_history_v1", world_id: WORLD,
     conversation_state: "active", conversation_id: "11111111-1111-4111-8111-111111111111", active_conversation_id: "11111111-1111-4111-8111-111111111111",
     pointer_revision: 1, turns, next_before_sequence: null };
@@ -463,6 +470,9 @@ function draftSnapshot(){
   registry_revision:b.registry_revision,content_sha256:b.content_sha256,visibility:b.visibility,
   draft_markdown:captured.draftMarkdown,draft_sha256:b.draft_sha256,editor_sha256:b.editor_sha256!,draft_generation:b.draft_generation};
 }
+function retryBridge():BuildComposeBridge {
+ return {captureContext:vi.fn(async()=>draftSnapshot()),capture:vi.fn(async()=>insertionCapture()),insert:vi.fn()};
+}
 function openConversationOptions() {
   const summary=screen.getByTitle("Conversation options");
   const menu=summary.closest("details")!;
@@ -779,7 +789,7 @@ describe("one App-level World conversation host across Plan and Play", () => {
     vi.mocked(postWorldPlanAgentTurn).mockImplementation(()=>new Promise(()=>{}));
     vi.mocked(postWorldPlayAgentTurn).mockImplementation(()=>new Promise(()=>{}));
     vi.mocked(postWorldBuildAgentTurn).mockImplementation(()=>new Promise(()=>{}));
-    render(<Harness initial={surface} />);
+    render(<Harness initial={surface} buildBridge={surface==='build'?retryBridge():undefined} />);
     fireEvent.click(await screen.findByRole("button", {name:"Open"}));
     const retry = await screen.findByRole("button", {name:"Retry question"});
     await waitFor(() => expect(retry).toBeEnabled());
@@ -800,6 +810,7 @@ describe("one App-level World conversation host across Plan and Play", () => {
     await waitFor(()=>expect(post).toHaveBeenCalledTimes(1));
     const request=vi.mocked(post).mock.calls[0][0];
     expect(request.message).toBe(prior.user_text);expect(request.turn_id).not.toBe(prior.turn_id);
+    if(surface==='build')expect((request as {retry_of?:unknown}).retry_of).toEqual({turn_id:'22222222-2222-4222-8222-000000000001',revision:4});
     expect(input).toHaveValue(otherDraft?"Keep my unsent draft":"");
     expect(screen.getAllByText(prior.user_text,{exact:true})).toHaveLength(1);
     expect(screen.queryByLabelText("Submitted message")).not.toBeInTheDocument();
@@ -814,7 +825,11 @@ describe("one App-level World conversation host across Plan and Play", () => {
     const rows=[1,2,3].map(sequence=>({...base,turn_id:`failed-${sequence}`,sequence,
       lifecycle_status:'interrupted' as const,provenance:{...base.provenance,surface_id:surface,
         primary_work:{...base.provenance.primary_work,object_id:surface==='build'?'source-one':base.provenance.primary_work.object_id}}}));
-    vi.mocked(getWorldAgentConversationHistory).mockResolvedValue(history(rows));
+    const page=history(rows);
+    if(surface==='build')page.turns=page.turns.map((row,index)=>({...row,retry_context:{...row.retry_context!,root_id:page.turns[0].turn_id,ordinal:index,
+      predecessor_id:index?page.turns[index-1].turn_id:null,successor_id:index<2?page.turns[index+1].turn_id:null,
+      eligible:index===2,reason:index===2?'ready':'retried'}}));
+    vi.mocked(getWorldAgentConversationHistory).mockResolvedValue(page);
     const view=render(<Harness initial={surface}/>);fireEvent.click(await screen.findByRole('button',{name:'Open',exact:true}));
     await screen.findByRole('button',{name:'Retry question'});
     expect(screen.getAllByText(base.user_text,{exact:true})).toHaveLength(1);
@@ -825,6 +840,53 @@ describe("one App-level World conversation host across Plan and Play", () => {
     view.unmount();render(<Harness initial={surface}/>);fireEvent.click(await screen.findByRole('button',{name:'Open',exact:true}));
     await screen.findByRole('button',{name:'Retry question'});
     expect(screen.getAllByText(base.user_text,{exact:true})).toHaveLength(1);
+  });
+
+  it('clears a refused Build retry without overwriting newer writing or dispatching again',async()=>{
+    const base=turn('plan',1,''),terminal={...base,lifecycle_status:'interrupted' as const,
+      provenance:{...base.provenance,surface_id:'build',primary_work:{...base.provenance.primary_work,object_id:'source-one'}}};
+    vi.mocked(getWorldAgentConversationHistory).mockResolvedValue(history([terminal]));
+    let reject!:(reason:Error)=>void;vi.mocked(postWorldBuildAgentTurn).mockImplementation(()=>new Promise((_resolve,failed)=>{reject=failed;}));
+    render(<Harness initial='build' buildBridge={retryBridge()}/>);fireEvent.click(await screen.findByRole('button',{name:'Open',exact:true}));
+    fireEvent.click(await screen.findByRole('button',{name:'Retry question'}));await waitFor(()=>expect(postWorldBuildAgentTurn).toHaveBeenCalledTimes(1));
+    fireEvent.change(screen.getByLabelText('Message DungeonBuddy'),{target:{value:'Newer retry thought'}});
+    await act(async()=>reject(new LiveApiError('This attempt already has a successor',409,{code:'build_retry_unavailable'})));
+    await waitFor(()=>expect(screen.getByRole('button',{name:'Send message'})).toBeEnabled());
+    expect(screen.getByLabelText('Message DungeonBuddy')).toHaveValue('Newer retry thought');
+    expect(window.localStorage.getItem(`dmb:world-play-pending-turn:v1:${encodeURIComponent(WORLD)}`)).toBeNull();
+    expect(postWorldBuildAgentTurn).toHaveBeenCalledTimes(1);
+  });
+
+  it('retains an exact pending Build retry across remount without losing newer composer text',async()=>{
+    const base=turn('plan',1,''),terminal={...base,lifecycle_status:'interrupted' as const,
+      provenance:{...base.provenance,surface_id:'build',primary_work:{...base.provenance.primary_work,object_id:'source-one'}}};
+    vi.mocked(getWorldAgentConversationHistory).mockResolvedValue(history([terminal]));
+    vi.mocked(postWorldBuildAgentTurn).mockImplementation(()=>new Promise(()=>{}));
+    const view=render(<Harness initial='build' buildBridge={retryBridge()}/>);fireEvent.click(await screen.findByRole('button',{name:'Open',exact:true}));
+    fireEvent.click(await screen.findByRole('button',{name:'Retry question'}));await waitFor(()=>expect(postWorldBuildAgentTurn).toHaveBeenCalledTimes(1));
+    fireEvent.change(screen.getByLabelText('Message DungeonBuddy'),{target:{value:'Newer retained retry note'}});
+    const request=vi.mocked(postWorldBuildAgentTurn).mock.calls[0][0],key=`dmb:world-play-pending-turn:v1:${encodeURIComponent(WORLD)}`,bytes=window.localStorage.getItem(key);
+    expect(JSON.parse(bytes!).request.retry_of).toEqual(request.retry_of);
+    view.unmount();render(<Harness initial='build' buildBridge={retryBridge()}/>);fireEvent.click(await screen.findByRole('button',{name:'Open',exact:true}));
+    expect(screen.queryByText(/saved Play request is malformed/i)).not.toBeInTheDocument();
+    expect(screen.getByLabelText('Message DungeonBuddy')).toHaveValue('Newer retained retry note');
+    expect(window.localStorage.getItem(key)).toBe(bytes);expect(postWorldBuildAgentTurn).toHaveBeenCalledTimes(1);
+  });
+
+  it('keeps a successful explicit Build retry grouped after remount with no ancestor Retry',async()=>{
+    const first=turn('plan',1,''),last=turn('plan',2,'Retry result');
+    const cid='11111111-1111-4111-8111-111111111111',root='22222222-2222-4222-8222-000000000001',leaf='22222222-2222-4222-8222-000000000002';
+    const rows=[first,last].map((row,i)=>({...row,turn_id:i?leaf:root,lifecycle_status:i?'completed' as const:'interrupted' as const,
+      provenance:{...row.provenance,surface_id:'build',primary_work:{...row.provenance.primary_work,kind:'build',object_id:'source-one'}},
+      retry_context:{world_id:WORLD,conversation_id:cid,turn_id:i?leaf:root,revision:4,root_id:root,ordinal:i,
+        predecessor_id:i?root:null,successor_id:i?null:leaf,eligible:false,reason:i?'not_terminal' as const:'retried' as const}}));
+    vi.mocked(getWorldAgentConversationHistory).mockResolvedValue(history(rows));
+    const view=render(<Harness initial='build'/>);fireEvent.click(await screen.findByRole('button',{name:'Open',exact:true}));
+    await screen.findByText('Retry result');expect(screen.getAllByText(first.user_text,{exact:true})).toHaveLength(1);
+    expect(screen.queryByRole('button',{name:'Retry question'})).not.toBeInTheDocument();expect(screen.getByText('Previous attempts · 1')).toBeInTheDocument();
+    view.unmount();render(<Harness initial='build'/>);fireEvent.click(await screen.findByRole('button',{name:'Open',exact:true}));
+    await screen.findByText('Retry result');expect(screen.getAllByText(first.user_text,{exact:true})).toHaveLength(1);
+    expect(screen.queryByRole('button',{name:'Retry question'})).not.toBeInTheDocument();
   });
 
   it.each([false,true])("shows an exact Build retry placement failure while preserving its draft: %s",async otherDraft=>{
@@ -1139,7 +1201,7 @@ describe("one App-level World conversation host across Plan and Play", () => {
   it.each(["build", "play"] as const)("opens the closed %s options from the authorization recovery button", async surface => {
     vi.mocked(postWorldBuildAgentTurn).mockRejectedValue(new LiveApiError("Unauthorized", 401));
     vi.mocked(postWorldPlayAgentTurn).mockRejectedValue(new LiveApiError("Unauthorized", 401));
-    render(<Harness initial={surface} />);
+    render(<Harness initial={surface} buildBridge={surface==='build'?retryBridge():undefined} />);
     fireEvent.click(await screen.findByRole("button", {name: "Open"}));
     const input = await screen.findByLabelText("Message DungeonBuddy");
     await waitFor(() => expect(input).toBeEnabled());

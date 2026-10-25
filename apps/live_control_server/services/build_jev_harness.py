@@ -497,6 +497,13 @@ class BuildJevHarness:
                         "code": "build_controller_decision_rejected"})
                 raise
         except Exception as exc:
+            # The APP retry gate refused before a durable turn/provider authorization.
+            # Preserve that disposition through the SDK's dispatch-gate wrapper.
+            from .agent_turn_service import AgentTurnServiceError
+            refusal = getattr(adapter, "failure", None)
+            if (adapter.turn is None and isinstance(refusal, AgentTurnServiceError)
+                    and refusal.code == "build_retry_unavailable" and refusal.provider_dispatched is False):
+                raise refusal from exc
             self._failed(exc, started, "controller")
             if admission_failure is not None:
                 from .agent_turn_service import AgentTurnServiceError
