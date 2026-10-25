@@ -998,7 +998,7 @@ describe("one App-level World conversation host across Plan and Play", () => {
     expect(postWorldBuildAgentTurn).not.toHaveBeenCalled();
   });
 
-  it('opens a named related saved-page citation through the mounted Build conversation',async()=>{
+  it('opens a named related saved-page citation inline without technical details through the mounted Build conversation',async()=>{
     const context=await buildGraphContext(),base=turn('plan',1,'The saved Households table names Copper House.');
     const readId='11111111-1111-4111-8111-111111111111',body='A saved households table.';
     const page={world_id:WORLD,document_id:readId,registry_revision:9,title:'Households',visibility:'internal' as const,content_sha256:await sha256Hex(body)};
@@ -1015,8 +1015,11 @@ describe("one App-level World conversation host across Plan and Play", () => {
     render(<Harness initial='build'/>);
     fireEvent.click(await screen.findByRole('button',{name:'Open',exact:true}));
     await screen.findAllByText(base.assistant_text!);
-    fireEvent.click(screen.getByText('Evidence trail',{exact:true}));
-    fireEvent.click(await screen.findByRole('button',{name:'Read Households · saved revision 9'}));
+    expect(getAgentRelatedPage).not.toHaveBeenCalled();
+    const ordinary=document.querySelector('.world-plan-agent-conversation__message--assistant > .source-citation-evidence')!;
+    const marker=ordinary.querySelector('button')!;expect(marker.textContent).toBe('1');
+    expect(marker.getAttribute('aria-label')).toBe('Read Households · saved revision 9');
+    fireEvent.click(marker);
     await screen.findByText(body);
     expect(getAgentRelatedPage).toHaveBeenCalledWith(WORLD,row.turn_id,readId);
     expect(postWorldBuildAgentTurn).not.toHaveBeenCalled();

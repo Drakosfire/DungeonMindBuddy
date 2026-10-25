@@ -1,3 +1,4 @@
+import {SourceCitedAnswer} from "./SourceCitedAnswer";
 import {ConversationConnectedPageReview} from "./ConversationConnectedPageReview";
 import {ConversationLibrary} from '../../agentInteraction/ConversationLibrary';
 import {queueSurfaceConversationRequest,useSurfaceConversationRequests,claimSurfaceConversationRequest,acceptSurfaceConversationRequest,failSurfaceConversationRequest,retrySurfaceConversationRequest,cancelSurfaceConversationRequest,cancelSurfaceConversationTarget,ownsSurfaceConversationRequest,type SurfaceConversationRequest} from '../../agentInteraction/surfaceConversationRequests';
@@ -5597,6 +5598,13 @@ export function WorldPlanAgentConversation({
     // The immutable receipt records generation; proposal controls own current review state.
     const pageProposalAcknowledgment = graphContextForTurn(turn)?.completion?.schema === "dmb_build_authoring_completion_v1"
       && !rulesContextForTurn(turn);
+    const citedContext=graphContextForTurn(turn);
+    const buildCitedContext=citedContext?.schema==="dmb_build_graph_context_response_v1" ? citedContext : null;
+    const citedCompletion=buildCitedContext?.completion && "source_citations" in buildCitedContext.completion
+      ? buildCitedContext.completion : citedContext?.completion?.schema==="dmb_surface_source_completion_v1" ? citedContext.completion : null;
+    const citedAnswer=!pageProposalAcknowledgment&&!rulesContextForTurn(turn)&&verifiedWorldId&&turn.assistant_text&&citedCompletion
+      ? <SourceCitedAnswer answer={turn.assistant_text} completion={citedCompletion} worldId={verifiedWorldId} turnId={turn.turn_id}
+          saved={buildCitedContext ? {targets:buildCitedContext.saved_source_sections??[],basis:buildCitedContext.receipt.source_basis,sourceName:buildCitedContext.saved_source_name??null} : undefined}/> : null;
     const failed = turn.lifecycle_status !== "interrupted" && (isHistoryTurnFailureConfirmed(turn.turn_id)
       || isWorldHistoryTurnFailed(turn.turn_id) || turn.lifecycle_status === "failed");
     const interrupted = turn.lifecycle_status === "interrupted";
@@ -5640,7 +5648,7 @@ export function WorldPlanAgentConversation({
             {(graphContextForTurn(turn)?.completion?.schema === "dmb_surface_evidence_completion_v1" || graphContextForTurn(turn)?.completion?.schema === "dmb_surface_evidence_completion_v2" || graphContextForTurn(turn)?.completion?.schema === "dmb_surface_evidence_completion_v3")
               ? <SurfaceEvidenceAnswer completion={graphContextForTurn(turn)!.completion as import("../../api/types").SurfaceEvidenceCompletion}
                 worldId={verifiedWorldId} turnId={turn.turn_id} composition={rulesContextForTurn(turn) ? {text:turn.assistant_text,ranges:rulesContextForTurn(turn)!.accepted_binding.segment_map} : undefined}/>
-              : <WorldPlanAgentAnswer
+              : citedAnswer ?? <WorldPlanAgentAnswer
               answer={pageProposalAcknowledgment ? "Page suggestion prepared." : turn.assistant_text}
               inlineCitations={inlineSourceCitations(turn)}
               allowedInternalLinks={graphContextForTurn(turn)?.completion?.answer_segments.flatMap(segment => segment.kind === "session_evidence_claim" ? ["/play?" + new URLSearchParams({world: turn.provenance.world_id,run: segment.run_id,evidence_revision:String(segment.review_revision)}).toString()] : [])}

@@ -2,6 +2,7 @@ import { useLayoutEffect, useRef, useState } from "react";
 import { getAgentSavedSection } from "../../api/liveApi";
 import type { SavedBuildSectionTargetV1, WorldBuildGraphReceiptV1 } from "../../api/types";
 import { WorldPlanAgentAnswer } from "./WorldPlanAgentAnswer";
+import type {CitationChoice} from "./SourceCitationEvidence";
 
 type RecordValue = Record<string, unknown>;
 const record = (v: unknown): v is RecordValue => !!v && typeof v === "object" && !Array.isArray(v);
@@ -39,11 +40,30 @@ async function hash(text: string) {
   const bytes = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(text));
   return Array.from(new Uint8Array(bytes), b => b.toString(16).padStart(2, "0")).join("");
 }
-export function BuildSavedSectionEvidence({ targets, basis, segments, worldId, turnId, sourceName }: {
+export type SavedSectionEvidenceProps = {
   sourceName: string | null;
   targets: SavedBuildSectionTargetV1[]; basis: WorldBuildGraphReceiptV1["source_basis"];
   segments: {kind: string; text: string; content_sha256?: string}[]; worldId: string; turnId: string;
-}) {
+};
+export function savedSectionChoices({targets,basis,segments,worldId,turnId,sourceName}:SavedSectionEvidenceProps,isCurrent:()=>boolean=()=>true):CitationChoice[] {
+  if(worldId!==basis.world_id || !isSavedSectionTargets(targets,basis,{answer_segments:segments})
+    || !targets.every(t=>t.turn_id===turnId))return [];
+  return targets.map((target,index)=>({
+    key:`saved:${target.segment_index}:${target.section_event_id}`,number:index+1,segmentIndex:target.segment_index,
+    title:`${sourceName ?? "Source name unavailable"} · saved revision ${basis.registry_revision} · lines ${target.line_start}–${target.line_end}`,
+    label:sourceName ? `Read ${sourceName} · lines ${target.line_start}–${target.line_end}` : `Read saved lines ${target.line_start}–${target.line_end}`,
+    kind:'section',load:async()=>{
+      if(await hash(segments[target.segment_index]!.text)!==target.text_sha256)throw new Error("Claim differs");
+      if(!isCurrent())throw new Error("Source owner retired");
+      const result=await getAgentSavedSection(target);
+      if(!exact(result,["schema","target","content"]) || result.schema!=="dmb_saved_build_section_read_v1"
+        || canonical(result.target)!==canonical(target) || typeof result.content!=="string" || !result.content.trim()
+        || await hash(result.content)!==target.excerpt_sha256)throw new Error("Historical source differs");
+      return result.content;
+    },
+  }));
+}
+export function BuildSavedSectionEvidence({targets,basis,segments,worldId,turnId,sourceName}:SavedSectionEvidenceProps) {
   const epoch = useRef(0);
   const [opened, setOpened] = useState<{index: number; status: "loading" | "ready" | "unavailable"; content?: string} | null>(null);
   const [visible, setVisible] = useState(8);
@@ -53,17 +73,12 @@ export function BuildSavedSectionEvidence({ targets, basis, segments, worldId, t
     && targets.every(t => t.turn_id === turnId);
   if (!valid || !targets.length) return null;
   async function open(index: number) {
-    const target = targets[index]!; const requestEpoch = ++epoch.current;
+    const requestEpoch = ++epoch.current;
     setOpened({index, status: "loading"});
     try {
-      if (await hash(segments[target.segment_index]!.text) !== target.text_sha256) throw new Error("Claim differs");
-      if (requestEpoch !== epoch.current) return;
-      const result = await getAgentSavedSection(target);
-      if (!exact(result, ["schema", "target", "content"]) || result.schema !== "dmb_saved_build_section_read_v1"
-        || canonical(result.target) !== canonical(target) || typeof result.content !== "string"
-        || !result.content.trim()
-        || await hash(result.content) !== target.excerpt_sha256) throw new Error("Historical source differs");
-      if (requestEpoch === epoch.current) setOpened({index, status: "ready", content: result.content});
+      const choices=savedSectionChoices({targets,basis,segments,worldId,turnId,sourceName},()=>requestEpoch===epoch.current);
+      const content=await choices[index]!.load();
+      if(requestEpoch===epoch.current)setOpened({index,status:"ready",content});
     } catch { if (requestEpoch === epoch.current) setOpened({index, status: "unavailable"}); }
   }
   return <section aria-label="Saved-source evidence">
