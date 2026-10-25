@@ -3869,7 +3869,7 @@ export function WorldPlanAgentConversation({
         const collaboration=isBuildKnowledgeContext(completedContext,request.owner_scope.world_id)&&completedContext.completion&&'collaboration' in completedContext.completion?completedContext.completion.collaboration:null;
         if(collaboration?.kind==='plan'){
           try{
-            const fresh=await getWorldAgentConversationHistory(request.owner_scope.world_id);
+            const fresh=await getWorldAgentConversationHistory(request.owner_scope.world_id,{includeTurnCorrelation:true});
             if(!isWorldConversationHistory(fresh)||!await areHistoryReceiptDigestsBound(fresh))throw new Error('The completed history could not be verified.');
             const key=await worldTurnIdempotencyKey(request.owner_scope.world_id,request.turn_id);
             const matches=fresh.turns.filter(turn=>'idempotency_key' in turn&&turn.idempotency_key===key);

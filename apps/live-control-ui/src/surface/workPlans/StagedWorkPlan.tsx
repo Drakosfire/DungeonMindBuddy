@@ -71,11 +71,12 @@ export function StagedWorkPlan({worldId,documentId,conversationId,turnId,source,
   return {revision:saved.loaded_revision,content_sha256:saved.content_sha256,body_sha256:await placementDigest(tiptapJsonToSemanticMarkdown(json))};
  }
  async function choose(){
-  if(!reference||!bridge?.pickInsertion)return;const start=current.current;setBusy(true);setError(null);
+  if(!reference||!bridge?.pickWorkPlanInsertion)return;const start=current.current;setBusy(true);setError(null);
   const controller=new AbortController();picker.current=controller;
   try{
    assertCurrent(start);if(await findSaved(reference))throw new Error('This plan is already on the saved page. Open that object.');assertCurrent(start);
-   const next=await bridge.pickInsertion({signal:controller.signal,mode:'click',assetId:workPlanIdentity(reference)});assertCurrent(start);
+   onVisible();
+   const next=await bridge.pickWorkPlanInsertion({signal:controller.signal,operationId:placement?.command_id??crypto.randomUUID()});assertCurrent(start);
    if(next.basis.selection)throw new Error('Choose an insertion point; a plan does not replace selected text.');
    const saved=await getWorkPlan({worldId,documentId,conversationId,turnId,sourceSha256:reference.source_answer_sha256});assertCurrent(start);
    const previous=await readPlacement(reference);assertCurrent(start);
@@ -122,7 +123,7 @@ export function StagedWorkPlan({worldId,documentId,conversationId,turnId,source,
  </section>;
  return <>
   <p>{inPage?'Plan on page.':captured&&!stale?'Plan prepared on the page.':'Plan ready for page placement.'}</p>
-  {!inPage&&(!captured||stale)?<button type="button" disabled={disabled||busy||!reference||!bridge?.pickInsertion||placement?.phase==='review_saving'} onClick={()=>void choose()}>Place plan on page</button>:null}
+  {!inPage&&(!captured||stale)?<button type="button" disabled={disabled||busy||!reference||!bridge?.pickWorkPlanInsertion||placement?.phase==='review_saving'} onClick={()=>void choose()}>Place plan on page</button>:null}
   {placement?.prepared&&placement.phase!=='saved'?<button type="button" disabled={disabled||busy} onClick={()=>void save()}>Check and finish Save</button>:null}
   {error&&(!captured||stale||inPage)?<p role="alert">{error}</p>:null}
   {stale?<button type="button" disabled={busy} onClick={()=>setRefresh(value=>value+1)}>Reload retained placement</button>:null}

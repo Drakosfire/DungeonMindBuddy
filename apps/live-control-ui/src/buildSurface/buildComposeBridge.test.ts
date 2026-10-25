@@ -344,3 +344,15 @@ it('refuses mutated or selected plan placements without modifying the editor',as
   await expect(bridge.prepareWorkPlan!(selected,reference)).rejects.toThrow(/insertion point/);
  }finally{editor.destroy();}
 });
+
+it('picks a plan position using a local operation token without pretending it is a media asset',async()=>{
+ const {editor,bridge}=setup();document.body.append(editor.view.dom);
+ try{
+  editor.commands.setContent('<p>Before</p><p>After</p>');editor.commands.setTextSelection(1);
+  vi.spyOn(editor.view,'posAtCoords').mockReturnValue({pos:9,inside:8});
+  const pending=bridge.pickWorkPlanInsertion!({signal:new AbortController().signal,operationId:'11111111-1111-4111-8111-111111111111'});
+  editor.view.dom.dispatchEvent(new MouseEvent('pointerup',{bubbles:true,clientX:10,clientY:20}));
+  const captured=await pending;expect(captured.basis.caret).toBe(9);expect(captured.basis.selection).toBeUndefined();
+  expect(editor.getText()).toContain('Before');expect(editor.getJSON().content?.some(node=>node.type==='surfaceWorkPlan')).toBe(false);
+ }finally{editor.destroy();}
+});
