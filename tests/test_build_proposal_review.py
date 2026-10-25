@@ -243,7 +243,10 @@ def test_retained_review_migration_keeps_exact_original_placement(
 ):
     import psycopg
     from psycopg.types.json import Jsonb
-    from application_state.cli import upgrade_to_head
+    from importlib import import_module
+    from sqlalchemy import create_engine
+    from alembic.migration import MigrationContext
+    from alembic.operations import Operations
 
     command, service, proposal, source, root, wire = review_case
     opened = command("open")
@@ -272,10 +275,13 @@ def test_retained_review_migration_keeps_exact_original_placement(
         conn.execute(
             "ALTER TABLE agent.build_proposal_review ADD CONSTRAINT old_review_schema CHECK(payload->>'schema'='dmb_build_proposal_review_v1')"
         )
-        conn.execute(
-            "UPDATE application_state.schema_migrations SET version_num='20261023_0059'"
-        )
-    upgrade_to_head(dsn=application_state_dsn)
+    # Exercise the exact historical migration, without falsely stamping all later tables old.
+    engine=create_engine(application_state_dsn.replace('postgresql://','postgresql+psycopg://'))
+    try:
+        with engine.begin() as conn, Operations.context(MigrationContext.configure(conn)):
+            import_module('application_state.migrations.versions.20261023_0060_build_review_placement').upgrade()
+    finally:
+        engine.dispose()
     restored = service.get("elderwyld", proposal.action_id)
     assert restored == opened
     assert restored.placement_caret == proposal.reservation.basis.caret
@@ -310,3 +316,99 @@ def test_selected_revision_review_stays_pinned_and_recovers_exact_apply(request_
     assert get_workspace_document_snapshot(root,source.record.document_id) == source
     assert BuildProposalService().get("elderwyld",record.action_id).reservation.basis.selection == request.basis.selection
     assert len(wire.calls)==1
+
+
+def test_fresh_placement_preserves_uncertain_receipt_without_regeneration(review_case, application_state_dsn):
+    from application_state.build_proposal.review import PlacementCapability
+    command, _, proposal, source, root, wire = review_case
+    opened = command("open")
+    pending = command("prepare", opened.revision, apply_id=uuid4(),
+        after_editor_sha256="a"*64, after_draft_sha256="b"*64)
+    from hashlib import sha256
+    from apps.live_control_server.services.workspace_document_registry import mark_workspace_document_committed, get_workspace_document_snapshot
+    newer_text=source.markdown+"\nNewer saved author writing.\n"
+    (root/source.record.target_relpath).write_text(newer_text)
+    mark_workspace_document_committed(root,source.record.document_id,expected_revision=source.record.revision)
+    newer=get_workspace_document_snapshot(root,source.record.document_id)
+    cap = PlacementCapability(command_id=uuid4(), conversation_id=proposal.reservation.conversation_id,
+        expected_pointer_revision=proposal.reservation.expected_pointer_revision,
+        basis=proposal.reservation.basis.model_copy(update={"registry_revision":newer.record.revision,
+            "content_sha256":newer.content_sha256,"draft_sha256":sha256(newer.markdown.encode()).hexdigest()}),
+        draft_markdown=newer.markdown)
+    service = BuildProposalReviewService(validate_source=owner._source)
+    request = BuildReviewCommand(operation="replace_placement", expected_revision=pending.revision, placement=cap)
+    fresh = service.execute("elderwyld",proposal.action_id,request)
+    assert fresh.state == "editing" and fresh.schema_version == "dmb_build_proposal_review_v3"
+    assert fresh.markdown == pending.markdown and fresh.apply is None
+    assert fresh.retired_placements[0].apply == pending.apply
+    assert fresh.retired_placements[0].disposition == "superseded_unresolved"
+    assert service.execute("elderwyld",proposal.action_id,request) == fresh
+    with pytest.raises(ApplicationStateConflictError):
+        command("confirm",fresh.revision,apply_id=pending.apply.apply_id)
+    with pytest.raises(ApplicationStateConflictError):
+        command("prepare",fresh.revision,apply_id=pending.apply.apply_id,
+            after_editor_sha256="a"*64,after_draft_sha256="b"*64)
+    assert BuildProposalService().get("elderwyld",proposal.action_id) == proposal
+    assert (root/source.record.target_relpath).read_text() == newer.markdown
+    assert len(wire.calls)==1
+    # A fresh placement is durable new vocabulary; an older runtime may not erase it.
+    from importlib import import_module
+    from sqlalchemy import create_engine
+    from alembic.migration import MigrationContext
+    from alembic.operations import Operations
+    engine=create_engine(application_state_dsn.replace('postgresql://','postgresql+psycopg://'))
+    try:
+        with engine.begin() as conn, Operations.context(MigrationContext.configure(conn)):
+            with pytest.raises(RuntimeError,match="recovery forward"):
+                import_module('application_state.migrations.versions.20261025_0069_proposal_replacement_placement').downgrade()
+    finally:engine.dispose()
+    changed_cap=cap.model_copy(update={"basis":cap.basis.model_copy(update={"caret":cap.basis.caret+1})})
+    with pytest.raises(ApplicationStateConflictError,match="different bytes"):
+        service.execute("elderwyld",proposal.action_id,request.model_copy(update={"placement":changed_cap}))
+    next_id=uuid4()
+    prepared=service.execute("elderwyld",proposal.action_id,BuildReviewCommand(operation="prepare",
+        expected_revision=fresh.revision,apply_id=next_id,after_editor_sha256="c"*64,after_draft_sha256="d"*64))
+    assert prepared.apply.before_draft_sha256==cap.basis.draft_sha256
+    finished=service.execute("elderwyld",proposal.action_id,BuildReviewCommand(operation="confirm",
+        expected_revision=prepared.revision,apply_id=next_id))
+    assert finished.state=="applied" and finished.retired_placements==fresh.retired_placements
+    assert len(wire.calls)==1
+
+
+@pytest.mark.parametrize("mutation",["world","page","revision","content","pointer","conversation","no_validator"])
+def test_fresh_placement_rejects_changed_authority_at_app_boundary(review_case,mutation):
+    from application_state.build_proposal.review import PlacementCapability
+    command, service, proposal, source, root, wire = review_case
+    opened = command("open")
+    # This is the exact source-owner draft used by the original ordinary request.
+    markdown = source.markdown
+    cap = PlacementCapability(command_id=uuid4(), conversation_id=proposal.reservation.conversation_id,
+        expected_pointer_revision=proposal.reservation.expected_pointer_revision,
+        basis=proposal.reservation.basis, draft_markdown=markdown)
+    if mutation in {"world","page","revision","content"}:
+        field={"world":"world_id","page":"document_id","revision":"registry_revision","content":"content_sha256"}[mutation]
+        value=cap.basis.registry_revision+1 if mutation=="revision" else "f"*64 if mutation=="content" else "foreign"
+        cap=cap.model_copy(update={"basis":cap.basis.model_copy(update={field:value})})
+    elif mutation=="pointer":cap=cap.model_copy(update={"expected_pointer_revision":999})
+    elif mutation=="conversation":cap=cap.model_copy(update={"conversation_id":uuid4()})
+    def validate(capability):
+        try:owner._source(capability)
+        except owner.BuildComposeError as exc:raise ApplicationStateConflictError(str(exc)) from exc
+    checker=BuildProposalReviewService(validate_source=None if mutation=="no_validator" else validate)
+    with pytest.raises((ApplicationStateConflictError,ApplicationStateNotFoundError)):
+        checker.execute("elderwyld",proposal.action_id,BuildReviewCommand(operation="replace_placement",
+            expected_revision=opened.revision,placement=cap))
+    assert service.get("elderwyld",proposal.action_id)==opened
+    assert len(wire.calls)==1
+
+
+def test_exact_pending_snapshot_requires_reconciliation_not_fresh_insertion(review_case):
+    from application_state.build_proposal.review import PlacementCapability
+    command, _, proposal, source, _, _ = review_case
+    opened=command("open")
+    pending=command("prepare",opened.revision,apply_id=uuid4(),after_editor_sha256="a"*64,after_draft_sha256="b"*64)
+    cap=PlacementCapability(command_id=uuid4(),conversation_id=proposal.reservation.conversation_id,
+        expected_pointer_revision=proposal.reservation.expected_pointer_revision,basis=proposal.reservation.basis,draft_markdown=source.markdown)
+    with pytest.raises(ApplicationStateConflictError,match="Reconcile the exact"):
+        BuildProposalReviewService(validate_source=owner._source).execute("elderwyld",proposal.action_id,
+            BuildReviewCommand(operation="replace_placement",expected_revision=pending.revision,placement=cap))

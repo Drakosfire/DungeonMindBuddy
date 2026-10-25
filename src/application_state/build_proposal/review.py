@@ -8,11 +8,11 @@ from hashlib import sha256
 from typing import Literal
 from uuid import UUID
 
-from pydantic import ConfigDict, Field, model_validator
+from pydantic import ConfigDict, Field, model_validator, model_serializer
 from psycopg.types.json import Jsonb
 
 from application_state.agent_conversation.service import _lock_pointer, _ready_dsn
-from application_state.build_proposal.types import StrictModel
+from application_state.build_proposal.types import StrictModel, BuildProposalBasis
 from application_state.build_proposal.service import _load, _save
 from application_state.errors import (
     ApplicationStateConflictError,
@@ -37,11 +37,45 @@ class ReviewApply(StrictModel):
     reviewed_sha256: str = Field(pattern=r"^[a-f0-9]{64}$")
 
 
+class PlacementCapability(StrictModel):
+    command_id: UUID
+    conversation_id: UUID
+    expected_pointer_revision: int = Field(strict=True, ge=1)
+    basis: BuildProposalBasis
+    draft_markdown: str
+
+    @model_validator(mode="after")
+    def exact_draft(self):
+        if not self.basis.editor_sha256 or digest(self.draft_markdown) != self.basis.draft_sha256:
+            raise ValueError("Fresh placement requires exact captured draft and editor")
+        return self
+
+
+class RetiredPlacement(StrictModel):
+    basis: BuildProposalBasis
+    markdown: str
+    markdown_sha256: str
+    apply: ReviewApply | None
+    command_id: UUID | None
+    disposition: Literal["superseded_unresolved", "superseded_unapplied"]
+
+    @model_validator(mode="after")
+    def honest_receipt(self):
+        if (digest(self.markdown) != self.markdown_sha256
+            or (self.apply is not None) != (self.disposition == "superseded_unresolved")
+            or (self.apply is not None and (self.apply.reviewed_sha256 != self.markdown_sha256
+                or self.apply.before_editor_sha256 != self.basis.editor_sha256
+                or self.apply.before_draft_sha256 != self.basis.draft_sha256
+                or self.apply.placement_caret != self.basis.caret))):
+            raise ValueError("Retired placement differs from its original receipt")
+        return self
+
+
 class BuildProposalReview(StrictModel):
     model_config = ConfigDict(
         extra="forbid", populate_by_name=True, serialize_by_alias=True
     )
-    schema_version: Literal["dmb_build_proposal_review_v2"] = Field(
+    schema_version: Literal["dmb_build_proposal_review_v2", "dmb_build_proposal_review_v3"] = Field(
         default="dmb_build_proposal_review_v2", alias="schema"
     )
     world_id: str
@@ -54,9 +88,32 @@ class BuildProposalReview(StrictModel):
     markdown_sha256: str = Field(pattern=r"^[a-f0-9]{64}$")
     apply: ReviewApply | None = None
     updated_at: datetime
+    placement: PlacementCapability | None = None
+    retired_placements: list[RetiredPlacement] = Field(default_factory=list)
+
+    @model_serializer(mode="wrap")
+    def preserve_historical_review(self, serialize):
+        value = serialize(self)
+        if self.schema_version == "dmb_build_proposal_review_v2":
+            value.pop("placement", None)
+            value.pop("retired_placements", None)
+        return value
 
     @model_validator(mode="after")
     def validate_digest(self):
+        if self.schema_version == "dmb_build_proposal_review_v2":
+            if self.placement is not None or self.retired_placements:
+                raise ValueError("Historical review cannot carry fresh placement authority")
+        elif (self.placement is None or not self.retired_placements
+              or self.placement.basis.world_id != self.world_id
+              or any(p.basis.world_id != self.world_id or p.basis.document_id != self.placement.basis.document_id for p in self.retired_placements)
+              or len({p.command_id for p in self.retired_placements if p.command_id is not None}) != sum(p.command_id is not None for p in self.retired_placements)
+              or any(p.command_id == self.placement.command_id for p in self.retired_placements)):
+            raise ValueError("Fresh placement requires its distinct retained predecessors")
+        if self.placement and self.apply and (
+                self.apply.before_editor_sha256 != self.placement.basis.editor_sha256
+                or self.apply.before_draft_sha256 != self.placement.basis.draft_sha256):
+            raise ValueError("Apply differs from its fresh placement basis")
         if self.markdown_sha256 != digest(self.markdown):
             raise ValueError("Review Markdown digest differs")
         if (self.state in {"applying", "applied"}) != (self.apply is not None):
@@ -70,7 +127,7 @@ class BuildProposalReview(StrictModel):
 
 
 class BuildReviewCommand(StrictModel):
-    operation: Literal["open", "save", "move", "discard", "prepare", "confirm"]
+    operation: Literal["open", "save", "move", "discard", "prepare", "confirm", "replace_placement"]
     expected_revision: int = Field(strict=True, ge=0)
     placement_caret: int | None = Field(default=None, strict=True, ge=0)
     markdown: str | None = None
@@ -78,9 +135,12 @@ class BuildReviewCommand(StrictModel):
     after_editor_sha256: str | None = Field(default=None, pattern=r"^[a-f0-9]{64}$")
     after_draft_sha256: str | None = Field(default=None, pattern=r"^[a-f0-9]{64}$")
 
+    placement: PlacementCapability | None = None
+
     @model_validator(mode="after")
     def exact_fields(self):
         required = {
+            "replace_placement": {"placement"},
             "save": {"markdown"},
             "move": {"placement_caret"},
             "prepare": {"apply_id", "after_editor_sha256", "after_draft_sha256"},
@@ -90,6 +150,7 @@ class BuildReviewCommand(StrictModel):
             name
             for name in (
                 "markdown",
+                "placement",
                 "placement_caret",
                 "apply_id",
                 "after_editor_sha256",
@@ -107,6 +168,9 @@ class BuildReviewCommand(StrictModel):
 
 
 class BuildProposalReviewService:
+    def __init__(self, validate_source=None):
+        self.validate_source = validate_source
+
     def get(self, world_id, action_id):
         with unit_of_work(_ready_dsn()) as conn:
             row = conn.execute(
@@ -169,6 +233,15 @@ class BuildProposalReviewService:
                 raise ApplicationStateConflictError(
                     "Open the exact proposal review first"
                 )
+            if command.operation == "replace_placement":
+                if previous.placement and previous.placement.command_id == command.placement.command_id:
+                    if previous.placement != command.placement:
+                        raise ApplicationStateConflictError("Placement command has different bytes")
+                    return previous
+                if any(p.command_id == command.placement.command_id for p in previous.retired_placements):
+                    raise ApplicationStateConflictError("Placement command was superseded")
+            if command.apply_id and any(p.apply and p.apply.apply_id == command.apply_id for p in previous.retired_placements):
+                raise ApplicationStateConflictError("Insertion attempt was superseded")
             if (
                 command.operation in {"prepare", "confirm"}
                 and previous.apply
@@ -199,20 +272,46 @@ class BuildProposalReviewService:
                 raise ApplicationStateConflictError(
                     "This review is terminal or its insertion is uncertain"
                 )
-            if command.operation == "save":
+            basis = previous.placement.basis if previous.placement else proposal.reservation.basis
+            if previous.placement and (basis.world_id != world_id or basis.document_id != proposal.reservation.basis.document_id):
+                raise ApplicationStateConflictError("Fresh placement belongs to another page")
+            if command.operation == "replace_placement":
+                cap = command.placement
+                if (previous.state not in {"editing", "applying"} or proposal.inserted_in_draft
+                    or cap.basis.world_id != world_id or cap.basis.document_id != proposal.reservation.basis.document_id
+                    or cap.conversation_id != pointer.active_conversation_id or cap.conversation_id != proposal.reservation.conversation_id
+                    or cap.expected_pointer_revision != pointer.revision):
+                    raise ApplicationStateConflictError("Fresh placement scope changed")
+                if previous.apply and cap.basis.draft_sha256 in {
+                        previous.apply.before_draft_sha256, previous.apply.after_draft_sha256}:
+                    raise ApplicationStateConflictError("Reconcile the exact original insertion before choosing a new placement")
+                if self.validate_source is None:
+                    raise ApplicationStateConflictError("Current source validation is unavailable")
+                self.validate_source(cap)
+                retired = RetiredPlacement(basis=basis.model_copy(update={"caret":previous.placement_caret}), markdown=previous.markdown,
+                    markdown_sha256=previous.markdown_sha256, apply=previous.apply,
+                    command_id=previous.placement.command_id if previous.placement else None,
+                    disposition="superseded_unresolved" if previous.apply else "superseded_unapplied")
+                update.update(schema="dmb_build_proposal_review_v3", placement=cap,
+                    retired_placements=[*previous.retired_placements, retired],
+                    placement_caret=cap.basis.caret, state="editing", apply=None)
+            elif command.operation == "save":
                 update.update(
                     markdown=command.markdown, markdown_sha256=digest(command.markdown)
                 )
             elif command.operation == "move":
-                if proposal.reservation.basis.selection is not None:
+                if basis.selection is not None:
                     raise ApplicationStateConflictError("A revision stays at its captured selection. Select another passage for a new revision.")
                 update["placement_caret"] = command.placement_caret
             elif command.operation == "discard":
                 update["state"] = "discarded"
             elif command.operation == "prepare":
+                if previous.placement:
+                    if self.validate_source is None:
+                        raise ApplicationStateConflictError("Current source validation is unavailable")
+                    self.validate_source(previous.placement)
                 if proposal.inserted_in_draft:
                     raise ApplicationStateConflictError("Proposal was already inserted")
-                basis = proposal.reservation.basis
                 if basis.selection is not None and previous.placement_caret != basis.caret:
                     raise ApplicationStateConflictError("The revision target differs from its captured selection")
                 update.update(

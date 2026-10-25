@@ -1,7 +1,7 @@
 import type {BuildConstructionProgress} from '../../api/buildConstructionStream';
 import {BuildConstructionPreview} from '../../buildSurface/BuildConstructionPreview';
 import { proposalReview, type BuildProposalReview } from '../../api/buildProposalReviewApi';
-import { BuildPageProposal } from '../../buildSurface/BuildPageProposal';
+import { BuildPageProposal, RetiredPlacementHistory } from '../../buildSurface/BuildPageProposal';
 import { PreparedBuildImage, listPreparedImages, type PreparedImage } from "../../media/PreparedBuildImage";
 import { useEffect, useRef, useState } from 'react';
 import { composeBuildProposal, getBuildProposal, getBuildProposalPrompt, listBuildProposals,
@@ -237,7 +237,7 @@ function SavedProposalHistory({record}:{record:BuildProposalRecord}) {
     return()=>{active=false;};
   },[record.action_id,record.request_fingerprint,record.reservation.basis.world_id,record.reservation.basis.editor_sha256]);
   return saved?<section aria-label="Saved suggestion review"><p>{saved.state==='discarded'?'Discarded suggestion':saved.state==='applied'?'Kept suggestion':'Saved review text'}</p>
-    <WorldPlanAgentAnswer answer={saved.markdown}/><details onToggle={event=>setOriginalOpen(event.currentTarget.open)}><summary>Original generated suggestion and prompt</summary>{originalOpen?<BuildComposeProposal record={record}/>:null}</details></section>
+    <WorldPlanAgentAnswer answer={saved.markdown}/><RetiredPlacementHistory review={saved}/><details onToggle={event=>setOriginalOpen(event.currentTarget.open)}><summary>Original generated suggestion and prompt</summary>{originalOpen?<BuildComposeProposal record={record}/>:null}</details></section>
     : <>{unavailable?<p>The saved review is unavailable. The original generated suggestion follows.</p>:null}<BuildComposeProposal record={record}/></>;
 }
 
