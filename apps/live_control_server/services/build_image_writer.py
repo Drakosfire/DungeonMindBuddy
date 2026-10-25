@@ -121,6 +121,7 @@ def prepare_image(harness, adapter, driver):
         )
         started = time.perf_counter()
         try:
+            harness.failure_stage = "writer_dispatch"
             result = await client.generate_structured(
                 TextRequest(
                     provider="openai",
@@ -145,6 +146,7 @@ def prepare_image(harness, adapter, driver):
             await client.aclose()
 
     result = asyncio.run(run())
+    harness.failure_stage = "image_validation"
     direction = ImageDirectionV2.model_validate_json(result.text)
     prepared = adapter._prepared_build_writer
     if adapter.producing_provider_attempt_id != UUID(prepared.attempt_id):
@@ -177,9 +179,11 @@ def prepare_image(harness, adapter, driver):
         request_json=prepared.body.decode(),
         raw_response=result.text,
     )
+    harness.failure_stage = "image_persistence"
     image = BuildImageService().prepare(
         reservation, owner, direction.prompt, direction.alt, writer_proof=proof, purpose=getattr(direction, "purpose", None)
     )
+    harness.failure_stage = "image_completion"
     completion = completion_for_image(image, adapter.turn.graph_context_receipt)
     if adapter.context_capture:
         adapter.context_capture.answer_draft(

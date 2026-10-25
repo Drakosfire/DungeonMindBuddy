@@ -198,3 +198,27 @@ it('shows a small list-rate cost and never prices unknown models as free', () =>
   expect(screen.getByText(/Estimated cost: \$0.000281 USD/)).toBeInTheDocument()
   expect(screen.getByText(/Estimated cost unavailable/)).toBeInTheDocument()
 })
+
+it('opens an honest error report for a historical interruption without a cause', () => {
+  render(<BuddyContextTrace ownerActive={false} trace={{...trace([]), terminal_status:'interrupted'}} />)
+  expect(screen.getByText('Reply error report')).toBeInTheDocument()
+  expect(screen.getByRole('alert')).toHaveTextContent('The specific cause was not recorded')
+  expect(screen.getByText('Execution timeline').closest('details')).not.toHaveAttribute('open')
+})
+
+it('leads with safe durable exception metadata without pretending capture is success', () => {
+  render(<BuddyContextTrace ownerActive={false} trace={{...trace([{kind:'failure', sequence:0, elapsed_ms:23000,
+    code:'build_execution_exception', phase:'delivery', stage:'controller_prepare', exception_type:'RuntimeError',
+    cause_type:'ValueError', diagnostic_id:'private-diagnostic-id', diagnostic_sha256:'a'.repeat(64)}]), terminal_status:'interrupted'}} />)
+  expect(screen.getByRole('alert')).toHaveTextContent('Stage: controller_prepare')
+  expect(screen.getByRole('alert')).toHaveTextContent('caused by ValueError')
+  expect(screen.getByRole('alert')).toHaveTextContent('private-diagnostic-id')
+  expect(screen.queryByText('How Buddy built this reply')).not.toBeInTheDocument()
+})
+
+it('explains the reproduced source-name failure using a fixed public description', () => {
+  render(<BuddyContextTrace ownerActive={false} trace={{...trace([{kind:'failure', sequence:0, elapsed_ms:23000,
+    code:'build_source_name_missing', phase:'delivery', stage:'context_acquisition', exception_type:'ValueError',
+    cause_type:'ValueError', diagnostic_id:'private-diagnostic-id', diagnostic_sha256:'a'.repeat(64)}]), terminal_status:'interrupted'}} />)
+  expect(screen.getByRole('alert')).toHaveTextContent('A retrieved passage has no verified source name.')
+})

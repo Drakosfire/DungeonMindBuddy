@@ -335,12 +335,24 @@ class TracePromptReference(TraceEvent):
 
 
 class TraceFailure(TraceEvent):
+    diagnostic_id: UUID | None = None
+    diagnostic_sha256: str | None = Field(default=None, pattern=r"^[a-f0-9]{64}$")
+    exception_type: str | None = Field(default=None, pattern=r"^[A-Za-z_][A-Za-z0-9_]{0,127}$")
+    cause_type: str | None = Field(default=None, pattern=r"^[A-Za-z_][A-Za-z0-9_]{0,127}$")
+    stage: str | None = Field(default=None, pattern=r"^[a-z][a-z0-9_]{0,63}$")
     kind: Literal["failure"] = "failure"
     code: str = Field(pattern=r"^[a-z][a-z0-9_]{0,63}$")
     phase: Literal[
         "graph_retrieval", "source_read", "context_build", "provider",
         "projection", "delivery", "trace_capture",
     ]
+
+    @model_validator(mode="after")
+    def diagnostic_bundle(self):
+        fields = (self.diagnostic_id, self.diagnostic_sha256, self.exception_type, self.cause_type, self.stage)
+        if any(value is not None for value in fields) and not all(value is not None for value in fields):
+            raise ValueError("Failure diagnostic requires its exact complete reference")
+        return self
 
 
 ContextTraceObservation = Annotated[

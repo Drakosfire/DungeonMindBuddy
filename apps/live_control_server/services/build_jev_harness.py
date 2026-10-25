@@ -201,6 +201,8 @@ class BuildJevHarness:
             (UUID(item["turn_id"]), item["assistant"])
             for item in history
         )
+        self.failure_stage = "controller_prepare"
+        primary_error = False
         try:
             asyncio.run(self._decide(adapter, driver))
             if adapter.request.build_draft_context is not None:
@@ -221,6 +223,7 @@ class BuildJevHarness:
                 adapter.rules_runtime.lookup_selected()
             if driver.operation == "prepare_build_image":
                 from .build_image_writer import prepare_image
+                self.failure_stage = "image_prepare"
                 return prepare_image(self, adapter, driver)
             if driver.operation == "propose_build_insertion":
                 return self._proposal(adapter, driver)
@@ -228,6 +231,7 @@ class BuildJevHarness:
                 if isinstance(driver.step, DecisionIntent):
                     asyncio.run(self._decide(adapter, driver))
                 elif isinstance(driver.step, AcquisitionIntent):
+                    self.failure_stage = "context_acquisition"
                     self._acquire(adapter, driver)
                 else:
                     raise ValueError("Unsupported Jev step")
@@ -239,6 +243,7 @@ class BuildJevHarness:
                 "reason": terminal.reason,
                 "relevant_ids": list(terminal.relevant_ids),
             }
+            self.failure_stage = "writer_prepare"
             graph, sources, sections = driver._material()
             from application_state.agent_conversation.types import BuildSelectedSourceActionControllerWriterPolicyV1
             if isinstance(adapter._broker_execution().policy, BuildSelectedSourceActionControllerWriterPolicyV1):
@@ -271,6 +276,7 @@ class BuildJevHarness:
                     graph_payloads=graph, section_read_ids=sections
                 )
             result = asyncio.run(self._write(adapter, staged))
+            self.failure_stage = "writer_validation"
             rejection, rejection_code = None, "build_writer_terminal_check_rejected"
             try:
                 if (terminal.status in {"insufficient_evidence", "unresolved_conflict"}
@@ -299,9 +305,42 @@ class BuildJevHarness:
                     raise
             if rejection is not None:
                 raise rejection
+            self.failure_stage = "completion_validation"
             return adapter.complete_build_writer(result)
+        except Exception as exc:
+            primary_error = True
+            self._capture_failure(adapter, exc)
+            raise
         finally:
-            adapter.stop()
+            try:
+                adapter.stop()
+            except Exception as cleanup_error:
+                if not primary_error:
+                    self.failure_stage = "claim_cleanup"
+                    self._capture_failure(adapter, cleanup_error)
+                    raise
+                logging.getLogger(__name__).error("Build failure cleanup also failed (%s); original exception preserved", type(cleanup_error).__name__)
+
+    def _capture_failure(self, adapter, exc):
+        from .build_failure_diagnostic import store_failure, failure_code
+        stage = getattr(self, "failure_stage", "delivery")
+        logging.getLogger(__name__).error("Build execution failed at %s (%s)", stage, type(exc).__name__)
+        try:
+            turn = adapter.turn
+            metadata = store_failure(exc, stage=stage, turn_id=turn.turn_id if turn else None,
+                attempt=turn.attempt if turn else None)
+            logging.getLogger(__name__).error("Build failure diagnostic %s", metadata["diagnostic_id"])
+            if adapter.context_capture:
+                adapter.context_capture.observe({"kind": "failure", "phase": "delivery",
+                    "code": failure_code(exc), **metadata})
+        except Exception as capture_error:
+            logging.getLogger(__name__).error("Build failure diagnostic capture failed (%s); original exception preserved", type(capture_error).__name__)
+            if adapter.context_capture:
+                try:
+                    adapter.context_capture.observe({"kind": "failure", "phase": "delivery",
+                        "code": "build_failure_diagnostic_unavailable"})
+                except Exception as marker_error:
+                    logging.getLogger(__name__).error("Build failure marker unavailable (%s)", type(marker_error).__name__)
 
     def _record_observation(self, observation, elapsed, phase, *, status="ok"):
         self.timings.append(dict(phase=phase, elapsed_ms=elapsed))
@@ -334,7 +373,10 @@ class BuildJevHarness:
             self.adapter.context_capture.provider_usage([call])
 
     def _entered(self, event, phase):
+        if event.outcome == "response_received":
+            self.failure_stage = phase + "_validation"
         if event.outcome == "sending":
+            self.failure_stage = phase + "_dispatch"
             # GE's immutable prepared attempt is the request identity. Register
             # only after the parent acknowledged its exact sending lifecycle.
             request_id = f"generationengine:{event.request.attempt_id}"
@@ -368,6 +410,7 @@ class BuildJevHarness:
         )
 
     def _observe(self, result, started, phase):
+        self.failure_stage = phase + "_validation"
         self._record_observation(
             result.observation.model_dump(mode="json"),
             (time.perf_counter() - started) * 1000,
@@ -375,6 +418,7 @@ class BuildJevHarness:
         )
 
     async def _decide(self, adapter, driver):
+        self.failure_stage = "controller_prepare"
         plan, intent = driver.stage(), driver.step
         admission_failure = None
 
@@ -402,6 +446,7 @@ class BuildJevHarness:
         client = GenerationClient(decision_providers={"typesafe": provider})
         started = time.perf_counter()
         try:
+            self.failure_stage = "controller_dispatch"
             result = await client.decide(
                 DecisionRequest(
                     provider=decision_policy.PROVIDER,
@@ -427,6 +472,7 @@ class BuildJevHarness:
                     producing_provider_attempt_id=adapter.last_provider_attempt_id,
                 )
             from .build_jev_writer_selection import WriterSelectionDriver
+            self.failure_stage = "controller_validation"
             try:
                 if isinstance(driver, WriterSelectionDriver):
                     driver.accept_response(result)
@@ -562,6 +608,7 @@ class BuildJevHarness:
         client = GenerationClient(text_providers={"openai": provider})
         started = time.perf_counter()
         try:
+            self.failure_stage = "writer_dispatch"
             result = await client.generate_text(writer_policy.text_request(staged))
             self._observe(result, started, "writer")
             return result
@@ -572,6 +619,7 @@ class BuildJevHarness:
             await client.aclose()
 
     def _proposal(self, adapter, driver):
+        self.failure_stage = "proposal_prepare"
         capability = adapter.request.build_write_capability
         if capability is None:
             raise ValueError(
@@ -618,6 +666,7 @@ class BuildJevHarness:
             return acknowledged
 
         started = time.perf_counter()
+        self.failure_stage = "proposal_compose"
         try:
             action = asyncio.run(
                 proposal_owner.compose_with_writer(
@@ -630,6 +679,7 @@ class BuildJevHarness:
         except Exception as exc:
             self._failed(exc, started, "writer")
             raise
+        self.failure_stage = "proposal_validation"
         if action.state != "proposed":
             raise ValueError("Proposal is unresolved; no regeneration or second writer")
         if (
@@ -641,6 +691,7 @@ class BuildJevHarness:
             self._record_observation(
                 action.observation, (time.perf_counter() - started) * 1000, "writer"
             )
+        self.failure_stage = "proposal_completion"
         completion = completion_for_proposal(action, adapter.turn.graph_context_receipt)
         if adapter.context_capture:
             adapter.context_capture.answer_draft(
