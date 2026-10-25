@@ -28,7 +28,13 @@ export function SurfaceSelectionActions({editor,actions}:{editor:Editor|null;act
   const register=context?.registerContribution;
   useEffect(()=>{
     if(!editor){setAvailable(false);return;}
-    const update=()=>setAvailable(!editor.isDestroyed&&editor.isEditable&&!editor.state.selection.empty);
+    const update=()=>{
+      const selection=editor.state.selection;
+      let textOnly=true;
+      if(selection instanceof TextSelection)selection.$from.parent.forEach(child=>{if(!child.isText)textOnly=false;});
+      setAvailable(!editor.isDestroyed&&editor.isEditable&&selection instanceof TextSelection&&!selection.empty
+        &&selection.$from.parent===selection.$to.parent&&['paragraph','heading'].includes(selection.$from.parent.type.name)&&textOnly);
+    };
     const retire=()=>setAvailable(false);
     editor.on('selectionUpdate',update);editor.on('update',update);editor.on('destroy',retire);
     update();return()=>{editor.off('selectionUpdate',update);editor.off('update',update);editor.off('destroy',retire);};

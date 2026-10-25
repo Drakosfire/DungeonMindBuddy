@@ -70,3 +70,9 @@ this handoff, SurfaceWorkPlan.tsx, StagedWorkPlan.tsx, workPlans.css. Same prese
 contract, no new capability. One successor PR; independent exact-head review and
 protected UI-only delivery, then actual narrow/wide rendered proof. No state writes
 or model calls needed to prove this correction. Graph input remains next scope.
+
+The same rendered check found object-menu clicks can leave a non-text editor
+selection. The navigation contribution must apply the existing capture eligibility
+(single paragraph/heading containing only text), not expose text actions for object
+selection. PRIME extends this correction lease to SurfaceSelectionActions.tsx and
+its test before editing; no change to capture/admission or action execution.
