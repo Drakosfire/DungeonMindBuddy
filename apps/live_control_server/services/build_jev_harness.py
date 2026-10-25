@@ -217,6 +217,8 @@ class BuildJevHarness:
             if driver._selection_intent is not None:
                 asyncio.run(self._decide(adapter, driver))
             self.failure_stage="context_acquisition"
+            from .build_authored_references import acquire as acquire_authored_references
+            acquire_authored_references(adapter)
             from .build_related_pages import acquire_selected_pages
             acquire_selected_pages(adapter)
             if adapter.request.build_draft_context is not None:
@@ -269,7 +271,8 @@ class BuildJevHarness:
                 else:
                     selected = selector.settle_empty()
                 graph = ()
-                sources = tuple(str(eid) for eid in selected.source_event_ids)
+                from application_state.agent_conversation.authored_graph_references import source_event_ids as authored_source_ids
+                sources = tuple(sorted(str(eid) for eid in set(selected.source_event_ids) | authored_source_ids(adapter._broker_execution())))
                 from application_state.agent_conversation.build_primary_context import writer_read_ids
                 sections = tuple(sorted(str(rid) for rid in writer_read_ids(adapter._broker_execution())))
                 if not selected.expanded_unit_ids:
@@ -613,6 +616,8 @@ class BuildJevHarness:
         driver.accept_acquisition(bindings)
 
     async def _write(self, adapter, staged):
+        from .build_authored_references import include_in_projection
+        staged = include_in_projection(adapter, staged)
         staged = writer_policy.with_plan_stream(staged, adapter.request)
         adapter._build_writer_projection = staged
         async def authorize(prepared):

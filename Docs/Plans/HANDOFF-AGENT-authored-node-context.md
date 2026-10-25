@@ -181,3 +181,150 @@ concurrent active implementation lease. Detailed story/runtime evidence stays pr
 
 The separate Discuss reply that drafted content for a deferred insertion remains a
 semantic scope defect. This reference capability must not obscure or claim to fix it.
+
+
+## Implementation activation — ACTIVE serial owner amendment
+
+PRIME activates codex/authored-node-context from merged design fec4a1a91a0fa1809803d309ed5427cdd37602a6,
+independently approved at4c7284d95382ba9470f927ff3da72bc69bbed17f. This is the one
+implementation PR declared above. No parallel implementation lease overlaps; #1764
+remains parked. Existing checkout,8000/5202, APP0072/native0017 stay untouched until
+reviewed protected additive0073 adoption. Independent critique of this exact owner
+amendment precedes runtime edits. Frozen historical contracts remain historical readers,
+not compatibility execution paths.
+
+The writer integration uses an explicit host-acquired reference context lane, analogous
+to existing acquired primary-page context. Do not fabricate a model evidence-selection
+vote or add a second writer selector. Join mandatory authored object/source records
+alongside actual Jev-selected evidence and deduplicate exact passage bodies; preserve
+distinct authority. A new policy marker owns that join; legacy selection validators
+keep their current meaning. Never hide an acquisition gap by marking the reference read.
+
+Exact expected write lease (paths relative to Buddy):
+
+- `Docs/Plans/HANDOFF-AGENT-authored-node-context.md`
+- `src/application_state/agent_conversation/authored_graph_references.py`
+- `src/application_state/agent_conversation/types.py`
+- `src/application_state/agent_conversation/service.py`
+- `src/application_state/agent_conversation/repository.py`
+- `src/application_state/agent_conversation/work_plan.py`
+- `src/application_state/agent_conversation/reviewed_action.py`
+- `src/application_state/agent_conversation/retry.py`
+- `src/application_state/agent_conversation/build_world_context.py`
+- `src/application_state/agent_conversation/build_draft_context.py`
+- `src/application_state/agent_conversation/build_primary_context.py`
+- `src/application_state/agent_conversation/source_writer_output.py`
+- `src/application_state/agent_conversation/plan_objective.py`
+- `src/application_state/agent_conversation/build_intentional_response.py`
+- `src/application_state/migrations/versions/20261025_0073_authored_graph_references.py`
+- `apps/live_control_server/models/agent_turn.py`
+- `apps/live_control_server/routes/conversation_work_plans.py`
+- `apps/live_control_server/services/agent_turn_service.py`
+- `apps/live_control_server/services/build_authored_references.py`
+- `apps/live_control_server/services/build_jev_harness.py`
+- `apps/live_control_server/services/build_jev_driver.py`
+- `apps/live_control_server/services/build_jev_dispatch.py`
+- `apps/live_control_server/services/build_jev_transitions.py`
+- `apps/live_control_server/services/build_jev_writer.py`
+- `apps/live_control_server/services/build_jev_writer_selection.py`
+- `apps/live_control_server/services/build_world_context.py`
+- `apps/live_control_server/services/world_source_acquisition.py`
+- `apps/live_control_server/services/agent_context_trace_collector.py`
+- `apps/live_control_server/services/agent_context_trace_projection.py`
+- `apps/live-control-ui/src/api/types.ts`
+- `apps/live-control-ui/src/api/liveApi.ts`
+- `apps/live-control-ui/src/api/conversationWorkPlanApi.ts`
+- `apps/live-control-ui/src/api/buddyContextTraceTypes.ts`
+- `apps/live-control-ui/src/agentInteraction/authoredGraphReferences.ts`
+- `apps/live-control-ui/src/agentInteraction/surfaceConversationRequests.ts`
+- `apps/live-control-ui/src/planSurface/components/WorldPlanAgentConversation.tsx`
+- `apps/live-control-ui/src/planSurface/components/DurableWorkPlan.tsx`
+- `apps/live-control-ui/src/planSurface/components/BuddyContextTrace.tsx`
+- `apps/live-control-ui/src/surface/SurfaceGraphReferenceInput.tsx`
+- `apps/live-control-ui/src/surface/SurfaceGraphReferenceInput.css`
+- `apps/live-control-ui/src/surface/workPlans/StagedWorkPlan.tsx`
+- `apps/live-control-ui/src/surface/workPlans/SurfaceWorkPlan.tsx`
+- `apps/live-control-ui/src/surface/workPlans/workPlanCapture.ts`
+- `apps/live-control-ui/src/surface/workPlans/workPlanPlacement.ts`
+- `apps/live-control-ui/src/surface/workPlans/WorkPlanHost.tsx`
+- `apps/live-control-ui/src/buildSurface/reference/BuildReferenceCapability.tsx`
+- `apps/live-control-ui/src/buildSurface/reference/BuildReferenceSearchProjection.tsx`
+- `apps/live-control-ui/src/graphReference/GraphReferenceSearch.tsx`
+- `tests/test_authored_graph_references.py`
+- `tests/test_build_authored_references.py`
+- `tests/test_build_world_context.py`
+- `tests/test_agent_build_submitted_intent.py`
+- `tests/test_reviewed_action_binding.py`
+- `tests/test_build_turn_retry.py`
+- `tests/test_conversation_work_plan_routes.py`
+- `tests/application_state/test_authored_graph_references_postgres.py`
+- `tests/application_state/test_reviewed_work_plan.py`
+- `tests/application_state/test_turn_retry.py`
+- `tests/test_build_proposal_shared_writer.py`
+- `tests/test_build_writer_selection.py`
+- `apps/live-control-ui/src/surface/SurfaceGraphReferenceInput.test.tsx`
+- `apps/live-control-ui/src/agentInteraction/authoredGraphReferences.test.ts`
+- `apps/live-control-ui/src/api/conversationWorkPlanApi.test.ts`
+- `apps/live-control-ui/src/planSurface/components/DurableWorkPlan.test.tsx`
+- `apps/live-control-ui/src/planSurface/WorldPlanAgentConversation.worldHistory.test.tsx`
+- `apps/live-control-ui/src/surface/workPlans/StagedWorkPlan.test.tsx`
+- `apps/live-control-ui/src/surface/workPlans/workPlanPlacement.test.ts`
+- `apps/live-control-ui/src/buildSurface/reference/BuildReferenceCapability.test.tsx`
+- `apps/live-control-ui/src/graphReference/GraphReferenceSearch.test.tsx`
+
+Only amend this lease explicitly if inspection establishes another owning path; do not
+edit an unlisted file merely because tests or TypeScript point at it. No user data,
+retained source, native Graph schema or dependency changes are leased.
+
+
+### Effective policy coverage (activation gate)
+
+Cover all twelve currently supported closed-schema Build writer profiles that may
+carry this input: BuildCollaborationPolicyV1/BuildCollaborationImagePolicyV1,
+BuildConnectedPageReviewPolicyV1/BuildConnectedPageReviewImagePolicyV1,
+BuildSourceQuotePolicyV1/BuildSourceQuoteImagePolicyV1,
+BuildRelationshipReviewPolicyV1/BuildRelationshipReviewImagePolicyV1,
+BuildIntentionalResponsePolicyV2/BuildIntentionalResponseImagePolicyV2,
+BuildIntentionalResponseSourcePolicyV2/BuildIntentionalResponseSourceImagePolicyV2.
+Use new explicit authored-reference policy variants selected from the actual effective
+profile after capability resolution, not a marker added only to a base type. Each
+retains its own source/draft/image/collaboration/quote/relationship/output authority.
+The current initial four variants and reviewed-action profile must pass actual SDK/APP
+producer/admission tests. Exercise all twelve new variants through exact writer input,
+finite format and final reconstruction, with and without source bindings. Older
+non-source-writer/unversioned execution profiles cannot gain authored input: reject it
+before any provider authorization with a specific unsupported-profile error and keep
+the request/reference. They remain historical readers, not fallback runtime paths.
+No omitted reference may silently disappear during profile selection. Tests must show
+old policy/event digests and validation semantics are unchanged when no new input is
+present, and every effective new profile accepts only its exact frozen host-read lane.
+
+
+### Owner extension found at the actual output forks
+
+The discussion writer is not the only consumer: _proposal calls the existing
+build_document_proposal.prepare_writer_request/compose_with_writer owner, and image
+preparation uses build_image_writer.writer_request. Both must receive the same proved
+host context and source bodies; a successful acquisition followed by omission here is
+not completion. PRIME extends the expected lease to:
+- `apps/live_control_server/services/build_document_proposal.py`
+- `apps/live_control_server/services/build_image_writer.py`
+- `tests/test_build_document_proposal.py`
+- `tests/test_build_jev_image.py`
+
+No new proposal or image executor is authorized. Extend their exact-input validation
+and existing parent authorization, preserving one producing call and uncertainty.
+This owner amendment requires independent critique before editing these added paths.
+
+
+### Operator presentation steering retained for the next Surface slice
+
+The operator requests a shared object toolbar with editable title, plus, green Save
+and hamburger together, attached to the object and sticky during its scroll. Remove
+the duplicate title field and separated bottom actions when that UI owner is changed.
+The operator also permits an explicit page/conversation view toggle for the same
+saved object. Page remains the default for generated objects; clarifying questions
+remain inline. A view switch must preserve one durable object identity, edits and
+execution state, without copying or executing a plan. This supersedes the earlier
+unconditional page-only presentation rule. These controls are not implemented by the
+reference backend work and must not be reported as delivered.

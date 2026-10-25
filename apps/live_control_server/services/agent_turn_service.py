@@ -43,7 +43,7 @@ from application_state.agent_conversation.types import (
     PlayGraphIntentV1, PlayRulesIntentV1,
     PlayGraphPolicyV1,
     SubmittedPlayTargetV1,
-    BuildGraphIntentV1,
+    BuildGraphIntentV1, BuildGraphIntentV2,
     BuildGraphContextReceiptV1,
     Turn,
     TurnFailure,
@@ -1325,10 +1325,18 @@ def _freeze_policy_receipt(
                 has_draft = (budget.get('buildJevActions') or {}).get('working_draft_context_policy') is not None
                 has_image = (budget.get('buildJevActions') or {}).get('image_preparation_policy') is not None
                 policy_class = (graph_types.BuildIntentionalResponseImagePolicyV2 if has_image else graph_types.BuildIntentionalResponsePolicyV2) if has_draft else (graph_types.BuildIntentionalResponseSourceImagePolicyV2 if has_image else graph_types.BuildIntentionalResponseSourcePolicyV2)
+            if request.build_authored_references is not None:
+                authored_name = 'Authored' + policy_class.__name__
+                if not hasattr(graph_types, authored_name):
+                    raise AgentTurnServiceError('This writer profile cannot read authored Graph references. Your request is retained.',
+                        code='build_authored_reference_profile_unavailable', status_code=422, provider_dispatched=False)
+                policy_class = getattr(graph_types, authored_name)
             policy = policy_class(
                 **({"driver_schema": "dmb_plan_jev_retrieval_v1",
                     "native_source_section_policy":"exact_native_source_sections_v1"} if plan_jev_request is not None else {}),
                 **(budget.get("buildJevActions") or {}),
+                **({"authored_graph_reference_policy": "authored_graph_reference_context_v1",
+                    "authored_graph_references_sha256": request.build_authored_references.sha256} if request.build_authored_references is not None else {}),
                 **({"saved_source_char_count": len(work.build_source.markdown)}
                     if (budget.get("buildJevActions") or {}).get("saved_section_read_policy") is not None else {}),
                 **({"saved_source_input_policy": budget["savedSourceInputPolicy"]} if budget.get("savedSourceInputPolicy") is not None else {}),
@@ -2049,6 +2057,9 @@ class _PolicyExecutionAdapter:
         if self.trace is not None and self.admission_span_id is not None:
             self.trace.complete_phase(self.admission_span_id)
             self.admission_span_id = None
+        if self.request.build_authored_references is not None:
+            from .build_authored_references import capture_input
+            capture_input(self)
         return claim.turn, *membership
 
     def authorize(self, view: Mapping[str, Any]) -> bool:
@@ -3141,9 +3152,9 @@ class _PolicyExecutionAdapter:
                     return denied("build_world_acquisition_not_current", 409)
                 from application_state.agent_conversation.build_world_context import authorize_world_operation
                 try:
-                    authorize_world_operation(
-                        self.fence.turn, self.last_provider_attempt_id, normalized,
-                    )
+                    from application_state.agent_conversation.authored_graph_references import authorize_operation as authorizes_reference
+                    if not authorizes_reference(self.fence.turn, normalized):
+                        authorize_world_operation(self.fence.turn, self.last_provider_attempt_id, normalized)
                 except ValueError:
                     return denied("build_world_acquisition_not_current", 409)
             session = self.bootstrap.retrieval_session
@@ -4968,7 +4979,8 @@ def _submitted_turn_intent(
             reviewed_step = resolve_request_action(request, world_id)
         except ApplicationStateError as exc:
             raise AgentTurnServiceError(str(exc), code="reviewed_step_unavailable", status_code=409, provider_dispatched=False) from exc
-        return BuildGraphIntentV1(**common, retry_of=request.retry_of, reviewed_step=reviewed_step, build_draft_context_sha256=(
+        return (BuildGraphIntentV2 if request.build_authored_references is not None else BuildGraphIntentV1)(**common,
+            **({"authored_references": request.build_authored_references} if request.build_authored_references is not None else {}), retry_of=request.retry_of, reviewed_step=reviewed_step, build_draft_context_sha256=(
             None if request.build_draft_context is None else _canonical_sha256(request.build_draft_context.model_dump(mode="json", by_alias=True))), build_write_capability_sha256=(
             None if request.build_write_capability is None else _canonical_sha256(request.build_write_capability.model_dump(mode="json"))))
     if request.surface.surface_id == "play" and primary_work is not None and request.graph_request.mode == "none":

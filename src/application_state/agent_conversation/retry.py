@@ -194,6 +194,15 @@ def context(conn, turn, *, active):
     ).model_dump(mode="json")
 
 
+def validate_reference_retry(parent, intent):
+    """A deliberate retry retains author identity and origin, never newer inputs."""
+    from .authored_graph_references import capture, policy_enabled
+    execution = parent.graph_context_execution
+    original = capture(execution).references if execution and policy_enabled(execution.policy) else None
+    if getattr(intent, 'authored_references', None) != original:
+        raise RetryUnavailableError('Retry requires the original Graph references and selection snapshots')
+
+
 def validate_predecessor(conn, submission):
     intent = submission.submitted_intent_v2
     reference = intent.retry_of if isinstance(intent, BuildGraphIntentV1) else None
@@ -221,6 +230,7 @@ def validate_predecessor(conn, submission):
         or parent.user_text != submission.user_text
     ):
         raise RetryUnavailableError("Retry requires the same question and Build page")
+    validate_reference_retry(parent, intent)
     previous_capability = getattr(
         getattr(parent.graph_context_execution, "policy", None),
         "action_capability_sha256",

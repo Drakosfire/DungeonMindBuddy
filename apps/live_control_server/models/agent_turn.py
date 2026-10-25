@@ -236,6 +236,8 @@ class AgentTurnGraphSelection(BaseModel):
         return cleaned
 
 
+from application_state.agent_conversation.authored_graph_references import AuthoredGraphReferencesV1
+
 class AgentTurnRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
@@ -253,6 +255,7 @@ class AgentTurnRequest(BaseModel):
     selected_knowledge: AgentKnowledgeSelection | None = None
     build_write_capability: BuildWriteCapability | None = None
     build_draft_context: BuildDraftContextRequestV1 | None = None
+    build_authored_references: AuthoredGraphReferencesV1 | None = None
     retry_of: RetryTurnReference | None = None
     reviewed_step: ReviewedStepReference | None = None
     plan_context_policy: PlanContextPolicyV1 | None = None
@@ -278,6 +281,11 @@ class AgentTurnRequest(BaseModel):
             raise ValueError("Retry requires fresh ordinary World Build context")
         if self.reviewed_step is not None and (self.surface.surface_id != "build" or self.graph_request.mode != "world" or self.build_draft_context is None):
             raise ValueError("A reviewed step requires its captured Build page and World")
+        if self.build_authored_references is not None:
+            if (self.surface.surface_id != 'build' or self.owner_scope is None
+                or self.owner_scope.kind != 'world' or self.graph_request.mode != 'world'):
+                raise ValueError('Authored references require the current Build page and World context')
+            self.build_authored_references.require_world(self.owner_scope.world_id)
         draft = self.build_draft_context
         if draft is not None:
             snapshot = draft.snapshot

@@ -4,6 +4,7 @@ import json
 from typing import Literal
 from uuid import UUID
 from pydantic import BaseModel, ConfigDict, Field
+from .authored_graph_references import AuthoredGraphReferencesV1
 
 
 class ReviewedStepReference(BaseModel):
@@ -28,3 +29,8 @@ class ReviewedStepBinding(BaseModel):
 
 def digest(value):
     return sha256(json.dumps(value, ensure_ascii=False, sort_keys=True, separators=(",", ":")).encode()).hexdigest()
+
+
+class ReviewedStepBindingV2(ReviewedStepBinding):
+    schema_: Literal['dmb_reviewed_step_binding_v2'] = Field(default='dmb_reviewed_step_binding_v2', alias='schema')
+    authored_references: AuthoredGraphReferencesV1

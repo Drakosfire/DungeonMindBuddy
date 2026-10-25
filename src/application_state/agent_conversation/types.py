@@ -997,7 +997,8 @@ class PlanContextPolicyV1(StrictModel):
     policy: Literal["auto_plan_world"]
 
 
-from .reviewed_action import ReviewedStepBinding
+from .reviewed_action import ReviewedStepBinding, ReviewedStepBindingV2
+from .authored_graph_references import AuthoredGraphReferencesV1
 
 
 class RetryTurnReference(StrictModel):
@@ -1045,6 +1046,12 @@ class BuildGraphIntentV1(SubmittedTurnIntentV1):
             or self.graph_request.focus.kind != "none"):
             raise ValueError("Build Graph intent requires an exact saved Build source and World Graph")
         return self
+
+
+class BuildGraphIntentV2(BuildGraphIntentV1):
+    schema_: Literal['dmb_build_graph_intent_v2'] = Field(default='dmb_build_graph_intent_v2', alias='schema')
+    authored_references: AuthoredGraphReferencesV1
+    reviewed_step: ReviewedStepBindingV2 | ReviewedStepBinding | None = None
 
 
 class BuildSourceContextBasisV1(StrictModel):
@@ -1103,7 +1110,7 @@ class SubmittedTurnIntentV2(StrictModel):
         return self
 
 
-def submitted_turn_intent_fingerprint_v2(intent: SubmittedTurnIntentV2 | BuildGraphIntentV1 | PlayGraphIntentV1) -> str:
+def submitted_turn_intent_fingerprint_v2(intent: SubmittedTurnIntentV2 | BuildGraphIntentV2 | BuildGraphIntentV1 | PlayGraphIntentV1) -> str:
     """Fingerprint only normalized caller intent, excluding routing thread identity."""
     if isinstance(intent, PlayGraphIntentV1):
         from .play_graph_authority import play_graph_intent_fingerprint
@@ -2874,10 +2881,91 @@ class BuildIntentionalResponseSourceImagePolicyV2(BuildNamedWorldContextImagePol
     pass
 
 
+class _AuthoredGraphReferenceFields(StrictModel):
+    authored_graph_reference_policy: Literal["authored_graph_reference_context_v1"]
+    authored_graph_references_sha256: str = Field(pattern=r"^[a-f0-9]{64}$")
+
+
+class AuthoredBuildCollaborationPolicyV1(BuildCollaborationPolicyV1, _AuthoredGraphReferenceFields):
+    pass
+
+
+class AuthoredBuildCollaborationImagePolicyV1(BuildCollaborationImagePolicyV1, _AuthoredGraphReferenceFields):
+    pass
+
+
+class AuthoredBuildConnectedPageReviewPolicyV1(BuildConnectedPageReviewPolicyV1, _AuthoredGraphReferenceFields):
+    pass
+
+
+class AuthoredBuildConnectedPageReviewImagePolicyV1(BuildConnectedPageReviewImagePolicyV1, _AuthoredGraphReferenceFields):
+    pass
+
+
+class AuthoredBuildSourceQuotePolicyV1(BuildSourceQuotePolicyV1, _AuthoredGraphReferenceFields):
+    pass
+
+
+class AuthoredBuildSourceQuoteImagePolicyV1(BuildSourceQuoteImagePolicyV1, _AuthoredGraphReferenceFields):
+    pass
+
+
+class AuthoredBuildRelationshipReviewPolicyV1(BuildRelationshipReviewPolicyV1, _AuthoredGraphReferenceFields):
+    pass
+
+
+class AuthoredBuildRelationshipReviewImagePolicyV1(BuildRelationshipReviewImagePolicyV1, _AuthoredGraphReferenceFields):
+    pass
+
+
+class AuthoredBuildIntentionalResponsePolicyV2(BuildIntentionalResponsePolicyV2, _AuthoredGraphReferenceFields):
+    pass
+
+
+class AuthoredBuildIntentionalResponseImagePolicyV2(BuildIntentionalResponseImagePolicyV2, _AuthoredGraphReferenceFields):
+    pass
+
+
+class AuthoredBuildIntentionalResponseSourcePolicyV2(BuildIntentionalResponseSourcePolicyV2, _AuthoredGraphReferenceFields):
+    pass
+
+
+class AuthoredBuildIntentionalResponseSourceImagePolicyV2(BuildIntentionalResponseSourceImagePolicyV2, _AuthoredGraphReferenceFields):
+    pass
+
+
 class GraphExecutionEventBaseV1(StrictModel):
     event_id: UUID
     sequence: int = Field(strict=True, ge=0, le=2047)
     kind: str
+
+
+class BuildAuthoredReferencesCapturedV1(GraphExecutionEventBaseV1):
+    kind: Literal['build_authored_references_captured_v1']
+    references: AuthoredGraphReferencesV1
+    read_graph_revision: str
+    turn_id: UUID
+    conversation_id: UUID
+    attempt: int = Field(strict=True, ge=1)
+    submitted_intent_fingerprint: str = Field(pattern=r'^[a-f0-9]{64}$')
+
+
+class BuildAuthoredReferenceAuthorizedV1(GraphExecutionEventBaseV1):
+    kind: Literal['build_authored_reference_authorized_v1']
+    capture_event_id: UUID
+    node_id: str
+    arguments_sha256: str = Field(pattern=r'^[a-f0-9]{64}$')
+
+
+class BuildAuthoredReferenceReadV1(GraphExecutionEventBaseV1):
+    kind: Literal['build_authored_reference_read_v1']
+    capture_event_id: UUID
+    authorization_event_id: UUID
+    node_id: str
+    operation_event_ids: list[UUID]
+    source_read_event_ids: list[UUID]
+    returned_node_ids: list[str]
+    outcome: Literal['read', 'read_partial', 'source_gap']
 
 
 class BuildDraftContextCapturedV1(GraphExecutionEventBaseV1):
@@ -3861,7 +3949,7 @@ def validate_graph_execution_record(execution, *, dynamic_source_scope: bool, al
                 RelatedRecapContextAuthorizationEventV2,
                 ValidatedRelatedRecapContextEventV2,
                 RelatedRecapContextProviderInclusionEventV2,
-                RelatedPagesSelection, RelatedPageRead, RelatedPageInclusion, BuildDraftContextCapturedV1, BuildDraftProviderInclusionV1, BuildSectionReadAuthorizationV1, ValidatedBuildSectionReadV1, BuildWorldReadSelectionV1,
+                RelatedPagesSelection, RelatedPageRead, RelatedPageInclusion, BuildAuthoredReferencesCapturedV1, BuildAuthoredReferenceAuthorizedV1, BuildAuthoredReferenceReadV1, BuildDraftContextCapturedV1, BuildDraftProviderInclusionV1, BuildSectionReadAuthorizationV1, ValidatedBuildSectionReadV1, BuildWorldReadSelectionV1,
                 BuildSectionProviderInclusionV1, BuildSectionAnswerBindingV1,
                 BuildJevActionSelectionV1, BuildReviewedActionSelectionV1, BuildPlanOutputContractV1, BuildWriterEvidenceSelectionV1, PlanJevRetrievalSelectionV1,
             ),
@@ -4099,11 +4187,18 @@ class BuildReviewedActionSelectionV1(GraphExecutionEventBaseV1):
 
     @model_validator(mode="after")
     def exact_author_action(self):
+        if self.kind == 'build_reviewed_action_selected_v1' and self.intent.schema_ != 'dmb_build_graph_intent_v1':
+            raise ValueError('Historical reviewed action cannot acquire authored references')
         if self.binding is None or self.operation != self.binding.operation:
             raise ValueError("Reviewed action differs from the author's selected step")
         if self.capability_sha256 != self.intent.build_write_capability_sha256:
             raise ValueError("Reviewed action capability differs from its bound intent")
         return self
+
+
+class BuildReviewedActionSelectionV2(BuildReviewedActionSelectionV1):
+    kind: Literal['build_reviewed_action_selected_v2']
+    intent: BuildGraphIntentV2
 
 
 class BuildPlanOutputContractV1(GraphExecutionEventBaseV1):
@@ -4171,8 +4266,8 @@ GraphExecutionEventV3 = Annotated[
     | SourceScopeExtensionEventV3 | SourceReadAuthorizationEventV2 | ValidatedSourceReadEventV2 | SourcePassageReuseEventV1
     | RelatedRecapContextAuthorizationEventV2 | ValidatedRelatedRecapContextEventV2
     | RelatedRecapContextProviderInclusionEventV2
-    | RelatedPagesSelection | RelatedPageRead | RelatedPageInclusion | BuildDraftContextCapturedV1 | BuildDraftProviderInclusionV1 | BuildSectionReadAuthorizationV1 | ValidatedBuildSectionReadV1
-    | BuildSectionProviderInclusionV1 | BuildSectionAnswerBindingV1 | BuildRequestedWorkResolutionV1 | BuildJevActionSelectionV1 | BuildReviewedActionSelectionV1 | BuildWorldReadSelectionV1
+    | BuildAuthoredReferencesCapturedV1 | BuildAuthoredReferenceAuthorizedV1 | BuildAuthoredReferenceReadV1 | RelatedPagesSelection | RelatedPageRead | RelatedPageInclusion | BuildDraftContextCapturedV1 | BuildDraftProviderInclusionV1 | BuildSectionReadAuthorizationV1 | ValidatedBuildSectionReadV1
+    | BuildSectionProviderInclusionV1 | BuildSectionAnswerBindingV1 | BuildRequestedWorkResolutionV1 | BuildJevActionSelectionV1 | BuildReviewedActionSelectionV2 | BuildReviewedActionSelectionV1 | BuildWorldReadSelectionV1
     | BuildPlanOutputContractV1 | BuildWriterEvidenceSelectionV1 | PlanJevRetrievalSelectionV1 | NativeSourceNavigationAuthorizedV1 | NativeSourceCatalogObservedV1
     | NativeSourceSectionAuthorizedV1 | NativeSourceSectionObservedV1 | NativeSourceProviderInclusionV1,
     Field(discriminator="kind"),
@@ -4184,13 +4279,15 @@ class PlanWorldGraphExecutionV3(PlanWorldGraphExecutionV2):
     schema_: Literal["dmb_agent_plan_world_graph_execution_v3"] = Field(
         default="dmb_agent_plan_world_graph_execution_v3", alias="schema"
     )
-    policy: BuildIntentionalResponseImagePolicyV2 | BuildIntentionalResponsePolicyV2 | BuildIntentionalResponseSourceImagePolicyV2 | BuildIntentionalResponseSourcePolicyV2 | BuildRelationshipReviewImagePolicyV1 | BuildRelationshipReviewPolicyV1 | BuildSourceQuoteImagePolicyV1 | BuildSourceQuotePolicyV1 | BuildConnectedPageReviewImagePolicyV1 | BuildConnectedPageReviewPolicyV1 | BuildCollaborationImagePolicyV1 | BuildCollaborationPolicyV1 | BuildRelatedPageDraftImagePolicyV1 | BuildRelatedPageDraftPolicyV1 | BuildExactSavedLinesDraftImagePolicyV1 | BuildExactSavedLinesDraftPolicyV1 | BuildDraftWorldContextImagePolicyV1 | BuildDraftWorldContextPolicyV1 | BuildNamedWorldContextImagePolicyV1 | BuildNamedWorldContextPolicyV1 | PlanNativeSourceSectionsPolicyV1 | PlanJevRetrievalPolicyV1 | BuildWorldContextImagePolicyV1 | BuildWorldContextPolicyV1 | BuildPrimaryWorkStatusImagePolicyV1 | BuildPrimaryWorkStatusPolicyV1 | BuildPrimaryWorkImagePolicyV1 | BuildPrimaryWorkPolicyV1 | BuildImageActionPolicyV1 | BuildEncodedAssessmentPolicyV1 | BuildInitialEstimatedSelectedSourcePolicyV1 | BuildSelectedSourceActionControllerWriterPolicyV1 | BuildCitedSourceActionControllerWriterPolicyV1 | BuildReadBatchActionControllerWriterPolicyV1 | BuildWriterBudgetActionControllerWriterPolicyV1 | BuildJointSupportActionControllerWriterPolicyV1 | BuildEstimatedActionControllerWriterPolicyV1 | BuildContainedActionControllerWriterPolicyV1 | BuildPhaseActionControllerWriterPolicyV1 | BuildFrontierActionControllerWriterPolicyV1 | BuildContinuationActionControllerWriterPolicyV1 | BuildCompactActionControllerWriterPolicyV1 | BuildActionControllerWriterPolicyV1 | BuildSectionControllerWriterPolicyV1 | ControllerWriterGraphExecutionPolicyV3 | SettledGraphExecutionPolicyV3 | GraphExecutionPolicyV3
+    policy: AuthoredBuildCollaborationPolicyV1 | AuthoredBuildCollaborationImagePolicyV1 | AuthoredBuildConnectedPageReviewPolicyV1 | AuthoredBuildConnectedPageReviewImagePolicyV1 | AuthoredBuildSourceQuotePolicyV1 | AuthoredBuildSourceQuoteImagePolicyV1 | AuthoredBuildRelationshipReviewPolicyV1 | AuthoredBuildRelationshipReviewImagePolicyV1 | AuthoredBuildIntentionalResponsePolicyV2 | AuthoredBuildIntentionalResponseImagePolicyV2 | AuthoredBuildIntentionalResponseSourcePolicyV2 | AuthoredBuildIntentionalResponseSourceImagePolicyV2 | BuildIntentionalResponseImagePolicyV2 | BuildIntentionalResponsePolicyV2 | BuildIntentionalResponseSourceImagePolicyV2 | BuildIntentionalResponseSourcePolicyV2 | BuildRelationshipReviewImagePolicyV1 | BuildRelationshipReviewPolicyV1 | BuildSourceQuoteImagePolicyV1 | BuildSourceQuotePolicyV1 | BuildConnectedPageReviewImagePolicyV1 | BuildConnectedPageReviewPolicyV1 | BuildCollaborationImagePolicyV1 | BuildCollaborationPolicyV1 | BuildRelatedPageDraftImagePolicyV1 | BuildRelatedPageDraftPolicyV1 | BuildExactSavedLinesDraftImagePolicyV1 | BuildExactSavedLinesDraftPolicyV1 | BuildDraftWorldContextImagePolicyV1 | BuildDraftWorldContextPolicyV1 | BuildNamedWorldContextImagePolicyV1 | BuildNamedWorldContextPolicyV1 | PlanNativeSourceSectionsPolicyV1 | PlanJevRetrievalPolicyV1 | BuildWorldContextImagePolicyV1 | BuildWorldContextPolicyV1 | BuildPrimaryWorkStatusImagePolicyV1 | BuildPrimaryWorkStatusPolicyV1 | BuildPrimaryWorkImagePolicyV1 | BuildPrimaryWorkPolicyV1 | BuildImageActionPolicyV1 | BuildEncodedAssessmentPolicyV1 | BuildInitialEstimatedSelectedSourcePolicyV1 | BuildSelectedSourceActionControllerWriterPolicyV1 | BuildCitedSourceActionControllerWriterPolicyV1 | BuildReadBatchActionControllerWriterPolicyV1 | BuildWriterBudgetActionControllerWriterPolicyV1 | BuildJointSupportActionControllerWriterPolicyV1 | BuildEstimatedActionControllerWriterPolicyV1 | BuildContainedActionControllerWriterPolicyV1 | BuildPhaseActionControllerWriterPolicyV1 | BuildFrontierActionControllerWriterPolicyV1 | BuildContinuationActionControllerWriterPolicyV1 | BuildCompactActionControllerWriterPolicyV1 | BuildActionControllerWriterPolicyV1 | BuildSectionControllerWriterPolicyV1 | ControllerWriterGraphExecutionPolicyV3 | SettledGraphExecutionPolicyV3 | GraphExecutionPolicyV3
     events: list[GraphExecutionEventV3] = Field(max_length=2048)
 
     @model_validator(mode="after")
     def validate_controller_writer_phases(self) -> "PlanWorldGraphExecutionV3":
         from .build_draft_context import validate_execution_records, validate_provider_inclusions
         validate_execution_records(self)
+        from .authored_graph_references import validate_execution as validate_authored_execution
+        validate_authored_execution(self)
         validate_provider_inclusions(self)
         from .build_related_pages import validate_events as validate_related_page_events
         validate_related_page_events(self)
@@ -4290,7 +4387,8 @@ class PlanWorldGraphExecutionV3(PlanWorldGraphExecutionV2):
                         and (action_selection is None or action_selection.operation == "answer_from_sources")):
                         if writer_selection is None:
                             raise ValueError("Source writer requires a settled evidence selection")
-                        if set(event.included_source_read_event_ids) != set(writer_selection.source_event_ids):
+                        from .authored_graph_references import source_event_ids as authored_source_ids
+                        if set(event.included_source_read_event_ids) != set(writer_selection.source_event_ids) | authored_source_ids(self):
                             raise ValueError("Source writer exposure differs from selected event closure")
                         section_events = {e.event_id: e.read_id for e in self.events[:event.sequence]
                                           if isinstance(e, ValidatedBuildSectionReadV1)}
@@ -5607,7 +5705,7 @@ class TurnSubmission(StrictModel):
     user_text: str
     provenance: TurnProvenance
     submitted_intent_v1: PlayRulesIntentV1 | SubmittedTurnIntentV1 | None = None
-    submitted_intent_v2: SubmittedTurnIntentV2 | BuildGraphIntentV1 | PlayGraphIntentV1 | None = None
+    submitted_intent_v2: SubmittedTurnIntentV2 | BuildGraphIntentV2 | BuildGraphIntentV1 | PlayGraphIntentV1 | None = None
     graph_context_receipt: GraphContextReceipt | None = None
     graph_context_execution: GraphTurnExecution | None = None
     play_context_receipt: PlayRunTurnContextReceiptV2 | None = None
@@ -5761,6 +5859,18 @@ def _validate_build_submission(submission: TurnSubmission) -> None:
         or any(x is not None for x in (ref.object_revision, ref.work_revision_id, ref.revision_n))
         or provenance.selected_object.resolution != "absent"):
         raise ValueError("Build Graph receipt must match the submitted source and provenance")
+    from .authored_graph_references import policy_enabled as authored_enabled
+    policy = submission.graph_context_execution.policy
+    if isinstance(intent, BuildGraphIntentV2):
+        intent.authored_references.require_world(submission.world_id)
+        authority = receipt.graph_authority
+        if any(ref.native_world_id != authority.native_world_id or ref.binding_version != authority.binding_version
+            for ref in intent.authored_references.references):
+            raise ValueError('Authored references differ from the frozen World binding')
+        if not authored_enabled(policy) or policy.authored_graph_references_sha256 != intent.authored_references.sha256:
+            raise ValueError('Authored references differ from the admitted intent and policy')
+    elif authored_enabled(policy):
+        raise ValueError('Historical Build intent cannot gain authored references')
     binding = intent.reviewed_step
     if binding is not None and binding.reference.conversation_id != submission.conversation_id:
         raise ValueError("Reviewed action belongs to a different conversation")

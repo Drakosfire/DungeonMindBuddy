@@ -127,8 +127,9 @@ def freeze_interaction(adapter):
             "assistant_sha256": hashlib.sha256(row.assistant_text.encode()).hexdigest(),
             **({'collaboration': collaboration.model_dump(mode='json'), 'collaboration_sha256': digest(collaboration.model_dump(mode='json'))} if object_only else {})})
     history = project_dialogue(list(reversed(history)))
+    from application_state.agent_conversation.authored_graph_references import provider_references
     related=(adapter.budget.get("buildJevActions") or {}).get("related_page_catalog")
-    return {**({"related_page_catalog":related} if related is not None else {}), "allowed_operations": (adapter.budget.get("buildJevActions") or {}).get("allowed_surface_operations", ["answer_from_sources"] + (["propose_build_insertion"] if capability else [])),
+    return {**({"authored_graph_references": {"status": "selected_unread", "input": provider_references(adapter.request.build_authored_references)}} if adapter.request.build_authored_references is not None else {}), **({"related_page_catalog":related} if related is not None else {}), "allowed_operations": (adapter.budget.get("buildJevActions") or {}).get("allowed_surface_operations", ["answer_from_sources"] + (["propose_build_insertion"] if capability else [])),
         "capability_sha256": digest(capability.model_dump(mode="json")) if capability else None,
         "conversation_id": str(conversation_id) if conversation_id else None,
         "pointer_revision": pointer.revision, "history": history,
@@ -390,8 +391,10 @@ class BuildJevDriver:
             from uuid import uuid4
             from .agent_turn_service import _require_fresh_execution_append
             arguments = {"instruction": adapter.request.message} if self.operation == "propose_build_insertion" else {}
-            self.selection = ledger.BuildReviewedActionSelectionV1(
-                kind="build_reviewed_action_selected_v1", event_id=uuid4(),
+            authored = isinstance(adapter.submitted_intent, ledger.BuildGraphIntentV2)
+            selection_type = ledger.BuildReviewedActionSelectionV2 if authored else ledger.BuildReviewedActionSelectionV1
+            self.selection = selection_type(
+                kind="build_reviewed_action_selected_v2" if authored else "build_reviewed_action_selected_v1", event_id=uuid4(),
                 sequence=len(adapter._broker_execution().events), intent=adapter.submitted_intent,
                 operation=self.operation,
                 broker_operation_id="build-reviewed:" + digest({"turn_id":str(adapter.turn.turn_id), "attempt":adapter.turn.attempt, "binding":self.reviewed_binding.model_dump(mode="json")}),
