@@ -1,6 +1,6 @@
 # BUILD: recoverable connected-page operation
 
-Status: ACTIVE. Independent amended design approved at SHA-256 892e9911001cd344dabed84b0da2f4cefea82e4505f6b57abec43310a20d90db. Operator-authorized second serial connected-page slice; broader goal remains paused. PRIME solo implements in existing Buddy checkout on `codex/build-connected-page-operation`, base `9195d78397743dce812a545278eafa3454519b74`. First source-admission slice #1723 merged there after independent approval at f7a2b311f; 108 focused tests passed. No runtime rollout yet. Cross-owner design: OverMind 46012c83a1e90dae2ff5f4bc8ae7bfb235da78ea (#56 merged at 7666b50).
+Status: DELIVERED IN CODE, combined UI/runtime proof pending. #1724 merged dd2acbc0deff5f71fa5ece1a85ab1c9331d2f434 after independent exact e31be7952 approval and 180 passing tests. Successor: HANDOFF-BUILD-connected-page-interaction.md. Independent amended design approved at SHA-256 892e9911001cd344dabed84b0da2f4cefea82e4505f6b57abec43310a20d90db. Operator-authorized second serial connected-page slice; broader goal remains paused. PRIME solo implements in existing Buddy checkout on `codex/build-connected-page-operation`, base `9195d78397743dce812a545278eafa3454519b74`. First source-admission slice #1723 merged there after independent approval at f7a2b311f; 108 focused tests passed. No runtime rollout yet. Cross-owner design: OverMind 46012c83a1e90dae2ff5f4bc8ae7bfb235da78ea (#56 merged at 7666b50).
 
 ## Contract
 
