@@ -1,0 +1,9 @@
+# BUILD: page relationships in Source actions
+
+ACTIVE after independent design approval at4f6d9161bc580e21c6042c8dc5338f4df3dcf423, operator-authorized conversation dogfood correction. PRIME solo, existing buddy-context-loop checkout, baseacbdb5d6bff9a203a695676d3d0e71b81197752d, branchcodex/build-relationships-menu. Re-anchor found no overlapping open lease. One serial UI PR, then separate named-conversation library slice after this delivery. Broad preparation/Play goal remains paused.
+
+Move the existing acknowledged page association panel into Source actions as Relationships & origin. It contains original passage navigation and the actual directed person/place predicates. Remove the misplaced Build out action from this inspection panel; ordinary conversation remains the writing entry. No persistent floating relationships control, viewport positioning or composer overlap. The real pending creation recovery control stays separately owned and unchanged.
+
+BuildSurfaceContext owns a menu host; BuildConnectedPageControl portals its existing read-only association into that exact host only. Fence stale World/document reads as already done; no duplicate association read, copied graph state or new persistence. Existing selection/create/Retry stays intact.
+
+Expected exclusive writes: this handoff; BuildSurfaceContext.tsx and owning test; BuildConnectedPageControl.tsx/.css/.test.tsx. No API, state, inference, graph schema, generated content or migration changes. Verify acknowledged relationships/origin render only under the Source actions host, no build-out button; missing host renders no panel; selection/form/recovery regressions and production build. Independent exact cumulative Bugbot approval before PRIME merge; protected UI5202 delivery against current APIacbdb5d6. Ordinary Brin menu inspection, origin navigation and no overlap in docked/expanded conversation; original text/drafts/state retained. Operator UX acceptance remains open.
