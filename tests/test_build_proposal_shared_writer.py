@@ -124,3 +124,35 @@ def test_shared_seam_requires_real_agent_origin(request_case):
     with pytest.raises(ValueError, match='origin_required'):
         asyncio.run(owner.compose_with_writer(request, parent.gate()))
     assert parent.prepared == []
+
+
+def test_real_writer_progress_is_provisional_before_exact_final_admission(request_case, monkeypatch):
+    from apps.live_control_server.services.build_construction_stream import construction_sink
+    request, _, _, parent, tool, message, wire, _ = setup(request_case, monkeypatch)
+    observed=[]
+    token=construction_sink.set(lambda value: observed.append((value, parent.row().state, parent.row().raw_response)))
+    try:
+        reply=json.loads(tool.dispatch(message)['resultJson'])
+    finally:
+        construction_sink.reset(token)
+    assert reply['status']=='awaiting_approval' and len(wire.calls)==1
+    building=[item for item in observed if item[0]['status']=='building']
+    assert building and all(state=='response_received' and raw is None for _,state,raw in building)
+    assert observed[-1][0]['status']=='ready' and observed[-1][1]=='proposed'
+    assert observed[-1][0]['origin']==parent.row().reservation.origin.model_dump(mode='json')
+    assert observed[-1][0]['provider_attempt_id']==str(parent.row().authorization.provider_attempt_id)
+    assert parent.row().raw_response==wire.text
+
+
+def test_failed_final_evidence_acknowledgment_cannot_produce_ready_proposal(request_case,monkeypatch):
+    request, _, _, parent, tool, message, wire, _ = setup(request_case,monkeypatch)
+    advance=BuildProposalService.advance
+    def deny(self,*args,**kwargs):
+        if kwargs.get('raw_response') is not None:
+            raise ValueError('synthetic failed final evidence acknowledgment')
+        return advance(self,*args,**kwargs)
+    monkeypatch.setattr(BuildProposalService,'advance',deny)
+    reply=json.loads(tool.dispatch(message)['resultJson'])
+    assert reply['status']!='awaiting_approval'
+    assert parent.row().proposal is None and parent.row().raw_response is None
+    assert len(wire.calls)==1

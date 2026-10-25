@@ -1,8 +1,12 @@
 # BUILD — preserve the finite source-status domain in draft answers
 
-ACTIVE: operator explicitly resumed PR1709 on2026-10-24, authorizing review,
-merge, protected API delivery and an ordinary authoring check. Re-anchored onto
-current main b3404e6e8 after conversation-design dogfood slices1710–1718.
+DELIVERED: operator resumed PR1709 on2026-10-24; independent exact-head
+Bugbot approved2ccd7d2a51c201fffb57da9450d8159452e730de,54 owning tests passed,
+merge40b7f395bfdfad04b3ca0d6de3076c6ae6bfeb1f adopted through protected API
+rollout. Ordinary synthetic follow-up65b8adbf-a2c1-47c3-9b38-9e75571164c4
+completed9.083s, returned the edited Copper House task, survived reload, and
+preserved source revision12/hash. UI remained506162b0. No full-goal completion.
+The original serial lease below is released; pause text is historical evidence.
 
 Original serial PRIME implementation lease atfa69816c492581da38f087ebdbe2b52156270b05,
 branch codex/draft-writer-status-domain, existing Buddy context-loop checkout.

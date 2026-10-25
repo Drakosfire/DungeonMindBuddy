@@ -5,9 +5,10 @@ from hashlib import sha256
 import json
 import os
 import re
+from contextlib import aclosing
 from uuid import UUID
 
-from generationengine import GenerationClient, GenerationEngineError, TextRequest
+from generationengine import GenerationClient, GenerationEngineError, TextRequest, TextCompleted, TextDelta, TextFailed
 from generationengine.providers.openai_text import OpenAITextProvider
 from generationengine.text_dispatch import TextDispatchGate
 
@@ -206,24 +207,73 @@ async def _compose(request: BuildDocumentProposalRequest, *, transport=None, wri
         else:
             advance({"sending": "sdk_entered", "response_received": "response_received", "outcome_unknown": "unknown"}[event.outcome])
         return True
+    from .build_construction_stream import MarkdownStringProgress, observe
+    projection = MarkdownStringProgress()
+    sequence = 0
+
+    def progress(status="building", markdown=None):
+        nonlocal sequence
+        origin = reservation.origin
+        if origin is None or record.authorization is None:
+            return
+        sequence += 1
+        observe({"schema": "dmb_build_construction_v1", "action_id": str(record.action_id),
+            "reservation_sha256": record.request_fingerprint,
+            "conversation_id": str(reservation.conversation_id),
+            "basis": reservation.basis.model_dump(mode="json"),
+            "origin": origin.model_dump(mode="json"),
+            "provider_attempt_id": str(record.authorization.provider_attempt_id),
+            "sequence": sequence, "status": status,
+            "markdown": projection.markdown if markdown is None else markdown})
+
+    class ObservedProvider:
+        def __init__(self, provider):
+            self.provider = provider
+
+        async def aclose(self):
+            await self.provider.aclose()
+
+        async def stream(self, call):
+            async with aclosing(self.provider.stream(call)) as stream:
+                async for event in stream:
+                    if isinstance(event, TextCompleted):
+                        # Exact provider final, before GE conformance. Deltas are
+                        # never substituted for this evidence acknowledgment.
+                        advance("response_received", raw_response=event.final_text)
+                    elif isinstance(event, TextDelta):
+                        try:
+                            changed = projection.feed(event.text)
+                            if changed:
+                                progress("incomplete" if projection.invalid else "building")
+                        except Exception:
+                            projection.invalid = True
+                            progress("incomplete")
+                    yield event
+
     client = None
     try:
         provider = OpenAITextProvider(api_key=os.environ.get("OPENAI_API_KEY"), dispatch_gate=TextDispatchGate(authorize, lifecycle), transport=transport)
-        client = GenerationClient(text_providers={"openai": provider})
-        async def preserve_attempt(event):
-            if event.text is not None:
-                advance("response_received", raw_response=event.text)
-        result = await client.generate_structured(TextRequest(provider="openai", model=model,
+        client = GenerationClient(text_providers={"openai": ObservedProvider(provider)})
+        result = None
+        async for event in client.stream_text(TextRequest(provider="openai", model=model,
             user_prompt=packet, system_prompt=expected["instructions"], temperature=None, max_output_tokens=4096,
             reasoning_effort="low", json_schema=schema, schema_name="build_document_proposal",
-            max_conformance_retries=0, max_transport_retries=0), on_attempt_completed=preserve_attempt)
-        if not isinstance(result.text, str):
+            max_conformance_retries=0, max_transport_retries=0)):
+            if isinstance(event, TextFailed):
+                raise GenerationEngineError(event.failure, event.observation)
+            if isinstance(event, TextCompleted):
+                result = event
+        if result is None:
             raise BuildComposeError("build_compose_output_unavailable")
-        advance("response_received", raw_response=result.text, observation=result.observation.model_dump(mode="json"))
-        proposal = _result(result.text)
+        if not isinstance(result.final_text, str):
+            raise BuildComposeError("build_compose_output_unavailable")
+        advance("response_received", raw_response=result.final_text, observation=result.observation.model_dump(mode="json"))
+        proposal = _result(result.final_text)
         advance("proposed", proposal=proposal)
+        progress("ready", proposal.replacement_markdown)
         return record
     except Exception as exc:
+        progress("incomplete")
         # Preserve uncertainty and forbid unchanged replay after SDK entry.
         if record.state in {"reserved", "authorized", "response_received"}:
             fields = {"observation": exc.observation.model_dump(mode="json")} if isinstance(exc, GenerationEngineError) else {}
@@ -262,5 +312,5 @@ def _writer_request(request, snapshot, model, *, frozen_history=None):
     schema = BuildGeneratedProposal.model_json_schema()
     expected = {"model": model, "input": packet, "instructions": SYSTEM + dialogue_rule(messages),
         "max_output_tokens": 4096, "reasoning": {"effort": "low"},
-        "text": {"format": {"type": "json_schema", "name": "build_document_proposal", "schema": schema, "strict": True}}, "tools": [], "stream": False}
+        "text": {"format": {"type": "json_schema", "name": "build_document_proposal", "schema": schema, "strict": True}}, "tools": [], "stream": True}
     return expected

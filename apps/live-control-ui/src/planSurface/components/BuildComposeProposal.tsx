@@ -1,3 +1,5 @@
+import type {BuildConstructionProgress} from '../../api/buildConstructionStream';
+import {BuildConstructionPreview} from '../../buildSurface/BuildConstructionPreview';
 import { proposalReview, type BuildProposalReview } from '../../api/buildProposalReviewApi';
 import { BuildPageProposal } from '../../buildSurface/BuildPageProposal';
 import { PreparedBuildImage, listPreparedImages, type PreparedImage } from "../../media/PreparedBuildImage";
@@ -21,10 +23,16 @@ export function useBuildCompose({ worldId, history, bridge, enabled, onHistory, 
   const scope = enabled ? `${worldId}:${history?.conversation_id ?? ''}` : '';
   const generation = useRef({ scope, epoch: 0 });
   if (generation.current.scope !== scope) generation.current = { scope, epoch: generation.current.epoch + 1 };
-  const current = useRef({ scope, epoch: generation.current.epoch, worldId, history, bridge, enabled, onHistory });
-  current.current = { scope, epoch: generation.current.epoch, worldId, history, bridge, enabled, onHistory };
+  const current = useRef({ scope, epoch: generation.current.epoch, worldId, history, bridge, enabled, onHistory, pageDocumentId, sourceKey });
+  current.current = { scope, epoch: generation.current.epoch, worldId, history, bridge, enabled, onHistory, pageDocumentId, sourceKey };
+  const constructionScope=JSON.stringify([scope,history?.active_conversation_id,history?.pointer_revision]);
+  const constructionView=useRef({sourceKey,pageDocumentId,bridge,scope:constructionScope,epoch:0});
+  if(constructionView.current.sourceKey!==sourceKey||constructionView.current.pageDocumentId!==pageDocumentId
+    ||constructionView.current.bridge!==bridge||constructionView.current.scope!==constructionScope)
+    constructionView.current={sourceKey,pageDocumentId,bridge,scope:constructionScope,epoch:constructionView.current.epoch+1};
   const [records, setRecords] = useState<{ scope: string; values: BuildProposalRecord[] }>({ scope: '', values: [] });
   const [imageRecords,setImageRecords] = useState<{scope:string;values:PreparedImage[]}>({scope:'',values:[]});
+  const [construction,setConstruction]=useState<{scope:string;sourceKey:string;viewEpoch:number;progress:BuildConstructionProgress}|null>(null);
   const [refreshNonce, setRefreshNonce] = useState(0);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -175,8 +183,21 @@ export function useBuildCompose({ worldId, history, bridge, enabled, onHistory, 
   const selected=opened?.documentId===pageDocumentId?opened:null;
   const latest=[...values].reverse().find(record=>record.proposal&&record.reservation.basis.editor_sha256&&record.reservation.basis.document_id===pageDocumentId);
   const active=values.find(record=>record.action_id===(selected?.action??latest?.action_id)&&record.reservation.basis.document_id===pageDocumentId);
-  return { busy, error, submit, prepareHarnessTurn, refresh: () => setRefreshNonce(value => value + 1),
-    pageElement: enabled&&bridge&&active?.proposal&&!active.inserted_in_draft&&active.reservation.basis.editor_sha256
+  const building=construction?.scope===scope&&construction.sourceKey===sourceKey&&construction.viewEpoch===constructionView.current.epoch
+    &&construction.progress.basis.document_id===pageDocumentId
+    &&!values.some(value=>value.action_id===construction.progress.action_id&&value.proposal)?construction.progress:null;
+  return { busy, error, submit, prepareHarnessTurn,
+    observeConstruction:(progress:BuildConstructionProgress)=>{
+      if(!mounted.current||!current.current.enabled||progress.basis.world_id!==current.current.worldId
+        ||progress.basis.document_id!==current.current.pageDocumentId||progress.conversation_id!==current.current.history?.conversation_id)return;
+      setConstruction({scope:current.current.scope,sourceKey:current.current.sourceKey,viewEpoch:constructionView.current.epoch,progress});
+    },
+    finishConstruction:(action:string|undefined)=>setConstruction(value=>value!==null&&value.progress.action_id===action&&value.progress.status==='building'
+      ?{...value,progress:{...value.progress,status:'incomplete'}}:value),
+    refresh: () => setRefreshNonce(value => value + 1),
+    pageElement: enabled&&bridge&&building
+      ? <BuildConstructionPreview progress={building} bridge={bridge} sourceKey={sourceKey} onVisible={onReviewOnPage}/>
+      : enabled&&bridge&&active?.proposal&&!active.inserted_in_draft&&active.reservation.basis.editor_sha256
       &&history?.active_conversation_id===active.reservation.conversation_id
       &&history.pointer_revision===active.reservation.expected_pointer_revision
       ? <BuildPageProposal key={`${scope}:${active.action_id}`} record={active} bridge={bridge} sourceKey={sourceKey}

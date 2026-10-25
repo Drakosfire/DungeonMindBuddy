@@ -1,10 +1,11 @@
 # Buddy roadmap — author, plan, play, remember
 
 **Status:** current product execution ledger; reconciled2026-10-24.
-**Evidence anchor:** API `d68320086b46a68e2b812b00588bf3d494063c25`, UI
+**Evidence anchor:** API `40b7f395bfdfad04b3ca0d6de3076c6ae6bfeb1f`, UI
 `506162b09f3296ac5c9b5265d923a16428c90835` (#1717), ports8000/5202,
 APP0061/native0017, Core `a21c9e791fd090999a53318700a8010227b15c05`.
-UI adoption preserved all2,571 retained APP rows; API unchanged and healthy.
+The protected API adoption preserved all2,571 retained APP rows, native state,
+frozen components and retained sources. UI remains unchanged from1717.
 This is a delivery snapshot, not completion of the journeys below.
 **Owner:** DungeonMindBuddy; [steward mandate](../Plans/STEWARDS-HANDOFF-demo.md).
 
@@ -102,12 +103,15 @@ implementation assignment. Selected-text→map pin→object drafting remains a
 product direction requiring its own bounded contract and proof.
 
 [Writer status-domain repair](https://github.com/Drakosfire/DungeonMindBuddy/pull/1709)
-was explicitly resumed by the operator on2026-10-24 for review, merge, protected
-API delivery and ordinary authoring proof. Its54 author checks passed before the
-pause; the resumed current-head review and deployment remain acceptance gates. The observed table follow-up produced the edited task but
-failed because the draft schema offered a source status excluded by its underlying
-retrieval-dependent source schema. This repair and progressive table construction remain authoring work until their
-respective live gates pass; subsequent UI deliveries do not close them.
+is merged40b7f395 and delivered after explicit operator resumption, independent
+exact-head Bugbot and54 tests. Ordinary current-page follow-up completed9.083s,
+returned the edited task, survived reload, and left revision12/source hash unchanged.
+It excludes source_grounded when the underlying finite retrieval schema excludes
+it, retaining authored grounding. This closes that bounded repair, not the authoring
+journey. [Real table construction](../Plans/HANDOFF-BUILD-table-construction-stream.md)
+is the active serial consumer slice after GE27 merged3e085168 (353 provider-free
+tests, independent Bugbot, Python3.11/3.13 CI). Its transport, Surface preview and
+rendered ordinary/recovery gates are not yet delivered.
 
 Preserve and verify the shipped scene→encounter→immutable mechanics successor→
 explicit adoption→Play→reload/resume loop. Use Of Conks and Cons and A Wild Sheep

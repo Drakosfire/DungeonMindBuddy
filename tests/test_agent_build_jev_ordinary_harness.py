@@ -118,7 +118,7 @@ class WriterWire(httpx.AsyncBaseTransport):
             if packet.get("retrieval_disposition", {}).get("status") == "insufficient_evidence":
                 answer["limitations"].append("missing_requested_details")
             text = json.dumps(answer)
-        return httpx.Response(
+        response = httpx.Response(
             200,
             request=request,
             json={
@@ -145,6 +145,13 @@ class WriterWire(httpx.AsyncBaseTransport):
                 },
             },
         )
+        if body.get("stream") is True:
+            events = [dict(type="response.output_text.delta", sequence_number=1,
+                item_id="msg", output_index=0, content_index=0, delta=text),
+                dict(type="response.completed", sequence_number=2, response=response.json())]
+            return httpx.Response(200, request=request, headers={"content-type":"text/event-stream"},
+                content=''.join('data: '+json.dumps(event)+'\n\n' for event in events).encode())
+        return response
 
 
 def ordinary_case(build_case, monkeypatch, *, authoring=False):
@@ -764,9 +771,10 @@ def test_failed_structured_writer_keeps_reported_usage(
     class BadOutput(WriterWire):
         async def handle_async_request(self, request):
             response = await super().handle_async_request(request)
-            data = response.json()
-            data["output"][0]["content"][0]["text"] = '{"invalid_proposal":true}'
-            return httpx.Response(200, request=request, json=data)
+            events = [json.loads(line[6:]) for line in response.text.splitlines() if line.startswith('data: ')]
+            events[-1]["response"]["output"][0]["content"][0]["text"] = '{"invalid_proposal":true}'
+            return httpx.Response(200, request=request, headers={"content-type":"text/event-stream"},
+                content=''.join('data: '+json.dumps(event)+'\n\n' for event in events).encode())
 
     decisions, writer = DecisionWire(operation="propose_build_insertion"), BadOutput()
     runtime = BuildJevHarness(decision_transport=decisions, writer_transport=writer)
@@ -782,6 +790,8 @@ def test_failed_structured_writer_keeps_reported_usage(
     assert runtime.calls[-1]["usage"]["output_tokens"] == 40
     assert runtime.calls[-1]["usage"]["total_tokens"] == 140
     assert runtime.calls[-1]["usage"]["status"] == "reported"
+    action=BuildProposalService().get('elderwyld',case[1].build_write_capability.idempotency_key)
+    assert action.raw_response == '{"invalid_proposal":true}' and action.proposal is None
     service = AgentConversationService()
     turn = service.list_turns("elderwyld", case[1].build_write_capability.conversation_id)[0]
     traces = service.list_context_trace_attempts(world_id="elderwyld", turn_id=turn.turn_id)
