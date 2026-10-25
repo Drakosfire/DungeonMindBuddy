@@ -26,7 +26,7 @@ _RELATIONSHIP = """
  AND jsonb_typeof(completion->'collaboration'->'source'->'label')='string'
  AND jsonb_typeof(completion->'collaboration'->'source'->'kind')='string'
  AND jsonb_typeof(completion->'collaboration'->'target'->'label')='string'
- AND jsonb_typeof(completion->'collaboration'->'target'->'kind')='string' 
+ AND jsonb_typeof(completion->'collaboration'->'target'->'kind')='string'
 """
 _REVIEW = _prior._REVIEW.replace("dmb_build_connected_page_review_completion_v1", "dmb_build_relationship_review_completion_v1").replace("completion->'collaboration'='null'::jsonb OR", f"completion->'collaboration'='null'::jsonb OR COALESCE(({_RELATIONSHIP}),FALSE) OR") + " AND graph_context_execution->'policy'->>'relationship_review_policy'='typed_saved_relationship_review_v1'"
 def upgrade():
