@@ -1,12 +1,18 @@
 import type { Editor } from '@tiptap/core';
 import { MEDIA_ASSET_ID } from '../media/mediaReferences';
 
-/** Pick a real editor position; the owner retains capture and write authority. */
-export function pickMediaInsertion<T>({ editor, assetId, signal, mode, isCurrent, capture }: {
-  editor: Editor; assetId: string; signal: AbortSignal; mode: 'click' | 'drag';
-  isCurrent: () => boolean; capture: () => Promise<T>;
-}): Promise<T> {
-  if (editor.isDestroyed || !isCurrent() || !MEDIA_ASSET_ID.test(assetId)) return Promise.reject(new Error('Open the editable page before placing this image.'));
+type MediaPicker<T>={editor:Editor;assetId:string;signal:AbortSignal;mode:'click'|'drag';isCurrent:()=>boolean;capture:()=>Promise<T>};
+/** Existing media wrapper keeps its asset validation and drag contract. */
+export function pickMediaInsertion<T>(options:MediaPicker<T>):Promise<T>{
+  if(!MEDIA_ASSET_ID.test(options.assetId))return Promise.reject(new Error('Open the editable page before placing this image.'));
+  return pickDocumentInsertion({...options,operationId:options.assetId,noun:'image',dragMime:'application/x-dmb-media'});
+}
+/** A UUID identifies a local picker operation, not an asset or an execution receipt. */
+export function pickDocumentInsertion<T>({ editor, operationId, signal, mode, isCurrent, capture,noun,dragMime }: {
+  editor:Editor;operationId:string;signal:AbortSignal;mode:'click'|'drag';isCurrent:()=>boolean;capture:()=>Promise<T>;
+  noun:'image'|'plan';dragMime:string;
+}):Promise<T>{
+  if (editor.isDestroyed || !isCurrent() || !/^[a-f0-9]{8}-(?:[a-f0-9]{4}-){3}[a-f0-9]{12}$/i.test(operationId)) return Promise.reject(new Error(`Open the editable page before placing this ${noun}.`));
   const dom = editor.view.dom;
   return new Promise<T>((resolve, reject) => {
     const cleanup = () => {
@@ -17,14 +23,14 @@ export function pickMediaInsertion<T>({ editor, assetId, signal, mode, isCurrent
     };
     const fail = (reason: Error) => { cleanup(); reject(reason); };
     const abort = () => fail(new DOMException('Placement cancelled.', 'AbortError'));
-    const endDrag = () => fail(new Error('The image was not dropped on the page. Try again.'));
+    const endDrag = () => fail(new Error(`The ${noun} was not dropped on the page. Try again.`));
     const over = (event: DragEvent) => { event.preventDefault(); if (event.dataTransfer) event.dataTransfer.dropEffect = 'copy'; };
     const choose = (event: Event) => {
       if (mode === 'drag') { event.preventDefault(); event.stopImmediatePropagation(); }
       try {
         signal.throwIfAborted();
-        if (editor.isDestroyed || !isCurrent()) throw new Error('The page changed. Choose the image again on its original page.');
-        if (mode === 'drag' && (event as DragEvent).dataTransfer?.getData('application/x-dmb-media') !== assetId) throw new Error('Drop the selected saved image, not a file, link or outside image.');
+        if (editor.isDestroyed || !isCurrent()) throw new Error(`The page changed. Choose the ${noun} again on its original page.`);
+        if (mode === 'drag' && (event as DragEvent).dataTransfer?.getData(dragMime) !== operationId) throw new Error(`Drop the selected saved ${noun}, not a file, link or outside ${noun}.`);
         if (!editor.state.selection.empty) throw new Error('Click a single insertion point; selected text will not be replaced.');
         const pointer = event as MouseEvent;
         const target = editor.view.posAtCoords({ left: pointer.clientX, top: pointer.clientY });
@@ -42,7 +48,7 @@ export function pickMediaInsertion<T>({ editor, assetId, signal, mode, isCurrent
             else resolve(value);
           }, reject);
         });
-      } catch (reason) { fail(reason instanceof Error ? reason : new Error('The image could not be placed.')); }
+      } catch (reason) { fail(reason instanceof Error ? reason : new Error(`The ${noun} could not be placed.`)); }
     };
     if (signal.aborted) { abort(); return; }
     dom.classList.add('is-media-placement-target'); signal.addEventListener('abort', abort, { once: true });

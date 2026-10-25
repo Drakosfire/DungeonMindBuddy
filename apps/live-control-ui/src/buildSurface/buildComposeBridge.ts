@@ -1,5 +1,5 @@
 import {workPlanFence,workPlanBelongsTo,parseWorkPlanFence,workPlanIdentity,type WorkPlanReference} from '../surface/workPlans/workPlanReference';
-import { pickMediaInsertion } from '../documentEditing/pickMediaInsertion';
+import { pickMediaInsertion,pickDocumentInsertion } from '../documentEditing/pickMediaInsertion';
 import type { Editor } from '@tiptap/core';
 import type { WorldBuildDraftSnapshotV1 } from '../api/types';
 import { TextSelection } from '@tiptap/pm/state';
@@ -21,6 +21,7 @@ export interface PreparedWorkPlanPlacement {
   captured:CapturedBuildInsertion;reference:WorkPlanReference;afterEditorJson:string;afterEditorSha256:string;afterDraftSha256:string;
 }
 export interface BuildComposeBridge {
+  pickWorkPlanInsertion?: (options:{signal:AbortSignal;operationId:string})=>Promise<CapturedBuildInsertion>;
   observeWorkPlan?: (reference:WorkPlanReference,onPresence:(present:boolean)=>void)=>()=>void;
   prepareWorkPlan?: (captured:CapturedBuildInsertion,reference:WorkPlanReference)=>Promise<PreparedWorkPlanPlacement>;
   applyWorkPlan?: (prepared:PreparedWorkPlanPlacement)=>void;
@@ -189,6 +190,14 @@ export function createBuildComposeBridge(getCurrent: () => BuildComposeEditorSta
       assertSame(captured, true);
       insertReviewedMarkdownAtAnchor(captured.editor, target(captured.basis), admitted.content, captured.editorJson);
       applied.add(captured); changed(captured.editor);
+    },
+    async pickWorkPlanInsertion(options){
+      const initial=getCurrent(),start=initial?{...initial}:null;
+      if(!start?.canEdit||start.editor.isDestroyed)throw new Error('Open the editable page before placing this plan.');
+      return pickDocumentInsertion({...options,editor:start.editor,mode:'click',noun:'plan',dragMime:'application/x-dmb-work-plan-placement',capture:()=>bridge.capture(),isCurrent:()=>{
+        const now=getCurrent();return !!now?.canEdit&&now.editor===start.editor&&now.worldId===start.worldId&&now.documentId===start.documentId
+          &&now.revision===start.revision&&now.contentSha256===start.contentSha256;
+      }});
     },
     async pickInsertion(options) {
       const initial = getCurrent(); const start = initial ? { ...initial } : null;
