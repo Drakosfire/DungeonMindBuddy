@@ -38,6 +38,14 @@ def cases():
         ("discuss_object", "Let's discuss whether making the candle shop a separate page is worthwhile. Don't prepare it yet.", "converse", None),
         ("research_before_object", "Read the existing candle shop source first so we can decide what to prepare afterward.", "research", None),
     ]
-    return existing + [{"id": name, "question": q, "history": [], "expected_step": step,
+    taxonomy = [{"id": name, "question": q, "history": [], "expected_step": step,
         "expected_item": item, "expected_questions": 2 if name == "ask_before_media" else None,
         "cohort": "fresh_prepare_taxonomy"} for name, q, step, item in holdout]
+
+    ambiguity = [
+        ("missing_action_with_subject", "We are on the candle-shop page. Do whatever we were going to do."),
+        ("missing_object", "Prepare it."),
+    ]
+    return existing + taxonomy + [{"id": name, "question": question, "history": [],
+        "expected_step": "converse", "expected_item": None, "expected_questions": None,
+        "cohort": "fresh_ambiguity_holdout"} for name, question in ambiguity]
