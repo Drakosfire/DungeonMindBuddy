@@ -98,7 +98,9 @@ def _source(conn, world, conversation, source, *, writing=False):
         or turn.status != "completed"
         or turn.provenance.surface_id != "build"
         or turn.provenance.primary_work.kind != "build"
-        or not turn.assistant_text
+        or (not turn.assistant_text and not (
+            turn.assistant_text == '' and getattr(turn.completion, 'schema_', None) == 'dmb_build_intentional_response_completion_v1'
+            and not turn.completion.answer_segments and getattr(turn.completion.collaboration, 'kind', None) == 'plan'))
     ):
         raise ApplicationStateNotFoundError(
             "A completed Build reply in this conversation is required"

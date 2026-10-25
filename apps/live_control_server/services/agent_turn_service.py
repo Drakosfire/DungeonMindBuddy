@@ -1321,6 +1321,10 @@ def _freeze_policy_receipt(
                 policy_class=(graph_types.BuildConnectedPageReviewImagePolicyV1 if (budget.get("buildJevActions") or {}).get("image_preparation_policy") is not None else graph_types.BuildConnectedPageReviewPolicyV1)
             if (budget.get("buildJevActions") or {}).get("relationship_review_policy") is not None:
                 policy_class = graph_types.BuildRelationshipReviewImagePolicyV1 if (budget.get("buildJevActions") or {}).get("image_preparation_policy") is not None else graph_types.BuildRelationshipReviewPolicyV1
+            if (budget.get('buildJevActions') or {}).get('intentional_response_policy') is not None:
+                has_draft = (budget.get('buildJevActions') or {}).get('working_draft_context_policy') is not None
+                has_image = (budget.get('buildJevActions') or {}).get('image_preparation_policy') is not None
+                policy_class = (graph_types.BuildIntentionalResponseImagePolicyV2 if has_image else graph_types.BuildIntentionalResponsePolicyV2) if has_draft else (graph_types.BuildIntentionalResponseSourceImagePolicyV2 if has_image else graph_types.BuildIntentionalResponseSourcePolicyV2)
             policy = policy_class(
                 **({"driver_schema": "dmb_plan_jev_retrieval_v1",
                     "native_source_section_policy":"exact_native_source_sections_v1"} if plan_jev_request is not None else {}),
@@ -2471,6 +2475,9 @@ class _PolicyExecutionAdapter:
         connected_policy=getattr(self._broker_execution().policy,"connected_page_review_policy",None)
         if connected_policy is not None:
             expected_budget["buildJevActions"]["connected_page_review_policy"]=connected_policy
+        from application_state.agent_conversation.build_intentional_response import enabled, budget_fields
+        if enabled(self._broker_execution().policy):
+            expected_budget['buildJevActions'].update(budget_fields(expected_budget['buildJevActions']))
         if self.failure is not None or self.fence is None or self.budget != expected_budget:
             raise ValueError("Controller exposure requires an active admitted Build turn")
         execution = self._broker_execution()
@@ -2608,6 +2615,7 @@ class _PolicyExecutionAdapter:
         self._build_controller_exposure = None
         staged = writer.with_disposition(staged, getattr(self, "build_retrieval_disposition", None))
         staged = writer.with_working_draft(staged, self._broker_execution())
+        staged = writer.with_response_contract(staged, self._broker_execution())
         self._build_writer_projection = staged
         return staged
 
@@ -2624,6 +2632,7 @@ class _PolicyExecutionAdapter:
         self._build_controller_exposure = None
         staged = writer.with_disposition(staged, getattr(self, "build_retrieval_disposition", None))
         staged = writer.with_working_draft(staged, self._broker_execution())
+        staged = writer.with_response_contract(staged, self._broker_execution())
         if isinstance(self._broker_execution().policy, _app_state_graph_execution_types().BuildCitedSourceActionControllerWriterPolicyV1):
             staged = writer.with_cited_output(staged)
         if self.rules_runtime is not None:

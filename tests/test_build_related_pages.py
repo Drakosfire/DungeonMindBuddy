@@ -45,6 +45,9 @@ class PagesDecision(WorldDecisions):
         body = json.loads(request.content)
         data = response.json()
         for key, answer in data["answers"].items():
+            if key == 'requested_work':
+                chosen = getattr(self, 'requested_work', {'answer_from_sources': 'discuss', 'propose_build_insertion': 'write_current_page', 'prepare_build_image': 'prepare_image'}[self.operation])
+                answer.update(choice=chosen, probabilities={v: float(v == chosen) for v in body['questions'][key]['criteria']})
             if key.startswith("related_page_"):
                 chosen = (
                     "read"
@@ -144,6 +147,10 @@ class PagesWriter(WriterWire):
                 "A valid ID from a different page is not support"
                 in wire["instructions"]
             )
+        if getattr(self, 'object_only', False):
+            value = json.loads(raw)
+            value.update(answer_segments=[], answer_context_status='discussion')
+            raw = json.dumps(value)
         data = response.json()
         data["output"][0]["content"][0]["text"] = raw
         return httpx.Response(200, request=request, json=data)
@@ -157,7 +164,7 @@ def completed(build_case, monkeypatch, tmp_path, request):
         if mode
         in {
             "interrupted",
-            "typed_plan",
+            "typed_plan", "typed_plan_only",
             "typed_questions",
             "connected_page",
             "relationship_review",
@@ -230,7 +237,7 @@ def completed(build_case, monkeypatch, tmp_path, request):
         }
 
     monkeypatch.setattr(owner, "materialize", materialize)
-    if operation != "answer_from_sources":
+    if operation != "answer_from_sources" or mode in {'typed_plan', 'typed_plan_only'}:
         from apps.live_control_server.models.build_document_proposal import (
             BuildWriteCapability,
         )
@@ -260,9 +267,10 @@ def completed(build_case, monkeypatch, tmp_path, request):
         )
         request = request.model_copy(update={"build_write_capability": cap})
     writer = PagesWriter()
+    writer.object_only = mode == 'typed_plan_only'
     writer.connected = mode == "connected_page"
     writer.invalid_quote = mode == "invalid_quote"
-    if mode == "typed_plan":
+    if mode in {'typed_plan', 'typed_plan_only'}:
         writer.collaboration = {
             "kind": "plan",
             "steps": [
@@ -284,6 +292,7 @@ def completed(build_case, monkeypatch, tmp_path, request):
         }
     writer.relationship = mode == "relationship_review"
     decisions = PagesDecision(operation=operation)
+    decisions.requested_work = {'typed_plan': 'plan', 'typed_plan_only': 'plan', 'typed_questions': 'clarify_request', 'connected_page': 'review_connected_page', 'relationship_review': 'review_relationship', 'invalid_quote': 'review_relationship'}.get(mode, {'answer_from_sources': 'discuss', 'propose_build_insertion': 'write_current_page', 'prepare_build_image': 'prepare_image'}[operation])
     harness = BuildJevHarness(
         world_context=True,
         named_citations=True,
@@ -569,13 +578,13 @@ def test_unfrozen_policy_cannot_admit_related_authoring_events():
 @pytest.mark.parametrize("completed", ["typed_plan", "typed_questions"], indirect=True)
 def test_typed_workflow_survives_actual_writer_and_app_admission(completed):
     turn, service, *_rest, writer, decisions = completed
-    assert isinstance(turn.completion, t.BuildCollaborationCompletionV1)
+    assert isinstance(turn.completion, t.BuildIntentionalResponseCompletionV1)
     request = json.loads(writer.calls[0].content)
     packet = json.loads(request["input"])
     assert (
         packet["collaboration_output_policy"] == "typed_author_review_collaboration_v1"
     )
-    assert request["text"]["format"]["name"] == "build_working_draft_answer_v5"
+    assert request["text"]["format"]["name"] == "build_intentional_response_answer_v1"
     assert turn.completion.collaboration.model_dump(mode="json") == writer.collaboration
     reloaded = service.list_turns(turn.world_id, turn.conversation_id)[0]
     assert reloaded.completion == turn.completion
@@ -584,7 +593,7 @@ def test_typed_workflow_survives_actual_writer_and_app_admission(completed):
     )
 
     fmt = request["text"]["format"]
-    with pytest.raises(ValueError, match="capability"):
+    with pytest.raises(ValueError, match="format differs"):
         validate_writer_format({**fmt, "name": "build_working_draft_answer_v1"}, packet)
     historical = turn.completion.model_dump(mode="json", by_alias=True)
     historical["schema"] = "dmb_build_related_page_completion_v1"
@@ -616,7 +625,7 @@ def test_cannot_downgrade_retained_collaboration(completed, application_state_ds
 @pytest.mark.parametrize("completed", ["connected_page"], indirect=True)
 def test_connected_review_reads_exact_producing_page_without_factual_claim(completed):
     turn, service, page, body, reads, writer, decisions = completed
-    assert isinstance(turn.completion, t.BuildConnectedPageReviewCompletionV1)
+    assert isinstance(turn.completion, t.BuildIntentionalResponseCompletionV1)
     proposal = turn.completion.collaboration
     assert proposal.kind == "connected_page"
     assert turn.completion.answer_segments[0].kind == "connective"
@@ -699,10 +708,10 @@ def test_wrong_page_quote_is_rejected_through_sdk_and_app(completed):
 @pytest.mark.parametrize("completed", ["relationship_review"], indirect=True)
 def test_relationship_review_survives_actual_sdk_app_history_and_refuses_tampered_source(completed):
     turn, service, _page, _body, _reads, writer, _decisions = completed
-    assert isinstance(turn.completion, t.BuildRelationshipReviewCompletionV1)
+    assert isinstance(turn.completion, t.BuildIntentionalResponseCompletionV1)
     assert turn.completion.collaboration.model_dump(mode="json") == writer.collaboration
     wire=json.loads(writer.calls[0].content)
-    assert wire["text"]["format"]["name"] == "build_working_draft_answer_v5"
+    assert wire["text"]["format"]["name"] == "build_intentional_response_answer_v1"
     assert json.loads(wire["input"])["relationship_review_policy"] == "typed_saved_relationship_review_v1"
     loaded=service.list_turns(turn.world_id,turn.conversation_id)[0]
     assert loaded.completion == turn.completion
@@ -729,3 +738,16 @@ def test_relationship_review_downgrade_refuses_retained_turn(completed,applicati
                 with pytest.raises(RuntimeError,match="Retained relationship reviews"):
                     import_module("application_state.migrations.versions.20261025_0067_relationship_review").downgrade()
     finally:engine.dispose()
+
+
+@pytest.mark.parametrize('completed', ['typed_plan_only'], indirect=True)
+def test_object_only_plan_seeds_existing_review_owner_with_exact_empty_text_digest(completed):
+    from application_state.agent_conversation import work_plan as owner
+    turn, service, *_ = completed
+    assert turn.assistant_text == '' and turn.completion.answer_segments == []
+    assert turn.completion.collaboration.kind == 'plan'
+    steps = [owner.Step(step_id=uuid4(), text=s.text, selected=True, kind=s.kind) for s in turn.completion.collaboration.steps]
+    saved = owner.save(turn.world_id, turn.conversation_id, turn.turn_id, owner.Review(expected_revision=0, steps=steps))
+    assert saved['source_answer_sha256'] == sha256(b'').hexdigest()
+    assert owner.read(turn.world_id, turn.conversation_id, turn.turn_id)['plan']['steps'] == saved['steps']
+    assert service.list_turns(turn.world_id, turn.conversation_id)[0].assistant_text == ''

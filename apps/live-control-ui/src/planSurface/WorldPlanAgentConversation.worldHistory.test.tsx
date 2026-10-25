@@ -6368,4 +6368,33 @@ describe("World Plan conversation consumer", () => {
     expect(await verifiedCommandResolution(response, command)).toBeNull();
   });
 
+  it('rehydrates an intentional object-only clarification inline without a filler reply', async()=>{
+    const context=await planGraphContext('graph_grounded');
+    const {plan_basis:_basis,plan_context_policy:_policy,playable_target:_target,...receipt}=context.receipt;
+    const turnId='11111111-1111-4111-8111-111111111111';
+    const knowledge={schema:'dmb_build_graph_context_response_v1' as const,saved_source_name:null,
+      receipt:{...receipt,schema:'dmb_build_graph_context_receipt_v1' as const,
+        source_basis:{world_id:worldId,document_id:'other-work',registry_revision:1,content_sha256:contentSha256,visibility:'internal' as const},
+        graph_authority:{...receipt.graph_authority,admissibility_version:'gm-v1'}},
+      completion:{schema:'dmb_build_intentional_response_completion_v1' as const,context_receipt_sha256:receipt.context_receipt_sha256,
+        answer_basis:'conversation' as const,answer_context_status:'discussion' as const,answer_segments:[],citation_map:null,source_citations:[],
+        collaboration:{kind:'questions' as const,questions:[{text:'Which shop should we develop?'}]}},
+      execution:null,delivery_replay:true,source_open_targets:[],evidence_anchor_statuses:[],related_recap_context_statuses:[]};
+    const {context_receipt_sha256:_hash,...forHash}=knowledge.receipt;
+    const digest=await sha256Hex(canonicalJson(forHash));
+    knowledge.receipt.context_receipt_sha256=digest;knowledge.completion.context_receipt_sha256=digest;
+    const turn=makeTurn(1,turnId,'Ask which shop I want to develop.','','build');
+    turn.provenance.primary_work={...turn.provenance.primary_work,revision:'1',content_sha256:contentSha256};
+    turn.provenance.supporting_work=[
+      ['dmb_build_source_visibility_v1','internal','1'],
+      ['dmb_build_graph_binding_v1',receipt.graph_authority.native_world_id,String(receipt.graph_authority.binding_version)],
+      ['world_graph_revision',receipt.graph_authority.native_world_id,receipt.graph_authority.graph_revision],
+    ].map(([kind,object_id,revision])=>({resolution:'resolved',kind,object_id,revision,content_sha256:null,object_revision:null,work_revision_id:null,revision_n:null}));
+    setupApi({...history('conversation-a',1,[]),schema:'dmb_agent_conversation_history_v2',turns:[{...turn,knowledge_context:knowledge}]} as WorldAgentConversationHistoryResponse);
+    mountComponent();
+    expect(await screen.findByRole('region',{name:'Clarifying questions'})).toBeInTheDocument();
+    expect(screen.getByLabelText('Question 1')).toHaveValue('Which shop should we develop?');
+    expect(screen.queryByText(/invalid Graph-context receipt/)).not.toBeInTheDocument();
+  });
+
 });

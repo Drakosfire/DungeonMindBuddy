@@ -1260,6 +1260,7 @@ class AgentConversationService:
         native_source_materializer=None,
         build_draft_provider_request_json: str | None = None,
         related_page_proof: dict | None = None,
+        requested_work_proof: dict | None = None,
         related_page_materializer=None,
     ) -> tuple[Turn, bool]:
         world_id = _world_id(world_id)
@@ -1282,6 +1283,14 @@ class AgentConversationService:
                     raise ApplicationStateValidationError("Model cannot select an admitted reviewed action again")
                 if isinstance(event, ProviderAttemptAuthorizedEventV1) and not any(isinstance(e, BuildReviewedActionSelectionV1) for e in turn.graph_context_execution.events):
                     raise ApplicationStateValidationError("Reviewed action must precede provider authorization")
+            from .types import BuildRequestedWorkResolutionV1
+            if isinstance(event, BuildRequestedWorkResolutionV1):
+                from .build_intentional_response import validate_selection
+                captured = conn.execute("SELECT payload FROM agent.turn_context_trace WHERE turn_id=%s AND attempt=%s", (turn.turn_id, turn.attempt)).fetchone()
+                try:
+                    validate_selection(turn, event, requested_work_proof, captured[0] if captured else None)
+                except (ValueError, KeyError, TypeError, AttributeError) as exc:
+                    raise ApplicationStateValidationError(str(exc)) from exc
             from .types import BuildDraftProviderInclusionV1
             if isinstance(event, BuildDraftProviderInclusionV1):
                 from .build_draft_context import validate_inclusion_input
@@ -1655,6 +1664,15 @@ class AgentConversationService:
         return self._append_graph_execution_event(world_id, conversation_id, turn_id,
             expected_revision=expected_revision, expected_attempt=expected_attempt,
             event=selection, duplicate_key="event_id")
+
+    def record_build_requested_work_resolution(self, world_id, conversation_id, turn_id, *,
+            expected_revision, expected_attempt, selection, producer_proof):
+        from .types import BuildRequestedWorkResolutionV1
+        if not isinstance(selection, BuildRequestedWorkResolutionV1):
+            raise ApplicationStateValidationError('A typed semantic resolution is required')
+        return self._append_graph_execution_event(world_id, conversation_id, turn_id,
+            expected_revision=expected_revision, expected_attempt=expected_attempt,
+            event=selection, duplicate_key='event_id', requested_work_proof=producer_proof)
 
     def record_build_reviewed_action_selection(self, world_id, conversation_id, turn_id, *,
             expected_revision, expected_attempt, selection):

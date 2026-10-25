@@ -137,6 +137,9 @@ class BuildJevHarness:
             from .build_related_pages import discover,POLICY
             from application_state.agent_conversation.collaboration import POLICY as COLLABORATION_POLICY, CONNECTED_POLICY
             result["buildJevActions"].update(related_page_context_policy=POLICY,related_page_catalog=discover(request), collaboration_output_policy=COLLABORATION_POLICY, connected_page_review_policy=CONNECTED_POLICY, source_quote_binding_policy="exact_source_quote_binding_v1", relationship_review_policy="typed_saved_relationship_review_v1")
+        if self.related_pages and request.reviewed_step is None:
+            from application_state.agent_conversation.build_intentional_response import budget_fields
+            result['buildJevActions'].update(budget_fields(result['buildJevActions']))
         return result
 
     def execute_response(self, adapter, *, owner, trace):

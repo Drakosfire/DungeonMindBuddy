@@ -245,6 +245,9 @@ class WriterProjection:
         return self.source_bindings_json is not None
 
     def kwargs(self) -> dict:
+        from application_state.agent_conversation import build_intentional_response as intentional
+        packet = json.loads(self.input_json)
+        intentional_output = 'response_contract' in packet
         from application_state.agent_conversation.source_writer_output import POLICY, GAP_SCHEMA_NAME, finite_output_schema
         cited = self.source_writer_output_policy == POLICY
         if self.source_writer_output_policy is not None and (not cited or not self.source_only):
@@ -318,14 +321,14 @@ class WriterProjection:
             if self.source_only
             else SOURCE_INSTRUCTIONS
             if self.has_saved_sections
-            else INSTRUCTIONS) + primary_instructions + (collaboration_instructions if collaboration else "") + (connected_instructions if connected else "") + (RELATIONSHIP_INSTRUCTIONS if relationship else "") + qualification_instructions + quote_instructions,
+            else INSTRUCTIONS) + primary_instructions + (collaboration_instructions if collaboration else "") + (connected_instructions if connected else "") + (RELATIONSHIP_INSTRUCTIONS if relationship else "") + qualification_instructions + quote_instructions + (intentional.WRITER_GUIDANCE if intentional_output else ''),
             "max_output_tokens": OUTPUT_RESERVE,
             "reasoning": {"effort": "low"},
             "text": {
                 "format": mixed_format or {
                     "type": "json_schema",
-                    "name": "build_working_draft_answer_v5" if relationship else QUOTE_FORMAT if quoted else "build_working_draft_answer_v3" if connected else "build_working_draft_answer_v2" if collaboration else "build_working_draft_answer_v1" if draft_context else GAP_SCHEMA_NAME if cited else "build_source_passage_answer",
-                    "schema": finite_output_schema(json.loads(self.input_json), requested_detail_gaps=True) if cited else source_answer_schema(),
+                    "name": intentional.FORMAT if intentional_output else "build_working_draft_answer_v5" if relationship else QUOTE_FORMAT if quoted else "build_working_draft_answer_v3" if connected else "build_working_draft_answer_v2" if collaboration else "build_working_draft_answer_v1" if draft_context else GAP_SCHEMA_NAME if cited else "build_source_passage_answer",
+                    "schema": intentional.output_schema(packet) if intentional_output else finite_output_schema(json.loads(self.input_json), requested_detail_gaps=True) if cited else source_answer_schema(),
                     "strict": True,
                 }
                 if self.source_only
@@ -400,6 +403,26 @@ def with_working_draft(staged: WriterProjection, execution) -> WriterProjection:
     packet = pack_body_aliases(packet)
     return replace(staged, input_json=json.dumps(packet, ensure_ascii=False,
         separators=(",", ":"), sort_keys=True, allow_nan=False))
+
+
+def with_response_contract(staged, execution):
+    from application_state.agent_conversation.build_intentional_response import enabled
+    from application_state.agent_conversation.types import BuildRequestedWorkResolutionV1
+    if not enabled(execution.policy):
+        return staged
+    choices = [e for e in execution.events if isinstance(e, BuildRequestedWorkResolutionV1)]
+    if len(choices) != 1:
+        raise ValueError('Writer requires its unique semantic resolution')
+    packet = json.loads(staged.input_json)
+    packet['response_contract'] = choices[0].resolution
+    from application_state.agent_conversation.build_primary_context import packet_rows
+    packet['authoring_context_inventory'] = {
+        'working_copy': 'captured' if 'working_draft_context' in packet else 'not_captured',
+        'working_copy_dirty': 'unknown',
+        'current_saved_content': 'read' if packet_rows(packet) else 'not_read',
+    }
+    from dataclasses import replace
+    return replace(staged, input_json=json.dumps(packet, sort_keys=True, separators=(',', ':'), ensure_ascii=False))
 
 
 def with_disposition(staged: WriterProjection, disposition) -> WriterProjection:

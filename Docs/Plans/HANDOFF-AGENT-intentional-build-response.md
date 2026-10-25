@@ -2,22 +2,18 @@
 
 ## Authority and current lane
 
-**Integration contract design ACTIVE; runtime implementation BLOCKED pending independent
-approval of the owner contract below.** Proof #1770 merged at
-5374f664c2aa2bc7fdc5b7f9977aeac67202814d, independently approved at
-f44150e6f91ce7d5c350ca5bbb80dd14faaff947. Its registry/eval/test lease is settled;
-prospective modules still have no runtime importers or APP authority. The design-only lane
-uses the existing buddy-context-loop checkout, branch
-`codex/intentional-response-integration-contract`, from that merge. Exclusive writes in
-this PR: this handoff only. Topology: serial. #1764 remains parked; no overlapping response
-integration PR was open at re-anchor. No service, database, corpus or runtime write is active.
-Independent cumulative Bugbot review precedes PRIME merge.
-
-The frozen proof covers requested work, finite resolution and real synthetic writer outputs.
-It does not establish runtime admission or ordinary staging. Retained semantic quality
-failures remain acceptance inputs; schema acceptance is not a semantic quality guarantee.
-Private captures, output assessments, usage and local test evidence stay in existing private
-locations. No new inference round or private writer payload transfer follows from this design.
+**Runtime integration ACTIVE; delivery gated by independent cumulative review and ordinary
+acceptance below.** Contract #1771 merged at e4ec48c4bf96b17ef0ab8543a33286664f672639,
+independently approved at13dae8d4bb60431849a7d483c1e57ca6cd7fdd37. The designing steward
+activates its exact prospective exclusive lease below on branch
+`codex/intentional-build-response-runtime`, base e4ec48c4bf96b17ef0ab8543a33286664f672639,
+in the existing buddy-context-loop checkout. Topology: serial, one integration PR. #1764 stays
+parked; no overlapping response lane was open at activation. Services8000/5202, retained data,
+corpus and native Graph remain read-only until protected delivery gates pass. Disposable test
+Postgres and the existing ignored .pytest_cache evidence area are the only test-state writes.
+No additional inference or private payload transfer is activated. Proof #1770 is settled;
+frozen controls and private output assessments remain unchanged. The lease is implementation
+authority, not a claim of completed admission, migration, staging or rollout.
 
 This amendment supersedes the prospective output-only routing and host-singleton design
 below its predecessor ref. The earlier implementation is retained history, not an alternate
@@ -272,6 +268,7 @@ unreviewed design. Any extra owner path or contract requires explicit steward am
 | `apps/live_control_server/services/build_jev_driver.py` | Initial real semantic question, actual SDK answer validation, exact APP proof append, derived operation, relevant writer projection and object-aware new-format history. Preserve reviewed-author action and actual read/Rules votes. |
 | `apps/live_control_server/services/build_jev_harness.py`, `build_jev_writer.py` | Trusted capability/policy construction, new writer format and neutral/object-only result delivery through existing owners. No fake usage or extra classification call. |
 | `apps/live_control_server/services/agent_turn_service.py` | Narrow policy construction/budget equality, completion projection and binding to new output; preserve receipt/envelope/recovery fences. No unrelated service rewrite. |
+| `apps/live_control_server/services/build_related_pages.py` | Steward amendment discovered by the actual migrated citation-open test: `open_page` admits only the old draft-completion class. Extend that exact completed-answer guard to the new completion while preserving World/turn/read-ID, original acquired-body, and claim membership checks. No discovery/materialization or additional read authority change. Independent Bugbot amendment review approved this guard-only extension before the path was edited; full cumulative implementation review remains required. |
 | `apps/live_control_server/models/agent_turn.py` | Add the new closed completion to Build response decoding. |
 | `apps/live-control-ui/src/api/types.ts`, `shared/sourcePassageProtocol.ts` | Closed new completion/status decoding, optional prose only with a valid supported typed object. No widening old formats. |
 | `apps/live-control-ui/src/planSurface/components/WorldPlanAgentConversation.tsx`, `BuildSourcePassageEvidence.tsx` | Render new completion/citations and typed questions/plans through existing presentation and Surface placement owners; preserve empty-prose objects, pagination, turn joins and composer focus. |
@@ -331,8 +328,12 @@ with the existing threshold and only when resolution actually offers image prepa
 
 The new `dmb_build_intentional_response_completion_v1` is a separate closed completion rather
 than a subclass that accidentally inherits a required draft. Its host-derived basis describes
-actual admitted material: `working_draft_context`, `saved_source_and_opened_passages`,
+actual admitted material: `working_draft_context`, `saved_source`, `saved_source_and_opened_passages`,
 `opened_source_passages`, or `conversation` for neutral output without factual claims.
+Steward amendment from the actual saved-only Rules flow: retain `saved_source` when no
+opened passage is used; do not label that reply as passage-backed. The other basis values
+remain distinct. This field amendment receives the same cumulative independent review as the
+implementation before merge.
 Neutral acknowledgments/capability explanations use `discussion`; genuine limitations and
 creative suggestions retain their distinct statuses. Source/draft/related factual segments
 retain all existing provenance, selector and citation checks. Do not claim an arbitrary-prose
@@ -373,7 +374,7 @@ Permitted test writes (exclusive): new
 `tests/test_agent_build_jev_driver_decisions.py`, `tests/test_agent_build_jev_ordinary_harness.py`,
 `tests/test_build_jev_initial_accounting.py`, `tests/test_build_jev_image.py`,
 `tests/test_build_draft_context.py`, `tests/test_build_writer_selector_schema.py`,
-`tests/test_build_related_pages.py`, `tests/application_state/test_reviewed_work_plan.py`,
+`tests/test_build_related_pages.py`, `tests/test_rules_build_parent.py` (independently approved steward amendment: scripted semantic answers and versioned typed base-output shape only; no weaker assertions), `tests/application_state/test_reviewed_work_plan.py`,
 `apps/live-control-ui/src/planSurface/components/BuildSourcePassageEvidence.test.tsx`, and
 `apps/live-control-ui/src/planSurface/WorldPlanAgentConversation.worldHistory.test.tsx`.
 

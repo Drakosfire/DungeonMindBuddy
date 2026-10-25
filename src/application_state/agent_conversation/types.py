@@ -1913,6 +1913,28 @@ class BuildRelationshipReviewCompletionV1(BuildConnectedPageReviewCompletionV1):
     collaboration: RelationshipCollaboration | None
 
 
+class BuildIntentionalResponseCompletionV1(StrictModel):
+    schema_: Literal['dmb_build_intentional_response_completion_v1'] = Field(default='dmb_build_intentional_response_completion_v1', alias='schema')
+    context_receipt_sha256: str = Field(pattern=r'^[0-9a-f]{64}$')
+    answer_basis: Literal['working_draft_context', 'saved_source', 'saved_source_and_opened_passages', 'opened_source_passages', 'conversation']
+    answer_context_status: Literal['discussion', 'authored_grounded', 'authored_grounded_partial', 'source_grounded', 'source_grounded_partial', 'creative_proposal', 'insufficient_evidence']
+    answer_segments: list[Annotated[DraftReferenceClaimV1 | RelatedPageClaim | SourcePassageClaimV1 | SavedSourceClaimV1 | PlanWorldGraphConnectiveSegmentV1, Field(discriminator='kind')]] = Field(min_length=0, max_length=128)
+    citation_map: None = None
+    source_citations: list[SurfaceSourcePassageCitationV1] = Field(max_length=MAX_CITATION_SOURCE_READ_IDS)
+    collaboration: RelationshipCollaboration | None
+
+    @model_validator(mode='after')
+    def exact_shape(self):
+        BuildDraftContextCompletionV1.validate_shape(self)
+        if not self.answer_segments and self.collaboration is None:
+            raise ValueError('An intentional response must contain prose or a valid typed object')
+        if self.answer_context_status == 'discussion' and any(not isinstance(s, PlanWorldGraphConnectiveSegmentV1) for s in self.answer_segments):
+            raise ValueError('Neutral discussion cannot carry factual reference segments')
+        if self.answer_basis == 'conversation' and (self.source_citations or any(not isinstance(s, PlanWorldGraphConnectiveSegmentV1) for s in self.answer_segments)):
+            raise ValueError('Conversation basis cannot carry factual reference segments')
+        return self
+
+
 class BuildRelatedPageCompletionV1(BuildDraftContextCompletionV1):
     schema_: Literal["dmb_build_related_page_completion_v1"] = Field(default="dmb_build_related_page_completion_v1",alias="schema")
 
@@ -2104,7 +2126,7 @@ class SurfaceEvidenceCompletionV3(SurfaceEvidenceCompletionV2):
         max_length=MAX_CITATION_SOURCE_READ_IDS)
 
 
-GraphTurnCompletion = BuildRelationshipReviewCompletionV1 | BuildConnectedPageReviewCompletionV1 | BuildCollaborationCompletionV1 | BuildRelatedPageCompletionV1 | BuildDraftContextCompletionV1 | BuildNamedGraphCompletionV3 | SurfaceEvidenceCompletionV3 | SurfaceEvidenceCompletionV2 | SurfaceEvidenceCompletionV1 | SurfaceSourceCompletionV1 | PlayWorldGraphCompletionV1 | PlanWorldGraphCompletion | BuildGraphCompletionV1 | BuildGraphCompletionV2 | BuildAuthoringCompletionV1 | BuildImagePreparationCompletionV1
+GraphTurnCompletion = BuildIntentionalResponseCompletionV1 | BuildRelationshipReviewCompletionV1 | BuildConnectedPageReviewCompletionV1 | BuildCollaborationCompletionV1 | BuildRelatedPageCompletionV1 | BuildDraftContextCompletionV1 | BuildNamedGraphCompletionV3 | SurfaceEvidenceCompletionV3 | SurfaceEvidenceCompletionV2 | SurfaceEvidenceCompletionV1 | SurfaceSourceCompletionV1 | PlayWorldGraphCompletionV1 | PlanWorldGraphCompletion | BuildGraphCompletionV1 | BuildGraphCompletionV2 | BuildAuthoringCompletionV1 | BuildImagePreparationCompletionV1
 
 
 class GraphCompletionRejectionCode(str, Enum):
@@ -2790,6 +2812,36 @@ class BuildRelationshipReviewPolicyV1(BuildSourceQuotePolicyV1):
 
 class BuildRelationshipReviewImagePolicyV1(BuildSourceQuoteImagePolicyV1):
     relationship_review_policy: Literal["typed_saved_relationship_review_v1"]
+
+
+class _IntentionalResponseFields(StrictModel):
+    intentional_response_policy: Literal['build_intentional_response_v2']
+    requested_work_menu_sha256: str = Field(pattern=r'^[a-f0-9]{64}$')
+    response_resolver_sha256: str = Field(pattern=r'^[a-f0-9]{64}$')
+    response_capabilities_sha256: str = Field(pattern=r'^[a-f0-9]{64}$')
+    plan_surface_available: bool = Field(strict=True)
+
+    @model_validator(mode='after')
+    def frozen_response_contract(self):
+        from .build_intentional_response import resolution_for
+        resolution_for(self, 'discuss')
+        return self
+
+
+class BuildIntentionalResponsePolicyV2(BuildRelationshipReviewPolicyV1, _IntentionalResponseFields):
+    pass
+
+
+class BuildIntentionalResponseImagePolicyV2(BuildRelationshipReviewImagePolicyV1, _IntentionalResponseFields):
+    pass
+
+
+class BuildIntentionalResponseSourcePolicyV2(BuildNamedWorldContextPolicyV1, _IntentionalResponseFields):
+    pass
+
+
+class BuildIntentionalResponseSourceImagePolicyV2(BuildNamedWorldContextImagePolicyV1, _IntentionalResponseFields):
+    pass
 
 
 class GraphExecutionEventBaseV1(StrictModel):
@@ -3992,6 +4044,17 @@ class BuildJevActionSelectionV1(GraphExecutionEventBaseV1):
     arguments_sha256: str = Field(pattern=r"^[a-f0-9]{64}$")
 
 
+class BuildRequestedWorkResolutionV1(BuildJevActionSelectionV1):
+    kind: Literal['build_requested_work_resolved_v1']
+    controller_response_sha256: str = Field(pattern=r'^[a-f0-9]{64}$')
+    requested_work: Literal['discuss', 'clarify_request', 'plan', 'write_current_page', 'prepare_image', 'review_connected_page', 'review_relationship', 'change_mechanics', 'build_encounter', 'place_map_coordinates', 'save_page', 'publish_relationships', 'other_creation', 'clarify_creation']
+    intent_family: Literal['discuss', 'create']
+    menu_sha256: str = Field(pattern=r'^[a-f0-9]{64}$')
+    resolver_sha256: str = Field(pattern=r'^[a-f0-9]{64}$')
+    response_capabilities_sha256: str = Field(pattern=r'^[a-f0-9]{64}$')
+    resolution: dict
+
+
 class BuildReviewedActionSelectionV1(GraphExecutionEventBaseV1):
     kind: Literal["build_reviewed_action_selected_v1"]
     intent: BuildGraphIntentV1
@@ -4068,7 +4131,7 @@ GraphExecutionEventV3 = Annotated[
     | RelatedRecapContextAuthorizationEventV2 | ValidatedRelatedRecapContextEventV2
     | RelatedRecapContextProviderInclusionEventV2
     | RelatedPagesSelection | RelatedPageRead | RelatedPageInclusion | BuildDraftContextCapturedV1 | BuildDraftProviderInclusionV1 | BuildSectionReadAuthorizationV1 | ValidatedBuildSectionReadV1
-    | BuildSectionProviderInclusionV1 | BuildSectionAnswerBindingV1 | BuildJevActionSelectionV1 | BuildReviewedActionSelectionV1 | BuildWorldReadSelectionV1
+    | BuildSectionProviderInclusionV1 | BuildSectionAnswerBindingV1 | BuildRequestedWorkResolutionV1 | BuildJevActionSelectionV1 | BuildReviewedActionSelectionV1 | BuildWorldReadSelectionV1
     | BuildWriterEvidenceSelectionV1 | PlanJevRetrievalSelectionV1 | NativeSourceNavigationAuthorizedV1 | NativeSourceCatalogObservedV1
     | NativeSourceSectionAuthorizedV1 | NativeSourceSectionObservedV1 | NativeSourceProviderInclusionV1,
     Field(discriminator="kind"),
@@ -4080,7 +4143,7 @@ class PlanWorldGraphExecutionV3(PlanWorldGraphExecutionV2):
     schema_: Literal["dmb_agent_plan_world_graph_execution_v3"] = Field(
         default="dmb_agent_plan_world_graph_execution_v3", alias="schema"
     )
-    policy: BuildRelationshipReviewImagePolicyV1 | BuildRelationshipReviewPolicyV1 | BuildSourceQuoteImagePolicyV1 | BuildSourceQuotePolicyV1 | BuildConnectedPageReviewImagePolicyV1 | BuildConnectedPageReviewPolicyV1 | BuildCollaborationImagePolicyV1 | BuildCollaborationPolicyV1 | BuildRelatedPageDraftImagePolicyV1 | BuildRelatedPageDraftPolicyV1 | BuildExactSavedLinesDraftImagePolicyV1 | BuildExactSavedLinesDraftPolicyV1 | BuildDraftWorldContextImagePolicyV1 | BuildDraftWorldContextPolicyV1 | BuildNamedWorldContextImagePolicyV1 | BuildNamedWorldContextPolicyV1 | PlanNativeSourceSectionsPolicyV1 | PlanJevRetrievalPolicyV1 | BuildWorldContextImagePolicyV1 | BuildWorldContextPolicyV1 | BuildPrimaryWorkStatusImagePolicyV1 | BuildPrimaryWorkStatusPolicyV1 | BuildPrimaryWorkImagePolicyV1 | BuildPrimaryWorkPolicyV1 | BuildImageActionPolicyV1 | BuildEncodedAssessmentPolicyV1 | BuildInitialEstimatedSelectedSourcePolicyV1 | BuildSelectedSourceActionControllerWriterPolicyV1 | BuildCitedSourceActionControllerWriterPolicyV1 | BuildReadBatchActionControllerWriterPolicyV1 | BuildWriterBudgetActionControllerWriterPolicyV1 | BuildJointSupportActionControllerWriterPolicyV1 | BuildEstimatedActionControllerWriterPolicyV1 | BuildContainedActionControllerWriterPolicyV1 | BuildPhaseActionControllerWriterPolicyV1 | BuildFrontierActionControllerWriterPolicyV1 | BuildContinuationActionControllerWriterPolicyV1 | BuildCompactActionControllerWriterPolicyV1 | BuildActionControllerWriterPolicyV1 | BuildSectionControllerWriterPolicyV1 | ControllerWriterGraphExecutionPolicyV3 | SettledGraphExecutionPolicyV3 | GraphExecutionPolicyV3
+    policy: BuildIntentionalResponseImagePolicyV2 | BuildIntentionalResponsePolicyV2 | BuildIntentionalResponseSourceImagePolicyV2 | BuildIntentionalResponseSourcePolicyV2 | BuildRelationshipReviewImagePolicyV1 | BuildRelationshipReviewPolicyV1 | BuildSourceQuoteImagePolicyV1 | BuildSourceQuotePolicyV1 | BuildConnectedPageReviewImagePolicyV1 | BuildConnectedPageReviewPolicyV1 | BuildCollaborationImagePolicyV1 | BuildCollaborationPolicyV1 | BuildRelatedPageDraftImagePolicyV1 | BuildRelatedPageDraftPolicyV1 | BuildExactSavedLinesDraftImagePolicyV1 | BuildExactSavedLinesDraftPolicyV1 | BuildDraftWorldContextImagePolicyV1 | BuildDraftWorldContextPolicyV1 | BuildNamedWorldContextImagePolicyV1 | BuildNamedWorldContextPolicyV1 | PlanNativeSourceSectionsPolicyV1 | PlanJevRetrievalPolicyV1 | BuildWorldContextImagePolicyV1 | BuildWorldContextPolicyV1 | BuildPrimaryWorkStatusImagePolicyV1 | BuildPrimaryWorkStatusPolicyV1 | BuildPrimaryWorkImagePolicyV1 | BuildPrimaryWorkPolicyV1 | BuildImageActionPolicyV1 | BuildEncodedAssessmentPolicyV1 | BuildInitialEstimatedSelectedSourcePolicyV1 | BuildSelectedSourceActionControllerWriterPolicyV1 | BuildCitedSourceActionControllerWriterPolicyV1 | BuildReadBatchActionControllerWriterPolicyV1 | BuildWriterBudgetActionControllerWriterPolicyV1 | BuildJointSupportActionControllerWriterPolicyV1 | BuildEstimatedActionControllerWriterPolicyV1 | BuildContainedActionControllerWriterPolicyV1 | BuildPhaseActionControllerWriterPolicyV1 | BuildFrontierActionControllerWriterPolicyV1 | BuildContinuationActionControllerWriterPolicyV1 | BuildCompactActionControllerWriterPolicyV1 | BuildActionControllerWriterPolicyV1 | BuildSectionControllerWriterPolicyV1 | ControllerWriterGraphExecutionPolicyV3 | SettledGraphExecutionPolicyV3 | GraphExecutionPolicyV3
     events: list[GraphExecutionEventV3] = Field(max_length=2048)
 
     @model_validator(mode="after")
@@ -4140,6 +4203,17 @@ class PlanWorldGraphExecutionV3(PlanWorldGraphExecutionV2):
                     raise ValueError("Reviewed action lacks its unique pre-provider capability binding")
                 action_selection = event
             if isinstance(event, BuildJevActionSelectionV1):
+                from .build_intentional_response import enabled, resolution_for
+                if isinstance(event, BuildRequestedWorkResolutionV1):
+                    if not enabled(self.policy) or event.resolution != resolution_for(self.policy, event.requested_work):
+                        raise ValueError('Semantic event differs from its frozen response contract')
+                    if (event.intent_family != event.resolution['intent_family'] or event.operation != event.resolution['operation']
+                        or event.response_capabilities_sha256 != self.policy.response_capabilities_sha256
+                        or event.menu_sha256 != self.policy.requested_work_menu_sha256
+                        or event.resolver_sha256 != self.policy.response_resolver_sha256):
+                        raise ValueError('Semantic event metadata differs from its deterministic resolution')
+                elif enabled(self.policy):
+                    raise ValueError('Historical operation selection cannot authorize the new response policy')
                 prior = authorized_by_id.get(event.controller_attempt_id)
                 if (not isinstance(self.policy, BuildActionControllerWriterPolicyV1)
                         or action_selection is not None or writer_attempt is not None
@@ -5336,6 +5410,10 @@ def validate_execution_completion(
             raise ValueError("Native Play completion requires its own matching receipt and ledger")
         validate_play_graph_completion(completion, receipt, execution, producing_provider_attempt_id, claim_graph_event_ids)
         return
+    if isinstance(completion, BuildIntentionalResponseCompletionV1):
+        from .build_intentional_response import validate_completion
+        validate_completion(completion, receipt, execution, producing_provider_attempt_id, claim_graph_event_ids)
+        return
     if isinstance(getattr(execution, "policy", None), BuildCitedSourceActionControllerWriterPolicyV1):
         if not isinstance(completion, (BuildGraphCompletionV1, BuildGraphCompletionV2, BuildAuthoringCompletionV1, BuildImagePreparationCompletionV1)):
             raise ValueError("Cited source policy requires its reconstructed source completion")
@@ -5854,6 +5932,7 @@ def validate_turn_graph_fields(
             (
                 BuildGraphCompletionV1,
                 BuildNamedGraphCompletionV3,
+                BuildIntentionalResponseCompletionV1,
                 BuildGraphCompletionV2,
                 BuildAuthoringCompletionV1,
                 BuildImagePreparationCompletionV1,
@@ -5962,6 +6041,12 @@ class Turn(StrictModel):
                     or event.intent.primary_work.object_id != self.provenance.primary_work.object_id
                     or event.arguments_sha256 != digest({"instruction":self.user_text} if event.operation == "propose_build_insertion" else {})):
                     raise ValueError("Retained author action differs from its admitted turn intent")
+        from .build_intentional_response import operation_id
+        for event in self.graph_context_execution.events if self.graph_context_execution is not None else ():
+            if isinstance(event, BuildRequestedWorkResolutionV1) and (
+                event.broker_operation_id != operation_id(self, event.machine_request_id, event.requested_work)
+                or event.arguments_sha256 != digest({'instruction': self.user_text} if event.operation != 'answer_from_sources' else {})):
+                raise ValueError('Retained semantic action differs from its exact turn arguments')
         from .build_draft_context import validate_record
         for event in self.graph_context_execution.events if self.graph_context_execution is not None else ():
             if isinstance(event, BuildDraftContextCapturedV1):
@@ -5986,11 +6071,11 @@ class TurnResult(StrictModel):
                 self.assistant_text != "\n".join(segment.text for segment in self.completion.answer_segments)
                 or self.producing_provider_attempt_id is None or self.claim_graph_event_ids is None):
             raise ValueError("Native Play result requires exact answer text and explicit producer bindings")
-        if self.build_section_bindings and not isinstance(self.completion, (BuildGraphCompletionV1, BuildGraphCompletionV2)):
+        if self.build_section_bindings and not isinstance(self.completion, (BuildGraphCompletionV1, BuildGraphCompletionV2, BuildIntentionalResponseCompletionV1)):
             raise ValueError("Saved section bindings require a typed Build completion")
-        if not self.assistant_text.strip():
-            raise ValueError("assistant_text is required")
-        if isinstance(self.completion, (BuildGraphCompletionV1, BuildGraphCompletionV2, BuildAuthoringCompletionV1, BuildImagePreparationCompletionV1)) and self.assistant_text != "\n".join(s.text for s in self.completion.answer_segments):
+        if not self.assistant_text.strip() and not (self.assistant_text == '' and isinstance(self.completion, BuildIntentionalResponseCompletionV1) and not self.completion.answer_segments and self.completion.collaboration is not None):
+            raise ValueError("assistant_text is required unless the new completion has a valid typed object")
+        if isinstance(self.completion, (BuildGraphCompletionV1, BuildGraphCompletionV2, BuildAuthoringCompletionV1, BuildImagePreparationCompletionV1, BuildIntentionalResponseCompletionV1)) and self.assistant_text != "\n".join(s.text for s in self.completion.answer_segments):
             raise ValueError("Build answer text must match its completion segments")
         if (self.producing_provider_attempt_id is None) != (self.claim_graph_event_ids is None):
             raise ValueError("execution completion binding inputs must be supplied together")

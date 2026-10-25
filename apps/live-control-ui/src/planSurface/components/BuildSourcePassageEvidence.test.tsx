@@ -199,3 +199,12 @@ it('accepts proposed relationships only in their new closed completion schema',(
  expect(isBuildSourceCompletion({...c,schema:'dmb_build_connected_page_review_completion_v1'},'a'.repeat(64),'b'.repeat(64),'world')).toBe(false);
  for(const patch of [{read_id:'invented'},{source:{...collaboration.source,node_id:'model-id'}},{context:'  '},{published:true}])expect(isBuildSourceCompletion({...c,collaboration:{...collaboration,...patch}},'a'.repeat(64),'b'.repeat(64),'world')).toBe(false);
 });
+
+it('decodes neutral and object-only intentional replies without widening historical formats',()=>{
+ const value={schema:'dmb_build_intentional_response_completion_v1',context_receipt_sha256:'a'.repeat(64),answer_basis:'conversation',answer_context_status:'discussion',answer_segments:[],citation_map:null,source_citations:[],collaboration:{kind:'questions',questions:[{text:'Which shop?'}]}};
+ expect(isBuildSourceCompletion(value,'a'.repeat(64),'b'.repeat(64),'world')).toBe(true);
+ expect(isBuildSourceCompletion({...value,collaboration:null},'a'.repeat(64),'b'.repeat(64),'world')).toBe(false);
+ expect(isBuildSourceCompletion({...value,schema:'dmb_build_collaboration_completion_v1'},'a'.repeat(64),'b'.repeat(64),'world')).toBe(false);
+ expect(isBuildSourceCompletion({...value,answer_segments:[{kind:'saved_source_claim',text:'A fact.',content_sha256:'b'.repeat(64)}]},'a'.repeat(64),'b'.repeat(64),'world')).toBe(false);
+ expect(isBuildSourceCompletion({...value,answer_segments:[{kind:'connective',text:'Ready.'}],collaboration:null},'a'.repeat(64),'b'.repeat(64),'world')).toBe(true);
+});

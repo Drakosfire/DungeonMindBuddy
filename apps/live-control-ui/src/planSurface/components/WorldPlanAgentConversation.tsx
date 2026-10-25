@@ -1354,6 +1354,13 @@ function graphContextForTurn(turn: WorldAgentConversationHistoryTurn) {
   return turn.knowledge_context ?? ("play_context" in turn ? turn.play_context : "plan_context" in turn ? turn.plan_context : undefined);
 }
 
+function hasObjectOnlyBuildReply(turn: WorldAgentConversationHistoryTurn): boolean {
+  const completion=graphContextForTurn(turn)?.completion;
+  return turn.lifecycle_status==='completed' && turn.assistant_text===''
+    && completion?.schema==='dmb_build_intentional_response_completion_v1'
+    && completion.answer_segments.length===0 && completion.collaboration!==null;
+}
+
 function isBuildAuthoringCompletion(value: unknown, receiptHash: string): value is WorldBuildAuthoringCompletionV1 {
   return isRecord(value) && hasExactKeys(value, ["schema", "context_receipt_sha256", "answer_basis", "answer_context_status",
     "answer_segments", "citation_map", "action_id", "reservation_sha256", "proposal_result_sha256", "provider_attempt_id", "envelope_sha256"])
@@ -1436,7 +1443,7 @@ function isBuildKnowledgeContext(value: unknown, worldId: string): value is Worl
       && [value.source_open_targets, value.evidence_anchor_statuses, value.related_recap_context_statuses]
         .every(items => Array.isArray(items) && items.length === 0);
   }
-  if (isRecord(value.completion) && ["dmb_build_relationship_review_completion_v1", "dmb_build_graph_completion_v2", "dmb_build_graph_completion_v3", "dmb_build_draft_context_completion_v1", "dmb_build_related_page_completion_v1", "dmb_build_collaboration_completion_v1", "dmb_build_connected_page_review_completion_v1"].includes(String(value.completion.schema))) {
+  if (isRecord(value.completion) && ["dmb_build_intentional_response_completion_v1", "dmb_build_relationship_review_completion_v1", "dmb_build_graph_completion_v2", "dmb_build_graph_completion_v3", "dmb_build_draft_context_completion_v1", "dmb_build_related_page_completion_v1", "dmb_build_collaboration_completion_v1", "dmb_build_connected_page_review_completion_v1"].includes(String(value.completion.schema))) {
     return isBuildSourceCompletion(value.completion, receipt.context_receipt_sha256, source.content_sha256, source.world_id)
       && (value.execution === null || isWorldPlanGraphExecution(value.execution))
       && [value.source_open_targets, value.evidence_anchor_statuses, value.related_recap_context_statuses]
@@ -1892,6 +1899,7 @@ function completedHistoryTurnMatchesPendingAsk(
   const envelope = stored.envelope;
   if (!envelope) return false;
   const { request, origin } = envelope;
+  const objectOnly = hasObjectOnlyBuildReply(turn);
   if ((page.schema !== "dmb_agent_conversation_history_v3" && page.schema !== "dmb_agent_conversation_history_v4")
     || !("idempotency_key" in turn)
     || turn.idempotency_key !== idempotencyKey
@@ -1901,7 +1909,7 @@ function completedHistoryTurnMatchesPendingAsk(
     || turn.lifecycle_status !== "completed"
     || turn.user_text !== request.message
     || typeof turn.assistant_text !== "string"
-    || !turn.assistant_text.trim()
+    || (!turn.assistant_text.trim() && !objectOnly)
     || turn.provenance.world_id !== origin.worldId
     || turn.provenance.surface_resolution !== "resolved"
     || turn.provenance.surface_id !== request.surface.surface_id
@@ -2711,7 +2719,7 @@ export function WorldPlanAgentConversation({
     const event = [...conversationDisplay.events].reverse().find((candidate) =>
       candidate.kind === "world"
       && candidate.turn.lifecycle_status === "completed"
-      && Boolean(candidate.turn.assistant_text?.trim()));
+      && (Boolean(candidate.turn.assistant_text?.trim()) || hasObjectOnlyBuildReply(candidate.turn)));
     const proposal = buildCompose.items.at(-1);
     if (proposal && (!event || event.kind !== "world" || proposal.afterSequence >= event.turn.sequence)) return `build:${proposal.key}`;
     return event?.kind === "world" ? `${event.turn.turn_id}:${event.turn.assistant_text}` : null;
@@ -4174,8 +4182,9 @@ export function WorldPlanAgentConversation({
     return `Historical surface: ${surface} · no primary work identity`;
   }
 
-  function graphContextStatusLabel(status: WorldPlanGraphAnswerContextStatusV1 | WorldBuildGraphAnswerStatus | WorldBuildSourceAnswerStatus | WorldPlayGraphCompletionV1["answer_context_status"] | import("../../api/types").SurfaceEvidenceCompletion["answer_context_status"] | "proposal_ready" | "image_preparation_ready"): string {
+  function graphContextStatusLabel(status: WorldPlanGraphAnswerContextStatusV1 | WorldBuildGraphAnswerStatus | WorldBuildSourceAnswerStatus | WorldPlayGraphCompletionV1["answer_context_status"] | import("../../api/types").SurfaceEvidenceCompletion["answer_context_status"] | "proposal_ready" | "image_preparation_ready" | "discussion"): string {
     switch (status) {
+      case "discussion": return "Discussion; no factual source claims.";
       case "authored_grounded": return "Literal excerpts from frozen authored material.";
       case "authored_grounded_partial": return "Literal authored excerpts; coverage was incomplete.";
       case "insufficient_evidence": return "The supplied evidence did not establish the requested details.";
@@ -4200,9 +4209,10 @@ export function WorldPlanAgentConversation({
     }
   }
 
-  function replySourceLabel(status: WorldPlanGraphAnswerContextStatusV1 | WorldBuildGraphAnswerStatus | WorldBuildSourceAnswerStatus | WorldPlayGraphCompletionV1["answer_context_status"] | import("../../api/types").SurfaceEvidenceCompletion["answer_context_status"] | "proposal_ready" | "image_preparation_ready", surface: string | null): string | null {
+  function replySourceLabel(status: WorldPlanGraphAnswerContextStatusV1 | WorldBuildGraphAnswerStatus | WorldBuildSourceAnswerStatus | WorldPlayGraphCompletionV1["answer_context_status"] | import("../../api/types").SurfaceEvidenceCompletion["answer_context_status"] | "proposal_ready" | "image_preparation_ready" | "discussion", surface: string | null): string | null {
     const work = surface === "build" ? "Source" : surface === "play" ? "Run" : "Plan";
     switch (status) {
+      case "discussion": return null;
       case "authored_grounded": return "Quoted material";
       case "authored_grounded_partial": return "Quoted material · partial";
       case "insufficient_evidence": return "Needs more context";
@@ -4654,7 +4664,7 @@ export function WorldPlanAgentConversation({
       ? <BuildSavedSectionEvidence targets={planContext.saved_source_sections} basis={planContext.receipt.source_basis}
           sourceName={planContext.saved_source_name}
           segments={planContext.completion.answer_segments} worldId={verifiedWorldId} turnId={turn.turn_id} /> : null;
-    if (planContext?.completion?.schema === "dmb_build_relationship_review_completion_v1" || planContext?.completion?.schema === "dmb_build_connected_page_review_completion_v1" || planContext?.completion?.schema === "dmb_build_collaboration_completion_v1" || planContext?.completion?.schema === "dmb_build_related_page_completion_v1" || planContext?.completion?.schema === "dmb_build_draft_context_completion_v1" || planContext?.completion?.schema === "dmb_build_graph_completion_v2" || planContext?.completion?.schema === "dmb_build_graph_completion_v3" || planContext?.completion?.schema === "dmb_surface_source_completion_v1" || planContext?.completion?.schema === "dmb_surface_evidence_completion_v1" || planContext?.completion?.schema === "dmb_surface_evidence_completion_v2" || planContext?.completion?.schema === "dmb_surface_evidence_completion_v3") {
+    if (planContext?.completion?.schema === "dmb_build_intentional_response_completion_v1" || planContext?.completion?.schema === "dmb_build_relationship_review_completion_v1" || planContext?.completion?.schema === "dmb_build_connected_page_review_completion_v1" || planContext?.completion?.schema === "dmb_build_collaboration_completion_v1" || planContext?.completion?.schema === "dmb_build_related_page_completion_v1" || planContext?.completion?.schema === "dmb_build_draft_context_completion_v1" || planContext?.completion?.schema === "dmb_build_graph_completion_v2" || planContext?.completion?.schema === "dmb_build_graph_completion_v3" || planContext?.completion?.schema === "dmb_surface_source_completion_v1" || planContext?.completion?.schema === "dmb_surface_evidence_completion_v1" || planContext?.completion?.schema === "dmb_surface_evidence_completion_v2" || planContext?.completion?.schema === "dmb_surface_evidence_completion_v3") {
       return <details className="world-plan-agent-conversation__evidence-trail">
         <summary>Evidence trail</summary>
         <ResponseEvidenceTabs evidence={verifiedWorldId
@@ -5630,6 +5640,7 @@ export function WorldPlanAgentConversation({
     previousAttempts: WorldConversationDisplayEvent[] = [], historicalAttempt = false): React.ReactNode => {
     if (event.kind === "proposal") return renderProposalEvent(event.turn, event.position, false);
     const turn = event.turn;
+    const replyText = turn.assistant_text ?? '';
     const completed=graphContextForTurn(turn)?.completion;
     const collaboration=completed&&'collaboration' in completed?completed.collaboration:undefined;
     const pageWorkPlan=turn.provenance.surface_id==='build'&&collaboration?.kind==='plan';
@@ -5659,7 +5670,7 @@ export function WorldPlanAgentConversation({
         conversationId={history?.conversation_id ?? ""} turnId={turn.turn_id}
         lifecycle={turn.lifecycle_status}>
       <article
-        className={`world-plan-agent-conversation__turn world-plan-agent-conversation__turn--${turn.assistant_text ? "complete" : failed ? "failed" : interrupted ? "interrupted" : "pending"}`}
+        className={`world-plan-agent-conversation__turn world-plan-agent-conversation__turn--${turn.assistant_text || hasObjectOnlyBuildReply(turn) ? "complete" : failed ? "failed" : interrupted ? "interrupted" : "pending"}`}
         data-sequence={turn.sequence}
         data-turn-id={turn.turn_id}
         tabIndex={-1}
@@ -5668,7 +5679,7 @@ export function WorldPlanAgentConversation({
           <span className="world-plan-agent-conversation__speaker">You</span>
           <p>{turn.user_text}</p>
         </div>
-        {turn.assistant_text ? (
+        {turn.assistant_text || hasObjectOnlyBuildReply(turn) ? (
           <div className="world-plan-agent-conversation__message world-plan-agent-conversation__message--assistant">
             <div className="world-plan-agent-conversation__reply-heading">
               <span className="world-plan-agent-conversation__speaker">Buddy</span>
@@ -5687,9 +5698,9 @@ export function WorldPlanAgentConversation({
             </div>
             {(graphContextForTurn(turn)?.completion?.schema === "dmb_surface_evidence_completion_v1" || graphContextForTurn(turn)?.completion?.schema === "dmb_surface_evidence_completion_v2" || graphContextForTurn(turn)?.completion?.schema === "dmb_surface_evidence_completion_v3")
               ? <SurfaceEvidenceAnswer completion={graphContextForTurn(turn)!.completion as import("../../api/types").SurfaceEvidenceCompletion}
-                worldId={verifiedWorldId} turnId={turn.turn_id} composition={rulesContextForTurn(turn) ? {text:turn.assistant_text,ranges:rulesContextForTurn(turn)!.accepted_binding.segment_map} : undefined}/>
+                worldId={verifiedWorldId} turnId={turn.turn_id} composition={rulesContextForTurn(turn) ? {text:replyText,ranges:rulesContextForTurn(turn)!.accepted_binding.segment_map} : undefined}/>
               : citedAnswer ?? <WorldPlanAgentAnswer
-              answer={pageProposalAcknowledgment ? "Page suggestion prepared." : turn.assistant_text}
+              answer={pageProposalAcknowledgment ? "Page suggestion prepared." : replyText}
               inlineCitations={inlineSourceCitations(turn)}
               allowedInternalLinks={graphContextForTurn(turn)?.completion?.answer_segments.flatMap(segment => segment.kind === "session_evidence_claim" ? ["/play?" + new URLSearchParams({world: turn.provenance.world_id,run: segment.run_id,evidence_revision:String(segment.review_revision)}).toString()] : [])}
               displaySegments={pageProposalAcknowledgment || rulesContextForTurn(turn) ? undefined : graphContextForTurn(turn)?.completion
@@ -5708,26 +5719,26 @@ export function WorldPlanAgentConversation({
               />)}
             {rulesContextForTurn(turn) && <RulesAnswerEvidence active={visible && agent.paneState.isOpen} context={rulesContextForTurn(turn)!} answer={turn.assistant_text ?? ''} />}
             {renderSourceActions(turn)}
-            {verifiedWorldId && graphContextForTurn(turn)?.completion?.schema === "dmb_build_relationship_review_completion_v1" && (graphContextForTurn(turn)!.completion as import("../../api/types").WorldBuildRelationshipReviewCompletionV1).collaboration?.kind === 'relationship' && <ConversationRelationshipReview
+            {verifiedWorldId && ["dmb_build_intentional_response_completion_v1","dmb_build_relationship_review_completion_v1"].includes(graphContextForTurn(turn)?.completion?.schema ?? '') && (graphContextForTurn(turn)!.completion as Pick<import("../../api/types").WorldBuildRelationshipReviewCompletionV1,'collaboration'>).collaboration?.kind === 'relationship' && <ConversationRelationshipReview
               worldId={verifiedWorldId} documentId={turn.provenance.primary_work.object_id!}
               source={{documentId:turn.provenance.primary_work.object_id!,revision:(graphContextForTurn(turn)!.receipt as import("../../api/types").WorldBuildGraphReceiptV1).source_basis.registry_revision,contentSha256:(graphContextForTurn(turn)!.receipt as import("../../api/types").WorldBuildGraphReceiptV1).source_basis.content_sha256}}
-              proposal={(graphContextForTurn(turn)!.completion as import("../../api/types").WorldBuildRelationshipReviewCompletionV1).collaboration as import("../../api/types").ConversationRelationshipProposal}
+              proposal={(graphContextForTurn(turn)!.completion as Pick<import("../../api/types").WorldBuildRelationshipReviewCompletionV1,'collaboration'>).collaboration as import("../../api/types").ConversationRelationshipProposal}
               disabled={composerBusy||!isBuild||!visible||history?.active_conversation_id!==history?.conversation_id||buildMode?.savedSource?.documentId!==turn.provenance.primary_work.object_id}/>}
-            {verifiedWorldId && ["dmb_build_connected_page_review_completion_v1","dmb_build_relationship_review_completion_v1"].includes(graphContextForTurn(turn)?.completion?.schema ?? "") && (graphContextForTurn(turn)!.completion as import("../../api/types").WorldBuildRelationshipReviewCompletionV1).collaboration?.kind === 'connected_page' && <ConversationConnectedPageReview worldId={verifiedWorldId} documentId={turn.provenance.primary_work.object_id!} turnId={turn.turn_id}
-              proposal={(graphContextForTurn(turn)!.completion as import("../../api/types").WorldBuildRelationshipReviewCompletionV1).collaboration as import("../../api/types").ConversationConnectedPageProposal}
+            {verifiedWorldId && ["dmb_build_intentional_response_completion_v1","dmb_build_connected_page_review_completion_v1","dmb_build_relationship_review_completion_v1"].includes(graphContextForTurn(turn)?.completion?.schema ?? "") && (graphContextForTurn(turn)!.completion as Pick<import("../../api/types").WorldBuildRelationshipReviewCompletionV1,'collaboration'>).collaboration?.kind === 'connected_page' && <ConversationConnectedPageReview worldId={verifiedWorldId} documentId={turn.provenance.primary_work.object_id!} turnId={turn.turn_id}
+              proposal={(graphContextForTurn(turn)!.completion as Pick<import("../../api/types").WorldBuildRelationshipReviewCompletionV1,'collaboration'>).collaboration as import("../../api/types").ConversationConnectedPageProposal}
               disabled={composerBusy||!isBuild||!visible||history?.active_conversation_id!==history?.conversation_id||buildMode?.savedSource?.documentId!==turn.provenance.primary_work.object_id}/>}
             {verifiedWorldId&&history?.conversation_id&&pageWorkPlan&&collaboration?.kind==='plan'?<StagedWorkPlan
               key={`page-plan:${verifiedWorldId}:${history.conversation_id}:${turn.turn_id}`}
               worldId={verifiedWorldId} documentId={turn.provenance.primary_work.object_id!} conversationId={history.conversation_id}
-              turnId={turn.turn_id} source={turn.assistant_text} steps={collaboration.steps}
+              turnId={turn.turn_id} source={replyText} steps={collaboration.steps}
               bridge={isBuild&&buildMode?.savedSource?.documentId===turn.provenance.primary_work.object_id?buildMode.composeBridge??null:null}
               pointerRevision={history.pointer_revision}
               disabled={composerBusy||!isBuild||history.active_conversation_id!==history.conversation_id||buildMode?.savedSource?.documentId!==turn.provenance.primary_work.object_id}
               onVisible={()=>agent.setPaneOpen(false)}/>:null}
             {verifiedWorldId && history?.conversation_id && !pageWorkPlan && <ConversationWorkbook
               key={`workbook:${verifiedWorldId}:${history.conversation_id}:${turn.turn_id}`}
-              collaboration={["dmb_build_connected_page_review_completion_v1","dmb_build_relationship_review_completion_v1"].includes(graphContextForTurn(turn)?.completion?.schema ?? "") ? (graphContextForTurn(turn)!.completion as import("../../api/types").WorldBuildRelationshipReviewCompletionV1).collaboration : graphContextForTurn(turn)?.completion?.schema === "dmb_build_collaboration_completion_v1" ? (graphContextForTurn(turn)!.completion as import("../../api/types").WorldBuildCollaborationCompletionV1).collaboration : undefined}
-              source={turn.assistant_text} worldId={verifiedWorldId} conversationId={history.conversation_id}
+              collaboration={["dmb_build_intentional_response_completion_v1","dmb_build_connected_page_review_completion_v1","dmb_build_relationship_review_completion_v1"].includes(graphContextForTurn(turn)?.completion?.schema ?? "") ? (graphContextForTurn(turn)!.completion as Pick<import("../../api/types").WorldBuildRelationshipReviewCompletionV1,'collaboration'>).collaboration : graphContextForTurn(turn)?.completion?.schema === "dmb_build_collaboration_completion_v1" ? (graphContextForTurn(turn)!.completion as import("../../api/types").WorldBuildCollaborationCompletionV1).collaboration : undefined}
+              source={replyText} worldId={verifiedWorldId} conversationId={history.conversation_id}
               turnId={turn.turn_id} disabled={composerBusy}
               durable={turn.provenance.surface_id==='build'?{disabled:!isBuild||!visible||history.active_conversation_id!==history.conversation_id||buildMode?.savedSource?.documentId!==turn.provenance.primary_work.object_id,
                 onContinue:(plan,dispatch,reference)=>{
