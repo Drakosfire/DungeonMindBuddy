@@ -110,6 +110,24 @@ class TraceContextSnapshot(TraceEvent):
     kind: Literal["context_snapshot"] = "context_snapshot"
     stage: Literal["before", "after"]
     materials: list[TraceContextMaterial] = Field(max_length=512)
+    snapshot_kind: Literal["provider_input", "provider_response", "validated_answer", "compaction_input", "compaction_output"] | None = None
+    comparison_id: UUID | None = None
+
+    @model_serializer(mode="wrap")
+    def serialize_snapshot(self, handler):
+        result = handler(self)
+        for key in ("snapshot_kind", "comparison_id"):
+            if result.get(key) is None:
+                result.pop(key, None)
+        return result
+
+    @model_validator(mode="after")
+    def comparison_scope(self):
+        if self.snapshot_kind is not None and self.stage != ("before" if self.snapshot_kind in {"provider_input", "compaction_input"} else "after"):
+            raise ValueError("Snapshot stage differs from its captured purpose")
+        if (self.snapshot_kind in {"compaction_input", "compaction_output"}) != (self.comparison_id is not None):
+            raise ValueError("Only a paired compaction snapshot carries its comparison identity")
+        return self
 
 
 class TraceContextDecision(TraceEvent):

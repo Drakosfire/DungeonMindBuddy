@@ -1,6 +1,15 @@
 import type { BuddyTraceObservation, BuddyTurnContextTrace } from '../../api/buddyContextTraceTypes'
 import { traceCostEstimate } from './traceCostEstimate'
 
+export function traceSnapshotLabel(event: Extract<BuddyTraceObservation, {kind: 'context_snapshot'}>): string {
+  return event.snapshot_kind === 'provider_input' ? 'Working context · prepared input'
+    : event.snapshot_kind === 'provider_response' ? 'Provider response · unvalidated'
+    : event.snapshot_kind === 'validated_answer' ? 'Validated reply · captured context'
+    : event.snapshot_kind === 'compaction_input' ? 'Working context · before compaction'
+    : event.snapshot_kind === 'compaction_output' ? 'Working context · after compaction'
+    : `Working context · ${event.stage} this turn`
+}
+
 function describe(event: BuddyTraceObservation): string {
   switch (event.kind) {
     case 'failure': return `${event.phase === 'trace_capture' ? 'Trace capture incomplete' : 'Execution failed'} · ${event.code}\n   Stage: ${event.stage ?? event.phase}${event.exception_type ? ` · ${event.exception_type}` : ''}${event.diagnostic_id ? `\n   Private diagnostic: ${event.diagnostic_id}` : ''}`
@@ -12,7 +21,7 @@ function describe(event: BuddyTraceObservation): string {
     case 'source_passage_reuse': return `${event.source_name?.trim() || 'Source name unavailable'}${event.line_start == null ? '' : ` · lines ${event.line_start}–${event.line_end}`} · ${event.kind === 'source_passage_reuse' ? 'reused' : event.outcome}`
     case 'graph_tool': return `Explore World graph · ${event.request.operation} · ${event.result.outcome} · coverage ${event.result.coverage_status}`
     case 'prompt_reference': return `Working context · composed input prompt · ${event.model}\n   Captured prompt reference: ${event.evidence_id}`
-    case 'context_snapshot': return `Working context · ${event.stage} this turn · ${event.materials.length} captured material items`
+    case 'context_snapshot': return `${traceSnapshotLabel(event)} · ${event.materials.length} captured material items`
     case 'context_decision': return `Context ${event.action} · ${event.reason_code} · ${event.policy_version}`
   }
 }
