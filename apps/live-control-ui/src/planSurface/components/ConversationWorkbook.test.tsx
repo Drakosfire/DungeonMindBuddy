@@ -1,6 +1,8 @@
 import {cleanup,fireEvent,render,screen} from '@testing-library/react'
 import {afterEach,beforeEach,describe,expect,it,vi} from 'vitest'
 import {ConversationWorkbook} from './ConversationWorkbook'
+import {getWorkPlan,saveWorkPlan} from '../../api/conversationWorkPlanApi'
+vi.mock('../../api/conversationWorkPlanApi',()=>({getWorkPlan:vi.fn(),saveWorkPlan:vi.fn(),continueWorkPlan:vi.fn()}))
 const binding={worldId:'world',conversationId:'conversation',turnId:'turn'}
 const source='Before writing:\n\n1. Read Edge’s table.\n2. Choose an existing shop owner.\n'
 function mount(onAdd=vi.fn(),extra={}) {render(<ConversationWorkbook {...binding} source={source} onAdd={onAdd} {...extra}/>);return onAdd}
@@ -50,3 +52,35 @@ describe('author conversation workbook',()=>{
   expect(add).not.toHaveBeenCalled()
  })
 })
+
+it('automatically presents typed questions without Markdown guessing and retains edited answers',()=>{
+ const collaboration={kind:'questions' as const,questions:[{text:'Keep this a possible encounter?'}]};
+ const add=mount(vi.fn(),{source:'Let’s settle one choice.',collaboration});
+ expect(screen.queryByRole('button',{name:'Review plan'})).not.toBeInTheDocument();
+ fireEvent.change(screen.getByLabelText('Answer 1'),{target:{value:'Yes, an unplayed possibility.'}});
+ cleanup();mount(add,{source:'Let’s settle one choice.',collaboration});
+ expect(screen.getByLabelText('Answer 1')).toHaveValue('Yes, an unplayed possibility.');
+ fireEvent.click(screen.getByRole('button',{name:'Add to message'}));
+ expect(add).toHaveBeenCalledWith(expect.stringContaining('My answer: Yes, an unplayed possibility.'));
+});
+it('uses both typed plan rows and actions without parsing the acknowledgment',()=>{
+ mount(vi.fn(),{source:'Sounds fun. Here is the plan.',collaboration:{kind:'plan',steps:[{text:'Read the existing table.',kind:'discuss'},{text:'Prepare page prose.',kind:'prepare_insertion'}]}});
+ expect(screen.getByLabelText('Step 1')).toHaveValue('Read the existing table.');
+ expect(screen.getByLabelText('Step 2')).toHaveValue('Prepare page prose.');
+});
+it('does not infer a workbook from an ordinary new typed answer containing a list',()=>{
+ mount(vi.fn(),{collaboration:null});
+ expect(screen.queryByRole('button',{name:'Review plan'})).not.toBeInTheDocument();
+ expect(screen.queryByRole('region',{name:'Plan for review'})).not.toBeInTheDocument();
+});
+
+it('saves both typed actions and the author’s deferred choice without execution',async()=>{
+ vi.mocked(getWorkPlan).mockResolvedValue(null);
+ const pending=new Promise<never>(()=>{});vi.mocked(saveWorkPlan).mockReturnValue(pending);
+ mount(vi.fn(),{source:'Let’s build together.',collaboration:{kind:'plan',steps:[{text:'Read names.',kind:'discuss'},{text:'Prepare prose.',kind:'prepare_insertion'}]},durable:{disabled:false,onContinue:vi.fn()}});
+ await screen.findByLabelText('Action 2');
+ expect(screen.getByLabelText('Action 2')).toHaveValue('prepare_insertion');
+ fireEvent.click(screen.getByLabelText('Include step 2'));
+ fireEvent.click(screen.getByRole('button',{name:'Save reviewed plan'}));
+ expect(saveWorkPlan).toHaveBeenCalledWith(expect.anything(),0,[expect.objectContaining({text:'Read names.',kind:'discuss',selected:true}),expect.objectContaining({text:'Prepare prose.',kind:'prepare_insertion',selected:false})]);
+});

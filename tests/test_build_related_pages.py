@@ -59,6 +59,8 @@ class PagesDecision(WorldDecisions):
 
 
 class PagesWriter(WriterWire):
+    collaboration = None
+
     async def handle_async_request(self, request):
         wire = json.loads(request.content)
         if wire["text"]["format"]["name"] == "build_image_direction":
@@ -83,6 +85,11 @@ class PagesWriter(WriterWire):
                 ],
                 "limitations": [],
                 "requested_detail_gaps": [],
+                **(
+                    {"collaboration": self.collaboration}
+                    if "collaboration_output_policy" in packet
+                    else {}
+                ),
             }
         )
         data = response.json()
@@ -93,7 +100,11 @@ class PagesWriter(WriterWire):
 @pytest.fixture
 def completed(build_case, monkeypatch, tmp_path, request):
     mode = getattr(request, "param", "answer_from_sources")
-    operation = "answer_from_sources" if mode == "interrupted" else mode
+    operation = (
+        "answer_from_sources"
+        if mode in {"interrupted", "typed_plan", "typed_questions"}
+        else mode
+    )
     from tests.application_state.test_agent_conversation_postgres import _new
 
     (source, request, bootstrap), _ = world_case(build_case, monkeypatch)
@@ -189,6 +200,26 @@ def completed(build_case, monkeypatch, tmp_path, request):
         )
         request = request.model_copy(update={"build_write_capability": cap})
     writer = PagesWriter()
+    if mode == "typed_plan":
+        writer.collaboration = {
+            "kind": "plan",
+            "steps": [
+                {"text": "Discuss Copper House’s actual task.", "kind": "discuss"},
+                {
+                    "text": "Prepare a short hook-repair paragraph.",
+                    "kind": "prepare_insertion",
+                },
+            ],
+        }
+    elif mode == "typed_questions":
+        writer.collaboration = {
+            "kind": "questions",
+            "questions": [
+                {
+                    "text": "Should the repair become a current job or a possible encounter?"
+                }
+            ],
+        }
     decisions = PagesDecision(operation=operation)
     harness = BuildJevHarness(
         world_context=True,
@@ -454,3 +485,50 @@ def test_unfrozen_policy_cannot_admit_related_authoring_events():
                 ],
             )
         )
+
+
+@pytest.mark.parametrize("completed", ["typed_plan", "typed_questions"], indirect=True)
+def test_typed_workflow_survives_actual_writer_and_app_admission(completed):
+    turn, service, *_rest, writer, decisions = completed
+    assert isinstance(turn.completion, t.BuildCollaborationCompletionV1)
+    request = json.loads(writer.calls[0].content)
+    packet = json.loads(request["input"])
+    assert (
+        packet["collaboration_output_policy"] == "typed_author_review_collaboration_v1"
+    )
+    assert request["text"]["format"]["name"] == "build_working_draft_answer_v2"
+    assert turn.completion.collaboration.model_dump(mode="json") == writer.collaboration
+    reloaded = service.list_turns(turn.world_id, turn.conversation_id)[0]
+    assert reloaded.completion == turn.completion
+    from application_state.agent_conversation.source_writer_output import (
+        validate_writer_format,
+    )
+
+    fmt = request["text"]["format"]
+    with pytest.raises(ValueError, match="capability"):
+        validate_writer_format({**fmt, "name": "build_working_draft_answer_v1"}, packet)
+    historical = turn.completion.model_dump(mode="json", by_alias=True)
+    historical["schema"] = "dmb_build_related_page_completion_v1"
+    with pytest.raises(ValidationError):
+        t.BuildRelatedPageCompletionV1.model_validate(historical)
+
+
+@pytest.mark.parametrize("completed", ["typed_plan", "typed_questions"], indirect=True)
+def test_cannot_downgrade_retained_collaboration(completed, application_state_dsn):
+    from importlib import import_module
+    from sqlalchemy import create_engine
+    from alembic.migration import MigrationContext
+    from alembic.operations import Operations
+
+    engine = create_engine(
+        application_state_dsn.replace("postgresql://", "postgresql+psycopg://")
+    )
+    try:
+        with engine.begin() as conn:
+            with Operations.context(MigrationContext.configure(conn)):
+                with pytest.raises(RuntimeError, match="Retained typed collaboration"):
+                    import_module(
+                        "application_state.migrations.versions.20261025_0065_typed_collaboration"
+                    ).downgrade()
+    finally:
+        engine.dispose()

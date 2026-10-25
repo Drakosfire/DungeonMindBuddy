@@ -176,3 +176,11 @@ it('requires the verified World when admitting related-page references',()=>{
  expect(isBuildSourceCompletion(c,'a'.repeat(64),'b'.repeat(64),'world')).toBe(false);
  expect(isBuildSourceCompletion(c,'a'.repeat(64),'b'.repeat(64))).toBe(false);
 })
+
+it('admits only closed typed collaboration objects and keeps historical shapes closed',()=>{
+ const c={schema:'dmb_build_collaboration_completion_v1',context_receipt_sha256:'a'.repeat(64),answer_basis:'working_draft_context',answer_context_status:'creative_proposal',answer_segments:[{kind:'connective',text:'Let’s plan.'}],citation_map:null,source_citations:[],collaboration:{kind:'plan',steps:[{text:'Read the table.',kind:'discuss'},{text:'Prepare prose.',kind:'prepare_insertion'}]}};
+ expect(isBuildSourceCompletion(c,'a'.repeat(64),'b'.repeat(64),'world')).toBe(true);
+ for(const collaboration of [{kind:'plan',steps:[]},{kind:'plan',steps:[{text:'Write',kind:'create_page'}]},{kind:'questions',questions:[{text:'Which?',answer:'invented'}]}])expect(isBuildSourceCompletion({...c,collaboration},'a'.repeat(64),'b'.repeat(64),'world')).toBe(false);
+ expect(isBuildSourceCompletion({...c,schema:'dmb_build_related_page_completion_v1'},'a'.repeat(64),'b'.repeat(64),'world')).toBe(false);
+ expect(isBuildSourceCompletion({...c,collaboration:null},'a'.repeat(64),'b'.repeat(64),'world')).toBe(true);
+});

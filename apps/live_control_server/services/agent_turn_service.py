@@ -1296,6 +1296,10 @@ def _freeze_policy_receipt(
                 policy_class=(graph_types.BuildRelatedPageDraftImagePolicyV1
                     if (budget.get("buildJevActions") or {}).get("image_preparation_policy") is not None
                     else graph_types.BuildRelatedPageDraftPolicyV1)
+            if (budget.get("buildJevActions") or {}).get("collaboration_output_policy") is not None:
+                policy_class=(graph_types.BuildCollaborationImagePolicyV1
+                    if (budget.get("buildJevActions") or {}).get("image_preparation_policy") is not None
+                    else graph_types.BuildCollaborationPolicyV1)
             policy = policy_class(
                 **({"driver_schema": "dmb_plan_jev_retrieval_v1",
                     "native_source_section_policy":"exact_native_source_sections_v1"} if plan_jev_request is not None else {}),
@@ -2426,6 +2430,9 @@ class _PolicyExecutionAdapter:
         if offered is not None:
             expected_budget["buildJevActions"].update(related_page_context_policy=RELATED_POLICY,
                 related_page_catalog=[p.model_dump(mode="json") for p in offered])
+        collaboration_policy=getattr(self._broker_execution().policy,"collaboration_output_policy",None)
+        if collaboration_policy is not None:
+            expected_budget["buildJevActions"]["collaboration_output_policy"]=collaboration_policy
         if self.failure is not None or self.fence is None or self.budget != expected_budget:
             raise ValueError("Controller exposure requires an active admitted Build turn")
         execution = self._broker_execution()

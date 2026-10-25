@@ -135,7 +135,8 @@ class BuildJevHarness:
         result=self.budget(request, accounting=self.accounting, world_context=self.world_context, named_citations=self.named_citations)
         if self.related_pages and request.build_draft_context is not None:
             from .build_related_pages import discover,POLICY
-            result["buildJevActions"].update(related_page_context_policy=POLICY,related_page_catalog=discover(request))
+            from application_state.agent_conversation.collaboration import POLICY as COLLABORATION_POLICY
+            result["buildJevActions"].update(related_page_context_policy=POLICY,related_page_catalog=discover(request), collaboration_output_policy=COLLABORATION_POLICY)
         return result
 
     def execute_response(self, adapter, *, owner, trace):

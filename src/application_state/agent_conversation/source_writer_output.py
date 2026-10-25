@@ -363,7 +363,10 @@ def validate_writer_format(fmt: dict, packet: dict) -> None:
         schema = output_schema()
     elif name == FINITE_SCHEMA_NAME:
         schema = finite_output_schema(packet)
-    elif name == "build_working_draft_answer_v1":
+    elif name in {"build_working_draft_answer_v1", "build_working_draft_answer_v2"}:
+        from .collaboration import POLICY as COLLABORATION_POLICY, FORMAT as COLLABORATION_FORMAT
+        if (name == COLLABORATION_FORMAT) != (packet.get("collaboration_output_policy") == COLLABORATION_POLICY):
+            raise ValueError("Writer format differs from its collaboration capability")
         from .build_draft_answer import output_schema as draft_schema
         schema = draft_schema(packet)
     elif name == GAP_SCHEMA_NAME:
@@ -612,7 +615,8 @@ def reconstruct(raw_output: str, packet: dict, turn, auth):
             segment["page"]=row.page.model_dump(mode="json")
         segments.append(segment)
     if "working_draft_context" in packet:
-        return (t.BuildRelatedPageCompletionV1 if getattr(execution.policy,"related_page_context_policy",None) is not None else t.BuildDraftContextCompletionV1)(context_receipt_sha256=receipt_sha,
+        return (t.BuildCollaborationCompletionV1 if getattr(execution.policy,"collaboration_output_policy",None) is not None else t.BuildRelatedPageCompletionV1 if getattr(execution.policy,"related_page_context_policy",None) is not None else t.BuildDraftContextCompletionV1)(context_receipt_sha256=receipt_sha,
+            **({"collaboration": candidate["collaboration"]} if "collaboration" in candidate else {}),
             answer_context_status=candidate["answer_context_status"], answer_segments=segments,
             source_citations=citations), bindings
     if not passages or (bindings and not citations):

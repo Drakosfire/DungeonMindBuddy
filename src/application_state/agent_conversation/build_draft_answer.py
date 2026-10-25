@@ -13,6 +13,8 @@ from .source_writer_output import (
 
 from .build_related_pages import RelatedPageDraftClaim, validate_packet as validate_related_packet, validate_claims as validate_related_claims
 
+from .collaboration import Collaboration, POLICY as COLLABORATION_POLICY
+
 FORMAT = "build_working_draft_answer_v1"
 STATUSES = ("authored_grounded", "authored_grounded_partial", "source_grounded",
     "source_grounded_partial", "creative_proposal", "insufficient_evidence")
@@ -50,6 +52,10 @@ class DraftWriterAnswerV1(_Frozen):
         return self
 
 
+class CollaborationWriterAnswer(DraftWriterAnswerV1):
+    collaboration: Collaboration | None
+
+
 def output_schema(packet):
     from .source_writer_output import finite_output_schema
     from uuid import UUID
@@ -59,7 +65,7 @@ def output_schema(packet):
     record_id = str(UUID(lane["record_id"]))
     source_packet = {key: value for key, value in resolve_body_aliases(packet).items() if key != "working_draft_context"}
     source_schema = finite_output_schema(source_packet, requested_detail_gaps=True)
-    schema = DraftWriterAnswerV1.model_json_schema()
+    schema = (CollaborationWriterAnswer if packet.get("collaboration_output_policy") == COLLABORATION_POLICY else DraftWriterAnswerV1).model_json_schema()
     # The draft wrapper adds authored statuses, but cannot broaden the source
     # status domain already derived from the exact retrieval disposition.
     source_statuses = source_schema["properties"]["answer_context_status"]["enum"]
@@ -95,7 +101,8 @@ def normalize(raw, packet):
             else "creative_proposal" if any(isinstance(s, Suggestion) for s in segments)
             else "insufficient_evidence")
         body = {**body, "answer_context_status": base + "_partial" if body["limitations"] and base in {"authored_grounded", "source_grounded"} else base}
-    answer = DraftWriterAnswerV1.model_validate(body)
+    typed = packet.get("collaboration_output_policy") == COLLABORATION_POLICY
+    answer = (CollaborationWriterAnswer if typed else DraftWriterAnswerV1).model_validate(body)
     lane = packet["working_draft_context"]
     related_ids={r["read_id"] for r in packet.get("related_authored_pages",{}).get("pages",[])}
     if any(isinstance(s,RelatedPageDraftClaim) and str(s.read_id) not in related_ids for s in answer.answer_segments):
@@ -120,7 +127,8 @@ def normalize(raw, packet):
     segments.extend(gap_messages(answer, packet))
     if "unresolved_conflict" in answer.limitations:
         segments.append({"kind": "connective", "text": "The related sources leave a conflict unresolved."})
-    return {"answer_context_status": answer.answer_context_status, "answer_segments": segments}
+    return {"answer_context_status": answer.answer_context_status, "answer_segments": segments,
+        **({"collaboration": answer.collaboration.model_dump(mode="json") if answer.collaboration else None} if typed else {})}
 
 
 def validate_completion(completion, receipt, execution, attempt_id):
@@ -128,7 +136,9 @@ def validate_completion(completion, receipt, execution, attempt_id):
     captured = context_record(execution)
     validate_related_claims(completion,execution)
     from .build_related_pages import POLICY as RELATED_POLICY
-    if completion.schema_ == "dmb_build_related_page_completion_v1" and getattr(execution.policy,"related_page_context_policy",None)!=RELATED_POLICY:
+    if completion.schema_ == "dmb_build_collaboration_completion_v1" and getattr(execution.policy,"collaboration_output_policy",None)!=COLLABORATION_POLICY:
+        raise ValueError("Collaboration completion lacks its frozen output capability")
+    if completion.schema_ in {"dmb_build_related_page_completion_v1", "dmb_build_collaboration_completion_v1"} and getattr(execution.policy,"related_page_context_policy",None)!=RELATED_POLICY:
         raise ValueError("Related completion lacks its frozen authoring capability")
     included = [e for e in execution.events if isinstance(e, t.BuildDraftProviderInclusionV1)
         and e.provider_attempt_id == attempt_id and e.draft_event_id == captured.event_id]
@@ -144,6 +154,8 @@ def validate_completion(completion, receipt, execution, attempt_id):
 
 def validate_packet(packet, turn, auth):
     captured = context_record(turn.graph_context_execution)
+    if packet.get("collaboration_output_policy") != getattr(turn.graph_context_execution.policy,"collaboration_output_policy",None):
+        raise ValueError("Writer collaboration capability differs from its frozen policy")
     validate_writer_reference(packet.get("working_draft_context"), captured.record, turn)
     validate_related_packet(packet,turn.graph_context_execution)
     included = [e for e in turn.graph_context_execution.events
