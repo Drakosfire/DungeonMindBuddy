@@ -323,3 +323,69 @@ def test_genuine_admitted_page_proposal_is_prepared_not_saved(
         "action_id": str(receipt.action_id),
     }
     assert receipt.state == "proposed" and not receipt.inserted_in_draft
+
+
+def test_readable_continuation_preserves_review_and_result_without_internal_ids(case):
+    service, cid, t, steps, p = case
+    response = w.continue_step(
+        "world-one",
+        cid,
+        t.turn_id,
+        w.Continue(expected_revision=1, step_id=steps[0].step_id, command_id=uuid4()),
+    )
+    first = w.Dispatch.model_validate(response["dispatch"])
+    assert (
+        steps[0].text in first.message
+        and steps[1].text in first.message
+        and "Deferred" in first.message
+    )
+    for identifier in (
+        cid,
+        t.turn_id,
+        steps[0].step_id,
+        steps[1].step_id,
+        first.command_id,
+        first.client_turn_id,
+    ):
+        assert str(identifier) not in first.message
+    actual = accept(
+        service,
+        cid,
+        first.message,
+        uuid5(NAMESPACE_URL, f"dmb-agent-turn:world-one:{first.client_turn_id}"),
+    )
+    finish(service, cid, actual, "The owner repairs lantern fittings.")
+    p = w.save(
+        "world-one",
+        cid,
+        t.turn_id,
+        w.Review(
+            expected_revision=2,
+            steps=[steps[0], steps[1].model_copy(update={"selected": True})],
+        ),
+    )
+    second = w.Dispatch.model_validate(
+        w.continue_step(
+            "world-one",
+            cid,
+            t.turn_id,
+            w.Continue(
+                expected_revision=p["revision"],
+                step_id=steps[1].step_id,
+                command_id=uuid4(),
+            ),
+        )["dispatch"]
+    )
+    assert (
+        "The owner repairs lantern fittings." in second.message
+        and "reply received" in second.message
+    )
+    assert (
+        first.message not in second.message
+        and "reviewed_plan" not in second.message
+        and "source_answer_sha256" not in second.message
+    )
+    for message in (first.message, second.message):
+        assert "Selected · Discuss ·" in message
+        assert "Prepare an insertion ·" in message
+    assert "editable on-page insertion" in second.message
