@@ -1,7 +1,6 @@
 """Author-reviewed plans; execution is projected from actual APP receipts."""
 
 from hashlib import sha256
-import json
 from typing import Literal
 from uuid import UUID, uuid4, uuid5, NAMESPACE_URL
 from pydantic import BaseModel, ConfigDict, Field, model_validator
@@ -319,25 +318,45 @@ def continue_step(world, conversation, source, command: Continue):
                 "This step already has a result; add a new step to revise it"
             )
         context = _projection(conn, p)
-        context.pop(
-            "dispatches"
-        )  # Carry results, never recursively embed earlier prepared requests.
+        results = {r["step_id"]: r for r in context["execution"]}
+        labels = {
+            "awaiting_dispatch": "ready to resume",
+            "accepted": "queued",
+            "running": "in progress",
+            "completed": "reply received",
+            "prepared": "suggestion prepared; review and Save on the page",
+            "failed": "failed",
+            "interrupted": "interrupted",
+            "needs_attention": "needs attention",
+        }
+        lines = []
+        for i, reviewed in enumerate(p.steps, 1):
+            result = results.get(str(reviewed.step_id))
+            status = (
+                labels[result["status"]]
+                if result
+                else "pending"
+                if reviewed.selected
+                else "deferred"
+            )
+            choice = "Selected" if reviewed.selected else "Deferred"
+            lines.append(f"{i}. {choice} · {status}: {reviewed.text}")
+            if result and result["result"] and result["result"]["kind"] == "reply":
+                lines.append(
+                    "Earlier reply: "
+                    + (result["result"]["text"] or "No reply text recorded.")
+                )
         instruction = (
             "Discuss this step in conversation; do not insert a work plan or page content."
             if step.kind == "discuss"
             else "Prepare actual page-ready content for this step as an editable on-page insertion. Do not return a planning checklist. Nothing is kept or saved without my page controls."
         )
         message = (
-            "Continue only this explicitly selected step of my saved reviewed plan. Other steps, including selected ones, are context and are not authorized for automatic execution.\n\n"
-            + json.dumps(
-                {
-                    "reviewed_plan": context,
-                    "current_step": step.model_dump(mode="json"),
-                },
-                ensure_ascii=False,
-                sort_keys=True,
-            )
-            + "\n\n"
+            "Continue only this explicitly selected step of my saved reviewed plan:\n\n"
+            + step.text
+            + "\n\nMy reviewed plan and earlier results (authored context):\n"
+            + "\n".join(lines)
+            + "\n\nOther steps, including selected ones, are context and are not authorized for automatic execution.\n"
             + instruction
         )
         d = Dispatch(
