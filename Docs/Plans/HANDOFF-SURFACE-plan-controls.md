@@ -2,7 +2,7 @@
 
 ## Authority and lane
 
-ACTIVE serial presentation slice, designed and owned by PRIME on explicit operator
+Delivered serial presentation slice, designed and owned by PRIME on explicit operator
 feedback: compact readable work plans, consistent icons, developer metadata hidden
 behind an object hamburger, selected-passage actions in Surface navigation.
 Base 340cad9877e7af690dfd4d34f5b6a93a65021202, branch codex/surface-plan-controls,
@@ -56,7 +56,7 @@ A durable request attachment/read contract is separate scope, not a decorative s
 command in this presentation slice. Likewise the observed Discuss reply drafting
 content for a deferred insertion is retained as a separate scope-control defect.
 
-## Rendered spacing correction — ACTIVE serial successor
+## Rendered spacing correction — delivered successor
 
 PR1782 merged4e015a4300650ad30860aa600f8d9d9c411b9804 after independent
 approval at148936bc3b53e7256dda0fc1d944359fb24e124c. Protected UI-only adoption
@@ -76,3 +76,10 @@ selection. The navigation contribution must apply the existing capture eligibili
 (single paragraph/heading containing only text), not expose text actions for object
 selection. PRIME extends this correction lease to SurfaceSelectionActions.tsx and
 its test before editing; no change to capture/admission or action execution.
+
+
+## Settlement
+
+Both presentation slices are merged and ordinarily verified at UI62eb05d04. This
+write lease is released; it grants no concurrent implementation authority. Current
+facts and proof limits travel in the consuming HANDOFF-AGENT-authored-node-context.md.
