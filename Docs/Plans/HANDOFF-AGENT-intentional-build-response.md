@@ -2,39 +2,40 @@
 
 ## Authority and current lane
 
-**Runtime integration delivered through #1772**, merge
-c72a498349a520b7091892badfdf09d775bbfea8, independently reviewed at
-6946e283a44ca0a66903be1c97e1a1fb18355493. The later typed-library delivery below
-is the current paired API/UI8000/5202 checkpoint, APP0070/native0017. Protected delivery and ordinary synthetic writing, inline object-only
-questions and page-plan Save/reload are retained privately. Current-build reload during
-actual table generation resolved by Check saved request with one turn/attempt/writer and a
-newer composer preserved. Genuine failed-generation retry and operator creative-chain
-acceptance remain open. The prior runtime integration source lease is settled.
+**Current paired API/UI checkpoint:** durable Build retry #1775, merge
+38523c01013703ecdc3f1151521bb22d18c6a6a6, independently reviewed at
+4d62f279064e460c896536039bf1c7096a3bd146, APP0071/native0017 on8000/5202.
+Intentional runtime semantics #1772 and typed library #1773 remain delivered foundations.
+The retry implementation lease is settled. The bounded trace-owner correction below is
+active; ordinary acceptance remains open until historical attempt inspection works.
+Protected-delivery and dogfood evidence stays private. Operator creative-chain acceptance
+remains separate.
 
 ## Typed library readback — settled
 
 Delivered through #1773, merge bdee447f6c1f6ae537e2b3cab9f9b8fde073d960,
-independently reviewed at f5db9f2d0f72c42fad2982724943224a776a718e. The paired
-API/UI use this revision, APP0070/native0017. Ordinary current and archived library
+independently reviewed at f5db9f2d0f72c42fad2982724943224a776a718e. This predecessor used APP0070/native0017; the current checkpoint above supersedes it. Ordinary current and archived library
 inspection preserves typed questions, page-object references and the newer composer.
 The readback write lease is settled. Detailed protected-delivery and dogfood evidence
 remains private; the library does not activate archived conversations or grant execution.
 
-## Durable Build retry relationship — ACTIVE implementation
+## Durable Build retry relationship — delivered; trace correction ACTIVE
 
-Independent Bugbot critique approved the design and the audited implementation amendment.
-The exclusive serial lease below is ACTIVE; delivery still requires implementation review.
+#1775 records explicit immutable retry lineage and groups current/history/library views
+without inferring ancestry from equal question text. Each physical attempt retains its
+own provider and proposal receipts. The runtime implementation is delivered; no historical
+links are backfilled. #1764 remains parked.
 
-The next bounded capability is one logical conversation item with durable, inspectable
-retry history. An interrupted request currently retries as a new physical turn; the
-client's transient retry origin is lost on reload. Proposal events can also break the
-adjacent equal-question grouping. A terminal failed original can consequently retain a
-live Retry control after its explicit successor succeeded. Do not fix this by comparing
-question strings, hiding all failures or replaying the old provider authorization.
+Ordinary inspection exposed a UI ownership mismatch: an older attempt's trace loader
+inherits the newest turn's inspection context (or no context in the library). Give each
+expanded historical trace its own existing `BuddyTurnInspection` owner, bound to that
+physical turn, World and conversation. Preserve strict response/prompt identity validation,
+read-only behavior and lazy acquisition. Do not weaken the shared inspection guard.
 
-Design steward: PRIME. The design-only predecessor #1774 is settled. The independently
-approved serial implementation lease below owns this slice in the existing checkout.
-#1764 remains parked. No new service, store, provider, port or orchestration.
+Exclusive serial corrective lease: `ConversationRetryAttempts.tsx`, its actual-loader
+boundary tests, and this handoff in the existing checkout. No APP/API/schema/operation
+change. Independent review, PRIME merge, protected UI delivery and ordinary current/library
+inspection are required. Retain the completed #1775 protected delivery evidence privately.
 
 ### Contract
 
@@ -84,93 +85,18 @@ approved serial implementation lease below owns this slice in the existing check
    solely because an incomplete preview was observed. This presentation change is limited
    to the failed/pending retry experience; no new layout or annotation capability.
 
-### Audited implementation amendment — ACTIVE
+### Settled implementation owners
 
-Design #1774 is merged at0066d76a8146435bf5a64039fbe46e21d6f394e5, reviewed at
-98a85a087a9d00ad9da0568b3ff8e0e0d2edb9b8. One serial implementation PR on
-`codex/durable-build-retry` starts from that merge in the existing checkout. API8000,
-UI5202, APP0070/native0017 remain unchanged until reviewed protected delivery. #1764
-stays parked. Independent activation review approved this amendment; it activates only the exclusive
-write lease below. Root and ordinal must derive from the locked predecessor: inherit its
-root (or itself on the first retry), increment ordinal by one, and verify that in tests.
-
-Audited mechanics and resolved choices:
-
-- `BuildGraphIntentV1` receives optional closed `retry_of:{turn_id,revision}`. The host
-  request permits it only for ordinary World Build with a current draft capture, never a
-  reviewed-step request. Normalized intent fingerprints bind it when present and omit it
-  when absent, preserving exact old receipts. APP derives the edge from admitted intent.
-- Under the existing World pointer lock, lock the predecessor turn, verify active
-  conversation, expected predecessor revision, same page/surface and exact message, then
-  admit the successor and edge in one transaction. Receipt lookup/reconciliation still
-  precedes mutable pointer validation. Add APP migration0071 with immutable
-  `agent.turn_retry` rows: predecessor/successor/root IDs, World/conversation, predecessor
-  revision and ordinal. Composite FKs join all endpoints to their World/conversation;
-  unique predecessor and successor plus strictly earlier sequence prevent forks/cycles.
-  Historical rows gain no inferred links. Mutation/deletion is rejected; downgrade must
-  refuse retained edges. APP remains the only execution owner. Once a successor exists,
-  predecessor claim/recovery is fenced even when it failed before any provider dispatch.
-- Eligibility reads the full stored Graph execution, not the history projection. Every
-  provider authorization must have a final `response_received` or `known_not_sent`
-  outcome. Missing, SDK-entered and unknown outcomes block retry. The terminal turn must
-  have no completion and no retained reviewed-action binding. Check all proposal rows
-  with that exact durable origin under row locks: only failed, uninserted document
-  proposals with no admitted proposal are settled; prepared image variants and all
-  reserved/authorized/running/unknown/proposed records block generic retry. Failed is a
-  terminal state in BuildProposalService.advance. Plan/review source creation requires a
-  completed source turn; it is not an independent partial effect of a failed writer.
-- Include the separate Rules ledger: no accepted binding or active execution, and every
-  Rules provider authorization must end in an observed answered/tool_calls outcome.
-  Missing/failed/unknown Rules provider outcomes are not enough to declare safe retry.
-  No authorization is a known absence of a send. Existing reconciliation remains the
-  recovery path where eligibility is false. Review/publication/Save remain separate.
-- Use an authenticated, read-only, closed `dmb_turn_retry_context_v1` side projection for
-  at most100 specifically requested physical turn IDs in one named conversation. Rows
-  include exact owner IDs, turn revision, root/predecessor/successor, attempt ordinal and
-  APP eligibility/reason. The normal history client joins this projection to the exact
-  returned history IDs; it does not alter the stored Turn or legacy completion envelopes.
-  No endpoint activates archived conversations. Active/pointer state is read, never made.
-- Library transcript becomes closed `dmb_conversation_library_turns_v3`, adding the same
-  nullable retry context per row, preserving #1773 typed objects. Shared UI groups explicit
-  roots, never equal text. An ancestor whose successor lies outside a loaded page is
-  historical only and cannot expose Retry or masquerade as a new request. A read-only
-  attempts endpoint accepts exact conversation/turn and sequence cursor, limits50, and
-  returns older chain rows through the same v3 library projection. It joins the APP root
-  relationship, not question text. User-expanded Previous attempts fetches these bounded
-  pages and retains per-physical-turn trace inspection; no automatic full-chain fetch.
-- Keep pending optimistic presentation until the accepted successor appears, then use
-  durable lineage. Only APP-eligible Build leaves expose generic Retry. Non-Build sending
-  is outside this implementation lease; no new execution or inferred ancestry for it.
-  Fresh Build capture uses the predecessor reference and preserves newer composer text.
-- Construction currently calls onReviewOnPage when an incomplete preview becomes visible,
-  collapsing the conversation even on failure. Limit that callback to actual building
-  progress; an incomplete terminal preview cannot hide recovery controls.
-
-Exclusive expected write lease (same PR; no other runtime paths): this handoff;
-`src/application_state/agent_conversation/types.py`, `service.py`, new `retry.py`;
-`src/application_state/agent_conversation/library.py`;
-new `src/application_state/migrations/versions/20261025_0071_turn_retry.py`;
-`apps/live_control_server/models/agent_turn.py`;
-`apps/live_control_server/services/agent_turn_service.py`;
-`apps/live_control_server/services/build_jev_harness.py` (preserve the exact APP
-pre-admission retry refusal through the SDK gate, with zero provider calls; required
-owning-path expansion found by the host counterexample, no new routing behavior);
-`apps/live_control_server/routes/conversation_library.py`;
-`apps/live-control-ui/src/api/types.ts`, `liveApi.ts`, `conversationLibraryApi.ts`,
-new `conversationRetryApi.ts`;
-`apps/live-control-ui/src/agentInteraction/conversationAttemptGroups.ts`,
-`ConversationLibrary.tsx`, new `ConversationRetryAttempts.tsx`;
-`apps/live-control-ui/src/planSurface/components/WorldPlanAgentConversation.tsx`,
-`BuildComposeProposal.tsx`;
-new `tests/application_state/test_turn_retry.py`, `tests/test_build_turn_retry.py`;
-existing `tests/application_state/test_conversation_library.py`,
-`tests/test_conversation_library_routes.py`;
-UI `api/liveApi.worldConversation.test.ts`, `api/conversationLibraryApi.test.ts`,
-new `api/conversationRetryApi.test.ts`,
-`agentInteraction/conversationAttemptGroups.test.ts`, `ConversationLibrary.test.tsx`,
-new `ConversationRetryAttempts.test.tsx`,
-`agentInteraction/WorldAgentConversation.planPlay.integration.test.tsx`,
-`planSurface/components/BuildComposeProposal.test.tsx`.
+Design #1774 (0066d76a8146435bf5a64039fbe46e21d6f394e5) and the audited serial
+implementation #1775 are settled. APP owns predecessor validation, settled provider/Rules
+and proposal disposition, atomic lineage and migration0071. History joins the closed
+read-only `dmb_turn_retry_context_v1` side projection; library and bounded older-attempt
+reads use `dmb_conversation_library_turns_v3`. The host preserves exact pre-admission
+`build_retry_unavailable` without dispatch. Shared UI grouping follows explicit roots,
+keeps optimistic reconciliation, and captures fresh placement for an eligible retry.
+Existing request serialization omits an absent retry reference. Full stored Graph/Rules
+outcomes, exact-origin operation records and claim fencing remain the safety boundary.
+No process may resume the old reader after migration0071; repair forward.
 
 ### Required proof
 
