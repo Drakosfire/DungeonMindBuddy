@@ -1,0 +1,9 @@
+# BUILD: preserve editing through rapid input and selection
+
+ACTIVE serial. Operator goal authorizes fixing reproduced React error185 before broad authoring acceptance. Base27f9c0dbb3a6acffe5a6e648785a87cea2366a60; reuse buddy-context-loop on codex/build-editor-transaction-recovery. No competing Build PR. Previous relationship workflow remains shipped and must be preserved.
+
+Investigate the concrete rapid/native input, Enter and cursor sequence against the shared Markdown editor and actual Build host. Establish the failing invariant before choosing a fix. Preserve content, cursor, undo, tables, proposals and save ownership. Do not infer a production root cause merely from the subscriber stack; do not suppress errors, disable recovery or replace the editor to conceal failure. Browser sequential input and Enter already succeeded; native automation input produced error185 and misplaced text. Distinguish those paths truthfully.
+
+Expected lease: this handoff; apps/live-control-ui/src/tiptap/MarkdownEditorCore.tsx and directly related tests; if evidence identifies the owning Build/Canvas contract, amend this bounded lease before editing that owner. Settle Docs/Plans/HANDOFF-BUILD-agent-relationship-review.md and Docs/Roadmaps/ROADMAP-demo.md within the useful fix. No API/native contract change, new ports, duplicate runtime source tree or story edits. One independently useful fix/PR. If no cause is established, retain evidence and continue investigation rather than shipping a speculative change.
+
+Prove a failing-before/passing-after editor or mounted host reproduction plus ordinary synthetic typing/paste/Enter/selection/table/proposal/undo/Save/reload checks. Exact cumulative diff, independent Bugbot and PRIME merge precede protected delivery to5202; preserve retained state. Full operator and adventure acceptance remain separate. Private evidence stays local.
