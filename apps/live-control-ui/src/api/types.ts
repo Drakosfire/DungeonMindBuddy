@@ -1178,7 +1178,12 @@ export interface WorldBuildCollaborationCompletionV1 extends Omit<WorldBuildRela
   schema:"dmb_build_collaboration_completion_v1";
   collaboration:ConversationCollaboration|null;
 }
-export type WorldBuildSourceCompletion = WorldBuildCollaborationCompletionV1 | WorldBuildRelatedPageCompletionV1 | WorldBuildGraphCompletionV2 | WorldBuildNamedGraphCompletionV3 | WorldBuildDraftContextCompletionV1;
+export interface ConversationConnectedPageProposal {kind:'connected_page';title:string;read_id:string;quote:string;person_label:string|null;relationships:('owns'|'operates')[];instructions:string}
+export interface WorldBuildConnectedPageReviewCompletionV1 extends Omit<WorldBuildCollaborationCompletionV1,'schema'|'collaboration'> {
+  schema:'dmb_build_connected_page_review_completion_v1';
+  collaboration:ConversationCollaboration|ConversationConnectedPageProposal|null;
+}
+export type WorldBuildSourceCompletion = WorldBuildConnectedPageReviewCompletionV1 | WorldBuildCollaborationCompletionV1 | WorldBuildRelatedPageCompletionV1 | WorldBuildGraphCompletionV2 | WorldBuildNamedGraphCompletionV3 | WorldBuildDraftContextCompletionV1;
 
 export interface SurfaceSourceCompletionV1 {
   schema: "dmb_surface_source_completion_v1";

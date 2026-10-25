@@ -1,4 +1,4 @@
-import {useEffect,useRef,useState} from 'react';
+import {useEffect,useLayoutEffect,useRef,useState} from 'react';
 import {createPortal} from 'react-dom';
 import {useOptionalMarkdownCanvasSession} from '../markdownCanvas/MarkdownCanvasSession';
 import {useOptionalAgentInteraction} from '../agentInteraction/AgentInteractionProvider';
@@ -8,6 +8,9 @@ import {postManagedWorldGraphProjection} from '../api/liveApi';
 import {verifyManagedWorldGraphProjectionResponse} from '../worldGraph/verifyManagedWorldGraphProjectionResponse';
 import type {WorldGraphProjectionNodeView} from '../api/types';
 import {readConnectedPageRecovery,retainConnectedPageRequest,clearConnectedPageRequest,queueConnectedPageBuildOut} from './connectedPageAuthoring';
+import {publishConnectedPageReviewHost,type ConnectedPageReviewSeed} from './connectedPageReviewHost';
+import {validConnectedPageIntent} from '../api/connectedPageApi';
+import {isCollaboration} from '../shared/sourcePassageProtocol';
 import './BuildConnectedPageControl.css';
 const errorText=(reason:unknown)=>reason instanceof Error?reason.message:'The page request could not finish.';
 export function BuildConnectedPageControl({selectDocument,refreshDocuments,relationshipsHost=null}:{relationshipsHost?:HTMLElement|null;selectDocument:(id:string)=>Promise<boolean>;refreshDocuments:()=>unknown}){
@@ -20,22 +23,41 @@ export function BuildConnectedPageControl({selectDocument,refreshDocuments,relat
   const [title,setTitle]=useState(''),[personLabel,setPersonLabel]=useState(''),[personChoice,setPersonChoice]=useState('');
   const [placeChoice,setPlaceChoice]=useState('__new__'),[relationships,setRelationships]=useState<('owns'|'operates')[]>([]);
   const [mode,setMode]=useState<'scaffold'|'build_out'>('scaffold'),[instructions,setInstructions]=useState('');
+  const [reviewSeed,setReviewSeed]=useState<ConnectedPageReviewSeed|null>(null);
+  const [reviewDraftError,setReviewDraftError]=useState('');
   const [nodes,setNodes]=useState<WorldGraphProjectionNodeView[]>([]),[loading,setLoading]=useState(false);
   const world=session?.record?.world_id,documentId=session?.record?.document_id;
   const scope=useRef({world,documentId,epoch:0});
   if(scope.current.world!==world||scope.current.documentId!==documentId)scope.current={world,documentId,epoch:scope.current.epoch+1};
+  const openReviewRef=useRef<(seed:ConnectedPageReviewSeed)=>void>(()=>{});
+  openReviewRef.current=seed=>{if(!world||!documentId||seed.worldId!==world||seed.ownerDocumentId!==documentId||busyRef.current!==null)throw new Error('The page review destination changed.');
+    if(reviewDraftError)throw new Error(reviewDraftError);
+    if(reviewSeed){if(reviewSeed.sourceTurnId===seed.sourceTurnId&&JSON.stringify(reviewSeed.proposal)===JSON.stringify(seed.proposal)){setOpen(true);return;}throw new Error('Resolve the existing page review before opening another.');}
+    if(readConnectedPageRecovery(world,documentId))throw new Error('Resolve the retained page creation before opening another review.');
+    setReviewSeed(seed);setOrigin(seed.origin);setTitle(seed.proposal.title);setPersonLabel(seed.proposal.person_label??'');setPersonChoice('');setPlaceChoice('__new__');setRelationships(seed.proposal.relationships);setInstructions(seed.proposal.instructions);setMode('scaffold');setError('');setOpen(true);void loadCandidates(world);};
+  useLayoutEffect(()=>{if(!world||!documentId)return;return publishConnectedPageReviewHost({worldId:world,documentId,open:seed=>openReviewRef.current(seed)});},[world,documentId]);
   useEffect(()=>{mounted.current=true;return()=>{mounted.current=false;scope.current.epoch+=1;};},[]);
   const captureScope=()=>{const epoch=scope.current.epoch;return()=>mounted.current&&scope.current.epoch===epoch;};
   useEffect(()=>{if(open&&dialog.current&&!dialog.current.open)dialog.current.showModal();},[open]);
   useEffect(()=>{
-    let active=true;busyRef.current=null;setBusy(false);setOpen(false);setOrigin(null);setRetained(null);setOperation(null);setPageOperation(null);setError('');
+    let active=true;busyRef.current=null;setBusy(false);setOpen(false);setOrigin(null);setRetained(null);setOperation(null);setPageOperation(null);setError('');setReviewSeed(null);setReviewDraftError('');
     if(!world||!documentId)return;
     try{
       const saved=readConnectedPageRecovery(world,documentId);
       if(saved){setRetained(saved);void recoverConnectedPage(saved).then(result=>{if(active)setOperation(result);}).catch(()=>{/* Unknown outcomes retain the exact request; absence is not cancellation. */});}
-    }catch(reason){setError(errorText(reason));}
+      else {const raw=sessionStorage.getItem('dmb:connected-page-review-draft:v1:'+JSON.stringify([world,documentId]));
+        if(raw!==null){const v=JSON.parse(raw),seed=v.seed,f=v.fields;
+          if(v.schema!=='dmb_connected_page_review_draft_v1'||seed?.worldId!==world||seed?.ownerDocumentId!==documentId||!isCollaboration(seed?.proposal,true)||seed.proposal.kind!=='connected_page'||!f||!validConnectedPageIntent({operation_id:'11111111-1111-4111-8111-111111111111',world_id:world,title:f.title,origin:seed.origin,place:{node_id:null,label:f.title,kind:'location'},person:null,relationships:[],mode:f.mode,instructions:f.instructions})||typeof f.personLabel!=='string'||typeof f.personChoice!=='string'||typeof f.placeChoice!=='string'||!Array.isArray(f.relationships)||f.relationships.some((x:unknown)=>!['owns','operates'].includes(String(x))))throw new Error('The local page review could not be restored; its bytes were kept.');
+          setReviewSeed(seed);setOrigin(seed.origin);setTitle(f.title);setPersonLabel(f.personLabel);setPersonChoice(f.personChoice);setPlaceChoice(f.placeChoice);setRelationships(f.relationships);setInstructions(f.instructions);setMode(f.mode);void loadCandidates(world);
+        }}
+    }catch(reason){setError(errorText(reason));setReviewDraftError(errorText(reason));}
     return()=>{active=false;};
   },[world,documentId]);
+  useEffect(()=>{
+    if(!reviewSeed||!world||!documentId||reviewSeed.worldId!==world||reviewSeed.ownerDocumentId!==documentId||retained||reviewDraftError)return;
+    try{const key='dmb:connected-page-review-draft:v1:'+JSON.stringify([world,documentId]),bytes=JSON.stringify({schema:'dmb_connected_page_review_draft_v1',seed:reviewSeed,fields:{title,personLabel,personChoice,placeChoice,relationships,mode,instructions}});sessionStorage.setItem(key,bytes);if(sessionStorage.getItem(key)!==bytes)throw new Error('Local page review could not be retained.');}
+    catch(reason){setReviewDraftError(errorText(reason));setError(errorText(reason));}
+  },[reviewSeed,world,documentId,title,personLabel,personChoice,placeChoice,relationships,mode,instructions,retained,reviewDraftError]);
   // A page carries the immutable operation ID. Its origin and acknowledged
   // connections remain inspectable after reload, without replaying a write.
   useEffect(()=>{
@@ -66,6 +88,8 @@ export function BuildConnectedPageControl({selectDocument,refreshDocuments,relat
     const before=current.current,editor=before?.editor;
     if(!before?.record?.world_id||!before.snapshot||!editor||before.activeCommand)return;
     if(retained){setOrigin(retained.origin);setOpen(true);return;}
+    if(reviewDraftError){setError(reviewDraftError);return;}
+    if(reviewSeed){setOpen(true);return;}
     try{
       const capture=await captureSurfaceTextSelection(editor,()=>current.current?.editor===editor
         &&current.current?.record?.document_id===before.record!.document_id
@@ -89,18 +113,19 @@ export function BuildConnectedPageControl({selectDocument,refreshDocuments,relat
     if(!mounted.current)return;
     if(buildOut){queueConnectedPageBuildOut(result);agent?.setPaneOpen(true);}
     if(result.phase==='complete'){
-      const pending=readConnectedPageRecovery(result.intent.world_id,result.intent.origin.document_id);
-      if(pending?.operation_id===result.operation_id)clearConnectedPageRequest(pending);
+      const pending=readConnectedPageRecovery(result.intent.world_id,documentId!);
+      if(pending?.operation_id===result.operation_id)clearConnectedPageRequest(pending,documentId!);
+      sessionStorage.removeItem('dmb:connected-page-review-draft:v1:'+JSON.stringify([result.intent.world_id,documentId]));
     }
   }
   async function create(){
-    if(busyRef.current!==null||!world||!documentId||!origin)return;
+    if(busyRef.current!==null||!world||!documentId||!origin||reviewDraftError)return;
     const isCurrent=captureScope();
     const epoch=scope.current.epoch;busyRef.current=epoch;setBusy(true);setError('');
     try{
       let request=retained;
       if(!request){
-        if(current.current?.record?.document_id!==documentId||JSON.stringify(current.current?.editor?.getJSON())!==origin.editor_json)
+        if(current.current?.record?.document_id!==documentId||!('kind' in origin)&&JSON.stringify(current.current?.editor?.getJSON())!==origin.editor_json)
           throw new Error('The source changed. Close this form and select the passage again.');
         const person=relationships.length?(personChoice==='__new__'?{label:personLabel.trim(),kind:'npc' as const}
           :people.find(n=>n.nodeId===personChoice)):null;
@@ -111,7 +136,7 @@ export function BuildConnectedPageControl({selectDocument,refreshDocuments,relat
           place:{label:place.label,kind:'location',node_id:'nodeId'in place?place.nodeId:null},
           person:person?{label:person.label,kind:'npc',node_id:'nodeId'in person?person.nodeId:null}:null,
           relationships,mode,instructions};
-        retainConnectedPageRequest(request);setRetained(request);
+        retainConnectedPageRequest(request,documentId);setRetained(request);
       }
       let result=await prepareConnectedPage(request);
       if(!isCurrent())return;
@@ -128,7 +153,7 @@ export function BuildConnectedPageControl({selectDocument,refreshDocuments,relat
       try{
         const saved=readConnectedPageRecovery(world,documentId);
         if(saved){const recovered=await recoverConnectedPage(saved);if(isCurrent())setOperation(recovered);}
-      }catch{/* Keep exact intent even on 404: the original request may still be starting. */}
+      }catch{/* Absence does not fence a concurrent reservation; retain the exact request. */}
     }finally{if(busyRef.current===epoch)busyRef.current=null;if(isCurrent())setBusy(false);}
   }
   if(!session?.editor||!world||!documentId)return null;
@@ -136,6 +161,7 @@ export function BuildConnectedPageControl({selectDocument,refreshDocuments,relat
   const displayed=retained;
   return <>
     <SurfaceSelectionActions editor={session.editor} actions={open?[]:[{id:'new-page',label:'＋ New page',invoke:()=>{void start();}}]}/>
+    {!open&&reviewSeed&&!retained&&<aside className="connected-page-recovery"><button type="button" onClick={()=>setOpen(true)}>Resume page review</button></aside>}
     {!open&&retained&&<aside className="connected-page-recovery"><button type="button" onClick={()=>{setOrigin(retained.origin);setOpen(true);}}>Resume page creation</button>
       {operation?.page&&<button type="button" onClick={()=>void openCreated(operation,false)}>Open created page</button>}</aside>}
     {!open&&error&&<p role="alert">{error}</p>}
@@ -166,7 +192,8 @@ export function BuildConnectedPageControl({selectDocument,refreshDocuments,relat
         </fieldset>
         {loading&&<p role="status">Finding existing people and places…</p>}
         {error&&<p role="alert">{error}</p>}
-        <footer><button type="submit" disabled={busy||loading||!origin||(!retained&&(!title.trim()||relationships.length>0&&(!personLabel.trim()||!personChoice)))}>{busy?'Creating…':retained?'↻ Retry':'Create page'}</button>
+        {reviewDraftError&&reviewSeed&&<button type="button" onClick={()=>{setReviewDraftError('');setError('');}}>Try retaining review again</button>}
+        <footer><button type="submit" disabled={busy||loading||!!reviewDraftError||!origin||(!retained&&(!title.trim()||relationships.length>0&&(!personLabel.trim()||!personChoice)))}>{busy?'Creating…':retained?'↻ Retry':'Create page'}</button>
           {operation?.page&&<button type="button" onClick={()=>void openCreated(operation!,false)}>Open created page</button>}
         </footer>
       </form>

@@ -23,8 +23,8 @@ from generationengine.utils.schema_utils import make_schema_strict
 def packet():
     return {
         "user_question": "Plan a shop.",
-        "source_writer_output_policy":"cited_facts_host_limitations_v1",
-        "requested_detail_gap_policy":"exact_question_phrase_selected_excerpts_v1",
+        "source_writer_output_policy": "cited_facts_host_limitations_v1",
+        "requested_detail_gap_policy": "exact_question_phrase_selected_excerpts_v1",
         "working_draft_context": {"record_id": str(uuid4())},
         "collaboration_output_policy": POLICY,
     }
@@ -107,3 +107,56 @@ def test_exact_strict_schema_and_normalization_keep_work_separate_from_acknowled
     assert "collaboration" not in normalize(json.dumps(legacy), historical)
     with pytest.raises(ValidationError):
         normalize(json.dumps(legacy), p)
+
+
+def test_connected_review_schema_is_exact_and_binds_a_unique_actual_excerpt():
+    from application_state.agent_conversation.collaboration import (
+        CONNECTED_POLICY,
+        CONNECTED_FORMAT,
+    )
+
+    p = packet()
+    p["connected_page_review_policy"] = CONNECTED_POLICY
+    rid = str(uuid4())
+    body = "| Name | Task |\n| Copper | Repair a hook |\n"
+    p["related_authored_pages"] = {
+        "pages": [
+            {
+                "read_id": rid,
+                "markdown": body,
+                "page": {
+                    "document_id": str(uuid4()),
+                    "registry_revision": 3,
+                    "content_sha256": "a" * 64,
+                },
+            }
+        ]
+    }
+    proposal = {
+        "kind": "connected_page",
+        "title": "Copper Forge",
+        "read_id": rid,
+        "quote": "Copper | Repair",
+        "person_label": None,
+        "relationships": [],
+        "instructions": "Useful workshop",
+    }
+    schema = output_schema(p)
+    assert make_schema_strict(schema) == schema
+    validate_writer_format(
+        {
+            "type": "json_schema",
+            "name": CONNECTED_FORMAT,
+            "strict": True,
+            "schema": schema,
+        },
+        p,
+    )
+    assert normalize(json.dumps(answer(proposal)), p)["collaboration"] == proposal
+    for patch in [{"read_id": str(uuid4())}, {"quote": "missing"}, {"quote": "|"}]:
+        with pytest.raises(ValueError):
+            normalize(json.dumps(answer({**proposal, **patch})), p)
+    historical = copy.deepcopy(p)
+    historical.pop("connected_page_review_policy")
+    with pytest.raises(ValidationError):
+        normalize(json.dumps(answer(proposal)), historical)

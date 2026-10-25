@@ -1,15 +1,16 @@
 import {authenticatedApiFetch,LiveApiError} from './liveApi';
 import type {WorkspaceDocumentRecord} from './types';
 import type {SurfaceTextCapture} from '../surfaceInteraction/SurfaceSelectionActions';
+export interface SavedExcerptOrigin {kind:"saved_page_excerpt";document_id:string;revision:number;content_sha256:string;line_start:number;line_end:number;selected_text:string}
 export interface ConnectedPageIntent{
   operation_id:string;world_id:string;title:string;
-  origin:SurfaceTextCapture&{document_id:string;revision:number;content_sha256:string};
+  origin:(SurfaceTextCapture&{document_id:string;revision:number;content_sha256:string})|SavedExcerptOrigin;
   place:{node_id:string|null;label:string;kind:'location'};
   person:{node_id:string|null;label:string;kind:'npc'}|null;
   relationships:('owns'|'operates')[];mode:'scaffold'|'build_out';instructions:string;
 }
 export interface ConnectedPageOperation{
-  schema:'dmb_connected_page_operation_v1';operation_id:string;phase:'reserved'|'created'|'saved'|'prepared'|'complete';
+  schema:'dmb_connected_page_operation_v1'|'dmb_connected_page_operation_v2';operation_id:string;phase:'reserved'|'created'|'saved'|'prepared'|'complete';
   intent:ConnectedPageIntent;page:WorkspaceDocumentRecord|null;
   initial_source:{documentId:string;revision:number;contentSha256:string}|null;
   prepared:{confirm_token:string;assertions_preview:{summary:string}[]}|null;
@@ -33,15 +34,16 @@ export function validConnectedPageIntent(value:unknown):value is ConnectedPageIn
     &&['scaffold','build_out'].includes(r.mode)&&obj(r.place,'location')&&(r.person===null||obj(r.person,'npc'))
     &&Array.isArray(r.relationships)&&r.relationships.length<=2&&r.relationships.every(p=>['owns','operates'].includes(p))
     &&new Set(r.relationships).size===r.relationships.length&&!!r.person===(r.relationships.length>0)
-    &&!!r.origin&&typeof r.origin==='object'&&keys(r.origin,['document_id','revision','content_sha256','editor_json','editor_sha256','selection_from','selection_to','selected_text'])
+    &&!!r.origin&&typeof r.origin==='object'
+    &&('kind' in r.origin? r.origin.kind==='saved_page_excerpt'&&keys(r.origin,['kind','document_id','revision','content_sha256','line_start','line_end','selected_text'])&&Number.isSafeInteger(r.origin.line_start)&&r.origin.line_start>0&&Number.isSafeInteger(r.origin.line_end)&&r.origin.line_end>=r.origin.line_start:keys(r.origin,['document_id','revision','content_sha256','editor_json','editor_sha256','selection_from','selection_to','selected_text']))
     &&uuid(r.origin.document_id)&&Number.isInteger(r.origin.revision)&&r.origin.revision>0&&hash(r.origin.content_sha256)
-    &&typeof r.origin.editor_json==='string'&&r.origin.editor_json.length<=2_000_000&&hash(r.origin.editor_sha256)
+    &&('kind' in r.origin||typeof r.origin.editor_json==='string'&&r.origin.editor_json.length<=2_000_000&&hash(r.origin.editor_sha256)
     &&Number.isInteger(r.origin.selection_from)&&Number.isInteger(r.origin.selection_to)&&r.origin.selection_from>=0
-    &&r.origin.selection_to>r.origin.selection_from&&typeof r.origin.selected_text==='string'&&!!r.origin.selected_text.trim();
+    &&r.origin.selection_to>r.origin.selection_from)&&typeof r.origin.selected_text==='string'&&!!r.origin.selected_text.trim();
 }
 export function assertConnectedPageOperation(value:unknown,request:ConnectedPageIntent):ConnectedPageOperation{
   const r=value as ConnectedPageOperation;
-  if(!r||r.schema!=='dmb_connected_page_operation_v1'||r.operation_id!==request.operation_id
+  if(!r||r.schema!==('kind' in request.origin?'dmb_connected_page_operation_v2':'dmb_connected_page_operation_v1')||r.operation_id!==request.operation_id
     ||!validConnectedPageIntent(r.intent)||canonicalConnectedIntent(r.intent)!==canonicalConnectedIntent(request)
     ||!['reserved','created','saved','prepared','complete'].includes(r.phase))throw new Error('The returned page operation does not match this request. The original request is retained.');
   if(r.page&&(!uuid(r.page.document_id)||r.page.world_id!==request.world_id||r.page.campaign_id!==request.world_id

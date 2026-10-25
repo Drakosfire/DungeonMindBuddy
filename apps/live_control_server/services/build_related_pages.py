@@ -214,8 +214,11 @@ def open_page(service, world_id, turn_id, read_id):
         for e in turn.graph_context_execution.events
         if isinstance(e, RelatedPageRead) and e.read_id == read_id
     ]
+    from application_state.agent_conversation.collaboration import ProposedConnectedPage
+    proposed=getattr(turn.completion,"collaboration",None)
+    review_match=isinstance(proposed,ProposedConnectedPage) and str(proposed.read_id)==str(read_id)
     if (
-        not matches
+        not (matches or review_match)
         or len(rows) != 1
         or any(s.page != rows[0].page for s in matches)
         or rows[0].page.world_id != world_id
