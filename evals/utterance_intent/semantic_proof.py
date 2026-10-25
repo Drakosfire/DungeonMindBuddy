@@ -50,6 +50,13 @@ FRESH = (
  ('connected', "Prepare a connected page review for Jo's Ropes, owned and operated by Jo. Use the saved trades chart.", 'review_connected_page'),
  ('relationship', 'Prepare a relationship review from the saved current page showing that Ari owns the forge. Do not publish it.', 'review_relationship'),
  ('image', 'Prepare an illustration of the forge beside tall silver reeds.', 'prepare_image'),
+ ('question_holdout', 'Before you start describing the fair, give me two questions about its season and who attends.', 'clarify_request'),
+ ('compare_holdout', "Let's compare an abandoned landing with a busy one, as possibilities. No page writing yet.", 'discuss'),
+ ('pin_holdout', 'Mark the forge at x=0.15, y=0.85 on the existing map.', 'place_map_coordinates'),
+ ('magic_holdout', 'Propose three tools with unmistakably supernatural properties for the forge, as a short table.', 'write_current_page'),
+ ('plan_holdout', 'Offer a checklist for expanding the landing and its trades. I want to select what gets done before anything runs.', 'plan'),
+ ('unsupported_holdout', 'Schedule a recurring reminder to check the silver reeds every morning.', 'other_creation'),
+ ('fact_holdout', "What does this page actually say about Jo's work at the forge?", 'discuss'),
 )
 
 
@@ -58,7 +65,7 @@ def capabilities(case):
         ops = tuple(case['control']['state']['decision']['state']['interaction']['allowed_operations'])
         return contract.Capabilities(ops)  # Historical review flags were not captured.
     return contract.Capabilities(('answer_from_sources',) if case['id'] == 'no_editor' else contract.OPERATIONS,
-                                 contract.REVIEWS, case['id'] != 'no_editor')
+                                 contract.REVIEWS, case['id'] != 'no_editor', case['id'] != 'no_editor')
 
 
 def synthetic_control(question):
@@ -96,17 +103,20 @@ def load_cases(frozen_path, adjudication_path):
             case['prospective_expectation_authority'] = override['authority']
         elif case['id'] == 'observed-page-suggestion':
             requested = {'write_current_page'}
+        case['semantic_expectation_basis'] = 'legacy_branch_projection'
         case.update(cohort='historical', legacy_expected_operation=case['original_expected'], expected_operation=expected,
                     expected_work=sorted(requested) or None)
         result.append(case)
     for name, question, expected in FRESH:
         cap = contract.Capabilities(('answer_from_sources',) if name == 'no_editor' else contract.OPERATIONS,
-                                    contract.REVIEWS, name != 'no_editor')
+                                    contract.REVIEWS, name != 'no_editor', name != 'no_editor')
         control = synthetic_control(question)
         control['state']['decision']['state']['interaction']['allowed_operations'] = list(cap.operations)
         result.append({'id': name, 'cohort': 'synthetic', 'origin': 'constructed_synthetic_context',
                        'question': question, 'expected_work': [expected],
-                       'expected_operation': contract.resolve(expected, cap)['operation'], 'control': control})
+                       'expected_operation': contract.resolve(expected, cap)['operation'],
+                       'semantic_expectation_basis': 'explicit_synthetic_gold_frozen_before_inference',
+                       'synthetic_generation': 'new_v2_holdout' if name.endswith('_holdout') else 'retained_v1_fixture', 'control': control})
     if len({c['id'] for c in result}) != len(result) or any(not re.fullmatch(r'[a-zA-Z0-9_-]+', c['id']) for c in result):
         raise ValueError('Invalid or duplicate case file identity')
     return result
@@ -149,7 +159,7 @@ def writing_request(case, resolution):
     packet = json.loads(wire['input'])
     packet['response_contract'] = resolution
     return TextRequest(provider='openai', model=wire['model'], user_prompt=canonical(packet),
-        system_prompt=wire['instructions'], temperature=None, max_output_tokens=4096, reasoning_effort='low',
+        system_prompt=wire['instructions'] + '\nSatisfy the requested number, format, and distinctive properties in the brief; names and thematic labels alone do not satisfy a requested property.\n', temperature=None, max_output_tokens=4096, reasoning_effort='low',
         json_schema=wire['text']['format']['schema'], schema_name='build_document_proposal',
         max_conformance_retries=0, max_transport_retries=0)
 
@@ -223,6 +233,7 @@ async def run(cases, output, frozen_path, adjudication_path):
                           'Only synthetic text goes to the OpenAI writer; captured payloads go only to the authorized TypeSafe/Vercel route.',
                           'Synthetic selected range is constructed, not proof of browser selection or actual replacement.',
                           'Image route is tested; image workflow/generation is not run here.',
+                          'Historical expected_work is a mechanical legacy-branch projection, not new semantic gold. Preserve mismatches pending adjudication.',
                           'Semantic usefulness requires separate inspection; output validation alone is not acceptance.']}
     private_write(output / 'frozen.json', manifest)
     client = GenerationClient.from_env()
@@ -230,8 +241,9 @@ async def run(cases, output, frozen_path, adjudication_path):
     rows = []
 
     async def one(case, variant, repeat):
-        row = {k: case[k] for k in ('id', 'cohort', 'origin', 'expected_work', 'expected_operation')}
-        row.update(variant=variant, repeat=repeat, calls=[], error=None, failure_stage=None, image_admission='not_applicable')
+        row = {k: case[k] for k in ('id', 'cohort', 'origin', 'expected_work', 'expected_operation', 'semantic_expectation_basis')}
+        row.update(variant=variant, repeat=repeat, calls=[], error=None, failure_stage=None, image_admission='not_applicable',
+                   semantic_usefulness='unreviewed')
         async def call(kind, request):
             entry = {'kind': kind, 'request': request.model_dump(mode='json'), 'response': None,
                      'failure_observation': None}

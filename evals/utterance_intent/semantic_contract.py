@@ -36,7 +36,7 @@ class Work:
 
 WORK = MappingProxyType({
     'discuss': Work('discuss', 'Answer, retrieve, compare, acknowledge, or explicitly discuss first.'),
-    'clarify_request': Work('discuss', 'Immediate user intent/reference needs an author choice before useful work.', review='questions'),
+    'clarify_request': Work('discuss', 'Prepare clarifying questions, including an explicit request to ask the author questions; resolve an unclear intent/reference or creative choice before useful work.', review='questions'),
     'plan': Work('create', 'Prepare an editable plan/checklist for author choice, not execution.', review='plan'),
     'write_current_page': Work('create', 'Concrete current-page prose, proposed list/table, addition or selected-range revision.', 'propose_build_insertion'),
     'prepare_image': Work('create', 'Prepare image, illustration or map-image prompt review; not coordinates.', 'prepare_build_image'),
@@ -59,6 +59,7 @@ class Capabilities:
     operations: tuple[str, ...]
     reviews: tuple[str, ...] | None = None  # None is uncaptured, not unavailable.
     plan_surface: bool | None = None
+    author_save: bool | None = None  # A captured manual control, never an agent executor.
 
     def __post_init__(self):
         if (not isinstance(self.operations, tuple) or len(set(self.operations)) != len(self.operations)
@@ -69,8 +70,8 @@ class Capabilities:
                 or len(set(self.reviews)) != len(self.reviews)
                 or any(x not in REVIEWS for x in self.reviews)):
             raise ValueError('Invalid captured review capabilities')
-        if self.plan_surface is not None and not isinstance(self.plan_surface, bool):
-            raise ValueError('Invalid plan Surface capability')
+        if any(value is not None and not isinstance(value, bool) for value in (self.plan_surface, self.author_save)):
+            raise ValueError('Invalid captured Surface/manual capability')
 
 
 def question():
@@ -105,18 +106,45 @@ def resolve(label, capabilities):
             barrier = 'requested_review_not_offered'
         elif label == 'plan' and capabilities.plan_surface is not True:
             barrier = 'plan_placement_not_captured' if capabilities.plan_surface is None else 'plan_placement_absent'
-    followups = ['discuss_request']
+    followups = [{'id': 'discuss_request', 'description': 'Talk through the request in conversation; no action is executed.'}]
     if 'propose_build_insertion' in capabilities.operations:
-        followups.append('prepare_current_page_writing')
+        followups.append({'id': 'prepare_current_page_writing', 'description': 'Prepare an editable current-page suggestion after the author chooses that follow-up; it does not save.'})
     if 'prepare_build_image' in capabilities.operations:
-        followups.append('prepare_image_prompt')
+        followups.append({'id': 'prepare_image_prompt', 'description': 'Prepare an image prompt for review; generation and selection remain author actions.'})
     for review in capabilities.reviews or ():
         if review != 'plan' or capabilities.plan_surface is True:
-            followups.append('review_' + review)
+            descriptions = {
+                'questions': 'Prepare clarifying questions as an inline conversation object.',
+                'plan': 'Prepare an editable plan/checklist on the Surface; selected steps require explicit continuation.',
+                'connected_page': 'Prepare connected-page review; the author explicitly confirms page creation.',
+                'relationship': 'Prepare a saved-page relationship review; the author edits and explicitly confirms publication in the existing review flow.',
+            }
+            followups.append({'id': 'review_' + review, 'description': descriptions[review]})
+    if barrier == 'current_page_target_absent':
+        followups.append({'id': 'recapture_page_target', 'description': 'Return to the existing page editor, choose a writing destination, and retry with that captured target.'})
+    if capabilities.author_save is True:
+        followups.append({'id': 'author_save_current_page', 'description': 'The author can use the current page Save control. This is a manual action, not an agent Save executor.'})
+    detail = {
+        'current_page_target_absent': 'No current-page writing destination was captured. This is a placement limit, not missing inventory or evidence.',
+        'image_capability_absent': 'No image-preparation capability is offered in this captured request.',
+        'review_capability_not_captured': 'This capture does not establish typed review availability; do not infer product absence.',
+        'requested_review_not_offered': 'The requested typed review is not offered in this captured request.',
+        'plan_placement_not_captured': 'This capture does not establish a Surface destination for the plan.',
+        'plan_placement_absent': 'A Surface destination for the typed plan is unavailable in this request.',
+    }.get(barrier)
+    if barrier == 'requested_executor_not_offered':
+        detail = {
+            'place_map_coordinates': 'No map-coordinate executor or verified manual map-editing/pin-picker follow-up is offered in this request. Do not imply such a workflow exists elsewhere.',
+            'change_mechanics': 'No mechanics-version change/save executor is offered in this request. Requesting more statistics cannot enable it.',
+            'build_encounter': 'No runnable encounter/combatant executor is offered in this request. Do not substitute encounter prose.',
+            'save_page': 'No agent-executed page Save is offered; any verified manual Save control is separately listed among follow-ups.',
+            'publish_relationships': 'No automatic Graph publication executor is offered; a separately offered review still requires explicit author confirmation.',
+            'other_creation': 'None of this captured request’s executors can perform the requested creation/action. Do not invent an external workflow.',
+        }[label]
     return {'policy': POLICY, 'requested_work': label, 'intent_family': work.family,
             'operation': 'answer_from_sources' if barrier else work.operation,
             'purpose': 'explain_capability' if barrier else 'clarify' if work.review == 'questions' else 'fulfill',
-            'barrier': barrier, 'capabilities': asdict(capabilities), 'available_followups': followups,
+            'barrier': barrier, 'barrier_detail': detail, 'capabilities': asdict(capabilities), 'available_followups': followups,
             'contract_sha256': digest({'policy': POLICY, 'work': {k: asdict(v) for k, v in WORK.items()},
                                         'capabilities': asdict(capabilities)})}
 
@@ -144,6 +172,8 @@ This request uses the host's build_intentional_response_v2 response contract.
 response_contract distinguishes requested_work, offered capabilities, the current operation,
 response purpose/barrier, and available followups. It is host availability information, not a
 source claim, executable tool or proof of saved work. Follow the actual resolved purpose.
+Read barrier_detail literally. Follow-up descriptions are the complete verified alternatives;
+do not print their internal IDs or imply an unlisted manual workflow exists elsewhere.
 An unavailable executor is not missing evidence. Preserve the requested action and explain
 that exact boundary without supplying substitute prose or asking for data as though it
 would unlock an absent executor. Offer only an available_followups workflow. In particular,
@@ -154,13 +184,16 @@ The current conversational operation does not disable separately offered future 
 Pure acknowledgments, capability explanations and author-choice questions need no page recap,
 creative-suggestion label or evidence gap. Use kind discussion for those non-factual segments.
 For this new format only, pure discussion with no factual claims/limitations uses status
-discussion. The host derives status from typed content. A requested missing fact still requires
+discussion. The host derives status from typed content. Hypothetical alternatives requested for discussion are creative comparisons, not missing
+facts about what currently exists. Compare them directly without an evidence-gap warning.
+A requested missing fact still requires
 its exact limitation and literal unique question substring in requested_detail_gaps; a creative
 choice or unsupported action does not. Keep supported factual claims in their existing typed,
 exactly attributed segments. New status supplies no factual or publication authority.
 Use only the collaboration kind required by the resolved request: plan for plan, questions for
 clarify_request/clarify_creation, connected_page or relationship for their enabled reviews.
-Do not duplicate questions/steps in prose. Plans are typed Surface objects after host validation;
+Do not duplicate questions/steps in prose. answer_segments may be empty when the typed
+collaboration object is the entire useful response; an acknowledgment is optional. Plans are typed Surface objects after host validation;
 questions remain inline in conversation. Never claim that you staged, saved, executed or published.
 For discuss, use collaboration:null and answer the actual question. Do not turn a social opener
 into a compulsory form or invent a task. Preserve temporary/conditional meaning and played facts.
@@ -172,7 +205,7 @@ def writer_request(packet, resolution):
     from .proof import canonical
     caps = resolution.get('capabilities', {})
     captured = Capabilities(tuple(caps['operations']),
-                            None if caps['reviews'] is None else tuple(caps['reviews']), caps['plan_surface'])
+                            None if caps['reviews'] is None else tuple(caps['reviews']), caps['plan_surface'], caps['author_save'])
     if canonical(resolve(resolution['requested_work'], captured)) != canonical(resolution):
         raise ValueError('Resolution differs from the closed captured contract')
     p = deepcopy(packet)
@@ -182,12 +215,17 @@ def writer_request(packet, resolution):
     request = writer.text_request(staged)
     schema = deepcopy(request.json_schema)
     schema['properties']['answer_context_status']['enum'].append('discussion')
+    schema['properties']['answer_segments']['minItems'] = 0
     return request.model_copy(update={'system_prompt': request.system_prompt + WRITER_GUIDANCE,
                                       'json_schema': schema, 'schema_name': 'build_intentional_response_answer_v1'}), p
 
 
 def validate_output(raw, packet, resolution):
-    """Prospective format validation only. Does not establish APP admission or execute anything."""
+    """Validate structure/provenance only, never semantic factuality or usefulness.
+
+    Free text is not a fact classifier. Neutral connective prose gains no claim authority.
+    Every real output still needs semantic inspection; this is not APP admission.
+    """
     from application_state.agent_conversation.build_draft_answer import normalize
     from application_state.agent_conversation.source_writer_output import strict_json
     from application_state.agent_conversation.collaboration import ProposedPlan, ProposedQuestions, ProposedConnectedPage, saved_excerpt
@@ -216,7 +254,13 @@ def validate_output(raw, packet, resolution):
         raise ValueError('Requested typed collaboration was not produced')
     segments = body['answer_segments']
     kinds = {s['kind'] for s in segments}
-    if kinds == {'discussion'} and not body['limitations'] and not body['requested_detail_gaps']:
+    if not segments and collaboration is None:
+        raise ValueError('Empty response without a useful collaboration object')
+    if collaboration and collaboration['kind'] == 'questions':
+        questions = {q['text'].strip() for q in collaboration['questions']}
+        if any(s['text'].strip() in questions for s in segments):
+            raise ValueError('Question duplicated outside its inline object')
+    if kinds <= {'discussion'} and not body['limitations'] and not body['requested_detail_gaps']:
         return {'answer_context_status': 'discussion',
                 'answer_segments': [{'kind': 'connective', 'text': s['text']} for s in segments],
                 'collaboration': collaboration}

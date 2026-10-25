@@ -57,17 +57,17 @@ def test_unavailable_creation_preserves_requested_intent_and_never_resolves_to_p
     assert resolution['requested_work'] == label and resolution['intent_family'] == 'create'
     assert resolution['operation'] == 'answer_from_sources'
     assert resolution['purpose'] == 'explain_capability'
-    assert not any('map' in x or 'mechanic' in x for x in resolution['available_followups'])
+    assert not any('map' in x['id'] or 'mechanic' in x['id'] for x in resolution['available_followups'])
 
 
 def test_current_conversation_does_not_erase_available_followup_writing():
     resolution = c.resolve('discuss', c.Capabilities(c.OPERATIONS, c.REVIEWS, True))
     assert resolution['operation'] == 'answer_from_sources'
-    assert 'prepare_current_page_writing' in resolution['available_followups']
+    assert 'prepare_current_page_writing' in {x['id'] for x in resolution['available_followups']}
     missing = c.resolve('write_current_page', c.Capabilities(('answer_from_sources',), (), False))
     assert missing['requested_work'] == 'write_current_page'
     assert missing['barrier'] == 'current_page_target_absent'
-    assert 'prepare_current_page_writing' not in missing['available_followups']
+    assert 'prepare_current_page_writing' not in {x['id'] for x in missing['available_followups']}
 
 
 def test_uncaptured_review_is_not_falsely_labeled_unavailable():
@@ -171,3 +171,42 @@ def test_failure_usage_is_retained_and_unknown_usage_is_not_zero():
     group = p.summarize(rows)[0]
     assert group['provider_call_attempts'] == 2 and group['calls_with_unknown_usage'] == 1
     assert group['known_input_tokens'] == 11 and group['known_output_tokens'] == 3
+
+
+def test_collaboration_only_output_needs_no_filler_acknowledgment():
+    _, packet, resolution = prepared('questions')
+    body = neutral()
+    body['answer_segments'] = []
+    body['collaboration'] = {'kind': 'questions', 'questions': [{'text': 'Landing or market?'}]}
+    assert c.validate_output(json.dumps(body), packet, resolution)['answer_segments'] == []
+    _, packet, resolution = prepared()
+    body['collaboration'] = None
+    with pytest.raises(ValueError, match='Empty response'):
+        c.validate_output(json.dumps(body), packet, resolution)
+
+
+def test_exact_duplicate_question_is_reported_as_output_failure():
+    _, packet, resolution = prepared('questions')
+    body = neutral('Landing or market?')
+    body['collaboration'] = {'kind': 'questions', 'questions': [{'text': 'Landing or market?'}]}
+    with pytest.raises(ValueError, match='Question duplicated'):
+        c.validate_output(json.dumps(body), packet, resolution)
+
+
+def test_neutral_structure_has_no_factuality_or_evidence_authority_claim():
+    _, packet, resolution = prepared()
+    result = c.validate_output(json.dumps(neutral('An unsupported assertion hidden in prose.')), packet, resolution)
+    assert all(s['kind'] == 'connective' for s in result['answer_segments'])
+    assert not {'source_citations', 'source_claims', 'graph_claims'} & result.keys()
+    # Semantic content is explicitly unreviewed in the proof runner; this assertion is not
+    # a desired reply or factuality pass. No regex/second model pretends to certify it.
+
+
+def test_only_captured_manual_save_is_offered_and_map_workflow_is_not_invented():
+    absent = c.resolve('save_page', c.Capabilities(c.OPERATIONS))
+    present = c.resolve('save_page', c.Capabilities(c.OPERATIONS, c.REVIEWS, True, True))
+    assert 'author_save_current_page' not in {x['id'] for x in absent['available_followups']}
+    assert 'author_save_current_page' in {x['id'] for x in present['available_followups']}
+    pin = c.resolve('place_map_coordinates', c.Capabilities(c.OPERATIONS, c.REVIEWS, True, True))
+    assert 'No map-coordinate executor' in pin['barrier_detail']
+    assert not any('map' in x['id'] for x in pin['available_followups'])
