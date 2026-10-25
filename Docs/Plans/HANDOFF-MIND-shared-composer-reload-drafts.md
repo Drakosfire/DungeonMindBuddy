@@ -1,6 +1,17 @@
 # MIND — retain unsent conversation text through reload
 
-ACTIVE PRIME implementation after amended owner design APPROVED exact head
+DELIVERED in PR1722, merge/UI e489c5e9beaa86a192c0ab211854b3398b47b0f3.
+Independent final review approved6fff397d76345837cc5ee51c057a4afdae1ee9dd;231 tests,
+application typecheck and Vite build passed. Protected UI adoption preserved retained
+state. Ordinary two-tab Unicode/whitespace drafts survived reload. During actual
+first-row construction, newer unsent text survived reload; exact submitted turn
+ea2f1389-5414-4bf7-9878-4d01c37e2bbc recovered once on attempt1, with one writer
+call and proposal142f9c67-8450-4285-98ea-9278aa03e76b. Original Edge revision31/hash
+remained unchanged. Six-room proposal quality was limited: sweet reward was too
+literally food/candy and haunted tone weak; no full quality acceptance claimed.
+Original implementation lease below is historical.
+
+PRIME implementation followed amended owner design APPROVED exact head
 d08903881a2747feb8575a4ce4d89c4511c20eb7. Original design APPROVED exact head
 8f7150bd1da91886b825281d35960eea3fc3ce72 on2026-10-24. Active authoring goal §3 supplies implementation authority.
 Serial successor to PR1721 merge5829c6e8f96f0a536577da8b1dca164e99bc6bb9.

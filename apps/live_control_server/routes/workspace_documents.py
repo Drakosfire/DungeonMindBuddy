@@ -62,6 +62,7 @@ from apps.live_control_server.services.tiptap_markdown_write import (
 )
 
 from uuid import UUID
+from apps.live_control_server.services.agent_graph_auth import enforce_native_graph_gm
 from apps.live_control_server.models.connected_page import ConnectedPageIntent
 from apps.live_control_server.services.connected_page_authoring import (
     ConnectedPageError, prepare_connected_page, confirm_connected_page, get_connected_page,
@@ -632,7 +633,8 @@ _CONNECTED_ERRORS = (ConnectedPageError, WorkspaceDocumentRegistryError,
 
 
 @router.post('/connected-pages/prepare')
-def post_connected_page_prepare(body: ConnectedPageIntent):
+def post_connected_page_prepare(body: ConnectedPageIntent, request: Request):
+    enforce_native_graph_gm(request)
     try:
         return prepare_connected_page(_managed_world_root(), body)
     except _CONNECTED_ERRORS as exc:
@@ -640,7 +642,8 @@ def post_connected_page_prepare(body: ConnectedPageIntent):
 
 
 @router.post('/connected-pages/confirm')
-def post_connected_page_confirm(body: ConnectedPageConfirmation):
+def post_connected_page_confirm(body: ConnectedPageConfirmation, request: Request):
+    enforce_native_graph_gm(request)
     try:
         return confirm_connected_page(_managed_world_root(), body.operation_id, body.world_id, body.confirm_token)
     except _CONNECTED_ERRORS as exc:
@@ -648,7 +651,8 @@ def post_connected_page_confirm(body: ConnectedPageConfirmation):
 
 
 @router.get('/connected-pages/{operation_id}')
-def read_connected_page(operation_id: UUID, world_id: str):
+def read_connected_page(operation_id: UUID, world_id: str, request: Request):
+    enforce_native_graph_gm(request)
     try:
         return get_connected_page(_managed_world_root(), operation_id, world_id)
     except _CONNECTED_ERRORS as exc:

@@ -1,7 +1,10 @@
 # BUILD — real on-page table construction
 
 IMPLEMENTATION DELIVERED through1719–1721; original lease below is historical.
-Combined ordinary recovery proof continues with the shared-composer successor.
+Combined ordinary recovery proof passed with PR1722/UI e489c5e9: reload during
+actual first-row construction recovered one exact turn, writer call and proposal,
+preserved newer unsent text and left original Edge revision31/hash unchanged.
+Broader content quality and operator acceptance remain open.
 Independent exact-head design critique APPROVED
 f0bf0e727f94c13ca805306c63fdf40782c663d2; activation2026-10-24 after
 GE27 merge and consumer ownership inspection. Serial topology: one Buddy implementation PR, after
@@ -38,9 +41,9 @@ only when validated exact pending-turn recovery settles unchanged/absent envelop
 bytes. Exclusive writes: WorldPlanAgentConversation.tsx, its existing mounted
 planPlay integration test, this handoff. No new execution, routing or persistence
 contract; no unrelated draft-storage change. Independent review and protected UI
-adoption plus ordinary reload proof are required. Newer unsent composer text is
-currently memory-only and was lost across reload; that distinct recovery gap
-remains open for its own bounded storage contract.
+adoption and ordinary reload proof were completed with PR1722, including the
+separate shared tab/World composer recovery contract. The proof did not Save the
+proposal into the operator source; story-quality acceptance remains open.
 
 ## Capability and ownership
 

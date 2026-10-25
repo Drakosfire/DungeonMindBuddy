@@ -1,3 +1,4 @@
+import {queueSurfaceConversationRequest,cancelSurfaceConversationRequest} from "./surfaceConversationRequests";
 import { COMPOSER_DRAFT_WRITE_WARNING } from "./conversationComposerDrafts";
 import { listBuildProposals } from "../api/buildDocumentProposalApi";
 vi.mock("../api/buildDocumentProposalApi", async (original) => ({
@@ -482,6 +483,37 @@ describe("one App-level World conversation host across Plan and Play", () => {
   });
 
 
+
+  it('hands one explicit authoring gesture to durable Build submission without replacing composer text',async()=>{
+    const bridge:BuildComposeBridge={captureContext:vi.fn(async()=>draftSnapshot()),capture:vi.fn(async()=>insertionCapture()),insert:vi.fn()};
+    vi.mocked(postWorldBuildAgentTurn).mockImplementation(()=>new Promise(()=>{}));
+    render(<Harness initial="build" buildBridge={bridge}/>);
+    fireEvent.click(await screen.findByRole('button',{name:'Open',exact:true}));
+    const input=await screen.findByLabelText('Message DungeonBuddy');await waitFor(()=>expect(input).toBeEnabled());
+    fireEvent.change(input,{target:{value:'Keep my own next question'}});
+    const prepare=vi.fn(async()=>{});
+    act(()=>queueSurfaceConversationRequest({id:'connected-integration',worldId:WORLD,surfaceId:'build',objectId:'source-one',
+      message:'Build out the selected starter sections.',clientThreadId:'11111111-1111-4111-8111-111111111111',
+      turnId:'22222222-2222-4222-8222-222222222222',isCurrent:()=>true,prepare}));
+    await waitFor(()=>expect(postWorldBuildAgentTurn).toHaveBeenCalledTimes(1));
+    const request=vi.mocked(postWorldBuildAgentTurn).mock.calls[0][0];
+    expect(request.turn_id).toBe('22222222-2222-4222-8222-222222222222');
+    expect(request.message).toBe('Build out the selected starter sections.');
+    expect(request.build_write_capability).toBeDefined();expect(prepare).toHaveBeenCalledTimes(1);
+    expect(input).toHaveValue('Keep my own next question');
+    const stored=JSON.parse(localStorage.getItem(`dmb:world-play-pending-turn:v1:${encodeURIComponent(WORLD)}`)!);
+    expect(stored.request).toEqual(request);cancelSurfaceConversationRequest('connected-integration');
+  });
+  it('offers an explicit retry when an authoring gesture cannot prepare, without a request loop',async()=>{
+    const bridge:BuildComposeBridge={captureContext:vi.fn(async()=>draftSnapshot()),capture:vi.fn(async()=>insertionCapture()),insert:vi.fn()};
+    render(<Harness initial="build" buildBridge={bridge}/>);fireEvent.click(await screen.findByRole('button',{name:'Open',exact:true}));
+    await waitFor(()=>expect(screen.getByLabelText('Message DungeonBuddy')).toBeEnabled());
+    const prepare=vi.fn(async()=>{throw new Error('The created page changed.');});
+    act(()=>queueSurfaceConversationRequest({id:'connected-failure',worldId:WORLD,surfaceId:'build',objectId:'source-one',message:'Build out',
+      clientThreadId:'thread',turnId:'turn',isCurrent:()=>true,prepare}));
+    await screen.findByRole('button',{name:'↻ Try build out'});expect(prepare).toHaveBeenCalledTimes(1);expect(postWorldBuildAgentTurn).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole('button',{name:'Dismiss'}));cancelSurfaceConversationRequest('connected-failure');
+  });
 
   it.each(['rejected','undefined'] as const)('preserves a Build placement request before dispatch when capture is %s',async mode=>{
     const capture=vi.fn(async()=>{throw new Error('Place the caret where the new text should go.');});

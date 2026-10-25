@@ -19,6 +19,12 @@ from apps.live_control_server.models.connected_page import ConnectedPageIntent
 @pytest.fixture
 def case(request, monkeypatch):
     c = request.getfixturevalue("source_case")
+    from fastapi.testclient import TestClient
+    token = 'synthetic-connected-page-operator-token-123456'
+    monkeypatch.setenv('DMB_AGENT_GRAPH_AUTH_MODE', 'local_operator')
+    monkeypatch.setenv('DMB_AGENT_GRAPH_AUTH_ENVIRONMENT', 'local')
+    monkeypatch.setenv('DMB_AGENT_GRAPH_LOCAL_OPERATOR_TOKEN', token)
+    c.client = TestClient(c.client.app, client=('127.0.0.1', 54000), headers={'Authorization': 'Bearer '+token})
     monkeypatch.setattr('apps.live_control_server.routes.workspace_documents._managed_world_root', lambda: c.root)
     text = 'Brin’s Blacksmithy: Repairs gear and makes practical metalwork.'
     c.editor = json.dumps({'type': 'doc', 'content': [{'type': 'paragraph', 'content': [
@@ -260,4 +266,40 @@ def test_native_mapping_drift_refuses_and_keeps_created_page(case):
     response = confirm(case, operation)
     assert response.status_code == 409
     assert get(case).json()['page']['document_id'] == operation['page']['document_id']
+    assert case.authority.publish_calls == 0
+
+
+@pytest.mark.parametrize('endpoint', ['prepare', 'confirm', 'read'])
+def test_operation_requires_local_gm_before_any_operation_io(case, endpoint):
+    from fastapi.testclient import TestClient
+    client = TestClient(case.client.app, client=('127.0.0.1', 54001))
+    if endpoint == 'prepare':
+        response = client.post('/api/live/connected-pages/prepare', json=case.request)
+    elif endpoint == 'confirm':
+        response = client.post('/api/live/connected-pages/confirm', json={
+            'operation_id': case.request['operation_id'], 'world_id': case.record.world_id, 'confirm_token': 'not-a-token'})
+    else:
+        response = client.get('/api/live/connected-pages/'+case.request['operation_id'], params={'world_id': case.record.world_id})
+    assert response.status_code == 401
+    assert not (case.root/'out/registries/connected_pages').exists()
+    assert len(list_workspace_documents(case.root, kind='worldbuilding_source')) == 1
+    assert case.authority.publish_calls == 0
+
+
+def test_operation_rejects_non_loopback_even_with_operator_bearer(case):
+    from fastapi.testclient import TestClient
+    client = TestClient(case.client.app, client=('203.0.113.10', 54002), headers=dict(case.client.headers))
+    response = client.post('/api/live/connected-pages/prepare', json=case.request)
+    assert response.status_code == 403
+    assert not (case.root/'out/registries/connected_pages').exists()
+    assert case.authority.publish_calls == 0
+
+
+def test_missing_operation_with_retained_page_is_not_reported_as_safe_absence(case):
+    operation = prepare(case)
+    path = owner._path(case.root, case.request['operation_id'])
+    path.unlink()
+    response = get(case)
+    assert response.status_code == 409
+    assert get_workspace_document(case.root, operation['page']['document_id']).status == 'active'
     assert case.authority.publish_calls == 0

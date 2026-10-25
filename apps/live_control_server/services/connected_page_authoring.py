@@ -265,6 +265,7 @@ def _response(root, state):
     return {'schema': 'dmb_connected_page_operation_v1', 'operation_id': str(intent.operation_id),
         'phase': state['phase'], 'intent': state['intent'], 'page': page.model_dump(mode='json') if page else None,
         'source_origin': {'kind': 'captured_working_copy', 'working_text_sha256': state['working_text_sha256']},
+        'initial_source': state['saved_source'],
         'prepared': state['prepared'], 'receipt': receipt,
         'connections': {'place_node_id': intent.place.node_id or ids.get('place'),
             'person_node_id': intent.person.node_id or ids.get('person') if intent.person else None,
@@ -318,7 +319,12 @@ def get_connected_page(root: Path, operation_id, world_id: str):
     path = _path(root, operation_id)
     with registry_mutation_lock(path):
         state = _read(path)
-        if state is None or state['intent']['world_id'] != world_id:
+        if state is None:
+            if any(record.connected_page_operation_id == str(operation_id) and record.world_id == world_id
+                   for record in list_workspace_documents(root, kind='worldbuilding_source', status=None)):
+                raise ConnectedPageError('The created page is retained but its operation is unavailable')
+            raise ConnectedPageError('Connected-page operation not found in this World', status_code=404)
+        if state['intent']['world_id'] != world_id:
             raise ConnectedPageError('Connected-page operation not found in this World', status_code=404)
         _ownership(root, ConnectedPageIntent.model_validate(state['intent']))
         return _response(root, state)
@@ -329,7 +335,12 @@ def confirm_connected_page(root: Path, operation_id, world_id: str, confirm_toke
     path = _path(root, operation_id)
     with registry_mutation_lock(path):
         state = _read(path)
-        if state is None or state['intent']['world_id'] != world_id:
+        if state is None:
+            if any(record.connected_page_operation_id == str(operation_id) and record.world_id == world_id
+                   for record in list_workspace_documents(root, kind='worldbuilding_source', status=None)):
+                raise ConnectedPageError('The created page is retained but its operation is unavailable')
+            raise ConnectedPageError('Connected-page operation not found in this World', status_code=404)
+        if state['intent']['world_id'] != world_id:
             raise ConnectedPageError('Connected-page operation not found in this World', status_code=404)
         _ownership(root, ConnectedPageIntent.model_validate(state['intent']))
         _response(root, state)
