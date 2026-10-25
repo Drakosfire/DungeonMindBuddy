@@ -100,6 +100,17 @@ def output_schema(packet):
     return schema
 
 
+def source_claim_limitations(packet):
+    """Existing source-claim obligations, shared by instructions and validation."""
+    disposition = packet.get("retrieval_disposition", {})
+    required = set()
+    if disposition.get("coverage_status") != "catalog_exhausted" or disposition.get("status") == "insufficient_evidence":
+        required.add("partial_retrieval")
+    if disposition.get("status") == "unresolved_conflict":
+        required.add("unresolved_conflict")
+    return required
+
+
 def normalize(raw, packet):
     body = strict_json(raw)
     # Status is a host-derived description, not a second model judgment. Keep
@@ -124,13 +135,8 @@ def normalize(raw, packet):
     for segment in answer.answer_segments:
         if isinstance(segment, DraftReferenceClaimV1) and str(segment.draft_record_id) != lane["record_id"]:
             raise ValueError("Draft answer selected an unincluded working copy")
-    disposition = packet.get("retrieval_disposition", {})
     if sources:
-        required = set()
-        if disposition.get("coverage_status") != "catalog_exhausted" or disposition.get("status") == "insufficient_evidence":
-            required.add("partial_retrieval")
-        if disposition.get("status") == "unresolved_conflict":
-            required.add("unresolved_conflict")
+        required = source_claim_limitations(packet)
         if not required.issubset(answer.limitations):
             raise ValueError("Draft answer omitted the related-source retrieval qualification")
     segments = [({"kind": "connective", "text": "Suggestion: " + s.text}

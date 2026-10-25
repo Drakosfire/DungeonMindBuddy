@@ -73,6 +73,12 @@ class PagesWriter(WriterWire):
         if wire["text"]["format"]["name"] == "build_document_proposal":
             return response
         packet = json.loads(wire["input"])
+        from application_state.agent_conversation.build_draft_answer import source_claim_limitations
+        required = sorted(source_claim_limitations(packet))
+        if required:
+            assert "limitations MUST include these exact codes: " + json.dumps(required) in wire["instructions"]
+        if self.connected:
+            assert "one short suggestion segment without" in wire["instructions"]
         row = packet["related_authored_pages"]["pages"][0]
         if self.connected:
             self.collaboration = {
