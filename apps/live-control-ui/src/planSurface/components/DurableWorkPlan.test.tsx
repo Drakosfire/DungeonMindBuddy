@@ -69,3 +69,26 @@ it('collapses completed steps and replaces dispatched selection controls with st
  fireEvent.click(summary); // native disclosure remains operable; no continuation is dispatched.
  expect(continueWorkPlan).not.toHaveBeenCalled();
 });
+
+it('removes an unexecuted row locally, restores it after remount and saves exact remaining IDs',async()=>{
+ const p=plan();mount();
+ fireEvent.click(await screen.findByRole('button',{name:'Remove step 1'}));
+ expect(screen.getByLabelText('Saved step 1')).toHaveValue('Prepare content.');
+ expect(saveWorkPlan).not.toHaveBeenCalled();expect(continueWorkPlan).not.toHaveBeenCalled();
+ cleanup();mount();
+ expect(await screen.findByLabelText('Saved step 1')).toHaveValue('Prepare content.');
+ expect(screen.getByRole('button',{name:'Remove step 1'})).toBeDisabled();
+ vi.mocked(saveWorkPlan).mockResolvedValue({...p,revision:2,steps:[p.steps[1]]});
+ fireEvent.click(screen.getByRole('button',{name:'Save reviewed plan'}));
+ await waitFor(()=>expect(saveWorkPlan).toHaveBeenCalledWith(scope,1,[p.steps[1]],'Develop a useful shop scene.'));
+ expect(continueWorkPlan).not.toHaveBeenCalled();
+});
+it('offers no removal for a dispatched row while a pending row remains removable',async()=>{
+ const p=plan();vi.mocked(getWorkPlan).mockResolvedValue({...p,dispatches:[{command_id:one,step_id:one,client_thread_id:two,client_turn_id:one,message:'Retained'}],execution:[]});
+ mount();await screen.findByLabelText('Saved step 1');
+ expect(screen.queryByRole('button',{name:'Remove step 1'})).toBeNull();
+ expect(screen.getByRole('button',{name:'Remove step 2'})).toBeEnabled();
+ fireEvent.click(screen.getByRole('button',{name:'Remove step 2'}));
+ expect(screen.getByLabelText('Saved step 1')).toHaveValue('Discuss the shop.');
+ expect(screen.queryByLabelText('Saved step 2')).toBeNull();expect(continueWorkPlan).not.toHaveBeenCalled();
+});
