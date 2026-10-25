@@ -291,8 +291,9 @@ Use marker `intentional_response_policy="build_intentional_response_v2"` plus ex
 resolver and capability commitments in new closed policy variants. Two axes are real:
 working-draft capture present/absent and image capability offered/absent. Extend the matching
 existing bases (`BuildRelationshipReviewPolicyV1` / image variant with a draft;
-`BuildNamedWorldContextPolicyV1` / image variant without a draft), each with a distinct
-`execution_driver` discriminator for this contract. Do not add default fields to old policy
+`BuildNamedWorldContextPolicyV1` / image variant without a draft). The new required marker
+and closed fields distinguish these union members; keep the existing `driver_schema` carrier
+identity and do not invent an `execution_driver` field. Do not add default fields to old policy
 models or change historical serialized hashes. No-draft variants do not manufacture draft,
 related-page, quote or relationship-review authority. They can support neutral discussion
 and typed questions; other review kinds require their actual existing policy and destination.
