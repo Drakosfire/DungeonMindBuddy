@@ -4008,6 +4008,8 @@ class BuildReviewedActionSelectionV1(GraphExecutionEventBaseV1):
     def exact_author_action(self):
         if self.binding is None or self.operation != self.binding.operation:
             raise ValueError("Reviewed action differs from the author's selected step")
+        if self.capability_sha256 != self.intent.build_write_capability_sha256:
+            raise ValueError("Reviewed action capability differs from its bound intent")
         return self
 
 
@@ -5672,6 +5674,8 @@ def _validate_build_submission(submission: TurnSubmission) -> None:
     policy = submission.graph_context_execution.policy
     if intent.build_draft_context_sha256 != getattr(policy, "working_draft_context_sha256", None):
         raise ValueError("Build working draft policy differs from the normalized submitted intent")
+    if binding is not None and intent.build_write_capability_sha256 != getattr(policy, "action_capability_sha256", None):
+        raise ValueError("Reviewed action capability differs from the normalized submitted intent")
     _validate_initial_graph_execution(receipt, submission.graph_context_execution)
 
 

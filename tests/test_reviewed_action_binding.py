@@ -160,12 +160,13 @@ def test_retained_bound_turn_rejects_forged_action_or_admission(build_case,monke
     service=AgentConversationService();cid=case[1].reviewed_step.conversation_id
     turn=next(t for t in service.list_turns('elderwyld',cid) if t.user_text==case[1].message)
     original=turn.model_dump(mode='json',by_alias=True)
-    for change in ['operation','binding','arguments','admission']:
+    for change in ['operation','binding','arguments','admission','capability']:
         payload=deepcopy(original)
         event=next(e for e in payload['graph_context_execution']['events'] if e['kind']=='build_reviewed_action_selected_v1')
         if change=='operation':event['operation']='answer_from_sources'
         elif change=='binding':event['intent']['reviewed_step']['reference']['command_id']=str(uuid4())
         elif change=='arguments':event['arguments_sha256']='f'*64
+        elif change=='capability':event['capability_sha256']='f'*64
         else:event['intent']['message']='Another request'
         with pytest.raises(ValidationError):Turn.model_validate(payload)
 
@@ -200,3 +201,32 @@ def test_failed_author_admission_stops_the_claim_renewer(build_case,monkeypatch,
     finally:
         # Clean the real renewal thread even when proving the pre-fix regression.
         harness.adapter.fence.renewer.stop_and_join()
+
+
+def test_app_rejects_reviewed_capability_policy_mismatch_before_admission(build_case, monkeypatch, tmp_path):
+    from pydantic import ValidationError
+    from application_state.agent_conversation.types import graph_execution_policy_digest_v3
+    case = reviewed_case(build_case, monkeypatch)
+    original_accept = AgentConversationService.accept_turn
+    checked = []
+
+    def check_admission(service, submission):
+        payload = submission.model_dump(mode="json", by_alias=True)
+        execution = submission.graph_context_execution
+        policy = execution.policy.model_copy(update={"action_capability_sha256": "f" * 64})
+        assert submission.submitted_intent_v2.build_write_capability_sha256 != policy.action_capability_sha256
+        payload["graph_context_execution"]["policy"] = policy.model_dump(mode="json", by_alias=True)
+        payload["graph_context_execution"]["execution_policy_sha256"] = graph_execution_policy_digest_v3(
+            execution.context_receipt_sha256, policy)
+        before = service.list_turns(submission.world_id, submission.conversation_id)
+        with pytest.raises(ValidationError, match="Reviewed action capability differs"):
+            original_accept(service, TurnSubmission.model_validate(payload))
+        assert service.list_turns(submission.world_id, submission.conversation_id) == before
+        checked.append(True)
+        return original_accept(service, submission)
+
+    monkeypatch.setattr(AgentConversationService, "accept_turn", check_admission)
+    harness = BuildJevHarness(world_context=True, named_citations=True, accounting=counter(),
+        decision_transport=DecisionWire(), writer_transport=WriterWire())
+    execute(case, tmp_path, harness)
+    assert checked == [True]
