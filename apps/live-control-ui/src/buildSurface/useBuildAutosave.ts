@@ -56,7 +56,6 @@ function hasVerifiedBuildBasis(session: MarkdownCanvasSessionValue): boolean {
 export function useBuildAutosave(session: MarkdownCanvasSessionValue): DurableSaveState {
   const latestSession = useRef(session);
   latestSession.current = session;
-  const [state, setState] = useState<DurableSaveState>(() => buildSaveStateFor(session));
   const [editGeneration, setEditGeneration] = useState(0);
 
   useEffect(() => {
@@ -68,7 +67,6 @@ export function useBuildAutosave(session: MarkdownCanvasSessionValue): DurableSa
   }, [session.documentId, session.documentKey, session.editor]);
 
   useEffect(() => {
-    setState(buildSaveStateFor(session));
     if (!hasVerifiedBuildBasis(session)) return;
 
     const scheduledDocumentId = session.documentId;
@@ -101,7 +99,7 @@ export function useBuildAutosave(session: MarkdownCanvasSessionValue): DurableSa
     session.snapshot,
   ]);
 
-  return state;
+  return buildSaveStateFor(session);
 }
 
 export function buildSavedAt(session: MarkdownCanvasSessionValue): string | null {

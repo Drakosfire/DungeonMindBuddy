@@ -1,3 +1,4 @@
+import {BuildEditorToolsPanel} from './BuildEditorToolsPanel';
 import { saveBuildProposal } from './saveBuildProposal';
 import { mediaMarkdown } from "../media/mediaReferences";
 import { MediaImageWizard } from "../media/MediaImageWizard";
@@ -51,7 +52,6 @@ function BuildPresentableSourceView({
   onEditorTools?: (tools: AppChromeToolsGeneration | null) => void;
 }) {
   useBuildAutosave(session);
-  const [outlineVersion, setOutlineVersion] = useState(0);
   const [mediaOpen, setMediaOpen] = useState(false);
   const [mediaError,setMediaError]=useState('');
   const mediaCapture=useRef<Awaited<ReturnType<BuildComposeBridge['capture']>>|null>(null);
@@ -78,40 +78,11 @@ function BuildPresentableSourceView({
     return () => window.clearTimeout(timer);
   }, [session.editor, session.documentKey, session.record, session.snapshot, session.dirty, session.handleEditorUpdate, navigationTarget.status]);
   useEffect(() => {
-    const editor = session.editor;
-    if (!editor) return;
-    const update = () => setOutlineVersion(value => value + 1);
-    editor.on("update", update);
-    editor.on("selectionUpdate", update);
-    return () => { editor.off("update", update); editor.off("selectionUpdate", update); };
-  }, [session.editor]);
-
-  useEffect(() => {
-    const editor = session.editor;
-    const headings: { position: number; level: number; text: string }[] = [];
-    editor?.state.doc.descendants((node, position) => {
-      if (node.type.name === "heading") headings.push({ position, level: node.attrs.level, text: node.textContent });
-    });
     onEditorTools?.({ target: { kind: "document", id: session.record!.document_id },
       tools: { sections: [{ id: "build-document", title: "Document", defaultOpen: true, actions: [],
-        panel: <><div className="build-formatting" role="group" aria-label="Text formatting">
-          <button type="button" disabled={!editor} aria-pressed={editor?.isActive("bold") ?? false}
-            onClick={() => editor?.chain().focus().toggleBold().run()}>Bold</button>
-          <button type="button" disabled={!editor} aria-pressed={editor?.isActive("italic") ?? false}
-            onClick={() => editor?.chain().focus().toggleItalic().run()}>Italic</button>
-          <button type="button" disabled={!editor} onClick={() => editor?.chain().focus().toggleHeading({ level: 2 }).run()}>Heading</button>
-          <button type="button" disabled={!editor?.can().undo()} onClick={() => editor?.chain().focus().undo().run()}>Undo</button>
-          <button type="button" disabled={!editor?.can().redo()} onClick={() => editor?.chain().focus().redo().run()}>Redo</button>
-        </div><nav className="markdown-document-outline" aria-label="On this page">
-          {headings.length ? <ol>{headings.map(heading => <li key={heading.position}
-            style={{ paddingInlineStart: `${Math.min(heading.level - 1, 2) * 0.75}rem` }}>
-            <button type="button" onClick={() => editor?.chain().focus().setTextSelection(heading.position + 1).scrollIntoView().run()}>
-              {heading.text || "Untitled section"}
-            </button>
-          </li>)}</ol> : <p>No headings in this document.</p>}
-        </nav></> }] } });
+        panel: <BuildEditorToolsPanel editor={session.editor}/> }] } });
     return () => onEditorTools?.(null);
-  }, [onEditorTools, session.editor, session.record?.document_id, outlineVersion]);
+  }, [onEditorTools, session.editor, session.record?.document_id]);
 
   useEffect(() => {
     const handle = (event: Event) => {
