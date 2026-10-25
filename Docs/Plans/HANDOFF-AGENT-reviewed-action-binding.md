@@ -69,3 +69,5 @@ Lease amendment before auxiliary-empty-catalog changes: apps/live_control_server
 Admission implementation clarification: current runtime freezes a first-provider envelope at claim time. Bound steps instead freeze a named reviewed_author_admission_v1 manifest of normalized verified intent, with zero dispatched-provider input/reserve and not_dispatched model metadata. The immutable host manifest is not a prepared provider prompt or model observation. Actual subsequent SDK envelopes retain independent authorization/accounting. New bound admission must validate the exact manifest digest; ordinary first-envelope admission is unchanged.
 
 Lease amendment: apps/live_control_server/services/build_jev_dispatch.py, build_jev_writer.py and src/application_state/agent_conversation/writer_evidence_selection.py are included for honest continuation/exposure binding after model-free admission. Historical admission need not be the first provider envelope; null prior call is allowed only before any provider, without unacquired exposure.
+
+Mounted transport verification lease includes apps/live-control-ui/src/agentInteraction/WorldAgentConversation.planPlay.integration.test.tsx.
