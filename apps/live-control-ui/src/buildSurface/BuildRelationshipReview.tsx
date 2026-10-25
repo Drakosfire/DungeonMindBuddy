@@ -47,8 +47,17 @@ export function BuildRelationshipReview({worldId,documentId,seed,onConsumed}:{wo
   }catch(e){if(alive.current)setError(message(e));}finally{busyRef.current=false;if(alive.current)setBusy(false);}
  }
  async function confirm(){if(busyRef.current||!valueRef.current?.prepared||valueRef.current.receipt)return;busyRef.current=true;setBusy(true);setError('');
-  try{let v=valueRef.current;if(!v.submitted&&!exact())throw new Error('The source changed. Review the current saved page before confirming.');
-   await persist(p=>p?{...p,submitted:true}:p);v=valueRef.current!;
+  try{let v=valueRef.current;const retry=v.submitted;
+   await persist(p=>{
+    if(!p||!p.submitted&&!exact())throw new Error('The source changed. Review the current saved page before confirming.');
+    return {...p,submitted:true};
+   });
+   if(!alive.current||sessionRef.current?.record?.world_id!==worldId||sessionRef.current?.record?.document_id!==documentId)return;
+   if(!retry&&!exact()){
+    await persist(p=>p?{...p,submitted:false}:p);
+    throw new Error('The source changed before confirmation was sent. Review the current saved page.');
+   }
+   v=valueRef.current!;
    const receipt=await commitGraphObjectAuthoringWrite({...v.request!,confirmToken:v.prepared!.confirm_token!,currentOverlayToken:v.prepared!.current_overlay_token});
    if(!receipt.committed||receipt.campaign_id!==worldId||receipt.world_id!==v.prepared!.world_id||receipt.operation_id!==v.prepared!.authority_operation_id||!receipt.published_revision_id)throw new Error('Publication was not acknowledged. Retry only the retained confirmation.');
    if(alive.current)await persist(p=>p?{...p,receipt}:p);

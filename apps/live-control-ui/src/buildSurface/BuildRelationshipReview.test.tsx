@@ -50,3 +50,19 @@ it('does not apply a late preview after unmount and remount',async()=>{
 it('preserves corrupt retained bytes and sends nothing',async()=>{
  localStorage.setItem(key,'broken');render(<View initial={null}/>);expect(await screen.findByRole('alert')).toBeVisible();expect(localStorage.getItem(key)).toBe('broken');expect(graphDocumentRelationshipRequest).not.toHaveBeenCalled();
 });
+it('checks the current saved source inside a queued first-confirmation lock',async()=>{
+ render(<View/>);await filled();await preview();let release!:()=>void;const gate=new Promise<void>(resolve=>{release=resolve;});
+ Object.defineProperty(navigator,'locks',{configurable:true,value:{request:async(_key:string,fn:()=>unknown)=>{await gate;return fn();}}});
+ fireEvent.click(screen.getByRole('button',{name:'Confirm relationship'}));state.session.dirty=true;await act(async()=>release());
+ expect(await screen.findByRole('alert')).toHaveTextContent('source changed');expect(api.commitGraphObjectAuthoringWrite).not.toHaveBeenCalled();expect(retained().submitted).toBe(false);
+});
+it('does not dispatch after unmount while the submission lock returns',async()=>{
+ const view=render(<View/>);await filled();await preview();let release!:()=>void;const gate=new Promise<void>(resolve=>{release=resolve;});
+ Object.defineProperty(navigator,'locks',{configurable:true,value:{request:async(_key:string,fn:()=>unknown)=>{const result=fn();await gate;return result;}}});
+ fireEvent.click(screen.getByRole('button',{name:'Confirm relationship'}));view.unmount();await act(async()=>release());expect(api.commitGraphObjectAuthoringWrite).not.toHaveBeenCalled();expect(retained().request).not.toBeNull();
+});
+it('rechecks first-confirmation source after submission storage completes',async()=>{
+ render(<View/>);await filled();await preview();let first=true;
+ Object.defineProperty(navigator,'locks',{configurable:true,value:{request:async(_key:string,fn:()=>unknown)=>{const result=fn();if(first){first=false;state.session.dirty=true;}return result;}}});
+ fireEvent.click(screen.getByRole('button',{name:'Confirm relationship'}));expect(await screen.findByRole('alert')).toHaveTextContent('source changed');expect(api.commitGraphObjectAuthoringWrite).not.toHaveBeenCalled();expect(retained().submitted).toBe(false);
+});
