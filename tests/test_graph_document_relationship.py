@@ -13,7 +13,12 @@ def intent(c):
 
 
 @pytest.fixture
-def graph(monkeypatch):
+def graph(case,monkeypatch):
+    from fastapi.testclient import TestClient
+    monkeypatch.setenv('DMB_AGENT_GRAPH_AUTH_MODE','local_operator')
+    monkeypatch.setenv('DMB_AGENT_GRAPH_AUTH_ENVIRONMENT','local')
+    monkeypatch.setenv('DMB_AGENT_GRAPH_LOCAL_OPERATOR_TOKEN','synthetic-relationship-local-token-with-adequate-length')
+    case.client=TestClient(case.client.app,client=('127.0.0.1',50000),headers={'Authorization':'Bearer synthetic-relationship-local-token-with-adequate-length'})
     nodes=[]
     monkeypatch.setattr('apps.live_control_server.services.graph_document_relationship.project_managed_world_graph',lambda *a,**kw:SimpleNamespace(projection=SimpleNamespace(nodes=nodes)))
     return nodes
@@ -105,3 +110,19 @@ def test_ambiguous_or_cross_block_quote_cannot_be_previewed(case,graph,body,quot
     response=case.client.post('/api/live/graph-authoring/document-relationship/request',json=request)
     assert response.status_code==409,response.text
     assert case.authority.publish_calls==0
+
+
+@pytest.mark.parametrize('mode,status',[('missing',401),('wrong',401),('remote',403),('player',403)])
+def test_new_adapter_denies_before_source_graph_or_freeze_io(case,graph,monkeypatch,mode,status):
+    from fastapi.testclient import TestClient
+    from unittest.mock import Mock
+    from apps.live_control_server.services.agent_graph_auth import authenticate_native_graph_principal,NativeGraphPrincipal
+    protected=Mock(side_effect=AssertionError('Denied request must not reach protected source/native IO'))
+    monkeypatch.setattr('apps.live_control_server.routes.graph_authoring.relationship_request',protected)
+    if mode=='player':
+        case.client.app.dependency_overrides[authenticate_native_graph_principal]=lambda:NativeGraphPrincipal('player','player','local_operator')
+    headers={} if mode=='missing' else {'Authorization':'Bearer wrong' if mode=='wrong' else 'Bearer synthetic-relationship-local-token-with-adequate-length'}
+    client=TestClient(case.client.app,client=('203.0.113.1' if mode=='remote' else '127.0.0.1',50000))
+    response=client.post('/api/live/graph-authoring/document-relationship/request',json=intent(case),headers=headers)
+    assert response.status_code==status,response.text
+    protected.assert_not_called()

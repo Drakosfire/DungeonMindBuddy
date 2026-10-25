@@ -4,11 +4,12 @@ from __future__ import annotations
 
 from typing import Any
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import JSONResponse
 
 from apps.live_control_server.services.graph_document_relationship import DocumentRelationshipRequest, relationship_request
 from apps.live_control_server.config import repo_root
+from apps.live_control_server.services.agent_graph_auth import native_graph_gm_dependency
 from apps.live_control_server.services.source_artifact_registry import SourceArtifactRegistryError
 from apps.live_control_server.services.workspace_document_registry import WorkspaceDocumentRegistryError
 from apps.live_control_server.services.world_graph_projection import WorldGraphProjectionServiceError
@@ -42,7 +43,7 @@ def get_graph_object_authoring_kinds() -> dict[str, Any]:
     return {"objectKinds": graph_review_supported_object_kinds()}
 
 
-@router.post("/document-relationship/request")
+@router.post("/document-relationship/request", dependencies=[Depends(native_graph_gm_dependency)])
 def post_document_relationship_request(request: DocumentRelationshipRequest) -> dict[str, Any]:
     try:
         return relationship_request(repo_root(), request).model_dump(mode="json", by_alias=True)

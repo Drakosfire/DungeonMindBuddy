@@ -66,3 +66,12 @@ it('rechecks first-confirmation source after submission storage completes',async
  Object.defineProperty(navigator,'locks',{configurable:true,value:{request:async(_key:string,fn:()=>unknown)=>{const result=fn();if(first){first=false;state.session.dirty=true;}return result;}}});
  fireEvent.click(screen.getByRole('button',{name:'Confirm relationship'}));expect(await screen.findByRole('alert')).toHaveTextContent('source changed');expect(api.commitGraphObjectAuthoringWrite).not.toHaveBeenCalled();expect(retained().submitted).toBe(false);
 });
+it.each(['null-row','object-summary','bad-token','nonboolean-prepared','wrong-receipt'] as const)('preserves malformed %s recovery without crashing or dispatch',async mutation=>{
+ const view=render(<View/>);await filled();await preview();const bad=retained() as any;view.unmount();
+ if(mutation==='null-row')bad.prepared.assertions_preview=[null];
+ else if(mutation==='object-summary')bad.prepared.assertions_preview[0].summary={text:'Invalid child'};
+ else if(mutation==='bad-token')bad.prepared.confirm_token=42;
+ else if(mutation==='nonboolean-prepared')bad.prepared.prepared='yes';
+ else{bad.submitted=true;bad.receipt={...receipt,operation_id:'another-operation'};}
+ const raw=JSON.stringify(bad);localStorage.setItem(key,raw);render(<View initial={null}/>);expect(await screen.findByRole('alert')).toHaveTextContent('unreadable');expect(localStorage.getItem(key)).toBe(raw);expect(api.commitGraphObjectAuthoringWrite).not.toHaveBeenCalled();
+});
