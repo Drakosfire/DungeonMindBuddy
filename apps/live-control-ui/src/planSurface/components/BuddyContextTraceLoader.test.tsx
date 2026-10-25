@@ -166,3 +166,17 @@ it.each([false,true])('reads only the selected input and previous capture on dem
     expect(screen.getByLabelText('Changes since previous model call')).toHaveTextContent('Changed · input')
   }
 })
+
+it('retries an initial pre-admission trace miss while genuinely running', async()=>{
+  vi.useFakeTimers()
+  const load=vi.fn().mockRejectedValueOnce(new Error('not captured yet')).mockResolvedValue(response([trace()]))
+  const view=render(<BuddyContextTraceLoader {...props} enabled running load={load}/>)
+  await act(async()=>{})
+  expect(load).toHaveBeenCalledTimes(1)
+  await act(async()=>vi.advanceTimersByTimeAsync(2000))
+  expect(load).toHaveBeenCalledTimes(2)
+  expect(screen.getByText('How Buddy built this reply')).toBeInTheDocument()
+  view.unmount();await act(async()=>vi.advanceTimersByTimeAsync(10000))
+  expect(load).toHaveBeenCalledTimes(2)
+  vi.useRealTimers()
+})

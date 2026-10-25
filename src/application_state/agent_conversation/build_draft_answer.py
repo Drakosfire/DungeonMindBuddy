@@ -1,7 +1,7 @@
 """Draft-aware output: authored discussion references never become source citations."""
 from __future__ import annotations
 
-from pydantic import Field, model_validator
+from pydantic import Field, TypeAdapter, model_validator
 from typing import Literal
 
 from .build_draft_context import (
@@ -77,7 +77,18 @@ def output_schema(packet):
 
 
 def normalize(raw, packet):
-    answer = DraftWriterAnswerV1.model_validate(strict_json(raw))
+    body = strict_json(raw)
+    # Status is a host-derived description, not a second model judgment. Keep
+    # typed segments/limitations and all later provenance checks authoritative.
+    if isinstance(body, dict) and body.get("answer_context_status") in STATUSES and isinstance(body.get("answer_segments"), list) and isinstance(body.get("limitations"), list):
+        segment_type = DraftReferenceClaimV1 | PassageFact | SavedFact | Suggestion | DraftDiscussionV1
+        segments = TypeAdapter(list[segment_type]).validate_python(body["answer_segments"])
+        base = ("authored_grounded" if any(isinstance(s, DraftReferenceClaimV1) for s in segments)
+            else "source_grounded" if any(isinstance(s, (PassageFact, SavedFact)) for s in segments)
+            else "creative_proposal" if any(isinstance(s, Suggestion) for s in segments)
+            else "insufficient_evidence")
+        body = {**body, "answer_context_status": base + "_partial" if body["limitations"] and base in {"authored_grounded", "source_grounded"} else base}
+    answer = DraftWriterAnswerV1.model_validate(body)
     lane = packet["working_draft_context"]
     sources = [s for s in answer.answer_segments if isinstance(s, (PassageFact, SavedFact))]
     for segment in answer.answer_segments:

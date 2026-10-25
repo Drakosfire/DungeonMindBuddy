@@ -25,7 +25,7 @@ import { useMemo, useState } from "react";
 import { webcrypto } from "node:crypto";
 import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { createWorkspaceDocument, getWorkspaceDocumentSnapshot, getWorldAgentConversationHistory, getHistoricalRulesPassage, getWorldOwnedPlanCommittedRevision, getWorldPlanDocumentEditActions, listWorkspaceDocuments, listWorldContainers, LiveApiError, postWorldAgentNewConversation, postWorldPlanAgentTurn, postWorldPlayAgentTurn, postWorldBuildAgentTurn, postWorldGraphSourceAnchorRead, postWorldPlanDocumentEditProposal } from "../api/liveApi";
+import { createWorkspaceDocument, getWorldAgentTurnContextTrace, getWorkspaceDocumentSnapshot, getWorldAgentConversationHistory, getHistoricalRulesPassage, getWorldOwnedPlanCommittedRevision, getWorldPlanDocumentEditActions, listWorkspaceDocuments, listWorldContainers, LiveApiError, postWorldAgentNewConversation, postWorldPlanAgentTurn, postWorldPlayAgentTurn, postWorldBuildAgentTurn, postWorldGraphSourceAnchorRead, postWorldPlanDocumentEditProposal } from "../api/liveApi";
 import type { AgentInteractionTurn, WorkspaceDocumentRecord, WorkspaceDocumentSnapshot, WorldAgentConversationHistoryResponseV1, WorldPlanAgentTurnRequestV1, WorldPlayAgentTurnRequestV1, WorldBuildAgentTurnRequestV1, WorldPlanAgentPlanContextV2, WorldPlanGraphAnswerContextStatusV1, WorldPlanGraphExecutionProjectionV1, WorldAgentConversationHistoryResponse, WorldBuildKnowledgeContextV1 } from "../api/types";
 import { DocumentConversationDock, type PlanConversationPresentationHosts } from "../planSurface/components/PlanConversationDockAdapter";
 import type { SavedWorldBuildConversationContext } from "./WorldAgentConversation";
@@ -905,6 +905,20 @@ describe("one App-level World conversation host across Plan and Play", () => {
         worldId: authority.native_world_id, revisionPin: authority.graph_revision, anchorId: "anchor-one",
       }));
     }
+  });
+
+  it("inspects the submitted Build request before its running history row arrives", async()=>{
+    vi.mocked(getWorldAgentConversationHistory).mockResolvedValue(history());
+    vi.mocked(postWorldBuildAgentTurn).mockReturnValue(new Promise(()=>{}));
+    render(<Harness initial="build"/>);
+    fireEvent.click(await screen.findByRole("button",{name:"Open"}));
+    await waitFor(()=>expect(screen.getByLabelText("Message DungeonBuddy")).toBeEnabled());
+    fireEvent.change(screen.getByLabelText("Message DungeonBuddy"),{target:{value:"Ask me questions before writing."}});
+    fireEvent.click(screen.getByRole("button",{name:"Send message"}));
+    await waitFor(()=>expect(postWorldBuildAgentTurn).toHaveBeenCalledTimes(1));
+    const request=vi.mocked(postWorldBuildAgentTurn).mock.calls[0][0];
+    await waitFor(()=>expect(getWorldAgentTurnContextTrace).toHaveBeenCalledWith(WORLD,request.turn_id,expect.any(AbortSignal)));
+    expect(screen.getByText("Getting the notes together…")).toBeInTheDocument();
   });
 
   it("submits exact Build source pins through the same World conversation and keeps its answer on Plan", async () => {

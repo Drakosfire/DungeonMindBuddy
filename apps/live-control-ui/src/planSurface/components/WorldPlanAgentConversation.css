@@ -1255,3 +1255,9 @@
 .buddy-activity ol { padding-inline-start: 1.4rem; }
 .buddy-activity li { padding-block: .15rem; }
 .buddy-activity time { color: #aebbd0; font-variant-numeric: tabular-nums; }
+
+.conversation-workbook { margin-block: .7rem; padding: .8rem; border: 1px solid #64748b; border-radius: .6rem; background: #202d3b; color: #e3e9f2; font-size: 1rem; line-height: 1.5; }
+.conversation-workbook h4 { margin: 0 0 .4rem; }
+.conversation-workbook__choices { margin-block: .5rem; font-size: .85rem; }
+.conversation-workbook__row { margin-block: .75rem; }
+.conversation-workbook textarea { display:block; width:100%; min-height:3rem; box-sizing:border-box; margin-block:.3rem; padding:.45rem; font:inherit; color:inherit; background:#17202c; border:1px solid #65768b; border-radius:.3rem; resize:vertical; }
