@@ -9,6 +9,20 @@ codex/build-table-construction-stream, existing buddy-context-loop checkout.
 GE dependency3e085168c11bdee0de580b8cfa0f00cee157c157. No overlapping
 writer/transport/Surface lease found among open PRs at2026-10-24 re-anchor.
 
+## Rendered-proof correction — initial reveal
+
+PR1719 merged3ce378df81b113af354587f797fc89aa215450a6 and protected API/UI
+adoption preserved2581 APP rows, native state,27 frozen components and89 product
+files. Ordinary synthetic proposal/edit/Save/reload passed. Edge real progress
+was observed at5/13/19 rows before final admission, but its first screenshot
+proved the preview was below the viewport after conversation collapsed.
+PRIME authorizes one serial correction PR from this merge: use the existing shared
+SurfacePageProposal reveal contract once when the first actual table is present.
+Exclusive correction writes: BuildConstructionPreview.tsx, its owning test, and
+this handoff only. No row-follow scrolling, document edit, new Surface contract or
+other capability. Independent exact-head review and protected UI delivery remain
+required; ordinary visible growth and disconnect/reload gates remain open.
+
 ## Capability and ownership
 
 A requested Build table visibly grows at its captured page placement from actual
