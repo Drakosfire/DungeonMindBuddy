@@ -1638,6 +1638,37 @@ describe("one App-level World conversation host across Plan and Play", () => {
     await waitFor(() => expect(screen.queryByText("Original Plan answer")).not.toBeInTheDocument());
   });
 
+  it.each([false,true])("keeps failed draft memory and warning through actual keyed World remounts: blocked=%s",async blocked=>{
+    if(blocked)sessionStorage.setItem('dmb:conversation-composer-drafts:v1:A','unknown bytes');
+    function DraftProbe(){
+      const state=useWorldAgentConversationState()!;
+      return <><textarea aria-label="Draft probe" value={state.composerDrafts['build:doc']??''}
+        onChange={event=>state.setComposerDrafts(d=>({...d,'build:doc':event.target.value}))}/>
+        <span role="status">{state.composerDraftWarning}</span></>;
+    }
+    function Fixture({world}:{world:string}){
+      return <AgentInteractionProvider><WorldAgentConversationProvider key={world} worldId={world}><DraftProbe/></WorldAgentConversationProvider></AgentInteractionProvider>;
+    }
+    const view=render(<Fixture world="A"/>);
+    const write=Storage.prototype.setItem;
+    const denied=vi.spyOn(Storage.prototype,'setItem').mockImplementation(function(key,value){
+      if(this===window.sessionStorage)throw new DOMException('quota','QuotaExceededError');
+      return write.call(this,key,value);
+    });
+    try{
+      fireEvent.change(screen.getByLabelText('Draft probe'),{target:{value:'Unsent memory-only thought'}});
+      const warning=screen.getByRole('status').textContent;
+      expect(warning).toBeTruthy();
+      denied.mockRestore();
+      view.rerender(<Fixture world="B"/>);
+      expect(screen.getByLabelText('Draft probe')).toHaveValue('');
+      view.rerender(<Fixture world="A"/>);
+      expect(screen.getByLabelText('Draft probe')).toHaveValue('Unsent memory-only thought');
+      expect(screen.getByRole('status').textContent).toBe(warning);
+      if(blocked)expect(sessionStorage.getItem('dmb:conversation-composer-drafts:v1:A')).toBe('unknown bytes');
+    }finally{denied.mockRestore();}
+  });
+
   it.each(["plan", "play", "build"] as const)("restores complete unsent %s text after remount without sending it", async initial => {
     const mounted=render(<Harness initial={initial}/>);
     fireEvent.click(await screen.findByRole("button",{name:"Open",exact:true}));

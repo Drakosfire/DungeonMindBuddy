@@ -1,3 +1,4 @@
+import { ConversationComposerDraftProvider } from "./conversationComposerDrafts";
 import {
   createContext,
   useCallback,
@@ -1222,7 +1223,7 @@ export function AgentInteractionProvider({ children }: { children: ReactNode }) 
     catalogEntries,
   ]);
 
-  return <AgentInteractionContext.Provider value={value}>{children}</AgentInteractionContext.Provider>;
+  return <AgentInteractionContext.Provider value={value}><ConversationComposerDraftProvider>{children}</ConversationComposerDraftProvider></AgentInteractionContext.Provider>;
 }
 
 export function useAgentInteraction(): AgentInteractionContextValue {

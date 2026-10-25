@@ -54,7 +54,7 @@ it('loads each World on a prop change and rejects a retired World setter',()=>{
  expect(hook.result.current.composerDrafts).toEqual({'build:doc':'A only'});
 });
 
-it.each(['not json',JSON.stringify({schema:'dmb_conversation_composer_drafts_v1',world_id:'other',drafts:{'build:doc':'foreign'}}),
+it.each(['not json',JSON.stringify({schema:'dmb_conversation_composer_drafts_v1',world_id:'world',drafts:{'build:doc':'original'},unknown_future_state:'preserve'}),JSON.stringify({schema:'dmb_conversation_composer_drafts_v1',world_id:'other',drafts:{'build:doc':'foreign'}}),
  JSON.stringify({schema:'dmb_conversation_composer_drafts_v1',world_id:'world',drafts:{'build:doc':42}})])('preserves unreadable or foreign bytes without exposing them: %s',raw=>{
  const key=composerDraftStorageKey('world');sessionStorage.setItem(key,raw);
  const hook=renderHook(()=>useConversationComposerDrafts('world'));
@@ -105,4 +105,38 @@ it('keeps independent tab session stores separate for the same World and work',(
   expect(restored.result.current.composerDrafts['build:doc']).toBe('Tab A');restored.unmount();
   expect(JSON.parse(b.getItem(composerDraftStorageKey('world'))!).drafts['build:doc']).toBe('Tab B');
  }finally{Object.defineProperty(window,'sessionStorage',descriptor);}
+});
+
+
+it('retires a first-World setter after A to B to A',()=>{
+ const hook=renderHook(({world})=>useConversationComposerDrafts(world),{initialProps:{world:'A'}});
+ act(()=>hook.result.current.setComposerDrafts({'build:doc':'original A'}));
+ const retired=hook.result.current.setComposerDrafts;
+ hook.rerender({world:'B'});hook.rerender({world:'A'});
+ act(()=>hook.result.current.setComposerDrafts({'build:doc':'new A'}));
+ const bytes=sessionStorage.getItem(composerDraftStorageKey('A'));
+ act(()=>retired({'build:doc':'stale A'}));
+ expect(hook.result.current.composerDrafts['build:doc']).toBe('new A');
+ expect(sessionStorage.getItem(composerDraftStorageKey('A'))).toBe(bytes);
+});
+
+it('retires an unmounted setter before a newer same-World registry edits',()=>{
+ const first=renderHook(()=>useConversationComposerDrafts('A'));
+ const retired=first.result.current.setComposerDrafts;first.unmount();
+ const next=renderHook(()=>useConversationComposerDrafts('A'));
+ act(()=>next.result.current.setComposerDrafts({'build:doc':'new current text'}));
+ const bytes=sessionStorage.getItem(composerDraftStorageKey('A'));
+ act(()=>retired({'build:doc':'late retired text'}));
+ expect(sessionStorage.getItem(composerDraftStorageKey('A'))).toBe(bytes);
+});
+
+it.each([false,true])('keeps failed or blocked World memory through navigation: blocked=%s',blocked=>{
+ if(blocked)sessionStorage.setItem(composerDraftStorageKey('A'),'unknown retained bytes');
+ const hook=renderHook(({world})=>useConversationComposerDrafts(world),{initialProps:{world:'A'}});
+ const denied=vi.spyOn(Storage.prototype,'setItem').mockImplementation(()=>{throw new DOMException('quota','QuotaExceededError');});
+ act(()=>hook.result.current.setComposerDrafts({'build:doc':'new memory-only A'}));
+ const warning=hook.result.current.composerDraftWarning;
+ denied.mockRestore();hook.rerender({world:'B'});hook.rerender({world:'A'});
+ expect(hook.result.current.composerDrafts['build:doc']).toBe('new memory-only A');
+ expect(hook.result.current.composerDraftWarning).toBe(warning);
 });

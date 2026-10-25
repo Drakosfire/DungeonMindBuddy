@@ -1,6 +1,7 @@
 # MIND — retain unsent conversation text through reload
 
-IMPLEMENTATION HOLD pending amended owner critique below. Original design APPROVED exact head
+ACTIVE PRIME implementation after amended owner design APPROVED exact head
+d08903881a2747feb8575a4ce4d89c4511c20eb7. Original design APPROVED exact head
 8f7150bd1da91886b825281d35960eea3fc3ce72 on2026-10-24. Active authoring goal §3 supplies implementation authority.
 Serial successor to PR1721 merge5829c6e8f96f0a536577da8b1dca164e99bc6bb9.
 Existing buddy-context-loop checkout, branch codex/shared-composer-reload-drafts.
@@ -11,8 +12,7 @@ backend, migration, provider, routing or inference work.
 
 Independent review ofc6ed8953f held three P2s: callbacks retained write authority
 after unmount/A→B→A; failed-write memory was lost on World navigation; extra
-stored envelope fields were overwritten. PRIME pins this amendment for independent
-design critique before changing the owner implementation.
+stored envelope fields were overwritten. PRIME activated this amendment after independent exact-head design approval.
 
 The App's AgentInteractionProvider outlives its World-keyed conversation registry.
 It will host a small ConversationComposerDraftProvider containing a per-World
