@@ -26,3 +26,9 @@
 .surface-construction-preview table { width:100%; border-collapse:collapse; }
 .surface-construction-preview th,.surface-construction-preview td { padding:.35rem; border:1px solid #a6b3bd; text-align:start; overflow-wrap:anywhere; }
 .surface-page-proposal:empty { display:none; }
+.surface-construction-preview { overflow-wrap:anywhere; }
+.surface-construction-preview :is(h1,h2,h3,h4,h5,h6) { font-family:inherit; line-height:1.25; margin-block:.7em .35em; }
+.surface-construction-preview h1 { font-size:1.65rem; }
+.surface-construction-preview h2 { font-size:1.35rem; }
+.surface-construction-preview :is(h3,h4,h5,h6) { font-size:1.1rem; }
+.surface-construction-preview pre { white-space:pre-wrap; }
