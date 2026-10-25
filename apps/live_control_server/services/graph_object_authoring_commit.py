@@ -153,6 +153,10 @@ def commit_graph_object_authoring_write(
             code="confirmation_invalid",
             status_code=409,
         )
+    document_source = request.document_source.model_dump(mode="json", by_alias=True) if request.document_source else None
+    if intent.get("document_source") != document_source:
+        raise GraphObjectAuthoringError("Confirm token does not match the prepared document source.",
+                                        code="confirmation_invalid", status_code=409)
     if (intent.get("recap_artifact_id") or None) != (request.recap_artifact_id or None):
         raise GraphObjectAuthoringError(
             "Confirm token does not match the prepared publication intent.",

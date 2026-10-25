@@ -41,6 +41,8 @@ from apps.live_control_server.services.graph_object_authoring_overlap import (
     detect_prepare_overlap_warnings,
 )
 
+from apps.live_control_server.services.graph_document_source import GraphDocumentSource
+
 STABLE_ASSERTION_TIMESTAMP = "1970-01-01T00:00:00Z"
 
 NO_MUTATION_GUARANTEES_PREPARE = [
@@ -236,6 +238,7 @@ class GraphObjectAuthoringPrepareRequest(BaseModel):
     session_id: str | None = Field(default=None, alias="sessionId")
     world_id: str | None = Field(default=None, alias="worldId")
     source_run_id: str | None = Field(default=None, alias="sourceRunId")
+    document_source: GraphDocumentSource | None = Field(default=None, alias="documentSource")
     recap_artifact_id: str | None = Field(default=None, alias="recapArtifactId")
     source_graph_id: str | None = Field(default=None, alias="sourceGraphId")
     source_projection_id: str | None = Field(default=None, alias="sourceProjectionId")
@@ -251,6 +254,7 @@ class GraphObjectAuthoringCommitRequest(BaseModel):
     session_id: str | None = Field(default=None, alias="sessionId")
     world_id: str | None = Field(default=None, alias="worldId")
     source_run_id: str | None = Field(default=None, alias="sourceRunId")
+    document_source: GraphDocumentSource | None = Field(default=None, alias="documentSource")
     recap_artifact_id: str | None = Field(default=None, alias="recapArtifactId")
     source_graph_id: str | None = Field(default=None, alias="sourceGraphId")
     source_projection_id: str | None = Field(default=None, alias="sourceProjectionId")
@@ -273,6 +277,7 @@ def authoring_prepare_request_from_write(
         session_id=request.session_id,
         world_id=request.world_id,
         source_run_id=request.source_run_id,
+        document_source=request.document_source,
         recap_artifact_id=request.recap_artifact_id,
         source_graph_id=request.source_graph_id,
         source_projection_id=request.source_projection_id,
@@ -815,26 +820,29 @@ def proposed_assertions_digest(assertions: list[AuthoredGraphAssertion]) -> str:
 def classify_graph_review_expressibility(
     proposals: list[GraphObjectAuthoringProposalPayload],
 ) -> Literal["EXPRESSIBLE", "INEXPRESSIBLE"]:
-    if not proposals:
+    ids = [getattr(proposal, "local_proposal_id", None) for proposal in proposals]
+    if not proposals or any(not isinstance(pid, str) or not pid.strip() for pid in ids) or len(ids) != len(set(ids)):
         return "INEXPRESSIBLE"
+    objects = {proposal.local_proposal_id for proposal in proposals if proposal.proposal_kind == "object"}
+
+    def exact(ref, *, allow_local=True):
+        if not isinstance(ref, dict):
+            return False
+        node = str(ref.get("nodeId") or ref.get("node_id") or "").strip()
+        local = str(ref.get("localProposalId") or ref.get("local_proposal_id") or "").strip()
+        kind = ref.get("refKind") or ref.get("ref_kind")
+        if kind == "local_proposal":
+            return allow_local and not node and local in objects
+        return bool(node) and not local
+
     for proposal in proposals:
         if proposal.proposal_kind not in EXPRESSIBLE_KINDS:
             return "INEXPRESSIBLE"
-        if proposal.proposal_kind == "link_existing":
-            node_id = ""
-            if isinstance(proposal.existing_object_ref, dict):
-                node_id = str(proposal.existing_object_ref.get("nodeId") or proposal.existing_object_ref.get("node_id") or "")
-            if not node_id.strip():
-                return "INEXPRESSIBLE"
-        if proposal.proposal_kind == "relationship":
-            source_id = ""
-            target_id = ""
-            if isinstance(proposal.source_object_ref, dict):
-                source_id = str(proposal.source_object_ref.get("nodeId") or proposal.source_object_ref.get("node_id") or "")
-            if isinstance(proposal.target_object_ref, dict):
-                target_id = str(proposal.target_object_ref.get("nodeId") or proposal.target_object_ref.get("node_id") or "")
-            if not source_id.strip() or not target_id.strip():
-                return "INEXPRESSIBLE"
+        if proposal.proposal_kind == "link_existing" and not exact(proposal.existing_object_ref, allow_local=False):
+            return "INEXPRESSIBLE"
+        if proposal.proposal_kind == "relationship" and not (
+                exact(proposal.source_object_ref) and exact(proposal.target_object_ref)):
+            return "INEXPRESSIBLE"
     return "EXPRESSIBLE"
 
 
@@ -880,10 +888,12 @@ def publication_intent_payload(
     contribution_digest: str | None = None,
     recap_artifact_id: str | None = None,
     publication_binding: dict | None = None,
+    document_source: dict | None = None,
 ) -> dict[str, Any]:
     return {
         "schema": GRAPH_REVIEW_PREPARE_BINDING_SCHEMA,
         "publication_binding": publication_binding,
+        "document_source": document_source,
         "world_id": world_id,
         "campaign_id": campaign_id,
         "campaign_rel": campaign_rel,
@@ -1122,7 +1132,10 @@ def verify_graph_review_assertion_spans(
             "The admitted source revision or visibility is not current. Prepare again.",
             drift=True,
         )
-    relative = parse_repo_uri(str(getattr(artifact, "uri", "") or ""))
+    source_uri = (getattr(resolved_source, "sealed_source_uri", None)
+                  if getattr(resolved_source, "document_source_selector", None) is not None
+                  else getattr(artifact, "uri", None))
+    relative = parse_repo_uri(str(source_uri or ""))
     if relative is None:
         raise _source_span_error("The admitted source has no readable repo passage.")
     root = artifact_data_root(source_root)
@@ -1342,17 +1355,27 @@ def resolve_graph_review_source(
 ):
     run_id = (request.source_run_id or "").strip()
     recap_artifact_id = (request.recap_artifact_id or "").strip()
-    if bool(run_id) == bool(recap_artifact_id):
-        if run_id and recap_artifact_id:
-            raise GraphObjectAuthoringError(
-                "Choose exactly one authoritative source selector: sourceRunId or recapArtifactId.",
-                code="source_selector_conflict",
-                status_code=422,
-            )
+    selector = request.document_source
+    count = bool(run_id) + bool(recap_artifact_id) + (selector is not None)
+    if count != 1:
         raise GraphObjectAuthoringError(
-            "Graph Review confirmation requires exactly one authoritative source selector: sourceRunId or recapArtifactId.",
-            code="source_unresolved",
+            "Choose exactly one authoritative source selector: sourceRunId, recapArtifactId or documentSource.",
+            code="source_selector_conflict" if count > 1 else "source_unresolved", status_code=422,
         )
+    if selector is not None:
+        from apps.live_control_server.config import repo_root
+        from apps.live_control_server.services.graph_document_source import resolve_graph_document_source
+        from apps.live_control_server.services.source_artifact_registry import SourceArtifactRegistryError
+        from apps.live_control_server.services.workspace_document_registry import WorkspaceDocumentRegistryError
+        if request.world_id != authored_world or request.campaign_id != authored_world or request.session_id:
+            raise GraphObjectAuthoringError("Document source requires its explicit managed World and no session.",
+                                            code="world_binding_required", status_code=409)
+        try:
+            return resolve_graph_document_source((source_root or repo_root()).resolve(), selector,
+                world_id=authored_world, campaign_id=request.campaign_id)
+        except (SourceArtifactRegistryError, WorkspaceDocumentRegistryError, OSError) as exc:
+            raise GraphObjectAuthoringError("The exact document source is unavailable or changed.",
+                code="source_inadmissible", status_code=getattr(exc, "status_code", 409)) from exc
 
     if resolved_source is not None:
         run_campaign = (getattr(resolved_source, "campaign_id", "") or "").strip()
@@ -1764,6 +1787,7 @@ def prepare_graph_object_authoring_write(
         assertions_digest=assertions_digest,
         contribution_digest=contribution_digest,
         publication_binding=publication_binding,
+        document_source=request.document_source.model_dump(mode="json", by_alias=True) if request.document_source else None,
         expires_at=expires_at,
     )
     confirm_token = sign_publication_intent(intent)
