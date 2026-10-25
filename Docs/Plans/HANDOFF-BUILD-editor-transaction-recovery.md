@@ -1,6 +1,6 @@
 # BUILD: preserve editing through rapid input and selection
 
-ACTIVE serial. Operator goal authorizes fixing reproduced React error185 before broad authoring acceptance. Base27f9c0dbb3a6acffe5a6e648785a87cea2366a60; reuse buddy-context-loop on codex/build-editor-transaction-recovery. No competing Build PR. Previous relationship workflow remains shipped and must be preserved.
+DELIVERED PARTIAL #1754; live acceptance failed and continues under HANDOFF-SURFACE-context-input-recovery.md. Previous serial scope: Operator goal authorizes fixing reproduced React error185 before broad authoring acceptance. Base27f9c0dbb3a6acffe5a6e648785a87cea2366a60; reuse buddy-context-loop on codex/build-editor-transaction-recovery. No competing Build PR. Previous relationship workflow remains shipped and must be preserved.
 
 Investigate the concrete rapid/native input, Enter and cursor sequence against the shared Markdown editor and actual Build host. Establish the failing invariant before choosing a fix. Preserve content, cursor, undo, tables, proposals and save ownership. Do not infer a production root cause merely from the subscriber stack; do not suppress errors, disable recovery or replace the editor to conceal failure. Browser sequential input and Enter already succeeded; native automation input produced error185 and misplaced text. Distinguish those paths truthfully.
 
@@ -9,3 +9,5 @@ Expected lease: this handoff; apps/live-control-ui/src/tiptap/MarkdownEditorCore
 Prove a failing-before/passing-after editor or mounted host reproduction plus ordinary synthetic typing/paste/Enter/selection/table/proposal/undo/Save/reload checks. Exact cumulative diff, independent Bugbot and PRIME merge precede protected delivery to5202; preserve retained state. Full operator and adventure acceptance remain separate. Private evidence stays local.
 
 Reproduction established: the isolated shared editor and actual authoring session pass180 synchronous transactions, while the full Build host fails with Maximum update depth exceeded around52. Deriving autosave status removes the no-tools failure; moving editor-state observation inside the tools panel removes the remaining full-host failure. The exact deployed baseline fails the retained regression; focused fix passes with mounted tools, cursor/table continuity, stored-mark state, outline and undo/redo. This changes UI projections only, not debounce, save admission or editor history. Live verification follows review and delivery.
+
+Post-delivery native rapid text input still reproduced error185. The mounted fixture omitted BuildSurfaceContext and its registry; adding them reproduces the remaining cascade. Do not claim full editing recovery from #1754 alone.

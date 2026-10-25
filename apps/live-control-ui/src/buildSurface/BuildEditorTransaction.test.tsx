@@ -9,6 +9,8 @@ import type {AppChromeToolsGeneration} from '../chrome/AppChrome';
 import {BuildCanvasTestProvider} from './buildCanvasTestProvider';
 import {BuildSurfaceShell} from './BuildSurfaceShell';
 import {useMarkdownCanvasSession} from '../markdownCanvas/MarkdownCanvasSession';
+import {BuildSurfaceContext,type BuildSurfaceContextProps} from './BuildSurfaceContext';
+import {SurfaceContextProvider,SurfaceContextHost} from '../surfaceInteraction/contextHost';
 import * as api from '../api/liveApi';
 
 // Keep the real editor, authoring session, autosave and Surface publication.
@@ -19,13 +21,15 @@ it('keeps rapid edits, cursor, outline, formatting and undo in one live Build ed
  localStorage.clear();sessionStorage.clear();
  const doc='11111111-1111-4111-8111-111111111111';
  vi.mocked(api.getWorkspaceDocumentSnapshot).mockResolvedValue({schema_version:'dmb_workspace_document_snapshot_v1',record:{schema_version:'dmb_workspace_document_record_v1',document_id:doc,title:'Cursor probe',world_id:'synthetic-editor-test',campaign_id:'synthetic-editor-test',target_session:null,kind:'worldbuilding_source',target_relpath:'out/workspace/worldbuilding/'+doc+'.md',status:'active',content_status:'committed',revision:1,created_at:'2026-10-25T00:00:00Z',updated_at:'2026-10-25T00:00:00Z',source_domain:'worldbuilding',document_class:'lore',authority_state:'draft',visibility_state:'internal'},markdown:'# Cursor probe\n\nA paragraph.\n\n## Roster\n\n| Name | Detail |\n| --- | --- |\n| Keeper | Temporarily here |\n',content_sha256:'a'.repeat(64),file_fingerprint:'present',file_exists:true,loaded_revision:1} as any);
+ const noop=async()=>false;
+ const contextProps:BuildSurfaceContextProps={activeRecord:null,activeDocumentId:doc,documents:[],listStatus:'ready',switching:false,switchError:null,creating:false,createError:null,activationError:null,importError:null,pendingImportDocumentId:null,selectDocument:noop,createDocument:async()=>{},importSourceDocument:async()=>{},retryImportSource:async()=>{},retryCreatedDocument:async()=>{},refreshDocuments:async()=>{},destinationOptions:[],suggestedDestinationValue:'',suggestedCreateCampaignId:null};
  let editor:Editor|null=null;
  const published=vi.fn();
  function Probe(){editor=useMarkdownCanvasSession().editor;return null;}
  function Host(){
   const [tools,setTools]=useState<AppChromeToolsGeneration|null>(null);
   const publish=useCallback((next:AppChromeToolsGeneration|null)=>{published(next);setTools(next);},[]);
-  return <AgentInteractionProvider><BuildCanvasTestProvider documentId={doc}><Probe/><BuildSurfaceShell onEditorTools={publish}/><aside aria-label="Published editor tools">{tools?.tools.sections[0]?.panel}</aside></BuildCanvasTestProvider></AgentInteractionProvider>;
+  return <AgentInteractionProvider><SurfaceContextProvider><BuildCanvasTestProvider documentId={doc}><Probe/><BuildSurfaceContext {...contextProps}/><BuildSurfaceShell onEditorTools={publish}/><aside aria-label="Published editor tools">{tools?.tools.sections[0]?.panel}</aside></BuildCanvasTestProvider><SurfaceContextHost/></SurfaceContextProvider></AgentInteractionProvider>;
  }
  render(<Host/>);await waitFor(()=>expect(editor).not.toBeNull());
  const originalEditor=editor!;

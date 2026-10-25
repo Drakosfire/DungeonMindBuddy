@@ -1,4 +1,4 @@
-import { useContext, useEffect } from "react";
+import { useContext, useEffect, useLayoutEffect } from "react";
 
 import { SurfaceContextStoreContext } from "./SurfaceContextProvider";
 import type { SurfaceContextContribution } from "./surfaceContextTypes";
@@ -28,7 +28,9 @@ export function useSurfaceContextContribution(contribution: SurfaceContextContri
     });
   }, [id, surfaceIdentity.surfaceId, surfaceIdentity.instanceKey, registerContribution]);
 
-  useEffect(() => {
+  // Context controls are part of the current commit. Deferring their publication
+  // to a passive effect adds another nested update for every synchronous input.
+  useLayoutEffect(() => {
     updateContribution(id, { content, order, surfaceIdentity });
   }, [id, content, order, surfaceIdentity, updateContribution]);
 }
