@@ -1,7 +1,7 @@
 # Buddy roadmap — author, plan, play, remember
 
 **Status:** current product execution ledger; reconciled2026-10-24.
-**Current delivery anchor:** API/UI `f2d4d06e0c113a755de06e7eff6da412fa91fcac` (#1740), ports8000/5202,
+**Current delivery anchor:** API `f12e224576c61de97587cb16d048a4295cabbafa` (#1741), UI `f2d4d06e0c113a755de06e7eff6da412fa91fcac` (#1740), ports8000/5202,
 APP0064/native0017, Core `4ccd39a1e433d81569d86c05273ac33ee8f27ef3`,
 GE `3e085168c11bdee0de580b8cfa0f00cee157c157`. Latest protected paired delivery
 preserved2,732 APP rows and native state,
@@ -26,7 +26,7 @@ activity and proposal rendering remain to prove, along with named acquisition an
 full writing chain. Delivery does not establish operator acceptance.
 Exact related saved-page acquisition is delivered (#1738): explicit metadata-only World catalog, model selection, exact source-owner/APP reads, producing writer inclusion and immutable named citations. Ordinary synthetic fresh conversation read only the selected page revision13, answered the actual table row, reloaded and opened the named saved snapshot. This is source acquisition proof, not the full connected authoring chain or operator acceptance. Edge's saved table has no matching native Graph artifact; the saved-page contract avoids inventing or publishing a replacement.
 Live activity turn binding is delivered (#1739), with exact independent approval and ordinary synthetic changing activity/light trace before completion. Full retry/navigation/operator acceptance remains open.
-Durable reviewed plans are delivered (#1740): persisted edits/selection, explicit stable one-step continuation, actual turn/proposal result projection and local edit recovery. Ordinary synthetic save/reload/one discussion continuation preserved newer composer and deferred step; not full operator acceptance. Model-generated two-step formatting remained weak and required author repair.
+Durable reviewed plans are delivered (#1740): persisted edits/selection, explicit stable one-step continuation, actual turn/proposal result projection and local edit recovery. Ordinary synthetic save/reload/one discussion continuation preserved newer composer and deferred step; not full operator acceptance. Readable action/result continuation delivered #1741; ordinary insertion prepared real editable prose, preserved newer composer and did not claim Save. Model-generated two-step formatting remained weak and required author repair. Active successor: typed writer plan/questions via HANDOFF-MIND-typed-conversation-workflow.md; connected-page executor/full operator chain remain open.
 Current bounded successor: [readable continuation](../Plans/HANDOFF-MIND-work-plan-continuation-copy.md), removing raw plan JSON from normal conversation and proving prepare-insertion continuation. Typed planning output, connected-page executor and the full person/shop chain remain subsequent work.
 
 Trace snapshot meaning is delivered (#1737): prepared inputs and responses are separate; only comparable inputs or exact compaction pairs are diffed. Untyped historical snapshots remain inspectable without inferred removals. This is observability proof, not fresh live generation or full collaboration acceptance.

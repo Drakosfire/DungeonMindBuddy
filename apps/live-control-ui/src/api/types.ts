@@ -1173,7 +1173,12 @@ export interface WorldBuildRelatedPageCompletionV1 extends Omit<WorldBuildDraftC
   answer_segments:(WorldBuildDraftContextCompletionV1['answer_segments'][number]
     | {kind:'related_page_claim'; text:string; read_id:string; page:{world_id:string;document_id:string;registry_revision:number;title:string;visibility:'internal'|'player_safe';content_sha256:string}})[];
 }
-export type WorldBuildSourceCompletion = WorldBuildRelatedPageCompletionV1 | WorldBuildGraphCompletionV2 | WorldBuildNamedGraphCompletionV3 | WorldBuildDraftContextCompletionV1;
+export type ConversationCollaboration = {kind:"plan";steps:{text:string;kind:"discuss"|"prepare_insertion"}[]} | {kind:"questions";questions:{text:string}[]};
+export interface WorldBuildCollaborationCompletionV1 extends Omit<WorldBuildRelatedPageCompletionV1,"schema"> {
+  schema:"dmb_build_collaboration_completion_v1";
+  collaboration:ConversationCollaboration|null;
+}
+export type WorldBuildSourceCompletion = WorldBuildCollaborationCompletionV1 | WorldBuildRelatedPageCompletionV1 | WorldBuildGraphCompletionV2 | WorldBuildNamedGraphCompletionV3 | WorldBuildDraftContextCompletionV1;
 
 export interface SurfaceSourceCompletionV1 {
   schema: "dmb_surface_source_completion_v1";

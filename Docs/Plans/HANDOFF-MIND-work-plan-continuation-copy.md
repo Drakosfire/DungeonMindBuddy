@@ -1,6 +1,8 @@
 # MIND: readable reviewed-plan continuation
 
-ACTIVE serial immediate dogfood refinement authorized by current operator goal; basef2d4d06e0c113a755de06e7eff6da412fa91fcac, existing buddy-context-loop; prior1740 merged/delivered, no overlapping open runtime lanes. One PR, exact independent Bugbot, PRIME merge, protected API-only delivery8000; UI5202 remainsf2d4d06e0. APP0064/native0017 unchanged.
+DELIVERED #1741, merge/API f12e224576c61de97587cb16d048a4295cabbafa; UI f2d4d06e. Protected2771 APP/native rows/frozen27/mechanics89 preserved. Ordinary selected insertion produced editable paragraph and truthful prepared status; newer composer preserved, synthetic suggestion discarded without source Save. First mutation after API restart401 preserved choices and succeeded on explicit Save after session refresh; generic error copy remains open.
+
+Historical scope: serial immediate dogfood refinement authorized by current operator goal; basef2d4d06e0c113a755de06e7eff6da412fa91fcac, existing buddy-context-loop; prior1740 merged/delivered, no overlapping open runtime lanes. One PR, exact independent Bugbot, PRIME merge, protected API-only delivery8000; UI5202 remainsf2d4d06e0. APP0064/native0017 unchanged.
 
 Ordinary1740 proof saved edited selected/deferred steps with no model call, reloaded exact review/newer composer, explicitly continued one discussion step, observed actual reply receipt, kept the other step deferred. The raw continuation currently exposes JSON identities in normal conversation. Render the exact reviewed plan and earlier results as readable user-authored context, keeping IDs/dispatch receipts in their durable record and old request bytes immutable. No new execution authority, schema, provider routing or story/Graph writes.
 

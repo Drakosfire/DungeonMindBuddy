@@ -1426,7 +1426,7 @@ function isBuildKnowledgeContext(value: unknown, worldId: string): value is Worl
       && [value.source_open_targets, value.evidence_anchor_statuses, value.related_recap_context_statuses]
         .every(items => Array.isArray(items) && items.length === 0);
   }
-  if (isRecord(value.completion) && ["dmb_build_graph_completion_v2", "dmb_build_graph_completion_v3", "dmb_build_draft_context_completion_v1", "dmb_build_related_page_completion_v1"].includes(String(value.completion.schema))) {
+  if (isRecord(value.completion) && ["dmb_build_graph_completion_v2", "dmb_build_graph_completion_v3", "dmb_build_draft_context_completion_v1", "dmb_build_related_page_completion_v1", "dmb_build_collaboration_completion_v1"].includes(String(value.completion.schema))) {
     return isBuildSourceCompletion(value.completion, receipt.context_receipt_sha256, source.content_sha256, source.world_id)
       && (value.execution === null || isWorldPlanGraphExecution(value.execution))
       && [value.source_open_targets, value.evidence_anchor_statuses, value.related_recap_context_statuses]
@@ -4617,7 +4617,7 @@ export function WorldPlanAgentConversation({
       ? <BuildSavedSectionEvidence targets={planContext.saved_source_sections} basis={planContext.receipt.source_basis}
           sourceName={planContext.saved_source_name}
           segments={planContext.completion.answer_segments} worldId={verifiedWorldId} turnId={turn.turn_id} /> : null;
-    if (planContext?.completion?.schema === "dmb_build_related_page_completion_v1" || planContext?.completion?.schema === "dmb_build_draft_context_completion_v1" || planContext?.completion?.schema === "dmb_build_graph_completion_v2" || planContext?.completion?.schema === "dmb_build_graph_completion_v3" || planContext?.completion?.schema === "dmb_surface_source_completion_v1" || planContext?.completion?.schema === "dmb_surface_evidence_completion_v1" || planContext?.completion?.schema === "dmb_surface_evidence_completion_v2" || planContext?.completion?.schema === "dmb_surface_evidence_completion_v3") {
+    if (planContext?.completion?.schema === "dmb_build_collaboration_completion_v1" || planContext?.completion?.schema === "dmb_build_related_page_completion_v1" || planContext?.completion?.schema === "dmb_build_draft_context_completion_v1" || planContext?.completion?.schema === "dmb_build_graph_completion_v2" || planContext?.completion?.schema === "dmb_build_graph_completion_v3" || planContext?.completion?.schema === "dmb_surface_source_completion_v1" || planContext?.completion?.schema === "dmb_surface_evidence_completion_v1" || planContext?.completion?.schema === "dmb_surface_evidence_completion_v2" || planContext?.completion?.schema === "dmb_surface_evidence_completion_v3") {
       return <details className="world-plan-agent-conversation__evidence-trail">
         <summary>Evidence trail</summary>
         <ResponseEvidenceTabs evidence={verifiedWorldId
@@ -5661,6 +5661,7 @@ export function WorldPlanAgentConversation({
             {renderSourceActions(turn)}
             {verifiedWorldId && history?.conversation_id && <ConversationWorkbook
               key={`workbook:${verifiedWorldId}:${history.conversation_id}:${turn.turn_id}`}
+              collaboration={graphContextForTurn(turn)?.completion?.schema === "dmb_build_collaboration_completion_v1" ? (graphContextForTurn(turn)!.completion as import("../../api/types").WorldBuildCollaborationCompletionV1).collaboration : undefined}
               source={turn.assistant_text} worldId={verifiedWorldId} conversationId={history.conversation_id}
               turnId={turn.turn_id} disabled={composerBusy}
               durable={turn.provenance.surface_id==='build'?{disabled:!isBuild||!visible||history.active_conversation_id!==history.conversation_id||buildMode?.savedSource?.documentId!==turn.provenance.primary_work.object_id,

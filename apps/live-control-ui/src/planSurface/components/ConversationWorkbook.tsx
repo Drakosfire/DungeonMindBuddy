@@ -1,6 +1,7 @@
 import { DurableWorkPlan,type ReviewedRow } from './DurableWorkPlan'
 import type {WorkPlan,WorkDispatch} from '../../api/conversationWorkPlanApi'
 import { useState } from 'react'
+import type {ConversationCollaboration} from '../../api/types'
 import { parseMarkdownAst } from '../../tiptap/markdown/parseMarkdownAst'
 
 type Mode = 'plan' | 'questions'
@@ -20,11 +21,11 @@ function candidates(source: string): string[] {
   } catch { return [] }
 }
 function Card({source, identity, mode, items, onAdd, disabled, onSavePlan}: {
-  source: string; identity: string; mode: Mode; items: string[]; onAdd: (text: string) => void; disabled: boolean; onSavePlan?:(rows:ReviewedRow[])=>Promise<void>
+  source: string; identity: string; mode: Mode; items: Row[]; onAdd: (text: string) => void; disabled: boolean; onSavePlan?:(rows:ReviewedRow[])=>Promise<void>
 }) {
   const storageKey = `dmb:conversation-workbook:v1:${identity}:${mode}`
   const [notes, setNotes] = useState<Notes>(() => {
-    const initial: Notes = {rows:items.map(text=>({text,include:true,answer:''})),blocked:false,warning:null}
+    const initial: Notes = {rows:items.map(row=>({...row})),blocked:false,warning:null}
     try {
       const raw = window.sessionStorage.getItem(storageKey)
       if (raw === null) return initial
@@ -78,16 +79,18 @@ function Card({source, identity, mode, items, onAdd, disabled, onSavePlan}: {
 }
 
 /** The author chooses the interpretation. Lists are never promoted to facts or executed. */
-export function ConversationWorkbook({source, worldId, conversationId, turnId, onAdd, disabled=false, durable}: {
-  source: string; worldId: string; conversationId: string; turnId: string; onAdd: (text: string) => void; disabled?: boolean; durable?:{disabled:boolean;onContinue:(plan:WorkPlan,dispatch:WorkDispatch)=>void}
+export function ConversationWorkbook({source, worldId, conversationId, turnId, onAdd, disabled=false, durable, collaboration}: {
+  collaboration?:ConversationCollaboration|null; source: string; worldId: string; conversationId: string; turnId: string; onAdd: (text: string) => void; disabled?: boolean; durable?:{disabled:boolean;onContinue:(plan:WorkPlan,dispatch:WorkDispatch)=>void}
 }) {
-  const [mode,setMode]=useState<Mode|null>(null)
-  const items=candidates(source)
+  const [chosenMode,setMode]=useState<Mode|null|undefined>(undefined)
+  const mode=chosenMode===undefined?(collaboration?.kind==='plan'?'plan':collaboration?.kind==='questions'?'questions':null):chosenMode
+  const items:Row[]=collaboration?.kind==='plan'?collaboration.steps.map(s=>({...s,include:true,answer:''})):collaboration?.kind==='questions'?collaboration.questions.map(q=>({...q,include:true,answer:''})):collaboration===undefined?candidates(source).map(text=>({text,include:true,answer:''})):[]
+  const noteSource=collaboration?JSON.stringify([source,collaboration]):source
   if(!items.length)return null
   const identity=JSON.stringify([worldId,conversationId,turnId])
-  return <div><div className="conversation-workbook__choices">
+  return <div><div className="conversation-workbook__choices" hidden={collaboration!==undefined}>
     <button type="button" disabled={disabled} aria-pressed={mode==='plan'} onClick={()=>setMode(mode==='plan'?null:'plan')}>Review plan</button>{' '}
     <button type="button" disabled={disabled} aria-pressed={mode==='questions'} onClick={()=>setMode(mode==='questions'?null:'questions')}>Answer questions</button>
   </div>{mode==='plan'&&durable?<DurableWorkPlan key={`${identity}:${source}`} scope={{worldId,conversationId,turnId,source}} disabled={disabled||durable.disabled} onContinue={durable.onContinue}
-    renderDraft={(onSavePlan,busy)=><Card {...{source,identity,mode:'plan',items,onAdd,onSavePlan}} disabled={disabled||durable.disabled||busy}/>}/>:mode&&<Card key={`${identity}:${mode}:${source}`} {...{source,identity,mode,items,onAdd,disabled}}/>}</div>
+    renderDraft={(onSavePlan,busy)=><Card {...{source:noteSource,identity,mode:'plan',items,onAdd,onSavePlan}} disabled={disabled||durable.disabled||busy}/>}/>:mode&&<Card key={`${identity}:${mode}:${noteSource}`} {...{source:noteSource,identity,mode,items,onAdd,disabled}}/>}</div>
 }

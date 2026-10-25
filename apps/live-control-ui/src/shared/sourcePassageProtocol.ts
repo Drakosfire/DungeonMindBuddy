@@ -16,14 +16,16 @@ export function isSurfaceSourceCompletion(value: unknown, receiptHash: string, s
   return isSourceCompletion(value, receiptHash, undefined, surface);
 }
 function isSourceCompletion(value: unknown, receiptHash: string, sourceHash?: string, surface?: "plan"|"play", worldId?:string): boolean {
-  const related = !surface && record(value) && value.schema === "dmb_build_related_page_completion_v1";
+  const collaboration = !surface && record(value) && value.schema === "dmb_build_collaboration_completion_v1";
+  const related = collaboration || !surface && record(value) && value.schema === "dmb_build_related_page_completion_v1";
   const draft = related || !surface && record(value) && value.schema === "dmb_build_draft_context_completion_v1";
   const named = draft || surface !== undefined || (record(value) && value.schema === "dmb_build_graph_completion_v3");
-  if (!exact(value, ["schema", "context_receipt_sha256", "answer_basis", "answer_context_status", "answer_segments", "citation_map", "source_citations", ...(surface ? ["surface_id"] : [])])
-    || value.schema !== (surface ? "dmb_surface_source_completion_v1" : related ? "dmb_build_related_page_completion_v1" : draft ? "dmb_build_draft_context_completion_v1" : named ? "dmb_build_graph_completion_v3" : "dmb_build_graph_completion_v2") || (surface && value.surface_id !== surface) || value.context_receipt_sha256 !== receiptHash
+  if (!exact(value, ["schema", "context_receipt_sha256", "answer_basis", "answer_context_status", "answer_segments", "citation_map", "source_citations", ...(surface ? ["surface_id"] : []), ...(collaboration ? ["collaboration"] : [])])
+    || value.schema !== (surface ? "dmb_surface_source_completion_v1" : collaboration ? "dmb_build_collaboration_completion_v1" : related ? "dmb_build_related_page_completion_v1" : draft ? "dmb_build_draft_context_completion_v1" : named ? "dmb_build_graph_completion_v3" : "dmb_build_graph_completion_v2") || (surface && value.surface_id !== surface) || value.context_receipt_sha256 !== receiptHash
     || value.citation_map !== null || !Array.isArray(value.answer_segments) || !value.answer_segments.length
     || value.answer_segments.length > 128 || !Array.isArray(value.source_citations) || value.source_citations.length > 16384
     || !(draft ? ["authored_grounded","authored_grounded_partial","source_grounded","source_grounded_partial","creative_proposal","insufficient_evidence"] : ["source_grounded", "source_grounded_partial", "source_insufficient_evidence"]).includes(String(value.answer_context_status))) return false;
+  if (collaboration && !isCollaboration(value.collaboration)) return false;
   const claimIndices = new Set<number>();
   let saved = false, hasDraft = false;
   for (const [index, segment] of value.answer_segments.entries()) {
@@ -84,3 +86,12 @@ export function canonical(value: unknown): string {
   return JSON.stringify(value);
 }
 
+
+export function isCollaboration(value:unknown):boolean {
+  if(value===null)return true;
+  if(!record(value))return false;
+  const text=(v:unknown)=>typeof v==='string'&&!!v.trim();
+  if(value.kind==='plan')return exact(value,['kind','steps'])&&Array.isArray(value.steps)&&value.steps.length>0&&value.steps.every(s=>exact(s,['text','kind'])&&text(s.text)&&['discuss','prepare_insertion'].includes(String(s.kind)));
+  if(value.kind==='questions')return exact(value,['kind','questions'])&&Array.isArray(value.questions)&&value.questions.length>0&&value.questions.every(q=>exact(q,['text'])&&text(q.text));
+  return false;
+}
