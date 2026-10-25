@@ -6190,11 +6190,12 @@ export function WorldPlanAgentConversation({
   // identity through the persisted idempotency key, never through row recency.
   const pendingActivityMatches = pendingActivityId && history?.world_id === verifiedWorldId
     ? history.turns.filter(turn => {
-      if (turn.turn_id === pendingActivityId) return true;
       return submittedMessage?.scopeKey === scopeKey && submittedMessage.id === pendingActivityId
-        && submittedMessage.conversationId === history.conversation_id
-        && Boolean(submittedMessage.idempotencyKey)
-        && "idempotency_key" in turn && turn.idempotency_key === submittedMessage.idempotencyKey
+        && (submittedMessage.conversationId === null
+          ? history.active_conversation_id === history.conversation_id
+          : submittedMessage.conversationId === history.conversation_id)
+        && (turn.turn_id === pendingActivityId || Boolean(submittedMessage.idempotencyKey)
+          && "idempotency_key" in turn && turn.idempotency_key === submittedMessage.idempotencyKey)
         && turn.user_text === submittedMessage.message
         && turn.provenance.world_id === verifiedWorldId
         && turn.provenance.surface_id === (isBuild ? "build" : isReadOnly ? "play" : "plan")

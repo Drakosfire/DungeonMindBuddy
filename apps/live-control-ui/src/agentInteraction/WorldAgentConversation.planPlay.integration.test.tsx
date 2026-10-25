@@ -922,7 +922,7 @@ describe("one App-level World conversation host across Plan and Play", () => {
     expect(screen.getByText("Getting things ready…")).toBeInTheDocument();
   });
 
-  it.each(['matching','foreign-message','foreign-source','ambiguous'])('binds live Build activity only to admitted correlation: %s',async variant=>{
+  it.each(['matching','foreign-message','foreign-source','ambiguous','same-id-foreign-message','same-id-foreign-source'])('binds live Build activity only to admitted correlation: %s',async variant=>{
     vi.mocked(getWorldAgentConversationHistory).mockResolvedValue(history());
     vi.mocked(postWorldBuildAgentTurn).mockReturnValue(new Promise(()=>{}));
     render(<Harness initial="build"/>);
@@ -933,16 +933,16 @@ describe("one App-level World conversation host across Plan and Play", () => {
     await waitFor(()=>expect(postWorldBuildAgentTurn).toHaveBeenCalledTimes(1));
     const request=vi.mocked(postWorldBuildAgentTurn).mock.calls[0][0];
     const base=turn('plan',1,''),durable='44444444-4444-4444-8444-444444444444';
-    const row={...base,turn_id:durable,lifecycle_status:'running' as const,assistant_text:null,
-      user_text:variant==='foreign-message'?'Another question':request.message,
+    const row={...base,turn_id:variant.startsWith('same-id-')?request.turn_id:durable,lifecycle_status:'running' as const,assistant_text:null,
+      user_text:variant.endsWith('foreign-message')?'Another question':request.message,
       idempotency_key:await expectedHistoryCorrelationKey(WORLD,request.turn_id),
       provenance:{...base.provenance,surface_id:'build',surface_instance_id:'build-instance',
-        primary_work:{...base.provenance.primary_work,kind:'build',object_id:variant==='foreign-source'?'another-source':request.primary_work.object_id}}};
+        primary_work:{...base.provenance.primary_work,kind:'build',object_id:variant.endsWith('foreign-source')?'another-source':request.primary_work.object_id}}};
     vi.mocked(getWorldAgentConversationHistory).mockResolvedValue({...history(),schema:'dmb_agent_conversation_history_v3',
       turns:variant==='ambiguous'?[row,{...row,turn_id:'55555555-5555-4555-8555-555555555555',sequence:2}]:[row]});
     await waitFor(()=>expect(document.querySelector('article[data-sequence="1"]')).toBeInTheDocument(),{timeout:4500});
     if(variant==='matching')await waitFor(()=>expect(getWorldAgentTurnContextTrace).toHaveBeenCalledWith(WORLD,durable,expect.any(AbortSignal)));
-    else expect(getWorldAgentTurnContextTrace).not.toHaveBeenCalledWith(WORLD,durable,expect.any(AbortSignal));
+    else expect(getWorldAgentTurnContextTrace).not.toHaveBeenCalledWith(WORLD,row.turn_id,expect.any(AbortSignal));
     expect(getWorldAgentTurnContextTrace).not.toHaveBeenCalledWith(WORLD,request.turn_id,expect.any(AbortSignal));
     expect(postWorldBuildAgentTurn).toHaveBeenCalledTimes(1);
   });
