@@ -40,3 +40,23 @@ def test_explicit_registered_name_precedes_session_presentation(name):
 def test_shared_policy_rejects_noncanonical_session_metadata(session):
     from application_state.source.naming import registered_source_name
     assert registered_source_name({'source_domain':'session_recap','session_id':session}) is None
+
+
+@pytest.mark.parametrize('key', ['dungeonbuddy.recap', 'fixture.recaps', 'recap'])
+@pytest.mark.parametrize('session', ['session-16', 'session-20'])
+def test_valid_native_artifact_uses_generic_family_not_producer_key(key, session):
+    from dungeonmind.contracts.evidence import SourceArtifactV2
+    artifact = SourceArtifactV2(source_artifact_id='opaque', source_domain_key=key,
+        source_domain='session_recap', world_id='world', campaign_id='campaign', session_id=session,
+        uri=None, current_revision_id=None, authority=None, visibility=None, artifact_kind=None,
+        document_class=None, review_state=None, source_visibility_state=None, workspace_document_ref=None,
+        lineage={}, status='active', created_at=None, updated_at=None)
+    from application_state.source.naming import registered_source_name
+    expected = f"Session {session.split('-')[1]} recap"
+    assert registered_source_name(artifact.model_dump(mode='json')) == _registered_source_name(artifact) == expected
+
+
+@pytest.mark.parametrize('domain', ['worldbuilding', 'other', 'unknown', ''])
+def test_producer_key_never_overrides_explicit_non_recap_family(domain):
+    from application_state.source.naming import registered_source_name
+    assert registered_source_name({'source_domain_key':'recap','source_domain':domain,'session_id':'session-29'}) is None

@@ -225,7 +225,7 @@ def test_recap_catalog_read_and_citation_share_frozen_registered_name(nav_case, 
     def access(self, entry):
         origin = synthetic_access(self, entry)
         proof = json.loads(origin.proof_json)
-        proof['resolution']['artifact'].update(source_domain='session_recap', campaign_id='campaign:synthetic',
+        proof['resolution']['artifact'].update(source_domain_key='dungeonbuddy.recap', source_domain='session_recap', campaign_id='campaign:synthetic',
             session_id='session-29', lineage={'source_name':'Custom recap title'} if named else {})
         proof['resolution']['evidence']['source_domain'] = 'session_recap'
         return replace(origin, proof_json=json.dumps(proof))

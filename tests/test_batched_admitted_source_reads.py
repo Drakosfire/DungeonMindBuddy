@@ -283,3 +283,33 @@ def test_source_body_reuse_context_is_owned_by_one_batch(setup, monkeypatch):
     assert contexts[2] is contexts[3]
     assert contexts[0] is not contexts[2]
     assert contexts[0] is not None
+
+
+@pytest.mark.parametrize('session_number', [16, 20])
+def test_qualified_recap_family_name_reaches_actual_body_and_executor_receipt(setup, monkeypatch, session_number):
+    from dungeonmind.contracts.evidence import SourceArtifactV2
+    f = setup
+    artifact = SourceArtifactV2(source_artifact_id=ARTIFACT_ID, source_domain_key='dungeonbuddy.recap',
+        source_domain='session_recap', world_id='world:test', campaign_id='campaign',
+        session_id=f'session-{session_number}', uri='repo://source.md', current_revision_id=None,
+        authority=None, visibility=None, artifact_kind=None, document_class=None, review_state=None,
+        source_visibility_state=None, workspace_document_ref=None, lineage={}, status='active',
+        created_at=None, updated_at=None)
+    original = f.resolve.side_effect
+    def qualified(request):
+        result = original(request)
+        result.resolutions = tuple(SimpleNamespace(**{**vars(row), 'anchor':replace(row.anchor, artifact=artifact)})
+            for row in result.resolutions)
+        return result
+    f.resolve.side_effect = qualified
+    session = GraphRetrievalSession(snapshot=SessionSnapshot(world_id='world:test', campaign_id='',
+        revision_id='rev:test', scope_mode='world'),
+        source_anchors=[SourceAnchorState(anchor_id=r.anchor_id, readable=True) for r in f.requests])
+    create_session(session)
+    monkeypatch.setattr(executor.retrieval_service, 'read_source_anchors_internal_v2',
+        lambda requests, **_kw: direct.read_source_anchors_direct_v2(f.services, requests, repo_root=f.root))
+    output = executor.execute_read_graph_source({'retrievalSessionId':session.id,
+        'anchorIds':[r.anchor_id for r in f.requests], 'maxChars':4000}, receipt_version=2)
+    assert [row['result']['content'] for row in output['reads']] == ['first line', 'second line']
+    assert all(row['result']['sourceName'] == f'Session {session_number} recap' for row in output['reads'])
+    assert all(row['receipt'] is not None and row['result']['outcome'] == 'enough' for row in output['reads'])

@@ -8,7 +8,12 @@ def registered_source_name(artifact: Mapping) -> str | None:
     name = lineage.get("source_name") if isinstance(lineage, Mapping) else None
     if isinstance(name, str) and name.strip():
         return name.strip()
-    domain = artifact.get("source_domain_key") or artifact.get("source_domain")
+    # The producer key is opaque (for example dungeonbuddy.recap). An explicit
+    # generic family governs presentation; a conflicting key cannot override it.
+    domain = artifact.get("source_domain")
+    if domain is None:
+        # Retain exact legacy key-only metadata; never infer from IDs or paths.
+        domain = artifact.get("source_domain_key")
     domain = getattr(domain, "value", domain)
     session = artifact.get("session_id")
     if domain in {"recap", "session_recap"} and isinstance(session, str):
