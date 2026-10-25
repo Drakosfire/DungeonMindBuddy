@@ -40,3 +40,34 @@ describe('one-request construction observation',()=>{
   expect(await readBuildConstructionStream(response([frame('construction',{progress}),frame('result',{response:result})]),request,()=>{throw new Error('retired');})).toEqual(result);
  });
 });
+
+import {createHash,webcrypto} from 'node:crypto';
+import type {BuildPlanConstructionProgress} from './buildConstructionStream';
+const snapshot={schema:'dmb_build_draft_snapshot_v1',draft_markdown:'Author page 雪😀',draft_sha256:'a'.repeat(64)};
+const planRequest={...request,owner_scope:{world_id:'world'},build_draft_context:{snapshot}} as unknown as WorldBuildAgentTurnRequestV1;
+const planProgress:BuildPlanConstructionProgress={schema:'dmb_build_plan_construction_v1',placement_id:'action',basis,
+ world_id:'world',conversation_id:'conversation',client_turn_id:'client',durable_turn_id:'11111111-1111-4111-8111-111111111111',turn_attempt:1,
+ working_snapshot_sha256:createHash('sha256').update(JSON.stringify(Object.fromEntries(Object.entries(snapshot).sort(([a],[b])=>a.localeCompare(b))))).digest('hex'),
+ provider_attempt_id:'22222222-2222-4222-8222-222222222222',sequence:1,status:'building',steps:[{text:'Discuss the hinge 雪😀.',kind:'discuss'}]};
+it.each([1,11,4096])('reads exact-bound typed plan prefixes across %s byte partitions',async size=>{
+ Object.defineProperty(globalThis,'crypto',{value:webcrypto,configurable:true});
+ const seen=vi.fn();const next={...planProgress,sequence:2,steps:[...planProgress.steps,{text:'Prepare a proposed check.',kind:'prepare_insertion'}]};
+ await readBuildConstructionStream(response([frame('construction',{progress:planProgress}),frame('construction',{progress:next}),frame('result',{response:{schema:'answer'}})],size),planRequest,seen);
+ expect(seen.mock.calls.map(c=>c[0].steps.length)).toEqual([1,2]);
+});
+it('rejects foreign, rewritten, malformed and speculative plan rows without poisoning final reconciliation',async()=>{
+ Object.defineProperty(globalThis,'crypto',{value:webcrypto,configurable:true});const seen=vi.fn();
+ const p=(changes:object)=>frame('construction',{progress:{...planProgress,...changes}});
+ await readBuildConstructionStream(response([p({world_id:'foreign'}),p({working_snapshot_sha256:'f'.repeat(64)}),p({extra:true}),p({status:'ready'}),p({sequence:1}),
+ p({sequence:2,steps:[{text:'Changed prefix',kind:'discuss'}]}),p({sequence:2,provider_attempt_id:'33333333-3333-4333-8333-333333333333'}),
+ p({sequence:2,status:'incomplete'}),p({sequence:3}),frame('result',{response:{schema:'answer'}})]),planRequest,seen);
+ expect(seen.mock.calls.map(c=>c[0].status)).toEqual(['building','incomplete']);
+});
+it('a preview hash failure cannot discard the real terminal reply',async()=>{
+ Object.defineProperty(globalThis,'crypto',{value:{subtle:{digest:vi.fn().mockRejectedValue(new Error('unavailable'))}},configurable:true});
+ try{
+  const seen=vi.fn();const final={schema:'answer'};
+  expect(await readBuildConstructionStream(response([frame('construction',{progress:planProgress}),frame('result',{response:final})]),planRequest,seen)).toEqual(final);
+  expect(seen).not.toHaveBeenCalled();
+ }finally{Object.defineProperty(globalThis,'crypto',{value:webcrypto,configurable:true});}
+});

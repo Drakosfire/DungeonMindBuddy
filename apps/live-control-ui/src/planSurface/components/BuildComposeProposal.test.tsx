@@ -289,3 +289,14 @@ it('opens exact superseded receipts from the saved suggestion without new genera
  expect(exact).toHaveTextContent('prior-apply');expect(exact).toHaveTextContent('before_editor_sha256');
  expect(bridge.restore).not.toHaveBeenCalled();expect(api.composeBuildProposal).not.toHaveBeenCalled();
 });
+
+it('retires only the matching plan preview after validated terminal handling',async()=>{
+ const progress={schema:'dmb_build_plan_construction_v1' as const,placement_id:'placement',basis,world_id:'world',conversation_id:'conversation',client_turn_id:'client',durable_turn_id:'turn',turn_attempt:1,working_snapshot_sha256:'a'.repeat(64),provider_attempt_id:'provider',sequence:1,status:'building' as const,steps:[{text:'Discuss the hinge.',kind:'discuss' as const}]};
+ const hook=renderHook(()=>useBuildCompose({worldId:'world',pageDocumentId:'doc',history,bridge,enabled:true,onHistory:vi.fn()}));
+ await act(async()=>{});
+ act(()=>hook.result.current.observeConstruction(progress));expect(hook.result.current.pageElement?.props.progress.steps).toEqual(progress.steps);
+ expect(hook.result.current.pageElement?.props.onVisible).toBeUndefined();
+ act(()=>hook.result.current.completePlanConstruction('foreign'));expect(hook.result.current.pageElement).not.toBeNull();
+ act(()=>hook.result.current.completePlanConstruction('client'));expect(hook.result.current.pageElement).toBeNull();
+ expect(api.composeBuildProposal).not.toHaveBeenCalled();expect(bridge.insert).not.toHaveBeenCalled();
+});

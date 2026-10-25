@@ -239,6 +239,7 @@ class WriterProjection:
     source_writer_output_policy: str | None = None
     rules_projection_json: str | None = None
     rules_support_refs: tuple = ()
+    plan_stream: bool = False
 
     @property
     def source_only(self) -> bool:
@@ -335,7 +336,7 @@ class WriterProjection:
                 else {"type": "json_object"}
             },
             "tools": [],
-            "stream": False,
+            "stream": self.plan_stream,
         }
 
 
@@ -503,6 +504,19 @@ def prepared_view(prepared: Any, expected: WriterProjection, *, budget: dict | N
         "payloadSha256": prepared.body_sha256,
         "payloadUtf8Bytes": prepared.body_size,
     }
+
+
+def with_plan_stream(staged: WriterProjection, request) -> WriterProjection:
+    """Freeze operation-specific transport before the exact prepared-byte gate."""
+    packet = json.loads(staged.input_json)
+    contract = packet.get('response_contract', {})
+    if contract.get('requested_work') != 'plan' or contract.get('barrier') is not None:
+        return staged
+    if request.build_write_capability is None or request.build_draft_context is None:
+        raise ValueError('Typed plan construction requires its captured Surface placement')
+    if not staged.source_only or staged.kwargs()['text']['format']['type'] != 'json_schema':
+        raise ValueError('Typed plan construction requires its closed provider schema')
+    return replace(staged, plan_stream=True)
 
 
 def text_request(staged: WriterProjection):

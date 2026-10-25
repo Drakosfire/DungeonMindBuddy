@@ -7,6 +7,20 @@ export interface BuildConstructionProgress {
   origin:{client_turn_id:string;durable_turn_id:string;turn_attempt:number;broker_operation_id:string;arguments_sha256:string};
   provider_attempt_id:string; sequence:number; status:'building'|'incomplete'|'ready'; markdown:string;
 }
+export interface BuildPlanConstructionProgress {
+  schema:'dmb_build_plan_construction_v1'; placement_id:string; basis:BuildProposalBasis;
+  world_id:string; conversation_id:string; client_turn_id:string; durable_turn_id:string; turn_attempt:number;
+  working_snapshot_sha256:string; provider_attempt_id:string; sequence:number; status:'building'|'incomplete';
+  steps:{text:string;kind:'discuss'|'prepare_insertion'}[];
+}
+export type BuildObjectConstructionProgress=BuildConstructionProgress|BuildPlanConstructionProgress;
+export const constructionPlacementId=(p:BuildObjectConstructionProgress)=>p.schema==='dmb_build_construction_v1'?p.action_id:p.placement_id;
+const exact=(v:object,keys:string[])=>Object.keys(v).length===keys.length&&keys.every(k=>Object.hasOwn(v,k));
+const uuid=(v:unknown)=>typeof v==='string'&&/^[a-f0-9]{8}-(?:[a-f0-9]{4}-){3}[a-f0-9]{12}$/.test(v);
+async function snapshotDigest(snapshot:unknown){
+  const bytes=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(stable(snapshot)));
+  return Array.from(new Uint8Array(bytes),byte=>byte.toString(16).padStart(2,'0')).join('');
+}
 export class ConstructionStreamError extends Error {
   constructor(public status:number,public detail:unknown){super('The saved request needs checking.');}
 }
@@ -20,14 +34,34 @@ const stable=(value:unknown):string=>JSON.stringify(normalized(value));
 
 /** One POST, one terminal. Missing transport output is uncertainty, never a retry. */
 export async function readBuildConstructionStream(response:Response, request:WorldBuildAgentTurnRequestV1,
-  onProgress:(progress:BuildConstructionProgress)=>void, assertCurrent:()=>void=()=>undefined):Promise<WorldPlanAgentTurnResponse> {
+  onProgress:(progress:BuildObjectConstructionProgress)=>void, assertCurrent:()=>void=()=>undefined):Promise<WorldPlanAgentTurnResponse> {
   if(!response.headers.get('content-type')?.startsWith('text/event-stream')||!response.body)
     throw new Error('The reply stream is unavailable. Check the saved request.');
   const reader=response.body.getReader();const decoder=new TextDecoder('utf-8',{fatal:true});
   let buffer='';let sequence=0;let identity:string|null=null;
   const capability=request.build_write_capability;
+  let workingHash:string|null=null;
+  try{if(request.build_draft_context)workingHash=await snapshotDigest(request.build_draft_context.snapshot);}catch{/* Preview hashing cannot discard the saved command result. */}
+  let previousSteps:BuildPlanConstructionProgress['steps']=[];let incomplete=false;
   function progress(value:unknown){
     if(!capability||!value||typeof value!=='object')return;
+    if((value as {schema?:string}).schema==='dmb_build_plan_construction_v1'){
+      const p=value as BuildPlanConstructionProgress;
+      if(!workingHash||!exact(p,['schema','placement_id','basis','world_id','conversation_id','client_turn_id','durable_turn_id','turn_attempt','working_snapshot_sha256','provider_attempt_id','sequence','status','steps'])
+        ||p.placement_id!==capability.idempotency_key||p.world_id!==request.owner_scope.world_id
+        ||p.conversation_id!==capability.conversation_id||p.client_turn_id!==request.turn_id
+        ||!uuid(p.durable_turn_id)||!uuid(p.provider_attempt_id)||!Number.isSafeInteger(p.turn_attempt)||p.turn_attempt<1
+        ||p.working_snapshot_sha256!==workingHash||stable(p.basis)!==stable(capability.basis)
+        ||!Number.isSafeInteger(p.sequence)||p.sequence<=sequence||!['building','incomplete'].includes(p.status)
+        ||!Array.isArray(p.steps)||p.steps.some(row=>!row||typeof row!=='object'||!exact(row,['text','kind'])||typeof row.text!=='string'||!row.text.trim()||!['discuss','prepare_insertion'].includes(row.kind))
+        ||p.steps.length<previousSteps.length||stable(p.steps.slice(0,previousSteps.length))!==stable(previousSteps)
+        ||incomplete&&p.status!=='incomplete')return;
+      const next=stable([p.schema,p.placement_id,p.durable_turn_id,p.turn_attempt,p.provider_attempt_id,p.working_snapshot_sha256]);
+      if(identity!==null&&identity!==next)return;
+      identity=next;sequence=p.sequence;previousSteps=p.steps.map(row=>({...row}));incomplete=p.status==='incomplete';
+      try{onProgress(p);}catch{/* Observation cannot change the final receipt. */}
+      return;
+    }
     const p=value as BuildConstructionProgress;
     if(p.schema!=='dmb_build_construction_v1'||p.action_id!==capability.idempotency_key
       ||p.conversation_id!==capability.conversation_id||stable(p.basis)!==stable(capability.basis)
@@ -38,7 +72,7 @@ export async function readBuildConstructionStream(response:Response, request:Wor
       ||typeof p.provider_attempt_id!=='string'||!p.provider_attempt_id
       ||!Number.isSafeInteger(p.sequence)||p.sequence<=sequence||typeof p.markdown!=='string'
       ||!['building','incomplete','ready'].includes(p.status))return;
-    const next=stable([p.action_id,p.reservation_sha256,p.origin,p.provider_attempt_id]);
+    const next=stable([p.schema,p.action_id,p.reservation_sha256,p.origin,p.provider_attempt_id]);
     if(identity!==null&&next!==identity)return;
     identity=next;sequence=p.sequence;
     // A retired view cannot interrupt the durable command's final reconciliation.
