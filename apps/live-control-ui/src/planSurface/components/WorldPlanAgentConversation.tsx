@@ -27,6 +27,7 @@ import { ConversationDock } from "../../ui/ConversationDock";
 import type { PlanConversationPresentationHosts } from "./PlanConversationDockAdapter";
 import { PlanEditReview } from "./PlanEditReview";
 import { ResponseEvidenceTabs } from "./ResponseEvidenceTabs";
+import { ConversationWorkbook } from "./ConversationWorkbook";
 import { BuddyActivity } from "./BuddyActivity";
 import { BuddyContextTraceLoader } from "./BuddyContextTraceLoader";
 import { BuddyTurnInspection } from "./BuddyTurnInspection";
@@ -5656,6 +5657,11 @@ export function WorldPlanAgentConversation({
               />)}
             {rulesContextForTurn(turn) && <RulesAnswerEvidence active={visible && agent.paneState.isOpen} context={rulesContextForTurn(turn)!} answer={turn.assistant_text ?? ''} />}
             {renderSourceActions(turn)}
+            {verifiedWorldId && history?.conversation_id && <ConversationWorkbook
+              key={`workbook:${verifiedWorldId}:${history.conversation_id}:${turn.turn_id}`}
+              source={turn.assistant_text} worldId={verifiedWorldId} conversationId={history.conversation_id}
+              turnId={turn.turn_id} disabled={composerBusy}
+              onAdd={text=>{composerEditGenerationRef.current+=1;setComposerMessage(current=>current.trim()?`${current}\n\n${text}`:text);}} />}
           </div>
         ) : failed || interrupted ? (
           <div className="world-plan-agent-conversation__turn-status">
@@ -6177,9 +6183,14 @@ export function WorldPlanAgentConversation({
     </div>
   );
   const activityBusy = sending || composing || buildCompose.busy || playCompose.busy;
-  const activityTurn = [...(history?.turns ?? [])]
-    .filter(turn => !activityBusy || turn.lifecycle_status === 'accepted' || turn.lifecycle_status === 'running')
-    .sort((a, b) => b.sequence - a.sequence)[0];
+  const pendingActivityId = activityBusy ? sharedConversation?.pendingTurn?.turnId
+    ?? pendingPlayTurn?.request.turn_id
+    ?? (submittedMessage?.scopeKey === scopeKey ? submittedMessage.id : null) : null;
+  const activityTurn = pendingActivityId ? history?.turns.find(turn=>turn.turn_id===pendingActivityId)
+    : [...(history?.turns ?? [])].filter(turn=>!activityBusy||turn.lifecycle_status==='accepted'||turn.lifecycle_status==='running')
+      .sort((a,b)=>b.sequence-a.sequence)[0];
+  const activityTurnId = activityTurn?.turn_id ?? pendingActivityId;
+  const activityLifecycle = activityTurn?.lifecycle_status ?? 'running';
   const composer = (
     <section className="world-plan-agent-conversation__composer" aria-label="Conversation composer">
       {requestedSurfaceTurn?.status==='failed'&&<div role="status">
@@ -6189,11 +6200,11 @@ export function WorldPlanAgentConversation({
       {sharedConversation?.worldId === worldId && sharedConversation.composerDraftWarning
         ? <p role="status">{sharedConversation.composerDraftWarning}</p> : null}
 
-      {activityTurn && verifiedWorldId && history?.conversation_id ? <BuddyTurnInspection
-        key={`activity:${verifiedWorldId}:${history.conversation_id}:${activityTurn.turn_id}`}
-        worldId={verifiedWorldId} conversationId={history.conversation_id} turnId={activityTurn.turn_id}
-        lifecycle={activityTurn.lifecycle_status}>
-        <BuddyActivity worldId={verifiedWorldId} conversationId={history.conversation_id} turnId={activityTurn.turn_id} lifecycle={activityTurn.lifecycle_status} />
+      {activityTurnId && verifiedWorldId && history?.conversation_id ? <BuddyTurnInspection
+        key={`activity:${verifiedWorldId}:${history.conversation_id}:${activityTurnId}`}
+        worldId={verifiedWorldId} conversationId={history.conversation_id} turnId={activityTurnId}
+        lifecycle={activityLifecycle}>
+        <BuddyActivity worldId={verifiedWorldId} conversationId={history.conversation_id} turnId={activityTurnId} lifecycle={activityLifecycle} />
       </BuddyTurnInspection> : activityBusy ? <div className="world-plan-agent-conversation__working" role="status">
         Getting things ready…
       </div> : null}

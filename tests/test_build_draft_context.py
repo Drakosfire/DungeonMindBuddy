@@ -397,7 +397,8 @@ def test_long_saved_line_does_not_block_current_draft_or_exact_saved_comparison(
                 "section_read_ids":[packet["artifact_under_edit"]["sections"][0]["read_id"]]} if compare_saved else
                 {"kind":"draft_reference_claim","text":"Your draft describes Frank and Sara at the radio.","draft_record_id":lane["record_id"]})
             data=response.json();data["output"][0]["content"][0]["text"]=json.dumps({
-                "answer_context_status":"source_grounded_partial" if compare_saved else "authored_grounded",
+                # Reproduce the retained writer enum mismatch; typed saved claims govern host status.
+                "answer_context_status":"authored_grounded_partial" if compare_saved else "authored_grounded",
                 "answer_segments":[segment],"limitations":["partial_retrieval"] if compare_saved else [],"requested_detail_gaps":[]})
             return httpx.Response(200,request=request,json=data)
     writer=LongWriter()
@@ -487,3 +488,23 @@ def test_draft_schema_preserves_source_status_domain_without_qualifying_authored
     assert ('source_grounded' in statuses)==full_source_allowed
     assert 'source_grounded_partial' in statuses
     assert 'authored_grounded' in statuses and 'authored_grounded_partial' in statuses
+
+
+def test_host_derives_status_without_changing_saved_claim_or_limitations():
+    from application_state.agent_conversation.build_draft_answer import normalize
+    from uuid import uuid4
+    raw = {'answer_context_status':'authored_grounded_partial',
+        'answer_segments':[{'kind':'saved_source_claim','text':'Brin operates the shop.', 'section_read_ids':[str(uuid4())]},
+            {'kind':'suggestion','text':'- [ ] Read the named table before choosing a person.'}],
+        'limitations':['missing_requested_details','partial_retrieval'],
+        'requested_detail_gaps':[{'question_phrase':'read Edge'}]}
+    packet={'working_draft_context':{'record_id':str(uuid4())},'user_question':'Please read Edge before writing.',
+        'retrieval_disposition':{'status':'provisionally_supported','coverage_status':'heuristic_partial'}}
+    import json
+    result=normalize(json.dumps(raw),packet)
+    assert result['answer_context_status']=='source_grounded_partial'
+    assert result['answer_segments'][0]==raw['answer_segments'][0]
+    # Missing retrieval qualifications remain an error, regardless of the enum.
+    raw['limitations']=['missing_requested_details']
+    with pytest.raises(ValueError,match='retrieval qualification'):
+        normalize(json.dumps(raw),packet)

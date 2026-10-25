@@ -1,15 +1,50 @@
 # Buddy roadmap — author, plan, play, remember
 
 **Status:** current product execution ledger; reconciled2026-10-24.
-**Evidence anchor:** API `3ce378df81b113af354587f797fc89aa215450a6`, UI
-`5829c6e8f96f0a536577da8b1dca164e99bc6bb9` (#1721), ports8000/5202,
-APP0061/native0017, Core `a21c9e791fd090999a53318700a8010227b15c05`.
-Protected delivery through1721 preserved all2,610 retained APP rows, native state,
-27 frozen components and89 product files; API health remains verified.
-This is a delivery snapshot, not completion of the journeys below.
+**Current delivery anchor:** API `01f3e3687566a6cf73e8620d338c51aa491885d8`
+(#1733), UI `e167cbabf9007b04c7da96b0e003648ac15e78b6` (#1734), ports8000/5202,
+APP0062/native0017, Core `4ccd39a1e433d81569d86c05273ac33ee8f27ef3`,
+GE `3e085168c11bdee0de580b8cfa0f00cee157c157`. Latest protected UI delivery
+preserved2,722 APP rows and the API; prior API delivery preserved native state,
+27 frozen components and89 mechanics files. These are delivery facts, not journey acceptance.
 **Owner:** DungeonMindBuddy; [steward mandate](../Plans/STEWARDS-HANDOFF-demo.md).
 
-## Active goal and next milestone
+## Immediate operator-selected dogfood gate
+
+Umbrella goal remains paused. Complete the explicitly authorized conversation dogfood
+in Brin’s Blacksmithy/Edge/Bog Blossom Hill before resuming preparation/play work:
+**clarify/propose a plan → author edits/selects/answers → explicit continuation →
+read the named Edge table → person/shop relationships → page-ready prose →
+place/edit/save/reload/continue**. Operator acceptance is required.
+
+Current bounded implementation: [conversation workbook](../Plans/HANDOFF-MIND-conversation-workbook.md).
+It is in progress, not delivered or accepted. The initial author-controlled card
+is local working state, not proof of a durable agent execution scratchpad. Verify
+ordinary running activity, not only terminal disclosure or mocked polling. Repair
+heading typography and descriptive-status mismatch while preserving provenance.
+Keep plans/questions in conversation and actual requested document content on the page.
+Explicit named acquisition must precede inventing a replacement person/shop.
+
+Shipped foundations since the older evidence below: named conversation library
+and archived transcript access (#1728), page relationships moved out of the document
+(#1727), durable failure diagnostics/error reports (#1731), Copy trace (#1732),
+registered recap-family naming repair (#1733), and an initial live activity entry
+(#1734). The original failure was reproduced; the name repair passed exact retained
+acquisition replay and ordinary live source reads. None establishes end-to-end
+collaboration quality. The follow-up status failure and planning-as-page output are
+observed unresolved dogfood defects owned by the current gate. Six additional
+Worldbuilding title gaps are recorded in #1733; do not guess titles or rewrite retained provenance.
+
+Speed is no longer the immediate optimization priority. Preserve the original
+roughly10-second quality/performance benchmark and final8GB/proxy evidence requirement,
+but reopen optimization only for a demonstrated regression or after this quality gate.
+Floating/side/bottom placement and direct proposal editing are foundations to refine,
+not unbuilt milestones. Grid canvas/map authoring and full-stop/redirect remain separately bounded.
+
+The sections below retain broader requirements and historical evidence; their older
+“next” wording does not override this immediate operator-selected gate.
+
+## Broader authoring, preparation and play objective
 
 Deliver a dependable local Build→Plan→Play→Combat→memory loop on5202, using
 shared Surface components, exact source/mechanics identities and recoverable

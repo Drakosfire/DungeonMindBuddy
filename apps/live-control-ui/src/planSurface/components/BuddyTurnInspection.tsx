@@ -59,6 +59,7 @@ export function BuddyTurnInspection({ worldId, conversationId, turnId, lifecycle
     let active = true
     let timer: ReturnType<typeof setTimeout> | undefined
     const controller = new AbortController()
+    let initialMisses = 0
     const owns = () => active && consumers.current.size > 0 && getReadWaveVersion() === wave
     const read = () => void Promise.resolve().then(() => {
       if (!owns()) throw new Error('Inspection owner retired')
@@ -77,7 +78,12 @@ export function BuddyTurnInspection({ worldId, conversationId, turnId, lifecycle
       setFailure(null)
       if (running) timer = setTimeout(read, 2000)
     }).catch(() => {
-      if (owns()) setFailure({ key, message: 'Execution trace is unavailable. The message will not be resent.' })
+      if (owns()) {
+        setFailure({ key, message: 'Execution trace is unavailable. The message will not be resent.' })
+        // Admission and first capture may trail the submitted request. Retry only
+        // initial misses, boundedly; an interrupted established read still pauses.
+        if (running && cache.current?.key !== key && initialMisses++ < 5) timer = setTimeout(read, 2000)
+      }
     })
     const explicitRetry = handledRetry.current !== retry
     handledRetry.current = retry

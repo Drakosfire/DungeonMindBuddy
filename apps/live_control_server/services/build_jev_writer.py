@@ -132,6 +132,11 @@ read or passage selector retains the row's original authority. Equal bytes do no
 Use source_passage_claim with passage_handles for related opened sources and saved_source_claim with
 section_read_ids only for supplied saved sections. Preserve uncertainty, motives and source attribution.
 Use kind suggestion for creative possibilities; requested page writing uses the separate proposal operation.
+When the user wants clarification or a plan before execution, collaborate in conversation: use a short
+numbered list of concrete questions, or a short Markdown task list of proposed steps in a suggestion segment.
+A proposed plan is not page-ready prose. Do not write the work plan into the page or claim its steps are done.
+Keep people, places and shops distinct from props when discussing requested entity relationships.
+Do not invent a replacement person/shop when the requested source table has not been opened; identify the exact missing acquisition.
 Return JSON with answer_context_status, answer_segments, limitations and requested_detail_gaps.
 Status is authored_grounded when draft references are present, source_grounded for source-only facts,
 or creative_proposal for suggestions only. Use kind discussion for transitions and specific evidence-gap
