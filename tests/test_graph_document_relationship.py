@@ -126,3 +126,20 @@ def test_new_adapter_denies_before_source_graph_or_freeze_io(case,graph,monkeypa
     response=client.post('/api/live/graph-authoring/document-relationship/request',json=intent(case),headers=headers)
     assert response.status_code==status,response.text
     protected.assert_not_called()
+
+
+def test_runtime_checkout_and_retained_world_source_root_are_distinct(case,graph,monkeypatch):
+    runtime=case.root/'runtime-checkout'
+    runtime.mkdir()
+    observed=[]
+    def projection(request,*,root):
+        observed.append(root)
+        assert root==case.root, 'The managed World registry belongs to retained data, not the runtime checkout'
+        return SimpleNamespace(projection=SimpleNamespace(nodes=[]))
+    monkeypatch.setattr('apps.live_control_server.services.graph_document_relationship.project_managed_world_graph',projection)
+    request=relationship_request(runtime,DocumentRelationshipRequest.model_validate(intent(case)))
+    assert observed==[case.root]
+    assert request.document_source==case.selector
+    assert (case.root/'out/registries/source_content/graph_documents').is_dir()
+    assert not (runtime/'out').exists()
+    assert case.authority.publish_calls==0

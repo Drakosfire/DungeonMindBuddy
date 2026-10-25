@@ -5,6 +5,7 @@ import json
 from pathlib import Path
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
+from apps.live_control_server.config import artifact_data_root
 from .graph_document_source import GraphDocumentSource, resolve_graph_document_source
 from .graph_object_authoring_prepare import GraphObjectAuthoringPrepareRequest, GraphObjectAuthoringError
 from .workspace_document_registry import get_workspace_document_snapshot
@@ -38,6 +39,8 @@ class DocumentRelationshipRequest(BaseModel):
 
 def relationship_request(root: Path, request: DocumentRelationshipRequest) -> GraphObjectAuthoringPrepareRequest:
     """Resolve one exact occurrence and deliberate identities, without publishing."""
+    root = artifact_data_root(root)
+
     def refuse(message):
         raise GraphObjectAuthoringError(message, code="relationship_review_invalid", status_code=409)
 
