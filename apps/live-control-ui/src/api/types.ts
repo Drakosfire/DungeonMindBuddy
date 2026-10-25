@@ -1191,7 +1191,12 @@ export interface WorldBuildRelationshipReviewCompletionV1 extends Omit<WorldBuil
  schema:'dmb_build_relationship_review_completion_v1';
  collaboration:ConversationCollaboration|ConversationConnectedPageProposal|ConversationRelationshipProposal|null;
 }
-export type WorldBuildSourceCompletion = WorldBuildRelationshipReviewCompletionV1 | WorldBuildConnectedPageReviewCompletionV1 | WorldBuildCollaborationCompletionV1 | WorldBuildRelatedPageCompletionV1 | WorldBuildGraphCompletionV2 | WorldBuildNamedGraphCompletionV3 | WorldBuildDraftContextCompletionV1;
+export interface WorldBuildIntentionalResponseCompletionV1 extends Omit<WorldBuildRelationshipReviewCompletionV1,'schema'|'answer_basis'|'answer_context_status'> {
+ schema:'dmb_build_intentional_response_completion_v1';
+ answer_basis:'working_draft_context'|'saved_source'|'saved_source_and_opened_passages'|'opened_source_passages'|'conversation';
+ answer_context_status:WorldBuildRelationshipReviewCompletionV1['answer_context_status']|'discussion';
+}
+export type WorldBuildSourceCompletion = WorldBuildIntentionalResponseCompletionV1 | WorldBuildRelationshipReviewCompletionV1 | WorldBuildConnectedPageReviewCompletionV1 | WorldBuildCollaborationCompletionV1 | WorldBuildRelatedPageCompletionV1 | WorldBuildGraphCompletionV2 | WorldBuildNamedGraphCompletionV3 | WorldBuildDraftContextCompletionV1;
 
 export interface SurfaceSourceCompletionV1 {
   schema: "dmb_surface_source_completion_v1";

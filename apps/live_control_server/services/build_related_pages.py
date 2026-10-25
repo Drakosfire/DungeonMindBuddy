@@ -188,7 +188,7 @@ def open_page(service, world_id, turn_id, read_id):
     turn = service.inspect_turn(world_id=world_id, turn_id=turn_id)
     from application_state.agent_conversation.types import (
         Turn,
-        BuildDraftContextCompletionV1,
+        BuildDraftContextCompletionV1, BuildIntentionalResponseCompletionV1,
     )
     from application_state.agent_conversation.rules_authority_reads import (
         MixedCompletedTurnV1,
@@ -203,7 +203,7 @@ def open_page(service, world_id, turn_id, read_id):
     if (
         not isinstance(turn, Turn)
         or turn.status != "completed"
-        or not isinstance(turn.completion, BuildDraftContextCompletionV1)
+        or not isinstance(turn.completion, (BuildDraftContextCompletionV1, BuildIntentionalResponseCompletionV1))
     ):
         raise ValueError("Related page requires its completed authored answer")
     matches = [

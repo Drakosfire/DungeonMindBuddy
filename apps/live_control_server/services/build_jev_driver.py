@@ -117,12 +117,15 @@ def freeze_interaction(adapter):
         # A mixed answer has an explicit lifecycle envelope and full visible text.
         # Its approved base is only a subsequence, never the historical answer.
         envelope = row.envelope if isinstance(row, MixedCompletedTurnV1) else row
-        if envelope.status != "completed" or not row.assistant_text:
+        collaboration = getattr(getattr(envelope, 'completion', None), 'collaboration', None)
+        object_only = (getattr(getattr(envelope, 'completion', None), 'schema_', None) == 'dmb_build_intentional_response_completion_v1' and collaboration is not None)
+        if envelope.status != "completed" or (not row.assistant_text and not object_only):
             continue
         history.append({"turn_id": str(envelope.turn_id), "user": envelope.user_text,
             "assistant": row.assistant_text,
             "user_sha256": hashlib.sha256(envelope.user_text.encode()).hexdigest(),
-            "assistant_sha256": hashlib.sha256(row.assistant_text.encode()).hexdigest()})
+            "assistant_sha256": hashlib.sha256(row.assistant_text.encode()).hexdigest(),
+            **({'collaboration': collaboration.model_dump(mode='json'), 'collaboration_sha256': digest(collaboration.model_dump(mode='json'))} if object_only else {})})
     history = project_dialogue(list(reversed(history)))
     related=(adapter.budget.get("buildJevActions") or {}).get("related_page_catalog")
     return {**({"related_page_catalog":related} if related is not None else {}), "allowed_operations": (adapter.budget.get("buildJevActions") or {}).get("allowed_surface_operations", ["answer_from_sources"] + (["propose_build_insertion"] if capability else [])),
@@ -366,6 +369,12 @@ class BuildJevDriver:
                 questions=(DecisionQuestion(name="operation", kind="choice",
                     question="Which offered operation serves this user turn in its conversation context?",
                     options=options),))
+        if (adapter.budget.get('buildJevActions') or {}).get('intentional_response_policy') is not None:
+            from application_state.agent_conversation.build_intentional_response import POLICY, WORK, decision_instructions
+            selection_state = {'user_question': adapter.request.message, 'interaction': self._interaction,
+                               'rules': decision_instructions(), 'requested_work_policy': POLICY}
+            self._selection_intent = DecisionIntent(request_id='select:' + digest(selection_state), phase='select', state=selection_state,
+                questions=(DecisionQuestion(name='requested_work', kind='choice', question=decision_instructions(), options=tuple(WORK)),))
         if self._selection_intent is not None and "related_page_catalog" in self._interaction:
             from application_state.agent_conversation.build_related_pages import PagePointer,question_name,question_text
             extra=tuple(DecisionQuestion(name=question_name(i),kind="choice",question=question_text(PagePointer.model_validate(page)),options=("read","skip"))
@@ -1027,38 +1036,68 @@ class BuildJevDriver:
                 self._selection_intent = None
                 self._pending = None
                 return self.step
-            question = self._selection_intent.questions[0]
-            answer = answers.get("operation", {})
-            selected, scores = answer.get("selected"), answer.get("probabilities")
-            if (model != self._selection_intent.model or set(answers) != {"operation"}
-                    or selected not in self._interaction["allowed_operations"] or not isinstance(scores, dict)
-                    or set(scores) != set(question.options)
-                    or any(isinstance(v, bool) or not isinstance(v, (int, float))
-                        or not math.isfinite(v) or not 0 <= v <= 1 for v in scores.values())
-                    or abs(sum(scores.values()) - 1) > 0.02
-                    or scores[selected] != max(scores.values())
-                    or sum(value == scores[selected] for value in scores.values()) != 1
-                    # Staging a suggestion still requires explicit Keep and page Save.
-                    or (selected == "prepare_build_image" and scores[selected] < 0.9)):
-                raise ValueError("Unresolved or uncalibrated operation selection; do not replay")
-            if "related_page_catalog" in self._interaction:
-                # The valid operation and APP-proven read/skip votes precede any saved-page body read.
-                select_pages(self,prepared,actual_response)
-            from uuid import uuid4
-            operation_id = "build-jev:" + digest({"turn_id": str(a.turn.turn_id),
-                "attempt": a.turn.attempt, "request_id": plan.request_id, "operation": selected})
-            arguments = ({"instruction": a.request.message} if selected in {"propose_build_insertion", "prepare_build_image"} else {})
-            execution = a._broker_execution()
-            authorization = next(e for e in execution.events if isinstance(e, ledger.ProviderAttemptAuthorizedEventV3)
-                and e.provider_attempt_id == a.last_provider_attempt_id)
-            event = ledger.BuildJevActionSelectionV1(kind="build_jev_action_selected_v1", event_id=uuid4(),
-                sequence=len(execution.events), controller_attempt_id=authorization.provider_attempt_id,
-                controller_envelope_sha256=authorization.envelope_sha256,
-                machine_request_id=plan.request_id, operation=selected, broker_operation_id=operation_id,
-                capability_sha256=self._interaction["capability_sha256"], arguments_sha256=digest(arguments))
-            from .agent_turn_service import _require_fresh_execution_append
-            a.turn = _require_fresh_execution_append(a.fence.append("record_build_jev_action_selection", "selection", event))
-            self.operation, self.selection = selected, event
+            if (a.budget.get('buildJevActions') or {}).get('intentional_response_policy') is not None:
+                from application_state.agent_conversation.build_intentional_response import selected as requested_work, resolution_for, operation_id, MENU_DIGEST, RESOLVER_DIGEST
+                from generationengine.types import DecisionResult
+                from uuid import uuid4
+                if (model != self._selection_intent.model or set(answers) != {'requested_work'}
+                    or not isinstance(actual_response, DecisionResult) or sdk_answers(actual_response).get('requested_work') != answers['requested_work']):
+                    raise ValueError('Semantic selection requires its actual complete SDK response')
+                raw = canonical(actual_response.model_dump(mode='json'))
+                label = requested_work(json.loads(raw))
+                execution = a._broker_execution()
+                resolution = resolution_for(execution.policy, label)
+                selected = resolution['operation']
+                if selected == 'prepare_build_image' and answers['requested_work']['probabilities'][label] < .9:
+                    raise ValueError('Image semantic selection did not meet admission threshold')
+                authorization = next(e for e in execution.events if isinstance(e, ledger.ProviderAttemptAuthorizedEventV3) and e.provider_attempt_id == a.last_provider_attempt_id)
+                event = ledger.BuildRequestedWorkResolutionV1(kind='build_requested_work_resolved_v1', event_id=uuid4(), sequence=len(execution.events),
+                    controller_attempt_id=authorization.provider_attempt_id, controller_envelope_sha256=authorization.envelope_sha256,
+                    controller_response_sha256=hashlib.sha256(raw.encode()).hexdigest(), machine_request_id=plan.request_id,
+                    requested_work=label, intent_family=resolution['intent_family'], menu_sha256=MENU_DIGEST, resolver_sha256=RESOLVER_DIGEST,
+                    response_capabilities_sha256=execution.policy.response_capabilities_sha256, resolution=resolution,
+                    operation=selected, broker_operation_id=operation_id(a.turn, plan.request_id, label),
+                    capability_sha256=self._interaction['capability_sha256'],
+                    arguments_sha256=digest({'instruction': a.request.message} if selected != 'answer_from_sources' else {}))
+                from .agent_turn_service import _require_fresh_execution_append
+                a.turn = _require_fresh_execution_append(a.fence.append('record_build_requested_work_resolution', 'selection', event,
+                    producer_proof={'request_json': prepared.body.decode(), 'response_json': raw}))
+                self.operation, self.selection = selected, event
+                if 'related_page_catalog' in self._interaction:
+                    select_pages(self, prepared, actual_response)
+            else:
+                question = self._selection_intent.questions[0]
+                answer = answers.get("operation", {})
+                selected, scores = answer.get("selected"), answer.get("probabilities")
+                if (model != self._selection_intent.model or set(answers) != {"operation"}
+                        or selected not in self._interaction["allowed_operations"] or not isinstance(scores, dict)
+                        or set(scores) != set(question.options)
+                        or any(isinstance(v, bool) or not isinstance(v, (int, float))
+                            or not math.isfinite(v) or not 0 <= v <= 1 for v in scores.values())
+                        or abs(sum(scores.values()) - 1) > 0.02
+                        or scores[selected] != max(scores.values())
+                        or sum(value == scores[selected] for value in scores.values()) != 1
+                        # Staging a suggestion still requires explicit Keep and page Save.
+                        or (selected == "prepare_build_image" and scores[selected] < 0.9)):
+                    raise ValueError("Unresolved or uncalibrated operation selection; do not replay")
+                if "related_page_catalog" in self._interaction:
+                    # The valid operation and APP-proven read/skip votes precede any saved-page body read.
+                    select_pages(self,prepared,actual_response)
+                from uuid import uuid4
+                operation_id = "build-jev:" + digest({"turn_id": str(a.turn.turn_id),
+                    "attempt": a.turn.attempt, "request_id": plan.request_id, "operation": selected})
+                arguments = ({"instruction": a.request.message} if selected in {"propose_build_insertion", "prepare_build_image"} else {})
+                execution = a._broker_execution()
+                authorization = next(e for e in execution.events if isinstance(e, ledger.ProviderAttemptAuthorizedEventV3)
+                    and e.provider_attempt_id == a.last_provider_attempt_id)
+                event = ledger.BuildJevActionSelectionV1(kind="build_jev_action_selected_v1", event_id=uuid4(),
+                    sequence=len(execution.events), controller_attempt_id=authorization.provider_attempt_id,
+                    controller_envelope_sha256=authorization.envelope_sha256,
+                    machine_request_id=plan.request_id, operation=selected, broker_operation_id=operation_id,
+                    capability_sha256=self._interaction["capability_sha256"], arguments_sha256=digest(arguments))
+                from .agent_turn_service import _require_fresh_execution_append
+                a.turn = _require_fresh_execution_append(a.fence.append("record_build_jev_action_selection", "selection", event))
+                self.operation, self.selection = selected, event
             if rules_vote is not None:
                 rules.select(request_id=plan.request_id, vote=rules_vote, operation=selected)
             elif rules is not None and rules.active and not rules.offers and selected != "answer_from_sources":

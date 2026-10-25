@@ -16,18 +16,20 @@ export function isSurfaceSourceCompletion(value: unknown, receiptHash: string, s
   return isSourceCompletion(value, receiptHash, undefined, surface);
 }
 function isSourceCompletion(value: unknown, receiptHash: string, sourceHash?: string, surface?: "plan"|"play", worldId?:string): boolean {
-  const relationship = !surface && record(value) && value.schema === "dmb_build_relationship_review_completion_v1";
+  const intentional = !surface && record(value) && value.schema === 'dmb_build_intentional_response_completion_v1';
+  const relationship = intentional || !surface && record(value) && value.schema === "dmb_build_relationship_review_completion_v1";
   const connected = relationship || !surface && record(value) && value.schema === "dmb_build_connected_page_review_completion_v1";
   const collaboration = connected || !surface && record(value) && value.schema === "dmb_build_collaboration_completion_v1";
   const related = collaboration || !surface && record(value) && value.schema === "dmb_build_related_page_completion_v1";
   const draft = related || !surface && record(value) && value.schema === "dmb_build_draft_context_completion_v1";
   const named = draft || surface !== undefined || (record(value) && value.schema === "dmb_build_graph_completion_v3");
   if (!exact(value, ["schema", "context_receipt_sha256", "answer_basis", "answer_context_status", "answer_segments", "citation_map", "source_citations", ...(surface ? ["surface_id"] : []), ...(collaboration ? ["collaboration"] : [])])
-    || value.schema !== (surface ? "dmb_surface_source_completion_v1" : relationship ? "dmb_build_relationship_review_completion_v1" : connected ? "dmb_build_connected_page_review_completion_v1" : collaboration ? "dmb_build_collaboration_completion_v1" : related ? "dmb_build_related_page_completion_v1" : draft ? "dmb_build_draft_context_completion_v1" : named ? "dmb_build_graph_completion_v3" : "dmb_build_graph_completion_v2") || (surface && value.surface_id !== surface) || value.context_receipt_sha256 !== receiptHash
-    || value.citation_map !== null || !Array.isArray(value.answer_segments) || !value.answer_segments.length
+    || value.schema !== (surface ? "dmb_surface_source_completion_v1" : intentional ? 'dmb_build_intentional_response_completion_v1' : relationship ? "dmb_build_relationship_review_completion_v1" : connected ? "dmb_build_connected_page_review_completion_v1" : collaboration ? "dmb_build_collaboration_completion_v1" : related ? "dmb_build_related_page_completion_v1" : draft ? "dmb_build_draft_context_completion_v1" : named ? "dmb_build_graph_completion_v3" : "dmb_build_graph_completion_v2") || (surface && value.surface_id !== surface) || value.context_receipt_sha256 !== receiptHash
+    || value.citation_map !== null || !Array.isArray(value.answer_segments) || (!value.answer_segments.length && !intentional)
     || value.answer_segments.length > 128 || !Array.isArray(value.source_citations) || value.source_citations.length > 16384
-    || !(draft ? ["authored_grounded","authored_grounded_partial","source_grounded","source_grounded_partial","creative_proposal","insufficient_evidence"] : ["source_grounded", "source_grounded_partial", "source_insufficient_evidence"]).includes(String(value.answer_context_status))) return false;
+    || !(intentional ? ['discussion',"authored_grounded","authored_grounded_partial","source_grounded","source_grounded_partial","creative_proposal","insufficient_evidence"] : draft ? ["authored_grounded","authored_grounded_partial","source_grounded","source_grounded_partial","creative_proposal","insufficient_evidence"] : ["source_grounded", "source_grounded_partial", "source_insufficient_evidence"]).includes(String(value.answer_context_status))) return false;
   if (collaboration && !isCollaboration(value.collaboration,connected,relationship)) return false;
+  if (intentional && !value.answer_segments.length && value.collaboration === null) return false;
   const claimIndices = new Set<number>();
   let saved = false, hasDraft = false;
   for (const [index, segment] of value.answer_segments.entries()) {
@@ -55,7 +57,8 @@ function isSourceCompletion(value: unknown, receiptHash: string, sourceHash?: st
       saved = true;
     } else return false;
   }
-  if (value.answer_basis !== (draft ? "working_draft_context" : saved ? "saved_source_and_opened_passages" : "opened_source_passages")) return false;
+  if (intentional ? !['working_draft_context','saved_source','saved_source_and_opened_passages','opened_source_passages','conversation'].includes(String(value.answer_basis)) : value.answer_basis !== (draft ? "working_draft_context" : saved ? "saved_source_and_opened_passages" : "opened_source_passages")) return false;
+  if (intentional && ((value.answer_context_status === 'discussion' || value.answer_basis === 'conversation') && (claimIndices.size || saved || hasDraft) || value.answer_basis === 'conversation' && value.source_citations.length)) return false;
   if (draft && (String(value.answer_context_status).startsWith("authored_grounded") !== hasDraft
     || String(value.answer_context_status).startsWith("source_grounded") && !claimIndices.size && !saved)) return false;
   if (!draft && ((surface && !["source_grounded", "source_grounded_partial"].includes(String(value.answer_context_status))) || (value.answer_context_status === "source_insufficient_evidence" ? (claimIndices.size > 0 || saved) : !claimIndices.size))) return false;

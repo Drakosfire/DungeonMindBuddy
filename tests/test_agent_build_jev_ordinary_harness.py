@@ -49,6 +49,8 @@ class DecisionWire(httpx2.AsyncBaseTransport):
             labels = q["criteria"]
             if selecting:
                 selected = "direct_support"
+            elif key == 'requested_work':
+                selected = {'answer_from_sources': 'discuss', 'propose_build_insertion': 'write_current_page', 'prepare_build_image': 'prepare_image'}.get(self.operation, self.operation)
             elif key == "operation":
                 selected = self.operation
             elif key == "sufficiency":
@@ -95,7 +97,7 @@ class WriterWire(httpx.AsyncBaseTransport):
                     "assumptions": ["Nia is invented."],
                 }
             )
-        elif body["text"]["format"].get("name") in {"build_cited_source_answer", "build_cited_source_answer_v2", "build_cited_source_answer_v4", "build_working_draft_answer_v1"} and not packet["opened_passages"]:
+        elif body["text"]["format"].get("name") in {"build_cited_source_answer", "build_cited_source_answer_v2", "build_cited_source_answer_v4", "build_working_draft_answer_v1", "build_intentional_response_answer_v1"} and not packet["opened_passages"]:
             text = json.dumps({"answer_context_status": "source_insufficient_evidence", "answer_segments": []})
         else:
             text = json.dumps(
@@ -110,13 +112,15 @@ class WriterWire(httpx.AsyncBaseTransport):
                     ],
                 }
             )
-        if body["text"]["format"].get("name") in {"build_cited_source_answer", "build_cited_source_answer_v2", "build_cited_source_answer_v4", "build_working_draft_answer_v1"}:
+        if body["text"]["format"].get("name") in {"build_cited_source_answer", "build_cited_source_answer_v2", "build_cited_source_answer_v4", "build_working_draft_answer_v1", "build_intentional_response_answer_v1"}:
             answer = json.loads(text)
-            if body["text"]["format"].get("name") in {"build_cited_source_answer_v4", "build_working_draft_answer_v1"}:
+            if body["text"]["format"].get("name") in {"build_cited_source_answer_v4", "build_working_draft_answer_v1", "build_intentional_response_answer_v1"}:
                 answer["requested_detail_gaps"] = []
             answer["limitations"] = ["partial_retrieval"] if self.answer_status != "source_grounded" else []
             if packet.get("retrieval_disposition", {}).get("status") == "insufficient_evidence":
                 answer["limitations"].append("missing_requested_details")
+            if body['text']['format'].get('name') == 'build_intentional_response_answer_v1':
+                answer['collaboration'] = None
             text = json.dumps(answer)
         response = httpx.Response(
             200,

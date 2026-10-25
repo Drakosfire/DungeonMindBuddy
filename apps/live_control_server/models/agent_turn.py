@@ -24,7 +24,7 @@ from application_state.agent_conversation.rules_authority_types import RulesAcce
 from application_state.agent_conversation.types import (
     PlayContentBasis, PlayRunTurnContextReceiptV1,
     GraphContextReceipt,
-    BuildGraphCompletionV1,
+    BuildGraphCompletionV1, BuildIntentionalResponseCompletionV1,
     BuildRelationshipReviewCompletionV1, BuildNamedGraphCompletionV3, BuildDraftContextCompletionV1, BuildRelatedPageCompletionV1, BuildCollaborationCompletionV1, BuildConnectedPageReviewCompletionV1,
     BuildGraphCompletionV2,
     BuildAuthoringCompletionV1,
@@ -746,7 +746,7 @@ class AgentBuildGraphContextResponseV1(AgentPlanWorldGraphContextResponseV2):
     )
     receipt: BuildGraphContextReceiptV1
     saved_source_sections: list[AgentSavedBuildSectionTargetV1] = Field(default_factory=list, max_length=16384)
-    completion: BuildRelationshipReviewCompletionV1 | BuildConnectedPageReviewCompletionV1 | BuildCollaborationCompletionV1 | BuildRelatedPageCompletionV1 | BuildDraftContextCompletionV1 | BuildNamedGraphCompletionV3 | BuildGraphCompletionV1 | BuildGraphCompletionV2 | BuildAuthoringCompletionV1 | BuildImagePreparationCompletionV1 | None
+    completion: BuildIntentionalResponseCompletionV1 | BuildRelationshipReviewCompletionV1 | BuildConnectedPageReviewCompletionV1 | BuildCollaborationCompletionV1 | BuildRelatedPageCompletionV1 | BuildDraftContextCompletionV1 | BuildNamedGraphCompletionV3 | BuildGraphCompletionV1 | BuildGraphCompletionV2 | BuildAuthoringCompletionV1 | BuildImagePreparationCompletionV1 | None
 
 
 class AgentBuildGraphTurnResponseV1(AgentTurnResponse):

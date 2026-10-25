@@ -37,6 +37,9 @@ class RulesDecisionWire(DecisionWire):
         body, answer = json.loads(request.content), response.json()
         if self.dsn and "rules_projection" in body["state"]:
             assert_committed_dispatch(self.dsn, request.content)
+        if 'requested_work' in body['questions']:
+            selected = {'answer_from_sources': 'discuss', 'propose_build_insertion': 'write_current_page', 'prepare_build_image': 'prepare_image'}[self.operation]
+            answer['answers']['requested_work'].update(choice=selected, probabilities={key: float(key == selected) for key in body['questions']['requested_work']['criteria']})
         if QUERY_CHOICE in body["questions"]:
             choices = body["questions"][QUERY_CHOICE]["criteria"]
             selected = "query:0" if self.query else "none"
@@ -65,6 +68,8 @@ class RulesWriterWire(httpx.AsyncBaseTransport):
                 {"kind": "source_passage_claim", "text": "Frank believes the western gate is haunted.",
                  "passage_handles": [packet["opened_passages"][0]["handle"]]}],
                 "limitations": ["partial_retrieval"], "requested_detail_gaps": []}
+        if base_output is not None and 'response_contract' in packet:
+            base_output['collaboration'] = None
         segments = [{"kind": "rules_claim", "text": "The supplied rules constrain ending movement in an occupied space.",
             "support_ids": supports[:1]}] if supports and self.source_claim else [
             {"kind": "rules_context", "category": "gap", "text": "No supporting travel rules were retrieved."}]
@@ -478,6 +483,8 @@ class PrimaryRulesWriter(RulesWriterWire):
         raw["base_output"] = {"answer_context_status": "source_grounded_partial", "answer_segments": [
             {"kind": "saved_source_claim", "text": section["text"], "section_read_ids": [section["read_id"]]}],
             "limitations": ["partial_retrieval"], "requested_detail_gaps": []}
+        if 'response_contract' in packet:
+            raw['base_output']['collaboration'] = None
         raw["ordered_refs"].insert(0, {"domain": "base", "segment_index": None})
         data["output"][0]["content"][0]["text"] = json.dumps(raw)
         return httpx.Response(200, request=request, json=data)
