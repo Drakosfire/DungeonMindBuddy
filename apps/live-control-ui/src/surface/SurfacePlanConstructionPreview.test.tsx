@@ -12,3 +12,8 @@ it('shows complete plan rows inertly and never turns generated markup into contr
  for(const role of ['checkbox','button','textbox','link','img'])expect(screen.queryByRole(role)).toBeNull();
  expect(visible).toHaveBeenCalledTimes(1);
 });
+it('reveals a complete outcome before the first row without creating editing or execution controls',()=>{
+ const visible=vi.fn();render(<SurfacePlanConstructionPreview objective="Develop a useful shop scene." steps={[]} status="building" onVisible={visible}/>);
+ expect(screen.getByText('Expected outcome')).toBeInTheDocument();expect(screen.getByText('Develop a useful shop scene.')).toBeInTheDocument();
+ expect(visible).toHaveBeenCalledTimes(1);expect(screen.queryByRole('textbox')).toBeNull();expect(screen.queryByRole('button')).toBeNull();
+});

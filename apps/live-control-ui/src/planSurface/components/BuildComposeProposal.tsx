@@ -192,7 +192,7 @@ export function useBuildCompose({ worldId, history, bridge, enabled, onHistory, 
         ||progress.basis.document_id!==current.current.pageDocumentId||progress.conversation_id!==current.current.history?.conversation_id)return;
       setConstruction({scope:current.current.scope,sourceKey:current.current.sourceKey,viewEpoch:constructionView.current.epoch,progress});
     },
-    completePlanConstruction:(clientTurnId:string)=>setConstruction(value=>value?.progress.schema==='dmb_build_plan_construction_v1'&&value.progress.client_turn_id===clientTurnId?null:value),
+    completePlanConstruction:(clientTurnId:string)=>setConstruction(value=>value!==null&&value.progress.schema!=='dmb_build_construction_v1'&&value.progress.client_turn_id===clientTurnId?null:value),
     finishConstruction:(action:string|undefined)=>setConstruction(value=>value!==null&&constructionPlacementId(value.progress)===action&&value.progress.status==='building'
       ?{...value,progress:{...value.progress,status:'incomplete'}}:value),
     refresh: () => setRefreshNonce(value => value + 1),

@@ -66,6 +66,28 @@ class RelationshipWriterAnswer(DraftWriterAnswerV1):
     collaboration: RelationshipCollaboration | None
 
 
+from .collaboration import CollaborationV2, ConnectedCollaborationV2
+from .relationship_review import RelationshipCollaborationV2
+
+class CollaborationWriterAnswerV2(DraftWriterAnswerV1):
+    collaboration: CollaborationV2 | None
+
+class ConnectedPageWriterAnswerV2(DraftWriterAnswerV1):
+    collaboration: ConnectedCollaborationV2 | None
+
+class RelationshipWriterAnswerV2(DraftWriterAnswerV1):
+    collaboration: RelationshipCollaborationV2 | None
+
+
+def answer_model(packet):
+    from .plan_objective import KEY
+    modern = KEY in packet
+    return ((RelationshipWriterAnswerV2 if modern else RelationshipWriterAnswer) if packet.get(RELATIONSHIP_KEY)==RELATIONSHIP_POLICY
+        else (ConnectedPageWriterAnswerV2 if modern else ConnectedPageWriterAnswer) if packet.get("connected_page_review_policy")==CONNECTED_POLICY
+        else (CollaborationWriterAnswerV2 if modern else CollaborationWriterAnswer) if packet.get("collaboration_output_policy")==COLLABORATION_POLICY
+        else DraftWriterAnswerV1)
+
+
 def output_schema(packet):
     from .source_writer_output import finite_output_schema
     from uuid import UUID
@@ -75,7 +97,7 @@ def output_schema(packet):
     record_id = str(UUID(lane["record_id"]))
     source_packet = {key: value for key, value in resolve_body_aliases(packet).items() if key != "working_draft_context"}
     source_schema = finite_output_schema(source_packet, requested_detail_gaps=True)
-    schema = (RelationshipWriterAnswer if packet.get(RELATIONSHIP_KEY)==RELATIONSHIP_POLICY else ConnectedPageWriterAnswer if packet.get("connected_page_review_policy")==CONNECTED_POLICY else CollaborationWriterAnswer if packet.get("collaboration_output_policy") == COLLABORATION_POLICY else DraftWriterAnswerV1).model_json_schema()
+    schema = answer_model(packet).model_json_schema()
     # The draft wrapper adds authored statuses, but cannot broaden the source
     # status domain already derived from the exact retrieval disposition.
     source_statuses = source_schema["properties"]["answer_context_status"]["enum"]
@@ -140,7 +162,7 @@ def normalize(raw, packet):
             else "insufficient_evidence")
         body = {**body, "answer_context_status": base + "_partial" if body["limitations"] and base in {"authored_grounded", "source_grounded"} else base}
     typed = packet.get("collaboration_output_policy") == COLLABORATION_POLICY
-    answer = (RelationshipWriterAnswer if packet.get(RELATIONSHIP_KEY)==RELATIONSHIP_POLICY else ConnectedPageWriterAnswer if packet.get("connected_page_review_policy")==CONNECTED_POLICY else CollaborationWriterAnswer if typed else DraftWriterAnswerV1).model_validate(body)
+    answer = answer_model(packet).model_validate(body)
     if isinstance(getattr(answer,"collaboration",None),ProposedConnectedPage):
         saved_excerpt(answer.collaboration,packet.get("related_authored_pages",{}).get("pages",[]))
     if isinstance(getattr(answer,"collaboration",None), ProposedRelationship):
@@ -174,21 +196,21 @@ def validate_completion(completion, receipt, execution, attempt_id):
     captured = context_record(execution)
     validate_related_claims(completion,execution)
     from .build_related_pages import POLICY as RELATED_POLICY
-    if completion.schema_ == "dmb_build_relationship_review_completion_v1":
+    if completion.schema_ in {"dmb_build_relationship_review_completion_v1","dmb_build_relationship_review_completion_v2"}:
         if getattr(execution.policy, RELATIONSHIP_KEY, None) != RELATIONSHIP_POLICY:
             raise ValueError("Relationship review lacks its frozen capability")
         if isinstance(completion.collaboration, ProposedRelationship):
             from .build_primary_context import records
             validate_quote(completion.collaboration, [e.model_dump(mode="json") for e in records(execution, receipt.source_basis)])
-    if completion.schema_ in {"dmb_build_connected_page_review_completion_v1", "dmb_build_relationship_review_completion_v1"}:
+    if completion.schema_ in {"dmb_build_connected_page_review_completion_v1", "dmb_build_relationship_review_completion_v1", "dmb_build_relationship_review_completion_v2"}:
         if getattr(execution.policy,"connected_page_review_policy",None)!=CONNECTED_POLICY:
             raise ValueError("Connected page review lacks its frozen capability")
         if isinstance(completion.collaboration,ProposedConnectedPage):
             from .build_related_pages import records
             saved_excerpt(completion.collaboration,[e.model_dump(mode="json") for e in records(execution)])
-    if completion.schema_ in {"dmb_build_collaboration_completion_v1", "dmb_build_connected_page_review_completion_v1", "dmb_build_relationship_review_completion_v1"} and getattr(execution.policy,"collaboration_output_policy",None)!=COLLABORATION_POLICY:
+    if completion.schema_ in {"dmb_build_collaboration_completion_v1", "dmb_build_connected_page_review_completion_v1", "dmb_build_relationship_review_completion_v1", "dmb_build_relationship_review_completion_v2"} and getattr(execution.policy,"collaboration_output_policy",None)!=COLLABORATION_POLICY:
         raise ValueError("Collaboration completion lacks its frozen output capability")
-    if completion.schema_ in {"dmb_build_related_page_completion_v1", "dmb_build_collaboration_completion_v1", "dmb_build_connected_page_review_completion_v1", "dmb_build_relationship_review_completion_v1"} and getattr(execution.policy,"related_page_context_policy",None)!=RELATED_POLICY:
+    if completion.schema_ in {"dmb_build_related_page_completion_v1", "dmb_build_collaboration_completion_v1", "dmb_build_connected_page_review_completion_v1", "dmb_build_relationship_review_completion_v1", "dmb_build_relationship_review_completion_v2"} and getattr(execution.policy,"related_page_context_policy",None)!=RELATED_POLICY:
         raise ValueError("Related completion lacks its frozen authoring capability")
     included = [e for e in execution.events if isinstance(e, t.BuildDraftProviderInclusionV1)
         and e.provider_attempt_id == attempt_id and e.draft_event_id == captured.event_id]

@@ -555,6 +555,7 @@ def output_schema(packet):
             "DraftReferenceClaimV1",
             "RelatedPageDraftClaim",
             "ProposedPlan",
+            "ProposedPlanV2",
             "ProposedConnectedPage",
             "ProposedRelationship",
         ):
@@ -602,6 +603,12 @@ class IntentionalWriterAnswer(_Frozen):
     collaboration: RelationshipCollaboration | None
 
 
+from .relationship_review import RelationshipCollaborationV2
+
+class IntentionalWriterAnswerV2(IntentionalWriterAnswer):
+    collaboration: RelationshipCollaborationV2 | None
+
+
 def normalize(raw, packet):
     from .source_writer_output import strict_json, gap_messages
     from .source_quote_binding import validate_and_project
@@ -625,7 +632,8 @@ def normalize(raw, packet):
     )
     if canonical(contract) != canonical(expected):
         raise ValueError("Writer response contract changed")
-    answer = IntentionalWriterAnswer.model_validate(
+    from .plan_objective import KEY
+    answer = (IntentionalWriterAnswerV2 if KEY in packet else IntentionalWriterAnswer).model_validate(
         validate_and_project(strict_json(raw), packet)
     )
     kinds = {s.kind for s in answer.answer_segments}

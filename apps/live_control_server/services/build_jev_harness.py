@@ -649,7 +649,8 @@ class BuildJevHarness:
         from .build_plan_construction import PlanStepProgress
         from .build_construction_stream import observe
 
-        decoder = PlanStepProgress(('base_output', 'collaboration') if staged.rules_projection_json else ('collaboration',))
+        objective_required = 'plan_output_contract' in json.loads(staged.input_json)
+        decoder = PlanStepProgress(('base_output', 'collaboration') if staged.rules_projection_json else ('collaboration',), objective_required=objective_required)
         sequence = 0
         capability = adapter.request.build_write_capability
         snapshot = adapter.request.build_draft_context.snapshot
@@ -660,7 +661,8 @@ class BuildJevHarness:
             if prepared is None:
                 return
             sequence += 1
-            observe({'schema': 'dmb_build_plan_construction_v1',
+            observe({'schema': 'dmb_build_plan_construction_v2' if objective_required else 'dmb_build_plan_construction_v1',
+                **({'objective': decoder.objective if decoder.plan else None} if objective_required else {}),
                 'placement_id': str(capability.idempotency_key), 'basis': capability.basis.model_dump(mode='json'),
                 'world_id': adapter.turn.world_id, 'conversation_id': str(adapter.turn.conversation_id),
                 'client_turn_id': str(adapter.request.turn_id), 'durable_turn_id': str(adapter.turn.turn_id),

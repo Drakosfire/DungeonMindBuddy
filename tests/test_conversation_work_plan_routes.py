@@ -46,6 +46,8 @@ def client(monkeypatch):
             "PUT",
             "",
             {
+                "schema":"dmb_reviewed_work_plan_review_v2",
+                "objective":"Develop the shop",
                 "expected_revision": 0,
                 "steps": [
                     {

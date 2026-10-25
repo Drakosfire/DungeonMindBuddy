@@ -249,6 +249,8 @@ class WriterProjection:
         from application_state.agent_conversation import build_intentional_response as intentional
         packet = json.loads(self.input_json)
         intentional_output = 'response_contract' in packet
+        from application_state.agent_conversation.plan_objective import KEY, INTENTIONAL_FORMAT, REVIEWED_FORMAT
+        objective_output = KEY in packet
         from application_state.agent_conversation.source_writer_output import POLICY, GAP_SCHEMA_NAME, finite_output_schema
         cited = self.source_writer_output_policy == POLICY
         if self.source_writer_output_policy is not None and (not cited or not self.source_only):
@@ -322,13 +324,13 @@ class WriterProjection:
             if self.source_only
             else SOURCE_INSTRUCTIONS
             if self.has_saved_sections
-            else INSTRUCTIONS) + primary_instructions + (collaboration_instructions if collaboration else "") + (connected_instructions if connected else "") + (RELATIONSHIP_INSTRUCTIONS if relationship else "") + qualification_instructions + quote_instructions + (intentional.WRITER_GUIDANCE if intentional_output else ''),
+            else INSTRUCTIONS) + primary_instructions + (collaboration_instructions if collaboration else "") + (connected_instructions if connected else "") + (RELATIONSHIP_INSTRUCTIONS if relationship else "") + qualification_instructions + quote_instructions + (intentional.WRITER_GUIDANCE if intentional_output else '') + ('\nFor every plan, supply a readable objective stating its expected outcome before the steps. It describes intended success, not completed work. Do not repeat it as a step.\n' if objective_output else ''),
             "max_output_tokens": OUTPUT_RESERVE,
             "reasoning": {"effort": "low"},
             "text": {
                 "format": mixed_format or {
                     "type": "json_schema",
-                    "name": intentional.FORMAT if intentional_output else "build_working_draft_answer_v5" if relationship else QUOTE_FORMAT if quoted else "build_working_draft_answer_v3" if connected else "build_working_draft_answer_v2" if collaboration else "build_working_draft_answer_v1" if draft_context else GAP_SCHEMA_NAME if cited else "build_source_passage_answer",
+                    "name": (INTENTIONAL_FORMAT if intentional_output else REVIEWED_FORMAT) if objective_output else intentional.FORMAT if intentional_output else "build_working_draft_answer_v5" if relationship else QUOTE_FORMAT if quoted else "build_working_draft_answer_v3" if connected else "build_working_draft_answer_v2" if collaboration else "build_working_draft_answer_v1" if draft_context else GAP_SCHEMA_NAME if cited else "build_source_passage_answer",
                     "schema": intentional.output_schema(packet) if intentional_output else finite_output_schema(json.loads(self.input_json), requested_detail_gaps=True) if cited else source_answer_schema(),
                     "strict": True,
                 }
@@ -510,7 +512,8 @@ def with_plan_stream(staged: WriterProjection, request) -> WriterProjection:
     """Freeze operation-specific transport before the exact prepared-byte gate."""
     packet = json.loads(staged.input_json)
     contract = packet.get('response_contract', {})
-    if contract.get('requested_work') != 'plan' or contract.get('barrier') is not None:
+    reviewed = 'plan_output_contract' in packet and not contract
+    if not reviewed and (contract.get('requested_work') != 'plan' or contract.get('barrier') is not None):
         return staged
     if request.build_write_capability is None or request.build_draft_context is None:
         raise ValueError('Typed plan construction requires its captured Surface placement')

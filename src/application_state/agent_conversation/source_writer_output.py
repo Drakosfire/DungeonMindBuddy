@@ -363,6 +363,21 @@ def validate_writer_format(fmt: dict, packet: dict) -> None:
     if not isinstance(fmt, dict):
         raise ValueError("Source writer request lacks its frozen output schema")
     name = fmt.get("name")
+    from .plan_objective import KEY, INTENTIONAL_FORMAT, REVIEWED_FORMAT
+    if KEY in packet:
+        expected = INTENTIONAL_FORMAT if 'response_contract' in packet else REVIEWED_FORMAT
+        if name != expected:
+            raise ValueError('Objective-aware writer requires its new format')
+        from .build_intentional_response import output_schema as intentional_schema
+        from .build_draft_answer import output_schema as draft_schema
+        schema = intentional_schema(packet) if 'response_contract' in packet else draft_schema(packet)
+        if fmt != {'type':'json_schema','name':expected,'schema':schema,'strict':True}:
+            raise ValueError('Objective-aware writer schema differs from its contract')
+        from .plan_objective import schema_digest
+        from .build_draft_context import digest
+        if digest(schema.get('$defs',{}).get('ProposedPlanV2')) != schema_digest():
+            raise ValueError('Objective-aware schema lacks the exact plan definition')
+        return
     if ('response_contract' in packet) != (name == 'build_intentional_response_answer_v1'):
         raise ValueError('Intentional response format differs from its captured contract')
     if name in {SCHEMA_NAME, FINITE_SCHEMA_NAME} and "requested_detail_gap_policy" in packet:
@@ -509,6 +524,8 @@ def reconstruct(raw_output: str, packet: dict, turn, auth):
             raise ValueError('Writer contract differs from its actual semantic selection')
     elif 'response_contract' in packet:
         raise ValueError('Historical policy cannot acquire intentional response authority')
+    from .plan_objective import validate_packet as validate_objective_packet
+    validate_objective_packet(packet, execution, auth)
     candidate = normalize(raw_output, packet)
     if "working_draft_context" in packet:
         from .build_draft_answer import validate_packet as validate_draft_packet
@@ -647,11 +664,11 @@ def reconstruct(raw_output: str, packet: dict, turn, auth):
         basis = ('working_draft_context' if 'working_draft_context' in packet else
                  ('saved_source_and_opened_passages' if citations else 'saved_source') if any(s['kind'] == 'saved_source_claim' for s in segments) else
                  'opened_source_passages' if citations else 'conversation')
-        return t.BuildIntentionalResponseCompletionV1(context_receipt_sha256=receipt_sha,
+        return (t.BuildIntentionalResponseCompletionV2 if "plan_output_contract" in packet else t.BuildIntentionalResponseCompletionV1)(context_receipt_sha256=receipt_sha,
             answer_basis=basis, answer_context_status=candidate['answer_context_status'],
             answer_segments=segments, source_citations=citations, collaboration=candidate['collaboration']), bindings
     if "working_draft_context" in packet:
-        return (t.BuildRelationshipReviewCompletionV1 if getattr(execution.policy,"relationship_review_policy",None) is not None else t.BuildConnectedPageReviewCompletionV1 if getattr(execution.policy,"connected_page_review_policy",None) is not None else t.BuildCollaborationCompletionV1 if getattr(execution.policy,"collaboration_output_policy",None) is not None else t.BuildRelatedPageCompletionV1 if getattr(execution.policy,"related_page_context_policy",None) is not None else t.BuildDraftContextCompletionV1)(context_receipt_sha256=receipt_sha,
+        return (t.BuildRelationshipReviewCompletionV2 if "plan_output_contract" in packet else t.BuildRelationshipReviewCompletionV1 if getattr(execution.policy,"relationship_review_policy",None) is not None else t.BuildConnectedPageReviewCompletionV1 if getattr(execution.policy,"connected_page_review_policy",None) is not None else t.BuildCollaborationCompletionV1 if getattr(execution.policy,"collaboration_output_policy",None) is not None else t.BuildRelatedPageCompletionV1 if getattr(execution.policy,"related_page_context_policy",None) is not None else t.BuildDraftContextCompletionV1)(context_receipt_sha256=receipt_sha,
             **({"collaboration": candidate["collaboration"]} if "collaboration" in candidate else {}),
             answer_context_status=candidate["answer_context_status"], answer_segments=segments,
             source_citations=citations), bindings

@@ -23,7 +23,7 @@ def save(
     world_id: str,
     conversation_id: UUID,
     source_turn_id: UUID,
-    body: work_plan.Review,
+    body: work_plan.ReviewV2 | work_plan.Review,
     request: Request,
 ):
     return call(

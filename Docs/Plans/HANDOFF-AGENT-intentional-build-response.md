@@ -13,7 +13,7 @@ Detailed evidence stays private. The independent evidence audit verified stored 
 UI observations are direct CUA attestations, not reconstructed from provider traces.
 Operator creative-chain acceptance remains separate. #1764 stays parked.
 
-## Plan expected outcome — BLOCKED design, immediate operator priority
+## Plan expected outcome — ACTIVE implementation, immediate operator priority
 
 The operator's current dogfood correction is that a work plan must state its objective /
 expected result before listing actions. Add an editable **Expected outcome** above the steps
@@ -21,11 +21,12 @@ in both the staged and saved shared Surface object. This is distinct from the pa
 plan title, a step, a generation acknowledgment and proof of completion. The outcome states
 what the work is intended to achieve; it never marks it achieved.
 
-Design owner: PRIME. This lane is `codex/work-plan-outcome-design` from remote main
-2fa84f8786d1879dc80379f49e655b203742d503 in the existing Buddy checkout. This design-only
-lease writes this handoff. Serial topology: independently review the contract and its owner
-amendment before activating implementation. Source-scope design/proof below remains retained
-and unadopted; it is not a dependency of this correction. No runtime changes are activated here.
+Design/implementation owner: PRIME. Serial lane `codex/work-plan-outcome` starts from
+remote main ffc648851ad493abd99f7e6b859e5051996a78bf in the existing Buddy checkout.
+Design #1780 and the independently cleared owner amendment below authorize this bounded
+implementation. Source-scope proof remains retained and unadopted; it is not a dependency.
+Runtime delivery remains separately gated on the reviewed cumulative implementation and
+protected APP0072/API/UI adoption on existing8000/5202; no new store/port/worktree.
 
 ### Inspected owners and required behavior
 
@@ -100,6 +101,101 @@ supply/save an objective and preserve all prior rows/dispatches. Exercise stale/
 interrupted Save/reload, wrong-source/World/producer and progress rejection. Independent exact
 cumulative review, PRIME merge and protected delivery precede ordinary dogfood on5202. This
 bounded proof does not establish the pending Brin/Edge creative-chain/operator acceptance.
+
+### Owner amendment — independently cleared implementation contract
+
+The independent audit found two default initial producer variants (intentional response,
+image capability off/on), plus the live reviewed-action answer path, which can emit a plan
+through relationship collaboration while bypassing requested-work inference. **Support that
+reviewed-action path with the new contract**, without adding an intent call or reclassifying
+its authored operation. Do not reject it merely to reduce this slice. The twelve retained
+closed-schema policy classes are not twelve independent runtime planners; do not clone
+that policy lattice or add defaults that change old policy serialization.
+
+Pin these versions and ownership rules for implementation:
+
+- Keep `ProposedPlan` and every old policy/completion model unchanged. Add closed
+  `ProposedPlanV2` (kind, objective, steps), with readable nonblank objective; objective is
+  plain authored text with no newly invented character/token cap. Add the explicit v2
+  collaboration union variants in `collaboration.py` / `relationship_review.py` and matching
+  strict writer answer models in `build_draft_answer.py` / `build_intentional_response.py`.
+  New source writer output uses only the objective-aware plan shape; old shapes remain
+  historical readers. Pin provider formats `build_intentional_response_answer_v2` and
+  `build_working_draft_answer_v6` for objective-aware intentional/reviewed answers. Keep
+  existing v1–v5 formats byte-stable historical readers; no old-format execution fallback.
+  Questions and connected/relationship reviews keep their existing data.
+- Add `BuildPlanOutputContractV1`, kind `build_plan_output_contract_v1`, owned by new
+  `src/application_state/agent_conversation/plan_objective.py` and the execution event union.
+  Its versioned policy is `typed_plan_objective_v1`. It binds the actual already-admitted
+  requested-work resolution or reviewed-action selection event, exact working-copy and
+  destination capability identities, and the objective-plan output-contract digest.
+  It is a deterministic host output contract, not a provider decision/usage event or new
+  permission. Record it once before writer authorization and retain it in the actual writer
+  packet. Existing exact prepared writer-body authorization continues to bind the complete
+  evidence-dependent schema hash and envelope; prove the marker and that schema agree.
+  No marker may be inferred from completion contents or historical text after the fact.
+- The marker applies to new typed-collaboration-capable writer turns, including reviewed
+  answer steps. APP validates its prior selection, sequence, scope, draft/placement basis,
+  format/digest and actual final producer. A missing destination prohibits a page plan;
+  it does not manufacture a write capability. Preserve existing explicit placement barriers.
+  Initial intentional plans keep actual plan streaming; reviewed answer turns use guarded
+  closed-schema streaming so a real plan can be observed without another intent classifier.
+  Other collaboration alternatives stay inert until final validation; no partial execution.
+- Add `BuildIntentionalResponseCompletionV2` and `BuildRelationshipReviewCompletionV2`
+  with explicit new schema literals and v2 collaboration types for the two live producer
+  paths. Preserve old models/hashes. Any additional live lower-level collaboration family
+  discovered in tests must receive a named equivalent v2 completion before activation or
+  be proven outside the current factory; no arbitrary unsupported subset or old-output fallback.
+  Update the shared completion union, APP validation, source normalization/materialization,
+  mixed Rules envelope, object-only Turn/TurnResult, response/library/history and UI decoders.
+- Reviewed `PlanV2`: `dmb_reviewed_work_plan_v2`, required nonblank objective alongside the
+  original scope, source-answer digest, rows and dispatches. `ReviewV2` request has explicit
+  `dmb_reviewed_work_plan_review_v2` schema, objective, expected_revision and rows. Strict
+  `dmb_work_plan_response_v2` read envelope may contain unchanged retained v1 or new v2 records;
+  no read rewrites a row. One explicit author Save upgrades a legacy plan; include objective
+  in save idempotency/CAS and all retained edit comparisons. Do not alter source-answer hashes.
+  New continuation reservations require a saved v2 objective. Recovering an already-reserved
+  legacy command returns its exact old immutable dispatch; it is not a new old-policy run.
+  The UI explains that an objective-less plan needs an outcome and Save before a new step.
+- Local `dmb_surface_work_plan_placement_v2` and `dmb_reviewed_plan_edit_v2` retain objective
+  with rows/revision and preserve existing owner locks, receipts and uncertain page Save.
+  Existing v1 local bytes remain readable as objective absent and are not silently rewritten.
+  An in-progress v1 prepared page transaction must finish/check its exact existing Save
+  before a separate objective edit; do not insert new text into its already-frozen transaction.
+  Legacy V1 PUT is admitted only as an exact idempotent replay of an already-existing V1
+  record with matching source/scope/revision/rows; no legacy creation or mutation. A V1
+  `review_saving` receipt with no persisted matching review stays retained and requires an
+  explicit V2 outcome and new placement. Prepared/applying V1 recovery only reads/reconciles
+  the exact existing review and completes its frozen page transaction; it performs no new
+  review write. Preserve the unresolved predecessor before creating the V2 placement.
+  Explicit author edits can create a v2 review/placement, retaining superseded unresolved
+  copies. Never infer a newer objective for an older local draft or immutable dispatch.
+- Progress `dmb_build_plan_construction_v2` includes complete objective (null while not yet
+  observed) plus actual complete row prefix. Hold rows until the real objective is complete;
+  a complete objective may render before rows. Freeze objective after first observation and
+  retain all existing request/producer/placement/source/draft/sequence/view fences. The v1
+  document-proposal variant stays unchanged; do not fabricate progress from final data.
+- Migration `20261025_0072_plan_objective` additively admits the new event/completions and
+  work-plan v2 constraints, preserving every v1 payload. Verify actual PostgreSQL constraints,
+  object-only lifecycle, historical round trips and startup version guards. Downgrade refuses
+  when objective-aware state would be lost; protected delivery repairs forward after migration.
+  API/UI stay on f7d231a2/APP0071 until exact reviewed implementation and protected adoption.
+
+Exact additional owners beyond the original list: `agent_turn_service.py`, `build_jev_driver.py`,
+`src/application_state/agent_conversation/{source_writer_output,build_draft_answer,relationship_review,library}.py`,
+actual APP event validation/service/repository owners;
+`apps/live_control_server/models/agent_turn.py` owns the live response completion union;
+UI strict response collaboration decoder,
+`SurfacePlanConstructionPreview.tsx`, work-plan API/tests and `workPlanPlacement.ts`/local review
+recovery. Existing page references remain unchanged locators. Name any further owner before edits.
+No fresh source-scope inference, new provider/store/port/worktree or runtime source export.
+
+Independent activation review approved the +92-line amendment at SHA-256
+3bc67cb72415e751c409d0aa118532bd4bcbea52728e234dd9d427c7ff57de11.
+Implementation lane is ACTIVE serial `codex/work-plan-outcome` from merged design
+ffc648851ad493abd99f7e6b859e5051996a78bf in the existing checkout. The owner/version gate is cleared; runtime delivery remains gated. The implementation PR must contain
+this activation, runtime/UI changes, owning tests and cumulative independent review; do not
+create a status-only authority PR. Preserve operator creative choices and retained data.
 
 ## Authored-reference scope — BLOCKED design
 

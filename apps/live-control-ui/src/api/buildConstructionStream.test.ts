@@ -71,3 +71,18 @@ it('a preview hash failure cannot discard the real terminal reply',async()=>{
   expect(seen).not.toHaveBeenCalled();
  }finally{Object.defineProperty(globalThis,'crypto',{value:webcrypto,configurable:true});}
 });
+
+it('observes an actual outcome before rows and rejects rewritten or speculative outcomes while retaining the final result',async()=>{
+ Object.defineProperty(globalThis,'crypto',{value:webcrypto,configurable:true});const seen=vi.fn();
+ const p={...planProgress,schema:'dmb_build_plan_construction_v2',objective:'Develop a useful shop scene 雪😀.',steps:[]};
+ const result={schema:'answer'};
+ expect(await readBuildConstructionStream(response([
+  frame('construction',{progress:{...p,objective:null,steps:planProgress.steps}}),
+  frame('construction',{progress:p}),
+  frame('construction',{progress:{...p,sequence:2,objective:'Changed outcome'}}),
+  frame('construction',{progress:{...p,sequence:2,steps:planProgress.steps}}),
+  frame('construction',{progress:{...p,sequence:3,objective:null,steps:undefined}}),
+  frame('result',{response:result}),
+ ],1),planRequest,seen)).toEqual(result);
+ expect(seen.mock.calls.map(c=>[c[0].objective,c[0].steps.length])).toEqual([[p.objective,0],[p.objective,1]]);
+});

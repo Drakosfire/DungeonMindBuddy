@@ -118,7 +118,7 @@ def freeze_interaction(adapter):
         # Its approved base is only a subsequence, never the historical answer.
         envelope = row.envelope if isinstance(row, MixedCompletedTurnV1) else row
         collaboration = getattr(getattr(envelope, 'completion', None), 'collaboration', None)
-        object_only = (getattr(getattr(envelope, 'completion', None), 'schema_', None) == 'dmb_build_intentional_response_completion_v1' and collaboration is not None)
+        object_only = (getattr(getattr(envelope, 'completion', None), 'schema_', None) in {'dmb_build_intentional_response_completion_v1','dmb_build_intentional_response_completion_v2'} and collaboration is not None)
         if envelope.status != "completed" or (not row.assistant_text and not object_only):
             continue
         history.append({"turn_id": str(envelope.turn_id), "user": envelope.user_text,

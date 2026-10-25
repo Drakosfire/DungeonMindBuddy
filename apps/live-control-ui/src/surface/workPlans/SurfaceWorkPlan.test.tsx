@@ -5,10 +5,10 @@ import {SurfaceWorkPlan} from './SurfaceWorkPlan';
 import {WorkPlanHostProvider,type WorkPlanHost} from './WorkPlanHost';
 import type {WorkPlanReference} from './workPlanReference';
 import {getWorkPlan,saveWorkPlan,continueWorkPlan,type WorkPlan} from '../../api/conversationWorkPlanApi';
-vi.mock('../../api/conversationWorkPlanApi',()=>({getWorkPlan:vi.fn(),saveWorkPlan:vi.fn(),continueWorkPlan:vi.fn()}));
+vi.mock('../../api/conversationWorkPlanApi',async original=>({...await original<typeof import('../../api/conversationWorkPlanApi')>(),getWorkPlan:vi.fn(),saveWorkPlan:vi.fn(),continueWorkPlan:vi.fn()}));
 const ref:WorkPlanReference={schema:'dmb_surface_work_plan_ref_v1',world_id:'world',document_id:'page',conversation_id:'11111111-1111-4111-8111-111111111111',source_turn_id:'22222222-2222-4222-8222-222222222222',source_answer_sha256:'a'.repeat(64),title:'Workshop plan'};
 const step='33333333-3333-4333-8333-333333333333';
-const p:WorkPlan={schema:'dmb_reviewed_work_plan_v1',world_id:'world',document_id:'page',conversation_id:ref.conversation_id,source_turn_id:ref.source_turn_id,source_answer_sha256:ref.source_answer_sha256,revision:1,steps:[{step_id:step,text:'Read the chart.',kind:'discuss',selected:true}],execution:[],dispatches:[]};
+const p:WorkPlan={schema:'dmb_reviewed_work_plan_v2',objective:'Prepare a useful workshop scene.',world_id:'world',document_id:'page',conversation_id:ref.conversation_id,source_turn_id:ref.source_turn_id,source_answer_sha256:ref.source_answer_sha256,revision:1,steps:[{step_id:step,text:'Read the chart.',kind:'discuss',selected:true}],execution:[],dispatches:[]};
 const host=():WorkPlanHost=>({worldId:'world',documentId:'page',editable:true,busy:false,conversationId:ref.conversation_id,activeConversationId:ref.conversation_id,onContinue:vi.fn(),openReply:vi.fn()});
 beforeEach(()=>{vi.clearAllMocks();sessionStorage.clear();vi.stubGlobal('crypto',webcrypto);vi.mocked(getWorkPlan).mockResolvedValue(p);});
 afterEach(()=>{cleanup();vi.unstubAllGlobals();});
@@ -23,7 +23,7 @@ it('restores the existing plan by digest and edits selection without executing o
  expect(continueWorkPlan).not.toHaveBeenCalled();expect(saveWorkPlan).not.toHaveBeenCalled();
  vi.mocked(saveWorkPlan).mockResolvedValue({...p,revision:2,steps:[{...p.steps[0],selected:false}]});
  fireEvent.click(screen.getByRole('button',{name:'Save',exact:true}));
- await waitFor(()=>expect(saveWorkPlan).toHaveBeenCalledWith(expect.anything(),1,[{...p.steps[0],selected:false}]));
+ await waitFor(()=>expect(saveWorkPlan).toHaveBeenCalledWith(expect.anything(),1,[{...p.steps[0],selected:false}],'Prepare a useful workshop scene.'));
  expect(continueWorkPlan).not.toHaveBeenCalled();
 });
 it('lets archived source plans be inspected but not edited or silently resumed',async()=>{
