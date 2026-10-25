@@ -11,9 +11,9 @@ import {startProposalDragScroll} from './proposalDragScroll';
 
 const proposalDragType='application/x-dmb-page-proposal';
 /** Page-adjacent review DOM never enters the author's document or undo history. */
-export function SurfacePageProposal({editor,position,editorJson,children,onStale,onMove,placementId,revealKey=0,busy=false}: {
+export function SurfacePageProposal({editor,position,editorJson,children,onStale,onMove,placementId,revealKey=0,busy=false,focusOnReveal=true}: {
   editor:Editor;position:number;editorJson:string;children:ReactNode;onStale:()=>void;
-  onMove?:(position:number)=>void;placementId?:string;revealKey?:number;busy?:boolean;
+  onMove?:(position:number)=>void;placementId?:string;revealKey?:number;busy?:boolean;focusOnReveal?:boolean;
 }) {
   const [host,setHost]=useState<HTMLDivElement|null>(null);
   const [placing,setPlacing]=useState(false);
@@ -86,10 +86,10 @@ export function SurfacePageProposal({editor,position,editorJson,children,onStale
     const frame=requestAnimationFrame(()=>{
       // The author may have started typing after reveal was scheduled.
       if(document.activeElement!==host&&host.contains(document.activeElement))return;
-      host.scrollIntoView?.({block:'center',behavior:'auto'});host.focus({preventScroll:true});
+      host.scrollIntoView?.({block:'center',behavior:'auto'});if(focusOnReveal)host.focus({preventScroll:true});
     });
     return()=>cancelAnimationFrame(frame);
-  },[host,revealKey]);
+  },[host,revealKey,focusOnReveal]);
   return host?createPortal(<>
     {onMove?<div className="surface-page-proposal__placement">
       <button type="button" draggable={!busy} disabled={busy} aria-label="Drag suggestion" title="Drag to move; hold near the page edge to scroll"

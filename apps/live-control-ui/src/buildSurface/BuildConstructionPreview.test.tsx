@@ -26,3 +26,21 @@ it('grows outside the page JSON and retires when the author changes its basis',a
  await waitFor(()=>expect(screen.queryByRole('table')).toBeNull());
  expect(JSON.stringify(editor.getJSON())).toContain('newer author text');
 });
+
+it('reveals received prose at its captured page location without taking composer focus',async()=>{
+ const state:BuildComposeEditorState={editor,worldId:'world',documentId:'doc',revision:1,contentSha256:'a'.repeat(64),visibility:'internal',draftGeneration:0,selectionGeneration:0,canEdit:true};
+ const bridge=createBuildComposeBridge(()=>state,()=>undefined);const captured=await bridge.capture();const before=JSON.stringify(editor.getJSON());
+ const composer=document.createElement('textarea');composer.value='A newer unsent message';document.body.append(composer);composer.focus();
+ const progress={schema:'dmb_build_construction_v1',action_id:'action',reservation_sha256:'b'.repeat(64),conversation_id:'conversation',basis:captured.basis,
+  origin:{client_turn_id:'client',durable_turn_id:'turn',turn_attempt:1,broker_operation_id:'op:1',arguments_sha256:'c'.repeat(64)},provider_attempt_id:'provider',sequence:1,status:'building',markdown:'# Workshop\n\nA small forge warms the room.\n'} as BuildConstructionProgress;
+ const view=render(<BuildConstructionPreview progress={progress} bridge={bridge} sourceKey="page"/>);
+ await screen.findByRole('heading',{name:'Workshop'});
+ await waitFor(()=>expect(scroll).toHaveBeenCalledTimes(1));
+ expect(document.activeElement).toBe(composer);expect(composer.value).toBe('A newer unsent message');
+ expect(JSON.stringify(editor.getJSON())).toBe(before);
+ view.rerender(<BuildConstructionPreview progress={{...progress,sequence:2,markdown:progress.markdown+'\n- Gather tools\n'}} bridge={bridge} sourceKey="page"/>);
+ expect(screen.getByText('Gather tools')).toBeInTheDocument();expect(scroll).toHaveBeenCalledTimes(1);expect(document.activeElement).toBe(composer);
+ view.rerender(<BuildConstructionPreview progress={{...progress,sequence:3,status:'incomplete'}} bridge={bridge} sourceKey="page"/>);
+ expect(screen.getByRole('status')).toHaveTextContent('Incomplete');
+ expect(JSON.stringify(editor.getJSON())).toBe(before);expect(composer.value).toBe('A newer unsent message');
+});

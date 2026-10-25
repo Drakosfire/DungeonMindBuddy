@@ -17,7 +17,7 @@ export function BuildConstructionPreview({progress,bridge,sourceKey,onVisible}:{
   },[bridge,sourceKey,identity]);
   if(!placement)return null;
   return <SurfacePageProposal editor={placement.editor} position={placement.basis.caret} editorJson={placement.editorJson}
-    placementId={`construction:${progress.action_id}`} revealKey={revealed?1:0} busy onStale={()=>{stale.current=true;setPlacement(null);}}>
+    placementId={`construction:${progress.action_id}`} revealKey={revealed?1:0} busy focusOnReveal={false} onStale={()=>{stale.current=true;setPlacement(null);}}>
     <SurfaceConstructionPreview markdown={progress.markdown} status={progress.status} onVisible={reveal}/>
   </SurfacePageProposal>;
 }
