@@ -1,4 +1,4 @@
-import {useSurfaceConversationRequests,claimSurfaceConversationRequest,acceptSurfaceConversationRequest,failSurfaceConversationRequest,retrySurfaceConversationRequest,cancelSurfaceConversationRequest,type SurfaceConversationRequest} from '../../agentInteraction/surfaceConversationRequests';
+import {useSurfaceConversationRequests,claimSurfaceConversationRequest,acceptSurfaceConversationRequest,failSurfaceConversationRequest,retrySurfaceConversationRequest,cancelSurfaceConversationRequest,cancelSurfaceConversationTarget,ownsSurfaceConversationRequest,type SurfaceConversationRequest} from '../../agentInteraction/surfaceConversationRequests';
 import { groupConversationAttempts, isUnansweredFailure } from "../../agentInteraction/conversationAttemptGroups";
 import {isSurfaceEvidenceCompletion,surfaceEvidenceReceiptBound} from "../../shared/surfaceEvidenceProtocol";
 import {SurfaceEvidenceAnswer} from "./SurfaceEvidenceAnswer";
@@ -2319,6 +2319,11 @@ export function WorldPlanAgentConversation({
   const surfacePreparationRef = useRef(false);
   const [surfacePreparing,setSurfacePreparing] = useState(false);
   const surfaceVisibleRef = useRef(visible);surfaceVisibleRef.current=visible;
+  const surfaceObjectId=buildMode?.savedSource?.documentId;
+  useEffect(()=>{
+    if(!isBuild||!verifiedWorldId||!surfaceObjectId)return;
+    return()=>cancelSurfaceConversationTarget(verifiedWorldId,'build',surfaceObjectId);
+  },[isBuild,verifiedWorldId,surfaceObjectId]);
   const isReadOnly = playMode !== null || isBuild;
   const currentReadOnlyContext = isBuild ? buildMode?.savedSource : playMode?.admittedRun;
   const planReady = Boolean(!isReadOnly && pageReady
@@ -3966,6 +3971,7 @@ export function WorldPlanAgentConversation({
           || historySnapshotRef.current?.pointer_revision!==request.build_draft_context?.expected_pointer_revision
           || (questionOverride === undefined && composerEditGenerationRef.current !== generation)) return;
       }
+      if(explicitRequest&&!ownsSurfaceConversationRequest(explicitRequest))return;
       setBuildPlacementFailure(null);
       const storageKey = pendingPlayTurnStorageKey(source.worldId);
       const serialized = JSON.stringify({ schema: "dmb_world_play_pending_turn_v1", request });
@@ -5353,11 +5359,11 @@ export function WorldPlanAgentConversation({
     void (async()=>{
       try{
         await request.prepare?.({bridge:buildMode?.composeBridge,source});
-        if(!request.isCurrent()||!surfaceVisibleRef.current||!latestRef.current.mounted||latestRef.current.verifiedWorldId!==request.worldId
+        if(!ownsSurfaceConversationRequest(request)||!request.isCurrent()||!surfaceVisibleRef.current||!latestRef.current.mounted||latestRef.current.verifiedWorldId!==request.worldId
           ||latestRef.current.buildPlacementBridge!==buildMode?.composeBridge)return;
         await submitPlay(undefined,false,request.message,request);
       }catch(reason){if(latestRef.current.mounted&&request.isCurrent())setError(reason instanceof Error?reason.message:'Build out could not start.');}
-      finally{surfacePreparationRef.current=false;if(latestRef.current.mounted)setSurfacePreparing(false);failSurfaceConversationRequest(request.id);}
+      finally{surfacePreparationRef.current=false;if(latestRef.current.mounted)setSurfacePreparing(false);if(ownsSurfaceConversationRequest(request))failSurfaceConversationRequest(request.id);}
     })();
   },[requestedSurfaceTurn,visible,isBuild,buildMode?.savedSource,buildMode?.composeBridge,sending,composing,
     buildCompose.busy,sharedConversation?.pendingTurn,pendingPlayTurn,pendingPlayLoadError,historyLoading,historyError,

@@ -37,6 +37,10 @@ export function retrySurfaceConversationRequest(id:string){
   requests=requests.map(item=>item.id===id&&item.status==='failed'?{...item,status:'pending'}:item);emit();
 }
 export const cancelSurfaceConversationRequest=remove;
+export const ownsSurfaceConversationRequest=(request:SurfaceConversationRequest)=>requests.some(item=>item===request);
+export function cancelSurfaceConversationTarget(worldId:string,surfaceId:string,objectId:string){
+  requests=requests.filter(item=>item.worldId!==worldId||item.surfaceId!==surfaceId||item.objectId!==objectId);emit();
+}
 function retireChangedTargets(){const next=requests.filter(item=>item.isCurrent());if(next.length!==requests.length){requests=next;emit();}}
 if(typeof window!=='undefined'){
   window.addEventListener('popstate',retireChangedTargets);

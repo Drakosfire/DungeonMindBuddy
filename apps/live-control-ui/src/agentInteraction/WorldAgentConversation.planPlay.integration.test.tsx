@@ -1,4 +1,4 @@
-import {queueSurfaceConversationRequest,cancelSurfaceConversationRequest} from "./surfaceConversationRequests";
+import {queueSurfaceConversationRequest,cancelSurfaceConversationRequest,claimSurfaceConversationRequest} from "./surfaceConversationRequests";
 import { COMPOSER_DRAFT_WRITE_WARNING } from "./conversationComposerDrafts";
 import { listBuildProposals } from "../api/buildDocumentProposalApi";
 vi.mock("../api/buildDocumentProposalApi", async (original) => ({
@@ -137,11 +137,11 @@ function PlayPublisher({ admitted, sessionCopy = false, editContent }: { admitte
   usePublishWorldPlayConversation(run, sessionCopy ? SESSION_COPY_AGENT_UNAVAILABLE : null);
   return null;
 }
-function BuildPublisher({ admitted, bridge, sourceRevision = 2 }: { admitted: boolean; bridge?: BuildComposeBridge | null; sourceRevision?: number }) {
+function BuildPublisher({ admitted, bridge, sourceRevision = 2, sourceId='source-one' }: { admitted: boolean; bridge?: BuildComposeBridge | null; sourceRevision?: number;sourceId?:string }) {
   const surface = useMemo(() => ({ surfaceId: "build" as const, label: "Build", campaignId: null,
-    documentId: "source-one", sessionNumber: null, ambientSummary: "Saved source", sourceEnvelope: null }), []);
-  const source = useMemo(() => admitted ? ({ worldId: WORLD, documentId: "source-one", revision: sourceRevision,
-    contentSha256: SHA, surfaceInstanceId: "build-instance", title: "City of Mirathorn", dirty: true }) : null, [admitted, sourceRevision]);
+    documentId: sourceId, sessionNumber: null, ambientSummary: "Saved source", sourceEnvelope: null }), [sourceId]);
+  const source = useMemo(() => admitted ? ({ worldId: WORLD, documentId: sourceId, revision: sourceRevision,
+    contentSha256: SHA, surfaceInstanceId: "build-instance", title: "City of Mirathorn", dirty: true }) : null, [admitted, sourceRevision,sourceId]);
   usePublishAgentSurfaceContext(surface);
   return <DocumentConversationDock surface="build" contextLabel="City of Mirathorn" reader={<div>Build source projection</div>}>
     {hosts => <BuildHarnessBinding source={source} hosts={hosts} bridge={bridge} />}
@@ -179,8 +179,8 @@ function SceneEditorFixture({ content, allowed, onUnsubmitted }: { content: Play
   return <SurfaceContextProvider><PlaySessionContentEditor content={accepted} currentSceneId="scene:gate" runRevision={3}
     canPropose={allowed} originLabel="From Plan" onAcceptedContent={setAccepted} onUnsubmittedChange={onUnsubmitted} /></SurfaceContextProvider>;
 }
-function Harness({ initial = "plan", admitted = true, editBridge = null, editContent, buildBridge, buildSourceRevision }: {
-  initial?: "plan" | "play" | "build"; admitted?: boolean; editBridge?: WorldPlanEditBridge | null; editContent?: PlayRunContent; buildBridge?: BuildComposeBridge | null; buildSourceRevision?: number;
+function Harness({ initial = "plan", admitted = true, editBridge = null, editContent, buildBridge, buildSourceRevision,buildSourceId }: {
+  initial?: "plan" | "play" | "build"; admitted?: boolean; editBridge?: WorldPlanEditBridge | null; editContent?: PlayRunContent; buildBridge?: BuildComposeBridge | null; buildSourceRevision?: number;buildSourceId?:string;
 }) {
   const [surface, setSurface] = useState(initial);
   const [sessionCopy, setSessionCopy] = useState(false);
@@ -193,7 +193,7 @@ function Harness({ initial = "plan", admitted = true, editBridge = null, editCon
       <button type="button" onClick={() => { selectedWorld.id = "world-two"; setWorld("world-two"); }}>Switch World</button>
       <button type="button" onClick={() => setSessionCopy(value => !value)}>Use session copy</button>
       <ProposalFixture /><NewerPendingFixture />
-      {surface === "plan" ? <PlanPublisher documentId={documentId} editBridge={editBridge} /> : surface === "build" ? <BuildPublisher admitted={admitted && world === WORLD} bridge={buildBridge} sourceRevision={buildSourceRevision} /> : <PlayPublisher admitted={admitted && world === WORLD} sessionCopy={sessionCopy} editContent={editContent} />}
+      {surface === "plan" ? <PlanPublisher documentId={documentId} editBridge={editBridge} /> : surface === "build" ? <BuildPublisher admitted={admitted && world === WORLD} bridge={buildBridge} sourceRevision={buildSourceRevision} sourceId={buildSourceId} /> : <PlayPublisher admitted={admitted && world === WORLD} sessionCopy={sessionCopy} editContent={editContent} />}
       {editContent ? <SceneEditorFixture content={editContent} allowed={!sessionCopy} onUnsubmitted={setSessionCopy} /> : null}
       <AgentInteractionChrome />
       <WorldAgentConversation surface={surface} worldId={world} worldName="Test World" />
@@ -484,6 +484,18 @@ describe("one App-level World conversation host across Plan and Play", () => {
 
 
 
+  it('retires an authoring gesture on document departure while history is still loading',async()=>{
+    let finish!:(value:ReturnType<typeof history>)=>void;
+    vi.mocked(getWorldAgentConversationHistory).mockImplementation(()=>new Promise(resolve=>{finish=resolve;}));
+    const view=render(<Harness initial="build"/>);fireEvent.click(await screen.findByRole('button',{name:'Open',exact:true}));
+    await waitFor(()=>expect(getWorldAgentConversationHistory).toHaveBeenCalled());
+    const prepare=vi.fn(async()=>{});
+    act(()=>queueSurfaceConversationRequest({id:'connected-departure',worldId:WORLD,surfaceId:'build',objectId:'source-one',message:'Build out',clientThreadId:'thread',turnId:'turn',isCurrent:()=>true,prepare}));
+    view.rerender(<Harness initial="build" buildSourceId="source-two"/>);
+    view.rerender(<Harness initial="build" buildSourceId="source-one"/>);
+    await act(async()=>{finish(history());});
+    expect(claimSurfaceConversationRequest('connected-departure')).toBeNull();expect(prepare).not.toHaveBeenCalled();expect(postWorldBuildAgentTurn).not.toHaveBeenCalled();
+  });
   it('hands one explicit authoring gesture to durable Build submission without replacing composer text',async()=>{
     const bridge:BuildComposeBridge={captureContext:vi.fn(async()=>draftSnapshot()),capture:vi.fn(async()=>insertionCapture()),insert:vi.fn()};
     vi.mocked(postWorldBuildAgentTurn).mockImplementation(()=>new Promise(()=>{}));
