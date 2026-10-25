@@ -1,8 +1,10 @@
+import { DurableWorkPlan,type ReviewedRow } from './DurableWorkPlan'
+import type {WorkPlan,WorkDispatch} from '../../api/conversationWorkPlanApi'
 import { useState } from 'react'
 import { parseMarkdownAst } from '../../tiptap/markdown/parseMarkdownAst'
 
 type Mode = 'plan' | 'questions'
-type Row = { text: string; include: boolean; answer: string }
+type Row = { text: string; include: boolean; answer: string; kind?:'discuss'|'prepare_insertion' }
 type Notes = { rows: Row[]; blocked: boolean; warning: string | null }
 function prose(node: unknown): string {
   if (!node || typeof node !== 'object') return ''
@@ -17,8 +19,8 @@ function candidates(source: string): string[] {
     return rows
   } catch { return [] }
 }
-function Card({source, identity, mode, items, onAdd, disabled}: {
-  source: string; identity: string; mode: Mode; items: string[]; onAdd: (text: string) => void; disabled: boolean
+function Card({source, identity, mode, items, onAdd, disabled, onSavePlan}: {
+  source: string; identity: string; mode: Mode; items: string[]; onAdd: (text: string) => void; disabled: boolean; onSavePlan?:(rows:ReviewedRow[])=>Promise<void>
 }) {
   const storageKey = `dmb:conversation-workbook:v1:${identity}:${mode}`
   const [notes, setNotes] = useState<Notes>(() => {
@@ -29,7 +31,7 @@ function Card({source, identity, mode, items, onAdd, disabled}: {
       const value = JSON.parse(raw)
       if (value.schema !== 'dmb_conversation_workbook_v1' || value.identity !== identity || value.mode !== mode || value.source !== source
         || !Array.isArray(value.rows) || !value.rows.every((row: Row) => row && typeof row.text === 'string'
-          && typeof row.answer === 'string' && typeof row.include === 'boolean')) throw new Error('scope')
+          && typeof row.answer === 'string' && typeof row.include === 'boolean' && (row.kind===undefined||['discuss','prepare_insertion'].includes(row.kind)))) throw new Error('scope')
       return {...initial,rows:value.rows}
     } catch {return {...initial,blocked:true,warning:'Local notes could not be restored. Existing stored notes were left untouched.'}}
   })
@@ -58,6 +60,7 @@ function Card({source, identity, mode, items, onAdd, disabled}: {
     {notes.rows.map((row,index)=><div className="conversation-workbook__row" key={index}>
       <label><input type="checkbox" checked={row.include} disabled={disabled} onChange={event=>edit(index,{include:event.target.checked})}/> Include {mode==='plan'?'step':'question'} {index+1}</label>
       <textarea aria-label={`${mode==='plan'?'Step':'Question'} ${index+1}`} value={row.text} disabled={disabled} onChange={event=>edit(index,{text:event.target.value})}/>
+      {mode==='plan'&&onSavePlan&&<label>Action <select aria-label={`Action ${index+1}`} value={row.kind??'discuss'} disabled={disabled} onChange={event=>edit(index,{kind:event.target.value as Row['kind']})}><option value="discuss">Discuss</option><option value="prepare_insertion">Prepare an insertion</option></select></label>}
       {mode==='questions'&&<textarea aria-label={`Answer ${index+1}`} placeholder="Your answer…" value={row.answer} disabled={disabled} onChange={event=>edit(index,{answer:event.target.value})}/>}
     </div>)}
     <button type="button" disabled={disabled} onClick={()=>change([...notes.rows,{text:'',include:true,answer:''}])}>Add {mode==='plan'?'step':'question'}</button>{' '}
@@ -65,6 +68,7 @@ function Card({source, identity, mode, items, onAdd, disabled}: {
       const body=selected.map((row,index)=>mode==='plan'?`${index+1}. ${row.text.trim()}`:`Question: ${row.text.trim()}\nMy answer: ${row.answer.trim()}`).join('\n\n')
       onAdd(`${mode==='plan'?'My reviewed plan':'My answers to your clarifying questions'}:\n\n${body}`);setAdded(true)
     }}>Add to message</button>
+    {mode==='plan'&&onSavePlan&&<button type="button" disabled={disabled||!notes.rows.length||notes.rows.some(row=>!row.text.trim())} onClick={()=>{void onSavePlan(notes.rows)}}>Save reviewed plan</button>}
     {added&&<p role="status">Added to your message. Review it and Send when ready.</p>}
     {notes.blocked&&<button type="button" onClick={()=>{
       try {window.sessionStorage.removeItem(storageKey);setNotes(current=>({...current,blocked:false,warning:null}))}
@@ -74,8 +78,8 @@ function Card({source, identity, mode, items, onAdd, disabled}: {
 }
 
 /** The author chooses the interpretation. Lists are never promoted to facts or executed. */
-export function ConversationWorkbook({source, worldId, conversationId, turnId, onAdd, disabled=false}: {
-  source: string; worldId: string; conversationId: string; turnId: string; onAdd: (text: string) => void; disabled?: boolean
+export function ConversationWorkbook({source, worldId, conversationId, turnId, onAdd, disabled=false, durable}: {
+  source: string; worldId: string; conversationId: string; turnId: string; onAdd: (text: string) => void; disabled?: boolean; durable?:{disabled:boolean;onContinue:(plan:WorkPlan,dispatch:WorkDispatch)=>void}
 }) {
   const [mode,setMode]=useState<Mode|null>(null)
   const items=candidates(source)
@@ -84,5 +88,6 @@ export function ConversationWorkbook({source, worldId, conversationId, turnId, o
   return <div><div className="conversation-workbook__choices">
     <button type="button" disabled={disabled} aria-pressed={mode==='plan'} onClick={()=>setMode(mode==='plan'?null:'plan')}>Review plan</button>{' '}
     <button type="button" disabled={disabled} aria-pressed={mode==='questions'} onClick={()=>setMode(mode==='questions'?null:'questions')}>Answer questions</button>
-  </div>{mode&&<Card key={`${identity}:${mode}:${source}`} {...{source,identity,mode,items,onAdd,disabled}}/>}</div>
+  </div>{mode==='plan'&&durable?<DurableWorkPlan key={`${identity}:${source}`} scope={{worldId,conversationId,turnId,source}} disabled={disabled||durable.disabled} onContinue={durable.onContinue}
+    renderDraft={(onSavePlan,busy)=><Card {...{source,identity,mode:'plan',items,onAdd,onSavePlan}} disabled={disabled||durable.disabled||busy}/>}/>:mode&&<Card key={`${identity}:${mode}:${source}`} {...{source,identity,mode,items,onAdd,disabled}}/>}</div>
 }

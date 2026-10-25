@@ -1,0 +1,325 @@
+from uuid import uuid4, uuid5, NAMESPACE_URL
+from concurrent.futures import ThreadPoolExecutor
+import importlib
+import pytest
+from application_state.agent_conversation import (
+    AgentConversationService,
+    work_plan as w,
+)
+from application_state.agent_conversation.types import (
+    TurnSubmission,
+    TurnResult,
+    TurnProvenance,
+    HistoricalReference,
+)
+from application_state.errors import (
+    ApplicationStateConflictError,
+    ApplicationStateNotFoundError,
+)
+from tests.application_state.test_conversation_library import new
+from tests.application_state.test_agent_conversation_service import _submitted_intent
+
+
+def provenance(world="world-one", document="source-one"):
+    return TurnProvenance(
+        world_id=world,
+        surface_resolution="resolved",
+        surface_id="build",
+        primary_work=HistoricalReference(
+            resolution="resolved",
+            kind="build",
+            object_id=document,
+            revision="2",
+            content_sha256="a" * 64,
+        ),
+        supporting_work=[],
+        selected_object=HistoricalReference(resolution="absent"),
+    )
+
+
+def accept(service, cid, message, key=None, document="source-one"):
+    return service.accept_turn(
+        TurnSubmission(
+            world_id="world-one",
+            conversation_id=cid,
+            idempotency_key=key or uuid4(),
+            expected_conversation_revision=service.get_conversation(
+                "world-one", cid
+            ).revision,
+            user_text=message,
+            provenance=provenance(document=document),
+            submitted_intent_v1=_submitted_intent(
+                "world-one", message, surface_id="build"
+            ),
+        )
+    )
+
+
+def finish(service, cid, turn, text):
+    running = service.begin_turn(
+        "world-one", cid, turn.turn_id, expected_revision=turn.revision
+    )
+    return service.complete_turn(
+        TurnResult(
+            world_id="world-one",
+            conversation_id=cid,
+            turn_id=turn.turn_id,
+            expected_revision=running.revision,
+            assistant_text=text,
+        )
+    )
+
+
+@pytest.fixture
+def case(application_state_dsn):
+    service = AgentConversationService()
+    cid = new(service)
+    t = accept(service, cid, "Help me plan the shop.")
+    t = finish(
+        service, cid, t, "1. Discuss the owner.\n2. Prepare the shop description."
+    )
+    steps = [
+        w.Step(step_id=uuid4(), text="Discuss the owner.", selected=True),
+        w.Step(
+            step_id=uuid4(),
+            text="Write the description.",
+            selected=False,
+            kind="prepare_insertion",
+        ),
+    ]
+    p = w.save("world-one", cid, t.turn_id, w.Review(expected_revision=0, steps=steps))
+    return service, cid, t, steps, p
+
+
+def test_review_cas_retry_and_read_in_archived_conversation(case):
+    service, cid, t, steps, p = case
+    assert (
+        w.save("world-one", cid, t.turn_id, w.Review(expected_revision=0, steps=steps))
+        == p
+    )
+    changed = [steps[0].model_copy(update={"text": "Changed owner question"}), steps[1]]
+    updated = w.save(
+        "world-one", cid, t.turn_id, w.Review(expected_revision=1, steps=changed)
+    )
+    assert updated["revision"] == 2
+    with pytest.raises(ApplicationStateConflictError):
+        w.save("world-one", cid, t.turn_id, w.Review(expected_revision=1, steps=steps))
+    new(service)
+    assert w.read("world-one", cid, t.turn_id)["plan"] == updated
+    with pytest.raises(ApplicationStateConflictError):
+        w.save("world-one", cid, t.turn_id, w.Review(expected_revision=2, steps=steps))
+    with pytest.raises(ApplicationStateNotFoundError):
+        w.read("foreign", cid, t.turn_id)
+
+
+def test_explicit_continuation_stable_receipt_and_actual_reply(case):
+    service, cid, t, steps, p = case
+    command = w.Continue(
+        expected_revision=1, step_id=steps[0].step_id, command_id=uuid4()
+    )
+    first = w.continue_step("world-one", cid, t.turn_id, command)
+    assert w.continue_step("world-one", cid, t.turn_id, command) == first
+    assert first["plan"]["execution"][0]["status"] == "awaiting_dispatch"
+    assert (
+        w.continue_step(
+            "world-one",
+            cid,
+            t.turn_id,
+            command.model_copy(update={"command_id": uuid4(), "expected_revision": 2}),
+        )["dispatch"]
+        == first["dispatch"]
+    )
+    d = w.Dispatch.model_validate(first["dispatch"])
+    assert "dispatches" not in d.message
+    key = uuid5(NAMESPACE_URL, f"dmb-agent-turn:world-one:{d.client_turn_id}")
+    actual = accept(service, cid, d.message, key)
+    assert (
+        w.read("world-one", cid, t.turn_id)["plan"]["execution"][0]["status"]
+        == "accepted"
+    )
+    done = finish(service, cid, actual, "The owner repairs lantern fittings.")
+    result = w.read("world-one", cid, t.turn_id)["plan"]["execution"][0]
+    assert (
+        result["status"] == "completed"
+        and result["turn_id"] == str(done.turn_id)
+        and result["result"]["kind"] == "reply"
+    )
+    with pytest.raises(ApplicationStateConflictError):
+        w.continue_step(
+            "world-one",
+            cid,
+            t.turn_id,
+            w.Continue(
+                expected_revision=2, step_id=steps[0].step_id, command_id=uuid4()
+            ),
+        )
+    with pytest.raises(ApplicationStateConflictError):
+        w.save(
+            "world-one",
+            cid,
+            t.turn_id,
+            w.Review(
+                expected_revision=2,
+                steps=[
+                    steps[0].model_copy(update={"text": "Rewrite done work"}),
+                    steps[1],
+                ],
+            ),
+        )
+
+
+def test_unselected_and_concurrent_continuations_are_not_authority(case):
+    _, cid, t, steps, p = case
+    with pytest.raises(ApplicationStateConflictError):
+        w.continue_step(
+            "world-one",
+            cid,
+            t.turn_id,
+            w.Continue(
+                expected_revision=1, step_id=steps[1].step_id, command_id=uuid4()
+            ),
+        )
+
+    def start(_):
+        try:
+            return w.continue_step(
+                "world-one",
+                cid,
+                t.turn_id,
+                w.Continue(
+                    expected_revision=1, step_id=steps[0].step_id, command_id=uuid4()
+                ),
+            )["dispatch"]["client_turn_id"]
+        except ApplicationStateConflictError:
+            return None
+
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        results = list(pool.map(start, range(2)))
+    assert len(set(x for x in results if x)) == 1
+    assert len(w.read("world-one", cid, t.turn_id)["plan"]["dispatches"]) == 1
+
+
+@pytest.mark.parametrize("wrong", ["message", "document"])
+def test_receipt_key_does_not_bypass_exact_message_and_scope(case, wrong):
+    service, cid, t, steps, p = case
+    d = w.Dispatch.model_validate(
+        w.continue_step(
+            "world-one",
+            cid,
+            t.turn_id,
+            w.Continue(
+                expected_revision=1, step_id=steps[0].step_id, command_id=uuid4()
+            ),
+        )["dispatch"]
+    )
+    key = uuid5(NAMESPACE_URL, f"dmb-agent-turn:world-one:{d.client_turn_id}")
+    accept(
+        service,
+        cid,
+        "Different request" if wrong == "message" else d.message,
+        key,
+        "other" if wrong == "document" else "source-one",
+    )
+    assert (
+        w.read("world-one", cid, t.turn_id)["plan"]["execution"][0]["status"]
+        == "needs_attention"
+    )
+
+
+def test_prepare_insertion_requires_real_proposal_not_discussion(case):
+    service, cid, t, steps, p = case
+    step = steps[1].model_copy(update={"selected": True})
+    p = w.save(
+        "world-one",
+        cid,
+        t.turn_id,
+        w.Review(expected_revision=1, steps=[steps[0], step]),
+    )
+    d = w.Dispatch.model_validate(
+        w.continue_step(
+            "world-one",
+            cid,
+            t.turn_id,
+            w.Continue(
+                expected_revision=p["revision"],
+                step_id=step.step_id,
+                command_id=uuid4(),
+            ),
+        )["dispatch"]
+    )
+    actual = accept(
+        service,
+        cid,
+        d.message,
+        uuid5(NAMESPACE_URL, f"dmb-agent-turn:world-one:{d.client_turn_id}"),
+    )
+    finish(service, cid, actual, "Here is another work plan.")
+    result = w.read("world-one", cid, t.turn_id)["plan"]["execution"][0]
+    assert result["status"] == "needs_attention" and result["result"]["kind"] == "reply"
+
+
+def test_downgrade_refuses_retained_reviewed_plan(case):
+    from alembic.migration import MigrationContext
+    from alembic.operations import Operations
+    from sqlalchemy import create_engine
+    from application_state.engine import sqlalchemy_url
+    from application_state.agent_conversation.service import _ready_dsn
+
+    migration = importlib.import_module(
+        "application_state.migrations.versions.20261025_0064_reviewed_work_plans"
+    )
+    engine = create_engine(sqlalchemy_url(_ready_dsn()))
+    try:
+        with engine.begin() as conn:
+            with Operations.context(MigrationContext.configure(conn)):
+                with pytest.raises(RuntimeError, match="recovery forward"):
+                    migration.downgrade()
+    finally:
+        engine.dispose()
+
+
+def test_genuine_admitted_page_proposal_is_prepared_not_saved(
+    tmp_path, monkeypatch, application_state_dsn
+):
+    from types import SimpleNamespace
+    from hashlib import sha256
+    from tests.test_build_related_pages import build_case, completed
+    from application_state.build_proposal.service import BuildProposalService
+    from application_state.unit_of_work import unit_of_work
+    from application_state.agent_conversation.service import _ready_dsn
+
+    inputs = build_case.__wrapped__(tmp_path, monkeypatch, application_state_dsn)
+    turn, *_ = completed.__wrapped__(
+        inputs, monkeypatch, tmp_path, SimpleNamespace(param="propose_build_insertion")
+    )
+    receipt = BuildProposalService().get(turn.world_id, turn.completion.action_id)
+    step = w.Step(
+        step_id=uuid4(),
+        text="Prepare page writing",
+        selected=True,
+        kind="prepare_insertion",
+    )
+    d = w.Dispatch(
+        command_id=uuid4(),
+        step_id=step.step_id,
+        client_thread_id=uuid4(),
+        client_turn_id=receipt.reservation.origin.client_turn_id,
+        message=turn.user_text,
+    )
+    p = w.Plan(
+        world_id=turn.world_id,
+        conversation_id=turn.conversation_id,
+        source_turn_id=turn.turn_id,
+        source_answer_sha256=sha256(turn.assistant_text.encode()).hexdigest(),
+        document_id=turn.provenance.primary_work.object_id,
+        revision=1,
+        steps=[step],
+        dispatches=[d],
+    )
+    with unit_of_work(_ready_dsn()) as conn:
+        result = w._result(conn, p, d)
+    assert result["status"] == "prepared" and result["result"] == {
+        "kind": "page_proposal",
+        "action_id": str(receipt.action_id),
+    }
+    assert receipt.state == "proposed" and not receipt.inserted_in_draft

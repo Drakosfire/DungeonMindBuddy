@@ -1,5 +1,5 @@
 import {ConversationLibrary} from '../../agentInteraction/ConversationLibrary';
-import {useSurfaceConversationRequests,claimSurfaceConversationRequest,acceptSurfaceConversationRequest,failSurfaceConversationRequest,retrySurfaceConversationRequest,cancelSurfaceConversationRequest,cancelSurfaceConversationTarget,ownsSurfaceConversationRequest,type SurfaceConversationRequest} from '../../agentInteraction/surfaceConversationRequests';
+import {queueSurfaceConversationRequest,useSurfaceConversationRequests,claimSurfaceConversationRequest,acceptSurfaceConversationRequest,failSurfaceConversationRequest,retrySurfaceConversationRequest,cancelSurfaceConversationRequest,cancelSurfaceConversationTarget,ownsSurfaceConversationRequest,type SurfaceConversationRequest} from '../../agentInteraction/surfaceConversationRequests';
 import { groupConversationAttempts, isUnansweredFailure } from "../../agentInteraction/conversationAttemptGroups";
 import {isSurfaceEvidenceCompletion,surfaceEvidenceReceiptBound} from "../../shared/surfaceEvidenceProtocol";
 import {SurfaceEvidenceAnswer} from "./SurfaceEvidenceAnswer";
@@ -2599,6 +2599,7 @@ export function WorldPlanAgentConversation({
     buildPlacementFenceKey,
     buildPlacementEpoch,
     buildPlacementBridge: buildMode?.composeBridge,
+    buildDocumentId: buildMode?.savedSource?.documentId,
     proposalFenceKey,
     threadId: activeThread?.threadId ?? null,
     providerThreadId: agent.activeThread?.threadId ?? null,
@@ -2785,6 +2786,7 @@ export function WorldPlanAgentConversation({
   latestRef.current.scopeMatches = scopeMatches;
   latestRef.current.verifiedWorldId = verifiedWorldId;
   latestRef.current.documentId = documentId;
+  latestRef.current.buildDocumentId = buildMode?.savedSource?.documentId;
   latestRef.current.revision = revision;
   latestRef.current.scope = agent.scope ? {
     campaignId: agent.scope.campaignId,
@@ -5661,6 +5663,15 @@ export function WorldPlanAgentConversation({
               key={`workbook:${verifiedWorldId}:${history.conversation_id}:${turn.turn_id}`}
               source={turn.assistant_text} worldId={verifiedWorldId} conversationId={history.conversation_id}
               turnId={turn.turn_id} disabled={composerBusy}
+              durable={turn.provenance.surface_id==='build'?{disabled:!isBuild||!visible||history.active_conversation_id!==history.conversation_id||buildMode?.savedSource?.documentId!==turn.provenance.primary_work.object_id,
+                onContinue:(plan,dispatch)=>{
+                  const expectedFence=latestRef.current.buildPlacementFenceKey;
+                  queueSurfaceConversationRequest({id:`reviewed-plan:${dispatch.client_turn_id}`,worldId:plan.world_id,surfaceId:'build',objectId:plan.document_id,
+                    message:dispatch.message,clientThreadId:dispatch.client_thread_id,turnId:dispatch.client_turn_id,
+                    isCurrent:()=>latestRef.current.mounted&&latestRef.current.buildPlacementFenceKey===expectedFence&&latestRef.current.verifiedWorldId===plan.world_id
+                      &&latestRef.current.buildDocumentId===plan.document_id&&surfaceVisibleRef.current&&historySnapshotRef.current?.conversation_id===plan.conversation_id
+                      &&historySnapshotRef.current?.active_conversation_id===plan.conversation_id});
+                }}:undefined}
               onAdd={text=>{composerEditGenerationRef.current+=1;setComposerMessage(current=>current.trim()?`${current}\n\n${text}`:text);}} />}
           </div>
         ) : failed || interrupted ? (
