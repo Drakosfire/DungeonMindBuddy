@@ -1,3 +1,5 @@
+import {groupRetryLineage} from './conversationAttemptGroups';
+import {ConversationRetryAttempts} from './ConversationRetryAttempts';
 import {useEffect,useRef,useState} from 'react';
 import {createPortal} from 'react-dom';
 import {listConversations,readConversationName,readConversationTurns,renameConversation,type ConversationSummary,type LibraryTurn} from '../api/conversationLibraryApi';
@@ -72,14 +74,16 @@ export function ConversationLibrary({worldId,onClose}:{worldId:string;onClose:()
     <p>{ownDetail.status==='active'?'Current conversation':'Archived conversation'} · Read-only transcript</p>{notice&&<p role="status">{notice}</p>}</>}
    {error&&<p role="alert">{error}</p>}{loading&&<p role="status">Loading messages…</p>}
    {before!==null&&<button type="button" disabled={loading} onClick={()=>void olderTurns()}>Earlier messages</button>}
-   {ownDetail&&turns.map(turn=><article key={turn.turn_id}><h3>You</h3><p className="conversation-library__question">{turn.user_text}</p><h3>Buddy</h3>
+   {ownDetail&&groupRetryLineage(turns,t=>t.retry_context).map(({item:turn,historical})=>{const content=<article key={turn.turn_id}>
+    <h3>You</h3><p className="conversation-library__question">{turn.user_text}</p><h3>Buddy</h3>
     {turn.assistant_text&&<WorldPlanAgentAnswer answer={turn.assistant_text}/>}
     {turn.reply_object?.kind==='questions'&&<section aria-label="Saved clarifying questions"><h4>Clarifying questions</h4><ol>{turn.reply_object.questions.map((q,i)=><li key={i}>{q.text}</li>)}</ol></section>}
     {turn.reply_object?.kind==='page_object'&&<p>{turn.reply_object.object_kind==='plan'?'Work plan proposed on page.':turn.reply_object.object_kind==='connected_page'?'Connected-page review prepared.':'Relationship review prepared.'}{' '}<a href={'/build?'+new URLSearchParams({world:turn.reply_object.source.world_id,documentId:turn.reply_object.source.document_id})}>Open source page</a></p>}
     {!turn.assistant_text&&!turn.reply_object&&<p>{['failed','interrupted'].includes(turn.status)?'This reply did not finish.':['accepted','running'].includes(turn.status)?'Reply in progress.':'No saved reply.'}</p>}
+    {turn.retry_context&&<ConversationRetryAttempts context={turn.retry_context}/>}
     <SavedTurnTrace worldId={worldId} conversationId={ownDetail.conversation_id} turnId={turn.turn_id}/>
 
-   </article>)}
+   </article>;return historical?<details key={turn.turn_id}><summary>Earlier attempt of a request with a later response</summary>{content}</details>:content;})}
    {ownDetail&&!loading&&!turns.length&&<p>No messages in this conversation yet.</p>}
   </section></div>
  </dialog>,document.body);

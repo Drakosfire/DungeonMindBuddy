@@ -4949,7 +4949,7 @@ def _submitted_turn_intent(
             reviewed_step = resolve_request_action(request, world_id)
         except ApplicationStateError as exc:
             raise AgentTurnServiceError(str(exc), code="reviewed_step_unavailable", status_code=409, provider_dispatched=False) from exc
-        return BuildGraphIntentV1(**common, reviewed_step=reviewed_step, build_draft_context_sha256=(
+        return BuildGraphIntentV1(**common, retry_of=request.retry_of, reviewed_step=reviewed_step, build_draft_context_sha256=(
             None if request.build_draft_context is None else _canonical_sha256(request.build_draft_context.model_dump(mode="json", by_alias=True))), build_write_capability_sha256=(
             None if request.build_write_capability is None else _canonical_sha256(request.build_write_capability.model_dump(mode="json"))))
     if request.surface.surface_id == "play" and primary_work is not None and request.graph_request.mode == "none":
@@ -6204,6 +6204,9 @@ def _accept_world_turn(
         try:
             return service.accept_turn(submission)
         except ApplicationStateConflictError as exc:
+            from application_state.agent_conversation.retry import RetryUnavailableError
+            if isinstance(exc, RetryUnavailableError):
+                raise AgentTurnServiceError(str(exc), code="build_retry_unavailable", status_code=409, provider_dispatched=False) from exc
             message = str(exc)
             if "different submitted intent" in message or "legacy-receipt-unverifiable" in message:
                 code = (

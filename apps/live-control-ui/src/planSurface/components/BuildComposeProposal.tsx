@@ -73,7 +73,7 @@ export function useBuildCompose({ worldId, history, bridge, enabled, onHistory, 
       if (!pointer.conversation_id) {
         const created = await postWorldAgentNewConversation(start.worldId, { schema: 'dmb_agent_new_conversation_v1',
           command_id: crypto.randomUUID(), expected_pointer_revision: pointer.pointer_revision, expected_active_conversation_id: null });
-        pointer = await getWorldAgentConversationHistory(start.worldId);
+        pointer = await getWorldAgentConversationHistory(start.worldId,{includeTurnCorrelation:true});
         if (created.world_id !== start.worldId || pointer.world_id !== start.worldId
           || pointer.conversation_id !== created.conversation_id || pointer.active_conversation_id !== created.conversation_id
           || pointer.pointer_revision !== created.pointer_revision) throw new Error('The active conversation changed. Try again.');
@@ -149,7 +149,7 @@ export function useBuildCompose({ worldId, history, bridge, enabled, onHistory, 
             active_conversation_id:status.receipt.active_conversation_id,pointer_revision:status.receipt.pointer_revision};
         }else{
           if(status.receipt!==null)throw new Error('The conversation start status is inconsistent.');
-          const observed=await getWorldAgentConversationHistory(start.worldId);
+          const observed=await getWorldAgentConversationHistory(start.worldId,{includeTurnCorrelation:true});
           if(observed.world_id!==start.worldId)throw new Error('The current conversation could not be verified.');
           if(observed.pointer_revision!==pending.expected_pointer_revision||observed.active_conversation_id!==null){
             if(window.localStorage.getItem(key)===bytes)window.localStorage.removeItem(key);
@@ -163,7 +163,7 @@ export function useBuildCompose({ worldId, history, bridge, enabled, onHistory, 
         ||typeof created.conversation_id!=='string'||!created.conversation_id
         ||!Number.isSafeInteger(created.pointer_revision)||created.pointer_revision<1)
         throw new Error('The conversation start response could not be verified.');
-      pointer=await getWorldAgentConversationHistory(start.worldId);
+      pointer=await getWorldAgentConversationHistory(start.worldId,{includeTurnCorrelation:true});
       if(pointer.world_id!==start.worldId)throw new Error('The current conversation could not be verified.');
       if(!mounted.current||current.current.scope!==start.scope||current.current.epoch!==start.epoch
         ||current.current.bridge!==start.bridge)throw new Error('The page or conversation changed before sending.');
@@ -196,7 +196,7 @@ export function useBuildCompose({ worldId, history, bridge, enabled, onHistory, 
       ?{...value,progress:{...value.progress,status:'incomplete'}}:value),
     refresh: () => setRefreshNonce(value => value + 1),
     pageElement: enabled&&bridge&&building
-      ? <BuildConstructionPreview progress={building} bridge={bridge} sourceKey={sourceKey} onVisible={onReviewOnPage}/>
+      ? <BuildConstructionPreview progress={building} bridge={bridge} sourceKey={sourceKey} onVisible={building.status==='ready'?onReviewOnPage:undefined}/>
       : enabled&&bridge&&active?.proposal&&!active.inserted_in_draft&&active.reservation.basis.editor_sha256
       &&history?.active_conversation_id===active.reservation.conversation_id
       &&history.pointer_revision===active.reservation.expected_pointer_revision

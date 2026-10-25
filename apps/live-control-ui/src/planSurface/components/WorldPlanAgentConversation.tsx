@@ -1,3 +1,5 @@
+import {decodeRetryContext,type TurnRetryContext} from '../../api/conversationRetryApi';
+import {ConversationRetryAttempts} from '../../agentInteraction/ConversationRetryAttempts';
 import {StagedWorkPlan} from '../../surface/workPlans/StagedWorkPlan';
 import {captureWorkPlan} from '../../surface/workPlans/workPlanCapture';
 import {ConversationRelationshipReview} from './ConversationRelationshipReview';
@@ -345,7 +347,8 @@ function readPendingPlayTurn(worldId: string): StoredPendingPlayTurn | null {
       ...(isRecord(value.request) && isRecord(value.request.surface) && value.request.surface.surface_id === "play" ? ["play_target"] : []),
       ...(isRecord(value.request) && "build_write_capability" in value.request ? ["build_write_capability"] : []),
       ...(isRecord(value.request) && "build_draft_context" in value.request ? ["build_draft_context"] : []),
-      ...(isRecord(value.request) && "reviewed_step" in value.request ? ["reviewed_step"] : [])])
+      ...(isRecord(value.request) && "reviewed_step" in value.request ? ["reviewed_step"] : []),
+      ...(isRecord(value.request) && "retry_of" in value.request ? ["retry_of"] : [])])
     || value.request.schema !== "dmb_agent_turn_request_v1"
     || !commandUuid(value.request.client_thread_id) || !commandUuid(value.request.turn_id)
     || !hasExactKeys(value.request.surface, ["surface_id", "instance_id"])
@@ -369,6 +372,11 @@ function readPendingPlayTurn(worldId: string): StoredPendingPlayTurn | null {
     || !isSavedPlayGraphRequest(value.request.graph_request, worldId)
     || ("build_draft_context" in value.request && (value.request.surface.surface_id!=="build"
       || !isStoredBuildDraftContext(value.request.build_draft_context,value.request)))
+    || ("retry_of" in value.request && (value.request.surface.surface_id!=='build'
+      || !hasExactKeys(value.request.retry_of,['turn_id','revision'])
+      || !commandUuid(value.request.retry_of.turn_id)||!isPositiveRevision(value.request.retry_of.revision)
+      || !isRecord(value.request.build_draft_context)||'reviewed_step' in value.request
+      || !isRecord(value.request.graph_request)||value.request.graph_request.mode!=='world'))
     || ("reviewed_step" in value.request && (value.request.surface.surface_id!=="build"
       || !hasExactKeys(value.request.reviewed_step,["conversation_id","source_turn_id","command_id"])
       || !commandUuid(value.request.reviewed_step.conversation_id)||!commandUuid(value.request.reviewed_step.source_turn_id)||!commandUuid(value.request.reviewed_step.command_id)
@@ -1498,6 +1506,14 @@ function isHistoryTurn(
   worldId: string,
 ): boolean {
   if (!isRecord(value)) return false;
+  if(Object.hasOwn(value,'retry_context')){
+    const {retry_context:retry,...envelope}=value;
+    if(!isRecord(retry)||typeof retry.conversation_id!=='string'||typeof value.turn_id!=='string')return false;
+    try{decodeRetryContext(retry,worldId,retry.conversation_id,value.turn_id);}catch{return false;}
+    return isRecord(value.provenance)&&value.provenance.surface_id==='build'
+      &&isRecord(value.provenance.primary_work)&&value.provenance.primary_work.kind==='build'
+      &&isHistoryTurn(envelope,schema,worldId);
+  }
   if (schema === 'dmb_agent_conversation_history_v4') {
     if (value.schema === 'dmb_agent_conversation_history_play_source_turn_v1') {
       if (!hasExactKeys(value,['schema','turn_id','sequence','lifecycle_status','user_text','assistant_text','provenance','idempotency_key','play_source_context'])
@@ -1658,6 +1674,7 @@ function isWorldConversationHistory(value: unknown): value is WorldAgentConversa
     if ((turn.schema === 'dmb_agent_conversation_history_mixed_turn_v1' || turn.schema === 'dmb_agent_conversation_history_play_rules_turn_v1')
       && (!isRecord(turn.rules_context) || !isRecord(turn.rules_context.accepted_binding)
         || turn.rules_context.accepted_binding.conversation_id !== value.conversation_id)) return false;
+    if(isRecord(turn.retry_context)&&turn.retry_context.conversation_id!==value.conversation_id)return false;
     previousSequence = turn.sequence;
     seenIds.add(turn.turn_id);
   }
@@ -3904,7 +3921,7 @@ export function WorldPlanAgentConversation({
       }
       const rejectedBeforeDispatch = reason instanceof LiveApiError
         && reason.code !== "local_graph_session_changed"
-        && (["play_context_unavailable", "world_owner_unverified", "build_source_unavailable", "build_editor_context_changed", "reviewed_step_unavailable"].includes(reason.code ?? "")
+        && (["play_context_unavailable", "world_owner_unverified", "build_source_unavailable", "build_editor_context_changed", "reviewed_step_unavailable", "build_retry_unavailable"].includes(reason.code ?? "")
           || reason.status === 401 || reason.status === 403);
       if (rejectedBeforeDispatch) {
         if (clearSavedPlayTurn(stored)) {
@@ -3939,7 +3956,7 @@ export function WorldPlanAgentConversation({
     }
   }
 
-  async function submitPlay(event?: Pick<FormEvent<HTMLFormElement>, "preventDefault">, discussionOnly = false, questionOverride?: string, explicitRequest?: SurfaceConversationRequest) {
+  async function submitPlay(event?: Pick<FormEvent<HTMLFormElement>, "preventDefault">, discussionOnly = false, questionOverride?: string, explicitRequest?: SurfaceConversationRequest, retryOf?:TurnRetryContext) {
     event?.preventDefault();
     if(surfacePreparationRef.current&&!explicitRequest)return;
     if (questionOverride === undefined) setRetryPresentationOrigin(null);
@@ -3954,6 +3971,7 @@ export function WorldPlanAgentConversation({
       return;
     }
     if (isBuild) {
+      if(retryOf&&!buildMode?.composeBridge)throw new Error('Open the page editor to capture the current working copy before retrying. Nothing was sent.');
       if (!visible || !source || source.worldId !== verifiedWorldId || !historySnapshotRef.current
         || historyLoading || historyError || !message || sending
         || requestRef.current || sharedConversation?.pendingTurn || pendingPlayTurn || pendingPlayLoadError) return;
@@ -3961,6 +3979,7 @@ export function WorldPlanAgentConversation({
       if(explicitRequest?.reviewedStep&&!useWorldGraphForAsk)throw new Error('Enable World context, then resume this step from its saved plan. Nothing was sent.');
       const request: WorldBuildAgentTurnRequestV1 = {
         ...(explicitRequest?.reviewedStep?{reviewed_step:explicitRequest.reviewedStep}:{}),
+        ...(retryOf?{retry_of:{turn_id:retryOf.turn_id,revision:retryOf.revision}}:{}),
         schema: "dmb_agent_turn_request_v1", client_thread_id: explicitRequest?.clientThreadId ?? crypto.randomUUID(), turn_id: explicitRequest?.turnId ?? crypto.randomUUID(),
         surface: { surface_id: "build", instance_id: source.surfaceInstanceId },
         owner_scope: { kind: "world", world_id: source.worldId },
@@ -5759,14 +5778,15 @@ export function WorldPlanAgentConversation({
             && turn.provenance.primary_work.object_id === (isBuild ? buildMode?.savedSource?.documentId : isReadOnly ? playMode?.admittedRun?.runId : documentId)
             ? graphContextForTurn(turn)?.receipt.assembled_input.assembler_version==='reviewed_author_admission_v1'
               ? <p>Use “Try step again” in the saved reviewed plan to retain this step’s action.</p>
-              : <ConversationRecovery question={turn.user_text} blocked={composerBusy}
+              : (!isBuild||turn.retry_context?.eligible) ? <ConversationRecovery question={turn.user_text} blocked={composerBusy}
                 onRetry={async(question)=>{
                   setRetryPresentationOrigin({scopeKey,turnId:turn.turn_id});
-                  if(isReadOnly)await submitPlay(undefined,false,question);
+                  if(isReadOnly)await submitPlay(undefined,false,question,undefined,isBuild?turn.retry_context??undefined:undefined);
                   else await submit({preventDefault:()=>undefined},"discuss",question);
-                }} /> : null}
+                }} /> : null : null}
           </div>
         ) : null}
+        {!historicalAttempt&&turn.retry_context&&<ConversationRetryAttempts context={turn.retry_context}/>}
         <div className="world-plan-agent-conversation__turn-debug">
           <details className="world-plan-agent-conversation__turn-details" onToggle={(event) => {
             const open = event.currentTarget.open;
@@ -5783,7 +5803,7 @@ export function WorldPlanAgentConversation({
                   : turn.provenance.surface_id === "play" ? "This reply stopped before it finished. No Run change was applied." : turn.provenance.surface_id === "build" ? "This reply stopped before it finished. Your saved source was not changed." : "This reply stopped before it finished. Your Plan was not changed."}
               </p>
             ) : null}
-            {openedTraceTurns[`${verifiedWorldId}\u001f${turn.turn_id}`] && previousAttempts.length ? <details>
+            {openedTraceTurns[`${verifiedWorldId}\u001f${turn.turn_id}`] && previousAttempts.length && !turn.retry_context ? <details>
               <summary>Previous attempts · {previousAttempts.length}</summary>
               {previousAttempts.map(attempt => renderConversationEvent(attempt, [], true))}
             </details> : null}
@@ -5811,9 +5831,11 @@ export function WorldPlanAgentConversation({
     ...groupConversationAttempts(conversationDisplay.events,
       event => event.kind === "world" ? event.turn : null,
       new Set(buildCompose.items.map(item=>item.afterSequence)))
-      .map(({item:event,previous}, index) => ({
+      .map(({item:event,previous,historical}, index) => ({
         order: event.kind === "world" ? event.turn.sequence : event.position.afterSequence + .25,
-        ordinal: index, element: renderConversationEvent(event, previous),
+        ordinal: index, element: historical
+          ? <details><summary>Earlier attempt of a request with a later response</summary>{renderConversationEvent(event,previous,true)}</details>
+          : renderConversationEvent(event, previous),
       })),
     ...buildCompose.items.map((item, index) => ({ order: item.afterSequence + .5, ordinal: index, element: item.element })),
   ].sort((left, right) => left.order - right.order || left.ordinal - right.ordinal);

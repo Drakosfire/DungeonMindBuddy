@@ -241,6 +241,7 @@ it('retires live construction across navigation and marks lost delivery incomple
  expect(hook.result.current.pageElement?.props.progress.status).toBe('building');
  act(()=>hook.result.current.finishConstruction('action'));
  expect(hook.result.current.pageElement?.props.progress.status).toBe('incomplete');
+ expect(hook.result.current.pageElement?.props.onVisible).toBeUndefined();
  expect(api.composeBuildProposal).not.toHaveBeenCalled();
  hook.rerender({doc:'other'});expect(hook.result.current.pageElement).toBeNull();
  hook.rerender({doc:'doc'});expect(hook.result.current.pageElement).toBeNull();

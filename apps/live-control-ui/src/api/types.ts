@@ -843,6 +843,7 @@ export type ReviewedStepReference = {conversation_id:string;source_turn_id:strin
 
 /** Build retains a verified saved basis and separately captured authored working context. */
 export interface WorldBuildAgentTurnRequestV1 {
+  retry_of?: {turn_id:string;revision:number};
   reviewed_step?: ReviewedStepReference;
   build_draft_context?: {snapshot:WorldBuildDraftSnapshotV1;conversation_id:string;expected_pointer_revision:number};
   build_write_capability?: Omit<import("./buildDocumentProposalApi").BuildProposalRequest, "instruction" | "origin">;
@@ -1421,6 +1422,7 @@ export type AgentConversationTurnLifecycleV1 =
   | "interrupted";
 
 export interface WorldAgentConversationHistoryTurnV1 {
+  retry_context?: import("./conversationRetryApi").TurnRetryContext | null;
   knowledge_context?: WorldBuildKnowledgeContextV1;
   turn_id: string;
   sequence: number;

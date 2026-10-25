@@ -1887,10 +1887,17 @@ export async function getWorldAgentConversationHistory(
   if (options.beforeSequence !== undefined) query.set("before_sequence", String(options.beforeSequence));
   if (options.includeTurnCorrelation === true) query.set("include_turn_correlation", "true");
   const suffix = query.size ? `?${query.toString()}` : "";
-  return apiFetch<WorldAgentConversationHistoryResponse>(
+  const page = await apiFetch<WorldAgentConversationHistoryResponse>(
     `/api/live/agent/worlds/${encodeURIComponent(worldId)}/conversation${suffix}`,
     options.signal ? { signal: options.signal } : undefined,
   );
+  const buildTurns = page.turns.filter(t=>t.provenance.surface_id==='build'&&t.provenance.primary_work.kind==='build');
+  if(options.includeTurnCorrelation&&page.conversation_id&&buildTurns.length){
+    const {readRetryContext}=await import('./conversationRetryApi');
+    const contexts=await readRetryContext(worldId,page.conversation_id,buildTurns.map(t=>t.turn_id),options.signal);
+    return {...page,turns:page.turns.map(t=>contexts.has(t.turn_id)?{...t,retry_context:contexts.get(t.turn_id)}:t)} as WorldAgentConversationHistoryResponse;
+  }
+  return page;
 }
 
 export async function postWorldCommandResolution(request: WorldCommandResolutionRequestV1): Promise<WorldCommandResolutionResponseV1> {

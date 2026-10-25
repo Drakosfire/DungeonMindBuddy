@@ -257,3 +257,14 @@ it.each(["run", "plan"])("passes initial Ingest %s cancellation only as transpor
   expect(fetch.mock.calls[0][1]?.body).toBeUndefined();
   const failure = expect(pending).rejects.toMatchObject({name:"AbortError"});controller.abort();await failure;
 });
+
+it('joins separately versioned retry context to exact Build history IDs',async()=>{
+ setNativeGraphAccessToken('test-token');
+ const cid='11111111-1111-4111-8111-111111111111',tid='22222222-2222-4222-8222-222222222222';
+ const retry={world_id:'world',conversation_id:cid,turn_id:tid,revision:7,root_id:tid,predecessor_id:null,successor_id:null,ordinal:0,eligible:true,reason:'ready'};
+ const fetch=vi.spyOn(globalThis,'fetch').mockResolvedValueOnce(jsonResponse({schema:'dmb_agent_conversation_history_v3',world_id:'world',conversation_state:'active',conversation_id:cid,active_conversation_id:cid,pointer_revision:1,next_before_sequence:null,turns:[{turn_id:tid,provenance:{surface_id:'build',primary_work:{kind:'build'}}}]}))
+ .mockResolvedValueOnce(jsonResponse({schema:'dmb_turn_retry_context_v1',world_id:'world',conversation_id:cid,turns:[{turn_id:tid,context:retry}]}));
+ const result=await getWorldAgentConversationHistory('world',{includeTurnCorrelation:true});
+ expect(result.turns[0].retry_context).toEqual(retry);expect(fetch).toHaveBeenCalledTimes(2);
+ expect(String(fetch.mock.calls[1][0])).toContain('/conversations/'+cid+'/retry-context?');
+});

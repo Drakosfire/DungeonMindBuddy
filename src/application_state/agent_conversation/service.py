@@ -813,6 +813,8 @@ class AgentConversationService:
                 raise ApplicationStateNotFoundError("conversation not found in verified World")
             if conversation.status != "active":
                 raise ApplicationStateConflictError("conversation is archived")
+            from .retry import validate_predecessor, retain_edge
+            retry_parent = validate_predecessor(conn, submission)
             advanced = repo.advance_conversation_for_turn(
                 conn,
                 world_id=world_id,
@@ -836,6 +838,7 @@ class AgentConversationService:
             )
             from .work_plan import retain_bound_intent
             retain_bound_intent(conn, admitted, submitted_intent_v2)
+            retain_edge(conn, admitted, retry_parent)
             return admitted
 
     def reconcile_turn(
@@ -1069,6 +1072,8 @@ class AgentConversationService:
                 )
             if turn.status == "completed":
                 return TurnClaimReceipt(disposition="completed", turn=turn)
+            from .retry import require_leaf
+            require_leaf(conn, turn)
             now = repo.database_clock(conn)
             if (
                 turn.status == "running"
@@ -2127,6 +2132,8 @@ class AgentConversationService:
                 raise ApplicationStateConflictError(
                     "completed turn has a different recorded result or a different claim fence"
                 )
+            from .retry import require_leaf
+            require_leaf(conn, turn)
             allowed_status = {"running", "interrupted"} if prepared_recovery else {"running"}
             if turn.revision != result.expected_revision or turn.status not in allowed_status:
                 raise ApplicationStateConflictError("turn revision or lifecycle state changed")
