@@ -182,6 +182,15 @@ export async function savePlacementOnPage<T>(expected:WorkPlanPlacement,rows:Wor
   let current=await session.read();
   if(!current||canonical(current)!==canonical(expected)||current.phase==='discarded')throw new Error('The placement changed. Inspect its current state before saving.');
   io.assertCurrent();
+  async function verifyAcknowledgedReview(placement:WorkPlanPlacement){
+   const plan=await io.readReview();io.assertCurrent();
+   if(!plan||plan.revision!==placement.acknowledged_review_revision||canonical(plan.steps)!==canonical(placement.rows)
+    ||plan.world_id!==placement.reference.world_id||plan.document_id!==placement.reference.document_id
+    ||plan.conversation_id!==placement.reference.conversation_id||plan.source_turn_id!==placement.reference.source_turn_id
+    ||plan.source_answer_sha256!==placement.reference.source_answer_sha256)
+    throw new Error('The acknowledged plan review changed. The earlier placement is retained; compare the reviews before continuing.');
+  }
+  if(current.prepared)await verifyAcknowledgedReview(current);
   const existing=await io.findSaved();io.assertCurrent();
   if(existing){
    if(current.prepared&&existing.body_sha256===current.prepared.after_draft_sha256){
@@ -209,7 +218,7 @@ export async function savePlacementOnPage<T>(expected:WorkPlanPlacement,rows:Wor
    const prepared=await io.prepare(current);io.assertCurrent();
    current=await session.change(current,{...current,phase:'applying',prepared:{apply_id:crypto.randomUUID(),before_editor_sha256:current.basis.editor_sha256!,before_draft_sha256:current.basis.draft_sha256,
     after_editor_sha256:prepared.after_editor_sha256,after_draft_sha256:prepared.after_draft_sha256}});
-   io.assertCurrent();io.apply(prepared.value);
+   await verifyAcknowledgedReview(current);io.assertCurrent();io.apply(prepared.value);
   }else{
    if(canonical(rows)!==canonical(current.rows))throw new Error('The earlier insertion must be checked before changing this object.');
    const inspected=await io.inspect(current);io.assertCurrent();

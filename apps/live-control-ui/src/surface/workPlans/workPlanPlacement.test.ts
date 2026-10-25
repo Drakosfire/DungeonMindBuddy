@@ -78,3 +78,15 @@ it('does not overwrite newer review rows or mutate the editor after failed recei
  const broken:PlacementStorage={getItem:storage.getItem,setItem:()=>{throw new Error('storage blocked');}};
  await expect(savePlacementOnPage(retained,rows,{...io,readReview:async()=>null},broken,locks)).rejects.toThrow(/storage blocked/);expect(applies).toBe(0);
 });
+
+it.each(['before','after','committed'])('refuses recovery against a newer review even when page is %s',async pageState=>{
+ const {savePlacementOnPage}=await import('./workPlanPlacement');
+ const retained=await applying();let applies=0,saves=0,reads=0;
+ const newer={schema:'dmb_reviewed_work_plan_v1' as const,world_id:ref.world_id,document_id:ref.document_id,conversation_id:ref.conversation_id,source_turn_id:ref.source_turn_id,source_answer_sha256:ref.source_answer_sha256,revision:2,steps:[{...rows[0],text:'Newer reviewed wording.'}],dispatches:[],execution:[]};
+ const before=data.get(placementKey(ref));
+ await expect(savePlacementOnPage(retained,rows,{assertCurrent:()=>{},readReview:async()=>{reads++;return newer;},saveReview:async()=>{throw new Error('must not overwrite');},
+  findSaved:async()=>pageState==='committed'?{revision:2,content_sha256:'f'.repeat(64),body_sha256:'f'.repeat(64)}:null,
+  prepare:async()=>({value:'prepared',after_editor_sha256:'e'.repeat(64),after_draft_sha256:'f'.repeat(64)}),inspect:async()=>pageState==='after'?'after':'before',
+  apply:()=>{applies++;},save:async()=>{saves++;return {revision:2,content_sha256:'f'.repeat(64)};}},storage,locks)).rejects.toThrow(/acknowledged plan review changed/);
+ expect(reads).toBe(1);expect(applies).toBe(0);expect(saves).toBe(0);expect(data.get(placementKey(ref))).toBe(before);
+});
