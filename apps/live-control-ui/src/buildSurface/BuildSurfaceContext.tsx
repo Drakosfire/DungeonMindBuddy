@@ -25,6 +25,7 @@ import {
   SurfaceContextValue,
   useSurfaceContextContribution,
 } from "../surfaceInteraction/contextHost";
+import { BuildConnectedPageControl } from "./BuildConnectedPageControl";
 import { BuildDocumentCreateControl } from "./BuildDocumentCreateControl";
 import { BuildDocumentRenameControl } from "./BuildDocumentRenameControl";
 import { BuildDocumentSelector } from "./BuildDocumentSelector";
@@ -299,5 +300,5 @@ export function BuildSurfaceContext({
     content,
   });
 
-  return null;
+  return <BuildConnectedPageControl selectDocument={selectDocument} refreshDocuments={refreshDocuments}/>;
 }

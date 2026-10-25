@@ -329,6 +329,7 @@ function requestBodyRecord(body: BodyInit | null | undefined): Record<string, un
 
 function requiresNativeGraphAuthorization(path: string, body: BodyInit | null | undefined): boolean {
   const pathname = path.split("?", 1)[0];
+  if (/^\/api\/live\/connected-pages\/(?:prepare|confirm|[a-f0-9]{8}-(?:[a-f0-9]{4}-){3}[a-f0-9]{12})$/i.test(pathname)) return true;
   if (/^\/api\/live\/world-plan-edit\/actions\/[^/]+\/terminal-diagnostic$/.test(pathname)) return true;
   if (/^\/api\/live\/world-plan-edit\/actions\/[^/]+\/prompts(?:\/[^/]+)?$/.test(pathname)) return true;
   if (/^\/api\/live\/rules\/(?:catalog|query|passages\/[a-f0-9]{64})$/.test(pathname)) return true;

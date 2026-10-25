@@ -1,3 +1,4 @@
+import {useSurfaceConversationRequests,claimSurfaceConversationRequest,acceptSurfaceConversationRequest,failSurfaceConversationRequest,retrySurfaceConversationRequest,cancelSurfaceConversationRequest,cancelSurfaceConversationTarget,ownsSurfaceConversationRequest,type SurfaceConversationRequest} from '../../agentInteraction/surfaceConversationRequests';
 import { groupConversationAttempts, isUnansweredFailure } from "../../agentInteraction/conversationAttemptGroups";
 import {isSurfaceEvidenceCompletion,surfaceEvidenceReceiptBound} from "../../shared/surfaceEvidenceProtocol";
 import {SurfaceEvidenceAnswer} from "./SurfaceEvidenceAnswer";
@@ -2314,6 +2315,15 @@ export function WorldPlanAgentConversation({
   const askSlot = useAskPluginSlotOptional();
   const verifiedWorldId = selectedWorld.kind === "managed" ? selectedWorld.worldId : null;
   const isBuild = buildMode !== null;
+  const surfaceRequests = useSurfaceConversationRequests();
+  const surfacePreparationRef = useRef(false);
+  const [surfacePreparing,setSurfacePreparing] = useState(false);
+  const surfaceVisibleRef = useRef(visible);surfaceVisibleRef.current=visible;
+  const surfaceObjectId=buildMode?.savedSource?.documentId;
+  useEffect(()=>{
+    if(!isBuild||!verifiedWorldId||!surfaceObjectId)return;
+    return()=>cancelSurfaceConversationTarget(verifiedWorldId,'build',surfaceObjectId);
+  },[isBuild,verifiedWorldId,surfaceObjectId]);
   const isReadOnly = playMode !== null || isBuild;
   const currentReadOnlyContext = isBuild ? buildMode?.savedSource : playMode?.admittedRun;
   const planReady = Boolean(!isReadOnly && pageReady
@@ -3886,8 +3896,9 @@ export function WorldPlanAgentConversation({
     }
   }
 
-  async function submitPlay(event?: Pick<FormEvent<HTMLFormElement>, "preventDefault">, discussionOnly = false, questionOverride?: string) {
+  async function submitPlay(event?: Pick<FormEvent<HTMLFormElement>, "preventDefault">, discussionOnly = false, questionOverride?: string, explicitRequest?: SurfaceConversationRequest) {
     event?.preventDefault();
+    if(surfacePreparationRef.current&&!explicitRequest)return;
     if (questionOverride === undefined) setRetryPresentationOrigin(null);
     const admittedRun = playMode?.admittedRun;
     const source = buildMode?.savedSource;
@@ -3905,7 +3916,7 @@ export function WorldPlanAgentConversation({
         || requestRef.current || sharedConversation?.pendingTurn || pendingPlayTurn || pendingPlayLoadError) return;
       if (discussionOnly && !visibleBuildPlacementFailure) return;
       const request: WorldBuildAgentTurnRequestV1 = {
-        schema: "dmb_agent_turn_request_v1", client_thread_id: crypto.randomUUID(), turn_id: crypto.randomUUID(),
+        schema: "dmb_agent_turn_request_v1", client_thread_id: explicitRequest?.clientThreadId ?? crypto.randomUUID(), turn_id: explicitRequest?.turnId ?? crypto.randomUUID(),
         surface: { surface_id: "build", instance_id: source.surfaceInstanceId },
         owner_scope: { kind: "world", world_id: source.worldId },
         primary_work: { kind: "build", object_id: source.documentId, expected_revision: source.revision, expected_content_sha256: source.contentSha256 },
@@ -3960,6 +3971,7 @@ export function WorldPlanAgentConversation({
           || historySnapshotRef.current?.pointer_revision!==request.build_draft_context?.expected_pointer_revision
           || (questionOverride === undefined && composerEditGenerationRef.current !== generation)) return;
       }
+      if(explicitRequest&&!ownsSurfaceConversationRequest(explicitRequest))return;
       setBuildPlacementFailure(null);
       const storageKey = pendingPlayTurnStorageKey(source.worldId);
       const serialized = JSON.stringify({ schema: "dmb_world_play_pending_turn_v1", request });
@@ -3968,6 +3980,7 @@ export function WorldPlanAgentConversation({
         window.localStorage.setItem(storageKey, serialized);
         if (window.localStorage.getItem(storageKey) !== serialized) throw new Error("Could not preserve the exact request.");
       } catch (reason) { setError(String(reason)); return; }
+      if(explicitRequest)acceptSurfaceConversationRequest(explicitRequest.id);
       const stored = { storageKey, serialized, request };
       setPendingPlayTurn(stored);
       if(composerEditGenerationRef.current===composerGenerationAtSubmit)setComposerMessage(current => current.trim() === message ? "" : current);
@@ -5328,6 +5341,34 @@ export function WorldPlanAgentConversation({
   const presentAvailability = (message: string) => presentationHosts?.composer
     ? createPortal(<p className="world-plan-agent-draft-note" role="status">{message}</p>, presentationHosts.composer)
     : null;
+  const requestedSurfaceTurn = surfaceRequests.find(item=>isBuild&&item.surfaceId==='build'
+    &&item.worldId===verifiedWorldId&&item.objectId===buildMode?.savedSource?.documentId);
+  useEffect(()=>{
+    const source=buildMode?.savedSource;
+    if(!visible||!isBuild||!source||!requestedSurfaceTurn||requestedSurfaceTurn.status!=='pending'
+      ||historyLoading||!historySnapshotRef.current||pendingPlayLoadedWorldId!==verifiedWorldId)return;
+    if(sending||composing||buildCompose.busy||requestRef.current||sharedConversation?.pendingTurn||pendingPlayTurn||pendingPlayLoadError||historyError){
+      const occupied=claimSurfaceConversationRequest(requestedSurfaceTurn.id);
+      if(occupied){failSurfaceConversationRequest(occupied.id);setError('Finish or recover the current reply, then try build out.');}
+      return;
+    }
+    if(!useWorldGraphForAsk){setUseWorldGraphForAsk(true);return;}
+    const request=claimSurfaceConversationRequest(requestedSurfaceTurn.id);
+    if(!request)return;
+    surfacePreparationRef.current=true;setSurfacePreparing(true);
+    void (async()=>{
+      try{
+        await request.prepare?.({bridge:buildMode?.composeBridge,source});
+        if(!ownsSurfaceConversationRequest(request)||!request.isCurrent()||!surfaceVisibleRef.current||!latestRef.current.mounted||latestRef.current.verifiedWorldId!==request.worldId
+          ||latestRef.current.buildPlacementBridge!==buildMode?.composeBridge)return;
+        await submitPlay(undefined,false,request.message,request);
+      }catch(reason){if(latestRef.current.mounted&&request.isCurrent())setError(reason instanceof Error?reason.message:'Build out could not start.');}
+      finally{surfacePreparationRef.current=false;if(latestRef.current.mounted)setSurfacePreparing(false);if(ownsSurfaceConversationRequest(request))failSurfaceConversationRequest(request.id);}
+    })();
+  },[requestedSurfaceTurn,visible,isBuild,buildMode?.savedSource,buildMode?.composeBridge,sending,composing,
+    buildCompose.busy,sharedConversation?.pendingTurn,pendingPlayTurn,pendingPlayLoadError,historyLoading,historyError,
+    pendingPlayLoadedWorldId,verifiedWorldId,useWorldGraphForAsk]);
+
   if (!visible) return null;
   if (!isReadOnly && !pageReady) return presentAvailability("Loading Plan conversation context…");
   if (!isReadOnly && !documentId) {
@@ -5380,7 +5421,7 @@ export function WorldPlanAgentConversation({
   const buildSourceMissing = isBuild && !buildMode?.savedSource;
   const pendingPlayRecoveryHydrating = Boolean(verifiedWorldId && pendingPlayLoadedWorldId !== verifiedWorldId);
   const composerBusy = isReadOnly
-    ? buildCompose.busy || playCompose.busy || sending || (Boolean(sharedConversation?.pendingTurn) || Boolean(pendingPlayTurn) || Boolean(pendingPlayLoadError))
+    ? surfacePreparing || buildCompose.busy || playCompose.busy || sending || (Boolean(sharedConversation?.pendingTurn) || Boolean(pendingPlayTurn) || Boolean(pendingPlayLoadError))
       || historyLoading || !history || Boolean(historyError) || !currentReadOnlyContext || pendingPlayRecoveryHydrating
     : intentBusy || Boolean(sharedConversation?.pendingTurn) || Boolean(pendingPlayTurn) || Boolean(pendingPlayLoadError)
       || pendingPlayRecoveryHydrating
@@ -5682,7 +5723,7 @@ export function WorldPlanAgentConversation({
     ? "A new conversation is already starting."
     : pendingNewConversation
       ? "A previous new-conversation request is awaiting confirmation. Check its status before starting another."
-    : sending || composing || Boolean(sharedConversation?.pendingTurn) || Boolean(pendingPlayTurn) || Boolean(pendingPlayLoadError)
+    : surfacePreparing || sending || composing || Boolean(sharedConversation?.pendingTurn) || Boolean(pendingPlayTurn) || Boolean(pendingPlayLoadError)
         ? "Wait for the current message to finish before starting a new conversation."
         : historyLoading
           ? "Conversation history is still loading."
@@ -6131,6 +6172,10 @@ export function WorldPlanAgentConversation({
   );
   const composer = (
     <section className="world-plan-agent-conversation__composer" aria-label="Conversation composer">
+      {requestedSurfaceTurn?.status==='failed'&&<div role="status">
+        <button type="button" onClick={()=>retrySurfaceConversationRequest(requestedSurfaceTurn.id)}>↻ Try build out</button>
+        <button type="button" onClick={()=>cancelSurfaceConversationRequest(requestedSurfaceTurn.id)}>Dismiss</button>
+      </div>}
       {sharedConversation?.worldId === worldId && sharedConversation.composerDraftWarning
         ? <p role="status">{sharedConversation.composerDraftWarning}</p> : null}
 

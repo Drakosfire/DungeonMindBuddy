@@ -2480,6 +2480,7 @@ export interface WorkspaceDocumentRecord {
   document_class?: string | null;
   authority_state?: WorldbuildingAuthorityState | null;
   visibility_state?: WorldbuildingVisibilityState | null;
+  connected_page_operation_id?: string | null;
 }
 
 export interface WorkspaceDocumentsListResponse {

@@ -275,7 +275,7 @@ export interface BuildWorkspaceDocumentController {
   createError: string | null;
   activationError: string | null;
   importError: string | null;
-  selectDocument: (documentId: string) => void;
+  selectDocument: (documentId: string) => Promise<boolean>;
   createDocument: (payload: {
     starter?: boolean;
     title: string;
@@ -505,9 +505,9 @@ export function useBuildWorkspaceDocumentController(): BuildWorkspaceDocumentCon
   }, [loadBuildDocument]);
 
   const selectDocument = useCallback(
-    (documentId: string) => {
-      if (typeof window === "undefined") return;
-      if (documentId === activeRecordRef.current?.document_id && !switchingRef.current) return;
+    async (documentId: string) => {
+      if (typeof window === "undefined") return false;
+      if (documentId === activeRecordRef.current?.document_id && !switchingRef.current) return true;
       createControllerRef.current.supersedePendingCreateIntent();
       setCreateError(null);
       setActivationError(null);
@@ -528,7 +528,7 @@ export function useBuildWorkspaceDocumentController(): BuildWorkspaceDocumentCon
         documentId,
         campaignHint,
       );
-      void loadBuildDocument(search, { mode: "push", search });
+      return loadBuildDocument(search, { mode: "push", search });
     },
     [documents, loadBuildDocument, persistPendingImportDocumentId],
   );

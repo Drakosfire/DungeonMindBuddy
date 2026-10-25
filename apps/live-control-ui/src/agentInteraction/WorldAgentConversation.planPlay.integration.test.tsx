@@ -1,3 +1,4 @@
+import {queueSurfaceConversationRequest,cancelSurfaceConversationRequest,claimSurfaceConversationRequest} from "./surfaceConversationRequests";
 import { COMPOSER_DRAFT_WRITE_WARNING } from "./conversationComposerDrafts";
 import { listBuildProposals } from "../api/buildDocumentProposalApi";
 vi.mock("../api/buildDocumentProposalApi", async (original) => ({
@@ -136,11 +137,11 @@ function PlayPublisher({ admitted, sessionCopy = false, editContent }: { admitte
   usePublishWorldPlayConversation(run, sessionCopy ? SESSION_COPY_AGENT_UNAVAILABLE : null);
   return null;
 }
-function BuildPublisher({ admitted, bridge, sourceRevision = 2 }: { admitted: boolean; bridge?: BuildComposeBridge | null; sourceRevision?: number }) {
+function BuildPublisher({ admitted, bridge, sourceRevision = 2, sourceId='source-one' }: { admitted: boolean; bridge?: BuildComposeBridge | null; sourceRevision?: number;sourceId?:string }) {
   const surface = useMemo(() => ({ surfaceId: "build" as const, label: "Build", campaignId: null,
-    documentId: "source-one", sessionNumber: null, ambientSummary: "Saved source", sourceEnvelope: null }), []);
-  const source = useMemo(() => admitted ? ({ worldId: WORLD, documentId: "source-one", revision: sourceRevision,
-    contentSha256: SHA, surfaceInstanceId: "build-instance", title: "City of Mirathorn", dirty: true }) : null, [admitted, sourceRevision]);
+    documentId: sourceId, sessionNumber: null, ambientSummary: "Saved source", sourceEnvelope: null }), [sourceId]);
+  const source = useMemo(() => admitted ? ({ worldId: WORLD, documentId: sourceId, revision: sourceRevision,
+    contentSha256: SHA, surfaceInstanceId: "build-instance", title: "City of Mirathorn", dirty: true }) : null, [admitted, sourceRevision,sourceId]);
   usePublishAgentSurfaceContext(surface);
   return <DocumentConversationDock surface="build" contextLabel="City of Mirathorn" reader={<div>Build source projection</div>}>
     {hosts => <BuildHarnessBinding source={source} hosts={hosts} bridge={bridge} />}
@@ -178,8 +179,8 @@ function SceneEditorFixture({ content, allowed, onUnsubmitted }: { content: Play
   return <SurfaceContextProvider><PlaySessionContentEditor content={accepted} currentSceneId="scene:gate" runRevision={3}
     canPropose={allowed} originLabel="From Plan" onAcceptedContent={setAccepted} onUnsubmittedChange={onUnsubmitted} /></SurfaceContextProvider>;
 }
-function Harness({ initial = "plan", admitted = true, editBridge = null, editContent, buildBridge, buildSourceRevision }: {
-  initial?: "plan" | "play" | "build"; admitted?: boolean; editBridge?: WorldPlanEditBridge | null; editContent?: PlayRunContent; buildBridge?: BuildComposeBridge | null; buildSourceRevision?: number;
+function Harness({ initial = "plan", admitted = true, editBridge = null, editContent, buildBridge, buildSourceRevision,buildSourceId }: {
+  initial?: "plan" | "play" | "build"; admitted?: boolean; editBridge?: WorldPlanEditBridge | null; editContent?: PlayRunContent; buildBridge?: BuildComposeBridge | null; buildSourceRevision?: number;buildSourceId?:string;
 }) {
   const [surface, setSurface] = useState(initial);
   const [sessionCopy, setSessionCopy] = useState(false);
@@ -192,7 +193,7 @@ function Harness({ initial = "plan", admitted = true, editBridge = null, editCon
       <button type="button" onClick={() => { selectedWorld.id = "world-two"; setWorld("world-two"); }}>Switch World</button>
       <button type="button" onClick={() => setSessionCopy(value => !value)}>Use session copy</button>
       <ProposalFixture /><NewerPendingFixture />
-      {surface === "plan" ? <PlanPublisher documentId={documentId} editBridge={editBridge} /> : surface === "build" ? <BuildPublisher admitted={admitted && world === WORLD} bridge={buildBridge} sourceRevision={buildSourceRevision} /> : <PlayPublisher admitted={admitted && world === WORLD} sessionCopy={sessionCopy} editContent={editContent} />}
+      {surface === "plan" ? <PlanPublisher documentId={documentId} editBridge={editBridge} /> : surface === "build" ? <BuildPublisher admitted={admitted && world === WORLD} bridge={buildBridge} sourceRevision={buildSourceRevision} sourceId={buildSourceId} /> : <PlayPublisher admitted={admitted && world === WORLD} sessionCopy={sessionCopy} editContent={editContent} />}
       {editContent ? <SceneEditorFixture content={editContent} allowed={!sessionCopy} onUnsubmitted={setSessionCopy} /> : null}
       <AgentInteractionChrome />
       <WorldAgentConversation surface={surface} worldId={world} worldName="Test World" />
@@ -482,6 +483,49 @@ describe("one App-level World conversation host across Plan and Play", () => {
   });
 
 
+
+  it('retires an authoring gesture on document departure while history is still loading',async()=>{
+    let finish!:(value:ReturnType<typeof history>)=>void;
+    vi.mocked(getWorldAgentConversationHistory).mockImplementation(()=>new Promise(resolve=>{finish=resolve;}));
+    const view=render(<Harness initial="build"/>);fireEvent.click(await screen.findByRole('button',{name:'Open',exact:true}));
+    await waitFor(()=>expect(getWorldAgentConversationHistory).toHaveBeenCalled());
+    const prepare=vi.fn(async()=>{});
+    act(()=>queueSurfaceConversationRequest({id:'connected-departure',worldId:WORLD,surfaceId:'build',objectId:'source-one',message:'Build out',clientThreadId:'thread',turnId:'turn',isCurrent:()=>true,prepare}));
+    view.rerender(<Harness initial="build" buildSourceId="source-two"/>);
+    view.rerender(<Harness initial="build" buildSourceId="source-one"/>);
+    await act(async()=>{finish(history());});
+    expect(claimSurfaceConversationRequest('connected-departure')).toBeNull();expect(prepare).not.toHaveBeenCalled();expect(postWorldBuildAgentTurn).not.toHaveBeenCalled();
+  });
+  it('hands one explicit authoring gesture to durable Build submission without replacing composer text',async()=>{
+    const bridge:BuildComposeBridge={captureContext:vi.fn(async()=>draftSnapshot()),capture:vi.fn(async()=>insertionCapture()),insert:vi.fn()};
+    vi.mocked(postWorldBuildAgentTurn).mockImplementation(()=>new Promise(()=>{}));
+    render(<Harness initial="build" buildBridge={bridge}/>);
+    fireEvent.click(await screen.findByRole('button',{name:'Open',exact:true}));
+    const input=await screen.findByLabelText('Message DungeonBuddy');await waitFor(()=>expect(input).toBeEnabled());
+    fireEvent.change(input,{target:{value:'Keep my own next question'}});
+    const prepare=vi.fn(async()=>{});
+    act(()=>queueSurfaceConversationRequest({id:'connected-integration',worldId:WORLD,surfaceId:'build',objectId:'source-one',
+      message:'Build out the selected starter sections.',clientThreadId:'11111111-1111-4111-8111-111111111111',
+      turnId:'22222222-2222-4222-8222-222222222222',isCurrent:()=>true,prepare}));
+    await waitFor(()=>expect(postWorldBuildAgentTurn).toHaveBeenCalledTimes(1));
+    const request=vi.mocked(postWorldBuildAgentTurn).mock.calls[0][0];
+    expect(request.turn_id).toBe('22222222-2222-4222-8222-222222222222');
+    expect(request.message).toBe('Build out the selected starter sections.');
+    expect(request.build_write_capability).toBeDefined();expect(prepare).toHaveBeenCalledTimes(1);
+    expect(input).toHaveValue('Keep my own next question');
+    const stored=JSON.parse(localStorage.getItem(`dmb:world-play-pending-turn:v1:${encodeURIComponent(WORLD)}`)!);
+    expect(stored.request).toEqual(request);cancelSurfaceConversationRequest('connected-integration');
+  });
+  it('offers an explicit retry when an authoring gesture cannot prepare, without a request loop',async()=>{
+    const bridge:BuildComposeBridge={captureContext:vi.fn(async()=>draftSnapshot()),capture:vi.fn(async()=>insertionCapture()),insert:vi.fn()};
+    render(<Harness initial="build" buildBridge={bridge}/>);fireEvent.click(await screen.findByRole('button',{name:'Open',exact:true}));
+    await waitFor(()=>expect(screen.getByLabelText('Message DungeonBuddy')).toBeEnabled());
+    const prepare=vi.fn(async()=>{throw new Error('The created page changed.');});
+    act(()=>queueSurfaceConversationRequest({id:'connected-failure',worldId:WORLD,surfaceId:'build',objectId:'source-one',message:'Build out',
+      clientThreadId:'thread',turnId:'turn',isCurrent:()=>true,prepare}));
+    await screen.findByRole('button',{name:'↻ Try build out'});expect(prepare).toHaveBeenCalledTimes(1);expect(postWorldBuildAgentTurn).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole('button',{name:'Dismiss'}));cancelSurfaceConversationRequest('connected-failure');
+  });
 
   it.each(['rejected','undefined'] as const)('preserves a Build placement request before dispatch when capture is %s',async mode=>{
     const capture=vi.fn(async()=>{throw new Error('Place the caret where the new text should go.');});
