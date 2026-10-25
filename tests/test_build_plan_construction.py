@@ -129,3 +129,29 @@ def test_all_supported_typed_plan_policies_use_closed_schema_owner():
         assert issubclass(
             getattr(t, name), t.BuildCitedSourceActionControllerWriterPolicyV1
         )
+
+
+@pytest.mark.parametrize('objective_first',[True,False])
+def test_objective_stream_holds_rows_until_complete_real_outcome(objective_first):
+    objective='A useful “hinge” repair scene 雪😀.'
+    values={'objective':objective,'steps':ROWS} if objective_first else {'steps':ROWS,'objective':objective}
+    decoder=PlanStepProgress(objective_required=True)
+    raw=json.dumps({'collaboration':{'kind':'plan',**values}},ensure_ascii=True)
+    observed=[]
+    for c in raw:
+        if decoder.feed(c):
+            observed.append((decoder.objective,decoder.steps))
+    assert decoder.root_done and not decoder.invalid
+    assert decoder.objective==objective and decoder.steps==ROWS
+    assert all(not rows or outcome==objective for outcome,rows in observed)
+    assert any(outcome==objective for outcome,_ in observed)
+
+
+def test_blank_duplicate_and_nontext_objectives_cannot_be_observed():
+    for value in ['   ',None,[],{}]:
+        decoder=PlanStepProgress(objective_required=True)
+        decoder.feed(json.dumps({'collaboration':{'kind':'plan','objective':value,'steps':ROWS}}))
+        assert decoder.invalid and decoder.steps==[]
+    decoder=PlanStepProgress(objective_required=True)
+    decoder.feed('{"collaboration":{"kind":"plan","objective":"Original","objective":"Changed","steps":[]}}')
+    assert decoder.invalid and decoder.objective=='Original'

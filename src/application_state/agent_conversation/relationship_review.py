@@ -43,3 +43,6 @@ def validate_quote(proposal, rows):
     start = text.find(proposal.quote)
     if start < 0 or text.find(proposal.quote, start + 1) >= 0:
         raise ValueError("Relationship review needs one exact quote in its saved section")
+
+from .collaboration import ProposedPlanV2
+RelationshipCollaborationV2 = ProposedPlanV2 | ProposedQuestions | ProposedConnectedPage | ProposedRelationship

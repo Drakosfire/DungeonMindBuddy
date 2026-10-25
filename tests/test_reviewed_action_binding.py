@@ -32,7 +32,7 @@ def reviewed_case(build_case, monkeypatch, kind="prepare_insertion"):
     running=service.begin_turn('elderwyld',cid,plan_turn.turn_id,expected_revision=plan_turn.revision)
     plan_turn=service.complete_turn(TurnResult(world_id='elderwyld',conversation_id=cid,turn_id=running.turn_id,expected_revision=running.revision,assistant_text='Prepare a proposed NPC table.'))
     step = w.Step(step_id=uuid4(),text='Prepare a proposed NPC table.',selected=True,kind=kind)
-    plan = w.save('elderwyld',cid,plan_turn.turn_id,w.Review(expected_revision=0,steps=[step]))
+    plan = w.save('elderwyld',cid,plan_turn.turn_id,w.ReviewV2(expected_revision=0,steps=[step],objective="Develop useful proposed shop content for author review."))
     continued = w.continue_step('elderwyld',cid,plan_turn.turn_id,w.Continue(expected_revision=plan['revision'],step_id=step.step_id,command_id=uuid4()))
     d=continued['dispatch']
     cap=request.build_write_capability
@@ -230,3 +230,41 @@ def test_app_rejects_reviewed_capability_policy_mismatch_before_admission(build_
         decision_transport=DecisionWire(), writer_transport=WriterWire())
     execute(case, tmp_path, harness)
     assert checked == [True]
+
+
+
+def test_reviewed_answer_plan_has_real_objective_stream_without_intent_reclassification(build_case,monkeypatch,tmp_path):
+    import json
+    import httpx
+    from application_state.agent_conversation import types as t
+    from apps.live_control_server.services import build_related_pages
+    from apps.live_control_server.services.build_construction_stream import construction_sink
+    from tests.test_build_world_context import WorldDecisions
+    case=reviewed_case(build_case,monkeypatch,kind='discuss')
+    monkeypatch.setattr(build_related_pages,'discover',lambda _:[])
+    class PlanWriter(WriterWire):
+        async def handle_async_request(self,request):
+            response=await super().handle_async_request(request)
+            wire=json.loads(request.content)
+            assert wire['stream'] is True and wire['text']['format']['name']=='build_working_draft_answer_v6'
+            terminal=json.loads(response.content.decode().strip().split('data: ')[-1])
+            data=terminal['response']
+            raw=json.dumps({'answer_context_status':'creative_proposal','answer_segments':[{'kind':'suggestion','text':'Review this plan.'}],
+                'limitations':[],'requested_detail_gaps':[], 'collaboration':{'kind':'plan','objective':'Develop an author-reviewed shop scene.',
+                'steps':[{'text':'Discuss the shopkeeper.','kind':'discuss'}]}})
+            data['output'][0]['content'][0]['text']=raw
+            events=[{'type':'response.output_text.delta','sequence_number':i+1,'item_id':'msg','output_index':0,'content_index':0,'delta':raw[i:i+1]} for i in range(len(raw))]
+            events.append({'type':'response.completed','sequence_number':len(events)+1,'response':data})
+            return httpx.Response(200,request=request,headers={'content-type':'text/event-stream'},content=''.join('data: '+json.dumps(e)+'\n\n' for e in events).encode())
+    writer=PlanWriter();decisions=WorldDecisions();seen=[]
+    harness=BuildJevHarness(world_context=True,named_citations=True,related_pages=True,accounting=counter(),decision_transport=decisions,writer_transport=writer)
+    token=construction_sink.set(seen.append)
+    try:
+        response=execute(case,tmp_path,harness)
+    finally:
+        construction_sink.reset(token)
+    completion=response.knowledge_context.completion
+    assert isinstance(completion,t.BuildRelationshipReviewCompletionV2)
+    assert completion.collaboration.objective=='Develop an author-reviewed shop scene.'
+    assert seen and seen[-1]['objective']==completion.collaboration.objective and seen[-1]['steps']
+    assert all(not ({'operation','requested_work'} & set(json.loads(call.content)['questions'])) for call in decisions.calls)

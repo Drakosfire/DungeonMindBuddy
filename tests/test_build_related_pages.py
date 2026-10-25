@@ -286,6 +286,7 @@ def completed(build_case, monkeypatch, tmp_path, request):
     if mode in {'typed_plan', 'typed_plan_only', 'typed_plan_empty', 'typed_plan_bad_schema'}:
         writer.collaboration = {
             "kind": "plan",
+            "objective": "Prepare a useful, author-reviewed hook-repair description without inventing played events.",
             "steps": [
                 {"text": "Discuss Copper House’s actual task.", "kind": "discuss"},
                 {
@@ -602,7 +603,7 @@ def test_typed_workflow_survives_actual_writer_and_app_admission(completed):
     assert (
         packet["collaboration_output_policy"] == "typed_author_review_collaboration_v1"
     )
-    assert request["text"]["format"]["name"] == "build_intentional_response_answer_v1"
+    assert request["text"]["format"]["name"] == ("build_intentional_response_answer_v2" if "plan_output_contract" in packet else "build_intentional_response_answer_v1")
     assert turn.completion.collaboration.model_dump(mode="json") == writer.collaboration
     reloaded = service.list_turns(turn.world_id, turn.conversation_id)[0]
     assert reloaded.completion == turn.completion
@@ -611,7 +612,7 @@ def test_typed_workflow_survives_actual_writer_and_app_admission(completed):
     )
 
     fmt = request["text"]["format"]
-    with pytest.raises(ValueError, match="format differs"):
+    with pytest.raises(ValueError, match="format") :
         validate_writer_format({**fmt, "name": "build_working_draft_answer_v1"}, packet)
     historical = turn.completion.model_dump(mode="json", by_alias=True)
     historical["schema"] = "dmb_build_related_page_completion_v1"
@@ -729,7 +730,7 @@ def test_relationship_review_survives_actual_sdk_app_history_and_refuses_tampere
     assert isinstance(turn.completion, t.BuildIntentionalResponseCompletionV1)
     assert turn.completion.collaboration.model_dump(mode="json") == writer.collaboration
     wire=json.loads(writer.calls[0].content)
-    assert wire["text"]["format"]["name"] == "build_intentional_response_answer_v1"
+    assert wire["text"]["format"]["name"] == ("build_intentional_response_answer_v2" if "plan_output_contract" in json.loads(wire["input"]) else "build_intentional_response_answer_v1")
     assert json.loads(wire["input"])["relationship_review_policy"] == "typed_saved_relationship_review_v1"
     loaded=service.list_turns(turn.world_id,turn.conversation_id)[0]
     assert loaded.completion == turn.completion
@@ -778,7 +779,7 @@ def test_object_only_plan_seeds_existing_review_owner_with_exact_empty_text_dige
         turn.world_id,
         turn.conversation_id,
         turn.turn_id,
-        owner.Review(expected_revision=0, steps=steps),
+        owner.ReviewV2(expected_revision=0, steps=steps, objective=turn.completion.collaboration.objective),
     )
     assert saved["source_answer_sha256"] == sha256(b"").hexdigest()
     assert (
@@ -800,7 +801,8 @@ def test_stream_plan_rows_precede_real_app_admission_and_exact_producer_reopens(
         request["stream"] is True and request["text"]["format"]["type"] == "json_schema"
     )
     values = writer.progress_snapshots
-    assert [len(p["steps"]) for p, _ in values] == [1, 2]
+    assert [len(p["steps"]) for p, _ in values] == [0, 1, 2]
+    assert all(p["objective"] == turn.completion.collaboration.objective for p,_ in values)
     assert all(
         status == "running" and p["status"] == "building" for p, status in values
     )
@@ -904,3 +906,39 @@ def test_actual_sdk_refuses_a_stream_flag_different_from_frozen_parent(completed
 
     asyncio.run(run())
     assert calls == []
+
+
+@pytest.mark.parametrize('completed',['typed_plan_only'],indirect=True)
+def test_objective_contract_producer_and_installed_constraints_reject_tampering(completed,application_state_dsn):
+    from copy import deepcopy
+    import psycopg
+    from psycopg.types.json import Jsonb
+    turn,service,*_=completed
+    original=turn.model_dump(mode='json',by_alias=True)
+    marker=next(e for e in original['graph_context_execution']['events'] if e['kind']=='build_plan_output_contract_v1')
+    assert turn.completion.schema_=='dmb_build_intentional_response_completion_v2'
+    for field in ('selection_sha256','working_snapshot_sha256','destination_capability_sha256','plan_schema_sha256'):
+        changed=deepcopy(original)
+        next(e for e in changed['graph_context_execution']['events'] if e['kind']==marker['kind'])[field]='0'*64
+        with pytest.raises(ValueError):t.Turn.model_validate(changed)
+    changed=deepcopy(original)
+    changed['completion']['schema']='dmb_build_intentional_response_completion_v1'
+    with pytest.raises(ValueError):t.Turn.model_validate(changed)
+    with psycopg.connect(application_state_dsn) as conn:
+        stored=conn.execute('SELECT completion FROM agent.turn WHERE turn_id=%s',(turn.turn_id,)).fetchone()[0]
+        for value in (None,'', '   '):
+            changed=deepcopy(stored)
+            if value is None:changed['collaboration'].pop('objective')
+            else:changed['collaboration']['objective']=value
+            with pytest.raises(psycopg.errors.CheckViolation):
+                with conn.transaction():conn.execute('UPDATE agent.turn SET completion=%s WHERE turn_id=%s',(Jsonb(changed),turn.turn_id))
+    from sqlalchemy import create_engine
+    from alembic.migration import MigrationContext
+    from alembic.operations import Operations
+    from importlib import import_module
+    engine=create_engine(application_state_dsn.replace('postgresql://','postgresql+psycopg://'))
+    try:
+        with engine.begin() as conn,Operations.context(MigrationContext.configure(conn)):
+            with pytest.raises(RuntimeError,match='recovery forward'):
+                import_module('application_state.migrations.versions.20261025_0072_plan_objective').downgrade()
+    finally:engine.dispose()

@@ -6,7 +6,9 @@ import json
 class PlanStepProgress:
     """Single pass over JSON tokens, retaining only complete direct plan steps."""
 
-    def __init__(self, collaboration_path=("collaboration",)):
+    def __init__(self, collaboration_path=("collaboration",), *, objective_required=False):
+        self.objective_required = objective_required
+        self.objective = None
         self.collaboration_path = collaboration_path
         self.steps_path = (*collaboration_path, "steps")
         self.stack = []
@@ -22,7 +24,7 @@ class PlanStepProgress:
 
     @property
     def steps(self):
-        return [dict(row) for row in self.rows] if self.plan else []
+        return [dict(row) for row in self.rows] if self.plan and (not self.objective_required or self.objective is not None) else []
 
     def _path(self):
         if not self.stack:
@@ -44,6 +46,10 @@ class PlanStepProgress:
             raise ValueError("Plan row must be an object")
         if path == (*self.collaboration_path, "kind"):
             self.plan = value == "plan"
+        if path == (*self.collaboration_path, "objective"):
+            if container or not isinstance(value,str) or not value.strip():
+                raise ValueError('Invalid plan objective')
+            self.objective = value
         if self.stack:
             parent = self.stack[-1]
             if (
@@ -59,7 +65,7 @@ class PlanStepProgress:
             self.root_done = True
 
     def feed(self, delta):
-        before = (len(self.rows) if self.plan else 0, self.invalid)
+        before = (len(self.steps), self.objective, self.invalid)
         try:
             for char in delta:
                 if self.invalid:
@@ -162,4 +168,4 @@ class PlanStepProgress:
                     self.atom = [char]
         except (ValueError, TypeError, KeyError, UnicodeError):
             self.invalid = True
-        return before != (len(self.rows) if self.plan else 0, self.invalid)
+        return before != (len(self.steps), self.objective, self.invalid)

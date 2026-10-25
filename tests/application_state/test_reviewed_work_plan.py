@@ -87,27 +87,27 @@ def case(application_state_dsn):
             kind="prepare_insertion",
         ),
     ]
-    p = w.save("world-one", cid, t.turn_id, w.Review(expected_revision=0, steps=steps))
+    p = w.save("world-one", cid, t.turn_id, w.ReviewV2(objective="Develop a useful shop description for author review.", expected_revision=0, steps=steps))
     return service, cid, t, steps, p
 
 
 def test_review_cas_retry_and_read_in_archived_conversation(case):
     service, cid, t, steps, p = case
     assert (
-        w.save("world-one", cid, t.turn_id, w.Review(expected_revision=0, steps=steps))
+        w.save("world-one", cid, t.turn_id, w.ReviewV2(objective="Develop a useful shop description for author review.", expected_revision=0, steps=steps))
         == p
     )
     changed = [steps[0].model_copy(update={"text": "Changed owner question"}), steps[1]]
     updated = w.save(
-        "world-one", cid, t.turn_id, w.Review(expected_revision=1, steps=changed)
+        "world-one", cid, t.turn_id, w.ReviewV2(objective="Develop a useful shop description for author review.", expected_revision=1, steps=changed)
     )
     assert updated["revision"] == 2
     with pytest.raises(ApplicationStateConflictError):
-        w.save("world-one", cid, t.turn_id, w.Review(expected_revision=1, steps=steps))
+        w.save("world-one", cid, t.turn_id, w.ReviewV2(objective="Develop a useful shop description for author review.", expected_revision=1, steps=steps))
     new(service)
     assert w.read("world-one", cid, t.turn_id)["plan"] == updated
     with pytest.raises(ApplicationStateConflictError):
-        w.save("world-one", cid, t.turn_id, w.Review(expected_revision=2, steps=steps))
+        w.save("world-one", cid, t.turn_id, w.ReviewV2(objective="Develop a useful shop description for author review.", expected_revision=2, steps=steps))
     with pytest.raises(ApplicationStateNotFoundError):
         w.read("foreign", cid, t.turn_id)
 
@@ -158,7 +158,7 @@ def test_explicit_continuation_stable_receipt_and_actual_reply(case):
             "world-one",
             cid,
             t.turn_id,
-            w.Review(
+            w.ReviewV2(objective="Develop a useful shop description for author review.",
                 expected_revision=2,
                 steps=[
                     steps[0].model_copy(update={"text": "Rewrite done work"}),
@@ -233,7 +233,7 @@ def test_prepare_insertion_requires_real_proposal_not_discussion(case):
         "world-one",
         cid,
         t.turn_id,
-        w.Review(expected_revision=1, steps=[steps[0], step]),
+        w.ReviewV2(objective="Develop a useful shop description for author review.", expected_revision=1, steps=[steps[0], step]),
     )
     d = w.Dispatch.model_validate(
         w.continue_step(
@@ -359,7 +359,7 @@ def test_readable_continuation_preserves_review_and_result_without_internal_ids(
         "world-one",
         cid,
         t.turn_id,
-        w.Review(
+        w.ReviewV2(objective="Develop a useful shop description for author review.",
             expected_revision=2,
             steps=[steps[0], steps[1].model_copy(update={"selected": True})],
         ),
@@ -406,7 +406,7 @@ def test_reviewed_reference_resolves_immutable_step_without_plan_revision_pin(ca
     binding = resolve()
     assert binding.kind == 'discuss' and binding.operation == 'answer_from_sources'
     # Changing another unstarted step must not invalidate the immutable command.
-    w.save('world-one', cid, source.turn_id, w.Review(expected_revision=response['plan']['revision'],
+    w.save('world-one', cid, source.turn_id, w.ReviewV2(objective="Develop a useful shop description for author review.", expected_revision=response['plan']['revision'],
         steps=[steps[0], steps[1].model_copy(update={'text':'Another future description'})]))
     assert resolve() == binding
     actual = accept(service, cid, d.message, uuid5(NAMESPACE_URL, f'dmb-agent-turn:world-one:{d.client_turn_id}'))
@@ -434,3 +434,53 @@ def test_reviewed_reference_rejects_foreign_dispatch_inputs(case, mutation):
         args[field] = 'changed'
     with unit_of_work(w._ready_dsn()) as conn, pytest.raises(ApplicationStateError):
         w.resolve_action(conn, 'other-world' if mutation == 'world' else 'world-one', reference, **args)
+
+
+def test_outcome_only_save_cas_and_dispatch_snapshot_survive_later_edit(case):
+    service,cid,t,steps,p=case
+    outcome='A small shop scene with useful choices and no invented played events.'
+    p=w.save('world-one',cid,t.turn_id,w.ReviewV2(expected_revision=1,steps=steps,objective=outcome))
+    assert p['revision']==2 and p['objective']==outcome
+    with pytest.raises(ApplicationStateConflictError):
+        w.save('world-one',cid,t.turn_id,w.ReviewV2(expected_revision=1,steps=steps,objective='A conflicting outcome.'))
+    command=w.Continue(expected_revision=2,step_id=steps[0].step_id,command_id=uuid4())
+    first=w.continue_step('world-one',cid,t.turn_id,command)
+    assert 'Expected outcome (authored context):\n'+outcome in first['dispatch']['message']
+    changed=w.save('world-one',cid,t.turn_id,w.ReviewV2(expected_revision=3,steps=steps,objective='A newly edited intended outcome.'))
+    assert changed['dispatches']==first['plan']['dispatches']
+    recovered=w.continue_step('world-one',cid,t.turn_id,command)
+    assert recovered['dispatch']==first['dispatch']
+    assert outcome in recovered['dispatch']['message'] and 'newly edited' not in recovered['dispatch']['message']
+    assert w.read('world-one',cid,t.turn_id)['plan']==changed
+
+
+def test_retained_v1_read_is_byte_stable_and_only_explicit_v2_save_upgrades(case,application_state_dsn):
+    import psycopg
+    from psycopg.types.json import Jsonb
+    service,cid,t,steps,p=case
+    legacy={k:v for k,v in p.items() if k not in {'objective','execution'}}
+    legacy['schema']='dmb_reviewed_work_plan_v1'
+    with psycopg.connect(application_state_dsn) as conn:
+        conn.execute('UPDATE agent.work_plan SET payload=%s WHERE source_turn_id=%s',(Jsonb(legacy),t.turn_id))
+        original=conn.execute('SELECT payload::text FROM agent.work_plan WHERE source_turn_id=%s',(t.turn_id,)).fetchone()[0]
+    read=w.read('world-one',cid,t.turn_id)['plan']
+    assert 'objective' not in read and read['steps']==p['steps']
+    replay=w.save('world-one',cid,t.turn_id,w.Review(expected_revision=1,steps=steps))
+    assert replay==read
+    with pytest.raises(ApplicationStateConflictError):
+        w.save('world-one',cid,t.turn_id,w.Review(expected_revision=0,steps=steps))
+    with pytest.raises(ApplicationStateConflictError,match='expected outcome'):
+        w.continue_step('world-one',cid,t.turn_id,w.Continue(expected_revision=1,step_id=steps[0].step_id,command_id=uuid4()))
+    with psycopg.connect(application_state_dsn) as conn:
+        assert conn.execute('SELECT payload::text FROM agent.work_plan WHERE source_turn_id=%s',(t.turn_id,)).fetchone()[0]==original
+    upgraded=w.save('world-one',cid,t.turn_id,w.ReviewV2(expected_revision=1,steps=steps,objective='The author explicitly supplied this outcome.'))
+    assert upgraded['schema']=='dmb_reviewed_work_plan_v2' and upgraded['steps']==read['steps']
+
+
+def test_legacy_put_cannot_create_or_mutate_plan(case):
+    service,cid,t,steps,p=case
+    with pytest.raises(ApplicationStateConflictError,match='legacy writes'):
+        w.save('world-one',cid,t.turn_id,w.Review(expected_revision=p['revision'],steps=steps))
+    other=finish(service,cid,accept(service,cid,'Another plan'),'A proposed plan.')
+    with pytest.raises(ApplicationStateConflictError,match='legacy writes'):
+        w.save('world-one',cid,other.turn_id,w.Review(expected_revision=0,steps=steps))

@@ -1688,6 +1688,15 @@ class AgentConversationService:
             expected_revision=expected_revision, expected_attempt=expected_attempt,
             event=selection, duplicate_key="event_id")
 
+    def record_build_plan_output_contract(self, world_id, conversation_id, turn_id, *,
+            expected_revision, expected_attempt, event):
+        from .types import BuildPlanOutputContractV1
+        if not isinstance(event, BuildPlanOutputContractV1):
+            raise ApplicationStateValidationError('A typed plan output contract is required')
+        return self._append_graph_execution_event(world_id, conversation_id, turn_id,
+            expected_revision=expected_revision, expected_attempt=expected_attempt,
+            event=event, duplicate_key='event_id')
+
     def record_build_world_read_selection(self, world_id, conversation_id, turn_id, *,
             expected_revision, expected_attempt, selection, producer_proof):
         from .types import BuildWorldReadSelectionV1

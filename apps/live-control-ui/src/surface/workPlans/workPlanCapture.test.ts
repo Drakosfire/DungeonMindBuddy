@@ -4,7 +4,7 @@ import type {WorldBuildAgentTurnRequestV1,WorldAgentConversationHistoryTurn} fro
 import {captureWorkPlan} from './workPlanCapture';
 import {getWorkPlan} from '../../api/conversationWorkPlanApi';
 import {stagePlacement} from './workPlanPlacement';
-vi.mock('../../api/conversationWorkPlanApi',()=>({getWorkPlan:vi.fn()}));
+vi.mock('../../api/conversationWorkPlanApi',async original=>({...await original<typeof import('../../api/conversationWorkPlanApi')>(),getWorkPlan:vi.fn()}));
 vi.mock('./workPlanPlacement',async original=>({...await original<typeof import('./workPlanPlacement')>(),stagePlacement:vi.fn()}));
 const conversation='11111111-1111-4111-8111-111111111111',turnId='22222222-2222-4222-8222-222222222222';
 const basis={world_id:'world',document_id:'page',registry_revision:3,content_sha256:'a'.repeat(64),draft_sha256:'b'.repeat(64),editor_sha256:'c'.repeat(64),visibility:'internal',caret:1,draft_generation:0,selection_generation:0};
@@ -14,7 +14,7 @@ const collaboration={kind:'plan' as const,steps:[{text:'Read the chart.',kind:'d
 beforeEach(()=>{vi.clearAllMocks();vi.stubGlobal('crypto',webcrypto);vi.mocked(getWorkPlan).mockResolvedValue(null);});
 it('transfers the actual request anchor to the durable history turn without copying execution state',async()=>{
  await captureWorkPlan(request,turn,conversation,2,'real-key','A plan.',collaboration,collaboration);
- expect(stagePlacement).toHaveBeenCalledWith(expect.objectContaining({source_turn_id:turnId,conversation_id:conversation,document_id:'page'}),basis,2,[expect.objectContaining({text:'Read the chart.',selected:true,kind:'discuss'})],0);
+ expect(stagePlacement).toHaveBeenCalledWith(expect.objectContaining({source_turn_id:turnId,conversation_id:conversation,document_id:'page'}),basis,2,[expect.objectContaining({text:'Read the chart.',selected:true,kind:'discuss'})],0,localStorage,navigator.locks,'');
 });
 it.each(['key','pointer','answer','source','collaboration','selection'])('refuses a mismatched %s before any shared receipt write',async variant=>{
  const r=structuredClone(request),t=structuredClone(turn);let key='real-key',pointer=2,answer='A plan.',retained:unknown=collaboration;
@@ -28,5 +28,5 @@ it('adopts already reviewed stable step identities instead of minting a second r
  const rows=[{step_id:turnId,text:'Edited step.',selected:false,kind:'prepare_insertion' as const}];
  vi.mocked(getWorkPlan).mockResolvedValue({steps:rows,revision:4} as Awaited<ReturnType<typeof getWorkPlan>>);
  await captureWorkPlan(request,turn,conversation,2,'real-key','A plan.',collaboration,collaboration);
- expect(stagePlacement).toHaveBeenCalledWith(expect.anything(),basis,2,rows,4);
+ expect(stagePlacement).toHaveBeenCalledWith(expect.anything(),basis,2,rows,4,localStorage,navigator.locks,'');
 });

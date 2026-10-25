@@ -1,5 +1,5 @@
 import type {BuildProposalBasis} from '../../api/buildDocumentProposalApi';
-import type {WorkStep} from '../../api/conversationWorkPlanApi';
+import {planObjective,type WorkStep} from '../../api/conversationWorkPlanApi';
 import {canonical,exact} from '../../shared/sourcePassageProtocol';
 import {parseWorkPlanReference,workPlanFence,workPlanIdentity,type WorkPlanReference} from './workPlanReference';
 
@@ -10,14 +10,17 @@ export interface PlacementTransaction {
 }
 interface RetiredPlacement {
   command_id:string;basis:BuildProposalBasis;reference:WorkPlanReference;reference_markdown:string;reference_sha256:string;
+  review_snapshot?:{rows:WorkStep[];objective:string|null;schema:WorkPlanPlacement['schema'];phase:PlacementPhase;expected_review_revision:number;acknowledged_review_revision:number|null};
   prepared:PlacementTransaction|null;disposition:'superseded_unresolved'|'superseded_unapplied';
 }
-export interface WorkPlanPlacement {
-  schema:'dmb_surface_work_plan_placement_v1';reference:WorkPlanReference;command_id:string;basis:BuildProposalBasis;
+interface PlacementBase {
+  reference:WorkPlanReference;command_id:string;basis:BuildProposalBasis;
   pointer_revision:number;reference_markdown:string;reference_sha256:string;rows:WorkStep[];
   expected_review_revision:number;acknowledged_review_revision:number|null;prepared:PlacementTransaction|null;
   phase:PlacementPhase;saved:{revision:number;content_sha256:string}|null;retired_placements:RetiredPlacement[];
 }
+export type WorkPlanPlacement = PlacementBase & ({schema:'dmb_surface_work_plan_placement_v1'}|{schema:'dmb_surface_work_plan_placement_v2';objective:string});
+export const placementObjective=(p:WorkPlanPlacement)=>p.schema==='dmb_surface_work_plan_placement_v2'?p.objective:null;
 export type PlacementStorage=Pick<Storage,'getItem'|'setItem'>;
 export type PlacementLocks=Pick<LockManager,'request'>;
 const digest=/^[a-f0-9]{64}$/;
@@ -63,8 +66,8 @@ async function validReference(ref:unknown,markdown:unknown,sha:unknown,owner:Wor
 }
 /** Never repair retained bytes into apparent success. */
 export async function checkedPlacement(value:unknown,owner:WorkPlanReference):Promise<WorkPlanPlacement>{
-  if(!exact(value,['schema','reference','command_id','basis','pointer_revision','reference_markdown','reference_sha256','rows','expected_review_revision','acknowledged_review_revision','prepared','phase','saved','retired_placements'])
-    ||value.schema!=='dmb_surface_work_plan_placement_v1'||typeof value.command_id!=='string'||!uuid.test(value.command_id)
+  if(!exact(value,['schema','reference','command_id','basis','pointer_revision','reference_markdown','reference_sha256','rows','expected_review_revision','acknowledged_review_revision','prepared','phase','saved','retired_placements',...(value&&typeof value==='object'&&'schema' in value&&value.schema==='dmb_surface_work_plan_placement_v2'?['objective']:[])])
+    ||!['dmb_surface_work_plan_placement_v1','dmb_surface_work_plan_placement_v2'].includes(String(value.schema))||value.schema==='dmb_surface_work_plan_placement_v2'&&typeof value.objective!=='string'||typeof value.command_id!=='string'||!uuid.test(value.command_id)
     ||!validBasis(value.basis,owner)||!integer(value.pointer_revision,1)||!validRows(value.rows)
     ||!integer(value.expected_review_revision)||!(value.acknowledged_review_revision===null||integer(value.acknowledged_review_revision,1))
     ||!['staged','review_saving','review_saved','applying','page_save_uncertain','saved','discarded'].includes(String(value.phase))
@@ -78,7 +81,8 @@ export async function checkedPlacement(value:unknown,owner:WorkPlanReference):Pr
     throw new Error('The retained placement phase differs from its receipt.');
   const commands=new Set([p.command_id]);
   for(const entry of p.retired_placements){
-    if(!exact(entry,['command_id','basis','reference','reference_markdown','reference_sha256','prepared','disposition'])
+    if(!exact(entry,['command_id','basis','reference','reference_markdown','reference_sha256','prepared','disposition',...(entry.review_snapshot?['review_snapshot']:[])])
+      ||entry.review_snapshot!==undefined&&(!exact(entry.review_snapshot,['rows','objective','schema','phase','expected_review_revision','acknowledged_review_revision'])||!['dmb_surface_work_plan_placement_v1','dmb_surface_work_plan_placement_v2'].includes(String(entry.review_snapshot.schema))||!integer(entry.review_snapshot.expected_review_revision)||!(entry.review_snapshot.acknowledged_review_revision===null||integer(entry.review_snapshot.acknowledged_review_revision,1))||!['staged','review_saving','review_saved','applying','page_save_uncertain','saved','discarded'].includes(String(entry.review_snapshot.phase))||!validRows(entry.review_snapshot.rows)||!(entry.review_snapshot.objective===null||typeof entry.review_snapshot.objective==='string'))
       ||typeof entry.command_id!=='string'||!uuid.test(entry.command_id)||commands.has(entry.command_id)||!validBasis(entry.basis,owner)
       ||!await validReference(entry.reference,entry.reference_markdown,entry.reference_sha256,owner)
       ||!(entry.prepared===null||validTransaction(entry.prepared,entry.basis))
@@ -106,12 +110,12 @@ export async function withPlacementLock<T>(ref:WorkPlanReference,action:()=>Prom
 }
 /** Lock BEFORE the first read/write, so a new tab cannot replace an uncertain attempt. */
 export async function stagePlacement(ref:WorkPlanReference,basis:BuildProposalBasis,pointerRevision:number,rows:WorkStep[],expectedRevision=0,
-  storage:PlacementStorage=localStorage,locks:PlacementLocks|undefined=navigator.locks):Promise<WorkPlanPlacement>{
+  storage:PlacementStorage=localStorage,locks:PlacementLocks|undefined=navigator.locks,objective:string|null=null):Promise<WorkPlanPlacement>{
   return withPlacementLock(ref,async()=>{
     const existing=await readPlacement(ref,storage);
     if(existing)return existing;
     const markdown=workPlanFence(ref);
-    const created:WorkPlanPlacement={schema:'dmb_surface_work_plan_placement_v1',reference:ref,command_id:crypto.randomUUID(),basis,
+    const created:WorkPlanPlacement={...(objective===null?{schema:'dmb_surface_work_plan_placement_v1' as const}:{schema:'dmb_surface_work_plan_placement_v2' as const,objective}),reference:ref,command_id:crypto.randomUUID(),basis,
       pointer_revision:pointerRevision,reference_markdown:markdown,reference_sha256:await placementDigest(markdown),rows,
       expected_review_revision:expectedRevision,acknowledged_review_revision:null,prepared:null,phase:'staged',saved:null,retired_placements:[]};
     await persist(created,storage);return created;
@@ -126,7 +130,7 @@ export async function changePlacement(expected:WorkPlanPlacement,change:(current
     const next=change(current);
     if(next.command_id!==current.command_id||workPlanIdentity(next.reference)!==workPlanIdentity(current.reference)
       ||canonical(next.basis)!==canonical(current.basis)||next.pointer_revision!==current.pointer_revision
-      ||current.prepared!==null&&(canonical(next.prepared)!==canonical(current.prepared)||next.reference_sha256!==current.reference_sha256||canonical(next.rows)!==canonical(current.rows))
+      ||current.prepared!==null&&(canonical(next.prepared)!==canonical(current.prepared)||next.reference_sha256!==current.reference_sha256||canonical(next.rows)!==canonical(current.rows)||placementObjective(next)!==placementObjective(current))
       ||canonical(next.retired_placements)!==canonical(current.retired_placements))throw new Error('A new placement requires explicit predecessor retention.');
     await persist(next,storage);return next;
   },locks);
@@ -136,10 +140,11 @@ export async function replacePlacement(expected:WorkPlanPlacement,basis:BuildPro
   storage:PlacementStorage=localStorage,locks:PlacementLocks|undefined=navigator.locks):Promise<WorkPlanPlacement>{
   return withPlacementLock(expected.reference,async()=>{
     const current=await readPlacement(expected.reference,storage);
-    if(!current||canonical(current)!==canonical(expected)||['saved','review_saving'].includes(current.phase))
+    if(!current||canonical(current)!==canonical(expected)||(current.phase==='saved'||current.phase==='review_saving'&&current.schema!=='dmb_surface_work_plan_placement_v1'))
       throw new Error('Check the current placement and review outcome before choosing a new position.');
+    if(current.schema==='dmb_surface_work_plan_placement_v1'&&current.prepared)throw new Error('Check and finish the earlier legacy page Save before changing its outcome or placement.');
     const previous:RetiredPlacement={command_id:current.command_id,basis:current.basis,reference:current.reference,
-      reference_markdown:current.reference_markdown,reference_sha256:current.reference_sha256,prepared:current.prepared,
+      reference_markdown:current.reference_markdown,reference_sha256:current.reference_sha256,prepared:current.prepared,review_snapshot:{rows:current.rows,objective:placementObjective(current),schema:current.schema,phase:current.phase,expected_review_revision:current.expected_review_revision,acknowledged_review_revision:current.acknowledged_review_revision},
       disposition:current.prepared?'superseded_unresolved':'superseded_unapplied'};
     const next:WorkPlanPlacement={...current,command_id:crypto.randomUUID(),basis,pointer_revision:pointerRevision,
       prepared:null,saved:null,phase:current.acknowledged_review_revision?'review_saved':'staged',retired_placements:[...current.retired_placements,previous]};
@@ -158,7 +163,7 @@ export async function placementSession<T>(ref:WorkPlanReference,action:(session:
    if(!current||canonical(current)!==canonical(expected)||next.command_id!==current.command_id
      ||canonical(next.basis)!==canonical(current.basis)||next.pointer_revision!==current.pointer_revision
      ||workPlanIdentity(next.reference)!==workPlanIdentity(ref)||canonical(next.retired_placements)!==canonical(current.retired_placements)
-     ||current.prepared!==null&&(canonical(next.prepared)!==canonical(current.prepared)||next.reference_sha256!==current.reference_sha256||canonical(next.rows)!==canonical(current.rows)))
+     ||current.prepared!==null&&(canonical(next.prepared)!==canonical(current.prepared)||next.reference_sha256!==current.reference_sha256||canonical(next.rows)!==canonical(current.rows)||placementObjective(next)!==placementObjective(current)))
     throw new Error('The retained placement changed. Inspect it before continuing.');
    await persist(next,storage);return next;
   }});}finally{active=false;}
@@ -166,9 +171,10 @@ export async function placementSession<T>(ref:WorkPlanReference,action:(session:
 }
 
 export interface PlacementPageIO<Prepared> {
+ objective?:string;
  assertCurrent:()=>void;
  readReview:()=>Promise<import('../../api/conversationWorkPlanApi').WorkPlan|null>;
- saveReview:(revision:number,rows:WorkStep[])=>Promise<import('../../api/conversationWorkPlanApi').WorkPlan>;
+ saveReview:(revision:number,rows:WorkStep[],objective:string)=>Promise<import('../../api/conversationWorkPlanApi').WorkPlan>;
  findSaved:()=>Promise<{revision:number;content_sha256:string;body_sha256:string}|null>;
  prepare:(placement:WorkPlanPlacement)=>Promise<{value:Prepared;after_editor_sha256:string;after_draft_sha256:string}>;
  inspect:(placement:WorkPlanPlacement)=>Promise<'before'|'after'|'changed'>;
@@ -184,7 +190,7 @@ export async function savePlacementOnPage<T>(expected:WorkPlanPlacement,rows:Wor
   io.assertCurrent();
   async function verifyAcknowledgedReview(placement:WorkPlanPlacement){
    const plan=await io.readReview();io.assertCurrent();
-   if(!plan||plan.revision!==placement.acknowledged_review_revision||canonical(plan.steps)!==canonical(placement.rows)
+   if(!plan||plan.revision!==placement.acknowledged_review_revision||canonical(plan.steps)!==canonical(placement.rows)||placementObjective(placement)!==(plan.schema==='dmb_reviewed_work_plan_v2'?plan.objective:null)
     ||plan.world_id!==placement.reference.world_id||plan.document_id!==placement.reference.document_id
     ||plan.conversation_id!==placement.reference.conversation_id||plan.source_turn_id!==placement.reference.source_turn_id
     ||plan.source_answer_sha256!==placement.reference.source_answer_sha256)
@@ -201,18 +207,21 @@ export async function savePlacementOnPage<T>(expected:WorkPlanPlacement,rows:Wor
   }
   if(current.phase==='saved')throw new Error('The saved plan object is no longer on this page. Inspect the page before placing it again.');
   if(!current.prepared){
-   if(current.phase==='review_saving'&&canonical(current.rows)!==canonical(rows))throw new Error('Resolve the earlier review Save before changing these rows.');
+   const objective=io.objective??placementObjective(current)??'';
+   if(!objective.trim())throw new Error('Add an expected outcome before saving this plan.');
+   if(current.phase==='review_saving'&&(canonical(current.rows)!==canonical(rows)||current.schema==='dmb_surface_work_plan_placement_v2'&&current.objective!==objective))throw new Error('Resolve the earlier review Save before changing these rows.');
    let plan=await io.readReview();io.assertCurrent();
    if(plan&&(plan.world_id!==current.reference.world_id||plan.document_id!==current.reference.document_id
     ||plan.conversation_id!==current.reference.conversation_id||plan.source_turn_id!==current.reference.source_turn_id
     ||plan.source_answer_sha256!==current.reference.source_answer_sha256))throw new Error('The saved review belongs to another object.');
    if(!plan&&current.acknowledged_review_revision!==null)throw new Error('The saved review is no longer available. Its placement was retained.');
-   const needsPut=!plan||canonical(plan.steps)!==canonical(rows);
+   if(current.schema==='dmb_surface_work_plan_placement_v1'&&current.phase==='review_saving')throw new Error('The legacy review Save needs an explicit outcome-aware new placement. Its original receipt is retained.');
+   const needsPut=!plan||canonical(plan.steps)!==canonical(rows)||planObjective(plan)!==objective;
    if(needsPut&&(plan?.revision??0)!==current.expected_review_revision)throw new Error('The reviewed plan changed in another tab. Your rows were retained.');
-   current=await session.change(current,{...current,rows,phase:'review_saving'});
-   if(needsPut){plan=await io.saveReview(current.expected_review_revision,current.rows);io.assertCurrent();}
+   current=await session.change(current,{...current,schema:'dmb_surface_work_plan_placement_v2',objective,rows,phase:'review_saving'});
+   if(needsPut){plan=await io.saveReview(current.expected_review_revision,current.rows,objective);io.assertCurrent();}
    if(!plan)throw new Error('The review Save did not return a plan.');
-   if(canonical(plan.steps)!==canonical(current.rows)||plan.world_id!==current.reference.world_id||plan.document_id!==current.reference.document_id
+   if(canonical(plan.steps)!==canonical(current.rows)||planObjective(plan)!==objective||plan.world_id!==current.reference.world_id||plan.document_id!==current.reference.document_id
      ||plan.conversation_id!==current.reference.conversation_id||plan.source_turn_id!==current.reference.source_turn_id||plan.source_answer_sha256!==current.reference.source_answer_sha256)
     throw new Error('The acknowledged plan differs from the reviewed page object.');
    current=await session.change(current,{...current,phase:'review_saved',expected_review_revision:plan.revision,acknowledged_review_revision:plan.revision});
@@ -221,7 +230,7 @@ export async function savePlacementOnPage<T>(expected:WorkPlanPlacement,rows:Wor
     after_editor_sha256:prepared.after_editor_sha256,after_draft_sha256:prepared.after_draft_sha256}});
    await verifyAcknowledgedReview(current);io.assertCurrent();io.apply(prepared.value);
   }else{
-   if(canonical(rows)!==canonical(current.rows))throw new Error('The earlier insertion must be checked before changing this object.');
+   if(canonical(rows)!==canonical(current.rows)||current.schema==='dmb_surface_work_plan_placement_v2'&&io.objective!==undefined&&current.objective!==io.objective)throw new Error('The earlier insertion must be checked before changing this object.');
    const inspected=await io.inspect(current);io.assertCurrent();
    if(inspected==='changed')throw new Error('The page changed around the earlier insertion. Compare retained copies before explicitly choosing a new position.');
    if(inspected==='before'){

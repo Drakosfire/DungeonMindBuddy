@@ -19,6 +19,6 @@ export function BuildConstructionPreview({progress,bridge,sourceKey,onVisible}:{
   if(!placement)return null;
   return <SurfacePageProposal editor={placement.editor} position={placement.basis.caret} editorJson={placement.editorJson}
     placementId={`construction:${constructionPlacementId(progress)}`} revealKey={revealed?1:0} busy focusOnReveal={false} onStale={()=>{stale.current=true;setPlacement(null);}}>
-    {progress.schema==='dmb_build_plan_construction_v1'?<SurfacePlanConstructionPreview steps={progress.steps} status={progress.status} onVisible={reveal}/>:<SurfaceConstructionPreview markdown={progress.markdown} status={progress.status} onVisible={reveal}/>}
+    {progress.schema!=='dmb_build_construction_v1'?<SurfacePlanConstructionPreview objective={progress.schema==='dmb_build_plan_construction_v2'?progress.objective:null} steps={progress.steps} status={progress.status} onVisible={reveal}/>:<SurfaceConstructionPreview markdown={progress.markdown} status={progress.status} onVisible={reveal}/>}
   </SurfacePageProposal>;
 }

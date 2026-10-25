@@ -2616,6 +2616,7 @@ class _PolicyExecutionAdapter:
         staged = writer.with_disposition(staged, getattr(self, "build_retrieval_disposition", None))
         staged = writer.with_working_draft(staged, self._broker_execution())
         staged = writer.with_response_contract(staged, self._broker_execution())
+        staged = self._with_plan_output_contract(staged)
         self._build_writer_projection = staged
         return staged
 
@@ -2633,12 +2634,30 @@ class _PolicyExecutionAdapter:
         staged = writer.with_disposition(staged, getattr(self, "build_retrieval_disposition", None))
         staged = writer.with_working_draft(staged, self._broker_execution())
         staged = writer.with_response_contract(staged, self._broker_execution())
+        staged = self._with_plan_output_contract(staged)
         if isinstance(self._broker_execution().policy, _app_state_graph_execution_types().BuildCitedSourceActionControllerWriterPolicyV1):
             staged = writer.with_cited_output(staged)
         if self.rules_runtime is not None:
             staged = self.rules_runtime.stage_writer(staged)
         self._build_writer_projection = staged
         return staged
+
+    def _with_plan_output_contract(self, staged):
+        from application_state.agent_conversation import plan_objective
+        from dataclasses import replace
+        execution = self._broker_execution()
+        event = plan_objective.contract(execution)
+        if event is None:
+            event = plan_objective.create(execution, self.request.build_write_capability)
+            if event is not None:
+                self.turn = _require_fresh_execution_append(self.fence.append(
+                    'record_build_plan_output_contract', 'event', event))
+        if event is None:
+            return staged
+        packet = json.loads(staged.input_json)
+        packet[plan_objective.KEY] = event.model_dump(mode='json',by_alias=True)
+        return replace(staged,input_json=json.dumps(packet,sort_keys=True,separators=(',',':'),ensure_ascii=False),
+            event_sequence=len(self._broker_execution().events))
 
     def _frozen_build_writer_budget(self):
         if self.fence is None:

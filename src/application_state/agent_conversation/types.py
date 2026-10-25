@@ -1952,6 +1952,19 @@ class BuildIntentionalResponseCompletionV1(StrictModel):
         return self
 
 
+from .relationship_review import RelationshipCollaborationV2
+
+
+class BuildIntentionalResponseCompletionV2(BuildIntentionalResponseCompletionV1):
+    schema_: Literal['dmb_build_intentional_response_completion_v2'] = Field(default='dmb_build_intentional_response_completion_v2', alias='schema')
+    collaboration: RelationshipCollaborationV2 | None
+
+
+class BuildRelationshipReviewCompletionV2(BuildRelationshipReviewCompletionV1):
+    schema_: Literal['dmb_build_relationship_review_completion_v2'] = Field(default='dmb_build_relationship_review_completion_v2', alias='schema')
+    collaboration: RelationshipCollaborationV2 | None
+
+
 class BuildRelatedPageCompletionV1(BuildDraftContextCompletionV1):
     schema_: Literal["dmb_build_related_page_completion_v1"] = Field(default="dmb_build_related_page_completion_v1",alias="schema")
 
@@ -2143,7 +2156,7 @@ class SurfaceEvidenceCompletionV3(SurfaceEvidenceCompletionV2):
         max_length=MAX_CITATION_SOURCE_READ_IDS)
 
 
-GraphTurnCompletion = BuildIntentionalResponseCompletionV1 | BuildRelationshipReviewCompletionV1 | BuildConnectedPageReviewCompletionV1 | BuildCollaborationCompletionV1 | BuildRelatedPageCompletionV1 | BuildDraftContextCompletionV1 | BuildNamedGraphCompletionV3 | SurfaceEvidenceCompletionV3 | SurfaceEvidenceCompletionV2 | SurfaceEvidenceCompletionV1 | SurfaceSourceCompletionV1 | PlayWorldGraphCompletionV1 | PlanWorldGraphCompletion | BuildGraphCompletionV1 | BuildGraphCompletionV2 | BuildAuthoringCompletionV1 | BuildImagePreparationCompletionV1
+GraphTurnCompletion = BuildIntentionalResponseCompletionV2 | BuildRelationshipReviewCompletionV2 | BuildIntentionalResponseCompletionV1 | BuildRelationshipReviewCompletionV1 | BuildConnectedPageReviewCompletionV1 | BuildCollaborationCompletionV1 | BuildRelatedPageCompletionV1 | BuildDraftContextCompletionV1 | BuildNamedGraphCompletionV3 | SurfaceEvidenceCompletionV3 | SurfaceEvidenceCompletionV2 | SurfaceEvidenceCompletionV1 | SurfaceSourceCompletionV1 | PlayWorldGraphCompletionV1 | PlanWorldGraphCompletion | BuildGraphCompletionV1 | BuildGraphCompletionV2 | BuildAuthoringCompletionV1 | BuildImagePreparationCompletionV1
 
 
 class GraphCompletionRejectionCode(str, Enum):
@@ -3850,7 +3863,7 @@ def validate_graph_execution_record(execution, *, dynamic_source_scope: bool, al
                 RelatedRecapContextProviderInclusionEventV2,
                 RelatedPagesSelection, RelatedPageRead, RelatedPageInclusion, BuildDraftContextCapturedV1, BuildDraftProviderInclusionV1, BuildSectionReadAuthorizationV1, ValidatedBuildSectionReadV1, BuildWorldReadSelectionV1,
                 BuildSectionProviderInclusionV1, BuildSectionAnswerBindingV1,
-                BuildJevActionSelectionV1, BuildReviewedActionSelectionV1, BuildWriterEvidenceSelectionV1, PlanJevRetrievalSelectionV1,
+                BuildJevActionSelectionV1, BuildReviewedActionSelectionV1, BuildPlanOutputContractV1, BuildWriterEvidenceSelectionV1, PlanJevRetrievalSelectionV1,
             ),
         ):
             continue
@@ -4093,6 +4106,17 @@ class BuildReviewedActionSelectionV1(GraphExecutionEventBaseV1):
         return self
 
 
+class BuildPlanOutputContractV1(GraphExecutionEventBaseV1):
+    kind: Literal['build_plan_output_contract_v1']
+    policy: Literal['typed_plan_objective_v1']
+    selection_event_id: UUID
+    selection_sha256: str = Field(pattern=r'^[a-f0-9]{64}$')
+    draft_record_id: UUID
+    working_snapshot_sha256: str = Field(pattern=r'^[a-f0-9]{64}$')
+    destination_capability_sha256: str = Field(pattern=r'^[a-f0-9]{64}$')
+    plan_schema_sha256: str = Field(pattern=r'^[a-f0-9]{64}$')
+
+
 class BuildWriterEvidenceSelectionV1(GraphExecutionEventBaseV1):
     kind: Literal["build_writer_evidence_selection_v1"]
     policy: Literal["source_unit_selection_event_closure_v1"]
@@ -4149,7 +4173,7 @@ GraphExecutionEventV3 = Annotated[
     | RelatedRecapContextProviderInclusionEventV2
     | RelatedPagesSelection | RelatedPageRead | RelatedPageInclusion | BuildDraftContextCapturedV1 | BuildDraftProviderInclusionV1 | BuildSectionReadAuthorizationV1 | ValidatedBuildSectionReadV1
     | BuildSectionProviderInclusionV1 | BuildSectionAnswerBindingV1 | BuildRequestedWorkResolutionV1 | BuildJevActionSelectionV1 | BuildReviewedActionSelectionV1 | BuildWorldReadSelectionV1
-    | BuildWriterEvidenceSelectionV1 | PlanJevRetrievalSelectionV1 | NativeSourceNavigationAuthorizedV1 | NativeSourceCatalogObservedV1
+    | BuildPlanOutputContractV1 | BuildWriterEvidenceSelectionV1 | PlanJevRetrievalSelectionV1 | NativeSourceNavigationAuthorizedV1 | NativeSourceCatalogObservedV1
     | NativeSourceSectionAuthorizedV1 | NativeSourceSectionObservedV1 | NativeSourceProviderInclusionV1,
     Field(discriminator="kind"),
 ]
@@ -4170,6 +4194,8 @@ class PlanWorldGraphExecutionV3(PlanWorldGraphExecutionV2):
         validate_provider_inclusions(self)
         from .build_related_pages import validate_events as validate_related_page_events
         validate_related_page_events(self)
+        from .plan_objective import validate_events as validate_objective_events
+        validate_objective_events(self)
         if not isinstance(self.policy, ControllerWriterGraphExecutionPolicyV3):
             if any(isinstance(event, (PlanJevRetrievalSelectionV1, PlanJevProviderAuthorizedV1, PlanJevWriterAuthorizedV1)) for event in self.events):
                 raise ValueError("Plan decision requires its frozen Plan policy")
@@ -5427,6 +5453,8 @@ def validate_execution_completion(
             raise ValueError("Native Play completion requires its own matching receipt and ledger")
         validate_play_graph_completion(completion, receipt, execution, producing_provider_attempt_id, claim_graph_event_ids)
         return
+    from .plan_objective import validate_completion as validate_objective_completion
+    validate_objective_completion(completion, execution, producing_provider_attempt_id)
     if isinstance(completion, BuildIntentionalResponseCompletionV1):
         from .build_intentional_response import validate_completion
         validate_completion(completion, receipt, execution, producing_provider_attempt_id, claim_graph_event_ids)

@@ -84,6 +84,28 @@ class Plan(Closed):
         return self
 
 
+class ReviewV2(Review):
+    schema_: Literal['dmb_reviewed_work_plan_review_v2'] = Field(default='dmb_reviewed_work_plan_review_v2', alias='schema')
+    objective: str = Field(min_length=1)
+
+    @model_validator(mode='after')
+    def readable_objective(self):
+        if not self.objective.strip():
+            raise ValueError('A plan needs an expected outcome')
+        return self
+
+
+class PlanV2(Plan):
+    schema_: Literal['dmb_reviewed_work_plan_v2'] = Field(default='dmb_reviewed_work_plan_v2', alias='schema')
+    objective: str = Field(min_length=1)
+
+    @model_validator(mode='after')
+    def readable_objective(self):
+        if not self.objective.strip():
+            raise ValueError('A plan needs an expected outcome')
+        return self
+
+
 def _source(conn, world, conversation, source, *, writing=False):
     if writing:
         p = _lock_pointer(conn, world)
@@ -99,7 +121,7 @@ def _source(conn, world, conversation, source, *, writing=False):
         or turn.provenance.surface_id != "build"
         or turn.provenance.primary_work.kind != "build"
         or (not turn.assistant_text and not (
-            turn.assistant_text == '' and getattr(turn.completion, 'schema_', None) == 'dmb_build_intentional_response_completion_v1'
+            turn.assistant_text == '' and getattr(turn.completion, 'schema_', None) in {'dmb_build_intentional_response_completion_v1','dmb_build_intentional_response_completion_v2'}
             and not turn.completion.answer_segments and getattr(turn.completion.collaboration, 'kind', None) == 'plan'))
     ):
         raise ApplicationStateNotFoundError(
@@ -116,7 +138,7 @@ def _load(conn, world, conversation, source, *, lock=False):
     ).fetchone()
     if row is None:
         return None
-    p = Plan.model_validate(row[0])
+    p = (PlanV2 if row[0].get("schema") == "dmb_reviewed_work_plan_v2" else Plan).model_validate(row[0])
     if (p.world_id, p.conversation_id, p.source_turn_id) != (
         world,
         conversation,
@@ -207,7 +229,7 @@ def read(world, conversation, source):
                 "The source reply differs from its retained review"
             )
         return {
-            "schema": "dmb_work_plan_response_v1",
+            "schema": "dmb_work_plan_response_v2",
             "world_id": world,
             "conversation_id": str(conversation),
             "source_turn_id": str(source),
@@ -219,7 +241,14 @@ def save(world, conversation, source, review: Review):
     with unit_of_work(_ready_dsn()) as conn:
         turn = _source(conn, world, conversation, source, writing=True)
         old = _load(conn, world, conversation, source, lock=True)
-        if old and old.steps == review.steps:
+        if old and (old.source_answer_sha256 != sha256(turn.assistant_text.encode()).hexdigest()
+                    or old.document_id != turn.provenance.primary_work.object_id):
+            raise ApplicationStateConflictError('The retained plan has a different source or page')
+        if not isinstance(review, ReviewV2):
+            if (type(old) is Plan and old.steps == review.steps and old.revision == review.expected_revision):
+                return _projection(conn, old)
+            raise ApplicationStateConflictError('Add an expected outcome and Save the objective-aware review; legacy writes cannot create or change a plan')
+        if isinstance(old, PlanV2) and old.steps == review.steps and old.objective == review.objective:
             return _projection(conn, old)
         if (old.revision if old else 0) != review.expected_revision:
             raise ApplicationStateConflictError(
@@ -235,7 +264,8 @@ def save(world, conversation, source, review: Review):
                     raise ApplicationStateConflictError(
                         "Retain the exact reviewed step after continuation; add a new step to change it"
                     )
-        p = Plan(
+        p = PlanV2(
+            objective=review.objective,
             world_id=world,
             conversation_id=conversation,
             source_turn_id=source,
@@ -291,6 +321,8 @@ def continue_step(world, conversation, source, command: Continue):
                 "dispatch": prior.model_dump(mode="json"),
                 "reviewed_step": _reference_for_dispatch(conn, p, prior),
             }
+        if not isinstance(p, PlanV2):
+            raise ApplicationStateConflictError('Add an expected outcome and Save before continuing a new step')
         if p.revision != command.expected_revision:
             raise ApplicationStateConflictError("The plan changed before continuation")
         step = next((s for s in p.steps if s.step_id == command.step_id), None)
@@ -359,6 +391,7 @@ def continue_step(world, conversation, source, command: Continue):
         message = (
             "Continue only this explicitly selected step of my saved reviewed plan:\n\n"
             + step.text
+            + "\n\nExpected outcome (authored context):\n" + p.objective
             + "\n\nMy reviewed plan and earlier results (authored context):\n"
             + "\n".join(lines)
             + "\n\nOther steps, including selected ones, are context and are not authorized for automatic execution.\n"
@@ -371,7 +404,7 @@ def continue_step(world, conversation, source, command: Continue):
             client_turn_id=uuid4(),
             message=message,
         )
-        updated = Plan.model_validate(
+        updated = PlanV2.model_validate(
             p.model_dump(mode="python", by_alias=True)
             | {
                 "revision": p.revision + 1,

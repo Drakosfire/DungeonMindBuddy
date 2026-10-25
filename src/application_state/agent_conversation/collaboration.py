@@ -113,3 +113,19 @@ def saved_excerpt(proposal, rows):
         "line_end": last,
         "selected_text": excerpt,
     }
+
+
+class ProposedPlanV2(Closed):
+    kind: Literal["plan"]
+    objective: str = Field(min_length=1)
+    steps: list[ProposedStep] = Field(min_length=1)
+
+    @model_validator(mode="after")
+    def readable_objective(self):
+        if not self.objective.strip():
+            raise ValueError("A plan needs a readable expected outcome")
+        return self
+
+
+CollaborationV2 = ProposedPlanV2 | ProposedQuestions
+ConnectedCollaborationV2 = ProposedPlanV2 | ProposedQuestions | ProposedConnectedPage
