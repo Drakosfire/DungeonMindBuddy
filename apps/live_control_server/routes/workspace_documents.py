@@ -63,7 +63,7 @@ from apps.live_control_server.services.tiptap_markdown_write import (
 
 from uuid import UUID
 from apps.live_control_server.services.agent_graph_auth import enforce_native_graph_gm
-from apps.live_control_server.models.connected_page import ConnectedPageIntent
+from apps.live_control_server.models.connected_page import ConnectedPageRequest
 from apps.live_control_server.services.connected_page_authoring import (
     ConnectedPageError, prepare_connected_page, confirm_connected_page, get_connected_page,
 )
@@ -633,7 +633,7 @@ _CONNECTED_ERRORS = (ConnectedPageError, WorkspaceDocumentRegistryError,
 
 
 @router.post('/connected-pages/prepare')
-def post_connected_page_prepare(body: ConnectedPageIntent, request: Request):
+def post_connected_page_prepare(body: ConnectedPageRequest, request: Request):
     enforce_native_graph_gm(request)
     try:
         return prepare_connected_page(_managed_world_root(), body)
