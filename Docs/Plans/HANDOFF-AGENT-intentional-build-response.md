@@ -2,18 +2,23 @@
 
 ## Authority and current lane
 
-**Current delivery:** APIf7d231a2fb0cb692140b1ab520fbd0209a40d496/UI same revision
-(#1778), APP0071/native0017 on8000/5202. The exact reviewed implementation head was
-2cbecda791d10cec22f53aee42e0de65a7012f86. Protected same-schema adoption preserved
-3197 APP rows, native data,27 frozen components and89 product files. Ordinary synthetic
-controls observed actual partial plan rows, preserved composer focus during construction,
-then admitted editable plans. Edit/defer/one Save/reload and one explicit selected-step
-continuation passed; a later stream reload recovered the completed plan without resending.
-Detailed evidence stays private. The independent evidence audit verified stored bindings;
-UI observations are direct CUA attestations, not reconstructed from provider traces.
-Operator creative-chain acceptance remains separate. #1764 stays parked.
+**Current delivery:** API/UI340cad9877e7af690dfd4d34f5b6a93a65021202 (#1781),
+APP0072/native0017 on8000/5202. Exact implementation head299d7d8ea91aa07bb8f2a21990cb9d5fe9b5eba7
+was independently approved. Protected adoption retained3258 APP rows apart from the
+schema marker, native data,27 frozen components and89 product files. Actual tsc-b,
+Vite build and112 focused Python checks passed; corrected affected UI suites passed.
+Private ordinary dogfood observed the generated objective streaming before rows,
+authored outcome/deferred step Save and reload, one selected Discuss continuation,
+and a later objective edit preserving the immutable dispatch. An explicit historical
+V1 upgrade preserved rows/source/dispatches. These are bounded UI/APP observations;
+aggregate retention is not a per-record reconstruction. Independent proof audit
+found the private record internally consistent; its direct DB connection failed.
+The Discuss reply also drafted content for a deferred insertion: no deferred step
+was dispatched or inserted, but semantic scope control remains defective. Operator
+creative-chain acceptance remains separate. #1764 stays parked. Immediate presentation
+successor: HANDOFF-SURFACE-plan-controls.md. Detailed evidence stays private.
 
-## Plan expected outcome — ACTIVE implementation, immediate operator priority
+## Plan expected outcome — delivered predecessor
 
 The operator's current dogfood correction is that a work plan must state its objective /
 expected result before listing actions. Add an editable **Expected outcome** above the steps

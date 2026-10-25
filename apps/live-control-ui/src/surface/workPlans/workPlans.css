@@ -5,4 +5,34 @@
 .surface-work-plan :is(button,select,input) { font:inherit; }
 .surface-work-plan button { margin:.25rem; padding:.3rem .55rem; border:1px solid #6f8393; border-radius:.3rem; background:#edf2f4; color:#24384a; }
 .surface-work-plan button:disabled { opacity:.6; }
-.surface-work-plan [aria-label="Saved work plan"] > div { margin-block:.75rem; }
+
+/* Compact object controls, without inheriting the surrounding editor heading size. */
+.surface-work-plan { padding:.7rem; }
+.surface-work-plan header { flex-wrap:wrap; }
+.surface-work-plan header > strong { flex:1; }
+.surface-work-plan header > button { flex:0 0 auto; width:auto; }
+.surface-work-plan textarea { min-height:3.5rem; margin:0; field-sizing:content; }
+.surface-work-plan input:not([type="checkbox"]) { box-sizing:border-box; max-width:100%; background:#fff; color:#253345; border:1px solid #789; border-radius:.3rem; padding:.25rem .4rem; }
+.surface-work-plan-review > label { display:block; margin-block:.4rem .75rem; }
+.surface-work-plan__step { display:grid; grid-template-columns:1.2rem 1.2rem minmax(0,1fr) minmax(8rem,11rem); gap:.35rem .4rem; align-items:start; padding-block:.55rem; border-top:1px solid #7894; }
+.surface-work-plan__include { grid-column:1; align-self:center; }
+.surface-work-plan__number { grid-column:2; align-self:center; }
+.surface-work-plan__step > textarea { grid-column:3; grid-row:1; }
+.surface-work-plan__action { grid-column:4; grid-row:1; align-self:center; min-width:0; }
+.surface-work-plan__action select { box-sizing:border-box; max-width:100%; width:100%; background:#fff; color:#253345; border:1px solid #789; border-radius:.3rem; padding:.25rem; }
+.surface-work-plan__step > .surface-work-plan__status { grid-column:3; grid-row:2; margin:0; font-size:.85rem; align-self:center; }
+.surface-work-plan__step > .surface-work-plan__continue { grid-column:4; grid-row:2; margin:0; }
+.surface-work-plan__step > :is(.surface-work-plan__result,details) { grid-column:3 / -1; min-width:0; }
+.surface-work-plan__finished { border-top:1px solid #7894; padding-block:.5rem; }
+.surface-work-plan__finished > summary { cursor:pointer; }
+.surface-work-plan__badge { display:inline-block; margin-inline-start:.5rem; font-size:.8rem; border:1px solid #7896; border-radius:1rem; padding:.1rem .5rem; }
+.surface-work-plan__sr { position:absolute; width:1px; height:1px; padding:0; margin:-1px; overflow:hidden; clip-path:inset(50%); white-space:nowrap; }
+.surface-work-plan button.surface-navbar-icon { display:inline-flex; align-items:center; justify-content:center; width:2rem; min-width:2rem; height:2rem; padding:0; }
+.surface-work-plan button.surface-navbar-icon--save { color:#237845; border-color:#23784566; background:#e5f3e9; }
+.surface-work-plan button.surface-navbar-icon--new { color:#80600c; }
+@media(max-width:600px) {
+ .surface-work-plan__step { grid-template-columns:1.1rem 1.1rem minmax(0,1fr); }
+ .surface-work-plan__action { grid-column:3; grid-row:2; justify-self:start; }
+ .surface-work-plan__step > .surface-work-plan__status { grid-row:3; }
+ .surface-work-plan__step > .surface-work-plan__continue { grid-column:3; grid-row:4; justify-self:start; }
+}
