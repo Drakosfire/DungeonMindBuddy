@@ -673,6 +673,34 @@ describe("one App-level World conversation host across Plan and Play", () => {
     expect(postWorldBuildAgentTurn).toHaveBeenCalledTimes(1);
   });
 
+  it("retains the exact Build envelope when the session changes after dispatch", async () => {
+    let reject!: (reason: Error) => void;
+    vi.mocked(postWorldBuildAgentTurn).mockReturnValue(new Promise((_resolve, fail) => { reject = fail; }));
+    const mounted = render(<Harness initial="build" />);
+    fireEvent.click(await screen.findByRole("button", { name: "Open" }));
+    const input = screen.getByLabelText("Message DungeonBuddy");
+    await waitFor(() => expect(input).toBeEnabled());
+    fireEvent.change(input, { target: { value: "Construct the households table" } });
+    fireEvent.click(screen.getByRole("button", { name: "Send message" }));
+    await waitFor(() => expect(postWorldBuildAgentTurn).toHaveBeenCalledTimes(1));
+    const key = 'dmb:world-play-pending-turn:v1:' + WORLD;
+    const envelope = localStorage.getItem(key);
+    expect(envelope).not.toBeNull();
+    fireEvent.change(input, { target: { value: "My next thought" } });
+    await act(async () => { reject(new LiveApiError("Local session changed during this reply. Check the saved request.", 401, { code: "local_graph_session_changed" })); });
+    expect(localStorage.getItem(key)).toBe(envelope);
+    expect(input).toHaveValue("My next thought");
+    openConversationOptions();
+    await screen.findByRole("region", { name: "Saved turn recovery" });
+    mounted.unmount();
+    render(<Harness initial="build" />);
+    fireEvent.click(await screen.findByRole("button", { name: "Open" }));
+    openConversationOptions();
+    await screen.findByRole("region", { name: "Saved turn recovery" });
+    expect(localStorage.getItem(key)).toBe(envelope);
+    expect(postWorldBuildAgentTurn).toHaveBeenCalledTimes(1);
+  });
+
   it.each((["plan", "play", "build"] as const).flatMap(surface => [false,true].map(otherDraft=>({surface,otherDraft}))))("retries terminal $surface in one click and preserves another draft: $otherDraft", async ({surface,otherDraft}) => {
     const prior = turn(surface === "build" ? "plan" : surface, 1, "");
     const terminal = {...prior, lifecycle_status: "interrupted" as const,

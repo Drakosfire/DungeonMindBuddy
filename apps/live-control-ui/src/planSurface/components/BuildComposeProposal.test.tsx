@@ -245,3 +245,13 @@ it('retires live construction across navigation and marks lost delivery incomple
  hook.rerender({doc:'other'});expect(hook.result.current.pageElement).toBeNull();
  hook.rerender({doc:'doc'});expect(hook.result.current.pageElement).toBeNull();
 });
+
+
+it('does not resurrect a live preview after leaving and returning to its conversation',async()=>{
+ const progress={schema:'dmb_build_construction_v1' as const,action_id:'action',reservation_sha256:'c'.repeat(64),conversation_id:'conversation',basis,
+  origin:{client_turn_id:'client',durable_turn_id:'durable',turn_attempt:1,broker_operation_id:'op:1',arguments_sha256:'d'.repeat(64)},provider_attempt_id:'provider',sequence:1,status:'building' as const,markdown:'| Name |\n| --- |\n| Nia |\n'};
+ const hook=renderHook(({snapshot})=>useBuildCompose({worldId:'world',pageDocumentId:'doc',history:snapshot,bridge,enabled:true,onHistory:vi.fn()}),{initialProps:{snapshot:history}});
+ act(()=>hook.result.current.observeConstruction(progress));expect(hook.result.current.pageElement).not.toBeNull();
+ hook.rerender({snapshot:{...history,conversation_id:'older'}});expect(hook.result.current.pageElement).toBeNull();
+ hook.rerender({snapshot:history});expect(hook.result.current.pageElement).toBeNull();
+});

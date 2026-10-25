@@ -5,6 +5,7 @@ import asyncio
 from contextvars import ContextVar
 import json
 from typing import Callable
+from threading import Lock
 
 from fastapi import HTTPException
 from fastapi.responses import StreamingResponse
@@ -148,23 +149,29 @@ def turn_stream(execute: Callable[[], dict], client_turn_id: str) -> StreamingRe
     async def events():
         loop = asyncio.get_running_loop()
         wake = asyncio.Event()
+        lock = Lock()
         latest = None
         terminal = None
         retired = False
+        wake_pending = False
 
-        def offer(value):
-            nonlocal latest
-            if not retired:
-                latest = value
-                wake.set()
-
-        def finish(value):
-            nonlocal terminal
-            terminal = value
-            wake.set()
+        def publish(value, *, final=False):
+            nonlocal latest, terminal, wake_pending
+            # Bound pending snapshots before crossing the worker/loop boundary.
+            with lock:
+                if retired:
+                    return
+                if final:
+                    terminal = value
+                else:
+                    latest = value
+                if wake_pending:
+                    return
+                wake_pending = True
+                loop.call_soon_threadsafe(wake.set)
 
         def work():
-            token = construction_sink.set(lambda value: loop.call_soon_threadsafe(offer, value))
+            token = construction_sink.set(publish)
             result = {'kind': 'error', 'status': 500, 'detail': {'code': 'turn_stream_failed',
                       'message': 'The saved request needs checking. No automatic retry was sent.'}}
             try:
@@ -175,7 +182,7 @@ def turn_stream(execute: Callable[[], dict], client_turn_id: str) -> StreamingRe
                 pass  # The route/service already owns durable uncertainty and diagnostics.
             finally:
                 construction_sink.reset(token)
-                loop.call_soon_threadsafe(finish, result)
+                publish(result, final=True)
 
         def release(task):
             _running.discard(task)
@@ -189,17 +196,21 @@ def turn_stream(execute: Callable[[], dict], client_turn_id: str) -> StreamingRe
             while True:
                 await wake.wait()
                 wake.clear()
-                if latest is not None:
+                with lock:
                     value, latest = latest, None
+                    end = terminal
+                    wake_pending = False
+                if value is not None:
                     yield 'data: ' + json.dumps({'schema': 'dmb_build_turn_stream_v1',
                         'client_turn_id': client_turn_id, 'kind': 'construction', 'progress': value}) + '\n\n'
-                if terminal is not None:
+                if end is not None:
                     yield 'data: ' + json.dumps({'schema': 'dmb_build_turn_stream_v1',
-                        'client_turn_id': client_turn_id, **terminal}) + '\n\n'
+                        'client_turn_id': client_turn_id, **end}) + '\n\n'
                     return
         finally:
-            retired = True
-            latest = None
+            with lock:
+                retired = True
+                latest = terminal = None
             # Do not cancel the one durable request when only its observer retires.
 
     return StreamingResponse(events(), media_type='text/event-stream',

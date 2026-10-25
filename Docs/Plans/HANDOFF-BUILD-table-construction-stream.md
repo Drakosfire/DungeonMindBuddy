@@ -118,7 +118,9 @@ required before existing live proposal editing/Save becomes available.
   apps/live-control-ui/src/surface/SurfaceConstructionPreview.test.tsx (new),
   apps/live-control-ui/src/buildSurface/BuildConstructionPreview.test.tsx (new),
   apps/live-control-ui/src/planSurface/WorldPlanAgentConversation.worldHistory.test.tsx,
-  apps/live-control-ui/src/planSurface/components/BuildComposeProposal.test.tsx
+  apps/live-control-ui/src/planSurface/components/BuildComposeProposal.test.tsx,
+  apps/live-control-ui/src/agentInteraction/WorldAgentConversation.planPlay.integration.test.tsx
+  (PRIME adds mounted post-send session-retirement recovery witness; no contract change)
 - this handoff, Docs/Roadmaps/ROADMAP-demo.md,
   Docs/Plans/HANDOFF-BUILD-draft-writer-status-domain.md (truthful PR1709 settlement)
 

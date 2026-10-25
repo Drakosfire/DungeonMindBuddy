@@ -77,6 +77,40 @@ def test_one_command_progress_precedes_terminal_and_mailbox_coalesces():
     asyncio.run(run())
 
 
+def test_mailbox_bounds_callbacks_before_event_loop_dispatch(monkeypatch):
+    async def run():
+        loop = asyncio.get_running_loop()
+        original = loop.call_soon_threadsafe
+        held = []
+        emitted = threading.Event()
+        def schedule(callback, *args, **kwargs):
+            if isinstance(getattr(callback, '__self__', None), asyncio.Event):
+                held.append((callback, args, kwargs))
+                return None
+            return original(callback, *args, **kwargs)
+        monkeypatch.setattr(loop, 'call_soon_threadsafe', schedule)
+        def work():
+            for sequence in range(1, 1001):
+                stream.observe({'sequence': sequence, 'markdown': 'x' * sequence})
+            emitted.set()
+            return {'answer': 'saved'}
+        iterator = stream.turn_stream(work, 'turn').body_iterator
+        first = asyncio.create_task(anext(iterator))
+        assert await asyncio.to_thread(emitted.wait, 2)
+        for task in tuple(stream._running):
+            await task
+        assert len(held) == 1
+        callback, args, kwargs = held.pop()
+        original(callback, *args, **kwargs)
+        frame = json.loads((await first).removeprefix('data: '))
+        assert frame['progress'] == {'sequence': 1000, 'markdown': 'x' * 1000}
+        rest = [json.loads(value.removeprefix('data: ')) async for value in iterator]
+        assert rest == [{'schema': 'dmb_build_turn_stream_v1', 'client_turn_id': 'turn',
+                         'kind': 'result', 'response': {'answer': 'saved'}}]
+        assert not held
+    asyncio.run(run())
+
+
 def test_disconnect_retires_only_delivery_and_the_command_finishes():
     async def run():
         release=threading.Event();finished=threading.Event();calls=[]

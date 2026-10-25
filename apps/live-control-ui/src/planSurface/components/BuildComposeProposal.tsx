@@ -25,9 +25,11 @@ export function useBuildCompose({ worldId, history, bridge, enabled, onHistory, 
   if (generation.current.scope !== scope) generation.current = { scope, epoch: generation.current.epoch + 1 };
   const current = useRef({ scope, epoch: generation.current.epoch, worldId, history, bridge, enabled, onHistory, pageDocumentId, sourceKey });
   current.current = { scope, epoch: generation.current.epoch, worldId, history, bridge, enabled, onHistory, pageDocumentId, sourceKey };
-  const constructionView=useRef({sourceKey,pageDocumentId,bridge,epoch:0});
-  if(constructionView.current.sourceKey!==sourceKey||constructionView.current.pageDocumentId!==pageDocumentId||constructionView.current.bridge!==bridge)
-    constructionView.current={sourceKey,pageDocumentId,bridge,epoch:constructionView.current.epoch+1};
+  const constructionScope=JSON.stringify([scope,history?.active_conversation_id,history?.pointer_revision]);
+  const constructionView=useRef({sourceKey,pageDocumentId,bridge,scope:constructionScope,epoch:0});
+  if(constructionView.current.sourceKey!==sourceKey||constructionView.current.pageDocumentId!==pageDocumentId
+    ||constructionView.current.bridge!==bridge||constructionView.current.scope!==constructionScope)
+    constructionView.current={sourceKey,pageDocumentId,bridge,scope:constructionScope,epoch:constructionView.current.epoch+1};
   const [records, setRecords] = useState<{ scope: string; values: BuildProposalRecord[] }>({ scope: '', values: [] });
   const [imageRecords,setImageRecords] = useState<{scope:string;values:PreparedImage[]}>({scope:'',values:[]});
   const [construction,setConstruction]=useState<{scope:string;sourceKey:string;viewEpoch:number;progress:BuildConstructionProgress}|null>(null);
