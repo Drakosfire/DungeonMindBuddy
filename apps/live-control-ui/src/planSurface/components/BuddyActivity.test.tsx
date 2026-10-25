@@ -1,0 +1,59 @@
+import { fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { describe, expect, it, vi } from 'vitest'
+import { BuddyActivity } from './BuddyActivity'
+import { BuddyTurnInspection } from './BuddyTurnInspection'
+import type { BuddyTurnContextTrace } from '../../api/buddyContextTraceTypes'
+import type { AgentConversationTurnLifecycleV1 } from '../../api/types'
+
+const binding = {worldId:'world',conversationId:'conversation',turnId:'turn'}
+const trace = (observations: BuddyTurnContextTrace['observations']): BuddyTurnContextTrace => ({
+  schema:'dmb_turn_context_trace_v1',world_id:'world',conversation_id:'conversation',turn_id:'turn',trace_id:'trace',
+  attempt:1,started_at:'2026-10-24T00:00:00Z',closed_at:null,execution_start_sequence:0,
+  terminal_status:null,capture_status:'recording',capture_failure_code:null,observations,
+})
+function mount(captured: BuddyTurnContextTrace, lifecycle: AgentConversationTurnLifecycleV1 = 'running') {
+  const load=vi.fn().mockResolvedValue({schema:'dmb_agent_turn_context_trace_response_v1',world_id:'world',turn_id:'turn',attempts:[captured]})
+  const loadPrompt=vi.fn()
+  render(<BuddyTurnInspection {...binding} lifecycle={lifecycle} load={load} loadPrompt={loadPrompt}>
+    <BuddyActivity {...binding} lifecycle={lifecycle} />
+  </BuddyTurnInspection>)
+  return {load,loadPrompt}
+}
+describe('live activity entrance',()=>{
+  it('uses actual observed events and expands a light timeline without prompts',async()=>{
+    const {load,loadPrompt}=mount(trace([{kind:'provider_call',sequence:0,elapsed_ms:1200,
+      provider:'typesafe',model:'jev',outcome:'response_received'}]))
+    await screen.findByText('A model response just landed.')
+    expect(load).toHaveBeenCalledTimes(1)
+    expect(screen.queryByText(/Attempt 1/)).not.toBeInTheDocument()
+    fireEvent.click(screen.getByText('A model response just landed.'))
+    await screen.findByText(/Attempt 1/)
+    expect(screen.getByText('1.2s')).toBeInTheDocument()
+    expect(loadPrompt).not.toHaveBeenCalled()
+    expect(screen.queryByText('Copy trace')).not.toBeInTheDocument()
+  })
+  it('does not fetch a completed trace until the quiet entry is opened',async()=>{
+    const {load}=mount({...trace([]),terminal_status:'completed',closed_at:'2026-10-24T00:00:01Z',capture_status:'complete'},'completed')
+    expect(load).not.toHaveBeenCalled()
+    fireEvent.click(screen.getByText('How this reply came together'))
+    await waitFor(()=>expect(load).toHaveBeenCalledTimes(1))
+    await screen.findByText(/Attempt 1/)
+  })
+  it('keeps terminal failures in the same entry with the recorded error code',async()=>{
+    mount({...trace([{kind:'failure',sequence:0,elapsed_ms:23700,phase:'delivery',code:'build_source_name_missing',stage:'context_acquisition'}]),terminal_status:'interrupted'},'interrupted')
+    fireEvent.click(screen.getByText('Reply error report'))
+    await screen.findByText(/build_source_name_missing/)
+    expect(screen.getByText(/context_acquisition/)).toBeInTheDocument()
+  })
+})
+
+it('updates the running line from a later recorded observation', async()=>{
+  const initial=trace([{kind:'provider_call',sequence:0,elapsed_ms:0,provider:'typesafe',model:'jev',outcome:'authorized'}])
+  const {load}=mount(initial)
+  await screen.findByText('Model call cleared for takeoff…')
+  load.mockResolvedValue({schema:'dmb_agent_turn_context_trace_response_v1',world_id:'world',turn_id:'turn',attempts:[trace([
+    {kind:'context_snapshot',sequence:1,elapsed_ms:2000,stage:'after',materials:[]}
+  ])]})
+  await screen.findByText('The working notes have been updated.', {}, {timeout:3500})
+  expect(load).toHaveBeenCalledTimes(2)
+})

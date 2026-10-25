@@ -83,7 +83,8 @@ describe('opt-in turn trace read', () => {
     expect(load).toHaveBeenCalledTimes(2)
     await act(async()=>screen.getByText('Retry trace read').click())
     expect(load).toHaveBeenCalledTimes(3)
-    expect(screen.queryByRole('alert')).not.toBeInTheDocument()
+    expect(screen.queryByText('Execution trace is unavailable. The message will not be resent.')).not.toBeInTheDocument()
+    expect(screen.getByRole('alert')).toHaveTextContent('The specific cause was not recorded')
   })
   it('cancels recording-trace updates when Debug closes', async () => {
     vi.useFakeTimers()

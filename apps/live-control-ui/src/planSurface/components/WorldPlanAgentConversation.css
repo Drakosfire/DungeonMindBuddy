@@ -1248,3 +1248,10 @@
   padding-inline: 0;
   border-inline-start: 0;
 }
+
+.buddy-activity { padding: .35rem .25rem; font-size: .875rem; color: #d5ddeb; }
+.buddy-activity > summary { cursor: pointer; }
+.buddy-activity__body { max-height: 16rem; overflow: auto; padding: .5rem; }
+.buddy-activity ol { padding-inline-start: 1.4rem; }
+.buddy-activity li { padding-block: .15rem; }
+.buddy-activity time { color: #aebbd0; font-variant-numeric: tabular-nums; }
