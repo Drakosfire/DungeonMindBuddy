@@ -2,14 +2,130 @@
 
 ## Authority and current lane
 
-**Current paired API/UI checkpoint:** durable Build retry #1775, merge
-38523c01013703ecdc3f1151521bb22d18c6a6a6, independently reviewed at
-4d62f279064e460c896536039bf1c7096a3bd146, APP0071/native0017 on8000/5202.
-Intentional runtime semantics #1772 and typed library #1773 remain delivered foundations.
-The retry implementation lease is settled. The bounded trace-owner correction below is
-active; ordinary acceptance remains open until historical attempt inspection works.
-Protected-delivery and dogfood evidence stays private. Operator creative-chain acceptance
-remains separate.
+**Current delivery checkpoint:** API38523c01013703ecdc3f1151521bb22d18c6a6a6
+(#1775), UI519cc2b1e9949353064f48c5e2a07767c1a82846 (#1776),
+APP0071/native0017 on8000/5202. Durable retry and its historical trace-owner
+correction are settled. Ordinary current/library inspection and exact predecessor
+Copy trace passed; private protected-delivery and dogfood evidence is retained.
+Operator creative-chain acceptance remains separate. #1764 stays parked.
+
+## Typed plan construction — design; implementation BLOCKED
+
+Design steward: PRIME. The operator requires generated objects to visibly take shape on
+the Surface; editable generated plans are delivered, but their rows appear only after
+validation. This slice extends actual provider construction to typed plan rows. It does
+not move clarifying questions out of chat or add another plan/execution owner.
+
+### Inspected owners and root cause
+
+- `BuildJevHarness._write` uses GE `generate_text`; ordinary page prose/table construction
+  instead uses guarded `stream_text` in `build_document_proposal.compose_with_writer`.
+- The delivered GE dependency `generationengine-3e08516` supports guarded schema streams,
+  one `TextCompleted`/`TextFailed` terminal, no JSON-object mode and no transport/conformance
+  repair. Hermes/APP already own admission and continuation; no new orchestrator is needed.
+- `build_jev_writer.WriterProjection.kwargs/validate_body` freezes `stream:false` and
+  checks exact prepared bytes. Merely switching SDK methods would fail its dispatch gate.
+  Any streaming transport choice must be represented in that exact parent projection,
+  authorized by the existing APP writer gate and captured honestly in Debug/accounting.
+- Existing construction progress is specific to a reserved document proposal: its action
+  ID, broker operation and reservation hash must not be fabricated for a generated plan.
+- `StagedWorkPlan` owns final on-page staging against the admitted collaboration and
+  retained placement. APP work plans own edited rows, selected/deferred state and explicit
+  continuation. Partial provider JSON has none of those authorities.
+
+### Invariant and design
+
+1. Choose the streaming mode from the admitted semantic response resolution for a typed
+   plan with a real captured Build placement and provider-native closed JSON schema.
+   Do not add a second intent model, keywords, fake alternatives or an author-selection
+   receipt. Other response operations keep their existing transports; this is an explicit
+   operation transport choice, not a fallback. A missing placement remains a concrete
+   placement obstacle; do not silently put a draft checklist in chat.
+2. Include streaming mode in `WriterProjection` before provider authorization. Reconstruct
+   and verify the complete prepared SDK request, including `stream:true`, through the
+   existing gate, inclusion records and prompt capture. Keep the same actual writer
+   provider/model, schema, context, no-retry policy and exact final output. No body flag
+   may be mutated after authorization. APP completion and source/citation validation
+   remain unchanged. Verify this at the real SDK/APP boundary before activating runtime.
+3. Observe actual SDK `TextDelta` events with a single-pass JSON-path decoder. Only expose
+   complete direct `collaboration.steps` objects after the same direct collaboration
+   object's kind is known to be `plan`. Handle arbitrary chunk/UTF-8/string-escape splits,
+   field ordering, nested decoys, duplicate keys, wrong shapes and incomplete tails.
+   Retain only the complete step prefix; never infer missing rows or turn text embedded
+   in a string into a plan. Invalid or ambiguous output retires the preview as incomplete.
+   The decoder is observation, never final JSON/plan admission.
+4. Add a closed observational `dmb_build_plan_construction_v1` progress variant to the
+   existing one-request SSE transport, separate from `dmb_build_construction_v1`.
+   Bind the exact client turn, admitted durable turn/attempt, World/conversation,
+   captured placement basis, working snapshot identity, actual authorized provider
+   attempt and monotonic sequence. Carry complete `{text,kind}` rows only; kinds use
+   the existing plan action vocabulary. No proposal action, reservation, dispatch,
+   saved-plan or executable row IDs may be invented. No new durable store or migration
+   is expected; a newly required durable contract requires an explicit owner amendment.
+5. The UI validates that new variant against the submitted request and its current
+   view/editor epoch before accepting a snapshot. It must not loosen validation of the
+   existing document-proposal variant. Reuse the existing placement bridge and shared
+   Surface preview shell. Render plan rows and their proposed action labels inertly:
+   no enabled checkbox, text editor, Save, Continue, links, media loads or publication.
+   Preserve composer focus and normal scrolling. It is visibly construction, not a saved
+   or reviewable plan. Never collapse the conversation because an incomplete row appeared.
+6. The real final `TextCompleted` supplies the exact output and actual usage; adapt it to
+   the existing writer-completion input without manufacturing a response/observation.
+   GE conformance alone does not admit the plan. Only the existing APP-validated terminal
+   reply may replace the preview with `StagedWorkPlan` and its normal editable controls.
+   Incomplete previews cannot be recovered as plans or be copied into an executable
+   request. Preserve final reconciliation even if preview rendering fails.
+7. Observer disconnect/navigation/reload retires only the preview. The accepted command
+   continues with its existing identity; Check saved request remains the uncertain-outcome
+   recovery owner. No automatic regeneration or hidden second writer. Failed streams show
+   grounded activity/trace and leave the newer composer intact. No simulated token/row
+   animation or delay: any preview beat must come from actual provider progress.
+
+### Gates, topology and expected owners
+
+Status is BLOCKED until independent invariant critique and an exact owner/projection audit
+confirm the SDK request, APP admission and UI replacement boundaries. This design grants no
+runtime activation. Once resolved, PRIME may record one explicit **serial** implementation
+lease in the existing `buddy-context-loop/DungeonMindBuddy` checkout from current remote
+main. No other current PR owns these paths; #1764 remains parked and is not a parent.
+Existing API8000/UI5202 and retained APP/native stores stay intact until reviewed delivery.
+
+Expected runtime paths (audit/activation must confirm any expansion):
+`apps/live_control_server/services/build_jev_harness.py`, `build_jev_writer.py`,
+`build_construction_stream.py`; `apps/live-control-ui/src/api/buildConstructionStream.ts`,
+`apps/live-control-ui/src/api/liveApi.ts`;
+`apps/live-control-ui/src/planSurface/components/BuildComposeProposal.tsx`,
+`apps/live-control-ui/src/planSurface/components/WorldPlanAgentConversation.tsx`;
+`apps/live-control-ui/src/buildSurface/BuildConstructionPreview.tsx`;
+`apps/live-control-ui/src/surface/SurfaceConstructionPreview.tsx` or a bounded sibling
+shared plan preview. All source paths here are repository-relative.
+Existing APP source-output/working-draft validation may be read and exercised, but is not
+licensed for weakening or a new policy/version/migration without a named amendment.
+Tests: actual SDK/APP integration, `tests/test_build_construction_stream.py`, focused
+writer-envelope tests, and corresponding UI API/preview/shared-conversation tests.
+This handoff is the mutable authority owner. No new service/store/port/environment,
+source export or dependencies are expected. Design and implementation use separate
+reviewed serial PRs; a design merge is not implementation or delivery acceptance.
+
+### Acceptance
+
+- Prove the actual SDK prepared stream is exactly authorized, accounted and captured;
+  produce one APP-admitted typed plan with one physical writer authorization. Reject a
+  changed stream flag/body and retain the actual raw final if conformance/APP rejects it.
+- Decoder partitions, escaped Unicode/quotes, reordered keys, nested decoys, duplicates,
+  malformed rows/finals and empty/missing/non-plan collaborations cannot grant authority.
+- Real loader/Surface tests prove prefix rows before terminal, no interactive partial
+  controls, no focus theft, exact final replacement once, no stale/foreign preview, and
+  no effect of preview failure on final reconciliation. Keep the full inherited failure
+  baseline separate; helper tests are not proof of APP/SDK or Surface behavior.
+- After exact cumulative independent Bugbot review, PRIME merge and protected delivery,
+  use ordinary synthetic controls to observe real incoming plan rows on the page; then
+  edit/defer, Save once, reload and explicitly continue only the selected admitted step.
+  Exercise navigation/disconnect while generating via Check saved request, retaining
+  newer composer text and one command/writer. No provider fault injection is required
+  unless a concrete uncovered failure needs it. Keep all detailed proof private.
+- Preserve the pending Brin counterpart choice; this synthetic proof does not replace
+  the actual connected-authoring chain or operator acceptance.
 
 ## Typed library readback — settled
 
@@ -19,23 +135,17 @@ inspection preserves typed questions, page-object references and the newer compo
 The readback write lease is settled. Detailed protected-delivery and dogfood evidence
 remains private; the library does not activate archived conversations or grant execution.
 
-## Durable Build retry relationship — delivered; trace correction ACTIVE
+## Durable Build retry relationship — settled
 
 #1775 records explicit immutable retry lineage and groups current/history/library views
 without inferring ancestry from equal question text. Each physical attempt retains its
 own provider and proposal receipts. The runtime implementation is delivered; no historical
 links are backfilled. #1764 remains parked.
 
-Ordinary inspection exposed a UI ownership mismatch: an older attempt's trace loader
-inherits the newest turn's inspection context (or no context in the library). Give each
-expanded historical trace its own existing `BuddyTurnInspection` owner, bound to that
-physical turn, World and conversation. Preserve strict response/prompt identity validation,
-read-only behavior and lazy acquisition. Do not weaken the shared inspection guard.
-
-Exclusive serial corrective lease: `ConversationRetryAttempts.tsx`, its actual-loader
-boundary tests, and this handoff in the existing checkout. No APP/API/schema/operation
-change. Independent review, PRIME merge, protected UI delivery and ordinary current/library
-inspection are required. Retain the completed #1775 protected delivery evidence privately.
+The #1776 correction gives each expanded historical trace its own existing exact-bound
+inspection owner. Its source lease is settled; current and library ordinary controls
+preserve physical turn identity. Retain strict inspection/prompt validation and bounded
+read-only acquisition. No additional trace execution or retry owner is introduced.
 
 ### Contract
 
