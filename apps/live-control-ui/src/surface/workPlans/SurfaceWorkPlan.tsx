@@ -32,7 +32,7 @@ export function SurfaceWorkPlan({reference,onTitleChange}:{reference:WorkPlanRef
   const placementPending=!!receipt&&receipt.phase!=='saved'&&receipt.phase!=='discarded';
   const editable=checkedIdentity===identity&&!receiptError&&!placementPending&&host.editable&&!host.busy&&host.activeConversationId===reference.conversation_id&&host.conversationId===reference.conversation_id;
   return <section ref={root} className="surface-work-plan" aria-label="Work plan" contentEditable={false}>
-    <header><strong>{reference.title}</strong><SurfaceObjectMenu label="Plan options">{receipt&&<details><summary>Placement recovery</summary><pre>{JSON.stringify(receipt,null,2)}</pre></details>}</SurfaceObjectMenu></header>
+    <header className="surface-work-plan__header"><strong>{reference.title}</strong><SurfaceObjectMenu label="Plan options">{receipt&&<details><summary>Placement recovery</summary><pre>{JSON.stringify(receipt,null,2)}</pre></details>}</SurfaceObjectMenu></header>
     {editable&&onTitleChange?<label>Plan title<input aria-label="Plan title" defaultValue={reference.title} onBlur={event=>{
       const title=event.currentTarget.value.trim();if(title&&title!==reference.title)onTitleChange(title);else event.currentTarget.value=reference.title;
     }}/></label>:null}

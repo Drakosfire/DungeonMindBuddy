@@ -41,7 +41,7 @@ it('publishes actions only in navigation, preserves selection and removes retire
  const button=screen.getByRole('button',{name:'New page'});
  expect(fireEvent.mouseDown(button)).toBe(false);fireEvent.click(button);expect(invoke).toHaveBeenCalledOnce();
  expect(e.state.selection.from).toBe(1);expect(e.state.selection.to).toBe(6);
- act(()=>e.commands.setTextSelection(1));await waitFor(()=>expect(screen.queryByRole('toolbar')).toBeNull());
+ act(()=>e.commands.setNodeSelection(0));await waitFor(()=>expect(screen.queryByRole('toolbar')).toBeNull());
  act(()=>e.commands.setTextSelection({from:1,to:6}));await screen.findByRole('toolbar');
  mounted.unmount();expect(screen.queryByRole('toolbar')).toBeNull();
 });

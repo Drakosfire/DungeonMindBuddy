@@ -55,3 +55,24 @@ Graph identity and obtains an admitted read, rather than merely receiving its na
 A durable request attachment/read contract is separate scope, not a decorative slash
 command in this presentation slice. Likewise the observed Discuss reply drafting
 content for a deferred insertion is retained as a separate scope-control defect.
+
+## Rendered spacing correction — ACTIVE serial successor
+
+PR1782 merged4e015a4300650ad30860aa600f8d9d9c411b9804 after independent
+approval at148936bc3b53e7256dda0fc1d944359fb24e124c. Protected UI-only adoption
+retained3276 APP rows, native rows,27 frozen components and89 product files;
+API340cad98 remained untouched. Ordinary page reload retained the saved outcome,
+a deferred editable row, and the older blank unsaved step. Completed disclosure
+and opt-in menu appeared, but the rendered page exposed inherited header display:grid
+and grid auto-placement leaving checkbox below text. PRIME authorizes a bounded
+serial correction in codex/surface-plan-spacing from4e015a43. Exclusive write set:
+this handoff, SurfaceWorkPlan.tsx, StagedWorkPlan.tsx, workPlans.css. Same presentation
+contract, no new capability. One successor PR; independent exact-head review and
+protected UI-only delivery, then actual narrow/wide rendered proof. No state writes
+or model calls needed to prove this correction. Graph input remains next scope.
+
+The same rendered check found object-menu clicks can leave a non-text editor
+selection. The navigation contribution must apply the existing capture eligibility
+(single paragraph/heading containing only text), not expose text actions for object
+selection. PRIME extends this correction lease to SurfaceSelectionActions.tsx and
+its test before editing; no change to capture/admission or action execution.
