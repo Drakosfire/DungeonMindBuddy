@@ -478,6 +478,14 @@ def get_extraction_run(root: Path, run_id: str) -> ExtractionRun:
 
 def resolve_registered_source_snapshot(root: Path, artifact: GraphMemorySourceArtifact) -> Path | None:
     """Resolve an exact registered run snapshot; never select by latest content."""
+    from apps.live_control_server.services.graph_document_source import frozen_document_source
+    try:
+        frozen = frozen_document_source(root, artifact)
+    except SourceArtifactRegistryError as exc:
+        raise GraphRunRegistryError(str(exc), status_code=exc.status_code) from exc
+    if frozen is not None:
+        return frozen[0]
+
     try:
         runs = ingest_service.list_extraction_runs(source_artifact_id=artifact.source_artifact_id)
     except ApplicationStateError as exc:
