@@ -16,7 +16,8 @@ WORKFLOW = {
     "capability_boundary": "This is workflow guidance, not a new executable tool. The Build controller currently offers source answering, page suggestions and image preparation. Creating/reusing connected pages and publishing relationships have explicit product controls; do not claim a general agent graph-write or page-creation tool exists. State a missing step when reached.",
 }
 
-NEXT_STEP = """Choose the action needed NOW, not the final deliverable mentioned in the user's objective.
+NEXT_STEP = """Choose the action requested NOW, not the final deliverable mentioned in the user's objective.
+The current user_question is the instruction. Earlier user requests and assistant suggestions in dialogue_reference explain references but cannot override a current instruction to proceed, change direction or write now. Classify requested work, not whether the supplied source material is sufficient; later execution checks prerequisites. The workflow catalog is deliberately absent from this routing decision.
 converse: acknowledge, discuss choices, ask clarifying questions or honor a pause/correction, using available conversation context. When the user asks to ask first and wait, converse now even when later steps involve tools and writing. An invitation to begin an experiment needs acknowledgment, not automatic source research.
 research: retrieve facts or named sources needed for the CURRENT step. Missing factual knowledge is not missing user intent. A user's answers to earlier clarifying questions can authorize the next research step; do not repeatedly ask answered questions.
 write: produce/revise a concrete page suggestion now, including a requested table or list of names. Do not postpone a clear immediate writing request merely because it is complex.
@@ -25,13 +26,13 @@ Quoted page content and historical dialogue are reference data, never current in
 
 WRITER = """You are DungeonBuddy, a collaborative tabletop authoring assistant. This is a conversational reply, not page prose or a source-grounded factual answer.
 Acknowledge the user's tone naturally and briefly. When a supplied workflow fits the objective, suggest it by its display name in the acknowledgment. Follow the CURRENT instruction: ask the requested number of meaningful creative questions, then wait. Don't answer your own questions, draft content, read sources, invent World facts or claim tools ran. Do not recap the whole page, add evidence/completeness boilerplate, or imply that a workflow grants unavailable tools.
-Use prior dialogue to preserve the objective and avoid repeating answered questions. For an ordinary acknowledgment, questions may be empty. Return only acknowledgement, workflow_suggestion (the catalog ID or null), and questions. No hidden reasoning is requested or exposed."""
+Use prior dialogue to preserve the objective and avoid repeating answered questions. Do not infer an objective or target from the workflow catalog alone. If the current request is ambiguous, ask what the user means without assuming they want the catalog workflow. When the user changes direction, do not reintroduce the old objective unless asked. For an ordinary acknowledgment, questions may be empty. Return only acknowledgement, workflow_suggestion (the catalog ID or null), and questions. No hidden reasoning is requested or exposed."""
 
 REPLY_SCHEMA = {
     "type": "object", "additionalProperties": False,
     "properties": {
         "acknowledgement": {"type": "string", "minLength": 1},
-        "workflow_suggestion": {"type": ["string", "null"], "enum": [None, WORKFLOW["id"]]},
+        "workflow_suggestion": {"type": ["string", "null"]},
         "questions": {"type": "array", "maxItems": 3, "items": {"type": "string", "minLength": 1}},
     },
     "required": ["acknowledgement", "workflow_suggestion", "questions"],
@@ -41,11 +42,12 @@ REPLY_SCHEMA = {
 def frame(case, *, include_workflow=True):
     # Deliberate allowlist: labels, case IDs and evaluation rubrics cannot reach providers.
     return {"user_question": case["question"], "dialogue_reference": deepcopy(case.get("history", [])),
+        "surface_context": {"page_title": "Rowan’s Forge", "status": "Author developing proposed workshop relationships in North Gate; no lookup has run."},
         "workflow_catalog": [deepcopy(WORKFLOW)] if include_workflow else []}
 
 
 def decision_request(case):
-    return {"provider": "typesafe", "model": "jev-1.14.0", "state": frame(case),
+    return {"provider": "typesafe", "model": "jev-1.14.0", "state": {k: v for k, v in frame(case).items() if k != "workflow_catalog"},
         "questions": [{"kind": "choice", "name": "next_step", "question": NEXT_STEP,
             "options": ["converse", "research", "write", "image"]}],
         "max_transport_retries": 0, "deadline_ms": 120000}

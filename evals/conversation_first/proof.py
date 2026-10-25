@@ -40,6 +40,17 @@ def choose(result):
     return answer['selected']
 
 
+def validate_reply(reply, value):
+    jsonschema.validate(reply['output'], REPLY_SCHEMA)
+    allowed = {item['id'] for item in value['workflow_catalog']}
+    if reply['output']['workflow_suggestion'] is not None and reply['output']['workflow_suggestion'] not in allowed:
+        raise ValueError('Writer invented an unavailable workflow')
+
+
+def retain_attempt(entry, event):
+    entry.setdefault('attempts', []).append(event.model_dump(mode='json'))
+
+
 async def one(case, repeat, decide, write):
     row = {'case_id': case['id'], 'repeat': repeat, 'calls': [], 'passed': False}
     started = time.perf_counter()
@@ -56,7 +67,7 @@ async def one(case, repeat, decide, write):
             reply = {'role': 'writer', 'input': frame(case), 'response': None}
             row['calls'].append(reply)
             reply['response'] = await write(reply['input'], reply)
-            jsonschema.validate(reply['response']['output'], REPLY_SCHEMA)
+            validate_reply(reply['response'], reply['input'])
             count = case['expected_questions']
             row['question_count_passed'] = count is None or len(reply['response']['output']['questions']) == count
             row['passed'] &= row['question_count_passed']
@@ -65,7 +76,7 @@ async def one(case, repeat, decide, write):
                 ablation = {'role': 'writer_without_catalog', 'input': frame(case, include_workflow=False), 'response': None}
                 row['calls'].append(ablation)
                 ablation['response'] = await write(ablation['input'], ablation)
-                jsonschema.validate(ablation['response']['output'], REPLY_SCHEMA)
+                validate_reply(ablation['response'], ablation['input'])
     except Exception as exc:
         row.update(passed=False, error=type(exc).__name__, error_message=str(exc)[:500])
     row['elapsed_ms'] = round((time.perf_counter() - started) * 1000)
@@ -120,6 +131,8 @@ async def main():
         raise RuntimeError('Configured proof credentials unavailable')
 
     def gates(entry):
+        from uuid import uuid4
+        entry['call_id'] = str(uuid4())
         entry['wire'] = []
         entry['lifecycle'] = []
 
@@ -138,23 +151,43 @@ async def main():
             return True
         return authorize, record
 
+    def journal(entry, event):
+        with (args.output / 'attempts.jsonl').open('a') as sink:
+            sink.write(canonical({'call_id': entry['call_id'], 'event': event}) + '\n')
+
     async def decide(request, entry):
         provider = TypeSafeDecisionProvider(api_key=decision_key, dispatch_gate=DecisionDispatchGate(*gates(entry)))
         client = GenerationClient(decision_providers={'typesafe': provider})
         try:
             return (await client.decide(DecisionRequest.model_validate(request))).model_dump(mode='json')
+        except Exception as exc:
+            observation = getattr(exc, 'observation', None)
+            if observation is not None:
+                entry['failure_observation'] = observation.model_dump(mode='json')
+                journal(entry, {'failure_observation': entry['failure_observation']})
+            raise
         finally:
             await client.aclose()
 
     async def write(value, entry):
         provider = OpenAITextProvider(api_key=writer_key, dispatch_gate=TextDispatchGate(*gates(entry)))
         client = GenerationClient(text_providers={'openai': provider})
+        async def completed(event):
+            retain_attempt(entry, event)
+            journal(entry, entry['attempts'][-1])
         try:
             response = await client.generate_structured(TextRequest(provider='openai', model='gpt-6-luna',
                 user_prompt=canonical(value), system_prompt=WRITER, max_output_tokens=1800,
                 temperature=None, reasoning_effort='low', json_schema=REPLY_SCHEMA,
-                schema_name='conversation_first_proof_v1', max_conformance_retries=0, max_transport_retries=0))
+                schema_name='conversation_first_proof_v1', max_conformance_retries=0, max_transport_retries=0),
+                on_attempt_completed=completed)
             return {'output': json.loads(response.text), 'observation': response.observation.model_dump(mode='json')}
+        except Exception as exc:
+            observation = getattr(exc, 'observation', None)
+            if observation is not None:
+                entry['failure_observation'] = observation.model_dump(mode='json')
+                journal(entry, {'failure_observation': entry['failure_observation']})
+            raise
         finally:
             await client.aclose()
 

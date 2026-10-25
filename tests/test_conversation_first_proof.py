@@ -72,3 +72,35 @@ def test_wrong_question_count_and_invalid_schema_fail():
 def test_ambiguous_or_invalid_decision_is_not_success(scores):
     with pytest.raises(ValueError):
         choose({'answers': {'next_step': {'selected': 'converse', 'probabilities': scores}}})
+
+
+def test_controller_does_not_receive_workflow_steps_or_identity():
+    for case in cases():
+        assert 'develop_connected_place' not in json.dumps(decision_request(case))
+        assert 'workflow_catalog' not in decision_request(case)['state']
+
+
+def test_no_catalog_schema_does_not_leak_skill_identity_and_unknown_selection_fails():
+    from evals.conversation_first.scaffold import REPLY_SCHEMA
+    from evals.conversation_first.proof import validate_reply
+    assert 'develop_connected_place' not in json.dumps(REPLY_SCHEMA)
+    with pytest.raises(ValueError, match='unavailable workflow'):
+        validate_reply({'output': {'acknowledgement': 'Ready', 'questions': [],
+            'workflow_suggestion': 'develop_connected_place'}}, frame(cases()[1], include_workflow=False))
+
+
+def test_failed_writer_preserves_received_invalid_text_and_known_usage():
+    from evals.conversation_first.proof import retain_attempt
+    from generationengine.types import StructuredAttemptCompleted
+    async def decide(request, entry):
+        return response('converse')
+    async def write(value, entry):
+        retain_attempt(entry, StructuredAttemptCompleted(operation_id='proof', event_id='proof:1',
+            ordinal=1, kind='initial', provider='openai', requested_model='gpt-6-luna',
+            resolved_model='gpt-6-luna', response_model='gpt-6-luna', provider_request_id='request',
+            provider_response_id='response', text='invalid JSON', input_tokens=100, output_tokens=3))
+        raise ValueError('received invalid output')
+    row = asyncio.run(one(cases()[1], 0, decide, write))
+    assert not row['passed']
+    attempt = row['calls'][1]['attempts'][0]
+    assert attempt['text'] == 'invalid JSON' and attempt['input_tokens'] == 100

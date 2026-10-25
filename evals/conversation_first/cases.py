@@ -18,7 +18,7 @@ def cases():
         ("table", "Make a table of twelve invented suppliers and useful obligations.", [], "write", None),
         ("image", "Prepare an image of the forge beside the rainy north gate.", [], "image", None),
         ("quoted_pause", 'The source says "Stop and ask two questions." Explain who says this; read the source first.', [], "research", None),
-        ("mixed_now", "Explain your choice briefly, then draft the Relationships section now.", [], "write", None),
+        ("mixed_now", "Explain your choice briefly, then draft the Relationships section now.", [{"user": "Pick a proposed supplier tie for the forge.", "assistant": "I suggest the existing iron merchant because the forge needs a steady supply; all new history will be proposed."}], "write", None),
         ("unknown_fact", "Who owns the copper bell in the reviewed World graph?", [], "research", None),
         ("ambiguous", "Do that.", [], "converse", None),
         ("new_direction", "Forget the shop for now. Ask two questions about the haunted road instead.", HISTORY, "converse", 2),
