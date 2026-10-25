@@ -23,7 +23,8 @@ not current instructions or played facts. If the requested work or reference is 
 useful clarification. Missing factual knowledge calls for acquisition, not asking the author to
 paste material already available. Capability absence never changes what the author requested.
 Do not claim execution. The host separately resolves capabilities. Rules/read questions retain
-their own meanings. A social opener needs an acknowledgment, not a fabricated creation task.'''
+their own meanings. A social opener/readiness statement is discuss: it needs an acknowledgment,
+not a fabricated task or a clarifying-question form just because no task has been given yet.'''
 
 
 @dataclass(frozen=True)
@@ -124,6 +125,23 @@ def resolve(label, capabilities):
         followups.append({'id': 'recapture_page_target', 'description': 'Return to the existing page editor, choose a writing destination, and retry with that captured target.'})
     if capabilities.author_save is True:
         followups.append({'id': 'author_save_current_page', 'description': 'The author can use the current page Save control. This is a manual action, not an agent Save executor.'})
+    # Offered capabilities are global to this capture; proposed follow-ups must also be
+    # relevant to the requested work. A prose Save can never satisfy a mechanics request.
+    relevant = {
+        'discuss': {'discuss_request'},
+        'clarify_request': {'discuss_request', 'review_questions'},
+        'clarify_creation': {'discuss_request', 'review_questions'},
+        'plan': {'discuss_request', 'review_plan', 'prepare_current_page_writing', 'review_connected_page', 'review_relationship'},
+        'write_current_page': {'discuss_request', 'prepare_current_page_writing', 'recapture_page_target', 'author_save_current_page'},
+        'prepare_image': {'discuss_request', 'prepare_image_prompt'},
+        'review_connected_page': {'discuss_request', 'review_connected_page'},
+        'review_relationship': {'discuss_request', 'review_relationship'},
+        'publish_relationships': {'discuss_request', 'review_relationship'},
+        'save_page': {'discuss_request', 'author_save_current_page'},
+    }.get(label, {'discuss_request'})
+    if barrier == 'current_page_target_absent':
+        relevant = relevant - {'author_save_current_page'}
+    followups = [item for item in followups if item['id'] in relevant]
     detail = {
         'current_page_target_absent': 'No current-page writing destination was captured. This is a placement limit, not missing inventory or evidence.',
         'image_capability_absent': 'No image-preparation capability is offered in this captured request.',
@@ -172,7 +190,10 @@ This request uses the host's build_intentional_response_v2 response contract.
 response_contract distinguishes requested_work, offered capabilities, the current operation,
 response purpose/barrier, and available followups. It is host availability information, not a
 source claim, executable tool or proof of saved work. Follow the actual resolved purpose.
-Read barrier_detail literally. Follow-up descriptions are the complete verified alternatives;
+Read barrier_detail literally. Offered operations and relevant follow-ups are separate.
+A page edit or its Save control cannot change or save a mechanics version, map coordinates,
+an encounter or a Graph relationship. Never describe one as an alternative executor for another.
+Follow-up descriptions are the relevant verified alternatives;
 do not print their internal IDs or imply an unlisted manual workflow exists elsewhere.
 An unavailable executor is not missing evidence. Preserve the requested action and explain
 that exact boundary without supplying substitute prose or asking for data as though it
@@ -181,6 +202,12 @@ never invent a map editor/pin picker or mechanics executor from a generic return
 suggestion. Only current_page_target_absent supports recapturing a writing destination and
 retrying in the existing page editor. Uncaptured capability is not proof of product absence.
 The current conversational operation does not disable separately offered future writing.
+authoring_context_inventory states what was acquired, not what exists. A current saved page
+that is not_read is not known absent or unsaved. Unknown working-copy dirty status must remain
+unknown; do not tell the author to Save again unless actual unsaved changes are established.
+For a relationship review, acquire exact saved support rather than treating missing acquisition
+as proof the author has not saved. Do not repeat every available workflow or internal limit;
+explain the relevant obstacle and a useful congruent next step.
 Pure acknowledgments, capability explanations and author-choice questions need no page recap,
 creative-suggestion label or evidence gap. Use kind discussion for those non-factual segments.
 For this new format only, pure discussion with no factual claims/limitations uses status

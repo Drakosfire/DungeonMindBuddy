@@ -63,7 +63,8 @@ def test_unavailable_creation_preserves_requested_intent_and_never_resolves_to_p
 def test_current_conversation_does_not_erase_available_followup_writing():
     resolution = c.resolve('discuss', c.Capabilities(c.OPERATIONS, c.REVIEWS, True))
     assert resolution['operation'] == 'answer_from_sources'
-    assert 'prepare_current_page_writing' in {x['id'] for x in resolution['available_followups']}
+    assert 'propose_build_insertion' in resolution['capabilities']['operations']
+    assert 'prepare_current_page_writing' in {x['id'] for x in c.resolve('plan', c.Capabilities(c.OPERATIONS, c.REVIEWS, True))['available_followups']}
     missing = c.resolve('write_current_page', c.Capabilities(('answer_from_sources',), (), False))
     assert missing['requested_work'] == 'write_current_page'
     assert missing['barrier'] == 'current_page_target_absent'
@@ -210,3 +211,18 @@ def test_only_captured_manual_save_is_offered_and_map_workflow_is_not_invented()
     pin = c.resolve('place_map_coordinates', c.Capabilities(c.OPERATIONS, c.REVIEWS, True, True))
     assert 'No map-coordinate executor' in pin['barrier_detail']
     assert not any('map' in x['id'] for x in pin['available_followups'])
+
+
+def test_followups_preserve_capability_but_do_not_substitute_unrelated_writes():
+    caps = c.Capabilities(c.OPERATIONS, c.REVIEWS, True, True)
+    for label in ('change_mechanics', 'build_encounter', 'place_map_coordinates', 'other_creation'):
+        resolved = c.resolve(label, caps)
+        assert 'propose_build_insertion' in resolved['capabilities']['operations']
+        assert {x['id'] for x in resolved['available_followups']} == {'discuss_request'}
+    assert 'author_save_current_page' not in {x['id'] for x in c.resolve('publish_relationships', caps)['available_followups']}
+
+
+def test_working_draft_does_not_establish_unsaved_changes_or_absent_saved_page():
+    packet = p.discussion_packet(case())
+    assert packet['authoring_context_inventory'] == {
+        'working_copy_has_unsaved_changes': None, 'current_saved_page_acquisition': 'not_read'}

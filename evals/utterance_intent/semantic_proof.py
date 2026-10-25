@@ -57,6 +57,9 @@ FRESH = (
  ('plan_holdout', 'Offer a checklist for expanding the landing and its trades. I want to select what gets done before anything runs.', 'plan'),
  ('unsupported_holdout', 'Schedule a recurring reminder to check the silver reeds every morning.', 'other_creation'),
  ('fact_holdout', "What does this page actually say about Jo's work at the forge?", 'discuss'),
+ ('social_v3_holdout', "Right then. Thinking caps on; let's try something odd.", 'discuss'),
+ ('mechanics_v3_holdout', 'Raise the Gravel Hound defense by two and persist an immutable version. I need a mechanics change, not prose.', 'change_mechanics'),
+ ('context_v3_holdout', 'Is this page known to have unsaved changes, or has its saved content just not been read in this request?', 'discuss'),
 )
 
 
@@ -130,7 +133,9 @@ def discussion_packet(case):
               'source_writer_output_policy': POLICY, 'requested_detail_gap_policy': GAP_POLICY,
               'collaboration_output_policy': 'typed_author_review_collaboration_v1',
               'connected_page_review_policy': 'typed_connected_page_review_v1',
-              'relationship_review_policy': 'typed_saved_relationship_review_v1'}
+              'relationship_review_policy': 'typed_saved_relationship_review_v1',
+              'authoring_context_inventory': {'working_copy_has_unsaved_changes': None,
+                  'current_saved_page_acquisition': 'read' if case['id'] == 'relationship' else 'not_read'}}
     if case['id'] == 'connected':
         packet['related_authored_pages'] = {'pages': [{'read_id': READ_ID, 'markdown': RELATED,
             'page': {'world_id': 'synthetic-semantic-proof', 'document_id': PAGE_ID, 'registry_revision': 1,
@@ -216,13 +221,14 @@ def summarize(rows):
     return groups
 
 
-async def run(cases, output, frozen_path, adjudication_path):
+async def run(cases, output, frozen_path, adjudication_path, *, include_captured=True):
     from generationengine import GenerationClient
     from generationengine.types import DecisionRequest
     from apps.live_control_server.services import build_document_proposal as proposal
     validate_cases(cases)
     output.mkdir(mode=0o700)  # Never overwrite/restart an existing experiment.
     manifest = {'policy': contract.POLICY, 'repeats': 2, 'cases': cases,
+                'include_captured_controls': include_captured,
                 'contract_source': Path(contract.__file__).read_text(),
                 'evaluator_sha256': sha256(Path(__file__).read_bytes()).hexdigest(),
                 'prior_manifest_sha256': sha256(frozen_path.read_bytes()).hexdigest(),
@@ -300,7 +306,7 @@ async def run(cases, output, frozen_path, adjudication_path):
         rows.append(row)
     try:
         await asyncio.gather(*(one(c, v, r) for r in range(2) for c in cases
-            for v in (('captured', 'semantic') if c['cohort'] == 'historical' else ('semantic',))))
+            for v in (('captured', 'semantic') if include_captured and c['cohort'] == 'historical' else ('semantic',))))
     finally:
         await client.aclose()
         report = {'manifest_sha256': digest(manifest), 'completed_rows': len(rows), 'groups': summarize(rows)}
@@ -314,6 +320,7 @@ def main():
     parser.add_argument('--adjudication', type=Path, required=True)
     parser.add_argument('--output', type=Path)
     parser.add_argument('--validate-only', action='store_true')
+    parser.add_argument('--semantic-only', action='store_true', help='Run full candidate corpus; retain earlier captured controls as separate evidence, not a new paired baseline.')
     args = parser.parse_args()
     cases = load_cases(args.historical_frozen, args.adjudication)
     if args.validate_only:
@@ -322,7 +329,7 @@ def main():
     elif args.output is None:
         parser.error('--output required')
     else:
-        asyncio.run(run(cases, args.output, args.historical_frozen, args.adjudication))
+        asyncio.run(run(cases, args.output, args.historical_frozen, args.adjudication, include_captured=not args.semantic_only))
 
 
 if __name__ == '__main__':
