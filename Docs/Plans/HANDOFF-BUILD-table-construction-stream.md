@@ -65,8 +65,23 @@ decoded Markdown lines from the still-open replacement_markdown string; other
 fields stay out. No full-buffer JSON reparse per token and no guessed row from a
 chunk boundary. Hold partial lines/escapes until complete. Duplicate target fields
 or malformed lexical output invalidate preview; GE and Buddy still validate the
-complete object, including existing duplicate-field rejection. Preserve final raw
-output/observation evidence and the jointly acknowledged producing attempt.
+complete object, including existing duplicate-field rejection.
+
+Preserve exact final raw evidence through GE's exported public TextProvider seam:
+a product-owned observer delegates to the existing guarded OpenAI provider, awaits
+APP acknowledgment of TextCompleted.final_text, then yields that unchanged event
+to GenerationClient for local conformance. This replaces the existing
+on_attempt_completed evidence callback, not GE's conformance or lifecycle owner.
+It never turns TextFailed into success, changes a terminal, or substitutes joined
+deltas for final_text. Provider-declared failure exposes no invented final raw
+body. Observer failure fails execution without retry; retain the original uncertain
+APP state if acknowledgment could not commit. Delegate aclose and explicitly close
+the inner async iterator on every exit, including outer cancellation/close. No
+private SDK/GE fields, library callback extension, second provider or repair path.
+Capture final normalized observation separately after GE returns its terminal.
+Prove a provider final text different from earlier deltas is retained exactly,
+including on schema rejection, and that failed evidence acknowledgment cannot
+produce a ready proposal. Retain the jointly acknowledged producing attempt.
 
 Use the existing canonical Markdown AST parser in shared Surface to recognize
 complete GFM tables from completed lines, including escaped pipes. Render inert
