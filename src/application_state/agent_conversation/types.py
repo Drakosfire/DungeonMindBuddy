@@ -22,6 +22,7 @@ from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from .rules_authority_types import ClosedRulesModel, Digest, canonical_bytes, canonical_sha256
 from .collaboration import Collaboration, ConnectedCollaboration
+from .relationship_review import RelationshipCollaboration
 from .build_draft_context import BuildDraftContextRecordV1, DraftReferenceClaimV1
 from .build_related_pages import PagePointer, RelatedPagesSelection, RelatedPageRead, RelatedPageClaim, RelatedPageInclusion
 
@@ -1897,9 +1898,6 @@ class BuildCollaborationCompletionV1(BuildDraftContextCompletionV1):
 class BuildConnectedPageReviewCompletionV1(BuildCollaborationCompletionV1):
     schema_: Literal["dmb_build_connected_page_review_completion_v1"] = Field(default="dmb_build_connected_page_review_completion_v1",alias="schema")
     collaboration: ConnectedCollaboration | None
-
-
-from .relationship_review import RelationshipCollaboration
 
 
 class BuildRelationshipReviewCompletionV1(BuildConnectedPageReviewCompletionV1):

@@ -2442,6 +2442,9 @@ class _PolicyExecutionAdapter:
         quote_policy=getattr(self._broker_execution().policy,"source_quote_binding_policy",None)
         if quote_policy is not None:
             expected_budget["buildJevActions"]["source_quote_binding_policy"]=quote_policy
+        relationship_policy=getattr(self._broker_execution().policy,"relationship_review_policy",None)
+        if relationship_policy is not None:
+            expected_budget["buildJevActions"]["relationship_review_policy"]=relationship_policy
         connected_policy=getattr(self._broker_execution().policy,"connected_page_review_policy",None)
         if connected_policy is not None:
             expected_budget["buildJevActions"]["connected_page_review_policy"]=connected_policy

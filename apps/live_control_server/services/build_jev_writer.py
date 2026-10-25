@@ -267,6 +267,14 @@ class WriterProjection:
             "These are the supported continuation actions. Creating another page or persisting Graph\nrelationships is not an executor here: explain that boundary and propose a discussion/author\nchoice rather than claiming that those writes will happen automatically. Save is an author action.",
             "These are the supported automatic continuation actions. A connected page has the explicit author review described below; other Graph relationships require separate authoring. Save is an author action."
         ) if connected else COLLABORATION_INSTRUCTIONS
+        connected_instructions = CONNECTED_PAGE_INSTRUCTIONS
+        if relationship:
+            collaboration_instructions = collaboration_instructions.replace(
+                "A connected page has the explicit author review described below; other Graph relationships require separate authoring.",
+                "Connected pages and saved-page relationships have the explicit author reviews described below; neither publishes automatically.")
+            connected_instructions = connected_instructions.replace(
+                "Other relationship predicates,\nsuch as person-to-person trade, require separate authoring; do not claim this flow persists those edges.",
+                "Other saved-page relationships use their separate relationship review object below; this page-creation review does not persist those edges.")
         draft_instructions = DRAFT_INSTRUCTIONS.replace(
             "use a short\nnumbered list of concrete questions, or a short Markdown task list of proposed steps in a suggestion segment.",
             "use the typed collaboration object described below, with a concise acknowledgment in a suggestion segment."
@@ -310,7 +318,7 @@ class WriterProjection:
             if self.source_only
             else SOURCE_INSTRUCTIONS
             if self.has_saved_sections
-            else INSTRUCTIONS) + primary_instructions + (collaboration_instructions if collaboration else "") + (CONNECTED_PAGE_INSTRUCTIONS if connected else "") + (RELATIONSHIP_INSTRUCTIONS if relationship else "") + qualification_instructions + quote_instructions,
+            else INSTRUCTIONS) + primary_instructions + (collaboration_instructions if collaboration else "") + (connected_instructions if connected else "") + (RELATIONSHIP_INSTRUCTIONS if relationship else "") + qualification_instructions + quote_instructions,
             "max_output_tokens": OUTPUT_RESERVE,
             "reasoning": {"effort": "low"},
             "text": {
