@@ -360,3 +360,25 @@ The current World Trash supports document/session trash and restore, not emptyin
 or plan objects. An Empty Trash action needs an owned explicit lifecycle operation;
 removing a page projection must preserve the plan identity, dispatches and historical
 conversation evidence. No existing user object or Trash item was removed by this work.
+
+### Mandatory context versus optional writer evidence
+
+The real discussion probe found that `writer_evidence_selection.acquired_catalog`
+currently catalogs every complete source event, while the acquisition driver knows
+only its model-selected material. Authored host reads therefore break exact catalog
+closure. PRIME extends the lease to
+`src/application_state/agent_conversation/writer_evidence_selection.py`; its existing
+runtime selector and `tests/test_build_writer_selection.py` are already leased.
+Under the new authored policy only, whole source events required by authored reads
+are mandatory writer context and excluded from optional source-unit voting. Runtime
+and APP must derive that exclusion from the same admitted authored read events, not
+caller lists. Preserve whole-event batch closure, overlap provenance and the final
+union with actual Jev-selected reads. Do not emit a relevance vote or fake model
+selection for mandatory inputs. Historical policies keep their exact catalog/state.
+Independent critique precedes editing the newly named APP catalog owner.
+
+Operator-priority serial interruption: after checkpointing the catalog correction,
+keep #1785 in draft and suspend its overlapping UI write lease while the requested
+Surface object-toolbar/step-minus slice uses this same checkout from origin/main.
+Re-anchor and explicitly resume the Graph UI lease after that slice settles. No
+Graph runtime adoption is authorized by this checkpoint; the overall goal stays active.

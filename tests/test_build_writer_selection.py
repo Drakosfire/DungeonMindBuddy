@@ -383,3 +383,43 @@ def test_failed_decision_keeps_only_actual_received_response(build_case, monkeyp
         actual = DecisionResult.model_validate_json(captures[0].text)
         assert sdk_answers(actual)["operation"]["selected"] == "cannot_select"
         assert len(harness.calls) == 1 and harness.calls[0]["usage"]["status"] == "reported"
+
+
+def test_authored_batches_are_mandatory_but_separate_optional_origins_still_vote():
+    from hashlib import sha256
+    from types import SimpleNamespace
+    from application_state.agent_conversation.authored_graph_references import POLICY as AUTHORED_POLICY
+    mandatory_id, optional_id = uuid4(), uuid4()
+    def receipt(index, text):
+        return ledger.SourceReadAnchorReceiptV2(source_read_id=f'read-{index}', anchor_id=f'anchor-{index}',
+            evidence_ref_id=f'evidence-{index}', source_artifact_id='artifact', source_revision_id='r1',
+            outcome='enough', content_sha256=sha256(text.encode()).hexdigest(), line_start=index+1,
+            line_end=index+1, returned_chars=len(text), truncated=False, evidence_sufficiency_status='sufficient')
+    a, b = receipt(0, 'First exact passage.'), receipt(1, 'Shared batch sibling.')
+    mandatory = ledger.ValidatedSourceReadEventV2(event_id=mandatory_id, sequence=0,
+        kind='validated_source_read_v2', read_call_id=uuid4(), receipts=[a,b])
+    optional = ledger.ValidatedSourceReadEventV2(event_id=optional_id, sequence=1,
+        kind='validated_source_read_v2', read_call_id=uuid4(), receipts=[a])
+    selected = ledger.BuildAuthoredReferenceReadV1(event_id=uuid4(), sequence=2,
+        kind='build_authored_reference_read_v1', capture_event_id=uuid4(), authorization_event_id=uuid4(),
+        node_id='object', operation_event_ids=[uuid4()], source_read_event_ids=[mandatory_id],
+        returned_node_ids=['object'], outcome='read')
+    observations = [{'kind':'source_passage','source_read_event_id':str(event.event_id),
+        **r.model_dump(mode='json'),'text':text}
+        for event in (mandatory, optional) for r,text in zip(event.receipts, ('First exact passage.','Shared batch sibling.'))]
+    trace = {'capture_status':'recording','observations':observations}
+    execution = SimpleNamespace(policy=SimpleNamespace(authored_graph_reference_policy=AUTHORED_POLICY),
+        events=[mandatory,optional,selected])
+    catalog = selection.acquired_catalog(execution, trace)
+    assert len(catalog) == 1
+    unit = next(iter(catalog.values()))
+    assert unit['source_event_ids'] == [str(optional_id)]
+    assert unit['passage']['text'] == 'First exact passage.'
+    execution.events = [mandatory,selected]
+    assert selection.acquired_catalog(execution, trace) == {}
+    execution.events = [mandatory,optional,selected]
+    execution.policy = SimpleNamespace()  # Historical policy sees its unchanged whole-event catalog.
+    legacy = selection.acquired_catalog(execution, trace)
+    assert len(legacy) == 2
+    first = next(v for v in legacy.values() if v['passage']['text'] == 'First exact passage.')
+    assert set(first['source_event_ids']) == {str(mandatory_id),str(optional_id)}

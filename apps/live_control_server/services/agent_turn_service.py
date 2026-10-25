@@ -2278,6 +2278,20 @@ class _PolicyExecutionAdapter:
                     execution = self._broker_execution()
                 elif writing and getattr(execution.policy, "working_draft_context_policy", None) == DRAFT_POLICY:
                     raise ValueError("Working-draft writer cannot omit its admitted page context")
+            if writing and policy_enabled(execution.policy):
+                from application_state.agent_conversation.authored_graph_references import capture, validate_writer_input
+                original = capture(execution)
+                if self.context_capture is None:
+                    raise ValueError('Authored writer input requires protected source capture')
+                material_sha = validate_writer_input(json.loads(body['input']), execution,
+                    self.context_capture.trace.model_dump(mode='json'))
+                inclusion = graph_types.BuildAuthoredProviderInclusionV1(event_id=uuid4(), sequence=len(execution.events),
+                    kind='build_authored_provider_inclusion_v1', capture_event_id=original.event_id,
+                    references_sha256=original.references.sha256, source_read_event_ids=sorted(authored_source_ids(execution), key=str),
+                    provider_attempt_id=provider_attempt_id, envelope_sha256=view['payloadSha256'], material_sha256=material_sha)
+                self.turn = _require_fresh_execution_append(self.fence.append('record_build_authored_reference', 'event', inclusion,
+                    prepared_request_json=view['payloadJson']))
+                execution = self._broker_execution()
             if self.budget.get("apiMode") == "typesafe_decision":
                 section_state = json.loads(body["input"]) if writing else body.get("state", {})
                 selected = section_state.get("exposure", {}).get("saved_sections", [])
@@ -2309,20 +2323,6 @@ class _PolicyExecutionAdapter:
                     self.turn = _require_fresh_execution_append(self.fence.append(
                         "record_build_section_inclusion", "inclusion", inclusion))
                     execution = self._broker_execution()
-            if writing and policy_enabled(execution.policy):
-                from application_state.agent_conversation.authored_graph_references import capture, validate_writer_input
-                original = capture(execution)
-                if self.context_capture is None:
-                    raise ValueError('Authored writer input requires protected source capture')
-                material_sha = validate_writer_input(json.loads(body['input']), execution,
-                    self.context_capture.trace.model_dump(mode='json'))
-                inclusion = graph_types.BuildAuthoredProviderInclusionV1(event_id=uuid4(), sequence=len(execution.events),
-                    kind='build_authored_provider_inclusion_v1', capture_event_id=original.event_id,
-                    references_sha256=original.references.sha256, source_read_event_ids=sorted(authored_source_ids(execution), key=str),
-                    provider_attempt_id=provider_attempt_id, envelope_sha256=view['payloadSha256'], material_sha256=material_sha)
-                self.turn = _require_fresh_execution_append(self.fence.append('record_build_authored_reference', 'event', inclusion,
-                    prepared_request_json=view['payloadJson']))
-                execution = self._broker_execution()
             event_fields = dict(
                 event_id=uuid4(), sequence=len(execution.events),
                 provider_attempt_id=provider_attempt_id,

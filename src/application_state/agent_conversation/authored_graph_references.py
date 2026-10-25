@@ -95,7 +95,7 @@ def capture(execution):
 
 def source_event_ids(execution):
     """Actual mandatory author-requested reads, separate from relevance votes."""
-    if not policy_enabled(execution.policy):
+    if not policy_enabled(getattr(execution, 'policy', None)):
         return set()
     return {eid for e in execution.events if getattr(e, 'kind', None) == 'build_authored_reference_read_v1'
             and e.outcome in {'read', 'read_partial'} for eid in e.source_read_event_ids}
