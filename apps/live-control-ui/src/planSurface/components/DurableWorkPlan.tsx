@@ -1,3 +1,4 @@
+import {SurfaceNavbarIconButton} from '../../surfaceInteraction/contextHost/SurfaceNavbarIconButton'
 import type {ReviewedStepReference} from '../../api/types'
 import {useEffect,useRef,useState,type ReactNode} from 'react'
 import {getWorkPlan,saveWorkPlan,continueWorkPlan,planObjective,type WorkPlan,type WorkStep,type WorkDispatch,type WorkPlanScope,type WorkExecution} from '../../api/conversationWorkPlanApi'
@@ -33,30 +34,31 @@ export function DurableWorkPlan({scope,disabled,onContinue,renderDraft,saveLabel
   return()=>{active=false;clearInterval(timer)}
  },[identity,plan?.revision,plan?.execution.map(x=>x.status).join(',')])
  function edit(id:string,update:Partial<WorkStep>){retain(steps.map(s=>s.step_id===id?{...s,...update}:s))}
- return <section aria-label="Saved work plan">
+ return <section className="surface-work-plan-review" aria-label="Saved work plan">
   {error&&<p role="alert">{error}</p>}
   {error&&!plan&&<button type="button" disabled={busy} onClick={()=>{void run(async()=>{const p=await getWorkPlan(scope);if(current.current===identity){setPlan(p);setObjective(planObjective(p));setSteps(p?restore(p):[]);setLoaded(true)}})}}>Reload saved plan</button>}
   {!loaded?<p role="status">Opening saved plan…</p>:!plan?<><label>Expected outcome<textarea aria-label="Expected outcome" value={objective} disabled={disabled||busy} onChange={e=>setObjective(e.target.value)}/></label>{renderDraft(saveDraft,busy)}</>:<>
-   <h4>Reviewed plan</h4>
    {disabled?<p><strong>Expected outcome</strong><br/>{objective||'Not specified in this plan.'}</p>:<label>Expected outcome<textarea aria-label="Expected outcome" value={objective} disabled={busy} onChange={e=>retain(steps,e.target.value)}/></label>}
    {!planObjective(plan)&&<p>Add an expected outcome and Save before continuing a new step.</p>}
    {staleDraft&&<><p role="alert">The saved review changed. Compare before saving these edits.</p><details><summary>Latest saved review</summary><p>Expected outcome: {planObjective(plan)||'Not specified'}</p><ol>{plan.steps.map(s=><li key={s.step_id}>{s.selected?'Selected':'Deferred'} · {s.text}</li>)}</ol></details><button type="button" disabled={disabled||busy} onClick={()=>{setStaleDraft(false);setError(null);retain(steps)}}>Use these edits against the latest review</button></>}
    {blockedDraft&&<button type="button" disabled={disabled||busy} onClick={()=>adopted(plan)}>Use saved plan and replace unreadable local copy</button>}
-   {steps.map((s,i)=>{const executions=plan.execution.filter(x=>x.step_id===s.step_id),last=executions.at(-1),status=last?.status??(s.selected?'pending':'deferred');return <div key={s.step_id}>
-    <label><input type="checkbox" checked={s.selected} disabled={disabled||busy||locked(s.step_id)} onChange={e=>edit(s.step_id,{selected:e.target.checked})}/> Include step {i+1}</label>
+   {steps.map((s,i)=>{const executions=plan.execution.filter(x=>x.step_id===s.step_id),last=executions.at(-1),status=last?.status??(s.selected?'pending':'deferred');const body=<>
+    {!locked(s.step_id)&&<label className="surface-work-plan__include"><input type="checkbox" checked={s.selected} disabled={disabled||busy||locked(s.step_id)} onChange={e=>edit(s.step_id,{selected:e.target.checked})}/><span className="surface-work-plan__sr">Include step {i+1}</span></label>}
     <textarea aria-label={`Saved step ${i+1}`} value={s.text} disabled={disabled||busy||locked(s.step_id)} onChange={e=>edit(s.step_id,{text:e.target.value})}/>
-    <label>Action <select aria-label={`Saved action ${i+1}`} value={s.kind} disabled={disabled||busy||locked(s.step_id)} onChange={e=>edit(s.step_id,{kind:e.target.value as WorkStep['kind']})}><option value="discuss">Discuss</option><option value="prepare_insertion">Prepare an insertion</option></select></label>
-    <p role="status">{status==='completed'?'Reply received':status==='prepared'?'Suggestion prepared · review and Save on the page':status==='awaiting_dispatch'?'Ready to resume the same request':status==='needs_attention'?'Result needs attention':status}</p>
-    {last?.result?.kind==='reply'&&(renderResult?renderResult(last):<p>{last.result.text}</p>)}
+    <label className="surface-work-plan__action"><span className="surface-work-plan__sr">Action</span><select aria-label={`Saved action ${i+1}`} value={s.kind} disabled={disabled||busy||locked(s.step_id)} onChange={e=>edit(s.step_id,{kind:e.target.value as WorkStep['kind']})}><option value="discuss">Discuss</option><option value="prepare_insertion">Prepare an insertion</option></select></label>
+    <p className="surface-work-plan__status" role="status">{status==='completed'?'Reply received':status==='prepared'?'Suggestion prepared · review and Save on the page':status==='awaiting_dispatch'?'Ready to resume the same request':status==='needs_attention'?'Result needs attention':status}</p>
+    {last?.result?.kind==='reply'&&<div className="surface-work-plan__result">{renderResult?renderResult(last):<p>{last.result.text}</p>}</div>}
     {executions.length>1&&<details><summary>Previous continuations · {executions.length-1}</summary>{executions.slice(0,-1).map(x=><p key={x.command_id}>{x.status} · {x.turn_id??'not admitted'}</p>)}</details>}
-    <button type="button" disabled={disabled||continuationDisabled||busy||changed||staleDraft||blockedDraft||(!planObjective(plan)&&status!=='awaiting_dispatch')||!s.selected||['accepted','running','completed','prepared','needs_attention'].includes(status)} onClick={()=>{void run(async()=>{const admitted=beginContinuation?.(plan)??(()=>true),epoch=lifecycle.current.epoch;
+    <button className="surface-work-plan__continue" type="button" disabled={disabled||continuationDisabled||busy||changed||staleDraft||blockedDraft||(!planObjective(plan)&&status!=='awaiting_dispatch')||!s.selected||['accepted','running','completed','prepared','needs_attention'].includes(status)} onClick={()=>{void run(async()=>{const admitted=beginContinuation?.(plan)??(()=>true),epoch=lifecycle.current.epoch;
      if(disabled||continuationDisabled||!admitted())throw new Error('Save and open the current page before continuing.');
      const response=await continueWorkPlan(scope,plan,s.step_id,crypto.randomUUID());if(current.current!==identity)return;
      if(lifecycle.current.epoch!==epoch||!admitted())throw new Error('The page or conversation changed. The reserved step was retained; refresh results before explicitly resuming.');
      adopted(response.plan);onContinue(response.plan,response.dispatch,response.reference)})}}>{status==='awaiting_dispatch'?'Resume step':status==='failed'||status==='interrupted'?'Try step again':'Continue step'}</button>
-   </div>})}
-   <button type="button" disabled={disabled||busy} onClick={()=>retain([...steps,{step_id:crypto.randomUUID(),text:'',selected:true,kind:'discuss'}])}>Add step</button>{' '}
-   <button type="button" disabled={disabled||busy||staleDraft||blockedDraft||!changed||!objective.trim()||steps.some(s=>!s.text.trim())} onClick={()=>{void run(async()=>{const p=await saveWorkPlan(scope,plan.revision,steps,objective);if(current.current===identity)adopted(p)})}}>{saveLabel}</button>{' '}
+   </>;
+    return status==='completed'?<details className="surface-work-plan__finished" key={s.step_id}><summary><span>{i+1}. {s.text}</span><span className="surface-work-plan__badge">Reply received</span></summary><div className="surface-work-plan__step">{body}</div></details>:<div className="surface-work-plan__step" key={s.step_id}><span className="surface-work-plan__number" aria-hidden="true">{i+1}.</span>{body}</div>;
+   })}
+   <SurfaceNavbarIconButton icon="new" label="Add step" disabled={disabled||busy} onClick={()=>retain([...steps,{step_id:crypto.randomUUID(),text:'',selected:true,kind:'discuss'}])}/>{' '}
+   <SurfaceNavbarIconButton icon="save" label={saveLabel} disabled={disabled||busy||staleDraft||blockedDraft||!changed||!objective.trim()||steps.some(s=>!s.text.trim())} onClick={()=>{void run(async()=>{const p=await saveWorkPlan(scope,plan.revision,steps,objective);if(current.current===identity)adopted(p)})}}/>{' '}
    <button type="button" disabled={busy||changed} onClick={()=>{void run(async()=>{const p=await getWorkPlan(scope);if(p&&current.current===identity)adopted(p)})}}>Refresh results</button>
   </>}
  </section>

@@ -57,3 +57,15 @@ it('shows an absent historical outcome truthfully and requires explicit author S
  await waitFor(()=>expect(saveWorkPlan).toHaveBeenCalledWith(scope,1,p.steps,'The author supplied this outcome.'));
  expect(continueWorkPlan).not.toHaveBeenCalled();
 });
+
+it('collapses completed steps and replaces dispatched selection controls with status',async()=>{
+ const p=plan(),dispatch={command_id:one,step_id:one,client_thread_id:two,client_turn_id:one,message:'Exact'};
+ vi.mocked(getWorkPlan).mockResolvedValue({...p,dispatches:[dispatch],execution:[{command_id:one,step_id:one,status:'completed',turn_id:two,attempt:1,result:{kind:'reply',text:'The completed reply.'}}]});
+ const {container}=render(<DurableWorkPlan scope={scope} disabled={false} onContinue={vi.fn()} renderDraft={()=>null}/>);
+ const summary=await screen.findByText('1. Discuss the shop.');
+ expect(container.querySelector('details')?.open).toBe(false);
+ expect(screen.queryByRole('checkbox',{name:'Include step 1'})).toBeNull();
+ expect(screen.getByRole('checkbox',{name:'Include step 2'})).toBeEnabled();
+ fireEvent.click(summary); // native disclosure remains operable; no continuation is dispatched.
+ expect(continueWorkPlan).not.toHaveBeenCalled();
+});

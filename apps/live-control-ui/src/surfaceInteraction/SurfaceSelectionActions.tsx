@@ -1,5 +1,5 @@
-import {useEffect,useState} from 'react';
-import {createPortal} from 'react-dom';
+import {useEffect,useMemo,useState,useId} from 'react';
+import {useOptionalSurfaceContext} from './contextHost/useSurfaceContext';
 import type {Editor} from '@tiptap/core';
 import {TextSelection} from '@tiptap/pm/state';
 import './SurfaceSelectionActions.css';
@@ -23,24 +23,22 @@ export async function captureSurfaceTextSelection(editor:Editor, isCurrent:()=>b
 
 /** Shared presentation: owning Surface adapters provide implemented actions and capture authority. */
 export function SurfaceSelectionActions({editor,actions}:{editor:Editor|null;actions:readonly {id:string;label:string;invoke:()=>void}[]}){
-  const [position,setPosition]=useState<{left:number;top:number}|null>(null);
+  const [available,setAvailable]=useState(false),id=useId();
+  const context=useOptionalSurfaceContext();
+  const register=context?.registerContribution;
   useEffect(()=>{
-    if(!editor)return;
-    const update=()=>{
-      if(editor.isDestroyed||!editor.isEditable||editor.state.selection.empty){setPosition(null);return;}
-      try{
-        const rect=editor.view.coordsAtPos(editor.state.selection.from);
-        if(rect.bottom<0||rect.top>window.innerHeight){setPosition(null);return;}
-        setPosition({left:Math.max(8,Math.min(rect.left,window.innerWidth-210)),top:Math.max(8,Math.min(rect.bottom+6,window.innerHeight-48))});
-      }catch{setPosition(null);}
-    };
-    editor.on('selectionUpdate',update);editor.on('update',update);
-    window.addEventListener('scroll',update,true);window.addEventListener('resize',update);
-    update();return()=>{editor.off('selectionUpdate',update);editor.off('update',update);
-      window.removeEventListener('scroll',update,true);window.removeEventListener('resize',update);};
+    if(!editor){setAvailable(false);return;}
+    const update=()=>setAvailable(!editor.isDestroyed&&editor.isEditable&&!editor.state.selection.empty);
+    const retire=()=>setAvailable(false);
+    editor.on('selectionUpdate',update);editor.on('update',update);editor.on('destroy',retire);
+    update();return()=>{editor.off('selectionUpdate',update);editor.off('update',update);editor.off('destroy',retire);};
   },[editor]);
-  if(!position||!actions.length)return null;
-  return createPortal(<div className="surface-selection-actions" role="toolbar" aria-label="Selected passage actions" style={position}>
+  const content=useMemo(()=>available&&actions.length?<div className="surface-selection-actions" role="toolbar" aria-label="Selected passage actions">
     {actions.map(action=><button key={action.id} type="button" onMouseDown={event=>event.preventDefault()} onClick={action.invoke}>{action.label}</button>)}
-  </div>,document.body);
+  </div>:null,[available,actions]);
+  useEffect(()=>{
+    if(!register||!editor||!content)return;
+    return register({id:`selection-${id}`,order:45,surfaceIdentity:{surfaceId:'build',instanceKey:`selection-${id}`},content});
+  },[register,editor,content,id]);
+  return null;
 }

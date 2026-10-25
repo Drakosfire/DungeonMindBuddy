@@ -1,0 +1,8 @@
+.surface-object-menu { margin-inline-start:auto; font:normal .85rem/1.4 var(--font-sans,system-ui,sans-serif); }
+.surface-object-menu > summary { display:flex; justify-content:center; align-items:center; width:2rem; height:2rem; cursor:pointer; border:1px solid #7896; border-radius:.3rem; list-style:none; }
+.surface-object-menu > summary::-webkit-details-marker { display:none; }
+.surface-object-menu > summary:focus-visible { outline:2px solid currentColor; outline-offset:2px; }
+.surface-object-menu[open] { flex-basis:100%; }
+.surface-object-menu[open] > summary { margin-inline-start:auto; }
+.surface-object-menu__panel { padding:.5rem; border:1px solid #7896; border-radius:.3rem; }
+.surface-object-menu__panel pre { overflow:auto; max-height:20rem; white-space:pre; font:normal .75rem/1.4 monospace; }

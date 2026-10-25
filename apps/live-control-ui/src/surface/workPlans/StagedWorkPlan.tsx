@@ -1,3 +1,5 @@
+import {SurfaceObjectMenu} from '../SurfaceObjectMenu';
+import {SurfaceNavbarIconButton} from '../../surfaceInteraction/contextHost/SurfaceNavbarIconButton';
 import {useEffect,useRef,useState} from 'react';
 import type {ConversationCollaboration} from '../../api/types';
 import {getWorkPlan,saveWorkPlan,planObjective,type WorkStep} from '../../api/conversationWorkPlanApi';
@@ -119,25 +121,26 @@ export function StagedWorkPlan({worldId,documentId,conversationId,turnId,source,
   finally{if(current.current.scope===start.scope)setBusy(false);}
  }
  const review=<section className="surface-work-plan" aria-label="Plan suggestion" contentEditable={false}>
-  <header><strong>Work plan</strong><button type="button" aria-label="Dismiss plan suggestion" disabled={disabled||busy||!!placement?.prepared||placement?.phase==='review_saving'} onClick={()=>{
+  <header><strong>Work plan</strong><SurfaceObjectMenu label="Plan suggestion options">{placement&&<details><summary>Placement recovery</summary><pre>{JSON.stringify(placement,null,2)}</pre></details>}</SurfaceObjectMenu><button type="button" aria-label="Dismiss plan suggestion" disabled={disabled||busy||!!placement?.prepared||placement?.phase==='review_saving'} onClick={()=>{
    if(!placement)return;const start=current.current;setBusy(true);void changePlacement(placement,p=>({...p,phase:'discarded'})).then(next=>{assertCurrent(start);setPlacement(next);setCaptured(null);}).catch(reason=>{if(current.current.scope===start.scope)setError(String(reason));}).finally(()=>{if(current.current.scope===start.scope)setBusy(false);});
   }}>×</button></header>
   <label>Expected outcome<textarea aria-label="Expected outcome" value={objective} disabled={disabled||busy||!!placement?.prepared} onChange={event=>retain(rows,event.target.value)}/></label>
-  {rows.map((row,i)=><div key={row.step_id}><label><input type="checkbox" checked={row.selected} disabled={disabled||busy||!!placement?.prepared} onChange={event=>retain(rows.map((s,j)=>j===i?{...s,selected:event.target.checked}:s))}/> Include step {i+1}</label>
+  {rows.map((row,i)=><div className="surface-work-plan__step" key={row.step_id}><label className="surface-work-plan__include"><input type="checkbox" checked={row.selected} disabled={disabled||busy||!!placement?.prepared} onChange={event=>retain(rows.map((s,j)=>j===i?{...s,selected:event.target.checked}:s))}/><span className="surface-work-plan__sr">Include step {i+1}</span></label><span className="surface-work-plan__number" aria-hidden="true">{i+1}.</span>
    <textarea aria-label={`Plan step ${i+1}`} value={row.text} disabled={disabled||busy||!!placement?.prepared} onChange={event=>retain(rows.map((s,j)=>j===i?{...s,text:event.target.value}:s))}/>
-   <label>Action <select aria-label={`Plan action ${i+1}`} value={row.kind} disabled={disabled||busy||!!placement?.prepared} onChange={event=>retain(rows.map((s,j)=>j===i?{...s,kind:event.target.value as WorkStep['kind']}:s))}><option value="discuss">Discuss</option><option value="prepare_insertion">Prepare an insertion</option></select></label>
+   <label className="surface-work-plan__action"><span className="surface-work-plan__sr">Action</span><select aria-label={`Plan action ${i+1}`} value={row.kind} disabled={disabled||busy||!!placement?.prepared} onChange={event=>retain(rows.map((s,j)=>j===i?{...s,kind:event.target.value as WorkStep['kind']}:s))}><option value="discuss">Discuss</option><option value="prepare_insertion">Prepare an insertion</option></select></label>
   </div>)}
-  <button type="button" disabled={disabled||busy||stale||!objective.trim()||!rows.length||rows.some(row=>!row.text.trim())} onClick={()=>void save()}>Save</button>
+  <SurfaceNavbarIconButton icon="save" label="Save" disabled={disabled||busy||stale||!objective.trim()||!rows.length||rows.some(row=>!row.text.trim())} onClick={()=>void save()}/>
   {error?<p role="alert">{error}</p>:null}
  </section>;
  return <>
+  {(!captured||stale||inPage)&&placement&&<SurfaceObjectMenu label="Plan placement options"><details><summary>Placement recovery</summary><pre>{JSON.stringify(placement,null,2)}</pre></details></SurfaceObjectMenu>}
   <p>{inPage?'Plan on page.':captured&&!stale?'Plan prepared on the page.':'Plan ready for page placement.'}</p>
   {!inPage&&(!captured||stale)?<button type="button" disabled={disabled||busy||!reference||!bridge?.pickWorkPlanInsertion||placement?.phase==='review_saving'&&placement.schema!=='dmb_surface_work_plan_placement_v1'} onClick={()=>void choose()}>Place plan on page</button>:null}
   {placement?.schema==='dmb_surface_work_plan_placement_v1'&&placement.phase==='review_saving'&&!placement.prepared?<button type="button" disabled={disabled||busy} onClick={()=>void choose()}>Choose a new placement with an expected outcome</button>:null}
   {placement?.prepared&&placement.phase!=='saved'?<button type="button" disabled={disabled||busy} onClick={()=>void save()}>Check and finish Save</button>:null}
   {error&&(!captured||stale||inPage)?<p role="alert">{error}</p>:null}
   {stale?<button type="button" disabled={busy} onClick={()=>setRefresh(value=>value+1)}>Reload retained placement</button>:null}
-  {placement&&(placement.prepared||placement.retired_placements.length>0)?<details><summary>Placement recovery</summary><pre>{JSON.stringify(placement,null,2)}</pre></details>:null}
+
   {captured&&!stale&&!inPage?<SurfacePageProposal editor={captured.editor} position={captured.basis.caret} editorJson={captured.editorJson}
    placementId={placement?.command_id} revealKey={1} busy={busy} focusOnReveal={false} onStale={()=>{if(!busy)setStale(true);}}
    onMove={position=>void move(position)}>{review}</SurfacePageProposal>:null}
