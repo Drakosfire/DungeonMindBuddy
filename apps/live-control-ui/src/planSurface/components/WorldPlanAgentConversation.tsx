@@ -3744,6 +3744,8 @@ export function WorldPlanAgentConversation({
     const request = stored.request;
     if (verifiedWorldId !== request.owner_scope.world_id || requestRef.current || sending || buildCompose.busy) return;
     const token = Symbol("world-readonly-turn");
+    const constructionEpoch=latestRef.current.buildPlacementEpoch;
+    let constructionRetired=false;
     requestRef.current = { token, scopeKey: request.owner_scope.world_id, fenceKey: JSON.stringify(request.primary_work) };
     sharedConversation?.setPendingTurn({ surface: request.surface.surface_id, turnId: request.turn_id });
     setSending(true);
@@ -3757,7 +3759,10 @@ export function WorldPlanAgentConversation({
         setSubmittedMessage(current => current?.id === request.turn_id ? { ...current, idempotencyKey: key } : current);
       });
       const response = await (request.primary_work.kind === "build"
-        ? postWorldBuildAgentTurn(request as WorldBuildAgentTurnRequestV1)
+        ? postWorldBuildAgentTurn(request as WorldBuildAgentTurnRequestV1, progress=>{
+            if(latestRef.current.buildPlacementEpoch!==constructionEpoch)constructionRetired=true;
+            if(!constructionRetired&&requestRef.current?.token===token&&latestRef.current.mounted)buildCompose.observeConstruction(progress);
+          })
         : postWorldPlayAgentTurn(request as WorldPlayAgentTurnRequestV1));
       if (requestRef.current?.token !== token || !latestRef.current.mounted) return;
       const mixed = response.schema === 'dmb_agent_rules_turn_response_v1' || response.schema === 'dmb_agent_play_rules_turn_response_v1';
@@ -3876,7 +3881,10 @@ export function WorldPlanAgentConversation({
       if (requestRef.current?.token === token) {
         requestRef.current = null;
         setSending(false);
-        if (request.primary_work.kind === "build") buildCompose.refresh();
+        if (request.primary_work.kind === "build") {
+          buildCompose.finishConstruction((request as WorldBuildAgentTurnRequestV1).build_write_capability?.idempotency_key);
+          buildCompose.refresh();
+        }
       }
     }
   }

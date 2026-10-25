@@ -57,10 +57,16 @@ class Wire(httpx.AsyncBaseTransport):
         self.calls.append(request)
         if self.timeout:
             raise httpx.ReadTimeout('synthetic timeout',request=request)
-        return httpx.Response(200,request=request,json={'id':'resp_compose','object':'response','created_at':1,
+        response = {'id':'resp_compose','object':'response','created_at':1,
             'status':'completed','model':'gpt-6-luna','output':[{'type':'message','id':'msg','role':'assistant','status':'completed',
                 'content':[{'type':'output_text','text':self.text,'annotations':[]}]}],
-            'usage':{'input_tokens':100,'output_tokens':40,'total_tokens':140}})
+            'usage':{'input_tokens':100,'output_tokens':40,'total_tokens':140}}
+        events = [dict(type="response.output_text.delta", sequence_number=1,
+                       item_id="msg", output_index=0, content_index=0, delta=self.text),
+                  dict(type="response.completed", sequence_number=2, response=response)]
+        return httpx.Response(200, request=request, headers={"content-type":"text/event-stream"},
+            content=''.join('data: '+json.dumps(event)+'\n\n' for event in events).encode())
+
 
 
 def test_source_sdk_durable_proposal_and_no_replay(request_case):

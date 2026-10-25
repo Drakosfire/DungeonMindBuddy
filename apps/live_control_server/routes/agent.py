@@ -1806,7 +1806,17 @@ def post_new_world_conversation(
 
 
 @router.post("/turn", response_model=None)
-def post_agent_turn(body: AgentTurnRequest, request: Request) -> dict[str, Any]:
+def post_agent_turn(body: AgentTurnRequest, request: Request):
+    if request.headers.get("accept") == "text/event-stream":
+        enforce_native_graph_gm(request)
+        if getattr(body.primary_work, "kind", None) != "build":
+            raise HTTPException(422, detail="Construction streaming requires Build work")
+        from apps.live_control_server.services.build_construction_stream import turn_stream
+        return turn_stream(lambda: _execute_agent_turn(body, request), body.turn_id)
+    return _execute_agent_turn(body, request)
+
+
+def _execute_agent_turn(body: AgentTurnRequest, request: Request) -> dict[str, Any]:
     # Authorization is a prerequisite for every turn, including Graph none.
     # It runs before World/receipt/DB resolution and before runtime lookup.
     trace = AgentTurnTraceBuilder(

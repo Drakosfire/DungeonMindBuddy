@@ -1,7 +1,8 @@
 # BUILD — real on-page table construction
 
-ACTIVE PRIME design; implementation activation requires independent exact-head
-critique of this handoff. Serial topology: one Buddy implementation PR, after
+ACTIVE PRIME implementation: independent exact-head design critique APPROVED
+f0bf0e727f94c13ca805306c63fdf40782c663d2; activation2026-10-24 after
+GE27 merge and consumer ownership inspection. Serial topology: one Buddy implementation PR, after
 OverMind PR55 (guarded authoring stream contract) and GE PR27 merged.
 Base40b7f395bfdfad04b3ca0d6de3076c6ae6bfeb1f; branch
 codex/build-table-construction-stream, existing buddy-context-loop checkout.
@@ -110,13 +111,13 @@ required before existing live proposal editing/Save becomes available.
 - apps/live-control-ui/src/surface/SurfacePageProposal.css (preview presentation only)
 - owning tests: tests/test_build_construction_stream.py (new),
   tests/test_build_document_proposal.py, tests/test_build_proposal_shared_writer.py,
-  tests/test_build_insertion_tool.py, tests/test_build_jev_harness.py,
+  tests/test_build_insertion_tool.py, tests/test_agent_build_jev_ordinary_harness.py,
   tests/test_agent_turn_route.py; adjacent owning fixture files only when explicitly
   named by PRIME after inspection (no blind broad test rewriting)
 - apps/live-control-ui/src/api/buildConstructionStream.test.ts (new),
   apps/live-control-ui/src/surface/SurfaceConstructionPreview.test.tsx (new),
   apps/live-control-ui/src/buildSurface/BuildConstructionPreview.test.tsx (new),
-  apps/live-control-ui/src/planSurface/components/WorldPlanAgentConversation.test.tsx,
+  apps/live-control-ui/src/planSurface/WorldPlanAgentConversation.worldHistory.test.tsx,
   apps/live-control-ui/src/planSurface/components/BuildComposeProposal.test.tsx
 - this handoff, Docs/Roadmaps/ROADMAP-demo.md,
   Docs/Plans/HANDOFF-BUILD-draft-writer-status-domain.md (truthful PR1709 settlement)

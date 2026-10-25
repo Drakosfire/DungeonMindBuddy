@@ -229,3 +229,19 @@ it('retires an absent old initializer after the World pointer advances instead o
  expect(onHistory).toHaveBeenCalledWith(empty);
  expect(live.postWorldAgentNewConversation).not.toHaveBeenCalled();
 });
+
+
+it('retires live construction across navigation and marks lost delivery incomplete without replay',async()=>{
+ const progress={schema:'dmb_build_construction_v1' as const,action_id:'action',reservation_sha256:'c'.repeat(64),conversation_id:'conversation',basis,
+  origin:{client_turn_id:'client',durable_turn_id:'durable',turn_attempt:1,broker_operation_id:'op:1',arguments_sha256:'d'.repeat(64)},provider_attempt_id:'provider',sequence:1,status:'building' as const,markdown:'| Name |\n| --- |\n| Nia |\n'};
+ const hook=renderHook(({doc})=>useBuildCompose({worldId:'world',pageDocumentId:doc,sourceKey:doc,history,bridge,enabled:true,onHistory:vi.fn()}),{initialProps:{doc:'doc'}});
+ await act(async()=>{hook.result.current.observeConstruction({...progress,basis:{...basis,document_id:'foreign'}});});
+ expect(hook.result.current.pageElement).toBeNull();
+ act(()=>hook.result.current.observeConstruction(progress));
+ expect(hook.result.current.pageElement?.props.progress.status).toBe('building');
+ act(()=>hook.result.current.finishConstruction('action'));
+ expect(hook.result.current.pageElement?.props.progress.status).toBe('incomplete');
+ expect(api.composeBuildProposal).not.toHaveBeenCalled();
+ hook.rerender({doc:'other'});expect(hook.result.current.pageElement).toBeNull();
+ hook.rerender({doc:'doc'});expect(hook.result.current.pageElement).toBeNull();
+});

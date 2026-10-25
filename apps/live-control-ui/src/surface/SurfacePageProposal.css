@@ -21,3 +21,8 @@
 .surface-proposal-review__dismiss { margin-inline-start:auto; }
 .is-suggestion-placement-target { cursor:copy; }
 .is-suggestion-placement-target .surface-page-proposal { cursor:default; }
+.surface-construction-preview { padding:.75rem; border-inline-start:3px solid #6f8393; background:#edf2f4; color:#24384a; border-radius:.35rem; }
+.surface-construction-preview small { display:block; margin-block-end:.4rem; }
+.surface-construction-preview table { width:100%; border-collapse:collapse; }
+.surface-construction-preview th,.surface-construction-preview td { padding:.35rem; border:1px solid #a6b3bd; text-align:start; overflow-wrap:anywhere; }
+.surface-page-proposal:empty { display:none; }

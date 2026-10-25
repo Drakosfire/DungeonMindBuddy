@@ -41,7 +41,7 @@ dependencies = [
     "worldkeeper @ git+https://github.com/Drakosfire/WorldKeeper.git@49a8620f066ce7ef8972a699020c012f50af9158",
     # Exact source pin: reviewed GenerationEngine #26 merge (catalog and current fal image adapters).
     # This source pin does not update any deployed/serving runtime.
-    "generationengine[openai,openrouter,typesafe,fal] @ git+https://github.com/Drakosfire/GenerationEngine.git@af21356fab4f04210b3699bc846da4b8f27d9323",
+    "generationengine[openai,openrouter,typesafe,fal] @ git+https://github.com/Drakosfire/GenerationEngine.git@3e085168c11bdee0de580b8cfa0f00cee157c157",
     "psycopg[binary]>=3.2",
     "pillow>=10",
     "alembic>=1.16",

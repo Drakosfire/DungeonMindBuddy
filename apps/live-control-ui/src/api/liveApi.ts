@@ -1,3 +1,4 @@
+import {readBuildConstructionStream,ConstructionStreamError,type BuildConstructionProgress} from './buildConstructionStream';
 import type {
   ArtifactReadResponse,
   CapabilityReadResponse,
@@ -779,7 +780,7 @@ export async function authenticatedApiFetch(path: string, init?: RequestInit): P
   return { ...result, response: response.ok ? admittedReadResponse(response, assertCurrent) : response };
 }
 
-async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> {
+async function apiFetch<T>(path: string, init?: RequestInit, decode?: (response:Response, assertCurrent:()=>void)=>Promise<T>): Promise<T> {
   const { response, csrf, requestEpoch } = await authenticatedApiFetch(path, init);
   if (!response.ok) {
     blockStaleNativeGraphSession(response.status, csrf, requestEpoch);
@@ -840,6 +841,12 @@ async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> {
       }
     }
     throw new LiveApiError(detail, response.status, errorOptions);
+  }
+  if(decode){
+    try{return await decode(response,()=>{
+      if(requestEpoch!==nativeGraphSessionEpoch||nativeGraphSessionRevoked)
+        throw new LiveApiError("Local session changed during this reply. Check the saved request.",401,{code:"local_graph_session_changed"});
+    });}finally{startReadWave();}
   }
   return parseJsonBody<T>(response);
 }
@@ -1820,8 +1827,20 @@ export async function postWorldPlayAgentTurn(
   });
 }
 
-export async function postWorldBuildAgentTurn(request: import("./types").WorldBuildAgentTurnRequestV1): Promise<WorldPlanAgentTurnResponse> {
-  return apiFetch<WorldPlanAgentTurnResponse>("/api/live/agent/turn", { method: "POST", body: JSON.stringify(request) });
+export async function postWorldBuildAgentTurn(request: import("./types").WorldBuildAgentTurnRequestV1,
+  onProgress:(progress:BuildConstructionProgress)=>void=()=>undefined): Promise<WorldPlanAgentTurnResponse> {
+  try{
+    return await apiFetch<WorldPlanAgentTurnResponse>("/api/live/agent/turn",
+      {method:"POST",body:JSON.stringify(request),headers:{Accept:"text/event-stream"}},
+      (response,assertCurrent)=>readBuildConstructionStream(response,request,onProgress,assertCurrent));
+  }catch(reason){
+    if(reason instanceof ConstructionStreamError){
+      const detail=reason.detail as {message?:unknown;code?:unknown}|null;
+      throw new LiveApiError(typeof detail==='string'?detail:typeof detail?.message==='string'?detail.message:reason.message,
+        reason.status,{code:typeof detail?.code==='string'?detail.code:null});
+    }
+    throw reason;
+  }
 }
 
 export async function getWorldAgentTurnContextTrace(worldId: string, turnId: string, signal?: AbortSignal) {
