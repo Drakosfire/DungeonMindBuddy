@@ -2,14 +2,20 @@
 
 ## Authority and current lane
 
-**Design amendment ACTIVE; runtime integration BLOCKED.** Operator scope is intentional
-Discuss/Create routing, removal of `cannot_select`, useful clarification, and page-centered
-connected authoring. This serial amendment uses the existing buddy-context-loop checkout,
-branch `codex/intentional-response-contract-v2`, base
-`f254e9bc8cc016175be4a0ef4db1606a349587b8`. Its exclusive write lease is this file.
-No runtime, APP, migration, provider, database, corpus, service or UI write lease is active.
-Independent exact-head Bugbot review precedes PRIME merge. No overlapping response-design
-PR was open at activation; parked #1764 remains outside this slice.
+**Proof implementation ACTIVE; runtime integration BLOCKED.** Design #1769 merged at
+9b31475613150fb10c0289b56946ca874b50cfbd, independently approved at
+e700a374b18c76acf51d5559a486fd45938e7d74. This serial proof uses the existing
+buddy-context-loop checkout, branch `codex/requested-work-response-proof`, from that merge.
+Exclusive writes: this handoff, `evals/utterance_intent/semantic_contract.py`,
+`evals/utterance_intent/semantic_proof.py`, and `tests/test_build_semantic_response_proof.py`.
+The prospective contract/validator has no runtime importer and grants no APP authority.
+The old registry and frozen audits remain unchanged. Private output stays under the existing
+checkout's ignored `.pytest_cache`. Existing operator authorization covers captured routing
+replay to TypeSafe Jev through Vercel AI Gateway; writer calls use only constructed synthetic
+material through the existing OpenAI writer provider. No private captured prose is sent to
+that writer. No service, database, corpus, APP, migration or UI write lease is active.
+Independent cumulative Bugbot review precedes PRIME merge. #1764 remains parked; no overlapping
+semantic-response PR was open at activation.
 
 This amendment supersedes the prospective output-only routing and host-singleton design
 below its predecessor ref. The earlier implementation is retained history, not an alternate
@@ -73,6 +79,10 @@ request for encounter *prose* is `write_current_page`; an actual runnable encoun
 `build_encounter`. Concrete name/insect/economy proposals follow the operator's answered
 preference for editable page suggestions; explicit discuss-first remains discussion.
 History resolves references, never supplies current instructions or played facts.
+Intent and presentation destination are separate dimensions: discussion could be page-anchored
+feedback if such a capability were offered. This proof does not add annotation objects or
+threads, and it must not claim they exist. Operator feedback about that possibility does not
+choose either writing or chat as new benchmark gold for an ambiguous utterance.
 
 The host resolves the admitted semantic result against the exact captured capabilities:
 
@@ -164,6 +174,10 @@ Add a versioned writer output/completion contract under the new policy, provisio
 acknowledgments, author-choice clarification and capability explanations with no authored
 or source claims and no evidence limitations. It does not relabel these as creative ideas.
 Questions stay inline in chat; a generated typed plan remains the shared Surface object.
+A valid typed collaboration object may be the entire response, without a filler acknowledgment.
+The new format/completion may therefore carry no prose segments only when the admitted typed
+object is present and valid; an entirely empty response still fails. Do not duplicate a question
+in both prose and its interactive object. Historical formats retain their original constraints.
 
 Derive status from typed output, not the model's preferred enum:
 
