@@ -4,63 +4,124 @@
 
 **Runtime integration delivered through #1772**, merge
 c72a498349a520b7091892badfdf09d775bbfea8, independently reviewed at
-6946e283a44ca0a66903be1c97e1a1fb18355493. API/UI8000/5202 now use that merge,
-APP0070/native0017. Protected delivery and ordinary synthetic writing, inline object-only
+6946e283a44ca0a66903be1c97e1a1fb18355493. The later typed-library delivery below
+is the current paired API/UI8000/5202 checkpoint, APP0070/native0017. Protected delivery and ordinary synthetic writing, inline object-only
 questions and page-plan Save/reload are retained privately. Current-build reload during
 actual table generation resolved by Check saved request with one turn/attempt/writer and a
 newer composer preserved. Genuine failed-generation retry and operator creative-chain
 acceptance remain open. The prior runtime integration source lease is settled.
 
-## Typed library readback follow-up — ACTIVE
+## Typed library readback — settled
 
-The ordinary library calls a completed object-only question “No saved reply.” Its v1 read
-projection drops typed objects. This is a consumer gap, not lost stored work. Designing
-steward scope: one serial readback capability on branch
-`codex/conversation-library-typed-results`, base c72a498349a520b7091892badfdf09d775bbfea8,
-existing buddy-context-loop checkout. No overlapping open lane; #1764 stays parked.
-Independent Bugbot design critique approved the amended mixed-base and exact scope contract
-before implementation. This grants the exclusive lease below; delivery still requires exact
-cumulative implementation review and protected adoption.
+Delivered through #1773, merge bdee447f6c1f6ae537e2b3cab9f9b8fde073d960,
+independently reviewed at f5db9f2d0f72c42fad2982724943224a776a718e. The paired
+API/UI use this revision, APP0070/native0017. Ordinary current and archived library
+inspection preserves typed questions, page-object references and the newer composer.
+The readback write lease is settled. Detailed protected-delivery and dogfood evidence
+remains private; the library does not activate archived conversations or grant execution.
 
-- Replace the library transcript projection with closed `dmb_conversation_library_turns_v2`.
-  Existing text/status/order/pagination remain. Every row adds `reply_object`, null unless a
-  completed, validated Build completion contains a supported typed object.
-- Each nonnull object includes `source:{world_id,conversation_id,turn_id,document_id,surface_id:build}`;
-  UI checks the exact outer World/conversation/turn join and a nonblank page identity.
-- Questions project `{kind:questions, questions:[{text}],source}` from that saved completion.
-  They are displayed as read-only inline questions, including when prose is empty.
-- Other supported review objects project `{kind:page_object, object_kind:plan|connected_page|relationship,
-  source}` from the same completed Build turn and its primary page identity. Render a
-  concise result label and link to that page. Do not mirror editable page plans into chat,
-  infer execution/publication or claim that a prepared object was saved on the page.
-- The projected object is a historical artifact, not a new action, citation or source claim.
-  No question answers are invented from local composer state. No raw provider output or
-  unvalidated/incomplete completion enters the projection. For `MixedCompletedTurnV1`, emit
-  an object only when `base_projection.kind == approved` and its approved validated base
-  Turn is Build with the same World/conversation/turn and primary page identity as the
-  wrapper envelope. Otherwise emit null. Always preserve the wrapper’s accepted
-  `assistant_text`; do not derive an object from Rules prose or an unclaimed base.
-- UI decoder admits v2 only and checks exact object keys, kinds, nonblank question text,
-  source-page identity and completed Build scope supplied by the projection. All reads
-  remain under existing authenticated World/conversation ownership and no-pointer-write gates.
-- No data migration, new store, archive activation, retry/executor, routing or provider change.
-  Unknown completion kinds keep their existing prose/lifecycle presentation.
+## Durable Build retry relationship — design approved; implementation BLOCKED
 
-Exclusive prospective write lease: this handoff;
-`src/application_state/agent_conversation/library.py`;
-`apps/live-control-ui/src/api/conversationLibraryApi.ts`;
-`apps/live-control-ui/src/agentInteraction/ConversationLibrary.tsx`;
-`tests/application_state/test_conversation_library.py`;
-`apps/live-control-ui/src/api/conversationLibraryApi.test.ts`;
-`apps/live-control-ui/src/agentInteraction/ConversationLibrary.test.tsx`.
-Existing generic routes only relay the projection and need no implementation change.
+Independent Bugbot critique approved this design-only contract. The implementation
+audit and activation gates below remain open.
 
-Verify real persisted object-only questions through current/archived readback with no pointer
-or turn mutation; read-only page-object labels; mixed prose; malformed/foreign/noncompleted
-object rejection; pagination and departed-scope fencing; typecheck/build. Exact cumulative
-independent Bugbot before PRIME merge and protected paired delivery, preserving APP0070,
-native Graph, product files and drafts. Ordinary library inspection must show the actual
-questions and preserve newer composer text. Keep all detailed evidence private.
+The next bounded capability is one logical conversation item with durable, inspectable
+retry history. An interrupted request currently retries as a new physical turn; the
+client's transient retry origin is lost on reload. Proposal events can also break the
+adjacent equal-question grouping. A terminal failed original can consequently retain a
+live Retry control after its explicit successor succeeded. Do not fix this by comparing
+question strings, hiding all failures or replaying the old provider authorization.
+
+Design steward: PRIME. Existing buddy-context-loop checkout; serial topology, branch
+`codex/durable-build-retry-contract`, base bdee447f6c1f6ae537e2b3cab9f9b8fde073d960.
+No runtime write lease is activated by this document. #1764 remains parked. This design
+PR is followed by one separately activated implementation PR after independent critique
+and an exact owning-path audit. No new service, store, provider, port or orchestration.
+
+### Contract
+
+1. A deliberate ordinary Build retry names its exact predecessor durable turn ID and
+   observed revision. The host captures the current page/draft/placement using existing
+   owners. The exact normalized submitted intent binds the retry reference before
+   provider authorization; replay with another reference is an idempotency conflict.
+   Requests without a retry reference retain their historical fingerprints. Equal text
+   alone never establishes a relationship. Do not backfill links into historical turns.
+2. APP owns an immutable predecessor→successor edge, recorded atomically with successor
+   acceptance under existing World pointer/conversation locks. Both endpoints must join
+   the same verified World, active conversation, Build Surface and primary page ID; the
+   question is unchanged. Page/draft revisions and insertion authority may be freshly
+   captured. Never reuse the predecessor's placement capability. Reject self-links,
+   cycles, foreign/stale/archived predecessors and a second child of the same predecessor.
+   A retry of a failed successor links to that leaf, retaining the chain.
+3. Eligibility is server-owned, not inferred from a visible error or complete trace
+   capture. Only a terminal failed/interrupted leaf with no admitted completion and a
+   known settled failure disposition may acquire a successor. Resolve uncertain provider
+   or operation outcomes first. Existing successful/prepared/inserted objects, unresolved
+   reservations and reviewed-plan continuation authority must not become replayable via
+   this generic path. Audit actual Build operation effects before defining the predicate;
+   a terminal turn alone is insufficient evidence. Reviewed steps retain their saved-plan
+   Try step again owner. No automatic retry, reset of claims or new right to publish/save.
+4. Preserve each physical turn, attempt, provider authorization/outcome, trace, proposal
+   and receipt. The new successor has fresh execution identity and current context; it
+   is another physical attempt of the same explicitly linked logical request. Matching
+   network delivery of that accepted successor returns its exact receipt even if the
+   active pointer/page later changed. Concurrent clicks/tabs must create at most one
+   successor; the loser receives a recoverable conflict or the already accepted identity,
+   never a second model dispatch. No provider call before durable acceptance.
+5. Authenticated history and current/archived library reads expose server-validated retry
+   lineage. Shared UI grouping follows those explicit edges through intervening proposal
+   events and reload. Show the newest attempt once with inspectable previous attempts;
+   only the eligible leaf exposes Retry. Keep each trace/citation attached to its actual
+   physical turn. A repeated independent question remains a separate item. Preserve
+   typed library results and existing source-page links. Historical unlinked failures
+   remain readable without inventing ancestry.
+6. Pagination must preserve logical identity: a boundary may not revive an ancestor's
+   Retry button or render it as a new question. Retain bounded, explicit access to older
+   attempt records when a chain crosses a history/library page boundary; no silent
+   unbounded full-history fetch. Implementation must name the versioned projection and
+   read owner for that continuation before activation.
+7. Preserve pending-request reconciliation, newer composer text, selections, source
+   revisions and Save ownership. A failed partial construction remains observation only.
+   Keep actionable failure recovery accessible rather than collapsing the conversation
+   solely because an incomplete preview was observed. This presentation change is limited
+   to the failed/pending retry experience; no new layout or annotation capability.
+
+### Owning-boundary audit required before activation
+
+- AgentTurnRequest → normalized BuildGraphIntent → reconcile/accept path in
+  `apps/live_control_server/models/agent_turn.py` and
+  `apps/live_control_server/services/agent_turn_service.py`.
+- `src/application_state/agent_conversation/{types,service,repository}.py`: immutable
+  submitted-intent fingerprint, APP acceptance/CAS, terminal/outcome validation and
+  exact-receipt replay. Prefer an APP relationship table with a unique predecessor over
+  rewriting lifecycle history. Name migration0071 and its database-level ownership,
+  uniqueness and immutability constraints after auditing the current migration tip.
+- History projection in `apps/live_control_server/routes/agent.py` and its models;
+  `src/application_state/agent_conversation/library.py`; their UI decoders in
+  `apps/live-control-ui/src/api/`. Name exact projection versions and bounded lineage
+  pagination; do not introduce alternate execution paths for old records.
+- Shared `agentInteraction/conversationAttemptGroups.ts`, ConversationLibrary and
+  `planSurface/components/WorldPlanAgentConversation.tsx`: retry submission, durable
+  grouping, ancestor controls, newer composer and failure/preview presentation.
+- Existing boundary tests for APP acceptance, agent request/history routes, library,
+  retry grouping and Build conversation integration. Audit inherited failures separately.
+
+### Required proof
+
+Real PostgreSQL acceptance and concurrent-tab races; changed predecessor under the same
+idempotency key; accepted receipt replay after pointer/page change; foreign/archived,
+completed, unknown-outcome, already-retried and reviewed-step rejection; chain retry;
+identical independent questions; intervening proposal events; current/archived pagination
+across an attempt chain; no read mutation; strict projection decoding; newer composer and
+current placement after reload. Confirm provider dispatch occurs once per accepted
+physical attempt and one successful Save writes one result.
+
+After exact cumulative independent Bugbot review, PRIME merge and protected paired
+8000/5202 adoption, repeat ordinary controlled failure→Retry→edit→one Save→reload and
+library inspection. Label injected failure honestly; it is not a spontaneous provider
+failure. Preserve all retained state and remove any private hook afterward. No synthetic
+proof substitutes for creative-chain/operator acceptance. Keep detailed runtime/story
+traces private; PRs contain contract/code scope only.
 
 This amendment supersedes the prospective output-only routing and host-singleton design
 below its predecessor ref. The earlier implementation is retained history, not an alternate
