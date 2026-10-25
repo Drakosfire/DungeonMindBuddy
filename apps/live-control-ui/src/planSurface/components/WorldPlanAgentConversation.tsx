@@ -2424,11 +2424,6 @@ export function WorldPlanAgentConversation({
     if (!sharedConversation || !visible || isReadOnly) return;
     const priorDocument = lastVisiblePlanDocumentRef.current;
     if (priorDocument && priorDocument !== documentId) {
-      setComposerDrafts((drafts) => {
-        const next = { ...drafts };
-        delete next[`plan:${priorDocument}`];
-        return next;
-      });
       composerEditGenerationRef.current += 1;
       setContinuationOfActionId(null);
     }
@@ -6136,6 +6131,9 @@ export function WorldPlanAgentConversation({
   );
   const composer = (
     <section className="world-plan-agent-conversation__composer" aria-label="Conversation composer">
+      {sharedConversation?.worldId === worldId && sharedConversation.composerDraftWarning
+        ? <p role="status">{sharedConversation.composerDraftWarning}</p> : null}
+
       {sending || composing || buildCompose.busy || playCompose.busy ? <div className="world-plan-agent-conversation__working" role="status" aria-live="polite">
         <span className="world-plan-agent-conversation__working-dot" aria-hidden="true" />
         {composing || buildCompose.busy ? "Preparing your edit…" : "Working on your reply…"}

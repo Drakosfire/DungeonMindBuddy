@@ -1,6 +1,8 @@
 # BUILD — real on-page table construction
 
-ACTIVE PRIME implementation: independent exact-head design critique APPROVED
+IMPLEMENTATION DELIVERED through1719–1721; original lease below is historical.
+Combined ordinary recovery proof continues with the shared-composer successor.
+Independent exact-head design critique APPROVED
 f0bf0e727f94c13ca805306c63fdf40782c663d2; activation2026-10-24 after
 GE27 merge and consumer ownership inspection. Serial topology: one Buddy implementation PR, after
 OverMind PR55 (guarded authoring stream contract) and GE PR27 merged.
@@ -186,9 +188,23 @@ PR1709 predecessor settlement: merged40b7f395, 54 tests/independent review, prot
 API delivery and ordinary current-page follow-up9.083s/reload proof; revision12
 and source hash unchanged. UI remains506162b0 until this slice is delivered. GE27
 is merged and gated by353 provider-free tests, independent exact-head review and
-Python3.11/3.13 CI. It has not yet been adopted into the live Buddy runtime.
+Python3.11/3.13 CI. Exact GE3e085168 was adopted with API3ce378df.
 
 PRIME owns runtime/artifact cleanup. Reuse checkout and existing dependencies.
 The necessary locked-SDK verification environment under Projects/.codex/
 guarded-schema-stream is retained for this adoption; settle it after checking
 actual process/dependency references. Preserve private captured prompts locally.
+
+
+## Current settlement
+
+1719 approved020e10e89,109 backend/190 UI tests, merge/API3ce378df;1720 approved
+b3cf552da,27 UI tests, merge656783705;1721 approvedde88ddb13,138 mounted tests,
+merge/UI5829c6e8f. Protected adoptions preserved retained state; latest2610 APP rows,
+27 frozen components,89 product files and native authority. API3ce378df remains
+healthy. Synthetic direct edit/Save/reload and visible real Bog Blossom growth
+passed. Recovery proposal-refresh proof is combined with the active successor
+HANDOFF-MIND-shared-composer-reload-drafts.md, which owns the newly discovered
+unsent-text persistence gap. No failure-after-rows/provider-failure or full-goal
+acceptance claim. Operator speed assessment changes priority to writing continuity;
+latency measurement is a regression guard. Preserve all remaining broad gates.

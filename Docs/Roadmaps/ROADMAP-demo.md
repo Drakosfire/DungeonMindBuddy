@@ -1,11 +1,11 @@
 # Buddy roadmap — author, plan, play, remember
 
 **Status:** current product execution ledger; reconciled2026-10-24.
-**Evidence anchor:** API `40b7f395bfdfad04b3ca0d6de3076c6ae6bfeb1f`, UI
-`506162b09f3296ac5c9b5265d923a16428c90835` (#1717), ports8000/5202,
+**Evidence anchor:** API `3ce378df81b113af354587f797fc89aa215450a6`, UI
+`5829c6e8f96f0a536577da8b1dca164e99bc6bb9` (#1721), ports8000/5202,
 APP0061/native0017, Core `a21c9e791fd090999a53318700a8010227b15c05`.
-The protected API adoption preserved all2,571 retained APP rows, native state,
-frozen components and retained sources. UI remains unchanged from1717.
+Protected delivery through1721 preserved all2,610 retained APP rows, native state,
+27 frozen components and89 product files; API health remains verified.
 This is a delivery snapshot, not completion of the journeys below.
 **Owner:** DungeonMindBuddy; [steward mandate](../Plans/STEWARDS-HANDOFF-demo.md).
 
@@ -109,9 +109,24 @@ returned the edited task, survived reload, and left revision12/source hash uncha
 It excludes source_grounded when the underlying finite retrieval schema excludes
 it, retaining authored grounding. This closes that bounded repair, not the authoring
 journey. [Real table construction](../Plans/HANDOFF-BUILD-table-construction-stream.md)
-is the active serial consumer slice after GE27 merged3e085168 (353 provider-free
-tests, independent Bugbot, Python3.11/3.13 CI). Its transport, Surface preview and
-rendered ordinary/recovery gates are not yet delivered.
+shipped in1719 merge3ce378df, with109 backend/190 UI tests and independent
+exact-head review. GE27 merge3e085168 is adopted through an exact runtime overlay.
+Ordinary synthetic20-row proposal was edited, Saved and reloaded at source revision13;
+Edge showed actual rows5→13→19 before final admission, but returned19 entries for
+20 requested (content-quality miss).1720 fixed initial reveal: Bog Blossom's first
+row appeared within the viewport at6.052s. Reload during construction retired only
+delivery; original turn12cbf008 completed once on attempt1, source revision112/hash
+unchanged.1721 refreshes the proposal list after exact pending-turn recovery
+(138 mounted tests, independent exact-head review, UI-delivered). Combined ordinary
+recovery proof remains open. [Shared unsent composer recovery](../Plans/HANDOFF-MIND-shared-composer-reload-drafts.md)
+is the active serial successor after an independently approved tab/World/work
+storage contract; it addresses newer text lost on reload.
+
+Operator assessment2026-10-24: interactive speed is adequate for current writing;
+speed is now a regression guard, not an active optimization program. Prioritize
+preserving work, carrying intent forward and useful trader-house/Edge possibilities.
+Original grounding/image and8GB/proxy evidence remain acceptance gates, with no
+new stand-alone timing run absent a demonstrated regression.
 
 Preserve and verify the shipped scene→encounter→immutable mechanics successor→
 explicit adoption→Play→reload/resume loop. Use Of Conks and Cons and A Wild Sheep
