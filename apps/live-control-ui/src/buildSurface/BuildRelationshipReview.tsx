@@ -20,7 +20,7 @@ export function BuildRelationshipReview({worldId,documentId,seed,onConsumed}:{wo
   if(initial.error)throw new Error(initial.error);
   if(!navigator.locks)throw new Error('This browser cannot retain a safe review across tabs. Nothing was sent.');
   await navigator.locks.request(key,()=>{
-   if(!alive.current||sessionRef.current?.record?.world_id!==worldId||sessionRef.current?.record?.document_id!==documentId||localStorage.getItem(key)!==rawRef.current)throw new Error('This review changed in another tab. Reopen it; nothing was overwritten.');
+   if(!alive.current||sessionRef.current?.record?.world_id!==worldId||sessionRef.current?.record?.document_id!==documentId||localStorage.getItem(key)!==rawRef.current)throw new Error('This review changed or its page closed. Reload the page to reopen the retained review; nothing was overwritten.');
    const next=change(valueRef.current),raw=next?JSON.stringify(next):null;readRelationshipReview(raw,worldId,documentId);
    if(raw===null)localStorage.removeItem(key);else localStorage.setItem(key,raw);
    if(localStorage.getItem(key)!==raw)throw new Error('The exact review could not be retained. Nothing was sent.');
@@ -69,7 +69,7 @@ export function BuildRelationshipReview({worldId,documentId,seed,onConsumed}:{wo
  {(['predicate','label','context'] as const).map(field=><label key={field}>{field==='predicate'?'Relationship type':field==='label'?'Readable relationship':'Context, including when'}<textarea value={value.intent[field]} onChange={event=>{const text=event.target.value;edit(v=>({...v,intent:{...v.intent,[field]:text}}));}}/></label>)}
  <p>Describe the relationship in this passage. Include past or conditional context explicitly. Confirming will publish this author-reviewed assertion to the World.</p>
  <button type="button" onClick={()=>void preview()}>Preview relationship</button></fieldset>:<>
- <blockquote>{value.intent.quote}</blockquote><p>{value.intent.source.label} → {value.intent.label} ({value.intent.predicate}) → {value.intent.target.label}</p><p>{value.intent.context}</p>
+ <blockquote>{value.intent.quote}</blockquote><p>{value.intent.source.label} → {value.intent.label} ({value.intent.predicate}) → {value.intent.target.label}</p><p>Saved relationship label: {value.intent.label} — {value.intent.context}</p>
  {value.prepared?.assertions_preview.map(row=><p key={row.assertion_id}>{row.summary}</p>)}
  {value.receipt?<p role="status">Relationship published to the World.</p>:value.prepared?<button type="button" disabled={busy||!!initial.error} onClick={()=>void confirm()}>{value.submitted?'Retry exact confirmation':'Confirm relationship'}</button>:<button type="button" disabled={busy||!!initial.error} onClick={()=>void preview()}>Retry exact preview</button>}
  </>}

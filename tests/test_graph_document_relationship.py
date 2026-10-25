@@ -80,3 +80,28 @@ def test_temporal_context_and_direction_are_preserved_without_inference(case,gra
     assert row.relationship_type=='works_with' and row.direction=='directed'
     assert row.summary==request['context'] and row.relationship_label==request['label']+' — '+request['context']
     assert len([p for p in built.proposals if p.proposal_kind=='relationship'])==1
+
+
+def test_missing_source_is_an_actionable_registry_error(case,graph,monkeypatch):
+    from apps.live_control_server.services.workspace_document_registry import WorkspaceDocumentRegistryError
+    def missing(*args):
+        raise WorkspaceDocumentRegistryError('The selected saved page is no longer available.')
+    monkeypatch.setattr('apps.live_control_server.services.graph_document_relationship.get_workspace_document_snapshot',missing)
+    response=case.client.post('/api/live/graph-authoring/document-relationship/request',json=intent(case))
+    assert response.status_code==404,response.text
+    assert response.json()['detail']['code']=='relationship_source_unavailable'
+    assert case.authority.publish_calls==0
+
+
+@pytest.mark.parametrize('body,quote',[(TEXT+TEXT,TEXT.strip()),(TEXT+'\nAnother source block.\n',TEXT+'\nAnother source block.')])
+def test_ambiguous_or_cross_block_quote_cannot_be_previewed(case,graph,body,quote):
+    import hashlib
+    from apps.live_control_server.services.workspace_document_registry import mark_workspace_document_committed
+    request=intent(case)
+    case.target.write_text(body)
+    record=mark_workspace_document_committed(case.root,case.record.document_id)
+    request['document_source'].update(revision=record.revision,contentSha256=hashlib.sha256(body.encode()).hexdigest())
+    request['quote']=quote
+    response=case.client.post('/api/live/graph-authoring/document-relationship/request',json=request)
+    assert response.status_code==409,response.text
+    assert case.authority.publish_calls==0

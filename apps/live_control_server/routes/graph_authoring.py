@@ -10,6 +10,7 @@ from fastapi.responses import JSONResponse
 from apps.live_control_server.services.graph_document_relationship import DocumentRelationshipRequest, relationship_request
 from apps.live_control_server.config import repo_root
 from apps.live_control_server.services.source_artifact_registry import SourceArtifactRegistryError
+from apps.live_control_server.services.workspace_document_registry import WorkspaceDocumentRegistryError
 from apps.live_control_server.services.world_graph_projection import WorldGraphProjectionServiceError
 
 from apps.live_control_server.services.graph_object_authoring_commit import (
@@ -45,7 +46,7 @@ def get_graph_object_authoring_kinds() -> dict[str, Any]:
 def post_document_relationship_request(request: DocumentRelationshipRequest) -> dict[str, Any]:
     try:
         return relationship_request(repo_root(), request).model_dump(mode="json", by_alias=True)
-    except (GraphObjectAuthoringError, SourceArtifactRegistryError, WorldGraphProjectionServiceError) as exc:
+    except (GraphObjectAuthoringError, SourceArtifactRegistryError, WorkspaceDocumentRegistryError, WorldGraphProjectionServiceError) as exc:
         raise HTTPException(status_code=exc.status_code, detail={"code": getattr(exc,"code","relationship_source_unavailable"), "message": str(exc)}) from exc
 
 
