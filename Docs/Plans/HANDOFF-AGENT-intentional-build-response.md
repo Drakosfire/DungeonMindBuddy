@@ -2,20 +2,22 @@
 
 ## Authority and current lane
 
-**Proof implementation ACTIVE; runtime integration BLOCKED.** Design #1769 merged at
-9b31475613150fb10c0289b56946ca874b50cfbd, independently approved at
-e700a374b18c76acf51d5559a486fd45938e7d74. This serial proof uses the existing
-buddy-context-loop checkout, branch `codex/requested-work-response-proof`, from that merge.
-Exclusive writes: this handoff, `evals/utterance_intent/semantic_contract.py`,
-`evals/utterance_intent/semantic_proof.py`, and `tests/test_build_semantic_response_proof.py`.
-The prospective contract/validator has no runtime importer and grants no APP authority.
-The old registry and frozen audits remain unchanged. Private output stays under the existing
-checkout's ignored `.pytest_cache`. Existing operator authorization covers captured routing
-replay to TypeSafe Jev through Vercel AI Gateway; writer calls use only constructed synthetic
-material through the existing OpenAI writer provider. No private captured prose is sent to
-that writer. No service, database, corpus, APP, migration or UI write lease is active.
-Independent cumulative Bugbot review precedes PRIME merge. #1764 remains parked; no overlapping
-semantic-response PR was open at activation.
+**Integration contract design ACTIVE; runtime implementation BLOCKED pending independent
+approval of the owner contract below.** Proof #1770 merged at
+5374f664c2aa2bc7fdc5b7f9977aeac67202814d, independently approved at
+f44150e6f91ce7d5c350ca5bbb80dd14faaff947. Its registry/eval/test lease is settled;
+prospective modules still have no runtime importers or APP authority. The design-only lane
+uses the existing buddy-context-loop checkout, branch
+`codex/intentional-response-integration-contract`, from that merge. Exclusive writes in
+this PR: this handoff only. Topology: serial. #1764 remains parked; no overlapping response
+integration PR was open at re-anchor. No service, database, corpus or runtime write is active.
+Independent cumulative Bugbot review precedes PRIME merge.
+
+The frozen proof covers requested work, finite resolution and real synthetic writer outputs.
+It does not establish runtime admission or ordinary staging. Retained semantic quality
+failures remain acceptance inputs; schema acceptance is not a semantic quality guarantee.
+Private captures, output assessments, usage and local test evidence stay in existing private
+locations. No new inference round or private writer payload transfer follows from this design.
 
 This amendment supersedes the prospective output-only routing and host-singleton design
 below its predecessor ref. The earlier implementation is retained history, not an alternate
@@ -245,3 +247,156 @@ foundations; real typed-plan row streaming and continuation acceptance remain op
 current delivery/roadmap anchors with the consuming implementation, not a status-only PR.
 Hosted, richer combat automation, canvas/map authoring and full-stop orchestration remain
 separately selected scope. No service rollout is required for this design or proof alone.
+
+
+## Inspected integration contract and prospective exclusive lease
+
+This section pins the owner boundary at base
+`5374f664c2aa2bc7fdc5b7f9977aeac67202814d`. It is a consuming design artifact, not a
+completion report. After independent approval and PRIME merge, the designing steward may
+activate the following **single serial integration slice** from the resulting remote tip.
+Record that pinned activation in the consuming implementation; do not dispatch against an
+unreviewed design. Any extra owner path or contract requires explicit steward amendment.
+
+### Runtime and APP ownership
+
+| Exclusive path(s) | Permitted change / invariant |
+| --- | --- |
+| `src/application_state/agent_conversation/build_intentional_response.py` (new) | Single closed runtime semantic vocabulary, capability projection, resolver, commitments, selection proof validation and neutral response normalization/schema helpers. No imports from evals or server/UI. |
+| `src/application_state/agent_conversation/types.py` | New policy variants, immutable event, completion and closed unions; ledger ordering, first-provider binding, result/readback/completion checks. Historical types keep their exact fields and behavior. |
+| `src/application_state/agent_conversation/service.py` | Fenced APP selection append with transient exact request/response proof and captured-trace verification, plus narrow new completion admission. Reviewed bindings reject semantic reselection. |
+| `src/application_state/agent_conversation/source_writer_output.py`, `build_draft_answer.py` | New-policy format dispatch and independent completion reconstruction. Preserve finite claims, exact quotes, literal requested-detail gaps and old normalization unchanged. |
+| `src/application_state/agent_conversation/build_authoring.py` | Existing proposal/image owner verification accepts exactly the applicable new selection event and preserves arguments, capability and broker joins. No second proposal/image owner. |
+| `src/application_state/agent_conversation/work_plan.py` | Permit a valid new completion containing only a typed plan to seed the existing plan owner; preserve its exact empty text digest and structured completion. No fabricated acknowledgment or additional dispatcher. |
+| `src/application_state/migrations/versions/20261025_0070_intentional_build_response.py` (new; re-anchor number if occupied) | Append new completion admission and narrowly allow an object-only completed reply in the lifecycle constraint. Preserve old predicates and retained rows; guard downgrade. |
+| `apps/live_control_server/services/build_jev_driver.py` | Initial real semantic question, actual SDK answer validation, exact APP proof append, derived operation, relevant writer projection and object-aware new-format history. Preserve reviewed-author action and actual read/Rules votes. |
+| `apps/live_control_server/services/build_jev_harness.py`, `build_jev_writer.py` | Trusted capability/policy construction, new writer format and neutral/object-only result delivery through existing owners. No fake usage or extra classification call. |
+| `apps/live_control_server/services/agent_turn_service.py` | Narrow policy construction/budget equality, completion projection and binding to new output; preserve receipt/envelope/recovery fences. No unrelated service rewrite. |
+| `apps/live_control_server/models/agent_turn.py` | Add the new closed completion to Build response decoding. |
+| `apps/live-control-ui/src/api/types.ts`, `shared/sourcePassageProtocol.ts` | Closed new completion/status decoding, optional prose only with a valid supported typed object. No widening old formats. |
+| `apps/live-control-ui/src/planSurface/components/WorldPlanAgentConversation.tsx`, `BuildSourcePassageEvidence.tsx` | Render new completion/citations and typed questions/plans through existing presentation and Surface placement owners; preserve empty-prose objects, pagination, turn joins and composer focus. |
+| `Docs/Plans/HANDOFF-AGENT-intentional-build-response.md` | Settle the predecessor and record the exact consuming activation, constraints and next acceptance gate. |
+
+Proof-only `evals/utterance_intent/semantic_contract.py` and the earlier
+`apps/live_control_server/services/build_action_registry.py` remain frozen controls, not runtime
+imports or alternate executors. The new APP-owned module is the sole prospective runtime
+registry. Existing transitions/SDK conversion/dispatch/accounting carriers remain unchanged:
+inspection found generic named choice conversion; changing `operation` to `requested_work`
+does not require a new SDK request or carrier schema. If integration demonstrates otherwise,
+return for a bounded lease amendment rather than editing those owners implicitly.
+
+### Policy, capabilities and selection proof
+
+Use marker `intentional_response_policy="build_intentional_response_v2"` plus exact menu,
+resolver and capability commitments in new closed policy variants. Two axes are real:
+working-draft capture present/absent and image capability offered/absent. Extend the matching
+existing bases (`BuildRelationshipReviewPolicyV1` / image variant with a draft;
+`BuildNamedWorldContextPolicyV1` / image variant without a draft), each with a distinct
+`execution_driver` discriminator for this contract. Do not add default fields to old policy
+models or change historical serialized hashes. No-draft variants do not manufacture draft,
+related-page, quote or relationship-review authority. They can support neutral discussion
+and typed questions; other review kinds require their actual existing policy and destination.
+
+The host projects offered operations from frozen policy, reviews from their exact admitted
+policies, plan destination from the captured shared Surface capability and manual controls
+only when host-backed. Unknown/unacquired is not false/unavailable. Do not infer a manual
+map editor or an agent Save from page-writing capability. Preserve the proof's relevant
+follow-up filtering and separate saved-content acquisition inventory. An absent editor changes
+resolution, never the requested-work question or number of its genuine semantic options.
+
+`BuildRequestedWorkResolutionV1` stores actual controller attempt/envelope/response digests,
+machine request ID, semantic label/family, exact menu/resolver/capability commitments,
+resolved operation, purpose/barrier, broker ID and argument digest. At the fenced append,
+APP receives transient `request_json` and `response_json`. Verify their exact raw hashes,
+unique-key strict JSON/SDK response shape, model identity, actual unique-max probability vector
+and original semantic question; recompute resolution, broker identity and tool arguments.
+Compare the request and response with the matching captured provider observation in
+`agent.turn_context_trace`, following the existing related-page proof pattern. A caller-supplied
+digest alone is insufficient. Reject missing captures or mismatches before acquisition or writer
+authorization; do not synthesize scores for the resolved operation. Persist the event, not a
+second free-standing execution receipt or parallel provider history.
+
+Ledger validation independently enforces exactly one applicable selection kind per turn;
+old Jev action events cannot authorize a new semantic-policy turn, and a semantic event cannot
+authorize an old policy. Actual reviewed-author selections remain valid under their separately
+bound intent and cannot coexist with a model action selection. Bind semantic selection after
+its acknowledged controller and before acquisitions/writer; related-page/Rules auxiliary
+selections from the same real response remain independent and retain their existing joins.
+The real initial semantic call retains the existing first-envelope/accounting equality; do not
+add a host-first-provider exception. Image admission uses the selected semantic image score
+with the existing threshold and only when resolution actually offers image preparation.
+
+### Completion, empty prose and persistence
+
+The new `dmb_build_intentional_response_completion_v1` is a separate closed completion rather
+than a subclass that accidentally inherits a required draft. Its host-derived basis describes
+actual admitted material: `working_draft_context`, `saved_source_and_opened_passages`,
+`opened_source_passages`, or `conversation` for neutral output without factual claims.
+Neutral acknowledgments/capability explanations use `discussion`; genuine limitations and
+creative suggestions retain their distinct statuses. Source/draft/related factual segments
+retain all existing provenance, selector and citation checks. Do not claim an arbitrary-prose
+fact classifier exists: schema validation alone cannot establish semantic truthfulness.
+
+The new format supports optional admitted collaboration. `answer_segments=[]` is valid only
+with a nonempty valid supported typed object and no factual citations. `assistant_text` is
+then exactly the empty segment join, not null or invented filler. Enforce this same exception
+in `TurnResult`, persisted Turn/readback validation, the database lifecycle constraint, API and
+UI. The inspected baseline migration0010 has an unnamed lifecycle CHECK that currently requires
+`btrim(assistant_text)<>''` for every completion. The new migration must identify that one
+installed constraint by its verified definition/catalog identity, replace it with an explicitly
+named equivalent plus the narrow new-completion exception, and abort on an unexpected shape.
+Do not guess its PostgreSQL-generated name or weaken accepted/running/failed/interrupted
+conditions. Add a new completion branch to `agent_turn_graph_completion_check`; keep historical
+branches unchanged and SQL NULL fail-closed. Require exact new policy/basis/status/typed shape,
+closed fields and a valid nonempty object for the empty-text exception. No retained row rewrite.
+
+Downgrade locks affected state and refuses if new policies/events/completions exist (including
+interrupted attempts), rather than abandoning them or lying about readiness for older code.
+Guard source-policy cases without a working-draft capture as well as object-only completions.
+Exercise installed constraints and actual completed-turn insert/readback on disposable Postgres;
+an evaluated SQL fragment or Pydantic-only test is not the owning-boundary proof.
+
+New completion decoding must preserve inline citation indexes, questions in conversation and
+plans on the Surface. The existing work-plan `_source` rejects empty assistant text, so it needs
+the same exact new-object exception, with the original text digest kept intact. No completion
+may be dropped from history merely because prose is empty: project its actual typed object as
+reference data in new-format controller history, preserving turn identity and content commitment.
+Do not render the object twice, replace it with a generic acknowledgment, treat a preview as
+executable or change existing explicit continuation admission.
+
+### Verification and rollout gates
+
+Permitted test writes (exclusive): new
+`tests/test_build_intentional_response.py`,
+`tests/application_state/test_build_intentional_response_postgres.py`, and focused extensions to
+`tests/test_agent_build_jev_driver_decisions.py`, `tests/test_agent_build_jev_ordinary_harness.py`,
+`tests/test_build_jev_initial_accounting.py`, `tests/test_build_jev_image.py`,
+`tests/test_build_draft_context.py`, `tests/test_build_writer_selector_schema.py`,
+`tests/test_build_related_pages.py`, `tests/application_state/test_reviewed_work_plan.py`,
+`apps/live-control-ui/src/planSurface/components/BuildSourcePassageEvidence.test.tsx`, and
+`apps/live-control-ui/src/planSurface/WorldPlanAgentConversation.worldHistory.test.tsx`.
+
+Prove the actual driver→APP→writer→completion path, not only pure resolver helpers:
+
+- Exact SDK call and truthful accounting with and without editor/draft/image capability;
+  real read/Rules votes preserved; old/reviewed paths retain authority and recovery semantics.
+- APP rejects changed request/response, foreign provider/attempt, duplicate/tied/nonfinite
+  votes, changed resolver/capabilities/arguments, mixed selection kinds, wrong sequence and
+  completion/operation mismatch. Valid neutral and object-only results survive DB readback.
+- New neutral output passes without invented limitations or unrelated facts; old format still
+  rejects the same newly permitted shape. Empty total output, factual references under neutral
+  status, invalid typed objects and unattested exact quotes fail. No-draft neutral must exercise
+  a genuinely absent draft packet, not just a synthetic capability flag.
+- Real inline questions, Surface plan staging, citations and empty-prose history remain usable
+  through ordinary decoding. Reviewed plan continuation stays one explicit action.
+- Retain frozen provider proof and inspect actual writing scope/relationship drift/magical
+  specificity in live acceptance. No favorable-only inference rerun substitutes for it.
+
+After exact cumulative independent Bugbot approval and PRIME merge, re-anchor the protected
+API/UI lease and actual processes, snapshot retained state, migrate and deliver the matched
+runtime/UI revision using established ports8000/5202 and rollback protections. Then ordinary
+synthetic controls must prove free-form writing→placement→edit→one Save→reload; questions inline;
+plan on page; one genuine failed-generation retry preserving newer composer and no duplicate
+turns/writes; historical/uncertain recovery. Keep Brin’s actual creative state untouched until
+its existing pending choice. Operator creative-chain acceptance remains required afterward.
+No code, migration or deployment is accomplished by this design approval itself.
