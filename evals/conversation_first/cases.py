@@ -42,6 +42,13 @@ def cases():
         "expected_item": item, "expected_questions": 2 if name == "ask_before_media" else None,
         "cohort": "fresh_prepare_taxonomy"} for name, q, step, item in holdout]
 
+    for case in taxonomy:
+        if case['id'] == 'new_shop_page':
+            case['context'] = {'selected_passage': "Lark's Candle Shop supplies travelers with tallow candles; Lark owns and runs it.",
+                'origin': 'Captured synthetic passage on the current page; not published Graph truth.'}
+        elif case['id'] == 'enemy_revision':
+            case['context'] = {'selected_enemy': {'name': 'Marsh Guard', 'hp': 40, 'ac': 14},
+                'origin': 'Synthetic selected mechanics object; no revision has been saved.'}
     ambiguity = [
         ("missing_action_with_subject", "We are on the candle-shop page. Do whatever we were going to do."),
         ("missing_object", "Prepare it."),

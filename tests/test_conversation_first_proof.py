@@ -148,3 +148,15 @@ def test_wrong_item_fails_even_when_prepare_route_matches():
 def test_first_stage_has_only_three_generic_actions():
     for case in cases():
         assert decision_request(case)['questions'][0]['options'] == ['converse', 'research', 'prepare']
+
+
+def test_explicit_target_context_is_input_not_expected_artifact():
+    from evals.conversation_first.scaffold import preparation_request
+    shop = next(c for c in cases() if c['id'] == 'new_shop_page')
+    enemy = next(c for c in cases() if c['id'] == 'enemy_revision')
+    assert "Lark's Candle Shop" in decision_request(shop)['state']['target_context']['selected_passage']
+    assert preparation_request(enemy)['state']['target_context']['selected_enemy']['hp'] == 40
+    changed = deepcopy(enemy)
+    changed['expected_item'] = 'gold_canary'
+    assert preparation_request(enemy) == preparation_request(changed)
+    assert decision_request(enemy) == decision_request(changed)

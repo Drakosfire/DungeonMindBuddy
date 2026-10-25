@@ -42,6 +42,7 @@ def frame(case, *, include_workflow=True):
     # Deliberate allowlist: labels, case IDs and evaluation rubrics cannot reach providers.
     return {"user_question": case["question"], "dialogue_reference": deepcopy(case.get("history", [])),
         "surface_context": {"page_title": "Rowan’s Forge", "status": "Author developing proposed workshop relationships in North Gate; no lookup has run."},
+        "target_context": deepcopy(case.get("context", {})),
         "workflow_catalog": [deepcopy(WORKFLOW)] if include_workflow else []}
 
 
