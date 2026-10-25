@@ -7,6 +7,7 @@ import { semanticMarkdownSerializationDiagnostics } from '../tiptap/markdown/sem
 
 /** Generated content is inert Markdown. Existing document identities remain untouched. */
 export function admitMarkdownInsertion(markdown: string): { content: JSONContent[]; markdown: string } {
+  if (/^ {0,3}(?:`{3,}|~{3,})dmb-work-plan-v1(?:[ \t]|$)/m.test(markdown)) throw new Error('Work-plan references require the typed author placement.');
   if (!markdown.trim()
     || /<\/?[A-Za-z][^>]*>|<!--[\s\S]*?-->|dmb-node:|graphNodeReference|\bnode:[a-z0-9_-]+/i.test(markdown)
     || /^---\s*$/m.test(markdown)

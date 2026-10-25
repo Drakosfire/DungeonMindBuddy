@@ -166,3 +166,14 @@ describe("SemanticMarkdownPaste", () => {
     cleanup();
   });
 });
+
+it('never manufactures a work-plan reference from Markdown clipboard content',async()=>{
+ const {WorkPlanNode}=await import('../../surface/workPlans/WorkPlanNode');
+ const {workPlanFence}=await import('../../surface/workPlans/workPlanReference');
+ const editor=new Editor({extensions:[StarterKit,WorkPlanNode,SemanticMarkdownPaste],content:'<p>Author text.</p>'});
+ try{
+  const text='# Copied plan\n\n'+workPlanFence({schema:'dmb_surface_work_plan_ref_v1',world_id:'world',document_id:'page',conversation_id:'11111111-1111-4111-8111-111111111111',source_turn_id:'22222222-2222-4222-8222-222222222222',source_answer_sha256:'a'.repeat(64),title:'Work plan'});
+  const before=editor.getJSON();expect(looksLikeSemanticMarkdown(text)).toBe(false);
+  expect(simulatePaste(editor,{text})).toBe(false);expect(editor.getJSON()).toEqual(before);
+ }finally{editor.destroy();}
+});

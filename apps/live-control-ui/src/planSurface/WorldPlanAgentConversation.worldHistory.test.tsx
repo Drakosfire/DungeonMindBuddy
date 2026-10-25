@@ -36,7 +36,8 @@ const harness = vi.hoisted(() => ({
   agent: null as any,
 }));
 
-vi.mock("../selectedWorld/SelectedWorldContext", () => ({
+vi.mock("../selectedWorld/SelectedWorldContext", async original => ({
+  ...await original<typeof import("../selectedWorld/SelectedWorldContext")>(),
   useSelectedWorld: () => ({ kind: "managed", worldId: harness.worldId }),
 }));
 vi.mock("../agentInteraction/AskPluginSlot", () => ({

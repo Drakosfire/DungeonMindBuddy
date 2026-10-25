@@ -1,3 +1,5 @@
+import {StagedWorkPlan} from '../../surface/workPlans/StagedWorkPlan';
+import {captureWorkPlan} from '../../surface/workPlans/workPlanCapture';
 import {ConversationRelationshipReview} from './ConversationRelationshipReview';
 import {SourceCitedAnswer} from "./SourceCitedAnswer";
 import {ConversationConnectedPageReview} from "./ConversationConnectedPageReview";
@@ -3862,6 +3864,25 @@ export function WorldPlanAgentConversation({
           throw new Error("The reply did not match the saved Run edition, scene and World Graph. Its recovery record was retained.");
         }
       }
+      if(request.primary_work.kind==='build'){
+        const completedContext=mixed?response.rules_context.base_context:'knowledge_context' in response?response.knowledge_context:undefined;
+        const collaboration=isBuildKnowledgeContext(completedContext,request.owner_scope.world_id)&&completedContext.completion&&'collaboration' in completedContext.completion?completedContext.completion.collaboration:null;
+        if(collaboration?.kind==='plan'){
+          try{
+            const fresh=await getWorldAgentConversationHistory(request.owner_scope.world_id);
+            if(!isWorldConversationHistory(fresh)||!await areHistoryReceiptDigestsBound(fresh))throw new Error('The completed history could not be verified.');
+            const key=await worldTurnIdempotencyKey(request.owner_scope.world_id,request.turn_id);
+            const matches=fresh.turns.filter(turn=>'idempotency_key' in turn&&turn.idempotency_key===key);
+            if(!key||matches.length!==1||!fresh.conversation_id||fresh.active_conversation_id!==fresh.conversation_id)throw new Error('The completed plan needs its original active conversation.');
+            const retained=graphContextForTurn(matches[0])?.completion;
+            await captureWorkPlan(request as WorldBuildAgentTurnRequestV1,matches[0],fresh.conversation_id,fresh.pointer_revision,key,response.answer.text??'',collaboration,
+              retained&&'collaboration' in retained?retained.collaboration:null);
+          }catch(reason){
+            // Generation completed. Preserve history and require explicit placement; never resend it to acquire an anchor.
+            if(requestRef.current?.token===token&&latestRef.current.mounted)setError(`Plan ready; choose its page position. ${reason instanceof Error?reason.message:String(reason)}`);
+          }
+        }
+      }
       if (requestRef.current?.token !== token || !latestRef.current.mounted) return;
       if (clearSavedPlayTurn(stored)) sharedConversation?.setPendingTurn((current) => current?.turnId === request.turn_id ? null : current);
       sharedConversation?.setHistoryRefreshNonce((current) => current + 1);
@@ -5609,6 +5630,9 @@ export function WorldPlanAgentConversation({
     previousAttempts: WorldConversationDisplayEvent[] = [], historicalAttempt = false): React.ReactNode => {
     if (event.kind === "proposal") return renderProposalEvent(event.turn, event.position, false);
     const turn = event.turn;
+    const completed=graphContextForTurn(turn)?.completion;
+    const collaboration=completed&&'collaboration' in completed?completed.collaboration:undefined;
+    const pageWorkPlan=turn.provenance.surface_id==='build'&&collaboration?.kind==='plan';
     // The immutable receipt records generation; proposal controls own current review state.
     const pageProposalAcknowledgment = graphContextForTurn(turn)?.completion?.schema === "dmb_build_authoring_completion_v1"
       && !rulesContextForTurn(turn);
@@ -5637,6 +5661,8 @@ export function WorldPlanAgentConversation({
       <article
         className={`world-plan-agent-conversation__turn world-plan-agent-conversation__turn--${turn.assistant_text ? "complete" : failed ? "failed" : interrupted ? "interrupted" : "pending"}`}
         data-sequence={turn.sequence}
+        data-turn-id={turn.turn_id}
+        tabIndex={-1}
       >
         <div className="world-plan-agent-conversation__message world-plan-agent-conversation__message--user">
           <span className="world-plan-agent-conversation__speaker">You</span>
@@ -5690,7 +5716,15 @@ export function WorldPlanAgentConversation({
             {verifiedWorldId && ["dmb_build_connected_page_review_completion_v1","dmb_build_relationship_review_completion_v1"].includes(graphContextForTurn(turn)?.completion?.schema ?? "") && (graphContextForTurn(turn)!.completion as import("../../api/types").WorldBuildRelationshipReviewCompletionV1).collaboration?.kind === 'connected_page' && <ConversationConnectedPageReview worldId={verifiedWorldId} documentId={turn.provenance.primary_work.object_id!} turnId={turn.turn_id}
               proposal={(graphContextForTurn(turn)!.completion as import("../../api/types").WorldBuildRelationshipReviewCompletionV1).collaboration as import("../../api/types").ConversationConnectedPageProposal}
               disabled={composerBusy||!isBuild||!visible||history?.active_conversation_id!==history?.conversation_id||buildMode?.savedSource?.documentId!==turn.provenance.primary_work.object_id}/>}
-            {verifiedWorldId && history?.conversation_id && <ConversationWorkbook
+            {verifiedWorldId&&history?.conversation_id&&pageWorkPlan&&collaboration?.kind==='plan'?<StagedWorkPlan
+              key={`page-plan:${verifiedWorldId}:${history.conversation_id}:${turn.turn_id}`}
+              worldId={verifiedWorldId} documentId={turn.provenance.primary_work.object_id!} conversationId={history.conversation_id}
+              turnId={turn.turn_id} source={turn.assistant_text} steps={collaboration.steps}
+              bridge={isBuild&&buildMode?.savedSource?.documentId===turn.provenance.primary_work.object_id?buildMode.composeBridge??null:null}
+              pointerRevision={history.pointer_revision}
+              disabled={composerBusy||!isBuild||history.active_conversation_id!==history.conversation_id||buildMode?.savedSource?.documentId!==turn.provenance.primary_work.object_id}
+              onVisible={()=>agent.setPaneOpen(false)}/>:null}
+            {verifiedWorldId && history?.conversation_id && !pageWorkPlan && <ConversationWorkbook
               key={`workbook:${verifiedWorldId}:${history.conversation_id}:${turn.turn_id}`}
               collaboration={["dmb_build_connected_page_review_completion_v1","dmb_build_relationship_review_completion_v1"].includes(graphContextForTurn(turn)?.completion?.schema ?? "") ? (graphContextForTurn(turn)!.completion as import("../../api/types").WorldBuildRelationshipReviewCompletionV1).collaboration : graphContextForTurn(turn)?.completion?.schema === "dmb_build_collaboration_completion_v1" ? (graphContextForTurn(turn)!.completion as import("../../api/types").WorldBuildCollaborationCompletionV1).collaboration : undefined}
               source={turn.assistant_text} worldId={verifiedWorldId} conversationId={history.conversation_id}

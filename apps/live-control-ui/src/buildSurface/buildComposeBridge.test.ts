@@ -321,3 +321,26 @@ it.each(['older','same-revision','foreign-save','changed-format','changed-text',
   expect(editor.getJSON()).toEqual(before);
  }finally{editor.destroy();}
 });
+
+
+it('prepares and inserts the typed plan once, preserves prose and supports Undo',async()=>{
+ const {editor,bridge,changed}=setup();
+ const reference={schema:'dmb_surface_work_plan_ref_v1' as const,world_id:'elderwyld',document_id:'edge',conversation_id:'11111111-1111-4111-8111-111111111111',source_turn_id:'22222222-2222-4222-8222-222222222222',source_answer_sha256:'b'.repeat(64),title:'Work plan'};
+ try{
+  const before=editor.getJSON(),captured=await bridge.capture(),prepared=await bridge.prepareWorkPlan!(captured,reference);
+  expect(editor.getJSON()).toEqual(before);bridge.applyWorkPlan!(prepared);
+  expect(editor.getText()).toContain('Edge');expect(tiptapJsonToSemanticMarkdown(editor.getJSON())).toContain('dmb-work-plan-v1');
+  expect(changed).toHaveBeenCalledTimes(1);expect(()=>bridge.applyWorkPlan!(prepared)).toThrow();
+  editor.commands.undo();expect(editor.getJSON()).toEqual(before);
+ }finally{editor.destroy();}
+});
+it('refuses mutated or selected plan placements without modifying the editor',async()=>{
+ const {editor,bridge}=setup();
+ const reference={schema:'dmb_surface_work_plan_ref_v1' as const,world_id:'elderwyld',document_id:'edge',conversation_id:'11111111-1111-4111-8111-111111111111',source_turn_id:'22222222-2222-4222-8222-222222222222',source_answer_sha256:'b'.repeat(64),title:'Work plan'};
+ try{
+  const captured=await bridge.capture(),prepared=await bridge.prepareWorkPlan!(captured,reference);prepared.reference.title='Changed after preparation';
+  expect(()=>bridge.applyWorkPlan!(prepared)).toThrow(/prepared object changed/);expect(editor.getJSON()).toEqual(JSON.parse(captured.editorJson));
+  editor.commands.setTextSelection({from:1,to:3});const selected=await bridge.capture();
+  await expect(bridge.prepareWorkPlan!(selected,reference)).rejects.toThrow(/insertion point/);
+ }finally{editor.destroy();}
+});

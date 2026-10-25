@@ -105,7 +105,7 @@ def test_uncertain_dispatch_is_not_replayed(request_case):
     assert len(wire.calls)==1
 
 
-@pytest.mark.parametrize('markdown',['<script>bad</script>','[Nia](dmb-node:npc:invented)','<!-- dmb-playable-element:v2:fake -->'])
+@pytest.mark.parametrize('markdown',['<script>bad</script>','[Nia](dmb-node:npc:invented)','<!-- dmb-playable-element:v2:fake -->','```dmb-work-plan-v1\n{}\n```'])
 def test_inert_markdown_validation_rejects_fabricated_authority(request_case,markdown):
     request,_,_=request_case
     wire=Wire(request,text=json.dumps(dict(replacement_markdown=markdown,summary='Bad proposal',assumptions=[])))

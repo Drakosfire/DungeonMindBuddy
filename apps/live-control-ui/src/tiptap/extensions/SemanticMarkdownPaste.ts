@@ -16,6 +16,10 @@ const SEMANTIC_INTERCEPT_NODE_TYPES = new Set([
   "table",
 ]);
 
+function containsWorkPlan(content:JSONContent[]|undefined):boolean {
+  return content?.some(node=>node.type==='surfaceWorkPlan'||containsWorkPlan(node.content))??false;
+}
+
 function hasBlockingImportDiagnostics(diagnostics: MarkdownImportDiagnostic[]): boolean {
   return diagnostics.some((diagnostic) => diagnostic.level === "warning");
 }
@@ -37,7 +41,7 @@ export function looksLikeSemanticMarkdown(text: string): boolean {
   if (splitLeadingYamlFrontmatter(sample).frontmatter) return false;
 
   const { doc, diagnostics } = markdownToTiptapDoc(text);
-  if (hasBlockingImportDiagnostics(diagnostics)) return false;
+  if (hasBlockingImportDiagnostics(diagnostics) || containsWorkPlan(doc.content)) return false;
   const content = doc.content;
   if (!Array.isArray(content)) return false;
   return hasSemanticBlockWorthIntercepting(content);
@@ -67,7 +71,7 @@ export const SemanticMarkdownPaste = Extension.create({
             if (!looksLikeSemanticMarkdown(text)) return false;
 
             const { doc, diagnostics } = markdownToTiptapDoc(text);
-            if (hasBlockingImportDiagnostics(diagnostics)) return false;
+            if (hasBlockingImportDiagnostics(diagnostics) || containsWorkPlan(doc.content)) return false;
             const content = doc.content;
             if (!Array.isArray(content) || content.length === 0) return false;
             if (!hasSemanticBlockWorthIntercepting(content)) return false;
