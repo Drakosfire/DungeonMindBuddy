@@ -194,6 +194,7 @@ export async function savePlacementOnPage<T>(expected:WorkPlanPlacement,rows:Wor
   const existing=await io.findSaved();io.assertCurrent();
   if(existing){
    if(current.prepared&&existing.body_sha256===current.prepared.after_draft_sha256){
+    await verifyAcknowledgedReview(current);
     current=await session.change(current,{...current,phase:'saved',saved:{revision:existing.revision,content_sha256:existing.content_sha256}});
    }
    return {placement:current,alreadyPresent:true};
@@ -214,7 +215,7 @@ export async function savePlacementOnPage<T>(expected:WorkPlanPlacement,rows:Wor
    if(canonical(plan.steps)!==canonical(current.rows)||plan.world_id!==current.reference.world_id||plan.document_id!==current.reference.document_id
      ||plan.conversation_id!==current.reference.conversation_id||plan.source_turn_id!==current.reference.source_turn_id||plan.source_answer_sha256!==current.reference.source_answer_sha256)
     throw new Error('The acknowledged plan differs from the reviewed page object.');
-   current=await session.change(current,{...current,phase:'review_saved',acknowledged_review_revision:plan.revision});
+   current=await session.change(current,{...current,phase:'review_saved',expected_review_revision:plan.revision,acknowledged_review_revision:plan.revision});
    const prepared=await io.prepare(current);io.assertCurrent();
    current=await session.change(current,{...current,phase:'applying',prepared:{apply_id:crypto.randomUUID(),before_editor_sha256:current.basis.editor_sha256!,before_draft_sha256:current.basis.draft_sha256,
     after_editor_sha256:prepared.after_editor_sha256,after_draft_sha256:prepared.after_draft_sha256}});
@@ -227,11 +228,13 @@ export async function savePlacementOnPage<T>(expected:WorkPlanPlacement,rows:Wor
     const prepared=await io.prepare(current);io.assertCurrent();
     if(prepared.after_editor_sha256!==current.prepared.after_editor_sha256||prepared.after_draft_sha256!==current.prepared.after_draft_sha256)
      throw new Error('The prepared plan insertion differs from the retained transaction. Nothing was inserted.');
-    io.apply(prepared.value);
+    await verifyAcknowledgedReview(current);io.apply(prepared.value);
    }
   }
   try{
+   await verifyAcknowledgedReview(current);
    const saved=await io.save(current);
+   await verifyAcknowledgedReview(current);
    current=await session.change(current,{...current,phase:'saved',saved});
    return {placement:current,alreadyPresent:false};
   }catch(error){

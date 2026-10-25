@@ -90,3 +90,25 @@ it.each(['before','after','committed'])('refuses recovery against a newer review
   apply:()=>{applies++;},save:async()=>{saves++;return {revision:2,content_sha256:'f'.repeat(64)};}},storage,locks)).rejects.toThrow(/acknowledged plan review changed/);
  expect(reads).toBe(1);expect(applies).toBe(0);expect(saves).toBe(0);expect(data.get(placementKey(ref))).toBe(before);
 });
+
+it.each(['lookup','inspect','prepare','save'])('rechecks acknowledged review after asynchronous recovery %s',async changeAt=>{
+ const {savePlacementOnPage}=await import('./workPlanPlacement');const retained=await applying();let revision=1,applies=0,saves=0;
+ const review=()=>({schema:'dmb_reviewed_work_plan_v1' as const,world_id:ref.world_id,document_id:ref.document_id,conversation_id:ref.conversation_id,source_turn_id:ref.source_turn_id,source_answer_sha256:ref.source_answer_sha256,revision,steps:rows,dispatches:[],execution:[]});
+ await expect(savePlacementOnPage(retained,rows,{assertCurrent:()=>{},readReview:async()=>review(),saveReview:async()=>{throw new Error('no review write');},
+  findSaved:async()=>{if(changeAt==='lookup'){revision=2;return {revision:2,content_sha256:'f'.repeat(64),body_sha256:'f'.repeat(64)};}return null;},
+  inspect:async()=>{if(changeAt==='inspect')revision=2;return 'before';},
+  prepare:async()=>{if(changeAt==='prepare')revision=2;return {value:'prepared',after_editor_sha256:'e'.repeat(64),after_draft_sha256:'f'.repeat(64)};},
+  apply:()=>{applies++;},save:async()=>{saves++;if(changeAt==='save')revision=2;return {revision:2,content_sha256:'f'.repeat(64)};}},storage,locks)).rejects.toThrow(/acknowledged plan review changed/);
+ expect(applies).toBe(changeAt==='save'?1:0);expect(saves).toBe(changeAt==='save'?1:0);
+ const current=await readPlacement(ref,storage);expect(current?.phase).not.toBe('saved');expect(current?.prepared).toEqual(retained.prepared);
+});
+it('uses the acknowledged revision for later author edits after preparation failed before insertion',async()=>{
+ const {savePlacementOnPage}=await import('./workPlanPlacement');const initial=await stagePlacement(ref,basis,1,rows,0,storage,locks);
+ let plan:import('../../api/conversationWorkPlanApi').WorkPlan|null=null,fail=true;const revisions:number[]=[];
+ const io={assertCurrent:()=>{},readReview:async()=>plan,saveReview:async(revision:number,steps:WorkStep[])=>{revisions.push(revision);plan={schema:'dmb_reviewed_work_plan_v1' as const,world_id:ref.world_id,document_id:ref.document_id,conversation_id:ref.conversation_id,source_turn_id:ref.source_turn_id,source_answer_sha256:ref.source_answer_sha256,revision:revision+1,steps,dispatches:[],execution:[]};return plan;},
+ findSaved:async()=>null,inspect:async()=>'before' as const,prepare:async()=>{if(fail)throw new Error('page changed');return {value:'prepared',after_editor_sha256:'e'.repeat(64),after_draft_sha256:'f'.repeat(64)};},apply:()=>{},save:async()=>({revision:2,content_sha256:'f'.repeat(64)})};
+ await expect(savePlacementOnPage(initial,rows,io,storage,locks)).rejects.toThrow('page changed');
+ const retained=(await readPlacement(ref,storage))!;expect(retained.expected_review_revision).toBe(1);expect(retained.phase).toBe('review_saved');fail=false;
+ const result=await savePlacementOnPage(retained,[{...rows[0],text:'Author edited after preparation failed.'}],io,storage,locks);
+ expect(revisions).toEqual([0,1]);expect(result.placement.phase).toBe('saved');
+});
