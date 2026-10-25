@@ -925,7 +925,7 @@ def sign_publication_intent(payload: dict[str, Any]) -> str:
     return f"v1.{body}.{digest}"
 
 
-def decode_publication_intent(token: str) -> dict[str, Any]:
+def decode_publication_intent(token: str, *, allow_expired_recovery: bool = False) -> dict[str, Any]:
     import base64
 
     raw_token = (token or "").strip()
@@ -978,7 +978,7 @@ def decode_publication_intent(token: str) -> dict[str, Any]:
             ) from exc
         if expiry.tzinfo is None:
             expiry = expiry.replace(tzinfo=UTC)
-        if datetime.now(UTC) > expiry:
+        if datetime.now(UTC) > expiry and not allow_expired_recovery:
             raise GraphObjectAuthoringError(
                 "Prepared confirmation has expired. Prepare again.",
                 code="confirmation_expired",

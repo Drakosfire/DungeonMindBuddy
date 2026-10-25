@@ -16,15 +16,12 @@ from apps.live_control_server.services.graph_object_authoring_commit import (
 from apps.live_control_server.services.graph_object_authoring_prepare import (
     GraphObjectAuthoringCommitRequest,
     GraphObjectAuthoringError,
-    publication_intent_payload,
     sign_publication_intent,
     VerifiedGraphReviewSpan,
 )
 from tests.test_graph_object_authoring_prepare import (
     CAMPAIGN_ID,
     GRAPH_REVIEW_PREPARE_BINDING_KEY_ENV,
-    SOURCE_ARTIFACT_ID,
-    SOURCE_REVISION_ID,
     TEST_CAMPAIGN_REL,
     FakeSourceAdmission,
     FakeWorldGraphAuthority,
@@ -440,20 +437,10 @@ def test_commit_expired_token_fails(corpus_root: Path) -> None:
         authority=authority,
         resolved_source=source,
     )
-    expired = publication_intent_payload(
-        world_id=CAMPAIGN_ID,
-        campaign_id=CAMPAIGN_ID,
-        campaign_rel=TEST_CAMPAIGN_REL,
-        source_run_id="run-c1s2",
-        source_artifact_id=SOURCE_ARTIFACT_ID,
-        source_revision_id=SOURCE_REVISION_ID,
-        expected_parent_revision_id=prepare.expected_parent_revision_id,
-        authority_operation_id=prepare.authority_operation_id,
-        expressibility="EXPRESSIBLE",
-        actor=prepare.actor or "",
-        assertions_digest=prepare.proposed_assertions_digest,
-        expires_at=(datetime.now(UTC) - timedelta(seconds=1)).isoformat(),
-    )
+    from apps.live_control_server.services.graph_object_authoring_prepare import decode_publication_intent
+    # Expiry-independent receipt recovery still requires a complete valid binding.
+    expired = decode_publication_intent(prepare.confirm_token)
+    expired["expires_at"] = (datetime.now(UTC) - timedelta(seconds=1)).isoformat()
     request = _commit_request_from_prepare(prepare)
     request = request.model_copy(update={"confirm_token": sign_publication_intent(expired)})
     with pytest.raises(GraphObjectAuthoringError) as exc:

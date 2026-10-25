@@ -23,9 +23,14 @@ Serial, no overlapping active PR found after fetch. Expected write lease after d
 - `tests/test_connected_page_authoring.py` (new mounted boundary/recovery tests).
 - `apps/live_control_server/services/graph_object_authoring_prepare.py` and `graph_object_authoring_commit.py` (signature/expiry separation for receipt-only recovery; fresh expired publication stays refused).
 - `tests/test_graph_document_source.py` (expired applied vs unexecuted exact confirmation).
+- `tests/test_graph_object_authoring_commit.py` (existing expiry fixture must retain a complete otherwise-valid signed intent now that receipt recovery validates full binding before expiry).
 
 No UI/Core/GE changes, new database/schema, runtime restart or retained operator writes in implementation. Do not introduce a second native writer. Native Graph Review remains the publication authority. Source/create confirmation review and UI flow arrive in the third serial slice, which must demonstrate full ordinary experience before delivery is claimed.
 
 ## Evidence
 
 Test source untouched including dirty working capture; exact reserved page and initial declaration; source origin retained after edit; real file registry/Tiptap save and governed prepare/confirm with fake native ports only; page-native association reopen; identical retry after response loss at reservation, creation, initial save and publication; two-tab same-key conflict; changed payload, foreign/missing/discarded source or page, stale initial basis, forged/foreign existing identity and changed binding refusal. Preserve user edits and meaningful partial outcomes. Independent exact cumulative review before PRIME merge; next UI slice consumes merge pin and performs real native publication, generation, reload/restart and operator acceptance on protected 5202.
+
+## Pre-review evidence
+
+133 focused source/operation/prepare/confirm/binding tests and 47 workspace registry tests pass (180 total). Mounted operation tests use real file-backed registry, Tiptap initial save, exact editor occurrence verification, immutable source and governed signing/publication path; only native read/admission/publication ports are fakes. Includes new/reused identities, owns plus operates, no-person scaffold, UTF-16/marks, source preservation, source/page/mapping drift, same-key concurrent retry, create/save/prepare/publish response loss, later source/page edits and expired receipt-only recovery. No live World publication, UI/generation, serving change or full connected-page acceptance claimed.

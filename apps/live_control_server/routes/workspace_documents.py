@@ -61,6 +61,16 @@ from apps.live_control_server.services.tiptap_markdown_write import (
     prepare_tiptap_markdown_write,
 )
 
+from uuid import UUID
+from apps.live_control_server.models.connected_page import ConnectedPageIntent
+from apps.live_control_server.services.connected_page_authoring import (
+    ConnectedPageError, prepare_connected_page, confirm_connected_page, get_connected_page,
+)
+from apps.live_control_server.services.graph_object_authoring_prepare import GraphObjectAuthoringError
+from apps.live_control_server.services.source_artifact_registry import SourceArtifactRegistryError
+from apps.live_control_server.services.world_graph_projection import WorldGraphProjectionServiceError
+
+
 router = APIRouter(prefix="/api/live", tags=["workspace-documents"])
 
 
@@ -604,3 +614,42 @@ def post_native_world_source_admission(
             status_code=exc.status_code,
             detail={"code": exc.code, "message": str(exc)},
         ) from exc
+
+# A connected page is one retained operation. Generic Create never accepts a
+# reserved ID; native publication remains the governed Graph Review owner.
+
+
+class ConnectedPageConfirmation(BaseModel):
+    model_config = ConfigDict(extra='forbid')
+    operation_id: UUID
+    world_id: str = Field(pattern=r'^[a-z0-9][a-z0-9_-]{0,62}$')
+    confirm_token: str = Field(min_length=1)
+
+
+_CONNECTED_ERRORS = (ConnectedPageError, WorkspaceDocumentRegistryError,
+    TiptapMarkdownWriteError, GraphObjectAuthoringError, SourceArtifactRegistryError,
+    WorldGraphProjectionServiceError)
+
+
+@router.post('/connected-pages/prepare')
+def post_connected_page_prepare(body: ConnectedPageIntent):
+    try:
+        return prepare_connected_page(_managed_world_root(), body)
+    except _CONNECTED_ERRORS as exc:
+        raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc
+
+
+@router.post('/connected-pages/confirm')
+def post_connected_page_confirm(body: ConnectedPageConfirmation):
+    try:
+        return confirm_connected_page(_managed_world_root(), body.operation_id, body.world_id, body.confirm_token)
+    except _CONNECTED_ERRORS as exc:
+        raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc
+
+
+@router.get('/connected-pages/{operation_id}')
+def read_connected_page(operation_id: UUID, world_id: str):
+    try:
+        return get_connected_page(_managed_world_root(), operation_id, world_id)
+    except _CONNECTED_ERRORS as exc:
+        raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc
