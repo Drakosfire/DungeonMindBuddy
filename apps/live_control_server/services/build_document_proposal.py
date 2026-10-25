@@ -130,7 +130,7 @@ def read_prompt(world_id: str, action_id: UUID):
 
 
 async def compose_with_writer(
-    request: BuildDocumentProposalRequest, writer_gate: TextDispatchGate, *, transport=None, frozen_history=None,
+    request: BuildDocumentProposalRequest, writer_gate: TextDispatchGate, *, transport=None, frozen_history=None, related_authored_pages=None,
 ):
     """Trusted parent seam: one proposal call, jointly authorized; never import text.
 
@@ -140,14 +140,14 @@ async def compose_with_writer(
     """
     if not isinstance(writer_gate, TextDispatchGate) or request.origin is None:
         raise BuildComposeError("build_compose_writer_origin_required")
-    return await _compose(request, transport=transport, writer_gate=writer_gate, frozen_history=frozen_history)
+    return await _compose(request, transport=transport, writer_gate=writer_gate, frozen_history=frozen_history, related_authored_pages=related_authored_pages)
 
 
 async def compose(request: BuildDocumentProposalRequest, *, transport=None):
     return await _compose(request, transport=transport)
 
 
-async def _compose(request: BuildDocumentProposalRequest, *, transport=None, writer_gate=None, frozen_history=None):
+async def _compose(request: BuildDocumentProposalRequest, *, transport=None, writer_gate=None, frozen_history=None, related_authored_pages=None):
     store = BuildProposalService()
     reservation = request.reservation_only()
     # Check an accepted operation before consulting mutable source state. A replay
@@ -166,7 +166,7 @@ async def _compose(request: BuildDocumentProposalRequest, *, transport=None, wri
     def advance(state, **fields):
         nonlocal record
         record = store.advance(world, record.action_id, expected_revision=record.revision, state=state, **fields)
-    expected = _writer_request(request, snapshot, model, frozen_history=frozen_history)
+    expected = _writer_request(request, snapshot, model, frozen_history=frozen_history, related_authored_pages=related_authored_pages)
     packet = expected["input"]
     schema = expected["text"]["format"]["schema"]
     record, created = store.reserve(reservation)
@@ -286,13 +286,13 @@ async def _compose(request: BuildDocumentProposalRequest, *, transport=None, wri
             await client.aclose()
 
 
-def prepare_writer_request(request, *, frozen_history=None):
+def prepare_writer_request(request, *, frozen_history=None, related_authored_pages=None):
     """Owned deterministic request for trusted staging; never reserves or sends."""
     snapshot, model = _source(request), _model()
-    return _writer_request(request, snapshot, model, frozen_history=frozen_history)
+    return _writer_request(request, snapshot, model, frozen_history=frozen_history, related_authored_pages=related_authored_pages)
 
 
-def _writer_request(request, snapshot, model, *, frozen_history=None):
+def _writer_request(request, snapshot, model, *, frozen_history=None, related_authored_pages=None):
     reservation = request.reservation_only()
     world = reservation.basis.world_id
     if frozen_history is None:
@@ -303,6 +303,7 @@ def _writer_request(request, snapshot, model, *, frozen_history=None):
         messages = [{"user": item["user"], "assistant": item["assistant"]} for item in frozen_history]
     messages = project_dialogue(messages)
     packet = json.dumps({"schema": "dmb_build_compose_input_v1", "recent_dialogue": messages,
+        **({"related_authored_pages":related_authored_pages} if related_authored_pages is not None else {}),
         **({"dialogue_sources": [{key: item[key] for key in ("turn_id", "user_sha256", "assistant_sha256")}
             for item in frozen_history]} if frozen_history is not None else {}),
         "source_class": "proposed_authored_worldbuilding_not_played_truth",
@@ -310,7 +311,7 @@ def _writer_request(request, snapshot, model, *, frozen_history=None):
         "source_title": snapshot.record.title, "source_basis": reservation.basis.model_dump(mode="json"),
         "instruction": reservation.instruction, "draft_markdown": request.draft_markdown}, ensure_ascii=False, separators=(",", ":"))
     schema = BuildGeneratedProposal.model_json_schema()
-    expected = {"model": model, "input": packet, "instructions": SYSTEM + dialogue_rule(messages),
+    expected = {"model": model, "input": packet, "instructions": SYSTEM + ("\nUse related_authored_pages as exact saved authored references before inventing substitutes. They are authored context, not played facts; preserve row/column meanings and source attribution.\n" if related_authored_pages is not None else "") + dialogue_rule(messages),
         "max_output_tokens": 4096, "reasoning": {"effort": "low"},
         "text": {"format": {"type": "json_schema", "name": "build_document_proposal", "schema": schema, "strict": True}}, "tools": [], "stream": True}
     return expected

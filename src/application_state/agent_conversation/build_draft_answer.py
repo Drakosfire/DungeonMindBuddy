@@ -11,6 +11,8 @@ from .source_writer_output import (
     PassageFact, SavedFact, Suggestion, RequestedDetailGap, strict_json, gap_messages,
 )
 
+from .build_related_pages import RelatedPageDraftClaim, validate_packet as validate_related_packet, validate_claims as validate_related_claims
+
 FORMAT = "build_working_draft_answer_v1"
 STATUSES = ("authored_grounded", "authored_grounded_partial", "source_grounded",
     "source_grounded_partial", "creative_proposal", "insufficient_evidence")
@@ -24,7 +26,7 @@ class DraftDiscussionV1(_Frozen):
 class DraftWriterAnswerV1(_Frozen):
     answer_context_status: Literal["authored_grounded", "authored_grounded_partial", "source_grounded",
         "source_grounded_partial", "creative_proposal", "insufficient_evidence"]
-    answer_segments: list[DraftReferenceClaimV1 | PassageFact | SavedFact | Suggestion | DraftDiscussionV1] = Field(min_length=1)
+    answer_segments: list[DraftReferenceClaimV1 | RelatedPageDraftClaim | PassageFact | SavedFact | Suggestion | DraftDiscussionV1] = Field(min_length=1)
     limitations: list[Literal["missing_requested_details", "partial_retrieval", "unresolved_conflict"]]
     requested_detail_gaps: list[RequestedDetailGap]
 
@@ -34,7 +36,7 @@ class DraftWriterAnswerV1(_Frozen):
             raise ValueError("Duplicate draft-answer limitation")
         if any(not segment.text.strip() for segment in self.answer_segments):
             raise ValueError("Blank draft-answer segment")
-        has_draft = any(isinstance(s, DraftReferenceClaimV1) for s in self.answer_segments)
+        has_draft = any(isinstance(s, (DraftReferenceClaimV1,RelatedPageDraftClaim)) for s in self.answer_segments)
         has_source = any(isinstance(s, (PassageFact, SavedFact)) for s in self.answer_segments)
         has_suggestion = any(isinstance(s, Suggestion) for s in self.answer_segments)
         base = "authored_grounded" if has_draft else "source_grounded" if has_source else "creative_proposal" if has_suggestion else "insufficient_evidence"
@@ -70,6 +72,11 @@ def output_schema(packet):
             schema["$defs"][name]["properties"][field] = source_schema["$defs"][name]["properties"][field]
         else:
             del schema["$defs"][name]
+    related = packet.get("related_authored_pages",{}).get("pages",[])
+    if related:
+        schema["$defs"]["RelatedPageDraftClaim"]["properties"]["read_id"]={"type":"string","enum":[r["read_id"] for r in related]}
+    else:
+        del schema["$defs"]["RelatedPageDraftClaim"]
     schema["properties"]["answer_segments"]["items"]["anyOf"] = [
         item for item in schema["properties"]["answer_segments"]["items"]["anyOf"]
         if item["$ref"].split("/")[-1] in schema["$defs"]]
@@ -81,15 +88,18 @@ def normalize(raw, packet):
     # Status is a host-derived description, not a second model judgment. Keep
     # typed segments/limitations and all later provenance checks authoritative.
     if isinstance(body, dict) and body.get("answer_context_status") in STATUSES and isinstance(body.get("answer_segments"), list) and isinstance(body.get("limitations"), list):
-        segment_type = DraftReferenceClaimV1 | PassageFact | SavedFact | Suggestion | DraftDiscussionV1
+        segment_type = DraftReferenceClaimV1 | RelatedPageDraftClaim | PassageFact | SavedFact | Suggestion | DraftDiscussionV1
         segments = TypeAdapter(list[segment_type]).validate_python(body["answer_segments"])
-        base = ("authored_grounded" if any(isinstance(s, DraftReferenceClaimV1) for s in segments)
+        base = ("authored_grounded" if any(isinstance(s, (DraftReferenceClaimV1,RelatedPageDraftClaim)) for s in segments)
             else "source_grounded" if any(isinstance(s, (PassageFact, SavedFact)) for s in segments)
             else "creative_proposal" if any(isinstance(s, Suggestion) for s in segments)
             else "insufficient_evidence")
         body = {**body, "answer_context_status": base + "_partial" if body["limitations"] and base in {"authored_grounded", "source_grounded"} else base}
     answer = DraftWriterAnswerV1.model_validate(body)
     lane = packet["working_draft_context"]
+    related_ids={r["read_id"] for r in packet.get("related_authored_pages",{}).get("pages",[])}
+    if any(isinstance(s,RelatedPageDraftClaim) and str(s.read_id) not in related_ids for s in answer.answer_segments):
+        raise ValueError("Related page claim selects an unread page")
     sources = [s for s in answer.answer_segments if isinstance(s, (PassageFact, SavedFact))]
     for segment in answer.answer_segments:
         if isinstance(segment, DraftReferenceClaimV1) and str(segment.draft_record_id) != lane["record_id"]:
@@ -116,6 +126,10 @@ def normalize(raw, packet):
 def validate_completion(completion, receipt, execution, attempt_id):
     from . import types as t
     captured = context_record(execution)
+    validate_related_claims(completion,execution)
+    from .build_related_pages import POLICY as RELATED_POLICY
+    if completion.schema_ == "dmb_build_related_page_completion_v1" and getattr(execution.policy,"related_page_context_policy",None)!=RELATED_POLICY:
+        raise ValueError("Related completion lacks its frozen authoring capability")
     included = [e for e in execution.events if isinstance(e, t.BuildDraftProviderInclusionV1)
         and e.provider_attempt_id == attempt_id and e.draft_event_id == captured.event_id]
     attempts = [e for e in execution.events if isinstance(e,t.ProviderAttemptAuthorizedEventV1)
@@ -131,6 +145,7 @@ def validate_completion(completion, receipt, execution, attempt_id):
 def validate_packet(packet, turn, auth):
     captured = context_record(turn.graph_context_execution)
     validate_writer_reference(packet.get("working_draft_context"), captured.record, turn)
+    validate_related_packet(packet,turn.graph_context_execution)
     included = [e for e in turn.graph_context_execution.events
         if getattr(e,"kind",None) == "build_draft_provider_inclusion_v1"
         and e.provider_attempt_id == auth.provider_attempt_id]

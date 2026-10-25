@@ -1499,6 +1499,22 @@ def get_world_conversation_history(
     )
 
 
+@router.get("/worlds/{world_id}/conversation/turns/{turn_id}/related-pages/{read_id}")
+def get_world_turn_related_page(world_id: str, turn_id: UUID, read_id: UUID, request: Request):
+    """Read the immutable authored page captured for this completed answer."""
+    enforce_native_graph_gm(request)
+    verified=_verified_world_id(world_id)
+    if request.query_params:
+        raise HTTPException(status_code=422,detail={"code":"related_page_selector_invalid"})
+    from apps.live_control_server.services.build_related_pages import open_page
+    try:
+        return open_page(_conversation_service(request),verified,turn_id,read_id)
+    except ApplicationStateError as exc:
+        raise HTTPException(status_code=exc.status_code,detail={"code":"related_page_turn_unavailable"}) from exc
+    except (ValueError,ValidationError,KeyError) as exc:
+        raise HTTPException(status_code=409,detail={"code":"related_page_binding_invalid"}) from exc
+
+
 @router.get("/worlds/{world_id}/conversation/turns/{turn_id}/saved-sections/{segment_index}/{section_event_id}")
 def get_world_turn_saved_section(world_id: str, turn_id: UUID, segment_index: int,
         section_event_id: UUID, request: Request):

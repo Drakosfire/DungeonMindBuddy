@@ -1,7 +1,7 @@
 # Buddy roadmap — author, plan, play, remember
 
 **Status:** current product execution ledger; reconciled2026-10-24.
-**Current delivery anchor:** API/UI `e89d66798a83c88ff03c694c76580821c541035d` (#1735), ports8000/5202,
+**Current delivery anchor:** API/UI `6fa2e5edd042f4f00360a195eec2f98e2ddb4550` (#1737), ports8000/5202,
 APP0062/native0017, Core `4ccd39a1e433d81569d86c05273ac33ee8f27ef3`,
 GE `3e085168c11bdee0de580b8cfa0f00cee157c157`. Latest protected paired delivery
 preserved2,732 APP rows and native state,
@@ -10,7 +10,7 @@ preserved2,732 APP rows and native state,
 
 ## Immediate operator-selected dogfood gate
 
-Umbrella goal remains paused. Complete the explicitly authorized conversation dogfood
+Broader preparation/play remains held. The active work is the explicitly authorized conversation dogfood
 in Brin’s Blacksmithy/Edge/Bog Blossom Hill before resuming preparation/play work:
 **clarify/propose a plan → author edits/selects/answers → explicit continuation →
 read the named Edge table → person/shop relationships → page-ready prose →
@@ -24,6 +24,10 @@ isolation and host-derived descriptive status. Isolated ordinary card/reload che
 is local working state, not proof of durable agent execution. Fresh ordinary provider
 activity and proposal rendering remain to prove, along with named acquisition and the
 full writing chain. Delivery does not establish operator acceptance.
+Current bounded successor: [exact related saved pages](../Plans/HANDOFF-BUILD-related-saved-pages.md), in progress, not delivered. Read-only source-owner proof confirms Edge committed revision31 contains its tables, with no matching native Graph source artifact. Expose a metadata-only World-scoped catalog, explicit model selection, exact parent/APP source-owner reads, distinct authored context and immutable named citations; do not publish or invent a replacement. An additive APP0063 admission is required for a distinct completion type; deployment/ordinary model proof remain gates.
+
+Trace snapshot meaning is delivered (#1737): prepared inputs and responses are separate; only comparable inputs or exact compaction pairs are diffed. Untyped historical snapshots remain inspectable without inferred removals. This is observability proof, not fresh live generation or full collaboration acceptance.
+
 Keep plans/questions in conversation and actual requested document content on the page.
 Explicit named acquisition must precede inventing a replacement person/shop.
 

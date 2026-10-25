@@ -3236,3 +3236,8 @@ export interface BuddyReadinessResponse {
 export function getBuddyReadiness(surface: BuddyReadinessResponse["surface"], worldGraph: boolean): Promise<BuddyReadinessResponse> {
   return apiFetch(`/api/live/agent/readiness?${new URLSearchParams({surface, world_graph: String(worldGraph)})}`);
 }
+
+/** Exact turn-bound related authoring context; never a latest-page substitute. */
+export function getAgentRelatedPage(worldId:string,turnId:string,readId:string):Promise<unknown> {
+  return apiFetch(`/api/live/agent/worlds/${encodeURIComponent(worldId)}/conversation/turns/${encodeURIComponent(turnId)}/related-pages/${encodeURIComponent(readId)}`);
+}

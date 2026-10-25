@@ -124,7 +124,8 @@ def freeze_interaction(adapter):
             "user_sha256": hashlib.sha256(envelope.user_text.encode()).hexdigest(),
             "assistant_sha256": hashlib.sha256(row.assistant_text.encode()).hexdigest()})
     history = project_dialogue(list(reversed(history)))
-    return {"allowed_operations": (adapter.budget.get("buildJevActions") or {}).get("allowed_surface_operations", ["answer_from_sources"] + (["propose_build_insertion"] if capability else [])),
+    related=(adapter.budget.get("buildJevActions") or {}).get("related_page_catalog")
+    return {**({"related_page_catalog":related} if related is not None else {}), "allowed_operations": (adapter.budget.get("buildJevActions") or {}).get("allowed_surface_operations", ["answer_from_sources"] + (["propose_build_insertion"] if capability else [])),
         "capability_sha256": digest(capability.model_dump(mode="json")) if capability else None,
         "conversation_id": str(conversation_id) if conversation_id else None,
         "pointer_revision": pointer.revision, "history": history,
@@ -365,6 +366,11 @@ class BuildJevDriver:
                 questions=(DecisionQuestion(name="operation", kind="choice",
                     question="Which offered operation serves this user turn in its conversation context?",
                     options=options),))
+        if self._selection_intent is not None and "related_page_catalog" in self._interaction:
+            from application_state.agent_conversation.build_related_pages import PagePointer,question_name,question_text
+            extra=tuple(DecisionQuestion(name=question_name(i),kind="choice",question=question_text(PagePointer.model_validate(page)),options=("read","skip"))
+                for i,page in enumerate(self._interaction["related_page_catalog"]))
+            self._selection_intent=self._selection_intent.model_copy(update={"questions":self._selection_intent.questions+extra})
         self._bindings: dict[str, AcquisitionBinding] = {}
         self._units: dict[str, tuple[AcquiredEvidence, ...]] = {}
         self._pending: DriverDecisionProjection | None = None
@@ -809,6 +815,11 @@ class BuildJevDriver:
         if draft_record is not None and intent.phase in {"navigate", "assess"}:
             from application_state.agent_conversation.build_draft_context import writer_reference
             state["working_draft_context"] = writer_reference(draft_record)
+            from application_state.agent_conversation.build_related_pages import project as related_project
+            related=related_project(a._broker_execution())
+            if related is not None:
+                state["related_authored_pages"]=related
+                state["related_authoring_guidance"]="These exact saved authored pages have already been read. Do not use Graph reads to repeat those page contents; retrieve distinct World evidence only when the request needs it. Availability marks pages not_read; unlisted pages are not proven absent."
             state["interpretation"] += (
                 " Current working_draft_context is the authored page captured on Send, not saved or World evidence. "
                 "Use it as primary writing context; source evidence retains its own authority. "
@@ -967,6 +978,12 @@ class BuildJevDriver:
                     rules_vote = answers.pop(QUERY_CHOICE, None)
                     if not isinstance(rules_vote, dict):
                         raise ValueError("Missing actual Rules query selection")
+            if "related_page_catalog" in self._interaction:
+                from generationengine.types import DecisionResult
+                from .build_related_pages import select_pages
+                if not isinstance(actual_response,DecisionResult):
+                    raise ValueError("Related page choices require actual controller output")
+                answers={key:value for key,value in answers.items() if not key.startswith("related_page_")}
             question = self._selection_intent.questions[0]
             answer = answers.get("operation", {})
             selected, scores = answer.get("selected"), answer.get("probabilities")
@@ -981,6 +998,9 @@ class BuildJevDriver:
                     # Staging a suggestion still requires explicit Keep and page Save.
                     or (selected == "prepare_build_image" and scores[selected] < 0.9)):
                 raise ValueError("Unresolved or uncalibrated operation selection; do not replay")
+            if "related_page_catalog" in self._interaction:
+                # The valid operation and APP-proven read/skip votes precede any saved-page body read.
+                select_pages(self,prepared,actual_response)
             from uuid import uuid4
             operation_id = "build-jev:" + digest({"turn_id": str(a.turn.turn_id),
                 "attempt": a.turn.attempt, "request_id": plan.request_id, "operation": selected})

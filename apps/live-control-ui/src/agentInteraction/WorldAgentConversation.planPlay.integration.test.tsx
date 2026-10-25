@@ -25,7 +25,7 @@ import { useMemo, useState } from "react";
 import { webcrypto } from "node:crypto";
 import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { createWorkspaceDocument, getWorldAgentTurnContextTrace, getWorkspaceDocumentSnapshot, getWorldAgentConversationHistory, getHistoricalRulesPassage, getWorldOwnedPlanCommittedRevision, getWorldPlanDocumentEditActions, listWorkspaceDocuments, listWorldContainers, LiveApiError, postWorldAgentNewConversation, postWorldPlanAgentTurn, postWorldPlayAgentTurn, postWorldBuildAgentTurn, postWorldGraphSourceAnchorRead, postWorldPlanDocumentEditProposal } from "../api/liveApi";
+import { createWorkspaceDocument, getAgentRelatedPage, getWorldAgentTurnContextTrace, getWorkspaceDocumentSnapshot, getWorldAgentConversationHistory, getHistoricalRulesPassage, getWorldOwnedPlanCommittedRevision, getWorldPlanDocumentEditActions, listWorkspaceDocuments, listWorldContainers, LiveApiError, postWorldAgentNewConversation, postWorldPlanAgentTurn, postWorldPlayAgentTurn, postWorldBuildAgentTurn, postWorldGraphSourceAnchorRead, postWorldPlanDocumentEditProposal } from "../api/liveApi";
 import type { AgentInteractionTurn, WorkspaceDocumentRecord, WorkspaceDocumentSnapshot, WorldAgentConversationHistoryResponseV1, WorldPlanAgentTurnRequestV1, WorldPlayAgentTurnRequestV1, WorldBuildAgentTurnRequestV1, WorldPlanAgentPlanContextV2, WorldPlanGraphAnswerContextStatusV1, WorldPlanGraphExecutionProjectionV1, WorldAgentConversationHistoryResponse, WorldBuildKnowledgeContextV1 } from "../api/types";
 import { DocumentConversationDock, type PlanConversationPresentationHosts } from "../planSurface/components/PlanConversationDockAdapter";
 import type { SavedWorldBuildConversationContext } from "./WorldAgentConversation";
@@ -56,6 +56,7 @@ vi.mock("../api/liveApi", async (importOriginal) => ({
   listWorldContainers: vi.fn(),
   getWorldAgentConversationHistory: vi.fn(),
   getHistoricalRulesPassage: vi.fn(),
+  getAgentRelatedPage: vi.fn(),
   getWorldAgentTurnContextTrace: vi.fn(async (worldId: string, turnId: string) => ({
     schema: "dmb_agent_turn_context_trace_response_v1", world_id: worldId, turn_id: turnId, attempts: [],
   })),
@@ -919,6 +920,30 @@ describe("one App-level World conversation host across Plan and Play", () => {
     const request=vi.mocked(postWorldBuildAgentTurn).mock.calls[0][0];
     await waitFor(()=>expect(getWorldAgentTurnContextTrace).toHaveBeenCalledWith(WORLD,request.turn_id,expect.any(AbortSignal)));
     expect(screen.getByText("Getting the notes together…")).toBeInTheDocument();
+  });
+
+  it('opens a named related saved-page citation through the mounted Build conversation',async()=>{
+    const context=await buildGraphContext(),base=turn('plan',1,'The saved Households table names Copper House.');
+    const readId='11111111-1111-4111-8111-111111111111',body='A saved households table.';
+    const page={world_id:WORLD,document_id:readId,registry_revision:9,title:'Households',visibility:'internal' as const,content_sha256:await sha256Hex(body)};
+    const completion={schema:'dmb_build_related_page_completion_v1' as const,context_receipt_sha256:context.receipt.context_receipt_sha256,
+      answer_basis:'working_draft_context' as const,answer_context_status:'authored_grounded' as const,citation_map:null,source_citations:[],
+      answer_segments:[{kind:'related_page_claim' as const,text:base.assistant_text!,read_id:readId,page}]};
+    const knowledge={...context,completion,source_open_targets:[],evidence_anchor_statuses:[],related_recap_context_statuses:[]};
+    const a=context.receipt.graph_authority;
+    const ref=(kind:string,object_id:string,revision:string)=>({resolution:'resolved' as const,kind,object_id,revision,content_sha256:null,object_revision:null,work_revision_id:null,revision_n:null});
+    const row={...base,knowledge_context:knowledge,provenance:{...base.provenance,surface_id:'build',surface_instance_id:'build-instance',
+      primary_work:{...ref('build','source-one','2'),content_sha256:SHA},supporting_work:[ref('dmb_build_source_visibility_v1','internal','1'),ref('dmb_build_graph_binding_v1',a.native_world_id,String(a.binding_version)),ref('world_graph_revision',a.native_world_id,a.graph_revision)]}};
+    vi.mocked(getWorldAgentConversationHistory).mockResolvedValue({...history(),schema:'dmb_agent_conversation_history_v2',turns:[row]});
+    vi.mocked(getAgentRelatedPage).mockResolvedValue({schema:'dmb_agent_related_page_read_v1',world_id:WORLD,turn_id:row.turn_id,read_id:readId,page,markdown:body});
+    render(<Harness initial='build'/>);
+    fireEvent.click(await screen.findByRole('button',{name:'Open',exact:true}));
+    await screen.findAllByText(base.assistant_text!);
+    fireEvent.click(screen.getByText('Evidence trail',{exact:true}));
+    fireEvent.click(await screen.findByRole('button',{name:'Read Households · saved revision 9'}));
+    await screen.findByText(body);
+    expect(getAgentRelatedPage).toHaveBeenCalledWith(WORLD,row.turn_id,readId);
+    expect(postWorldBuildAgentTurn).not.toHaveBeenCalled();
   });
 
   it("submits exact Build source pins through the same World conversation and keeps its answer on Plan", async () => {

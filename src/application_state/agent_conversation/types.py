@@ -22,6 +22,7 @@ from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from .rules_authority_types import ClosedRulesModel, Digest, canonical_bytes, canonical_sha256
 from .build_draft_context import BuildDraftContextRecordV1, DraftReferenceClaimV1
+from .build_related_pages import PagePointer, RelatedPagesSelection, RelatedPageRead, RelatedPageClaim, RelatedPageInclusion
 
 Resolution = Literal["resolved", "absent", "unresolved", "unavailable"]
 ConversationStatus = Literal["active", "archived"]
@@ -1854,11 +1855,13 @@ class BuildDraftContextCompletionV1(BuildNamedGraphCompletionV3):
     answer_basis: Literal["working_draft_context"] = "working_draft_context"
     answer_context_status: Literal["authored_grounded", "authored_grounded_partial", "source_grounded",
         "source_grounded_partial", "creative_proposal", "insufficient_evidence"]
-    answer_segments: list[Annotated[DraftReferenceClaimV1 | SourcePassageClaimV1 | SavedSourceClaimV1
+    answer_segments: list[Annotated[DraftReferenceClaimV1 | RelatedPageClaim | SourcePassageClaimV1 | SavedSourceClaimV1
         | PlanWorldGraphConnectiveSegmentV1, Field(discriminator="kind")]] = Field(min_length=1, max_length=128)
 
     @model_validator(mode="after")
     def validate_shape(self):
+        if self.schema_ == "dmb_build_draft_context_completion_v1" and any(isinstance(s,RelatedPageClaim) for s in self.answer_segments):
+            raise ValueError("Historical draft completion cannot gain related-page claims")
         claims = {i:s for i,s in enumerate(self.answer_segments) if isinstance(s,SourcePassageClaimV1)}
         if {c.segment_index for c in self.source_citations} != set(claims):
             raise ValueError("Draft answer source claims require exact separate source citations")
@@ -1872,7 +1875,7 @@ class BuildDraftContextCompletionV1(BuildNamedGraphCompletionV3):
         keys = [(c.segment_index,c.read_event_id,c.receipt.source_read_id) for c in self.source_citations]
         if len(keys) != len(set(keys)):
             raise ValueError("Draft answer source citations must be distinct")
-        drafts = any(isinstance(s,DraftReferenceClaimV1) for s in self.answer_segments)
+        drafts = any(isinstance(s,(DraftReferenceClaimV1,RelatedPageClaim)) for s in self.answer_segments)
         if self.answer_context_status.startswith("authored_grounded") != drafts:
             raise ValueError("Authored answer status must follow its draft references")
         if self.answer_context_status.startswith("source_grounded") and not claims and not any(isinstance(s,SavedSourceClaimV1) for s in self.answer_segments):
@@ -1883,6 +1886,10 @@ class BuildDraftContextCompletionV1(BuildNamedGraphCompletionV3):
         if len(self.model_dump_json(by_alias=True).encode()) > 1_048_576:
             raise ValueError("Build completion exceeds existing storage capacity")
         return self
+
+
+class BuildRelatedPageCompletionV1(BuildDraftContextCompletionV1):
+    schema_: Literal["dmb_build_related_page_completion_v1"] = Field(default="dmb_build_related_page_completion_v1",alias="schema")
 
 
 class SurfaceSourceCompletionV1(StrictModel):
@@ -2072,7 +2079,7 @@ class SurfaceEvidenceCompletionV3(SurfaceEvidenceCompletionV2):
         max_length=MAX_CITATION_SOURCE_READ_IDS)
 
 
-GraphTurnCompletion = BuildDraftContextCompletionV1 | BuildNamedGraphCompletionV3 | SurfaceEvidenceCompletionV3 | SurfaceEvidenceCompletionV2 | SurfaceEvidenceCompletionV1 | SurfaceSourceCompletionV1 | PlayWorldGraphCompletionV1 | PlanWorldGraphCompletion | BuildGraphCompletionV1 | BuildGraphCompletionV2 | BuildAuthoringCompletionV1 | BuildImagePreparationCompletionV1
+GraphTurnCompletion = BuildRelatedPageCompletionV1 | BuildDraftContextCompletionV1 | BuildNamedGraphCompletionV3 | SurfaceEvidenceCompletionV3 | SurfaceEvidenceCompletionV2 | SurfaceEvidenceCompletionV1 | SurfaceSourceCompletionV1 | PlayWorldGraphCompletionV1 | PlanWorldGraphCompletion | BuildGraphCompletionV1 | BuildGraphCompletionV2 | BuildAuthoringCompletionV1 | BuildImagePreparationCompletionV1
 
 
 class GraphCompletionRejectionCode(str, Enum):
@@ -2716,6 +2723,16 @@ class BuildExactSavedLinesDraftPolicyV1(BuildDraftWorldContextPolicyV1):
 class BuildExactSavedLinesDraftImagePolicyV1(BuildDraftWorldContextImagePolicyV1):
     saved_section_read_policy: Literal["exact_saved_lines_provider_capacity_v1"]
     saved_source_char_count: int = Field(strict=True, ge=0)
+
+
+class BuildRelatedPageDraftPolicyV1(BuildExactSavedLinesDraftPolicyV1):
+    related_page_context_policy: Literal["selected_exact_related_authored_pages_v1"]
+    related_page_catalog: list[PagePointer]
+
+
+class BuildRelatedPageDraftImagePolicyV1(BuildExactSavedLinesDraftImagePolicyV1):
+    related_page_context_policy: Literal["selected_exact_related_authored_pages_v1"]
+    related_page_catalog: list[PagePointer]
 
 
 class GraphExecutionEventBaseV1(StrictModel):
@@ -3705,7 +3722,7 @@ def validate_graph_execution_record(execution, *, dynamic_source_scope: bool, al
                 RelatedRecapContextAuthorizationEventV2,
                 ValidatedRelatedRecapContextEventV2,
                 RelatedRecapContextProviderInclusionEventV2,
-                BuildDraftContextCapturedV1, BuildDraftProviderInclusionV1, BuildSectionReadAuthorizationV1, ValidatedBuildSectionReadV1, BuildWorldReadSelectionV1,
+                RelatedPagesSelection, RelatedPageRead, RelatedPageInclusion, BuildDraftContextCapturedV1, BuildDraftProviderInclusionV1, BuildSectionReadAuthorizationV1, ValidatedBuildSectionReadV1, BuildWorldReadSelectionV1,
                 BuildSectionProviderInclusionV1, BuildSectionAnswerBindingV1,
                 BuildJevActionSelectionV1, BuildWriterEvidenceSelectionV1, PlanJevRetrievalSelectionV1,
             ),
@@ -3972,7 +3989,7 @@ GraphExecutionEventV3 = Annotated[
     | SourceScopeExtensionEventV3 | SourceReadAuthorizationEventV2 | ValidatedSourceReadEventV2 | SourcePassageReuseEventV1
     | RelatedRecapContextAuthorizationEventV2 | ValidatedRelatedRecapContextEventV2
     | RelatedRecapContextProviderInclusionEventV2
-    | BuildDraftContextCapturedV1 | BuildDraftProviderInclusionV1 | BuildSectionReadAuthorizationV1 | ValidatedBuildSectionReadV1
+    | RelatedPagesSelection | RelatedPageRead | RelatedPageInclusion | BuildDraftContextCapturedV1 | BuildDraftProviderInclusionV1 | BuildSectionReadAuthorizationV1 | ValidatedBuildSectionReadV1
     | BuildSectionProviderInclusionV1 | BuildSectionAnswerBindingV1 | BuildJevActionSelectionV1 | BuildWorldReadSelectionV1
     | BuildWriterEvidenceSelectionV1 | PlanJevRetrievalSelectionV1 | NativeSourceNavigationAuthorizedV1 | NativeSourceCatalogObservedV1
     | NativeSourceSectionAuthorizedV1 | NativeSourceSectionObservedV1 | NativeSourceProviderInclusionV1,
@@ -3985,7 +4002,7 @@ class PlanWorldGraphExecutionV3(PlanWorldGraphExecutionV2):
     schema_: Literal["dmb_agent_plan_world_graph_execution_v3"] = Field(
         default="dmb_agent_plan_world_graph_execution_v3", alias="schema"
     )
-    policy: BuildExactSavedLinesDraftImagePolicyV1 | BuildExactSavedLinesDraftPolicyV1 | BuildDraftWorldContextImagePolicyV1 | BuildDraftWorldContextPolicyV1 | BuildNamedWorldContextImagePolicyV1 | BuildNamedWorldContextPolicyV1 | PlanNativeSourceSectionsPolicyV1 | PlanJevRetrievalPolicyV1 | BuildWorldContextImagePolicyV1 | BuildWorldContextPolicyV1 | BuildPrimaryWorkStatusImagePolicyV1 | BuildPrimaryWorkStatusPolicyV1 | BuildPrimaryWorkImagePolicyV1 | BuildPrimaryWorkPolicyV1 | BuildImageActionPolicyV1 | BuildEncodedAssessmentPolicyV1 | BuildInitialEstimatedSelectedSourcePolicyV1 | BuildSelectedSourceActionControllerWriterPolicyV1 | BuildCitedSourceActionControllerWriterPolicyV1 | BuildReadBatchActionControllerWriterPolicyV1 | BuildWriterBudgetActionControllerWriterPolicyV1 | BuildJointSupportActionControllerWriterPolicyV1 | BuildEstimatedActionControllerWriterPolicyV1 | BuildContainedActionControllerWriterPolicyV1 | BuildPhaseActionControllerWriterPolicyV1 | BuildFrontierActionControllerWriterPolicyV1 | BuildContinuationActionControllerWriterPolicyV1 | BuildCompactActionControllerWriterPolicyV1 | BuildActionControllerWriterPolicyV1 | BuildSectionControllerWriterPolicyV1 | ControllerWriterGraphExecutionPolicyV3 | SettledGraphExecutionPolicyV3 | GraphExecutionPolicyV3
+    policy: BuildRelatedPageDraftImagePolicyV1 | BuildRelatedPageDraftPolicyV1 | BuildExactSavedLinesDraftImagePolicyV1 | BuildExactSavedLinesDraftPolicyV1 | BuildDraftWorldContextImagePolicyV1 | BuildDraftWorldContextPolicyV1 | BuildNamedWorldContextImagePolicyV1 | BuildNamedWorldContextPolicyV1 | PlanNativeSourceSectionsPolicyV1 | PlanJevRetrievalPolicyV1 | BuildWorldContextImagePolicyV1 | BuildWorldContextPolicyV1 | BuildPrimaryWorkStatusImagePolicyV1 | BuildPrimaryWorkStatusPolicyV1 | BuildPrimaryWorkImagePolicyV1 | BuildPrimaryWorkPolicyV1 | BuildImageActionPolicyV1 | BuildEncodedAssessmentPolicyV1 | BuildInitialEstimatedSelectedSourcePolicyV1 | BuildSelectedSourceActionControllerWriterPolicyV1 | BuildCitedSourceActionControllerWriterPolicyV1 | BuildReadBatchActionControllerWriterPolicyV1 | BuildWriterBudgetActionControllerWriterPolicyV1 | BuildJointSupportActionControllerWriterPolicyV1 | BuildEstimatedActionControllerWriterPolicyV1 | BuildContainedActionControllerWriterPolicyV1 | BuildPhaseActionControllerWriterPolicyV1 | BuildFrontierActionControllerWriterPolicyV1 | BuildContinuationActionControllerWriterPolicyV1 | BuildCompactActionControllerWriterPolicyV1 | BuildActionControllerWriterPolicyV1 | BuildSectionControllerWriterPolicyV1 | ControllerWriterGraphExecutionPolicyV3 | SettledGraphExecutionPolicyV3 | GraphExecutionPolicyV3
     events: list[GraphExecutionEventV3] = Field(max_length=2048)
 
     @model_validator(mode="after")
@@ -3993,6 +4010,8 @@ class PlanWorldGraphExecutionV3(PlanWorldGraphExecutionV2):
         from .build_draft_context import validate_execution_records, validate_provider_inclusions
         validate_execution_records(self)
         validate_provider_inclusions(self)
+        from .build_related_pages import validate_events as validate_related_page_events
+        validate_related_page_events(self)
         if not isinstance(self.policy, ControllerWriterGraphExecutionPolicyV3):
             if any(isinstance(event, (PlanJevRetrievalSelectionV1, PlanJevProviderAuthorizedV1, PlanJevWriterAuthorizedV1)) for event in self.events):
                 raise ValueError("Plan decision requires its frozen Plan policy")
@@ -4005,6 +4024,7 @@ class PlanWorldGraphExecutionV3(PlanWorldGraphExecutionV2):
         writer_selection = None
         authorized_by_id = {}
         acquisition_events = (
+            RelatedPagesSelection, RelatedPageRead,
             ValidatedGraphOperationEventV1, SourceScopeExtensionEventV3, NativeSourceNavigationAuthorizedV1, NativeSourceCatalogObservedV1,
             NativeSourceSectionAuthorizedV1, NativeSourceSectionObservedV1,
             SourceReadAuthorizationEventV2, ValidatedSourceReadEventV2, SourcePassageReuseEventV1,

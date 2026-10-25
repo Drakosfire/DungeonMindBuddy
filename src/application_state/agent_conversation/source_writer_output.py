@@ -604,9 +604,15 @@ def reconstruct(raw_output: str, packet: dict, turn, auth):
             segment["content_sha256"] = (
                 turn.graph_context_receipt.source_basis.content_sha256
             )
+        if segment["kind"] == "related_page_claim":
+            from .build_related_pages import records
+            row=next((e for e in records(execution) if str(e.read_id)==str(segment["read_id"])),None)
+            if row is None:
+                raise ValueError("Related page claim selects an unadmitted read")
+            segment["page"]=row.page.model_dump(mode="json")
         segments.append(segment)
     if "working_draft_context" in packet:
-        return t.BuildDraftContextCompletionV1(context_receipt_sha256=receipt_sha,
+        return (t.BuildRelatedPageCompletionV1 if getattr(execution.policy,"related_page_context_policy",None) is not None else t.BuildDraftContextCompletionV1)(context_receipt_sha256=receipt_sha,
             answer_context_status=candidate["answer_context_status"], answer_segments=segments,
             source_citations=citations), bindings
     if not passages or (bindings and not citations):
