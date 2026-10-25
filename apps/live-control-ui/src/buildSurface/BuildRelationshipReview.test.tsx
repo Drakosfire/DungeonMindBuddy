@@ -64,7 +64,7 @@ it('does not dispatch after unmount while the submission lock returns',async()=>
 it('rechecks first-confirmation source after submission storage completes',async()=>{
  render(<View/>);await filled();await preview();let first=true;
  Object.defineProperty(navigator,'locks',{configurable:true,value:{request:async(_key:string,fn:()=>unknown)=>{const result=fn();if(first){first=false;state.session.dirty=true;}return result;}}});
- fireEvent.click(screen.getByRole('button',{name:'Confirm relationship'}));expect(await screen.findByRole('alert')).toHaveTextContent('source changed');expect(api.commitGraphObjectAuthoringWrite).not.toHaveBeenCalled();expect(retained().submitted).toBe(false);
+ fireEvent.click(screen.getByRole('button',{name:'Confirm relationship'}));expect(await screen.findByRole('alert')).toHaveTextContent('source changed');expect(api.commitGraphObjectAuthoringWrite).not.toHaveBeenCalled();expect(retained().submitted).toBe(true);
 });
 it.each(['null-row','object-summary','bad-token','nonboolean-prepared','wrong-receipt'] as const)('preserves malformed %s recovery without crashing or dispatch',async mutation=>{
  const view=render(<View/>);await filled();await preview();const bad=retained() as any;view.unmount();
@@ -74,4 +74,15 @@ it.each(['null-row','object-summary','bad-token','nonboolean-prepared','wrong-re
  else if(mutation==='nonboolean-prepared')bad.prepared.prepared='yes';
  else{bad.submitted=true;bad.receipt={...receipt,operation_id:'another-operation'};}
  const raw=JSON.stringify(bad);localStorage.setItem(key,raw);render(<View initial={null}/>);expect(await screen.findByRole('alert')).toHaveTextContent('unreadable');expect(localStorage.getItem(key)).toBe(raw);expect(api.commitGraphObjectAuthoringWrite).not.toHaveBeenCalled();
+});
+it('never reopens shared submission for editing while another tab has an exact retry in flight',async()=>{
+ render(<View/>);await filled();await preview();let releaseFirst!:()=>void,finishCommit!:(r:any)=>void;const gate=new Promise<void>(resolve=>{releaseFirst=resolve;});let first=true;
+ Object.defineProperty(navigator,'locks',{configurable:true,value:{request:async(_key:string,fn:()=>unknown)=>{const result=fn();if(first){first=false;await gate;}return result;}}});
+ vi.mocked(api.commitGraphObjectAuthoringWrite).mockImplementationOnce(()=>new Promise(resolve=>{finishCommit=resolve;}));
+ fireEvent.click(screen.getByRole('button',{name:'Confirm relationship'}));expect(retained().submitted).toBe(true);
+ render(<View initial={null}/>);fireEvent.click(screen.getByRole('button',{name:'Resume relationship review'}));await screen.findAllByRole('button',{name:'Retry exact confirmation'});
+ const retryButtons=screen.getAllByRole('button',{name:'Retry exact confirmation'});fireEvent.click(retryButtons.find(button=>!button.hasAttribute('disabled'))!);
+ await waitFor(()=>expect(api.commitGraphObjectAuthoringWrite).toHaveBeenCalledTimes(1));state.session.dirty=true;await act(async()=>releaseFirst());
+ expect(await screen.findByRole('alert')).toHaveTextContent('shared submission remains retained');expect(retained().submitted).toBe(true);expect(screen.queryByRole('button',{name:'Discard review'})).not.toBeInTheDocument();expect(screen.queryByRole('button',{name:'Edit relationship'})).not.toBeInTheDocument();
+ await act(async()=>finishCommit(receipt));expect(retained().receipt).toEqual(receipt);expect(api.commitGraphObjectAuthoringWrite).toHaveBeenCalledTimes(1);
 });

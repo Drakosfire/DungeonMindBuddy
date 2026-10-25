@@ -54,8 +54,9 @@ export function BuildRelationshipReview({worldId,documentId,seed,onConsumed}:{wo
    });
    if(!alive.current||sessionRef.current?.record?.world_id!==worldId||sessionRef.current?.record?.document_id!==documentId)return;
    if(!retry&&!exact()){
-    await persist(p=>p?{...p,submitted:false}:p);
-    throw new Error('The source changed before confirmation was sent. Review the current saved page.');
+    // Once another tab can see submitted=true it may already be retrying.
+    // Never make a shared uncertain request editable again.
+    throw new Error('The source changed before this view sent confirmation. The shared submission remains retained; recover only its exact confirmation.');
    }
    v=valueRef.current!;
    const receipt=await commitGraphObjectAuthoringWrite({...v.request!,confirmToken:v.prepared!.confirm_token!,currentOverlayToken:v.prepared!.current_overlay_token});
