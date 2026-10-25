@@ -16,6 +16,7 @@ from typing import Any
 from dungeonmind_dnd.application.world_object_vocabulary import (
     load_builtin_world_object_v5_vocabulary,
     load_builtin_world_object_v6_vocabulary,
+    load_builtin_world_object_v7_vocabulary,
 )
 
 _BUDDY_TO_DM_KIND: dict[str, str] = {
@@ -177,6 +178,14 @@ CURRENT_WORLD_BUILDING_V6_TARGET = QualificationTarget(
     buddy_to_dm_kind=_BUDDY_TO_DM_KIND_V5,
     world_object_loader=load_builtin_world_object_v6_vocabulary,
     predicate_map_additions=_WORLD_BUILDING_V6_PREDICATE_MAP,
+)
+
+
+# Explicit graph-review operation only; no change to extraction/default targets.
+CONNECTED_PLACE_OPERATION_V7_TARGET = QualificationTarget(
+    buddy_to_dm_kind=_BUDDY_TO_DM_KIND_V5,
+    world_object_loader=load_builtin_world_object_v7_vocabulary,
+    predicate_map_additions={"operates": ("dnd5e:operates", False)},
 )
 
 

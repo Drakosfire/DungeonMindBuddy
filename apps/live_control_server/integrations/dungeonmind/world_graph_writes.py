@@ -1210,6 +1210,7 @@ def _assert_edge_endpoint_admission(
     dm_predicate: str,
     reverse_endpoints: bool,
     endpoint_kinds: Mapping[str, str],
+    target: Any = None,
 ) -> None:
     from apps.live_control_server.integrations.dungeonmind.assertion_qualification import (
         _predicate_allowed_endpoints,
@@ -1218,9 +1219,8 @@ def _assert_edge_endpoint_admission(
         CURRENT_V5_TARGET,
     )
 
-    allowed = _predicate_allowed_endpoints(
-        dm_predicate, CURRENT_V5_TARGET.world_object_loader()
-    )
+    target = target or CURRENT_V5_TARGET
+    allowed = _predicate_allowed_endpoints(dm_predicate, target.world_object_loader())
     if allowed is None:
         raise WorldGraphWriteError(
             "DungeonMind vocabulary does not define the qualified predicate",
@@ -1264,7 +1264,7 @@ def _assert_edge_endpoint_admission(
 
 
 def _qualified_edge_update(
-    assertion: Any, *, endpoint_kinds: Mapping[str, str]
+    assertion: Any, *, endpoint_kinds: Mapping[str, str], place_operation: bool = False
 ) -> dict[str, Any]:
     from apps.live_control_server.integrations.dungeonmind.contribution_mapping import (
         _canonical_json,
@@ -1272,14 +1272,21 @@ def _qualified_edge_update(
     from apps.live_control_server.integrations.dungeonmind.assertion_qualification import (
         edge_has_reverse_direction_qualifier_v4,
         resolve_buddy_predicate_mapping_v4,
+        CURRENT_V5_TARGET, CONNECTED_PLACE_OPERATION_V7_TARGET,
     )
 
     value = json.loads(assertion.value) if assertion.value else {}
     if not isinstance(value, dict):
         value = {}
-    if isinstance(value.get("dm_predicate"), str) and value["dm_predicate"].strip():
-        return {}
-    mapping = resolve_buddy_predicate_mapping_v4(str(assertion.predicate or ""))
+    operation = place_operation and assertion.predicate == "operates"
+    target = CONNECTED_PLACE_OPERATION_V7_TARGET if operation else CURRENT_V5_TARGET
+    existing = value.get("dm_predicate")
+    if isinstance(existing, str) and existing.strip():
+        if not operation:
+            return {}
+        if existing != "dnd5e:operates":
+            raise WorldGraphWriteError("place-operation qualification differs from the exact predicate", code="governed_write_inexpressible")
+    mapping = resolve_buddy_predicate_mapping_v4(str(assertion.predicate or ""), target=target)
     if mapping is None or not mapping[0]:
         raise WorldGraphWriteError(
             "confirmed edge predicate has no DungeonMind mapping",
@@ -1310,7 +1317,7 @@ def _qualified_edge_update(
         assertion,
         dm_predicate=dm_predicate,
         reverse_endpoints=reverse_endpoints,
-        endpoint_kinds=endpoint_kinds,
+        endpoint_kinds=endpoint_kinds, target=target,
     )
     update: dict[str, Any] = {
         "value": _canonical_json({**value, "dm_predicate": dm_predicate})
@@ -1322,12 +1329,12 @@ def _qualified_edge_update(
 
 
 def _qualified_assertion_update(
-    assertion: Any, *, endpoint_kinds: Mapping[str, str]
+    assertion: Any, *, endpoint_kinds: Mapping[str, str], allow_place_operation: bool = False
 ) -> dict[str, Any]:
     if assertion.assertion_kind == "node":
         return {"value": _qualified_value(assertion)}
     if assertion.assertion_kind == "edge":
-        return _qualified_edge_update(assertion, endpoint_kinds=endpoint_kinds)
+        return _qualified_edge_update(assertion, endpoint_kinds=endpoint_kinds, place_operation=allow_place_operation)
     if assertion.assertion_kind == "attribute":
         from apps.live_control_server.integrations.dungeonmind.contribution_mapping import (
             _canonical_json,
@@ -1430,6 +1437,7 @@ def _build_v2_candidate(
                                     **_qualified_assertion_update(
                                         assertion,
                                         endpoint_kinds=endpoint_kinds,
+                                        allow_place_operation=source_kind == "graph_review_authored_assertion",
                                     ),
                                 }
                                 if verdict_states[assertion.assertion_id]
