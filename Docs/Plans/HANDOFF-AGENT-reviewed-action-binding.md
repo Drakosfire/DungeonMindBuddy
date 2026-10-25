@@ -65,3 +65,7 @@ Exclusive implementation writes: this handoff; src/application_state/agent_conve
 Explicit upgrade test split: an awaiting dispatch with no admitted turn may acquire the reference; already-admitted unbound turns retain original intent/fingerprint and use their original recovery path. Never rebind them.
 
 Lease amendment before auxiliary-empty-catalog changes: apps/live_control_server/services/build_related_pages.py and src/application_state/agent_conversation/build_related_pages.py. This is the same author-bound execution capability: an empty related-page catalog must not require a fabricated controller response.
+
+Admission implementation clarification: current runtime freezes a first-provider envelope at claim time. Bound steps instead freeze a named reviewed_author_admission_v1 manifest of normalized verified intent, with zero dispatched-provider input/reserve and not_dispatched model metadata. The immutable host manifest is not a prepared provider prompt or model observation. Actual subsequent SDK envelopes retain independent authorization/accounting. New bound admission must validate the exact manifest digest; ordinary first-envelope admission is unchanged.
+
+Lease amendment: apps/live_control_server/services/build_jev_dispatch.py, build_jev_writer.py and src/application_state/agent_conversation/writer_evidence_selection.py are included for honest continuation/exposure binding after model-free admission. Historical admission need not be the first provider envelope; null prior call is allowed only before any provider, without unacquired exposure.
