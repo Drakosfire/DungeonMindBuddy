@@ -1,6 +1,6 @@
 # BUILD: exact document source for governed authoring
 
-Status: ACTIVE. Independent design review approved OverMind 46012c83a1e90dae2ff5f4bc8ae7bfb235da78ea and this handoff at SHA-256 bea2998540f3557452ac6fe5215f62fe79f799c51b02a267b8ec15dcf6a69772 before activation.
+Status: DELIVERED IN CODE, awaiting combined runtime delivery. #1723 merged at 9195d78397743dce812a545278eafa3454519b74 after independent exact-head approval f7a2b311f58768489d5cae522798b2a98764b8e4 and 108 passing tests. Successor: HANDOFF-BUILD-connected-page-operation.md. Independent design review approved OverMind 46012c83a1e90dae2ff5f4bc8ae7bfb235da78ea and this handoff at SHA-256 bea2998540f3557452ac6fe5215f62fe79f799c51b02a267b8ec15dcf6a69772 before activation.
 Authority: operator's connected-page assignment, before resuming the paused broad goal. Cross-owner design: DungeonOverMind `Docs/Plans/HANDOFF-BUILD-connected-page-authoring.md` at pinned commit `46012c83a1e90dae2ff5f4bc8ae7bfb235da78ea` (PR #56).
 Owner: PRIME solo; reuse `/home/drakosfire/.codex/worktrees/buddy-context-loop/DungeonMindBuddy`, base e489c5e9beaa86a192c0ab211854b3398b47b0f3, branch `codex/build-document-authoring-source`; serial first of three planned capabilities. No overlapping open PR found after fetch. No serving changes or operator data writes during implementation.
 
