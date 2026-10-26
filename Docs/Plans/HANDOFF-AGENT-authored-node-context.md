@@ -648,3 +648,19 @@ a revision, and it never supplies writer support. Ordinary initial semantic rout
 still occurs once; the gap authorizes/sends no writer. Keep object partial coverage
 separate from missing source support. The existing dedicated native fixture and pinned
 migration code isolate native/APP databases and verify retained native rows unchanged.
+
+
+### Post-adoption page-review placement correction
+
+Merged #1785 is deployed at93aa272a with additive0073; protected adoption preserved
+retained APP/native data. Ordinary dogfood exposed a saved proposal inside a hidden
+named-table heading. PRIME activates one serial corrective slice on
+`codex/visible-page-proposal` from93aa272a in the existing checkout. Independent
+critique permits a visual block-boundary decoration only; captured caret/selection,
+review persistence, Save, movement and insertion authority stay unchanged.
+Exclusive writes: this settlement, `apps/live-control-ui/src/surface/SurfacePageProposal.tsx`
+and `apps/live-control-ui/src/buildSurface/BuildPageProposal.test.tsx`.
+Prove the real table-title failure before correction, mounted Save/undo behavior,
+UI typecheck/build, exact cumulative independent review, and ordinary deployed
+review/edit/Save/reload. No provider, APP schema, evidence gate or routing changes.
+The evidence-insufficiency error-label correction is a separate pending slice.

@@ -5,6 +5,7 @@ import {webcrypto} from 'node:crypto';
 import {Editor} from '@tiptap/core';
 import {DEFAULT_MARKDOWN_EDITOR_EXTENSIONS} from '../tiptap/MarkdownEditorCore';
 import {tiptapJsonToSemanticMarkdown} from '../tiptap/markdown/calloutMarkdown';
+import {markdownToTiptapDoc} from '../tiptap/markdown/markdownToTiptap';
 import {createBuildComposeBridge,type BuildComposeEditorState} from './buildComposeBridge';
 import {BuildPageProposal} from './BuildPageProposal';
 import {proposalReview,type BuildProposalReview} from '../api/buildProposalReviewApi';
@@ -377,4 +378,25 @@ it('refuses a stale recovery callback after another placement superseded its rec
  expect(screen.getByRole('status',{name:'Suggestion placement unavailable'})).toHaveTextContent('retained');
  expect(apply).not.toHaveBeenCalled();expect(editor.getJSON()).toEqual(original);
  view.unmount();
+});
+
+
+it('shows a proposal outside a hidden table-title heading without changing its saved insertion point',async()=>{
+ editor.commands.setContent(markdownToTiptapDoc('## Quarry Households\n\n| Household | Task |\n| --- | --- |\n| Copper House | Repair the hook. |').doc);
+ editor.commands.setTextSelection(1);
+ const captured=await bridge.capture();record.reservation.basis=captured.basis;saved.placement_caret=captured.basis.caret;
+ const before=editor.getJSON();render(<Review/>);
+ const proposal=await screen.findByRole('region',{name:'Proposed page change'});
+ // Named-table presentation hides the source heading. Its review must be a sibling,
+ // not a descendant that inherits that hidden state.
+ expect(proposal.parentElement).toBe(editor.view.dom);
+ expect(editor.view.dom.querySelector(':scope > h2')).toHaveTextContent('Quarry Households');
+ expect(editor.getJSON()).toEqual(before);
+ fireEvent.click(screen.getByRole('button',{name:'Save',exact:true}));
+ await waitFor(()=>expect(saved.state).toBe('applied'));
+ expect(saved.apply?.placement_caret).toBe(1);
+ const markdown=tiptapJsonToSemanticMarkdown(editor.getJSON());
+ expect(markdown).toContain('Quarry Households');expect(markdown).toContain('Repair the hook.');
+ expect(markdown.match(/A proposed custom\./g)).toHaveLength(1);
+ act(()=>editor.commands.undo());expect(editor.getJSON()).toEqual(before);
 });

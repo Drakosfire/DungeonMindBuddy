@@ -31,7 +31,12 @@ export function SurfacePageProposal({editor,position,editorJson,children,onStale
     const key=new PluginKey('surfacePageProposal');const widgetKey=crypto.randomUUID();let warned=false;
     editor.registerPlugin(new Plugin({key,props:{decorations(state){
       if(!state.doc.eq(snapshotDoc))return DecorationSet.empty;
-      return DecorationSet.create(state.doc,[Decoration.widget(current.current.position,()=>target,{key:widgetKey,side:1,ignoreSelection:true,stopEvent:()=>true})]);
+      // A page object must not inherit a containing block's presentation (for
+      // example a heading hidden because it supplies a named table's title).
+      // This is only its visual anchor; Save still uses the captured exact caret.
+      const anchor=state.doc.resolve(current.current.position);
+      const visualPosition=anchor.depth?anchor.before(1):anchor.pos;
+      return DecorationSet.create(state.doc,[Decoration.widget(visualPosition,()=>target,{key:widgetKey,side:1,ignoreSelection:true,stopEvent:()=>true})]);
     }},view:()=>({update(view){
       if(!warned&&!view.state.doc.eq(snapshotDoc)){warned=true;queueMicrotask(()=>current.current.onStale());}
     }})}));
