@@ -31,7 +31,7 @@ _RETURNING = """
     selected_text_sha256, playable_target_receipt, selection_anchor,
     instruction, status, assistant_summary,
     failure_code, dispatch_token, fence, action_sequence, accepted_at,
-    completed_at, lease_expires_at, consultation
+    completed_at, lease_expires_at, consultation, authoring_origin
 """
 
 
@@ -45,6 +45,7 @@ def _record(row: dict[str, Any]) -> PlanActionRecord:
         content_sha256=row["content_sha256"],
     )
     return PlanActionRecord(
+        authoring_origin=row["authoring_origin"],
         action_id=row["action_id"],
         idempotency_key=row["idempotency_key"],
         request_fingerprint=row["request_fingerprint"],
@@ -224,6 +225,8 @@ def finish(
     if status not in {"completed", "failed"}:
         raise ValueError("terminal Plan action status must be completed or failed")
     current = _get_by_id(conn, action_id, lock=True)
+    if current is not None and current.authoring_origin is not None:
+        raise ApplicationStateValidationError("Agent-owned Plan authoring requires atomic turn finalization")
     if (current is not None and current.status == "pending" and current.consultation is not None
             and current.consultation.execution is not None
             and any(isinstance(event, ProviderOutcomeEventV1) and event.outcome == "outcome_unknown"

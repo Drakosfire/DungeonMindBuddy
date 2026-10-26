@@ -5068,6 +5068,7 @@ def _submitted_turn_intent(
             )
         return SubmittedTurnIntentV2(
             **common,
+            plan_authoring_capture_sha256=request.plan_authoring_capture.sha256 if request.plan_authoring_capture is not None else None,
             plan_context_policy=PlanContextPolicyV1(
                 policy=request.plan_context_policy.policy
             ),

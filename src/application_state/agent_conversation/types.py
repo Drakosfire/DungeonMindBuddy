@@ -1076,6 +1076,7 @@ class SubmittedTurnIntentV2(StrictModel):
     client_work_state: Literal["saved_clean", "saved_dirty"]
     primary_work: SubmittedPrimaryWorkIntentV1
     plan_context_policy: PlanContextPolicyV1
+    plan_authoring_capture_sha256: str | None = Field(default=None, pattern=r"^[a-f0-9]{64}$")
     playable_target: SubmittedPlanPlayableTargetV1 | None = None
     graph_request: SubmittedGraphRequestIntentV1
     graph_selection: SubmittedGraphSelectionIntentV1 | None
@@ -1126,6 +1127,8 @@ def submitted_turn_intent_fingerprint_v2(intent: SubmittedTurnIntentV2 | BuildGr
         payload.pop("build_write_capability_sha256", None)
     if payload.get("build_draft_context_sha256") is None:
         payload.pop("build_draft_context_sha256", None)
+    if payload.get("plan_authoring_capture_sha256") is None:
+        payload.pop("plan_authoring_capture_sha256", None)
     primary_work_payload = payload.get("primary_work")
     if isinstance(primary_work_payload, dict) and primary_work_payload.get("play_content_basis") is None:
         primary_work_payload.pop("play_content_basis", None)
