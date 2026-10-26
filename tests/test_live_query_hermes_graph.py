@@ -3453,8 +3453,8 @@ def test_q01_without_typed_session_stays_fail_closed():
 def _successful_batch_event(**metadata_overrides):
     metadata = {
         "sourceReadCount": 2, "sourceReadTelemetryTruncated": False,
-        "sourceRead0": {"knownSourceReadSchema": "true", "graph_revision": "revision:resolved-server", "outcome": "enough"},
-        "sourceRead1": {"knownSourceReadSchema": "true", "graph_revision": "revision:resolved-server", "outcome": "enough"},
+        "sourceRead0": {"knownSourceReadSchema": "true", "opened": "true", "graph_revision": "revision:resolved-server", "outcome": "enough"},
+        "sourceRead1": {"knownSourceReadSchema": "true", "opened": "true", "graph_revision": "revision:resolved-server", "outcome": "enough"},
         **metadata_overrides,
     }
     event = _tool_event(tool_name="read_graph_source", retrieval_schema="dmb_read_graph_source_batch_v1", outcome=None,
@@ -3488,10 +3488,10 @@ def test_overview_success_count_does_not_require_evidence(outcome, expected):
 @pytest.mark.parametrize("overrides", [
     {"sourceReadCount":0}, {"sourceReadCount":True}, {"sourceReadCount":9},
     {"sourceReadTelemetryTruncated":True}, {"sourceRead1":None},
-    {"sourceRead1":{"knownSourceReadSchema":"true","graph_revision":"stale","outcome":"enough"}},
-    {"sourceRead1":{"knownSourceReadSchema":"false","graph_revision":"revision:resolved-server","outcome":"enough"}},
-    {"sourceRead1":{"knownSourceReadSchema":"true","graph_revision":"revision:resolved-server","outcome":"denied"}},
-    {"sourceRead1":{"knownSourceReadSchema":"true","graph_revision":"revision:resolved-server","outcome":[]}},
+    {"sourceRead1":{"knownSourceReadSchema":"true","opened":"true","graph_revision":"stale","outcome":"enough"}},
+    {"sourceRead1":{"knownSourceReadSchema":"false","opened":"true","graph_revision":"revision:resolved-server","outcome":"enough"}},
+    {"sourceRead1":{"knownSourceReadSchema":"true","opened":"true","graph_revision":"revision:resolved-server","outcome":"denied"}},
+    {"sourceRead1":{"knownSourceReadSchema":"true","opened":"true","graph_revision":"revision:resolved-server","outcome":[]}},
 ])
 def test_incomplete_or_failed_batch_cannot_report_full_success(overrides):
     assert _product_response_for_events([_successful_batch_event(**overrides)])["grounding"]["successful_tool_count"] == 0
@@ -3525,3 +3525,23 @@ def test_success_count_does_not_double_count_start_and_completion():
     completion = _q01_events()[1]
     start = replace(completion, state="start")
     assert _product_response_for_events([start,completion])["grounding"]["successful_tool_count"] == 1
+
+
+@pytest.mark.parametrize("opened", [None,"false"])
+def test_unopened_source_batch_does_not_report_success(opened):
+    event = _successful_batch_event()
+    metadata = dict(event.bounded_ids)
+    row = dict(metadata["sourceRead1"])
+    if opened is None:
+        row.pop("opened")
+    else:
+        row["opened"] = opened
+    metadata["sourceRead1"] = row
+    event = replace(event, attributes={**event.attributes,"bounded_ids":metadata})
+    assert _product_response_for_events([event])["grounding"]["successful_tool_count"] == 0
+
+
+def test_empty_source_read_is_not_an_opened_source_success():
+    event = _tool_event(tool_name="read_graph_source", retrieval_schema="dmb_world_graph_source_anchor_read_v1",
+                        outcome="empty", matched_node_ids=[], source_anchor_ids=[])
+    assert _product_response_for_events([event])["grounding"]["successful_tool_count"] == 0

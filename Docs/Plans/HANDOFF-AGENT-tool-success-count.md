@@ -15,8 +15,9 @@ evidence projection limitations as execution failure.
 Invariant: count successful tool invocations, independently of accepted claims,
 citations and delivery. Starts/errors/denied/unavailable/unknown results and foreign
 or incomplete scope do not count. A known overview with a successful canonical
-outcome counts without IDs. A known batch read counts once when all read summaries
-are present, recognized, revision-correct and successful; it does not count once
+outcome (including empty) counts without IDs. Source reads must open content; an
+empty source read is not a successful opening. A known batch read counts once when
+all read summaries are present, recognized, revision-correct and opened; it does not count once
 per source. Incomplete/mixed-failure batches do not assert full success. The field
 is observation only and must not influence classification, recovery or citations.
 No new provenance ledger, evidence authority, runtime fallback or public field.

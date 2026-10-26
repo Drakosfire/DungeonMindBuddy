@@ -914,7 +914,7 @@ def _successful_tool_invocation(event: AgentRuntimeToolEvent, scope: _Dispatched
     from .agent_source_read_telemetry import BATCH_V1, BATCH_V2, READ_SCHEMA, MAX_READS
 
     if event.retrieval_schema == READ_SCHEMA:
-        return _normalized_outcome(event) in successful
+        return _normalized_outcome(event) in EVIDENCE_BEARING_OUTCOMES
     if event.retrieval_schema not in {BATCH_V1, BATCH_V2}:
         return False
     metadata = event.bounded_ids
@@ -931,8 +931,9 @@ def _successful_tool_invocation(event: AgentRuntimeToolEvent, scope: _Dispatched
             not isinstance(read, Mapping)
             or read.get("knownSourceReadSchema") != "true"
             or read.get("graph_revision") != scope.revision_id
+            or read.get("opened") != "true"
             or not isinstance(read.get("outcome"), str)
-            or read.get("outcome") not in successful
+            or read.get("outcome") not in EVIDENCE_BEARING_OUTCOMES
         ):
             return False
     return True
