@@ -2464,7 +2464,8 @@ def run_hermes_graph_agent_turn(
                         )
 
                         visible_defs = project_graph_read_tools(
-                            visible_defs, request.graph_read_profile
+                            visible_defs, request.graph_read_profile,
+                            parent_broker_available=request.parent_graph_broker_required,
                         )
                         visible_names = _tool_names_from_definitions(visible_defs)
                         surface_error = _validate_model_visible_surface(
@@ -2684,7 +2685,8 @@ def run_hermes_graph_agent_turn(
                                     )
                                 ]
                             agent_tools = project_graph_read_tools(
-                                agent_tools, request.graph_read_profile
+                                agent_tools, request.graph_read_profile,
+                                parent_broker_available=request.parent_graph_broker_required,
                             )
                             agent.tools = agent_tools
                             agent_visible = _tool_names_from_definitions(agent_tools)
