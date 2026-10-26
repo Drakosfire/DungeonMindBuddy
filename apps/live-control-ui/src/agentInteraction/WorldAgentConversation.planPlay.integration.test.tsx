@@ -1,5 +1,5 @@
 import * as graphLensProjection from '../graphLens/useWorldGraphLensProjection';
-import {authoredGraphReferences,readComposerReferences,writeComposerReferences} from './authoredGraphReferences';
+import {authoredGraphReferences,readComposerReferences,writeComposerReferences,composerReferenceKey} from './authoredGraphReferences';
 import {getWorkPlan,continueWorkPlan} from '../api/conversationWorkPlanApi';
 vi.mock('../api/conversationWorkPlanApi',async original=>({...await original<typeof import('../api/conversationWorkPlanApi')>(),getWorkPlan:vi.fn(async()=>null),saveWorkPlan:vi.fn(),continueWorkPlan:vi.fn()}));
 vi.mock('../api/conversationLibraryApi',()=>({
@@ -2527,6 +2527,28 @@ describe("one App-level World conversation host across Plan and Play", () => {
     await waitFor(()=>expect(input).toHaveValue('Discuss the original box.'));
     expect(readComposerReferences(sessionStorage,WORLD,'source-one').references).toEqual(original.references);expect(readComposerReferences(sessionStorage,WORLD,'source-one').submittedTurnId).toBeNull();
     expect(localStorage.getItem(`dmb:world-play-pending-turn:v1:${WORLD}`)).toBeNull();expect(screen.getByText('@original-box')).toBeVisible();
+  });
+
+  it('refuses automatic restoration after an observed edit cannot retire its marker',async()=>{
+    const original=authoredGraphReferences([authoredRef('original-box')]);writeComposerReferences(sessionStorage,WORLD,'source-one',null,original.references);
+    vi.mocked(getWorldAgentConversationHistory).mockResolvedValue(history());let reject!:(reason:unknown)=>void;
+    vi.mocked(postWorldBuildAgentTurn).mockReturnValue(new Promise((_,r)=>{reject=r}));
+    render(<Harness initial="build" buildBridge={retryBridge()}/>);fireEvent.click(await screen.findByRole('button',{name:'Open',exact:true}));
+    const input=await screen.findByLabelText('Message DungeonBuddy');fireEvent.change(input,{target:{value:'Discuss the original box.'}});fireEvent.click(screen.getByRole('button',{name:'Send message'}));
+    await waitFor(()=>expect(postWorldBuildAgentTurn).toHaveBeenCalledTimes(1));
+    const request=vi.mocked(postWorldBuildAgentTurn).mock.calls[0][0],before=readComposerReferences(sessionStorage,WORLD,'source-one');
+    expect(before.submittedTurnId).toBe(request.turn_id);
+    const write=Storage.prototype.setItem;
+    const spy=vi.spyOn(Storage.prototype,'setItem').mockImplementation(function(key,value){if(key===composerReferenceKey(WORLD,'source-one'))throw new DOMException('Storage write denied','QuotaExceededError');return write.call(this,key,value)});
+    try{
+      fireEvent.change(input,{target:{value:'A newer thought'}});fireEvent.change(input,{target:{value:''}});
+      expect(readComposerReferences(sessionStorage,WORLD,'source-one')).toEqual(before);
+      await act(async()=>reject(new LiveApiError('Source context changed',422,{code:'build_editor_context_changed'})));
+      expect(input).toHaveValue('');expect(readComposerReferences(sessionStorage,WORLD,'source-one')).toEqual(before);
+      expect(localStorage.getItem(`dmb:world-play-pending-turn:v1:${WORLD}`)).not.toBeNull();
+      expect(within(screen.getByLabelText('Message Graph context')).queryByText('@original-box')).toBeNull();
+      expect(postWorldBuildAgentTurn).toHaveBeenCalledTimes(1);
+    }finally{spy.mockRestore();}
   });
 
 });

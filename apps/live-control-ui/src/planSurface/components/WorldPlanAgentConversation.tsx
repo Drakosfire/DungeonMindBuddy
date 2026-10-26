@@ -2548,6 +2548,7 @@ export function WorldPlanAgentConversation({
   const [composerReferenceState,setComposerReferenceState]=useState<{key:string|null;draft:ComposerReferenceDraft|null;error:string|null}>({key:null,draft:null,error:null});
   const composerReferences=composerReferenceState.key===referenceScopeKey?composerReferenceState.draft?.references??[]:[];
   const composerReferencesReady=!referenceScopeKey||composerReferenceState.key===referenceScopeKey&&!!composerReferenceState.draft&&!composerReferenceState.error;
+  const failedReferenceRetirements=useRef(new Set<string>());
   const composerDraftsRef=useRef(composerDrafts);composerDraftsRef.current=composerDrafts;
   useLayoutEffect(()=>{
     if(!referenceWorld||!referencePage){setComposerReferenceState({key:null,draft:null,error:null});return;}
@@ -2556,8 +2557,13 @@ export function WorldPlanAgentConversation({
   },[referenceWorld,referencePage,referenceScopeKey]);
   function changeComposerReferences(references:AuthoredGraphReferenceV1[]){
     if(!referenceWorld||!referencePage||composerReferenceState.key!==referenceScopeKey||!composerReferenceState.draft)throw new Error('Reopen the current page composer before choosing references.');
-    const draft=writeComposerReferences(sessionStorage,referenceWorld,referencePage,composerReferenceState.draft.serialized,references);
-    composerEditGenerationRef.current+=1;setComposerReferenceState({key:referenceScopeKey,draft,error:null});
+    try{
+      const draft=writeComposerReferences(sessionStorage,referenceWorld,referencePage,composerReferenceState.draft.serialized,references);
+      composerEditGenerationRef.current+=1;setComposerReferenceState({key:referenceScopeKey,draft,error:null});
+    }catch(reason){
+      if(composerReferenceState.draft.submittedTurnId)failedReferenceRetirements.current.add(composerReferenceState.draft.submittedTurnId);
+      throw reason;
+    }
   }
 
   function retireComposerReferenceSubmission(){
@@ -3958,7 +3964,7 @@ export function WorldPlanAgentConversation({
           try{
             const world=request.owner_scope.world_id,page=request.primary_work.object_id,key=`build:${page}`;
             const newer=composerDraftsRef.current[key],draft=readComposerReferences(sessionStorage,world,page);
-            if(newer&&newer!==request.message||draft.submittedTurnId!==request.turn_id)throw new Error('A newer composer draft is present. The original request and references remain in saved-request recovery.');
+            if(failedReferenceRetirements.current.has(request.turn_id)||newer&&newer!==request.message||draft.submittedTurnId!==request.turn_id)throw new Error('A newer composer draft is present. The original request and references remain in saved-request recovery.');
             const restored=writeComposerReferences(sessionStorage,world,page,draft.serialized,refs.references);
             if(referenceScopeKey===composerReferenceKey(world,page))setComposerReferenceState({key:referenceScopeKey,draft:restored,error:null});
           }catch(recoveryError){setError(String(recoveryError));sharedConversation?.setHistoryRefreshNonce(n=>n+1);return;}
@@ -4102,7 +4108,7 @@ export function WorldPlanAgentConversation({
       if(!retryOf&&!explicitRequest&&questionOverride===undefined&&composerEditGenerationRef.current===composerGenerationAtSubmit){
         if(referenceWorld&&referencePage&&referenceDraftAtSubmit&&referenceInput){
           try{const draft=writeComposerReferences(sessionStorage,referenceWorld,referencePage,referenceDraftAtSubmit.serialized,[],request.turn_id);setComposerReferenceState({key:referenceScopeKey,draft,error:null});}
-          catch(reason){setError(String(reason));}
+          catch(reason){failedReferenceRetirements.current.add(request.turn_id);setError(String(reason));}
         }
         setComposerMessage(current => current.trim() === message ? "" : current);
       }
