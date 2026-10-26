@@ -5745,6 +5745,7 @@ export function WorldPlanAgentConversation({
         <div className="world-plan-agent-conversation__message world-plan-agent-conversation__message--user">
           <span className="world-plan-agent-conversation__speaker">You</span>
           <p>{turn.user_text}</p>
+          {turn.retry_context?.schema==='dmb_turn_retry_context_row_v2'&&<SurfaceGraphReferenceInput worldId={turn.retry_context.world_id} label="Message references" readOnly value={turn.retry_context.authored_references.references} onChange={()=>{}}/>}
         </div>
         {turn.assistant_text || hasObjectOnlyBuildReply(turn) ? (
           <div className="world-plan-agent-conversation__message world-plan-agent-conversation__message--assistant">
@@ -6034,6 +6035,7 @@ export function WorldPlanAgentConversation({
         <p>This request needs recovery. You can check its saved status or retry the exact request.</p>
         <details><summary>Saved request details</summary>
           <p>{pendingPlayTurn.request.message}</p>
+          {pendingPlayTurn.request.surface.surface_id==='build'&&(pendingPlayTurn.request as WorldBuildAgentTurnRequestV1).build_authored_references&&<SurfaceGraphReferenceInput worldId={pendingPlayTurn.request.owner_scope.world_id} label="Saved request Graph context" readOnly value={(pendingPlayTurn.request as WorldBuildAgentTurnRequestV1).build_authored_references!.references} onChange={()=>{}}/>}
           <p>Request: {pendingPlayTurn.request.turn_id} · Source: {pendingPlayTurn.request.primary_work.object_id} · Revision: {pendingPlayTurn.request.primary_work.expected_revision}</p>
           {pendingPlayTurn.request.primary_work.kind === "build" ? <p>Source digest: {pendingPlayTurn.request.primary_work.expected_content_sha256}</p> : null}
         </details>

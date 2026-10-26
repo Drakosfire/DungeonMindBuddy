@@ -36,3 +36,9 @@ it('gives simultaneous picker labels independent search inputs',()=>{
  fireEvent.change(inputs[1],{target:{value:'No matching box'}});
  expect(inputs[0]).toHaveValue('');expect(inputs[1]).toHaveValue('No matching box');
 });
+
+it('shows historical selections without offering edits or requesting fresh graph bytes',()=>{
+ const ref:AuthoredGraphReferenceV1={schema:'dmb_authored_graph_reference_v1',managed_world_id:'quarry',native_world_id:'native',binding_version:3,graph_revision:'rev-a',node_id:'first-box',label:'Cedar box'};
+ render(<SurfaceGraphReferenceInput worldId="quarry" value={[ref]} onChange={vi.fn()} readOnly/>);
+ expect(screen.getByText('@Cedar box')).toBeVisible();expect(screen.queryByRole('button')).toBeNull();expect(mocks.demand).toHaveBeenLastCalledWith(false);
+});

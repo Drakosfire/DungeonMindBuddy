@@ -1104,7 +1104,7 @@ describe("one App-level World conversation host across Plan and Play", () => {
     const row={...base,provenance:{...base.provenance,surface_id:'build',surface_instance_id:'build-instance',primary_work:{...base.provenance.primary_work,kind:'build',object_id:'source-one'}}};
     vi.mocked(getWorldAgentConversationHistory).mockResolvedValue(history([row]));
     const stepId='11111111-1111-4111-8111-111111111111',clientId='22222222-2222-4222-8222-222222222222';
-    const p={schema:'dmb_reviewed_work_plan_v1' as const,world_id:WORLD,conversation_id:history().conversation_id!,source_turn_id:row.turn_id,source_answer_sha256:SHA,document_id:'source-one',revision:1,
+    const p={schema:'dmb_reviewed_work_plan_v2' as const,objective:'Discuss the shop owner.',world_id:WORLD,conversation_id:history().conversation_id!,source_turn_id:row.turn_id,source_answer_sha256:SHA,document_id:'source-one',revision:1,
       steps:[{step_id:stepId,text:'Discuss the shop owner.',selected:true,kind:'discuss' as const}],dispatches:[],execution:[]};
     const dispatch={command_id:stepId,step_id:stepId,client_thread_id:stepId,client_turn_id:clientId,message:'Continue exactly this reviewed discussion step.'};
     vi.mocked(getWorkPlan).mockResolvedValue(p);
