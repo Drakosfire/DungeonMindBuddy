@@ -2786,7 +2786,12 @@ export function WorldPlanAgentConversation({
   const playCompose = usePlaySceneEdits({ worldId, runId: playMode?.admittedRun?.runId ?? null,
     bridge: playMode?.sceneEditBridge ?? null });
   const buildCompose = useBuildCompose({ worldId, history,
-    bridge: buildMode?.composeBridge ?? null, enabled: visible && isBuild, onReviewOnPage:()=>agent.setPaneOpen(false), pageDocumentId: buildMode?.savedSource?.documentId ?? null, sourceKey: JSON.stringify([buildMode?.savedSource?.worldId, buildMode?.savedSource?.documentId, buildMode?.savedSource?.revision, buildMode?.savedSource?.contentSha256]),
+    bridge: buildMode?.composeBridge ?? null, enabled: visible && isBuild,
+    onReviewOnPage:()=>agent.setPaneOpen(false),
+    onConstructionVisible:()=>{
+      if(!(composerDraftsRef.current[composerDraftKey]??'').trim())agent.setPaneOpen(false);
+    },
+    pageDocumentId: buildMode?.savedSource?.documentId ?? null, sourceKey: JSON.stringify([buildMode?.savedSource?.worldId, buildMode?.savedSource?.documentId, buildMode?.savedSource?.revision, buildMode?.savedSource?.contentSha256]),
     onHistory: next => { historySnapshotRef.current = next; setHistory(next); } });
 
   const conversationDisplay = useMemo(
