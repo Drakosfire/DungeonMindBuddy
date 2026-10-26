@@ -553,7 +553,8 @@ def test_scope_upgrade_preserves_payloads_and_fences_previous_reader(case, appli
         service.get_conversation('world-one', cid)
 
 
-def test_quote_witness_upgrade_preserves_all_rows_and_fences_old_reader(monkeypatch):
+@pytest.mark.parametrize('base,target',[('20261026_0075','20261026_0076'),('20261026_0076','20261026_0077')])
+def test_versioned_writer_upgrade_preserves_all_rows_and_fences_old_reader(monkeypatch,base,target):
     import psycopg
     from alembic import command
     from application_state import cli
@@ -565,24 +566,24 @@ def test_quote_witness_upgrade_preserves_all_rows_and_fences_old_reader(monkeypa
     _create_database(admin,name)
     try:
         monkeypatch.setenv(APPLICATION_STATE_DSN_ENV,dsn)
-        command.upgrade(cli.alembic_config(),'20261026_0075')
+        command.upgrade(cli.alembic_config(),base)
         with monkeypatch.context() as old_reader:
-            old_reader.setattr(cli,'_alembic_head',lambda:'20261026_0075')
+            old_reader.setattr(cli,'_alembic_head',lambda:base)
             service,cid,source,steps,plan=case.__wrapped__(dsn)
         def rows():
             with psycopg.connect(dsn) as conn:
                 tables=conn.execute("SELECT schemaname,tablename FROM pg_tables WHERE schemaname NOT IN ('pg_catalog','information_schema') ORDER BY 1,2").fetchall()
                 return {(schema,table):conn.execute(f'SELECT row_to_json(t)::text FROM "{schema}"."{table}" t ORDER BY row_to_json(t)::text').fetchall() for schema,table in tables if (schema,table)!=('application_state','schema_migrations')}
         before=rows()
-        assert cli._read_current_revision(dsn)=='20261026_0075'
-        cli.upgrade_to_head(dsn=dsn)
-        assert cli._read_current_revision(dsn)=='20261026_0076'
+        assert cli._read_current_revision(dsn)==base
+        command.upgrade(cli.alembic_config(),target)
+        assert cli._read_current_revision(dsn)==target
         assert rows()==before
         with pytest.raises(RuntimeError,match='recovery forward'):
-            command.downgrade(cli.alembic_config(),'20261026_0075')
-        assert cli._read_current_revision(dsn)=='20261026_0076'
+            command.downgrade(cli.alembic_config(),base)
+        assert cli._read_current_revision(dsn)==target
         assert rows()==before
-        monkeypatch.setattr(cli,'_alembic_head',lambda:'20261026_0075')
+        monkeypatch.setattr(cli,'_alembic_head',lambda:base)
         with pytest.raises(ApplicationStateMigrationError):cli.assert_at_head(dsn=dsn)
         with pytest.raises(ApplicationStateMigrationError):service.get_conversation('world-one',cid)
         with pytest.raises(ApplicationStateMigrationError):

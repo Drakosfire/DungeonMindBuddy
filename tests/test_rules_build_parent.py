@@ -533,7 +533,8 @@ def test_long_creative_proposal_without_rules_offers_reaches_writer(build_case, 
     assert reads == {"graph": 0, "source": 0}
 
 
-def test_mixed_rules_preserves_multiple_exact_witnesses_from_one_related_page(build_case,tmp_path,monkeypatch,application_state_dsn):
+@pytest.mark.parametrize('relationship',[False,True])
+def test_mixed_rules_preserves_exact_related_witnesses_or_current_relationship(build_case,tmp_path,monkeypatch,application_state_dsn,relationship):
     from uuid import uuid4
     from application_state.agent_conversation.build_draft_context import BuildDraftSnapshotV1,BuildDraftContextRequestV1
     from application_state.agent_conversation.build_related_pages import PagePointer,RelatedPageClaim
@@ -555,31 +556,49 @@ def test_mixed_rules_preserves_multiple_exact_witnesses_from_one_related_page(bu
         context=BuildDraftContextRequestV1(snapshot=snapshot,conversation_id=cap.conversation_id,expected_pointer_revision=cap.expected_pointer_revision)
         return (source,request.model_copy(update={'build_draft_context':context}),bootstrap),reads
     monkeypatch.setattr(owner,'ordinary_case',context_case)
-    class Decisions(RulesDecisionWire):
+    class Decisions(PrimaryRulesDecision if relationship else RulesDecisionWire):
         async def handle_async_request(self,request):
             response=await super().handle_async_request(request)
             body=json.loads(request.content);answer=response.json()
             for key,value in answer['answers'].items():
+                if relationship and key=='requested_work':
+                    choices=body['questions'][key]['criteria']
+                    value.update(choice='review_relationship',probabilities={choice:float(choice=='review_relationship') for choice in choices})
                 if key.startswith('related_page_'):
                     choices=body['questions'][key]['criteria']
                     value.update(choice='read',probabilities={choice:float(choice=='read') for choice in choices})
             return httpx2.Response(200,request=request,json=answer)
     class Writer(PagesWriter):
-        multi_related_quotes=True
         async def handle_async_request(self,request):
-            response=await super().handle_async_request(request)
-            data=response.json();base=json.loads(data['output'][0]['content'][0]['text'])
             packet=json.loads(json.loads(request.content)['input'])
+            if relationship:
+                self.calls.append(request)
+                response=await RulesWriterWire(base=False).handle_async_request(request)
+                from application_state.agent_conversation.build_primary_context import packet_rows
+                row,=packet_rows(packet)
+                base={'answer_context_status':'discussion','answer_segments':[{'kind':'discussion','text':'Review the proposed trade.'}],
+                    'limitations':[],'requested_detail_gaps':[],'collaboration':{'kind':'relationship','read_id':row['read_id'],
+                    'quote':row['text'],'source':{'label':'Keeper','kind':'npc'},'target':{'label':'Trader','kind':'npc'},
+                    'predicate':'works_with','label':'Proposed trade','context':'A possible trade, not a played event.'}}
+                data=response.json()
+            else:
+                response=await super().handle_async_request(request)
+                data=response.json();base=json.loads(data['output'][0]['content'][0]['text'])
             assert packet['related_page_quote_policy']=='same_read_multiple_quotes_v1'
-            assert len(base['answer_segments'][0]['supporting_quotes'])==2
+            if relationship:
+                assert packet['relationship_output_policy']=='resolved_current_saved_relationship_v1'
+                assert base['collaboration']['kind']=='relationship'
+            else:assert len(base['answer_segments'][0]['supporting_quotes'])==2
             supports=[sid for op in packet['rules_projection']['operations'] for sid in json.loads(op['packet_json']).get('emitted_support_ids',[])]
             data['output'][0]['content'][0]['text']=json.dumps({'schema':'dmb_rules_mixed_answer_v1','base_output':base,
                 'rules_segments':[{'kind':'rules_claim','text':'The supplied movement rule applies.','support_ids':supports[:1]}],
                 'ordered_refs':[{'domain':'base','segment_index':None},{'domain':'rules','segment_index':0}]})
             return httpx.Response(200,request=request,json=data)
-    completed,adapter,_,writer,_=run_parent(build_case,tmp_path,monkeypatch,decision=Decisions(),writer=Writer(),dsn=application_state_dsn)
+    writer=Writer();writer.relationship=relationship;writer.multi_related_quotes=not relationship
+    completed,adapter,_,writer,_=run_parent(build_case,tmp_path,monkeypatch,decision=Decisions(),writer=writer,dsn=application_state_dsn)
     assert isinstance(completed,MixedCompletedTurnV1)
     assert adapter.failure is None
     claims=[s for s in completed.base_projection.turn.completion.answer_segments if isinstance(s,RelatedPageClaim)]
-    assert len(claims)==1 and claims[0].page.document_id==page.document_id
+    if relationship:assert completed.base_projection.turn.completion.collaboration.kind=='relationship'
+    else:assert len(claims)==1 and claims[0].page.document_id==page.document_id
     assert AgentConversationService().inspect_turn(world_id=completed.envelope.world_id,turn_id=completed.envelope.turn_id)==completed

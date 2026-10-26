@@ -537,6 +537,7 @@ def output_schema(packet):
     # this new format. This local schema view grants no runtime authority.
     from .connected_page_origins import KEY as ORIGIN_KEY, packet_rows as origin_rows
     connected_origins = origin_rows(packet) if ORIGIN_KEY in packet else None
+    relationship_packet = packet
     packet = {k: v for k, v in packet.items() if k != "response_contract"}
     if "working_draft_context" in packet:
         schema = deepcopy(draft_schema(packet, connected_origins=connected_origins))
@@ -577,7 +578,8 @@ def output_schema(packet):
         schema["properties"]["answer_context_status"]["enum"].append("discussion")
     schema["properties"]["answer_segments"]["minItems"] = 0
     schema["properties"]["collaboration"].pop("title", None)
-    return schema
+    from .relationship_review import restrict_output
+    return restrict_output(schema, relationship_packet)
 
 
 class IntentionalWriterAnswer(_Frozen):
@@ -616,6 +618,8 @@ class IntentionalWriterAnswerV3(IntentionalWriterAnswer):
 
 
 def normalize(raw, packet):
+    from .relationship_review import output_enabled
+    output_enabled(packet)
     from .source_writer_output import strict_json, gap_messages
     from .source_quote_binding import validate_and_project
     from .collaboration import saved_excerpt, ProposedQuestions, ProposedConnectedPage
