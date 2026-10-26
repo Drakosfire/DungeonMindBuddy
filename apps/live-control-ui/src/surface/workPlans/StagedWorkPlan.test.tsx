@@ -119,3 +119,18 @@ it.each(['normal','notes-failure'])('compares and explicitly adopts saved V3 con
  fireEvent.click(screen.getByRole('button',{name:'Save',exact:true}));await savedOnPage();
  expect(saveWorkPlan).not.toHaveBeenCalled();expect(continueWorkPlan).not.toHaveBeenCalled();
 });
+
+it('explicit fresh placement preserves a deferred proposed row through Save and reload',async()=>{
+ vi.spyOn(bridge,'pickWorkPlanInsertion').mockImplementation(async()=>bridge.capture());
+ const proposed={...props(),steps:props().steps.map((s,i)=>({...s,selected:i===0}))};
+ const mounted=render(<StagedWorkPlan {...proposed}/>);
+ fireEvent.click(await screen.findByRole('button',{name:'Place plan on page'}));
+ expect(await screen.findByRole('checkbox',{name:'Include step 1'})).toBeChecked();
+ expect(screen.getByRole('checkbox',{name:'Include step 2'})).not.toBeChecked();
+ fireEvent.click(screen.getByRole('button',{name:'Save',exact:true}));await savedOnPage();
+ expect(plan!.steps.map(row=>row.selected)).toEqual([true,false]);
+ expect((await readPlacement(ref))!.rows.map(row=>row.selected)).toEqual([true,false]);
+ mounted.unmount();render(<StagedWorkPlan {...proposed}/>);await screen.findByText('Plan on page.');
+ expect((await readPlacement(ref))!.rows.map(row=>row.selected)).toEqual([true,false]);
+ expect(continueWorkPlan).not.toHaveBeenCalled();
+});

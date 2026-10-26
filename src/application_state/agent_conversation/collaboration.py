@@ -129,3 +129,15 @@ class ProposedPlanV2(Closed):
 
 CollaborationV2 = ProposedPlanV2 | ProposedQuestions
 ConnectedCollaborationV2 = ProposedPlanV2 | ProposedQuestions | ProposedConnectedPage
+
+
+class ProposedStepV2(ProposedStep):
+    selected: bool = Field(strict=True)
+
+
+class ProposedPlanV3(ProposedPlanV2):
+    steps: list[ProposedStepV2] = Field(min_length=1)
+
+
+CollaborationV3 = ProposedPlanV3 | ProposedQuestions
+ConnectedCollaborationV3 = ProposedPlanV3 | ProposedQuestions | ProposedConnectedPage

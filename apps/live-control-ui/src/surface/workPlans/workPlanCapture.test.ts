@@ -41,3 +41,13 @@ it.each(['source','saved-empty','saved-other'])('inherits host-readback roots wi
  expect(vi.mocked(stagePlacement).mock.calls[0][8]).toEqual(roots);
  expect(vi.mocked(stagePlacement).mock.calls[0][3][0].text).toBe(mode==='source'?'Read the chart.':'Reviewed step.');
 });
+
+it('preserves explicit proposed false selection and lets an existing author review win',async()=>{
+ const proposed={kind:'plan' as const,objective:'Review first; defer writing.',steps:[{text:'Discuss the chart.',kind:'discuss' as const,selected:true},{text:'Write later.',kind:'prepare_insertion' as const,selected:false}]};
+ await captureWorkPlan(request,turn,conversation,2,'real-key','A plan.',proposed,proposed);
+ expect(vi.mocked(stagePlacement).mock.calls[0][3].map(row=>row.selected)).toEqual([true,false]);
+ const rows=[{step_id:turnId,text:'Author changed the choice.',kind:'discuss' as const,selected:false}];
+ vi.mocked(getWorkPlanRecord).mockResolvedValue({plan:{steps:rows,revision:4},sourceReferences:[]} as Awaited<ReturnType<typeof getWorkPlanRecord>>);
+ await captureWorkPlan(request,turn,conversation,2,'real-key','A plan.',proposed,proposed);
+ expect(vi.mocked(stagePlacement).mock.calls[1][3]).toEqual(rows);
+});

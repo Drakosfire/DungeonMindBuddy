@@ -10,6 +10,6 @@ export function SurfacePlanConstructionPreview({steps,status,onVisible,objective
  return <section className="surface-construction-preview" aria-label="Plan construction" aria-busy={status==='building'}>
   <small role="status">{status==='building'?'Planning…':'Incomplete · check the conversation'}</small>
   {objective?<p><strong>Expected outcome</strong><br/>{objective}</p>:null}
-  <ol>{steps.map((row,index)=><li key={index}><span aria-hidden="true">☐ </span>{row.text} <small>{row.kind==='discuss'?'Discuss':'Prepare an insertion'}</small></li>)}</ol>
+  <ol>{steps.map((row,index)=><li key={index}><span aria-hidden="true">{'selected' in row&&row.selected?'☑ ':'☐ '}</span>{row.text} <small>{row.kind==='discuss'?'Discuss':'Prepare an insertion'}</small></li>)}</ol>
  </section>;
 }

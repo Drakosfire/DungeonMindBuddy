@@ -531,7 +531,7 @@ def test_scope_upgrade_preserves_payloads_and_fences_previous_reader(case, appli
     command.downgrade(cli.alembic_config(), '20261025_0073')
     assert cli._read_current_revision(application_state_dsn) == '20261025_0073'
     cli.upgrade_to_head(dsn=application_state_dsn)
-    assert cli._read_current_revision(application_state_dsn) == '20261026_0074'
+    assert cli._read_current_revision(application_state_dsn) == cli._alembic_head()
     assert retained_rows() == before
     monkeypatch.setattr(cli, '_alembic_head', lambda: '20261025_0073')
     with pytest.raises(ApplicationStateMigrationError):

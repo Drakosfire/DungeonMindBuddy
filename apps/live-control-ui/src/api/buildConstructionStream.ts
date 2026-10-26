@@ -13,7 +13,7 @@ interface BuildPlanProgressBase {
   working_snapshot_sha256:string; provider_attempt_id:string; sequence:number; status:'building'|'incomplete';
   steps:{text:string;kind:'discuss'|'prepare_insertion'}[];
 }
-export type BuildPlanConstructionProgress=BuildPlanProgressBase&({schema:'dmb_build_plan_construction_v1'}|{schema:'dmb_build_plan_construction_v2';objective:string|null});
+export type BuildPlanConstructionProgress=BuildPlanProgressBase&({schema:'dmb_build_plan_construction_v1'}|{schema:'dmb_build_plan_construction_v2';objective:string|null}|{schema:'dmb_build_plan_construction_v3';objective:string|null;steps:{text:string;kind:'discuss'|'prepare_insertion';selected:boolean}[]});
 export type BuildObjectConstructionProgress=BuildConstructionProgress|BuildPlanConstructionProgress;
 export const constructionPlacementId=(p:BuildObjectConstructionProgress)=>p.schema==='dmb_build_construction_v1'?p.action_id:p.placement_id;
 const exact=(v:object,keys:string[])=>Object.keys(v).length===keys.length&&keys.every(k=>Object.hasOwn(v,k));
@@ -46,21 +46,21 @@ export async function readBuildConstructionStream(response:Response, request:Wor
   let previousSteps:BuildPlanConstructionProgress['steps']=[];let incomplete=false;let previousObjective:string|null=null;
   function progress(value:unknown){
     if(!capability||!value||typeof value!=='object')return;
-    if(['dmb_build_plan_construction_v1','dmb_build_plan_construction_v2'].includes(String((value as {schema?:string}).schema))){
+    if(['dmb_build_plan_construction_v1','dmb_build_plan_construction_v2','dmb_build_plan_construction_v3'].includes(String((value as {schema?:string}).schema))){
       const p=value as BuildPlanConstructionProgress;
-      if(!workingHash||!exact(p,['schema','placement_id','basis','world_id','conversation_id','client_turn_id','durable_turn_id','turn_attempt','working_snapshot_sha256','provider_attempt_id','sequence','status','steps',...(p.schema==='dmb_build_plan_construction_v2'?['objective']:[])])
+      if(!workingHash||!exact(p,['schema','placement_id','basis','world_id','conversation_id','client_turn_id','durable_turn_id','turn_attempt','working_snapshot_sha256','provider_attempt_id','sequence','status','steps',...(p.schema!=='dmb_build_plan_construction_v1'?['objective']:[])])
         ||p.placement_id!==capability.idempotency_key||p.world_id!==request.owner_scope.world_id
         ||p.conversation_id!==capability.conversation_id||p.client_turn_id!==request.turn_id
         ||!uuid(p.durable_turn_id)||!uuid(p.provider_attempt_id)||!Number.isSafeInteger(p.turn_attempt)||p.turn_attempt<1
         ||p.working_snapshot_sha256!==workingHash||stable(p.basis)!==stable(capability.basis)
         ||!Number.isSafeInteger(p.sequence)||p.sequence<=sequence||!['building','incomplete'].includes(p.status)
-        ||!Array.isArray(p.steps)||p.steps.some(row=>!row||typeof row!=='object'||!exact(row,['text','kind'])||typeof row.text!=='string'||!row.text.trim()||!['discuss','prepare_insertion'].includes(row.kind))
-        ||p.schema==='dmb_build_plan_construction_v2'&&(!(p.objective===null||typeof p.objective==='string'&&!!p.objective.trim())||p.objective===null&&p.steps.length>0||previousObjective!==null&&p.objective!==previousObjective)
+        ||!Array.isArray(p.steps)||p.steps.some(row=>!row||typeof row!=='object'||!exact(row,p.schema==='dmb_build_plan_construction_v3'?['text','kind','selected']:['text','kind'])||p.schema==='dmb_build_plan_construction_v3'&&(!('selected' in row)||typeof row.selected!=='boolean')||typeof row.text!=='string'||!row.text.trim()||!['discuss','prepare_insertion'].includes(row.kind))
+        ||p.schema!=='dmb_build_plan_construction_v1'&&(!(p.objective===null||typeof p.objective==='string'&&!!p.objective.trim())||p.objective===null&&p.steps.length>0||previousObjective!==null&&p.objective!==previousObjective)
         ||p.steps.length<previousSteps.length||stable(p.steps.slice(0,previousSteps.length))!==stable(previousSteps)
         ||incomplete&&p.status!=='incomplete')return;
       const next=stable([p.schema,p.placement_id,p.durable_turn_id,p.turn_attempt,p.provider_attempt_id,p.working_snapshot_sha256]);
       if(identity!==null&&identity!==next)return;
-      identity=next;sequence=p.sequence;if(p.schema==='dmb_build_plan_construction_v2')previousObjective=p.objective;previousSteps=p.steps.map(row=>({...row}));incomplete=p.status==='incomplete';
+      identity=next;sequence=p.sequence;if(p.schema!=='dmb_build_plan_construction_v1')previousObjective=p.objective;previousSteps=p.steps.map(row=>({...row}));incomplete=p.status==='incomplete';
       try{onProgress(p);}catch{/* Observation cannot change the final receipt. */}
       return;
     }

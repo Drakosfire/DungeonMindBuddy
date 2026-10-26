@@ -208,3 +208,13 @@ it('decodes neutral and object-only intentional replies without widening histori
  expect(isBuildSourceCompletion({...value,answer_segments:[{kind:'saved_source_claim',text:'A fact.',content_sha256:'b'.repeat(64)}]},'a'.repeat(64),'b'.repeat(64),'world')).toBe(false);
  expect(isBuildSourceCompletion({...value,answer_segments:[{kind:'connective',text:'Ready.'}],collaboration:null},'a'.repeat(64),'b'.repeat(64),'world')).toBe(true);
 });
+
+it('requires explicit boolean choices in new completions without rewriting retained plans',()=>{
+ const value={schema:'dmb_build_intentional_response_completion_v3',context_receipt_sha256:'a'.repeat(64),answer_basis:'conversation',answer_context_status:'discussion',answer_segments:[],citation_map:null,source_citations:[],collaboration:{kind:'plan',objective:'Discuss first; defer writing.',steps:[{text:'Discuss first.',kind:'discuss',selected:true},{text:'Write later.',kind:'prepare_insertion',selected:false}]}};
+ const valid=(v:unknown)=>isBuildSourceCompletion(v,'a'.repeat(64),'b'.repeat(64),'world');
+ expect(valid(value)).toBe(true);
+ for(const selected of [undefined,null,'false',0,1])expect(valid({...value,collaboration:{...value.collaboration,steps:[{...value.collaboration.steps[1],selected}]}})).toBe(false);
+ const historical={...value,schema:'dmb_build_intentional_response_completion_v2',collaboration:{...value.collaboration,steps:value.collaboration.steps.map(({selected,...row})=>row)}};
+ const before=JSON.stringify(historical);expect(valid(historical)).toBe(true);expect(JSON.stringify(historical)).toBe(before);
+ expect(valid({...value,schema:'dmb_build_intentional_response_completion_v2'})).toBe(false);
+});

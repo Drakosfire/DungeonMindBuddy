@@ -15,6 +15,7 @@ from application_state.agent_conversation.source_writer_output import validate_w
 
 @pytest.fixture
 def primary_review(build_case,monkeypatch,tmp_path,request):
+    selected = getattr(request,"param",None)=="selected"
     aliased = getattr(request,"param",None)=="aliased"
     if aliased:
         from hashlib import sha256
@@ -40,14 +41,17 @@ def primary_review(build_case,monkeypatch,tmp_path,request):
                 assert 'use that body with the saved row' in wire['instructions']
                 assert 'Never use working_draft_context as a saved origin' not in wire['instructions']
             assert packet[origins.KEY]==origins.POLICY
-            assert wire['text']['format']['name']==origins.FORMAT
+            assert wire['text']['format']['name']==('build_intentional_plan_selection_answer_v1' if selected else origins.FORMAT)
+            if selected:
+                assert packet['plan_output_contract']['kind']=='build_plan_output_contract_v2'
+                assert wire['text']['format']['schema']['$defs']['ProposedStepV2']['required']==['text','kind','selected']
             assert primary['read_id'] in wire['text']['format']['schema']['$defs']['ProposedConnectedPage']['properties']['read_id']['enum']
             data=response.json();body=json.loads(data['output'][0]['content'][0]['text'])
             body['collaboration'].update(read_id=primary['read_id'],quote=primary['text'])
             data['output'][0]['content'][0]['text']=json.dumps(body)
             return httpx.Response(200,request=request,json=data)
     monkeypatch.setattr(cases,'PagesWriter',PrimaryWriter)
-    return cases.completed.__wrapped__(build_case,monkeypatch,tmp_path,SimpleNamespace(param='connected_page'))
+    return cases.completed.__wrapped__(build_case,monkeypatch,tmp_path,SimpleNamespace(param='connected_page_cap' if selected else 'connected_page'))
 
 
 def parts(value):
@@ -170,4 +174,23 @@ def test_primary_saved_origin_uses_exact_body_alias_through_sdk_app(primary_revi
     origin=open_origin(service,turn.world_id,turn.turn_id)['origin']
     assert origin['document_id']==turn.provenance.primary_work.object_id
     assert turn.completion.collaboration.quote in origin['selected_text']
+    assert service.inspect_turn(world_id=turn.world_id,turn_id=turn.turn_id)==turn
+
+
+@pytest.mark.parametrize('primary_review',['selected'],indirect=True)
+def test_selection_contract_composes_with_actual_primary_origin_sdk_app(primary_review):
+    from apps.live_control_server.services.agent_connected_page_origin import open_origin
+    turn,service,_=parts(primary_review)
+    assert turn.completion.schema_=='dmb_build_intentional_response_completion_v3'
+    packet=json.loads(primary_review[5].staged.input_json)
+    from application_state.agent_conversation.build_intentional_response import output_schema
+    fmt={'type':'json_schema','name':'build_intentional_plan_selection_answer_v1','strict':True,'schema':output_schema(packet)}
+    validate_writer_format(fmt,packet)
+    for mutate in ('missing_marker','old_format','missing_selected'):
+        changed=deepcopy(packet);changed_format=deepcopy(fmt)
+        if mutate=='missing_marker':changed.pop('plan_output_contract')
+        elif mutate=='old_format':changed_format['name']=origins.FORMAT
+        else:changed_format['schema']['$defs']['ProposedStepV2']['required'].remove('selected')
+        with pytest.raises(ValueError):validate_writer_format(changed_format,changed)
+    assert open_origin(service,turn.world_id,turn.turn_id)['origin']['document_id']==turn.provenance.primary_work.object_id
     assert service.inspect_turn(world_id=turn.world_id,turn_id=turn.turn_id)==turn

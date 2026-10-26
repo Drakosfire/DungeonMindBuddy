@@ -1972,6 +1972,19 @@ class BuildRelationshipReviewCompletionV2(BuildRelationshipReviewCompletionV1):
     collaboration: RelationshipCollaborationV2 | None
 
 
+from .relationship_review import RelationshipCollaborationV3
+
+
+class BuildIntentionalResponseCompletionV3(BuildIntentionalResponseCompletionV2):
+    schema_: Literal['dmb_build_intentional_response_completion_v3'] = Field(default='dmb_build_intentional_response_completion_v3', alias='schema')
+    collaboration: RelationshipCollaborationV3 | None
+
+
+class BuildRelationshipReviewCompletionV3(BuildRelationshipReviewCompletionV2):
+    schema_: Literal['dmb_build_relationship_review_completion_v3'] = Field(default='dmb_build_relationship_review_completion_v3', alias='schema')
+    collaboration: RelationshipCollaborationV3 | None
+
+
 class BuildRelatedPageCompletionV1(BuildDraftContextCompletionV1):
     schema_: Literal["dmb_build_related_page_completion_v1"] = Field(default="dmb_build_related_page_completion_v1",alias="schema")
 
@@ -2163,7 +2176,7 @@ class SurfaceEvidenceCompletionV3(SurfaceEvidenceCompletionV2):
         max_length=MAX_CITATION_SOURCE_READ_IDS)
 
 
-GraphTurnCompletion = BuildIntentionalResponseCompletionV2 | BuildRelationshipReviewCompletionV2 | BuildIntentionalResponseCompletionV1 | BuildRelationshipReviewCompletionV1 | BuildConnectedPageReviewCompletionV1 | BuildCollaborationCompletionV1 | BuildRelatedPageCompletionV1 | BuildDraftContextCompletionV1 | BuildNamedGraphCompletionV3 | SurfaceEvidenceCompletionV3 | SurfaceEvidenceCompletionV2 | SurfaceEvidenceCompletionV1 | SurfaceSourceCompletionV1 | PlayWorldGraphCompletionV1 | PlanWorldGraphCompletion | BuildGraphCompletionV1 | BuildGraphCompletionV2 | BuildAuthoringCompletionV1 | BuildImagePreparationCompletionV1
+GraphTurnCompletion = BuildIntentionalResponseCompletionV3 | BuildRelationshipReviewCompletionV3 | BuildIntentionalResponseCompletionV2 | BuildRelationshipReviewCompletionV2 | BuildIntentionalResponseCompletionV1 | BuildRelationshipReviewCompletionV1 | BuildConnectedPageReviewCompletionV1 | BuildCollaborationCompletionV1 | BuildRelatedPageCompletionV1 | BuildDraftContextCompletionV1 | BuildNamedGraphCompletionV3 | SurfaceEvidenceCompletionV3 | SurfaceEvidenceCompletionV2 | SurfaceEvidenceCompletionV1 | SurfaceSourceCompletionV1 | PlayWorldGraphCompletionV1 | PlanWorldGraphCompletion | BuildGraphCompletionV1 | BuildGraphCompletionV2 | BuildAuthoringCompletionV1 | BuildImagePreparationCompletionV1
 
 
 class GraphCompletionRejectionCode(str, Enum):
@@ -3961,7 +3974,7 @@ def validate_graph_execution_record(execution, *, dynamic_source_scope: bool, al
                 RelatedRecapContextProviderInclusionEventV2,
                 RelatedPagesSelection, RelatedPageRead, RelatedPageInclusion, BuildAuthoredReferencesCapturedV1, BuildAuthoredReferenceAuthorizedV1, BuildAuthoredReferenceReadV1, BuildAuthoredProviderInclusionV1, BuildDraftContextCapturedV1, BuildDraftProviderInclusionV1, BuildSectionReadAuthorizationV1, ValidatedBuildSectionReadV1, BuildWorldReadSelectionV1,
                 BuildSectionProviderInclusionV1, BuildSectionAnswerBindingV1,
-                BuildJevActionSelectionV1, BuildReviewedActionSelectionV1, BuildPlanOutputContractV1, BuildWriterEvidenceSelectionV1, PlanJevRetrievalSelectionV1,
+                BuildJevActionSelectionV1, BuildReviewedActionSelectionV1, BuildPlanOutputContractV1, BuildPlanOutputContractV2, BuildWriterEvidenceSelectionV1, PlanJevRetrievalSelectionV1,
             ),
         ):
             continue
@@ -4222,6 +4235,11 @@ class BuildPlanOutputContractV1(GraphExecutionEventBaseV1):
     plan_schema_sha256: str = Field(pattern=r'^[a-f0-9]{64}$')
 
 
+class BuildPlanOutputContractV2(BuildPlanOutputContractV1):
+    kind: Literal['build_plan_output_contract_v2']
+    policy: Literal['typed_plan_selection_v1']
+
+
 class BuildWriterEvidenceSelectionV1(GraphExecutionEventBaseV1):
     kind: Literal["build_writer_evidence_selection_v1"]
     policy: Literal["source_unit_selection_event_closure_v1"]
@@ -4278,7 +4296,7 @@ GraphExecutionEventV3 = Annotated[
     | RelatedRecapContextProviderInclusionEventV2
     | BuildAuthoredReferencesCapturedV1 | BuildAuthoredReferenceAuthorizedV1 | BuildAuthoredReferenceReadV1 | BuildAuthoredProviderInclusionV1 | RelatedPagesSelection | RelatedPageRead | RelatedPageInclusion | BuildDraftContextCapturedV1 | BuildDraftProviderInclusionV1 | BuildSectionReadAuthorizationV1 | ValidatedBuildSectionReadV1
     | BuildSectionProviderInclusionV1 | BuildSectionAnswerBindingV1 | BuildRequestedWorkResolutionV1 | BuildJevActionSelectionV1 | BuildReviewedActionSelectionV2 | BuildReviewedActionSelectionV1 | BuildWorldReadSelectionV1
-    | BuildPlanOutputContractV1 | BuildWriterEvidenceSelectionV1 | PlanJevRetrievalSelectionV1 | NativeSourceNavigationAuthorizedV1 | NativeSourceCatalogObservedV1
+    | BuildPlanOutputContractV1 | BuildPlanOutputContractV2 | BuildWriterEvidenceSelectionV1 | PlanJevRetrievalSelectionV1 | NativeSourceNavigationAuthorizedV1 | NativeSourceCatalogObservedV1
     | NativeSourceSectionAuthorizedV1 | NativeSourceSectionObservedV1 | NativeSourceProviderInclusionV1,
     Field(discriminator="kind"),
 ]

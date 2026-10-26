@@ -322,6 +322,8 @@ class WriterProjection:
             "Keep missing World evidence separate; do not declare this supplied page unavailable.\n") if primary else ""
         from application_state.agent_conversation.reviewed_action import SCOPE_KEY, SCOPE_FORMAT, SCOPE_GUIDANCE
         scoped = SCOPE_KEY in packet
+        from application_state.agent_conversation.plan_objective import selection_packet, INTENTIONAL_SELECTION_FORMAT, REVIEWED_SELECTION_FORMAT, SELECTION_GUIDANCE
+        selected_output = selection_packet(packet)
         return {
             "model": MODEL,
             "input": self.input_json,
@@ -330,13 +332,13 @@ class WriterProjection:
             if self.source_only
             else SOURCE_INSTRUCTIONS
             if self.has_saved_sections
-            else INSTRUCTIONS) + primary_instructions + (SCOPE_GUIDANCE if scoped else "") + (collaboration_instructions if collaboration else "") + (connected_instructions if connected else "") + (RELATIONSHIP_INSTRUCTIONS if relationship else "") + qualification_instructions + quote_instructions + (intentional.WRITER_GUIDANCE if intentional_output else '') + ('\nFor every plan, supply a readable objective stating its expected outcome before the steps. It describes intended success, not completed work. Do not repeat it as a step.\n' if objective_output else ''),
+            else INSTRUCTIONS) + primary_instructions + (SELECTION_GUIDANCE if selected_output else "") + (SCOPE_GUIDANCE if scoped else "") + (collaboration_instructions if collaboration else "") + (connected_instructions if connected else "") + (RELATIONSHIP_INSTRUCTIONS if relationship else "") + qualification_instructions + quote_instructions + (intentional.WRITER_GUIDANCE if intentional_output else '') + ('\nFor every plan, supply a readable objective stating its expected outcome before the steps. It describes intended success, not completed work. Do not repeat it as a step.\n' if objective_output else ''),
             "max_output_tokens": OUTPUT_RESERVE,
             "reasoning": {"effort": "low"},
             "text": {
                 "format": mixed_format or {
                     "type": "json_schema",
-                    "name": SCOPE_FORMAT if scoped else ORIGIN_FORMAT if ORIGIN_KEY in packet else (INTENTIONAL_FORMAT if intentional_output else REVIEWED_FORMAT) if objective_output else intentional.FORMAT if intentional_output else "build_working_draft_answer_v5" if relationship else QUOTE_FORMAT if quoted else "build_working_draft_answer_v3" if connected else "build_working_draft_answer_v2" if collaboration else "build_working_draft_answer_v1" if draft_context else GAP_SCHEMA_NAME if cited else "build_source_passage_answer",
+                    "name": SCOPE_FORMAT if scoped else (INTENTIONAL_SELECTION_FORMAT if intentional_output else REVIEWED_SELECTION_FORMAT) if selected_output else ORIGIN_FORMAT if ORIGIN_KEY in packet else (INTENTIONAL_FORMAT if intentional_output else REVIEWED_FORMAT) if objective_output else intentional.FORMAT if intentional_output else "build_working_draft_answer_v5" if relationship else QUOTE_FORMAT if quoted else "build_working_draft_answer_v3" if connected else "build_working_draft_answer_v2" if collaboration else "build_working_draft_answer_v1" if draft_context else GAP_SCHEMA_NAME if cited else "build_source_passage_answer",
                     "schema": intentional.output_schema(packet) if intentional_output else finite_output_schema(json.loads(self.input_json), requested_detail_gaps=True) if cited else source_answer_schema(),
                     "strict": True,
                 }

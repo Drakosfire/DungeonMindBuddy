@@ -21,6 +21,6 @@ export async function captureWorkPlan(request:WorldBuildAgentTurnRequestV1,turn:
   source_answer_sha256:await placementDigest(answer),title:'Work plan'};
  const record=await getWorkPlanRecord({worldId:reference.world_id,documentId:reference.document_id,conversationId,turnId:turn.turn_id,sourceSha256:reference.source_answer_sha256});
  const saved=record.plan,roots=saved?.schema==='dmb_reviewed_work_plan_v3'?saved.root_references:record.sourceReferences.length?record.sourceReferences:undefined;
- const rows:WorkStep[]=saved?.steps??collaboration.steps.map(step=>({...step,step_id:crypto.randomUUID(),selected:true}));
+ const rows:WorkStep[]=saved?.steps??collaboration.steps.map(step=>({...step,step_id:crypto.randomUUID(),selected:'selected' in step?step.selected:true}));
  return stagePlacement(reference,cap.basis,pointerRevision,rows,saved?.revision??0,localStorage,navigator.locks,saved?planObjective(saved):'objective' in collaboration?collaboration.objective:'',roots);
 }
