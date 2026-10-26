@@ -2291,6 +2291,7 @@ class _PolicyExecutionAdapter:
                     provider_attempt_id=provider_attempt_id, envelope_sha256=view['payloadSha256'], material_sha256=material_sha)
                 self.turn = _require_fresh_execution_append(self.fence.append('record_build_authored_reference', 'event', inclusion,
                     prepared_request_json=view['payloadJson']))
+                self.context_capture.authored_reference(inclusion)
                 execution = self._broker_execution()
             if self.budget.get("apiMode") == "typesafe_decision":
                 section_state = json.loads(body["input"]) if writing else body.get("state", {})

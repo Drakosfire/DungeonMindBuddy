@@ -1,4 +1,4 @@
-import type { BuddyTraceObservation, BuddyTurnContextTrace } from '../../api/buddyContextTraceTypes'
+import type { BuddyTraceObservation, BuddyTurnContextTrace, BuddyAuthoredTraceEvent } from '../../api/buddyContextTraceTypes'
 import { traceCostEstimate } from './traceCostEstimate'
 
 export function traceSnapshotLabel(event: Extract<BuddyTraceObservation, {kind: 'context_snapshot'}>): string {
@@ -10,8 +10,18 @@ export function traceSnapshotLabel(event: Extract<BuddyTraceObservation, {kind: 
     : `Working context · ${event.stage} this turn`
 }
 
+export function authoredTraceLabel(event:BuddyAuthoredTraceEvent):string {
+ switch(event.kind){
+  case 'build_authored_references_captured_v1':return 'Graph references · selected, unread';
+  case 'build_authored_reference_authorized_v1':return 'Graph reference · read authorized';
+  case 'build_authored_reference_read_v1':return event.outcome==='read'?'Graph reference · read':event.outcome==='read_partial'?'Graph reference · partial read':'Graph reference · source gap';
+  case 'build_authored_provider_inclusion_v1':return 'Graph references · prepared writer input';
+ }
+}
+
 function describe(event: BuddyTraceObservation): string {
   switch (event.kind) {
+    case 'authored_graph_reference_v1': return `${authoredTraceLabel(event.execution_event)}\n   Recorded APP event: ${event.execution_event.event_id}${'node_id' in event.execution_event?` · ${event.execution_event.node_id}`:''}`;
     case 'failure': return `${event.phase === 'trace_capture' ? 'Trace capture incomplete' : 'Execution failed'} · ${event.code}\n   Stage: ${event.stage ?? event.phase}${event.exception_type ? ` · ${event.exception_type}` : ''}${event.diagnostic_id ? `\n   Private diagnostic: ${event.diagnostic_id}` : ''}`
     case 'provider_call': {
       const cost = traceCostEstimate(event)

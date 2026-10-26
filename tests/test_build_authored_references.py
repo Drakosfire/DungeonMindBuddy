@@ -58,6 +58,14 @@ def test_authored_object_reaches_one_authoring_writer_with_durable_input_proof(b
     assert len(proofs) == 1 and proofs[0].source_read_event_ids
     assert proofs[0].provider_attempt_id == completion.provider_attempt_id
     assert proofs[0].envelope_sha256 == completion.envelope_sha256
+    from application_state.agent_conversation.context_trace import TraceAuthoredGraphReferenceV1
+    traces = service.list_context_trace_attempts(world_id=turn.world_id, turn_id=turn.turn_id)
+    observed = [item.execution_event for trace in traces for item in trace.observations if isinstance(item, TraceAuthoredGraphReferenceV1)]
+    actual = [item for item in execution.events if isinstance(item, (t.BuildAuthoredReferencesCapturedV1,
+        t.BuildAuthoredReferenceAuthorizedV1,t.BuildAuthoredReferenceReadV1,t.BuildAuthoredProviderInclusionV1))]
+    assert observed == actual
+    assert len(observed) == 4
+
 
 
 @pytest.mark.parametrize('mutation', ['source_text', 'missing_context'])
@@ -130,3 +138,25 @@ def test_missing_origin_retains_selected_input_without_authorizing_a_provider(bu
         context = retry.context(conn, turn, active=True)
     assert context['schema'] == 'dmb_turn_retry_context_row_v2'
     assert context['authored_references'] == captures[0].references.model_dump(mode='json', by_alias=True)
+
+
+@pytest.mark.parametrize('mutation', ['altered', 'duplicate', 'prior_attempt'])
+def test_trace_readback_refuses_authored_events_not_equal_to_the_immutable_ledger(build_case, monkeypatch, tmp_path, application_state_dsn, mutation):
+    import psycopg
+    from psycopg.types.json import Jsonb
+    from application_state.errors import ApplicationStateValidationError
+    case, _ = referenced_case(build_case, monkeypatch)
+    decisions=WorldDecisions();decisions.operation='propose_build_insertion'
+    response=execute(case,tmp_path,BuildJevHarness(world_context=True,named_citations=True,related_pages=True,
+        accounting=counter(),decision_transport=decisions,writer_transport=WriterWire()),operator_subject='local_operator')
+    service=AgentConversationService();turn=service.list_turns('elderwyld',response.conversation.conversation_id)[0]
+    trace=service.list_context_trace_attempts(world_id=turn.world_id,turn_id=turn.turn_id)[0]
+    payload=trace.model_dump(mode='json',by_alias=True)
+    observation=next(item for item in payload['observations'] if item['kind']=='authored_graph_reference_v1' and item['execution_event']['kind']=='build_authored_reference_authorized_v1')
+    if mutation=='altered':observation['execution_event']['arguments_sha256']='f'*64
+    elif mutation=='prior_attempt':payload['execution_start_sequence']=observation['execution_event']['sequence']+1
+    else:payload['observations'].append({**observation,'sequence':len(payload['observations']),'elapsed_ms':payload['observations'][-1]['elapsed_ms']})
+    with psycopg.connect(application_state_dsn) as conn:
+        conn.execute('UPDATE agent.turn_context_trace SET payload=%s WHERE turn_id=%s AND attempt=%s',(Jsonb(payload),turn.turn_id,trace.attempt))
+    with pytest.raises(ApplicationStateValidationError,match='exact turn ledger|already has an observation|predates this physical attempt'):
+        service.list_context_trace_attempts(world_id=turn.world_id,turn_id=turn.turn_id)

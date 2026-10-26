@@ -311,3 +311,18 @@ it('does not compare unrelated compaction pairs', () => {
 it('copies response meaning without relabeling it as an input inventory', () => {
   expect(buddyTraceText(trace([{kind:'context_snapshot',snapshot_kind:'provider_response',stage:'after',sequence:0,elapsed_ms:0,materials:[]}]))).toContain('Provider response · unvalidated · 0 captured material items')
 })
+
+it.each(['read','read_partial','source_gap'] as const)('renders and copies the exact authored acquisition state: %s',outcome=>{
+ const event={kind:'authored_graph_reference_v1' as const,sequence:0,elapsed_ms:2,execution_event:{kind:'build_authored_reference_read_v1' as const,event_id:'recorded-event',sequence:8,capture_event_id:'capture',authorization_event_id:'authorization',node_id:'cedar-box',operation_event_ids:['object-read'],source_read_event_ids:['source-read'],returned_node_ids:['cedar-box'],outcome}};
+ const captured=trace([event]);render(<BuddyContextTrace ownerActive trace={captured}/>);
+ expect(screen.getByText(outcome==='read'?'Graph reference · read':outcome==='read_partial'?'Graph reference · partial read':'Graph reference · source gap')).toBeInTheDocument();
+ expect(screen.getByText(/This status does not establish a claim/)).toBeInTheDocument();
+ const copied=buddyTraceText(captured);expect(copied).toContain('Recorded APP event: recorded-event · cedar-box');expect(copied).toContain('source-read');expect(copied).toContain(outcome);
+});
+it('keeps selected unread references and prepared writer input distinct from provider transmission',()=>{
+ const selected={kind:'authored_graph_reference_v1' as const,sequence:0,elapsed_ms:0,execution_event:{kind:'build_authored_references_captured_v1' as const,event_id:'selected',sequence:1,references:{schema:'dmb_authored_graph_references_v1' as const,references:[{schema:'dmb_authored_graph_reference_v1' as const,managed_world_id:'world',native_world_id:'native',binding_version:1,graph_revision:'selected-revision',node_id:'cedar-box',label:'Cedar box'}]},read_graph_revision:'current-revision',turn_id:'turn',conversation_id:'conversation',attempt:1,submitted_intent_fingerprint:'a'.repeat(64)}};
+ const prepared={kind:'authored_graph_reference_v1' as const,sequence:1,elapsed_ms:2,execution_event:{kind:'build_authored_provider_inclusion_v1' as const,event_id:'prepared',sequence:9,capture_event_id:'selected',references_sha256:'a'.repeat(64),source_read_event_ids:['source'],provider_attempt_id:'writer-attempt',envelope_sha256:'b'.repeat(64),material_sha256:'c'.repeat(64)}};
+ const captured=trace([selected,prepared]);render(<BuddyContextTrace ownerActive trace={captured}/>);
+ expect(screen.getByText('Graph references · selected, unread')).toBeInTheDocument();expect(screen.getByText('Graph references · prepared writer input')).toBeInTheDocument();expect(screen.getByText(/See provider lifecycle records for transmission and response/)).toBeInTheDocument();
+ expect(buddyTraceText(captured)).toContain('writer-attempt');expect(buddyTraceText(captured)).toContain('current-revision');expect(screen.queryByText('response_received')).toBeNull();
+});

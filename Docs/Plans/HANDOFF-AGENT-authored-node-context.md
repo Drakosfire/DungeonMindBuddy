@@ -507,3 +507,42 @@ or execution authority. Unknown outcomes stay pending. Preserve newer empty/ABA 
 Malformed composer-reference recovery is an explicit author action: retain exact raw
 bytes in a scoped immutable receipt, verify, then replace only the unchanged malformed
 copy with empty references. Do not change message text. Storage failure retains work.
+
+
+### Typed authored-reference observations — owner extension
+
+Independent critique clears one non-authoritative trace variant wrapping only the
+four existing BuildAuthored capture/authorization/read/provider-inclusion event types.
+Validate complete event equality (UUID/kind/sequence/all fields) against the exact
+turn ledger on append and readback. Reject missing/foreign/altered/unknown events and
+duplicate event IDs at different trace sequences; exact same-sequence replay stays
+idempotent. Bind outer World/conversation/turn/attempt to the stored trace row. Capture
+may predate trace start; membership, not execution_start_sequence, owns its validity.
+Emit after APP append returns. Preserve committed APP authority on capture failure;
+known trace admission/capacity failure marks incomplete, existing claim/transport
+fencing still propagates. Observation is never rollback, evidence or action authority.
+Label inclusion Prepared writer input; only provider lifecycle records transmission.
+Read, partial and source gap stay distinct. Export exact metadata, no source bodies.
+Extend the exact write lease to:
+- `src/application_state/agent_conversation/context_trace.py`
+- `src/application_state/agent_conversation/context_trace_store.py`
+- `tests/test_agent_context_trace_types.py`
+- `tests/application_state/test_agent_conversation_context_trace_postgres.py`
+- `tests/test_agent_context_trace_collector.py`
+- `apps/live-control-ui/src/planSurface/components/buddyTraceText.ts`
+- `apps/live-control-ui/src/planSurface/components/BuddyContextTrace.test.tsx`
+No new table, endpoint, source store, executor, arbitrary limit or historical policy.
+
+The exhaustive live activity consumer also requires this independently cleared extension:
+- `apps/live-control-ui/src/planSurface/components/BuddyActivity.tsx`
+- `apps/live-control-ui/src/planSurface/components/BuddyActivity.test.tsx`
+Use the existing exact turn inspection owner, unchanged ordering/dedup/polling. Selection
+is unread, authorization does not mean read completion, partial/source gap are not
+complete, and prepared input is not a provider arrival. Cover all four types and gaps.
+
+Independent critique also requires authorization/read/inclusion observations to have
+ledger sequences at or after execution_start_sequence on append and readback. Exact
+same-turn membership cannot make earlier physical work current. Capture stays exempt.
+A current inclusion may retain earlier immutable source provenance without replaying
+the old activity. Same-turn reclaimed acquisition currently risks duplicate APP
+authorization/read events; resolve and prove that execution-resume gate before adoption.

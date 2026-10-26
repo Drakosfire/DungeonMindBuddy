@@ -124,3 +124,60 @@ def test_historical_material_is_exclusive_and_legacy_serialization_is_unchanged(
                       {"source_read_event_id": uuid4(), "source_reads": [{"source_read_id": "current", "content_sha256": "a" * 64}]}):
         with pytest.raises(ValidationError, match="present source material"):
             TraceContextMaterial.model_validate({**material.model_dump(mode="python"), **overrides})
+
+
+def _authored_trace_fixture():
+    from datetime import datetime, UTC
+    from application_state.agent_conversation import types as t
+    from application_state.agent_conversation.authored_graph_references import AuthoredGraphReferencesV1
+    from application_state.agent_conversation.context_trace import TraceAuthoredGraphReferenceV1, TurnContextTraceV1
+    captured = t.BuildAuthoredReferencesCapturedV1(kind='build_authored_references_captured_v1', event_id=uuid4(), sequence=0,
+        references=AuthoredGraphReferencesV1(references=()), read_graph_revision='revision', turn_id=uuid4(), conversation_id=uuid4(), attempt=1, submitted_intent_fingerprint='a'*64)
+    trace = TurnContextTraceV1(trace_id=uuid4(), world_id='world', conversation_id=captured.conversation_id,
+        turn_id=captured.turn_id, attempt=1, started_at=datetime.now(UTC), execution_start_sequence=4, observations=[])
+    observation = TraceAuthoredGraphReferenceV1(sequence=0, elapsed_ms=1, execution_event=captured)
+    return captured, trace, observation
+
+
+def test_authored_trace_accepts_only_its_closed_event_subset_and_exact_ledger_membership():
+    from application_state.agent_conversation.context_trace import TraceAuthoredGraphReferenceV1
+    from application_state.agent_conversation.context_trace_store import validate_authored_reference_observation
+    captured, trace, observation = _authored_trace_fixture()
+    ledger = {'events': [captured.model_dump(mode='json', by_alias=True)]}
+    # The capture can precede this physical trace's execution start.
+    validate_authored_reference_observation(observation, ledger, trace)
+    validate_authored_reference_observation(observation, ledger, trace.model_copy(update={'observations':[observation]}))
+    with pytest.raises(ApplicationStateValidationError, match='already has an observation'):
+        validate_authored_reference_observation(observation.model_copy(update={'sequence':1}), ledger, trace.model_copy(update={'observations':[observation]}))
+    for changed in ({'sequence':9}, {'event_id':uuid4()}, {'read_graph_revision':'different'}, {'submitted_intent_fingerprint':'b'*64}):
+        invalid=observation.model_copy(update={'execution_event':captured.model_copy(update=changed)})
+        with pytest.raises(ApplicationStateValidationError, match='exact turn ledger'):
+            validate_authored_reference_observation(invalid, ledger, trace)
+    with pytest.raises(ApplicationStateValidationError, match='exact turn ledger'):
+        validate_authored_reference_observation(observation, {'events':[{**ledger['events'][0], 'sequence':0.0}]}, trace)
+    with pytest.raises(ApplicationStateValidationError, match='another trace owner'):
+        validate_authored_reference_observation(observation, ledger, trace.model_copy(update={'turn_id':uuid4()}))
+    with pytest.raises(ValidationError):
+        TraceAuthoredGraphReferenceV1.model_validate({'kind':'authored_graph_reference_v1','sequence':0,'elapsed_ms':0,'execution_event':{'kind':'build_draft_provider_inclusion_v1'}})
+    with pytest.raises(ValidationError):
+        TraceAuthoredGraphReferenceV1.model_validate({**observation.model_dump(mode='json'),'source_body':'unrelated prose'})
+
+
+@pytest.mark.parametrize('kind', ['authorized', 'read', 'inclusion'])
+def test_authored_trace_rejects_prior_physical_work_but_accepts_start_boundary(kind):
+    from application_state.agent_conversation import types as t
+    from application_state.agent_conversation.context_trace import TraceAuthoredGraphReferenceV1
+    from application_state.agent_conversation.context_trace_store import validate_authored_reference_observation
+    captured, trace, _ = _authored_trace_fixture()
+    common = dict(event_id=uuid4(), sequence=trace.execution_start_sequence, capture_event_id=captured.event_id)
+    if kind == 'authorized':
+        event = t.BuildAuthoredReferenceAuthorizedV1(**common, kind='build_authored_reference_authorized_v1', node_id='node', arguments_sha256='a'*64)
+    elif kind == 'read':
+        event = t.BuildAuthoredReferenceReadV1(**common, kind='build_authored_reference_read_v1', node_id='node', authorization_event_id=uuid4(), operation_event_ids=[], source_read_event_ids=[], returned_node_ids=['node'], outcome='read')
+    else:
+        event = t.BuildAuthoredProviderInclusionV1(**common, kind='build_authored_provider_inclusion_v1', references_sha256='a'*64, source_read_event_ids=[], provider_attempt_id=uuid4(), envelope_sha256='b'*64, material_sha256='c'*64)
+    observation = TraceAuthoredGraphReferenceV1(sequence=0, elapsed_ms=1, execution_event=event)
+    validate_authored_reference_observation(observation, {'events':[event.model_dump(mode='json', by_alias=True)]}, trace)
+    old = event.model_copy(update={'sequence':trace.execution_start_sequence-1})
+    with pytest.raises(ApplicationStateValidationError, match='predates this physical attempt'):
+        validate_authored_reference_observation(observation.model_copy(update={'execution_event':old}), {'events':[old.model_dump(mode='json', by_alias=True)]}, trace)

@@ -117,6 +117,11 @@ class ContextTraceCollector:
             except ApplicationStateValidationError:
                 self._mark_incomplete_locked("trace_observation_rejected")
 
+    def authored_reference(self, event: Any) -> None:
+        """Observe only after its APP append; never create read/provider authority."""
+        self.observe({'kind': 'authored_graph_reference_v1',
+                      'execution_event': event.model_dump(mode='json', by_alias=True)})
+
     def capture_prompt(self, view: Mapping[str, Any], authorization: Any) -> None:
         """Commit an exact request reference or refuse dispatch; never best effort."""
         from .agent_prompt_evidence import store_prompt

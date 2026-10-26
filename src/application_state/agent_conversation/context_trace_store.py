@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from datetime import datetime
+import json
 from uuid import UUID
 
 from psycopg.types.json import Jsonb
@@ -15,6 +16,7 @@ from application_state.agent_conversation.context_trace import (
     TraceContextSnapshot,
     TraceHistoricalSourceReferenceV1,
     TraceGraphTool,
+    TraceAuthoredGraphReferenceV1,
     TraceSourcePassage,
     TracePromptReference,
     TurnContextTraceV1,
@@ -280,10 +282,12 @@ class TurnContextTraceStore:
             if row is None:
                 raise ApplicationStateNotFoundError("context trace was not started")
             trace = _load_trace(row[1])
-            if trace.trace_id != trace_id or trace.world_id != world_id:
+            if trace.trace_id != trace_id or trace.world_id != world_id or trace.conversation_id != conversation_id or trace.turn_id != turn_id or trace.attempt != attempt:
                 raise ApplicationStateConflictError("context trace identity changed")
             if trace.closed_at is not None:
                 raise ApplicationStateConflictError("context trace is already closed")
+            if isinstance(observation, TraceAuthoredGraphReferenceV1):
+                validate_authored_reference_observation(observation, turn[6], trace)
             if observation.sequence < len(trace.observations):
                 if trace.observations[observation.sequence] == observation:
                     return trace
@@ -412,15 +416,19 @@ class TurnContextTraceStore:
             if turn is None:
                 raise ApplicationStateNotFoundError("trace turn is unavailable in this World")
             rows = conn.execute(
-                "SELECT payload FROM agent.turn_context_trace "
+                "SELECT payload, attempt FROM agent.turn_context_trace "
                 "WHERE turn_id=%s ORDER BY attempt",
                 (turn_id,),
             ).fetchall()
         traces = [_load_trace(row[0]) for row in rows]
-        for trace in traces:
+        for trace, row in zip(traces, rows, strict=True):
+            if trace.attempt != row[1]:
+                raise ApplicationStateValidationError("stored trace attempt differs from its row")
             if trace.world_id != world_id or trace.turn_id != turn_id or trace.conversation_id != turn[1]:
                 raise ApplicationStateValidationError("stored trace binding differs from its turn")
             for observation in trace.observations:
+                if isinstance(observation, TraceAuthoredGraphReferenceV1):
+                    validate_authored_reference_observation(observation, turn[0], trace)
                 if isinstance(observation, TracePromptReference):
                     validate_prompt_authorization(observation, turn[0], trace.execution_start_sequence)
         return traces
@@ -536,3 +544,25 @@ def validate_prompt_authorization(observation: TracePromptReference, execution: 
         "envelope_sha256": observation.payload_sha256,
     }.items()):
         raise ApplicationStateValidationError("prompt reference differs from this attempt's durable provider authorization")
+
+
+def validate_authored_reference_observation(observation: TraceAuthoredGraphReferenceV1, execution: object, trace: TurnContextTraceV1) -> None:
+    """An observation must name the complete immutable event in this exact turn."""
+    event = observation.execution_event.model_dump(mode='json', by_alias=True)
+    events = execution.get('events', []) if isinstance(execution, dict) else []
+    matching = [item for item in events if isinstance(item, dict) and item.get('event_id') == event['event_id']]
+    if len(matching) != 1 or json.dumps(matching[0], sort_keys=True, separators=(',', ':'), allow_nan=False) != json.dumps(event, sort_keys=True, separators=(',', ':'), allow_nan=False):
+        raise ApplicationStateValidationError('authored reference observation differs from its exact turn ledger event')
+    from .types import BuildAuthoredReferencesCapturedV1
+    captured = observation.execution_event
+    if isinstance(captured, BuildAuthoredReferencesCapturedV1) and (
+        captured.turn_id != trace.turn_id or captured.conversation_id != trace.conversation_id
+        or any(ref.managed_world_id != trace.world_id for ref in captured.references.references)
+    ):
+        raise ApplicationStateValidationError('authored reference capture belongs to another trace owner')
+    if not isinstance(captured, BuildAuthoredReferencesCapturedV1) and captured.sequence < trace.execution_start_sequence:
+        raise ApplicationStateValidationError('authored reference observation predates this physical attempt')
+    if any(isinstance(old, TraceAuthoredGraphReferenceV1)
+        and old.execution_event.event_id == captured.event_id and old.sequence != observation.sequence
+        for old in trace.observations):
+        raise ApplicationStateValidationError('authored reference event already has an observation in this attempt')

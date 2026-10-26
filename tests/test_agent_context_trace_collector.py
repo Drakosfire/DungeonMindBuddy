@@ -579,3 +579,18 @@ def test_snapshot_purpose_is_explicit_and_historical_serialization_unchanged():
         TraceContextSnapshot.model_validate({**old, "snapshot_kind": "compaction_input"})
     with pytest.raises(ValidationError, match="captured purpose"):
         TraceContextSnapshot.model_validate({**old, "snapshot_kind": "provider_response"})
+
+
+def test_authored_trace_uses_exact_app_event_and_preserves_known_capture_failure_marker():
+    from tests.test_agent_context_trace_types import _authored_trace_fixture
+    capture, store, _ = collector()
+    event, _, _ = _authored_trace_fixture()
+    capture.authored_reference(event)
+    observed = store.trace.observations[0]
+    assert observed.kind == 'authored_graph_reference_v1'
+    assert observed.execution_event == event
+    store.failure = ApplicationStateValidationError('trace capture rejected')
+    capture.authored_reference(event)
+    assert store.trace.capture_status == 'incomplete'
+    assert store.trace.capture_failure_code == 'trace_observation_rejected'
+    assert store.trace.observations == [observed]

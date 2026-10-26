@@ -16,6 +16,8 @@ def refusal(message, code, *, before_provider=False):
 def append(adapter, event, **proof):
     from .agent_turn_service import _require_fresh_execution_append
     adapter.turn = _require_fresh_execution_append(adapter.fence.append('record_build_authored_reference', 'event', event, **proof))
+    if adapter.context_capture:
+        adapter.context_capture.authored_reference(event)
 
 
 def validate_selection_bases(adapter):
@@ -62,11 +64,7 @@ def capture_input(adapter):
         conversation_id=turn.conversation_id, attempt=turn.attempt,
         submitted_intent_fingerprint=turn.submitted_intent_fingerprint_v2))
     validate_selection_bases(adapter)
-    if adapter.context_capture:
-        for ref in adapter.request.build_authored_references.references:
-            adapter.context_capture.observe({'kind': 'context_decision', 'action': 'retained',
-                'item_ids': ['Selected, unread · ' + ref.node_id], 'reason_code': 'route_preserved',
-                'policy_version': 'authored_graph_reference_context_v1'})
+
 
 
 def acquire(adapter):
@@ -110,11 +108,6 @@ def acquire(adapter):
             kind='build_authored_reference_read_v1', capture_event_id=capture.event_id,
             authorization_event_id=authorization.event_id, node_id=ref.node_id,
             operation_event_ids=sorted(operations, key=str), source_read_event_ids=reads, returned_node_ids=returned_nodes, outcome=outcome), object_result_proof=packets)
-        if adapter.context_capture:
-            adapter.context_capture.observe({'kind': 'context_decision', 'action': 'retrieved',
-                'item_ids': [outcome + ' · ' + ref.node_id],
-                'reason_code': 'retrieval_sufficient' if outcome == 'read' else 'coverage_gap',
-                'policy_version': 'authored_graph_reference_context_v1'})
         if outcome == 'read_partial':
             raise refusal('The selected object read was incomplete. Your request and reference are retained; inspect its trace before continuing.',
                 'build_authored_reference_partial_object')

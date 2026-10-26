@@ -373,9 +373,25 @@ class TraceFailure(TraceEvent):
         return self
 
 
+# A closed observational subset, never the general execution-event union.
+from .types import (
+    BuildAuthoredReferencesCapturedV1, BuildAuthoredReferenceAuthorizedV1,
+    BuildAuthoredReferenceReadV1, BuildAuthoredProviderInclusionV1,
+)
+
+
+class TraceAuthoredGraphReferenceV1(TraceEvent):
+    kind: Literal['authored_graph_reference_v1'] = 'authored_graph_reference_v1'
+    execution_event: Annotated[
+        BuildAuthoredReferencesCapturedV1 | BuildAuthoredReferenceAuthorizedV1
+        | BuildAuthoredReferenceReadV1 | BuildAuthoredProviderInclusionV1,
+        Field(discriminator='kind'),
+    ]
+
+
 ContextTraceObservation = Annotated[
     TraceContextSnapshot | TraceContextDecision | TraceGraphTool
-    | TraceSourcePassage | TraceSourceReuse | TraceProviderCall | TracePromptReference | TraceFailure,
+    | TraceSourcePassage | TraceSourceReuse | TraceProviderCall | TracePromptReference | TraceFailure | TraceAuthoredGraphReferenceV1,
     Field(discriminator="kind"),
 ]
 
