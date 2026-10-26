@@ -419,3 +419,25 @@ def completed_context(conn: psycopg.Connection, basis: PlanActionBasis, *, limit
         )
         rows = cur.fetchall()
     return list(reversed([_record(row) for row in rows]))
+
+
+def freeze_authoring_reservation(conn, record, origin):
+    """Same-UOW marker before the new row can become visible to generic owners."""
+    from application_state.agent_conversation.plan_authoring import PlanJevAuthoringReservationV1
+    if not isinstance(origin, PlanJevAuthoringReservationV1):
+        raise ApplicationStateValidationError('Typed Agent authoring reservation required')
+    if record.authoring_origin is not None:
+        if record.authoring_origin != origin:
+            raise ApplicationStateConflictError('Plan action already has a different authoring origin')
+        return record
+    PlanActionRecord.model_validate(record.model_dump(mode='python') | {'authoring_origin': origin})
+    with conn.cursor(row_factory=dict_row) as cur:
+        cur.execute(f"""UPDATE plan_action.action SET authoring_origin=%s,updated_at=clock_timestamp()
+            WHERE action_id=%s AND status='pending' AND authoring_origin IS NULL AND consultation IS NULL
+              AND dispatch_token=%s AND fence=%s AND lease_expires_at>clock_timestamp()
+            RETURNING {_RETURNING}""",
+            (Jsonb(origin.model_dump(mode='json',by_alias=True)),record.action_id,record.dispatch_token,record.fence))
+        row=cur.fetchone()
+    if row is None:
+        raise ApplicationStateConflictError('Plan authoring reservation lost its dispatch fence')
+    return _record(row)

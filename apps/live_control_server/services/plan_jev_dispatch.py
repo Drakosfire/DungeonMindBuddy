@@ -10,6 +10,10 @@ from application_state.agent_conversation.jev_retrieval_contract import (
     prepare_decision, validate_prepared_decision, validate_wire_body,
 )
 from application_state.agent_conversation.plan_jev_decision import scope_digest
+from application_state.agent_conversation.plan_authoring import (
+    PlanRequestedWorkInputV1, decode_requested_work_decision, prepare_requested_work_decision,
+    validate_prepared_requested_work, validate_requested_work_wire,
+)
 
 
 def request_budget():
@@ -33,7 +37,7 @@ def decision_client(*, authorize, record, transport=None, api_key=None):
 
 def verify_initial_input(view, request, work, parent):
     from .agent_turn_service import _governed_graph_turn
-    if (not isinstance(parent, RetrievalDecisionInput) or request.surface.surface_id != "plan"
+    if (not isinstance(parent, (RetrievalDecisionInput, PlanRequestedWorkInputV1)) or request.surface.surface_id != "plan"
             or not _governed_graph_turn(request) or work.content_basis is None
             or not isinstance(work.plan_markdown, str) or parent.question != request.message
             or (view.get("provider"), view.get("model"), view.get("apiMode")) != (PROVIDER, MODEL, "decision")):
@@ -41,7 +45,7 @@ def verify_initial_input(view, request, work, parent):
     raw = view["payloadJson"].encode()
     if len(raw) != view["payloadUtf8Bytes"] or sha256(raw).hexdigest() != view["payloadSha256"]:
         raise ValueError("Plan Jev wire bytes changed before claim")
-    validate_wire_body(parent, raw)
+    (validate_requested_work_wire if isinstance(parent, PlanRequestedWorkInputV1) else validate_wire_body)(parent, raw)
 
 
 class PlanJevDispatch:
@@ -61,9 +65,22 @@ class PlanJevDispatch:
         self.selection = None
         self.call = None
 
+    @classmethod
+    def requested_work(cls, adapter, *, page_title, dialogue=()):
+        """Use the same one-shot provider gate for the separate destination choice."""
+        dispatch = cls(adapter, (), dialogue=dialogue)
+        capture = adapter.request.plan_authoring_capture
+        dispatch.parent = PlanRequestedWorkInputV1(request_id=uuid4(), parent_attempt_id=uuid4(),
+            scope_sha256='0' * 64, question=adapter.request.message, page_title=page_title,
+            dialogue=tuple(row.model_dump() if hasattr(row, 'model_dump') else row for row in dialogue),
+            target_capture_sha256=capture.sha256 if capture is not None else None,
+            target_available=capture is not None)
+        return dispatch
+
     def authorize(self, prepared):
         from .agent_turn_service import _json_node_count, _require_fresh_execution_append
-        validate_prepared_decision(self.parent, prepared)
+        semantic = isinstance(self.parent, PlanRequestedWorkInputV1)
+        (validate_prepared_requested_work if semantic else validate_prepared_decision)(self.parent, prepared)
         a = self.adapter
         if (a.failure is not None or self.prepared is not None
                 or getattr(a, "_build_native_acquisition_services", None) is not None
@@ -85,7 +102,8 @@ class PlanJevDispatch:
         estimate = len(raw.encode()) + 64 * (1 + _json_node_count(json.loads(raw)))
         if estimate + a.budget["outputReserveTokens"] > a.budget["contextLimitTokens"]:
             raise ValueError("Plan Jev actual request exceeds the existing provider context allowance")
-        auth = t.PlanJevProviderAuthorizedV1(kind="plan_jev_provider_authorized_v1", event_id=uuid4(),
+        auth_type = t.PlanRequestedWorkAuthorizedV1 if semantic else t.PlanJevProviderAuthorizedV1
+        auth = auth_type(kind='plan_requested_work_authorized_v1' if semantic else 'plan_jev_provider_authorized_v1', event_id=uuid4(),
             sequence=len(execution.events), provider_attempt_id=UUID(prepared.attempt_id),
             decision_request_id=self.parent.request_id, parent_request_sha256=self.parent.digest,
             envelope_sha256=prepared.body_sha256, serializer_version="typesafe-sdk-json-v1",
@@ -123,21 +141,25 @@ class PlanJevDispatch:
         a.context_capture.observe({"kind": "context_snapshot", "stage": "after", "materials": [{
             "item_id": f"unvalidated-plan-jev-result:{self.authorization.provider_attempt_id}",
             "state": "model_context", "role": "assistant", "text": raw}]})
-        selected = decode_selection(self.parent, result)
+        semantic = isinstance(self.parent, PlanRequestedWorkInputV1)
+        selected = (decode_requested_work_decision if semantic else decode_selection)(self.parent, result)
         turn = a.fence.turn
         execution = turn.graph_context_execution
-        event = t.PlanJevRetrievalSelectionV1(kind="plan_jev_retrieval_selected_v1", event_id=uuid4(),
+        event_type = t.PlanRequestedWorkSelectedV1 if semantic else t.PlanJevRetrievalSelectionV1
+        event = event_type(kind='plan_requested_work_selected_v1' if semantic else 'plan_jev_retrieval_selected_v1', event_id=uuid4(),
             sequence=len(execution.events), context_receipt_sha256=execution.context_receipt_sha256,
             execution_policy_sha256=execution.execution_policy_sha256,
             controller_attempt_id=self.authorization.provider_attempt_id, decision_request_id=self.parent.request_id,
             controller_envelope_sha256=self.prepared.body_sha256, parent_request_sha256=self.parent.digest,
-            controller_response_sha256=sha256(raw.encode()).hexdigest(), operation=selected.operation,
-            selected_handles=list(selected.selected_handles), actual_input_tokens=result.observation.input_tokens,
+            controller_response_sha256=sha256(raw.encode()).hexdigest(),
+            **({'requested_work': selected, 'target_capture_sha256': self.parent.target_capture_sha256} if semantic
+                else {'operation': selected.operation, 'selected_handles': list(selected.selected_handles)}),
+            actual_input_tokens=result.observation.input_tokens,
             actual_output_tokens=result.observation.output_tokens)
-        a.turn = _require_fresh_execution_append(a.fence.append("record_plan_jev_retrieval_selection", "selection", event,
+        a.turn = _require_fresh_execution_append(a.fence.append('record_plan_requested_work_selection' if semantic else 'record_plan_jev_retrieval_selection', "selection", event,
             producer_proof={"parent_request_json": self.parent.model_dump_json(by_alias=True),
                 "request_json": self.prepared.body.decode(), "response_json": raw}))
-        if selected.operation == "finish_retrieval" and result.answers["operation"].selected == "finish_with_gaps":
+        if not semantic and selected.operation == "finish_retrieval" and result.answers["operation"].selected == "finish_with_gaps":
             a.context_capture.observe({"kind": "failure", "phase": "graph_retrieval",
                                        "code": "controller_finished_with_gaps"})
         self.selection = selected
@@ -151,7 +173,8 @@ class PlanJevDispatch:
             client = decision_client(authorize=authorize, record=record, transport=transport, api_key=api_key)
         started = perf_counter()
         try:
-            result = await client.decide(prepare_decision(self.parent))
+            prepare = prepare_requested_work_decision if isinstance(self.parent, PlanRequestedWorkInputV1) else prepare_decision
+            result = await client.decide(prepare(self.parent))
             observation = result.observation
             if self.call is not None:
                 counts = {"input_tokens": observation.input_tokens, "output_tokens": observation.output_tokens}

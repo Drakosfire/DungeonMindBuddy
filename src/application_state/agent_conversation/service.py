@@ -1455,8 +1455,8 @@ class AgentConversationService:
                     raise ApplicationStateValidationError(
                         "Plan packet final writer forbids later Graph reads or providers"
                     )
-            from .types import PlanJevRetrievalSelectionV1
-            if isinstance(event, PlanJevRetrievalSelectionV1):
+            from .types import PlanJevRetrievalSelectionV1, PlanRequestedWorkSelectedV1
+            if isinstance(event, (PlanJevRetrievalSelectionV1, PlanRequestedWorkSelectedV1)):
                 from .plan_jev_decision import verify_selection
                 try:
                     captured = conn.execute(
@@ -1464,7 +1464,7 @@ class AgentConversationService:
                         (turn.turn_id, turn.attempt),
                     ).fetchone()
                     verify_selection(turn, event, plan_jev_selection_proof, captured[0] if captured else None)
-                    if event.operation == "finish_retrieval":
+                    if isinstance(event, PlanJevRetrievalSelectionV1) and event.operation == "finish_retrieval":
                         from .rules_authority_store import load_turn_rules_locked
                         from .rules_authority_events import RulesToolAuthorizedV1, RulesQueryObservedV1
                         rules = load_turn_rules_locked(conn, turn)
@@ -1696,6 +1696,15 @@ class AgentConversationService:
         return self._append_graph_execution_event(world_id, conversation_id, turn_id,
             expected_revision=expected_revision, expected_attempt=expected_attempt,
             event=selection, duplicate_key="event_id", plan_jev_selection_proof=producer_proof)
+
+    def record_plan_requested_work_selection(self, world_id, conversation_id, turn_id, *,
+            expected_revision, expected_attempt, selection, producer_proof):
+        from .types import PlanRequestedWorkSelectedV1
+        if not isinstance(selection, PlanRequestedWorkSelectedV1):
+            raise ApplicationStateValidationError('Typed Plan requested-work selection required')
+        return self._append_graph_execution_event(world_id, conversation_id, turn_id,
+            expected_revision=expected_revision, expected_attempt=expected_attempt,
+            event=selection, duplicate_key='event_id', plan_jev_selection_proof=producer_proof)
 
     def record_build_jev_action_selection(self, world_id, conversation_id, turn_id, *,
             expected_revision, expected_attempt, selection):
@@ -2129,6 +2138,15 @@ class AgentConversationService:
                 "turn claim is expired or fenced by a newer attempt"
             )
         return renewed
+
+    def reserve_plan_authoring_action(self, *, capture, turn_id: UUID, expected_revision: int):
+        """Reserve an Agent-owned current-Plan proposal under both owners' locks."""
+        from .plan_authoring import PlanAuthoringCaptureV1, reserve_authoring_locked
+        if not isinstance(capture,PlanAuthoringCaptureV1):
+            raise ApplicationStateValidationError('Exact live Plan authoring capture required')
+        with unit_of_work(_ready_dsn()) as conn:
+            return reserve_authoring_locked(conn,capture=PlanAuthoringCaptureV1.model_validate(
+                capture.model_dump(mode='json',by_alias=True)),turn_id=turn_id,expected_revision=expected_revision)
 
     def complete_turn(self, result: TurnResult) -> Turn:
         return self._complete_turn(result, prepared_recovery=False)
