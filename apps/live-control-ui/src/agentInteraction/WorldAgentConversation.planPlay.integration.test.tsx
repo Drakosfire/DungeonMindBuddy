@@ -2456,7 +2456,7 @@ describe("one App-level World conversation host across Plan and Play", () => {
     const mounted=render(<Harness initial="build" buildBridge={retryBridge()}/>);
     fireEvent.click(await screen.findByRole('button',{name:'Open',exact:true}));
     const input=await screen.findByLabelText('Message DungeonBuddy');
-    expect(screen.getByText('@original-box')).toBeVisible();
+    expect(within(screen.getByLabelText('Message Graph context')).getByText('@original-box')).toBeVisible();
     fireEvent.change(input,{target:{value:'Discuss the selected box.'}});fireEvent.click(screen.getByRole('button',{name:'Send message'}));
     await waitFor(()=>expect(postWorldBuildAgentTurn).toHaveBeenCalledTimes(1));
     const request=vi.mocked(postWorldBuildAgentTurn).mock.calls[0][0];expect(request.build_authored_references).toEqual(original);
@@ -2512,7 +2512,11 @@ describe("one App-level World conversation host across Plan and Play", () => {
       const cleared=readComposerReferences(sessionStorage,WORLD,'source-one');expect(cleared.references).toEqual([]);expect(cleared.submittedTurnId).toBeNull();
       await act(async()=>reject(new LiveApiError('Source context changed',422,{code:'build_editor_context_changed'})));
       expect(readComposerReferences(sessionStorage,WORLD,'source-one')).toEqual(cleared);expect(input).toHaveValue('');
-      expect(localStorage.getItem(`dmb:world-play-pending-turn:v1:${WORLD}`)).not.toBeNull();expect(postWorldBuildAgentTurn).toHaveBeenCalledTimes(1);
+      await waitFor(()=>expect(localStorage.getItem(`dmb:world-play-pending-turn:v1:${WORLD}`)).toBeNull());expect(rejectedReferenceCopies()).toHaveLength(1);expect(postWorldBuildAgentTurn).toHaveBeenCalledTimes(1);
+      fireEvent.change(input,{target:{value:'A new independent draft.'}});expect(screen.getByRole('button',{name:'Send message'})).toBeEnabled();
+      vi.mocked(postWorldBuildAgentTurn).mockReturnValue(new Promise(()=>{}));fireEvent.click(screen.getByRole('button',{name:'Send message'}));
+      await waitFor(()=>expect(postWorldBuildAgentTurn).toHaveBeenCalledTimes(2));const next=vi.mocked(postWorldBuildAgentTurn).mock.calls[1][0];
+      expect(next.message).toBe('A new independent draft.');expect(next.turn_id).not.toBe(request.turn_id);expect(next.build_authored_references).toBeUndefined();expect(rejectedReferenceCopies()).toHaveLength(1);
     }finally{spy.mockRestore();}
   });
 
@@ -2526,7 +2530,7 @@ describe("one App-level World conversation host across Plan and Play", () => {
     await act(async()=>reject(new LiveApiError('Source context changed',422,{code:'build_editor_context_changed'})));
     await waitFor(()=>expect(input).toHaveValue('Discuss the original box.'));
     expect(readComposerReferences(sessionStorage,WORLD,'source-one').references).toEqual(original.references);expect(readComposerReferences(sessionStorage,WORLD,'source-one').submittedTurnId).toBeNull();
-    expect(localStorage.getItem(`dmb:world-play-pending-turn:v1:${WORLD}`)).toBeNull();expect(screen.getByText('@original-box')).toBeVisible();
+    expect(localStorage.getItem(`dmb:world-play-pending-turn:v1:${WORLD}`)).toBeNull();expect(within(screen.getByLabelText('Message Graph context')).getByText('@original-box')).toBeVisible();
   });
 
   it.each(['mounted','remounted'])('refuses automatic restoration after failed marker retirement: %s',async mode=>{
@@ -2551,10 +2555,58 @@ describe("one App-level World conversation host across Plan and Play", () => {
       }
       await act(async()=>reject(new LiveApiError('Source context changed',422,{code:'build_editor_context_changed'})));
       expect(input).toHaveValue('');expect(readComposerReferences(sessionStorage,WORLD,'source-one')).toEqual(before);
-      expect(localStorage.getItem(`dmb:world-play-pending-turn:v1:${WORLD}`)).not.toBeNull();
+      await waitFor(()=>expect(localStorage.getItem(`dmb:world-play-pending-turn:v1:${WORLD}`)).toBeNull());expect(rejectedReferenceCopies()).toHaveLength(1);
       expect(within(screen.getByLabelText('Message Graph context')).queryByText('@original-box')).toBeNull();
       expect(postWorldBuildAgentTurn).toHaveBeenCalledTimes(mode==='mounted'?1:2);
     }finally{spy.mockRestore();}
   });
 
+  it.each(['unknown','receipt-write','cleanup-crash','changed-pending'])('preserves rejected recovery at the actual storage boundary: %s',async mode=>{
+    writeComposerReferences(sessionStorage,WORLD,'source-one',null,[authoredRef('original-box')]);
+    vi.mocked(getWorldAgentConversationHistory).mockResolvedValue(history());let reject!:(reason:unknown)=>void;
+    vi.mocked(postWorldBuildAgentTurn).mockReturnValue(new Promise((_,r)=>{reject=r}));
+    const mounted=render(<Harness initial="build" buildBridge={retryBridge()}/>);fireEvent.click(await screen.findByRole('button',{name:'Open',exact:true}));
+    const input=await screen.findByLabelText('Message DungeonBuddy');fireEvent.change(input,{target:{value:'Original box request.'}});fireEvent.click(screen.getByRole('button',{name:'Send message'}));
+    await waitFor(()=>expect(postWorldBuildAgentTurn).toHaveBeenCalledTimes(1));
+    const pendingKey=`dmb:world-play-pending-turn:v1:${WORLD}`,original=localStorage.getItem(pendingKey)!;
+    fireEvent.change(input,{target:{value:'Newer independent note.'}});
+    const write=Storage.prototype.setItem,remove=Storage.prototype.removeItem;
+    const altered=JSON.stringify({...JSON.parse(original),request:{...JSON.parse(original).request,message:'Another tab request.'}});
+    const spy=mode==='receipt-write'||mode==='changed-pending'?vi.spyOn(Storage.prototype,'setItem').mockImplementation(function(key,value){
+      if(key.startsWith('dmb:rejected-authored-build:v1:')){
+        if(mode==='receipt-write')throw new DOMException('Archive denied','QuotaExceededError');
+        write.call(this,key,value);write.call(this,pendingKey,altered);return;
+      }return write.call(this,key,value);
+    }):mode==='cleanup-crash'?vi.spyOn(Storage.prototype,'removeItem').mockImplementation(function(key){if(key===pendingKey)throw new DOMException('Cleanup interrupted');return remove.call(this,key);}):null;
+    try{
+      await act(async()=>reject(mode==='unknown'?new LiveApiError('Unknown outcome',503,{code:'transport_unavailable'}):new LiveApiError('Source context changed',422,{code:'build_editor_context_changed'})));
+      await screen.findByText(mode==='receipt-write'?/Archive denied/:mode==='changed-pending'?/The pending request changed. Both recovery copies were retained./:mode==='unknown'?'Unknown outcome Check World history or explicitly retry the saved request with its original IDs.':/^This message was not sent\./);
+      expect(input).toHaveValue('Newer independent note.');expect(readComposerReferences(sessionStorage,WORLD,'source-one').references).toEqual([]);
+      expect(localStorage.getItem(pendingKey)).toBe(mode==='changed-pending'?altered:original);
+      expect(rejectedReferenceCopies()).toHaveLength(mode==='cleanup-crash'||mode==='changed-pending'?1:0);
+      if(mode==='cleanup-crash'||mode==='changed-pending')expect(rejectedReferenceCopies()[0].original_bytes).toBe(original);
+      if(mode==='cleanup-crash'){
+        spy!.mockRestore();mounted.unmount();const recovered=render(<Harness initial="build" buildBridge={retryBridge()}/>);fireEvent.click(await screen.findByRole('button',{name:'Open',exact:true}));
+        await waitFor(()=>expect(localStorage.getItem(pendingKey)).toBeNull());expect(postWorldBuildAgentTurn).toHaveBeenCalledTimes(1);expect(rejectedReferenceCopies()).toHaveLength(1);
+        openConversationOptions();expect(await screen.findByLabelText('Retained rejected requests')).toHaveTextContent('Original box request.');
+        recovered.unmount();render(<Harness initial="build" buildBridge={retryBridge()}/>);fireEvent.click(await screen.findByRole('button',{name:'Open',exact:true}));
+        expect(postWorldBuildAgentTurn).toHaveBeenCalledTimes(1);expect(rejectedReferenceCopies()).toHaveLength(1);
+        fireEvent.change(await screen.findByLabelText('Message DungeonBuddy'),{target:{value:'Next independent request.'}});expect(screen.getByRole('button',{name:'Send message'})).toBeEnabled();
+      }
+    }finally{spy?.mockRestore();}
+  });
+
+  it('recovers unreadable composer references explicitly without replacing the message',async()=>{
+    const key=composerReferenceKey(WORLD,'source-one'),raw='malformed reference draft';sessionStorage.setItem(key,raw);
+    vi.mocked(getWorldAgentConversationHistory).mockResolvedValue(history());
+    render(<Harness initial="build" buildBridge={retryBridge()}/>);fireEvent.click(await screen.findByRole('button',{name:'Open',exact:true}));
+    const input=await screen.findByLabelText('Message DungeonBuddy');fireEvent.change(input,{target:{value:'Keep my newer words.'}});
+    expect(postWorldBuildAgentTurn).not.toHaveBeenCalled();fireEvent.click(screen.getByRole('button',{name:'Retain unreadable copy and reset references'}));
+    await waitFor(()=>expect(screen.queryByRole('button',{name:'Retain unreadable copy and reset references'})).toBeNull());
+    expect(input).toHaveValue('Keep my newer words.');expect(readComposerReferences(sessionStorage,WORLD,'source-one').references).toEqual([]);expect(screen.getByRole('button',{name:'Send message'})).toBeEnabled();
+    openConversationOptions();expect(await screen.findByLabelText('Retained reference drafts')).toHaveTextContent(raw);expect(postWorldBuildAgentTurn).not.toHaveBeenCalled();
+  });
+
 });
+
+function rejectedReferenceCopies(){return Object.keys(localStorage).filter(key=>key.startsWith('dmb:rejected-authored-build:v1:')).map(key=>JSON.parse(localStorage.getItem(key)!));}

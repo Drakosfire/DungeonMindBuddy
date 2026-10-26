@@ -52,3 +52,30 @@ export function writeComposerReferences(storage:Pick<Storage,'getItem'|'setItem'
  if(storage.getItem(key)!==serialized)throw new Error('The exact Graph references could not be retained. Nothing was sent.');
  return {serialized,references,submittedTurnId};
 }
+
+const COMPOSER_RECOVERY_PREFIX='dmb:authored-graph-composer-recovery:v1:';
+const composerRecoveryPrefix=(world:string,page:string)=>`${COMPOSER_RECOVERY_PREFIX}${JSON.stringify([world,page])}:`;
+export function readComposerReferenceRecoveries(storage:Pick<Storage,'length'|'key'|'getItem'>,world:string,page:string):{key:string;raw:string}[]{
+ const prefix=composerRecoveryPrefix(world,page),copies:{key:string;raw:string}[]=[];
+ for(let i=0;i<storage.length;i++){
+  const key=storage.key(i);if(!key?.startsWith(prefix))continue;
+  const bytes=storage.getItem(key);if(bytes===null)continue;const value:unknown=JSON.parse(bytes);
+  if(!/^[a-f0-9]{64}$/.test(key.slice(prefix.length))||!exact(value,['schema','world_id','document_id','original_bytes'])||value.schema!=='dmb_authored_graph_composer_recovery_v1'||value.world_id!==world||value.document_id!==page||typeof value.original_bytes!=='string')throw new Error('A retained reference draft needs inspection. Its bytes were preserved.');
+  copies.push({key,raw:value.original_bytes});
+ }
+ return copies.sort((a,b)=>a.key.localeCompare(b.key));
+}
+/** Explicit author recovery only: preserve exact raw bytes before replacing that unchanged copy. */
+export async function recoverComposerReferences(storage:Pick<Storage,'getItem'|'setItem'>,world:string,page:string,expectedRaw:string):Promise<ComposerReferenceDraft>{
+ // A readable newer selection must be edited through the ordinary picker instead.
+ if(storage.getItem(composerReferenceKey(world,page))!==expectedRaw)throw new Error('The reference draft changed. No recovery copy was replaced.');
+ try{readComposerReferences(storage,world,page);}catch{ // Only an unreadable snapshot can enter this path.
+  const digest=Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256',new TextEncoder().encode(expectedRaw))),b=>b.toString(16).padStart(2,'0')).join('');
+  const key=composerRecoveryPrefix(world,page)+digest;
+  const bytes=JSON.stringify({schema:'dmb_authored_graph_composer_recovery_v1',world_id:world,document_id:page,original_bytes:expectedRaw});
+  const previous=storage.getItem(key);if(previous!==null&&previous!==bytes)throw new Error('The retained reference draft differs. Both copies were preserved.');
+  storage.setItem(key,bytes);if(storage.getItem(key)!==bytes)throw new Error('The unreadable reference draft could not be retained. Nothing was replaced.');
+  return writeComposerReferences(storage,world,page,expectedRaw,[]);
+ }
+ throw new Error('This reference draft is readable. Choose references normally.');
+}

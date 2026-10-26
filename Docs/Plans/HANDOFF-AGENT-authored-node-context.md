@@ -492,3 +492,18 @@ readback gate application and recovery. Do not reinterpret prepared V1/V2 receip
 Extend the exact test lease to:
 - `apps/live-control-ui/src/surface/workPlans/workPlanCapture.test.ts`
 No new storage key, executor, provider authority or publisher is added.
+
+
+### Rejected-request and malformed-composer recovery
+
+Independent critique clears immutable local recovery receipts within the existing
+conversation/helper/test owners. For authored ordinary Build requests, only existing
+allowlisted known pre-dispatch rejection codes may retain exact original bytes in a
+World/document/request-scoped receipt. Verify readback before CAS-clearing the matching
+pending envelope. Crash recovery recognizes an exact retained receipt and finishes
+cleanup without dispatch or duplicate items; changed bytes retain both and report a
+conflict. Local receipts are informational, never cryptographic server refusal proof
+or execution authority. Unknown outcomes stay pending. Preserve newer empty/ABA drafts.
+Malformed composer-reference recovery is an explicit author action: retain exact raw
+bytes in a scoped immutable receipt, verify, then replace only the unchanged malformed
+copy with empty references. Do not change message text. Storage failure retains work.
