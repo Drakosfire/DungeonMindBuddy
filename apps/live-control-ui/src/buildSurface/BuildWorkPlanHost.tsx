@@ -43,9 +43,11 @@ export function BuildWorkPlanHost({session,bridge,children}:{session:MarkdownCan
           &&now.session.snapshot===snapshot&&now.session.lookupAdmission('committed_clean').ok&&!now.session.activeCommand&&!now.registry?.pendingTurn&&now.registry?.history?.conversation_id===plan.conversation_id
           &&now.registry.history.active_conversation_id===plan.conversation_id&&now.registry.history.pointer_revision===pointer.pointer_revision;
       };
+      const step=plan.steps.find(item=>item.step_id===dispatch.step_id);
+      if(!step)throw new Error('The continuation has no matching reviewed step.');
       queueSurfaceConversationRequest({id:'reviewed-plan:'+dispatch.client_turn_id,worldId,surfaceId:'build',objectId:documentId,
         message:dispatch.message,clientThreadId:dispatch.client_thread_id,turnId:dispatch.client_turn_id,
-        ...(reference?{reviewedStep:reference}:{}),...(dispatch.authored_references?{authoredReferences:dispatch.authored_references}:{}),isCurrent});
+        ...(reference?{reviewedStep:reference,reviewedKind:step.kind}:{}),...(dispatch.authored_references?{authoredReferences:dispatch.authored_references}:{}),isCurrent});
       agent.setPaneOpen(true);
     },
     openReply:turnId=>{

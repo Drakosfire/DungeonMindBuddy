@@ -415,3 +415,28 @@ def test_plain_scoped_discuss_reclaims_after_selection_without_duplicate_authori
     assert after.attempt==before.attempt+1
     assert [e for e in after.graph_context_execution.events if isinstance(e,t.BuildReviewedActionSelectionV1)]==selections
     assert len(writer.calls)==1 and result.knowledge_context.completion.collaboration is None
+
+
+@pytest.mark.parametrize('with_graph',[False,True])
+def test_scoped_discuss_needs_read_context_not_insertion_authority(build_case,monkeypatch,tmp_path,with_graph):
+    import json
+    from tests.test_build_world_context import WorldDecisions
+    from application_state.agent_conversation import reviewed_action as scoped
+    if with_graph:
+        from tests.test_build_authored_references import referenced_case
+        base,_=referenced_case(build_case,monkeypatch)
+        case=reviewed_case(base,monkeypatch,kind='discuss',authored_references=base[1].build_authored_references,prepared=True)
+    else:case=reviewed_case(build_case,monkeypatch,kind='discuss')
+    source,request,bootstrap=case
+    request=request.model_copy(update={'build_write_capability':None})
+    writer=ScopedDiscussionWriter(questions=True);decisions=WorldDecisions()
+    harness=BuildJevHarness(world_context=True,named_citations=True,related_pages=True,accounting=counter(),decision_transport=decisions,writer_transport=writer)
+    result=execute((source,request,bootstrap),tmp_path,harness)
+    packet=json.loads(json.loads(writer.calls[0].content)['input'])
+    turn=harness.adapter.fence.turn
+    assert turn.graph_context_execution.policy.action_capability_sha256 is None
+    assert turn.graph_context_execution.policy.allowed_surface_operations==['answer_from_sources']
+    assert packet[scoped.SCOPE_KEY]['scope']['task']['kind']=='discuss'
+    assert result.knowledge_context.completion.collaboration.kind=='questions'
+    assert len(writer.calls)==1
+    assert all(not ({'operation','requested_work'}&set(json.loads(call.content)['questions'])) for call in decisions.calls)

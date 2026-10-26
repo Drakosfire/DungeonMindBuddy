@@ -300,3 +300,27 @@ it('retires only the matching plan preview after validated terminal handling',as
  act(()=>hook.result.current.completePlanConstruction('client'));expect(hook.result.current.pageElement).toBeNull();
  expect(api.composeBuildProposal).not.toHaveBeenCalled();expect(bridge.insert).not.toHaveBeenCalled();
 });
+
+it('captures real work-plan NodeSelection as discussion context without inventing a caret',async()=>{
+ const {Editor}=await import('@tiptap/core');
+ const {webcrypto}=await import('node:crypto');vi.stubGlobal('crypto',webcrypto);
+ const {DEFAULT_MARKDOWN_EDITOR_EXTENSIONS}=await import('../../tiptap/MarkdownEditorCore');
+ const {createBuildComposeBridge}=await import('../../buildSurface/buildComposeBridge');
+ const {workPlanFence}=await import('../../surface/workPlans/workPlanReference');
+ const reference={schema:'dmb_surface_work_plan_ref_v1' as const,world_id:'world',document_id:'doc',conversation_id:'11111111-1111-4111-8111-111111111111',source_turn_id:'22222222-2222-4222-8222-222222222222',source_answer_sha256:'a'.repeat(64),title:'Work plan'};
+ const editor=new Editor({extensions:DEFAULT_MARKDOWN_EDITOR_EXTENSIONS,content:{type:'doc',content:[{type:'surfaceWorkPlan',attrs:{source:workPlanFence(reference)}},{type:'paragraph',content:[{type:'text',text:'Covered cedar box.'}]}]}});
+ editor.commands.setNodeSelection(0);
+ const changed=vi.fn();const realBridge=createBuildComposeBridge(()=>({editor,worldId:'world',documentId:'doc',revision:1,contentSha256:'a'.repeat(64),visibility:'internal',draftGeneration:0,selectionGeneration:0,canEdit:true}),changed);
+ const capture=vi.spyOn(realBridge,'capture');
+ try{
+  await expect(realBridge.capture()).rejects.toThrow('Select a text passage');capture.mockClear();
+  const before=JSON.stringify(editor.getJSON());
+  const hook=renderHook(()=>useBuildCompose({worldId:'world',pageDocumentId:'doc',history,bridge:realBridge,enabled:true,onHistory:vi.fn()}));
+  let prepared:Awaited<ReturnType<typeof hook.result.current.prepareHarnessTurn>>|undefined;
+  await act(async()=>{prepared=await hook.result.current.prepareHarnessTurn('33333333-3333-4333-8333-333333333333',true);});
+  expect(capture).not.toHaveBeenCalled();expect(prepared?.capability).toBeUndefined();
+  expect(prepared?.draftContext?.snapshot.draft_markdown).toContain('Covered cedar box.');
+  expect(editor.state.selection.constructor.name).toBe('NodeSelection');
+  expect(JSON.stringify(editor.getJSON())).toBe(before);expect(changed).not.toHaveBeenCalled();hook.unmount();
+ }finally{editor.destroy();}
+});

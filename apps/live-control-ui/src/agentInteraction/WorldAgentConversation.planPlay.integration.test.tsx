@@ -1063,20 +1063,21 @@ describe("one App-level World conversation host across Plan and Play", () => {
     expect(postWorldBuildAgentTurn).toHaveBeenCalledTimes(1);
   });
 
-  it('continues one durable reviewed step through the existing Build owner without replacing newer composer text',async()=>{
+  it.each(['discuss','prepare_insertion'] as const)('continues %s with its exact capture capability and newer composer text',async(kind)=>{
     const base=turn('plan',1,'1. Discuss the shop owner.\n2. Prepare the shop description.');
     const row={...base,provenance:{...base.provenance,surface_id:'build',surface_instance_id:'build-instance',primary_work:{...base.provenance.primary_work,kind:'build',object_id:'source-one'}}};
     vi.mocked(getWorldAgentConversationHistory).mockResolvedValue(history([row]));
     const stepId='11111111-1111-4111-8111-111111111111',clientId='22222222-2222-4222-8222-222222222222';
     const p={schema:'dmb_reviewed_work_plan_v3' as const,objective:'Discuss the chosen owner.',root_references:[],world_id:WORLD,conversation_id:history().conversation_id!,source_turn_id:row.turn_id,source_answer_sha256:SHA,document_id:'source-one',revision:1,
-      steps:[{step_id:stepId,text:'Discuss the shop owner.',selected:true,kind:'discuss' as const,references:[]}],dispatches:[],execution:[]};
+      steps:[{step_id:stepId,text:'Discuss the shop owner.',selected:true,kind,references:[]}],dispatches:[],execution:[]};
     const frozen=authoredGraphReferences([authoredRef('reviewed-box')]);
     writeComposerReferences(sessionStorage,WORLD,'source-one',null,[authoredRef('newer-box')]);
-    const dispatch={schema:'dmb_work_plan_dispatch_v2' as const,authored_references:frozen,command_id:stepId,step_id:stepId,client_thread_id:stepId,client_turn_id:clientId,message:'Continue exactly this reviewed discussion step.'};
+    const dispatch={...(kind==='discuss'?{schema:'dmb_work_plan_dispatch_v3' as const,scope:{schema:'dmb_reviewed_discussion_scope_v1' as const,task:{step_id:stepId,kind:'discuss' as const,text:'Discuss the shop owner.'},objective_context:p.objective,sibling_context:[]}}:{schema:'dmb_work_plan_dispatch_v2' as const}),authored_references:frozen,command_id:stepId,step_id:stepId,client_thread_id:stepId,client_turn_id:clientId,message:'Continue exactly this reviewed discussion step.'};
     vi.mocked(getWorkPlan).mockResolvedValue(p);
     vi.mocked(continueWorkPlan).mockResolvedValue({plan:{...p,revision:2,dispatches:[dispatch],execution:[{command_id:stepId,step_id:stepId,status:'awaiting_dispatch',turn_id:null,attempt:null,result:null}]},dispatch,reference:{conversation_id:p.conversation_id,source_turn_id:p.source_turn_id,command_id:dispatch.command_id}});
     vi.mocked(postWorldBuildAgentTurn).mockReturnValue(new Promise(()=>{}));
-    render(<Harness initial='build' buildBridge={{captureContext:vi.fn(async()=>draftSnapshot()),capture:vi.fn(async()=>insertionCapture()),insert:vi.fn()}}/>);
+    const bridge={captureContext:vi.fn(async()=>draftSnapshot()),capture:vi.fn(async()=>{if(kind==='discuss')throw new Error('A plan NodeSelection cannot be an insertion target');return insertionCapture();}),insert:vi.fn()};
+    render(<Harness initial='build' buildBridge={bridge}/>);
     fireEvent.click(await screen.findByRole('button',{name:'Open',exact:true}));
     fireEvent.change(await screen.findByLabelText('Message DungeonBuddy'),{target:{value:'My newer unsent author note'}});
     fireEvent.click(await screen.findByRole('button',{name:'Review plan'}));
@@ -1086,7 +1087,10 @@ describe("one App-level World conversation host across Plan and Play", () => {
     await waitFor(()=>expect(postWorldBuildAgentTurn).toHaveBeenCalledTimes(1));
     expect(vi.mocked(postWorldBuildAgentTurn).mock.calls[0][0]).toMatchObject({turn_id:clientId,client_thread_id:stepId,message:dispatch.message,reviewed_step:{conversation_id:p.conversation_id,source_turn_id:p.source_turn_id,command_id:dispatch.command_id}});
     expect(vi.mocked(postWorldBuildAgentTurn).mock.calls[0][0].build_draft_context?.conversation_id).toBe(p.conversation_id);
-    expect(vi.mocked(postWorldBuildAgentTurn).mock.calls[0][0].build_write_capability).toBeDefined();
+    expect(bridge.captureContext).toHaveBeenCalledTimes(1);
+    if(kind==='discuss'){expect(bridge.capture).not.toHaveBeenCalled();expect(vi.mocked(postWorldBuildAgentTurn).mock.calls[0][0].build_write_capability).toBeUndefined();}
+    else{expect(bridge.capture).toHaveBeenCalledTimes(1);expect(vi.mocked(postWorldBuildAgentTurn).mock.calls[0][0].build_write_capability).toBeDefined();}
+    expect(vi.mocked(postWorldBuildAgentTurn).mock.calls[0][0]).not.toHaveProperty('reviewedKind');
     expect(screen.getByLabelText('Message DungeonBuddy')).toHaveValue('My newer unsent author note');
     expect(vi.mocked(postWorldBuildAgentTurn).mock.calls[0][0].build_authored_references).toEqual(frozen);
     expect(readComposerReferences(sessionStorage,WORLD,'source-one').references[0].node_id).toBe('newer-box');
