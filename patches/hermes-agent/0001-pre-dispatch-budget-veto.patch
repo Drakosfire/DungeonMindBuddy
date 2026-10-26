@@ -510,8 +510,21 @@ index 1adc3c6..33ae0fc 100644
          "tool_turns=%d last_msg_role=%s response_len=%d session=%s"
      )
      _diag_args = (
+diff --git a/agent/usage_pricing.py b/agent/usage_pricing.py
+index aa306fa..7ea5961 100644
+--- a/agent/usage_pricing.py
++++ b/agent/usage_pricing.py
+@@ -855,7 +855,7 @@ def normalize_usage(
+         details = getattr(response_usage, "input_tokens_details", None)
+         cache_read_tokens = _to_int(getattr(details, "cached_tokens", 0) if details else 0)
+         cache_write_tokens = _to_int(
+-            getattr(details, "cache_creation_tokens", 0) if details else 0
++            getattr(details, "cache_write_tokens", 0) if details else 0
+         )
+         input_tokens = max(0, input_total - cache_read_tokens - cache_write_tokens)
+     else:
 diff --git a/run_agent.py b/run_agent.py
-index fe378f3..ebef233 100644
+index fe378f3..b6dae2a 100644
 --- a/run_agent.py
 +++ b/run_agent.py
 @@ -424,7 +424,7 @@ class AIAgent:
@@ -523,6 +536,18 @@ index fe378f3..ebef233 100644
          tool_delay: float = 1.0,
          enabled_toolsets: List[str] = None,
          disabled_toolsets: List[str] = None,
+@@ -2251,6 +2251,11 @@ class AIAgent:
+         cu = normalize_usage(raw_usage, provider=self.provider, api_mode=self.api_mode)
+         summary = asdict(cu)
+         summary.pop("raw_usage", None)
++        if self.api_mode == "codex_responses":
++            # Preserve provider missingness: canonical arithmetic defaults are
++            # not proof that the response reported zero cache writes.
++            details = getattr(raw_usage, "input_tokens_details", None)
++            summary["cache_write_tokens"] = getattr(details, "cache_write_tokens", None)
+         summary["prompt_tokens"] = cu.prompt_tokens
+         summary["total_tokens"] = cu.total_tokens
+         return summary
 diff --git a/tests/agent/test_pre_dispatch_budget_veto.py b/tests/agent/test_pre_dispatch_budget_veto.py
 new file mode 100644
 index 0000000..d7efd16

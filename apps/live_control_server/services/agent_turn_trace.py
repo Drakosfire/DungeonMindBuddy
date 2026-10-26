@@ -222,6 +222,14 @@ def estimate_model_call_cost(*, model: str | None, usage: Mapping[str, Any]) -> 
             "pricing_table_matched": False,
             "rates_per_1m_usd": priced.get("rates_per_1m_usd"),
         }
+    if (_optional_int(usage.get("cache_write_input_tokens")) or 0) > 0:
+        # The current rate card has no cache-write bucket. Reporting the
+        # read/input-only calculation would hide a known unpriced charge.
+        return {
+            "status": "unavailable",
+            "pricing_table_matched": True,
+            "rates_per_1m_usd": priced.get("rates_per_1m_usd"),
+        }
     return {
         "status": "estimated",
         "usd": float(priced["total_usd"]),
