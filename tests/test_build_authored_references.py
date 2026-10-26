@@ -553,3 +553,93 @@ def test_actual_native_authored_source_to_sdk_app(native_first_world_client,monk
     assert len(acquired)==1 and acquired[0].outcome=='read'
     assert acquired[0].source_read_event_ids
     assert turn.completion.source_citations
+
+
+@pytest.mark.parametrize('tamper',[None,'omit','text','origin'])
+def test_shared_authored_batch_is_actual_nonselectable_controller_context(build_case,monkeypatch,tmp_path,tamper):
+    """Synthetic native IO; actual SDK preparation, APP admission and final readback."""
+    from copy import deepcopy
+    from types import SimpleNamespace
+    from apps.live_control_server.integrations.dungeonmind import world_graph_reads as native
+    from graph_memory.retrieval.models import WorldGraphRetrievalNode
+    from graph_memory.interaction import expansion_executor
+    from apps.live_control_server.services.build_jev_driver import BuildJevDriver
+    from apps.live_control_server.services.agent_turn_service import AgentTurnServiceError
+    case,counts=referenced_case(build_case,monkeypatch,authoring=False)
+    getter=native.get_object_with_reviewed_sources_direct_v3
+    def object_read(services,query):
+        value=getter(services,query.model_copy(update={'node_id':'frank'}))
+        observations=tuple(row.model_copy(update={'assertion_id':'observation-'+query.node_id,'subject_node_id':query.node_id,
+            'evidence_ref_ids':['evidence-one','evidence-two'] if query.node_id=='frank' else ['evidence-one']}) for row in value.reviewed_source_observations)
+        anchor=value.result.source_anchors[0]
+        anchors=[anchor.model_copy(update={'supporting_assertion_ids':[r.assertion_id for r in observations]})]
+        pins=list(value.source_pins)
+        if query.node_id=='frank':
+            anchors.append(anchors[0].model_copy(update={'anchor_id':'anchor-two','evidence_ref_id':'evidence-two'}))
+            pins.append(SimpleNamespace(**{**vars(pins[0]),'anchor_id':'anchor-two','evidence_ref_id':'evidence-two'}))
+        result=value.result.model_copy(update={'requested_node_id':query.node_id,'source_anchors':anchors,
+            'nodes':[WorldGraphRetrievalNode(node_id=node,label=node,kind='npc',role='match') for node in ('frank','sara')]})
+        return replace(value,result=result,source_pins=tuple(pins),reviewed_source_observations=observations)
+    monkeypatch.setattr(native,'get_object_with_reviewed_sources_direct_v3',object_read)
+    monkeypatch.setattr(native,'get_object_direct',lambda services,query:object_read(services,query).result)
+    reader=expansion_executor.execute_read_graph_source
+    def batched(arguments,**kwargs):
+        value=reader({**arguments,'anchorIds':['anchor-one']},**kwargs)
+        base=value['reads'][0];value['reads']=[]
+        for anchor in arguments['anchorIds']:
+            row=deepcopy(base);evidence='evidence-two' if anchor=='anchor-two' else 'evidence-one'
+            row['sourceReadId']='read-'+anchor
+            row['result'].update(anchorId=anchor,evidenceRefId=evidence)
+            row['receipt'].update(anchor_id=anchor,evidence_ref_id=evidence,source_read_id='read-'+anchor)
+            value['reads'].append(row)
+        return value
+    monkeypatch.setattr(expansion_executor,'execute_read_graph_source',batched)
+    from graph_memory.interaction.session import GraphReferent
+    case[2].retrieval_session.referents=[GraphReferent(id='sara',label='Sara')]
+    case=(case[0],case[1],replace(case[2],navigation_candidates=(('sara','Sara'),)))
+    staged=[]
+    stage=BuildJevDriver.stage
+    def capture(driver):
+        plan=stage(driver);state=plan.state()
+        if state.get('shared_authored_batch_context'):
+            staged.append((driver,plan))
+            if tamper:
+                if tamper=='omit':state.pop('shared_authored_batch_context')
+                elif tamper=='text':state['shared_authored_batch_context']['passages'][0]['text']='Foreign source body'
+                else:state['shared_authored_batch_context']['passages'][0]['origin']['source_read_event_id']='00000000-0000-0000-0000-000000000000'
+                plan=replace(plan,state_json=json.dumps(state));driver._pending=plan
+        return plan
+    monkeypatch.setattr(BuildJevDriver,'stage',capture)
+    decisions,writer=WorldDecisions(),WriterWire()
+    harness=BuildJevHarness(world_context=True,named_citations=True,related_pages=True,accounting=counter(),decision_transport=decisions,writer_transport=writer)
+    if tamper:
+        with pytest.raises(AgentTurnServiceError):execute(case,tmp_path,harness)
+        assert staged and not writer.calls
+        assert not any(json.loads(call.content)['state'].get('shared_authored_batch_context') for call in decisions.calls)
+        return
+    response=execute(case,tmp_path,harness)
+    assert staged and len(writer.calls)==1 and counts['source']==1
+    turn=AgentConversationService().list_turns('elderwyld',response.conversation.conversation_id)[0]
+    assert turn.status=='completed'
+    contexts=[]
+    for call in decisions.calls:
+        state=json.loads(call.content)['state'];lane=state.get('shared_authored_batch_context')
+        if state.get('phase_binding',{}).get('phase') in {'navigate','coverage'}:
+            assert lane is None
+        if lane:
+            contexts.append(lane)
+            assert lane['schema']=='dmb_build_shared_authored_batch_context_v1'
+            assert {row['origin']['anchor_id'] for row in lane['passages']}=={'anchor-one','anchor-two'}
+            assert all('anchor-two' not in json.dumps(unit) for unit in state['decision']['state'].get('evidence',[]))
+    assert contexts
+    assert all('world-object:frank' not in call.content.decode() for call in decisions.calls)
+    batch=next(e for e in turn.graph_context_execution.events if isinstance(e,t.ValidatedSourceReadEventV2))
+    assert len(batch.receipts)==2
+    assert any(isinstance(e,t.ProviderAttemptAuthorizedEventV3) and batch.event_id in e.included_source_read_event_ids
+        for e in turn.graph_context_execution.events)
+    packet=json.loads(json.loads(writer.calls[0].content)['input'])
+    assert packet['authored_reference_context'] and packet['opened_passages']
+    role=turn.graph_context_execution.policy.provider_roles.writer.identity()
+    writer_attempts=[e for e in turn.graph_context_execution.events if isinstance(e,t.ProviderAttemptAuthorizedEventV1) and (e.provider,e.model,e.api_mode)==role]
+    assert len(writer_attempts)==1 and batch.event_id in writer_attempts[0].included_source_read_event_ids
+    assert turn.completion.source_citations
