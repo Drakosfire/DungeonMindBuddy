@@ -345,3 +345,62 @@ def test_reviewed_authored_insertion_needs_no_controller_call_for_exact_object(b
     providers=[e for e in turn.graph_context_execution.events if isinstance(e,t.ProviderAttemptAuthorizedEventV1)]
     assert len(providers)==1 and providers[0].provider_attempt_id==response.knowledge_context.completion.provider_attempt_id
     assert reads=={'graph':2,'source':1}
+
+
+@pytest.mark.parametrize('operation', ['propose_build_insertion', 'prepare_build_image'])
+@pytest.mark.parametrize('mutation', ['none', 'missing_passage', 'wrong_origin'])
+def test_two_authored_objects_share_one_physical_passage(build_case, monkeypatch, tmp_path, operation, mutation):
+    """Real SDK/APP joins two native-shaped object reads to one shared source read."""
+    from uuid import uuid4
+    from apps.live_control_server.integrations.dungeonmind import world_graph_reads as native
+    from graph_memory.retrieval.models import WorldGraphRetrievalNode
+    from apps.live_control_server.services import build_authored_references as owner
+    from apps.live_control_server.services.agent_turn_service import AgentTurnServiceError
+    from tests.test_build_jev_image import ImageWire
+    case, reads = referenced_case(build_case, monkeypatch)
+    getter = native.get_object_with_reviewed_sources_direct_v3
+    def shared(services, query):
+        value = getter(services, query.model_copy(update={'node_id':'frank'}))
+        observations = tuple(row.model_copy(update={
+            'assertion_id':'observation-' + query.node_id, 'subject_node_id':query.node_id})
+            for row in value.reviewed_source_observations)
+        result = value.result.model_copy(update={'requested_node_id':query.node_id,
+            'nodes':[WorldGraphRetrievalNode(node_id=node, label=node, kind='npc', role='match')
+                for node in ('frank', 'sara')],
+            'source_anchors':[anchor.model_copy(update={
+                'supporting_assertion_ids':[row.assertion_id for row in observations]})
+                for anchor in value.result.source_anchors]})
+        return replace(value, result=result, reviewed_source_observations=observations)
+    monkeypatch.setattr(native, 'get_object_with_reviewed_sources_direct_v3', shared)
+    monkeypatch.setattr(native, 'get_object_direct', lambda services, query:shared(services, query).result)
+    one = case[1].build_authored_references.references[0]
+    references = AuthoredGraphReferencesV1(references=(one, one.model_copy(update={'node_id':'sara'})))
+    case = (case[0], case[1].model_copy(update={'build_authored_references':references}), case[2])
+    if mutation != 'none':
+        material = owner.writer_material
+        def altered(adapter):
+            packet = material(adapter)
+            if mutation == 'missing_passage':packet['authored_reference_passages'] = []
+            else:packet['authored_reference_passages'][0]['origin']['operation_event_id'] = str(uuid4())
+            return packet
+        monkeypatch.setattr(owner, 'writer_material', altered)
+    decisions = WorldDecisions(); decisions.operation = operation
+    writer = ImageWire() if operation == 'prepare_build_image' else WriterWire()
+    harness = BuildJevHarness(world_context=True, named_citations=True, related_pages=True,
+        accounting=counter(), decision_transport=decisions, writer_transport=writer)
+    if mutation != 'none':
+        with pytest.raises(AgentTurnServiceError):execute(case, tmp_path, harness, operator_subject='local_operator')
+        assert not writer.calls
+        return
+    response = execute(case, tmp_path, harness, operator_subject='local_operator')
+    assert len(writer.calls) == 1 and reads['source'] == 1
+    packet = json.loads(json.loads(writer.calls[0].content)['input'])
+    assert len(packet['authored_reference_passages']) == 1
+    context = packet['authored_reference_context']
+    assert {row['node_id'] for row in context['selected_references']['references']} == {'frank', 'sara'}
+    turn = AgentConversationService().list_turns('elderwyld', response.conversation.conversation_id)[0]
+    acquired = [e for e in turn.graph_context_execution.events if isinstance(e, t.BuildAuthoredReferenceReadV1)]
+    assert {e.node_id for e in acquired} == {'frank', 'sara'}
+    assert acquired[0].source_read_event_ids == acquired[1].source_read_event_ids
+    operations = sorted({eid for e in acquired for eid in e.operation_event_ids}, key=str)
+    assert packet['authored_reference_passages'][0]['origin']['operation_event_id'] == str(operations[-1])

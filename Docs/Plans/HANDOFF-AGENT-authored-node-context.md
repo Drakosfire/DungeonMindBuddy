@@ -613,3 +613,16 @@ and input capture occurred together. That provenance only verifies the original 
 identity salt; the exact immutable APP selection/intent/capability/arguments remain the
 action authority. Missing/ambiguous provenance refuses; no new selection is appended.
 Prove capture-loss, later read-loss and third-attempt completion.
+
+### Bounded cumulative-review corrections
+
+The operator stopped scope growth and requested merge readiness for #1785. Full
+cumulative review at7347adcd4 held two defects. Independent critique clears only
+these corrections: expected writer passages use the same sorted operation union and
+shared-pin donor rule as reconstruction, validating every object's source membership
+before deduplicating physical event/read identities; selected objects and their
+immutable read provenance remain distinct. V3 step references are required, including
+an explicit empty set; V1/V2 plan/review readers retain their historical shapes.
+Verify shared-source proposal and image admission, altered/missing passage refusal,
+and explicit V3 input versus legacy readback at their actual boundaries. This does
+not authorize adding capabilities or bypassing the outstanding activation gates.

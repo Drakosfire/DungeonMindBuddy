@@ -386,10 +386,14 @@ def validate_writer_input(packet, execution, trace):
     if len(captured) != len(rows):
         raise ValueError('Protected source captures must have unique event and read identities')
     events = {e.event_id: e for e in execution.events}
-    required = []
-    for read in execution.events:
-        if not isinstance(read, t.BuildAuthoredReferenceReadV1) or read.outcome != 'read':
-            continue
+    reads = [read for read in execution.events
+        if isinstance(read, t.BuildAuthoredReferenceReadV1) and read.outcome == 'read']
+    # Match writer_material's sorted union and opened_world_passages' donor rule.
+    # Every object keeps its read receipt; shared physical source bytes appear once.
+    operation_ids = sorted({eid for read in reads for eid in read.operation_event_ids}, key=str)
+    donors = {pin.anchor_id: eid for eid in operation_ids for pin in events[eid].returned_source_pins}
+    required_by_read = {}
+    for read in reads:
         pins = {pin.anchor_id: (operation.event_id, pin) for eid in read.operation_event_ids
             for operation in [events[eid]] for pin in operation.returned_source_pins}
         for eid in read.source_read_event_ids:
@@ -408,12 +412,17 @@ def validate_writer_input(packet, execution, trace):
                     or not isinstance(row.get('source_name'), str) or not row['source_name'].strip()):
                     raise ValueError('Authored writer source differs from protected complete read bytes')
                 from .build_world_context import WorldPassageOrigin
-                proof = WorldPassageOrigin(operation_event_id=origin, source_read_event_id=eid,
+                proof = WorldPassageOrigin(operation_event_id=donors[receipt.anchor_id], source_read_event_id=eid,
                     source_read_id=receipt.source_read_id, anchor_id=receipt.anchor_id,
                     evidence_ref_id=receipt.evidence_ref_id, source_artifact_id=receipt.source_artifact_id,
                     source_revision_id=receipt.source_revision_id, content_sha256=receipt.content_sha256,
                     line_start=receipt.line_start, line_end=receipt.line_end)
-                required.append({'origin': proof.model_dump(mode='json'), 'text': row['text'], 'source_name': row['source_name'].strip()})
+                material = {'origin': proof.model_dump(mode='json'), 'text': row['text'], 'source_name': row['source_name'].strip()}
+                identity = (str(eid), str(receipt.source_read_id))
+                if identity in required_by_read and required_by_read[identity] != material:
+                    raise ValueError('Shared authored source receipts disagree')
+                required_by_read[identity] = material
+    required = list(required_by_read.values())
     if packet.get('schema') in {'dmb_build_compose_input_v1', 'dmb_build_image_direction_input_v1'}:
         actual = packet.get('authored_reference_passages')
         key = lambda row: digest(row)

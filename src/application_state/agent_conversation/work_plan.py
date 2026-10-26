@@ -109,7 +109,7 @@ class PlanV2(Plan):
 
 
 class StepV2(Step):
-    references: tuple[AuthoredGraphReferenceV1, ...] = ()
+    references: tuple[AuthoredGraphReferenceV1, ...]
 
 
 class DispatchV2(Dispatch):

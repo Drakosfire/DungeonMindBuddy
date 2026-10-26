@@ -64,6 +64,6 @@ def test_reference_upgrade_preserves_legacy_dispatch_binding(case):
     upgraded = w.save('world-one', cid, source.turn_id, w.ReviewV3(expected_revision=2,
         objective='Read the new reference only on future continuations.',
         root_references=(reference('later-box'),),
-        steps=[w.StepV2(**s.model_dump()) for s in steps]))
+        steps=[w.StepV2(**s.model_dump(), references=()) for s in steps]))
     assert upgraded['dispatches'] == [dispatch]
     assert resolve().model_dump(mode='json') == original.model_dump(mode='json')

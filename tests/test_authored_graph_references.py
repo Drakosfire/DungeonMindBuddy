@@ -186,3 +186,24 @@ def test_existing_selection_provenance_uses_its_actual_prior_attempt(starts,expe
         with pytest.raises(AgentTurnServiceError,match='unique prior physical attempt'):
             prior_selection_attempt(adapter,SimpleNamespace(sequence=1))
     else:assert prior_selection_attempt(adapter,SimpleNamespace(sequence=1))==expected
+
+
+def test_v3_rows_require_explicit_references_without_changing_legacy_readers():
+    from application_state.agent_conversation import work_plan as w
+    row = {'step_id':str(uuid4()), 'text':'Discuss the box.', 'selected':True, 'kind':'discuss'}
+    legacy = {'expected_revision':0, 'objective':'Keep the wick dry.', 'steps':[row]}
+    assert w.Review.model_validate({k:v for k,v in legacy.items() if k != 'objective'}).steps
+    assert w.ReviewV2.model_validate(legacy).steps
+    review = legacy | {'root_references':[]}
+    with pytest.raises(ValidationError, match='references'):
+        w.ReviewV3.model_validate(review)
+    review['steps'] = [row | {'references':[]}]
+    assert w.ReviewV3.model_validate(review).steps[0].references == ()
+    plan = {'world_id':'quarry', 'conversation_id':str(uuid4()), 'source_turn_id':str(uuid4()),
+        'source_answer_sha256':'a'*64, 'document_id':'page', 'revision':1,
+        'objective':'Keep the wick dry.', 'steps':[row]}
+    assert w.Plan.model_validate({k:v for k,v in plan.items() if k != 'objective'}).steps
+    assert w.PlanV2.model_validate(plan).steps
+    with pytest.raises(ValidationError, match='references'):
+        w.PlanV3.model_validate(plan | {'root_references':[]})
+    assert w.PlanV3.model_validate(plan | {'root_references':[], 'steps':[row | {'references':[]}]}).steps
