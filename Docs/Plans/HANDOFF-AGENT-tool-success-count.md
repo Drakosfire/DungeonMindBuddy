@@ -1,6 +1,12 @@
 # Report successful Graph tool invocations truthfully
 
-Status: ACTIVE. PRIME owns the operator-authorized benchmark regression program.
+Status: SETTLED. PR1809 mergedc8565dc8b26bcd68811b33bad002af8cc5445049 after
+Bugbot approval of exact2479b7b131aaeaeb6b26ad2bb780e614a54cb7e2; reviewer independently
+ran34 focused tests, author270 across query/worker/source telemetry. Protected API
+delivery preserved all3588 APP rows,1097 native rows and39933 retained files, with
+schemas0077/0017 and UI11f83820 unchanged. Saved Conks Plan loads normally. Original
+Q01 raw0 remains unchanged; provider-free observer reprojection yields2. Lease
+released. Historical owner: PRIME under benchmark regression authorization.
 Base167e74fca38f8066f49117a71f65896b679a81ae; branch codex/graph-tool-success-count,
 existing buddy-context-loop checkout. Serial successor to merged/delivered PR1808.
 HOSTED1802 is disjoint; Plan1807 remains paused. No retained state or provider calls
