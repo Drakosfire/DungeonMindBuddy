@@ -6144,3 +6144,11 @@ export interface AuthoredGraphReferencesV1 {
   schema: 'dmb_authored_graph_references_v1';
   references: AuthoredGraphReferenceV1[];
 }
+
+export interface AgentConnectedPageOriginV1 {
+  schema:'dmb_agent_connected_page_origin_v1';
+  world_id:string;
+  turn_id:string;
+  read_id:string;
+  origin:import('./connectedPageApi').SavedExcerptOrigin;
+}

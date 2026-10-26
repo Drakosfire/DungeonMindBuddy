@@ -1499,6 +1499,21 @@ def get_world_conversation_history(
     )
 
 
+@router.get("/worlds/{world_id}/conversation/turns/{turn_id}/connected-page-origin")
+def get_world_turn_connected_page_origin(world_id: str, turn_id: UUID, request: Request):
+    enforce_native_graph_gm(request)
+    verified = _verified_world_id(world_id)
+    if request.query_params:
+        raise HTTPException(status_code=422, detail={"code":"connected_page_origin_selector_invalid"})
+    from apps.live_control_server.services.agent_connected_page_origin import open_origin
+    try:
+        return open_origin(_conversation_service(request),verified,turn_id)
+    except ApplicationStateError as exc:
+        raise HTTPException(status_code=exc.status_code, detail={"code":"connected_page_origin_unavailable"}) from exc
+    except (ValueError,ValidationError,KeyError) as exc:
+        raise HTTPException(status_code=409, detail={"code":"connected_page_origin_binding_invalid"}) from exc
+
+
 @router.get("/worlds/{world_id}/conversation/turns/{turn_id}/related-pages/{read_id}")
 def get_world_turn_related_page(world_id: str, turn_id: UUID, read_id: UUID, request: Request):
     """Read the immutable authored page captured for this completed answer."""

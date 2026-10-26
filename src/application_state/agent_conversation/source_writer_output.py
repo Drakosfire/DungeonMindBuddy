@@ -363,6 +363,16 @@ def validate_writer_format(fmt: dict, packet: dict) -> None:
     if not isinstance(fmt, dict):
         raise ValueError("Source writer request lacks its frozen output schema")
     name = fmt.get("name")
+    from .connected_page_origins import KEY as ORIGIN_KEY, FORMAT as ORIGIN_FORMAT, packet_rows as origin_rows
+    if ORIGIN_KEY in packet or name == ORIGIN_FORMAT:
+        from .build_intentional_response import output_schema as intentional_schema
+        if ORIGIN_KEY not in packet or name != ORIGIN_FORMAT:
+            raise ValueError('Connected origin marker and writer format differ')
+        origin_rows(packet)
+        schema = intentional_schema(packet)
+        if fmt != {'type':'json_schema','name':ORIGIN_FORMAT,'schema':schema,'strict':True}:
+            raise ValueError('Connected origin finite writer schema differs')
+        return
     from .plan_objective import KEY, INTENTIONAL_FORMAT, REVIEWED_FORMAT
     if KEY in packet:
         expected = INTENTIONAL_FORMAT if 'response_contract' in packet else REVIEWED_FORMAT
@@ -528,6 +538,8 @@ def reconstruct(raw_output: str, packet: dict, turn, auth):
         raise ValueError('Historical policy cannot acquire intentional response authority')
     from .plan_objective import validate_packet as validate_objective_packet
     validate_objective_packet(packet, execution, auth)
+    from .connected_page_origins import validate_packet as validate_origin_packet
+    validate_origin_packet(packet, execution, auth)
     candidate = normalize(raw_output, packet)
     if "working_draft_context" in packet:
         from .build_draft_answer import validate_packet as validate_draft_packet

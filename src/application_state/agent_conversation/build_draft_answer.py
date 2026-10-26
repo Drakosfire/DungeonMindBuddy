@@ -88,7 +88,7 @@ def answer_model(packet):
         else DraftWriterAnswerV1)
 
 
-def output_schema(packet):
+def output_schema(packet, *, connected_origins=None):
     from .source_writer_output import finite_output_schema
     from uuid import UUID
     lane = packet.get("working_draft_context")
@@ -120,8 +120,10 @@ def output_schema(packet):
         if item["$ref"].split("/")[-1] in schema["$defs"]]
     if "ProposedConnectedPage" in schema["$defs"]:
         schema["$defs"]["ProposedConnectedPage"]["properties"]["person_label"]={"type":["string","null"]}
-        if related:
-            schema["$defs"]["ProposedConnectedPage"]["properties"]["read_id"]={"type":"string","enum":[r["read_id"] for r in related]}
+        from .connected_page_origins import packet_rows as connected_origin_rows
+        origins = connected_origin_rows(packet) if connected_origins is None else connected_origins
+        if origins:
+            schema["$defs"]["ProposedConnectedPage"]["properties"]["read_id"]={"type":"string","enum":[r["read_id"] for r in origins]}
         else:
             del schema["$defs"]["ProposedConnectedPage"]
             schema["properties"]["collaboration"]["anyOf"]=[item for item in schema["properties"]["collaboration"]["anyOf"] if item.get("$ref","").split("/")[-1]!="ProposedConnectedPage"]

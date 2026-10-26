@@ -70,3 +70,12 @@ parser. Frozen response fixtures are synthetic, not semantic provider acceptance
 Inspect cumulative diff, obtain independent Bugbot review, push/open the assigned
 PR; PRIME merge and protected API delivery require the applicable gates. Ordinary
 new-page routing/creative acceptance remains explicitly unfinished.
+
+
+## Delivered predecessor and lease settlement
+
+#1789 merged at6ac16d260 and protected paired delivery retained APP0073/native0017,
+existing APP/native rows and retained files. Ordinary synthetic current-page writing
+produced a visible editable suggestion; explicit dismissal left the source clean.
+The safeguard lease is settled by HANDOFF-BUILD-connected-primary-origin.md.
+Separate-page semantic routing and full creative acceptance remain unfinished.
