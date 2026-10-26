@@ -189,12 +189,19 @@ def acquire(adapter):
         gaps = []
         read_operation_sources(adapter, operations, attempted, gaps)
         execution = adapter._broker_execution()
-        pins = {pin.anchor_id for e in execution.events if e.event_id in operations for pin in e.returned_source_pins}
+        pin_by_anchor = {pin.anchor_id: pin for e in execution.events if e.event_id in operations for pin in e.returned_source_pins}
+        pins = set(pin_by_anchor)
         reads = [e.event_id for e in execution.events if isinstance(e, t.ValidatedSourceReadEventV2)
             and any(r.anchor_id in pins for r in e.receipts)]
         partial = any(e.truncated or e.coverage_status != 'complete' or e.evidence_sufficiency_status != 'sufficient'
             for e in execution.events if e.event_id in operations)
-        outcome = 'source_gap' if gaps or not pins else 'read_partial' if partial else 'read'
+        complete_sources = {r.anchor_id for e in execution.events if e.event_id in reads
+            for r in e.receipts if r.outcome == 'enough' and not r.truncated
+            and r.evidence_sufficiency_status == 'sufficient' and r.anchor_id in pin_by_anchor
+            and r.evidence_ref_id == pin_by_anchor[r.anchor_id].evidence_ref_id
+            and r.source_artifact_id == pin_by_anchor[r.anchor_id].source_artifact_id
+            and r.source_revision_id == pin_by_anchor[r.anchor_id].source_revision_id}
+        outcome = 'source_gap' if gaps or not pins or not pins.issubset(complete_sources) else 'read_partial' if partial else 'read'
         append(adapter, t.BuildAuthoredReferenceReadV1(event_id=uuid4(), sequence=len(execution.events),
             kind='build_authored_reference_read_v1', capture_event_id=capture.event_id,
             authorization_event_id=authorization.event_id, node_id=ref.node_id,

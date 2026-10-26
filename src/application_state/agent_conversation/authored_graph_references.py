@@ -189,13 +189,17 @@ def validate_execution(execution):
                     pin = pins.get(receipt.anchor_id)
                     if pin is None:
                         continue
+                    complete = (receipt.outcome == 'enough' and not receipt.truncated
+                        and receipt.evidence_sufficiency_status == 'sufficient')
+                    unavailable_revision = (event.outcome == 'source_gap'
+                        and receipt.outcome == 'unavailable' and receipt.source_revision_id is None)
                     if (receipt.evidence_ref_id != pin.evidence_ref_id
                         or receipt.source_artifact_id != pin.source_artifact_id
-                        or receipt.source_revision_id != pin.source_revision_id
-                        or receipt.outcome != 'enough' or receipt.truncated
-                        or receipt.evidence_sufficiency_status != 'sufficient'):
+                        or (receipt.source_revision_id != pin.source_revision_id and not unavailable_revision)
+                        or (not complete and event.outcome != 'source_gap')):
                         raise ValueError('Authored Graph passage lacks complete exact source support')
-                    supplied.add(receipt.anchor_id)
+                    if complete:
+                        supplied.add(receipt.anchor_id)
             partial = any(e.truncated or e.coverage_status != 'complete' or e.evidence_sufficiency_status != 'sufficient' for e in operations)
             if event.outcome in {'read', 'read_partial'} and (event.outcome == 'read_partial') != partial:
                 raise ValueError('Authored Graph context must preserve partial object coverage')

@@ -626,3 +626,25 @@ an explicit empty set; V1/V2 plan/review readers retain their historical shapes.
 Verify shared-source proposal and image admission, altered/missing passage refusal,
 and explicit V3 input versus legacy readback at their actual boundaries. This does
 not authorize adding capabilities or bypassing the outstanding activation gates.
+
+### Existing-scope merge-readiness proof
+
+Pre-merge gates are actual native/APP boundary behavior, the twelve effective writer
+profiles with empty and populated citation-binding maps, failure/recovery boundaries,
+UI request/build evidence, and exact cumulative independent review. Protected adoption
+uses the clean merged revision; ordinary live UI and creative acceptance follow that
+adoption. These phase labels clarify ordering without waiving any required proof.
+
+The profile proof exposed a draft-bundle integration defect: a required authored
+inclusion sat between draft inclusion and provider authorization. Independent critique
+permits that event only under the explicit authored policy and only for the exact
+attempt/envelope bundle. Historical event reading is preserved; no old execution path,
+automatic V3 default or compatibility fallback is added.
+
+Actual native source refusal also exposed successful-read classification of failed
+receipts. Independent critique requires exact pin/evidence/artifact/revision support
+before marking read. Otherwise retain source_gap; only an unavailable receipt may lack
+a revision, and it never supplies writer support. Ordinary initial semantic routing
+still occurs once; the gap authorizes/sends no writer. Keep object partial coverage
+separate from missing source support. The existing dedicated native fixture and pinned
+migration code isolate native/APP databases and verify retained native rows unchanged.

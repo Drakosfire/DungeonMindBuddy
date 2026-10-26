@@ -207,3 +207,46 @@ def test_v3_rows_require_explicit_references_without_changing_legacy_readers():
     with pytest.raises(ValidationError, match='references'):
         w.PlanV3.model_validate(plan | {'root_references':[]})
     assert w.PlanV3.model_validate(plan | {'root_references':[], 'steps':[row | {'references':[]}]}).steps
+
+
+@pytest.mark.parametrize('mutation',['none','legacy','attempt','envelope'])
+def test_authored_draft_bundle_requires_new_policy_and_exact_provider_identity(mutation):
+    from types import SimpleNamespace
+    from tests.test_build_draft_context import owner
+    from application_state.agent_conversation import types as t
+    from application_state.agent_conversation.build_draft_context import validate_provider_inclusions
+    from application_state.agent_conversation.authored_graph_references import POLICY
+    record, _ = owner()
+    captured=t.BuildDraftContextCapturedV1(event_id=uuid4(),sequence=0,kind='build_draft_context_captured_v1',record=record)
+    attempt=uuid4()
+    draft=t.BuildDraftProviderInclusionV1(event_id=uuid4(),sequence=1,kind='build_draft_provider_inclusion_v1',
+        provider_attempt_id=attempt,envelope_sha256='a'*64,draft_event_id=captured.event_id,snapshot_sha256=record.snapshot.snapshot_sha256)
+    authored=t.BuildAuthoredProviderInclusionV1(event_id=uuid4(),sequence=2,kind='build_authored_provider_inclusion_v1',
+        capture_event_id=uuid4(),references_sha256='b'*64,source_read_event_ids=[],provider_attempt_id=attempt,
+        envelope_sha256='a'*64,material_sha256='c'*64)
+    if mutation=='attempt':authored=authored.model_copy(update={'provider_attempt_id':uuid4()})
+    if mutation=='envelope':authored=authored.model_copy(update={'envelope_sha256':'d'*64})
+    execution=SimpleNamespace(policy=SimpleNamespace(authored_graph_reference_policy=None if mutation=='legacy' else POLICY),
+        events=[captured,draft,authored])
+    if mutation=='none':validate_provider_inclusions(execution)
+    else:
+        with pytest.raises(ValueError,match='exact provider authorization bundle'):validate_provider_inclusions(execution)
+
+
+@pytest.mark.parametrize('mutation',['none','wrong_artifact','wrong_evidence','wrong_revision','missing_denied_revision','claimed_read'])
+def test_source_gap_retains_failed_receipt_without_granting_source_authority(mutation):
+    from application_state.agent_conversation.authored_graph_references import validate_execution,writer_context
+    execution=acquired_execution()
+    receipt=execution.events[3].receipts[0]
+    receipt.outcome='unavailable';receipt.source_revision_id=None;receipt.evidence_sufficiency_status='insufficient'
+    execution.events[-1]=execution.events[-1].model_copy(update={'outcome':'source_gap'})
+    if mutation=='wrong_artifact':receipt.source_artifact_id='other-artifact'
+    if mutation=='wrong_evidence':receipt.evidence_ref_id='other-evidence'
+    if mutation=='wrong_revision':receipt.source_revision_id='other-revision'
+    if mutation=='missing_denied_revision':receipt.outcome='denied'
+    if mutation=='claimed_read':execution.events[-1]=execution.events[-1].model_copy(update={'outcome':'read'})
+    if mutation=='none':
+        validate_execution(execution)
+        with pytest.raises(ValueError,match='not been read successfully'):writer_context(execution)
+    else:
+        with pytest.raises(ValueError,match='complete exact source support'):validate_execution(execution)

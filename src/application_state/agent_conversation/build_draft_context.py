@@ -156,6 +156,11 @@ def validate_inclusion_input(inclusion, execution, prepared_request_json):
 def validate_provider_inclusions(execution):
     from .types import (BuildDraftProviderInclusionV1, ProviderAttemptAuthorizedEventV1,
         BuildSectionProviderInclusionV1, RelatedRecapContextProviderInclusionEventV2)
+    from .authored_graph_references import policy_enabled
+    from .types import BuildAuthoredProviderInclusionV1
+    bundle_types = (BuildSectionProviderInclusionV1, RelatedRecapContextProviderInclusionEventV2)
+    if policy_enabled(execution.policy):
+        bundle_types += (BuildAuthoredProviderInclusionV1,)
     rows = [e for e in execution.events if isinstance(e, BuildDraftProviderInclusionV1)]
     if not rows:
         return
@@ -175,7 +180,7 @@ def validate_provider_inclusions(execution):
                 raise ValueError("Working draft inclusion differs from its provider authorization")
         end = attempts[0].sequence if attempts else len(execution.events)
         for between in execution.events[inclusion.sequence+1:end]:
-            if (not isinstance(between, (BuildSectionProviderInclusionV1, RelatedRecapContextProviderInclusionEventV2))
+            if (not isinstance(between, bundle_types)
                 or between.provider_attempt_id != inclusion.provider_attempt_id
                 or between.envelope_sha256 != inclusion.envelope_sha256):
                 raise ValueError("Draft inclusion must precede the exact provider authorization bundle")

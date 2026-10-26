@@ -404,3 +404,152 @@ def test_two_authored_objects_share_one_physical_passage(build_case, monkeypatch
     assert acquired[0].source_read_event_ids == acquired[1].source_read_event_ids
     operations = sorted({eid for e in acquired for eid in e.operation_event_ids}, key=str)
     assert packet['authored_reference_passages'][0]['origin']['operation_event_id'] == str(operations[-1])
+
+
+class AuthoredProfileWriter(WriterWire):
+    async def handle_async_request(self, request):
+        import httpx
+        self.calls.append(request)
+        body=json.loads(request.content);packet=json.loads(body['input'])
+        passages=packet['opened_passages']
+        if passages:
+            from application_state.agent_conversation.build_draft_answer import source_claim_limitations
+            limits=sorted(source_claim_limitations(packet))
+            answer={'answer_context_status':'source_grounded_partial' if limits else 'source_grounded',
+                'answer_segments':[{'kind':'source_passage_claim','text':passages[0]['text'],'passage_handles':[passages[0]['handle']]}],
+                'limitations':limits,'requested_detail_gaps':[]}
+        else:
+            answer={'answer_context_status':'creative_proposal','answer_segments':[{'kind':'suggestion','text':'Consider a proposed lantern inspection.'}],
+                'limitations':[],'requested_detail_gaps':[]}
+        if passages and packet.get('source_quote_binding_policy'):
+            answer['answer_segments'][0]['supporting_quotes']=[passages[0]['text']]
+        if 'collaboration_output_policy' in packet or 'response_contract' in packet:answer['collaboration']=None
+        text=json.dumps(answer)
+        data={'id':'profile-proof','object':'response','created_at':1,'status':'completed','model':'gpt-6-luna',
+            'output':[{'type':'message','id':'msg','role':'assistant','status':'completed','content':[{'type':'output_text','text':text,'annotations':[]}]}],
+            'usage':{'input_tokens':100,'output_tokens':40,'total_tokens':140}}
+        if body.get('stream'):
+            events=[{'type':'response.output_text.delta','sequence_number':1,'item_id':'msg','output_index':0,'content_index':0,'delta':text},
+                {'type':'response.completed','sequence_number':2,'response':data}]
+            return httpx.Response(200,request=request,headers={'content-type':'text/event-stream'},content=''.join('data: '+json.dumps(e)+'\n\n' for e in events).encode())
+        return httpx.Response(200,request=request,json=data)
+
+@pytest.mark.parametrize('family',['Collaboration','ConnectedPageReview','SourceQuote','RelationshipReview','IntentionalResponse','IntentionalResponseSource'])
+@pytest.mark.parametrize('image',[False,True])
+@pytest.mark.parametrize('selected',[False,True])
+def test_all_authored_writer_profiles_with_empty_and_populated_bindings(build_case,monkeypatch,tmp_path,family,image,selected):
+    case,reads=referenced_case(build_case,monkeypatch)
+    from hashlib import sha256
+    from application_state.agent_conversation.build_draft_context import BuildDraftSnapshotV1,BuildDraftContextRequestV1
+    cap=case[1].build_write_capability
+    snap=BuildDraftSnapshotV1(**{k:getattr(cap.basis,k) for k in ('world_id','document_id','registry_revision','content_sha256','visibility','draft_generation')},draft_markdown=case[0].markdown,draft_sha256=sha256(case[0].markdown.encode()).hexdigest(),editor_sha256='b'*64)
+    draft=BuildDraftContextRequestV1(snapshot=snap,conversation_id=cap.conversation_id,expected_pointer_revision=cap.expected_pointer_revision)
+    case=(case[0],case[1].model_copy(update={'build_draft_context':draft,**({'build_write_capability':None} if not image else {})}),case[2])
+    if family=='IntentionalResponseSource':
+        case=(case[0],case[1].model_copy(update={'build_draft_context':None}),case[2])
+    if not selected:
+        case=(case[0],case[1].model_copy(update={'build_authored_references':AuthoredGraphReferencesV1(references=())}),case[2])
+    suffix='V2' if family.startswith('Intentional') else 'V1'
+    name='AuthoredBuild'+family+('Image' if image else '')+'Policy'+suffix
+    profile=getattr(t,name)
+    class ProfileHarness(BuildJevHarness):
+        def configured_budget(self,request):
+            budget=super().configured_budget(request)
+            fields=profile.model_fields
+            actions={k:v for k,v in budget['buildJevActions'].items() if k in fields}
+            if not image:actions['allowed_surface_operations']=[x for x in actions['allowed_surface_operations'] if x!='prepare_build_image']
+            budget['buildJevActions']=actions
+            return budget
+    from tests.test_build_writer_selection import SelectionWire
+    decisions=WorldDecisions() if selected else SelectionWire('empty')
+    writer=AuthoredProfileWriter()
+    harness=ProfileHarness(world_context=True,named_citations=True,related_pages=True,
+        accounting=counter(),decision_transport=decisions,writer_transport=writer)
+    response=execute(case,tmp_path,harness,operator_subject='local_operator')
+    assert len(writer.calls)==1
+    turn=AgentConversationService().list_turns('elderwyld',response.conversation.conversation_id)[0]
+    assert type(turn.graph_context_execution.policy) is profile
+    packet=json.loads(json.loads(writer.calls[0].content)['input'])
+    assert len(packet['opened_passages'])==int(selected)
+    assert len(packet['authored_reference_context']['selected_references']['references'])==int(selected)
+    assert response.knowledge_context.completion is not None
+    bindings=json.loads(harness.adapter._prepared_build_writer_projection.source_bindings_json)
+    assert bool(bindings)==selected
+    from application_state.agent_conversation.source_writer_output import validate_writer_format
+    validate_writer_format(json.loads(writer.calls[0].content)['text']['format'],packet)
+
+
+# Uses the existing dedicated native-database fixture; no retained runtime data.
+from tests.test_cutover_dungeonmind_first_world_initialization import native_first_world_client
+
+
+@pytest.mark.integration
+@pytest.mark.parametrize('source_available',[True,False])
+def test_actual_native_authored_source_to_sdk_app(native_first_world_client,monkeypatch,source_available):
+    from types import SimpleNamespace
+    from uuid import uuid4
+    from apps.live_control_server.services.workspace_document_registry import get_workspace_document_snapshot
+    from apps.live_control_server.services.world_container_registry import get_world_container
+    from tests.test_cutover_dungeonmind_first_world_initialization import (
+        _prepare_native_plan, _first_world_confirm_body, FIRST_WORLD_CONFIRM_URL)
+    from apps.live_control_server.routes import agent
+    client,_,repo,dsn=native_first_world_client
+    _,plan=_prepare_native_plan(client,repo)
+    from apps.live_control_server.integrations.dungeonmind import native_world_source_admission as admission
+    snap=get_workspace_document_snapshot(repo,plan['workspaceDocumentId'])
+    admission.admit_native_world_source(repo,plan['workspaceDocumentId'],expected_revision=snap.loaded_revision,expected_body_sha256=snap.content_sha256)
+    confirmed=client.post(FIRST_WORLD_CONFIRM_URL,json=_first_world_confirm_body(plan))
+    assert confirmed.status_code==200,confirmed.text
+    world=plan['worldId']
+    binding=get_world_container(repo,world).native_graph_binding
+    source=get_workspace_document_snapshot(repo,plan['workspaceDocumentId'])
+    monkeypatch.setattr(agent,'_managed_world_root',lambda:repo)
+    monkeypatch.setenv('DMB_ARTIFACT_DATA_ROOT',str(repo))
+    if not source_available:
+        from apps.live_control_server.services import world_graph_retrieval as retrieval
+        read=retrieval.read_source_anchors_internal_v2
+        def unavailable_root(*args,**kwargs):
+            return read(*args,**{**kwargs,'repo_root':repo / 'missing-source-root'})
+        monkeypatch.setattr(retrieval,'read_source_anchors_internal_v2',unavailable_root)
+    monkeypatch.setenv('TYPESAFE_JEV_API_KEY','synthetic-only')
+    monkeypatch.setenv('OPENAI_API_KEY','synthetic-only')
+    writer=AuthoredProfileWriter()
+    harness=BuildJevHarness(world_context=True,named_citations=True,related_pages=True,
+        accounting=counter(),decision_transport=WorldDecisions(),writer_transport=writer)
+    client.app.state.build_jev_runtime_factory=SimpleNamespace(create=lambda:harness)
+    refs=AuthoredGraphReferencesV1(references=(AuthoredGraphReferenceV1(managed_world_id=world,
+        native_world_id=binding.native_world_id,binding_version=binding.binding_version,
+        graph_revision=confirmed.json()['committedRevisionId'],node_id='obj_session22_vial',label='Display only'),))
+    body={'schema':'dmb_agent_turn_request_v1','client_thread_id':str(uuid4()),'turn_id':str(uuid4()),
+        'surface':{'surface_id':'build','instance_id':source.record.document_id},'owner_scope':{'kind':'world','world_id':world},
+        'primary_work':{'kind':'build','object_id':source.record.document_id,'expected_revision':source.loaded_revision,'expected_content_sha256':source.content_sha256},
+        'client_work_state':'saved_clean','graph_request':{'mode':'world','world_id':world,'campaign_id':None,'revision_pin':None,'focus':{'kind':'none','session_id':None,'campaign_id':None}} ,'graph_selection':None,
+        'build_authored_references':refs.model_dump(mode='json',by_alias=True),'message':'Discuss the referenced object using its source.'}
+    response=client.post('/api/live/agent/turn',json=body)
+    if not source_available:
+        assert response.status_code==422,response.text
+        assert response.json()['detail']['code']=='build_authored_reference_source_gap'
+        # The ordinary initial routing call precedes acquisition; no writer is authorized.
+        assert not writer.calls and len(harness.decision_transport.calls)==1
+        service=AgentConversationService()
+        turn=service.list_turns(world,service.get_world_pointer(world).active_conversation_id)[0]
+        gaps=[event for event in turn.graph_context_execution.events if isinstance(event,t.BuildAuthoredReferenceReadV1)]
+        assert len(gaps)==1 and gaps[0].outcome=='source_gap'
+        role=turn.graph_context_execution.policy.provider_roles.writer.identity()
+        assert not any(isinstance(event,t.ProviderAttemptAuthorizedEventV1)
+            and (event.provider,event.model,event.api_mode)==role for event in turn.graph_context_execution.events)
+        receipts=[row for event in turn.graph_context_execution.events if isinstance(event,t.ValidatedSourceReadEventV2) for row in event.receipts]
+        assert receipts and all(row.outcome=='unavailable' for row in receipts)
+        return
+    assert response.status_code==200,response.text
+    assert len(writer.calls)==1
+    packet=json.loads(json.loads(writer.calls[0].content)['input'])
+    assert packet['opened_passages']
+    assert packet['authored_reference_context']['selected_references']['references'][0]['node_id']=='obj_session22_vial'
+    service=AgentConversationService()
+    turn=service.list_turns(world,service.get_world_pointer(world).active_conversation_id)[0]
+    assert turn.status=='completed'
+    acquired=[event for event in turn.graph_context_execution.events if isinstance(event,t.BuildAuthoredReferenceReadV1)]
+    assert len(acquired)==1 and acquired[0].outcome=='read'
+    assert acquired[0].source_read_event_ids
+    assert turn.completion.source_citations
