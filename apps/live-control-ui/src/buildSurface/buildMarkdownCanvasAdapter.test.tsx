@@ -148,12 +148,15 @@ describe("protected Build draft review in navigation", () => {
     expect(discard).not.toHaveBeenCalled();
     expect(save).not.toHaveBeenCalled();
   });
-  it("offers Restore for a clean re-imported draft even without footer controls", () => {
+  it("offers a copy review before restoring a clean re-imported draft", async () => {
     const restore = vi.fn();
-    session(false, { draftRecoveryAvailable: true, phase: "ready_clean", restoreDraftRecovery: restore });
+    const prepare=vi.fn().mockResolvedValue({documentId:"source-A",fence:"review",copies:[]});
+    session(false, { draftRecoveryAvailable: true, phase: "ready_clean", prepareDraftRestore:prepare,restoreDraftRecovery: restore });
     render(<Controls hideFooterSave />);
     fireEvent.click(screen.getByRole("button", { name: "Restore protected draft" }));
-    expect(restore).toHaveBeenCalledOnce();
+    await screen.findByRole("dialog",{name:"Review retained drafts"});
+    expect(prepare).toHaveBeenCalledOnce();
+    expect(restore).not.toHaveBeenCalled();
     expect(screen.queryByRole("button", { name: "Discard draft" })).not.toBeInTheDocument();
   });
 });

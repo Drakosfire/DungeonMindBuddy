@@ -113,6 +113,8 @@ function mirrorLocalStateToDurableId(args: {
   fallback: WorkspaceDocumentLocalState;
 }): WorkspaceDocumentLocalState {
   const { storage, localDraftId, durableId, snapshot, record } = args;
+  const admissionError=validatePlanPromotionSnapshotAdmission(snapshot,record,{campaignId:args.fallback.campaign_id,targetSession:args.fallback.target_session});
+  if(record.document_id!==durableId || admissionError)throw new Error(admissionError??"Plan durable identity does not match its admitted record.");
   if (localDraftId !== durableId) {
     migrateWorkspaceDocumentLocalStateId(storage, localDraftId, durableId, {
       title: record.title,
