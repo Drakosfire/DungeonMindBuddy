@@ -382,3 +382,36 @@ def test_scoped_discuss_can_still_offer_inline_author_choice_questions(build_cas
     response=execute(case,tmp_path,harness)
     assert response.knowledge_context.completion.collaboration.kind=='questions'
     assert response.knowledge_context.completion.collaboration.questions[0].text=='Should reach or rain protection take priority?'
+
+
+
+def test_plain_scoped_discuss_reclaims_after_selection_without_duplicate_authority(build_case,monkeypatch,tmp_path,application_state_dsn):
+    import psycopg
+    from application_state.agent_conversation import types as t
+    from tests.test_build_world_context import WorldDecisions
+    from apps.live_control_server.routes import agent
+    case=reviewed_case(build_case,monkeypatch,kind='discuss',with_sibling=True)
+    original=AgentConversationService.record_build_reviewed_action_selection
+    class ProcessLost(BaseException):pass
+    def lose_after_selection(service,*args,**kwargs):
+        original(service,*args,**kwargs)
+        raise ProcessLost()
+    monkeypatch.setattr(AgentConversationService,'record_build_reviewed_action_selection',lose_after_selection)
+    decisions,writer=WorldDecisions(),ScopedDiscussionWriter()
+    harness=BuildJevHarness(world_context=True,named_citations=True,related_pages=True,accounting=counter(),decision_transport=decisions,writer_transport=writer)
+    with pytest.raises(ProcessLost):execute(case,tmp_path,harness)
+    service=AgentConversationService();cid=case[1].reviewed_step.conversation_id
+    before=service.list_turns('elderwyld',cid)[-1]
+    assert before.status=='running' and not decisions.calls and not writer.calls
+    selections=[e for e in before.graph_context_execution.events if isinstance(e,t.BuildReviewedActionSelectionV1)]
+    assert len(selections)==1
+    assert not any(isinstance(e,t.ProviderAttemptAuthorizedEventV1) for e in before.graph_context_execution.events)
+    with psycopg.connect(application_state_dsn) as conn:
+        conn.execute("UPDATE agent.turn SET claim_expires_at=clock_timestamp()-interval '1 second' WHERE turn_id=%s",(before.turn_id,))
+    monkeypatch.setattr(AgentConversationService,'record_build_reviewed_action_selection',original)
+    recovered=BuildJevHarness(world_context=True,named_citations=True,related_pages=True,accounting=counter(),decision_transport=decisions,writer_transport=writer)
+    result=execute(case,tmp_path,recovered,historical_work_resolver=agent._historical_work_resolver)
+    after=service.list_turns('elderwyld',cid)[-1]
+    assert after.attempt==before.attempt+1
+    assert [e for e in after.graph_context_execution.events if isinstance(e,t.BuildReviewedActionSelectionV1)]==selections
+    assert len(writer.calls)==1 and result.knowledge_context.completion.collaboration is None

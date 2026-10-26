@@ -404,17 +404,28 @@ class BuildJevDriver:
             authored = isinstance(adapter.submitted_intent, ledger.BuildGraphIntentV2)
             selection_type = ledger.BuildReviewedActionSelectionV2 if authored else ledger.BuildReviewedActionSelectionV1
             retained = [e for e in adapter._broker_execution().events if isinstance(e, ledger.BuildReviewedActionSelectionV1)]
-            if retained and authored:
-                from .build_authored_references import prior_selection_attempt, refusal
-                original_attempt = prior_selection_attempt(adapter,retained[0])
+            if retained:
+                from .agent_turn_service import AgentTurnServiceError
+                if authored:
+                    from .build_authored_references import prior_selection_attempt
+                    original_attempt = prior_selection_attempt(adapter,retained[0])
+                else:
+                    traces = adapter.service.list_context_trace_attempts(world_id=adapter.turn.world_id, turn_id=adapter.turn.turn_id)
+                    owners = [trace.attempt for trace in traces if trace.attempt < adapter.turn.attempt
+                        and trace.execution_start_sequence <= retained[0].sequence
+                        and not any(other.attempt > trace.attempt and other.execution_start_sequence <= retained[0].sequence for other in traces)]
+                    if len(owners) != 1:
+                        raise AgentTurnServiceError('The retained reviewed selection has no unique prior attempt. Your request is retained; inspect the trace before continuing.',
+                            code='reviewed_step_recovery_unavailable', status_code=409, provider_dispatched=False)
+                    original_attempt = owners[0]
                 expected_id = "build-reviewed:" + digest({"turn_id":str(adapter.turn.turn_id), "attempt":original_attempt,
                     "binding":self.reviewed_binding.model_dump(mode="json")})
                 if (len(retained) != 1 or retained[0].intent != adapter.submitted_intent
                     or retained[0].operation != self.operation or retained[0].broker_operation_id != expected_id
                     or retained[0].capability_sha256 != self._interaction["capability_sha256"]
                     or retained[0].arguments_sha256 != digest(arguments)):
-                    raise refusal("The retained reviewed action differs from its exact frozen binding. Your request and references are retained; inspect the trace before continuing.",
-                        "build_authored_reference_recovery_unavailable",before_provider=True)
+                    raise AgentTurnServiceError("The retained reviewed action differs from its exact frozen binding. Your request and references are retained; inspect the trace before continuing.",
+                        code="build_authored_reference_recovery_unavailable" if authored else "reviewed_step_recovery_unavailable", status_code=409, provider_dispatched=False)
                 self.selection = retained[0]
             else:
                 self.selection = selection_type(
