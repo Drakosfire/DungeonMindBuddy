@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useId, useMemo, useState } from "react";
 
 import type { GraphReferenceProjectionState, GraphReferenceSearchItem } from "./types";
 import { searchGraphReferences, sortGraphReferenceItems } from "./searchGraphReferences";
@@ -32,6 +32,7 @@ export function GraphReferenceSearch({
   chooseDisabled = false,
 }: GraphReferenceSearchProps) {
   const [query, setQuery] = useState("");
+  const searchId=useId();
 
   const results = useMemo(() => {
     const matched = sortGraphReferenceItems(searchGraphReferences(items, query));
@@ -62,11 +63,11 @@ export function GraphReferenceSearch({
 
       {projectionState === "ready" ? (
         <>
-          <label className="graph-reference-search__label" htmlFor="graph-reference-search-input">
+          <label className="graph-reference-search__label" htmlFor={searchId}>
             Find objects
           </label>
           <input
-            id="graph-reference-search-input"
+            id={searchId}
             className="graph-reference-search__input"
             type="search"
             value={query}

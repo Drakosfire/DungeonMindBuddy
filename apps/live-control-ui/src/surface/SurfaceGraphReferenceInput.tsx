@@ -4,7 +4,7 @@ import {mergeAuthoredReferences,referenceIdentity} from '../agentInteraction/aut
 import {useOptionalWorldGraphLensProjection,useWorldGraphLensProjectionDemand} from '../graphLens/useWorldGraphLensProjection';
 import {GraphReferenceSearch} from '../graphReference/GraphReferenceSearch';
 import {adaptWorldGraphProjectionSearchItems} from '../buildSurface/reference/buildWorldGraphSurfaceInformation';
-import {useAgentInteraction} from '../agentInteraction/AgentInteractionProvider';
+import {useOptionalAgentInteraction} from '../agentInteraction/AgentInteractionProvider';
 import {glanceOnlyForGraphReference} from '../graphReference/openGraphReferencePolicy';
 import {extractExactGraphReferenceScope} from '../graphReference/resolveGraphReference';
 import {buildGraphObjectCardFromNodeView} from '../graphObjectCard';
@@ -16,7 +16,7 @@ export function SurfaceGraphReferenceInput({worldId,value,onChange,disabled=fals
  const [open,setOpen]=useState(false),[error,setError]=useState<string|null>(null);
  const graph=useOptionalWorldGraphLensProjection();
  useWorldGraphLensProjectionDemand(open&&!disabled);
- const {openGraphReference}=useAgentInteraction();
+ const interaction=useOptionalAgentInteraction();
  const binding=graph?.managedBinding,projection=graph?.projection;
  const ready=graph?.projectionState==='ready'&&projection&&binding?.managedWorldId===worldId;
  function choose(item:GraphReferenceSearchItem){
@@ -26,7 +26,7 @@ export function SurfaceGraphReferenceInput({worldId,value,onChange,disabled=fals
  function view(item:GraphReferenceSearchItem){
   if(!ready||!projection)return;const scope=extractExactGraphReferenceScope(projection);if(!scope)return;
   const resolution:GraphReferenceResolution={kind:'resolved_graph',locator:`dmb-node:${item.nodeId}`,reference:item.reference,graphNodeId:item.nodeId,graphObject:buildGraphObjectCardFromNodeView(item.nodeView),graphScope:scope,projectionState:'ready'};
-  openGraphReference({resolution,projectionState:'ready',glanceOnly:glanceOnlyForGraphReference(resolution)});
+  interaction?.openGraphReference({resolution,projectionState:'ready',glanceOnly:glanceOnlyForGraphReference(resolution)});
  }
  return <section className="surface-graph-reference-input" aria-label={label}>
   <div className="surface-graph-reference-input__chips">{value.map(ref=><span key={referenceIdentity(ref)} className="surface-graph-reference-input__chip"><span title="Selected, unread until this request runs">@{ref.label}</span><button type="button" disabled={disabled} aria-label={`Remove reference ${ref.label}`} onClick={()=>onChange(value.filter(item=>referenceIdentity(item)!==referenceIdentity(ref)))}>×</button></span>)}
@@ -35,7 +35,7 @@ export function SurfaceGraphReferenceInput({worldId,value,onChange,disabled=fals
   {error&&<p role="alert">{error}</p>}
   {open&&<div className="surface-graph-reference-input__picker">
    {!ready&&graph?.projectionState==='ready'&&<p role="alert">This Graph projection has no verified binding to the current World. Your references are retained.</p>}
-   <GraphReferenceSearch items={ready?adaptWorldGraphProjectionSearchItems(projection):[]} projectionState={graph?.projectionState==='idle'?'loading':graph?.projectionState??'unavailable'} projectionError={graph?.projectionError} onChoose={choose} chooseDisabled={!ready||disabled} onView={view}/>
+   <GraphReferenceSearch items={ready?adaptWorldGraphProjectionSearchItems(projection):[]} projectionState={graph?.projectionState==='idle'?'loading':graph?.projectionState??'unavailable'} projectionError={graph?.projectionError} onChoose={choose} chooseDisabled={!ready||disabled} onView={interaction?view:undefined}/>
   </div>}
  </section>;
 }
