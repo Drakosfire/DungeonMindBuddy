@@ -31,7 +31,7 @@ _RETURNING = """
     selected_text_sha256, playable_target_receipt, selection_anchor,
     instruction, status, assistant_summary,
     failure_code, dispatch_token, fence, action_sequence, accepted_at,
-    completed_at, lease_expires_at, consultation, authoring_origin
+    completed_at, lease_expires_at, consultation, authoring_origin, authoring_review
 """
 
 
@@ -46,6 +46,7 @@ def _record(row: dict[str, Any]) -> PlanActionRecord:
     )
     return PlanActionRecord(
         authoring_origin=row["authoring_origin"],
+        authoring_review=row["authoring_review"],
         action_id=row["action_id"],
         idempotency_key=row["idempotency_key"],
         request_fingerprint=row["request_fingerprint"],

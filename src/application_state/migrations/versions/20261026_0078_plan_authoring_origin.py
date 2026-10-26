@@ -10,6 +10,7 @@ depends_on = None
 
 def upgrade():
     op.execute('ALTER TABLE plan_action.action ADD COLUMN authoring_origin JSONB NULL')
+    op.execute('ALTER TABLE plan_action.action ADD COLUMN authoring_review JSONB NULL')
     op.execute("""
         ALTER TABLE plan_action.action ADD CONSTRAINT plan_action_authoring_origin_check CHECK (
           authoring_origin IS NULL OR (
@@ -51,11 +52,28 @@ def upgrade():
         ON plan_action.action (world_id, (authoring_origin->>'turn_id'), (authoring_origin->>'product_attempt'))
         WHERE authoring_origin IS NOT NULL
     """)
+    op.execute("""ALTER TABLE plan_action.action ADD CONSTRAINT plan_authoring_review_owner_check CHECK (
+        authoring_review IS NULL OR (
+            status='completed' AND authoring_origin->>'schema'='dmb_plan_action_authoring_result_v1'
+            AND jsonb_typeof(authoring_review)='object'
+            AND authoring_review ?& ARRAY['schema','world_id','action_id','origin_sha256','revision','state',
+                'markdown','markdown_sha256','capture','applications','last_command_id','last_command_sha256','updated_at']
+            AND authoring_review->>'schema'='dmb_plan_authoring_review_v1'
+            AND authoring_review->>'action_id'=action_id::text
+            AND authoring_review->>'world_id'=world_id
+            AND authoring_review->'capture'->>'document_id'=document_id
+            AND jsonb_typeof(authoring_review->'applications')='array'
+            AND jsonb_typeof(authoring_review->'revision')='number'
+            AND (authoring_review->>'revision')::bigint > 0
+        ) IS TRUE
+    )""")
 
 
 def downgrade():
     if op.get_bind().execute(sa.text('SELECT EXISTS (SELECT 1 FROM plan_action.action WHERE authoring_origin IS NOT NULL)')).scalar_one():
         raise RuntimeError('Plan authoring origins require recovery forward')
+    op.execute('ALTER TABLE plan_action.action DROP CONSTRAINT plan_authoring_review_owner_check')
+    op.execute('ALTER TABLE plan_action.action DROP COLUMN authoring_review')
     op.execute('DROP INDEX plan_action.plan_authoring_one_result_per_attempt')
     op.execute('ALTER TABLE plan_action.action DROP CONSTRAINT plan_action_authoring_origin_check')
     op.execute('ALTER TABLE plan_action.action DROP COLUMN authoring_origin')

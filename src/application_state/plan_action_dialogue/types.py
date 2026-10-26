@@ -11,6 +11,7 @@ from uuid import UUID
 from pydantic import BaseModel, ConfigDict, Field, model_serializer, model_validator, TypeAdapter
 
 from application_state.agent_conversation.plan_authoring import PlanActionAuthoringResultV1, PlanJevAuthoringReservationV1
+from .authoring_review import PlanAuthoringReviewV1
 
 from application_state.agent_conversation.types import (
     WorldPointer,
@@ -431,6 +432,7 @@ class PlanActionReservation(StrictModel):
 class PlanActionRecord(ConsultationOptionalModel):
     consultation: PrivatePlanActionConsultation | None = None
     authoring_origin: PlanJevAuthoringReservationV1 | PlanActionAuthoringResultV1 | None = None
+    authoring_review: PlanAuthoringReviewV1 | None = Field(default=None, exclude_if=lambda value: value is None)
     action_id: UUID
     idempotency_key: UUID
     request_fingerprint: str
@@ -470,6 +472,13 @@ class PlanActionRecord(ConsultationOptionalModel):
                     or origin.action_fence > self.fence
                     or (self.status == "completed" and origin.action_fence != self.fence)):
                 raise ValueError("Plan authoring action differs from its immutable origin")
+        if self.authoring_review is not None:
+            review = self.authoring_review
+            if (not isinstance(origin, PlanActionAuthoringResultV1) or self.status != 'completed'
+                    or review.action_id != self.action_id or review.world_id != self.basis.world_id
+                    or review.capture.document_id != self.basis.document_id
+                    or review.origin_sha256 != origin.proposal.origin.sha256):
+                raise ValueError('Plan review differs from its completed authoring owner')
         return self
 
 
