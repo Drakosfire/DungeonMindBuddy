@@ -26,6 +26,9 @@ Expected write lease:
 - this handoff
 - Docs/Plans/HANDOFF-AGENT-graph-recovery-authority.md (predecessor settlement)
 - apps/live_control_server/services/hermes_graph_query.py
+- apps/live_control_server/services/agent_source_read_telemetry.py (reuse the same privacy-safe summary for single reads)
+- apps/live_control_server/services/hermes_graph_agent.py (rename sole summary call; no compatibility alias)
+- tests/test_agent_batch_source_read_evidence.py
 - tests/test_live_query_hermes_graph.py
 
 Verify actual Q01 captured-shape replay without providers, positive/negative batch

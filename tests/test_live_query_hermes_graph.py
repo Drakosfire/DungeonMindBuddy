@@ -3514,8 +3514,9 @@ def test_successful_batch_counts_once_in_both_current_transport_forms(schema):
 
 
 def test_single_source_read_counts_one_but_denial_counts_zero():
-    event = _tool_event(tool_name="read_graph_source", retrieval_schema="dmb_world_graph_source_anchor_read_v1",
-                        outcome="enough", matched_node_ids=[], source_anchor_ids=["anchor:one"])
+    event = _successful_batch_event(sourceReadCount=1)
+    event = replace(event, attributes={**event.attributes,
+        "retrieval_schema":"dmb_world_graph_source_anchor_read_v1", "outcome":"enough"})
     assert _product_response_for_events([event])["grounding"]["successful_tool_count"] == 1
     denied = replace(event, attributes={**event.attributes, "outcome":"denied"})
     assert _product_response_for_events([denied])["grounding"]["successful_tool_count"] == 0
@@ -3544,4 +3545,11 @@ def test_unopened_source_batch_does_not_report_success(opened):
 def test_empty_source_read_is_not_an_opened_source_success():
     event = _tool_event(tool_name="read_graph_source", retrieval_schema="dmb_world_graph_source_anchor_read_v1",
                         outcome="empty", matched_node_ids=[], source_anchor_ids=[])
+    assert _product_response_for_events([event])["grounding"]["successful_tool_count"] == 0
+
+
+
+def test_single_read_without_opened_telemetry_cannot_report_success():
+    event = _tool_event(tool_name="read_graph_source", retrieval_schema="dmb_world_graph_source_anchor_read_v1",
+                        outcome="enough", matched_node_ids=[], source_anchor_ids=["anchor:one"])
     assert _product_response_for_events([event])["grounding"]["successful_tool_count"] == 0

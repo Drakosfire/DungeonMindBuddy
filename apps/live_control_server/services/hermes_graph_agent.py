@@ -649,10 +649,10 @@ def _summarize_tool_result(raw: Any) -> dict[str, Any]:
                 ]
             )
     from apps.live_control_server.services.agent_source_read_telemetry import (
-        summarize_batch_source_reads,
+        summarize_source_reads,
     )
 
-    metadata, batch_anchors = summarize_batch_source_reads(parsed)
+    metadata, batch_anchors = summarize_source_reads(parsed)
     summary["source_read_metadata"] = metadata
     if batch_anchors:
         summary["source_anchor_ids"] = _cap_id_list(batch_anchors)

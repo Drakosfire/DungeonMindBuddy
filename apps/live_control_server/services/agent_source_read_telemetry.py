@@ -55,9 +55,13 @@ def summarize_requested_anchor_ids(values: list[Any]) -> dict[str, Any]:
     return result
 
 
-def summarize_batch_source_reads(packet: Mapping[str, Any]):
+def summarize_source_reads(packet: Mapping[str, Any]):
     schema = packet.get("schema")
-    reads = packet.get("reads")
+    if schema == READ_SCHEMA:
+        reads = [packet]
+        schema = BATCH_V1
+    else:
+        reads = packet.get("reads")
     if (
         not isinstance(schema, str)
         or schema not in {BATCH_V1, BATCH_V2}

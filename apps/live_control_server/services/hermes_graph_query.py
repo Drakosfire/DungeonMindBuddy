@@ -913,15 +913,17 @@ def _successful_tool_invocation(event: AgentRuntimeToolEvent, scope: _Dispatched
         return False
     from .agent_source_read_telemetry import BATCH_V1, BATCH_V2, READ_SCHEMA, MAX_READS
 
-    if event.retrieval_schema == READ_SCHEMA:
-        return _normalized_outcome(event) in EVIDENCE_BEARING_OUTCOMES
-    if event.retrieval_schema not in {BATCH_V1, BATCH_V2}:
+    if event.retrieval_schema not in {READ_SCHEMA, BATCH_V1, BATCH_V2}:
         return False
     metadata = event.bounded_ids
     if not isinstance(metadata, Mapping):
         return False
     count = metadata.get("sourceReadCount")
     if type(count) is not int or not 0 < count <= MAX_READS:
+        return False
+    if event.retrieval_schema == READ_SCHEMA and (
+        count != 1 or _normalized_outcome(event) not in EVIDENCE_BEARING_OUTCOMES
+    ):
         return False
     if metadata.get("sourceReadTelemetryTruncated") is not False:
         return False
