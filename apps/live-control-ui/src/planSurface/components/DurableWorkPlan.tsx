@@ -29,7 +29,9 @@ export function DurableWorkPlan({scope,disabled,onContinue,renderDraft,saveLabel
    const v=JSON.parse(raw);if(!['dmb_reviewed_plan_edit_v1','dmb_reviewed_plan_edit_v2','dmb_reviewed_plan_edit_v3'].includes(v.schema)||v.schema!=='dmb_reviewed_plan_edit_v1'&&typeof v.objective!=='string'||v.identity!==identity||!Array.isArray(v.steps)||!v.steps.every((s:WorkStep)=>s&&typeof s.step_id==='string'&&typeof s.text==='string'&&typeof s.selected==='boolean'&&['discuss','prepare_insertion'].includes(s.kind)))throw new Error('Invalid local plan copy')
    if(v.schema==='dmb_reviewed_plan_edit_v3'){if(!isAuthoredGraphReferenceList(v.root_references,scope.worldId)||!v.steps.every((row:WorkStep)=>isAuthoredGraphReferenceList(row.references,scope.worldId)))throw new Error('Invalid local Graph reference copy');for(const row of v.steps)mergeAuthoredReferences(v.root_references,row.references);setRootReferences(v.root_references)}else if(v.steps.some((row:WorkStep)=>row.references!==undefined))throw new Error('Unversioned local Graph references');
    setObjective(v.schema!=='dmb_reviewed_plan_edit_v1'?v.objective:'');edited.current=true;if(v.base_revision!==p.revision){setStaleDraft(true);setError('The saved plan changed. Your local edits were restored; compare them before saving.')}
-   return v.steps as WorkStep[]
+   // A pre-reference local copy edits wording/selection, not unseen saved Graph context.
+   return v.schema!=='dmb_reviewed_plan_edit_v3'&&p.schema==='dmb_reviewed_work_plan_v3'
+    ?v.steps.map((row:WorkStep)=>({...row,references:p.steps.find(saved=>saved.step_id===row.step_id)?.references??[]})):v.steps as WorkStep[]
   }catch{setBlockedDraft(true);setError('Local plan edits could not be restored; their bytes were left untouched.');return p.steps}
  }
  function adopted(p:WorkPlan){setStaleDraft(false);setBlockedDraft(false);setPlan(p);setSteps(p.steps);setObjective(planObjective(p));setRootReferences(p?.schema==='dmb_reviewed_work_plan_v3'?p.root_references:undefined);edited.current=false;try{sessionStorage.removeItem(draftKey)}catch{setError('The saved plan is durable, but this tab could not clear its older local copy.')}}

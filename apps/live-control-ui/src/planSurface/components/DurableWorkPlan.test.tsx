@@ -117,3 +117,22 @@ it('keeps dispatched step context read-only while later root context remains edi
  expect(screen.getByRole('button',{name:'Select Step 2 Graph context'})).toBeEnabled();
  expect(screen.getByRole('button',{name:'Select Plan Graph context'})).toBeEnabled();
 });
+
+it('preserves saved step references when reconciling an older V2 local wording draft',async()=>{
+ const identity=JSON.stringify([scope.worldId,scope.conversationId,scope.turnId,scope.source]);
+ const local=plan().steps.map(row=>({...row,text:row.step_id===one?'Older local wording':row.text}));
+ sessionStorage.setItem(`dmb:reviewed-plan-edit:v1:${identity}`,JSON.stringify({schema:'dmb_reviewed_plan_edit_v2',identity,base_revision:1,steps:local,objective:planObjective(plan())}));
+ const ref=(node:string)=>({schema:'dmb_authored_graph_reference_v1' as const,managed_world_id:'world',native_world_id:'native',binding_version:1,graph_revision:'rev-a',node_id:node,label:node});
+ const roots=[ref('root box')],savedSteps=plan().steps.map((row,i)=>({...row,references:i===0?[ref('step box')]:[]}));
+ const saved:WorkPlan={...plan(),schema:'dmb_reviewed_work_plan_v3',objective:planObjective(plan()),revision:2,root_references:roots,steps:savedSteps};
+ vi.mocked(getWorkPlan).mockResolvedValue(saved);mount();
+ expect(await screen.findByLabelText('Saved step 1')).toHaveValue('Older local wording');
+ expect(screen.getByLabelText('Plan Graph context')).toHaveTextContent('root box');
+ expect(screen.getByLabelText('Step 1 Graph context')).toHaveTextContent('step box');
+ expect(screen.getByRole('button',{name:'Save reviewed plan'})).toBeDisabled();
+ fireEvent.click(screen.getByRole('button',{name:'Use these edits against the latest review'}));
+ const merged=savedSteps.map(row=>({...row,text:row.step_id===one?'Older local wording':row.text}));
+ vi.mocked(saveWorkPlan).mockResolvedValue({...saved,revision:3,steps:merged});
+ fireEvent.click(screen.getByRole('button',{name:'Save reviewed plan'}));
+ await waitFor(()=>expect(saveWorkPlan).toHaveBeenCalledWith(scope,2,merged,planObjective(plan()),roots));
+});
