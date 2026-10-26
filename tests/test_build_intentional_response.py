@@ -268,6 +268,10 @@ def run_no_editor(tmp_path, monkeypatch, application_state_dsn, work):
     ]
     assert len(choices) == 1 and choices[0].requested_work == work
     first = json.loads(decisions.calls[0].content)
+    interaction=first["state"]["decision"]["state"]["interaction"]
+    assert interaction["current_page"]=={"document_id":source.record.document_id,"title":source.record.title}
+    assert interaction["current_page_role"]=="descriptive_untrusted_navigation_metadata_not_evidence_or_write_authority"
+    assert interaction["working_draft"] is None and interaction["capability_sha256"] is None
     assert len(first["questions"]["requested_work"]["criteria"]) == 14
     assert (
         "operation" not in first["questions"]
@@ -316,3 +320,33 @@ def test_real_semantic_call_preserves_independent_rules_choice_and_mixed_complet
     assert len(wire.calls) == 1
     if base:
         assert completed.rules_context.base_context.completion.schema_ == c.COMPLETION
+
+
+def test_current_page_navigation_metadata_is_frozen_without_editor_and_not_provider_mutable(tmp_path,monkeypatch,application_state_dsn):
+    from copy import deepcopy
+    from apps.live_control_server.services.build_jev_dispatch import validate_body
+    turn,service,decisions,_=run_no_editor(tmp_path,monkeypatch,application_state_dsn,"discuss")
+    first=json.loads(decisions.calls[0].content)
+    changed=deepcopy(first)
+    changed["state"]["decision"]["state"]["interaction"]["current_page"]["title"]="Another destination"
+    with pytest.raises(ValueError,match="differs"):
+        validate_body(json.dumps(changed),first["state"])
+    assert service.inspect_turn(world_id=turn.world_id,turn_id=turn.turn_id)==turn
+
+
+def test_current_page_navigation_refresh_preserves_identity_without_capability():
+    from types import SimpleNamespace as S
+    from apps.live_control_server.services.build_jev_driver import freeze_interaction
+    pointer=S(active_conversation_id=None,revision=0)
+    adapter=S(world_id="synthetic",turn=None,budget={},
+        request=S(build_write_capability=None,build_draft_context=None,build_authored_references=None),
+        service=S(get_world_pointer=lambda _:pointer),work=S(build_source=S(document_id="first",title="Workshop")))
+    first=freeze_interaction(adapter)
+    adapter.work=S(build_source=S(document_id="second",title="Workshop"))
+    second=freeze_interaction(adapter)
+    assert first["current_page"]=={"document_id":"first","title":"Workshop"}
+    assert second["current_page"]=={"document_id":"second","title":"Workshop"}
+    assert first["allowed_operations"]==second["allowed_operations"]==["answer_from_sources"]
+    assert first["capability_sha256"] is second["capability_sha256"] is None
+    adapter.work=S(build_source=S(document_id="third",title="Newly created workshop"))
+    assert freeze_interaction(adapter)["current_page"]=={"document_id":"third","title":"Newly created workshop"}
