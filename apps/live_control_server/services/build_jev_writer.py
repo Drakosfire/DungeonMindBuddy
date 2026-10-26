@@ -277,7 +277,7 @@ class WriterProjection:
         from application_state.agent_conversation.connected_page_origins import KEY as ORIGIN_KEY, FORMAT as ORIGIN_FORMAT
         if ORIGIN_KEY in packet:
             connected_instructions = connected_instructions.replace('"exact related page read_id"', '"exact artifact_under_edit section read_id or related page read_id"')
-            connected_instructions += '\nFor a connected page origin, choose an exact acquired saved section from artifact_under_edit or a supplied related_authored_pages row. Never use working_draft_context as a saved origin. Quote one exact unique occurrence in the chosen supplied body.\n'
+            connected_instructions += "\nFor a connected page origin, choose an exact acquired saved section from artifact_under_edit or a supplied related_authored_pages row. A supplied saved row with text_ref=working_draft_context carries its exact acquired saved body in working_draft_context.draft_markdown; use that body with the saved row's read_id, preserving its saved-source authority. The carrier does not make that saved text unavailable. A working draft without a supplied saved row is not an origin. Quote one exact unique occurrence in the chosen supplied body.\n"
         if relationship:
             collaboration_instructions = collaboration_instructions.replace(
                 "A connected page has the explicit author review described below; other Graph relationships require separate authoring.",
