@@ -9,6 +9,7 @@ import {ConversationRelationshipReview} from './ConversationRelationshipReview';
 import {SourceCitedAnswer} from "./SourceCitedAnswer";
 import {ConversationConnectedPageReview} from "./ConversationConnectedPageReview";
 import {ConversationLibrary} from '../../agentInteraction/ConversationLibrary';
+import {ConversationExport} from '../../agentInteraction/ConversationExport';
 import {queueSurfaceConversationRequest,useSurfaceConversationRequests,claimSurfaceConversationRequest,acceptSurfaceConversationRequest,failSurfaceConversationRequest,retrySurfaceConversationRequest,cancelSurfaceConversationRequest,cancelSurfaceConversationTarget,ownsSurfaceConversationRequest,type SurfaceConversationRequest} from '../../agentInteraction/surfaceConversationRequests';
 import { groupConversationAttempts, isUnansweredFailure } from "../../agentInteraction/conversationAttemptGroups";
 import {isSurfaceEvidenceCompletion,surfaceEvidenceReceiptBound} from "../../shared/surfaceEvidenceProtocol";
@@ -6097,6 +6098,7 @@ export function WorldPlanAgentConversation({
   );
   const managementDetails = (<>
       {verifiedWorldId&&<><button type="button" onClick={()=>setLibraryOpen(true)}>Conversations…</button>
+        {history?.world_id===verifiedWorldId&&history.conversation_id&&<ConversationExport key={`${verifiedWorldId}:${history.conversation_id}`} worldId={verifiedWorldId} conversationId={history.conversation_id}/>}
         {libraryOpen&&<ConversationLibrary key={verifiedWorldId} worldId={verifiedWorldId} onClose={()=>setLibraryOpen(false)}/>}</>}
 
       {playMode ? <div role="group" aria-label="Play message action">
