@@ -18,12 +18,12 @@ def build_case(tmp_path, monkeypatch, application_state_dsn):
     return _build_case.__wrapped__(tmp_path, monkeypatch, application_state_dsn)
 
 
-def reviewed_case(build_case, monkeypatch, kind="prepare_insertion", *, authored_references=None, prepared=False):
+def reviewed_case(build_case, monkeypatch, kind="prepare_insertion", *, authored_references=None, prepared=False, with_sibling=False):
     if prepared:
         source, request, bootstrap = build_case
     else:
         (source, request, bootstrap), _ = ordinary_case(build_case, monkeypatch, authoring=True)
-    if kind == "discuss":
+    if kind == "discuss" and not prepared:
         from tests.test_build_world_context import world_case
         (source,request,bootstrap), _ = world_case((source,request,bootstrap),monkeypatch)
     service = AgentConversationService()
@@ -34,8 +34,8 @@ def reviewed_case(build_case, monkeypatch, kind="prepare_insertion", *, authored
         submitted_intent_v1=_submitted_intent('elderwyld','Plan a proposed addition.',surface_id='build')))
     running=service.begin_turn('elderwyld',cid,plan_turn.turn_id,expected_revision=plan_turn.revision)
     plan_turn=service.complete_turn(TurnResult(world_id='elderwyld',conversation_id=cid,turn_id=running.turn_id,expected_revision=running.revision,assistant_text='Prepare a proposed NPC table.'))
-    step = w.Step(step_id=uuid4(),text='Prepare a proposed NPC table.',selected=True,kind=kind)
-    review = w.ReviewV2(expected_revision=0,steps=[step],objective="Develop useful proposed shop content for author review.")
+    step = w.Step(step_id=uuid4(),text='Discuss where the wick box belongs.' if kind=='discuss' else 'Prepare a proposed NPC table.',selected=True,kind=kind)
+    review = w.ReviewV2(expected_revision=0,steps=[step]+([w.Step(step_id=uuid4(),text="Write a useful page sentence after placement is chosen.",selected=False,kind="prepare_insertion")] if with_sibling else []),objective="Choose a dry placement, then write a useful page sentence." if with_sibling else "Develop useful proposed shop content for author review.")
     if authored_references is not None:
         review = w.ReviewV3(expected_revision=0,steps=[w.StepV2(**step.model_dump(),references=())],
             objective=review.objective,root_references=authored_references.references)
@@ -50,6 +50,7 @@ def reviewed_case(build_case, monkeypatch, kind="prepare_insertion", *, authored
     request=AgentTurnRequest.model_validate({**request.model_dump(mode='json',by_alias=True),
         'client_thread_id':d['client_thread_id'],'turn_id':d['client_turn_id'],'message':d['message'],
         'reviewed_step':continued['reviewed_step'],'build_write_capability':cap.model_dump(mode='json'),
+        **({'build_authored_references':d['authored_references']} if 'authored_references' in d else {}),
         'build_draft_context':draft.model_dump(mode='json',by_alias=True)})
     from dataclasses import replace
     bootstrap=replace(bootstrap,navigation_candidates=(("frank","Frank"),),completed_discovery_query=request.message)
@@ -241,7 +242,7 @@ def test_app_rejects_reviewed_capability_policy_mismatch_before_admission(build_
 
 
 
-def test_reviewed_answer_plan_has_real_objective_stream_without_intent_reclassification(build_case,monkeypatch,tmp_path):
+def test_reviewed_discuss_refuses_a_work_plan_instead_of_executing_another_step(build_case,monkeypatch,tmp_path):
     import json
     import httpx
     from application_state.agent_conversation import types as t
@@ -254,25 +255,130 @@ def test_reviewed_answer_plan_has_real_objective_stream_without_intent_reclassif
         async def handle_async_request(self,request):
             response=await super().handle_async_request(request)
             wire=json.loads(request.content)
-            assert wire['stream'] is True and wire['text']['format']['name']=='build_working_draft_answer_v6'
-            terminal=json.loads(response.content.decode().strip().split('data: ')[-1])
-            data=terminal['response']
+            assert wire['text']['format']['name']=='build_reviewed_discussion_answer_v1'
+            assert wire['text']['format']['schema']['properties']['collaboration']=={'anyOf':[{'$ref':'#/$defs/ProposedQuestions'},{'type':'null'}]}
+            data=response.json()
             raw=json.dumps({'answer_context_status':'creative_proposal','answer_segments':[{'kind':'suggestion','text':'Review this plan.'}],
                 'limitations':[],'requested_detail_gaps':[], 'collaboration':{'kind':'plan','objective':'Develop an author-reviewed shop scene.',
                 'steps':[{'text':'Discuss the shopkeeper.','kind':'discuss'}]}})
             data['output'][0]['content'][0]['text']=raw
-            events=[{'type':'response.output_text.delta','sequence_number':i+1,'item_id':'msg','output_index':0,'content_index':0,'delta':raw[i:i+1]} for i in range(len(raw))]
-            events.append({'type':'response.completed','sequence_number':len(events)+1,'response':data})
-            return httpx.Response(200,request=request,headers={'content-type':'text/event-stream'},content=''.join('data: '+json.dumps(e)+'\n\n' for e in events).encode())
+            self.emitted=raw
+            return httpx.Response(200,request=request,json=data)
     writer=PlanWriter();decisions=WorldDecisions();seen=[]
     harness=BuildJevHarness(world_context=True,named_citations=True,related_pages=True,accounting=counter(),decision_transport=decisions,writer_transport=writer)
     token=construction_sink.set(seen.append)
     try:
-        response=execute(case,tmp_path,harness)
+        from apps.live_control_server.services.agent_turn_service import AgentTurnServiceError
+        with pytest.raises(AgentTurnServiceError):
+            execute(case,tmp_path,harness)
     finally:
         construction_sink.reset(token)
-    completion=response.knowledge_context.completion
-    assert isinstance(completion,t.BuildRelationshipReviewCompletionV2)
-    assert completion.collaboration.objective=='Develop an author-reviewed shop scene.'
-    assert seen and seen[-1]['objective']==completion.collaboration.objective and seen[-1]['steps']
+    assert writer.calls and getattr(writer,'emitted',None)
+    assert any(material.text==writer.emitted for observation in harness.adapter.context_capture.trace.observations if observation.kind=='context_snapshot' for material in observation.materials)
+    assert not any(event.get('kind')=='plan' and event.get('steps') for event in seen)
     assert all(not ({'operation','requested_work'} & set(json.loads(call.content)['questions'])) for call in decisions.calls)
+
+
+class ScopedDiscussionWriter(WriterWire):
+    def __init__(self, *, questions=False):
+        super().__init__()
+        self.questions=questions
+    async def handle_async_request(self,request):
+        import json,httpx
+        response=await super().handle_async_request(request)
+        data=response.json()
+        self.emitted=json.dumps({'answer_context_status':'creative_proposal','answer_segments':[{'kind':'suggestion','text':'Compare shelter from rain with easy reach during the handoff.'}],
+            'limitations':[],'requested_detail_gaps':[],'collaboration':{'kind':'questions','questions':[{'text':'Should reach or rain protection take priority?'}]} if self.questions else None})
+        data['output'][0]['content'][0]['text']=self.emitted
+        return httpx.Response(200,request=request,json=data)
+
+
+def test_discuss_scope_is_immutable_through_real_sdk_app_and_later_objective_edits(build_case,monkeypatch,tmp_path):
+    import json,copy
+    from application_state.agent_conversation import reviewed_action as scoped
+    from application_state.agent_conversation import source_writer_output
+    from application_state.agent_conversation import types as t
+    from tests.test_build_world_context import WorldDecisions
+    case=reviewed_case(build_case,monkeypatch,kind='discuss',with_sibling=True)
+    request=case[1];reference=request.reviewed_step
+    before=w.read('elderwyld',reference.conversation_id,reference.source_turn_id)['plan']
+    original_dispatch=copy.deepcopy(before['dispatches'][0]);assert original_dispatch['schema']=='dmb_work_plan_dispatch_v3'
+    steps=copy.deepcopy(before['steps']);steps[1]['text']='A later changed sibling sentence request.'
+    w.save('elderwyld',reference.conversation_id,reference.source_turn_id,w.ReviewV2(expected_revision=before['revision'],steps=steps,objective='A later changed plan outcome.'))
+    binding=w.resolve_request_action(request,'elderwyld')
+    assert binding.scope.objective_context=='Choose a dry placement, then write a useful page sentence.'
+    assert binding.scope.sibling_context[0].text=='Write a useful page sentence after placement is chosen.'
+    assert w.read('elderwyld',reference.conversation_id,reference.source_turn_id)['plan']['dispatches'][0]==original_dispatch
+    writer=ScopedDiscussionWriter();decisions=WorldDecisions()
+    harness=BuildJevHarness(world_context=True,named_citations=True,related_pages=True,accounting=counter(),decision_transport=decisions,writer_transport=writer)
+    response=execute(case,tmp_path,harness)
+    wire=json.loads(writer.calls[0].content);packet=json.loads(wire['input'])
+    assert wire['text']['format']['name']==scoped.SCOPE_FORMAT
+    assert packet[scoped.SCOPE_KEY]['scope']==binding.scope.model_dump(mode='json',by_alias=True)
+    assert 'page sentence' not in packet['user_question'] and 'later changed' not in wire['input']
+    assert 'only assignment' in wire['instructions']
+    assert all(not ({'operation','requested_work'}&set(json.loads(call.content)['questions'])) for call in decisions.calls)
+    turn=harness.adapter.fence.turn
+    auth=next(e for e in turn.graph_context_execution.events if isinstance(e,t.ProviderAttemptAuthorizedEventV1) and e.provider_attempt_id==harness.adapter.producing_provider_attempt_id)
+    source_writer_output.reconstruct(writer.emitted,packet,turn,auth)
+    for mutation in ('missing','task','context','selection'):
+        changed=copy.deepcopy(packet)
+        if mutation=='missing':del changed[scoped.SCOPE_KEY]
+        elif mutation=='task':changed[scoped.SCOPE_KEY]['scope']['task']['text']='Write the deferred sentence.'
+        elif mutation=='context':changed[scoped.SCOPE_KEY]['scope']['objective_context']='A changed objective.'
+        else:changed[scoped.SCOPE_KEY]['selection_event_id']=str(uuid4())
+        with pytest.raises(ValueError,match='immutable reviewed dispatch'):
+            source_writer_output.reconstruct(writer.emitted,changed,turn,auth)
+    assert response.knowledge_context.completion.collaboration is None
+
+
+def test_unscoped_old_discussion_cannot_start_a_new_provider_call(build_case,monkeypatch,tmp_path):
+    from application_state.unit_of_work import unit_of_work
+    from application_state.agent_conversation.service import _ready_dsn
+    from psycopg.types.json import Jsonb
+    from apps.live_control_server.services.agent_turn_service import AgentTurnServiceError
+    case=reviewed_case(build_case,monkeypatch,kind='discuss')
+    ref=case[1].reviewed_step
+    with unit_of_work(_ready_dsn()) as conn:
+        plan=w._load(conn,'elderwyld',ref.conversation_id,ref.source_turn_id)
+        old=w.Dispatch(**{key:getattr(plan.dispatches[0],key) for key in ('command_id','step_id','client_thread_id','client_turn_id','message')})
+        plan.dispatches=[old]
+        conn.execute('UPDATE agent.work_plan SET payload=%s WHERE world_id=%s AND conversation_id=%s AND source_turn_id=%s',(Jsonb(plan.model_dump(mode='json',by_alias=True)),'elderwyld',ref.conversation_id,ref.source_turn_id))
+    writer,decisions=WriterWire(),DecisionWire()
+    harness=BuildJevHarness(world_context=True,named_citations=True,accounting=counter(),decision_transport=decisions,writer_transport=writer)
+    with pytest.raises(AgentTurnServiceError) as caught:execute(case,tmp_path,harness)
+    assert caught.value.code=='reviewed_step_scope_missing'
+    assert not writer.calls and not decisions.calls
+    assert w.read('elderwyld',ref.conversation_id,ref.source_turn_id)['plan']['dispatches'][0]==old.model_dump(mode='json',by_alias=True)
+
+
+
+def test_scoped_discuss_retains_its_exact_selected_graph_context(build_case,monkeypatch,tmp_path):
+    import json
+    from tests.test_build_authored_references import referenced_case
+    from tests.test_build_world_context import WorldDecisions
+    from application_state.agent_conversation import reviewed_action as scoped
+    base,_=referenced_case(build_case,monkeypatch)
+    refs=base[1].build_authored_references
+    case=reviewed_case(base,monkeypatch,kind='discuss',authored_references=refs,prepared=True)
+    writer=ScopedDiscussionWriter();decisions=WorldDecisions()
+    harness=BuildJevHarness(world_context=True,named_citations=True,related_pages=True,accounting=counter(),decision_transport=decisions,writer_transport=writer)
+    response=execute(case,tmp_path,harness)
+    packet=json.loads(json.loads(writer.calls[0].content)['input'])
+    binding=w.resolve_request_action(case[1],'elderwyld')
+    assert binding.authored_references==refs
+    assert packet['authored_reference_context']['selected_references']['references'][0]['node_id']=='frank'
+    assert packet[scoped.SCOPE_KEY]['scope']['task']['text']=='Discuss where the wick box belongs.'
+    assert all('CLIENT DISPLAY ONLY' not in call.content.decode() for call in writer.calls+decisions.calls)
+    assert response.knowledge_context.completion.collaboration is None
+
+
+
+def test_scoped_discuss_can_still_offer_inline_author_choice_questions(build_case,monkeypatch,tmp_path):
+    from tests.test_build_world_context import WorldDecisions
+    case=reviewed_case(build_case,monkeypatch,kind='discuss')
+    writer=ScopedDiscussionWriter(questions=True)
+    harness=BuildJevHarness(world_context=True,named_citations=True,related_pages=True,accounting=counter(),decision_transport=WorldDecisions(),writer_transport=writer)
+    response=execute(case,tmp_path,harness)
+    assert response.knowledge_context.completion.collaboration.kind=='questions'
+    assert response.knowledge_context.completion.collaboration.questions[0].text=='Should reach or rain protection take priority?'

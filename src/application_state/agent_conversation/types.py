@@ -997,7 +997,7 @@ class PlanContextPolicyV1(StrictModel):
     policy: Literal["auto_plan_world"]
 
 
-from .reviewed_action import ReviewedStepBinding, ReviewedStepBindingV2
+from .reviewed_action import ReviewedStepBinding, ReviewedStepBindingV2, ReviewedStepBindingV3
 from .authored_graph_references import AuthoredGraphReferencesV1
 
 
@@ -1014,7 +1014,7 @@ class BuildGraphIntentV1(SubmittedTurnIntentV1):
     )
     surface_id: Literal["build"]
     retry_of: RetryTurnReference | None = None
-    reviewed_step: ReviewedStepBinding | None = None
+    reviewed_step: ReviewedStepBindingV3 | ReviewedStepBinding | None = None
     build_write_capability_sha256: str | None = Field(default=None, pattern=r"^[a-f0-9]{64}$")
     build_draft_context_sha256: str | None = Field(default=None, pattern=r"^[a-f0-9]{64}$")
     client_work_state: Literal["saved_clean", "saved_dirty"]
@@ -1051,7 +1051,7 @@ class BuildGraphIntentV1(SubmittedTurnIntentV1):
 class BuildGraphIntentV2(BuildGraphIntentV1):
     schema_: Literal['dmb_build_graph_intent_v2'] = Field(default='dmb_build_graph_intent_v2', alias='schema')
     authored_references: AuthoredGraphReferencesV1
-    reviewed_step: ReviewedStepBindingV2 | ReviewedStepBinding | None = None
+    reviewed_step: ReviewedStepBindingV3 | ReviewedStepBindingV2 | ReviewedStepBinding | None = None
 
 
 class BuildSourceContextBasisV1(StrictModel):

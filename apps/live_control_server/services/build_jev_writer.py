@@ -320,6 +320,8 @@ class WriterProjection:
             "It is never accepted World or played truth. A request to read a page and discuss it can be "
             "answered with useful authored context even when another requested source is missing. "
             "Keep missing World evidence separate; do not declare this supplied page unavailable.\n") if primary else ""
+        from application_state.agent_conversation.reviewed_action import SCOPE_KEY, SCOPE_FORMAT, SCOPE_GUIDANCE
+        scoped = SCOPE_KEY in packet
         return {
             "model": MODEL,
             "input": self.input_json,
@@ -328,13 +330,13 @@ class WriterProjection:
             if self.source_only
             else SOURCE_INSTRUCTIONS
             if self.has_saved_sections
-            else INSTRUCTIONS) + primary_instructions + (collaboration_instructions if collaboration else "") + (connected_instructions if connected else "") + (RELATIONSHIP_INSTRUCTIONS if relationship else "") + qualification_instructions + quote_instructions + (intentional.WRITER_GUIDANCE if intentional_output else '') + ('\nFor every plan, supply a readable objective stating its expected outcome before the steps. It describes intended success, not completed work. Do not repeat it as a step.\n' if objective_output else ''),
+            else INSTRUCTIONS) + primary_instructions + (SCOPE_GUIDANCE if scoped else "") + (collaboration_instructions if collaboration else "") + (connected_instructions if connected else "") + (RELATIONSHIP_INSTRUCTIONS if relationship else "") + qualification_instructions + quote_instructions + (intentional.WRITER_GUIDANCE if intentional_output else '') + ('\nFor every plan, supply a readable objective stating its expected outcome before the steps. It describes intended success, not completed work. Do not repeat it as a step.\n' if objective_output else ''),
             "max_output_tokens": OUTPUT_RESERVE,
             "reasoning": {"effort": "low"},
             "text": {
                 "format": mixed_format or {
                     "type": "json_schema",
-                    "name": ORIGIN_FORMAT if ORIGIN_KEY in packet else (INTENTIONAL_FORMAT if intentional_output else REVIEWED_FORMAT) if objective_output else intentional.FORMAT if intentional_output else "build_working_draft_answer_v5" if relationship else QUOTE_FORMAT if quoted else "build_working_draft_answer_v3" if connected else "build_working_draft_answer_v2" if collaboration else "build_working_draft_answer_v1" if draft_context else GAP_SCHEMA_NAME if cited else "build_source_passage_answer",
+                    "name": SCOPE_FORMAT if scoped else ORIGIN_FORMAT if ORIGIN_KEY in packet else (INTENTIONAL_FORMAT if intentional_output else REVIEWED_FORMAT) if objective_output else intentional.FORMAT if intentional_output else "build_working_draft_answer_v5" if relationship else QUOTE_FORMAT if quoted else "build_working_draft_answer_v3" if connected else "build_working_draft_answer_v2" if collaboration else "build_working_draft_answer_v1" if draft_context else GAP_SCHEMA_NAME if cited else "build_source_passage_answer",
                     "schema": intentional.output_schema(packet) if intentional_output else finite_output_schema(json.loads(self.input_json), requested_detail_gaps=True) if cited else source_answer_schema(),
                     "strict": True,
                 }
@@ -410,6 +412,16 @@ def with_working_draft(staged: WriterProjection, execution) -> WriterProjection:
     packet = pack_body_aliases(packet)
     return replace(staged, input_json=json.dumps(packet, ensure_ascii=False,
         separators=(",", ":"), sort_keys=True, allow_nan=False))
+
+
+def with_reviewed_task(staged, execution):
+    from application_state.agent_conversation.reviewed_action import writer_scope, SCOPE_KEY
+    scope = writer_scope(execution)
+    if scope is None:
+        return staged
+    packet = json.loads(staged.input_json)
+    packet[SCOPE_KEY] = scope
+    return replace(staged, input_json=json.dumps(packet,sort_keys=True,separators=(',',':'),ensure_ascii=False))
 
 
 def with_response_contract(staged, execution):
