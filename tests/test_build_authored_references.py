@@ -639,6 +639,7 @@ def test_shared_authored_batch_is_actual_nonselectable_controller_context(build_
         for e in turn.graph_context_execution.events)
     packet=json.loads(json.loads(writer.calls[0].content)['input'])
     assert packet['authored_reference_context'] and packet['opened_passages']
-    writer_attempt=next(e for e in turn.graph_context_execution.events if isinstance(e,t.ProviderAttemptAuthorizedEventV1) and e.provider_attempt_id==turn.completion.provider_attempt_id)
-    assert batch.event_id in writer_attempt.included_source_read_event_ids
+    role=turn.graph_context_execution.policy.provider_roles.writer.identity()
+    writer_attempts=[e for e in turn.graph_context_execution.events if isinstance(e,t.ProviderAttemptAuthorizedEventV1) and (e.provider,e.model,e.api_mode)==role]
+    assert len(writer_attempts)==1 and batch.event_id in writer_attempts[0].included_source_read_event_ids
     assert turn.completion.source_citations
