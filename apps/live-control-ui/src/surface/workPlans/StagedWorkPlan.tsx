@@ -1,15 +1,18 @@
 import {SurfaceObjectMenu} from '../SurfaceObjectMenu';
 import {SurfaceNavbarIconButton} from '../../surfaceInteraction/contextHost/SurfaceNavbarIconButton';
 import {useEffect,useRef,useState} from 'react';
-import type {ConversationCollaboration} from '../../api/types';
-import {getWorkPlan,saveWorkPlan,planObjective,type WorkStep} from '../../api/conversationWorkPlanApi';
+import {SurfaceGraphReferenceInput} from '../SurfaceGraphReferenceInput';
+import {isAuthoredGraphReferenceList,mergeAuthoredReferences} from '../../agentInteraction/authoredGraphReferences';
+import {canonical,exact} from '../../shared/sourcePassageProtocol';
+import type {AuthoredGraphReferenceV1,ConversationCollaboration} from '../../api/types';
+import {getWorkPlanRecord,getWorkPlan,saveWorkPlan,planObjective,type WorkStep} from '../../api/conversationWorkPlanApi';
 import {getWorkspaceDocumentSnapshot} from '../../api/liveApi';
 import type {BuildComposeBridge,CapturedBuildInsertion,PreparedWorkPlanPlacement} from '../../buildSurface/buildComposeBridge';
 import {SurfacePageProposal} from '../SurfacePageProposal';
 import {markdownToTiptapDoc} from '../../tiptap/markdown/markdownToTiptap';
 import {tiptapJsonToSemanticMarkdown} from '../../tiptap/markdown/calloutMarkdown';
 import {workPlanIdentity,parseWorkPlanFence,type WorkPlanReference} from './workPlanReference';
-import {placementDigest,readPlacement,stagePlacement,replacePlacement,changePlacement,savePlacementOnPage,placementKey,placementObjective,type WorkPlanPlacement} from './workPlanPlacement';
+import {placementDigest,readPlacement,stagePlacement,replacePlacement,changePlacement,savePlacementOnPage,placementKey,placementObjective,placementReferences,type WorkPlanPlacement} from './workPlanPlacement';
 import './workPlans.css';
 
 function contains(json:unknown,ref:WorkPlanReference):boolean{
@@ -29,6 +32,7 @@ export function StagedWorkPlan({worldId,documentId,conversationId,turnId,source,
  const [reference,setReference]=useState<WorkPlanReference|null>(null),[placement,setPlacement]=useState<WorkPlanPlacement|null>(null);
  const [captured,setCaptured]=useState<CapturedBuildInsertion|null>(null),[rows,setRows]=useState<WorkStep[]>([]);
  const [objective,setObjective]=useState(generatedObjective??'');
+ const [rootReferences,setRootReferences]=useState<AuthoredGraphReferenceV1[]|undefined>();
  const [error,setError]=useState<string|null>(null),[stale,setStale]=useState(false),[busy,setBusy]=useState(false),[inPage,setInPage]=useState(false);
  const [refresh,setRefresh]=useState(0);const picker=useRef<AbortController|null>(null);
  const scope=JSON.stringify([worldId,documentId,conversationId,turnId,source,bridge!==null,pointerRevision]);
@@ -37,26 +41,38 @@ export function StagedWorkPlan({worldId,documentId,conversationId,turnId,source,
  useEffect(()=>()=>{current.current={...current.current,scope:'retired'};picker.current?.abort();},[]);
  function assertCurrent(start=current.current){if(current.current.scope!==start.scope||current.current.epoch!==start.epoch||current.current.disabled||current.current.bridge!==start.bridge)throw new Error('The page or active conversation changed. Your plan is retained.');}
  function noteKey(ref:WorkPlanReference){return 'dmb:surface-work-plan-notes:v1:'+workPlanIdentity(ref);}
- function writeNotes(p:WorkPlanPlacement,next:WorkStep[],outcome:string){
-  const bytes=JSON.stringify({schema:'dmb_surface_plan_notes_v2',command_id:p.command_id,rows:next,objective:outcome});
+ function writeNotes(p:WorkPlanPlacement,next:WorkStep[],outcome:string,roots=rootReferences){
+  const bytes=JSON.stringify({schema:roots===undefined?'dmb_surface_plan_notes_v2':'dmb_surface_plan_notes_v3',command_id:p.command_id,rows:next,objective:outcome,...(roots===undefined?{}:{root_references:roots})});
   sessionStorage.setItem(noteKey(p.reference),bytes);if(sessionStorage.getItem(noteKey(p.reference))!==bytes)throw new Error('Plan edits could not be retained locally.');
  }
- function retain(next:WorkStep[],nextObjective=objective){setRows(next);setObjective(nextObjective);if(!reference||!placement)return;try{writeNotes(placement,next,nextObjective);}
+ function retain(next:WorkStep[],nextObjective=objective,roots=rootReferences){
+  const normalized=roots===undefined?next:next.map(row=>({...row,references:row.references??[]}));
+  if(roots!==undefined)for(const row of normalized)mergeAuthoredReferences(roots,row.references??[]);
+  setRows(normalized);setObjective(nextObjective);setRootReferences(roots);if(!reference||!placement)return;try{writeNotes(placement,normalized,nextObjective,roots);}
  catch{setError('These edits could not be retained locally. Copy them before reloading.');}}
  useEffect(()=>{
   let active=true;setCaptured(null);setError(null);setStale(false);setReference(null);setPlacement(null);
   void (async()=>{
    const ref:WorkPlanReference={schema:'dmb_surface_work_plan_ref_v1',world_id:worldId,document_id:documentId,conversation_id:conversationId,source_turn_id:turnId,source_answer_sha256:await placementDigest(source),title:'Work plan'};
    const retained=await readPlacement(ref);if(!active)return;setReference(ref);setPlacement(retained);
-   if(!retained)return;let restored=retained.rows;let restoredObjective=placementObjective(retained)??'';
+   if(!retained)return;let restored=retained.rows;let restoredObjective=placementObjective(retained)??'';let restoredRoots=placementReferences(retained);
    const bytes=sessionStorage.getItem(noteKey(ref));if(bytes){const notes=JSON.parse(bytes);
-    if(notes.command_id!==retained.command_id||!Array.isArray(notes.rows)||notes.rows.length!==retained.rows.length
-     ||!notes.rows.every((row:WorkStep,i:number)=>row.step_id===retained.rows[i].step_id&&typeof row.text==='string'&&typeof row.selected==='boolean'&&['discuss','prepare_insertion'].includes(row.kind)))
+    const aware=notes.schema==='dmb_surface_plan_notes_v3';
+    if(!exact(notes,['schema','command_id','rows',...(notes.schema==='dmb_surface_plan_notes_v1'?[]:['objective']),...(aware?['root_references']:[])])
+     ||!['dmb_surface_plan_notes_v1','dmb_surface_plan_notes_v2','dmb_surface_plan_notes_v3'].includes(String(notes.schema))
+     ||notes.command_id!==retained.command_id||!Array.isArray(notes.rows)||notes.rows.length!==retained.rows.length
+     ||!notes.rows.every((row:WorkStep,i:number)=>exact(row,['step_id','text','selected','kind',...(aware?['references']:[])])&&row.step_id===retained.rows[i].step_id&&typeof row.text==='string'&&typeof row.selected==='boolean'&&['discuss','prepare_insertion'].includes(row.kind)))
       throw new Error('Earlier local plan edits need comparison. Their bytes were left untouched.');
-    restored=notes.rows;
-    if(notes.schema==='dmb_surface_plan_notes_v2'){if(typeof notes.objective!=='string')throw new Error('Invalid retained expected outcome.');restoredObjective=notes.objective;}
+    if(aware){
+     if(!isAuthoredGraphReferenceList(notes.root_references,worldId)||!notes.rows.every((row:WorkStep)=>isAuthoredGraphReferenceList(row.references,worldId)))throw new Error('Invalid retained Graph context.');
+     for(const row of notes.rows)mergeAuthoredReferences(notes.root_references,row.references);
+     restoredRoots=notes.root_references;
+    }
+    restored=aware?notes.rows:notes.rows.map((row:WorkStep)=>({...row,...(restoredRoots===undefined?{}:{references:retained.rows.find(saved=>saved.step_id===row.step_id)?.references??[]})}));
+    if(notes.schema!=='dmb_surface_plan_notes_v1'){if(typeof notes.objective!=='string')throw new Error('Invalid retained expected outcome.');restoredObjective=notes.objective;}
+    if(retained.prepared&&(canonical(restored)!==canonical(retained.rows)||restoredObjective!==placementObjective(retained)||canonical(restoredRoots)!==canonical(placementReferences(retained))))throw new Error('Check the earlier Save before changing this plan. Local edits were retained.');
    }
-   setRows(restored);setObjective(restoredObjective);
+   setRows(restored);setObjective(restoredObjective);setRootReferences(restoredRoots);
    if(bridge&&!disabled&&retained.pointer_revision===pointerRevision&&retained.phase!=='discarded'&&retained.phase!=='saved'){
     try{const anchor=await bridge.restore(retained.basis);if(active){setCaptured(anchor);onVisible();}}
     catch(reason){if(active){setStale(true);setError(reason instanceof Error?reason.message:String(reason));}}
@@ -84,12 +100,13 @@ export function StagedWorkPlan({worldId,documentId,conversationId,turnId,source,
    onVisible();
    const next=await bridge.pickWorkPlanInsertion({signal:controller.signal,operationId:placement?.command_id??crypto.randomUUID()});assertCurrent(start);
    if(next.basis.selection)throw new Error('Choose an insertion point; a plan does not replace selected text.');
-   const saved=await getWorkPlan({worldId,documentId,conversationId,turnId,sourceSha256:reference.source_answer_sha256});assertCurrent(start);
+   const record=await getWorkPlanRecord({worldId,documentId,conversationId,turnId,sourceSha256:reference.source_answer_sha256});assertCurrent(start);
+   const saved=record.plan,initialRoots=saved?.schema==='dmb_reviewed_work_plan_v3'?saved.root_references:record.sourceReferences.length?record.sourceReferences:undefined;
    const previous=await readPlacement(reference);assertCurrent(start);
-   let nextPlacement=previous?await replacePlacement(previous,next.basis,pointerRevision):await stagePlacement(reference,next.basis,pointerRevision,saved?.steps??steps.map(step=>({...step,selected:true,step_id:crypto.randomUUID()})),saved?.revision??0,localStorage,navigator.locks,saved?planObjective(saved):generatedObjective??'');
+   let nextPlacement=previous?await replacePlacement(previous,next.basis,pointerRevision):await stagePlacement(reference,next.basis,pointerRevision,saved?.steps??steps.map(step=>({...step,selected:true,step_id:crypto.randomUUID()})),saved?.revision??0,localStorage,navigator.locks,saved?planObjective(saved):generatedObjective??'',initialRoots);
    if(previous?.schema==='dmb_surface_work_plan_placement_v1'&&!previous.prepared){nextPlacement=await changePlacement(nextPlacement,p=>({...p,schema:'dmb_surface_work_plan_placement_v2',objective,expected_review_revision:saved?.revision??0,acknowledged_review_revision:null,phase:'staged'}));assertCurrent(start);}
-   if(previous){nextPlacement=await changePlacement(nextPlacement,p=>({...p,schema:'dmb_surface_work_plan_placement_v2',objective,rows}));assertCurrent(start);writeNotes(nextPlacement,rows,objective);}
-   assertCurrent(start);setPlacement(nextPlacement);setRows(previous?rows:saved?.steps??nextPlacement.rows);setObjective(previous?objective:saved?planObjective(saved):placementObjective(nextPlacement)??'');setCaptured(next);setStale(false);onVisible();
+   if(previous){nextPlacement=await changePlacement(nextPlacement,p=>({...p,...(rootReferences===undefined?{schema:'dmb_surface_work_plan_placement_v2' as const}:{schema:'dmb_surface_work_plan_placement_v3' as const,root_references:rootReferences}),objective,rows}));assertCurrent(start);writeNotes(nextPlacement,rows,objective);}
+   assertCurrent(start);setPlacement(nextPlacement);setRows(previous?rows:nextPlacement.rows);setRootReferences(previous?rootReferences:placementReferences(nextPlacement));setObjective(previous?objective:saved?planObjective(saved):placementObjective(nextPlacement)??'');setCaptured(next);setStale(false);onVisible();
   }catch(reason){if(current.current.scope===start.scope)setError(reason instanceof Error?reason.message:String(reason));}
   finally{if(current.current.scope===start.scope)setBusy(false);}
  }
@@ -97,7 +114,7 @@ export function StagedWorkPlan({worldId,documentId,conversationId,turnId,source,
   if(!placement||!captured||!bridge)return;const start=current.current;setBusy(true);setError(null);
   try{assertCurrent(start);const anchor=await bridge.restore({...placement.basis,caret:position});assertCurrent(start);
    let next=await replacePlacement(placement,anchor.basis,pointerRevision);assertCurrent(start);
-   next=await changePlacement(next,p=>({...p,schema:'dmb_surface_work_plan_placement_v2',objective,rows}));assertCurrent(start);writeNotes(next,rows,objective);setPlacement(next);setCaptured(anchor);
+   next=await changePlacement(next,p=>({...p,...(rootReferences===undefined?{schema:'dmb_surface_work_plan_placement_v2' as const}:{schema:'dmb_surface_work_plan_placement_v3' as const,root_references:rootReferences}),objective,rows}));assertCurrent(start);writeNotes(next,rows,objective);setPlacement(next);setCaptured(anchor);
   }catch(reason){setError(reason instanceof Error?reason.message:String(reason));}finally{if(current.current.scope===start.scope)setBusy(false);}
  }
  async function save(){
@@ -105,9 +122,9 @@ export function StagedWorkPlan({worldId,documentId,conversationId,turnId,source,
   const planScope={worldId,documentId,conversationId,turnId,sourceSha256:reference.source_answer_sha256};
   try{
    const result=await savePlacementOnPage<PreparedWorkPlanPlacement>(placement,rows,{
-    objective,
+    objective,rootReferences,
     assertCurrent:()=>{assertCurrent(start);if(pointerRevision!==placement.pointer_revision)throw new Error('The conversation pointer changed. Choose a new position.');},
-    readReview:()=>getWorkPlan(planScope),saveReview:(revision,reviewed,outcome)=>saveWorkPlan(planScope,revision,reviewed,outcome),
+    readReview:()=>getWorkPlan(planScope),saveReview:(revision,reviewed,outcome,roots)=>saveWorkPlan(planScope,revision,reviewed,outcome,roots),
     findSaved:()=>findSaved(reference),prepare:async receipt=>{const anchor=await bridge.restore(receipt.basis);const prepared=await bridge.prepareWorkPlan!(anchor,receipt.reference);return {value:prepared,after_editor_sha256:prepared.afterEditorSha256,after_draft_sha256:prepared.afterDraftSha256};},
     inspect:receipt=>bridge.inspectProposal(receipt.basis,receipt.prepared!.after_editor_sha256,receipt.prepared!.after_draft_sha256),
     apply:prepared=>bridge.applyWorkPlan!(prepared),
@@ -125,9 +142,11 @@ export function StagedWorkPlan({worldId,documentId,conversationId,turnId,source,
    if(!placement)return;const start=current.current;setBusy(true);void changePlacement(placement,p=>({...p,phase:'discarded'})).then(next=>{assertCurrent(start);setPlacement(next);setCaptured(null);}).catch(reason=>{if(current.current.scope===start.scope)setError(String(reason));}).finally(()=>{if(current.current.scope===start.scope)setBusy(false);});
   }}>×</button></header>
   <label>Expected outcome<textarea aria-label="Expected outcome" value={objective} disabled={disabled||busy||!!placement?.prepared} onChange={event=>retain(rows,event.target.value)}/></label>
+  <SurfaceGraphReferenceInput worldId={worldId} label="Plan Graph context" value={rootReferences??[]} disabled={disabled||busy||!!placement?.prepared} onChange={refs=>retain(rows,objective,refs)}/>
   {rows.map((row,i)=><div className="surface-work-plan__step" key={row.step_id}><label className="surface-work-plan__include"><input type="checkbox" checked={row.selected} disabled={disabled||busy||!!placement?.prepared} onChange={event=>retain(rows.map((s,j)=>j===i?{...s,selected:event.target.checked}:s))}/><span className="surface-work-plan__sr">Include step {i+1}</span></label><span className="surface-work-plan__number" aria-hidden="true">{i+1}.</span>
    <textarea aria-label={`Plan step ${i+1}`} value={row.text} disabled={disabled||busy||!!placement?.prepared} onChange={event=>retain(rows.map((s,j)=>j===i?{...s,text:event.target.value}:s))}/>
    <label className="surface-work-plan__action"><span className="surface-work-plan__sr">Action</span><select aria-label={`Plan action ${i+1}`} value={row.kind} disabled={disabled||busy||!!placement?.prepared} onChange={event=>retain(rows.map((s,j)=>j===i?{...s,kind:event.target.value as WorkStep['kind']}:s))}><option value="discuss">Discuss</option><option value="prepare_insertion">Prepare an insertion</option></select></label>
+   <div className="surface-work-plan__references"><SurfaceGraphReferenceInput worldId={worldId} label={`Step ${i+1} Graph context`} value={row.references??[]} disabled={disabled||busy||!!placement?.prepared} onChange={refs=>retain(rows.map(s=>s.step_id===row.step_id?{...s,references:refs}:s),objective,rootReferences??[])}/></div>
   </div>)}
   <SurfaceNavbarIconButton icon="save" label="Save" disabled={disabled||busy||stale||!objective.trim()||!rows.length||rows.some(row=>!row.text.trim())} onClick={()=>void save()}/>
   {error?<p role="alert">{error}</p>:null}

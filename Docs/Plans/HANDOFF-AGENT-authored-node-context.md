@@ -478,3 +478,17 @@ retirement is also remembered for that live request. Prove denied reference-copy
 text ABA, remount, exact replay and known rejection without replacing the empty newer
 composer. This read-only recovery fence grants no resend or second executor authority.
 The separate explicit no-lockout recovery UX remains required before adoption.
+
+
+### Source-aware staged-plan recovery contract
+
+Independent critique approved placement/notes V3 in existing owners. Use validated
+getWorkPlanRecord: saved V3 roots (including empty) are exact author authority;
+otherwise initialize from captured sourceReferences. Every V3 row has explicit
+references; never infer IDs from writer labels. CAS/prepared immutability cover roots
+and rows; retired snapshots preserve both. Historical notes restore wording/selection
+by step_id without erasing V3 context. ReviewV3 and exact objective/root/row/revision
+readback gate application and recovery. Do not reinterpret prepared V1/V2 receipts.
+Extend the exact test lease to:
+- `apps/live-control-ui/src/surface/workPlans/workPlanCapture.test.ts`
+No new storage key, executor, provider authority or publisher is added.

@@ -127,3 +127,58 @@ it('does not turn an uncertain legacy review Save into a new V1 write',async()=>
   findSaved:async()=>null,prepare:vi.fn(),inspect:vi.fn(),apply:vi.fn(),save:vi.fn()},storage,locks)).rejects.toThrow(/new placement/);
  expect(saveReview).not.toHaveBeenCalled();expect(data.get(placementKey(ref))).toBe(before);
 });
+
+const graphRef={schema:'dmb_authored_graph_reference_v1' as const,managed_world_id:'world',native_world_id:'native',binding_version:1,graph_revision:'r1',node_id:'cedar-box',label:'Cedar box'};
+it('retains scoped V3 roots and row context across re-placement and freezes both after preparation',async()=>{
+ const steps=[{...rows[0],references:[{...graphRef,node_id:'lantern'}]}];
+ const staged=await stagePlacement(ref,basis,1,steps,0,storage,locks,'Keep the wick dry.',[graphRef]);
+ expect(staged.schema).toBe('dmb_surface_work_plan_placement_v3');expect(await readPlacement(ref,storage)).toEqual(staged);
+ const prepared=await changePlacement(staged,p=>({...p,phase:'applying',acknowledged_review_revision:1,prepared:{apply_id:crypto.randomUUID(),before_editor_sha256:basis.editor_sha256!,before_draft_sha256:basis.draft_sha256,after_editor_sha256:'e'.repeat(64),after_draft_sha256:'f'.repeat(64)}}),storage,locks);
+ await expect(changePlacement(prepared,p=>({...p,schema:'dmb_surface_work_plan_placement_v3',root_references:[]}),storage,locks)).rejects.toThrow();
+ const next=await replacePlacement(prepared,{...basis,caret:3},2,storage,locks);
+ expect(next.schema==='dmb_surface_work_plan_placement_v3'&&next.root_references).toEqual([graphRef]);
+ expect(next.rows).toEqual(steps);expect(next.retired_placements[0].review_snapshot?.root_references).toEqual([graphRef]);
+ expect(await readPlacement(ref,storage)).toEqual(next);
+});
+it.each(['foreign','conflict','missing-row-list','extra-root-field'])('refuses invalid V3 context: %s without changing retained bytes',async variant=>{
+ const p=await stagePlacement(ref,basis,1,rows,0,storage,locks,'Keep the wick dry.',[graphRef]);
+ const before=data.get(placementKey(ref));const invalid=structuredClone(p) as Record<string,unknown>;
+ if(variant==='foreign')invalid.root_references=[{...graphRef,managed_world_id:'other'}];
+ if(variant==='conflict')invalid.rows=[{...rows[0],references:[{...graphRef,graph_revision:'other'}]}];
+ if(variant==='missing-row-list')invalid.rows=rows;
+ if(variant==='extra-root-field')invalid.root_references=[{...graphRef,prose:'invented identity'}];
+ await expect(checkedPlacement(invalid,ref)).rejects.toThrow();expect(data.get(placementKey(ref))).toBe(before);
+});
+it('saves ReviewV3 and recovers lost page acknowledgment only against the exact reference review',async()=>{
+ const {savePlacementOnPage}=await import('./workPlanPlacement');
+ const steps=[{...rows[0],references:[{...graphRef,node_id:'lantern'}]}],roots=[graphRef];
+ const initial=await stagePlacement(ref,basis,1,steps,0,storage,locks,'Keep the wick dry.',roots);
+ let plan:import('../../api/conversationWorkPlanApi').WorkPlan|null=null,present=false,applies=0;
+ const saveReview=vi.fn(async(_revision:number,reviewed:WorkStep[],objective:string,root_references?:typeof roots)=>{
+  expect(root_references).toEqual(roots);plan={schema:'dmb_reviewed_work_plan_v3',root_references:root_references!,objective,steps:reviewed,world_id:ref.world_id,document_id:ref.document_id,conversation_id:ref.conversation_id,source_turn_id:ref.source_turn_id,source_answer_sha256:ref.source_answer_sha256,revision:1,dispatches:[],execution:[]};return plan;
+ });
+ const io={objective:'Keep the wick dry.',rootReferences:roots,assertCurrent:()=>{},readReview:async()=>plan,saveReview,
+  findSaved:async()=>present?{revision:2,content_sha256:'f'.repeat(64),body_sha256:'f'.repeat(64)}:null,
+  prepare:async()=>({value:'prepared',after_editor_sha256:'e'.repeat(64),after_draft_sha256:'f'.repeat(64)}),inspect:async()=>'after' as const,
+  apply:()=>{applies++;},save:async()=>{present=true;throw new Error('lost acknowledgment');}};
+ await expect(savePlacementOnPage(initial,steps,io,storage,locks)).rejects.toThrow('lost acknowledgment');
+ const retained=(await readPlacement(ref,storage))!;expect(retained.phase).toBe('page_save_uncertain');
+ const changed={...plan!,schema:'dmb_reviewed_work_plan_v3' as const,root_references:[]};
+ await expect(savePlacementOnPage(retained,steps,{...io,readReview:async()=>changed},storage,locks)).rejects.toThrow(/acknowledged plan review changed/);
+ expect((await readPlacement(ref,storage))?.phase).toBe('page_save_uncertain');
+ const result=await savePlacementOnPage(retained,steps,io,storage,locks);
+ expect(result.placement.phase).toBe('saved');expect(applies).toBe(1);expect(saveReview).toHaveBeenCalledTimes(1);
+});
+it('recovers one lost V3 review acknowledgment but refuses a later equal-content revision',async()=>{
+ const {savePlacementOnPage}=await import('./workPlanPlacement');const roots=[graphRef],steps=[{...rows[0],references:[]}];
+ const initial=await stagePlacement(ref,basis,1,steps,0,storage,locks,'Keep the wick dry.',roots);
+ let plan:import('../../api/conversationWorkPlanApi').WorkPlan|null=null;
+ const io={objective:'Keep the wick dry.',rootReferences:roots,assertCurrent:()=>{},readReview:async()=>plan,
+  saveReview:async()=>{plan={schema:'dmb_reviewed_work_plan_v3',root_references:roots,objective:'Keep the wick dry.',steps,world_id:ref.world_id,document_id:ref.document_id,conversation_id:ref.conversation_id,source_turn_id:ref.source_turn_id,source_answer_sha256:ref.source_answer_sha256,revision:1,dispatches:[],execution:[]};throw new Error('lost review acknowledgment');},
+  findSaved:async()=>null,prepare:async()=>({value:'prepared',after_editor_sha256:'e'.repeat(64),after_draft_sha256:'f'.repeat(64)}),inspect:async()=>'before' as const,apply:vi.fn(),save:async()=>({revision:2,content_sha256:'f'.repeat(64)})};
+ await expect(savePlacementOnPage(initial,steps,io,storage,locks)).rejects.toThrow('lost review acknowledgment');
+ const uncertain=(await readPlacement(ref,storage))!;expect(uncertain.phase).toBe('review_saving');
+ await expect(savePlacementOnPage(uncertain,steps,{...io,readReview:async()=>({...plan!,revision:2})},storage,locks)).rejects.toThrow(/changed in another tab/);
+ expect(io.apply).not.toHaveBeenCalled();
+ const result=await savePlacementOnPage(uncertain,steps,io,storage,locks);expect(result.placement.phase).toBe('saved');expect(io.apply).toHaveBeenCalledTimes(1);
+});

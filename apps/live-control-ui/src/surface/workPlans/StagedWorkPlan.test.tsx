@@ -5,12 +5,12 @@ import {Editor} from '@tiptap/core';
 import {DEFAULT_MARKDOWN_EDITOR_EXTENSIONS} from '../../tiptap/MarkdownEditorCore';
 import {createBuildComposeBridge,type BuildComposeEditorState} from '../../buildSurface/buildComposeBridge';
 import {tiptapJsonToSemanticMarkdown} from '../../tiptap/markdown/calloutMarkdown';
-import {getWorkPlan,saveWorkPlan,continueWorkPlan,type WorkPlan} from '../../api/conversationWorkPlanApi';
+import {getWorkPlanRecord,getWorkPlan,saveWorkPlan,continueWorkPlan,type WorkPlan} from '../../api/conversationWorkPlanApi';
 import {getWorkspaceDocumentSnapshot} from '../../api/liveApi';
 import {StagedWorkPlan} from './StagedWorkPlan';
 import {placementDigest,stagePlacement,readPlacement,type PlacementLocks} from './workPlanPlacement';
 import type {WorkPlanReference} from './workPlanReference';
-vi.mock('../../api/conversationWorkPlanApi',async original=>({...await original<typeof import('../../api/conversationWorkPlanApi')>(),getWorkPlan:vi.fn(),saveWorkPlan:vi.fn(),continueWorkPlan:vi.fn()}));
+vi.mock('../../api/conversationWorkPlanApi',async original=>({...await original<typeof import('../../api/conversationWorkPlanApi')>(),getWorkPlanRecord:vi.fn(),getWorkPlan:vi.fn(),saveWorkPlan:vi.fn(),continueWorkPlan:vi.fn()}));
 vi.mock('../../api/liveApi',()=>({getWorkspaceDocumentSnapshot:vi.fn()}));
 const conversation='11111111-1111-4111-8111-111111111111',turnId='22222222-2222-4222-8222-222222222222';
 let editor:Editor,state:BuildComposeEditorState,bridge:ReturnType<typeof createBuildComposeBridge>,ref:WorkPlanReference;
@@ -27,7 +27,8 @@ beforeEach(async()=>{
  });
  ref={schema:'dmb_surface_work_plan_ref_v1',world_id:'world',document_id:'page',conversation_id:conversation,source_turn_id:turnId,source_answer_sha256:await placementDigest('A plan.'),title:'Work plan'};plan=null;
  vi.mocked(getWorkPlan).mockImplementation(async()=>plan);
- vi.mocked(saveWorkPlan).mockImplementation(async(_s,revision,steps,objective)=>{expect(revision).toBe(0);plan={schema:'dmb_reviewed_work_plan_v2',objective,world_id:'world',document_id:'page',conversation_id:conversation,source_turn_id:turnId,source_answer_sha256:ref.source_answer_sha256,revision:1,steps,dispatches:[],execution:[]};return plan;});
+ vi.mocked(getWorkPlanRecord).mockImplementation(async()=>({plan,sourceReferences:[]}));
+ vi.mocked(saveWorkPlan).mockImplementation(async(_s,revision,steps,objective,roots)=>{expect(revision).toBe(0);plan={...(roots===undefined?{schema:'dmb_reviewed_work_plan_v2' as const}:{schema:'dmb_reviewed_work_plan_v3' as const,root_references:roots}),objective,world_id:'world',document_id:'page',conversation_id:conversation,source_turn_id:turnId,source_answer_sha256:ref.source_answer_sha256,revision:1,steps,dispatches:[],execution:[]};return plan;});
  vi.mocked(getWorkspaceDocumentSnapshot).mockImplementation(async()=>({record:{world_id:'world',document_id:'page',content_status:'committed',revision:state.revision},loaded_revision:state.revision,markdown:savedMarkdown,content_sha256:state.contentSha256}) as Awaited<ReturnType<typeof getWorkspaceDocumentSnapshot>>);
 });
 afterEach(()=>{cleanup();editor.destroy();editor.view.dom.remove();});
@@ -62,4 +63,42 @@ it('retires stale shared placement views instead of overwriting another tab',asy
  act(()=>window.dispatchEvent(new StorageEvent('storage',{key:'dmb:surface-work-plan-placement:v1:'+JSON.stringify([ref.world_id,ref.document_id,ref.conversation_id,ref.source_turn_id,ref.source_answer_sha256])})));
  await waitFor(()=>expect(screen.queryByRole('checkbox')).not.toBeInTheDocument());
  expect(screen.getByText(/changed in another tab/)).toBeInTheDocument();expect(saveWorkPlan).not.toHaveBeenCalled();
+});
+
+const contextRef={schema:'dmb_authored_graph_reference_v1' as const,managed_world_id:'world',native_world_id:'native',binding_version:1,graph_revision:'r1',node_id:'cedar-box',label:'Cedar box'};
+async function stageContext(){
+ const anchor=await bridge.capture();
+ return stagePlacement(ref,anchor.basis,2,props().steps.map((s,i)=>({...s,step_id:crypto.randomUUID(),selected:true,references:i===0?[{...contextRef,node_id:'lantern',label:'Lantern'}]:[]})),0,localStorage,navigator.locks,'Keep the wick dry.',[contextRef]);
+}
+it('retains edited V3 root and step context through mounted reload and the real page Save path',async()=>{
+ await stageContext();const mounted=render(<StagedWorkPlan {...props()}/>);
+ expect(await screen.findByText('@Cedar box')).toBeVisible();expect(screen.getByText('@Lantern')).toBeVisible();
+ fireEvent.click(screen.getByRole('button',{name:'Remove reference Cedar box'}));
+ fireEvent.change(screen.getByRole('textbox',{name:'Plan step 1'}),{target:{value:'Read the selected lantern.'}});mounted.unmount();
+ render(<StagedWorkPlan {...props()}/>);
+ expect(await screen.findByRole('textbox',{name:'Plan step 1'})).toHaveValue('Read the selected lantern.');
+ expect(screen.queryByText('@Cedar box')).toBeNull();expect(screen.getByText('@Lantern')).toBeVisible();
+ fireEvent.click(screen.getByRole('button',{name:'Save',exact:true}));
+ await waitFor(()=>expect(screen.getByText('Plan on page.')).toBeInTheDocument());
+ expect(plan?.schema).toBe('dmb_reviewed_work_plan_v3');expect(plan?.schema==='dmb_reviewed_work_plan_v3'&&plan.root_references).toEqual([]);
+ expect(plan!.steps[0].references).toEqual([{...contextRef,node_id:'lantern',label:'Lantern'}]);expect(continueWorkPlan).not.toHaveBeenCalled();
+ expect(savedMarkdown.match(/dmb-work-plan-v1/g)).toHaveLength(1);
+});
+it('restores historical local wording by step identity without erasing current V3 references',async()=>{
+ const retained=await stageContext();
+ sessionStorage.setItem('dmb:surface-work-plan-notes:v1:'+JSON.stringify([ref.world_id,ref.document_id,ref.conversation_id,ref.source_turn_id,ref.source_answer_sha256]),JSON.stringify({schema:'dmb_surface_plan_notes_v2',command_id:retained.command_id,objective:'Older edited outcome.',rows:retained.rows.map(({references:_,...row})=>({...row,text:'Older local wording.'}))}));
+ render(<StagedWorkPlan {...props()}/>);
+ expect(await screen.findByRole('textbox',{name:'Plan step 1'})).toHaveValue('Older local wording.');
+ expect(screen.getByText('@Cedar box')).toBeVisible();expect(screen.getByText('@Lantern')).toBeVisible();
+ fireEvent.click(screen.getByRole('button',{name:'Save',exact:true}));await waitFor(()=>expect(screen.getByText('Plan on page.')).toBeInTheDocument());
+ expect(plan?.schema==='dmb_reviewed_work_plan_v3'&&plan.root_references).toEqual([contextRef]);expect(plan!.steps[0].references).toEqual([{...contextRef,node_id:'lantern',label:'Lantern'}]);
+});
+it('initializes explicit page placement from host source references before any saved review exists',async()=>{
+ vi.mocked(getWorkPlanRecord).mockResolvedValue({plan:null,sourceReferences:[contextRef]});
+ vi.spyOn(bridge,'pickWorkPlanInsertion').mockImplementation(async()=>bridge.capture());
+ render(<StagedWorkPlan {...props()}/>);fireEvent.click(await screen.findByRole('button',{name:'Place plan on page'}));
+ expect(await screen.findByText('@Cedar box')).toBeVisible();
+ fireEvent.click(screen.getByRole('button',{name:'Save',exact:true}));await waitFor(()=>expect(screen.getByText('Plan on page.')).toBeInTheDocument());
+ expect(plan?.schema==='dmb_reviewed_work_plan_v3'&&plan.root_references).toEqual([contextRef]);expect(plan!.steps.every(row=>Array.isArray(row.references))).toBe(true);
+ expect(continueWorkPlan).not.toHaveBeenCalled();
 });
