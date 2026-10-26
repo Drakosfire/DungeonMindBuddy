@@ -890,7 +890,12 @@ describe("one App-level World conversation host across Plan and Play", () => {
     vi.mocked(getWorldAgentConversationHistory).mockResolvedValue(history(rows));
     const view=render(<Harness initial='build'/>);fireEvent.click(await screen.findByRole('button',{name:'Open',exact:true}));
     await screen.findByText('Retry result');expect(screen.getAllByText(first.user_text,{exact:true})).toHaveLength(1);
-    expect(screen.queryByRole('button',{name:'Retry question'})).not.toBeInTheDocument();expect(screen.getByText('Previous attempts · 1')).toBeInTheDocument();
+    expect(screen.queryByRole('button',{name:'Retry question'})).not.toBeInTheDocument();const priorAttempts=screen.getByText('Previous attempts · 1');
+    expect(priorAttempts).not.toBeVisible();
+    const debug=priorAttempts.closest('details.world-plan-agent-conversation__turn-details');
+    expect(debug).not.toBeNull();expect(debug).not.toHaveAttribute('open');
+    fireEvent.click(within(debug as HTMLElement).getByText('Debug',{exact:true}));
+    expect(priorAttempts).toBeVisible();
     view.unmount();render(<Harness initial='build'/>);fireEvent.click(await screen.findByRole('button',{name:'Open',exact:true}));
     await screen.findByText('Retry result');expect(screen.getAllByText(first.user_text,{exact:true})).toHaveLength(1);
     expect(screen.queryByRole('button',{name:'Retry question'})).not.toBeInTheDocument();

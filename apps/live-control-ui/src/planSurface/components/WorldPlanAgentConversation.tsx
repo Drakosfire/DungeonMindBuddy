@@ -5933,7 +5933,6 @@ export function WorldPlanAgentConversation({
                 }} /> : null : null}
           </div>
         ) : null}
-        {!historicalAttempt&&turn.retry_context&&<ConversationRetryAttempts context={turn.retry_context}/>}
         <div className="world-plan-agent-conversation__turn-debug">
           <details className="world-plan-agent-conversation__turn-details" onToggle={(event) => {
             const open = event.currentTarget.open;
@@ -5941,6 +5940,7 @@ export function WorldPlanAgentConversation({
             setOpenedTraceTurns(current => current[key] === open ? current : { ...current, [key]: open });
           }}>
             <summary>Debug</summary>
+            {!historicalAttempt&&turn.retry_context&&<ConversationRetryAttempts context={turn.retry_context}/>}
             {failed || interrupted ? (
               <p role="status">
                 {pendingRetryTurnId === turn.turn_id && !historicalAttempt

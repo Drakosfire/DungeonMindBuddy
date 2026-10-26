@@ -1,3 +1,4 @@
+import './BuddyActivity.css'
 import { useState } from 'react'
 import type { AgentConversationTurnLifecycleV1 } from '../../api/types'
 import type { BuddyTraceObservation } from '../../api/buddyContextTraceTypes'
@@ -59,8 +60,16 @@ export function BuddyActivity({ worldId, conversationId, turnId, lifecycle }: { 
   const failed = lifecycle === 'failed' || lifecycle === 'interrupted' || trace?.terminal_status === 'failed' || trace?.terminal_status === 'interrupted'
   const label = inspection.running ? last ? activity(last) : 'Getting the notes together…'
     : failed ? 'Reply error report' : 'How this reply came together'
-  return <details className="buddy-activity" onToggle={event => setOpen(event.currentTarget.open)}>
-    <summary><span role="status" aria-live="polite">{label}</span></summary>
+  return <details className="buddy-activity" data-running={inspection.running} onToggle={event => setOpen(event.currentTarget.open)}>
+    <summary>
+      {inspection.running && <svg className="buddy-activity__bubble" viewBox="0 0 32 28" width="28" height="25" aria-hidden="true" focusable="false">
+        <path d="M8 20c-4-1-6-4-6-8C2 6 8 2 16 2s14 4 14 10-6 10-14 10h-3" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+        <circle cx="8" cy="23" r="2" fill="none" stroke="currentColor" strokeWidth="1.4"/>
+        <circle cx="4" cy="27" r="1" fill="currentColor"/>
+        {[10,16,22].map(cx=><circle key={cx} className="buddy-activity__dot" cx={cx} cy="12" r="1.7" fill="currentColor"/>)}
+      </svg>}
+      <span role="status" aria-live="polite">{label}</span>
+    </summary>
     {open && <div className="buddy-activity__body">
       {inspection.error && <p role="alert">{inspection.error} <button type="button" onClick={inspection.refresh}>Refresh activity</button></p>}
       {!trace ? <p>{inspection.running ? 'Waiting for recorded activity…' : 'No captured activity is available yet.'}</p> : <>
