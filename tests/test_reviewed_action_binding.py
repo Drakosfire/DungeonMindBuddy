@@ -313,7 +313,7 @@ def test_discuss_scope_is_immutable_through_real_sdk_app_and_later_objective_edi
     harness=BuildJevHarness(world_context=True,named_citations=True,related_pages=True,accounting=counter(),decision_transport=decisions,writer_transport=writer)
     response=execute(case,tmp_path,harness)
     wire=json.loads(writer.calls[0].content);packet=json.loads(wire['input'])
-    assert wire['text']['format']['name']==scoped.SCOPE_FORMAT
+    assert wire['text']['format']['name']==scoped.SCOPE_FORMAT+'_quotes_v2'
     assert packet[scoped.SCOPE_KEY]['scope']==binding.scope.model_dump(mode='json',by_alias=True)
     assert 'page sentence' not in packet['user_question'] and 'later changed' not in wire['input']
     assert 'only assignment' in wire['instructions']
