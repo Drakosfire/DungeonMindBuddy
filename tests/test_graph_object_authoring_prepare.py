@@ -304,7 +304,7 @@ def relationship_proposal(**overrides) -> dict[str, object]:
             "label": "Bonogo",
             "kind": "pc",
         },
-        "relationshipType": "has_member",
+        "relationshipType": "associated_with",
         "direction": "directed",
         "visibility": _visibility(),
         "graphScopes": ["recap_graph", "campaign_memory_graph"],

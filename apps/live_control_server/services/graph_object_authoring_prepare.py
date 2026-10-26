@@ -1652,6 +1652,25 @@ def validate_graph_review_object_kinds(assertions: list[AuthoredGraphAssertion])
             )
 
 
+def validate_graph_review_predicates(assertions: list[AuthoredGraphAssertion]) -> None:
+    """Use the governed writer's mapping; never guess a predicate from prose."""
+    from apps.live_control_server.integrations.dungeonmind.assertion_qualification import (
+        CURRENT_V5_TARGET, resolve_buddy_predicate_mapping_v4,
+    )
+
+    for assertion in assertions:
+        if assertion.assertion_kind != "relationship":
+            continue
+        mapping = resolve_buddy_predicate_mapping_v4(assertion.relationship_type, target=CURRENT_V5_TARGET)
+        if mapping is None or not mapping[0]:
+            raise GraphObjectAuthoringError(
+                f"Relationship type '{assertion.relationship_type}' is not supported for World publication. "
+                "Edit the review and explicitly choose a supported relationship type.",
+                code="authoring_predicate_unsupported",
+                status_code=409,
+            )
+
+
 def prepare_graph_object_authoring_write(
     request: GraphObjectAuthoringPrepareRequest,
     *,
@@ -1679,6 +1698,7 @@ def prepare_graph_object_authoring_write(
         raise GraphObjectAuthoringError("No valid assertions could be built.", code="empty_proposals")
 
     validate_graph_review_object_kinds(assertions)
+    validate_graph_review_predicates(assertions)
 
     overlap_warnings = detect_prepare_overlap_warnings(request)
     prepare_warnings = _non_blocking_assertion_diagnostics(assertion_diagnostics)

@@ -236,3 +236,60 @@ def test_kind_choices_are_the_native_writer_target():
     assert get_graph_object_authoring_kinds()["objectKinds"] == tuple(sorted(CURRENT_V5_TARGET.buddy_to_dm_kind))
     assert "item" in CURRENT_V5_TARGET.buddy_to_dm_kind
     assert "object" not in CURRENT_V5_TARGET.buddy_to_dm_kind
+
+
+def relationship_case(case, predicate="reciprocal trade"):
+    from tests.test_graph_object_authoring_prepare import relationship_proposal
+    selection = case.request.proposals[0].selection
+    case.request.proposals = [case.request.proposals[0].model_validate(relationship_proposal(
+        relationshipType=predicate,
+        sourceObjectRef={"refKind": "existing_graph_node", "nodeId": "node:mara", "label": "Mara", "kind": "npc"},
+        targetObjectRef={"refKind": "existing_graph_node", "nodeId": "node:brin", "label": "Brin", "kind": "npc"},
+        selection=selection,
+    ))]
+    return case
+
+
+def test_unmapped_relationship_refuses_before_source_admission(case):
+    relationship_case(case)
+    with pytest.raises(GraphObjectAuthoringError) as error:
+        prepare(case)
+    assert error.value.code == "authoring_predicate_unsupported"
+    assert error.value.status_code == 409
+    case.admission.prove_or_admit.assert_not_called()
+    case.authority.current_head.assert_not_called()
+    assert case.authority.publish_calls == 0
+
+
+def test_prior_submitted_unmapped_relationship_recovers_then_refuses_without_publish(case, monkeypatch):
+    from apps.live_control_server.services import graph_object_authoring_prepare as owner
+    relationship_case(case)
+    with monkeypatch.context() as old:
+        old.setattr(owner, "validate_graph_review_predicates", lambda assertions: None)
+        prepared = prepare(case)
+    with pytest.raises(GraphObjectAuthoringError) as error:
+        confirm(case, prepared)
+    assert error.value.code == "authoring_predicate_unsupported"
+    assert case.authority.recover_calls == 1
+    assert case.authority.publish_calls == 0
+
+
+def test_existing_relationship_receipt_wins_over_predicate_preflight(case, monkeypatch):
+    from apps.live_control_server.services import graph_object_authoring_prepare as owner
+    from apps.live_control_server.services import graph_object_authoring_commit as commit_owner
+    relationship_case(case)
+    with monkeypatch.context() as old:
+        old.setattr(owner, "validate_graph_review_predicates", lambda assertions: None)
+        old.setattr(commit_owner, "validate_graph_review_predicates", lambda assertions: None)
+        prepared = prepare(case)
+        assert confirm(case, prepared).committed
+    assert confirm(case, prepared).idempotency_status == "already_applied"
+    assert case.authority.publish_calls == 1
+
+
+def test_supported_relationship_still_previews_publishes_and_recovers(case):
+    relationship_case(case, "works_with")
+    prepared = prepare(case)
+    assert confirm(case, prepared).committed
+    assert confirm(case, prepared).idempotency_status == "already_applied"
+    assert case.authority.publish_calls == 1
