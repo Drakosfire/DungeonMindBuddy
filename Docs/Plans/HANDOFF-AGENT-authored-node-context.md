@@ -650,17 +650,29 @@ separate from missing source support. The existing dedicated native fixture and 
 migration code isolate native/APP databases and verify retained native rows unchanged.
 
 
-### Post-adoption page-review placement correction
+### Delivered placement correction and shared-batch continuation repair
 
-Merged #1785 is deployed at93aa272a with additive0073; protected adoption preserved
-retained APP/native data. Ordinary dogfood exposed a saved proposal inside a hidden
-named-table heading. PRIME activates one serial corrective slice on
-`codex/visible-page-proposal` from93aa272a in the existing checkout. Independent
-critique permits a visual block-boundary decoration only; captured caret/selection,
-review persistence, Save, movement and insertion authority stay unchanged.
-Exclusive writes: this settlement, `apps/live-control-ui/src/surface/SurfacePageProposal.tsx`
-and `apps/live-control-ui/src/buildSurface/BuildPageProposal.test.tsx`.
-Prove the real table-title failure before correction, mounted Save/undo behavior,
-UI typecheck/build, exact cumulative independent review, and ordinary deployed
-review/edit/Save/reload. No provider, APP schema, evidence gate or routing changes.
-The evidence-insufficiency error-label correction is a separate pending slice.
+#1787 merged at d813ec11e and is delivered UI-only with API93aa272a unchanged.
+Ordinary retained-proposal edit/Save/reload passed. Its visual-only lease is settled.
+
+PRIME activates one serial foundation correction on `codex/shared-authored-batch-context`
+from d813ec11e in the existing checkout. A real saved Discuss continuation borrowed
+one receipt from a mandatory authored source batch; compact optional coverage omitted
+its mandatory sibling. Preserve whole-event inclusion and source authority.
+
+The controller must carry shared authored receipts in a separate mandatory,
+nonselectable `dmb_build_shared_authored_batch_context_v1` prompt lane whenever it
+actually declares their batch. Reconstruct exact origins/names/bodies through existing
+protected source owners; keep optional units, catalogs and relevance votes unchanged.
+Navigation/coverage expose no passage bodies; phase commitment binds the full material
+and shared lane. Authorize recomputes the lane and refuses omission/tampering.
+Writer input continues using its existing mandatory authored projection and APP proof.
+No APP event/schema, evidence threshold, extra read, body store or compatibility path.
+
+Exclusive writes: this contract, `apps/live_control_server/services/build_jev_driver.py`,
+`tests/test_build_authored_references.py`, and focused existing phase/driver tests if
+needed. Prove actual SDK/APP and native shared multi-receipt acquisition, exact prepared
+controller and writer inputs, unchanged mandatory/optional vote ownership, refusal of
+missing/tampered bodies, cumulative independent review, protected API delivery and
+ordinary Try step again on the saved dispatch. The related-page tie, no-caret Discuss
+friction, failure wording and semantic destination remain separate work.
