@@ -899,6 +899,44 @@ def classify_hermes_graph_result(
     )
 
 
+def _successful_tool_invocation(event: AgentRuntimeToolEvent, scope: _DispatchedScope) -> bool:
+    """Observe successful execution, never claim/citation authority."""
+    if event.state != "completion" or not _tool_event_scope_matches(event, scope):
+        return False
+    successful = {"enough", "partial", "truncated", "empty"}
+    if event.tool_name == "expand_graph_retrieval":
+        return (
+            event.retrieval_schema in _EXPANSION_RESULT_SCHEMAS
+            and _normalized_outcome(event) in successful
+        )
+    if event.tool_name != "read_graph_source":
+        return False
+    from .agent_source_read_telemetry import BATCH_V1, BATCH_V2, READ_SCHEMA, MAX_READS
+
+    if event.retrieval_schema == READ_SCHEMA:
+        return _normalized_outcome(event) in successful
+    if event.retrieval_schema not in {BATCH_V1, BATCH_V2}:
+        return False
+    metadata = event.bounded_ids
+    if not isinstance(metadata, Mapping):
+        return False
+    count = metadata.get("sourceReadCount")
+    if type(count) is not int or not 0 < count <= MAX_READS:
+        return False
+    if metadata.get("sourceReadTelemetryTruncated") is not False:
+        return False
+    for index in range(count):
+        read = metadata.get(f"sourceRead{index}")
+        if (
+            not isinstance(read, Mapping)
+            or read.get("knownSourceReadSchema") != "true"
+            or read.get("graph_revision") != scope.revision_id
+            or read.get("outcome") not in successful
+        ):
+            return False
+    return True
+
+
 def _grounding_block(
     *,
     state: GroundingState,
@@ -918,7 +956,9 @@ def _grounding_block(
         "focus": dict(scope.focus),
         "admissibility": scope.admissibility,
         "revision_id": scope.revision_id,
-        "successful_tool_count": len(evidence),
+        "successful_tool_count": sum(
+            _successful_tool_invocation(event, scope) for event in tool_events
+        ),
         "source_anchor_count": len(anchors),
         "diagnostic_codes": list(dict.fromkeys(diagnostic_codes)),
         "warnings": list(warnings),

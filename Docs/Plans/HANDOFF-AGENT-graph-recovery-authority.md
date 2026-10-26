@@ -1,6 +1,14 @@
 # Graph request recovery and answer acceptance
 
-Status: ACTIVE. Operator authorized PRIME to own the Q01 fix on 2026-10-26.
+Status: SETTLED. PR1808 merged167e74fca38f8066f49117a71f65896b679a81ae after
+independent Bugbot approval of exact9e3d7923b6a52415cd911ef0fbf815445ab874bd,
+229 owning tests and the independent unchanged Q01 delivery checkpoint. Protected
+API8000 adoption behind5202 preserved all3588 APP rows,1097 native rows and39933
+retained files; schemas0077/0017 and UI11f83820 unchanged. Saved Conks Plan and both
+conversation turns reloaded. Implementation lease released. Original v3 retained;
+live checkpoint avoided rejection, so recovery safety rests on owning regressions
+and review, not a live rejection exercise. Full typed benchmark capture remains
+separate. Historical operator authorization: 2026-10-26.
 Base: 0b069942b846bc6d281dbf4f26775427f3f99771.
 Branch: codex/graph-recovery-authority, existing buddy-context-loop checkout.
 Topology: parallel-independent of paused PR1807 and HOSTED1802; no unmerged dependency.

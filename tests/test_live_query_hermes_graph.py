@@ -3448,3 +3448,79 @@ def test_q01_without_typed_session_stays_fail_closed():
     state, _, _, _, error, _ = classify_hermes_graph_result(_ok_result(events=_q01_events()), scope=scope)
     assert state == "error"
     assert error == "parent_evidence_bundle_required"
+
+
+def _successful_batch_event(**metadata_overrides):
+    metadata = {
+        "sourceReadCount": 2, "sourceReadTelemetryTruncated": False,
+        "sourceRead0": {"knownSourceReadSchema": "true", "graph_revision": "revision:resolved-server", "outcome": "enough"},
+        "sourceRead1": {"knownSourceReadSchema": "true", "graph_revision": "revision:resolved-server", "outcome": "enough"},
+        **metadata_overrides,
+    }
+    event = _tool_event(tool_name="read_graph_source", retrieval_schema="dmb_read_graph_source_batch_v1", outcome=None,
+                        source_anchor_ids=["anchor:one", "anchor:two"], matched_node_ids=[])
+    return replace(event, attributes={**event.attributes, "bounded_ids": metadata})
+
+
+def test_q01_success_count_is_invocations_not_evidence_ids_or_source_count(tmp_path):
+    events = _q01_events()[1:2] + [_successful_batch_event()]
+    response = run_hermes_graph_query(
+        text="q", packet=PACKET, graph_envelope=EMPTY_CLAIM_ENVELOPE,
+        agent_thread_id="counts", turn_id="counts", root=tmp_path,
+        agent_runtime=_EchoRetrievalSessionHost(final_response="Unsupported prose", tool_events=events),
+    )
+    assert response["grounding"]["successful_tool_count"] == 2
+    # Execution success cannot turn an unsupported answer into a grounded one.
+    assert response["grounding"]["state"] == "abstained"
+    assert response["answer"] == ABSTENTION_ANSWER
+    assert response["citations"] == []
+
+
+@pytest.mark.parametrize("outcome,expected", [("enough",1),("partial",1),("truncated",1),("empty",1),
+                                               ("denied",0),("unavailable",0),(None,0),("unknown",0)])
+def test_overview_success_count_does_not_require_evidence(outcome, expected):
+    event = _tool_event(retrieval_schema="dmb_graph_tool_overview_v1", outcome=outcome,
+                        matched_node_ids=[], source_anchor_ids=[], relationship_ids=[])
+    response = _product_response_for_events([event])
+    assert response["grounding"]["successful_tool_count"] == expected
+
+
+@pytest.mark.parametrize("overrides", [
+    {"sourceReadCount":0}, {"sourceReadCount":True}, {"sourceReadCount":9},
+    {"sourceReadTelemetryTruncated":True}, {"sourceRead1":None},
+    {"sourceRead1":{"knownSourceReadSchema":"true","graph_revision":"stale","outcome":"enough"}},
+    {"sourceRead1":{"knownSourceReadSchema":"false","graph_revision":"revision:resolved-server","outcome":"enough"}},
+    {"sourceRead1":{"knownSourceReadSchema":"true","graph_revision":"revision:resolved-server","outcome":"denied"}},
+])
+def test_incomplete_or_failed_batch_cannot_report_full_success(overrides):
+    assert _product_response_for_events([_successful_batch_event(**overrides)])["grounding"]["successful_tool_count"] == 0
+
+
+@pytest.mark.parametrize("field,value", [("state","start"),("state","error"),
+    ("world_id",None),("world_id","foreign"),("campaign_id","foreign"),
+    ("revision_pin","stale"),("admissibility","player"),("focus",None),
+    ("retrieval_schema","unknown")])
+def test_scope_or_lifecycle_failures_are_not_successes(field,value):
+    event = _tool_event(**{field:value})
+    assert _product_response_for_events([event])["grounding"]["successful_tool_count"] == 0
+
+
+@pytest.mark.parametrize("schema", ["dmb_read_graph_source_batch_v1", "dmb_internal_read_graph_source_batch_v2"])
+def test_successful_batch_counts_once_in_both_current_transport_forms(schema):
+    event = _successful_batch_event()
+    event = replace(event, attributes={**event.attributes, "retrieval_schema":schema})
+    assert _product_response_for_events([event])["grounding"]["successful_tool_count"] == 1
+
+
+def test_single_source_read_counts_one_but_denial_counts_zero():
+    event = _tool_event(tool_name="read_graph_source", retrieval_schema="dmb_world_graph_source_anchor_read_v1",
+                        outcome="enough", matched_node_ids=[], source_anchor_ids=["anchor:one"])
+    assert _product_response_for_events([event])["grounding"]["successful_tool_count"] == 1
+    denied = replace(event, attributes={**event.attributes, "outcome":"denied"})
+    assert _product_response_for_events([denied])["grounding"]["successful_tool_count"] == 0
+
+
+def test_success_count_does_not_double_count_start_and_completion():
+    completion = _q01_events()[1]
+    start = replace(completion, state="start")
+    assert _product_response_for_events([start,completion])["grounding"]["successful_tool_count"] == 1
