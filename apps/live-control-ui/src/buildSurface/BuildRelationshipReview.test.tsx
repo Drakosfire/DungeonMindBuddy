@@ -7,7 +7,7 @@ import {graphDocumentRelationshipRequest} from '../api/graphDocumentRelationship
 const state=vi.hoisted(()=>({session:null as any}));
 vi.mock('../markdownCanvas/MarkdownCanvasSession',()=>({useOptionalMarkdownCanvasSession:()=>state.session}));
 vi.mock('../worldGraph/verifyManagedWorldGraphProjectionResponse',()=>({verifyManagedWorldGraphProjectionResponse:()=>null}));
-vi.mock('../api/liveApi',()=>({getGraphObjectAuthoringKinds:vi.fn(),postManagedWorldGraphProjection:vi.fn(),prepareGraphObjectAuthoringWrite:vi.fn(),commitGraphObjectAuthoringWrite:vi.fn()}));
+vi.mock('../api/liveApi',async()=>({LiveApiError:(await vi.importActual<typeof import('../api/liveApi')>('../api/liveApi')).LiveApiError,getGraphObjectAuthoringKinds:vi.fn(),postManagedWorldGraphProjection:vi.fn(),prepareGraphObjectAuthoringWrite:vi.fn(),commitGraphObjectAuthoringWrite:vi.fn()}));
 vi.mock('../api/graphDocumentRelationshipApi',()=>({graphDocumentRelationshipRequest:vi.fn()}));
 const world='test-world',doc='11111111-1111-4111-8111-111111111111',key=relationshipKey(world,doc);
 const seed={document_source:{documentId:doc,revision:4,contentSha256:'a'.repeat(64)},quote:'Rowan worked with Brin temporarily.'};
@@ -112,4 +112,30 @@ it('rechecks source when queued opening obtains the storage lock',async()=>{
  Object.defineProperty(navigator,'locks',{configurable:true,value:{request:async(_key:string,fn:()=>unknown)=>{await gate;return fn();}}});
  fireEvent.click(await screen.findByRole('button',{name:'Review relationship'}));state.session.dirty=true;await act(async()=>release());
  expect(await screen.findByRole('alert')).toHaveTextContent('original clean saved page');expect(localStorage.getItem(key)).toBeNull();
+});
+
+it('keeps typed predicate refusal exact until explicit edit and fresh preview',async()=>{
+ vi.mocked(api.commitGraphObjectAuthoringWrite).mockRejectedValueOnce(new api.LiveApiError('Unsupported relationship',409,{code:'authoring_predicate_unsupported'}));
+ render(<View/>);await filled();await preview();fireEvent.click(screen.getByRole('button',{name:'Confirm relationship'}));await screen.findByRole('alert');
+ expect(retained().submitted).toBe(true);expect(retained().request).not.toBeNull();
+ fireEvent.click(screen.getByRole('button',{name:'Edit relationship'}));await screen.findByRole('button',{name:'Preview relationship'});
+ expect(retained().submitted).toBe(false);expect(retained().prepared).toBeNull();expect(retained().request).toBeNull();
+ expect(screen.getByLabelText('Context, including when')).toHaveValue('A past temporary stint, not current employment.');
+ await edit('Relationship type','associated_with');await preview();expect(api.commitGraphObjectAuthoringWrite).toHaveBeenCalledTimes(1);
+ fireEvent.click(screen.getByRole('button',{name:'Confirm relationship'}));await screen.findByRole('status');expect(api.prepareGraphObjectAuthoringWrite).toHaveBeenCalledTimes(2);
+ expect(vi.mocked(api.commitGraphObjectAuthoringWrite).mock.calls[1][0].proposals[0].relationshipType).toBe('associated_with');
+});
+it.each(['governed_write_inexpressible','authority_unavailable','stale_parent'])('never unlocks submitted %s failures',async code=>{
+ vi.mocked(api.commitGraphObjectAuthoringWrite).mockRejectedValueOnce(new api.LiveApiError('Not acknowledged',409,{code}));render(<View/>);await filled();await preview();fireEvent.click(screen.getByRole('button',{name:'Confirm relationship'}));await screen.findByRole('alert');
+ expect(retained().submitted).toBe(true);expect(screen.queryByRole('button',{name:'Edit relationship'})).not.toBeInTheDocument();expect(screen.queryByRole('button',{name:'Discard review'})).not.toBeInTheDocument();
+});
+it('does not overwrite a cross-tab change when editing a typed refused submission',async()=>{
+ vi.mocked(api.commitGraphObjectAuthoringWrite).mockRejectedValueOnce(new api.LiveApiError('Unsupported relationship',409,{code:'authoring_predicate_unsupported'}));render(<View/>);await filled();await preview();fireEvent.click(screen.getByRole('button',{name:'Confirm relationship'}));await screen.findByRole('alert');
+ const other=retained();other.intent.context='Newer review elsewhere';localStorage.setItem(key,JSON.stringify(other));fireEvent.click(screen.getByRole('button',{name:'Edit relationship'}));await waitFor(()=>expect(screen.getByRole('alert')).toHaveTextContent('changed or its page closed'));expect(retained().intent.context).toBe('Newer review elsewhere');expect(retained().submitted).toBe(true);
+});
+
+it('requires another exact refusal after reload before permitting edit',async()=>{
+ vi.mocked(api.commitGraphObjectAuthoringWrite).mockRejectedValue(new api.LiveApiError('Unsupported relationship',409,{code:'authoring_predicate_unsupported'}));
+ const view=render(<View/>);await filled();await preview();fireEvent.click(screen.getByRole('button',{name:'Confirm relationship'}));await screen.findByRole('button',{name:'Edit relationship'});const sent=vi.mocked(api.commitGraphObjectAuthoringWrite).mock.calls[0][0];view.unmount();render(<View initial={null}/>);fireEvent.click(screen.getByRole('button',{name:'Resume relationship review'}));
+ expect(screen.queryByRole('button',{name:'Edit relationship'})).not.toBeInTheDocument();fireEvent.click(await screen.findByRole('button',{name:'Retry exact confirmation'}));await screen.findByRole('button',{name:'Edit relationship'});expect(vi.mocked(api.commitGraphObjectAuthoringWrite).mock.calls[1][0]).toEqual(sent);expect(api.prepareGraphObjectAuthoringWrite).toHaveBeenCalledTimes(1);
 });
