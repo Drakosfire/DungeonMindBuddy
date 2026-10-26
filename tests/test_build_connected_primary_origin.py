@@ -41,7 +41,7 @@ def primary_review(build_case,monkeypatch,tmp_path,request):
                 assert 'use that body with the saved row' in wire['instructions']
                 assert 'Never use working_draft_context as a saved origin' not in wire['instructions']
             assert packet[origins.KEY]==origins.POLICY
-            assert wire['text']['format']['name']==('build_intentional_plan_selection_answer_v1' if selected else origins.FORMAT)
+            assert wire['text']['format']['name']==('build_intentional_plan_selection_answer_v1' if selected else origins.FORMAT)+'_quotes_v2'
             if selected:
                 assert packet['plan_output_contract']['kind']=='build_plan_output_contract_v2'
                 assert wire['text']['format']['schema']['$defs']['ProposedStepV2']['required']==['text','kind','selected']
@@ -92,7 +92,7 @@ def test_other_requested_work_cannot_gain_a_primary_origin(primary_review):
 def test_marker_and_new_format_are_closed_and_historical_schema_stays_related_only(primary_review):
     from application_state.agent_conversation.build_intentional_response import output_schema
     packet=json.loads(primary_review[5].staged.input_json)
-    fmt={'type':'json_schema','name':origins.FORMAT,'strict':True,'schema':output_schema(packet)}
+    fmt={'type':'json_schema','name':origins.FORMAT+'_quotes_v2','strict':True,'schema':output_schema(packet)}
     validate_writer_format(fmt,packet)
     old=deepcopy(packet);del old[origins.KEY]
     old_schema=output_schema(old)
@@ -184,7 +184,7 @@ def test_selection_contract_composes_with_actual_primary_origin_sdk_app(primary_
     assert turn.completion.schema_=='dmb_build_intentional_response_completion_v3'
     packet=json.loads(primary_review[5].staged.input_json)
     from application_state.agent_conversation.build_intentional_response import output_schema
-    fmt={'type':'json_schema','name':'build_intentional_plan_selection_answer_v1','strict':True,'schema':output_schema(packet)}
+    fmt={'type':'json_schema','name':'build_intentional_plan_selection_answer_v1_quotes_v2','strict':True,'schema':output_schema(packet)}
     validate_writer_format(fmt,packet)
     for mutate in ('missing_marker','old_format','missing_selected'):
         changed=deepcopy(packet);changed_format=deepcopy(fmt)

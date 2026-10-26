@@ -516,7 +516,10 @@ def test_scope_vocabulary_downgrade_preserves_rows_and_refuses_retained_dispatch
 
 def test_scope_upgrade_preserves_payloads_and_fences_previous_reader(case, application_state_dsn, monkeypatch):
     import psycopg
-    from alembic import command
+    from alembic.migration import MigrationContext
+    from alembic.operations import Operations
+    from sqlalchemy import create_engine
+    from application_state.engine import sqlalchemy_url
     from application_state import cli
     from application_state.errors import ApplicationStateMigrationError
 
@@ -528,9 +531,14 @@ def test_scope_upgrade_preserves_payloads_and_fences_previous_reader(case, appli
             }
 
     before = retained_rows()
-    command.downgrade(cli.alembic_config(), '20261025_0073')
-    assert cli._read_current_revision(application_state_dsn) == '20261025_0073'
-    cli.upgrade_to_head(dsn=application_state_dsn)
+    # Exercise this migration directly; later reader fences intentionally forbid
+    # traversing the entire migration history backwards.
+    migration=importlib.import_module('application_state.migrations.versions.20261026_0074_reviewed_discussion_scope')
+    engine=create_engine(sqlalchemy_url(application_state_dsn))
+    try:
+        with engine.begin() as conn,Operations.context(MigrationContext.configure(conn)): migration.downgrade()
+        with engine.begin() as conn,Operations.context(MigrationContext.configure(conn)): migration.upgrade()
+    finally:engine.dispose()
     assert cli._read_current_revision(application_state_dsn) == cli._alembic_head()
     assert retained_rows() == before
     monkeypatch.setattr(cli, '_alembic_head', lambda: '20261025_0073')
@@ -543,3 +551,40 @@ def test_scope_upgrade_preserves_payloads_and_fences_previous_reader(case, appli
             w.Continue(expected_revision=plan['revision'], step_id=steps[0].step_id, command_id=uuid4()))
     with pytest.raises(ApplicationStateMigrationError):
         service.get_conversation('world-one', cid)
+
+
+def test_quote_witness_upgrade_preserves_all_rows_and_fences_old_reader(monkeypatch):
+    import psycopg
+    from alembic import command
+    from application_state import cli
+    from application_state.config import APPLICATION_STATE_DSN_ENV
+    from application_state.errors import ApplicationStateMigrationError
+    from tests.application_state.conftest import _admin_dsn,_replace_database,_create_database,_drop_database
+    admin=_admin_dsn();name='dungeonbuddy_app_state_test_'+uuid4().hex[:12]
+    dsn=_replace_database(admin,name)
+    _create_database(admin,name)
+    try:
+        monkeypatch.setenv(APPLICATION_STATE_DSN_ENV,dsn)
+        command.upgrade(cli.alembic_config(),'20261026_0075')
+        with monkeypatch.context() as old_reader:
+            old_reader.setattr(cli,'_alembic_head',lambda:'20261026_0075')
+            service,cid,source,steps,plan=case.__wrapped__(dsn)
+        def rows():
+            with psycopg.connect(dsn) as conn:
+                tables=conn.execute("SELECT schemaname,tablename FROM pg_tables WHERE schemaname NOT IN ('pg_catalog','information_schema') ORDER BY 1,2").fetchall()
+                return {(schema,table):conn.execute(f'SELECT row_to_json(t)::text FROM "{schema}"."{table}" t ORDER BY row_to_json(t)::text').fetchall() for schema,table in tables if (schema,table)!=('application_state','schema_migrations')}
+        before=rows()
+        assert cli._read_current_revision(dsn)=='20261026_0075'
+        cli.upgrade_to_head(dsn=dsn)
+        assert cli._read_current_revision(dsn)=='20261026_0076'
+        assert rows()==before
+        with pytest.raises(RuntimeError,match='recovery forward'):
+            command.downgrade(cli.alembic_config(),'20261026_0075')
+        assert cli._read_current_revision(dsn)=='20261026_0076'
+        assert rows()==before
+        monkeypatch.setattr(cli,'_alembic_head',lambda:'20261026_0075')
+        with pytest.raises(ApplicationStateMigrationError):cli.assert_at_head(dsn=dsn)
+        with pytest.raises(ApplicationStateMigrationError):service.get_conversation('world-one',cid)
+        with pytest.raises(ApplicationStateMigrationError):
+            w.continue_step('world-one',cid,source.turn_id,w.Continue(expected_revision=plan['revision'],step_id=steps[0].step_id,command_id=uuid4()))
+    finally:_drop_database(admin,name)

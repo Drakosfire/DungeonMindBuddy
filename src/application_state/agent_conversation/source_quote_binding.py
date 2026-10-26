@@ -5,6 +5,9 @@ from copy import deepcopy
 POLICY = "exact_source_quote_binding_v1"
 FORMAT = "build_working_draft_answer_v4"
 KEY = "source_quote_binding_policy"
+WITNESS_KEY = "related_page_quote_policy"
+WITNESS_POLICY = "same_read_multiple_quotes_v1"
+FORMAT_SUFFIX = "_quotes_v2"
 KINDS = {
     "SavedFact": ("saved_source_claim", "section_read_ids"),
     "PassageFact": ("source_passage_claim", "passage_handles"),
@@ -22,7 +25,17 @@ def enabled(packet):
         != "typed_connected_page_review_v1"
     ):
         raise ValueError("Quoted source output requires its frozen Build profile")
+    if WITNESS_KEY in packet and (packet[WITNESS_KEY] != WITNESS_POLICY or value != POLICY):
+        raise ValueError("Unknown or unadmitted related-page quote policy")
     return value == POLICY
+
+
+def related_witnesses(packet):
+    return enabled(packet) and WITNESS_KEY in packet
+
+
+def format_name(name, packet):
+    return name + FORMAT_SUFFIX if related_witnesses(packet) else name
 
 
 def sources(packet):
@@ -64,6 +77,8 @@ def augment(schema, packet):
             "items": {"type": "string", "minLength": 1},
             "description": "Exact nonblank contiguous quotes, one per selected source in selector order. Copy from that source only; never from another page.",
         }
+        if kind == "related_page_claim" and related_witnesses(packet):
+            definition["properties"]["supporting_quotes"].update(minItems=1, description="One or more exact nonblank contiguous quotes from this single selected related page. Every quote must occur in that read_id body; never quote another page.")
         definition["required"].append("supporting_quotes")
         labels = (
             "The current saved page only. Other authored pages require related_page_claim."
@@ -96,16 +111,19 @@ def validate_and_project(body, packet):
         selected = segment.get(selectors[kind])
         selected = [selected] if kind == "related_page_claim" else selected
         quotes = segment.get("supporting_quotes")
+        multiple = kind == "related_page_claim" and related_witnesses(packet)
         if (
             not isinstance(selected, list)
             or not selected
             or not isinstance(quotes, list)
-            or len(selected) != len(quotes)
+            or not quotes
+            or not multiple and len(selected) != len(quotes)
         ):
             raise ValueError(
                 "Source claim requires one exact quote per selected source"
             )
-        for identity, quote in zip(selected, quotes):
+        identities = [selected[0]] * len(quotes) if multiple else selected
+        for identity, quote in zip(identities, quotes):
             text = material[kind].get(identity) if isinstance(identity, str) else None
             if (
                 not isinstance(quote, str)

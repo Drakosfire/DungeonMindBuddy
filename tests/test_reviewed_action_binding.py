@@ -255,7 +255,7 @@ def test_reviewed_discuss_refuses_a_work_plan_instead_of_executing_another_step(
         async def handle_async_request(self,request):
             response=await super().handle_async_request(request)
             wire=json.loads(request.content)
-            assert wire['text']['format']['name']=='build_reviewed_discussion_answer_v1'
+            assert wire['text']['format']['name']=='build_reviewed_discussion_answer_v1_quotes_v2'
             assert wire['text']['format']['schema']['properties']['collaboration']=={'anyOf':[{'$ref':'#/$defs/ProposedQuestions'},{'type':'null'}]}
             data=response.json()
             raw=json.dumps({'answer_context_status':'creative_proposal','answer_segments':[{'kind':'suggestion','text':'Review this plan.'}],
@@ -313,7 +313,7 @@ def test_discuss_scope_is_immutable_through_real_sdk_app_and_later_objective_edi
     harness=BuildJevHarness(world_context=True,named_citations=True,related_pages=True,accounting=counter(),decision_transport=decisions,writer_transport=writer)
     response=execute(case,tmp_path,harness)
     wire=json.loads(writer.calls[0].content);packet=json.loads(wire['input'])
-    assert wire['text']['format']['name']==scoped.SCOPE_FORMAT
+    assert wire['text']['format']['name']==scoped.SCOPE_FORMAT+'_quotes_v2'
     assert packet[scoped.SCOPE_KEY]['scope']==binding.scope.model_dump(mode='json',by_alias=True)
     assert 'page sentence' not in packet['user_question'] and 'later changed' not in wire['input']
     assert 'only assignment' in wire['instructions']

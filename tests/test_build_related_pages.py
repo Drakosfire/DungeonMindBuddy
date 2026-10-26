@@ -145,6 +145,8 @@ class PagesWriter(WriterWire):
                         if self.invalid_quote
                         else "Copper House | Repair the lantern before dusk."
                     ]
+            if getattr(self,"multi_related_quotes",False):
+                value["answer_segments"][0]["supporting_quotes"]=["Copper House", "Repair the lantern before dusk."]
             raw = json.dumps(value)
             assert (
                 "A valid ID from a different page is not support"
@@ -178,7 +180,7 @@ def completed(build_case, monkeypatch, tmp_path, request):
             "interrupted",
             "typed_plan", "typed_plan_only", "typed_plan_empty", "typed_plan_bad_schema",
             "typed_questions",
-            "connected_page", "connected_page_cap",
+            "connected_page", "connected_page_cap", "multi_related_quotes", "multi_related_quotes_cap",
             "relationship_review",
             "invalid_quote",
         }
@@ -249,7 +251,7 @@ def completed(build_case, monkeypatch, tmp_path, request):
         }
 
     monkeypatch.setattr(owner, "materialize", materialize)
-    if operation != "answer_from_sources" or mode in {'typed_plan', 'typed_plan_only', 'typed_plan_empty', 'typed_plan_bad_schema', 'connected_page_cap'}:
+    if operation != "answer_from_sources" or mode in {'typed_plan', 'typed_plan_only', 'typed_plan_empty', 'typed_plan_bad_schema', 'connected_page_cap', 'multi_related_quotes_cap'}:
         from apps.live_control_server.models.build_document_proposal import (
             BuildWriteCapability,
         )
@@ -279,6 +281,7 @@ def completed(build_case, monkeypatch, tmp_path, request):
         )
         request = request.model_copy(update={"build_write_capability": cap})
     writer = PagesWriter()
+    writer.multi_related_quotes = mode in {"multi_related_quotes", "multi_related_quotes_cap"}
     writer.object_only = mode in {'typed_plan_only','typed_plan_empty','typed_plan_bad_schema'}
     writer.bad_plan_schema = mode == 'typed_plan_bad_schema'
     writer.connected = mode in {"connected_page", "connected_page_cap"}
@@ -604,7 +607,7 @@ def test_typed_workflow_survives_actual_writer_and_app_admission(completed):
     assert (
         packet["collaboration_output_policy"] == "typed_author_review_collaboration_v1"
     )
-    assert request["text"]["format"]["name"] == ("build_intentional_plan_selection_answer_v1" if "plan_output_contract" in packet else "build_intentional_response_answer_v1")
+    assert request["text"]["format"]["name"] == ("build_intentional_plan_selection_answer_v1" if "plan_output_contract" in packet else "build_intentional_response_answer_v1") + "_quotes_v2"
     assert turn.completion.collaboration.model_dump(mode="json") == writer.collaboration
     reloaded = service.list_turns(turn.world_id, turn.conversation_id)[0]
     assert reloaded.completion == turn.completion
@@ -731,7 +734,7 @@ def test_relationship_review_survives_actual_sdk_app_history_and_refuses_tampere
     assert isinstance(turn.completion, t.BuildIntentionalResponseCompletionV1)
     assert turn.completion.collaboration.model_dump(mode="json") == writer.collaboration
     wire=json.loads(writer.calls[0].content)
-    assert wire["text"]["format"]["name"] == ("build_intentional_plan_selection_answer_v1" if "plan_output_contract" in json.loads(wire["input"]) else "build_intentional_response_answer_v1")
+    assert wire["text"]["format"]["name"] == ("build_intentional_plan_selection_answer_v1" if "plan_output_contract" in json.loads(wire["input"]) else "build_intentional_response_answer_v1") + "_quotes_v2"
     assert json.loads(wire["input"])["relationship_review_policy"] == "typed_saved_relationship_review_v1"
     loaded=service.list_turns(turn.world_id,turn.conversation_id)[0]
     assert loaded.completion == turn.completion
@@ -998,3 +1001,18 @@ def test_new_preparation_refuses_retained_objective_contract_before_dispatch():
     adapter=SimpleNamespace(_broker_execution=lambda:SimpleNamespace(events=[event]))
     with pytest.raises(AgentTurnServiceError,match='predates explicit step selection'):
         _PolicyExecutionAdapter._with_plan_output_contract(adapter,object())
+
+
+@pytest.mark.parametrize('completed',['multi_related_quotes','multi_related_quotes_cap'],indirect=True)
+def test_multiple_exact_related_witnesses_complete_through_guarded_sdk_app(completed):
+    turn,service,_page,_body,_reads,writer,_decisions=completed
+    wire=json.loads(writer.calls[0].content);packet=json.loads(wire['input'])
+    assert packet['related_page_quote_policy']=='same_read_multiple_quotes_v1'
+    assert wire['text']['format']['name'].endswith('_quotes_v2')
+    assert len(json.loads(writer.raw_output)['answer_segments'][0]['supporting_quotes'])==2
+    claims=[segment for segment in turn.completion.answer_segments if isinstance(segment,RelatedPageClaim)]
+    assert len(claims)==1
+    assert str(claims[0].read_id)==json.loads(writer.raw_output)["answer_segments"][0]["read_id"]
+    assert service.inspect_turn(world_id=turn.world_id,turn_id=turn.turn_id)==turn
+    from application_state.agent_conversation.source_writer_output import validate_writer_format
+    validate_writer_format(wire['text']['format'],packet)

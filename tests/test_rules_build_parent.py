@@ -531,3 +531,55 @@ def test_long_creative_proposal_without_rules_offers_reaches_writer(build_case, 
     assert len(decisions.calls) == len(writer.calls) == 1
     assert QUERY_CHOICE not in json.loads(decisions.calls[0].content)["questions"]
     assert reads == {"graph": 0, "source": 0}
+
+
+def test_mixed_rules_preserves_multiple_exact_witnesses_from_one_related_page(build_case,tmp_path,monkeypatch,application_state_dsn):
+    from uuid import uuid4
+    from application_state.agent_conversation.build_draft_context import BuildDraftSnapshotV1,BuildDraftContextRequestV1
+    from application_state.agent_conversation.build_related_pages import PagePointer,RelatedPageClaim
+    from tests.test_build_related_pages import PagesWriter
+    from apps.live_control_server.services import build_related_pages as pages
+    import tests.test_rules_build_parent as owner
+    original=ordinary_case
+    page=PagePointer(world_id='elderwyld',document_id=uuid4(),registry_revision=9,title='Quarry Households',visibility='internal')
+    markdown='# Quarry Households\nCopper House: Repair the lantern before dusk.'
+    monkeypatch.setattr(pages,'discover',lambda request:[page.model_dump(mode='json')])
+    monkeypatch.setattr(pages,'materialize',lambda pointer:{**page.model_dump(mode='json'),'content_sha256':sha256(markdown.encode()).hexdigest(),'markdown':markdown})
+    def context_case(build_case,monkeypatch):
+        (source,request,bootstrap),reads=original(build_case,monkeypatch,authoring=True)
+        cap=request.build_write_capability
+        snapshot=BuildDraftSnapshotV1(world_id='elderwyld',document_id=source.record.document_id,
+            registry_revision=source.loaded_revision,content_sha256=source.content_sha256,visibility='internal',
+            draft_markdown=cap.draft_markdown,draft_sha256=sha256(cap.draft_markdown.encode()).hexdigest(),
+            editor_sha256='b'*64,draft_generation=0)
+        context=BuildDraftContextRequestV1(snapshot=snapshot,conversation_id=cap.conversation_id,expected_pointer_revision=cap.expected_pointer_revision)
+        return (source,request.model_copy(update={'build_draft_context':context}),bootstrap),reads
+    monkeypatch.setattr(owner,'ordinary_case',context_case)
+    class Decisions(RulesDecisionWire):
+        async def handle_async_request(self,request):
+            response=await super().handle_async_request(request)
+            body=json.loads(request.content);answer=response.json()
+            for key,value in answer['answers'].items():
+                if key.startswith('related_page_'):
+                    choices=body['questions'][key]['criteria']
+                    value.update(choice='read',probabilities={choice:float(choice=='read') for choice in choices})
+            return httpx2.Response(200,request=request,json=answer)
+    class Writer(PagesWriter):
+        multi_related_quotes=True
+        async def handle_async_request(self,request):
+            response=await super().handle_async_request(request)
+            data=response.json();base=json.loads(data['output'][0]['content'][0]['text'])
+            packet=json.loads(json.loads(request.content)['input'])
+            assert packet['related_page_quote_policy']=='same_read_multiple_quotes_v1'
+            assert len(base['answer_segments'][0]['supporting_quotes'])==2
+            supports=[sid for op in packet['rules_projection']['operations'] for sid in json.loads(op['packet_json']).get('emitted_support_ids',[])]
+            data['output'][0]['content'][0]['text']=json.dumps({'schema':'dmb_rules_mixed_answer_v1','base_output':base,
+                'rules_segments':[{'kind':'rules_claim','text':'The supplied movement rule applies.','support_ids':supports[:1]}],
+                'ordered_refs':[{'domain':'base','segment_index':None},{'domain':'rules','segment_index':0}]})
+            return httpx.Response(200,request=request,json=data)
+    completed,adapter,_,writer,_=run_parent(build_case,tmp_path,monkeypatch,decision=Decisions(),writer=Writer(),dsn=application_state_dsn)
+    assert isinstance(completed,MixedCompletedTurnV1)
+    assert adapter.failure is None
+    claims=[s for s in completed.base_projection.turn.completion.answer_segments if isinstance(s,RelatedPageClaim)]
+    assert len(claims)==1 and claims[0].page.document_id==page.document_id
+    assert AgentConversationService().inspect_turn(world_id=completed.envelope.world_id,turn_id=completed.envelope.turn_id)==completed
