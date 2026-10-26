@@ -5277,6 +5277,20 @@ def _stored_play_graph_binding(
     return binding
 
 
+def project_plan_authoring_proposal(turn, *, service=None):
+    """Project only the paired stored object; historical reads never regenerate."""
+    from application_state.agent_conversation import types as t
+    from application_state.agent_conversation.plan_authoring import turn_parts
+    envelope, evidence = turn_parts(turn)
+    execution = getattr(evidence, 'graph_context_execution', None)
+    choices = [event for event in execution.events if isinstance(event, t.PlanRequestedWorkSelectedV1)] if execution else []
+    if envelope.status != 'completed' or not choices or choices[-1].requested_work != 'write_current_page':
+        return None
+    owner = service if service is not None else AgentConversationService()
+    return owner.get_plan_authoring_proposal_for_turn(world_id=envelope.world_id,
+        conversation_id=envelope.conversation_id, turn_id=envelope.turn_id, attempt=envelope.attempt)
+
+
 def _completed_turn_replay(
     request: AgentTurnRequest,
     *,
@@ -5408,6 +5422,7 @@ def _completed_turn_replay(
             "graph_grounded_partial",
         }
     response = AgentTurnResponse(
+        plan_proposal=project_plan_authoring_proposal(turn),
         client_thread_id=request.client_thread_id,
         turn_id=request.turn_id,
         surface={
@@ -6327,9 +6342,10 @@ def _accept_world_turn(
 
 def _interrupt_policy_delivery(
     service: AgentConversationService, turn: Turn, *, output_limit_exceeded: bool = False,
+    failure_code_override: str | None = None,
 ) -> None:
     """Settle the owned claim without rewriting provider outcome or retry authority."""
-    failure_code = "plan_context_delivery_failure"
+    failure_code = failure_code_override or "plan_context_delivery_failure"
     execution = turn.graph_context_execution
     if execution is not None:
         authorized = [event for event in execution.events if _is_provider_authorization(event)]

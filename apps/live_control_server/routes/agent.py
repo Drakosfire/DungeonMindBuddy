@@ -1404,6 +1404,7 @@ def get_world_conversation_history(
     )
     from apps.live_control_server.services.agent_source_names import source_names_for_turns
     source_names = source_names_for_turns(turns)
+    from apps.live_control_server.services.agent_turn_service import project_plan_authoring_proposal
     history_turns = []
     for turn in turns:
         if isinstance(turn, MixedCompletedTurnV1):
@@ -1414,10 +1415,12 @@ def get_world_conversation_history(
                 lifecycle_status=envelope.status, user_text=envelope.user_text,
                 assistant_text=turn.assistant_text, provenance=envelope.provenance,
                 idempotency_key=envelope.idempotency_key,
+                plan_proposal=project_plan_authoring_proposal(turn, service=service),
                 rules_context=project_rules_answer_context(turn, delivery_replay=True, source_names=source_names),
                 **({"play_source_context":project_play_source_context(turn,delivery_replay=True)} if source_only_play(turn) else {})))
             continue
         values = {
+            "plan_proposal": project_plan_authoring_proposal(turn, service=service),
             "turn_id": turn.turn_id,
             "sequence": turn.sequence,
             "lifecycle_status": turn.status,

@@ -104,6 +104,75 @@ def _get_by_id(conn: psycopg.Connection, action_id: UUID, *, lock: bool = False)
 
 
 def _reconcile_expiry(conn: psycopg.Connection, action_id: UUID) -> PlanActionRecord:
+    from application_state.agent_conversation.plan_authoring import (
+        PlanJevAuthoringReservationV1,
+    )
+    from application_state.errors import ApplicationStateIntegrityError
+
+    current = _get_by_id(conn, action_id, lock=True)
+    if current is None:
+        raise RuntimeError("Plan action disappeared during expiry reconciliation")
+    if current.status == "pending" and isinstance(
+        current.authoring_origin, PlanJevAuthoringReservationV1
+    ):
+        origin = current.authoring_origin
+        # Use the same complete order as authorization/finalization. Claim
+        # renewal is turn-only, so waiting here observes its committed deadline
+        # without creating a Turn-to-Action or Turn-to-pointer lock inversion.
+        from application_state.agent_conversation import repository as agent
+
+        agent.lock_world_state(conn, current.basis.world_id)
+        agent.lock_conversation(conn, current.basis.world_id, origin.conversation_id)
+        with conn.cursor(row_factory=dict_row) as cur:
+            cur.execute(
+                """SELECT world_id,conversation_id,attempt,status,claim_expires_at
+                FROM agent.turn WHERE turn_id=%s FOR UPDATE""",
+                (origin.turn_id,),
+            )
+            owner = cur.fetchone()
+        if (
+            owner is None
+            or (owner["world_id"], owner["conversation_id"])
+            != (current.basis.world_id, origin.conversation_id)
+            or owner["status"] == "completed"
+        ):
+            raise ApplicationStateIntegrityError(
+                "Pending Plan action has no matching live or terminal Agent owner"
+            )
+        live = (
+            owner["attempt"] == origin.product_attempt
+            and owner["status"] == "running"
+            and owner["claim_expires_at"] is not None
+            and owner["claim_expires_at"] > agent.database_clock(conn)
+        )
+        with conn.cursor(row_factory=dict_row) as cur:
+            if live:
+                cur.execute(
+                    f"""UPDATE plan_action.action
+                    SET lease_expires_at=GREATEST(lease_expires_at,%s),updated_at=clock_timestamp()
+                    WHERE action_id=%s AND status='pending' AND fence=%s AND dispatch_token=%s
+                    RETURNING {_RETURNING}""",
+                    (
+                        owner["claim_expires_at"],
+                        action_id,
+                        current.fence,
+                        current.dispatch_token,
+                    ),
+                )
+            else:
+                cur.execute(
+                    f"""UPDATE plan_action.action
+                    SET status='indeterminate',failure_code='agent_claim_lost',assistant_summary=NULL,
+                        dispatch_token=NULL,fence=fence+1,lease_expires_at=NULL,updated_at=clock_timestamp()
+                    WHERE action_id=%s AND status='pending' AND fence=%s RETURNING {_RETURNING}""",
+                    (action_id, current.fence),
+                )
+            row = cur.fetchone()
+        if row is None:
+            raise ApplicationStateConflictError(
+                "Plan authoring action lost its fence during claim reconciliation"
+            )
+        return _record(row)
     with conn.cursor(row_factory=dict_row) as cur:
         cur.execute(
             f"""
@@ -125,7 +194,6 @@ def _reconcile_expiry(conn: psycopg.Connection, action_id: UUID) -> PlanActionRe
     if current is None:
         raise RuntimeError("Plan action disappeared during expiry reconciliation")
     return current
-
 
 def reserve(conn: psycopg.Connection, request: PlanActionReservation) -> tuple[PlanActionRecord, bool]:
     action_id = uuid4()
@@ -444,7 +512,8 @@ def freeze_authoring_reservation(conn, record, origin):
 
 
 def lock_authoring_action(conn,action_id):
-    return _get_by_id(conn,action_id,lock=True)
+    action=_get_by_id(conn,action_id,lock=True)
+    return _reconcile_expiry(conn,action_id) if action is not None and action.status=='pending' else action
 
 
 def finish_authoring_result(conn,action,proposal,completed_turn):
@@ -473,3 +542,14 @@ def finish_authoring_result(conn,action,proposal,completed_turn):
     if row is None:
         raise ApplicationStateConflictError('Plan action lost its fence before atomic result completion')
     return _record(row)
+
+
+def get_authoring_for_turn(conn, *, world_id, turn_id, attempt):
+    """Read the single immutable result for an exact Agent attempt."""
+    with conn.cursor(row_factory=dict_row) as cur:
+        cur.execute(f"""SELECT {_RETURNING} FROM plan_action.action
+            WHERE world_id=%s AND authoring_origin->>'turn_id'=%s
+                AND authoring_origin->>'product_attempt'=%s""",
+            (world_id, str(turn_id), str(attempt)))
+        row = cur.fetchone()
+    return None if row is None else _record(row)

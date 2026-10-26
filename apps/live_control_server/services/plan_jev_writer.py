@@ -117,6 +117,8 @@ class PlanJevWriter:
             if self.projection.frame.get('answer_policy') == NATIVE_POLICY else INSTRUCTIONS)
         if self.projection.frame.get('answer_policy') == SELECTOR_POLICY:
             instructions=instructions.replace('exact block_handle','exact selection_id')
+        if self.projection.frame.get('requested_work') == 'clarify':
+            instructions += '\nAsk the specific clarifying question needed to resolve the intended work or destination. Keep it in conversation; do not draft the page yet.'
         if getattr(rules,'authoring',None) is not None:
             instructions=instructions.replace('Answer the current co-GM question directly using relevant supplied material.',
                 'Write the requested Plan fragment using the current page and relevant supplied material.')
@@ -129,6 +131,7 @@ class PlanJevWriter:
         self._usage_recorded = False
         self._draft_capture_attempted = False
         self.output_limit_exceeded = False
+        self.target_changed = False
 
     def authorize(self, prepared):
         from generationengine.text_dispatch import PreparedTextDispatch
@@ -166,10 +169,15 @@ class PlanJevWriter:
             included_relationship_ids=list(projection.relationship_ids), included_evidence_ref_ids=list(projection.evidence_ref_ids))
         view = {'provider':'openai','model':self.model,'apiMode':'responses','payloadJson':prepared.body.decode(),
                 'payloadSha256':prepared.body_sha256,'payloadUtf8Bytes':prepared.body_size}
-        a.turn = _require_fresh_execution_append(a.fence.append('authorize_plan_jev_writer','authorization',event,
-            producer_proof={'prepared_request_json':view['payloadJson'],'evidence':self.proof},
-            **({'authoring_reservation':{'action_id':self.rules.authoring[0].action_id,'capture':self.rules.authoring[1]}}
-                if getattr(self.rules,'authoring',None) is not None else {})))
+        from application_state.errors import ApplicationStateConflictError
+        try:
+            a.turn = _require_fresh_execution_append(a.fence.append('authorize_plan_jev_writer','authorization',event,
+                producer_proof={'prepared_request_json':view['payloadJson'],'evidence':self.proof},
+                **({'authoring_reservation':{'action_id':self.rules.authoring[0].action_id,'capture':self.rules.authoring[1]}}
+                    if getattr(self.rules,'authoring',None) is not None else {})))
+        except ApplicationStateConflictError:
+            self.target_changed = getattr(self.rules, 'authoring', None) is not None
+            raise
         a.last_provider_attempt_id = event.provider_attempt_id
         self.rules.authorize(view)
         a._capture_prepared_prompt(view, event)

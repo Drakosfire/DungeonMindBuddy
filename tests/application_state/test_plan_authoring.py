@@ -265,7 +265,11 @@ def test_database_origin_is_scoped_and_generic_finish_cannot_complete_it(
 ):
     import psycopg
     from psycopg.types.json import Jsonb
-    from application_state.errors import ApplicationStateValidationError
+    from application_state.errors import (
+        ApplicationStateIntegrityError,
+        ApplicationStateValidationError,
+    )
+    from application_state.plan_action_dialogue import repository as actions
 
     service, action, origin = reserved_action_and_origin(application_state_dsn)
     with psycopg.connect(application_state_dsn) as conn:
@@ -273,8 +277,15 @@ def test_database_origin_is_scoped_and_generic_finish_cannot_complete_it(
             "UPDATE plan_action.action SET authoring_origin=%s WHERE action_id=%s",
             (Jsonb(origin), action.action_id),
         )
-    stored = service.get_by_key(action.basis.world_id, action.idempotency_key)
+    # This storage-only fixture deliberately has no Agent owner. Its JSON shape
+    # is readable, but ordinary expiry reconciliation must reject that orphan.
+    with psycopg.connect(application_state_dsn) as conn:
+        stored = actions._get_by_id(conn, action.action_id)
     assert stored.authoring_origin.capture_sha256 == origin["capture_sha256"]
+    with pytest.raises(
+        ApplicationStateIntegrityError, match="World state lock row was not created"
+    ):
+        service.get_by_key(action.basis.world_id, action.idempotency_key)
     with pytest.raises(
         ApplicationStateValidationError, match="atomic turn finalization"
     ):
@@ -285,10 +296,8 @@ def test_database_origin_is_scoped_and_generic_finish_cannot_complete_it(
             status="completed",
             summary="Not authorized by this method",
         )
-    assert (
-        service.get_by_key(action.basis.world_id, action.idempotency_key).status
-        == "pending"
-    )
+    with psycopg.connect(application_state_dsn) as conn:
+        assert actions._get_by_id(conn, action.action_id).status == "pending"
 
 
 @pytest.mark.parametrize(

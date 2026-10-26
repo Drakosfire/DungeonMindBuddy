@@ -16,7 +16,7 @@ class Finish(httpx2.AsyncBaseTransport):
         self.calls.append(request); body=json.loads(request.content)
         answers={}
         for name,question in body['questions'].items():
-            choice='finish_retrieval' if name=='operation' else 'exclude'
+            choice='discuss' if name=='requested_work' else 'finish_retrieval' if name=='operation' else 'exclude'
             answers[name]={'type':'choice','choice':choice,'confidence':1,
                 'probabilities':{key:float(key==choice) for key in question['criteria']}}
         return httpx2.Response(200,request=request,json={'model':'jev-1.14.0','answers':answers,
@@ -56,25 +56,25 @@ def test_turn_service_plan_harness_delivers_and_replays_without_another_call(pla
     basis = response.model_dump(mode='json')['primary_work']['content_basis']
     frozen = response.plan_context.receipt.plan_basis.model_dump(mode='json')
     assert all(basis[key] == value for key, value in frozen.items())
-    assert len(decisions.calls)==len(wire.calls)==1 and len(harness.calls)==2
-    assert harness.calls[0]['usage']['input_tokens']==31 and harness.calls[1]['usage']['input_tokens']==600
+    assert len(decisions.calls)==2 and len(wire.calls)==1 and len(harness.calls)==3
+    assert harness.calls[0]['usage']['input_tokens']==31 and harness.calls[-1]['usage']['input_tokens']==600
     turn=kwargs['conversation_service'].list_turns(plan_adapter.world_id,wire.adapter.turn.conversation_id)[0]
     trace=kwargs['conversation_service'].list_context_trace_attempts(world_id=plan_adapter.world_id,turn_id=turn.turn_id)[0]
-    assert len([row for row in trace.observations if row.kind=='prompt_reference'])==2
+    assert len([row for row in trace.observations if row.kind=='prompt_reference'])==3
     replay=execute_agent_turn(plan_adapter.request,**kwargs)
     assert replay.answer.text==response.answer.text and replay.plan_context.delivery_replay
     assert replay.primary_work.content_basis is None
-    assert len(decisions.calls)==len(wire.calls)==1
+    assert len(decisions.calls)==2 and len(wire.calls)==1
 
 
 def test_output_limit_failure_is_durable_with_prompt_and_usage_and_no_retry(plan_adapter,tmp_path):
     harness,decisions,wire,kwargs=route_case(plan_adapter,tmp_path,status='incomplete')
     with pytest.raises(AgentTurnServiceError): execute_agent_turn(plan_adapter.request,**kwargs)
-    assert len(decisions.calls)==len(wire.calls)==1 and harness.output_limit_exceeded
+    assert len(decisions.calls)==2 and len(wire.calls)==1 and harness.output_limit_exceeded
     turn=kwargs['conversation_service'].list_turns(plan_adapter.world_id,wire.adapter.turn.conversation_id)[0]
     assert turn.status=='interrupted' and turn.failure_code=='provider_output_limit_exceeded'
     trace=kwargs['conversation_service'].list_context_trace_attempts(world_id=plan_adapter.world_id,turn_id=turn.turn_id)[0]
-    assert len([row for row in trace.observations if row.kind=='prompt_reference'])==2
+    assert len([row for row in trace.observations if row.kind=='prompt_reference'])==3
     assert any(row.kind=='provider_call' and row.input_tokens==600 and row.output_tokens==100 for row in trace.observations)
 
 
@@ -112,11 +112,11 @@ def test_owner_loads_completed_canonical_dialogue_once_for_followup(plan_adapter
     writer=json.loads(wire.calls[-1].content)
     frame=json.loads(writer['input'][0]['content'])
     assert frame['dialogue_reference']==expected
-    assert len(decisions.calls)==len(wire.calls)==2
+    assert len(decisions.calls)==4 and len(wire.calls)==2
     # Replay exits before re-reading history or paying for another decision.
     replay=execute_agent_turn(second,**kwargs)
     assert replay.plan_context.delivery_replay and len(reads)==1
-    assert len(decisions.calls)==len(wire.calls)==2
+    assert len(decisions.calls)==4 and len(wire.calls)==2
 
 
 @pytest.mark.parametrize('include_graph',[False,True])
@@ -175,10 +175,10 @@ def test_ordinary_governed_plan_selects_jev_and_replay_skips_factory(plan_adapte
     monkeypatch.setattr(agent_turn_service,'default_hermes_agent_runtime',lambda:pytest.fail('Unexpected Plan fallback'))
     result=execute_agent_turn(plan_adapter.request,**kwargs)
     assert result.answer.status=='ok' and len(constructions)==1
-    assert len(decisions.calls)==len(wire.calls)==1
+    assert len(decisions.calls)==2 and len(wire.calls)==1
     replay=execute_agent_turn(plan_adapter.request,**kwargs)
     assert replay.plan_context.delivery_replay and len(constructions)==1
-    assert len(decisions.calls)==len(wire.calls)==1
+    assert len(decisions.calls)==2 and len(wire.calls)==1
 
 
 def test_ordinary_plan_factory_failure_does_not_fallback_or_dispatch(plan_adapter,tmp_path,monkeypatch):
@@ -200,7 +200,7 @@ def test_owner_offers_navigation_labels_without_admitting_discovery_as_claims(pl
     plan_adapter.bootstrap.retrieval_session.referents=[GraphReferent(id='bridge',label='Footbridge')]
     _,decisions,_,kwargs=route_case(plan_adapter,tmp_path)
     result=execute_agent_turn(plan_adapter.request,**kwargs)
-    offered=json.loads(decisions.calls[0].content)['state']['candidates']
+    offered=json.loads(decisions.calls[1].content)['state']['candidates']
     assert {'label':'Footbridge','kind':'World entity'} in offered
     receipt=result.plan_context.receipt
     assert receipt.graph_packet.candidate_assertion_ids==[]
@@ -226,7 +226,7 @@ def test_ordinary_empty_discovery_recovers_typed_subjects_and_delivers_current_c
         async def handle_async_request(self,request):
             self.calls.append(request);body=json.loads(request.content);answers={}
             for name,question in body['questions'].items():
-                choice='finish_retrieval' if name=='operation' else (
+                choice='discuss' if name=='requested_work' else 'finish_retrieval' if name=='operation' else (
                     'include' if body['state']['candidates'][int(name.split('_')[1])]['kind'].startswith('Previously explored') else 'exclude')
                 answers[name]={'type':'choice','choice':choice,'confidence':1,
                     'probabilities':{key:float(key==choice) for key in question['criteria']}}
@@ -265,4 +265,4 @@ def test_ordinary_empty_discovery_recovers_typed_subjects_and_delivers_current_c
     assert len(source_calls)==1
     assert response.plan_context.completion.source_citations[0].source_name=='Synthetic park journal'
     assert all(row['kind'].startswith('Previously explored') for row in
-        json.loads(choices.calls[0].content)['state']['candidates'] if row['kind']!='public_rules_lookup')
+        json.loads(choices.calls[1].content)['state']['candidates'] if row['kind']!='public_rules_lookup')

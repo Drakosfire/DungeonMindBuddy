@@ -2188,6 +2188,22 @@ class AgentConversationService:
             turn=repo.get_turn(conn,world_id,origin.turn_id)
             return validate_stored_authoring_result(action,turn)
 
+    def get_plan_authoring_proposal_for_turn(self, *, world_id: str, conversation_id: UUID,
+                                           turn_id: UUID, attempt: int):
+        """Join a completed authoring turn to its sole Plan-owned saved result."""
+        from .plan_authoring import validate_stored_authoring_result, turn_parts
+        from application_state.plan_action_dialogue import repository as actions
+        with unit_of_work(_ready_dsn()) as conn:
+            turn = repo.get_turn(conn, _world_id(world_id), turn_id)
+            envelope, _ = turn_parts(turn) if turn is not None else (None, None)
+            if (envelope is None or envelope.conversation_id != conversation_id
+                    or envelope.attempt != attempt or envelope.status != 'completed'):
+                raise ApplicationStateIntegrityError('Plan proposal has no exact completed Agent attempt')
+            action = actions.get_authoring_for_turn(conn, world_id=world_id, turn_id=turn_id, attempt=attempt)
+            if action is None or action.status != 'completed':
+                raise ApplicationStateIntegrityError('Completed Plan writing has no paired Plan proposal')
+            return validate_stored_authoring_result(action, turn)
+
     def recover_prepared_build_turn(self, result: TurnResult) -> Turn:
         """Recover an immutable acknowledged proposal, never a provider claim."""
         return self._complete_turn(result, prepared_recovery=True)

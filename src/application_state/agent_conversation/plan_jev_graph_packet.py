@@ -241,6 +241,11 @@ def project(turn, proof, trace):
         from .surface_evidence_answer import SELECTOR_POLICY
         frame["answer_policy"] = SELECTOR_POLICY
         frame["native_source_sections"] = native_sections
+    if isinstance(execution.policy, t.PlanAuthoringPolicyV1):
+        choices = [event for event in execution.events if isinstance(event, t.PlanRequestedWorkSelectedV1)]
+        if len(choices) != 1:
+            raise ValueError('Plan writer requires its exact semantic requested-work choice')
+        frame['requested_work'] = choices[0].requested_work
     if capture is not None:
         same=capture.draft_markdown==markdown
         frame['current_page_draft']={'state':'same_as_committed' if same else 'unsaved_working_draft',
