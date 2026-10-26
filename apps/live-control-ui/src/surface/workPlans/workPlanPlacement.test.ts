@@ -182,3 +182,12 @@ it('recovers one lost V3 review acknowledgment but refuses a later equal-content
  expect(io.apply).not.toHaveBeenCalled();
  const result=await savePlacementOnPage(uncertain,steps,io,storage,locks);expect(result.placement.phase).toBe('saved');expect(io.apply).toHaveBeenCalledTimes(1);
 });
+it('keeps the entire old placement when explicit V3 adoption cannot retain its replacement',async()=>{
+ const {adoptPlacementReview}=await import('./workPlanPlacement');const initial=await stagePlacement(ref,basis,1,rows,0,storage,locks,'Original outcome.');
+ const review={schema:'dmb_reviewed_work_plan_v3' as const,root_references:[graphRef],objective:'Saved outcome.',steps:rows.map(row=>({...row,references:[]})),world_id:ref.world_id,document_id:ref.document_id,conversation_id:ref.conversation_id,source_turn_id:ref.source_turn_id,source_answer_sha256:ref.source_answer_sha256,revision:1,dispatches:[],execution:[]};
+ const broken={getItem:storage.getItem,setItem:()=>{throw new Error('storage denied');}},before=data.get(placementKey(ref));
+ await expect(adoptPlacementReview(initial,{rows:[{...rows[0],text:'Unsaved author edit.'}],objective:'Local outcome.'},review,broken,locks)).rejects.toThrow('storage denied');
+ expect(data.get(placementKey(ref))).toBe(before);expect(await readPlacement(ref,storage)).toEqual(initial);
+ const next=await adoptPlacementReview(initial,{rows:[{...rows[0],text:'Unsaved author edit.'}],objective:'Local outcome.'},review,storage,locks);
+ expect(next.retired_placements[0].review_snapshot?.rows[0].text).toBe('Unsaved author edit.');expect(next.rows).toEqual(review.steps);expect(await readPlacement(ref,storage)).toEqual(next);
+});

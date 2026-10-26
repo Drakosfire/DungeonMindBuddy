@@ -5,14 +5,14 @@ import {SurfaceGraphReferenceInput} from '../SurfaceGraphReferenceInput';
 import {isAuthoredGraphReferenceList,mergeAuthoredReferences} from '../../agentInteraction/authoredGraphReferences';
 import {canonical,exact} from '../../shared/sourcePassageProtocol';
 import type {AuthoredGraphReferenceV1,ConversationCollaboration} from '../../api/types';
-import {getWorkPlanRecord,getWorkPlan,saveWorkPlan,planObjective,type WorkStep} from '../../api/conversationWorkPlanApi';
+import {getWorkPlanRecord,getWorkPlan,saveWorkPlan,planObjective,type WorkPlan,type WorkStep} from '../../api/conversationWorkPlanApi';
 import {getWorkspaceDocumentSnapshot} from '../../api/liveApi';
 import type {BuildComposeBridge,CapturedBuildInsertion,PreparedWorkPlanPlacement} from '../../buildSurface/buildComposeBridge';
 import {SurfacePageProposal} from '../SurfacePageProposal';
 import {markdownToTiptapDoc} from '../../tiptap/markdown/markdownToTiptap';
 import {tiptapJsonToSemanticMarkdown} from '../../tiptap/markdown/calloutMarkdown';
 import {workPlanIdentity,parseWorkPlanFence,type WorkPlanReference} from './workPlanReference';
-import {placementDigest,readPlacement,stagePlacement,replacePlacement,changePlacement,savePlacementOnPage,placementKey,placementObjective,placementReferences,type WorkPlanPlacement} from './workPlanPlacement';
+import {placementDigest,readPlacement,stagePlacement,adoptPlacementReview,replacePlacement,changePlacement,savePlacementOnPage,placementKey,placementObjective,placementReferences,type WorkPlanPlacement} from './workPlanPlacement';
 import './workPlans.css';
 
 function contains(json:unknown,ref:WorkPlanReference):boolean{
@@ -32,6 +32,7 @@ export function StagedWorkPlan({worldId,documentId,conversationId,turnId,source,
  const [reference,setReference]=useState<WorkPlanReference|null>(null),[placement,setPlacement]=useState<WorkPlanPlacement|null>(null);
  const [captured,setCaptured]=useState<CapturedBuildInsertion|null>(null),[rows,setRows]=useState<WorkStep[]>([]);
  const [objective,setObjective]=useState(generatedObjective??'');
+ const [reviewToAdopt,setReviewToAdopt]=useState<Extract<WorkPlan,{schema:'dmb_reviewed_work_plan_v3'}>|null>(null);
  const [rootReferences,setRootReferences]=useState<AuthoredGraphReferenceV1[]|undefined>();
  const [error,setError]=useState<string|null>(null),[stale,setStale]=useState(false),[busy,setBusy]=useState(false),[inPage,setInPage]=useState(false);
  const [refresh,setRefresh]=useState(0);const picker=useRef<AbortController|null>(null);
@@ -51,26 +52,35 @@ export function StagedWorkPlan({worldId,documentId,conversationId,turnId,source,
   setRows(normalized);setObjective(nextObjective);setRootReferences(roots);if(!reference||!placement)return;try{writeNotes(placement,normalized,nextObjective,roots);}
  catch{setError('These edits could not be retained locally. Copy them before reloading.');}}
  useEffect(()=>{
-  let active=true;setCaptured(null);setError(null);setStale(false);setReference(null);setPlacement(null);
+  let active=true;setCaptured(null);setError(null);setStale(false);setReference(null);setPlacement(null);setReviewToAdopt(null);
   void (async()=>{
    const ref:WorkPlanReference={schema:'dmb_surface_work_plan_ref_v1',world_id:worldId,document_id:documentId,conversation_id:conversationId,source_turn_id:turnId,source_answer_sha256:await placementDigest(source),title:'Work plan'};
    const retained=await readPlacement(ref);if(!active)return;setReference(ref);setPlacement(retained);
    if(!retained)return;let restored=retained.rows;let restoredObjective=placementObjective(retained)??'';let restoredRoots=placementReferences(retained);
    const bytes=sessionStorage.getItem(noteKey(ref));if(bytes){const notes=JSON.parse(bytes);
+    const retired=retained.retired_placements.find(item=>item.command_id===notes.command_id)?.review_snapshot;
+    const basis=notes.command_id===retained.command_id?{rows:retained.rows,objective:placementObjective(retained),roots:placementReferences(retained)}:retired?{rows:retired.rows,objective:retired.objective,roots:retired.root_references}:null;
     const aware=notes.schema==='dmb_surface_plan_notes_v3';
     if(!exact(notes,['schema','command_id','rows',...(notes.schema==='dmb_surface_plan_notes_v1'?[]:['objective']),...(aware?['root_references']:[])])
      ||!['dmb_surface_plan_notes_v1','dmb_surface_plan_notes_v2','dmb_surface_plan_notes_v3'].includes(String(notes.schema))
-     ||notes.command_id!==retained.command_id||!Array.isArray(notes.rows)||notes.rows.length!==retained.rows.length
-     ||!notes.rows.every((row:WorkStep,i:number)=>exact(row,['step_id','text','selected','kind',...(aware?['references']:[])])&&row.step_id===retained.rows[i].step_id&&typeof row.text==='string'&&typeof row.selected==='boolean'&&['discuss','prepare_insertion'].includes(row.kind)))
+     ||!basis||!Array.isArray(notes.rows)||notes.rows.length!==basis.rows.length
+     ||!notes.rows.every((row:WorkStep,i:number)=>exact(row,['step_id','text','selected','kind',...(aware?['references']:[])])&&row.step_id===basis.rows[i].step_id&&typeof row.text==='string'&&typeof row.selected==='boolean'&&['discuss','prepare_insertion'].includes(row.kind)))
       throw new Error('Earlier local plan edits need comparison. Their bytes were left untouched.');
+    let noteRoots=basis.roots;
     if(aware){
      if(!isAuthoredGraphReferenceList(notes.root_references,worldId)||!notes.rows.every((row:WorkStep)=>isAuthoredGraphReferenceList(row.references,worldId)))throw new Error('Invalid retained Graph context.');
      for(const row of notes.rows)mergeAuthoredReferences(notes.root_references,row.references);
-     restoredRoots=notes.root_references;
+     noteRoots=notes.root_references;
     }
-    restored=aware?notes.rows:notes.rows.map((row:WorkStep)=>({...row,...(restoredRoots===undefined?{}:{references:retained.rows.find(saved=>saved.step_id===row.step_id)?.references??[]})}));
-    if(notes.schema!=='dmb_surface_plan_notes_v1'){if(typeof notes.objective!=='string')throw new Error('Invalid retained expected outcome.');restoredObjective=notes.objective;}
-    if(retained.prepared&&(canonical(restored)!==canonical(retained.rows)||restoredObjective!==placementObjective(retained)||canonical(restoredRoots)!==canonical(placementReferences(retained))))throw new Error('Check the earlier Save before changing this plan. Local edits were retained.');
+    const noteRows=aware?notes.rows:notes.rows.map((row:WorkStep)=>({...row,...(noteRoots===undefined?{}:{references:basis.rows.find(saved=>saved.step_id===row.step_id)?.references??[]})}));
+    const noteObjective=notes.schema==='dmb_surface_plan_notes_v1'?basis.objective:notes.objective;
+    if(!(noteObjective===null||typeof noteObjective==='string'))throw new Error('Invalid retained expected outcome.');
+    if(notes.command_id!==retained.command_id){
+     if(canonical(noteRows)!==canonical(basis.rows)||noteObjective!==basis.objective||canonical(noteRoots)!==canonical(basis.roots))throw new Error('Earlier local edits differ from the retained predecessor. Compare both copies.');
+    }else{
+     restoredRoots=noteRoots;restored=noteRows;restoredObjective=noteObjective??'';
+     if(retained.prepared&&(canonical(restored)!==canonical(retained.rows)||restoredObjective!==placementObjective(retained)||canonical(restoredRoots)!==canonical(placementReferences(retained))))throw new Error('Check the earlier Save before changing this plan. Local edits were retained.');
+    }
    }
    setRows(restored);setObjective(restoredObjective);setRootReferences(restoredRoots);
    if(bridge&&!disabled&&retained.pointer_revision===pointerRevision&&retained.phase!=='discarded'&&retained.phase!=='saved'){
@@ -124,7 +134,7 @@ export function StagedWorkPlan({worldId,documentId,conversationId,turnId,source,
    const result=await savePlacementOnPage<PreparedWorkPlanPlacement>(placement,rows,{
     objective,rootReferences,
     assertCurrent:()=>{assertCurrent(start);if(pointerRevision!==placement.pointer_revision)throw new Error('The conversation pointer changed. Choose a new position.');},
-    readReview:()=>getWorkPlan(planScope),saveReview:(revision,reviewed,outcome,roots)=>saveWorkPlan(planScope,revision,reviewed,outcome,roots),
+    readReview:async()=>{const plan=await getWorkPlan(planScope);assertCurrent(start);if(plan?.schema==='dmb_reviewed_work_plan_v3'&&(rootReferences===undefined||plan.revision!==placement.expected_review_revision))setReviewToAdopt(plan);return plan;},saveReview:(revision,reviewed,outcome,roots)=>saveWorkPlan(planScope,revision,reviewed,outcome,roots),
     findSaved:()=>findSaved(reference),prepare:async receipt=>{const anchor=await bridge.restore(receipt.basis);const prepared=await bridge.prepareWorkPlan!(anchor,receipt.reference);return {value:prepared,after_editor_sha256:prepared.afterEditorSha256,after_draft_sha256:prepared.afterDraftSha256};},
     inspect:receipt=>bridge.inspectProposal(receipt.basis,receipt.prepared!.after_editor_sha256,receipt.prepared!.after_draft_sha256),
     apply:prepared=>bridge.applyWorkPlan!(prepared),
@@ -135,6 +145,17 @@ export function StagedWorkPlan({worldId,documentId,conversationId,turnId,source,
    assertCurrent(start);setPlacement(result.placement);setInPage(true);setCaptured(null);
    if(result.placement.phase==='saved')sessionStorage.removeItem(noteKey(reference));
   }catch(reason){if(current.current.scope===start.scope){setError(reason instanceof Error?reason.message:String(reason));const retained=await readPlacement(reference).catch(()=>null);if(retained)setPlacement(retained);}}
+  finally{if(current.current.scope===start.scope)setBusy(false);}
+ }
+ async function adoptSavedReview(){
+  if(!reviewToAdopt||!placement||placement.prepared||placement.phase==='review_saving')return;
+  const start=current.current,saved=reviewToAdopt;setBusy(true);setError(null);
+  try{
+   assertCurrent(start);const latest=await getWorkPlan({worldId,documentId,conversationId,turnId,sourceSha256:placement.reference.source_answer_sha256});assertCurrent(start);
+   if(canonical(latest)!==canonical(saved))throw new Error('The saved review changed again. Check it before adopting.');
+   const next=await adoptPlacementReview(placement,{rows,objective,rootReferences},saved);assertCurrent(start);
+   setPlacement(next);setRows(saved.steps);setRootReferences(saved.root_references);setObjective(saved.objective);writeNotes(next,saved.steps,saved.objective,saved.root_references);setReviewToAdopt(null);
+  }catch(reason){if(current.current.scope===start.scope)setError(String(reason));}
   finally{if(current.current.scope===start.scope)setBusy(false);}
  }
  const review=<section className="surface-work-plan" aria-label="Plan suggestion" contentEditable={false}>
@@ -149,6 +170,7 @@ export function StagedWorkPlan({worldId,documentId,conversationId,turnId,source,
    <div className="surface-work-plan__references"><SurfaceGraphReferenceInput worldId={worldId} label={`Step ${i+1} Graph context`} value={row.references??[]} disabled={disabled||busy||!!placement?.prepared} onChange={refs=>retain(rows.map(s=>s.step_id===row.step_id?{...s,references:refs}:s),objective,rootReferences??[])}/></div>
   </div>)}
   <SurfaceNavbarIconButton icon="save" label="Save" disabled={disabled||busy||stale||!objective.trim()||!rows.length||rows.some(row=>!row.text.trim())} onClick={()=>void save()}/>
+  {reviewToAdopt&&<section aria-label="Saved review comparison"><p>The saved review has Graph context. Your local version is retained.</p><p>{reviewToAdopt.objective}</p><SurfaceGraphReferenceInput worldId={worldId} label="Saved review Graph context" readOnly value={reviewToAdopt.root_references} onChange={()=>{}}/><ol>{reviewToAdopt.steps.map(row=><li key={row.step_id}>{row.text}<SurfaceGraphReferenceInput worldId={worldId} label="Saved step Graph context" readOnly value={row.references??[]} onChange={()=>{}}/></li>)}</ol><button type="button" disabled={disabled||busy||!!placement?.prepared||placement?.phase==='review_saving'} onClick={()=>void adoptSavedReview()}>Use saved review for this placement</button></section>}
   {error?<p role="alert">{error}</p>:null}
  </section>;
  return <>

@@ -33,6 +33,7 @@ beforeEach(async()=>{
 });
 afterEach(()=>{cleanup();editor.destroy();editor.view.dom.remove();});
 const props=()=>({worldId:'world',documentId:'page',conversationId:conversation,turnId,source:'A plan.',objective:'Develop a useful shop scene.',steps:[{text:'Read the chart.',kind:'discuss' as const},{text:'Write a scene.',kind:'prepare_insertion' as const}],bridge,pointerRevision:2,disabled:false,onVisible});
+async function savedOnPage(){await waitFor(async()=>expect((await readPlacement(ref))?.phase).toBe('saved'));await screen.findByText('Plan on page.');}
 async function stage(){const captured=await bridge.capture();return stagePlacement(ref,captured.basis,2,props().steps.map(s=>({...s,step_id:crypto.randomUUID(),selected:true})),0,localStorage,navigator.locks,'Develop a useful shop scene.');}
 it('places editable checkboxes on the real editor and one Save persists the same review/reference without continuation',async()=>{
  await stage();render(<StagedWorkPlan {...props()}/>);
@@ -42,7 +43,7 @@ it('places editable checkboxes on the real editor and one Save persists the same
  fireEvent.click(checkbox);fireEvent.change(screen.getByRole('textbox',{name:'Plan step 1'}),{target:{value:'Read the named chart.'}});
  expect(saveWorkPlan).not.toHaveBeenCalled();expect(continueWorkPlan).not.toHaveBeenCalled();
  fireEvent.click(screen.getByRole('button',{name:'Save',exact:true}));
- await waitFor(()=>expect(screen.getByText('Plan on page.')).toBeInTheDocument());
+ await savedOnPage();
  expect(plan?.schema==='dmb_reviewed_work_plan_v2'&&plan.objective).toBe('Prepare a memorable scene with a practical shopkeeper.');
  expect(plan!.steps.map(s=>[s.text,s.selected])).toEqual([['Read the named chart.',true],['Write a scene.',false]]);
  expect(savedMarkdown.match(/dmb-work-plan-v1/g)).toHaveLength(1);expect(savedMarkdown).toContain('Author text.');
@@ -79,7 +80,7 @@ it('retains edited V3 root and step context through mounted reload and the real 
  expect(await screen.findByRole('textbox',{name:'Plan step 1'})).toHaveValue('Read the selected lantern.');
  expect(screen.queryByText('@Cedar box')).toBeNull();expect(screen.getByText('@Lantern')).toBeVisible();
  fireEvent.click(screen.getByRole('button',{name:'Save',exact:true}));
- await waitFor(()=>expect(screen.getByText('Plan on page.')).toBeInTheDocument());
+ await savedOnPage();
  expect(plan?.schema).toBe('dmb_reviewed_work_plan_v3');expect(plan?.schema==='dmb_reviewed_work_plan_v3'&&plan.root_references).toEqual([]);
  expect(plan!.steps[0].references).toEqual([{...contextRef,node_id:'lantern',label:'Lantern'}]);expect(continueWorkPlan).not.toHaveBeenCalled();
  expect(savedMarkdown.match(/dmb-work-plan-v1/g)).toHaveLength(1);
@@ -90,7 +91,7 @@ it('restores historical local wording by step identity without erasing current V
  render(<StagedWorkPlan {...props()}/>);
  expect(await screen.findByRole('textbox',{name:'Plan step 1'})).toHaveValue('Older local wording.');
  expect(screen.getByText('@Cedar box')).toBeVisible();expect(screen.getByText('@Lantern')).toBeVisible();
- fireEvent.click(screen.getByRole('button',{name:'Save',exact:true}));await waitFor(()=>expect(screen.getByText('Plan on page.')).toBeInTheDocument());
+ fireEvent.click(screen.getByRole('button',{name:'Save',exact:true}));await savedOnPage();
  expect(plan?.schema==='dmb_reviewed_work_plan_v3'&&plan.root_references).toEqual([contextRef]);expect(plan!.steps[0].references).toEqual([{...contextRef,node_id:'lantern',label:'Lantern'}]);
 });
 it('initializes explicit page placement from host source references before any saved review exists',async()=>{
@@ -98,7 +99,23 @@ it('initializes explicit page placement from host source references before any s
  vi.spyOn(bridge,'pickWorkPlanInsertion').mockImplementation(async()=>bridge.capture());
  render(<StagedWorkPlan {...props()}/>);fireEvent.click(await screen.findByRole('button',{name:'Place plan on page'}));
  expect(await screen.findByText('@Cedar box')).toBeVisible();
- fireEvent.click(screen.getByRole('button',{name:'Save',exact:true}));await waitFor(()=>expect(screen.getByText('Plan on page.')).toBeInTheDocument());
+ fireEvent.click(screen.getByRole('button',{name:'Save',exact:true}));await savedOnPage();
  expect(plan?.schema==='dmb_reviewed_work_plan_v3'&&plan.root_references).toEqual([contextRef]);expect(plan!.steps.every(row=>Array.isArray(row.references))).toBe(true);
  expect(continueWorkPlan).not.toHaveBeenCalled();
+});
+it.each(['normal','notes-failure'])('compares and explicitly adopts saved V3 context over a legacy placement: %s',async mode=>{
+ const legacy=await stage();
+ plan={schema:'dmb_reviewed_work_plan_v3',root_references:[contextRef],objective:'A saved reference-aware outcome.',world_id:'world',document_id:'page',conversation_id:conversation,source_turn_id:turnId,source_answer_sha256:ref.source_answer_sha256,revision:1,steps:legacy.rows.map(row=>({...row,text:'Saved review wording.',references:[]})),dispatches:[],execution:[]};
+ const mounted=render(<StagedWorkPlan {...props()}/>);
+ fireEvent.change(await screen.findByRole('textbox',{name:'Plan step 1'}),{target:{value:'Older unsaved wording.'}});
+ fireEvent.click(screen.getByRole('button',{name:'Save',exact:true}));
+ const adopt=await screen.findByRole('button',{name:'Use saved review for this placement'});
+ expect((await readPlacement(ref))?.phase).toBe('staged');expect(saveWorkPlan).not.toHaveBeenCalled();expect(screen.getByLabelText('Saved review Graph context')).toHaveTextContent('@Cedar box');
+ const write=Storage.prototype.setItem;const blocked=mode==='notes-failure'?vi.spyOn(Storage.prototype,'setItem').mockImplementation(function(key,value){if(this===sessionStorage&&key.startsWith('dmb:surface-work-plan-notes:'))throw new Error('notes storage denied');return write.call(this,key,value);}):null;
+ fireEvent.click(adopt);await waitFor(()=>expect(screen.getByRole('textbox',{name:'Plan step 1'})).toHaveValue('Saved review wording.'));
+ const updated=(await readPlacement(ref))!;expect(updated.schema).toBe('dmb_surface_work_plan_placement_v3');
+ expect(updated.retired_placements[0].review_snapshot?.rows[0].text).toBe('Older unsaved wording.');
+ if(blocked){blocked.mockRestore();mounted.unmount();render(<StagedWorkPlan {...props()}/>);expect(await screen.findByRole('textbox',{name:'Plan step 1'})).toHaveValue('Saved review wording.');}
+ fireEvent.click(screen.getByRole('button',{name:'Save',exact:true}));await savedOnPage();
+ expect(saveWorkPlan).not.toHaveBeenCalled();expect(continueWorkPlan).not.toHaveBeenCalled();
 });

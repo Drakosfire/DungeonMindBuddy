@@ -1,7 +1,7 @@
 import type {AuthoredGraphReferenceV1} from '../../api/types';
 import {isAuthoredGraphReferenceList,mergeAuthoredReferences} from '../../agentInteraction/authoredGraphReferences';
 import type {BuildProposalBasis} from '../../api/buildDocumentProposalApi';
-import {planObjective,type WorkStep} from '../../api/conversationWorkPlanApi';
+import {planObjective,type WorkPlan,type WorkStep} from '../../api/conversationWorkPlanApi';
 import {canonical,exact} from '../../shared/sourcePassageProtocol';
 import {parseWorkPlanReference,workPlanFence,workPlanIdentity,type WorkPlanReference} from './workPlanReference';
 
@@ -232,6 +232,7 @@ export async function savePlacementOnPage<T>(expected:WorkPlanPlacement,rows:Wor
     ||plan.source_answer_sha256!==current.reference.source_answer_sha256))throw new Error('The saved review belongs to another object.');
    if(!plan&&current.acknowledged_review_revision!==null)throw new Error('The saved review is no longer available. Its placement was retained.');
    if(current.schema==='dmb_surface_work_plan_placement_v1'&&current.phase==='review_saving')throw new Error('The legacy review Save needs an explicit outcome-aware new placement. Its original receipt is retained.');
+   if(plan?.schema==='dmb_reviewed_work_plan_v3'&&roots===undefined)throw new Error('This saved review now has Graph context. Compare and explicitly adopt its reference-aware review before placing it.');
    const needsPut=!plan||canonical(plan.steps)!==canonical(reviewedRows)||planObjective(plan)!==objective||canonical(plan.schema==='dmb_reviewed_work_plan_v3'?plan.root_references:undefined)!==canonical(roots);
    if(roots!==undefined&&(plan?.revision??0)!==current.expected_review_revision&&!(current.phase==='review_saving'&&!needsPut&&plan?.revision===current.expected_review_revision+1))throw new Error('The reviewed plan changed in another tab. Your Graph context and rows were retained.');
    if(needsPut&&(plan?.revision??0)!==current.expected_review_revision)throw new Error('The reviewed plan changed in another tab. Your rows were retained.');
@@ -270,4 +271,20 @@ export async function savePlacementOnPage<T>(expected:WorkPlanPlacement,rows:Wor
    throw error;
   }
  },storage,locks);
+}
+
+/** Explicit review adoption retains local edits and replaces the receipt in one locked write. */
+export async function adoptPlacementReview(expected:WorkPlanPlacement,local:{rows:WorkStep[];objective:string;rootReferences?:AuthoredGraphReferenceV1[]},review:Extract<WorkPlan,{schema:'dmb_reviewed_work_plan_v3'}>,
+ storage:PlacementStorage=localStorage,locks:PlacementLocks|undefined=navigator.locks):Promise<WorkPlanPlacement>{
+ return withPlacementLock(expected.reference,async()=>{
+  const current=await readPlacement(expected.reference,storage);
+  if(!current||canonical(current)!==canonical(expected)||current.prepared||['saved','discarded','review_saving'].includes(current.phase))throw new Error('Check the retained placement before adopting another review.');
+  const ref=current.reference;
+  if(review.world_id!==ref.world_id||review.document_id!==ref.document_id||review.conversation_id!==ref.conversation_id||review.source_turn_id!==ref.source_turn_id||review.source_answer_sha256!==ref.source_answer_sha256)throw new Error('The saved review belongs to another page or response.');
+  const localCopy:WorkPlanPlacement={...current,...(local.rootReferences===undefined?{schema:'dmb_surface_work_plan_placement_v2' as const}:{schema:'dmb_surface_work_plan_placement_v3' as const,root_references:local.rootReferences}),rows:local.rows,objective:local.objective};
+  await checkedPlacement(localCopy,ref);
+  const previous:RetiredPlacement={command_id:current.command_id,basis:current.basis,reference:ref,reference_markdown:current.reference_markdown,reference_sha256:current.reference_sha256,prepared:null,disposition:'superseded_unapplied',review_snapshot:{rows:localCopy.rows,objective:placementObjective(localCopy),schema:localCopy.schema,...(localCopy.schema==='dmb_surface_work_plan_placement_v3'?{root_references:localCopy.root_references}:{}),phase:localCopy.phase,expected_review_revision:localCopy.expected_review_revision,acknowledged_review_revision:localCopy.acknowledged_review_revision}};
+  const next:WorkPlanPlacement={...current,schema:'dmb_surface_work_plan_placement_v3',command_id:crypto.randomUUID(),root_references:review.root_references,rows:review.steps,objective:review.objective,expected_review_revision:review.revision,acknowledged_review_revision:null,phase:'staged',retired_placements:[...current.retired_placements,previous]};
+  await persist(next,storage);return next;
+ },locks);
 }
