@@ -46,3 +46,7 @@ def validate_quote(proposal, rows):
 
 from .collaboration import ProposedPlanV2
 RelationshipCollaborationV2 = ProposedPlanV2 | ProposedQuestions | ProposedConnectedPage | ProposedRelationship
+
+
+from .collaboration import ProposedPlanV3
+RelationshipCollaborationV3 = ProposedPlanV3 | ProposedQuestions | ProposedConnectedPage | ProposedRelationship

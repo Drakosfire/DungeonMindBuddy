@@ -172,7 +172,7 @@ def _source(conn, world, conversation, source, *, writing=False):
         or turn.provenance.surface_id != "build"
         or turn.provenance.primary_work.kind != "build"
         or (not turn.assistant_text and not (
-            turn.assistant_text == '' and getattr(turn.completion, 'schema_', None) in {'dmb_build_intentional_response_completion_v1','dmb_build_intentional_response_completion_v2'}
+            turn.assistant_text == '' and getattr(turn.completion, 'schema_', None) in {'dmb_build_intentional_response_completion_v1','dmb_build_intentional_response_completion_v2','dmb_build_intentional_response_completion_v3'}
             and not turn.completion.answer_segments and getattr(turn.completion.collaboration, 'kind', None) == 'plan'))
     ):
         raise ApplicationStateNotFoundError(

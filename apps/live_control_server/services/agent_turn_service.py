@@ -2685,6 +2685,8 @@ class _PolicyExecutionAdapter:
         from dataclasses import replace
         execution = self._broker_execution()
         event = plan_objective.contract(execution)
+        if event is not None and event.policy != plan_objective.SELECTION_POLICY:
+            raise AgentTurnServiceError('This retained plan request predates explicit step selection. Its history is preserved; review a new request before generating again.', code='plan_selection_contract_missing', status_code=409, provider_dispatched=False)
         if event is None:
             event = plan_objective.create(execution, self.request.build_write_capability)
             if event is not None:

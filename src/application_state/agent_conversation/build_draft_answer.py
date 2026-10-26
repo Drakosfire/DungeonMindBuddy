@@ -79,8 +79,23 @@ class RelationshipWriterAnswerV2(DraftWriterAnswerV1):
     collaboration: RelationshipCollaborationV2 | None
 
 
+from .collaboration import CollaborationV3, ConnectedCollaborationV3
+from .relationship_review import RelationshipCollaborationV3
+
+class CollaborationWriterAnswerV3(DraftWriterAnswerV1):
+    collaboration: CollaborationV3 | None
+
+class ConnectedPageWriterAnswerV3(DraftWriterAnswerV1):
+    collaboration: ConnectedCollaborationV3 | None
+
+class RelationshipWriterAnswerV3(DraftWriterAnswerV1):
+    collaboration: RelationshipCollaborationV3 | None
+
+
 def answer_model(packet):
-    from .plan_objective import KEY
+    from .plan_objective import KEY, selection_packet
+    if selection_packet(packet):
+        return RelationshipWriterAnswerV3 if packet.get(RELATIONSHIP_KEY)==RELATIONSHIP_POLICY else ConnectedPageWriterAnswerV3 if packet.get("connected_page_review_policy")==CONNECTED_POLICY else CollaborationWriterAnswerV3
     modern = KEY in packet
     return ((RelationshipWriterAnswerV2 if modern else RelationshipWriterAnswer) if packet.get(RELATIONSHIP_KEY)==RELATIONSHIP_POLICY
         else (ConnectedPageWriterAnswerV2 if modern else ConnectedPageWriterAnswer) if packet.get("connected_page_review_policy")==CONNECTED_POLICY

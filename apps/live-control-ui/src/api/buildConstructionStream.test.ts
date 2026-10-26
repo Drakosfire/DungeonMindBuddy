@@ -86,3 +86,18 @@ it('observes an actual outcome before rows and rejects rewritten or speculative 
  ],1),planRequest,seen)).toEqual(result);
  expect(seen.mock.calls.map(c=>[c[0].objective,c[0].steps.length])).toEqual([[p.objective,0],[p.objective,1]]);
 });
+
+it('observes required selected booleans and rejects missing, coerced or rewritten choices',async()=>{
+ Object.defineProperty(globalThis,'crypto',{value:webcrypto,configurable:true});const seen=vi.fn();
+ const row={text:'Discuss first.',kind:'discuss',selected:true};
+ const p={...planProgress,schema:'dmb_build_plan_construction_v3',objective:'Review first; defer writing.',steps:[row]};
+ const next={...p,sequence:2,steps:[row,{text:'Write later.',kind:'prepare_insertion',selected:false}]};
+ const result={schema:'answer'};
+ expect(await readBuildConstructionStream(response([
+  ...[undefined,null,'false',0].map(selected=>frame('construction',{progress:{...p,steps:[{...row,selected}]}})),
+  frame('construction',{progress:p}),
+  frame('construction',{progress:{...p,sequence:2,steps:[{...row,selected:false}]}}),
+  frame('construction',{progress:next}),frame('result',{response:result}),
+ ],1),planRequest,seen)).toEqual(result);
+ expect(seen.mock.calls.map(c=>c[0].steps.map((r:{selected:boolean})=>r.selected))).toEqual([[true],[true,false]]);
+});

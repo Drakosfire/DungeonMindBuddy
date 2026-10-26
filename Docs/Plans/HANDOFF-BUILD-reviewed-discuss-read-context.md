@@ -1,6 +1,15 @@
 # BUILD: Discuss continuation captures context without page placement
 
-ACTIVE after independent design clearance. PRIME activates one serial slice from
+COMPLETED through #1797, merge/UI6d772e2aab29e6c51364217457f715001a203bcf.
+Independent approval89f64db60;32UIowner,6focusedUI and3SDK/APP checks passed,
+with actual tsc/Vite. UI-only delivery preserved3445APP rows/native state/27frozen
+components/89product files; API d84b7336 andAPP0074 unchanged. Ordinary selected
+plan-object Continue completed without a caret; captured interactions offered only
+answer_from_sources with capability/page_target null. Reply and step2 deferred
+survived reload with newer composer. Private proof .pytest_cache/discuss-read-ordinary-proof.json.
+Successor HANDOFF-BUILD-plan-proposal-selection.md owns the confirmed deferral gap.
+
+Original bounded contract, independently cleared, from
 origin/main d84b7336c195c3d75674e82ada173a44c539bb92 in the existing Buddy checkout,
 branch codex/reviewed-discuss-read-context. #1764 remains parked. No other active
 runtime implementation PR overlaps this lane. No new worktree or environment.

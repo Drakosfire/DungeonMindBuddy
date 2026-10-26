@@ -155,3 +155,35 @@ def test_blank_duplicate_and_nontext_objectives_cannot_be_observed():
     decoder=PlanStepProgress(objective_required=True)
     decoder.feed('{"collaboration":{"kind":"plan","objective":"Original","objective":"Changed","steps":[]}}')
     assert decoder.invalid and decoder.objective=='Original'
+
+
+@pytest.mark.parametrize('size', [1, 3, 17, 4096])
+@pytest.mark.parametrize('path', [('collaboration',), ('base_output', 'collaboration')])
+def test_selected_complete_rows_keep_explicit_defer_across_stream_partitions(size, path):
+    rows=[{**ROWS[0], 'selected':True}, {**ROWS[1], 'selected':False}]
+    plan={'kind':'plan','objective':'Review the proposed repair before any writing.','steps':rows}
+    value={'collaboration':plan} if len(path)==1 else {'base_output':{'collaboration':plan}}
+    decoder=PlanStepProgress(path,objective_required=True,selection_required=True)
+    raw=json.dumps(value,ensure_ascii=True)
+    seen=[]
+    for i in range(0,len(raw),size):
+        if decoder.feed(raw[i:i+size]): seen.append(decoder.steps)
+    assert decoder.root_done and not decoder.invalid and decoder.steps==rows
+    assert all(value==rows[:len(value)] for value in seen)
+
+
+@pytest.mark.parametrize('selection', ['missing', None, 'false', 0, 1, [], {}])
+def test_selected_stream_rejects_missing_or_coerced_boolean(selection):
+    row={**ROWS[0], 'selected':selection}
+    if selection=='missing': row.pop('selected')
+    decoder=PlanStepProgress(objective_required=True,selection_required=True)
+    decoder.feed(json.dumps({'collaboration':{'kind':'plan','objective':'Review a repair.','steps':[row]}}))
+    assert decoder.invalid and decoder.steps==[]
+
+
+def test_selected_stream_does_not_expose_incomplete_selection():
+    decoder=PlanStepProgress(objective_required=True,selection_required=True)
+    decoder.feed('{"collaboration":{"kind":"plan","objective":"Review a repair.","steps":[{"text":"Defer writing","kind":"prepare_insertion","selected":fal')
+    assert not decoder.invalid and decoder.steps==[]
+    decoder.feed('se}]}}')
+    assert decoder.root_done and decoder.steps[0]['selected'] is False

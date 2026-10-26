@@ -407,6 +407,7 @@ def test_two_authored_objects_share_one_physical_passage(build_case, monkeypatch
 
 
 class AuthoredProfileWriter(WriterWire):
+    proposed_plan = False
     async def handle_async_request(self, request):
         import httpx
         self.calls.append(request)
@@ -424,6 +425,10 @@ class AuthoredProfileWriter(WriterWire):
         if passages and packet.get('source_quote_binding_policy'):
             answer['answer_segments'][0]['supporting_quotes']=[passages[0]['text']]
         if 'collaboration_output_policy' in packet or 'response_contract' in packet:answer['collaboration']=None
+        if self.proposed_plan:
+            answer['collaboration']={'kind':'plan','objective':'Discuss the repair first; defer the proposed writing.',
+                'steps':[{'text':'Discuss the repair.','kind':'discuss','selected':True},
+                         {'text':'Write only after the author decides.','kind':'prepare_insertion','selected':False}]}
         text=json.dumps(answer)
         data={'id':'profile-proof','object':'response','created_at':1,'status':'completed','model':'gpt-6-luna',
             'output':[{'type':'message','id':'msg','role':'assistant','status':'completed','content':[{'type':'output_text','text':text,'annotations':[]}]}],
@@ -437,14 +442,16 @@ class AuthoredProfileWriter(WriterWire):
 @pytest.mark.parametrize('family',['Collaboration','ConnectedPageReview','SourceQuote','RelationshipReview','IntentionalResponse','IntentionalResponseSource'])
 @pytest.mark.parametrize('image',[False,True])
 @pytest.mark.parametrize('selected',[False,True])
-def test_all_authored_writer_profiles_with_empty_and_populated_bindings(build_case,monkeypatch,tmp_path,family,image,selected):
+@pytest.mark.parametrize('proposed_plan',[False,True])
+def test_all_authored_writer_profiles_with_empty_and_populated_bindings(build_case,monkeypatch,tmp_path,family,image,selected,proposed_plan):
     case,reads=referenced_case(build_case,monkeypatch)
     from hashlib import sha256
     from application_state.agent_conversation.build_draft_context import BuildDraftSnapshotV1,BuildDraftContextRequestV1
     cap=case[1].build_write_capability
+    if proposed_plan: cap=cap.model_copy(update={'basis':cap.basis.model_copy(update={'editor_sha256':'b'*64})})
     snap=BuildDraftSnapshotV1(**{k:getattr(cap.basis,k) for k in ('world_id','document_id','registry_revision','content_sha256','visibility','draft_generation')},draft_markdown=case[0].markdown,draft_sha256=sha256(case[0].markdown.encode()).hexdigest(),editor_sha256='b'*64)
     draft=BuildDraftContextRequestV1(snapshot=snap,conversation_id=cap.conversation_id,expected_pointer_revision=cap.expected_pointer_revision)
-    case=(case[0],case[1].model_copy(update={'build_draft_context':draft,**({'build_write_capability':None} if not image else {})}),case[2])
+    case=(case[0],case[1].model_copy(update={'build_draft_context':draft,**({'build_write_capability':None} if not image and not proposed_plan else {'build_write_capability':cap})}),case[2])
     if family=='IntentionalResponseSource':
         case=(case[0],case[1].model_copy(update={'build_draft_context':None}),case[2])
     if not selected:
@@ -462,9 +469,25 @@ def test_all_authored_writer_profiles_with_empty_and_populated_bindings(build_ca
             return budget
     from tests.test_build_writer_selection import SelectionWire
     decisions=WorldDecisions() if selected else SelectionWire('empty')
+    if proposed_plan:
+        original_decision=decisions.handle_async_request
+        async def select_plan(request):
+            import httpx2 as httpx
+            response=await original_decision(request)
+            body=json.loads(request.content);data=response.json()
+            if 'requested_work' in data['answers']:
+                data['answers']['requested_work'].update(choice='plan',probabilities={v:float(v=='plan') for v in body['questions']['requested_work']['criteria']})
+            return httpx.Response(200,request=request,json=data)
+        decisions.handle_async_request=select_plan
     writer=AuthoredProfileWriter()
+    writer.proposed_plan=proposed_plan and family!='IntentionalResponseSource'
     harness=ProfileHarness(world_context=True,named_citations=True,related_pages=True,
         accounting=counter(),decision_transport=decisions,writer_transport=writer)
+    if proposed_plan and not image:
+        from apps.live_control_server.services.agent_turn_service import AgentTurnServiceError
+        with pytest.raises(AgentTurnServiceError):execute(case,tmp_path,harness,operator_subject='local_operator')
+        assert not writer.calls
+        return
     response=execute(case,tmp_path,harness,operator_subject='local_operator')
     assert len(writer.calls)==1
     turn=AgentConversationService().list_turns('elderwyld',response.conversation.conversation_id)[0]
@@ -473,6 +496,42 @@ def test_all_authored_writer_profiles_with_empty_and_populated_bindings(build_ca
     assert len(packet['opened_passages'])==int(selected)
     assert len(packet['authored_reference_context']['selected_references']['references'])==int(selected)
     assert response.knowledge_context.completion is not None
+    if proposed_plan:
+        if family=='IntentionalResponseSource':
+            # No working draft means no plan destination is admitted, even with a caret capability.
+            assert 'plan_output_contract' not in packet
+            assert response.knowledge_context.completion.collaboration is None
+        else:
+            assert packet['plan_output_contract']['kind']=='build_plan_output_contract_v2'
+            assert [row.selected for row in turn.completion.collaboration.steps]==[True,False]
+            assert 'plan_selection_answer_v1' in json.loads(writer.calls[0].content)['text']['format']['name']
+            assert AgentConversationService().list_turns('elderwyld',response.conversation.conversation_id)[0].completion==turn.completion
+    if proposed_plan and image and selected and family=='RelationshipReview':
+        from copy import deepcopy
+        from uuid import uuid4
+        import psycopg
+        from psycopg.types.json import Jsonb
+        from application_state.agent_conversation.service import _ready_dsn
+        original=turn.model_dump(mode='json',by_alias=True)
+        variants=[None, {'kind':'questions','questions':[{'text':'Which repair?'}]},
+            original['completion']['collaboration'],
+            {'kind':'connected_page','title':'Repair workshop','read_id':str(uuid4()),'quote':'Repair the lantern.',
+             'person_label':None,'relationships':[],'instructions':'A proposed workshop.'},
+            {'kind':'relationship','read_id':str(uuid4()),'quote':'Repair the lantern.','source':{'label':'Keeper','kind':'npc'},
+             'target':{'label':'Trader','kind':'npc'},'predicate':'works_with','label':'Proposed collaboration','context':'Proposed, not played.'}]
+        with psycopg.connect(_ready_dsn()) as conn:
+            for collaboration in variants:
+                changed=deepcopy(original['completion']);changed['collaboration']=collaboration
+                with conn.transaction(force_rollback=True):
+                    conn.execute('UPDATE agent.turn SET completion=%s WHERE turn_id=%s',(Jsonb(changed),turn.turn_id))
+                for field,kind in [('connected_page_review_policy','connected_page'),('relationship_review_policy','relationship')]:
+                    execution=deepcopy(original['graph_context_execution']);execution['policy'].pop(field)
+                    if collaboration and collaboration['kind']==kind:
+                        with pytest.raises(psycopg.errors.CheckViolation):
+                            with conn.transaction():conn.execute('UPDATE agent.turn SET completion=%s,graph_context_execution=%s WHERE turn_id=%s',(Jsonb(changed),Jsonb(execution),turn.turn_id))
+                    else:
+                        with conn.transaction(force_rollback=True):conn.execute('UPDATE agent.turn SET completion=%s,graph_context_execution=%s WHERE turn_id=%s',(Jsonb(changed),Jsonb(execution),turn.turn_id))
+            assert conn.execute('SELECT completion FROM agent.turn WHERE turn_id=%s',(turn.turn_id,)).fetchone()[0]==original['completion']
     bindings=json.loads(harness.adapter._prepared_build_writer_projection.source_bindings_json)
     assert bool(bindings)==selected
     from application_state.agent_conversation.source_writer_output import validate_writer_format

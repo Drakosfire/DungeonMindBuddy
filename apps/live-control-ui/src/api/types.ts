@@ -1180,7 +1180,8 @@ export interface WorldBuildRelatedPageCompletionV1 extends Omit<WorldBuildDraftC
 }
 export type ConversationCollaborationV1 = {kind:"plan";steps:{text:string;kind:"discuss"|"prepare_insertion"}[]} | {kind:"questions";questions:{text:string}[]};
 export type ConversationCollaborationV2 = {kind:'plan';objective:string;steps:{text:string;kind:'discuss'|'prepare_insertion'}[]} | {kind:'questions';questions:{text:string}[]};
-export type ConversationCollaboration = ConversationCollaborationV1 | ConversationCollaborationV2;
+export type ConversationCollaborationV3 = {kind:'plan';objective:string;steps:{text:string;kind:'discuss'|'prepare_insertion';selected:boolean}[]} | {kind:'questions';questions:{text:string}[]};
+export type ConversationCollaboration = ConversationCollaborationV1 | ConversationCollaborationV2 | ConversationCollaborationV3;
 export interface WorldBuildCollaborationCompletionV1 extends Omit<WorldBuildRelatedPageCompletionV1,"schema"> {
   schema:"dmb_build_collaboration_completion_v1";
   collaboration:ConversationCollaborationV1|null;
@@ -1208,7 +1209,15 @@ export interface WorldBuildRelationshipReviewCompletionV2 extends Omit<WorldBuil
  schema:'dmb_build_relationship_review_completion_v2';
  collaboration:ConversationCollaborationV2|ConversationConnectedPageProposal|ConversationRelationshipProposal|null;
 }
-export type WorldBuildSourceCompletion = WorldBuildIntentionalResponseCompletionV2 | WorldBuildRelationshipReviewCompletionV2 | WorldBuildIntentionalResponseCompletionV1 | WorldBuildRelationshipReviewCompletionV1 | WorldBuildConnectedPageReviewCompletionV1 | WorldBuildCollaborationCompletionV1 | WorldBuildRelatedPageCompletionV1 | WorldBuildGraphCompletionV2 | WorldBuildNamedGraphCompletionV3 | WorldBuildDraftContextCompletionV1;
+export interface WorldBuildIntentionalResponseCompletionV3 extends Omit<WorldBuildIntentionalResponseCompletionV2,'schema'|'collaboration'> {
+ schema:'dmb_build_intentional_response_completion_v3';
+ collaboration:ConversationCollaborationV3|ConversationConnectedPageProposal|ConversationRelationshipProposal|null;
+}
+export interface WorldBuildRelationshipReviewCompletionV3 extends Omit<WorldBuildRelationshipReviewCompletionV2,'schema'|'collaboration'> {
+ schema:'dmb_build_relationship_review_completion_v3';
+ collaboration:ConversationCollaborationV3|ConversationConnectedPageProposal|ConversationRelationshipProposal|null;
+}
+export type WorldBuildSourceCompletion = WorldBuildIntentionalResponseCompletionV3 | WorldBuildRelationshipReviewCompletionV3 | WorldBuildIntentionalResponseCompletionV2 | WorldBuildRelationshipReviewCompletionV2 | WorldBuildIntentionalResponseCompletionV1 | WorldBuildRelationshipReviewCompletionV1 | WorldBuildConnectedPageReviewCompletionV1 | WorldBuildCollaborationCompletionV1 | WorldBuildRelatedPageCompletionV1 | WorldBuildGraphCompletionV2 | WorldBuildNamedGraphCompletionV3 | WorldBuildDraftContextCompletionV1;
 
 export interface SurfaceSourceCompletionV1 {
   schema: "dmb_surface_source_completion_v1";

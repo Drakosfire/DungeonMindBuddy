@@ -605,10 +605,14 @@ class IntentionalWriterAnswer(_Frozen):
     collaboration: RelationshipCollaboration | None
 
 
-from .relationship_review import RelationshipCollaborationV2
+from .relationship_review import RelationshipCollaborationV2, RelationshipCollaborationV3
 
 class IntentionalWriterAnswerV2(IntentionalWriterAnswer):
     collaboration: RelationshipCollaborationV2 | None
+
+
+class IntentionalWriterAnswerV3(IntentionalWriterAnswer):
+    collaboration: RelationshipCollaborationV3 | None
 
 
 def normalize(raw, packet):
@@ -636,7 +640,8 @@ def normalize(raw, packet):
     if canonical(contract) != canonical(expected):
         raise ValueError("Writer response contract changed")
     from .plan_objective import KEY
-    answer = (IntentionalWriterAnswerV2 if KEY in packet else IntentionalWriterAnswer).model_validate(
+    from .plan_objective import selection_packet
+    answer = (IntentionalWriterAnswerV3 if selection_packet(packet) else IntentionalWriterAnswerV2 if KEY in packet else IntentionalWriterAnswer).model_validate(
         validate_and_project(strict_json(raw), packet)
     )
     kinds = {s.kind for s in answer.answer_segments}

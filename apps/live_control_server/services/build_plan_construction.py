@@ -6,8 +6,9 @@ import json
 class PlanStepProgress:
     """Single pass over JSON tokens, retaining only complete direct plan steps."""
 
-    def __init__(self, collaboration_path=("collaboration",), *, objective_required=False):
+    def __init__(self, collaboration_path=("collaboration",), *, objective_required=False, selection_required=False):
         self.objective_required = objective_required
+        self.selection_required = selection_required
         self.objective = None
         self.collaboration_path = collaboration_path
         self.steps_path = (*collaboration_path, "steps")
@@ -143,7 +144,8 @@ class PlanStepProgress:
                         row = top["values"]
                         if (
                             top["type"] != "{"
-                            or set(row) != {"text", "kind"}
+                            or set(row) != ({"text", "kind", "selected"} if self.selection_required else {"text", "kind"})
+                            or self.selection_required and type(row.get("selected")) is not bool
                             or not isinstance(row["text"], str)
                             or not row["text"].strip()
                             or row["kind"] not in {"discuss", "prepare_insertion"}

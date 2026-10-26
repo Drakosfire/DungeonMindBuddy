@@ -17,3 +17,9 @@ it('reveals a complete outcome before the first row without creating editing or 
  expect(screen.getByText('Expected outcome')).toBeInTheDocument();expect(screen.getByText('Develop a useful shop scene.')).toBeInTheDocument();
  expect(visible).toHaveBeenCalledTimes(1);expect(screen.queryByRole('textbox')).toBeNull();expect(screen.queryByRole('button')).toBeNull();
 });
+
+it('shows true and false proposed choices as inert observations',()=>{
+ render(<SurfacePlanConstructionPreview steps={[{text:'Discuss first.',kind:'discuss',selected:true},{text:'Write later.',kind:'prepare_insertion',selected:false}]} status="building"/>);
+ const rows=screen.getAllByRole('listitem');expect(rows[0]).toHaveTextContent('☑');expect(rows[1]).toHaveTextContent('☐');
+ expect(screen.queryByRole('checkbox')).toBeNull();expect(screen.queryByRole('button')).toBeNull();
+});

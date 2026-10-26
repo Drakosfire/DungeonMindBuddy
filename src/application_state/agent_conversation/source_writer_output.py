@@ -379,6 +379,17 @@ def validate_writer_format(fmt: dict, packet: dict) -> None:
         if fmt != {'type':'json_schema','name':SCOPE_FORMAT,'schema':schema,'strict':True}:
             raise ValueError('Scoped discussion finite schema differs')
         return
+    from .plan_objective import selection_packet, INTENTIONAL_SELECTION_FORMAT, REVIEWED_SELECTION_FORMAT, selected_schema_digest, schema_digest
+    if selection_packet(packet) or name in {INTENTIONAL_SELECTION_FORMAT,REVIEWED_SELECTION_FORMAT}:
+        expected=INTENTIONAL_SELECTION_FORMAT if 'response_contract' in packet else REVIEWED_SELECTION_FORMAT
+        if not selection_packet(packet) or name!=expected:
+            raise ValueError('Plan selection marker and writer format differ')
+        from .build_intentional_response import output_schema as intentional_schema
+        from .build_draft_answer import output_schema as draft_schema
+        schema=intentional_schema(packet) if 'response_contract' in packet else draft_schema(packet)
+        if fmt!={'type':'json_schema','name':expected,'schema':schema,'strict':True} or selected_schema_digest(schema)!=schema_digest(True):
+            raise ValueError('Plan selection schema differs from its exact contract')
+        return
     from .connected_page_origins import KEY as ORIGIN_KEY, FORMAT as ORIGIN_FORMAT, packet_rows as origin_rows
     if ORIGIN_KEY in packet or name == ORIGIN_FORMAT:
         from .build_intentional_response import output_schema as intentional_schema
@@ -535,6 +546,7 @@ def validate_completion_proof(result, turn, trace: dict) -> None:
 
 def reconstruct(raw_output: str, packet: dict, turn, auth):
     """Select the persisted shape from actual input, never caller preference."""
+    from .plan_objective import selection_packet
     from . import types as t
 
     execution = turn.graph_context_execution
@@ -696,11 +708,11 @@ def reconstruct(raw_output: str, packet: dict, turn, auth):
         basis = ('working_draft_context' if 'working_draft_context' in packet else
                  ('saved_source_and_opened_passages' if citations else 'saved_source') if any(s['kind'] == 'saved_source_claim' for s in segments) else
                  'opened_source_passages' if citations else 'conversation')
-        return (t.BuildIntentionalResponseCompletionV2 if "plan_output_contract" in packet else t.BuildIntentionalResponseCompletionV1)(context_receipt_sha256=receipt_sha,
+        return (t.BuildIntentionalResponseCompletionV3 if selection_packet(packet) else t.BuildIntentionalResponseCompletionV2 if "plan_output_contract" in packet else t.BuildIntentionalResponseCompletionV1)(context_receipt_sha256=receipt_sha,
             answer_basis=basis, answer_context_status=candidate['answer_context_status'],
             answer_segments=segments, source_citations=citations, collaboration=candidate['collaboration']), bindings
     if "working_draft_context" in packet:
-        return (t.BuildRelationshipReviewCompletionV2 if "plan_output_contract" in packet else t.BuildRelationshipReviewCompletionV1 if getattr(execution.policy,"relationship_review_policy",None) is not None else t.BuildConnectedPageReviewCompletionV1 if getattr(execution.policy,"connected_page_review_policy",None) is not None else t.BuildCollaborationCompletionV1 if getattr(execution.policy,"collaboration_output_policy",None) is not None else t.BuildRelatedPageCompletionV1 if getattr(execution.policy,"related_page_context_policy",None) is not None else t.BuildDraftContextCompletionV1)(context_receipt_sha256=receipt_sha,
+        return (t.BuildRelationshipReviewCompletionV3 if selection_packet(packet) else t.BuildRelationshipReviewCompletionV2 if "plan_output_contract" in packet else t.BuildRelationshipReviewCompletionV1 if getattr(execution.policy,"relationship_review_policy",None) is not None else t.BuildConnectedPageReviewCompletionV1 if getattr(execution.policy,"connected_page_review_policy",None) is not None else t.BuildCollaborationCompletionV1 if getattr(execution.policy,"collaboration_output_policy",None) is not None else t.BuildRelatedPageCompletionV1 if getattr(execution.policy,"related_page_context_policy",None) is not None else t.BuildDraftContextCompletionV1)(context_receipt_sha256=receipt_sha,
             **({"collaboration": candidate["collaboration"]} if "collaboration" in candidate else {}),
             answer_context_status=candidate["answer_context_status"], answer_segments=segments,
             source_citations=citations), bindings
