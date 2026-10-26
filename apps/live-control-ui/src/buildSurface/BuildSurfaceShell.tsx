@@ -320,7 +320,7 @@ export function BuildSurfaceShell({ onEditorTools, onReviewTarget }: { onEditorT
   }, [session.editor]);
   const composeBridge = useMemo(() => createBuildComposeBridge(() => composeCurrent.current,
     editor => composeChanged.current(editor.getJSON(), editor, { programmatic: false }),
-    (basis,afterEditor,afterDraft)=>saveBuildProposal(()=>saveOwner.current,basis,afterEditor,afterDraft)), []);
+    (basis,afterEditor,afterDraft,savedProjection)=>saveBuildProposal(()=>saveOwner.current,basis,afterEditor,afterDraft,savedProjection)), []);
   const lastAcceptedCampaignRef = useRef<string>("build");
   const [navigationTarget, setNavigationTarget] = useState<BuildSourceNavigationTarget>(
     IDLE_SOURCE_NAVIGATION_TARGET,
