@@ -107,10 +107,14 @@ def _map_sources(
     request: WorldGraphInitializationRequest,
     *,
     requested_initialized_at: datetime,
+    sources: Any = None,
+    require_existing_source: bool = False,
 ) -> tuple[list[Any], list[Any], dict[tuple[str, str], str]]:
     from apps.live_control_server.integrations.dungeonmind.world_graph_source_admission_adapter import (
         _digest_from_buddy_revision,
         _dm_revision_id,
+        catalog_aware_source_revision_ids,
+        WorldGraphSourceAdmissionError,
         _parse_optional_aware,
         _store_artifact_v2,
     )
@@ -119,7 +123,18 @@ def _map_sources(
     artifact = request.source_artifact
     artifact_id = str(artifact.source_artifact_id)
     buddy_revision = request.source_revision_token
-    dm_revision_id = _dm_revision_id(buddy_revision, artifact_id, set())
+    if sources is None:
+        dm_revision_id = _dm_revision_id(buddy_revision, artifact_id)
+    else:
+        try:
+            dm_revision_id = catalog_aware_source_revision_ids(
+                sources, request.world_id, {(artifact_id, buddy_revision)},
+                require_existing=require_existing_source,
+            )[(artifact_id, buddy_revision)]
+        except WorldGraphSourceAdmissionError as exc:
+            raise WorldGraphInitializationError(
+                str(exc), code="integrity_failure", details=exc.details,
+            ) from exc
     digest = _digest_from_buddy_revision(buddy_revision)
     if digest is None:
         digest = _hex_digest(getattr(artifact, "content_sha256", "") or "")
@@ -253,6 +268,8 @@ def _build_command(
     request: WorldGraphInitializationRequest,
     *,
     requested_initialized_at: datetime,
+    sources: Any = None,
+    require_existing_source: bool = False,
 ):
     from dungeonmind.contracts.reviewed_world_initialization import (
         ReviewedWorldInitializationCommandV2,
@@ -262,7 +279,8 @@ def _build_command(
     if request.source_plan_schema != expected_plan:
         raise WorldGraphInitializationError("This review plan is out of date. Prepare and review it again.", code="inexpressible", details={"reason": "stale_review_plan"})
     artifacts, revisions, pair_to_dm = _map_sources(
-        request, requested_initialized_at=requested_initialized_at
+        request, requested_initialized_at=requested_initialized_at,
+        sources=sources, require_existing_source=require_existing_source,
     )
     contribution = _map_contribution(request, pair_to_dm, artifacts)
     command = ReviewedWorldInitializationCommandV2(
@@ -510,7 +528,10 @@ class DungeonMindWorldGraphInitializationAdapter:
         else:
             clock = self._now or (lambda: datetime.now(UTC))
             requested_at = clock()
-        command = _build_command(request, requested_initialized_at=requested_at)
+        command = _build_command(
+            request, requested_initialized_at=requested_at,
+            sources=bundle.sources, require_existing_source=had_matching_receipt,
+        )
         try:
             provider_receipt = initialize_reviewed_world(
                 command,
@@ -520,7 +541,7 @@ class DungeonMindWorldGraphInitializationAdapter:
             return _receipt_from_provider(
                 provider_receipt, had_receipt=had_matching_receipt
             )
-        except IdempotencyConflictError:
+        except IdempotencyConflictError as conflict:
             if had_matching_receipt:
                 raise _map_provider_error(
                     IdempotencyConflictError(
@@ -532,12 +553,7 @@ class DungeonMindWorldGraphInitializationAdapter:
                 repository, request.world_id
             )
             if refreshed is None:
-                raise _map_provider_error(
-                    IdempotencyConflictError(
-                        "reviewed-world initialization conflict without a durable receipt",
-                        details={"world_id": request.world_id},
-                    )
-                ) from None
+                raise _map_provider_error(conflict) from conflict
             if refreshed.initialization_id != request.initialization_id:
                 raise WorldGraphInitializationError(
                     "world already has a reviewed initialization with a different id",
@@ -555,7 +571,8 @@ class DungeonMindWorldGraphInitializationAdapter:
                 raise _map_provider_error(exc) from exc
             _require_receipt_head_coherent(request.world_id, refreshed, refreshed_head)
             replay_command = _build_command(
-                request, requested_initialized_at=refreshed.initialized_at
+                request, requested_initialized_at=refreshed.initialized_at,
+                sources=bundle.sources, require_existing_source=True,
             )
             try:
                 provider_receipt = initialize_reviewed_world(

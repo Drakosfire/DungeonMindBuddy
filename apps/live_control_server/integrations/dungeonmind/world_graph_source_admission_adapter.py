@@ -134,29 +134,24 @@ def _reverse_revision_id(dm_revision_id: str, artifact_id: str | None) -> str:
     return dm_revision_id
 
 
-def _dm_revision_id(
-    buddy_revision_id: str,
-    artifact_id: str,
-    colliding_revision_ids: set[str],
-) -> str:
-    """Publisher collision suffix. Same values as the historical adoption helper."""
-    if buddy_revision_id in colliding_revision_ids:
-        return f"{buddy_revision_id}::{artifact_id}"
-    return buddy_revision_id
+def _dm_revision_id(buddy_revision_id: str, artifact_id: str) -> str:
+    """New revision identity binds both immutable bytes and their owning artifact."""
+    return f"{buddy_revision_id}::{artifact_id}"
 
 
 def catalog_aware_source_revision_ids(
     sources: Any,
     world_id: str,
     pairs: set[tuple[str, str]],
+    *,
+    require_existing: bool = False,
 ) -> dict[tuple[str, str], str]:
     """Map (artifact_id, buddy_token) onto catalog-aware DungeonMind revision IDs.
 
-    Shared collision algorithm for Graph Review admission and governed publish.
-    Do not mint via ``_dm_revision_id(..., set())``.
+    Persisted catalog identities are authoritative. New identities include the
+    artifact even when no collision is currently visible, including across Worlds.
     """
     pair_to_dm: dict[tuple[str, str], str] = {}
-    token_artifacts: dict[str, set[str]] = {}
     try:
         artifacts = sources.list_artifacts_for_world(world_id)
         for artifact in artifacts:
@@ -164,12 +159,10 @@ def catalog_aware_source_revision_ids(
                 token = _reverse_revision_id(
                     revision.source_revision_id, artifact.source_artifact_id
                 )
-                pair_to_dm[(artifact.source_artifact_id, token)] = (
-                    revision.source_revision_id
-                )
-                token_artifacts.setdefault(token, set()).add(
-                    artifact.source_artifact_id
-                )
+                pair = (artifact.source_artifact_id, token)
+                if pair in pair_to_dm and pair_to_dm[pair] != revision.source_revision_id:
+                    raise ValueError("ambiguous persisted source revision identity")
+                pair_to_dm[pair] = revision.source_revision_id
     except Exception as exc:
         raise WorldGraphSourceAdmissionError(
             "DungeonMind authority read failed while resolving source identity",
@@ -177,16 +170,15 @@ def catalog_aware_source_revision_ids(
             details={"world_id": world_id, "reason": type(exc).__name__},
         ) from exc
 
-    for artifact_id, token in pairs:
-        token_artifacts.setdefault(token, set()).add(artifact_id)
-    colliding = {
-        token for token, artifacts in token_artifacts.items() if len(artifacts) > 1
-    }
     for artifact_id, token in sorted(pairs):
         if (artifact_id, token) not in pair_to_dm:
-            pair_to_dm[(artifact_id, token)] = _dm_revision_id(
-                token, artifact_id, colliding
-            )
+            if require_existing:
+                raise WorldGraphSourceAdmissionError(
+                    "Initialization receipt has no matching persisted source revision",
+                    code="source_identity_conflict",
+                    details={"world_id": world_id, "source_artifact_id": artifact_id},
+                )
+            pair_to_dm[(artifact_id, token)] = _dm_revision_id(token, artifact_id)
     return pair_to_dm
 
 

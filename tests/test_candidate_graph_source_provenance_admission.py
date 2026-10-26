@@ -834,7 +834,7 @@ def test_same_token_different_artifacts_collision_safe_through_prepare(
         source_admission=admission,
     )
     second_dm = second.review_package["effect"]["source_admission"]["source_revision_id"]
-    assert first_dm == token
+    assert first_dm == f"{token}::{ARTIFACT_ID}"
     assert second_dm == f"{token}::{other_id}"
     mapped = catalog_aware_source_revision_ids(
         admission.sources,
@@ -2004,3 +2004,27 @@ def test_reviewed_binding_prepare_binds_full_candidate_before_qualification(tmp_
     assert result.review_package["effect"]["node_id_map"][node["node_id"]] == "npc_guide"
     assert candidate == before
     assert context.exact_candidate_sha256 is None
+
+
+def test_new_source_revision_ids_are_artifact_scoped_without_catalog_races():
+    from types import SimpleNamespace
+    sources = SimpleNamespace(list_artifacts_for_world=lambda _: [])
+    token = 'sha256:' + 'a' * 64
+    first = catalog_aware_source_revision_ids(sources, 'world:first', {('artifact:first', token)})
+    second = catalog_aware_source_revision_ids(sources, 'world:second', {('artifact:second', token)})
+    assert first[('artifact:first', token)] == token + '::artifact:first'
+    assert second[('artifact:second', token)] == token + '::artifact:second'
+    assert first[('artifact:first', token)] != second[('artifact:second', token)]
+
+
+def test_source_revision_resolution_keeps_catalog_identity_and_requires_it_for_replay():
+    from types import SimpleNamespace
+    from apps.live_control_server.integrations.dungeonmind.world_graph_source_admission_adapter import WorldGraphSourceAdmissionError, catalog_aware_source_revision_ids
+    token = 'sha256:' + 'b' * 64
+    sources = SimpleNamespace(
+        list_artifacts_for_world=lambda _: [SimpleNamespace(source_artifact_id='artifact:kept')],
+        list_revisions=lambda _: [SimpleNamespace(source_revision_id=token)],
+    )
+    assert catalog_aware_source_revision_ids(sources, 'world:kept', {('artifact:kept', token)}, require_existing=True)[('artifact:kept', token)] == token
+    with pytest.raises(WorldGraphSourceAdmissionError, match='no matching persisted'):
+        catalog_aware_source_revision_ids(sources, 'world:kept', {('artifact:missing', token)}, require_existing=True)
