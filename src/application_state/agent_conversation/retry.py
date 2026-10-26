@@ -21,6 +21,9 @@ from .types import (
 )
 
 
+from .authored_graph_references import AuthoredGraphReferencesV1
+
+
 class RetryUnavailableError(ApplicationStateConflictError):
     """A new retry was refused before acceptance or provider authorization."""
 
@@ -45,6 +48,11 @@ class RetryContext(StrictModel):
         "inactive",
         "unverified",
     ]
+
+
+class RetryContextV2(RetryContext):
+    schema_: Literal['dmb_turn_retry_context_row_v2'] = Field(default='dmb_turn_retry_context_row_v2', alias='schema')
+    authored_references: AuthoredGraphReferencesV1
 
 
 def _edges(conn, turn):
@@ -180,7 +188,7 @@ def context(conn, turn, *, active):
         if isinstance(turn, Turn)
         else "not_terminal"
     )
-    return RetryContext(
+    value = RetryContext(
         world_id=meta.world_id,
         conversation_id=meta.conversation_id,
         turn_id=meta.turn_id,
@@ -192,6 +200,14 @@ def context(conn, turn, *, active):
         eligible=reason == "ready",
         reason=reason,
     ).model_dump(mode="json")
+    from .authored_graph_references import capture, policy_enabled
+    execution = getattr(turn, 'graph_context_execution', None)
+    if execution and policy_enabled(execution.policy):
+        # The capture is input retention, never a successful read or retry grant.
+        captures = [e for e in execution.events if e.kind == 'build_authored_references_captured_v1']
+        if captures:
+            return RetryContextV2(**value, authored_references=capture(execution).references).model_dump(mode='json', by_alias=True)
+    return value
 
 
 def validate_reference_retry(parent, intent):

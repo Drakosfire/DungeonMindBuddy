@@ -1,5 +1,6 @@
+import {authoredGraphReferences,readComposerReferences,writeComposerReferences} from './authoredGraphReferences';
 import {getWorkPlan,continueWorkPlan} from '../api/conversationWorkPlanApi';
-vi.mock('../api/conversationWorkPlanApi',()=>({getWorkPlan:vi.fn(async()=>null),saveWorkPlan:vi.fn(),continueWorkPlan:vi.fn()}));
+vi.mock('../api/conversationWorkPlanApi',async original=>({...await original<typeof import('../api/conversationWorkPlanApi')>(),getWorkPlan:vi.fn(async()=>null),saveWorkPlan:vi.fn(),continueWorkPlan:vi.fn()}));
 vi.mock('../api/conversationLibraryApi',()=>({
  listConversations:vi.fn(async(world:string,status:string)=>({schema:'dmb_conversation_library_v1',world_id:world,status,items:[{conversation_id:'33333333-3333-4333-8333-333333333333',world_id:world,title:'Archived named work',status:'archived',name_revision:1,turn_count:1,created_at:'2026-10-24T00:00:00Z',updated_at:'2026-10-24T00:00:00Z'}],next_before:null})),
  readConversationName:vi.fn(async(world:string,id:string)=>({conversation_id:id,world_id:world,title:'Archived named work',status:'archived',name_revision:1,turn_count:1,created_at:'2026-10-24T00:00:00Z',updated_at:'2026-10-24T00:00:00Z'})),
@@ -77,6 +78,7 @@ const RUN = "run-one";
 const SHA = "a".repeat(64);
 const WORK_REVISION = "00000000-0000-4000-8000-000000000011";
 const BUILD_SOURCE_ID = "build-source-one";
+const authoredRef=(node:string)=>({schema:'dmb_authored_graph_reference_v1' as const,managed_world_id:WORLD,native_world_id:'native',binding_version:1,graph_revision:'selected-revision',node_id:node,label:node});
 
 function buildSourceSnapshot(): WorkspaceDocumentSnapshot {
   const record: WorkspaceDocumentRecord = {
@@ -1054,9 +1056,11 @@ describe("one App-level World conversation host across Plan and Play", () => {
     const row={...base,provenance:{...base.provenance,surface_id:'build',surface_instance_id:'build-instance',primary_work:{...base.provenance.primary_work,kind:'build',object_id:'source-one'}}};
     vi.mocked(getWorldAgentConversationHistory).mockResolvedValue(history([row]));
     const stepId='11111111-1111-4111-8111-111111111111',clientId='22222222-2222-4222-8222-222222222222';
-    const p={schema:'dmb_reviewed_work_plan_v1' as const,world_id:WORLD,conversation_id:history().conversation_id!,source_turn_id:row.turn_id,source_answer_sha256:SHA,document_id:'source-one',revision:1,
-      steps:[{step_id:stepId,text:'Discuss the shop owner.',selected:true,kind:'discuss' as const}],dispatches:[],execution:[]};
-    const dispatch={command_id:stepId,step_id:stepId,client_thread_id:stepId,client_turn_id:clientId,message:'Continue exactly this reviewed discussion step.'};
+    const p={schema:'dmb_reviewed_work_plan_v3' as const,objective:'Discuss the chosen owner.',root_references:[],world_id:WORLD,conversation_id:history().conversation_id!,source_turn_id:row.turn_id,source_answer_sha256:SHA,document_id:'source-one',revision:1,
+      steps:[{step_id:stepId,text:'Discuss the shop owner.',selected:true,kind:'discuss' as const,references:[]}],dispatches:[],execution:[]};
+    const frozen=authoredGraphReferences([authoredRef('reviewed-box')]);
+    writeComposerReferences(sessionStorage,WORLD,'source-one',null,[authoredRef('newer-box')]);
+    const dispatch={schema:'dmb_work_plan_dispatch_v2' as const,authored_references:frozen,command_id:stepId,step_id:stepId,client_thread_id:stepId,client_turn_id:clientId,message:'Continue exactly this reviewed discussion step.'};
     vi.mocked(getWorkPlan).mockResolvedValue(p);
     vi.mocked(continueWorkPlan).mockResolvedValue({plan:{...p,revision:2,dispatches:[dispatch],execution:[{command_id:stepId,step_id:stepId,status:'awaiting_dispatch',turn_id:null,attempt:null,result:null}]},dispatch,reference:{conversation_id:p.conversation_id,source_turn_id:p.source_turn_id,command_id:dispatch.command_id}});
     vi.mocked(postWorldBuildAgentTurn).mockReturnValue(new Promise(()=>{}));
@@ -1072,6 +1076,8 @@ describe("one App-level World conversation host across Plan and Play", () => {
     expect(vi.mocked(postWorldBuildAgentTurn).mock.calls[0][0].build_draft_context?.conversation_id).toBe(p.conversation_id);
     expect(vi.mocked(postWorldBuildAgentTurn).mock.calls[0][0].build_write_capability).toBeDefined();
     expect(screen.getByLabelText('Message DungeonBuddy')).toHaveValue('My newer unsent author note');
+    expect(vi.mocked(postWorldBuildAgentTurn).mock.calls[0][0].build_authored_references).toEqual(frozen);
+    expect(readComposerReferences(sessionStorage,WORLD,'source-one').references[0].node_id).toBe('newer-box');
   });
 
   it('keeps failed author-bound steps on their saved-plan retry owner',async()=>{
@@ -2438,6 +2444,51 @@ describe("one App-level World conversation host across Plan and Play", () => {
     }
     expect(getHistoricalRulesPassage).not.toHaveBeenCalled();
     expect(postWorldPlanAgentTurn).toHaveBeenCalledTimes(1);
+  });
+
+  it('serializes composer references and reopens the exact pending snapshot after reload',async()=>{
+    const original=authoredGraphReferences([authoredRef('original-box')]);
+    writeComposerReferences(sessionStorage,WORLD,'source-one',null,original.references);
+    vi.mocked(getWorldAgentConversationHistory).mockResolvedValue(history());
+    let reject!:(reason:unknown)=>void;
+    vi.mocked(postWorldBuildAgentTurn).mockReturnValueOnce(new Promise((_,r)=>{reject=r})).mockReturnValue(new Promise(()=>{}));
+    const mounted=render(<Harness initial="build" buildBridge={retryBridge()}/>);
+    fireEvent.click(await screen.findByRole('button',{name:'Open',exact:true}));
+    const input=await screen.findByLabelText('Message DungeonBuddy');
+    expect(screen.getByText('@original-box')).toBeVisible();
+    fireEvent.change(input,{target:{value:'Discuss the selected box.'}});fireEvent.click(screen.getByRole('button',{name:'Send message'}));
+    await waitFor(()=>expect(postWorldBuildAgentTurn).toHaveBeenCalledTimes(1));
+    const request=vi.mocked(postWorldBuildAgentTurn).mock.calls[0][0];expect(request.build_authored_references).toEqual(original);
+    const key=`dmb:world-play-pending-turn:v1:${encodeURIComponent(WORLD)}`,pending=localStorage.getItem(key);
+    expect(pending).not.toBeNull();expect(JSON.parse(pending!).request.build_authored_references).toEqual(original);
+    fireEvent.change(input,{target:{value:'Keep my newer draft'}});
+    await act(async()=>reject(new LiveApiError('Session changed',401,{code:'local_graph_session_changed'})));
+    const draft=readComposerReferences(sessionStorage,WORLD,'source-one');
+    writeComposerReferences(sessionStorage,WORLD,'source-one',draft.serialized,[authoredRef('newer-box')]);
+    mounted.unmount();render(<Harness initial="build" buildBridge={retryBridge()}/>);
+    fireEvent.click(await screen.findByRole('button',{name:'Open',exact:true}));
+    expect(await screen.findByLabelText('Message DungeonBuddy')).toHaveValue('Keep my newer draft');
+    expect(screen.getByText('@newer-box')).toBeVisible();openConversationOptions();
+    fireEvent.click(await screen.findByRole('button',{name:'Retry exact saved turn'}));
+    await waitFor(()=>expect(postWorldBuildAgentTurn).toHaveBeenCalledTimes(2));
+    expect(vi.mocked(postWorldBuildAgentTurn).mock.calls[1][0]).toEqual(request);
+    expect(readComposerReferences(sessionStorage,WORLD,'source-one').references[0].node_id).toBe('newer-box');
+  });
+
+  it('retries from the saved V2 references while preserving unrelated composer references',async()=>{
+    const base=turn('plan',1,''),id='22222222-2222-4222-8222-000000000001',cid=history().conversation_id!;
+    const frozen=authoredGraphReferences([authoredRef('failed-box')]);
+    const terminal={...base,turn_id:id,lifecycle_status:'interrupted' as const,provenance:{...base.provenance,surface_id:'build',primary_work:{...base.provenance.primary_work,kind:'build',object_id:'source-one'}},retry_context:{schema:'dmb_turn_retry_context_row_v2' as const,authored_references:frozen,world_id:WORLD,conversation_id:cid,turn_id:id,revision:4,root_id:id,predecessor_id:null,successor_id:null,ordinal:0,eligible:true,reason:'ready' as const}};
+    vi.mocked(getWorldAgentConversationHistory).mockResolvedValue(history([terminal]));
+    vi.mocked(postWorldBuildAgentTurn).mockReturnValue(new Promise(()=>{}));
+    const newer=writeComposerReferences(sessionStorage,WORLD,'source-one',null,[authoredRef('newer-box')]);
+    render(<Harness initial="build" buildBridge={retryBridge()}/>);fireEvent.click(await screen.findByRole('button',{name:'Open',exact:true}));
+    fireEvent.change(await screen.findByLabelText('Message DungeonBuddy'),{target:{value:'My newer note'}});
+    fireEvent.click(await screen.findByRole('button',{name:'Retry question'}));
+    await waitFor(()=>expect(postWorldBuildAgentTurn).toHaveBeenCalledTimes(1));
+    expect(vi.mocked(postWorldBuildAgentTurn).mock.calls[0][0]).toMatchObject({retry_of:{turn_id:id,revision:4},build_authored_references:frozen,message:base.user_text});
+    expect(screen.getByLabelText('Message DungeonBuddy')).toHaveValue('My newer note');
+    expect(readComposerReferences(sessionStorage,WORLD,'source-one')).toEqual(newer);
   });
 
 });

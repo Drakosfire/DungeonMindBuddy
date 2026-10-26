@@ -1,3 +1,6 @@
+import {SurfaceGraphReferenceInput} from '../../surface/SurfaceGraphReferenceInput';
+import {isAuthoredGraphReferences,authoredGraphReferences,readComposerReferences,writeComposerReferences,composerReferenceKey,type ComposerReferenceDraft} from '../../agentInteraction/authoredGraphReferences';
+import type {AuthoredGraphReferenceV1} from '../../api/types';
 import {decodeRetryContext,type TurnRetryContext} from '../../api/conversationRetryApi';
 import {ConversationRetryAttempts} from '../../agentInteraction/ConversationRetryAttempts';
 import {StagedWorkPlan} from '../../surface/workPlans/StagedWorkPlan';
@@ -348,7 +351,8 @@ function readPendingPlayTurn(worldId: string): StoredPendingPlayTurn | null {
       ...(isRecord(value.request) && "build_write_capability" in value.request ? ["build_write_capability"] : []),
       ...(isRecord(value.request) && "build_draft_context" in value.request ? ["build_draft_context"] : []),
       ...(isRecord(value.request) && "reviewed_step" in value.request ? ["reviewed_step"] : []),
-      ...(isRecord(value.request) && "retry_of" in value.request ? ["retry_of"] : [])])
+      ...(isRecord(value.request) && "retry_of" in value.request ? ["retry_of"] : []),
+      ...(isRecord(value.request) && "build_authored_references" in value.request ? ["build_authored_references"] : [])])
     || value.request.schema !== "dmb_agent_turn_request_v1"
     || !commandUuid(value.request.client_thread_id) || !commandUuid(value.request.turn_id)
     || !hasExactKeys(value.request.surface, ["surface_id", "instance_id"])
@@ -381,6 +385,9 @@ function readPendingPlayTurn(worldId: string): StoredPendingPlayTurn | null {
       || !hasExactKeys(value.request.reviewed_step,["conversation_id","source_turn_id","command_id"])
       || !commandUuid(value.request.reviewed_step.conversation_id)||!commandUuid(value.request.reviewed_step.source_turn_id)||!commandUuid(value.request.reviewed_step.command_id)
       || !isRecord(value.request.build_draft_context)||value.request.reviewed_step.conversation_id!==value.request.build_draft_context.conversation_id))
+    || ("build_authored_references" in value.request && (value.request.surface.surface_id!=='build'
+      || !isRecord(value.request.graph_request)||value.request.graph_request.mode!=='world'
+      || !isAuthoredGraphReferences(value.request.build_authored_references,worldId)))
     || value.request.graph_selection !== null || typeof value.request.message !== "string"
     || !value.request.message.trim()) {
     throw new Error("The saved Play request is malformed. It was retained and cannot be retried automatically.");
@@ -2536,6 +2543,23 @@ export function WorldPlanAgentConversation({
   }, [verifiedWorldId]);
   const [graphCredentialStatus, setGraphCredentialStatus] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const referenceWorld=isBuild?verifiedWorldId:null,referencePage=isBuild?buildMode?.savedSource?.documentId:null;
+  const referenceScopeKey=referenceWorld&&referencePage?composerReferenceKey(referenceWorld,referencePage):null;
+  const [composerReferenceState,setComposerReferenceState]=useState<{key:string|null;draft:ComposerReferenceDraft|null;error:string|null}>({key:null,draft:null,error:null});
+  const composerReferences=composerReferenceState.key===referenceScopeKey?composerReferenceState.draft?.references??[]:[];
+  const composerReferencesReady=!referenceScopeKey||composerReferenceState.key===referenceScopeKey&&!!composerReferenceState.draft&&!composerReferenceState.error;
+  const composerDraftsRef=useRef(composerDrafts);composerDraftsRef.current=composerDrafts;
+  useLayoutEffect(()=>{
+    if(!referenceWorld||!referencePage){setComposerReferenceState({key:null,draft:null,error:null});return;}
+    try{setComposerReferenceState({key:referenceScopeKey,draft:readComposerReferences(sessionStorage,referenceWorld,referencePage),error:null});}
+    catch(reason){setComposerReferenceState({key:referenceScopeKey,draft:null,error:String(reason)});}
+  },[referenceWorld,referencePage,referenceScopeKey]);
+  function changeComposerReferences(references:AuthoredGraphReferenceV1[]){
+    if(!referenceWorld||!referencePage||composerReferenceState.key!==referenceScopeKey||!composerReferenceState.draft)throw new Error('Reopen the current page composer before choosing references.');
+    const draft=writeComposerReferences(sessionStorage,referenceWorld,referencePage,composerReferenceState.draft.serialized,references);
+    composerEditGenerationRef.current+=1;setComposerReferenceState({key:referenceScopeKey,draft,error:null});
+  }
+
   const uncertainPlanNoticeRef = useRef<{ turnId: string; message: string } | null>(null);
   const uncertainPlayNoticeRef = useRef<{ turnId: string; message: string } | null>(null);
   const [editError, setEditError] = useState<string | null>(null);
@@ -3925,6 +3949,16 @@ export function WorldPlanAgentConversation({
         && (["play_context_unavailable", "world_owner_unverified", "build_source_unavailable", "build_editor_context_changed", "reviewed_step_unavailable", "build_retry_unavailable"].includes(reason.code ?? "")
           || reason.status === 401 || reason.status === 403);
       if (rejectedBeforeDispatch) {
+        const refs=request.primary_work.kind==='build'?(request as WorldBuildAgentTurnRequestV1).build_authored_references:undefined;
+        if(refs&&!(request as WorldBuildAgentTurnRequestV1).reviewed_step){
+          try{
+            const world=request.owner_scope.world_id,page=request.primary_work.object_id,key=`build:${page}`;
+            const newer=composerDraftsRef.current[key],draft=readComposerReferences(sessionStorage,world,page);
+            if(newer&&newer!==request.message||draft.references.length&&JSON.stringify(draft.references)!==JSON.stringify(refs.references))throw new Error('A newer composer draft is present. The original request and references remain in saved-request recovery.');
+            const restored=writeComposerReferences(sessionStorage,world,page,draft.serialized,refs.references);
+            if(referenceScopeKey===composerReferenceKey(world,page))setComposerReferenceState({key:referenceScopeKey,draft:restored,error:null});
+          }catch(recoveryError){setError(String(recoveryError));sharedConversation?.setHistoryRefreshNonce(n=>n+1);return;}
+        }
         if (clearSavedPlayTurn(stored)) {
           sharedConversation?.setPendingTurn((current) => current?.turnId === request.turn_id ? null : current);
           setSubmittedMessage(current => current?.id === request.turn_id ? null : current);
@@ -3978,7 +4012,14 @@ export function WorldPlanAgentConversation({
         || requestRef.current || sharedConversation?.pendingTurn || pendingPlayTurn || pendingPlayLoadError) return;
       if (discussionOnly && !visibleBuildPlacementFailure) return;
       if(explicitRequest?.reviewedStep&&!useWorldGraphForAsk)throw new Error('Enable World context, then resume this step from its saved plan. Nothing was sent.');
+      if(!retryOf&&!explicitRequest&&!composerReferencesReady){setError('The local Graph reference selection needs recovery; no request was sent.');return;}
+      const referenceInput=retryOf?.schema==='dmb_turn_retry_context_row_v2'?retryOf.authored_references
+        :retryOf?undefined:explicitRequest?explicitRequest.authoredReferences
+        :composerReferences.length?authoredGraphReferences(composerReferences):undefined;
+      if(referenceInput&&!useWorldGraphForAsk){setError('Enable World context to read the selected Graph references. Nothing was sent.');return;}
+      const referenceDraftAtSubmit=composerReferenceState.draft;
       const request: WorldBuildAgentTurnRequestV1 = {
+        ...(referenceInput?{build_authored_references:referenceInput}:{}),
         ...(explicitRequest?.reviewedStep?{reviewed_step:explicitRequest.reviewedStep}:{}),
         ...(retryOf?{retry_of:{turn_id:retryOf.turn_id,revision:retryOf.revision}}:{}),
         schema: "dmb_agent_turn_request_v1", client_thread_id: explicitRequest?.clientThreadId ?? crypto.randomUUID(), turn_id: explicitRequest?.turnId ?? crypto.randomUUID(),
@@ -4054,7 +4095,13 @@ export function WorldPlanAgentConversation({
       if(explicitRequest)acceptSurfaceConversationRequest(explicitRequest.id);
       const stored = { storageKey, serialized, request };
       setPendingPlayTurn(stored);
-      if(composerEditGenerationRef.current===composerGenerationAtSubmit)setComposerMessage(current => current.trim() === message ? "" : current);
+      if(!retryOf&&!explicitRequest&&questionOverride===undefined&&composerEditGenerationRef.current===composerGenerationAtSubmit){
+        if(referenceWorld&&referencePage&&referenceDraftAtSubmit&&referenceInput){
+          try{const draft=writeComposerReferences(sessionStorage,referenceWorld,referencePage,referenceDraftAtSubmit.serialized,[]);setComposerReferenceState({key:referenceScopeKey,draft,error:null});}
+          catch(reason){setError(String(reason));}
+        }
+        setComposerMessage(current => current.trim() === message ? "" : current);
+      }
       await dispatchSavedPlayTurn(stored);
       return;
     }
@@ -5766,7 +5813,7 @@ export function WorldPlanAgentConversation({
                   const expectedEpoch=buildPlacementEpoch;
                   queueSurfaceConversationRequest({id:`reviewed-plan:${dispatch.client_turn_id}`,worldId:plan.world_id,surfaceId:'build',objectId:plan.document_id,
                     message:dispatch.message,clientThreadId:dispatch.client_thread_id,turnId:dispatch.client_turn_id,
-                    ...(reference?{reviewedStep:reference}:{}),
+                    ...(reference?{reviewedStep:reference}:{}),...(dispatch.authored_references?{authoredReferences:dispatch.authored_references}:{}),
                     isCurrent:()=>latestRef.current.mounted&&latestRef.current.buildPlacementFenceKey===expectedFence&&latestRef.current.buildPlacementEpoch===expectedEpoch&&latestRef.current.verifiedWorldId===plan.world_id
                       &&latestRef.current.buildDocumentId===plan.document_id&&surfaceVisibleRef.current&&historySnapshotRef.current?.conversation_id===plan.conversation_id
                       &&historySnapshotRef.current?.active_conversation_id===plan.conversation_id});
@@ -6417,6 +6464,10 @@ export function WorldPlanAgentConversation({
           placeholder={isReadOnly ? (isBuild ? "Ask about your World, or ask me to add something to this page…" : playEditMode ? "Tell Buddy what to change in this scene…" : "Ask about this Run…") : "Ask Buddy, or tell it what to change…"}
           aria-describedby={`world-plan-agent-composer-hint${buildSourceMissing ? ` ${BUILD_SOURCE_REQUIRED_DESCRIPTION_ID}` : ""}`}
         />
+        {isBuild&&referenceWorld&&referencePage&&<>
+          <SurfaceGraphReferenceInput worldId={referenceWorld} label="Message Graph context" value={composerReferences} disabled={(isReadOnly?!currentReadOnlyContext:!scopeMatches)||!composerReferencesReady} onChange={changeComposerReferences}/>
+          {composerReferenceState.error&&<p role="alert">{composerReferenceState.error}</p>}
+        </>}
         <div className="world-plan-agent-conversation__composer-footer">
           {buildSourceMissing ? <>
             <p id={BUILD_SOURCE_REQUIRED_DESCRIPTION_ID} className="world-plan-agent-conversation__notice" role="note" style={{ gridColumn: "1 / -1" }}>

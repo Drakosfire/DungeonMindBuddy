@@ -105,3 +105,28 @@ def test_discussion_keeps_authored_reads_without_asking_for_a_relevance_vote(bui
     selections = [e for e in turn.graph_context_execution.events if isinstance(e, t.BuildWriterEvidenceSelectionV1)]
     assert len(selections) == 1
     assert not mandatory.intersection(selections[0].source_event_ids)
+
+def test_missing_origin_retains_selected_input_without_authorizing_a_provider(build_case, monkeypatch, tmp_path):
+    case, _ = referenced_case(build_case, monkeypatch, authoring=False)
+    from apps.live_control_server.integrations.dungeonmind import world_graph_reads as native
+    from apps.live_control_server.services.agent_turn_service import AgentTurnServiceError
+    original = native.get_object_direct
+    monkeypatch.setattr(native, 'get_object_direct', lambda services, query: original(services, query).model_copy(update={'nodes': []}))
+    decisions, writer = WorldDecisions(), WriterWire()
+    harness = BuildJevHarness(world_context=True, named_citations=True, related_pages=True,
+        accounting=counter(), decision_transport=decisions, writer_transport=writer)
+    with pytest.raises(AgentTurnServiceError, match='absent from its original snapshot'):
+        execute(case, tmp_path, harness)
+    assert not decisions.calls and not writer.calls
+    service = AgentConversationService()
+    pointer = service.get_world_pointer('elderwyld')
+    turn = service.list_turns('elderwyld', pointer.active_conversation_id)[0]
+    captures = [e for e in turn.graph_context_execution.events if isinstance(e, t.BuildAuthoredReferencesCapturedV1)]
+    assert len(captures) == 1 and captures[0].references == case[1].build_authored_references
+    from application_state.agent_conversation import retry
+    from application_state.unit_of_work import unit_of_work
+    from application_state.agent_conversation.service import _ready_dsn
+    with unit_of_work(_ready_dsn()) as conn:
+        context = retry.context(conn, turn, active=True)
+    assert context['schema'] == 'dmb_turn_retry_context_row_v2'
+    assert context['authored_references'] == captures[0].references.model_dump(mode='json', by_alias=True)

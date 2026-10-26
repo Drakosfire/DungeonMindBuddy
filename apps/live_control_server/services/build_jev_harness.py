@@ -326,6 +326,10 @@ class BuildJevHarness:
             return adapter.complete_build_writer(result)
         except Exception as exc:
             primary_error = True
+            if adapter.request.build_authored_references is not None and adapter.failure is not None:
+                # The SDK's gate error must not hide the parent's precise refused read.
+                self._capture_failure(adapter, adapter.failure)
+                raise adapter.failure from exc
             self._capture_failure(adapter, exc)
             raise
         finally:

@@ -1,10 +1,13 @@
-import type {ReviewedStepReference} from '../api/types';
+import {canonical} from '../shared/sourcePassageProtocol';
+import {isAuthoredGraphReferences} from './authoredGraphReferences';
+import type {AuthoredGraphReferencesV1,ReviewedStepReference} from '../api/types';
 import {useSyncExternalStore} from 'react';
 import {SELECTED_WORLD_LOCATION_CHANGED_EVENT} from '../selectedWorld/SelectedWorldContext';
 
 export interface SurfaceConversationRequest {
   id:string;worldId:string;surfaceId:string;objectId:string;message:string;clientThreadId:string;turnId:string;
   reviewedStep?:ReviewedStepReference;
+  authoredReferences?:AuthoredGraphReferencesV1;
   status:'pending'|'claimed'|'failed';isCurrent:()=>boolean;prepare?:(context:unknown)=>Promise<void>;
 }
 let requests:readonly SurfaceConversationRequest[]=[];
@@ -14,10 +17,11 @@ const subscribe=(listener:()=>void)=>{listeners.add(listener);return()=>{listene
 export const useSurfaceConversationRequests=()=>useSyncExternalStore(subscribe,()=>requests,()=>requests);
 const remove=(id:string)=>{requests=requests.filter(item=>item.id!==id);emit();};
 export function queueSurfaceConversationRequest(request:Omit<SurfaceConversationRequest,'status'>){
+  if(request.authoredReferences!==undefined&&!isAuthoredGraphReferences(request.authoredReferences,request.worldId))throw new Error('Graph references belong to a different request World.');
   if(!request.isCurrent())throw new Error('The authoring destination changed. Open its page to continue.');
   const existing=requests.find(item=>item.id===request.id);
   if(existing){
-    if(existing.worldId!==request.worldId||existing.surfaceId!==request.surfaceId||existing.objectId!==request.objectId||existing.message!==request.message||JSON.stringify(existing.reviewedStep)!==JSON.stringify(request.reviewedStep))
+    if(existing.worldId!==request.worldId||existing.surfaceId!==request.surfaceId||existing.objectId!==request.objectId||existing.message!==request.message||JSON.stringify(existing.reviewedStep)!==JSON.stringify(request.reviewedStep)||canonical(existing.authoredReferences??null)!==canonical(request.authoredReferences??null))
       throw new Error('A different authoring request already owns this action.');
     if(existing.status==='failed')retrySurfaceConversationRequest(existing.id);
     return;

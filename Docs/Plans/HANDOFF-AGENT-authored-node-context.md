@@ -418,3 +418,37 @@ optional field. Extend the picker binding lease also to these exact typed consum
 - `apps/live-control-ui/src/planSurface/components/WorldPlanGraphReferenceActivation.test.tsx`
 Set `managedBinding:null` on native-only/mocked projections; never manufacture a
 managed tuple to satisfy typing. Real managed fixtures retain their verified tuple.
+
+
+### Composer continuation/retry transport owners
+
+The actual page host queues continuation outside WorkPlanHost.tsx, in BuildWorkPlanHost.
+Retry readback currently omits the captured authored identities required by the existing
+retry validator. Extend the exact lease to:
+- `apps/live-control-ui/src/buildSurface/BuildWorkPlanHost.tsx`
+- `apps/live-control-ui/src/buildSurface/BuildWorkPlanHost.test.tsx`
+- `apps/live-control-ui/src/api/conversationRetryApi.ts`
+- `apps/live-control-ui/src/api/conversationRetryApi.test.ts`
+- `apps/live-control-ui/src/agentInteraction/surfaceConversationRequests.test.ts`
+
+Carry only immutable DispatchV2.authored_references through the existing queued request;
+request deduplication must compare that snapshot and must not import composer selections.
+For retry readback, extend the already leased APP retry.py with a discriminated
+RetryContextV2 row carrying the exact captured authored reference set. Its existing
+batch/history owner remains unchanged; old rows remain historical readers. The same
+closed UI decoder admits V2 only in its exact World/conversation/turn. Parent revision
+and existing server fingerprint/capture validation still gate a retry; no new executor,
+retry endpoint, table, optimistic recovery or inferred IDs. Keep all newer composer
+references out of a retry. Capture the authored input before origin-snapshot membership
+IO so a known pre-provider read failure cannot lose its input; capture is input retention,
+not proof of membership, read completion or permission to write. Do not authorize any
+provider after a failed membership read. Add boundary tests for that failure and retry
+readback, including malformed/foreign reference packets. Independent critique precedes
+edits to these added owners and the versioned retry-readback contract.
+
+Independent critique adds the actual submitted-request/recovery test owner:
+- `apps/live-control-ui/src/agentInteraction/WorldAgentConversation.planPlay.integration.test.tsx`
+Prove composer selection serialization and exact pending reload, queued DispatchV2
+selection over unrelated composer inputs, retry from saved V2 context over newer
+composer refs, and preservation of newer drafts. Queue/helper tests do not replace
+this mounted conversation boundary. No additional production owner is needed.

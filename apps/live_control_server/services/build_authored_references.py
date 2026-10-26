@@ -53,14 +53,15 @@ def capture_input(adapter):
     if existing:
         if existing[0].references != adapter.request.build_authored_references:
             raise ValueError('The retained Graph reference input changed')
+        validate_selection_bases(adapter)
         return
-    validate_selection_bases(adapter)
     turn = adapter.fence.turn
     append(adapter, t.BuildAuthoredReferencesCapturedV1(event_id=uuid4(), sequence=len(turn.graph_context_execution.events),
         kind='build_authored_references_captured_v1', references=adapter.request.build_authored_references,
         read_graph_revision=adapter.bootstrap.world_scope.revision_id, turn_id=turn.turn_id,
         conversation_id=turn.conversation_id, attempt=turn.attempt,
         submitted_intent_fingerprint=turn.submitted_intent_fingerprint_v2))
+    validate_selection_bases(adapter)
     if adapter.context_capture:
         for ref in adapter.request.build_authored_references.references:
             adapter.context_capture.observe({'kind': 'context_decision', 'action': 'retained',

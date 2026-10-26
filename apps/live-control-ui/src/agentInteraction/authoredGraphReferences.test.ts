@@ -18,3 +18,19 @@ it('checks closed identities, tenancy and duplicate inputs at reload',()=>{
  expect(isAuthoredGraphReferences({...value,references:[{...ref,binding_version:1.5}]})).toBe(false);
  expect(isAuthoredGraphReferences({...value,references:[{...ref,node_id:' '}]})).toBe(false);
 });
+
+import {readComposerReferences,writeComposerReferences,composerReferenceKey} from './authoredGraphReferences';
+it('retains exact composer selections by World and page across readback',()=>{
+ sessionStorage.clear();const saved=writeComposerReferences(sessionStorage,'workshop','page',null,[ref]);
+ expect(readComposerReferences(sessionStorage,'workshop','page')).toEqual(saved);
+ expect(readComposerReferences(sessionStorage,'workshop','other')).toEqual({serialized:null,references:[]});
+ expect(()=>writeComposerReferences(sessionStorage,'foreign','page',null,[ref])).toThrow('different World');
+});
+it('preserves newer composer selections and unreadable copies',()=>{
+ sessionStorage.clear();const saved=writeComposerReferences(sessionStorage,'workshop','page',null,[ref]);
+ const newer=writeComposerReferences(sessionStorage,'workshop','page',saved.serialized,[{...ref,node_id:'newer-box'}]);
+ expect(()=>writeComposerReferences(sessionStorage,'workshop','page',saved.serialized,[])).toThrow('changed');
+ expect(readComposerReferences(sessionStorage,'workshop','page')).toEqual(newer);
+ const key=composerReferenceKey('workshop','page');sessionStorage.setItem(key,'unreadable bytes');
+ expect(()=>readComposerReferences(sessionStorage,'workshop','page')).toThrow();expect(sessionStorage.getItem(key)).toBe('unreadable bytes');
+});
