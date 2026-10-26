@@ -4358,3 +4358,46 @@ def test_session_labels_use_current_question_in_actual_sdk_request(tmp_path,monk
     assert producing_session_titles(turn,auth,raw)==(('synthetic-run','54',packet['title']),)
     if resumed:
         assert previous in [row.get('content') for row in sent['messages']]
+
+
+@pytest.mark.parametrize("broker", [False, True])
+def test_source_bundle_advertisement_follows_actual_broker(broker):
+    from apps.live_control_server.services.hermes_graph_interaction_tools import (
+        hermes_graph_interaction_tool_definitions, project_graph_read_tools,
+    )
+    original = hermes_graph_interaction_tool_definitions()
+    projected = project_graph_read_tools(original, "world_graph", parent_broker_available=broker)
+    expand = next(d["function"] for d in projected if d["function"]["name"] == "expand_graph_retrieval")
+    assert ("includeSources" in expand["parameters"]["properties"]) == broker
+    assert ("prefer includeSources=true" in expand["description"]) == broker
+    assert ("use object expansion then read_graph_source" in expand["description"]) != broker
+    catalog_expand = next(d["function"] for d in original if d["function"]["name"] == "expand_graph_retrieval")
+    assert "includeSources" in catalog_expand["parameters"]["properties"]
+
+
+def test_q01_overview_and_batch_source_read_trace_normalization():
+    from apps.live_control_server.services.hermes_graph_agent import _summarize_tool_result
+    overview = _summarize_tool_result(json.dumps({
+        "schema": "dmb_graph_tool_overview_v1", "outcome": "enough",
+        "view": {"nodes": [{"nodeId": "item:sample"}],
+                 "relationships": [{"edgeId": "edge:one"}],
+                 "sourceAnchors": [{"anchorId": "anchor:one"}]},
+    }))
+    # These trace summaries are intentionally not the recovery/grounding owner.
+    assert overview["outcome"] == "enough"
+    assert overview["matched_node_ids"] == []
+    assert overview["relationship_ids"] == []
+    assert overview["source_anchor_ids"] == []
+    read = _summarize_tool_result(json.dumps({
+        "schema": "dmb_read_graph_source_batch_v1", "reads": [{
+            "schema": "dmb_world_graph_source_anchor_read_v1", "anchorId": "anchor:one",
+            "outcome": "enough", "content": "Synthetic source passage.",
+            "snapshot": {"revisionId": "rev:exact"},
+        }],
+    }))
+    # Batch status belongs to individual reads; do not fabricate a top-level verdict.
+    assert read["outcome"] is None
+    assert read["source_anchor_ids"] == ["anchor:one"]
+    receipt = read["source_read_metadata"]["sourceRead0"]
+    assert receipt["opened"] == "true"
+    assert receipt["graph_revision"] == "rev:exact"
