@@ -16,9 +16,9 @@ import { PreparedRequestInspector } from './PreparedRequestInspector';
 import './BuildComposeProposal.css';
 import { buildProposalMarkdown } from '../../buildSurface/buildProposalMarkdown';
 
-export function useBuildCompose({ worldId, history, bridge, enabled, onHistory, pageDocumentId, onReviewOnPage, sourceKey = '' }: {
+export function useBuildCompose({ worldId, history, bridge, enabled, onHistory, pageDocumentId, onReviewOnPage, onConstructionVisible, sourceKey = '' }: {
   worldId: string; history: WorldAgentConversationHistoryResponse | null; bridge: BuildComposeBridge | null;
-  onReviewOnPage?:()=>void; enabled: boolean; pageDocumentId: string | null; sourceKey?: string; onHistory: (history: WorldAgentConversationHistoryResponse) => void;
+  onReviewOnPage?:()=>void; onConstructionVisible?:()=>void; enabled: boolean; pageDocumentId: string | null; sourceKey?: string; onHistory: (history: WorldAgentConversationHistoryResponse) => void;
 }) {
   const scope = enabled ? `${worldId}:${history?.conversation_id ?? ''}` : '';
   const generation = useRef({ scope, epoch: 0 });
@@ -197,7 +197,7 @@ export function useBuildCompose({ worldId, history, bridge, enabled, onHistory, 
       ?{...value,progress:{...value.progress,status:'incomplete'}}:value),
     refresh: () => setRefreshNonce(value => value + 1),
     pageElement: enabled&&bridge&&building
-      ? <BuildConstructionPreview progress={building} bridge={bridge} sourceKey={sourceKey} onVisible={building.status==='ready'?onReviewOnPage:undefined}/>
+      ? <BuildConstructionPreview progress={building} bridge={bridge} sourceKey={sourceKey} onVisible={building.status==='incomplete'?undefined:onConstructionVisible}/>
       : enabled&&bridge&&active?.proposal&&!active.inserted_in_draft&&active.reservation.basis.editor_sha256
       &&history?.active_conversation_id===active.reservation.conversation_id
       &&history.pointer_revision===active.reservation.expected_pointer_revision

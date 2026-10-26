@@ -1,3 +1,7 @@
+import {Editor} from '@tiptap/core';
+import {DEFAULT_MARKDOWN_EDITOR_EXTENSIONS} from '../tiptap/MarkdownEditorCore';
+import {createBuildComposeBridge,type BuildComposeEditorState} from '../buildSurface/buildComposeBridge';
+import type {BuildObjectConstructionProgress} from '../api/buildConstructionStream';
 import * as graphLensProjection from '../graphLens/useWorldGraphLensProjection';
 import {authoredGraphReferences,readComposerReferences,writeComposerReferences,composerReferenceKey} from './authoredGraphReferences';
 import {getWorkPlan,continueWorkPlan} from '../api/conversationWorkPlanApi';
@@ -2629,6 +2633,63 @@ describe("one App-level World conversation host across Plan and Play", () => {
       openConversationOptions();expect(await screen.findByLabelText('Retained rejected requests')).toHaveTextContent('Original selected object.');expect(screen.getByText(/1 retained rejection copy needs inspection/)).toBeVisible();
     }finally{spy?.mockRestore();}
   });
+
+describe('first visible construction hands attention to the page',()=>{
+ it.each(['prose','table','plan','newer-draft'] as const)('uses actual %s stream visibility without losing a newer composer',async(kind)=>{
+  const editor=new Editor({extensions:DEFAULT_MARKDOWN_EDITOR_EXTENSIONS,content:'<p>Author page</p>'});
+  const state:BuildComposeEditorState={editor,worldId:WORLD,documentId:'source-one',revision:2,contentSha256:SHA,visibility:'internal',draftGeneration:0,selectionGeneration:0,canEdit:true};
+  const bridge=createBuildComposeBridge(()=>state,()=>undefined);
+  const before=JSON.stringify(editor.getJSON());
+  let emit!:(progress:BuildObjectConstructionProgress)=>void;
+  vi.mocked(postWorldBuildAgentTurn).mockImplementation((_request,onProgress)=>{emit=onProgress!;return new Promise(()=>{});});
+  const view=render(<Harness initial="build" buildBridge={bridge}/>);
+  screen.getByRole('region',{name:'Build workspace'}).append(editor.view.dom);
+  try{
+   fireEvent.click(await screen.findByRole('button',{name:'Open',exact:true}));
+   const input=await screen.findByLabelText('Message DungeonBuddy');await waitFor(()=>expect(input).toBeEnabled());
+   fireEvent.change(input,{target:{value:'Write one proposed paragraph on this page.'}});
+   fireEvent.click(screen.getByRole('button',{name:'Send message',exact:true}));
+   await waitFor(()=>expect(postWorldBuildAgentTurn).toHaveBeenCalledTimes(1));
+   const request=vi.mocked(postWorldBuildAgentTurn).mock.calls[0][0];const capability=request.build_write_capability!;
+   if(kind==='newer-draft'){fireEvent.change(input,{target:{value:'Keep my newer thought'}});input.focus();}
+   const prose={schema:'dmb_build_construction_v1' as const,action_id:capability.idempotency_key,reservation_sha256:SHA,
+    conversation_id:capability.conversation_id,basis:capability.basis,origin:{client_turn_id:request.turn_id,durable_turn_id:'durable',turn_attempt:1,broker_operation_id:'op:1',arguments_sha256:SHA},provider_attempt_id:'provider',sequence:1,status:'building' as const,markdown:''};
+   const plan={schema:'dmb_build_plan_construction_v2' as const,placement_id:'placement',basis:capability.basis,world_id:WORLD,
+    conversation_id:capability.conversation_id,client_turn_id:request.turn_id,durable_turn_id:'durable',turn_attempt:1,working_snapshot_sha256:SHA,provider_attempt_id:'provider',sequence:1,status:'building' as const,objective:null,steps:[]};
+   await act(async()=>emit(kind==='plan'?plan:prose));
+   expect(screen.getByRole('button',{name:'Close conversation'})).toBeVisible();
+   const filled=kind==='plan'?{...plan,sequence:2,objective:'Keep the wick dry.'}:kind==='table'?{...prose,sequence:2,markdown:'| Check |\n| --- |\n| Lid |\n'}:{...prose,sequence:2,markdown:'A covered box shelters the spare wick.'};
+   await act(async()=>emit(filled));
+   await screen.findByRole('region',{name:kind==='plan'?'Plan construction':'Object construction'});
+   if(kind==='newer-draft'){
+    expect(screen.getByRole('button',{name:'Close conversation'})).toBeVisible();expect(input).toHaveValue('Keep my newer thought');expect(input).toHaveFocus();
+   }else{
+    await waitFor(()=>expect(screen.queryByRole('button',{name:'Close conversation'})).not.toBeInTheDocument());
+    fireEvent.click(screen.getByRole('button',{name:'Open',exact:true}));
+    await act(async()=>emit({...filled,sequence:3}));
+    expect(screen.getByRole('button',{name:'Close conversation'})).toBeVisible();
+   }
+   expect(JSON.stringify(editor.getJSON())).toBe(before);
+  }finally{view.unmount();editor.destroy();}
+ });
+ it.each(['incomplete','stale'] as const)('does not close conversation for %s construction',async(kind)=>{
+  const editor=new Editor({extensions:DEFAULT_MARKDOWN_EDITOR_EXTENSIONS,content:'<p>Author page</p>'});
+  const state:BuildComposeEditorState={editor,worldId:WORLD,documentId:'source-one',revision:2,contentSha256:SHA,visibility:'internal',draftGeneration:0,selectionGeneration:0,canEdit:true};
+  const bridge=createBuildComposeBridge(()=>state,()=>undefined);let emit!:(progress:BuildObjectConstructionProgress)=>void;
+  vi.mocked(postWorldBuildAgentTurn).mockImplementation((_request,onProgress)=>{emit=onProgress!;return new Promise(()=>{});});
+  const view=render(<Harness initial="build" buildBridge={bridge}/>);screen.getByRole('region',{name:'Build workspace'}).append(editor.view.dom);
+  try{
+   fireEvent.click(await screen.findByRole('button',{name:'Open',exact:true}));const input=await screen.findByLabelText('Message DungeonBuddy');await waitFor(()=>expect(input).toBeEnabled());
+   fireEvent.change(input,{target:{value:'Write one proposed paragraph on this page.'}});fireEvent.click(screen.getByRole('button',{name:'Send message',exact:true}));
+   await waitFor(()=>expect(postWorldBuildAgentTurn).toHaveBeenCalledTimes(1));const request=vi.mocked(postWorldBuildAgentTurn).mock.calls[0][0];const cap=request.build_write_capability!;
+   if(kind==='stale'){editor.commands.insertContent('New author writing');state.draftGeneration++;}
+   await act(async()=>emit({schema:'dmb_build_construction_v1',action_id:cap.idempotency_key,reservation_sha256:SHA,conversation_id:cap.conversation_id,basis:cap.basis,
+    origin:{client_turn_id:request.turn_id,durable_turn_id:'durable',turn_attempt:1,broker_operation_id:'op:1',arguments_sha256:SHA},provider_attempt_id:'provider',sequence:1,status:kind==='incomplete'?'incomplete':'building',markdown:'A proposed description.'}));
+   if(kind==='incomplete')await screen.findByRole('region',{name:'Object construction'});
+   expect(screen.getByRole('button',{name:'Close conversation'})).toBeVisible();
+  }finally{view.unmount();editor.destroy();}
+ });
+});
 
 });
 
