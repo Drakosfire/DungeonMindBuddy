@@ -66,6 +66,89 @@ def capture_input(adapter):
     validate_selection_bases(adapter)
 
 
+def prior_selection_attempt(adapter, selection):
+    """Identify provenance for an existing APP selection, never grant a new action."""
+    from application_state.agent_conversation.authored_graph_references import capture
+    turn=adapter.fence.turn
+    first=capture(adapter._broker_execution()).attempt
+    from application_state.errors import ApplicationStateError
+    try:
+        traces=adapter.service.list_context_trace_attempts(world_id=turn.world_id,turn_id=turn.turn_id)
+    except ApplicationStateError as exc:
+        raise refusal('The earlier step trace could not be verified. Your request and references are retained; inspect the trace before continuing.',
+            'build_authored_reference_recovery_unavailable',before_provider=True) from exc
+    owners=[trace.attempt for trace in traces if first <= trace.attempt < turn.attempt
+        and trace.execution_start_sequence <= selection.sequence
+        and not any(other.attempt > trace.attempt and other.execution_start_sequence <= selection.sequence for other in traces)]
+    if len(owners)!=1:
+        raise refusal('The retained selection has no unique prior physical attempt. Your request and references are retained; inspect the trace before continuing.',
+            'build_authored_reference_recovery_unavailable',before_provider=True)
+    return owners[0]
+
+
+def validate_retained_operation(adapter, operation, arguments):
+    """Reconstitution verifies one completed read, never grants a new execution operation."""
+    execution = adapter._broker_execution()
+    if (adapter.turn.status != 'running' or adapter.request.build_authored_references is None
+        or any(isinstance(e,t.ProviderAttemptAuthorizedEventV1) for e in execution.events)
+        or arguments.get('operation') != 'object'
+        or operation not in execution.events or operation.request_arguments_sha256 != digest(arguments)
+        or operation.graph_revision != execution.policy.source_read_scope.graph_revision):
+        raise ValueError('Retained object verification differs from its frozen acquisition')
+    reads = [e for e in execution.events if isinstance(e,t.BuildAuthoredReferenceReadV1)
+        and e.outcome == 'read' and operation.event_id in e.operation_event_ids]
+    if len(reads) != 1:
+        raise ValueError('Retained object verification requires one completed authored read')
+    authorization = next(e for e in execution.events if e.event_id == reads[0].authorization_event_id)
+    if (not isinstance(authorization,t.BuildAuthoredReferenceAuthorizedV1)
+        or operation.sequence != authorization.sequence+1
+        or operation.request_arguments_sha256 != authorization.arguments_sha256):
+        raise ValueError('Retained object verification lacks its exact authorization')
+
+
+def restore_material(adapter, read):
+    """Restore exact existing bodies; no new execution or activity receipts."""
+    from application_state.agent_conversation.surface_source_answer import passage_handle
+    from application_state.agent_conversation.authored_graph_references import protected_source_material
+    execution = adapter._broker_execution()
+    events = {e.event_id:e for e in execution.events}
+    try:
+        for identity in read.operation_event_ids:
+            operation = events[identity]
+            arguments = {'retrievalSessionId':execution.policy.source_read_scope.retrieval_session_id,
+                'operation':'object','targets':[{'kind':'node','id':read.node_id}]}
+            validate_retained_operation(adapter,operation,arguments)
+            adapter.broker_graph_operation({'toolName':'expand_graph_retrieval','arguments':arguments},
+                retained_authored_operation=operation)
+            if adapter.failure is not None or identity not in adapter.operation_payloads:
+                raise ValueError('Exact retained object body unavailable')
+        traces = adapter.service.list_context_trace_attempts(world_id=adapter.turn.world_id,turn_id=adapter.turn.turn_id)
+        material=protected_source_material(adapter.fence.turn,traces)
+        for identity in read.source_read_event_ids:
+            event=events[identity]
+            rows=[]
+            for receipt in event.receipts:
+                passages=[p for p in material['observations'] if p['source_read_event_id']==str(identity)
+                    and p['source_read_id']==receipt.source_read_id]
+                if len(passages)!=1:
+                    raise ValueError('Retained source has no unique protected body')
+                passage=passages[0]
+                rows.append({'schema':'dmb_world_graph_source_anchor_read_v1','anchorId':receipt.anchor_id,
+                    'evidenceRefId':receipt.evidence_ref_id,'sourceArtifactId':receipt.source_artifact_id,
+                    'sourceRevisionId':receipt.source_revision_id,'sourceName':passage['source_name'],
+                    'content':passage['text'],'contentSha256':receipt.content_sha256,'lineStart':receipt.line_start,
+                    'lineEnd':receipt.line_end,'outcome':'enough','truncated':False,'diagnostics':[],
+                    'passageHandle':passage_handle(receipt)})
+            payload = rows[0] if len(rows)==1 else {'schema':'dmb_read_graph_source_batch_v1','reads':rows}
+            adapter.source_payloads[identity] = json.dumps(payload,ensure_ascii=False,separators=(',',':'))
+        # Validate this exact read before restoring any other referenced object.
+        from application_state.agent_conversation.build_world_context import opened_world_passages
+        opened_world_passages(execution,read.operation_event_ids,read.source_read_event_ids,
+            adapter.operation_payloads,adapter.source_payloads)
+    except Exception as exc:
+        raise refusal('The earlier selected-object read could not be restored exactly. Your request and reference are retained; inspect the trace, then refresh plan results and choose Try step again.',
+            'build_authored_reference_recovery_unavailable',before_provider=True) from exc
+
 
 def acquire(adapter):
     refs = adapter.request.build_authored_references
@@ -76,6 +159,14 @@ def acquire(adapter):
     attempted = {(r.anchor_id, r.evidence_ref_id, r.source_artifact_id, r.source_revision_id)
         for e in execution.events if isinstance(e, t.ValidatedSourceReadEventV2) for r in e.receipts}
     for ref in refs.references:
+        prior = [e for e in execution.events if isinstance(e,t.BuildAuthoredReferenceAuthorizedV1) and e.node_id == ref.node_id]
+        if prior:
+            settled = [e for e in execution.events if isinstance(e,t.BuildAuthoredReferenceReadV1) and e.authorization_event_id == prior[0].event_id]
+            if len(prior) != 1 or len(settled) != 1 or settled[0].outcome != 'read':
+                raise refusal('The earlier selected-object acquisition did not settle. Your request and reference are retained; refresh plan results and choose Try step again.',
+                    'build_authored_reference_recovery_indeterminate',before_provider=True)
+            restore_material(adapter, settled[0])
+            continue
         arguments = {'retrievalSessionId': execution.policy.source_read_scope.retrieval_session_id,
             'operation': 'object', 'targets': [{'kind': 'node', 'id': ref.node_id}]}
         authorization = t.BuildAuthoredReferenceAuthorizedV1(event_id=uuid4(), sequence=len(adapter._broker_execution().events),

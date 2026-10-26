@@ -237,6 +237,39 @@ def authorize_operation(turn, arguments):
     return False
 
 
+
+def source_authorization_error(turn, anchor_ids):
+    """Permit only fresh exact pins of the pending author-owned object read."""
+    from . import types as t
+    execution = turn.graph_context_execution
+    if turn.status != 'running' or not policy_enabled(execution.policy):
+        return 'source_read_before_authorization'
+    if not anchor_ids or len(set(anchor_ids)) != len(anchor_ids):
+        return 'invalid_authored_source_anchors'
+    if any(isinstance(e, t.ProviderAttemptAuthorizedEventV1)
+           and (e.provider,e.model,e.api_mode) == execution.policy.provider_roles.writer.identity()
+           for e in execution.events):
+        return 'authored_source_acquisition_closed'
+    authorizations = [e for e in execution.events if isinstance(e,t.BuildAuthoredReferenceAuthorizedV1)]
+    if not authorizations:
+        return 'source_read_before_authorization'
+    authorization = authorizations[-1]
+    if any(isinstance(e,t.BuildAuthoredReferenceReadV1) and e.authorization_event_id == authorization.event_id for e in execution.events):
+        return 'authored_source_acquisition_closed'
+    operations = [e for e in execution.events if isinstance(e,t.ValidatedGraphOperationEventV3)
+        and e.sequence == authorization.sequence+1 and e.request_arguments_sha256 == authorization.arguments_sha256]
+    if len(operations) != 1:
+        return 'authored_source_object_unsettled'
+    pins = {p.anchor_id for p in operations[0].returned_source_pins}
+    if not set(anchor_ids).issubset(pins):
+        return 'authored_source_anchor_unselected'
+    for prior in execution.events:
+        if isinstance(prior,t.SourceReadAuthorizationEventV2) and set(anchor_ids).intersection(p.anchor_id for p in prior.anchors):
+            settled = any(isinstance(e,t.ValidatedSourceReadEventV2) and e.read_call_id == prior.read_call_id for e in execution.events)
+            return 'authored_source_receipt_requires_recovery' if settled else 'authored_source_read_indeterminate'
+    return None
+
+
 def validate_packet(packet, execution):
     expected = writer_context(execution)
     if packet.get('authored_reference_context') != expected:
@@ -274,6 +307,72 @@ def require_writer_inclusion(execution, writer):
         raise ValueError('Writer lacks its exact admitted authored-reference input proof')
 
 
+
+def protected_source_material(turn, traces):
+    """Exact prior-attempt bytes joined to immutable same-turn read receipts."""
+    from . import types as t
+    from .context_trace import TraceSourcePassage, TurnContextTraceV1
+    execution = turn.graph_context_execution
+    events = {e.event_id:e for e in execution.events}
+    required = source_event_ids(execution)
+    inventory, references = {}, []
+    traces = [TurnContextTraceV1.model_validate(trace) for trace in traces]
+    for trace in traces:
+        if (trace.world_id != turn.world_id or trace.conversation_id != turn.conversation_id
+            or trace.turn_id != turn.turn_id or trace.attempt > turn.attempt):
+            raise ValueError('Protected source trace belongs to another turn or attempt')
+        for passage in trace.observations:
+            if not isinstance(passage,TraceSourcePassage) or passage.source_read_event_id not in required:
+                continue
+            key=(str(passage.source_read_event_id),passage.source_read_id)
+            event=events[passage.source_read_event_id]
+            receipts=[r for r in event.receipts if r.source_read_id == passage.source_read_id]
+            auths=[e for e in execution.events if isinstance(e,t.SourceReadAuthorizationEventV2) and e.read_call_id == event.read_call_id]
+            later_starts=[other.execution_start_sequence for other in traces if other.attempt > trace.attempt]
+            if (key in inventory or len(receipts)!=1 or len(auths)!=1
+                or event.sequence < trace.execution_start_sequence
+                or later_starts and event.sequence >= min(later_starts)):
+                raise ValueError('Protected source capture has ambiguous read or physical-attempt ownership')
+            receipt=receipts[0]
+            if (passage.read_call_id != event.read_call_id
+                or passage.world_id != execution.policy.source_read_scope.world_id
+                or passage.graph_revision != execution.policy.source_read_scope.graph_revision
+                or receipt.outcome != 'enough' or receipt.truncated or receipt.evidence_sufficiency_status != 'sufficient'
+                or passage.outcome != receipt.outcome or not passage.source_name or not passage.source_name.strip()
+                or any(getattr(passage,k) != getattr(receipt,k) for k in ('anchor_id','evidence_ref_id',
+                    'source_artifact_id','source_revision_id','line_start','line_end','returned_chars','content_sha256'))
+                or len(passage.text) != receipt.returned_chars or sha256(passage.text.encode()).hexdigest() != receipt.content_sha256
+                or not any(pin.anchor_id == receipt.anchor_id and pin.evidence_ref_id == receipt.evidence_ref_id
+                    and pin.source_artifact_id == receipt.source_artifact_id and pin.source_revision_id == receipt.source_revision_id
+                    for pin in auths[0].anchors)):
+                raise ValueError('Protected source body differs from its exact authorization and receipt')
+            inventory[key]=passage.model_dump(mode='json')
+            references.append({'schema':'dmb_trace_historical_source_ref_v1','world_id':trace.world_id,
+                'conversation_id':str(trace.conversation_id),'turn_id':str(trace.turn_id),'attempt':trace.attempt,
+                'trace_id':str(trace.trace_id),'source_read_event_id':str(passage.source_read_event_id),
+                'source_read_id':passage.source_read_id,'content_sha256':passage.content_sha256})
+    return {'observations':list(inventory.values()),'historical_source_reads':references}
+
+
+def load_protected_source_material(conn, turn):
+    from .context_trace import TurnContextTraceV1
+    from .context_trace_store import validate_authored_reference_observation, validate_prompt_authorization
+    from .context_trace import TraceAuthoredGraphReferenceV1, TracePromptReference
+    rows=conn.execute('SELECT payload,attempt FROM agent.turn_context_trace WHERE turn_id=%s ORDER BY attempt',(turn.turn_id,)).fetchall()
+    traces=[]
+    for payload,attempt in rows:
+        trace=TurnContextTraceV1.model_validate(payload)
+        if trace.attempt != attempt:
+            raise ValueError('Protected trace attempt differs from its stored row')
+        for observation in trace.observations:
+            if isinstance(observation,TraceAuthoredGraphReferenceV1):
+                validate_authored_reference_observation(observation,turn.graph_context_execution.model_dump(mode='json',by_alias=True),trace)
+            if isinstance(observation,TracePromptReference):
+                validate_prompt_authorization(observation,turn.graph_context_execution.model_dump(mode='json',by_alias=True),trace.execution_start_sequence)
+        traces.append(trace)
+    return protected_source_material(turn,traces)
+
+
 def validate_writer_input(packet, execution, trace):
     """Compare actual input with protected source bytes; retain only the proof digest."""
     validate_packet(packet, execution)
@@ -282,8 +381,10 @@ def validate_writer_input(packet, execution, trace):
             raise ValueError('Historical writer cannot gain authored source material')
         return None
     from . import types as t
-    captured = {(str(row.get('source_read_event_id')), str(row.get('source_read_id'))): row
-        for row in trace.get('observations', []) if row.get('kind') == 'source_passage'}
+    rows = [row for row in trace.get('observations', []) if row.get('kind') == 'source_passage']
+    captured = {(str(row.get('source_read_event_id')), str(row.get('source_read_id'))): row for row in rows}
+    if len(captured) != len(rows):
+        raise ValueError('Protected source captures must have unique event and read identities')
     events = {e.event_id: e for e in execution.events}
     required = []
     for read in execution.events:
@@ -348,8 +449,4 @@ def validate_stored_writer(conn, turn, writer, request_json=None):
         from .types import BuildAuthoredProviderInclusionV1
         inclusion = next(e for e in execution.events if isinstance(e, BuildAuthoredProviderInclusionV1)
             and e.provider_attempt_id == writer.provider_attempt_id)
-        rows = conn.execute('SELECT payload FROM agent.turn_context_trace WHERE turn_id=%s AND attempt=%s',
-            (turn.turn_id, turn.attempt)).fetchall()
-        if len(rows) != 1:
-            raise ValueError('Authored image writer capture is unavailable')
-        validate_provider_inclusion(inclusion, execution, request_json, rows[0][0])
+        validate_provider_inclusion(inclusion, execution, request_json, load_protected_source_material(conn, turn))

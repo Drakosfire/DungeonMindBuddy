@@ -546,3 +546,70 @@ same-turn membership cannot make earlier physical work current. Capture stays ex
 A current inclusion may retain earlier immutable source provenance without replaying
 the old activity. Same-turn reclaimed acquisition currently risks duplicate APP
 authorization/read events; resolve and prove that execution-resume gate before adoption.
+
+### Reviewed-step host-read admission correction
+
+The real SDK/APP reproduction found an earlier guard defect: a reviewed insertion
+with no auxiliary controller call cannot acquire its explicit authored object because
+the shared broker requires a provider attempt. Independent critique clears an exact
+host-authority exception within the existing service/authored owner lease. Parse and
+normalize first; only the latest one-shot authored object authorization may replace
+the provider prerequisite. Pagination remains provider gated. Source reads and large
+native waves must independently prove fresh selected pins of that pending object;
+settled overlapping source authorizations require exact receipt recovery, and orphan
+source authorizations refuse as indeterminate. Preserve frozen scope, budgets, capture,
+APP append validation and writer phase fences. No fake provider call or usage.
+
+The independently cleared exact owner extension adds
+`apps/live_control_server/services/build_related_pages.py` only for recognizing the
+V2 reviewed-action subtype in the existing empty-catalog early return.
+
+For reclaimed completed authored reads, recover exact reviewed-selection bindings
+(including original broker identity), reconstitute the object through the existing
+frozen native packet builder, and compare the original digest and all returned pins
+before any ordinary mutation. Restore source bodies only by an exact protected
+same-turn passage/authorization/receipt join. Populate existing maps, then re-run the
+existing writer material validator. Do not append/replay selection/read/activity,
+change session metadata or extend scope. Unsettled authorizations and unavailable or
+changed bytes refuse precisely; provider-authorized turns remain non-reclaimable.
+This independently critiqued correction uses the existing service/driver/authored
+owners and tests, with no new store, event, executor or provider authority.
+
+The same independently cleared empty-catalog V2 subtype correction also owns
+`src/application_state/agent_conversation/build_related_pages.py` at project(): retain
+empty catalog/no choices and recognize the reviewed-selection base class.
+
+Independent critique clears a shared same-turn protected source inventory for runtime
+preparation, APP inclusion admission and final reconstruction. Load typed traces with
+exact row-attempt and World/conversation/turn binding; only original source-passages,
+uniquely joined to immutable authorization/read receipts with exact scope, IDs, pin,
+outcome, hash and length, may supply bodies. Reject duplicate IDs, wrong physical
+ownership or altered/missing bytes. Prior activity remains in its original trace; no
+new activity or source authority is created. The inventory uses existing trace rows.
+
+The final generic provider-admission capture check has an independently critiqued
+partition for the exact authored writer identity: require its existing attempt/envelope
+inclusion witness, then validate only that witness's mandatory authored source IDs
+against the shared protected inventory. All other included reads and all other policy
+identities still require current-trace captures. No copied passage/activity or bypass
+of generic provider scope/admission is permitted; failures abort atomically.
+
+Provider-input trace materials use existing historical source references for exact
+same-turn captures from earlier physical attempts, without copying source observations
+or text. Independently critiqued collector/store correction requires same World,
+conversation, turn and earlier attempt, exact source trace/event/read/digest, and an
+existing current authored writer inclusion/authorization. Existing cross-turn behavior
+and all non-authored read authority stay unchanged. The existing historical passage
+inspector opens the original capture. Verify this through the restart proof.
+
+The validated-answer snapshot may echo a same-turn historical reference only when
+that exact reference already appeared in this attempt's preceding before/provider-input
+snapshot; revalidate the original persisted source capture. Independent critique
+clears this echo, preserving answer_context without permitting new historical inputs.
+
+Repeated-loss recovery identifies the existing reviewed selection's actual prior
+physical attempt from persisted trace start intervals, rather than assuming selection
+and input capture occurred together. That provenance only verifies the original broker
+identity salt; the exact immutable APP selection/intent/capability/arguments remain the
+action authority. Missing/ambiguous provenance refuses; no new selection is appended.
+Prove capture-loss, later read-loss and third-attempt completion.

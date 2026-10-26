@@ -160,3 +160,188 @@ def test_trace_readback_refuses_authored_events_not_equal_to_the_immutable_ledge
         conn.execute('UPDATE agent.turn_context_trace SET payload=%s WHERE turn_id=%s AND attempt=%s',(Jsonb(payload),turn.turn_id,trace.attempt))
     with pytest.raises(ApplicationStateValidationError,match='exact turn ledger|already has an observation|predates this physical attempt'):
         service.list_context_trace_attempts(world_id=turn.world_id,turn_id=turn.turn_id)
+
+
+@pytest.mark.parametrize('fault',['none','capture_then_read','object_changed','passage_missing','passage_changed','passage_duplicate','passage_pin','trace_owner','trace_attempt','selection_id','selection_future','object_authorized','source_authorized'])
+def test_reviewed_authored_read_process_loss_reclaims_without_duplicate_work(build_case, monkeypatch, tmp_path, application_state_dsn, fault):
+    """SDK/APP restart boundary; only native IO and process loss are synthetic."""
+    import psycopg
+    from tests.test_reviewed_action_binding import reviewed_case
+    from apps.live_control_server.services import build_authored_references as owner
+    case, reads = referenced_case(build_case, monkeypatch)
+    case = reviewed_case(case, monkeypatch, authored_references=case[1].build_authored_references, prepared=True)
+    from apps.live_control_server.services import build_related_pages
+    monkeypatch.setattr(build_related_pages,'discover',lambda _:[])
+    decisions, writer = WorldDecisions(), WriterWire()
+    harness = BuildJevHarness(world_context=True,named_citations=True,related_pages=True,accounting=counter(),decision_transport=decisions,writer_transport=writer)
+    original = owner.acquire
+    class ProcessLost(BaseException):
+        pass
+    def lose_process(adapter):
+        original(adapter)
+        raise ProcessLost()
+    if fault=='capture_then_read':
+        original_capture=owner.capture_input
+        def lose_after_capture(adapter):
+            original_capture(adapter)
+            raise ProcessLost()
+        monkeypatch.setattr(owner,'capture_input',lose_after_capture)
+        with pytest.raises(ProcessLost):execute(case,tmp_path,harness)
+        first=AgentConversationService().list_turns('elderwyld',case[1].build_write_capability.conversation_id)[-1]
+        assert first.attempt==1 and len(first.graph_context_execution.events)==1
+        with psycopg.connect(application_state_dsn) as conn:
+            conn.execute("UPDATE agent.turn SET claim_expires_at=clock_timestamp()-interval '1 second' WHERE turn_id=%s",(first.turn_id,))
+        monkeypatch.setattr(owner,'capture_input',original_capture)
+        from apps.live_control_server.routes import agent
+        first_historical_resolver=agent._historical_work_resolver
+    else:first_historical_resolver=None
+    if fault=='object_authorized':
+        original_append=owner.append
+        def lose_after_authorization(adapter,event,**proof):
+            original_append(adapter,event,**proof)
+            if isinstance(event,t.BuildAuthoredReferenceAuthorizedV1):raise ProcessLost()
+        monkeypatch.setattr(owner,'append',lose_after_authorization)
+    elif fault=='source_authorized':
+        original_authorize=AgentConversationService.authorize_source_read
+        def lose_after_source_authorization(self,*args,**kwargs):
+            original_authorize(self,*args,**kwargs)
+            raise ProcessLost()
+        monkeypatch.setattr(AgentConversationService,'authorize_source_read',lose_after_source_authorization)
+    else:
+        monkeypatch.setattr(owner,'acquire',lose_process)
+    with pytest.raises(ProcessLost):
+        execute(case,tmp_path,harness,**({'historical_work_resolver':first_historical_resolver} if first_historical_resolver else {}))
+    service = AgentConversationService()
+    turn = service.list_turns('elderwyld',case[1].build_write_capability.conversation_id)[-1]
+    assert turn.status == 'running'
+    assert not decisions.calls and not writer.calls
+    assert len([e for e in turn.graph_context_execution.events if isinstance(e,t.BuildAuthoredReferenceReadV1)]) == (0 if fault.endswith('authorized') else 1)
+    before = turn.graph_context_execution.model_dump(mode='json',by_alias=True)
+    if fault in {'selection_id','selection_future'}:
+        from psycopg.types.json import Jsonb
+        from application_state.agent_conversation.authored_graph_references import digest
+        selected=next(e for e in before['events'] if e['kind']=='build_reviewed_action_selected_v2')
+        selected['broker_operation_id']='build-reviewed:'+('0'*64 if fault=='selection_id' else digest({
+            'turn_id':str(turn.turn_id),'attempt':turn.attempt+99,'binding':selected['intent']['reviewed_step']}))
+        with psycopg.connect(application_state_dsn) as conn:
+            conn.execute('UPDATE agent.turn SET graph_context_execution=%s WHERE turn_id=%s',(Jsonb(before),turn.turn_id))
+    with psycopg.connect(application_state_dsn) as conn:
+        conn.execute("UPDATE agent.turn SET claim_expires_at=clock_timestamp()-interval '1 second' WHERE turn_id=%s",(turn.turn_id,))
+    monkeypatch.setattr(owner,'acquire',original)
+    if fault=='object_authorized':monkeypatch.setattr(owner,'append',original_append)
+    if fault=='source_authorized':monkeypatch.setattr(AgentConversationService,'authorize_source_read',original_authorize)
+    if fault=='object_changed':
+        from apps.live_control_server.integrations.dungeonmind import world_graph_reads as native
+        getter=native.get_object_with_reviewed_sources_direct_v3
+        def changed(services,query):
+            result=getter(services,query)
+            return replace(result,result=result.result.model_copy(update={'nodes':[n.model_copy(update={'label':'changed object'}) for n in result.result.nodes]}))
+        monkeypatch.setattr(native,'get_object_with_reviewed_sources_direct_v3',changed)
+    if fault in {'passage_missing','passage_changed','passage_duplicate','passage_pin','trace_owner','trace_attempt'}:
+        from psycopg.types.json import Jsonb
+        from hashlib import sha256
+        with psycopg.connect(application_state_dsn) as conn:
+            payload=conn.execute('SELECT payload FROM agent.turn_context_trace WHERE turn_id=%s AND attempt=%s',(turn.turn_id,turn.attempt)).fetchone()[0]
+            passage=next(p for p in payload['observations'] if p['kind']=='source_passage')
+            if fault=='passage_missing':
+                payload['observations'].remove(passage)
+                for i,p in enumerate(payload['observations']):p['sequence']=i
+            elif fault=='passage_duplicate':
+                payload['observations'].append({**passage,'sequence':len(payload['observations']),'elapsed_ms':payload['observations'][-1]['elapsed_ms']})
+            elif fault=='passage_pin':passage['source_artifact_id']='another-artifact'
+            elif fault=='trace_owner':
+                from uuid import uuid4
+                payload['conversation_id']=str(uuid4())
+            elif fault=='trace_attempt':payload['attempt']=3
+            else:
+                passage['text']='Changed unsupported bytes'
+                passage['returned_chars']=len(passage['text'])
+                passage['content_sha256']=sha256(passage['text'].encode()).hexdigest()
+            if fault=='trace_attempt':
+                with pytest.raises(psycopg.errors.CheckViolation):
+                    conn.execute('UPDATE agent.turn_context_trace SET payload=%s WHERE turn_id=%s AND attempt=%s',(Jsonb(payload),turn.turn_id,turn.attempt))
+                conn.rollback()
+                assert conn.execute('SELECT payload FROM agent.turn_context_trace WHERE turn_id=%s AND attempt=%s',(turn.turn_id,turn.attempt)).fetchone()[0]['attempt']==turn.attempt
+                return
+            conn.execute('UPDATE agent.turn_context_trace SET payload=%s WHERE turn_id=%s AND attempt=%s',(Jsonb(payload),turn.turn_id,turn.attempt))
+    from apps.live_control_server.routes import agent
+    recovered_harness=BuildJevHarness(world_context=True,named_citations=True,related_pages=True,accounting=counter(),decision_transport=decisions,writer_transport=writer)
+    if fault not in {'none','capture_then_read'}:
+        from apps.live_control_server.services.agent_turn_service import AgentTurnServiceError
+        with pytest.raises(AgentTurnServiceError) as failed:
+            execute(case,tmp_path,recovered_harness,historical_work_resolver=agent._historical_work_resolver)
+        assert failed.value.code == ('build_authored_reference_recovery_indeterminate' if fault.endswith('authorized') else 'build_authored_reference_recovery_unavailable')
+        assert not decisions.calls and not writer.calls
+        retained=service.list_turns('elderwyld',turn.conversation_id)[-1]
+        assert retained.graph_context_execution.model_dump(mode='json',by_alias=True)['events']==before['events']
+        if fault=='source_authorized':
+            from uuid import uuid4
+            from application_state.agent_conversation import work_plan as w
+            source=case[1].reviewed_step.source_turn_id
+            saved=w.read('elderwyld',turn.conversation_id,source)['plan']
+            assert saved['execution'][0]['status'] in {'failed','interrupted'}
+            continued=w.continue_step('elderwyld',turn.conversation_id,source,w.Continue(
+                expected_revision=saved['revision'],step_id=saved['steps'][0]['step_id'],command_id=uuid4()))
+            dispatch=continued['dispatch']
+            request=case[1].model_copy(update={'client_thread_id':dispatch['client_thread_id'],
+                'turn_id':dispatch['client_turn_id'],'message':dispatch['message'],
+                'reviewed_step':case[1].reviewed_step.model_validate(continued['reviewed_step'])})
+            retried=(case[0],request,replace(case[2],completed_discovery_query=request.message))
+            result=execute(retried,tmp_path,BuildJevHarness(world_context=True,named_citations=True,related_pages=True,
+                accounting=counter(),decision_transport=decisions,writer_transport=writer))
+            assert isinstance(result.knowledge_context.completion,t.BuildAuthoringCompletionV1)
+            assert len(writer.calls)==1 and not decisions.calls
+            final=w.read('elderwyld',turn.conversation_id,source)['plan']
+            assert len(final['dispatches'])==2 and final['dispatches'][0]==saved['dispatches'][0]
+            assert final['execution'][0]['status']==saved['execution'][0]['status']
+            assert final['execution'][1]['status']=='prepared'
+        return
+    response = execute(case,tmp_path,recovered_harness,historical_work_resolver=agent._historical_work_resolver)
+    assert isinstance(response.knowledge_context.completion,t.BuildAuthoringCompletionV1)
+    recovered = service.list_turns('elderwyld',turn.conversation_id)[-1]
+    assert recovered.attempt == turn.attempt+1
+    assert recovered.graph_context_execution.model_dump(mode='json',by_alias=True)['events'][:len(before['events'])] == before['events']
+    assert len(writer.calls) == 1 and not decisions.calls
+    assert reads['source']==1
+    assert len([e for e in recovered.graph_context_execution.events if isinstance(e,t.BuildReviewedActionSelectionV1)])==1
+    from application_state.agent_conversation.context_trace import TraceAuthoredGraphReferenceV1
+    traces=service.list_context_trace_attempts(world_id=turn.world_id,turn_id=turn.turn_id)
+    assert [trace.attempt for trace in traces]==list(range(1,recovered.attempt+1))
+    current=[o.execution_event for o in traces[-1].observations if isinstance(o,TraceAuthoredGraphReferenceV1)]
+    assert len(current)==1 and isinstance(current[0],t.BuildAuthoredProviderInclusionV1)
+    assert traces[-1].capture_status=='complete'
+    assert not any(o.kind=='source_passage' for o in traces[-1].observations)
+    historical=[ref for o in traces[-1].observations if o.kind=='context_snapshot' and o.snapshot_kind=='provider_input'
+        for material in o.materials for ref in material.historical_source_reads]
+    assert len(historical)==1 and historical[0].turn_id==turn.turn_id and historical[0].attempt==turn.attempt
+    original_passage=service.read_historical_source_passage(historical[0])
+    packet=json.loads(json.loads(writer.calls[0].content)['input'])
+    assert packet['authored_reference_passages'][0]['text']==original_passage.text
+    from application_state.agent_conversation.context_trace_store import _historical_sources_available
+    echoed=next(o for o in traces[-1].observations if o.kind=='context_snapshot' and o.snapshot_kind=='validated_answer')
+    execution=recovered.graph_context_execution.model_dump(mode='json',by_alias=True)
+    with psycopg.connect(application_state_dsn) as conn:
+        assert _historical_sources_available(conn,traces[-1],echoed,recovered.sequence,execution)
+        without_input=traces[-1].model_copy(update={'observations':[o for o in traces[-1].observations
+            if not (o.kind=='context_snapshot' and o.snapshot_kind=='provider_input')]})
+        assert not _historical_sources_available(conn,without_input,echoed,recovered.sequence,execution)
+        assert not _historical_sources_available(conn,traces[-1],echoed.model_copy(update={'snapshot_kind':'compaction_input'}),recovered.sequence,execution)
+
+
+
+
+def test_reviewed_authored_insertion_needs_no_controller_call_for_exact_object(build_case,monkeypatch,tmp_path):
+    from tests.test_reviewed_action_binding import reviewed_case
+    from apps.live_control_server.services import build_related_pages
+    case,reads=referenced_case(build_case,monkeypatch)
+    case=reviewed_case(case,monkeypatch,authored_references=case[1].build_authored_references,prepared=True)
+    monkeypatch.setattr(build_related_pages,'discover',lambda _:[])
+    decisions,writer=WorldDecisions(),WriterWire()
+    response=execute(case,tmp_path,BuildJevHarness(world_context=True,named_citations=True,related_pages=True,
+        accounting=counter(),decision_transport=decisions,writer_transport=writer))
+    assert isinstance(response.knowledge_context.completion,t.BuildAuthoringCompletionV1)
+    assert not decisions.calls and len(writer.calls)==1
+    turn=AgentConversationService().list_turns('elderwyld',response.conversation.conversation_id)[-1]
+    providers=[e for e in turn.graph_context_execution.events if isinstance(e,t.ProviderAttemptAuthorizedEventV1)]
+    assert len(providers)==1 and providers[0].provider_attempt_id==response.knowledge_context.completion.provider_attempt_id
+    assert reads=={'graph':2,'source':1}

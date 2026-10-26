@@ -1498,13 +1498,9 @@ class AgentConversationService:
                     raise ApplicationStateValidationError(str(exc)) from exc
             from .types import BuildAuthoredProviderInclusionV1
             if isinstance(event, BuildAuthoredProviderInclusionV1):
-                from .authored_graph_references import validate_provider_inclusion
-                captured = conn.execute('SELECT payload FROM agent.turn_context_trace WHERE turn_id=%s AND attempt=%s',
-                    (turn.turn_id, turn.attempt)).fetchall()
+                from .authored_graph_references import validate_provider_inclusion, load_protected_source_material
                 try:
-                    if len(captured) != 1:
-                        raise ValueError('Authored writer input requires its protected source capture')
-                    validate_provider_inclusion(event, execution, authored_prepared_request_json, captured[0][0])
+                    validate_provider_inclusion(event, execution, authored_prepared_request_json, load_protected_source_material(conn, turn))
                 except (ValueError, KeyError, TypeError) as exc:
                     raise ApplicationStateValidationError(str(exc)) from exc
             section_inclusion = None
@@ -1566,9 +1562,24 @@ class AgentConversationService:
                 ).fetchone()[0]
                 captured = {(item.get("source_read_event_id"), item.get("source_read_id"), item.get("content_sha256"))
                             for item in payload["observations"] if item.get("kind") in {"source_passage", "source_passage_reuse"}}
+                authored_ids, authored_captured = set(), set()
+                from .authored_graph_references import policy_enabled, require_writer_inclusion, load_protected_source_material
+                if (policy_enabled(execution.policy) and (event.provider,event.model,event.api_mode)
+                    == execution.policy.provider_roles.writer.identity()):
+                    try:
+                        require_writer_inclusion(execution,event)
+                        inclusion=next(e for e in execution.events if isinstance(e,graph_types.BuildAuthoredProviderInclusionV1)
+                            and e.provider_attempt_id==event.provider_attempt_id)
+                        authored_ids=set(inclusion.source_read_event_ids)
+                        material=load_protected_source_material(conn,turn)
+                        authored_captured={(p['source_read_event_id'],p['source_read_id'],p['content_sha256'])
+                            for p in material['observations'] if p['source_read_event_id'] in {str(eid) for eid in authored_ids}}
+                    except (ValueError,KeyError,TypeError) as exc:
+                        raise ApplicationStateValidationError(str(exc)) from exc
                 for read_event in execution.events:
                     if isinstance(read_event, graph_types.SOURCE_PASSAGE_EVENTS) and read_event.event_id in graph_types.included_passage_event_ids(event):
-                        if any(read.returned_chars and (str(read_event.event_id), read.source_read_id, read.content_sha256) not in captured for read in read_event.receipts):
+                        source_capture=authored_captured if read_event.event_id in authored_ids else captured
+                        if any(read.returned_chars and (str(read_event.event_id), read.source_read_id, read.content_sha256) not in source_capture for read in read_event.receipts):
                             raise ApplicationStateValidationError("provider inclusion requires captured source passages")
             if isinstance(event, ValidatedGraphOperationEventV1):
                 receipt = turn.graph_context_receipt

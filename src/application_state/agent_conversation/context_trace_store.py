@@ -306,7 +306,7 @@ class TurnContextTraceStore:
             if isinstance(observation, TraceGraphTool):
                 _validate_graph_tool_observation(observation, turn[6])
             if isinstance(observation, TraceContextSnapshot):
-                if not _historical_sources_available(conn, trace, observation, turn[7]):
+                if not _historical_sources_available(conn, trace, observation, turn[7], turn[6]):
                     incomplete = TurnContextTraceV1.model_validate({
                         **trace.model_dump(mode="python"),
                         "capture_status": "incomplete",
@@ -435,21 +435,42 @@ class TurnContextTraceStore:
 
 
 def _historical_sources_available(conn, trace: TurnContextTraceV1,
-                                  snapshot: TraceContextSnapshot, current_sequence: int) -> bool:
+                                  snapshot: TraceContextSnapshot, current_sequence: int, execution=None) -> bool:
     """Validate observational references without creating Graph/read authority."""
     for material in snapshot.materials:
         matched_passages = []
         for ref in material.historical_source_reads:
             if ref.world_id != trace.world_id or ref.conversation_id != trace.conversation_id:
                 return False
+            same_turn = False
+            input_reference = snapshot.snapshot_kind == 'provider_input' or (
+                snapshot.snapshot_kind == 'validated_answer' and any(ref == prior_ref
+                    for prior in trace.observations if isinstance(prior,TraceContextSnapshot)
+                    and prior.stage == 'before' and prior.snapshot_kind == 'provider_input'
+                    for item in prior.materials for prior_ref in item.historical_source_reads))
+            if isinstance(execution,dict) and input_reference:
+                from .authored_graph_references import POLICY
+                policy=execution.get('policy',{})
+                events=execution.get('events',[])
+                writer=policy.get('provider_roles',{}).get('writer',{})
+                current_providers={e.get('provider_attempt_id'):e for e in events
+                    if e.get('kind')=='provider_attempt_authorized_v3' and e.get('sequence',-1)>=trace.execution_start_sequence
+                    and all(e.get(k)==writer.get(k) for k in ('provider','model','api_mode'))}
+                same_turn=(policy.get('authored_graph_reference_policy')==POLICY and ref.turn_id==trace.turn_id
+                    and ref.attempt<trace.attempt and any(e.get('kind')=='build_authored_provider_inclusion_v1'
+                        and str(ref.source_read_event_id) in e.get('source_read_event_ids',[])
+                        and e.get('provider_attempt_id') in current_providers
+                        and e.get('envelope_sha256')==current_providers[e['provider_attempt_id']].get('envelope_sha256')
+                        for e in events))
             row = conn.execute(
                 "SELECT historical.payload FROM agent.turn source "
                 "JOIN agent.turn_context_trace historical ON historical.turn_id=source.turn_id "
                 "WHERE source.world_id=%s AND source.conversation_id=%s "
-                "AND source.turn_id=%s AND source.sequence < %s "
+                "AND source.turn_id=%s AND (source.sequence < %s OR "
+                "(source.turn_id=%s AND historical.attempt < %s AND %s)) "
                 "AND historical.attempt=%s AND historical.trace_id=%s",
                 (trace.world_id, trace.conversation_id, ref.turn_id, current_sequence,
-                 ref.attempt, ref.trace_id),
+                 trace.turn_id,trace.attempt,same_turn,ref.attempt,ref.trace_id),
             ).fetchone()
             if row is None:
                 return False

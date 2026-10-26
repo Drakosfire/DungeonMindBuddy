@@ -136,3 +136,53 @@ def test_object_result_proof_joins_exact_selected_identity_and_validated_bytes()
     execution.events[2] = operation.model_copy(update={'result_packet_sha256': digest(unrelated)})
     with pytest.raises(ValueError, match='selected identity'):
         validate_object_result_proof(read, execution, {str(operation.event_id): unrelated})
+
+
+@pytest.mark.parametrize('state,expected',[
+    ('fresh',None),('unselected','authored_source_anchor_unselected'),
+    ('duplicate','invalid_authored_source_anchors'),('empty','invalid_authored_source_anchors'),
+    ('orphan','authored_source_read_indeterminate'),('settled','authored_source_receipt_requires_recovery'),
+    ('mixed','authored_source_receipt_requires_recovery'),('complete','authored_source_acquisition_closed')])
+def test_host_source_authority_is_exact_and_never_repeats_a_prior_batch(state,expected):
+    from types import SimpleNamespace
+    from application_state.agent_conversation import types as t
+    from application_state.agent_conversation.authored_graph_references import source_authorization_error
+    execution=acquired_execution()
+    execution.events.pop()
+    operation=execution.events[2]
+    pins=operation.returned_source_pins
+    source=execution.events.pop()
+    anchors=['pin']
+    if state=='unselected':anchors=['another-pin']
+    elif state=='duplicate':anchors=['pin','pin']
+    elif state=='empty':anchors=[]
+    elif state in {'orphan','settled','mixed'}:
+        call=uuid4()
+        prior=t.SourceReadAuthorizationEventV2.model_construct(read_call_id=call,anchors=pins)
+        execution.events.append(prior)
+        if state!='orphan':execution.events.append(source.model_copy(update={'read_call_id':call}))
+        if state=='mixed':
+            operation.returned_source_pins=[*pins,SimpleNamespace(anchor_id='new-pin')]
+            anchors.append('new-pin')
+    elif state=='complete':
+        execution.events=acquired_execution().events
+    turn=SimpleNamespace(status='running',graph_context_execution=execution)
+    assert source_authorization_error(turn,anchors)==expected
+
+
+@pytest.mark.parametrize('starts,expected',[
+    ([(1,0),(2,1),(3,8)],2), ([(1,0),(2,8)],1),
+    ([(2,8)],None), ([(1,0),(2,1),(3,1)],None)])
+def test_existing_selection_provenance_uses_its_actual_prior_attempt(starts,expected):
+    from types import SimpleNamespace
+    from apps.live_control_server.services.build_authored_references import prior_selection_attempt
+    execution=acquired_execution()
+    turn=SimpleNamespace(world_id='quarry',turn_id=uuid4(),attempt=starts[-1][0])
+    traces=[SimpleNamespace(attempt=a,execution_start_sequence=s) for a,s in starts]
+    adapter=SimpleNamespace(fence=SimpleNamespace(turn=turn),_broker_execution=lambda:execution,
+        service=SimpleNamespace(list_context_trace_attempts=lambda **_:traces))
+    if expected is None:
+        from apps.live_control_server.services.agent_turn_service import AgentTurnServiceError
+        with pytest.raises(AgentTurnServiceError,match='unique prior physical attempt'):
+            prior_selection_attempt(adapter,SimpleNamespace(sequence=1))
+    else:assert prior_selection_attempt(adapter,SimpleNamespace(sequence=1))==expected
