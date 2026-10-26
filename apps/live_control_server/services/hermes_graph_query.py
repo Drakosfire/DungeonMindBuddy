@@ -931,6 +931,7 @@ def _successful_tool_invocation(event: AgentRuntimeToolEvent, scope: _Dispatched
             not isinstance(read, Mapping)
             or read.get("knownSourceReadSchema") != "true"
             or read.get("graph_revision") != scope.revision_id
+            or not isinstance(read.get("outcome"), str)
             or read.get("outcome") not in successful
         ):
             return False

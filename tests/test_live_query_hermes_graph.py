@@ -3491,6 +3491,7 @@ def test_overview_success_count_does_not_require_evidence(outcome, expected):
     {"sourceRead1":{"knownSourceReadSchema":"true","graph_revision":"stale","outcome":"enough"}},
     {"sourceRead1":{"knownSourceReadSchema":"false","graph_revision":"revision:resolved-server","outcome":"enough"}},
     {"sourceRead1":{"knownSourceReadSchema":"true","graph_revision":"revision:resolved-server","outcome":"denied"}},
+    {"sourceRead1":{"knownSourceReadSchema":"true","graph_revision":"revision:resolved-server","outcome":[]}},
 ])
 def test_incomplete_or_failed_batch_cannot_report_full_success(overrides):
     assert _product_response_for_events([_successful_batch_event(**overrides)])["grounding"]["successful_tool_count"] == 0
