@@ -133,7 +133,8 @@ class PagesWriter(WriterWire):
             }
         )
         if self.relationship:
-            primary = packet["artifact_under_edit"]["sections"][0]
+            from application_state.agent_conversation.build_draft_context import resolve_body_aliases
+            primary = resolve_body_aliases(packet)["artifact_under_edit"]["sections"][0]
             self.collaboration = {"kind":"relationship","read_id":primary["read_id"],"quote":primary["text"],"source":{"label":"Proposed keeper","kind":"npc"},"target":{"label":"Proposed trader","kind":"npc"},"predicate":"works_with","label":"proposed past collaboration","context":"A proposed temporary past collaboration; author must review semantic support and identities."}
             raw = json.dumps({"answer_context_status":"creative_proposal","answer_segments":[{"kind":"suggestion","text":"Review the proposed relationship."}],"limitations":[],"requested_detail_gaps":[],"collaboration":self.collaboration})
         if packet.get("source_quote_binding_policy"):
@@ -181,7 +182,7 @@ def completed(build_case, monkeypatch, tmp_path, request):
             "typed_plan", "typed_plan_only", "typed_plan_empty", "typed_plan_bad_schema",
             "typed_questions",
             "connected_page", "connected_page_cap", "multi_related_quotes", "multi_related_quotes_cap",
-            "relationship_review",
+            "relationship_review", "relationship_review_cap",
             "invalid_quote",
         }
         else mode
@@ -251,7 +252,7 @@ def completed(build_case, monkeypatch, tmp_path, request):
         }
 
     monkeypatch.setattr(owner, "materialize", materialize)
-    if operation != "answer_from_sources" or mode in {'typed_plan', 'typed_plan_only', 'typed_plan_empty', 'typed_plan_bad_schema', 'connected_page_cap', 'multi_related_quotes_cap'}:
+    if operation != "answer_from_sources" or mode in {'typed_plan', 'typed_plan_only', 'typed_plan_empty', 'typed_plan_bad_schema', 'connected_page_cap', 'multi_related_quotes_cap', 'relationship_review_cap'}:
         from apps.live_control_server.models.build_document_proposal import (
             BuildWriteCapability,
         )
@@ -308,10 +309,10 @@ def completed(build_case, monkeypatch, tmp_path, request):
                 }
             ],
         }
-    writer.relationship = mode == "relationship_review"
+    writer.relationship = mode in {"relationship_review", "relationship_review_cap"}
     decisions = PagesDecision(operation=operation)
     decisions.skip_pages = mode == 'typed_plan_empty'
-    decisions.requested_work = {'typed_plan': 'plan', 'typed_plan_only': 'plan', 'typed_plan_empty':'plan', 'typed_plan_bad_schema':'plan', 'typed_questions': 'clarify_request', 'connected_page': 'review_connected_page', 'connected_page_cap':'review_connected_page', 'relationship_review': 'review_relationship', 'invalid_quote': 'review_relationship'}.get(mode, {'answer_from_sources': 'discuss', 'propose_build_insertion': 'write_current_page', 'prepare_build_image': 'prepare_image'}[operation])
+    decisions.requested_work = {'typed_plan': 'plan', 'typed_plan_only': 'plan', 'typed_plan_empty':'plan', 'typed_plan_bad_schema':'plan', 'typed_questions': 'clarify_request', 'connected_page': 'review_connected_page', 'connected_page_cap':'review_connected_page', 'relationship_review': 'review_relationship', 'relationship_review_cap':'review_relationship', 'invalid_quote': 'review_relationship'}.get(mode, {'answer_from_sources': 'discuss', 'propose_build_insertion': 'write_current_page', 'prepare_build_image': 'prepare_image'}[operation])
     harness = BuildJevHarness(
         world_context=True,
         named_citations=True,
@@ -734,7 +735,7 @@ def test_relationship_review_survives_actual_sdk_app_history_and_refuses_tampere
     assert isinstance(turn.completion, t.BuildIntentionalResponseCompletionV1)
     assert turn.completion.collaboration.model_dump(mode="json") == writer.collaboration
     wire=json.loads(writer.calls[0].content)
-    assert wire["text"]["format"]["name"] == ("build_intentional_plan_selection_answer_v1" if "plan_output_contract" in json.loads(wire["input"]) else "build_intentional_response_answer_v1") + "_quotes_v2"
+    assert wire["text"]["format"]["name"] == ("build_intentional_plan_selection_answer_v1" if "plan_output_contract" in json.loads(wire["input"]) else "build_intentional_response_answer_v1") + "_quotes_v2_rel_v2"
     assert json.loads(wire["input"])["relationship_review_policy"] == "typed_saved_relationship_review_v1"
     loaded=service.list_turns(turn.world_id,turn.conversation_id)[0]
     assert loaded.completion == turn.completion

@@ -50,3 +50,45 @@ RelationshipCollaborationV2 = ProposedPlanV2 | ProposedQuestions | ProposedConne
 
 from .collaboration import ProposedPlanV3
 RelationshipCollaborationV3 = ProposedPlanV3 | ProposedQuestions | ProposedConnectedPage | ProposedRelationship
+
+
+OUTPUT_KEY = "relationship_output_policy"
+OUTPUT_POLICY = "resolved_current_saved_relationship_v1"
+OUTPUT_SUFFIX = "_rel_v2"
+
+
+def output_eligible(packet):
+    from .build_intentional_response import POLICY as RESPONSE_POLICY, Capabilities, resolve, canonical
+    contract = packet.get("response_contract")
+    if not isinstance(contract, dict) or contract.get("policy") != RESPONSE_POLICY:
+        return False
+    caps = contract["capabilities"]
+    expected = resolve(contract["requested_work"], Capabilities(tuple(caps["operations"]),
+        tuple(caps["reviews"]) if caps["reviews"] is not None else None,
+        caps["plan_surface"], caps["author_save"]))
+    if canonical(contract) != canonical(expected):
+        raise ValueError("Relationship output requires the exact resolved contract")
+    return (contract["requested_work"] == "review_relationship" and contract["barrier"] is None
+        and packet.get(KEY) == POLICY)
+
+
+def output_enabled(packet):
+    if OUTPUT_KEY not in packet:
+        return False
+    if packet[OUTPUT_KEY] != OUTPUT_POLICY or not output_eligible(packet):
+        raise ValueError("Unknown or unadmitted relationship output policy")
+    return True
+
+
+def output_format_name(name, packet):
+    return name + OUTPUT_SUFFIX if output_enabled(packet) else name
+
+
+def restrict_output(schema, packet):
+    if output_enabled(packet):
+        # The finite saved-section selector is already derived by draft_schema.
+        # No acquired current section means no relationship object is offered.
+        schema["properties"]["collaboration"]["anyOf"] = (
+            [{"$ref": "#/$defs/ProposedRelationship"}] if "ProposedRelationship" in schema["$defs"] else []
+        ) + [{"type": "null"}]
+    return schema

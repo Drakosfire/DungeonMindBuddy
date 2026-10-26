@@ -161,6 +161,10 @@ target:{label:"other person/place",kind:"npc or location etc"},predicate:"relati
 label:"readable relationship",context:"explicit temporal/conditional meaning"}.
 Use this review instead of claiming relationships require unsupported separate authoring.
 Endpoints are proposed labels/kinds; the author resolves existing identities or new identities.
+A supplied artifact_under_edit.sections row with text_ref=working_draft_context IS an acquired
+CURRENT SAVED section. Its exact body is carried once in working_draft_context.draft_markdown;
+use that body with the saved row's read_id and quote. The shared carrier does not revoke the
+saved row's authority. A working draft without a supplied saved row is not saved support.
 Use only the included CURRENT saved section, never unsaved draft text or another page.
 If the support is not saved, request the needed save or clarification. Preserve past temporary
 work as past temporary work; do not imply current employment or played events.
@@ -331,6 +335,7 @@ class WriterProjection:
         from application_state.agent_conversation.plan_objective import selection_packet, INTENTIONAL_SELECTION_FORMAT, REVIEWED_SELECTION_FORMAT, SELECTION_GUIDANCE
         selected_output = selection_packet(packet)
         base_format_name = SCOPE_FORMAT if scoped else (INTENTIONAL_SELECTION_FORMAT if intentional_output else REVIEWED_SELECTION_FORMAT) if selected_output else ORIGIN_FORMAT if ORIGIN_KEY in packet else (INTENTIONAL_FORMAT if intentional_output else REVIEWED_FORMAT) if objective_output else intentional.FORMAT if intentional_output else "build_working_draft_answer_v5" if relationship else QUOTE_FORMAT if quoted else "build_working_draft_answer_v3" if connected else "build_working_draft_answer_v2" if collaboration else "build_working_draft_answer_v1" if draft_context else GAP_SCHEMA_NAME if cited else "build_source_passage_answer"
+        from application_state.agent_conversation.relationship_review import output_format_name
         return {
             "model": MODEL,
             "input": self.input_json,
@@ -345,7 +350,7 @@ class WriterProjection:
             "text": {
                 "format": mixed_format or {
                     "type": "json_schema",
-                    "name": quote_format_name(base_format_name, packet),
+                    "name": output_format_name(quote_format_name(base_format_name, packet), packet),
                     "schema": intentional.output_schema(packet) if intentional_output else finite_output_schema(json.loads(self.input_json), requested_detail_gaps=True) if cited else source_answer_schema(),
                     "strict": True,
                 }
@@ -445,6 +450,9 @@ def with_response_contract(staged, execution):
         raise ValueError('Writer requires its unique semantic resolution')
     packet = json.loads(staged.input_json)
     packet['response_contract'] = choices[0].resolution
+    from application_state.agent_conversation.relationship_review import output_eligible, OUTPUT_KEY, OUTPUT_POLICY
+    if output_eligible(packet):
+        packet[OUTPUT_KEY] = OUTPUT_POLICY
     from application_state.agent_conversation.connected_page_origins import eligible, KEY as ORIGIN_KEY, POLICY as ORIGIN_POLICY
     if eligible(packet):
         packet[ORIGIN_KEY] = ORIGIN_POLICY

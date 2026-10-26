@@ -366,7 +366,15 @@ def finite_output_schema(packet: dict, *, requested_detail_gaps: bool = False) -
 
 
 def validate_writer_format(fmt: dict, packet: dict) -> None:
-    """The quote-version wrapper precedes every existing composite format gate."""
+    """Version wrappers precede every existing composite format gate."""
+    from .relationship_review import output_enabled, OUTPUT_SUFFIX
+    relationship = output_enabled(packet)
+    name = fmt.get('name') if isinstance(fmt, dict) else None
+    versioned = isinstance(name, str) and name.endswith(OUTPUT_SUFFIX)
+    if relationship != versioned:
+        raise ValueError('Relationship output marker and writer format differ')
+    if versioned:
+        fmt = {**fmt, 'name': name[:-len(OUTPUT_SUFFIX)]}
     from .source_quote_binding import related_witnesses, FORMAT_SUFFIX
     modern = related_witnesses(packet)
     name = fmt.get('name') if isinstance(fmt,dict) else None
