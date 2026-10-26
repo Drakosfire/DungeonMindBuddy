@@ -51,9 +51,14 @@ def acquired_catalog(execution, trace):
     if trace.get("capture_status") not in {"recording", "complete"}:
         raise ValueError("Writer selection requires complete protected capture")
     captured = trace.get("observations", [])
+    from .authored_graph_references import source_event_ids as mandatory_source_ids
+    mandatory = mandatory_source_ids(execution)
     units = {}
     for event in execution.events:
         if isinstance(event, ValidatedSourceReadEventV2):
+            if event.event_id in mandatory:
+                continue  # Required author context is never an optional relevance vote.
+
             if not event.receipts or any(
                 r.outcome != "enough" or r.truncated
                 or r.evidence_sufficiency_status != "sufficient"

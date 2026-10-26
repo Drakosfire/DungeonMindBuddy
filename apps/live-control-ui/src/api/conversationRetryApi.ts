@@ -1,14 +1,18 @@
+import type {AuthoredGraphReferencesV1} from './types';
+import {isAuthoredGraphReferences} from '../agentInteraction/authoredGraphReferences';
 import {authenticatedApiFetch,LiveApiError} from './liveApi';
-export interface TurnRetryContext {
+interface TurnRetryContextBase {
  world_id:string;conversation_id:string;turn_id:string;revision:number;root_id:string;
  predecessor_id:string|null;successor_id:string|null;ordinal:number;eligible:boolean;
  reason:'ready'|'not_terminal'|'unknown_outcome'|'existing_result'|'reviewed_step'|'retried'|'inactive'|'unverified';
 }
+export type TurnRetryContext=TurnRetryContextBase&({schema?:never;authored_references?:never}|{schema:'dmb_turn_retry_context_row_v2';authored_references:AuthoredGraphReferencesV1});
 export const retryUuid=(v:unknown):v is string=>typeof v==='string'&&/^[a-f0-9]{8}-(?:[a-f0-9]{4}-){3}[a-f0-9]{12}$/i.test(v);
 const exact=(v:unknown,keys:string[]):v is Record<string,any>=>!!v&&typeof v==='object'&&!Array.isArray(v)&&Object.keys(v).length===keys.length&&keys.every(k=>Object.hasOwn(v,k));
 export function decodeRetryContext(value:unknown,world:string,conversation:string,turn:string):TurnRetryContext|null {
  if(value===null)return null;
- if(!exact(value,['world_id','conversation_id','turn_id','revision','root_id','predecessor_id','successor_id','ordinal','eligible','reason'])
+ if(!exact(value,['world_id','conversation_id','turn_id','revision','root_id','predecessor_id','successor_id','ordinal','eligible','reason',...(value&&typeof value==='object'&&'schema' in value?['schema','authored_references']:[])])
+  ||('schema' in value&&(value.schema!=='dmb_turn_retry_context_row_v2'||!isAuthoredGraphReferences(value.authored_references,world)))
   ||value.world_id!==world||value.conversation_id!==conversation||value.turn_id!==turn
   ||!retryUuid(conversation)||!retryUuid(turn)||!retryUuid(value.root_id)
   ||!Number.isSafeInteger(value.revision)||value.revision<1||!Number.isSafeInteger(value.ordinal)||value.ordinal<0

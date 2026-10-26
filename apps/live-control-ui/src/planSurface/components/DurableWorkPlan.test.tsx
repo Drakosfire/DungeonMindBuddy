@@ -2,8 +2,9 @@ import {cleanup,fireEvent,render,screen,waitFor} from '@testing-library/react'
 import {webcrypto} from 'node:crypto'
 import {afterEach,beforeEach,expect,it,vi} from 'vitest'
 import {DurableWorkPlan} from './DurableWorkPlan'
-import {getWorkPlan,saveWorkPlan,continueWorkPlan,type WorkPlan} from '../../api/conversationWorkPlanApi'
+import {getWorkPlan,saveWorkPlan,continueWorkPlan,planObjective,type WorkPlan} from '../../api/conversationWorkPlanApi'
 vi.mock('../../api/conversationWorkPlanApi',async original=>({...await original<typeof import('../../api/conversationWorkPlanApi')>(),getWorkPlan:vi.fn(),saveWorkPlan:vi.fn(),continueWorkPlan:vi.fn()}))
+vi.mock('../../surface/SurfaceGraphReferenceInput',()=>({SurfaceGraphReferenceInput:({worldId,label,value,onChange,disabled}:any)=><section aria-label={label}><span>{value.map((r:any)=>r.node_id).join(',')}</span><button type="button" disabled={disabled} onClick={()=>onChange([...value,{schema:'dmb_authored_graph_reference_v1',managed_world_id:worldId,native_world_id:'native',binding_version:1,graph_revision:'rev-a',node_id:label,label}])}>Select {label}</button></section>}));
 const scope={worldId:'world',conversationId:'conversation',turnId:'source-turn',source:'1. Discuss the shop.\n2. Prepare content.'}
 const one='11111111-1111-4111-8111-111111111111',two='22222222-2222-4222-8222-222222222222'
 function plan():WorkPlan{return {schema:'dmb_reviewed_work_plan_v2',objective:'Develop a useful shop scene.',world_id:'world',conversation_id:'conversation',source_turn_id:'source-turn',source_answer_sha256:'a'.repeat(64),document_id:'source',revision:1,steps:[{step_id:one,text:'Discuss the shop.',selected:true,kind:'discuss'},{step_id:two,text:'Prepare content.',selected:false,kind:'prepare_insertion'}],dispatches:[],execution:[]}}
@@ -91,4 +92,47 @@ it('offers no removal for a dispatched row while a pending row remains removable
  fireEvent.click(screen.getByRole('button',{name:'Remove step 2'}));
  expect(screen.getByLabelText('Saved step 1')).toHaveValue('Discuss the shop.');
  expect(screen.queryByLabelText('Saved step 2')).toBeNull();expect(continueWorkPlan).not.toHaveBeenCalled();
+});
+
+it('retains root and deferred-step context through remount and explicit reference-aware Save',async()=>{
+ const proceed=mount();await screen.findByLabelText('Saved step 1');
+ fireEvent.click(screen.getByRole('button',{name:'Select Plan Graph context'}));
+ fireEvent.click(screen.getByRole('button',{name:'Select Step 2 Graph context'}));
+ expect(screen.getAllByRole('button',{name:'Continue step'})[0]).toBeDisabled();
+ expect(saveWorkPlan).not.toHaveBeenCalled();cleanup();mount();await screen.findByLabelText('Saved step 1');
+ expect(screen.getByLabelText('Plan Graph context')).toHaveTextContent('Plan Graph context');
+ expect(screen.getByLabelText('Step 2 Graph context')).toHaveTextContent('Step 2 Graph context');
+ const ref=(node:string)=>({schema:'dmb_authored_graph_reference_v1' as const,managed_world_id:'world',native_world_id:'native',binding_version:1,graph_revision:'rev-a',node_id:node,label:node});
+ const roots=[ref('Plan Graph context')],steps=plan().steps.map((row,i)=>({...row,references:i===1?[ref('Step 2 Graph context')]:[]}));
+ vi.mocked(saveWorkPlan).mockResolvedValue({...plan(),schema:'dmb_reviewed_work_plan_v3',objective:planObjective(plan()),root_references:roots,steps,revision:2});
+ fireEvent.click(screen.getByRole('button',{name:'Save reviewed plan'}));
+ await waitFor(()=>expect(saveWorkPlan).toHaveBeenCalledWith(scope,1,steps,planObjective(plan()),roots));
+ expect(continueWorkPlan).not.toHaveBeenCalled();expect(proceed).not.toHaveBeenCalled();
+});
+it('keeps dispatched step context read-only while later root context remains editable',async()=>{
+ const p=plan(),d={command_id:one,step_id:one,client_thread_id:two,client_turn_id:one,message:'Exact'};
+ vi.mocked(getWorkPlan).mockResolvedValue({...p,schema:'dmb_reviewed_work_plan_v3',objective:planObjective(p),root_references:[],steps:p.steps.map(row=>({...row,references:[]})),dispatches:[d],execution:[{command_id:one,step_id:one,status:'prepared',turn_id:two,attempt:1,result:{kind:'page_proposal',action_id:one}}]});
+ mount();await screen.findByLabelText('Saved step 1');
+ expect(screen.getByRole('button',{name:'Select Step 1 Graph context'})).toBeDisabled();
+ expect(screen.getByRole('button',{name:'Select Step 2 Graph context'})).toBeEnabled();
+ expect(screen.getByRole('button',{name:'Select Plan Graph context'})).toBeEnabled();
+});
+
+it('preserves saved step references when reconciling an older V2 local wording draft',async()=>{
+ const identity=JSON.stringify([scope.worldId,scope.conversationId,scope.turnId,scope.source]);
+ const local=plan().steps.map(row=>({...row,text:row.step_id===one?'Older local wording':row.text}));
+ sessionStorage.setItem(`dmb:reviewed-plan-edit:v1:${identity}`,JSON.stringify({schema:'dmb_reviewed_plan_edit_v2',identity,base_revision:1,steps:local,objective:planObjective(plan())}));
+ const ref=(node:string)=>({schema:'dmb_authored_graph_reference_v1' as const,managed_world_id:'world',native_world_id:'native',binding_version:1,graph_revision:'rev-a',node_id:node,label:node});
+ const roots=[ref('root box')],savedSteps=plan().steps.map((row,i)=>({...row,references:i===0?[ref('step box')]:[]}));
+ const saved:WorkPlan={...plan(),schema:'dmb_reviewed_work_plan_v3',objective:planObjective(plan()),revision:2,root_references:roots,steps:savedSteps};
+ vi.mocked(getWorkPlan).mockResolvedValue(saved);mount();
+ expect(await screen.findByLabelText('Saved step 1')).toHaveValue('Older local wording');
+ expect(screen.getByLabelText('Plan Graph context')).toHaveTextContent('root box');
+ expect(screen.getByLabelText('Step 1 Graph context')).toHaveTextContent('step box');
+ expect(screen.getByRole('button',{name:'Save reviewed plan'})).toBeDisabled();
+ fireEvent.click(screen.getByRole('button',{name:'Use these edits against the latest review'}));
+ const merged=savedSteps.map(row=>({...row,text:row.step_id===one?'Older local wording':row.text}));
+ vi.mocked(saveWorkPlan).mockResolvedValue({...saved,revision:3,steps:merged});
+ fireEvent.click(screen.getByRole('button',{name:'Save reviewed plan'}));
+ await waitFor(()=>expect(saveWorkPlan).toHaveBeenCalledWith(scope,2,merged,planObjective(plan()),roots));
 });

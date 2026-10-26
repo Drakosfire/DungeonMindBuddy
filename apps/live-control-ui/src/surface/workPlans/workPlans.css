@@ -57,3 +57,5 @@
 
 /* A dock reader already starts below chrome and owns its scrolling. */
 .conversation-dock__reader .surface-work-plan .surface-work-plan__header { top:0; }
+
+.surface-work-plan__step > .surface-work-plan__references { grid-column:3 / -1; grid-row:5; min-width:0; }

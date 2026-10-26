@@ -20,6 +20,15 @@ export function activityObservations(observations: readonly BuddyTraceObservatio
 
 function activity(event: BuddyTraceObservation): string {
   switch (event.kind) {
+    case 'authored_graph_reference_v1': {
+      const recorded=event.execution_event;
+      switch(recorded.kind){
+        case 'build_authored_references_captured_v1':return 'Your Graph references are on the reading list.';
+        case 'build_authored_reference_authorized_v1':return 'Opening the object you picked…';
+        case 'build_authored_reference_read_v1':return recorded.outcome==='read'?'Checked the object and its source receipts.':recorded.outcome==='read_partial'?'That object read came back incomplete.':'The object is missing complete source support.';
+        case 'build_authored_provider_inclusion_v1':return 'Graph context packed for the writer.';
+      }
+    }
     case 'source_passage':
     case 'source_passage_reuse': return `Checked the receipts: ${event.source_name?.trim() || 'source name unavailable'}.`
     case 'graph_tool': return `Back from the World graph · ${event.result.outcome}.`

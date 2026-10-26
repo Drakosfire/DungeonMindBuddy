@@ -22,7 +22,7 @@ class WriterSelectionDriver:
         self._used = False
         self._prepared = None
         self.receipt = None
-        self._material = acquisition_driver._material()
+        self._material = self._optional_material()
         self.catalog = self._catalog()
         _, sources, sections = self._material
         if (set(sources) != {eid for unit in self.catalog.values() for eid in unit.get("source_event_ids", [])}
@@ -38,8 +38,14 @@ class WriterSelectionDriver:
                             for name, q in self._questions.items()))
         self._plan = None
 
+    def _optional_material(self):
+        from application_state.agent_conversation.authored_graph_references import source_event_ids
+        graph, sources, sections = self.acquisition_driver._material()
+        mandatory = {str(eid) for eid in source_event_ids(self.adapter._broker_execution())}
+        return graph, tuple(sorted(set(sources) - mandatory)), sections
+
     def _catalog(self):
-        if self.acquisition_driver._material() != self._material:
+        if self._optional_material() != self._material:
             raise ValueError("Acquired material changed during writer selection")
         return selection.acquired_catalog(self.adapter._broker_execution(),
             self.adapter.context_capture.trace.model_dump(mode="json", by_alias=True))

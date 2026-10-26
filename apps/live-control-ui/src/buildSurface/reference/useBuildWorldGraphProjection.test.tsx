@@ -639,6 +639,7 @@ describe("useBuildWorldGraphProjection shared exact-match reuse", () => {
     return {
       request,
       requestKey: `native:${worldGraphProjectionRequestKey(request)}`,
+      managedBinding:null,
       projection: headProjection(),
       projectionState: "ready",
       projectionError: null,

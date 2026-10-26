@@ -18,8 +18,11 @@ def build_case(tmp_path, monkeypatch, application_state_dsn):
     return _build_case.__wrapped__(tmp_path, monkeypatch, application_state_dsn)
 
 
-def reviewed_case(build_case, monkeypatch, kind="prepare_insertion"):
-    (source, request, bootstrap), _ = ordinary_case(build_case, monkeypatch, authoring=True)
+def reviewed_case(build_case, monkeypatch, kind="prepare_insertion", *, authored_references=None, prepared=False):
+    if prepared:
+        source, request, bootstrap = build_case
+    else:
+        (source, request, bootstrap), _ = ordinary_case(build_case, monkeypatch, authoring=True)
     if kind == "discuss":
         from tests.test_build_world_context import world_case
         (source,request,bootstrap), _ = world_case((source,request,bootstrap),monkeypatch)
@@ -32,7 +35,12 @@ def reviewed_case(build_case, monkeypatch, kind="prepare_insertion"):
     running=service.begin_turn('elderwyld',cid,plan_turn.turn_id,expected_revision=plan_turn.revision)
     plan_turn=service.complete_turn(TurnResult(world_id='elderwyld',conversation_id=cid,turn_id=running.turn_id,expected_revision=running.revision,assistant_text='Prepare a proposed NPC table.'))
     step = w.Step(step_id=uuid4(),text='Prepare a proposed NPC table.',selected=True,kind=kind)
-    plan = w.save('elderwyld',cid,plan_turn.turn_id,w.ReviewV2(expected_revision=0,steps=[step],objective="Develop useful proposed shop content for author review."))
+    review = w.ReviewV2(expected_revision=0,steps=[step],objective="Develop useful proposed shop content for author review.")
+    if authored_references is not None:
+        review = w.ReviewV3(expected_revision=0,steps=[w.StepV2(**step.model_dump(),references=())],
+            objective=review.objective,root_references=authored_references.references)
+        request = request.model_copy(update={'build_authored_references':authored_references})
+    plan = w.save('elderwyld',cid,plan_turn.turn_id,review)
     continued = w.continue_step('elderwyld',cid,plan_turn.turn_id,w.Continue(expected_revision=plan['revision'],step_id=step.step_id,command_id=uuid4()))
     d=continued['dispatch']
     cap=request.build_write_capability

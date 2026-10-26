@@ -1,3 +1,4 @@
+import type {AuthoredGraphReferencesV1} from './types'
 /** APP-STATE context-trace consumer shape. Observations grant no evidence authority. */
 export interface WorldAgentTurnContextTraceResponse {
   schema: 'dmb_agent_turn_context_trace_response_v1'
@@ -53,7 +54,14 @@ export interface BuddyTraceSourcePassage extends Observation {
   line_start: number | null; line_end: number | null; outcome: 'enough' | 'partial' | 'truncated'
   returned_chars: number; content_sha256: string; text: string
 }
+export type BuddyAuthoredTraceEvent = {event_id:string;sequence:number} & (
+  | {kind:'build_authored_references_captured_v1';references:AuthoredGraphReferencesV1;read_graph_revision:string;turn_id:string;conversation_id:string;attempt:number;submitted_intent_fingerprint:string}
+  | {kind:'build_authored_reference_authorized_v1';capture_event_id:string;node_id:string;arguments_sha256:string}
+  | {kind:'build_authored_reference_read_v1';capture_event_id:string;authorization_event_id:string;node_id:string;operation_event_ids:string[];source_read_event_ids:string[];returned_node_ids:string[];outcome:'read'|'read_partial'|'source_gap'}
+  | {kind:'build_authored_provider_inclusion_v1';capture_event_id:string;references_sha256:string;source_read_event_ids:string[];provider_attempt_id:string;envelope_sha256:string;material_sha256:string}
+)
 export type BuddyTraceObservation =
+  | (Observation & {kind:'authored_graph_reference_v1';execution_event:BuddyAuthoredTraceEvent})
   | (Observation & { kind: 'context_snapshot'; stage: 'before' | 'after'; materials: BuddyTraceMaterial[]; snapshot_kind?: 'provider_input' | 'provider_response' | 'validated_answer' | 'compaction_input' | 'compaction_output' | null; comparison_id?: string | null })
   | (Observation & { kind: 'context_decision'; action: 'retrieved' | 'retained' | 'expanded' | 'compacted' | 'pruned'; item_ids: string[]; reason_code: string; policy_version: string })
   | (Observation & { kind: 'graph_tool'; tool_name: 'expand_graph_retrieval'; execution_event_id: string; request_arguments_sha256: string; result_packet_sha256: string; scope_mode: 'campaign' | 'world'; campaign_id: string | null; revision_pin: string; request: BuddyTraceGraphRequest; result: BuddyTraceGraphResult; duration_ms?: number | null })

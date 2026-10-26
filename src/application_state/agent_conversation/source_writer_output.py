@@ -512,6 +512,8 @@ def reconstruct(raw_output: str, packet: dict, turn, auth):
     from . import types as t
 
     execution = turn.graph_context_execution
+    from .authored_graph_references import validate_packet as validate_authored_packet
+    validate_authored_packet(packet, execution)
     receipt_sha = turn.graph_context_receipt.context_receipt_sha256
     from .build_draft_context import resolve_body_aliases
     packet = resolve_body_aliases(packet)

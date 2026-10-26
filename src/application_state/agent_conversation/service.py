@@ -1267,6 +1267,8 @@ class AgentConversationService:
         related_page_proof: dict | None = None,
         requested_work_proof: dict | None = None,
         related_page_materializer=None,
+        authored_object_result_proof=None,
+        authored_prepared_request_json=None,
     ) -> tuple[Turn, bool]:
         world_id = _world_id(world_id)
         dsn = _ready_dsn()
@@ -1482,6 +1484,25 @@ class AgentConversationService:
                     verify_world_selection(turn, event, build_world_selection_proof, captured[0] if captured else {})
                 except (ValueError, KeyError, TypeError, AttributeError) as exc:
                     raise ApplicationStateValidationError(str(exc)) from exc
+            from .types import BuildAuthoredReferencesCapturedV1
+            if isinstance(event, BuildAuthoredReferencesCapturedV1):
+                if (event.turn_id != turn.turn_id or event.conversation_id != turn.conversation_id
+                    or event.attempt != turn.attempt or event.submitted_intent_fingerprint != turn.submitted_intent_fingerprint_v2):
+                    raise ApplicationStateValidationError('Authored reference capture belongs to another request or attempt')
+            from .types import BuildAuthoredReferenceReadV1
+            if isinstance(event, BuildAuthoredReferenceReadV1):
+                from .authored_graph_references import validate_object_result_proof
+                try:
+                    validate_object_result_proof(event, execution, authored_object_result_proof)
+                except (ValueError, KeyError, TypeError) as exc:
+                    raise ApplicationStateValidationError(str(exc)) from exc
+            from .types import BuildAuthoredProviderInclusionV1
+            if isinstance(event, BuildAuthoredProviderInclusionV1):
+                from .authored_graph_references import validate_provider_inclusion, load_protected_source_material
+                try:
+                    validate_provider_inclusion(event, execution, authored_prepared_request_json, load_protected_source_material(conn, turn))
+                except (ValueError, KeyError, TypeError) as exc:
+                    raise ApplicationStateValidationError(str(exc)) from exc
             section_inclusion = None
             from .native_source_input import CAPABILITIES, prove_input
             if (isinstance(execution.policy, CAPABILITIES)
@@ -1541,9 +1562,24 @@ class AgentConversationService:
                 ).fetchone()[0]
                 captured = {(item.get("source_read_event_id"), item.get("source_read_id"), item.get("content_sha256"))
                             for item in payload["observations"] if item.get("kind") in {"source_passage", "source_passage_reuse"}}
+                authored_ids, authored_captured = set(), set()
+                from .authored_graph_references import policy_enabled, require_writer_inclusion, load_protected_source_material
+                if (policy_enabled(execution.policy) and (event.provider,event.model,event.api_mode)
+                    == execution.policy.provider_roles.writer.identity()):
+                    try:
+                        require_writer_inclusion(execution,event)
+                        inclusion=next(e for e in execution.events if isinstance(e,graph_types.BuildAuthoredProviderInclusionV1)
+                            and e.provider_attempt_id==event.provider_attempt_id)
+                        authored_ids=set(inclusion.source_read_event_ids)
+                        material=load_protected_source_material(conn,turn)
+                        authored_captured={(p['source_read_event_id'],p['source_read_id'],p['content_sha256'])
+                            for p in material['observations'] if p['source_read_event_id'] in {str(eid) for eid in authored_ids}}
+                    except (ValueError,KeyError,TypeError) as exc:
+                        raise ApplicationStateValidationError(str(exc)) from exc
                 for read_event in execution.events:
                     if isinstance(read_event, graph_types.SOURCE_PASSAGE_EVENTS) and read_event.event_id in graph_types.included_passage_event_ids(event):
-                        if any(read.returned_chars and (str(read_event.event_id), read.source_read_id, read.content_sha256) not in captured for read in read_event.receipts):
+                        source_capture=authored_captured if read_event.event_id in authored_ids else captured
+                        if any(read.returned_chars and (str(read_event.event_id), read.source_read_id, read.content_sha256) not in source_capture for read in read_event.receipts):
                             raise ApplicationStateValidationError("provider inclusion requires captured source passages")
             if isinstance(event, ValidatedGraphOperationEventV1):
                 receipt = turn.graph_context_receipt
@@ -1812,6 +1848,14 @@ class AgentConversationService:
         return self._append_graph_execution_event(world_id,conversation_id,turn_id,
             expected_revision=expected_revision,expected_attempt=expected_attempt,event=event,
             duplicate_key="event_id",related_page_proof=producer_proof,related_page_materializer=materializer)
+
+    def record_build_authored_reference(self, world_id, conversation_id, turn_id, *,
+        expected_revision, expected_attempt, event, object_result_proof=None, prepared_request_json=None):
+        from .types import BuildAuthoredReferencesCapturedV1, BuildAuthoredReferenceAuthorizedV1, BuildAuthoredReferenceReadV1, BuildAuthoredProviderInclusionV1
+        if not isinstance(event, (BuildAuthoredReferencesCapturedV1, BuildAuthoredReferenceAuthorizedV1, BuildAuthoredReferenceReadV1, BuildAuthoredProviderInclusionV1)):
+            raise ApplicationStateValidationError('Authored context requires its typed host event')
+        return self._append_graph_execution_event(world_id, conversation_id, turn_id,
+            expected_revision=expected_revision, expected_attempt=expected_attempt, event=event, duplicate_key='event_id', authored_object_result_proof=object_result_proof, authored_prepared_request_json=prepared_request_json)
 
     def record_build_draft_context(self, world_id: str, conversation_id: UUID, turn_id: UUID, *,
         expected_revision: int, expected_attempt: int, event):

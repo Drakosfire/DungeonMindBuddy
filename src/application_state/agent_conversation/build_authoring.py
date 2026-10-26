@@ -137,6 +137,8 @@ def validate_stored_proposal(conn, turn, completion):
             if getattr(e, "provider_attempt_id", None) == completion.provider_attempt_id
             and e.kind == "provider_attempt_authorized_v3"
         )
+        from .authored_graph_references import validate_stored_writer
+        validate_stored_writer(conn, turn, producing)
         if (auth.provider, auth.model, auth.api_mode) != (
             producing.provider,
             producing.model,
@@ -219,6 +221,8 @@ def validate_stored_image(conn, turn, completion):
         )
         direction_type = ImageDirectionV2 if "purpose" in json.loads(proof.raw_response) else ImageDirection
         decoded = direction_type.model_validate_json(proof.raw_response)
+        from .authored_graph_references import validate_stored_writer
+        validate_stored_writer(conn, turn, writer, proof.request_json)
         writer_body = json.loads(proof.request_json)
         packet = json.loads(writer_body["input"])
         captured = packet["captured_capability"]

@@ -45,7 +45,7 @@ export function BuildWorkPlanHost({session,bridge,children}:{session:MarkdownCan
       };
       queueSurfaceConversationRequest({id:'reviewed-plan:'+dispatch.client_turn_id,worldId,surfaceId:'build',objectId:documentId,
         message:dispatch.message,clientThreadId:dispatch.client_thread_id,turnId:dispatch.client_turn_id,
-        ...(reference?{reviewedStep:reference}:{}),isCurrent});
+        ...(reference?{reviewedStep:reference}:{}),...(dispatch.authored_references?{authoredReferences:dispatch.authored_references}:{}),isCurrent});
       agent.setPaneOpen(true);
     },
     openReply:turnId=>{

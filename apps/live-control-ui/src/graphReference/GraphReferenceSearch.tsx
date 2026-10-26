@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useId, useMemo, useState } from "react";
 
 import type { GraphReferenceProjectionState, GraphReferenceSearchItem } from "./types";
 import { searchGraphReferences, sortGraphReferenceItems } from "./searchGraphReferences";
@@ -15,6 +15,8 @@ export interface GraphReferenceSearchProps {
   /** When set, returns a denial reason for rows that fail object-level insert policy. */
   insertDeniedReason?: (item: GraphReferenceSearchItem) => string | null;
   onInsert?: (item: GraphReferenceSearchItem) => void;
+  onChoose?: (item: GraphReferenceSearchItem) => void;
+  chooseDisabled?: boolean;
   onView?: (item: GraphReferenceSearchItem) => void;
 }
 
@@ -26,8 +28,11 @@ export function GraphReferenceSearch({
   insertDeniedReason,
   onInsert,
   onView,
+  onChoose,
+  chooseDisabled = false,
 }: GraphReferenceSearchProps) {
   const [query, setQuery] = useState("");
+  const searchId=useId();
 
   const results = useMemo(() => {
     const matched = sortGraphReferenceItems(searchGraphReferences(items, query));
@@ -58,11 +63,11 @@ export function GraphReferenceSearch({
 
       {projectionState === "ready" ? (
         <>
-          <label className="graph-reference-search__label" htmlFor="graph-reference-search-input">
+          <label className="graph-reference-search__label" htmlFor={searchId}>
             Find objects
           </label>
           <input
-            id="graph-reference-search-input"
+            id={searchId}
             className="graph-reference-search__input"
             type="search"
             value={query}
@@ -116,6 +121,7 @@ export function GraphReferenceSearch({
                           View
                         </button>
                       ) : null}
+                      {onChoose ? <button type="button" className="graph-reference-search__button graph-reference-search__button--primary" disabled={chooseDisabled} onClick={()=>onChoose(item)}>Use as context</button> : null}
                       {onInsert ? (
                         <button
                           type="button"

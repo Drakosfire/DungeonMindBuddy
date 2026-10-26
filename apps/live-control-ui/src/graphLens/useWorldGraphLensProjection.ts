@@ -48,7 +48,10 @@ export { WORLD_GRAPH_REVISION_COMMITTED_EVENT };
 
 export type WorldGraphLensProjectionState = GraphReferenceProjectionState | "idle";
 
+export type ManagedGraphBinding = {managedWorldId:string;nativeWorldId:string;bindingVersion:number};
 export interface WorldGraphLensProjectionValue {
+  /** Verified binding admitted with exactly these projection bytes. */
+  managedBinding: ManagedGraphBinding | null;
   /** Desired exact request identity (may precede loaded bytes during transitions). */
   request: WorldGraphProjectionRequest | null;
   requestKey: string | null;
@@ -65,6 +68,7 @@ export interface WorldGraphLensProjectionValue {
 }
 
 type StoredProjectionLoad = {
+  managedBinding: ManagedGraphBinding | null;
   scope: ProjectionDemandScope;
   requestKey: string;
   refreshKey: string;
@@ -405,7 +409,7 @@ export function WorldGraphLensProjectionProvider({
             requestKey: loadRequestKey,
             refreshKey: loadRefreshKey,
             request: loadRequest,
-            projection: null,
+            projection: null, managedBinding: null,
             projectionState: "error",
             projectionError: mismatch,
             lastProjectionLoadMs: finish("error"),
@@ -419,6 +423,7 @@ export function WorldGraphLensProjectionProvider({
           refreshKey: loadRefreshKey,
           request: loadRequest,
           projection: response,
+          managedBinding: managedResponse ? {managedWorldId:managedResponse.managedWorldId,nativeWorldId:managedResponse.nativeWorldId,bindingVersion:managedResponse.bindingVersion} : null,
           projectionState: "ready",
           projectionError: null,
           lastProjectionLoadMs: finish("ready"),
@@ -437,7 +442,7 @@ export function WorldGraphLensProjectionProvider({
             requestKey: loadRequestKey,
             refreshKey: loadRefreshKey,
             request: loadRequest,
-            projection: null,
+            projection: null, managedBinding: null,
             projectionState: "unavailable",
             projectionError: null,
             lastProjectionLoadMs: finish("unavailable"),
@@ -450,7 +455,7 @@ export function WorldGraphLensProjectionProvider({
           requestKey: loadRequestKey,
           refreshKey: loadRefreshKey,
           request: loadRequest,
-          projection: null,
+          projection: null, managedBinding: null,
           projectionState: "error",
           projectionError: formatProjectionLoadError(error),
           lastProjectionLoadMs: finish("error"),
@@ -492,7 +497,7 @@ export function WorldGraphLensProjectionProvider({
       return {
         request: null,
         requestKey: null,
-        projection: null,
+        projection: null, managedBinding: null,
         projectionState: "unavailable",
         projectionError: null,
         nodeCount: 0,
@@ -502,7 +507,7 @@ export function WorldGraphLensProjectionProvider({
     }
 
     if (!active) {
-      return { request: desiredRequest, requestKey: desiredRequestKey, projection: null,
+      return { request: desiredRequest, requestKey: desiredRequestKey, projection: null, managedBinding: null,
         projectionState: "idle", projectionError: null, nodeCount: 0,
         lastProjectionLoadMs: null, lastProjectionLoadOutcome: null };
     }
@@ -511,7 +516,7 @@ export function WorldGraphLensProjectionProvider({
       return {
         request: desiredRequest,
         requestKey: desiredRequestKey,
-        projection: null,
+        projection: null, managedBinding: null,
         projectionState: "loading",
         projectionError: null,
         nodeCount: 0,
@@ -524,6 +529,7 @@ export function WorldGraphLensProjectionProvider({
       request: desiredRequest,
       requestKey: desiredRequestKey,
       projection: stored.projection,
+      managedBinding: stored.projection ? stored.managedBinding : null,
       projectionState: stored.projectionState,
       projectionError: stored.projectionError,
       nodeCount: stored.projection?.nodes.length ?? 0,

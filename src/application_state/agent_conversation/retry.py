@@ -21,6 +21,9 @@ from .types import (
 )
 
 
+from .authored_graph_references import AuthoredGraphReferencesV1
+
+
 class RetryUnavailableError(ApplicationStateConflictError):
     """A new retry was refused before acceptance or provider authorization."""
 
@@ -45,6 +48,11 @@ class RetryContext(StrictModel):
         "inactive",
         "unverified",
     ]
+
+
+class RetryContextV2(RetryContext):
+    schema_: Literal['dmb_turn_retry_context_row_v2'] = Field(default='dmb_turn_retry_context_row_v2', alias='schema')
+    authored_references: AuthoredGraphReferencesV1
 
 
 def _edges(conn, turn):
@@ -180,7 +188,7 @@ def context(conn, turn, *, active):
         if isinstance(turn, Turn)
         else "not_terminal"
     )
-    return RetryContext(
+    value = RetryContext(
         world_id=meta.world_id,
         conversation_id=meta.conversation_id,
         turn_id=meta.turn_id,
@@ -192,6 +200,23 @@ def context(conn, turn, *, active):
         eligible=reason == "ready",
         reason=reason,
     ).model_dump(mode="json")
+    from .authored_graph_references import capture, policy_enabled
+    execution = getattr(turn, 'graph_context_execution', None)
+    if execution and policy_enabled(execution.policy):
+        # The capture is input retention, never a successful read or retry grant.
+        captures = [e for e in execution.events if e.kind == 'build_authored_references_captured_v1']
+        if captures:
+            return RetryContextV2(**value, authored_references=capture(execution).references).model_dump(mode='json', by_alias=True)
+    return value
+
+
+def validate_reference_retry(parent, intent):
+    """A deliberate retry retains author identity and origin, never newer inputs."""
+    from .authored_graph_references import capture, policy_enabled
+    execution = parent.graph_context_execution
+    original = capture(execution).references if execution and policy_enabled(execution.policy) else None
+    if getattr(intent, 'authored_references', None) != original:
+        raise RetryUnavailableError('Retry requires the original Graph references and selection snapshots')
 
 
 def validate_predecessor(conn, submission):
@@ -221,6 +246,7 @@ def validate_predecessor(conn, submission):
         or parent.user_text != submission.user_text
     ):
         raise RetryUnavailableError("Retry requires the same question and Build page")
+    validate_reference_retry(parent, intent)
     previous_capability = getattr(
         getattr(parent.graph_context_execution, "policy", None),
         "action_capability_sha256",

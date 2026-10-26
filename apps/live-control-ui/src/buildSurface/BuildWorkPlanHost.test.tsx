@@ -28,3 +28,9 @@ it('blocks a dirty page before reservation and opens chat for a valid explicitly
  const request=vi.mocked(queueSurfaceConversationRequest).mock.calls[0][0];expect(request.isCurrent()).toBe(true);
  mounted.rerender(view(session('other')));mounted.rerender(view(original));expect(request.isCurrent()).toBe(false);
 });
+
+it('queues only the immutable dispatch reference set',()=>{
+ render(view(session()));const refs={schema:'dmb_authored_graph_references_v1' as const,references:[{schema:'dmb_authored_graph_reference_v1' as const,managed_world_id:'world',native_world_id:'native',binding_version:1,graph_revision:'old-selected',node_id:'box',label:'Box'}]};
+ host.onContinue(plan,{schema:'dmb_work_plan_dispatch_v2',authored_references:refs,command_id:'command',step_id:'step',client_thread_id:'thread',client_turn_id:'turn',message:'Reviewed text'},null);
+ expect(vi.mocked(queueSurfaceConversationRequest).mock.calls[0][0].authoredReferences).toEqual(refs);
+});

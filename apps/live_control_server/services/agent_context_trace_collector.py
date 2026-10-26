@@ -117,6 +117,11 @@ class ContextTraceCollector:
             except ApplicationStateValidationError:
                 self._mark_incomplete_locked("trace_observation_rejected")
 
+    def authored_reference(self, event: Any) -> None:
+        """Observe only after its APP append; never create read/provider authority."""
+        self.observe({'kind': 'authored_graph_reference_v1',
+                      'execution_event': event.model_dump(mode='json', by_alias=True)})
+
     def capture_prompt(self, view: Mapping[str, Any], authorization: Any) -> None:
         """Commit an exact request reference or refuse dispatch; never best effort."""
         from .agent_prompt_evidence import store_prompt
@@ -253,11 +258,11 @@ class ContextTraceCollector:
                     "historical_source_unavailable", "recap_context_capture_unavailable",
                 })
 
-    def provider_context(self, question: str, source_events: list[Any], *, body: Mapping[str, Any] | None = None) -> None:
+    def provider_context(self, question: str, source_events: list[Any], *, body: Mapping[str, Any] | None = None, historical_sources=()) -> None:
         """Observe source material proven included by the parent envelope gate.
 
         Routes and old answers do not establish passage presence. Only the
-        included validated read events may refer to this attempt's snapshots.
+        included validated reads refer to exact current or protected earlier captures.
         The complete provider prompt/Plan body is deliberately not recorded.
         """
         materials = [{"item_id": "current-question", "state": "model_context",
@@ -285,7 +290,7 @@ class ContextTraceCollector:
             if ("user", routes_text) in visible:
                 materials.extend(item for item in self.compacted_materials if item["state"] == "retrieval_route")
         for event in source_events:
-            refs = []
+            refs, prior_refs = [], []
             for receipt in event.receipts:
                 if receipt.returned_chars == 0:
                     continue
@@ -294,10 +299,27 @@ class ContextTraceCollector:
                            and passage.source_read_event_id == event.event_id
                            and passage.source_read_id == receipt.source_read_id
                            and passage.content_sha256 == receipt.content_sha256]
-                if len(matches) != 1:
-                    raise ApplicationStateValidationError("included source has no exact captured passage")
-                refs.append({"source_read_id": receipt.source_read_id,
-                             "content_sha256": receipt.content_sha256})
+                if not matches:
+                    from application_state.agent_conversation.context_trace import TraceHistoricalSourceReferenceV1
+                    prior = [TraceHistoricalSourceReferenceV1.model_validate(ref) for ref in historical_sources
+                        if str(ref.get('source_read_event_id')) == str(event.event_id)
+                        and ref.get('source_read_id') == receipt.source_read_id
+                        and ref.get('content_sha256') == receipt.content_sha256]
+                    if (len(prior)!=1 or prior[0].world_id != self.trace.world_id
+                        or prior[0].conversation_id != self.trace.conversation_id or prior[0].turn_id != self.trace.turn_id
+                        or prior[0].attempt >= self.trace.attempt):
+                        raise ApplicationStateValidationError("included source has no exact captured passage")
+                    prior_refs.append(prior[0].model_dump(mode='json',by_alias=True))
+                elif len(matches)==1:
+                    refs.append({"source_read_id": receipt.source_read_id,
+                                 "content_sha256": receipt.content_sha256})
+                else:
+                    raise ApplicationStateValidationError("included source has ambiguous captured passages")
+            if refs and prior_refs:
+                raise ApplicationStateValidationError("one source event cannot mix physical capture owners")
+            if prior_refs:
+                materials.append({"item_id":f"source:{event.event_id}","state":"model_context",
+                    "role":"source","historical_source_reads":prior_refs})
             if refs:
                 materials.append({"item_id": f"source:{event.event_id}", "state": "model_context",
                                   "role": "source", "source_read_event_id": event.event_id,

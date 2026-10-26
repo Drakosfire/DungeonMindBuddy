@@ -43,7 +43,7 @@ from application_state.agent_conversation.types import (
     PlayGraphIntentV1, PlayRulesIntentV1,
     PlayGraphPolicyV1,
     SubmittedPlayTargetV1,
-    BuildGraphIntentV1,
+    BuildGraphIntentV1, BuildGraphIntentV2,
     BuildGraphContextReceiptV1,
     Turn,
     TurnFailure,
@@ -1325,10 +1325,18 @@ def _freeze_policy_receipt(
                 has_draft = (budget.get('buildJevActions') or {}).get('working_draft_context_policy') is not None
                 has_image = (budget.get('buildJevActions') or {}).get('image_preparation_policy') is not None
                 policy_class = (graph_types.BuildIntentionalResponseImagePolicyV2 if has_image else graph_types.BuildIntentionalResponsePolicyV2) if has_draft else (graph_types.BuildIntentionalResponseSourceImagePolicyV2 if has_image else graph_types.BuildIntentionalResponseSourcePolicyV2)
+            if request.build_authored_references is not None:
+                authored_name = 'Authored' + policy_class.__name__
+                if not hasattr(graph_types, authored_name):
+                    raise AgentTurnServiceError('This writer profile cannot read authored Graph references. Your request is retained.',
+                        code='build_authored_reference_profile_unavailable', status_code=422, provider_dispatched=False)
+                policy_class = getattr(graph_types, authored_name)
             policy = policy_class(
                 **({"driver_schema": "dmb_plan_jev_retrieval_v1",
                     "native_source_section_policy":"exact_native_source_sections_v1"} if plan_jev_request is not None else {}),
                 **(budget.get("buildJevActions") or {}),
+                **({"authored_graph_reference_policy": "authored_graph_reference_context_v1",
+                    "authored_graph_references_sha256": request.build_authored_references.sha256} if request.build_authored_references is not None else {}),
                 **({"saved_source_char_count": len(work.build_source.markdown)}
                     if (budget.get("buildJevActions") or {}).get("saved_section_read_policy") is not None else {}),
                 **({"saved_source_input_policy": budget["savedSourceInputPolicy"]} if budget.get("savedSourceInputPolicy") is not None else {}),
@@ -2049,6 +2057,9 @@ class _PolicyExecutionAdapter:
         if self.trace is not None and self.admission_span_id is not None:
             self.trace.complete_phase(self.admission_span_id)
             self.admission_span_id = None
+        if self.request.build_authored_references is not None:
+            from .build_authored_references import capture_input
+            capture_input(self)
         return claim.turn, *membership
 
     def authorize(self, view: Mapping[str, Any]) -> bool:
@@ -2200,6 +2211,9 @@ class _PolicyExecutionAdapter:
             active_writer = getattr(self, "_active_build_writer_projection", None)
             if getattr(active_writer, "source_only", False):
                 source_ids = {UUID(sid) for sid in active_writer.source_event_ids}
+            from application_state.agent_conversation.authored_graph_references import policy_enabled, source_event_ids as authored_source_ids
+            if writing and policy_enabled(execution.policy):
+                source_ids |= authored_source_ids(execution)
             active_driver = getattr(self, "_active_build_driver_projection", None)
             if active_driver is not None:
                 source_ids = {UUID(sid) for sid in active_driver.source_event_ids}
@@ -2264,6 +2278,24 @@ class _PolicyExecutionAdapter:
                     execution = self._broker_execution()
                 elif writing and getattr(execution.policy, "working_draft_context_policy", None) == DRAFT_POLICY:
                     raise ValueError("Working-draft writer cannot omit its admitted page context")
+            authored_source_references = []
+            if writing and policy_enabled(execution.policy):
+                from application_state.agent_conversation.authored_graph_references import capture, validate_writer_input, protected_source_material
+                original = capture(execution)
+                if self.context_capture is None:
+                    raise ValueError('Authored writer input requires protected source capture')
+                source_material = protected_source_material(self.fence.turn,self.service.list_context_trace_attempts(
+                    world_id=self.turn.world_id,turn_id=self.turn.turn_id))
+                material_sha = validate_writer_input(json.loads(body['input']), execution,source_material)
+                authored_source_references = source_material['historical_source_reads']
+                inclusion = graph_types.BuildAuthoredProviderInclusionV1(event_id=uuid4(), sequence=len(execution.events),
+                    kind='build_authored_provider_inclusion_v1', capture_event_id=original.event_id,
+                    references_sha256=original.references.sha256, source_read_event_ids=sorted(authored_source_ids(execution), key=str),
+                    provider_attempt_id=provider_attempt_id, envelope_sha256=view['payloadSha256'], material_sha256=material_sha)
+                self.turn = _require_fresh_execution_append(self.fence.append('record_build_authored_reference', 'event', inclusion,
+                    prepared_request_json=view['payloadJson']))
+                self.context_capture.authored_reference(inclusion)
+                execution = self._broker_execution()
             if self.budget.get("apiMode") == "typesafe_decision":
                 section_state = json.loads(body["input"]) if writing else body.get("state", {})
                 selected = section_state.get("exposure", {}).get("saved_sections", [])
@@ -2416,7 +2448,8 @@ class _PolicyExecutionAdapter:
                     require_current_policy(updated, event, view["payloadJson"]) if is_native_play else False,
                 )
             if self.context_capture is not None:
-                self.context_capture.provider_context(self.request.message, included_source_events, body=body)
+                self.context_capture.provider_context(self.request.message, included_source_events, body=body,
+                    **({"historical_sources":authored_source_references} if authored_source_references else {}))
                 self.context_capture.observe({
                     "kind": "provider_call", "provider_attempt_id": provider_attempt_id,
                     "provider": view["provider"], "model": view["model"],
@@ -2908,13 +2941,18 @@ class _PolicyExecutionAdapter:
         authority = self._broker_receipt().graph_authority
         pins = execution.effective_source_pins()
         admitted = {anchor.anchor_id: anchor for anchor in session.source_anchors}
-        if (self.failure is not None or self.fence is None or self.last_provider_attempt_id is None
+        if (self.failure is not None or self.fence is None
                 or len(set(anchor_ids)) != len(anchor_ids)
                 or session.snapshot.world_id != authority.native_world_id
                 or session.snapshot.revision_id != scope.graph_revision
                 or session.snapshot.campaign_id != (scope.campaign_id or "")
                 or any(key not in pins or key not in admitted or not admitted[key].readable for key in anchor_ids)):
             raise ValueError("source acquisition requires current admitted selectors")
+        if self.last_provider_attempt_id is None:
+            from application_state.agent_conversation.authored_graph_references import source_authorization_error
+            error = source_authorization_error(self.fence.turn, anchor_ids)
+            if error is not None:
+                raise ValueError(error)
         request = WorldGraphSourceAnchorReadRequest.model_validate({
             **_request_context_payload(session, _focus_for_request(session.snapshot.focus)),
             "schema": "dmb_world_graph_source_anchor_read_request_v1", "anchorId": anchor_ids[0],
@@ -2985,7 +3023,7 @@ class _PolicyExecutionAdapter:
             finally:
                 self._build_native_acquisition_services = None
 
-    def broker_graph_operation(self, message: Mapping[str, Any]) -> Mapping[str, Any]:
+    def broker_graph_operation(self, message: Mapping[str, Any], *, retained_authored_operation=None) -> Mapping[str, Any]:
         """Resolve and persist an exact native Graph expansion before IPC reply."""
         operation_started = monotonic()
         if message.get("toolName") == "lookup_rules":
@@ -3083,10 +3121,10 @@ class _PolicyExecutionAdapter:
 
         stage = "request_validation"
         try:
-            if self.fence is None or self.last_provider_attempt_id is None:
+            if self.fence is None:
                 return denied("graph_operation_before_authorization", 409)
             execution = self._broker_execution()
-            if execution is None or (execution.policy.max_graph_operations is not None and sum(
+            if execution is None or (retained_authored_operation is None and execution.policy.max_graph_operations is not None and sum(
                 getattr(event, "kind", None) in {
                     "validated_graph_operation", "validated_graph_operation_v3",
                 }
@@ -3117,6 +3155,13 @@ class _PolicyExecutionAdapter:
                     _safe_graph_request_validation_message(exc),
                     arguments=arguments,
                 )
+            if retained_authored_operation is not None:
+                from .build_authored_references import validate_retained_operation
+                validate_retained_operation(self, retained_authored_operation, normalized)
+            elif self.last_provider_attempt_id is None:
+                from application_state.agent_conversation.authored_graph_references import authorize_operation
+                if request.operation != 'object' or not authorize_operation(self.fence.turn, normalized):
+                    return denied("graph_operation_before_authorization", 409)
             if isinstance(execution.policy, graph_types.PlanJevRetrievalPolicyV1):
                 from application_state.agent_conversation.plan_jev_decision import current_selection
                 try:
@@ -3141,9 +3186,9 @@ class _PolicyExecutionAdapter:
                     return denied("build_world_acquisition_not_current", 409)
                 from application_state.agent_conversation.build_world_context import authorize_world_operation
                 try:
-                    authorize_world_operation(
-                        self.fence.turn, self.last_provider_attempt_id, normalized,
-                    )
+                    from application_state.agent_conversation.authored_graph_references import authorize_operation as authorizes_reference
+                    if retained_authored_operation is None and not authorizes_reference(self.fence.turn, normalized):
+                        authorize_world_operation(self.fence.turn, self.last_provider_attempt_id, normalized)
                 except ValueError:
                     return denied("build_world_acquisition_not_current", 409)
             session = self.bootstrap.retrieval_session
@@ -3319,6 +3364,15 @@ class _PolicyExecutionAdapter:
                 offers = self._related_recap_offers(result, services)
                 if offers:
                     result_payload["relatedRecapContexts"] = offers
+            if retained_authored_operation is not None:
+                if (_canonical_sha256(result_payload) != retained_authored_operation.result_packet_sha256
+                    or returned_source_pins != retained_authored_operation.returned_source_pins):
+                    raise ValueError("The retained authored object bytes or pins changed")
+                # Verification IO only: no APP event, session mutation, scope extension,
+                # trace activity, or new producing authority.
+                result_json = json.dumps(result_payload, ensure_ascii=False, separators=(",", ":"))
+                self.operation_payloads[retained_authored_operation.event_id] = result_json
+                return {"resultJson": result_json, "retrievalSession": None}
             event_id = uuid4()
             event_type = (
                 graph_types.ValidatedGraphOperationEventV3
@@ -3417,6 +3471,8 @@ class _PolicyExecutionAdapter:
                 "retrievalSession": session.project_for_hermes(),
             }
         except Exception as exc:
+            if retained_authored_operation is not None:
+                raise
             # This lookup refusal is wholly before durable Graph admission.
             # Preserve it as ordinary tool feedback, never as an uncertain
             # publication/read outcome. All other native failures stay fatal.
@@ -3701,7 +3757,7 @@ class _PolicyExecutionAdapter:
         try:
             if self.failure is not None:
                 return denied("source_read_indeterminate", 503)
-            if self.fence is None or self.last_provider_attempt_id is None:
+            if self.fence is None:
                 return denied("source_read_before_authorization", 409)
             graph_types = _app_state_graph_execution_types()
             execution = self._broker_execution()
@@ -3718,6 +3774,11 @@ class _PolicyExecutionAdapter:
                 request = ReadGraphSourceRequest.model_validate(normalized)
             except ValidationError:
                 return denied("invalid_arguments", 422)
+            if self.last_provider_attempt_id is None:
+                from application_state.agent_conversation.authored_graph_references import source_authorization_error
+                error = source_authorization_error(self.fence.turn, request.anchor_ids)
+                if error is not None:
+                    return denied(error, 409)
             scope = execution.policy.source_read_scope
             session = get_session(scope.retrieval_session_id)
             if (
@@ -4968,7 +5029,8 @@ def _submitted_turn_intent(
             reviewed_step = resolve_request_action(request, world_id)
         except ApplicationStateError as exc:
             raise AgentTurnServiceError(str(exc), code="reviewed_step_unavailable", status_code=409, provider_dispatched=False) from exc
-        return BuildGraphIntentV1(**common, retry_of=request.retry_of, reviewed_step=reviewed_step, build_draft_context_sha256=(
+        return (BuildGraphIntentV2 if request.build_authored_references is not None else BuildGraphIntentV1)(**common,
+            **({"authored_references": request.build_authored_references} if request.build_authored_references is not None else {}), retry_of=request.retry_of, reviewed_step=reviewed_step, build_draft_context_sha256=(
             None if request.build_draft_context is None else _canonical_sha256(request.build_draft_context.model_dump(mode="json", by_alias=True))), build_write_capability_sha256=(
             None if request.build_write_capability is None else _canonical_sha256(request.build_write_capability.model_dump(mode="json"))))
     if request.surface.surface_id == "play" and primary_work is not None and request.graph_request.mode == "none":

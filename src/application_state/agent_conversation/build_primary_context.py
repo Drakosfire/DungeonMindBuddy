@@ -114,6 +114,8 @@ def packet_rows(packet):
 def validate_packet(packet, execution, basis):
     """Reconstruct lane membership and exact text independently of a worker."""
     from .types import ValidatedBuildSectionReadV1
+    from .authored_graph_references import validate_packet as validate_authored_packet
+    validate_authored_packet(packet, execution)
 
     status_policy = getattr(execution.policy, "writer_status_policy", None)
     if packet.get("writer_status_policy") != status_policy:

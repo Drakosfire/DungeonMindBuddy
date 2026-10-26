@@ -127,8 +127,9 @@ def freeze_interaction(adapter):
             "assistant_sha256": hashlib.sha256(row.assistant_text.encode()).hexdigest(),
             **({'collaboration': collaboration.model_dump(mode='json'), 'collaboration_sha256': digest(collaboration.model_dump(mode='json'))} if object_only else {})})
     history = project_dialogue(list(reversed(history)))
+    from application_state.agent_conversation.authored_graph_references import provider_references
     related=(adapter.budget.get("buildJevActions") or {}).get("related_page_catalog")
-    return {**({"related_page_catalog":related} if related is not None else {}), "allowed_operations": (adapter.budget.get("buildJevActions") or {}).get("allowed_surface_operations", ["answer_from_sources"] + (["propose_build_insertion"] if capability else [])),
+    return {**({"authored_graph_references": {"status": "selected_unread", "input": provider_references(adapter.request.build_authored_references)}} if adapter.request.build_authored_references is not None else {}), **({"related_page_catalog":related} if related is not None else {}), "allowed_operations": (adapter.budget.get("buildJevActions") or {}).get("allowed_surface_operations", ["answer_from_sources"] + (["propose_build_insertion"] if capability else [])),
         "capability_sha256": digest(capability.model_dump(mode="json")) if capability else None,
         "conversation_id": str(conversation_id) if conversation_id else None,
         "pointer_revision": pointer.revision, "history": history,
@@ -390,17 +391,33 @@ class BuildJevDriver:
             from uuid import uuid4
             from .agent_turn_service import _require_fresh_execution_append
             arguments = {"instruction": adapter.request.message} if self.operation == "propose_build_insertion" else {}
-            self.selection = ledger.BuildReviewedActionSelectionV1(
-                kind="build_reviewed_action_selected_v1", event_id=uuid4(),
-                sequence=len(adapter._broker_execution().events), intent=adapter.submitted_intent,
-                operation=self.operation,
-                broker_operation_id="build-reviewed:" + digest({"turn_id":str(adapter.turn.turn_id), "attempt":adapter.turn.attempt, "binding":self.reviewed_binding.model_dump(mode="json")}),
-                capability_sha256=self._interaction["capability_sha256"], arguments_sha256=digest(arguments))
-            adapter.turn = _require_fresh_execution_append(adapter.fence.append("record_build_reviewed_action_selection", "selection", self.selection))
-            if adapter.context_capture is not None:
-                adapter.context_capture.observe({"kind":"context_decision", "action":"retained",
-                    "item_ids":["Reviewed step · " + ("Discuss" if self.operation == "answer_from_sources" else "Prepare an insertion")],
-                    "reason_code":"route_preserved", "policy_version":"reviewed_author_action_v1"})
+            authored = isinstance(adapter.submitted_intent, ledger.BuildGraphIntentV2)
+            selection_type = ledger.BuildReviewedActionSelectionV2 if authored else ledger.BuildReviewedActionSelectionV1
+            retained = [e for e in adapter._broker_execution().events if isinstance(e, ledger.BuildReviewedActionSelectionV1)]
+            if retained and authored:
+                from .build_authored_references import prior_selection_attempt, refusal
+                original_attempt = prior_selection_attempt(adapter,retained[0])
+                expected_id = "build-reviewed:" + digest({"turn_id":str(adapter.turn.turn_id), "attempt":original_attempt,
+                    "binding":self.reviewed_binding.model_dump(mode="json")})
+                if (len(retained) != 1 or retained[0].intent != adapter.submitted_intent
+                    or retained[0].operation != self.operation or retained[0].broker_operation_id != expected_id
+                    or retained[0].capability_sha256 != self._interaction["capability_sha256"]
+                    or retained[0].arguments_sha256 != digest(arguments)):
+                    raise refusal("The retained reviewed action differs from its exact frozen binding. Your request and references are retained; inspect the trace before continuing.",
+                        "build_authored_reference_recovery_unavailable",before_provider=True)
+                self.selection = retained[0]
+            else:
+                self.selection = selection_type(
+                    kind="build_reviewed_action_selected_v2" if authored else "build_reviewed_action_selected_v1", event_id=uuid4(),
+                    sequence=len(adapter._broker_execution().events), intent=adapter.submitted_intent,
+                    operation=self.operation,
+                    broker_operation_id="build-reviewed:" + digest({"turn_id":str(adapter.turn.turn_id), "attempt":adapter.turn.attempt, "binding":self.reviewed_binding.model_dump(mode="json")}),
+                    capability_sha256=self._interaction["capability_sha256"], arguments_sha256=digest(arguments))
+                adapter.turn = _require_fresh_execution_append(adapter.fence.append("record_build_reviewed_action_selection", "selection", self.selection))
+                if adapter.context_capture is not None:
+                    adapter.context_capture.observe({"kind":"context_decision", "action":"retained",
+                        "item_ids":["Reviewed step · " + ("Discuss" if self.operation == "answer_from_sources" else "Prepare an insertion")],
+                        "reason_code":"route_preserved", "policy_version":"reviewed_author_action_v1"})
             questions = tuple(q for q in self._selection_intent.questions if q.name != "operation")
             rules = getattr(adapter, "rules_runtime", None)
             if questions or (rules is not None and rules.active and rules.offers):

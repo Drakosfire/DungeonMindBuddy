@@ -103,3 +103,16 @@ it('shows the retained author action without claiming a model call',async()=>{
   await screen.findByText('Following your reviewed step.')
   expect(screen.queryByText('A model response just landed.')).not.toBeInTheDocument()
 })
+
+it.each(['selected','authorized','read','read_partial','source_gap','prepared'] as const)('shows truthful authored-reference live activity: %s',async stage=>{
+  const base={event_id:'app-event',sequence:2},capture_event_id='captured';
+  let execution:import('../../api/buddyContextTraceTypes').BuddyAuthoredTraceEvent;
+  if(stage==='selected')execution={...base,kind:'build_authored_references_captured_v1',references:{schema:'dmb_authored_graph_references_v1',references:[]},read_graph_revision:'revision',turn_id:'turn',conversation_id:'conversation',attempt:1,submitted_intent_fingerprint:'a'.repeat(64)};
+  else if(stage==='authorized')execution={...base,kind:'build_authored_reference_authorized_v1',capture_event_id,node_id:'cedar-box',arguments_sha256:'a'.repeat(64)};
+  else if(stage==='prepared')execution={...base,kind:'build_authored_provider_inclusion_v1',capture_event_id,references_sha256:'a'.repeat(64),source_read_event_ids:['source'],provider_attempt_id:'writer',envelope_sha256:'b'.repeat(64),material_sha256:'c'.repeat(64)};
+  else execution={...base,kind:'build_authored_reference_read_v1',capture_event_id,authorization_event_id:'authorization',node_id:'cedar-box',operation_event_ids:['object-read'],source_read_event_ids:['source'],returned_node_ids:['cedar-box'],outcome:stage};
+  const labels={selected:'Your Graph references are on the reading list.',authorized:'Opening the object you picked…',read:'Checked the object and its source receipts.',read_partial:'That object read came back incomplete.',source_gap:'The object is missing complete source support.',prepared:'Graph context packed for the writer.'};
+  const {load,loadPrompt}=mount(trace([{kind:'authored_graph_reference_v1',sequence:0,elapsed_ms:1,execution_event:execution}]));
+  await screen.findByText(labels[stage]);expect(load).toHaveBeenCalledTimes(1);expect(loadPrompt).not.toHaveBeenCalled();expect(screen.queryByText('A model response just landed.')).toBeNull();
+  if(stage!=='read')expect(screen.queryByText(labels.read)).toBeNull();
+});

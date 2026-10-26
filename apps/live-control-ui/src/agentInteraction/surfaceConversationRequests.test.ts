@@ -20,3 +20,10 @@ it('rejects an already foreign target and does not execute its preparation',()=>
  const prepare=vi.fn();expect(()=>queueSurfaceConversationRequest({...make(),isCurrent:()=>false,prepare})).toThrow('destination');
  expect(prepare).not.toHaveBeenCalled();
 });
+
+it('keeps frozen dispatch references and refuses deduplication with changed context',()=>{
+ const refs={schema:'dmb_authored_graph_references_v1' as const,references:[{schema:'dmb_authored_graph_reference_v1' as const,managed_world_id:'world-a',native_world_id:'native',binding_version:1,graph_revision:'rev-a',node_id:'box',label:'Box'}]};
+ queueSurfaceConversationRequest({...make(),authoredReferences:refs});
+ expect(()=>queueSurfaceConversationRequest({...make(),authoredReferences:{...refs,references:[]}})).toThrow('different authoring request');
+ expect(claimSurfaceConversationRequest('test-gesture')?.authoredReferences).toEqual(refs);
+});

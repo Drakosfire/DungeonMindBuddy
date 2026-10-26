@@ -38,7 +38,11 @@ class BuildWorldContext:
             {"kind": "node", "id": n.get("nodeId"), "label": n.get("label")}
             for n in payload.get("nodes", [])
         ]
+        authored = getattr(self.adapter.request, 'build_authored_references', None)
+        mandatory_nodes = {ref.node_id for ref in authored.references} if authored is not None else set()
         for row in candidates:
+            if row.get('id') in mandatory_nodes:
+                continue  # Host acquisition already owns this exact author-selected object.
             if row.get("kind") != "node" or not row.get("id") or not row.get("label"):
                 continue
             identity = "world-object:" + row["id"]

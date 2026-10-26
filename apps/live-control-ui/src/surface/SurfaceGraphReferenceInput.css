@@ -1,0 +1,5 @@
+.surface-graph-reference-input { min-width:0; font:normal .9rem/1.4 var(--font-sans,system-ui,sans-serif); }
+.surface-graph-reference-input__chips { display:flex; flex-wrap:wrap; gap:.3rem; align-items:center; }
+.surface-graph-reference-input__chip { display:inline-flex; align-items:center; gap:.25rem; border:1px solid currentColor; border-radius:1rem; padding:0 .4rem; max-width:100%; overflow-wrap:anywhere; }
+.surface-graph-reference-input__chip button { border:0; background:transparent; color:inherit; cursor:pointer; }
+.surface-graph-reference-input__picker { max-height:24rem; overflow:auto; border:1px solid #789; border-radius:.4rem; padding:.5rem; background:var(--surface-panel-background,#192332); color:var(--surface-panel-color,#e8eaef); }

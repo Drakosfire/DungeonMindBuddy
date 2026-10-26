@@ -190,3 +190,12 @@ def test_source_name_page_refuses_changed_trace_owner(application_state_dsn,fiel
         conn.execute('UPDATE agent.turn_context_trace SET payload=%s WHERE turn_id=%s AND attempt=1',
             (Jsonb(payload),reference.turn_id))
     assert service.source_name_labels(reference.world_id,reference.conversation_id,[reference.turn_id]) == []
+
+
+def test_authored_observation_requires_a_recorded_event_at_the_real_trace_append_boundary(application_state_dsn):
+    from tests.test_agent_context_trace_types import _authored_trace_fixture
+    service, turn, identity, _ = _setup_turn()
+    _, _, observation = _authored_trace_fixture()
+    with pytest.raises(ApplicationStateValidationError, match='exact turn ledger'):
+        service.append_context_trace(**identity, observation=observation)
+    assert not service.list_context_trace_attempts(world_id=turn.world_id, turn_id=turn.turn_id)[0].observations
