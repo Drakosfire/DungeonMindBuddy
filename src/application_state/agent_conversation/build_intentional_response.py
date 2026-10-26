@@ -535,9 +535,11 @@ def output_schema(packet):
 
     # Reuse the existing finite selector schema without recursively dispatching
     # this new format. This local schema view grants no runtime authority.
+    from .connected_page_origins import KEY as ORIGIN_KEY, packet_rows as origin_rows
+    connected_origins = origin_rows(packet) if ORIGIN_KEY in packet else None
     packet = {k: v for k, v in packet.items() if k != "response_contract"}
     if "working_draft_context" in packet:
-        schema = deepcopy(draft_schema(packet))
+        schema = deepcopy(draft_schema(packet, connected_origins=connected_origins))
     else:
         schema = IntentionalWriterAnswer.model_json_schema()
         source_schema = finite_output_schema(packet, requested_detail_gaps=True)
@@ -616,6 +618,7 @@ def normalize(raw, packet):
     from .relationship_review import ProposedRelationship, validate_quote
     from .build_primary_context import packet_rows
     from .build_draft_answer import source_claim_limitations
+    from .connected_page_origins import packet_rows as connected_origin_rows
 
     contract = packet.get("response_contract")
     if not isinstance(contract, dict) or contract.get("policy") != POLICY:
@@ -657,7 +660,7 @@ def normalize(raw, packet):
         if isinstance(answer.collaboration, ProposedConnectedPage):
             saved_excerpt(
                 answer.collaboration,
-                packet.get("related_authored_pages", {}).get("pages", []),
+                connected_origin_rows(packet),
             )
         if isinstance(answer.collaboration, ProposedRelationship):
             validate_quote(answer.collaboration, packet_rows(packet))
@@ -768,12 +771,12 @@ def validate_completion(completion, receipt, execution, attempt_id, graph_bindin
             raise ValueError("Plan has no admitted Surface destination")
         if review.kind == "connected_page":
             from .collaboration import saved_excerpt
-            from .build_related_pages import records
+            from .connected_page_origins import execution_rows
 
             if getattr(execution.policy, "connected_page_review_policy", None) is None:
                 raise ValueError("Connected review has no admitted policy")
             saved_excerpt(
-                review, [e.model_dump(mode="json") for e in records(execution)]
+                review, execution_rows(execution,receipt.source_basis,attempt_id)
             )
         if review.kind == "relationship":
             from .relationship_review import validate_quote

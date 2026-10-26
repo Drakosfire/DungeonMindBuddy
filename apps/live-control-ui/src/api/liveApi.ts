@@ -364,6 +364,7 @@ function requiresNativeGraphAuthorization(path: string, body: BodyInit | null | 
     || /^\/api\/live\/agent\/worlds\/[^/]+\/conversation\/turns\/[^/]+\/rules-passages\/[a-f0-9-]+$/.test(pathname)
     || /^\/api\/live\/agent\/worlds\/[^/]+\/conversation\/turns\/[^/]+\/source-passages\/\d+$/.test(pathname)
     || /^\/api\/live\/agent\/worlds\/[^/]+\/conversation\/turns\/[^/]+\/native-source-sections\/\d+$/.test(pathname)
+    || /^\/api\/live\/agent\/worlds\/[^/]+\/conversation\/turns\/[^/]+\/connected-page-origin$/.test(pathname)
     || /^\/api\/live\/agent\/worlds\/[^/]+\/conversation\/turns\/[^/]+\/related-pages\/[a-f0-9]{8}-(?:[a-f0-9]{4}-){3}[a-f0-9]{12}$/i.test(pathname)
     || /^\/api\/live\/agent\/worlds\/[^/]+\/conversation\/turns\/[^/]+\/saved-sections\/\d+\/[a-f0-9-]+$/i.test(pathname)
     || /^\/api\/live\/agent\/worlds\/[^/]+\/build-proposals(?:\/[^/]+(?:\/(?:prompt|inserted|review))?)?$/.test(pathname)
@@ -3250,4 +3251,8 @@ export function getBuddyReadiness(surface: BuddyReadinessResponse["surface"], wo
 /** Exact turn-bound related authoring context; never a latest-page substitute. */
 export function getAgentRelatedPage(worldId:string,turnId:string,readId:string):Promise<unknown> {
   return apiFetch(`/api/live/agent/worlds/${encodeURIComponent(worldId)}/conversation/turns/${encodeURIComponent(turnId)}/related-pages/${encodeURIComponent(readId)}`);
+}
+
+export function getAgentConnectedPageOrigin(worldId:string,turnId:string):Promise<import('./types').AgentConnectedPageOriginV1>{
+  return apiFetch(`/api/live/agent/worlds/${encodeURIComponent(worldId)}/conversation/turns/${encodeURIComponent(turnId)}/connected-page-origin`);
 }

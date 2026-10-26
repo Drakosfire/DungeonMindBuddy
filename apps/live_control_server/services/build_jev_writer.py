@@ -274,6 +274,10 @@ class WriterProjection:
             "These are the supported automatic continuation actions. A connected page has the explicit author review described below; other Graph relationships require separate authoring. Save is an author action."
         ) if connected else COLLABORATION_INSTRUCTIONS
         connected_instructions = CONNECTED_PAGE_INSTRUCTIONS
+        from application_state.agent_conversation.connected_page_origins import KEY as ORIGIN_KEY, FORMAT as ORIGIN_FORMAT
+        if ORIGIN_KEY in packet:
+            connected_instructions = connected_instructions.replace('"exact related page read_id"', '"exact artifact_under_edit section read_id or related page read_id"')
+            connected_instructions += '\nFor a connected page origin, choose an exact acquired saved section from artifact_under_edit or a supplied related_authored_pages row. Never use working_draft_context as a saved origin. Quote one exact unique occurrence in the chosen supplied body.\n'
         if relationship:
             collaboration_instructions = collaboration_instructions.replace(
                 "A connected page has the explicit author review described below; other Graph relationships require separate authoring.",
@@ -330,7 +334,7 @@ class WriterProjection:
             "text": {
                 "format": mixed_format or {
                     "type": "json_schema",
-                    "name": (INTENTIONAL_FORMAT if intentional_output else REVIEWED_FORMAT) if objective_output else intentional.FORMAT if intentional_output else "build_working_draft_answer_v5" if relationship else QUOTE_FORMAT if quoted else "build_working_draft_answer_v3" if connected else "build_working_draft_answer_v2" if collaboration else "build_working_draft_answer_v1" if draft_context else GAP_SCHEMA_NAME if cited else "build_source_passage_answer",
+                    "name": ORIGIN_FORMAT if ORIGIN_KEY in packet else (INTENTIONAL_FORMAT if intentional_output else REVIEWED_FORMAT) if objective_output else intentional.FORMAT if intentional_output else "build_working_draft_answer_v5" if relationship else QUOTE_FORMAT if quoted else "build_working_draft_answer_v3" if connected else "build_working_draft_answer_v2" if collaboration else "build_working_draft_answer_v1" if draft_context else GAP_SCHEMA_NAME if cited else "build_source_passage_answer",
                     "schema": intentional.output_schema(packet) if intentional_output else finite_output_schema(json.loads(self.input_json), requested_detail_gaps=True) if cited else source_answer_schema(),
                     "strict": True,
                 }
@@ -418,6 +422,9 @@ def with_response_contract(staged, execution):
         raise ValueError('Writer requires its unique semantic resolution')
     packet = json.loads(staged.input_json)
     packet['response_contract'] = choices[0].resolution
+    from application_state.agent_conversation.connected_page_origins import eligible, KEY as ORIGIN_KEY, POLICY as ORIGIN_POLICY
+    if eligible(packet):
+        packet[ORIGIN_KEY] = ORIGIN_POLICY
     from application_state.agent_conversation.build_primary_context import packet_rows
     packet['authoring_context_inventory'] = {
         'working_copy': 'captured' if 'working_draft_context' in packet else 'not_captured',

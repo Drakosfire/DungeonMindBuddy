@@ -36,3 +36,12 @@ it('never attaches operator credentials to near-miss connected-page paths',async
  for(const path of ['/api/live/connected-pages/prepare-extra','/api/live/connected-pages/'+id+'/extra','/api/live/connected-pages/not-a-uuid'])await live.authenticatedApiFetch(path);
  for(const call of fetch.mock.calls){expect(new Headers(call[1]?.headers).has('Authorization')).toBe(false);expect(new Headers(call[1]?.headers).has('X-DMB-Graph-CSRF')).toBe(false);}
 });
+
+it('uses guarded exact connected-origin reads and excludes near misses',async()=>{
+ const {live}=await modules();live.setNativeGraphAccessToken('synthetic-connected-page-token');
+ const fetch=vi.spyOn(globalThis,'fetch').mockResolvedValue(Response.json({}));
+ await live.getAgentConnectedPageOrigin('world-a',id);
+ expect(new Headers(fetch.mock.calls[0][1]?.headers).get('Authorization')).toBe('Bearer synthetic-connected-page-token');
+ for(const path of [`/api/live/agent/worlds/world-a/conversation/turns/${id}/connected-page-origin-extra`,`/api/live/agent/worlds/world-a/conversation/turns/${id}/connected-page-origin/extra`])await live.authenticatedApiFetch(path);
+ for(const call of fetch.mock.calls.slice(1))expect(new Headers(call[1]?.headers).has('Authorization')).toBe(false);
+});

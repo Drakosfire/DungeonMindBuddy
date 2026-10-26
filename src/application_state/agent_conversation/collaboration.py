@@ -88,7 +88,7 @@ def saved_excerpt(proposal, rows):
     """Locate a unique quoted occurrence in actual supplied material, never count model offsets."""
     matches = [row for row in rows if str(row["read_id"]) == str(proposal.read_id)]
     if len(matches) != 1:
-        raise ValueError("Page review selects an unread related page")
+        raise ValueError("Page review selects an unread saved page")
     row = matches[0]
     body = row["markdown"]
     start = body.find(proposal.quote)
@@ -109,8 +109,8 @@ def saved_excerpt(proposal, rows):
         "document_id": str(row["page"]["document_id"]),
         "revision": row["page"]["registry_revision"],
         "content_sha256": row["page"]["content_sha256"],
-        "line_start": first,
-        "line_end": last,
+        "line_start": first + row.get("_line_offset", 0),
+        "line_end": last + row.get("_line_offset", 0),
         "selected_text": excerpt,
     }
 
