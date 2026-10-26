@@ -59,3 +59,46 @@ it('retains recovery when the owner or verification read fails',async()=>{
  const x=await setup();x.saveMarkdown.mockRejectedValueOnce(new Error('CAS conflict'));await expect(saveBuildProposal(()=>x.owner,...x.args)).rejects.toThrow('CAS conflict');expect(getWorkspaceDocumentSnapshot).not.toHaveBeenCalled();
  vi.mocked(getWorkspaceDocumentSnapshot).mockRejectedValueOnce(new Error('read unavailable'));await expect(saveBuildProposal(()=>x.owner,...x.args)).rejects.toThrow('read unavailable');
 });
+
+it.each(['','---\nname: Preserved author metadata\n---\n'])('verifies a saved projection with frontmatter %j without writing or changing the receipt',async frontmatter=>{
+ const x=await setup(frontmatter);x.owner.snapshot=x.saved;
+ const originalEditor='e'.repeat(64),projection={editorSha256:x.args[1],assertCurrent:vi.fn()};
+ const before=editor.getJSON();const transaction=vi.fn();editor.on('transaction',transaction);
+ await saveBuildProposal(()=>x.owner,x.args[0],originalEditor,x.args[2],projection);
+ expect(x.saveMarkdown).not.toHaveBeenCalled();expect(transaction).not.toHaveBeenCalled();expect(editor.getJSON()).toEqual(before);
+ expect(projection.assertCurrent).toHaveBeenCalledTimes(3);expect(originalEditor).toBe('e'.repeat(64));
+});
+it('refuses the saved-projection path when the intended source is not already saved',async()=>{
+ const x=await setup();const projection={editorSha256:x.args[1],assertCurrent:vi.fn()};
+ await expect(saveBuildProposal(()=>x.owner,x.args[0],'e'.repeat(64),x.args[2],projection)).rejects.toThrow('not already saved');
+ expect(x.saveMarkdown).not.toHaveBeenCalled();expect(getWorkspaceDocumentSnapshot).not.toHaveBeenCalled();
+});
+it.each(['markdown','frontmatter','hash','revision','foreign','uncommitted','missing','visibility'] as const)('refuses %s saved-projection readback without writing',async failure=>{
+ const x=await setup('---\nname: Author\n---\n');x.owner.snapshot=x.saved;
+ const changed={...x.saved,record:{...x.saved.record}};
+ if(failure==='markdown')changed.markdown+='Changed text';
+ if(failure==='frontmatter')changed.markdown=changed.markdown.replace('name: Author','name: Other');
+ if(failure==='hash')changed.content_sha256='f'.repeat(64);
+ if(failure==='revision'){changed.loaded_revision++;changed.record.revision++;}
+ if(failure==='foreign')changed.record.world_id='other-world';
+ if(failure==='uncommitted')changed.record.content_status='draft';
+ if(failure==='missing')changed.file_exists=false;
+ if(failure==='visibility')changed.record.visibility_state='player_safe';
+ vi.mocked(getWorkspaceDocumentSnapshot).mockResolvedValue(changed);
+ await expect(saveBuildProposal(()=>x.owner,x.args[0],'e'.repeat(64),x.args[2],{editorSha256:x.args[1],assertCurrent:()=>{}})).rejects.toThrow();
+ expect(x.saveMarkdown).not.toHaveBeenCalled();
+});
+it.each(['editor','snapshot','admission','document'] as const)('refuses %s changes during saved-projection readback',async failure=>{
+ const x=await setup();x.owner.snapshot=x.saved;
+ let release!:(snapshot:WorkspaceDocumentSnapshot)=>void;let allowed=true;
+ vi.mocked(getWorkspaceDocumentSnapshot).mockImplementation(()=>new Promise(resolve=>release=resolve));
+ const proof={editorSha256:x.args[1],assertCurrent:()=>{if(!allowed)throw Error('Edit admission changed');}};
+ const pending=saveBuildProposal(()=>x.owner,x.args[0],'e'.repeat(64),x.args[2],proof);
+ const {waitFor}=await import('@testing-library/react');await waitFor(()=>expect(release).toBeTypeOf('function'));
+ if(failure==='editor')editor.commands.insertContent('Newer author writing');
+ if(failure==='snapshot')x.owner.snapshot={...x.saved};
+ if(failure==='admission')allowed=false;
+ if(failure==='document')x.owner.documentId='another-page';
+ const rejected=expect(pending).rejects.toThrow();release(x.saved);await rejected;
+ expect(x.saveMarkdown).not.toHaveBeenCalled();
+});

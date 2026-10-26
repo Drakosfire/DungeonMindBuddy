@@ -1,7 +1,7 @@
 import {useEffect,useRef,useState,type ReactNode} from 'react';
 import type {BuildProposalRecord} from '../api/buildDocumentProposalApi';
 import {proposalReview,type BuildProposalReview} from '../api/buildProposalReviewApi';
-import type {BuildComposeBridge,CapturedBuildInsertion} from './buildComposeBridge';
+import type {BuildComposeBridge,CapturedBuildInsertion,SavedProposalProjection} from './buildComposeBridge';
 import {buildProposalMarkdown} from './buildProposalMarkdown';
 import {SurfacePageProposal,SurfaceProposalReview} from '../surface/SurfacePageProposal';
 
@@ -92,8 +92,8 @@ export function BuildPageProposal({record,bridge,sourceKey,requestKey,onStatus,o
     if(saved.markdown===markdown)return saved;
     return proposalReview(world,record.action_id,{operation:'save',expected_revision:saved.revision,markdown});
   }
-  async function confirm(saved:BuildProposalReview,start:number){
-    await bridge.saveProposal(basisFor(saved),saved.apply!.after_editor_sha256,saved.apply!.after_draft_sha256);
+  async function confirm(saved:BuildProposalReview,start:number,savedProjection?:SavedProposalProjection){
+    await bridge.saveProposal(basisFor(saved),saved.apply!.after_editor_sha256,saved.apply!.after_draft_sha256,savedProjection);
     if(!current(start))return;
     const result=await proposalReview(world,record.action_id,{operation:'confirm',expected_revision:saved.revision,apply_id:saved.apply!.apply_id});
     // Acknowledgment is safe even if navigation occurred after the exact local transaction.
@@ -118,8 +118,8 @@ export function BuildPageProposal({record,bridge,sourceKey,requestKey,onStatus,o
     if(saved.state!=='applying'||!saved.apply)return;
     const state=await bridge.inspectProposal({...basisFor(saved),caret:saved.placement_caret},saved.apply.after_editor_sha256,saved.apply.after_draft_sha256);
     if(!current(start))return;
-    if(state==='changed')throw new Error('The current page differs from the earlier insertion snapshots. Its outcome is unresolved. Review the retained text before choosing a new position.');
-    if(state==='before'){
+    if(state.state==='changed')throw new Error('The current page differs from the earlier insertion snapshots. Its outcome is unresolved. Review the retained text before choosing a new position.');
+    if(state.state==='before'){
       const captured=await bridge.restore({...basisFor(saved),caret:saved.placement_caret});
       const prepared=await bridge.prepareProposal(captured,saved.markdown);
       if(!current(start))return;
@@ -127,7 +127,7 @@ export function BuildPageProposal({record,bridge,sourceKey,requestKey,onStatus,o
         throw new Error('The prepared insertion differs from its saved receipt. Nothing was inserted.');
       bridge.applyPrepared(prepared);
     }
-    await confirm(saved,start);
+    await confirm(saved,start,state.savedProjection);
   });}
   function move(position:number){void transact(async(saved,start)=>{
     if(saved.state!=='editing')return;
@@ -146,8 +146,8 @@ export function BuildPageProposal({record,bridge,sourceKey,requestKey,onStatus,o
     if(saved.state==='applying'&&saved.apply){
       const state=await bridge.inspectProposal({...basisFor(saved),caret:saved.placement_caret},saved.apply.after_editor_sha256,saved.apply.after_draft_sha256);
       if(!current(start))return;
-      if(state==='after'){await confirm(saved,start);return;}
-      if(state==='before')throw new Error('The original placement is still current. Check insertion to resume it.');
+      if(state.state==='after'){await confirm(saved,start,state.savedProjection);return;}
+      if(state.state==='before')throw new Error('The original placement is still current. Check insertion to resume it.');
     }
     if(saved.state==='editing'){
       saved=await save(saved,buildProposalMarkdown(text).markdown);

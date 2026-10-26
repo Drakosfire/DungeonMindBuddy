@@ -295,13 +295,13 @@ it('preserves an exact proposal across a save before preparation and insertion r
   const captured=await bridge.capture();const before=editor.getJSON();
   state.revision+=1;state.contentSha256=captured.basis.draft_sha256;
   const prepared=await bridge.prepareProposal(captured,'Proposed after save');
-  expect(await bridge.inspectProposal(captured.basis,prepared.afterEditorSha256,prepared.afterDraftSha256)).toBe('before');
+  expect(await bridge.inspectProposal(captured.basis,prepared.afterEditorSha256,prepared.afterDraftSha256)).toMatchObject({state:'before'});
   const restored=await bridge.restore(captured.basis);
   expect(restored.basis.registry_revision).toBe(captured.basis.registry_revision);
   const reopened=await bridge.prepareProposal(restored,'Proposed after save');
   expect(reopened.afterEditorSha256).toBe(prepared.afterEditorSha256);
   bridge.applyPrepared(reopened);expect(changed).toHaveBeenCalledTimes(1);
-  expect(await bridge.inspectProposal(captured.basis,prepared.afterEditorSha256,prepared.afterDraftSha256)).toBe('after');
+  expect(await bridge.inspectProposal(captured.basis,prepared.afterEditorSha256,prepared.afterDraftSha256)).toMatchObject({state:'after'});
   expect(()=>bridge.applyPrepared(reopened)).toThrow('already');
   editor.commands.undo();expect(editor.getJSON()).toEqual(before);
  }finally{editor.destroy();}
@@ -354,5 +354,39 @@ it('picks a plan position using a local operation token without pretending it is
   editor.view.dom.dispatchEvent(new MouseEvent('pointerup',{bubbles:true,clientX:10,clientY:20}));
   const captured=await pending;expect(captured.basis.caret).toBe(9);expect(captured.basis.selection).toBeUndefined();
   expect(editor.getText()).toContain('Before');expect(editor.getJSON().content?.some(node=>node.type==='surfaceWorkPlan')).toBe(false);
+ }finally{editor.destroy();}
+});
+
+it('offers verify-only saved projection proof after plain spacer normalization, retaining the original receipt',async()=>{
+ const {editor,state,bridge}=setup();
+ try{
+  editor.commands.setContent('<p></p><p>Existing author text.</p>');editor.commands.setTextSelection(editor.state.doc.content.size-1);
+  const captured=await bridge.capture(),prepared=await bridge.prepareProposal(captured,'A proposed bell check.');
+  bridge.applyPrepared(prepared);
+  const receipt={editor:prepared.afterEditorSha256,draft:prepared.afterDraftSha256};
+  const {markdownToTiptapDoc}=await import('../tiptap/markdown/markdownToTiptap');
+  editor.commands.setContent(markdownToTiptapDoc(tiptapJsonToSemanticMarkdown(editor.getJSON())).doc);
+  state.revision++;state.contentSha256=receipt.draft;state.draftGeneration++;
+  const inspected=await bridge.inspectProposal(captured.basis,receipt.editor,receipt.draft);
+  expect(inspected.state).toBe('after');expect(inspected.savedProjection).toBeDefined();
+  expect(inspected.savedProjection!.editorSha256).not.toBe(receipt.editor);
+  expect(prepared.afterEditorSha256).toBe(receipt.editor);expect(prepared.afterDraftSha256).toBe(receipt.draft);
+  inspected.savedProjection!.assertCurrent();state.canEdit=false;
+  expect(()=>inspected.savedProjection!.assertCurrent()).toThrow('permission changed');
+ }finally{editor.destroy();}
+});
+it.each(['text','marks','media','spacers','readonly','visibility','older'] as const)('refuses %s as an unproven saved projection',async change=>{
+ const {editor,state,bridge}=setup();
+ try{
+  const captured=await bridge.capture(),prepared=await bridge.prepareProposal(captured,'A proposed bell check.');bridge.applyPrepared(prepared);
+  if(change==='text')editor.commands.insertContent('Different text');
+  if(change==='marks'){editor.commands.selectAll();editor.commands.toggleBold();}
+  if(change==='media')editor.commands.insertContent({type:'mediaImage',attrs:{assetId:id,alt:'Other image'}});
+  if(change==='spacers')editor.commands.insertContentAt(0,{type:'paragraph'});
+  if(change==='readonly')state.canEdit=false;
+  if(change==='visibility')state.visibility='player_safe';
+  if(change==='older')state.revision=0;
+  const result=await bridge.inspectProposal(captured.basis,prepared.afterEditorSha256,prepared.afterDraftSha256);
+  expect(result.state).toBe('changed');expect(result.savedProjection).toBeUndefined();
  }finally{editor.destroy();}
 });

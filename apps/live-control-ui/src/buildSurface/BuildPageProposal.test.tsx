@@ -400,3 +400,31 @@ it('shows a proposal outside a hidden table-title heading without changing its s
  expect(markdown.match(/A proposed custom\./g)).toHaveLength(1);
  act(()=>editor.commands.undo());expect(editor.getJSON()).toEqual(before);
 });
+
+it('acknowledges the same saved result after spacer recovery without another insertion or Save',async()=>{
+ editor.commands.setContent('<p></p><p>Before</p><p>After</p>');editor.commands.setTextSelection(editor.state.doc.content.size-1);
+ state.draftGeneration++;
+ const captured=await bridge.capture();record.reservation.basis=captured.basis;saved.placement_caret=captured.basis.caret;
+ const apply=vi.spyOn(bridge,'applyPrepared');
+ const persist=vi.spyOn(bridge,'saveProposal').mockRejectedValueOnce(new Error('Source is protected; review current page.'));
+ render(<Review/>);fireEvent.click(await screen.findByRole('button',{name:'Save',exact:true}));
+ await screen.findByRole('button',{name:'Check insertion'});await screen.findByRole('alert');
+ const originalReceipt=structuredClone(saved.apply);
+ const body=tiptapJsonToSemanticMarkdown(editor.getJSON());expect(await digest(body)).toBe(originalReceipt!.after_draft_sha256);
+ act(()=>{editor.commands.setContent(markdownToTiptapDoc(body).doc);state.draftGeneration++;state.revision=2;state.contentSha256=originalReceipt!.after_draft_sha256;});
+ const {saveBuildProposal}=await import('./saveBuildProposal');
+ const api=await import('../api/liveApi');
+ const {fixtureWorkspaceDocumentRecord}=await import('../planSurface/config/planSessionDescriptor');
+ const sourceRecord=fixtureWorkspaceDocumentRecord({document_id:'doc',world_id:'world',kind:'worldbuilding_source',revision:2,content_status:'committed'});
+ const snapshot={schema_version:'dmb_workspace_document_snapshot_v1' as const,record:sourceRecord,markdown:body,content_sha256:await digest(body),file_fingerprint:'saved-file',file_exists:true,loaded_revision:2};
+ const saveMarkdown=vi.fn();const owner={documentId:'doc',editor,snapshot,saveMarkdown};
+ const sourceRead=vi.spyOn(api,'getWorkspaceDocumentSnapshot').mockResolvedValue(snapshot);
+ persist.mockImplementation((basis,afterEditor,afterDraft,projection)=>saveBuildProposal(()=>owner,basis,afterEditor,afterDraft,projection));
+ const currentJson=editor.getJSON(),docChanges=vi.fn();editor.on('transaction',({transaction})=>{if(transaction.docChanged)docChanges();});
+ fireEvent.click(screen.getByRole('button',{name:'Check insertion'}));
+ await waitFor(()=>expect(saved.state).toBe('applied'));
+ expect(saveMarkdown).not.toHaveBeenCalled();expect(apply).toHaveBeenCalledTimes(1);expect(sourceRead).toHaveBeenCalledTimes(1);
+ expect(docChanges).not.toHaveBeenCalled();expect(editor.getJSON()).toEqual(currentJson);expect(saved.apply).toEqual(originalReceipt);
+ expect(editor.getText().match(/A proposed custom/g)).toHaveLength(1);expect(complete).toHaveBeenCalledWith('applied');
+ sourceRead.mockRestore();
+});

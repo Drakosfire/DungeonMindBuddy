@@ -4,6 +4,8 @@ import type { Editor } from '@tiptap/core';
 import type { WorldBuildDraftSnapshotV1 } from '../api/types';
 import { TextSelection } from '@tiptap/pm/state';
 import type { BuildProposalBasis } from '../api/buildDocumentProposalApi';
+import {markdownToTiptapDoc} from '../tiptap/markdown/markdownToTiptap';
+import {semanticMarkdownSerializationDiagnostics} from '../tiptap/markdown/semanticMarkdownSafety';
 import { tiptapJsonToSemanticMarkdown } from '../tiptap/markdown/calloutMarkdown';
 import { admitMarkdownInsertion, insertReviewedMarkdown, insertReviewedMarkdownAtAnchor, prepareReviewedMarkdownAtAnchor } from '../documentEditing/markdownInsertion';
 
@@ -20,6 +22,15 @@ export interface PreparedBuildProposal {
 export interface PreparedWorkPlanPlacement {
   captured:CapturedBuildInsertion;reference:WorkPlanReference;afterEditorJson:string;afterEditorSha256:string;afterDraftSha256:string;
 }
+export interface SavedProposalProjection {
+  editorSha256:string;
+  /** Recheck edit admission and the complete live capture across source verification. */
+  assertCurrent:()=>void;
+}
+export interface ProposalInspection {
+  state:'before'|'after'|'changed';
+  savedProjection?:SavedProposalProjection;
+}
 export interface BuildComposeBridge {
   pickWorkPlanInsertion?: (options:{signal:AbortSignal;operationId:string})=>Promise<CapturedBuildInsertion>;
   observeWorkPlan?: (reference:WorkPlanReference,onPresence:(present:boolean)=>void)=>()=>void;
@@ -31,8 +42,8 @@ export interface BuildComposeBridge {
   insert: (captured: CapturedBuildInsertion, markdown: string) => void;
   prepareProposal: (captured: CapturedBuildInsertion, markdown: string) => Promise<PreparedBuildProposal>;
   applyPrepared: (prepared: PreparedBuildProposal) => void;
-  saveProposal: (basis: BuildProposalBasis, afterEditor: string, afterDraft: string) => Promise<void>;
-  inspectProposal: (basis: BuildProposalBasis, afterEditor: string, afterDraft: string) => Promise<'before'|'after'|'changed'>;
+  saveProposal: (basis: BuildProposalBasis, afterEditor: string, afterDraft: string, savedProjection?:SavedProposalProjection) => Promise<void>;
+  inspectProposal: (basis: BuildProposalBasis, afterEditor: string, afterDraft: string) => Promise<ProposalInspection>;
   restore: (basis: BuildProposalBasis) => Promise<CapturedBuildInsertion>;
   insertProposal: (captured: CapturedBuildInsertion, markdown: string) => void;
 }
@@ -151,22 +162,34 @@ export function createBuildComposeBridge(getCurrent: () => BuildComposeEditorSta
       insertReviewedMarkdownAtAnchor(captured.editor,captured.basis.caret,content,captured.editorJson);
       applied.add(captured);changed(captured.editor);
     },
-    async saveProposal(basis,afterEditor,afterDraft) {
+    async saveProposal(basis,afterEditor,afterDraft,savedProjection) {
       if(!persist)throw new Error('Page saving is unavailable. Your insertion is retained for recovery.');
-      await persist(basis,afterEditor,afterDraft);
+      await persist(basis,afterEditor,afterDraft,savedProjection);
     },
     async inspectProposal(basis,afterEditor,afterDraft) {
       const now=getCurrent();
-      if(!now||now.editor.isDestroyed||now.worldId!==basis.world_id||now.documentId!==basis.document_id||now.visibility!==basis.visibility)return 'changed';
+      if(!now?.canEdit||now.editor.isDestroyed||now.worldId!==basis.world_id||now.documentId!==basis.document_id
+        ||now.visibility!==basis.visibility||now.revision<basis.registry_revision)return {state:'changed'};
+      const start={...now};
       const json=JSON.stringify(now.editor.getJSON());const markdown=tiptapJsonToSemanticMarkdown(now.editor.getJSON());
-      const editorDigest=await sha256(json);const draftDigest=await sha256(markdown);
-      const current=getCurrent();
-      if(!current||current.editor!==now.editor||current.worldId!==now.worldId||current.documentId!==now.documentId
-        ||current.visibility!==now.visibility||JSON.stringify(current.editor.getJSON())!==json)return 'changed';
-      if(editorDigest===afterEditor&&draftDigest===afterDraft)return 'after';
+      function assertCurrent(){
+        const current=getCurrent();
+        if(!current?.canEdit||current.editor.isDestroyed||current.editor!==start.editor||current.worldId!==start.worldId
+          ||current.documentId!==start.documentId||current.visibility!==start.visibility||current.revision!==start.revision
+          ||current.contentSha256!==start.contentSha256||current.draftGeneration!==start.draftGeneration
+          ||JSON.stringify(current.editor.getJSON())!==json)throw new Error('The page or edit permission changed during insertion verification. Check it again.');
+      }
+      const [editorDigest,draftDigest]=await Promise.all([sha256(json),sha256(markdown)]);
+      try{assertCurrent();}catch{return {state:'changed'};}
+      if(editorDigest===afterEditor&&draftDigest===afterDraft)return {state:'after'};
+      if(draftDigest===afterDraft && canonicalProjection(now.editor,markdown)){
+        // This is not authorization to replay or Save. The owner must prove the
+        // intended body is ALREADY committed, while preserving frontmatter.
+        return {state:'after',savedProjection:{editorSha256:editorDigest,assertCurrent}};
+      }
       if(editorDigest===basis.editor_sha256&&draftDigest===basis.draft_sha256
-        &&savedPageMatches(current,basis,true))return 'before';
-      return 'changed';
+        &&savedPageMatches(now,basis,true))return {state:'before'};
+      return {state:'changed'};
     },
     async restore(basis) {
       if (!basis.editor_sha256) throw new Error('This earlier proposal has no saved insertion anchor. Ask again where you want the new text.');
@@ -218,4 +241,16 @@ export function createBuildComposeBridge(getCurrent: () => BuildComposeEditorSta
     },
   };
   return bridge;
+}
+
+/** A representable current projection cannot hide dropped nodes or attributes. */
+function canonicalProjection(editor:Editor,markdown:string):boolean {
+  try{
+    const json=editor.getJSON(),parsed=markdownToTiptapDoc(markdown);
+    if(semanticMarkdownSerializationDiagnostics(json).length || parsed.diagnostics.some(issue=>issue.level==='warning'))return false;
+    const reopened=editor.schema.nodeFromJSON(parsed.doc).toJSON();
+    const stable=(value:unknown):unknown=>Array.isArray(value)?value.map(stable)
+      :value&&typeof value==='object'?Object.fromEntries(Object.entries(value).sort(([a],[b])=>a.localeCompare(b)).map(([key,item])=>[key,stable(item)])):value;
+    return JSON.stringify(stable(json))===JSON.stringify(stable(reopened)) && tiptapJsonToSemanticMarkdown(reopened)===markdown;
+  }catch{return false;}
 }
