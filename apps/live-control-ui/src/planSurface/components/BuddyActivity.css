@@ -1,0 +1,33 @@
+.buddy-activity > summary {
+  display: flex;
+  align-items: center;
+  gap: .5rem;
+  min-block-size: 1.8rem;
+  cursor: pointer;
+  list-style: none;
+}
+.buddy-activity > summary::-webkit-details-marker { display: none; }
+.buddy-activity > summary::after {
+  content: '';
+  inline-size: .4rem;
+  block-size: .4rem;
+  border-inline-end: 1px solid currentColor;
+  border-block-end: 1px solid currentColor;
+  transform: rotate(-45deg);
+  margin-inline-start: .15rem;
+}
+.buddy-activity[open] > summary::after { transform: rotate(45deg); }
+.buddy-activity[data-running="true"] > summary { color: var(--ui-accent-action, #d9a441); }
+.buddy-activity > summary:focus-visible {
+  outline: 2px solid var(--ui-accent-action, #d9a441);
+  outline-offset: 3px;
+  border-radius: .2rem;
+}
+.buddy-activity__bubble { flex: 0 0 auto; overflow: visible; }
+.buddy-activity__dot { animation: buddy-activity-dot 1.8s ease-in-out infinite; }
+.buddy-activity__dot:nth-of-type(4) { animation-delay: .2s; }
+.buddy-activity__dot:nth-of-type(5) { animation-delay: .4s; }
+@keyframes buddy-activity-dot { 0%, 70%, 100% { opacity: .4; } 35% { opacity: 1; } }
+@media (prefers-reduced-motion: reduce) {
+  .buddy-activity__dot { animation: none; opacity: 1; }
+}

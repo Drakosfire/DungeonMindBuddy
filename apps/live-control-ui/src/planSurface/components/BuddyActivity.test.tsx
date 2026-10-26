@@ -24,6 +24,11 @@ describe('live activity entrance',()=>{
     const {load,loadPrompt}=mount(trace([{kind:'provider_call',sequence:0,elapsed_ms:1200,
       provider:'typesafe',model:'jev',outcome:'response_received'}]))
     await screen.findByText('A model response just landed.')
+    const activity=screen.getByRole('status').closest('details')!
+    expect(activity).toHaveAttribute('data-running','true')
+    expect(activity.querySelector('svg')).toHaveAttribute('aria-hidden','true')
+    expect(activity.querySelector('svg')).toHaveAttribute('focusable','false')
+    expect(activity.querySelectorAll('.buddy-activity__dot')).toHaveLength(3)
     expect(load).toHaveBeenCalledTimes(1)
     expect(screen.queryByText(/Attempt 1/)).not.toBeInTheDocument()
     fireEvent.click(screen.getByText('A model response just landed.'))
@@ -35,12 +40,18 @@ describe('live activity entrance',()=>{
   it('does not fetch a completed trace until the quiet entry is opened',async()=>{
     const {load}=mount({...trace([]),terminal_status:'completed',closed_at:'2026-10-24T00:00:01Z',capture_status:'complete'},'completed')
     expect(load).not.toHaveBeenCalled()
+    const activity=screen.getByRole('status').closest('details')!
+    expect(activity).toHaveAttribute('data-running','false')
+    expect(activity.querySelector('svg')).toBeNull()
     fireEvent.click(screen.getByText('How this reply came together'))
     await waitFor(()=>expect(load).toHaveBeenCalledTimes(1))
     await screen.findByText(/Attempt 1/)
   })
   it('keeps terminal failures in the same entry with the recorded error code',async()=>{
     mount({...trace([{kind:'failure',sequence:0,elapsed_ms:23700,phase:'delivery',code:'build_source_name_missing',stage:'context_acquisition'}]),terminal_status:'interrupted'},'interrupted')
+    const activity=screen.getByRole('status').closest('details')!
+    expect(activity).toHaveAttribute('data-running','false')
+    expect(activity.querySelector('svg')).toBeNull()
     fireEvent.click(screen.getByText('Reply error report'))
     await screen.findByText(/build_source_name_missing/)
     expect(screen.getByText(/context_acquisition/)).toBeInTheDocument()
