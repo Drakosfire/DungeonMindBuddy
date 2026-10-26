@@ -3238,6 +3238,7 @@ export function WorldPlanAgentConversation({
     if (!verifiedWorldId) return;
     try {
       let stored = readPendingPlayTurn(verifiedWorldId);
+      setPendingPlayTurn(stored);
       if(stored&&stored.request.surface.surface_id==='build'&&(stored.request as WorldBuildAgentTurnRequestV1).build_authored_references){
         // Exact request recovery never depends on listing unrelated local receipts.
         const key=rejectedReferenceKey(stored.request as WorldBuildAgentTurnRequestV1),bytes=localStorage.getItem(key);
@@ -3248,7 +3249,6 @@ export function WorldPlanAgentConversation({
           const turnId=stored.request.turn_id;sharedConversation?.setPendingTurn(current=>current?.turnId===turnId?null:current);stored=null;
         }
       }
-      refreshRejectedRequests(verifiedWorldId);
       setPendingPlayTurn(stored);
       setPendingPlayLoadError(null);
       setPendingPlayLoadedWorldId(verifiedWorldId);
@@ -3256,7 +3256,7 @@ export function WorldPlanAgentConversation({
     } catch (reason) {
       setPendingPlayLoadError(reason instanceof Error ? reason.message : "Saved Play request recovery is unavailable.");
       setPendingPlayLoadedWorldId(verifiedWorldId);
-    }
+    } finally { refreshRejectedRequests(verifiedWorldId); }
   }, [verifiedWorldId, sharedConversation?.setPendingTurn]);
 
   useEffect(() => {
@@ -4039,8 +4039,10 @@ export function WorldPlanAgentConversation({
         if(refs&&!(request as WorldBuildAgentTurnRequestV1).reviewed_step){
           if(!(reason instanceof LiveApiError)||!REJECTED_REFERENCE_CODES.includes(reason.code??'')){setError('This rejection needs its original saved-request recovery. Nothing was replaced or resent.');return;}
           try{retainRejectedReference(stored,reason.code!);}
-          catch(retentionError){setError(String(retentionError));return;}
-          refreshRejectedRequests(request.owner_scope.world_id);
+          catch(retentionError){
+            try{setPendingPlayTurn(readPendingPlayTurn(request.owner_scope.world_id));}catch(loadError){setPendingPlayLoadError(String(loadError));}
+            setError(String(retentionError));return;
+          }finally{refreshRejectedRequests(request.owner_scope.world_id);}
           try{
             if(!restoreInitialComposerReferences)throw new Error('Recovery did not replace your composer. The saved request and its references are retained.');
             const world=request.owner_scope.world_id,page=request.primary_work.object_id,key=`build:${page}`;

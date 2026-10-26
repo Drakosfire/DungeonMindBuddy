@@ -2585,6 +2585,12 @@ describe("one App-level World conversation host across Plan and Play", () => {
       expect(localStorage.getItem(pendingKey)).toBe(mode==='changed-pending'?altered:original);
       expect(rejectedReferenceCopies()).toHaveLength(mode==='cleanup-crash'||mode==='changed-pending'?1:0);
       if(mode==='cleanup-crash'||mode==='changed-pending')expect(rejectedReferenceCopies()[0].original_bytes).toBe(original);
+      if(mode==='changed-pending'){
+        openConversationOptions();expect(await screen.findByLabelText('Retained rejected requests')).toHaveTextContent('Original box request.');expect(screen.getByLabelText('Saved turn recovery')).toHaveTextContent('Another tab request.');
+        spy!.mockRestore();mounted.unmount();render(<Harness initial="build" buildBridge={retryBridge()}/>);fireEvent.click(await screen.findByRole('button',{name:'Open',exact:true}));
+        openConversationOptions();expect(await screen.findByLabelText('Retained rejected requests')).toHaveTextContent('Original box request.');expect(screen.getByLabelText('Rejected request Graph context')).toHaveTextContent('@original-box');expect(screen.getByLabelText('Saved turn recovery')).toHaveTextContent('Another tab request.');
+        expect(localStorage.getItem(pendingKey)).toBe(altered);expect(rejectedReferenceCopies()).toHaveLength(1);expect(postWorldBuildAgentTurn).toHaveBeenCalledTimes(1);
+      }
       if(mode==='cleanup-crash'){
         spy!.mockRestore();mounted.unmount();const recovered=render(<Harness initial="build" buildBridge={retryBridge()}/>);fireEvent.click(await screen.findByRole('button',{name:'Open',exact:true}));
         await waitFor(()=>expect(localStorage.getItem(pendingKey)).toBeNull());expect(postWorldBuildAgentTurn).toHaveBeenCalledTimes(1);expect(rejectedReferenceCopies()).toHaveLength(1);
