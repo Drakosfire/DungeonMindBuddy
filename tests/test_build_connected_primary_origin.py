@@ -14,13 +14,31 @@ from application_state.agent_conversation.source_writer_output import validate_w
 
 
 @pytest.fixture
-def primary_review(build_case,monkeypatch,tmp_path):
+def primary_review(build_case,monkeypatch,tmp_path,request):
+    aliased = getattr(request,"param",None)=="aliased"
+    if aliased:
+        from hashlib import sha256
+        original_case=cases.world_case
+        original_snapshot=cases.BuildDraftSnapshotV1
+        captured=[]
+        def world_case(*args,**kwargs):
+            value=original_case(*args,**kwargs);captured.append(value[0][0].markdown);return value
+        def snapshot(**kwargs):
+            text=captured[0]
+            return original_snapshot(**{**kwargs,"draft_markdown":text,"draft_sha256":sha256(text.encode()).hexdigest()})
+        monkeypatch.setattr(cases,"world_case",world_case)
+        monkeypatch.setattr(cases,"BuildDraftSnapshotV1",snapshot)
     original=cases.PagesWriter
     class PrimaryWriter(original):
         async def handle_async_request(self,request):
             response=await super().handle_async_request(request)
             wire=json.loads(request.content);packet=json.loads(wire['input'])
-            primary=packet['artifact_under_edit']['sections'][0]
+            from application_state.agent_conversation.build_draft_context import resolve_body_aliases
+            primary=resolve_body_aliases(packet)['artifact_under_edit']['sections'][0]
+            if aliased:
+                assert packet['artifact_under_edit']['sections'][0]['text_ref']=='working_draft_context'
+                assert 'use that body with the saved row' in wire['instructions']
+                assert 'Never use working_draft_context as a saved origin' not in wire['instructions']
             assert packet[origins.KEY]==origins.POLICY
             assert wire['text']['format']['name']==origins.FORMAT
             assert primary['read_id'] in wire['text']['format']['schema']['$defs']['ProposedConnectedPage']['properties']['read_id']['enum']
@@ -143,3 +161,13 @@ def test_origin_http_route_is_authenticated_and_has_no_caller_selector(primary_r
         assert client.get(path+'?read_id=foreign',headers=headers).status_code==422
         assert len(calls)==count
         assert client.get(path+'/extra',headers=headers).status_code==404
+
+
+@pytest.mark.parametrize('primary_review',['aliased'],indirect=True)
+def test_primary_saved_origin_uses_exact_body_alias_through_sdk_app(primary_review):
+    from apps.live_control_server.services.agent_connected_page_origin import open_origin
+    turn,service,_=parts(primary_review)
+    origin=open_origin(service,turn.world_id,turn.turn_id)['origin']
+    assert origin['document_id']==turn.provenance.primary_work.object_id
+    assert turn.completion.collaboration.quote in origin['selected_text']
+    assert service.inspect_turn(world_id=turn.world_id,turn_id=turn.turn_id)==turn
