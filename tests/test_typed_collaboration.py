@@ -372,3 +372,45 @@ def test_multi_source_quotes_cannot_be_swapped_between_valid_selectors():
     value["answer_segments"][0]["supporting_quotes"].reverse()
     with pytest.raises(ValueError, match="absent from its selected source"):
         validate_and_project(value, p)
+
+
+def test_multiple_witnesses_are_bound_to_one_related_read_only_in_new_contract():
+    from application_state.agent_conversation import source_quote_binding as quotes
+    p=packet();rid=str(uuid4())
+    p.update(source_quote_binding_policy=quotes.POLICY,connected_page_review_policy='typed_connected_page_review_v1',
+        related_authored_pages={'pages':[{'read_id':rid,'markdown':'Rowan worked temporarily with Mara.\n\nSeparate context.\n\nRowan worked with Oren in the past.','page':{'title':'Workshop'}},
+            {'read_id':str(uuid4()),'markdown':'Foreign page witness.','page':{'title':'Foreign'}}]})
+    raw=answer(None);raw['answer_segments']=[{'kind':'related_page_claim','text':'The page records two past collaborations.',
+        'read_id':rid,'supporting_quotes':['Rowan worked temporarily with Mara.','Rowan worked with Oren in the past.']}]
+    historical=copy.deepcopy(p);before=json.dumps(output_schema(historical),sort_keys=True)
+    with pytest.raises(ValueError,match='one exact quote per selected source'):normalize(json.dumps(raw),historical)
+    p[quotes.WITNESS_KEY]=quotes.WITNESS_POLICY
+    projected=normalize(json.dumps(raw),p)
+    assert projected['answer_segments'][0]['read_id']==rid and 'supporting_quotes' not in projected['answer_segments'][0]
+    for bad in [[],None,[''],[' '],['Foreign page witness.'],['Rowan worked temporarily with Mara.','Absent witness.']]:
+        changed=copy.deepcopy(raw);changed['answer_segments'][0]['supporting_quotes']=bad
+        with pytest.raises(ValueError):normalize(json.dumps(changed),p)
+    schema=output_schema(p);assert make_schema_strict(schema)==schema
+    assert schema['$defs']['RelatedPageDraftClaim']['properties']['supporting_quotes']['minItems']==1
+    name=quotes.format_name(quotes.FORMAT,p)
+    fmt={'type':'json_schema','name':name,'strict':True,'schema':schema};validate_writer_format(fmt,p)
+    for changed_format,changed_packet in [({**fmt,'name':quotes.FORMAT},p),(fmt,historical),({**fmt,'schema':output_schema(historical)},p)]:
+        with pytest.raises(ValueError):validate_writer_format(changed_format,changed_packet)
+    for value in ['unknown',None]:
+        with pytest.raises(ValueError):output_schema({**p,quotes.WITNESS_KEY:value})
+    with pytest.raises(ValueError):output_schema({k:v for k,v in p.items() if k!='source_quote_binding_policy'})
+    assert json.dumps(output_schema(historical),sort_keys=True)==before
+    validate_writer_format({'type':'json_schema','name':quotes.FORMAT,'strict':True,'schema':output_schema(historical)},historical)
+
+
+@pytest.mark.parametrize('kind,selector',[('source_passage_claim','passage_handles'),('saved_source_claim','section_read_ids')])
+def test_new_related_witness_contract_does_not_relax_multi_selector_pairing(kind,selector):
+    from application_state.agent_conversation import source_quote_binding as quotes
+    p={quotes.KEY:quotes.POLICY,quotes.WITNESS_KEY:quotes.WITNESS_POLICY,'connected_page_review_policy':'typed_connected_page_review_v1',
+        'opened_passages':[{'handle':'one','text':'First witness.'},{'handle':'two','text':'Second witness.'}],
+        'artifact_under_edit':{'sections':[{'read_id':'one','text':'First witness.'},{'read_id':'two','text':'Second witness.'}]}}
+    value={'answer_segments':[{'kind':kind,'text':'A claim.',selector:['one','two'],'supporting_quotes':['First witness.','Second witness.']}]}
+    assert 'supporting_quotes' not in quotes.validate_and_project(value,p)['answer_segments'][0]
+    for bad in [[],['First witness.'],['Second witness.','First witness.'],['First witness.','Second witness.','First witness.']]:
+        wrong=copy.deepcopy(value);wrong['answer_segments'][0]['supporting_quotes']=bad
+        with pytest.raises(ValueError):quotes.validate_and_project(wrong,p)

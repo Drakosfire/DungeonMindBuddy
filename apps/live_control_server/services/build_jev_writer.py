@@ -300,11 +300,17 @@ class WriterProjection:
                     + json.dumps(required) + ". This condition does not apply to draft_reference_claim, "
                     "related_page_claim or a review-only discussion acknowledgment. Keep their authority separate.\n"
                 )
-        from application_state.agent_conversation.source_quote_binding import enabled, FORMAT as QUOTE_FORMAT
+        from application_state.agent_conversation.source_quote_binding import enabled, FORMAT as QUOTE_FORMAT, related_witnesses, format_name as quote_format_name
         quoted = enabled(json.loads(self.input_json))
+        quote_cardinality = (
+            "one exact nonblank contiguous quote per saved-source or passage selector, in selector order. "
+            "For related_page_claim include one or more exact quotes from its single read_id page; each quote must occur in that same page. "
+            if related_witnesses(packet) else
+            "one exact nonblank contiguous quote per selector, in selector order (one for related_page_claim). "
+        )
         quote_instructions = (
             "\nEvery saved_source_claim, source_passage_claim and related_page_claim MUST include supporting_quotes: "
-            "one exact nonblank contiguous quote per selector, in selector order (one for related_page_claim). "
+            + quote_cardinality +
             "Read the quote from the source you select. A valid ID from a different page is not support. "
             "artifact_under_edit/saved_source_claim is ONLY the current page. The named pages under "
             "related_authored_pages use related_page_claim and that page's read_id. Prefer that type when "
@@ -324,6 +330,7 @@ class WriterProjection:
         scoped = SCOPE_KEY in packet
         from application_state.agent_conversation.plan_objective import selection_packet, INTENTIONAL_SELECTION_FORMAT, REVIEWED_SELECTION_FORMAT, SELECTION_GUIDANCE
         selected_output = selection_packet(packet)
+        base_format_name = SCOPE_FORMAT if scoped else (INTENTIONAL_SELECTION_FORMAT if intentional_output else REVIEWED_SELECTION_FORMAT) if selected_output else ORIGIN_FORMAT if ORIGIN_KEY in packet else (INTENTIONAL_FORMAT if intentional_output else REVIEWED_FORMAT) if objective_output else intentional.FORMAT if intentional_output else "build_working_draft_answer_v5" if relationship else QUOTE_FORMAT if quoted else "build_working_draft_answer_v3" if connected else "build_working_draft_answer_v2" if collaboration else "build_working_draft_answer_v1" if draft_context else GAP_SCHEMA_NAME if cited else "build_source_passage_answer"
         return {
             "model": MODEL,
             "input": self.input_json,
@@ -338,7 +345,7 @@ class WriterProjection:
             "text": {
                 "format": mixed_format or {
                     "type": "json_schema",
-                    "name": SCOPE_FORMAT if scoped else (INTENTIONAL_SELECTION_FORMAT if intentional_output else REVIEWED_SELECTION_FORMAT) if selected_output else ORIGIN_FORMAT if ORIGIN_KEY in packet else (INTENTIONAL_FORMAT if intentional_output else REVIEWED_FORMAT) if objective_output else intentional.FORMAT if intentional_output else "build_working_draft_answer_v5" if relationship else QUOTE_FORMAT if quoted else "build_working_draft_answer_v3" if connected else "build_working_draft_answer_v2" if collaboration else "build_working_draft_answer_v1" if draft_context else GAP_SCHEMA_NAME if cited else "build_source_passage_answer",
+                    "name": quote_format_name(base_format_name, packet),
                     "schema": intentional.output_schema(packet) if intentional_output else finite_output_schema(json.loads(self.input_json), requested_detail_gaps=True) if cited else source_answer_schema(),
                     "strict": True,
                 }
@@ -407,6 +414,8 @@ def with_working_draft(staged: WriterProjection, execution) -> WriterProjection:
     quote_policy=getattr(execution.policy,"source_quote_binding_policy",None)
     if quote_policy is not None:
         packet["source_quote_binding_policy"]=quote_policy
+        from application_state.agent_conversation.source_quote_binding import WITNESS_KEY, WITNESS_POLICY
+        packet[WITNESS_KEY]=WITNESS_POLICY
     from application_state.agent_conversation.build_related_pages import project
     related=project(execution)
     if related is not None:

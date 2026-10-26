@@ -366,6 +366,17 @@ def finite_output_schema(packet: dict, *, requested_detail_gaps: bool = False) -
 
 
 def validate_writer_format(fmt: dict, packet: dict) -> None:
+    """The quote-version wrapper precedes every existing composite format gate."""
+    from .source_quote_binding import related_witnesses, FORMAT_SUFFIX
+    modern = related_witnesses(packet)
+    name = fmt.get('name') if isinstance(fmt,dict) else None
+    suffixed = isinstance(name,str) and name.endswith(FORMAT_SUFFIX)
+    if modern != suffixed:
+        raise ValueError('Related-page quote marker and writer format differ')
+    _validate_writer_format({**fmt,'name':name[:-len(FORMAT_SUFFIX)]} if suffixed else fmt,packet)
+
+
+def _validate_writer_format(fmt: dict, packet: dict) -> None:
     """Old captures keep their exact schema; V2 is exact packet-derived only."""
     if not isinstance(fmt, dict):
         raise ValueError("Source writer request lacks its frozen output schema")

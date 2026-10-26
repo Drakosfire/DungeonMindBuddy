@@ -255,7 +255,7 @@ def test_reviewed_discuss_refuses_a_work_plan_instead_of_executing_another_step(
         async def handle_async_request(self,request):
             response=await super().handle_async_request(request)
             wire=json.loads(request.content)
-            assert wire['text']['format']['name']=='build_reviewed_discussion_answer_v1'
+            assert wire['text']['format']['name']=='build_reviewed_discussion_answer_v1_quotes_v2'
             assert wire['text']['format']['schema']['properties']['collaboration']=={'anyOf':[{'$ref':'#/$defs/ProposedQuestions'},{'type':'null'}]}
             data=response.json()
             raw=json.dumps({'answer_context_status':'creative_proposal','answer_segments':[{'kind':'suggestion','text':'Review this plan.'}],

@@ -1,6 +1,8 @@
 # BUILD: preserve proposed step selection through author review
 
-ACTIVE. PRIME adopts the independently critiqued design at fetched main
+DELIVERED in #1798 at6e4b1580c6aa46f24aafc01e19880089229d3598. Independent exact-head review passed e5615bf66fea7e11ee23131e7cdbaf2eb2236e5a. Protected paired delivery preserved3454 APP rows except migration metadata, native state,27 frozen components and89 product files, APP0075/native0017. Ordinary generation selected[true,false] without manual correction; author edit/Save/reload/selected Discuss continuation retained false and newer composer. Seven retained Discuss decision inputs exposed answer_from_sources only, without write capability/page target. Successor: HANDOFF-BUILD-same-page-quote-witnesses.md. Broader creative/operator acceptance remains open.
+
+Original authority: PRIME adopts the independently critiqued design at fetched main
 6d772e2aab29e6c51364217457f715001a203bcf, existing Buddy checkout,
 branch codex/plan-proposal-selection. Serial topology; #1764 remains parked.
 No new executor, worktree, environment or work-plan storage version.
@@ -63,7 +65,7 @@ wrong contract and malformed selected SQL refusal, downgrade guard. Then exact
 cumulative independent Bugbot review, PRIME merge, protected paired delivery and
 ordinary explicit-defer dogfood through Save/reload/one selected continuation.
 
-Mallow private replay permission remains pending. Current routing already has a
+Operator authorization2026-10-26 supersedes the earlier replay hold: original Mallow request plus Brin current page/draft and retained Brin/Edge dialogue may use configured Jev/writing providers, stopping at editable review before Save/publication. Do not ask again for the same authorized scope. Current routing already has a
 separate review_connected_page intent; do not replace its unresolved reproduction
 with speculative routing edits or synthetic creative acceptance. Broader goal and
 operator acceptance remain open.
