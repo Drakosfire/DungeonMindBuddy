@@ -405,11 +405,16 @@ function checkedRejectedReference(world:string,key:string,bytes:string):Retained
  if(!stored||r?.surface.surface_id!=='build'||!r.build_authored_references||r.reviewed_step||r.primary_work.object_id!==value.document_id||r.turn_id!==value.turn_id||key!==rejectedReferenceKey(r))throw new Error('The retained rejection belongs to another request. Both copies were preserved.');
  return {storageKey:key,reasonCode:value.reason_code,stored};
 }
-function readRejectedReferences(world:string):RetainedRejectedRequest[]{
- const prefix=REJECTED_REFERENCE_REQUEST_PREFIX+encodeURIComponent(world)+':',items:RetainedRejectedRequest[]=[];
- for(let i=0;i<localStorage.length;i++){const key=localStorage.key(i);if(key?.startsWith(prefix)){const bytes=localStorage.getItem(key);if(bytes!==null)items.push(checkedRejectedReference(world,key,bytes));}}
- return items.sort((a,b)=>a.storageKey.localeCompare(b.storageKey));
+function readRejectedReferences(world:string):{items:RetainedRejectedRequest[];issues:string[]}{
+ const prefix=REJECTED_REFERENCE_REQUEST_PREFIX+encodeURIComponent(world)+':',items:RetainedRejectedRequest[]=[],issues:string[]=[];
+ for(let i=0;i<localStorage.length;i++){
+  const key=localStorage.key(i);if(!key?.startsWith(prefix))continue;
+  try{const bytes=localStorage.getItem(key);if(bytes!==null)items.push(checkedRejectedReference(world,key,bytes));}
+  catch{issues.push('A retained rejected request could not be displayed. Its bytes were preserved.');}
+ }
+ return {items:items.sort((a,b)=>a.storageKey.localeCompare(b.storageKey)),issues};
 }
+
 function retainRejectedReference(stored:StoredPendingPlayTurn,reasonCode:string):RetainedRejectedRequest{
  const request=stored.request as WorldBuildAgentTurnRequestV1,key=rejectedReferenceKey(request);
  const bytes=JSON.stringify({schema:'dmb_rejected_authored_build_request_v1',world_id:request.owner_scope.world_id,document_id:request.primary_work.object_id,turn_id:request.turn_id,reason_code:reasonCode,original_bytes:stored.serialized});
@@ -2652,6 +2657,10 @@ export function WorldPlanAgentConversation({
   const [pendingCommands, setPendingCommands] = useState<StoredPendingNewConversation[]>([]);
   const [rejectedRequests,setRejectedRequests]=useState<{world:string;items:RetainedRejectedRequest[]}|null>(null);
   const [rejectedRequestError,setRejectedRequestError]=useState<string|null>(null);
+  function refreshRejectedRequests(world:string){
+    try{const retained=readRejectedReferences(world);setRejectedRequests({world,items:retained.items});setRejectedRequestError(retained.issues.length?`${retained.issues.length} retained rejection ${retained.issues.length===1?'copy needs':'copies need'} inspection. Their bytes were preserved.`:null);}
+    catch(reason){setRejectedRequests(null);setRejectedRequestError(String(reason));}
+  }
   const [pendingPlayTurn, setPendingPlayTurn] = useState<StoredPendingPlayTurn | null>(null);
   const [pendingPlayLoadError, setPendingPlayLoadError] = useState<string | null>(null);
   const [pendingPlayLoadedWorldId, setPendingPlayLoadedWorldId] = useState<string | null>(null);
@@ -3229,16 +3238,17 @@ export function WorldPlanAgentConversation({
     if (!verifiedWorldId) return;
     try {
       let stored = readPendingPlayTurn(verifiedWorldId);
-      let retained:RetainedRejectedRequest[]=[];
-      try{retained=readRejectedReferences(verifiedWorldId);setRejectedRequests({world:verifiedWorldId,items:retained});setRejectedRequestError(null);}catch(reason){setRejectedRequests(null);setRejectedRequestError(String(reason));}
-      if(stored){
-        const own=retained.find(item=>item.stored.request.turn_id===stored!.request.turn_id);
-        if(own){
+      if(stored&&stored.request.surface.surface_id==='build'&&(stored.request as WorldBuildAgentTurnRequestV1).build_authored_references){
+        // Exact request recovery never depends on listing unrelated local receipts.
+        const key=rejectedReferenceKey(stored.request as WorldBuildAgentTurnRequestV1),bytes=localStorage.getItem(key);
+        if(bytes!==null){
+          const own=checkedRejectedReference(verifiedWorldId,key,bytes);
           if(own.stored.serialized!==stored.serialized)throw new Error('The retained rejection differs from the pending request. Both copies were preserved.');
           if(!clearSavedPlayTurn(stored))throw new Error('The rejected request is retained. Check its pending-copy cleanup before sending.');
           const turnId=stored.request.turn_id;sharedConversation?.setPendingTurn(current=>current?.turnId===turnId?null:current);stored=null;
         }
       }
+      refreshRejectedRequests(verifiedWorldId);
       setPendingPlayTurn(stored);
       setPendingPlayLoadError(null);
       setPendingPlayLoadedWorldId(verifiedWorldId);
@@ -4028,8 +4038,9 @@ export function WorldPlanAgentConversation({
         const refs=request.primary_work.kind==='build'?(request as WorldBuildAgentTurnRequestV1).build_authored_references:undefined;
         if(refs&&!(request as WorldBuildAgentTurnRequestV1).reviewed_step){
           if(!(reason instanceof LiveApiError)||!REJECTED_REFERENCE_CODES.includes(reason.code??'')){setError('This rejection needs its original saved-request recovery. Nothing was replaced or resent.');return;}
-          try{retainRejectedReference(stored,reason.code!);setRejectedRequests({world:request.owner_scope.world_id,items:readRejectedReferences(request.owner_scope.world_id)});setRejectedRequestError(null);}
+          try{retainRejectedReference(stored,reason.code!);}
           catch(retentionError){setError(String(retentionError));return;}
+          refreshRejectedRequests(request.owner_scope.world_id);
           try{
             if(!restoreInitialComposerReferences)throw new Error('Recovery did not replace your composer. The saved request and its references are retained.');
             const world=request.owner_scope.world_id,page=request.primary_work.object_id,key=`build:${page}`;

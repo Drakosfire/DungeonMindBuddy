@@ -2607,6 +2607,23 @@ describe("one App-level World conversation host across Plan and Play", () => {
     openConversationOptions();expect(await screen.findByLabelText('Retained reference drafts')).toHaveTextContent(raw);expect(postWorldBuildAgentTurn).not.toHaveBeenCalled();
   });
 
+  it.each(['initial','crash-remount'])('recovers the exact rejected request despite an unrelated corrupt receipt: %s',async mode=>{
+    const corruptKey=`dmb:rejected-authored-build:v1:${encodeURIComponent(WORLD)}:other-page:99999999-9999-4999-8999-999999999999`,corrupt='unreadable unrelated receipt';localStorage.setItem(corruptKey,corrupt);
+    writeComposerReferences(sessionStorage,WORLD,'source-one',null,[authoredRef('original-box')]);
+    vi.mocked(getWorldAgentConversationHistory).mockResolvedValue(history());let reject!:(reason:unknown)=>void;vi.mocked(postWorldBuildAgentTurn).mockReturnValue(new Promise((_,r)=>{reject=r}));
+    const mounted=render(<Harness initial="build" buildBridge={retryBridge()}/>);fireEvent.click(await screen.findByRole('button',{name:'Open',exact:true}));
+    const input=await screen.findByLabelText('Message DungeonBuddy');fireEvent.change(input,{target:{value:'Original selected object.'}});fireEvent.click(screen.getByRole('button',{name:'Send message'}));await waitFor(()=>expect(postWorldBuildAgentTurn).toHaveBeenCalledTimes(1));
+    fireEvent.change(input,{target:{value:'Newer independent words.'}});const pendingKey=`dmb:world-play-pending-turn:v1:${WORLD}`,remove=Storage.prototype.removeItem;
+    const spy=mode==='crash-remount'?vi.spyOn(Storage.prototype,'removeItem').mockImplementation(function(key){if(key===pendingKey)throw new Error('Interrupted cleanup');return remove.call(this,key);}):null;
+    try{
+      await act(async()=>reject(new LiveApiError('Source changed',422,{code:'build_editor_context_changed'})));await screen.findByText(/^This message was not sent\./);
+      if(spy){expect(localStorage.getItem(pendingKey)).not.toBeNull();spy.mockRestore();mounted.unmount();render(<Harness initial="build" buildBridge={retryBridge()}/>);fireEvent.click(await screen.findByRole('button',{name:'Open',exact:true}));}
+      await waitFor(()=>expect(localStorage.getItem(pendingKey)).toBeNull());expect(localStorage.getItem(corruptKey)).toBe(corrupt);expect(rejectedReferenceCopies()).toHaveLength(1);expect(postWorldBuildAgentTurn).toHaveBeenCalledTimes(1);
+      fireEvent.change(await screen.findByLabelText('Message DungeonBuddy'),{target:{value:'Continue with the new draft.'}});expect(screen.getByRole('button',{name:'Send message'})).toBeEnabled();
+      openConversationOptions();expect(await screen.findByLabelText('Retained rejected requests')).toHaveTextContent('Original selected object.');expect(screen.getByText(/1 retained rejection copy needs inspection/)).toBeVisible();
+    }finally{spy?.mockRestore();}
+  });
+
 });
 
-function rejectedReferenceCopies(){return Object.keys(localStorage).filter(key=>key.startsWith('dmb:rejected-authored-build:v1:')).map(key=>JSON.parse(localStorage.getItem(key)!));}
+function rejectedReferenceCopies(){return Object.keys(localStorage).filter(key=>key.startsWith('dmb:rejected-authored-build:v1:')).flatMap(key=>{try{return [JSON.parse(localStorage.getItem(key)!)];}catch{return [];}});}
