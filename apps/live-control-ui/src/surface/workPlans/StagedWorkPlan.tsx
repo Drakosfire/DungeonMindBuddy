@@ -154,7 +154,7 @@ export function StagedWorkPlan({worldId,documentId,conversationId,turnId,source,
    assertCurrent(start);const latest=await getWorkPlan({worldId,documentId,conversationId,turnId,sourceSha256:placement.reference.source_answer_sha256});assertCurrent(start);
    if(canonical(latest)!==canonical(saved))throw new Error('The saved review changed again. Check it before adopting.');
    const next=await adoptPlacementReview(placement,{rows,objective,rootReferences},saved);assertCurrent(start);
-   setPlacement(next);setRows(saved.steps);setRootReferences(saved.root_references);setObjective(saved.objective);writeNotes(next,saved.steps,saved.objective,saved.root_references);setReviewToAdopt(null);
+   setPlacement(next);setRows(saved.steps);setRootReferences(saved.root_references);setObjective(saved.objective);setReviewToAdopt(null);writeNotes(next,saved.steps,saved.objective,saved.root_references);
   }catch(reason){if(current.current.scope===start.scope)setError(String(reason));}
   finally{if(current.current.scope===start.scope)setBusy(false);}
  }

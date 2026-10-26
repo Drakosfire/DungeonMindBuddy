@@ -115,7 +115,7 @@ it.each(['normal','notes-failure'])('compares and explicitly adopts saved V3 con
  fireEvent.click(adopt);await waitFor(()=>expect(screen.getByRole('textbox',{name:'Plan step 1'})).toHaveValue('Saved review wording.'));
  const updated=(await readPlacement(ref))!;expect(updated.schema).toBe('dmb_surface_work_plan_placement_v3');
  expect(updated.retired_placements[0].review_snapshot?.rows[0].text).toBe('Older unsaved wording.');
- if(blocked){blocked.mockRestore();mounted.unmount();render(<StagedWorkPlan {...props()}/>);expect(await screen.findByRole('textbox',{name:'Plan step 1'})).toHaveValue('Saved review wording.');}
+ if(blocked){expect(screen.queryByRole('button',{name:'Use saved review for this placement'})).toBeNull();fireEvent.click(adopt);await waitFor(async()=>expect((await readPlacement(ref))!.retired_placements).toHaveLength(1));blocked.mockRestore();mounted.unmount();render(<StagedWorkPlan {...props()}/>);expect(await screen.findByRole('textbox',{name:'Plan step 1'})).toHaveValue('Saved review wording.');}
  fireEvent.click(screen.getByRole('button',{name:'Save',exact:true}));await savedOnPage();
  expect(saveWorkPlan).not.toHaveBeenCalled();expect(continueWorkPlan).not.toHaveBeenCalled();
 });
