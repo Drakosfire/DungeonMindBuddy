@@ -47,7 +47,7 @@ def request_case(tmp_path,monkeypatch,application_state_dsn):
 class Wire(httpx.AsyncBaseTransport):
     def __init__(self,request,text=None,timeout=False):
         self.request,self.calls,self.timeout=request,[],timeout
-        self.text=text or json.dumps(dict(replacement_markdown=TABLE,summary='Proposed NPC table.',assumptions=['Nia is invented.']))
+        self.text=text or json.dumps(dict(destination='current_page',replacement_markdown=TABLE,summary='Proposed NPC table.',assumptions=['Nia is invented.']))
     async def handle_async_request(self,request):
         row = BuildProposalService().get('elderwyld',self.request.idempotency_key)
         assert row.state=='sdk_entered' and row.authorization is not None
@@ -79,7 +79,7 @@ def test_source_sdk_durable_proposal_and_no_replay(request_case):
     assert body['tools']==[] and json.loads(body['input'])['draft_markdown']==source.markdown
     from application_state.build_proposal.types import BuildGeneratedProposal
     assert body['text']['format'] == {'type':'json_schema','name':'build_document_proposal',
-        'schema':BuildGeneratedProposal.model_json_schema(),'strict':True}
+        'schema':owner.BuildComposeOutput.model_json_schema(),'strict':True}
     assert 'output_format' not in json.loads(body['input'])
     assert 'Return only' not in body['instructions'] and 'JSON with exactly' not in body['instructions']
     assert 'concrete spatial details' in body['instructions']
@@ -108,7 +108,7 @@ def test_uncertain_dispatch_is_not_replayed(request_case):
 @pytest.mark.parametrize('markdown',['<script>bad</script>','[Nia](dmb-node:npc:invented)','<!-- dmb-playable-element:v2:fake -->','```dmb-work-plan-v1\n{}\n```'])
 def test_inert_markdown_validation_rejects_fabricated_authority(request_case,markdown):
     request,_,_=request_case
-    wire=Wire(request,text=json.dumps(dict(replacement_markdown=markdown,summary='Bad proposal',assumptions=[])))
+    wire=Wire(request,text=json.dumps(dict(destination='current_page',replacement_markdown=markdown,summary='Bad proposal',assumptions=[])))
     with pytest.raises(ValueError):
         asyncio.run(owner.compose(request,transport=wire))
     row=BuildProposalService().get('elderwyld',request.idempotency_key)
@@ -258,3 +258,38 @@ def test_invalid_selected_revision_target_is_refused(request_case, selection):
     request, _, _ = request_case
     with pytest.raises(ValidationError):
         BuildProposalBasis.model_validate({**request.basis.model_dump(mode="json"), "selection":selection})
+
+
+@pytest.mark.parametrize('destination', ['different_page', 'unresolved'])
+def test_writer_refuses_foreign_destination_without_creating_a_proposal(request_case, destination):
+    request, source, _ = request_case
+    raw = json.dumps(dict(destination=destination, replacement_markdown='',
+        summary='The requested destination differs or is unresolved.', assumptions=[]))
+    wire = Wire(request, text=raw)
+    with pytest.raises(owner.BuildComposeTargetMismatch, match='build_compose_target_mismatch'):
+        asyncio.run(owner.compose(request, transport=wire))
+    row = BuildProposalService().get('elderwyld', request.idempotency_key)
+    assert row.state == 'failed' and row.failure_code == 'build_compose_target_mismatch'
+    assert row.proposal is None and row.raw_response == raw
+    assert len(wire.calls) == 1
+    assert asyncio.run(owner.compose(request, transport=wire)) == row
+    assert len(wire.calls) == 1
+    assert get_workspace_document_snapshot(owner.managed_world_data_root(), source.record.document_id) == source
+
+
+@pytest.mark.parametrize('destination', [None, 'another_page', 1])
+def test_missing_or_invalid_destination_has_no_old_wire_fallback(destination):
+    from pydantic import ValidationError
+    raw = dict(replacement_markdown='A useful paragraph.', summary='Writing.', assumptions=[])
+    if destination is not None:
+        raw['destination'] = destination
+    with pytest.raises(ValidationError):
+        owner._result(json.dumps(raw))
+
+
+def test_destination_is_not_added_to_retained_proposal_records():
+    from application_state.build_proposal.types import BuildGeneratedProposal
+    raw = dict(replacement_markdown='A useful paragraph.', summary='Writing.', assumptions=[])
+    stored = BuildGeneratedProposal.model_validate(raw)
+    assert stored.model_dump() == raw
+    assert owner._result(json.dumps(dict(destination='current_page', **raw))) == stored
