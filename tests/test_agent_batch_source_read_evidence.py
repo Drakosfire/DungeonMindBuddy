@@ -5,7 +5,7 @@ from apps.live_control_server.services.agent_source_read_telemetry import (
     BATCH_V1,
     BATCH_V2,
     READ_SCHEMA,
-    summarize_batch_source_reads,
+    summarize_source_reads,
 )
 from apps.live_control_server.services.hermes_graph_agent import (
     _summarize_tool_result,
@@ -66,17 +66,17 @@ def test_batch_completion_retains_source_evidence_without_body_or_secret(version
 
 @pytest.mark.parametrize("outcome", ["denied", "unavailable", "empty", "unknown"])
 def test_failed_read_never_claims_opened_despite_returned_text(outcome):
-    meta, _ = summarize_batch_source_reads(packet(outcome=outcome))
+    meta, _ = summarize_source_reads(packet(outcome=outcome))
     assert meta["sourceRead0"]["opened"] == "false"
 
 
 def test_unknown_and_malformed_packets_are_not_source_evidence():
     p = packet()
     p["schema"] = "unknown"
-    assert summarize_batch_source_reads(p) == ({}, [])
+    assert summarize_source_reads(p) == ({}, [])
     p = packet()
     p["reads"] = [None, {"result": "not a result"}]
-    meta, ids = summarize_batch_source_reads(p)
+    meta, ids = summarize_source_reads(p)
     assert ids == [] and meta["sourceRead0"]["malformed"] == "true"
 
 
@@ -90,7 +90,7 @@ def test_limits_report_truncation_and_mixed_outcomes_individually():
             "code": "source_unavailable",
         }
     }
-    meta, ids = summarize_batch_source_reads(p)
+    meta, ids = summarize_source_reads(p)
     assert meta["sourceReadCount"] == 9 and meta["sourceReadTelemetryTruncated"] is True
     assert "sourceRead7" in meta and "sourceRead8" not in meta
     assert (
@@ -164,7 +164,7 @@ def test_malformed_results_do_not_break_telemetry_or_claim_opening(damage):
     p = packet()
     if damage == "schema_list":
         p["schema"] = []
-        assert summarize_batch_source_reads(p) == ({}, [])
+        assert summarize_source_reads(p) == ({}, [])
         return
     result = p["reads"][0]["result"]
     if damage == "outcome_map":
@@ -173,7 +173,7 @@ def test_malformed_results_do_not_break_telemetry_or_claim_opening(damage):
         result.pop("anchorId")
     if damage == "invalid_unicode":
         result["content"] = chr(0xD800)
-    meta, _ = summarize_batch_source_reads(p)
+    meta, _ = summarize_source_reads(p)
     assert meta["sourceRead0"]["opened"] == "false"
 
 
@@ -235,3 +235,23 @@ def test_pydantic_collector_never_exports_oversized_exact_identity():
     event = collector.tool_events[-1]
     assert event.source_anchor_ids == [] and event.bounded_ids["anchorIds"] == []
     assert event.bounded_ids["sourceRead0"]["opened"] == "false"
+
+
+@pytest.mark.parametrize("damage", [None,"missing_content","empty_content","missing_anchor","denied"])
+def test_single_read_uses_the_same_private_opened_summary(damage):
+    raw = packet(BATCH_V1)["reads"][0]
+    raw["snapshot"] = {"revisionId":"rev:exact"}
+    if damage == "missing_content":
+        raw.pop("content")
+    elif damage == "empty_content":
+        raw["content"] = ""
+    elif damage == "missing_anchor":
+        raw.pop("anchorId")
+    elif damage == "denied":
+        raw["outcome"] = "denied"
+    summary = _summarize_tool_result(json.dumps(raw))
+    metadata = summary["source_read_metadata"]
+    assert metadata["sourceReadCount"] == 1
+    assert metadata["sourceRead0"]["opened"] == ("true" if damage is None else "false")
+    assert metadata["sourceRead0"]["graph_revision"] == "rev:exact"
+    assert BODY not in json.dumps(summary) and SECRET not in json.dumps(summary)
