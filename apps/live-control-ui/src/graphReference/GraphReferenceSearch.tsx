@@ -15,6 +15,8 @@ export interface GraphReferenceSearchProps {
   /** When set, returns a denial reason for rows that fail object-level insert policy. */
   insertDeniedReason?: (item: GraphReferenceSearchItem) => string | null;
   onInsert?: (item: GraphReferenceSearchItem) => void;
+  onChoose?: (item: GraphReferenceSearchItem) => void;
+  chooseDisabled?: boolean;
   onView?: (item: GraphReferenceSearchItem) => void;
 }
 
@@ -26,6 +28,8 @@ export function GraphReferenceSearch({
   insertDeniedReason,
   onInsert,
   onView,
+  onChoose,
+  chooseDisabled = false,
 }: GraphReferenceSearchProps) {
   const [query, setQuery] = useState("");
 
@@ -116,6 +120,7 @@ export function GraphReferenceSearch({
                           View
                         </button>
                       ) : null}
+                      {onChoose ? <button type="button" className="graph-reference-search__button graph-reference-search__button--primary" disabled={chooseDisabled} onClick={()=>onChoose(item)}>Use as context</button> : null}
                       {onInsert ? (
                         <button
                           type="button"

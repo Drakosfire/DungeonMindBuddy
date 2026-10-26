@@ -91,6 +91,10 @@ def test_discussion_keeps_authored_reads_without_asking_for_a_relevance_vote(bui
         accounting=counter(), decision_transport=decisions, writer_transport=writer)
     response = execute(case, tmp_path, harness)
     assert len(writer.calls) == 1
+    # One original-snapshot membership check plus one current object acquisition.
+    assert reads == {'graph': 2, 'source': 1}
+    # Native object acquisition is host-owned; it must not reappear as an optional vote.
+    assert all('world-object:frank' not in call.content.decode() for call in decisions.calls)
     packet = json.loads(json.loads(writer.calls[0].content)['input'])
     assert packet['authored_reference_context']['selected_references']['references'][0]['node_id'] == 'frank'
     assert packet['opened_passages']

@@ -382,3 +382,39 @@ keep #1785 in draft and suspend its overlapping UI write lease while the request
 Surface object-toolbar/step-minus slice uses this same checkout from origin/main.
 Re-anchor and explicitly resume the Graph UI lease after that slice settles. No
 Graph runtime adoption is authorized by this checkpoint; the overall goal stays active.
+
+
+### Serial UI lease resumed after toolbar settlement
+
+Toolbar #1786 is merged at f7afac0916d91aa864d8445d6eed977a84aab8ba and delivered
+on5202 with API340cad98 unchanged. Independent review approved4802bee2290cd7dd373d0911c1734296ca70c5f2.
+The attached move/title/plus/green Save/menu, pending-row minus, contrast and sticky
+scroll proof complete that bounded lease. Its handoff is a delivered predecessor,
+not a concurrent write lane. PRIME resumes this contract's exact overlapping UI lease
+in the same serial checkout, merging current origin/main before edits. Preserve these
+controls while adding root/step reference inputs. Whole-object Trash/restore, Empty
+Trash and conversation projection toggle remain separate unimplemented scope.
+
+
+### Picker binding provenance owner extension
+
+The shared lens verifies the managed/native response, then currently discards its
+binding version before exposing the projection. A picker cannot infer that version
+from a label, selected World, or node. Extend the exact lease to:
+- `apps/live-control-ui/src/graphLens/useWorldGraphLensProjection.ts`
+- `apps/live-control-ui/src/graphLens/useWorldGraphLensProjection.test.tsx`
+
+Expose the already verified managed/native/binding identity alongside the same loaded
+projection, with the same request-key and refresh-generation admission. Return null
+whenever projection bytes are unavailable or stale; native-only projections have no
+managed authored-reference identity. Do not add a second fetch, change graph-lens
+selection, reuse old bindings under new request keys, or manufacture a binding from
+history. Shared Surface picker consumes this verified tuple and the exact selected
+projection revision. Independent critique precedes edits to these added paths.
+
+Independent critique requires explicit nullable fixture coverage, rather than an
+optional field. Extend the picker binding lease also to these exact typed consumers:
+- `apps/live-control-ui/src/buildSurface/reference/useBuildWorldGraphProjection.test.tsx`
+- `apps/live-control-ui/src/planSurface/components/WorldPlanGraphReferenceActivation.test.tsx`
+Set `managedBinding:null` on native-only/mocked projections; never manufacture a
+managed tuple to satisfy typing. Real managed fixtures retain their verified tuple.

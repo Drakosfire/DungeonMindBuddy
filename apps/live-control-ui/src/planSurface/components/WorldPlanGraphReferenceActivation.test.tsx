@@ -92,6 +92,7 @@ function mount(
       admissibility: "gm",
     },
     requestKey,
+    managedBinding:null,
     projection: graphProjection,
     projectionState: state,
     projectionError: null,

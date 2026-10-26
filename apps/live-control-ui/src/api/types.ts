@@ -843,6 +843,7 @@ export type ReviewedStepReference = {conversation_id:string;source_turn_id:strin
 
 /** Build retains a verified saved basis and separately captured authored working context. */
 export interface WorldBuildAgentTurnRequestV1 {
+  build_authored_references?: AuthoredGraphReferencesV1;
   retry_of?: {turn_id:string;revision:number};
   reviewed_step?: ReviewedStepReference;
   build_draft_context?: {snapshot:WorldBuildDraftSnapshotV1;conversation_id:string;expected_pointer_revision:number};
@@ -6126,4 +6127,20 @@ export interface WorldBuildDraftSnapshotV1 {
   draft_sha256: string;
   editor_sha256: string;
   draft_generation: number;
+}
+
+
+/** Author input identity, distinct from retrieved evidence and Graph mutations. */
+export interface AuthoredGraphReferenceV1 {
+  schema: 'dmb_authored_graph_reference_v1';
+  managed_world_id: string;
+  native_world_id: string;
+  binding_version: number;
+  graph_revision: string;
+  node_id: string;
+  label: string;
+}
+export interface AuthoredGraphReferencesV1 {
+  schema: 'dmb_authored_graph_references_v1';
+  references: AuthoredGraphReferenceV1[];
 }
