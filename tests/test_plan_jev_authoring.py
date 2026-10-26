@@ -439,3 +439,432 @@ def test_semantic_projection_cannot_change_the_captured_provider_answer(
         plan_adapter.service.list_turns(turn.world_id, turn.conversation_id)[0].revision
         == turn.revision
     )
+
+
+def authoring_writer(plan_adapter, *, rules_used=False, graph_used=True):
+    import asyncio
+    from application_state.agent_conversation.rules_authority_policy import (
+        rules_capability,
+    )
+    from graph_memory.interaction.session import GraphReferent
+    from apps.live_control_server.services.plan_jev_driver import PlanJevDriver
+    from apps.live_control_server.services.plan_jev_rules_runtime import (
+        PlanRulesRuntime,
+    )
+    from apps.live_control_server.services.plan_jev_writer import PlanJevWriter
+    from tests.test_plan_jev_driver import Decisions, fixture_reads
+
+    if rules_used:
+        from tests.test_rules_lookup_broker import args
+
+        plan_adapter.request = plan_adapter.request.model_copy(
+            update={"message": args().question}
+        )
+    capture, turn = admitted_authoring(plan_adapter)
+    action, _ = plan_adapter.service.reserve_plan_authoring_action(
+        capture=capture, turn_id=turn.turn_id, expected_revision=turn.revision
+    )
+    if graph_used:
+        plan_adapter.bootstrap.retrieval_session.referents = [
+            GraphReferent(id="pond", label="Park pond")
+        ]
+        fixture_reads(plan_adapter)
+    rules = PlanRulesRuntime(plan_adapter, rules_capability(graph=True))
+    rules.authoring = (action, capture)
+    driver = PlanJevDriver(plan_adapter, rules=rules if rules_used else None)
+    proof = asyncio.run(
+        driver.run(transport=Decisions(), api_key="synthetic-not-secret")
+    )
+    return PlanJevWriter(plan_adapter, proof, rules), action, capture
+
+
+@pytest.mark.parametrize("mode", ["base", "rules_only", "mixed"])
+def test_one_writer_atomically_stores_plan_result_and_exact_replay(
+    plan_adapter, mode, monkeypatch
+):
+    import asyncio
+    from application_state.agent_conversation import types as t
+    from application_state.agent_conversation.rules_authority_reads import (
+        MixedCompletedTurnV1,
+    )
+    from application_state.plan_action_dialogue.service import PlanActionDialogueService
+    from application_state.agent_conversation.plan_authoring import (
+        PlanActionAuthoringResultV1,
+    )
+    from application_state.content.service import commit_plan
+    from tests.test_plan_jev_writer import WriterWire, graph_answer
+
+    writer, action, capture = authoring_writer(
+        plan_adapter, rules_used=mode != "base", graph_used=mode != "rules_only"
+    )
+    answer = graph_answer()
+    answer["answer_segments"].append(
+        {
+            "kind": "proposal",
+            "label": "invented_idea",
+            "text": "## Possible approach\n\n| Lead | Follow-up |\n| --- | --- |\n| Pond | Ask about access. |",
+        }
+    )
+    if mode != "base":
+        support = writer.rules.frame().supports[0]
+        answer = {
+            "schema": "dmb_rules_mixed_answer_v1",
+            "base_output": None if mode == "rules_only" else answer,
+            "rules_segments": [
+                {
+                    "kind": "rules_claim",
+                    "text": support.excerpt_text,
+                    "support_ids": [str(support.support_id)],
+                }
+            ],
+            "ordered_refs": (
+                [{"domain": "base", "segment_index": None}] if mode == "mixed" else []
+            )
+            + [{"domain": "rules", "segment_index": 0}],
+        }
+    method = (
+        "complete_plan_authoring_turn"
+        if mode == "base"
+        else "complete_plan_authoring_mixed_turn"
+    )
+    original = getattr(plan_adapter.service, method)
+    accepted = []
+
+    def complete(result, **kwargs):
+        accepted.append((result, kwargs))
+        return original(result, **kwargs)
+
+    monkeypatch.setattr(plan_adapter.service, method, complete)
+    wire = WriterWire(plan_adapter, json.dumps(answer))
+    completed = asyncio.run(writer.run(transport=wire, api_key="synthetic-not-secret"))
+    assert len(wire.calls) == 1 and len(accepted) == 1
+    actual_request = json.loads(wire.calls[0].content)
+    frame = json.loads(actual_request["input"][0]["content"])
+    assert frame["current_page_draft"] == {
+        "state": "unsaved_working_draft",
+        "primary_authoring_context": True,
+        "markdown": capture.draft_markdown,
+    }
+    assert frame["focused_edit_target"] == {"kind": "insert_at_caret"}
+    assert actual_request["input"][0]["content"].count(capture.draft_markdown) == 1
+    assert (
+        "Prepare only the requested editable Plan fragment"
+        in actual_request["instructions"]
+    )
+    assert "No edit or generation happened." not in actual_request["instructions"]
+    envelope = (
+        completed.envelope if isinstance(completed, MixedCompletedTurnV1) else completed
+    )
+    assert envelope.status == "completed"
+    stored = PlanActionDialogueService().get_by_key(
+        capture.world_id, capture.idempotency_key
+    )
+    assert stored.status == "completed" and isinstance(
+        stored.authoring_origin, PlanActionAuthoringResultV1
+    )
+    assert stored.authoring_origin.expected_turn_revision + 1 == envelope.revision
+    proposal = plan_adapter.service.get_plan_authoring_proposal(
+        capture.world_id, action.action_id
+    )
+    assert proposal == accepted[0][1]["proposal"]
+    assert proposal.capture == capture
+    if mode == "rules_only":
+        assert (
+            isinstance(completed, MixedCompletedTurnV1)
+            and completed.base_projection.kind == "unclaimed"
+        )
+        assert proposal.replacement_markdown == support.excerpt_text
+    else:
+        assert "| Lead | Follow-up |" in proposal.replacement_markdown
+        assert "\n\n## Possible approach" in proposal.replacement_markdown
+    # Exact result replay remains available after the author moves on. It is not
+    # another dispatch, an edit to the newer Plan, or a requirement to reactivate
+    # the archived conversation.
+    plan_adapter.service.new_conversation(
+        t.ConversationCommand(
+            world_id=capture.world_id,
+            command_id=uuid4(),
+            expected_pointer_revision=capture.expected_pointer_revision,
+            expected_active_conversation_id=capture.conversation_id,
+        )
+    )
+    commit_plan(
+        capture.document_id,
+        "A newer saved Plan.",
+        expected_revision=capture.base_revision,
+        expected_world_id=capture.world_id,
+    )
+    assert original(accepted[0][0], **accepted[0][1]) == completed
+    assert (
+        plan_adapter.service.get_plan_authoring_proposal(
+            capture.world_id, action.action_id
+        )
+        == proposal
+    )
+    assert len(wire.calls) == 1
+
+
+@pytest.mark.parametrize(
+    "case",
+    [
+        "terminal_cas",
+        "generic_finish",
+        "later_save",
+        "switch_chat",
+        "stale_before_send",
+    ],
+)
+def test_authoring_failure_and_navigation_boundaries_keep_ownership(
+    plan_adapter, application_state_dsn, monkeypatch, case
+):
+    import asyncio
+    import psycopg
+    from application_state.agent_conversation import types as t
+    from application_state.content.service import commit_plan, snapshot_content
+    from application_state.errors import (
+        ApplicationStateConflictError,
+        ApplicationStateValidationError,
+    )
+    from application_state.plan_action_dialogue import repository as actions
+    from application_state.plan_action_dialogue.service import PlanActionDialogueService
+    from tests.test_plan_jev_writer import WriterWire, graph_answer
+
+    writer, action, capture = authoring_writer(plan_adapter)
+    if case == "terminal_cas":
+        original = actions.finish_authoring_result
+
+        def lose_fence(conn, *args):
+            conn.execute(
+                "UPDATE plan_action.action SET lease_expires_at=clock_timestamp()-interval '1 second' WHERE action_id=%s",
+                (action.action_id,),
+            )
+            return original(conn, *args)
+
+        monkeypatch.setattr(actions, "finish_authoring_result", lose_fence)
+    elif case == "generic_finish":
+
+        def wrong_owner(result, *, proposal, output_proof, expected_rules_revision):
+            return plan_adapter.service.complete_native_base_turn(
+                result,
+                output_proof=output_proof,
+                expected_rules_revision=expected_rules_revision,
+            )
+
+        monkeypatch.setattr(
+            plan_adapter.service, "complete_plan_authoring_turn", wrong_owner
+        )
+
+    def newer_plan():
+        commit_plan(
+            capture.document_id,
+            "A newer author edit.",
+            expected_revision=capture.base_revision,
+            expected_world_id=capture.world_id,
+        )
+
+    if case == "stale_before_send":
+        newer_plan()
+
+    class Wire(WriterWire):
+        async def handle_async_request(self, request):
+            if case == "later_save":
+                newer_plan()
+            elif case == "switch_chat":
+                plan_adapter.service.new_conversation(
+                    t.ConversationCommand(
+                        world_id=capture.world_id,
+                        command_id=uuid4(),
+                        expected_pointer_revision=capture.expected_pointer_revision,
+                        expected_active_conversation_id=capture.conversation_id,
+                    )
+                )
+            return await super().handle_async_request(request)
+
+    wire = Wire(plan_adapter, json.dumps(graph_answer()))
+    if case in {"terminal_cas", "generic_finish", "stale_before_send"}:
+        # The real GenEngine gate wraps pre-send authorization errors; post-send
+        # atomic failures retain their actual APP error.
+        if case == "stale_before_send":
+            from generationengine import GenerationEngineError
+
+            expected = (GenerationEngineError, ApplicationStateConflictError)
+        else:
+            expected = (ApplicationStateConflictError, ApplicationStateValidationError)
+        with pytest.raises(expected):
+            asyncio.run(writer.run(transport=wire, api_key="synthetic-not-secret"))
+        assert len(wire.calls) == (0 if case == "stale_before_send" else 1)
+        assert (
+            plan_adapter.service.list_turns(capture.world_id, capture.conversation_id)[
+                0
+            ].status
+            == "running"
+        )
+        assert (
+            plan_adapter.service.get_plan_authoring_proposal(
+                capture.world_id, action.action_id
+            )
+            is None
+        )
+        with psycopg.connect(application_state_dsn) as conn:
+            # A terminal-CAS failure must roll back the earlier Agent completion
+            # and closing of its Rules ledger on this same connection.
+            assert (
+                conn.execute(
+                    "SELECT count(*) FROM agent.turn WHERE status='completed'"
+                ).fetchone()[0]
+                == 0
+            )
+            assert (
+                conn.execute(
+                    "SELECT count(*) FROM agent.turn_rules_execution WHERE payload->>'state'='active'"
+                ).fetchone()[0]
+                == 1
+            )
+    else:
+        completed = asyncio.run(
+            writer.run(transport=wire, api_key="synthetic-not-secret")
+        )
+        assert completed.status == "completed" and len(wire.calls) == 1
+        proposal = plan_adapter.service.get_plan_authoring_proposal(
+            capture.world_id, action.action_id
+        )
+        assert proposal.capture == capture
+        assert (
+            proposal.replacement_markdown
+            == graph_answer()["answer_segments"][0]["text"]
+        )
+    stored = PlanActionDialogueService().get_by_key(
+        capture.world_id, capture.idempotency_key
+    )
+    assert stored.status == (
+        "completed" if case in {"later_save", "switch_chat"} else "pending"
+    )
+    if case in {"later_save", "stale_before_send"}:
+        assert snapshot_content(capture.document_id).markdown == "A newer author edit."
+
+
+def test_unvalidated_fragment_cannot_be_attached_after_grounding(
+    plan_adapter, monkeypatch
+):
+    import asyncio
+    from application_state.agent_conversation.plan_authoring import (
+        PlanAuthoredProposalV1,
+        text_digest,
+    )
+    from application_state.errors import ApplicationStateValidationError
+    from tests.test_plan_jev_writer import WriterWire, graph_answer
+
+    writer, action, capture = authoring_writer(plan_adapter)
+    original = plan_adapter.service.complete_plan_authoring_turn
+
+    def inject(result, *, proposal, **kwargs):
+        payload = proposal.model_dump(mode="json", by_alias=True)
+        payload["replacement_markdown"] += "\n\nAn unrelated unvalidated assertion."
+        payload["origin"]["replacement_markdown_sha256"] = text_digest(
+            payload["replacement_markdown"]
+        )
+        return original(
+            result, proposal=PlanAuthoredProposalV1.model_validate(payload), **kwargs
+        )
+
+    monkeypatch.setattr(plan_adapter.service, "complete_plan_authoring_turn", inject)
+    wire = WriterWire(plan_adapter, json.dumps(graph_answer()))
+    with pytest.raises(ApplicationStateValidationError, match="literal output"):
+        asyncio.run(writer.run(transport=wire, api_key="synthetic-not-secret"))
+    assert len(wire.calls) == 1
+    assert (
+        plan_adapter.service.list_turns(capture.world_id, capture.conversation_id)[
+            0
+        ].status
+        == "running"
+    )
+    assert (
+        plan_adapter.service.get_plan_authoring_proposal(
+            capture.world_id, action.action_id
+        )
+        is None
+    )
+
+
+def test_mixed_rules_acceptance_rolls_back_with_plan_terminal_cas(
+    plan_adapter, application_state_dsn, monkeypatch
+):
+    import asyncio
+    import psycopg
+    from application_state.errors import ApplicationStateConflictError
+    from application_state.plan_action_dialogue import repository as actions
+    from tests.test_plan_jev_writer import WriterWire
+
+    writer, action, capture = authoring_writer(
+        plan_adapter, rules_used=True, graph_used=False
+    )
+    support = writer.rules.frame().supports[0]
+    answer = {
+        "schema": "dmb_rules_mixed_answer_v1",
+        "base_output": None,
+        "rules_segments": [
+            {
+                "kind": "rules_claim",
+                "text": support.excerpt_text,
+                "support_ids": [str(support.support_id)],
+            }
+        ],
+        "ordered_refs": [{"domain": "rules", "segment_index": 0}],
+    }
+    original = actions.finish_authoring_result
+
+    def lose_fence(conn, *args):
+        conn.execute(
+            "UPDATE plan_action.action SET lease_expires_at=clock_timestamp()-interval '1 second' WHERE action_id=%s",
+            (action.action_id,),
+        )
+        return original(conn, *args)
+
+    monkeypatch.setattr(actions, "finish_authoring_result", lose_fence)
+    wire = WriterWire(plan_adapter, json.dumps(answer))
+    with pytest.raises(ApplicationStateConflictError, match="atomic result completion"):
+        asyncio.run(writer.run(transport=wire, api_key="synthetic-not-secret"))
+    with psycopg.connect(application_state_dsn) as conn:
+        assert (
+            conn.execute(
+                "SELECT count(*) FROM agent.turn WHERE status='completed'"
+            ).fetchone()[0]
+            == 0
+        )
+        assert (
+            conn.execute(
+                "SELECT count(*) FROM agent.turn_rules_execution WHERE payload->>'state'='active' AND accepted_binding IS NULL AND accepted_binding_sha256 IS NULL"
+            ).fetchone()[0]
+            == 1
+        )
+    assert len(wire.calls) == 1
+    assert (
+        plan_adapter.service.get_plan_authoring_proposal(
+            capture.world_id, action.action_id
+        )
+        is None
+    )
+
+
+def test_plan_result_readback_rejects_a_mismatched_completed_owner(
+    plan_adapter, application_state_dsn
+):
+    import asyncio
+    import psycopg
+    from application_state.errors import ApplicationStateIntegrityError
+    from tests.test_plan_jev_writer import WriterWire, graph_answer
+
+    writer, action, capture = authoring_writer(plan_adapter)
+    wire = WriterWire(plan_adapter, json.dumps(graph_answer()))
+    asyncio.run(writer.run(transport=wire, api_key="synthetic-not-secret"))
+    # A syntactically valid seal cannot stand in for the actual paired result.
+    with psycopg.connect(application_state_dsn) as conn:
+        conn.execute(
+            "UPDATE plan_action.action SET authoring_origin=jsonb_set(authoring_origin,'{agent_result_sha256}',to_jsonb(%s::text)) WHERE action_id=%s",
+            ("0" * 64, action.action_id),
+        )
+    with pytest.raises(ApplicationStateIntegrityError, match="do not match"):
+        plan_adapter.service.get_plan_authoring_proposal(
+            capture.world_id, action.action_id
+        )
+    assert len(wire.calls) == 1

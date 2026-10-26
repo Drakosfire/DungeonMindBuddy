@@ -1,4 +1,4 @@
-"""Plan-native authoring origin; proposal bytes belong to the Agent completion."""
+"""Plan-native authoring origin; proposal bytes belong to one inert Plan action result."""
 from alembic import op
 import sqlalchemy as sa
 
@@ -31,11 +31,15 @@ def upgrade():
             AND (
               (authoring_origin->>'schema' = 'dmb_plan_jev_authoring_reservation_v1'
                 AND status IN ('pending','failed','indeterminate'))
-              OR (authoring_origin->>'schema' = 'dmb_plan_jev_proposal_origin_v1'
+              OR (authoring_origin->>'schema' = 'dmb_plan_action_authoring_result_v1'
                 AND status = 'completed'
                 AND authoring_origin ?& ARRAY['expected_turn_revision','writer_attempt_id',
-                    'writer_envelope_sha256','raw_reply_sha256','evidence_event_ids','replacement_markdown_sha256']
+                    'writer_envelope_sha256','raw_reply_sha256','evidence_event_ids','replacement_markdown_sha256',
+                    'capture','replacement_markdown','agent_result_sha256']
                 AND jsonb_typeof(authoring_origin->'evidence_event_ids') = 'array'
+                AND jsonb_typeof(authoring_origin->'capture') = 'object'
+                AND jsonb_typeof(authoring_origin->'replacement_markdown') = 'string'
+                AND authoring_origin->>'agent_result_sha256' ~ '^[a-f0-9]{64}$'
                 AND authoring_origin->>'action_fence' = fence::text
                 AND authoring_origin->>'replacement_markdown_sha256' ~ '^[a-f0-9]{64}$')
             )

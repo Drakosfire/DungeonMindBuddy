@@ -366,7 +366,10 @@ class NativeRulesRuntime:
             self.last_reply = None
             return {"resultJson": delivery.prepared.raw_output, "retrievalSession": None}
 
-    def complete(self, turn, reply):
+    def complete(self, turn, reply, *, accept_base=None, accept_mixed=None):
+        if ((accept_base is None)!=(accept_mixed is None)
+                or accept_base is not None and (not callable(accept_base) or not callable(accept_mixed))):
+            raise ValueError("Native completion requires both callable domain owners or neither")
         if self.record is None:
             return None
         from application_state.agent_conversation.native_rules_output import (
@@ -423,14 +426,18 @@ class NativeRulesRuntime:
                 turn, self.record.execution, proof)
             if self.adapter.context_capture is not None:
                 self.adapter.context_capture.answer_context(text)
-            return self.adapter.service.complete_native_base_turn(TurnResult(
+            result=TurnResult(
                 world_id=turn.world_id, conversation_id=turn.conversation_id,
                 turn_id=turn.turn_id, expected_revision=turn.revision,
                 assistant_text=text, completion=completion,
                 producing_provider_attempt_id=(self.adapter.producing_provider_attempt_id
                     if completion is not None else None),
                 claim_graph_event_ids=bindings,
-            ), output_proof=proof, expected_rules_revision=self.record.revision)
+            )
+            if accept_base is not None:
+                return accept_base(result,proof,self.record.revision)
+            return self.adapter.service.complete_native_base_turn(result,
+                output_proof=proof,expected_rules_revision=self.record.revision)
         normalized = normalize_native_mixed_output(
             turn, turn.graph_context_execution, self.record.execution, proof, reply,
             graph_support=self.adapter.build_claim_evidence.get(self.adapter.producing_provider_attempt_id),
@@ -454,4 +461,6 @@ class NativeRulesRuntime:
         )
         if self.adapter.context_capture is not None:
             self.adapter.context_capture.answer_context(normalized.assistant_text)
+        if accept_mixed is not None:
+            return accept_mixed(result)
         return self.adapter.service.complete_mixed_turn(result)

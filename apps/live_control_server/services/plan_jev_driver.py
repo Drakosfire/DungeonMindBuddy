@@ -181,5 +181,9 @@ class PlanJevDriver:
             if key not in _RUNTIME_GRAPH_FIELDS}, ensure_ascii=False, separators=(",", ":"))
             for identity, raw in a.operation_payloads.items()}
         sessions = (a.work.session_evidence or {}).get("sessions", [])
-        return {"graph_packets": packets, "source_names": names, "plan_markdown": a.work.plan_markdown,
+        proof={"graph_packets": packets, "source_names": names, "plan_markdown": a.work.plan_markdown,
                 "session_evidence": sessions, "dialogue": self.dialogue}
+        if isinstance(a.fence.turn.graph_context_execution.policy,t.PlanAuthoringPolicyV1):
+            proof['authoring_capture']=(a.request.plan_authoring_capture.model_dump(mode='json',by_alias=True)
+                if a.request.plan_authoring_capture is not None else None)
+        return proof

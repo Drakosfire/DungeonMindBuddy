@@ -16,6 +16,7 @@ class PlanRulesRuntime:
         self.adapter, self.native = adapter, None
         self.selected = False
         self.call_ids = ()
+        self.authoring = None
 
     def _initialize(self):
         # The first Jev call establishes the actual Plan claim. No Rules ledger,
@@ -87,4 +88,15 @@ class PlanRulesRuntime:
         return self._initialize().capture_reply(reply)
 
     def complete(self, turn, reply):
-        return self._initialize().complete(turn, reply)
+        if self.authoring is None:
+            return self._initialize().complete(turn,reply)
+        from application_state.agent_conversation.plan_authoring import prepare_authoring_proposal
+        action,capture=self.authoring
+        def accept_base(result,proof,rules_revision):
+            proposal=prepare_authoring_proposal(action,capture,turn,result,proof)
+            return self.adapter.service.complete_plan_authoring_turn(result,proposal=proposal,
+                output_proof=proof,expected_rules_revision=rules_revision)
+        def accept_mixed(result):
+            proposal=prepare_authoring_proposal(action,capture,turn,result,result.output_proof)
+            return self.adapter.service.complete_plan_authoring_mixed_turn(result,proposal=proposal)
+        return self._initialize().complete(turn,reply,accept_base=accept_base,accept_mixed=accept_mixed)

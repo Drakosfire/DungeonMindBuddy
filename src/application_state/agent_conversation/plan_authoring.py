@@ -222,7 +222,7 @@ class PlanJevAuthoringReservationV1(PlanJevAuthoringIntentV1):
 
 
 class PlanJevProposalOriginV1(PlanJevAuthoringIntentV1):
-    """Terminal joins; generated prose lives only in the Agent completion."""
+    """Terminal joins; generated prose belongs to the Plan action result."""
 
     schema_: Literal["dmb_plan_jev_proposal_origin_v1"] = Field(
         default="dmb_plan_jev_proposal_origin_v1", alias="schema"
@@ -609,3 +609,446 @@ def reserve_authoring_locked(
         selection_event_id=choice.event_id,
     )
     return actions.freeze_authoring_reservation(conn, action, origin), fresh
+
+
+class PlanActionAuthoringResultV1(PlanJevProposalOriginV1):
+    """Single durable Plan-owned proposal, sealed to its real completed Agent turn."""
+
+    schema_: Literal["dmb_plan_action_authoring_result_v1"] = Field(
+        default="dmb_plan_action_authoring_result_v1", alias="schema"
+    )
+    capture: PlanAuthoringCaptureV1
+    replacement_markdown: str = Field(min_length=1)
+    agent_result_sha256: str = Field(pattern=r"^[a-f0-9]{64}$")
+
+    @property
+    def proposal(self) -> PlanAuthoredProposalV1:
+        origin = self.model_dump(
+            mode="json",
+            by_alias=True,
+            exclude={"capture", "replacement_markdown", "agent_result_sha256"},
+        )
+        origin["schema"] = "dmb_plan_jev_proposal_origin_v1"
+        return PlanAuthoredProposalV1(
+            origin=PlanJevProposalOriginV1.model_validate(origin),
+            capture=self.capture,
+            replacement_markdown=self.replacement_markdown,
+        )
+
+    @model_validator(mode="after")
+    def exact_proposal(self):
+        self.proposal
+        return self
+
+
+def turn_parts(turn):
+    """Do not manufacture a base Turn for an actual Rules-only result."""
+    from .rules_authority_reads import MixedCompletedTurnV1
+
+    if isinstance(turn, MixedCompletedTurnV1):
+        base = turn.base_projection
+        evidence = (
+            base.turn
+            if base.kind == "approved"
+            else base
+            if base.kind == "unclaimed"
+            else None
+        )
+        return turn.envelope, evidence
+    return turn, turn
+
+
+def completed_result_digest(turn) -> str:
+    from .rules_authority_reads import MixedCompletedTurnV1
+    from .types import Turn
+
+    envelope, _ = turn_parts(turn)
+    if (
+        not isinstance(turn, (Turn, MixedCompletedTurnV1))
+        or envelope.status != "completed"
+    ):
+        raise ValueError("Plan proposal requires its actual completed Agent result")
+    return digest(turn.model_dump(mode="json", by_alias=True))
+
+
+def authored_markdown(result) -> str:
+    """Only literal admitted segments, in their accepted order, become page blocks."""
+    from .rules_authority_completion import NativeRulesMixedTurnResultV1
+    from .rules_authority_reads import MixedCompletedTurnV1
+
+    if isinstance(result, MixedCompletedTurnV1):
+        texts = [
+            result.assistant_text[item.text_start : item.text_end]
+            for item in result.accepted_binding.segment_map
+        ]
+    elif isinstance(result, NativeRulesMixedTurnResultV1):
+        base = (
+            ()
+            if result.base_result is None
+            else tuple(
+                item.text for item in result.base_result.completion.answer_segments
+            )
+        )
+        texts = [
+            base[item.segment_index]
+            if item.domain == "base"
+            else result.composition.rules_segments[item.segment_index].text
+            for item in result.composition.ordered_refs
+        ]
+    else:
+        if result.completion is None:
+            raise ValueError("Plan writing requires admitted literal content")
+        texts = [item.text for item in result.completion.answer_segments]
+    if not texts or any(not text.strip() for text in texts):
+        raise ValueError("Plan writing has no nonempty admitted content blocks")
+    return "\n\n".join(texts)
+
+
+def require_authoring_completion_owner(turn, proposal) -> None:
+    from . import types as t
+    from application_state.errors import ApplicationStateValidationError
+
+    _, evidence = turn_parts(turn)
+    execution = getattr(evidence, "graph_context_execution", None)
+    choices = (
+        [
+            event
+            for event in execution.events
+            if isinstance(event, t.PlanRequestedWorkSelectedV1)
+        ]
+        if execution
+        else []
+    )
+    requested = bool(choices and choices[-1].requested_work == "write_current_page")
+    if requested != (proposal is not None):
+        raise ApplicationStateValidationError(
+            "Plan writing requires atomic Agent/action finalization through its Plan owner"
+        )
+
+
+def reservation_origin(
+    proposal: PlanAuthoredProposalV1,
+) -> PlanJevAuthoringReservationV1:
+    origin = proposal.origin.model_dump(mode="json", by_alias=True)
+    return PlanJevAuthoringReservationV1.model_validate(
+        {
+            ("schema" if key == "schema_" else key): origin[
+                "schema" if key == "schema_" else key
+            ]
+            for key in PlanJevAuthoringReservationV1.model_fields
+            if key != "schema_"
+        }
+        | {"schema": "dmb_plan_jev_authoring_reservation_v1"}
+    )
+
+
+def lock_authoring_owners(conn, proposal, *, world_id, conversation_id, turn_id):
+    from . import repository as agent
+    from application_state.plan_action_dialogue import repository as actions
+    from application_state.errors import (
+        ApplicationStateConflictError,
+        ApplicationStateValidationError,
+    )
+
+    if not isinstance(proposal, PlanAuthoredProposalV1):
+        raise ApplicationStateValidationError(
+            "A typed immutable Plan proposal is required"
+        )
+    origin = proposal.origin
+    if (origin.basis.world_id, origin.conversation_id, origin.turn_id) != (
+        world_id,
+        conversation_id,
+        turn_id,
+    ):
+        raise ApplicationStateValidationError(
+            "Plan proposal belongs to a different Agent result"
+        )
+    action = actions.lock_authoring_action(conn, origin.action_id)
+    if action is None or action.basis.world_id != world_id:
+        raise ApplicationStateConflictError(
+            "The reserved Plan authoring action is unavailable"
+        )
+    # Historical exact replay still locks in the same order but does not require
+    # the old conversation to remain active or the old Plan to remain current.
+    agent.lock_world_state(conn, world_id)
+    conversation = agent.lock_conversation(conn, world_id, conversation_id)
+    if action.status != "completed":
+        if (
+            action.authoring_origin != reservation_origin(proposal)
+            or action.status != "pending"
+            or action.dispatch_token is None
+            or action.lease_expires_at is None
+            or action.lease_expires_at <= agent.database_clock(conn)
+            or conversation is None
+        ):
+            raise ApplicationStateConflictError(
+                "Plan authoring action, conversation or dispatch fence changed"
+            )
+    return action
+
+
+def validate_proposal_producer(proposal, turn, result, proof):
+    from . import types as t
+    from .native_rules_output import NativeRulesOutputProofV1
+    from .rules_authority_completion import NativeRulesMixedTurnResultV1
+    from application_state.errors import ApplicationStateValidationError
+
+    origin = proposal.origin
+    envelope, evidence = turn_parts(turn)
+    execution = getattr(evidence, "graph_context_execution", None)
+    choices = (
+        [
+            event
+            for event in execution.events
+            if isinstance(event, t.PlanRequestedWorkSelectedV1)
+        ]
+        if execution
+        else []
+    )
+    writers = (
+        [
+            event
+            for event in execution.events
+            if isinstance(event, t.PlanJevWriterAuthorizedV1)
+        ]
+        if execution
+        else []
+    )
+    expected_revision = (
+        result.expected_turn_revision
+        if isinstance(result, NativeRulesMixedTurnResultV1)
+        else result.expected_revision
+    )
+    if (
+        not isinstance(proof, NativeRulesOutputProofV1)
+        or len(choices) != 1
+        or len(writers) != 1
+        or choices[0].requested_work != "write_current_page"
+        or choices[0].target_capture_sha256 != proposal.capture.sha256
+        or choices[0].event_id != origin.selection_event_id
+        or choices[0].controller_attempt_id != origin.controller_attempt_id
+        or execution.context_receipt_sha256 != origin.context_receipt_sha256
+        or execution.execution_policy_sha256 != origin.execution_policy_sha256
+        or origin.product_attempt != envelope.attempt
+        or origin.expected_turn_revision != expected_revision
+        or writers[0].provider_attempt_id != origin.writer_attempt_id
+        or result.producing_provider_attempt_id != origin.writer_attempt_id
+        or writers[0].envelope_sha256 != origin.writer_envelope_sha256
+        or proof.request_envelope_sha256 != origin.writer_envelope_sha256
+        or proof.raw_output_sha256 != origin.raw_reply_sha256
+        or text_digest(proof.raw_output_json) != proof.raw_output_sha256
+        or text_digest(proof.prepared_request_json) != proof.request_envelope_sha256
+        or proof.producing_provider_attempt_id != origin.writer_attempt_id
+        or writer_evidence_event_ids(execution, writers[0]) != origin.evidence_event_ids
+        or authored_markdown(result) != proposal.replacement_markdown
+    ):
+        raise ApplicationStateValidationError(
+            "Plan proposal differs from its actual admitted writer, evidence or literal output"
+        )
+
+
+def validate_stored_authoring_result(action, turn):
+    from application_state.errors import ApplicationStateIntegrityError
+
+    stored = action.authoring_origin
+    if (
+        not isinstance(stored, PlanActionAuthoringResultV1)
+        or action.status != "completed"
+    ):
+        raise ApplicationStateIntegrityError(
+            "Plan authoring action has no terminal proposal result"
+        )
+    envelope, evidence = turn_parts(turn)
+    execution = getattr(evidence, "graph_context_execution", None)
+    if (
+        envelope is None
+        or envelope.status != "completed"
+        or (
+            envelope.world_id,
+            envelope.conversation_id,
+            envelope.turn_id,
+            envelope.attempt,
+            envelope.revision,
+        )
+        != (
+            stored.basis.world_id,
+            stored.conversation_id,
+            stored.turn_id,
+            stored.product_attempt,
+            stored.expected_turn_revision + 1,
+        )
+        or execution is None
+        or execution.context_receipt_sha256 != stored.context_receipt_sha256
+        or execution.execution_policy_sha256 != stored.execution_policy_sha256
+        or completed_result_digest(turn) != stored.agent_result_sha256
+        or authored_markdown(turn) != stored.replacement_markdown
+    ):
+        raise ApplicationStateIntegrityError(
+            "Plan proposal and completed Agent result do not match"
+        )
+    return stored.proposal
+
+
+def writer_evidence_event_ids(execution, writer):
+    from . import types as t
+
+    ids = set(writer.included_graph_event_ids) | set(
+        t.included_passage_event_ids(writer)
+    )
+    for event in execution.events:
+        if getattr(event, "provider_attempt_id", None) != writer.provider_attempt_id:
+            continue
+        if isinstance(event, t.NativeSourceProviderInclusionV1):
+            ids.update(event.read_event_ids)
+        elif isinstance(event, t.RelatedRecapContextProviderInclusionEventV2):
+            ids.update(event.included_context_event_ids)
+    return tuple(sorted(ids, key=str))
+
+
+def validate_authoring_transaction(conn, action, proposal, turn, result, proof):
+    from application_state.errors import ApplicationStateIntegrityError
+
+    require_authoring_completion_owner(turn, proposal)
+    if proposal is None:
+        return
+    envelope, _ = turn_parts(turn)
+    if (action.status == "completed") != (envelope.status == "completed"):
+        raise ApplicationStateIntegrityError(
+            "Plan action and Agent turn have only one completed owner"
+        )
+    validate_proposal_producer(proposal, turn, result, proof)
+    if envelope.status != "completed":
+        from .retry import require_leaf
+
+        require_leaf(conn, turn)
+
+
+def prepare_authoring_proposal(action, capture, turn, result, proof):
+    """The Plan parent wraps one already-normalized writer result, never rewrites it."""
+    from . import types as t
+    from .rules_authority_completion import NativeRulesMixedTurnResultV1
+
+    if not isinstance(action.authoring_origin, PlanJevAuthoringReservationV1):
+        raise ValueError("Plan writing requires its frozen reservation")
+    writers = [
+        event
+        for event in turn.graph_context_execution.events
+        if isinstance(event, t.PlanJevWriterAuthorizedV1)
+        and event.provider_attempt_id == proof.producing_provider_attempt_id
+    ]
+    if len(writers) != 1:
+        raise ValueError("Plan writing has no unique actual writer")
+    writer = writers[0]
+    fragment = authored_markdown(result)
+    origin = action.authoring_origin.model_dump(mode="json", by_alias=True) | {
+        "schema": "dmb_plan_jev_proposal_origin_v1",
+        "expected_turn_revision": result.expected_turn_revision
+        if isinstance(result, NativeRulesMixedTurnResultV1)
+        else result.expected_revision,
+        "writer_attempt_id": str(writer.provider_attempt_id),
+        "writer_envelope_sha256": writer.envelope_sha256,
+        "raw_reply_sha256": proof.raw_output_sha256,
+        "evidence_event_ids": [
+            str(identity)
+            for identity in writer_evidence_event_ids(
+                turn.graph_context_execution, writer
+            )
+        ],
+        "replacement_markdown_sha256": text_digest(fragment),
+    }
+    proposal = PlanAuthoredProposalV1(
+        origin=PlanJevProposalOriginV1.model_validate(origin),
+        capture=capture,
+        replacement_markdown=fragment,
+    )
+    validate_proposal_producer(proposal, turn, result, proof)
+    return proposal
+
+
+def lock_authoring_writer(conn, reservation, *, world_id, conversation_id, turn_id):
+    """Current edit authority is checked at exact SDK authorization, not after it."""
+    from . import repository as agent
+    from application_state.plan_action_dialogue import repository as actions
+    from application_state.errors import (
+        ApplicationStateConflictError,
+        ApplicationStateValidationError,
+    )
+
+    if not isinstance(reservation, dict) or set(reservation) != {
+        "action_id",
+        "capture",
+    }:
+        raise ApplicationStateValidationError(
+            "Plan writer requires its exact reserved capture"
+        )
+    capture = PlanAuthoringCaptureV1.model_validate(
+        reservation["capture"].model_dump(mode="json", by_alias=True)
+    )
+    action = actions.lock_authoring_action(conn, reservation["action_id"])
+    origin = action.authoring_origin if action is not None else None
+    if (
+        not isinstance(origin, PlanJevAuthoringReservationV1)
+        or (origin.basis.world_id, origin.conversation_id, origin.turn_id)
+        != (world_id, conversation_id, turn_id)
+        or origin.capture_sha256 != capture.sha256
+        or action.status != "pending"
+        or action.dispatch_token is None
+        or action.fence != origin.action_fence
+        or action.lease_expires_at is None
+        or action.lease_expires_at <= agent.database_clock(conn)
+    ):
+        raise ApplicationStateConflictError(
+            "Plan writer reservation is missing, expired or changed"
+        )
+    pointer = agent.lock_world_state(conn, world_id)
+    conversation = agent.lock_conversation(conn, world_id, conversation_id)
+    if (
+        pointer.active_conversation_id != conversation_id
+        or pointer.revision != origin.expected_pointer_revision
+        or conversation is None
+        or conversation.status != "active"
+    ):
+        raise ApplicationStateConflictError(
+            "World conversation changed before the Plan writer was authorized"
+        )
+    return action
+
+
+def validate_authoring_writer(conn, action, turn, event):
+    from . import types as t
+    from application_state.errors import ApplicationStateValidationError
+
+    if not isinstance(event, t.PlanJevWriterAuthorizedV1):
+        if action is not None:
+            raise ApplicationStateValidationError(
+                "Reserved Plan target belongs only to its writer authorization"
+            )
+        return
+    execution = turn.graph_context_execution
+    choices = (
+        [
+            item
+            for item in execution.events
+            if isinstance(item, t.PlanRequestedWorkSelectedV1)
+        ]
+        if execution
+        else []
+    )
+    writing = bool(choices and choices[-1].requested_work == "write_current_page")
+    if writing != (action is not None):
+        raise ApplicationStateValidationError(
+            "Plan writing requires its reserved target at writer authorization"
+        )
+    if action is not None:
+        origin = action.authoring_origin
+        if (
+            turn.attempt != origin.product_attempt
+            or execution.context_receipt_sha256 != origin.context_receipt_sha256
+            or execution.execution_policy_sha256 != origin.execution_policy_sha256
+            or len(choices) != 1
+            or choices[0].event_id != origin.selection_event_id
+        ):
+            raise ApplicationStateValidationError(
+                "Plan writer differs from the admitted action and actual semantic choice"
+            )
+        lock_plan_basis(conn, origin.basis)

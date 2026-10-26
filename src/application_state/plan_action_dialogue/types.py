@@ -10,7 +10,7 @@ from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field, model_serializer, model_validator, TypeAdapter
 
-from application_state.agent_conversation.plan_authoring import PlanJevProposalOriginV1, PlanJevAuthoringReservationV1
+from application_state.agent_conversation.plan_authoring import PlanActionAuthoringResultV1, PlanJevAuthoringReservationV1
 
 from application_state.agent_conversation.types import (
     WorldPointer,
@@ -430,7 +430,7 @@ class PlanActionReservation(StrictModel):
 
 class PlanActionRecord(ConsultationOptionalModel):
     consultation: PrivatePlanActionConsultation | None = None
-    authoring_origin: PlanJevAuthoringReservationV1 | PlanJevProposalOriginV1 | None = None
+    authoring_origin: PlanJevAuthoringReservationV1 | PlanActionAuthoringResultV1 | None = None
     action_id: UUID
     idempotency_key: UUID
     request_fingerprint: str
@@ -466,7 +466,7 @@ class PlanActionRecord(ConsultationOptionalModel):
                     or origin.idempotency_key != self.idempotency_key
                     or origin.action_request_fingerprint != self.request_fingerprint
                     or origin.basis.model_dump() != self.basis.model_dump()
-                    or (isinstance(origin, PlanJevProposalOriginV1) != (self.status == "completed"))
+                    or (isinstance(origin, PlanActionAuthoringResultV1) != (self.status == "completed"))
                     or origin.action_fence > self.fence
                     or (self.status == "completed" and origin.action_fence != self.fence)):
                 raise ValueError("Plan authoring action differs from its immutable origin")

@@ -441,3 +441,35 @@ def freeze_authoring_reservation(conn, record, origin):
     if row is None:
         raise ApplicationStateConflictError('Plan authoring reservation lost its dispatch fence')
     return _record(row)
+
+
+def lock_authoring_action(conn,action_id):
+    return _get_by_id(conn,action_id,lock=True)
+
+
+def finish_authoring_result(conn,action,proposal,completed_turn):
+    """Called only after Agent validation/update, on the very same connection."""
+    from application_state.agent_conversation.plan_authoring import (
+        PlanActionAuthoringResultV1,completed_result_digest,reservation_origin,validate_stored_authoring_result)
+    if action.authoring_origin!=reservation_origin(proposal):
+        raise ApplicationStateConflictError('Plan authoring reservation differs from the admitted proposal')
+    payload=proposal.origin.model_dump(mode='json',by_alias=True)|{
+        'schema':'dmb_plan_action_authoring_result_v1','capture':proposal.capture.model_dump(mode='json',by_alias=True),
+        'replacement_markdown':proposal.replacement_markdown,'agent_result_sha256':completed_result_digest(completed_turn)}
+    result=PlanActionAuthoringResultV1.model_validate(payload)
+    candidate=PlanActionRecord.model_validate(action.model_dump(mode='python')|{
+        'authoring_origin':result,'status':'completed','assistant_summary':'Plan suggestion prepared.',
+        'completed_at':completed_turn.envelope.completed_at if hasattr(completed_turn,'envelope') else completed_turn.completed_at,
+        'dispatch_token':None,'lease_expires_at':None})
+    validate_stored_authoring_result(candidate,completed_turn)
+    with conn.cursor(row_factory=dict_row) as cur:
+        cur.execute(f"""UPDATE plan_action.action SET authoring_origin=%s,status='completed',
+            assistant_summary='Plan suggestion prepared.',failure_code=NULL,dispatch_token=NULL,
+            lease_expires_at=NULL,completed_at=clock_timestamp(),updated_at=clock_timestamp()
+            WHERE action_id=%s AND status='pending' AND dispatch_token=%s AND fence=%s
+              AND lease_expires_at>clock_timestamp() RETURNING {_RETURNING}""",
+            (Jsonb(result.model_dump(mode='json',by_alias=True)),action.action_id,action.dispatch_token,action.fence))
+        row=cur.fetchone()
+    if row is None:
+        raise ApplicationStateConflictError('Plan action lost its fence before atomic result completion')
+    return _record(row)
