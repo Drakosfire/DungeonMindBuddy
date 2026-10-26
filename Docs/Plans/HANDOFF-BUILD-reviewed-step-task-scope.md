@@ -1,6 +1,19 @@
 # BUILD: immutable selected-step task scope
 
-PRIME activates one bounded serial slice at340e3335b in the existing Buddy checkout,
+COMPLETED through #1796, merge d84b7336c195c3d75674e82ada173a44c539bb92.
+Independent final review approved7ae28043f;63focused backend checks passed.
+Protected paired delivery to8000/5202 advanced APP0073→0074 and preserved3425
+APP rows except the schema marker, native state,27frozen components and89product
+files. Ordinary synthetic Discuss compared placement options without drafting the
+deferred sentence; Save/reload retained step2 deferred and newer composer text.
+Real gold activity/bubble and page-focused plan construction were observed.
+Two follow-ups are now known: Discuss required a pagecaret; generated steps cannot
+represent deferral (ProposedStep text/kind only, UI selects all). The next consuming
+lease is HANDOFF-BUILD-reviewed-discuss-read-context.md; neither original Mallow
+routing nor full operator creative acceptance is established. Private proof is
+.pytest_cache/reviewed-step-scope-ordinary-proof.json.
+
+Original bounded contract at340e3335b in the existing Buddy checkout,
 branch codex/reviewed-step-task-scope. #1764 remains parked; no overlapping active
 runtime PR. No new worktree, provider service, classifier or executor.
 

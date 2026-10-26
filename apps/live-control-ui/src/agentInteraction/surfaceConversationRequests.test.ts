@@ -27,3 +27,12 @@ it('keeps frozen dispatch references and refuses deduplication with changed cont
  expect(()=>queueSurfaceConversationRequest({...make(),authoredReferences:{...refs,references:[]}})).toThrow('different authoring request');
  expect(claimSurfaceConversationRequest('test-gesture')?.authoredReferences).toEqual(refs);
 });
+
+it('requires reviewed reference and kind together and binds kind into duplicate identity',()=>{
+ const reviewedStep={conversation_id:'conversation',source_turn_id:'source',command_id:'command'};
+ expect(()=>queueSurfaceConversationRequest({...make(),reviewedStep})).toThrow('exact step kind');
+ expect(()=>queueSurfaceConversationRequest({...make(),reviewedKind:'discuss'})).toThrow('exact step kind');
+ queueSurfaceConversationRequest({...make(),reviewedStep,reviewedKind:'discuss'});
+ expect(()=>queueSurfaceConversationRequest({...make(),reviewedStep,reviewedKind:'prepare_insertion'})).toThrow('different authoring request');
+ expect(claimSurfaceConversationRequest('test-gesture')?.reviewedKind).toBe('discuss');
+});

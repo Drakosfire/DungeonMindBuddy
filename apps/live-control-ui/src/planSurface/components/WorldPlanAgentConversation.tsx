@@ -4141,7 +4141,7 @@ export function WorldPlanAgentConversation({
         requestRef.current = { token, scopeKey, fenceKey: fence };
         setSending(true);
         try {
-          const prepared=await buildCompose.prepareHarnessTurn(request.turn_id,discussionOnly);
+          const prepared=await buildCompose.prepareHarnessTurn(request.turn_id,discussionOnly||explicitRequest?.reviewedKind==='discuss');
           if(prepared.placementError){
             if(latestRef.current.mounted&&latestRef.current.buildPlacementFenceKey===placementFence
               &&latestRef.current.buildPlacementEpoch===epoch&&latestRef.current.buildPlacementBridge===bridge
@@ -5909,11 +5909,13 @@ export function WorldPlanAgentConversation({
               turnId={turn.turn_id} disabled={composerBusy}
               durable={turn.provenance.surface_id==='build'?{disabled:!isBuild||!visible||history.active_conversation_id!==history.conversation_id||buildMode?.savedSource?.documentId!==turn.provenance.primary_work.object_id,
                 onContinue:(plan,dispatch,reference)=>{
+                  const step=plan.steps.find(item=>item.step_id===dispatch.step_id);
+                  if(!step)throw new Error('The continuation has no matching reviewed step.');
                   const expectedFence=buildPlacementFenceKey;
                   const expectedEpoch=buildPlacementEpoch;
                   queueSurfaceConversationRequest({id:`reviewed-plan:${dispatch.client_turn_id}`,worldId:plan.world_id,surfaceId:'build',objectId:plan.document_id,
                     message:dispatch.message,clientThreadId:dispatch.client_thread_id,turnId:dispatch.client_turn_id,
-                    ...(reference?{reviewedStep:reference}:{}),...(dispatch.authored_references?{authoredReferences:dispatch.authored_references}:{}),
+                    ...(reference?{reviewedStep:reference,reviewedKind:step.kind}:{}),...(dispatch.authored_references?{authoredReferences:dispatch.authored_references}:{}),
                     isCurrent:()=>latestRef.current.mounted&&latestRef.current.buildPlacementFenceKey===expectedFence&&latestRef.current.buildPlacementEpoch===expectedEpoch&&latestRef.current.verifiedWorldId===plan.world_id
                       &&latestRef.current.buildDocumentId===plan.document_id&&surfaceVisibleRef.current&&historySnapshotRef.current?.conversation_id===plan.conversation_id
                       &&historySnapshotRef.current?.active_conversation_id===plan.conversation_id});

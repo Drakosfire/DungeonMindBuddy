@@ -12,7 +12,7 @@ vi.mock('../agentInteraction/useAgentInteraction',()=>({useAgentInteraction:()=>
 vi.mock('../agentInteraction/surfaceConversationRequests',()=>({queueSurfaceConversationRequest:vi.fn()}));
 let host:WorkPlanHost;const child=()=>{host=useWorkPlanHost()!;return null;};
 const bridge={} as BuildComposeBridge;
-const plan={world_id:'world',document_id:'page',conversation_id:'conversation'} as WorkPlan;
+const plan={world_id:'world',document_id:'page',conversation_id:'conversation',steps:[{step_id:'step',text:'Discuss',kind:'discuss',selected:true}]} as WorkPlan;
 function session(documentId='page',clean=true){return {documentId,record:{world_id:'world'},editor:{},snapshot:{},activeCommand:null,phase:'ready',lookupAdmission:()=>({ok:clean})} as unknown as MarkdownCanvasSessionValue;}
 function view(s:MarkdownCanvasSessionValue){const Child=child;return <BuildWorkPlanHost session={s} bridge={bridge}><Child/></BuildWorkPlanHost>;}
 beforeEach(()=>vi.clearAllMocks());afterEach(cleanup);
@@ -33,4 +33,13 @@ it('queues only the immutable dispatch reference set',()=>{
  render(view(session()));const refs={schema:'dmb_authored_graph_references_v1' as const,references:[{schema:'dmb_authored_graph_reference_v1' as const,managed_world_id:'world',native_world_id:'native',binding_version:1,graph_revision:'old-selected',node_id:'box',label:'Box'}]};
  host.onContinue(plan,{schema:'dmb_work_plan_dispatch_v2',authored_references:refs,command_id:'command',step_id:'step',client_thread_id:'thread',client_turn_id:'turn',message:'Reviewed text'},null);
  expect(vi.mocked(queueSurfaceConversationRequest).mock.calls[0][0].authoredReferences).toEqual(refs);
+});
+
+for(const kind of ['discuss','prepare_insertion'] as const)it(`joins ${kind} to the exact dispatch step before queueing`,()=>{
+ render(view(session()));const p={...plan,steps:[{step_id:'step',text:'Selected task',selected:true,kind}]};
+ const reference={conversation_id:'conversation',source_turn_id:'source',command_id:'command'};
+ host.onContinue(p,{command_id:'command',step_id:'step',client_thread_id:'thread',client_turn_id:'turn',message:'Reviewed'},reference);
+ expect(vi.mocked(queueSurfaceConversationRequest).mock.calls[0][0]).toMatchObject({reviewedStep:reference,reviewedKind:kind});
+ expect(()=>host.onContinue(p,{command_id:'other',step_id:'missing',client_thread_id:'thread',client_turn_id:'turn',message:'Reviewed'},reference)).toThrow('matching reviewed step');
+ expect(queueSurfaceConversationRequest).toHaveBeenCalledTimes(1);
 });
