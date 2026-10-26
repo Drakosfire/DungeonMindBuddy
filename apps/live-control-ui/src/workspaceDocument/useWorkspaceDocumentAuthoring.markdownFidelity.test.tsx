@@ -775,6 +775,35 @@ describe("verified protected draft recovery", () => {
     expect(prepareTiptapMarkdownWrite).not.toHaveBeenCalled();
     expect(commitTiptapMarkdownWrite).not.toHaveBeenCalled();
   });
+  it.each(["confirm","restore"])("retains full incoming live state when another tab wins the %s lock",async operation=>{
+    seed();
+    const {result}=renderHook(()=>useWorkspaceDocumentAuthoring({documentId:DOC_ID,surface:"build",kind:"worldbuilding_source"}));
+    await waitFor(()=>expect(result.current.phase).toBe("ready_dirty"));
+    act(()=>result.current.setEditor(editorWithJson(projection)));
+    if(operation==="restore"){
+      await act(async()=>{await result.current.confirmDraftRecovery(result.current.prepareDraftRecovery());});
+      const newer=editorWithParagraph("Unique incoming text before restore");
+      act(()=>{result.current.setEditor(newer);result.current.handleEditorUpdate(newer.getJSON(),newer,{programmatic:false});});
+      await waitFor(()=>expect(result.current.statusLabel).not.toBe("Saving local copy…"));
+    }
+    const incoming=readWorkspaceDocumentLocalState(localStorage,DOC_ID)!;
+    const recovery=operation==="confirm"?result.current.prepareDraftRecovery():null;
+    let restore:Awaited<ReturnType<typeof result.current.prepareDraftRestore>>|null=null;
+    if(operation==="restore")await act(async()=>{restore=await result.current.prepareDraftRestore();});
+    let release!:()=>void;
+    const held=navigator.locks.request("dmb:workspace-draft:"+DOC_ID,()=>new Promise<void>(resolve=>release=resolve));
+    await waitFor(()=>expect(release).toBeTypeOf("function"));
+    let pending!:Promise<void>;
+    act(()=>{pending=operation==="confirm"?result.current.confirmDraftRecovery(recovery!):result.current.restoreDraftRecovery(restore!,restore!.copies[0].id);});
+    const other=JSON.stringify({...incoming,tiptap_json:{type:"doc",content:[{type:"paragraph",content:[{type:"text",text:"Other tab wins"}]}]}});
+    localStorage.setItem(workspaceDocumentStorageKey(DOC_ID),other);
+    await act(async()=>{const rejected=expect(pending).rejects.toThrow(/another tab/);release();await held;await rejected;});
+    expect(localStorage.getItem(workspaceDocumentStorageKey(DOC_ID))).toBe(other);
+    const copies=JSON.parse(localStorage.getItem(key)!).copies as Array<{state:unknown}>;
+    expect(copies.map(copy=>copy.state)).toContainEqual(incoming);
+    expect(result.current.editorContent).toEqual(incoming.tiptap_json);
+    expect(commitTiptapMarkdownWrite).not.toHaveBeenCalled();
+  });
   it("recovers the newer page despite an earlier V1 pair, retains both and restores by explicit review", async()=>{
     seed();
     const initial=readWorkspaceDocumentLocalState(localStorage,DOC_ID)!;

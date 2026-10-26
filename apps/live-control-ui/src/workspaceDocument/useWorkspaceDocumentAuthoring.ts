@@ -585,7 +585,7 @@ export function useWorkspaceDocumentAuthoring(
       localStateRef.current=next;localDirtyRef.current=next.dirty;setLocalState(next);setRecoveryVersion(v=>v+1);
       setDocumentKey(`${current.document_id}:${current.base_revision}:recovery:${crypto.randomUUID()}`);
       dispatch({type:"OPEN_READY",dirty:next.dirty});
-    }).then(()=>{});
+    },{refusedSnapshot:original}).then(()=>{});
   }, [args.documentId, dispatch, editor, recoveryFence, storage, currentPageRecovery,draftWriter]);
 
   const restoreFence = useCallback(()=>{
@@ -611,6 +611,7 @@ export function useWorkspaceDocumentAuthoring(
   const restoreDraftRecovery = useCallback((review:WorkspaceDraftRestoreReview,copyId:string):Promise<void>=>{
     if(review.documentId!==args.documentId || review.fence!==restoreFence())throw new Error("The page or recovery copies changed. Review them again before restoring.");
     const primaryRaw=storage.getItem(workspaceDocumentStorageKey(args.documentId));
+    const incoming={...localStateRef.current!,tiptap_json:editor!.getJSON()};
     return draftWriter.run(()=>{
       if(review.fence!==restoreFence())throw new Error("The page or recovery copies changed. All copies were kept.");
       const selected=readDraftRecoveryCopies(storage,args.documentId).find(copy=>copy.id===copyId);
@@ -634,7 +635,7 @@ export function useWorkspaceDocumentAuthoring(
       writeVerifiedLocalState(storage,next);
       expectedRevisionRef.current=snap.loaded_revision;localStateRef.current=next;localDirtyRef.current=true;setLocalState(next);
       setRecoveryVersion(v=>v+1);setDocumentKey(`${args.documentId}:restore:${crypto.randomUUID()}`);dispatch({type:"OPEN_READY",dirty:true});
-    },{expectedRaw:primaryRaw}).then(()=>{});
+    },{expectedRaw:primaryRaw,refusedSnapshot:incoming}).then(()=>{});
   },[args.documentId,args.kind,args.surface,dispatch,draftWriter,editor,restoreFence,storage]);
 
   const draftRecoveryAvailable = useMemo(() => {
@@ -692,7 +693,7 @@ export function useWorkspaceDocumentAuthoring(
         markdown,
         expected_revision: expectedRevision,
       });
-      if (saveGeneration !== saveGenerationRef.current) return;
+      if (saveGeneration !== saveGenerationRef.current || requestedDocument.current!==args.documentId || !recoveryMounted.current) return;
       if (!prepared.writer_ok || !prepared.writer_confirm_token) {
         const reason = [...(prepared.warnings ?? []), ...(prepared.diagnostics ?? [])].filter(Boolean).join(' ');
         dispatch({ type: "SAVE_FAILED", message: reason ? `Couldn’t save this page: ${reason}` : "The server could not prepare this save. Your draft is still here." });
@@ -706,7 +707,7 @@ export function useWorkspaceDocumentAuthoring(
         writer_confirm_token: prepared.writer_confirm_token,
         expected_revision: expectedRevision,
       });
-      if (saveGeneration !== saveGenerationRef.current) return;
+      if (saveGeneration !== saveGenerationRef.current || requestedDocument.current!==args.documentId || !recoveryMounted.current) return;
       setLastCommitReceipt(committed);
       const receiptForThisSave = committed;
       const verificationGeneration = ++verificationGenerationRef.current;
@@ -714,7 +715,7 @@ export function useWorkspaceDocumentAuthoring(
       dispatch({ type: "COMMIT_SUCCEEDED" });
       expectedRevisionRef.current = committed.committed_revision;
       await draftWriter.run(()=>{
-        if(saveGeneration!==saveGenerationRef.current || requestedDocument.current!==args.documentId)return;
+        if(saveGeneration!==saveGenerationRef.current || requestedDocument.current!==args.documentId || !recoveryMounted.current)return;
         editedDuringSave=editorMutationGenerationRef.current!==mutationGenerationAtSaveStart;
         const current=localStateRef.current;
         const next=editedDuringSave&&current
@@ -784,7 +785,7 @@ export function useWorkspaceDocumentAuthoring(
         });
       }
     } catch (saveError) {
-      if (saveGeneration !== saveGenerationRef.current) return;
+      if (saveGeneration !== saveGenerationRef.current || requestedDocument.current!==args.documentId || !recoveryMounted.current) return;
       dispatch({
         type: "SAVE_FAILED",
         message: saveError instanceof Error ? saveError.message : "Markdown save failed.",
