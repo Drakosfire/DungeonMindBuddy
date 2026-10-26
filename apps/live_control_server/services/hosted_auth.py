@@ -11,8 +11,9 @@ from __future__ import annotations
 import json
 import os
 import ipaddress
+import inspect
 from pathlib import Path
-from collections.abc import Mapping
+from collections.abc import Awaitable, Callable, Mapping
 from typing import Any
 from urllib.parse import unquote, urlsplit
 
@@ -22,6 +23,10 @@ from fastapi.responses import JSONResponse
 from apps.live_control_server.services.trusted_cookie_origin import (
     require_cookie_write_origin,
 )
+
+
+WorldScopeResolver = Callable[[Request], str | None | Awaitable[str | None]]
+WorldScopeResolvers = Mapping[tuple[str, str], WorldScopeResolver]
 
 
 DEPLOYMENT_ENVIRONMENT_ENV = "DMB_DEPLOYMENT_ENVIRONMENT"
@@ -117,10 +122,29 @@ def trusted_frontend_origins(environ: Mapping[str, str] | None = None) -> tuple[
     return values
 
 
+def _valid_world_scope_resolvers(resolvers: WorldScopeResolvers | None) -> bool:
+    if not isinstance(resolvers, Mapping) or not resolvers:
+        return False
+    for key, resolver in resolvers.items():
+        if (
+            not isinstance(key, tuple)
+            or len(key) != 2
+            or not isinstance(key[0], str)
+            or not key[0]
+            or key[0] != key[0].upper()
+            or not isinstance(key[1], str)
+            or not key[1].startswith("/api/")
+            or key[1] in {CURRENT_USER_PATH, LOGOUT_PATH}
+            or not callable(resolver)
+        ):
+            return False
+    return True
+
+
 def validate_hosted_auth_configuration(
     environ: Mapping[str, str] | None = None,
     *,
-    verified_world_routes: frozenset[str] = frozenset(),
+    world_scope_resolvers: WorldScopeResolvers | None = None,
 ) -> tuple[str, ...]:
     """Return missing/invalid configuration fields without including values."""
     source = os.environ if environ is None else environ
@@ -150,7 +174,7 @@ def validate_hosted_auth_configuration(
         errors.append(TRUSTED_FRONTEND_ORIGINS_ENV)
     if not hosted_world_access(source):
         errors.append(HOSTED_WORLD_ACCESS_ENV)
-    if not verified_world_routes:
+    if not _valid_world_scope_resolvers(world_scope_resolvers):
         errors.append(HOSTED_WORLD_ROUTE_POLICY_ERROR)
 
     database_coordinates: list[tuple[str, str, str]] = []
@@ -275,6 +299,32 @@ def authorize_world_access(
         )
 
 
+async def _resolve_authoritative_world_id(
+    request: Request,
+    resolver: WorldScopeResolver,
+) -> str:
+    try:
+        result = resolver(request)
+        if inspect.isawaitable(result):
+            result = await result
+    except Exception as exc:
+        raise HTTPException(
+            status_code=403,
+            detail={"code": "hosted_world_context_required"},
+        ) from exc
+    if (
+        not isinstance(result, str)
+        or not result.strip()
+        or result != result.strip()
+        or any(ord(character) < 0x21 for character in result)
+    ):
+        raise HTTPException(
+            status_code=403,
+            detail={"code": "hosted_world_context_required"},
+        )
+    return result
+
+
 def require_hosted_write_origin(request: Request) -> None:
     require_cookie_write_origin(
         request,
@@ -285,14 +335,21 @@ def require_hosted_write_origin(request: Request) -> None:
 def install_hosted_request_boundary(
     application: FastAPI,
     *,
-    verified_world_routes: frozenset[str] = frozenset(),
+    world_scope_resolvers: WorldScopeResolvers | None = None,
 ) -> None:
-    """Mount the API boundary; only reviewed route paths may use World access.
+    """Mount the API boundary with code-owned resource-to-World resolvers.
 
-    The default is intentionally empty. Callers must opt routes in from code
-    after proving that their resource identifiers resolve to an authorized
-    World. The production app has not completed that route review.
+    Each key is an exact (HTTP method, route path) pair. A resolver must look
+    up the requested resource using server-side state and return its single
+    authoritative World ID. Client World selectors are checked for consistency
+    only; they never establish authorization. The default is intentionally
+    empty because production resource bindings have not been reviewed.
     """
+    if world_scope_resolvers and not _valid_world_scope_resolvers(
+        world_scope_resolvers
+    ):
+        raise ValueError("world_scope_resolvers_invalid")
+    route_resolvers = dict(world_scope_resolvers or {})
 
     @application.middleware("http")
     async def hosted_request_boundary(request: Request, call_next):
@@ -341,24 +398,25 @@ def install_hosted_request_boundary(
         if request.url.path in {CURRENT_USER_PATH, LOGOUT_PATH}:
             return await call_next(request)
 
-        if request.url.path not in verified_world_routes:
+        resolver = route_resolvers.get((request.method.upper(), request.url.path))
+        if resolver is None:
             return JSONResponse(
                 status_code=403,
                 content={"detail": {"code": HOSTED_WORLD_ROUTE_POLICY_ERROR}},
             )
 
-        content_type = request.headers.get("content-type", "").split(";", 1)[0].strip().lower()
-        if content_type and content_type != "application/json":
-            return JSONResponse(
-                status_code=403,
-                content={"detail": {"code": "hosted_world_context_required"}},
-            )
         try:
-            world_ids = await request_world_ids(request)
+            resolved_world_id = await _resolve_authoritative_world_id(request, resolver)
+            requested_world_ids = await request_world_ids(request)
+            if requested_world_ids and requested_world_ids != frozenset({resolved_world_id}):
+                raise HTTPException(
+                    status_code=403,
+                    detail={"code": "hosted_world_context_mismatch"},
+                )
             principal = getattr(request.state, "dms_principal", None)
             authorize_world_access(
                 principal.subject if principal is not None else "",
-                world_ids,
+                frozenset({resolved_world_id}),
                 access=hosted_world_access(),
             )
         except HTTPException as exc:

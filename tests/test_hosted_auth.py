@@ -50,26 +50,17 @@ class _AsyncASGITestClient:
 def _app(
     *,
     principal: DmsPrincipal | None,
-    verified_world_routes: frozenset[str] | None = None,
+    world_scope_resolvers: dict[tuple[str, str], Any] | None = None,
 ) -> tuple[_AsyncASGITestClient, list[str]]:
     app = FastAPI()
     app.state.dms_principal_resolver = _resolver(principal)
     observed: list[str] = []
     install_hosted_request_boundary(
         app,
-        verified_world_routes=(
-            frozenset(
-                {
-                    "/api/probe/read",
-                    "/api/media/image",
-                    "/api/history",
-                    "/api/jobs",
-                    "/api/provider",
-                    "/api/stream",
-                }
-            )
-            if verified_world_routes is None
-            else verified_world_routes
+        world_scope_resolvers=(
+            _default_world_scope_resolvers()
+            if world_scope_resolvers is None
+            else world_scope_resolvers
         ),
     )
 
@@ -126,6 +117,32 @@ def _resolver(principal: DmsPrincipal | None):
     return resolve
 
 
+async def _resolve_test_resource_world(request: Request) -> str | None:
+    resource_id = request.query_params.get("resource_id")
+    if resource_id is None and request.headers.get("content-type", "").startswith(
+        "application/json"
+    ):
+        payload = await request.json()
+        if isinstance(payload, dict):
+            resource_id = payload.get("resource_id")
+    return {
+        "resource-alpha": "world-alpha",
+        "resource-beta": "world-beta",
+    }.get(resource_id)
+
+
+def _default_world_scope_resolvers() -> dict[tuple[str, str], Any]:
+    resolver = _resolve_test_resource_world
+    return {
+        ("GET", "/api/probe/read"): resolver,
+        ("GET", "/api/media/image"): resolver,
+        ("GET", "/api/stream"): resolver,
+        ("POST", "/api/history"): resolver,
+        ("POST", "/api/jobs"): resolver,
+        ("POST", "/api/provider"): resolver,
+    }
+
+
 @pytest.fixture(autouse=True)
 def _hosted_environment(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv(DEPLOYMENT_ENVIRONMENT_ENV, "production")
@@ -140,7 +157,10 @@ def _hosted_environment(monkeypatch: pytest.MonkeyPatch) -> None:
 def test_signed_out_request_is_rejected_before_route_execution() -> None:
     client, observed = _app(principal=None)
 
-    response = client.get("/api/probe/read", params={"worldId": "world-alpha"})
+    response = client.get(
+        "/api/probe/read",
+        params={"resource_id": "resource-alpha", "worldId": "world-alpha"},
+    )
 
     assert response.status_code == 401
     assert observed == []
@@ -150,7 +170,10 @@ def test_permitted_dms_subject_and_auth_status_are_available() -> None:
     client, observed = _app(principal=DmsPrincipal(subject="synthetic-managed-user"))
 
     status = client.get(CURRENT_USER_PATH)
-    response = client.get("/api/probe/read", params={"worldId": "world-alpha"})
+    response = client.get(
+        "/api/probe/read",
+        params={"resource_id": "resource-alpha", "worldId": "world-alpha"},
+    )
 
     assert status.status_code == 200
     assert status.json() == {"sub": "synthetic-managed-user"}
@@ -161,10 +184,13 @@ def test_permitted_dms_subject_and_auth_status_are_available() -> None:
 def test_world_route_is_denied_until_its_resource_binding_is_reviewed() -> None:
     client, observed = _app(
         principal=DmsPrincipal(subject="synthetic-managed-user"),
-        verified_world_routes=frozenset(),
+        world_scope_resolvers={},
     )
 
-    response = client.get("/api/probe/read", params={"worldId": "world-alpha"})
+    response = client.get(
+        "/api/probe/read",
+        params={"resource_id": "resource-alpha", "worldId": "world-alpha"},
+    )
 
     assert response.status_code == 403
     assert response.json()["detail"]["code"] == "hosted_world_route_policy_unverified"
@@ -182,7 +208,7 @@ def test_world_route_is_denied_until_its_resource_binding_is_reviewed() -> None:
 def test_api_path_variants_do_not_reach_an_unverified_handler(path: str) -> None:
     client, observed = _app(
         principal=DmsPrincipal(subject="synthetic-managed-user"),
-        verified_world_routes=frozenset(),
+        world_scope_resolvers={},
     )
 
     response = client.get(path, params={"world_id": "world-alpha"})
@@ -191,15 +217,102 @@ def test_api_path_variants_do_not_reach_an_unverified_handler(path: str) -> None
     assert observed == []
 
 
+def test_path_only_world_route_opt_in_is_rejected() -> None:
+    with pytest.raises(TypeError):
+        install_hosted_request_boundary(
+            FastAPI(),
+            verified_world_routes=frozenset({"/api/probe/read"}),  # type: ignore[call-arg]
+        )
+
+
+def test_valid_server_side_resource_binding_authorizes_its_world() -> None:
+    client, observed = _app(principal=DmsPrincipal(subject="synthetic-managed-user"))
+
+    response = client.get(
+        "/api/probe/read",
+        params={"resource_id": "resource-alpha", "world_id": "world-alpha"},
+    )
+
+    assert response.status_code == 200
+    assert observed == ["read"]
+
+
+def test_confused_deputy_selector_cannot_override_resource_world() -> None:
+    client, observed = _app(principal=DmsPrincipal(subject="synthetic-managed-user"))
+
+    response = client.post(
+        "/api/jobs",
+        json={"resource_id": "resource-beta", "world_id": "world-alpha"},
+        headers={"Origin": FRONTEND_ORIGIN},
+    )
+
+    assert response.status_code == 403
+    assert response.json()["detail"]["code"] == "hosted_world_context_mismatch"
+    assert observed == []
+
+
+@pytest.mark.parametrize(
+    ("resolver", "code"),
+    (
+        (lambda _request: None, "hosted_world_context_required"),
+        (lambda _request: "", "hosted_world_context_required"),
+        (lambda _request: frozenset({"world-alpha", "world-beta"}), "hosted_world_context_required"),
+    ),
+)
+def test_missing_empty_or_ambiguous_resolver_result_fails_closed(
+    resolver: Any,
+    code: str,
+) -> None:
+    client, observed = _app(
+        principal=DmsPrincipal(subject="synthetic-managed-user"),
+        world_scope_resolvers={("GET", "/api/probe/read"): resolver},
+    )
+
+    response = client.get(
+        "/api/probe/read",
+        params={"resource_id": "resource-alpha", "world_id": "world-alpha"},
+    )
+
+    assert response.status_code == 403
+    assert response.json()["detail"]["code"] == code
+    assert observed == []
+
+
+def test_failing_resource_resolver_fails_closed_before_handler() -> None:
+    def fail(_request: Request) -> str:
+        raise RuntimeError("synthetic resolver failure")
+
+    client, observed = _app(
+        principal=DmsPrincipal(subject="synthetic-managed-user"),
+        world_scope_resolvers={("GET", "/api/probe/read"): fail},
+    )
+
+    response = client.get(
+        "/api/probe/read",
+        params={"resource_id": "resource-alpha", "world_id": "world-alpha"},
+    )
+
+    assert response.status_code == 403
+    assert response.json()["detail"]["code"] == "hosted_world_context_required"
+    assert observed == []
+
+
 def test_cross_world_write_is_rejected_before_provider_or_job_side_effects() -> None:
     client, observed = _app(principal=DmsPrincipal(subject="synthetic-managed-user"))
     headers = {"Origin": FRONTEND_ORIGIN}
     for route in ("/api/provider", "/api/jobs", "/api/history"):
-        response = client.post(route, json={"world_id": "world-other"}, headers=headers)
+        response = client.post(
+            route,
+            json={"resource_id": "resource-beta", "world_id": "world-beta"},
+            headers=headers,
+        )
         assert response.status_code == 403
         assert response.json()["detail"]["code"] == "hosted_world_forbidden"
-    for route in ("/api/probe/read", "/api/media/image"):
-        response = client.get(route, params={"world_id": "world-other"})
+    for route in ("/api/probe/read", "/api/media/image", "/api/stream"):
+        response = client.get(
+            route,
+            params={"resource_id": "resource-beta", "world_id": "world-beta"},
+        )
         assert response.status_code == 403
     assert observed == []
 
@@ -297,7 +410,7 @@ def test_production_app_excludes_fixture_backed_graph_gold_review_routes(
 
 def test_write_requires_one_exact_trusted_origin() -> None:
     client, observed = _app(principal=DmsPrincipal(subject="synthetic-managed-user"))
-    body = {"world_id": "world-alpha"}
+    body = {"resource_id": "resource-alpha", "world_id": "world-alpha"}
 
     missing = client.post("/api/provider", json=body)
     foreign = client.post(
@@ -328,14 +441,20 @@ def test_media_history_jobs_provider_and_streaming_require_an_authorized_world()
 def test_authorized_media_history_jobs_provider_and_streaming_continue() -> None:
     client, observed = _app(principal=DmsPrincipal(subject="synthetic-managed-user"))
 
-    assert client.get("/api/media/image", params={"worldId": "world-alpha"}).status_code == 200
-    stream = client.get("/api/stream", params={"world_id": "world-alpha"})
+    assert client.get(
+        "/api/media/image",
+        params={"resource_id": "resource-alpha", "worldId": "world-alpha"},
+    ).status_code == 200
+    stream = client.get(
+        "/api/stream",
+        params={"resource_id": "resource-alpha", "world_id": "world-alpha"},
+    )
     assert stream.status_code == 200
     assert stream.text == "data: ready\n\n"
     for route in ("/api/history", "/api/jobs", "/api/provider"):
         response = client.post(
             route,
-            json={"scope": {"worldId": "world-alpha"}},
+            json={"resource_id": "resource-alpha", "scope": {"worldId": "world-alpha"}},
             headers={"Origin": FRONTEND_ORIGIN},
         )
         assert response.status_code == 200
@@ -391,7 +510,9 @@ def test_production_configuration_is_explicit_and_separates_logical_databases(
     )
     assert validate_hosted_auth_configuration(
         configuration,
-        verified_world_routes=frozenset({"/api/probe/read"}),
+        world_scope_resolvers={
+            ("GET", "/api/probe/read"): _resolve_test_resource_world
+        },
     ) == ()
     same_database = {
         **configuration,
