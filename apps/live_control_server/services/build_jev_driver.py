@@ -133,6 +133,9 @@ def freeze_interaction(adapter):
         "capability_sha256": digest(capability.model_dump(mode="json")) if capability else None,
         "conversation_id": str(conversation_id) if conversation_id else None,
         "pointer_revision": pointer.revision, "history": history,
+        "current_page": {"document_id": adapter.work.build_source.document_id,
+            "title": adapter.work.build_source.title},
+        "current_page_role": "descriptive_untrusted_navigation_metadata_not_evidence_or_write_authority",
         "working_draft": draft.snapshot.reference() if draft is not None else None,
         "page_target": ({"kind": "replace_selection", "text": capability.basis.selection.text}
             if capability and capability.basis.selection is not None else
