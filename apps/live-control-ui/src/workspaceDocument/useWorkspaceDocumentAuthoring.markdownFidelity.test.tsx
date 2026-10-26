@@ -387,6 +387,7 @@ describe("useWorkspaceDocumentAuthoring Markdown fidelity", () => {
       });
     });
 
+    await waitFor(()=>expect(readWorkspaceDocumentLocalState(localStorage,DOC_ID)?.tiptap_json).toEqual(safeParagraph));
     // Raw localStorage still has authoritative source (persist path).
     const raw = JSON.parse(localStorage.getItem(workspaceDocumentStorageKey(DOC_ID)) ?? "null") as {
       exported_markdown?: string;
@@ -484,7 +485,7 @@ describe("useWorkspaceDocumentAuthoring Markdown fidelity", () => {
     act(() => {
       result.current.reimportFromAuthoritativeMarkdown();
     });
-    expect(result.current.exportedMarkdownAuthoritative).toBe(false);
+    await waitFor(()=>expect(result.current.exportedMarkdownAuthoritative).toBe(false));
     expect(result.current.editorContent).not.toEqual(lossyProjection);
     expect(readWorkspaceDocumentLocalState(localStorage, DOC_ID)?.exported_markdown_authoritative)
       .toBe(false);
@@ -559,7 +560,7 @@ describe("useWorkspaceDocumentAuthoring Markdown fidelity", () => {
       result.current.handleEditorUpdate(edited, editorWithJson(edited), { programmatic: false });
     });
     expect(result.current.exportedMarkdownAuthoritative).toBe(false);
-    expect(result.current.saveDisabled).toBe(false);
+    await waitFor(()=>expect(result.current.saveDisabled).toBe(false));
 
     await act(async () => {
       await result.current.saveMarkdown();
@@ -733,7 +734,7 @@ describe("real-session Save and Build discard exclusion", () => {
 describe("verified protected draft recovery", () => {
   const source = "---\ntitle: Kept metadata\n---\n# Preserved source\n\nOriginal wording.\n";
   const projection = { type: "doc", content: [{ type: "paragraph", content: [{ type: "text", text: "Unsaved local wording" }] }] };
-  const key = workspaceDocumentStorageKey(DOC_ID) + ".recovery.v1";
+  const key = workspaceDocumentStorageKey(DOC_ID) + ".recovery.v2";
   function seed(markdown = source) {
     vi.mocked(getWorkspaceDocumentSnapshot).mockResolvedValue(snapshot(markdown));
     localStorage.setItem(workspaceDocumentStorageKey(DOC_ID), JSON.stringify({
@@ -754,10 +755,10 @@ describe("verified protected draft recovery", () => {
     const review = first.result.current.prepareDraftRecovery();
     expect(first.result.current.saveDisabledReason).toMatch(/protected after an earlier editing problem/);
     expect(localStorage.getItem(key)).toBeNull();
-    act(() => first.result.current.confirmDraftRecovery(review));
+    await act(async () => {await first.result.current.confirmDraftRecovery(review);});
     const checkpoint = JSON.parse(localStorage.getItem(key)!);
-    expect(checkpoint.original.tiptap_json).toEqual(projection);
-    expect(checkpoint.original.exported_markdown).toBe(source);
+    expect(checkpoint.copies[0].state.tiptap_json).toEqual(projection);
+    expect(checkpoint.copies[0].state.exported_markdown).toBe(source);
     expect(first.result.current.exportedMarkdownAuthoritative).toBe(false);
     expect(readWorkspaceDocumentLocalState(localStorage, DOC_ID)?.exported_markdown).toContain("title: Kept metadata");
     first.unmount();
@@ -765,12 +766,46 @@ describe("verified protected draft recovery", () => {
     await waitFor(() => expect(reopened.result.current.phase).toMatch(/^ready/));
     act(() => reopened.result.current.setEditor(editorWithJson(reopened.result.current.editorContent)));
     expect(reopened.result.current.draftRecoveryAvailable).toBe(true);
-    act(() => reopened.result.current.restoreDraftRecovery());
+    await act(async () => {const review=await reopened.result.current.prepareDraftRestore();await reopened.result.current.restoreDraftRecovery(review,review.copies[0].id);});
     expect(reopened.result.current.exportedMarkdownAuthoritative).toBe(true);
     expect(reopened.result.current.dirty).toBe(true);
     expect(reopened.result.current.editorContent).toEqual(projection);
-    expect(readWorkspaceDocumentLocalState(localStorage, DOC_ID)).toEqual(original);
-    expect(localStorage.getItem(key)).toBeNull();
+    expect(readWorkspaceDocumentLocalState(localStorage, DOC_ID)).toMatchObject({tiptap_json:original?.tiptap_json,exported_markdown:original?.exported_markdown,exported_markdown_authoritative:true});
+    expect(localStorage.getItem(key)).not.toBeNull();
+    expect(prepareTiptapMarkdownWrite).not.toHaveBeenCalled();
+    expect(commitTiptapMarkdownWrite).not.toHaveBeenCalled();
+  });
+  it("recovers the newer page despite an earlier V1 pair, retains both and restores by explicit review", async()=>{
+    seed();
+    const initial=readWorkspaceDocumentLocalState(localStorage,DOC_ID)!;
+    const v1key=workspaceDocumentStorageKey(DOC_ID)+".recovery.v1";
+    const oldOriginal={...initial,tiptap_json:{type:"doc",content:[{type:"paragraph",content:[{type:"text",text:"Earlier protected words"}]}]}};
+    const oldReplacement={...oldOriginal,exported_markdown_authoritative:false};
+    const oldBytes=JSON.stringify({schema:"dmb_workspace_draft_recovery_v1",original:oldOriginal,replacement:oldReplacement});
+    localStorage.setItem(v1key,oldBytes);
+    const first=renderHook(()=>useWorkspaceDocumentAuthoring({documentId:DOC_ID,surface:"build",kind:"worldbuilding_source"}));
+    await waitFor(()=>expect(first.result.current.phase).toBe("ready_dirty"));
+    const realEditor=new TiptapEditor({extensions:DEFAULT_MARKDOWN_EDITOR_EXTENSIONS,content:projection});
+    act(()=>first.result.current.setEditor(realEditor));
+    await act(async()=>{await first.result.current.confirmDraftRecovery(first.result.current.prepareDraftRecovery(),"current");});
+    expect(first.result.current.editorContent).toEqual(projection);
+    expect(first.result.current.exportedMarkdownAuthoritative).toBe(false);
+    expect(localStorage.getItem(v1key)).toBe(oldBytes);
+    first.unmount();realEditor.destroy();
+    const reopened=renderHook(()=>useWorkspaceDocumentAuthoring({documentId:DOC_ID,surface:"build",kind:"worldbuilding_source"}));
+    await waitFor(()=>expect(reopened.result.current.phase).toMatch(/^ready/));
+    const newer=editorWithParagraph("Unique edits after recovery");
+    act(()=>{reopened.result.current.setEditor(newer);reopened.result.current.handleEditorUpdate(newer.getJSON(),newer,{programmatic:false});});
+    await waitFor(()=>expect(reopened.result.current.statusLabel).not.toBe("Saving local copy…"));
+    let review!:Awaited<ReturnType<typeof reopened.result.current.prepareDraftRestore>>;
+    await act(async()=>{review=await reopened.result.current.prepareDraftRestore();});
+    expect(review.copies).toHaveLength(4);
+    const selected=review.copies.find(copy=>copy.state.exported_markdown_authoritative && JSON.stringify(copy.state.tiptap_json)===JSON.stringify(projection))!;
+    await act(async()=>{await reopened.result.current.restoreDraftRecovery(review,selected.id);});
+    expect(reopened.result.current.editorContent).toEqual(projection);
+    expect(reopened.result.current.exportedMarkdownAuthoritative).toBe(true);
+    expect(localStorage.getItem(key)).toContain("Unique edits after recovery");
+    expect(localStorage.getItem(v1key)).toBe(oldBytes);
     expect(prepareTiptapMarkdownWrite).not.toHaveBeenCalled();
     expect(commitTiptapMarkdownWrite).not.toHaveBeenCalled();
   });
@@ -796,6 +831,8 @@ describe("verified protected draft recovery", () => {
     await waitFor(() => expect(current.exportedMarkdownAuthoritative).toBe(false));
     await waitFor(() => expect(current.editor?.getText()).toContain("Original wording."));
     fireEvent.click(screen.getByRole("button", { name: "Restore protected draft" }));
+    await screen.findByRole("dialog",{name:"Review retained drafts"});
+    fireEvent.click(screen.getByRole("button",{name:"Restore selected working copy"}));
     await waitFor(() => expect(current.exportedMarkdownAuthoritative).toBe(true));
     await waitFor(() => expect(current.editor?.getJSON()).toEqual(originalJson));
     expect(current.dirty).toBe(true);
@@ -834,9 +871,11 @@ describe("verified protected draft recovery", () => {
     const kept = withSpacer ? { ...original, content: original.content!.filter(node => node.type !== "paragraph" || Boolean(node.content?.length)) } : original;
     await waitFor(() => expect(current.editor?.getJSON()).toEqual(kept));
     expect(current.saveDisabled).toBe(false);
-    expect(JSON.parse(localStorage.getItem(key)!).original.tiptap_json).toEqual(original);
+    expect(JSON.parse(localStorage.getItem(key)!).copies[0].state.tiptap_json).toEqual(original);
     expect(prepareTiptapMarkdownWrite).not.toHaveBeenCalled();
     fireEvent.click(screen.getByRole("button", {name:"Restore protected draft"}));
+    await screen.findByRole("dialog",{name:"Review retained drafts"});
+    fireEvent.click(screen.getByRole("button",{name:"Restore selected working copy"}));
     await waitFor(() => expect(current.exportedMarkdownAuthoritative).toBe(true));
     await waitFor(() => expect(current.editor?.getJSON()).toEqual(original));
   });
@@ -888,7 +927,7 @@ describe("verified protected draft recovery", () => {
     act(() => result.current.setEditor(editorWithJson(projection)));
     const before = localStorage.getItem(workspaceDocumentStorageKey(DOC_ID));
     const review = result.current.prepareDraftRecovery();
-    expect(() => result.current.confirmDraftRecovery(review)).toThrow();
+    await act(async()=>{await expect(result.current.confirmDraftRecovery(review)).rejects.toThrow();});
     expect(result.current.editorContent).toEqual(projection);
     expect(result.current.exportedMarkdownAuthoritative).toBe(true);
     expect(localStorage.getItem(workspaceDocumentStorageKey(DOC_ID))).toBe(before);
@@ -904,9 +943,10 @@ describe("verified protected draft recovery", () => {
     expect(() => result.current.confirmDraftRecovery(review)).toThrow(/changed after review/);
     expect(localStorage.getItem(key)).toBeNull();
     vi.mocked(editor.getJSON).mockReturnValue(projection);
-    act(() => result.current.confirmDraftRecovery(result.current.prepareDraftRecovery()));
+    await act(async()=>{await result.current.confirmDraftRecovery(result.current.prepareDraftRecovery());});
+    const restore=await result.current.prepareDraftRestore();
     act(() => result.current.setEditor(editorWithParagraph("Newer unique edits")));
-    expect(() => result.current.restoreDraftRecovery()).toThrow(/newer edits/);
+    expect(() => result.current.restoreDraftRecovery(restore,restore.copies[0].id)).toThrow(/changed/);
     expect(localStorage.getItem(key)).not.toBeNull();
   });
   it.each(["before review", "after review", "before restore"])("preserves another tab's persisted edits %s", async timing => {
@@ -916,16 +956,17 @@ describe("verified protected draft recovery", () => {
     act(() => result.current.setEditor(editorWithJson(projection)));
     const review = timing === "before review" ? null : result.current.prepareDraftRecovery();
     if (timing === "before restore") {
-      act(() => result.current.confirmDraftRecovery(review!));
+      await act(async()=>{await result.current.confirmDraftRecovery(review!);});
       act(() => result.current.setEditor(editorWithJson(result.current.editorContent)));
     }
+    const restore=timing === "before restore"?await result.current.prepareDraftRestore():null;
     const checkpoint = localStorage.getItem(key);
     const stored = readWorkspaceDocumentLocalState(localStorage, DOC_ID)!;
     const other = JSON.stringify({ ...stored, tiptap_json: { type: "doc", content: [{ type: "paragraph", content: [{ type: "text", text: "Other tab unique edits" }] }] } });
     localStorage.setItem(workspaceDocumentStorageKey(DOC_ID), other);
     expect(() => timing === "before review" ? result.current.prepareDraftRecovery()
       : timing === "after review" ? result.current.confirmDraftRecovery(review!)
-      : result.current.restoreDraftRecovery()).toThrow(/stored draft changed/);
+      : result.current.restoreDraftRecovery(restore!,restore!.copies[0].id)).toThrow(/stored draft changed|changed/);
     expect(localStorage.getItem(workspaceDocumentStorageKey(DOC_ID))).toBe(other);
     expect(localStorage.getItem(key)).toBe(checkpoint);
   });

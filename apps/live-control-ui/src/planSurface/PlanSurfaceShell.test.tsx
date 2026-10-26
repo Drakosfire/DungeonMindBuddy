@@ -1,3 +1,4 @@
+import {workspaceDocumentStorageKey} from "../tiptap/state/tiptapLocalState";
 import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import type { Editor } from "@tiptap/core";
 import { webcrypto } from "node:crypto";
@@ -4937,7 +4938,9 @@ describe("PlanSurfaceShell", () => {
       expect(liveApi.commitTiptapMarkdownWrite).toHaveBeenCalledTimes(1);
     });
 
-    it("keeps local identity when create returns a UUID but fails validation", async () => {
+    it.each(["runbook", "worldbuilding_source"] as const)("retains an invalid %s create receipt without writing its durable draft", async kind => {
+      const sourceKey=workspaceDocumentStorageKey(DOC_PROMOTED);
+      localStorage.setItem(sourceKey,"retained owner bytes");
       vi.mocked(liveApi.listWorkspaceDocuments).mockResolvedValue({
         schema_version: "dmb_workspace_document_registry_v1",
         records: [],
@@ -4949,7 +4952,7 @@ describe("PlanSurfaceShell", () => {
           title: "C2 Session 23 Prep",
           target_session: 23,
           revision: 1,
-          kind: "runbook",
+          kind,
           target_relpath: PROMOTED_TARGET,
         }),
       );
@@ -4975,6 +4978,7 @@ describe("PlanSurfaceShell", () => {
       expect(liveApi.createWorkspaceDocument).toHaveBeenCalledTimes(1);
       expect(liveApi.getWorkspaceDocumentSnapshot).not.toHaveBeenCalled();
       expect(localStorage.getItem(planPromotionRecoveryKey("longmont-c2"))).toBeTruthy();
+      expect(localStorage.getItem(sourceKey)).toBe("retained owner bytes");
 
       await openPlanEditTools();
       await user.click(screen.getByRole("button", { name: "Save to Markdown" }));
@@ -4989,6 +4993,7 @@ describe("PlanSurfaceShell", () => {
       expect(liveApi.createWorkspaceDocument).toHaveBeenCalledTimes(1);
       expect(liveApi.getWorkspaceDocumentSnapshot).not.toHaveBeenCalled();
       expect(localStorage.getItem(planPromotionRecoveryKey("longmont-c2"))).toBeTruthy();
+      expect(localStorage.getItem(sourceKey)).toBe("retained owner bytes");
     });
 
     it("clears campaign draft pointer after admission and keeps it cleared through retry", async () => {

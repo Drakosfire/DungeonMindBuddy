@@ -310,11 +310,15 @@ export function MarkdownCanvasSessionProvider(props: MarkdownCanvasSessionProvid
       },
       confirmDraftRecovery: (review, mode) => {
         if (activeCommand) throw new Error("Wait for the current document action to finish.");
-        authoring.confirmDraftRecovery(review, mode);
+        return authoring.confirmDraftRecovery(review, mode);
       },
-      restoreDraftRecovery: () => {
+      prepareDraftRestore: () => {
         if (activeCommand) throw new Error("Wait for the current document action to finish.");
-        authoring.restoreDraftRecovery();
+        return authoring.prepareDraftRestore();
+      },
+      restoreDraftRecovery: (review, copyId) => {
+        if (activeCommand) throw new Error("Wait for the current document action to finish.");
+        return authoring.restoreDraftRecovery(review, copyId);
       },
       lastCommitReceipt: authoring.lastCommitReceipt,
       activeCommand,
