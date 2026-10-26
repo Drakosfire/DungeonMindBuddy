@@ -55,3 +55,25 @@ it('requires the dispatch bytes to match its retained plan',async()=>{
  response({plan,dispatch:{...dispatch,authored_references:{...dispatch.authored_references,references:[]}},reviewed_step:null});
  await expect(continueWorkPlan(scope,plan,id,id)).rejects.toThrow('another step');
 });
+
+function scopedDispatch(){return {schema:'dmb_work_plan_dispatch_v3' as const,authored_references:null,command_id:id,step_id:id,client_thread_id:id,client_turn_id:other,message:'Discuss only this selected reviewed step:\n\nRead related page',scope:{schema:'dmb_reviewed_discussion_scope_v1' as const,task:{step_id:id,kind:'discuss' as const,text:'Read related page'},objective_context:'The original outcome.',sibling_context:[{step_id:other,text:'Write a later sentence.',kind:'prepare_insertion' as const,selected:false,status:'deferred',earlier_reply:null}]}};}
+function withScopedDispatch(){const dispatch=scopedDispatch();p.dispatches=[dispatch];p.execution=[{command_id:id,step_id:id,status:'awaiting_dispatch',turn_id:null,attempt:null,result:null}];return dispatch;}
+it('reads an immutable Discuss scope after the current objective changes',async()=>{
+ const dispatch=withScopedDispatch();p={...p,schema:'dmb_reviewed_work_plan_v2',objective:'The newer plan outcome.'};
+ response({plan:p,dispatch,reviewed_step:{conversation_id:id,source_turn_id:other,command_id:id}});
+ expect((await continueWorkPlan(scope,p,id,id)).dispatch.scope?.objective_context).toBe('The original outcome.');
+});
+it('retains a plain scoped dispatch when the plan later gains Graph context',async()=>{
+ const dispatch=withScopedDispatch();p=referencePlan();p.dispatches=[dispatch];
+ response({schema:'dmb_work_plan_response_v3',world_id:scope.worldId,conversation_id:id,source_turn_id:other,source_references:[graphRef],plan:p});
+ expect((await getWorkPlan(scope))?.dispatches[0].authored_references).toBeNull();
+});
+it.each(['missing','task','self sibling','duplicate sibling'])('refuses invalid scoped continuation: %s',async mutation=>{
+ const dispatch=withScopedDispatch();const corrupted=JSON.parse(JSON.stringify(dispatch));
+ if(mutation==='missing')delete corrupted.scope;
+ else if(mutation==='task')corrupted.scope.task.text='Write the deferred sentence.';
+ else if(mutation==='self sibling')corrupted.scope.sibling_context[0].step_id=id;
+ else corrupted.scope.sibling_context.push(corrupted.scope.sibling_context[0]);
+ p.dispatches=[corrupted];response({plan:p,dispatch:corrupted,reviewed_step:null});
+ await expect(continueWorkPlan(scope,p,id,id)).rejects.toThrow();
+});

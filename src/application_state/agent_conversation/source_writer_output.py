@@ -152,6 +152,9 @@ def strict_json(raw: str):
 
 
 def normalize(raw: str, packet: dict) -> dict:
+    from .reviewed_action import SCOPE_KEY
+    if SCOPE_KEY in packet and (collaboration := strict_json(raw).get('collaboration')) is not None and (not isinstance(collaboration,dict) or collaboration.get('kind') != 'questions'):
+        raise ValueError('Reviewed discussion cannot create a collaboration object')
     if 'response_contract' in packet:
         from .build_intentional_response import normalize as intentional_normalize
         return intentional_normalize(raw, packet)
@@ -234,7 +237,11 @@ def finite_output_schema(packet: dict, *, requested_detail_gaps: bool = False) -
         return intentional_schema(packet)
     if "working_draft_context" in packet:
         from .build_draft_answer import output_schema as draft_schema
-        return draft_schema(packet)
+        schema = draft_schema(packet)
+        from .reviewed_action import SCOPE_KEY
+        if SCOPE_KEY in packet and 'collaboration' in schema['properties']:
+            schema['properties']['collaboration'] = {'anyOf':[{'$ref':'#/$defs/ProposedQuestions'},{'type':'null'}]} if 'ProposedQuestions' in schema.get('$defs',{}) else {'type':'null'}
+        return schema
     from .types import ValidatedBuildSectionReadV1
 
     if (
@@ -363,6 +370,15 @@ def validate_writer_format(fmt: dict, packet: dict) -> None:
     if not isinstance(fmt, dict):
         raise ValueError("Source writer request lacks its frozen output schema")
     name = fmt.get("name")
+    from .reviewed_action import SCOPE_KEY, SCOPE_FORMAT, ReviewedDiscussionScopeV1
+    if SCOPE_KEY in packet or name == SCOPE_FORMAT:
+        if SCOPE_KEY not in packet or name != SCOPE_FORMAT:
+            raise ValueError('Scoped discussion marker and format differ')
+        ReviewedDiscussionScopeV1.model_validate(packet[SCOPE_KEY]['scope'])
+        schema = finite_output_schema(packet, requested_detail_gaps=True)
+        if fmt != {'type':'json_schema','name':SCOPE_FORMAT,'schema':schema,'strict':True}:
+            raise ValueError('Scoped discussion finite schema differs')
+        return
     from .connected_page_origins import KEY as ORIGIN_KEY, FORMAT as ORIGIN_FORMAT, packet_rows as origin_rows
     if ORIGIN_KEY in packet or name == ORIGIN_FORMAT:
         from .build_intentional_response import output_schema as intentional_schema
@@ -524,6 +540,8 @@ def reconstruct(raw_output: str, packet: dict, turn, auth):
     execution = turn.graph_context_execution
     from .authored_graph_references import validate_packet as validate_authored_packet
     validate_authored_packet(packet, execution)
+    from .reviewed_action import validate_writer_scope
+    validate_writer_scope(packet, execution)
     receipt_sha = turn.graph_context_receipt.context_receipt_sha256
     from .build_draft_context import resolve_body_aliases
     packet = resolve_body_aliases(packet)

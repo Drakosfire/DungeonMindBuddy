@@ -13,6 +13,7 @@ from application_state.errors import (
 from .service import _ready_dsn, _lock_pointer
 from . import repository as repo
 from .types import Turn
+from .reviewed_action import ReviewedDiscussionScopeV1, ReviewedDiscussionTask, ReviewedSiblingContext
 from .authored_graph_references import AuthoredGraphReferenceV1, AuthoredGraphReferencesV1, effective_references, source_references
 
 
@@ -58,6 +59,17 @@ class Dispatch(Closed):
     message: str
 
 
+class DispatchV2(Dispatch):
+    schema_: Literal['dmb_work_plan_dispatch_v2'] = Field(default='dmb_work_plan_dispatch_v2', alias='schema')
+    authored_references: AuthoredGraphReferencesV1
+
+
+class DispatchV3(Dispatch):
+    schema_: Literal['dmb_work_plan_dispatch_v3'] = Field(default='dmb_work_plan_dispatch_v3', alias='schema')
+    scope: ReviewedDiscussionScopeV1
+    authored_references: AuthoredGraphReferencesV1 | None
+
+
 class Plan(Closed):
     schema_: Literal["dmb_reviewed_work_plan_v1"] = Field(
         default="dmb_reviewed_work_plan_v1", alias="schema"
@@ -69,7 +81,7 @@ class Plan(Closed):
     document_id: str
     revision: int = Field(strict=True, ge=1)
     steps: list[Step] = Field(min_length=1)
-    dispatches: list[Dispatch] = Field(default_factory=list)
+    dispatches: list[DispatchV3 | DispatchV2 | Dispatch] = Field(default_factory=list)
 
     @model_validator(mode="after")
     def references(self):
@@ -112,11 +124,6 @@ class StepV2(Step):
     references: tuple[AuthoredGraphReferenceV1, ...]
 
 
-class DispatchV2(Dispatch):
-    schema_: Literal['dmb_work_plan_dispatch_v2'] = Field(default='dmb_work_plan_dispatch_v2', alias='schema')
-    authored_references: AuthoredGraphReferencesV1
-
-
 class ReviewV3(ReviewV2):
     schema_: Literal['dmb_reviewed_work_plan_review_v3'] = Field(default='dmb_reviewed_work_plan_review_v3', alias='schema')
     root_references: tuple[AuthoredGraphReferenceV1, ...]
@@ -127,7 +134,7 @@ class PlanV3(PlanV2):
     schema_: Literal['dmb_reviewed_work_plan_v3'] = Field(default='dmb_reviewed_work_plan_v3', alias='schema')
     root_references: tuple[AuthoredGraphReferenceV1, ...]
     steps: list[StepV2] = Field(min_length=1)
-    dispatches: list[DispatchV2 | Dispatch] = Field(default_factory=list)
+    dispatches: list[DispatchV3 | DispatchV2 | Dispatch] = Field(default_factory=list)
 
     @model_validator(mode='after')
     def reference_worlds(self):
@@ -136,7 +143,7 @@ class PlanV3(PlanV2):
             AuthoredGraphReferencesV1(references=step.references).require_world(self.world_id)
             effective_references(self.root_references, step.references)
         for dispatch in self.dispatches:
-            if isinstance(dispatch, DispatchV2):
+            if isinstance(dispatch, (DispatchV2, DispatchV3)) and dispatch.authored_references is not None:
                 dispatch.authored_references.require_world(self.world_id)
         return self
 
@@ -446,8 +453,24 @@ def continue_step(world, conversation, source, command: Continue):
             + "\n\nOther steps, including selected ones, are context and are not authorized for automatic execution.\n"
             + instruction
         )
-        d = (DispatchV2 if isinstance(p, PlanV3) else Dispatch)(
-            **({"authored_references": AuthoredGraphReferencesV1(references=effective_references(p.root_references, step.references))} if isinstance(p, PlanV3) else {}),
+        scope = None
+        if step.kind == 'discuss':
+            siblings = []
+            for reviewed in p.steps:
+                if reviewed.step_id == step.step_id:
+                    continue
+                result = results.get(str(reviewed.step_id))
+                prior_reply = result.get('result') if result else None
+                siblings.append(ReviewedSiblingContext(step_id=reviewed.step_id, text=reviewed.text,
+                    kind=reviewed.kind, selected=reviewed.selected,
+                    status=result['status'] if result else 'pending' if reviewed.selected else 'deferred',
+                    earlier_reply=prior_reply.get('text') if prior_reply and prior_reply['kind']=='reply' else None))
+            scope = ReviewedDiscussionScopeV1(task=ReviewedDiscussionTask(step_id=step.step_id,kind='discuss',text=step.text),
+                objective_context=p.objective,sibling_context=tuple(siblings))
+            message = 'Discuss only this selected reviewed step:\n\n' + step.text
+        d = (DispatchV3 if scope else DispatchV2 if isinstance(p, PlanV3) else Dispatch)(
+            **({'scope': scope, 'authored_references': AuthoredGraphReferencesV1(references=effective_references(p.root_references,step.references)) if isinstance(p,PlanV3) else None} if scope else {}),
+            **({"authored_references": AuthoredGraphReferencesV1(references=effective_references(p.root_references, step.references))} if isinstance(p, PlanV3) and scope is None else {}),
             command_id=command.command_id,
             step_id=step.step_id,
             client_thread_id=uuid4(),
@@ -480,7 +503,7 @@ def continue_step(world, conversation, source, command: Continue):
 
 def resolve_action(conn, world, reference, *, document_id, client_thread_id, client_turn_id, message):
     """Resolve immutable author authority, including during completed archived replay."""
-    from .reviewed_action import ReviewedStepBinding, ReviewedStepBindingV2, digest
+    from .reviewed_action import ReviewedStepBinding, ReviewedStepBindingV2, ReviewedStepBindingV3, digest
     turn = _source(conn, world, reference.conversation_id, reference.source_turn_id)
     p = _load(conn, world, reference.conversation_id, reference.source_turn_id)
     if (p is None or p.document_id != document_id
@@ -492,11 +515,14 @@ def resolve_action(conn, world, reference, *, document_id, client_thread_id, cli
         or str(dispatch.client_thread_id) != client_thread_id
         or str(dispatch.client_turn_id) != client_turn_id or dispatch.message != message):
         raise ApplicationStateConflictError("The reviewed action differs from its retained dispatch")
+    if isinstance(dispatch, DispatchV3) and dispatch.scope.task != ReviewedDiscussionTask(step_id=step.step_id, kind=step.kind, text=step.text):
+        raise ApplicationStateConflictError('The scoped task differs from its immutable selected step')
     # Reference editing must not alter the binding of an older dispatch.
     bound_step = step.model_dump(mode="json")
-    if not isinstance(dispatch, DispatchV2):
+    if not isinstance(dispatch, DispatchV2) and not (isinstance(dispatch,DispatchV3) and dispatch.authored_references is not None):
         bound_step.pop("references", None)
-    return (ReviewedStepBindingV2 if isinstance(dispatch, DispatchV2) else ReviewedStepBinding)(
+    return (ReviewedStepBindingV3 if isinstance(dispatch, DispatchV3) else ReviewedStepBindingV2 if isinstance(dispatch, DispatchV2) else ReviewedStepBinding)(
+        **({'scope':dispatch.scope, 'authored_references':dispatch.authored_references} if isinstance(dispatch,DispatchV3) else {}),
         **({"authored_references": dispatch.authored_references} if isinstance(dispatch, DispatchV2) else {}),
         reference=reference, step_id=step.step_id, kind=step.kind,
         source_answer_sha256=p.source_answer_sha256,

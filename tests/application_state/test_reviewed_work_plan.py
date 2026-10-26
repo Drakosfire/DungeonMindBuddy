@@ -37,6 +37,11 @@ def provenance(world="world-one", document="source-one"):
     )
 
 
+def parse_dispatch(value):
+    from pydantic import TypeAdapter
+    return TypeAdapter(w.DispatchV3 | w.DispatchV2 | w.Dispatch).validate_python(value)
+
+
 def accept(service, cid, message, key=None, document="source-one"):
     return service.accept_turn(
         TurnSubmission(
@@ -129,7 +134,7 @@ def test_explicit_continuation_stable_receipt_and_actual_reply(case):
         )["dispatch"]
         == first["dispatch"]
     )
-    d = w.Dispatch.model_validate(first["dispatch"])
+    d = parse_dispatch(first["dispatch"])
     assert "dispatches" not in d.message
     key = uuid5(NAMESPACE_URL, f"dmb-agent-turn:world-one:{d.client_turn_id}")
     actual = accept(service, cid, d.message, key)
@@ -202,7 +207,7 @@ def test_unselected_and_concurrent_continuations_are_not_authority(case):
 @pytest.mark.parametrize("wrong", ["message", "document"])
 def test_receipt_key_does_not_bypass_exact_message_and_scope(case, wrong):
     service, cid, t, steps, p = case
-    d = w.Dispatch.model_validate(
+    d = parse_dispatch(
         w.continue_step(
             "world-one",
             cid,
@@ -235,7 +240,7 @@ def test_prepare_insertion_requires_real_proposal_not_discussion(case):
         t.turn_id,
         w.ReviewV2(objective="Develop a useful shop description for author review.", expected_revision=1, steps=[steps[0], step]),
     )
-    d = w.Dispatch.model_validate(
+    d = parse_dispatch(
         w.continue_step(
             "world-one",
             cid,
@@ -333,12 +338,11 @@ def test_readable_continuation_preserves_review_and_result_without_internal_ids(
         t.turn_id,
         w.Continue(expected_revision=1, step_id=steps[0].step_id, command_id=uuid4()),
     )
-    first = w.Dispatch.model_validate(response["dispatch"])
-    assert (
-        steps[0].text in first.message
-        and steps[1].text in first.message
-        and "Deferred" in first.message
-    )
+    first = parse_dispatch(response["dispatch"])
+    assert steps[0].text in first.message and steps[1].text not in first.message
+    assert first.scope.task.text == steps[0].text
+    assert first.scope.sibling_context[0].text == steps[1].text
+    assert first.scope.sibling_context[0].status == 'deferred'
     for identifier in (
         cid,
         t.turn_id,
@@ -364,7 +368,7 @@ def test_readable_continuation_preserves_review_and_result_without_internal_ids(
             steps=[steps[0], steps[1].model_copy(update={"selected": True})],
         ),
     )
-    second = w.Dispatch.model_validate(
+    second = parse_dispatch(
         w.continue_step(
             "world-one",
             cid,
@@ -385,9 +389,9 @@ def test_readable_continuation_preserves_review_and_result_without_internal_ids(
         and "reviewed_plan" not in second.message
         and "source_answer_sha256" not in second.message
     )
-    for message in (first.message, second.message):
-        assert "Selected · Discuss ·" in message
-        assert "Prepare an insertion ·" in message
+    assert "Selected · Discuss ·" not in first.message
+    assert "Selected · Discuss ·" in second.message
+    assert "Prepare an insertion ·" in second.message
     assert "editable on-page insertion" in second.message
 
 
@@ -398,7 +402,7 @@ def test_reviewed_reference_resolves_immutable_step_without_plan_revision_pin(ca
     command = w.Continue(expected_revision=plan['revision'], step_id=steps[0].step_id, command_id=uuid4())
     response = w.continue_step('world-one', cid, source.turn_id, command)
     reference = ReviewedStepReference.model_validate(response['reviewed_step'])
-    d = w.Dispatch.model_validate(response['dispatch'])
+    d = parse_dispatch(response['dispatch'])
     def resolve():
         with unit_of_work(w._ready_dsn()) as conn:
             return w.resolve_action(conn, 'world-one', reference, document_id='source-one',
@@ -424,7 +428,7 @@ def test_reviewed_reference_rejects_foreign_dispatch_inputs(case, mutation):
     response = w.continue_step('world-one', cid, source.turn_id,
         w.Continue(expected_revision=plan['revision'], step_id=steps[0].step_id, command_id=uuid4()))
     reference = ReviewedStepReference.model_validate(response['reviewed_step'])
-    d = w.Dispatch.model_validate(response['dispatch'])
+    d = parse_dispatch(response['dispatch'])
     args = dict(document_id='source-one', client_thread_id=str(d.client_thread_id), client_turn_id=str(d.client_turn_id), message=d.message)
     if mutation in {'conversation','source','command'}:
         field = {'conversation':'conversation_id','source':'source_turn_id','command':'command_id'}[mutation]
@@ -445,12 +449,14 @@ def test_outcome_only_save_cas_and_dispatch_snapshot_survive_later_edit(case):
         w.save('world-one',cid,t.turn_id,w.ReviewV2(expected_revision=1,steps=steps,objective='A conflicting outcome.'))
     command=w.Continue(expected_revision=2,step_id=steps[0].step_id,command_id=uuid4())
     first=w.continue_step('world-one',cid,t.turn_id,command)
-    assert 'Expected outcome (authored context):\n'+outcome in first['dispatch']['message']
+    assert first['dispatch']['scope']['objective_context']==outcome
+    assert outcome not in first['dispatch']['message']
     changed=w.save('world-one',cid,t.turn_id,w.ReviewV2(expected_revision=3,steps=steps,objective='A newly edited intended outcome.'))
     assert changed['dispatches']==first['plan']['dispatches']
     recovered=w.continue_step('world-one',cid,t.turn_id,command)
     assert recovered['dispatch']==first['dispatch']
-    assert outcome in recovered['dispatch']['message'] and 'newly edited' not in recovered['dispatch']['message']
+    assert recovered['dispatch']['scope']['objective_context']==outcome
+    assert 'newly edited' not in recovered['dispatch']['message']
     assert w.read('world-one',cid,t.turn_id)['plan']==changed
 
 
@@ -484,3 +490,56 @@ def test_legacy_put_cannot_create_or_mutate_plan(case):
     other=finish(service,cid,accept(service,cid,'Another plan'),'A proposed plan.')
     with pytest.raises(ApplicationStateConflictError,match='legacy writes'):
         w.save('world-one',cid,other.turn_id,w.Review(expected_revision=0,steps=steps))
+
+
+@pytest.mark.parametrize('scoped',[False,True])
+def test_scope_vocabulary_downgrade_preserves_rows_and_refuses_retained_dispatch(case,scoped):
+    from alembic.migration import MigrationContext
+    from alembic.operations import Operations
+    from sqlalchemy import create_engine
+    from application_state.engine import sqlalchemy_url
+    service,cid,source,steps,plan=case
+    if scoped:
+        w.continue_step('world-one',cid,source.turn_id,w.Continue(expected_revision=plan['revision'],step_id=steps[0].step_id,command_id=uuid4()))
+    before=w.read('world-one',cid,source.turn_id)
+    migration=importlib.import_module('application_state.migrations.versions.20261026_0074_reviewed_discussion_scope')
+    engine=create_engine(sqlalchemy_url(w._ready_dsn()))
+    try:
+        with engine.begin() as conn,Operations.context(MigrationContext.configure(conn)):
+            if scoped:
+                with pytest.raises(RuntimeError,match='recovery forward'):migration.downgrade()
+            else:
+                migration.downgrade()
+    finally:engine.dispose()
+    assert w.read('world-one',cid,source.turn_id)==before
+
+
+def test_scope_upgrade_preserves_payloads_and_fences_previous_reader(case, application_state_dsn, monkeypatch):
+    import psycopg
+    from alembic import command
+    from application_state import cli
+    from application_state.errors import ApplicationStateMigrationError
+
+    def retained_rows():
+        with psycopg.connect(application_state_dsn) as conn:
+            return {
+                table: conn.execute(f'SELECT row_to_json(t)::text FROM agent.{table} t ORDER BY row_to_json(t)::text').fetchall()
+                for table in ('conversation', 'turn', 'work_plan', 'turn_reviewed_action')
+            }
+
+    before = retained_rows()
+    command.downgrade(cli.alembic_config(), '20261025_0073')
+    assert cli._read_current_revision(application_state_dsn) == '20261025_0073'
+    cli.upgrade_to_head(dsn=application_state_dsn)
+    assert cli._read_current_revision(application_state_dsn) == '20261026_0074'
+    assert retained_rows() == before
+    monkeypatch.setattr(cli, '_alembic_head', lambda: '20261025_0073')
+    with pytest.raises(ApplicationStateMigrationError):
+        cli.assert_at_head(dsn=application_state_dsn)
+    # The same head fence is reached by saved-plan admission and conversation reads.
+    service, cid, source, steps, plan = case
+    with pytest.raises(ApplicationStateMigrationError):
+        w.continue_step('world-one', cid, source.turn_id,
+            w.Continue(expected_revision=plan['revision'], step_id=steps[0].step_id, command_id=uuid4()))
+    with pytest.raises(ApplicationStateMigrationError):
+        service.get_conversation('world-one', cid)

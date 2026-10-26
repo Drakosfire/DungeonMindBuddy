@@ -2648,6 +2648,7 @@ class _PolicyExecutionAdapter:
         self._build_controller_exposure = None
         staged = writer.with_disposition(staged, getattr(self, "build_retrieval_disposition", None))
         staged = writer.with_working_draft(staged, self._broker_execution())
+        staged = writer.with_reviewed_task(staged, self._broker_execution())
         staged = writer.with_response_contract(staged, self._broker_execution())
         staged = self._with_plan_output_contract(staged)
         self._build_writer_projection = staged
@@ -2666,6 +2667,7 @@ class _PolicyExecutionAdapter:
         self._build_controller_exposure = None
         staged = writer.with_disposition(staged, getattr(self, "build_retrieval_disposition", None))
         staged = writer.with_working_draft(staged, self._broker_execution())
+        staged = writer.with_reviewed_task(staged, self._broker_execution())
         staged = writer.with_response_contract(staged, self._broker_execution())
         staged = self._with_plan_output_contract(staged)
         if isinstance(self._broker_execution().policy, _app_state_graph_execution_types().BuildCitedSourceActionControllerWriterPolicyV1):
@@ -2676,6 +2678,9 @@ class _PolicyExecutionAdapter:
         return staged
 
     def _with_plan_output_contract(self, staged):
+        from application_state.agent_conversation.reviewed_action import writer_scope
+        if writer_scope(self._broker_execution()) is not None:
+            return staged
         from application_state.agent_conversation import plan_objective
         from dataclasses import replace
         execution = self._broker_execution()
