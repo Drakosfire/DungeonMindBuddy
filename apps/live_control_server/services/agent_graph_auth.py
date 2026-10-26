@@ -63,8 +63,9 @@ def authenticate_native_graph_principal(request: Request) -> NativeGraphPrincipa
     """Authenticate the one explicitly configured local operator capability.
 
     Forwarded/client identity headers are intentionally ignored. The ASGI peer
-    must be a loopback address, and the environment and long bearer must both
-    be explicitly configured before this endpoint grants access.
+    must be a loopback address, and the request must not have traversed a
+    forwarding proxy. The environment and long bearer must both be explicitly
+    configured before this endpoint grants access.
     """
 
     expected = _read_server_token(os.environ)
@@ -79,6 +80,29 @@ def authenticate_native_graph_principal(request: Request) -> NativeGraphPrincipa
             detail={
                 "code": "graph_auth_loopback_required",
                 "message": "Native Graph access is supported only from a loopback connection.",
+            },
+        )
+
+    # A local reverse proxy makes the ASGI peer look like 127.0.0.1 even when
+    # the original request came from the internet. Local-operator credentials
+    # are not valid through a forwarding proxy, even when that proxy forwards
+    # an apparent loopback client address. Rejecting these headers can only
+    # deny access; none of them is trusted as identity evidence.
+    if any(
+        request.headers.getlist(header)
+        for header in (
+            "forwarded",
+            "x-forwarded-for",
+            "x-forwarded-host",
+            "x-forwarded-proto",
+            "x-real-ip",
+        )
+    ):
+        raise HTTPException(
+            status_code=403,
+            detail={
+                "code": "graph_auth_proxy_forbidden",
+                "message": "Local operator access is not available through a forwarding proxy.",
             },
         )
 

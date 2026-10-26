@@ -19,6 +19,11 @@
 
 set -euo pipefail
 
+# The local launcher is the explicit local-operator boundary. The API also
+# rejects any forwarded request metadata before honoring loopback-local access.
+export DMB_DEPLOYMENT_ENVIRONMENT="${DMB_DEPLOYMENT_ENVIRONMENT:-local}"
+export DMB_AUTH_MODE="${DMB_AUTH_MODE:-local_operator}"
+
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$ROOT"
 
