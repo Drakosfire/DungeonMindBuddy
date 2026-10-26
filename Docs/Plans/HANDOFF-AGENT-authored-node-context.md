@@ -452,3 +452,19 @@ Prove composer selection serialization and exact pending reload, queued Dispatch
 selection over unrelated composer inputs, retry from saved V2 context over newer
 composer refs, and preservation of newer drafts. Queue/helper tests do not replace
 this mounted conversation boundary. No additional production owner is needed.
+
+### Rejected-request composer recovery fence
+
+Interim review found that empty references can be a deliberate newer edit. Content
+comparison cannot prove absence of an intervening edit. Version the local composer
+reference copy to V2 with `submitted_turn_id: UUID|null`. Only the ordinary send owner
+may mark the post-submit empty copy with its exact request ID, after the pending request
+has been durably retained. Any author reference edit clears the marker, even when it
+returns to an empty list; the first newer text edit also clears it. V1 local copies are
+historical readers with no marker. A rejected request may restore its references only
+while its exact marker still owns the current copy. Otherwise preserve the original
+pending request and newer composer; never infer ownership from an empty list. No new
+pending-request store, executor, API, reference count limit or provider authority.
+Keep exact storage compare/write/readback and protect reload/ABA cases in the existing
+leased helper and mounted conversation tests. Independent critique precedes this local
+recovery contract correction.

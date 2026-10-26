@@ -1,3 +1,4 @@
+import * as graphLensProjection from '../graphLens/useWorldGraphLensProjection';
 import {authoredGraphReferences,readComposerReferences,writeComposerReferences} from './authoredGraphReferences';
 import {getWorkPlan,continueWorkPlan} from '../api/conversationWorkPlanApi';
 vi.mock('../api/conversationWorkPlanApi',async original=>({...await original<typeof import('../api/conversationWorkPlanApi')>(),getWorkPlan:vi.fn(async()=>null),saveWorkPlan:vi.fn(),continueWorkPlan:vi.fn()}));
@@ -2489,6 +2490,43 @@ describe("one App-level World conversation host across Plan and Play", () => {
     expect(vi.mocked(postWorldBuildAgentTurn).mock.calls[0][0]).toMatchObject({retry_of:{turn_id:id,revision:4},build_authored_references:frozen,message:base.user_text});
     expect(screen.getByLabelText('Message DungeonBuddy')).toHaveValue('My newer note');
     expect(readComposerReferences(sessionStorage,WORLD,'source-one')).toEqual(newer);
+  });
+
+  it.each(['references','text'])('preserves a deliberate empty composer selection after newer %s edits and rejection',async kind=>{
+    const node={nodeId:'newer-box',label:'newer-box',kind:'object',role:'match',aliases:[],sourceDomains:[],anchoredToFocusSession:false,evidenceBadges:[],adjacency:[],suggestedExpansions:[],evidenceRefIds:[],sourceArtifactIds:[]};
+    const snapshot={worldId:'native',campaignId:'',revisionId:'selected-revision',headRevisionId:'selected-revision',isHead:true,focus:{kind:'none',sessionId:null},admissibility:'gm',scopeMode:'world'};
+    const spy=vi.spyOn(graphLensProjection,'useOptionalWorldGraphLensProjection').mockReturnValue({request:null,requestKey:'managed-world',projectionState:'ready',projectionError:null,nodeCount:1,lastProjectionLoadMs:0,lastProjectionLoadOutcome:'ready',managedBinding:{managedWorldId:WORLD,nativeWorldId:'native',bindingVersion:1},projection:{schema:'dmb_world_graph_projection_v1',snapshot,nodes:[node],relationships:[],attributes:[],evidence:[],sourceArtifacts:[],diagnostics:[],summary:{nodeCount:1,relationshipCount:0,attributeCount:0,evidenceCount:0,sourceArtifactCount:0,projectionTruncated:false}}} as ReturnType<typeof graphLensProjection.useOptionalWorldGraphLensProjection>);
+    try{
+      const original=authoredGraphReferences([authoredRef('original-box')]);writeComposerReferences(sessionStorage,WORLD,'source-one',null,original.references);
+      vi.mocked(getWorldAgentConversationHistory).mockResolvedValue(history());let reject!:(reason:unknown)=>void;
+      vi.mocked(postWorldBuildAgentTurn).mockReturnValue(new Promise((_,r)=>{reject=r}));
+      render(<Harness initial="build" buildBridge={retryBridge()}/>);fireEvent.click(await screen.findByRole('button',{name:'Open',exact:true}));
+      const input=await screen.findByLabelText('Message DungeonBuddy');fireEvent.change(input,{target:{value:'Discuss the original box.'}});fireEvent.click(screen.getByRole('button',{name:'Send message'}));
+      await waitFor(()=>expect(postWorldBuildAgentTurn).toHaveBeenCalledTimes(1));
+      const request=vi.mocked(postWorldBuildAgentTurn).mock.calls[0][0];expect(readComposerReferences(sessionStorage,WORLD,'source-one').submittedTurnId).toBe(request.turn_id);
+      if(kind==='references'){
+        const composer=within(screen.getByLabelText('Message Graph context'));
+        fireEvent.click(composer.getByRole('button',{name:'@ Reference'}));fireEvent.click(composer.getByRole('button',{name:'Use as context'}));
+        fireEvent.click(composer.getByRole('button',{name:'Remove reference newer-box'}));
+      }else{fireEvent.change(input,{target:{value:'A newer thought'}});fireEvent.change(input,{target:{value:''}});}
+      const cleared=readComposerReferences(sessionStorage,WORLD,'source-one');expect(cleared.references).toEqual([]);expect(cleared.submittedTurnId).toBeNull();
+      await act(async()=>reject(new LiveApiError('Source context changed',422,{code:'build_editor_context_changed'})));
+      expect(readComposerReferences(sessionStorage,WORLD,'source-one')).toEqual(cleared);expect(input).toHaveValue('');
+      expect(localStorage.getItem(`dmb:world-play-pending-turn:v1:${WORLD}`)).not.toBeNull();expect(postWorldBuildAgentTurn).toHaveBeenCalledTimes(1);
+    }finally{spy.mockRestore();}
+  });
+
+  it('restores a rejected request only while its exact submission marker owns the composer',async()=>{
+    const original=authoredGraphReferences([authoredRef('original-box')]);writeComposerReferences(sessionStorage,WORLD,'source-one',null,original.references);
+    vi.mocked(getWorldAgentConversationHistory).mockResolvedValue(history());let reject!:(reason:unknown)=>void;
+    vi.mocked(postWorldBuildAgentTurn).mockReturnValue(new Promise((_,r)=>{reject=r}));
+    render(<Harness initial="build" buildBridge={retryBridge()}/>);fireEvent.click(await screen.findByRole('button',{name:'Open',exact:true}));
+    const input=await screen.findByLabelText('Message DungeonBuddy');fireEvent.change(input,{target:{value:'Discuss the original box.'}});fireEvent.click(screen.getByRole('button',{name:'Send message'}));
+    await waitFor(()=>expect(postWorldBuildAgentTurn).toHaveBeenCalledTimes(1));
+    await act(async()=>reject(new LiveApiError('Source context changed',422,{code:'build_editor_context_changed'})));
+    await waitFor(()=>expect(input).toHaveValue('Discuss the original box.'));
+    expect(readComposerReferences(sessionStorage,WORLD,'source-one').references).toEqual(original.references);expect(readComposerReferences(sessionStorage,WORLD,'source-one').submittedTurnId).toBeNull();
+    expect(localStorage.getItem(`dmb:world-play-pending-turn:v1:${WORLD}`)).toBeNull();expect(screen.getByText('@original-box')).toBeVisible();
   });
 
 });

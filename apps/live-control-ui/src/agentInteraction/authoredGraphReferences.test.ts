@@ -23,7 +23,7 @@ import {readComposerReferences,writeComposerReferences,composerReferenceKey} fro
 it('retains exact composer selections by World and page across readback',()=>{
  sessionStorage.clear();const saved=writeComposerReferences(sessionStorage,'workshop','page',null,[ref]);
  expect(readComposerReferences(sessionStorage,'workshop','page')).toEqual(saved);
- expect(readComposerReferences(sessionStorage,'workshop','other')).toEqual({serialized:null,references:[]});
+ expect(readComposerReferences(sessionStorage,'workshop','other')).toEqual({serialized:null,references:[],submittedTurnId:null});
  expect(()=>writeComposerReferences(sessionStorage,'foreign','page',null,[ref])).toThrow('different World');
 });
 it('preserves newer composer selections and unreadable copies',()=>{
@@ -33,4 +33,19 @@ it('preserves newer composer selections and unreadable copies',()=>{
  expect(readComposerReferences(sessionStorage,'workshop','page')).toEqual(newer);
  const key=composerReferenceKey('workshop','page');sessionStorage.setItem(key,'unreadable bytes');
  expect(()=>readComposerReferences(sessionStorage,'workshop','page')).toThrow();expect(sessionStorage.getItem(key)).toBe('unreadable bytes');
+});
+
+it('clears submission ownership even when author edits return to an empty reference list',()=>{
+ sessionStorage.clear();const turn='11111111-1111-4111-8111-111111111111';
+ const submitted=writeComposerReferences(sessionStorage,'workshop','page',null,[],turn);
+ const selected=writeComposerReferences(sessionStorage,'workshop','page',submitted.serialized,[ref]);
+ const cleared=writeComposerReferences(sessionStorage,'workshop','page',selected.serialized,[]);
+ expect(readComposerReferences(sessionStorage,'workshop','page')).toEqual(cleared);
+ expect(cleared.submittedTurnId).toBeNull();expect(cleared.serialized).not.toBe(submitted.serialized);
+});
+
+it('reads an older retained copy without granting submission ownership',()=>{
+ sessionStorage.clear();const key=composerReferenceKey('workshop','page');
+ const bytes=JSON.stringify({schema:'dmb_authored_graph_composer_v1',world_id:'workshop',document_id:'page',references:[]});sessionStorage.setItem(key,bytes);
+ expect(readComposerReferences(sessionStorage,'workshop','page')).toEqual({serialized:bytes,references:[],submittedTurnId:null});
 });

@@ -2560,6 +2560,10 @@ export function WorldPlanAgentConversation({
     composerEditGenerationRef.current+=1;setComposerReferenceState({key:referenceScopeKey,draft,error:null});
   }
 
+  function retireComposerReferenceSubmission(){
+    if(!composerReferenceState.draft?.submittedTurnId)return;
+    try{changeComposerReferences(composerReferences);}catch(reason){setError(String(reason));}
+  }
   const uncertainPlanNoticeRef = useRef<{ turnId: string; message: string } | null>(null);
   const uncertainPlayNoticeRef = useRef<{ turnId: string; message: string } | null>(null);
   const [editError, setEditError] = useState<string | null>(null);
@@ -3954,7 +3958,7 @@ export function WorldPlanAgentConversation({
           try{
             const world=request.owner_scope.world_id,page=request.primary_work.object_id,key=`build:${page}`;
             const newer=composerDraftsRef.current[key],draft=readComposerReferences(sessionStorage,world,page);
-            if(newer&&newer!==request.message||draft.references.length&&JSON.stringify(draft.references)!==JSON.stringify(refs.references))throw new Error('A newer composer draft is present. The original request and references remain in saved-request recovery.');
+            if(newer&&newer!==request.message||draft.submittedTurnId!==request.turn_id)throw new Error('A newer composer draft is present. The original request and references remain in saved-request recovery.');
             const restored=writeComposerReferences(sessionStorage,world,page,draft.serialized,refs.references);
             if(referenceScopeKey===composerReferenceKey(world,page))setComposerReferenceState({key:referenceScopeKey,draft:restored,error:null});
           }catch(recoveryError){setError(String(recoveryError));sharedConversation?.setHistoryRefreshNonce(n=>n+1);return;}
@@ -4097,7 +4101,7 @@ export function WorldPlanAgentConversation({
       setPendingPlayTurn(stored);
       if(!retryOf&&!explicitRequest&&questionOverride===undefined&&composerEditGenerationRef.current===composerGenerationAtSubmit){
         if(referenceWorld&&referencePage&&referenceDraftAtSubmit&&referenceInput){
-          try{const draft=writeComposerReferences(sessionStorage,referenceWorld,referencePage,referenceDraftAtSubmit.serialized,[]);setComposerReferenceState({key:referenceScopeKey,draft,error:null});}
+          try{const draft=writeComposerReferences(sessionStorage,referenceWorld,referencePage,referenceDraftAtSubmit.serialized,[],request.turn_id);setComposerReferenceState({key:referenceScopeKey,draft,error:null});}
           catch(reason){setError(String(reason));}
         }
         setComposerMessage(current => current.trim() === message ? "" : current);
@@ -5819,7 +5823,7 @@ export function WorldPlanAgentConversation({
                       &&latestRef.current.buildDocumentId===plan.document_id&&surfaceVisibleRef.current&&historySnapshotRef.current?.conversation_id===plan.conversation_id
                       &&historySnapshotRef.current?.active_conversation_id===plan.conversation_id});
                 }}:undefined}
-              onAdd={text=>{composerEditGenerationRef.current+=1;setComposerMessage(current=>current.trim()?`${current}\n\n${text}`:text);}} />}
+              onAdd={text=>{retireComposerReferenceSubmission();composerEditGenerationRef.current+=1;setComposerMessage(current=>current.trim()?`${current}\n\n${text}`:text);}} />}
           </div>
         ) : failed || interrupted ? (
           <div className="world-plan-agent-conversation__turn-status">
@@ -6225,6 +6229,7 @@ export function WorldPlanAgentConversation({
                         disabled={composing || currentReview !== null}
                         onClick={() => {
                           proposalIntentRef.current = null;
+                          retireComposerReferenceSubmission();
                           setComposerMessage(action.instruction);
                           setComposerIntent("propose");
                           setEditError(null);
@@ -6460,6 +6465,7 @@ export function WorldPlanAgentConversation({
             setComposerIntentCorrection(null);
             setError(null);
             setEditError(null);
+            retireComposerReferenceSubmission();
           }}
           onKeyDown={handleComposerKeyDown}
           disabled={isReadOnly ? !currentReadOnlyContext : !scopeMatches}

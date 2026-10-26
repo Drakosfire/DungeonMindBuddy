@@ -33,21 +33,22 @@ export function authoredGraphReferences(references:AuthoredGraphReferenceV1[]):A
   return {schema:'dmb_authored_graph_references_v1',references:mergeAuthoredReferences(references)};
 }
 
-export type ComposerReferenceDraft={serialized:string|null;references:AuthoredGraphReferenceV1[]};
+export type ComposerReferenceDraft={serialized:string|null;references:AuthoredGraphReferenceV1[];submittedTurnId:string|null};
 export const composerReferenceKey=(world:string,page:string)=>`dmb:authored-graph-composer:v1:${JSON.stringify([world,page])}`;
 export function readComposerReferences(storage:Pick<Storage,'getItem'>,world:string,page:string):ComposerReferenceDraft {
  const serialized=storage.getItem(composerReferenceKey(world,page));
- if(serialized===null)return {serialized,references:[]};
+ if(serialized===null)return {serialized,references:[],submittedTurnId:null};
  const value:unknown=JSON.parse(serialized);
- if(!exact(value,['schema','world_id','document_id','references'])||value.schema!=='dmb_authored_graph_composer_v1'||value.world_id!==world||value.document_id!==page||!isAuthoredGraphReferenceList(value.references,world))throw new Error('The local Graph reference draft could not be read. Its bytes were retained.');
- return {serialized,references:value.references};
+ if(!exact(value,['schema','world_id','document_id','references',...(value&&typeof value==='object'&&'schema' in value&&value.schema==='dmb_authored_graph_composer_v2'?['submitted_turn_id']:[])])||!['dmb_authored_graph_composer_v1','dmb_authored_graph_composer_v2'].includes(String(value.schema))||value.world_id!==world||value.document_id!==page||!isAuthoredGraphReferenceList(value.references,world)||value.schema==='dmb_authored_graph_composer_v2'&&!(value.submitted_turn_id===null||typeof value.submitted_turn_id==='string'&&/^[a-f0-9]{8}-(?:[a-f0-9]{4}-){3}[a-f0-9]{12}$/i.test(value.submitted_turn_id)))throw new Error('The local Graph reference draft could not be read. Its bytes were retained.');
+ return {serialized,references:value.references,submittedTurnId:value.schema==='dmb_authored_graph_composer_v2'?value.submitted_turn_id as string|null:null};
 }
-export function writeComposerReferences(storage:Pick<Storage,'getItem'|'setItem'>,world:string,page:string,expected:string|null,references:AuthoredGraphReferenceV1[]):ComposerReferenceDraft {
+export function writeComposerReferences(storage:Pick<Storage,'getItem'|'setItem'>,world:string,page:string,expected:string|null,references:AuthoredGraphReferenceV1[],submittedTurnId:string|null=null):ComposerReferenceDraft {
+ if(submittedTurnId!==null&&!/^[a-f0-9]{8}-(?:[a-f0-9]{4}-){3}[a-f0-9]{12}$/i.test(submittedTurnId))throw new Error('Invalid composer submission identity.');
  if(!isAuthoredGraphReferenceList(references,world))throw new Error('Graph references belong to a different World or selection snapshot.');
  const key=composerReferenceKey(world,page);
  if(storage.getItem(key)!==expected)throw new Error('The Graph reference draft changed. Reopen the composer before changing it.');
- const serialized=JSON.stringify({schema:'dmb_authored_graph_composer_v1',world_id:world,document_id:page,references});
+ const serialized=JSON.stringify({schema:'dmb_authored_graph_composer_v2',world_id:world,document_id:page,references,submitted_turn_id:submittedTurnId});
  storage.setItem(key,serialized);
  if(storage.getItem(key)!==serialized)throw new Error('The exact Graph references could not be retained. Nothing was sent.');
- return {serialized,references};
+ return {serialized,references,submittedTurnId};
 }
