@@ -156,3 +156,26 @@ def test_failed_final_evidence_acknowledgment_cannot_produce_ready_proposal(requ
     assert reply['status']!='awaiting_approval'
     assert parent.row().proposal is None and parent.row().raw_response is None
     assert len(wire.calls)==1
+
+
+@pytest.mark.parametrize('destination', ['different_page', 'unresolved'])
+def test_parent_refuses_destination_conflict_without_ready_or_resend(request_case, monkeypatch, destination):
+    from apps.live_control_server.services.build_construction_stream import construction_sink
+    _, _, _, parent, tool, message, wire, _ = setup(request_case, monkeypatch)
+    wire.text = json.dumps(dict(destination=destination, replacement_markdown='',
+        summary='Writing belongs on another page or needs clarification.', assumptions=[]))
+    observed = []
+    token = construction_sink.set(observed.append)
+    try:
+        reply = json.loads(tool.dispatch(message)['resultJson'])
+    finally:
+        construction_sink.reset(token)
+    row = parent.row()
+    assert reply['status'] == 'failed' and row.state == 'failed'
+    assert row.failure_code == 'build_compose_target_mismatch'
+    assert row.proposal is None and row.raw_response == wire.text
+    assert not any(item['status'] == 'ready' for item in observed)
+    assert observed[-1]['status'] == 'incomplete'
+    assert len(parent.prepared) == len(wire.calls) == 1
+    assert json.loads(tool.dispatch(message)['resultJson']) == reply
+    assert len(parent.prepared) == len(wire.calls) == 1

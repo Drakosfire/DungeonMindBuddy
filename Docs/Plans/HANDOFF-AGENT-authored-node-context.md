@@ -676,3 +676,15 @@ controller and writer inputs, unchanged mandatory/optional vote ownership, refus
 missing/tampered bodies, cumulative independent review, protected API delivery and
 ordinary Try step again on the saved dispatch. The related-page tie, no-caret Discuss
 friction, failure wording and semantic destination remain separate work.
+
+
+### Shared-batch predecessor settled; destination consistency successor
+
+#1788 merged at130a082b8 and protected paired adoption delivered that revision.
+Ordinary retained Discuss retry completed with an exact source citation; the second
+step stayed deferred, no page insertion appeared, and the newer composer survived
+reload. This is bounded ordinary proof, not creative-chain acceptance or proof that
+every native retrieval path exercised a shared batch. Detailed evidence stays private.
+The shared-batch write lease is settled. The serial destination consistency safeguard
+is bounded by HANDOFF-BUILD-proposal-destination-consistency.md; it does not activate
+#1764 or silently expand into routing, primary-origin admission, or UI work.

@@ -92,6 +92,7 @@ class WriterWire(httpx.AsyncBaseTransport):
         if body["text"]["format"].get("name") == "build_document_proposal":
             text = json.dumps(
                 {
+                    "destination": "current_page",
                     "replacement_markdown": "| NPC | Job |\n| --- | --- |\n| Nia | Baker |",
                     "summary": "A creative NPC suggestion.",
                     "assumptions": ["Nia is invented."],
