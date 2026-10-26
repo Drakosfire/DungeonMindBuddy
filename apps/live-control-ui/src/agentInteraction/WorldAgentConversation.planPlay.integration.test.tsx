@@ -514,6 +514,8 @@ describe("one App-level World conversation host across Plan and Play", () => {
     render(<Harness initial="build"/>);fireEvent.click(await screen.findByRole('button',{name:'Open',exact:true}));
     const input=await screen.findByLabelText('Message DungeonBuddy');await waitFor(()=>expect(input).toBeEnabled());
     fireEvent.change(input,{target:{value:'Keep current work'}});openConversationOptions();
+    expect(screen.getByRole('button',{name:'Export conversation',exact:true})).toBeInTheDocument();
+    expect(screen.getByRole('button',{name:'Export with diagnostics'})).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button',{name:'Conversations…'}));await screen.findByText('Archived library question');
     expect(input).toHaveValue('Keep current work');expect(postWorldAgentNewConversation).not.toHaveBeenCalled();expect(postWorldBuildAgentTurn).not.toHaveBeenCalled();
     fireEvent.click(screen.getByRole('button',{name:'Close conversations'}));expect(input).toHaveValue('Keep current work');

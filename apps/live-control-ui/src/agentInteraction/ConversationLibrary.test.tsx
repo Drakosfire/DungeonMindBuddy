@@ -13,6 +13,8 @@ afterEach(()=>cleanup());
 it('reads and names archived work without touching the current composer',async()=>{
  render(<><textarea aria-label="Current composer" defaultValue="Unsent work"/><ConversationLibrary worldId="world-one" onClose={()=>{}}/></>);
  await screen.findByText('Current question');fireEvent.click(screen.getByRole('button',{name:/Archived piece/}));await screen.findByText('Archived question');
+ expect(screen.getByRole('button',{name:'Export conversation',exact:true})).toBeInTheDocument();
+ expect(screen.getByRole('button',{name:'Export with diagnostics'})).toBeInTheDocument();
  expect(screen.getByLabelText('Current composer')).toHaveValue('Unsent work');
  fireEvent.change(screen.getByLabelText('Conversation name'),{target:{value:'Shop relationships'}});
  vi.mocked(api.renameConversation).mockResolvedValue({...meta(old),title:'Shop relationships',name_revision:1});

@@ -1,3 +1,4 @@
+import {ConversationExport} from './ConversationExport';
 import {groupRetryLineage} from './conversationAttemptGroups';
 import {ConversationRetryAttempts} from './ConversationRetryAttempts';
 import {useEffect,useRef,useState} from 'react';
@@ -71,6 +72,7 @@ export function ConversationLibrary({worldId,onClose}:{worldId:string;onClose:()
   </nav><section className="conversation-library__reader" aria-label="Selected conversation">
    {ownDetail&&<><form onSubmit={event=>{event.preventDefault();void save();}}><label>Conversation name<input value={title} onChange={event=>setTitle(event.target.value)} maxLength={160} disabled={saving}/></label>
     <button type="submit" disabled={saving||!title.trim()}>{saving?'Saving…':'Save name'}</button>{error&&<button type="button" onClick={()=>void reloadName()}>Reload saved name</button>}</form>
+    <ConversationExport key={`${worldId}:${ownDetail.conversation_id}`} worldId={worldId} conversationId={ownDetail.conversation_id}/>
     <p>{ownDetail.status==='active'?'Current conversation':'Archived conversation'} · Read-only transcript</p>{notice&&<p role="status">{notice}</p>}</>}
    {error&&<p role="alert">{error}</p>}{loading&&<p role="status">Loading messages…</p>}
    {before!==null&&<button type="button" disabled={loading} onClick={()=>void olderTurns()}>Earlier messages</button>}
