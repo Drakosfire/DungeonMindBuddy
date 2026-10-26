@@ -532,6 +532,16 @@ def test_all_authored_writer_profiles_with_empty_and_populated_bindings(build_ca
                     else:
                         with conn.transaction(force_rollback=True):conn.execute('UPDATE agent.turn SET completion=%s,graph_context_execution=%s WHERE turn_id=%s',(Jsonb(changed),Jsonb(execution),turn.turn_id))
             assert conn.execute('SELECT completion FROM agent.turn WHERE turn_id=%s',(turn.turn_id,)).fetchone()[0]==original['completion']
+        from types import SimpleNamespace
+        from application_state.agent_conversation.build_draft_answer import validate_completion
+        for kind,field in [('relationship','relationship_review_policy'),('connected_page','connected_page_review_policy'),('plan','collaboration_output_policy'),('plan','related_page_context_policy')]:
+            value=next(v for v in variants if v and v['kind']==kind)
+            completion=t.BuildRelationshipReviewCompletionV3.model_validate({**original['completion'],'collaboration':value})
+            policy=turn.graph_context_execution.policy.model_dump(mode='python');policy.pop(field)
+            execution=turn.graph_context_execution.model_copy(update={'policy':SimpleNamespace(**policy)})
+            with pytest.raises(ValueError,match='capability'):
+                validate_completion(completion,turn.graph_context_receipt,execution,completion.source_citations[0].provider_attempt_id)
+
     bindings=json.loads(harness.adapter._prepared_build_writer_projection.source_bindings_json)
     assert bool(bindings)==selected
     from application_state.agent_conversation.source_writer_output import validate_writer_format

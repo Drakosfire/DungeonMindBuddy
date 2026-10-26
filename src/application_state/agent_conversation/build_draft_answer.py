@@ -213,21 +213,22 @@ def validate_completion(completion, receipt, execution, attempt_id):
     captured = context_record(execution)
     validate_related_claims(completion,execution)
     from .build_related_pages import POLICY as RELATED_POLICY
-    if completion.schema_ in {"dmb_build_relationship_review_completion_v1","dmb_build_relationship_review_completion_v2"}:
+    selected = completion.schema_ == "dmb_build_relationship_review_completion_v3"
+    if completion.schema_ in {"dmb_build_relationship_review_completion_v1","dmb_build_relationship_review_completion_v2"} or selected and isinstance(completion.collaboration, ProposedRelationship):
         if getattr(execution.policy, RELATIONSHIP_KEY, None) != RELATIONSHIP_POLICY:
             raise ValueError("Relationship review lacks its frozen capability")
         if isinstance(completion.collaboration, ProposedRelationship):
             from .build_primary_context import records
             validate_quote(completion.collaboration, [e.model_dump(mode="json") for e in records(execution, receipt.source_basis)])
-    if completion.schema_ in {"dmb_build_connected_page_review_completion_v1", "dmb_build_relationship_review_completion_v1", "dmb_build_relationship_review_completion_v2"}:
+    if completion.schema_ in {"dmb_build_connected_page_review_completion_v1", "dmb_build_relationship_review_completion_v1", "dmb_build_relationship_review_completion_v2"} or selected and isinstance(completion.collaboration, ProposedConnectedPage):
         if getattr(execution.policy,"connected_page_review_policy",None)!=CONNECTED_POLICY:
             raise ValueError("Connected page review lacks its frozen capability")
         if isinstance(completion.collaboration,ProposedConnectedPage):
             from .build_related_pages import records
             saved_excerpt(completion.collaboration,[e.model_dump(mode="json") for e in records(execution)])
-    if completion.schema_ in {"dmb_build_collaboration_completion_v1", "dmb_build_connected_page_review_completion_v1", "dmb_build_relationship_review_completion_v1", "dmb_build_relationship_review_completion_v2"} and getattr(execution.policy,"collaboration_output_policy",None)!=COLLABORATION_POLICY:
+    if (selected or completion.schema_ in {"dmb_build_collaboration_completion_v1", "dmb_build_connected_page_review_completion_v1", "dmb_build_relationship_review_completion_v1", "dmb_build_relationship_review_completion_v2"}) and getattr(execution.policy,"collaboration_output_policy",None)!=COLLABORATION_POLICY:
         raise ValueError("Collaboration completion lacks its frozen output capability")
-    if completion.schema_ in {"dmb_build_related_page_completion_v1", "dmb_build_collaboration_completion_v1", "dmb_build_connected_page_review_completion_v1", "dmb_build_relationship_review_completion_v1", "dmb_build_relationship_review_completion_v2"} and getattr(execution.policy,"related_page_context_policy",None)!=RELATED_POLICY:
+    if (selected or completion.schema_ in {"dmb_build_related_page_completion_v1", "dmb_build_collaboration_completion_v1", "dmb_build_connected_page_review_completion_v1", "dmb_build_relationship_review_completion_v1", "dmb_build_relationship_review_completion_v2"}) and getattr(execution.policy,"related_page_context_policy",None)!=RELATED_POLICY:
         raise ValueError("Related completion lacks its frozen authoring capability")
     included = [e for e in execution.events if isinstance(e, t.BuildDraftProviderInclusionV1)
         and e.provider_attempt_id == attempt_id and e.draft_event_id == captured.event_id]
