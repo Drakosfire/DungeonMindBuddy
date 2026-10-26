@@ -3821,7 +3821,7 @@ export function WorldPlanAgentConversation({
     }
   }
 
-  async function dispatchSavedPlayTurn(stored: StoredPendingPlayTurn) {
+  async function dispatchSavedPlayTurn(stored: StoredPendingPlayTurn, restoreInitialComposerReferences = false) {
     const request = stored.request;
     if (verifiedWorldId !== request.owner_scope.world_id || requestRef.current || sending || buildCompose.busy) return;
     const token = Symbol("world-readonly-turn");
@@ -3962,6 +3962,7 @@ export function WorldPlanAgentConversation({
         const refs=request.primary_work.kind==='build'?(request as WorldBuildAgentTurnRequestV1).build_authored_references:undefined;
         if(refs&&!(request as WorldBuildAgentTurnRequestV1).reviewed_step){
           try{
+            if(!restoreInitialComposerReferences)throw new Error('Recovery did not replace your composer. The saved request and its references are retained.');
             const world=request.owner_scope.world_id,page=request.primary_work.object_id,key=`build:${page}`;
             const newer=composerDraftsRef.current[key],draft=readComposerReferences(sessionStorage,world,page);
             if(failedReferenceRetirements.current.has(request.turn_id)||newer&&newer!==request.message||draft.submittedTurnId!==request.turn_id)throw new Error('A newer composer draft is present. The original request and references remain in saved-request recovery.');
@@ -4112,7 +4113,7 @@ export function WorldPlanAgentConversation({
         }
         setComposerMessage(current => current.trim() === message ? "" : current);
       }
-      await dispatchSavedPlayTurn(stored);
+      await dispatchSavedPlayTurn(stored,!retryOf&&!explicitRequest&&questionOverride===undefined);
       return;
     }
 

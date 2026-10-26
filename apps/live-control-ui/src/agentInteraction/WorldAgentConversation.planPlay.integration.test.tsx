@@ -2529,12 +2529,12 @@ describe("one App-level World conversation host across Plan and Play", () => {
     expect(localStorage.getItem(`dmb:world-play-pending-turn:v1:${WORLD}`)).toBeNull();expect(screen.getByText('@original-box')).toBeVisible();
   });
 
-  it('refuses automatic restoration after an observed edit cannot retire its marker',async()=>{
+  it.each(['mounted','remounted'])('refuses automatic restoration after failed marker retirement: %s',async mode=>{
     const original=authoredGraphReferences([authoredRef('original-box')]);writeComposerReferences(sessionStorage,WORLD,'source-one',null,original.references);
     vi.mocked(getWorldAgentConversationHistory).mockResolvedValue(history());let reject!:(reason:unknown)=>void;
-    vi.mocked(postWorldBuildAgentTurn).mockReturnValue(new Promise((_,r)=>{reject=r}));
-    render(<Harness initial="build" buildBridge={retryBridge()}/>);fireEvent.click(await screen.findByRole('button',{name:'Open',exact:true}));
-    const input=await screen.findByLabelText('Message DungeonBuddy');fireEvent.change(input,{target:{value:'Discuss the original box.'}});fireEvent.click(screen.getByRole('button',{name:'Send message'}));
+    vi.mocked(postWorldBuildAgentTurn).mockImplementation(()=>new Promise((_,r)=>{reject=r}));
+    const mounted=render(<Harness initial="build" buildBridge={retryBridge()}/>);fireEvent.click(await screen.findByRole('button',{name:'Open',exact:true}));
+    let input=await screen.findByLabelText('Message DungeonBuddy');fireEvent.change(input,{target:{value:'Discuss the original box.'}});fireEvent.click(screen.getByRole('button',{name:'Send message'}));
     await waitFor(()=>expect(postWorldBuildAgentTurn).toHaveBeenCalledTimes(1));
     const request=vi.mocked(postWorldBuildAgentTurn).mock.calls[0][0],before=readComposerReferences(sessionStorage,WORLD,'source-one');
     expect(before.submittedTurnId).toBe(request.turn_id);
@@ -2543,11 +2543,17 @@ describe("one App-level World conversation host across Plan and Play", () => {
     try{
       fireEvent.change(input,{target:{value:'A newer thought'}});fireEvent.change(input,{target:{value:''}});
       expect(readComposerReferences(sessionStorage,WORLD,'source-one')).toEqual(before);
+      if(mode==='remounted'){
+        await act(async()=>reject(new LiveApiError('Session changed',401,{code:'local_graph_session_changed'})));
+        mounted.unmount();render(<Harness initial="build" buildBridge={retryBridge()}/>);fireEvent.click(await screen.findByRole('button',{name:'Open',exact:true}));
+        input=await screen.findByLabelText('Message DungeonBuddy');openConversationOptions();fireEvent.click(await screen.findByRole('button',{name:'Retry exact saved turn'}));
+        await waitFor(()=>expect(postWorldBuildAgentTurn).toHaveBeenCalledTimes(2));
+      }
       await act(async()=>reject(new LiveApiError('Source context changed',422,{code:'build_editor_context_changed'})));
       expect(input).toHaveValue('');expect(readComposerReferences(sessionStorage,WORLD,'source-one')).toEqual(before);
       expect(localStorage.getItem(`dmb:world-play-pending-turn:v1:${WORLD}`)).not.toBeNull();
       expect(within(screen.getByLabelText('Message Graph context')).queryByText('@original-box')).toBeNull();
-      expect(postWorldBuildAgentTurn).toHaveBeenCalledTimes(1);
+      expect(postWorldBuildAgentTurn).toHaveBeenCalledTimes(mode==='mounted'?1:2);
     }finally{spy.mockRestore();}
   });
 

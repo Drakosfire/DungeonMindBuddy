@@ -468,3 +468,13 @@ pending-request store, executor, API, reference count limit or provider authorit
 Keep exact storage compare/write/readback and protect reload/ABA cases in the existing
 leased helper and mounted conversation tests. Independent critique precedes this local
 recovery contract correction.
+
+
+The marker failure review adds a second necessary fence: automatic reference restoration
+belongs only to the original ordinary submission call, while its component can observe
+all edits. Recovered/exact-replayed requests never automatically write their references
+into the current composer; retain both copies for explicit recovery instead. A failed
+retirement is also remembered for that live request. Prove denied reference-copy writes,
+text ABA, remount, exact replay and known rejection without replacing the empty newer
+composer. This read-only recovery fence grants no resend or second executor authority.
+The separate explicit no-lockout recovery UX remains required before adoption.
