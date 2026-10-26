@@ -10,7 +10,7 @@ from application_state.agent_conversation.plan_authoring import PlanAuthoringCap
 def capture_payload():
     editor='{"type":"doc","content":[{"type":"paragraph","content":[{"type":"text","text":"A live draft."}]}]}'
     selection='{"type":"text","anchor":14,"head":14}'
-    return dict(schema='dmb_plan_authoring_capture_v1', idempotency_key=str(uuid4()),
+    return dict(schema='dmb_plan_authoring_capture_v1', idempotency_key=str(uuid4()),conversation_id=str(uuid4()),expected_pointer_revision=1,
         world_id='world:a',document_id='page:a',base_revision=3,base_content_sha256='a'*64,
         draft_markdown='A live draft.',draft_sha256=text_digest('A live draft.'),
         editor_json=editor,editor_sha256=text_digest(editor),selection_json=selection,
@@ -25,7 +25,7 @@ def proposal_payload():
         origin=dict(schema='dmb_plan_jev_proposal_origin_v1',action_id=str(uuid4()),idempotency_key=str(capture.idempotency_key),
             action_request_fingerprint='b'*64,action_fence=1,
             basis=dict(world_id='world:a',document_id='page:a',object_revision=3,work_revision_id=str(uuid4()),revision_n=3,content_sha256='a'*64),
-            conversation_id=str(uuid4()),turn_id=str(uuid4()),product_attempt=1,expected_pointer_revision=1,expected_turn_revision=8,
+            conversation_id=str(capture.conversation_id),turn_id=str(uuid4()),product_attempt=1,expected_pointer_revision=capture.expected_pointer_revision,expected_turn_revision=8,
             context_receipt_sha256='c'*64,execution_policy_sha256='d'*64,capture_sha256=capture.sha256,
             controller_attempt_id=str(uuid4()),selection_event_id=str(uuid4()),writer_attempt_id=str(uuid4()),
             writer_envelope_sha256='e'*64,raw_reply_sha256='f'*64,evidence_event_ids=[str(uuid4())],replacement_markdown_sha256=text_digest(fragment)))
@@ -51,6 +51,8 @@ def test_capture_rejects_independent_snapshot_or_target_changes(field,value):
     lambda p:p['origin']['basis'].update(object_revision=4),
     lambda p:p['origin'].update(idempotency_key=str(uuid4())),
     lambda p:p['origin'].update(capture_sha256='0'*64),
+    lambda p:p['origin'].update(conversation_id=str(uuid4())),
+    lambda p:p['origin'].update(expected_pointer_revision=2),
     lambda p:p['origin'].update(evidence_event_ids=p['origin']['evidence_event_ids']*2),
 ])
 def test_proposal_refuses_foreign_stale_or_substituted_origin(mutate):
