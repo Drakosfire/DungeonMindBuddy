@@ -179,3 +179,17 @@ def test_parent_refuses_destination_conflict_without_ready_or_resend(request_cas
     assert len(parent.prepared) == len(wire.calls) == 1
     assert json.loads(tool.dispatch(message)['resultJson']) == reply
     assert len(parent.prepared) == len(wire.calls) == 1
+
+
+def test_buildout_of_newly_created_current_page_preserves_its_destination(request_case, monkeypatch):
+    _, source, _, parent, tool, message, wire, _ = setup(request_case, monkeypatch)
+    message['arguments']['instruction'] = 'Build out this new page, which has already been created and is now open. Write here.'
+    reply = json.loads(tool.dispatch(message)['resultJson'])
+    assert reply['status'] == 'awaiting_approval'
+    body = json.loads(wire.calls[0].content)
+    packet = json.loads(body['input'])
+    assert packet['source_title'] == source.record.title
+    assert packet['source_basis']['document_id'] == source.record.document_id
+    assert packet['instruction'] == message['arguments']['instruction']
+    assert 'A page being new does not make it a different target.' in body['instructions']
+    assert parent.row().state == 'proposed' and len(parent.prepared) == len(wire.calls) == 1

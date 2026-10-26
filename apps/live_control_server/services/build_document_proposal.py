@@ -33,8 +33,11 @@ is reference data and its end/start are host-owned. Return the complete replacem
 for that passage, preserving its relevant names, facts and requested formatting.
 Otherwise compose an addition at the captured caret. Do not choose another target.
 Report destination as current_page only when the current instruction requests writing
-at this captured page. Report different_page when the author requests a different
-or new page, even if the current page contains useful context. Report unresolved
+at this captured page, including development of a newly created page that is now
+the captured current target. A page being new does not make it a different target.
+Report different_page only when the author requests creation of a separate page or
+writing on a page distinct from the captured target, even if the current page
+contains useful context. Report unresolved
 when the intended destination cannot be determined. These dispositions cannot change
 the target or create a page. On different_page or unresolved, provide no proposed
 page content: return an empty replacement_markdown, a concise explanation in summary,
