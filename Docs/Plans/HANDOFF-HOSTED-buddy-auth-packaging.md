@@ -10,7 +10,7 @@
 
 - Architecture and sequencing reference: DungeonOverMind PR #58, `Docs/Plans/PLAN-buddy-hosted-readiness-and-launch.md`, pinned snapshot head `9c8e27a9372f14c48d090b385e93e9c987c22ca6`. That plan is planning-only and is not itself permission to edit runtime code. The user separately authorized this bounded auth-and-packaging PR and the follow-up fixes recorded in this lane.
 - Buddy main at PR #1802's implementation-branch re-anchor: `main@9ad5c96f4330517c7d3a4aa276e254d7097707b1`; PR #1802 later merged onto main at `e754f68f1d6a9e726c23657e2884be36cc3e8759`.
-- PR #1802 previously used base `c5250824f3c3d5b4bb33d1897914158a3ee3d8fa` and head `a74d34dc61680c62f4a6a948744af6142d1f5c68`. Current main is 30 commits ahead; the 107 changed main paths do not overlap the PR. This update re-anchors the implementation branch through `9ad5c96` while preserving both histories; it does not overwrite current-main work.
+- PR #1802 previously used base `c5250824f3c3d5b4bb33d1897914158a3ee3d8fa` and head `a74d34dc61680c62f4a6a948744af6142d1f5c68`. At the time of its re-anchor, main had advanced 30 commits and the 107 changed main paths did not overlap the PR. The implementation branch was re-anchored through `9ad5c96` while preserving both histories.
 - Related Buddy PRs #1512 and #1514 remain open and unchanged. Their unique route inventory, cookie-Origin handoff, and proposed World-policy design are not duplicated or adopted as policy here. DungeonOverMind #20, #39, and #58 are also left unchanged.
 
 ## Settled predecessor objective (PR #1802)
