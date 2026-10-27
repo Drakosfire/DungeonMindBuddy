@@ -1,3 +1,5 @@
+import {sessionSummaryMarkdown} from '../../shared/sessionEvidenceCitation';
+import type {SessionSummarySegment} from '../../api/types';
 import {capturePlanPlacementCatalog} from './planPlacementCatalog';
 import { Editor, type JSONContent } from "@tiptap/core";
 import { TextSelection } from "@tiptap/pm/state";
@@ -1319,4 +1321,53 @@ it('refuses a substituted structural offset or a newer draft while retaining all
   editor.commands.insertContent('Newer typing.');const newer=editor.getJSON();
   await expect(restorePlanAuthoringTarget(boundary,current,()=>current,authoringIdentity)).rejects.toThrow(/page changed/);
   expect(editor.getJSON()).toEqual(newer);
+});
+
+function citedSessionFragment(){
+ const supports:SessionSummarySegment['supports']=[0,1].map(ordinal=>({
+  kind:'authored_excerpt',text:'Technical rehearsal source.',source_kind:'session',source_name:'Saved rehearsal',
+  object_id:'11111111-1111-4111-8111-111111111111',revision:'2',body_sha256:'a'.repeat(64),owner_sha256:'b'.repeat(64),
+  entry_identity:(ordinal?'c':'d').repeat(64),partition_version:'markdown_source_blocks_v1',source_handle:'q'+'e'.repeat(64),
+  byte_start:0,byte_end:27,block_sha256:'a'.repeat(64),block_handle:'b'+'f'.repeat(64),source_ordinal:ordinal,
+  entry_kind:ordinal?'closing_reflections':'scene_note',element_id:ordinal?null:'scene:one',checkpoint_content_sha256:'0'.repeat(64),
+ }));
+ const summary:SessionSummarySegment={kind:'session_summary',text:'This technical rehearsal left the next route unresolved.',supports};
+ const projection=sessionSummaryMarkdown(summary,'world-1',1);
+ return {projection,fragment:'### Cited briefing\n\n'+projection.text+'\n\nAuthor cue: ask before initiative.'};
+}
+it('prepares actual host session citations through the Plan Save bridge, applies exact proof and reloads',async()=>{
+ const markdown='# Plan\n\n## Preparation objective\n\nKeep choices open.\n\n<!-- dmb-playable-element:v2 kind=beat id=beat:opening beat_kind=spine -->\n## Opening Beat\n\nRetain this body.';
+ const {editor,state}=mountedState(markdown);const current=worldState(state);
+ const original=await captureWorldPlanAuthoringTarget(current,()=>current,authoringIdentity);
+ if(original.capture.schema!=='dmb_plan_authoring_capture_v1')throw Error('Expected original capture');
+ const catalog=await capturePlanPlacementCatalog(editor,original.capture),entry=catalog.entries.find(e=>e.selector==='after:1')!;
+ const boundary={...original.capture,schema:'dmb_plan_authoring_boundary_capture_v1' as const,target_kind:'insert_at_boundary' as const,
+  root_boundary:entry.root_boundary!,from:entry.position!,to:entry.position!};
+ const restored=await restorePlanAuthoringTarget(boundary,current,()=>current,authoringIdentity),before=editor.getJSON();
+ const {projection,fragment}=citedSessionFragment();
+ const prepared=await preparePlanAuthoringApplication(restored.target,fragment,'cited-summary',()=>current,expectedAgentBinding(),matchingAgentBinding);
+ expect(editor.getJSON()).toEqual(before);
+ await applyWorldPlanEditProposal({captured:restored.target,admitted:prepared.admitted,getCurrent:()=>current,
+  expectedAgentBinding:expectedAgentBinding(),getAgentBinding:matchingAgentBinding});
+ expect(JSON.stringify(editor.getJSON())).toBe(prepared.afterEditorJson);
+ const after=editor.getJSON().content!,old=before.content!,inserted=after.length-old.length;
+ expect(after.slice(0,3)).toEqual(old.slice(0,3));expect(after.slice(3+inserted)).toEqual(old.slice(3));
+ expect(prepared.afterMarkdown).toContain('id=beat:opening');expect(prepared.afterMarkdown).toContain('Author cue: ask before initiative.');
+ const reloaded=mountedState(prepared.afterMarkdown).editor;
+ expect(tiptapJsonToSemanticMarkdown(reloaded.getJSON())).toBe(prepared.afterMarkdown);
+ const links=Array.from(reloaded.view.dom.querySelectorAll('a'));
+ expect(links.map(a=>a.getAttribute('href'))).toEqual(projection.targets);
+ expect(links.map(a=>a.getAttribute('title'))).toEqual(['Saved rehearsal · Scene notes','Saved rehearsal · Closing reflections']);
+});
+it.each(['file:///private/story.md','../story.md','./story.md','/private/story.md','//example.com/story','https://user:secret@example.com/story',
+ '/play?world=world-1&run=bad&evidence_revision=2',
+ '/play?world=world-1&run=11111111-1111-4111-8111-111111111111&evidence_revision=2&unknown=1',
+ '/play?world=world-1&run=11111111-1111-4111-8111-111111111111&evidence_revision=2#arbitrary',
+])('refuses unsupported citation destinations at the real preparation boundary without mutation: %s',async href=>{
+ const {editor,state}=mountedState(),current=worldState(state);
+ const {target}=await captureWorldPlanAuthoringTarget(current,()=>current,authoringIdentity);
+ const before=editor.getJSON(),selection=editor.state.selection.toJSON();
+ await expect(preparePlanAuthoringApplication(target,`Read [source](${href} "Source").`,'unsafe-source',()=>current,
+  expectedAgentBinding(),matchingAgentBinding)).rejects.toThrow();
+ expect(editor.getJSON()).toEqual(before);expect(editor.state.selection.toJSON()).toEqual(selection);
 });

@@ -945,7 +945,6 @@ function validateFragment(
         ? /(?:graphNodeReference|\bnode:[a-z0-9_-]+)/i.test(graphLinkFreeText)
           || graphLinks.length !== expectedGraphReferenceCount
         : /(?:dmb-node:|graphNodeReference|\bnode:[a-z0-9_-]+)/i.test(markdown)))
-    || /\[[^\]]+\]\((?:file:|\.{1,2}\/|\/)/i.test(markdown)
     || /(?:^|\n)\s*>\s*\[!(?!READ-ALOUD\]|GM-NOTE\]|DECISION-CONSEQUENCE\])[^\]]+\]/i.test(markdown)
   ) {
     throw new PlanEditGuardError("Agent proposed unsupported markup, a path, or a graph identity.");
