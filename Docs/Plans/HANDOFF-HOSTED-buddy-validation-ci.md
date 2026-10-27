@@ -43,10 +43,11 @@ Using supported GitHub read tools, `main` resolved to `e754f68f1d6a9e726c23657e2
 - `.github/workflows/hosted-validation.yml`
 - `Docs/Plans/HANDOFF-HOSTED-buddy-validation-ci.md`
 - `Docs/Plans/HANDOFF-HOSTED-buddy-auth-packaging.md` — predecessor settlement only
+- `.dockerignore` — expose only the synthetic statblock fixture required to typecheck the UI; keep it out of the application image
 - `Dockerfile.production` — only if a verified image-build failure requires a minimal build-time correction
 - `pyproject.toml` and `uv.lock` — only if exact Python 3.13 CI proves a locked dependency incompatibility; keep direct source pins intact
 
-No runtime/auth routes, World policy, application behavior, database schema, credentials, provider configuration, deployment, or retained data are changed. If a concrete Python dependency or Dockerfile build issue blocks the requested checks, diagnose from the exact job log and make only the path-limited compatibility repair listed above; do not hide failures with broad skips or expand product behavior.
+No runtime/auth routes, World policy, database schema, credentials, provider configuration, deployment, or retained data are changed. The only test fixture admitted to the Docker build context is synthetic and is excluded from the production application stage. If a concrete Python dependency or Dockerfile build issue blocks the requested checks, diagnose from the exact job log and make only the path-limited compatibility repair listed above; do not hide failures with broad skips or expand product behavior.
 
 ## Current verification limits
 
