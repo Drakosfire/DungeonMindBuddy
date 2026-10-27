@@ -264,5 +264,11 @@ def test_ordinary_empty_discovery_recovers_typed_subjects_and_delivers_current_c
     assert [call['operation'] for call in graph_calls]==['object','object']
     assert len(source_calls)==1
     assert response.plan_context.completion.source_citations[0].source_name=='Synthetic park journal'
-    assert all(row['kind'].startswith('Previously explored') for row in
-        json.loads(choices.calls[1].content)['state']['candidates'] if row['kind']!='public_rules_lookup')
+    candidates=json.loads(choices.calls[1].content)['state']['candidates']
+    assert {row['label'] for row in candidates if row['kind'].startswith('Previously explored')}=={'Footbridge','Park pond'}
+    # The current owner also offers lexical corpus navigation independently of Graph history.
+    assert {row['kind'] for row in candidates}=={
+        'Previously explored location; navigation only, not current evidence',
+        'public_rules_lookup',
+        'Corpus lexical navigation, independent of Graph connections; matches are not evidence',
+    }
