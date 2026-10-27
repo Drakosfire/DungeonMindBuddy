@@ -235,15 +235,8 @@ export function dedupeAliasesCaseInsensitive(aliases: string[]): string[] {
 
 export function buildProposalAliases(
   formState: GraphObjectAuthoringFormState,
-  selection: GraphAuthoringSelection | null,
 ): string[] {
-  const parsed = parseAliasesText(formState.aliasesText);
-  const label = formState.label.trim();
-  const selectedText = selection?.selectedText.trim();
-  if (selectedText && label && label.toLowerCase() !== selectedText.toLowerCase()) {
-    parsed.push(selectedText);
-  }
-  return dedupeAliasesCaseInsensitive(parsed);
+  return dedupeAliasesCaseInsensitive(parseAliasesText(formState.aliasesText));
 }
 
 let localProposalCounter = 0;
@@ -271,7 +264,7 @@ export function buildGraphObjectAuthoringProposal(
   formState: GraphObjectAuthoringFormState,
   localProposalId: string = createLocalGraphObjectProposalId(),
 ): GraphObjectAuthoringObjectProposal {
-  const aliases = buildProposalAliases(formState, selection);
+  const aliases = buildProposalAliases(formState);
   const label = formState.label.trim() || selection.selectedText;
 
   return {

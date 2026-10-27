@@ -90,7 +90,7 @@ function formDraftTokens(
   selection: GraphAuthoringSelection | null,
 ): { label: string; tokens: Set<string> } {
   const label = formState.label.trim();
-  const aliases = buildProposalAliases(formState, selection);
+  const aliases = buildProposalAliases(formState);
   const tokens = new Set<string>();
   addToken(tokens, label);
   for (const alias of aliases) {
