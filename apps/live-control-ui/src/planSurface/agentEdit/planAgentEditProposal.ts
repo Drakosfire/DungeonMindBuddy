@@ -90,7 +90,9 @@ export interface WorldPlanEditEditorState {
 
 export interface CapturedWorldPlanEditTarget {
   editor: Editor;
-  request: Omit<WorldPlanDocumentEditProposalRequest, "idempotency_key" | "instruction" | "conversation_history">;
+  request: Omit<WorldPlanDocumentEditProposalRequest, "idempotency_key" | "instruction" | "conversation_history" | "target_kind"> & {
+    target_kind: WorldPlanDocumentEditProposalRequest['target_kind'] | 'insert_at_boundary';
+  };
   from: number;
   to: number;
   editorJson: string;

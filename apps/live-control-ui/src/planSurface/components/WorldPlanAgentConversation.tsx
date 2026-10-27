@@ -5419,6 +5419,7 @@ export function WorldPlanAgentConversation({
       const { selection_anchor: capturedAnchor, ...capturedRequest } = captured.request;
       const requestWithoutKey = {
         ...capturedRequest,
+        target_kind: captured.request.target_kind,
         ...(capturedAnchor && proposalAnchor ? { selection_anchor: capturedAnchor } : {}),
         instruction,
         conversation_history: conversationHistory,

@@ -1595,7 +1595,7 @@ export interface WorldPlanDocumentEditProposalRequest {
   base_content_sha256: string;
   draft_markdown: string;
   draft_sha256: string;
-  target_kind: "replace_selection" | "insert_at_caret" | "replace_playable_body" | "insert_at_boundary";
+  target_kind: "replace_selection" | "insert_at_caret" | "replace_playable_body";
   selected_text: string;
   selection_anchor?: WorldPlanSelectionAnchorV1;
   playable_target?: { kind: "scene" | "beat" | "choice" | "option"; id: string };
@@ -1626,7 +1626,7 @@ export interface WorldPlanDocumentEditProposalResponse {
   base_revision: number;
   base_content_sha256: string;
   draft_sha256: string;
-  target_kind: "replace_selection" | "insert_at_caret" | "replace_playable_body" | "insert_at_boundary";
+  target_kind: "replace_selection" | "insert_at_caret" | "replace_playable_body";
   selected_text_sha256: string | null;
   playable_target?: { kind: "scene" | "beat" | "choice" | "option"; id: string };
   marker_grammar_version?: "v1" | "v2";
