@@ -187,6 +187,38 @@ class PlanAuthoringCaptureV1(Frozen):
         return digest(self.model_dump(mode="json", by_alias=True))
 
 
+class PlanAuthoringBoundaryCaptureV1(PlanAuthoringCaptureV1):
+    """A structural root insertion, retaining the original text selection witness.
+
+    Positions are compiled and revalidated by the owning browser editor. APP
+    admits this value only through its frozen catalog and actual decision proof.
+    It deliberately does not implement ProseMirror positions in Python.
+    """
+
+    schema_: Literal["dmb_plan_authoring_boundary_capture_v1"] = Field(
+        default="dmb_plan_authoring_boundary_capture_v1", alias="schema"
+    )
+    target_kind: Literal["insert_at_boundary"]
+    root_boundary: int = Field(strict=True, ge=0)
+
+    @model_validator(mode="after")
+    def exact_snapshot(self):
+        selection = strict_json(self.selection_json)
+        if not isinstance(selection, dict):
+            raise ValueError("Boundary insertion requires its original selection")
+        # Reuse the complete V1 byte/owner/witness validation without claiming
+        # that the structural insertion offset is an inline text caret.
+        payload = self.model_dump(mode="json", by_alias=True, exclude={"root_boundary"})
+        payload.update(schema="dmb_plan_authoring_capture_v1", target_kind="insert_at_caret")
+        payload["from"] = selection.get("anchor")
+        payload["to"] = selection.get("head")
+        PlanAuthoringCaptureV1.model_validate(payload)
+        editor = strict_json(self.editor_json)
+        if self.from_ != self.to or self.root_boundary > len(editor.get("content", [])):
+            raise ValueError("Boundary insertion requires one offered root boundary")
+        return self
+
+
 class PlanAuthoringBasisV1(Frozen):
     world_id: str = Field(min_length=1)
     document_id: str = Field(min_length=1)

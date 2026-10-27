@@ -1,6 +1,6 @@
 # PLAN — resolve requested insertion placement before writing
 
-Status: DESIGN REVIEW; PRIME-selected bounded successor at base ce35ef2e7eb8c50020f789958ef682aec97adc7a, branch codex/plan-insertion-placement-contract, existing buddy-context-loop checkout. This PR defines the owning contract only. It grants no runtime implementation lease until independent review resolves its gates. The operator’s ongoing authoring/bug-fix authority selects the work; no new per-PR permission gate is introduced. Serial topology: settle this contract, then one bounded implementation PR before any unrelated authoring capability.
+Status: DESIGN APPROVED AND MERGED through PR1832 at 30a380438c1edd01de5ed9a969e5dbd7431ba189. Independent design review approved exact head7a7d8879b56e0e90367e0d86568cfd0cb7362100; both hosted checks passed. The serial implementation lease is HANDOFF-PLAN-requested-placement-runtime.md. Historical design activation: PRIME-selected bounded successor at base ce35ef2e7eb8c50020f789958ef682aec97adc7a, branch codex/plan-insertion-placement-contract, existing buddy-context-loop checkout. This PR defines the owning contract only. It grants no runtime implementation lease until independent review resolves its gates. The operator’s ongoing authoring/bug-fix authority selects the work; no new per-PR permission gate is introduced. Serial topology: settle this contract, then one bounded implementation PR before any unrelated authoring capability.
 
 ## Current witness and misunderstanding
 
