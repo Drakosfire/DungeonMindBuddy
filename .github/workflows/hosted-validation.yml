@@ -60,6 +60,7 @@ jobs:
   production-image-build:
     name: Production Docker build (no push)
     needs: auth-app-tests
+    if: ${{ always() && !cancelled() }}
     runs-on: ubuntu-24.04
     timeout-minutes: 45
     permissions:
