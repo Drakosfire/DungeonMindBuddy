@@ -44,13 +44,19 @@ Using supported GitHub read tools, `main` resolved to `e754f68f1d6a9e726c23657e2
 - `Docs/Plans/HANDOFF-HOSTED-buddy-validation-ci.md`
 - `Docs/Plans/HANDOFF-HOSTED-buddy-auth-packaging.md` — predecessor settlement only
 - `.dockerignore` — expose only the synthetic statblock fixture required to typecheck the UI; keep it out of the application image
-- `Dockerfile.production` — only if a verified image-build failure requires a minimal build-time correction
+- `Dockerfile.production` — minimal build-time corrections required by verified CI failures
+- `tests/test_hosted_auth.py` — isolate the mocked logout integration test with a synthetic `.test` origin
 - `pyproject.toml` and `uv.lock` — only if exact Python 3.13 CI proves a locked dependency incompatibility; keep direct source pins intact
 
 No runtime/auth routes, World policy, database schema, credentials, provider configuration, deployment, or retained data are changed. The only test fixture admitted to the Docker build context is synthetic and is excluded from the production application stage. If a concrete Python dependency or Dockerfile build issue blocks the requested checks, diagnose from the exact job log and make only the path-limited compatibility repair listed above; do not hide failures with broad skips or expand product behavior.
 
-## Current verification limits
+## Verification and remaining limits
 
-The task directory is not a Git checkout, and its available source mirror is partial. A clean clone attempt failed because the sandbox could not resolve `github.com`; no escalation or alternate shell network path was attempted. No full-tree local tests or local image build are claimed. The exact-head GitHub Actions run must provide complete-checkout evidence. If the PR event does not produce a run, report that as an execution blocker; do not infer Actions disabled from an unsupported endpoint, modify permissions, or bypass the supported connector.
+The task directory is not a Git checkout, and its available source mirror is partial. A clean clone attempt failed because the sandbox could not resolve `github.com`; no escalation or alternate shell network path was attempted. No full-tree local tests or local image build are claimed. Complete-checkout evidence comes from the standard GitHub-hosted runner.
 
-CI results are pending until observed for the exact final PR head. No merge or deployment is authorized.
+Run #5 (`40446428689`) completed successfully on code head `ea86bd8fd6ab7661701308dd311418b020734ac8`:
+
+- **Python 3.13 auth/app integration tests:** success on Python 3.13.16. Patched Hermes preparation, locked dependency install, psycopg import, and the full-conftest selection all passed: 136 passed, 10 warnings, no skipped tests. This includes the expected fail-closed readiness assertion with no registered route policies.
+- **Production Docker build:** success. The pinned Debian Trixie base and snapshot installed cleanly; `npm ci` and `npm run build` passed (Vite 6.4.2, 904 modules transformed); the production image exported and loaded to the ephemeral runner. No image push, service start, or deployment occurred. Docker emitted one non-fatal `SecretsUsedInArgOrEnv` build-check warning for the pre-existing non-secret `DMB_AUTH_MODE` setting; no repository secrets or provider credentials were configured.
+
+The handoff-only commit recording these outcomes will trigger the PR workflow again. Check that subsequent run at the resulting exact head before treating the validation as complete. No merge or deployment is authorized.
