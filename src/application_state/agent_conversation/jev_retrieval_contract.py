@@ -100,9 +100,10 @@ def prepare_decision(request: RetrievalDecisionInput) -> DecisionRequest:
     for index, _candidate in enumerate(request.candidates):
         questions.append(ChoiceDecisionQuestion(
             name=f"candidate_{index}", options=("include", "exclude"),
-            question=(f"Read {_candidate.label} ({_candidate.kind}) for user's question? "
-                      "Apply relevance_guidance: include only if this read supplies a requested detail "
-                      "or a necessary relationship; otherwise exclude.")))
+            question=(f"Use {_candidate.label} ({_candidate.kind}) for user's question? "
+                      "Apply relevance_guidance: include if this option is a relevant next step toward locating or obtaining "
+                      "a requested detail or necessary relationship; otherwise exclude. "
+                      "Discovery may return navigation rather than evidence.")))
     state = {"question": request.question,
              "relevance_guidance": (
                  "Judge usefulness for the current requested details, not general relatedness. "
