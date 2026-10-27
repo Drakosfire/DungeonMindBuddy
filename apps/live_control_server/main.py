@@ -8,7 +8,13 @@ from urllib.parse import urlencode
 
 import httpx
 from fastapi import FastAPI, HTTPException, Request
-from fastapi.responses import FileResponse, JSONResponse, PlainTextResponse, Response
+from fastapi.responses import (
+    FileResponse,
+    JSONResponse,
+    PlainTextResponse,
+    RedirectResponse,
+    Response,
+)
 from apps.live_control_server.routes.conversation_library import router as conversation_library_router
 from apps.live_control_server.routes.conversation_work_plans import router as conversation_work_plans_router
 from apps.live_control_server.routes.rules_lookup import router as rules_lookup_router
