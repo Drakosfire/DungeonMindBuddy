@@ -20,13 +20,6 @@ from tests.test_plan_jev_driver import fixture_reads
 from tests.test_plan_jev_writer import WriterWire
 from graph_memory.interaction.session import GraphReferent
 
-@pytest.fixture(autouse=True)
-def synthetic_active_binding(monkeypatch):
-    # Native binding resolution is independently tested; activation uses synthetic scope.
-    monkeypatch.setattr(NativeSourceNavigator, '_bound_authority',
-        lambda self: self.adapter.fence.turn.graph_context_receipt.graph_authority)
-
-
 TEXT = '# Synthetic adventure\r\nThe road.\r\n## Appendix A\r\nTree mechanics.\r\n'
 
 

@@ -57,7 +57,7 @@ def open_native_source_section(*, world_id: str, turn_id: UUID, citation_index: 
         artifact = original['resolution']['artifact']
         if (source is None or source.source_revision_id != citation.app_source_revision_id
                 or source.source_artifact_id != citation.source_artifact_id
-                or not source_scope_matches(source.model_dump(include=SCOPE_FIELDS),artifact,world_id)
+                or not source_scope_matches(source.model_dump(include=SCOPE_FIELDS),artifact,authority)
                 or source.content_sha256 != citation.content_sha256 or source.media_type != 'text/markdown'
                 or source.encoding.lower() != 'utf-8'):
             raise ValueError('Immutable source identity unavailable')
