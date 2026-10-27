@@ -1,6 +1,6 @@
 # PLAN — preserve authored bodies during Choice insertion
 
-Status: BLOCKED for independent invariant critique. PRIME owns serial corrective branch codex/plan-choice-body-boundary, base4404fe4aab4c82d7b174f413fb3e639e3f492aed, existing checkout. This is an in-scope correction to merged1839, not a new authoring capability. The initial UI delivery was reverted to1837 after inspection found a boundary mismatch before any dogfood Plan/Run mutation. API1838/schema0081 unchanged; rollback UI2534931. Full retained equality at initial delivery was3811APP/1157native/40906files.
+Status: ACTIVE after independent invariant critique approved design4d10c6e9b. PRIME owns serial corrective branch codex/plan-choice-body-boundary, base4404fe4aab4c82d7b174f413fb3e639e3f492aed, existing checkout. This is an in-scope correction to merged1839, not a new authoring capability. The initial UI delivery was reverted to1837 after inspection found a boundary mismatch before any dogfood Plan/Run mutation. API1838/schema0081 unchanged; rollback UI2534931. Full retained equality at initial delivery was3811APP/1157native/40906files.
 
 ## Confirmed mismatch
 
