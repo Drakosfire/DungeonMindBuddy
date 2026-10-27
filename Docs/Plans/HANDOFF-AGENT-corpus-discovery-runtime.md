@@ -1,3 +1,48 @@
+# AGENT: canonical corpus match receipts
+
+PROPOSED bounded successor; no code edits until independent invariant critique.
+PRIME owns the confirmed Q01 regression under the operator's standing BENCHMARK
+repair priority. Base334c13e38ae4b4b9bac62afa915c5abf15721d3f, existing serial checkout,
+branch codex/buddy-corpus-match-receipts. Other inspected open hosted/parked lanes
+are disjoint. No new checkout, environment, service, or public contract.
+
+## Confirmed defect and boundary
+
+Delivered1819's term matcher ranks navigation hints by section frequency then
+term. Its corpus observation copied that array into a durable receipt whose APP
+validator requires canonical lexical order. Unchanged Q01 authorized search and
+committed13catalogs but failed its final observation; the next provider correctly
+refused the unresolved grant. Preserve that refusal and original failure.
+Offline reconstruction from the captured13catalogs and exact frozen fixture bytes
+produced15matches,2noncanonical arrays. Original observation rejects; sorting only
+those arrays accepts the same scope/query/catalog/body commitments. This is
+producer/receipt normalization, not missing evidence or a reason to relax validation.
+
+One repair: canonicalize matched_terms when constructing the corpus receipt.
+Keep ranked navigation hints, source selection, exact membership, all scope/body
+checks, incomplete-grant refusal, and provider dispatch guards unchanged. No
+suppression, automatic resend, question/expectation edits or Graph authority.
+Exclusive writes: services/corpus_source_navigation.py under apps/live_control_server;
+tests/test_corpus_source_navigation.py; this handoff; Docs/Roadmaps/ROADMAP-demo.md
+for delivery/current-regression settlement. Amend before other writes.
+
+Verify actual Plan decisions/APP search/catalog/selected-read/writer path with
+unequal term frequencies; show pre-fix failure and corrected terminal observation.
+Preserve malformed-array rejection. Run affected corpus/APP/Graph owner tests;
+inspect cumulative diff, independent exact-head Bugbot, CI, commit/push/one PR,
+PRIME merge and protected delivery. Then request bounded unchanged controls;
+never automatically resend the failed turn. Q13's failure to select corpus search
+and omitted feeding facts are separate unresolved controller/utilization work.
+
+## Predecessor settlement
+
+1819 independently approved81a194a74ce815114236f303acaada63414749af, merged334c13e38,
+deliveredAPI8000 PID1875723/APP0079; native0017 andUI25cce0dd unchanged.
+3624retainedAPP rows/1096native rows/40796filehashes unchanged; only exact schema
+marker0078→0079 changed. Independent unchanged Q13 completed but declined corpus
+search and omitted bothfeedingevents; Q01 failed as above. No fullacceptance.
+Originalimplementation contract follows as historical evidence, not an active lease.
+
 # AGENT: source discovery without Graph donors
 
 ACTIVE serial PRIME implementation. Base08369bae7656ae705010edf594c69fce9442e5ba,
