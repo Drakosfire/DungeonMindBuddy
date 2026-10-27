@@ -65,6 +65,7 @@ import {
   applyWorldPlanEditProposal,
   captureWorldPlanEditTarget,
   captureWorldPlanAuthoringTarget,
+  sealWorldPlanAuthoringTarget,
   restorePlanAuthoringTarget,
   preparePlanAuthoringApplication,
   previewWorldPlanEditProposal,
@@ -404,6 +405,7 @@ function WorldOwnedPlanPage({ worldId, worldName }: { worldId: string; worldName
   const [documentSceneJump, setDocumentSceneJump] = useState<{ identity: string; sceneId: string } | null>(null);
   const [sceneNavigationNotice, setSceneNavigationNotice] = useState<{ identity: string; message: string } | null>(null);
   const [selectedPlayableTarget, setSelectedPlayableTarget] = useState<SelectedWorldPlanPlayableTarget | null>(null);
+  const selectedPlayableTargetRef=useRef(selectedPlayableTarget);selectedPlayableTargetRef.current=selectedPlayableTarget;
   const [selectedPlayableEditTarget, setSelectedPlayableEditTarget] = useState<SelectedWorldPlanPlayableEditTarget | null>(null);
   const [playableEditTargetGeneration, setPlayableEditTargetGeneration] = useState(0);
   const editorIdentity = `${worldId}:${documentId ?? localDraftId}:${editorGeneration}`;
@@ -560,9 +562,9 @@ function WorldOwnedPlanPage({ worldId, worldName }: { worldId: string; worldName
     playableTarget: selectedPlayableEditTargetRef.current?.target ?? null,
     playableTargetGeneration: playableEditTargetGenerationRef.current,
     playableTargetStale: playableEditTargetStaleRef.current,
-    currentSceneTarget: selectedPlayableTarget?.target.kind === "scene" ? selectedPlayableTarget.target : null,
-    currentSceneTargetStale: selectedPlayableTargetStale,
-    currentSceneTargetLabel: cardTargetLabel(selectedPlayableTarget?.target ?? null),
+    currentSceneTarget: selectedPlayableTargetRef.current?.target.kind === "scene" ? selectedPlayableTargetRef.current.target : null,
+    currentSceneTargetStale: selectedPlayableTargetRef.current!==null&&selectedPlayableTargetStale,
+    currentSceneTargetLabel: cardTargetLabel(selectedPlayableTargetRef.current?.target ?? null),
     playableTargetLabel: cardTargetLabel(selectedPlayableEditTargetRef.current?.target ?? null),
     canEdit: Boolean(
       !sourceEditingRef.current
@@ -579,13 +581,16 @@ function WorldOwnedPlanPage({ worldId, worldName }: { worldId: string; worldName
       && getLiveFidelityWarnings(editorRef.current?.getJSON()).length === 0
     ),
   });
+  const authoringMoveCaptureRef=useRef<NonNullable<WorldPlanEditBridge['captureAuthoringAt']>>(async()=>{throw new Error('Plan placement owner unavailable');});
   const authoringSaveRef=useRef<NonNullable<WorldPlanEditBridge['saveAuthoring']>>(async()=>{throw new Error('Plan Save owner unavailable');});
   const authoringReconcileRef=useRef<NonNullable<WorldPlanEditBridge['reconcileAuthoring']>>(async()=>{throw new Error('Plan recovery owner unavailable');});
   const authoringAckRef=useRef<(application:PlanReviewApplication)=>Promise<void>>(async()=>{throw new Error('Plan Save receipt owner unavailable');});
   const worldPlanEditBridge = useMemo<WorldPlanEditBridge>(() => ({
-    captureAuthoring: identity => captureWorldPlanAuthoringTarget(
-      worldEditStateGetterRef.current(), () => worldEditStateGetterRef.current(), identity,
+    captureAuthoring: (identity,applicationId) => captureWorldPlanAuthoringTarget(
+      worldEditStateGetterRef.current(applicationId), () => worldEditStateGetterRef.current(applicationId), identity,
     ),
+    sealAuthoring:sealWorldPlanAuthoringTarget,
+    captureAuthoringAt:(...args)=>authoringMoveCaptureRef.current(...args),
     restoreAuthoring:(capture,identity)=>restorePlanAuthoringTarget(capture,
       worldEditStateGetterRef.current(),()=>worldEditStateGetterRef.current(),identity),
     prepareAuthoring:(target,markdown,action,expected,binding)=>preparePlanAuthoringApplication(
@@ -594,6 +599,11 @@ function WorldOwnedPlanPage({ worldId, worldName }: { worldId: string; worldName
     acknowledgeAuthoring:application=>authoringAckRef.current(application),
     reconcileAuthoring:(...args)=>authoringReconcileRef.current(...args),
     authoringTitle:()=>titleRef.current.trim()||'Plan',
+    matchesAuthoringAfter:async application=>mountedRef.current&&worldEditStateGetterRef.current().editor!==null
+      &&statusRef.current==='ready'&&!switchingDocumentRef.current
+      &&application.capture.world_id===worldId&&application.capture.document_id===documentIdRef.current
+      &&JSON.stringify(editorRef.current?.getJSON())===application.after_editor_json
+      &&markdownRef.current===application.after_markdown&&(titleRef.current.trim()||'Plan')===application.after_title,
     preview: previewWorldPlanEditProposal,
     capture: () => captureWorldPlanEditTarget(
       worldEditStateGetterRef.current(),
@@ -1354,7 +1364,8 @@ function WorldOwnedPlanPage({ worldId, worldName }: { worldId: string; worldName
     if(application.outcome!=='not_applied'&&application.outcome!=='superseded')
       throw new Error('This application is still unresolved. Inspect its review before continuing.');
     const hold=readPlanApplicationHold(worldId,exactId);
-    if(!exactId||hold===null||typeof hold!=='object'
+    if(hold===null){authoringHoldRef.current=null;setAutoSavePaused(false);return;}
+    if(!exactId||typeof hold!=='object'
       ||!('application_id' in hold)||hold.application_id!==applicationId
       ||!('action_id' in hold)||hold.action_id!==actionId)
       throw new Error('Another application owns this draft recovery hold. It was preserved.');
@@ -1931,6 +1942,16 @@ function WorldOwnedPlanPage({ worldId, worldName }: { worldId: string; worldName
     playableEditTargetStaleRef.current = false;
     setSelectedPlayableEditTarget(null);
   }, []);
+
+  authoringMoveCaptureRef.current=async(position,identity)=>{
+    const state=worldEditStateGetterRef.current(),editor=state.editor;
+    if(!state.canEdit||!editor||editor.isDestroyed||!Number.isSafeInteger(position)||position<0||position>editor.state.doc.content.size)
+      throw new Error('Choose a valid position in the editable Plan.');
+    if(cardsViewActive)throw new Error('Switch to Document view to move this suggestion. Its current placement is retained.');
+    clearPlayableEditTarget();selectedPlayableTargetRef.current=null;setSelectedPlayableTarget(null);
+    if(!editor.commands.setTextSelection(position))throw new Error('The Plan could not select that placement.');
+    return captureWorldPlanAuthoringTarget(worldEditStateGetterRef.current(),()=>worldEditStateGetterRef.current(),identity);
+  };
 
   const planTrashCacheBasis = documentId && revisionRef.current !== null ? {
     document_id:documentId, revision:revisionRef.current, title:serverTitleRef.current,

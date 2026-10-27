@@ -154,7 +154,9 @@ export interface ExpectedWorldPlanEditAgentBinding {
 export interface PlanAuthoringIdentity {idempotencyKey:string;conversationId:string;pointerRevision:number}
 export interface CapturedPlanAuthoringTarget {capture:PlanAuthoringCapture;target:CapturedWorldPlanEditTarget}
 export interface WorldPlanEditBridge {
-  captureAuthoring?: (identity:PlanAuthoringIdentity)=>Promise<CapturedPlanAuthoringTarget>;
+  captureAuthoring?: (identity:PlanAuthoringIdentity,applicationId?:string)=>Promise<CapturedPlanAuthoringTarget>;
+  sealAuthoring?: (target:CapturedWorldPlanEditTarget,identity:PlanAuthoringIdentity)=>Promise<PlanAuthoringCapture>;
+  captureAuthoringAt?: (position:number,identity:PlanAuthoringIdentity)=>Promise<CapturedPlanAuthoringTarget>;
   restoreAuthoring?: (capture:PlanAuthoringCapture,identity:PlanAuthoringIdentity)=>Promise<CapturedPlanAuthoringTarget>;
   prepareAuthoring?: (target:CapturedWorldPlanEditTarget,markdown:string,actionId:string,
     expected:ExpectedWorldPlanEditAgentBinding,binding:()=>WorldPlanEditAgentBinding)=>Promise<PreparedPlanAuthoringApplication>;
@@ -162,6 +164,7 @@ export interface WorldPlanEditBridge {
     application:PlanReviewApplication,expected:ExpectedWorldPlanEditAgentBinding,binding:()=>WorldPlanEditAgentBinding,
     commit:()=>Promise<PlanAuthoringReview>)=>Promise<PlanAuthoringReview>;
   acknowledgeAuthoring?: (application:PlanReviewApplication)=>Promise<void>;
+  matchesAuthoringAfter?: (application:PlanReviewApplication)=>Promise<boolean>;
   reconcileAuthoring?: (actionId:string,applicationId:string)=>Promise<void>;
   authoringTitle?: ()=>string;
   capture: () => Promise<CapturedWorldPlanEditTarget>;
@@ -669,6 +672,19 @@ export async function captureWorldPlanAuthoringTarget(
   if(!identity.conversationId||!identity.idempotencyKey||!Number.isSafeInteger(identity.pointerRevision)||identity.pointerRevision<1)
     throw new PlanEditGuardError("Open the current World conversation before capturing a Plan request.");
   const target=await captureWorldPlanEditTarget(input,getCurrent);
+  const capture=await sealWorldPlanAuthoringTarget(target,identity);
+  const current=effectiveWorldPlanEditState(getCurrent());
+  if(!sameWorldPlanEditorBinding(effectiveWorldPlanEditState(input),current)
+    ||JSON.stringify(target.editor.getJSON())!==target.editorJson
+    ||JSON.stringify(target.editor.state.selection.toJSON())!==target.selectionJson)
+    throw new PlanEditGuardError("The Plan changed during capture. The request was not sent.");
+  return {capture,target};
+}
+
+/** Add the real conversation identity to an already frozen Send-time target. */
+export async function sealWorldPlanAuthoringTarget(target:CapturedWorldPlanEditTarget,identity:PlanAuthoringIdentity):Promise<PlanAuthoringCapture>{
+  if(!identity.conversationId||!identity.idempotencyKey||!Number.isSafeInteger(identity.pointerRevision)||identity.pointerRevision<1)
+    throw new PlanEditGuardError('Open the current World conversation before sealing a Plan request.');
   const [editorHash,selectionHash]=await Promise.all([sha256(target.editorJson),sha256(target.selectionJson)]);
   const body=target.playableBodyTarget;
   const capture:PlanAuthoringCapture={
@@ -685,12 +701,7 @@ export async function captureWorldPlanAuthoringTarget(
       body_serialization_version:body.bodySerializationVersion,
       body_markdown:body.targetBodyMarkdown,body_sha256:body.targetBodySha256}:null,
   };
-  const current=effectiveWorldPlanEditState(getCurrent());
-  if(!sameWorldPlanEditorBinding(effectiveWorldPlanEditState(input),current)
-    ||JSON.stringify(target.editor.getJSON())!==target.editorJson
-    ||JSON.stringify(target.editor.state.selection.toJSON())!==target.selectionJson)
-    throw new PlanEditGuardError("The Plan changed during capture. The request was not sent.");
-  return {capture,target};
+  return capture;
 }
 
 export interface PreparedPlanAuthoringApplication {
