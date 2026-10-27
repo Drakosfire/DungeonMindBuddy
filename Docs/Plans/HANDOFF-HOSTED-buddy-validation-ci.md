@@ -1,16 +1,16 @@
 # HANDOFF-HOSTED-buddy-validation-ci
 
-**Status:** ACTIVE — authorized validation-only CI lane; no merge, deployment, World-policy change, or Actions settings change.  
+**Status:** SETTLED — PR #1814 merged at c7f83c086d39e01f129fa7e31ef03262dbf65c91; this validation lane is complete. The deployment-preparation successor is documented in HANDOFF-HOSTED-buddy-deployment-preparation.md.
 **Date:** 2026-10-27 UTC  
 **Owning repository:** Drakosfire/DungeonMindBuddy  
 **Topology:** serial; one successor to merged PR #1802  
 **Base:** `main@e754f68f1d6a9e726c23657e2884be36cc3e8759`  
 **Branch:** `codex/hosted-validation-ci-20261027`  
-**PR:** [Draft #1814](https://github.com/Drakosfire/DungeonMindBuddy/pull/1814).
+**PR:** [#1814](https://github.com/Drakosfire/DungeonMindBuddy/pull/1814), merged.
 
 ## Authority and predecessor settlement
 
-The user authorized a narrow validation-only workflow and draft PR. The cross-repository sequencing reference is DungeonOverMind PR #58, `Docs/Plans/PLAN-buddy-hosted-readiness-and-launch.md` at `8aa8cb16fb05156edfe9a171f0ef85c7cde53271`; its §5 recommends this validation step. The user’s current authorization supplies the implementation authority; no plan or other repository is changed.
+The user authorized a narrow validation-only workflow and draft PR. The cross-repository sequencing reference was DungeonOverMind PR #58, `Docs/Plans/PLAN-buddy-hosted-readiness-and-launch.md`; the current deployment-preparation successor separately records the source pins and sync point for that existing plan. This handoff records completed CI work only.
 
 Buddy PR #1802 merged at `e754f68f1d6a9e726c23657e2884be36cc3e8759`. Its predecessor handoff is settled in `HANDOFF-HOSTED-buddy-auth-packaging.md`. That merge delivered a fail-closed hosted-auth and packaging foundation, not launch readiness: production registers zero World resolvers, hosted World operations remain denied, and readiness intentionally returns not-ready. This CI lane preserves that state.
 
@@ -59,4 +59,4 @@ Run #5 (`40446428689`) completed successfully on code head `ea86bd8fd6ab76617013
 - **Python 3.13 auth/app integration tests:** success on Python 3.13.16. Patched Hermes preparation, locked dependency install, psycopg import, and the full-conftest selection all passed: 136 passed, 10 warnings, no skipped tests. This includes the expected fail-closed readiness assertion with no registered route policies.
 - **Production Docker build:** success. The pinned Debian Trixie base and snapshot installed cleanly; `npm ci` and `npm run build` passed (Vite 6.4.2, 904 modules transformed); the production image exported and loaded to the ephemeral runner. No image push, service start, or deployment occurred. Docker emitted one non-fatal `SecretsUsedInArgOrEnv` build-check warning for the pre-existing non-secret `DMB_AUTH_MODE` setting; no repository secrets or provider credentials were configured.
 
-The handoff-only commit recording these outcomes triggered run #6 (`40446773323`) at head `0b8dd83ef6c6c3764a14b76d015436494f7c45d5`; both jobs passed again on that exact head. No merge or deployment is authorized.
+The handoff-only commit recording these outcomes triggered run #6 (`40446773323`) at head `0b8dd83ef6c6c3764a14b76d015436494f7c45d5`; both jobs passed again on that exact head. Final run #7 (`40447059707`) passed both jobs on exact PR head `8530d1d00fdb81679bd91872af67c898b7c48f30`. PR #1814 is now merged at `c7f83c086d39e01f129fa7e31ef03262dbf65c91`; no production image was published and no deployment occurred.

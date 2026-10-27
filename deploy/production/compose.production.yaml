@@ -1,32 +1,37 @@
-# Example production package wiring only. It does not configure the host, edge
-# proxy, databases, DNS, TLS, credentials, or retained data.
+# Production package wiring only. This references an already-published immutable image;
+# it does not configure the host, proxy, databases, DNS, TLS, credentials, or retained data.
 services:
   buddy:
-    build:
-      context: ../..
-      dockerfile: Dockerfile.production
-      target: api
-    image: dungeonmindbuddy:review-build
+    image: "${BUDDY_IMAGE_NAME:?set a published Buddy registry image name}@sha256:${BUDDY_IMAGE_DIGEST:?set its published sha256 digest}"
+    pull_policy: always
     init: true
     ports:
       - "127.0.0.1:${BUDDY_HTTP_BIND_PORT:-8080}:8000"
     environment:
       DMB_DEPLOYMENT_ENVIRONMENT: production
       DMB_AUTH_MODE: hosted_dms
-      DUNGEONMIND_SERVER_API_ORIGIN: ${DUNGEONMIND_SERVER_API_ORIGIN:?set the HTTPS DMS API origin}
-      AUTH_TRUSTED_FRONTEND_ORIGINS: ${AUTH_TRUSTED_FRONTEND_ORIGINS:?include https://buddy.dungeonmind.net}
-      DMB_HOSTED_WORLD_ACCESS_JSON: ${DMB_HOSTED_WORLD_ACCESS_JSON:?set per-World DMS subject assignments for the full authorized cohort}
-      DUNGEONBUDDY_APPLICATION_STATE_DATABASE_URL: ${DUNGEONBUDDY_APPLICATION_STATE_DATABASE_URL:?set the Buddy application-state database URL}
-      DUNGEONMIND_WORLD_GRAPH_AUTHORITY_DATABASE_URL: ${DUNGEONMIND_WORLD_GRAPH_AUTHORITY_DATABASE_URL:?set the DungeonMind WorldGraph database URL}
+      DUNGEONMIND_SERVER_API_ORIGIN: "${DUNGEONMIND_SERVER_API_ORIGIN:?set the HTTPS DMS API origin}"
+      AUTH_TRUSTED_FRONTEND_ORIGINS: "${AUTH_TRUSTED_FRONTEND_ORIGINS:?include https://buddy.dungeonmind.net}"
+      DMB_HOSTED_WORLD_ACCESS_JSON: "${DMB_HOSTED_WORLD_ACCESS_JSON:?hold until World policy and exact route resolvers are reviewed}"
+      DUNGEONBUDDY_APPLICATION_STATE_DATABASE_URL: "${DUNGEONBUDDY_APPLICATION_STATE_DATABASE_URL:?set a dedicated Buddy application-state PostgreSQL DSN}"
+      DUNGEONMIND_WORLD_GRAPH_AUTHORITY_DATABASE_URL: "${DUNGEONMIND_WORLD_GRAPH_AUTHORITY_DATABASE_URL:?set a dedicated DungeonMind WorldGraph PostgreSQL DSN}"
+      DUNGEONMIND_WORLD_GRAPH_AUTHORITY: dungeonmind
       DMB_MANAGED_WORLD_DATA_ROOT: /var/lib/buddy/managed
       DMB_ARTIFACT_DATA_ROOT: /var/lib/buddy/artifacts
       DUNGEONMIND_LIVE_SESSION_DIR: /var/lib/buddy/sessions
-      DUNGEONMIND_WORLD_GRAPH_ROOT: /var/lib/buddy/worldgraph
+      DUNGEONMIND_WORLD_GRAPH_ROOT: /var/lib/dungeonmind/worldgraph
       DUNGEONMIND_RECAP_SOURCE_CONTENT_ROOT: recaps
     volumes:
       - type: bind
-        source: ${BUDDY_PERSISTENT_ROOT:?set an existing durable host directory}
+        source: "${BUDDY_PERSISTENT_ROOT:?select an existing durable Buddy data root outside the checkout}"
         target: /var/lib/buddy
+        bind:
+          create_host_path: false
+      - type: bind
+        source: "${DUNGEONMIND_WORLD_GRAPH_FILE_ROOT:?select a separate existing durable WorldGraph file root}"
+        target: /var/lib/dungeonmind/worldgraph
+        bind:
+          create_host_path: false
     healthcheck:
       test:
         - CMD

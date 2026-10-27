@@ -55,8 +55,10 @@ jobs:
           apps/live_control_server/main.py
           apps/live_control_server/services/hosted_auth.py
           apps/live_control_server/services/dms_principal.py
+          scripts/verify_production_compose.py
           tests/test_dms_principal.py
           tests/test_hosted_auth_login.py
+          tests/test_production_deployment_config.py
 
       - name: Run auth/app integration tests
         run: |
@@ -65,7 +67,42 @@ jobs:
             tests/test_hosted_auth_login.py \
             tests/test_dms_principal.py \
             tests/test_trusted_cookie_origin.py \
-            tests/test_agent_graph_auth.py
+            tests/test_agent_graph_auth.py \
+            tests/test_production_deployment_config.py
+
+  production-config-contract:
+    name: Synthetic production Compose contract
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout complete source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          clean: true
+          persist-credentials: false
+
+      - name: Verify Docker Compose is available
+        run: docker compose version
+
+      - name: Render synthetic configuration and check contract
+        env:
+          BUDDY_IMAGE_NAME: registry.invalid/dungeonmindbuddy
+          BUDDY_IMAGE_DIGEST: 0000000000000000000000000000000000000000000000000000000000000000
+          DUNGEONMIND_SERVER_API_ORIGIN: https://dms.example.test
+          AUTH_TRUSTED_FRONTEND_ORIGINS: https://buddy.dungeonmind.net
+          DMB_HOSTED_WORLD_ACCESS_JSON: "{}"
+          DUNGEONBUDDY_APPLICATION_STATE_DATABASE_URL: postgresql://buddy_app_state:synthetic-only@app-state.example.test:5432/dungeonbuddy_application_state
+          DUNGEONMIND_WORLD_GRAPH_AUTHORITY_DATABASE_URL: postgresql://world_graph:synthetic-only@world-graph.example.test:5432/dungeonmind_world_graph
+          BUDDY_PERSISTENT_ROOT: /srv/synthetic/buddy
+          DUNGEONMIND_WORLD_GRAPH_FILE_ROOT: /srv/synthetic/worldgraph
+        run: |
+          docker compose -f deploy/production/compose.production.yaml config --format json > "$RUNNER_TEMP/production-compose.json"
+          python scripts/verify_production_compose.py \
+            --compose-json "$RUNNER_TEMP/production-compose.json" \
+            --repository-root . \
+            --allow-synthetic-image
 
   production-image-build:
     name: Production Docker build (no push)
@@ -91,4 +128,12 @@ jobs:
           sh -eu -c 'npm ci && npm test -- src/auth/HostedAuthGate.test.tsx && npm run build'
 
       - name: Build production image without publishing
-        run: docker buildx build --no-cache --file Dockerfile.production --tag dungeonmindbuddy:validation-${GITHUB_SHA::12} --load --progress plain .
+        run: |
+          set -eu
+          revision="$(git rev-parse HEAD)"
+          image="dungeonmindbuddy:validation"
+          docker buildx build --no-cache --file Dockerfile.production \
+            --build-arg DUNGEONMINDBUDDY_SOURCE_REVISION="$revision" \
+            --tag "$image" --load --progress plain .
+          actual_revision="$(docker image inspect --format '{{ index .Config.Labels "org.opencontainers.image.revision" }}' "$image")"
+          test "$actual_revision" = "$revision"

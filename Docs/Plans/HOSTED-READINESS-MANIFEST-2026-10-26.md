@@ -1,67 +1,66 @@
 # DungeonMindBuddy hosted readiness: provisional source manifest
 
-Snapshot: 2026-10-27 UTC. This records repository source state and the implementation candidate only. It is not a deployment manifest, host inventory, login proof, or readiness claim.
+**Snapshot:** 2026-10-27 UTC
+**Status:** Source and preparation evidence only. This is not a deployment manifest, host audit, login proof, or readiness claim.
 
-## Current remote source heads
+## Current source pins
 
-| Repository | Main head checked 2026-10-27 | Role / note |
+| Repository | Exact main revision checked 2026-10-27 | Role and evidence |
 |---|---|---|
-| [DungeonMindBuddy](https://github.com/Drakosfire/DungeonMindBuddy) | 9ad5c96f4330517c7d3a4aa276e254d7097707b1 | Current Buddy main. PR #1802 began at c5250824f3c3d5b4bb33d1897914158a3ee3d8fa; the branch is re-anchored through this head while preserving 30 intervening main commits and the prior PR history. The 107 changed main paths do not overlap the PR. |
-| [DungeonMindServer](https://github.com/Drakosfire/DungeonMindServer) | f95e92cb0fb50949260534b12c063ab1811eaf30 | Existing DMS identity and session authority. |
-| [DungeonMind](https://github.com/Drakosfire/DungeonMind) | 4ccd39a1e433d81569d86c05273ac33ee8f27ef3 | In-process Core library and separate WorldGraph authority. |
-| [LandingPage](https://github.com/Drakosfire/LandingPage) | 9e567007cd37867fffd95db8b229c77f5950616e | Public frontend repository; no edits proposed. |
-| [DungeonOverMind](https://github.com/Drakosfire/DungeonOverMind) | cd3dda331fecc30e0fcb89901a83597fc020725f | Cross-repository plan owner. The requested plan was read at PR #58 head 9c8e27a9372f14c48d090b385e93e9c987c22ca6. |
+| DungeonMindBuddy | 53d4bfd70bc599e18494e258f5c2b39acbf93c21 | Python 3.13 Buddy API and bundled frontend. PR #1817 is merged at 7a6509b06b61c3ffba870dbc3f617e2a31d3a6e6. |
+| DungeonMindServer | 48b3f5181890ee3b3362cd12d9bfb8b41ddd65c1 | Existing DMS identity/session authority; PR #45 is merged at this revision. |
+| DungeonMind | 4ccd39a1e433d81569d86c05273ac33ee8f27ef3 | DungeonMind Core is an in-process package; WorldGraph is a distinct authority. |
+| DungeonOverMind | 2d14d6a32e4d72d16a94254af16d49921ae91688 | Cross-repository launch plan owner. PR #58 is the existing draft plan PR and should receive the resulting exact Buddy candidate/CI checkpoint. |
+| LandingPage | 9e567007cd37867fffd95db8b229c77f5950616e | Existing public frontend; no change proposed. |
 
-## Related open work preserved
+## Related work preserved
 
-- Buddy [#1512](https://github.com/Drakosfire/DungeonMindBuddy/pull/1512) remains open and owns the route authorization inventory and cookie-Origin handoff documentation.
-- Buddy [#1514](https://github.com/Drakosfire/DungeonMindBuddy/pull/1514) remains open and owns the proposed account-level World access policy and its blocked implementation handoff.
-- The draft described by this manifest adds neither document again and does not adopt #1514's proposed creator-only rule. The allowed population remains the existing DMS-managed population; no new owner-only population gate or legacy-World ownership claim is added.
-- DungeonOverMind #20, #39, and #58 are left unchanged. Their unique documentation remains in those PRs.
+- Buddy #1814 merged at c7f83c086d39e01f129fa7e31ef03262dbf65c91; its validation workflow's run #7 passed on exact head 8530d1d00fdb81679bd91872af67c898b7c48f30. Buddy #1817 merged at 7a6509b06b61c3ffba870dbc3f617e2a31d3a6e6. DMS #45 merged at 48b3f5181890ee3b3362cd12d9bfb8b41ddd65c1. None of these merge SHAs proves deployment.
+- Buddy #1512 and #1514 remain separate and unchanged. Do not adopt #1514's proposed creator-only rule. Preserve the existing DMS-managed population and do not add an owner-only population restriction.
+- DungeonOverMind #20, #39, and #58 remain separate plan work. PR #58 remains a draft.
 
-## Identity and authorization contract
+## Identity, routes, and World access
 
-- Hosted identity is resolved from the DMS dungeonmind_session cookie through GET /api/auth/current-user; Buddy uses the returned stable sub.
-- Unsafe HTTP methods require the exact configured Buddy Origin. Logout proxies DMS POST /api/auth/logout with that Origin and the session cookie, and relays DMS Set-Cookie clearing headers.
-- The Buddy code does not add a login route or alter DMS login-return behavior. DMS's single configured landing target and its deployed value still need operator verification before login can be called complete.
-- The subject-to-World map is a static explicit access input, not an ownership inference. A World route can be enabled only by a code-owned resolver registered for its exact HTTP method and path. That resolver must derive one World ID from server-side resource state, independently of any client World selector. The middleware treats a selector as a consistency check and denies a mismatch. Missing resolvers, path-only allowlists, missing/empty/ambiguous results, and resolver exceptions fail closed. Production registers zero reviewed World resolvers, so hosted World/API operations remain denied with 403 until resource bindings and the retained-World assignment procedure are reviewed.
-- Resolver-enabled request bodies are limited to empty bodies or strict UTF-8 JSON using application/json or application/*+json, capped at 1 MiB. Oversized, malformed, duplicate-key, non-object/list JSON, non-JSON, or unsupportedly encoded bodies fail before the resolver or handler. A future route that needs multipart or another body format needs a reviewed route-specific validator before enablement.
-- The auth middleware covers HTTP paths under /api, including media paths and HTTP streaming/SSE routes. Current code contains no WebSocket route; the Nginx example does not enable WebSocket upgrade. Any later WebSocket surface needs its own authorization boundary.
-- Buddy has no permissive CORS middleware; the package example uses one same-origin proxy. Health endpoints return generic status codes and no configuration values.
-- Local run explicitly selects local plus local_operator and loopback. Missing or invalid local auth mode returns 503; there is no implicit operator fallback. The manual README and UI instructions set both environment values and bind Uvicorn to 127.0.0.1. The request boundary rejects Forwarded, X-Forwarded-For, X-Forwarded-Host, X-Forwarded-Proto, and X-Real-IP headers. The example reverse proxy forwards these headers, causing local operator requests through that proxy to be denied.
-- The fixture-backed graph gold-review developer router is omitted in production builds because its modules import evaluation campaign fixtures. Local source checkouts keep the router when those sources are available. This package boundary is now explicit and has a focused test, but app-level tests could not import the incomplete local source mirror in the final verification attempt.
+- Hosted identity uses the existing DMS-managed principal. The sign-in/return work does not change DMS's provider or create another user population.
+- The production World resolver registry remains empty and fail-closed. Readiness stays blocked and World/API operations remain denied until exact route resolvers and their side effects are reviewed.
+- Exact retained World selection and World/subject ownership and sharing policy are unresolved. Do not infer ownership from creator identity, database rows, or a client selector. DMB_HOSTED_WORLD_ACCESS_JSON remains a hold placeholder.
+- Do not add signup, a new owner-only restriction, or a readiness bypass. A user-selected World identifier is only a consistency check after a trusted resource resolver establishes the binding.
 
-## Package candidate
+## Package and storage contract
 
-- Dockerfile.production pins Node 22.23.0, Python 3.13, uv 0.13.5 and their image digests; npm uses package-lock.json and Python uses uv.lock. Debian build tools use the dated 20261026 snapshot archive. Advance this snapshot through review to receive later OS security updates.
-- The app remains in-process. The API container binds to a host loopback mapping; Nginx disables response buffering and uses a long read timeout for HTTP streaming.
-- The package expects distinct Buddy application-state and DungeonMind WorldGraph PostgreSQL coordinates and owners. It requires durable managed-world, artifact, session, and WorldGraph roots outside the replaceable container or checkout. It performs no startup migrations.
-- Production readiness validates explicit configuration and runtime preflight. The current empty route-policy set is a blocker, not a usable hosted authorization deployment.
-- The production image was not built because the available Docker socket was denied. Repository tests do not establish host capacity, deployed versions, database reachability, durable backup/restore, proxy behavior, or login-cookie delivery.
+- The production package is the existing Buddy Dockerfile, Compose service, and Nginx template. DungeonMind Core remains in-process; no parallel Core service is needed.
+- Buddy's Dockerfile pins Node, Python 3.13, uv, Debian snapshot build inputs, and locked npm/uv dependencies. The source-revision build argument and OCI source/revision labels must identify the exact source built. CI builds locally with no push.
+- Compose requires BUDDY_IMAGE_NAME and a 64-character BUDDY_IMAGE_DIGEST and constructs the immutable @sha256: reference. No registry digest for a production Buddy image has been created or verified. Do not invent one or treat a source SHA or local image ID as a registry digest.
+- Buddy application state and DungeonMind WorldGraph require separate PostgreSQL databases/roles, DSNs, migration owners, and non-overlapping durable file roots. Compose has one Buddy service only; it does not start database services. No startup migration is configured.
+- Keep Nginx request/response buffering disabled and the existing long read timeout for streaming.
 
-## Source and test provenance
+## Bounded live inventory — 2026-10-27
 
-- The writable task copy initially contained Buddy source at 6e4b1580c6aa46f24aafc01e19880089229d3598. main.py was replaced with the exact c525 base blob 56b8f742e9f5458cae82b8d7b23267e60392f3d9 before adding this slice. Buddy main was rechecked at 86d1857645a7c19f395997f144b2d638f11de683; the c525..86d compare showed 29 commits and no changed path overlap with PR #1802. The re-anchor preserves that main history and the existing PR commits.
-- Additional test-support sources were restored from Buddy 3ddf743c28f15e52f42f86d6b0b8889fedd4bfed, including the full tracked tests/application_state/conftest.py blob 05e406eb8b70e9bf01b84533b2eac643be6546c1. The test mirror is not the full c525 tree; no claim is made that repository tests ran against the complete current main checkout.
-- The exact Core source overlay is 4ccd39a1e433d81569d86c05273ac33ee8f27ef3, including src/dungeonmind and src/dungeonmind_dnd. The GenerationEngine overlay is 3e085168c11bdee0de580b8cfa0f00cee157c157.
-- The missing evaluation fixture tree was not restored because it contains campaign/session content. The production package excludes it.
+The operator-provided bounded read-only report observed Ubuntu 24.04 on KVM/QEMU, 2 CPU, 7.8 GiB RAM, and 45 GiB available on a 96 GiB root filesystem. Eight containers were present. Buddy was absent from the inspected Docker inventory. No Buddy vhost was found among readable Nginx includes, and the host's resolver returned no Buddy hostname address; this is not evidence about authoritative/public DNS.
 
-## Verification status
+The running DMS image was observed only as local image ID sha256:c2d79ea52c5e46e22c18b33f3833e0a4011bb2759ebc5e79e1bc21ebe6040d89. It had no registry repository digest or OCI source/revision labels. The host's Compose checkout SHA is not image provenance. PostgreSQL/pgvector and Mongo containers in another Compose project shared Docker networks with DMS, but this establishes adjacency only; their application ownership was not verified. Their use by Buddy or WorldGraph must not be assumed.
 
-- Ruff 0.15.7 passed on the changed Python auth and auth-test files; bash -n passed on scripts/host_inventory.sh.
-- The final focused resolver/body/local-boundary regression selection used the full conftest and exact Core/GenerationEngine source overlays: 24 passed, 12 deselected. Across `test_hosted_auth.py`, `test_dms_principal.py`, `test_trusted_cookie_origin.py`, and `test_agent_graph_auth.py`, pytest reported 128 passed and 8 failed during app imports. The failures are logout-proxy, readiness, production-router, and five graph-auth route integration tests. Only cached Python 3.12 was available; its psycopg installation has no compatible binary/libpq wrapper. Buddy requires Python 3.13, so these failures are environment import failures and the full auth integration suite remains unverified.
-- uv sync --locked --offline could not prepare a complete environment because the task mirror lacks generated out/hermes-agent source and the available global uv cache is read-only. No packages were installed globally.
-- npm run build passed on the final files (902 modules transformed); Vite reported a non-fatal existing static/dynamic import warning. The Docker image remains unbuilt.
-- The existing pyproject lists pytest and Ruff among main dependencies, so `uv --no-dev` still includes them. Moving those tools to an optional development group is a dependency-hygiene follow-up; it was not folded into this auth fix.
-- On implementation/re-anchor head `455985235e421439bb6ff097fc5472b218e8fc93`, GitHub returned no workflow runs and no commit status checks. This is absence of CI evidence, not a passing check.
-- No tests used a live database, provider, service, or retained World. No server inventory was run.
+The Store Generator health probe to loopback port 3001 was timing out with a 29,142 failure streak; no repair or broad log inspection was performed. The bounded backup scan found OS-package backup files in checked scopes and no matching application backup files within one scoped DMS data-root scan. It did not verify every possible backup location or establish that application backups are absent. No application restore evidence was verified. The DMS data-like mount was inside its Compose checkout and is not proven durable outside a replaceable checkout.
 
-## Decisions and operator steps still required
+This was a bounded, unprivileged inventory, not a full server audit. Runtime environment values, database rows, and broad logs were not read. No database query, migration, restore, DNS change, TLS change, proxy activation, or service change is authorized here.
 
-1. Choose the exact Elderwyld World and source to host. The local/source inventory candidates are not verified assignments; no campaign contents were opened or migrated.
-2. Approve an explicit policy for new Worlds and a verified procedure for retained World-to-subject assignments. Until then, hosted World routes remain denied.
-3. Verify the existing DMS-managed account population gate and the deployed DMS landing target and browser delivery of the DMS cookie to buddy.dungeonmind.net.
-4. Run and review the sanitized read-only inventory in RUNBOOK-HOSTED-read-only-host-inventory.md. Output may include host/IP, service/container, image, port, and mount identifiers; redact before sharing.
-5. Before any later staging change, identify both logical DB migration heads and owners, external durable roots, tested backups and isolated restore proof, exact image pins, proxy routing, capacity, provider limits, and rollback owner.
+## Preparation verification status
 
-No live server was contacted. No secrets or credentials were read. No external configuration, account, network, database, branch data, or service was changed.
+- Buddy #1814's Python 3.13 auth/app test and no-push image build passed in GitHub Actions run #7 at exact head 8530d1d00fdb81679bd91872af67c898b7c48f30. The run reported 136 passed, 10 warnings, no skipped tests; the production Docker build passed with a local ephemeral image. It does not supply a production registry digest.
+- The deployment-preparation draft adds a synthetic Compose contract check and local-only source-revision image metadata. Record its exact candidate SHA and exact PR workflow results here after publication; do not report unrun jobs as passed.
+- The available task runtime has Python 3.12, while Buddy requires Python 3.13. Its Docker Compose plugin and pytest are unavailable locally. Use the existing provider-free hosted workflow for the complete Python 3.13 and Compose contract checks if local prerequisites remain unavailable.
+- No real DB, data restore, OAuth/provider call, secret, server, DNS, proxy, migration, deployment, or image publication is part of this preparation.
+
+## Operator decisions and evidence gates
+
+1. Select the exact retained World and verified source.
+2. Approve World/subject ownership and sharing policy and record the retained-World assignment procedure.
+3. Name separate owners, hosts, databases, roles, and migration heads for Buddy APP-STATE and DungeonMind WorldGraph.
+4. Select existing non-overlapping durable roots outside replaceable checkouts and verify access for runtime UID 10001.
+5. Publish the exact reviewed Buddy source to an authorized registry, record its immutable digest, and verify source/revision labels. No digest exists yet.
+6. Supply database credentials only through an approved secret mechanism; never add real values to Compose, reports, logs, or this repository.
+7. Produce checksummed backups and fingerprints for both authorities, then verify them in new isolated empty targets using their owner runbooks. Do not restore over a live authority, delete volumes, or cross a migration downgrade fence as a rollback shortcut.
+8. Separately review host capacity, DMS image provenance, durable DMS mounts, Nginx/TLS/DNS, cookie delivery, deployment/rollback ownership, provider limits, and the Store Generator health failure if relevant.
+9. Review exact method/path World resolvers and readiness behavior against the selected World and approved policy. Keep activation blocked while the resolver registry is empty.
+
+See RUNBOOK-HOSTED-deployment-preparation.md for the preparation checks and the boundaries of the host inventory.
