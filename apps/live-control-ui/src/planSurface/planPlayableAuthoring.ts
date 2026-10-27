@@ -10,7 +10,7 @@ import { markdownToTiptapDoc } from '../tiptap/markdown/markdownToTiptap';
 import { semanticMarkdownSerializationDiagnostics } from '../tiptap/markdown/semanticMarkdownSafety';
 import { planCardScopeKey } from './planCardEditing';
 
-type Kind = 'scene' | 'beat';
+type Kind = 'scene' | 'beat' | 'choice' | 'option';
 type Version = 'v1' | 'v2';
 export type PlanStructureAction = {kind: Kind; operation: 'insert' | 'promote'; label: string; disabledReason: string | null};
 type Outline = {version: Version; marked: boolean; parentEnd: number | null; error: string | null};
@@ -58,7 +58,7 @@ export function planStructureActions(editor: Editor | null): PlanStructureAction
   const heading=editor && !editor.isDestroyed ? ordinaryHeading(editor.state) : null;
   const version = info?.version ?? 'v2';
   const rootKind = version === 'v2' ? 'beat' : 'scene';
-  return ([rootKind, rootKind === 'beat' ? 'scene' : 'beat'] as Kind[]).map(kind => {
+  const actions: PlanStructureAction[] = ([rootKind, rootKind === 'beat' ? 'scene' : 'beat'] as Kind[]).map(kind => {
     const promote=version==='v2' && heading?.node.attrs.level===(kind==='beat'?2:3);
     return {
       kind, operation:promote?'promote':'insert',
@@ -68,6 +68,16 @@ export function planStructureActions(editor: Editor | null): PlanStructureAction
         : info?.error ?? (kind !== rootKind && info?.parentEnd == null ? `Place the cursor inside a ${version === 'v2' ? 'Beat' : 'Scene'} first.` : null),
     };
   });
+  if (version === 'v2') {
+    const context = editor ? decisionContext(editor.state, info ?? undefined) : null;
+    for (const kind of ['choice', 'option'] as const) {
+      actions.push({kind, operation:'insert', label:kind === 'choice' ? 'Add Choice' : 'Add Option',
+        disabledReason: actions[0].disabledReason
+          ?? (!context || (kind === 'option' && context.kind !== 'choice')
+            ? kind === 'choice' ? 'Place the cursor inside a Beat or Scene first.' : 'Place the cursor inside a Choice first.' : null)});
+    }
+  }
+  return actions;
 }
 
 /** Existing objects keep their exact parent relationships; only order may shift. */
@@ -85,6 +95,7 @@ export function promotePlanHeading(editor: Editor,kind: Kind,expectedState: Edit
   if(editor.isDestroyed || !editor.isEditable) throw new Error('This Plan is not editable.');
   if(!editor.state.doc.eq(expectedState.doc)||!editor.state.selection.eq(expectedState.selection))
     throw new Error('The Plan or cursor changed. Choose the structure action again.');
+  if(kind !== 'beat' && kind !== 'scene')throw new Error('Only Beat and Scene headings can be promoted.');
   const info=outline(editor.state),heading=ordinaryHeading(editor.state);
   if(info.version!=='v2')throw new Error('Choose one ordinary heading in a current Beat-first Plan.');
   const action=planStructureActions(editor).find(x=>x.kind===kind)!;
@@ -121,6 +132,7 @@ function verifyRoundtrip(editor: Editor, doc: PMNode) {
 
 /** One synchronous Plan-owned insertion; no conversion, Save, Graph call or Run mutation. */
 export function insertPlanStructure(editor: Editor, kind: Kind, expectedState: EditorState) {
+  if (kind === 'choice' || kind === 'option') return insertDecisionStructure(editor, kind, expectedState);
   if (editor.isDestroyed || !editor.isEditable) throw new Error('This Plan is not editable.');
   if (!editor.state.doc.eq(expectedState.doc) || !editor.state.selection.eq(expectedState.selection)) throw new Error('The Plan or cursor changed. Choose the structure action again.');
   const info = outline(editor.state);
@@ -144,6 +156,71 @@ export function insertPlanStructure(editor: Editor, kind: Kind, expectedState: E
   const start = blank ? 0 : position;
   tr.setSelection(TextSelection.create(tr.doc, start + 1, start + heading.nodeSize - 1));
   editor.view.dispatch(tr.scrollIntoView());
+  editor.view.focus();
+  return id;
+}
+
+
+type DecisionContext = {kind:'beat'|'scene'|'choice'; beatId:string; sceneId:string|null; end:number; start:number};
+/** Top-level H2/H3 boundaries own descendants, including paragraphs, tables and lists. */
+function decisionContext(state:EditorState,info=outline(state)): DecisionContext|null {
+  if(info.version!=='v2'||info.error||!(state.selection instanceof TextSelection))return null;
+  let beatId:string|null=null, segment:DecisionContext|null=null;
+  const segments:DecisionContext[]=[];
+  const content=state.doc.toJSON().content??[];
+  state.doc.forEach((node,pos,index)=>{
+    if(node.type.name!=='heading'||node.attrs.level>3||isTableCaptionAt(content,index))return;
+    if(segment){segment.end=pos;segments.push(segment);segment=null;}
+    const identity=validatePlayableHeadingAttrs(node.attrs);
+    if(node.attrs.level<=2)beatId=identity.status==='canonical'&&identity.identity.kind==='beat'?identity.identity.id:null;
+    if(!beatId||identity.status!=='canonical')return;
+    const typed=identity.identity;
+    if(typed.kind==='beat'||typed.kind==='scene'||typed.kind==='choice'){
+      segment={kind:typed.kind,beatId,sceneId:typed.kind==='scene'?typed.id:typed.kind==='choice'?typed.sceneId??null:null,
+        start:pos,end:state.doc.content.size};
+    }
+  });
+  if(segment)segments.push(segment);
+  return segments.find(x=>state.selection.from>x.start&&state.selection.to<x.end)??null;
+}
+
+function insertDecisionStructure(editor:Editor,kind:'choice'|'option',expectedState:EditorState){
+  if(editor.isDestroyed||!editor.isEditable)throw new Error('This Plan is not editable.');
+  if(!editor.state.doc.eq(expectedState.doc)||!editor.state.selection.eq(expectedState.selection))
+    throw new Error('The Plan or cursor changed. Choose the structure action again.');
+  if(planCardScopeKey.getState(editor.state)?.active)throw new Error('Open Document to change playable structure.');
+  if(outline(editor.state).version!=='v2')throw new Error('Use a current Beat-first Plan to author Choices and Options.');
+  const context=decisionContext(editor.state);
+  if(!context||(kind==='option'&&context.kind!=='choice'))throw new Error('Place the cursor inside the intended Beat, Scene or Choice first.');
+  const before=indexPlayableStructureV2(editor.getJSON());
+  if(before.status!=='ready')throw new Error('Fix the playable structure first.');
+  if(context.sceneId&&!before.index.scenes.some(x=>x.sceneId===context.sceneId&&x.beatId===context.beatId))
+    throw new Error('The Scene does not belong to this Beat.');
+  const id=generatePlayableElementId(kind);
+  const option=(optionId:string,label:string)=>editor.schema.nodes.listItem.create({
+    playableElementKind:'option',playableElementId:optionId,playableElementVersion:'v2',
+  },editor.schema.nodes.paragraph.create(null,editor.schema.text(label)));
+  let tr=editor.state.tr;
+  if(kind==='choice'){
+    const heading=editor.schema.nodes.heading.create({level:3,playableElementKind:'choice',playableElementId:id,
+      playableElementVersion:'v2',playableSceneId:context.sceneId},editor.schema.text('New Choice'));
+    const options=['First option','Second option'].map(label=>editor.schema.nodes.bulletList.create(null,option(generatePlayableElementId('option'),label)));
+    tr=tr.insert(context.end,[heading,...options]);
+  }else{
+    tr=tr.insert(context.end,editor.schema.nodes.bulletList.create(null,option(id,'New option')));
+  }
+  const after=indexPlayableStructureV2(tr.doc.toJSON());
+  if(after.status!=='ready')throw new Error('The new decision would invalidate this Plan.');
+  const next=ownership(after.index);
+  for(const [existing,relation] of ownership(before.index))if(next.get(existing)!==relation)
+    throw new Error('This would change an existing playable relationship.');
+  verifyRoundtrip(editor,tr.doc);
+  let from=-1,to=-1;
+  tr.doc.descendants((node,pos)=>{if(node.attrs.playableElementId===id){from=pos+(kind==='option'?2:1);to=from+node.textContent.length;return false;}});
+  if(from<0)throw new Error('The new decision has no editable label.');
+  tr.setSelection(TextSelection.create(tr.doc,from,to));
+  editor.view.dispatch(closeHistory(tr).scrollIntoView());
+  if(!editor.state.doc.eq(tr.doc))throw new Error('The current editor scope refused this structure change. Open Document.');
   editor.view.focus();
   return id;
 }

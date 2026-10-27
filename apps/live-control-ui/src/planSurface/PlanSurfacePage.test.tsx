@@ -3378,7 +3378,7 @@ it("reverts an editor transaction that the semantic Markdown serializer cannot p
 });
 
 
-it.each(["append","promote"])("authors playable structure through Plan toolbar and explicit Save, retaining identities after reopen (%s)", async mode => {
+it.each(["append","promote","decision"])("authors playable structure through Plan toolbar and explicit Save, retaining identities after reopen (%s)", async mode => {
   vi.spyOn(window,"scrollBy").mockImplementation(()=>{});
   const rect=DOMRect.fromRect({x:0,y:0,width:1,height:1});
   const oldRects=Object.getOwnPropertyDescriptor(Range.prototype,"getClientRects");
@@ -3406,11 +3406,19 @@ it.each(["append","promote"])("authors playable structure through Plan toolbar a
     fireEvent.change(screen.getByRole("textbox",{name:"Plan title",exact:true}),{target:{value:"Renamed typed Plan"}});
     expect(screen.getByRole("button",{name:"Add Scene to this Beat"})).toBeDisabled();
     const oldAction=(chromeCapture.editorTools as {tools:{sections:Array<{actions:Array<{label:string;onClick:()=>void}>}>}}).tools.sections.flatMap(section=>section.actions).find(action=>action.label === "Add Beat")!.onClick;
-    if(mode==='append') {
+    if(mode!=='promote') {
       fireEvent.click(beat);
       await screen.findByRole("heading",{name:"New Beat",exact:true});
       const scene=screen.getByRole("button",{name:"Add Scene to this Beat"});await waitFor(()=>expect(scene).toBeEnabled());fireEvent.click(scene);
       await screen.findByRole("heading",{name:"New Scene",exact:true});
+      if(mode==='decision'){
+        const addChoice=await screen.findByRole('button',{name:'Add Choice',exact:true});
+        await waitFor(()=>expect(addChoice).toBeEnabled());fireEvent.click(addChoice);
+        await screen.findByRole('heading',{name:'New Choice',exact:true});
+        const addOption=screen.getByRole('button',{name:'Add Option',exact:true});
+        await waitFor(()=>expect(addOption).toBeEnabled());fireEvent.click(addOption);
+        await screen.findByText('New option',{exact:true});
+      }
     } else {
       const liveEditor=(screen.getByTestId('world-owned-plan-markdown-editor').querySelector('.ProseMirror') as any).editor;
       const select=(text:string)=>act(()=>{liveEditor.state.doc.forEach((node:any,pos:number)=>{if(node.type.name==='heading'&&node.textContent===text)liveEditor.commands.setTextSelection(pos+1);});});
@@ -3420,15 +3428,20 @@ it.each(["append","promote"])("authors playable structure through Plan toolbar a
       expect(screen.getByRole('table')).toHaveTextContent('Optional');
     }
     act(()=>oldAction());
-    expect(screen.getAllByRole("heading",{name:mode==='append'?"New Beat":"Preparation",exact:true})).toHaveLength(1);
+    expect(screen.getAllByRole("heading",{name:mode!=='promote'?"New Beat":"Preparation",exact:true})).toHaveLength(1);
     expect(prepare).not.toHaveBeenCalled();expect(commit).not.toHaveBeenCalled();
     fireEvent.click(screen.getByRole("button",{name:"Save Plan",exact:true}));
     await waitFor(()=>expect(commit).toHaveBeenCalledOnce());
     await screen.findByText("Saved to this World.");
     expect(saved.startsWith(envelope)).toBe(true);
     if(mode==='promote')expect(saved).toContain('| Tavern | Optional |');
+    if(mode==='decision'){
+      expect(saved.match(/kind=choice id=/g)).toHaveLength(1);
+      expect(saved.match(/kind=option id=/g)).toHaveLength(3);
+      expect(saved).toContain('First option');expect(saved).toContain('New option');
+    }
     const identities=saved.match(/id=(?:beat|scene):[^ ]+/g);expect(identities).toHaveLength(2);expect(saved).toContain("Source quotation retained.");
-    mounted.unmount();render(pageTree);await screen.findByRole("heading",{name:mode==='append'?"New Scene":"Arrival",exact:true});
+    mounted.unmount();render(pageTree);await screen.findByRole("heading",{name:mode!=='promote'?"New Scene":"Arrival",exact:true});
     const editor=screen.getByTestId("world-owned-plan-markdown-editor");
     expect(editor).toHaveTextContent("Source quotation retained.");
     expect(editor.querySelector('[data-dmb-playable-id]')?.getAttribute('data-dmb-playable-id')).toBe(identities![0].slice(3));
