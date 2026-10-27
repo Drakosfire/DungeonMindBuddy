@@ -1,0 +1,75 @@
+name: Hosted validation
+
+on:
+  pull_request:
+    branches: [main]
+    types: [opened, synchronize, reopened]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: hosted-validation-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  auth-app-tests:
+    name: Python 3.13 auth/app integration tests
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout complete source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          clean: true
+          persist-credentials: false
+
+      - name: Set up Python 3.13
+        uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: "3.13"
+
+      - name: Set up pinned uv
+        uses: astral-sh/setup-uv@07a047e608db84b3d8c06cd9a7c7dcc9c355c18e # v10.3.2
+        with:
+          version: "0.13.5"
+          enable-cache: false
+
+      - name: Verify Python runtime
+        run: python -c "import sys; assert sys.version_info[:2] == (3, 13), sys.version; print(sys.version.split()[0])"
+
+      - name: Prepare pinned patched Hermes source
+        run: python scripts/prepare_patched_hermes.py
+
+      - name: Install locked dependencies
+        run: uv sync --locked
+
+      - name: Verify psycopg import
+        run: uv run --locked python -c "import psycopg; print('psycopg import succeeded')"
+
+      - name: Run auth/app integration tests
+        run: |
+          uv run --locked pytest -q --tb=short --show-capture=no \
+            tests/test_hosted_auth.py \
+            tests/test_dms_principal.py \
+            tests/test_trusted_cookie_origin.py \
+            tests/test_agent_graph_auth.py
+
+  production-image-build:
+    name: Production Docker build (no push)
+    needs: auth-app-tests
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout complete source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          clean: true
+          persist-credentials: false
+
+      - name: Build production image without publishing
+        run: docker buildx build --no-cache --file Dockerfile.production --tag dungeonmindbuddy:validation-${GITHUB_SHA::12} --load --progress plain .
