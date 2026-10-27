@@ -922,46 +922,19 @@ def _recap_beat_excerpt_candidates(
     known_indexed_refs = set(indexed_by_alias)
     allowed_refs = set(eligible_refs) | known_indexed_refs
 
-    def defer(beat_ordinal: int, code: str) -> dict[str, Any]:
-        return {
-            "item_id": f"deferred:recap-beat-excerpt:{beat_ordinal:03d}:{code}",
-            "label": f"Beat {beat_ordinal}",
-            "reason": f"recap_beat_excerpt_deferred:{code}",
-            "evidence_refs": [],
-            "warnings": [f"recap_beat_excerpt_deferred:{code}"],
-        }
-
-    excerpt_beats: list[dict[str, Any]] = []
-    deferred_beats: list[dict[str, Any]] = []
-    for beat_ordinal, raw in enumerate(raw_beats, start=1):
-        if digest_error:
-            deferred_beats.append(defer(beat_ordinal, digest_error))
-            continue
-
-        evidence_refs = raw.get("evidence_refs")
-        if not isinstance(evidence_refs, list) or not evidence_refs:
-            deferred_beats.append(defer(beat_ordinal, "missing_span_nomination"))
-            continue
-        if len(evidence_refs) != 1:
-            deferred_beats.append(defer(beat_ordinal, "multi_span_nomination"))
-            continue
-        nominated_ref = evidence_refs[0]
+    def resolve_nomination(nominated_ref: Any) -> tuple[dict[str, Any] | None, str | None]:
         if not isinstance(nominated_ref, Mapping):
-            deferred_beats.append(defer(beat_ordinal, "missing_span_nomination"))
-            continue
+            return None, "missing_span_nomination"
         raw_span_id = str(nominated_ref.get("source_span_ref_id") or "").strip()
         if not raw_span_id:
-            deferred_beats.append(defer(beat_ordinal, "missing_span_nomination"))
-            continue
+            return None, "missing_span_nomination"
         lookup_ref = raw_span_id.removeprefix("spref:")
         canonical_ref = _canonical_spref(lookup_ref, allowed_refs)
         if canonical_ref is None:
-            deferred_beats.append(defer(beat_ordinal, "forged_span_ref"))
-            continue
+            return None, "forged_span_ref"
         span = indexed_by_alias.get(canonical_ref)
         if span is None:
-            deferred_beats.append(defer(beat_ordinal, "forged_span_ref"))
-            continue
+            return None, "forged_span_ref"
         canonical_ref = str(
             span.get("source_span_ref_id")
             or span.get("span_id")
@@ -970,22 +943,17 @@ def _recap_beat_excerpt_candidates(
         ).strip()
         span_kind = span.get("kind")
         if span_kind not in (None, "paragraph") or canonical_ref.endswith(":full_text"):
-            deferred_beats.append(defer(beat_ordinal, "non_paragraph_span"))
-            continue
+            return None, "non_paragraph_span"
         if canonical_ref not in eligible_refs:
-            deferred_beats.append(defer(beat_ordinal, "ineligible_span"))
-            continue
+            return None, "ineligible_span"
         if canonical_ref in invalid_bounds_refs:
-            deferred_beats.append(defer(beat_ordinal, "invalid_span_bounds"))
-            continue
+            return None, "invalid_span_bounds"
 
         anchor_quotes = nominated_ref.get("anchor_quotes")
         if not isinstance(anchor_quotes, list) or not anchor_quotes:
-            deferred_beats.append(defer(beat_ordinal, "missing_anchor"))
-            continue
+            return None, "missing_anchor"
         if any(not isinstance(quote, str) or not quote.strip() for quote in anchor_quotes):
-            deferred_beats.append(defer(beat_ordinal, "missing_anchor"))
-            continue
+            return None, "missing_anchor"
 
         quote_spans: set[str] = set()
         anchor_error: str | None = None
@@ -1013,30 +981,66 @@ def _recap_beat_excerpt_candidates(
                 break
             quote_spans.add(matches[0])
         if anchor_error:
-            deferred_beats.append(defer(beat_ordinal, anchor_error))
-            continue
+            return None, anchor_error
         if len(quote_spans) != 1 or canonical_ref not in quote_spans:
-            deferred_beats.append(defer(beat_ordinal, "span_mismatch"))
-            continue
+            return None, "span_mismatch"
 
         matched = next(
             paragraph for paragraph in paragraphs
             if paragraph["source_span_ref_id"] == canonical_ref
         )
-        normalized = _normalize_beat(raw)
-        normalized["title"] = f"Source excerpt {matched['ordinal']}"
-        normalized["summary"] = str(matched["text"])
-        normalized["evidence_refs"] = [
-            {
-                "source_span_ref_id": canonical_ref,
-                "anchor_quotes": [str(matched["text"])],
-            }
-        ]
-        # Sanitization adds an exact span-wide AnchorQuoteMatch. The shared
-        # anchor quote normalizer trims display quotes, so carry the raw host
-        # paragraph through until the last sanitizer pass.
-        normalized["_host_excerpt_text"] = str(matched["text"])
-        excerpt_beats.append(normalized)
+        return matched, None
+
+    def defer(beat_ordinal: int, code: str, reference_ordinal: int = 0) -> dict[str, Any]:
+        reference_suffix = f":ref:{reference_ordinal:03d}" if reference_ordinal else ""
+        return {
+            "item_id": f"deferred:recap-beat-excerpt:{beat_ordinal:03d}{reference_suffix}:{code}",
+            "label": f"Beat {beat_ordinal}",
+            "reason": f"recap_beat_excerpt_deferred:{code}",
+            "evidence_refs": [],
+            "warnings": [f"recap_beat_excerpt_deferred:{code}"],
+        }
+
+    excerpt_beats: list[dict[str, Any]] = []
+    deferred_beats: list[dict[str, Any]] = []
+    for beat_ordinal, raw in enumerate(raw_beats, start=1):
+        if digest_error:
+            deferred_beats.append(defer(beat_ordinal, digest_error))
+            continue
+        evidence_refs = raw.get("evidence_refs")
+        if not isinstance(evidence_refs, list) or not evidence_refs:
+            deferred_beats.append(defer(beat_ordinal, "missing_span_nomination"))
+            continue
+
+        # Validate before deduplicating: an invalid second nomination must not
+        # disappear merely because another reference names the same paragraph.
+        matched_by_ref: dict[str, dict[str, Any]] = {}
+        for reference_ordinal, nominated_ref in enumerate(evidence_refs, start=1):
+            matched, error = resolve_nomination(nominated_ref)
+            if error:
+                deferred_beats.append(defer(beat_ordinal, error, reference_ordinal))
+            elif matched is not None:
+                matched_by_ref[str(matched["source_span_ref_id"])] = matched
+
+        for matched in sorted(matched_by_ref.values(), key=lambda item: item["index_position"]):
+            canonical_ref = str(matched["source_span_ref_id"])
+            normalized = _normalize_beat(raw)
+            normalized["source_beat_id"] = normalized["beat_id"]
+            # Raw ordinal prevents missing/duplicate model IDs from colliding;
+            # canonical paragraph identity makes sibling IDs order independent.
+            ref_digest = hashlib.sha256(canonical_ref.encode("utf-8")).hexdigest()
+            normalized["beat_id"] = f"recap-beat-excerpt:{beat_ordinal:03d}:{ref_digest}"
+            normalized["title"] = f"Source excerpt {matched['ordinal']}"
+            normalized["summary"] = str(matched["text"])
+            normalized["evidence_refs"] = [
+                {
+                    "source_span_ref_id": canonical_ref,
+                    "anchor_quotes": [str(matched["text"])],
+                }
+            ]
+            # Carry exact indentation through the shared display-quote normalizer.
+            normalized["_host_excerpt_text"] = str(matched["text"])
+            excerpt_beats.append(normalized)
 
     return excerpt_beats, deferred_beats
 

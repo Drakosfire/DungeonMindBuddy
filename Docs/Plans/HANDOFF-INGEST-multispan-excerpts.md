@@ -23,3 +23,9 @@ Open PR1828 owns hosted deployment/config; old held extractor PR1148/1149 reserv
 ## Verification and delivery gates
 
 Exercise actual category extraction through typed preview and contribution mapping: two real paragraphs, reversed/duplicate nominations, repeated raw IDs, missing/forged/mismatched/ambiguous/stale/bad-bound refs including mixed valid/invalid, contradictory model prose and no occurred-event promotion. Run existing owning extractor/preview/contribution tests, Ruff and cumulative base-to-head diff review. Replay captured raw/source shapes offline if available, preserve original hashes. Commit/push/open one bounded PR, independent Bugbot exact-head review, required hosted checks, PRIME merge and protected same-port API delivery. Tests/replay do not establish model quality or full adventure acceptance.
+
+## Author verification
+
+Owning extractor, typed-preview/IR, contribution mapper, default semantic-state and quote-integrity suites: 83 passed. Extractor/test Ruff passes. Typed preview module has 29 pre-existing E701/E702 diagnostics; pinned-base versus head JSON comparison is identical excluding shifted line numbers. No lint suppression or unrelated reformatting was added.
+
+Exact captured Luna host-selector replay: 7 raw beats produce 6 excerpts plus multi_span_nomination on pinned base; patched selector produces 8 excerpts, no deferrals, two independently cited whole-paragraph children for beat-6 including reward. Source/index/response/original candidate hashes unchanged. This is selector-boundary proof, not full pipeline or future model/answer-quality proof. Private receipt: /home/drakosfire/.local/state/dungeonmindbuddy/experiments/recap-multispan-excerpt-replay.json, SHA256 d0e14bfcacfc7169e079b0adb520c1c83617cd966009fb91bf2d3a8c9eab0865. Zero provider calls and no database mutation.
