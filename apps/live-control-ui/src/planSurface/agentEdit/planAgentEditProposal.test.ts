@@ -1207,3 +1207,46 @@ it('preparation refuses retired conversation authority without changing the moun
     expectedAgentBinding(),()=>({...matchingAgentBinding(),mounted:false}))).rejects.toThrow();
   expect(editor.getJSON()).toEqual(before);
 });
+
+
+it.each(["sibling", "body"])("captures, reviews, applies and reopens a Scene with an ordinary table in its %s", async (placement) => {
+  const table = "| Lead | Next step |\n| --- | --- |\n| A repair | Ask the smith (optional). |";
+  const source = [
+    "# Preparation only", "",
+    "<!-- dmb-playable-element:v2 kind=scene id=scene:arrival -->",
+    "### Arrival", "", "Meet the residents.", "",
+    ...(placement === "sibling" ? [table, ""] : []),
+    "<!-- dmb-playable-element:v2 kind=scene id=scene:descent -->",
+    "### Descent", "", "Ask [the guide](dmb-node:node:guide) about the guardian.", "",
+    ...(placement === "body" ? [table, ""] : []),
+    "<!-- dmb-playable-element:v2 kind=scene id=scene:later -->",
+    "### Later", "", "**Unplayed** aftermath.", "",
+  ].join("\n");
+  const { editor, state } = mountedState(source);
+  const current: WorldPlanEditEditorState = {
+    ...worldState(state), playableTarget: { kind: "scene", id: "scene:descent" }, playableTargetGeneration: 1,
+  };
+  const before = editor.getJSON();
+  const selection = editor.state.selection.toJSON();
+  const captured = await captureWorldPlanEditTarget(current, () => current);
+  expect(editor.getJSON()).toEqual(before);
+  expect(editor.state.selection.toJSON()).toEqual(selection);
+  const key = "00000000-0000-4000-8000-000000000002";
+  const replacement = captured.request.target_body_markdown! + "\nProposed possibility: offer a peaceful departure.\n";
+  const admitted = await admitWorldPlanEditProposal(captured, await worldResponseFor(captured, replacement, key), key);
+  expect(editor.getJSON()).toEqual(before);
+  await applyWorldPlanEditProposal({ captured, admitted, getCurrent: () => current,
+    expectedAgentBinding: expectedAgentBinding(), getAgentBinding: matchingAgentBinding });
+  expect(state.sourceMarkdown).toBe(source);
+  const saved = tiptapJsonToSemanticMarkdown(editor.getJSON());
+  expect(saved).toContain("| Lead | Next step |");
+  expect(saved).toContain("**Unplayed** aftermath.");
+  expect(saved).toContain("[the guide](dmb-node:node:guide)");
+  expect(saved).toContain("id=scene:arrival");
+  expect(saved).toContain("id=scene:later");
+  const reopened = mountedState(saved).editor;
+  expect(tiptapJsonToSemanticMarkdown(reopened.getJSON())).toBe(saved);
+  const target = await resolvePlayableBodyTarget(reopened, { kind: "scene", id: "scene:descent" });
+  expect(target.targetBodyMarkdown).toBe(admitted.canonicalMarkdown);
+  expect(target.targetBodyMarkdown.includes("| Lead | Next step |")).toBe(placement === "body");
+});

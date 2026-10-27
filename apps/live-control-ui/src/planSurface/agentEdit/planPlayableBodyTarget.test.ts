@@ -137,3 +137,49 @@ it("allows schema-empty headings and list attrs to normalize across protected Ma
   ];
   expect(playableBodyProtectedStructureMatches(before, movedSibling, target)).toBe(false);
 });
+
+
+it.each(["sibling", "body"])("captures a marked Plan with an ordinary table in the %s", async (placement) => {
+  const table = "| Lead | Next step |\n| --- | --- |\n| A repair | Ask the smith (optional). |";
+  const markdown = [
+    "Preparation only; no outcomes have been played.", "",
+    "<!-- dmb-playable-element:v2 kind=beat id=beat:table-capture beat_kind=spine -->",
+    "## Preparation", "",
+    "<!-- dmb-playable-element:v2 kind=scene id=scene:arrival -->",
+    "### 1. Arrival", "", "Meet the village residents.", "",
+    ...(placement === "sibling" ? [table, ""] : []),
+    "<!-- dmb-playable-element:v2 kind=scene id=scene:descent -->",
+    "### 2. Descent", "", "The guardian protects the child (proposed scene).", "",
+    ...(placement === "body" ? [table, ""] : []),
+  ].join("\n");
+  const imported = markdownToTiptapDoc(markdown);
+  expect(imported.diagnostics).toEqual([]);
+  const editor = new Editor({ extensions: DEFAULT_MARKDOWN_EDITOR_EXTENSIONS, content: imported.doc });
+  editors.push(editor);
+  const rawTable = imported.doc.content?.find((node) => node.type === "table");
+  const editorTable = editor.getJSON().content?.find((node) => node.type === "table");
+  expect(rawTable?.content?.[0]?.content?.[0]?.attrs).toBeUndefined();
+  expect(editorTable?.content?.[0]?.content?.[0]?.attrs).toEqual({ colspan: 1, rowspan: 1, colwidth: null });
+  const before = editor.getJSON();
+  const selection = editor.state.selection.toJSON();
+  const captured = await resolvePlayableBodyTarget(editor, { kind: "scene", id: "scene:descent" });
+  expect(editor.getJSON()).toEqual(before);
+  expect(editor.state.selection.toJSON()).toEqual(selection);
+  expect(captured.targetBodyMarkdown).toContain("The guardian protects the child");
+  expect(captured.targetBodyMarkdown.includes("| Lead | Next step |")).toBe(placement === "body");
+});
+
+
+it.each([{ colspan: 2 }, { rowspan: 2 }, { colwidth: [120] }])("refuses lossy table cell attributes %j", async (attrs) => {
+  const imported = markdownToTiptapDoc("<!-- dmb-playable-element:v2 kind=scene id=scene:table -->\n### Table\n\n| A | B |\n| --- | --- |\n| One | Two |\n");
+  const editor = new Editor({ extensions: DEFAULT_MARKDOWN_EDITOR_EXTENSIONS, content: imported.doc });
+  editors.push(editor);
+  const document = editor.getJSON();
+  const cell = document.content?.find((node) => node.type === "table")?.content?.[0]?.content?.[0];
+  if (!cell) throw new Error("Expected a table cell");
+  cell.attrs = { ...cell.attrs, ...attrs };
+  editor.commands.setContent(document);
+  const before = editor.getJSON();
+  await expect(resolvePlayableBodyTarget(editor, { kind: "scene", id: "scene:table" })).rejects.toThrow(/unsupported Playable content/);
+  expect(editor.getJSON()).toEqual(before);
+});

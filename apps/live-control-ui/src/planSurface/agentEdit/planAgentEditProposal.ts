@@ -1287,11 +1287,12 @@ export async function applyWorldPlanEditProposal(args: {
     const reserialized = tiptapJsonToSemanticMarkdown(reimported.doc);
     if (captured.playableBodyTarget) {
       const originalDocument = JSON.parse(captured.editorJson) as JSONContent;
-      if (!playableBodyProtectedStructureMatches(originalDocument, reimported.doc, captured.playableBodyTarget)) {
-        throw new PlanEditGuardError("Agent proposal would change protected card or sibling structure after Markdown reload.");
-      }
       const roundTripEditor = new Editor({ extensions: DEFAULT_MARKDOWN_EDITOR_EXTENSIONS, content: reimported.doc });
       try {
+        roundTripEditor.state.doc.check();
+        if (!playableBodyProtectedStructureMatches(originalDocument, roundTripEditor.getJSON(), captured.playableBodyTarget)) {
+          throw new PlanEditGuardError("Agent proposal would change protected card or sibling structure after Markdown reload.");
+        }
         const roundTripTarget = await resolvePlayableBodyTarget(roundTripEditor, captured.playableBodyTarget.target);
         if (roundTripTarget.targetBodyMarkdown !== admitted.canonicalMarkdown) {
           throw new PlanEditGuardError("The reviewed card body changed during Markdown reload.");
