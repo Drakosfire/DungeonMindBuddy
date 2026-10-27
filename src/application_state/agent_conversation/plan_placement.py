@@ -121,6 +121,12 @@ class PlanRequestedWorkInputV2(PlanRequestedWorkInputV1):
         return self
 
 
+class PlanRequestedWorkInputV3(PlanRequestedWorkInputV2):
+    """Current request precedence; same captured placement authority as V2."""
+    schema_: Literal["dmb_plan_requested_work_input_v3"] = Field(
+        default="dmb_plan_requested_work_input_v3", alias="schema")
+
+
 def work_choice(request: PlanRequestedWorkInputV2, selected: str):
     """Decode only offered choices; the selected target digest stays host-owned."""
     if selected in {"discuss", "clarify", "different_destination"}:

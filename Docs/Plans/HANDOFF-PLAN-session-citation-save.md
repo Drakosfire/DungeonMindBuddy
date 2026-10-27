@@ -1,6 +1,6 @@
 # PLAN — session citation Save admission
 
-Status: ACTIVE after independent invariant critique approved exact design e67db8c7f20b90e8a33c0c8d3afc2050289e9267. PRIME owns serial branch codex/session-citation-plan-admission at base7f9a74d09277674a8adfe1c6d6d08000b39c0682 in existing buddy-context-loop checkout, under standing authoring/dogfood authority. One bounded implementation PR. Live5202 UI is1836, API1835/schema0081. Sheep cited proposal and direct author cue remain retained unsaved; no regeneration or private hand repair. Held1764/hosted1828 remain separate.
+Status: MERGED and UI delivered through PR1837 at b1877e99ec3cf15f257aa4479ad8cb95c14c6c06, exact independently approved head059bc42d030f497090142e5a65ee08caa31bd911. Owner147 tests, TSC/build and hosted gates passed. Protected delivery exactly preserved3785APP/1157native/40892files; API1835/schema0081 stayed unchanged. Ordinary Sheep proposal15a90d23-ca50-48b3-ac49-1f180a258459 retained the author cue across updates, saved and reloaded identical DOM; both numbered references opened their exact saved entries. All29outsidepage nodes, retained Play tables and native rows remained exact. One manual placement confirmation after1836 is retained as a recovery limit. Original failed Save remains evidence; no full adventure/operator acceptance is claimed. Next bounded work is current-request routing for retained discussion misroute65f25721-cb00-4041-95a2-ecb57fedfbd7.
 
 ## Owning failure and correction
 

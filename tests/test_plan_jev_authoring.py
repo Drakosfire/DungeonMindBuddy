@@ -93,6 +93,8 @@ class SemanticWire(httpx2.AsyncBaseTransport):
         assert body["state"]["edit_target_available"] == (
             self.adapter.request.plan_authoring_capture is not None
         )
+        from application_state.agent_conversation.plan_authoring import CURRENT_REQUEST_INTENT_POLICY
+        assert body["state"]["intent_policy"] == CURRENT_REQUEST_INTENT_POLICY
         assert set(body["questions"]) == {"requested_work"}
         current = self.adapter.service.list_turns(
             "world:one", self.adapter.turn.conversation_id
@@ -133,6 +135,7 @@ def test_semantic_destination_is_durable_without_granting_edit_authority(
     from apps.live_control_server.services.plan_jev_dispatch import PlanJevDispatch
 
     dispatch = PlanJevDispatch.requested_work(plan_adapter, page_title="Preparation")
+    assert dispatch.parent.schema_ == "dmb_plan_requested_work_input_v3"
     selected, _ = asyncio.run(
         dispatch.run(
             transport=SemanticWire(plan_adapter, choice), api_key="synthetic-not-secret"
@@ -1207,3 +1210,47 @@ def test_plan_decision_failure_retains_normalized_cause_without_sdk_text(plan_ad
     execution=plan_adapter.fence.turn.graph_context_execution
     assert any(event.kind=='plan_requested_work_authorized_v2' for event in execution.events)
     assert not any(event.kind=='plan_requested_work_selected_v2' for event in execution.events)
+
+
+@pytest.mark.parametrize("schema", ["dmb_plan_requested_work_input_v2", "unregistered_parent"])
+def test_current_authorization_rejects_parent_contract_substitution(plan_adapter, schema):
+    import asyncio
+    from application_state.agent_conversation.plan_jev_decision import verify_input
+    from apps.live_control_server.services.plan_jev_dispatch import PlanJevDispatch
+
+    dispatch = PlanJevDispatch.requested_work(plan_adapter, page_title="Preparation")
+    asyncio.run(dispatch.run(transport=SemanticWire(plan_adapter, "discuss"), api_key="synthetic-not-secret"))
+    turn = plan_adapter.fence.turn
+    parent = dispatch.parent.model_dump(mode="json", by_alias=True) | {"schema": schema}
+    with pytest.raises(ValueError):
+        verify_input(turn, dispatch.authorization, {
+            "parent_request_json": json.dumps(parent),
+            "request_json": dispatch.prepared.body.decode(),
+        })
+
+
+@pytest.mark.parametrize("choice", ["discuss", "clarify"])
+def test_inline_intent_with_editable_target_never_reserves_page_action(plan_adapter, tmp_path, choice, application_state_dsn):
+    from tests.test_plan_jev_harness import route_case, Finish
+    from apps.live_control_server.services.agent_turn_service import execute_agent_turn
+
+    capture, _ = admitted_authoring(plan_adapter, admit=False)
+    harness, _, wire, kwargs = route_case(plan_adapter, tmp_path)
+
+    class Choices(Finish):
+        async def handle_async_request(self, request):
+            if "requested_work" in json.loads(request.content)["questions"]:
+                self.calls.append(request)
+                return await SemanticWire(wire.adapter, choice).handle_async_request(request)
+            return await super().handle_async_request(request)
+
+    decisions = Choices()
+    harness.decision_transport = decisions
+    response = execute_agent_turn(plan_adapter.request, **kwargs)
+    assert response.answer.status == "ok"
+    turn = kwargs["conversation_service"].list_turns(capture.world_id, capture.conversation_id)[0]
+    import psycopg
+    from application_state.plan_action_dialogue.repository import get_authoring_for_turn
+    with psycopg.connect(application_state_dsn) as conn:
+        assert get_authoring_for_turn(conn, world_id=turn.world_id, turn_id=turn.turn_id, attempt=turn.attempt) is None
+    assert turn.completion.schema_ != "dmb_plan_authoring_completion_v1"
