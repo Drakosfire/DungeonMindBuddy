@@ -18,17 +18,34 @@ export function CompleteWorldObjectAdvancedDetails({
   const sourceBindingCount = result.sourceBindings?.length ?? 0;
 
   const body = (
-    <dl>
-      <dt>World ID</dt><dd>{result.snapshot?.worldId ?? "Unknown"}</dd>
-      <dt>Node ID</dt><dd>{result.resolvedNodeId ?? result.requestedNodeId}</dd>
-      <dt>World revision</dt><dd>{result.snapshot?.revisionId ?? "Unknown"}</dd>
-      <dt>Semantic fingerprint</dt><dd>{result.semanticFingerprint ?? "Unavailable"}</dd>
-      <dt>Completeness</dt><dd>{result.completeness.status}</dd>
-      <dt>Relationships</dt><dd>{relationshipCount}</dd>
-      <dt>Assertions</dt><dd>{assertionCount}</dd>
-      <dt>Source bindings</dt><dd>{sourceBindingCount}</dd>
-      {originSurface ? <><dt>Origin surface</dt><dd>{originSurface}</dd></> : null}
-    </dl>
+    <>
+      <dl>
+        <dt>World ID</dt><dd>{result.snapshot?.worldId ?? "Unknown"}</dd>
+        <dt>Node ID</dt><dd>{result.resolvedNodeId ?? result.requestedNodeId}</dd>
+        <dt>World revision</dt><dd>{result.snapshot?.revisionId ?? "Unknown"}</dd>
+        <dt>Semantic fingerprint</dt><dd>{result.semanticFingerprint ?? "Unavailable"}</dd>
+        <dt>Completeness</dt><dd>{result.completeness.status}</dd>
+        <dt>Relationships</dt><dd>{relationshipCount}</dd>
+        <dt>Assertions</dt><dd>{assertionCount}</dd>
+        <dt>Source bindings</dt><dd>{sourceBindingCount}</dd>
+        {originSurface ? <><dt>Origin surface</dt><dd>{originSurface}</dd></> : null}
+      </dl>
+      <section aria-label="Returned relationship identities">
+        <h4>Returned relationship identities</h4>
+        {result.node?.adjacency.length ? result.node.adjacency.map((relationship) => (
+          <dl key={relationship.edgeId}>
+            <dt>Edge ID</dt><dd>{relationship.edgeId}</dd>
+            <dt>Related node ID</dt><dd>{relationship.nodeId}</dd>
+            <dt>Predicate</dt><dd>{relationship.predicate}</dd>
+            <dt>Direction</dt><dd>{relationship.direction}</dd>
+            <dt>Evidence reference IDs</dt>
+            <dd>{relationship.evidenceRefIds.length
+              ? relationship.evidenceRefIds.map((id) => <div key={id}>{id}</div>)
+              : "None in this admitted view"}</dd>
+          </dl>
+        )) : <p>No relationship identities in this admitted view.</p>}
+      </section>
+    </>
   );
 
   if (bare) {

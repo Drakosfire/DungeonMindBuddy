@@ -308,6 +308,51 @@ describe("ResolvedGraphObjectProjection partial completeness", () => {
     expect(screen.queryByText("This text must not be exposed.")).not.toBeInTheDocument();
   });
 
+  it("inspects distinct returned relationship identities only inside Advanced", async () => {
+    const user = userEvent.setup();
+    const result = completeObject("partial");
+    const outgoing = caelynn.adjacency[0];
+    vi.mocked(liveApi.postWorldGraphCompleteObject).mockResolvedValue({
+      ...result,
+      node: { ...caelynn, adjacency: [outgoing, {
+        ...outgoing, edgeId: "edge:second:incoming", direction: "incoming",
+        predicate: "parent_of", evidenceRefIds: ["evidence:second:exact"],
+      }] },
+    });
+    render(<ResolvedGraphObjectProjection resolution={resolvedCaelynn()} originSurface="plan" />);
+    const advanced = await screen.findByText("Advanced");
+    const panel = advanced.closest("details")!;
+    expect(within(panel).getByText(outgoing.edgeId)).not.toBeVisible();
+    expect(within(panel).getByText("edge:second:incoming")).not.toBeVisible();
+    await user.click(advanced);
+    const identities = within(panel).getByRole("region", { name: "Returned relationship identities" });
+    expect(within(identities).getByText(outgoing.edgeId)).toBeVisible();
+    expect(within(identities).getByText("edge:second:incoming")).toBeVisible();
+    expect(within(identities).getAllByText(outgoing.nodeId)).toHaveLength(2);
+    expect(within(identities).getByText("outgoing")).toBeVisible();
+    expect(within(identities).getByText("incoming")).toBeVisible();
+    expect(within(identities).getByText("parent_of")).toBeVisible();
+    expect(within(identities).getByText("evidence:second:exact")).toBeVisible();
+    expect(screen.getByText(/Partial World object/)).toBeVisible();
+    expect(liveApi.postWorldGraphCompleteObject).toHaveBeenCalledTimes(1);
+    await user.click(advanced);
+    expect(within(panel).getByText("edge:second:incoming")).not.toBeVisible();
+    expect(liveApi.postWorldGraphCompleteObject).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not invent relationship identities for empty admitted adjacency", async () => {
+    vi.mocked(liveApi.postWorldGraphCompleteObject).mockResolvedValue({
+      ...completeObject("partial"), node: { ...caelynn, adjacency: [] },
+      telemetry: { relationshipCount: 12 },
+    });
+    const user = userEvent.setup();
+    render(<ResolvedGraphObjectProjection resolution={resolvedCaelynn()} />);
+    await user.click(await screen.findByText("Advanced"));
+    expect(screen.getByText("No relationship identities in this admitted view.")).toBeVisible();
+    expect(screen.getByText(/Partial World object/)).toBeVisible();
+    expect(liveApi.postWorldGraphCompleteObject).toHaveBeenCalledTimes(1);
+  });
+
   it("keeps exact World identity behind Advanced without another request", async () => {
     const user = userEvent.setup();
     vi.mocked(liveApi.postWorldGraphCompleteObject).mockResolvedValue(completeObject("complete"));
