@@ -1,6 +1,6 @@
 # PLAY — preserve authored scene order at session preparation
 
-Status: BLOCKED for independent invariant critique. PRIME owns serial branch codex/session-source-scene-order, base1eb51661677c15dbc3ee172e3b0c9d879a50ac43, existing buddy-context-loop checkout. One bounded runtime correction PR under preparation/play dogfood authority. Current UI1842/API1838/schema0081; API2572669/UI2581335; retained sources, Plans, newer Brin draft and all Runs protected. No new worktree/environment. Hosted1828 and held1764 remain separate; open paths inspected and no overlap.
+Status: ACTIVE after independent invariant critique approved design25250c381. PRIME owns serial branch codex/session-source-scene-order, base1eb51661677c15dbc3ee172e3b0c9d879a50ac43, existing buddy-context-loop checkout. One bounded runtime correction PR under preparation/play dogfood authority. Current UI1842/API1838/schema0081; API2572669/UI2581335; retained sources, Plans, newer Brin draft and all Runs protected. No new worktree/environment. Hosted1828 and held1764 remain separate; open paths inspected and no overlap.
 
 ## Reproduced boundary
 
