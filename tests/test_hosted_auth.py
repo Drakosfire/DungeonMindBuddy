@@ -14,6 +14,7 @@ from apps.live_control_server.services.dms_principal import DmsPrincipal
 from apps.live_control_server.services.hosted_auth import (
     AUTH_MODE_ENV,
     CURRENT_USER_PATH,
+    DMS_API_ORIGIN_ENV,
     DEPLOYMENT_ENVIRONMENT_ENV,
     HOSTED_WORLD_ACCESS_ENV,
     LOGOUT_PATH,
@@ -442,9 +443,12 @@ def test_logout_requires_the_exact_dms_trusted_origin() -> None:
     assert observed == ["logout"]
 
 
-def test_hosted_logout_proxies_dms_cookie_and_returns_its_clear_cookie() -> None:
+def test_hosted_logout_proxies_dms_cookie_and_returns_its_clear_cookie(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     from apps.live_control_server.main import create_app
 
+    monkeypatch.setenv(DMS_API_ORIGIN_ENV, "https://dms.test")
     app = create_app()
     seen: list[httpx.Request] = []
 
@@ -479,7 +483,7 @@ def test_hosted_logout_proxies_dms_cookie_and_returns_its_clear_cookie() -> None
     assert rejected.status_code == 403
     assert response.status_code == 204
     assert len(seen) == 1
-    assert seen[0].url == "https://api.dungeonmind.net/api/auth/logout"
+    assert seen[0].url == "https://dms.test/api/auth/logout"
     assert seen[0].headers["origin"] == FRONTEND_ORIGIN
     assert seen[0].headers["cookie"] == "dungeonmind_session=synthetic-session-cookie"
     assert response.headers.get_list("set-cookie") == [
