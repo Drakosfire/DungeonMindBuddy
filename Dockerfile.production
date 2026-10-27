@@ -1,4 +1,4 @@
-# syntax=docker/dockerfile:1.7
+# syntax=docker/dockerfile:1.19
 # Reproducible build inputs: locked npm/uv dependencies, exact source pins, and
 # digest-pinned language base images. Update the digest only with a reviewed
 # runtime patch; do not replace these references with floating tags.
