@@ -1,6 +1,10 @@
 # AGENT — bind Plan capture to the selected provider answer
 
-Status: ACTIVE. Graph source/gold experiments are now sequenced in ADVERSARY;
+Status: SETTLED through PR1825, merge8a881050e46b61d007a7749bb6dd73678caa444c;
+protected API delivery and independent 36-test capture review completed. Its
+implementation/lockfile lease is closed. Historical contract below.
+
+Graph source/gold experiments are now sequenced in ADVERSARY;
 PRIME resumes this independent deterministic delivery repair with no live calls. Owner: PRIME. Topology: serial consumer of merged GE#28
 cd7287de4c4c53723a5530a949f1de05730f89da (reviewed1730bbb;371tests,Python3.11/3.13CI).
 Base: Buddy origin/main53d4bfd70bc599e18494e258f5c2b39acbf93c21. Open PRs and

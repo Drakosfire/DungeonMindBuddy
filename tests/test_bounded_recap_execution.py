@@ -675,9 +675,9 @@ def test_deepseek_requires_credential_without_provider_call(monkeypatch):
 @pytest.mark.parametrize(
     "provider,model", [("openrouter", "gpt-6-luna"), ("openai", DEEPSEEK_MODEL)]
 )
-def test_provider_model_pair_is_fixed(provider, model):
-    with pytest.raises(ValueError):
-        RecapExecutionLimits(provider=provider, model=model)
+def test_provider_model_pair_is_caller_selected(provider, model):
+    limits = RecapExecutionLimits(provider=provider, model=model)
+    assert (limits.provider, limits.model) == (provider, model)
 
 
 @pytest.mark.parametrize(
@@ -1317,3 +1317,50 @@ def test_supplemental_context_reaches_provider_without_changing_recap_source():
     invoke(client)
     assert engine.requests[0].user_prompt.startswith('PRIVATE_SOURCE\n\n')
     assert 'Separately attributed closing reflections' in engine.requests[0].user_prompt
+
+
+@pytest.mark.parametrize('provider,model', [
+    ('openai', 'gpt-6.1-sol'), ('openai', 'gpt-6-luna'),
+    ('vercel', 'moonshotai/kimi-k3.1-pro'), ('vercel', 'anthropic/claude-haiku-5.5'),
+    ('vercel', 'google/gemini-3.8-flash'), ('vercel', 'anthropic/claude-sonnet-5.5'),
+    ('openrouter', 'vendor/not-a-catalog-entry'),
+])
+def test_explicit_targets_reach_ge_without_deepseek_settings(provider, model):
+    payload = {'observation_nodes': []}
+    obs = observation().model_copy(update={'provider': provider, 'requested_model': model,
+                              'resolved_model': model, 'response_model': 'actual/model-alias'})
+    engine = Engine(TextResult(text=json.dumps(payload), observation=obs))
+    client = BoundedRecapPassClient(RecapExecutionLimits(provider=provider, model=model,
+                                      reasoning_effort='low'), engine_factory=lambda: engine)
+    invoke(client, model)
+    request = engine.requests[0]
+    assert (request.provider, request.model, request.reasoning_effort) == (provider, model, 'low')
+    assert request.provider_route is None
+    assert request.system_prompt == 'PRIVATE_PROMPT'
+    assert request.user_prompt == 'PRIVATE_SOURCE'
+    assert request.json_schema and request.schema_name == 'category_graph_actor_pass'
+    assert request.max_transport_retries == 0
+    assert client.calls[0]['reasoning_effort'] == 'low'
+    assert client.calls[0]['observation']['response_model'] == 'actual/model-alias'
+    assert engine.closed == 1
+
+
+@pytest.mark.parametrize('provider,model,effort', [
+    ('unknown', 'model', None), ('openai', '', None), ('vercel', '   ', None),
+    ('openrouter', None, None), ('openai', 'model', ''), ('openai', 'model', 1),
+])
+def test_invalid_explicit_target_fails_before_engine(provider, model, effort):
+    with pytest.raises(ValueError):
+        RecapExecutionLimits(provider=provider, model=model, reasoning_effort=effort)
+
+
+@pytest.mark.parametrize('field,value', [('provider','vercel'), ('requested_model','other'),
+                                       ('resolved_model','other')])
+def test_completed_receipt_must_match_selected_execution_target(field, value):
+    obs = observation().model_copy(update={field: value})
+    engine = Engine(TextResult(text='{"observation_nodes":[]}', observation=obs))
+    client = BoundedRecapPassClient(RecapExecutionLimits(), engine_factory=lambda: engine)
+    with pytest.raises(CategoryGraphExtractionError, match='bounded structured'):
+        invoke(client)
+    assert client.ledger()['stopped']
+    assert engine.closed == 1

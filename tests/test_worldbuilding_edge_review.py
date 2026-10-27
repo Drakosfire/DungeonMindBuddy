@@ -113,7 +113,7 @@ def test_invalid_executor_never_calls(bad_client):
 
 
 @pytest.mark.parametrize("provider,model,requested", [
-    ("openai", DEEPSEEK_MODEL, DEEPSEEK_MODEL), ("openrouter", "other", "other"),
+    ("unregistered", DEEPSEEK_MODEL, DEEPSEEK_MODEL),
     ("openrouter", DEEPSEEK_MODEL, "other")])
 def test_wrong_route_or_model_rejects_before_calls(provider, model, requested):
     client = Client()
@@ -532,3 +532,19 @@ def test_prebound_profile_rejects_before_writer_or_reviewer_inference():
     with pytest.raises(CategoryGraphExtractionError, match='must be unbound'):
         run_category_pipeline(client, options(profile=prebound))
     assert not client.calls
+
+
+@pytest.mark.parametrize('provider,model', [
+    ('openai','gpt-6.1-sol'), ('openai','gpt-6-luna'),
+    ('vercel','moonshotai/kimi-k3.1-pro'), ('vercel','anthropic/claude-haiku-5.5'),
+    ('vercel','google/gemini-3.8-flash'), ('vercel','anthropic/claude-sonnet-5.5'),
+    ('openrouter','vendor/new-model'),
+])
+def test_advisory_uses_same_explicit_target_and_existing_pass_contract(provider, model):
+    client = Client()
+    client.limits.provider, client.limits.model = provider, model
+    result = run_category_pipeline(client, options(model=model))
+    assert [call['pass_name'] for call in client.calls] == [p.pass_id for p in PROFILE.node_passes] + ['edge_pass','edge_review_pass']
+    assert result.model_id == model
+    assert json.loads(client.prompts[-1])['source_packet'][0]['text'] == BODY
+    assert [e['edge_id'] for e in result.candidate_graph['edges']] == ['edge:leads']

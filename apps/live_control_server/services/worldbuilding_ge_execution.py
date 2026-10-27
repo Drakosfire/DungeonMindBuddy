@@ -124,11 +124,16 @@ def run_gazetteer_with_generation_engine(
     document_revision: int,
     expected_content_sha256: str,
     profile_version: str,
+    execution_limits: RecapExecutionLimits | None = None,
 ) -> ProductionExtractionResult:
-    """Run an exact registered Build revision through GE/OpenRouter DeepSeek.
+    """Run an exact registered Build revision through the selected bounded GE target.
 
     This creates reviewable extraction evidence only; it does not publish to a World.
     """
+    if execution_limits is not None and not isinstance(execution_limits, RecapExecutionLimits):
+        raise WorldbuildingExecutionInputError(
+            "execution limits must be an explicit bounded GE configuration"
+        )
     root = artifact_data_root(repo_root)
     if profile_version not in SUPPORTED_PROFILE_VERSIONS:
         raise WorldbuildingExecutionInputError("unsupported Gazetteer profile version")
@@ -173,7 +178,7 @@ def run_gazetteer_with_generation_engine(
     run_output = output_root / f"ge-{uuid.uuid4().hex}"
     run_output.mkdir(mode=0o700)
 
-    limits = RecapExecutionLimits(
+    limits = execution_limits if execution_limits is not None else RecapExecutionLimits(
         provider="openrouter",
         model=DEEPSEEK_MODEL,
         max_calls=8,
@@ -199,7 +204,7 @@ def run_gazetteer_with_generation_engine(
                 source=source,
                 profile_id=PROFILE_ID,
                 profile_version=profile_version,
-                model_id=DEEPSEEK_MODEL,
+                model_id=limits.model,
                 allow_llm=True,
                 category_client=client,
                 output_dir=run_output,
@@ -219,8 +224,8 @@ def run_gazetteer_with_generation_engine(
                     "source_artifact_id": source_artifact_id,
                     "source_sha256": expected_sha,
                     "profile_id": f"{PROFILE_ID}@{profile_version}",
-                    "provider": "openrouter",
-                    "model": DEEPSEEK_MODEL,
+                    "provider": limits.provider,
+                    "model": limits.model,
                     "run_id": result.run.run_id if result is not None else None,
                     "run_status": result.run.status.value if result is not None else None,
                     "execution": client.ledger(),
