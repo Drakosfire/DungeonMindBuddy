@@ -1,5 +1,6 @@
 import type { EditorView } from '@tiptap/pm/view';
 import { closeHistory } from '@tiptap/pm/history';
+import { isPlainTableCaption } from '../markdown/tableCaption';
 import type { Node as ProseMirrorNode } from '@tiptap/pm/model';
 
 const mime = 'application/x-dungeonbuddy-table-move';
@@ -7,12 +8,7 @@ const drags = new WeakMap<EditorView, { token: string; doc: EditorView['state'][
 
 /** Never adopt a Plan identity, marked title or inline reference as editable table chrome. */
 export function isTableCaption(node: ProseMirrorNode | null | undefined): node is ProseMirrorNode {
-  if (node?.type.name !== 'heading' || node.attrs.level !== 2 || !node.textContent.trim()) return false;
-  if (Object.entries(node.attrs).some(([key, value]) => key !== 'level' && value != null)) return false;
-  for (let index = 0; index < node.childCount; index++) {
-    if (!node.child(index).isText || node.child(index).marks.length) return false;
-  }
-  return true;
+  return isPlainTableCaption(node?.toJSON());
 }
 
 export function tableMoveRange(view: EditorView, position: number) {

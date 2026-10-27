@@ -1,3 +1,4 @@
+import { isTableCaptionAt } from '../../tiptap/markdown/tableCaption';
 import { Editor, type JSONContent } from "@tiptap/core";
 
 import { tiptapJsonToSemanticMarkdown } from "../../tiptap/markdown/calloutMarkdown";
@@ -212,7 +213,7 @@ function resolveHeadingTarget(
       if (validated.status === "invalid") {
         throw new PlayableBodyTargetError("A malformed Playable heading makes this card range ambiguous. Correct the marker, then select the card again.");
       }
-      if (validated.status === "absent" && Number(node.attrs?.level) <= 2) {
+      if (validated.status === "absent" && Number(node.attrs?.level) <= 2 && !isTableCaptionAt(rootContent, index)) {
         bodyEndIndex = index;
         break;
       }

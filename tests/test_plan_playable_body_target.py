@@ -55,3 +55,14 @@ def test_read_only_source_range_keeps_ref_despite_editor_size_and_link_limits() 
     assert "dmb-node:obj:cellar" not in source
     with pytest.raises(PlayableBodyTargetError):
         resolve_playable_body_target(markdown, first)
+
+
+@pytest.mark.parametrize("vector", [v for v in json.loads(_VECTORS.read_text())["vectors"] if v["name"].startswith("v2_scene_") and "table" in v["name"]], ids=lambda v:v["name"])
+def test_named_table_read_source_ranges_agree_with_edit_owner(vector):
+    source = selected_playable_source_for_read(vector["draft_markdown"], PlayableTarget(**vector["target"]))
+    assert vector["expected"]["body_markdown"].strip() in source
+    assert "Keep this scene" not in source
+    if vector["name"] != "v2_scene_named_table_in_body":
+        assert "Guard" not in source
+    else:
+        assert "After." in source and "Guard" in source

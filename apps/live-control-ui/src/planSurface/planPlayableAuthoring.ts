@@ -1,3 +1,4 @@
+import { isTableCaptionAt } from '../tiptap/markdown/tableCaption';
 import type { Editor } from '@tiptap/core';
 import { TextSelection, type EditorState } from '@tiptap/pm/state';
 import { closeHistory } from '@tiptap/pm/history';
@@ -27,8 +28,9 @@ function outline(state: EditorState): Outline {
   const rootKind = version === 'v2' ? 'beat' : 'scene';
   let currentRoot: {pos: number; end: number} | null = null;
   let selectedRoot: {pos: number; end: number} | null = null;
-  state.doc.forEach((node, pos) => {
-    if (node.type.name === 'heading' && node.attrs.level <= 2) {
+  state.doc.forEach((node, pos, index) => {
+    if (node.type.name === 'heading' && node.attrs.level <= 2
+      && !isTableCaptionAt(json.content ?? [], index)) {
       if (currentRoot) currentRoot.end = pos;
       const validated = validatePlayableHeadingAttrs(node.attrs);
       currentRoot = validated.status === 'canonical' && validated.identity.kind === rootKind
@@ -47,6 +49,7 @@ function ordinaryHeading(state: EditorState) {
   const {$from,$to}=state.selection;
   if ($from.depth!==1 || $to.depth!==1 || $from.parent!==$to.parent
     || $from.parent.type.name!=='heading' || validatePlayableHeadingAttrs($from.parent.attrs).status!=='absent') return null;
+  if (isTableCaptionAt(state.doc.toJSON().content ?? [], $from.index(0))) return null;
   return {node:$from.parent,position:$from.before(1)};
 }
 
