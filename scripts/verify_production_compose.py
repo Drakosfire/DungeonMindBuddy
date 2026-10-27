@@ -28,6 +28,28 @@ _PERSISTENT_PATHS = {
 }
 
 
+def _source_declares_no_host_path_creation(repository_root: Path) -> bool:
+    """Check source intent if Compose's JSON renderer omits its false default."""
+
+    compose_path = repository_root / "deploy/production/compose.production.yaml"
+    try:
+        source = compose_path.read_text(encoding="utf-8")
+    except OSError:
+        return False
+    section = re.search(
+        r"(?ms)^    volumes:\s*\n(.*?)(?=^    [A-Za-z0-9_-]+:|\Z)",
+        source,
+    )
+    if section is None:
+        return False
+    mounts = re.split(r"(?m)^\s{6}- type: bind\s*$", section.group(1))[1:]
+    return len(mounts) == 2 and all(
+        re.search(r"(?m)^\s{10}create_host_path:\s*false\s*$", mount)
+        is not None
+        for mount in mounts
+    )
+
+
 def _database_identity(value: object) -> tuple[str, int, str, str] | None:
     if not isinstance(value, str):
         return None
@@ -137,6 +159,9 @@ def validate_compose_config(
         errors.add("buddy_and_worldgraph_mounts_must_be_separate")
 
     sources: list[Path] = []
+    source_disables_host_path_creation = _source_declares_no_host_path_creation(
+        repository_root
+    )
     for volume in bind_mounts:
         source = volume.get("source")
         if not isinstance(source, str) or not Path(source).is_absolute():
@@ -147,7 +172,16 @@ def validate_compose_config(
         if source_path == repo or repo in source_path.parents:
             errors.add("persistent_mount_must_be_outside_checkout")
         bind = volume.get("bind")
-        if not isinstance(bind, Mapping) or bind.get("create_host_path") is not False:
+        rendered_create_host_path = (
+            bind.get("create_host_path") if isinstance(bind, Mapping) else None
+        )
+        if rendered_create_host_path is True or (
+            rendered_create_host_path is None
+            and not source_disables_host_path_creation
+        ) or (
+            rendered_create_host_path is not None
+            and rendered_create_host_path is not False
+        ):
             errors.add("persistent_mount_must_not_create_host_path")
         sources.append(source_path)
     if len(sources) == 2:

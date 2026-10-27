@@ -82,6 +82,19 @@ class ProductionDeploymentConfigTests(unittest.TestCase):
             (),
         )
 
+    def test_compose_source_protects_persistent_mounts_when_renderer_omits_false(self) -> None:
+        config = synthetic_compose()
+        for volume in config["services"]["buddy"]["volumes"]:
+            volume["bind"] = {}
+        self.assertNotIn(
+            "persistent_mount_must_not_create_host_path",
+            validate_compose_config(
+                config,
+                repository_root=Path(__file__).resolve().parents[1],
+                allow_synthetic_image=True,
+            ),
+        )
+
     def test_tag_only_image_is_rejected(self) -> None:
         config = synthetic_compose()
         config["services"]["buddy"]["image"] = "registry.invalid/buddy:latest"

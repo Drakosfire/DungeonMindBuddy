@@ -89,7 +89,7 @@ jobs:
       - name: Render synthetic configuration and check contract
         env:
           BUDDY_IMAGE_NAME: registry.invalid/dungeonmindbuddy
-          BUDDY_IMAGE_DIGEST: 0000000000000000000000000000000000000000000000000000000000000000
+          BUDDY_IMAGE_DIGEST: "0000000000000000000000000000000000000000000000000000000000000000"
           DUNGEONMIND_SERVER_API_ORIGIN: https://dms.example.test
           AUTH_TRUSTED_FRONTEND_ORIGINS: https://buddy.dungeonmind.net
           DMB_HOSTED_WORLD_ACCESS_JSON: "{}"
