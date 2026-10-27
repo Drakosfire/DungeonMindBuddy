@@ -619,7 +619,7 @@ def test_final_phase_does_not_authorize_unsupported_claim(plan_adapter):
     final = json.dumps(unsupported)
     wire = WriterWire(plan_adapter, 'commentary', phase='commentary',
         extra_output=(phase_message('final_answer', final),))
-    with pytest.raises(ValueError):
+    with pytest.raises(GenerationEngineError, match="supplied schema"):
         asyncio.run(writer.run(transport=wire, api_key='synthetic-not-secret'))
     assert len(wire.calls) == 1 and wire.closed
     assert plan_adapter.fence.turn.completion is None

@@ -57,3 +57,8 @@ PR1823/1824 are merged and protected-delivered. Source-pinned live ingestion
 observes improved actor associations but unresolved semantic errors; no quality
 pass. New operator direction sequences corpus/gold preparation before additional
 prompt/schema/model experiments. This adapter fix makes no such experiment.
+
+Operator ingestion freeze: retain harness/prompts/schema/routing/representation
+and benchmark dependency pins until model comparison is settled and recorded.
+This repair changes only Plan capture and adopts an already-reviewed provider
+fix; it does not update benchmark environments or select a new model.
