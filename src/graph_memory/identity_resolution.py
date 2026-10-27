@@ -25,6 +25,8 @@ vocabularies in ``src/graph_memory/candidate_graph_preview.py`` (``NODE_TYPES``,
 from __future__ import annotations
 
 import re
+from copy import deepcopy
+from dataclasses import asdict, replace
 from typing import Any, Callable, Mapping, MutableMapping, Sequence
 
 # --------------------------------------------------------------------------- #
@@ -767,39 +769,62 @@ def canonical_node_key(node: Any) -> tuple[str, str]:
     return (node_type_class(node_type_of(node)), normalize_label(str(_get(node, "label", ""))))
 
 
-def canonical_edge_key(edge: Any, node_index: Mapping[str, Any]) -> tuple[str, str, str] | tuple[str, str, str, str]:
-    """Direction- and inverse-normalized merge key for a single edge."""
-    frm, to, family = _canonical_endpoints(edge, node_index)
-    frm_key = canonical_node_key(frm) if frm is not None else ("missing", str(_get(edge, "from_node_id", "")))
-    to_key = canonical_node_key(to) if to is not None else ("missing", str(_get(edge, "to_node_id", "")))
-    frm_s, to_s = "::".join(frm_key), "::".join(to_key)
-    # Protection shares routing taxonomy with threat responses, but is not an
-    # attack/threat synonym. Keep literal protection and its direction distinct.
-    if _is_literal_protects(edge):
-        return (family, frm_s, to_s, "protects")
-    if family in SYMMETRIC_FAMILIES:
-        frm_s, to_s = sorted((frm_s, to_s))
-    return (family, frm_s, to_s)
+def canonical_edge_key(edge: Any, node_index: Mapping[str, Any]) -> tuple[str, str, str]:
+    """Exact predicate and direction, normalizing only explicit inverse verbs.
+
+    Comparison families express similarity, not production identity or symmetry.
+    """
+    rel = str(_get(edge, "relationship_type", "") or "").strip().lower()
+    frm_id = str(_get(edge, "from_node_id", ""))
+    to_id = str(_get(edge, "to_node_id", ""))
+    if rel == "child_of":
+        frm_id, to_id = to_id, frm_id
+    rel = INVERSE_VERBS.get(rel, rel)
+    frm, to = node_index.get(frm_id), node_index.get(to_id)
+    frm_key = canonical_node_key(frm) if frm is not None else ("missing", frm_id)
+    to_key = canonical_node_key(to) if to is not None else ("missing", to_id)
+    return (rel, "::".join(frm_key), "::".join(to_key))
+
+
+def _edge_qualifiers(edge: Any) -> str:
+    payload = dict(edge) if isinstance(edge, Mapping) else asdict(edge)
+    # Preserve every other field: labels can contain temporal/conditional meaning,
+    # and differing warnings or semantic state must not disappear in a merge.
+    for field in ("edge_id", "from_node_id", "to_node_id", "relationship_type", "evidence_refs"):
+        payload.pop(field, None)
+    return json_safe_key(payload)
 
 
 def dedup_edges(edges: Sequence[Any], nodes: Sequence[Any]) -> dict[str, Any]:
-    """Collapse exact + inverse-duplicate edges within one graph.
+    """Collapse exact/inverse payload duplicates and union their evidence.
 
-    Returns ``{"kept": [...], "merged": [(kept_edge_id, dropped_edge_id), ...]}``.
-    The first edge seen for a canonical key is kept; later duplicates are
-    reported as merged (e.g. ``parent_of`` kept, ``child_of`` dropped).
+    First identity survives, but differing qualifiers remain separate candidates.
+    Inputs are not mutated; dict and immutable preview dataclass forms retain type.
     """
     node_index = _node_index(nodes)
-    seen: dict[tuple[str, ...], Any] = {}
+    seen: dict[tuple[str, ...], int] = {}
     kept: list[Any] = []
     merged: list[tuple[str, str]] = []
     for edge in edges:
-        key = canonical_edge_key(edge, node_index)
+        key = (*canonical_edge_key(edge, node_index), _edge_qualifiers(edge))
         if key in seen:
-            merged.append((str(_get(seen[key], "edge_id", "")), str(_get(edge, "edge_id", ""))))
+            index = seen[key]
+            survivor = kept[index]
+            refs = list(_get(survivor, "evidence_refs", []) or [])
+            ref_keys = {json_safe_key(ref) for ref in refs}
+            for ref in _get(edge, "evidence_refs", []) or []:
+                ref_key = json_safe_key(ref)
+                if ref_key not in ref_keys:
+                    refs.append(deepcopy(ref))
+                    ref_keys.add(ref_key)
+            if isinstance(survivor, MutableMapping):
+                survivor["evidence_refs"] = refs
+            else:
+                kept[index] = replace(survivor, evidence_refs=tuple(refs))
+            merged.append((str(_get(survivor, "edge_id", "")), str(_get(edge, "edge_id", ""))))
             continue
-        seen[key] = edge
-        kept.append(edge)
+        seen[key] = len(kept)
+        kept.append(deepcopy(edge))
     return {"kept": kept, "merged": merged}
 
 

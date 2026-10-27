@@ -389,3 +389,26 @@ def test_canonical_injected_clients_keep_source_evidence_contract():
     )
     assert 'actor_pass' in client.passes
     assert result.pass_outputs['actor_pass']['observation_nodes'][0]['evidence_refs'][0]['source_span_ref_id'] == 'span-1'
+
+
+def test_extraction_retains_distinct_predicates_with_same_endpoints():
+    class DistinctEdgesClient(RecordingClient):
+        def run_pass(self, pass_name, **kwargs):
+            result = super().run_pass(pass_name, **kwargs)
+            if pass_name == 'edge_pass':
+                base = result['parsed']['observation_edges'][0]
+                result['parsed']['observation_edges'] = [
+                    dict(base, edge_id=predicate, relationship_type=predicate,
+                         predicate_family='threat_relation', label='response')
+                    for predicate in predicates
+                ]
+            return result
+
+    for predicates in (('attacks', 'threatens'), ('threatens', 'attacks')):
+        result = extract_category_candidate_graph(
+            CategoryGraphExtractionOptions(campaign_id='eldyrwild', session_id=None,
+                session_number=None, source_span_index=_span_index(session_id=None),
+                profile=WORLDBUILDING_PLUMBING_PROFILE), client=DistinctEdgesClient())
+        edges = {e['relationship_type']: e for e in result.candidate_graph['edges']}
+        assert set(edges) == {'attacks', 'threatens'}
+        assert all(edge['evidence_refs'] for edge in edges.values())
