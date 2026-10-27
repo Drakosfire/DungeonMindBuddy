@@ -15,6 +15,13 @@ from apps.live_control_server.services.plan_jev_driver import PlanJevDriver
 from tests.test_plan_jev_dispatch import plan_adapter  # noqa: F401
 
 
+@pytest.fixture(autouse=True)
+def synthetic_active_binding(monkeypatch):
+    from apps.live_control_server.services.native_source_navigation import NativeSourceNavigator
+    monkeypatch.setattr(NativeSourceNavigator, '_bound_authority',
+        lambda self: self.adapter.fence.turn.graph_context_receipt.graph_authority)
+
+
 def fixture_reads(adapter, *, anchors=1, body_chars=None, node_only=False, shared_ref=False, source_text=None, source_lines=(1,1)):
     graph_calls, source_calls = [], []
     adapter._test_source_acquisitions = []

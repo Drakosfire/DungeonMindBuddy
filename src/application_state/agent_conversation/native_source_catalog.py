@@ -153,14 +153,14 @@ def materialize_catalog_locked(conn, turn, *, navigation_id, event_id):
     source, failure, body = None, None, None
     if metadata is None:
         failure = "source_unavailable"
-    elif not source_scope_matches(metadata,artifact,nav.world_id):
+    elif not source_scope_matches(metadata,artifact,turn.graph_context_receipt.graph_authority):
         failure = "source_scope_mismatch"
     else:
         source = sources.get_source_markdown(conn, source_artifact_id=pin.source_artifact_id, content_sha256=digest)
         if source is None:
             failure = "source_unavailable"
         elif (source.source_artifact_id != pin.source_artifact_id or source.content_sha256 != digest
-                or not source_scope_matches(source.model_dump(include=SCOPE_FIELDS),artifact,nav.world_id)):
+                or not source_scope_matches(source.model_dump(include=SCOPE_FIELDS),artifact,turn.graph_context_receipt.graph_authority)):
             failure = "source_identity_mismatch"
         elif source.media_type != "text/markdown" or source.encoding.lower() != "utf-8":
             failure = "source_encoding_mismatch"
