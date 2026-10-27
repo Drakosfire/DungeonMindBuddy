@@ -1,6 +1,6 @@
 # Retrieval actions must be useful before they supply evidence
 
-PROPOSED successor; production edits require independent invariant critique.
+ACTIVE successor after independent Bugbot invariant critique approved the bounded edit. Exact newly prepared wire remains authoritative; never regenerate historical receipts.
 PRIME owns confirmed BENCHMARK retrieval regressions before broader dogfood.
 Basefee2192321b5b0706875f15c62f2d711589a154f, existing serial Buddy checkout,
 branchcodex/buddy-discovery-selection; no new checkout/environment. Current
