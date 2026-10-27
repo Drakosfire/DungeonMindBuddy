@@ -161,7 +161,19 @@ function protectedReferenceInventory(nodes: JSONContent[] | undefined): string[]
   return references;
 }
 
-function bodyMarkdownFor(content: JSONContent[]): string {
+function schemaDocument(editor: Editor, document: JSONContent): JSONContent {
+  try {
+    // Markdown omits schema defaults (for example colspan/rowspan on table cells).
+    // Compare the representation that this editor will actually load.
+    const node = editor.schema.nodeFromJSON(document);
+    node.check();
+    return node.toJSON() as JSONContent;
+  } catch {
+    throw new PlayableBodyTargetError("The Markdown document is invalid for this Plan editor.");
+  }
+}
+
+function bodyMarkdownFor(editor: Editor, content: JSONContent[]): string {
   const fragment = { type: "doc", content };
   if (semanticMarkdownSerializationDiagnostics(fragment).length || playableSerializationFailures(fragment).length) {
     throw new PlayableBodyTargetError("This card body contains content that cannot be represented safely in Markdown.");
@@ -174,7 +186,7 @@ function bodyMarkdownFor(content: JSONContent[]): string {
   if (imported.diagnostics.some((item) => item.level === "warning")
     || semanticMarkdownSerializationDiagnostics(imported.doc).length
     || tiptapJsonToSemanticMarkdown(imported.doc) !== markdown
-    || JSON.stringify(semanticProjection(content)) !== JSON.stringify(semanticProjection(imported.doc.content))) {
+    || JSON.stringify(semanticProjection(content)) !== JSON.stringify(semanticProjection(schemaDocument(editor, imported.doc).content))) {
     throw new PlayableBodyTargetError("This card body changes structure during Markdown reload and is unavailable for edit proposals.");
   }
   return markdown;
@@ -275,7 +287,7 @@ export async function resolvePlayableBodyTarget(
   const fullDraftRoundTrip = markdownToTiptapDoc(fullDraftMarkdown);
   if (fullDraftRoundTrip.diagnostics.some((item) => item.level === "warning")
     || semanticMarkdownSerializationDiagnostics(fullDraftRoundTrip.doc).length
-    || JSON.stringify(semanticProjection(document.content)) !== JSON.stringify(semanticProjection(fullDraftRoundTrip.doc.content))) {
+    || JSON.stringify(semanticProjection(document.content)) !== JSON.stringify(semanticProjection(schemaDocument(editor, fullDraftRoundTrip.doc).content))) {
     throw new PlayableBodyTargetError("This Plan draft changes structure during Markdown reload and is unavailable for card edit proposals.");
   }
   const rootContent = document.content ?? [];
@@ -348,7 +360,7 @@ export async function resolvePlayableBodyTarget(
     };
     optionPath = { rootIndex: match.rootIndex, itemIndex: match.itemIndex };
   }
-  const targetBodyMarkdown = bodyMarkdownFor(range.bodyContent);
+  const targetBodyMarkdown = bodyMarkdownFor(editor, range.bodyContent);
   return {
     target: { ...target },
     markerGrammarVersion: range.markerGrammarVersion,

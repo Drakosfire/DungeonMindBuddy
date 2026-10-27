@@ -3,7 +3,7 @@
 Status: ACTIVE. Owner: PRIME. Topology: serial, one implementation PR.
 Authority: operator-authorized goal work and the explicit 2026-10-27 direction
 that an ADVERSARY blocker does not block authoring/preparation/play acceptance.
-Base: origin/main 5e4bd3eb027465e9202de511816eac76cd6a44ff.
+Base: origin/main 7a6509b06b61c3ffba870dbc3f617e2a31d3a6e6.
 Lane: codex/plan-playable-capture in the existing buddy-context-loop checkout.
 This committed handoff is the pinned bounded write lease; no new checkout.
 
