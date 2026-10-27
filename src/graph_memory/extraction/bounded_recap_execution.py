@@ -30,6 +30,7 @@ from src.graph_memory.extraction.category_candidate_graph_schema import (
 )
 
 DEEPSEEK_MODEL = "deepseek/deepseek-v4.1-flash-1017"
+SUPPORTED_INGESTION_PROVIDERS = frozenset({"openai", "openrouter", "vercel"})
 
 _SAFE_OBSERVATION_FIELDS = (
     "provider",
@@ -272,13 +273,25 @@ class RecapExecutionLimits:
     run_deadline_ms: int = 480_000
     max_output_tokens: int = 8192
     edge_max_output_tokens: int | None = None
+    reasoning_effort: str | None = None
 
     def __post_init__(self) -> None:
-        if (self.provider, self.model) not in {
-            ("openai", "gpt-6-luna"),
-            ("openrouter", DEEPSEEK_MODEL),
-        }:
-            raise ValueError("unsupported bounded recap provider/model selection")
+        if (
+            not isinstance(self.provider, str)
+            or self.provider.strip().lower() not in SUPPORTED_INGESTION_PROVIDERS
+        ):
+            raise ValueError("unsupported bounded recap provider selection")
+        if not isinstance(self.model, str) or not self.model.strip():
+            raise ValueError("bounded recap model must be nonblank")
+        object.__setattr__(self, "provider", self.provider.strip().lower())
+        object.__setattr__(self, "model", self.model.strip())
+        if self.reasoning_effort is not None:
+            if (
+                not isinstance(self.reasoning_effort, str)
+                or not self.reasoning_effort.strip()
+            ):
+                raise ValueError("reasoning effort must be None or nonblank")
+            object.__setattr__(self, "reasoning_effort", self.reasoning_effort.strip())
         if type(self.max_calls) is not int or self.max_calls < 1:
             raise ValueError("max_calls must be a positive integer")
         for name, ceiling in (
@@ -313,6 +326,8 @@ def _default_engine_for(provider: str):
         return GenerationClient(
             text_providers={"openrouter": OpenRouterTextProvider(api_key=key.strip())}
         )
+    if provider == "vercel":
+        load_dungeonmindbuddy_dotenv(override=False)
     return GenerationClient()
 
 
@@ -447,7 +462,7 @@ class BoundedRecapPassClient:
                 actor_source=source_evidence_packet.source_sha256,
                 actor_source_packet=source_evidence_packet.packet_id,
             )
-        deepseek = self.limits.provider == "openrouter"
+        deepseek = (self.limits.provider, self.limits.model) == ("openrouter", DEEPSEEK_MODEL)
         route = None
         system_prompt = instructions
         if deepseek:
@@ -484,12 +499,17 @@ class BoundedRecapPassClient:
         if deepseek:
             request_kwargs.update(
                 provider_route=route,
-                reasoning_effort="none",
+                reasoning_effort=(
+                    self.limits.reasoning_effort
+                    if self.limits.reasoning_effort is not None else "none"
+                ),
                 json_schema=fmt["schema"],
                 schema_name=fmt["name"],
             )
         else:
             request_kwargs.update(json_schema=fmt["schema"], schema_name=fmt["name"])
+            if self.limits.reasoning_effort is not None:
+                request_kwargs["reasoning_effort"] = self.limits.reasoning_effort
         request = self._request_type(**request_kwargs)
         entry = {
             "ordinal": len(self.calls) + 1,
@@ -507,6 +527,7 @@ class BoundedRecapPassClient:
             ),
             "deadline_ms": request.deadline_ms,
             "max_output_tokens": request.max_output_tokens,
+            "reasoning_effort": request.reasoning_effort,
             "observation": None,
             "attempt_evidence": [],
             "source_evidence_context": context_hashes if source_evidence_packet is not None else None,
@@ -590,15 +611,10 @@ class BoundedRecapPassClient:
                 or conformance_retries not in (0, 1)
                 or observation.get("transport_retry_count") not in (None, 0)
                 or observation.get("provider_attempt_count") != 1 + conformance_retries
-                or (
-                    deepseek
-                    and (
-                        observation.get("provider") != "openrouter"
-                        or observation.get("requested_model") != self.limits.model
-                        or observation.get("resolved_model") != self.limits.model
-                        or observation.get("response_model") != self.limits.model
-                    )
-                )
+                or observation.get("provider") != self.limits.provider
+                or observation.get("requested_model") != self.limits.model
+                or observation.get("resolved_model") != self.limits.model
+                or (deepseek and observation.get("response_model") != self.limits.model)
             ):
                 raise CategoryGraphExtractionError(
                     "inference did not complete within the bounded structured attempt policy",

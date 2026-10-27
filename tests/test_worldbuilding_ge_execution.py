@@ -353,3 +353,34 @@ def test_unknown_profile_rejects_before_source_or_provider_work(tmp_path, monkey
             repo_root=tmp_path, source_artifact_id="missing", document_id="missing",
             document_revision=1, expected_content_sha256="0" * 64, profile_version="9.99",
         )
+
+
+@pytest.mark.parametrize('provider,model', [('vercel','vendor/explicit-model'), ('openai','gpt-6.1-sol')])
+def test_registered_source_owner_preserves_explicit_target_in_request_and_ledger(tmp_path, monkeypatch, provider, model):
+    from apps.live_control_server.services import worldbuilding_ge_execution as service
+    from src.graph_memory.extraction.bounded_recap_execution import RecapExecutionLimits
+    committed, artifact = _registered_source(tmp_path)
+    captured = []
+    _FakeBoundedClient.instances.clear()
+    monkeypatch.setattr(service, 'BoundedRecapPassClient', _FakeBoundedClient)
+    monkeypatch.setattr(service, 'run_production_extraction', lambda request: captured.append(request) or SimpleNamespace(run=_FakeRun(), failure_kind=None, diagnostics=[]))
+    limits = RecapExecutionLimits(provider=provider, model=model, reasoning_effort='low')
+    service.run_gazetteer_with_generation_engine(repo_root=tmp_path,
+        source_artifact_id=artifact.source_artifact_id, document_id=committed.document_id,
+        document_revision=committed.revision, expected_content_sha256=artifact.content_sha256,
+        profile_version='1.13', execution_limits=limits)
+    assert captured[0].model_id == model
+    assert captured[0].source.source_text == SOURCE
+    assert _FakeBoundedClient.instances[0].limits is limits
+    ledger = json.loads(next((tmp_path/'out/graph_memory/runs/extraction').rglob('inference_call_ledger.json')).read_text())
+    assert (ledger['provider'], ledger['model']) == (provider, model)
+    assert ledger['source_sha256'] == artifact.content_sha256
+
+
+def test_registered_owner_rejects_untyped_execution_configuration_before_writes(tmp_path):
+    from apps.live_control_server.services import worldbuilding_ge_execution as service
+    with pytest.raises(service.WorldbuildingExecutionInputError, match='explicit bounded'):
+        service.run_gazetteer_with_generation_engine(repo_root=tmp_path, source_artifact_id='missing',
+            document_id='missing', document_revision=1, expected_content_sha256='0'*64,
+            profile_version='1.13', execution_limits={'provider':'vercel','model':'vendor/model'})
+    assert not (tmp_path/'out').exists()

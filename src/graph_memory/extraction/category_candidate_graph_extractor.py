@@ -2528,7 +2528,7 @@ def run_category_pipeline(
         return _run_category_pipeline_impl(client, options, progress_callback=progress_callback)
     # Lazy import: the bounded client imports this module's exception type.
     from src.graph_memory.extraction.bounded_recap_execution import (
-        BoundedRecapPassClient, DEEPSEEK_MODEL,
+        BoundedRecapPassClient, SUPPORTED_INGESTION_PROVIDERS,
     )
     from src.graph_memory.extraction.worldbuilding_edge_review import (
         RecordingPassClient, ConstrainedEdgeReviewPassSpec,
@@ -2538,10 +2538,9 @@ def run_category_pipeline(
             and profile.edge_review_pass.allowed_edge_ids is not None):
         raise CategoryGraphExtractionError("profile review catalog must be unbound")
     if (not isinstance(client, BoundedRecapPassClient)
-            or client.limits.provider != "openrouter"
-            or client.limits.model != DEEPSEEK_MODEL
+            or client.limits.provider not in SUPPORTED_INGESTION_PROVIDERS
             or resolve_category_graph_model(options.model_id) != client.limits.model):
-        raise CategoryGraphExtractionError("advisory review requires an explicit matching bounded GE DeepSeek client")
+        raise CategoryGraphExtractionError("advisory review requires an explicit matching bounded GE client")
     required_calls = len(profile.node_passes) + 2  # edge writer + advisory reviewer
     required_calls += int(profile.beat_pass is not None)
     required_calls += int(profile.enable_encounter_job_pass and profile.encounter_job_pass is not None)
