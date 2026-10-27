@@ -1,6 +1,6 @@
 # INGEST — adopt reviewed OpenAI native schema projection
 
-Status: ACTIVE serial dependency adoption. PRIME owns branch
+Status: SETTLED. PR1827 merged as a0eb30093b4fa8246351586d001a3fe7536f7938 and was delivered on API8000 with exact retained-state equality (3663 APP rows, 1096 native rows, 40813 files); independent review and required CI passed. Lease closed. Historical scope: serial dependency adoption. PRIME owns branch
 `codex/adopt-openai-schema-projection` in the existing Buddy checkout, base
 `b368c903d30c87865d25ce9d2bd5af66a5f4b927`.
 
