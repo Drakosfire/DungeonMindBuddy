@@ -1077,6 +1077,7 @@ class SubmittedTurnIntentV2(StrictModel):
     primary_work: SubmittedPrimaryWorkIntentV1
     plan_context_policy: PlanContextPolicyV1
     plan_authoring_capture_sha256: str | None = Field(default=None, pattern=r"^[a-f0-9]{64}$")
+    plan_placement_catalog_sha256: str | None = Field(default=None, pattern=r"^[a-f0-9]{64}$")
     playable_target: SubmittedPlanPlayableTargetV1 | None = None
     graph_request: SubmittedGraphRequestIntentV1
     graph_selection: SubmittedGraphSelectionIntentV1 | None
@@ -1127,6 +1128,8 @@ def submitted_turn_intent_fingerprint_v2(intent: SubmittedTurnIntentV2 | BuildGr
         payload.pop("build_write_capability_sha256", None)
     if payload.get("build_draft_context_sha256") is None:
         payload.pop("build_draft_context_sha256", None)
+    if payload.get("plan_placement_catalog_sha256") is None:
+        payload.pop("plan_placement_catalog_sha256", None)
     if payload.get("plan_authoring_capture_sha256") is None:
         payload.pop("plan_authoring_capture_sha256", None)
     primary_work_payload = payload.get("primary_work")
@@ -2660,6 +2663,17 @@ class PlanCorpusSourceSectionsPolicyV1(PlanNativeSourceSectionsPolicyV1):
 
 class PlanCorpusAuthoringPolicyV1(PlanAuthoringPolicyV1):
     corpus_source_policy: Literal["registered_corpus_sections_v1"]
+
+
+class PlanPlacementAuthoringPolicyV1(PlanCorpusAuthoringPolicyV1):
+    requested_work_policy: Literal['semantic_plan_placement_v1']
+    placement_catalog_sha256: str | None = Field(pattern=r'^[a-f0-9]{64}$')
+
+    @model_validator(mode="after")
+    def exact_placement_catalog(self):
+        if (self.placement_catalog_sha256 is None) != (self.plan_authoring_capture_sha256 is None):
+            raise ValueError('Plan placement policy requires its original capture and catalog together')
+        return self
 
 
 class PlayCorpusSourceSectionsPolicyV1(PlayNativeSourceSectionsPolicyV1):
@@ -4239,6 +4253,44 @@ class PlanRequestedWorkSelectedV1(GraphExecutionEventBaseV1):
     actual_output_tokens: int | None = Field(default=None, strict=True, ge=0)
 
 
+class PlanRequestedWorkAuthorizedV2(PlanRequestedWorkAuthorizedV1):
+    kind: Literal['plan_requested_work_authorized_v2']
+
+
+class PlanRequestedWorkSelectedV2(PlanRequestedWorkSelectedV1):
+    kind: Literal['plan_requested_work_selected_v2']
+    original_capture_sha256: str | None = Field(pattern=r'^[a-f0-9]{64}$')
+    placement_catalog_sha256: str | None = Field(pattern=r'^[a-f0-9]{64}$')
+    placement_selector: str | None
+    original_capture: dict[str, object] | None
+    placement_catalog: dict[str, object] | None
+
+    @model_validator(mode="after")
+    def retained_placement_proof(self):
+        from .plan_authoring import PlanAuthoringCaptureV1
+        from .plan_placement import PlanPlacementCatalogV1
+        if (self.original_capture is None) != (self.original_capture_sha256 is None):
+            raise ValueError('Plan placement requires its retained original capture')
+        if (self.placement_catalog is None) != (self.placement_catalog_sha256 is None):
+            raise ValueError('Plan placement requires its retained offered catalog')
+        if self.original_capture is not None:
+            original=PlanAuthoringCaptureV1.model_validate(self.original_capture)
+            if original.sha256!=self.original_capture_sha256 or self.placement_catalog is None:
+                raise ValueError('Plan placement original differs from its retained proof')
+            catalog=PlanPlacementCatalogV1.model_validate(self.placement_catalog)
+            catalog.require_original(original)
+            if catalog.sha256!=self.placement_catalog_sha256:
+                raise ValueError('Plan placement catalog differs from its retained proof')
+            if self.requested_work=='write_current_page':
+                if self.placement_selector is None or catalog.resolve(original,self.placement_selector).sha256!=self.target_capture_sha256:
+                    raise ValueError('Plan placement target differs from its retained offered selector')
+            elif self.placement_selector is not None or self.target_capture_sha256 is not None:
+                raise ValueError('Discussion cannot select a writing placement')
+        elif self.placement_selector is not None or self.target_capture_sha256 is not None or self.placement_catalog is not None:
+            raise ValueError('Uncaptured Plan work cannot invent placement authority')
+        return self
+
+
 class PlanJevWriterAuthorizedV1(ProviderAttemptAuthorizedEventV3):
     """One tool-free Plan writer with exact host-verified evidence projection."""
     kind: Literal["plan_jev_writer_authorized_v1"]
@@ -4387,14 +4439,14 @@ class BuildWorldReadSelectionV1(GraphExecutionEventBaseV1):
 
 
 GraphExecutionEventV3 = Annotated[
-    ValidatedGraphOperationEventV3 | ProviderAttemptAuthorizedEventV3 | ProviderAttemptAuthorizedEventV4 | PlanRequestedWorkAuthorizedV1 | PlanJevProviderAuthorizedV1 | PlanJevWriterAuthorizedV1 | PlanJevWriterAuthorizedV2
+    ValidatedGraphOperationEventV3 | ProviderAttemptAuthorizedEventV3 | ProviderAttemptAuthorizedEventV4 | PlanRequestedWorkAuthorizedV2 | PlanRequestedWorkAuthorizedV1 | PlanJevProviderAuthorizedV1 | PlanJevWriterAuthorizedV1 | PlanJevWriterAuthorizedV2
     | ProviderOutcomeEventV1 | CompletionBindingEventV1
     | SourceScopeExtensionEventV3 | SourceReadAuthorizationEventV2 | ValidatedSourceReadEventV2 | SourcePassageReuseEventV1
     | RelatedRecapContextAuthorizationEventV2 | ValidatedRelatedRecapContextEventV2
     | RelatedRecapContextProviderInclusionEventV2
     | BuildAuthoredReferencesCapturedV1 | BuildAuthoredReferenceAuthorizedV1 | BuildAuthoredReferenceReadV1 | BuildAuthoredProviderInclusionV1 | RelatedPagesSelection | RelatedPageRead | RelatedPageInclusion | BuildDraftContextCapturedV1 | BuildDraftProviderInclusionV1 | BuildSectionReadAuthorizationV1 | ValidatedBuildSectionReadV1
     | BuildSectionProviderInclusionV1 | BuildSectionAnswerBindingV1 | BuildRequestedWorkResolutionV1 | BuildJevActionSelectionV1 | BuildReviewedActionSelectionV2 | BuildReviewedActionSelectionV1 | BuildWorldReadSelectionV1
-    | BuildPlanOutputContractV1 | BuildPlanOutputContractV2 | BuildWriterEvidenceSelectionV1 | PlanRequestedWorkSelectedV1 | PlanJevRetrievalSelectionV1 | CorpusSourceSearchAuthorizedV1 | CorpusSourceSearchObservedV1 | NativeSourceNavigationAuthorizedV2 | NativeSourceSectionObservedV2 | NativeSourceNavigationAuthorizedV1 | NativeSourceCatalogObservedV1
+    | BuildPlanOutputContractV1 | BuildPlanOutputContractV2 | BuildWriterEvidenceSelectionV1 | PlanRequestedWorkSelectedV2 | PlanRequestedWorkSelectedV1 | PlanJevRetrievalSelectionV1 | CorpusSourceSearchAuthorizedV1 | CorpusSourceSearchObservedV1 | NativeSourceNavigationAuthorizedV2 | NativeSourceSectionObservedV2 | NativeSourceNavigationAuthorizedV1 | NativeSourceCatalogObservedV1
     | NativeSourceSectionAuthorizedV1 | NativeSourceSectionObservedV1 | NativeSourceProviderInclusionV1,
     Field(discriminator="kind"),
 ]
@@ -4405,7 +4457,7 @@ class PlanWorldGraphExecutionV3(PlanWorldGraphExecutionV2):
     schema_: Literal["dmb_agent_plan_world_graph_execution_v3"] = Field(
         default="dmb_agent_plan_world_graph_execution_v3", alias="schema"
     )
-    policy: AuthoredBuildCollaborationPolicyV1 | AuthoredBuildCollaborationImagePolicyV1 | AuthoredBuildConnectedPageReviewPolicyV1 | AuthoredBuildConnectedPageReviewImagePolicyV1 | AuthoredBuildSourceQuotePolicyV1 | AuthoredBuildSourceQuoteImagePolicyV1 | AuthoredBuildRelationshipReviewPolicyV1 | AuthoredBuildRelationshipReviewImagePolicyV1 | AuthoredBuildIntentionalResponsePolicyV2 | AuthoredBuildIntentionalResponseImagePolicyV2 | AuthoredBuildIntentionalResponseSourcePolicyV2 | AuthoredBuildIntentionalResponseSourceImagePolicyV2 | BuildIntentionalResponseImagePolicyV2 | BuildIntentionalResponsePolicyV2 | BuildIntentionalResponseSourceImagePolicyV2 | BuildIntentionalResponseSourcePolicyV2 | BuildRelationshipReviewImagePolicyV1 | BuildRelationshipReviewPolicyV1 | BuildSourceQuoteImagePolicyV1 | BuildSourceQuotePolicyV1 | BuildConnectedPageReviewImagePolicyV1 | BuildConnectedPageReviewPolicyV1 | BuildCollaborationImagePolicyV1 | BuildCollaborationPolicyV1 | BuildRelatedPageDraftImagePolicyV1 | BuildRelatedPageDraftPolicyV1 | BuildExactSavedLinesDraftImagePolicyV1 | BuildExactSavedLinesDraftPolicyV1 | BuildDraftWorldContextImagePolicyV1 | BuildDraftWorldContextPolicyV1 | BuildNamedWorldContextImagePolicyV1 | BuildNamedWorldContextPolicyV1 | PlanCorpusAuthoringPolicyV1 | PlanCorpusSourceSectionsPolicyV1 | PlanAuthoringPolicyV1 | PlanNativeSourceSectionsPolicyV1 | PlanJevRetrievalPolicyV1 | BuildWorldContextImagePolicyV1 | BuildWorldContextPolicyV1 | BuildPrimaryWorkStatusImagePolicyV1 | BuildPrimaryWorkStatusPolicyV1 | BuildPrimaryWorkImagePolicyV1 | BuildPrimaryWorkPolicyV1 | BuildImageActionPolicyV1 | BuildEncodedAssessmentPolicyV1 | BuildInitialEstimatedSelectedSourcePolicyV1 | BuildSelectedSourceActionControllerWriterPolicyV1 | BuildCitedSourceActionControllerWriterPolicyV1 | BuildReadBatchActionControllerWriterPolicyV1 | BuildWriterBudgetActionControllerWriterPolicyV1 | BuildJointSupportActionControllerWriterPolicyV1 | BuildEstimatedActionControllerWriterPolicyV1 | BuildContainedActionControllerWriterPolicyV1 | BuildPhaseActionControllerWriterPolicyV1 | BuildFrontierActionControllerWriterPolicyV1 | BuildContinuationActionControllerWriterPolicyV1 | BuildCompactActionControllerWriterPolicyV1 | BuildActionControllerWriterPolicyV1 | BuildSectionControllerWriterPolicyV1 | ControllerWriterGraphExecutionPolicyV3 | SettledGraphExecutionPolicyV3 | GraphExecutionPolicyV3
+    policy: AuthoredBuildCollaborationPolicyV1 | AuthoredBuildCollaborationImagePolicyV1 | AuthoredBuildConnectedPageReviewPolicyV1 | AuthoredBuildConnectedPageReviewImagePolicyV1 | AuthoredBuildSourceQuotePolicyV1 | AuthoredBuildSourceQuoteImagePolicyV1 | AuthoredBuildRelationshipReviewPolicyV1 | AuthoredBuildRelationshipReviewImagePolicyV1 | AuthoredBuildIntentionalResponsePolicyV2 | AuthoredBuildIntentionalResponseImagePolicyV2 | AuthoredBuildIntentionalResponseSourcePolicyV2 | AuthoredBuildIntentionalResponseSourceImagePolicyV2 | BuildIntentionalResponseImagePolicyV2 | BuildIntentionalResponsePolicyV2 | BuildIntentionalResponseSourceImagePolicyV2 | BuildIntentionalResponseSourcePolicyV2 | BuildRelationshipReviewImagePolicyV1 | BuildRelationshipReviewPolicyV1 | BuildSourceQuoteImagePolicyV1 | BuildSourceQuotePolicyV1 | BuildConnectedPageReviewImagePolicyV1 | BuildConnectedPageReviewPolicyV1 | BuildCollaborationImagePolicyV1 | BuildCollaborationPolicyV1 | BuildRelatedPageDraftImagePolicyV1 | BuildRelatedPageDraftPolicyV1 | BuildExactSavedLinesDraftImagePolicyV1 | BuildExactSavedLinesDraftPolicyV1 | BuildDraftWorldContextImagePolicyV1 | BuildDraftWorldContextPolicyV1 | BuildNamedWorldContextImagePolicyV1 | BuildNamedWorldContextPolicyV1 | PlanPlacementAuthoringPolicyV1 | PlanCorpusAuthoringPolicyV1 | PlanCorpusSourceSectionsPolicyV1 | PlanAuthoringPolicyV1 | PlanNativeSourceSectionsPolicyV1 | PlanJevRetrievalPolicyV1 | BuildWorldContextImagePolicyV1 | BuildWorldContextPolicyV1 | BuildPrimaryWorkStatusImagePolicyV1 | BuildPrimaryWorkStatusPolicyV1 | BuildPrimaryWorkImagePolicyV1 | BuildPrimaryWorkPolicyV1 | BuildImageActionPolicyV1 | BuildEncodedAssessmentPolicyV1 | BuildInitialEstimatedSelectedSourcePolicyV1 | BuildSelectedSourceActionControllerWriterPolicyV1 | BuildCitedSourceActionControllerWriterPolicyV1 | BuildReadBatchActionControllerWriterPolicyV1 | BuildWriterBudgetActionControllerWriterPolicyV1 | BuildJointSupportActionControllerWriterPolicyV1 | BuildEstimatedActionControllerWriterPolicyV1 | BuildContainedActionControllerWriterPolicyV1 | BuildPhaseActionControllerWriterPolicyV1 | BuildFrontierActionControllerWriterPolicyV1 | BuildContinuationActionControllerWriterPolicyV1 | BuildCompactActionControllerWriterPolicyV1 | BuildActionControllerWriterPolicyV1 | BuildSectionControllerWriterPolicyV1 | ControllerWriterGraphExecutionPolicyV3 | SettledGraphExecutionPolicyV3 | GraphExecutionPolicyV3
     events: list[GraphExecutionEventV3] = Field(max_length=2048)
 
     @model_validator(mode="after")

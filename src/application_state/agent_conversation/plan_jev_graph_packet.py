@@ -62,14 +62,41 @@ def project(turn, proof, trace):
         raise ValueError('Current Plan writer requires its native selector capability')
     required={"graph_packets", "source_names", "plan_markdown", "session_evidence", "dialogue"}
     if isinstance(execution.policy,t.PlanAuthoringPolicyV1):required.add('authoring_capture')
+    if isinstance(execution.policy,t.PlanPlacementAuthoringPolicyV1):required.update({'original_authoring_capture','placement_catalog'})
     if not isinstance(proof,dict) or set(proof)!=required:
         raise ValueError("Plan writer requires its complete host evidence proof")
     capture=None
     if isinstance(execution.policy,t.PlanAuthoringPolicyV1):
-        from .plan_authoring import PlanAuthoringCaptureV1
+        from .plan_authoring import PlanAuthoringCaptureV1, parse_authoring_capture
         raw=proof['authoring_capture']
-        capture=PlanAuthoringCaptureV1.model_validate(raw) if raw is not None else None
-        if ((capture.sha256 if capture is not None else None)!=execution.policy.plan_authoring_capture_sha256
+        capture=parse_authoring_capture(raw) if raw is not None else None
+        expected_capture_sha=execution.policy.plan_authoring_capture_sha256
+        placement_label=None
+        if isinstance(execution.policy,t.PlanPlacementAuthoringPolicyV1):
+            from .plan_placement import PlanPlacementCatalogV1
+            original=PlanAuthoringCaptureV1.model_validate(proof["original_authoring_capture"]) if proof["original_authoring_capture"] is not None else None
+            catalog=PlanPlacementCatalogV1.model_validate(proof["placement_catalog"]) if proof["placement_catalog"] is not None else None
+            if ((original.sha256 if original is not None else None)!=expected_capture_sha
+                    or (catalog.sha256 if catalog is not None else None)!=execution.policy.placement_catalog_sha256):
+                raise ValueError("Plan writer original page/catalog differs from its frozen intent")
+            choices=[event for event in execution.events if isinstance(event,t.PlanRequestedWorkSelectedV2)]
+            if len(choices)!=1:
+                raise ValueError("Plan writer lacks its exact resolved placement decision")
+            if catalog is not None:
+                catalog.require_original(original)
+            choice=choices[0]
+            if (choice.original_capture!=proof['original_authoring_capture']
+                    or choice.placement_catalog!=proof['placement_catalog']):
+                raise ValueError('Plan writer placement proof differs from the retained decision event')
+            if choice.requested_work=="write_current_page":
+                if catalog is None or original is None or choice.placement_selector is None:
+                    raise ValueError("Plan writer has no resolved offered page location")
+                resolved=catalog.resolve(original,choice.placement_selector)
+                if resolved.sha256!=choice.target_capture_sha256:
+                    raise ValueError("Plan writer target differs from the admitted placement")
+                expected_capture_sha=resolved.sha256
+                placement_label=next(entry.label for entry in catalog.entries if entry.selector==choice.placement_selector)
+        if ((capture.sha256 if capture is not None else None)!=expected_capture_sha
                 or capture is not None and (capture.world_id,capture.conversation_id,capture.document_id,
                     capture.base_revision,capture.base_content_sha256)!=(turn.world_id,turn.conversation_id,
                     receipt.plan_basis.document_id,receipt.plan_basis.object_revision,receipt.plan_basis.content_sha256)):
@@ -261,6 +288,7 @@ def project(turn, proof, trace):
             'primary_authoring_context':True,
             **({'body_path':['committed_plan_blocks']} if same else {'markdown':capture.draft_markdown})}
         frame['focused_edit_target']={'kind':capture.target_kind,
+            **({'location':placement_label} if isinstance(execution.policy,t.PlanPlacementAuthoringPolicyV1) and placement_label is not None else {}),
             **({'selected_text':capture.selected_text} if capture.target_kind=='replace_selection' else {}),
             **({'playable_body':capture.playable_target.body_markdown} if capture.playable_target is not None else {})}
     return PlanWriterProjection(frame, tuple(sorted(closures)), tuple(item[0] for item in originals),

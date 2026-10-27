@@ -43,6 +43,12 @@ class PlanJevHarness:
                     code='plan_authoring_destination_unavailable', status_code=409)
             if selected == 'write_current_page':
                 capture = adapter.request.plan_authoring_capture
+                selector = semantic.selection_event.placement_selector
+                catalog = adapter.request.plan_placement_catalog
+                if capture is not None and catalog is not None and selector is not None:
+                    capture = catalog.resolve(capture, selector)
+                else:
+                    capture = None
                 if capture is None:
                     raise AgentTurnServiceError('The requested Plan writing has no captured page location. The request is retained; select a location on the Plan and try again.',
                         code='plan_authoring_target_unavailable', status_code=409)

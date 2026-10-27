@@ -207,6 +207,21 @@ class PlanJevDriver:
         proof={"graph_packets": packets, "source_names": names, "plan_markdown": a.work.plan_markdown,
                 "session_evidence": sessions, "dialogue": self.dialogue}
         if isinstance(a.fence.turn.graph_context_execution.policy,t.PlanAuthoringPolicyV1):
-            proof['authoring_capture']=(a.request.plan_authoring_capture.model_dump(mode='json',by_alias=True)
-                if a.request.plan_authoring_capture is not None else None)
+            capture = a.request.plan_authoring_capture
+            if isinstance(a.fence.turn.graph_context_execution.policy,t.PlanPlacementAuthoringPolicyV1):
+                from application_state.agent_conversation.plan_authoring import PlanAuthoringCaptureV1
+                from application_state.agent_conversation.plan_placement import PlanPlacementCatalogV1
+                choices=[event for event in a.fence.turn.graph_context_execution.events
+                    if isinstance(event,t.PlanRequestedWorkSelectedV2)]
+                if len(choices)!=1:
+                    raise ValueError('Plan writer requires its retained placement decision')
+                choice=choices[0]
+                proof['original_authoring_capture']=choice.original_capture
+                proof['placement_catalog']=choice.placement_catalog
+                capture=PlanAuthoringCaptureV1.model_validate(choice.original_capture) if choice.original_capture is not None else None
+                if choice.requested_work=='write_current_page':
+                    if capture is None or choice.placement_catalog is None or choice.placement_selector is None:
+                        raise ValueError('Plan writing has no resolved offered target')
+                    capture=PlanPlacementCatalogV1.model_validate(choice.placement_catalog).resolve(capture,choice.placement_selector)
+            proof['authoring_capture']=(capture.model_dump(mode='json',by_alias=True) if capture is not None else None)
         return proof

@@ -239,6 +239,8 @@ class AgentTurnGraphSelection(BaseModel):
 
 from application_state.agent_conversation.authored_graph_references import AuthoredGraphReferencesV1
 
+from application_state.agent_conversation.plan_placement import PlanPlacementCatalogV1
+
 class AgentTurnRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
@@ -261,6 +263,7 @@ class AgentTurnRequest(BaseModel):
     reviewed_step: ReviewedStepReference | None = None
     plan_context_policy: PlanContextPolicyV1 | None = None
     plan_authoring_capture: PlanAuthoringCaptureV1 | None = None
+    plan_placement_catalog: PlanPlacementCatalogV1 | None = None
     message: str = Field(min_length=1)
 
     @field_validator("client_thread_id", "turn_id", mode="before")
@@ -288,6 +291,10 @@ class AgentTurnRequest(BaseModel):
                 or self.owner_scope.kind != 'world' or self.graph_request.mode != 'world'):
                 raise ValueError('Authored references require the current Build page and World context')
             self.build_authored_references.require_world(self.owner_scope.world_id)
+        if self.plan_placement_catalog is not None:
+            if self.plan_authoring_capture is None:
+                raise ValueError("Plan placement catalog requires its original capture")
+            self.plan_placement_catalog.require_original(self.plan_authoring_capture)
         if self.plan_authoring_capture is not None:
             capture = self.plan_authoring_capture
             work = self.primary_work

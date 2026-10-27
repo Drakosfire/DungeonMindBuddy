@@ -679,7 +679,7 @@ export interface AgentInteractionTurn {
     proposalSummary: string;
     replacementMarkdown: string;
     applied: boolean;
-    targetKind: "replace_selection" | "insert_at_caret" | "replace_playable_body";
+    targetKind: "replace_selection" | "insert_at_caret" | "replace_playable_body" | "insert_at_boundary";
   } | null;
 }
 
@@ -785,7 +785,8 @@ export interface WorldPlanGraphContextFailureV1 {
 
 /** Accepted generic turn route, bound to one saved Plan in a verified World. */
 export interface WorldPlanAgentTurnRequestV1 {
-  plan_authoring_capture?: import("./planAuthoringReviewApi").PlanAuthoringCapture | null;
+  plan_authoring_capture?: import("./planAuthoringReviewApi").PlanOriginalAuthoringCapture | null;
+  plan_placement_catalog?: import("./planAuthoringReviewApi").PlanPlacementCatalog | null;
   schema: "dmb_agent_turn_request_v1";
   client_thread_id: string;
   turn_id: string;

@@ -125,7 +125,7 @@ _LOG = logging.getLogger(__name__)
 def _is_provider_authorization(event: Any) -> bool:
     return getattr(event, "kind", None) in {
         "provider_attempt_authorized", "provider_attempt_authorized_v2",
-        "provider_attempt_authorized_v3", "provider_attempt_authorized_v4", "plan_jev_provider_authorized_v1", "plan_requested_work_authorized_v1", "plan_jev_writer_authorized_v1", "plan_jev_writer_authorized_v2",
+        "provider_attempt_authorized_v3", "provider_attempt_authorized_v4", "plan_jev_provider_authorized_v1", "plan_requested_work_authorized_v1", "plan_requested_work_authorized_v2", "plan_jev_writer_authorized_v1", "plan_jev_writer_authorized_v2",
     }
 
 
@@ -1255,7 +1255,7 @@ def _freeze_policy_receipt(
                 policy_fields["policy_version"] = "world_graph_execution_selected_scope_uncapped_v1" if budget["maxProviderAttempts"] is None else "plan_world_graph_execution_selected_scope_v1"
             from application_state.agent_conversation.plan_authoring import PlanRequestedWorkInputV1
             semantic_plan = isinstance(plan_jev_request, PlanRequestedWorkInputV1)
-            policy_class = (graph_types.PlanCorpusAuthoringPolicyV1 if semantic_plan else graph_types.PlanCorpusSourceSectionsPolicyV1 if plan_jev_request is not None else graph_types.BuildPrimaryWorkImagePolicyV1
+            policy_class = (graph_types.PlanPlacementAuthoringPolicyV1 if semantic_plan else graph_types.PlanCorpusSourceSectionsPolicyV1 if plan_jev_request is not None else graph_types.BuildPrimaryWorkImagePolicyV1
                 if (budget.get("buildJevActions") or {}).get("primary_work_context_policy") is not None
                     and (budget.get("buildJevActions") or {}).get("image_preparation_policy") is not None
                 else graph_types.BuildPrimaryWorkPolicyV1
@@ -1334,7 +1334,8 @@ def _freeze_policy_receipt(
                         code='build_authored_reference_profile_unavailable', status_code=422, provider_dispatched=False)
                 policy_class = getattr(graph_types, authored_name)
             policy = policy_class(
-                **({'requested_work_policy': 'semantic_plan_destination_v1',
+                **({'requested_work_policy': 'semantic_plan_placement_v1',
+                    'placement_catalog_sha256': request.plan_placement_catalog.sha256 if request.plan_placement_catalog is not None else None,
                     'plan_authoring_capture_sha256': request.plan_authoring_capture.sha256
                         if request.plan_authoring_capture is not None else None} if semantic_plan else {}),
                 **({"driver_schema": "dmb_plan_jev_retrieval_v1",
@@ -5088,6 +5089,7 @@ def _submitted_turn_intent(
         return SubmittedTurnIntentV2(
             **common,
             plan_authoring_capture_sha256=request.plan_authoring_capture.sha256 if request.plan_authoring_capture is not None else None,
+            plan_placement_catalog_sha256=request.plan_placement_catalog.sha256 if request.plan_placement_catalog is not None else None,
             plan_context_policy=PlanContextPolicyV1(
                 policy=request.plan_context_policy.policy
             ),

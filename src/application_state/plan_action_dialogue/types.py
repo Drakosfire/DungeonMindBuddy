@@ -28,7 +28,7 @@ from application_state.agent_conversation.types import (
 
 ActionStatus = Literal["pending", "completed", "failed", "indeterminate"]
 ActionType = Literal["compose", "revise"]
-TargetKind = Literal["replace_selection", "insert_at_caret", "replace_playable_body"]
+TargetKind = Literal["replace_selection", "insert_at_caret", "replace_playable_body", "insert_at_boundary"]
 
 
 class StrictModel(BaseModel):
@@ -424,8 +424,10 @@ class PlanActionReservation(StrictModel):
             raise ValueError("Only Playable body actions may carry a typed target receipt")
         elif self.target_kind == "replace_selection" and self.selected_text_sha256 is None:
             raise ValueError("replace_selection requires a selected-text digest")
-        elif self.target_kind == "insert_at_caret" and self.selected_text_sha256 is not None:
+        elif self.target_kind in {"insert_at_caret", "insert_at_boundary"} and self.selected_text_sha256 is not None:
             raise ValueError("insert_at_caret cannot carry a selected-text digest")
+        if self.target_kind == "insert_at_boundary" and self.action_type != "compose":
+            raise ValueError("Structural insertion requires compose authority")
         return self
 
 

@@ -1,7 +1,7 @@
 import {canonical,exact} from '../shared/sourcePassageProtocol';
 import {authenticatedApiFetch} from './liveApi';
 
-export interface PlanAuthoringCapture {
+export interface PlanOriginalAuthoringCapture {
   schema:'dmb_plan_authoring_capture_v1';idempotency_key:string;conversation_id:string;
   expected_pointer_revision:number;world_id:string;document_id:string;base_revision:number;base_content_sha256:string;
   draft_markdown:string;draft_sha256:string;editor_json:string;editor_sha256:string;selection_json:string;selection_sha256:string;
@@ -12,6 +12,15 @@ export interface PlanAuthoringCapture {
     range_semantics_version:'plan-playable-ranges-v1';body_serialization_version:'plan-playable-body-markdown-v1';
     body_markdown:string;body_sha256:string}|null;
 }
+export type PlanAuthoringCapture=PlanOriginalAuthoringCapture | (Omit<PlanOriginalAuthoringCapture,'schema'|'target_kind'>&{
+  schema:'dmb_plan_authoring_boundary_capture_v1';target_kind:'insert_at_boundary';root_boundary:number;
+});
+export interface PlanPlacementCatalog {
+  schema:'dmb_plan_placement_catalog_v1';original_capture_sha256:string;editor_sha256:string;
+  entries:Array<{selector:string;kind:'captured_target'|'before_heading'|'after_section'|'end_page';label:string;
+    root_boundary:number|null;position:number|null;target_capture_sha256:string}>;
+}
+
 export interface PlanAuthoredProposal {
   schema:'dmb_plan_authored_proposal_v1';capture:PlanAuthoringCapture;replacement_markdown:string;
   origin:{schema:'dmb_plan_jev_proposal_origin_v1';action_id:string;idempotency_key:string;conversation_id:string;turn_id:string;
@@ -86,19 +95,21 @@ const hash=(v:unknown):v is string=>typeof v==='string'&&digest.test(v);
 const positive=(v:unknown):v is number=>Number.isSafeInteger(v)&&Number(v)>0;
 const nonnegative=(v:unknown):v is number=>Number.isSafeInteger(v)&&Number(v)>=0;
 export function isPlanAuthoringCapture(v:unknown):v is PlanAuthoringCapture {
+  const boundary=!!v&&typeof v==='object'&&'schema' in v&&v.schema==='dmb_plan_authoring_boundary_capture_v1';
   if(!exact(v,['schema','idempotency_key','conversation_id','expected_pointer_revision','world_id','document_id','base_revision',
     'base_content_sha256','draft_markdown','draft_sha256','editor_json','editor_sha256','selection_json','selection_sha256',
-    'from','to','draft_generation','selection_generation','target_kind','selected_text','playable_target'])
-    ||v.schema!=='dmb_plan_authoring_capture_v1'||!uuid(v.idempotency_key)||!uuid(v.conversation_id)
+    'from','to','draft_generation','selection_generation','target_kind','selected_text','playable_target',...(boundary?['root_boundary']:[])])
+    ||(!boundary&&v.schema!=='dmb_plan_authoring_capture_v1')||!uuid(v.idempotency_key)||!uuid(v.conversation_id)
     ||!positive(v.expected_pointer_revision)||typeof v.world_id!=='string'||!v.world_id||typeof v.document_id!=='string'||!v.document_id
     ||!positive(v.base_revision)||!hash(v.base_content_sha256)||!hash(v.draft_sha256)||!hash(v.editor_sha256)||!hash(v.selection_sha256)
     ||typeof v.draft_markdown!=='string'||typeof v.editor_json!=='string'||typeof v.selection_json!=='string'
     ||!nonnegative(v.from)||!nonnegative(v.to)||v.to<v.from||!nonnegative(v.draft_generation)||!nonnegative(v.selection_generation)
-    ||typeof v.selected_text!=='string'||!['insert_at_caret','replace_selection','replace_playable_body'].includes(String(v.target_kind)))return false;
+    ||typeof v.selected_text!=='string'||!(boundary?['insert_at_boundary']:['insert_at_caret','replace_selection','replace_playable_body']).includes(String(v.target_kind)))return false;
   try {const doc=JSON.parse(v.editor_json),selection=JSON.parse(v.selection_json);
     if(doc?.type!=='doc'||!Array.isArray(doc.content)||selection?.type!=='text'||!nonnegative(selection.anchor)||!nonnegative(selection.head))return false;
-    if(v.target_kind!=='replace_playable_body'&&(v.from!==Math.min(selection.anchor,selection.head)||v.to!==Math.max(selection.anchor,selection.head)))return false;
+    if(!boundary&&v.target_kind!=='replace_playable_body'&&(v.from!==Math.min(selection.anchor,selection.head)||v.to!==Math.max(selection.anchor,selection.head)))return false;
   }catch{return false;}
+  if(boundary)return nonnegative(v.root_boundary)&&v.from===v.to&&v.selected_text===''&&v.playable_target===null;
   if(v.target_kind==='replace_playable_body'){
     const t=v.playable_target;
     return exact(t,['kind','id','marker_grammar_version','body_scope','range_semantics_version','body_serialization_version','body_markdown','body_sha256'])
