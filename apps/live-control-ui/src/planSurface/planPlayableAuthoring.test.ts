@@ -205,3 +205,14 @@ it('keeps ordinary H3 within the Beat before its first Scene, but never falls ba
  expect(indexPlayableStructureV2(editor.getJSON())).toMatchObject({status:'ready',index:{choices:[{choiceId:choice,beatId:'beat:one',sceneId:null}]}});
  selectText('After a Scene.');const before=editor.getJSON();expect(()=>insertPlanStructure(editor,'choice',editor.state)).toThrow('cursor');expect(editor.getJSON()).toEqual(before);
 });
+
+
+it.each(['choice','option'] as const)('preserves every existing Play body through %s insertion after ordinary subsections and tables',async kind=>{
+ const {slicePlayableBodies}=await import('../playSurface/runbook/nativeRunbookProjection');
+ const body='<!-- dmb-playable-element:v2 kind=beat id=beat:one -->\n## Beat\n\nBeat prose.\n\n<!-- dmb-playable-element:v2 kind=scene id=scene:one -->\n### Scene\n\nScene opening.\n\n'+(kind==='option'?'<!-- dmb-playable-element:v2 kind=choice id=choice:old scene=scene:one -->\n### Existing choice\n\nChoice opening.\n\n<!-- dmb-playable-element:v2 kind=option id=option:old -->\n- Existing option\n\n':'')+'### Ordinary design brief\n\nKeep the design with its original owner.\n\n## Named tactics\n\n| Actor | Action |\n| --- | --- |\n| Guardian | Wait |\n\nTrailing cue.\n\n<!-- dmb-playable-element:v2 kind=scene id=scene:two -->\n### Next scene\n\nNext scene body.\n\n## Root instructions\n\nNever attach this to a Scene.';
+ mount(body);selectText(kind==='choice'?'Scene opening.':'Choice opening.');
+ const before=slicePlayableBodies(editor.getJSON());const inserted=insertPlanStructure(editor,kind,editor.state);const after=slicePlayableBodies(editor.getJSON());
+ for(const [id,slice] of before)expect(after.get(id),id).toEqual(slice);
+ const source=tiptapJsonToSemanticMarkdown(editor.getJSON());expect(source.indexOf(`id=${inserted}`)).toBeGreaterThan(source.indexOf('Trailing cue.'));expect(source.indexOf(`id=${inserted}`)).toBeLessThan(source.indexOf('### Next scene'));const parsed=editor.schema.nodeFromJSON(markdownToTiptapDoc(source).doc).toJSON();
+ for(const [id,slice] of before)expect(slicePlayableBodies(parsed).get(id),id).toEqual(slice);
+});

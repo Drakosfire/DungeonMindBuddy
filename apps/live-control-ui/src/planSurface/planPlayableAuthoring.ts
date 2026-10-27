@@ -161,7 +161,7 @@ export function insertPlanStructure(editor: Editor, kind: Kind, expectedState: E
 }
 
 
-type DecisionContext = {kind:'beat'|'scene'|'choice'; beatId:string; sceneId:string|null; end:number; start:number};
+type DecisionContext = {ownerId:string; kind:'beat'|'scene'|'choice'; beatId:string; sceneId:string|null; end:number; start:number};
 /** Top-level H2/H3 boundaries own descendants, including paragraphs, tables and lists. */
 function decisionContext(state:EditorState,info=outline(state)): DecisionContext|null {
   if(info.version!=='v2'||info.error||!(state.selection instanceof TextSelection))return null;
@@ -179,18 +179,32 @@ function decisionContext(state:EditorState,info=outline(state)): DecisionContext
     }
     if(!beatId)return;
     if(identity.status!=='canonical'){
-      if(!sceneStarted)segment={kind:'beat',beatId,sceneId:null,start:pos,end:state.doc.content.size};
+      if(!sceneStarted)segment={ownerId:beatId,kind:'beat',beatId,sceneId:null,start:pos,end:state.doc.content.size};
       return;
     }
     if(identity.identity.kind==='scene')sceneStarted=true;
     const typed=identity.identity;
     if(typed.kind==='beat'||typed.kind==='scene'||typed.kind==='choice'){
-      segment={kind:typed.kind,beatId,sceneId:typed.kind==='scene'?typed.id:typed.kind==='choice'?typed.sceneId??null:null,
+      segment={ownerId:typed.id,kind:typed.kind,beatId,sceneId:typed.kind==='scene'?typed.id:typed.kind==='choice'?typed.sceneId??null:null,
         start:pos,end:state.doc.content.size};
     }
   });
   if(segment)segments.push(segment);
   return segments.find(x=>state.selection.from>x.start&&state.selection.to<x.end)??null;
+}
+
+/** Eligibility can stop at an ordinary H3; insertion must preserve its owner's full Play body. */
+function decisionInsertionEnd(state:EditorState,ownerId:string):number {
+  const content=state.doc.toJSON().content??[];
+  let found=false,end:number|null=null;
+  state.doc.forEach((node,pos,index)=>{
+    if(end!==null)return;
+    if(!found){if(node.attrs.playableElementId===ownerId)found=true;return;}
+    if(node.type.name!=='heading'||isTableCaptionAt(content,index))return;
+    if(validatePlayableHeadingAttrs(node.attrs).status==='canonical'||node.attrs.level<=2)end=pos;
+  });
+  if(!found)throw new Error('The selected decision owner is no longer present.');
+  return end??state.doc.content.size;
 }
 
 function insertDecisionStructure(editor:Editor,kind:'choice'|'option',expectedState:EditorState){
@@ -205,6 +219,7 @@ function insertDecisionStructure(editor:Editor,kind:'choice'|'option',expectedSt
   if(before.status!=='ready')throw new Error('Fix the playable structure first.');
   if(context.sceneId&&!before.index.scenes.some(x=>x.sceneId===context.sceneId&&x.beatId===context.beatId))
     throw new Error('The Scene does not belong to this Beat.');
+  const insertionEnd=decisionInsertionEnd(editor.state,context.ownerId);
   const id=generatePlayableElementId(kind);
   const option=(optionId:string,label:string)=>editor.schema.nodes.listItem.create({
     playableElementKind:'option',playableElementId:optionId,playableElementVersion:'v2',
@@ -214,9 +229,9 @@ function insertDecisionStructure(editor:Editor,kind:'choice'|'option',expectedSt
     const heading=editor.schema.nodes.heading.create({level:3,playableElementKind:'choice',playableElementId:id,
       playableElementVersion:'v2',playableSceneId:context.sceneId},editor.schema.text('New Choice'));
     const options=['First option','Second option'].map(label=>editor.schema.nodes.bulletList.create(null,option(generatePlayableElementId('option'),label)));
-    tr=tr.insert(context.end,[heading,...options]);
+    tr=tr.insert(insertionEnd,[heading,...options]);
   }else{
-    tr=tr.insert(context.end,editor.schema.nodes.bulletList.create(null,option(id,'New option')));
+    tr=tr.insert(insertionEnd,editor.schema.nodes.bulletList.create(null,option(id,'New option')));
   }
   const after=indexPlayableStructureV2(tr.doc.toJSON());
   if(after.status!=='ready')throw new Error('The new decision would invalidate this Plan.');
