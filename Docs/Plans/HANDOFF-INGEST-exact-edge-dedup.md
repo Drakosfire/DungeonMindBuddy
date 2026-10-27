@@ -1,6 +1,10 @@
 # INGEST — preserve exact candidate relationships
 
-Status: ACTIVE. PRIME owns serial implementation under operator authorization to
+Status: SETTLED. Merged PR1823 at 0a2541d36c9805a5d8c44ce72385bda7ffb1c5bc;
+reviewed head2d5cd33c1 approved independently, hosted checks passed. API8000 adopted
+the immutable merge source; retained 3640 APP rows,1096 native rows,40813 files.
+Implementation/review lease ended. No historical repair or S8 semantic improvement
+claimed. Originally ACTIVE. PRIME owns serial implementation under operator authorization to
 resolve ADVERSARY material/Graph regressions. Base origin/main
 04e1f9c2f116eeeadc113c29ce5aa463248ff28c; branch codex/ingest-exact-edge-dedup,
 existing buddy-context-loop checkout. Remote/open PRs inspected; no overlapping
