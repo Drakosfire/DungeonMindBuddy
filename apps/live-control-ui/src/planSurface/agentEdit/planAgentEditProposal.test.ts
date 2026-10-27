@@ -1209,16 +1209,17 @@ it('preparation refuses retired conversation authority without changing the moun
 });
 
 
-it.each(["sibling", "body"])("captures, reviews, applies and reopens a Scene with an ordinary table in its %s", async (placement) => {
+it.each(["sibling", "body", "named-body"])("captures, reviews, applies and reopens a Scene with an ordinary table in its %s", async (placement) => {
   const table = "| Lead | Next step |\n| --- | --- |\n| A repair | Ask the smith (optional). |";
   const source = [
     "# Preparation only", "",
+    ...(placement === "named-body" ? ["<!-- dmb-playable-element:v2 kind=beat id=beat:journey beat_kind=spine -->", "## Journey", ""] : []),
     "<!-- dmb-playable-element:v2 kind=scene id=scene:arrival -->",
     "### Arrival", "", "Meet the residents.", "",
     ...(placement === "sibling" ? [table, ""] : []),
     "<!-- dmb-playable-element:v2 kind=scene id=scene:descent -->",
     "### Descent", "", "Ask [the guide](dmb-node:node:guide) about the guardian.", "",
-    ...(placement === "body" ? [table, ""] : []),
+    ...(placement !== "sibling" ? [placement === "named-body" ? "## Compound tactics\n\n" + table : table, ""] : []),
     "<!-- dmb-playable-element:v2 kind=scene id=scene:later -->",
     "### Later", "", "**Unplayed** aftermath.", "",
   ].join("\n");
@@ -1248,5 +1249,22 @@ it.each(["sibling", "body"])("captures, reviews, applies and reopens a Scene wit
   expect(tiptapJsonToSemanticMarkdown(reopened.getJSON())).toBe(saved);
   const target = await resolvePlayableBodyTarget(reopened, { kind: "scene", id: "scene:descent" });
   expect(target.targetBodyMarkdown).toBe(admitted.canonicalMarkdown);
-  expect(target.targetBodyMarkdown.includes("| Lead | Next step |")).toBe(placement === "body");
+  expect(target.targetBodyMarkdown.includes("| Lead | Next step |")).toBe(placement !== "sibling");
+  if (placement === "named-body") expect(target.targetBodyMarkdown).toContain("## Compound tactics");
+});
+
+
+it.each([
+  '# Root\n\n| A | B |\n| --- | --- |\n| X | Y |',
+  '## Section\n\nSeparate paragraph.\n\n| A | B |\n| --- | --- |\n| X | Y |',
+  '## **Styled title**\n\n| A | B |\n| --- | --- |\n| X | Y |',
+  '## Not a table\n\n| A | B |\n| X | Y |',
+])('still rejects an actual root boundary in a reviewed Scene body: %s', async fragment => {
+  const {editor,state}=mountedState('<!-- dmb-playable-element:v2 kind=scene id=scene:one -->\n### One\n\nOriginal.');
+  const current:WorldPlanEditEditorState={...worldState(state),playableTarget:{kind:'scene',id:'scene:one'},playableTargetGeneration:1};
+  const before=editor.getJSON();
+  const captured=await captureWorldPlanEditTarget(current,()=>current);
+  const key='00000000-0000-4000-8000-000000000002';
+  await expect(admitWorldPlanEditProposal(captured,await worldResponseFor(captured,fragment,key),key)).rejects.toThrow('root Plan boundary');
+  expect(editor.getJSON()).toEqual(before);
 });

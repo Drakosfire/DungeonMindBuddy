@@ -140,6 +140,27 @@ def _line_blocks(tokens: list[object]) -> list[_Block]:
     return blocks
 
 
+
+def _table_caption_lines(source: str) -> set[int]:
+    """Recognize the same plain H2+table pairs used by the shared table editor.
+
+    Use table-aware parsing only for classification; the established canonical
+    body serializer and its token/source ranges remain unchanged.
+    """
+    tokens = MarkdownIt("commonmark", {"html": True}).enable("table").parse(source)
+    blocks = _line_blocks(tokens)
+    captions: set[int] = set()
+    for index, block in enumerate(blocks[:-1]):
+        if block.kind != "heading" or block.level != 2 or blocks[index + 1].kind != "table_open":
+            continue
+        inline = tokens[block.token_index + 1]
+        children = getattr(inline, "children", None) or []
+        if str(getattr(inline, "content", "")).strip() and all(
+            getattr(child, "type", "") == "text" for child in children
+        ):
+            captions.add(block.start)
+    return captions
+
 def _root_markers(tokens: list[object], blocks: list[_Block], lines: list[str]) -> list[_Marker]:
     markers: list[_Marker] = []
     code_ranges = [
@@ -357,10 +378,14 @@ def selected_playable_source_for_read(
         return "\n".join(lines[int(items[0].map[0]) : int(items[0].map[1])])
 
     boundary = len(lines)
+    caption_lines = _table_caption_lines(source)
     for following in blocks[blocks.index(block) + 1 :]:
         next_marker = attached.get(following.token_index)
         if following.kind == "heading" and (
-            next_marker is not None or (following.level is not None and following.level <= 2)
+            next_marker is not None or (
+                following.level is not None and following.level <= 2
+                and following.start not in caption_lines
+            )
         ):
             boundary = next_marker.line if next_marker is not None else following.start
             break
@@ -400,6 +425,7 @@ def resolve_playable_body_target(
         scope: BodyScope = "option_item_content"
     else:
         heading_index = blocks.index(target_block)
+        caption_lines = _table_caption_lines(source)
         boundary = len(lines)
         option_markers: list[tuple[_Marker, _Block]] = []
         for block in blocks[heading_index + 1 :]:
@@ -408,7 +434,7 @@ def resolve_playable_body_target(
                 if following_marker is not None:
                     boundary = following_marker.line
                     break
-                if block.level is not None and block.level <= 2:
+                if block.level is not None and block.level <= 2 and block.start not in caption_lines:
                     boundary = block.start
                     break
             if following_marker is not None and following_marker.kind == "option" and following_marker.version == "v2":

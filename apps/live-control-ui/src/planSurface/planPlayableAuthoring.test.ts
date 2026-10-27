@@ -127,3 +127,16 @@ it('does not regenerate an existing current identity or register non-roundtrippa
  editor.commands.insertContentAt(editor.state.doc.content.size,{type:'paragraph'});selectHeading('Authored heading');before=editor.getJSON();
  expect(()=>promote('beat')).toThrow('round-trip');expect(editor.getJSON()).toEqual(before);
 });
+
+
+it('keeps a named table inside the current Beat without offering to promote its caption',()=>{
+ mount('<!-- dmb-playable-element:v2 kind=beat id=beat:first beat_kind=spine -->\n## First\n\n<!-- dmb-playable-element:v2 kind=scene id=scene:first -->\n### Arrival\n\n## Tactics\n\n| Actor | Move |\n| --- | --- |\n| Guard | Wait |\n\nAfter the table.');
+ selectHeading('Tactics');
+ expect(planStructureActions(editor)[0].operation).toBe('insert');
+ editor.commands.setTextSelection(editor.state.doc.content.size-1);
+ expect(planStructureActions(editor)[1].disabledReason).toBeNull();
+ const scene=insert('scene');
+ const indexed=indexPlayableStructureV2(editor.getJSON());
+ expect(indexed).toMatchObject({status:'ready',index:{scenes:[{sceneId:'scene:first',beatId:'beat:first'},{sceneId:scene,beatId:'beat:first'}]}});
+ expect(tiptapJsonToSemanticMarkdown(editor.getJSON())).toContain('## Tactics');
+});

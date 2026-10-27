@@ -264,6 +264,45 @@
       "expected": {
         "available": false
       }
+    },
+    {
+      "name": "v2_scene_named_table_in_body",
+      "draft_markdown": "<!-- dmb-playable-element:v2 kind=beat id=beat:one beat_kind=spine -->\n## One\n\n<!-- dmb-playable-element:v2 kind=scene id=scene:one -->\n### First\n\nBefore.\n\n## Compound tactics\n\n| Combatant | Tactic |\n| --- | --- |\n| Guard | Wait. |\n\nAfter.\n\n<!-- dmb-playable-element:v2 kind=scene id=scene:two -->\n### Second\n\nKeep this scene.\n",
+      "target": {
+        "kind": "scene",
+        "id": "scene:one"
+      },
+      "expected": {
+        "available": true,
+        "body_markdown": "Before.\n\n## Compound tactics\n\n| Combatant | Tactic |\n| --- | --- |\n| Guard | Wait. |\n\nAfter.\n",
+        "body_sha256": "ea4fa0105a8ad7ef425281746789a02db7d2ca20f5c531458036568869216416"
+      }
+    },
+    {
+      "name": "v2_scene_nonadjacent_table_caption_is_boundary",
+      "draft_markdown": "<!-- dmb-playable-element:v2 kind=beat id=beat:one beat_kind=spine -->\n## One\n\n<!-- dmb-playable-element:v2 kind=scene id=scene:one -->\n### First\n\nBefore.\n\n## Section\n\nSeparate paragraph.\n\n| Combatant | Tactic |\n| --- | --- |\n| Guard | Wait. |\n\nAfter.\n\n<!-- dmb-playable-element:v2 kind=scene id=scene:two -->\n### Second\n\nKeep this scene.\n",
+      "target": {
+        "kind": "scene",
+        "id": "scene:one"
+      },
+      "expected": {
+        "available": true,
+        "body_markdown": "Before.\n",
+        "body_sha256": "a7a443d768152afb0a5548abda153bf728bf89ad0d86820dff3ddd5837764518"
+      }
+    },
+    {
+      "name": "v2_scene_marked_table_caption_is_boundary",
+      "draft_markdown": "<!-- dmb-playable-element:v2 kind=beat id=beat:one beat_kind=spine -->\n## One\n\n<!-- dmb-playable-element:v2 kind=scene id=scene:one -->\n### First\n\nBefore.\n\n## **Marked title**\n\n| Combatant | Tactic |\n| --- | --- |\n| Guard | Wait. |\n\nAfter.\n\n<!-- dmb-playable-element:v2 kind=scene id=scene:two -->\n### Second\n\nKeep this scene.\n",
+      "target": {
+        "kind": "scene",
+        "id": "scene:one"
+      },
+      "expected": {
+        "available": true,
+        "body_markdown": "Before.\n",
+        "body_sha256": "a7a443d768152afb0a5548abda153bf728bf89ad0d86820dff3ddd5837764518"
+      }
     }
   ]
 }

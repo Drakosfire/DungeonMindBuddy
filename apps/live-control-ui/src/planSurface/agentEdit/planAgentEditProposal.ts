@@ -1,3 +1,4 @@
+import { isTableCaptionAt } from '../../tiptap/markdown/tableCaption';
 import type {PlanAuthoringCapture, PlanReviewApplication, PlanAuthoringReview} from "../../api/planAuthoringReviewApi";
 import { Editor, type JSONContent } from "@tiptap/core";
 import { TextSelection } from "@tiptap/pm/state";
@@ -937,8 +938,8 @@ function validateFragment(
   if (semanticMarkdownSerializationDiagnostics(parsed.doc).length) {
     throw new PlanEditGuardError("Agent proposed a component the Plan editor cannot serialize safely.");
   }
-  if (playableBodyMode && (parsed.doc.content ?? []).some((node) =>
-    node.type === "heading" && Number(node.attrs?.level) <= 2)) {
+  if (playableBodyMode && (parsed.doc.content ?? []).some((node, index, content) =>
+    node.type === "heading" && Number(node.attrs?.level) <= 2 && !isTableCaptionAt(content, index))) {
     throw new PlanEditGuardError("Agent proposal introduced a root Plan boundary heading into the card body.");
   }
   if (playableBodyMode && expectedProtectedReferences !== undefined) {
