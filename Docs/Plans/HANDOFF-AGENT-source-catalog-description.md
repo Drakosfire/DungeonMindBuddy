@@ -1,0 +1,17 @@
+# AGENT: describe general source catalog navigation truthfully
+
+ACTIVE after independent design critique approved a generic shared source-catalog description and the authorized four-call contrast supported the hypothesis. PRIME owns the operator-authorized benchmark-regression priority. Base ece4d3a5b7779713ce8ef33bc8fad545bfd9c3b9; serial successor to merged1815; existing buddy-context-loop checkout/branch codex/buddy-source-catalog-description. HOSTED1814 is a disjoint validation-CI lane;1764 parked. API8000 reviewed8dea76f9/PID1694739, UI5202 reviewed25cce0dd/PID1533777; APP0078/native0017. No new checkout/environment/port/data lease.
+
+## One owning correction
+
+NativeSourceNavigator offers every source catalog as appendices/tables/statblocks although browse supports ordinary narrative sections too. Describe the actual existing capability: `Source navigation: inspect source sections beyond opened passages`. This is a navigation action, not a claim that more evidence exists or coverage is complete. Apply uniformly, not by source/case/adventure. Existing prepare_decision mechanically mirrors kind in its candidate question. Do not change source offers, selection/authority gates, body bytes, citation acceptance, tools, policy, prompt instructions or provider roles.
+
+Unchanged1815Q13 reached Session8escape/oily-eye paragraphs, offered ExploreSession8recap in four later decisions but never selected it. Thus its full recap/catalog was never offered to the writer; both feeding episodes remain missing. Frozen metadata-only decision4/7 contrasts preserve labels/question/examined state and change only each browse kind plus derived instruction mirror. Exactly4calls: both originals excludeSession8; both candidates includeSession8 (andSession9). No source tools, body/gold injection, writing, DB or publication. This is small stochastic development evidence about selection, not a unique-cause proof, reliability measure or Q13 acceptance. Benchmark owns raw requests/receipts and browse-label-contrast-20261027-audit.json; original failures retained.
+
+Independent critique: truthful shared capability description is justified; preserve exact binding/later evidence validation. A catalog does not imply source completeness. S7discovery, source participant/modality/beat retention, writer omissions and historical adoption lineage remain separately open. Do not auto-publish old contributions or infer infection from feeding/symptoms. No arbitrary caps, benchmark-specific names or execution fallback.
+
+## Exclusive expected writes / topology
+
+Serial one PR. Expected paths: apps/live_control_server/services/native_source_navigation.py (browse candidate kind only); this handoff; Docs/Plans/HANDOFF-AGENT-subject-mention-discovery.md and Docs/Roadmaps/ROADMAP-demo.md for truthful predecessor settlement/current sequence. No other implementation path or new test mirroring the string.
+
+Verify existing real Navigator/activation tests (Plan/Play catalog/section/body/citation, no prose in decision state) and Jev wire contract. Inspect cumulative diff; independent exact-head Bugbot; commit/push/open PR; PRIME merge; protected API delivery preserving all retained state/overlay/explicit local auth. Then one unchanged Q13 and Q01 control with frozen fixtures, all3Q13 facets retained, no retries/full batch. If missing feeding persists, localize selection vs opened/writer exposure rather than declaring success or adding another heuristic. Post-merge facts settle with next dependent slice.

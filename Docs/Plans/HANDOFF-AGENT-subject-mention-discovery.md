@@ -1,6 +1,8 @@
 # AGENT: selected-subject mention discovery
 
-ACTIVE after independent design critique accepted the held authenticated parent plus exact broker join. PRIME owns the operator-authorized regression-first work. Base e754f68f1; branch codex/buddy-regression-followthrough in the existing buddy-context-loop checkout. Serial successor to merged1813; hosted1802 is merged,1764 parked, other open source-review/hosted lanes remain unmodified. API8000 reviewed48f93a71 and UI5202 reviewed25cce0dd0; APP0078/native0017. No new checkout, environment, port or data lease.
+DELIVERED via PR1815 merged ece4d3a5b7779713ce8ef33bc8fad545bfd9c3b9, reviewed8dea76f903c4adf7da2e25b86f6361dfc83394b4. Two independent code review cycles (HOLD→PASS); final148owner tests passed181.03s. Protected API restart preserved3625APP/1097native rows and39950 file hashes, health/ready green; saved Plan/conversation and Session6 citation reopened ordinarily. Unchanged Q01 still delivers the main fact. Q13 improves0/3→1/3 oily eyes only: full Session8 catalog offered repeatedly but never selected; both feeding episodes missing. Live protocol verifies selected search events have zero citable IDs/anchors/pins and later explicit object/source reads own citations. No ingestion/full-goal acceptance inferred.
+
+Activated after independent design critique accepted the held authenticated parent plus exact broker join. PRIME owns the operator-authorized regression-first work. Base e754f68f1; branch codex/buddy-regression-followthrough in the existing buddy-context-loop checkout. Serial successor to merged1813; hosted1802 is merged,1764 parked, other open source-review/hosted lanes remain unmodified. API8000 reviewed48f93a71 and UI5202 reviewed25cce0dd0; APP0078/native0017. No new checkout, environment, port or data lease.
 
 ## Invariant and critique
 
