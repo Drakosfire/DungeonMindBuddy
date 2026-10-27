@@ -20,7 +20,7 @@ Buddy #1817 merged at 7a6509b06b61c3ffba870dbc3f617e2a31d3a6e6. Buddy #1814's ex
 - The proposed canonical hosted runtime is a uv/systemd release: a versioned Buddy source tree with its own locked uv environment and a dedicated systemd unit. Dependency installation is an explicit release-preparation step using the existing committed uv.lock; the service starts the prepared release's absolute .venv/bin/uvicorn executable directly.
 - Runtime start performs no dependency resolution, lockfile update, source checkout, build, or migration. Buddy data remains in separately selected durable roots outside all release directories.
 - The host's existing Nginx remains the only proxy. deploy/production/nginx-buddy.conf is an included site-location fragment, not a second proxy or full server block.
-- A future DMS uv/systemd release must use its own DMS repository, lock, venv, unit, tests, and rollback contract. The host inventory reported DMS Python 3.11.15 in its current container. DMS container replacement, uv migration, Python 3.13 compatibility, and dependency upgrades are not in this local Buddy preparation and require a separate scope decision.
+- DMS has a separate local preparation branch in its owning repository with its own Python 3.11 lock-preserving uv/systemd template, tests, and release/runbook contract. The host inventory reported DMS Python 3.11.15 in its current container. This does not authorize replacing its container or changing Python/dependencies; Python 3.13 compatibility and any lock upgrade remain separately scoped.
 
 ## Retained Docker path and provenance
 
@@ -58,7 +58,7 @@ The Store Generator health probe to loopback port 3001 was timing out with a 29,
 2. Identify separate APP-STATE/WorldGraph owners, databases, roles, migration heads, and recovery procedures.
 3. Select non-overlapping durable roots outside versioned releases, verify service-user permissions, and agree on release/uv-cache retention and disk budget.
 4. Confirm Buddy's existing Python 3.13 and uv.lock compatibility in an exact-release test. Do not upgrade dependencies without an approved scope decision.
-5. Decide DMS's uv/systemd transition and any Python 3.11→3.13 compatibility work with its owner. Keep its current service untouched until that separate path is tested and approved.
+5. Review the DMS-owned Python 3.11 uv/systemd preparation at its exact local head. Decide Python 3.11→3.13 compatibility or dependency/lock changes separately; keep the current service untouched until a future path is tested and approved.
 6. Verify the candidate loopback port is unused; choose the existing Nginx include location and separately review DNS/TLS/cookie behavior. Do not create a second proxy.
 7. Prove checksummed backups and isolated restores for both authorities. Respect downgrade fences; code release rollback does not reverse schema/data state.
 8. Preserve fail-closed World authorization until the World, policy, and exact route resolvers are separately reviewed.

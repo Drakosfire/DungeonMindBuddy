@@ -40,7 +40,7 @@ The included buddy.service is a unit template only. It runs as a dedicated non-r
 
 Buddy's DMB_MANAGED_WORLD_DATA_ROOT, DMB_ARTIFACT_DATA_ROOT and DUNGEONMIND_LIVE_SESSION_DIR must live below its selected Buddy durable root. DUNGEONMIND_WORLD_GRAPH_ROOT must live under a separate selected WorldGraph file root. The file deploy/production/systemd/buddy.env.example contains only placeholders and candidate names. Use a protected, operator-approved secret mechanism for the installed environment file; never commit its populated contents.
 
-The architecture target is also to run DMS from its own DMS-owned versioned release, committed lock, uv environment and systemd unit. This repository does not own DMS startup/configuration and does not provide that unit. The observed DMS image reports Python 3.11.15; whether and how to move it to uv/systemd, and whether to move it to Python 3.13, require a separate DMS compatibility and scope decision. This preparation does not upgrade DMS Python or dependencies, rewrite its lock, or stop/change its container.
+The architecture target is also to run DMS from its own DMS-owned versioned release, committed lock, uv environment and systemd unit. A separate local DMS branch now prepares a Python 3.11 unit and locked-release runbook; it does not change this repository's source or the current container. The observed DMS image reports Python 3.11.15. Any move to Python 3.13, dependency upgrades, or lock rewrite remains a separate DMS compatibility decision. Do not stop or change the current container as part of this preparation.
 
 ## Retained Docker compatibility path
 
@@ -91,7 +91,7 @@ PostgreSQL/pgvector and Mongo containers in another Compose project shared Docke
 
 Buddy already declares Python >=3.13,<3.14 and has a committed uv.lock; using that existing contract in its isolated release is the proposed starting point. This preparation did not run uv sync or install Python on the host. It does not authorize changing Python versions or broad dependency upgrades.
 
-DMS was observed as Python 3.11.15 in its current container. Moving DMS to a uv-managed release or Python 3.13 requires a separate compatibility scope decision, including its own lock, test matrix, systemd unit, environment contract, and rollback plan. Until then, leave the current DMS service and container untouched. Any required compatibility work should be documented and reviewed before a Python-version or broad lock change.
+DMS was observed as Python 3.11.15 in its current container. Its separate local preparation uses its own committed lock and Python 3.11 systemd template. This does not move or stop the current container. Python 3.13 or broad dependency/lock changes still require a separate compatibility scope and evidence. Keep the DMS code, environment and rollback contract in its owning repository.
 
 The current Buddy project lists pytest and Ruff in its main dependency set, so uv sync --no-dev does not omit them. Moving tools into a development-only dependency group would change pyproject.toml and uv.lock; that dependency-hygiene change is not included or authorized by this preparation.
 
@@ -101,7 +101,7 @@ The current Buddy project lists pytest and Ruff in its main dependency set, so u
 2. Identify independent APP-STATE and WorldGraph owners, database names/roles, migration heads, credentials path, and recovery procedures.
 3. Select existing non-overlapping durable roots and confirm service-user access. Decide how much disk to reserve for versioned releases, uv cache, logs, and rollback retention; do not delete old releases or data as part of preparation.
 4. Review Buddy release preparation with the exact source commit, committed lock, patched-Hermes source, Python/uv versions, tests, and source revision evidence.
-5. Decide DMS uv/systemd and Python-version compatibility scope with its owner; no DMS unit or migration is provided here.
+5. Review DMS's separately prepared Python 3.11 uv/systemd contract with its owner; decide any Python-version or dependency/lock compatibility work separately.
 6. Review free loopback port, existing Nginx include location, DNS/TLS/cookie behavior, deployed DMS provenance, host capacity, deployment and rollback owner, and Store Generator health if it is part of the planned experience.
 7. Prove isolated backups/restores for both authorities and review downgrade fences.
 8. Keep the World resolver registry empty and readiness blocked until exact route resolvers and the approved World policy have separate review.
