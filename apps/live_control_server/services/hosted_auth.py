@@ -12,6 +12,7 @@ import json
 import os
 import ipaddress
 import inspect
+import re
 from pathlib import Path
 from collections.abc import Awaitable, Callable, Mapping
 from typing import Any
@@ -59,6 +60,9 @@ _FORWARDED_HEADERS = (
 )
 MAX_WORLD_SCOPE_BODY_BYTES = 1024 * 1024
 HOSTED_WORLD_ROUTE_POLICY_ERROR = "hosted_world_route_policy_unverified"
+LOGIN_PATH = "/api/auth/login"
+AUTH_SESSION_PATH = "/api/auth/session"
+_RETURN_PATH_CONTROL = re.compile(r"[\x00-\x1f\x7f]")
 
 
 def deployment_environment(environ: Mapping[str, str] | None = None) -> str:
@@ -120,6 +124,53 @@ def trusted_frontend_origins(environ: Mapping[str, str] | None = None) -> tuple[
     raw = source.get(TRUSTED_FRONTEND_ORIGINS_ENV, "")
     values = tuple(item.strip() for item in raw.split(",") if item.strip())
     return values
+
+
+def _unsafe_return_encoding(value: str, *, reject_separators: bool = True) -> bool:
+    current = value
+    for _ in range(8):
+        decoded = unquote(current)
+        if decoded == current:
+            return False
+        if len(_RETURN_PATH_CONTROL.findall(decoded)) > len(
+            _RETURN_PATH_CONTROL.findall(current)
+        ):
+            return True
+        if reject_separators and (
+            decoded.count("/") > current.count("/")
+            or decoded.count("\\") > current.count("\\")
+        ):
+            return True
+        current = decoded
+    return unquote(current) != current
+
+
+def safe_hosted_return_path(value: object) -> str:
+    """Accept only a bounded same-origin path for the hosted DMS login."""
+    if (
+        not isinstance(value, str)
+        or len(value) > 4096
+        or not value.startswith("/")
+        or value.startswith("//")
+        or "\\" in value
+        or _RETURN_PATH_CONTROL.search(value)
+    ):
+        return "/"
+    try:
+        parsed = urlsplit(value)
+    except ValueError:
+        return "/"
+    if (
+        parsed.scheme
+        or parsed.netloc
+        or not parsed.path.startswith("/")
+        or parsed.path.startswith("//")
+        or _unsafe_return_encoding(parsed.path)
+        or _unsafe_return_encoding(parsed.query, reject_separators=False)
+        or _unsafe_return_encoding(parsed.fragment, reject_separators=False)
+    ):
+        return "/"
+    return value
 
 
 def _valid_world_scope_resolvers(resolvers: WorldScopeResolvers | None) -> bool:
@@ -461,6 +512,12 @@ def install_hosted_request_boundary(
 
         # Logout is intentionally allowed to clear an expired session. Its
         # route still enforces DMS's exact Origin contract before proxying.
+        if (
+            request.method.upper() == "GET"
+            and request.url.path in {LOGIN_PATH, AUTH_SESSION_PATH}
+        ):
+            return await call_next(request)
+
         if request.url.path != LOGOUT_PATH:
             resolver = getattr(request.app.state, "dms_principal_resolver", None)
             if resolver is None:
@@ -468,7 +525,18 @@ def install_hosted_request_boundary(
                     status_code=503,
                     content={"detail": {"code": "hosted_auth_unavailable"}},
                 )
-            principal = await resolver(request)
+            if hasattr(resolver, "resolve"):
+                resolution = await resolver.resolve(request)
+                if resolution.status == "unavailable":
+                    return JSONResponse(
+                        status_code=503,
+                        content={
+                            "detail": {"code": "authentication_service_unavailable"}
+                        },
+                    )
+                principal = resolution.principal
+            else:
+                principal = await resolver(request)
             if principal is None:
                 return JSONResponse(
                     status_code=401,
@@ -519,9 +587,11 @@ __all__ = [
     "DEPLOYMENT_ENVIRONMENT_ENV",
     "HOSTED_MODE",
     "HOSTED_WORLD_ACCESS_ENV",
+    "AUTH_SESSION_PATH",
     "APPLICATION_STATE_DSN_ENV",
     "LOCAL_ENVIRONMENTS",
     "LOCAL_MODE",
+    "LOGIN_PATH",
     "LOGOUT_PATH",
     "PRODUCTION_ENVIRONMENT",
     "PERSISTENT_ROOT_ENVS",
@@ -534,6 +604,7 @@ __all__ = [
     "request_world_ids",
     "require_hosted_write_origin",
     "require_local_unproxied_loopback",
+    "safe_hosted_return_path",
     "trusted_frontend_origins",
     "validate_hosted_auth_configuration",
 ]

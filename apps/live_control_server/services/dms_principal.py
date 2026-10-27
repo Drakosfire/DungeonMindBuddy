@@ -1,10 +1,11 @@
-"""Fail-closed, unmounted adapter for DMS session introspection."""
+"""Fail-closed adapter for DungeonMindServer session introspection."""
 
 from __future__ import annotations
 
 import asyncio
-from dataclasses import dataclass
 import json
+from dataclasses import dataclass
+from typing import Literal
 from urllib.parse import urlsplit, urlunsplit
 
 import httpx
@@ -25,6 +26,14 @@ class DmsPrincipal:
     """Minimal stable identity returned by DungeonMindServer."""
 
     subject: str
+
+
+@dataclass(frozen=True)
+class DmsPrincipalResolution:
+    """Result that keeps an expired session distinct from DMS unavailability."""
+
+    status: Literal["authenticated", "signed_out", "unavailable"]
+    principal: DmsPrincipal | None = None
 
 
 def _fixed_current_user_url(api_origin: str) -> str | None:
@@ -63,6 +72,14 @@ def _fixed_current_user_url(api_origin: str) -> str | None:
     return str(validated)
 
 
+def fixed_dms_api_origin(api_origin: str) -> str | None:
+    """Return only the validated server-configured DMS origin."""
+    current_user_url = _fixed_current_user_url(api_origin)
+    if current_user_url is None:
+        return None
+    return current_user_url[: -len(DMS_CURRENT_USER_PATH)]
+
+
 def _valid_cookie_value(value: str) -> bool:
     try:
         encoded = value.encode("ascii")
@@ -78,8 +95,7 @@ class DmsPrincipalResolver:
     """Resolve one request's DMS cookie using an injected HTTPX client.
 
     The resolver stores only the configured endpoint and the injected client.
-    It never retains the request or cookie. Callers must keep this unmounted
-    until the Buddy route and browser cookie-delivery contract are reviewed.
+    It never retains the request or cookie; request data remains request scoped.
     """
 
     def __init__(self, *, api_origin: str, http_client: httpx.AsyncClient) -> None:
@@ -87,12 +103,16 @@ class DmsPrincipalResolver:
         self._http_client = http_client
 
     async def __call__(self, request: Request) -> DmsPrincipal | None:
+        result = await self.resolve(request)
+        return result.principal
+
+    async def resolve(self, request: Request) -> DmsPrincipalResolution:
         if self._current_user_url is None:
-            return None
+            return DmsPrincipalResolution(status="unavailable")
 
         cookie_value = request.cookies.get(DMS_SESSION_COOKIE_NAME)
         if not isinstance(cookie_value, str) or not _valid_cookie_value(cookie_value):
-            return None
+            return DmsPrincipalResolution(status="signed_out")
 
         outbound = httpx.Request(
             "GET",
@@ -122,24 +142,26 @@ class DmsPrincipalResolver:
                 )
                 try:
                     if response.status_code != 200:
-                        return None
+                        status = "signed_out" if response.status_code in {401, 403} else "unavailable"
+                        return DmsPrincipalResolution(status=status)
                     content_type = response.headers.get("content-type", "")
                     if content_type.split(";", 1)[0].strip().lower() != "application/json":
-                        return None
+                        return DmsPrincipalResolution(status="unavailable")
                     body = bytearray()
                     async for chunk in response.aiter_bytes():
                         if len(body) + len(chunk) > MAX_DMS_RESPONSE_BODY_BYTES:
-                            return None
+                            return DmsPrincipalResolution(status="unavailable")
                         body.extend(chunk)
                     payload = json.loads(body)
                 finally:
                     await response.aclose()
         except (httpx.HTTPError, TimeoutError, ValueError, RecursionError):
-            return None
+            return DmsPrincipalResolution(status="unavailable")
 
         if not isinstance(payload, dict):
-            return None
+            return DmsPrincipalResolution(status="unavailable")
         subject = payload.get("sub")
         if not isinstance(subject, str) or not subject.strip():
-            return None
-        return DmsPrincipal(subject=subject)
+            return DmsPrincipalResolution(status="unavailable")
+        principal = DmsPrincipal(subject=subject)
+        return DmsPrincipalResolution(status="authenticated", principal=principal)

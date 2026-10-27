@@ -4,10 +4,17 @@ from contextlib import asynccontextmanager
 from collections.abc import AsyncIterator
 import os
 from pathlib import Path
+from urllib.parse import urlencode
 
 import httpx
 from fastapi import FastAPI, HTTPException, Request
-from fastapi.responses import FileResponse, JSONResponse, PlainTextResponse, Response
+from fastapi.responses import (
+    FileResponse,
+    JSONResponse,
+    PlainTextResponse,
+    RedirectResponse,
+    Response,
+)
 from apps.live_control_server.routes.conversation_library import router as conversation_library_router
 from apps.live_control_server.routes.conversation_work_plans import router as conversation_work_plans_router
 from apps.live_control_server.routes.rules_lookup import router as rules_lookup_router
@@ -82,16 +89,20 @@ from apps.live_control_server.services.hermes_graph_agent_host import (
 from apps.live_control_server.services.dms_principal import (
     DMS_SESSION_COOKIE_NAME,
     DmsPrincipalResolver,
+    fixed_dms_api_origin,
 )
 from apps.live_control_server.services.hosted_auth import (
+    AUTH_SESSION_PATH,
     CURRENT_USER_PATH,
     DMS_API_ORIGIN_ENV,
     HOSTED_MODE,
+    LOGIN_PATH,
     LOGOUT_PATH,
     PRODUCTION_ENVIRONMENT,
     auth_mode,
     deployment_environment,
     install_hosted_request_boundary,
+    safe_hosted_return_path,
     validate_hosted_auth_configuration,
 )
 from apps.live_control_server.services.trusted_cookie_origin import require_cookie_write_origin
@@ -198,6 +209,57 @@ def create_app() -> FastAPI:
         if principal is None:
             raise HTTPException(status_code=401, detail="Authentication required")
         return {"sub": principal.subject}
+
+    @application.get(LOGIN_PATH, include_in_schema=False)
+    async def hosted_login(request: Request) -> Response:
+        environment = deployment_environment()
+        mode = auth_mode()
+        if environment in {"local", "development", "dev"} and mode == "local_operator":
+            return JSONResponse(
+                status_code=409,
+                content={"detail": {"code": "hosted_login_not_required"}},
+            )
+        if environment != PRODUCTION_ENVIRONMENT or mode != HOSTED_MODE:
+            return JSONResponse(
+                status_code=503,
+                content={"detail": {"code": "hosted_auth_unavailable"}},
+            )
+        api_origin = fixed_dms_api_origin(os.environ.get(DMS_API_ORIGIN_ENV, ""))
+        if api_origin is None:
+            return JSONResponse(
+                status_code=503,
+                content={"detail": {"code": "hosted_auth_unavailable"}},
+            )
+        return_values = request.query_params.getlist("return_to")
+        return_to = safe_hosted_return_path(
+            return_values[0] if len(return_values) == 1 else "/"
+        )
+        query = urlencode({"frontend": "buddy", "redirect": return_to})
+        return RedirectResponse(
+            url=f"{api_origin}/api/auth/login?{query}",
+            status_code=302,
+        )
+
+    @application.get(AUTH_SESSION_PATH, include_in_schema=False)
+    async def auth_session(request: Request) -> Response:
+        environment = deployment_environment()
+        mode = auth_mode()
+        if environment in {"local", "development", "dev"} and mode == "local_operator":
+            return JSONResponse(content={"status": "local_operator"})
+        if environment != PRODUCTION_ENVIRONMENT or mode != HOSTED_MODE:
+            return JSONResponse(
+                status_code=503,
+                content={"status": "unavailable"},
+            )
+        resolver = getattr(request.app.state, "dms_principal_resolver", None)
+        if resolver is None or not hasattr(resolver, "resolve"):
+            return JSONResponse(status_code=503, content={"status": "unavailable"})
+        result = await resolver.resolve(request)
+        if result.status == "authenticated" and result.principal is not None:
+            return JSONResponse(content={"status": "authenticated"})
+        if result.status == "signed_out":
+            return JSONResponse(status_code=401, content={"status": "signed_out"})
+        return JSONResponse(status_code=503, content={"status": "unavailable"})
 
     @application.post(LOGOUT_PATH, status_code=204, include_in_schema=False)
     async def logout(request: Request) -> Response:

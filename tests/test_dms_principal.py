@@ -140,6 +140,49 @@ def test_non_success_responses_fail_closed_and_redirects_are_not_followed(
 
 
 @pytest.mark.parametrize(
+    ("status_code", "expected_status"),
+    [(401, "signed_out"), (403, "signed_out"), (500, "unavailable"), (503, "unavailable"), (302, "unavailable")],
+)
+def test_resolve_distinguishes_expired_session_from_dms_unavailability(
+    status_code: int,
+    expected_status: str,
+) -> None:
+    async def handler(_: httpx.Request) -> httpx.Response:
+        return httpx.Response(status_code, headers={"location": "https://other.test"})
+
+    async def run() -> str:
+        async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+            resolver = DmsPrincipalResolver(
+                api_origin="https://dms.example.test",
+                http_client=client,
+            )
+            result = await resolver.resolve(_request(cookie_value="synthetic-cookie"))
+            return result.status
+
+    assert asyncio.run(run()) == expected_status
+
+
+def test_resolve_reports_missing_session_as_signed_out_without_transport_call() -> None:
+    requests: list[httpx.Request] = []
+
+    async def handler(outbound: httpx.Request) -> httpx.Response:
+        requests.append(outbound)
+        return httpx.Response(200, json={"sub": "should-not-be-used"})
+
+    async def run() -> str:
+        async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+            resolver = DmsPrincipalResolver(
+                api_origin="https://dms.example.test",
+                http_client=client,
+            )
+            result = await resolver.resolve(_request())
+            return result.status
+
+    assert asyncio.run(run()) == "signed_out"
+    assert requests == []
+
+
+@pytest.mark.parametrize(
     ("body", "content_type"),
     [
         (b"not-json", "application/json"),
