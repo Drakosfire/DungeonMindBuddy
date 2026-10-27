@@ -2109,7 +2109,7 @@ function WorldOwnedPlanPage({ worldId, worldName }: { worldId: string; worldName
           <div className="world-plan-visual-editor" hidden={sourceEditing && !cardsViewActive}>
           <PlanSurfaceCanvasFrame
             className="world-owned-plan__canvas"
-            cardLayout={cardsViewActive}
+            cardLayout
             testId="world-owned-plan-editor"
             identityLabel={cardsViewActive ? "" : documentId ? "Plan editor" : "Unsaved Plan draft"}
             themeId="mireward-runbook"
