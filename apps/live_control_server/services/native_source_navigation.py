@@ -109,7 +109,7 @@ class NativeSourceNavigator:
     def offered(self):
         self.collect()
         browse = [RetrievalCandidate(handle=handle,label='Explore '+entry[2],
-            kind='Source navigation: appendices, tables and statblocks')
+            kind='Source navigation: inspect source sections beyond opened passages')
             for handle,entry in self.sources.items() if handle not in self.attempted_sources]
         sections = [self._section_candidate(handle)
             for handle in self.sections if handle not in self.attempted_sections]
