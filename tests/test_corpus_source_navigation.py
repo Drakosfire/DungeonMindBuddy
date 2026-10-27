@@ -302,6 +302,12 @@ def test_unequal_term_frequencies_commit_canonical_matches_and_keep_rank(corpus,
         world_id='native-park', campaign_id=None, session_id=None, markdown=text, lineage={})
     monkeypatch.setattr(corpus_source_navigation, 'direct_services_from_config', lambda _: services)
     driver = PlanJevDriver(adapter)
+    original_search = driver.native_sources.corpus.search
+    def observed_search(**kwargs):
+        result = original_search(**kwargs)
+        assert any(row['matched_query_terms'] == ['beneath', 'black', 'arch'] for row in result['sections'])
+        return result
+    monkeypatch.setattr(driver.native_sources.corpus, 'search', observed_search)
     def after_search():
         before = dict(driver.native_sources.query_matches)
         assert ['beneath', 'black', 'arch'] in before.values()

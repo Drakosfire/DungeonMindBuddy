@@ -26,7 +26,7 @@ Exclusive writes: services/corpus_source_navigation.py under apps/live_control_s
 tests/test_corpus_source_navigation.py; this handoff; Docs/Roadmaps/ROADMAP-demo.md
 for delivery/current-regression settlement. Amend before other writes.
 
-Verify actual Plan decisions/APP search/catalog/selected-read/writer path with
+The synthetic unequal-frequency owner witness fails on the predecessor with the same unresolved-search provider refusal as Q01; original log retained. Verification uses actual Plan decisions/APP search/catalog/selected-read/writer path with
 unequal term frequencies; show pre-fix failure and corrected terminal observation.
 Preserve malformed-array rejection. Run affected corpus/APP/Graph owner tests;
 inspect cumulative diff, independent exact-head Bugbot, CI, commit/push/one PR,
