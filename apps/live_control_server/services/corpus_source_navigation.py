@@ -1,5 +1,6 @@
 """One explicitly selected corpus scan; no prose is added to model context."""
 from hashlib import sha256
+from collections import Counter
 from types import SimpleNamespace
 from uuid import uuid4
 from application_state.agent_conversation import types as t
@@ -61,11 +62,13 @@ class CorpusSourceNavigation:
             owner.attempted_sources.add(handle)
             hits = {h.section_id: h.matched_terms for h in observation.matches
                     if h.catalog_event_id == catalog.event_id}
+            frequency = Counter(term for matched in hits.values() for term in matched)
             for section in catalog.sections:
                 if section.section_id in hits:
                     address = 'native-section:' + section.section_id
                     owner.sections[address] = (handle, section, name.strip())
-                    owner.query_matches[address] = hits[section.section_id]
+                    owner.query_matches[address] = sorted(hits[section.section_id],
+                        key=lambda term: (frequency[term], term))
             for event in execution.events:
                 if isinstance(event, t.NativeSourceSectionAuthorizedV1) and event.catalog_event_id == catalog.event_id:
                     owner.attempted_sections.add('native-section:' + event.section.section_id)
@@ -190,7 +193,7 @@ class CorpusSourceNavigation:
                     section_handle = 'native-section:' + section.section_id
                     if hits[section.section_id]:
                         matches.append(t.CorpusSourceSectionMatchV1(catalog_event_id=catalog.event_id,
-                            section_id=section.section_id, matched_terms=hits[section.section_id]))
+                            section_id=section.section_id, matched_terms=sorted(hits[section.section_id])))
                     elif section_handle not in prior_sections:
                         owner.sections.pop(section_handle, None)
                         owner.query_matches.pop(section_handle, None)
@@ -223,5 +226,5 @@ class CorpusSourceNavigation:
                  'source_name': owner.catalog_names[next(h for h, c in owner.catalogs.items() if c.event_id == hit.catalog_event_id)],
                  'title': next(s.label for c in owner.catalogs.values() if c.event_id == hit.catalog_event_id
                                for s in c.sections if s.section_id == hit.section_id),
-                 'matched_query_terms': hit.matched_terms,
+                 'matched_query_terms': owner.query_matches['native-section:' + hit.section_id],
                  'source_revision': self.revision_metadata(next(h for h,c in owner.catalogs.items() if c.event_id == hit.catalog_event_id))} for hit in matches]}
