@@ -280,7 +280,7 @@ describe("semanticMarkdownSerializationDiagnostics", () => {
       type: "doc",
       content: [{
         type: "paragraph",
-        content: [{ type: "text", text: "Link", marks: [{ type: "link", attrs: { href: "https://example.com", title: "Not supported" } }] }],
+        content: [{ type: "text", text: "Link", marks: [{ type: "link", attrs: { href: "https://example.com", onclick: "Not supported" } }] }],
       }],
     });
 

@@ -1,7 +1,7 @@
 import {parseWorkPlanFence,workPlanIdentity} from "../../surface/workPlans/workPlanReference";
 import {parseTableFence} from "../../preparedTables/tableGrammar";
 import { mediaMarkdown } from "../../media/mediaReferences";
-import { webSourceHref } from "./webSourceHref";
+import { webSourceHref, validWebSourceTitle } from "./webSourceHref";
 import {
   playableSerializationFailures,
 } from "../playable/playableElementIdentity";
@@ -140,7 +140,8 @@ export function semanticMarkdownSerializationDiagnostics(
         for (const mark of marks(node)) {
           const markType = typeof mark.type === "string" ? mark.type : "unknown";
           if (markType === "link" && (!webSourceHref(mark.attrs?.href)
-              || Object.keys(mark.attrs ?? {}).some(key => key !== "href"))) {
+              || !validWebSourceTitle(mark.attrs?.title)
+              || Object.keys(mark.attrs ?? {}).some(key => key !== "href" && key !== "title"))) {
             diagnostics.push(warning("Web source links require a valid HTTP/HTTPS href and no unsupported attributes.", type));
           }
           if (!SUPPORTED_MARK_TYPES.has(markType)) {

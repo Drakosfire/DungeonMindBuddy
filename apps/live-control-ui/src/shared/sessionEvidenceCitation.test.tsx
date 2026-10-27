@@ -1,3 +1,9 @@
+import {Editor} from '@tiptap/core';
+import {DEFAULT_MARKDOWN_EDITOR_EXTENSIONS} from '../tiptap/MarkdownEditorCore';
+import {markdownToTiptapDoc} from '../tiptap/markdown/markdownToTiptap';
+import {tiptapJsonToSemanticMarkdown} from '../tiptap/markdown/calloutMarkdown';
+import {semanticMarkdownSerializationDiagnostics} from '../tiptap/markdown/semanticMarkdownSafety';
+import {SurfaceProposalReview} from '../surface/SurfacePageProposal';
 import {render,screen,cleanup} from '@testing-library/react';
 import {beforeEach,afterEach,it,expect,vi} from 'vitest';
 import {webcrypto,createHash} from 'node:crypto';
@@ -82,4 +88,45 @@ it('refuses a changed fragment rather than opening its neighboring source',async
  render(<SessionEvidenceViewer worldId={packet.world_id} runId={packet.run_id} revision={54}/>);
  expect(await screen.findByRole('alert')).toHaveTextContent('No neighboring entry has been substituted');
  expect(screen.queryByText(packet.sources[0]!.text)).toBeNull();
+});
+
+it('preserves actual host-projected citations through the default editor, editing, Save/reload and activation',()=>{
+ const {summary,packet}=fixture();
+ summary.supports[0]!.source_name='Gate "rehearsal" \\ notes';
+ const projection=sessionSummaryMarkdown(summary,packet.world_id,1);
+ const source='Before — preserve.\n\n'+projection.text+'\n\nAfter — preserve.';
+ const imported=markdownToTiptapDoc(source);expect(imported.diagnostics).toEqual([]);
+ const element=document.createElement('div');document.body.append(element);
+ const editor=new Editor({element,extensions:DEFAULT_MARKDOWN_EDITOR_EXTENSIONS,content:imported.doc});
+ const before=editor.getJSON().content!;const open=vi.spyOn(window,'open').mockReturnValue(null);
+ try {
+  const middle=editor.state.doc.child(0).nodeSize+1;
+  editor.commands.insertContentAt(middle,'Author reminder: ');
+  expect(editor.getJSON().content![0]).toEqual(before[0]);
+  expect(editor.getJSON().content!.at(-1)).toEqual(before.at(-1));
+  expect(semanticMarkdownSerializationDiagnostics(editor.getJSON())).toEqual([]);
+  const saved=tiptapJsonToSemanticMarkdown(editor.getJSON());
+  const reloaded=markdownToTiptapDoc(saved);expect(reloaded.diagnostics).toEqual([]);
+  const reopened=new Editor({extensions:DEFAULT_MARKDOWN_EDITOR_EXTENSIONS,content:reloaded.doc});
+  try {
+   expect(tiptapJsonToSemanticMarkdown(reopened.getJSON())).toBe(saved);
+   const links=Array.from(reopened.view.dom.querySelectorAll('a'));
+   expect(links.map(a=>a.getAttribute('href'))).toEqual(projection.targets);
+   expect(links[0]!.getAttribute('title')).toBe(summary.supports[0]!.source_name+' · Scene notes');
+   expect(links[1]!.getAttribute('title')).toBe(summary.supports[1]!.source_name+' · Closing reflections');
+   const original=reopened.getJSON();
+   links[1]!.dispatchEvent(new MouseEvent('click',{bubbles:true,cancelable:true}));
+   expect(open).toHaveBeenCalledExactlyOnceWith(projection.targets[1],'_blank','noopener,noreferrer');
+   expect(reopened.getJSON()).toEqual(original);
+   const htmlReload=new Editor({extensions:DEFAULT_MARKDOWN_EDITOR_EXTENSIONS,content:reopened.getHTML()});
+   try {
+    expect(Array.from(htmlReload.view.dom.querySelectorAll('a')).map(a=>[a.getAttribute('href'),a.getAttribute('title')]))
+     .toEqual(links.map(a=>[a.getAttribute('href'),a.getAttribute('title')]));
+   } finally {htmlReload.destroy();}
+  } finally {reopened.destroy();}
+  let savedReview='';
+  render(<SurfaceProposalReview markdown={saved} onChange={()=>{}} busy={false} error={null} onSave={()=>{savedReview=saved}} onDiscard={()=>{}}/>);
+  expect(screen.getByRole('textbox',{name:'Suggestion text'}).querySelectorAll('a')).toHaveLength(2);
+  screen.getByRole('button',{name:'Save',exact:true}).click();expect(savedReview).toBe(saved);
+ } finally {editor.destroy();element.remove();open.mockRestore();}
 });

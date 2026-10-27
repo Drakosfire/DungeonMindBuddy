@@ -50,8 +50,8 @@ describe('mounted web source link fidelity', () => {
     } finally { editor.destroy(); }
   });
 
-  it('protects link titles and non-text labels instead of losing them', () => {
-    for (const source of ['[Source](https://example.com "Caption")', '[![image](https://example.com/image)](https://example.com)']) {
+  it('protects non-text labels instead of losing them', () => {
+    for (const source of ['[![image](https://example.com/image)](https://example.com)']) {
       expect(markdownToTiptapDoc(source).diagnostics.some(d => d.level === 'warning')).toBe(true);
     }
   });
@@ -103,4 +103,25 @@ describe('explicit source link activation', () => {
     try {for(let i=0;i<3;i++){const m=mount();try{m.anchor.dispatchEvent(new MouseEvent('click',{bubbles:true,cancelable:true}));}finally{m.destroy();}}expect(open).toHaveBeenCalledTimes(3);}
     finally {open.mockRestore();}
   });
+});
+
+describe('ordinary link title fidelity',()=>{
+ it('preserves escaped quotes, backslashes and inert HTML-like title text in Markdown and HTML',()=>{
+  const title='Notes "quoted" \\ <b>inert</b>';
+  const element=document.createElement('div');const a=document.createElement('a');a.href='https://example.com/source';a.title=title;a.textContent='Source';element.append(a);
+  const editor=new Editor({extensions:DEFAULT_MARKDOWN_EDITOR_EXTENSIONS,content:element.innerHTML});
+  try {
+   expect(editor.view.dom.querySelector('a')?.getAttribute('title')).toBe(title);
+   expect(editor.view.dom.querySelector('b')).toBeNull();
+   expect(semanticMarkdownSerializationDiagnostics(editor.getJSON())).toEqual([]);
+   const exported=tiptapJsonToSemanticMarkdown(editor.getJSON());
+   const imported=markdownToTiptapDoc(exported);expect(imported.diagnostics).toEqual([]);
+   const reopened=new Editor({extensions:DEFAULT_MARKDOWN_EDITOR_EXTENSIONS,content:imported.doc});
+   try {expect(reopened.view.dom.querySelector('a')?.getAttribute('title')).toBe(title);expect(tiptapJsonToSemanticMarkdown(reopened.getJSON())).toBe(exported)} finally {reopened.destroy()}
+  } finally {editor.destroy()}
+ });
+ it.each(['line\nbreak','nul\0title',42,{},['title']])('refuses unsupported title metadata %s',title=>{
+  const doc={type:'doc',content:[{type:'paragraph',content:[{type:'text',text:'Source',marks:[{type:'link',attrs:{href:'https://example.com',title}}]}]}]};
+  expect(semanticMarkdownSerializationDiagnostics(doc)).not.toEqual([]);
+ });
 });

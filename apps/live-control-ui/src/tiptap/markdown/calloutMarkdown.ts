@@ -1,6 +1,6 @@
 import {parseWorkPlanFence,workPlanFence,workPlanIdentity} from "../../surface/workPlans/workPlanReference";
 import {parseTableFence} from "../../preparedTables/tableGrammar";
-import { webSourceHref } from "./webSourceHref";
+import { webSourceHref, validWebSourceTitle } from "./webSourceHref";
 import { mediaMarkdown } from "../../media/mediaReferences";
 import {
   normalizeRunbookReferenceAttrs,
@@ -166,7 +166,9 @@ function serializeTextWithMarks(text: string, marks: JsonMark[]): string {
 
   const link = marks.find((mark) => mark.type === "link");
   const href = safeMarkdownHref(link?.attrs?.href);
-  return href ? `[${result}](${href})` : result;
+  const title = link?.attrs?.title;
+  const suffix = typeof title === "string" ? ` "${title.replaceAll('\\', '\\\\').replaceAll('"', '\\"')}"` : "";
+  return href && validWebSourceTitle(title) ? `[${result}](${href}${suffix})` : result;
 }
 
 function inlineMarkdown(node: JsonNode): string {
