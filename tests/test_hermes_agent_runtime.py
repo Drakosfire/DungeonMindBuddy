@@ -269,7 +269,7 @@ def test_adapter_maps_invocation_onto_existing_host(tmp_path: Path) -> None:
     assert (
         request.capability_policy.enabled_tool_names == tuple(
             name for name in ORDERED_MODEL_VISIBLE_TOOL_NAMES
-            if name not in {"read_related_recap_context", "propose_build_insertion", "prepare_build_image", "browse_native_source_sections", "read_native_source_sections"}
+            if name not in {"read_related_recap_context", "propose_build_insertion", "prepare_build_image", "search_retained_source_sections", "browse_native_source_sections", "read_native_source_sections"}
         )
     )
     assert all(
@@ -667,6 +667,12 @@ def test_native_source_tools_are_explicit_play_read_capabilities():
         assert policy.rule_for(name).allowed_effects==frozenset({'read'})
     restored=deserialize_hermes_graph_agent_turn_request(serialize_hermes_graph_agent_turn_request(host.calls[-1]))
     assert restored.capability_policy==policy
+    assert 'search_retained_source_sections' not in policy.enabled_tool_names
+    current=replace(native,capability_policy=replace(native.capability_policy,corpus_source_sections=True))
+    runtime.run_with_provider_authorization(current,lambda _:True,request_budget=budget,on_graph_operation=lambda _: {})
+    corpus_policy=host.calls[-1].capability_policy
+    assert 'search_retained_source_sections' in corpus_policy.enabled_tool_names
+    assert corpus_policy.rule_for('search_retained_source_sections').allowed_effects==frozenset({'read'})
     for surface in ('plan','build'):
         invalid=replace(native,context_packet=replace(native.context_packet,surface_context=AgentSurfaceContext(surface_id=surface)))
         with pytest.raises(ValueError,match='Play surface'):

@@ -67,7 +67,7 @@ PROPOSE_BUILD_INSERTION = "propose_build_insertion"
 ORDERED_MODEL_VISIBLE_TOOL_NAMES: tuple[str, ...] = (
     DECLARE_CONVERSATION_CONTEXT_TOOL_NAME,
     *ORDERED_INTERACTION_TOOL_NAMES,
-    "browse_native_source_sections", "read_native_source_sections",
+    "search_retained_source_sections", "browse_native_source_sections", "read_native_source_sections",
     PROPOSE_BUILD_INSERTION,
     "prepare_build_image",
 )
@@ -283,6 +283,9 @@ def prepare_build_image_definition() -> dict[str, Any]:
 
 def native_source_tool_definitions():
     return [
+        {"type":"function", "function":{"name":"search_retained_source_sections",
+            "description":"Search retained World source sections for the current user request, even when the Graph has no connection. No arguments: the parent freezes the actual request and scoped source membership. Returns section handles and lexical navigation matches, never claim support. Read chosen handles with read_native_source_sections before making source claims. Coverage is of enumerated sources, not a guarantee of complete semantic recall.",
+            "parameters":{"type":"object","properties":{},"required":[],"additionalProperties":False}}},
         {"type":"function","function":{"name":"browse_native_source_sections",
             "description":"Explore the exact source behind an admitted Graph anchor for appendices, tables or statblocks beyond its opened passage. Use anchor_id returned by expand_graph_retrieval in this turn; no paths or source IDs. Returns source-name and section handles, not source facts.",
             "parameters":{"type":"object","properties":{"anchor_id":{"type":"string","minLength":1}},

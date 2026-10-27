@@ -14,6 +14,9 @@ def origin_payload(event):
 
 
 def _origin_payload(event):
+    if isinstance(event, t.NativeSourceNavigationAuthorizedV2):
+        from .corpus_source_search import registry_origin
+        return registry_origin(event)
     body = strict_json(event.origin_proof_json)
     if (not isinstance(body, dict) or set(body) != {
             "schema", "projection", "donor", "donor_sha256", "pin", "resolution", "revision"}
@@ -81,6 +84,18 @@ def validate_navigation_events(execution):
             pins.update((p.anchor_id, p) for p in event.pins)
         elif isinstance(event, t.NativeSourceNavigationAuthorizedV1):
             body, donor, pin = origin_payload(event)
+            if isinstance(event, t.NativeSourceNavigationAuthorizedV2):
+                from .corpus_source_search import enabled
+                source_key = (pin.source_artifact_id, pin.source_revision_id)
+                if (not enabled(execution.policy) or writer_started or latest_provider != event.provider_attempt_id
+                        or latest_outcome != "response_received" or event.navigation_id in navigation_ids
+                        or source_key in source_keys or event.world_id != scope.world_id
+                        or event.context_receipt_sha256 != execution.context_receipt_sha256
+                        or event.execution_policy_sha256 != execution.execution_policy_sha256):
+                    raise ValueError('Registry navigation differs from current frozen capability')
+                navigation_ids.add(event.navigation_id)
+                source_keys.add(source_key)
+                continue
             # An immutable native revision cannot be re-admitted under a different
             # digest; exact repeats reuse the original authorization as well.
             source_key = (pin.source_artifact_id, pin.source_revision_id)
@@ -109,6 +124,11 @@ def validate_navigation_receipt(receipt, execution):
         if (event.world_id != authority.managed_world_id
                 or event.native_world_id != authority.native_world_id
                 or event.binding_version != authority.binding_version
-                or donor.graph_revision != authority.graph_revision
+                or donor is not None and donor.graph_revision != authority.graph_revision
                 or event.context_receipt_sha256 != receipt.context_receipt_sha256):
             raise ValueError("Native source navigation differs from managed/native World receipt")
+
+
+def origin_artifact(event):
+    body, _, _ = origin_payload(event)
+    return body['artifact'] if isinstance(event, t.NativeSourceNavigationAuthorizedV2) else body['resolution']['artifact']

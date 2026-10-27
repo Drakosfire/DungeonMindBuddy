@@ -1340,8 +1340,8 @@ class AgentConversationService:
                         raise ValueError("Related page read lacks its exact source-owner materialization")
             except (ValueError,KeyError,TypeError,AttributeError) as exc:
                 raise ApplicationStateValidationError(str(exc)) from exc
-            from .types import NativeSourceCatalogObservedV1, NativeSourceSectionAuthorizedV1, NativeSourceSectionObservedV1, NativeSourceProviderInclusionV1
-            if native_source_materializer is None and isinstance(event, (NativeSourceCatalogObservedV1,
+            from .types import NativeSourceCatalogObservedV1, NativeSourceSectionAuthorizedV1, NativeSourceSectionObservedV1, NativeSourceProviderInclusionV1, CorpusSourceSearchAuthorizedV1, CorpusSourceSearchObservedV1
+            if native_source_materializer is None and isinstance(event, (CorpusSourceSearchAuthorizedV1, CorpusSourceSearchObservedV1, NativeSourceCatalogObservedV1,
                     NativeSourceSectionAuthorizedV1, NativeSourceSectionObservedV1, NativeSourceProviderInclusionV1)):
                 raise ApplicationStateValidationError("Native source event requires its immutable source transaction owner")
             from .types import PlanJevProviderAuthorizedV1, PlanJevRetrievalPolicyV1
@@ -1823,6 +1823,33 @@ class AgentConversationService:
             expected_revision=expected_revision, expected_attempt=expected_attempt,
             event=None, duplicate_key="event_id", native_source_materializer=produce)
         return turn, fresh, material[0] if fresh else None
+
+    def authorize_corpus_source_search(self, world_id, conversation_id, turn_id, *,
+            expected_revision, expected_attempt, authorization):
+        from .corpus_source_search import validate_search_authorization
+        from .types import CorpusSourceSearchAuthorizedV1
+        if not isinstance(authorization, CorpusSourceSearchAuthorizedV1):
+            raise ApplicationStateValidationError('Corpus search requires its exact authorization')
+        def produce(conn, turn):
+            for prior in turn.graph_context_execution.events:
+                if prior.event_id == authorization.event_id:
+                    if prior != authorization:
+                        raise ApplicationStateConflictError('Corpus search identity was reused with changed content')
+                    return prior
+            validate_search_authorization(turn, authorization)
+            return authorization
+        return self._append_graph_execution_event(world_id, conversation_id, turn_id,
+            expected_revision=expected_revision, expected_attempt=expected_attempt,
+            event=None, duplicate_key='event_id', native_source_materializer=produce)
+
+    def record_corpus_source_search(self, world_id, conversation_id, turn_id, *,
+            expected_revision, expected_attempt, observation):
+        from .types import CorpusSourceSearchObservedV1
+        if not isinstance(observation, CorpusSourceSearchObservedV1):
+            raise ApplicationStateValidationError('Corpus search requires its exact observation')
+        return self._append_graph_execution_event(world_id, conversation_id, turn_id,
+            expected_revision=expected_revision, expected_attempt=expected_attempt,
+            event=None, duplicate_key='event_id', native_source_materializer=lambda conn, turn: observation)
 
     def authorize_native_source_navigation(
         self, world_id: str, conversation_id: UUID, turn_id: UUID, *,

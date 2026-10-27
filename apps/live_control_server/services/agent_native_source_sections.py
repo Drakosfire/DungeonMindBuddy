@@ -5,7 +5,7 @@ from uuid import UUID
 from application_state.agent_conversation import AgentConversationService
 from application_state.agent_conversation import types as t
 from application_state.agent_conversation.rules_authority_reads import MixedCompletedTurnV1
-from application_state.agent_conversation.native_source_navigation import origin_payload
+from application_state.agent_conversation.native_source_navigation import origin_payload, origin_artifact
 from application_state.agent_conversation.native_source_scope import source_scope_matches, SCOPE_FIELDS
 from application_state.agent_conversation.build_section import exact_saved_section
 from application_state.source.service import get_source_markdown, get_source_artifact_scope
@@ -42,8 +42,13 @@ def open_native_source_section(*, world_id: str, turn_id: UUID, citation_index: 
         if (binding.managed_world_id != world_id or binding.native_world_id != authority.native_world_id
                 or binding.binding_version != authority.binding_version):
             raise ValueError('Managed World binding changed')
-        current = verify_native_source_origin(direct_services_from_config(authority.native_world_id),
-            projection=WorldGraphProjectionRequestV2.model_validate(original['projection']),donor=donor,pin=pin)
+        if isinstance(nav, t.NativeSourceNavigationAuthorizedV2):
+            from apps.live_control_server.integrations.dungeonmind.corpus_source_inventory import verify_registry_source_origin
+            current = verify_registry_source_origin(direct_services_from_config(authority.native_world_id),
+                native_world_id=authority.native_world_id, proof=original)
+        else:
+            current = verify_native_source_origin(direct_services_from_config(authority.native_world_id),
+                projection=WorldGraphProjectionRequestV2.model_validate(original['projection']),donor=donor,pin=pin)
         if (current.source_artifact_id != citation.source_artifact_id
                 or current.native_source_revision_id != citation.native_source_revision_id
                 or current.content_sha256 != citation.content_sha256):
@@ -52,7 +57,7 @@ def open_native_source_section(*, world_id: str, turn_id: UUID, citation_index: 
         # Denial or an unavailable access authority never reaches body storage.
         raise SourcePassageOpenError('source_section_access_unavailable') from exc
     try:
-        artifact = original["resolution"]["artifact"]
+        artifact = origin_artifact(nav)
         scope = get_source_artifact_scope(source_artifact_id=citation.source_artifact_id)
         if scope is None or not source_scope_matches(scope, artifact, authority):
             raise ValueError("Immutable source ownership unavailable")

@@ -217,6 +217,11 @@ def project(turn, proof, trace):
         "dialogue_reference": dialogue, "retrieval_gaps": [{"operation": phase, "reason": code} for phase, code in gaps],
         "entity_index": entities, "retrieval_results": retrievals, "graph_records": records, "opened_passages": passages,
         "unopened_evidence": [handles[ref] for ref in sorted(refs - present)]}
+    corpus_searches = [e for e in execution.events if isinstance(e, t.CorpusSourceSearchObservedV1)]
+    if corpus_searches:
+        frame['source_discovery_coverage'] = {'coverage': corpus_searches[-1].coverage,
+            'global_atomic_completeness': 'not_established', 'semantic_recall': 'not_established',
+            'navigation_matches_are_not_claim_support': True}
     from .authored_excerpt_blocks import selection_catalog,project_selection_blocks
     authored = plan_authored_sources(turn,markdown,frame['session_evidence'],block_policy=True)
     rows = authored_frame_rows(authored,frame['session_evidence'])

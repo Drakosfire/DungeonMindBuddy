@@ -887,7 +887,7 @@ class _ToolEventCollector:
         del _unused
         from graph_memory.hermes_graph_plugin import set_active_rules_call_id
 
-        set_active_rules_call_id(tool_call_id if tool_name in {"lookup_rules","browse_native_source_sections","read_native_source_sections"} else None)
+        set_active_rules_call_id(tool_call_id if tool_name in {"lookup_rules","search_retained_source_sections","browse_native_source_sections","read_native_source_sections"} else None)
         started = time.perf_counter()
         call_key = (
             str(tool_call_id)
@@ -1653,7 +1653,7 @@ class _GraphOperationReservation:
                 for tool in agent.tools
                 if isinstance(tool, dict)
                 and tool.get("name", tool.get("function", {}).get("name"))
-                in ({"lookup_rules"} if self.indeterminate else {"lookup_rules","browse_native_source_sections","read_native_source_sections"})
+                in ({"lookup_rules"} if self.indeterminate else {"lookup_rules","search_retained_source_sections","browse_native_source_sections","read_native_source_sections"})
             ]
 
     def _retire_rules_tools(self) -> None:
@@ -1774,11 +1774,11 @@ class _GraphOperationReservation:
                 },
                 separators=(",", ":"),
             ), None
-        if tool_name in {"browse_native_source_sections","read_native_source_sections"}:
+        if tool_name in {"search_retained_source_sections","browse_native_source_sections","read_native_source_sections"}:
             raw,packet = self.broker(tool_name,arguments)
             value = json.loads(raw)
             if not isinstance(value,dict) or value.get('schema') not in {
-                    'dmb_native_source_catalog_v1','dmb_native_source_section_result_v1',
+                    'dmb_corpus_source_search_result_v1','dmb_native_source_catalog_v1','dmb_native_source_section_result_v1',
                     'dmb_native_source_section_unavailable_v1'}:
                 self.indeterminate = True
                 raise ValueError('Native source result differs from parent-owned contract')
@@ -2453,6 +2453,7 @@ def run_hermes_graph_agent_turn(
                                     "read_related_recap_context",
                                     "propose_build_insertion",
                                     "prepare_build_image",
+                                    "search_retained_source_sections",
                                     "browse_native_source_sections",
                                     "read_native_source_sections",
                                 }.intersection(
@@ -2678,6 +2679,7 @@ def run_hermes_graph_agent_turn(
                                         "read_related_recap_context",
                                         "propose_build_insertion",
                                         "prepare_build_image",
+                                        "search_retained_source_sections",
                                         "browse_native_source_sections",
                                         "read_native_source_sections",
                                     }.intersection(

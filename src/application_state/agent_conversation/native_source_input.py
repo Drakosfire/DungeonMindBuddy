@@ -4,7 +4,7 @@ from uuid import uuid4
 
 from application_state.source.naming import registered_source_name
 from . import types as t
-from .native_source_navigation import origin_payload
+from .native_source_navigation import origin_payload, origin_artifact
 from .source_writer_output import strict_json
 
 SCHEMA = "dmb_native_source_sections_frame_v1"
@@ -30,17 +30,32 @@ def source_name(execution, read):
         and e.event_id == read.catalog_event_id)
     nav = next(e for e in execution.events if isinstance(e,t.NativeSourceNavigationAuthorizedV1)
         and e.navigation_id == catalog.navigation_id)
-    artifact = origin_payload(nav)[0]["resolution"]["artifact"]
+    artifact = origin_artifact(nav)
     name = registered_source_name(artifact)
     if name is None:
         raise ValueError("Native source section lacks its registered source name")
-    return name.strip()
+    campaign = artifact.get('campaign_id')
+    return (name.strip() + ' (' + campaign + ')' if isinstance(nav,t.NativeSourceNavigationAuthorizedV2)
+            and isinstance(campaign,str) and campaign else name.strip())
 
 
 def section_row(execution, read):
-    return {"section_handle": section_handle(read), "source_name": source_name(execution,read),
+    row = {"section_handle": section_handle(read), "source_name": source_name(execution,read),
         "section_title": read.section.label, "line_start": read.section.line_start,
         "line_end": read.section.line_end, "text": read.text}
+    catalog = next(e for e in execution.events if isinstance(e,t.NativeSourceCatalogObservedV1)
+        and e.event_id == read.catalog_event_id)
+    nav = next(e for e in execution.events if isinstance(e,t.NativeSourceNavigationAuthorizedV1)
+        and e.navigation_id == catalog.navigation_id)
+    if isinstance(nav,t.NativeSourceNavigationAuthorizedV2):
+        proof,_,_ = origin_payload(nav)
+        current = proof['artifact'].get('current_revision_id')
+        row['source_revision'] = {'status_at_capture': ('unknown' if current is None else
+            'current' if current == read.native_source_revision_id else 'historical'),
+            'recorded_at': proof['revision']['created_at'],
+            'campaign_id': proof['artifact'].get('campaign_id'),
+            'session_id': proof['artifact'].get('session_id')}
+    return row
 
 
 def project_sections(execution):
@@ -184,9 +199,10 @@ def partial_input(turn, authorization, raw):
     if (not isinstance(turn.graph_context_execution.policy,CAPABILITIES)
             or isinstance(authorization,t.PlanJevWriterAuthorizedV1)):return False
     body = strict_json(raw)
-    for tool in (TOOL,'browse_native_source_sections'):
+    for tool in (TOOL,'browse_native_source_sections','search_retained_source_sections'):
         for row in _current_tool_outputs(turn,body,authorization.api_mode,tool):
             if (isinstance(row,dict) and row.get('schema') == UNAVAILABLE_SCHEMA
-                    or isinstance(row,dict) and row.get('schema') == RESULT_SCHEMA and row.get('partial') is True):
+                    or isinstance(row,dict) and row.get('schema') == RESULT_SCHEMA and row.get('partial') is True
+                    or isinstance(row,dict) and row.get('schema') == 'dmb_corpus_source_search_result_v1' and row.get('coverage') == 'partial'):
                 return True
     return False

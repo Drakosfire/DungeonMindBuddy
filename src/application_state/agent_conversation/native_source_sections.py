@@ -79,6 +79,27 @@ def materialize_section_locked(conn, turn, *, event_id, read_id, material):
         raise ApplicationStateValidationError(str(exc)) from exc
     started = perf_counter()
     text, failure = None, None
+    fresh_bytes, material_failure = 0, None
+    nav = next(e for e in execution.events if isinstance(e, t.NativeSourceNavigationAuthorizedV1)
+               and e.navigation_id == catalog.navigation_id)
+    registry = isinstance(nav, t.NativeSourceNavigationAuthorizedV2)
+    if material is None and registry:
+        from .native_source_catalog import load_source_locked, section_catalog
+        from .native_source_navigation import origin_artifact
+        source, body, material_failure = load_source_locked(conn,
+            source_artifact_id=catalog.source_artifact_id, digest=catalog.content_sha256,
+            app_source_revision_id=catalog.app_source_revision_id, artifact=origin_artifact(nav), authority=turn.graph_context_receipt.graph_authority)
+        fresh_bytes = len(source.markdown.encode('utf-8')) if source is not None else 0
+        if (body is not None and source.source_revision_id == catalog.app_source_revision_id
+                and t.canonical_sha256(source.lineage) == catalog.lineage_sha256
+                and section_catalog(body, source_artifact_id=catalog.source_artifact_id,
+                    native_source_revision_id=catalog.native_source_revision_id,
+                    content_sha256=catalog.content_sha256) == catalog.sections):
+            material = NativeSourceCatalogMaterial(catalog.navigation_id, catalog.event_id,
+                source.source_revision_id, catalog.source_artifact_id,
+                catalog.native_source_revision_id, catalog.content_sha256, body)
+        elif material_failure is None:
+            material_failure = 'source_material_mismatch'
     if material is None:
         failure = "source_material_unavailable"
     elif (not isinstance(material, NativeSourceCatalogMaterial)
@@ -99,14 +120,16 @@ def materialize_section_locked(conn, turn, *, event_id, read_id, material):
             else: failure = "empty_section"
         except (ValueError, TypeError, UnicodeError):
             failure = "source_material_mismatch"
-    return t.NativeSourceSectionObservedV1(kind="native_source_section_observed_v1",
+    event_type = t.NativeSourceSectionObservedV2 if registry else t.NativeSourceSectionObservedV1
+    extra = {'material_failure_code': material_failure} if registry else {}
+    return event_type(kind="native_source_section_observed_v2" if registry else "native_source_section_observed_v1",
         event_id=event_id, sequence=len(execution.events), read_id=read_id,
         authorization_event_id=auth.event_id, catalog_event_id=catalog.event_id,
         source_artifact_id=catalog.source_artifact_id, native_source_revision_id=catalog.native_source_revision_id,
         app_source_revision_id=catalog.app_source_revision_id, content_sha256=catalog.content_sha256,
         section=auth.section, outcome="complete" if text is not None else "unavailable", failure_code=failure,
         text=text, excerpt_sha256=sha256(text.encode("utf-8")).hexdigest() if text is not None else None,
-        returned_chars=len(text) if text is not None else 0, fresh_body_read_bytes=0,
+        returned_chars=len(text) if text is not None else 0, fresh_body_read_bytes=fresh_bytes, **extra,
         extraction_elapsed_ms=max(0,int((perf_counter()-started)*1000)))
 
 
@@ -150,4 +173,11 @@ def validate_section_events(execution):
                     or event.content_sha256 != catalog.content_sha256
                     or event.returned_chars > auth.authorized_chars):
                 raise ValueError("Native section receipt differs from its authorized source")
+            if isinstance(event,t.NativeSourceSectionObservedV2):
+                nav = next(e for e in execution.events if isinstance(e,t.NativeSourceNavigationAuthorizedV1)
+                           and e.navigation_id == catalog.navigation_id)
+                if (not isinstance(nav,t.NativeSourceNavigationAuthorizedV2)
+                        or event.outcome == 'complete' and (event.material_failure_code is not None
+                            or event.fresh_body_read_bytes not in {0,catalog.body_read_bytes})):
+                    raise ValueError('Fresh registry read differs from its exact catalog/origin')
             reads.add(event.read_id)
