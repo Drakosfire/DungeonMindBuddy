@@ -1,6 +1,15 @@
 # INGEST — explicit GenerationEngine experiment targets
 
-Status: ACTIVE serial consumer slice. Owner: PRIME. Branch:
+Status: SETTLED by Buddy#1826 merge
+`b368c903d30c87865d25ce9d2bd5af66a5f4b927`, reviewed head
+`19d48333d4fe86372bcb74e26dd27c6b71b0e23d`, independent Bugbot APPROVE,
+204 owner tests, hosted integration/Docker gates passed. Protected API delivery
+preserved all retained rows/files. ADVERSARY independently confirmed identical
+consumer source trees and began ordinary comparisons. This lease has ended;
+the separate OpenAI native-schema rejection is owned by
+`HANDOFF-INGEST-openai-schema-projection.md`.
+
+Original serial consumer slice. Owner: PRIME. Branch:
 `codex/ingestion-explicit-targets`, existing buddy-context-loop checkout, base
 `8a881050e46b61d007a7749bb6dd73678caa444c` (fresh remote main).
 Authority: operator's explicit request that ingestion not reject models before
