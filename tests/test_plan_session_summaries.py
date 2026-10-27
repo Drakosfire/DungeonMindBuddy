@@ -50,6 +50,17 @@ def test_summary_preserves_exact_two_entry_support_history_and_page_links(plan_a
     writer,packet,payload=stage_summary(plan_adapter)
     result=asyncio.run(writer.run(transport=WriterWire(plan_adapter,json.dumps(payload)),api_key="synthetic"))
     assert isinstance(result.completion,t.SurfaceEvidenceCompletionV4)
+    # Exercise the public response union as well as the APP/history contract.
+    from pydantic import TypeAdapter, ValidationError
+    from apps.live_control_server.models.agent_turn import (
+        AgentPlanWorldGraphContextResponseV2, AgentPlayWorldGraphContextResponseV1,
+    )
+    wire_completion=result.completion.model_dump(mode="json",by_alias=True)
+    plan_response=TypeAdapter(AgentPlanWorldGraphContextResponseV2.model_fields["completion"].annotation)
+    assert plan_response.validate_python(wire_completion)==result.completion
+    play_response=TypeAdapter(AgentPlayWorldGraphContextResponseV1.model_fields["completion"].annotation)
+    with pytest.raises(ValidationError):
+        play_response.validate_python(wire_completion)
     summary=result.completion.answer_segments[0]
     assert isinstance(summary,t.SessionSummaryV1)
     assert summary.text not in " ".join(source["text"] for source in packet["sources"])
