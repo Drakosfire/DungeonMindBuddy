@@ -382,16 +382,22 @@ class HermesAgentRuntimeAdapter:
                     else parent_brokered_graph_expansion_policy(graph_scope)
                 )
             )
+            if (invocation.capability_policy.corpus_source_sections
+                    and not invocation.capability_policy.native_source_sections):
+                raise ValueError('Corpus source search requires native section read capability')
             if invocation.capability_policy.native_source_sections:
                 surface = invocation.context_packet.surface_context
                 if graph_scope is None or surface is None or surface.surface_id != 'play':
                     raise ValueError('Native source tools require the admitted Play surface')
-                from .native_source_navigation import TOOLS
+                from .native_source_navigation import BROWSE, READ, SEARCH
+                source_tools = {BROWSE, READ}
+                if invocation.capability_policy.corpus_source_sections:
+                    source_tools.add(SEARCH)
                 parent_policy = replace(parent_policy,
-                    enabled_tool_names=(*parent_policy.enabled_tool_names,*sorted(TOOLS)),
+                    enabled_tool_names=(*parent_policy.enabled_tool_names,*sorted(source_tools)),
                     tool_rules=(*parent_policy.tool_rules,*(HermesToolCapabilityRule(tool_name=name,
                         toolset=TOOLSET_NAME,require_graph_scope=False,allowed_effects=frozenset({'read'}))
-                        for name in sorted(TOOLS))))
+                        for name in sorted(source_tools))))
             if context_read_enabled:
                 parent_policy = replace(
                     parent_policy,

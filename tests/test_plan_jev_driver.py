@@ -107,12 +107,16 @@ class Decisions(httpx2.AsyncBaseTransport):
     async def handle_async_request(self, request):
         body = json.loads(request.content); self.calls.append(body)
         candidates = body['state']['candidates']
-        operation = 'select_candidates' if candidates else ('discover_more' if self.discover and len(self.calls) == 1 else 'finish_retrieval')
+        # This synthetic transport deliberately exercises Graph acquisition,
+        # not newly offered independent corpus/native-section navigation.
+        graph_candidates = [row for row in candidates if not row['kind'].startswith(
+            ('Source navigation:', 'Exact source section', 'Corpus lexical navigation'))]
+        operation = 'select_candidates' if graph_candidates else ('discover_more' if self.discover and len(self.calls) == 1 else 'finish_retrieval')
         answers = {}
         for name, question in body['questions'].items():
             choice = ('finish_retrieval' if operation == 'select_candidates' else operation) if name == 'operation' else (
                 'include' if operation == 'select_candidates' and (not self.sequential or name == 'candidate_0')
-                and not (name.startswith('candidate_') and candidates[int(name.split('_')[-1])]['kind'].startswith(('Source navigation:','Exact source section'))) else 'exclude')
+                and not (name.startswith('candidate_') and candidates[int(name.split('_')[-1])]['kind'].startswith(('Source navigation:','Exact source section','Corpus lexical navigation'))) else 'exclude')
             answers[name] = {'type': 'choice', 'choice': choice, 'confidence': 1.0,
                 'probabilities': {key: float(key == choice) for key in question['criteria']}}
         return httpx2.Response(200, request=request, json={'model': 'jev-1.14.0', 'answers': answers, 'usage': {}})
@@ -423,7 +427,8 @@ def test_empty_initial_search_uses_retained_navigation_once_without_repeating_qu
     proof=asyncio.run(driver.run(transport=decisions,api_key='synthetic-not-secret'))
     assert [row['operation'] for row in graphs]==['object','object']
     assert {row['targets'][0]['id'] for row in graphs}=={'pond','bridge'}
-    assert all('navigation only' in row['kind'] for row in decisions.calls[0]['state']['candidates'])
+    assert all('navigation only' in row['kind'] or row['kind'].startswith('Corpus lexical navigation')
+               for row in decisions.calls[0]['state']['candidates'])
     assert driver.finished and not driver.offered()
     if missing:
         assert driver.gaps==['object_not_found','object_not_found']
@@ -446,7 +451,8 @@ def test_initial_typed_navigation_reaches_jev_without_offering_unselected_nodes(
     driver = PlanJevDriver(plan_adapter)
     transport = Decisions()
     proof = asyncio.run(driver.run(transport=transport, api_key='synthetic-not-secret'))
-    assert transport.calls[0]['state']['candidates'] == [
+    assert [row for row in transport.calls[0]['state']['candidates']
+            if not row['kind'].startswith('Corpus lexical navigation')] == [
         {'label': 'Park pond', 'kind': 'World entity: location'},
         {'label': 'Footbridge', 'kind': 'World entity: location'}]
     assert 'node:keeper' not in driver.catalog
@@ -463,7 +469,8 @@ def test_navigation_only_labels_use_resolved_kind_without_claim_authority(plan_a
         graph_envelope={**plan_adapter.bootstrap.graph_envelope,
                         'nodes': [{'node_id': 'keeper', 'kind': 'npc'}]})
     driver = PlanJevDriver(plan_adapter)
-    assert [(item.label, item.kind) for item in driver.offered()] == [
+    assert [(item.label, item.kind) for item in driver.offered()
+            if not item.kind.startswith('Corpus lexical navigation')] == [
         ('Park keeper', 'World entity: npc'), ('Unnamed place', 'World entity')]
     assert plan_adapter.bootstrap.retrieval_session.claims == []
     assert driver.attempted_nodes == driver.attempted_anchors == set()
@@ -474,7 +481,8 @@ def test_discovery_types_reach_next_decision_without_repeating_attempted_nodes(p
     driver = PlanJevDriver(plan_adapter)
     transport = Decisions(discover=True)
     asyncio.run(driver.run(transport=transport, api_key='synthetic-not-secret'))
-    assert transport.calls[1]['state']['candidates'] == [
+    assert [row for row in transport.calls[1]['state']['candidates']
+            if not row['kind'].startswith('Corpus lexical navigation')] == [
         {'label': 'Park pond', 'kind': 'World entity: location'},
         {'label': 'Footbridge', 'kind': 'World entity: location'}]
     assert [call['operation'] for call in graphs] == ['search', 'object', 'object']

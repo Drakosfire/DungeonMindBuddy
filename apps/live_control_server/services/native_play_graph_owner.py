@@ -177,7 +177,8 @@ def freeze_play_receipt(
         graph_revision=bootstrap.world_scope.revision_id,
         admitted_anchors=anchors,
     )
-    policy = t.PlayNativeSourceSectionsPolicyV1(
+    policy = t.PlayCorpusSourceSectionsPolicyV1(
+        corpus_source_policy="registered_corpus_sections_v1",
         native_source_section_policy="exact_native_source_sections_v1",
         allowed_graph_operations=["expand_graph_retrieval"],
         max_provider_attempts=64, max_graph_operations=512,

@@ -10,7 +10,7 @@ from time import perf_counter
 from application_state.errors import ApplicationStateValidationError
 from application_state.source import repository as sources
 from . import types as t
-from .native_source_navigation import origin_payload
+from .native_source_navigation import origin_payload, origin_artifact
 from .native_source_scope import source_scope_matches, SCOPE_FIELDS
 
 SELECTOR = "markdown_sections_v1"
@@ -133,34 +133,20 @@ def current_navigation(turn, navigation_id):
     return nav
 
 
-def materialize_catalog_locked(conn, turn, *, navigation_id, event_id):
-    execution = turn.graph_context_execution
-    for prior in execution.events if execution else ():
-        if prior.event_id == event_id:
-            if not isinstance(prior, t.NativeSourceCatalogObservedV1) or prior.navigation_id != navigation_id:
-                raise ApplicationStateValidationError("Catalog event identity was reused with changed target")
-            return prior, None
-    try:
-        nav = current_navigation(turn, navigation_id)
-        t.validate_selected_source_binding(turn.graph_context_receipt, execution)
-        proof, _, pin = origin_payload(nav)
-    except ValueError as exc:
-        raise ApplicationStateValidationError(str(exc)) from exc
-    started = perf_counter()
-    artifact = proof["resolution"]["artifact"]
-    digest = proof["revision"]["content_sha256"]
-    metadata = sources.get_source_artifact(conn, pin.source_artifact_id, lock=True)
+def load_source_locked(conn, *, source_artifact_id, digest, artifact, authority, app_source_revision_id=None):
+    metadata = sources.get_source_artifact(conn, source_artifact_id, lock=True)
     source, failure, body = None, None, None
     if metadata is None:
         failure = "source_unavailable"
-    elif not source_scope_matches(metadata,artifact,turn.graph_context_receipt.graph_authority):
+    elif not source_scope_matches(metadata,artifact,authority):
         failure = "source_scope_mismatch"
     else:
-        source = sources.get_source_markdown(conn, source_artifact_id=pin.source_artifact_id, content_sha256=digest)
+        source = sources.get_source_markdown(conn, source_artifact_id=source_artifact_id, content_sha256=digest,
+            source_revision_id=app_source_revision_id)
         if source is None:
             failure = "source_unavailable"
-        elif (source.source_artifact_id != pin.source_artifact_id or source.content_sha256 != digest
-                or not source_scope_matches(source.model_dump(include=SCOPE_FIELDS),artifact,turn.graph_context_receipt.graph_authority)):
+        elif (source.source_artifact_id != source_artifact_id or source.content_sha256 != digest
+                or not source_scope_matches(source.model_dump(include=SCOPE_FIELDS),artifact,authority)):
             failure = "source_identity_mismatch"
         elif source.media_type != "text/markdown" or source.encoding.lower() != "utf-8":
             failure = "source_encoding_mismatch"
@@ -173,13 +159,34 @@ def materialize_catalog_locked(conn, turn, *, navigation_id, event_id):
                 failure = "source_lineage_mismatch"
             else:
                 body = source.markdown
+    return source, body, failure
+
+
+def materialize_catalog_locked(conn, turn, *, navigation_id, event_id):
+    execution = turn.graph_context_execution
+    for prior in execution.events if execution else ():
+        if prior.event_id == event_id:
+            if not isinstance(prior, t.NativeSourceCatalogObservedV1) or prior.navigation_id != navigation_id:
+                raise ApplicationStateValidationError("Catalog event identity was reused with changed target")
+            return prior, None
+    try:
+        nav = current_navigation(turn, navigation_id)
+        t.validate_selected_source_binding(turn.graph_context_receipt, execution)
+        proof, _, identity = origin_payload(nav)
+    except ValueError as exc:
+        raise ApplicationStateValidationError(str(exc)) from exc
+    started = perf_counter()
+    artifact = origin_artifact(nav)
+    digest = proof["revision"]["content_sha256"]
+    source, body, failure = load_source_locked(conn, source_artifact_id=identity.source_artifact_id,
+        digest=digest, artifact=artifact, authority=turn.graph_context_receipt.graph_authority)
     read_elapsed_ms = max(0, int((perf_counter()-started)*1000))
     catalog_started = perf_counter()
-    sections = section_catalog(body, source_artifact_id=pin.source_artifact_id,
-        native_source_revision_id=pin.source_revision_id, content_sha256=digest) if body is not None else []
+    sections = section_catalog(body, source_artifact_id=identity.source_artifact_id,
+        native_source_revision_id=identity.source_revision_id, content_sha256=digest) if body is not None else []
     values = dict(kind="native_source_catalog_observed_v1", event_id=event_id, sequence=len(execution.events),
-        navigation_id=navigation_id, source_artifact_id=pin.source_artifact_id,
-        native_source_revision_id=pin.source_revision_id, content_sha256=digest,
+        navigation_id=navigation_id, source_artifact_id=identity.source_artifact_id,
+        native_source_revision_id=identity.source_revision_id, content_sha256=digest,
         app_source_revision_id=source.source_revision_id if body is not None else None,
         selector_policy=SELECTOR, outcome="complete" if body is not None else "unavailable", failure_code=failure,
         sections=sections, lineage_sha256=t._canonical_sha256(source.lineage) if body is not None else None,
@@ -192,7 +199,7 @@ def materialize_catalog_locked(conn, turn, *, navigation_id, event_id):
     values["catalog_sha256"] = catalog_digest(SimpleNamespace(**values))
     event = t.NativeSourceCatalogObservedV1(**values)
     material = NativeSourceCatalogMaterial(navigation_id, event_id, source.source_revision_id,
-        pin.source_artifact_id, pin.source_revision_id, digest, body) if body is not None else None
+        identity.source_artifact_id, identity.source_revision_id, digest, body) if body is not None else None
     return event, material
 
 
@@ -211,9 +218,9 @@ def validate_catalog_events(execution):
             if (nav is None or event.navigation_id in completed
                     or provider != nav.provider_attempt_id or outcome != "response_received"):
                 raise ValueError("Catalog requires one unique earlier acknowledged navigation")
-            proof, _, pin = origin_payload(nav)
-            if (event.source_artifact_id != pin.source_artifact_id
-                    or event.native_source_revision_id != pin.source_revision_id
+            proof, _, identity = origin_payload(nav)
+            if (event.source_artifact_id != identity.source_artifact_id
+                    or event.native_source_revision_id != identity.source_revision_id
                     or event.content_sha256 != proof["revision"]["content_sha256"]):
                 raise ValueError("Catalog source tuple differs from navigation authorization")
             completed.add(event.navigation_id)

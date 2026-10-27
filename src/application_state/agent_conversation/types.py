@@ -2654,6 +2654,18 @@ class PlayNativeSourceSectionsPolicyV1(NativePlayGraphPolicyV1):
     native_source_section_policy: Literal["exact_native_source_sections_v1"]
 
 
+class PlanCorpusSourceSectionsPolicyV1(PlanNativeSourceSectionsPolicyV1):
+    corpus_source_policy: Literal["registered_corpus_sections_v1"]
+
+
+class PlanCorpusAuthoringPolicyV1(PlanAuthoringPolicyV1):
+    corpus_source_policy: Literal["registered_corpus_sections_v1"]
+
+
+class PlayCorpusSourceSectionsPolicyV1(PlayNativeSourceSectionsPolicyV1):
+    corpus_source_policy: Literal["registered_corpus_sections_v1"]
+
+
 class BuildSectionControllerWriterPolicyV1(ControllerWriterGraphExecutionPolicyV3):
     saved_source_input_policy: Literal["selected_saved_build_sections_v1"]
 
@@ -3070,6 +3082,55 @@ class NativeSourceNavigationAuthorizedV1(GraphExecutionEventBaseV1):
         return self
 
 
+class CorpusSourceSearchAuthorizedV1(GraphExecutionEventBaseV1):
+    kind: Literal["corpus_source_search_authorized_v1"]
+    search_id: UUID
+    provider_attempt_id: UUID
+    context_receipt_sha256: Digest
+    execution_policy_sha256: Digest
+    world_id: str
+    native_world_id: str
+    binding_version: int = Field(strict=True, ge=1)
+    conversation_id: UUID
+    turn_id: UUID
+    attempt: int = Field(strict=True, ge=1)
+    action_handle: str
+    query_sha256: Digest
+    query_terms: list[str]
+    source_view_json: str
+    source_view_sha256: Digest
+
+    @model_validator(mode="after")
+    def exact_view(self):
+        from .corpus_source_search import view
+        view(self)
+        if not self.query_terms or self.query_terms != sorted(set(self.query_terms)):
+            raise ValueError("Corpus query requires exact sorted lexical terms")
+        return self
+
+
+class CorpusSourceSectionMatchV1(StrictModel):
+    catalog_event_id: UUID
+    section_id: Digest
+    matched_terms: list[str]
+
+
+class CorpusSourceSearchObservedV1(GraphExecutionEventBaseV1):
+    kind: Literal["corpus_source_search_observed_v1"]
+    search_id: UUID
+    query_sha256: Digest
+    source_view_sha256: Digest
+    catalog_event_ids: list[UUID]
+    matches: list[CorpusSourceSectionMatchV1]
+    coverage: Literal["enumerated_membership_scanned", "partial"]
+    failure_code: str | None
+
+
+class NativeSourceNavigationAuthorizedV2(NativeSourceNavigationAuthorizedV1):
+    """Registry-origin grant; never an admitted Graph donor."""
+    kind: Literal["native_source_navigation_authorized_v2"]
+
+
 class NativeSourceSectionDescriptorV1(StrictModel):
     section_id: Digest
     label: str = Field(min_length=1)
@@ -3153,6 +3214,13 @@ class NativeSourceSectionObservedV1(GraphExecutionEventBaseV1):
                 or self.failure_code is None):
             raise ValueError("Unavailable section cannot carry evidence bytes")
         return self
+
+
+class NativeSourceSectionObservedV2(NativeSourceSectionObservedV1):
+    """An explicit selected read may reacquire exact registry source material."""
+    kind: Literal["native_source_section_observed_v2"]
+    fresh_body_read_bytes: int = Field(strict=True, ge=0)
+    material_failure_code: str | None
 
 
 class NativeSourceProviderInclusionV1(GraphExecutionEventBaseV1):
@@ -3957,6 +4025,8 @@ def validate_graph_execution_record(execution, *, dynamic_source_scope: bool, al
     source_read_character_usage(execution.policy, execution.events)
 
     _validate_related_recap_context_events(execution)
+    from .corpus_source_search import validate_events as validate_corpus_events
+    validate_corpus_events(execution)
     from .native_source_navigation import validate_navigation_events
     validate_navigation_events(execution)
     from .native_source_catalog import validate_catalog_events
@@ -3973,7 +4043,7 @@ def validate_graph_execution_record(execution, *, dynamic_source_scope: bool, al
         if isinstance(
             event,
             (
-                PlaySourceProviderInclusionV1, NativeSourceNavigationAuthorizedV1, NativeSourceCatalogObservedV1,
+                PlaySourceProviderInclusionV1, CorpusSourceSearchAuthorizedV1, CorpusSourceSearchObservedV1, NativeSourceNavigationAuthorizedV1, NativeSourceCatalogObservedV1,
                 NativeSourceSectionAuthorizedV1, NativeSourceSectionObservedV1, NativeSourceProviderInclusionV1,
                 SourceScopeExtensionEventV3,
                 SourceReadAuthorizationEventV2,
@@ -4324,7 +4394,7 @@ GraphExecutionEventV3 = Annotated[
     | RelatedRecapContextProviderInclusionEventV2
     | BuildAuthoredReferencesCapturedV1 | BuildAuthoredReferenceAuthorizedV1 | BuildAuthoredReferenceReadV1 | BuildAuthoredProviderInclusionV1 | RelatedPagesSelection | RelatedPageRead | RelatedPageInclusion | BuildDraftContextCapturedV1 | BuildDraftProviderInclusionV1 | BuildSectionReadAuthorizationV1 | ValidatedBuildSectionReadV1
     | BuildSectionProviderInclusionV1 | BuildSectionAnswerBindingV1 | BuildRequestedWorkResolutionV1 | BuildJevActionSelectionV1 | BuildReviewedActionSelectionV2 | BuildReviewedActionSelectionV1 | BuildWorldReadSelectionV1
-    | BuildPlanOutputContractV1 | BuildPlanOutputContractV2 | BuildWriterEvidenceSelectionV1 | PlanRequestedWorkSelectedV1 | PlanJevRetrievalSelectionV1 | NativeSourceNavigationAuthorizedV1 | NativeSourceCatalogObservedV1
+    | BuildPlanOutputContractV1 | BuildPlanOutputContractV2 | BuildWriterEvidenceSelectionV1 | PlanRequestedWorkSelectedV1 | PlanJevRetrievalSelectionV1 | CorpusSourceSearchAuthorizedV1 | CorpusSourceSearchObservedV1 | NativeSourceNavigationAuthorizedV2 | NativeSourceSectionObservedV2 | NativeSourceNavigationAuthorizedV1 | NativeSourceCatalogObservedV1
     | NativeSourceSectionAuthorizedV1 | NativeSourceSectionObservedV1 | NativeSourceProviderInclusionV1,
     Field(discriminator="kind"),
 ]
@@ -4335,7 +4405,7 @@ class PlanWorldGraphExecutionV3(PlanWorldGraphExecutionV2):
     schema_: Literal["dmb_agent_plan_world_graph_execution_v3"] = Field(
         default="dmb_agent_plan_world_graph_execution_v3", alias="schema"
     )
-    policy: AuthoredBuildCollaborationPolicyV1 | AuthoredBuildCollaborationImagePolicyV1 | AuthoredBuildConnectedPageReviewPolicyV1 | AuthoredBuildConnectedPageReviewImagePolicyV1 | AuthoredBuildSourceQuotePolicyV1 | AuthoredBuildSourceQuoteImagePolicyV1 | AuthoredBuildRelationshipReviewPolicyV1 | AuthoredBuildRelationshipReviewImagePolicyV1 | AuthoredBuildIntentionalResponsePolicyV2 | AuthoredBuildIntentionalResponseImagePolicyV2 | AuthoredBuildIntentionalResponseSourcePolicyV2 | AuthoredBuildIntentionalResponseSourceImagePolicyV2 | BuildIntentionalResponseImagePolicyV2 | BuildIntentionalResponsePolicyV2 | BuildIntentionalResponseSourceImagePolicyV2 | BuildIntentionalResponseSourcePolicyV2 | BuildRelationshipReviewImagePolicyV1 | BuildRelationshipReviewPolicyV1 | BuildSourceQuoteImagePolicyV1 | BuildSourceQuotePolicyV1 | BuildConnectedPageReviewImagePolicyV1 | BuildConnectedPageReviewPolicyV1 | BuildCollaborationImagePolicyV1 | BuildCollaborationPolicyV1 | BuildRelatedPageDraftImagePolicyV1 | BuildRelatedPageDraftPolicyV1 | BuildExactSavedLinesDraftImagePolicyV1 | BuildExactSavedLinesDraftPolicyV1 | BuildDraftWorldContextImagePolicyV1 | BuildDraftWorldContextPolicyV1 | BuildNamedWorldContextImagePolicyV1 | BuildNamedWorldContextPolicyV1 | PlanAuthoringPolicyV1 | PlanNativeSourceSectionsPolicyV1 | PlanJevRetrievalPolicyV1 | BuildWorldContextImagePolicyV1 | BuildWorldContextPolicyV1 | BuildPrimaryWorkStatusImagePolicyV1 | BuildPrimaryWorkStatusPolicyV1 | BuildPrimaryWorkImagePolicyV1 | BuildPrimaryWorkPolicyV1 | BuildImageActionPolicyV1 | BuildEncodedAssessmentPolicyV1 | BuildInitialEstimatedSelectedSourcePolicyV1 | BuildSelectedSourceActionControllerWriterPolicyV1 | BuildCitedSourceActionControllerWriterPolicyV1 | BuildReadBatchActionControllerWriterPolicyV1 | BuildWriterBudgetActionControllerWriterPolicyV1 | BuildJointSupportActionControllerWriterPolicyV1 | BuildEstimatedActionControllerWriterPolicyV1 | BuildContainedActionControllerWriterPolicyV1 | BuildPhaseActionControllerWriterPolicyV1 | BuildFrontierActionControllerWriterPolicyV1 | BuildContinuationActionControllerWriterPolicyV1 | BuildCompactActionControllerWriterPolicyV1 | BuildActionControllerWriterPolicyV1 | BuildSectionControllerWriterPolicyV1 | ControllerWriterGraphExecutionPolicyV3 | SettledGraphExecutionPolicyV3 | GraphExecutionPolicyV3
+    policy: AuthoredBuildCollaborationPolicyV1 | AuthoredBuildCollaborationImagePolicyV1 | AuthoredBuildConnectedPageReviewPolicyV1 | AuthoredBuildConnectedPageReviewImagePolicyV1 | AuthoredBuildSourceQuotePolicyV1 | AuthoredBuildSourceQuoteImagePolicyV1 | AuthoredBuildRelationshipReviewPolicyV1 | AuthoredBuildRelationshipReviewImagePolicyV1 | AuthoredBuildIntentionalResponsePolicyV2 | AuthoredBuildIntentionalResponseImagePolicyV2 | AuthoredBuildIntentionalResponseSourcePolicyV2 | AuthoredBuildIntentionalResponseSourceImagePolicyV2 | BuildIntentionalResponseImagePolicyV2 | BuildIntentionalResponsePolicyV2 | BuildIntentionalResponseSourceImagePolicyV2 | BuildIntentionalResponseSourcePolicyV2 | BuildRelationshipReviewImagePolicyV1 | BuildRelationshipReviewPolicyV1 | BuildSourceQuoteImagePolicyV1 | BuildSourceQuotePolicyV1 | BuildConnectedPageReviewImagePolicyV1 | BuildConnectedPageReviewPolicyV1 | BuildCollaborationImagePolicyV1 | BuildCollaborationPolicyV1 | BuildRelatedPageDraftImagePolicyV1 | BuildRelatedPageDraftPolicyV1 | BuildExactSavedLinesDraftImagePolicyV1 | BuildExactSavedLinesDraftPolicyV1 | BuildDraftWorldContextImagePolicyV1 | BuildDraftWorldContextPolicyV1 | BuildNamedWorldContextImagePolicyV1 | BuildNamedWorldContextPolicyV1 | PlanCorpusAuthoringPolicyV1 | PlanCorpusSourceSectionsPolicyV1 | PlanAuthoringPolicyV1 | PlanNativeSourceSectionsPolicyV1 | PlanJevRetrievalPolicyV1 | BuildWorldContextImagePolicyV1 | BuildWorldContextPolicyV1 | BuildPrimaryWorkStatusImagePolicyV1 | BuildPrimaryWorkStatusPolicyV1 | BuildPrimaryWorkImagePolicyV1 | BuildPrimaryWorkPolicyV1 | BuildImageActionPolicyV1 | BuildEncodedAssessmentPolicyV1 | BuildInitialEstimatedSelectedSourcePolicyV1 | BuildSelectedSourceActionControllerWriterPolicyV1 | BuildCitedSourceActionControllerWriterPolicyV1 | BuildReadBatchActionControllerWriterPolicyV1 | BuildWriterBudgetActionControllerWriterPolicyV1 | BuildJointSupportActionControllerWriterPolicyV1 | BuildEstimatedActionControllerWriterPolicyV1 | BuildContainedActionControllerWriterPolicyV1 | BuildPhaseActionControllerWriterPolicyV1 | BuildFrontierActionControllerWriterPolicyV1 | BuildContinuationActionControllerWriterPolicyV1 | BuildCompactActionControllerWriterPolicyV1 | BuildActionControllerWriterPolicyV1 | BuildSectionControllerWriterPolicyV1 | ControllerWriterGraphExecutionPolicyV3 | SettledGraphExecutionPolicyV3 | GraphExecutionPolicyV3
     events: list[GraphExecutionEventV3] = Field(max_length=2048)
 
     @model_validator(mode="after")
@@ -4362,7 +4432,7 @@ class PlanWorldGraphExecutionV3(PlanWorldGraphExecutionV2):
         authorized_by_id = {}
         acquisition_events = (
             RelatedPagesSelection, RelatedPageRead,
-            ValidatedGraphOperationEventV1, SourceScopeExtensionEventV3, NativeSourceNavigationAuthorizedV1, NativeSourceCatalogObservedV1,
+            ValidatedGraphOperationEventV1, SourceScopeExtensionEventV3, CorpusSourceSearchAuthorizedV1, CorpusSourceSearchObservedV1, NativeSourceNavigationAuthorizedV1, NativeSourceCatalogObservedV1,
             NativeSourceSectionAuthorizedV1, NativeSourceSectionObservedV1,
             SourceReadAuthorizationEventV2, ValidatedSourceReadEventV2, SourcePassageReuseEventV1,
             RelatedRecapContextAuthorizationEventV2, ValidatedRelatedRecapContextEventV2,
@@ -4759,7 +4829,7 @@ PlayGraphExecutionEventV1 = Annotated[
     | ProviderOutcomeEventV1 | CompletionBindingEventV1
     | SourceScopeExtensionEventV3 | SourceReadAuthorizationEventV2 | ValidatedSourceReadEventV2 | SourcePassageReuseEventV1
     | RelatedRecapContextAuthorizationEventV2 | ValidatedRelatedRecapContextEventV2
-    | RelatedRecapContextProviderInclusionEventV2 | NativeSourceNavigationAuthorizedV1 | NativeSourceCatalogObservedV1
+    | RelatedRecapContextProviderInclusionEventV2 | CorpusSourceSearchAuthorizedV1 | CorpusSourceSearchObservedV1 | NativeSourceNavigationAuthorizedV2 | NativeSourceSectionObservedV2 | NativeSourceNavigationAuthorizedV1 | NativeSourceCatalogObservedV1
     | NativeSourceSectionAuthorizedV1 | NativeSourceSectionObservedV1 | NativeSourceProviderInclusionV1,
     Field(discriminator="kind"),
 ]
@@ -4806,7 +4876,7 @@ class PlayWorldGraphExecutionV1(ClosedRulesModel):
     schema_: Literal["dmb_play_world_graph_execution_v1"] = Field(default="dmb_play_world_graph_execution_v1", alias="schema")
     context_receipt_sha256: Digest
     execution_policy_sha256: Digest
-    policy: PlayNativeSourceSectionsPolicyV1 | NativePlayGraphPolicyV1
+    policy: PlayCorpusSourceSectionsPolicyV1 | PlayNativeSourceSectionsPolicyV1 | NativePlayGraphPolicyV1
     events: Annotated[list[PlayGraphExecutionEventV1], Field(max_length=2048)]
 
     def effective_source_pins(self) -> dict[str, GraphSourceScopeAnchorV2]:
@@ -4910,6 +4980,8 @@ def validate_selected_source_binding(
     if execution is not None and isinstance(execution.policy, PlanJevRetrievalPolicyV1):
         if not isinstance(receipt, PlanWorldGraphContextReceiptV1):
             raise ValueError("Plan Jev policy requires its actual Plan receipt")
+    from .corpus_source_search import validate_receipt as validate_corpus_receipt
+    validate_corpus_receipt(receipt, execution)
     from .native_source_navigation import validate_navigation_receipt
     validate_navigation_receipt(receipt, execution)
     if isinstance(receipt, PlayWorldGraphContextReceiptV1):

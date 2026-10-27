@@ -1255,7 +1255,7 @@ def _freeze_policy_receipt(
                 policy_fields["policy_version"] = "world_graph_execution_selected_scope_uncapped_v1" if budget["maxProviderAttempts"] is None else "plan_world_graph_execution_selected_scope_v1"
             from application_state.agent_conversation.plan_authoring import PlanRequestedWorkInputV1
             semantic_plan = isinstance(plan_jev_request, PlanRequestedWorkInputV1)
-            policy_class = (graph_types.PlanAuthoringPolicyV1 if semantic_plan else graph_types.PlanNativeSourceSectionsPolicyV1 if plan_jev_request is not None else graph_types.BuildPrimaryWorkImagePolicyV1
+            policy_class = (graph_types.PlanCorpusAuthoringPolicyV1 if semantic_plan else graph_types.PlanCorpusSourceSectionsPolicyV1 if plan_jev_request is not None else graph_types.BuildPrimaryWorkImagePolicyV1
                 if (budget.get("buildJevActions") or {}).get("primary_work_context_policy") is not None
                     and (budget.get("buildJevActions") or {}).get("image_preparation_policy") is not None
                 else graph_types.BuildPrimaryWorkPolicyV1
@@ -1338,7 +1338,8 @@ def _freeze_policy_receipt(
                     'plan_authoring_capture_sha256': request.plan_authoring_capture.sha256
                         if request.plan_authoring_capture is not None else None} if semantic_plan else {}),
                 **({"driver_schema": "dmb_plan_jev_retrieval_v1",
-                    "native_source_section_policy":"exact_native_source_sections_v1"} if plan_jev_request is not None else {}),
+                    "native_source_section_policy":"exact_native_source_sections_v1",
+                    "corpus_source_policy":"registered_corpus_sections_v1"} if plan_jev_request is not None else {}),
                 **(budget.get("buildJevActions") or {}),
                 **({"authored_graph_reference_policy": "authored_graph_reference_context_v1",
                     "authored_graph_references_sha256": request.build_authored_references.sha256} if request.build_authored_references is not None else {}),
@@ -3091,7 +3092,7 @@ class _PolicyExecutionAdapter:
                     413 if str(exc) == "evidence_bundle_overflow" else 409,
                     "Evidence bundle unavailable. Narrow the detail request; uncertain reads were not repeated.",
                     arguments=arguments)
-        if message.get("toolName") in {"browse_native_source_sections","read_native_source_sections"}:
+        if message.get("toolName") in {"search_retained_source_sections","browse_native_source_sections","read_native_source_sections"}:
             from .native_source_navigation import navigator
             from application_state.errors import ApplicationStateValidationError
             owner = navigator(self)
@@ -7332,8 +7333,12 @@ def execute_agent_turn(
                 graph_read_profile=("governed_build" if _governed_build_turn(request) else "world_graph"),
             )
             if request.surface.surface_id == 'play':
+                from application_state.agent_conversation.corpus_source_search import enabled as corpus_enabled
+                frozen_policy = (adapter.turn.graph_context_execution.policy if adapter.turn is not None else None)
                 invocation = replace(invocation,capability_policy=replace(invocation.capability_policy,
-                    native_source_sections=True))
+                    native_source_sections=(frozen_policy is None or isinstance(frozen_policy,
+                        _app_state_graph_execution_types().PlayNativeSourceSectionsPolicyV1)),
+                    corpus_source_sections=(frozen_policy is None or corpus_enabled(frozen_policy))))
             native_rules_enabled = _native_rules_enabled(request)
             if native_rules_enabled:
                 from application_state.agent_conversation.rules_authority_policy import rules_capability

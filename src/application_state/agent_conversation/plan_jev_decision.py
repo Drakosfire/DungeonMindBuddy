@@ -206,6 +206,7 @@ def validate_decision_phases(execution):
         elif isinstance(event, (t.ValidatedGraphOperationEventV1, t.SourceScopeExtensionEventV3,
                 t.SourceReadAuthorizationEventV2, t.ValidatedSourceReadEventV2, t.SourcePassageReuseEventV1,
                 t.RelatedRecapContextAuthorizationEventV2, t.ValidatedRelatedRecapContextEventV2,
+                t.CorpusSourceSearchAuthorizedV1, t.CorpusSourceSearchObservedV1,
                 t.NativeSourceNavigationAuthorizedV1, t.NativeSourceCatalogObservedV1,
                 t.NativeSourceSectionAuthorizedV1, t.NativeSourceSectionObservedV1)):
             if writer is not None or selected is None or selected.operation == "finish_retrieval":

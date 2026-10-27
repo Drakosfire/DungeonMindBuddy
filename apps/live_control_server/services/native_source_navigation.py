@@ -15,12 +15,13 @@ from dungeonmind.contracts.projection_v2 import WorldGraphProjectionRequestV2
 
 BROWSE = 'browse_native_source_sections'
 READ = 'read_native_source_sections'
-TOOLS = frozenset({BROWSE,READ})
+SEARCH = 'search_retained_source_sections'
+TOOLS = frozenset({BROWSE,READ,SEARCH})
 RESULT = 'dmb_native_source_section_result_v1'
 UNAVAILABLE = 'dmb_native_source_section_unavailable_v1'
 # Grammatical overlap is not a useful section-navigation signal. This does not
 # remove words from evidence or constrain the number/size of selected sections.
-_QUERY_GRAMMAR = frozenset('a an and are as at be before by do for from give how i in into is it its me my not of on or our read that the their them these this to use was we were what when where which who why with you your'.split())
+from application_state.agent_conversation.corpus_source_search import GRAMMAR as _QUERY_GRAMMAR
 
 
 class NativeSourceUnavailable(ValueError):
@@ -53,6 +54,8 @@ class NativeSourceNavigator:
         self.attempted_sources = set()
         self.source_ownership = {}
         self.attempted_sections = set()
+        from .corpus_source_navigation import CorpusSourceNavigation
+        self.corpus = CorpusSourceNavigation(self)
 
     def enabled(self):
         fence = self.adapter.fence
@@ -83,6 +86,8 @@ class NativeSourceNavigator:
                 self.sources[handle] = (donor,pin,label)
                 existing.add(key)
 
+        self.corpus.hydrate()
+
         # Eligibility is metadata only, batched once per newly encountered artifact.
         # Keep failed routes visible as unavailable examined subjects without
         # dispatching doomed native provenance/catalog reads. Actual reads retain
@@ -100,7 +105,11 @@ class NativeSourceNavigator:
                 self.attempted_sources.add(handle)
 
     def _section_candidate(self,handle,*,kind='Exact source section'):
-        _,section,name = self.sections[handle]
+        source_handle,section,name = self.sections[handle]
+        revision = self.corpus.revision_metadata(source_handle)
+        if revision is not None:
+            if revision.get('campaign_id') is not None:name += ' (campaign ' + revision['campaign_id'] + ')'
+            name += ' [' + revision['status_at_capture'] + ' revision at source-view capture; recorded ' + revision['recorded_at'] + ']'
         terms=self.query_matches.get(handle,[])
         hint=(f'; discriminating query-term coverage: {len(terms)}; matches: '+', '.join(terms)
             if terms else '; no discriminating query-term matches')
@@ -113,7 +122,7 @@ class NativeSourceNavigator:
             for handle,entry in self.sources.items() if handle not in self.attempted_sources]
         sections = [self._section_candidate(handle)
             for handle in self.sections if handle not in self.attempted_sections]
-        return tuple([*browse,*sections])
+        return tuple([*self.corpus.offered(),*browse,*sections])
 
     def examined(self):
         """Acquisition outcome metadata for decisions, never evidence prose."""
@@ -131,7 +140,7 @@ class NativeSourceNavigator:
             outcome='Acquired' if read is not None and read.outcome=='complete' else 'Unavailable'
             rows.append(self._section_candidate(handle,
                 kind=outcome+' exact source section; navigation only, not evidence sufficiency'))
-        return tuple(rows)
+        return tuple([*self.corpus.examined(),*rows])
 
     def _plan_selection(self,handles):
         from application_state.agent_conversation.plan_jev_decision import current_selection
@@ -150,6 +159,9 @@ class NativeSourceNavigator:
         return authority
 
     def _access(self,entry):
+        if isinstance(entry[0], t.CorpusSourceSearchAuthorizedV1):
+            handle = next(h for h, e in self.sources.items() if e is entry)
+            return self.corpus.access(handle)
         authority = self._bound_authority()
         projection = WorldGraphProjectionRequestV2.model_validate({'world_id':authority.native_world_id,
             'campaign_id':None,'admissibility':'gm','scope_mode':'world_cross_campaign',
@@ -177,14 +189,16 @@ class NativeSourceNavigator:
             self.attempted_sources.add(handle)
             origin = self._access(self.sources[handle])
             proof = strict_json(origin.proof_json)
-            name = registered_source_name(proof['resolution']['artifact'])
+            name = registered_source_name(proof['artifact'] if isinstance(self.sources[handle][0], t.CorpusSourceSearchAuthorizedV1) else proof['resolution']['artifact'])
             if name is None:
                 raise NativeSourceUnavailable('source_navigation_unavailable')
             if handle not in self.catalogs:
                 turn = a.fence.renewer._turn
                 execution = turn.graph_context_execution
                 provider = next(e for e in reversed(execution.events) if isinstance(e,t.ProviderAttemptAuthorizedEventV1))
-                nav = t.NativeSourceNavigationAuthorizedV1(kind='native_source_navigation_authorized_v1',
+                registry = isinstance(self.sources[handle][0], t.CorpusSourceSearchAuthorizedV1)
+                nav_type = t.NativeSourceNavigationAuthorizedV2 if registry else t.NativeSourceNavigationAuthorizedV1
+                nav = nav_type(kind='native_source_navigation_authorized_v2' if registry else 'native_source_navigation_authorized_v1',
                     event_id=uuid4(),sequence=len(execution.events),navigation_id=uuid4(),
                     provider_attempt_id=provider.provider_attempt_id,
                     context_receipt_sha256=execution.context_receipt_sha256,
@@ -251,12 +265,15 @@ class NativeSourceNavigator:
                     # Claim conflicts and indeterminate storage errors propagate;
                     # they never become another read or false success.
                     partial = True
-                    self.unavailable('source_section_unavailable')
+        # Trace persistence owns the same claim lock; observe after releasing it.
+        if partial:self.unavailable('source_section_unavailable')
         return {'schema':RESULT,'sections':rows,'reused_section_handles':reused,'partial':partial}
 
     def select(self,handles):
         for handle in handles:
-            if handle in self.sources:self.browse(handle,plan=True)
+            from application_state.agent_conversation.corpus_source_search import action_handle
+            if handle == action_handle(self.adapter.fence.turn):self.corpus.search(plan=True)
+            elif handle in self.sources:self.browse(handle,plan=True)
             elif handle in self.sections:self.read([handle],plan=True)
             else:raise NativeSourceUnavailable('source_section_not_selected')
 
@@ -277,9 +294,12 @@ class NativeSourceNavigator:
             raise NativeSourceUnavailable('native_source_call_unverified')
         identity = (reply.api_request_id,calls[0].call_id)
         if identity in self.call_results:return self.call_results[identity]
-        if name == BROWSE and set(arguments) == {'anchor_id'}:
+        self.collect()  # a recovered Play worker may dispatch before composing another offer
+        if name == SEARCH and arguments == {}:
+            result = self.corpus.search()
+        elif name == BROWSE and set(arguments) == {'anchor_id'}:
             self.collect()
-            matches = [handle for handle,entry in self.sources.items() if entry[1].anchor_id == arguments['anchor_id']]
+            matches = [handle for handle,entry in self.sources.items() if getattr(entry[1], 'anchor_id', None) == arguments['anchor_id']]
             if len(matches) != 1:raise NativeSourceUnavailable('source_navigation_unavailable')
             result = self.browse(matches[0])
         elif name == READ and set(arguments) == {'section_handles'}:

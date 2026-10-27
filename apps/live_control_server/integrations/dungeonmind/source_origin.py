@@ -26,7 +26,7 @@ class SourceOriginUnavailable(ValueError):
 
 @dataclass(frozen=True)
 class NativeSourceOrigin:
-    donor_event_id: UUID
+    donor_event_id: UUID | None
     source_artifact_id: str
     native_source_revision_id: str
     content_sha256: str

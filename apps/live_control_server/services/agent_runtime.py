@@ -37,6 +37,7 @@ class AgentCapabilityPolicy:
     policy_id: str
     surface_actions: tuple[str, ...] = ()
     native_source_sections: bool = False
+    corpus_source_sections: bool = False
 
 
 @dataclass(frozen=True, slots=True)

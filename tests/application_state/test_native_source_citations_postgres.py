@@ -21,7 +21,11 @@ def native_writer(plan_adapter,monkeypatch):
     original_accept = AgentConversationService.accept_turn
     def accept(service,sub):
         execution = sub.graph_context_execution
-        policy = t.PlanNativeSourceSectionsPolicyV1.model_validate(execution.policy.model_dump(mode='json',by_alias=True) | {
+        # This retained V1 citation fixture must not inherit a newly introduced
+        # current capability merely because the production factory now has it.
+        policy_values = execution.policy.model_dump(mode='json',by_alias=True)
+        policy_values.pop('corpus_source_policy',None)
+        policy = t.PlanNativeSourceSectionsPolicyV1.model_validate(policy_values | {
             'native_source_section_policy':'exact_native_source_sections_v1'})
         wire = execution.model_dump(mode='json',by_alias=True)
         wire['policy'] = policy.model_dump(mode='json',by_alias=True)
