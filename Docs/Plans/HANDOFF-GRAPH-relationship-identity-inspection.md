@@ -13,3 +13,5 @@ Independent design critique before activation. Red mounted actual ResolvedGraphO
 
 ## Implementation evidence
 Mounted original red retained /tmp/buddy-edge-identity-red.log:2failures/8passes show missing exact IDs and empty-view copy. Implemented only returned typed adjacency under existing Advanced.26mounted projection/card cases pass (/tmp/buddy-edge-identity-green.log), changed UI typecheck and Vite build pass; existing chunk-size warning retained. No new request or mutation. Exact cumulative review and ordinary protected delivery pending.
+
+Independent review HOLD3c990efb5 found campaign-memory bare body is embedded in Source, exposing new identities before Advanced. Repaired by nesting identities in their own Advanced only in bare mode; original Source metadata remains as before. Added bare Source open/hide/reclose regression;27 focused tests pass. No authority expansion.

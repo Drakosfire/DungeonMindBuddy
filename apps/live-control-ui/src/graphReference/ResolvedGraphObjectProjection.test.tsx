@@ -6,6 +6,7 @@ import { buildGraphObjectCardFromNodeView } from "../graphObjectCard";
 import { adaptWorldGraphNodeView } from "../worldGraph/worldGraphNodeViewAdapter";
 import { session23WorldGraphRecapFixture } from "../planSurface/graphPreview/worldGraphRecapFixture";
 import type { GraphReferenceResolution } from "./types";
+import { CompleteWorldObjectAdvancedDetails } from "./CompleteWorldObjectAdvancedDetails";
 import { ResolvedGraphObjectProjection } from "./ResolvedGraphObjectProjection";
 
 vi.mock("../api/liveApi", async () => {
@@ -338,6 +339,20 @@ describe("ResolvedGraphObjectProjection partial completeness", () => {
     await user.click(advanced);
     expect(within(panel).getByText("edge:second:incoming")).not.toBeVisible();
     expect(liveApi.postWorldGraphCompleteObject).toHaveBeenCalledTimes(1);
+  });
+
+  it("keeps bare campaign Source relationship identities behind their own Advanced disclosure", async () => {
+    const user = userEvent.setup();
+    render(<details open><summary>Source</summary>
+      <CompleteWorldObjectAdvancedDetails result={completeObject("complete")} bare />
+    </details>);
+    const id = screen.getByText(caelynn.adjacency[0].edgeId);
+    expect(id).not.toBeVisible();
+    await user.click(screen.getByText("Advanced"));
+    expect(id).toBeVisible();
+    await user.click(screen.getByText("Advanced"));
+    expect(id).not.toBeVisible();
+    expect(liveApi.postWorldGraphCompleteObject).not.toHaveBeenCalled();
   });
 
   it("does not invent relationship identities for empty admitted adjacency", async () => {
