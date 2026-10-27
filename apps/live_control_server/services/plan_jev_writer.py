@@ -76,11 +76,28 @@ class PlanWriterProvider(OpenAITextProvider):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.actual_response = None
+        self._selected_reply = None
         original = self._client.responses.create
         async def capture(**options):
+            self.actual_response = None
+            self._selected_reply = None
             self.actual_response = await original(**options)
             return self.actual_response
         self._client.responses.create = capture
+
+    def _result_from_response(self, response):
+        self._selected_reply = None
+        result = super()._result_from_response(response)
+        self._selected_reply = (response, result.text)
+        return result
+
+    def consume_selected_text(self, response):
+        selected = self._selected_reply
+        self._selected_reply = None
+        if selected is None or selected[0] is not response:
+            raise _ReplyRejected('plan_writer_response_identity_mismatch',
+                'Plan writer has no complete exact SDK reply')
+        return selected[1]
 
     def _request_kwargs(self, call, *, streaming=False):
         options = super()._request_kwargs(call, streaming=streaming)
@@ -207,14 +224,15 @@ class PlanJevWriter:
                 'status':'error','usage':{'status':'unavailable'}}
         return acknowledged
 
-    def capture(self, result, response):
+    def capture(self, result, response, provider):
         if self.prepared is None or response is None or response.status != 'completed' or response.error is not None:
             raise _ReplyRejected('plan_writer_response_incomplete', 'Plan writer has no complete exact SDK reply')
         if response.model != self.model:
             raise _ReplyRejected('plan_writer_response_model_mismatch', 'Plan writer has no complete exact SDK reply')
+        selected_text = provider.consume_selected_text(response)
         if (result.observation.state.value != 'completed' or result.observation.retry_count != 0
                 or result.observation.provider_attempt_count != 1
-                or result.text != response.output_text or not result.text):
+                or result.text != selected_text or not result.text):
             raise _ReplyRejected('plan_writer_response_identity_mismatch', 'Plan writer has no complete exact SDK reply')
         for item in response.output:
             if item.type == 'reasoning': continue
@@ -275,7 +293,7 @@ class PlanJevWriter:
             stage = 'draft'
             self.capture_draft(provider.actual_response)
             stage = 'capture'
-            reply = self.capture(result,provider.actual_response)
+            reply = self.capture(result,provider.actual_response,provider)
             if self.call is not None:
                 self.call['duration_ms']=(perf_counter()-started)*1000
                 self.adapter.context_capture.provider_usage([self.call])

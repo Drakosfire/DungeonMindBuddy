@@ -18,9 +18,9 @@ from tests.test_rules_lookup_broker import args
 
 
 class WriterWire(httpx.AsyncBaseTransport):
-    def __init__(self, adapter, text, *, status='completed', extra_output=()):
+    def __init__(self, adapter, text, *, status='completed', extra_output=(), phase=None):
         self.adapter, self.text, self.status, self.extra_output = adapter, text, status, extra_output
-        self.calls=[]; self.closed=False
+        self.calls=[]; self.closed=False; self.phase=phase
     async def handle_async_request(self, request):
         self.calls.append(request)
         fresh=AgentConversationService().list_turns(self.adapter.world_id,self.adapter.turn.conversation_id)[-1]
@@ -31,7 +31,8 @@ class WriterWire(httpx.AsyncBaseTransport):
         assert 'coding agent' not in body['instructions'] and 'cwd' not in body['instructions']
         return httpx.Response(200,request=request,json={'id':'resp_plan_writer','object':'response','created_at':1,
             'status':self.status,'model':'gpt-6-luna','service_tier':'fast','output':[{'type':'message','id':'msg_plan_writer',
-                'role':'assistant','status':'completed','content':[{'type':'output_text','text':self.text,'annotations':[]} ]},
+                'role':'assistant','status':'completed','content':[{'type':'output_text','text':self.text,'annotations':[]} ],
+                **({'phase':self.phase} if self.phase is not None else {})},
                 *self.extra_output], 'usage':{'input_tokens':600,'output_tokens':100,'total_tokens':700,
                     'input_tokens_details':{'cached_tokens':400},'output_tokens_details':{'reasoning_tokens':60}},
             **({'incomplete_details':{'reason':'max_output_tokens'}} if self.status=='incomplete' else {})})
@@ -535,3 +536,91 @@ def test_structured_writer_rejects_empty_source_support_in_one_actual_sdk_call(p
     assert plan_adapter.fence.turn.completion is None
     assert not any(e.kind == 'native_provider_outcome' for e in writer.rules.native.record.execution.events)
     assert writer.call['usage']['input_tokens'] == 600 and writer.call['usage']['output_tokens'] == 100
+
+
+
+def phase_message(phase, text):
+    return {'type':'message','id':'msg_final','role':'assistant','status':'completed',
+            'phase':phase,'content':[{'type':'output_text','text':text,'annotations':[]}]}
+
+
+def test_commentary_then_final_is_grounded_and_completed_without_aggregate_parsing(plan_adapter):
+    writer = stage_graph(plan_adapter)
+    commentary = '{"unvalidated":"commentary"}<fim_suffix>'
+    final = json.dumps(graph_answer())
+    wire = WriterWire(plan_adapter, commentary, phase='commentary',
+        extra_output=(phase_message('final_answer', final),))
+    completed = asyncio.run(writer.run(transport=wire, api_key='synthetic-not-secret'))
+    assert completed.status == 'completed'
+    assert completed.completion.citation_map.entries[0].evidence_ref_ids == ['evidence:park:0']
+    assert len(wire.calls) == 1 and wire.closed
+    assert unvalidated_texts(plan_adapter) == [commentary + final]
+    reopened = plan_adapter.service.inspect_turn(world_id=completed.world_id, turn_id=completed.turn_id)
+    assert reopened.completion == completed.completion
+
+
+@pytest.mark.parametrize('extra', [(), (phase_message('final_answer', '{}'), phase_message('final_answer', '{}')),
+    (phase_message(None, '{}'),)])
+def test_missing_duplicate_or_mixed_final_never_completes(plan_adapter, extra):
+    writer = stage_graph(plan_adapter)
+    wire = WriterWire(plan_adapter, 'commentary', phase='commentary', extra_output=extra)
+    with pytest.raises(GenerationEngineError):
+        asyncio.run(writer.run(transport=wire, api_key='synthetic-not-secret'))
+    assert len(wire.calls) == 1 and wire.closed
+    assert plan_adapter.fence.turn.completion is None
+
+
+@pytest.mark.parametrize('corruption', ['text', 'response', 'missing'])
+def test_selected_reply_association_cannot_be_changed(plan_adapter, monkeypatch, corruption):
+    from apps.live_control_server.services.plan_jev_writer import PlanWriterProvider
+    original = PlanWriterProvider._result_from_response
+    def corrupt(provider, response):
+        result = original(provider, response)
+        if corruption == 'text':
+            changed = graph_answer()
+            changed['answer_segments'][0]['text'] = 'A changed provider result.'
+            return result.model_copy(update={'text':json.dumps(changed)})
+        if corruption == 'response':
+            provider.actual_response = response.model_copy(deep=True)
+        else:
+            provider._selected_reply = None
+        return result
+    monkeypatch.setattr(PlanWriterProvider, '_result_from_response', corrupt)
+    writer = stage_graph(plan_adapter)
+    wire = WriterWire(plan_adapter, json.dumps(graph_answer()))
+    with pytest.raises(ValueError, match='complete exact SDK reply'):
+        asyncio.run(writer.run(transport=wire, api_key='synthetic-not-secret'))
+    assert len(wire.calls) == 1 and wire.closed
+    assert writer_failures(plan_adapter) == [('delivery', 'plan_writer_response_identity_mismatch')]
+    assert plan_adapter.fence.turn.completion is None
+    assert not any(e.kind == 'native_provider_outcome' for e in writer.rules.native.record.execution.events)
+
+
+def test_selected_reply_capture_is_single_use(plan_adapter, monkeypatch):
+    writer = stage_graph(plan_adapter)
+    original = writer.capture
+    captured = []
+    def record(*args):
+        captured.append(args)
+        return original(*args)
+    monkeypatch.setattr(writer, 'capture', record)
+    wire = WriterWire(plan_adapter, json.dumps(graph_answer()))
+    completed = asyncio.run(writer.run(transport=wire, api_key='synthetic-not-secret'))
+    assert completed.status == 'completed'
+    with pytest.raises(ValueError, match='complete exact SDK reply'):
+        original(*captured[0])
+    assert len(wire.calls) == 1
+
+
+def test_final_phase_does_not_authorize_unsupported_claim(plan_adapter):
+    writer = stage_graph(plan_adapter)
+    unsupported = graph_answer()
+    unsupported['answer_segments'][0]['target_id'] = 'assertion:not-admitted'
+    final = json.dumps(unsupported)
+    wire = WriterWire(plan_adapter, 'commentary', phase='commentary',
+        extra_output=(phase_message('final_answer', final),))
+    with pytest.raises(ValueError):
+        asyncio.run(writer.run(transport=wire, api_key='synthetic-not-secret'))
+    assert len(wire.calls) == 1 and wire.closed
+    assert plan_adapter.fence.turn.completion is None
+    assert unvalidated_texts(plan_adapter) == ['commentary' + final]
