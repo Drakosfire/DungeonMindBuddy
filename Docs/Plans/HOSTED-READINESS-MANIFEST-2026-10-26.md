@@ -53,6 +53,7 @@ Snapshot: 2026-10-27 UTC. This records repository source state and the implement
 - uv sync --locked --offline could not prepare a complete environment because the task mirror lacks generated out/hermes-agent source and the available global uv cache is read-only. No packages were installed globally.
 - npm run build passed on the final files (902 modules transformed); Vite reported a non-fatal existing static/dynamic import warning. The Docker image remains unbuilt.
 - The existing pyproject lists pytest and Ruff among main dependencies, so `uv --no-dev` still includes them. Moving those tools to an optional development group is a dependency-hygiene follow-up; it was not folded into this auth fix.
+- On implementation/re-anchor head `455985235e421439bb6ff097fc5472b218e8fc93`, GitHub returned no workflow runs and no commit status checks. This is absence of CI evidence, not a passing check.
 - No tests used a live database, provider, service, or retained World. No server inventory was run.
 
 ## Decisions and operator steps still required

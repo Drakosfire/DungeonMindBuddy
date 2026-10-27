@@ -59,7 +59,7 @@ No other repository, database, provider, host, credential, DNS, TLS, firewall, p
 - Ruff 0.15.7 passed on `hosted_auth.py` and `test_hosted_auth.py`. `bash -n scripts/host_inventory.sh` passed. `npm run build` passed after the UI copy changes, transforming 902 modules; Vite emitted its existing non-fatal static/dynamic import warning for `connectedPageApi.ts`.
 - The task mirror is partial and is not the full latest-main tree. The changed manual-entrypoint files were verified against current main and had no changes between the original PR base and the current main re-anchor. Repository test/build results do not establish the whole updated main tree or live deployment.
 - Earlier `uv sync --locked --offline` could not prepare an environment because generated `out/hermes-agent` is absent from the mirror and the available uv cache is read-only. Docker image build remains unbuilt because the approved Docker socket was denied; do not retry or elevate.
-- No workflow runs or commit status checks were present on the pre-reanchor PR head. Recheck after publishing. No live host inventory, database, provider, or retained World was used.
+- On implementation/re-anchor head `455985235e421439bb6ff097fc5472b218e8fc93`, GitHub returned no workflow runs and no commit status checks. This is absence of CI evidence, not a passing check; recheck the final head before any merge. No live host inventory, database, provider, or retained World was used.
 
 ## Future World selection and access policy — BLOCKED
 
