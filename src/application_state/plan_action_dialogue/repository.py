@@ -554,3 +554,20 @@ def get_authoring_for_turn(conn, *, world_id, turn_id, attempt):
             (world_id, str(turn_id), str(attempt)))
         row = cur.fetchone()
     return None if row is None else _record(row)
+
+
+def write_authoring_review(conn, *, action_id, world_id, review, expected_revision):
+    """The action lock and review CAS fence all edit, Save and cancel commands."""
+    with conn.cursor(row_factory=dict_row) as cur:
+        cur.execute(f"""UPDATE plan_action.action SET authoring_review=%s,
+            updated_at=clock_timestamp()
+            WHERE action_id=%s AND world_id=%s AND status='completed'
+              AND authoring_origin->>'schema'='dmb_plan_action_authoring_result_v1'
+              AND COALESCE((authoring_review->>'revision')::bigint,0)=%s
+            RETURNING {_RETURNING}""",
+            (Jsonb(review.model_dump(mode='json',by_alias=True)),
+             action_id, world_id, expected_revision))
+        row=cur.fetchone()
+    if row is None:
+        raise ApplicationStateConflictError('The Plan review changed before persistence')
+    return _record(row).authoring_review

@@ -1,12 +1,12 @@
 """Plan-owned author working copies and exact, recoverable application attempts.
 
-The generated result never changes. This ledger does not apply editor content or
-save a Plan; confirmation reads the existing Content owner's immutable history.
+The generated result never changes. An explicit confirmation commits the sealed
+Plan working copy and its application receipt in the same Content transaction.
 """
 
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import UTC, datetime
 from typing import Annotated, Literal
 from uuid import UUID
 
@@ -16,6 +16,7 @@ from application_state.agent_conversation.plan_authoring import (
     Frozen,
     PlanAuthoringCaptureV1,
     PlanActionAuthoringResultV1,
+    digest,
     text_digest,
     strict_json,
     validate_stored_authoring_result,
@@ -38,6 +39,7 @@ class PlanReviewApplicationV1(Frozen):
     after_editor_json: str
     after_editor_sha256: Digest
     after_markdown: str
+    after_title: str = Field(min_length=1)
     after_draft_sha256: Digest
     base_work_revision_id: UUID
     base_revision_n: int = Field(strict=True, ge=1)
@@ -51,6 +53,8 @@ class PlanReviewApplicationV1(Frozen):
         if (
             text_digest(self.markdown) != self.markdown_sha256
             or not self.markdown.strip()
+            or not self.after_title.strip()
+            or self.after_title != self.after_title.strip()
             or text_digest(self.after_editor_json) != self.after_editor_sha256
             or text_digest(self.after_markdown) != self.after_draft_sha256
             or not isinstance(editor, dict)
@@ -156,6 +160,7 @@ class PrepareReview(ReviewCommand):
     after_editor_json: str
     after_editor_sha256: Digest
     after_markdown: str
+    after_title: str = Field(min_length=1)
     after_draft_sha256: Digest
 
 
@@ -264,3 +269,147 @@ def read_review(world_id, action_id):
         conn.execute("SET TRANSACTION READ ONLY")
         return _owner(conn, world_id, action_id, lock=False)[2]
 
+
+
+def _persist_review(conn, action, review, *, expected_revision):
+    from application_state.plan_action_dialogue import repository as actions
+
+    return actions.write_authoring_review(
+        conn, action_id=action.action_id, world_id=review.world_id,
+        review=review, expected_revision=expected_revision,
+    )
+
+
+def execute_review_command(world_id, action_id, command):
+    """One explicit review command, action-locked and fenced by revision/identity.
+
+    Prepare seals the complete after-copy before editor mutation. Confirm saves
+    those exact bytes and its receipt on one connection. A lost reply therefore
+    reads/replays the same receipt rather than regenerating or applying again.
+    """
+    from application_state.agent_conversation.service import _ready_dsn
+    from application_state.content.service import commit_plan_in_connection
+    from application_state.content.types import normalize_markdown
+    from application_state.unit_of_work import unit_of_work
+
+    command = command_adapter.validate_python(command)
+    command_sha = digest(command.model_dump(mode="json", by_alias=True))
+    with unit_of_work(_ready_dsn()) as conn:
+        action, proposal, review = _owner(conn, world_id, action_id, lock=True)
+        if command.origin_sha256 != proposal.origin.sha256:
+            raise ApplicationStateConflictError("The generated Plan proposal changed")
+        if review is not None and review.last_command_id == command.command_id:
+            if review.last_command_sha256 != command_sha:
+                raise ApplicationStateConflictError("The Plan review command identity was reused")
+            return review
+        revision = review.revision if review is not None else 0
+        if command.expected_revision != revision:
+            raise ApplicationStateConflictError(
+                "The Plan review changed; retain local edits and reconcile its newer copy"
+            )
+        common = dict(
+            revision=revision + 1, last_command_id=command.command_id,
+            last_command_sha256=command_sha, updated_at=datetime.now(UTC),
+        )
+        if review is None:
+            if not isinstance(command, OpenReview):
+                raise ApplicationStateConflictError("Open the generated Plan suggestion before editing")
+            candidate = PlanAuthoringReviewV1(
+                world_id=world_id, action_id=action_id,
+                origin_sha256=proposal.origin.sha256, state="editing",
+                markdown=proposal.replacement_markdown,
+                markdown_sha256=text_digest(proposal.replacement_markdown),
+                capture=proposal.capture, **common,
+            )
+        else:
+            updates = dict(common)
+            if isinstance(command, ConfirmReview):
+                if (review.state != "applying"
+                    or review.applications[-1].application_id != command.application_id):
+                    raise ApplicationStateConflictError("This Plan application is not pending")
+                application = review.applications[-1]
+                current = _locked_capture(conn, application.capture)
+                if (current.work_revision_id != application.base_work_revision_id
+                    or current.revision_n != application.base_revision_n):
+                    raise ApplicationStateConflictError("The Plan application base changed")
+                saved, saved_revision = commit_plan_in_connection(
+                    conn, application.capture.document_id, application.after_markdown,
+                    expected_revision=application.capture.base_revision,
+                    expected_world_id=world_id, title=application.after_title,
+                )
+                if (saved_revision.content_sha256 != application.after_draft_sha256
+                    or saved.title != application.after_title):
+                    raise ApplicationStateIntegrityError("Content Save differs from the sealed Plan copy")
+                completed = application.model_copy(update={
+                    "outcome": "saved",
+                    "saved_work_revision_id": saved_revision.work_revision_id,
+                    "saved_revision_n": saved_revision.revision_n,
+                })
+                updates.update(state="applied", applications=review.applications[:-1] + (completed,))
+            elif isinstance(command, ResolveBeforeReview):
+                if (review.state != "applying"
+                    or review.applications[-1].application_id != command.application_id):
+                    raise ApplicationStateConflictError("This Plan application is not pending")
+                application = review.applications[-1]
+                capture = command.capture
+                if (capture.world_id != world_id
+                    or capture.document_id != proposal.capture.document_id
+                    or capture.draft_sha256 != application.capture.draft_sha256
+                    or capture.editor_sha256 != application.capture.editor_sha256):
+                    raise ApplicationStateConflictError(
+                        "The editor does not prove the unchanged before-copy; retain the application"
+                    )
+                current = _locked_capture(conn, capture)
+                if (current.work_revision_id != application.base_work_revision_id
+                    or current.revision_n != application.base_revision_n):
+                    raise ApplicationStateConflictError("The saved Plan no longer proves the before-copy")
+                cancelled = application.model_copy(update={"outcome": "not_applied"})
+                updates.update(state="editing", capture=capture,
+                    applications=review.applications[:-1] + (cancelled,))
+            else:
+                if review.state == "applying":
+                    raise ApplicationStateConflictError(
+                        "Resolve the existing Plan application before changing or discarding it"
+                    )
+                if review.state == "applied":
+                    raise ApplicationStateConflictError("This Plan suggestion is already saved")
+                if isinstance(command, OpenReview):
+                    updates.update(state="editing")
+                elif isinstance(command, DiscardReview):
+                    updates.update(state="discarded")
+                else:
+                    if review.state != "editing":
+                        raise ApplicationStateConflictError("Reopen the discarded Plan suggestion first")
+                    if isinstance(command, SaveReview):
+                        updates.update(markdown=command.markdown,
+                            markdown_sha256=text_digest(command.markdown))
+                    elif isinstance(command, MoveReview):
+                        capture = command.capture
+                        if (capture.world_id != world_id
+                            or capture.document_id != proposal.capture.document_id):
+                            raise ApplicationStateConflictError("Plan placement belongs to another page")
+                        _locked_capture(conn, capture)
+                        updates.update(capture=capture)
+                    elif isinstance(command, PrepareReview):
+                        if any(a.application_id == command.application_id for a in review.applications):
+                            raise ApplicationStateConflictError("Plan application identity was already used")
+                        current = _locked_capture(conn, review.capture)
+                        if normalize_markdown(command.after_markdown) != command.after_markdown:
+                            raise ApplicationStateValidationError("Plan application requires canonical newlines")
+                        application = PlanReviewApplicationV1(
+                            application_id=command.application_id,
+                            capture=review.capture, markdown=review.markdown,
+                            markdown_sha256=review.markdown_sha256,
+                            after_editor_json=command.after_editor_json,
+                            after_editor_sha256=command.after_editor_sha256,
+                            after_markdown=command.after_markdown,
+                            after_title=command.after_title,
+                            after_draft_sha256=command.after_draft_sha256,
+                            base_work_revision_id=current.work_revision_id,
+                            base_revision_n=current.revision_n,
+                        )
+                        updates.update(state="applying", applications=review.applications + (application,))
+            candidate = PlanAuthoringReviewV1.model_validate(
+                review.model_dump(mode="python", by_alias=True) | updates
+            )
+        return _persist_review(conn, action, candidate, expected_revision=revision)
