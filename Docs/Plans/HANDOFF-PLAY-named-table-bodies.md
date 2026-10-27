@@ -1,6 +1,6 @@
 # PLAY — retain named tables in Scene bodies
 
-Status: ACTIVE; serial PRIME-owned runtime regression slice from a82339092ae9c5181d9be2f3bcfd098c5ee0db92, branch codex/play-named-table-bodies, existing buddy-context-loop checkout. Ongoing operator dogfood/bug-fix authority applies. Required independent exact-head Bugbot and hosted gates precede PRIME merge and protected local UI delivery.
+Status: SETTLED by PR1831 at ce35ef2e7eb8c50020f789958ef682aec97adc7a. Independently reviewed head0eeb0b105bf2d4f73c6219e4a3ba270923942276; both hosted checks passed. Protected UI delivery and unchanged-API restart preserved all3743APP rows/1157native rows/40870files. Same retained Run displays its named table and following cues, with notes/combat revision2 intact. Broader acceptance remains open. Historical activation: serial PRIME-owned runtime regression slice from a82339092ae9c5181d9be2f3bcfd098c5ee0db92, branch codex/play-named-table-bodies, existing buddy-context-loop checkout. Ongoing operator dogfood/bug-fix authority applies. Required independent exact-head Bugbot and hosted gates precede PRIME merge and protected local UI delivery.
 
 ## Witness and invariant critique
 
