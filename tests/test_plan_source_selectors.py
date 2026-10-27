@@ -13,7 +13,7 @@ from application_state.agent_conversation import AgentConversationService
 from application_state.agent_conversation.plan_source_selectors import FRAME_SCHEMA, resolve_selector, source_selector
 from application_state.agent_conversation.rules_authority_types import canonical_sha256
 from application_state.agent_conversation.surface_source_answer import passage_handle, producing_passages
-from application_state.agent_conversation.surface_evidence_answer import normalize, SELECTOR_POLICY
+from application_state.agent_conversation.surface_evidence_answer import normalize, PLAN_POLICY as SELECTOR_POLICY
 from application_state.agent_conversation.plan_writer_output_schema import output_schema, output_format
 from tests.test_plan_jev_dispatch import plan_adapter  # noqa: F401
 from tests.test_plan_jev_writer import WriterWire

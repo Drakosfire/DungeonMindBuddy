@@ -109,7 +109,7 @@ function renderMarkdown(root: Root, source: string, allowedInternalLinks: Readon
         if (node.url.startsWith("dmb-node:")) return <span key={key} className="graph-node-reference-pill recap-node-token" data-plan-card-reference="graph">{children(node)}</span>;
         const kind = classifyLinkUrl(node.url);
         return kind === "safe_external" || kind === "safe_mailto" || kind === "fragment" || (node.url.startsWith("/play?") && allowedInternalLinks.has(node.url))
-          ? <a key={key} href={node.url.trim()} rel="noopener noreferrer">{children(node, true)}</a>
+          ? <a key={key} href={node.url.trim()} title={node.title??undefined} rel="noopener noreferrer">{children(node, true)}</a>
           : <span key={key}>{literal(node)}</span>;
       }
       // Raw HTML, embedded media, unresolved references and unknown extensions stay inert.

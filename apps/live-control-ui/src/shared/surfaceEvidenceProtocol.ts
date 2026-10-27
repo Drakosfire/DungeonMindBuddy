@@ -6,11 +6,12 @@ const hash = (v:unknown):v is string => typeof v === 'string' && /^[a-f0-9]{64}$
 const sorted = (v:unknown):v is string[] => Array.isArray(v) && v.every((x,i) => text(x) && (!i || v[i-1] < x));
 /** Closed presentation shape. The server independently proves producer input and authority. */
 export function isSurfaceEvidenceCompletion(v:unknown, receiptHash:string, surface:'plan'|'play'):v is SurfaceEvidenceCompletion {
-  const native=typeof v==='object' && v!==null && 'schema' in v && v.schema==='dmb_surface_evidence_completion_v3';
+  const native=typeof v==='object' && v!==null && 'schema' in v && ['dmb_surface_evidence_completion_v3','dmb_surface_evidence_completion_v4'].includes(String(v.schema));
   if (!exact(v,['schema','surface_id','context_receipt_sha256','answer_basis','answer_context_status','answer_segments','citation_map','source_citations',...(native ? ['native_source_citations']:[])])
-    || !['dmb_surface_evidence_completion_v1','dmb_surface_evidence_completion_v2','dmb_surface_evidence_completion_v3'].includes(String(v.schema)) || v.surface_id !== surface || v.context_receipt_sha256 !== receiptHash
+    || !['dmb_surface_evidence_completion_v1','dmb_surface_evidence_completion_v2','dmb_surface_evidence_completion_v3','dmb_surface_evidence_completion_v4'].includes(String(v.schema)) || v.surface_id !== surface || v.context_receipt_sha256 !== receiptHash
     || v.answer_basis !== 'mixed_evidence' || !Array.isArray(v.answer_segments) || !v.answer_segments.length || v.answer_segments.length > 128
     || !Array.isArray(v.source_citations) || v.source_citations.length > 16384) return false;
+  if(v.schema==='dmb_surface_evidence_completion_v4' && surface!=='plan') return false;
   const claims = new Map<string,{index:number;segment:Record<string,unknown>}>(), sources = new Set<number>();
   let authored=false, proposal=false, partial=false;
   const blocks=new Set<string>();
@@ -35,6 +36,26 @@ export function isSurfaceEvidenceCompletion(v:unknown, receiptHash:string, surfa
       if (!exact(s,['kind','text','source_handle','source_kind','source_name','object_id','revision','body_sha256','owner_sha256',...(block ? ['block_handle','partition_version','byte_start','byte_end','block_sha256','entry_identity']:[])])
         || !['plan','session','play'].includes(String(s.source_kind)) || ![s.source_handle,s.source_name,s.object_id,s.revision].every(text)
         || !hash(s.body_sha256) || !hash(s.owner_sha256)) return false;
+      authored=true;
+    } else if (s.kind === 'session_summary' && v.schema==='dmb_surface_evidence_completion_v4') {
+      if(!exact(s,['kind','text','supports']) || !Array.isArray(s.supports) || !s.supports.length) return false;
+      const supportBlocks=new Set<string>();
+      for(const support of s.supports) {
+        if(!exact(support,['kind','text','source_handle','source_kind','source_name','object_id','revision',
+          'body_sha256','owner_sha256','block_handle','partition_version','byte_start','byte_end','block_sha256',
+          'entry_identity','source_ordinal','entry_kind','element_id','checkpoint_content_sha256'])
+          || support.source_kind!=='session' || typeof support.source_ordinal!=='number'
+          || !Number.isSafeInteger(support.source_ordinal) || support.source_ordinal<0
+          || !['scene_note','closing_reflections'].includes(String(support.entry_kind))
+          || (support.entry_kind==='scene_note' ? !text(support.element_id) : support.element_id!==null)
+          || !hash(support.checkpoint_content_sha256) || !text(support.block_handle)
+          || supportBlocks.has(support.block_handle)) return false;
+        const {source_ordinal,entry_kind,element_id,checkpoint_content_sha256,...quote}=support;
+        if(!isSurfaceEvidenceCompletion({schema:'dmb_surface_evidence_completion_v2',surface_id:'plan',
+          context_receipt_sha256:receiptHash,answer_basis:'mixed_evidence',answer_context_status:'authored_grounded',
+          answer_segments:[quote],citation_map:null,source_citations:[]},receiptHash,'plan')) return false;
+        supportBlocks.add(support.block_handle);
+      }
       authored=true;
     } else if (s.kind === 'proposal') {
       if (!exact(s,['kind','text','label']) || !['invented_idea','image_prompt'].includes(String(s.label))) return false; proposal=true;
@@ -89,6 +110,7 @@ export function surfaceEvidenceReceiptBound(c:SurfaceEvidenceCompletion,r:WorldP
   if(c.surface_id !== (plan ? 'plan':'play')) return false;
   return c.answer_segments.every(s=>{
     if(s.kind === 'graph_claim') return s.graph_revision === r.graph_authority.graph_revision;
+    if(s.kind === 'session_summary') return plan;
     if(s.kind !== 'authored_quote' && s.kind !== 'authored_excerpt') return true;
     if(s.source_kind === 'session') return plan;
     if(s.source_kind === 'plan') return plan && s.object_id === r.plan_basis.document_id

@@ -23,6 +23,7 @@ from application_state.agent_conversation.types import (
     PlanAskHistoryAttributionV1,
     PlanEvidenceHistoryAttributionV1, PlanEvidenceHistoryAttributionV2, SurfaceEvidenceCompletionV2,
     PlanEvidenceHistoryAttributionV3, SurfaceEvidenceCompletionV3,
+    PlanEvidenceHistoryAttributionV4, SurfaceEvidenceCompletionV4,
     SurfaceEvidenceCompletionV1,
     CompletionBindingEventV1,
     GraphTurnCompletion,
@@ -963,7 +964,7 @@ def _plan_ask_history_attribution(
         )
 
     current = isinstance(completion, SurfaceEvidenceCompletionV1)
-    history_type = PlanEvidenceHistoryAttributionV3 if isinstance(completion,SurfaceEvidenceCompletionV3) else PlanEvidenceHistoryAttributionV2 if isinstance(completion,SurfaceEvidenceCompletionV2) else PlanEvidenceHistoryAttributionV1 if current else PlanAskHistoryAttributionV1
+    history_type = PlanEvidenceHistoryAttributionV4 if isinstance(completion,SurfaceEvidenceCompletionV4) else PlanEvidenceHistoryAttributionV3 if isinstance(completion,SurfaceEvidenceCompletionV3) else PlanEvidenceHistoryAttributionV2 if isinstance(completion,SurfaceEvidenceCompletionV2) else PlanEvidenceHistoryAttributionV1 if current else PlanAskHistoryAttributionV1
     return history_type(
         **({'source_citations':completion.source_citations} if current else {}),
         **({'native_source_citations':completion.native_source_citations} if isinstance(completion,SurfaceEvidenceCompletionV3) else {}),

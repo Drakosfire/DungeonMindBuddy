@@ -33,7 +33,7 @@ def route_case(a,tmp_path,*,status='completed'):
         async def handle_async_request(self, request):
             frame=json.loads(json.loads(request.content)['input'][0]['content'])
             block=next(block for block in frame['committed_plan_blocks'] if 'proposed visit' in block['text'])
-            self.text=json.dumps({'schema':'dmb_surface_evidence_answer_v4',
+            self.text=json.dumps({'schema':'dmb_surface_evidence_answer_v5',
                 'answer_segments':[{'kind':'authored_excerpt','selection_id':block['selection_id']}],
                 'limitations':[], 'requested_detail_gaps':[]})
             return await super().handle_async_request(request)
@@ -236,7 +236,7 @@ def test_ordinary_empty_discovery_recovers_typed_subjects_and_delivers_current_c
             frame=json.loads(json.loads(request.content)['input'][0]['content'])
             assert frame['opened_passages']
             assert 'Previously explored' not in json.dumps(frame['entity_index'])
-            self.text=json.dumps({'schema':'dmb_surface_evidence_answer_v4','limitations':[],
+            self.text=json.dumps({'schema':'dmb_surface_evidence_answer_v5','limitations':[],
                 'requested_detail_gaps':[],'answer_segments':[{'kind':'source_passage_claim',
                 'text':'The park account describes a walkway.',
                 'passage_handles':[frame['opened_passages'][0]['passage_handle']]}]})
@@ -264,5 +264,11 @@ def test_ordinary_empty_discovery_recovers_typed_subjects_and_delivers_current_c
     assert [call['operation'] for call in graph_calls]==['object','object']
     assert len(source_calls)==1
     assert response.plan_context.completion.source_citations[0].source_name=='Synthetic park journal'
-    assert all(row['kind'].startswith('Previously explored') for row in
-        json.loads(choices.calls[1].content)['state']['candidates'] if row['kind']!='public_rules_lookup')
+    candidates=json.loads(choices.calls[1].content)['state']['candidates']
+    assert {row['label'] for row in candidates if row['kind'].startswith('Previously explored')}=={'Footbridge','Park pond'}
+    # The current owner also offers lexical corpus navigation independently of Graph history.
+    assert {row['kind'] for row in candidates}=={
+        'Previously explored location; navigation only, not current evidence',
+        'public_rules_lookup',
+        'Corpus lexical navigation, independent of Graph connections; matches are not evidence',
+    }

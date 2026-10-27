@@ -1264,11 +1264,20 @@ export interface SurfaceEvidenceCompletionV3 extends Omit<SurfaceEvidenceComplet
   schema:"dmb_surface_evidence_completion_v3";
   native_source_citations:NativeSourceSectionCitationV1[];
 }
+export type SessionSummarySupport = Extract<SurfaceEvidenceCompletionV2['answer_segments'][number],{kind:"authored_excerpt"}> & {
+  source_kind:"session";source_ordinal:number;entry_kind:"scene_note"|"closing_reflections";
+  element_id:string|null;checkpoint_content_sha256:string;
+};
+export interface SessionSummarySegment {kind:"session_summary";text:string;supports:SessionSummarySupport[]}
+export interface SurfaceEvidenceCompletionV4 extends Omit<SurfaceEvidenceCompletionV3,"schema"|"surface_id"|"answer_segments"> {
+  schema:"dmb_surface_evidence_completion_v4";surface_id:"plan";
+  answer_segments:(SurfaceEvidenceCompletionV3['answer_segments'][number]|SessionSummarySegment)[];
+}
 export interface AgentNativeSourceSectionReadResponseV1 {
   schema:"dmb_agent_native_source_section_read_v1";world_id:string;turn_id:string;citation_index:number;
   citation:NativeSourceSectionCitationV1;content:string;
 }
-export type SurfaceEvidenceCompletion = SurfaceEvidenceCompletionV1 | SurfaceEvidenceCompletionV2 | SurfaceEvidenceCompletionV3;
+export type SurfaceEvidenceCompletion = SurfaceEvidenceCompletionV1 | SurfaceEvidenceCompletionV2 | SurfaceEvidenceCompletionV3 | SurfaceEvidenceCompletionV4;
 export interface AgentSourcePassageReadResponseV1 {
   schema: "dmb_agent_source_passage_read_v1";
   target: {schema: "dmb_agent_source_passage_open_target_v1"; kind: "source_passage";

@@ -5122,6 +5122,32 @@ describe("World Plan conversation consumer", () => {
     await screen.findByRole('region',{name:'Opened source passage'});expect(open).toHaveBeenCalledWith(worldId,turnId,0);
   });
 
+  it("rehydrates a cited session summary with its immutable original instead of a quote",async()=>{
+    const context=await planGraphContext('graph_grounded');
+    const turnId='11111111-1111-4111-8111-111111111111',text='No fight occurred; the next route remains open.';
+    const body=await sha256Hex(text);
+    context.completion={schema:'dmb_surface_evidence_completion_v4',surface_id:'plan',
+      context_receipt_sha256:context.receipt.context_receipt_sha256,answer_basis:'mixed_evidence',
+      answer_context_status:'authored_grounded',citation_map:null,source_citations:[],native_source_citations:[],
+      answer_segments:[{kind:'session_summary',text:'The saved rehearsal left the next route unresolved.',supports:[{
+        kind:'authored_excerpt',text,source_kind:'session',source_name:'Gate rehearsal — notes and reflections',
+        source_handle:'q'+'a'.repeat(64),object_id:turnId,revision:'4',body_sha256:body,owner_sha256:'c'.repeat(64),
+        block_handle:'b'+'d'.repeat(64),partition_version:'markdown_source_blocks_v1',byte_start:0,
+        byte_end:new TextEncoder().encode(text).length,block_sha256:body,entry_identity:'e'.repeat(64),
+        source_ordinal:0,entry_kind:'closing_reflections',element_id:null,checkpoint_content_sha256:'f'.repeat(64)}]}]};
+    context.source_open_targets=[];context.evidence_anchor_statuses=[];context.related_recap_context_statuses=[];
+    const turn=policyHistoryTurn(1,turnId,'What should we carry forward?','The saved rehearsal left the next route unresolved.',context);
+    setupApi({...history('conversation-a',1,[]),schema:'dmb_agent_conversation_history_v2',turns:[turn]} as WorldAgentConversationHistoryResponse);
+    mountComponent();
+    const summary=await screen.findByLabelText('Saved session summary');
+    expect(summary.textContent).toContain('next route unresolved');
+    const link=within(summary).getByRole('link',{name:'1'});
+    expect(link.getAttribute('href')).toContain('evidence_revision=4#source-0-');
+    expect(link).toHaveAttribute('title','Gate rehearsal — notes and reflections · Closing reflections');
+    expect(summary.querySelector('blockquote')).toBeNull();
+    expect(screen.queryByText(/invalid Graph-context receipt/)).not.toBeInTheDocument();
+  });
+
   it.each([false,true])("rehydrates source-only Build history and opens its exact passage separately from the Prompt (named=%s)", async named => {
     const context = await planGraphContext("graph_grounded");
     const { plan_basis: _basis, plan_context_policy: _policy, playable_target: _target, ...receipt } = context.receipt;

@@ -68,7 +68,7 @@ def test_zero_graph_source_reaches_real_writer_completion_and_reopen(corpus, mon
     sections=frame['native_source_sections']['sections']
     assert len(sections)==1 and sections[0]['text']=='## Accounts\r\nA sleeping fox lies beneath the black arch.\r\n'
     assert 'source_view_sha256' not in json.dumps(frame) and 'query_terms' not in json.dumps(frame)
-    payload={'schema':'dmb_surface_evidence_answer_v4','limitations':[],'requested_detail_gaps':[],
+    payload={'schema':'dmb_surface_evidence_answer_v5','limitations':[],'requested_detail_gaps':[],
         'answer_segments':[{'kind':'native_source_claim','text':'A sleeping fox lies beneath the black arch.',
             'section_handles':[sections[0]['section_handle']]}]}
     completed=asyncio.run(writer.run(transport=WriterWire(adapter,json.dumps(payload)),api_key='synthetic-not-secret'))

@@ -42,7 +42,7 @@ export function passageChoices(completion:PassageCompletion,worldId:string,turnI
   });
   return [...passages,...pages];
 }
-export function nativeChoices(completion:SurfaceEvidenceCompletionV3,worldId:string,turnId:string,segmentIndex:number):CitationChoice[] {
+export function nativeChoices(completion:Pick<SurfaceEvidenceCompletionV3,"native_source_citations">,worldId:string,turnId:string,segmentIndex:number):CitationChoice[] {
   return completion.native_source_citations.flatMap((citation,index)=>citation.segment_index!==segmentIndex ? [] : [{
     key:`section:${index}`,number:index+1,title:`${citation.source_name} · ${citation.section_title}`,
     label:`${citation.source_name} · ${citation.section_title}`,kind:'section' as const,load:async()=>{

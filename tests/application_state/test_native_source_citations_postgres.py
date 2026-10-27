@@ -8,7 +8,7 @@ import pytest
 
 from application_state.agent_conversation import AgentConversationService
 from application_state.agent_conversation import types as t
-from application_state.agent_conversation.surface_evidence_answer import SELECTOR_POLICY
+from application_state.agent_conversation.surface_evidence_answer import PLAN_POLICY as SELECTOR_POLICY
 from tests.test_plan_jev_dispatch import plan_adapter  # noqa: F401
 from tests.test_plan_jev_writer import stage_graph,WriterWire
 from tests.application_state import test_native_source_catalog_postgres as catalogs

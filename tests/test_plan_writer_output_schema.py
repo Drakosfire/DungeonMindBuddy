@@ -14,7 +14,7 @@ from application_state.agent_conversation.plan_writer_output_schema import (
 from application_state.agent_conversation.rules_authority_plan_packet import (
     PlanRulesEvidenceFrameV1,
 )
-from application_state.agent_conversation.surface_evidence_answer import SELECTOR_POLICY
+from application_state.agent_conversation.surface_evidence_answer import PLAN_POLICY as SELECTOR_POLICY
 
 
 def frame():
@@ -158,7 +158,10 @@ def test_empty_exposure_removes_only_its_impossible_variant(domain, kind):
     ]
     kinds = {v["properties"]["kind"]["const"] for v in variants}
     assert kind not in kinds and "proposal" in kinds
-    assert len(kinds) == 4
+    expected = {"graph_claim", "source_passage_claim", "native_source_claim",
+                "authored_excerpt", "session_summary", "proposal"} - {kind}
+    if domain == "authored": expected.remove("session_summary")
+    assert kinds == expected
 
 
 def test_schema_is_exact_strict_and_does_not_mutate_or_add_prose_limits():
@@ -170,7 +173,7 @@ def test_schema_is_exact_strict_and_does_not_mutate_or_add_prose_limits():
     Draft202012Validator.check_schema(schema)
     assert output_format(f, r) == {
         "type": "json_schema",
-        "name": "plan_evidence_selectors_v1",
+        "name": "plan_evidence_selectors_v2",
         "schema": schema,
         "strict": True,
     }
@@ -226,3 +229,30 @@ def test_ineligible_passage_text_does_not_offer_a_source_claim():
     assert not any(
         v["properties"]["kind"]["const"] == "source_passage_claim" for v in variants
     )
+
+
+def test_session_summary_schema_cannot_select_plan_or_unexposed_sources():
+    schema = output_schema(frame(), rules())
+    accepted = answer({"kind":"session_summary", "text":"Saved notes suggest a route remains open.", "selection_ids":["a-note"]})
+    Draft202012Validator(schema).validate(accepted)
+    for selections in ([], ["a-current"], ["foreign"]):
+        rejected = deepcopy(accepted)
+        rejected["answer_segments"][0]["selection_ids"] = selections
+        with pytest.raises(ValidationError): Draft202012Validator(schema).validate(rejected)
+    f = frame(); f["session_evidence"] = []
+    with pytest.raises(ValidationError): Draft202012Validator(output_schema(f,rules())).validate(accepted)
+
+
+def test_retained_v4_producer_format_is_verified_without_becoming_a_current_execution_option():
+    from pathlib import Path
+    from application_state.agent_conversation.plan_writer_output_schema import verify_format
+    frozen=json.loads((Path(__file__).parent/'fixtures/plan_writer_selector_v1_format.json').read_text())
+    f=frozen['producer_frame'];body={'text':{'format':frozen['producer_format']}}
+    verify_format(body,f,rules())
+    with pytest.raises(ValueError): output_format(f,rules())
+    changed=deepcopy(body)
+    changed['text']['format']['schema']['properties']['answer_segments']['items']['anyOf'].append(
+        {'type':'object','properties':{'kind':{'const':'session_summary'}}})
+    with pytest.raises(ValueError): verify_format(changed,f,rules())
+    current=frame()
+    with pytest.raises(ValueError): verify_format(body,current,rules())
