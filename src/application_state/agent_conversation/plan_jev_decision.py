@@ -48,11 +48,20 @@ def verify_input(turn, auth, proof):
     parent, raw = proof["parent_request_json"], proof["request_json"]
     if not isinstance(parent, str) or not isinstance(raw, str):
         raise ValueError("Plan decision request proof must carry exact serialized bytes")
-    request = RetrievalDecisionInput.model_validate(strict_json(parent))
+    semantic = isinstance(auth, t.PlanRequestedWorkAuthorizedV1)
+    if semantic:
+        from .plan_authoring import PlanRequestedWorkInputV1, validate_requested_work_wire
+        if not isinstance(execution.policy, t.PlanAuthoringPolicyV1):
+            raise ValueError('Plan destination decision requires its frozen authoring policy')
+        request = PlanRequestedWorkInputV1.model_validate(strict_json(parent))
+        if request.target_capture_sha256 != execution.policy.plan_authoring_capture_sha256:
+            raise ValueError('Plan semantic target differs from its frozen capture')
+    else:
+        request = RetrievalDecisionInput.model_validate(strict_json(parent))
     if (request.digest != auth.parent_request_sha256 or request.request_id != auth.decision_request_id
             or request.question != turn.user_text or request.parent_attempt_id != auth.provider_attempt_id
             or request.scope_sha256 != scope_digest(turn)
-            or request.revision != receipt.graph_authority.graph_revision
+            or (not semantic and request.revision != receipt.graph_authority.graph_revision)
             or sha256(raw.encode()).hexdigest() != auth.envelope_sha256
             or (auth.provider, auth.model, auth.api_mode) != (PROVIDER, MODEL, "decision")
             or auth.serializer_version != "typesafe-sdk-json-v1"
@@ -60,7 +69,10 @@ def verify_input(turn, auth, proof):
             or auth.included_evidence_ref_ids or auth.included_graph_event_ids
             or auth.included_source_read_event_ids):
         raise ValueError("Plan Jev prepared request differs from its actual owner/authorization")
-    validate_wire_body(request, raw.encode())
+    if semantic:
+        validate_requested_work_wire(request, raw.encode())
+    else:
+        validate_wire_body(request, raw.encode())
     return request
 
 
@@ -99,17 +111,26 @@ def verify_selection(turn, event, proof, trace):
     if len(captures) != 1 or captures[0].get("text") != raw:
         raise ValueError("Plan decision result differs from exact protected SDK capture")
     result = DecisionResult.model_validate(strict_json(raw))
-    selected = decode_selection(request, result)
-    validate_selection(request, selected, expected_request_sha256=auth.parent_request_sha256,
-        current_scope_sha256=scope_digest(turn), current_revision=receipt.graph_authority.graph_revision,
-        current_parent_attempt_id=auth.provider_attempt_id)
+    semantic = isinstance(event, t.PlanRequestedWorkSelectedV1)
+    if semantic != isinstance(auth, t.PlanRequestedWorkAuthorizedV1):
+        raise ValueError('Plan decision kind differs from its actual producer')
+    if semantic:
+        from .plan_authoring import decode_requested_work_decision
+        selected = decode_requested_work_decision(request, result)
+        if (event.requested_work != selected or event.target_capture_sha256 != request.target_capture_sha256):
+            raise ValueError('Plan destination differs from its exact typed result or capture')
+    else:
+        selected = decode_selection(request, result)
+        validate_selection(request, selected, expected_request_sha256=auth.parent_request_sha256,
+            current_scope_sha256=scope_digest(turn), current_revision=receipt.graph_authority.graph_revision,
+            current_parent_attempt_id=auth.provider_attempt_id)
     observation = result.observation
     if (event.context_receipt_sha256 != receipt.context_receipt_sha256
             or event.execution_policy_sha256 != execution.execution_policy_sha256
             or event.decision_request_id != request.request_id
             or event.controller_envelope_sha256 != auth.envelope_sha256
             or event.parent_request_sha256 != request.digest
-            or event.operation != selected.operation or tuple(event.selected_handles) != selected.selected_handles
+            or (not semantic and (event.operation != selected.operation or tuple(event.selected_handles) != selected.selected_handles))
             or event.actual_input_tokens != observation.input_tokens
             or event.actual_output_tokens != observation.output_tokens):
         raise ValueError("Plan selection/usage differs from its exact typed producer result")
@@ -119,9 +140,11 @@ def validate_decision_phases(execution):
     from . import types as t
     active = isinstance(execution.policy, t.PlanJevRetrievalPolicyV1)
     if not active:
-        if any(isinstance(e, (t.PlanJevRetrievalSelectionV1, t.PlanJevProviderAuthorizedV1, t.PlanJevWriterAuthorizedV1)) for e in execution.events):
+        if any(isinstance(e, (t.PlanRequestedWorkSelectedV1, t.PlanJevRetrievalSelectionV1, t.PlanJevProviderAuthorizedV1, t.PlanJevWriterAuthorizedV1)) for e in execution.events):
             raise ValueError("Plan Jev events require their frozen Plan policy")
         return
+    intent = None
+    semantic_policy = isinstance(execution.policy, t.PlanAuthoringPolicyV1)
     auth = None
     outcome = None
     selected = None
@@ -134,6 +157,9 @@ def validate_decision_phases(execution):
             if auth is not None and selected is None:
                 raise ValueError("Plan controller must settle its decision before another provider")
             if identity == execution.policy.provider_roles.controller.identity():
+                semantic_auth = isinstance(event, t.PlanRequestedWorkAuthorizedV1)
+                if semantic_auth != (semantic_policy and intent is None):
+                    raise ValueError('Plan destination must be decided exactly once before retrieval')
                 if (writer is not None or selected is not None and selected.operation == "finish_retrieval"
                         or not isinstance(event, t.PlanJevProviderAuthorizedV1)
                         or event.decision_request_id in request_ids):
@@ -141,11 +167,28 @@ def validate_decision_phases(execution):
                 request_ids.add(event.decision_request_id)
                 auth, outcome, selected = event, None, None
             else:
+                if (semantic_policy and (intent is None or intent.requested_work == 'write_current_page'
+                        and intent.target_capture_sha256 is None)):
+                    raise ValueError('Plan writer lacks a resolved destination and captured edit target')
                 if selected is None or selected.operation != "finish_retrieval" or not isinstance(event, t.PlanJevWriterAuthorizedV1):
                     raise ValueError("Plan writer requires an explicit completed retrieval finish")
                 writer = event.provider_attempt_id
         elif isinstance(event, t.ProviderOutcomeEventV1) and auth is not None and event.provider_attempt_id == auth.provider_attempt_id:
             outcome = event
+        elif isinstance(event, t.PlanRequestedWorkSelectedV1):
+            if (not semantic_policy or intent is not None or not isinstance(auth, t.PlanRequestedWorkAuthorizedV1)
+                    or outcome is None or outcome.outcome != 'response_received'
+                    or outcome.response_sha256 not in (None, event.controller_response_sha256)
+                    or event.controller_attempt_id != auth.provider_attempt_id
+                    or event.decision_request_id != auth.decision_request_id
+                    or event.parent_request_sha256 != auth.parent_request_sha256
+                    or event.controller_envelope_sha256 != auth.envelope_sha256
+                    or event.context_receipt_sha256 != execution.context_receipt_sha256
+                    or event.execution_policy_sha256 != execution.execution_policy_sha256
+                    or event.target_capture_sha256 != execution.policy.plan_authoring_capture_sha256):
+                raise ValueError('Plan destination lacks its unique acknowledged controller and frozen target')
+            intent = event
+            auth, outcome = None, None
         elif isinstance(event, t.PlanJevRetrievalSelectionV1):
             if (auth is None or selected is not None or writer is not None
                     or outcome is None or outcome.outcome != "response_received"

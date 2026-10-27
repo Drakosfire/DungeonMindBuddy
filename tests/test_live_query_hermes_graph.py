@@ -963,8 +963,8 @@ def test_graph_tool_error_events_are_typed_errors_not_abstention() -> None:
         ),
         scope=scope,
     )
-    assert recovered_state == "grounded"
-    assert recovered_answer.startswith("Tripod")
+    assert recovered_state == "error"
+    assert recovered_answer == EXECUTION_ERROR_ANSWER
 
 
 def test_scope_mismatch_events_are_redacted_from_serialized_response(
@@ -1298,8 +1298,8 @@ def test_ordered_event_citation_matrix() -> None:
             _tool_event(source_anchor_ids=["anchor:recovered"]),
         ]
     )
-    assert recovered["grounding"]["state"] == "grounded"
-    assert [c["anchor_id"] for c in recovered["citations"]] == ["anchor:recovered"]
+    assert recovered["grounding"]["state"] == "error"
+    assert recovered["citations"] == []
     assert all(c["anchor_id"] != "anchor:FROM_ERROR_ONLY" for c in recovered["citations"])
 
     failed = _product_response_for_events(
@@ -1842,7 +1842,7 @@ def test_integrity_failure_still_fatal_with_claims(tmp_path: Path) -> None:
     assert response["diagnostics"]["error_code"] == "integrity_failure"
 
 
-def test_cardinality_error_recovered_by_later_evidence_still_works() -> None:
+def test_cardinality_error_without_session_cannot_use_anchor_fallback() -> None:
     _, scope = build_hermes_graph_turn_request(
         question="q",
         graph_envelope=READY_ENVELOPE,
@@ -1857,8 +1857,8 @@ def test_cardinality_error_recovered_by_later_evidence_still_works() -> None:
         ),
         scope=scope,
     )
-    assert recovered_state == "grounded"
-    assert recovered_answer.startswith("Tripod")
+    assert recovered_state == "error"
+    assert recovered_answer == EXECUTION_ERROR_ANSWER
 
 
 def test_expand_steer_mentions_neighborhood_for_multi_entity() -> None:
@@ -3331,3 +3331,225 @@ def test_surface_context_unsupported_on_live_backend(tmp_path: Path) -> None:
             ),
         )
     assert exc.value.code == "surface_context_unsupported"
+
+
+def _q01_events():
+    """Captured Q01 shapes, with synthetic identities and no retained story text."""
+    overview = _tool_event(
+        retrieval_schema="dmb_graph_tool_overview_v1", outcome="enough",
+        source_anchor_ids=[], matched_node_ids=[], relationship_ids=[],
+    )
+    read = _tool_event(
+        tool_name="read_graph_source", retrieval_schema="dmb_read_graph_source_batch_v1",
+        outcome=None, source_anchor_ids=["anchor:one", "anchor:two"],
+    )
+    return [_cardinality_error_event("parent_evidence_bundle_required"), overview, read]
+
+
+def test_q01_recovery_reaches_answer_validation_and_preserves_failure(tmp_path):
+    events = _q01_events()
+    response = run_hermes_graph_query(
+        text="Where is Tripod?", packet=PACKET, graph_envelope=_FACTUAL_CLAIM_ENVELOPE,
+        agent_thread_id="q01", turn_id="recovery", root=tmp_path,
+        agent_runtime=_EchoRetrievalSessionHost(
+            final_response="Tripod is at the North Gate.", tool_events=events,
+        ),
+    )
+    assert response["answer"] == "Tripod is at the North Gate."
+    assert response["grounding"]["state"] == "grounded"
+    assert "assertion:loc" in response["grounding"]["accepted_claim_ids"]
+    assert response["agent_trace"]["validator_path"] == "graph_context_synthesis"
+    assert "parent_evidence_bundle_required" in response["grounding"]["diagnostic_codes"]
+    # Recovery does not mutate or remove the failed attempt.
+    assert events[0].state == "error"
+    serialized = json.dumps(response["agent_trace"])
+    assert '"state": "error"' in serialized
+    assert "parent_evidence_bundle_required" in serialized
+
+
+def test_q01_recovery_without_claims_does_not_ground_prose_or_anchors(tmp_path):
+    response = run_hermes_graph_query(
+        text="q", packet=PACKET, graph_envelope=EMPTY_CLAIM_ENVELOPE,
+        agent_thread_id="q01", turn_id="unsupported", root=tmp_path,
+        agent_runtime=_EchoRetrievalSessionHost(final_response="Invented fact", tool_events=_q01_events()),
+    )
+    assert response["grounding"]["state"] == "abstained"
+    assert response["answer"] == ABSTENTION_ANSWER
+    assert response["grounding"]["accepted_claim_ids"] == []
+    assert response["citations"] == []
+
+
+@pytest.mark.parametrize("code", ["integrity_failure", "scope_denied", "unknown_failure", "transient_failure"])
+@pytest.mark.parametrize("error_first", [True, False])
+def test_later_success_never_clears_authority_or_unknown_errors(tmp_path, code, error_first):
+    error = _cardinality_error_event(code)
+    success = _tool_event(source_anchor_ids=["anchor:later"])
+    events = [error, success] if error_first else [success, error]
+    response = run_hermes_graph_query(
+        text="q", packet=PACKET, graph_envelope=_FACTUAL_CLAIM_ENVELOPE,
+        agent_thread_id="fatal", turn_id=f"{code}-{error_first}", root=tmp_path,
+        agent_runtime=_EchoRetrievalSessionHost(final_response="Discard", tool_events=events),
+    )
+    assert response["grounding"]["state"] == "error"
+    assert response["diagnostics"]["error_code"] == code
+    assert response["answer"] == EXECUTION_ERROR_ANSWER
+
+
+@pytest.mark.parametrize("outcome", [None, "denied", "unavailable", "invented"])
+def test_refused_or_unknown_retry_does_not_recover(tmp_path, outcome):
+    events = _q01_events()
+    events[1] = _tool_event(retrieval_schema="dmb_graph_tool_overview_v1", outcome=outcome)
+    response = run_hermes_graph_query(
+        text="q", packet=PACKET, graph_envelope=_FACTUAL_CLAIM_ENVELOPE,
+        agent_thread_id="retry", turn_id=str(outcome), root=tmp_path,
+        agent_runtime=_EchoRetrievalSessionHost(final_response="Discard", tool_events=events),
+    )
+    assert response["grounding"]["state"] == "error"
+    assert response["diagnostics"]["error_code"] == "parent_evidence_bundle_required"
+
+
+@pytest.mark.parametrize("field,value", [
+    ("world_id", "foreign"), ("campaign_id", "foreign"),
+    ("revision_id", "stale"), ("admissibility", "player"),
+    ("focus", {"kind": "world"}), ("scope_mode", "world"),
+])
+def test_recovery_requires_exact_session_scope(field, value):
+    from graph_memory.interaction.session import GraphRetrievalSession, SessionSnapshot
+    _, scope = build_hermes_graph_turn_request(question="q", graph_envelope=READY_ENVELOPE, root=Path("/tmp"))
+    snapshot = SessionSnapshot(
+        world_id=scope.world_id, campaign_id=scope.campaign_id, revision_id=scope.revision_id,
+        admissibility=scope.admissibility, focus=scope.focus, scope_mode=scope.scope_mode,
+    ).model_copy(update={field: value})
+    session = GraphRetrievalSession(snapshot=snapshot, question="q")
+    state, answer, _, _, error, _ = classify_hermes_graph_result(
+        _ok_result(events=_q01_events()), scope=scope, retrieval_session=session,
+    )
+    assert state == "error"
+    assert answer == EXECUTION_ERROR_ANSWER
+    assert error == "hermes_grounding_contract_error"
+
+
+def test_rejection_with_mixed_integrity_diagnostic_is_fatal(tmp_path):
+    events = _q01_events()
+    events[0] = replace(events[0], attributes={
+        **events[0].attributes,
+        "diagnostic_codes": ["parent_evidence_bundle_required", "integrity_failure"],
+    })
+    response = run_hermes_graph_query(
+        text="q", packet=PACKET, graph_envelope=_FACTUAL_CLAIM_ENVELOPE,
+        agent_thread_id="mixed", turn_id="mixed", root=tmp_path,
+        agent_runtime=_EchoRetrievalSessionHost(final_response="Discard", tool_events=events),
+    )
+    assert response["grounding"]["state"] == "error"
+
+
+def test_q01_without_typed_session_stays_fail_closed():
+    _, scope = build_hermes_graph_turn_request(question="q", graph_envelope=READY_ENVELOPE, root=Path("/tmp"))
+    state, _, _, _, error, _ = classify_hermes_graph_result(_ok_result(events=_q01_events()), scope=scope)
+    assert state == "error"
+    assert error == "parent_evidence_bundle_required"
+
+
+def _successful_batch_event(**metadata_overrides):
+    metadata = {
+        "sourceReadCount": 2, "sourceReadTelemetryTruncated": False,
+        "sourceRead0": {"knownSourceReadSchema": "true", "opened": "true", "graph_revision": "revision:resolved-server", "outcome": "enough"},
+        "sourceRead1": {"knownSourceReadSchema": "true", "opened": "true", "graph_revision": "revision:resolved-server", "outcome": "enough"},
+        **metadata_overrides,
+    }
+    event = _tool_event(tool_name="read_graph_source", retrieval_schema="dmb_read_graph_source_batch_v1", outcome=None,
+                        source_anchor_ids=["anchor:one", "anchor:two"], matched_node_ids=[])
+    return replace(event, attributes={**event.attributes, "bounded_ids": metadata})
+
+
+def test_q01_success_count_is_invocations_not_evidence_ids_or_source_count(tmp_path):
+    events = _q01_events()[1:2] + [_successful_batch_event()]
+    response = run_hermes_graph_query(
+        text="q", packet=PACKET, graph_envelope=EMPTY_CLAIM_ENVELOPE,
+        agent_thread_id="counts", turn_id="counts", root=tmp_path,
+        agent_runtime=_EchoRetrievalSessionHost(final_response="Unsupported prose", tool_events=events),
+    )
+    assert response["grounding"]["successful_tool_count"] == 2
+    # Execution success cannot turn an unsupported answer into a grounded one.
+    assert response["grounding"]["state"] == "abstained"
+    assert response["answer"] == ABSTENTION_ANSWER
+    assert response["citations"] == []
+
+
+@pytest.mark.parametrize("outcome,expected", [("enough",1),("partial",1),("truncated",1),("empty",1),
+                                               ("denied",0),("unavailable",0),(None,0),("unknown",0)])
+def test_overview_success_count_does_not_require_evidence(outcome, expected):
+    event = _tool_event(retrieval_schema="dmb_graph_tool_overview_v1", outcome=outcome,
+                        matched_node_ids=[], source_anchor_ids=[], relationship_ids=[])
+    response = _product_response_for_events([event])
+    assert response["grounding"]["successful_tool_count"] == expected
+
+
+@pytest.mark.parametrize("overrides", [
+    {"sourceReadCount":0}, {"sourceReadCount":True}, {"sourceReadCount":9},
+    {"sourceReadTelemetryTruncated":True}, {"sourceRead1":None},
+    {"sourceRead1":{"knownSourceReadSchema":"true","opened":"true","graph_revision":"stale","outcome":"enough"}},
+    {"sourceRead1":{"knownSourceReadSchema":"false","opened":"true","graph_revision":"revision:resolved-server","outcome":"enough"}},
+    {"sourceRead1":{"knownSourceReadSchema":"true","opened":"true","graph_revision":"revision:resolved-server","outcome":"denied"}},
+    {"sourceRead1":{"knownSourceReadSchema":"true","opened":"true","graph_revision":"revision:resolved-server","outcome":[]}},
+])
+def test_incomplete_or_failed_batch_cannot_report_full_success(overrides):
+    assert _product_response_for_events([_successful_batch_event(**overrides)])["grounding"]["successful_tool_count"] == 0
+
+
+@pytest.mark.parametrize("field,value", [("state","start"),("state","error"),
+    ("world_id",None),("world_id","foreign"),("campaign_id","foreign"),
+    ("revision_pin","stale"),("admissibility","player"),("focus",None),
+    ("retrieval_schema","unknown")])
+def test_scope_or_lifecycle_failures_are_not_successes(field,value):
+    event = _tool_event(**{field:value})
+    assert _product_response_for_events([event])["grounding"]["successful_tool_count"] == 0
+
+
+@pytest.mark.parametrize("schema", ["dmb_read_graph_source_batch_v1", "dmb_internal_read_graph_source_batch_v2"])
+def test_successful_batch_counts_once_in_both_current_transport_forms(schema):
+    event = _successful_batch_event()
+    event = replace(event, attributes={**event.attributes, "retrieval_schema":schema})
+    assert _product_response_for_events([event])["grounding"]["successful_tool_count"] == 1
+
+
+def test_single_source_read_counts_one_but_denial_counts_zero():
+    event = _successful_batch_event(sourceReadCount=1)
+    event = replace(event, attributes={**event.attributes,
+        "retrieval_schema":"dmb_world_graph_source_anchor_read_v1", "outcome":"enough"})
+    assert _product_response_for_events([event])["grounding"]["successful_tool_count"] == 1
+    denied = replace(event, attributes={**event.attributes, "outcome":"denied"})
+    assert _product_response_for_events([denied])["grounding"]["successful_tool_count"] == 0
+
+
+def test_success_count_does_not_double_count_start_and_completion():
+    completion = _q01_events()[1]
+    start = replace(completion, state="start")
+    assert _product_response_for_events([start,completion])["grounding"]["successful_tool_count"] == 1
+
+
+@pytest.mark.parametrize("opened", [None,"false"])
+def test_unopened_source_batch_does_not_report_success(opened):
+    event = _successful_batch_event()
+    metadata = dict(event.bounded_ids)
+    row = dict(metadata["sourceRead1"])
+    if opened is None:
+        row.pop("opened")
+    else:
+        row["opened"] = opened
+    metadata["sourceRead1"] = row
+    event = replace(event, attributes={**event.attributes,"bounded_ids":metadata})
+    assert _product_response_for_events([event])["grounding"]["successful_tool_count"] == 0
+
+
+def test_empty_source_read_is_not_an_opened_source_success():
+    event = _tool_event(tool_name="read_graph_source", retrieval_schema="dmb_world_graph_source_anchor_read_v1",
+                        outcome="empty", matched_node_ids=[], source_anchor_ids=[])
+    assert _product_response_for_events([event])["grounding"]["successful_tool_count"] == 0
+
+
+
+def test_single_read_without_opened_telemetry_cannot_report_success():
+    event = _tool_event(tool_name="read_graph_source", retrieval_schema="dmb_world_graph_source_anchor_read_v1",
+                        outcome="enough", matched_node_ids=[], source_anchor_ids=["anchor:one"])
+    assert _product_response_for_events([event])["grounding"]["successful_tool_count"] == 0

@@ -435,18 +435,27 @@ __all__ = [
 ]
 
 
-def project_graph_read_tools(definitions: list[dict[str, Any]], profile: str) -> list[dict[str, Any]]:
+def project_graph_read_tools(
+    definitions: list[dict[str, Any]], profile: str, *, parent_broker_available: bool,
+) -> list[dict[str, Any]]:
     """Project copies for one trusted consumer, leaving the global catalog intact."""
     if not isinstance(profile, str) or profile not in ("world_graph", "governed_build"):
         raise ValueError("invalid Graph read profile")
     projected = deepcopy(definitions)
-    if profile == "governed_build":
-        return projected
     for definition in projected:
         function = definition.get("function", definition)
         if function.get("name") != "expand_graph_retrieval":
             continue
         schema = function["parameters"]
+        if not parent_broker_available:
+            schema["properties"].pop("includeSources", None)
+            schema["required"] = [
+                key for key in schema.get("required", []) if key != "includeSources"
+            ]
+        if profile == "governed_build":
+            if not parent_broker_available:
+                raise ValueError("governed Build requires the parent broker")
+            continue
         properties = schema["properties"]
         operations = properties["operation"]["enum"]
         allowed = ["object", "neighborhood", "search", "support"]
@@ -461,9 +470,12 @@ def project_graph_read_tools(definitions: list[dict[str, Any]], profile: str) ->
             "Always pass the provided retrievalSessionId. Scope and revision are server-enforced. "
             "object/support require exactly one node target; neighborhood requires 1–8 seed nodes; "
             "search allows 0–8 seeds, with targets=[] searching the frozen scope. "
-            "For substantive object questions prefer includeSources=true: the parent opens admitted "
-            "sources and returns a compact dmb_graph_evidence_packet_v1. Other operations do not "
-            "support this opt-in. Use original assertionId/edgeId and subject IDs for claims; "
+            + ("For substantive object questions prefer includeSources=true: the parent opens admitted "
+             "sources and returns a compact dmb_graph_evidence_packet_v1. Other operations do not "
+             "support this opt-in. " if parent_broker_available else
+             "Source bundles are unavailable here; use object expansion then read_graph_source "
+             "for admitted anchors. ")
+            + "Use original assertionId/edgeId and subject IDs for claims; "
             "evidence handles link exact source text. Follow the answer schema and copy evidenceRefIds "
             "exactly when required. Open supporting source anchors before answering. Preserve belief "
             "and conditional language; a role label does not establish organizational membership. "

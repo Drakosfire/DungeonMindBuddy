@@ -91,7 +91,9 @@ class NativeSourceNavigator:
             if entry[1].source_artifact_id not in self.source_ownership))
         if unknown:
             from application_state.source.service import owned_source_artifacts
-            owned = owned_source_artifacts(source_artifact_ids=unknown, world_id=turn.world_id)
+            authority = self._bound_authority()
+            owned = frozenset().union(*(owned_source_artifacts(source_artifact_ids=unknown, world_id=world)
+                for world in dict.fromkeys((authority.managed_world_id, authority.native_world_id))))
             self.source_ownership.update((identity, identity in owned) for identity in unknown)
         for handle, entry in self.sources.items():
             if not self.source_ownership[entry[1].source_artifact_id] and handle not in self.attempted_sources:
@@ -137,13 +139,18 @@ class NativeSourceNavigator:
         if selected.operation != 'select_candidates' or not set(handles) <= set(selected.selected_handles):
             raise NativeSourceUnavailable('source_section_not_selected')
 
-    def _access(self,entry):
+    def _bound_authority(self):
         turn = self.adapter.fence.renewer._turn
         authority = turn.graph_context_receipt.graph_authority
         binding = resolve_managed_world_binding(turn.world_id)
-        if (binding.managed_world_id != turn.world_id or binding.native_world_id != authority.native_world_id
+        if (authority.managed_world_id != turn.world_id or binding.managed_world_id != turn.world_id
+                or binding.native_world_id != authority.native_world_id
                 or binding.binding_version != authority.binding_version):
             raise NativeSourceUnavailable('source_navigation_unavailable')
+        return authority
+
+    def _access(self,entry):
+        authority = self._bound_authority()
         projection = WorldGraphProjectionRequestV2.model_validate({'world_id':authority.native_world_id,
             'campaign_id':None,'admissibility':'gm','scope_mode':'world_cross_campaign',
             'focus':{'kind':'none','session_id':None},'revision_pin':authority.graph_revision})
@@ -186,6 +193,7 @@ class NativeSourceNavigator:
                     binding_version=turn.graph_context_receipt.graph_authority.binding_version,
                     origin_proof_json=origin.proof_json,origin_proof_sha256=origin.proof_sha256)
                 self._commit('authorize_native_source_navigation',authorization=nav)
+                self._bound_authority()
                 turn,_,material = self._commit('materialize_native_source_catalog',navigation_id=nav.navigation_id,event_id=uuid4())
                 catalog = turn.graph_context_execution.events[-1]
                 self.catalogs[handle] = catalog

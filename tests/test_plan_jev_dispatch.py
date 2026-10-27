@@ -4,6 +4,7 @@ from dataclasses import replace
 from hashlib import sha256
 import json
 from uuid import uuid4
+from types import SimpleNamespace
 
 import httpx2
 import pytest
@@ -43,6 +44,8 @@ def plan_adapter(application_state_dsn, monkeypatch):
         world_id='world:one', work=work, bootstrap=bootstrap, playable_target=None,
         submitted_intent=owner._submitted_turn_intent(request, world_id='world:one'), existing_turn=None,
         budget=request_budget(), context_read_enabled=True)
+    monkeypatch.setattr('apps.live_control_server.services.native_source_navigation.resolve_managed_world_binding',
+        lambda world: SimpleNamespace(managed_world_id='world:one', native_world_id='native-park', binding_version=1))
     yield adapter
     if adapter.fence is not None: adapter.fence.renewer.stop_and_join()
 

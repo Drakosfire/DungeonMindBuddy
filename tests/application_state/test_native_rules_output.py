@@ -44,7 +44,7 @@ def native_case(*, graph_turn=None, base_output=None, unused=False, current_ques
         })
         owner = owner.model_copy(update={"scope": scope})
     if unused:
-        prepared_request_json = json.dumps({"messages": [{"role": "user", "content": current_question}]})
+        prepared_request_json = json.dumps({"input": [{"role": "user", "content": current_question}]})
         request_sha = sha256(prepared_request_json.encode()).hexdigest()
         refs, outputs = (), ()
     else:

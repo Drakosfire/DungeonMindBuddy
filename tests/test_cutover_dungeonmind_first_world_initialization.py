@@ -1705,3 +1705,94 @@ def test_historical_receipt_stays_readable_without_current_command_replay(native
     assert error.value.code == "already_initialized"
     assert bundle.reviewed_world_initializations.get_for_world(NATIVE_RESERVED_WORLD_ID).model_dump(mode="json") == before
     assert _counts(dsn, NATIVE_RESERVED_WORLD_ID) == counts
+
+
+@pytest.mark.integration
+def test_first_world_same_body_in_another_world_has_independent_source_identity(
+    native_first_world_client,
+) -> None:
+    """The global source catalog must not confuse equal bytes with one source."""
+    from apps.live_control_server.integrations.dungeonmind.world_graph_initialization_adapter import _build_command
+
+    client, _world_root, repo, dsn = native_first_world_client
+    _run_id, plan = _prepare_native_plan(client, repo)
+    request = _sealed_native_request(repo, plan)
+    command = _build_command(request, requested_initialized_at=datetime.now(UTC))
+    bundle = _bundle(dsn)
+    original_artifact = command.source_artifacts[0]
+    original_revision = command.source_revisions[0]
+    other_artifact_id = 'artifact:other-world-same-bytes'
+    other_world_id = 'world:other-same-bytes'
+    # An already-persisted bare token is authoritative and must stay untouched.
+    other_revision = original_revision.model_copy(update={
+        'source_revision_id': request.source_revision_token,
+        'source_artifact_id': other_artifact_id,
+    })
+    other_artifact = original_artifact.model_copy(update={
+        'source_artifact_id': other_artifact_id, 'world_id': other_world_id,
+        'current_revision_id': other_revision.source_revision_id,
+    })
+    bundle.sources.put_artifact(other_artifact)
+    bundle.sources.put_revision(other_revision)
+    first = client.post(FIRST_WORLD_CONFIRM_URL, json=_first_world_confirm_body(plan))
+    assert first.status_code == 200, first.text
+    published = first.json()['committedRevisionId']
+    mapped = bundle.sources.list_revisions(original_artifact.source_artifact_id)
+    assert [row.source_revision_id for row in mapped] == [
+        f'{request.source_revision_token}::{original_artifact.source_artifact_id}'
+    ]
+    assert mapped[0].content_sha256 == other_revision.content_sha256
+    assert bundle.sources.get_revision(other_revision.source_revision_id) == other_revision
+    replay = client.post(FIRST_WORLD_CONFIRM_URL, json=_first_world_confirm_body(plan))
+    assert replay.status_code == 200, replay.text
+    assert replay.json()['committedRevisionId'] == published
+    assert _counts(dsn, NATIVE_RESERVED_WORLD_ID)['revisions'] == 1
+    assert bundle.sources.list_revisions(original_artifact.source_artifact_id) == mapped
+
+
+@pytest.mark.integration
+def test_first_world_conflict_without_receipt_preserves_provider_diagnostic(
+    native_first_world_client, monkeypatch,
+) -> None:
+    from apps.live_control_server.integrations.dungeonmind.world_graph_initialization_adapter import DungeonMindWorldGraphInitializationAdapter
+    from dungeonmind.domain.errors import IdempotencyConflictError
+    from dungeonmind.application import reviewed_world_initialization
+
+    client, _world_root, repo, dsn = native_first_world_client
+    _run_id, plan = _prepare_native_plan(client, repo)
+    request = _sealed_native_request(repo, plan)
+    conflict = IdempotencyConflictError('source revision belongs to another artifact', details={'source_revision_id': 'revision:collision'})
+    def refuse(*args, **kwargs):
+        raise conflict
+    monkeypatch.setattr(reviewed_world_initialization, 'initialize_reviewed_world', refuse)
+    with pytest.raises(WorldGraphInitializationError) as caught:
+        DungeonMindWorldGraphInitializationAdapter(database_url=dsn).initialize(request)
+    assert str(caught.value) == str(conflict)
+    assert caught.value.details == conflict.details
+    assert caught.value.code == 'idempotency_conflict'
+    assert _counts(dsn, NATIVE_RESERVED_WORLD_ID)['revisions'] == 0
+
+
+@pytest.mark.integration
+def test_first_world_replay_uses_exact_persisted_unqualified_revision(native_first_world_client):
+    from types import SimpleNamespace
+    from apps.live_control_server.integrations.dungeonmind.world_graph_initialization_adapter import DungeonMindWorldGraphInitializationAdapter, _build_command
+    from apps.live_control_server.integrations.dungeonmind.world_graph_writes import _build_graph_reader
+    from dungeonmind.application.reviewed_world_initialization import initialize_reviewed_world
+
+    client, _world_root, repo, dsn = native_first_world_client
+    _run_id, plan = _prepare_native_plan(client, repo)
+    request = _sealed_native_request(repo, plan)
+    artifact_id = request.source_artifact.source_artifact_id
+    catalog = SimpleNamespace(
+        list_artifacts_for_world=lambda _: [SimpleNamespace(source_artifact_id=artifact_id)],
+        list_revisions=lambda _: [SimpleNamespace(source_revision_id=request.source_revision_token)],
+    )
+    command = _build_command(request, requested_initialized_at=datetime.now(UTC), sources=catalog)
+    bundle = _bundle(dsn)
+    original = initialize_reviewed_world(command, initialization_repository=bundle.reviewed_world_initializations, graph_reader=_build_graph_reader())
+    replay = DungeonMindWorldGraphInitializationAdapter(database_url=dsn).initialize(request)
+    assert replay.published_revision_id == original.published_revision_id
+    assert replay.command_sha256 == original.command_sha256
+    assert [r.source_revision_id for r in bundle.sources.list_revisions(artifact_id)] == [request.source_revision_token]
+    assert _counts(dsn, NATIVE_RESERVED_WORLD_ID)['revisions'] == 1

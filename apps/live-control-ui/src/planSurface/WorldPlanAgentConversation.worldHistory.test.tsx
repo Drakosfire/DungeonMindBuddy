@@ -1,4 +1,3 @@
-import { classifySurfaceComposerIntent } from "../agentInteraction/surfaceComposerIntent";
 vi.mock("../api/buildDocumentProposalApi", async original => ({
   ...await original<typeof import("../api/buildDocumentProposalApi")>(), listBuildProposals: async () => [],
 }));
@@ -1658,6 +1657,7 @@ describe("World Plan conversation consumer", () => {
     fireEvent.change(screen.getByLabelText("Message DungeonBuddy"), {
       target: { value: "Change Mira into the door keeper." },
     });
+    selectExplicitPlanChange();
     fireEvent.click(screen.getByRole("button", { name: "Propose edit" }));
     const clarification = await waitFor(() => {
       const article = document.querySelector(`article[data-plan-action-id="${clarificationId}"]`);
@@ -1691,11 +1691,13 @@ describe("World Plan conversation consumer", () => {
     fireEvent.change(screen.getByLabelText("Message DungeonBuddy"), {
       target: { value: "Write that as an image prompt." },
     });
+    selectExplicitPlanChange();
     expect(screen.getByRole("button", { name: "Propose edit" })).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Send message" })).not.toBeInTheDocument();
     fireEvent.change(screen.getByLabelText("Message DungeonBuddy"), {
       target: { value: "Her mother." },
     });
+    selectExplicitPlanChange();
     fireEvent.click(screen.getByRole("button", { name: "Propose edit" }));
     const review = await screen.findByRole("region", { name: "Change selected text" });
     expect(within(review).getByText("Before")).toBeInTheDocument();
@@ -1843,7 +1845,8 @@ describe("World Plan conversation consumer", () => {
       if (mode === "late") vi.mocked(liveApi.getWorldOwnedPlanCommittedRevision).mockImplementationOnce(() => new Promise((resolve) => { release = resolve; }));
       const before = editor.getJSON();
       fireEvent.change(screen.getByLabelText("Message DungeonBuddy"), { target: { value: "For this Plan, propose appending one cue to the opening scene, Something Is Still Moving." } });
-      fireEvent.keyDown(screen.getByLabelText("Message DungeonBuddy"), { key: "Enter" });
+      selectExplicitPlanChange();
+    fireEvent.keyDown(screen.getByLabelText("Message DungeonBuddy"), { key: "Enter" });
       if (mode === "missing") {
         expect(await screen.findByRole("alert")).toHaveTextContent("no longer matches the displayed change target");
       } else if (mode === "stale") {
@@ -1878,6 +1881,7 @@ describe("World Plan conversation consumer", () => {
     const first = render(conversationElement({ ...cardEditScope, editBridge: bridge }));
     await waitForConversationReady();
     fireEvent.change(screen.getByLabelText("Message DungeonBuddy"), { target: { value: "Revise the opening." } });
+    selectExplicitPlanChange();
     fireEvent.keyDown(screen.getByLabelText("Message DungeonBuddy"), { key: "Enter" });
     const review = await screen.findByRole("region", { name: "Change scene:arrival" });
     const expired = "Review expired after reload. This proposal was not applied; request a new proposal to review it.";
@@ -1929,6 +1933,7 @@ describe("World Plan conversation consumer", () => {
     const input = screen.getByLabelText("Message DungeonBuddy");
     const raw = kind === "discuss" ? "  What follows?  " : "  Revise the opening.  ";
     fireEvent.change(input, { target: { value: raw } });
+    if(kind==='propose')selectExplicitPlanChange();
     fireEvent.keyDown(input, { key: "Enter" });
     expect(input).toHaveValue("");
     expect(screen.getAllByRole("article", { name: "Submitted message" })).toHaveLength(1);
@@ -1961,11 +1966,13 @@ describe("World Plan conversation consumer", () => {
     const mounted = render(conversationElement({ ...cardEditScope, editBridge: bridge }));
     await waitForConversationReady();
     fireEvent.change(screen.getByLabelText("Message DungeonBuddy"), { target: { value: "Revise the old target." } });
+    selectExplicitPlanChange();
     fireEvent.keyDown(screen.getByLabelText("Message DungeonBuddy"), { key: "Enter" });
     fireEvent.click(await screen.findByRole("button", { name: "Apply to draft" }));
     expect(bridge.apply).toHaveBeenCalledTimes(1);
     mounted.rerender(conversationElement({ ...cardEditScope, editBridge: bridge, draftGeneration: 1 }));
     fireEvent.change(screen.getByLabelText("Message DungeonBuddy"), { target: { value: "Revise the new target." } });
+    selectExplicitPlanChange();
     fireEvent.keyDown(screen.getByLabelText("Message DungeonBuddy"), { key: "Enter" });
     const newApply = await screen.findByRole("button", { name: "Apply to draft" });
     const newReview = newApply.closest("section[aria-labelledby]")!;
@@ -1993,6 +2000,7 @@ describe("World Plan conversation consumer", () => {
     const mounted = render(conversationElement({ ...cardEditScope, editBridge: bridge, onSavePlan: save, savePlanEnabled: true, savedDirty: true }));
     await waitForConversationReady();
     fireEvent.change(screen.getByLabelText("Message DungeonBuddy"), { target: { value: "Revise the opening." } });
+    selectExplicitPlanChange();
     fireEvent.keyDown(screen.getByLabelText("Message DungeonBuddy"), { key: "Enter" });
     const review = await screen.findByRole("region", { name: "Change scene:arrival" });
     expect(within(review).getByRole("region", { name: "Before scene:arrival" })).toHaveTextContent("Other prose.");
@@ -2031,6 +2039,7 @@ describe("World Plan conversation consumer", () => {
     render(conversationElement({ ...cardEditScope, editBridge: bridge }));
     await waitForConversationReady();
     fireEvent.change(screen.getByLabelText("Message DungeonBuddy"), { target: { value: "Revise the opening." } });
+    selectExplicitPlanChange();
     fireEvent.keyDown(screen.getByLabelText("Message DungeonBuddy"), { key: "Enter" });
     const review = await screen.findByRole("region", { name: "Change scene:arrival" });
     fireEvent.click(within(review).getByRole("button", { name: "Discard proposal" }));
@@ -2079,6 +2088,7 @@ describe("World Plan conversation consumer", () => {
     const mounted = mountComponent(7, bridge, null, false, cardEditScope);
     await waitForConversationReady();
     fireEvent.change(screen.getByLabelText("Message DungeonBuddy"), { target: { value: "Revise the opening." } });
+    selectExplicitPlanChange();
     fireEvent.keyDown(screen.getByLabelText("Message DungeonBuddy"), { key: "Enter" });
     expect(screen.getByRole("article", { name: "Submitted message" })).toHaveTextContent("Revise the opening.");
     expect(screen.getByLabelText("Message DungeonBuddy")).toHaveValue("");
@@ -2177,31 +2187,34 @@ describe("World Plan conversation consumer", () => {
     expect(screen.getByLabelText("Message DungeonBuddy")).toHaveValue("Fresh unsent draft");
   });
   it.each([
-    ["What changes after the rescue?", "discuss"],
-    ["Tell me about Lysandra.", "discuss"],
-    ["Could we talk about making this scene shorter?", "discuss"],
-    ["Add a lantern to the warehouse scene.", "propose"],
-    ["Please rewrite the scene opening.", "propose"],
-    ["Can you make the card more concise?", "propose"],
-    ["Could you rewrite the scene opening?", "propose"],
-    ["I want you to add a sensory detail.", "propose"],
-    ["I want to add a sensory detail.", "propose"],
-    ["Could we add a choice here?", "propose"],
-    ["Why did the scene move to the warehouse?", "discuss"],
-    ["This scene needs a location.", "discuss"],
-    ["Could this include a sensory detail?", "discuss"],
-    ["Use your second idea.", "discuss"],
-    ["For this disposable synthetic Plan only, propose appending exactly this line to the selected Quiet test scene body: Optional GM cue: Ask each player what they notice first. Preserve all existing text and playable markers; make no other change.", "propose"],
-    ["Please propose appending a GM cue to this scene.", "propose"],
-    ["Could you propose to edit the scene opening?", "propose"],
-    ["Propose three ways to resolve the siege", "discuss"],
-    ["For this Plan, please propose three ways to resolve the siege.", "discuss"],
-    ["For this Plan, could you please append a GM cue?", "propose"],
-    ["For this disposable synthetic Plan only, what would appending a GM cue change?", "discuss"],
-    ["For this Plan, if we propose appending a GM cue, would that help?", "discuss"],
-    ["Should we propose appending a GM cue?", "discuss"],
-  ] as const)("routes a single composer message by its intent: %s", (message, intent) => {
-    expect(classifySurfaceComposerIntent(message)).toBe(intent);
+    "What changes after the rescue?",
+    "Tell me about Lysandra.",
+    "Could we talk about making this scene shorter?",
+    "Add a lantern to the warehouse scene.",
+    "Please rewrite the scene opening.",
+    "Can you make the card more concise?",
+    "Could you rewrite the scene opening?",
+    "I want you to add a sensory detail.",
+    "I want to add a sensory detail.",
+    "Could we add a choice here?",
+    "Why did the scene move to the warehouse?",
+    "This scene needs a location.",
+    "Could this include a sensory detail?",
+    "Use your second idea.",
+    "For this disposable synthetic Plan only, propose appending exactly this line to the selected Quiet test scene body: Optional GM cue: Ask each player what they notice first. Preserve all existing text and playable markers; make no other change.",
+    "Please propose appending a GM cue to this scene.",
+    "Could you propose to edit the scene opening?",
+    "Propose three ways to resolve the siege",
+    "For this Plan, please propose three ways to resolve the siege.",
+    "For this Plan, could you please append a GM cue?",
+    "For this disposable synthetic Plan only, what would appending a GM cue change?",
+    "For this Plan, if we propose appending a GM cue, would that help?",
+    "Should we propose appending a GM cue?",
+])("leaves ordinary message destination to the semantic Agent: %s",async message=>{
+    setupApi(history("conversation-a",1,[]));render(conversationElement({editBridge:{}}));await waitForConversationReady();
+    fireEvent.change(screen.getByRole('textbox',{name:'Message DungeonBuddy'}),{target:{value:message}});
+    expect(screen.getByRole('button',{name:'Send message'})).toBeInTheDocument();
+    expect(screen.queryByRole('button',{name:'Propose edit'})).not.toBeInTheDocument();
   });
 
   it.each([
@@ -2255,6 +2268,7 @@ describe("World Plan conversation consumer", () => {
     render(conversationElement({ editBridge: { capture, apply }, imagePromptHost: { open, unavailableReason: null } }));
     await waitForConversationReady();
     fireEvent.change(screen.getByRole("textbox", { name: "Message DungeonBuddy" }), { target: { value: message } });
+    selectExplicitPlanChange();
     expect(screen.getByRole("button", { name: "Propose edit" })).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Send message" })).not.toBeInTheDocument();
     expect(capture).not.toHaveBeenCalled();
@@ -2271,8 +2285,9 @@ describe("World Plan conversation consumer", () => {
     const input = screen.getByRole("textbox", { name: "Message DungeonBuddy" });
     fireEvent.change(input, { target: { value: message } });
     expect(screen.getByRole("button", { name: "Send message" })).toBeInTheDocument();
-    fireEvent.click(screen.getByText("Question · Change"));
+    fireEvent.click(screen.getByText("Automatic · Change"));
     fireEvent.click(screen.getByRole("button", { name: "Request a Plan change" }));
+    selectExplicitPlanChange();
     expect(screen.getByRole("button", { name: "Propose edit" })).toBeInTheDocument();
     expect(screen.getByText(/Buddy will show a preview/)).toBeInTheDocument();
 
@@ -2287,6 +2302,7 @@ describe("World Plan conversation consumer", () => {
     fireEvent.change(screen.getByRole("textbox", { name: "Message DungeonBuddy" }), {
       target: { value: "For this disposable synthetic Plan only, propose appending exactly this line to the selected Quiet test scene body: Optional GM cue: Ask each player what they notice first. Preserve all existing text and playable markers; make no other change." },
     });
+    selectExplicitPlanChange();
     expect(screen.getByRole("button", { name: "Propose edit" })).toBeInTheDocument();
     fireEvent.click(screen.getByText("Plan change · Change"));
     fireEvent.click(screen.getByRole("button", { name: "Answer as a question" }));
@@ -2302,6 +2318,7 @@ describe("World Plan conversation consumer", () => {
     mountComponent(7, bridge, null, false, cardEditScope);
     await waitForConversationReady();
     fireEvent.change(screen.getByLabelText("Message DungeonBuddy"), { target: { value: "Revise the selected scene." } });
+    selectExplicitPlanChange();
     fireEvent.click(screen.getByRole("button", { name: "Propose edit" }));
     expect(await screen.findByRole("alert")).toHaveTextContent("no longer matches the displayed change target");
     expect(post).not.toHaveBeenCalled();
@@ -2322,6 +2339,7 @@ describe("World Plan conversation consumer", () => {
     mountComponent(7, bridge);
     await waitForConversationReady();
     fireEvent.change(screen.getByLabelText("Message DungeonBuddy"), { target: { value: "Add a new scene here." } });
+    selectExplicitPlanChange();
     fireEvent.click(screen.getByRole("button", { name: "Propose edit" }));
     expect(await screen.findByRole("alert")).toHaveTextContent("Proposal transport test");
     expect(post).toHaveBeenCalledTimes(1);
@@ -5617,6 +5635,7 @@ describe("World Plan conversation consumer", () => {
 
         expect(screen.getByLabelText("Message DungeonBuddy")).toBe(messageBox);
     fireEvent.change(messageBox, { target: { value: "Add a lantern to the opening." } });
+    selectExplicitPlanChange();
     fireEvent.click(screen.getByRole("button", { name: "Propose edit" }));
     const review = await screen.findByRole("region", { name: "Review proposed Plan edit" });
     expect(review.querySelectorAll("pre")[0]?.textContent)
@@ -5640,6 +5659,7 @@ describe("World Plan conversation consumer", () => {
     expect(postAsk).toHaveBeenCalledTimes(1);
 
         fireEvent.change(messageBox, { target: { value: "Add a second detail to the opening." } });
+    selectExplicitPlanChange();
     fireEvent.click(screen.getByRole("button", { name: "Propose edit" }));
     await screen.findByRole("region", { name: "Review proposed Plan edit" });
     fireEvent.click(screen.getByRole("button", { name: "Discard proposal" }));
@@ -5703,6 +5723,7 @@ describe("World Plan conversation consumer", () => {
     fireEvent.change(textarea, {
       target: { value: "  Revise the arrival scene.  " },
     });
+    selectExplicitPlanChange();
     fireEvent.click(screen.getByRole("button", { name: "Propose edit" }));
 
     const review = await screen.findByRole("region", { name: "Review proposed Plan edit" });
@@ -5742,6 +5763,7 @@ describe("World Plan conversation consumer", () => {
     await waitForConversationReady();
     const textarea = screen.getByLabelText("Message DungeonBuddy");
     fireEvent.change(textarea, { target: { value: "Revise this excerpt" } });
+    selectExplicitPlanChange();
     fireEvent.click(screen.getByRole("button", { name: "Propose edit" }));
     await waitFor(() => expect(proposalRequest).toHaveBeenCalledTimes(1));
     expect(textarea).toBeEnabled();
@@ -5775,7 +5797,8 @@ describe("World Plan conversation consumer", () => {
             fireEvent.change(screen.getByLabelText("Message DungeonBuddy"), {
         target: { value: "Revise the arrival scene." },
       });
-      fireEvent.click(screen.getByRole("button", { name: "Propose edit" }));
+      selectExplicitPlanChange();
+    fireEvent.click(screen.getByRole("button", { name: "Propose edit" }));
 
       expect(await screen.findByRole("alert")).toHaveTextContent("no valid Before snapshot");
       expect(screen.queryByRole("region", { name: "Review proposed Plan edit" })).not.toBeInTheDocument();
@@ -5804,6 +5827,7 @@ describe("World Plan conversation consumer", () => {
         fireEvent.change(screen.getByLabelText("Message DungeonBuddy"), {
       target: { value: "Revise the arrival scene." },
     });
+    selectExplicitPlanChange();
     fireEvent.click(screen.getByRole("button", { name: "Propose edit" }));
     await screen.findByRole("region", { name: "Review proposed Plan edit" });
 
@@ -6056,7 +6080,8 @@ describe("World Plan conversation consumer", () => {
             fireEvent.change(screen.getByLabelText("Message DungeonBuddy"), {
         target: { value: "Add a distant bell." },
       });
-      fireEvent.click(screen.getByRole("button", { name: "Propose edit" }));
+      selectExplicitPlanChange();
+    fireEvent.click(screen.getByRole("button", { name: "Propose edit" }));
       const review = await screen.findByRole("region", { name: "Review proposed Plan edit" });
       expect(review.querySelectorAll("pre")[0]?.textContent).toBe("Draft excerpt");
       expect(review).not.toHaveTextContent("Nothing selected · text will be inserted at the captured caret.");
@@ -6151,6 +6176,7 @@ describe("World Plan conversation consumer", () => {
         fireEvent.change(screen.getByLabelText("Message DungeonBuddy"), {
       target: { value: "Revise this excerpt" },
     });
+    selectExplicitPlanChange();
     fireEvent.click(screen.getByRole("button", { name: "Propose edit" }));
     await waitFor(() => expect(proposalSpy).toHaveBeenCalledTimes(1));
     const originalRequest = proposalSpy.mock.calls[0]![0];
@@ -6398,3 +6424,11 @@ describe("World Plan conversation consumer", () => {
   });
 
 });
+
+
+function selectExplicitPlanChange(){
+  if(screen.queryByRole('button',{name:'Propose edit'}))return;
+  const summary=screen.getByText('Automatic · Change');
+  if(!summary.closest('details')?.open)fireEvent.click(summary);
+  fireEvent.click(screen.getByRole('button',{name:'Request a Plan change'}));
+}

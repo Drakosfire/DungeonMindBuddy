@@ -1,6 +1,8 @@
 # BUILD: resume saving a representable protected page
 
-Status: ACTIVE. PRIME owns the operator's current Edge Save-loop correction;
+Status: SUPERSEDED. Original Keep-current and explicit spacer normalization shipped. The actual newer synthetic working copy exposed the existing singleton checkpoint trap; serial successor HANDOFF-BUILD-protected-draft-journal.md now owns these paths. Earlier recovery evidence remains in Git; this historical contract grants no parallel writer.
+
+Original status: PRIME owns the operator's current Edge Save-loop correction;
 ARCHITECTURE independently reviews. Base origin/main@06dbb61373a7251a2efdf5a571205c97589b97a6.
 Branch codex/build-resume-protected-page, reuse buddy-context-loop/dependencies.
 Topology serial Build slice; disjoint from DOGFOOD's operational Session29 run.

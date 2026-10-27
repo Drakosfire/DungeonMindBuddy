@@ -245,15 +245,32 @@ def require_local_unproxied_loopback(request: Request) -> None:
         )
 
 
-def _collect_world_ids(value: Any, *, key: str = "") -> set[str]:
+def _invalid_world_request_body() -> HTTPException:
+    return HTTPException(
+        status_code=403,
+        detail={"code": "hosted_world_context_required"},
+    )
+
+
+def _validated_world_selector(value: Any) -> str:
+    if (
+        not isinstance(value, str)
+        or not value
+        or value != value.strip()
+        or any(ord(character) < 0x21 for character in value)
+    ):
+        raise _invalid_world_request_body()
+    return value
+
+
+def _collect_world_ids(value: Any) -> set[str]:
     found: set[str] = set()
     if isinstance(value, Mapping):
         for child_key, child_value in value.items():
             normalized = str(child_key).replace("-", "_").lower()
             compact = normalized.replace("_", "")
             if compact in {item.replace("_", "") for item in _WORLD_KEYS}:
-                if isinstance(child_value, str) and child_value.strip():
-                    found.add(child_value.strip())
+                found.add(_validated_world_selector(child_value))
             found.update(_collect_world_ids(child_value))
     elif isinstance(value, list):
         for child in value:
@@ -261,23 +278,94 @@ def _collect_world_ids(value: Any, *, key: str = "") -> set[str]:
     return found
 
 
+def _strict_json_object(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
+    result: dict[str, Any] = {}
+    for key, value in pairs:
+        if key in result:
+            raise ValueError("duplicate request key")
+        result[key] = value
+    return result
+
+
+async def _read_bounded_request_body(request: Request) -> bytes:
+    content_lengths = request.headers.getlist("content-length")
+    if len(content_lengths) > 1:
+        raise _invalid_world_request_body()
+    declared_length: int | None = None
+    if content_lengths:
+        raw_length = content_lengths[0].strip()
+        if not raw_length.isascii() or not raw_length.isdecimal():
+            raise _invalid_world_request_body()
+        declared_length = int(raw_length)
+        if declared_length > MAX_WORLD_SCOPE_BODY_BYTES:
+            raise _invalid_world_request_body()
+
+    transfer_encodings = request.headers.getlist("transfer-encoding")
+    if len(transfer_encodings) > 1 or (declared_length is not None and transfer_encodings):
+        raise _invalid_world_request_body()
+    if transfer_encodings and transfer_encodings[0].strip().lower() != "chunked":
+        raise _invalid_world_request_body()
+
+    body = bytearray()
+    try:
+        async for chunk in request.stream():
+            if len(body) + len(chunk) > MAX_WORLD_SCOPE_BODY_BYTES:
+                raise _invalid_world_request_body()
+            body.extend(chunk)
+    except HTTPException:
+        raise
+    except Exception as exc:
+        raise _invalid_world_request_body() from exc
+
+    if declared_length is not None and declared_length != len(body):
+        raise _invalid_world_request_body()
+    result = bytes(body)
+    # Keep the cached body available to the resolver and downstream route.
+    setattr(request, "_body", result)
+    return result
+
+
 async def request_world_ids(request: Request) -> frozenset[str]:
     found = {
-        value.strip()
+        _validated_world_selector(value)
         for key in ("world_id", "worldId", "managed_world_id", "managedWorldId")
         for value in request.query_params.getlist(key)
-        if value.strip()
     }
-    content_type = request.headers.get("content-type", "").split(";", 1)[0].strip().lower()
-    if content_type == "application/json":
-        body = await request.body()
-        if len(body) > MAX_WORLD_SCOPE_BODY_BYTES:
-            return frozenset()
-        try:
-            payload = json.loads(body)
-        except (json.JSONDecodeError, UnicodeDecodeError):
-            return frozenset()
-        found.update(_collect_world_ids(payload))
+    body = await _read_bounded_request_body(request)
+    if not body:
+        return frozenset(found)
+
+    content_types = request.headers.getlist("content-type")
+    if len(content_types) != 1:
+        raise _invalid_world_request_body()
+    content_type_parts = content_types[0].split(";")
+    media_type = content_type_parts[0].strip().lower()
+    json_media_type = media_type == "application/json" or (
+        media_type.startswith("application/") and media_type.endswith("+json")
+    )
+    if not json_media_type:
+        raise _invalid_world_request_body()
+
+    charsets = [
+        parameter.split("=", 1)[1].strip().strip('"').lower()
+        for parameter in content_type_parts[1:]
+        if parameter.strip().lower().startswith("charset=")
+    ]
+    if len(charsets) > 1 or (charsets and charsets[0] not in {"utf-8", "utf8"}):
+        raise _invalid_world_request_body()
+    content_encodings = request.headers.getlist("content-encoding")
+    if len(content_encodings) > 1 or (
+        content_encodings and content_encodings[0].strip().lower() != "identity"
+    ):
+        raise _invalid_world_request_body()
+
+    try:
+        payload = json.loads(body.decode("utf-8"), object_pairs_hook=_strict_json_object)
+    except (json.JSONDecodeError, UnicodeDecodeError, ValueError, RecursionError) as exc:
+        raise _invalid_world_request_body() from exc
+    if not isinstance(payload, (Mapping, list)):
+        raise _invalid_world_request_body()
+    found.update(_collect_world_ids(payload))
     return frozenset(found)
 
 
@@ -406,8 +494,8 @@ def install_hosted_request_boundary(
             )
 
         try:
-            resolved_world_id = await _resolve_authoritative_world_id(request, resolver)
             requested_world_ids = await request_world_ids(request)
+            resolved_world_id = await _resolve_authoritative_world_id(request, resolver)
             if requested_world_ids and requested_world_ids != frozenset({resolved_world_id}):
                 raise HTTPException(
                     status_code=403,

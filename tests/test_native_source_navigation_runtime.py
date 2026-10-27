@@ -15,6 +15,16 @@ from tests.application_state.test_native_source_navigation_postgres import nav_c
 from tests.test_native_source_activation import synthetic_access,TEXT
 from tests.application_state.test_native_source_input_postgres import input_case,prepare,admit  # noqa:F401
 
+_BOUND_AUTHORITY = NativeSourceNavigator._bound_authority
+_ACCESS = NativeSourceNavigator._access
+
+
+@pytest.fixture(autouse=True)
+def synthetic_active_binding(monkeypatch):
+    monkeypatch.setattr(NativeSourceNavigator, '_bound_authority',
+        lambda self: self.adapter.fence.renewer._turn.graph_context_receipt.graph_authority)
+
+
 @pytest.fixture
 def parent(nav_case,monkeypatch):
     service,turn,_,pin=nav_case
@@ -212,14 +222,15 @@ def test_navigation_omits_only_document_wide_terms_and_keeps_single_section_hint
     assert set(section_query_terms(single,sections,'shared armor')[sections[0].section_id])=={'shared','armor'}
 
 
+@pytest.mark.parametrize('owner_world', ['managed', 'native'])
 @pytest.mark.parametrize('named', [False, True])
-def test_recap_catalog_read_and_citation_share_frozen_registered_name(nav_case, monkeypatch, named):  # noqa: F811
+def test_recap_catalog_read_and_citation_share_frozen_registered_name(nav_case, monkeypatch, named, owner_world):  # noqa: F811
     from dataclasses import replace
     from application_state.agent_conversation.native_source_input import project_sections
     from application_state.agent_conversation.native_source_answer import NativeSectionSupport, citation
     service, turn, _, pin = nav_case
     sources.persist_source_markdown(source_artifact_id=pin.source_artifact_id, source_domain='session_recap',
-        world_id=turn.world_id, campaign_id='campaign:synthetic', session_id='session-29', markdown=TEXT, lineage={})
+        world_id=turn.world_id if owner_world == 'managed' else turn.graph_context_receipt.graph_authority.native_world_id, campaign_id='campaign:synthetic', session_id='session-29', markdown=TEXT, lineage={})
     adapter = SimpleNamespace(service=service, fence=_ClaimFence(service, turn), turn=turn, context_capture=None)
     owner = NativeSourceNavigator(adapter)
     def access(self, entry):
@@ -287,20 +298,21 @@ def test_unowned_catalog_is_not_offered_or_opened_and_metadata_is_reused(nav_cas
     try:
         assert not owner.offered()
         assert not owner.offered()
-        assert len(calls) == 1
+        assert len(calls) == 2
+        assert calls[1] == dict(source_artifact_ids=[pin.source_artifact_id], world_id=turn.graph_context_receipt.graph_authority.native_world_id)
         assert calls[0] == dict(source_artifact_ids=[pin.source_artifact_id], world_id=turn.world_id)
         assert all(row.kind.startswith('Unavailable source section catalog') for row in owner.examined())
         # A metadata exclusion is not a failed selected body read.
         assert not capture.observations
         with pytest.raises(NativeSourceUnavailable):
             owner.browse(next(iter(owner.sources)))
-        assert len(calls) == 1 and not owner.catalogs
+        assert len(calls) == 2 and not owner.catalogs
         if turn.provenance.surface_id == 'play':
             args = {'anchor_id': pin.anchor_id}
             captured(owner, BROWSE, args)
             with pytest.raises(NativeSourceUnavailable):
                 owner.tool(BROWSE, args, call_id='call-1')
-            assert len(calls) == 1 and not owner.catalogs
+            assert len(calls) == 2 and not owner.catalogs
     finally:
         adapter.fence.renewer.stop_and_join()
 
@@ -374,5 +386,94 @@ def test_newly_discovered_sources_share_one_metadata_batch(parent, monkeypatch):
     a.turn = turn
     assert len(owner.offered()) == 3
     assert len(owner.offered()) == 3
-    assert len(calls) == 2
-    assert set(calls[1]['source_artifact_ids']) == {pin.source_artifact_id for pin in pins}
+    assert len(calls) == 4
+    assert set(calls[2]['source_artifact_ids']) == {pin.source_artifact_id for pin in pins}
+
+
+@pytest.mark.parametrize('drift', ['managed', 'native', 'version'])
+def test_changed_active_binding_refuses_before_metadata_and_catalog_body(parent, monkeypatch, drift):
+    from apps.live_control_server.services import native_source_navigation as runtime
+    from application_state.agent_conversation import native_source_catalog
+    owner, _ = parent
+    authority = owner.adapter.fence.turn.graph_context_receipt.graph_authority
+    binding = SimpleNamespace(managed_world_id=authority.managed_world_id,
+        native_world_id=authority.native_world_id, binding_version=authority.binding_version)
+    monkeypatch.setattr(NativeSourceNavigator, '_bound_authority', _BOUND_AUTHORITY)
+    monkeypatch.setattr(NativeSourceNavigator, '_access', _ACCESS)
+    monkeypatch.setattr(runtime, 'resolve_managed_world_binding', lambda world: binding)
+    monkeypatch.setattr(runtime, 'direct_services_from_config', lambda world: None)
+    monkeypatch.setattr(runtime, 'verify_native_source_origin',
+        lambda services, **kw: synthetic_access(owner, (kw['donor'], kw['pin'], 'Synthetic adventure')))
+    handle = owner.offered()[0].handle
+    setattr(binding, {'managed':'managed_world_id','native':'native_world_id','version':'binding_version'}[drift],
+        authority.binding_version + 1 if drift == 'version' else 'unrelated-world')
+    monkeypatch.setattr(native_source_catalog.sources, 'get_source_markdown',
+        lambda *a, **kw: pytest.fail('Stale active binding must refuse before source body IO'))
+    with pytest.raises(NativeSourceUnavailable):
+        owner.browse(handle)
+    assert not owner.catalogs
+    fresh = NativeSourceNavigator(owner.adapter)
+    monkeypatch.setattr(sources, 'owned_source_artifacts',
+        lambda **kw: pytest.fail('Stale binding must refuse even metadata preflight'))
+    with pytest.raises(NativeSourceUnavailable):
+        fresh.offered()
+
+
+@pytest.mark.parametrize('changed', [dict(world_id='unrelated'), dict(source_domain='worldbuilding'),
+    dict(campaign_id='other-campaign'), dict(session_id='session-other')])
+def test_native_recap_scope_mismatch_refuses_before_body(nav_case, monkeypatch, changed):
+    from dataclasses import replace
+    from application_state.agent_conversation import native_source_catalog
+    service, turn, _, pin = nav_case
+    authority = turn.graph_context_receipt.graph_authority
+    scope = dict(world_id=authority.native_world_id, source_domain='session_recap',
+        campaign_id='campaign:synthetic', session_id='session-29') | changed
+    sources.persist_source_markdown(source_artifact_id=pin.source_artifact_id, markdown=TEXT, lineage={}, **scope)
+    adapter = SimpleNamespace(service=service, fence=_ClaimFence(service, turn), turn=turn, context_capture=None)
+    owner = NativeSourceNavigator(adapter)
+    def access(self, entry):
+        origin = synthetic_access(self, entry)
+        proof = json.loads(origin.proof_json)
+        proof['resolution']['artifact'].update(source_domain='session_recap', source_domain_key='dungeonbuddy.recap',
+            campaign_id='campaign:synthetic', session_id='session-29')
+        proof['resolution']['evidence']['source_domain'] = 'session_recap'
+        return replace(origin, proof_json=json.dumps(proof))
+    monkeypatch.setattr(NativeSourceNavigator, '_access', access)
+    monkeypatch.setattr(native_source_catalog.sources, 'get_source_markdown',
+        lambda *a, **kw: pytest.fail('Scope mismatch must refuse before body IO'))
+    try:
+        offered = owner.offered()
+        if changed.get('world_id'):
+            assert not offered
+        else:
+            with pytest.raises(NativeSourceUnavailable):
+                owner.browse(offered[0].handle)
+            assert owner.catalogs[offered[0].handle].failure_code == 'source_scope_mismatch'
+    finally:
+        adapter.fence.renewer.stop_and_join()
+
+
+def test_binding_change_after_navigation_authorization_prevents_materialization(parent, monkeypatch):
+    owner, _ = parent
+    handle = owner.offered()[0].handle
+    authority = owner.adapter.fence.turn.graph_context_receipt.graph_authority
+    authorized = False
+    original = owner._commit
+    def commit(method, **fields):
+        nonlocal authorized
+        result = original(method, **fields)
+        if method == 'authorize_native_source_navigation':
+            authorized = True
+        return result
+    def binding():
+        if authorized:
+            raise NativeSourceUnavailable('source_navigation_unavailable')
+        return authority
+    monkeypatch.setattr(owner, '_commit', commit)
+    monkeypatch.setattr(owner, '_bound_authority', binding)
+    from application_state.agent_conversation import native_source_catalog
+    monkeypatch.setattr(native_source_catalog.sources, 'get_source_markdown',
+        lambda *a, **kw: pytest.fail('Binding drift after authorization must not load body'))
+    with pytest.raises(NativeSourceUnavailable):
+        owner.browse(handle)
+    assert authorized and not owner.catalogs and not owner.materials

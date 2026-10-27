@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import json
 from collections.abc import AsyncIterator
 from typing import Any
 
@@ -16,6 +17,7 @@ from apps.live_control_server.services.hosted_auth import (
     DEPLOYMENT_ENVIRONMENT_ENV,
     HOSTED_WORLD_ACCESS_ENV,
     LOGOUT_PATH,
+    MAX_WORLD_SCOPE_BODY_BYTES,
     TRUSTED_FRONTEND_ORIGINS_ENV,
     authorize_world_access,
     install_hosted_request_boundary,
@@ -41,7 +43,10 @@ class _AsyncASGITestClient:
 
     async def _request(self, method: str, path: str, **kwargs: Any) -> httpx.Response:
         async with httpx.AsyncClient(
-            transport=httpx.ASGITransport(app=self.application),
+            transport=httpx.ASGITransport(
+                app=self.application,
+                client=("127.0.0.1", 50000),
+            ),
             base_url="http://testserver",
         ) as client:
             return await client.request(method, path, **kwargs)
@@ -119,10 +124,9 @@ def _resolver(principal: DmsPrincipal | None):
 
 async def _resolve_test_resource_world(request: Request) -> str | None:
     resource_id = request.query_params.get("resource_id")
-    if resource_id is None and request.headers.get("content-type", "").startswith(
-        "application/json"
-    ):
-        payload = await request.json()
+    body = await request.body()
+    if resource_id is None and body:
+        payload = json.loads(body)
         if isinstance(payload, dict):
             resource_id = payload.get("resource_id")
     return {
@@ -248,6 +252,111 @@ def test_confused_deputy_selector_cannot_override_resource_world() -> None:
 
     assert response.status_code == 403
     assert response.json()["detail"]["code"] == "hosted_world_context_mismatch"
+    assert observed == []
+
+
+def test_vendor_json_body_is_validated_and_authorizes_its_bound_world() -> None:
+    client, observed = _app(principal=DmsPrincipal(subject="synthetic-managed-user"))
+
+    response = client.post(
+        "/api/jobs",
+        content=json.dumps({"resource_id": "resource-alpha", "world_id": "world-alpha"}),
+        headers={
+            "Origin": FRONTEND_ORIGIN,
+            "Content-Type": "application/vnd.dungeonmind.resource+json",
+        },
+    )
+
+    assert response.status_code == 200
+    assert observed == ["jobs"]
+
+
+def test_vendor_json_conflicting_selector_is_denied_before_handler() -> None:
+    client, observed = _app(principal=DmsPrincipal(subject="synthetic-managed-user"))
+
+    response = client.post(
+        "/api/jobs",
+        content=json.dumps({"resource_id": "resource-beta", "world_id": "world-alpha"}),
+        headers={
+            "Origin": FRONTEND_ORIGIN,
+            "Content-Type": "application/vnd.dungeonmind.resource+json",
+        },
+    )
+
+    assert response.status_code == 403
+    assert response.json()["detail"]["code"] == "hosted_world_context_mismatch"
+    assert observed == []
+
+
+@pytest.mark.parametrize(
+    ("body", "content_type"),
+    (
+        ('{"resource_id":"resource-alpha","world_id":"world-alpha"', "application/json"),
+        (
+            '{"resource_id":"resource-alpha","world_id":"world-alpha",'
+            '"world_id":"world-beta"}',
+            "application/json",
+        ),
+        ('"world_id":"world-alpha"', "application/json"),
+        ("world_id=world-beta&resource_id=resource-alpha", "application/x-www-form-urlencoded"),
+        ("world_id=world-beta", "text/plain"),
+    ),
+)
+def test_malformed_ambiguous_or_unsupported_body_fails_before_resolver_or_handler(
+    body: str,
+    content_type: str,
+) -> None:
+    resolver_calls: list[str] = []
+
+    async def resolver(_request: Request) -> str:
+        resolver_calls.append("called")
+        return "world-alpha"
+
+    client, observed = _app(
+        principal=DmsPrincipal(subject="synthetic-managed-user"),
+        world_scope_resolvers={("POST", "/api/jobs"): resolver},
+    )
+
+    response = client.post(
+        "/api/jobs",
+        content=body,
+        headers={"Origin": FRONTEND_ORIGIN, "Content-Type": content_type},
+    )
+
+    assert response.status_code == 403
+    assert response.json()["detail"]["code"] == "hosted_world_context_required"
+    assert resolver_calls == []
+    assert observed == []
+
+
+def test_oversized_json_body_fails_closed_before_resolver_or_handler() -> None:
+    resolver_calls: list[str] = []
+
+    async def resolver(_request: Request) -> str:
+        resolver_calls.append("called")
+        return "world-alpha"
+
+    client, observed = _app(
+        principal=DmsPrincipal(subject="synthetic-managed-user"),
+        world_scope_resolvers={("POST", "/api/jobs"): resolver},
+    )
+    body = json.dumps(
+        {
+            "resource_id": "resource-alpha",
+            "world_id": "world-alpha",
+            "padding": "x" * MAX_WORLD_SCOPE_BODY_BYTES,
+        }
+    )
+
+    response = client.post(
+        "/api/jobs",
+        content=body,
+        headers={"Origin": FRONTEND_ORIGIN, "Content-Type": "application/json"},
+    )
+
+    assert response.status_code == 403
+    assert response.json()["detail"]["code"] == "hosted_world_context_required"
+    assert resolver_calls == []
     assert observed == []
 
 
@@ -482,6 +591,49 @@ def test_local_mode_rejects_loopback_requests_with_forwarded_metadata() -> None:
     with pytest.raises(HTTPException) as exc_info:
         require_local_unproxied_loopback(request)
     assert exc_info.value.status_code == 403
+
+
+@pytest.mark.parametrize(
+    ("mode", "expected_status"),
+    (("local_operator", 200), (None, 503), ("unexpected", 503)),
+)
+def test_local_api_requires_explicit_local_operator_mode(
+    monkeypatch: pytest.MonkeyPatch,
+    mode: str | None,
+    expected_status: int,
+) -> None:
+    monkeypatch.setenv(DEPLOYMENT_ENVIRONMENT_ENV, "local")
+    if mode is None:
+        monkeypatch.delenv(AUTH_MODE_ENV, raising=False)
+    else:
+        monkeypatch.setenv(AUTH_MODE_ENV, mode)
+    client, observed = _app(principal=None)
+
+    response = client.get("/api/probe/read")
+
+    assert response.status_code == expected_status
+    if expected_status == 200:
+        assert observed == ["read"]
+    else:
+        assert response.json()["detail"]["code"] == "hosted_auth_unavailable"
+        assert observed == []
+
+
+def test_local_operator_mode_rejects_forwarded_proxy_request_before_handler(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv(DEPLOYMENT_ENVIRONMENT_ENV, "local")
+    monkeypatch.setenv(AUTH_MODE_ENV, "local_operator")
+    client, observed = _app(principal=None)
+
+    response = client.get(
+        "/api/probe/read",
+        headers={"X-Forwarded-For": "127.0.0.1"},
+    )
+
+    assert response.status_code == 403
+    assert response.json()["detail"]["code"] == "hosted_auth_local_boundary"
+    assert observed == []
 
 
 def test_production_configuration_is_explicit_and_separates_logical_databases(

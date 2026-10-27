@@ -144,3 +144,16 @@ def test_registered_build_citation_reopens_exact_projected_source(request,monkey
         result=read(case)
         assert result.content=='## Appendix A\r\nTree mechanics.\r\n'
         assert result.citation==case[1] and case[2]==['access','body']
+
+
+def test_native_owned_source_citation_reopens_through_authenticated_owner(request, monkeypatch, plan_adapter):
+    from tests.application_state import test_native_source_catalog_postgres as catalogs
+    original = catalogs.grant
+    def native_owned(case, **kwargs):
+        kwargs['source_values'] = {'world_id':case[1].graph_context_receipt.graph_authority.native_world_id}
+        return original(case, **kwargs)
+    monkeypatch.setattr(catalogs, 'grant', native_owned)
+    case = request.getfixturevalue('opened_case')
+    result = read(case)
+    assert result.content == '## Appendix A\r\nTree mechanics.\r\n'
+    assert result.citation == case[1] and case[2] == ['access', 'body']

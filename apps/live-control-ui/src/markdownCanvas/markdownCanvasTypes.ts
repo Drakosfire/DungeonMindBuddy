@@ -1,5 +1,5 @@
 import type { WorkspaceConflictRecovery } from "../workspaceDocument/workspaceConflictRecovery";
-import type { WorkspaceDraftRecoveryReview } from "../workspaceDocument/workspaceDocumentRecovery";
+import type { WorkspaceDraftRecoveryReview, WorkspaceDraftRestoreReview } from "../workspaceDocument/workspaceDocumentRecovery";
 import type { ReactNode } from "react";
 import type { Editor, JSONContent } from "@tiptap/react";
 
@@ -116,8 +116,9 @@ export interface MarkdownCanvasSessionValue extends CanvasDocumentState {
   conflictRecovery?: WorkspaceConflictRecovery;
   draftRecoveryAvailable: boolean;
   prepareDraftRecovery: () => WorkspaceDraftRecoveryReview;
-  confirmDraftRecovery: (review: WorkspaceDraftRecoveryReview, mode?: "source" | "current" | "normalize") => void;
-  restoreDraftRecovery: () => void;
+  confirmDraftRecovery: (review: WorkspaceDraftRecoveryReview, mode?: "source" | "current" | "normalize") => Promise<void>;
+  prepareDraftRestore: () => Promise<WorkspaceDraftRestoreReview>;
+  restoreDraftRecovery: (review: WorkspaceDraftRestoreReview, copyId: string) => Promise<void>;
   lastCommitReceipt: TiptapMarkdownWriteCommitResponse | null;
   activeCommand: ActiveDocumentCommand | null;
   /** Live TipTap instance once MarkdownCanvas mounts; null while unloaded or between swaps. */

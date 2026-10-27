@@ -1,3 +1,4 @@
+import type {PlanAuthoringCapture, PlanReviewApplication, PlanAuthoringReview} from "../../api/planAuthoringReviewApi";
 import { Editor, type JSONContent } from "@tiptap/core";
 import { TextSelection } from "@tiptap/pm/state";
 import type { MarkdownSourceLineTarget } from "../../markdownReader/MarkdownDocumentReader";
@@ -124,8 +125,9 @@ export interface CapturedWorldPlanSectionTarget {
   roundTripSuffix: JSONContent[];
 }
 
-export interface AdmittedWorldPlanEditProposal {
-  response: WorldPlanDocumentEditProposalResponse;
+type PlanEditApplicationIdentity=Pick<WorldPlanDocumentEditProposalResponse,"document_id"|"world_id"|"draft_sha256"|"action_id">;
+export interface AdmittedWorldPlanEditProposal<Response extends PlanEditApplicationIdentity=WorldPlanDocumentEditProposalResponse> {
+  response: Response;
   content: JSONContent[];
   canonicalMarkdown: string;
 }
@@ -149,7 +151,22 @@ export interface ExpectedWorldPlanEditAgentBinding {
   namespace: string;
 }
 
+export interface PlanAuthoringIdentity {idempotencyKey:string;conversationId:string;pointerRevision:number}
+export interface CapturedPlanAuthoringTarget {capture:PlanAuthoringCapture;target:CapturedWorldPlanEditTarget}
 export interface WorldPlanEditBridge {
+  captureAuthoring?: (identity:PlanAuthoringIdentity,applicationId?:string)=>Promise<CapturedPlanAuthoringTarget>;
+  sealAuthoring?: (target:CapturedWorldPlanEditTarget,identity:PlanAuthoringIdentity)=>Promise<PlanAuthoringCapture>;
+  captureAuthoringAt?: (position:number,identity:PlanAuthoringIdentity)=>Promise<CapturedPlanAuthoringTarget>;
+  restoreAuthoring?: (capture:PlanAuthoringCapture,identity:PlanAuthoringIdentity)=>Promise<CapturedPlanAuthoringTarget>;
+  prepareAuthoring?: (target:CapturedWorldPlanEditTarget,markdown:string,actionId:string,
+    expected:ExpectedWorldPlanEditAgentBinding,binding:()=>WorldPlanEditAgentBinding)=>Promise<PreparedPlanAuthoringApplication>;
+  saveAuthoring?: (target:CapturedWorldPlanEditTarget,prepared:PreparedPlanAuthoringApplication,
+    application:PlanReviewApplication,expected:ExpectedWorldPlanEditAgentBinding,binding:()=>WorldPlanEditAgentBinding,
+    commit:()=>Promise<PlanAuthoringReview>)=>Promise<PlanAuthoringReview>;
+  acknowledgeAuthoring?: (application:PlanReviewApplication)=>Promise<void>;
+  matchesAuthoringAfter?: (application:PlanReviewApplication)=>Promise<boolean>;
+  reconcileAuthoring?: (actionId:string,applicationId:string)=>Promise<void>;
+  authoringTitle?: ()=>string;
   capture: () => Promise<CapturedWorldPlanEditTarget>;
   restoreSelection: (anchor: WorldPlanSelectionAnchorV1, draftSha256: string, selectedTextSha256: string,
     expectedBasis: Pick<WorldPlanEditEditorState, "worldId" | "documentId" | "baseRevision" | "baseContentSha256">,
@@ -593,11 +610,6 @@ export async function captureWorldPlanEditTarget(
       roundTripSuffix: baselineRootContent.slice(sectionSlice.applyRootEndIndex),
     };
   }
-  if (draftMarkdown.length > 80_000 || selectedText.length > 8_000) {
-    throw new PlanEditGuardError(matchedSection
-      ? "This heading section exceeds the 8,000-character proposal limit. Select a smaller text range directly in the editor."
-      : "The selected Plan material is too large for one proposal.");
-  }
   const draftSha256 = await sha256(draftMarkdown);
   const selectionAnchor: WorldPlanSelectionAnchorV1 | undefined = targetKind === "replace_selection"
     ? {
@@ -651,6 +663,89 @@ export async function captureWorldPlanEditTarget(
     sectionTarget,
     playableBodyTarget,
   };
+}
+
+/** Full live target for the ordinary Agent turn, without old endpoint caps. */
+export async function captureWorldPlanAuthoringTarget(
+  input:WorldPlanEditEditorState,getCurrent:()=>WorldPlanEditEditorState,identity:PlanAuthoringIdentity,
+):Promise<CapturedPlanAuthoringTarget> {
+  if(!identity.conversationId||!identity.idempotencyKey||!Number.isSafeInteger(identity.pointerRevision)||identity.pointerRevision<1)
+    throw new PlanEditGuardError("Open the current World conversation before capturing a Plan request.");
+  const target=await captureWorldPlanEditTarget(input,getCurrent);
+  const capture=await sealWorldPlanAuthoringTarget(target,identity);
+  const current=effectiveWorldPlanEditState(getCurrent());
+  if(!sameWorldPlanEditorBinding(effectiveWorldPlanEditState(input),current)
+    ||JSON.stringify(target.editor.getJSON())!==target.editorJson
+    ||JSON.stringify(target.editor.state.selection.toJSON())!==target.selectionJson)
+    throw new PlanEditGuardError("The Plan changed during capture. The request was not sent.");
+  return {capture,target};
+}
+
+/** Add the real conversation identity to an already frozen Send-time target. */
+export async function sealWorldPlanAuthoringTarget(target:CapturedWorldPlanEditTarget,identity:PlanAuthoringIdentity):Promise<PlanAuthoringCapture>{
+  if(!identity.conversationId||!identity.idempotencyKey||!Number.isSafeInteger(identity.pointerRevision)||identity.pointerRevision<1)
+    throw new PlanEditGuardError('Open the current World conversation before sealing a Plan request.');
+  const [editorHash,selectionHash]=await Promise.all([sha256(target.editorJson),sha256(target.selectionJson)]);
+  const body=target.playableBodyTarget;
+  const capture:PlanAuthoringCapture={
+    schema:'dmb_plan_authoring_capture_v1',idempotency_key:identity.idempotencyKey,
+    conversation_id:identity.conversationId,expected_pointer_revision:identity.pointerRevision,
+    world_id:target.request.world_id,document_id:target.request.document_id,
+    base_revision:target.request.base_revision,base_content_sha256:target.request.base_content_sha256,
+    draft_markdown:target.request.draft_markdown,draft_sha256:target.request.draft_sha256,
+    editor_json:target.editorJson,editor_sha256:editorHash,selection_json:target.selectionJson,selection_sha256:selectionHash,
+    from:target.from,to:target.to,draft_generation:target.draftGeneration,selection_generation:target.selectionGeneration,
+    target_kind:target.request.target_kind,selected_text:target.request.selected_text,
+    playable_target:body?{...body.target,marker_grammar_version:body.markerGrammarVersion,
+      body_scope:body.bodyScope,range_semantics_version:body.rangeSemanticsVersion,
+      body_serialization_version:body.bodySerializationVersion,
+      body_markdown:body.targetBodyMarkdown,body_sha256:body.targetBodySha256}:null,
+  };
+  return capture;
+}
+
+export interface PreparedPlanAuthoringApplication {
+  admitted:AdmittedWorldPlanEditProposal<PlanEditApplicationIdentity>;afterEditorJson:string;afterEditorSha256:string;
+  afterMarkdown:string;afterDraftSha256:string;
+}
+
+/** Selection restoration is deliberate; never restore document bytes to apply. */
+export async function restorePlanAuthoringTarget(capture:PlanAuthoringCapture,
+  input:WorldPlanEditEditorState,getCurrent:()=>WorldPlanEditEditorState,identity:PlanAuthoringIdentity,
+):Promise<CapturedPlanAuthoringTarget> {
+  const current=effectiveWorldPlanEditState(input),editor=currentWorldEditor(current);
+  if(current.worldId!==capture.world_id||current.documentId!==capture.document_id
+    ||current.baseRevision!==capture.base_revision||current.baseContentSha256!==capture.base_content_sha256
+    ||JSON.stringify(editor.getJSON())!==capture.editor_json)
+    throw new PlanEditGuardError('The page changed. Inspect the current page and choose a new placement.');
+  editor.view.dispatch(editor.state.tr.setSelection(TextSelection.fromJSON(editor.state.doc,JSON.parse(capture.selection_json))));
+  const fresh=await captureWorldPlanAuthoringTarget(getCurrent(),getCurrent,identity);
+  if(fresh.capture.draft_sha256!==capture.draft_sha256||fresh.capture.from!==capture.from||fresh.capture.to!==capture.to
+    ||fresh.capture.target_kind!==capture.target_kind||fresh.capture.selected_text!==capture.selected_text
+    ||JSON.stringify(fresh.capture.playable_target)!==JSON.stringify(capture.playable_target))
+    throw new PlanEditGuardError('The captured target no longer identifies this page location. Choose a new placement.');
+  return fresh;
+}
+
+/** Reuse the real apply preflight on an isolated editor, before sealing any Save. */
+export async function preparePlanAuthoringApplication(target:CapturedWorldPlanEditTarget,markdown:string,actionId:string,
+  getCurrent:()=>WorldPlanEditEditorState,expected:ExpectedWorldPlanEditAgentBinding,binding:()=>WorldPlanEditAgentBinding,
+):Promise<PreparedPlanAuthoringApplication> {
+  const fragment=target.playableBodyTarget?validateFragment(markdown,undefined,true,target.playableBodyTarget.protectedReferences)
+    :validateFragment(markdown,target.sectionTarget?.protectedInventory);
+  const admitted:AdmittedWorldPlanEditProposal<PlanEditApplicationIdentity>={...fragment,response:{document_id:target.request.document_id,
+    world_id:target.request.world_id,draft_sha256:target.request.draft_sha256,action_id:actionId}};
+  const editor=new Editor({extensions:DEFAULT_MARKDOWN_EDITOR_EXTENSIONS,content:JSON.parse(target.editorJson)});
+  try {
+    editor.view.dispatch(editor.state.tr.setSelection(TextSelection.fromJSON(editor.state.doc,JSON.parse(target.selectionJson))));
+    const state={...effectiveWorldPlanEditState(getCurrent()),editor};
+    await applyWorldPlanEditProposal({captured:{...target,editor},admitted,getCurrent:()=>state,
+      expectedAgentBinding:expected,getAgentBinding:binding});
+    const afterEditorJson=JSON.stringify(editor.getJSON());
+    const afterMarkdown=preserveLeadingYamlFrontmatter(target.request.draft_markdown,tiptapJsonToSemanticMarkdown(editor.getJSON()));
+    const [afterEditorSha256,afterDraftSha256]=await Promise.all([sha256(afterEditorJson),sha256(afterMarkdown)]);
+    return {admitted,afterEditorJson,afterEditorSha256,afterMarkdown,afterDraftSha256};
+  } finally {editor.destroy();}
 }
 
 function exactSelectionAnchor(anchor: WorldPlanSelectionAnchorV1): boolean {
@@ -1095,7 +1190,7 @@ export function previewWorldPlanEditProposal(
 
 export async function applyWorldPlanEditProposal(args: {
   captured: CapturedWorldPlanEditTarget;
-  admitted: AdmittedWorldPlanEditProposal;
+  admitted: AdmittedWorldPlanEditProposal<PlanEditApplicationIdentity>;
   getCurrent: () => WorldPlanEditEditorState;
   expectedAgentBinding: ExpectedWorldPlanEditAgentBinding;
   getAgentBinding: () => WorldPlanEditAgentBinding;

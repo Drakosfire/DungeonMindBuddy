@@ -669,3 +669,29 @@ def test_captured_accounting_retains_count_when_details_are_capped():
     assert saved["usage"]["status"] == "partial"
     assert saved["cost"]["status"] == "partial"
     assert "model_calls_truncated" in saved["warnings"]
+
+
+def test_known_unpriced_cache_writes_are_retained_without_a_misleading_cost():
+    usage = normalize_model_call_usage(_hermes_usage(uncached=700,cache_read=100,cache_write=200,output=10))
+    assert usage["input_tokens"] == 1000
+    assert usage["cache_write_input_tokens"] == 200
+    assert usage["uncached_input_tokens"] == 700
+    cost = estimate_model_call_cost(model="gpt-6-luna",usage=usage)
+    assert cost["status"] == "unavailable"
+    assert cost["pricing_table_matched"] is True
+    assert "usd" not in cost
+
+
+def test_unpriced_write_call_makes_aggregate_cost_partial_not_zero_complete():
+    first = map_hermes_observer_to_model_call(
+        _observer_payload(api_request_id="writes",usage=_hermes_usage(cache_write=200)),
+        status="ok",sequence=1,
+    )
+    second = map_hermes_observer_to_model_call(
+        _observer_payload(api_request_id="no-writes",usage=_hermes_usage(cache_write=0)),
+        status="ok",sequence=2,
+    )
+    usage = aggregate_usage([first,second])
+    assert usage["cache_write_input_tokens"] == 200
+    cost = aggregate_cost([first,second])
+    assert cost["status"] == "partial"

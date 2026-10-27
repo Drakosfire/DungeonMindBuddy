@@ -649,10 +649,10 @@ def _summarize_tool_result(raw: Any) -> dict[str, Any]:
                 ]
             )
     from apps.live_control_server.services.agent_source_read_telemetry import (
-        summarize_batch_source_reads,
+        summarize_source_reads,
     )
 
-    metadata, batch_anchors = summarize_batch_source_reads(parsed)
+    metadata, batch_anchors = summarize_source_reads(parsed)
     summary["source_read_metadata"] = metadata
     if batch_anchors:
         summary["source_anchor_ids"] = _cap_id_list(batch_anchors)
@@ -2464,7 +2464,8 @@ def run_hermes_graph_agent_turn(
                         )
 
                         visible_defs = project_graph_read_tools(
-                            visible_defs, request.graph_read_profile
+                            visible_defs, request.graph_read_profile,
+                            parent_broker_available=request.parent_graph_broker_required,
                         )
                         visible_names = _tool_names_from_definitions(visible_defs)
                         surface_error = _validate_model_visible_surface(
@@ -2684,7 +2685,8 @@ def run_hermes_graph_agent_turn(
                                     )
                                 ]
                             agent_tools = project_graph_read_tools(
-                                agent_tools, request.graph_read_profile
+                                agent_tools, request.graph_read_profile,
+                                parent_broker_available=request.parent_graph_broker_required,
                             )
                             agent.tools = agent_tools
                             agent_visible = _tool_names_from_definitions(agent_tools)

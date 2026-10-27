@@ -491,6 +491,122 @@ def autosave_plan(
     )
 
 
+def _commit_in_connection(
+    conn,
+    document_id: str,
+    markdown: str,
+    *,
+    kind: AdmittedKind,
+    expected_revision: int | None = None,
+    expected_world_id: str | None = None,
+    title: str | None = None,
+) -> tuple[WorkObject, WorkRevision]:
+    """Use the caller's transaction; never commit or allocate another connection."""
+    canonical_title = _require_title(title) if title is not None else None
+    if canonical_title is not None and (kind != "plan" or expected_world_id is None):
+        raise ApplicationStateValidationError(
+            "title intent requires a selected World-owned Plan"
+        )
+    work_object_id = _require_uuid(document_id)
+    content = normalize_markdown(markdown)
+    digest = sha256_utf8(content)
+    obj = repo.lock_work_object(conn, work_object_id)
+    if obj is None:
+        raise ApplicationStateNotFoundError(
+            f"workspace document not found: {document_id}"
+        )
+    _require_kind_for_mutation(obj, kind)
+    _require_world_plan_scope(obj, expected_world_id)
+    if obj.status == "discarded":
+        raise ApplicationStateConflictError(
+            f"workspace document is discarded: {document_id}"
+        )
+    if expected_revision is not None and obj.object_revision != expected_revision:
+        # Identical replay: expected CAS already applied and digest matches
+        # the current revision.
+        if obj.current_revision_id is not None:
+            current = repo.get_work_revision(conn, obj.current_revision_id)
+            if current is not None:
+                _require_revision_owner(obj, current)
+            if (
+                current is not None
+                and current.content_sha256 == digest
+                and (canonical_title is None or obj.title == canonical_title)
+                and expected_revision == obj.object_revision - 1
+            ):
+                return obj, current
+        raise ApplicationStateConflictError(
+            f"revision mismatch: expected {expected_revision}, current {obj.object_revision}"
+        )
+    if obj.current_revision_id is not None:
+        current = repo.get_work_revision(conn, obj.current_revision_id)
+        if current is not None:
+            _require_revision_owner(obj, current)
+        if current is not None and current.content_sha256 == digest:
+            if canonical_title is not None and obj.title != canonical_title:
+                updated = obj.model_copy(
+                    update={
+                        "title": canonical_title,
+                        "object_revision": obj.object_revision + 1,
+                        "updated_at": repo.now_utc(),
+                    }
+                )
+                persisted = repo.update_work_object(
+                    conn, updated, expected_object_revision=obj.object_revision
+                )
+                if persisted is None:
+                    raise ApplicationStateConflictError(
+                        "revision mismatch: concurrent Plan title update"
+                    )
+                return persisted, current
+            # exact replay at current head
+            return obj, current
+    revision_n = repo.next_revision_n(conn, work_object_id)
+    revision = WorkRevision(
+        work_revision_id=uuid4(),
+        work_object_id=work_object_id,
+        world_id=obj.world_id,
+        revision_n=revision_n,
+        markdown=content,
+        content_sha256=digest,
+        created_at=repo.now_utc(),
+    )
+    repo.insert_work_revision(conn, revision)
+    expected = obj.object_revision
+    updated = obj.model_copy(
+        update={
+            "current_revision_id": revision.work_revision_id,
+            "title": canonical_title if canonical_title is not None else obj.title,
+            "object_revision": expected + 1,
+            "updated_at": repo.now_utc(),
+        }
+    )
+    persisted = repo.update_work_object(
+        conn, updated, expected_object_revision=expected
+    )
+    if persisted is None:
+        raise ApplicationStateConflictError(
+            f"revision mismatch: concurrent {kind} commit"
+        )
+    existing_copy = repo.get_working_copy(conn, work_object_id)
+    repo.replace_working_copy(
+        conn,
+        WorkingCopy(
+            work_object_id=work_object_id,
+            markdown=content,
+            content_sha256=digest,
+            base_revision_id=revision.work_revision_id,
+            working_copy_revision=(
+                1
+                if existing_copy is None
+                else existing_copy.working_copy_revision + 1
+            ),
+            updated_at=repo.now_utc(),
+        ),
+    )
+    return persisted, revision
+
+
 def _commit(
     document_id: str,
     markdown: str,
@@ -500,112 +616,14 @@ def _commit(
     expected_world_id: str | None = None,
     title: str | None = None,
 ) -> tuple[WorkObject, WorkRevision]:
-    canonical_title = _require_title(title) if title is not None else None
-    if canonical_title is not None and (kind != "plan" or expected_world_id is None):
-        raise ApplicationStateValidationError(
-            "title intent requires a selected World-owned Plan"
-        )
-    work_object_id = _require_uuid(document_id)
-    content = normalize_markdown(markdown)
-    digest = sha256_utf8(content)
     dsn = load_runtime_dsn()
     assert_at_head(dsn=dsn)
     with unit_of_work(dsn) as conn:
-        obj = repo.lock_work_object(conn, work_object_id)
-        if obj is None:
-            raise ApplicationStateNotFoundError(
-                f"workspace document not found: {document_id}"
-            )
-        _require_kind_for_mutation(obj, kind)
-        _require_world_plan_scope(obj, expected_world_id)
-        if obj.status == "discarded":
-            raise ApplicationStateConflictError(
-                f"workspace document is discarded: {document_id}"
-            )
-        if expected_revision is not None and obj.object_revision != expected_revision:
-            # Identical replay: expected CAS already applied and digest matches
-            # the current revision.
-            if obj.current_revision_id is not None:
-                current = repo.get_work_revision(conn, obj.current_revision_id)
-                if current is not None:
-                    _require_revision_owner(obj, current)
-                if (
-                    current is not None
-                    and current.content_sha256 == digest
-                    and (canonical_title is None or obj.title == canonical_title)
-                    and expected_revision == obj.object_revision - 1
-                ):
-                    return obj, current
-            raise ApplicationStateConflictError(
-                f"revision mismatch: expected {expected_revision}, current {obj.object_revision}"
-            )
-        if obj.current_revision_id is not None:
-            current = repo.get_work_revision(conn, obj.current_revision_id)
-            if current is not None:
-                _require_revision_owner(obj, current)
-            if current is not None and current.content_sha256 == digest:
-                if canonical_title is not None and obj.title != canonical_title:
-                    updated = obj.model_copy(
-                        update={
-                            "title": canonical_title,
-                            "object_revision": obj.object_revision + 1,
-                            "updated_at": repo.now_utc(),
-                        }
-                    )
-                    persisted = repo.update_work_object(
-                        conn, updated, expected_object_revision=obj.object_revision
-                    )
-                    if persisted is None:
-                        raise ApplicationStateConflictError(
-                            "revision mismatch: concurrent Plan title update"
-                        )
-                    return persisted, current
-                # exact replay at current head
-                return obj, current
-        revision_n = repo.next_revision_n(conn, work_object_id)
-        revision = WorkRevision(
-            work_revision_id=uuid4(),
-            work_object_id=work_object_id,
-            world_id=obj.world_id,
-            revision_n=revision_n,
-            markdown=content,
-            content_sha256=digest,
-            created_at=repo.now_utc(),
+        return _commit_in_connection(
+            conn, document_id, markdown, kind=kind,
+            expected_revision=expected_revision,
+            expected_world_id=expected_world_id, title=title,
         )
-        repo.insert_work_revision(conn, revision)
-        expected = obj.object_revision
-        updated = obj.model_copy(
-            update={
-                "current_revision_id": revision.work_revision_id,
-                "title": canonical_title if canonical_title is not None else obj.title,
-                "object_revision": expected + 1,
-                "updated_at": repo.now_utc(),
-            }
-        )
-        persisted = repo.update_work_object(
-            conn, updated, expected_object_revision=expected
-        )
-        if persisted is None:
-            raise ApplicationStateConflictError(
-                f"revision mismatch: concurrent {kind} commit"
-            )
-        existing_copy = repo.get_working_copy(conn, work_object_id)
-        repo.replace_working_copy(
-            conn,
-            WorkingCopy(
-                work_object_id=work_object_id,
-                markdown=content,
-                content_sha256=digest,
-                base_revision_id=revision.work_revision_id,
-                working_copy_revision=(
-                    1
-                    if existing_copy is None
-                    else existing_copy.working_copy_revision + 1
-                ),
-                updated_at=repo.now_utc(),
-            ),
-        )
-        return persisted, revision
 
 
 def commit_plan(
@@ -623,6 +641,28 @@ def commit_plan(
         expected_revision=expected_revision,
         expected_world_id=expected_world_id,
         title=title,
+    )
+
+
+def commit_plan_in_connection(
+    conn,
+    document_id: str,
+    markdown: str,
+    *,
+    expected_revision: int,
+    expected_world_id: str,
+    title: str | None = None,
+) -> tuple[WorkObject, WorkRevision]:
+    """Commit Plan content atomically with an owning command's durable receipt.
+
+    The caller owns schema readiness, transaction and preceding domain locks.
+    Every Content validation, CAS, revision and working-copy update is shared
+    with ordinary commit_plan; this function does not commit its connection.
+    """
+    return _commit_in_connection(
+        conn, document_id, markdown, kind="plan",
+        expected_revision=expected_revision,
+        expected_world_id=expected_world_id, title=title,
     )
 
 

@@ -14,6 +14,9 @@ from application_state.agent_conversation import AgentConversationService
 from application_state.agent_conversation.rules_authority_reads import MixedCompletedTurnV1
 from apps.live_control_server.services.rules_answer_presentation import project_rules_answer_context
 from application_state.agent_conversation.types import BuildGraphContextReceiptV1, PlayWorldGraphContextReceiptV1, ConversationCommand, CommandResolutionRequestV1, PlayGraphBindingReceiptV1, PlayRunTurnContextReceiptV2, TurnProvenance, decode_play_run_turn_context_references, request_fingerprint
+from application_state.plan_action_dialogue.authoring_review import (
+    PlanAuthoringReviewV1, PlanReviewSnapshotV1, PlanReviewCommand,
+)
 from application_state.errors import ApplicationStateError
 
 from apps.live_control_server.config import (
@@ -1303,6 +1306,41 @@ def _verified_world_id(world_id: str) -> str:
         ) from exc
 
 
+@router.get("/worlds/{world_id}/plan-proposals/{action_id}/review",
+    response_model=PlanReviewSnapshotV1)
+def get_plan_authoring_review(world_id: str, action_id: UUID, request: Request):
+    enforce_native_graph_gm(request)
+    verified = _verified_world_id(world_id)
+    from application_state.plan_action_dialogue.authoring_review import read_review
+    try:
+        return read_review(verified, action_id)
+    except ApplicationStateError as exc:
+        raise HTTPException(status_code=exc.status_code,
+            detail={"code": "plan_authoring_review_unavailable", "message": str(exc)}) from exc
+
+
+@router.post("/worlds/{world_id}/plan-proposals/{action_id}/review",
+    response_model=PlanAuthoringReviewV1)
+def post_plan_authoring_review(
+    world_id: str, action_id: UUID, command: PlanReviewCommand, request: Request,
+):
+    enforce_native_graph_gm(request)
+    verified = _verified_world_id(world_id)
+    from application_state.plan_action_dialogue.authoring_review import execute_review_command
+    try:
+        return execute_review_command(verified, action_id, command)
+    except ApplicationStateError as exc:
+        code = ("plan_authoring_review_conflict" if exc.status_code == 409
+            else "plan_authoring_review_unavailable")
+        raise HTTPException(status_code=exc.status_code,
+            detail={"code": code, "message": str(exc)}) from exc
+    except ValidationError as exc:
+        raise HTTPException(status_code=422, detail={
+            "code": "plan_authoring_review_invalid",
+            "message": "The complete Plan working copy is invalid; retain it for correction.",
+        }) from exc
+
+
 @router.get(
     "/worlds/{world_id}/conversation",
     # The response is selected per snapshot when it contains a policy turn.
@@ -1404,6 +1442,7 @@ def get_world_conversation_history(
     )
     from apps.live_control_server.services.agent_source_names import source_names_for_turns
     source_names = source_names_for_turns(turns)
+    from apps.live_control_server.services.agent_turn_service import project_plan_authoring_proposal
     history_turns = []
     for turn in turns:
         if isinstance(turn, MixedCompletedTurnV1):
@@ -1414,10 +1453,12 @@ def get_world_conversation_history(
                 lifecycle_status=envelope.status, user_text=envelope.user_text,
                 assistant_text=turn.assistant_text, provenance=envelope.provenance,
                 idempotency_key=envelope.idempotency_key,
+                plan_proposal=project_plan_authoring_proposal(turn, service=service),
                 rules_context=project_rules_answer_context(turn, delivery_replay=True, source_names=source_names),
                 **({"play_source_context":project_play_source_context(turn,delivery_replay=True)} if source_only_play(turn) else {})))
             continue
         values = {
+            "plan_proposal": project_plan_authoring_proposal(turn, service=service),
             "turn_id": turn.turn_id,
             "sequence": turn.sequence,
             "lifecycle_status": turn.status,

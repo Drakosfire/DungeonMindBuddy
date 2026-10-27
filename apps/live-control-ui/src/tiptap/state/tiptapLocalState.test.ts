@@ -18,6 +18,7 @@ import {
 } from "./tiptapLocalState";
 
 const northGateDescriptor = runbookDescriptorFromRecord({
+  kind: "runbook",
   document_id: FIXTURE_DOC_ID,
   title: "North Gate Session Runbook",
   campaign_id: "longmont-c2",
@@ -27,6 +28,7 @@ const northGateDescriptor = runbookDescriptorFromRecord({
 }, northGateSessionRunbookStarterContent);
 
 const otherDescriptor = runbookDescriptorFromRecord({
+  kind: "runbook",
   document_id: "22222222-2222-4222-8222-222222222222",
   title: "Other Runbook",
   campaign_id: "longmont-c2",

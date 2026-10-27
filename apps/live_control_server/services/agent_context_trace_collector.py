@@ -343,7 +343,7 @@ class ContextTraceCollector:
             execution = turn.graph_context_execution
             authorizations = [event for event in execution.events if event.kind in {
                 "provider_attempt_authorized", "provider_attempt_authorized_v2",
-                "provider_attempt_authorized_v3", "provider_attempt_authorized_v4", "plan_jev_provider_authorized_v1", "plan_jev_writer_authorized_v1", "plan_jev_writer_authorized_v2"}]
+                "provider_attempt_authorized_v3", "provider_attempt_authorized_v4", "plan_jev_provider_authorized_v1", "plan_requested_work_authorized_v1", "plan_jev_writer_authorized_v1", "plan_jev_writer_authorized_v2"}]
             if (not authorizations or authorizations[-1].provider_attempt_id != producing_provider_attempt_id
                 or not any(event.kind == "provider_outcome" and event.provider_attempt_id == producing_provider_attempt_id
                     and event.outcome == "response_received" for event in execution.events)):

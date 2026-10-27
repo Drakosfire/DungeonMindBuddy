@@ -785,6 +785,7 @@ export interface WorldPlanGraphContextFailureV1 {
 
 /** Accepted generic turn route, bound to one saved Plan in a verified World. */
 export interface WorldPlanAgentTurnRequestV1 {
+  plan_authoring_capture?: import("./planAuthoringReviewApi").PlanAuthoringCapture | null;
   schema: "dmb_agent_turn_request_v1";
   client_thread_id: string;
   turn_id: string;
@@ -862,6 +863,7 @@ export interface WorldBuildAgentTurnRequestV1 {
 
 /** Wire shape returned by the accepted generic turn route; runtime-validated by its caller. */
 export interface WorldPlanAgentTurnResponseV1 {
+  plan_proposal?: import("./planAuthoringReviewApi").PlanAuthoredProposal | null;
   knowledge_context?: WorldBuildKnowledgeContextV1;
   schema: "dmb_agent_turn_response_v1";
   client_thread_id: string;
@@ -1442,6 +1444,7 @@ export type AgentConversationTurnLifecycleV1 =
   | "interrupted";
 
 export interface WorldAgentConversationHistoryTurnV1 {
+  plan_proposal?: import("./planAuthoringReviewApi").PlanAuthoredProposal | null;
   retry_context?: import("./conversationRetryApi").TurnRetryContext | null;
   knowledge_context?: WorldBuildKnowledgeContextV1;
   turn_id: string;

@@ -1198,7 +1198,7 @@ def test_policy_predispatch_failure_has_strict_typed_projection(
         )
     ))
     with pytest.raises(HTTPException) as caught:
-        agent_route.post_agent_turn(body, SimpleNamespace(app=SimpleNamespace()))
+        agent_route.post_agent_turn(body, SimpleNamespace(app=SimpleNamespace(), headers={}))
     assert caught.value.status_code == status_code
     assert caught.value.detail["code"] == failure_code
     assert caught.value.detail["plan_context_failure"] == {
@@ -1252,7 +1252,7 @@ def test_policy_unproven_or_unmapped_failure_stays_generic(
         )
     ))
     with pytest.raises(HTTPException) as caught:
-        agent_route.post_agent_turn(body, SimpleNamespace(app=SimpleNamespace()))
+        agent_route.post_agent_turn(body, SimpleNamespace(app=SimpleNamespace(), headers={}))
     assert caught.value.status_code == 503
     assert caught.value.detail["code"] == failure_code
     assert "plan_context_failure" not in caught.value.detail
@@ -2681,7 +2681,7 @@ def test_no_scope_route_does_not_load_packet_and_registers_exactly_once(
     assert len(legacy_matches) == 1
     response = agent_route.post_agent_turn(
         AgentTurnRequest.model_validate(_payload()),
-        SimpleNamespace(app=app),
+        SimpleNamespace(app=app, headers={}),
     )
     body = response
     assert body["answer"]["text"] == "A simple answer."
@@ -2731,7 +2731,7 @@ def test_graph_auth_denial_precedes_world_receipt_reconciliation(
 
     with caplog.at_level(logging.INFO, logger="dmb.agent.turn_trace"):
         with pytest.raises(HTTPException) as exc_info:
-            agent_route.post_agent_turn(body, SimpleNamespace(app=app))
+            agent_route.post_agent_turn(body, SimpleNamespace(app=app, headers={}))
 
     assert exc_info.value.status_code == 403
     assert receipt_spy.called is False
@@ -2772,7 +2772,7 @@ def test_unconfigured_graph_auth_stops_before_receipt_or_runtime(
     app = SimpleNamespace(state=SimpleNamespace(agent_conversation_service=ReceiptSpy()))
 
     with pytest.raises(HTTPException) as exc_info:
-        agent_route.post_agent_turn(body, SimpleNamespace(app=app))
+        agent_route.post_agent_turn(body, SimpleNamespace(app=app, headers={}))
 
     assert exc_info.value.status_code == 503
     assert exc_info.value.detail["code"] == "graph_auth_unavailable"
@@ -3875,7 +3875,7 @@ def test_plan_agent_route_dispatches_only_atomic_committed_content(
     )
     app = SimpleNamespace(state=SimpleNamespace(agent_turn_runtime=runtime))
 
-    response = agent_route.post_agent_turn(request, SimpleNamespace(app=app))
+    response = agent_route.post_agent_turn(request, SimpleNamespace(app=app, headers={}))
 
     assert observed == {
         "document_id": "plan-1",
@@ -3937,7 +3937,7 @@ def test_plan_agent_route_rejects_stale_pin_before_runtime_dispatch(
     app = SimpleNamespace(state=SimpleNamespace(agent_turn_runtime=runtime))
 
     with pytest.raises(HTTPException) as exc_info:
-        agent_route.post_agent_turn(request, SimpleNamespace(app=app))
+        agent_route.post_agent_turn(request, SimpleNamespace(app=app, headers={}))
 
     assert exc_info.value.status_code == 409
     assert exc_info.value.detail["code"] == "plan_revision_changed"
@@ -4014,7 +4014,7 @@ def test_plan_agent_route_reads_actual_committed_content_and_excludes_divergent_
     )
     app = SimpleNamespace(state=SimpleNamespace(agent_turn_runtime=runtime))
 
-    response = agent_route.post_agent_turn(request, SimpleNamespace(app=app))
+    response = agent_route.post_agent_turn(request, SimpleNamespace(app=app, headers={}))
 
     assert len(runtime.invocations) == 1
     _prefix, payload = runtime.invocations[0].message.split("\n", maxsplit=1)

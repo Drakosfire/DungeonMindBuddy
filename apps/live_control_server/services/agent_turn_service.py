@@ -125,7 +125,7 @@ _LOG = logging.getLogger(__name__)
 def _is_provider_authorization(event: Any) -> bool:
     return getattr(event, "kind", None) in {
         "provider_attempt_authorized", "provider_attempt_authorized_v2",
-        "provider_attempt_authorized_v3", "provider_attempt_authorized_v4", "plan_jev_provider_authorized_v1", "plan_jev_writer_authorized_v1", "plan_jev_writer_authorized_v2",
+        "provider_attempt_authorized_v3", "provider_attempt_authorized_v4", "plan_jev_provider_authorized_v1", "plan_requested_work_authorized_v1", "plan_jev_writer_authorized_v1", "plan_jev_writer_authorized_v2",
     }
 
 
@@ -1253,7 +1253,9 @@ def _freeze_policy_receipt(
             )
             if selected_index:
                 policy_fields["policy_version"] = "world_graph_execution_selected_scope_uncapped_v1" if budget["maxProviderAttempts"] is None else "plan_world_graph_execution_selected_scope_v1"
-            policy_class = (graph_types.PlanNativeSourceSectionsPolicyV1 if plan_jev_request is not None else graph_types.BuildPrimaryWorkImagePolicyV1
+            from application_state.agent_conversation.plan_authoring import PlanRequestedWorkInputV1
+            semantic_plan = isinstance(plan_jev_request, PlanRequestedWorkInputV1)
+            policy_class = (graph_types.PlanAuthoringPolicyV1 if semantic_plan else graph_types.PlanNativeSourceSectionsPolicyV1 if plan_jev_request is not None else graph_types.BuildPrimaryWorkImagePolicyV1
                 if (budget.get("buildJevActions") or {}).get("primary_work_context_policy") is not None
                     and (budget.get("buildJevActions") or {}).get("image_preparation_policy") is not None
                 else graph_types.BuildPrimaryWorkPolicyV1
@@ -1332,6 +1334,9 @@ def _freeze_policy_receipt(
                         code='build_authored_reference_profile_unavailable', status_code=422, provider_dispatched=False)
                 policy_class = getattr(graph_types, authored_name)
             policy = policy_class(
+                **({'requested_work_policy': 'semantic_plan_destination_v1',
+                    'plan_authoring_capture_sha256': request.plan_authoring_capture.sha256
+                        if request.plan_authoring_capture is not None else None} if semantic_plan else {}),
                 **({"driver_schema": "dmb_plan_jev_retrieval_v1",
                     "native_source_section_policy":"exact_native_source_sections_v1"} if plan_jev_request is not None else {}),
                 **(budget.get("buildJevActions") or {}),
@@ -5068,6 +5073,7 @@ def _submitted_turn_intent(
             )
         return SubmittedTurnIntentV2(
             **common,
+            plan_authoring_capture_sha256=request.plan_authoring_capture.sha256 if request.plan_authoring_capture is not None else None,
             plan_context_policy=PlanContextPolicyV1(
                 policy=request.plan_context_policy.policy
             ),
@@ -5271,6 +5277,20 @@ def _stored_play_graph_binding(
     return binding
 
 
+def project_plan_authoring_proposal(turn, *, service=None):
+    """Project only the paired stored object; historical reads never regenerate."""
+    from application_state.agent_conversation import types as t
+    from application_state.agent_conversation.plan_authoring import turn_parts
+    envelope, evidence = turn_parts(turn)
+    execution = getattr(evidence, 'graph_context_execution', None)
+    choices = [event for event in execution.events if isinstance(event, t.PlanRequestedWorkSelectedV1)] if execution else []
+    if envelope.status != 'completed' or not choices or choices[-1].requested_work != 'write_current_page':
+        return None
+    owner = service if service is not None else AgentConversationService()
+    return owner.get_plan_authoring_proposal_for_turn(world_id=envelope.world_id,
+        conversation_id=envelope.conversation_id, turn_id=envelope.turn_id, attempt=envelope.attempt)
+
+
 def _completed_turn_replay(
     request: AgentTurnRequest,
     *,
@@ -5402,6 +5422,7 @@ def _completed_turn_replay(
             "graph_grounded_partial",
         }
     response = AgentTurnResponse(
+        plan_proposal=project_plan_authoring_proposal(turn),
         client_thread_id=request.client_thread_id,
         turn_id=request.turn_id,
         surface={
@@ -6321,9 +6342,10 @@ def _accept_world_turn(
 
 def _interrupt_policy_delivery(
     service: AgentConversationService, turn: Turn, *, output_limit_exceeded: bool = False,
+    failure_code_override: str | None = None,
 ) -> None:
     """Settle the owned claim without rewriting provider outcome or retry authority."""
-    failure_code = "plan_context_delivery_failure"
+    failure_code = failure_code_override or "plan_context_delivery_failure"
     execution = turn.graph_context_execution
     if execution is not None:
         authorized = [event for event in execution.events if _is_provider_authorization(event)]

@@ -2,6 +2,7 @@
 import asyncio
 from hashlib import sha256
 import json
+from types import SimpleNamespace
 
 import httpx2
 import pytest
@@ -114,13 +115,24 @@ def test_ordinary_plan_selects_appendix_and_persists_named_citation(plan_adapter
 
 def test_registered_scope_predicate_does_not_relax_real_ownership():
     from application_state.agent_conversation.native_source_scope import source_scope_matches
-    artifact={'source_domain':'worldbuilding','campaign_id':None,'session_id':None,
+    authority=SimpleNamespace(managed_world_id='managed',native_world_id='native')
+    artifact={'world_id':'native','source_domain':'worldbuilding','campaign_id':None,'session_id':None,
         'workspace_document_ref':{'document_id':'document','revision':2}}
     scope={'world_id':'managed','source_domain':'worldbuilding','campaign_id':'managed','session_id':None}
-    assert source_scope_matches(scope,artifact,'managed')
+    assert source_scope_matches(scope,artifact,authority)
     for changed in ({'world_id':'foreign'},{'campaign_id':'real-campaign'},{'session_id':'session'},
             {'source_domain':'session_recap'}):
-        assert not source_scope_matches(scope|changed,artifact,'managed')
-    for changed in ({'workspace_document_ref':None},{'workspace_document_ref':{}},
+        assert not source_scope_matches(scope|changed,artifact,authority)
+    for changed in ({'world_id':'foreign'},{'workspace_document_ref':None},{'workspace_document_ref':{}},
             {'campaign_id':'real-campaign'},{'session_id':'session'},{'source_domain':'session_recap'}):
-        assert not source_scope_matches(scope,artifact|changed,'managed')
+        assert not source_scope_matches(scope,artifact|changed,authority)
+
+
+def test_native_owner_never_uses_managed_build_campaign_projection():
+    from application_state.agent_conversation.native_source_scope import source_scope_matches
+    authority = SimpleNamespace(managed_world_id='managed', native_world_id='native')
+    artifact = dict(world_id='native', source_domain='worldbuilding', campaign_id=None, session_id=None,
+        workspace_document_ref=dict(document_id='doc', revision=2))
+    scope = dict(world_id='native', source_domain='worldbuilding', campaign_id='managed', session_id=None)
+    assert not source_scope_matches(scope, artifact, authority)
+    assert source_scope_matches(scope | {'campaign_id':None}, artifact, authority)

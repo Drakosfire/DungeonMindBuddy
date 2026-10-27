@@ -1,3 +1,5 @@
+import {PlanPageProposal} from '../agentEdit/PlanPageProposal';
+import {isPlanAuthoringCapture,isPlanAuthoredProposal,planProposalDigestsBound} from '../../api/planAuthoringReviewApi';
 import {SurfaceGraphReferenceInput} from '../../surface/SurfaceGraphReferenceInput';
 import {isAuthoredGraphReferences,authoredGraphReferences,readComposerReferences,writeComposerReferences,composerReferenceKey,recoverComposerReferences,readComposerReferenceRecoveries,type ComposerReferenceDraft} from '../../agentInteraction/authoredGraphReferences';
 import type {AuthoredGraphReferenceV1} from '../../api/types';
@@ -14,7 +16,6 @@ import {queueSurfaceConversationRequest,useSurfaceConversationRequests,claimSurf
 import { groupConversationAttempts, isUnansweredFailure } from "../../agentInteraction/conversationAttemptGroups";
 import {isSurfaceEvidenceCompletion,surfaceEvidenceReceiptBound} from "../../shared/surfaceEvidenceProtocol";
 import {SurfaceEvidenceAnswer} from "./SurfaceEvidenceAnswer";
-import { classifySurfaceComposerIntent } from "../../agentInteraction/surfaceComposerIntent";
 import { SurfaceImagePromptAction } from "../../shared/SurfaceImagePromptAction";
 import { isWorldPlayContextProjection, isWorldPlayGraphReceipt, isPlayContextProvenanceBound, playReceiptDigestsBound, isPlaySourceContext, isPlaySourceProvenanceBound, playSourceContextDigestBound } from '../../rulesLookup/playContextProtocol';
 import { isSurfaceGraphInput } from '../../rulesLookup/surfaceGraphInput';
@@ -580,6 +581,12 @@ function parsePendingAsk(
         && !isPlanPlayableTarget(request.playable_target))
       || (Object.prototype.hasOwnProperty.call(request, "plan_context_policy")
         && !isWorldPlanContextPolicy(request.plan_context_policy))
+      || (Object.hasOwn(request,'plan_authoring_capture')&&(!isPlanAuthoringCapture(request.plan_authoring_capture)
+        ||request.plan_authoring_capture.world_id!==worldId||request.plan_authoring_capture.document_id!==documentId
+        ||request.plan_authoring_capture.base_revision!==primary.expected_revision
+        ||request.plan_authoring_capture.base_content_sha256!==primary.expected_content_sha256
+        ||request.plan_authoring_capture.conversation_id!==origin.conversationId
+        ||request.plan_authoring_capture.expected_pointer_revision!==origin.pointerRevision))
       || origin.worldId !== worldId || origin.documentId !== documentId
       || !Number.isSafeInteger(origin.objectRevision)
       || typeof origin.workRevisionId !== "string"
@@ -1544,6 +1551,16 @@ function isHistoryTurn(
   worldId: string,
 ): boolean {
   if (!isRecord(value)) return false;
+  if(Object.hasOwn(value,'plan_proposal')){
+    const {plan_proposal:proposal,...envelope}=value;
+    if(!isPlanAuthoredProposal(proposal)||!isRecord(value.provenance)||!isRecord(value.provenance.primary_work))return false;
+    const owner=value.provenance,primary=owner.primary_work as Record<string,unknown>;
+    return value.lifecycle_status==='completed'&&value.turn_id===proposal.origin.turn_id
+      &&owner.world_id===worldId&&owner.surface_id==='plan'&&primary.kind==='plan'
+      &&primary.object_id===proposal.capture.document_id&&primary.object_revision===proposal.capture.base_revision
+      &&(!Object.hasOwn(value,'idempotency_key')||value.idempotency_key===proposal.origin.idempotency_key)
+      &&isHistoryTurn(envelope,schema,worldId);
+  }
   if(Object.hasOwn(value,'retry_context')){
     const {retry_context:retry,...envelope}=value;
     if(!isRecord(retry)||typeof retry.conversation_id!=='string'||typeof value.turn_id!=='string')return false;
@@ -1713,6 +1730,7 @@ function isWorldConversationHistory(value: unknown): value is WorldAgentConversa
       && (!isRecord(turn.rules_context) || !isRecord(turn.rules_context.accepted_binding)
         || turn.rules_context.accepted_binding.conversation_id !== value.conversation_id)) return false;
     if(isRecord(turn.retry_context)&&turn.retry_context.conversation_id!==value.conversation_id)return false;
+    if(isPlanAuthoredProposal(turn.plan_proposal)&&turn.plan_proposal.origin.conversation_id!==value.conversation_id)return false;
     previousSequence = turn.sequence;
     seenIds.add(turn.turn_id);
   }
@@ -1836,6 +1854,14 @@ async function isReceiptDigestBound(receipt: WorldPlanGraphContextReceiptV1 | Wo
 
 async function isHistoryReceiptDigestBound(turn: unknown): Promise<boolean> {
   if (!isRecord(turn)) return true;
+  if(Object.hasOwn(turn,'plan_proposal')){
+    if(!isPlanAuthoredProposal(turn.plan_proposal)||!await planProposalDigestsBound(turn.plan_proposal))return false;
+    const rules=isRecord(turn.rules_context)?turn.rules_context:null;
+    const context=turn.plan_context??rules?.base_context??rules?.unclaimed_context;
+    if(!isRecord(context)||!isRecord(context.receipt)
+      ||context.receipt.context_receipt_sha256!==turn.plan_proposal.origin.context_receipt_sha256
+      ||canonicalJson(context.receipt.plan_basis)!==canonicalJson(turn.plan_proposal.origin.basis))return false;
+  }
   if ('play_source_context' in turn && !await playSourceContextDigestBound(turn.play_source_context)) return false;
   if (turn.schema === 'dmb_agent_conversation_history_play_source_turn_v1') return true;
   if ((turn.schema === 'dmb_agent_conversation_history_mixed_turn_v1' || turn.schema === 'dmb_agent_conversation_history_play_rules_turn_v1')) {
@@ -2176,7 +2202,8 @@ async function validateWorldPlanResponse(
     "answer",
   ];
   const mixed = isRecord(value) && value.schema === 'dmb_agent_rules_turn_response_v1';
-  const topKeys = mixed ? [...baseKeys, 'rules_context'] : hasPolicy ? [...baseKeys, "plan_context"] : baseKeys;
+  const hasProposal=isRecord(value)&&Object.hasOwn(value,'plan_proposal');
+  const topKeys = [...(mixed ? [...baseKeys, 'rules_context'] : hasPolicy ? [...baseKeys, "plan_context"] : baseKeys),...(hasProposal?['plan_proposal']:[])];
   if (!hasExactKeys(value, topKeys)
     || value.schema !== (mixed ? 'dmb_agent_rules_turn_response_v1' : hasPolicy ? "dmb_agent_turn_response_v2" : "dmb_agent_turn_response_v1")
     || value.client_thread_id !== request.client_thread_id
@@ -2203,6 +2230,18 @@ async function validateWorldPlanResponse(
     return { ok: false, message: RESPONSE_MISMATCH };
   }
 
+  if(hasProposal){
+    const proposal=value.plan_proposal,capture=request.plan_authoring_capture;
+    if(!isPlanAuthoredProposal(proposal)||!capture||canonicalJson(proposal.capture)!==canonicalJson(capture)
+      ||proposal.capture.world_id!==request.owner_scope.world_id||proposal.capture.document_id!==request.primary_work.object_id
+      ||proposal.capture.base_revision!==request.primary_work.expected_revision
+      ||proposal.origin.basis.revision_n!==request.primary_work.expected_revision_n
+      ||proposal.origin.context_receipt_sha256!==responseReceipt?.context_receipt_sha256
+      ||responseReceipt?.schema!=="dmb_agent_plan_world_graph_context_receipt_v1"
+      ||canonicalJson(proposal.origin.basis)!==canonicalJson(responseReceipt.plan_basis)
+      ||proposal.origin.idempotency_key!==await worldTurnIdempotencyKey(request.owner_scope.world_id,request.turn_id)
+      ||!await planProposalDigestsBound(proposal))return {ok:false,message:RESPONSE_MISMATCH};
+  }
   const surface = value.surface;
   if (!hasExactKeys(surface, ["surface_id", "instance_id", "status"])
     || surface.surface_id !== "plan"
@@ -2290,6 +2329,8 @@ async function validateWorldPlanResponse(
     return { ok: false, message: RESPONSE_MISMATCH };
   }
 
+  if(hasProposal&&isPlanAuthoredProposal(value.plan_proposal)&&conversation.conversation_id!==value.plan_proposal.origin.conversation_id)
+    return {ok:false,message:RESPONSE_MISMATCH};
   const answer = value.answer;
   const expectedGraphGrounded = mixedContext ? mixedContext.accepted_binding.graph_used : planContext?.completion
     ? ["graph_grounded", "graph_grounded_partial"].includes(planContext.completion.answer_context_status)
@@ -2415,7 +2456,7 @@ export function WorldPlanAgentConversation({
     campaignId: namespace,
     documentId,
     sessionNumber: null,
-    ambientSummary: "Plan Ask uses the exact committed revision; unsaved draft text is excluded",
+    ambientSummary: "Plan requests use the captured working draft and exact saved revision; World evidence remains distinct.",
     sourceEnvelope: null,
   }) : null, [documentId, namespace, visible, isReadOnly]);
   usePublishAgentSurfaceContext(surfaceContext);
@@ -3553,6 +3594,7 @@ export function WorldPlanAgentConversation({
       }
       setConversationNotice(null);
       setHistoryRefreshNonce((current) => current + 1);
+      return response;
     } catch (reason) {
       if (!stillCurrent()) return;
       if (reason instanceof LiveApiError && reason.status === 409) {
@@ -3758,7 +3800,7 @@ export function WorldPlanAgentConversation({
     if (questionOverride === undefined) setRetryPresentationOrigin(null);
     const composerSnapshotAtSubmit = questionOverride ?? composerMessage;
     const message = composerSnapshotAtSubmit.trim();
-    const pointerSnapshot = historySnapshotRef.current;
+    let pointerSnapshot = historySnapshotRef.current;
     const targetAtSubmit = playableTarget;
     const targetBasisAtSubmit = playableTargetBasis;
     if (intent !== "discuss" || !planReady || !scopeMatches || !namespace || !documentId || !surfaceInstanceId
@@ -3797,6 +3839,31 @@ export function WorldPlanAgentConversation({
     };
 
     try {
+      const frozenTarget=useWorldGraphForAsk&&editBridge?.sealAuthoring?await editBridge.capture():null;
+      if(!stillPreparing())return;
+      if(useWorldGraphForAsk&&editBridge?.sealAuthoring&&!pointerSnapshot.conversation_id){
+        if(pendingCommands.some(item=>item.envelope!==null))throw new Error('Resolve the retained New Conversation command before sending this request.');
+        const request:WorldAgentNewConversationRequestV1={schema:'dmb_agent_new_conversation_v1',command_id:crypto.randomUUID(),
+          expected_pointer_revision:pointerSnapshot.pointer_revision,expected_active_conversation_id:pointerSnapshot.active_conversation_id};
+        const envelope:WorldPlanPendingNewConversation={schema:'dmb_world_pending_new_conversation_v1',worldId,documentId,request};
+        const storageKey=pendingNewConversationStorageKey(worldId,request.command_id),serialized=JSON.stringify(envelope);
+        localStorage.setItem(storageKey,serialized);
+        if(localStorage.getItem(storageKey)!==serialized)throw new Error('The conversation command could not be retained. Nothing was sent.');
+        refreshPendingCommandList();
+        const created=await sendNewConversationCommand({storageKey,envelope,error:null});
+        if(!created)throw new Error('The conversation could not be confirmed. Your message is retained; inspect its saved command before continuing.');
+        const fresh=await getWorldAgentConversationHistory(worldId,{includeTurnCorrelation:true});
+        if(!latestRef.current.mounted||latestRef.current.documentId!==documentId||latestRef.current.fenceKey!==startingFenceKey
+          ||requestRef.current?.token!==preparationToken)return;
+        if(!isWorldConversationHistory(fresh)||!await areHistoryReceiptDigestsBound(fresh)
+          ||fresh.conversation_id!==created.conversation_id||fresh.active_conversation_id!==created.conversation_id
+          ||fresh.pointer_revision!==created.pointer_revision)throw new Error('The prepared World conversation changed. Refresh history before sending.');
+        const existing=historySnapshotRef.current;
+        if(existing&&existing.conversation_id!==null&&!sameHistoryPointer(existing,fresh))throw new Error('Another conversation became active while preparing this request.');
+        pointerSnapshot=fresh;historySnapshotRef.current=fresh;setHistory(fresh);setHistoryLoading(false);
+        setSubmittedMessage({id:submittedTurnId,scopeKey,conversationId:fresh.conversation_id,pointerRevision:fresh.pointer_revision,message,kind:'discuss'});
+      }
+      if(!stillPreparing())return;
       const committedRevision: unknown = await getWorldOwnedPlanCommittedRevision(documentId);
       if (!stillPreparing()) return;
       const contentBasis = readCommittedPlanBasis(committedRevision, worldId, documentId, revision);
@@ -3807,6 +3874,18 @@ export function WorldPlanAgentConversation({
         && (contentBasis.object_revision !== targetBasisAtSubmit.revision
           || contentBasis.content_sha256 !== targetBasisAtSubmit.contentSha256)) {
         throw new Error("The selected card belongs to a different committed Plan revision. Select it again before asking.");
+      }
+      let authoringCapture:import('../../api/planAuthoringReviewApi').PlanAuthoringCapture|undefined;
+      if(frozenTarget&&editBridge?.sealAuthoring){
+        const key=await worldTurnIdempotencyKey(worldId,submittedTurnId);
+        if(!key||!pointerSnapshot.conversation_id)
+          throw new Error('This Plan cannot capture a recoverable page target. Open the saved Plan editor before sending.');
+        const capture=await editBridge.sealAuthoring(frozenTarget,{idempotencyKey:key,conversationId:pointerSnapshot.conversation_id,
+          pointerRevision:pointerSnapshot.pointer_revision});
+        if(!stillPreparing())return;
+        authoringCapture=capture;
+        if(authoringCapture.base_revision!==revision||authoringCapture.base_content_sha256!==contentBasis.content_sha256)
+          throw new Error('The captured draft no longer belongs to this committed Plan. Your request was not sent.');
       }
       const request: WorldPlanAgentTurnRequestV1 = {
         schema: "dmb_agent_turn_request_v1",
@@ -3830,6 +3909,7 @@ export function WorldPlanAgentConversation({
         ...(targetAtSubmit ? {
           playable_target: { schema: "dmb_plan_playable_target_v1" as const, ...targetAtSubmit },
         } : {}),
+        ...(authoringCapture?{plan_authoring_capture:authoringCapture}:{}),
         message,
       };
       const origin: WorldPlanPendingAskOrigin = {
@@ -5633,10 +5713,9 @@ export function WorldPlanAgentConversation({
   const confirmedFailureCount = pendingAskRecords.filter((item) => isPendingAskFailureConfirmed(item)).length;
   const unconfirmedAskCount = pendingAskRecords.length - confirmedFailureCount;
   const intentBusy = sending || composing || saveInFlight || !scopeMatches || currentReview !== null;
-  const inferredComposerIntent = classifySurfaceComposerIntent(composerMessage);
   const detectedComposerIntent = continuationOfActionId ? "propose" : composerIntentCorrection?.message === composerMessage
     ? composerIntentCorrection.intent
-    : inferredComposerIntent;
+    : "discuss";
   const buildSourceMissing = isBuild && !buildMode?.savedSource;
   const pendingPlayRecoveryHydrating = Boolean(verifiedWorldId && pendingPlayLoadedWorldId !== verifiedWorldId);
   const composerBusy = isReadOnly
@@ -5811,7 +5890,7 @@ export function WorldPlanAgentConversation({
     const collaboration=completed&&'collaboration' in completed?completed.collaboration:undefined;
     const pageWorkPlan=turn.provenance.surface_id==='build'&&collaboration?.kind==='plan';
     // The immutable receipt records generation; proposal controls own current review state.
-    const pageProposalAcknowledgment = graphContextForTurn(turn)?.completion?.schema === "dmb_build_authoring_completion_v1"
+    const pageProposalAcknowledgment = Boolean(turn.plan_proposal) || graphContextForTurn(turn)?.completion?.schema === "dmb_build_authoring_completion_v1"
       && !rulesContextForTurn(turn);
     const citedContext=graphContextForTurn(turn);
     const buildCitedContext=citedContext?.schema==="dmb_build_graph_context_response_v1" ? citedContext : null;
@@ -5863,7 +5942,7 @@ export function WorldPlanAgentConversation({
                 {rulesContextForTurn(turn)!.accepted_binding.support_table.length ? 'Rules evidence' : 'Rules lookup: no evidence'}
               </span>}
             </div>
-            {(graphContextForTurn(turn)?.completion?.schema === "dmb_surface_evidence_completion_v1" || graphContextForTurn(turn)?.completion?.schema === "dmb_surface_evidence_completion_v2" || graphContextForTurn(turn)?.completion?.schema === "dmb_surface_evidence_completion_v3")
+            {!pageProposalAcknowledgment&&(graphContextForTurn(turn)?.completion?.schema === "dmb_surface_evidence_completion_v1" || graphContextForTurn(turn)?.completion?.schema === "dmb_surface_evidence_completion_v2" || graphContextForTurn(turn)?.completion?.schema === "dmb_surface_evidence_completion_v3")
               ? <SurfaceEvidenceAnswer completion={graphContextForTurn(turn)!.completion as import("../../api/types").SurfaceEvidenceCompletion}
                 worldId={verifiedWorldId} turnId={turn.turn_id} composition={rulesContextForTurn(turn) ? {text:replyText,ranges:rulesContextForTurn(turn)!.accepted_binding.segment_map} : undefined}/>
               : citedAnswer ?? <WorldPlanAgentAnswer
@@ -5894,6 +5973,19 @@ export function WorldPlanAgentConversation({
             {verifiedWorldId && ["dmb_build_intentional_response_completion_v3","dmb_build_intentional_response_completion_v2","dmb_build_intentional_response_completion_v1","dmb_build_connected_page_review_completion_v1","dmb_build_relationship_review_completion_v3","dmb_build_relationship_review_completion_v2","dmb_build_relationship_review_completion_v1"].includes(graphContextForTurn(turn)?.completion?.schema ?? "") && (graphContextForTurn(turn)!.completion as Pick<import("../../api/types").WorldBuildRelationshipReviewCompletionV1|import("../../api/types").WorldBuildRelationshipReviewCompletionV2|import("../../api/types").WorldBuildRelationshipReviewCompletionV3,'collaboration'>).collaboration?.kind === 'connected_page' && <ConversationConnectedPageReview worldId={verifiedWorldId} documentId={turn.provenance.primary_work.object_id!} turnId={turn.turn_id}
               proposal={(graphContextForTurn(turn)!.completion as Pick<import("../../api/types").WorldBuildRelationshipReviewCompletionV1|import("../../api/types").WorldBuildRelationshipReviewCompletionV2|import("../../api/types").WorldBuildRelationshipReviewCompletionV3,'collaboration'>).collaboration as import("../../api/types").ConversationConnectedPageProposal}
               disabled={composerBusy||!isBuild||!visible||history?.active_conversation_id!==history?.conversation_id||buildMode?.savedSource?.documentId!==turn.provenance.primary_work.object_id}/>}
+            {turn.plan_proposal&&editBridge&&namespace&&history?.conversation_id&&visible&&!isReadOnly
+              &&turn.plan_proposal.capture.world_id===worldId&&turn.plan_proposal.capture.document_id===documentId?<PlanPageProposal
+              key={`plan-page:${turn.plan_proposal.origin.action_id}`} proposal={turn.plan_proposal} bridge={editBridge}
+              identity={{idempotencyKey:turn.plan_proposal.origin.idempotency_key,conversationId:history.conversation_id,pointerRevision:history.pointer_revision}}
+              expectedBinding={{worldId,documentId:turn.plan_proposal.capture.document_id,threadId:history.conversation_id,namespace}}
+              getBinding={()=>{const pointer=historySnapshotRef.current;return {
+                mounted:latestRef.current.mounted&&latestRef.current.scopeMatches
+                  &&pointer?.conversation_id===history.conversation_id&&pointer?.active_conversation_id===history.conversation_id
+                  &&pointer?.pointer_revision===history.pointer_revision,
+                verifiedWorldId:latestRef.current.verifiedWorldId,activeThreadId:pointer?.active_conversation_id??null,
+                scope:latestRef.current.scope};}}
+              disabled={!scopeMatches||history.active_conversation_id!==history.conversation_id}
+              onVisible={()=>agent.setPaneOpen(false)}/>:null}
             {verifiedWorldId&&history?.conversation_id&&pageWorkPlan&&collaboration?.kind==='plan'?<StagedWorkPlan
               key={`page-plan:${verifiedWorldId}:${history.conversation_id}:${turn.turn_id}`}
               worldId={verifiedWorldId} documentId={turn.provenance.primary_work.object_id!} conversationId={history.conversation_id}
@@ -6586,7 +6678,7 @@ export function WorldPlanAgentConversation({
             <button type="button" aria-describedby={BUILD_SOURCE_REQUIRED_DESCRIPTION_ID} onClick={focusBuildSourceSelector}>Choose a source</button>
             <button type="button" aria-describedby={BUILD_SOURCE_REQUIRED_DESCRIPTION_ID} onClick={openBuildSourceActions}>Open source actions</button>
           </> : null}
-          {isBuild && !useWorldGraphForAsk ? <p role="note">Discussion only. Page proposals are available with World facts enabled.</p> : null}
+          {(isBuild||!isReadOnly) && !useWorldGraphForAsk ? <p role="note">Discussion only. Page proposals are available with World facts enabled.</p> : null}
           <p id="world-plan-agent-composer-hint" className="sr-only">
             {buildSourceMissing
               ? "Sending is disabled until a saved source is available."
@@ -6596,7 +6688,7 @@ export function WorldPlanAgentConversation({
           </p>
           {!isReadOnly && composerMessage.trim() ? (
             <details className="world-plan-agent-conversation__route-correction">
-              <summary>{detectedComposerIntent === "propose" ? "Plan change · Change" : "Question · Change"}</summary>
+              <summary>{detectedComposerIntent === "propose" ? "Plan change · Change" : "Automatic · Change"}</summary>
               <div role="group" aria-label="Choose how Buddy handles this message">
                 <button type="button" onClick={() => setComposerIntentCorrection({ message: composerMessage, intent: "discuss" })}>
                   Answer as a question

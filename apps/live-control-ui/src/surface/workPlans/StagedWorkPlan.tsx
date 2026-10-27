@@ -136,7 +136,7 @@ export function StagedWorkPlan({worldId,documentId,conversationId,turnId,source,
     assertCurrent:()=>{assertCurrent(start);if(pointerRevision!==placement.pointer_revision)throw new Error('The conversation pointer changed. Choose a new position.');},
     readReview:async()=>{const plan=await getWorkPlan(planScope);assertCurrent(start);if(plan?.schema==='dmb_reviewed_work_plan_v3'&&(rootReferences===undefined||plan.revision!==placement.expected_review_revision))setReviewToAdopt(plan);return plan;},saveReview:(revision,reviewed,outcome,roots)=>saveWorkPlan(planScope,revision,reviewed,outcome,roots),
     findSaved:()=>findSaved(reference),prepare:async receipt=>{const anchor=await bridge.restore(receipt.basis);const prepared=await bridge.prepareWorkPlan!(anchor,receipt.reference);return {value:prepared,after_editor_sha256:prepared.afterEditorSha256,after_draft_sha256:prepared.afterDraftSha256};},
-    inspect:receipt=>bridge.inspectProposal(receipt.basis,receipt.prepared!.after_editor_sha256,receipt.prepared!.after_draft_sha256),
+    inspect:async receipt=>{const result=await bridge.inspectProposal(receipt.basis,receipt.prepared!.after_editor_sha256,receipt.prepared!.after_draft_sha256);return result.savedProjection?"changed":result.state;},
     apply:prepared=>bridge.applyWorkPlan!(prepared),
     save:async receipt=>{await bridge.saveProposal(receipt.basis,receipt.prepared!.after_editor_sha256,receipt.prepared!.after_draft_sha256);
      const saved=await findSaved(reference);if(!saved||saved.body_sha256!==receipt.prepared!.after_draft_sha256)throw new Error('The saved page does not yet verify this insertion.');
