@@ -15,7 +15,7 @@ from apps.live_control_server.services.plan_jev_driver import PlanJevDriver
 from tests.test_plan_jev_dispatch import plan_adapter  # noqa: F401
 
 
-def fixture_reads(adapter, *, anchors=1, body_chars=None, node_only=False, shared_ref=False, source_text=None, source_lines=(1,1)):
+def fixture_reads(adapter, *, anchors=1, body_chars=None, node_only=False, shared_ref=False, source_text=None, source_lines=(1,1), subject_searches=False):
     graph_calls, source_calls = [], []
     adapter._test_source_acquisitions = []
     @contextmanager
@@ -45,6 +45,10 @@ def fixture_reads(adapter, *, anchors=1, body_chars=None, node_only=False, share
                 'epistemicKind': 'reported', 'temporalScope': 'past', 'evidenceRefIds': refs}],
             'sourceAnchors': [] if operation == 'search' else [{'anchorId': pin.anchor_id,
                 'evidenceRefId': pin.evidence_ref_id, 'readable': True} for pin in pins]}
+        if subject_searches:
+            packet.update(operation=operation, outcome='enough', resolvedNodeId=node if operation=='object' else None)
+            if operation == 'object':
+                packet['nodes'] = [row for row in packet['nodes'] if row['nodeId'] == node]
         event = t.ValidatedGraphOperationEventV3(kind='validated_graph_operation_v3', event_id=uuid4(),
             sequence=len(execution.events), operation_id=uuid4(), operation='expand_graph_retrieval',
             request_arguments_sha256=canonical_sha256(arguments), graph_revision=authority.graph_revision,
@@ -523,3 +527,64 @@ def test_mixed_selection_closes_objects_before_passages_native_and_rules(plan_ad
     driver.apply(dispatch)
     assert events==['open','pond','bridge','close','passages','native','rules']
     assert rules.selected and driver.attempted_nodes=={'pond','bridge'}
+
+
+class SubjectDecisions(Decisions):
+    async def handle_async_request(self, request):
+        body = json.loads(request.content)
+        stage = len(self.calls)
+        self.calls.append(body)
+        candidates = body['state']['candidates']
+        answers = {}
+        for name, question in body['questions'].items():
+            if name == 'operation':
+                choice = 'finish_retrieval'
+            else:
+                c = candidates[int(name.split('_')[-1])]
+                choose = ((stage == 0 and c['label'] == 'Park pond' and c['kind'].startswith('World entity'))
+                    or (stage == 1 and c['label'] == 'Park pond' and c['kind'].startswith('Search other mentions'))
+                    or (stage == 2 and c['label'] == 'Footbridge' and c['kind'].startswith('World entity')))
+                choice = 'include' if choose else 'exclude'
+            answers[name] = {'type':'choice','choice':choice,'confidence':1.0,
+                'probabilities':{key:float(key==choice) for key in question['criteria']}}
+        return httpx2.Response(200, request=request, json={'model':'jev-1.14.0','answers':answers,'usage':{}})
+
+
+def test_subject_search_discovers_then_explicitly_reads_new_subject(plan_adapter):
+    plan_adapter.bootstrap.retrieval_session.referents = [GraphReferent(id='pond', label='Park pond')]
+    graphs, sources = fixture_reads(plan_adapter, subject_searches=True)
+    driver = PlanJevDriver(plan_adapter)
+    wire = SubjectDecisions()
+    proof = asyncio.run(driver.run(transport=wire, api_key='synthetic-not-secret'))
+    assert [g['operation'] for g in graphs] == ['object','search','object']
+    assert graphs[1]['queryText'] == 'Park pond'
+    assert graphs[2]['targets'] == [{'kind':'node','id':'bridge'}]
+    assert len(sources) == 1 and len(proof['graph_packets']) == 3
+    assert not any(c['kind'].startswith('Search other mentions') for c in wire.calls[0]['state']['candidates'])
+    assert any(c['kind'].startswith('Search other mentions') for c in wire.calls[1]['state']['candidates'])
+    assert not any(c['label']=='Park pond' and c['kind'].startswith('Search other mentions')
+        for c in wire.calls[2]['state']['candidates'])
+
+
+def test_subject_offer_excludes_failed_packets_and_duplicate_query_labels(plan_adapter):
+    from apps.live_control_server.services.plan_jev_dispatch import PlanJevDispatch
+    a = plan_adapter
+    a.bootstrap.retrieval_session.referents = [GraphReferent(id='pond',label='Park pond')]
+    graphs, _ = fixture_reads(a, subject_searches=True)
+    driver = PlanJevDriver(a)
+    dispatch = PlanJevDispatch(a, driver.offered())
+    asyncio.run(dispatch.run(transport=Decisions(),api_key='synthetic-not-secret'))
+    driver.current=dispatch; driver.apply(dispatch)
+    assert any(c.handle=='mentions:pond' for c in driver.offered())
+    driver.attempted_queries.add('park pond')
+    assert not any(c.handle=='mentions:pond' for c in driver.offered())
+    driver.attempted_queries.clear()
+    identity, raw = next(iter(a.operation_payloads.items()))
+    packet=json.loads(raw); packet['outcome']='unavailable'
+    canonical={k:v for k,v in packet.items() if k not in {'retrievalSessionId','addedClaimIds','claimLedger'}}
+    event=next(e for e in a._broker_execution().events if e.event_id==identity)
+    # Model a validated failed result rather than a tampered packet.
+    events=a._broker_execution().events
+    events[events.index(event)]=event.model_copy(update={"result_packet_sha256":canonical_sha256(canonical)})
+    a.operation_payloads[identity]=json.dumps(packet)
+    assert not any(c.handle.startswith('mentions:') for c in driver.offered())

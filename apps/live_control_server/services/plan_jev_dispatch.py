@@ -186,8 +186,9 @@ class PlanJevDispatch:
         except GenerationEngineError as exc:
             # Keep the normalized public failure alongside the unchanged dispatch
             # lifecycle. SDK exception text and response bodies are not trace data.
-            self.adapter.context_capture.observe({"kind": "failure", "phase": "provider",
-                "code": "plan_jev_" + exc.failure.code.value.lower()})
+            if self.adapter.context_capture is not None:
+                self.adapter.context_capture.observe({"kind": "failure", "phase": "provider",
+                    "code": "plan_jev_" + exc.failure.code.value.lower()})
             raise
         finally:
             try:

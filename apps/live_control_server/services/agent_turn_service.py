@@ -3184,7 +3184,11 @@ class _PolicyExecutionAdapter:
                                 or request.observation_ids or request.query_text is not None):
                             raise ValueError("Plan object was not selected by its current decision")
                     elif request.operation == "search":
-                        if (selection.operation != "discover_more" or request.targets
+                        from .plan_jev_acquisition import SubjectSearch
+                        subject_search = getattr(self, "_plan_graph_read_services", None)
+                        if isinstance(subject_search, SubjectSearch):
+                            subject_search.consume(request, selection)
+                        elif (selection.operation != "discover_more" or request.targets
                                 or request.observation_ids or request.query_text != self.request.message):
                             raise ValueError("Plan discovery differs from its selected full question")
                     else:
@@ -3229,7 +3233,9 @@ class _PolicyExecutionAdapter:
                 return denied("native_acquisition_operation_mismatch", 409)
             plan_services = getattr(self, "_plan_graph_read_services", None)
             if plan_services is not None:
-                if (services is not None or request.operation != "object"
+                from .plan_jev_acquisition import SubjectSearch
+                allowed_operation = "search" if isinstance(plan_services, SubjectSearch) else "object"
+                if (services is not None or request.operation != allowed_operation
                         or not isinstance(execution.policy, graph_types.PlanJevRetrievalPolicyV1)):
                     return denied("native_acquisition_operation_mismatch", 409)
                 services = plan_services.resolve()
@@ -3307,6 +3313,13 @@ class _PolicyExecutionAdapter:
                     if isinstance(execution, (graph_types.PlanWorldGraphExecutionV3, graph_types.PlayWorldGraphExecutionV1)) else None
                 )
                 result = resolved.result if resolved is not None else search_world_graph_direct(services, effective_request)
+            # Selected-label searches are navigation only. Native search can
+            # return supported records/anchors; those require a subsequent
+            # explicitly selected object read in this Plan discovery lane.
+            if plan_services is not None and request.operation == "search":
+                result = result.model_copy(update={"attributes": [], "relationships": [],
+                    "source_anchors": [], "reviewed_source_observation_matches": []})
+                resolved = None
             stage = "result_validation"
             if (
                 result.snapshot is None

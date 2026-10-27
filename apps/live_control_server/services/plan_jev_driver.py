@@ -21,6 +21,9 @@ class PlanJevDriver:
         self._remember_node_kinds(adapter.bootstrap.graph_envelope.get("nodes", []), "node_id")
         self.attempted_nodes, self.attempted_anchors = set(), set()
         self.discovered = adapter.bootstrap.completed_discovery_query == adapter.request.message
+        from .plan_jev_acquisition import query_identity
+        self.attempted_queries = ({query_identity(adapter.bootstrap.completed_discovery_query)}
+            if adapter.bootstrap.completed_discovery_query else set())
         self.finished = False
         self.calls = []
         self.gaps = []
@@ -55,16 +58,24 @@ class PlanJevDriver:
     def offered(self):
         if self.finished:return ()
         result = [candidate for node, candidate in self.catalog.values() if node not in self.attempted_nodes]
+        from .plan_jev_acquisition import query_identity, read_subject_labels
+        seen = set(self.attempted_queries)
+        for node, label in read_subject_labels(self.adapter).items():
+            key = query_identity(label)
+            if key not in seen:
+                result.append(RetrievalCandidate(handle=f"mentions:{node}", label=label,
+                    kind="Search other mentions of this explored World subject"))
+                seen.add(key)
         if self.rules is not None and not self.rules.selected:
             result.append(rules_candidate())
         result.extend(self.native_sources.offered())
         return tuple(result)
 
-    def _graph_read(self, operation, node=None):
+    def _graph_read(self, operation, node=None, *, query=None):
         a = self.adapter
         arguments = {"retrievalSessionId": a.bootstrap.retrieval_session.id, "operation": operation}
         if node is not None: arguments["targets"] = [{"kind": "node", "id": node}]
-        else: arguments["queryText"] = a.request.message
+        else: arguments["queryText"] = a.request.message if query is None else query
         before = set(a.operation_payloads)
         reply = a.broker_graph_operation({"toolName": "expand_graph_retrieval", "arguments": arguments})
         if a.failure is not None: raise a.failure
@@ -104,6 +115,8 @@ class PlanJevDriver:
         if selected.operation == "discover_more":
             if self.discovered: raise ValueError("Plan discovery cannot repeat the same query")
             self.discovered = True
+            from .plan_jev_acquisition import query_identity
+            self.attempted_queries.add(query_identity(self.adapter.request.message))
             operations.update(self._graph_read("search"))
         else:
             offered = {candidate.handle for candidate in dispatch.parent.candidates}
@@ -111,18 +124,28 @@ class PlanJevDriver:
                 raise ValueError("Plan selection changed its offered catalog")
             native_handles = {candidate.handle for candidate in self.native_sources.offered()}
             nodes = [self.catalog[handle][0] for handle in selected.selected_handles
-                     if handle != rules_candidate().handle and handle not in native_handles]
+                     if handle.startswith("node:")]
             if any(node in self.attempted_nodes for node in nodes):
                 raise ValueError("Plan object cannot be reacquired")
             with self.adapter.plan_graph_acquisition(nodes):
                 for handle in selected.selected_handles:
-                    if handle in native_handles or handle == rules_candidate().handle:
+                    if not handle.startswith("node:"):
                         continue
                     node, _ = self.catalog[handle]
                     if node in self.attempted_nodes: raise ValueError("Plan object cannot be reacquired")
                     self.attempted_nodes.add(node)  # mark before IO, including failures
                     operations.update(self._graph_read("object", node))
             self._read_new_sources(operations)
+            from .plan_jev_acquisition import query_identity, subject_search_acquisition
+            for handle in selected.selected_handles:
+                if not handle.startswith("mentions:"):
+                    continue
+                with subject_search_acquisition(self.adapter, dispatch, handle) as query:
+                    key = query_identity(query)
+                    if key in self.attempted_queries:
+                        raise ValueError("Plan subject query cannot repeat")
+                    self.attempted_queries.add(key)  # consume even when IO fails
+                    self._graph_read("search", query=query)
             for handle in selected.selected_handles:
                 if handle in native_handles:
                     try:
