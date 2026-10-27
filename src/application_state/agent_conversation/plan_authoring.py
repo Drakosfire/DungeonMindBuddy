@@ -728,13 +728,24 @@ def completed_result_digest(turn) -> str:
 
 
 def authored_markdown(result) -> str:
-    """Only literal admitted segments, in their accepted order, become page blocks."""
+    """Admitted blocks plus host references; retained older fragments stay unchanged."""
     from .rules_authority_completion import NativeRulesMixedTurnResultV1
     from .rules_authority_reads import MixedCompletedTurnV1
 
+    from .session_summary_projection import summary_markdown
+    envelope, evidence = turn_parts(result)
+    world_id = result.scope.world_id if isinstance(result, NativeRulesMixedTurnResultV1) else envelope.world_id
+    next_number = 1
+    def project(segment):
+        nonlocal next_number
+        text, next_number = summary_markdown(segment, world_id, next_number)
+        return text
+
     if isinstance(result, MixedCompletedTurnV1):
         texts = [
-            result.assistant_text[item.text_start : item.text_end]
+            project(evidence.completion.answer_segments[item.base_segment_index])
+            if item.domain == "base" and evidence is not None and evidence.completion is not None
+            else result.assistant_text[item.text_start : item.text_end]
             for item in result.accepted_binding.segment_map
         ]
     elif isinstance(result, NativeRulesMixedTurnResultV1):
@@ -742,11 +753,11 @@ def authored_markdown(result) -> str:
             ()
             if result.base_result is None
             else tuple(
-                item.text for item in result.base_result.completion.answer_segments
+                item for item in result.base_result.completion.answer_segments
             )
         )
         texts = [
-            base[item.segment_index]
+            project(base[item.segment_index])
             if item.domain == "base"
             else result.composition.rules_segments[item.segment_index].text
             for item in result.composition.ordered_refs
@@ -754,7 +765,7 @@ def authored_markdown(result) -> str:
     else:
         if result.completion is None:
             raise ValueError("Plan writing requires admitted literal content")
-        texts = [item.text for item in result.completion.answer_segments]
+        texts = [project(item) for item in result.completion.answer_segments]
     if not texts or any(not text.strip() for text in texts):
         raise ValueError("Plan writing has no nonempty admitted content blocks")
     return "\n\n".join(texts)

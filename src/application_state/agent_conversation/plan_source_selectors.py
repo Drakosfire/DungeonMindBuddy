@@ -3,7 +3,7 @@ import re
 
 from .rules_authority_types import canonical_sha256
 
-FRAME_SCHEMA = 'dmb_plan_jev_writer_frame_v4'
+FRAME_SCHEMA = 'dmb_plan_jev_writer_frame_v5'
 
 
 def _scope(turn):

@@ -1509,7 +1509,8 @@ def plan_answer_basis(segments):
 def validate_session_evidence_claims(segments,provenance):
     from urllib.parse import urlencode
     allowed={(ref.object_id,int(ref.revision),ref.content_sha256) for ref in provenance.supporting_work if ref.kind=="session_evidence_v1" and ref.resolution=="resolved"}
-    for segment in segments:
+    for segment in (source for segment in segments for source in
+                    (segment.supports if isinstance(segment, SessionSummaryV1) else [segment])):
         if isinstance(segment, SurfaceAuthoredQuoteV1) and segment.source_kind == 'session':
             if (segment.object_id, int(segment.revision), segment.owner_sha256) not in allowed:
                 raise ValueError("Session quote is not bound to frozen turn provenance")
@@ -2116,6 +2117,39 @@ class SurfaceAuthoredExcerptV1(SurfaceAuthoredQuoteV1):
         return self
 
 
+class SessionSummarySupportV1(SurfaceAuthoredExcerptV1):
+    """Host-resolved literal support for a synthesis, never model-authored metadata."""
+    source_kind: Literal["session"] = "session"
+    object_id: str = Field(pattern=r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$")
+    revision: str = Field(pattern=r"^[1-9][0-9]*$")
+    source_ordinal: int = Field(strict=True, ge=0)
+    entry_kind: Literal["scene_note", "closing_reflections"]
+    element_id: str | None
+    checkpoint_content_sha256: str = Field(pattern=r"^[a-f0-9]{64}$")
+
+    @model_validator(mode="after")
+    def exact_session_entry(self):
+        expected = canonical_sha256({"kind": self.entry_kind, "element_id": self.element_id,
+                                     "ordinal": self.source_ordinal})
+        if expected != self.entry_identity:
+            raise ValueError("Session summary entry identity changed")
+        if (self.entry_kind == "scene_note") != bool(self.element_id):
+            raise ValueError("Session summary entry kind differs from its scene identity")
+        return self
+
+
+class SessionSummaryV1(StrictModel):
+    kind: Literal["session_summary"]
+    text: str = Field(min_length=1)
+    supports: list[SessionSummarySupportV1] = Field(min_length=1)
+
+    @model_validator(mode="after")
+    def distinct_support(self):
+        if not self.text.strip() or len({s.block_handle for s in self.supports}) != len(self.supports):
+            raise ValueError("Session summary requires nonblank prose and distinct literal supports")
+        return self
+
+
 class SurfaceLimitationV1(StrictModel):
     kind: Literal["limitation"]
     code: Literal["missing_requested_details", "partial_retrieval", "unresolved_conflict"]
@@ -2182,7 +2216,16 @@ class SurfaceEvidenceCompletionV3(SurfaceEvidenceCompletionV2):
         max_length=MAX_CITATION_SOURCE_READ_IDS)
 
 
-GraphTurnCompletion = BuildIntentionalResponseCompletionV3 | BuildRelationshipReviewCompletionV3 | BuildIntentionalResponseCompletionV2 | BuildRelationshipReviewCompletionV2 | BuildIntentionalResponseCompletionV1 | BuildRelationshipReviewCompletionV1 | BuildConnectedPageReviewCompletionV1 | BuildCollaborationCompletionV1 | BuildRelatedPageCompletionV1 | BuildDraftContextCompletionV1 | BuildNamedGraphCompletionV3 | SurfaceEvidenceCompletionV3 | SurfaceEvidenceCompletionV2 | SurfaceEvidenceCompletionV1 | SurfaceSourceCompletionV1 | PlayWorldGraphCompletionV1 | PlanWorldGraphCompletion | BuildGraphCompletionV1 | BuildGraphCompletionV2 | BuildAuthoringCompletionV1 | BuildImagePreparationCompletionV1
+SurfaceEvidenceSegmentV3 = Annotated[SurfaceEvidenceSegmentV2 | SessionSummaryV1, Field(discriminator="kind")]
+
+
+class SurfaceEvidenceCompletionV4(SurfaceEvidenceCompletionV3):
+    surface_id: Literal["plan"] = "plan"
+    schema_: Literal["dmb_surface_evidence_completion_v4"] = Field(default="dmb_surface_evidence_completion_v4", alias="schema")
+    answer_segments: list[SurfaceEvidenceSegmentV3] = Field(min_length=1, max_length=128)
+
+
+GraphTurnCompletion = BuildIntentionalResponseCompletionV3 | BuildRelationshipReviewCompletionV3 | BuildIntentionalResponseCompletionV2 | BuildRelationshipReviewCompletionV2 | BuildIntentionalResponseCompletionV1 | BuildRelationshipReviewCompletionV1 | BuildConnectedPageReviewCompletionV1 | BuildCollaborationCompletionV1 | BuildRelatedPageCompletionV1 | BuildDraftContextCompletionV1 | BuildNamedGraphCompletionV3 | SurfaceEvidenceCompletionV4 | SurfaceEvidenceCompletionV3 | SurfaceEvidenceCompletionV2 | SurfaceEvidenceCompletionV1 | SurfaceSourceCompletionV1 | PlayWorldGraphCompletionV1 | PlanWorldGraphCompletion | BuildGraphCompletionV1 | BuildGraphCompletionV2 | BuildAuthoringCompletionV1 | BuildImagePreparationCompletionV1
 
 
 class GraphCompletionRejectionCode(str, Enum):
@@ -2316,6 +2359,19 @@ class PlanEvidenceHistoryAttributionV3(PlanEvidenceHistoryAttributionV2):
         return self
 
 
+class PlanEvidenceHistoryAttributionV4(PlanEvidenceHistoryAttributionV3):
+    schema_: Literal["dmb_plan_evidence_history_attribution_v4"] = Field(default="dmb_plan_evidence_history_attribution_v4", alias="schema")
+    answer_segments: list[SurfaceEvidenceSegmentV3]
+
+    @model_validator(mode="after")
+    def mixed_history_shape(self):
+        SurfaceEvidenceCompletionV4(surface_id="plan", context_receipt_sha256=self.context_receipt_sha256,
+            answer_basis=self.answer_basis, answer_context_status=self.answer_context_status,
+            answer_segments=self.answer_segments, citation_map=self.citation_map,
+            source_citations=self.source_citations, native_source_citations=self.native_source_citations)
+        return self
+
+
 class CompletedPlanAskPair(StrictModel):
     """Visible Ask pair with optional validated Graph attribution."""
 
@@ -2325,7 +2381,7 @@ class CompletedPlanAskPair(StrictModel):
     accepted_at: datetime
     question: str = Field(min_length=1)
     answer: str = Field(min_length=1)
-    history_attribution: PlanEvidenceHistoryAttributionV3 | PlanEvidenceHistoryAttributionV2 | PlanEvidenceHistoryAttributionV1 | PlanAskHistoryAttributionV1 | MixedHistoryAttributionV1 | None = None
+    history_attribution: PlanEvidenceHistoryAttributionV4 | PlanEvidenceHistoryAttributionV3 | PlanEvidenceHistoryAttributionV2 | PlanEvidenceHistoryAttributionV1 | PlanAskHistoryAttributionV1 | MixedHistoryAttributionV1 | None = None
 
     @model_validator(mode="after")
     def validate_visible_text(self) -> "CompletedPlanAskPair":

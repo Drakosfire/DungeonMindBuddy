@@ -110,7 +110,7 @@ def prove_input(turn, authorization, request_json, *, sequence, event_id=None):
         from .plan_jev_graph_packet import frame_in_request
         from .plan_source_selectors import FRAME_SCHEMA
         plan_frame=frame_in_request(request_json)
-        plan_selectors=plan_frame.get('schema')==FRAME_SCHEMA
+        plan_selectors=plan_frame.get('schema') in {FRAME_SCHEMA,'dmb_plan_jev_writer_frame_v4'}
         frame = plan_frame.get("native_source_sections")
         frames = [] if frame is None else [frame]
     else:

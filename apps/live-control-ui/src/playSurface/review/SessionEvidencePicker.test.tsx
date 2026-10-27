@@ -1,4 +1,6 @@
 import {act,fireEvent,render,screen,waitFor} from "@testing-library/react";
+import {webcrypto,createHash} from "node:crypto";
+import {canonical} from "../../shared/sourcePassageProtocol";
 import {beforeEach,expect,it,vi} from "vitest";
 import {SessionEvidencePicker} from "./SessionEvidencePicker";
 import {SessionEvidenceViewer} from "./SessionEvidenceViewer";
@@ -79,6 +81,11 @@ it("surfaces an index failure that arrives after clear",async()=>{
  expect(await screen.findByRole("alert")).toHaveTextContent("Index offline");expect(screen.queryByText(/No ended sessions/)).not.toBeInTheDocument();
 });
 it("renders pinned sources read-only without a reflections editor",async()=>{
+ vi.stubGlobal('crypto',webcrypto);
+ const packet={...item,checkpoint_run_revision:8,session_content_sha256:'c'.repeat(64),
+  sources:item.sources.map(source=>({...source,sha256:createHash('sha256').update(source.text).digest('hex')}))};
+ const {sha256:_old,...body}=packet;
+ vi.mocked(readSessionEvidence).mockResolvedValue({...packet,sha256:createHash('sha256').update(canonical(body)).digest('hex')});
  render(<SessionEvidenceViewer worldId="elderwyld" runId="run-a" revision={54}/>);
  expect(await screen.findByText("Players want combat next time.")).toBeInTheDocument();expect(readSessionEvidence).toHaveBeenCalledWith("elderwyld","run-a",54);
  expect(screen.queryByRole("textbox")).not.toBeInTheDocument();

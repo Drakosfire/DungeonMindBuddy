@@ -98,6 +98,19 @@ Copy each ID exactly and select each at most once. Never emit internal block han
 or reuse an ID from a prior input. The host resolves exact saved text and ownership.
 """
 
+PLAN_POLICY = 'dmb_surface_evidence_answer_v5'
+PLAN_INSTRUCTIONS = SELECTOR_INSTRUCTIONS.replace(SELECTOR_POLICY, PLAN_POLICY) + """
+For concise synthesis of supplied saved Scene notes or closing reflections use
+{"kind":"session_summary","text":"source-attributed summary prose","selection_ids":["exact supplied session selection_id"]}.
+Select every session block needed for that statement; split statements with different support.
+Only supplied session entries support this kind, never Plan text, native source sections or dialogue.
+This is a summary of GM-authored recollections, not a literal quote or a publication of World facts.
+Preserve rehearsal labels, uncertainty and unresolved possibilities; never invent a causal or
+chronological connection. Recommendations belong in separate explicitly hypothetical proposals.
+For a requested concise briefing prefer supported synthesis over repeating entire notes.
+Do not append citation URLs, source names, hashes or locator metadata; the host derives them.
+"""
+
 @dataclass(frozen=True)
 class AuthoredSupport:
     handle: str
@@ -109,9 +122,14 @@ class AuthoredSupport:
     owner_sha256: str
     text: str
     entry_identity: str | None = None
+    source_ordinal: int | None = None
+    entry_kind: str | None = None
+    element_id: str | None = None
+    checkpoint_content_sha256: str | None = None
 
 
-def authored_support(kind, name, object_id, revision, owner_sha, text, entry_identity=None):
+def authored_support(kind, name, object_id, revision, owner_sha, text, entry_identity=None, *,
+                     source_ordinal=None, entry_kind=None, element_id=None, checkpoint_content_sha256=None):
     if not isinstance(text, str) or not text.strip():
         raise ValueError('Authored source body must be nonblank')
     body_sha = sha256(text.encode()).hexdigest()
@@ -120,7 +138,8 @@ def authored_support(kind, name, object_id, revision, owner_sha, text, entry_ide
     if entry_identity is not None:
         identity['entry_identity'] = entry_identity
     return AuthoredSupport('q' + canonical_sha256(identity), kind, name,
-                          object_id, str(revision), body_sha, owner_sha, text, entry_identity)
+                          object_id, str(revision), body_sha, owner_sha, text, entry_identity,
+                          source_ordinal, entry_kind, element_id, checkpoint_content_sha256)
 
 
 def plan_authored_sources(turn, markdown, sessions, *, block_policy=False):
@@ -140,7 +159,9 @@ def plan_authored_sources(turn, markdown, sessions, *, block_policy=False):
             if text.strip():
                 result.append(authored_support('session', session['title'] + ' — notes and reflections',
                     key[0], key[1], frozen[key], text,
-                    canonical_sha256({'kind':source.get('kind'),'element_id':source.get('element_id'),'ordinal':ordinal}) if block_policy else None))
+                    canonical_sha256({'kind':source.get('kind'),'element_id':source.get('element_id'),'ordinal':ordinal}) if block_policy else None,
+                    source_ordinal=ordinal, entry_kind=source.get('kind'), element_id=source.get('element_id'),
+                    checkpoint_content_sha256=session.get('session_content_sha256')))
     return tuple(result)
 
 
@@ -164,9 +185,9 @@ def producing_authored(turn, auth, raw):
         frame = frame_in_request(raw)
         if canonical_sha256(frame) != auth.frame_sha256:
             raise ValueError('Authored frame changed after admission')
-        if frame.get('schema') in {'dmb_plan_jev_writer_frame_v2','dmb_plan_jev_writer_frame_v3','dmb_plan_jev_writer_frame_v4'}:
+        if frame.get('schema') in {'dmb_plan_jev_writer_frame_v2','dmb_plan_jev_writer_frame_v3','dmb_plan_jev_writer_frame_v4','dmb_plan_jev_writer_frame_v5'}:
             from .authored_excerpt_blocks import restore_blocks, verify_blocks, selection_catalog, restore_selection_blocks, verify_selection_blocks
-            short=frame['schema'] in {'dmb_plan_jev_writer_frame_v3','dmb_plan_jev_writer_frame_v4'}
+            short=frame['schema'] in {'dmb_plan_jev_writer_frame_v3','dmb_plan_jev_writer_frame_v4','dmb_plan_jev_writer_frame_v5'}
             restore=restore_selection_blocks if short else restore_blocks
             from copy import deepcopy
             sessions = deepcopy(frame['session_evidence'])
@@ -222,11 +243,13 @@ def require_current_policy(turn, auth, raw):
         from .plan_jev_graph_packet import frame_in_request
         frame=frame_in_request(raw)
         policy=frame.get('answer_policy')
-        if frame.get('schema') in {'dmb_plan_jev_writer_frame_v3','dmb_plan_jev_writer_frame_v4'}:
-            if policy!=SELECTOR_POLICY:raise ValueError('Current Plan frame requires its selector policy')
-        elif policy==SELECTOR_POLICY:
-            raise ValueError('Selector policy requires its current Plan frame')
-        return policy if policy in {SELECTOR_POLICY,NATIVE_POLICY,POLICY,HISTORICAL_POLICY} else False
+        if frame.get('schema') == 'dmb_plan_jev_writer_frame_v5':
+            if policy != PLAN_POLICY: raise ValueError('Current Plan frame requires its session summary policy')
+        elif frame.get('schema') in {'dmb_plan_jev_writer_frame_v3','dmb_plan_jev_writer_frame_v4'}:
+            if policy != SELECTOR_POLICY: raise ValueError('Retained Plan frame changed its selector policy')
+        elif policy in {SELECTOR_POLICY, PLAN_POLICY}:
+            raise ValueError('Selector policy requires its exact Plan frame')
+        return policy if policy in {PLAN_POLICY,SELECTOR_POLICY,NATIVE_POLICY,POLICY,HISTORICAL_POLICY} else False
     from .play_graph_input import _user_texts
     policies = {_current_carrier(text, turn.idempotency_key) for text in _user_texts(body, auth.api_mode)} - {False}
     if len(policies)>1: raise ValueError('Ambiguous current answer policy')
@@ -259,7 +282,7 @@ def status_for(segments):
     partial = any(isinstance(s, t.SurfaceLimitationV1) for s in segments)
     if any(isinstance(s, t.PlanWorldGraphClaimSegmentV1) for s in segments): base = 'graph_grounded'
     elif any(isinstance(s, t.SourcePassageClaimV1) for s in segments): base = 'source_grounded'
-    elif any(isinstance(s, t.SurfaceAuthoredQuoteV1) for s in segments): base = 'authored_grounded'
+    elif any(isinstance(s, (t.SurfaceAuthoredQuoteV1, t.SessionSummaryV1)) for s in segments): base = 'authored_grounded'
     elif any(isinstance(s, t.PlanWorldGraphProposalSegmentV1) for s in segments): return 'creative_proposal'
     else: return 'insufficient_evidence'
     return base + ('_partial' if partial else '')
@@ -334,7 +357,7 @@ def graph_bindings(segments, receipt, execution, auth):
 
 
 def normalize(candidate, turn, producer, support):
-    if not isinstance(candidate, dict) or set(candidate) != {'schema','answer_segments','limitations','requested_detail_gaps'} or candidate['schema'] not in {SELECTOR_POLICY,NATIVE_POLICY,POLICY,HISTORICAL_POLICY}:
+    if not isinstance(candidate, dict) or set(candidate) != {'schema','answer_segments','limitations','requested_detail_gaps'} or candidate['schema'] not in {PLAN_POLICY,SELECTOR_POLICY,NATIVE_POLICY,POLICY,HISTORICAL_POLICY}:
         raise ValueError('Invalid current mixed evidence answer')
     receipt, execution = turn.graph_context_receipt, turn.graph_context_execution
     auth = next(e for e in execution.events if isinstance(e, t.ProviderAttemptAuthorizedEventV3) and e.provider_attempt_id == producer)
@@ -344,15 +367,15 @@ def normalize(candidate, turn, producer, support):
     selected_policy = getattr(support,'current_policy',False)
     if isinstance(selected_policy,str) and candidate['schema'] != selected_policy:
         raise ValueError('Answer differs from the actual producing policy')
-    native = candidate['schema'] in {SELECTOR_POLICY,NATIVE_POLICY}
-    current = candidate['schema'] in {SELECTOR_POLICY,NATIVE_POLICY,POLICY}
+    native = candidate['schema'] in {PLAN_POLICY,SELECTOR_POLICY,NATIVE_POLICY}
+    current = candidate['schema'] in {PLAN_POLICY,SELECTOR_POLICY,NATIVE_POLICY,POLICY}
     if current and selected_policy != candidate['schema']:
         raise ValueError('Block selection requires its actual current input policy')
     from .authored_excerpt_blocks import partition,PARTITION
     blocks = {block.block_handle:(source,block) for source in getattr(support,'authored',()) for block in partition(source.text,source.handle)}
     from .authored_excerpt_blocks import selection_catalog
     selectors={row.selection_id:row.block.block_handle for row in selection_catalog(
-        ((source.handle,source.text) for source in getattr(support,'authored',())),str(turn.idempotency_key))} if candidate['schema']==SELECTOR_POLICY else {}
+        ((source.handle,source.text) for source in getattr(support,'authored',())),str(turn.idempotency_key))} if candidate['schema'] in {PLAN_POLICY,SELECTOR_POLICY} else {}
     selected_blocks=set()
     available = {}
     for passage in getattr(support, 'passages', ()): available.setdefault(passage.handle, passage)
@@ -392,8 +415,28 @@ def normalize(candidate, turn, producer, support):
             segments.append(t.SourcePassageClaimV1(kind='source_passage_claim',text=row['text']))
             native_citations.extend(citation(native_available[h],index=index,text=row['text'],
                 producer=producer,envelope_sha256=auth.envelope_sha256) for h in handles)
+        elif kind == 'session_summary' and candidate['schema'] == PLAN_POLICY:
+            ids = row.get('selection_ids')
+            if (set(row) != {'kind', 'text', 'selection_ids'} or not isinstance(ids, list) or not ids
+                    or any(not isinstance(value, str) for value in ids) or len(set(ids)) != len(ids)):
+                raise ValueError('Session summary requires distinct exact session selections')
+            resolved = []
+            for identity in ids:
+                handle = selectors.get(identity)
+                if handle not in blocks: raise ValueError('Session summary selection was not supplied')
+                source, block = blocks[handle]
+                if source.source_kind != 'session': raise ValueError('Non-session material cannot support a session summary')
+                resolved.append(t.SessionSummarySupportV1(kind='authored_excerpt', text=block.text,
+                    source_handle=source.handle, source_kind='session', source_name=source.source_name,
+                    object_id=source.object_id, revision=source.revision, body_sha256=source.body_sha256,
+                    owner_sha256=source.owner_sha256, entry_identity=source.entry_identity,
+                    block_handle=block.block_handle, partition_version=PARTITION, byte_start=block.byte_start,
+                    byte_end=block.byte_end, block_sha256=block.block_sha256, source_ordinal=source.source_ordinal,
+                    entry_kind=source.entry_kind, element_id=source.element_id,
+                    checkpoint_content_sha256=source.checkpoint_content_sha256))
+            segments.append(t.SessionSummaryV1(kind='session_summary', text=row['text'], supports=resolved))
         elif kind == 'authored_excerpt' and current:
-            short=candidate['schema']==SELECTOR_POLICY
+            short=candidate['schema'] in {PLAN_POLICY,SELECTOR_POLICY}
             field='selection_id' if short else 'block_handle'
             if set(row)!={'kind',field} or not isinstance(row.get(field),str):
                 raise ValueError('Unknown or model-authored block selection')
@@ -435,7 +478,7 @@ def normalize(candidate, turn, producer, support):
     if partial and 'partial_retrieval' not in codes: codes.append('partial_retrieval')
     segments += [_limit(code) for code in codes] + [_limit('missing_requested_details', g.question_phrase) for g in gaps]
     if not segments: segments = [_limit('missing_requested_details')]
-    c = (t.SurfaceEvidenceCompletionV3 if native else t.SurfaceEvidenceCompletionV2 if current else t.SurfaceEvidenceCompletionV1)(surface_id=turn.provenance.surface_id, context_receipt_sha256=receipt.context_receipt_sha256,
+    c = (t.SurfaceEvidenceCompletionV4 if candidate['schema'] == PLAN_POLICY else t.SurfaceEvidenceCompletionV3 if native else t.SurfaceEvidenceCompletionV2 if current else t.SurfaceEvidenceCompletionV1)(surface_id=turn.provenance.surface_id, context_receipt_sha256=receipt.context_receipt_sha256,
         answer_context_status=status_for(segments), answer_segments=segments, citation_map=citation_map, source_citations=citations,
         **({'native_source_citations':native_citations} if native else {}))
     validate_completion(c, receipt, execution, producer, bindings)
@@ -460,7 +503,8 @@ def validate_completion(c, receipt, execution, producer, bindings):
         event = reads.get(citation.read_event_id)
         if (citation.provider_attempt_id != producer or citation.envelope_sha256 != auth.envelope_sha256 or event is None
             or event.sequence >= auth.sequence or citation.receipt not in event.receipts): raise ValueError('Source citation differs from included producing read')
-    for s in c.answer_segments:
+    for s in (support for segment in c.answer_segments for support in
+              (segment.supports if isinstance(segment,t.SessionSummaryV1) else [segment])):
         if not isinstance(s,t.SurfaceAuthoredQuoteV1): continue
         if s.source_kind == 'session' and c.surface_id != 'plan':
             raise ValueError('Session reflections belong to their frozen Plan provenance')

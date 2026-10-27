@@ -238,7 +238,7 @@ def project(turn, proof, trace):
     frame = {"schema": SCHEMA, "answer_policy": POLICY,
         "authored_sources": authored_frame_rows(plan_authored_sources(turn, markdown, sessions), sessions),
         "user_question": turn.user_text, "committed_plan_markdown": markdown,
-        "session_evidence": [{key: session[key] for key in ("title", "run_id", "review_revision", "ended_at") if key in session}
+        "session_evidence": [{key: session[key] for key in ("title", "run_id", "review_revision", "ended_at", "session_content_sha256") if key in session}
             | {"sources": [{key: source[key] for key in ("kind", "element_id", "text") if key in source}
                 for source in session.get("sources", [])]} for session in sessions],
         "dialogue_reference": dialogue, "retrieval_gaps": [{"operation": phase, "reason": code} for phase, code in gaps],
@@ -270,8 +270,8 @@ def project(turn, proof, trace):
     from .native_source_input import project_sections
     native_sections = project_sections(execution)
     if native_sections is not None:
-        from .surface_evidence_answer import SELECTOR_POLICY
-        frame["answer_policy"] = SELECTOR_POLICY
+        from .surface_evidence_answer import PLAN_POLICY
+        frame["answer_policy"] = PLAN_POLICY
         from .native_source_input import section_handle
         native_aliases={section_handle(read):source_selector(turn,read) for read in native_reads}
         frame["native_source_sections"] = {**native_sections,'sections':[
@@ -314,7 +314,7 @@ def frame_in_request(raw):
             value = strict_json(content)
         except (ValueError, TypeError):
             continue
-        if isinstance(value, dict) and value.get("schema") in {SCHEMA,"dmb_plan_jev_writer_frame_v3","dmb_plan_jev_writer_frame_v2","dmb_plan_jev_writer_frame_v1"}:
+        if isinstance(value, dict) and value.get("schema") in {SCHEMA,"dmb_plan_jev_writer_frame_v4","dmb_plan_jev_writer_frame_v3","dmb_plan_jev_writer_frame_v2","dmb_plan_jev_writer_frame_v1"}:
             frames.append(value)
     if len(frames) != 1:
         raise ValueError("Plan writer requires one exact evidence frame")

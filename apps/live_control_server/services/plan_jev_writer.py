@@ -127,13 +127,9 @@ class PlanJevWriter:
         self.messages = [{'role': 'user', 'content': canonical_bytes(self.projection.frame).decode()},
                          {'role': 'user', 'content': canonical_bytes(rule_frame).decode()},
                          {'role': 'user', 'content': 'Return JSON.'}]
-        from application_state.agent_conversation.surface_evidence_answer import NATIVE_POLICY, NATIVE_INSTRUCTIONS, SELECTOR_POLICY, SELECTOR_INSTRUCTIONS
-        instructions = (INSTRUCTIONS.replace(EVIDENCE_INSTRUCTIONS,SELECTOR_INSTRUCTIONS)
-            if self.projection.frame.get('answer_policy') == SELECTOR_POLICY else
-            INSTRUCTIONS.replace(EVIDENCE_INSTRUCTIONS,NATIVE_INSTRUCTIONS)
-            if self.projection.frame.get('answer_policy') == NATIVE_POLICY else INSTRUCTIONS)
-        if self.projection.frame.get('answer_policy') == SELECTOR_POLICY:
-            instructions=instructions.replace('exact block_handle','exact selection_id')
+        from application_state.agent_conversation.surface_evidence_answer import PLAN_INSTRUCTIONS
+        instructions = INSTRUCTIONS.replace(EVIDENCE_INSTRUCTIONS, PLAN_INSTRUCTIONS)
+        instructions = instructions.replace('exact block_handle', 'exact selection_id')
         if self.projection.frame.get('requested_work') == 'clarify':
             instructions += '\nAsk the specific clarifying question needed to resolve the intended work or destination. Keep it in conversation; do not draft the page yet.'
         if getattr(rules,'authoring',None) is not None:

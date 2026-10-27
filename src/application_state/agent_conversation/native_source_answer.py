@@ -35,7 +35,7 @@ def producing_sections(turn, authorization, raw):
     if isinstance(authorization,t.PlanJevWriterAuthorizedV1):
         from .plan_jev_graph_packet import frame_in_request
         from .plan_source_selectors import FRAME_SCHEMA, source_selector
-        if frame_in_request(raw).get('schema')==FRAME_SCHEMA:
+        if frame_in_request(raw).get('schema') in {FRAME_SCHEMA,'dmb_plan_jev_writer_frame_v4'}:
             handle_for=lambda read:source_selector(turn,read)
     return tuple(NativeSectionSupport(handle_for(reads[identity]),reads[identity],
         source_name(execution,reads[identity])) for identity in stored.read_event_ids)

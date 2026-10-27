@@ -33,7 +33,7 @@ def route_case(a,tmp_path,*,status='completed'):
         async def handle_async_request(self, request):
             frame=json.loads(json.loads(request.content)['input'][0]['content'])
             block=next(block for block in frame['committed_plan_blocks'] if 'proposed visit' in block['text'])
-            self.text=json.dumps({'schema':'dmb_surface_evidence_answer_v4',
+            self.text=json.dumps({'schema':'dmb_surface_evidence_answer_v5',
                 'answer_segments':[{'kind':'authored_excerpt','selection_id':block['selection_id']}],
                 'limitations':[], 'requested_detail_gaps':[]})
             return await super().handle_async_request(request)
@@ -236,7 +236,7 @@ def test_ordinary_empty_discovery_recovers_typed_subjects_and_delivers_current_c
             frame=json.loads(json.loads(request.content)['input'][0]['content'])
             assert frame['opened_passages']
             assert 'Previously explored' not in json.dumps(frame['entity_index'])
-            self.text=json.dumps({'schema':'dmb_surface_evidence_answer_v4','limitations':[],
+            self.text=json.dumps({'schema':'dmb_surface_evidence_answer_v5','limitations':[],
                 'requested_detail_gaps':[],'answer_segments':[{'kind':'source_passage_claim',
                 'text':'The park account describes a walkway.',
                 'passage_handles':[frame['opened_passages'][0]['passage_handle']]}]})

@@ -3,9 +3,9 @@
 from .rules_authority_plan_packet import PlanRulesEvidenceFrameV1
 from .source_writer_output import LIMITATIONS
 from .rules_authority_types import canonical_bytes
-from .surface_evidence_answer import SELECTOR_POLICY
+from .surface_evidence_answer import PLAN_POLICY, SELECTOR_POLICY
 
-SCHEMA_NAME = "plan_evidence_selectors_v1"
+SCHEMA_NAME = "plan_evidence_selectors_v2"
 
 
 def _object(properties):
@@ -41,8 +41,13 @@ def _values(rows, key):
 
 
 def output_schema(frame, rules):
-    """Pure projection of the exact exposed selector sets, without new limits."""
-    if frame.get("answer_policy") != SELECTOR_POLICY or not isinstance(
+    """Current execution uses only the current Plan policy."""
+    return _frozen_schema(frame, rules, PLAN_POLICY)
+
+
+def _frozen_schema(frame, rules, policy):
+    """One exact projection also verifies retained producer formats during reads."""
+    if frame.get("answer_policy") != policy or not isinstance(
         rules, PlanRulesEvidenceFrameV1
     ):
         raise ValueError("Plan output requires its current selector and Rules frames")
@@ -116,6 +121,12 @@ def output_schema(frame, rules):
                 }
             )
         )
+    session_selections = _values([block for session in frame["session_evidence"]
+        for source in session["sources"] for block in source["text_blocks"]
+        if block.get("selection_id") is not None], "selection_id")
+    if session_selections and policy == PLAN_POLICY:
+        variants.append(_object({"kind": _literal("session_summary"), "text": prose,
+                                 "selection_ids": _array(_enum(session_selections), nonempty=True)}))
     variants.append(
         _object(
             {
@@ -127,7 +138,7 @@ def output_schema(frame, rules):
     )
     base = _object(
         {
-            "schema": _literal(SELECTOR_POLICY),
+            "schema": _literal(policy),
             "answer_segments": _array({"anyOf": variants}),
             "limitations": _array(_enum(LIMITATIONS)),
             "requested_detail_gaps": _array(_object({"question_phrase": prose})),
@@ -186,9 +197,14 @@ def output_format(frame, rules):
 
 
 def verify_format(body, frame, rules):
-    if canonical_bytes(body.get("text", {}).get("format")) != canonical_bytes(
-        output_format(frame, rules)
-    ):
+    # The actual immutable producer frame chooses its original read grammar.
+    # Current dispatch separately compares the whole current projected frame.
+    if frame.get("schema") in {"dmb_plan_jev_writer_frame_v3", "dmb_plan_jev_writer_frame_v4"}:
+        expected = {"type": "json_schema", "name": "plan_evidence_selectors_v1",
+                    "schema": _frozen_schema(frame, rules, SELECTOR_POLICY), "strict": True}
+    else:
+        expected = output_format(frame, rules)
+    if canonical_bytes(body.get("text", {}).get("format")) != canonical_bytes(expected):
         raise ValueError(
             "Plan writer output format differs from its exact exposed selectors"
         )
