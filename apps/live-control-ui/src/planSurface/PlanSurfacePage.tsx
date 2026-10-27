@@ -14,7 +14,7 @@ import { useWorkspaceInventoryVersion } from "../workspaceLifecycle/workspaceInv
 import { clearTrashedPlanRecovery } from "./clearTrashedPlanRecovery";
 import { WorkspaceTrashControl } from "../workspaceLifecycle/WorkspaceTrashControl";
 import { preserveLeadingYamlFrontmatter, splitLeadingYamlFrontmatter } from "../tiptap/markdown/stripLeadingYamlFrontmatter";
-import { insertPlanStructure, planStructureActions } from "./planPlayableAuthoring";
+import { insertPlanStructure, planStructureActions, promotePlanHeading } from "./planPlayableAuthoring";
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import type { Editor, JSONContent } from "@tiptap/core";
 import { EditorContent } from "@tiptap/react";
@@ -650,13 +650,15 @@ function WorldOwnedPlanPage({ worldId, worldName }: { worldId: string; worldName
           id: "world-plan-structure",
           title: "Playable structure",
           defaultOpen: true,
-          panel: <div><p>Beats contain Scenes in new Plans. Existing Scene-first Plans keep their structure.</p>{structureActions.filter(item => item.disabledReason).map(item => <p key={item.kind}>{item.label}: {item.disabledReason}</p>)}</div>,
+          panel: <div><p>Beats contain Scenes. Put the cursor in an ordinary heading to make it playable without rewriting its text.</p>{structureActions.filter(item => item.disabledReason).map(item => <p key={item.kind}>{item.label}: {item.disabledReason}</p>)}</div>,
           actions: structureActions.map(item => ({
             ...action(`world-plan-add-${item.kind}`, item.label, active => {
               if (!structureState || structureProtectionRef.current || !active.isEditable || active.isDestroyed) return;
               try {
                 if (structureDraftGeneration !== editGenerationRef.current || structureSelectionGeneration !== selectionGenerationRef.current) throw new Error("The Plan or cursor changed. Choose the structure action again.");
-                insertPlanStructure(active, item.kind, structureState); setError(null);
+                if(item.operation==='promote')promotePlanHeading(active,item.kind,structureState);
+                else insertPlanStructure(active, item.kind, structureState);
+                setError(null);
               }
               catch (cause) { setError(cause instanceof Error ? cause.message : "Could not add playable structure."); }
             }, structureProtected || Boolean(item.disabledReason)),

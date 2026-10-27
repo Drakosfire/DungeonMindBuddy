@@ -3378,7 +3378,7 @@ it("reverts an editor transaction that the semantic Markdown serializer cannot p
 });
 
 
-it("authors playable structure through Plan toolbar and explicit Save, retaining identities after reopen", async () => {
+it.each(["append","promote"])("authors playable structure through Plan toolbar and explicit Save, retaining identities after reopen (%s)", async mode => {
   vi.spyOn(window,"scrollBy").mockImplementation(()=>{});
   const rect=DOMRect.fromRect({x:0,y:0,width:1,height:1});
   const oldRects=Object.getOwnPropertyDescriptor(Range.prototype,"getClientRects");
@@ -3387,7 +3387,7 @@ it("authors playable structure through Plan toolbar and explicit Save, retaining
   Object.defineProperty(Range.prototype,"getBoundingClientRect",{configurable:true,value:()=>rect});
   try {
     const envelope="---\r\ntitle: Preserved Plan metadata\r\n---\r\n";
-    const record=mockSavedPlanForAgent(savedAgentPlanId,7,7,envelope+"# Authored session\n\nSource quotation retained.\n");
+    const record=mockSavedPlanForAgent(savedAgentPlanId,7,7,envelope+"# Authored session\n\nSource quotation retained.\n"+(mode==="promote"?"\n## Preparation\n\n### Arrival\n\n| Lead | Choice |\n| --- | --- |\n| Tavern | Optional |\n":""));
     const prepare=vi.spyOn(liveApi,"prepareTiptapMarkdownWrite").mockResolvedValue({schema_version:"dmb_tiptap_markdown_write_prepare_v2",scope_mode:"world",world_id:worldId,document_id:savedAgentPlanId,title:"Renamed typed Plan",target_relpath:record.target_relpath!,target_display_path:record.target_relpath!,registry_revision:8,file_exists:true,writer_ok:true,writer_confirm_token:"structure-save",warnings:[],diagnostics:[]});
     let saved="";
     const commit=vi.spyOn(liveApi,"commitWorldOwnedPlanMarkdownWrite").mockImplementation(async request=>{
@@ -3406,19 +3406,29 @@ it("authors playable structure through Plan toolbar and explicit Save, retaining
     fireEvent.change(screen.getByRole("textbox",{name:"Plan title",exact:true}),{target:{value:"Renamed typed Plan"}});
     expect(screen.getByRole("button",{name:"Add Scene to this Beat"})).toBeDisabled();
     const oldAction=(chromeCapture.editorTools as {tools:{sections:Array<{actions:Array<{label:string;onClick:()=>void}>}>}}).tools.sections.flatMap(section=>section.actions).find(action=>action.label === "Add Beat")!.onClick;
-    fireEvent.click(beat);
-    await screen.findByRole("heading",{name:"New Beat",exact:true});
-    const scene=screen.getByRole("button",{name:"Add Scene to this Beat"});await waitFor(()=>expect(scene).toBeEnabled());fireEvent.click(scene);
-    await screen.findByRole("heading",{name:"New Scene",exact:true});
+    if(mode==='append') {
+      fireEvent.click(beat);
+      await screen.findByRole("heading",{name:"New Beat",exact:true});
+      const scene=screen.getByRole("button",{name:"Add Scene to this Beat"});await waitFor(()=>expect(scene).toBeEnabled());fireEvent.click(scene);
+      await screen.findByRole("heading",{name:"New Scene",exact:true});
+    } else {
+      const liveEditor=(screen.getByTestId('world-owned-plan-markdown-editor').querySelector('.ProseMirror') as any).editor;
+      const select=(text:string)=>act(()=>{liveEditor.state.doc.forEach((node:any,pos:number)=>{if(node.type.name==='heading'&&node.textContent===text)liveEditor.commands.setTextSelection(pos+1);});});
+      select('Preparation');fireEvent.click(await screen.findByRole('button',{name:'Make this a Beat',exact:true}));
+      select('Arrival');fireEvent.click(await screen.findByRole('button',{name:'Make this a Scene',exact:true}));
+      expect(screen.queryByRole('heading',{name:'New Beat',exact:true})).not.toBeInTheDocument();
+      expect(screen.getByRole('table')).toHaveTextContent('Optional');
+    }
     act(()=>oldAction());
-    expect(screen.getAllByRole("heading",{name:"New Beat",exact:true})).toHaveLength(1);
+    expect(screen.getAllByRole("heading",{name:mode==='append'?"New Beat":"Preparation",exact:true})).toHaveLength(1);
     expect(prepare).not.toHaveBeenCalled();expect(commit).not.toHaveBeenCalled();
     fireEvent.click(screen.getByRole("button",{name:"Save Plan",exact:true}));
     await waitFor(()=>expect(commit).toHaveBeenCalledOnce());
     await screen.findByText("Saved to this World.");
     expect(saved.startsWith(envelope)).toBe(true);
+    if(mode==='promote')expect(saved).toContain('| Tavern | Optional |');
     const identities=saved.match(/id=(?:beat|scene):[^ ]+/g);expect(identities).toHaveLength(2);expect(saved).toContain("Source quotation retained.");
-    mounted.unmount();render(pageTree);await screen.findByRole("heading",{name:"New Scene",exact:true});
+    mounted.unmount();render(pageTree);await screen.findByRole("heading",{name:mode==='append'?"New Scene":"Arrival",exact:true});
     const editor=screen.getByTestId("world-owned-plan-markdown-editor");
     expect(editor).toHaveTextContent("Source quotation retained.");
     expect(editor.querySelector('[data-dmb-playable-id]')?.getAttribute('data-dmb-playable-id')).toBe(identities![0].slice(3));
