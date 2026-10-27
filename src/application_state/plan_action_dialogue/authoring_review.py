@@ -43,7 +43,7 @@ class PlanReviewApplicationV1(Frozen):
     after_draft_sha256: Digest
     base_work_revision_id: UUID
     base_revision_n: int = Field(strict=True, ge=1)
-    outcome: Literal["applying", "saved", "not_applied"] = "applying"
+    outcome: Literal["applying", "saved", "not_applied", "superseded"] = "applying"
     saved_work_revision_id: UUID | None = None
     saved_revision_n: int | None = Field(default=None, strict=True, ge=1)
 
@@ -134,6 +134,16 @@ class PlanAuthoringReviewV1(Frozen):
         return self
 
 
+class PlanReviewSnapshotV1(Frozen):
+    schema_: Literal["dmb_plan_authoring_review_snapshot_v1"] = Field(
+        default="dmb_plan_authoring_review_snapshot_v1", alias="schema"
+    )
+    world_id: str
+    action_id: UUID
+    origin_sha256: Digest
+    review: PlanAuthoringReviewV1 | None
+
+
 class ReviewCommand(Frozen):
     command_id: UUID
     origin_sha256: Digest
@@ -175,6 +185,12 @@ class ResolveBeforeReview(ReviewCommand):
     capture: PlanAuthoringCaptureV1
 
 
+class RecoverPlacementReview(ReviewCommand):
+    operation: Literal["recover_placement"]
+    application_id: UUID
+    capture: PlanAuthoringCaptureV1
+
+
 class DiscardReview(ReviewCommand):
     operation: Literal["discard"]
 
@@ -186,6 +202,7 @@ PlanReviewCommand = Annotated[
     | PrepareReview
     | ConfirmReview
     | ResolveBeforeReview
+    | RecoverPlacementReview
     | DiscardReview,
     Field(discriminator="operation"),
 ]
@@ -267,7 +284,9 @@ def read_review(world_id, action_id):
 
     with unit_of_work(_ready_dsn()) as conn:
         conn.execute("SET TRANSACTION READ ONLY")
-        return _owner(conn, world_id, action_id, lock=False)[2]
+        _action, proposal, review = _owner(conn, world_id, action_id, lock=False)
+        return PlanReviewSnapshotV1(world_id=world_id, action_id=action_id,
+            origin_sha256=proposal.origin.sha256, review=review)
 
 
 
@@ -346,24 +365,30 @@ def execute_review_command(world_id, action_id, command):
                     "saved_revision_n": saved_revision.revision_n,
                 })
                 updates.update(state="applied", applications=review.applications[:-1] + (completed,))
-            elif isinstance(command, ResolveBeforeReview):
+            elif isinstance(command, (ResolveBeforeReview, RecoverPlacementReview)):
                 if (review.state != "applying"
                     or review.applications[-1].application_id != command.application_id):
                     raise ApplicationStateConflictError("This Plan application is not pending")
                 application = review.applications[-1]
                 capture = command.capture
                 if (capture.world_id != world_id
-                    or capture.document_id != proposal.capture.document_id
-                    or capture.draft_sha256 != application.capture.draft_sha256
+                    or capture.document_id != proposal.capture.document_id):
+                    raise ApplicationStateConflictError("Plan recovery belongs to another page")
+                if isinstance(command, ResolveBeforeReview) and (
+                    capture.draft_sha256 != application.capture.draft_sha256
                     or capture.editor_sha256 != application.capture.editor_sha256):
                     raise ApplicationStateConflictError(
                         "The editor does not prove the unchanged before-copy; retain the application"
                     )
                 current = _locked_capture(conn, capture)
-                if (current.work_revision_id != application.base_work_revision_id
+                if isinstance(command, ResolveBeforeReview) and (
+                    current.work_revision_id != application.base_work_revision_id
                     or current.revision_n != application.base_revision_n):
                     raise ApplicationStateConflictError("The saved Plan no longer proves the before-copy")
-                cancelled = application.model_copy(update={"outcome": "not_applied"})
+                # This retires confirmation authority, not browser text. The
+                # original local before/after copies remain inspectable.
+                outcome = "not_applied" if isinstance(command, ResolveBeforeReview) else "superseded"
+                cancelled = application.model_copy(update={"outcome": outcome})
                 updates.update(state="editing", capture=capture,
                     applications=review.applications[:-1] + (cancelled,))
             else:

@@ -14,6 +14,9 @@ from application_state.agent_conversation import AgentConversationService
 from application_state.agent_conversation.rules_authority_reads import MixedCompletedTurnV1
 from apps.live_control_server.services.rules_answer_presentation import project_rules_answer_context
 from application_state.agent_conversation.types import BuildGraphContextReceiptV1, PlayWorldGraphContextReceiptV1, ConversationCommand, CommandResolutionRequestV1, PlayGraphBindingReceiptV1, PlayRunTurnContextReceiptV2, TurnProvenance, decode_play_run_turn_context_references, request_fingerprint
+from application_state.plan_action_dialogue.authoring_review import (
+    PlanAuthoringReviewV1, PlanReviewSnapshotV1, PlanReviewCommand,
+)
 from application_state.errors import ApplicationStateError
 
 from apps.live_control_server.config import (
@@ -1301,6 +1304,41 @@ def _verified_world_id(world_id: str) -> str:
             status_code=exc.status_code,
             detail={"code": "world_owner_unavailable", "message": str(exc)},
         ) from exc
+
+
+@router.get("/worlds/{world_id}/plan-proposals/{action_id}/review",
+    response_model=PlanReviewSnapshotV1)
+def get_plan_authoring_review(world_id: str, action_id: UUID, request: Request):
+    enforce_native_graph_gm(request)
+    verified = _verified_world_id(world_id)
+    from application_state.plan_action_dialogue.authoring_review import read_review
+    try:
+        return read_review(verified, action_id)
+    except ApplicationStateError as exc:
+        raise HTTPException(status_code=exc.status_code,
+            detail={"code": "plan_authoring_review_unavailable", "message": str(exc)}) from exc
+
+
+@router.post("/worlds/{world_id}/plan-proposals/{action_id}/review",
+    response_model=PlanAuthoringReviewV1)
+def post_plan_authoring_review(
+    world_id: str, action_id: UUID, command: PlanReviewCommand, request: Request,
+):
+    enforce_native_graph_gm(request)
+    verified = _verified_world_id(world_id)
+    from application_state.plan_action_dialogue.authoring_review import execute_review_command
+    try:
+        return execute_review_command(verified, action_id, command)
+    except ApplicationStateError as exc:
+        code = ("plan_authoring_review_conflict" if exc.status_code == 409
+            else "plan_authoring_review_unavailable")
+        raise HTTPException(status_code=exc.status_code,
+            detail={"code": code, "message": str(exc)}) from exc
+    except ValidationError as exc:
+        raise HTTPException(status_code=422, detail={
+            "code": "plan_authoring_review_invalid",
+            "message": "The complete Plan working copy is invalid; retain it for correction.",
+        }) from exc
 
 
 @router.get(
