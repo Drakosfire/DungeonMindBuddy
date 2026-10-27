@@ -197,3 +197,11 @@ it('refuses decision creation in card scope and non-roundtrippable drafts',async
  setPlanCardScope(editor,{active:true,sceneId:'scene:one'});selectText('Discuss before initiative.');let before=editor.getJSON();expect(()=>insertPlanStructure(editor,'choice',editor.state)).toThrow('Open Document');expect(editor.getJSON()).toEqual(before);
  setPlanCardScope(editor,{active:false});editor.commands.insertContentAt(editor.state.doc.content.size,{type:'paragraph'});selectText('Discuss before initiative.');before=editor.getJSON();expect(()=>insertPlanStructure(editor,'choice',editor.state)).toThrow('round-trip');expect(editor.getJSON()).toEqual(before);
 });
+
+
+it('keeps ordinary H3 within the Beat before its first Scene, but never falls back after a Scene',()=>{
+ mount('<!-- dmb-playable-element:v2 kind=beat id=beat:one -->\n## Beat\n\n### Preparation notes\n\nBefore a Scene.\n\n<!-- dmb-playable-element:v2 kind=scene id=scene:one -->\n### Scene\n\nScene body.\n\n### Closing notes\n\nAfter a Scene.');
+ selectText('Before a Scene.');const choice=insertPlanStructure(editor,'choice',editor.state);
+ expect(indexPlayableStructureV2(editor.getJSON())).toMatchObject({status:'ready',index:{choices:[{choiceId:choice,beatId:'beat:one',sceneId:null}]}});
+ selectText('After a Scene.');const before=editor.getJSON();expect(()=>insertPlanStructure(editor,'choice',editor.state)).toThrow('cursor');expect(editor.getJSON()).toEqual(before);
+});

@@ -166,14 +166,23 @@ type DecisionContext = {kind:'beat'|'scene'|'choice'; beatId:string; sceneId:str
 function decisionContext(state:EditorState,info=outline(state)): DecisionContext|null {
   if(info.version!=='v2'||info.error||!(state.selection instanceof TextSelection))return null;
   let beatId:string|null=null, segment:DecisionContext|null=null;
+  let sceneStarted=false;
   const segments:DecisionContext[]=[];
   const content=state.doc.toJSON().content??[];
   state.doc.forEach((node,pos,index)=>{
     if(node.type.name!=='heading'||node.attrs.level>3||isTableCaptionAt(content,index))return;
     if(segment){segment.end=pos;segments.push(segment);segment=null;}
     const identity=validatePlayableHeadingAttrs(node.attrs);
-    if(node.attrs.level<=2)beatId=identity.status==='canonical'&&identity.identity.kind==='beat'?identity.identity.id:null;
-    if(!beatId||identity.status!=='canonical')return;
+    if(node.attrs.level<=2){
+      beatId=identity.status==='canonical'&&identity.identity.kind==='beat'?identity.identity.id:null;
+      sceneStarted=false;
+    }
+    if(!beatId)return;
+    if(identity.status!=='canonical'){
+      if(!sceneStarted)segment={kind:'beat',beatId,sceneId:null,start:pos,end:state.doc.content.size};
+      return;
+    }
+    if(identity.identity.kind==='scene')sceneStarted=true;
     const typed=identity.identity;
     if(typed.kind==='beat'||typed.kind==='scene'||typed.kind==='choice'){
       segment={kind:typed.kind,beatId,sceneId:typed.kind==='scene'?typed.id:typed.kind==='choice'?typed.sceneId??null:null,
