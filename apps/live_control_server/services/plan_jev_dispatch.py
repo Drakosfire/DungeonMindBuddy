@@ -1,6 +1,7 @@
 """Plan-owned actual Jev dispatch. Host bindings never enter model state."""
 from hashlib import sha256
 import json
+from generationengine import GenerationEngineError
 from time import perf_counter
 from uuid import UUID, uuid4
 
@@ -182,6 +183,12 @@ class PlanJevDispatch:
                 if all(value is not None for value in counts.values()): usage["total_tokens"] = sum(counts.values())
                 self.call.update(status="ok", response_model=observation.response_model, usage=usage)
             return self.acknowledge(result), result
+        except GenerationEngineError as exc:
+            # Keep the normalized public failure alongside the unchanged dispatch
+            # lifecycle. SDK exception text and response bodies are not trace data.
+            self.adapter.context_capture.observe({"kind": "failure", "phase": "provider",
+                "code": "plan_jev_" + exc.failure.code.value.lower()})
+            raise
         finally:
             try:
                 if self.call is not None:

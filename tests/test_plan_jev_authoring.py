@@ -1157,3 +1157,30 @@ def test_ordinary_plan_reports_target_change_after_retrieval_without_writer(plan
     current = kwargs['conversation_service'].list_turns(capture.world_id, capture.conversation_id)[0]
     assert current.failure_code == failed.value.code and current.user_text == plan_adapter.request.message
     assert not any(event.kind.startswith('plan_jev_writer_authorized') for event in current.graph_context_execution.events)
+
+
+@pytest.mark.parametrize('status,expected', [(400,'invalid_request'),(429,'rate_limited'),(503,'provider_unavailable'),(None,'provider_timeout')])
+def test_plan_decision_failure_retains_normalized_cause_without_sdk_text(plan_adapter,status,expected):
+    import asyncio
+    from generationengine import GenerationEngineError
+    from apps.live_control_server.services.plan_jev_dispatch import PlanJevDispatch
+
+    class FailedWire(httpx2.AsyncBaseTransport):
+        calls=0
+        async def handle_async_request(self,request):
+            self.calls+=1
+            if status is None:
+                raise httpx2.ReadTimeout('DO_NOT_CAPTURE_PRIVATE_TRANSPORT_DETAIL',request=request)
+            return httpx2.Response(status,request=request,json={'error':{'message':'DO_NOT_CAPTURE_PRIVATE_TRANSPORT_DETAIL'}})
+
+    wire=FailedWire()
+    with pytest.raises(GenerationEngineError):
+        asyncio.run(PlanJevDispatch.requested_work(plan_adapter,page_title='Plan').run(transport=wire,api_key='synthetic-not-secret'))
+    assert wire.calls==1
+    trace=plan_adapter.context_capture.trace
+    failures=[event for event in trace.observations if event.kind=='failure']
+    assert failures[-1].code=='plan_jev_'+expected and failures[-1].phase=='provider'
+    assert 'DO_NOT_CAPTURE_PRIVATE_TRANSPORT_DETAIL' not in trace.model_dump_json()
+    execution=plan_adapter.fence.turn.graph_context_execution
+    assert any(event.kind=='plan_requested_work_authorized_v1' for event in execution.events)
+    assert not any(event.kind=='plan_requested_work_selected_v1' for event in execution.events)
