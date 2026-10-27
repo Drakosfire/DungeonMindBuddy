@@ -339,3 +339,43 @@ def test_reviewed_binding_rejects_wrong_or_inactive_basis(case):
         context = replace(context, reviewed_corpus_bindings=())
     with pytest.raises(CandidateGraphMappingError):
         _gate([node], context)
+
+
+@pytest.mark.parametrize("kind", ["pc", "player_character", "dnd5e:player_character"])
+def test_explicit_pc_candidate_binds_existing_pc_support_only(kind: str) -> None:
+    node = _node("karsemine")
+    node["node_type"] = "pc"
+    context = _context([_actor("karsemine", kind=kind)])
+    before = copy.deepcopy(context)
+    result = _gate([node], context)
+    assert result.node_id_map == {"node:karsemine": "pc:karsemine"}
+    assert result.identity_outcome_snapshot == {"node:karsemine": "resolved_existing"}
+    assert result.accepted_proposals
+    assert all(a.assertion_kind != "node" for a in result.accepted_proposals)
+    assert all(a.subject_node_id == "pc:karsemine" for a in result.accepted_proposals)
+    assert context == before
+
+
+def test_explicit_pc_candidate_rejects_npc_reference() -> None:
+    node = _node("companion", "npc")
+    node["node_type"] = "pc"
+    with pytest.raises(CandidateGraphMappingError, match="requires a PC corpus reference"):
+        _gate([node], _context([_actor("companion", kind="npc", prefix="node")]))
+
+
+def test_explicit_pc_candidate_requires_resolved_reference() -> None:
+    node = _node("karsemine")
+    node["node_type"] = "pc"
+    node["corpus_ref"]["resolution"] = "unresolved"
+    with pytest.raises(CandidateGraphMappingError, match="resolved PC/NPC corpus reference"):
+        _gate([node], _context([_actor("karsemine")]))
+
+
+def test_reviewed_binding_transport_rejects_pc_outside_npc_contract():
+    from pydantic import ValidationError
+    from apps.live_control_server.models.extract_promote import ReviewedCorpusNativeBindingV1
+    _, _, binding = _reviewed_binding_case()
+    payload = binding.model_dump(mode="json")
+    payload["corpus_ref_type"] = "pc"
+    with pytest.raises(ValidationError):
+        ReviewedCorpusNativeBindingV1.model_validate(payload)
