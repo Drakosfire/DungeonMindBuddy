@@ -22,7 +22,7 @@ _ACCESS = NativeSourceNavigator._access
 @pytest.fixture(autouse=True)
 def synthetic_active_binding(monkeypatch):
     monkeypatch.setattr(NativeSourceNavigator, '_bound_authority',
-        lambda self: self.adapter.fence.turn.graph_context_receipt.graph_authority)
+        lambda self: self.adapter.fence.renewer._turn.graph_context_receipt.graph_authority)
 
 
 @pytest.fixture
