@@ -164,7 +164,7 @@ def validate_events(execution):
             for hit in event.matches:
                 catalog = catalogs.get(hit.catalog_event_id)
                 key = (hit.catalog_event_id, hit.section_id)
-                if (catalog is None or catalog.outcome != 'complete' or key in seen
+                if (hit.catalog_event_id not in expected or catalog is None or catalog.outcome != 'complete' or key in seen
                         or hit.section_id not in {s.section_id for s in catalog.sections}
                         or not hit.matched_terms or hit.matched_terms != sorted(set(hit.matched_terms))
                         or not set(hit.matched_terms) <= set(grant.query_terms)):
@@ -193,3 +193,20 @@ def validate_receipt(receipt, execution):
                 or event.binding_version != authority.binding_version
                 or event.context_receipt_sha256 != receipt.context_receipt_sha256):
             raise ValueError('Corpus search differs from managed/native context receipt')
+
+
+def require_matched_registry_section(execution, catalog, section_id, *, before_sequence):
+    """Registry reads are authorized by an earlier exact recorded match, not a catalog alone."""
+    nav = next(e for e in execution.events if isinstance(e, t.NativeSourceNavigationAuthorizedV1)
+               and e.navigation_id == catalog.navigation_id)
+    if not isinstance(nav, t.NativeSourceNavigationAuthorizedV2):
+        return
+    body, _, _ = registry_origin(nav)
+    grant = next(e for e in execution.events if isinstance(e, t.CorpusSourceSearchAuthorizedV1)
+                 and str(e.event_id) == body['search_event_id'])
+    if not any(isinstance(e, t.CorpusSourceSearchObservedV1)
+            and e.sequence < before_sequence and e.search_id == grant.search_id
+            and catalog.event_id in e.catalog_event_ids
+            and any(hit.catalog_event_id == catalog.event_id and hit.section_id == section_id
+                    for hit in e.matches) for e in execution.events):
+        raise ValueError('Registry section is not an earlier recorded corpus search match')

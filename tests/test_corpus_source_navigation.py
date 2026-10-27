@@ -231,3 +231,59 @@ def test_current_native_play_captured_search_reads_registry_section(application_
         assert read['sections'][0]['text']=='## Selected account\n'+' '.join(terms(turn.user_text))+'.\n'
         assert not any(isinstance(e,t.ValidatedGraphOperationEventV3) for e in adapter.fence.turn.graph_context_execution.events)
     finally:adapter.fence.renewer.stop_and_join()
+
+
+def test_fresh_navigator_recovers_matched_section_without_rescanning(corpus, monkeypatch):
+    from apps.live_control_server.services.native_source_navigation import NativeSourceNavigator
+    adapter, _ = corpus
+    driver = PlanJevDriver(adapter)
+    def restart():
+        monkeypatch.setattr(corpus_source_navigation, 'collect_source_view',
+                            lambda *a, **kw: pytest.fail('recovery repeated native scan'))
+        replacement = NativeSourceNavigator(adapter)
+        adapter._native_source_navigator = replacement
+        driver.native_sources = replacement
+        replacement.collect()
+        assert replacement.corpus.observation is not None
+        assert len(replacement.sections) == 1
+        assert not replacement.materials
+    proof = asyncio.run(driver.run(transport=Decisions(after_search=restart), api_key='synthetic-not-secret'))
+    execution = adapter.fence.turn.graph_context_execution
+    assert len([e for e in execution.events if isinstance(e, t.CorpusSourceSearchAuthorizedV1)]) == 1
+    reads = [e for e in execution.events if isinstance(e, t.NativeSourceSectionObservedV2)]
+    assert len(reads) == 1 and reads[0].outcome == 'complete'
+    assert reads[0].fresh_body_read_bytes == len(TEXT.encode())
+    writer = PlanJevWriter(adapter, proof, PlanRulesRuntime(adapter, rules_capability(graph=True)))
+    assert 'A sleeping fox' in writer.projection.frame['native_source_sections']['sections'][0]['text']
+    again = NativeSourceNavigator(adapter)
+    again.collect()
+    assert again.reads and again.attempted_sections == set(again.reads)
+    assert not again.offered()
+
+
+@pytest.mark.parametrize('omit_navigation', [False, True])
+def test_durable_search_match_must_belong_to_recorded_scan(corpus, omit_navigation):
+    from application_state.agent_conversation.corpus_source_search import validate_events
+    adapter, _ = corpus
+    asyncio.run(PlanJevDriver(adapter).run(transport=Decisions(), api_key='synthetic-not-secret'))
+    execution = adapter.fence.turn.graph_context_execution
+    events = [e.model_copy(update={'catalog_event_ids': []})
+              if isinstance(e, t.CorpusSourceSearchObservedV1) else e for e in execution.events
+              if not (omit_navigation and isinstance(e, t.NativeSourceNavigationAuthorizedV2))]
+    with pytest.raises(ValueError, match='omits an acquired|not navigation'):
+        validate_events(SimpleNamespace(policy=execution.policy, events=events,
+            context_receipt_sha256=execution.context_receipt_sha256,
+            execution_policy_sha256=execution.execution_policy_sha256))
+
+
+def test_registry_section_requires_earlier_exact_matched_result(corpus):
+    from application_state.agent_conversation.native_source_sections import validate_section_events
+    adapter, _ = corpus
+    asyncio.run(PlanJevDriver(adapter).run(transport=Decisions(), api_key='synthetic-not-secret'))
+    execution = adapter.fence.turn.graph_context_execution
+    events = [e.model_copy(update={'matches': []})
+              if isinstance(e, t.CorpusSourceSearchObservedV1) else e for e in execution.events]
+    with pytest.raises(ValueError, match='not an earlier recorded corpus search match'):
+        validate_section_events(SimpleNamespace(policy=execution.policy, events=events,
+            context_receipt_sha256=execution.context_receipt_sha256,
+            execution_policy_sha256=execution.execution_policy_sha256))

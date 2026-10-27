@@ -86,6 +86,8 @@ class NativeSourceNavigator:
                 self.sources[handle] = (donor,pin,label)
                 existing.add(key)
 
+        self.corpus.hydrate()
+
         # Eligibility is metadata only, batched once per newly encountered artifact.
         # Keep failed routes visible as unavailable examined subjects without
         # dispatching doomed native provenance/catalog reads. Actual reads retain

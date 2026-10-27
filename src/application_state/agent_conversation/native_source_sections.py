@@ -6,6 +6,7 @@ from application_state.errors import ApplicationStateValidationError
 from . import types as t
 from .build_section import exact_saved_section
 from .native_source_catalog import NativeSourceCatalogMaterial
+from .corpus_source_search import require_matched_registry_section
 
 
 def _existing(execution, event_id, cls, **identity):
@@ -46,6 +47,7 @@ def authorize_section_locked(conn, turn, *, event_id, read_id, catalog_event_id,
         section = next((s for s in catalog.sections if s.section_id == section_id), None)
         if section is None:
             raise ValueError("Native section is not a member of the catalog")
+        require_matched_registry_section(execution, catalog, section_id, before_sequence=len(execution.events))
         if any(isinstance(e,t.NativeSourceSectionAuthorizedV1) and (e.read_id == read_id
                 or (e.catalog_event_id == catalog_event_id and e.section.section_id == section_id)) for e in execution.events):
             raise ValueError("Native section already has an authorization; reuse its receipt")
@@ -158,6 +160,8 @@ def validate_section_events(execution):
                     or event.context_receipt_sha256 != execution.context_receipt_sha256
                     or event.execution_policy_sha256 != execution.execution_policy_sha256):
                 raise ValueError("Native section authorization differs from exact catalog/provider/budget")
+            require_matched_registry_section(execution, catalog, event.section.section_id,
+                                             before_sequence=event.sequence)
             auths[event.read_id] = event
             targets.add(target)
         elif isinstance(event,t.NativeSourceSectionObservedV1):

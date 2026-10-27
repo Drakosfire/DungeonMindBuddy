@@ -18,6 +18,61 @@ class CorpusSourceNavigation:
         self.observation = None
         self.members = {}
 
+    def hydrate(self):
+        """Recover navigation from this execution's durable receipts, without source IO."""
+        owner = self.owner
+        execution = owner.adapter.fence.turn.graph_context_execution
+        if not enabled(execution.policy):
+            return
+        grant = next((e for e in execution.events if isinstance(e, t.CorpusSourceSearchAuthorizedV1)), None)
+        if grant is None:
+            return
+        observation = next((e for e in execution.events if isinstance(e, t.CorpusSourceSearchObservedV1)
+                            and e.search_id == grant.search_id), None)
+        self.attempted = True
+        if observation is None or self.observation is not None:
+            return
+        from application_state.agent_conversation.corpus_source_search import view, registry_origin
+        members = {(m['artifact']['source_artifact_id'], m['revision']['source_revision_id']): m
+                   for m in view(grant)['members']}
+        navs = {e.navigation_id: e for e in execution.events
+                if isinstance(e, t.NativeSourceNavigationAuthorizedV1)}
+        for catalog in execution.events:
+            if not isinstance(catalog, t.NativeSourceCatalogObservedV1) or catalog.event_id not in observation.catalog_event_ids:
+                continue
+            key = (catalog.source_artifact_id, catalog.native_source_revision_id)
+            member = members[key]
+            nav = navs[catalog.navigation_id]
+            if isinstance(nav, t.NativeSourceNavigationAuthorizedV2):
+                body, _, identity = registry_origin(nav)
+                if body['search_event_id'] != str(grant.event_id):
+                    raise ValueError('Recovered catalog differs from its corpus grant')
+                handle = 'corpus-source:' + t.canonical_sha256(
+                    {'search': str(grant.event_id), 'artifact': key[0], 'revision': key[1]})
+                name = registered_source_name(member['artifact'])
+                owner.sources[handle] = (grant, identity, name.strip())
+            else:
+                handle = next(h for h, e in owner.sources.items()
+                              if (e[1].source_artifact_id, e[1].source_revision_id) == key)
+                name = owner.sources[handle][2]
+            self.members[handle] = member
+            owner.catalogs[handle] = catalog
+            owner.catalog_names[handle] = name.strip()
+            owner.attempted_sources.add(handle)
+            hits = {h.section_id: h.matched_terms for h in observation.matches
+                    if h.catalog_event_id == catalog.event_id}
+            for section in catalog.sections:
+                if section.section_id in hits:
+                    address = 'native-section:' + section.section_id
+                    owner.sections[address] = (handle, section, name.strip())
+                    owner.query_matches[address] = hits[section.section_id]
+            for event in execution.events:
+                if isinstance(event, t.NativeSourceSectionAuthorizedV1) and event.catalog_event_id == catalog.event_id:
+                    owner.attempted_sections.add('native-section:' + event.section.section_id)
+                if isinstance(event, t.NativeSourceSectionObservedV1) and event.catalog_event_id == catalog.event_id:
+                    owner.reads['native-section:' + event.section.section_id] = event
+        self.observation = observation
+
     def offered(self):
         adapter = self.owner.adapter
         if adapter.fence is None:
