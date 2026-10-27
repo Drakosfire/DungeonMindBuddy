@@ -1,3 +1,4 @@
+import {planRootBoundaryPosition} from './planPlacementCatalog';
 import {useEffect,useRef,useState} from 'react';
 import {SurfacePageProposal,SurfaceProposalReview} from '../../surface/SurfacePageProposal';
 import {commandPlanAuthoringReview,readPlanAuthoringReview,PlanReviewRequestError,
@@ -73,6 +74,9 @@ export function PlanPageProposal({proposal,bridge,identity,expectedBinding,getBi
       ||capture.capture.base_content_sha256!==saved.capture.base_content_sha256){
       setPlacement(null);throw new Error('The page changed. Inspect the current draft, then choose where this suggestion should go.');
     }
+    if(saved.capture.schema==='dmb_plan_authoring_boundary_capture_v1'
+      &&planRootBoundaryPosition(capture.target.editor,saved.capture.root_boundary)!==saved.capture.from)
+      throw new Error('The saved location no longer identifies this page boundary. Choose a new placement.');
     // Display is inert and may use the old selection. Only explicit Save restores it.
     setPlacement({...capture,capture:saved.capture});current.current.onVisible();
   }

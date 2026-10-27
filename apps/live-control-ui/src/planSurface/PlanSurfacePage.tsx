@@ -1,3 +1,4 @@
+import {capturePlanPlacementCatalog} from './agentEdit/planPlacementCatalog';
 import {readPlanAuthoringReview,type PlanReviewApplication} from "../api/planAuthoringReviewApi";
 import {SurfaceContextPopover} from '../surfaceInteraction/contextHost';
 import {SceneEncounterLauncher} from '../combat/SceneEncounterLauncher';
@@ -590,6 +591,7 @@ function WorldOwnedPlanPage({ worldId, worldName }: { worldId: string; worldName
       worldEditStateGetterRef.current(applicationId), () => worldEditStateGetterRef.current(applicationId), identity,
     ),
     sealAuthoring:sealWorldPlanAuthoringTarget,
+    capturePlacementCatalog:(target,capture)=>capturePlanPlacementCatalog(target.editor,capture),
     captureAuthoringAt:(...args)=>authoringMoveCaptureRef.current(...args),
     restoreAuthoring:(capture,identity)=>restorePlanAuthoringTarget(capture,
       worldEditStateGetterRef.current(),()=>worldEditStateGetterRef.current(),identity),

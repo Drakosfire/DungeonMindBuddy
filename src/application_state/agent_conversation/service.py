@@ -2173,11 +2173,11 @@ class AgentConversationService:
 
     def reserve_plan_authoring_action(self, *, capture, turn_id: UUID, expected_revision: int):
         """Reserve an Agent-owned current-Plan proposal under both owners' locks."""
-        from .plan_authoring import PlanAuthoringCaptureV1, reserve_authoring_locked
+        from .plan_authoring import PlanAuthoringCaptureV1, parse_authoring_capture, reserve_authoring_locked
         if not isinstance(capture,PlanAuthoringCaptureV1):
             raise ApplicationStateValidationError('Exact live Plan authoring capture required')
         with unit_of_work(_ready_dsn()) as conn:
-            return reserve_authoring_locked(conn,capture=PlanAuthoringCaptureV1.model_validate(
+            return reserve_authoring_locked(conn,capture=parse_authoring_capture(
                 capture.model_dump(mode='json',by_alias=True)),turn_id=turn_id,expected_revision=expected_revision)
 
     def complete_turn(self, result: TurnResult) -> Turn:

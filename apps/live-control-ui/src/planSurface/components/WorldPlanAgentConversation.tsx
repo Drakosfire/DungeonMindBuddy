@@ -3875,7 +3875,8 @@ export function WorldPlanAgentConversation({
           || contentBasis.content_sha256 !== targetBasisAtSubmit.contentSha256)) {
         throw new Error("The selected card belongs to a different committed Plan revision. Select it again before asking.");
       }
-      let authoringCapture:import('../../api/planAuthoringReviewApi').PlanAuthoringCapture|undefined;
+      let authoringCapture:import('../../api/planAuthoringReviewApi').PlanOriginalAuthoringCapture|undefined;
+      let placementCatalog:import('../../api/planAuthoringReviewApi').PlanPlacementCatalog|undefined;
       if(frozenTarget&&editBridge?.sealAuthoring){
         const key=await worldTurnIdempotencyKey(worldId,submittedTurnId);
         if(!key||!pointerSnapshot.conversation_id)
@@ -3883,7 +3884,11 @@ export function WorldPlanAgentConversation({
         const capture=await editBridge.sealAuthoring(frozenTarget,{idempotencyKey:key,conversationId:pointerSnapshot.conversation_id,
           pointerRevision:pointerSnapshot.pointer_revision});
         if(!stillPreparing())return;
+        if(capture.schema!=='dmb_plan_authoring_capture_v1'||!editBridge.capturePlacementCatalog)
+          throw new Error('This Plan cannot capture its page locations. Your request was not sent.');
         authoringCapture=capture;
+        placementCatalog=await editBridge.capturePlacementCatalog(frozenTarget,capture);
+        if(!stillPreparing())return;
         if(authoringCapture.base_revision!==revision||authoringCapture.base_content_sha256!==contentBasis.content_sha256)
           throw new Error('The captured draft no longer belongs to this committed Plan. Your request was not sent.');
       }
@@ -3909,7 +3914,7 @@ export function WorldPlanAgentConversation({
         ...(targetAtSubmit ? {
           playable_target: { schema: "dmb_plan_playable_target_v1" as const, ...targetAtSubmit },
         } : {}),
-        ...(authoringCapture?{plan_authoring_capture:authoringCapture}:{}),
+        ...(authoringCapture?{plan_authoring_capture:authoringCapture,plan_placement_catalog:placementCatalog}:{}),
         message,
       };
       const origin: WorldPlanPendingAskOrigin = {

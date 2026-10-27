@@ -86,6 +86,8 @@ class SemanticWire(httpx2.AsyncBaseTransport):
             "dialogue_reference",
             "edit_target_available",
             "intent_policy",
+            "offered_page_locations",
+            "placement_policy",
         }
         assert body["state"]["user_request"] == self.adapter.request.message
         assert body["state"]["edit_target_available"] == (
@@ -96,6 +98,9 @@ class SemanticWire(httpx2.AsyncBaseTransport):
             "world:one", self.adapter.turn.conversation_id
         )[0]
         assert current.graph_context_execution.events[-1].outcome == "sdk_entered"
+        choice = self.choice
+        if choice == "write_current_page":
+            choice = "write:captured" if self.adapter.request.plan_authoring_capture is not None else "write_unavailable"
         return httpx2.Response(
             200,
             request=request,
@@ -104,10 +109,10 @@ class SemanticWire(httpx2.AsyncBaseTransport):
                 "answers": {
                     "requested_work": {
                         "type": "choice",
-                        "choice": self.choice,
+                        "choice": choice,
                         "confidence": 1.0,
                         "probabilities": {
-                            name: float(name == self.choice)
+                            name: float(name == choice)
                             for name in body["questions"]["requested_work"]["criteria"]
                         },
                     }
@@ -140,10 +145,10 @@ def test_semantic_destination_is_durable_without_granting_edit_authority(
     assert isinstance(current.graph_context_execution.policy, t.PlanAuthoringPolicyV1)
     events = current.graph_context_execution.events
     assert [e.kind for e in events] == [
-        "plan_requested_work_authorized_v1",
+        "plan_requested_work_authorized_v2",
         "provider_outcome",
         "provider_outcome",
-        "plan_requested_work_selected_v1",
+        "plan_requested_work_selected_v2",
     ]
     assert (
         events[-1].requested_work == choice and events[-1].target_capture_sha256 is None
@@ -218,7 +223,7 @@ def test_semantic_destination_unknown_outcome_never_resends(plan_adapter):
     )
 
 
-def admitted_authoring(plan_adapter, *, admit=True):
+def admitted_authoring(plan_adapter, *, admit=True, placement="captured"):
     """Use actual Content, conversation and provider owners for a live target."""
     import asyncio
     from dataclasses import replace
@@ -279,8 +284,14 @@ def admitted_authoring(plan_adapter, *, admit=True):
             "expected_content_sha256": revision.content_sha256,
         }
     )
+    from application_state.agent_conversation.plan_placement import PlanPlacementCatalogV1, PlanPlacementOptionV1
+    end = PlanPlacementOptionV1(selector="end",kind="end_page",label="At page end",root_boundary=1,position=15,target_capture_sha256="0"*64)
+    end = end.model_copy(update={"target_capture_sha256":end.derived_target(capture).sha256})
+    catalog = PlanPlacementCatalogV1(original_capture_sha256=capture.sha256, editor_sha256=capture.editor_sha256,
+        entries=({"selector":"captured", "kind":"captured_target", "label":"At captured caret",
+            "root_boundary":None,"position":None,"target_capture_sha256":capture.sha256},end))
     plan_adapter.request = plan_adapter.request.model_copy(
-        update={"primary_work": primary, "plan_authoring_capture": capture}
+        update={"primary_work": primary, "plan_authoring_capture": capture, "plan_placement_catalog":catalog}
     )
     plan_adapter.submitted_intent = _submitted_turn_intent(
         plan_adapter.request, world_id="world:one"
@@ -290,11 +301,11 @@ def admitted_authoring(plan_adapter, *, admit=True):
     dispatch = PlanJevDispatch.requested_work(plan_adapter, page_title="Preparation")
     asyncio.run(
         dispatch.run(
-            transport=SemanticWire(plan_adapter, "write_current_page"),
+            transport=SemanticWire(plan_adapter, "write:" + placement),
             api_key="synthetic-not-secret",
         )
     )
-    return capture, plan_adapter.fence.turn
+    return catalog.resolve(capture, placement), plan_adapter.fence.turn
 
 
 def test_agent_reservation_marks_both_owners_before_commit_and_replays_exactly(
@@ -402,6 +413,9 @@ def test_competing_authoring_reservations_share_one_immutable_action(plan_adapte
         {"requested_work": "write_current_page"},
         {"target_capture_sha256": "a" * 64},
         {"actual_input_tokens": 32},
+        {"original_capture_sha256": "c" * 64},
+        {"placement_catalog_sha256": "d" * 64},
+        {"placement_selector": "end"},
     ],
 )
 def test_semantic_projection_cannot_change_the_captured_provider_answer(
@@ -423,7 +437,7 @@ def test_semantic_projection_cannot_change_the_captured_provider_answer(
         update=change
         | {"event_id": uuid4(), "sequence": len(turn.graph_context_execution.events)}
     )
-    with pytest.raises(ApplicationStateValidationError, match="exact typed"):
+    with pytest.raises(ApplicationStateValidationError, match="Plan"):
         plan_adapter.service.record_plan_requested_work_selection(
             turn.world_id,
             turn.conversation_id,
@@ -443,7 +457,7 @@ def test_semantic_projection_cannot_change_the_captured_provider_answer(
     )
 
 
-def authoring_writer(plan_adapter, *, rules_used=False, graph_used=True):
+def authoring_writer(plan_adapter, *, rules_used=False, graph_used=True, placement="captured"):
     import asyncio
     from application_state.agent_conversation.rules_authority_policy import (
         rules_capability,
@@ -462,7 +476,7 @@ def authoring_writer(plan_adapter, *, rules_used=False, graph_used=True):
         plan_adapter.request = plan_adapter.request.model_copy(
             update={"message": args().question}
         )
-    capture, turn = admitted_authoring(plan_adapter)
+    capture, turn = admitted_authoring(plan_adapter, placement=placement)
     action, _ = plan_adapter.service.reserve_plan_authoring_action(
         capture=capture, turn_id=turn.turn_id, expected_revision=turn.revision
     )
@@ -547,7 +561,7 @@ def test_one_writer_atomically_stores_plan_result_and_exact_replay(
         "primary_authoring_context": True,
         "markdown": capture.draft_markdown,
     }
-    assert frame["focused_edit_target"] == {"kind": "insert_at_caret"}
+    assert frame["focused_edit_target"] == {"kind": "insert_at_caret", "location":"At captured caret"}
     assert actual_request["input"][0]["content"].count(capture.draft_markdown) == 1
     assert (
         "Prepare only the requested editable Plan fragment"
@@ -1021,7 +1035,7 @@ def test_action_expiry_waits_for_concurrent_agent_claim_renewal(
 
 
 @pytest.mark.parametrize(
-    "choice", ["discuss", "clarify", "write_current_page", "different_destination"]
+    "choice", ["discuss", "clarify", "write_current_page", "write:end", "different_destination"]
 )
 def test_ordinary_plan_harness_respects_semantic_destination(
     plan_adapter, tmp_path, choice
@@ -1061,10 +1075,19 @@ def test_ordinary_plan_harness_respects_semantic_destination(
         return
     response = execute_agent_turn(plan_adapter.request, **kwargs)
     assert len(decisions.calls) == 2 and len(wire.calls) == 1
-    assert (response.plan_proposal is not None) == (choice == "write_current_page")
+    assert (response.plan_proposal is not None) == (choice in {"write_current_page", "write:end"})
     if response.plan_proposal is not None:
-        assert response.plan_proposal.capture == capture
+        expected = (plan_adapter.request.plan_placement_catalog.resolve(capture,"end") if choice=="write:end" else capture)
+        assert response.plan_proposal.capture == expected
         assert response.plan_proposal.origin.turn_id == wire.adapter.turn.turn_id
+        if choice=="write:end":
+            from application_state.plan_action_dialogue.service import PlanActionDialogueService
+            action=PlanActionDialogueService().get_by_key(capture.world_id,capture.idempotency_key)
+            assert action.target_kind=="insert_at_boundary"
+            assert action.authoring_origin.capture.sha256==expected.sha256
+            selected=wire.adapter.turn.graph_context_execution.events[3]
+            assert selected.original_capture_sha256==capture.sha256
+            assert selected.target_capture_sha256==expected.sha256
     else:
         assert "plan_proposal" not in response.model_dump(mode="json")
     replay = execute_agent_turn(plan_adapter.request, **kwargs)
@@ -1182,5 +1205,5 @@ def test_plan_decision_failure_retains_normalized_cause_without_sdk_text(plan_ad
     assert failures[-1].code=='plan_jev_'+expected and failures[-1].phase=='provider'
     assert 'DO_NOT_CAPTURE_PRIVATE_TRANSPORT_DETAIL' not in trace.model_dump_json()
     execution=plan_adapter.fence.turn.graph_context_execution
-    assert any(event.kind=='plan_requested_work_authorized_v1' for event in execution.events)
-    assert not any(event.kind=='plan_requested_work_selected_v1' for event in execution.events)
+    assert any(event.kind=='plan_requested_work_authorized_v2' for event in execution.events)
+    assert not any(event.kind=='plan_requested_work_selected_v2' for event in execution.events)

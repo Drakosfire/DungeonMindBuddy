@@ -1,3 +1,6 @@
+import {canonical} from '../shared/sourcePassageProtocol';
+import {capturePlanPlacementCatalog} from './agentEdit/planPlacementCatalog';
+import {sealWorldPlanAuthoringTarget} from './agentEdit/planAgentEditProposal';
 vi.mock("../api/buildDocumentProposalApi", async original => ({
   ...await original<typeof import("../api/buildDocumentProposalApi")>(), listBuildProposals: async () => [],
 }));
@@ -6432,3 +6435,29 @@ function selectExplicitPlanChange(){
   if(!summary.closest('details')?.open)fireEvent.click(summary);
   fireEvent.click(screen.getByRole('button',{name:'Request a Plan change'}));
 }
+
+it('freezes the page location catalog with ordinary Send before semantic dispatch',async()=>{
+  setupApi(history('bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb',4,[]));
+  const markdown='# Plan\n\n## Preparation objective\n\nKeep options open.\n\n## Beat\n\nExisting body.';
+  const editor=new Editor({extensions:DEFAULT_MARKDOWN_EDITOR_EXTENSIONS,content:markdownToTiptapDoc(markdown).doc});
+  const state:WorldPlanEditEditorState={editor,worldId,documentId,baseRevision:7,baseContentSha256:contentSha256,
+    sourceMarkdown:markdown,draftGeneration:1,selectionGeneration:0,canEdit:true};
+  const bridge={capture:()=>captureWorldPlanEditTarget(state,()=>state),sealAuthoring:sealWorldPlanAuthoringTarget,
+    capturePlacementCatalog:(target:any,capture:any)=>capturePlanPlacementCatalog(target.editor,capture),apply:vi.fn()};
+  const received=deferred<void>(),outcome=deferred<never>();
+  const post=vi.spyOn(liveApi,'postWorldPlanAgentTurn').mockImplementation(()=>{received.resolve();return outcome.promise;});
+  try{
+    render(conversationElement({editBridge:bridge,savedDirty:true,draftGeneration:1}));
+    await waitForConversationReady();ensureWorldGraphAskEnabled();
+    fireEvent.change(screen.getByLabelText('Message DungeonBuddy'),{target:{value:'Insert a briefing after Preparation objective and before Beat.'}});
+    await act(async()=>{fireEvent.click(screen.getByRole('button',{name:'Send message'}));await received.promise;});
+    expect(post).toHaveBeenCalledTimes(1);
+    const request=post.mock.calls[0]![0],capture=request.plan_authoring_capture!,catalog=request.plan_placement_catalog!;
+    expect(capture.editor_json).toBe(JSON.stringify(editor.getJSON()));
+    expect(catalog.original_capture_sha256).toBe(await sha256Hex(canonical(capture)));
+    expect(catalog.entries.find(row=>row.selector==='after:1')?.root_boundary).toBe(3);
+    expect(request.message).toBe('Insert a briefing after Preparation objective and before Beat.');
+    await act(async()=>{outcome.reject(new Error('Synthetic unknown outcome'));});
+    expect(JSON.parse(localStorage.getItem(pendingAskKeys()[0]!)!).request.plan_placement_catalog).toEqual(catalog);
+  }finally{await act(async()=>{cleanup();editor.destroy();});}
+});

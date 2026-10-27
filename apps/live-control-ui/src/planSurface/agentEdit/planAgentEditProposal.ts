@@ -1,5 +1,6 @@
+import {planRootBoundaryPosition} from './planPlacementCatalog';
 import { isTableCaptionAt } from '../../tiptap/markdown/tableCaption';
-import type {PlanAuthoringCapture, PlanReviewApplication, PlanAuthoringReview} from "../../api/planAuthoringReviewApi";
+import type {PlanAuthoringCapture, PlanOriginalAuthoringCapture, PlanPlacementCatalog, PlanReviewApplication, PlanAuthoringReview} from "../../api/planAuthoringReviewApi";
 import { Editor, type JSONContent } from "@tiptap/core";
 import { TextSelection } from "@tiptap/pm/state";
 import type { MarkdownSourceLineTarget } from "../../markdownReader/MarkdownDocumentReader";
@@ -100,6 +101,7 @@ export interface CapturedWorldPlanEditTarget {
   playableTargetSource?: "manual" | "scene" | "selection";
   playableTargetLabel?: string;
   playableBodyTarget?: CapturedPlayableBodyRange;
+  rootBoundary?: number;
   wholeBulletItem?: CapturedPlanEditTarget["wholeBulletItem"];
   sectionTarget?: CapturedWorldPlanSectionTarget;
 }
@@ -157,6 +159,7 @@ export interface CapturedPlanAuthoringTarget {capture:PlanAuthoringCapture;targe
 export interface WorldPlanEditBridge {
   captureAuthoring?: (identity:PlanAuthoringIdentity,applicationId?:string)=>Promise<CapturedPlanAuthoringTarget>;
   sealAuthoring?: (target:CapturedWorldPlanEditTarget,identity:PlanAuthoringIdentity)=>Promise<PlanAuthoringCapture>;
+  capturePlacementCatalog?: (target:CapturedWorldPlanEditTarget,capture:PlanOriginalAuthoringCapture)=>Promise<PlanPlacementCatalog>;
   captureAuthoringAt?: (position:number,identity:PlanAuthoringIdentity)=>Promise<CapturedPlanAuthoringTarget>;
   restoreAuthoring?: (capture:PlanAuthoringCapture,identity:PlanAuthoringIdentity)=>Promise<CapturedPlanAuthoringTarget>;
   prepareAuthoring?: (target:CapturedWorldPlanEditTarget,markdown:string,actionId:string,
@@ -688,21 +691,23 @@ export async function sealWorldPlanAuthoringTarget(target:CapturedWorldPlanEditT
     throw new PlanEditGuardError('Open the current World conversation before sealing a Plan request.');
   const [editorHash,selectionHash]=await Promise.all([sha256(target.editorJson),sha256(target.selectionJson)]);
   const body=target.playableBodyTarget;
-  const capture:PlanAuthoringCapture={
+  const originalSelection=JSON.parse(target.selectionJson);
+  const capture:PlanOriginalAuthoringCapture={
     schema:'dmb_plan_authoring_capture_v1',idempotency_key:identity.idempotencyKey,
     conversation_id:identity.conversationId,expected_pointer_revision:identity.pointerRevision,
     world_id:target.request.world_id,document_id:target.request.document_id,
     base_revision:target.request.base_revision,base_content_sha256:target.request.base_content_sha256,
     draft_markdown:target.request.draft_markdown,draft_sha256:target.request.draft_sha256,
     editor_json:target.editorJson,editor_sha256:editorHash,selection_json:target.selectionJson,selection_sha256:selectionHash,
-    from:target.from,to:target.to,draft_generation:target.draftGeneration,selection_generation:target.selectionGeneration,
-    target_kind:target.request.target_kind,selected_text:target.request.selected_text,
+    from:target.rootBoundary!==undefined?originalSelection.anchor:target.from,to:target.rootBoundary!==undefined?originalSelection.head:target.to,draft_generation:target.draftGeneration,selection_generation:target.selectionGeneration,
+    target_kind:target.request.target_kind==='insert_at_boundary'?'insert_at_caret':target.request.target_kind,selected_text:target.request.selected_text,
     playable_target:body?{...body.target,marker_grammar_version:body.markerGrammarVersion,
       body_scope:body.bodyScope,range_semantics_version:body.rangeSemanticsVersion,
       body_serialization_version:body.bodySerializationVersion,
       body_markdown:body.targetBodyMarkdown,body_sha256:body.targetBodySha256}:null,
   };
-  return capture;
+  return target.rootBoundary!==undefined?{...capture,schema:'dmb_plan_authoring_boundary_capture_v1',
+    target_kind:'insert_at_boundary',root_boundary:target.rootBoundary,from:target.from,to:target.to}:capture;
 }
 
 export interface PreparedPlanAuthoringApplication {
@@ -719,6 +724,19 @@ export async function restorePlanAuthoringTarget(capture:PlanAuthoringCapture,
     ||current.baseRevision!==capture.base_revision||current.baseContentSha256!==capture.base_content_sha256
     ||JSON.stringify(editor.getJSON())!==capture.editor_json)
     throw new PlanEditGuardError('The page changed. Inspect the current page and choose a new placement.');
+  if(capture.schema==='dmb_plan_authoring_boundary_capture_v1'){
+    const position=planRootBoundaryPosition(editor,capture.root_boundary);
+    if(capture.from!==position||capture.to!==position||capture.target_kind!=='insert_at_boundary')
+      throw new PlanEditGuardError('The captured boundary differs from this page. Choose a new placement.');
+    const selection=JSON.parse(capture.selection_json);
+    const {root_boundary:rootBoundary,...shared}=capture;
+    const original:PlanOriginalAuthoringCapture={...shared,schema:'dmb_plan_authoring_capture_v1',
+      target_kind:'insert_at_caret',from:selection.anchor,to:selection.head};
+    const fresh=await restorePlanAuthoringTarget(original,input,getCurrent,identity);
+    const target:CapturedWorldPlanEditTarget={...fresh.target,from:position,to:position,rootBoundary,
+      request:{...fresh.target.request,target_kind:'insert_at_boundary'}};
+    return {target,capture:await sealWorldPlanAuthoringTarget(target,identity)};
+  }
   editor.view.dispatch(editor.state.tr.setSelection(TextSelection.fromJSON(editor.state.doc,JSON.parse(capture.selection_json))));
   const fresh=await captureWorldPlanAuthoringTarget(getCurrent(),getCurrent,identity);
   if(fresh.capture.draft_sha256!==capture.draft_sha256||fresh.capture.from!==capture.from||fresh.capture.to!==capture.to
@@ -1141,6 +1159,12 @@ export async function applyPlanEditProposal(args: {
 }
 
 function worldPlanEditInsertion(captured: CapturedWorldPlanEditTarget, content: JSONContent[]) {
+  if(captured.rootBoundary!==undefined){
+    const position=planRootBoundaryPosition(captured.editor,captured.rootBoundary);
+    if(captured.request.target_kind!=='insert_at_boundary'||position!==captured.from||position!==captured.to)
+      throw new PlanEditGuardError('The structural insertion differs from its captured page boundary.');
+    return {range:{from:position,to:position},content};
+  }
   return captured.playableBodyTarget
     ? { range: { from: captured.playableBodyTarget.from, to: captured.playableBodyTarget.to }, content }
     : captured.sectionTarget
@@ -1178,7 +1202,7 @@ export function previewWorldPlanEditProposal(
     const after = preserveLeadingYamlFrontmatter(captured.request.draft_markdown, tiptapJsonToSemanticMarkdown(frozen.getJSON()));
     const placementLabel = captured.playableBodyTarget
       ? `Replace ${captured.playableTargetLabel || captured.playableBodyTarget.target.id} body`
-      : captured.request.target_kind === "insert_at_caret" ? "Insert at captured caret" : "Replace captured selection";
+      : captured.rootBoundary!==undefined ? "Insert at captured page boundary" : captured.request.target_kind === "insert_at_caret" ? "Insert at captured caret" : "Replace captured selection";
     const targetKey = `plan-edit-preview:${captured.request.document_id}:${captured.request.draft_sha256}:${captured.from}:${captured.to}:${admitted.response.action_id}`;
     return { before: { markdown: before, placementLabel,
       ...(startLine ? { sourceLineTarget: { startLine, endLine: startLine, targetKey: `${targetKey}:before` } } : {}) },
@@ -1220,8 +1244,7 @@ export async function applyWorldPlanEditProposal(args: {
     || now.request.base_revision !== captured.request.base_revision
     || now.request.base_content_sha256 !== captured.request.base_content_sha256
     || now.request.draft_sha256 !== captured.request.draft_sha256
-    || now.from !== captured.from
-    || now.to !== captured.to
+    || (captured.rootBoundary===undefined&&(now.from !== captured.from||now.to !== captured.to))
     || now.editorJson !== captured.editorJson
     || now.selectionJson !== captured.selectionJson
     || now.playableTargetSource !== captured.playableTargetSource
@@ -1253,6 +1276,14 @@ export async function applyWorldPlanEditProposal(args: {
     }
     const result = simulated.getJSON();
     const resultRootContent = result.content ?? [];
+    if(captured.rootBoundary!==undefined){
+      const original=(JSON.parse(captured.editorJson) as JSONContent).content??[];
+      const index=captured.rootBoundary;
+      if(resultRootContent.length!==original.length+admitted.content.length
+        ||JSON.stringify(resultRootContent.slice(0,index))!==JSON.stringify(original.slice(0,index))
+        ||JSON.stringify(resultRootContent.slice(index+admitted.content.length))!==JSON.stringify(original.slice(index)))
+        throw new PlanEditGuardError('Boundary insertion would change existing page content.');
+    }
     if (captured.playableBodyTarget) {
       const originalDocument = JSON.parse(captured.editorJson) as JSONContent;
       if (!playableBodyProtectedStructureMatches(originalDocument, result, captured.playableBodyTarget)) {

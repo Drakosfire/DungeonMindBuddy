@@ -20,8 +20,8 @@ pytest_plugins = ("tests.test_plan_jev_dispatch",)
 
 
 @pytest.fixture
-def completed_proposal(plan_adapter):
-    writer, action, capture = authoring_writer(plan_adapter)
+def completed_proposal(plan_adapter, request):
+    writer, action, capture = authoring_writer(plan_adapter, placement=getattr(request,"param","captured"))
     answer = graph_answer()
     answer["answer_segments"].append({
         "kind": "proposal", "label": "invented_idea",
@@ -222,6 +222,8 @@ def test_http_review_requires_auth_before_world_and_app_reads(completed_proposal
     from apps.live_control_server.main import create_app
     from apps.live_control_server.routes import agent as routes
 
+    monkeypatch.setenv("DMB_DEPLOYMENT_ENVIRONMENT", "local")
+    monkeypatch.setenv("DMB_AUTH_MODE", "local_operator")
     proposal = completed_proposal
     touched = []
     def deny(request):
@@ -232,7 +234,7 @@ def test_http_review_requires_auth_before_world_and_app_reads(completed_proposal
     monkeypatch.setattr(routes, "enforce_native_graph_gm", deny)
     monkeypatch.setattr(routes, "_verified_world_id", no_world_read)
     path = f"/api/live/agent/worlds/{proposal.capture.world_id}/plan-proposals/{proposal.origin.action_id}/review"
-    with TestClient(create_app()) as client:
+    with TestClient(create_app(), base_url="http://127.0.0.1", client=("127.0.0.1", 50000)) as client:
         assert client.get(path).status_code == 401
         payload = command(proposal, None, "open")
         assert client.post(path, json=json.loads(json.dumps(payload, default=str))).status_code == 401
@@ -244,11 +246,13 @@ def test_http_review_snapshot_and_commands_use_actual_plan_owner(completed_propo
     from apps.live_control_server.main import create_app
     from apps.live_control_server.routes import agent as routes
 
+    monkeypatch.setenv("DMB_DEPLOYMENT_ENVIRONMENT", "local")
+    monkeypatch.setenv("DMB_AUTH_MODE", "local_operator")
     proposal = completed_proposal
     monkeypatch.setattr(routes, "enforce_native_graph_gm", lambda request: None)
     monkeypatch.setattr(routes, "_verified_world_id", lambda world: world)
     path = f"/api/live/agent/worlds/{proposal.capture.world_id}/plan-proposals/{proposal.origin.action_id}/review"
-    with TestClient(create_app()) as client:
+    with TestClient(create_app(), base_url="http://127.0.0.1", client=("127.0.0.1", 50000)) as client:
         snapshot = client.get(path)
         assert snapshot.status_code == 200, snapshot.text
         assert snapshot.json() == {
@@ -384,3 +388,27 @@ def test_current_placement_recovery_and_confirm_race_have_only_one_winner(comple
         assert stored.state == "editing" and stored.capture == fresh
         assert stored.applications[-1].outcome == "superseded"
         assert current_committed_revision(proposal.capture.document_id, kind="plan") == before
+
+
+@pytest.mark.parametrize("completed_proposal", ["end"], indirect=True)
+def test_structural_capture_survives_review_edit_save_and_exact_confirmation_replay(completed_proposal):
+    proposal=completed_proposal
+    assert proposal.capture.target_kind=="insert_at_boundary"
+    assert proposal.capture.root_boundary==1
+    generated=proposal.model_dump(mode="json",by_alias=True)
+    review=opened(proposal)
+    assert review.capture==proposal.capture
+    review=execute(proposal,command(proposal,review,"save",markdown="Author-edited conditional briefing.\n"))
+    pending=prepare(proposal,review)
+    application=pending.applications[-1]
+    assert application.capture==proposal.capture
+    confirm=command(proposal,pending,"confirm",application_id=application.application_id)
+    saved=execute(proposal,confirm)
+    assert saved.state=="applied"
+    assert saved.capture==proposal.capture
+    assert execute(proposal,confirm)==saved
+    assert owner.read_review(saved.world_id,saved.action_id).review==saved
+    committed=current_committed_revision(proposal.capture.document_id,kind="plan")
+    assert committed.work_revision.content_sha256==application.after_draft_sha256
+    assert committed.work_revision.markdown==application.after_markdown
+    assert proposal.model_dump(mode="json",by_alias=True)==generated

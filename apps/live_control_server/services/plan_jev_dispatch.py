@@ -16,6 +16,8 @@ from application_state.agent_conversation.plan_authoring import (
     validate_prepared_requested_work, validate_requested_work_wire,
 )
 
+from application_state.agent_conversation.plan_placement import PlanRequestedWorkInputV2, work_choice
+
 
 def request_budget():
     from .agent_turn_service import _policy_request_budget
@@ -71,11 +73,11 @@ class PlanJevDispatch:
         """Use the same one-shot provider gate for the separate destination choice."""
         dispatch = cls(adapter, (), dialogue=dialogue)
         capture = adapter.request.plan_authoring_capture
-        dispatch.parent = PlanRequestedWorkInputV1(request_id=uuid4(), parent_attempt_id=uuid4(),
+        dispatch.parent = PlanRequestedWorkInputV2(request_id=uuid4(), parent_attempt_id=uuid4(),
             scope_sha256='0' * 64, question=adapter.request.message, page_title=page_title,
             dialogue=tuple(row.model_dump() if hasattr(row, 'model_dump') else row for row in dialogue),
             target_capture_sha256=capture.sha256 if capture is not None else None,
-            target_available=capture is not None)
+            target_available=capture is not None, placement_catalog=adapter.request.plan_placement_catalog, original_capture=capture)
         return dispatch
 
     def authorize(self, prepared):
@@ -103,8 +105,8 @@ class PlanJevDispatch:
         estimate = len(raw.encode()) + 64 * (1 + _json_node_count(json.loads(raw)))
         if estimate + a.budget["outputReserveTokens"] > a.budget["contextLimitTokens"]:
             raise ValueError("Plan Jev actual request exceeds the existing provider context allowance")
-        auth_type = t.PlanRequestedWorkAuthorizedV1 if semantic else t.PlanJevProviderAuthorizedV1
-        auth = auth_type(kind='plan_requested_work_authorized_v1' if semantic else 'plan_jev_provider_authorized_v1', event_id=uuid4(),
+        auth_type = t.PlanRequestedWorkAuthorizedV2 if isinstance(self.parent, PlanRequestedWorkInputV2) else t.PlanRequestedWorkAuthorizedV1 if semantic else t.PlanJevProviderAuthorizedV1
+        auth = auth_type(kind='plan_requested_work_authorized_v2' if isinstance(self.parent, PlanRequestedWorkInputV2) else 'plan_requested_work_authorized_v1' if semantic else 'plan_jev_provider_authorized_v1', event_id=uuid4(),
             sequence=len(execution.events), provider_attempt_id=UUID(prepared.attempt_id),
             decision_request_id=self.parent.request_id, parent_request_sha256=self.parent.digest,
             envelope_sha256=prepared.body_sha256, serializer_version="typesafe-sdk-json-v1",
@@ -146,15 +148,21 @@ class PlanJevDispatch:
         selected = (decode_requested_work_decision if semantic else decode_selection)(self.parent, result)
         turn = a.fence.turn
         execution = turn.graph_context_execution
-        event_type = t.PlanRequestedWorkSelectedV1 if semantic else t.PlanJevRetrievalSelectionV1
-        event = event_type(kind='plan_requested_work_selected_v1' if semantic else 'plan_jev_retrieval_selected_v1', event_id=uuid4(),
+        placement = isinstance(self.parent, PlanRequestedWorkInputV2)
+        selected_fields = (work_choice(self.parent, selected) | {
+            'original_capture_sha256': self.parent.target_capture_sha256,
+            'original_capture': self.parent.original_capture.model_dump(mode='json',by_alias=True) if self.parent.original_capture is not None else None,
+            'placement_catalog': self.parent.placement_catalog.model_dump(mode='json',by_alias=True) if self.parent.placement_catalog is not None else None,
+            'placement_catalog_sha256': self.parent.placement_catalog.sha256 if self.parent.placement_catalog is not None else None,
+        }) if placement else {'requested_work': selected, 'target_capture_sha256': self.parent.target_capture_sha256} if semantic else {'operation': selected.operation, 'selected_handles': list(selected.selected_handles)}
+        event_type = t.PlanRequestedWorkSelectedV2 if placement else t.PlanRequestedWorkSelectedV1 if semantic else t.PlanJevRetrievalSelectionV1
+        event = event_type(kind='plan_requested_work_selected_v2' if placement else 'plan_requested_work_selected_v1' if semantic else 'plan_jev_retrieval_selected_v1', event_id=uuid4(),
             sequence=len(execution.events), context_receipt_sha256=execution.context_receipt_sha256,
             execution_policy_sha256=execution.execution_policy_sha256,
             controller_attempt_id=self.authorization.provider_attempt_id, decision_request_id=self.parent.request_id,
             controller_envelope_sha256=self.prepared.body_sha256, parent_request_sha256=self.parent.digest,
             controller_response_sha256=sha256(raw.encode()).hexdigest(),
-            **({'requested_work': selected, 'target_capture_sha256': self.parent.target_capture_sha256} if semantic
-                else {'operation': selected.operation, 'selected_handles': list(selected.selected_handles)}),
+            **selected_fields,
             actual_input_tokens=result.observation.input_tokens,
             actual_output_tokens=result.observation.output_tokens)
         a.turn = _require_fresh_execution_append(a.fence.append('record_plan_requested_work_selection' if semantic else 'record_plan_jev_retrieval_selection', "selection", event,
@@ -163,8 +171,9 @@ class PlanJevDispatch:
         if not semantic and selected.operation == "finish_retrieval" and result.answers["operation"].selected == "finish_with_gaps":
             a.context_capture.observe({"kind": "failure", "phase": "graph_retrieval",
                                        "code": "controller_finished_with_gaps"})
-        self.selection = selected
-        return selected
+        self.selection_event = event
+        self.selection = selected_fields["requested_work"] if placement else selected
+        return self.selection
 
     async def run(self, *, transport=None, api_key=None, client=None):
         async def authorize(prepared): return self.authorize(prepared)

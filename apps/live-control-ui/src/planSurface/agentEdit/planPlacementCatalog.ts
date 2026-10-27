@@ -1,4 +1,6 @@
 import type {Editor} from '@tiptap/core';
+import type {PlanOriginalAuthoringCapture,PlanAuthoringCapture,PlanPlacementCatalog} from '../../api/planAuthoringReviewApi';
+import {canonical} from '../../shared/sourcePassageProtocol';
 import {isTableCaptionAt} from '../../tiptap/markdown/tableCaption';
 
 /** Navigation over one frozen editor snapshot. Positions never enter model state. */
@@ -69,4 +71,37 @@ export function resolvePlanPlacementOption(
 /** Deliberately excludes editor positions, root indices and target digests. */
 export function planPlacementModelChoices(options:readonly PlanPlacementOption[]) {
   return options.map(({selector,label})=>({selector,label}));
+}
+
+
+export function planRootBoundaryPosition(editor:Editor,index:number):number {
+  const doc=editor.state.doc;
+  if(!Number.isSafeInteger(index)||index<0||index>doc.childCount
+    ||index>0&&isTableCaptionAt(doc.toJSON().content??[],index-1))
+    throw new PlanPlacementError('The location is not an indivisible page boundary.');
+  if(index===doc.childCount)return doc.content.size;
+  let position:number|undefined;
+  doc.forEach((_node,offset,rootIndex)=>{if(rootIndex===index)position=offset;});
+  if(position===undefined)throw new PlanPlacementError('The page boundary is unavailable.');
+  return position;
+}
+async function digest(value:unknown) {
+  const hash=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(canonical(value)));
+  return Array.from(new Uint8Array(hash),byte=>byte.toString(16).padStart(2,'0')).join('');
+}
+export async function capturePlanPlacementCatalog(editor:Editor,original:PlanOriginalAuthoringCapture):Promise<PlanPlacementCatalog> {
+  const options=compilePlanPlacementOptions(editor,original.editor_json,original.target_kind);
+  const entries=await Promise.all(options.map(async option=>{
+    const target:PlanAuthoringCapture=option.kind==='captured_target'?original:{...original,
+      schema:'dmb_plan_authoring_boundary_capture_v1',target_kind:'insert_at_boundary',
+      root_boundary:option.root_boundary!,from:option.position!,to:option.position!};
+    return {...option,target_capture_sha256:await digest(target)};
+  }));
+  const originalHash=await digest(original);
+  // Hashing can yield: retain the exact Send-time selection and snapshot.
+  if(JSON.stringify(editor.getJSON())!==original.editor_json
+    ||JSON.stringify(editor.state.selection.toJSON())!==original.selection_json)
+    throw new PlanPlacementError('The page or selection changed while capturing its locations.');
+  return {schema:'dmb_plan_placement_catalog_v1',original_capture_sha256:originalHash,
+    editor_sha256:original.editor_sha256,entries};
 }

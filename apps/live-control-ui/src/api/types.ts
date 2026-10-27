@@ -679,7 +679,7 @@ export interface AgentInteractionTurn {
     proposalSummary: string;
     replacementMarkdown: string;
     applied: boolean;
-    targetKind: "replace_selection" | "insert_at_caret" | "replace_playable_body";
+    targetKind: "replace_selection" | "insert_at_caret" | "replace_playable_body" | "insert_at_boundary";
   } | null;
 }
 
@@ -785,7 +785,8 @@ export interface WorldPlanGraphContextFailureV1 {
 
 /** Accepted generic turn route, bound to one saved Plan in a verified World. */
 export interface WorldPlanAgentTurnRequestV1 {
-  plan_authoring_capture?: import("./planAuthoringReviewApi").PlanAuthoringCapture | null;
+  plan_authoring_capture?: import("./planAuthoringReviewApi").PlanOriginalAuthoringCapture | null;
+  plan_placement_catalog?: import("./planAuthoringReviewApi").PlanPlacementCatalog | null;
   schema: "dmb_agent_turn_request_v1";
   client_thread_id: string;
   turn_id: string;
@@ -1594,7 +1595,7 @@ export interface WorldPlanDocumentEditProposalRequest {
   base_content_sha256: string;
   draft_markdown: string;
   draft_sha256: string;
-  target_kind: "replace_selection" | "insert_at_caret" | "replace_playable_body";
+  target_kind: "replace_selection" | "insert_at_caret" | "replace_playable_body" | "insert_at_boundary";
   selected_text: string;
   selection_anchor?: WorldPlanSelectionAnchorV1;
   playable_target?: { kind: "scene" | "beat" | "choice" | "option"; id: string };
@@ -1625,7 +1626,7 @@ export interface WorldPlanDocumentEditProposalResponse {
   base_revision: number;
   base_content_sha256: string;
   draft_sha256: string;
-  target_kind: "replace_selection" | "insert_at_caret" | "replace_playable_body";
+  target_kind: "replace_selection" | "insert_at_caret" | "replace_playable_body" | "insert_at_boundary";
   selected_text_sha256: string | null;
   playable_target?: { kind: "scene" | "beat" | "choice" | "option"; id: string };
   marker_grammar_version?: "v1" | "v2";

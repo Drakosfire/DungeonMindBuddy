@@ -93,3 +93,16 @@ it('exposes definite refusal status without retrying the retained command',async
     .rejects.toMatchObject({name:'PlanReviewRequestError',status:422});
   expect(fetch).toHaveBeenCalledTimes(1);
 });
+
+it('admits structural capture with its original selection witness and exact resolved target digest',async()=>{
+  const {api}=await modules();Object.defineProperty(globalThis,'crypto',{configurable:true,value:webcrypto});
+  const base=authoredFixture();
+  const capture={...base.capture,schema:'dmb_plan_authoring_boundary_capture_v1',target_kind:'insert_at_boundary',
+    root_boundary:1,from:11,to:11};
+  const proposal={...base,capture,origin:{...base.origin,capture_sha256:createHash('sha256').update(canonical(capture)).digest('hex')}};
+  expect(api.isPlanAuthoredProposal(proposal)).toBe(true);
+  expect(await api.planProposalDigestsBound(proposal)).toBe(true);
+  expect(api.isPlanAuthoredProposal({...proposal,capture:{...capture,root_boundary:-1}})).toBe(false);
+  expect(api.isPlanAuthoredProposal({...proposal,capture:{...capture,to:12}})).toBe(false);
+  expect(await api.planProposalDigestsBound({...proposal,capture:{...capture,root_boundary:0}})).toBe(false);
+});

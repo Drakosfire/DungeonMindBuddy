@@ -53,7 +53,13 @@ def verify_input(turn, auth, proof):
         from .plan_authoring import PlanRequestedWorkInputV1, validate_requested_work_wire
         if not isinstance(execution.policy, t.PlanAuthoringPolicyV1):
             raise ValueError('Plan destination decision requires its frozen authoring policy')
-        request = PlanRequestedWorkInputV1.model_validate(strict_json(parent))
+        from .plan_placement import PlanRequestedWorkInputV2
+        placement = isinstance(auth, t.PlanRequestedWorkAuthorizedV2)
+        if placement != isinstance(execution.policy, t.PlanPlacementAuthoringPolicyV1):
+            raise ValueError('Plan placement authorization differs from its current policy')
+        request = (PlanRequestedWorkInputV2 if placement else PlanRequestedWorkInputV1).model_validate(strict_json(parent))
+        if placement and (request.placement_catalog.sha256 if request.placement_catalog is not None else None) != execution.policy.placement_catalog_sha256:
+            raise ValueError('Plan placement catalog differs from its frozen current intent')
         if request.target_capture_sha256 != execution.policy.plan_authoring_capture_sha256:
             raise ValueError('Plan semantic target differs from its frozen capture')
     else:
@@ -116,8 +122,21 @@ def verify_selection(turn, event, proof, trace):
         raise ValueError('Plan decision kind differs from its actual producer')
     if semantic:
         from .plan_authoring import decode_requested_work_decision
+        from .plan_placement import PlanRequestedWorkInputV2
         selected = decode_requested_work_decision(request, result)
-        if (event.requested_work != selected or event.target_capture_sha256 != request.target_capture_sha256):
+        if isinstance(event, t.PlanRequestedWorkSelectedV2):
+            from .plan_placement import PlanRequestedWorkInputV2, work_choice
+            if not isinstance(request, PlanRequestedWorkInputV2):
+                raise ValueError('Plan placement selection lacks its exact V2 producer')
+            fields = work_choice(request, selected)
+            if (any(getattr(event, key) != value for key, value in fields.items())
+                    or event.original_capture != (request.original_capture.model_dump(mode='json',by_alias=True) if request.original_capture is not None else None)
+                    or event.placement_catalog != (request.placement_catalog.model_dump(mode='json',by_alias=True) if request.placement_catalog is not None else None)
+                    or event.original_capture_sha256 != request.target_capture_sha256
+                    or event.placement_catalog_sha256 != (request.placement_catalog.sha256 if request.placement_catalog is not None else None)):
+                raise ValueError('Plan placement differs from its exact offered typed result')
+        elif (isinstance(request, PlanRequestedWorkInputV2)
+                or event.requested_work != selected or event.target_capture_sha256 != request.target_capture_sha256):
             raise ValueError('Plan destination differs from its exact typed result or capture')
     else:
         selected = decode_selection(request, result)
@@ -185,7 +204,13 @@ def validate_decision_phases(execution):
                     or event.controller_envelope_sha256 != auth.envelope_sha256
                     or event.context_receipt_sha256 != execution.context_receipt_sha256
                     or event.execution_policy_sha256 != execution.execution_policy_sha256
-                    or event.target_capture_sha256 != execution.policy.plan_authoring_capture_sha256):
+                    or (isinstance(event, t.PlanRequestedWorkSelectedV2)
+                        and (not isinstance(execution.policy, t.PlanPlacementAuthoringPolicyV1)
+                            or event.original_capture_sha256 != execution.policy.plan_authoring_capture_sha256
+                            or event.placement_catalog_sha256 != execution.policy.placement_catalog_sha256))
+                    or (not isinstance(event, t.PlanRequestedWorkSelectedV2)
+                        and (isinstance(execution.policy, t.PlanPlacementAuthoringPolicyV1)
+                            or event.target_capture_sha256 != execution.policy.plan_authoring_capture_sha256))):
                 raise ValueError('Plan destination lacks its unique acknowledged controller and frozen target')
             intent = event
             auth, outcome = None, None

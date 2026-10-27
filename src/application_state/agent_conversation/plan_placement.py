@@ -6,7 +6,7 @@ from pydantic import Field, model_validator
 
 from .plan_authoring import (
     Frozen, PlanAuthoringCaptureV1, PlanAuthoringBoundaryCaptureV1,
-    digest, strict_json,
+    digest, strict_json, PlanRequestedWorkInputV1,
 )
 
 
@@ -97,3 +97,40 @@ class PlanPlacementCatalogV1(Frozen):
     def model_choices(self):
         # No offsets, root indices or authority digests in model-visible state.
         return [{"selector": entry.selector, "label": entry.label} for entry in self.entries]
+
+
+class PlanRequestedWorkInputV2(PlanRequestedWorkInputV1):
+    schema_: Literal["dmb_plan_requested_work_input_v2"] = Field(
+        default="dmb_plan_requested_work_input_v2", alias="schema")
+    placement_catalog: PlanPlacementCatalogV1 | None
+    original_capture: PlanAuthoringCaptureV1 | None
+
+    @model_validator(mode="after")
+    def exact_catalog(self):
+        if self.target_available != (self.original_capture is not None):
+            raise ValueError("Plan decision requires its complete original capture")
+        if self.original_capture is not None and self.original_capture.sha256 != self.target_capture_sha256:
+            raise ValueError("Plan original capture differs from its frozen digest")
+        if self.placement_catalog is not None and self.original_capture is not None:
+            self.placement_catalog.require_original(self.original_capture)
+        if self.target_available != (self.placement_catalog is not None):
+            raise ValueError("Current Plan capture requires its frozen placement catalog")
+        if (self.placement_catalog is not None
+                and self.placement_catalog.original_capture_sha256 != self.target_capture_sha256):
+            raise ValueError("Plan decision catalog differs from its original capture")
+        return self
+
+
+def work_choice(request: PlanRequestedWorkInputV2, selected: str):
+    """Decode only offered choices; the selected target digest stays host-owned."""
+    if selected in {"discuss", "clarify", "different_destination"}:
+        return dict(requested_work=selected, placement_selector=None, target_capture_sha256=None)
+    if selected == "write_unavailable" and request.placement_catalog is None:
+        return dict(requested_work="write_current_page", placement_selector=None, target_capture_sha256=None)
+    if selected.startswith("write:") and request.placement_catalog is not None:
+        selector = selected.removeprefix("write:")
+        entry = next((row for row in request.placement_catalog.entries if row.selector == selector), None)
+        if entry is not None:
+            return dict(requested_work="write_current_page", placement_selector=selector,
+                target_capture_sha256=entry.target_capture_sha256)
+    raise ValueError("Plan work/placement choice was not offered")

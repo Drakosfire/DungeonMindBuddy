@@ -14,7 +14,7 @@ from pydantic import Field, TypeAdapter, model_validator
 
 from application_state.agent_conversation.plan_authoring import (
     Frozen,
-    PlanAuthoringCaptureV1,
+    PlanAuthoringCapture,
     PlanActionAuthoringResultV1,
     digest,
     text_digest,
@@ -33,7 +33,7 @@ Digest = Annotated[str, Field(pattern=r"^[a-f0-9]{64}$")]
 
 class PlanReviewApplicationV1(Frozen):
     application_id: UUID
-    capture: PlanAuthoringCaptureV1
+    capture: PlanAuthoringCapture
     markdown: str = Field(min_length=1)
     markdown_sha256: Digest
     after_editor_json: str
@@ -85,7 +85,7 @@ class PlanAuthoringReviewV1(Frozen):
     state: Literal["editing", "applying", "applied", "discarded"]
     markdown: str
     markdown_sha256: Digest
-    capture: PlanAuthoringCaptureV1
+    capture: PlanAuthoringCapture
     applications: tuple[PlanReviewApplicationV1, ...] = ()
     last_command_id: UUID
     last_command_sha256: Digest
@@ -161,7 +161,7 @@ class SaveReview(ReviewCommand):
 
 class MoveReview(ReviewCommand):
     operation: Literal["move"]
-    capture: PlanAuthoringCaptureV1
+    capture: PlanAuthoringCapture
 
 
 class PrepareReview(ReviewCommand):
@@ -182,13 +182,13 @@ class ConfirmReview(ReviewCommand):
 class ResolveBeforeReview(ReviewCommand):
     operation: Literal["resolve_before"]
     application_id: UUID
-    capture: PlanAuthoringCaptureV1
+    capture: PlanAuthoringCapture
 
 
 class RecoverPlacementReview(ReviewCommand):
     operation: Literal["recover_placement"]
     application_id: UUID
-    capture: PlanAuthoringCaptureV1
+    capture: PlanAuthoringCapture
 
 
 class DiscardReview(ReviewCommand):
