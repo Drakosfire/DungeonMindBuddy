@@ -40,7 +40,7 @@ def synthetic_access(owner,entry):
         'resolution':identity|{'evidence_ref_id':pin.evidence_ref_id,'anchor_id':anchor,'can_open_source':True,
             'snapshot':scope|{'revision_id':donor.graph_revision},
             'artifact':{'source_artifact_id':pin.source_artifact_id,'world_id':authority.native_world_id,
-                'source_domain':'worldbuilding','status':'active','visibility':'gm',
+                'source_domain':'worldbuilding','source_domain_key':'worldbuilding','status':'active','visibility':'gm',
                 'lineage':{'source_name':'Synthetic adventure'}},
             'evidence':identity|{'evidence_ref_id':pin.evidence_ref_id,'source_domain':'worldbuilding'}},
         'revision':identity|{'content_sha256':digest}}
@@ -116,7 +116,7 @@ def test_ordinary_plan_selects_appendix_and_persists_named_citation(plan_adapter
 def test_registered_scope_predicate_does_not_relax_real_ownership():
     from application_state.agent_conversation.native_source_scope import source_scope_matches
     authority=SimpleNamespace(managed_world_id='managed',native_world_id='native')
-    artifact={'world_id':'native','source_domain':'worldbuilding','campaign_id':None,'session_id':None,
+    artifact={'world_id':'native','source_domain':'worldbuilding','source_domain_key':'worldbuilding','campaign_id':None,'session_id':None,
         'workspace_document_ref':{'document_id':'document','revision':2}}
     scope={'world_id':'managed','source_domain':'worldbuilding','campaign_id':'managed','session_id':None}
     assert source_scope_matches(scope,artifact,authority)
@@ -131,8 +131,23 @@ def test_registered_scope_predicate_does_not_relax_real_ownership():
 def test_native_owner_never_uses_managed_build_campaign_projection():
     from application_state.agent_conversation.native_source_scope import source_scope_matches
     authority = SimpleNamespace(managed_world_id='managed', native_world_id='native')
-    artifact = dict(world_id='native', source_domain='worldbuilding', campaign_id=None, session_id=None,
+    artifact = dict(world_id='native', source_domain='worldbuilding', source_domain_key='worldbuilding', campaign_id=None, session_id=None,
         workspace_document_ref=dict(document_id='doc', revision=2))
     scope = dict(world_id='native', source_domain='worldbuilding', campaign_id='managed', session_id=None)
     assert not source_scope_matches(scope, artifact, authority)
     assert source_scope_matches(scope | {'campaign_id':None}, artifact, authority)
+
+
+@pytest.mark.parametrize(('raw','native'), [('recap','recap'),('recap','session_recap'),
+    ('session_recap','session_recap'),('dungeonbuddy.recap','dungeonbuddy.recap')])
+def test_source_identity_uses_producer_axis_not_generic_family(raw, native):
+    from application_state.agent_conversation.native_source_scope import source_scope_matches
+    authority = SimpleNamespace(managed_world_id='managed', native_world_id='native')
+    scope = dict(world_id='native', source_domain=raw, campaign_id='campaign', session_id='session-6')
+    artifact = dict(world_id='native', source_domain='session_recap', source_domain_key=native,
+        campaign_id='campaign', session_id='session-6')
+    assert source_scope_matches(scope, artifact, authority)
+    for key in (None, '', 'another.recap'):
+        assert not source_scope_matches(scope, artifact | {'source_domain_key':key}, authority)
+    if raw != 'dungeonbuddy.recap':
+        assert not source_scope_matches(scope, artifact | {'source_domain':'worldbuilding'}, authority)

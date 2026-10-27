@@ -299,3 +299,17 @@ def owned_source_artifacts(*, source_artifact_ids: list[str], world_id: str) -> 
     with unit_of_work(dsn) as conn:
         conn.execute("SET TRANSACTION READ ONLY")
         return repository.owned_source_artifacts(conn, source_artifact_ids=unique, world_id=world_id)
+
+
+def get_source_artifact_scope(*, source_artifact_id: str) -> dict | None:
+    """Exact metadata-only ownership check before a citation opens source bytes."""
+    if not isinstance(source_artifact_id, str) or not source_artifact_id.strip():
+        raise ApplicationStateValidationError("source scope requires an exact artifact ID")
+    dsn = load_runtime_dsn()
+    assert_at_head(dsn=dsn)
+    with unit_of_work(dsn) as conn:
+        conn.execute("SET TRANSACTION READ ONLY")
+        row = repository.get_source_artifact(conn, source_artifact_id)
+    if row is None:
+        return None
+    return {key: row[key] for key in ("world_id", "source_domain", "campaign_id", "session_id")}
