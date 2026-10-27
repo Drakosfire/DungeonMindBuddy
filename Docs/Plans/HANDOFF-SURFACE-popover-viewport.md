@@ -1,6 +1,6 @@
 # SURFACE — keep contextual actions inside the viewport
 
-Status: ACTIVE after independent invariant critique approved design55ddff5c0. Topology: serial. No overlapping expected-path lease in current open PRs. PRIME owns serial branch codex/surface-popover-viewport, base72f73a18e4f215cab437bab351f1f088510313a6, existing buddy-context-loop checkout. Operator preparation/play and responsive Surface authority covers this demonstrated ordinary-control defect. One bounded implementation PR, no new worktree/environment. Runtime5202 UI1840/API1838/schema0081, all saved Plans/Runs/newer Brin draft remain protected. Hosted1828/held1764 separate.
+Status: MERGED and delivered through PR1841, merge6236c1ad348709f4003de2d3de30488413db8fac, independently approved headdfec5cf42c631ddf2f7de0a5134b8b2fafe31615. Hosted auth/Docker pass,13owner checks/tsc/build pass. Ordinary wheel and keyboard expose final Start control at actual1164×655 and636×436; original failure retained. New Conks Run2e6ad421-0b88-44ab-bbe8-910ed6fcf3ca pins Plan21/Scene4 and retains Choice+3options, selected rehearsal option and technical-only note. Same-source API restart2572669 preserved all3824APP/1157native/40906files exactly; encounter2630934a-6379-49e4-ae79-41f3142dfbe8 rev2 reopened guardianAC16,HP49/51,temp2,Prone,init14,round1active. UI2567966/API1838/schema0081. Full broader acceptance remains open.
 
 ## Evidence and boundary
 

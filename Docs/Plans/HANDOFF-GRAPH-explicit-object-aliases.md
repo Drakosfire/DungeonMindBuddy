@@ -1,6 +1,6 @@
 # GRAPH — keep selected evidence separate from authored aliases
 
-Status: BLOCKED for independent invariant critique. PRIME owns serial branch codex/graph-explicit-object-aliases, base6236c1ad348709f4003de2d3de30488413db8fac, existing buddy-context-loop checkout. One bounded UI correction PR under current authoring/Graph dogfood authority. Remote open PRs inspected: held1764 owns separate writer/collaboration paths; hosted1828 remains separate. No new worktree/environment. Runtime UI1841/API1838/schema0081, API PID2572669 and UI2567966; all retained data/drafts protected.
+Status: ACTIVE after independent invariant critique approved designbf8df6a3c. PRIME owns serial branch codex/graph-explicit-object-aliases, base6236c1ad348709f4003de2d3de30488413db8fac, existing buddy-context-loop checkout. One bounded UI correction PR under current authoring/Graph dogfood authority. Remote open PRs inspected: held1764 owns separate writer/collaboration paths; hosted1828 remains separate. No new worktree/environment. Runtime UI1841/API1838/schema0081, API PID2572669 and UI2567966; all retained data/drafts protected.
 
 ## Confirmed boundary failure
 
@@ -10,7 +10,7 @@ Invariant: highlighted evidence remains exact source selection/provenance. A nod
 
 ## Expected writes
 
-This handoff; predecessor HANDOFF-SURFACE-popover-viewport.md settlement with exact1841 delivery/restart facts. Shared planSurface/graphReviewWorkbench/graphObjectAuthoringDraft.ts, its test; GraphObjectAuthoringSurface.test.tsx and only necessary object form hint if current copy is false. Remove obsolete selected-source dependency from the internal alias-building helper/call sites. No backend/native/Core/schema/identity resolver changes, relationship direction/ID UI work, retrospective data cleanup, model or extraction changes.
+This handoff; predecessor HANDOFF-SURFACE-popover-viewport.md settlement with exact1841 delivery/restart facts. Shared planSurface/graphReviewWorkbench/graphObjectAuthoringDraft.ts, its test and graphObjectAuthoringOverlap.ts caller; GraphObjectAuthoringSurface.test.tsx and only necessary object form hint if current copy is false. Remove obsolete selected-source dependency from the internal alias-building helper/call sites. No backend/native/Core/schema/identity resolver changes, relationship direction/ID UI work, retrospective data cleanup, model or extraction changes.
 
 ## Verification and delivery
 
