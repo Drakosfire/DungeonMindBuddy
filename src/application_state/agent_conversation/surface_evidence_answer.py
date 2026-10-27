@@ -164,9 +164,9 @@ def producing_authored(turn, auth, raw):
         frame = frame_in_request(raw)
         if canonical_sha256(frame) != auth.frame_sha256:
             raise ValueError('Authored frame changed after admission')
-        if frame.get('schema') in {'dmb_plan_jev_writer_frame_v2','dmb_plan_jev_writer_frame_v3'}:
+        if frame.get('schema') in {'dmb_plan_jev_writer_frame_v2','dmb_plan_jev_writer_frame_v3','dmb_plan_jev_writer_frame_v4'}:
             from .authored_excerpt_blocks import restore_blocks, verify_blocks, selection_catalog, restore_selection_blocks, verify_selection_blocks
-            short=frame['schema']=='dmb_plan_jev_writer_frame_v3'
+            short=frame['schema'] in {'dmb_plan_jev_writer_frame_v3','dmb_plan_jev_writer_frame_v4'}
             restore=restore_selection_blocks if short else restore_blocks
             from copy import deepcopy
             sessions = deepcopy(frame['session_evidence'])
@@ -222,7 +222,7 @@ def require_current_policy(turn, auth, raw):
         from .plan_jev_graph_packet import frame_in_request
         frame=frame_in_request(raw)
         policy=frame.get('answer_policy')
-        if frame.get('schema')=='dmb_plan_jev_writer_frame_v3':
+        if frame.get('schema') in {'dmb_plan_jev_writer_frame_v3','dmb_plan_jev_writer_frame_v4'}:
             if policy!=SELECTOR_POLICY:raise ValueError('Current Plan frame requires its selector policy')
         elif policy==SELECTOR_POLICY:
             raise ValueError('Selector policy requires its current Plan frame')

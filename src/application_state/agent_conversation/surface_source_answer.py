@@ -124,6 +124,8 @@ def producing_passages(turn, authorization, request_json):
     ]
     body = strict_json(request_json)
     rows = []
+    wire_handles = {}
+    wire_events = {}
     partial = False
     if isinstance(authorization, t.PlanJevWriterAuthorizedV1):
         from .plan_jev_graph_packet import frame_in_request
@@ -132,10 +134,22 @@ def producing_passages(turn, authorization, request_json):
         if canonical_sha256(frame) != authorization.frame_sha256:
             raise ValueError("Surface source frame differs from admitted input")
         partial = bool(frame.get("retrieval_gaps"))
+        from .plan_source_selectors import FRAME_SCHEMA, resolve_selector
+        seen_selectors=set()
         for row in frame.get("opened_passages", []):
+            handle=row.get('passage_handle')
+            if frame.get('schema')==FRAME_SCHEMA and handle is not None:
+                if handle in seen_selectors:raise ValueError('Repeated Plan source selector row')
+                seen_selectors.add(handle)
+                selected_event,read=resolve_selector(turn,authorization,handle,'p')
+                internal=passage_handle(read)
+                if internal in wire_handles:raise ValueError('Repeated Plan receipt selector')
+                wire_handles[internal]=handle
+                wire_events[internal]=selected_event.event_id
+                handle=internal
             rows.append(
                 (
-                    row.get("passage_handle"),
+                    handle,
                     row.get("text"),
                     row.get("source_name"),
                     row.get("line_start"),
@@ -195,6 +209,7 @@ def producing_passages(turn, authorization, request_json):
             (identity, read)
             for identity, read in reads
             if handle == passage_handle(read)
+            and (handle not in wire_events or identity==wire_events[handle])
             and read.line_start == start
             and read.line_end == end
             and (anchor is None or read.anchor_id == anchor)
@@ -207,7 +222,7 @@ def producing_passages(turn, authorization, request_json):
             support.add((handle, identity, canonical_bytes(read), name))
     result = tuple(
         PassageSupport(
-            handle, identity, t.SourceReadAnchorReceiptV2.model_validate_json(raw), name
+            wire_handles.get(handle,handle), identity, t.SourceReadAnchorReceiptV2.model_validate_json(raw), name
         )
         for handle, identity, raw, name in sorted(
             support, key=lambda item: (item[0], str(item[1]), item[2], item[3])
