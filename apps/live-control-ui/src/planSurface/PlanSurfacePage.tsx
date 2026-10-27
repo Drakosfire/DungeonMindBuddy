@@ -1,3 +1,4 @@
+import {readPlanAuthoringReview,type PlanReviewApplication} from "../api/planAuthoringReviewApi";
 import {SurfaceContextPopover} from '../surfaceInteraction/contextHost';
 import {SceneEncounterLauncher} from '../combat/SceneEncounterLauncher';
 import {deferredComponent} from '../ui/deferredComponent';
@@ -63,6 +64,10 @@ import "./components/WorldPlanCardProjection.css";
 import {
   applyWorldPlanEditProposal,
   captureWorldPlanEditTarget,
+  captureWorldPlanAuthoringTarget,
+  sealWorldPlanAuthoringTarget,
+  restorePlanAuthoringTarget,
+  preparePlanAuthoringApplication,
   previewWorldPlanEditProposal,
   restoreWorldPlanSelection,
   type WorldPlanEditBridge,
@@ -184,6 +189,46 @@ interface WorldPlanLocalDraftV2 {
     base_title?: string;
     edit_generation: number;
   } | null;
+}
+
+interface PlanApplicationHold {world_id:string;document_id:string;action_id:string;application_id:string}
+function planApplicationHoldPrefix(world:string,document:string){
+  return `dmb:plan-application-hold:v1:${encodeURIComponent(world)}:${encodeURIComponent(document)}:`;
+}
+function planApplicationHoldKey(hold:PlanApplicationHold){
+  return `${planApplicationHoldPrefix(hold.world_id,hold.document_id)}${encodeURIComponent(hold.action_id)}:${encodeURIComponent(hold.application_id)}`;
+}
+// Each pending application has its own immutable pointer. Document navigation and
+// ordinary draft persistence cannot erase another application's recovery fence.
+function readPlanApplicationHold(world:string,document:string|null):unknown {
+  if(!document)return null;
+  const prefix=planApplicationHoldPrefix(world,document),values:unknown[]=[];
+  try {
+    for(let i=0;i<localStorage.length;i++){
+      const key=localStorage.key(i);if(!key?.startsWith(prefix))continue;
+      const value=JSON.parse(localStorage.getItem(key)!);
+      if(!value||value.world_id!==world||value.document_id!==document||planApplicationHoldKey(value)!==key)return {conflict:true};
+      values.push(value);
+    }
+  } catch {return {unavailable:true};}
+  return values.length===0?null:values.length===1?values[0]:{conflict:true};
+}
+async function retainPlanApplicationHold(hold:PlanApplicationHold){
+  if(!navigator.locks)throw new Error('This browser cannot coordinate application recovery between tabs. Nothing was inserted.');
+  await navigator.locks.request(planApplicationHoldPrefix(hold.world_id,hold.document_id),()=>{
+    if(readPlanApplicationHold(hold.world_id,hold.document_id)!==null)
+      throw new Error('Resolve the pending application for this Plan before applying another.');
+    const key=planApplicationHoldKey(hold),bytes=JSON.stringify(hold);
+    localStorage.setItem(key,bytes);
+    if(localStorage.getItem(key)!==bytes)throw new Error('The application recovery hold could not be retained. Nothing was inserted.');
+  });
+}
+function clearPlanApplicationHold(hold:PlanApplicationHold){
+  const key=planApplicationHoldKey(hold),bytes=localStorage.getItem(key);
+  if(bytes===null)return;
+  if(bytes!==JSON.stringify(hold))throw new Error('The application hold changed and was preserved.');
+  localStorage.removeItem(key);
+  if(localStorage.getItem(key)!==null)throw new Error('The resolved application hold could not be cleared.');
 }
 
 function worldPlanLocalDraftKey(worldId: string): string {
@@ -360,6 +405,7 @@ function WorldOwnedPlanPage({ worldId, worldName }: { worldId: string; worldName
   const [documentSceneJump, setDocumentSceneJump] = useState<{ identity: string; sceneId: string } | null>(null);
   const [sceneNavigationNotice, setSceneNavigationNotice] = useState<{ identity: string; message: string } | null>(null);
   const [selectedPlayableTarget, setSelectedPlayableTarget] = useState<SelectedWorldPlanPlayableTarget | null>(null);
+  const selectedPlayableTargetRef=useRef(selectedPlayableTarget);selectedPlayableTargetRef.current=selectedPlayableTarget;
   const [selectedPlayableEditTarget, setSelectedPlayableEditTarget] = useState<SelectedWorldPlanPlayableEditTarget | null>(null);
   const [playableEditTargetGeneration, setPlayableEditTargetGeneration] = useState(0);
   const editorIdentity = `${worldId}:${documentId ?? localDraftId}:${editorGeneration}`;
@@ -410,6 +456,8 @@ function WorldOwnedPlanPage({ worldId, worldName }: { worldId: string; worldName
   const playableEditTargetStaleRef = useRef(false);
   selectedPlayableEditTargetRef.current = selectedPlayableEditTarget;
   const pendingWriteRef = useRef(initialLocalDraft?.pending_write ?? null);
+  const [initialAuthoringHold]=useState(()=>readPlanApplicationHold(worldId,initialDocumentId));
+  const authoringHoldRef=useRef<unknown>(initialAuthoringHold);
   const uncertainCreateDraftRef = useRef(localDraft?.uncertain_create_draft ?? null);
   const savingRef = useRef(false);
   const startPlayRequestRef = useRef(0);
@@ -488,7 +536,7 @@ function WorldOwnedPlanPage({ worldId, worldName }: { worldId: string; worldName
     return () => { editor.off("selectionUpdate", onSelectionUpdate); };
   }, [editor]);
 
-  const worldEditStateGetterRef = useRef<() => WorldPlanEditEditorState>(() => ({
+  const worldEditStateGetterRef = useRef<(applicationId?:string) => WorldPlanEditEditorState>(() => ({
     editor: null,
     documentId: null,
     worldId,
@@ -502,7 +550,7 @@ function WorldOwnedPlanPage({ worldId, worldName }: { worldId: string; worldName
     playableTargetStale: false,
     canEdit: false,
   }));
-  worldEditStateGetterRef.current = () => ({
+  worldEditStateGetterRef.current = (applicationId) => ({
     editor: editorRef.current,
     documentId: documentIdRef.current,
     worldId,
@@ -514,9 +562,9 @@ function WorldOwnedPlanPage({ worldId, worldName }: { worldId: string; worldName
     playableTarget: selectedPlayableEditTargetRef.current?.target ?? null,
     playableTargetGeneration: playableEditTargetGenerationRef.current,
     playableTargetStale: playableEditTargetStaleRef.current,
-    currentSceneTarget: selectedPlayableTarget?.target.kind === "scene" ? selectedPlayableTarget.target : null,
-    currentSceneTargetStale: selectedPlayableTargetStale,
-    currentSceneTargetLabel: cardTargetLabel(selectedPlayableTarget?.target ?? null),
+    currentSceneTarget: selectedPlayableTargetRef.current?.target.kind === "scene" ? selectedPlayableTargetRef.current.target : null,
+    currentSceneTargetStale: selectedPlayableTargetRef.current!==null&&selectedPlayableTargetStale,
+    currentSceneTargetLabel: cardTargetLabel(selectedPlayableTargetRef.current?.target ?? null),
     playableTargetLabel: cardTargetLabel(selectedPlayableEditTargetRef.current?.target ?? null),
     canEdit: Boolean(
       !sourceEditingRef.current
@@ -527,10 +575,35 @@ function WorldOwnedPlanPage({ worldId, worldName }: { worldId: string; worldName
       && !createUncertain
       && !recoveryConflict
       && pendingWriteRef.current === null
+      && (authoringHoldRef.current === null || (applicationId !== undefined
+        && typeof authoringHoldRef.current === 'object' && authoringHoldRef.current !== null
+        && 'application_id' in authoringHoldRef.current && authoringHoldRef.current.application_id === applicationId))
       && getLiveFidelityWarnings(editorRef.current?.getJSON()).length === 0
     ),
   });
+  const authoringMoveCaptureRef=useRef<NonNullable<WorldPlanEditBridge['captureAuthoringAt']>>(async()=>{throw new Error('Plan placement owner unavailable');});
+  const authoringSaveRef=useRef<NonNullable<WorldPlanEditBridge['saveAuthoring']>>(async()=>{throw new Error('Plan Save owner unavailable');});
+  const authoringReconcileRef=useRef<NonNullable<WorldPlanEditBridge['reconcileAuthoring']>>(async()=>{throw new Error('Plan recovery owner unavailable');});
+  const authoringAckRef=useRef<(application:PlanReviewApplication)=>Promise<void>>(async()=>{throw new Error('Plan Save receipt owner unavailable');});
   const worldPlanEditBridge = useMemo<WorldPlanEditBridge>(() => ({
+    captureAuthoring: (identity,applicationId) => captureWorldPlanAuthoringTarget(
+      worldEditStateGetterRef.current(applicationId), () => worldEditStateGetterRef.current(applicationId), identity,
+    ),
+    sealAuthoring:sealWorldPlanAuthoringTarget,
+    captureAuthoringAt:(...args)=>authoringMoveCaptureRef.current(...args),
+    restoreAuthoring:(capture,identity)=>restorePlanAuthoringTarget(capture,
+      worldEditStateGetterRef.current(),()=>worldEditStateGetterRef.current(),identity),
+    prepareAuthoring:(target,markdown,action,expected,binding)=>preparePlanAuthoringApplication(
+      target,markdown,action,()=>worldEditStateGetterRef.current(),expected,binding),
+    saveAuthoring:(...args)=>authoringSaveRef.current(...args),
+    acknowledgeAuthoring:application=>authoringAckRef.current(application),
+    reconcileAuthoring:(...args)=>authoringReconcileRef.current(...args),
+    authoringTitle:()=>titleRef.current.trim()||'Plan',
+    matchesAuthoringAfter:async application=>mountedRef.current&&worldEditStateGetterRef.current().editor!==null
+      &&statusRef.current==='ready'&&!switchingDocumentRef.current
+      &&application.capture.world_id===worldId&&application.capture.document_id===documentIdRef.current
+      &&JSON.stringify(editorRef.current?.getJSON())===application.after_editor_json
+      &&markdownRef.current===application.after_markdown&&(titleRef.current.trim()||'Plan')===application.after_title,
     preview: previewWorldPlanEditProposal,
     capture: () => captureWorldPlanEditTarget(
       worldEditStateGetterRef.current(),
@@ -652,7 +725,8 @@ function WorldOwnedPlanPage({ worldId, worldName }: { worldId: string; worldName
           serverDigestRef.current = snapshot.content_sha256;
           setSavedBasis(worldPlanCardBasisFromSnapshot(snapshot, recoverLocal && Boolean(localDraft.pending_write)));
           pendingWriteRef.current = recoverLocal ? localDraft.pending_write ?? null : null;
-          setAutoSavePaused(pendingWriteRef.current !== null);
+          authoringHoldRef.current=readPlanApplicationHold(worldId,initialDocumentId);
+          setAutoSavePaused(pendingWriteRef.current !== null || authoringHoldRef.current !== null);
           setTitle(nextTitle);
           setMarkdown(nextMarkdown);
           setEditorGeneration((value) => value + 1);
@@ -750,7 +824,8 @@ function WorldOwnedPlanPage({ worldId, worldName }: { worldId: string; worldName
         : null);
       setSavedBasis(worldPlanCardBasisFromSnapshot(snapshot));
       pendingWriteRef.current = null;
-      setAutoSavePaused(false);
+      authoringHoldRef.current=readPlanApplicationHold(worldId,nextDocumentId);
+      setAutoSavePaused(authoringHoldRef.current!==null);
       uncertainCreateDraftRef.current = preservedUncertainDraft;
       setUncertainCreateDraft(preservedUncertainDraft);
       setDocumentId(nextDocumentId);
@@ -815,6 +890,7 @@ function WorldOwnedPlanPage({ worldId, worldName }: { worldId: string; worldName
     setLastSavedAt(null);
     setAutoSavePaused(false);
     pendingWriteRef.current = null;
+    authoringHoldRef.current=null;
     setRecoveryConflict(false);
     setServerDraft(null);
     setCreateUncertain(false);
@@ -851,7 +927,9 @@ function WorldOwnedPlanPage({ worldId, worldName }: { worldId: string; worldName
       if (!fidelityBlocked) setError(markdownFidelityWarningText(fidelityIssues));
       return;
     }
-    if (savingRef.current || createUncertain || recoveryConflict
+    if (savingRef.current || authoringHoldRef.current !== null
+      || readPlanApplicationHold(worldId,documentIdRef.current)!==null
+      || createUncertain || recoveryConflict
       || (uncertainCreateDraftRef.current && !documentIdRef.current)
       || (!documentIdRef.current && !markdownRef.current.trim())) return;
     const epoch = selectionEpochRef.current;
@@ -1233,6 +1311,105 @@ function WorldOwnedPlanPage({ worldId, worldName }: { worldId: string; worldName
     }
   };
 
+  // Proposal Save uses the same Content owner; adopting its receipt never
+  // replaces mounted editor content or a newer local working copy.
+  authoringAckRef.current=async application=>{
+    const exactId=application.capture.document_id,epoch=selectionEpochRef.current;
+    if(application.outcome!=='saved'||application.capture.world_id!==worldId
+      ||documentIdRef.current!==exactId)throw new Error('The Plan Save receipt belongs to another page.');
+    const [snapshot,committed]=await Promise.all([
+      getWorldOwnedPlanSnapshot(exactId),getWorldOwnedPlanCommittedRevision(exactId),
+    ]);
+    if(!selectedViewIsCurrent(epoch,exactId))throw new Error('The page changed while checking its saved suggestion.');
+    if(snapshot.record.world_id!==worldId||snapshot.record.document_id!==exactId
+      ||snapshot.record.kind!=='plan'||snapshot.record.campaign_id!==null||snapshot.record.status!=='active'
+      ||committed.work_revision_id!==application.saved_work_revision_id
+      ||committed.revision_n!==application.saved_revision_n||committed.object_revision!==snapshot.loaded_revision
+      ||committed.world_id!==worldId||committed.document_id!==exactId
+      ||snapshot.markdown!==application.after_markdown||snapshot.content_sha256!==application.after_draft_sha256
+      ||committed.content_sha256!==application.after_draft_sha256||snapshot.record.title!==application.after_title){
+      setRecoveryConflict(true);setServerDraft({title:snapshot.record.title,markdown:snapshot.markdown,
+        revision:snapshot.loaded_revision,contentSha256:snapshot.content_sha256,contentStatus:snapshot.record.content_status});
+      throw new Error('The saved page changed after this suggestion. Your local draft is retained; inspect both copies.');
+    }
+    const retained=readWorldPlanLocalDraft(worldId);
+    if(retained?.document_id===exactId){
+      const hold=readPlanApplicationHold(worldId,exactId);
+      if(hold!=null && (typeof hold!=='object'||!('application_id' in hold)||hold.application_id!==application.application_id))
+        throw new Error('Another application owns the retained Plan draft. Both copies remain available.');
+      const matchesMounted=retained.markdown===markdownRef.current&&retained.title===titleRef.current;
+      if(matchesMounted)persistWorldPlanLocalDraft(worldId,{...retained,revision:snapshot.loaded_revision});
+    }
+    revisionRef.current=snapshot.loaded_revision;serverTitleRef.current=snapshot.record.title;
+    serverMarkdownRef.current=snapshot.markdown;serverDigestRef.current=snapshot.content_sha256;
+    const hold=readPlanApplicationHold(worldId,exactId);
+    if(hold!==null){
+      if(typeof hold!=='object'||!('action_id' in hold))throw new Error('The application recovery hold needs inspection.');
+      clearPlanApplicationHold({world_id:worldId,document_id:exactId,action_id:String(hold.action_id),application_id:application.application_id});
+    }
+    authoringHoldRef.current=readPlanApplicationHold(worldId,exactId);setAutoSavePaused(authoringHoldRef.current!==null);
+    setSavedBasis(worldPlanCardBasisFromSnapshot(snapshot));setLastSavedAt(durableTimestamp(snapshot.record.updated_at));
+    setRecords(current=>current.map(record=>record.document_id===exactId?snapshot.record:record));
+    setRecoveryConflict(false);setServerDraft(null);setCreateUncertain(false);
+    setMessage('Suggestion saved to this Plan.');
+  };
+  authoringReconcileRef.current=async(actionId,applicationId)=>{
+    const exactId=documentIdRef.current,epoch=selectionEpochRef.current;
+    const snapshot=await readPlanAuthoringReview(worldId,actionId);
+    if(!selectedViewIsCurrent(epoch,exactId))throw new Error('The page changed during application recovery.');
+    const review=snapshot.review,application=review?.applications.find(item=>item.application_id===applicationId);
+    if(!application||application.capture.document_id!==exactId||application.capture.world_id!==worldId)
+      throw new Error('The saved review does not identify this Plan application.');
+    if(application.outcome==='saved'){await authoringAckRef.current(application);return;}
+    if(application.outcome!=='not_applied'&&application.outcome!=='superseded')
+      throw new Error('This application is still unresolved. Inspect its review before continuing.');
+    const hold=readPlanApplicationHold(worldId,exactId);
+    if(hold===null){authoringHoldRef.current=null;setAutoSavePaused(false);return;}
+    if(!exactId||typeof hold!=='object'
+      ||!('application_id' in hold)||hold.application_id!==applicationId
+      ||!('action_id' in hold)||hold.action_id!==actionId)
+      throw new Error('Another application owns this draft recovery hold. It was preserved.');
+    clearPlanApplicationHold({world_id:worldId,document_id:exactId,action_id:actionId,application_id:applicationId});
+    authoringHoldRef.current=readPlanApplicationHold(worldId,exactId);setAutoSavePaused(authoringHoldRef.current!==null);
+    setMessage('Application reconciled. Your current draft is unchanged.');
+  };
+  authoringSaveRef.current=async(target,prepared,application,expected,binding,commit)=>{
+    if(savingRef.current||authoringHoldRef.current!==null||pendingWriteRef.current||!isCurrentEditTarget())
+      throw new Error('Resolve the current Plan Save before applying this suggestion.');
+    if(application.outcome!=='applying'||application.capture.world_id!==worldId
+      ||application.capture.document_id!==target.request.document_id
+      ||application.capture.editor_json!==target.editorJson||application.capture.selection_json!==target.selectionJson
+      ||application.capture.draft_sha256!==target.request.draft_sha256
+      ||application.capture.base_revision!==target.request.base_revision
+      ||application.after_editor_json!==prepared.afterEditorJson||application.after_editor_sha256!==prepared.afterEditorSha256
+      ||application.after_markdown!==prepared.afterMarkdown||application.after_draft_sha256!==prepared.afterDraftSha256
+      ||application.markdown!==prepared.admitted.canonicalMarkdown||(titleRef.current.trim()||'Plan')!==application.after_title)
+      throw new Error('The sealed application differs from the reviewed Plan change. Nothing was inserted.');
+    const epoch=selectionEpochRef.current,exactId=documentIdRef.current;
+    if(!exactId)throw new Error('Open the saved Plan before applying.');
+    const hold={world_id:worldId,document_id:exactId,action_id:prepared.admitted.response.action_id,application_id:application.application_id};
+    await retainPlanApplicationHold(hold);
+    if(!selectedViewIsCurrent(epoch,exactId))throw new Error('The page changed before applying. Its recovery hold is retained.');
+    authoringHoldRef.current=hold;setAutoSavePaused(true);
+    try {
+      await applyWorldPlanEditProposal({captured:target,admitted:prepared.admitted,
+        getCurrent:()=>worldEditStateGetterRef.current(application.application_id),expectedAgentBinding:expected,getAgentBinding:binding});
+      if(JSON.stringify(editorRef.current?.getJSON())!==application.after_editor_json
+        ||markdownRef.current!==application.after_markdown||(titleRef.current.trim()||'Plan')!==application.after_title)
+        throw new Error('The local application differs from its sealed copy. Inspect the retained draft before saving.');
+      savingRef.current=true;setSaving(true);
+      const saved=await commit();
+      const result=saved.applications.at(-1);
+      if(saved.state!=='applied'||result?.application_id!==application.application_id)
+        throw new Error('The Plan did not acknowledge this application. Its exact identity is retained.');
+      await authoringAckRef.current(result);
+      return saved;
+    } catch(reason){
+      if(selectedViewIsCurrent(epoch,exactId)){setAutoSavePaused(true);setError(reason instanceof Error?reason.message:'Suggestion Save is uncertain.');}
+      throw reason;
+    } finally {savingRef.current=false;if(selectedViewIsCurrent(epoch,exactId))setSaving(false);}
+  };
+
   const refreshSavedPlans = async () => {
     const epoch = selectionEpochRef.current;
     const selectedId = documentIdRef.current;
@@ -1376,7 +1553,7 @@ function WorldOwnedPlanPage({ worldId, worldName }: { worldId: string; worldName
   persistEditorDraftRef.current = persistEditorDraft;
 
   useEffect(() => {
-    if (status !== "ready" || saving || savingRef.current || autoSavePaused
+    if (status !== "ready" || saving || savingRef.current || authoringHoldRef.current !== null || autoSavePaused
       || fidelityBlocked || createUncertain || recoveryConflict
       || (uncertainCreateDraft && !documentId) || pendingWriteRef.current !== null) return;
     const dirty = documentId
@@ -1392,7 +1569,7 @@ function WorldOwnedPlanPage({ worldId, worldName }: { worldId: string; worldName
       if (!selectedViewIsCurrent(epoch, targetDocumentId)
         || localDraftIdRef.current !== targetDraftId
         || editGenerationRef.current !== generation
-        || savingRef.current) return;
+        || savingRef.current || authoringHoldRef.current !== null) return;
       void saveRef.current(false);
     }, 700);
     return () => window.clearTimeout(timer);
@@ -1404,7 +1581,7 @@ function WorldOwnedPlanPage({ worldId, worldName }: { worldId: string; worldName
       if (!isCurrentEditTarget(true) || getLiveFidelityWarnings(editorRef.current?.getJSON()).length > 0) return;
       titleRef.current = next;
       const generation = ++editGenerationRef.current;
-      setAutoSavePaused(pendingWriteRef.current !== null && !savingRef.current);
+      setAutoSavePaused((pendingWriteRef.current !== null || authoringHoldRef.current !== null) && !savingRef.current);
       setTitle(next);
       persistEditorDraftRef.current(next, markdownRef.current, generation);
     },
@@ -1766,6 +1943,16 @@ function WorldOwnedPlanPage({ worldId, worldName }: { worldId: string; worldName
     setSelectedPlayableEditTarget(null);
   }, []);
 
+  authoringMoveCaptureRef.current=async(position,identity)=>{
+    const state=worldEditStateGetterRef.current(),editor=state.editor;
+    if(!state.canEdit||!editor||editor.isDestroyed||!Number.isSafeInteger(position)||position<0||position>editor.state.doc.content.size)
+      throw new Error('Choose a valid position in the editable Plan.');
+    if(cardsViewActive)throw new Error('Switch to Document view to move this suggestion. Its current placement is retained.');
+    clearPlayableEditTarget();selectedPlayableTargetRef.current=null;setSelectedPlayableTarget(null);
+    if(!editor.commands.setTextSelection(position))throw new Error('The Plan could not select that placement.');
+    return captureWorldPlanAuthoringTarget(worldEditStateGetterRef.current(),()=>worldEditStateGetterRef.current(),identity);
+  };
+
   const planTrashCacheBasis = documentId && revisionRef.current !== null ? {
     document_id:documentId, revision:revisionRef.current, title:serverTitleRef.current,
     markdown:serverMarkdownRef.current, edit_generation:editGenerationRef.current,
@@ -1911,7 +2098,7 @@ function WorldOwnedPlanPage({ worldId, worldName }: { worldId: string; worldName
               if (!isCurrentEditTarget(true) || next === markdownRef.current) return;
               markdownRef.current = next;
               const generation = ++editGenerationRef.current;
-              const pendingRecovery = pendingWriteRef.current !== null && !savingRef.current;
+              const pendingRecovery = (pendingWriteRef.current !== null || authoringHoldRef.current !== null) && !savingRef.current;
               setAutoSavePaused(pendingRecovery);
               setMarkdown(next);
               persistEditorDraft(titleRef.current, next, generation);
@@ -1922,7 +2109,7 @@ function WorldOwnedPlanPage({ worldId, worldName }: { worldId: string; worldName
           <div className="world-plan-visual-editor" hidden={sourceEditing && !cardsViewActive}>
           <PlanSurfaceCanvasFrame
             className="world-owned-plan__canvas"
-            cardLayout={cardsViewActive}
+            cardLayout
             testId="world-owned-plan-editor"
             identityLabel={cardsViewActive ? "" : documentId ? "Plan editor" : "Unsaved Plan draft"}
             themeId="mireward-runbook"
@@ -1963,7 +2150,7 @@ function WorldOwnedPlanPage({ worldId, worldName }: { worldId: string; worldName
                   if (next === markdownRef.current) return;
                   markdownRef.current = next;
                   const generation = ++editGenerationRef.current;
-                  const pendingRecovery = pendingWriteRef.current !== null && !savingRef.current;
+                  const pendingRecovery = (pendingWriteRef.current !== null || authoringHoldRef.current !== null) && !savingRef.current;
                   setAutoSavePaused(pendingRecovery);
                   setMarkdownState({ markdown: next, validated: { editorIdentity, imported: nextImport } });
                   persistEditorDraft(titleRef.current, next, generation);

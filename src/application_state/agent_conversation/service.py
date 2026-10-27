@@ -1269,14 +1269,19 @@ class AgentConversationService:
         related_page_materializer=None,
         authored_object_result_proof=None,
         authored_prepared_request_json=None,
+        plan_authoring_reservation=None,
     ) -> tuple[Turn, bool]:
         world_id = _world_id(world_id)
         dsn = _ready_dsn()
+        from .plan_authoring import lock_authoring_writer,validate_authoring_writer
         with unit_of_work(dsn) as conn:
+            action=(lock_authoring_writer(conn,plan_authoring_reservation,world_id=world_id,
+                conversation_id=conversation_id,turn_id=turn_id) if plan_authoring_reservation is not None else None)
             turn = repo.lock_turn(conn, world_id, turn_id)
             turn = _ordinary_mutation_turn(turn, conversation_id)
             if turn is None or turn.conversation_id != conversation_id:
                 raise ApplicationStateNotFoundError("turn not found in verified World conversation")
+            validate_authoring_writer(conn,action,turn,event)
             from .work_plan import retained_bound_intent
             bound_intent = retained_bound_intent(conn, turn)
             from .types import BuildReviewedActionSelectionV1, BuildJevActionSelectionV1
@@ -1455,8 +1460,8 @@ class AgentConversationService:
                     raise ApplicationStateValidationError(
                         "Plan packet final writer forbids later Graph reads or providers"
                     )
-            from .types import PlanJevRetrievalSelectionV1
-            if isinstance(event, PlanJevRetrievalSelectionV1):
+            from .types import PlanJevRetrievalSelectionV1, PlanRequestedWorkSelectedV1
+            if isinstance(event, (PlanJevRetrievalSelectionV1, PlanRequestedWorkSelectedV1)):
                 from .plan_jev_decision import verify_selection
                 try:
                     captured = conn.execute(
@@ -1464,7 +1469,7 @@ class AgentConversationService:
                         (turn.turn_id, turn.attempt),
                     ).fetchone()
                     verify_selection(turn, event, plan_jev_selection_proof, captured[0] if captured else None)
-                    if event.operation == "finish_retrieval":
+                    if isinstance(event, PlanJevRetrievalSelectionV1) and event.operation == "finish_retrieval":
                         from .rules_authority_store import load_turn_rules_locked
                         from .rules_authority_events import RulesToolAuthorizedV1, RulesQueryObservedV1
                         rules = load_turn_rules_locked(conn, turn)
@@ -1671,13 +1676,13 @@ class AgentConversationService:
         )
 
     def authorize_plan_jev_writer(self, world_id, conversation_id, turn_id, *,
-            expected_revision, expected_attempt, authorization, producer_proof):
+            expected_revision, expected_attempt, authorization, producer_proof, authoring_reservation=None):
         from .types import PlanJevWriterAuthorizedV1
         if not isinstance(authorization, PlanJevWriterAuthorizedV1):
             raise ApplicationStateValidationError("Typed Plan Jev writer authorization required")
         return self._append_graph_execution_event(world_id, conversation_id, turn_id,
             expected_revision=expected_revision, expected_attempt=expected_attempt,
-            event=authorization, duplicate_key="provider_attempt_id", plan_jev_writer_proof=producer_proof)
+            event=authorization, duplicate_key="provider_attempt_id", plan_jev_writer_proof=producer_proof,plan_authoring_reservation=authoring_reservation)
 
     def authorize_plan_jev_provider(self, world_id, conversation_id, turn_id, *,
             expected_revision, expected_attempt, authorization, producer_proof):
@@ -1696,6 +1701,15 @@ class AgentConversationService:
         return self._append_graph_execution_event(world_id, conversation_id, turn_id,
             expected_revision=expected_revision, expected_attempt=expected_attempt,
             event=selection, duplicate_key="event_id", plan_jev_selection_proof=producer_proof)
+
+    def record_plan_requested_work_selection(self, world_id, conversation_id, turn_id, *,
+            expected_revision, expected_attempt, selection, producer_proof):
+        from .types import PlanRequestedWorkSelectedV1
+        if not isinstance(selection, PlanRequestedWorkSelectedV1):
+            raise ApplicationStateValidationError('Typed Plan requested-work selection required')
+        return self._append_graph_execution_event(world_id, conversation_id, turn_id,
+            expected_revision=expected_revision, expected_attempt=expected_attempt,
+            event=selection, duplicate_key='event_id', plan_jev_selection_proof=producer_proof)
 
     def record_build_jev_action_selection(self, world_id, conversation_id, turn_id, *,
             expected_revision, expected_attempt, selection):
@@ -2130,6 +2144,15 @@ class AgentConversationService:
             )
         return renewed
 
+    def reserve_plan_authoring_action(self, *, capture, turn_id: UUID, expected_revision: int):
+        """Reserve an Agent-owned current-Plan proposal under both owners' locks."""
+        from .plan_authoring import PlanAuthoringCaptureV1, reserve_authoring_locked
+        if not isinstance(capture,PlanAuthoringCaptureV1):
+            raise ApplicationStateValidationError('Exact live Plan authoring capture required')
+        with unit_of_work(_ready_dsn()) as conn:
+            return reserve_authoring_locked(conn,capture=PlanAuthoringCaptureV1.model_validate(
+                capture.model_dump(mode='json',by_alias=True)),turn_id=turn_id,expected_revision=expected_revision)
+
     def complete_turn(self, result: TurnResult) -> Turn:
         return self._complete_turn(result, prepared_recovery=False)
 
@@ -2139,22 +2162,69 @@ class AgentConversationService:
         return self._complete_turn(result, prepared_recovery=False,
             native_output_proof=output_proof, expected_rules_revision=expected_rules_revision)
 
+    def complete_plan_authoring_turn(self,result:TurnResult,*,proposal,output_proof,expected_rules_revision:int):
+        """Native evidence acceptance and the Plan result share one transaction."""
+        return self._complete_turn(result,prepared_recovery=False,native_output_proof=output_proof,
+            expected_rules_revision=expected_rules_revision,authoring_proposal=proposal)
+
+    def complete_plan_authoring_mixed_turn(self,result:NativeRulesMixedTurnResultV1,*,proposal):
+        if not isinstance(result,NativeRulesMixedTurnResultV1):
+            raise ApplicationStateValidationError('Plan authoring requires its actual native mixed output proof')
+        return self._complete_mixed_turn(result,authoring_proposal=proposal)
+
+    def get_plan_authoring_proposal(self,world_id:str,action_id:UUID):
+        """Read the same saved object; missing or mismatched owners never regenerate."""
+        from .plan_authoring import validate_stored_authoring_result
+        from application_state.plan_action_dialogue import repository as actions
+        with unit_of_work(_ready_dsn()) as conn:
+            action=actions.lock_authoring_action(conn,action_id)
+            if action is None or action.basis.world_id!=_world_id(world_id):
+                raise ApplicationStateNotFoundError('Plan authoring action not found in this World')
+            if action.status!='completed':
+                return None
+            origin=action.authoring_origin
+            if origin is None:
+                raise ApplicationStateValidationError('Action is not an Agent-authored Plan proposal')
+            turn=repo.get_turn(conn,world_id,origin.turn_id)
+            return validate_stored_authoring_result(action,turn)
+
+    def get_plan_authoring_proposal_for_turn(self, *, world_id: str, conversation_id: UUID,
+                                           turn_id: UUID, attempt: int):
+        """Join a completed authoring turn to its sole Plan-owned saved result."""
+        from .plan_authoring import validate_stored_authoring_result, turn_parts
+        from application_state.plan_action_dialogue import repository as actions
+        with unit_of_work(_ready_dsn()) as conn:
+            turn = repo.get_turn(conn, _world_id(world_id), turn_id)
+            envelope, _ = turn_parts(turn) if turn is not None else (None, None)
+            if (envelope is None or envelope.conversation_id != conversation_id
+                    or envelope.attempt != attempt or envelope.status != 'completed'):
+                raise ApplicationStateIntegrityError('Plan proposal has no exact completed Agent attempt')
+            action = actions.get_authoring_for_turn(conn, world_id=world_id, turn_id=turn_id, attempt=attempt)
+            if action is None or action.status != 'completed':
+                raise ApplicationStateIntegrityError('Completed Plan writing has no paired Plan proposal')
+            return validate_stored_authoring_result(action, turn)
+
     def recover_prepared_build_turn(self, result: TurnResult) -> Turn:
         """Recover an immutable acknowledged proposal, never a provider claim."""
         return self._complete_turn(result, prepared_recovery=True)
 
     def _complete_turn(self, result: TurnResult, *, prepared_recovery: bool,
-                       native_output_proof=None, expected_rules_revision=None) -> Turn:
+                       native_output_proof=None, expected_rules_revision=None, authoring_proposal=None) -> Turn:
         from .types import BuildAuthoringCompletionV1, BuildImagePreparationCompletionV1
         if prepared_recovery and not isinstance(result.completion, (BuildAuthoringCompletionV1, BuildImagePreparationCompletionV1)):
             raise ApplicationStateValidationError("Recovery requires a typed prepared Build proposal")
         world_id = _world_id(result.world_id)
         dsn = _ready_dsn()
+        from .plan_authoring import lock_authoring_owners,validate_authoring_transaction,validate_stored_authoring_result
+        from application_state.plan_action_dialogue import repository as actions
         with unit_of_work(dsn) as conn:
+            action=(lock_authoring_owners(conn,authoring_proposal,world_id=world_id,
+                conversation_id=result.conversation_id,turn_id=result.turn_id) if authoring_proposal is not None else None)
             turn = repo.lock_turn(conn, world_id, result.turn_id)
             turn = _ordinary_mutation_turn(turn, result.conversation_id)
             if turn is None or turn.conversation_id != result.conversation_id:
                 raise ApplicationStateNotFoundError("turn not found in verified World conversation")
+            validate_authoring_transaction(conn,action,authoring_proposal,turn,result,native_output_proof)
             if turn.status == "completed":
                 stored_binding = None
                 if turn.graph_context_execution is not None:
@@ -2181,6 +2251,8 @@ class AgentConversationService:
                         )
                     )
                 ):
+                    if action is not None and validate_stored_authoring_result(action,turn)!=authoring_proposal:
+                        raise ApplicationStateConflictError('Replayed Plan proposal differs from the stored result')
                     return turn
                 raise ApplicationStateConflictError(
                     "completed turn has a different recorded result or a different claim fence"
@@ -2228,10 +2300,15 @@ class AgentConversationService:
                 raise ApplicationStateConflictError(
                     "turn claim expired or was fenced before completion"
                 )
+            if action is not None:
+                actions.finish_authoring_result(conn,action,authoring_proposal,updated)
         return updated
 
-    def complete_mixed_turn(self, result: MixedTurnResultV1) -> MixedCompletedTurnV1:
-        """Accept both domains in one transaction; replay before live-claim gates."""
+    def complete_mixed_turn(self,result:MixedTurnResultV1)->MixedCompletedTurnV1:
+        return self._complete_mixed_turn(result)
+
+    def _complete_mixed_turn(self, result: MixedTurnResultV1, *, authoring_proposal=None) -> MixedCompletedTurnV1:
+        """Accept both domains and an optional owned Plan result in one transaction."""
         from .rules_authority_completion import prepare_rules_acceptance
         from .rules_authority_store import (
             load_turn_rules_locked,
@@ -2252,8 +2329,15 @@ class AgentConversationService:
         if (capability_for_policy_sha256(scope.capability_policy_sha256) is not None
                 and not isinstance(result, (BuildRulesMixedTurnResultV1, NativeRulesMixedTurnResultV1))):
             raise ApplicationStateValidationError("Current runtime Rules completion requires actual outer output proof")
+        from .plan_authoring import lock_authoring_owners,validate_authoring_transaction,validate_stored_authoring_result
+        from application_state.plan_action_dialogue import repository as actions
         with unit_of_work(_ready_dsn()) as conn:
+            action=(lock_authoring_owners(conn,authoring_proposal,world_id=world_id,
+                conversation_id=scope.conversation_id,turn_id=scope.turn_id) if authoring_proposal is not None else None)
             turn = repo.lock_turn(conn, world_id, scope.turn_id)
+            if turn is not None:
+                validate_authoring_transaction(conn,action,authoring_proposal,turn,result,
+                    result.output_proof if isinstance(result,NativeRulesMixedTurnResultV1) else None)
             if isinstance(turn, MixedCompletedTurnV1):
                 if turn.envelope.conversation_id != scope.conversation_id:
                     raise ApplicationStateNotFoundError(
@@ -2405,6 +2489,8 @@ class AgentConversationService:
                     == result.producing_provider_attempt_id
                     and base_matches
                 ):
+                    if action is not None and validate_stored_authoring_result(action,turn)!=authoring_proposal:
+                        raise ApplicationStateConflictError('Replayed Plan proposal differs from the stored mixed result')
                     return turn
                 raise ApplicationStateConflictError(
                     "completed mixed turn has a different result or acceptance fence"
@@ -2554,6 +2640,8 @@ class AgentConversationService:
                 raise ApplicationStateConflictError(
                     "mixed completion lost its turn claim fence"
                 )
+            if action is not None:
+                actions.finish_authoring_result(conn,action,authoring_proposal,updated)
             return updated
 
     def fail_turn(self, failure: TurnFailure, *, interrupted: bool = False) -> Turn:

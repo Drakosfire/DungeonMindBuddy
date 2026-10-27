@@ -31,7 +31,7 @@ _RETURNING = """
     selected_text_sha256, playable_target_receipt, selection_anchor,
     instruction, status, assistant_summary,
     failure_code, dispatch_token, fence, action_sequence, accepted_at,
-    completed_at, lease_expires_at, consultation
+    completed_at, lease_expires_at, consultation, authoring_origin, authoring_review
 """
 
 
@@ -45,6 +45,8 @@ def _record(row: dict[str, Any]) -> PlanActionRecord:
         content_sha256=row["content_sha256"],
     )
     return PlanActionRecord(
+        authoring_origin=row["authoring_origin"],
+        authoring_review=row["authoring_review"],
         action_id=row["action_id"],
         idempotency_key=row["idempotency_key"],
         request_fingerprint=row["request_fingerprint"],
@@ -103,6 +105,75 @@ def _get_by_id(conn: psycopg.Connection, action_id: UUID, *, lock: bool = False)
 
 
 def _reconcile_expiry(conn: psycopg.Connection, action_id: UUID) -> PlanActionRecord:
+    from application_state.agent_conversation.plan_authoring import (
+        PlanJevAuthoringReservationV1,
+    )
+    from application_state.errors import ApplicationStateIntegrityError
+
+    current = _get_by_id(conn, action_id, lock=True)
+    if current is None:
+        raise RuntimeError("Plan action disappeared during expiry reconciliation")
+    if current.status == "pending" and isinstance(
+        current.authoring_origin, PlanJevAuthoringReservationV1
+    ):
+        origin = current.authoring_origin
+        # Use the same complete order as authorization/finalization. Claim
+        # renewal is turn-only, so waiting here observes its committed deadline
+        # without creating a Turn-to-Action or Turn-to-pointer lock inversion.
+        from application_state.agent_conversation import repository as agent
+
+        agent.lock_world_state(conn, current.basis.world_id)
+        agent.lock_conversation(conn, current.basis.world_id, origin.conversation_id)
+        with conn.cursor(row_factory=dict_row) as cur:
+            cur.execute(
+                """SELECT world_id,conversation_id,attempt,status,claim_expires_at
+                FROM agent.turn WHERE turn_id=%s FOR UPDATE""",
+                (origin.turn_id,),
+            )
+            owner = cur.fetchone()
+        if (
+            owner is None
+            or (owner["world_id"], owner["conversation_id"])
+            != (current.basis.world_id, origin.conversation_id)
+            or owner["status"] == "completed"
+        ):
+            raise ApplicationStateIntegrityError(
+                "Pending Plan action has no matching live or terminal Agent owner"
+            )
+        live = (
+            owner["attempt"] == origin.product_attempt
+            and owner["status"] == "running"
+            and owner["claim_expires_at"] is not None
+            and owner["claim_expires_at"] > agent.database_clock(conn)
+        )
+        with conn.cursor(row_factory=dict_row) as cur:
+            if live:
+                cur.execute(
+                    f"""UPDATE plan_action.action
+                    SET lease_expires_at=GREATEST(lease_expires_at,%s),updated_at=clock_timestamp()
+                    WHERE action_id=%s AND status='pending' AND fence=%s AND dispatch_token=%s
+                    RETURNING {_RETURNING}""",
+                    (
+                        owner["claim_expires_at"],
+                        action_id,
+                        current.fence,
+                        current.dispatch_token,
+                    ),
+                )
+            else:
+                cur.execute(
+                    f"""UPDATE plan_action.action
+                    SET status='indeterminate',failure_code='agent_claim_lost',assistant_summary=NULL,
+                        dispatch_token=NULL,fence=fence+1,lease_expires_at=NULL,updated_at=clock_timestamp()
+                    WHERE action_id=%s AND status='pending' AND fence=%s RETURNING {_RETURNING}""",
+                    (action_id, current.fence),
+                )
+            row = cur.fetchone()
+        if row is None:
+            raise ApplicationStateConflictError(
+                "Plan authoring action lost its fence during claim reconciliation"
+            )
+        return _record(row)
     with conn.cursor(row_factory=dict_row) as cur:
         cur.execute(
             f"""
@@ -124,7 +195,6 @@ def _reconcile_expiry(conn: psycopg.Connection, action_id: UUID) -> PlanActionRe
     if current is None:
         raise RuntimeError("Plan action disappeared during expiry reconciliation")
     return current
-
 
 def reserve(conn: psycopg.Connection, request: PlanActionReservation) -> tuple[PlanActionRecord, bool]:
     action_id = uuid4()
@@ -224,6 +294,8 @@ def finish(
     if status not in {"completed", "failed"}:
         raise ValueError("terminal Plan action status must be completed or failed")
     current = _get_by_id(conn, action_id, lock=True)
+    if current is not None and current.authoring_origin is not None:
+        raise ApplicationStateValidationError("Agent-owned Plan authoring requires atomic turn finalization")
     if (current is not None and current.status == "pending" and current.consultation is not None
             and current.consultation.execution is not None
             and any(isinstance(event, ProviderOutcomeEventV1) and event.outcome == "outcome_unknown"
@@ -416,3 +488,86 @@ def completed_context(conn: psycopg.Connection, basis: PlanActionBasis, *, limit
         )
         rows = cur.fetchall()
     return list(reversed([_record(row) for row in rows]))
+
+
+def freeze_authoring_reservation(conn, record, origin):
+    """Same-UOW marker before the new row can become visible to generic owners."""
+    from application_state.agent_conversation.plan_authoring import PlanJevAuthoringReservationV1
+    if not isinstance(origin, PlanJevAuthoringReservationV1):
+        raise ApplicationStateValidationError('Typed Agent authoring reservation required')
+    if record.authoring_origin is not None:
+        if record.authoring_origin != origin:
+            raise ApplicationStateConflictError('Plan action already has a different authoring origin')
+        return record
+    PlanActionRecord.model_validate(record.model_dump(mode='python') | {'authoring_origin': origin})
+    with conn.cursor(row_factory=dict_row) as cur:
+        cur.execute(f"""UPDATE plan_action.action SET authoring_origin=%s,updated_at=clock_timestamp()
+            WHERE action_id=%s AND status='pending' AND authoring_origin IS NULL AND consultation IS NULL
+              AND dispatch_token=%s AND fence=%s AND lease_expires_at>clock_timestamp()
+            RETURNING {_RETURNING}""",
+            (Jsonb(origin.model_dump(mode='json',by_alias=True)),record.action_id,record.dispatch_token,record.fence))
+        row=cur.fetchone()
+    if row is None:
+        raise ApplicationStateConflictError('Plan authoring reservation lost its dispatch fence')
+    return _record(row)
+
+
+def lock_authoring_action(conn,action_id):
+    action=_get_by_id(conn,action_id,lock=True)
+    return _reconcile_expiry(conn,action_id) if action is not None and action.status=='pending' else action
+
+
+def finish_authoring_result(conn,action,proposal,completed_turn):
+    """Called only after Agent validation/update, on the very same connection."""
+    from application_state.agent_conversation.plan_authoring import (
+        PlanActionAuthoringResultV1,completed_result_digest,reservation_origin,validate_stored_authoring_result)
+    if action.authoring_origin!=reservation_origin(proposal):
+        raise ApplicationStateConflictError('Plan authoring reservation differs from the admitted proposal')
+    payload=proposal.origin.model_dump(mode='json',by_alias=True)|{
+        'schema':'dmb_plan_action_authoring_result_v1','capture':proposal.capture.model_dump(mode='json',by_alias=True),
+        'replacement_markdown':proposal.replacement_markdown,'agent_result_sha256':completed_result_digest(completed_turn)}
+    result=PlanActionAuthoringResultV1.model_validate(payload)
+    candidate=PlanActionRecord.model_validate(action.model_dump(mode='python')|{
+        'authoring_origin':result,'status':'completed','assistant_summary':'Plan suggestion prepared.',
+        'completed_at':completed_turn.envelope.completed_at if hasattr(completed_turn,'envelope') else completed_turn.completed_at,
+        'dispatch_token':None,'lease_expires_at':None})
+    validate_stored_authoring_result(candidate,completed_turn)
+    with conn.cursor(row_factory=dict_row) as cur:
+        cur.execute(f"""UPDATE plan_action.action SET authoring_origin=%s,status='completed',
+            assistant_summary='Plan suggestion prepared.',failure_code=NULL,dispatch_token=NULL,
+            lease_expires_at=NULL,completed_at=clock_timestamp(),updated_at=clock_timestamp()
+            WHERE action_id=%s AND status='pending' AND dispatch_token=%s AND fence=%s
+              AND lease_expires_at>clock_timestamp() RETURNING {_RETURNING}""",
+            (Jsonb(result.model_dump(mode='json',by_alias=True)),action.action_id,action.dispatch_token,action.fence))
+        row=cur.fetchone()
+    if row is None:
+        raise ApplicationStateConflictError('Plan action lost its fence before atomic result completion')
+    return _record(row)
+
+
+def get_authoring_for_turn(conn, *, world_id, turn_id, attempt):
+    """Read the single immutable result for an exact Agent attempt."""
+    with conn.cursor(row_factory=dict_row) as cur:
+        cur.execute(f"""SELECT {_RETURNING} FROM plan_action.action
+            WHERE world_id=%s AND authoring_origin->>'turn_id'=%s
+                AND authoring_origin->>'product_attempt'=%s""",
+            (world_id, str(turn_id), str(attempt)))
+        row = cur.fetchone()
+    return None if row is None else _record(row)
+
+
+def write_authoring_review(conn, *, action_id, world_id, review, expected_revision):
+    """The action lock and review CAS fence all edit, Save and cancel commands."""
+    with conn.cursor(row_factory=dict_row) as cur:
+        cur.execute(f"""UPDATE plan_action.action SET authoring_review=%s,
+            updated_at=clock_timestamp()
+            WHERE action_id=%s AND world_id=%s AND status='completed'
+              AND authoring_origin->>'schema'='dmb_plan_action_authoring_result_v1'
+              AND COALESCE((authoring_review->>'revision')::bigint,0)=%s
+            RETURNING {_RETURNING}""",
+            (Jsonb(review.model_dump(mode='json',by_alias=True)),
+             action_id, world_id, expected_revision))
+        row=cur.fetchone()
+    if row is None:
+        raise ApplicationStateConflictError('The Plan review changed before persistence')
+    return _record(row).authoring_review

@@ -368,6 +368,7 @@ function requiresNativeGraphAuthorization(path: string, body: BodyInit | null | 
     || /^\/api\/live\/agent\/worlds\/[^/]+\/conversation\/turns\/[^/]+\/related-pages\/[a-f0-9]{8}-(?:[a-f0-9]{4}-){3}[a-f0-9]{12}$/i.test(pathname)
     || /^\/api\/live\/agent\/worlds\/[^/]+\/conversation\/turns\/[^/]+\/saved-sections\/\d+\/[a-f0-9-]+$/i.test(pathname)
     || /^\/api\/live\/agent\/worlds\/[^/]+\/build-proposals(?:\/[^/]+(?:\/(?:prompt|inserted|review))?)?$/.test(pathname)
+    || /^\/api\/live\/agent\/worlds\/[^/]+\/plan-proposals\/[a-f0-9]{8}-(?:[a-f0-9]{4}-){3}[a-f0-9]{12}\/review$/i.test(pathname)
     || pathname === "/api/live/agent/turn"
     || pathname === "/api/live/world-graph/projection"
     || pathname === "/api/live/world-graph/managed-projection"

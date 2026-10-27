@@ -1,6 +1,6 @@
 # Preserve reported cache-write usage
 
-Status: ACTIVE. PRIME owns the operator-authorized benchmark regression program.
+Status: SETTLED. PR1810 merged723224944eda21888d77f2d36ea067b2e24c2ddb after independent exact0908e130 approval,196 author tests and30 independent scoped tests. Protected API delivery selected the reviewed installed Hermes artifact without modifying shared .venv; source tree273cf1275e98dee76410b8802e3eb297f4893d96. Explicit writes/zero/missingness verified at installed production namespace. Retained Q01 replay preserves9781 writes/25797input/233output, with zero provider calls and original bytes unchanged. All3588 APP rows,1097 native rows and39933 retained files are unchanged; schemas0077/0017 and UI11f83820 remain. Ordinary saved Conks Plan loads. Lease released; successor is operator-resumed PR1807. Historical ownership: PRIME's benchmark regression program.
 Basec8565dc8b26bcd68811b33bad002af8cc5445049; branch codex/reported-cache-write-usage;
 reuse buddy-context-loop and current dependencies. Serial successor to1809.
 Plan1807 remains paused; HOSTED1802 and BENCHMARK harness are disjoint.

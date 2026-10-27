@@ -1076,6 +1076,7 @@ class SubmittedTurnIntentV2(StrictModel):
     client_work_state: Literal["saved_clean", "saved_dirty"]
     primary_work: SubmittedPrimaryWorkIntentV1
     plan_context_policy: PlanContextPolicyV1
+    plan_authoring_capture_sha256: str | None = Field(default=None, pattern=r"^[a-f0-9]{64}$")
     playable_target: SubmittedPlanPlayableTargetV1 | None = None
     graph_request: SubmittedGraphRequestIntentV1
     graph_selection: SubmittedGraphSelectionIntentV1 | None
@@ -1126,6 +1127,8 @@ def submitted_turn_intent_fingerprint_v2(intent: SubmittedTurnIntentV2 | BuildGr
         payload.pop("build_write_capability_sha256", None)
     if payload.get("build_draft_context_sha256") is None:
         payload.pop("build_draft_context_sha256", None)
+    if payload.get("plan_authoring_capture_sha256") is None:
+        payload.pop("plan_authoring_capture_sha256", None)
     primary_work_payload = payload.get("primary_work")
     if isinstance(primary_work_payload, dict) and primary_work_payload.get("play_content_basis") is None:
         primary_work_payload.pop("play_content_basis", None)
@@ -2641,6 +2644,12 @@ class PlanNativeSourceSectionsPolicyV1(PlanJevRetrievalPolicyV1):
     native_source_section_policy: Literal["exact_native_source_sections_v1"]
 
 
+class PlanAuthoringPolicyV1(PlanNativeSourceSectionsPolicyV1):
+    """A semantic destination decision precedes all Plan retrieval or writing."""
+    requested_work_policy: Literal['semantic_plan_destination_v1']
+    plan_authoring_capture_sha256: str | None = Field(default=None, pattern=r'^[a-f0-9]{64}$')
+
+
 class PlayNativeSourceSectionsPolicyV1(NativePlayGraphPolicyV1):
     native_source_section_policy: Literal["exact_native_source_sections_v1"]
 
@@ -3974,7 +3983,7 @@ def validate_graph_execution_record(execution, *, dynamic_source_scope: bool, al
                 RelatedRecapContextProviderInclusionEventV2,
                 RelatedPagesSelection, RelatedPageRead, RelatedPageInclusion, BuildAuthoredReferencesCapturedV1, BuildAuthoredReferenceAuthorizedV1, BuildAuthoredReferenceReadV1, BuildAuthoredProviderInclusionV1, BuildDraftContextCapturedV1, BuildDraftProviderInclusionV1, BuildSectionReadAuthorizationV1, ValidatedBuildSectionReadV1, BuildWorldReadSelectionV1,
                 BuildSectionProviderInclusionV1, BuildSectionAnswerBindingV1,
-                BuildJevActionSelectionV1, BuildReviewedActionSelectionV1, BuildPlanOutputContractV1, BuildPlanOutputContractV2, BuildWriterEvidenceSelectionV1, PlanJevRetrievalSelectionV1,
+                BuildJevActionSelectionV1, BuildReviewedActionSelectionV1, BuildPlanOutputContractV1, BuildPlanOutputContractV2, BuildWriterEvidenceSelectionV1, PlanRequestedWorkSelectedV1, PlanJevRetrievalSelectionV1,
             ),
         ):
             continue
@@ -4141,6 +4150,25 @@ class PlanJevProviderAuthorizedV1(ProviderAttemptAuthorizedEventV3):
     parent_request_sha256: Digest
 
 
+class PlanRequestedWorkAuthorizedV1(PlanJevProviderAuthorizedV1):
+    kind: Literal['plan_requested_work_authorized_v1']
+
+
+class PlanRequestedWorkSelectedV1(GraphExecutionEventBaseV1):
+    kind: Literal['plan_requested_work_selected_v1']
+    context_receipt_sha256: Digest
+    execution_policy_sha256: Digest
+    decision_request_id: UUID
+    controller_attempt_id: UUID
+    controller_envelope_sha256: Digest
+    controller_response_sha256: Digest
+    parent_request_sha256: Digest
+    requested_work: Literal['discuss', 'clarify', 'write_current_page', 'different_destination']
+    target_capture_sha256: str | None = Field(default=None, pattern=r'^[a-f0-9]{64}$')
+    actual_input_tokens: int | None = Field(default=None, strict=True, ge=0)
+    actual_output_tokens: int | None = Field(default=None, strict=True, ge=0)
+
+
 class PlanJevWriterAuthorizedV1(ProviderAttemptAuthorizedEventV3):
     """One tool-free Plan writer with exact host-verified evidence projection."""
     kind: Literal["plan_jev_writer_authorized_v1"]
@@ -4289,14 +4317,14 @@ class BuildWorldReadSelectionV1(GraphExecutionEventBaseV1):
 
 
 GraphExecutionEventV3 = Annotated[
-    ValidatedGraphOperationEventV3 | ProviderAttemptAuthorizedEventV3 | ProviderAttemptAuthorizedEventV4 | PlanJevProviderAuthorizedV1 | PlanJevWriterAuthorizedV1 | PlanJevWriterAuthorizedV2
+    ValidatedGraphOperationEventV3 | ProviderAttemptAuthorizedEventV3 | ProviderAttemptAuthorizedEventV4 | PlanRequestedWorkAuthorizedV1 | PlanJevProviderAuthorizedV1 | PlanJevWriterAuthorizedV1 | PlanJevWriterAuthorizedV2
     | ProviderOutcomeEventV1 | CompletionBindingEventV1
     | SourceScopeExtensionEventV3 | SourceReadAuthorizationEventV2 | ValidatedSourceReadEventV2 | SourcePassageReuseEventV1
     | RelatedRecapContextAuthorizationEventV2 | ValidatedRelatedRecapContextEventV2
     | RelatedRecapContextProviderInclusionEventV2
     | BuildAuthoredReferencesCapturedV1 | BuildAuthoredReferenceAuthorizedV1 | BuildAuthoredReferenceReadV1 | BuildAuthoredProviderInclusionV1 | RelatedPagesSelection | RelatedPageRead | RelatedPageInclusion | BuildDraftContextCapturedV1 | BuildDraftProviderInclusionV1 | BuildSectionReadAuthorizationV1 | ValidatedBuildSectionReadV1
     | BuildSectionProviderInclusionV1 | BuildSectionAnswerBindingV1 | BuildRequestedWorkResolutionV1 | BuildJevActionSelectionV1 | BuildReviewedActionSelectionV2 | BuildReviewedActionSelectionV1 | BuildWorldReadSelectionV1
-    | BuildPlanOutputContractV1 | BuildPlanOutputContractV2 | BuildWriterEvidenceSelectionV1 | PlanJevRetrievalSelectionV1 | NativeSourceNavigationAuthorizedV1 | NativeSourceCatalogObservedV1
+    | BuildPlanOutputContractV1 | BuildPlanOutputContractV2 | BuildWriterEvidenceSelectionV1 | PlanRequestedWorkSelectedV1 | PlanJevRetrievalSelectionV1 | NativeSourceNavigationAuthorizedV1 | NativeSourceCatalogObservedV1
     | NativeSourceSectionAuthorizedV1 | NativeSourceSectionObservedV1 | NativeSourceProviderInclusionV1,
     Field(discriminator="kind"),
 ]
@@ -4307,7 +4335,7 @@ class PlanWorldGraphExecutionV3(PlanWorldGraphExecutionV2):
     schema_: Literal["dmb_agent_plan_world_graph_execution_v3"] = Field(
         default="dmb_agent_plan_world_graph_execution_v3", alias="schema"
     )
-    policy: AuthoredBuildCollaborationPolicyV1 | AuthoredBuildCollaborationImagePolicyV1 | AuthoredBuildConnectedPageReviewPolicyV1 | AuthoredBuildConnectedPageReviewImagePolicyV1 | AuthoredBuildSourceQuotePolicyV1 | AuthoredBuildSourceQuoteImagePolicyV1 | AuthoredBuildRelationshipReviewPolicyV1 | AuthoredBuildRelationshipReviewImagePolicyV1 | AuthoredBuildIntentionalResponsePolicyV2 | AuthoredBuildIntentionalResponseImagePolicyV2 | AuthoredBuildIntentionalResponseSourcePolicyV2 | AuthoredBuildIntentionalResponseSourceImagePolicyV2 | BuildIntentionalResponseImagePolicyV2 | BuildIntentionalResponsePolicyV2 | BuildIntentionalResponseSourceImagePolicyV2 | BuildIntentionalResponseSourcePolicyV2 | BuildRelationshipReviewImagePolicyV1 | BuildRelationshipReviewPolicyV1 | BuildSourceQuoteImagePolicyV1 | BuildSourceQuotePolicyV1 | BuildConnectedPageReviewImagePolicyV1 | BuildConnectedPageReviewPolicyV1 | BuildCollaborationImagePolicyV1 | BuildCollaborationPolicyV1 | BuildRelatedPageDraftImagePolicyV1 | BuildRelatedPageDraftPolicyV1 | BuildExactSavedLinesDraftImagePolicyV1 | BuildExactSavedLinesDraftPolicyV1 | BuildDraftWorldContextImagePolicyV1 | BuildDraftWorldContextPolicyV1 | BuildNamedWorldContextImagePolicyV1 | BuildNamedWorldContextPolicyV1 | PlanNativeSourceSectionsPolicyV1 | PlanJevRetrievalPolicyV1 | BuildWorldContextImagePolicyV1 | BuildWorldContextPolicyV1 | BuildPrimaryWorkStatusImagePolicyV1 | BuildPrimaryWorkStatusPolicyV1 | BuildPrimaryWorkImagePolicyV1 | BuildPrimaryWorkPolicyV1 | BuildImageActionPolicyV1 | BuildEncodedAssessmentPolicyV1 | BuildInitialEstimatedSelectedSourcePolicyV1 | BuildSelectedSourceActionControllerWriterPolicyV1 | BuildCitedSourceActionControllerWriterPolicyV1 | BuildReadBatchActionControllerWriterPolicyV1 | BuildWriterBudgetActionControllerWriterPolicyV1 | BuildJointSupportActionControllerWriterPolicyV1 | BuildEstimatedActionControllerWriterPolicyV1 | BuildContainedActionControllerWriterPolicyV1 | BuildPhaseActionControllerWriterPolicyV1 | BuildFrontierActionControllerWriterPolicyV1 | BuildContinuationActionControllerWriterPolicyV1 | BuildCompactActionControllerWriterPolicyV1 | BuildActionControllerWriterPolicyV1 | BuildSectionControllerWriterPolicyV1 | ControllerWriterGraphExecutionPolicyV3 | SettledGraphExecutionPolicyV3 | GraphExecutionPolicyV3
+    policy: AuthoredBuildCollaborationPolicyV1 | AuthoredBuildCollaborationImagePolicyV1 | AuthoredBuildConnectedPageReviewPolicyV1 | AuthoredBuildConnectedPageReviewImagePolicyV1 | AuthoredBuildSourceQuotePolicyV1 | AuthoredBuildSourceQuoteImagePolicyV1 | AuthoredBuildRelationshipReviewPolicyV1 | AuthoredBuildRelationshipReviewImagePolicyV1 | AuthoredBuildIntentionalResponsePolicyV2 | AuthoredBuildIntentionalResponseImagePolicyV2 | AuthoredBuildIntentionalResponseSourcePolicyV2 | AuthoredBuildIntentionalResponseSourceImagePolicyV2 | BuildIntentionalResponseImagePolicyV2 | BuildIntentionalResponsePolicyV2 | BuildIntentionalResponseSourceImagePolicyV2 | BuildIntentionalResponseSourcePolicyV2 | BuildRelationshipReviewImagePolicyV1 | BuildRelationshipReviewPolicyV1 | BuildSourceQuoteImagePolicyV1 | BuildSourceQuotePolicyV1 | BuildConnectedPageReviewImagePolicyV1 | BuildConnectedPageReviewPolicyV1 | BuildCollaborationImagePolicyV1 | BuildCollaborationPolicyV1 | BuildRelatedPageDraftImagePolicyV1 | BuildRelatedPageDraftPolicyV1 | BuildExactSavedLinesDraftImagePolicyV1 | BuildExactSavedLinesDraftPolicyV1 | BuildDraftWorldContextImagePolicyV1 | BuildDraftWorldContextPolicyV1 | BuildNamedWorldContextImagePolicyV1 | BuildNamedWorldContextPolicyV1 | PlanAuthoringPolicyV1 | PlanNativeSourceSectionsPolicyV1 | PlanJevRetrievalPolicyV1 | BuildWorldContextImagePolicyV1 | BuildWorldContextPolicyV1 | BuildPrimaryWorkStatusImagePolicyV1 | BuildPrimaryWorkStatusPolicyV1 | BuildPrimaryWorkImagePolicyV1 | BuildPrimaryWorkPolicyV1 | BuildImageActionPolicyV1 | BuildEncodedAssessmentPolicyV1 | BuildInitialEstimatedSelectedSourcePolicyV1 | BuildSelectedSourceActionControllerWriterPolicyV1 | BuildCitedSourceActionControllerWriterPolicyV1 | BuildReadBatchActionControllerWriterPolicyV1 | BuildWriterBudgetActionControllerWriterPolicyV1 | BuildJointSupportActionControllerWriterPolicyV1 | BuildEstimatedActionControllerWriterPolicyV1 | BuildContainedActionControllerWriterPolicyV1 | BuildPhaseActionControllerWriterPolicyV1 | BuildFrontierActionControllerWriterPolicyV1 | BuildContinuationActionControllerWriterPolicyV1 | BuildCompactActionControllerWriterPolicyV1 | BuildActionControllerWriterPolicyV1 | BuildSectionControllerWriterPolicyV1 | ControllerWriterGraphExecutionPolicyV3 | SettledGraphExecutionPolicyV3 | GraphExecutionPolicyV3
     events: list[GraphExecutionEventV3] = Field(max_length=2048)
 
     @model_validator(mode="after")

@@ -963,3 +963,90 @@ def test_world_owner_migration_backfills_only_explicit_world_scope(
         ).fetchone()
     assert plan_owner == (world_id,)
     assert runbook_owner == (None,)
+
+
+@pytest.mark.parametrize("title_only", [False, True])
+def test_connection_owned_plan_commit_rolls_back_with_owning_receipt(
+    application_state_dsn: str, title_only: bool,
+) -> None:
+    from application_state.content import repository as content
+    from application_state.content.service import (
+        commit_plan, commit_plan_in_connection, create_world_plan,
+    )
+    from application_state.unit_of_work import unit_of_work
+
+    world = "world-atomic-plan-save"
+    created = create_world_plan(title="Before", world_id=world)
+    obj, original = commit_plan(
+        str(created.work_object_id), "# Original\n", expected_world_id=world,
+    )
+    with unit_of_work(application_state_dsn) as conn:
+        before_copy = content.get_working_copy(conn, obj.work_object_id)
+        next_n = content.next_revision_n(conn, obj.work_object_id)
+    body = original.markdown if title_only else "# Edited\r\n"
+    with pytest.raises(RuntimeError, match="receipt refused"):
+        with unit_of_work(application_state_dsn) as conn:
+            saved, revision = commit_plan_in_connection(
+                conn, str(obj.work_object_id), body,
+                expected_revision=obj.object_revision,
+                expected_world_id=world, title="After",
+            )
+            assert saved.title == "After"
+            assert revision.markdown == body.replace("\r\n", "\n")
+            raise RuntimeError("receipt refused")
+    with unit_of_work(application_state_dsn) as conn:
+        assert content.get_work_object(conn, obj.work_object_id) == obj
+        assert content.get_working_copy(conn, obj.work_object_id) == before_copy
+        assert content.next_revision_n(conn, obj.work_object_id) == next_n
+
+
+def test_connection_owned_plan_commit_shares_normalization_cas_and_exact_replay(
+    application_state_dsn: str,
+) -> None:
+    from application_state.content import repository as content
+    from application_state.content.service import (
+        commit_plan, commit_plan_in_connection, create_world_plan,
+    )
+    from application_state.unit_of_work import unit_of_work
+
+    world = "world-connection-plan-save"
+    created = create_world_plan(title="Before", world_id=world)
+    with unit_of_work(application_state_dsn) as conn:
+        saved, revision = commit_plan_in_connection(
+            conn, str(created.work_object_id), "# Prepared\r\n",
+            expected_revision=created.object_revision,
+            expected_world_id=world, title="Prepared",
+        )
+    replay, replay_revision = commit_plan(
+        str(created.work_object_id), "# Prepared\n",
+        expected_revision=created.object_revision,
+        expected_world_id=world, title="Prepared",
+    )
+    assert replay == saved and replay_revision == revision
+    with unit_of_work(application_state_dsn) as conn:
+        assert content.get_working_copy(conn, created.work_object_id).markdown == "# Prepared\n"
+        assert content.next_revision_n(conn, created.work_object_id) == revision.revision_n + 1
+    with pytest.raises(ApplicationStateConflictError, match="revision mismatch"):
+        with unit_of_work(application_state_dsn) as conn:
+            commit_plan_in_connection(
+                conn, str(created.work_object_id), "# Unrelated\n",
+                expected_revision=created.object_revision, expected_world_id=world,
+            )
+
+
+def test_connection_owned_plan_commit_preserves_world_scope_refusal(
+    application_state_dsn: str,
+) -> None:
+    from application_state.content.service import (
+        commit_plan_in_connection, create_world_plan,
+    )
+    from application_state.unit_of_work import unit_of_work
+
+    created = create_world_plan(title="Owned", world_id="world-save-owner")
+    with pytest.raises(ApplicationStateConflictError, match="selected World"):
+        with unit_of_work(application_state_dsn) as conn:
+            commit_plan_in_connection(
+                conn, str(created.work_object_id), "# Foreign\n",
+                expected_revision=created.object_revision,
+                expected_world_id="another-world",
+            )

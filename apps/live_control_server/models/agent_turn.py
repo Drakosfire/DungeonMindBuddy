@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from application_state.agent_conversation.reviewed_action import ReviewedStepReference
+from application_state.agent_conversation.plan_authoring import PlanAuthoringCaptureV1, PlanAuthoredProposalV1
 
 from application_state.agent_conversation.identifier_limits import (
     GRAPH_EVIDENCE_REF_ID_MAX_CHARS,
@@ -259,6 +260,7 @@ class AgentTurnRequest(BaseModel):
     retry_of: RetryTurnReference | None = None
     reviewed_step: ReviewedStepReference | None = None
     plan_context_policy: PlanContextPolicyV1 | None = None
+    plan_authoring_capture: PlanAuthoringCaptureV1 | None = None
     message: str = Field(min_length=1)
 
     @field_validator("client_thread_id", "turn_id", mode="before")
@@ -286,6 +288,16 @@ class AgentTurnRequest(BaseModel):
                 or self.owner_scope.kind != 'world' or self.graph_request.mode != 'world'):
                 raise ValueError('Authored references require the current Build page and World context')
             self.build_authored_references.require_world(self.owner_scope.world_id)
+        if self.plan_authoring_capture is not None:
+            capture = self.plan_authoring_capture
+            work = self.primary_work
+            if (self.surface.surface_id != "plan" or self.plan_context_policy is None
+                    or self.owner_scope is None or self.owner_scope.kind != "world"
+                    or self.owner_scope.world_id != capture.world_id or work is None
+                    or work.kind != "plan" or work.object_id != capture.document_id
+                    or work.expected_revision != capture.base_revision
+                    or work.expected_content_sha256 != capture.base_content_sha256):
+                raise ValueError("Plan authoring capture requires its exact current Plan and World")
         draft = self.build_draft_context
         if draft is not None:
             snapshot = draft.snapshot
@@ -524,6 +536,25 @@ class AgentTurnResponse(BaseModel):
     graph: AgentTurnGraphResult
     conversation: AgentTurnConversationResult
     answer: AgentTurnAnswerResult
+
+    plan_proposal: PlanAuthoredProposalV1 | None = Field(
+        default=None, exclude_if=lambda value: value is None
+    )
+
+    @model_validator(mode='after')
+    def exact_plan_proposal_owner(self):
+        proposal = self.plan_proposal
+        if proposal is not None and (
+            self.surface.surface_id != 'plan' or self.owner_scope.kind != 'world'
+            or self.owner_scope.owner_id != proposal.capture.world_id
+            or self.primary_work.kind != 'plan'
+            or self.primary_work.object_id != proposal.capture.document_id
+            or self.primary_work.revision_used != proposal.capture.base_revision
+            or self.conversation.conversation_id != proposal.origin.conversation_id
+            or self.answer.status != 'ok'
+        ):
+            raise ValueError('Plan proposal differs from its response owner')
+        return self
 
 
 class AgentPlanWorldGraphExecutionProjectionV1(BaseModel):
@@ -860,7 +891,7 @@ class AgentRulesAnswerContextV1(BaseModel):
             raise ValueError("Only an independently approved base has answer context")
         if self.base_context is not None:
             completion = self.base_context.completion
-            if completion is None or self.accepted_binding.graph_used != ("world_graph" in completion.answer_basis):
+            if completion is None or self.accepted_binding.graph_used != any(segment.kind == "graph_claim" for segment in completion.answer_segments):
                 raise ValueError("Rules context cannot relabel base Graph grounding")
         return self
 
@@ -898,6 +929,24 @@ class AgentConversationHistoryTurn(BaseModel):
     user_text: str
     assistant_text: str | None
     provenance: TurnProvenance
+
+    plan_proposal: PlanAuthoredProposalV1 | None = Field(
+        default=None, exclude_if=lambda value: value is None
+    )
+
+    @model_validator(mode='after')
+    def exact_plan_proposal_history(self):
+        proposal = self.plan_proposal
+        if proposal is not None and (
+            self.lifecycle_status != 'completed' or self.turn_id != proposal.origin.turn_id
+            or self.provenance.world_id != proposal.capture.world_id
+            or self.provenance.surface_id != 'plan'
+            or self.provenance.primary_work.kind != 'plan'
+            or self.provenance.primary_work.object_id != proposal.capture.document_id
+            or self.provenance.primary_work.object_revision != proposal.capture.base_revision
+        ):
+            raise ValueError('Plan proposal differs from its historical owner')
+        return self
 
 
 class AgentConversationHistoryTurnV2(AgentConversationHistoryTurn):

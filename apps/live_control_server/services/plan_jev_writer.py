@@ -25,6 +25,20 @@ The host supplies its literal text; never emit quote text or the whole-source ha
 For image grounding give a coherent visual brief and unresolved composition question;
 prepare an image_prompt only when requested. No edit or generation happened.
 """
+AUTHORING_INSTRUCTIONS = """Prepare only the requested editable Plan fragment at focused_edit_target.
+The current_page_draft is the author's latest working copy and primary writing context.
+A body_path refers to the already supplied committed blocks; do not repeat that body.
+Keep saved Plan excerpts, retrieved World evidence, played outcomes and proposed writing distinct.
+Return the same strict evidence JSON contract: each text-bearing segment is a complete literal
+Markdown block of the proposed fragment, in reading order. Ground factual blocks using their
+actual supplied selectors; mark invented possibilities as proposals. Tables use Markdown rows.
+Preserve the author's unselected text and preparation notes. For replacement, rewrite only the
+captured selection or playable body; for insertion, produce the new fragment without repeating
+the page. Do not add a chat acknowledgment, surrounding explanation, save claim or whole document.
+Do not mint object IDs, dmb-node references, playable markers or unknown component markers.
+Headings, prose, lists and ordinary editable tables are supported; preserve existing protected
+tokens exactly when their captured selected content must be included. No page was saved.
+"""
 RULES_INSTRUCTIONS = '''A Rules lookup was performed. Return its answer using exactly this outer object:
 {"schema":"dmb_rules_mixed_answer_v1","base_output": BASE_OR_NULL,
 "rules_segments":[...],"ordered_refs":[...]}. BASE_OR_NULL follows the Plan answer contract above.
@@ -103,13 +117,21 @@ class PlanJevWriter:
             if self.projection.frame.get('answer_policy') == NATIVE_POLICY else INSTRUCTIONS)
         if self.projection.frame.get('answer_policy') == SELECTOR_POLICY:
             instructions=instructions.replace('exact block_handle','exact selection_id')
+        if self.projection.frame.get('requested_work') == 'clarify':
+            instructions += '\nAsk the specific clarifying question needed to resolve the intended work or destination. Keep it in conversation; do not draft the page yet.'
+        if getattr(rules,'authoring',None) is not None:
+            instructions=instructions.replace('Answer the current co-GM question directly using relevant supplied material.',
+                'Write the requested Plan fragment using the current page and relevant supplied material.')
+            instructions=instructions.replace('For image grounding give a coherent visual brief and unresolved composition question;\nprepare an image_prompt only when requested. No edit or generation happened.\n','')
+            instructions += '\n' + AUTHORING_INSTRUCTIONS
         self.instructions = '\n\n'.join((BUDDY_SYSTEM_PROMPT, instructions,
-            RULES_INSTRUCTIONS if rule_frame.lookups else '')) + IMAGE_DIRECTION_INSTRUCTIONS
+            RULES_INSTRUCTIONS if rule_frame.lookups else '')) + ('' if getattr(rules,'authoring',None) is not None else IMAGE_DIRECTION_INSTRUCTIONS)
         self.model = adapter._broker_execution().policy.provider_roles.writer.model
         self.prepared = self.authorization = self.call = None
         self._usage_recorded = False
         self._draft_capture_attempted = False
         self.output_limit_exceeded = False
+        self.target_changed = False
 
     def authorize(self, prepared):
         from generationengine.text_dispatch import PreparedTextDispatch
@@ -147,8 +169,15 @@ class PlanJevWriter:
             included_relationship_ids=list(projection.relationship_ids), included_evidence_ref_ids=list(projection.evidence_ref_ids))
         view = {'provider':'openai','model':self.model,'apiMode':'responses','payloadJson':prepared.body.decode(),
                 'payloadSha256':prepared.body_sha256,'payloadUtf8Bytes':prepared.body_size}
-        a.turn = _require_fresh_execution_append(a.fence.append('authorize_plan_jev_writer','authorization',event,
-            producer_proof={'prepared_request_json':view['payloadJson'],'evidence':self.proof}))
+        from application_state.errors import ApplicationStateConflictError
+        try:
+            a.turn = _require_fresh_execution_append(a.fence.append('authorize_plan_jev_writer','authorization',event,
+                producer_proof={'prepared_request_json':view['payloadJson'],'evidence':self.proof},
+                **({'authoring_reservation':{'action_id':self.rules.authoring[0].action_id,'capture':self.rules.authoring[1]}}
+                    if getattr(self.rules,'authoring',None) is not None else {})))
+        except ApplicationStateConflictError:
+            self.target_changed = getattr(self.rules, 'authoring', None) is not None
+            raise
         a.last_provider_attempt_id = event.provider_attempt_id
         self.rules.authorize(view)
         a._capture_prepared_prompt(view, event)

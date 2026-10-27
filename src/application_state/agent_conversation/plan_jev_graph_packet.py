@@ -60,9 +60,20 @@ def project(turn, proof, trace):
     receipt, execution = _owner(turn)
     if not isinstance(execution.policy,t.PlanNativeSourceSectionsPolicyV1):
         raise ValueError('Current Plan writer requires its native selector capability')
-    if (not isinstance(proof, dict) or set(proof) != {
-            "graph_packets", "source_names", "plan_markdown", "session_evidence", "dialogue"}):
+    required={"graph_packets", "source_names", "plan_markdown", "session_evidence", "dialogue"}
+    if isinstance(execution.policy,t.PlanAuthoringPolicyV1):required.add('authoring_capture')
+    if not isinstance(proof,dict) or set(proof)!=required:
         raise ValueError("Plan writer requires its complete host evidence proof")
+    capture=None
+    if isinstance(execution.policy,t.PlanAuthoringPolicyV1):
+        from .plan_authoring import PlanAuthoringCaptureV1
+        raw=proof['authoring_capture']
+        capture=PlanAuthoringCaptureV1.model_validate(raw) if raw is not None else None
+        if ((capture.sha256 if capture is not None else None)!=execution.policy.plan_authoring_capture_sha256
+                or capture is not None and (capture.world_id,capture.conversation_id,capture.document_id,
+                    capture.base_revision,capture.base_content_sha256)!=(turn.world_id,turn.conversation_id,
+                    receipt.plan_basis.document_id,receipt.plan_basis.object_revision,receipt.plan_basis.content_sha256)):
+            raise ValueError('Plan writer working draft differs from its frozen current-page capture')
     markdown, sessions, dialogue = proof["plan_markdown"], proof["session_evidence"], proof["dialogue"]
     if not isinstance(markdown, str) or sha256(markdown.encode()).hexdigest() != receipt.plan_basis.content_sha256:
         raise ValueError("Plan writer text differs from its exact committed Plan")
@@ -230,6 +241,19 @@ def project(turn, proof, trace):
         from .surface_evidence_answer import SELECTOR_POLICY
         frame["answer_policy"] = SELECTOR_POLICY
         frame["native_source_sections"] = native_sections
+    if isinstance(execution.policy, t.PlanAuthoringPolicyV1):
+        choices = [event for event in execution.events if isinstance(event, t.PlanRequestedWorkSelectedV1)]
+        if len(choices) != 1:
+            raise ValueError('Plan writer requires its exact semantic requested-work choice')
+        frame['requested_work'] = choices[0].requested_work
+    if capture is not None:
+        same=capture.draft_markdown==markdown
+        frame['current_page_draft']={'state':'same_as_committed' if same else 'unsaved_working_draft',
+            'primary_authoring_context':True,
+            **({'body_path':['committed_plan_blocks']} if same else {'markdown':capture.draft_markdown})}
+        frame['focused_edit_target']={'kind':capture.target_kind,
+            **({'selected_text':capture.selected_text} if capture.target_kind=='replace_selection' else {}),
+            **({'playable_body':capture.playable_target.body_markdown} if capture.playable_target is not None else {})}
     return PlanWriterProjection(frame, tuple(sorted(closures)), tuple(item[0] for item in originals),
         tuple(sorted(source_events, key=str)), tuple(sorted(assertions)), tuple(sorted(relationships)), tuple(sorted(refs)))
 

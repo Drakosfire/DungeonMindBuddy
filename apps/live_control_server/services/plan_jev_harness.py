@@ -5,7 +5,7 @@ import json
 from application_state.agent_conversation.rules_authority_policy import rules_capability
 from application_state.agent_conversation.rules_authority_reads import MixedCompletedTurnV1
 from .agent_runtime import AgentRuntimeDescriptor
-from .plan_jev_dispatch import request_budget
+from .plan_jev_dispatch import PlanJevDispatch, request_budget
 from .plan_jev_driver import PlanJevDriver
 from .plan_jev_rules_runtime import PlanRulesRuntime
 from .plan_jev_writer import PlanJevWriter
@@ -29,19 +29,44 @@ class PlanJevHarness:
         raise ValueError('Plan Jev requires its trusted parent orchestration')
 
     def execute(self, adapter, *, dialogue=(), retained_navigation=()):
-        self.calls=[]
-        rules=PlanRulesRuntime(adapter,rules_capability(graph=True))
-        driver=PlanJevDriver(adapter,dialogue=dialogue,rules=rules,retained_navigation=retained_navigation)
-        writer=None
+        from application_state.errors import ApplicationStateConflictError, ApplicationStateValidationError
+        from .agent_turn_service import AgentTurnServiceError
+        self.calls = []
+        page_title = next((line[2:].strip() for line in adapter.work.plan_markdown.splitlines() if line.startswith('# ') and line[2:].strip()), 'Current Plan')
+        semantic = PlanJevDispatch.requested_work(adapter, page_title=page_title, dialogue=dialogue)
+        rules = PlanRulesRuntime(adapter, rules_capability(graph=True))
+        driver = writer = None
         try:
-            proof=asyncio.run(driver.run(transport=self.decision_transport,api_key=self.decision_api_key))
-            writer=PlanJevWriter(adapter,proof,rules)
-            completed=asyncio.run(writer.run(transport=self.writer_transport,api_key=self.writer_api_key))
-            adapter.turn=completed.envelope if isinstance(completed,MixedCompletedTurnV1) else completed
+            selected, _ = asyncio.run(semantic.run(transport=self.decision_transport, api_key=self.decision_api_key))
+            if selected == 'different_destination':
+                raise AgentTurnServiceError('This request needs another page or object. The request is retained; choose that destination before generating.',
+                    code='plan_authoring_destination_unavailable', status_code=409)
+            if selected == 'write_current_page':
+                capture = adapter.request.plan_authoring_capture
+                if capture is None:
+                    raise AgentTurnServiceError('The requested Plan writing has no captured page location. The request is retained; select a location on the Plan and try again.',
+                        code='plan_authoring_target_unavailable', status_code=409)
+                try:
+                    action, _ = adapter.service.reserve_plan_authoring_action(capture=capture,
+                        turn_id=adapter.fence.turn.turn_id, expected_revision=adapter.fence.turn.revision)
+                except (ApplicationStateConflictError, ApplicationStateValidationError) as exc:
+                    raise AgentTurnServiceError('The Plan or conversation changed before writing could start. The request is retained; review the current page location before trying again.',
+                        code='plan_authoring_target_changed', status_code=409) from exc
+                rules.authoring = (action, capture)
+            driver = PlanJevDriver(adapter, dialogue=dialogue, rules=rules, retained_navigation=retained_navigation)
+            proof = asyncio.run(driver.run(transport=self.decision_transport, api_key=self.decision_api_key))
+            writer = PlanJevWriter(adapter, proof, rules)
+            completed = asyncio.run(writer.run(transport=self.writer_transport, api_key=self.writer_api_key))
+            adapter.turn = completed.envelope if isinstance(completed, MixedCompletedTurnV1) else completed
             return completed
+        except BaseException as exc:
+            if writer is not None and writer.target_changed:
+                raise AgentTurnServiceError('The Plan or conversation changed during preparation, before writing was sent. The request is retained; review the current page location before trying again.',
+                    code='plan_authoring_target_changed', status_code=409) from exc
+            raise
         finally:
-            self.calls=[*driver.calls,*([writer.call] if writer is not None and writer.call is not None else [])]
-            self.output_limit_exceeded=writer.output_limit_exceeded if writer is not None else False
+            self.calls = ([semantic.call] if semantic.call is not None else []) + (driver.calls if driver is not None else []) + ([writer.call] if writer is not None and writer.call is not None else [])
+            self.output_limit_exceeded = writer.output_limit_exceeded if writer is not None else False
             if adapter.fence is not None:
                 adapter.stop()
 
@@ -55,7 +80,9 @@ class PlanJevHarness:
             if adapter.fence is not None:
                 current=adapter.fence.turn
                 if current.status=='running': _interrupt_policy_delivery(adapter.service,current,
-                    output_limit_exceeded=self.output_limit_exceeded)
+                    output_limit_exceeded=self.output_limit_exceeded,
+                    failure_code_override=exc.code if isinstance(exc,AgentTurnServiceError) and exc.code in {
+                        "plan_authoring_target_unavailable", "plan_authoring_target_changed", "plan_authoring_destination_unavailable"} else None)
             trace.finalize_and_log(status='error',model_calls=self.calls,observed_model_call_count=len(self.calls))
             if isinstance(exc,AgentTurnServiceError): raise
             raise AgentTurnServiceError('The Plan reply could not complete safely. No request was replayed.',
