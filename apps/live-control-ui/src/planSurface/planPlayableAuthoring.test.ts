@@ -140,3 +140,68 @@ it('keeps a named table inside the current Beat without offering to promote its 
  expect(indexed).toMatchObject({status:'ready',index:{scenes:[{sceneId:'scene:first',beatId:'beat:first'},{sceneId:scene,beatId:'beat:first'}]}});
  expect(tiptapJsonToSemanticMarkdown(editor.getJSON())).toContain('## Tactics');
 });
+
+
+function selectText(text:string){
+ let found=-1;editor.state.doc.descendants((node,pos)=>{if(node.isText&&node.text===text)found=pos;});
+ expect(found).toBeGreaterThan(-1);editor.commands.setTextSelection(found+1);
+}
+const decisionSource='<!-- dmb-playable-element:v2 kind=beat id=beat:one -->\n## Rehearsal\n\n<!-- dmb-playable-element:v2 kind=scene id=scene:one -->\n### First Scene\n\nDiscuss before initiative.\n\n| Object | State |\n| --- | --- |\n| Box | Closed |\n\n<!-- dmb-playable-element:v2 kind=scene id=scene:two -->\n### Second Scene\n\nPreserve this.\n\n## Unrelated notes\n\nKeep notes.';
+it('authors a current scene-associated Choice and editable Options through exact round-trip and undo',()=>{
+ mount(decisionSource);selectText('Discuss before initiative.');
+ const before=editor.getJSON();const choice=insertPlanStructure(editor,'choice',editor.state);
+ editor.commands.insertContent('How do we approach?');
+ let indexed=indexPlayableStructureV2(editor.getJSON());expect(indexed).toMatchObject({status:'ready',index:{choices:[{choiceId:choice,sceneId:'scene:one',beatId:'beat:one'}]}});
+ const optionId=insertPlanStructure(editor,'option',editor.state);editor.commands.insertContent('Withdraw and reassess');
+ indexed=indexPlayableStructureV2(editor.getJSON());expect(indexed.status).toBe('ready');if(indexed.status!=='ready')return;
+ expect(indexed.index.options).toHaveLength(3);expect(indexed.index.options.map(x=>x.choiceId)).toEqual([choice,choice,choice]);
+ expect(indexed.index.options.every(x=>x.activates.length===0&&x.suppresses.length===0)).toBe(true);
+ const source=tiptapJsonToSemanticMarkdown(editor.getJSON());expect(source.indexOf('How do we approach?')).toBeLessThan(source.indexOf('### Second Scene'));
+ expect(source).toContain(`kind=option id=${optionId}`);expect(source).toContain('| Box | Closed |');
+ const outside=editor.getJSON().content!.filter(n=>n.attrs?.playableElementKind!=='choice'&&n.type!=='bulletList');expect(outside).toEqual(before.content);
+ editor.commands.undo();editor.commands.redo();expect(tiptapJsonToSemanticMarkdown(editor.getJSON())).toBe(source);
+ editor.commands.setContent(markdownToTiptapDoc(source).doc);expect(tiptapJsonToSemanticMarkdown(editor.getJSON())).toBe(source);
+});
+it('authors a Beat-level Choice only in its own body, and refuses root barriers and crossed selections',()=>{
+ mount('<!-- dmb-playable-element:v2 kind=beat id=beat:one -->\n## Beat\n\nBeat body.\n\n## Ordinary notes\n\nOutside.');
+ selectText('Beat body.');const choice=insertPlanStructure(editor,'choice',editor.state);
+ expect(indexPlayableStructureV2(editor.getJSON())).toMatchObject({status:'ready',index:{choices:[{choiceId:choice,sceneId:null,beatId:'beat:one'}]}});
+ selectText('Outside.');const before=editor.getJSON();expect(()=>insertPlanStructure(editor,'choice',editor.state)).toThrow('cursor');expect(editor.getJSON()).toEqual(before);
+ editor.commands.setTextSelection({from:3,to:editor.state.doc.content.size-1});expect(()=>insertPlanStructure(editor,'choice',editor.state)).toThrow('cursor');
+});
+it('refuses Option outside a Choice and stale, readonly and historical decision creation without mutation',()=>{
+ mount(decisionSource);selectText('Discuss before initiative.');let before=editor.getJSON();expect(()=>insertPlanStructure(editor,'option',editor.state)).toThrow('cursor');expect(editor.getJSON()).toEqual(before);
+ const stale=editor.state;editor.commands.insertContent('Changed');before=editor.getJSON();expect(()=>insertPlanStructure(editor,'choice',stale)).toThrow('changed');expect(editor.getJSON()).toEqual(before);
+ editor.setEditable(false);expect(()=>insertPlanStructure(editor,'choice',editor.state)).toThrow('editable');editor.setEditable(true);
+ mount('<!-- dmb-playable-element:v1 kind=scene id=scene:first -->\n## Old Scene');before=editor.getJSON();expect(()=>insertPlanStructure(editor,'choice',editor.state)).toThrow('current Beat-first');expect(editor.getJSON()).toEqual(before);
+});
+
+
+it('keeps existing option edges and sibling Scene/Choice ownership while appending a fresh option',()=>{
+ mount('<!-- dmb-playable-element:v2 kind=beat id=beat:first -->\n## Beat\n\n<!-- dmb-playable-element:v2 kind=scene id=scene:first -->\n### Scene\n\n<!-- dmb-playable-element:v2 kind=choice id=choice:first scene=scene:first -->\n### Approach\n\n<!-- dmb-playable-element:v2 kind=option id=option:old activates=beat:later -->\n- Talk\n\n<!-- dmb-playable-element:v2 kind=choice id=choice:second scene=scene:first -->\n### Later choice\n\n<!-- dmb-playable-element:v2 kind=option id=option:second suppresses=beat:later -->\n- Wait\n\n<!-- dmb-playable-element:v2 kind=beat id=beat:later beat_kind=optional -->\n## Later');
+ selectText('Talk');const before=indexPlayableStructureV2(editor.getJSON());const fresh=insertPlanStructure(editor,'option',editor.state);const after=indexPlayableStructureV2(editor.getJSON());
+ expect(before.status).toBe('ready');expect(after.status).toBe('ready');if(before.status!=='ready'||after.status!=='ready')return;
+ expect(after.index.options.filter(x=>x.optionId!==fresh)).toEqual(before.index.options.map((x,i)=>({...x,order:i===0?0:2})));
+ expect(after.index.choices.map(x=>[x.choiceId,x.sceneId,x.beatId])).toEqual(before.index.choices.map(x=>[x.choiceId,x.sceneId,x.beatId]));
+ expect(after.index.options.find(x=>x.optionId===fresh)).toMatchObject({choiceId:'choice:first',activates:[],suppresses:[]});
+});
+it('uses caption/table descendants as Scene context, but refuses nested typed or mixed structure',()=>{
+ mount(decisionSource.replace('| Object | State |','## Equipment\n\n| Object | State |'));selectText('Box');
+ const choice=insertPlanStructure(editor,'choice',editor.state);expect(indexPlayableStructureV2(editor.getJSON())).toMatchObject({status:'ready',index:{choices:[{choiceId:choice,sceneId:'scene:one'}]}});
+ editor.commands.setContent({type:'doc',content:[{type:'blockquote',content:[{type:'heading',attrs:{level:2,playableElementKind:'beat',playableElementId:'beat:nested',playableElementVersion:'v2'},content:[{type:'text',text:'Nested'}]}]}]});let before=editor.getJSON();expect(()=>insertPlanStructure(editor,'choice',editor.state)).toThrow();expect(editor.getJSON()).toEqual(before);
+ mount(decisionSource+'\n\n<!-- dmb-playable-element:v1 kind=scene id=scene:old -->\n## Old');selectText('Discuss before initiative.');before=editor.getJSON();expect(()=>insertPlanStructure(editor,'choice',editor.state)).toThrow();expect(editor.getJSON()).toEqual(before);
+});
+it('refuses decision creation in card scope and non-roundtrippable drafts',async()=>{
+ const {PlanCardEditing,setPlanCardScope}=await import('./planCardEditing');
+ mount();editor.destroy();editor=new Editor({element:document.body.appendChild(document.createElement('div')),extensions:[...DEFAULT_MARKDOWN_EDITOR_EXTENSIONS,PlanCardEditing],editorProps:{handleScrollToSelection:()=>true},content:markdownToTiptapDoc(decisionSource).doc});
+ setPlanCardScope(editor,{active:true,sceneId:'scene:one'});selectText('Discuss before initiative.');let before=editor.getJSON();expect(()=>insertPlanStructure(editor,'choice',editor.state)).toThrow('Open Document');expect(editor.getJSON()).toEqual(before);
+ setPlanCardScope(editor,{active:false});editor.commands.insertContentAt(editor.state.doc.content.size,{type:'paragraph'});selectText('Discuss before initiative.');before=editor.getJSON();expect(()=>insertPlanStructure(editor,'choice',editor.state)).toThrow('round-trip');expect(editor.getJSON()).toEqual(before);
+});
+
+
+it('keeps ordinary H3 within the Beat before its first Scene, but never falls back after a Scene',()=>{
+ mount('<!-- dmb-playable-element:v2 kind=beat id=beat:one -->\n## Beat\n\n### Preparation notes\n\nBefore a Scene.\n\n<!-- dmb-playable-element:v2 kind=scene id=scene:one -->\n### Scene\n\nScene body.\n\n### Closing notes\n\nAfter a Scene.');
+ selectText('Before a Scene.');const choice=insertPlanStructure(editor,'choice',editor.state);
+ expect(indexPlayableStructureV2(editor.getJSON())).toMatchObject({status:'ready',index:{choices:[{choiceId:choice,beatId:'beat:one',sceneId:null}]}});
+ selectText('After a Scene.');const before=editor.getJSON();expect(()=>insertPlanStructure(editor,'choice',editor.state)).toThrow('cursor');expect(editor.getJSON()).toEqual(before);
+});
