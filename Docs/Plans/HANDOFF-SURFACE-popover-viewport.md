@@ -1,6 +1,6 @@
 # SURFACE — keep contextual actions inside the viewport
 
-Status: BLOCKED for independent invariant critique. PRIME owns serial branch codex/surface-popover-viewport, base72f73a18e4f215cab437bab351f1f088510313a6, existing buddy-context-loop checkout. Operator preparation/play and responsive Surface authority covers this demonstrated ordinary-control defect. One bounded implementation PR, no new worktree/environment. Runtime5202 UI1840/API1838/schema0081, all saved Plans/Runs/newer Brin draft remain protected. Hosted1828/held1764 separate.
+Status: ACTIVE after independent invariant critique approved design55ddff5c0. Topology: serial. No overlapping expected-path lease in current open PRs. PRIME owns serial branch codex/surface-popover-viewport, base72f73a18e4f215cab437bab351f1f088510313a6, existing buddy-context-loop checkout. Operator preparation/play and responsive Surface authority covers this demonstrated ordinary-control defect. One bounded implementation PR, no new worktree/environment. Runtime5202 UI1840/API1838/schema0081, all saved Plans/Runs/newer Brin draft remain protected. Hosted1828/held1764 separate.
 
 ## Evidence and boundary
 

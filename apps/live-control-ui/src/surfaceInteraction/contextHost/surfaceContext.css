@@ -120,6 +120,9 @@
 }
 
 .surface-context-popover__panel {
+  box-sizing: border-box;
+  overflow-y: auto;
+  overscroll-behavior: contain;
   position: absolute;
   z-index: 40;
   min-width: min(16rem, calc(100vw - 1.5rem));
