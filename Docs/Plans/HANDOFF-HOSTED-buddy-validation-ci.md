@@ -6,7 +6,7 @@
 **Topology:** serial; one successor to merged PR #1802  
 **Base:** `main@e754f68f1d6a9e726c23657e2884be36cc3e8759`  
 **Branch:** `codex/hosted-validation-ci-20261027`  
-**PR:** Draft PR will be linked here after creation.
+**PR:** [Draft #1814](https://github.com/Drakosfire/DungeonMindBuddy/pull/1814).
 
 ## Authority and predecessor settlement
 
