@@ -1,6 +1,6 @@
 # PLAN — preserve named tables inside playable bodies
 
-Status: ACTIVE; PRIME owns this serial dogfood regression correction at base2ec7587dc29c809b292de08ec2f65c61f607e16b, branch codex/plan-named-table-boundaries, existing buddy-context-loop checkout. Operator authorized ongoing authoring/preparation/play completion and runtime bug ownership. Independent review and required gates precede PRIME merge/protected delivery.
+Status: SETTLED by PR1830 at a82339092ae9c5181d9be2f3bcfd098c5ee0db92; exact reviewed head62749f58bbf0db421d74496b934e3bb390262ab6, both hosted checks passed, protected API/UI delivery complete. Same retained suggestion saved11:55 and reloaded with full DOM equality and outside-target bodies/IDs unchanged. Original failure retained. Full acceptance remains open. The separate Play projection terminator is owned by HANDOFF-PLAY-named-table-bodies.md. Historical activation: PRIME owns this serial dogfood regression correction at base2ec7587dc29c809b292de08ec2f65c61f607e16b, branch codex/plan-named-table-boundaries, existing buddy-context-loop checkout. Operator authorized ongoing authoring/preparation/play completion and runtime bug ownership. Independent review and required gates precede PRIME merge/protected delivery.
 
 ## Witness and critique
 
