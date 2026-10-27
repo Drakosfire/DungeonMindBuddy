@@ -1627,6 +1627,31 @@ def build_node_pass_prompt(
     return prompt, context.diagnostics
 
 
+def build_beat_pass_prompt(
+    beat_prompt_template: str,
+    nodes: Sequence[Mapping[str, Any]],
+) -> str:
+    """Supply resolved candidate identities, without promoting descriptions to facts."""
+    inventory = [
+        {key: node[key] for key in ("node_id", "label", "node_type", "evidence_refs") if key in node}
+        for node in nodes
+    ]
+    context = (
+        "## Node identity inventory\n\n```json\n"
+        + json.dumps(inventory, indent=2)
+        + "\n```\n\n"
+        "Use exact inventory node_id values for source-supported involved_node_ids. "
+        "These are candidate identity hints, not evidence of involvement or physical presence. "
+        "Use the source passages to establish involvement and preserve roles, attribution, "
+        "plans and uncertainty; leave involved_node_ids empty when identity or involvement "
+        "is unsupported. Do not invent a new identity or infer involvement from inventory "
+        "membership or label proximity.\n\n"
+    )
+    # Keep source/instructions intact and distinguish identity hints from evidence.
+    marker = "## Source Packet\n\n"
+    return beat_prompt_template.replace(marker, context + marker, 1)
+
+
 def build_edge_pass_prompt(
     edge_prompt_template: str,
     nodes: Sequence[Mapping[str, Any]],
@@ -2095,11 +2120,23 @@ def _run_category_pipeline_impl(
     if active_profile.beat_pass is not None:
         beat = active_profile.beat_pass
         _notify(beat.pass_id, "running")
+        beat_nodes = consolidate_category_outputs(
+            pass_outputs,
+            campaign_id=options.campaign_id,
+            session=options.session_number,
+            source_span_index=options.source_span_index,
+            source_text=options.source_text,
+            source_rows=source_rows,
+            enable_party_participation_attachment=options.enable_party_participation_attachment,
+            known_entity_sidecar=known_entity_sidecar,
+            known_entity_registry=known_entity_registry,
+            profile=active_profile,
+        )["nodes"]
         beat_result = _run_pass(
             beat.pass_id,
             model_id=model_id,
             instructions=system,
-            user_content=prompts[_prompt_key(beat.pass_id)],
+            user_content=build_beat_pass_prompt(prompts[_prompt_key(beat.pass_id)], beat_nodes),
             pass_spec=beat,
         )
         pass_outputs[beat.pass_id] = beat_result["parsed"]

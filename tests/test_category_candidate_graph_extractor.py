@@ -412,3 +412,57 @@ def test_extraction_retains_distinct_predicates_with_same_endpoints():
         edges = {e['relationship_type']: e for e in result.candidate_graph['edges']}
         assert set(edges) == {'attacks', 'threatens'}
         assert all(edge['evidence_refs'] for edge in edges.values())
+
+
+def test_beat_call_receives_consolidated_identity_inventory_and_keeps_source_associations():
+    import hashlib
+    import json
+
+    source = 'Miri fed the captive.\n\nSomeone else performed the song.'
+    index = _span_index(session_id=None)
+    index['content_sha256'] = hashlib.sha256(source.encode()).hexdigest()
+    first, second = source.split('\n\n')
+    index['spans'] = [dict(index['spans'][0], text=text, span_id=f'span-{n}',
+        source_span_ref_id=f'span-{n}', line_start=line, line_end=line,
+        char_start=start, char_end=start+len(text))
+        for n, text, line, start in ((1, first, 1, 0), (2, second, 3, len(first)+2))]
+
+    class BeatClient(RecordingClient):
+        def run_pass(self, pass_name, **kwargs):
+            response = super().run_pass(pass_name, **kwargs)
+            if pass_name == 'actor_pass':
+                response['parsed'] = {'observation_nodes': [
+                    {'node_id': nid, 'label': 'Miri', 'node_type': 'character',
+                     'description': 'Generated descriptive claim must not become source authority',
+                     'evidence_refs': [{'source_span_ref_id': 'span-1', 'anchor_quotes': ['Miri']}]}
+                    for nid in ('npc:miri', 'npc:duplicate')]}
+            elif pass_name == 'beat_pass':
+                prompt = kwargs['user_content']
+                assert first in prompt and second in prompt
+                assert 'Generated descriptive claim' not in prompt
+                inventory = json.JSONDecoder().raw_decode(
+                    prompt.split('## Node identity inventory\n\n```json\n', 1)[1])[0]
+                assert {n['node_id'] for n in inventory} == {'npc:miri'}
+                assert inventory[0]['label'] == 'Miri'
+                assert inventory[0]['evidence_refs']
+                response['parsed'] = {'observation_beats': [
+                    {'beat_id': f'beat:{n}', 'order': n, 'title': 'Source event',
+                     'summary': 'Untrusted model summary', 'involved_node_ids': participants,
+                     'evidence_refs': [{'source_span_ref_id': f'span-{n}', 'anchor_quotes': [text]}]}
+                    for n, text, participants in ((1, first, ['npc:miri']), (2, second, []))]}
+            elif pass_name == 'edge_pass':
+                response['parsed'] = {'observation_edges': []}
+            else:
+                response['parsed'] = {'observation_nodes': []}
+            return response
+
+    client = BeatClient()
+    result = extract_category_candidate_graph(CategoryGraphExtractionOptions(
+        campaign_id='synthetic-beat-context', session_id=None, session_number=None,
+        source_text=source, source_span_index=index, profile=RECAP_EXTRACTION_PROFILE), client=client)
+    assert client.passes == ['actor_pass', 'location_pass', 'collective_pass',
+        'object_pass', 'thread_pass', 'beat_pass', 'edge_pass']
+    beats = result.candidate_graph['beats']
+    assert [b['involved_node_ids'] for b in beats] == [['npc:miri'], []]
+    assert [b['summary'] for b in beats] == [first, second]
+    assert {node['node_id'] for node in result.candidate_graph['nodes']} == {'npc:miri'}
