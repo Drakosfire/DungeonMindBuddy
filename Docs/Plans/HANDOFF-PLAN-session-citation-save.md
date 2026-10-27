@@ -1,6 +1,6 @@
 # PLAN — session citation Save admission
 
-Status: BLOCKED for invariant critique. PRIME owns serial branch codex/session-citation-plan-admission at base7f9a74d09277674a8adfe1c6d6d08000b39c0682 in existing buddy-context-loop checkout, under standing authoring/dogfood authority. One bounded implementation PR. Live5202 UI is1836, API1835/schema0081. Sheep cited proposal and direct author cue remain retained unsaved; no regeneration or private hand repair. Held1764/hosted1828 remain separate.
+Status: ACTIVE after independent invariant critique approved exact design e67db8c7f20b90e8a33c0c8d3afc2050289e9267. PRIME owns serial branch codex/session-citation-plan-admission at base7f9a74d09277674a8adfe1c6d6d08000b39c0682 in existing buddy-context-loop checkout, under standing authoring/dogfood authority. One bounded implementation PR. Live5202 UI is1836, API1835/schema0081. Sheep cited proposal and direct author cue remain retained unsaved; no regeneration or private hand repair. Held1764/hosted1828 remain separate.
 
 ## Owning failure and correction
 
