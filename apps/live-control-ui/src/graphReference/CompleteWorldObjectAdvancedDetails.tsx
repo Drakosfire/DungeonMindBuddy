@@ -31,14 +31,36 @@ export function CompleteWorldObjectAdvancedDetails({
     </dl>
   );
 
+  const identities = (
+    <section aria-label="Returned relationship identities">
+      <h4>Returned relationship identities</h4>
+      {result.node?.adjacency.length ? result.node.adjacency.map((relationship) => (
+        <dl key={relationship.edgeId}>
+          <dt>Edge ID</dt><dd>{relationship.edgeId}</dd>
+          <dt>Related node ID</dt><dd>{relationship.nodeId}</dd>
+          <dt>Predicate</dt><dd>{relationship.predicate}</dd>
+          <dt>Direction</dt><dd>{relationship.direction}</dd>
+          <dt>Evidence reference IDs</dt>
+          <dd>{relationship.evidenceRefIds.length
+            ? relationship.evidenceRefIds.map((id) => <div key={id}>{id}</div>)
+            : "None in this admitted view"}</dd>
+        </dl>
+      )) : <p>No relationship identities in this admitted view.</p>}
+    </section>
+  );
+
   if (bare) {
-    return body;
+    return <>{body}<details className="graph-object-card__advanced">
+      <summary>Advanced</summary>
+      {identities}
+    </details></>;
   }
 
   return (
     <details className="graph-object-card__advanced">
       <summary>Advanced</summary>
       {body}
+      {identities}
     </details>
   );
 }
