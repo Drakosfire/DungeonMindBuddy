@@ -265,9 +265,12 @@ function LiveControlApp() {
           <h1>Live Control</h1>
           <p>{error ?? "Unable to load session surface."}</p>
           <p className="module-muted">
-            Start the L3 server with{" "}
-            <code>uv run uvicorn apps.live_control_server.main:app --reload</code> and ensure
-            session files are available.
+            For local development only, start L3 with explicit loopback-bound operator mode:{" "}
+            <code>
+              DMB_DEPLOYMENT_ENVIRONMENT=local DMB_AUTH_MODE=local_operator uv run uvicorn{" "}
+              apps.live_control_server.main:app --reload --host 127.0.0.1
+            </code>{" "}
+            and ensure session files are available.
           </p>
         </main>
       </AppChrome>

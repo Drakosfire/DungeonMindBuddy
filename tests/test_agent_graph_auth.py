@@ -412,7 +412,20 @@ def test_credential_config_token_and_loopback_enforcement() -> None:
         )
         with pytest.raises(HTTPException) as forged:
             authenticate_native_graph_principal(forged_headers)
-        assert forged.value.status_code == 401
+        assert forged.value.status_code == 403
+        assert forged.value.detail["code"] == "graph_auth_proxy_forbidden"
+
+        proxied_valid_credential = _request(
+            path="/api/live/world-graph/projection",
+            headers={
+                "Authorization": f"Bearer {LOCAL_OPERATOR_TOKEN}",
+                "X-Forwarded-For": "127.0.0.1",
+            },
+        )
+        with pytest.raises(HTTPException) as proxied:
+            authenticate_native_graph_principal(proxied_valid_credential)
+        assert proxied.value.status_code == 403
+        assert proxied.value.detail["code"] == "graph_auth_proxy_forbidden"
 
         forged_body = _graph_route_requests()[0][1]
         forged_body["role"] = "gm"

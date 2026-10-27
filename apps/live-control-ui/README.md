@@ -116,11 +116,15 @@ Play first-time setup is **not** just `uvicorn` plus `pnpm dev`. Configure
 
 After that bootstrap, ordinary runtime is:
 
+The repository `./run` launcher defaults the API to
+`DMB_DEPLOYMENT_ENVIRONMENT=local` and `DMB_AUTH_MODE=local_operator`. If you
+start Uvicorn manually, set both explicitly:
+
 Terminal 1:
 
 ```bash
 cd /path/to/DungeonMindBuddy
-uv run uvicorn apps.live_control_server.main:app --reload
+DMB_DEPLOYMENT_ENVIRONMENT=local DMB_AUTH_MODE=local_operator uv run uvicorn apps.live_control_server.main:app --reload --host 127.0.0.1
 ```
 
 Terminal 2:

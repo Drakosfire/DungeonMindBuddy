@@ -1,0 +1,39 @@
+# Example production package wiring only. It does not configure the host, edge
+# proxy, databases, DNS, TLS, credentials, or retained data.
+services:
+  buddy:
+    build:
+      context: ../..
+      dockerfile: Dockerfile.production
+      target: api
+    image: dungeonmindbuddy:review-build
+    init: true
+    ports:
+      - "127.0.0.1:${BUDDY_HTTP_BIND_PORT:-8080}:8000"
+    environment:
+      DMB_DEPLOYMENT_ENVIRONMENT: production
+      DMB_AUTH_MODE: hosted_dms
+      DUNGEONMIND_SERVER_API_ORIGIN: ${DUNGEONMIND_SERVER_API_ORIGIN:?set the HTTPS DMS API origin}
+      AUTH_TRUSTED_FRONTEND_ORIGINS: ${AUTH_TRUSTED_FRONTEND_ORIGINS:?include https://buddy.dungeonmind.net}
+      DMB_HOSTED_WORLD_ACCESS_JSON: ${DMB_HOSTED_WORLD_ACCESS_JSON:?set per-World DMS subject assignments for the full authorized cohort}
+      DUNGEONBUDDY_APPLICATION_STATE_DATABASE_URL: ${DUNGEONBUDDY_APPLICATION_STATE_DATABASE_URL:?set the Buddy application-state database URL}
+      DUNGEONMIND_WORLD_GRAPH_AUTHORITY_DATABASE_URL: ${DUNGEONMIND_WORLD_GRAPH_AUTHORITY_DATABASE_URL:?set the DungeonMind WorldGraph database URL}
+      DMB_MANAGED_WORLD_DATA_ROOT: /var/lib/buddy/managed
+      DMB_ARTIFACT_DATA_ROOT: /var/lib/buddy/artifacts
+      DUNGEONMIND_LIVE_SESSION_DIR: /var/lib/buddy/sessions
+      DUNGEONMIND_WORLD_GRAPH_ROOT: /var/lib/buddy/worldgraph
+      DUNGEONMIND_RECAP_SOURCE_CONTENT_ROOT: recaps
+    volumes:
+      - type: bind
+        source: ${BUDDY_PERSISTENT_ROOT:?set an existing durable host directory}
+        target: /var/lib/buddy
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health/ready', timeout=5)
+      interval: 60s
+      timeout: 10s
+      start_period: 90s
+      retries: 3
