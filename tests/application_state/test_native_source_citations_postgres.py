@@ -42,7 +42,7 @@ def native_writer(plan_adapter,monkeypatch):
             'resolution':identity|{'evidence_ref_id':pin.evidence_ref_id,'anchor_id':anchor,'can_open_source':True,
                 'snapshot':scope|{'revision_id':donor.graph_revision},
                 'artifact':{'source_artifact_id':pin.source_artifact_id,'world_id':authority.native_world_id,
-                    'source_domain':'worldbuilding','status':'active','visibility':'gm',
+                    'source_domain':'worldbuilding','source_domain_key':'worldbuilding','status':'active','visibility':'gm',
                     'lineage':{'source_name':'Synthetic marsh adventure'}},
                 'evidence':identity|{'evidence_ref_id':pin.evidence_ref_id,'source_domain':'worldbuilding'}},
             'revision':identity|{'content_sha256':'c'*64}}

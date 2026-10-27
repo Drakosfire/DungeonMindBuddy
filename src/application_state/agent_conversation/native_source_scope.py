@@ -1,17 +1,23 @@
 """Source ownership within one receipt-bound managed/native World identity."""
 
+from application_state.source.identity import canonical_source_domain_key
+
 SCOPE_FIELDS = frozenset({'world_id','source_domain','campaign_id','session_id'})
 
 
 def source_scope_matches(scope, artifact, authority):
+    key = canonical_source_domain_key(scope["source_domain"])
+    if not key or key != canonical_source_domain_key(artifact.get("source_domain_key")):
+        return False
+    if key in {"session_recap", "worldbuilding"} and artifact.get("source_domain") != key:
+        return False
     managed_world_id = authority.managed_world_id
     native_world_id = authority.native_world_id
     if artifact.get("world_id") != native_world_id:
         return False
     if scope["world_id"] == native_world_id and native_world_id != managed_world_id:
-        return all(scope[key] == artifact.get(key) for key in ("source_domain", "campaign_id", "session_id"))
+        return all(scope[key] == artifact.get(key) for key in ("campaign_id", "session_id"))
     if (scope['world_id'] != managed_world_id
-            or scope['source_domain'] != artifact['source_domain']
             or scope['session_id'] != artifact.get('session_id')):
         return False
     if scope['campaign_id'] == artifact.get('campaign_id'):
