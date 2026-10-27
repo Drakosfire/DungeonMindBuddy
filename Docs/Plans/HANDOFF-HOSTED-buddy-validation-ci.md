@@ -35,6 +35,7 @@ Using supported GitHub read tools, `main` resolved to `e754f68f1d6a9e726c23657e2
 - Set workflow and job token permissions to `contents: read` only. Persist no checkout credentials.
 - Use only the pinned official actions listed above; no `pull_request_target`, secrets, provider calls, real OAuth, OIDC, registry login, build credentials, artifacts, deployment, or automatic merge.
 - Bound each job with a 45-minute timeout and cancel superseded runs for the same PR. Do not cache dependencies or retain generated data.
+- Use standard `ubuntu-24.04` GitHub-hosted runners only; do not provision self-hosted or paid runner capacity.
 - The production image command is a build-only local load on the ephemeral hosted runner; it never publishes or starts a service.
 
 ## Exact write set
