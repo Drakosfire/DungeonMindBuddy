@@ -1,6 +1,7 @@
 # AGENT — bind Plan capture to the selected provider answer
 
-Status: ACTIVE. Owner: PRIME. Topology: serial consumer of merged GE#28
+Status: DEFERRED; no active write lease. Graph quality repair takes priority.
+Preserved on this branch for resumption after that bounded slice. Owner: PRIME. Topology: serial consumer of merged GE#28
 cd7287de4c4c53723a5530a949f1de05730f89da (reviewed1730bbb;371tests,Python3.11/3.13CI).
 Base: Buddy origin/main04e1f9c2f116eeeadc113c29ce5aa463248ff28c.
 Lane: codex/plan-final-answer-capture in existing buddy-context-loop checkout.
