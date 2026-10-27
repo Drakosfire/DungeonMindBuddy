@@ -294,6 +294,7 @@ class NativeSourceNavigator:
             raise NativeSourceUnavailable('native_source_call_unverified')
         identity = (reply.api_request_id,calls[0].call_id)
         if identity in self.call_results:return self.call_results[identity]
+        self.collect()  # a recovered Play worker may dispatch before composing another offer
         if name == SEARCH and arguments == {}:
             result = self.corpus.search()
         elif name == BROWSE and set(arguments) == {'anchor_id'}:

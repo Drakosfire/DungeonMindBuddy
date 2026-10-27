@@ -220,6 +220,8 @@ def test_current_native_play_captured_search_reads_registry_section(application_
         captured(owner,native_source_navigation.SEARCH,{})
         result=owner.tool(native_source_navigation.SEARCH,{},call_id='call-1')
         assert result['coverage']=='enumerated_membership_scanned' and len(result['sections'])==1
+        # A fresh Play worker receives the next captured call without a prior offer/collect.
+        owner=native_source_navigation.NativeSourceNavigator(adapter)
         monkeypatch.setattr(corpus_source_navigation,'collect_source_view',lambda *a,**kw:pytest.fail('repeated query scanned native sources'))
         captured(owner,native_source_navigation.SEARCH,{},call_id='repeat-search')
         reused=owner.tool(native_source_navigation.SEARCH,{},call_id='repeat-search')
