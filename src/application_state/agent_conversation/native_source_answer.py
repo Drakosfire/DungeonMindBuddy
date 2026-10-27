@@ -31,7 +31,13 @@ def producing_sections(turn, authorization, raw):
     if derived != stored:
         raise ValueError('Native section output differs from its actual producing input')
     reads = {e.event_id:e for e in execution.events if isinstance(e,t.NativeSourceSectionObservedV1)}
-    return tuple(NativeSectionSupport(section_handle(reads[identity]),reads[identity],
+    handle_for=section_handle
+    if isinstance(authorization,t.PlanJevWriterAuthorizedV1):
+        from .plan_jev_graph_packet import frame_in_request
+        from .plan_source_selectors import FRAME_SCHEMA, source_selector
+        if frame_in_request(raw).get('schema')==FRAME_SCHEMA:
+            handle_for=lambda read:source_selector(turn,read)
+    return tuple(NativeSectionSupport(handle_for(reads[identity]),reads[identity],
         source_name(execution,reads[identity])) for identity in stored.read_event_ids)
 
 

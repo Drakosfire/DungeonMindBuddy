@@ -90,9 +90,13 @@ def prove_input(turn, authorization, request_json, *, sequence, event_id=None):
     body = strict_json(request_json)
     if not isinstance(body,dict) or body.get("model") != authorization.model:
         raise ValueError("Native section input differs from producing model")
+    plan_selectors=False
     if isinstance(authorization,t.PlanJevWriterAuthorizedV1):
         from .plan_jev_graph_packet import frame_in_request
-        frame = frame_in_request(request_json).get("native_source_sections")
+        from .plan_source_selectors import FRAME_SCHEMA
+        plan_frame=frame_in_request(request_json)
+        plan_selectors=plan_frame.get('schema')==FRAME_SCHEMA
+        frame = plan_frame.get("native_source_sections")
         frames = [] if frame is None else [frame]
     else:
         if not isinstance(execution,t.PlayWorldGraphExecutionV1):
@@ -115,6 +119,11 @@ def prove_input(turn, authorization, request_json, *, sequence, event_id=None):
             if not isinstance(row,dict) or not isinstance(row.get("section_handle"),str):
                 raise ValueError("Native section input has malformed selectors")
             handle = row["section_handle"]
+            if plan_selectors:
+                from .plan_source_selectors import resolve_selector
+                _,selected_read=resolve_selector(turn,authorization,handle,'n')
+                handle=section_handle(selected_read)
+                row={**row,'section_handle':handle}
             read = reads.get(handle)
             if read is None or handle in seen or t.canonical_sha256(row) != t.canonical_sha256(section_row(execution,read)):
                 raise ValueError("Native section input differs from one exact successful named receipt")

@@ -14,7 +14,7 @@ from .source_writer_output import strict_json
 from .rules_authority_types import canonical_bytes, canonical_sha256
 from .context_trace import TraceSourcePassage, TraceSourceReuse, TraceFailure
 
-SCHEMA = "dmb_plan_jev_writer_frame_v3"
+from .plan_source_selectors import FRAME_SCHEMA as SCHEMA, source_selector
 _METADATA = {"reviewId", "contributionId", "publicationRevisionId", "sourceArtifactId", "sourceRevisionId", "evidenceRefIds"}
 _TARGETS = (("attributes", "assertion", "assertionId"), ("reviewedSourceObservations", "assertion", "assertionId"),
             ("relationships", "relationship", "edgeId"))
@@ -185,8 +185,8 @@ def project(turn, proof, trace):
         seen.add(passage.source_read_id)
         source_events.add(source.event_id)
         present.add(passage.evidence_ref_id)
-        from .surface_source_answer import eligible, passage_handle
-        passages.append({**({"passage_handle": passage_handle(read)} if eligible(read) else {}), "evidence": handles[passage.evidence_ref_id], "source_name": names.get(passage.source_read_id, "Opened source"),
+        from .surface_source_answer import eligible
+        passages.append({**({"passage_handle": source_selector(turn,source,source.receipts.index(read))} if eligible(read) else {}), "evidence": handles[passage.evidence_ref_id], "source_name": names.get(passage.source_read_id, "Opened source"),
             "text": passage.text, "line_start": passage.line_start, "line_end": passage.line_end, "outcome": passage.outcome, "truncated": read.truncated,
             "evidence_sufficiency": read.evidence_sufficiency_status})
     if not set(names) <= seen:
@@ -240,7 +240,11 @@ def project(turn, proof, trace):
     if native_sections is not None:
         from .surface_evidence_answer import SELECTOR_POLICY
         frame["answer_policy"] = SELECTOR_POLICY
-        frame["native_source_sections"] = native_sections
+        from .native_source_input import section_handle
+        native_aliases={section_handle(read):source_selector(turn,read) for read in native_reads}
+        frame["native_source_sections"] = {**native_sections,'sections':[
+            {**row,'section_handle':native_aliases[row['section_handle']]}
+            for row in native_sections['sections']]}
     if isinstance(execution.policy, t.PlanAuthoringPolicyV1):
         choices = [event for event in execution.events if isinstance(event, t.PlanRequestedWorkSelectedV1)]
         if len(choices) != 1:
@@ -277,7 +281,7 @@ def frame_in_request(raw):
             value = strict_json(content)
         except (ValueError, TypeError):
             continue
-        if isinstance(value, dict) and value.get("schema") in {SCHEMA,"dmb_plan_jev_writer_frame_v2","dmb_plan_jev_writer_frame_v1"}:
+        if isinstance(value, dict) and value.get("schema") in {SCHEMA,"dmb_plan_jev_writer_frame_v3","dmb_plan_jev_writer_frame_v2","dmb_plan_jev_writer_frame_v1"}:
             frames.append(value)
     if len(frames) != 1:
         raise ValueError("Plan writer requires one exact evidence frame")
