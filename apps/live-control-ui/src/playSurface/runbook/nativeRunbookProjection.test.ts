@@ -225,6 +225,39 @@ describe("slicePlayableBodies", () => {
     expect([...slices.keys()]).toEqual(["scene:gate", "beat:breach"]);
   });
 
+  it.each([
+    ["# Root instructions", ""],
+    ["## Root instructions", "An intervening paragraph."],
+    ["## **Styled title**", ""],
+    ["## [Reference title](#dmb-ref:npc:guard)", ""],
+  ])("keeps %s as an ordinary boundary rather than a table caption", (heading, between) => {
+    const markdown = [
+      "<!-- dmb-playable-element:v2 kind=beat id=beat:one beat_kind=spine -->",
+      "## Beat", "", "<!-- dmb-playable-element:v2 kind=scene id=scene:a -->",
+      "### Scene", "", "Retained Scene prose.", "", heading, "", between, "",
+      "| Key | Value |", "| --- | --- |", "| Secret | Outside Scene |", "",
+      "Root-only instructions.",
+    ].join("\n");
+    const imported = markdownToTiptapDoc(markdown);
+    expect(imported.diagnostics).toEqual([]);
+    const slices = slicePlayableBodies(imported.doc);
+    expect(slices.get("scene:a")?.bodyText).toBe("Retained Scene prose.");
+    expect(slices.get("scene:a")?.bodyContent?.map(node => node.type)).toEqual(["paragraph"]);
+  });
+
+  it("keeps a marked Beat followed by a table as a new playable boundary", () => {
+    const imported = markdownToTiptapDoc([
+      "<!-- dmb-playable-element:v2 kind=beat id=beat:one beat_kind=spine -->",
+      "## Beat one", "", "<!-- dmb-playable-element:v2 kind=scene id=scene:a -->",
+      "### Scene", "", "Retained Scene prose.", "",
+      "<!-- dmb-playable-element:v2 kind=beat id=beat:two beat_kind=spine -->",
+      "## Beat two", "", "| Key | Value |", "| --- | --- |", "| Later | Beat |",
+    ].join("\n"));
+    const slices = slicePlayableBodies(imported.doc);
+    expect(slices.get("scene:a")?.bodyText).toBe("Retained Scene prose.");
+    expect(slices.get("beat:two")?.bodyContent?.map(node => node.type)).toEqual(["table"]);
+  });
+
   it("keeps v2 Choice prose and marked list-item Option text disjoint", () => {
     const imported = markdownToTiptapDoc(V2_MARKDOWN);
     expect(imported.diagnostics).toEqual([]);
