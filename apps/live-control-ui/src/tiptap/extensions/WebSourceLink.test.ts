@@ -120,8 +120,16 @@ describe('ordinary link title fidelity',()=>{
    try {expect(reopened.view.dom.querySelector('a')?.getAttribute('title')).toBe(title);expect(tiptapJsonToSemanticMarkdown(reopened.getJSON())).toBe(exported)} finally {reopened.destroy()}
   } finally {editor.destroy()}
  });
- it.each(['line\nbreak','nul\0title',42,{},['title']])('refuses unsupported title metadata %s',title=>{
+ it.each(['line\nbreak','nul\0title','c1\u0085title','c1\u009ftitle',42,{},['title']])('refuses unsupported title metadata %s',title=>{
   const doc={type:'doc',content:[{type:'paragraph',content:[{type:'text',text:'Source',marks:[{type:'link',attrs:{href:'https://example.com',title}}]}]}]};
   expect(semanticMarkdownSerializationDiagnostics(doc)).not.toEqual([]);
  });
+});
+
+it.each(['\u0085','\u009f'])('refuses C1 title controls through actual Markdown and HTML import',control=>{
+ const title='Source'+control+'notes';
+ expect(markdownToTiptapDoc(`[Source](https://example.com "${title}")`).diagnostics.some(d=>d.level==='warning')).toBe(true);
+ const element=document.createElement('div'),a=document.createElement('a');a.href='https://example.com';a.title=title;a.textContent='Source';element.append(a);
+ const editor=new Editor({extensions:DEFAULT_MARKDOWN_EDITOR_EXTENSIONS,content:element.innerHTML});
+ try {expect(editor.view.dom.querySelector('a')).toBeNull()} finally {editor.destroy()}
 });

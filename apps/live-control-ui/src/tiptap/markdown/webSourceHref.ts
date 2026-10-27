@@ -12,5 +12,5 @@ export function webSourceHref(value: unknown): string | null {
 
 /** Inert optional display text; never URL or evidence authority. */
 export function validWebSourceTitle(value: unknown): value is string | null | undefined {
-  return value == null || (typeof value === 'string' && !/[\u0000-\u001f\u007f]/u.test(value));
+  return value == null || (typeof value === 'string' && !/[\u0000-\u001f\u007f-\u009f]/u.test(value));
 }
