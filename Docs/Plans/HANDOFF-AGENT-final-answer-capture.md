@@ -1,9 +1,10 @@
 # AGENT — bind Plan capture to the selected provider answer
 
-Status: DEFERRED; no active write lease. Graph quality repair takes priority.
-Preserved on this branch for resumption after that bounded slice. Owner: PRIME. Topology: serial consumer of merged GE#28
+Status: ACTIVE. Graph source/gold experiments are now sequenced in ADVERSARY;
+PRIME resumes this independent deterministic delivery repair with no live calls. Owner: PRIME. Topology: serial consumer of merged GE#28
 cd7287de4c4c53723a5530a949f1de05730f89da (reviewed1730bbb;371tests,Python3.11/3.13CI).
-Base: Buddy origin/main04e1f9c2f116eeeadc113c29ce5aa463248ff28c.
+Base: Buddy origin/main53d4bfd70bc599e18494e258f5c2b39acbf93c21. Open PRs and
+remote re-anchored; source experiments do not write these paths.
 Lane: codex/plan-final-answer-capture in existing buddy-context-loop checkout.
 Authority: operator instruction to own ADVERSARY-confirmed runtime regressions.
 No model/context-summary experiment or historical data repair is authorized here.
@@ -51,3 +52,8 @@ Ordinary Conks discussion and on-page brief Move/edit/Save/reload passed. Origin
 mechanics and manual successor are saved; explicit encounter adoption/Play/images
 and full acceptance remain open. Neither library nor consumer tests prove that
 broader journey or semantic answer mastery.
+
+PR1823/1824 are merged and protected-delivered. Source-pinned live ingestion
+observes improved actor associations but unresolved semantic errors; no quality
+pass. New operator direction sequences corpus/gold preparation before additional
+prompt/schema/model experiments. This adapter fix makes no such experiment.
