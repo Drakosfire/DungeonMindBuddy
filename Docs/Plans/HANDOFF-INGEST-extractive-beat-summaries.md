@@ -73,3 +73,7 @@ The exact saved eight-pass Session 29 result and source were recomposed offline 
 - The owning persistence/reopen test uses only PRIME's disposable PostgreSQL fixture on port `54329` (512 MiB tmpfs, existing image, no retained data). PRIME owns its startup and cleanup. Do not use the retained fixture on `54331`; clean up `54329` after the author and independent-review consumers finish.
 - No automatic publication, operator acceptance, retained application/graph database mutation, runtime restart, provider execution, or 5202 change is authorized. The disposable database fixture is authorized only for persistence/reopen verification and is owned and cleaned up by PRIME after author and review consumers finish.
 - Commit, push, and open one PR. Send PRIME the exact base/head, handoff-first commit, cumulative diff summary, test results, recomposition hashes, and remaining limits. ARCHITECTURE reviews the exact head; PRIME decides merge and any live follow-through.
+
+## Authorized successor
+
+PRIME activated HANDOFF-INGEST-multispan-excerpts.md at base a0eb30093 on 2026-10-27. It replaces only blanket multi-span deferral with independent validated whole-paragraph excerpts and explicit origin lineage. All source-authority and no-joined-prose protections remain binding. Historical PR1391 evidence above is unchanged.

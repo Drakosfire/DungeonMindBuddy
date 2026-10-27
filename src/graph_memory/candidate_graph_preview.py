@@ -119,6 +119,7 @@ class SessionBeat:
     unresolved_thread_node_ids: tuple[str, ...] = ()
     proposed_action: str = "create"
     warnings: tuple[str, ...] = ()
+    source_beat_id: str | None = None
 
 @dataclass(frozen=True)
 class ProposedWrite:
