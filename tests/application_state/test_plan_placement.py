@@ -124,3 +124,33 @@ def test_retained_v1_capture_keeps_exact_old_digest_and_text_selection_rules():
     payload["from"] = payload["to"] = 39
     with pytest.raises(ValidationError, match="directional selection"):
         PlanAuthoringCaptureV1.model_validate(payload)
+
+
+def test_current_intent_projection_preserves_frozen_v2_wire_and_location_choices():
+    from pathlib import Path
+    from hashlib import sha256
+    from application_state.agent_conversation.plan_authoring import (
+        CURRENT_REQUEST_INTENT_POLICY, prepare_requested_work_decision,
+        validate_requested_work_wire, validate_prepared_requested_work,
+    )
+    from application_state.agent_conversation.plan_placement import (
+        PlanRequestedWorkInputV2, PlanRequestedWorkInputV3,
+    )
+    frozen = json.loads((Path(__file__).parents[1] / "fixtures/plan_requested_work_v2_wire.json").read_text())
+    raw = frozen["wire_json"].encode()
+    assert sha256(raw).hexdigest() == frozen["wire_sha256"]
+    old = PlanRequestedWorkInputV2.model_validate(frozen["parent"])
+    validate_requested_work_wire(old, raw)
+    current = PlanRequestedWorkInputV3.model_validate(frozen["parent"] | {"schema": "dmb_plan_requested_work_input_v3"})
+    projected = prepare_requested_work_decision(current)
+    wire = json.loads(raw)
+    assert projected.state == wire["state"] | {"intent_policy": CURRENT_REQUEST_INTENT_POLICY}
+    assert projected.questions[0].options == tuple(wire["questions"]["requested_work"]["criteria"])
+    wire["state"] = projected.state
+    current_raw = json.dumps(wire).encode()
+    validate_requested_work_wire(current, current_raw)
+    for parent, substituted in ((old, current_raw), (current, raw)):
+        with pytest.raises(ValueError, match="wire differs"):
+            validate_requested_work_wire(parent, substituted)
+    with pytest.raises(ValueError, match="requires the V3"):
+        validate_prepared_requested_work(old, None)

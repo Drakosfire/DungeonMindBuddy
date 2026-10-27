@@ -16,7 +16,7 @@ from application_state.agent_conversation.plan_authoring import (
     validate_prepared_requested_work, validate_requested_work_wire,
 )
 
-from application_state.agent_conversation.plan_placement import PlanRequestedWorkInputV2, work_choice
+from application_state.agent_conversation.plan_placement import PlanRequestedWorkInputV2, PlanRequestedWorkInputV3, work_choice
 
 
 def request_budget():
@@ -73,7 +73,7 @@ class PlanJevDispatch:
         """Use the same one-shot provider gate for the separate destination choice."""
         dispatch = cls(adapter, (), dialogue=dialogue)
         capture = adapter.request.plan_authoring_capture
-        dispatch.parent = PlanRequestedWorkInputV2(request_id=uuid4(), parent_attempt_id=uuid4(),
+        dispatch.parent = PlanRequestedWorkInputV3(request_id=uuid4(), parent_attempt_id=uuid4(),
             scope_sha256='0' * 64, question=adapter.request.message, page_title=page_title,
             dialogue=tuple(row.model_dump() if hasattr(row, 'model_dump') else row for row in dialogue),
             target_capture_sha256=capture.sha256 if capture is not None else None,

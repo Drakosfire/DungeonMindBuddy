@@ -53,11 +53,22 @@ def verify_input(turn, auth, proof):
         from .plan_authoring import PlanRequestedWorkInputV1, validate_requested_work_wire
         if not isinstance(execution.policy, t.PlanAuthoringPolicyV1):
             raise ValueError('Plan destination decision requires its frozen authoring policy')
-        from .plan_placement import PlanRequestedWorkInputV2
+        from .plan_placement import PlanRequestedWorkInputV2, PlanRequestedWorkInputV3
         placement = isinstance(auth, t.PlanRequestedWorkAuthorizedV2)
         if placement != isinstance(execution.policy, t.PlanPlacementAuthoringPolicyV1):
             raise ValueError('Plan placement authorization differs from its current policy')
-        request = (PlanRequestedWorkInputV2 if placement else PlanRequestedWorkInputV1).model_validate(strict_json(parent))
+        parent_value = strict_json(parent)
+        schema = parent_value.get("schema") if isinstance(parent_value, dict) else None
+        if placement:
+            parent_type = {
+                "dmb_plan_requested_work_input_v2": PlanRequestedWorkInputV2,
+                "dmb_plan_requested_work_input_v3": PlanRequestedWorkInputV3,
+            }.get(schema)
+        else:
+            parent_type = PlanRequestedWorkInputV1 if schema == "dmb_plan_requested_work_input_v1" else None
+        if parent_type is None:
+            raise ValueError("Unknown Plan requested-work parent contract")
+        request = parent_type.model_validate(parent_value)
         if placement and (request.placement_catalog.sha256 if request.placement_catalog is not None else None) != execution.policy.placement_catalog_sha256:
             raise ValueError('Plan placement catalog differs from its frozen current intent')
         if request.target_capture_sha256 != execution.policy.plan_authoring_capture_sha256:
