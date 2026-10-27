@@ -801,12 +801,13 @@ _PROTECTS_LEGACY_GOLDEN = json.loads(r"""{"base": "406cb3e2a5b196a80f8a9b2fc3ff3
  ]}""")
 
 
-def test_protects_adoption_preserves_legacy_keys_scores_and_diagnostics():
+def test_comparison_scores_and_diagnostics_remain_independent_of_exact_dedup():
     nodes = [_node("a", "Alpha", "character", {"type": "npc", "ref_id": "alpha"}),
              _node("b", "Bravo", "character", {"type": "npc", "ref_id": "bravo"})]
     index = ir.node_index(nodes)
     for predicate, expected in _PROTECTS_LEGACY_GOLDEN["keys"].items():
-        assert ir.canonical_edge_key(_edge("e", "a", "b", predicate), index) == tuple(expected)
+        expected_predicate = "parent_of" if predicate == "child_of" else predicate
+        assert ir.canonical_edge_key(_edge("e", "a", "b", predicate), index) == (expected_predicate, *expected[1:3])
     for row in _PROTECTS_LEGACY_GOLDEN["pairs"]:
         assert ir.edge_match_score(row["gold"], row["candidate"], index, index) == row["score"]
         assert ir.classify_edge_alignment(row["gold"], row["candidate"], index, index) == row["diagnostic"]
@@ -842,3 +843,48 @@ def test_literal_protection_is_directed_even_when_family_override_is_symmetric()
         assert ir.canonical_edge_key(forward, index) != ir.canonical_edge_key(backward, index)
         assert ir.classify_edge_alignment(forward, backward, index, index)["reason"] == "endpoint_score_below_threshold"
         assert len(ir.dedup_edges([forward, backward], nodes)["kept"]) == 2
+
+
+def test_dedup_preserves_distinct_predicates_directions_and_qualifiers():
+    nodes = [_node('a', 'Alpha', 'character'), _node('b', 'Bravo', 'character')]
+    edges = [_edge('attack', 'a', 'b', 'attacks'),
+             _edge('threat', 'a', 'b', 'threatens'),
+             _edge('trust', 'a', 'b', 'trusts'),
+             _edge('reverse-trust', 'b', 'a', 'trusts'),
+             dict(_edge('planned', 'a', 'b', 'attacks'), semantic_state={'status': 'planned'}),
+             dict(_edge('qualified', 'a', 'b', 'attacks'), label='attacks only if threatened')]
+    for ordered in (edges, list(reversed(edges))):
+        result = ir.dedup_edges(ordered, nodes)
+        assert {e['edge_id'] for e in result['kept']} == {e['edge_id'] for e in edges}
+        assert result['merged'] == []
+
+
+def test_exact_and_inverse_duplicates_union_all_evidence_without_mutating_inputs():
+    import copy
+    nodes = [_node('a', 'Alpha', 'character'), _node('b', 'Bravo', 'character')]
+    edges = [dict(_edge('one', 'a', 'b', 'parent_of'), evidence_refs=[{'anchor': 'one'}]),
+             dict(_edge('two', 'b', 'a', 'child_of'), evidence_refs=[{'anchor': 'two'}]),
+             dict(_edge('three', 'a', 'b', 'parent_of'), evidence_refs=[{'anchor': 'one'}])]
+    original = copy.deepcopy(edges)
+    for ordered in (edges, list(reversed(edges))):
+        result = ir.dedup_edges(ordered, nodes)
+        assert len(result['kept']) == 1
+        assert {r['anchor'] for r in result['kept'][0]['evidence_refs']} == {'one', 'two'}
+        assert len(result['merged']) == 2
+    assert edges == original
+
+
+def test_preview_dataclass_duplicate_keeps_type_and_unions_evidence():
+    from dataclasses import replace
+    from src.graph_memory.candidate_graph_preview import CandidateEdge, EvidenceRef, SemanticState
+    state = SemanticState('candidate', 'draft', 'source_evidence', 'unreviewed', 'visible')
+    first = CandidateEdge('one', 'a', 'b', 'parent', 'parent_of', state,
+        (EvidenceRef('source', 'artifact', source_anchor_id='one'),), 'create', 'medium')
+    inverse = replace(first, edge_id='two', from_node_id='b', to_node_id='a',
+        relationship_type='child_of',
+        evidence_refs=(EvidenceRef('source', 'artifact', source_anchor_id='two'),))
+    result = ir.dedup_edges([first, inverse], [])
+    assert isinstance(result['kept'][0], CandidateEdge)
+    assert {ref.source_anchor_id for ref in result['kept'][0].evidence_refs} == {'one', 'two'}
+    assert len(first.evidence_refs) == 1
+    assert len(ir.dedup_edges([first, replace(first, to_node_id='missing')], [])['kept']) == 2
