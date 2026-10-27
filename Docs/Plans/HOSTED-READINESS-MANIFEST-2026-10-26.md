@@ -6,7 +6,7 @@ Snapshot: 2026-10-27 UTC. This records repository source state and the implement
 
 | Repository | Main head checked 2026-10-27 | Role / note |
 |---|---|---|
-| [DungeonMindBuddy](https://github.com/Drakosfire/DungeonMindBuddy) | 86d1857645a7c19f395997f144b2d638f11de683 | Current Buddy main. PR #1802 began at c5250824f3c3d5b4bb33d1897914158a3ee3d8fa; the branch is now re-anchored while preserving the 29 intervening main commits and the prior PR history. No intervening main path overlaps the PR. |
+| [DungeonMindBuddy](https://github.com/Drakosfire/DungeonMindBuddy) | 9ad5c96f4330517c7d3a4aa276e254d7097707b1 | Current Buddy main. PR #1802 began at c5250824f3c3d5b4bb33d1897914158a3ee3d8fa; the branch is re-anchored through this head while preserving 30 intervening main commits and the prior PR history. The 107 changed main paths do not overlap the PR. |
 | [DungeonMindServer](https://github.com/Drakosfire/DungeonMindServer) | f95e92cb0fb50949260534b12c063ab1811eaf30 | Existing DMS identity and session authority. |
 | [DungeonMind](https://github.com/Drakosfire/DungeonMind) | 4ccd39a1e433d81569d86c05273ac33ee8f27ef3 | In-process Core library and separate WorldGraph authority. |
 | [LandingPage](https://github.com/Drakosfire/LandingPage) | 9e567007cd37867fffd95db8b229c77f5950616e | Public frontend repository; no edits proposed. |

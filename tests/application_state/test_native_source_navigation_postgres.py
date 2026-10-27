@@ -76,7 +76,7 @@ def authorization(turn, donor, pin):
         "resolution": source | {"evidence_ref_id": pin.evidence_ref_id, "anchor_id": "dm-source-anchor:v1:proof", "can_open_source": True,
             "snapshot": scope | {"revision_id": donor.graph_revision},
             "artifact": {"source_artifact_id": pin.source_artifact_id, "world_id": authority.native_world_id,
-                "source_domain": "worldbuilding", "status": "active", "visibility": "gm"},
+                "source_domain": "worldbuilding", "source_domain_key": "worldbuilding", "status": "active", "visibility": "gm"},
             "evidence": source | {"evidence_ref_id": pin.evidence_ref_id, "source_domain": "worldbuilding"}},
         "revision": source | {"content_sha256": "c"*64}}
     provider = next(e for e in reversed(execution.events) if isinstance(e, t.ProviderAttemptAuthorizedEventV1))

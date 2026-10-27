@@ -222,21 +222,22 @@ def test_navigation_omits_only_document_wide_terms_and_keeps_single_section_hint
     assert set(section_query_terms(single,sections,'shared armor')[sections[0].section_id])=={'shared','armor'}
 
 
+@pytest.mark.parametrize(('producer_key', 'native_key'), [('recap','recap'), ('recap','session_recap'), ('session_recap','session_recap'), ('dungeonbuddy.recap','dungeonbuddy.recap')])
 @pytest.mark.parametrize('owner_world', ['managed', 'native'])
 @pytest.mark.parametrize('named', [False, True])
-def test_recap_catalog_read_and_citation_share_frozen_registered_name(nav_case, monkeypatch, named, owner_world):  # noqa: F811
+def test_recap_catalog_read_and_citation_share_frozen_registered_name(nav_case, monkeypatch, named, owner_world, producer_key, native_key):  # noqa: F811
     from dataclasses import replace
     from application_state.agent_conversation.native_source_input import project_sections
     from application_state.agent_conversation.native_source_answer import NativeSectionSupport, citation
     service, turn, _, pin = nav_case
-    sources.persist_source_markdown(source_artifact_id=pin.source_artifact_id, source_domain='session_recap',
+    sources.persist_source_markdown(source_artifact_id=pin.source_artifact_id, source_domain=producer_key,
         world_id=turn.world_id if owner_world == 'managed' else turn.graph_context_receipt.graph_authority.native_world_id, campaign_id='campaign:synthetic', session_id='session-29', markdown=TEXT, lineage={})
     adapter = SimpleNamespace(service=service, fence=_ClaimFence(service, turn), turn=turn, context_capture=None)
     owner = NativeSourceNavigator(adapter)
     def access(self, entry):
         origin = synthetic_access(self, entry)
         proof = json.loads(origin.proof_json)
-        proof['resolution']['artifact'].update(source_domain_key='dungeonbuddy.recap', source_domain='session_recap', campaign_id='campaign:synthetic',
+        proof['resolution']['artifact'].update(source_domain_key=native_key, source_domain='session_recap', campaign_id='campaign:synthetic',
             session_id='session-29', lineage={'source_name':'Custom recap title'} if named else {})
         proof['resolution']['evidence']['source_domain'] = 'session_recap'
         return replace(origin, proof_json=json.dumps(proof))
@@ -434,7 +435,7 @@ def test_native_recap_scope_mismatch_refuses_before_body(nav_case, monkeypatch, 
     def access(self, entry):
         origin = synthetic_access(self, entry)
         proof = json.loads(origin.proof_json)
-        proof['resolution']['artifact'].update(source_domain='session_recap', source_domain_key='dungeonbuddy.recap',
+        proof['resolution']['artifact'].update(source_domain='session_recap', source_domain_key='session_recap',
             campaign_id='campaign:synthetic', session_id='session-29')
         proof['resolution']['evidence']['source_domain'] = 'session_recap'
         return replace(origin, proof_json=json.dumps(proof))

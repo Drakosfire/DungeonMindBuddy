@@ -8,7 +8,7 @@ from application_state.agent_conversation.rules_authority_reads import MixedComp
 from application_state.agent_conversation.native_source_navigation import origin_payload
 from application_state.agent_conversation.native_source_scope import source_scope_matches, SCOPE_FIELDS
 from application_state.agent_conversation.build_section import exact_saved_section
-from application_state.source.service import get_source_markdown
+from application_state.source.service import get_source_markdown, get_source_artifact_scope
 from apps.live_control_server.services.managed_world_graph_projection import resolve_managed_world_binding
 from apps.live_control_server.integrations.dungeonmind.world_graph_reads import direct_services_from_config
 from apps.live_control_server.integrations.dungeonmind.source_origin import verify_native_source_origin
@@ -52,9 +52,12 @@ def open_native_source_section(*, world_id: str, turn_id: UUID, citation_index: 
         # Denial or an unavailable access authority never reaches body storage.
         raise SourcePassageOpenError('source_section_access_unavailable') from exc
     try:
+        artifact = original["resolution"]["artifact"]
+        scope = get_source_artifact_scope(source_artifact_id=citation.source_artifact_id)
+        if scope is None or not source_scope_matches(scope, artifact, authority):
+            raise ValueError("Immutable source ownership unavailable")
         source = get_source_markdown(source_artifact_id=citation.source_artifact_id,
             content_sha256=citation.content_sha256,source_revision_id=citation.app_source_revision_id)
-        artifact = original['resolution']['artifact']
         if (source is None or source.source_revision_id != citation.app_source_revision_id
                 or source.source_artifact_id != citation.source_artifact_id
                 or not source_scope_matches(source.model_dump(include=SCOPE_FIELDS),artifact,authority)

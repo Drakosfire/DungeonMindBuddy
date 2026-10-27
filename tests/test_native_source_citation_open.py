@@ -157,3 +157,39 @@ def test_native_owned_source_citation_reopens_through_authenticated_owner(reques
     result = read(case)
     assert result.content == '## Appendix A\r\nTree mechanics.\r\n'
     assert result.citation == case[1] and case[2] == ['access', 'body']
+
+
+@pytest.mark.parametrize('native_key', ['recap', 'session_recap'])
+def test_recap_producer_identity_survives_completed_citation_reopen(request, monkeypatch, plan_adapter, native_key):
+    import json
+    from tests.application_state import test_native_source_catalog_postgres as catalogs
+    original = catalogs.grant
+    def recap(case, **kwargs):
+        original_authorization = catalogs.authorization
+        def authorize(*args):
+            event = original_authorization(*args)
+            proof = json.loads(event.origin_proof_json)
+            proof['resolution']['artifact'].update(source_domain='session_recap', source_domain_key=native_key,
+                campaign_id='campaign:synthetic', session_id='session-6')
+            proof['resolution']['evidence']['source_domain'] = 'session_recap'
+            return t.NativeSourceNavigationAuthorizedV1.model_validate(event.model_dump(mode='json') | {
+                'origin_proof_json':json.dumps(proof), 'origin_proof_sha256':t.canonical_sha256(proof)})
+        monkeypatch.setattr(catalogs, 'authorization', authorize)
+        kwargs['source_values'] = dict(world_id=case[1].graph_context_receipt.graph_authority.native_world_id,
+            source_domain='recap', campaign_id='campaign:synthetic', session_id='session-6')
+        return original(case, **kwargs)
+    monkeypatch.setattr(catalogs, 'grant', recap)
+    case = request.getfixturevalue('opened_case')
+    result = read(case)
+    assert result.content == '## Appendix A\r\nTree mechanics.\r\n'
+    assert result.citation == case[1] and case[2] == ['access','body']
+
+
+def test_wrong_producer_metadata_never_opens_citation_body(opened_case, monkeypatch):
+    original = owner.get_source_artifact_scope
+    def wrong(**kw):
+        return original(**kw) | {'source_domain':'another.producer'}
+    monkeypatch.setattr(owner, 'get_source_artifact_scope', wrong)
+    with pytest.raises(SourcePassageOpenError, match='bytes_unavailable'):
+        read(opened_case)
+    assert opened_case[2] == ['access']
