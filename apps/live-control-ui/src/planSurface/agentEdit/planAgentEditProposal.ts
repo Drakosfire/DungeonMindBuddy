@@ -1,4 +1,4 @@
-import type {PlanAuthoringCapture} from "../../api/planAuthoringReviewApi";
+import type {PlanAuthoringCapture, PlanReviewApplication, PlanAuthoringReview} from "../../api/planAuthoringReviewApi";
 import { Editor, type JSONContent } from "@tiptap/core";
 import { TextSelection } from "@tiptap/pm/state";
 import type { MarkdownSourceLineTarget } from "../../markdownReader/MarkdownDocumentReader";
@@ -125,8 +125,9 @@ export interface CapturedWorldPlanSectionTarget {
   roundTripSuffix: JSONContent[];
 }
 
-export interface AdmittedWorldPlanEditProposal {
-  response: WorldPlanDocumentEditProposalResponse;
+type PlanEditApplicationIdentity=Pick<WorldPlanDocumentEditProposalResponse,"document_id"|"world_id"|"draft_sha256"|"action_id">;
+export interface AdmittedWorldPlanEditProposal<Response extends PlanEditApplicationIdentity=WorldPlanDocumentEditProposalResponse> {
+  response: Response;
   content: JSONContent[];
   canonicalMarkdown: string;
 }
@@ -154,6 +155,15 @@ export interface PlanAuthoringIdentity {idempotencyKey:string;conversationId:str
 export interface CapturedPlanAuthoringTarget {capture:PlanAuthoringCapture;target:CapturedWorldPlanEditTarget}
 export interface WorldPlanEditBridge {
   captureAuthoring?: (identity:PlanAuthoringIdentity)=>Promise<CapturedPlanAuthoringTarget>;
+  restoreAuthoring?: (capture:PlanAuthoringCapture,identity:PlanAuthoringIdentity)=>Promise<CapturedPlanAuthoringTarget>;
+  prepareAuthoring?: (target:CapturedWorldPlanEditTarget,markdown:string,actionId:string,
+    expected:ExpectedWorldPlanEditAgentBinding,binding:()=>WorldPlanEditAgentBinding)=>Promise<PreparedPlanAuthoringApplication>;
+  saveAuthoring?: (target:CapturedWorldPlanEditTarget,prepared:PreparedPlanAuthoringApplication,
+    application:PlanReviewApplication,expected:ExpectedWorldPlanEditAgentBinding,binding:()=>WorldPlanEditAgentBinding,
+    commit:()=>Promise<PlanAuthoringReview>)=>Promise<PlanAuthoringReview>;
+  acknowledgeAuthoring?: (application:PlanReviewApplication)=>Promise<void>;
+  reconcileAuthoring?: (actionId:string,applicationId:string)=>Promise<void>;
+  authoringTitle?: ()=>string;
   capture: () => Promise<CapturedWorldPlanEditTarget>;
   restoreSelection: (anchor: WorldPlanSelectionAnchorV1, draftSha256: string, selectedTextSha256: string,
     expectedBasis: Pick<WorldPlanEditEditorState, "worldId" | "documentId" | "baseRevision" | "baseContentSha256">,
@@ -683,6 +693,50 @@ export async function captureWorldPlanAuthoringTarget(
   return {capture,target};
 }
 
+export interface PreparedPlanAuthoringApplication {
+  admitted:AdmittedWorldPlanEditProposal<PlanEditApplicationIdentity>;afterEditorJson:string;afterEditorSha256:string;
+  afterMarkdown:string;afterDraftSha256:string;
+}
+
+/** Selection restoration is deliberate; never restore document bytes to apply. */
+export async function restorePlanAuthoringTarget(capture:PlanAuthoringCapture,
+  input:WorldPlanEditEditorState,getCurrent:()=>WorldPlanEditEditorState,identity:PlanAuthoringIdentity,
+):Promise<CapturedPlanAuthoringTarget> {
+  const current=effectiveWorldPlanEditState(input),editor=currentWorldEditor(current);
+  if(current.worldId!==capture.world_id||current.documentId!==capture.document_id
+    ||current.baseRevision!==capture.base_revision||current.baseContentSha256!==capture.base_content_sha256
+    ||JSON.stringify(editor.getJSON())!==capture.editor_json)
+    throw new PlanEditGuardError('The page changed. Inspect the current page and choose a new placement.');
+  editor.view.dispatch(editor.state.tr.setSelection(TextSelection.fromJSON(editor.state.doc,JSON.parse(capture.selection_json))));
+  const fresh=await captureWorldPlanAuthoringTarget(getCurrent(),getCurrent,identity);
+  if(fresh.capture.draft_sha256!==capture.draft_sha256||fresh.capture.from!==capture.from||fresh.capture.to!==capture.to
+    ||fresh.capture.target_kind!==capture.target_kind||fresh.capture.selected_text!==capture.selected_text
+    ||JSON.stringify(fresh.capture.playable_target)!==JSON.stringify(capture.playable_target))
+    throw new PlanEditGuardError('The captured target no longer identifies this page location. Choose a new placement.');
+  return fresh;
+}
+
+/** Reuse the real apply preflight on an isolated editor, before sealing any Save. */
+export async function preparePlanAuthoringApplication(target:CapturedWorldPlanEditTarget,markdown:string,actionId:string,
+  getCurrent:()=>WorldPlanEditEditorState,expected:ExpectedWorldPlanEditAgentBinding,binding:()=>WorldPlanEditAgentBinding,
+):Promise<PreparedPlanAuthoringApplication> {
+  const fragment=target.playableBodyTarget?validateFragment(markdown,undefined,true,target.playableBodyTarget.protectedReferences)
+    :validateFragment(markdown,target.sectionTarget?.protectedInventory);
+  const admitted:AdmittedWorldPlanEditProposal<PlanEditApplicationIdentity>={...fragment,response:{document_id:target.request.document_id,
+    world_id:target.request.world_id,draft_sha256:target.request.draft_sha256,action_id:actionId}};
+  const editor=new Editor({extensions:DEFAULT_MARKDOWN_EDITOR_EXTENSIONS,content:JSON.parse(target.editorJson)});
+  try {
+    editor.view.dispatch(editor.state.tr.setSelection(TextSelection.fromJSON(editor.state.doc,JSON.parse(target.selectionJson))));
+    const state={...effectiveWorldPlanEditState(getCurrent()),editor};
+    await applyWorldPlanEditProposal({captured:{...target,editor},admitted,getCurrent:()=>state,
+      expectedAgentBinding:expected,getAgentBinding:binding});
+    const afterEditorJson=JSON.stringify(editor.getJSON());
+    const afterMarkdown=preserveLeadingYamlFrontmatter(target.request.draft_markdown,tiptapJsonToSemanticMarkdown(editor.getJSON()));
+    const [afterEditorSha256,afterDraftSha256]=await Promise.all([sha256(afterEditorJson),sha256(afterMarkdown)]);
+    return {admitted,afterEditorJson,afterEditorSha256,afterMarkdown,afterDraftSha256};
+  } finally {editor.destroy();}
+}
+
 function exactSelectionAnchor(anchor: WorldPlanSelectionAnchorV1): boolean {
   if (!anchor || typeof anchor !== "object"
     || Object.keys(anchor).sort().join(",") !== "anchor,editor_format,editor_json_sha256,from,head,schema_version,section,to"
@@ -1125,7 +1179,7 @@ export function previewWorldPlanEditProposal(
 
 export async function applyWorldPlanEditProposal(args: {
   captured: CapturedWorldPlanEditTarget;
-  admitted: AdmittedWorldPlanEditProposal;
+  admitted: AdmittedWorldPlanEditProposal<PlanEditApplicationIdentity>;
   getCurrent: () => WorldPlanEditEditorState;
   expectedAgentBinding: ExpectedWorldPlanEditAgentBinding;
   getAgentBinding: () => WorldPlanEditAgentBinding;

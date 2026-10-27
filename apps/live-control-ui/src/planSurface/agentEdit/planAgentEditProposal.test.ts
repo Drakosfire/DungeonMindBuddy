@@ -18,6 +18,8 @@ import {
   capturePlanEditTarget,
   captureWorldPlanEditTarget,
   captureWorldPlanAuthoringTarget,
+  restorePlanAuthoringTarget,
+  preparePlanAuthoringApplication,
   previewWorldPlanEditProposal,
   restoreWorldPlanSelection,
   type ExpectedWorldPlanEditAgentBinding,
@@ -1147,4 +1149,61 @@ it('captures the typed current scene body with its complete editor and direction
   expect(capture.target_kind).toBe('replace_playable_body');
   expect(capture.playable_target).toMatchObject({kind:'scene',id:'scene:arrival',marker_grammar_version:'v1',body_markdown:'Original prose.\n'});
   expect(capture.selection_json).toBe(JSON.stringify(editor.state.selection.toJSON()));
+});
+
+
+const authoringIdentity={idempotencyKey:'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+  conversationId:'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb',pointerRevision:1};
+
+it('restores a directional selection after reload without replacing document bytes',async()=>{
+  const {editor,state}=mountedState('# Plan\n\nOpening frame');
+  editor.view.dispatch(editor.state.tr.setSelection(TextSelection.create(editor.state.doc,15,10)));
+  let current=worldState(state);
+  const {capture}=await captureWorldPlanAuthoringTarget(current,()=>current,authoringIdentity);
+  editor.commands.setTextSelection(1);
+  current={...current,draftGeneration:12,selectionGeneration:18};
+  const before=editor.getJSON();
+  const restored=await restorePlanAuthoringTarget(capture,current,()=>current,authoringIdentity);
+  expect(editor.getJSON()).toEqual(before);
+  expect(editor.state.selection.anchor).toBe(15);expect(editor.state.selection.head).toBe(10);
+  expect(restored.capture.draft_generation).toBe(12);expect(restored.capture.selection_generation).toBe(18);
+  expect(restored.capture.draft_sha256).toBe(capture.draft_sha256);
+});
+
+it.each(['document','basis','draft'])('refuses restoring a changed %s without overwriting it',async change=>{
+  const {editor,state}=mountedState();let current=worldState(state);
+  const {capture}=await captureWorldPlanAuthoringTarget(current,()=>current,authoringIdentity);
+  if(change==='document')current={...current,documentId:'another-plan'};
+  if(change==='basis')current={...current,baseRevision:3};
+  if(change==='draft')editor.commands.insertContent('Newer author typing');
+  const before=editor.getJSON(),selection=editor.state.selection.toJSON();
+  await expect(restorePlanAuthoringTarget(capture,current,()=>current,authoringIdentity)).rejects.toThrow(/page changed/);
+  expect(editor.getJSON()).toEqual(before);expect(editor.state.selection.toJSON()).toEqual(selection);
+});
+
+it('seals the real apply result without changing the mounted draft, then applies identical bytes',async()=>{
+  const {editor,state}=mountedState('---\ntitle: Plan\n---\n\n# Plan\n\nOpening frame');
+  editor.commands.setTextSelection({from:10,to:15});const current=worldState(state);
+  const {target}=await captureWorldPlanAuthoringTarget(current,()=>current,authoringIdentity);
+  const before=editor.getJSON(),selection=editor.state.selection.toJSON();
+  const prepared=await preparePlanAuthoringApplication(target,'A revised passage.', 'action-1',()=>current,
+    expectedAgentBinding(),matchingAgentBinding);
+  expect(editor.getJSON()).toEqual(before);expect(editor.state.selection.toJSON()).toEqual(selection);
+  expect(prepared.afterMarkdown).toContain('title: Plan');
+  expect(prepared.afterEditorSha256).toBe(await sha256Hex(prepared.afterEditorJson));
+  expect(prepared.afterDraftSha256).toBe(await sha256Hex(prepared.afterMarkdown));
+  await applyWorldPlanEditProposal({captured:target,admitted:prepared.admitted,getCurrent:()=>current,
+    expectedAgentBinding:expectedAgentBinding(),getAgentBinding:matchingAgentBinding});
+  expect(JSON.stringify(editor.getJSON())).toBe(prepared.afterEditorJson);
+  expect(preserveLeadingYamlFrontmatter(state.sourceMarkdown,tiptapJsonToSemanticMarkdown(editor.getJSON())))
+    .toBe(prepared.afterMarkdown);
+});
+
+it('preparation refuses retired conversation authority without changing the mounted draft',async()=>{
+  const {editor,state}=mountedState();const current=worldState(state);
+  const {target}=await captureWorldPlanAuthoringTarget(current,()=>current,authoringIdentity);
+  const before=editor.getJSON();
+  await expect(preparePlanAuthoringApplication(target,'Revised passage.','action-1',()=>current,
+    expectedAgentBinding(),()=>({...matchingAgentBinding(),mounted:false}))).rejects.toThrow();
+  expect(editor.getJSON()).toEqual(before);
 });

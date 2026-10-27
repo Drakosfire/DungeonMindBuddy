@@ -773,6 +773,7 @@ beforeEach(() => {
 
 afterEach(() => {
   vi.useRealTimers();
+  vi.unstubAllGlobals();
   liveApi.setNativeGraphAccessToken(null);
   vi.restoreAllMocks();
   localStorage.clear();
@@ -4369,4 +4370,122 @@ it('opens the current scene encounter tool while retaining the mounted Plan edit
   await screen.findByRole('region',{name:'Encounter preparation for Arrival'});
   expect(before?.isConnected).toBe(true);expect(editor.querySelector('.ProseMirror')).toBe(before);
   expect(sceneApi.getSceneTemplate).toHaveBeenCalledWith(expect.objectContaining({worldId,documentId:savedAgentPlanId,sceneId:'scene:arrival'}));
+});
+
+
+it('fences ordinary Plan Save during proposal apply, uncertain confirmation and reload',async()=>{
+  const nativeNavigator=navigator;let lockTail:Promise<unknown>=Promise.resolve();
+  const locks={request:(_name:string,work:()=>unknown)=>{const turn=lockTail.then(work);lockTail=turn.catch(()=>undefined);return turn;}};
+  vi.stubGlobal('navigator',new Proxy(nativeNavigator,{get:(target,key)=>key==='locks'?locks:Reflect.get(target,key,target)}));
+  mockSavedPlanForAgent(savedAgentPlanId,7,7,'# Plan\n\nOpening frame');
+  const prepareSave=vi.spyOn(liveApi,'prepareTiptapMarkdownWrite');
+  const commitSave=vi.spyOn(liveApi,'commitWorldOwnedPlanMarkdownWrite');
+  const tree=()=> <SelectedWorldProvider locationSnapshot={`/plan?world=${worldId}&documentId=${savedAgentPlanId}`}><AgentEnabledPlanPage /></SelectedWorldProvider>;
+  let mounted=render(tree());
+  await screen.findByTestId('world-owned-plan-markdown-editor');
+  await waitFor(()=>expect(planImageHostCapture.props?.editBridge?.captureAuthoring).toBeTypeOf('function'));
+  const bridge=planImageHostCapture.props.editBridge;
+  const identity={idempotencyKey:'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',conversationId:'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb',pointerRevision:1};
+  let captured:any,prepared:any;
+  const expected={worldId,documentId:savedAgentPlanId,threadId:'synthetic-thread',namespace:'synthetic-plan'};
+  const binding=()=>({mounted:true,verifiedWorldId:worldId,activeThreadId:'synthetic-thread',
+    scope:{campaignId:'synthetic-plan',surfaceId:'plan',sessionNumber:null,documentId:savedAgentPlanId}});
+  await act(async()=>{captured=await bridge.captureAuthoring(identity);
+    prepared=await bridge.prepareAuthoring(captured.target,'A proposed opening.','cccccccc-cccc-4ccc-8ccc-cccccccccccc',expected,binding);});
+  const application={application_id:'dddddddd-dddd-4ddd-8ddd-dddddddddddd',capture:captured.capture,
+    markdown:prepared.admitted.canonicalMarkdown,after_editor_json:prepared.afterEditorJson,after_editor_sha256:prepared.afterEditorSha256,
+    after_markdown:prepared.afterMarkdown,after_draft_sha256:prepared.afterDraftSha256,after_title:bridge.authoringTitle(),outcome:'applying'};
+  let rejectConfirm!:(reason:Error)=>void;
+  const confirm=vi.fn(()=>new Promise((_resolve,reject)=>{rejectConfirm=reject;}));
+  const ordinarySave=capturedPlanControls().save;
+  let saving!:Promise<unknown>,competing!:Promise<unknown>;
+  act(()=>{saving=bridge.saveAuthoring(captured.target,prepared,application,expected,binding,confirm);
+    void saving.catch(()=>undefined);
+    competing=bridge.saveAuthoring(captured.target,prepared,{...application,application_id:'eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee'},expected,binding,confirm);
+    void competing.catch(()=>undefined);});
+  await act(async()=>{await expect(competing).rejects.toThrow(/pending application/);});
+  act(()=>ordinarySave());
+  await waitFor(()=>expect(confirm).toHaveBeenCalledTimes(1));
+  await act(async()=>{await new Promise(resolve=>setTimeout(resolve,800));});
+  expect(prepareSave).not.toHaveBeenCalled();expect(commitSave).not.toHaveBeenCalled();
+  const key=`dmb:world-plan-local-draft:v2:${worldId}`;
+  const holdKey=Object.keys(localStorage).find(key=>key.startsWith('dmb:plan-application-hold:v1:'))!;
+  expect(JSON.parse(localStorage.getItem(holdKey)!).application_id).toBe(application.application_id);
+  await act(async()=>{rejectConfirm(new Error('Lost confirmation response'));await saving.catch(()=>undefined);});
+  const retained=JSON.parse(localStorage.getItem(key)!);expect(retained.markdown).toContain('A proposed opening.');
+  mounted.unmount();mounted=render(tree());
+  await screen.findByTestId('world-owned-plan-markdown-editor');
+  act(()=>capturedPlanControls().save());
+  await act(async()=>{await new Promise(resolve=>setTimeout(resolve,800));});
+  expect(prepareSave).not.toHaveBeenCalled();expect(commitSave).not.toHaveBeenCalled();
+  expect(JSON.parse(localStorage.getItem(holdKey)!).application_id).toBe(application.application_id);
+  expect(screen.getByTestId('world-owned-plan-markdown-editor')).toHaveTextContent('A proposed opening.');
+  mounted.unmount();
+  // Opening another Plan rewrites the ordinary current-draft slot; the pending
+  // application pointer must survive independently through another reload.
+  const other='other-plan-navigation';
+  mockSavedPlanForAgent(other,7,7,'# Other Plan\n');
+  const otherTree=()=> <SelectedWorldProvider locationSnapshot={`/plan?world=${worldId}&documentId=${other}`}><AgentEnabledPlanPage /></SelectedWorldProvider>;
+  mounted=render(otherTree());await screen.findByTestId('world-owned-plan-markdown-editor');mounted.unmount();
+  mounted=render(otherTree());await screen.findByTestId('world-owned-plan-markdown-editor');mounted.unmount();
+  mockSavedPlanForAgent(savedAgentPlanId,7,7,'# Plan\n\nOpening frame');
+  mounted=render(tree());await screen.findByTestId('world-owned-plan-markdown-editor');
+  act(()=>capturedPlanControls().save());
+  await act(async()=>{await new Promise(resolve=>setTimeout(resolve,800));});
+  expect(prepareSave).not.toHaveBeenCalled();expect(commitSave).not.toHaveBeenCalled();
+  expect(JSON.parse(localStorage.getItem(holdKey)!).application_id).toBe(application.application_id);
+  const recoveryApi=await import('../api/planAuthoringReviewApi');
+  const actionId=prepared.admitted.response.action_id;
+  const savedReview={schema:'dmb_plan_authoring_review_snapshot_v1',world_id:worldId,action_id:actionId,origin_sha256:'a'.repeat(64),
+    review:{applications:[application]}};
+  const readReview=vi.spyOn(recoveryApi,'readPlanAuthoringReview').mockResolvedValue(savedReview as any);
+  const currentBridge=planImageHostCapture.props.editBridge;
+  await expect(currentBridge.reconcileAuthoring(actionId,application.application_id)).rejects.toThrow(/still unresolved/);
+  expect(localStorage.getItem(holdKey)).not.toBeNull();
+  readReview.mockResolvedValue({...savedReview,review:{applications:[{...application,outcome:'superseded'}]}} as any);
+  const editorNode=screen.getByTestId('world-owned-plan-markdown-editor');const beforeRecovery=editorNode.textContent;
+  await act(async()=>{await currentBridge.reconcileAuthoring(actionId,application.application_id);});
+  expect(localStorage.getItem(holdKey)).toBeNull();expect(editorNode.textContent).toBe(beforeRecovery);
+  mounted.unmount();
+});
+
+
+it('serializes two mounted Plan hosts so only one pending application can mutate the page',async()=>{
+  const nativeNavigator=navigator;let tail:Promise<unknown>=Promise.resolve();
+  const locks={request:(_name:string,work:()=>unknown)=>{const next=tail.then(work);tail=next.catch(()=>undefined);return next;}};
+  vi.stubGlobal('navigator',new Proxy(nativeNavigator,{get:(target,key)=>key==='locks'?locks:Reflect.get(target,key,target)}));
+  mockSavedPlanForAgent(savedAgentPlanId,7,7,'# Plan\n\nOpening frame');
+  const ordinary=vi.spyOn(liveApi,'prepareTiptapMarkdownWrite');
+  const tree=()=> <SelectedWorldProvider locationSnapshot={`/plan?world=${worldId}&documentId=${savedAgentPlanId}`}><AgentEnabledPlanPage /></SelectedWorldProvider>;
+  const first=render(tree());await within(first.container).findByTestId('world-owned-plan-markdown-editor');
+  await waitFor(()=>expect(planImageHostCapture.props?.editBridge?.captureAuthoring).toBeTypeOf('function'));
+  const a=planImageHostCapture.props.editBridge;
+  const second=render(tree());await within(second.container).findByTestId('world-owned-plan-markdown-editor');
+  await waitFor(()=>{expect(planImageHostCapture.props?.editBridge?.captureAuthoring).toBeTypeOf('function');expect(planImageHostCapture.props.editBridge).not.toBe(a);});
+  const b=planImageHostCapture.props.editBridge;
+  const expected={worldId,documentId:savedAgentPlanId,threadId:'synthetic-thread',namespace:'synthetic-plan'};
+  const binding=()=>({mounted:true,verifiedWorldId:worldId,activeThreadId:'synthetic-thread',
+    scope:{campaignId:'synthetic-plan',surfaceId:'plan',sessionNumber:null,documentId:savedAgentPlanId}});
+  async function prepared(bridge:any,action:string,applicationId:string){
+    const captured=await bridge.captureAuthoring({idempotencyKey:action,conversationId:'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb',pointerRevision:1});
+    const draft=await bridge.prepareAuthoring(captured.target,'Only one proposed opening.',action,expected,binding);
+    return {captured,draft,application:{application_id:applicationId,capture:captured.capture,
+      markdown:draft.admitted.canonicalMarkdown,after_editor_json:draft.afterEditorJson,after_editor_sha256:draft.afterEditorSha256,
+      after_markdown:draft.afterMarkdown,after_draft_sha256:draft.afterDraftSha256,after_title:bridge.authoringTitle(),outcome:'applying'}};
+  }
+  let left:any,right:any;
+  await act(async()=>{left=await prepared(a,'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa','cccccccc-cccc-4ccc-8ccc-cccccccccccc');
+    right=await prepared(b,'dddddddd-dddd-4ddd-8ddd-dddddddddddd','eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee');});
+  const confirm=vi.fn(async()=>{throw new Error('Unknown confirmation outcome');});
+  let results:PromiseSettledResult<unknown>[]=[];
+  await act(async()=>{results=await Promise.allSettled([
+    a.saveAuthoring(left.captured.target,left.draft,left.application,expected,binding,confirm),
+    b.saveAuthoring(right.captured.target,right.draft,right.application,expected,binding,confirm),
+  ]);});
+  expect(confirm).toHaveBeenCalledTimes(1);expect(results.every(item=>item.status==='rejected')).toBe(true);
+  expect(within(first.container).getByTestId('world-owned-plan-markdown-editor')).toHaveTextContent('Only one proposed opening.');
+  expect(within(second.container).getByTestId('world-owned-plan-markdown-editor')).not.toHaveTextContent('Only one proposed opening.');
+  expect(Object.keys(localStorage).filter(key=>key.startsWith('dmb:plan-application-hold:v1:'))).toHaveLength(1);
+  await act(async()=>{await new Promise(resolve=>setTimeout(resolve,800));});expect(ordinary).not.toHaveBeenCalled();
+  first.unmount();second.unmount();
 });
