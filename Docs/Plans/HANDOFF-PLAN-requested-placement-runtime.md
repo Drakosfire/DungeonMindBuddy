@@ -1,6 +1,8 @@
 # PLAN — requested placement runtime
 
-Status: ACTIVE; PRIME selects one serial implementation successor to design PR1832 at 30a380438c1edd01de5ed9a969e5dbd7431ba189. Branch codex/plan-requested-placement in the existing buddy-context-loop checkout. No new worktree or environment. Operator goal/bug-fix authority applies. Independent design critique approved the concrete owner shape below; exact-head runtime review, hosted gates and protected delivery remain required. This is not a claim that automatic placement works yet.
+Status: DELIVERED — PR1833 merged at cd2ae70c140b7b602bb8300d37bdf7953a4f4f8d from independently approved head 013102036389a6116b4bce66167d2a9ed5c90c7f; exact-head hosted gates passed. API/UI5202 adopted the reviewed content with constraint-only migration0080. Before/after protection verified exact equality of 3763 APP rows, 1157 native rows and 40878 retained corpus/output files; the schema revision was separately verified 0079→0080. No broader acceptance claim.
+
+Ordinary Sheep dogfood turn 0263fb4f-b4f1-44b4-8a44-c603e9aea0c4 selected after:2; action 03cce940-d4b2-4f43-a925-31641562a9bf staged Route check after Preparation objective and before Next rehearsal briefing without Move. Direct editing, Save and reload succeeded. All 27 outside node HTML snapshots, including playable identities and named tables, remained exactly equal. The turn took 45.93s; latency is unaccepted. Original failed-placement attempts remain retained. Protected delivery and live proof are recorded on PR1833 and in the private buddy-placement-013102036 rollout receipt. This contract is settled; the implementation below records the owning boundary. Session citation/paraphrase and full adventure acceptance remain separate open work.
 
 ## Selected contract
 
