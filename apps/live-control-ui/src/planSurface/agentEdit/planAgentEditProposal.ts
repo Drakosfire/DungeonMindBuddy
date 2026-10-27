@@ -1,3 +1,4 @@
+import type {PlanAuthoringCapture} from "../../api/planAuthoringReviewApi";
 import { Editor, type JSONContent } from "@tiptap/core";
 import { TextSelection } from "@tiptap/pm/state";
 import type { MarkdownSourceLineTarget } from "../../markdownReader/MarkdownDocumentReader";
@@ -149,7 +150,10 @@ export interface ExpectedWorldPlanEditAgentBinding {
   namespace: string;
 }
 
+export interface PlanAuthoringIdentity {idempotencyKey:string;conversationId:string;pointerRevision:number}
+export interface CapturedPlanAuthoringTarget {capture:PlanAuthoringCapture;target:CapturedWorldPlanEditTarget}
 export interface WorldPlanEditBridge {
+  captureAuthoring?: (identity:PlanAuthoringIdentity)=>Promise<CapturedPlanAuthoringTarget>;
   capture: () => Promise<CapturedWorldPlanEditTarget>;
   restoreSelection: (anchor: WorldPlanSelectionAnchorV1, draftSha256: string, selectedTextSha256: string,
     expectedBasis: Pick<WorldPlanEditEditorState, "worldId" | "documentId" | "baseRevision" | "baseContentSha256">,
@@ -593,11 +597,6 @@ export async function captureWorldPlanEditTarget(
       roundTripSuffix: baselineRootContent.slice(sectionSlice.applyRootEndIndex),
     };
   }
-  if (draftMarkdown.length > 80_000 || selectedText.length > 8_000) {
-    throw new PlanEditGuardError(matchedSection
-      ? "This heading section exceeds the 8,000-character proposal limit. Select a smaller text range directly in the editor."
-      : "The selected Plan material is too large for one proposal.");
-  }
   const draftSha256 = await sha256(draftMarkdown);
   const selectionAnchor: WorldPlanSelectionAnchorV1 | undefined = targetKind === "replace_selection"
     ? {
@@ -651,6 +650,37 @@ export async function captureWorldPlanEditTarget(
     sectionTarget,
     playableBodyTarget,
   };
+}
+
+/** Full live target for the ordinary Agent turn, without old endpoint caps. */
+export async function captureWorldPlanAuthoringTarget(
+  input:WorldPlanEditEditorState,getCurrent:()=>WorldPlanEditEditorState,identity:PlanAuthoringIdentity,
+):Promise<CapturedPlanAuthoringTarget> {
+  if(!identity.conversationId||!identity.idempotencyKey||!Number.isSafeInteger(identity.pointerRevision)||identity.pointerRevision<1)
+    throw new PlanEditGuardError("Open the current World conversation before capturing a Plan request.");
+  const target=await captureWorldPlanEditTarget(input,getCurrent);
+  const [editorHash,selectionHash]=await Promise.all([sha256(target.editorJson),sha256(target.selectionJson)]);
+  const body=target.playableBodyTarget;
+  const capture:PlanAuthoringCapture={
+    schema:'dmb_plan_authoring_capture_v1',idempotency_key:identity.idempotencyKey,
+    conversation_id:identity.conversationId,expected_pointer_revision:identity.pointerRevision,
+    world_id:target.request.world_id,document_id:target.request.document_id,
+    base_revision:target.request.base_revision,base_content_sha256:target.request.base_content_sha256,
+    draft_markdown:target.request.draft_markdown,draft_sha256:target.request.draft_sha256,
+    editor_json:target.editorJson,editor_sha256:editorHash,selection_json:target.selectionJson,selection_sha256:selectionHash,
+    from:target.from,to:target.to,draft_generation:target.draftGeneration,selection_generation:target.selectionGeneration,
+    target_kind:target.request.target_kind,selected_text:target.request.selected_text,
+    playable_target:body?{...body.target,marker_grammar_version:body.markerGrammarVersion,
+      body_scope:body.bodyScope,range_semantics_version:body.rangeSemanticsVersion,
+      body_serialization_version:body.bodySerializationVersion,
+      body_markdown:body.targetBodyMarkdown,body_sha256:body.targetBodySha256}:null,
+  };
+  const current=effectiveWorldPlanEditState(getCurrent());
+  if(!sameWorldPlanEditorBinding(effectiveWorldPlanEditState(input),current)
+    ||JSON.stringify(target.editor.getJSON())!==target.editorJson
+    ||JSON.stringify(target.editor.state.selection.toJSON())!==target.selectionJson)
+    throw new PlanEditGuardError("The Plan changed during capture. The request was not sent.");
+  return {capture,target};
 }
 
 function exactSelectionAnchor(anchor: WorldPlanSelectionAnchorV1): boolean {

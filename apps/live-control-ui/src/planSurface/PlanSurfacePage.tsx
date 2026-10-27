@@ -63,6 +63,7 @@ import "./components/WorldPlanCardProjection.css";
 import {
   applyWorldPlanEditProposal,
   captureWorldPlanEditTarget,
+  captureWorldPlanAuthoringTarget,
   previewWorldPlanEditProposal,
   restoreWorldPlanSelection,
   type WorldPlanEditBridge,
@@ -531,6 +532,9 @@ function WorldOwnedPlanPage({ worldId, worldName }: { worldId: string; worldName
     ),
   });
   const worldPlanEditBridge = useMemo<WorldPlanEditBridge>(() => ({
+    captureAuthoring: identity => captureWorldPlanAuthoringTarget(
+      worldEditStateGetterRef.current(), () => worldEditStateGetterRef.current(), identity,
+    ),
     preview: previewWorldPlanEditProposal,
     capture: () => captureWorldPlanEditTarget(
       worldEditStateGetterRef.current(),

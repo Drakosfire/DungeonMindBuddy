@@ -17,6 +17,7 @@ import {
   applyPlanEditProposal,
   capturePlanEditTarget,
   captureWorldPlanEditTarget,
+  captureWorldPlanAuthoringTarget,
   previewWorldPlanEditProposal,
   restoreWorldPlanSelection,
   type ExpectedWorldPlanEditAgentBinding,
@@ -796,7 +797,7 @@ describe("reviewed World-only Plan edit admission and Apply", () => {
     await expect(admitWorldPlanEditProposal(captured, response)).rejects.toThrow(/unsupported markup/);
   });
 
-  it("refuses duplicate ambiguous section excerpts and sections over the provider cap", async () => {
+  it("refuses duplicate ambiguous sections while retaining complete large sections", async () => {
     const duplicate = "# Plan\n\n## Repeated\n\nSame excerpt.\n\n## Repeated\n\nSame excerpt.\n";
     const { editor, state } = mountedState(duplicate);
     const repeatedTargets = planSectionTargets(editor).filter((target) => target.heading === "Repeated");
@@ -805,7 +806,8 @@ describe("reviewed World-only Plan edit admission and Apply", () => {
     await expect(captureWorldPlanEditTarget(worldState(state))).rejects.toThrow(/unique exact location/);
 
     const oversized = `# Plan\n\n## Large\n\n${"Long section prose. ".repeat(500)}\n\n## Small\n\nDone.`;
-    await expect(captureWorldSection(oversized, "Large")).rejects.toThrow(/8,000-character proposal limit/);
+    const large = await captureWorldSection(oversized, "Large");
+    expect(large.captured.request.selected_text.length).toBeGreaterThan(8_000);
   });
 
   it("captures a selected Session 29 parent Beat without changing its marked draft", async () => {
@@ -1108,4 +1110,41 @@ describe("reviewed World-only Plan edit admission and Apply", () => {
     expect(reopenedTarget.targetBodySha256).toBe(await sha256Hex(admitted.canonicalMarkdown));
     expect(reopenedTarget.targetBodySha256).not.toBe(captured.playableBodyTarget?.targetBodySha256);
   });
+});
+
+
+it("captures the full live Plan without old endpoint character caps",async()=>{
+  const markdown="# Plan\n\n"+"A complete author paragraph. ".repeat(3500);
+  const {editor,state}=mountedState(markdown);editor.commands.setTextSelection(5);
+  const current=worldState(state);
+  const {capture,target}=await captureWorldPlanAuthoringTarget(current,()=>current,{
+    idempotencyKey:"aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+    conversationId:"bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",pointerRevision:3,
+  });
+  expect(capture.draft_markdown.length).toBeGreaterThan(80_000);
+  expect(capture.draft_markdown).toBe(target.request.draft_markdown);
+  expect(capture.editor_json).toBe(JSON.stringify(editor.getJSON()));
+  expect(capture.selection_json).toBe(JSON.stringify(editor.state.selection.toJSON()));
+  expect(capture.from).toBe(editor.state.selection.from);expect(capture.to).toBe(editor.state.selection.to);
+  expect(capture.expected_pointer_revision).toBe(3);expect(capture.draft_generation).toBe(current.draftGeneration);
+});
+
+it('refuses a generation change during the final authoring hashes without changing the editor',async()=>{
+  const {editor,state}=mountedState();const current=worldState(state),before=editor.getJSON();let reads=0;
+  await expect(captureWorldPlanAuthoringTarget(current,()=>++reads===1?current:{...current,draftGeneration:current.draftGeneration+1},{
+    idempotencyKey:'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',conversationId:'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb',pointerRevision:1,
+  })).rejects.toThrow(/changed during capture/);
+  expect(editor.getJSON()).toEqual(before);
+});
+
+it('captures the typed current scene body with its complete editor and directional selection',async()=>{
+  const scene='<!-- dmb-playable-element:v1 kind=scene id=scene:arrival -->\n## Arrival\nOriginal prose.\n';
+  const {editor,state}=mountedState(scene);
+  const current={...worldState(state),currentSceneTarget:{kind:'scene' as const,id:'scene:arrival'}};
+  const {capture}=await captureWorldPlanAuthoringTarget(current,()=>current,{
+    idempotencyKey:'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',conversationId:'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb',pointerRevision:1,
+  });
+  expect(capture.target_kind).toBe('replace_playable_body');
+  expect(capture.playable_target).toMatchObject({kind:'scene',id:'scene:arrival',marker_grammar_version:'v1',body_markdown:'Original prose.\n'});
+  expect(capture.selection_json).toBe(JSON.stringify(editor.state.selection.toJSON()));
 });
