@@ -362,6 +362,25 @@ describe("PlayCurrentMomentCockpit", () => {
     expect(beatToggle.compareDocumentPosition(glanceToggle) & Node.DOCUMENT_POSITION_FOLLOWING).not.toBe(0);
   });
 
+  it("renders a named table and following cues in its admitted Scene without sibling leakage", () => {
+    const markdown = MARKDOWN.replace("Tunnel unique body.", [
+      "Negotiate before initiative.", "", "## Compound tactics", "",
+      "| Combatant | Conditional tactic |", "| --- | --- |",
+      "| Wizard | May flee if threatened |", "| Bear | Initially in the outhouse |", "",
+      "GM cue after the table.",
+    ].join("\n"));
+    render(<Harness markdown={markdown} initialRun={runRecord({
+      progress: progress({ current_scene_id: "scene:tunnel" }),
+    })} />);
+    const body = screen.getByTestId("play-workspace-current").querySelector(".play-scene-board-body");
+    expect(body).toHaveTextContent("Negotiate before initiative.");
+    expect(body?.querySelector("h2")).toHaveTextContent("Compound tactics");
+    expect(body?.querySelector("table")).toHaveTextContent("Initially in the outhouse");
+    expect(body).toHaveTextContent("GM cue after the table.");
+    expect(body).not.toHaveTextContent("North Gate unique body.");
+    expect(liveApi.putPlayRunProgress).not.toHaveBeenCalled();
+  });
+
   it("renders admitted Scene body AST with references and authored block structure", () => {
     const markdown = MARKDOWN.replace(
       "Tunnel unique body.",

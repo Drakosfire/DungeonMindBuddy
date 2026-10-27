@@ -18,6 +18,7 @@ import {
   hasBlockingMarkdownImportDiagnostics,
   markdownToTiptapDoc,
 } from "../../tiptap/markdown/markdownToTiptap";
+import { isTableCaptionAt } from "../../tiptap/markdown/tableCaption";
 import {
   validatePlayableOptionItemAttrs,
   type PlayableBeatKind,
@@ -351,7 +352,8 @@ function authoredTextFromNodes(nodes: unknown[]): string {
 
 /**
  * Disjoint authored bodies: each Playable heading owns nodes until the next
- * root Playable heading or an ordinary unmarked document-root H1/H2. Sibling
+ * root Playable heading or an ordinary unmarked document-root H1/H2. A shared
+ * plain H2/table caption pair remains inside its owner. Sibling
  * Beat/Choice/Option slices never inherit the previous sibling's body, and
  * unmarked Runbook-level sections after playable material stay outside the
  * preceding element's body.
@@ -388,7 +390,7 @@ export function slicePlayableBodies(document: unknown): Map<string, AuthoredSlic
     });
   };
 
-  for (const node of content) {
+  for (const [index, node] of content.entries()) {
     const identity = playableHeadingIdentity(node);
     if (identity) {
       flush();
@@ -402,7 +404,7 @@ export function slicePlayableBodies(document: unknown): Map<string, AuthoredSlic
       };
       continue;
     }
-    if (isOrdinaryRootInstructionHeading(node)) {
+    if (isOrdinaryRootInstructionHeading(node) && !isTableCaptionAt(content, index)) {
       flush();
       current = null;
       continue;
