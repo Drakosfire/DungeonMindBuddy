@@ -1,6 +1,6 @@
 # PLAN — preserve authored bodies during Choice insertion
 
-Status: ACTIVE after independent invariant critique approved design4d10c6e9b. PRIME owns serial corrective branch codex/plan-choice-body-boundary, base4404fe4aab4c82d7b174f413fb3e639e3f492aed, existing checkout. This is an in-scope correction to merged1839, not a new authoring capability. The initial UI delivery was reverted to1837 after inspection found a boundary mismatch before any dogfood Plan/Run mutation. API1838/schema0081 unchanged; rollback UI2534931. Full retained equality at initial delivery was3811APP/1157native/40906files.
+Status: MERGED and delivered through PR1840, merge72f73a18e4f215cab437bab351f1f088510313a6, independently approved head71228729014eff162ec116871f3e9430c75b1af1. Ordinary Conks Add Choice/Add Option, editing, Save and reload preserved20 original nodes and24 saved nodes exactly. A separate shared popover viewport defect blocked the final Start session button before dispatch; no new Run or Play state changed. Successor HANDOFF-SURFACE-popover-viewport.md owns that correction. Full preparation/play acceptance remains open.
 
 ## Confirmed mismatch
 

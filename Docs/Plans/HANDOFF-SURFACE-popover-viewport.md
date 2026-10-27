@@ -1,0 +1,17 @@
+# SURFACE — keep contextual actions inside the viewport
+
+Status: ACTIVE after independent invariant critique approved design55ddff5c0. Topology: serial. No overlapping expected-path lease in current open PRs. PRIME owns serial branch codex/surface-popover-viewport, base72f73a18e4f215cab437bab351f1f088510313a6, existing buddy-context-loop checkout. Operator preparation/play and responsive Surface authority covers this demonstrated ordinary-control defect. One bounded implementation PR, no new worktree/environment. Runtime5202 UI1840/API1838/schema0081, all saved Plans/Runs/newer Brin draft remain protected. Hosted1828/held1764 separate.
+
+## Evidence and boundary
+
+Conks Choice authoring through menu/edit/Save/reload now works with20 original nodes exact and24 saved nodes exact afterreload; correct generated Scene/Choice/Option identities. Starting a new Run cannot reach finalbutton at viewport1164×654: rect top719.66/bottom750.77, popover panel660px tall, every ancestor overflowvisible. Ordinary wheel scroll does not expose it. No zoom/viewport workaround or new Run. Private original witness buddy-choice-body-712287290/choice-authoring-dogfood.json and screenshot conks-start-session-clipped.jpg. No source/backend failure inferred.
+
+Correct shared SurfaceContextPopover geometry rather than Plan-specific dimensions: retain existing horizontal-side resolution and placement preference; bound panel border-box height to current viewport minus existing12px margins, enable internal vertical scrolling, clamp physical top within those same viewport bounds. Small panels retain their existing anchor placement. Oversized panels may move upward to fit; no arbitrary content caps, hidden final controls or document/body scroll assumptions. Recompute for window resize, actual asynchronous panel size changes and ancestor scrolling; internal panel scrolling must remain usable. Clean up observers/listeners on close/unmount. Preserve Escape/outside dismissal, form/selection state, and keyboard reachability. No auth/Run/controller/creation changes.
+
+## Expected writes
+
+This handoff; predecessor HANDOFF-PLAN-choice-body-boundary.md settlement; Docs/Roadmaps/ROADMAP-demo.md solely to record the operator's explicit exclusion of external Conks/Sheep recaps (saved notes/reflections remain applicable). Shared surfaceInteraction/contextHost/SurfaceContextPrimitives.tsx, surfaceContext.css, focused SurfaceContextPrimitives.test.tsx and necessary owner geometry tests. No broader popover redesign, new portal, schema, backend, provider, Play-specific override cleanup or unrelated failures.
+
+## Proof and delivery
+
+Owner tests: small anchored panel stays put; tall panel top/height fit viewport; async size and resize recompute; ancestor scroll updates placement without hijacking internal scroll; close/unmount disconnect and Escape/outside work. Preserve horizontal-placement tests; avoid claiming jsdom proves rendered reachability. Typecheck/build, exact cumulative independent Bugbot, hosted gates, protected UI-only delivery. Ordinary same Conks Plan: open same startform at current viewport, finalbutton reachable by scrolling/keyboard, Scene4 choice retained, new exact-version Run, record option, reload/resume. Earlier Runs/Plan history/source/native state unchanged. Include real bounded responsive geometry proof; no model call required. Operator acceptance/full J1–J6/performance remain open. External Conks/Sheep recap workflow is explicitly out of scope per operator20261027.

@@ -127,20 +127,43 @@ export function SurfaceContextPopover({
     const panel = panelRef.current;
     const root = rootRef.current;
     if (!open || !panel || !root) return;
-    const anchor = root.getBoundingClientRect();
-    const width = panel.getBoundingClientRect().width;
     const margin = 12;
-    const below = placement === "below" || window.innerWidth <= 720;
-    const leftFor = (candidate: "start" | "end") => below
-      ? candidate === "start" ? anchor.left : anchor.right - width
-      : candidate === "start" ? anchor.left - width - 8 : anchor.right + 8;
-    const fits = (candidate: "start" | "end") => {
-      const left = leftFor(candidate);
-      return left >= margin && left + width <= window.innerWidth - margin;
+    function updatePlacement() {
+      if (!panel || !root) return;
+      panel.style.maxHeight = `${Math.max(0, window.innerHeight - margin * 2)}px`;
+      // Measure the normal CSS anchor, including static-root responsive layouts.
+      panel.style.translate = "";
+      const anchor = root.getBoundingClientRect();
+      const rect = panel.getBoundingClientRect();
+      const below = placement === "below" || window.innerWidth <= 720;
+      const leftFor = (candidate: "start" | "end") => below
+        ? candidate === "start" ? anchor.left : anchor.right - rect.width
+        : candidate === "start" ? anchor.left - rect.width - 8 : anchor.right + 8;
+      const fits = (candidate: "start" | "end") => {
+        const left = leftFor(candidate);
+        return left >= margin && left + rect.width <= window.innerWidth - margin;
+      };
+      const alternative = align === "start" ? "end" : "start";
+      setResolvedAlign(fits(align) || !fits(alternative) ? align : alternative);
+      const top = Math.max(margin, Math.min(rect.top, window.innerHeight - margin - rect.height));
+      panel.style.translate = `0 ${top - rect.top}px`;
+    }
+    function handleScroll(event: Event) {
+      if (event.target instanceof Node && panel?.contains(event.target)) return;
+      updatePlacement();
+    }
+    updatePlacement();
+    const observer = typeof ResizeObserver === "function" ? new ResizeObserver(updatePlacement) : null;
+    observer?.observe(panel);
+    observer?.observe(root);
+    window.addEventListener("resize", updatePlacement);
+    window.addEventListener("scroll", handleScroll, true);
+    return () => {
+      observer?.disconnect();
+      window.removeEventListener("resize", updatePlacement);
+      window.removeEventListener("scroll", handleScroll, true);
     };
-    const alternative = align === "start" ? "end" : "start";
-    setResolvedAlign(fits(align) || !fits(alternative) ? align : alternative);
-  }, [align, open, placement, children]);
+  }, [align, open, placement, children, resolvedAlign]);
 
   useEffect(() => {
     if (!open) {
