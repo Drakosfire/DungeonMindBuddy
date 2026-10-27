@@ -289,3 +289,44 @@ def test_registry_section_requires_earlier_exact_matched_result(corpus):
         validate_section_events(SimpleNamespace(policy=execution.policy, events=events,
             context_receipt_sha256=execution.context_receipt_sha256,
             execution_policy_sha256=execution.execution_policy_sha256))
+
+
+@pytest.mark.parametrize('recover', [False, True])
+def test_unequal_term_frequencies_commit_canonical_matches_and_keep_rank(corpus, monkeypatch, recover):
+    from apps.live_control_server.services.native_source_navigation import NativeSourceNavigator
+    from application_state.agent_conversation.corpus_source_search import validate_events
+    adapter, _ = corpus
+    text = TEXT.replace('Unrelated blue flowers.', 'An unrelated arch.')
+    services, artifact, _ = registry(text=text)
+    sources.persist_source_markdown(source_artifact_id=artifact.source_artifact_id, source_domain='worldbuilding',
+        world_id='native-park', campaign_id=None, session_id=None, markdown=text, lineage={})
+    monkeypatch.setattr(corpus_source_navigation, 'direct_services_from_config', lambda _: services)
+    driver = PlanJevDriver(adapter)
+    def after_search():
+        before = dict(driver.native_sources.query_matches)
+        assert ['beneath', 'black', 'arch'] in before.values()
+        if recover:
+            monkeypatch.setattr(corpus_source_navigation, 'collect_source_view',
+                                lambda *a, **kw: pytest.fail('recovery repeated scan'))
+            replacement = NativeSourceNavigator(adapter)
+            driver.native_sources = adapter._native_source_navigator = replacement
+            replacement.collect()
+            assert replacement.query_matches == before
+    proof = asyncio.run(driver.run(transport=Decisions(after_search=after_search), api_key='synthetic-not-secret'))
+    execution = adapter.fence.turn.graph_context_execution
+    observed = next(e for e in execution.events if isinstance(e, t.CorpusSourceSearchObservedV1))
+    assert observed.coverage == 'enumerated_membership_scanned'
+    assert any(h.matched_terms == ['arch', 'beneath', 'black'] for h in observed.matches)
+    assert all(h.matched_terms == sorted(set(h.matched_terms)) for h in observed.matches)
+    writer = PlanJevWriter(adapter, proof, PlanRulesRuntime(adapter, rules_capability(graph=True)))
+    selected = writer.projection.frame['native_source_sections']['sections']
+    assert len(selected) == 1 and 'A sleeping fox' in selected[0]['text']
+    assert any(isinstance(e, t.NativeSourceSectionObservedV2) and e.outcome == 'complete' for e in execution.events)
+    forged = observed.model_copy(update={'matches': [h.model_copy(update={'matched_terms': list(reversed(h.matched_terms))})
+        if len(h.matched_terms) > 1 else h for h in observed.matches]})
+    fake = SimpleNamespace(policy=execution.policy,
+        events=[forged if e.event_id == observed.event_id else e for e in execution.events],
+        context_receipt_sha256=execution.context_receipt_sha256,
+        execution_policy_sha256=execution.execution_policy_sha256)
+    with pytest.raises(ValueError, match='not navigation'):
+        validate_events(fake)

@@ -1,6 +1,6 @@
 # AGENT: canonical corpus match receipts
 
-PROPOSED bounded successor; no code edits until independent invariant critique.
+ACTIVE bounded successor after independent Bugbot invariant critique accepted the producer-only normalization. Preserve frequency-ranked navigation after recovery by reconstructing per-catalog term frequencies from canonical match sets; no new receipt field.
 PRIME owns the confirmed Q01 regression under the operator's standing BENCHMARK
 repair priority. Base334c13e38ae4b4b9bac62afa915c5abf15721d3f, existing serial checkout,
 branch codex/buddy-corpus-match-receipts. Other inspected open hosted/parked lanes
