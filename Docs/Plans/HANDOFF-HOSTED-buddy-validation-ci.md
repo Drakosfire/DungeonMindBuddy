@@ -26,7 +26,7 @@ Using supported GitHub read tools, `main` resolved to `e754f68f1d6a9e726c23657e2
 - Set up Python 3.13 with `actions/setup-python` pinned to commit `6d4fd22b20465ccc0f7354476588e8df7c9ca0e0` (v7.1.0) and uv 0.13.5 with `astral-sh/setup-uv` pinned to `07a047e608db84b3d8c06cd9a7c7dcc9c355c18e` (v10.3.2). `actions/checkout` is pinned to `3d3c42e5aac5ba805825da76410c181273ba90b1` (v7.0.1).
 - Run `python scripts/prepare_patched_hermes.py`, install the exact locked project with `uv sync --locked`, then run the full-root-conftest auth/app selection: `tests/test_hosted_auth.py`, `tests/test_dms_principal.py`, `tests/test_trusted_cookie_origin.py`, and `tests/test_agent_graph_auth.py`. Use concise, capture-suppressed pytest output. Do not skip failures.
 - The checked-in lock resolves `psycopg-binary` 3.3.4 with a CPython 3.13 Linux wheel, addressing the prior cached Python 3.12 libpq import issue without changing the lock. These four modules do not request the disposable application-state fixture, so the workflow uses no PostgreSQL service, live DB, or database credentials.
-- After the auth/app job passes, build `Dockerfile.production` with Buildx and `--load`; do not push. The production Dockerfile runs the frontend `npm ci` and `npm run build` stage, so a separate duplicate frontend job is unnecessary.
+- Run the production-image job after the auth/app job completes, even if the tests fail (unless the workflow is cancelled), so both checks produce terminal outcomes. Build `Dockerfile.production` with Buildx and `--load`; do not push. The production Dockerfile runs the frontend `npm ci` and `npm run build` stage, so a separate duplicate frontend job is unnecessary.
 - Preserve the test that production readiness returns the expected 503 fail-closed response while no route policies are registered. Do not enable World routes or introduce World policy to make CI green.
 
 ## Workflow boundaries
@@ -42,8 +42,10 @@ Using supported GitHub read tools, `main` resolved to `e754f68f1d6a9e726c23657e2
 - `.github/workflows/hosted-validation.yml`
 - `Docs/Plans/HANDOFF-HOSTED-buddy-validation-ci.md`
 - `Docs/Plans/HANDOFF-HOSTED-buddy-auth-packaging.md` — predecessor settlement only
+- `Dockerfile.production` — only if a verified image-build failure requires a minimal build-time correction
+- `pyproject.toml` and `uv.lock` — only if exact Python 3.13 CI proves a locked dependency incompatibility; keep direct source pins intact
 
-No runtime/auth routes, World policy, database schema, credentials, provider configuration, deployment, or retained data are changed. If a concrete Python dependency or Dockerfile build issue blocks the requested checks, diagnose from the exact job log and make only a required in-scope compatibility repair; do not hide failures with broad skips or expand product behavior.
+No runtime/auth routes, World policy, application behavior, database schema, credentials, provider configuration, deployment, or retained data are changed. If a concrete Python dependency or Dockerfile build issue blocks the requested checks, diagnose from the exact job log and make only the path-limited compatibility repair listed above; do not hide failures with broad skips or expand product behavior.
 
 ## Current verification limits
 
