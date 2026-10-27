@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Validate the rendered, provider-free Buddy production Compose contract."""
+"""Validate the provider-free Buddy deployment contract and retained Compose option."""
 
 from __future__ import annotations
 
@@ -179,7 +179,7 @@ def validate_compose_config(
 
 
 def validate_static_files(repository_root: Path) -> tuple[str, ...]:
-    """Check provenance wiring, streaming proxy settings, and launch-gate docs."""
+    """Check both retained Docker support and the proposed systemd release path."""
 
     errors: set[str] = set()
     dockerfile = (repository_root / "Dockerfile.production").read_text(encoding="utf-8")
@@ -192,6 +192,13 @@ def validate_static_files(repository_root: Path) -> tuple[str, ...]:
     proxy = (repository_root / "deploy/production/nginx-buddy.conf").read_text(
         encoding="utf-8"
     )
+    systemd_unit = (
+        repository_root / "deploy/production/systemd/buddy.service"
+    ).read_text(encoding="utf-8")
+    environment_example = (
+        repository_root / "deploy/production/systemd/buddy.env.example"
+    ).read_text(encoding="utf-8")
+    pyproject = (repository_root / "pyproject.toml").read_text(encoding="utf-8")
     runbook = (
         repository_root / "Docs/Runbooks/RUNBOOK-HOSTED-deployment-preparation.md"
     ).read_text(encoding="utf-8").lower()
@@ -227,12 +234,72 @@ def validate_static_files(repository_root: Path) -> tuple[str, ...]:
     if not all(
         token in proxy
         for token in (
+            "proxy_pass http://127.0.0.1:8080;",
             "proxy_buffering off;",
             "proxy_request_buffering off;",
             "proxy_read_timeout 3600s;",
         )
     ):
         errors.add("streaming_proxy_contract_missing")
+    if re.search(r"^\s*server\s*\{", proxy, flags=re.MULTILINE):
+        errors.add("buddy_nginx_file_must_be_an_include_fragment")
+    if not all(
+        token in systemd_unit
+        for token in (
+            "WorkingDirectory=/opt/dungeonmindbuddy/current",
+            "EnvironmentFile=/etc/dungeonmindbuddy/buddy.env",
+            "ExecStart=/opt/dungeonmindbuddy/current/.venv/bin/uvicorn ",
+            "--host 127.0.0.1 --port 8080",
+            "Restart=on-failure",
+            "NoNewPrivileges=yes",
+            "ProtectSystem=strict",
+            "ReadWritePaths=/srv/REPLACE_WITH_BUDDY_DATA_ROOT /srv/REPLACE_WITH_WORLDGRAPH_ROOT",
+        )
+    ):
+        errors.add("systemd_release_unit_contract_missing")
+    runtime_commands = [
+        line
+        for line in systemd_unit.splitlines()
+        if line.startswith(
+            ("ExecStart=", "ExecStartPre=", "ExecStartPost=", "ExecStopPost=")
+        )
+    ]
+    runtime_command_text = "\n".join(runtime_commands)
+    proxy_port = re.search(r"proxy_pass http://127\.0\.0\.1:(\d+);", proxy)
+    unit_port = re.search(
+        r"--host 127\.0\.0\.1 --port (\d+)", runtime_command_text
+    )
+    if proxy_port is None or unit_port is None or proxy_port.group(1) != unit_port.group(1):
+        errors.add("systemd_and_existing_nginx_upstreams_must_match")
+    if any(
+        token in runtime_command_text
+        for token in ("uv run", "uv sync", "alembic", "migrate")
+    ):
+        errors.add("systemd_runtime_must_not_resolve_dependencies_or_migrate")
+    if (
+        'requires-python = ">=3.13,<3.14"' not in pyproject
+        or not (repository_root / "uv.lock").is_file()
+    ):
+        errors.add("buddy_locked_python_runtime_contract_missing")
+    active_write_paths = [
+        line
+        for line in systemd_unit.splitlines()
+        if line.startswith("ReadWritePaths=")
+    ]
+    if active_write_paths:
+        errors.add("systemd_data_roots_must_remain_operator_selected")
+    for key in (
+        "DUNGEONMIND_SERVER_API_ORIGIN=https://<APPROVED_DMS_API_ORIGIN>",
+        "DUNGEONBUDDY_APPLICATION_STATE_DATABASE_URL=",
+        "DUNGEONMIND_WORLD_GRAPH_AUTHORITY_DATABASE_URL=",
+        "DUNGEONMIND_WORLD_GRAPH_AUTHORITY=dungeonmind",
+        "DMB_HOSTED_WORLD_ACCESS_JSON=\n",
+        "DMB_MANAGED_WORLD_DATA_ROOT=/srv/REPLACE_WITH_BUDDY_DATA_ROOT/",
+        "DUNGEONMIND_WORLD_GRAPH_ROOT=/srv/REPLACE_WITH_WORLDGRAPH_ROOT",
+    ):
+        if key not in environment_example:
+            errors.add("systemd_environment_example_must_keep_placeholders")
+            break
     for token in (
         "DUNGEONBUDDY_APPLICATION_STATE_DATABASE_URL",
         "DUNGEONMIND_WORLD_GRAPH_AUTHORITY_DATABASE_URL",
@@ -241,6 +308,11 @@ def validate_static_files(repository_root: Path) -> tuple[str, ...]:
         "isolated restore",
         "downgrade fence",
         "world resolver",
+        "systemd",
+        "uv.lock",
+        "release preparation",
+        "python 3.11",
+        "dependency resolution at startup",
     ):
         if token.lower() not in runbook:
             errors.add("runbook_gate_missing")
@@ -251,6 +323,8 @@ def validate_static_files(repository_root: Path) -> tuple[str, ...]:
         "48b3f5181890ee3b3362cd12d9bfb8b41ddd65c1",
         "4ccd39a1e433d81569d86c05273ac33ee8f27ef3",
         "no registry digest",
+        "uv/systemd",
+        "container deployment option",
     ):
         if token not in manifest:
             errors.add("source_manifest_pin_or_image_limit_missing")
@@ -285,7 +359,7 @@ def main() -> int:
     if errors:
         print("production_contract_check_failed: " + ", ".join(sorted(errors)), file=sys.stderr)
         return 1
-    print("production Compose, provenance, proxy, and runbook contract checks passed")
+    print("production runtime, compatibility, provenance, and runbook checks passed")
     return 0
 
 

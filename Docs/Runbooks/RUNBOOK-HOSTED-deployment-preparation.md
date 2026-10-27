@@ -4,78 +4,106 @@
 **Snapshot:** 2026-10-27 UTC
 **Target:** buddy.dungeonmind.net through the existing DMS-managed user population
 
-This runbook reconciles the existing Buddy production package and proxy template. It defines the configuration contract and evidence still required before a separate staging or launch decision. It does not provision a host, activate a route, create credentials, select a World, run migrations, or contact a provider.
+This runbook proposes a host-native runtime using one versioned release and one uv environment per Python service, supervised by systemd. The existing host Nginx remains the only proxy; Buddy supplies a site-location include for its already-running Nginx. Existing Docker build and deployment support is retained for compatibility and build-only CI, but it is no longer the proposed canonical hosted path.
 
-## Candidate source and image provenance
+This is a local preparation contract. It does not provision a host, switch a service, install dependencies on the host, activate a route, create credentials, choose a World, run migrations, restore data, or contact a provider.
 
-The current reviewed source candidates are:
+## Current source and runtime evidence
 
-| Repository | Exact main source revision | Role |
+| Repository | Exact main revision checked 2026-10-27 | Role |
 |---|---|---|
-| DungeonMindBuddy | 53d4bfd70bc599e18494e258f5c2b39acbf93c21 | Python 3.13 Buddy API and bundled frontend |
+| DungeonMindBuddy | 53d4bfd70bc599e18494e258f5c2b39acbf93c21 | Buddy API and bundled frontend; Python constraint is >=3.13,<3.14 and uv.lock is committed |
 | DungeonMindServer | 48b3f5181890ee3b3362cd12d9bfb8b41ddd65c1 | Existing DMS identity/session authority; PR #45 merged |
 | DungeonMind | 4ccd39a1e433d81569d86c05273ac33ee8f27ef3 | In-process Core package and separate WorldGraph authority |
 | DungeonOverMind | 2d14d6a32e4d72d16a94254af16d49921ae91688 | Cross-repository launch plan |
-| LandingPage | 9e567007cd37867fffd95db8b229c77f5950616e | Existing public frontend; no changes proposed |
+| LandingPage | 9e567007cd37867fffd95db8b229c77f5950616e | Existing public frontend; no change proposed |
 
-Buddy #1817 is merged at 7a6509b06b61c3ffba870dbc3f617e2a31d3a6e6. The Buddy source has pinned build inputs, and this preparation adds source-revision metadata to locally built images. The CI image build is build-only and does not publish. No production Buddy registry digest exists yet. Do not treat a source SHA, a local image ID, or a synthetic CI image reference as a registry digest.
+Buddy #1817 is merged at 7a6509b06b61c3ffba870dbc3f617e2a31d3a6e6. DMS #45 is merged at 48b3f5181890ee3b3362cd12d9bfb8b41ddd65c1. Buddy #1814's existing Python 3.13 tests and build-only image job passed at its exact recorded head. Those results are source/CI evidence, not proof that the merged changes are deployed.
 
-The bounded 2026-10-27 host inventory observed the running DMS image only as the local ID sha256:c2d79ea52c5e46e22c18b33f3833e0a4011bb2759ebc5e79e1bc21ebe6040d89. It had no registry repository digest or OCI source/revision label. The host checkout revision is not proof of that image's source. Buddy was absent from the inspected Docker inventory. The report did not establish that the merged DMS or Buddy changes are deployed.
+The bounded 2026-10-27 inventory observed the DMS container running Python 3.11.15. Its local image ID was sha256:c2d79ea52c5e46e22c18b33f3833e0a4011bb2759ebc5e79e1bc21ebe6040d89, without a registry digest or OCI source/revision label. The host Compose checkout SHA is not image provenance. Buddy was absent from the inspected Docker inventory. This report does not establish the running DMS image's source revision.
 
-## Production Compose contract
+## Proposed canonical Python service layout
 
-The existing deploy/production/compose.production.yaml remains a single Buddy service package. DungeonMind Core remains in-process. Do not add a parallel database stack or reuse the host's network-adjacent PostgreSQL/pgvector or Mongo containers: their application ownership, schemas, and migration heads were not verified.
+Each Python service must have its own versioned release directory, committed lock, uv-managed virtual environment, environment file, and systemd unit. Do not share a virtual environment, lockfile, or writable release tree between Buddy and DMS.
 
-At any later operator-approved staging preparation, set BUDDY_IMAGE_NAME to the published registry image name and BUDDY_IMAGE_DIGEST to its verified 64-character sha256 hex digest. Compose constructs the immutable @sha256: reference, and both values are required with no defaults. The API binds only to 127.0.0.1 on the host. Keep the existing Nginx streaming behavior in deploy/production/nginx-buddy.conf, including disabled request/response buffering and its 3600-second read timeout.
+For Buddy, the existing committed uv.lock and pyproject Python constraint are the dependency contract. A separately reviewed release-preparation step installs the exact lock into that release's .venv, using the repository's pinned patched-Hermes preparation and a reviewed uv/Python toolchain. The intended sequence is conceptually:
 
-Two independent PostgreSQL authorities are required:
+1. Check out the exact Buddy commit into a new immutable directory such as /opt/dungeonmindbuddy/releases/<commit-sha>.
+2. Verify the checkout and lockfile match the recorded source revision; do not edit or regenerate uv.lock during deployment preparation.
+3. Run the repository's pinned Hermes source preparation, then run uv sync --locked --no-dev --no-editable with the selected Python 3.13 interpreter from that release directory. The existing project toolchain pin is uv 0.13.5 in Dockerfile.production and CI; do not change it here. This is the explicit dependency installation step; it may access package/source registries but must not call application providers or create credentials.
+4. Verify the prepared interpreter, imports, lock state, and the exact release's tests before considering a service switch.
+5. Point /opt/dungeonmindbuddy/current to the accepted release only under a separate operator-approved change.
 
-* DUNGEONBUDDY_APPLICATION_STATE_DATABASE_URL for Buddy application state.
-* DUNGEONMIND_WORLD_GRAPH_AUTHORITY_DATABASE_URL for the DungeonMind WorldGraph authority, with DUNGEONMIND_WORLD_GRAPH_AUTHORITY explicitly set to dungeonmind.
+At service start, systemd executes the absolute uvicorn entry point inside current/.venv directly. There is no dependency resolution at startup: the service must not invoke uv run, uv sync, source checkout, build hooks, or database migrations. A failed/missing release fails to start; it does not pull dependencies or substitute another release.
 
-Use separately owned logical databases and roles. The database coordinates and roles must identify distinct authorities, as enforced by the provider-free contract check. They may share a physical PostgreSQL server only if the databases, credentials, migration histories, backup/restore owners, and recovery procedures remain separate. Never point either setting at an unidentified existing host database. Keep credentials as operator-supplied placeholders such as postgresql://<dedicated-role>:<secret>@<dedicated-host>:5432/<dedicated-database>; do not commit values or place them in logs.
+The included buddy.service is a unit template only. It runs as a dedicated non-root dungeonmindbuddy account, reads /etc/dungeonmindbuddy/buddy.env, and binds to 127.0.0.1:8080. ProtectSystem=strict leaves writes disabled. The commented ReadWritePaths line must remain inactive until the operator selects existing, non-overlapping durable roots outside the release tree and replaces the placeholders. The installed environment file must be root-owned and mode 0600; the system manager reads it before passing values to the service. Create no directory or account as part of this preparation.
 
-Buddy application files and WorldGraph files have independent durable host roots: BUDDY_PERSISTENT_ROOT and DUNGEONMIND_WORLD_GRAPH_FILE_ROOT. Select existing directories outside the checkout, ensure they do not overlap, and grant the container UID 10001 only the needed access. Compose uses bind.create_host_path=false so a typo cannot silently create an empty directory. The application-state root holds managed-world, artifact, and session paths; the WorldGraph root holds only its dedicated graph files. Verify the application path semantics with the exact candidate release before staging.
+Buddy's DMB_MANAGED_WORLD_DATA_ROOT, DMB_ARTIFACT_DATA_ROOT and DUNGEONMIND_LIVE_SESSION_DIR must live below its selected Buddy durable root. DUNGEONMIND_WORLD_GRAPH_ROOT must live under a separate selected WorldGraph file root. The file deploy/production/systemd/buddy.env.example contains only placeholders and candidate names. Use a protected, operator-approved secret mechanism for the installed environment file; never commit its populated contents.
 
-The runtime does not migrate on startup. Record each authority's current and target migration heads before any separately approved change. A mismatch or an unclear migration owner blocks activation. Respect each authority's downgrade fence: do not run reverse migrations, drop schemas/volumes, or roll back across an irreversible migration as a recovery shortcut.
+The architecture target is also to run DMS from its own DMS-owned versioned release, committed lock, uv environment and systemd unit. This repository does not own DMS startup/configuration and does not provide that unit. The observed DMS image reports Python 3.11.15; whether and how to move it to uv/systemd, and whether to move it to Python 3.13, require a separate DMS compatibility and scope decision. This preparation does not upgrade DMS Python or dependencies, rewrite its lock, or stop/change its container.
 
-## World access remains fail-closed
+## Retained Docker compatibility path
 
-The Buddy production World resolver registry remains empty. Readiness must remain blocked and World/API operations must remain denied until exact route resolvers and their side effects are reviewed. DMB_HOSTED_WORLD_ACCESS_JSON is a required hold placeholder; do not populate it during this preparation. Do not infer ownership from creator identity, database contents, or client selectors.
+Dockerfile.production and deploy/production/compose.production.yaml remain available and continue to receive the build-only CI checks. This is the optional container deployment option, not the proposed canonical hosted path. If that option is later selected, the Compose file still requires BUDDY_IMAGE_NAME plus BUDDY_IMAGE_DIGEST, and deploy/production/compose.production.yaml keeps DUNGEONMIND_WORLD_GRAPH_FILE_ROOT separate from the Buddy data root. No production registry digest has been published or verified. CI's synthetic registry.invalid image is configuration-only and is never pulled, published, or activated.
 
-The operator has not selected the exact retained World to serve or approved a World/subject ownership and sharing policy. Preserve the existing DMS-managed population; no extra owner-only population restriction is approved. Before route activation, document the selected World, its source, the approved access policy, and the procedure for mapping retained Worlds to DMS subjects. Then review each route's reads, writes, media, history, jobs, streaming, and provider side effects and register a resolver for its exact method and path. A client World selector may only be a consistency check.
+## One existing host Nginx
+
+The host inventory found an existing Nginx service and readable include chain, but no Buddy virtual host in those readable includes. The server-side resolver returned no Buddy address; that is not evidence about authoritative/public DNS. The proposed deploy/production/nginx-buddy.conf remains a location include for the existing TLS virtual host, not a complete server block and not a second Nginx service or container.
+
+The include forwards to 127.0.0.1:8080, matching the Buddy systemd unit. That port is inherited from the prior Compose host mapping and is only a candidate: verify it is unused before any separately approved service change. If the operator chooses another free loopback port, update both the unit and include together and rerun the consistency test. Keep request and response buffering disabled and the 3600-second read timeout for HTTP streaming.
+
+Installing the include, changing Nginx configuration, reloading Nginx, adding a virtual host, issuing TLS, or changing DNS are separate live security/network actions and are not authorized here. Do not install a second proxy.
+
+## Databases and durable data
+
+Buddy APP-STATE and DungeonMind WorldGraph remain separate logical authorities with separate credentials, migration histories, backup owners, and recovery procedures:
+
+* DUNGEONBUDDY_APPLICATION_STATE_DATABASE_URL — Buddy APP-STATE.
+* DUNGEONMIND_WORLD_GRAPH_AUTHORITY_DATABASE_URL with DUNGEONMIND_WORLD_GRAPH_AUTHORITY=dungeonmind — WorldGraph authority.
+
+The example DSNs contain role, secret, host and database placeholders only. Identify each owner, database, role and migration head before any approved deployment. The authorities may share a physical PostgreSQL server only if their logical databases, credentials, histories, backup/restore owners and recovery procedures remain separate. Do not silently reuse the server's network-adjacent PostgreSQL/pgvector or Mongo containers; their relation to these authorities was not established. This preparation neither touches nor migrates any existing database container.
+
+All durable Buddy and WorldGraph data roots must be outside /opt/dungeonmindbuddy/releases and outside any DMS release directory. Select roots that do not overlap; verify host ownership and access for the service user; retain backups separately from the host. Do not put data, caches, generated files, runtime secrets or release-specific state inside a directory that may be replaced during a source release update.
+
+The unit has no migration command. Record both current and candidate schema heads under their owners before any separately approved migration. Do not use startup, service restart, code rollback or a source symlink switch to reverse schema state. Honor migration downgrade fences; never drop a database/schema/volume or restore over the live authority as a rollback shortcut.
 
 ## Backup and isolated restore evidence
 
-The live inventory verified neither application backup coverage nor an isolated restore. Its bounded metadata scan found OS package backup files in /var/backups and no matching application backup files in the specific checked DMS data-root scope. This does not show that backups are absent elsewhere. The dpkg database timer is not an application backup. No real restore was attempted for this preparation.
+The bounded inventory verified neither application backup coverage nor an isolated restore. Its scoped metadata scan found OS package backup files in /var/backups and no matching application backup files in one checked DMS data-root scope. This does not prove application backups are absent elsewhere. The dpkg database timer is not an application backup. No restore was attempted here.
 
-Before staging, the separate owners of APP-STATE and WorldGraph must identify their supported backup procedures and capture for each authority:
+Before staging, each authority owner must identify its supported backup procedure and capture:
 
-1. A timestamped backup produced from the intended source and its cryptographic checksum.
-2. A schema/migration fingerprint and the source authority identity, with DSNs and secrets redacted.
-3. Evidence that the backup artifact is stored separately from the host and source database.
-4. A restore into a new, isolated, empty target that cannot route traffic or overwrite the source.
-5. Post-restore fingerprint/content-integrity checks and an operator witness recording the exact source/target revision and result.
+1. A timestamped backup plus cryptographic checksum.
+2. A schema/migration fingerprint and authority identity, with DSNs and secrets redacted.
+3. Evidence the backup is stored separately from the source host and database.
+4. A restore into a new isolated empty target that cannot receive traffic or overwrite the source.
+5. Post-restore integrity/fingerprint checks and an operator witness with source and target revisions.
 
-Use the owning repository's recovery procedure and its downgrade fences. Do not run a restore against the live authority, destroy a volume to simulate rollback, replay user/provider actions, or claim recovery from a successful schema check alone. If the owners cannot produce a safe isolated target and matching integrity evidence, backups and recovery remain unproven and activation stays blocked.
+Use each owner repository's recovery procedure. Do not restore against a live authority, destroy a volume to simulate rollback, replay user/provider actions, or claim recovery from a schema check alone. If isolated targets or matching integrity evidence are unavailable, recovery remains unproven and activation stays blocked.
 
-## Bounded host inventory evidence and limits
+## Bounded host observations and their limits
 
-The operator-provided read-only inventory snapshot for 2026-10-27 recorded Ubuntu 24.04 on KVM/QEMU, 2 CPUs, 7.8 GiB RAM, and 45 GiB available on a 96 GiB root filesystem. DMS and Store Generator containers were present. Buddy was absent; no buddy.dungeonmind.net Nginx vhost was found among readable includes, and that host's resolver returned no address. This is not authoritative public DNS evidence. The Store Generator health probe to loopback port 3001 was timing out with a 29,142 failure streak; no repair was attempted.
+The operator-provided read-only snapshot recorded Ubuntu 24.04 on KVM/QEMU, 2 CPUs, 7.8 GiB RAM, and 45 GiB available on a 96 GiB root filesystem. DMS and Store Generator containers were present; Buddy was absent from the inspected Docker inventory. No Buddy vhost was found among readable Nginx includes. The host resolver returned no address for the Buddy hostname, not a public DNS determination. The Store Generator loopback port 3001 health probe had a 29,142 timeout failure streak; no repair was attempted.
 
-The scan was bounded and unprivileged. It did not inspect runtime environment values, query databases, inspect broad logs, verify all backup locations, or establish application database ownership. PostgreSQL/pgvector and Mongo were only observed as containers on a separate Compose project sharing networks; network adjacency is not evidence that either is an application authority. The DMS data-like mount was inside its Compose checkout and is not proven durable outside a replaceable checkout. Do not describe this report as a full server audit or as proof that backups do not exist.
+PostgreSQL/pgvector and Mongo containers in another Compose project shared Docker networks with DMS, which establishes network adjacency only. No application ownership, database contents, or migration tables were inspected. The DMS data-like mount was inside its Compose checkout and is not proven durable outside replaceable source. The scan was bounded and unprivileged, not a full server audit; it did not inspect environment values, broad logs, or every backup location. Do not claim backups are absent.
 
-## Launch gates and operator decisions
+## Python and dependency compatibility boundary
 
-Keep launch and activation blocked until every item below has a named owner and recorded evidence:
+Buddy already declares Python >=3.13,<3.14 and has a committed uv.lock; using that existing contract in its isolated release is the proposed starting point. This preparation did not run uv sync or install Python on the host. It does not authorize changing Python versions or broad dependency upgrades.
 
-1. Choose the exact retained World and its verified source; approve the World/subject ownership and sharing policy while retaining the DMS-managed population.
-2. Identify dedicated owners, hosts, database names, roles, and migration heads for APP-STATE and WorldGraph. Supply credentials only through the operator's approved secret mechanism.
-3. Select non-overlapping durable host roots outside replaceable checkouts and prove ownership/permissions for the Buddy runtime UID.
-4. Publish the reviewed Buddy source as an immutable registry image, record its registry digest, verify OCI source/revision labels, and bind the release to the exact Buddy revision. Source pins and a no-push local CI build are not this evidence.
-5. Complete separately witnessed, isolated restore checks for both authorities, and confirm the migration downgrade fences and recovery owners.
-6. Review the live host's capacity, DMS image provenance, Nginx/TLS route, DNS, cookie delivery, and deployment procedure under a separate approved change. The bounded inventory leaves these incomplete; investigate the Store Generator health failure if it is part of the planned experience.
-7. Review provider limits and incident/rollback ownership. Do not reverse migrations across a downgrade fence or delete persistent storage during rollback.
-8. Review the route resolver set and readiness behavior with the exact selected World and approved access policy; readiness stays blocked while the production registry is empty.
+DMS was observed as Python 3.11.15 in its current container. Moving DMS to a uv-managed release or Python 3.13 requires a separate compatibility scope decision, including its own lock, test matrix, systemd unit, environment contract, and rollback plan. Until then, leave the current DMS service and container untouched. Any required compatibility work should be documented and reviewed before a Python-version or broad lock change.
 
-This checklist is preparation evidence only. It is not a deployment authorization or a claim that any gate has passed.
+The current Buddy project lists pytest and Ruff in its main dependency set, so uv sync --no-dev does not omit them. Moving tools into a development-only dependency group would change pyproject.toml and uv.lock; that dependency-hygiene change is not included or authorized by this preparation.
+
+## Gates before a later staging decision
+
+1. Select the exact retained World and verified source; approve World/subject ownership and sharing policy while retaining the existing DMS-managed population.
+2. Identify independent APP-STATE and WorldGraph owners, database names/roles, migration heads, credentials path, and recovery procedures.
+3. Select existing non-overlapping durable roots and confirm service-user access. Decide how much disk to reserve for versioned releases, uv cache, logs, and rollback retention; do not delete old releases or data as part of preparation.
+4. Review Buddy release preparation with the exact source commit, committed lock, patched-Hermes source, Python/uv versions, tests, and source revision evidence.
+5. Decide DMS uv/systemd and Python-version compatibility scope with its owner; no DMS unit or migration is provided here.
+6. Review free loopback port, existing Nginx include location, DNS/TLS/cookie behavior, deployed DMS provenance, host capacity, deployment and rollback owner, and Store Generator health if it is part of the planned experience.
+7. Prove isolated backups/restores for both authorities and review downgrade fences.
+8. Keep the World resolver registry empty and readiness blocked until exact route resolvers and the approved World policy have separate review.
+
+The retained Dockerfile and Compose path remain available for compatibility and no-push CI; choosing Docker for a future release is an explicit operator architecture decision, not the proposed canonical path in this runbook. No launch gate is marked passed by this document.

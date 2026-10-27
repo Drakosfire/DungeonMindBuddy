@@ -1,5 +1,7 @@
-# Production package wiring only. This references an already-published immutable image;
-# it does not configure the host, proxy, databases, DNS, TLS, credentials, or retained data.
+# Retained Docker deployment option for compatibility and build-only CI. The
+# proposed canonical hosted target is the per-release uv/systemd service.
+# This file does not configure the host, proxy, databases, DNS, TLS, credentials,
+# or retained data.
 services:
   buddy:
     image: "${BUDDY_IMAGE_NAME:?set a published Buddy registry image name}@sha256:${BUDDY_IMAGE_DIGEST:?set its published sha256 digest}"

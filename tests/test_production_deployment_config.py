@@ -144,6 +144,77 @@ class ProductionDeploymentConfigTests(unittest.TestCase):
         repository_root = Path(__file__).resolve().parents[1]
         self.assertEqual(validate_static_files(repository_root), ())
 
+    def test_systemd_starts_prepared_release_without_runtime_sync_or_migration(self) -> None:
+        repository_root = Path(__file__).resolve().parents[1]
+        unit = (
+            repository_root / "deploy/production/systemd/buddy.service"
+        ).read_text(encoding="utf-8")
+        runtime_commands = [
+            line for line in unit.splitlines() if line.startswith("ExecStart=")
+        ]
+        runtime_command_text = "\n".join(runtime_commands)
+
+        self.assertIn(
+            "ExecStart=/opt/dungeonmindbuddy/current/.venv/bin/uvicorn ",
+            runtime_command_text,
+        )
+        self.assertIn("--host 127.0.0.1 --port 8080", runtime_command_text)
+        self.assertNotIn("uv run", unit)
+        self.assertNotIn("uv sync", unit)
+        self.assertNotIn("alembic", unit)
+        self.assertNotIn("migrate", unit)
+        self.assertFalse(
+            any(
+                line.startswith(("ExecStartPre=", "ExecStartPost=", "ExecStopPost="))
+                for line in unit.splitlines()
+            )
+        )
+        self.assertFalse(
+            any(line.startswith("ReadWritePaths=") for line in unit.splitlines())
+        )
+
+    def test_systemd_environment_keeps_credentials_and_storage_as_placeholders(
+        self,
+    ) -> None:
+        repository_root = Path(__file__).resolve().parents[1]
+        example = (
+            repository_root / "deploy/production/systemd/buddy.env.example"
+        ).read_text(encoding="utf-8")
+        values = {
+            line.split("=", 1)[0]: line.split("=", 1)[1]
+            for line in example.splitlines()
+            if line and not line.startswith("#") and "=" in line
+        }
+
+        self.assertEqual(values["DMB_HOSTED_WORLD_ACCESS_JSON"], "")
+        for name in (
+            "DUNGEONBUDDY_APPLICATION_STATE_DATABASE_URL",
+            "DUNGEONMIND_WORLD_GRAPH_AUTHORITY_DATABASE_URL",
+        ):
+            self.assertIn("<SECRET>", values[name])
+            self.assertIn("<DEDICATED_HOST>", values[name])
+        self.assertTrue(
+            values["DMB_MANAGED_WORLD_DATA_ROOT"].startswith(
+                "/srv/REPLACE_WITH_BUDDY_DATA_ROOT/"
+            )
+        )
+        self.assertTrue(
+            values["DUNGEONMIND_WORLD_GRAPH_ROOT"].startswith(
+                "/srv/REPLACE_WITH_WORLDGRAPH_ROOT"
+            )
+        )
+
+    def test_existing_nginx_include_is_not_a_second_server(self) -> None:
+        repository_root = Path(__file__).resolve().parents[1]
+        fragment = (
+            repository_root / "deploy/production/nginx-buddy.conf"
+        ).read_text(encoding="utf-8")
+
+        self.assertNotIn("server {", fragment)
+        self.assertIn("proxy_pass http://127.0.0.1:8080;", fragment)
+        self.assertIn("proxy_buffering off;", fragment)
+        self.assertIn("proxy_request_buffering off;", fragment)
+
 
 if __name__ == "__main__":
     unittest.main()
