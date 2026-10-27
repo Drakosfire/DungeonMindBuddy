@@ -1,15 +1,17 @@
 import type { Editor } from '@tiptap/core';
 import { TextSelection, type EditorState } from '@tiptap/pm/state';
+import { closeHistory } from '@tiptap/pm/history';
 import type { Node as PMNode } from '@tiptap/pm/model';
 import { generatePlayableElementId, validatePlayableHeadingAttrs } from '../tiptap/playable/playableElementIdentity';
-import { indexPlayableStructure, indexPlayableStructureV2 } from '../tiptap/playable/playableStructureIndex';
+import { indexPlayableStructure, indexPlayableStructureV2, type PlayableStructureIndexV2 } from '../tiptap/playable/playableStructureIndex';
 import { tiptapJsonToSemanticMarkdown } from '../tiptap/markdown/calloutMarkdown';
 import { markdownToTiptapDoc } from '../tiptap/markdown/markdownToTiptap';
 import { semanticMarkdownSerializationDiagnostics } from '../tiptap/markdown/semanticMarkdownSafety';
+import { planCardScopeKey } from './planCardEditing';
 
 type Kind = 'scene' | 'beat';
 type Version = 'v1' | 'v2';
-export type PlanStructureAction = {kind: Kind; label: string; disabledReason: string | null};
+export type PlanStructureAction = {kind: Kind; operation: 'insert' | 'promote'; label: string; disabledReason: string | null};
 type Outline = {version: Version; marked: boolean; parentEnd: number | null; error: string | null};
 
 function outline(state: EditorState): Outline {
@@ -39,15 +41,71 @@ function outline(state: EditorState): Outline {
   return {version, marked, parentEnd: parent && state.selection.to <= parent.end && state.selection.from >= parent.pos ? parent.end : null, error:null};
 }
 
+/** Selection must stay inside one top-level ordinary heading. */
+function ordinaryHeading(state: EditorState) {
+  if (!(state.selection instanceof TextSelection)) return null;
+  const {$from,$to}=state.selection;
+  if ($from.depth!==1 || $to.depth!==1 || $from.parent!==$to.parent
+    || $from.parent.type.name!=='heading' || validatePlayableHeadingAttrs($from.parent.attrs).status!=='absent') return null;
+  return {node:$from.parent,position:$from.before(1)};
+}
+
 export function planStructureActions(editor: Editor | null): PlanStructureAction[] {
   const info = editor && !editor.isDestroyed ? outline(editor.state) : null;
+  const heading=editor && !editor.isDestroyed ? ordinaryHeading(editor.state) : null;
   const version = info?.version ?? 'v2';
   const rootKind = version === 'v2' ? 'beat' : 'scene';
-  return ([rootKind, rootKind === 'beat' ? 'scene' : 'beat'] as Kind[]).map(kind => ({
-    kind,
-    label: kind === rootKind ? `Add ${kind === 'beat' ? 'Beat' : 'Scene'}` : version === 'v2' ? 'Add Scene to this Beat' : 'Add Beat to this Scene',
-    disabledReason: !editor || !editor.isEditable || editor.isDestroyed ? 'Edit this Plan to add playable structure.' : info?.error ?? (kind !== rootKind && info?.parentEnd == null ? `Place the cursor inside a ${version === 'v2' ? 'Beat' : 'Scene'} first.` : null),
-  }));
+  return ([rootKind, rootKind === 'beat' ? 'scene' : 'beat'] as Kind[]).map(kind => {
+    const promote=version==='v2' && heading?.node.attrs.level===(kind==='beat'?2:3);
+    return {
+      kind, operation:promote?'promote':'insert',
+      label: promote ? `Make this a ${kind==='beat'?'Beat':'Scene'}` : kind === rootKind ? `Add ${kind === 'beat' ? 'Beat' : 'Scene'}` : version === 'v2' ? 'Add Scene to this Beat' : 'Add Beat to this Scene',
+      disabledReason: !editor || !editor.isEditable || editor.isDestroyed ? 'Edit this Plan to add playable structure.'
+        : planCardScopeKey.getState(editor.state)?.active ? 'Open Document to change playable structure.'
+        : info?.error ?? (kind !== rootKind && info?.parentEnd == null ? `Place the cursor inside a ${version === 'v2' ? 'Beat' : 'Scene'} first.` : null),
+    };
+  });
+}
+
+/** Existing objects keep their exact parent relationships; only order may shift. */
+function ownership(index: PlayableStructureIndexV2) {
+  return new Map<string,string>([
+    ...index.beats.map(x=>[x.beatId,JSON.stringify(['beat',x.beatKind])] as const),
+    ...index.scenes.map(x=>[x.sceneId,JSON.stringify(['scene',x.beatId])] as const),
+    ...index.choices.map(x=>[x.choiceId,JSON.stringify(['choice',x.beatId,x.sceneId])] as const),
+    ...index.options.map(x=>[x.optionId,JSON.stringify(['option',x.choiceId,x.activates,x.suppresses])] as const),
+  ]);
+}
+
+/** Explicit registration only; no text rewrite, Save, AI call or version conversion. */
+export function promotePlanHeading(editor: Editor,kind: Kind,expectedState: EditorState) {
+  if(editor.isDestroyed || !editor.isEditable) throw new Error('This Plan is not editable.');
+  if(!editor.state.doc.eq(expectedState.doc)||!editor.state.selection.eq(expectedState.selection))
+    throw new Error('The Plan or cursor changed. Choose the structure action again.');
+  const info=outline(editor.state),heading=ordinaryHeading(editor.state);
+  if(info.version!=='v2')throw new Error('Choose one ordinary heading in a current Beat-first Plan.');
+  const action=planStructureActions(editor).find(x=>x.kind===kind)!;
+  if(action.disabledReason)throw new Error(action.disabledReason);
+  if(!heading||heading.node.attrs.level!==(kind==='beat'?2:3))
+    throw new Error('Choose one ordinary heading in a current Beat-first Plan.');
+  const before=indexPlayableStructureV2(editor.getJSON());
+  if(before.status!=='ready')throw new Error('Fix the playable structure before making this heading playable.');
+  const id=generatePlayableElementId(kind);
+  const tr=editor.state.tr.setNodeMarkup(heading.position,undefined,{
+    ...heading.node.attrs,playableElementKind:kind,playableElementId:id,playableElementVersion:'v2',
+    ...(kind==='beat'?{playableBeatKind:'spine'}:{}),
+  });
+  const after=indexPlayableStructureV2(tr.doc.toJSON());
+  if(after.status!=='ready')throw new Error('This heading cannot become playable without invalidating the Plan.');
+  const next=ownership(after.index);
+  for(const [existing,relation] of ownership(before.index)) {
+    if(next.get(existing)!==relation)throw new Error('This would change an existing playable relationship. Keep its current Beat, Scene and Choice ownership.');
+  }
+  verifyRoundtrip(editor,tr.doc);
+  editor.view.dispatch(closeHistory(tr).scrollIntoView());
+  if(!editor.state.doc.eq(tr.doc))throw new Error('The current editor scope refused this structure change. Open Document.');
+  editor.view.focus();
+  return id;
 }
 
 function verifyRoundtrip(editor: Editor, doc: PMNode) {
