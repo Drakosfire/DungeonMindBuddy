@@ -359,6 +359,9 @@ def preparation_preview(*, world_id, request, entry_scene_id=None):
         attached = _attached_heading(tokens, blocks, _root_markers(tokens, blocks, source.split('\n')), source.split('\n'))
         labels = {marker.id: _heading_text(tokens, block) for block in blocks
                   if (marker := attached.get(block.token_index)) is not None and marker.kind == 'scene'}
+        ids = {scene['scene_id'] for scene in scenes}
+        if set(labels) != ids:
+            raise ApplicationStateIntegrityError('Source scene order disagrees with admitted membership')
         with conn.cursor() as cur:
             cur.execute('SELECT scene_id,encounter_id FROM combat.scene_template WHERE world_id=%s AND document_id=%s ORDER BY encounter_id',
                         (world_id, request.playable_artifact_id))
@@ -383,10 +386,13 @@ def preparation_preview(*, world_id, request, entry_scene_id=None):
                             'encounter_name': encounter.draft.title if encounter else None,
                             'enemies': [actor.name for actor in encounter.draft.entities] if encounter else [],
                             'template': pin})
-        ids = {scene['scene_id'] for scene in scenes}
+        # Membership and encounter choices retain canonical identity order. The
+        # author-facing list and unspecified entry use the existing root traversal.
+        display_by_id = {scene['scene_id']: scene for scene in display}
+        display = [display_by_id[scene_id] for scene_id in labels]
         if entry_scene_id is not None and entry_scene_id not in ids:
             raise ApplicationStateConflictError('Selected entry scene is absent from saved source')
-        selected = entry_scene_id if entry_scene_id else (scenes[0]['scene_id'] if scenes else None)
+        selected = entry_scene_id if entry_scene_id is not None else next(iter(labels), None)
         body = WorldSessionCreateRequest(**request.model_dump(), schema_version='dmb_world_session_create_v1',
                                          entry_scene_id=selected, encounters=choices)
         return {'request': body.model_dump(mode='json'), 'scenes': display,

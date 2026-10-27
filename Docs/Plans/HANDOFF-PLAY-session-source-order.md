@@ -1,0 +1,17 @@
+# PLAY — preserve authored scene order at session preparation
+
+Status: ACTIVE after independent invariant critique approved design25250c381. PRIME owns serial branch codex/session-source-scene-order, base1eb51661677c15dbc3ee172e3b0c9d879a50ac43, existing buddy-context-loop checkout. One bounded runtime correction PR under preparation/play dogfood authority. Current UI1842/API1838/schema0081; API2572669/UI2581335; retained sources, Plans, newer Brin draft and all Runs protected. No new worktree/environment. Hosted1828 and held1764 remain separate; open paths inspected and no overlap.
+
+## Reproduced boundary
+
+Ordinary Sheep Plan startform shows Scenes3,2,5,1,4 and defaults3 even though page/Play contents are1,2,3,4,5. Conks previously showed1,2,5,4,3. Sheep Run34a7cee8-991c-457b-9fc9-a7d191a1efde deliberately selected3; do not rewrite it. preparation_preview in application_state/play/session_encounters.py iterates structure_signature membership.scenes (canonical ID order) for display and defaults to scenes[0]. That membership set is an identity/structure contract, not the author's page ordering. Source labels are already read from admitted Markdown root blocks in document order using owning marker/body parser.
+
+Invariant: preparation display and unspecified default entry follow actual Scene order in the exact admitted committed source across Beats. An explicit valid entry remains selected. Keep canonical membership/manifest contracts and request.encounters ordering unchanged; no reparsing numbered titles, ID heuristics, new parser/authority, compatibility path, caps or storage migration. Reuse existing admitted source block/marker traversal for order alongside labels; ensure source-order membership equals admitted scene membership and fail closed on disagreement. No changes to explicit Make Current, inspection, source admission, snapshot pins, encounter lock order, existing immutable requests/receipts, replay/cancel or historical Runs.
+
+## Expected writes
+
+This handoff; predecessor HANDOFF-GRAPH-explicit-object-aliases.md settlement with delivered1842 and honest review limits. src/application_state/play/session_encounters.py preparation_preview only; tests/application_state/test_run_scene_encounters_postgres.py focused owner cases; apps/live-control-ui/src/combat/WorldSessionPreparation.test.tsx only if necessary mounted display/explicit-entry proof. No production UI change expected, no schema/native/Core/provider/hosted changes, no unrelated cleanup.
+
+## Gates
+
+Red original: canonical source with reverse-lexical Scene IDs across Beats must display source order/default first authored Scene. Real disposable PostgreSQL owner tests retain canonical request.encounters ordering, names/pins/orphan behavior, explicit later entry and selected Beat, clean/current/revision/scope refusal, no-Scene opening Beat, and replay of sealed request after source reorder. Do not change structure_signature globally. Focused mounted existing component order/explicit choice, typecheck as applicable, exact cumulative independent Bugbot, hosted gates, protected same-dependency API delivery. Ordinary current Sheep/Conks Plan startforms show authored order and correct unspecified default while explicit later choice remains possible; cancel/dismiss previews without creating unwanted Runs. ExistingRun34a7... pinnedPlan25/Scene4, Choice/note/NokeHP56/60temp1Proneactive and olderRuns/versions remain intact. Retain original wrong-order receipts. FullJ1–J6/performance/operatoracceptance remain open.

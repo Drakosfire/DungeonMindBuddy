@@ -1,6 +1,6 @@
 # GRAPH — keep selected evidence separate from authored aliases
 
-Status: ACTIVE after independent invariant critique approved designbf8df6a3c. PRIME owns serial branch codex/graph-explicit-object-aliases, base6236c1ad348709f4003de2d3de30488413db8fac, existing buddy-context-loop checkout. One bounded UI correction PR under current authoring/Graph dogfood authority. Remote open PRs inspected: held1764 owns separate writer/collaboration paths; hosted1828 remains separate. No new worktree/environment. Runtime UI1841/API1838/schema0081, API PID2572669 and UI2567966; all retained data/drafts protected.
+Status: MERGED and delivered through PR1842, merge1eb51661677c15dbc3ee172e3b0c9d879a50ac43, independently approved head6d0c77d4d6f7ab126d03c7301eaf68fe6c4f9319.91owner/mounted tests/tsc/build and hosted checks pass. Protected UI2581335/API2572669/schema0081 preserved3824APP/1157native/40906files exactly. Matching Conks r2 ordinary preview prepared without confirmation; original published Sarni unchanged. Older synthetic reviews refused mismatched saved revisions without bypass. Build preview does not expose alias list or explicit Aliases input; exact blank/explicit alias payloads proven by mounted owner tests, not claimed as visible browser inspection. FullJ3/edge-ID UI inspection remains open.
 
 ## Confirmed boundary failure
 

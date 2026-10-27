@@ -322,3 +322,72 @@ def test_cancel_waits_for_the_same_inflight_encounter_creation(scene_case,monkey
         assert entered.wait(10)
         canceling=pool.submit(service.cancel_materialization,world_id='elderwyld',run_id=run_id,scene_id='scene:gate',request=request)
         release.set();assert creating.result(10)==canceling.result(10)
+
+
+def test_preparation_default_and_display_follow_authored_order_with_canonical_capture(scene_case):
+    from application_state.play.session_encounter_types import WorldSessionSourceRequest
+    p = scene_case
+    pin = template_for(p)
+    later = "\n<!-- dmb-playable-element:v2 kind=beat id=beat:aftermath -->\n## Aftermath\n<!-- dmb-playable-element:v2 kind=scene id=scene:alpha -->\n### Later scene\n"
+    markdown = V2_SOURCE_MARKDOWN + later
+    obj, revision = commit_plan(str(p.obj.work_object_id), markdown,
+        expected_world_id='elderwyld', expected_revision=p.obj.object_revision)
+    source = WorldSessionSourceRequest(playable_artifact_id=p.obj.work_object_id,
+        expected_playable_revision=revision.revision_n,
+        expected_playable_work_revision_id=revision.work_revision_id,
+        expected_playable_content_sha256=revision.content_sha256)
+    canonical_ids = [scene['scene_id'] for scene in structure_signature(markdown)['membership']['scenes']]
+    assert canonical_ids == ['scene:alpha', 'scene:gate']
+    preview = service.preparation_preview(world_id='elderwyld', request=source)
+    assert [scene['scene_id'] for scene in preview['scenes']] == ['scene:gate', 'scene:alpha']
+    assert [scene['name'] for scene in preview['scenes']] == ['The Gate', 'Later scene']
+    assert preview['scenes'][0]['template'] == {**pin, 'encounter_id': str(pin['encounter_id'])}
+    assert [scene['scene_id'] for scene in preview['request']['encounters']] == canonical_ids
+    assert preview['request']['entry_scene_id'] == 'scene:gate'
+    request = WorldSessionCreateRequest.model_validate(preview['request'])
+    run_id = uuid4()
+    original = service.create_session(world_id='elderwyld', run_id=run_id, request=request)
+    assert original.aggregate.run.progress['current_scene_id'] == 'scene:gate'
+    assert original.aggregate.run.progress['current_beat_id'] == 'beat:arrival'
+    explicit = service.preparation_preview(world_id='elderwyld', request=source, entry_scene_id='scene:alpha')
+    assert explicit['request']['entry_scene_id'] == 'scene:alpha'
+    selected = service.create_session(world_id='elderwyld', run_id=uuid4(),
+        request=WorldSessionCreateRequest.model_validate(explicit['request']))
+    assert selected.aggregate.run.progress['current_beat_id'] == 'beat:aftermath'
+    with pytest.raises(ApplicationStateConflictError, match='absent'):
+        service.preparation_preview(world_id='elderwyld', request=source, entry_scene_id='scene:absent')
+    # Reordering the page must not rewrite a previously confirmed creation intent.
+    commit_plan(str(p.obj.work_object_id), later + V2_SOURCE_MARKDOWN,
+        expected_world_id='elderwyld', expected_revision=obj.object_revision)
+    assert service.create_session(world_id='elderwyld', run_id=run_id, request=request) == original
+
+
+def test_preparation_without_scenes_keeps_opening_beat(scene_case):
+    from application_state.play.session_encounter_types import WorldSessionSourceRequest
+    p = scene_case
+    markdown = '<!-- dmb-playable-element:v2 kind=beat id=beat:arrival -->\n## Arrival\nOpening prose.\n'
+    _, revision = commit_plan(str(p.obj.work_object_id), markdown,
+        expected_world_id='elderwyld', expected_revision=p.obj.object_revision)
+    source = WorldSessionSourceRequest(playable_artifact_id=p.obj.work_object_id,
+        expected_playable_revision=revision.revision_n,
+        expected_playable_work_revision_id=revision.work_revision_id,
+        expected_playable_content_sha256=revision.content_sha256)
+    preview = service.preparation_preview(world_id='elderwyld', request=source)
+    assert preview['scenes'] == []
+    assert preview['request']['entry_scene_id'] is None
+    assert preview['request']['encounters'] == []
+    result = service.create_session(world_id='elderwyld', run_id=uuid4(),
+        request=WorldSessionCreateRequest.model_validate(preview['request']))
+    assert result.aggregate.run.progress['current_beat_id'] == 'beat:arrival'
+    assert result.aggregate.run.progress['current_scene_id'] is None
+
+
+def test_preparation_fails_closed_if_source_traversal_disagrees(scene_case, monkeypatch):
+    from application_state.play.session_encounter_types import WorldSessionSourceRequest
+    from apps.live_control_server.services import plan_playable_body_target
+    p = scene_case
+    source = WorldSessionSourceRequest.model_validate({key: value for key, value in request_for(p).model_dump().items()
+        if key not in ('schema_version', 'entry_scene_id', 'encounters')})
+    monkeypatch.setattr(plan_playable_body_target, '_attached_heading', lambda *args, **kwargs: {})
+    with pytest.raises(ApplicationStateIntegrityError, match='scene order'):
+        service.preparation_preview(world_id='elderwyld', request=source)
