@@ -1,6 +1,6 @@
 import {parseWorkPlanFence,workPlanIdentity} from "../../surface/workPlans/workPlanReference";
 import {parseTableFence} from "../../preparedTables/tableGrammar";
-import { webSourceHref } from "./webSourceHref";
+import { webSourceHref, validWebSourceTitle } from "./webSourceHref";
 import { mediaAssetId, imagePresentation } from "../../media/mediaReferences";
 import type {
   Blockquote,
@@ -297,13 +297,13 @@ function visitLink(node: Link, state: VisitorState): TiptapNode[] {
   }
 
   const href = webSourceHref(url);
-  if (href && node.title == null) {
+  if (href && validWebSourceTitle(node.title)) {
     const children = visitInlineChildren(node.children, state);
     if (children.length > 0 && children.every(child => child.type === "text")) {
-      return withMark(children, { type: "link", attrs: { href } });
+      return withMark(children, { type: "link", attrs: { href, ...(node.title == null ? {} : {title: node.title}) } });
     }
   }
-  warn(state, "Ordinary Markdown links require an absolute HTTP/HTTPS URL, text label, and no title.", nodeStartLine(node));
+  warn(state, "Ordinary Markdown links require an admitted URL, text label, and a plain-text optional title.", nodeStartLine(node));
   return sourceTextNodes(node, state);
 }
 

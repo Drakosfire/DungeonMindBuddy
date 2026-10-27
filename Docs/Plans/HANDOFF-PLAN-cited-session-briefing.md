@@ -1,6 +1,6 @@
 # PLAN — cited session briefing
 
-Status: ACTIVE bounded serial successor to delivered placement1833 and settlement1834 at ab71b73dd09182b96b69ae86294614496d2f7be9. PRIME owns branch codex/session-memory-cited-briefing in the existing buddy-context-loop checkout. The operator authorized Conks/Sheep memory checks through configured providers and broader goal work. One implementation PR; no new worktree/environment. Independent contract critique, exact-head code review, hosted gates, protected delivery and ordinary dogfood remain required.
+Status: MERGED and delivered through PR1835 at 57d611ad65b785578feb566c9a7b254c921cfe2a, exact independently approved head d0fed12e616b8d26c6985a69443fd6b193b453c5. Constraint0081 and API/UI are live on5202; 3771 APP rows,1157 native rows and40883 corpus/output files were exactly preserved. Owner and hosted checks passed with retained original failures. Ordinary dogfood produced concise supported summaries but exposed two remaining failures: an explicit discussion-only request was routed to a page suggestion (turn65f25721-cb00-4041-95a2-ecb57fedfbd7, discarded with exact page restoration), and the editor preserves titled root-relative session citations as literal unsupported Markdown. The explicit writing successor remains staged and unsaved. Neither full cited authoring acceptance nor full adventure acceptance is established. The editor contract is the bounded serial successor; routing remains a separate confirmed defect.
 
 ## Retained failure and owner
 

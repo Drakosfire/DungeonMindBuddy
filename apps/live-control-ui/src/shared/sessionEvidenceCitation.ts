@@ -1,3 +1,4 @@
+import {admittedSessionEvidenceHref} from '../playSurface/review/sessionEvidenceHref';
 import type {SessionSummarySegment,SessionSummarySupport} from "../api/types";
 import type {SessionEvidence} from "../playSurface/review/sessionEvidenceApi";
 import {canonical} from "./sourcePassageProtocol";
@@ -10,7 +11,9 @@ async function sha(text:string):Promise<string> {
 }
 export function sessionCitationTarget(worldId:string,support:Locator):string {
   const fragment=`source-${support.source_ordinal}-${support.entry_identity}-${support.body_sha256}-${support.owner_sha256}-${support.checkpoint_content_sha256}`;
-  return `/play?${new URLSearchParams({world:worldId,run:support.object_id,evidence_revision:support.revision})}#${fragment}`;
+  const target=`/play?${new URLSearchParams({world:worldId,run:support.object_id,evidence_revision:support.revision})}#${fragment}`;
+  if(!admittedSessionEvidenceHref(target))throw new Error('Invalid session evidence navigation reference');
+  return target;
 }
 export function sessionSummaryMarkdown(segment:SessionSummarySegment,worldId:string,firstNumber:number) {
   const seen=new Set<string>(),links:string[]=[],targets:string[]=[];

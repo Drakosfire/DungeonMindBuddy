@@ -1,6 +1,6 @@
 import { Mark } from '@tiptap/core';
 import { Plugin } from '@tiptap/pm/state';
-import { webSourceHref } from '../markdown/webSourceHref';
+import { webSourceHref, validWebSourceTitle } from '../markdown/webSourceHref';
 
 function activateSourceLink(root: HTMLElement, event: MouseEvent | KeyboardEvent): boolean {
   if (event.defaultPrevented || event.altKey || event.ctrlKey || event.metaKey || event.shiftKey) return false;
@@ -20,11 +20,12 @@ function activateSourceLink(root: HTMLElement, event: MouseEvent | KeyboardEvent
 export const WebSourceLink = Mark.create({
   name: 'link',
   inclusive: false,
-  addAttributes() { return { href: { default: null } }; },
+  addAttributes() { return { href: { default: null }, title: { default: null } }; },
   parseHTML() {
     return [{ tag: 'a[href]', getAttrs: element => {
       const href = webSourceHref(element.getAttribute('href'));
-      return href && !element.hasAttribute('title') ? { href } : false;
+      const title = element.getAttribute('title');
+      return href && validWebSourceTitle(title) ? { href, title } : false;
     } }];
   },
   addProseMirrorPlugins() {
@@ -35,6 +36,6 @@ export const WebSourceLink = Mark.create({
   },
   renderHTML({ HTMLAttributes }) {
     const href = webSourceHref(HTMLAttributes.href);
-    return href ? ['a', { href, target: '_blank', rel: 'noopener noreferrer', 'data-web-source-link': '', tabindex: '0' }, 0] : ['span', {}, 0];
+    return href && validWebSourceTitle(HTMLAttributes.title) ? ['a', { href, ...(HTMLAttributes.title == null ? {} : {title: HTMLAttributes.title}), target: '_blank', rel: 'noopener noreferrer', 'data-web-source-link': '', tabindex: '0' }, 0] : ['span', {}, 0];
   },
 });
