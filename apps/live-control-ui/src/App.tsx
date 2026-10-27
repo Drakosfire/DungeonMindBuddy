@@ -41,6 +41,7 @@ import {
 
 import type { InspectorPaneState } from "./surface/InspectorPane";
 import { deferredComponent } from "./ui/deferredComponent";
+import { HostedAuthGate } from "./auth/HostedAuthGate";
 
 import type { PaneTarget } from "./surface/targetTypes";
 
@@ -401,8 +402,10 @@ export function App() {
     getAppLocationSnapshot,
   );
   return (
-    <SelectedWorldProvider locationSnapshot={locationSnapshot}>
-      <SelectedWorldApp locationSnapshot={locationSnapshot} />
-    </SelectedWorldProvider>
+    <HostedAuthGate enabled={import.meta.env.PROD}>
+      <SelectedWorldProvider locationSnapshot={locationSnapshot}>
+        <SelectedWorldApp locationSnapshot={locationSnapshot} />
+      </SelectedWorldProvider>
+    </HostedAuthGate>
   );
 }
