@@ -33,3 +33,14 @@ Docs/
 **/*.key
 **/serviceAccountKey.json
 **/secrets.txt
+
+# Typechecked UI builds need one synthetic fixture; exclude it from the production app stage.
+!tests/
+tests/*
+!tests/fixtures/
+tests/fixtures/*
+!tests/fixtures/statblocks/
+tests/fixtures/statblocks/*
+!tests/fixtures/statblocks/v1/
+tests/fixtures/statblocks/v1/*
+!tests/fixtures/statblocks/v1/candidate-response.json
