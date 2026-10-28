@@ -17,6 +17,10 @@ from src.graph_memory.extraction.bounded_recap_execution import (
 from src.graph_memory.extraction.category_candidate_graph_extractor import CategoryGraphExtractionError
 
 
+class FakeHTTPError(RuntimeError):
+    pass
+
+
 @dataclass
 class FakeGEFactory:
     calls: object
@@ -52,12 +56,18 @@ class FakeGEFactory:
             provider_response_id="response", latency_ms=12, retry_count=0,
             state=ObservationState.COMPLETED, input_tokens=None, output_tokens=3,
         )
-        if self.mode in {"provider_failure", "failed_executor_cleanup"}:
-            code = FailureCode.PROVIDER_TIMEOUT
+        if self.mode in {"provider_failure", "failed_executor_cleanup", "provider_http_failure"}:
+            code = FailureCode.PROVIDER_ERROR if self.mode == "provider_http_failure" else FailureCode.PROVIDER_TIMEOUT
             observation = observation.model_copy(update={
                 "state": ObservationState.FAILED, "failure_code": code,
                 "input_tokens": None, "output_tokens": None,
             })
+            if self.mode == "provider_http_failure":
+                transport = FakeHTTPError("PRIVATE_HTTP_BODY Authorization PRIVATE_KEY")
+                transport.status_code = 422
+                intermediate = RuntimeError("PRIVATE_SDK_MESSAGE")
+                intermediate.__cause__ = transport
+                raise GenerationEngineError(InferenceFailure.from_code(code), observation) from intermediate
             raise GenerationEngineError(InferenceFailure.from_code(code), observation)
         return TextResult(text=self.raw, observation=observation)
 
@@ -467,3 +477,74 @@ def test_real_ge_deadline_receipt_survives_blocked_executor_shutdown():
     with pytest.raises(CategoryGraphExtractionError):
         invoke(client)
     assert factory.calls.value == 1
+
+
+def test_provider_http_diagnostics_survive_actual_worker_and_stopped_client():
+    client, factory = build_client("provider_http_failure")
+    with pytest.raises(CategoryGraphExtractionError, match="PROVIDER_ERROR") as caught:
+        invoke(client)
+    entry = client.calls[0]
+    assert entry["provider_failure_diagnostics"] == {
+        "exception_types": ["GenerationEngineError", "RuntimeError", "FakeHTTPError"],
+        "http_statuses": [422], "chain_truncated": False,
+    }
+    assert "PRIVATE" not in json.dumps(client.ledger())
+    assert "PRIVATE" not in str(caught.value)
+    assert entry["observation"]["input_tokens"] is None
+    assert entry["external_outcome"] == "known_failure"
+    with pytest.raises(CategoryGraphExtractionError):
+        invoke(client)
+    assert factory.calls.value == 1
+    assert_reaped(factory)
+
+
+def test_failure_diagnostics_ignore_non_http_values_and_handle_cycles():
+    from src.graph_memory.extraction._recap_inference_worker import _provider_failure_diagnostics
+    first = FakeHTTPError("PRIVATE_BODY")
+    second = RuntimeError("PRIVATE_BODY")
+    first.status_code = "PRIVATE_STATUS"
+    first.__cause__ = second
+    second.__cause__ = first
+    assert _provider_failure_diagnostics(first) == {
+        "exception_types": ["FakeHTTPError", "RuntimeError"],
+        "http_statuses": [], "chain_truncated": False,
+    }
+    first.status_code = True
+    assert _provider_failure_diagnostics(first)["http_statuses"] == []
+    first.status_code = 999
+    assert _provider_failure_diagnostics(first)["http_statuses"] == []
+
+
+def test_failure_diagnostics_report_absence_and_bound_long_chains():
+    from src.graph_memory.extraction._recap_inference_worker import _provider_failure_diagnostics
+    root = RuntimeError("PRIVATE_MESSAGE")
+    assert _provider_failure_diagnostics(root)["http_statuses"] == []
+    current = root
+    for _ in range(10):
+        current.__cause__ = RuntimeError("PRIVATE_MESSAGE")
+        current = current.__cause__
+    result = _provider_failure_diagnostics(root)
+    assert len(result["exception_types"]) == 8
+    assert result["chain_truncated"]
+    assert "PRIVATE" not in json.dumps(result)
+
+
+def test_failure_diagnostics_read_response_status_without_headers_or_body():
+    from src.graph_memory.extraction._recap_inference_worker import _provider_failure_diagnostics
+
+    class Response:
+        status_code = 503
+
+        @property
+        def headers(self):
+            raise AssertionError("PRIVATE_HEADERS must not be read")
+
+        @property
+        def text(self):
+            raise AssertionError("PRIVATE_BODY must not be read")
+
+    error = FakeHTTPError("PRIVATE_MESSAGE")
+    error.response = Response()
+    result = _provider_failure_diagnostics(error)
+    assert result["http_statuses"] == [503]
+    assert "PRIVATE" not in json.dumps(result)

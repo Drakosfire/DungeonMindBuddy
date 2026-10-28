@@ -6,6 +6,7 @@ import asyncio
 import json
 import multiprocessing
 import os
+import re
 import time
 from dataclasses import dataclass
 from pathlib import Path
@@ -32,6 +33,29 @@ def _write_receipt(path: Path, receipt: dict[str, Any]) -> None:
     with temporary.open("x", encoding="utf-8") as stream:
         json.dump(receipt, stream)
     os.replace(temporary, path)
+
+
+def _provider_failure_diagnostics(exc: BaseException) -> dict[str, Any]:
+    """Internal transport metadata only; never stringify an exception/body."""
+    names: list[str] = []
+    statuses: list[int] = []
+    seen: set[int] = set()
+    current: BaseException | None = exc
+    while current is not None and id(current) not in seen and len(seen) < 8:
+        seen.add(id(current))
+        name = type(current).__name__
+        names.append(name if re.fullmatch(r"[A-Za-z_][A-Za-z0-9_]{0,95}", name) else "Exception")
+        try:
+            status = getattr(current, "status_code", None)
+            if status is None:
+                status = getattr(getattr(current, "response", None), "status_code", None)
+        except Exception:
+            status = None
+        if type(status) is int and 100 <= status <= 599 and status not in statuses:
+            statuses.append(status)
+        current = current.__cause__ or current.__context__
+    return {"exception_types": names, "http_statuses": statuses,
+            "chain_truncated": current is not None and id(current) not in seen}
 
 
 def _worker_entry(
@@ -88,6 +112,7 @@ def _worker_entry(
                 _write_receipt(path, {
                     "kind": "provider_failure",
                     "failure_code": exc.failure.code.value,
+                    "provider_failure_diagnostics": _provider_failure_diagnostics(exc),
                     "observation": exc.observation.model_dump(mode="json"),
                     "attempt_evidence": attempt_records,
                 })
