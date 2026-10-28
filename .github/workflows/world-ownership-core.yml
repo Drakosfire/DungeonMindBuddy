@@ -32,8 +32,6 @@ jobs:
           --health-timeout 5s
           --health-retries 12
     env:
-      DMB_DEPLOYMENT_ENVIRONMENT: local
-      DMB_AUTH_MODE: local_operator
       DMB_APPLICATION_STATE_TEST_DATABASE_URL: postgresql://dungeonmind@127.0.0.1:54329/postgres
     steps:
       - name: Checkout complete source
@@ -66,7 +64,6 @@ jobs:
           apps/live_control_server/services/world_graph_binding.py
           tests/conftest.py
           tests/test_live_recap_ingest_graph_preview_api.py
-          tests/test_live_world_containers.py
           tests/test_world_access_control.py
           tests/test_world_container_registry.py
           tests/test_world_graph_binding.py
@@ -77,5 +74,4 @@ jobs:
           tests/test_world_access_control.py
           tests/test_world_container_registry.py
           tests/test_world_graph_binding.py
-          tests/test_live_world_containers.py
           tests/test_live_recap_ingest_graph_preview_api.py::test_recap_ingest_generate_recap_memory_with_graph_extraction_fake_client

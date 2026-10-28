@@ -1229,11 +1229,11 @@ def test_recap_ingest_generate_recap_memory_with_graph_extraction_fake_client(
             WorldContainerRegistryDocument(
                 records=[
                     WorldContainerRecord(
-                        schema_version="dmb_world_container_record_v2",
                         world_id="synthetic-world",
                         name="Synthetic World",
                         source_root_relpath="corpus/synthetic-world-markdown",
                         created_at="2026-01-01T00:00:00Z",
+                        owner_subject="subject:synthetic-owner",
                         native_graph_binding=NativeGraphBindingRecord(
                             native_world_id="world:synthetic-world",
                             status="active",
