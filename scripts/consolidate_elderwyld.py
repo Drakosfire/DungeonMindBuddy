@@ -179,6 +179,21 @@ def scopes(conn, *, graph: bool) -> dict[str, str]:
     return result
 
 
+def canonical_space_state(conn) -> dict:
+    from psycopg import sql
+    tables = conn.execute("SELECT table_schema,table_name FROM information_schema.columns WHERE table_schema='dungeonmind' AND column_name='space_id' ORDER BY 1,2").fetchall()
+    out = {}
+    for schema, table in tables:
+        rows = conn.execute(sql.SQL('SELECT to_jsonb(t)::text FROM {} t WHERE space_id=%s').format(sql.Identifier(schema, table)), (NEW,)).fetchall()
+        out[schema + '.' + table] = {'rows': len(rows), 'sha256': digest(canonical(sorted(r[0] for r in rows)))}
+    return out
+
+
+def require_vnext_adoption_state(actual: dict, owned_after: dict | None) -> None:
+    if any(value['rows'] for value in actual.values()) and actual != owned_after:
+        raise ValueError('Canonical vNext authority appeared after planning')
+
+
 def retirement_plan(conn, *, graph: bool) -> dict:
     from psycopg import sql
     selected = {}
@@ -313,7 +328,7 @@ def main() -> None:
             world = get_world_container(root, NEW).model_dump(mode='json')
             if world['native_graph_binding']['native_world_id'] != OLD or world['native_graph_binding']['status'] != 'active':
                 raise ValueError('Expected original active old binding')
-            plan = {'managed_world': world, 'schema': 'buddy_operator_reset_plan_v1', 'root': str(root),
+            plan = {'tool_sha256': digest(Path(__file__).read_bytes()), 'managed_world': world, 'schema': 'buddy_operator_reset_plan_v1', 'root': str(root),
                     'app_identity': db_identity(app), 'graph_identity': db_identity(graph), 'files': file_plan(root),
                     'app_before': table_fingerprints(app), 'graph_before': table_fingerprints(graph),
                     'app_retire': retirement_plan(app, graph=False), 'graph_retire': retirement_plan(graph, graph=True)}
@@ -321,6 +336,8 @@ def main() -> None:
         print('Plan sealed; no live changes')
         return
     plan = json.loads(plan_path.read_bytes())
+    if plan['tool_sha256'] != digest(Path(__file__).read_bytes()):
+        raise ValueError('Plan requires the original exact operator tool')
     if plan['root'] != str(root):
         raise ValueError('Plan belongs to another source root')
     for env, name in ((APP_ENV, 'app'), (GRAPH_ENV, 'graph')):
@@ -335,6 +352,10 @@ def main() -> None:
         with connect(APP_ENV) as conn:
             if not (case / 'app-retired.json').exists() and table_fingerprints(conn) != plan['app_before']:
                 raise ValueError('APP drift before adoption')
+        with connect(GRAPH_ENV) as conn:
+            proof_path = case / 'canonical-native-after-admission.json'
+            owned = json.loads(proof_path.read_bytes()) if proof_path.exists() else None
+            require_vnext_adoption_state(canonical_space_state(conn), owned)
         raw = empty_bundle(digest(canonical(plan)))
         receipt = adopt(root, raw, plan['managed_world'])
         write_json(case / 'empty-adoption-receipt.json', receipt)
@@ -391,6 +412,8 @@ def main() -> None:
                 raise ValueError('Native source admission did not establish canonical evidence')
             results.append(status.model_dump(mode='json'))
         write_json(case / 'native-admissions.json', results)
+        with connect(GRAPH_ENV) as conn:
+            write_json(case / 'canonical-native-after-admission.json', canonical_space_state(conn))
     else:
         if not (case / 'native-admissions.json').exists() or not (case / 'graph-retired.json').exists():
             raise ValueError('Retirement and authored source proof required before quarantine')

@@ -67,3 +67,13 @@ def test_old_path_with_other_world_owner_is_refused(tmp_path):
     (tmp_path / 'out/registries/workspace_documents.json').write_text(json.dumps({'records': [{'document_id': 'other', 'world_id': 'another-world', 'campaign_id': 'another-world', 'target_relpath': OLD_ROOT + '/original.md'}]}))
     with pytest.raises(ValueError, match='Unexpected owner'):
         file_plan(tmp_path)
+
+
+def test_canonical_vnext_collision_is_not_owned_by_classic_adoption():
+    from scripts.consolidate_elderwyld import require_vnext_adoption_state
+    occupied = {'dungeonmind.knowledge_spaces': {'rows': 1, 'sha256': 'unexpected'}}
+    with pytest.raises(ValueError, match='vNext authority appeared'):
+        require_vnext_adoption_state(occupied, None)
+    with pytest.raises(ValueError, match='vNext authority appeared'):
+        require_vnext_adoption_state(occupied, {'dungeonmind.knowledge_spaces': {'rows': 1, 'sha256': 'different'}})
+    require_vnext_adoption_state(occupied, occupied)

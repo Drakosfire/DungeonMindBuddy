@@ -22,6 +22,9 @@ ordinary validated Buddy binding, separate vNext source admission proof.
 - Primary Buddy source/registry root and APP/native authority databases, only
   Elderwyld-selected state, after restored-clone proof and independent review.
 - PRIME-owned restored rehearsal databases and extracted source/registry root.
+- Existing private `runtime-config/elderwyld-publication.env`: change only the
+  publication World selector from `eldyrwild` to `elderwyld`, preserving credentials
+  and an exact private backup. Its local port8001 is currently not running.
 - Owned API8000/UI5202 only as needed for protected delivery; no other service.
 
 Other open ingestion and hosting lanes do not own these new script/test paths.
