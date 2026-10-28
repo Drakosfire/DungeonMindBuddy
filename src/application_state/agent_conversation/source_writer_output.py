@@ -375,13 +375,14 @@ def validate_writer_format(fmt: dict, packet: dict) -> None:
         raise ValueError('Relationship output marker and writer format differ')
     if versioned:
         fmt = {**fmt, 'name': name[:-len(OUTPUT_SUFFIX)]}
-    from .source_quote_binding import related_witnesses, FORMAT_SUFFIX
-    modern = related_witnesses(packet)
+    from .source_quote_binding import format_suffix, FORMAT_SUFFIX, CURRENT_FORMAT_SUFFIX
+    expected_suffix = format_suffix(packet)
     name = fmt.get('name') if isinstance(fmt,dict) else None
-    suffixed = isinstance(name,str) and name.endswith(FORMAT_SUFFIX)
-    if modern != suffixed:
-        raise ValueError('Related-page quote marker and writer format differ')
-    _validate_writer_format({**fmt,'name':name[:-len(FORMAT_SUFFIX)]} if suffixed else fmt,packet)
+    actual_suffix = next((suffix for suffix in (FORMAT_SUFFIX, CURRENT_FORMAT_SUFFIX)
+        if isinstance(name, str) and name.endswith(suffix)), "")
+    if actual_suffix != expected_suffix:
+        raise ValueError('Source quote policy and writer format differ')
+    _validate_writer_format({**fmt,'name':name[:-len(actual_suffix)]} if actual_suffix else fmt,packet)
 
 
 def _validate_writer_format(fmt: dict, packet: dict) -> None:

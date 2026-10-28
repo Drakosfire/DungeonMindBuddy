@@ -1,6 +1,8 @@
 # BUILD — full working draft with selected saved evidence
 
-ACTIVE PRIME serial slice, base51902b7e615c45026ec8e0b0801093c2471bac33, branch codex/build-draft-selected-context, existing buddy-context-loop checkout. No new environment/worktree. API2733918 serves immutable3a5123c07/schema0083; UI2615636 unchanged. Hosted1828 and held1764 disjoint. ADVERSARY owns ingestion/eval; live tour is a separate successor.
+SETTLED by PR1847, merge59d9c1980023b9d16d70111554dc16267bfdf864, reviewed8bc5702ed independently approved after Rules correction and both hosted gates passed. Protected API2796284/schema0084 preserved3863APP/1157native/40919files exactly before dogfood. Ordinary Retry now reaches a writer response but fails source quote layout validation; no answer acceptance. Successor HANDOFF-BUILD-layout-quote-witnesses.md owns that remaining failure. No active lease remains here.
+
+Historical activation: PRIME serial slice, base51902b7e615c45026ec8e0b0801093c2471bac33, branch codex/build-draft-selected-context, existing buddy-context-loop checkout. No new environment/worktree. API2733918 serves immutable3a5123c07/schema0083; UI2615636 unchanged. Hosted1828 and held1764 disjoint. ADVERSARY owns ingestion/eval; live tour is a separate successor.
 
 ## Evidence and design
 PR1846 is independently reviewed, merged51902b7 and protected-delivered. Ordinary Conks Retrya0e01bcb reaches five successful Jev calls and persisted evidence selection, then zero writer sends. Provider-free reconstruction (small graph metadata explicitly reconstructed) gives135942 request bytes against the existing128000-byte application allowance: full51985-character captured draft plus five51841-character acquired saved sections, only one selected. Original and preceding failures remain retained. This is no answer-quality proof.

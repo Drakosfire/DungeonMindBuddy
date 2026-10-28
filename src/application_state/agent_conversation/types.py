@@ -2956,11 +2956,11 @@ class BuildConnectedPageReviewImagePolicyV1(BuildCollaborationImagePolicyV1):
 
 
 class BuildSourceQuotePolicyV1(BuildConnectedPageReviewPolicyV1):
-    source_quote_binding_policy: Literal["exact_source_quote_binding_v1"]
+    source_quote_binding_policy: Literal["exact_source_quote_binding_v1", "layout_whitespace_source_quote_binding_v2"]
 
 
 class BuildSourceQuoteImagePolicyV1(BuildConnectedPageReviewImagePolicyV1):
-    source_quote_binding_policy: Literal["exact_source_quote_binding_v1"]
+    source_quote_binding_policy: Literal["exact_source_quote_binding_v1", "layout_whitespace_source_quote_binding_v2"]
 
 
 class BuildRelationshipReviewPolicyV1(BuildSourceQuotePolicyV1):

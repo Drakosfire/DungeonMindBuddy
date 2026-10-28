@@ -321,6 +321,11 @@ class WriterProjection:
             "answering about a separately read saved page. Do not describe a related page using the current page's ID. "
             "Quotes support attribution; claims must still follow what they actually say.\n"
         ) if quoted else ""
+        from application_state.agent_conversation.source_quote_binding import KEY as QUOTE_KEY, CURRENT_POLICY as QUOTE_POLICY
+        if packet.get(QUOTE_KEY) == QUOTE_POLICY:
+            quote_instructions += ("\nWhitespace layout may differ between an exact selected source and its supporting quote. "
+                "Preserve every other character, case, punctuation and hyphen; never borrow wording from another lane. "
+                "State only facts supported by the chosen witnesses. Do not add arrival, causal or chronological details that the source does not state.\n")
         primary = "artifact_under_edit" in json.loads(self.input_json)
         if primary:
             packet_rows(json.loads(self.input_json))

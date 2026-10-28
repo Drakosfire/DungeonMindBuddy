@@ -2747,6 +2747,10 @@ class _PolicyExecutionAdapter:
         if (getattr(policy, "working_draft_context_policy", None) is not None
                 and policy.primary_work_context_policy != DRAFT_POLICY):
             return False
+        from application_state.agent_conversation.source_quote_binding import CURRENT_POLICY as QUOTE_POLICY
+        quote_policy = getattr(policy, "source_quote_binding_policy", None)
+        if quote_policy is not None and quote_policy != QUOTE_POLICY:
+            return False
         self.writer_admission_failure = None
         try:
             view = writer.prepared_view(prepared, staged, budget=self._frozen_build_writer_budget())
