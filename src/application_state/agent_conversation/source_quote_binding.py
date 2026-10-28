@@ -1,13 +1,16 @@
 """Exact source witnesses, not an entailment judge or citation repair."""
 
 from copy import deepcopy
+import re
 
 POLICY = "exact_source_quote_binding_v1"
+CURRENT_POLICY = "layout_whitespace_source_quote_binding_v2"
 FORMAT = "build_working_draft_answer_v4"
 KEY = "source_quote_binding_policy"
 WITNESS_KEY = "related_page_quote_policy"
 WITNESS_POLICY = "same_read_multiple_quotes_v1"
 FORMAT_SUFFIX = "_quotes_v2"
+CURRENT_FORMAT_SUFFIX = "_quotes_v3"
 KINDS = {
     "SavedFact": ("saved_source_claim", "section_read_ids"),
     "PassageFact": ("source_passage_claim", "passage_handles"),
@@ -17,25 +20,45 @@ KINDS = {
 
 def enabled(packet):
     value = packet.get(KEY)
-    if KEY in packet and value != POLICY:
+    if KEY in packet and value not in (POLICY, CURRENT_POLICY):
         raise ValueError("Unknown source quote binding policy")
     if (
-        value == POLICY
+        value in (POLICY, CURRENT_POLICY)
         and packet.get("connected_page_review_policy")
         != "typed_connected_page_review_v1"
     ):
         raise ValueError("Quoted source output requires its frozen Build profile")
-    if WITNESS_KEY in packet and (packet[WITNESS_KEY] != WITNESS_POLICY or value != POLICY):
+    if WITNESS_KEY in packet and (packet[WITNESS_KEY] != WITNESS_POLICY or value not in (POLICY, CURRENT_POLICY)):
         raise ValueError("Unknown or unadmitted related-page quote policy")
-    return value == POLICY
+    return value in (POLICY, CURRENT_POLICY)
 
 
 def related_witnesses(packet):
     return enabled(packet) and WITNESS_KEY in packet
 
 
+def format_suffix(packet):
+    enabled(packet)
+    if packet.get(KEY) == CURRENT_POLICY:
+        return CURRENT_FORMAT_SUFFIX
+    return FORMAT_SUFFIX if related_witnesses(packet) else ""
+
+
 def format_name(name, packet):
-    return name + FORMAT_SUFFIX if related_witnesses(packet) else name
+    return name + format_suffix(packet)
+
+
+# Unicode 17 White_Space, exactly 25 code points; Python str.split also drops
+# non-White_Space controls U+001C..U+001F. Keep those significant.
+# https://www.unicode.org/Public/17.0.0/ucd/PropList.txt
+_LAYOUT_WHITESPACE = re.compile(
+    "[\u0009-\u000d\u0020\u0085\u00a0\u1680\u2000-\u200a"
+    "\u2028\u2029\u202f\u205f\u3000]+"
+)
+
+
+def _fold_layout(value):
+    return _LAYOUT_WHITESPACE.sub(" ", value).strip(" ")
 
 
 def sources(packet):
@@ -79,6 +102,11 @@ def augment(schema, packet):
         }
         if kind == "related_page_claim" and related_witnesses(packet):
             definition["properties"]["supporting_quotes"].update(minItems=1, description="One or more exact nonblank contiguous quotes from this single selected related page. Every quote must occur in that read_id body; never quote another page.")
+        if packet.get(KEY) == CURRENT_POLICY:
+            definition["properties"]["supporting_quotes"]["description"] += (
+                " Whitespace layout may differ: Unicode whitespace runs match one space. "
+                "All other characters, including case, punctuation and hyphens, must remain exact."
+            )
         definition["required"].append("supporting_quotes")
         labels = (
             "The current saved page only. Other authored pages require related_page_claim."
@@ -129,7 +157,8 @@ def validate_and_project(body, packet):
                 not isinstance(quote, str)
                 or not quote.strip()
                 or text is None
-                or quote not in text
+                or (_fold_layout(quote) not in _fold_layout(text)
+                    if packet.get(KEY) == CURRENT_POLICY else quote not in text)
             ):
                 raise ValueError(
                     "Source claim quote is absent from its selected source"

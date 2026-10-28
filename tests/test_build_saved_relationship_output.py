@@ -96,7 +96,7 @@ def test_guarded_sdk_app_retains_aliased_current_relationship_and_exact_composit
     writer=rest[-2];wire=json.loads(writer.calls[0].content);p=json.loads(wire['input'])
     assert p[review.OUTPUT_KEY]==review.OUTPUT_POLICY
     assert ('text_ref' in p['artifact_under_edit']['sections'][0])==aliased
-    assert wire['text']['format']['name'].endswith('_quotes_v2'+review.OUTPUT_SUFFIX)
+    assert wire['text']['format']['name'].endswith('_quotes_v3'+review.OUTPUT_SUFFIX)
     assert len(wire['text']['format']['name'])<=64
     assert ('plan_output_contract' in p)==selected
     assert wire['text']['format']['schema']['properties']['collaboration']['anyOf']==[{'$ref':'#/$defs/ProposedRelationship'},{'type':'null'}]

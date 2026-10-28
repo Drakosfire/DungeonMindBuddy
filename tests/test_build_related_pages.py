@@ -608,7 +608,7 @@ def test_typed_workflow_survives_actual_writer_and_app_admission(completed):
     assert (
         packet["collaboration_output_policy"] == "typed_author_review_collaboration_v1"
     )
-    assert request["text"]["format"]["name"] == ("build_intentional_plan_selection_answer_v1" if "plan_output_contract" in packet else "build_intentional_response_answer_v1") + "_quotes_v2"
+    assert request["text"]["format"]["name"] == ("build_intentional_plan_selection_answer_v1" if "plan_output_contract" in packet else "build_intentional_response_answer_v1") + "_quotes_v3"
     assert turn.completion.collaboration.model_dump(mode="json") == writer.collaboration
     reloaded = service.list_turns(turn.world_id, turn.conversation_id)[0]
     assert reloaded.completion == turn.completion
@@ -735,7 +735,7 @@ def test_relationship_review_survives_actual_sdk_app_history_and_refuses_tampere
     assert isinstance(turn.completion, t.BuildIntentionalResponseCompletionV1)
     assert turn.completion.collaboration.model_dump(mode="json") == writer.collaboration
     wire=json.loads(writer.calls[0].content)
-    assert wire["text"]["format"]["name"] == ("build_intentional_plan_selection_answer_v1" if "plan_output_contract" in json.loads(wire["input"]) else "build_intentional_response_answer_v1") + "_quotes_v2_rel_v2"
+    assert wire["text"]["format"]["name"] == ("build_intentional_plan_selection_answer_v1" if "plan_output_contract" in json.loads(wire["input"]) else "build_intentional_response_answer_v1") + "_quotes_v3_rel_v2"
     assert json.loads(wire["input"])["relationship_review_policy"] == "typed_saved_relationship_review_v1"
     loaded=service.list_turns(turn.world_id,turn.conversation_id)[0]
     assert loaded.completion == turn.completion
@@ -1009,7 +1009,7 @@ def test_multiple_exact_related_witnesses_complete_through_guarded_sdk_app(compl
     turn,service,_page,_body,_reads,writer,_decisions=completed
     wire=json.loads(writer.calls[0].content);packet=json.loads(wire['input'])
     assert packet['related_page_quote_policy']=='same_read_multiple_quotes_v1'
-    assert wire['text']['format']['name'].endswith('_quotes_v2')
+    assert wire['text']['format']['name'].endswith('_quotes_v3')
     assert len(json.loads(writer.raw_output)['answer_segments'][0]['supporting_quotes'])==2
     claims=[segment for segment in turn.completion.answer_segments if isinstance(segment,RelatedPageClaim)]
     assert len(claims)==1
