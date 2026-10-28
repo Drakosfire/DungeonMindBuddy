@@ -1766,13 +1766,15 @@ function WorldOwnedPlanPage({ worldId, worldName }: { worldId: string; worldName
     ? requestedSceneId : navigationScenes[0]?.id ?? null;
   const cardScopeEpoch = useRef({ key: "", generation: 0 });
   const navigationSceneTitle=navigationScenes.find(scene=>scene.id===navigationSceneId)?.title ?? "Scene";
+  const currentTourPlan=canStartPlayFromSavedPlan&&!savedPlanDirty&&savedBasis.status==="verified"&&tourVerifiedPlan?.documentId===documentId&&tourVerifiedPlan.worldId===worldId&&tourVerifiedPlan.objectRevision===savedBasis.revision&&tourVerifiedPlan.pin.contentSha256===savedBasis.contentSha256?tourVerifiedPlan:null;
   const sceneEncounterContext=useMemo(()=>documentId && navigationSceneId ? {
     worldId,documentId,sceneId:navigationSceneId,
     sceneTitle:navigationSceneTitle,
     canCreate:canStartPlayFromSavedPlan,
     objectRevision:savedBasis.status==="verified"?savedBasis.revision:null,
     contentSha256:savedBasis.status==="verified"?savedBasis.contentSha256:null,
-  }:null,[worldId,documentId,navigationSceneId,navigationSceneTitle,canStartPlayFromSavedPlan,savedBasis]);
+    verifiedPlan:currentTourPlan?.pin??null,
+  }:null,[worldId,documentId,navigationSceneId,navigationSceneTitle,canStartPlayFromSavedPlan,savedBasis,currentTourPlan]);
   useCombatProjection("plan",activePublication!==null,sceneEncounterContext);
   const cardScopeKey = `${navigationIdentity}:${cardsViewActive}:${navigationSceneId}`;
   if (cardScopeEpoch.current.key !== cardScopeKey) cardScopeEpoch.current = { key: cardScopeKey, generation: cardScopeEpoch.current.generation + 1 };
@@ -1992,7 +1994,6 @@ function WorldOwnedPlanPage({ worldId, worldName }: { worldId: string; worldName
     };
     return find(savedCardProjection.roots);
   })();
-  const currentTourPlan=canStartPlayFromSavedPlan&&!savedPlanDirty&&savedBasis.status==="verified"&&tourVerifiedPlan?.documentId===documentId&&tourVerifiedPlan.worldId===worldId&&tourVerifiedPlan.objectRevision===savedBasis.revision&&tourVerifiedPlan.pin.contentSha256===savedBasis.contentSha256?tourVerifiedPlan:null;
   return (
     <TourImageProvider worldId={worldId} documentId={documentId} verified={currentTourPlan?{pin:planPin(worldId,currentTourPlan.documentId,currentTourPlan.pin),assetIds:currentTourPlan.assetIds}:null}><AppChrome activeRoute="plan" editorTools={editorToolsGeneration} editToolboxLayout="dock" workspaceLayout="bounded">
       <PlanTourObservation label={title} verified={currentTourPlan} error={startPlayError} saved={tourPlanSave} registryRevision={savedBasis.status==="verified"?savedBasis.revision:null}/>

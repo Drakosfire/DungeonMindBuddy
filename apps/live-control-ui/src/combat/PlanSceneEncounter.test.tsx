@@ -1,3 +1,4 @@
+import {useEffect} from 'react';
 import {render,screen,fireEvent,waitFor,cleanup} from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import {afterEach,beforeEach,describe,it,expect,vi} from 'vitest';
@@ -8,8 +9,8 @@ import {PlanSceneEncounter} from './PlanSceneEncounter';
 import type {TourOwnerReading} from '../guidedTour/GuidedTour';
 const tourReadings=vi.hoisted(()=>new Map<string,TourOwnerReading>());
 vi.mock('../guidedTour/GuidedTour',()=>({useGuidedTour:()=>({captureScope:()=>null}),useTourOwnerReading:(reading:TourOwnerReading)=>tourReadings.set(reading.step,reading)}));
-vi.mock('../surface/modules/CombatRosterModule',()=>({CombatRosterModule:({scope}:any)=><div data-testid="scoped-combat">{scope.encounterId}</div>}));
-const context:api.PlanEncounterContext={worldId:'elderwyld',documentId:'11111111-1111-4111-8111-111111111111',sceneId:'scene:gate',sceneTitle:'Gate',canCreate:true,objectRevision:2,contentSha256:'a'.repeat(64)};
+vi.mock('../surface/modules/CombatRosterModule',()=>({CombatRosterModule:({scope}:any)=>{useEffect(()=>scope.onPreparedState?.({record:scope.initialRecord,blocked:false,error:null,acknowledged:null}),[scope.initialRecord,scope.onPreparedState]);return <div data-testid="scoped-combat">{scope.encounterId}</div>}}));
+const context:api.PlanEncounterContext={worldId:'elderwyld',documentId:'11111111-1111-4111-8111-111111111111',sceneId:'scene:gate',sceneTitle:'Gate',canCreate:true,objectRevision:2,contentSha256:'a'.repeat(64),verifiedPlan:{revisionN:1,workRevisionId:'22222222-2222-4222-8222-222222222222',contentSha256:'a'.repeat(64)}};
 const pin={document_id:context.documentId,scene_id:context.sceneId,revision_n:1,work_revision_id:'22222222-2222-4222-8222-222222222222',content_sha256:'a'.repeat(64)};
 const committed={schema_version:'dmb_workspace_committed_revision_v2',scope_mode:'world',world_id:'elderwyld',document_id:context.documentId,kind:'plan',status:'active',has_divergent_working_copy:false,object_revision:2,revision_n:1,work_revision_id:pin.work_revision_id,content_sha256:pin.content_sha256};
 async function result(intent:api.SceneTemplateIntent):Promise<api.SceneTemplateView>{return {binding:{schema_version:'dmb_scene_template_binding_v1',world_id:'elderwyld',encounter_id:'33333333-3333-4333-8333-333333333333',origin:intent.pin,operation_id:intent.operation_id,request_digest:await api.sceneCreationDigest('elderwyld',intent),created_at:'2026-10-22T00:00:00Z'},encounter:{world_id:'elderwyld',encounter_id:'33333333-3333-4333-8333-333333333333',revision:1,draft:{title:'Gate encounter',entities:[]}} as any,versions:[{revision:1,digest:'sha256:'+'a'.repeat(64),saved_at:'2026-10-22T00:00:00Z'}],scene_present:true};}

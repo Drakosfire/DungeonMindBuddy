@@ -3,9 +3,11 @@ import {TourEncounterProvider} from '../guidedTour/EncounterScope';
 import {planPin} from '../guidedTour/ownerPins';
 import {EncounterTourObservation} from '../guidedTour/OwnerObservations';
 import {CombatMechanicsInspection} from './CombatMechanicsInspection';
-import {useEffect,useRef,useState} from 'react';
+import {useCallback,useEffect,useRef,useState} from 'react';
 import {getWorldOwnedPlanCommittedRevision} from '../api/liveApi';
-import {CombatRosterModule} from '../surface/modules/CombatRosterModule';
+import {combatDraftEqual} from './combatRecovery';
+import {sameEncounterScope} from '../guidedTour/EncounterScope';
+import {CombatRosterModule,type PreparedCombatOwnerReading} from '../surface/modules/CombatRosterModule';
 import {assertSceneCreation,assertSceneTemplate,cancelSceneTemplateCreation,sceneCreationDigest,createSceneTemplate,getSceneTemplate,getSceneTemplateVersion,inspectSceneTemplateCreation,type PlanEncounterContext,type SceneTemplateIntent,type SceneTemplateView} from './sceneTemplatesApi';
 import type {CombatEncounterRecord} from './combatTypes';
 
@@ -25,10 +27,13 @@ export function PlanSceneEncounter({context}:{context:PlanEncounterContext}){
  const [error,setError]=useState<string|null>(null);
  const [historical,setHistorical]=useState<CombatEncounterRecord|null>(null);
  const [title,setTitle]=useState(defaultTitle(context.sceneTitle));
- const identity=`${context.worldId}:${context.documentId}:${context.sceneId}`;
- function accept(result:SceneTemplateView){assertSceneTemplate(result,context);setView(result);}
+ const identity=JSON.stringify([context.worldId,context.documentId,context.sceneId,context.objectRevision,context.contentSha256,context.verifiedPlan??null]);
+ const [admittedIdentity,setAdmittedIdentity]=useState<string|null>(null);
+ const [roster,setRoster]=useState<PreparedCombatOwnerReading|null>(null);
+ const receiveRoster=useCallback((reading:PreparedCombatOwnerReading|null)=>setRoster(reading),[]);
+ function accept(result:SceneTemplateView){assertSceneTemplate(result,context);setView(result);setAdmittedIdentity(identity);}
  useEffect(()=>{
-  const current=++epoch.current;setView(null);setAcknowledgedOperation(null);setPending(null);setRecoveryInvalid(false);setLoaded(false);setHistorical(null);setError(null);setBusy(false);setTitle(defaultTitle(context.sceneTitle));
+  const current=++epoch.current;setView(null);setAdmittedIdentity(null);setRoster(null);setAcknowledgedOperation(null);setPending(null);setRecoveryInvalid(false);setLoaded(false);setHistorical(null);setError(null);setBusy(false);setTitle(defaultTitle(context.sceneTitle));
   void (async()=>{
    try{
     const retained=sessionStorage.getItem(recoveryKey(context));
@@ -106,8 +111,26 @@ export function PlanSceneEncounter({context}:{context:PlanEncounterContext}){
   finally{if(current===epoch.current)setBusy(false);}
  }
  async function refresh(){const current=epoch.current;setBusy(true);setError(null);try{const result=await getSceneTemplate(context);if(current===epoch.current){if(result)accept(result);setLoaded(true);}}catch(caught){if(current===epoch.current)setError(String(caught));}finally{if(current===epoch.current)setBusy(false);}}
+ const currentView=admittedIdentity===identity?view:null;
+ const verifiedPin=context.canCreate&&context.verifiedPlan?.contentSha256===context.contentSha256?context.verifiedPlan:null;
+ const tourEncounter=currentView?.scene_present&&verifiedPin?{plan:planPin(context.worldId,context.documentId,verifiedPin),sceneId:context.sceneId,encounterId:currentView.binding.encounter_id}:null;
+ // Read once after an admitted roster Save to pair that exact record with
+ // its server version digest. Never repeat a Save or poll for changes.
+ const saved=roster?.acknowledged;
+ const needsVersion=!!currentView&&!!saved&&sameEncounterScope(tourEncounter,saved.scope)&&!roster?.blocked&&!roster?.error&&roster.record?.revision===saved.saved.revision&&currentView.encounter.revision!==saved.saved.revision;
+ useEffect(()=>{
+  if(!needsVersion||!saved)return;
+  let active=true;const current=epoch.current;
+  void getSceneTemplate(context).then(result=>{
+   if(!active||current!==epoch.current||!result)return;
+   assertSceneTemplate(result,context);
+   if(result.encounter.revision!==saved.saved.revision||!combatDraftEqual(result.encounter.draft,saved.saved.draft))throw new Error('Prepared version differs from the acknowledged Save.');
+   accept(result);
+  }).catch(caught=>{if(active&&current===epoch.current)setError(String(caught));});
+  return()=>{active=false;};
+ },[needsVersion,saved,identity]);
  return <section data-guided-control="encounter" tabIndex={-1} aria-label={`Encounter preparation for ${context.sceneTitle}`}>
-  <EncounterTourObservation view={view} context={context} acknowledgedOperation={acknowledgedOperation} dispatchScope={tourDispatchScope} error={error} pending={!!pending||busy}/>
+  <EncounterTourObservation view={currentView} context={context} roster={roster} acknowledgedOperation={acknowledgedOperation} dispatchScope={tourDispatchScope} error={error} pending={!!pending||busy||admittedIdentity!==identity}/>
   <h2>{context.sceneTitle} · Encounter</h2>
   <p>Prepare this scene’s enemies here. Saved versions stay with the Plan.</p>
   {error&&<p role="alert">{error}</p>}{!loaded&&error&&!recoveryInvalid&&<button disabled={busy} onClick={()=>void refresh()}>Retry opening encounter</button>}
@@ -117,7 +140,7 @@ export function PlanSceneEncounter({context}:{context:PlanEncounterContext}){
   {view&&!pending&&<>
    {!view.scene_present&&<p role="status">This scene is absent from the saved Plan. Encounter work is retained.</p>}
    <details><summary>Prepared versions</summary><button disabled={busy} onClick={()=>void refresh()}>Refresh prepared versions</button>{view.versions.map(version=><button key={version.revision} disabled={busy} onClick={()=>void history(version.revision)}>Inspect version {version.revision}</button>)}{historical&&<section aria-label="Saved prepared version"><h3>{historical.draft.title} · version {historical.revision}</h3><ul>{historical.draft.entities.map(actor=><li key={actor.id}>{actor.name} · AC {actor.ac??'—'} · HP {actor.hp??'—'}/{actor.max_hp??'—'}{actor.mechanics_snapshot&&<CombatMechanicsInspection snapshot={actor.mechanics_snapshot}/>}</li>)}</ul><p>Saved version · read only</p></section>}</details>
-   <TourEncounterProvider scope={view.scene_present&&context.canCreate&&view.binding.origin.content_sha256===context.contentSha256?{plan:planPin(context.worldId,context.documentId,{revisionN:view.binding.origin.revision_n,workRevisionId:view.binding.origin.work_revision_id,contentSha256:view.binding.origin.content_sha256}),sceneId:context.sceneId,encounterId:view.binding.encounter_id}:null}><CombatRosterModule key={view.binding.encounter_id} scope={{worldId:context.worldId,encounterId:view.binding.encounter_id,initialRecord:view.encounter,label:`${context.sceneTitle} · prepared encounter`}}/></TourEncounterProvider>
+   <TourEncounterProvider scope={tourEncounter}><CombatRosterModule key={view.binding.encounter_id} scope={{worldId:context.worldId,encounterId:view.binding.encounter_id,initialRecord:view.encounter,onPreparedState:receiveRoster,label:`${context.sceneTitle} · prepared encounter`}}/></TourEncounterProvider>
   </>}
  </section>;
 }
