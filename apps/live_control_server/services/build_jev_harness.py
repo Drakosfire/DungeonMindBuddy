@@ -460,8 +460,17 @@ class BuildJevHarness:
                 self._entered(event, "controller")
             return acknowledged
 
+        async def select_context(prepared):
+            from generationengine.decision_dispatch import DecisionContextMode
+            accounting = getattr(adapter, "_build_jev_accounting", None)
+            from .build_jev_accounting import RAW_WIRE_LIMIT
+            if accounting is None or len(prepared.body) > RAW_WIRE_LIMIT:
+                return DecisionContextMode.DEFAULT
+            body = json.loads(prepared.body)
+            return DecisionContextMode(accounting.context_mode(body))
+
         provider = TypeSafeDecisionProvider(
-            dispatch_gate=DecisionDispatchGate(authorize, record),
+            dispatch_gate=DecisionDispatchGate(authorize, record, select_context),
             transport=self.decision_transport,
         )
         client = GenerationClient(decision_providers={"typesafe": provider})

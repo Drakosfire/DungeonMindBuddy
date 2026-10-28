@@ -1270,6 +1270,7 @@ class AgentConversationService:
         authored_object_result_proof=None,
         authored_prepared_request_json=None,
         plan_authoring_reservation=None,
+        prepared_decision_json=None,
     ) -> tuple[Turn, bool]:
         world_id = _world_id(world_id)
         dsn = _ready_dsn()
@@ -1400,6 +1401,15 @@ class AgentConversationService:
                         or len(native_play_prepared_request_json.encode("utf-8")) > MAX_REQUEST_BYTES
                         or hashlib.sha256(native_play_prepared_request_json.encode("utf-8")).hexdigest() != event.envelope_sha256):
                     raise ApplicationStateValidationError("Native Play input snapshot differs from its owning provider")
+            from .types import ProviderAttemptAuthorizedEventV5
+            if isinstance(event, ProviderAttemptAuthorizedEventV5):
+                from .build_decision_context import validate_prepared
+                try:
+                    validate_prepared(event, execution, prepared_decision_json)
+                except (ValueError, KeyError, TypeError, AttributeError) as exc:
+                    raise ApplicationStateValidationError(str(exc)) from exc
+            elif prepared_decision_json is not None:
+                raise ApplicationStateValidationError("Decision context proof has no owning authorization")
             trace_row = conn.execute(
                 "SELECT payload->>'capture_status' FROM agent.turn_context_trace "
                 "WHERE turn_id=%s AND attempt=%s",
@@ -2112,12 +2122,13 @@ class AgentConversationService:
         self, world_id: str, conversation_id: UUID, turn_id: UUID, *,
         expected_revision: int, expected_attempt: int,
         provider_attempt_event: ProviderAttemptAuthorizedEventV2,
+        prepared_decision_json: str | None = None,
     ) -> tuple[Turn, bool]:
         """Authorize a V2 provider envelope that may include validated source reads."""
         return self._append_graph_execution_event(
             world_id, conversation_id, turn_id, expected_revision=expected_revision,
             expected_attempt=expected_attempt, event=provider_attempt_event,
-            duplicate_key="provider_attempt_id",
+            duplicate_key="provider_attempt_id", prepared_decision_json=prepared_decision_json,
         )
 
     def authorize_native_play_provider(

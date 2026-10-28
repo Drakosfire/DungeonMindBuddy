@@ -6,7 +6,9 @@ from dataclasses import dataclass, field
 import json
 from typing import Callable
 
-POLICY = "o200k_double_plus_4096_experimental_v1"
+from application_state.agent_conversation.build_decision_context import (
+    POLICY, SELECTION, LONG_LIMIT, selected_mode, phase,
+)
 RAW_WIRE_LIMIT = 256_000
 
 
@@ -50,6 +52,9 @@ class ExperimentalAccounting:
             "question_limit_tokens": 32_000,
             "request_limit_tokens": 64_000,
             "guaranteed_upper_bound": False,
+            "long_question_limit_tokens": LONG_LIMIT,
+            "long_request_limit_tokens": LONG_LIMIT,
+            "context_selection_policy": SELECTION,
         }
 
     def estimate(self, value: object) -> int:
@@ -61,21 +66,34 @@ class ExperimentalAccounting:
             raise ValueError("invalid offline tokenizer count")
         return 2 * count + 4096
 
-    def validate(self, body: dict, raw: bytes) -> None:
+    def question_estimate(self, body: dict) -> int:
+        return max(self.estimate({"model": body["model"], "state": body["state"],
+            "questions": {name: question}}) for name, question in body["questions"].items())
+
+    def context_mode(self, body: dict) -> str:
+        return selected_mode(phase(body), self.estimate(body), self.question_estimate(body))
+
+    def validate(self, body: dict, raw: bytes, *, context_mode: str = "default") -> None:
         if len(raw) > RAW_WIRE_LIMIT:
             raise DecisionCapacityError("Decision raw wire exceeds experimental byte limit", code="decision_wire_capacity_exceeded")
         if body["state"].get("context_accounting") != self.descriptor:
             raise ValueError("Decision experimental accounting descriptor differs")
+        if context_mode not in {"default", "long_context"}:
+            raise ValueError("Invalid decision context mode")
+        if context_mode == "long_context" and self.context_mode(body) != context_mode:
+            raise ValueError("Long context differs from exact phase/capacity policy")
+        question_limit = LONG_LIMIT if context_mode == "long_context" else 32_000
+        request_limit = LONG_LIMIT if context_mode == "long_context" else 64_000
         for name, question in body["questions"].items():
             projected = {
                 "model": body["model"],
                 "state": body["state"],
                 "questions": {name: question},
             }
-            if self.estimate(projected) > 32_000:
+            if self.estimate(projected) > question_limit:
                 raise DecisionCapacityError(
                     "Decision per-question context exceeds experimental estimate",
                     code="decision_question_capacity_exceeded",
                 )
-        if self.estimate(body) > 64_000:
+        if self.estimate(body) > request_limit:
             raise DecisionCapacityError("Decision request context exceeds experimental estimate", code="decision_request_capacity_exceeded")

@@ -15,7 +15,7 @@ MODEL = "jev-1.14.0"
 API_MODE = "typesafe_decision"
 SERIALIZER = "typesafe-sdk-json-v1"
 ENDPOINT = "https://ai-gateway.vercel.sh/typesafe/v1/systemone"
-# https://docs.typesafe.ai/models, checked 2026-10-16. No long-context opt-in.
+# Default TypeSafe limits; per-request long context is frozen in accounting V2.
 REQUEST_LIMIT = 64_000
 QUESTION_LIMIT = 32_000
 ESTIMATOR = "utf8_json_bytes_plus_64_per_node_v1"
@@ -85,7 +85,7 @@ def _decode(body: str | bytes) -> dict:
 
 
 def validate_body(payload: str, expected_state: Mapping[str, Any], *,
-                  accounting: ExperimentalAccounting | None = None) -> dict:
+                  accounting: ExperimentalAccounting | None = None, context_mode: str = "default") -> dict:
     body = _decode(payload)
     if canonical(body["state"]) != canonical(expected_state):
         raise ValueError("Decision source, question, scope, initial packet or discovery differs")
@@ -102,7 +102,7 @@ def validate_body(payload: str, expected_state: Mapping[str, Any], *,
             raise ValueError("Decision per-question context exceeds its conservative ceiling")
     raw = payload.encode()
     if accounting is not None:
-        accounting.validate(body, raw)
+        accounting.validate(body, raw, context_mode=context_mode)
         return body
     if len(raw) + 64 * (1 + _json_nodes(body)) > REQUEST_LIMIT:
         raise ValueError("Decision request context exceeds its conservative ceiling")
@@ -117,16 +117,36 @@ def prepared_view(prepared: Any, expected_state: Mapping[str, Any], *, accountin
         raise ValueError("Prepared decision wire identity differs")
     UUID(prepared.attempt_id)
     payload = prepared.body.decode("utf-8")
-    validate_body(payload, expected_state, accounting=accounting)
-    return {"provider": PROVIDER, "model": MODEL, "apiMode": API_MODE,
+    from generationengine.decision_dispatch import DecisionContextMode
+    mode = prepared.context_mode
+    if type(mode) is not DecisionContextMode:
+        raise ValueError("Prepared context capability is invalid")
+    body = _decode(payload)
+    if accounting is not None:
+        from .build_jev_accounting import RAW_WIRE_LIMIT
+        if len(prepared.body) > RAW_WIRE_LIMIT:
+            accounting.validate(body, prepared.body)  # Refuse before tokenizing.
+        if mode.value != accounting.context_mode(body):
+            raise ValueError("Prepared context mode differs from exact frozen request")
+    elif mode is not DecisionContextMode.DEFAULT:
+        raise ValueError("Long context requires current experimental accounting")
+    validate_body(payload, expected_state, accounting=accounting, context_mode=mode.value)
+    context = {}
+    if accounting is not None:
+        from application_state.agent_conversation.build_decision_context import phase, identity
+        context = dict(contextMode=mode.value, contextPhase=phase(body),
+            maxQuestionInputTokens=accounting.question_estimate(body),
+            dispatchIdentitySha256=identity(envelope_sha256=prepared.body_sha256, provider=PROVIDER,
+                model=MODEL, api_mode=API_MODE, context_mode=mode.value))
+    return {**context,"provider": PROVIDER, "model": MODEL, "apiMode": API_MODE,
             "serializerVersion": SERIALIZER, "providerAttemptId": prepared.attempt_id,
             "payloadJson": payload, "payloadSha256": prepared.body_sha256,
             "payloadUtf8Bytes": prepared.body_size}
 
 
 def request_budget() -> dict:
-    # Shared64k is an explicit application ceiling for both roles, not Luna's
-    # advertised capacity. The writer separately counts its output reserve.
+    # Initial/default decision budget. Eligible V2 phases bind a distinct
+    # documented context capability; the writer has its own frozen budget.
     return {"schema": "dmb_build_jev_first_request_budget_v3", "provider": PROVIDER,
             "savedSourceInputPolicy": "selected_saved_build_sections_v1",
             "model": MODEL, "apiMode": API_MODE, "estimator": ESTIMATOR,

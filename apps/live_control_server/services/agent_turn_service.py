@@ -125,7 +125,7 @@ _LOG = logging.getLogger(__name__)
 def _is_provider_authorization(event: Any) -> bool:
     return getattr(event, "kind", None) in {
         "provider_attempt_authorized", "provider_attempt_authorized_v2",
-        "provider_attempt_authorized_v3", "provider_attempt_authorized_v4", "plan_jev_provider_authorized_v1", "plan_requested_work_authorized_v1", "plan_requested_work_authorized_v2", "plan_jev_writer_authorized_v1", "plan_jev_writer_authorized_v2",
+        "provider_attempt_authorized_v3", "provider_attempt_authorized_v4", "provider_attempt_authorized_v5", "plan_jev_provider_authorized_v1", "plan_requested_work_authorized_v1", "plan_requested_work_authorized_v2", "plan_jev_writer_authorized_v1", "plan_jev_writer_authorized_v2",
     }
 
 
@@ -976,7 +976,10 @@ def _verify_policy_plan_payload(
         try:
             expected = (build_jev_expected_state if build_jev_expected_state is not None else
                 first_state(work, bootstrap, request.message, _expected_initial_claim_packet(bootstrap)))
-            validate_body(view["payloadJson"], expected, accounting=build_jev_accounting)
+            mode = view.get("contextMode", "default")
+            if build_jev_accounting is not None and mode != build_jev_accounting.context_mode(json.loads(view["payloadJson"])):
+                raise ValueError("Prepared Build context differs from frozen selection")
+            validate_body(view["payloadJson"], expected, accounting=build_jev_accounting, context_mode=mode)
         except (KeyError, TypeError, ValueError) as exc:
             raise AgentTurnServiceError("The prepared Build decision differs from host authority.",
                 code="graph_evidence_invalid", status_code=502, provider_dispatched=False) from exc
@@ -1572,6 +1575,7 @@ class AgentTurnExecutionPersistencePort(Protocol):
     def authorize_provider_attempt_v2(
         self, world_id: str, conversation_id: UUID, turn_id: UUID, *,
         expected_revision: int, expected_attempt: int, provider_attempt_event: Any,
+        prepared_decision_json: str | None = None,
     ) -> tuple[Turn, bool]: ...
 
     def complete_turn(self, result: TurnResult) -> Turn: ...
@@ -2165,10 +2169,14 @@ class _PolicyExecutionAdapter:
                 accounting = getattr(self, "_build_jev_accounting", None)
                 if (accounting is None or accounting.descriptor != execution.policy.controller_continuation_accounting.model_dump(mode="json")):
                     raise ValueError("controller accounting differs from frozen policy")
-                accounting.validate(body, view["payloadJson"].encode())
+                accounting.validate(body, view["payloadJson"].encode(), context_mode=view["contextMode"])
                 upper_bound = accounting.estimate(body)
                 input_kind, input_estimator = "estimated_token_count", accounting.descriptor["policy"]
             context_limit = self.budget["contextLimitTokens"]
+            if not writing and view.get("contextMode") == "long_context":
+                if input_kind != "estimated_token_count":
+                    raise ValueError("Long context requires mode-bound estimated admission")
+                context_limit = 262_000
             writer_budget = self._frozen_build_writer_budget() if writing else None
             if writer_budget is not None:
                 if writer_budget != (self.budget.get("buildJevActions") or {}).get("writer_context_budget"):
@@ -2387,8 +2395,17 @@ class _PolicyExecutionAdapter:
                     execution = self._broker_execution()
                     event_fields["sequence"] = len(execution.events)
                 if isinstance(execution, graph_types.PlanWorldGraphExecutionV3):
-                    event = graph_types.ProviderAttemptAuthorizedEventV3(
-                        kind="provider_attempt_authorized_v3",
+                    context_fields = {}
+                    event_type = graph_types.ProviderAttemptAuthorizedEventV3
+                    event_kind = "provider_attempt_authorized_v3"
+                    if not writing and view.get("contextMode") is not None:
+                        event_type = graph_types.ProviderAttemptAuthorizedEventV5
+                        event_kind = "provider_attempt_authorized_v5"
+                        context_fields = dict(context_mode=view["contextMode"], context_phase=view["contextPhase"],
+                            max_question_input_tokens=view["maxQuestionInputTokens"],
+                            dispatch_identity_sha256=view["dispatchIdentitySha256"])
+                    event = event_type(
+                        kind=event_kind, **context_fields,
                         included_source_read_event_ids=[
                             event.event_id for event in included_source_events
                         ],
@@ -2418,6 +2435,8 @@ class _PolicyExecutionAdapter:
                 self.fence.append(
                     method_name, "provider_attempt_event", event,
                     **({"prepared_request_json": view["payloadJson"]} if is_native_play else {}),
+                    **({"prepared_decision_json": view["payloadJson"]}
+                       if isinstance(event, graph_types.ProviderAttemptAuthorizedEventV5) else {}),
                 )
             )
             self.turn = updated
@@ -5771,7 +5790,7 @@ def _evidence_anchor_open_projection(
         (
             event for event in execution.events
             if getattr(event, "kind", None) in {
-                "provider_attempt_authorized_v2", "provider_attempt_authorized_v3", "provider_attempt_authorized_v4", "plan_jev_writer_authorized_v1", "plan_jev_writer_authorized_v2",
+                "provider_attempt_authorized_v2", "provider_attempt_authorized_v3", "provider_attempt_authorized_v4", "provider_attempt_authorized_v5", "plan_jev_writer_authorized_v1", "plan_jev_writer_authorized_v2",
             }
             and binding is not None
             and event.provider_attempt_id == binding.provider_attempt_id

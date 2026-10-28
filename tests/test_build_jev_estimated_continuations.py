@@ -81,7 +81,7 @@ def test_ordinary_estimates_survive_append_reload_and_reject_role_downgrades(
     changed = json.loads(json.dumps(original))
     selected = next(e for e in changed["events"] if e["event_id"] == str(authorizations[1].event_id))
     selected["input_tokens"] = 64001
-    with pytest.raises(ValueError, match="estimate exceeds"):
+    with pytest.raises(ValueError, match="context mode differs"):
         ledger.PlanWorldGraphExecutionV3.model_validate(changed)
     selected["input_tokens"] = authorizations[1].input_tokens
     selected["model"] = "another-controller-model"
@@ -203,3 +203,47 @@ def test_selection_capacity_refusal_reopens_in_debug_without_a_fake_call(build_c
     authorizations = [event for event in turn.graph_context_execution.events if isinstance(event, ledger.ProviderAttemptAuthorizedEventV1)]
     assert len(authorizations) == len(decisions.calls) == len(harness.calls)
     assert all(call["status"] == "ok" for call in harness.calls)
+
+
+def test_app_context_append_requires_exact_proof_and_keeps_failed_writes_atomic(build_case,monkeypatch,tmp_path,application_state_dsn):
+    from application_state.errors import ApplicationStateValidationError
+    original=AgentConversationService.authorize_provider_attempt_v2
+    inspected=[]
+    def guarded(self,world_id,conversation_id,turn_id,**kwargs):
+        event=kwargs["provider_attempt_event"]
+        if isinstance(event,ledger.ProviderAttemptAuthorizedEventV5) and not inspected:
+            before=[row.model_dump_json(by_alias=True) for row in self.list_turns(world_id,conversation_id)]
+            raw=kwargs["prepared_decision_json"]
+            for bad in [None,raw+" "]:
+                with pytest.raises(ApplicationStateValidationError):
+                    original(self,world_id,conversation_id,turn_id,**{**kwargs,"prepared_decision_json":bad})
+                assert [row.model_dump_json(by_alias=True) for row in self.list_turns(world_id,conversation_id)]==before
+            inspected.append(True)
+        return original(self,world_id,conversation_id,turn_id,**kwargs)
+    monkeypatch.setattr(AgentConversationService,"authorize_provider_attempt_v2",guarded)
+    case,_=ordinary_case(build_case,monkeypatch)
+    decisions,writer=DecisionWire(),WriterWire()
+    response=execute(case,tmp_path,BuildJevHarness(decision_transport=decisions,writer_transport=writer,accounting=counter()))
+    assert inspected and response.answer.status=="ok"
+    service=AgentConversationService()
+    turn,=service.list_turns("elderwyld",service.get_world_pointer("elderwyld").active_conversation_id)
+    controller=[event for event in turn.graph_context_execution.events if isinstance(event,ledger.ProviderAttemptAuthorizedEventV5)]
+    assert len(controller)==len(decisions.calls)
+    assert all(event.context_mode=="default" for event in controller)
+
+    # The metadata fence changes reader eligibility, not any retained table row.
+    import psycopg
+    from psycopg import sql
+    from alembic import command
+    from application_state.cli import alembic_config
+    def fingerprints():
+        with psycopg.connect(application_state_dsn) as conn:
+            tables=conn.execute("SELECT schemaname,tablename FROM pg_tables WHERE schemaname NOT IN ('pg_catalog','information_schema') AND tablename!='alembic_version' ORDER BY 1,2").fetchall()
+            return {(schema,name):conn.execute(sql.SQL("SELECT to_jsonb(row)::text FROM {} row ORDER BY to_jsonb(row)::text").format(sql.Identifier(schema,name))).fetchall() for schema,name in tables}
+    before=fingerprints()
+    command.stamp(alembic_config(),"20261027_0081")
+    command.upgrade(alembic_config(),"head")
+    assert fingerprints()==before
+    with pytest.raises(RuntimeError,match="Mode-bound Build decisions require recovery forward"):
+        command.downgrade(alembic_config(),"20261027_0081")
+    assert fingerprints()==before
