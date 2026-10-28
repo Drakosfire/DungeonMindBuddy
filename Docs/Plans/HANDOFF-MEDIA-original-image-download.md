@@ -1,0 +1,15 @@
+# MEDIA — download retained original image bytes
+
+ACTIVE after independent Sol-low invariant critique approved the bounded Blob/objectURL direction. PRIME owns serial branchcodex/media-original-download from fetched96a948f21f95402733ba91b80f85edada0b0d754 in reusedbuddy-context-loop. Live IAB5202 ordinaryConksPlan→ImageStudio→private library result→Download image produces no file/download event, no visible error; linkuses4,256,086characterdataURL. Working conversation/tour downloads already useBlobURLs. Noclaimallbrowsersfail.
+
+## Exact lease and resources
+This handoff; truthful predecessor Docs/Plans/HANDOFF-PERF-installed-schema-head.md; apps/live-control-ui/src/media/MediaImageWizard.tsx and its existingtest; newOriginalImageDownload.tsx and focusedtest in samefolder. OpenINGEST1868/1855/1853,hosted1828/held1764 checked, nooverlap. UI5202owned for protected reviewed delivery; API8000/schema/DB/provider/CDN/source/contracts unchanged. No new backend endpoint or authority.
+
+## Invariant
+Download the already owner-authorized originaldata_url using an ordinary user-initiated BlobURL link. Decode onlythat original; preserve exactbytes/MIME/filename forpng/jpeg/webp, independentofdelivery_url. Reject malformed/conflictingMIME locally withoutbreakingpreview,Save orplacement. PrepareURLbeforeclick; bindURLtoexactdata/MIME; revokeonreplacement/unmount/StrictMode cleanup, neverimmediatelyonclick. No brokenlinkwhilepreparing/failed. No artificialsizecap,newgeneration,CDNupload/publicSave,sourceplacementorcredential change. PendingpublicSave authorization is not bypassed: local download is a separate authorized read.
+
+## Verification and acceptance
+Provider-free tests coverBlobbytes/type/filenames, original-versusCDN, replacement/unmount/StrictModecleanup andmalformed/conflictinginput. Affectedmedia/tests/typecheck/build, cumulativeexactdiff, independentBugbot,CI,merge/protectedUIonlydelivery. Decisive ordinarydogfood: same retainedprivateConksasset downloads throughIAB; compareactualfileSHA256withowner-authenticatedoriginalcontent_sha256. Preserveasset/provenance/source/Plan/Run unchanged and originalfailure observation. This doesnotcompleteimageplacement,physicalrolls,fulltour/8GB/operatoracceptance.
+
+## Candidate verification
+25focusedtests pass (10byte/type/filename/lifecycle/malformed tests plus15existingwizard/integration cases), UItypecheck passes andproductionbuild succeeds with existingchunk-sizewarning. Download failure is isolated frompreview/explicitSave andCDNdelivery. Pinned real privateassete46d3754-c38f-4234-9593-1fd616c52444: originalPNG3192047bytes1536x1024SHA25605e2b73af6c66c850293e79e3e364cb7cf50a23652ce6ab14b55142801694629,state staged. Owner-authenticatedmetadata andoriginal no-file/event observation retained privatelymedia-original-download-20261028. No extra generation/upload; exact-headreview/CI/protecteddelivery/ordinaryfiledigest gate stillopen.
