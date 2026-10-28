@@ -145,6 +145,8 @@ def prepared_view(prepared: Any, expected_state: Mapping[str, Any], *, accountin
 
 
 def request_budget() -> dict:
+    from . import build_jev_writer as writer
+
     # Initial/default decision budget. Eligible V2 phases bind a distinct
     # documented context capability; the writer has its own frozen budget.
     return {"schema": "dmb_build_jev_first_request_budget_v3", "provider": PROVIDER,
@@ -154,7 +156,7 @@ def request_budget() -> dict:
             "graphToolPageBytes": 32_000, "maxProviderRequestBytes": REQUEST_LIMIT,
             "maxProviderAttempts": None, "maxToolCapableAttempts": None, "maxGraphOperations": None,
             "providerRoles": {"controller": {"provider": PROVIDER, "model": MODEL, "api_mode": API_MODE},
-                "writer": {"provider": "openai", "model": "gpt-6-luna", "api_mode": "responses"}}}
+                "writer": {"provider": writer.PROVIDER, "model": writer.MODEL, "api_mode": writer.API_MODE}}}
 
 
 @dataclass(frozen=True)

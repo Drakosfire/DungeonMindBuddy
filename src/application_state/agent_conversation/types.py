@@ -2816,7 +2816,7 @@ class BuildJointSupportActionControllerWriterPolicyV1(BuildEstimatedActionContro
 class BuildWriterContextBudgetV1(StrictModel):
     schema_: Literal["dmb_build_writer_context_budget_v1"] = Field(alias="schema")
     provider: Literal["openai"]
-    model: Literal["gpt-6-luna"]
+    model: Literal["gpt-6-luna", "gpt-6.1-sol"]
     api_mode: Literal["responses"]
     estimator: Literal["utf8_json_bytes_plus_64_per_node_v1"]
     context_limit_tokens: Literal[128_000]
