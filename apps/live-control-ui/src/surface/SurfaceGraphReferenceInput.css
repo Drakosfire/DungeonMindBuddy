@@ -3,3 +3,10 @@
 .surface-graph-reference-input__chip { display:inline-flex; align-items:center; gap:.25rem; border:1px solid currentColor; border-radius:1rem; padding:0 .4rem; max-width:100%; overflow-wrap:anywhere; }
 .surface-graph-reference-input__chip button { border:0; background:transparent; color:inherit; cursor:pointer; }
 .surface-graph-reference-input__picker { max-height:24rem; overflow:auto; border:1px solid #789; border-radius:.4rem; padding:.5rem; background:var(--surface-panel-background,#192332); color:var(--surface-panel-color,#e8eaef); }
+
+/* Composer references open toward the conversation, inside its clipped dock. */
+.world-plan-agent-conversation__composer .surface-graph-reference-input { position:relative; }
+.world-plan-agent-conversation__composer .surface-graph-reference-input__picker {
+ position:absolute; inset-inline:0; bottom:calc(100% + .35rem); z-index:20;
+ max-block-size:min(24rem,50dvh,calc(var(--conversation-dock-height,32rem) - 7rem)); box-sizing:border-box;
+}

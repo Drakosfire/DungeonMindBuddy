@@ -58,6 +58,8 @@ class PagesDecision(WorldDecisions):
                     choice=chosen,
                     probabilities={v: float(v == chosen) for v in ("read", "skip")},
                 )
+                if getattr(self, "tie_choice", None) and "Quarry Households" in body["questions"][key]["instructions"]:
+                    answer.update(choice=self.tie_choice, probabilities={"read": .5, "skip": .5})
         return httpx2.Response(200, request=request, json=data)
 
 
@@ -178,7 +180,7 @@ def completed(build_case, monkeypatch, tmp_path, request):
         "answer_from_sources"
         if mode
         in {
-            "interrupted",
+            "interrupted", "tied_read", "tied_skip",
             "typed_plan", "typed_plan_only", "typed_plan_empty", "typed_plan_bad_schema",
             "typed_questions",
             "connected_page", "connected_page_cap", "multi_related_quotes", "multi_related_quotes_cap",
@@ -311,6 +313,7 @@ def completed(build_case, monkeypatch, tmp_path, request):
         }
     writer.relationship = mode in {"relationship_review", "relationship_review_cap"}
     decisions = PagesDecision(operation=operation)
+    decisions.tie_choice = {"tied_read":"read", "tied_skip":"skip"}.get(mode)
     decisions.skip_pages = mode == 'typed_plan_empty'
     decisions.requested_work = {'typed_plan': 'plan', 'typed_plan_only': 'plan', 'typed_plan_empty':'plan', 'typed_plan_bad_schema':'plan', 'typed_questions': 'clarify_request', 'connected_page': 'review_connected_page', 'connected_page_cap':'review_connected_page', 'relationship_review': 'review_relationship', 'relationship_review_cap':'review_relationship', 'invalid_quote': 'review_relationship'}.get(mode, {'answer_from_sources': 'discuss', 'propose_build_insertion': 'write_current_page', 'prepare_build_image': 'prepare_image'}[operation])
     harness = BuildJevHarness(
@@ -1017,3 +1020,30 @@ def test_multiple_exact_related_witnesses_complete_through_guarded_sdk_app(compl
     assert service.inspect_turn(world_id=turn.world_id,turn_id=turn.turn_id)==turn
     from application_state.agent_conversation.source_writer_output import validate_writer_format
     validate_writer_format(wire['text']['format'],packet)
+
+
+@pytest.mark.parametrize("completed", ["tied_read", "tied_skip"], indirect=True)
+def test_optional_related_page_tie_reaches_writer_with_exact_read(completed):
+    turn, service, page, body, reads, writer, decisions = completed
+    assert turn.status == "completed"
+    selection = next(e for e in turn.graph_context_execution.events if isinstance(e, RelatedPagesSelection))
+    assert selection.document_ids == [page.document_id]
+    assert reads == [page.document_id, page.document_id]
+    packet = json.loads(json.loads(writer.calls[0].content)["input"])
+    assert packet["related_authored_pages"]["pages"][0]["markdown"] == body
+    assert isinstance(turn.completion.answer_segments[0], RelatedPageClaim)
+
+
+@pytest.mark.parametrize("selected,probabilities", [
+    ("read", {"read": .2, "skip": .8}),
+    ("read", {"read": float("nan"), "skip": .5}),
+    ("read", {"read": .9, "skip": .9}),
+    ("read", {"read": .5, "other": .5}),
+])
+def test_optional_read_tie_rule_still_refuses_invalid_votes(selected, probabilities):
+    from types import SimpleNamespace
+    from application_state.agent_conversation.build_related_pages import question_text, should_read_page
+    page = PagePointer(world_id="elderwyld", document_id=uuid4(), registry_revision=1, title="Edge - Location", visibility="internal")
+    question = {"instructions": question_text(page), "criteria": {"read": {}, "skip": {}}}
+    with pytest.raises(ValueError, match="Unresolved related page choice"):
+        should_read_page(page, question, SimpleNamespace(selected=selected, probabilities=probabilities))

@@ -79,7 +79,7 @@
 }
 
 .plan-conversation-dock__composer .world-plan-agent-conversation__target-disclosure,
-.plan-conversation-dock__composer [role="alert"] {
+.plan-conversation-dock__composer .world-plan-agent-conversation__composer > [role="alert"] {
   grid-column: 1 / -1;
   max-block-size: 4rem;
   overflow: auto;
