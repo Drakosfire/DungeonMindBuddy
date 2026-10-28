@@ -445,6 +445,8 @@ function WorldOwnedPlanPage({ worldId, worldName }: { worldId: string; worldName
   const [lastSavedAt, setLastSavedAt] = useState<string | null>(null);
   const [startingPlay, setStartingPlay] = useState(false);
   const [startPlayError, setStartPlayError] = useState<string | null>(null);
+  const planVerificationRequestRef = useRef(0);
+  const tourPlanVerificationAttemptRef = useRef<string | null>(null);
   const [tourVerifiedPlan,setTourVerifiedPlan]=useState<{documentId:string;worldId:string;objectRevision:number;pin:{revisionN:number;workRevisionId:string;contentSha256:string};assetIds:string[]}|null>(null);
   const [sessionStart,setSessionStart]=useState<{documentId:string;worldId:string;pin:{revisionN:number;workRevisionId:string;contentSha256:string};sceneId:string|null}|null>(null);
   const [message, setMessage] = useState<string | null>(null);
@@ -1676,73 +1678,82 @@ function WorldOwnedPlanPage({ worldId, worldName }: { worldId: string; worldName
     && !fidelityBlocked
     && !startingPlay
   );
-  const startPlayFromSavedPlan = async () => {
-    if (!canStartPlayFromSavedPlan || !documentId || savedBasis.status !== "verified") return;
+  const tourVerificationScope = guidance?.tracking ? guidance.captureScope() : null;
+  const tourVerificationKey = JSON.stringify([tourVerificationScope?.walkthroughId, tourVerificationScope?.epoch,
+    worldId, documentId, savedBasis, markdown, title]);
+  // One owner predicate for explicit Play preview and read-only tour re-entry.
+  // The caller owns cancellation; this function never creates a session.
+  const verifySelectedSavedPlan = async (isCurrent: () => boolean) => {
+    if (!canStartPlayFromSavedPlan || !documentId || savedBasis.status !== "verified") return null;
     const selectedDocumentId = documentId;
     const selectedBasis = savedBasis;
     const selectionEpoch = selectionEpochRef.current;
     const editGeneration = editGenerationRef.current;
-    const request = startPlayRequestRef.current + 1;
-    startPlayRequestRef.current = request;
+    const committed = await getWorldOwnedPlanCommittedRevision(selectedDocumentId);
+    if (!isCurrent() || !selectedViewIsCurrent(selectionEpoch, selectedDocumentId)) return null;
+    // The authoring writer collapses trailing LF before the content owner
+    // normalizes CRLF/CR. Keep the editor's bytes/undo intact while comparing
+    // against that exact directional transformation, never arbitrary trimming.
+    const savedAuthoringMarkdown = (serverMarkdownRef.current.replace(/\n+$/, "") + "\n")
+      .replace(/\r\n?/g, "\n");
+    if (
+      committed.schema_version !== "dmb_workspace_committed_revision_v2"
+      || committed.scope_mode !== "world"
+      || committed.world_id !== worldId
+      || committed.document_id !== selectedDocumentId
+      || committed.kind !== "plan"
+      || committed.campaign_id !== null
+      || committed.status !== "active"
+      || committed.has_divergent_working_copy
+      || committed.object_revision !== selectedBasis.revision
+      || committed.content_sha256 !== selectedBasis.contentSha256
+      || (committed.markdown !== serverMarkdownRef.current && committed.markdown !== savedAuthoringMarkdown)
+      || revisionRef.current !== selectedBasis.revision
+      || serverDigestRef.current !== selectedBasis.contentSha256
+      || !isCanonicalUuid(committed.work_revision_id)
+      || !CANONICAL_SHA256_RE.test(committed.content_sha256)
+      || editGenerationRef.current !== editGeneration
+      || markdownRef.current !== serverMarkdownRef.current
+      || titleRef.current !== serverTitleRef.current
+      || pendingWriteRef.current !== null
+      || savingRef.current
+    ) {
+      throw new Error("The selected Plan no longer matches its verified saved revision. Save and reopen the Plan before starting Play.");
+    }
+    const location = new URLSearchParams(window.location.search);
+    if (
+      location.get("world") !== worldId
+      || location.get("documentId") !== selectedDocumentId
+      || documentIdRef.current !== selectedDocumentId
+    ) {
+      throw new Error("The selected Plan or World changed before Play could start. Reopen the Plan and try again.");
+    }
+    const verified = {documentId:selectedDocumentId,worldId,objectRevision:committed.object_revision,pin:{revisionN:committed.revision_n,workRevisionId:committed.work_revision_id,contentSha256:committed.content_sha256},assetIds:collectTourMediaAssets(cardProjectionDocument)};
+    setTourVerifiedPlan(verified);
+    return verified;
+  };
+  const startPlayFromSavedPlan = async () => {
+    if (!canStartPlayFromSavedPlan || !documentId) return;
+    const selectedDocumentId = documentId;
+    const selectionEpoch = selectionEpochRef.current;
+    const request = ++startPlayRequestRef.current;
+    const verification = ++planVerificationRequestRef.current;
+    tourPlanVerificationAttemptRef.current = tourVerificationKey;
+    const isCurrent = () => startPlayRequestRef.current === request
+      && planVerificationRequestRef.current === verification
+      && selectedViewIsCurrent(selectionEpoch, selectedDocumentId);
     setStartingPlay(true);
     setStartPlayError(null);
     try {
-      const committed = await getWorldOwnedPlanCommittedRevision(selectedDocumentId);
-      if (
-        startPlayRequestRef.current !== request
-        || !selectedViewIsCurrent(selectionEpoch, selectedDocumentId)
-      ) return;
-      // The authoring writer collapses trailing LF before the content owner
-      // normalizes CRLF/CR. Keep the editor's bytes/undo intact while comparing
-      // against that exact directional transformation, never arbitrary trimming.
-      const savedAuthoringMarkdown = (serverMarkdownRef.current.replace(/\n+$/, "") + "\n")
-        .replace(/\r\n?/g, "\n");
-      if (
-        committed.schema_version !== "dmb_workspace_committed_revision_v2"
-        || committed.scope_mode !== "world"
-        || committed.world_id !== worldId
-        || committed.document_id !== selectedDocumentId
-        || committed.kind !== "plan"
-        || committed.campaign_id !== null
-        || committed.status !== "active"
-        || committed.has_divergent_working_copy
-        || committed.object_revision !== selectedBasis.revision
-        || committed.content_sha256 !== selectedBasis.contentSha256
-        || (committed.markdown !== serverMarkdownRef.current && committed.markdown !== savedAuthoringMarkdown)
-        || revisionRef.current !== selectedBasis.revision
-        || serverDigestRef.current !== selectedBasis.contentSha256
-        || !isCanonicalUuid(committed.work_revision_id)
-        || !CANONICAL_SHA256_RE.test(committed.content_sha256)
-        || editGenerationRef.current !== editGeneration
-        || markdownRef.current !== serverMarkdownRef.current
-        || titleRef.current !== serverTitleRef.current
-        || pendingWriteRef.current !== null
-        || savingRef.current
-      ) {
-        throw new Error("The selected Plan no longer matches its verified saved revision. Save and reopen the Plan before starting Play.");
-      }
-      const location = new URLSearchParams(window.location.search);
-      if (
-        location.get("world") !== worldId
-        || location.get("documentId") !== selectedDocumentId
-        || documentIdRef.current !== selectedDocumentId
-      ) {
-        throw new Error("The selected Plan or World changed before Play could start. Reopen the Plan and try again.");
-      }
-      setTourVerifiedPlan({documentId:selectedDocumentId,worldId,objectRevision:committed.object_revision,pin:{revisionN:committed.revision_n,workRevisionId:committed.work_revision_id,contentSha256:committed.content_sha256},assetIds:collectTourMediaAssets(cardProjectionDocument)});
-      setSessionStart({documentId:selectedDocumentId,worldId,pin:{revisionN:committed.revision_n,workRevisionId:committed.work_revision_id,contentSha256:committed.content_sha256},sceneId:navigationSceneId});
+      const verified = await verifySelectedSavedPlan(isCurrent);
+      if (verified && isCurrent()) setSessionStart({documentId:verified.documentId,worldId:verified.worldId,pin:verified.pin,sceneId:navigationSceneId});
     } catch (reason) {
-      if (
-        startPlayRequestRef.current === request
-        && selectedViewIsCurrent(selectionEpoch, selectedDocumentId)
-      ) {
+      if (isCurrent()) {
+        setTourVerifiedPlan(null);
         setStartPlayError(reason instanceof Error ? reason.message : "The saved Plan could not be verified for Play.");
       }
     } finally {
-      if (
-        startPlayRequestRef.current === request
-        && selectedViewIsCurrent(selectionEpoch, selectedDocumentId)
-      ) setStartingPlay(false);
+      if (startPlayRequestRef.current === request && selectedViewIsCurrent(selectionEpoch, selectedDocumentId)) setStartingPlay(false);
     }
   };
   const currentCardProjection = useMemo(
@@ -1767,6 +1778,32 @@ function WorldOwnedPlanPage({ worldId, worldName }: { worldId: string; worldName
   const cardScopeEpoch = useRef({ key: "", generation: 0 });
   const navigationSceneTitle=navigationScenes.find(scene=>scene.id===navigationSceneId)?.title ?? "Scene";
   const currentTourPlan=canStartPlayFromSavedPlan&&!savedPlanDirty&&savedBasis.status==="verified"&&tourVerifiedPlan?.documentId===documentId&&tourVerifiedPlan.worldId===worldId&&tourVerifiedPlan.objectRevision===savedBasis.revision&&tourVerifiedPlan.pin.contentSha256===savedBasis.contentSha256?tourVerifiedPlan:null;
+  useEffect(() => {
+    if (!guidance?.tracking) { tourPlanVerificationAttemptRef.current = null; return; }
+    if (!tourVerificationScope || !canStartPlayFromSavedPlan
+      || tourPlanVerificationAttemptRef.current === tourVerificationKey) return;
+    tourPlanVerificationAttemptRef.current = tourVerificationKey;
+    let active = true, pending = true;
+    setTourVerifiedPlan(null);
+    const scope = tourVerificationScope;
+    const verification = ++planVerificationRequestRef.current;
+    const isCurrent = () => active && planVerificationRequestRef.current === verification && guidance.isScopeCurrent(scope);
+    setStartPlayError(null);
+    void verifySelectedSavedPlan(isCurrent).catch(reason => {
+      pending = false;
+      if (!isCurrent()) return;
+      setTourVerifiedPlan(null);
+      setStartPlayError(reason instanceof Error ? reason.message : "The saved Plan could not be verified. Use Start Play to retry its verification.");
+    }).finally(() => { pending = false; });
+    return () => {
+      active = false;
+      if (pending && planVerificationRequestRef.current === verification
+        && tourPlanVerificationAttemptRef.current === tourVerificationKey) tourPlanVerificationAttemptRef.current = null;
+    };
+    // One read per eligible clean basis/resume, not per render or failure.
+    // Both callers use the same live-ref checks above; manual preview supersedes this read.
+  }, [guidance?.tracking, tourVerificationScope?.walkthroughId, tourVerificationScope?.epoch,
+    canStartPlayFromSavedPlan, documentId, worldId, savedBasis, savedPlanDirty, markdown, title, tourVerificationKey]);
   const sceneEncounterContext=useMemo(()=>documentId && navigationSceneId ? {
     worldId,documentId,sceneId:navigationSceneId,
     sceneTitle:navigationSceneTitle,

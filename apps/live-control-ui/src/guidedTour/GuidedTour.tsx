@@ -80,7 +80,7 @@ export function GuidedTourProvider({worldId,worldName,children,history=null}:{wo
  const memoryReading=useSessionMemoryReading(history,stored?.record??null,conversationDispatches.current),memoryToken=useRef(Symbol('session-memory'));
  const memorySignature=JSON.stringify(memoryReading);
  useEffect(()=>{publish(memoryToken.current,memoryReading);return()=>publish(memoryToken.current,null);},[publish,memorySignature]);
- const api=useMemo(()=>({tracking:stored?.record.phase==='running',open:()=>setVisible(true),publish,recordRunCreation,captureScope,isScopeCurrent,recordConversationDispatch}),[publish,recordRunCreation,captureScope,isScopeCurrent,recordConversationDispatch,stored?.record.phase]);
+ const api=useMemo(()=>({tracking:stored?.record.phase==='running',open:()=>setVisible(true),publish,recordRunCreation,captureScope,isScopeCurrent,recordConversationDispatch}),[publish,recordRunCreation,captureScope,isScopeCurrent,recordConversationDispatch,stored?.record.phase,stored?.record.id,externalEpoch.current]);
  const walkthrough=stored?.record;
  const renderedEpoch=externalEpoch.current;
  const userChange=(action:TourAction|{kind:'start';adventure:Adventure})=>change(action,stored?.record.id??null,renderedEpoch);
