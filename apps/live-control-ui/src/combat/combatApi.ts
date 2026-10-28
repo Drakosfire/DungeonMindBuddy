@@ -1,5 +1,6 @@
 import {encounterPath,type RunEncounterScope} from './runEncountersApi';
 import { authenticatedApiFetch } from "../api/liveApi";
+import {verifyHistoricalAdoptionReceipt} from './CombatMechanicsAdoptionRecovery';
 import type {
   AddGeneratedStatblockRequest,
   AddGeneratedStatblockResponse,
@@ -122,4 +123,18 @@ export async function adoptCombatMechanics(worldId:string,encounterId:string,req
   return readJson(await fetchCombat(scopedPath(worldId,`/${encodeURIComponent(encounterId)}/mechanics-adoptions${cancel?':cancel':''}`,scope),{
     method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(request),
   }));
+}
+
+export async function listCombatMechanicsAdoptions(worldId:string,encounterId:string,before:string|null=null,scope?:RunEncounterScope):Promise<import('./combatTypes').MechanicsAdoptionHistory> {
+  const path=scopedPath(worldId,`/${encodeURIComponent(encounterId)}/mechanics-adoptions`,scope)+(before?`&before_operation_id=${encodeURIComponent(before)}`:'');
+  const page=await readJson<import('./combatTypes').MechanicsAdoptionHistory>(await fetchCombat(path));
+  if(!page||Object.keys(page).sort().join(',')!=='encounter_id,next_before_operation_id,receipts,schema,world_id'||page.schema!=='dmb_combat_mechanics_adoption_history_v1'
+    ||page.world_id!==worldId||page.encounter_id!==encounterId||!Array.isArray(page.receipts))throw new Error('Saved adoption history belongs to another encounter or cannot be verified.');
+  page.receipts.forEach(r=>verifyHistoricalAdoptionReceipt(r,worldId,encounterId));
+  const ids=page.receipts.map(r=>r.operation_id);
+  if(new Set(ids).size!==ids.length||ids.includes(before??'')||(page.next_before_operation_id!==null&&(!ids.length||page.next_before_operation_id!==ids[ids.length-1])))throw new Error('Saved adoption history pagination cannot be verified.');
+  return page;
+}
+export async function inspectCombatMechanicsAdoption(worldId:string,encounterId:string,operationId:string,scope?:RunEncounterScope):Promise<import('./combatTypes').MechanicsAdoptionOutcome|null> {
+  return readJson(await fetchCombat(scopedPath(worldId,`/${encodeURIComponent(encounterId)}/mechanics-adoptions/${encodeURIComponent(operationId)}`,scope)));
 }

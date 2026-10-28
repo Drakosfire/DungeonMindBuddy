@@ -8,6 +8,7 @@ import type {AcceptedCombatMechanicsChoice,ActorMechanicsAdoption,CombatEncounte
 import type {SavedMechanicsLocator} from '../statblocks/revision/savedMechanicsRevisionTypes';
 import {SavedMechanicsRevisionEditor} from '../statblocks/revision/SavedMechanicsRevisionEditor';
 import {CombatMechanicsInspection} from './CombatMechanicsInspection';
+import {SavedAdoptionHistory} from './SavedAdoptionHistory';
 import {readPendingAdoption,sameAdoptionValue,verifyAdoptionOutcome,type PendingMechanicsAdoption} from './CombatMechanicsAdoptionRecovery';
 
 export function CombatMechanicsAdoption({record,disabled,onLockChange,onReconciled,scope}:{record:CombatEncounterRecord;disabled:boolean;scope?:import("./runEncountersApi").RunEncounterScope;
@@ -15,6 +16,7 @@ export function CombatMechanicsAdoption({record,disabled,onLockChange,onReconcil
  const guidance=useGuidedTour();
   const tourScope=useTourEncounter(),latestTourScope=useRef(tourScope);latestTourScope.current=tourScope;
   const [tourAcknowledged,setTourAcknowledged]=useState<AcknowledgedMechanicsAdoption|null>(null);
+  const [tourInspected,setTourInspected]=useState<AcknowledgedMechanicsAdoption|null>(null);
   const worldId=record.world_id,encounterId=record.encounter_id,epoch=useRef(0);
   const [writer]=useState(()=>{try{const key='dmb-combat-adoption-writer';let id=sessionStorage.getItem(key);if(!id){id=crypto.randomUUID();sessionStorage.setItem(key,id);}return id;}catch{return null;}});
   const storageKey=`dmb.combat.adoption:${JSON.stringify([writer,worldId,encounterId])}`;
@@ -63,7 +65,7 @@ export function CombatMechanicsAdoption({record,disabled,onLockChange,onReconcil
       onReconciled(result.encounter);
       if(localStorage.getItem(storageKey)!==raw)throw new Error('Pending adoption storage changed; inspect its outcome again.');
       localStorage.removeItem(storageKey);setPending(null);setPreview(null);setActors({});
-      if(tourAtDispatch&&sameEncounterScope(tourAtDispatch,latestTourScope.current))setTourAcknowledged({dispatchScope:tourDispatch,scope:tourAtDispatch,outcome:result});
+      if(tourAtDispatch&&sameEncounterScope(tourAtDispatch,latestTourScope.current)){setTourInspected(null);setTourAcknowledged({dispatchScope:tourDispatch,scope:tourAtDispatch,outcome:result});}
       setMessage(result.receipt.state==='canceled'?'Pending adoption canceled before commit. Current encounter state loaded; this command changed no actors.':
         result.advanced_since_apply?'This adoption committed earlier. Newer encounter changes are loaded and preserved.':
           cancel?'This adoption already committed; Cancel did not undo it.':'Selected actors now use this exact version. Other actors and World associations are unchanged.');
@@ -83,9 +85,12 @@ export function CombatMechanicsAdoption({record,disabled,onLockChange,onReconcil
     }catch(error){setMessage(String(error));}
   }
   return <section data-guided-control="adoption" tabIndex={-1} aria-label="Use saved mechanics version">
-    <AdoptionTourObservation scope={tourScope} worldId={worldId} encounterId={encounterId} acknowledged={tourAcknowledged} blocked={blocked}/>
+    <AdoptionTourObservation scope={tourScope} worldId={worldId} encounterId={encounterId} acknowledged={tourAcknowledged} inspected={tourInspected} blocked={blocked}/>
     <h3>Use a saved mechanics version</h3>
     <p>Choose which existing actors use a version. This is an encounter override; World creature associations stay unchanged.</p>
+    <SavedAdoptionHistory key={JSON.stringify([worldId,encounterId,scope??null,tourScope])} worldId={worldId} encounterId={encounterId} scope={scope} onInspected={outcome=>{
+      if(tourScope&&sameEncounterScope(tourScope,latestTourScope.current))setTourInspected({scope:tourScope,outcome});
+    }}/>
     {disabled&&!pending&&<p>Save or recover the encounter draft before changing its mechanics.</p>}
     {!writer&&<p>Browser recovery is unavailable. Adoption is disabled.</p>}
     <fieldset disabled={blocked}>

@@ -167,7 +167,7 @@ def preview_accepted_mechanics(world_id: Annotated[str, Query(min_length=1, max_
 
 from uuid import UUID
 from application_state.combat_encounters import adoption
-from application_state.combat_encounters.adoption_types import AdoptMechanicsRequest,AdoptionOutcome,AdoptionPreview,SavedMechanicsPreviewRequest
+from application_state.combat_encounters.adoption_types import AdoptMechanicsRequest,AdoptionOutcome,AdoptionPreview,SavedMechanicsPreviewRequest,AdoptionHistoryPage
 
 
 def _adoption_call(action):
@@ -199,3 +199,9 @@ def cancel_mechanics_adoption_route(encounter_id:UUID,world_id:Annotated[str,Que
 def inspect_mechanics_adoption_route(encounter_id:UUID,operation_id:UUID,world_id:Annotated[str,Query(min_length=1,max_length=63)]):
     owner=_verified_world(world_id)
     return _adoption_call(lambda:adoption.inspect(world_id=owner,encounter_id=encounter_id,operation_id=operation_id))
+
+
+@router.get('/{encounter_id}/mechanics-adoptions',response_model=AdoptionHistoryPage)
+def mechanics_adoption_history_route(encounter_id:UUID,world_id:Annotated[str,Query(min_length=1,max_length=63)],before_operation_id:UUID|None=None,limit:int=Query(default=20,ge=1,le=100)):
+    owner=_verified_world(world_id)
+    return _adoption_call(lambda:adoption.history(world_id=owner,encounter_id=encounter_id,before_operation_id=before_operation_id,limit=limit))

@@ -13,6 +13,10 @@ from apps.live_control_server.services import combat_mechanics as mechanics
 @pytest.fixture
 def adoption_case(revision_case,monkeypatch):
     p=revision_case
+    from fastapi.testclient import TestClient
+    # Current local authentication requires an actual loopback peer, even when
+    # the Graph principal is supplied by the isolated fixture.
+    p.client=TestClient(p.app,client=('127.0.0.1',50000))
     from apps.live_control_server.routes import combat_encounters as routes
     monkeypatch.setattr(routes,'resolve_managed_world_binding',lambda world,**kw:SimpleNamespace(managed_world_id=world))
     monkeypatch.setattr(mechanics,'build_statblock_v1_client',lambda:p.manual)
@@ -42,6 +46,54 @@ def adoption_case(revision_case,monkeypatch):
 
 
 def apply(p,body=None):return p.client.post(p.adopt_url,json=body or p.intent)
+
+
+def test_read_only_adoption_history_pages_and_reopens_exact_receipts(adoption_case,application_state_dsn):
+    import psycopg
+    from psycopg import sql
+    p=adoption_case;applied=apply(p);assert applied.status_code==200,applied.text
+    receipts={applied.json()['receipt']['operation_id']:applied.json()['receipt']}
+    for _ in range(23):
+        response=p.client.post(p.cancel_url,json={**p.intent,'operation_id':str(uuid4())})
+        assert response.status_code==200,response.text
+        receipt=response.json()['receipt'];receipts[receipt['operation_id']]=receipt
+    def state():
+        with psycopg.connect(application_state_dsn) as conn:
+            names=conn.execute("SELECT table_name FROM information_schema.tables WHERE table_schema='combat' ORDER BY table_name").fetchall()
+            return {name:sorted(str(row[0]) for row in conn.execute(sql.SQL('SELECT to_jsonb(t)::text FROM combat.{} t').format(sql.Identifier(name))).fetchall()) for (name,) in names}
+    before=state();seen={};cursor=None
+    for page_number in range(3):
+        response=p.client.get(p.adopt_url+'&limit=10'+(f'&before_operation_id={cursor}' if cursor else ''))
+        assert response.status_code==200,response.text
+        page=response.json();assert page['world_id']=='elderwyld' and page['encounter_id']==p.before['encounter_id']
+        assert len(page['receipts'])==(10 if page_number<2 else 4)
+        for receipt in page['receipts']:
+            assert receipt['operation_id'] not in seen
+            assert receipt==receipts[receipt['operation_id']]
+            seen[receipt['operation_id']]=receipt
+        cursor=page['next_before_operation_id']
+    assert cursor is None and seen==receipts
+    inspection=p.client.get(p.adopt_url.replace('mechanics-adoptions?',f'mechanics-adoptions/{p.intent["operation_id"]}?'))
+    assert inspection.status_code==200 and inspection.json()==applied.json()
+    assert p.client.get(p.adopt_url.replace('world_id=elderwyld','world_id=other')).status_code==404
+    assert p.client.get(p.adopt_url+'&before_operation_id='+str(uuid4())).status_code==404
+    assert p.client.get(p.adopt_url+'&limit=0').status_code==422
+    assert state()==before
+
+
+def test_adoption_history_refuses_foreign_cursor_and_corrupt_routing(adoption_case,application_state_dsn):
+    import psycopg
+    p=adoption_case;assert apply(p).status_code==200
+    foreign=p.client.post('/api/live/combat/encounters?world_id=elderwyld',json={'title':'Other encounter'}).json()
+    other=f'/api/live/combat/encounters/{foreign["encounter_id"]}/mechanics-adoptions?world_id=elderwyld'
+    assert p.client.get(other+'&before_operation_id='+p.intent['operation_id']).status_code==409
+    with pytest.raises(psycopg.errors.CheckViolation):
+        with psycopg.connect(application_state_dsn) as conn:
+            conn.execute("UPDATE combat.mechanics_adoption SET payload=jsonb_set(payload,'{world_id}','\"other\"') WHERE operation_id=%s",(p.intent['operation_id'],))
+    with psycopg.connect(application_state_dsn) as conn:
+        conn.execute("UPDATE combat.mechanics_adoption SET created_at=created_at+interval '1 second' WHERE operation_id=%s",(p.intent['operation_id'],))
+    assert p.client.get(p.adopt_url).status_code==500
+    assert p.client.get(p.adopt_url.replace('mechanics-adoptions?',f'mechanics-adoptions/{p.intent["operation_id"]}?')).status_code==500
 
 
 def test_selected_subset_exact_reopen_generic_guard_and_offline_replay(adoption_case,monkeypatch):

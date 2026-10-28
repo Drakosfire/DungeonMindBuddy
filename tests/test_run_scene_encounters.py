@@ -86,15 +86,30 @@ def test_run_scoped_exact_adoption_reuses_existing_writer_and_offline_receipt(ad
     fight=sessions.materialize_encounter(world_id='elderwyld',run_id=run_id,scene_id='scene:gate',request=materialize)['encounter']
     intent={**p.intent,'operation_id':str(uuid4()),'expected_revision':1,'actors':[{**p.intent['actors'][0],'actor_id':fight.draft.entities[0].id}]}
     path=f'/api/live/combat/run-encounters/{run_id}/scenes/scene:gate/encounters/{fight.encounter_id}/mechanics-adoptions?world_id=elderwyld'
+    assert p.client.get(path).json()['receipts']==[]
     applied=p.client.post(path,json=intent);assert applied.status_code==200,applied.text
     after=applied.json()['encounter'];assert after['revision']==2
     assert after['draft']['entities'][1]==fight.draft.entities[1].model_dump(mode='json')
     assert after['draft']['groups']==[group.model_dump(mode='json') for group in fight.draft.groups]
     assert after['draft']['entities'][0]['id']==fight.draft.entities[0].id
     assert after['draft']['entities'][0]['mechanics_snapshot']['locator']==p.locator
+    original_prepare=combat_mechanics.prepare_saved_override
     monkeypatch.setattr(combat_mechanics,'prepare_saved_override',lambda **kw:(_ for _ in ()).throw(AssertionError('Receipt replay must not reread producer')))
     assert p.client.post(path,json=intent).json()==applied.json()
     assert p.client.get(f'/api/live/combat/encounters/{fight.encounter_id}/mechanics-adoptions/{intent["operation_id"]}?world_id=elderwyld').status_code==409
+    assert p.client.get(f'/api/live/combat/encounters/{fight.encounter_id}/mechanics-adoptions?world_id=elderwyld').status_code==409
+    assert p.client.get(path.replace('scene:gate','scene:wrong')).status_code==404
+    assert p.client.get(path.replace(str(run_id),str(uuid4()))).status_code==404
+    assert p.client.get(path.replace('world_id=elderwyld','world_id=other')).status_code==404
+    assert p.client.get(path).json()['receipts']==[applied.json()['receipt']]
+    from application_state.play.edition_service import read_context_snapshot
+    from application_state.play.session_review import commit_review,ReviewCommand
+    run,content=read_context_snapshot(run_id=str(run_id),world_id='elderwyld')
+    commit_review(run_id=str(run_id),world_id='elderwyld',command_id=str(uuid4()),request=ReviewCommand(action='end',expected_revision=0,expected_run_revision=run.run_revision,expected_content_sha256=content.content_sha256,final_thoughts='Rehearsal unresolved.'))
+    assert p.client.get(path).json()['receipts']==[applied.json()['receipt']]
+    assert p.client.get(path.replace('mechanics-adoptions?',f'mechanics-adoptions/{intent["operation_id"]}?')).json()['receipt']==applied.json()['receipt']
+    monkeypatch.setattr(combat_mechanics,'prepare_saved_override',original_prepare)
+    assert p.client.post(path,json={**intent,'operation_id':str(uuid4()),'expected_revision':2}).status_code==409
     assert scene_templates.read_version(world_id='elderwyld',document_id=obj.work_object_id,scene_id='scene:gate',revision=2)==saved
 
 

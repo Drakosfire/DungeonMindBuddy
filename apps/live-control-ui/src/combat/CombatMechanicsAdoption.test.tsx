@@ -11,7 +11,7 @@ import * as api from './combatApi';
 import * as live from '../api/liveApi';
 import type {CombatEncounterRecord,MechanicsAdoptionOutcome,MechanicsAdoptionPreview,AdoptMechanicsRequest} from './combatTypes';
 import {adoptionRequestDigest,verifyAdoptionOutcome,type PendingMechanicsAdoption} from './CombatMechanicsAdoptionRecovery';
-vi.mock('./combatApi',()=>({listAcceptedCombatMechanics:vi.fn(),previewSavedCombatMechanics:vi.fn(),adoptCombatMechanics:vi.fn()}));
+vi.mock('./combatApi',()=>({listAcceptedCombatMechanics:vi.fn(),previewSavedCombatMechanics:vi.fn(),adoptCombatMechanics:vi.fn(),listCombatMechanicsAdoptions:vi.fn(),inspectCombatMechanicsAdoption:vi.fn()}));
 vi.mock('../api/liveApi',()=>({listSavedMechanicsVersions:vi.fn()}));
 vi.mock('../statblocks/revision/SavedMechanicsRevisionEditor',()=>({SavedMechanicsRevisionEditor:()=>null}));
 vi.mock('./CombatMechanicsInspection',()=>({CombatMechanicsInspection:()=>null}));
@@ -44,6 +44,55 @@ async function outcome(body:AdoptMechanicsRequest,advanced=false):Promise<Mechan
       before_ac:12,after_ac:12,before_hp:35,after_hp:35,before_max_hp:40,after_max_hp:40}]},
     encounter:{...record,revision:advanced?6:5,draft:{...record.draft,entities:[advanced?{...actor,hp:11}:actor,record.draft.entities[1]]}},advanced_since_apply:advanced};
 }
+
+async function savedHistory(){
+ const body:AdoptMechanicsRequest={schema:'dmb_combat_mechanics_adoption_request_v1',operation_id:crypto.randomUUID(),expected_revision:4,draft_id:draftId,locator,actors:[{actor_id:'one',expected_snapshot_digest:original.snapshot_digest,ac_policy:'keep',hp_policy:'keep'}]};
+ const saved=await outcome(body,true);
+ vi.mocked(api.listCombatMechanicsAdoptions).mockResolvedValue({schema:'dmb_combat_mechanics_adoption_history_v1',world_id:world,encounter_id:id,receipts:[saved.receipt],next_before_operation_id:null});
+ vi.mocked(api.inspectCombatMechanicsAdoption).mockResolvedValue(saved);
+ return saved;
+}
+async function openHistory(){
+ await userEvent.click(screen.getByText('Saved adoptions',{exact:true}));
+ await userEvent.click(screen.getByRole('button',{name:'Load saved adoptions'}));
+ await userEvent.click(await screen.findByRole('button',{name:/Inspect applied version/}));
+}
+it('inspects an advanced historical adoption as an existing example without reconciling removed actors',async()=>{
+ const saved=await savedHistory();saved.encounter.draft.entities=[];
+ const reconcile=vi.fn();render(<TourEncounterProvider scope={tourScope}><CombatMechanicsAdoption record={record} disabled={false} onLockChange={()=>{}} onReconciled={reconcile}/></TourEncounterProvider>);
+ await openHistory();await screen.findByText('Existing adoption · encounter version 5');
+ expect(screen.getByText('Exact saved version: rev_two')).toBeTruthy();expect(screen.getByText(/one · AC policy: keep · HP policy: keep/)).toBeTruthy();
+ expect(tourReadings.get('adoption')?.observation?.origin).toBe('existing');
+ expect(api.adoptCombatMechanics).not.toHaveBeenCalled();expect(reconcile).not.toHaveBeenCalled();expect(localStorage.length).toBe(0);
+});
+it('reads historical receipts without clearing uncertain recovery or granting tour credit',async()=>{
+ await savedHistory();vi.mocked(api.adoptCombatMechanics).mockRejectedValueOnce(new Error('Response lost'));
+ const reconcile=vi.fn();render(<TourEncounterProvider scope={tourScope}><CombatMechanicsAdoption record={record} disabled={false} onLockChange={()=>{}} onReconciled={reconcile}/></TourEncounterProvider>);
+ await select();await userEvent.click(screen.getByRole('button',{name:'Use version for selected actors'}));await screen.findByText(/Outcome unconfirmed/);
+ const retained=Object.fromEntries(Object.keys(localStorage).map(k=>[k,localStorage.getItem(k)]));
+ await openHistory();await screen.findByText('Existing adoption · encounter version 5');
+ expect(Object.fromEntries(Object.keys(localStorage).map(k=>[k,localStorage.getItem(k)]))).toEqual(retained);
+ expect(screen.getByRole('button',{name:'Retry original adoption'})).toBeTruthy();expect(reconcile).not.toHaveBeenCalled();
+ expect(tourReadings.get('adoption')?.observation).toBeUndefined();expect(api.adoptCombatMechanics).toHaveBeenCalledTimes(1);
+});
+it.each(['applied','canceled'] as const)('inspects %s choices with dirty drafts without tour completion',async state=>{
+ const saved=await savedHistory();if(state==='canceled'){saved.receipt={...saved.receipt,state:'canceled',committed_revision:null,transitions:[]};saved.advanced_since_apply=false;}
+ vi.mocked(api.listCombatMechanicsAdoptions).mockResolvedValue({schema:'dmb_combat_mechanics_adoption_history_v1',world_id:world,encounter_id:id,receipts:[saved.receipt],next_before_operation_id:null});
+ render(<TourEncounterProvider scope={tourScope}><CombatMechanicsAdoption record={record} disabled={true} onLockChange={()=>{}} onReconciled={()=>{}}/></TourEncounterProvider>);
+ await userEvent.click(screen.getByText('Saved adoptions',{exact:true}));await userEvent.click(screen.getByRole('button',{name:'Load saved adoptions'}));
+ await userEvent.click(await screen.findByRole('button',{name:state==='canceled'?/Inspect canceled choice/:/Inspect applied version/}));await screen.findByText(state==='canceled'?'Canceled choice · no actors changed':'Existing adoption · encounter version 5');
+ expect(tourReadings.get('adoption')?.observation).toBeUndefined();expect(api.adoptCombatMechanics).not.toHaveBeenCalled();
+});
+it('refuses a foreign inspection and cannot credit a late response after the same encounter changes Plan scope',async()=>{
+ const saved=await savedHistory();const mount=(s:TourEncounterScope)=><TourEncounterProvider scope={s}><CombatMechanicsAdoption record={record} disabled={false} onLockChange={()=>{}} onReconciled={()=>{}}/></TourEncounterProvider>;
+ vi.mocked(api.inspectCombatMechanicsAdoption).mockResolvedValueOnce({...saved,receipt:{...saved.receipt,world_id:'foreign'}});
+ const view=render(mount(tourScope));await openHistory();await screen.findByText(/Saved adoption receipt cannot be verified/);
+ expect(tourReadings.get('adoption')?.observation).toBeUndefined();
+ let finish!:(value:MechanicsAdoptionOutcome)=>void;vi.mocked(api.inspectCombatMechanicsAdoption).mockImplementationOnce(()=>new Promise(resolve=>{finish=resolve;}));
+ await userEvent.click(screen.getByRole('button',{name:/Inspect applied version/}));
+ view.rerender(mount({...tourScope,plan:{...tourScope.plan,revision:3,revisionId:'work-3'}}));finish(saved);await Promise.resolve();
+ expect(screen.queryByLabelText('Saved adoption inspection')).toBeNull();expect(tourReadings.get('adoption')?.observation).toBeUndefined();
+});
 it('explicitly adopts selected actors with preserving defaults and unchanged sibling',async()=>{
   const reconciled=vi.fn();vi.mocked(api.adoptCombatMechanics).mockImplementation(async(_w,_e,body)=>outcome(body));
   render(<TourEncounterProvider scope={tourScope}><CombatMechanicsAdoption record={record} disabled={false} onLockChange={()=>{}} onReconciled={reconciled}/></TourEncounterProvider>);await select();
