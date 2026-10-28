@@ -248,8 +248,29 @@ def validate_events(execution):
             read_ids.add(event.read_id)
 
 
-def validate_selection(turn, event, proof, trace):
+def should_read_page(page, question, answer):
+    """Resolve only optional eligible-page acquisition, preserving raw votes.
+
+    A tie requests a read, not authoring action or factual authority. Exact
+    World/revision/digest checks still govern the subsequent acquisition.
+    """
     import math
+
+    probs = answer.probabilities
+    if (
+        question.get("instructions") != question_text(page)
+        or set(question.get("criteria", {})) != {"read", "skip"}
+        or answer.selected not in {"read", "skip"}
+        or set(probs) != {"read", "skip"}
+        or any(not math.isfinite(v) or not 0 <= v <= 1 for v in probs.values())
+        or abs(sum(probs.values()) - 1) > 0.02
+        or probs[answer.selected] != max(probs.values())
+    ):
+        raise ValueError("Unresolved related page choice")
+    return probs["read"] >= probs["skip"]
+
+
+def validate_selection(turn, event, proof, trace):
     from generationengine.types import DecisionResult
     from .source_writer_output import strict_json
 
@@ -297,19 +318,7 @@ def validate_selection(turn, event, proof, trace):
         key = question_name(i)
         q = request["questions"][key]
         answer = response.answers[key]
-        probs = answer.probabilities
-        if (
-            q.get("instructions") != question_text(page)
-            or set(q.get("criteria", {})) != {"read", "skip"}
-            or answer.selected not in {"read", "skip"}
-            or set(probs) != {"read", "skip"}
-            or any(not math.isfinite(v) or not 0 <= v <= 1 for v in probs.values())
-            or abs(sum(probs.values()) - 1) > 0.02
-            or probs[answer.selected] != max(probs.values())
-            or sum(v == probs[answer.selected] for v in probs.values()) != 1
-        ):
-            raise ValueError("Unresolved related page choice")
-        if answer.selected == "read":
+        if should_read_page(page, q, answer):
             chosen.append(page.document_id)
     if sorted(chosen, key=str) != event.document_ids:
         raise ValueError("Related page selection differs from actual controller votes")

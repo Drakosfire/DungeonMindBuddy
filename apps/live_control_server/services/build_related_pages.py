@@ -1,5 +1,6 @@
 """World-scoped metadata discovery and exact saved-page materialization."""
 
+import json
 from hashlib import sha256
 from uuid import uuid4
 from application_state.agent_conversation.build_related_pages import (
@@ -9,6 +10,7 @@ from application_state.agent_conversation.build_related_pages import (
     RelatedPagesSelection,
     RelatedPageRead,
     RelatedPageClaim,
+    should_read_page,
 )
 from apps.live_control_server.config import (
     repo_root,
@@ -93,11 +95,12 @@ def select_pages(driver, prepared, response):
     a = driver._adapter
     policy = a._broker_execution().policy
     offered = getattr(policy, "related_page_catalog", [])
+    questions = json.loads(prepared.body)["questions"]
     selected = sorted(
         [
             p.document_id
             for i, p in enumerate(offered)
-            if response.answers[f"related_page_{i}"].selected == "read"
+            if should_read_page(p, questions[f"related_page_{i}"], response.answers[f"related_page_{i}"])
         ],
         key=str,
     )

@@ -1158,7 +1158,7 @@
   padding-inline: 0.75rem;
 }
 
-.plan-conversation-dock .world-plan-agent-conversation__composer [role="alert"],
+.plan-conversation-dock .world-plan-agent-conversation__composer > [role="alert"],
 .plan-conversation-dock .world-plan-agent-conversation__target-disclosure {
   grid-column: 1 / -1;
   max-block-size: 4rem;
@@ -1261,3 +1261,8 @@
 .conversation-workbook__choices { margin-block: .5rem; font-size: .85rem; }
 .conversation-workbook__row { margin-block: .75rem; }
 .conversation-workbook textarea { display:block; width:100%; min-height:3rem; box-sizing:border-box; margin-block:.3rem; padding:.45rem; font:inherit; color:inherit; background:#17202c; border:1px solid #65768b; border-radius:.3rem; resize:vertical; }
+
+/* Debug scrolls within the available dock; the composer remains reachable. */
+.plan-conversation-dock .buddy-activity__body {
+  max-block-size:min(16rem,calc(var(--conversation-dock-height,32rem) - 12rem));
+}
