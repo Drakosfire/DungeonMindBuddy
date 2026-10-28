@@ -39,11 +39,25 @@ def build_case(tmp_path, monkeypatch, application_state_dsn):
 @pytest.fixture(params=["saved_only", "saved", "intentional_v3"])
 def completed(build_case, monkeypatch, tmp_path, request):
     if request.param == "intentional_v3":
-        from tests.test_build_claim_local_citations import mixed_answer
+        from tests.test_build_claim_local_citations import make_mixed_answer
 
-        turn, *_ = mixed_answer.__wrapped__(build_case, monkeypatch, tmp_path)
+        turn, *_ = make_mixed_answer(
+            build_case, monkeypatch, tmp_path, mode="multi_related_quotes_cap"
+        )
         assert turn.completion.schema_ == "dmb_build_intentional_response_completion_v3"
         return turn
+    # These two cases exercise retained pre-primary-context completion receipts.
+    # Freeze their original SDK budget explicitly rather than letting the current
+    # primary-page policy silently change their writer input contract.
+    current_budget = BuildJevHarness.budget
+
+    def historical_budget(*args, **kwargs):
+        budget = current_budget(*args, **kwargs)
+        budget["buildJevActions"].pop("primary_work_context_policy", None)
+        budget["buildJevActions"].pop("writer_status_policy", None)
+        return budget
+
+    monkeypatch.setattr(BuildJevHarness, "budget", staticmethod(historical_budget))
     case, _ = ordinary_case(build_case, monkeypatch)
     execute(
         case,

@@ -26,6 +26,10 @@ def build_case(tmp_path, monkeypatch, application_state_dsn):
 
 @pytest.fixture
 def mixed_answer(build_case, monkeypatch, tmp_path):
+    return make_mixed_answer(build_case, monkeypatch, tmp_path)
+
+
+def make_mixed_answer(build_case, monkeypatch, tmp_path, *, mode="answer_from_sources"):
     original = PagesWriter.handle_async_request
 
     async def respond(self, request):
@@ -56,7 +60,7 @@ def mixed_answer(build_case, monkeypatch, tmp_path):
 
     monkeypatch.setattr(PagesWriter, "handle_async_request", respond)
     return completed.__wrapped__(
-        build_case, monkeypatch, tmp_path, SimpleNamespace(param="answer_from_sources")
+        build_case, monkeypatch, tmp_path, SimpleNamespace(param=mode)
     )
 
 
