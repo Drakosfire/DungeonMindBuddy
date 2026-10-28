@@ -10,7 +10,7 @@ const source={worldId:'world',documentId:'page',revision:2,contentSha256:'a'.rep
 function session(receipt:unknown=null,extra:Partial<MarkdownCanvasSessionValue>={}):MarkdownCanvasSessionValue {
  return {phase:'ready_clean',activeCommand:null,lastCommitReceipt:receipt,saveDisabledReason:null,...extra} as MarkdownCanvasSessionValue;
 }
-const receipt={writer_ok:true,world_id:'world',committed_record:{updated_at:'2026-10-28T00:00:00Z'},document_id:'page',registry_revision:2,normalized_content_sha256:'a'.repeat(64)};
+const receipt={writer_ok:true,world_id:'world',committed_record:{world_id:'world',updated_at:'2026-10-28T00:00:00Z'},document_id:'page',registry_revision:2,normalized_content_sha256:'a'.repeat(64)};
 beforeEach(()=>readings.clear());
 it('explains an empty Build surface without requiring an editor session',()=>{
  render(<BuildTourObservations source={null} session={null}/>);
@@ -26,10 +26,17 @@ it('recognizes a new matching verified Save receipt, without sending a command',
  mounted.rerender(<BuildTourObservations source={source} session={session(receipt)}/>);
  expect(readings.get('authoring')?.observation).toMatchObject({origin:'acknowledged',target:{worldId:'world',objectId:'page',revision:2,digest:source.contentSha256}});
 });
+it.each([null,undefined])('recognizes the current ordinary commit with outer World %s and required saved-record ownership',world_id=>{
+ const mounted=render(<BuildTourObservations source={source} session={session()}/>);
+ mounted.rerender(<BuildTourObservations source={source} session={session({...receipt,world_id})}/>);
+ expect(readings.get('authoring')?.observation?.origin).toBe('acknowledged');
+});
 it.each([
+ {...receipt,committed_record:{...receipt.committed_record,world_id:'another-world'}},
+ {...receipt,committed_record:{updated_at:receipt.committed_record.updated_at}},
  {...receipt,writer_ok:false},
  {...receipt,world_id:'another-world'},
- {...receipt,committed_record:{updated_at:'invalid'}},
+ {...receipt,committed_record:{world_id:'world',updated_at:'invalid'}},
  {...receipt,document_id:'another-page'},
  {...receipt,registry_revision:1},
  {...receipt,normalized_content_sha256:'b'.repeat(64)},
