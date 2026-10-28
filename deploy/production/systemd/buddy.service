@@ -1,0 +1,31 @@
+[Unit]
+Description=DungeonMindBuddy API
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=dungeonmindbuddy
+Group=dungeonmindbuddy
+WorkingDirectory=/opt/dungeonmindbuddy/current
+EnvironmentFile=/etc/dungeonmindbuddy/buddy.env
+ExecStart=/opt/dungeonmindbuddy/current/.venv/bin/uvicorn apps.live_control_server.main:app --host 127.0.0.1 --port 8080
+Restart=on-failure
+RestartSec=5s
+TimeoutStopSec=30s
+UMask=0027
+NoNewPrivileges=yes
+PrivateTmp=yes
+PrivateDevices=yes
+ProtectHome=yes
+ProtectSystem=strict
+RestrictSUIDSGID=yes
+LockPersonality=yes
+
+# Before installation, choose existing durable roots outside /opt/dungeonmindbuddy/releases,
+# replace the placeholders below, and uncomment ReadWritePaths for exactly those roots.
+# Until then ProtectSystem=strict leaves all paths read-only.
+# ReadWritePaths=/srv/REPLACE_WITH_BUDDY_DATA_ROOT /srv/REPLACE_WITH_WORLDGRAPH_ROOT
+
+[Install]
+WantedBy=multi-user.target
