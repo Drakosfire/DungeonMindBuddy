@@ -1,3 +1,4 @@
+import {BuildTourObservations} from '../guidedTour/OwnerObservations';
 import {BuildWorkPlanHost} from "./BuildWorkPlanHost";
 import {BuildEditorToolsPanel} from './BuildEditorToolsPanel';
 import { saveBuildProposal } from './saveBuildProposal';
@@ -14,6 +15,7 @@ import { authenticatedApiFetch, getBuildSourceNavigation } from "../api/liveApi"
 import { MarkdownCanvas } from "../markdownCanvas/MarkdownCanvas";
 import {
   useMarkdownCanvasSession,
+  useOptionalMarkdownCanvasSession,
   type MarkdownCanvasSessionValue,
 } from "../markdownCanvas/MarkdownCanvasSession";
 import type { MarkdownCanvasSlots } from "../markdownCanvas/MarkdownCanvas";
@@ -155,7 +157,8 @@ function BuildPresentableSourceView({
 
 function BuildConversationBinding({ source, hosts, composeBridge }: { source: SavedWorldBuildConversationContext | null; hosts: PlanConversationPresentationHosts; composeBridge?: BuildComposeBridge }) {
   usePublishWorldBuildConversation(source, hosts, composeBridge);
-  return null;
+  const session=useOptionalMarkdownCanvasSession();
+  return <BuildTourObservations source={source} session={session}/>;
 }
 
 /** Build's no-document landing is still a framed projection with the same conversation dock. */

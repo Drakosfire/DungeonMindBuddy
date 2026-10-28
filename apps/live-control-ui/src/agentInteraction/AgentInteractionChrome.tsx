@@ -160,7 +160,7 @@ export function AgentInteractionChrome() {
           threadTitle,
           surfaceSubtitle ?? "Graph-grounded ask ready",
         ].filter(Boolean).join(" · ")}
-        data-testid="agent-interaction-open"
+        data-testid="agent-interaction-open" data-guided-control="memory"
       >
         <img src={dungeonBuddyAgentImage} alt="" aria-hidden="true" />
       </button>
