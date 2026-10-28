@@ -24,7 +24,7 @@ it('labels a retained save receipt on first mount as an existing example',()=>{
 it('recognizes a new matching verified Save receipt, without sending a command',()=>{
  const mounted=render(<BuildTourObservations source={source} session={session()}/>);
  mounted.rerender(<BuildTourObservations source={source} session={session(receipt)}/>);
- expect(readings.get('authoring')?.observation).toMatchObject({origin:'acknowledged',target:{worldId:'world',objectId:'page',revision:2,digest:source.contentSha256}});
+ expect(readings.get('authoring')?.observation).toMatchObject({origin:'acknowledged',target:{kind:'page',worldId:'world',objectId:'page',revision:2,digest:source.contentSha256}});
 });
 it.each([null,undefined])('recognizes the current ordinary commit with outer World %s and required saved-record ownership',world_id=>{
  const mounted=render(<BuildTourObservations source={source} session={session()}/>);

@@ -2,7 +2,7 @@ import {useMemo,useRef} from 'react';
 import type {MarkdownCanvasSessionValue} from '../markdownCanvas/MarkdownCanvasSession';
 import type {SavedWorldBuildConversationContext} from '../agentInteraction/WorldAgentConversation';
 import {useTourOwnerReading,type TourDispatchScope} from './GuidedTour';
-import {planPin,sourcePin,runPins} from './ownerPins';
+import {planPin,sourcePin,pagePin,runPins} from './ownerPins';
 import type {WorldPlayRunRecordV2} from '../api/types';
 import {combatDraftEqual} from '../combat/combatRecovery';
 import {sameEncounterScope} from './EncounterScope';
@@ -10,15 +10,16 @@ import type {PreparedCombatOwnerReading} from '../surface/modules/CombatRosterMo
 import type {PlanEncounterContext,SceneTemplateView} from '../combat/sceneTemplatesApi';
 
 export function BuildTourObservations({source,session}:{source:SavedWorldBuildConversationContext|null;session:MarkdownCanvasSessionValue|null}){
- const target=source?sourcePin(source):null;
+ const sourceTarget=source?sourcePin(source):null;
+ const target=source?pagePin(source):null;
  const verified=!!source&&!source.dirty&&session?.phase==='ready_clean'&&!session.activeCommand;
  const receipt=session?.lastCommitReceipt;
  const initialReceipt=useRef(receipt);
  const stamp=useMemo(()=>new Date().toISOString(),[receipt]);
  const receiptStamp=receipt?.committed_record?.updated_at;
  const saved=verified&&receipt!==initialReceipt.current&&receipt?.writer_ok===true&&receipt.committed_record?.world_id===source.worldId&&(receipt.world_id==null||receipt.world_id===source.worldId)&&typeof receiptStamp==='string'&&Number.isFinite(Date.parse(receiptStamp))&&receipt.document_id===source.documentId&&receipt.registry_revision===source.revision&&receipt.normalized_content_sha256===source.contentSha256;
- useTourOwnerReading({step:'source',target,control:'source',label:source?.title,status:verified?'ready':'unavailable',reason:verified?undefined:'Open a verified page. Unsaved drafts and pending work are kept; finish or inspect them through the ordinary controls.',
-  ...(verified&&target?{observation:{step:'source',target,observedAt:stamp,origin:'existing',receiptId:`source:${target.objectId}:${target.revision}:${target.digest}`}}:{})});
+ useTourOwnerReading({step:'source',target:sourceTarget,control:'source',label:source?.title,status:verified?'ready':'unavailable',reason:verified?undefined:'Open a verified page. Unsaved drafts and pending work are kept; finish or inspect them through the ordinary controls.',
+  ...(verified&&sourceTarget?{observation:{step:'source',target:sourceTarget,observedAt:stamp,origin:'existing',receiptId:`source:${sourceTarget.objectId}:${sourceTarget.revision}:${sourceTarget.digest}`}}:{})});
  useTourOwnerReading({step:'authoring',dispatchScope:session?.tourSaveScope,target,control:'save',label:source?.title,status:verified?'ready':'unavailable',reason:verified?undefined:session?.saveDisabledReason??'Finish the page through the ordinary editor and Save controls.',
   ...(verified&&target?{observation:{step:'authoring',target,observedAt:saved?receiptStamp:stamp,origin:saved?'acknowledged':'existing',receiptId:saved?`source-save:${receipt.registry_revision}:${receipt.normalized_content_sha256}`:`source-existing:${target.objectId}:${target.revision}:${target.digest}`}}:{})});
  return null;

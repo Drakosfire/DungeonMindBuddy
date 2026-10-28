@@ -9,7 +9,7 @@ export interface TourOwnerReading {
  step:StepId;target:TargetPin|null;parent?:TargetPin;control:string;label?:string;
  status:'ready'|'unavailable'|'failed';reason?:string;observation?:Observation;dispatchScope?:TourDispatchScope|null;
 }
-export interface TourDispatchScope {worldId:string;walkthroughId:string;epoch:number}
+export interface TourDispatchScope {worldId:string;walkthroughId:string;epoch:number;/** Present only when a page was explicitly selected before dispatch. */page?:TargetPin}
 interface TourApi {
  tracking:boolean;open:()=>void;recordConversationDispatch:(correlationKey:string,scope:TourDispatchScope|null)=>void;captureScope:()=>TourDispatchScope|null;isScopeCurrent:(scope:TourDispatchScope|null)=>boolean;recordRunCreation:(observation:Observation,scope:TourDispatchScope|null)=>void;publish:(token:symbol,reading:TourOwnerReading|null)=>void;
 }
@@ -56,9 +56,12 @@ export function GuidedTourProvider({worldId,worldName,children,history=null}:{wo
   if(!scope||scopeWorld.current!==scope.worldId||externalEpoch.current!==scope.epoch||current.current?.record.id!==scope.walkthroughId||current.current.record.phase!=='running')return false;
   try{return readWalkthrough(localStorage,scope.worldId)?.record.id===scope.walkthroughId;}catch{return false;}
  },[]);
- const captureScope=useCallback(()=>{const record=current.current?.record;const scope=worldId&&record?{worldId,walkthroughId:record.id,epoch:externalEpoch.current}:null;return isScopeCurrent(scope)?scope:null;},[worldId,isScopeCurrent]);
+ const captureScope=useCallback(()=>{const record=current.current?.record;const scope=worldId&&record?{worldId,walkthroughId:record.id,epoch:externalEpoch.current,...(record.bindings.page?{page:record.bindings.page}:{})}:null;return isScopeCurrent(scope)?scope:null;},[worldId,isScopeCurrent]);
  const publish=useCallback((token:symbol,incoming:TourOwnerReading|null)=>{
-  const reading=incoming?.observation?.origin==='acknowledged'&&!isScopeCurrent(incoming.dispatchScope??null)?{...incoming,observation:{...incoming.observation,origin:'existing' as const}}:incoming;
+  const boundPage=current.current?.record.bindings.page;
+  const pageAtDispatch=incoming?.dispatchScope?.page;
+  const pageSelectedAtDispatch=incoming?.step!=='authoring'||!!boundPage&&!!pageAtDispatch&&samePin(boundPage,pageAtDispatch);
+  const reading=incoming?.observation?.origin==='acknowledged'&&(!isScopeCurrent(incoming.dispatchScope??null)||!pageSelectedAtDispatch)?{...incoming,observation:{...incoming.observation,origin:'existing' as const}}:incoming;
   if(!mounted.current)return;
   setOwners(previous=>{const next=new Map(previous);if(reading&&worldId&&(!reading.target||reading.target.worldId===worldId))next.set(token,reading);else next.delete(token);return next;});
   if(reading?.observation&&reading.target?.worldId===worldId&&current.current?.record.phase==='running')change({kind:'observe',observation:reading.observation});
@@ -102,7 +105,7 @@ export function GuidedTourProvider({worldId,worldName,children,history=null}:{wo
   // Capture the other admitted capabilities already visible for this same exact object.
   // Multiple candidates for one capability remain ambiguous.
   for(const candidate of owners.values())if(candidate.observation&&candidate.target&&samePin(candidate.target,reading.target)
-   &&Array.from(owners.values()).filter(other=>other.step===candidate.step).length===1)userChange({kind:'observe',observation:candidate.observation.origin==='acknowledged'&&!isScopeCurrent(candidate.dispatchScope??null)?{...candidate.observation,origin:'existing'}:candidate.observation});
+   &&Array.from(owners.values()).filter(other=>other.step===candidate.step).length===1)userChange({kind:'observe',observation:reading.target.kind==='page'||candidate.observation.origin==='acknowledged'&&!isScopeCurrent(candidate.dispatchScope??null)?{...candidate.observation,origin:'existing'}:candidate.observation});
   for(const receipt of runCreationReceipts.current.values())if(samePin(receipt.target,reading.target))userChange({kind:'observe',observation:receipt});
  };
  const showControl=()=>{
@@ -116,7 +119,7 @@ export function GuidedTourProvider({worldId,worldName,children,history=null}:{wo
  useEffect(()=>()=>{document.querySelectorAll('[data-guided-highlight]').forEach(node=>node.removeAttribute('data-guided-highlight'));},[step.id,visible]);
  const exportRecord=()=>{
   if(!walkthrough)return;
-  const url=URL.createObjectURL(new Blob([JSON.stringify({definition:{id:'buddy-live-journey',version:1,steps:JOURNEY_STEPS},walkthrough},null,2)],{type:'application/json'}));
+  const url=URL.createObjectURL(new Blob([JSON.stringify({definition:{id:'buddy-live-journey',version:2,steps:JOURNEY_STEPS},walkthrough},null,2)],{type:'application/json'}));
   const link=document.createElement('a');link.href=url;link.download=`buddy-walkthrough-${walkthrough.id}.json`;link.click();URL.revokeObjectURL(url);
  };
  return <TourContext.Provider value={api}>{children}{visible&&<aside className="guided-tour" aria-label="Guided journey">
