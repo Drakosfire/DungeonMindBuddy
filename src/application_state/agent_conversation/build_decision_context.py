@@ -3,8 +3,10 @@ from __future__ import annotations
 import hashlib
 import json
 
-POLICY = "o200k_double_plus_4096_adaptive_context_v2"
-SELECTION = "build_navigate_assess_if_default_exceeded_v1"
+HISTORICAL_POLICY = "o200k_double_plus_4096_adaptive_context_v2"
+HISTORICAL_SELECTION = "build_navigate_assess_if_default_exceeded_v1"
+POLICY = "o200k_double_plus_4096_adaptive_context_v3"
+SELECTION = "build_acquisition_selection_if_default_exceeded_v2"
 DEFAULT_QUESTION = 32_000
 DEFAULT_REQUEST = 64_000
 LONG_LIMIT = 262_000
@@ -21,8 +23,13 @@ def phase(body):
     return value
 
 
-def selected_mode(phase_name, request_estimate, question_estimate):
-    if (phase_name in {"navigate", "assess"}
+def selected_mode(phase_name, request_estimate, question_estimate, *, policy):
+    eligible = {"navigate", "assess"}
+    if policy == POLICY:
+        eligible.add("writer_selection")
+    elif policy != HISTORICAL_POLICY:
+        raise ValueError("Unknown frozen decision context policy")
+    if (phase_name in eligible
             and (request_estimate > DEFAULT_REQUEST or question_estimate > DEFAULT_QUESTION)):
         return "long_context"
     return "default"
@@ -37,13 +44,13 @@ def identity(*, envelope_sha256, provider, model, api_mode, context_mode):
 
 def validate_event(event, execution):
     descriptor = getattr(execution.policy, "controller_continuation_accounting", None)
-    if descriptor is None or descriptor.policy != POLICY:
-        raise ValueError("Decision context requires its frozen V2 accounting")
+    if descriptor is None or descriptor.policy not in {POLICY, HISTORICAL_POLICY}:
+        raise ValueError("Decision context requires its frozen adaptive accounting")
     if (event.provider, event.model, event.api_mode) != execution.policy.provider_roles.controller.identity():
         raise ValueError("Decision context role belongs only to the Build controller")
     if (event.provider, event.model, event.api_mode) != ("typesafe", "jev-1.14.0", "typesafe_decision"):
         raise ValueError("Decision context provider identity differs")
-    if event.context_mode != selected_mode(event.context_phase, event.input_tokens, event.max_question_input_tokens):
+    if event.context_mode != selected_mode(event.context_phase, event.input_tokens, event.max_question_input_tokens, policy=descriptor.policy):
         raise ValueError("Decision context mode differs from frozen selection policy")
     question_limit, request_limit = ((LONG_LIMIT, LONG_LIMIT) if event.context_mode == "long_context"
                                       else (DEFAULT_QUESTION, DEFAULT_REQUEST))

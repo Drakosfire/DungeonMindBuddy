@@ -423,3 +423,88 @@ def test_authored_batches_are_mandatory_but_separate_optional_origins_still_vote
     assert len(legacy) == 2
     first = next(v for v in legacy.values() if v['passage']['text'] == 'First exact passage.')
     assert set(first['source_event_ids']) == {str(mandatory_id),str(optional_id)}
+
+
+@pytest.fixture
+def mutable_saved_build_case(tmp_path,monkeypatch,application_state_dsn):
+    from tests.test_agent_build_jev_ordinary_harness import build_case
+    return build_case.__wrapped__(tmp_path,monkeypatch,application_state_dsn)
+
+
+def test_long_selection_capability_crosses_sdk_app_without_expanding_sources(mutable_saved_build_case,monkeypatch,tmp_path,accounting,application_state_dsn):
+    from apps.live_control_server.services.workspace_document_registry import get_workspace_document_snapshot
+    source,request,bootstrap=mutable_saved_build_case
+    text="Frank and Sara operate the Rocky Talkie. "+"The marsh is quiet. "*4000+"\n"
+    (tmp_path/source.record.target_relpath).write_text(text)
+    source=get_workspace_document_snapshot(tmp_path,source.record.document_id)
+    request=request.model_copy(update={"primary_work":request.primary_work.model_copy(update={"expected_content_sha256":source.content_sha256})})
+    from hashlib import sha256
+    from tests.application_state.test_agent_conversation_postgres import _new
+    from application_state.agent_conversation.build_draft_context import BuildDraftSnapshotV1,BuildDraftContextRequestV1
+    from apps.live_control_server.models.agent_turn import AgentTurnRequest
+    service=AgentConversationService();conversation=_new(service,"elderwyld")
+    snapshot=BuildDraftSnapshotV1(world_id="elderwyld",document_id=source.record.document_id,
+        registry_revision=source.loaded_revision,content_sha256=source.content_sha256,visibility="internal",
+        draft_generation=0,draft_markdown=text,draft_sha256=sha256(text.encode()).hexdigest(),editor_sha256="b"*64)
+    context=BuildDraftContextRequestV1(snapshot=snapshot,conversation_id=conversation.conversation_id,
+        expected_pointer_revision=service.get_world_pointer("elderwyld").revision)
+    request=AgentTurnRequest.model_validate({**request.model_dump(mode="json",by_alias=True),
+        "build_write_capability":None,"build_draft_context":context.model_dump(mode="json",by_alias=True)})
+    case,reads,decisions,writer,harness=run_case((source,request,bootstrap),monkeypatch,tmp_path,accounting,"saved_only")
+    class DraftSavedWriter(WriterWire):
+        async def handle_async_request(self,request):
+            response=await super().handle_async_request(request)
+            packet=json.loads(json.loads(request.content)["input"])
+            sections=packet["artifact_under_edit"]["sections"]
+            data=response.json()
+            data["output"][0]["content"][0]["text"]=json.dumps({
+                "answer_context_status":"authored_grounded_partial","limitations":["partial_retrieval"],
+                "requested_detail_gaps":[],"answer_segments":[{"kind":"saved_source_claim",
+                    "text":"Frank and Sara operate the Rocky Talkie.","section_read_ids":[sections[0]["read_id"]]}]})
+            return httpx.Response(200,request=request,json=data)
+    writer=DraftSavedWriter()
+    harness=BuildJevHarness(world_context=True,named_citations=True,accounting=accounting,
+        decision_transport=decisions,writer_transport=writer)
+    execute(case,tmp_path,harness)
+    assert len(writer.calls)==1
+    selecting=[r for r in decisions.calls if json.loads(r.content)["state"].get("phase")=="writer_selection"]
+    assert len(selecting)==1
+    assert selecting[0].headers.get("TypeSafe-Danger-Zone-Long-Context")=="true"
+    state=json.loads(selecting[0].content)["state"]
+    assert len(state["sources"])>0
+    service=AgentConversationService();pointer=service.get_world_pointer("elderwyld")
+    turn=service.list_turns("elderwyld",pointer.active_conversation_id)[0]
+    events=turn.graph_context_execution.events
+    auth,=[e for e in events if isinstance(e,ledger.ProviderAttemptAuthorizedEventV5) and e.context_phase=="writer_selection"]
+    assert auth.context_mode=="long_context" and auth.max_question_input_tokens>32000
+    assert turn.graph_context_execution.policy.controller_continuation_accounting.policy.endswith("v3")
+    settled,=[e for e in events if isinstance(e,ledger.BuildWriterEvidenceSelectionV1)]
+    assert settled.controller_attempt_id==auth.provider_attempt_id
+    capture=service.list_context_trace_attempts(world_id="elderwyld",turn_id=turn.turn_id)[0]
+    catalog=selection.acquired_catalog(turn.graph_context_execution,capture.model_dump(mode="json",by_alias=True))
+    assert set(state["sources"])==set(catalog)
+    assert settled.catalog_sha256==selection.digest(catalog)
+    assert set(settled.expanded_unit_ids).issubset(catalog)
+    assert not [e for e in events if e.sequence>auth.sequence and isinstance(e,(ledger.ValidatedSourceReadEventV2,ledger.ValidatedBuildSectionReadV1))]
+    assert service.list_turns("elderwyld",pointer.active_conversation_id)[0].graph_context_execution==turn.graph_context_execution
+
+    # Exercise the metadata-only fence with a populated execution/selection/trace.
+    import psycopg
+    from psycopg import sql
+    from alembic import command
+    from application_state.cli import alembic_config,upgrade_to_head
+    def snapshot():
+        with psycopg.connect(application_state_dsn) as conn:
+            tables=conn.execute("SELECT table_schema,table_name FROM information_schema.tables WHERE table_type='BASE TABLE' AND table_schema NOT IN ('pg_catalog','information_schema') ORDER BY 1,2").fetchall()
+            return {(schema,table):sorted(row[0]for row in conn.execute(sql.SQL("SELECT to_jsonb(t)::text FROM {}.{} t").format(sql.Identifier(schema),sql.Identifier(table))))
+                    for schema,table in tables if (schema,table)!=("application_state","schema_migrations")}
+    before=snapshot()
+    assert any(before.values())
+    with psycopg.connect(application_state_dsn) as conn:
+        conn.execute("UPDATE application_state.schema_migrations SET version_num='20261028_0082'")
+    upgrade_to_head(dsn=application_state_dsn)
+    assert snapshot()==before
+    with pytest.raises(RuntimeError,match="recovery forward"):
+        command.downgrade(alembic_config(),"20261028_0082")
+    assert snapshot()==before
+    assert service.list_turns("elderwyld",pointer.active_conversation_id)[0].graph_context_execution==turn.graph_context_execution

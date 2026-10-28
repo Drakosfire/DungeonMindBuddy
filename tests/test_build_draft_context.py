@@ -324,7 +324,7 @@ def test_draft_only_answer_is_durable_without_saved_or_world_citations(draft_bui
     assert get_workspace_document_snapshot(tmp_path,source.record.document_id).markdown==source.markdown
     from alembic import command
     from application_state.cli import alembic_config
-    with pytest.raises(RuntimeError, match="Mode-bound Build decisions require recovery forward"):
+    with pytest.raises(RuntimeError, match="Selection-context Build decisions require recovery forward"):
         command.downgrade(alembic_config(), "20261023_0060")
     assert any(row.completion==completion for row in AgentConversationService().list_turns("elderwyld",cap.conversation_id))
 
@@ -352,8 +352,8 @@ def test_optional_write_target_does_not_impose_a_separate_text_limit_on_draft_di
     assert proposal.draft_markdown==text
 
 
-@pytest.mark.parametrize("compare_saved,repetitions,expect_veto,short_draft", [(False,2000,False,False),(True,700,False,False),(True,2000,False,False),(True,4000,True,False),(False,4000,False,False),(False,5000,False,True)])
-def test_long_saved_line_does_not_block_current_draft_or_exact_saved_comparison(draft_build_case,monkeypatch,tmp_path,compare_saved,repetitions,expect_veto,short_draft):
+@pytest.mark.parametrize("compare_saved,repetitions,short_draft", [(False,2000,False),(True,700,False),(True,2000,False),(True,4000,False),(False,4000,False),(False,5000,True)])
+def test_long_saved_line_does_not_block_current_draft_or_exact_saved_comparison(draft_build_case,monkeypatch,tmp_path,compare_saved,repetitions,short_draft):
     import json
     import httpx
     from application_state.agent_conversation import AgentConversationService,types as t
@@ -404,25 +404,6 @@ def test_long_saved_line_does_not_block_current_draft_or_exact_saved_comparison(
     writer=LongWriter()
     harness=BuildJevHarness(world_context=True,named_citations=True,accounting=counter(),
         decision_transport=SelectionWire("saved_only" if compare_saved else "empty"),writer_transport=writer)
-    if expect_veto:
-        from apps.live_control_server.services.agent_turn_service import AgentTurnServiceError
-        with pytest.raises(AgentTurnServiceError) as refusal:
-            execute((source,request,bootstrap),tmp_path,harness)
-        assert refusal.value.code=="provider_envelope_over_budget"
-        assert all(message=="Decision per-question context exceeds experimental estimate" for message in admission_failures)
-        assert not writer.calls
-        turn=service.list_turns("elderwyld",conversation.conversation_id)[0]
-        assert turn.status=="interrupted" and turn.completion is None
-        traces=service.list_context_trace_attempts(world_id="elderwyld",turn_id=turn.turn_id)
-        failures=[event for trace in traces for event in trace.observations if event.kind=="failure"]
-        assert any(event.phase=="context_build" and event.code=="decision_question_capacity_exceeded" for event in failures)
-        authorizations=[event for event in turn.graph_context_execution.events if isinstance(event,t.ProviderAttemptAuthorizedEventV1)]
-        assert len(authorizations)==len(harness.decision_transport.calls)==len(harness.calls)
-        assert all(call["status"]=="ok" for call in harness.calls)
-        captures=[event for event in turn.graph_context_execution.events if isinstance(event,t.BuildDraftContextCapturedV1)]
-        assert len(captures)==1 and captures[0].record.snapshot==snap
-        assert get_workspace_document_snapshot(tmp_path,source.record.document_id).markdown==text
-        return
     response=execute((source,request,bootstrap),tmp_path,harness)
     assert not admission_failures
     assert response.answer.status=="ok" and len(writer.calls)==1
