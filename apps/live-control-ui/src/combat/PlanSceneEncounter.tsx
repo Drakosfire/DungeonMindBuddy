@@ -1,3 +1,5 @@
+import {TourEncounterProvider} from '../guidedTour/EncounterScope';
+import {planPin} from '../guidedTour/ownerPins';
 import {EncounterTourObservation} from '../guidedTour/OwnerObservations';
 import {CombatMechanicsInspection} from './CombatMechanicsInspection';
 import {useEffect,useRef,useState} from 'react';
@@ -109,7 +111,7 @@ export function PlanSceneEncounter({context}:{context:PlanEncounterContext}){
   {view&&!pending&&<>
    {!view.scene_present&&<p role="status">This scene is absent from the saved Plan. Encounter work is retained.</p>}
    <details><summary>Prepared versions</summary><button disabled={busy} onClick={()=>void refresh()}>Refresh prepared versions</button>{view.versions.map(version=><button key={version.revision} disabled={busy} onClick={()=>void history(version.revision)}>Inspect version {version.revision}</button>)}{historical&&<section aria-label="Saved prepared version"><h3>{historical.draft.title} · version {historical.revision}</h3><ul>{historical.draft.entities.map(actor=><li key={actor.id}>{actor.name} · AC {actor.ac??'—'} · HP {actor.hp??'—'}/{actor.max_hp??'—'}{actor.mechanics_snapshot&&<CombatMechanicsInspection snapshot={actor.mechanics_snapshot}/>}</li>)}</ul><p>Saved version · read only</p></section>}</details>
-   <CombatRosterModule key={view.binding.encounter_id} scope={{worldId:context.worldId,encounterId:view.binding.encounter_id,initialRecord:view.encounter,label:`${context.sceneTitle} · prepared encounter`}}/>
+   <TourEncounterProvider scope={view.scene_present&&context.canCreate&&view.binding.origin.content_sha256===context.contentSha256?{plan:planPin(context.worldId,context.documentId,{revisionN:view.binding.origin.revision_n,workRevisionId:view.binding.origin.work_revision_id,contentSha256:view.binding.origin.content_sha256}),sceneId:context.sceneId,encounterId:view.binding.encounter_id}:null}><CombatRosterModule key={view.binding.encounter_id} scope={{worldId:context.worldId,encounterId:view.binding.encounter_id,initialRecord:view.encounter,label:`${context.sceneTitle} · prepared encounter`}}/></TourEncounterProvider>
   </>}
  </section>;
 }

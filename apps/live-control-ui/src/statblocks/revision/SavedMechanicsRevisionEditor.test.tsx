@@ -3,12 +3,17 @@ import userEvent from '@testing-library/user-event';
 import {beforeEach,afterEach,it,expect,vi} from 'vitest';
 import * as api from '../../api/liveApi';
 import {SavedMechanicsRevisionEditor} from './SavedMechanicsRevisionEditor';
+import {TourEncounterProvider,type TourEncounterScope} from '../../guidedTour/EncounterScope';
+import type {TourOwnerReading} from '../../guidedTour/GuidedTour';
+const tourReadings=vi.hoisted(()=>new Map<string,TourOwnerReading>());
+vi.mock('../../guidedTour/GuidedTour',()=>({useTourOwnerReading:(reading:TourOwnerReading|null)=>{if(reading)tourReadings.set(reading.step,reading);}}));
 import {baseCandidateDefinition} from '../editor/editorFixtures';
 import type {OpenSavedMechanicsVersion,RevisionSaveOutcome,SavedMechanicsVersionList} from './savedMechanicsRevisionTypes';
 vi.mock('../../api/liveApi',()=>({listSavedMechanicsVersions:vi.fn(),openSavedMechanicsVersion:vi.fn(),saveMechanicsRevision:vi.fn(),recoverMechanicsRevision:vi.fn(),inspectMechanicsRevision:vi.fn(),validateStatblockDefinition:vi.fn()}));
 const world='test-world',draft='11111111-1111-4111-8111-111111111111';
 const base={provider:'dungeonmind' as const,statblock_id:'sb_one',revision_id:'rev_original',contract:'dungeonmind.dungeonbuddy-statblocks',contract_version:'1.0.0',definition_digest:'sha256:'+'a'.repeat(64)};
 const next={...base,revision_id:'rev_next',definition_digest:'sha256:'+'b'.repeat(64)};
+const tourScope:TourEncounterScope={plan:{kind:'plan',worldId:world,objectId:'plan',revision:2,revisionId:'work-2',digest:'d'.repeat(64)},sceneId:'scene',encounterId:'encounter'};
 let outcome:RevisionSaveOutcome;
 function page():SavedMechanicsVersionList{return {world_id:world,draft_id:draft,name:'Keeper',original:base,operations:[],pending:null,next_offset:null};}
 function opened(revision=base.revision_id):OpenSavedMechanicsVersion{
@@ -17,7 +22,7 @@ function opened(revision=base.revision_id):OpenSavedMechanicsVersion{
     resource:{statblock_id:base.statblock_id,revision_id:revision,definition} as OpenSavedMechanicsVersion['resource']};
 }
 beforeEach(()=>{
-  vi.resetAllMocks();localStorage.clear();
+  vi.resetAllMocks();tourReadings.clear();localStorage.clear();
   outcome={operation_id:'22222222-2222-4222-8222-222222222222',state:'committed',base,result:next,refusal_code:null,change_summary:'Stronger',created_at:'2026-10-22T00:00:00Z'};
   vi.mocked(api.listSavedMechanicsVersions).mockResolvedValue(page());
   vi.mocked(api.openSavedMechanicsVersion).mockImplementation(async(_d,_w,rev)=>opened(rev));
@@ -30,13 +35,14 @@ async function validate(){await userEvent.click(screen.getByRole('button',{name:
 
 it('validates edited exact source and saves a successor without an encounter mutation',async()=>{
   vi.mocked(api.saveMechanicsRevision).mockImplementation(async(_d,body)=>({...outcome,operation_id:body.operation_id}));
-  render(<SavedMechanicsRevisionEditor worldId={world} draftId={draft}/>);await load();await edit();
+  render(<TourEncounterProvider scope={tourScope}><SavedMechanicsRevisionEditor worldId={world} draftId={draft}/></TourEncounterProvider>);await load();await edit();
   expect((screen.getByRole('button',{name:'Save new version'}) as HTMLButtonElement).disabled).toBe(true);
   await validate();await userEvent.click(screen.getByRole('button',{name:'Save new version'}));
   await screen.findByText('New mechanics version saved. Encounters and World associations are unchanged.');
   const [owner,body]=vi.mocked(api.saveMechanicsRevision).mock.calls[0]!;
   expect(owner).toBe(draft);expect(body.base).toEqual(base);expect(body.definition.identity.name).toBe('Stronger keeper');
   expect(api.saveMechanicsRevision).toHaveBeenCalledTimes(1);expect(api.recoverMechanicsRevision).not.toHaveBeenCalled();
+  expect(tourReadings.get('mechanics')?.observation).toMatchObject({origin:'acknowledged',observedAt:outcome.created_at,target:tourScope.plan,proof:{kind:'mechanics',sceneId:'scene',encounterId:'encounter',draftId:draft,operationId:body.operation_id,locator:next}});
 });
 
 it('recovers local edits for the same exact source after remount',async()=>{

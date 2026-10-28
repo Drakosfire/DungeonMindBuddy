@@ -8,7 +8,7 @@ export interface TourOwnerReading {
  status:'ready'|'unavailable'|'failed';reason?:string;observation?:Observation;
 }
 interface TourApi {
- open:()=>void;publish:(token:symbol,reading:TourOwnerReading|null)=>void;
+ tracking:boolean;open:()=>void;publish:(token:symbol,reading:TourOwnerReading|null)=>void;
 }
 const TourContext=createContext<TourApi|null>(null);
 export const useGuidedTour=()=>useContext(TourContext);
@@ -51,7 +51,7 @@ export function GuidedTourProvider({worldId,children}:{worldId:string|null;child
   setOwners(previous=>{const next=new Map(previous);if(reading&&worldId&&(!reading.target||reading.target.worldId===worldId))next.set(token,reading);else next.delete(token);return next;});
   if(reading?.observation&&reading.target?.worldId===worldId&&current.current?.record.phase==='running')change({kind:'observe',observation:reading.observation});
  },[change,worldId]);
- const api=useMemo(()=>({open:()=>setVisible(true),publish}),[publish]);
+ const api=useMemo(()=>({tracking:stored?.record.phase==='running',open:()=>setVisible(true),publish}),[publish,stored?.record.phase]);
  const walkthrough=stored?.record;
  const step=JOURNEY_STEPS[walkthrough?.index??0];
  const candidates=Array.from(owners.values()).filter(r=>r.step===step.id);
@@ -69,7 +69,10 @@ export function GuidedTourProvider({worldId,children}:{worldId:string|null;child
  const bind=()=>{
   if(!reading?.target)return;
   change({kind:'bind',pin:reading.target,...(reading.parent?{parent:reading.parent}:{})});
-  if(reading.observation)change({kind:'observe',observation:reading.observation});
+  // Capture the other admitted capabilities already visible for this same exact object.
+  // Multiple candidates for one capability remain ambiguous.
+  for(const candidate of owners.values())if(candidate.observation&&candidate.target&&samePin(candidate.target,reading.target)
+   &&Array.from(owners.values()).filter(other=>other.step===candidate.step).length===1)change({kind:'observe',observation:candidate.observation});
  };
  const showControl=()=>{
   const targets=document.querySelectorAll<HTMLElement>(`[data-guided-control~="${step.control}"]`);

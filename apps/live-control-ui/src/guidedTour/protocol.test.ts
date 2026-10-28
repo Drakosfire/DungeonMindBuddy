@@ -17,6 +17,17 @@ describe('ordinary-control journey recognition',()=>{
  it('refuses foreign, stale, digest-changed and unbound evidence',()=>{let run=fresh();expect(reduceTour(run,{kind:'observe',observation:observation()})).toBe(run);run=reduceTour(run,{kind:'bind',pin:pin('source')});expect(()=>reduceTour(run,{kind:'observe',observation:{...observation(),target:{...pin('source'),worldId:'other'}}})).toThrow();expect(reduceTour(run,{kind:'observe',observation:{...observation(),target:{...pin('source'),digest:'b'.repeat(64)}}})).toBe(run);});
  it('explicitly advances the same saved Plan before Play while retaining earlier evidence',()=>{let run=reduceTour(fresh(),{kind:'bind',pin:pin('plan')});run=reduceTour(run,{kind:'observe',observation:observation('plan')});const newer={...pin('plan'),revision:2,revisionId:'work-revision-2',digest:'b'.repeat(64)};run=reduceTour(run,{kind:'bind',pin:newer});expect(decodeWalkthrough(JSON.stringify(run),'world').steps.plan.evidence[0].target.revision).toBe(1);run=reduceTour(run,{kind:'bind',pin:pin('run'),parent:newer});expect(()=>reduceTour(run,{kind:'bind',pin:{...newer,revision:3}})).toThrow();});
  it('refuses a different immutable Plan work ID even when revision number and SHA match',()=>{let run=reduceTour(fresh(),{kind:'bind',pin:pin('plan')});expect(()=>reduceTour(run,{kind:'bind',pin:{...pin('plan'),revisionId:'other-version'}})).toThrow();expect(reduceTour(run,{kind:'observe',observation:{...observation('plan'),target:{...pin('plan'),revisionId:'other-version'}}})).toBe(run);const forged=JSON.parse(JSON.stringify(run));delete forged.bindings.plan.revisionId;expect(()=>decodeWalkthrough(JSON.stringify(forged),'world')).toThrow();});
+ it('requires an exact saved-state match in a fresh page instance to recognize recovery',()=>{
+  let run=reduceTour(fresh(),{kind:'bind',pin:pin('plan')});run=reduceTour(run,{kind:'bind',pin:pin('run'),parent:pin('plan')});
+  const proof={kind:'run-state' as const,stateDigest:'b'.repeat(64),pageInstanceId:'first-page',contentRevision:0,contentRevisionId:null,contentDigest:'a'.repeat(64)};
+  const baseline:Observation={...observation('recovery','existing'),parent:pin('plan'),proof};
+  run=reduceTour(run,{kind:'observe',observation:baseline});expect(run.steps.recovery.state).toBe('existing');
+  expect(reduceTour(run,{kind:'observe',observation:{...baseline,origin:'reloaded',proof:{...proof,stateDigest:'c'.repeat(64),pageInstanceId:'other-page'}}}).steps.recovery.state).toBe('existing');
+  expect(reduceTour(run,{kind:'observe',observation:{...baseline,origin:'reloaded'}}).steps.recovery.state).toBe('existing');
+  run=reduceTour(run,{kind:'observe',observation:{...baseline,receiptId:'fresh-admission',proof:{...proof,pageInstanceId:'second-page'}}});
+  expect(run.steps.recovery.state).toBe('completed');expect(decodeWalkthrough(JSON.stringify(run),'world').steps.recovery.state).toBe('completed');
+  run.steps.recovery.evidence=run.steps.recovery.evidence.slice(1);expect(()=>decodeWalkthrough(JSON.stringify(run),'world')).toThrow('earlier page instance');
+ });
  it('requires matching Plan lineage on Run observations',()=>{let run=reduceTour(fresh(),{kind:'bind',pin:pin('plan')});run=reduceTour(run,{kind:'bind',pin:pin('run'),parent:pin('plan')});expect(reduceTour(run,{kind:'observe',observation:observation('play')})).toBe(run);expect(reduceTour(run,{kind:'observe',observation:{...observation('play'),parent:pin('plan')}}).steps.play.state).toBe('completed');});
 });
 describe('walkthrough-only retained state',()=>{

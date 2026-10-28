@@ -1,6 +1,11 @@
 import {JOURNEY_STEPS,TOUR_DEFINITION,type Adventure,type StepId,type TargetKind} from './definition';
 export interface TargetPin {kind:TargetKind;worldId:string;objectId:string;revision:number;digest:string;revisionId?:string}
 export interface EncounterEvidence {kind:'encounter';sceneId:string;encounterId:string;revision:number;digest:string;operationId:string}
+export interface MechanicsLocatorEvidence {provider:'dungeonmind';statblock_id:string;revision_id:string;contract:string;contract_version:string;definition_digest:string}
+export interface MechanicsEvidence {kind:'mechanics';sceneId:string;encounterId:string;draftId:string;operationId:string;locator:MechanicsLocatorEvidence}
+export interface AdoptionEvidence {kind:'adoption';sceneId:string;encounterId:string;operationId:string;encounterRevision:number;locator:MechanicsLocatorEvidence;actors:{actorId:string;beforeDigest:string;afterDigest:string;acPolicy:string;hpPolicy:string}[]}
+export interface RunStateEvidence {kind:'run-state';stateDigest:string;pageInstanceId:string;contentRevision:number;contentRevisionId:string|null;contentDigest:string}
+export interface SessionReviewEvidence {kind:'session-review';reviewRevision:number;checkpointRunRevision:number;contentRevision:number;contentRevisionId:string|null;contentDigest:string;commandId:string|null}
 export interface Observation {
  step:StepId;target:TargetPin;observedAt:string;
  origin:'existing'|'acknowledged'|'reloaded';
@@ -8,7 +13,7 @@ export interface Observation {
  receiptId:string;
  /** Parent pins and specialized evidence are checked by the owning adapter. */
  parent?:TargetPin;
- proof?:EncounterEvidence;
+ proof?:EncounterEvidence|MechanicsEvidence|AdoptionEvidence|RunStateEvidence|SessionReviewEvidence;
 }
 export type StepState = 'pending'|'existing'|'completed'|'skipped'|'failed'|'unavailable';
 export interface StepRecord {state:StepState;reason:string|null;evidence:Observation[]}
@@ -26,10 +31,18 @@ const exact=(v:unknown,keys:string[]):v is Record<string,unknown>=>record(v)&&Ob
 export function validPin(value:unknown,world:string):value is TargetPin {
  return exact(value,['kind','worldId','objectId','revision','digest',...(record(value)&&value.kind==='plan'?['revisionId']:[])])&&['source','plan','run'].includes(String(value.kind))&&value.worldId===world&&text(value.objectId)&&Number.isSafeInteger(value.revision)&&Number(value.revision)>0&&digest(value.digest)&&(value.kind!=='plan'||text(value.revisionId));
 }
+function validLocator(v:unknown):v is MechanicsLocatorEvidence {
+ return exact(v,['provider','statblock_id','revision_id','contract','contract_version','definition_digest'])&&v.provider==='dungeonmind'&&[v.statblock_id,v.revision_id,v.contract,v.contract_version].every(text)&&text(v.definition_digest)&&/^sha256:[a-f0-9]{64}$/.test(v.definition_digest);
+}
 export function validObservation(v:unknown,world:string):v is Observation {
  if(!record(v)||!exact(v,['step','target','observedAt','origin','receiptId',...('parent' in v?['parent']:[]),...('proof' in v?['proof']:[])]))return false;
  const definition=JOURNEY_STEPS.find(s=>s.id===v.step);
+ if(v.step==='recovery'&&v.origin==='acknowledged')return false;
  if(v.step==='encounter'){const p=v.proof;if(!exact(p,['kind','sceneId','encounterId','revision','digest','operationId'])||p.kind!=='encounter'||!text(p.sceneId)||!text(p.encounterId)||!Number.isSafeInteger(p.revision)||Number(p.revision)<1||!text(p.digest)||!/^sha256:[a-f0-9]{64}$/.test(p.digest)||!text(p.operationId))return false;}
+ else if(v.step==='mechanics'){const p=v.proof;if(!exact(p,['kind','sceneId','encounterId','draftId','operationId','locator'])||p.kind!=='mechanics'||![p.sceneId,p.encounterId,p.draftId,p.operationId].every(text)||!validLocator(p.locator))return false;}
+ else if(v.step==='adoption'){const p=v.proof;if(!exact(p,['kind','sceneId','encounterId','operationId','encounterRevision','locator','actors'])||p.kind!=='adoption'||![p.sceneId,p.encounterId,p.operationId].every(text)||!Number.isSafeInteger(p.encounterRevision)||Number(p.encounterRevision)<1||!validLocator(p.locator)||!Array.isArray(p.actors)||!p.actors.length||!p.actors.every(a=>exact(a,['actorId','beforeDigest','afterDigest','acPolicy','hpPolicy'])&&[a.actorId,a.beforeDigest,a.afterDigest].every(text)&&['keep','use_saved'].includes(String(a.acPolicy))&&['keep','preserve_current','clamp_current','reset_full'].includes(String(a.hpPolicy)))||new Set(p.actors.map(a=>(a as {actorId:string}).actorId)).size!==p.actors.length)return false;}
+ else if(v.step==='progress'||v.step==='recovery'){const p=v.proof;if(!exact(p,['kind','stateDigest','pageInstanceId','contentRevision','contentRevisionId','contentDigest'])||p.kind!=='run-state'||!digest(p.stateDigest)||!text(p.pageInstanceId)||!Number.isSafeInteger(p.contentRevision)||Number(p.contentRevision)<0||(p.contentRevision===0?p.contentRevisionId!==null:!text(p.contentRevisionId))||!digest(p.contentDigest))return false;}
+ else if(v.step==='reflection'){const p=v.proof;if(!exact(p,['kind','reviewRevision','checkpointRunRevision','contentRevision','contentRevisionId','contentDigest','commandId'])||p.kind!=='session-review'||!Number.isSafeInteger(p.reviewRevision)||Number(p.reviewRevision)<1||!Number.isSafeInteger(p.checkpointRunRevision)||Number(p.checkpointRunRevision)<1||!Number.isSafeInteger(p.contentRevision)||Number(p.contentRevision)<0||(p.contentRevision===0?p.contentRevisionId!==null:!text(p.contentRevisionId))||!digest(p.contentDigest)||(p.commandId!==null&&!text(p.commandId))||(v.origin==='acknowledged'&&!text(p.commandId)))return false;}
  else if('proof' in v)return false;
  return !!definition&&validPin(v.target,world)&&v.target.kind===definition.target&&text(v.observedAt)&&Number.isFinite(Date.parse(v.observedAt))
   &&['existing','acknowledged','reloaded'].includes(String(v.origin))&&text(v.receiptId)&&(!('parent' in v)||validPin(v.parent,world));
@@ -46,6 +59,7 @@ export function decodeWalkthrough(bytes:string,world:string):Walkthrough {
  for(const step of JOURNEY_STEPS){
   const row=v.steps[step.id] as unknown as StepRecord;
   if(row.state==='completed'&&!row.evidence.some(e=>e.origin!=='existing'&&Date.parse(e.observedAt)>=Date.parse(v.startedAt as string)))throw new Error('Completion has no newly demonstrated evidence.');
+  if(step.id==='recovery'&&row.state==='completed'&&!row.evidence.some((e,index)=>e.origin==='reloaded'&&e.proof?.kind==='run-state'&&row.evidence.slice(0,index).some(prior=>prior.proof?.kind==='run-state'&&samePin(prior.target,e.target)&&prior.proof.stateDigest===(e.proof as RunStateEvidence).stateDigest&&prior.proof.pageInstanceId!==(e.proof as RunStateEvidence).pageInstanceId)))throw new Error('Recovery has no matching saved-state observation from an earlier page instance.');
   for(const e of row.evidence){const bound=v.bindings[e.target.kind];if(!validPin(bound,world)||bound.objectId!==e.target.objectId||e.target.revision===bound.revision&&!samePin(e.target,bound))throw new Error('Evidence belongs to a different target.');
    if(e.target.kind==='run'&&(!validPin(v.bindings.plan,world)||!e.parent||!samePin(v.bindings.plan,e.parent)))throw new Error('Run evidence has a different Plan pin.');}
  }
@@ -69,7 +83,7 @@ export function reduceTour(current:Walkthrough,action:TourAction):Walkthrough {
   if(!text(action.reason))throw new Error('Explain why this step was skipped or unavailable.');
   return {...current,steps:{...current.steps,[action.step]:{...current.steps[action.step],state:action.state,reason:action.reason}}};
  }
- const observation=action.observation;
+ let observation=action.observation;
  if(!validObservation(observation,current.worldId))throw new Error('The observation has no verified owner basis.');
  const bound=current.bindings[observation.target.kind];
  // A later revision of the same selected object is evidence, never a target replacement.
@@ -77,6 +91,13 @@ export function reduceTour(current:Walkthrough,action:TourAction):Walkthrough {
   ||observation.target.revision===bound.revision&&!samePin(observation.target,bound))return current;
  if(observation.target.kind==='run'&&(!current.bindings.plan||!observation.parent||!samePin(current.bindings.plan,observation.parent)))return current;
  const row=current.steps[observation.step];
+ if(observation.step==='recovery'){
+  const proof=observation.proof;
+  const recovered=proof?.kind==='run-state'&&row.evidence.some(prior=>prior.proof?.kind==='run-state'&&samePin(prior.target,observation.target)&&prior.proof.stateDigest===proof.stateDigest&&prior.proof.pageInstanceId!==proof.pageInstanceId);
+  if(observation.origin==='reloaded'&&!recovered)return current;
+  if(recovered)observation={...observation,origin:'reloaded'};
+ }
+
  if(row.evidence.some(e=>e.receiptId===observation.receiptId&&samePin(e.target,observation.target)&&e.origin===observation.origin))return current;
  const isNew=observation.origin!=='existing'&&Date.parse(observation.observedAt)>=Date.parse(current.startedAt);
  const state:StepState=isNew?'completed':row.state==='completed'?'completed':'existing';

@@ -1,3 +1,5 @@
+import {TourRunProvider} from '../guidedTour/RunScope';
+import {RunStateTourObservations} from '../guidedTour/RunObservations';
 import {PlayTourObservation} from '../guidedTour/OwnerObservations';
 import {useAgentInteraction} from '../agentInteraction/useAgentInteraction';
 import {SceneEncounterLauncher} from '../combat/SceneEncounterLauncher';
@@ -589,6 +591,7 @@ function PlayRuntimePage() {
     playChooserQuery(window.location.search) ? "chooser" : "loading"
   ));
   const [detail, setDetail] = useState<string | null>(null);
+  const [tourAcknowledgedRun,setTourAcknowledgedRun]=useState<{worldId:string;runId:string;revision:number}|null>(null);
   const [admission, setAdmission] = useState<NativeRunbookAdmission | null>(null);
   const admissionRef = useRef<NativeRunbookAdmission | null>(null);
   admissionRef.current = admission;
@@ -1068,9 +1071,10 @@ function PlayRuntimePage() {
 
   return (
     <AppChrome activeRoute="play">
+      <RunStateTourObservations run={admittedRun?.schema_version==="dmb_world_play_run_record_v2"?admittedRun:null} content={v2Deck?.effectiveContent??null} blocked={sessionCopyBlocked||tableHeld||mutationStatus!=="idle"} acknowledgedRun={tourAcknowledgedRun}/>
       <PlayTourObservation run={admittedRun?.schema_version==="dmb_world_play_run_record_v2"?admittedRun:null} blocked={sessionCopyBlocked||mutationStatus!=="idle"} error={loadStatus==="integrity_failure"?detail:null}/>
       {loadStatus !== "chooser" ? <PlaySurfaceContext id="play-page-context" order={10} identity={playSurfaceContextIdentity(admittedRun, runQuery)}>
-        <SurfaceContextAction type="button" data-testid="play-load-run" onClick={navigateToChooser}>Load</SurfaceContextAction>
+        <SurfaceContextAction type="button" data-testid="play-load-run" data-guided-control="recovery" onClick={navigateToChooser}>Load</SurfaceContextAction>
         {selectedWorldId ? <WorkspaceTrashControl showTrash={false} worldId={selectedWorldId}
           current={v2Deck?.effectiveContent && admittedRun ? {kind:"session", id:admittedRun.run_id,
             title:`${("record" in v2Deck.snapshot ? v2Deck.snapshot.record.title : v2Deck.snapshot.title)} — ${currentWorldScene?.title ?? "Play session"}`,
@@ -1104,14 +1108,14 @@ function PlayRuntimePage() {
       ) : null}
       {v2Deck ? (
         <main
-          className="play-surface"
+          className="play-surface" data-guided-control="progress" tabIndex={-1}
           data-testid="play-surface-ready"
           data-play-grammar="v2"
           data-play-campaign-id={publication.campaignId ?? ""}
           data-play-document-id={publication.documentId ?? ""}
         >
 
-          {selectedWorldId && v2Deck.run.schema_version === "dmb_world_play_run_record_v2" && v2Deck.effectiveContent ? <SessionReviewPanel key={`review:${v2Deck.run.run_id}`} runId={v2Deck.run.run_id} worldId={selectedWorldId} runRevision={v2Deck.run.run_revision} content={v2Deck.effectiveContent} blocked={sessionCopyBlocked||tableHeld||mutationStatus!=="idle"} sceneTitles={Object.fromEntries(v2Deck.beats.flatMap(beat=>[[beat.id,beat.title],...beat.scenes.map(scene=>[scene.id,scene.title])]))}/> : null}
+          {selectedWorldId && v2Deck.run.schema_version === "dmb_world_play_run_record_v2" && v2Deck.effectiveContent ? <TourRunProvider run={v2Deck.run}><SessionReviewPanel key={`review:${v2Deck.run.run_id}`} runId={v2Deck.run.run_id} worldId={selectedWorldId} runRevision={v2Deck.run.run_revision} content={v2Deck.effectiveContent} blocked={sessionCopyBlocked||tableHeld||mutationStatus!=="idle"} sceneTitles={Object.fromEntries(v2Deck.beats.flatMap(beat=>[[beat.id,beat.title],...beat.scenes.map(scene=>[scene.id,scene.title])]))}/></TourRunProvider> : null}
           {v2Deck.effectiveContent ? <PlaySessionContentEditor
             key={sessionCopyIdentity}
             content={v2Deck.effectiveContent}
@@ -1142,6 +1146,7 @@ function PlayRuntimePage() {
                 return;
               }
               setAdmission(overlaid);
+              if(nextRun.schema_version==="dmb_world_play_run_record_v2")setTourAcknowledgedRun({worldId:nextRun.world_id,runId:nextRun.run_id,revision:nextRun.run_revision});
             }}
           />
           {detail ? (
