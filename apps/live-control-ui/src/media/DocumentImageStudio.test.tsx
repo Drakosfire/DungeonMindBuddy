@@ -17,14 +17,14 @@ function setup() {
   return { ...view, bridge, capture, onClose };
 }
 afterEach(() => vi.restoreAllMocks());
-it('verifies a ready saved asset before one document-owned insert and closes afterward', async () => {
-  const request = vi.spyOn(api, 'authenticatedApiFetch').mockResolvedValue({ response: Response.json(image), csrf: null, requestEpoch: 0 });
+it.each(['staged', 'ready'])('verifies a %s saved asset before one document-owned insert and closes afterward', async state => {
+  const request = vi.spyOn(api, 'authenticatedApiFetch').mockResolvedValue({ response: Response.json({ ...image, state }), csrf: null, requestEpoch: 0 });
   const { bridge, capture, onClose } = setup();
   await act(async () => { await wizard.props.onChoose(image, result, { signal: new AbortController().signal, mode: 'click' }); });
   expect(request).toHaveBeenCalledWith(expect.stringContaining(image.asset_id + '/metadata'), expect.objectContaining({ cache: 'no-store' }));
   expect(bridge.insert).toHaveBeenCalledExactlyOnceWith(capture, image.asset_id, 'Saved artwork');expect(onClose).toHaveBeenCalledOnce();expect(tourImage.placed).toHaveBeenCalledExactlyOnceWith(image.asset_id);
 });
-it.each(['staged', 'other asset', 'unmount', 'abort'] as const)('does not insert after %s while verifying metadata', async scenario => {
+it.each(['uploading', 'unknown', 'other asset', 'unmount', 'abort'] as const)('does not insert after %s while verifying metadata', async scenario => {
   let release!: (value: Awaited<ReturnType<typeof api.authenticatedApiFetch>>) => void;
   vi.spyOn(api, 'authenticatedApiFetch').mockImplementation(() => new Promise(resolve => { release = resolve; }));
   const { bridge, unmount } = setup();const abort = new AbortController();
@@ -33,7 +33,7 @@ it.each(['staged', 'other asset', 'unmount', 'abort'] as const)('does not insert
   await act(async () => { await Promise.resolve(); });
   if (scenario === 'unmount') unmount();
   if (scenario === 'abort') abort.abort();
-  await act(async () => { release({ response: Response.json({ ...image, state: scenario === 'staged' ? 'staged' : 'ready', asset_id: scenario === 'other asset' ? 'different' : image.asset_id }), csrf: null, requestEpoch: 0 });await rejected; });
+  await act(async () => { release({ response: Response.json({ ...image, state: ['uploading', 'unknown'].includes(scenario) ? scenario : 'ready', asset_id: scenario === 'other asset' ? 'different' : image.asset_id }), csrf: null, requestEpoch: 0 });await rejected; });
   expect(bridge.insert).not.toHaveBeenCalled();expect(tourImage.placed).not.toHaveBeenCalled();
 });
 it('forwards close without placing or saving', () => {
