@@ -3815,7 +3815,7 @@ export function WorldPlanAgentConversation({
     const startingFenceKey = requestFenceKey;
     const submittedClientThreadId = crypto.randomUUID();
     const submittedTurnId = crypto.randomUUID();
-    guidance?.recordConversationDispatch(submittedTurnId,guidance.captureScope());
+    const tourDispatch=guidance?.captureScope()??null;
     const composerGenerationAtSubmit = composerEditGenerationRef.current;
     const submittedPresentationFenceKey = askPresentationFenceKey;
     setSubmittedMessage({ id: submittedTurnId, scopeKey, conversationId: pointerSnapshot.conversation_id,
@@ -3950,6 +3950,11 @@ export function WorldPlanAgentConversation({
       refreshPendingAskList();
       sharedConversation?.setPendingTurn({ surface: "plan", turnId: request.turn_id });
       if (sharedConversation && composerEditGenerationRef.current === composerGenerationAtSubmit) setComposerMessage((current) => current === composerSnapshotAtSubmit ? "" : current);
+      if(tourDispatch){
+        const correlationKey=await worldTurnIdempotencyKey(worldId,request.turn_id);
+        if(!stillPreparing())return;
+        if(correlationKey)guidance?.recordConversationDispatch(correlationKey,tourDispatch);
+      }
       requestRef.current = null;
       setSending(false);
       await sendPendingAsk({ storageKey, serialized, envelope, error: null }, true, composerSnapshotAtSubmit, composerGenerationAtSubmit);
@@ -3981,8 +3986,7 @@ export function WorldPlanAgentConversation({
     }
   }
 
-  async function dispatchSavedPlayTurn(stored: StoredPendingPlayTurn, restoreInitialComposerReferences = false, tourDispatch:TourDispatchScope|null=guidance?.captureScope()??null) {
-    guidance?.recordConversationDispatch(stored.request.turn_id,tourDispatch);
+  async function dispatchSavedPlayTurn(stored: StoredPendingPlayTurn, restoreInitialComposerReferences = false, tourDispatch:TourDispatchScope|null=null) {
     const request = stored.request;
     if (verifiedWorldId !== request.owner_scope.world_id || requestRef.current || sending || buildCompose.busy) return;
     if(request.surface.surface_id==='build'&&(request as WorldBuildAgentTurnRequestV1).build_authored_references){
@@ -4007,9 +4011,13 @@ export function WorldPlanAgentConversation({
         conversationId: historySnapshotRef.current?.conversation_id ?? null,
         pointerRevision: historySnapshotRef.current?.pointer_revision ?? null,
         message: request.message, kind: "discuss" });
-      void worldTurnIdempotencyKey(request.owner_scope.world_id, request.turn_id).then(key => {
-        setSubmittedMessage(current => current?.id === request.turn_id ? { ...current, idempotencyKey: key } : current);
-      });
+      const correlation=worldTurnIdempotencyKey(request.owner_scope.world_id,request.turn_id);
+      if(tourDispatch){
+        const key=await correlation;
+        if(requestRef.current?.token!==token||!latestRef.current.mounted||latestRef.current.verifiedWorldId!==request.owner_scope.world_id)return;
+        if(key)guidance?.recordConversationDispatch(key,tourDispatch);
+      }
+      void correlation.then(key=>setSubmittedMessage(current=>current?.id===request.turn_id?{...current,idempotencyKey:key}:current));
       const response = await (request.primary_work.kind === "build"
         ? postWorldBuildAgentTurn(request as WorldBuildAgentTurnRequestV1, progress=>{
             if(latestRef.current.buildPlacementEpoch!==constructionEpoch)constructionRetired=true;
@@ -4181,6 +4189,7 @@ export function WorldPlanAgentConversation({
   }
 
   async function retryRetainedDiscussion(retry:TurnRetryContext) {
+    const tourDispatch=guidance?.captureScope()??null;
     if(!isBuild||!visible||!verifiedWorldId||!retry.eligible||composerBusy||requestRef.current||surfacePreparationRef.current
       ||pendingPlayTurn||pendingPlayLoadError||sharedConversation?.pendingTurn) return;
     const world=verifiedWorldId, conversation=historySnapshotRef.current?.conversation_id;
@@ -4216,7 +4225,7 @@ export function WorldPlanAgentConversation({
     }
     // The ordinary persisted sender owns dispatch, outcome recovery and idempotency.
     // No current editor capture, navigation, draft clearing or write grant is involved.
-    if(stored)await dispatchSavedPlayTurn(stored);
+    if(stored)await dispatchSavedPlayTurn(stored,false,tourDispatch);
   }
 
   async function submitPlay(event?: Pick<FormEvent<HTMLFormElement>, "preventDefault">, discussionOnly = false, questionOverride?: string, explicitRequest?: SurfaceConversationRequest, retryOf?:TurnRetryContext) {

@@ -1,3 +1,8 @@
+import {WorldGuidedTour} from '../guidedTour/WorldGuidedTour';
+import {useGuidedTour} from '../guidedTour/GuidedTour';
+import {createWalkthrough,reduceTour,type TargetPin} from '../guidedTour/protocol';
+import {readWalkthrough,writeWalkthrough,pointerKey} from '../guidedTour/storage';
+import type {ReactNode} from 'react';
 import {Editor} from '@tiptap/core';
 import {DEFAULT_MARKDOWN_EDITOR_EXTENSIONS} from '../tiptap/MarkdownEditorCore';
 import {createBuildComposeBridge,type BuildComposeEditorState} from '../buildSurface/buildComposeBridge';
@@ -204,15 +209,17 @@ function SceneEditorFixture({ content, allowed, onUnsubmitted }: { content: Play
   return <SurfaceContextProvider><PlaySessionContentEditor content={accepted} currentSceneId="scene:gate" runRevision={3}
     canPropose={allowed} originLabel="From Plan" onAcceptedContent={setAccepted} onUnsubmittedChange={onUnsubmitted} /></SurfaceContextProvider>;
 }
-function Harness({ initial = "plan", admitted = true, editBridge = null, editContent, buildBridge, buildSourceRevision,buildSourceId }: {
-  initial?: "plan" | "play" | "build"; admitted?: boolean; editBridge?: WorldPlanEditBridge | null; editContent?: PlayRunContent; buildBridge?: BuildComposeBridge | null; buildSourceRevision?: number;buildSourceId?:string;
+function OpenGuidance({repeatCorrelation}:{repeatCorrelation?:string}){const tour=useGuidedTour();return <><button onClick={()=>tour?.open()}>Open guidance</button>{repeatCorrelation?<button onClick={()=>tour?.recordConversationDispatch(repeatCorrelation,tour.captureScope())}>Repeat request registration</button>:null}</>;}
+function TourBoundary({enabled,world,children,repeatCorrelation}:{enabled:boolean;world:string;children:ReactNode;repeatCorrelation?:string}){return enabled?<WorldGuidedTour worldId={world}><OpenGuidance repeatCorrelation={repeatCorrelation}/>{children}</WorldGuidedTour>:children;}
+function Harness({ guided=false,repeatCorrelation,initial = "plan", admitted = true, editBridge = null, editContent, buildBridge, buildSourceRevision,buildSourceId }: {
+  guided?:boolean;repeatCorrelation?:string;initial?: "plan" | "play" | "build"; admitted?: boolean; editBridge?: WorldPlanEditBridge | null; editContent?: PlayRunContent; buildBridge?: BuildComposeBridge | null; buildSourceRevision?: number;buildSourceId?:string;
 }) {
   const [surface, setSurface] = useState(initial);
   const [sessionCopy, setSessionCopy] = useState(false);
   const [world, setWorld] = useState(WORLD);
   const [documentId, setDocumentId] = useState("plan-one");
   return <AgentInteractionProvider><AskPluginSlotProvider>
-    <WorldAgentConversationProvider key={world} worldId={world}>
+    <WorldAgentConversationProvider key={world} worldId={world}><TourBoundary enabled={guided} world={world} repeatCorrelation={repeatCorrelation}>
       <button type="button" onClick={() => setSurface(surface === "plan" ? "play" : "plan")}>Switch surface</button>
       <button type="button" onClick={() => setDocumentId(value => value === "plan-one" ? "plan-two" : "plan-one")}>Switch Plan document</button>
       <button type="button" onClick={() => { selectedWorld.id = "world-two"; setWorld("world-two"); }}>Switch World</button>
@@ -222,7 +229,7 @@ function Harness({ initial = "plan", admitted = true, editBridge = null, editCon
       {editContent ? <SceneEditorFixture content={editContent} allowed={!sessionCopy} onUnsubmitted={setSessionCopy} /> : null}
       <AgentInteractionChrome />
       <WorldAgentConversation surface={surface} worldId={world} worldName="Test World" />
-    </WorldAgentConversationProvider>
+    </TourBoundary></WorldAgentConversationProvider>
   </AskPluginSlotProvider></AgentInteractionProvider>;
 }
 
@@ -511,6 +518,51 @@ describe("one App-level World conversation host across Plan and Play", () => {
   });
 
 
+
+  it.each(['fresh','restart','retry-after-restart','restart-preparation','plan-preparation','wrong-key','wrong-review','missing-correlation'] as const)('correlates actual Plan memory dispatch with independent server identity: %s',async mode=>{
+    Object.defineProperty(navigator,'locks',{configurable:true,value:{request:vi.fn(async(_key:string,callback:()=>unknown)=>callback())}});
+    const runId='22222222-2222-4222-8222-222222222222',physicalId='33333333-3333-4333-8333-333333333333';
+    const plan:TargetPin={kind:'plan',worldId:WORLD,objectId:'plan-one',revision:2,revisionId:WORK_REVISION,digest:SHA};
+    const run:TargetPin={kind:'run',worldId:WORLD,objectId:runId,revision:7,digest:SHA};
+    function seed(id:string){let w=createWalkthrough(WORLD,'conks',id,'2026-01-01T00:00:00Z');w=reduceTour(w,{kind:'bind',pin:plan});w=reduceTour(w,{kind:'bind',pin:run,parent:plan});w=reduceTour(w,{kind:'observe',observation:{step:'reflection',target:run,parent:plan,origin:'existing',observedAt:'2026-01-01T00:00:00Z',receiptId:'review',proof:{kind:'session-review',reviewRevision:4,checkpointRunRevision:7,contentRevision:0,contentRevisionId:null,contentDigest:'f'.repeat(64),commandId:null}}});return reduceTour(w,{kind:'move',index:13});}
+    writeWalkthrough(localStorage,seed('walk-A'),null);
+    let current:WorldAgentConversationHistoryResponse=history();
+    let release!:()=>void;const pending=new Promise<void>(resolve=>{release=resolve;});
+    vi.mocked(getWorldAgentConversationHistory).mockImplementation(async()=>current);
+    let releasePreparation!:()=>void;const preparation=new Promise<void>(resolve=>{releasePreparation=resolve;});
+    if(mode==='restart-preparation'||mode==='plan-preparation')vi.mocked(getWorldOwnedPlanCommittedRevision).mockImplementation(async()=>{await preparation;return {schema_version:'dmb_workspace_committed_revision_v2',scope_mode:'world',world_id:WORLD,campaign_id:null,document_id:'plan-one',kind:'plan',status:'active',object_revision:7,revision_n:2,work_revision_id:WORK_REVISION,markdown:'# Plan',content_sha256:SHA,has_divergent_working_copy:false};});
+    vi.mocked(postWorldPlanAgentTurn).mockImplementation(async request=>{
+      expect(request.turn_id).not.toBe(physicalId);await pending;
+      const context=await planGraphContext('plan_only_graph_unused',{request});const text='Saved rehearsal: communication was chosen; the child’s future remains unresolved.';
+      const supportText='Rehearsal only; communication was chosen and the child outcome remains open.',body=await sha256Hex(supportText);
+      context.completion={schema:'dmb_surface_evidence_completion_v4',surface_id:'plan',context_receipt_sha256:context.receipt.context_receipt_sha256,answer_basis:'mixed_evidence',answer_context_status:'authored_grounded',citation_map:null,source_citations:[],native_source_citations:[],answer_segments:[{kind:'session_summary',text,supports:[0,1].map(i=>({kind:'authored_excerpt' as const,text:supportText,source_kind:'session' as const,source_name:'Synthetic rehearsal notes',object_id:runId,revision:mode==='wrong-review'?'3':'4',body_sha256:body,owner_sha256:'c'.repeat(64),source_handle:'q'+'a'.repeat(64),block_handle:'b'+String(i+3).repeat(64),partition_version:'markdown_source_blocks_v1' as const,byte_start:0,byte_end:new TextEncoder().encode(supportText).length,block_sha256:body,entry_identity:String(i+1).repeat(64),source_ordinal:i,entry_kind:i?'closing_reflections' as const:'scene_note' as const,element_id:i?null:'scene:gate',checkpoint_content_sha256:'f'.repeat(64)}))}]};
+      const basis=context.receipt.plan_basis,prior=turn('plan',1,text);
+      const row={...prior,turn_id:physicalId,user_text:request.message,...(mode==='missing-correlation'?{}:{idempotency_key:mode==='wrong-key'?'44444444-4444-5444-8444-444444444444':await expectedHistoryCorrelationKey(WORLD,request.turn_id)}),plan_context:context,provenance:{...prior.provenance,primary_work:{...prior.provenance.primary_work,revision:String(basis.object_revision),object_revision:basis.object_revision,revision_n:basis.revision_n,work_revision_id:basis.work_revision_id,content_sha256:basis.content_sha256}}};
+      current={...history(),schema:mode==='missing-correlation'?'dmb_agent_conversation_history_v2':'dmb_agent_conversation_history_v3',turns:[row]} as WorldAgentConversationHistoryResponse;
+      const response=planResponse(request);return {...response,schema:'dmb_agent_turn_response_v2' as const,plan_context:context,answer:{...response.answer,text}};
+    });
+    const mounted=render(<Harness initial='plan' guided/>);fireEvent.click(await screen.findByRole('button',{name:'Open',exact:true}));
+    const composer=await screen.findByLabelText('Message DungeonBuddy');await waitFor(()=>expect(composer).toBeEnabled());fireEvent.change(composer,{target:{value:'Recall the saved notes and reflections.'}});fireEvent.click(screen.getByRole('button',{name:'Send message'}));
+    if(mode==='restart-preparation'||mode==='plan-preparation'){
+      await waitFor(()=>expect(getWorldOwnedPlanCommittedRevision).toHaveBeenCalled());
+      if(mode==='plan-preparation'){fireEvent.click(screen.getByRole('button',{name:'Switch Plan document'}));await act(async()=>releasePreparation());expect(postWorldPlanAgentTurn).not.toHaveBeenCalled();expect(readWalkthrough(localStorage,WORLD)?.record.steps.memory.evidence).toHaveLength(0);return;}
+      await act(async()=>{writeWalkthrough(localStorage,seed('walk-B'),readWalkthrough(localStorage,WORLD)!);window.dispatchEvent(new StorageEvent('storage',{key:pointerKey(WORLD)}));});
+      await act(async()=>releasePreparation());
+    }
+    await waitFor(()=>expect(postWorldPlanAgentTurn).toHaveBeenCalledTimes(1));
+    if(mode==='restart'||mode==='retry-after-restart'){await act(async()=>{const prior=readWalkthrough(localStorage,WORLD)!;writeWalkthrough(localStorage,seed('walk-B'),prior);window.dispatchEvent(new StorageEvent('storage',{key:pointerKey(WORLD)}));});}
+    if(mode==='retry-after-restart'){
+      const request=vi.mocked(postWorldPlanAgentTurn).mock.calls[0]![0],correlation=await expectedHistoryCorrelationKey(WORLD,request.turn_id);
+      mounted.rerender(<Harness initial='plan' guided repeatCorrelation={correlation}/>);fireEvent.click(screen.getByRole('button',{name:'Repeat request registration'}));
+    }
+    await act(async()=>release());await screen.findByText('Saved rehearsal: communication was chosen; the child’s future remains unresolved.');
+    if(mode==='fresh')await waitFor(()=>expect(readWalkthrough(localStorage,WORLD)?.record.steps.memory.state).toBe('completed'));
+    else if(mode==='wrong-review')expect(readWalkthrough(localStorage,WORLD)?.record.steps.memory.evidence).toHaveLength(0);
+    else await waitFor(()=>expect(readWalkthrough(localStorage,WORLD)?.record.steps.memory.state).toBe('existing'));
+    const evidence=readWalkthrough(localStorage,WORLD)?.record.steps.memory.evidence??[];
+    if(evidence.length)expect(evidence[0]?.proof).toMatchObject({kind:'session-memory',turnId:physicalId});
+    expect(postWorldPlanAgentTurn).toHaveBeenCalledTimes(1);
+  });
 
   it('opens named archives from the agent menu without changing the current composer',async()=>{
     Object.defineProperty(HTMLDialogElement.prototype,'showModal',{configurable:true,value(this:HTMLDialogElement){this.setAttribute('open','');}});
