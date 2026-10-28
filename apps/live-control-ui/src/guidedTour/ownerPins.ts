@@ -5,6 +5,9 @@ import type {TargetPin} from './protocol';
 export function sourcePin(source:SavedWorldBuildConversationContext):TargetPin {
  return {kind:'source',worldId:source.worldId,objectId:source.documentId,revision:source.revision,digest:source.contentSha256};
 }
+export function pagePin(source:SavedWorldBuildConversationContext):TargetPin {
+ return {...sourcePin(source),kind:'page'};
+}
 export function planPin(worldId:string,documentId:string,version:{revisionN:number;workRevisionId:string;contentSha256:string}):TargetPin {
  return {kind:'plan',worldId,objectId:documentId,revision:version.revisionN,revisionId:version.workRevisionId,digest:version.contentSha256};
 }
