@@ -99,9 +99,10 @@ def validate_candidate_document_integrity(candidate_graph: Mapping[str, Any], *,
     return classification.preview
 
 
-def _integrity_and_eligibility(
+def project_candidate_graph_for_admission(
     candidate_graph: Mapping[str, Any],
 ) -> tuple[dict[str, Any], list[CandidateAdmissionDisposition], str]:
+    """Pure eligibility projection; the complete raw candidate retains authority."""
     digest = canonical_candidate_digest(candidate_graph)
     raw = copy.deepcopy(dict(candidate_graph))
     validate_candidate_document_integrity(raw)
@@ -396,7 +397,7 @@ def prepare_candidate_graph_admission(
     """Prepare and seal one exact candidate against one pinned parent."""
     source_admission = prepare_kwargs.pop("source_admission", None)
     source_artifact = prepare_kwargs.pop("source_artifact", None)
-    projected, dispositions, digest = _integrity_and_eligibility(candidate_graph)
+    projected, dispositions, digest = project_candidate_graph_for_admission(candidate_graph)
     prepare_kwargs["candidate_identity_sha256"] = digest
     context = prepare_kwargs.get("mutation_context")
     if context is not None and context.reviewed_corpus_bindings:
@@ -549,10 +550,10 @@ def prepare_candidate_graph_admission(
     )
 
 
-def verify_candidate_graph_admission_confirmation(
+def project_candidate_graph_for_confirmation(
     *, review_package: Mapping[str, Any], candidate_graph: Mapping[str, Any]
-) -> CandidateAdmissionBinding:
-    """Re-prove exact candidate binding before governed confirmation."""
+) -> dict[str, Any]:
+    """Re-prove the sealed raw candidate and return its same eligible projection."""
     effect = dict(review_package.get("effect") or {})
     raw_binding = effect.get("candidate_admission")
     if not isinstance(raw_binding, Mapping):
@@ -611,11 +612,30 @@ def verify_candidate_graph_admission_confirmation(
             [CandidateIntegrityDiagnostic(code="candidate_digest_mismatch", message="candidate changed after prepare")],
             candidate_digest=actual,
         )
+    projected, dispositions, projected_digest = project_candidate_graph_for_admission(
+        candidate_graph
+    )
+    counts = {
+        key: len(candidate_graph.get(key) or [])
+        for key in ("nodes", "edges", "beats", "proposed_writes")
+    }
+    if (
+        projected_digest != binding.candidate_digest
+        or counts != binding.exact_candidate_counts
+        or dispositions != binding.dispositions
+    ):
+        raise CandidateAdmissionIntegrityError(
+            [CandidateIntegrityDiagnostic(
+                code="candidate_eligibility_drift",
+                message="candidate eligibility no longer matches the sealed admission",
+            )],
+            candidate_digest=actual,
+        )
     from graph_memory.extract_promote_proposal import verify_source_local_identity_basis
     verify_source_local_identity_basis(
-        effect, candidate_sha256=actual, candidate_graph=candidate_graph
+        effect, candidate_sha256=actual, candidate_graph=projected, require=True,
     )
-    return binding
+    return projected
 
 
 def _reprove_sealed_recap_source(
@@ -687,7 +707,7 @@ def confirm_candidate_graph_admission(
     source_admission: Any | None = None,
 ) -> _T:
     """Verify admission, re-prove the sealed source pair, then write once."""
-    verify_candidate_graph_admission_confirmation(
+    project_candidate_graph_for_confirmation(
         review_package=review_package, candidate_graph=candidate_graph
     )
     _reprove_sealed_recap_source(

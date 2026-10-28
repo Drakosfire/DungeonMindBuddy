@@ -44,7 +44,9 @@ from apps.live_control_server.services.candidate_graph_admission import (
 )
 from dungeonmind.contracts.evidence import SourceDomain
 from dungeonmind.infrastructure.memory.repositories import InMemorySourceRepository
-from tests.test_candidate_graph_admission_contract import _candidate
+from tests.test_candidate_graph_admission_contract import (
+    _candidate, _candidate_with_rejected_dependents,
+)
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 ARTIFACT_ID = "artifact:recap:longmont-c2:session-9"
@@ -133,8 +135,10 @@ def test_guard_builder_ignores_a_verified_binding_for_another_candidate():
 
 
 @pytest.mark.parametrize("tampered_subject", [False, True])
+@pytest.mark.parametrize("rejected_dependents", [False, True])
 def test_native_confirm_publishes_guarded_review_and_historical_replay_survives_supersession(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, tampered_subject: bool,
+    rejected_dependents: bool,
 ) -> None:
     """Use the real Buddy confirm path and Core in-memory owning repositories."""
     from dungeonmind.application.review_publication import publish_finalized_review
@@ -250,7 +254,9 @@ def test_native_confirm_publishes_guarded_review_and_historical_replay_survives_
     ))
     parent_revision_id = parent_stored.revision_id
 
-    candidate = _candidate()
+    candidate = (
+        _candidate_with_rejected_dependents() if rejected_dependents else _candidate()
+    )
     candidate["nodes"][0]["label"] = "Brin"
     candidate["nodes"][0]["node_id"] = "candidate:brin"
     candidate_digest = canonical_candidate_digest(candidate)
@@ -320,6 +326,11 @@ def test_native_confirm_publishes_guarded_review_and_historical_replay_survives_
         source_admission=source_adapter,
     )
     assert prepared.confirmable
+    raw_before = copy.deepcopy(candidate)
+    sealed_dispositions = copy.deepcopy(
+        prepared.review_package["effect"]["candidate_admission"]["dispositions"]
+    )
+    assert len(sealed_dispositions) == (4 if rejected_dependents else 0)
     package = bind_identity_ledger_to_package(prepared.review_package, context)
     pinned_context = replace(context, exact_candidate_sha256=candidate_digest)
     world_graph_writes._reprove_pinned_canonical_identity_bindings(
@@ -383,6 +394,13 @@ def test_native_confirm_publishes_guarded_review_and_historical_replay_survives_
     assert persisted_review.record.reviewed_identity_preconditions.decision_id == decision.decision_id
     child = graph.get_revision(world_id, first["committed_revision_id"])
     assert child is not None and graph.get_head(world_id).head_revision_id == child.revision.revision_id
+
+    assert candidate == raw_before
+    assert package["effect"]["candidate_admission"]["dispositions"] == sealed_dispositions
+    published_objects = {item["object_id"] for item in child.graph_payload["objects"]}
+    assert "npc:existing_npc" in published_objects
+    assert len(published_objects) == len(parent_payload["objects"])
+    assert child.graph_payload["relationships"] == parent_payload["relationships"]
 
     identities.append(decision.model_copy(update={
         "decision_id": "decision:reviewed-brin-superseding",

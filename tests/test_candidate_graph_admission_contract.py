@@ -420,9 +420,10 @@ def test_resealed_canonical_tag_without_exact_authority_fails_before_write(
     assert not called
 
 
-def test_exact_known_party_reference_remains_confirmable(tmp_path) -> None:
+@pytest.mark.parametrize("rejected_dependents", [False, True])
+def test_exact_known_party_reference_remains_confirmable(tmp_path, rejected_dependents) -> None:
     from apps.live_control_server.integrations.dungeonmind import world_graph_writes
-    candidate = _candidate()
+    candidate = _candidate_with_rejected_dependents() if rejected_dependents else _candidate()
     candidate["nodes"][0]["corpus_ref"] = {
         "type": "npc", "ref_id": "brin", "resolution": "resolved",
     }
@@ -495,7 +496,7 @@ def test_pr715_s9_sublocation_witness_is_explicit_rejection(tmp_path) -> None:
     ]
 
 
-def test_unsupported_node_dependents_receive_explicit_dispositions(tmp_path) -> None:
+def _candidate_with_rejected_dependents() -> dict:
     candidate = _candidate(unsupported=True)
     candidate["beats"] = [
         {
@@ -524,6 +525,11 @@ def test_unsupported_node_dependents_receive_explicit_dispositions(tmp_path) -> 
             "status": "pending",
         }
     ]
+    return candidate
+
+
+def test_unsupported_node_dependents_receive_explicit_dispositions(tmp_path) -> None:
+    candidate = _candidate_with_rejected_dependents()
     exact_digest = canonical_candidate_digest(candidate)
 
     result = _prepare(tmp_path, candidate)
@@ -829,3 +835,76 @@ def test_standing_context_assertions_keep_empty_recap_plan_confirmable(
     assert effect["source_artifact_id"] == "artifact:recap:longmont-c2:session-9"
     assert len(effect["contributions"]) == 2
     assert effect["contributions"][-1]["accepted_proposals"] == []
+
+
+@pytest.mark.parametrize("drift", ["counts", "dispositions", "dependencies", "eligibility"])
+def test_confirmation_reproves_exact_sealed_eligibility_before_write(
+    tmp_path, monkeypatch, drift,
+):
+    from apps.live_control_server.services import candidate_graph_admission as owner
+    from graph_memory.extract_promote_proposal import compute_proposal_digest
+
+    candidate = _candidate_with_rejected_dependents()
+    before = copy.deepcopy(candidate)
+    package = copy.deepcopy(_prepare(tmp_path, candidate).review_package)
+    binding = package["effect"]["candidate_admission"]
+    if drift == "counts":
+        binding["exact_candidate_counts"]["nodes"] += 1
+    elif drift == "dispositions":
+        binding["dispositions"] = []
+    elif drift == "dependencies":
+        binding["dispositions"][1]["depends_on"] = []
+    else:
+        original = owner.project_candidate_graph_for_admission
+
+        def changed_policy(raw):
+            projected, dispositions, digest = original(raw)
+            return projected, dispositions[:-1], digest
+
+        monkeypatch.setattr(owner, "project_candidate_graph_for_admission", changed_policy)
+    # Even a freshly recomputed proposal seal cannot authorize false eligibility.
+    package["proposal_digest"] = compute_proposal_digest(package["effect"])
+    writes = []
+    with pytest.raises(CandidateAdmissionIntegrityError, match="eligibility"):
+        confirm_candidate_graph_admission(
+            review_package=package, candidate_graph=candidate,
+            governed_confirm=lambda: writes.append(True),
+        )
+    assert writes == [] and candidate == before
+
+
+def test_confirmed_projection_keeps_exact_raw_and_rejection_authority(tmp_path):
+    from apps.live_control_server.services.candidate_graph_admission import (
+        project_candidate_graph_for_confirmation,
+    )
+    from graph_memory.candidate_graph_to_contribution import load_typed_candidate_graph
+
+    candidate = _candidate_with_rejected_dependents()
+    before = copy.deepcopy(candidate)
+    result = _prepare(tmp_path, candidate)
+    sealed = copy.deepcopy(result.review_package)
+    projected = project_candidate_graph_for_confirmation(
+        review_package=sealed, candidate_graph=candidate,
+    )
+    assert candidate == before and result.review_package == sealed
+    assert sealed["effect"]["candidate_admission"]["candidate_digest"] == canonical_candidate_digest(before)
+    assert len(sealed["effect"]["candidate_admission"]["dispositions"]) == 4
+    assert [node.node_id for node in load_typed_candidate_graph(projected).nodes] == ["candidate:brin"]
+    assert not projected["edges"] and not projected["beats"] and not projected["proposed_writes"]
+
+
+def test_confirmation_requires_source_local_identity_basis_before_write(tmp_path):
+    from graph_memory.extract_promote_proposal import (
+        PromoteProposalError, compute_proposal_digest,
+    )
+    candidate = _candidate()
+    package = copy.deepcopy(_prepare(tmp_path, candidate).review_package)
+    del package["effect"]["identity_basis"]
+    package["proposal_digest"] = compute_proposal_digest(package["effect"])
+    writes = []
+    with pytest.raises(PromoteProposalError, match="identity basis"):
+        confirm_candidate_graph_admission(
+            review_package=package, candidate_graph=candidate,
+            governed_confirm=lambda: writes.append(True),
+        )
+    assert writes == []
