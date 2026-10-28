@@ -36,8 +36,14 @@ def build_case(tmp_path, monkeypatch, application_state_dsn):
     return _build_case.__wrapped__(tmp_path, monkeypatch, application_state_dsn)
 
 
-@pytest.fixture(params=["saved_only", "saved"])
+@pytest.fixture(params=["saved_only", "saved", "intentional_v3"])
 def completed(build_case, monkeypatch, tmp_path, request):
+    if request.param == "intentional_v3":
+        from tests.test_build_claim_local_citations import mixed_answer
+
+        turn, *_ = mixed_answer.__wrapped__(build_case, monkeypatch, tmp_path)
+        assert turn.completion.schema_ == "dmb_build_intentional_response_completion_v3"
+        return turn
     case, _ = ordinary_case(build_case, monkeypatch)
     execute(
         case,

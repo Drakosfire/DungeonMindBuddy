@@ -6,8 +6,7 @@ from uuid import UUID
 
 from application_state.agent_conversation import AgentConversationService
 from application_state.agent_conversation.types import (
-    BuildGraphCompletionV1,
-    BuildGraphCompletionV2,
+    SavedSourceClaimV1,
     BuildGraphContextReceiptV1,
     BuildSectionAnswerBindingV1,
     BuildSectionProviderInclusionV1,
@@ -26,8 +25,9 @@ def saved_section_targets(turn: Turn) -> list[AgentSavedBuildSectionTargetV1]:
     turn = Turn.model_validate(turn.model_dump(mode="python", by_alias=True))
     if (
         turn.status != "completed"
-        or not isinstance(
-            turn.completion, (BuildGraphCompletionV1, BuildGraphCompletionV2)
+        or not any(
+            isinstance(segment, SavedSourceClaimV1)
+            for segment in getattr(turn.completion, "answer_segments", ())
         )
         or not isinstance(turn.graph_context_receipt, BuildGraphContextReceiptV1)
         or turn.graph_context_execution is None
