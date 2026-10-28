@@ -292,7 +292,6 @@ def test_reservation_grants_source_identity_without_graph_read_or_binding_author
         bind_native_graph, deactivate_native_graph_binding, WorldGraphBindingError,
     )
     from apps.live_control_server.services.first_world_graph import first_world_native_target
-    from graph_memory.worldbuilding_write_plan import WorldbuildingWritePlanError
 
     world = create_world_container(root, name="Reserved sources")
     reserved = world.native_graph_binding
@@ -324,7 +323,7 @@ def test_reservation_cannot_be_duplicated_in_registry(root: Path) -> None:
 
 
 def test_reconcile_existing_unbound_world_does_not_allocate_or_rewrite(root: Path) -> None:
-    world = create_world_container(root, name="Retained unbound")
+    create_world_container(root, name="Retained unbound")
     path = world_containers_path(root)
     payload = json.loads(path.read_text())
     payload["records"][0]["native_graph_binding"] = None
