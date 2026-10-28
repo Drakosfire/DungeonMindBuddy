@@ -1,4 +1,5 @@
 import type {TourDispatchScope} from '../guidedTour/GuidedTour';
+import {runPins} from '../guidedTour/ownerPins';
 import {TourRunProvider} from '../guidedTour/RunScope';
 import {RunStateTourObservations} from '../guidedTour/RunObservations';
 import {PlayTourObservation} from '../guidedTour/OwnerObservations';
@@ -347,8 +348,8 @@ function PlaySurfacePublisher({
   usePublishSurfaceInteraction(publication);
   useRulesLookupProjection("play", true);
   const runEncounterContext=useMemo(()=>admittedRun?.schema_version==='dmb_world_play_run_record_v2'&&currentMoment?.sceneId?{
-    worldId:admittedRun.world_id,runId:admittedRun.run_id,sceneId:currentMoment.sceneId,sceneTitle:currentMoment.sceneTitle??'Scene',
-  }:null,[admittedRun?.run_id,admittedRun?.schema_version,currentMoment?.sceneId,currentMoment?.sceneTitle]);
+    worldId:admittedRun.world_id,runId:admittedRun.run_id,sceneId:currentMoment.sceneId,sceneTitle:currentMoment.sceneTitle??'Scene',tourRun:runPins(admittedRun),
+  }:null,[admittedRun,currentMoment?.sceneId,currentMoment?.sceneTitle]);
   useCombatProjection("play", true,runEncounterContext);
   usePreparedTablesProjection();
   usePublishAgentSurfaceContext(agentContext);

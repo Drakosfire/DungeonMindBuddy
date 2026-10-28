@@ -1,3 +1,5 @@
+import {useCombatProjection} from '../combat/combatProjection';
+import {runPins} from '../guidedTour/ownerPins';
 import { AgentInteractionProvider } from "../agentInteraction/AgentInteractionProvider";
 import { ToolHost } from "../surfaceInteraction/toolHost/ToolHost";
 import { LegacyProjectionHostAdapter } from "../planSurface/projection/LegacyProjectionHostAdapter";
@@ -46,6 +48,7 @@ function render(ui: ReactElement, options?: Omit<RenderOptions, "wrapper">) {
   return rtlRender(ui, { ...options, wrapper: ({ children }) => <AgentInteractionProvider><SurfaceContextProvider><SurfaceContextHost />{children}<ToolHost /><LegacyProjectionHostAdapter /></SurfaceContextProvider></AgentInteractionProvider> });
 }
 
+vi.mock('../combat/combatProjection',async original=>{const actual=await original<typeof import('../combat/combatProjection')>();return {...actual,useCombatProjection:vi.fn(actual.useCombatProjection)};});
 vi.mock("../api/playRunContentApi", () => ({ getWorldPlayRunContent: vi.fn(), getWorldPlayRunContentCommand: vi.fn(), putWorldPlayRunContentCommand: vi.fn() }));
 vi.mock("../agentInteraction/WorldAgentConversation", async original => ({
   ...await original<typeof import("../agentInteraction/WorldAgentConversation")>(), usePublishWorldPlayConversation: vi.fn(),
@@ -923,6 +926,7 @@ describe("World session-copy projection", () => {
     vi.mocked(putWorldPlayRunProgress).mockReturnValue(pending.promise);
     render(<PlaySurfacePage />);
     await screen.findByTestId("play-surface-ready");
+    expect(vi.mocked(useCombatProjection).mock.calls.at(-1)?.[2]).toMatchObject({tourRun:runPins(data.run)});
     await userEvent.click(screen.getByRole("button", { name: /Notes · Gate/ }));
     fireEvent.change(screen.getByLabelText("Scene note"), { target: { value: "A new saved scene note." } });
     await waitFor(() => expect(vi.mocked(usePublishWorldPlayConversation).mock.calls.at(-1)?.[0]).toBeNull());
@@ -934,6 +938,7 @@ describe("World session-copy projection", () => {
     await waitFor(() => expect(vi.mocked(usePublishWorldPlayConversation).mock.calls.at(-1)).toEqual([
       expect.objectContaining({ runRevision: data.run.run_revision + 1, contentBasis: expect.objectContaining({ edition_revision: 2 }) }), null,
     ]));
+    expect(vi.mocked(useCombatProjection).mock.calls.at(-1)?.[2]).toMatchObject({tourRun:runPins({...data.run,run_revision:data.run.run_revision+1})});
   });
   it("keeps Buddy blocked while a recovered scene note draft hydrates", async () => {
     const first = render(<PlaySurfacePage />);

@@ -9,7 +9,7 @@ const fields=['hp','max_hp','temp_hp','ac','conditions','defeated','init'] as co
 export function CombatTourObservation({record,runScope,acknowledged,blocked,error}:{record:CombatEncounterRecord|null;runScope:RunEncounterScope|null;acknowledged:AcknowledgedCombatSave|null;blocked:boolean;error:string|null}){
  const current=useTourRun();
  const scoped=!!current&&!!runScope&&current.target.objectId===runScope.runId&&!!record&&current.target.worldId===record.world_id;
- const matching=scoped&&!!acknowledged&&acknowledged.scope.target.objectId===current.target.objectId&&samePin(acknowledged.scope.parent,current.parent)&&acknowledged.sceneId===runScope.sceneId&&acknowledged.saved.world_id===record.world_id&&acknowledged.saved.encounter_id===record.encounter_id&&acknowledged.saved.revision===record.revision;
+ const matching=scoped&&!!acknowledged&&samePin(acknowledged.scope.target,current.target)&&samePin(acknowledged.scope.parent,current.parent)&&acknowledged.sceneId===runScope.sceneId&&acknowledged.saved.world_id===record.world_id&&acknowledged.saved.encounter_id===record.encounter_id&&acknowledged.saved.revision===record.revision;
  const actors=matching?acknowledged.saved.draft.entities.flatMap(actor=>{
   const before=acknowledged.before.draft.entities.find(item=>item.id===actor.id);
   const changed=before?fields.filter(field=>JSON.stringify(before[field])!==JSON.stringify(actor[field])):[];

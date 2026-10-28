@@ -1,9 +1,18 @@
 import {useEffect,useRef,useState} from 'react';
+import {TourRunScopeProvider,type TourRunScope} from '../guidedTour/RunScope';
+import {validPin} from '../guidedTour/protocol';
 import {CombatRosterModule} from '../surface/modules/CombatRosterModule';
 import {exactIntent,withIntentLock} from './exactIntent';
 import {materializeRunEncounter,previewRunEncounter,readRunEncounter,type EncounterApplied,type EncounterOutcome,type EncounterPreview,type MaterializeRequest,type RunEncounterScope} from './runEncountersApi';
 
-export type RunEncounterContext=RunEncounterScope&{worldId:string;sceneTitle:string;readOnly?:boolean};
+export type RunEncounterContext=RunEncounterScope&{worldId:string;sceneTitle:string;readOnly?:boolean;tourRun?:TourRunScope|null};
+function admittedTourScope(context:RunEncounterContext):TourRunScope|null{
+ const scope=context.tourRun;
+ if(!scope||!validPin(scope.target,context.worldId)||!validPin(scope.parent,context.worldId)
+  ||scope.target.kind!=='run'||scope.parent.kind!=='plan'||scope.target.objectId!==context.runId
+  ||scope.target.digest!==scope.parent.digest)return null;
+ return scope;
+}
 export function RunSceneEncounter({context}:{context:RunEncounterContext}){
  const {worldId,runId,sceneId}=context,epoch=useRef(0);
  const key=`dmb.scene.encounter.creation:${JSON.stringify([worldId,runId,sceneId])}`;
@@ -41,7 +50,7 @@ export function RunSceneEncounter({context}:{context:RunEncounterContext}){
   if(epoch.current!==generation)return;setPending(request);void submit(request);
  }catch(error){if(epoch.current===generation)setMessage(String(error));}}
 
- if(current)return <CombatRosterModule scope={{worldId,encounterId:current.encounter.encounter_id,label:context.sceneTitle,initialRecord:current.encounter,runScope:{runId,sceneId}}}/>;
+ if(current)return <TourRunScopeProvider scope={admittedTourScope(context)}><CombatRosterModule scope={{worldId,encounterId:current.encounter.encounter_id,label:context.sceneTitle,initialRecord:current.encounter,runScope:{runId,sceneId}}}/></TourRunScopeProvider>;
  return <section aria-label="Scene encounter"><h3>{context.sceneTitle}</h3>{message&&<p role="status">{message}</p>}{busy&&<p>Loading encounter…</p>}
  {pending?<><button disabled={busy||fatal} onClick={()=>void submit(pending,'/inspect')}>Check creation</button><button disabled={busy||fatal||context.readOnly} onClick={()=>void submit(pending)}>Retry creation</button><button disabled={busy||fatal} onClick={()=>void submit(pending,'/cancel')}>Cancel creation</button></>:preview&&<>
  <h4>{preview.title}</h4><p>This starts a separate encounter from the preparation captured when this session began.</p>
