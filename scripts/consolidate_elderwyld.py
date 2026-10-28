@@ -332,12 +332,17 @@ def main() -> None:
                     'app_identity': db_identity(app), 'graph_identity': db_identity(graph), 'files': file_plan(root),
                     'app_before': table_fingerprints(app), 'graph_before': table_fingerprints(graph),
                     'app_retire': retirement_plan(app, graph=False), 'graph_retire': retirement_plan(graph, graph=True)}
+            from scripts.restore_elderwyld_campaigns import campaign_rows, normalize_rows
+            plan['campaigns'] = normalize_rows(campaign_rows(graph, OLD))
+            plan['campaign_tool_sha256'] = digest(Path(__file__).with_name('restore_elderwyld_campaigns.py').read_bytes())
         write_json(plan_path, plan)
         print('Plan sealed; no live changes')
         return
     plan = json.loads(plan_path.read_bytes())
     if plan['tool_sha256'] != digest(Path(__file__).read_bytes()):
         raise ValueError('Plan requires the original exact operator tool')
+    if plan['campaign_tool_sha256'] != digest(Path(__file__).with_name('restore_elderwyld_campaigns.py').read_bytes()):
+        raise ValueError('Plan requires the original campaign migration helper')
     if plan['root'] != str(root):
         raise ValueError('Plan belongs to another source root')
     for env, name in ((APP_ENV, 'app'), (GRAPH_ENV, 'graph')):
@@ -368,6 +373,8 @@ def main() -> None:
             done = case / (name + '-retired.json')
             intent = case / (name + '-retirement-intent.json')
             with connect(env) as conn:
+                from scripts.restore_elderwyld_campaigns import lock_tables, campaign_rows, normalize_rows, transfer_campaigns, head_state
+                lock_tables(conn)
                 current = table_fingerprints(conn)
                 if done.exists():
                     if current != json.loads(done.read_bytes()):
@@ -382,6 +389,13 @@ def main() -> None:
                         raise ValueError('Interrupted retirement has unexpected state')
                 if name == 'app' and current != plan['app_before']:
                     raise ValueError('APP drift since sealed plan')
+                if name == 'graph':
+                    receipt = json.loads((case / 'empty-adoption-receipt.json').read_bytes())
+                    if head_state(conn)['head_revision_id'] != receipt['published_revision_id']:
+                        raise ValueError('Canonical head changed before campaign transfer')
+                    if normalize_rows(campaign_rows(conn, OLD)) != plan['campaigns']:
+                        raise ValueError('Original campaign metadata drift')
+                    transfer_campaigns(conn, plan['campaigns'])
                 retire(conn, plan[name + '_retire'])
                 proof = table_fingerprints(conn)
                 proposed = {'before': current, 'after': proof}
