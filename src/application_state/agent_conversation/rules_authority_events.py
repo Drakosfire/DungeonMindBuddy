@@ -117,7 +117,7 @@ class RulesPlanJevToolAuthorizedV1(RulesToolAuthorizedV1):
 
 
 BuildRulesCarrierV1 = Literal["dmb_build_jev_driver_decision_v2", "dmb_build_jev_driver_continuation_v1",
-    "dmb_build_jev_phase_controller_v1", "dmb_build_source_passage_writer_v1", "dmb_build_primary_context_writer_v1", "dmb_build_jev_writer_packet_v1"]
+    "dmb_build_jev_phase_controller_v1", "dmb_build_source_passage_writer_v1", "dmb_build_primary_context_writer_v1", "dmb_build_primary_context_writer_v2", "dmb_build_jev_writer_packet_v1"]
 
 
 class RulesQueryObservedV1(RulesEventBaseV1):
