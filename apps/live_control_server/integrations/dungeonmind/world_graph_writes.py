@@ -1820,7 +1820,14 @@ def _reviewed_identity_publication_guard(
     try:
         typed_decision = IdentityDecisionRecordV2.model_validate(decision)
         decision_sha256 = canonical_sha256(typed_decision.model_dump(mode="json"))
-        guard = ReviewedIdentityPublicationPreconditionsV1(
+        guard_type = ReviewedIdentityPublicationPreconditionsV1
+        extra = {}
+        if binding.corpus_ref_type == "location":
+            from dungeonmind.contracts.contribution_review_v2 import ReviewedIdentityPublicationPreconditionsV2
+            guard_type = ReviewedIdentityPublicationPreconditionsV2
+            extra = {"target_kind": "dnd5e:location"}
+        guard = guard_type(
+            **extra,
             world_id=binding.world_id, campaign_id=binding.campaign_id,
             expected_parent_revision_id=binding.parent_revision_id,
             decision_id=binding.decision_id, decision_sha256=decision_sha256,
@@ -3312,15 +3319,19 @@ def _verify_reviewed_corpus_binding_authority(bundle, stored, context, *, packag
                 raise ValueError("reviewed binding decision was superseded")
             obj = objects.get(binding.target_object_id)
             target = context.objects.get(binding.target_object_id)
-            if (obj is None or target is None or wire_kind(target.kind) != "npc"
+            expected_kind = "location" if binding.corpus_ref_type == "location" else "npc"
+            if (obj is None or target is None or wire_kind(target.kind) != expected_kind
                 or target.canon_state != "canonical"
                 or target.memory_state in {"rejected", "merged_away"}
                 or target.object_id in context.identity_redirects):
-                raise ValueError("reviewed binding target is not active canonical NPC")
+                raise ValueError("reviewed binding target is not active canonical identity")
             meta = obj.get("assertion_metadata") or {}
-            if meta.get("canon_state") != "canonical" or wire_kind(str(obj.get("kind") or "")) != "npc":
+            if meta.get("canon_state") != "canonical" or wire_kind(str(obj.get("kind") or "")) != expected_kind:
                 raise ValueError("reviewed binding raw target standing mismatch")
-            if meta.get("campaign_scope") != binding.campaign_id:
+            target_scope = meta.get("campaign_scope")
+            if (target_scope not in {None, binding.campaign_id}
+                if binding.corpus_ref_type == "location"
+                else target_scope != binding.campaign_id):
                 raise ValueError("reviewed binding target campaign mismatch")
             refs = [evidence[eid] for eid in meta.get("evidence_ref_ids", [])]
             if (not refs or canonical_sha256(obj) != binding.target_sha256

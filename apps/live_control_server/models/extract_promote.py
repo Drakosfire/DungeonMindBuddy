@@ -1554,16 +1554,14 @@ class ReviewedCorpusNativeSourceV1(BaseModel):
     revision_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
 
 
-class ReviewedCorpusNativeBindingV1(BaseModel):
+class _ReviewedCorpusNativeBinding(BaseModel):
     """Strict payload in the existing HUMAN_OVERRIDE reason carrier."""
     model_config = ConfigDict(extra="forbid", frozen=True)
-    schema_version: Literal["dmb_reviewed_corpus_native_binding_v1"] = "dmb_reviewed_corpus_native_binding_v1"
     world_id: str = Field(min_length=1)
     parent_revision_id: str = Field(min_length=1)
     campaign_id: str = Field(min_length=1)
     candidate_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
     candidate_node_id: str = Field(min_length=1)
-    corpus_ref_type: Literal["npc"]
     corpus_ref_key: str = Field(min_length=1)
     target_object_id: str = Field(min_length=1)
     target_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
@@ -1578,6 +1576,19 @@ class ReviewedCorpusNativeBindingV1(BaseModel):
         if len(keys) != len(set(keys)):
             raise ValueError("duplicate binding source")
         return self
+
+
+class ReviewedCorpusNativeBindingV1(_ReviewedCorpusNativeBinding):
+    schema_version: Literal["dmb_reviewed_corpus_native_binding_v1"] = "dmb_reviewed_corpus_native_binding_v1"
+    corpus_ref_type: Literal["npc"]
+
+
+class ReviewedCorpusNativeBindingV2(_ReviewedCorpusNativeBinding):
+    schema_version: Literal["dmb_reviewed_corpus_native_binding_v2"] = "dmb_reviewed_corpus_native_binding_v2"
+    corpus_ref_type: Literal["location"]
+
+
+ReviewedCorpusNativeBinding = ReviewedCorpusNativeBindingV1 | ReviewedCorpusNativeBindingV2
 
 
 class RecapEvidenceAppend(_ExtractPromoteModel):
