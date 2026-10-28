@@ -13,12 +13,13 @@ export function MechanicsTourObservation({scope,opened,history,acknowledged,bloc
   ...(usable&&operation?{observation:{step:'mechanics',target:scope.plan,origin:fresh?'acknowledged':'existing',observedAt:operation.created_at,receiptId:`mechanics:${operation.operation_id}:${opened.locator.revision_id}`,proof:{kind:'mechanics',sceneId:scope.sceneId,encounterId:scope.encounterId,draftId:opened.draft_id,operationId:operation.operation_id,locator:opened.locator}}}:{})}:null);
  return null;
 }
-/** Adoption has already passed verifyAdoptionOutcome at the owning command boundary. */
-export function AdoptionTourObservation({scope,worldId,encounterId,acknowledged,blocked}:{scope:TourEncounterScope|null;worldId:string;encounterId:string;acknowledged:AcknowledgedMechanicsAdoption|null;blocked:boolean}){
+/** Command outcomes and historical inspections are verified at their distinct owner boundaries. */
+export function AdoptionTourObservation({scope,worldId,encounterId,acknowledged,inspected=null,blocked}:{scope:TourEncounterScope|null;worldId:string;encounterId:string;acknowledged:AcknowledgedMechanicsAdoption|null;inspected?:AcknowledgedMechanicsAdoption|null;blocked:boolean}){
  const scoped=!!scope&&scope.plan.worldId===worldId&&scope.encounterId===encounterId;
- const receipt=acknowledged?.outcome.receipt;
- const usable=scoped&&!blocked&&!!acknowledged&&sameEncounterScope(scope,acknowledged.scope)&&receipt?.state==='applied'&&receipt.world_id===worldId&&receipt.encounter_id===encounterId&&receipt.committed_revision!==null;
+ const selected=inspected&&sameEncounterScope(scope,inspected.scope)?inspected:acknowledged;
+ const receipt=selected?.outcome.receipt;
+ const usable=scoped&&!blocked&&!!selected&&sameEncounterScope(scope,selected.scope)&&receipt?.state==='applied'&&receipt.world_id===worldId&&receipt.encounter_id===encounterId&&receipt.committed_revision!==null;
  useTourOwnerReading(scoped?{step:'adoption',dispatchScope:acknowledged?.dispatchScope,target:scope.plan,control:'adoption',status:usable?'ready':'unavailable',reason:usable?undefined:blocked?'Recover the retained adoption or finish encounter edits through the ordinary controls.':'Preview the exact saved version, choose actors and tracker policies, then explicitly use that version. An applied receipt is required.',
-  ...(usable?{observation:{step:'adoption',target:scope.plan,origin:'acknowledged',observedAt:receipt.created_at,receiptId:`adoption:${receipt.operation_id}:${receipt.committed_revision}`,proof:{kind:'adoption',sceneId:scope.sceneId,encounterId,operationId:receipt.operation_id,encounterRevision:receipt.committed_revision!,locator:receipt.source,actors:receipt.transitions.map(t=>({actorId:t.actor_id,beforeDigest:t.before_snapshot_digest,afterDigest:t.after_snapshot_digest,acPolicy:t.ac_policy,hpPolicy:t.hp_policy}))}}}:{})}:null);
+  ...(usable?{observation:{step:'adoption',target:scope.plan,origin:selected===acknowledged?'acknowledged':'existing',observedAt:receipt.created_at,receiptId:`adoption:${receipt.operation_id}:${receipt.committed_revision}`,proof:{kind:'adoption',sceneId:scope.sceneId,encounterId,operationId:receipt.operation_id,encounterRevision:receipt.committed_revision!,locator:receipt.source,actors:receipt.transitions.map(t=>({actorId:t.actor_id,beforeDigest:t.before_snapshot_digest,afterDigest:t.after_snapshot_digest,acPolicy:t.ac_policy,hpPolicy:t.hp_policy}))}}}:{})}:null);
  return null;
 }

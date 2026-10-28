@@ -168,3 +168,7 @@ export interface MechanicsAdoptionOutcome {
     expected_revision:number;committed_revision:number|null;transitions:MechanicsAdoptionTransition[];created_at:string};
   encounter:CombatEncounterRecord;advanced_since_apply:boolean;
 }
+export interface MechanicsAdoptionHistory {
+  schema:'dmb_combat_mechanics_adoption_history_v1';world_id:string;encounter_id:string;
+  receipts:MechanicsAdoptionOutcome['receipt'][];next_before_operation_id:string|null;
+}

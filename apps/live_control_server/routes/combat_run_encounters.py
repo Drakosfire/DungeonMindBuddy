@@ -7,7 +7,7 @@ from application_state.play.session_encounter_types import (
 )
 from application_state.combat_encounters import adoption
 from application_state.combat_encounters.types import SaveCombatEncounterRequest, CombatEncounterRecord
-from application_state.combat_encounters.adoption_types import AdoptMechanicsRequest, AdoptionOutcome
+from application_state.combat_encounters.adoption_types import AdoptMechanicsRequest, AdoptionOutcome, AdoptionHistoryPage
 from apps.live_control_server.routes.combat_encounters import _verified_world, _adoption_call
 from apps.live_control_server.routes.combat_scene_templates import call
 from apps.live_control_server.services import combat_encounters, combat_mechanics
@@ -55,3 +55,8 @@ def cancel_adoption(run_id: UUID, scene_id: str, encounter_id: UUID, body: Adopt
 @router.get('/encounters/{encounter_id}/mechanics-adoptions/{operation_id}',response_model=AdoptionOutcome|None)
 def inspect_adoption(run_id: UUID, scene_id: str, encounter_id: UUID, operation_id: UUID, world_id: str = Query(min_length=1,max_length=63)):
     return _adoption_call(lambda:adoption.inspect(world_id=_verified_world(world_id),encounter_id=encounter_id,operation_id=operation_id,scope=RunEncounterScope(run_id=run_id,scene_id=scene_id)))
+
+
+@router.get('/encounters/{encounter_id}/mechanics-adoptions',response_model=AdoptionHistoryPage)
+def adoption_history(run_id:UUID,scene_id:str,encounter_id:UUID,world_id:str=Query(min_length=1,max_length=63),before_operation_id:UUID|None=None,limit:int=Query(default=20,ge=1,le=100)):
+    return _adoption_call(lambda:adoption.history(world_id=_verified_world(world_id),encounter_id=encounter_id,before_operation_id=before_operation_id,limit=limit,scope=RunEncounterScope(run_id=run_id,scene_id=scene_id)))

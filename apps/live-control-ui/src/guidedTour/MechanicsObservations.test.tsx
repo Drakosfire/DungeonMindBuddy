@@ -45,3 +45,11 @@ it('records the verified exact version and actor policies, and refuses canceled 
  mounted.rerender(<AdoptionTourObservation scope={scope} worldId='world' encounterId='encounter' acknowledged={{...adoption,outcome:{...adoption.outcome,receipt:{...adoption.outcome.receipt,state:'canceled',committed_revision:null,transitions:[]}}}} blocked={false}/>);
  expect(readings.get('adoption')?.observation).toBeUndefined();
 });
+it('labels explicitly inspected receipts as existing and fences a different Plan pin or dirty encounter',()=>{
+ const mounted=render(<AdoptionTourObservation scope={scope} worldId='world' encounterId='encounter' acknowledged={null} inspected={adoption} blocked={false}/>);
+ expect(readings.get('adoption')?.observation?.origin).toBe('existing');
+ mounted.rerender(<AdoptionTourObservation scope={{...scope,plan:{...scope.plan,revision:3,revisionId:'work-3'}}} worldId='world' encounterId='encounter' acknowledged={null} inspected={adoption} blocked={false}/>);
+ expect(readings.get('adoption')?.observation).toBeUndefined();
+ mounted.rerender(<AdoptionTourObservation scope={scope} worldId='world' encounterId='encounter' acknowledged={null} inspected={adoption} blocked={true}/>);
+ expect(readings.get('adoption')?.observation).toBeUndefined();
+});

@@ -6,6 +6,42 @@ function ordered(value:unknown):unknown {
   return value;
 }
 export const sameAdoptionValue=(a:unknown,b:unknown)=>JSON.stringify(ordered(a))===JSON.stringify(ordered(b));
+const object=(v:unknown):v is Record<string,unknown>=>typeof v==='object'&&v!==null&&!Array.isArray(v);
+const exact=(v:unknown,keys:string[]):v is Record<string,unknown>=>object(v)&&Object.keys(v).length===keys.length&&keys.every(k=>k in v);
+const text=(v:unknown):v is string=>typeof v==='string'&&!!v.trim();
+const digest=(v:unknown)=>typeof v==='string'&&/^sha256:[0-9a-f]{64}$/.test(v);
+const tracked=(v:unknown)=>v===null||typeof v==='string'||typeof v==='number'&&Number.isFinite(v);
+/** Validate an authoritative retained receipt, without claiming to reprove its original request. */
+export function verifyHistoricalAdoptionReceipt(value:unknown,worldId:string,encounterId:string):asserts value is MechanicsAdoptionOutcome['receipt'] {
+ const r=value;
+ if(!exact(r,['schema','operation_id','world_id','encounter_id','request_digest','state','source','expected_revision','committed_revision','transitions','created_at'])
+  ||r.schema!=='dmb_combat_mechanics_adoption_receipt_v1'||!text(r.operation_id)||r.world_id!==worldId||r.encounter_id!==encounterId||!digest(r.request_digest)
+  ||!text(r.created_at)||!Number.isFinite(Date.parse(r.created_at))||!Number.isSafeInteger(r.expected_revision)||Number(r.expected_revision)<1
+  ||!exact(r.source,['provider','statblock_id','revision_id','contract','contract_version','definition_digest'])||r.source.provider!=='dungeonmind'
+  ||!['statblock_id','revision_id','contract','contract_version'].every(k=>text((r.source as Record<string,unknown>)[k]))||!digest(r.source.definition_digest)
+  ||!Array.isArray(r.transitions)||!r.transitions.every(t=>exact(t,['actor_id','before_snapshot_digest','after_snapshot_digest','ac_policy','hp_policy','before_ac','after_ac','before_hp','after_hp','before_max_hp','after_max_hp'])
+   &&text(t.actor_id)&&digest(t.before_snapshot_digest)&&digest(t.after_snapshot_digest)&&['keep','use_saved'].includes(String(t.ac_policy))
+   &&['keep','preserve_current','clamp_current','reset_full'].includes(String(t.hp_policy))&&['before_ac','after_ac','before_hp','after_hp','before_max_hp','after_max_hp'].every(k=>tracked(t[k])))
+  ||new Set(r.transitions.map(t=>t.actor_id)).size!==r.transitions.length
+  ||!(r.state==='applied'?r.committed_revision===Number(r.expected_revision)+1&&r.transitions.length>0:r.state==='canceled'&&r.committed_revision===null&&r.transitions.length===0))
+  throw new Error('Saved adoption receipt cannot be verified.');
+}
+export function verifyInspectedAdoption(expected:MechanicsAdoptionOutcome['receipt'],outcome:MechanicsAdoptionOutcome):void {
+ verifyHistoricalAdoptionReceipt(outcome?.receipt,expected.world_id,expected.encounter_id);
+ const {receipt,encounter}=outcome;
+ if(!sameAdoptionValue(receipt,expected)||!encounter||encounter.world_id!==expected.world_id||encounter.encounter_id!==expected.encounter_id
+  ||!Number.isSafeInteger(encounter.revision)||encounter.revision<1||typeof outcome.advanced_since_apply!=='boolean'
+  ||(receipt.state==='applied'?(encounter.revision<receipt.committed_revision!||outcome.advanced_since_apply!==(encounter.revision>receipt.committed_revision!)):outcome.advanced_since_apply))
+  throw new Error('Saved adoption inspection differs from the selected receipt.');
+ if(receipt.state==='applied'&&!outcome.advanced_since_apply){
+  for(const change of receipt.transitions){
+   const actor=encounter.draft?.entities?.find(e=>e.id===change.actor_id);
+   if(!actor||actor.mechanics_snapshot?.snapshot_digest!==change.after_snapshot_digest||!sameAdoptionValue(actor.mechanics_snapshot.locator,receipt.source)
+    ||actor.ac!==change.after_ac||actor.hp!==change.after_hp||actor.max_hp!==change.after_max_hp)
+    throw new Error('Saved adoption encounter does not match its committed receipt.');
+  }
+ }
+}
 export async function adoptionRequestDigest(pending:PendingMechanicsAdoption):Promise<string> {
   const body={world_id:pending.worldId,encounter_id:pending.encounterId,request:pending.request};
   const bytes=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(JSON.stringify(ordered(body))));

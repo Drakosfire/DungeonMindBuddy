@@ -77,6 +77,14 @@ class AdoptionOutcome(Closed):
     advanced_since_apply: bool
 
 
+class AdoptionHistoryPage(Closed):
+    schema_name: Literal['dmb_combat_mechanics_adoption_history_v1'] = Field(default='dmb_combat_mechanics_adoption_history_v1', alias='schema')
+    world_id: str
+    encounter_id: UUID
+    receipts: list[AdoptionReceipt]
+    next_before_operation_id: UUID | None
+
+
 class AdoptionPreview(Closed):
     snapshot: SavedCombatMechanicsSnapshot
     armor_class: int | None

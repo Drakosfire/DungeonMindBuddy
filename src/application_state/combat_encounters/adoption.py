@@ -12,7 +12,7 @@ from application_state.world_mechanics.types import WorldMechanicsAssociation
 from . import repository as repo
 from .service import _require_integrity
 from .types import CombatEncounterDraft,CombatMechanicsSnapshot,AcceptedCombatMechanicsSnapshot,SavedCombatMechanicsSnapshot
-from .adoption_types import AdoptMechanicsRequest,AdoptionReceipt,AdoptionOutcome,AdoptionTransition
+from .adoption_types import AdoptMechanicsRequest,AdoptionReceipt,AdoptionOutcome,AdoptionTransition,AdoptionHistoryPage
 
 
 def _dsn():
@@ -29,11 +29,40 @@ def _encounter(conn,world_id,encounter_id):
     _require_integrity(record);return record
 
 
-def _receipt(conn,operation_id):
-    row=conn.execute('SELECT payload FROM combat.mechanics_adoption WHERE operation_id=%s',(operation_id,)).fetchone()
-    if not row:return None
-    try:return AdoptionReceipt.model_validate(row[0])
+def _validated_receipt(row):
+    try:
+        receipt=AdoptionReceipt.model_validate(row[4])
+        if (receipt.operation_id,receipt.world_id,receipt.encounter_id,receipt.created_at)!=tuple(row[:4]):
+            raise ValueError('Receipt differs from routing columns')
+        return receipt
     except ValueError as exc:raise ApplicationStateIntegrityError('Stored adoption receipt is invalid') from exc
+
+
+def _receipt(conn,operation_id):
+    row=conn.execute('SELECT operation_id,world_id,encounter_id,created_at,payload FROM combat.mechanics_adoption WHERE operation_id=%s',(operation_id,)).fetchone()
+    return None if row is None else _validated_receipt(row)
+
+
+def history(*,world_id,encounter_id,before_operation_id=None,limit=20,scope=None):
+    """Read immutable receipts; cursor pagination never executes an adoption."""
+    if type(limit) is not int or not 1<=limit<=100:
+        raise ApplicationStateValidationError('History page size must be between 1 and 100')
+    with unit_of_work(_dsn()) as conn:
+        from application_state.combat_encounters.access import guard
+        guard(conn,world_id=world_id,encounter_id=encounter_id,scope=scope)
+        _encounter(conn,world_id,encounter_id)
+        args=[world_id,encounter_id]
+        cursor=''
+        if before_operation_id is not None:
+            before=_receipt(conn,before_operation_id)
+            if before is None:raise ApplicationStateNotFoundError('Adoption history cursor not found')
+            _scope(before,world_id,encounter_id)
+            cursor=' AND (created_at,operation_id)<(%s,%s)'
+            args.extend([before.created_at,before.operation_id])
+        rows=conn.execute('SELECT operation_id,world_id,encounter_id,created_at,payload FROM combat.mechanics_adoption WHERE world_id=%s AND encounter_id=%s'+cursor+' ORDER BY created_at DESC,operation_id DESC LIMIT %s',(*args,limit+1)).fetchall()
+        receipts=[_validated_receipt(row) for row in rows]
+        return AdoptionHistoryPage(world_id=world_id,encounter_id=encounter_id,receipts=receipts[:limit],
+            next_before_operation_id=receipts[limit-1].operation_id if len(receipts)>limit else None)
 
 
 def _scope(receipt,world_id,encounter_id,request=None):
