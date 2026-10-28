@@ -401,6 +401,7 @@ describe("BuildSurfaceShell", () => {
     Object.defineProperty(navigator,'locks',{configurable:true,value:{request:vi.fn(async(_name:string,callback:()=>unknown)=>callback())}});
     let walkthrough=createWalkthrough(world,'conks','live-autosave',new Date(Date.now()-1000).toISOString());
     walkthrough=reduceTour(walkthrough,{kind:'bind',pin:{kind:'source',worldId:world,objectId:DOC_ID,revision:1,digest:'a'.repeat(64)}});
+    walkthrough=reduceTour(walkthrough,{kind:'bind',pin:{kind:'page',worldId:world,objectId:DOC_ID,revision:1,digest:'a'.repeat(64)}});
     walkthrough=reduceTour(walkthrough,{kind:'move',index:1});
     writeWalkthrough(localStorage,walkthrough,null);
     const original=buildWorldbuildingSnapshot(DOC_ID);
@@ -432,7 +433,7 @@ describe("BuildSurfaceShell", () => {
       expect(readWalkthrough(localStorage,world)!.record.steps.authoring.state).not.toBe('completed');
     }else{
       await waitFor(()=>expect(readWalkthrough(localStorage,world)!.record.steps.authoring.state).toBe('completed'));
-      expect(readWalkthrough(localStorage,world)!.record.steps.authoring.evidence).toEqual(expect.arrayContaining([expect.objectContaining({origin:'acknowledged',target:expect.objectContaining({worldId:world,objectId:DOC_ID,revision:2,digest:'b'.repeat(64)})})]));
+      expect(readWalkthrough(localStorage,world)!.record.steps.authoring.evidence).toEqual(expect.arrayContaining([expect.objectContaining({origin:'acknowledged',target:expect.objectContaining({kind:'page',worldId:world,objectId:DOC_ID,revision:2,digest:'b'.repeat(64)})})]));
     }
     expect(liveApi.commitTiptapMarkdownWrite).toHaveBeenCalledTimes(1);
   });
