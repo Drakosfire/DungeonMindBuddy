@@ -2785,8 +2785,15 @@ class BuildControllerContinuationAccountingV1(StrictModel):
     guaranteed_upper_bound: Literal[False]
 
 
+class BuildControllerContinuationAccountingV2(BuildControllerContinuationAccountingV1):
+    policy: Literal["o200k_double_plus_4096_adaptive_context_v2"]
+    long_question_limit_tokens: Literal[262_000]
+    long_request_limit_tokens: Literal[262_000]
+    context_selection_policy: Literal["build_navigate_assess_if_default_exceeded_v1"]
+
+
 class BuildEstimatedActionControllerWriterPolicyV1(BuildPhaseActionControllerWriterPolicyV1):
-    controller_continuation_accounting: BuildControllerContinuationAccountingV1
+    controller_continuation_accounting: BuildControllerContinuationAccountingV2 | BuildControllerContinuationAccountingV1
 
 
 class BuildJointSupportActionControllerWriterPolicyV1(BuildEstimatedActionControllerWriterPolicyV1):
@@ -2830,7 +2837,7 @@ class BuildSelectedSourceActionControllerWriterPolicyV1(BuildCitedSourceActionCo
 
 
 class BuildInitialEstimatedSelectedSourcePolicyV1(BuildSelectedSourceActionControllerWriterPolicyV1):
-    controller_initial_accounting: BuildControllerContinuationAccountingV1
+    controller_initial_accounting: BuildControllerContinuationAccountingV2 | BuildControllerContinuationAccountingV1
 
     @model_validator(mode="after")
     def validate_initial_accounting(self):
@@ -3787,6 +3794,14 @@ class ProviderAttemptAuthorizedEventV3(ProviderAttemptAuthorizedEventV2):
     included_source_read_event_ids: list[UUID] = Field(max_length=MAX_INCLUDED_SOURCE_READ_EVENTS_V3)
 
 
+class ProviderAttemptAuthorizedEventV5(ProviderAttemptAuthorizedEventV3):
+    kind: Literal["provider_attempt_authorized_v5"]
+    context_mode: Literal["default", "long_context"]
+    context_phase: Literal["select", "navigate", "assess", "coverage", "retention", "writer_selection"]
+    max_question_input_tokens: int = Field(strict=True, ge=0)
+    dispatch_identity_sha256: Digest
+
+
 class ProviderAttemptAuthorizedEventV4(ProviderAttemptAuthorizedEventV3):
     kind: Literal["provider_attempt_authorized_v4"]
     included_source_reuse_event_ids: list[UUID] = Field(max_length=MAX_INCLUDED_SOURCE_READ_EVENTS_V3)
@@ -4128,6 +4143,11 @@ def validate_graph_execution_record(execution, *, dynamic_source_scope: bool, al
         ):
             continue
         payload = event.model_dump(mode="json", by_alias=True)
+        if isinstance(event, ProviderAttemptAuthorizedEventV5):
+            from .build_decision_context import validate_event
+            validate_event(event, execution)
+            for key in ("context_mode", "context_phase", "max_question_input_tokens", "dispatch_identity_sha256"):
+                payload.pop(key)
         if isinstance(event, ProviderAttemptAuthorizedEventV1):
             if isinstance(execution.policy, BuildEstimatedActionControllerWriterPolicyV1):
                 role = (event.provider, event.model, event.api_mode)
@@ -4147,7 +4167,12 @@ def validate_graph_execution_record(execution, *, dynamic_source_scope: bool, al
                 expected_estimator = descriptor.policy if estimated else execution.policy.provider_input_accounting.estimator
                 if event.input_accounting_kind != expected_kind or event.input_estimator != expected_estimator:
                     raise ValueError("provider attempt accounting differs from accepted role policy")
-                if estimated and event.input_tokens > descriptor.request_limit_tokens:
+                if descriptor.policy == "o200k_double_plus_4096_adaptive_context_v2" and role == controller:
+                    if not isinstance(event, ProviderAttemptAuthorizedEventV5):
+                        raise ValueError("Current Build controller requires mode-bound authorization")
+                elif isinstance(event, ProviderAttemptAuthorizedEventV5):
+                    raise ValueError("Mode-bound authorization requires current Build accounting")
+                if estimated and not isinstance(event, ProviderAttemptAuthorizedEventV5) and event.input_tokens > descriptor.request_limit_tokens:
                     raise ValueError("controller request estimate exceeds frozen policy")
                 # Structural validator projection only; original event remains
                 # explicitly estimated in the stored ledger and its hashes.
@@ -4495,7 +4520,7 @@ class BuildWorldReadSelectionV1(GraphExecutionEventBaseV1):
 
 
 GraphExecutionEventV3 = Annotated[
-    ValidatedGraphOperationEventV3 | ProviderAttemptAuthorizedEventV3 | ProviderAttemptAuthorizedEventV4 | PlanRequestedWorkAuthorizedV2 | PlanRequestedWorkAuthorizedV1 | PlanJevProviderAuthorizedV1 | PlanJevWriterAuthorizedV1 | PlanJevWriterAuthorizedV2
+    ValidatedGraphOperationEventV3 | ProviderAttemptAuthorizedEventV3 | ProviderAttemptAuthorizedEventV4 | ProviderAttemptAuthorizedEventV5 | PlanRequestedWorkAuthorizedV2 | PlanRequestedWorkAuthorizedV1 | PlanJevProviderAuthorizedV1 | PlanJevWriterAuthorizedV1 | PlanJevWriterAuthorizedV2
     | ProviderOutcomeEventV1 | CompletionBindingEventV1
     | SourceScopeExtensionEventV3 | SourceReadAuthorizationEventV2 | ValidatedSourceReadEventV2 | SourcePassageReuseEventV1
     | RelatedRecapContextAuthorizationEventV2 | ValidatedRelatedRecapContextEventV2

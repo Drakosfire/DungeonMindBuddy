@@ -214,7 +214,7 @@ def test_sdk_app_selection_and_exact_single_writer_reopen(build_case, monkeypatc
     with pytest.raises(ValueError, match="unique acknowledged"):
         ledger.PlanWorldGraphExecutionV3.model_validate({**raw, "events": [*before_writer, duplicate]})
     controller = deepcopy(next(event for event in reversed(raw["events"])
-                               if event.get("kind") == "provider_attempt_authorized_v3"
+                               if event.get("kind") == "provider_attempt_authorized_v5"
                                and event.get("provider") == "typesafe"))
     controller.update(event_id=str(uuid4()), provider_attempt_id=str(uuid4()), sequence=len(before_writer))
     with pytest.raises(ValueError, match="controller cannot resume after writer evidence selection"):
