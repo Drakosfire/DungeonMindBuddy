@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { originalImageBlob } from './originalImageBlob';
 
 type PreparedDownload = {
   dataUrl: string;
@@ -16,14 +17,7 @@ export function OriginalImageDownload({ dataUrl, mediaType, filename }: {
   useEffect(() => {
     let url: string | undefined;
     try {
-      const prefix = `data:${mediaType};base64,`;
-      if (!['image/png', 'image/jpeg', 'image/webp'].includes(mediaType) || !dataUrl.startsWith(prefix)) {
-        throw new Error('Original image MIME mismatch');
-      }
-      const binary = atob(dataUrl.slice(prefix.length));
-      if (!binary.length) throw new Error('Original image is empty');
-      const bytes = Uint8Array.from(binary, char => char.charCodeAt(0));
-      url = URL.createObjectURL(new Blob([bytes], { type: mediaType }));
+      url = URL.createObjectURL(originalImageBlob(dataUrl, mediaType));
       setPrepared({ dataUrl, mediaType, url });
     } catch {
       setPrepared({

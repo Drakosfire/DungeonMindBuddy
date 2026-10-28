@@ -247,3 +247,18 @@ it('keeps preview and explicit Save usable when original download metadata confl
   expect(screen.queryByRole('link', { name: 'Download image' })).not.toBeInTheDocument();
   expect(api.save).not.toHaveBeenCalled();
 });
+
+it.each(['click','drag'] as const)('places staged artwork by %s without public Save', async mode => {
+ const api=createPort(); const choose=vi.fn(async()=>{});
+ render(<MediaImageWizard initialPrompt="Edge" onClose={()=>{}} onChoose={choose} port={api}/>);
+ fireEvent.click(await screen.findByRole('button',{name:'Generate image'}));
+ const button=await screen.findByRole('button',{name:'Place on page'});
+ if(mode==='click') fireEvent.click(button);
+ else {
+  const setData=vi.fn();fireEvent.dragStart(screen.getByAltText('Edge'),{dataTransfer:{clearData:vi.fn(),setData}});
+  expect(setData).toHaveBeenCalledExactlyOnceWith('application/x-dmb-media','asset-1');
+ }
+ await waitFor(()=>expect(choose).toHaveBeenCalledOnce());
+ expect(choose).toHaveBeenCalledWith(expect.objectContaining({state:'staged'}),expect.anything(),expect.objectContaining({mode}));
+ expect(api.save).not.toHaveBeenCalled();
+});
