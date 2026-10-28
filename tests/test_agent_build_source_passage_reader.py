@@ -33,13 +33,29 @@ def build_case(tmp_path, monkeypatch, application_state_dsn):
     return _build_case.__wrapped__(tmp_path, monkeypatch, application_state_dsn)
 
 
-@pytest.fixture
-def completed(build_case, monkeypatch):
-    adapter, projection, _, text = stage(build_case, monkeypatch)
-    adapter.complete_build_writer(
-        invoke(adapter, projection, WriterWire(adapter, text=answer(projection)))
-    )
-    turn = fresh(adapter)
+@pytest.fixture(params=["graph", "intentional"])
+def completed(build_case, monkeypatch, tmp_path, request):
+    if request.param == "intentional":
+        monkeypatch.setenv("TYPESAFE_JEV_API_KEY", "synthetic-only")
+        monkeypatch.setenv("OPENAI_API_KEY", "synthetic-only")
+        import json
+        from application_state.agent_conversation.types import (
+            BuildIntentionalResponseCompletionV1,
+        )
+        from tests.test_build_layout_quote_witnesses import completed_layout
+
+        turn, _, _, _, _, transport, _ = completed_layout.__wrapped__(
+            build_case, monkeypatch, tmp_path, SimpleNamespace(param="native")
+        )
+        assert isinstance(turn.completion, BuildIntentionalResponseCompletionV1)
+        packet = json.loads(json.loads(transport.calls[0].content)["input"])
+        text = packet["opened_passages"][0]["text"]
+    else:
+        adapter, projection, _, text = stage(build_case, monkeypatch)
+        adapter.complete_build_writer(
+            invoke(adapter, projection, WriterWire(adapter, text=answer(projection)))
+        )
+        turn = fresh(adapter)
     receipt = turn.completion.source_citations[0].receipt
     result = WorldGraphSourceAnchorReadResult.model_validate(
         {
