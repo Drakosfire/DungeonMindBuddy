@@ -4,6 +4,9 @@ import type {SavedWorldBuildConversationContext} from '../agentInteraction/World
 import {useTourOwnerReading,type TourDispatchScope} from './GuidedTour';
 import {planPin,sourcePin,runPins} from './ownerPins';
 import type {WorldPlayRunRecordV2} from '../api/types';
+import {combatDraftEqual} from '../combat/combatRecovery';
+import {sameEncounterScope} from './EncounterScope';
+import type {PreparedCombatOwnerReading} from '../surface/modules/CombatRosterModule';
 import type {PlanEncounterContext,SceneTemplateView} from '../combat/sceneTemplatesApi';
 
 export function BuildTourObservations({source,session}:{source:SavedWorldBuildConversationContext|null;session:MarkdownCanvasSessionValue|null}){
@@ -31,14 +34,23 @@ export function PlanTourObservation({verified,error,saved=null,registryRevision=
 }
 
 /** The scene owner has already admitted this view or verified its creation receipt. */
-export function EncounterTourObservation({view,context,acknowledgedOperation,dispatchScope,error,pending}:{view:SceneTemplateView|null;context:PlanEncounterContext;acknowledgedOperation:string|null;dispatchScope?:TourDispatchScope|null;error:string|null;pending:boolean}){
- const target=view?planPin(view.binding.world_id,view.binding.origin.document_id,{revisionN:view.binding.origin.revision_n,workRevisionId:view.binding.origin.work_revision_id,contentSha256:view.binding.origin.content_sha256}):null;
+export function EncounterTourObservation({view,context,roster,acknowledgedOperation,dispatchScope,error,pending}:{view:SceneTemplateView|null;context:PlanEncounterContext;roster:PreparedCombatOwnerReading|null;acknowledgedOperation:string|null;dispatchScope?:TourDispatchScope|null;error:string|null;pending:boolean}){
+ const pin=context.verifiedPlan;
+ const target=pin&&pin.contentSha256===context.contentSha256?planPin(context.worldId,context.documentId,pin):null;
  const version=view?.versions.find(item=>item.revision===view.encounter.revision);
- const usable=!error&&!!view&&!!version&&view.scene_present&&context.canCreate&&!pending&&view.binding.origin.content_sha256===context.contentSha256;
- useTourOwnerReading({step:'encounter',dispatchScope,target,control:'encounter',status:error?'failed':usable?'ready':'unavailable',
-  reason:error??(usable?undefined:pending?'Resolve the retained encounter creation with its ordinary recovery controls.':'Open the intended scene and a clean saved Plan. An encounter from another saved Plan version remains an older example.'),
-  ...(usable&&target&&view&&version?{observation:{step:'encounter',target,observedAt:view.binding.created_at,origin:acknowledgedOperation===view.binding.operation_id?'acknowledged':'existing',receiptId:`encounter:${view.binding.operation_id}:${version.revision}:${version.digest}`,
-   proof:{kind:'encounter',sceneId:view.binding.origin.scene_id,encounterId:view.binding.encounter_id,revision:version.revision,digest:version.digest,operationId:view.binding.operation_id}}}:{})});
+ const scoped=!!view&&view.binding.world_id===context.worldId&&view.binding.origin.document_id===context.documentId&&view.binding.origin.scene_id===context.sceneId&&view.encounter.world_id===context.worldId&&view.encounter.encounter_id===view.binding.encounter_id;
+ const record=roster?.record;
+ const admitted=scoped&&!!record&&record.world_id===context.worldId&&record.encounter_id===view.binding.encounter_id&&record.revision===view.encounter.revision&&combatDraftEqual(record.draft,view.encounter.draft);
+ const usable=!error&&!!target&&!!view&&!!version&&view.scene_present&&context.canCreate&&!pending&&!!roster&&!roster.blocked&&!roster.error&&admitted;
+ const saved=roster?.acknowledged;
+ const scope=target&&view?{plan:target,sceneId:context.sceneId,encounterId:view.binding.encounter_id}:null;
+ const acknowledgedSave=usable&&!!saved&&sameEncounterScope(scope,saved.scope)&&saved.saved.world_id===record!.world_id&&saved.saved.encounter_id===record!.encounter_id&&saved.saved.revision===record!.revision&&saved.saved.revision===saved.before.revision+1&&combatDraftEqual(saved.saved.draft,record!.draft);
+ const acknowledgedCreation=acknowledgedOperation===view?.binding.operation_id;
+ const failure=error??roster?.error;
+ useTourOwnerReading({step:'encounter',dispatchScope:acknowledgedSave?saved!.dispatchScope:dispatchScope,target,control:'encounter',status:failure?'failed':usable?'ready':'unavailable',
+  reason:failure??(usable?undefined:pending?'Resolve pending scene preparation before continuing.':'Open the intended scene and a clean saved Plan, verify its exact version with Start Play, and finish encounter saves or recovery.'),
+  ...(usable&&target&&view&&version?{observation:{step:'encounter',target,observedAt:acknowledgedSave?saved!.saved.updated_at:version.saved_at,origin:acknowledgedSave||acknowledgedCreation?'acknowledged':'existing',receiptId:`encounter:${view.binding.operation_id}:${version.revision}:${version.digest}`,
+   proof:{kind:'encounter',sceneId:context.sceneId,encounterId:view.binding.encounter_id,revision:version.revision,digest:version.digest,operationId:view.binding.operation_id}}}:{})});
  return null;
 }
 

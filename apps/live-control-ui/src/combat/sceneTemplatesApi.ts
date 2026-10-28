@@ -1,6 +1,6 @@
 import {authenticatedApiFetch} from '../api/liveApi';
 import type {CombatEncounterRecord} from './combatTypes';
-export type PlanEncounterContext={worldId:string;documentId:string;sceneId:string;sceneTitle:string;canCreate:boolean;objectRevision:number|null;contentSha256:string|null};
+export type PlanEncounterContext={worldId:string;documentId:string;sceneId:string;sceneTitle:string;canCreate:boolean;objectRevision:number|null;contentSha256:string|null;verifiedPlan?:{revisionN:number;workRevisionId:string;contentSha256:string}|null};
 export type SceneTemplateIntent={schema_version:'dmb_scene_template_create_v1';operation_id:string;pin:{document_id:string;scene_id:string;revision_n:number;work_revision_id:string;content_sha256:string};encounter:{title:string}};
 export type SceneTemplateView={binding:{schema_version:'dmb_scene_template_binding_v1';world_id:string;encounter_id:string;origin:SceneTemplateIntent['pin'];operation_id:string;request_digest:string;created_at:string};encounter:CombatEncounterRecord;versions:{revision:number;digest:string;saved_at:string}[];scene_present:boolean};
 async function request<T>(worldId:string,path:string,body?:SceneTemplateIntent):Promise<T>{
