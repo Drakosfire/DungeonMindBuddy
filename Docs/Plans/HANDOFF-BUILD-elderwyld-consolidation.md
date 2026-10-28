@@ -1,6 +1,7 @@
 # BUILD: canonical local Elderwyld
 
-Status: ACTIVE. Operator explicitly authorized execution on 2026-10-28.
+Status: SETTLED. Operator explicitly authorized execution on 2026-10-28.
+Merged1858 as 2b6598b1e3a3f5a9eba7b7b6f36008050cfd3465; independently approved head0bea70a5431a0f23aec5dfc5e6460a884cc36d4f, allCIgreen, applied live. Managed/native elderwyld, one source root658files/616MD, twelve file-backed authored and eleven content documents unchanged, nine committed native sources admitted. API healthy; ordinary Edge/Mallow reopen verified; protected Brin browser draft retained/exported. Semantic re-extraction remains unperformed, not implied by reset. Full backups retained; disposable rehearsals released. EXDEV quarantine placement recovery used byte-identical journals on the source filesystem with independent review and the unchanged tool. Private completion.json and quarantine-placement-recovery.json retain exact evidence. No active write/runtime lease remains.
 
 ## Authority and invariant
 
