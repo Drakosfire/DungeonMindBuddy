@@ -1,3 +1,4 @@
+import {EncounterTourObservation} from '../guidedTour/OwnerObservations';
 import {CombatMechanicsInspection} from './CombatMechanicsInspection';
 import {useEffect,useRef,useState} from 'react';
 import {getWorldOwnedPlanCommittedRevision} from '../api/liveApi';
@@ -11,6 +12,7 @@ export function PlanSceneEncounter({context}:{context:PlanEncounterContext}){
  const latest=useRef(context);latest.current=context;
  const epoch=useRef(0);
  const [view,setView]=useState<SceneTemplateView|null>(null);
+ const [acknowledgedOperation,setAcknowledgedOperation]=useState<string|null>(null);
  const [recoveryInvalid,setRecoveryInvalid]=useState(false);
  const [pending,setPending]=useState<SceneTemplateIntent|null>(null);
  const [busy,setBusy]=useState(false);
@@ -21,7 +23,7 @@ export function PlanSceneEncounter({context}:{context:PlanEncounterContext}){
  const identity=`${context.worldId}:${context.documentId}:${context.sceneId}`;
  function accept(result:SceneTemplateView){assertSceneTemplate(result,context);setView(result);}
  useEffect(()=>{
-  const current=++epoch.current;setView(null);setPending(null);setRecoveryInvalid(false);setLoaded(false);setHistorical(null);setError(null);setBusy(false);setTitle(defaultTitle(context.sceneTitle));
+  const current=++epoch.current;setView(null);setAcknowledgedOperation(null);setPending(null);setRecoveryInvalid(false);setLoaded(false);setHistorical(null);setError(null);setBusy(false);setTitle(defaultTitle(context.sceneTitle));
   void (async()=>{
    try{
     const retained=sessionStorage.getItem(recoveryKey(context));
@@ -59,7 +61,7 @@ export function PlanSceneEncounter({context}:{context:PlanEncounterContext}){
    if(current!==epoch.current)return;
    await assertSceneCreation(result,context,intent);
    if(current!==epoch.current)return;
-   sessionStorage.removeItem(recoveryKey(context));setPending(null);accept(result);setLoaded(true);
+   sessionStorage.removeItem(recoveryKey(context));setPending(null);setAcknowledgedOperation(result.binding.operation_id);accept(result);setLoaded(true);
   }catch(caught){if(current===epoch.current)setError(String(caught));}
   finally{if(current===epoch.current)setBusy(false);}
  }
@@ -72,7 +74,7 @@ export function PlanSceneEncounter({context}:{context:PlanEncounterContext}){
    if(!result){setError('Creation is not acknowledged yet. The original request is retained; retry it explicitly.');return;}
    await assertSceneCreation(result,context,pending);
    if(current!==epoch.current)return;
-   sessionStorage.removeItem(recoveryKey(context));setPending(null);accept(result);setLoaded(true);
+   sessionStorage.removeItem(recoveryKey(context));setPending(null);setAcknowledgedOperation(result.binding.operation_id);accept(result);setLoaded(true);
   }catch(caught){if(current===epoch.current)setError(String(caught));}
   finally{if(current===epoch.current)setBusy(false);}
  }
@@ -82,7 +84,7 @@ export function PlanSceneEncounter({context}:{context:PlanEncounterContext}){
   try{
    const result=await cancelSceneTemplateCreation(context.worldId,pending);
    if(current!==epoch.current)return;
-   if(result.state==='applied'){await assertSceneCreation(result.view,context,pending);if(current!==epoch.current)return;accept(result.view);}
+   if(result.state==='applied'){await assertSceneCreation(result.view,context,pending);if(current!==epoch.current)return;setAcknowledgedOperation(result.view.binding.operation_id);accept(result.view);}
    else if(result.state!=='canceled'||result.operation_id!==pending.operation_id||result.world_id!==context.worldId||result.request_digest!==await sceneCreationDigest(context.worldId,pending))throw new Error('Cancellation acknowledgement differs from retained intent.');
    if(current!==epoch.current)return;
    sessionStorage.removeItem(recoveryKey(context));setPending(null);setLoaded(true);
@@ -96,7 +98,8 @@ export function PlanSceneEncounter({context}:{context:PlanEncounterContext}){
   finally{if(current===epoch.current)setBusy(false);}
  }
  async function refresh(){const current=epoch.current;setBusy(true);setError(null);try{const result=await getSceneTemplate(context);if(current===epoch.current){if(result)accept(result);setLoaded(true);}}catch(caught){if(current===epoch.current)setError(String(caught));}finally{if(current===epoch.current)setBusy(false);}}
- return <section aria-label={`Encounter preparation for ${context.sceneTitle}`}>
+ return <section data-guided-control="encounter" tabIndex={-1} aria-label={`Encounter preparation for ${context.sceneTitle}`}>
+  <EncounterTourObservation view={view} context={context} acknowledgedOperation={acknowledgedOperation} error={error} pending={!!pending||busy}/>
   <h2>{context.sceneTitle} · Encounter</h2>
   <p>Prepare this scene’s enemies here. Saved versions stay with the Plan.</p>
   {error&&<p role="alert">{error}</p>}{!loaded&&error&&!recoveryInvalid&&<button disabled={busy} onClick={()=>void refresh()}>Retry opening encounter</button>}

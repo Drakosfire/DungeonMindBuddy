@@ -1,3 +1,4 @@
+import {PlanTourObservation,type TourPlanSave} from '../guidedTour/OwnerObservations';
 import {capturePlanPlacementCatalog} from './agentEdit/planPlacementCatalog';
 import {readPlanAuthoringReview,type PlanReviewApplication} from "../api/planAuthoringReviewApi";
 import {SurfaceContextPopover} from '../surfaceInteraction/contextHost';
@@ -384,6 +385,7 @@ function WorldOwnedPlanPage({ worldId, worldName }: { worldId: string; worldName
   const [sourceEditing, setSourceEditing] = useState(false);
   const sourceEditingRef = useRef(sourceEditing);
   sourceEditingRef.current = sourceEditing;
+  const [tourPlanSave,setTourPlanSave]=useState<TourPlanSave|null>(null);
   const [savedBasis, setSavedBasis] = useState<WorldPlanCardBasis>({ status: "unavailable" });
   const [createUncertain, setCreateUncertain] = useState(initialLocalDraft?.create_uncertain ?? false);
   const [uncertainCreateDraft, setUncertainCreateDraft] = useState(localDraft?.uncertain_create_draft ?? null);
@@ -1258,6 +1260,7 @@ function WorldOwnedPlanPage({ worldId, worldName }: { worldId: string; worldName
       serverDigestRef.current = committed.normalized_content_sha256;
       if (isCurrent()) {
         setLastSavedAt(committedAt);
+        setTourPlanSave(committedAt?{worldId,documentId:exactId,revision:committed.registry_revision,digest:committed.normalized_content_sha256,observedAt:committedAt}:null);
         setSavedBasis({
           status: "verified",
           revision: committed.registry_revision,
@@ -1984,6 +1987,7 @@ function WorldOwnedPlanPage({ worldId, worldName }: { worldId: string; worldName
   })();
   return (
     <AppChrome activeRoute="plan" editorTools={editorToolsGeneration} editToolboxLayout="dock" workspaceLayout="bounded">
+      <PlanTourObservation verified={canStartPlayFromSavedPlan&&!savedPlanDirty&&savedBasis.status==="verified"&&sessionStart?.documentId===documentId&&sessionStart?.worldId===worldId&&sessionStart.pin.contentSha256===savedBasis.contentSha256?sessionStart:null} error={startPlayError} saved={tourPlanSave} registryRevision={savedBasis.status==="verified"?savedBasis.revision:null}/>
       <WorldPlanSurfaceContext
         worldId={worldId}
         worldName={worldName}
@@ -2027,7 +2031,7 @@ function WorldOwnedPlanPage({ worldId, worldName }: { worldId: string; worldName
             <SurfaceNavbarIconButton icon="save" label="Retry save" className="world-plan-context-toolbar__retry"
               onClick={() => { setAutoSavePaused(false); void saveRef.current(); }} />
           ) : null}
-          <SurfaceContextPopover title="Start session" open={sessionStart?.documentId===documentId&&sessionStart?.worldId===worldId} onOpenChange={open=>{if(!open)setSessionStart(null);}} align="end" trigger={<SurfaceNavbarIconButton icon="play" label={startingPlay ? "Verifying saved Plan…" : "Start Play from this Plan"} className="world-plan-context-toolbar__start" data-testid="world-plan-start-play"
+          <SurfaceContextPopover title="Start session" open={sessionStart?.documentId===documentId&&sessionStart?.worldId===worldId} onOpenChange={open=>{if(!open)setSessionStart(null);}} align="end" trigger={<SurfaceNavbarIconButton icon="play" label={startingPlay ? "Verifying saved Plan…" : "Start Play from this Plan"} className="world-plan-context-toolbar__start" data-testid="world-plan-start-play" data-guided-control="plan start-play"
             aria-describedby={status === "ready" && !canStartPlayFromSavedPlan && !startingPlay && documentId ? "world-plan-start-play-reason" : undefined}
             title={canStartPlayFromSavedPlan ? "Start Play from this saved Plan" : "Save and reopen a clean, committed Plan before starting Play."}
             disabled={!canStartPlayFromSavedPlan} onClick={() => { void startPlayFromSavedPlan(); }} />}>

@@ -56,13 +56,23 @@ export function GuidedTourProvider({worldId,children}:{worldId:string|null;child
  const step=JOURNEY_STEPS[walkthrough?.index??0];
  const candidates=Array.from(owners.values()).filter(r=>r.step===step.id);
  const reading=candidates.length===1?candidates[0]:null;
+ const readingSignature=JSON.stringify(reading);
+ const row=walkthrough?.steps[step.id];
+ useEffect(()=>{
+  if(!walkthrough||walkthrough.phase!=='running'||!reading||reading.status==='ready'||!reading.reason||!row
+   ||!['pending','failed','unavailable'].includes(row.state))return;
+  const bound=reading.target?walkthrough.bindings[reading.target.kind]:null;
+  if(bound&&reading.target&&bound.objectId!==reading.target.objectId)return;
+  if(row.state===reading.status&&row.reason===reading.reason)return;
+  change({kind:'disposition',step:step.id,state:reading.status,reason:reading.reason});
+ },[walkthrough?.id,walkthrough?.phase,step.id,readingSignature,row?.state,row?.reason,change]);
  const bind=()=>{
   if(!reading?.target)return;
   change({kind:'bind',pin:reading.target,...(reading.parent?{parent:reading.parent}:{})});
   if(reading.observation)change({kind:'observe',observation:reading.observation});
  };
  const showControl=()=>{
-  const targets=document.querySelectorAll<HTMLElement>(`[data-guided-control="${step.control}"]`);
+  const targets=document.querySelectorAll<HTMLElement>(`[data-guided-control~="${step.control}"]`);
   if(targets.length!==1){setError(targets.length?'More than one control is available. Open the intended object first.':'Open the surface and controls described in this step.');return;}
   const target=targets[0];
   target.scrollIntoView({block:'center',behavior:window.matchMedia('(prefers-reduced-motion: reduce)').matches?'auto':'smooth'});

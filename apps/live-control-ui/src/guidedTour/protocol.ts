@@ -1,5 +1,6 @@
 import {JOURNEY_STEPS,TOUR_DEFINITION,type Adventure,type StepId,type TargetKind} from './definition';
-export interface TargetPin {kind:TargetKind;worldId:string;objectId:string;revision:number;digest:string}
+export interface TargetPin {kind:TargetKind;worldId:string;objectId:string;revision:number;digest:string;revisionId?:string}
+export interface EncounterEvidence {kind:'encounter';sceneId:string;encounterId:string;revision:number;digest:string;operationId:string}
 export interface Observation {
  step:StepId;target:TargetPin;observedAt:string;
  origin:'existing'|'acknowledged'|'reloaded';
@@ -7,6 +8,7 @@ export interface Observation {
  receiptId:string;
  /** Parent pins and specialized evidence are checked by the owning adapter. */
  parent?:TargetPin;
+ proof?:EncounterEvidence;
 }
 export type StepState = 'pending'|'existing'|'completed'|'skipped'|'failed'|'unavailable';
 export interface StepRecord {state:StepState;reason:string|null;evidence:Observation[]}
@@ -16,17 +18,19 @@ export interface Walkthrough {
  bindings:Partial<Record<TargetKind,TargetPin>>;
  steps:Record<StepId,StepRecord>;
 }
-export const samePin=(a:TargetPin,b:TargetPin)=>a.kind===b.kind&&a.worldId===b.worldId&&a.objectId===b.objectId&&a.revision===b.revision&&a.digest===b.digest;
+export const samePin=(a:TargetPin,b:TargetPin)=>a.kind===b.kind&&a.worldId===b.worldId&&a.objectId===b.objectId&&a.revision===b.revision&&a.digest===b.digest&&a.revisionId===b.revisionId;
 const digest=(v:unknown):v is string=>typeof v==='string'&&/^[a-f0-9]{64}$/.test(v);
 const text=(v:unknown):v is string=>typeof v==='string'&&!!v.trim();
 const record=(v:unknown):v is Record<string,unknown>=>!!v&&typeof v==='object'&&!Array.isArray(v);
 const exact=(v:unknown,keys:string[]):v is Record<string,unknown>=>record(v)&&Object.keys(v).length===keys.length&&keys.every(k=>Object.hasOwn(v,k));
 export function validPin(value:unknown,world:string):value is TargetPin {
- return exact(value,['kind','worldId','objectId','revision','digest'])&&['source','plan','run'].includes(String(value.kind))&&value.worldId===world&&text(value.objectId)&&Number.isSafeInteger(value.revision)&&Number(value.revision)>0&&digest(value.digest);
+ return exact(value,['kind','worldId','objectId','revision','digest',...(record(value)&&value.kind==='plan'?['revisionId']:[])])&&['source','plan','run'].includes(String(value.kind))&&value.worldId===world&&text(value.objectId)&&Number.isSafeInteger(value.revision)&&Number(value.revision)>0&&digest(value.digest)&&(value.kind!=='plan'||text(value.revisionId));
 }
 export function validObservation(v:unknown,world:string):v is Observation {
- if(!record(v)||!exact(v,['step','target','observedAt','origin','receiptId',...('parent' in v?['parent']:[])]))return false;
+ if(!record(v)||!exact(v,['step','target','observedAt','origin','receiptId',...('parent' in v?['parent']:[]),...('proof' in v?['proof']:[])]))return false;
  const definition=JOURNEY_STEPS.find(s=>s.id===v.step);
+ if(v.step==='encounter'){const p=v.proof;if(!exact(p,['kind','sceneId','encounterId','revision','digest','operationId'])||p.kind!=='encounter'||!text(p.sceneId)||!text(p.encounterId)||!Number.isSafeInteger(p.revision)||Number(p.revision)<1||!text(p.digest)||!/^sha256:[a-f0-9]{64}$/.test(p.digest)||!text(p.operationId))return false;}
+ else if('proof' in v)return false;
  return !!definition&&validPin(v.target,world)&&v.target.kind===definition.target&&text(v.observedAt)&&Number.isFinite(Date.parse(v.observedAt))
   &&['existing','acknowledged','reloaded'].includes(String(v.origin))&&text(v.receiptId)&&(!('parent' in v)||validPin(v.parent,world));
 }
@@ -42,7 +46,7 @@ export function decodeWalkthrough(bytes:string,world:string):Walkthrough {
  for(const step of JOURNEY_STEPS){
   const row=v.steps[step.id] as unknown as StepRecord;
   if(row.state==='completed'&&!row.evidence.some(e=>e.origin!=='existing'&&Date.parse(e.observedAt)>=Date.parse(v.startedAt as string)))throw new Error('Completion has no newly demonstrated evidence.');
-  for(const e of row.evidence){const bound=v.bindings[e.target.kind];if(!validPin(bound,world)||bound.objectId!==e.target.objectId||e.target.revision===bound.revision&&e.target.digest!==bound.digest)throw new Error('Evidence belongs to a different target.');
+  for(const e of row.evidence){const bound=v.bindings[e.target.kind];if(!validPin(bound,world)||bound.objectId!==e.target.objectId||e.target.revision===bound.revision&&!samePin(e.target,bound))throw new Error('Evidence belongs to a different target.');
    if(e.target.kind==='run'&&(!validPin(v.bindings.plan,world)||!e.parent||!samePin(v.bindings.plan,e.parent)))throw new Error('Run evidence has a different Plan pin.');}
  }
  return v as unknown as Walkthrough;
@@ -70,7 +74,7 @@ export function reduceTour(current:Walkthrough,action:TourAction):Walkthrough {
  const bound=current.bindings[observation.target.kind];
  // A later revision of the same selected object is evidence, never a target replacement.
  if(!bound||bound.objectId!==observation.target.objectId||observation.target.revision<bound.revision
-  ||observation.target.revision===bound.revision&&observation.target.digest!==bound.digest)return current;
+  ||observation.target.revision===bound.revision&&!samePin(observation.target,bound))return current;
  if(observation.target.kind==='run'&&(!current.bindings.plan||!observation.parent||!samePin(current.bindings.plan,observation.parent)))return current;
  const row=current.steps[observation.step];
  if(row.evidence.some(e=>e.receiptId===observation.receiptId&&samePin(e.target,observation.target)&&e.origin===observation.origin))return current;

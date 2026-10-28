@@ -1,3 +1,4 @@
+import {PlayTourObservation} from '../guidedTour/OwnerObservations';
 import {useAgentInteraction} from '../agentInteraction/useAgentInteraction';
 import {SceneEncounterLauncher} from '../combat/SceneEncounterLauncher';
 import {TABLE_TOOL,TABLE_PROJECTION,TABLE_BINDING_ID,pendingTableKey,usePreparedTablesProjection,type PreparedTablesBinding} from "../preparedTables/preparedTablesProjection";
@@ -1067,6 +1068,7 @@ function PlayRuntimePage() {
 
   return (
     <AppChrome activeRoute="play">
+      <PlayTourObservation run={admittedRun?.schema_version==="dmb_world_play_run_record_v2"?admittedRun:null} blocked={sessionCopyBlocked||mutationStatus!=="idle"} error={loadStatus==="integrity_failure"?detail:null}/>
       {loadStatus !== "chooser" ? <PlaySurfaceContext id="play-page-context" order={10} identity={playSurfaceContextIdentity(admittedRun, runQuery)}>
         <SurfaceContextAction type="button" data-testid="play-load-run" onClick={navigateToChooser}>Load</SurfaceContextAction>
         {selectedWorldId ? <WorkspaceTrashControl showTrash={false} worldId={selectedWorldId}

@@ -164,7 +164,7 @@ export function BuildSurfaceContext({
                   </span>
                 </>
               ) : null}
-              {session ? <SurfaceNavbarIconButton icon="save" label={saveBusy ? "Saving…" : "Save"} className="build-navbar-save" data-testid="build-navbar-save"
+              {session ? <SurfaceNavbarIconButton icon="save" label={saveBusy ? "Saving…" : "Save"} className="build-navbar-save" data-testid="build-navbar-save" data-guided-control="save"
                 disabled={session.saveDisabled || documentMutationBusy}
                 title={documentMutationBusy ? "Wait for the current document action to finish." : (session.phase === "conflict" ? "Resolve the browser draft conflict before saving." : session.saveDisabledReason) ?? undefined}
                 aria-describedby={needsRecovery && session.saveDisabled && session.dirty ? "build-save-reason" : undefined}
