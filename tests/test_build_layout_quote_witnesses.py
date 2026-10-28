@@ -1,6 +1,7 @@
 """Layout matching preserves selected-source identity and every non-space character."""
 
 import json
+from hashlib import sha256
 from copy import deepcopy
 from types import SimpleNamespace
 
@@ -110,15 +111,35 @@ def build_case(tmp_path, monkeypatch, application_state_dsn):
 
 
 @pytest.fixture
-def completed_layout(build_case, monkeypatch, tmp_path):
+def completed_layout(build_case, monkeypatch, tmp_path, request):
     from tests.test_build_related_pages import completed, PagesWriter
 
     original = PagesWriter.handle_async_request
+    request_profile = request
 
     async def wrapped(self, request):
         response = await original(self, request)
         body = response.json()
         output = json.loads(body["output"][0]["content"][0]["text"])
+        if getattr(request_profile, "param", None) == "native":
+            input_packet = json.loads(json.loads(request.content)["input"])
+            source = input_packet["opened_passages"][0]
+            from application_state.agent_conversation.build_draft_answer import (
+                source_claim_limitations,
+            )
+
+            output.update(
+                answer_context_status="source_grounded_partial",
+                answer_segments=[
+                    {
+                        "kind": "source_passage_claim",
+                        "text": "Frank believes the western gate is haunted.",
+                        "passage_handles": [source["handle"]],
+                        "supporting_quotes": [source["text"]],
+                    }
+                ],
+                limitations=sorted(source_claim_limitations(input_packet)),
+            )
         for segment in output["answer_segments"]:
             if "supporting_quotes" in segment:
                 segment["supporting_quotes"] = [
@@ -242,3 +263,73 @@ def test_layout_fence_preserves_every_row(completed_layout, application_state_ds
     with pytest.raises(RuntimeError, match="recovery forward"):
         migration.downgrade()
     assert rows() == before
+
+
+@pytest.mark.parametrize("control", ["\u001c", "\u001d", "\u001e", "\u001f"])
+def test_non_white_space_control_separators_remain_significant(control):
+    with pytest.raises(ValueError):
+        quotes.validate_and_project(answer("A B"), packet("A" + control + "B"))
+    with pytest.raises(ValueError):
+        quotes.validate_and_project(answer("A" + control + "B"), packet("A B"))
+    assert quotes.validate_and_project(
+        answer("A" + control + "B"), packet("A" + control + "B")
+    )
+
+
+@pytest.mark.parametrize(
+    "whitespace",
+    [
+        chr(code)
+        for code in (
+            *range(0x0009, 0x000E),
+            0x0020,
+            0x0085,
+            0x00A0,
+            0x1680,
+            *range(0x2000, 0x200B),
+            0x2028,
+            0x2029,
+            0x202F,
+            0x205F,
+            0x3000,
+        )
+    ],
+)
+def test_each_unicode_white_space_character_matches_layout(whitespace):
+    assert quotes.validate_and_project(answer("A B"), packet("A" + whitespace + "B"))
+
+
+@pytest.mark.parametrize("completed_layout", ["native"], indirect=True)
+def test_actual_sdk_app_native_passage_layout_claim_retains_exact_citation(
+    completed_layout,
+):
+    turn, service, _, _, _, transport, _ = completed_layout
+    assert len(transport.calls) == 1 and turn.completion.source_citations
+    wire = json.loads(transport.calls[0].content)
+    input_packet = json.loads(wire["input"])
+    assert wire["text"]["format"]["name"].endswith("_quotes_v3")
+    raw = json.loads(transport.raw_output)
+    (segment,) = raw["answer_segments"]
+    passage = next(
+        row
+        for row in input_packet["opened_passages"]
+        if row["handle"] == segment["passage_handles"][0]
+    )
+    (quote,) = segment["supporting_quotes"]
+    assert quote not in passage["text"]
+    assert (
+        quotes.validate_and_project(raw, input_packet)["answer_segments"][0]["text"]
+        == segment["text"]
+    )
+    (citation,) = turn.completion.source_citations
+    (authorization,) = [
+        event
+        for event in turn.graph_context_execution.events
+        if isinstance(event, t.ProviderAttemptAuthorizedEventV1)
+        and event.provider_attempt_id == citation.provider_attempt_id
+    ]
+    assert authorization.provider == "openai"
+    assert (
+        authorization.envelope_sha256 == sha256(transport.calls[0].content).hexdigest()
+    )
+    assert service.inspect_turn(world_id=turn.world_id, turn_id=turn.turn_id) == turn

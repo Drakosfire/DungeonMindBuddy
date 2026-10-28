@@ -1,6 +1,7 @@
 """Exact source witnesses, not an entailment judge or citation repair."""
 
 from copy import deepcopy
+import re
 
 POLICY = "exact_source_quote_binding_v1"
 CURRENT_POLICY = "layout_whitespace_source_quote_binding_v2"
@@ -47,8 +48,17 @@ def format_name(name, packet):
     return name + format_suffix(packet)
 
 
+# Unicode 17 White_Space, exactly 25 code points; Python str.split also drops
+# non-White_Space controls U+001C..U+001F. Keep those significant.
+# https://www.unicode.org/Public/17.0.0/ucd/PropList.txt
+_LAYOUT_WHITESPACE = re.compile(
+    "[\u0009-\u000d\u0020\u0085\u00a0\u1680\u2000-\u200a"
+    "\u2028\u2029\u202f\u205f\u3000]+"
+)
+
+
 def _fold_layout(value):
-    return " ".join(value.split())
+    return _LAYOUT_WHITESPACE.sub(" ", value).strip(" ")
 
 
 def sources(packet):
