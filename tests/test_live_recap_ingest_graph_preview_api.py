@@ -22,6 +22,85 @@ def _ingest_application_state(application_state_dsn: str) -> str:
     return application_state_dsn
 
 
+def _write_synthetic_session(tmp_path: Path) -> None:
+    """Create minimal synthetic session state for the database-backed route test."""
+    packet = {
+        "schema_version": "0.1.0",
+        "campaign_id": "synthetic-campaign",
+        "session": 1,
+        "packet_id": "packet:synthetic-session",
+        "created_at": "2026-10-28T00:00:00Z",
+        "source_paths": [{"path": "synthetic-recap.md", "role": "fixture"}],
+        "latency_modes": [],
+        "known_roll_tables": [],
+        "current_state_seed": {
+            "day_label": "Synthetic Day One",
+            "party_position": "Synthetic Test Room",
+            "route_intent": "Exercise recap routing",
+            "active_weather": None,
+            "next_suggested_beat": None,
+        },
+        "open_loops": [],
+        "roll_stack": [],
+        "surface_catalog": [
+            {
+                "module_id": "chat",
+                "title": "Synthetic Chat",
+                "default_slot": "main",
+                "required": True,
+                "enabled_by_default": True,
+            },
+            {
+                "module_id": "record",
+                "title": "Synthetic Record",
+                "default_slot": "sidebar",
+                "required": True,
+                "enabled_by_default": True,
+            },
+        ],
+    }
+    layout = {
+        "schema_version": "0.1.0",
+        "layout_version": 1,
+        "updated_at": "2026-10-28T00:00:00Z",
+        "campaign_id": "synthetic-campaign",
+        "session": 1,
+        "modules": [
+            {
+                "module_id": "chat",
+                "slot": "main",
+                "order": 0,
+                "enabled": True,
+                "collapsed": False,
+            },
+            {
+                "module_id": "record",
+                "slot": "sidebar",
+                "order": 0,
+                "enabled": True,
+                "collapsed": False,
+            },
+        ],
+    }
+    initial_state = {
+        "schema_version": "0.1.0",
+        "campaign_id": "synthetic-campaign",
+        "session": 1,
+        "derived": True,
+        "authoritative": False,
+        "derived_from": ["live_packet.json", "surface_layout.json"],
+        "generated_at": "2026-10-28T00:00:00Z",
+    }
+    for filename, value in (
+        ("live_packet.json", packet),
+        ("surface_layout.json", layout),
+        ("current_state.json", initial_state),
+    ):
+        (tmp_path / filename).write_text(
+            json.dumps(value, sort_keys=True) + "\n", encoding="utf-8"
+        )
+
+
 @pytest.fixture
 def client_env(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> tuple[TestClient, Path, Path]:
     from apps.live_control_server.services import recap_ingest_context
@@ -82,6 +161,68 @@ def client_env(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> tuple[TestCli
         yield TestClient(create_app()), corpus, candidate
     finally:
         shutil.rmtree(graph_runs, ignore_errors=True)
+
+
+@pytest.fixture
+def synthetic_client_env(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> tuple[TestClient, Path, Path]:
+    from apps.live_control_server.services import recap_ingest_context
+
+    monkeypatch.setitem(globals(), "ROOT", tmp_path)
+    monkeypatch.setattr(
+        "apps.live_control_server.routes.recap_ingest.repo_root", lambda: tmp_path
+    )
+    monkeypatch.setattr(
+        "apps.live_control_server.routes.graph_preview.repo_root", lambda: tmp_path
+    )
+    monkeypatch.setenv("DMB_ARTIFACT_DATA_ROOT", str(tmp_path))
+    monkeypatch.setenv("DMB_DEPLOYMENT_ENVIRONMENT", "local")
+    monkeypatch.setenv("DMB_AUTH_MODE", "local_operator")
+    graph_root = tmp_path / "out"
+    graph_root.mkdir(parents=True, exist_ok=True)
+    monkeypatch.setenv("DUNGEONMIND_WORLD_GRAPH_ROOT", str(graph_root))
+
+    class FakeContext:
+        def as_lineage(self) -> dict[str, object]:
+            return {
+                "schema": "dm_world_campaign_ingest_context_v1",
+                "managed_world_id": "synthetic-world",
+                "native_world_id": "world:synthetic-world",
+                "binding_version": 3,
+                "campaign_id": "synthetic-campaign",
+                "head_revision_id": "rev:synthetic-head",
+                "graph_schema": "dm_graph_v1",
+                "graph_payload_sha256": "a" * 64,
+            }
+
+    monkeypatch.setattr(
+        recap_ingest_context,
+        "read_recap_ingest_context",
+        lambda **_kwargs: FakeContext(),
+    )
+    _write_synthetic_session(tmp_path)
+    (tmp_path / "event_log.jsonl").write_text("", encoding="utf-8")
+    (tmp_path / "job_queue.jsonl").write_text("", encoding="utf-8")
+    monkeypatch.setenv(SESSION_DIR_ENV, str(tmp_path))
+
+    corpus = tmp_path / "external-corpus"
+    graph_runs = tmp_path / "out/graph_memory/runs/synthetic-campaign/session-1"
+    source_registry = tmp_path / "out/registries"
+    campaign = corpus / "Synthetic Campaign"
+    (campaign / "_ingest_staging").mkdir(parents=True, exist_ok=True)
+    (campaign / "Session Recaps").mkdir(parents=True, exist_ok=True)
+    monkeypatch.setenv(CORPUS_ENV, str(corpus))
+    monkeypatch.setenv("DUNGEONMIND_GRAPH_INGEST_RUNS_ROOT", "out/graph_memory/runs")
+
+    candidate = tmp_path / "out/test_recap_ingest_graph_preview/candidate_graph_fixture.json"
+    candidate.parent.mkdir(parents=True, exist_ok=True)
+    candidate.write_text(CANDIDATE_FIXTURE.read_text(encoding="utf-8"), encoding="utf-8")
+    try:
+        yield TestClient(create_app(), client=("127.0.0.1", 50000)), corpus, candidate
+    finally:
+        shutil.rmtree(graph_runs, ignore_errors=True)
+        shutil.rmtree(source_registry, ignore_errors=True)
 
 
 def _prepare_normalized(client: TestClient) -> None:
@@ -891,7 +1032,7 @@ def test_recap_ingest_generate_recap_memory_without_graph_extraction(
 
 
 def test_recap_ingest_generate_recap_memory_with_graph_extraction_fake_client(
-    client_env: tuple[TestClient, Path, Path],
+    synthetic_client_env: tuple[TestClient, Path, Path],
     monkeypatch: pytest.MonkeyPatch,
     tmp_path: Path,
 ) -> None:
@@ -913,7 +1054,7 @@ def test_recap_ingest_generate_recap_memory_with_graph_extraction_fake_client(
         WorldGraphProjectionTrustBoundary,
     )
 
-    client, corpus, _candidate = client_env
+    client, corpus, _candidate = synthetic_client_env
     _patch_fake_category_extract(monkeypatch)
     _patch_retired_union_materialize(monkeypatch)
 
@@ -921,11 +1062,11 @@ def test_recap_ingest_generate_recap_memory_with_graph_extraction_fake_client(
         "/api/live/recap-ingest",
         json={
             "operation": "generate_recap_memory",
-            "campaign_id": "longmont-c2",
-            "managed_world_id": "elderwyld",
-            "session": 22,
-            "raw_text": "Session 22 Recap\n\nThe group scouts the Mireward road.",
-            "slug": "Mireward Road Dogfood",
+            "campaign_id": "synthetic-campaign",
+            "managed_world_id": "synthetic-world",
+            "session": 1,
+            "raw_text": "Synthetic recap\n\nA group explores a test location.",
+            "slug": "Synthetic Recap",
             "include_graph_extraction": True,
             "graph_model_id": "deepseek/deepseek-v4.1-flash-1017",
         },
@@ -947,7 +1088,7 @@ def test_recap_ingest_generate_recap_memory_with_graph_extraction_fake_client(
     run = get_extraction_run(ROOT, graph["extraction_run_id"])
     artifact = get_source_artifact(ROOT, run.source_artifact_id)
     assert artifact.source_artifact_id.startswith("artifact:recap:v2:")
-    assert artifact.world_id == "world:elderwyld"
+    assert artifact.world_id == "world:synthetic-world"
     assert run.lineage["world_campaign_ingest_context"]["native_world_id"] == artifact.world_id
     assert graph["candidate_graph_path"]
     assert (ROOT / graph["candidate_graph_path"]).is_file()
@@ -980,7 +1121,7 @@ def test_recap_ingest_generate_recap_memory_with_graph_extraction_fake_client(
                 focus=WorldGraphProjectionFocus(
                     kind="session",
                     campaign_id=request.campaign_id,
-                    session_id="session-22",
+                    session_id="session-1",
                 ),
                 admissibility="gm",
                 scope_mode="campaign",
@@ -994,11 +1135,11 @@ def test_recap_ingest_generate_recap_memory_with_graph_extraction_fake_client(
             ),
             nodes=[
                 WorldGraphProjectionNodeView(
-                    node_id="node:mireward",
-                    label="Mireward",
+                    node_id="node:test-location",
+                    label="Test Location",
                     kind="location",
                     role="place",
-                    summary="A road in the fixture projection.",
+                    summary="A synthetic place in the fixture projection.",
                     source_artifact_ids=[artifact.source_artifact_id],
                 )
             ],
@@ -1013,7 +1154,7 @@ def test_recap_ingest_generate_recap_memory_with_graph_extraction_fake_client(
     )
     monkeypatch.setattr("apps.live_control_server.routes.graph_preview.repo_root", lambda: ROOT)
     managed_root = tmp_path / "managed-worlds"
-    world_source_root = managed_root / "corpus/elderwyld-markdown"
+    world_source_root = managed_root / "corpus/synthetic-world-markdown"
     world_source_root.mkdir(parents=True)
     registry_path = managed_root / "out/registries/world_containers.json"
     registry_path.parent.mkdir(parents=True)
@@ -1023,12 +1164,12 @@ def test_recap_ingest_generate_recap_memory_with_graph_extraction_fake_client(
                 records=[
                     WorldContainerRecord(
                         schema_version="dmb_world_container_record_v2",
-                        world_id="elderwyld",
-                        name="Elderwyld",
-                        source_root_relpath="corpus/elderwyld-markdown",
+                        world_id="synthetic-world",
+                        name="Synthetic World",
+                        source_root_relpath="corpus/synthetic-world-markdown",
                         created_at="2026-01-01T00:00:00Z",
                         native_graph_binding=NativeGraphBindingRecord(
-                            native_world_id="world:elderwyld",
+                            native_world_id="world:synthetic-world",
                             status="active",
                             binding_version=3,
                             validated_at="2026-01-01T00:00:00Z",
@@ -1043,16 +1184,16 @@ def test_recap_ingest_generate_recap_memory_with_graph_extraction_fake_client(
     monkeypatch.setenv("DMB_MANAGED_WORLD_DATA_ROOT", str(managed_root))
     projection = client.get(
         f"/api/live/graph-preview/extraction-runs/{run.run_id}/recap-projection"
-        "?managed_world_id=elderwyld"
+        "?managed_world_id=synthetic-world"
     )
     assert projection.status_code == 200, projection.text
     projected = projection.json()
-    assert projected["worldId"] == "world:elderwyld"
-    assert projected["managedWorldId"] == "elderwyld"
+    assert projected["worldId"] == "world:synthetic-world"
+    assert projected["managedWorldId"] == "synthetic-world"
     assert projected["bindingVersion"] == 3
     assert projected["sourceArtifactId"] == artifact.source_artifact_id
-    assert projected["nodeViews"]["node:mireward"]["label"] == "Mireward"
-    assert observed["request"].world_id == "world:elderwyld"
+    assert projected["nodeViews"]["node:test-location"]["label"] == "Test Location"
+    assert observed["request"].world_id == "world:synthetic-world"
 
 
 def test_generate_recap_memory_reuses_preview_graph_without_force(

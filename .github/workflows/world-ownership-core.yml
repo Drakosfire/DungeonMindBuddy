@@ -1,0 +1,79 @@
+name: World ownership core tests
+
+on:
+  pull_request:
+    branches: [main]
+    types: [opened, synchronize, reopened]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: world-ownership-core-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  world-ownership-tests:
+    name: Synthetic ownership and registry tests
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: dungeonmind
+          POSTGRES_HOST_AUTH_METHOD: trust
+          POSTGRES_DB: postgres
+        ports:
+          - 54329:5432
+        options: >-
+          --health-cmd "pg_isready -U dungeonmind -d postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 12
+    env:
+      DMB_APPLICATION_STATE_TEST_DATABASE_URL: postgresql://dungeonmind@127.0.0.1:54329/postgres
+    steps:
+      - name: Checkout complete source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          clean: true
+          persist-credentials: false
+
+      - name: Set up Python 3.13
+        uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: "3.13"
+
+      - name: Set up pinned uv
+        uses: astral-sh/setup-uv@07a047e608db84b3d8c06cd9a7c7dcc9c355c18e # v10.3.2
+        with:
+          version: "0.13.5"
+          enable-cache: false
+
+      - name: Prepare pinned patched Hermes source
+        run: python scripts/prepare_patched_hermes.py
+
+      - name: Install locked dependencies
+        run: uv sync --locked
+
+      - name: Lint ownership and binding changes
+        run: >-
+          uv run --locked ruff check
+          apps/live_control_server/services/world_container_registry.py
+          apps/live_control_server/services/world_graph_binding.py
+          tests/conftest.py
+          tests/test_live_recap_ingest_graph_preview_api.py
+          tests/test_live_world_containers.py
+          tests/test_world_access_control.py
+          tests/test_world_container_registry.py
+          tests/test_world_graph_binding.py
+
+      - name: Run synthetic ownership boundary tests
+        run: >-
+          uv run --locked pytest -q --tb=short --show-capture=no
+          tests/test_world_access_control.py
+          tests/test_world_container_registry.py
+          tests/test_world_graph_binding.py
+          tests/test_live_world_containers.py
+          tests/test_live_recap_ingest_graph_preview_api.py::test_recap_ingest_generate_recap_memory_with_graph_extraction_fake_client

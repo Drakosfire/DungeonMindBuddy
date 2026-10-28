@@ -15,6 +15,8 @@ from apps.live_control_server.services.registry_file_lock import registry_mutati
 from apps.live_control_server.services.world_container_registry import (
     NativeGraphBindingRecord,
     NativeGraphProvisioningRecord,
+    RECORD_SCHEMA,
+    REGISTRY_SCHEMA,
     WorldContainerRecord,
     WorldContainerRegistryError,
     WorldContainerRegistryDocument,
@@ -251,14 +253,14 @@ def bind_native_graph(
             validated_head_revision_id=validated_head_revision_id,
         )
         updated = current.model_copy(
-            update={"native_graph_binding": binding, "schema_version": "dmb_world_container_record_v2"}
+            update={"native_graph_binding": binding, "schema_version": RECORD_SCHEMA}
         )
         updated_records = [
             updated if record.world_id == cleaned_managed_id else record
             for record in document.records
         ]
         next_document = WorldContainerRegistryDocument(
-            schema_version="dmb_world_container_registry_v2",
+            schema_version=REGISTRY_SCHEMA,
             records=updated_records,
         )
         _save_cas(root, next_document, expected_token=expected_token)
@@ -398,7 +400,7 @@ def deactivate_native_graph_binding(
         )
         updated = current.model_copy(update={"native_graph_binding": inactive_binding})
         next_document = WorldContainerRegistryDocument(
-            schema_version="dmb_world_container_registry_v2",
+            schema_version=REGISTRY_SCHEMA,
             records=[
                 updated if record.world_id == cleaned_managed_id else record
                 for record in document.records
