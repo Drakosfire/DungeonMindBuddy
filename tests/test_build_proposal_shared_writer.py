@@ -21,12 +21,14 @@ class Parent:
     def __init__(self, request, *, deny=None, raises=False):
         self.request, self.deny, self.raises = request, deny, raises
         self.prepared, self.events = [], []
+        self.writer_model = "gpt-6-luna"
 
     def row(self):
         return BuildProposalService().get('elderwyld', self.request.idempotency_key)
 
     async def authorize(self, prepared):
         row = self.row()
+        assert prepared.model == self.writer_model
         assert row.state == 'authorized'
         assert str(row.authorization.provider_attempt_id) == prepared.attempt_id
         assert row.authorization.payload_sha256 == prepared.body_sha256
@@ -58,7 +60,7 @@ def setup(request_case, monkeypatch, **options):
     tool, message, wire, turn = setup_tool(request, monkeypatch)
 
     async def compose(body):
-        return await shared(body, parent.gate(), transport=wire)
+        return await shared(body, parent.gate(), writer_model=parent.writer_model, transport=wire)
 
     monkeypatch.setattr(owner, 'compose', compose)
     return request, source, root, parent, tool, message, wire, turn
@@ -122,7 +124,7 @@ def test_shared_seam_requires_real_agent_origin(request_case):
     request, _, _ = request_case
     parent = Parent(request)
     with pytest.raises(ValueError, match='origin_required'):
-        asyncio.run(owner.compose_with_writer(request, parent.gate()))
+        asyncio.run(owner.compose_with_writer(request, parent.gate(), writer_model=parent.writer_model))
     assert parent.prepared == []
 
 

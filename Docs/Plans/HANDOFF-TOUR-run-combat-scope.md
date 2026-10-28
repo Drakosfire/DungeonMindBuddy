@@ -1,0 +1,12 @@
+# TOUR — transport admitted Run context to detached combat projection
+
+ACTIVE. PRIME owns design and implementation from fetched fd35ea59e0ff66c085bf5d5b13a311106b838504 on codex/tour-run-combat-scope in reused buddy-context-loop. Serial successor to delivered PR1863. Operator goal authorizes fixing demonstrated tour friction. Open PRs checked: ingestion, hosted and held1764 lanes do not own these paths. API8000 and retained databases remain untouched; UI5202 delivery uses existing artifact/dependencies after review.
+
+## Invariant and critique
+Actual Run encounter Save/reload succeeds, but the tour sees no acknowledgement because the sibling LegacyProjectionHostAdapter is outside Play’s TourRunProvider. Independent Sol-low read-only critique confirmed the boundary. Transport the already admitted Run/parent pins in the current projection context, explicitly provide them locally after checking World/Run/kinds/parent consistency, and never inherit an ambient fallback for missing or foreign scope. Capture exact pins and tour dispatch on ordinary Save; compare the complete Run and Plan pins before credit. Run/Plan changes, wrong World/scene, pending recovery, errors and newer drafts refuse credit. Existing loads/reloads do not become fresh actions. No domain commands, new lookup or provenance authority.
+
+## Exclusive expected write lease
+This handoff; predecessor HANDOFF-TOUR-current-plan-encounter.md settlement; apps/live-control-ui/src/playSurface/PlaySurfacePage.tsx and tests; combat/RunSceneEncounter.tsx and tests; guidedTour/RunScope.tsx, CombatObservations.tsx and tests; new combat/RunSceneEncounter.tour.test.tsx for the real registration/sibling-host boundary. No backend, schema, dependency or shared registry changes.
+
+## Verification and completion gates
+Mounted test actual registered projection rendered in a sibling host without Play provider ancestry: fresh ordinary Save, missing/foreign pin refusal, Run revision/parent changes during Save, newer drafts, reload remaining existing, tour dispatch fences. Affected tracker/tour/Play tests, typecheck/build, cumulative exact-head independent Bugbot review and CI. Commit/push/open owning PR, merge under PRIME authority after gates, protected UI delivery, then fresh ordinary combat Save/reload/export. Preserve original failed walkthrough and all current data/drafts. Full journey, images, supplied physical rolls, memory, performance and operator acceptance remain open.

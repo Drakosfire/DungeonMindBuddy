@@ -20,7 +20,7 @@ from application_state.build_proposal.types import (
 )
 from .build_jev_driver import digest
 from .hermes_product_prompt import IMAGE_DIRECTION_INSTRUCTIONS
-from .build_document_proposal import _source, _model
+from .build_document_proposal import _source
 
 from application_state.build_proposal.types import ImageDirectionV2
 from application_state.agent_conversation.build_authoring import completion_for_image
@@ -38,7 +38,7 @@ Nothing has been generated, inserted or saved. The user reviews settings and gen
 POLICY = "captured_build_image_prompt_alt_purpose_v2"
 
 
-def writer_request(capability, question, history, related_authored_pages=None, authored_reference_material=None):
+def writer_request(capability, question, history, related_authored_pages=None, authored_reference_material=None, *, writer_model: str):
     snapshot = _source(capability)
     history = project_dialogue(list(history))
     packet = json.dumps(
@@ -58,7 +58,7 @@ def writer_request(capability, question, history, related_authored_pages=None, a
         separators=(",", ":"),
     )
     return {
-        "model": _model(),
+        "model": writer_model,
         "input": packet,
         "instructions": SYSTEM + dialogue_rule(history),
         "max_output_tokens": 4096,
@@ -96,7 +96,7 @@ def prepare_image(harness, adapter, driver):
     from application_state.agent_conversation.build_related_pages import project
     from .build_authored_references import writer_material
     expected = writer_request(
-        cap, adapter.request.message, driver._interaction["history"], related_authored_pages=project(adapter._broker_execution()), authored_reference_material=writer_material(adapter)
+        cap, adapter.request.message, driver._interaction["history"], writer_model=adapter._broker_execution().policy.provider_roles.writer.model, related_authored_pages=project(adapter._broker_execution()), authored_reference_material=writer_material(adapter)
     )
     adapter._build_writer_projection = ProposalWriterProjection(
         json.dumps(expected, ensure_ascii=False, sort_keys=True, separators=(",", ":")),

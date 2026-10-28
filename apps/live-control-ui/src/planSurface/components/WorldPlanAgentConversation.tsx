@@ -1,3 +1,4 @@
+import {useGuidedTour,type TourDispatchScope} from '../../guidedTour/GuidedTour';
 import {PlanPageProposal} from '../agentEdit/PlanPageProposal';
 import {isPlanAuthoringCapture,isPlanAuthoredProposal,planProposalDigestsBound} from '../../api/planAuthoringReviewApi';
 import {SurfaceGraphReferenceInput} from '../../surface/SurfaceGraphReferenceInput';
@@ -2424,6 +2425,7 @@ export function WorldPlanAgentConversation({
   savePlanEnabled = false,
   imagePromptHost,
 }: WorldPlanAgentConversationProps) {
+  const guidance=useGuidedTour();
   const selectedWorld = useSelectedWorld();
   const agent = useAgentInteraction();
   const sharedConversation = useWorldAgentConversationState();
@@ -3813,6 +3815,7 @@ export function WorldPlanAgentConversation({
     const startingFenceKey = requestFenceKey;
     const submittedClientThreadId = crypto.randomUUID();
     const submittedTurnId = crypto.randomUUID();
+    guidance?.recordConversationDispatch(submittedTurnId,guidance.captureScope());
     const composerGenerationAtSubmit = composerEditGenerationRef.current;
     const submittedPresentationFenceKey = askPresentationFenceKey;
     setSubmittedMessage({ id: submittedTurnId, scopeKey, conversationId: pointerSnapshot.conversation_id,
@@ -3978,7 +3981,8 @@ export function WorldPlanAgentConversation({
     }
   }
 
-  async function dispatchSavedPlayTurn(stored: StoredPendingPlayTurn, restoreInitialComposerReferences = false) {
+  async function dispatchSavedPlayTurn(stored: StoredPendingPlayTurn, restoreInitialComposerReferences = false, tourDispatch:TourDispatchScope|null=guidance?.captureScope()??null) {
+    guidance?.recordConversationDispatch(stored.request.turn_id,tourDispatch);
     const request = stored.request;
     if (verifiedWorldId !== request.owner_scope.world_id || requestRef.current || sending || buildCompose.busy) return;
     if(request.surface.surface_id==='build'&&(request as WorldBuildAgentTurnRequestV1).build_authored_references){
@@ -4217,6 +4221,7 @@ export function WorldPlanAgentConversation({
 
   async function submitPlay(event?: Pick<FormEvent<HTMLFormElement>, "preventDefault">, discussionOnly = false, questionOverride?: string, explicitRequest?: SurfaceConversationRequest, retryOf?:TurnRetryContext) {
     event?.preventDefault();
+    const tourDispatch=guidance?.captureScope()??null;
     if(surfacePreparationRef.current&&!explicitRequest)return;
     if (questionOverride === undefined) setRetryPresentationOrigin(null);
     const admittedRun = playMode?.admittedRun;
@@ -4326,7 +4331,7 @@ export function WorldPlanAgentConversation({
         }
         setComposerMessage(current => current.trim() === message ? "" : current);
       }
-      await dispatchSavedPlayTurn(stored,!retryOf&&!explicitRequest&&questionOverride===undefined);
+      await dispatchSavedPlayTurn(stored,!retryOf&&!explicitRequest&&questionOverride===undefined,tourDispatch);
       return;
     }
 
@@ -4365,7 +4370,7 @@ export function WorldPlanAgentConversation({
     const stored = { storageKey, serialized, request };
     setPendingPlayTurn(stored);
     if(composerEditGenerationRef.current===composerGenerationAtSubmit)setComposerMessage((current) => current.trim() === message ? "" : current);
-    await dispatchSavedPlayTurn(stored);
+    await dispatchSavedPlayTurn(stored,false,tourDispatch);
   }
 
   function submitComposer(event: FormEvent<HTMLFormElement>) {

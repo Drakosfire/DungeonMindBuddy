@@ -145,7 +145,8 @@ def prepare(build_case, monkeypatch):
     wire = Wire(proposal_request)
     record = asyncio.run(
         owner.compose_with_writer(
-            proposal_request, TextDispatchGate(authorize, lifecycle), transport=wire
+            proposal_request, TextDispatchGate(authorize, lifecycle),
+            writer_model=holder.turn.graph_context_execution.policy.provider_roles.writer.model, transport=wire
         )
     )
     completion = completion_for_proposal(record, holder.turn.graph_context_receipt)

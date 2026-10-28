@@ -169,8 +169,8 @@ def test_new_campaign_without_local_corpus_reaches_extraction_and_recovers(
         expected_revision=record.revision, expected_content_sha256=hashlib.sha256(text.encode()).hexdigest(),
         managed_world_id='managed-a', campaign_id=campaign, session=1)
     # Exercise the ordinary identity snapshot before any provider call.
-    identity = wrapper._recap_identity_snapshot(campaign, 'session-1', None)
-    assert identity['campaign_id'] == campaign and identity['entities'] == ()
+    identity = wrapper._recap_identity_snapshot(campaign, 'session-1', None, corpus_root=tmp_path/'corpus/managed-a-markdown')
+    assert identity['known_entity_registry']['campaign_id'] == campaign and identity['known_entity_registry']['entities'] == ()
     calls = []
     actual = wrapper.run_recap_production_extraction
     def execute(**kwargs):

@@ -1,3 +1,8 @@
+import {useTourEncounter,type TourEncounterScope} from '../../guidedTour/EncounterScope';
+import type {TourDispatchScope} from '../../guidedTour/GuidedTour';
+import {useTourRun} from '../../guidedTour/RunScope';
+import {useGuidedTour} from '../../guidedTour/GuidedTour';
+import {CombatTourObservation,type AcknowledgedCombatSave} from '../../guidedTour/CombatObservations';
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 
 import {
@@ -228,8 +233,12 @@ function cloneDraft(draft: CombatEncounterDraft): CombatEncounterDraft {
   return JSON.parse(JSON.stringify(draft)) as CombatEncounterDraft;
 }
 
-export type CombatHostScope = {worldId:string;encounterId:string;label:string;initialRecord?:CombatEncounterRecord;runScope?:import("../../combat/runEncountersApi").RunEncounterScope};
+export interface PreparedCombatOwnerReading {record:CombatEncounterRecord|null;blocked:boolean;error:string|null;acknowledged:{dispatchScope:TourDispatchScope|null;scope:TourEncounterScope;before:CombatEncounterRecord;saved:CombatEncounterRecord}|null}
+export type CombatHostScope = {worldId:string;encounterId:string;label:string;initialRecord?:CombatEncounterRecord;onPreparedState?:(reading:PreparedCombatOwnerReading|null)=>void;runScope?:import("../../combat/runEncountersApi").RunEncounterScope};
 export function CombatRosterModule({scope}:{scope?:CombatHostScope} = {}) {
+  const tourRun=useTourRun(),tour=useGuidedTour(),tourEncounter=useTourEncounter();
+  const [preparedAcknowledged,setPreparedAcknowledged]=useState<PreparedCombatOwnerReading["acknowledged"]>(null);
+  const [tourAcknowledged,setTourAcknowledged]=useState<AcknowledgedCombatSave|null>(null);
   const selectedWorld = useSelectedWorld();
   const worldId = selectedWorld.kind === "managed" && (!scope || scope.worldId === selectedWorld.worldId) ? selectedWorld.worldId : null;
   const worldRequestGeneration = useRef(0);
@@ -408,7 +417,7 @@ export function CombatRosterModule({scope}:{scope?:CombatHostScope} = {}) {
     const requestedWorldId = worldId;
     const submittedRecord = visibleRecord;
     const submittedDraft = cloneDraft(pendingSave.current?.draft ?? visibleDraft);
-    const generation = worldRequestGeneration.current;
+    const generation = worldRequestGeneration.current,tourAtDispatch=tour?.tracking?tourRun:null,tourDispatch=tour?.captureScope()??null,tourEncounterAtDispatch=tour?.tracking?tourEncounter:null;
     setBusy("save");
     setError(null);
     try {
@@ -427,6 +436,8 @@ export function CombatRosterModule({scope}:{scope?:CombatHostScope} = {}) {
       else recoverySession.current.write(saved, nextDraft);
       pendingSave.current = null; recordRef.current = saved; draftRef.current = nextDraft;
       setRecord(saved); setDraft(nextDraft); setRecoveryMessage(null);
+      if(tourEncounterAtDispatch&&!scope?.runScope)setPreparedAcknowledged({dispatchScope:tourDispatch,scope:tourEncounterAtDispatch,before:submittedRecord,saved});
+      if(tourAtDispatch&&scope?.runScope)setTourAcknowledged({dispatchScope:tourDispatch,scope:tourAtDispatch,sceneId:scope.runScope.sceneId,before:submittedRecord,saved});
       setEncounters((current) => [saved, ...current.filter((item) => item.encounter_id !== saved.encounter_id)]);
     } catch (caught) {
       if (generation === worldRequestGeneration.current) setError(caught instanceof Error ? caught.message : String(caught));
@@ -522,6 +533,11 @@ export function CombatRosterModule({scope}:{scope?:CombatHostScope} = {}) {
     }));
   }
 
+  const preparedBlocked=busy!==null||dirty||availableRecovery!==null||!!pendingSave.current||adoptionBlocked;
+  const preparedListener=scope?.onPreparedState;
+  useEffect(()=>{preparedListener?.({record:visibleRecord,blocked:preparedBlocked,error,acknowledged:preparedAcknowledged});},[preparedListener,visibleRecord,preparedBlocked,error,preparedAcknowledged]);
+  useEffect(()=>()=>preparedListener?.(null),[preparedListener]);
+
   const worldMessage = scope && selectedWorld.kind === "managed" && scope.worldId !== selectedWorld.worldId
     ? "This encounter belongs to another World. Reopen its scene in that World."
     : selectedWorld.kind === "loading"
@@ -533,7 +549,8 @@ export function CombatRosterModule({scope}:{scope?:CombatHostScope} = {}) {
         : null;
 
   return (
-    <div className="module-panel combat-roster" data-module-id="combat_roster">
+    <div className="module-panel combat-roster" data-module-id="combat_roster" data-guided-control="combat" tabIndex={-1}>
+      <CombatTourObservation record={visibleRecord} runScope={scope?.runScope??null} acknowledged={tourAcknowledged} blocked={busy!==null||dirty||availableRecovery!==null||!!pendingSave.current||adoptionBlocked} error={error}/>
       <h2 className="module-title">Combat</h2>
       {worldMessage ? <p className="module-muted">{worldMessage}</p> : null}
       {error ? <p className="module-error" role="alert">Combat: {error}</p> : null}

@@ -122,6 +122,7 @@ export function BuildDocumentSelector({
   const selectProps = {
     id: "build-document-select",
     "data-testid": "build-document-select",
+    "data-guided-control": "source",
     "aria-label": "Worldbuilding source",
     value: activeDocumentId ?? "",
     onChange: (event: ChangeEvent<HTMLSelectElement>) => {

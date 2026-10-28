@@ -59,7 +59,7 @@ class ImageWire(httpx.AsyncBaseTransport):
                 "object": "response",
                 "created_at": 1,
                 "status": "completed",
-                "model": "gpt-6-luna",
+                "model": json.loads(request.content)["model"],
                 "output": [
                     {
                         "type": "message",
@@ -92,7 +92,6 @@ def setup(build_case, monkeypatch, *, world_context=False, **wire_options):
             "message": "Open the image wizard with a map prompt based on this town and our conversation."
         }
     )
-    monkeypatch.setattr(image_writer, "_model", lambda: "gpt-6-luna")
     decision = DecisionWire(operation="prepare_build_image")
     wire = ImageWire(**wire_options)
     runtime = BuildJevHarness(
@@ -150,7 +149,7 @@ def test_image_operation_prepares_one_writer_and_reopens_without_generation(
     assert len(observed) == 2
     assert {item.provider_attempt_id for item in observed} == {
         event.provider_attempt_id for event in turn.graph_context_execution.events
-        if event.kind == "provider_attempt_authorized_v3"
+        if isinstance(event, ledger.ProviderAttemptAuthorizedEventV1)
     }
     assert all(item.provider_attempt_id is not None for item in observed)
     assert [(item.input_tokens, item.output_tokens) for item in observed] == [(23, 4), (100, 35)]
@@ -298,7 +297,6 @@ def test_image_writer_reuses_duplicate_dialogue_with_occurrence_proof(build_case
     assert discussion["dialogue_reference"][1]["same_text_as"] == 0
     assert len(expand_dialogue(discussion["dialogue_reference"])) == 2
     assert discussion["dialogue_policy"].endswith(RULE)
-    monkeypatch.setattr(image_writer, "_model", lambda: "gpt-6-luna")
     wire = ImageWire()
     runtime = BuildJevHarness(decision_transport=DecisionWire(operation="prepare_build_image"),
         writer_transport=wire, accounting=ExperimentalAccounting("synthetic-owner-test", lambda text: len(text) // 4))

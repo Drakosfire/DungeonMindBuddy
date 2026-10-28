@@ -1,8 +1,11 @@
 import { act, fireEvent, render, screen } from '@testing-library/react';
-import { afterEach, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import { DocumentImageStudio } from './DocumentImageStudio';
 import * as api from '../api/liveApi';
 import type { DocumentMediaBridge, DocumentMediaCapture } from './documentMediaBridge';
+const tourImage=vi.hoisted(()=>({generated:vi.fn(),placed:vi.fn()}));
+vi.mock('../guidedTour/ImageObservations',()=>({useTourImage:()=>tourImage}));
+beforeEach(()=>{tourImage.placed.mockClear();});
 const wizard = vi.hoisted(() => ({ props: null as any }));
 vi.mock('./MediaImageWizard', () => ({ MediaImageWizard: (props: any) => { wizard.props = props;return <button onClick={props.onClose}>Close studio</button>; } }));
 const image = { asset_id: 'ac6c15cc-8c68-4732-8ae2-d9f3f051393a', state: 'ready' };
@@ -19,7 +22,7 @@ it('verifies a ready saved asset before one document-owned insert and closes aft
   const { bridge, capture, onClose } = setup();
   await act(async () => { await wizard.props.onChoose(image, result, { signal: new AbortController().signal, mode: 'click' }); });
   expect(request).toHaveBeenCalledWith(expect.stringContaining(image.asset_id + '/metadata'), expect.objectContaining({ cache: 'no-store' }));
-  expect(bridge.insert).toHaveBeenCalledExactlyOnceWith(capture, image.asset_id, 'Saved artwork');expect(onClose).toHaveBeenCalledOnce();
+  expect(bridge.insert).toHaveBeenCalledExactlyOnceWith(capture, image.asset_id, 'Saved artwork');expect(onClose).toHaveBeenCalledOnce();expect(tourImage.placed).toHaveBeenCalledExactlyOnceWith(image.asset_id);
 });
 it.each(['staged', 'other asset', 'unmount', 'abort'] as const)('does not insert after %s while verifying metadata', async scenario => {
   let release!: (value: Awaited<ReturnType<typeof api.authenticatedApiFetch>>) => void;
@@ -31,7 +34,7 @@ it.each(['staged', 'other asset', 'unmount', 'abort'] as const)('does not insert
   if (scenario === 'unmount') unmount();
   if (scenario === 'abort') abort.abort();
   await act(async () => { release({ response: Response.json({ ...image, state: scenario === 'staged' ? 'staged' : 'ready', asset_id: scenario === 'other asset' ? 'different' : image.asset_id }), csrf: null, requestEpoch: 0 });await rejected; });
-  expect(bridge.insert).not.toHaveBeenCalled();
+  expect(bridge.insert).not.toHaveBeenCalled();expect(tourImage.placed).not.toHaveBeenCalled();
 });
 it('forwards close without placing or saving', () => {
   const { bridge, onClose } = setup();fireEvent.click(screen.getByRole('button', { name: 'Close studio' }));

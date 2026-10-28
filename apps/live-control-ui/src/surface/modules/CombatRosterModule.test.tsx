@@ -11,6 +11,11 @@ import * as combatApi from "../../combat/combatApi";
 import type { CombatEncounterRecord } from "../../combat/combatTypes";
 import * as selectedWorld from "../../selectedWorld/SelectedWorldContext";
 import { CombatRosterModule } from "./CombatRosterModule";
+import {TourRunProvider} from "../../guidedTour/RunScope";
+import type {TourOwnerReading} from "../../guidedTour/GuidedTour";
+import type {WorldPlayRunRecordV2} from "../../api/types";
+const tourReadings=vi.hoisted(()=>new Map<string,TourOwnerReading>());
+vi.mock("../../guidedTour/GuidedTour",()=>({useGuidedTour:()=>({tracking:true,captureScope:()=>null}),useTourOwnerReading:(reading:TourOwnerReading|null)=>{if(reading)tourReadings.set(reading.step,reading);}}));
 
 const entity = {
   id: "drake-1",
@@ -80,7 +85,7 @@ function deferred<T>() {
 }
 
 describe("CombatRosterModule", () => {
-  beforeEach(() => {localStorage.clear();Object.defineProperty(navigator,'locks',{configurable:true,value:testCombatLocks()});});
+  beforeEach(() => {tourReadings.clear();localStorage.clear();Object.defineProperty(navigator,'locks',{configurable:true,value:testCombatLocks()});});
   afterEach(() => vi.restoreAllMocks());
 
   function mount() {
@@ -741,6 +746,22 @@ describe("CombatRosterModule", () => {
     render(<CombatRosterModule scope={{worldId:'elderwyld',encounterId:record().encounter_id,label:'Wrong World'}}/>);
     await waitFor(()=>expect(get).not.toHaveBeenCalled());expect(list).not.toHaveBeenCalled();
     expect(screen.queryByLabelText('HP for Geomantic Drake')).not.toBeInTheDocument();
+  });
+
+  it('recognizes a verified manual tracker Save only in its admitted Run scene',async()=>{
+    vi.spyOn(selectedWorld,'useSelectedWorld').mockReturnValue({kind:'managed',worldId:'elderwyld',name:'Elderwyld',documentId:null});
+    const initial=record();
+    const run={schema_version:'dmb_world_play_run_record_v2',world_id:'elderwyld',run_id:'run',run_revision:4,playable_artifact_id:'plan',playable_revision:2,playable_work_revision_id:'work-2',playable_content_sha256:'c'.repeat(64)} as WorldPlayRunRecordV2;
+    const save=vi.spyOn(combatApi,'saveWorldCombatEncounter').mockImplementation(async(_world,_id,_revision,draft)=>({...initial,revision:2,draft}));
+    render(<TourRunProvider run={run}><CombatRosterModule scope={{worldId:'elderwyld',encounterId:initial.encounter_id,label:'Run scene',initialRecord:initial,runScope:{runId:'run',sceneId:'scene'}}}/></TourRunProvider>);
+    await screen.findByLabelText('HP for Geomantic Drake');
+    expect(tourReadings.get('combat')?.observation).toBeUndefined();
+    fireEvent.change(screen.getByLabelText('HP for Geomantic Drake'),{target:{value:'55'}});
+    expect(tourReadings.get('combat')?.observation).toBeUndefined();
+    await userEvent.click(screen.getByRole('button',{name:'Save',exact:true}));
+    await screen.findByText('Saved · rev 2');
+    expect(save).toHaveBeenCalledTimes(1);
+    expect(tourReadings.get('combat')?.observation).toMatchObject({origin:'acknowledged',target:{objectId:'run',revision:4},parent:{revisionId:'work-2'},proof:{kind:'combat-tracker',sceneId:'scene',encounterId:initial.encounter_id,baseRevision:1,savedRevision:2,actors:[{actorId:'drake-1',fields:['hp']}]}});
   });
 
 });

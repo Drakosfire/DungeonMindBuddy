@@ -267,9 +267,7 @@ def completed(build_case, monkeypatch, tmp_path, request):
         monkeypatch.setattr(proposals, "managed_world_data_root", _managed_world_root)
         monkeypatch.setattr(proposals, "get_world_container", lambda *_: object())
         monkeypatch.setattr(proposals, "_model", lambda: "gpt-6-luna")
-        from apps.live_control_server.services import build_image_writer
 
-        monkeypatch.setattr(build_image_writer, "_model", lambda: "gpt-6-luna")
         cap = BuildWriteCapability(
             idempotency_key=uuid4(),
             conversation_id=conversation.conversation_id,

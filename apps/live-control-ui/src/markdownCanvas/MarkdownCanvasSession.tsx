@@ -1,8 +1,10 @@
+import {useGuidedTour} from '../guidedTour/GuidedTour';
 import {
   createContext,
   useCallback,
   useContext,
   useMemo,
+  useState,
   type ReactNode,
 } from "react";
 
@@ -139,6 +141,8 @@ function admitDocument(args: {
 }
 
 export function MarkdownCanvasSessionProvider(props: MarkdownCanvasSessionProviderProps) {
+  const tour=useGuidedTour();
+  const [tourSaveScope,setTourSaveScope]=useState<ReturnType<NonNullable<typeof tour>['captureScope']>>(null);
   const {
     documentId,
     surface,
@@ -217,6 +221,7 @@ export function MarkdownCanvasSessionProvider(props: MarkdownCanvasSessionProvid
       },
       async ({ signal }) => {
         if (signal.aborted) throw new Error("Save aborted.");
+        setTourSaveScope(tour?.captureScope()??null);
         await authoring.saveMarkdown();
       },
     );
@@ -224,7 +229,7 @@ export function MarkdownCanvasSessionProvider(props: MarkdownCanvasSessionProvid
       // Authoring already surfaces save errors on the session; conflict/duplicate are silent no-ops
       // matching prior disabled-button races. Other failures remain visible via authoring.error.
     }
-  }, [authoring, runDocumentCommand, saveConflicts]);
+  }, [authoring, runDocumentCommand, saveConflicts, tour?.captureScope]);
 
   const updateDocumentMetadata = useCallback(
     async (patch: { title: string }): Promise<DocumentCommandResult<WorkspaceDocumentRecord>> => {
@@ -320,6 +325,7 @@ export function MarkdownCanvasSessionProvider(props: MarkdownCanvasSessionProvid
         if (activeCommand) throw new Error("Wait for the current document action to finish.");
         return authoring.restoreDraftRecovery(review, copyId);
       },
+      tourSaveScope,
       lastCommitReceipt: authoring.lastCommitReceipt,
       activeCommand,
       editor: authoring.editor,
@@ -338,6 +344,7 @@ export function MarkdownCanvasSessionProvider(props: MarkdownCanvasSessionProvid
     [
       activeCommand,
       authoring,
+      tourSaveScope,
       documentId,
       getAdmittedDocument,
       lookupAdmission,

@@ -1,3 +1,6 @@
+import {useGuidedTour,type TourDispatchScope} from '../guidedTour/GuidedTour';
+import {runPins} from '../guidedTour/ownerPins';
+import type {WorldPlayRunRecordV2} from '../api/types';
 import {WorldSessionPreparation} from '../combat/WorldSessionPreparation';
 import {inspectSession,cancelSession,type WorldSessionRequest,type SessionSource} from '../combat/runEncountersApi';
 import {exactIntent,withIntentLock} from '../combat/exactIntent';
@@ -86,6 +89,8 @@ export function StartRunPanel({
   initialPlanRevisionPin?: WorldStartRunExpectedSourcePin | null;
   initialSceneId?:string|null;
 }) {
+  const tour=useGuidedTour();
+  const recordTourCreation=useCallback((run:WorldPlayRunRecordV2,request:WorldSessionRequest,scope:TourDispatchScope|null)=>{const pins=runPins(run);tour?.recordRunCreation({step:'play',target:pins.target,parent:pins.parent,origin:'acknowledged',observedAt:run.created_at,receiptId:`session-create:${run.run_id}:${run.playable_work_revision_id}`,proof:{kind:'run-creation',entrySceneId:request.entry_scene_id,preparedSceneIds:request.encounters.map(item=>item.scene_id)}},scope);},[tour?.recordRunCreation]);
   const [listStatus, setListStatus] = useState<ListStatus>("loading");
   const [listDetail, setListDetail] = useState<string | null>(null);
   const [runbooks, setRunbooks] = useState<StartRunbookRecord[]>([]);
@@ -321,6 +326,7 @@ export function StartRunPanel({
   }, []);
 
   const runAttempt = useCallback(async (phase: StartRunPhase, currentAttempt: StartRunAttemptBinding | null) => {
+    const tourScope=tour?.captureScope()??null;
     const scope = renderedScope;
     const documentId = currentAttempt && "worldId" in currentAttempt ? currentAttempt.playableArtifactId : selectedDocumentId;
     const selectionGeneration = selectionGenerationRef.current;
@@ -409,6 +415,7 @@ export function StartRunPanel({
       if(!isCurrentScope(scope))return;
       startedRef.current = result.binding.runId;
       setAttempt(result.binding);
+      if(result.run.schema_version==='dmb_world_play_run_record_v2'&&'worldId' in result.binding&&result.binding.playableKind==='plan')recordTourCreation(result.run,result.binding.request,tourScope);
       onStarted(result.binding.runId);
       return;
     }
@@ -427,7 +434,7 @@ export function StartRunPanel({
     setAttempt(result.binding ?? currentAttempt);
     setAttemptStatus("blocked");
     setAttemptDetail(result.detail);
-  }, [initialPlanId, initialPlanRevisionPin, isCurrentScope, isCurrentSelection, onStarted, renderedScope, runbooks, selectedDocumentId, selectedPlan, confirmedRequest, sessionKey]);
+  }, [initialPlanId, initialPlanRevisionPin, isCurrentScope, isCurrentSelection, onStarted, recordTourCreation, tour?.captureScope, renderedScope, runbooks, selectedDocumentId, selectedPlan, confirmedRequest, sessionKey]);
 
   const resolvedCampaignId = resolveBlankRunbookCampaignId(productCampaignId, campaignDraft);
   const currentWorldBlankAttempt = renderedScope.worldId != null
@@ -556,8 +563,8 @@ export function StartRunPanel({
       {verifiedWorldId&&sessionSource&&!retainedWorldAttempt&&<WorldSessionPreparation worldId={verifiedWorldId} source={sessionSource} entrySceneId={initialSceneId} onChange={setConfirmedRequest} disabled={attemptStatus==='starting'}/>}
       {retainedWorldAttempt&&<section aria-label="Retained session creation"><p>A session creation is retained. Check, retry or cancel it before starting another.</p>
       <button disabled={attemptStatus==='starting'} onClick={()=>{selectDocument(retainedWorldAttempt.playableArtifactId);void runAttempt('replay_create',retainedWorldAttempt);}}>Retry retained session</button>
-      <button disabled={attemptStatus==='starting'} onClick={async()=>{setAttemptStatus('starting');try{const result=await inspectSession(retainedWorldAttempt.worldId,retainedWorldAttempt.runId);if(!isCurrentScope(renderedScope))return;if(result?.state==='applied'){const {assertSessionOutcome}=await import('../combat/runEncountersApi');assertSessionOutcome(result,retainedWorldAttempt.worldId,retainedWorldAttempt.runId,retainedWorldAttempt.request);await clearRetainedSession(retainedWorldAttempt);if(!isCurrentScope(renderedScope))return;onStarted(result.run.run_id);}else if(result?.state==='canceled'){const {assertSessionOutcome}=await import('../combat/runEncountersApi');assertSessionOutcome(result,retainedWorldAttempt.worldId,retainedWorldAttempt.runId,retainedWorldAttempt.request);await clearRetainedSession(retainedWorldAttempt);if(!isCurrentScope(renderedScope))return;setAttemptStatus('idle');}else{setAttemptStatus('replay_create');setAttemptDetail('No terminal result yet. The exact creation intent remains retained.');}}catch(error){if(!isCurrentScope(renderedScope))return;setAttemptStatus('replay_create');setAttemptDetail(String(error));}}}>Check session creation</button>
-      <button disabled={attemptStatus==='starting'} onClick={async()=>{setAttemptStatus('starting');try{const result=await cancelSession(retainedWorldAttempt.worldId,retainedWorldAttempt.runId,retainedWorldAttempt.request);if(!isCurrentScope(renderedScope))return;const {assertSessionOutcome}=await import('../combat/runEncountersApi');assertSessionOutcome(result,retainedWorldAttempt.worldId,retainedWorldAttempt.runId,retainedWorldAttempt.request);await clearRetainedSession(retainedWorldAttempt);if(!isCurrentScope(renderedScope))return;setAttemptStatus('idle');if(result.state==='applied')onStarted(result.run.run_id);}catch(error){if(!isCurrentScope(renderedScope))return;setAttemptStatus('replay_create');setAttemptDetail(String(error));}}}>Cancel session creation</button>
+      <button disabled={attemptStatus==='starting'} onClick={async()=>{const tourScope=tour?.captureScope()??null;setAttemptStatus('starting');try{const result=await inspectSession(retainedWorldAttempt.worldId,retainedWorldAttempt.runId);if(!isCurrentScope(renderedScope))return;if(result?.state==='applied'){const {assertSessionOutcome}=await import('../combat/runEncountersApi');assertSessionOutcome(result,retainedWorldAttempt.worldId,retainedWorldAttempt.runId,retainedWorldAttempt.request);await clearRetainedSession(retainedWorldAttempt);if(!isCurrentScope(renderedScope))return;if(retainedWorldAttempt.playableKind==='plan')recordTourCreation(result.run,retainedWorldAttempt.request,tourScope);onStarted(result.run.run_id);}else if(result?.state==='canceled'){const {assertSessionOutcome}=await import('../combat/runEncountersApi');assertSessionOutcome(result,retainedWorldAttempt.worldId,retainedWorldAttempt.runId,retainedWorldAttempt.request);await clearRetainedSession(retainedWorldAttempt);if(!isCurrentScope(renderedScope))return;setAttemptStatus('idle');}else{setAttemptStatus('replay_create');setAttemptDetail('No terminal result yet. The exact creation intent remains retained.');}}catch(error){if(!isCurrentScope(renderedScope))return;setAttemptStatus('replay_create');setAttemptDetail(String(error));}}}>Check session creation</button>
+      <button disabled={attemptStatus==='starting'} onClick={async()=>{const tourScope=tour?.captureScope()??null;setAttemptStatus('starting');try{const result=await cancelSession(retainedWorldAttempt.worldId,retainedWorldAttempt.runId,retainedWorldAttempt.request);if(!isCurrentScope(renderedScope))return;const {assertSessionOutcome}=await import('../combat/runEncountersApi');assertSessionOutcome(result,retainedWorldAttempt.worldId,retainedWorldAttempt.runId,retainedWorldAttempt.request);await clearRetainedSession(retainedWorldAttempt);if(!isCurrentScope(renderedScope))return;setAttemptStatus('idle');if(result.state==='applied'){if(retainedWorldAttempt.playableKind==='plan')recordTourCreation(result.run,retainedWorldAttempt.request,tourScope);onStarted(result.run.run_id);}}catch(error){if(!isCurrentScope(renderedScope))return;setAttemptStatus('replay_create');setAttemptDetail(String(error));}}}>Cancel session creation</button>
       </section>}
 
       <p className="play-muted">
