@@ -1040,6 +1040,7 @@ def test_recap_ingest_generate_recap_memory_with_graph_extraction_fake_client(
     from apps.live_control_server.services.graph_run_registry import get_extraction_run
     from apps.live_control_server.services.source_artifact_registry import get_source_artifact
     from apps.live_control_server.services import historical_recap_world_projection
+    from apps.live_control_server.services import corpus_normalized_recap
     from apps.live_control_server.services.world_container_registry import (
         NativeGraphBindingRecord,
         WorldContainerRecord,
@@ -1053,10 +1054,75 @@ def test_recap_ingest_generate_recap_memory_with_graph_extraction_fake_client(
         WorldGraphProjectionSummary,
         WorldGraphProjectionTrustBoundary,
     )
+    from src.corpus import session_recap_paths
+    from src.live_play import planning_corpus_manifest, recap_stage_paths
+    from src.live_play.recap_stage_paths import RecapStagePaths
 
     client, corpus, _candidate = synthetic_client_env
     _patch_fake_category_extract(monkeypatch)
     _patch_retired_union_materialize(monkeypatch)
+
+    def synthetic_campaign_number(campaign_id: str) -> int:
+        assert campaign_id == "synthetic-campaign"
+        return 1
+
+    def synthetic_session_recaps_prefix(campaign_number: int) -> str:
+        assert campaign_number == 1
+        return "Synthetic Campaign/Session Recaps"
+
+    monkeypatch.setattr(
+        session_recap_paths, "campaign_number_from_id", synthetic_campaign_number
+    )
+    monkeypatch.setattr(
+        recap_stage_paths, "campaign_number_from_id", synthetic_campaign_number
+    )
+    monkeypatch.setattr(
+        corpus_normalized_recap,
+        "campaign_number_from_id",
+        synthetic_campaign_number,
+    )
+    monkeypatch.setattr(
+        planning_corpus_manifest,
+        "campaign_number_from_id",
+        synthetic_campaign_number,
+    )
+    monkeypatch.setattr(
+        session_recap_paths, "session_recaps_prefix", synthetic_session_recaps_prefix
+    )
+    monkeypatch.setattr(
+        recap_stage_paths,
+        "session_recaps_prefix",
+        synthetic_session_recaps_prefix,
+    )
+    monkeypatch.setattr(
+        planning_corpus_manifest,
+        "session_recaps_prefix",
+        synthetic_session_recaps_prefix,
+    )
+    monkeypatch.setattr(recap_stage_paths, "corpus_root", lambda: corpus)
+    monkeypatch.setattr(corpus_normalized_recap, "corpus_root", lambda: corpus)
+
+    def synthetic_stage_paths(
+        cls, *, campaign_id: str, session: int, slug_tail: str
+    ) -> RecapStagePaths:
+        base = "Synthetic Campaign"
+        prefix = f"{base}/Session Recaps"
+        canonical_basename = f"Session {session} - {slug_tail}"
+        return cls(
+            campaign_id=campaign_id,
+            campaign_number=1,
+            campaign_root_rel=base,
+            staged_raw_notes_rel=f"{base}/_ingest_staging/session_{session}_raw_notes.md",
+            canonical_recap_rel=f"{prefix}/{canonical_basename}.md",
+            canonical_basename=canonical_basename,
+            normalized_recap_rel=f"{prefix}/_normalized/Session {session:02d} - {slug_tail}.md",
+            frontmatter_seed_rel=f"{prefix}/_breadcrumbed/{canonical_basename}.frontmatter_seed.md",
+            breadcrumbed_recap_rel=f"{prefix}/_breadcrumbed/{canonical_basename}.breadcrumbed.md",
+            session_memory_jsonl_rel=f"{prefix}/_session_memory/{canonical_basename}.records_meta.jsonl",
+            session_memory_meta_rel=f"{prefix}/_session_memory/{canonical_basename}.records_meta.json",
+        )
+
+    monkeypatch.setattr(RecapStagePaths, "build", classmethod(synthetic_stage_paths))
 
     response = client.post(
         "/api/live/recap-ingest",
