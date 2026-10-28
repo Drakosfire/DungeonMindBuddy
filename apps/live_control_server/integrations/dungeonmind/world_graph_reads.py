@@ -82,11 +82,12 @@ if TYPE_CHECKING:
     from .source_anchor_wave import SourceAnchorWave
     from apps.live_control_server.services.worldbuilding_source_span_read import WorldbuildingSourceReadBatch
 
+from .graph_read_composition import build_graph_reader, open_repository_bundle
+
 from dungeonmind.application.graph_snapshot import (
     GraphEvidenceRecord,
     GraphObjectView,
     GraphRelationshipView,
-    VersionedUnionGraphSnapshotReader,
 )
 from dungeonmind.application.world_graph_projection import (
     WorldGraphProjectionResult,
@@ -108,10 +109,6 @@ from dungeonmind.application.world_graph_retrieval import (
     SourceAnchorResolution,
     WorldGraphRetrievalService,
 )
-from dungeonmind.infrastructure.semantic_profiles import StaticSemanticProfileRegistry
-from dungeonmind_dnd.application.world_object_vocabulary import (
-    load_builtin_v3_descriptor,
-)
 from dungeonmind.contracts.evidence import EvidenceRefV2
 from dungeonmind.contracts.projection import Admissibility
 from dungeonmind.contracts.projection_v2 import (
@@ -127,7 +124,6 @@ from dungeonmind.domain.errors import (
     ScopeResolutionError,
 )
 from dungeonmind.infrastructure.postgres import (
-    PostgresDatabase,
     PostgresRepositoryBundle,
 )
 
@@ -519,7 +515,7 @@ def build_direct_world_graph_read_services(
     world_id: str,
 ) -> DirectWorldGraphReadServices:
     """Production factory: wire DungeonMind PostgreSQL repositories directly."""
-    bundle = PostgresRepositoryBundle(PostgresDatabase(database_url))
+    bundle = open_repository_bundle(database_url)
     return direct_services_from_bundle(bundle, world_id)
 
 
@@ -528,9 +524,7 @@ def direct_services_from_bundle(
     world_id: str,
 ) -> DirectWorldGraphReadServices:
     """Test seam: build services from an existing repository bundle."""
-    graph_reader = VersionedUnionGraphSnapshotReader(
-        profile_registry=StaticSemanticProfileRegistry([load_builtin_v3_descriptor()])
-    )
+    graph_reader = build_graph_reader()
     projection = WorldGraphProjectionService(
         world_graph=bundle.world_graph,
         sources=bundle.sources,
@@ -578,7 +572,7 @@ def direct_services_from_config(world_id: str) -> DirectWorldGraphReadServices:
             status_code=503,
         )
     try:
-        bundle = PostgresRepositoryBundle(PostgresDatabase(database_url))
+        bundle = open_repository_bundle(database_url)
     except Exception as exc:
         raise DirectWorldGraphReadError(
             "DungeonMind authority database is unavailable",
@@ -635,7 +629,7 @@ def list_world_heads(*, database_url: str | None = None) -> list[WorldHeadSummar
             status_code=503,
         )
     try:
-        bundle = PostgresRepositoryBundle(PostgresDatabase(url))
+        bundle = open_repository_bundle(url)
         if not _enumeration_ports_available(bundle):
             raise DirectWorldGraphReadError(
                 "DungeonMind authority enumeration ports are unavailable in the "
@@ -729,7 +723,7 @@ def list_world_textual_source_inventory(
             status_code=503,
         )
     try:
-        bundle = PostgresRepositoryBundle(PostgresDatabase(url))
+        bundle = open_repository_bundle(url)
         sources = bundle.sources
         if not callable(getattr(sources, "list_artifacts_for_world", None)):
             raise DirectWorldGraphReadError(
