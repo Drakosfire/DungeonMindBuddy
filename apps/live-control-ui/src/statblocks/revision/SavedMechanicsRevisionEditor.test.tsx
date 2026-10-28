@@ -6,7 +6,7 @@ import {SavedMechanicsRevisionEditor} from './SavedMechanicsRevisionEditor';
 import {TourEncounterProvider,type TourEncounterScope} from '../../guidedTour/EncounterScope';
 import type {TourOwnerReading} from '../../guidedTour/GuidedTour';
 const tourReadings=vi.hoisted(()=>new Map<string,TourOwnerReading>());
-vi.mock('../../guidedTour/GuidedTour',()=>({useTourOwnerReading:(reading:TourOwnerReading|null)=>{if(reading)tourReadings.set(reading.step,reading);}}));
+vi.mock('../../guidedTour/GuidedTour',()=>({useGuidedTour:()=>({captureScope:()=>null}),useTourOwnerReading:(reading:TourOwnerReading|null)=>{if(reading)tourReadings.set(reading.step,reading);}}));
 import {baseCandidateDefinition} from '../editor/editorFixtures';
 import type {OpenSavedMechanicsVersion,RevisionSaveOutcome,SavedMechanicsVersionList} from './savedMechanicsRevisionTypes';
 vi.mock('../../api/liveApi',()=>({listSavedMechanicsVersions:vi.fn(),openSavedMechanicsVersion:vi.fn(),saveMechanicsRevision:vi.fn(),recoverMechanicsRevision:vi.fn(),inspectMechanicsRevision:vi.fn(),validateStatblockDefinition:vi.fn()}));

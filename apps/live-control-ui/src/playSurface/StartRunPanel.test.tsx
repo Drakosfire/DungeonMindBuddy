@@ -15,7 +15,7 @@ import type {
   WorkspaceCommittedRevision,
   WorkspaceDocumentRecord,
 } from "../api/types";
-const tour=vi.hoisted(()=>({recordRunCreation:vi.fn()}));
+const tour=vi.hoisted(()=>({recordRunCreation:vi.fn(),captureScope:()=>null}));
 vi.mock("../guidedTour/GuidedTour",()=>({useGuidedTour:()=>tour}));
 import { StartRunPanel } from "./StartRunPanel";
 
@@ -676,7 +676,7 @@ describe("StartRunPanel", () => {
     await user.click(screen.getByTestId("play-start-run-submit"));
 
     await waitFor(() => expect(onStarted).toHaveBeenCalledWith(RUN_ID));
-    expect(tour.recordRunCreation).toHaveBeenCalledExactlyOnceWith(expect.objectContaining({step:"play",target:expect.objectContaining({objectId:RUN_ID}),parent:expect.objectContaining({kind:"plan",objectId:DOC_A,revision:7,revisionId:WORLD_WORK_REVISION_ID,digest:SHA_A}),proof:expect.objectContaining({kind:"run-creation"})}));
+    expect(tour.recordRunCreation).toHaveBeenCalledExactlyOnceWith(expect.objectContaining({step:"play",target:expect.objectContaining({objectId:RUN_ID}),parent:expect.objectContaining({kind:"plan",objectId:DOC_A,revision:7,revisionId:WORLD_WORK_REVISION_ID,digest:SHA_A}),proof:expect.objectContaining({kind:"run-creation"})}),null);
     expect(tour.recordRunCreation.mock.invocationCallOrder[0]).toBeLessThan(onStarted.mock.invocationCallOrder[0]);
     expect(liveApi.listWorldOwnedPlans).toHaveBeenCalledExactlyOnceWith(WORLD_ID);
     expect(liveApi.getWorldOwnedPlanCommittedRevision).toHaveBeenCalledWith(DOC_A);

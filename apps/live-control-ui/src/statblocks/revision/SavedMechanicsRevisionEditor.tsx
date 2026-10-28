@@ -1,3 +1,4 @@
+import {useGuidedTour,type TourDispatchScope} from '../../guidedTour/GuidedTour';
 import {useTourEncounter,sameEncounterScope,type TourEncounterScope} from '../../guidedTour/EncounterScope';
 import {MechanicsTourObservation,sameMechanicsLocator,type AcknowledgedMechanicsSave} from '../../guidedTour/MechanicsObservations';
 import {useEffect,useRef,useState} from 'react';
@@ -19,6 +20,7 @@ function sameShape(base:unknown,value:unknown):boolean {
 }
 
 export function SavedMechanicsRevisionEditor({worldId,draftId}:{worldId:string;draftId:string}) {
+ const guidance=useGuidedTour();
   const [writer]=useState(()=>{
     const key='dmb-manual-mechanics-writer';
     try{let id=sessionStorage.getItem(key);if(!id){id=crypto.randomUUID();sessionStorage.setItem(key,id);}return {id,recoverable:true};}
@@ -89,7 +91,7 @@ export function SavedMechanicsRevisionEditor({worldId,draftId}:{worldId:string;d
     finally{if(token===epoch.current)setBusy(false);}
   }
   function clearPending(id:string){if(localStorage.getItem(`${scope}:pending`)===id)localStorage.removeItem(`${scope}:pending`);setPending(null);}
-  async function applyOutcome(outcome:RevisionSaveOutcome,token:number,expectedId:string,tourAtDispatch:TourEncounterScope|null) {
+  async function applyOutcome(outcome:RevisionSaveOutcome,token:number,expectedId:string,tourAtDispatch:TourEncounterScope|null,tourDispatch:TourDispatchScope|null) {
     if(token!==epoch.current)return;
     if(outcome.operation_id!==expectedId||!opened||JSON.stringify(outcome.base)!==JSON.stringify(opened.locator))throw new Error('Save outcome belongs to another version or operation.');
     if(outcome.state==='committed'||outcome.state==='refused'){
@@ -98,7 +100,7 @@ export function SavedMechanicsRevisionEditor({worldId,draftId}:{worldId:string;d
         if(opened)localStorage.removeItem(sourceKey(opened.locator.revision_id));
         const exact=await load(outcome.result.revision_id);if(epoch.current===token+1){
           setMessage('New mechanics version saved. Encounters and World associations are unchanged.');
-          if(exact&&sameMechanicsLocator(exact.locator,outcome.result)&&tourAtDispatch&&sameEncounterScope(tourAtDispatch,latestTourScope.current))setTourAcknowledged({scope:tourAtDispatch,draftId,operation:outcome});
+          if(exact&&sameMechanicsLocator(exact.locator,outcome.result)&&tourAtDispatch&&sameEncounterScope(tourAtDispatch,latestTourScope.current))setTourAcknowledged({dispatchScope:tourDispatch,scope:tourAtDispatch,draftId,operation:outcome});
         }
       }else setMessage('The source version changed. Your edits are retained; inspect the saved versions before trying again.');
     }else setMessage('Save outcome is unknown. Recover this Save; do not start another version.');
@@ -106,12 +108,12 @@ export function SavedMechanicsRevisionEditor({worldId,draftId}:{worldId:string;d
   async function save() {
     if(!writer.recoverable||!opened||!editor||pending||validated!==fingerprintDefinition(editor.workingCopy))return;
     const retained=localStorage.getItem(`${scope}:pending`);if(retained){setPending(retained);setMessage('Recover the existing Save before making another version.');return;}
-    const token=++epoch.current,id=crypto.randomUUID(),tourAtDispatch=tourScope;setBusy(true);setMessage('Saving new mechanics version…');
+    const token=++epoch.current,id=crypto.randomUUID(),tourAtDispatch=tourScope,tourDispatch=guidance?.captureScope()??null;setBusy(true);setMessage('Saving new mechanics version…');
     try {
       remember(editor);localStorage.setItem(`${scope}:pending`,id);setPending(id);
       const result=await saveMechanicsRevision(draftId,{operation_id:id,world_id:worldId,base:opened.locator,
         definition:editor.workingCopy,change_summary:summary});
-      await applyOutcome(result,token,id,tourAtDispatch);
+      await applyOutcome(result,token,id,tourAtDispatch,tourDispatch);
     }catch(error){
       if(token!==epoch.current)return;
       // Inspection never cancels an in-flight preflight. Only the explicit
@@ -119,17 +121,17 @@ export function SavedMechanicsRevisionEditor({worldId,draftId}:{worldId:string;d
       try {
         const status=await inspectMechanicsRevision(draftId,worldId,id);
         if(token!==epoch.current)return;
-        if(status.operation)await applyOutcome(status.operation,token,id,tourAtDispatch);
+        if(status.operation)await applyOutcome(status.operation,token,id,tourAtDispatch,tourDispatch);
         else setMessage('Save has no durable result yet. Recover Save to finish it or safely release its intent.');
       }catch{if(token===epoch.current)setMessage('Save outcome could not be checked. Your edits and Save identity are retained. Recover before continuing.');}
     }finally{if(token===epoch.current)setBusy(false);}
   }
   async function recover() {
-    if(!pending)return;const token=++epoch.current,tourAtDispatch=tourScope;setBusy(true);setMessage('Checking saved result…');
+    if(!pending)return;const token=++epoch.current,tourAtDispatch=tourScope,tourDispatch=guidance?.captureScope()??null;setBusy(true);setMessage('Checking saved result…');
     try{
       const result=await recoverMechanicsRevision(draftId,worldId,pending);if(token!==epoch.current)return;
       if(!result){clearPending(pending);setMessage('Save was safely canceled before dispatch. Your edits are available.');return;}
-      await applyOutcome(result,token,pending,tourAtDispatch);
+      await applyOutcome(result,token,pending,tourAtDispatch,tourDispatch);
     }catch(error){if(token===epoch.current)setMessage(error instanceof Error?error.message:String(error));}
     finally{if(token===epoch.current)setBusy(false);}
   }

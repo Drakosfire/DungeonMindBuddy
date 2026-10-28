@@ -1,3 +1,4 @@
+import {useGuidedTour} from '../guidedTour/GuidedTour';
 import {RecordedRollTourObservation,type AcknowledgedRoll} from '../guidedTour/RollObservations';
 import {useCallback,useEffect,useRef,useState} from 'react';
 import {authenticatedApiFetch,LiveApiError} from '../api/liveApi';
@@ -32,6 +33,7 @@ async function call(path:string,init:RequestInit={}){
 }
 
 export function PreparedTablesTool({run,blocked,onHeld,onRun}:PreparedTablesBinding){
+ const guidance=useGuidedTour();
   const [tourAcknowledged,setTourAcknowledged]=useState<AcknowledgedRoll|null>(null);
   const [inventory,setInventory]=useState<Inventory|null>(null),[tableId,setTableId]=useState(''),[value,setValue]=useState('');
   const [history,setHistory]=useState<Receipt[]>([]),[before,setBefore]=useState<number|null>(null),[historyLoaded,setHistoryLoaded]=useState(false);
@@ -60,6 +62,7 @@ export function PreparedTablesTool({run,blocked,onHeld,onRun}:PreparedTablesBind
     void refresh();
   },[key,refresh]);
   const send=async(retry=false)=>{
+ const tourDispatch=guidance?.captureScope()??null;
     if(sending.current||props.current.blocked||storageBlocked)return;
     const table=inventory?.tables.find(t=>t.table_id===tableId);
     let command=pending;
@@ -102,7 +105,7 @@ export function PreparedTablesTool({run,blocked,onHeld,onRun}:PreparedTablesBind
         if(localStorage.getItem(key)!==raw)throw new Error('Pending roll changed in another view. Its recovery copy was retained.');
         // Admit the host response before releasing its exact recovery command.
         props.current.onRun(result.run);
-        setTourAcknowledged({receipt:result.receipt,run:result.run});
+        setTourAcknowledged({dispatchScope:tourDispatch,receipt:result.receipt,run:result.run});
         localStorage.removeItem(key);setPending(null);props.current.onHeld(false);
         setHistory(prior=>[result.receipt,...prior.filter(r=>r.command_id!==result.receipt.command_id)]);
         setInventory(prior=>prior?{...prior,run:result.run}:prior);

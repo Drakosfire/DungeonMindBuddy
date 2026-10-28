@@ -7,7 +7,7 @@ import * as liveApi from '../api/liveApi';
 import {PlanSceneEncounter} from './PlanSceneEncounter';
 import type {TourOwnerReading} from '../guidedTour/GuidedTour';
 const tourReadings=vi.hoisted(()=>new Map<string,TourOwnerReading>());
-vi.mock('../guidedTour/GuidedTour',()=>({useTourOwnerReading:(reading:TourOwnerReading)=>tourReadings.set(reading.step,reading)}));
+vi.mock('../guidedTour/GuidedTour',()=>({useGuidedTour:()=>({captureScope:()=>null}),useTourOwnerReading:(reading:TourOwnerReading)=>tourReadings.set(reading.step,reading)}));
 vi.mock('../surface/modules/CombatRosterModule',()=>({CombatRosterModule:({scope}:any)=><div data-testid="scoped-combat">{scope.encounterId}</div>}));
 const context:api.PlanEncounterContext={worldId:'elderwyld',documentId:'11111111-1111-4111-8111-111111111111',sceneId:'scene:gate',sceneTitle:'Gate',canCreate:true,objectRevision:2,contentSha256:'a'.repeat(64)};
 const pin={document_id:context.documentId,scene_id:context.sceneId,revision_n:1,work_revision_id:'22222222-2222-4222-8222-222222222222',content_sha256:'a'.repeat(64)};

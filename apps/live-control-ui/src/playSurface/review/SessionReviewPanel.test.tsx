@@ -7,7 +7,7 @@ import type {TourOwnerReading} from "../../guidedTour/GuidedTour";
 import type {WorldPlayRunRecordV2} from "../../api/types";
 import type {PlayRunContent} from "../playRunContentTypes";
 const tourReadings=vi.hoisted(()=>new Map<string,TourOwnerReading>());
-vi.mock("../../guidedTour/GuidedTour",()=>({useTourOwnerReading:(reading:TourOwnerReading|null)=>{if(reading)tourReadings.set(reading.step,reading);}}));
+vi.mock("../../guidedTour/GuidedTour",()=>({useGuidedTour:()=>({captureScope:()=>null}),useTourOwnerReading:(reading:TourOwnerReading|null)=>{if(reading)tourReadings.set(reading.step,reading);}}));
 import {readSessionReview,saveSessionReview,type SessionReview} from "./sessionReviewApi";
 vi.mock("./sessionReviewApi",async original=>({...await original<typeof import("./sessionReviewApi")>(),readSessionReview:vi.fn(),saveSessionReview:vi.fn()}));
 const tourRun={schema_version:'dmb_world_play_run_record_v2',world_id:'elderwyld',run_id:'run-a',run_revision:7,playable_artifact_id:'plan',playable_revision:3,playable_work_revision_id:'work-3',playable_content_sha256:'a'.repeat(64)} as WorldPlayRunRecordV2;

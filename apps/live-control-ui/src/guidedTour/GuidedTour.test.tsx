@@ -26,7 +26,7 @@ it('retains distinct owner failure and unavailable outcomes without claiming com
 
 const planPin:TargetPin={kind:'plan',worldId:'world',objectId:'plan',revision:1,revisionId:'work-1',digest:'a'.repeat(64)};
 const createdRun:TargetPin={kind:'run',worldId:'world',objectId:'new-run',revision:1,digest:'a'.repeat(64)};
-function CreationOwner(){const tour=useGuidedTour(),[navigated,setNavigated]=useState(false);return <button onClick={()=>{tour?.recordRunCreation({step:'play',target:createdRun,parent:planPin,origin:'acknowledged',observedAt:new Date().toISOString(),receiptId:'verified-create',proof:{kind:'run-creation',entrySceneId:'scene',preparedSceneIds:['scene']}});setNavigated(true);}}>{navigated?'Ordinary navigation completed':'Owner acknowledged Run'}</button>;}
+function CreationOwner(){const tour=useGuidedTour(),[navigated,setNavigated]=useState(false);return <button onClick={()=>{tour?.recordRunCreation({step:'play',target:createdRun,parent:planPin,origin:'acknowledged',observedAt:new Date().toISOString(),receiptId:'verified-create',proof:{kind:'run-creation',entrySceneId:'scene',preparedSceneIds:['scene']}},tour.captureScope());setNavigated(true);}}>{navigated?'Ordinary navigation completed':'Owner acknowledged Run'}</button>;}
 it('retains a verified Run creation through ordinary navigation without replaying creation',async()=>{
  let walk=createWalkthrough('world','conks','walk','2026-01-01T00:00:00Z');walk=reduceTour(walk,{kind:'bind',pin:planPin});writeWalkthrough(localStorage,walk,null);
  const mounted=render(<GuidedTourProvider worldId='world'><CreationOwner/></GuidedTourProvider>);

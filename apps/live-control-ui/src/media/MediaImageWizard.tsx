@@ -117,9 +117,10 @@ export function MediaImageWizard({ onClose, onChoose, initialPrompt = '', initia
     if (model.controls.includes('quality')) options.quality = quality;
     if (model.controls.includes('background')) options.background = background;
     if (model.controls.includes('seed') && seed !== '') options.seed = Number(seed);
+    const tourScope=tourImage?.captureScope()??null;
     try {
       const generated = await port.generate({ prompt, purpose, model: modelId, width, height, options, ...(preparationId ? { preparation_id: preparationId } : {}) });
-      tourImage?.generated(generated.images.map(image=>image.asset_id),generated.model);
+      tourImage?.generated(generated.images.map(image=>image.asset_id),generated.model,tourScope);
       setCompletion(generated.images[0] ?? null);
       if (libraryOpenRef.current) {
         void port.list().then(page => setLibrary(page.items)).catch(() => { /* Completion still opens the acknowledged asset. */ });

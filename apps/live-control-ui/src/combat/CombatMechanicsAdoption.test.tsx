@@ -6,7 +6,7 @@ import {CombatMechanicsAdoption} from './CombatMechanicsAdoption';
 import {TourEncounterProvider,type TourEncounterScope} from '../guidedTour/EncounterScope';
 import type {TourOwnerReading} from '../guidedTour/GuidedTour';
 const tourReadings=vi.hoisted(()=>new Map<string,TourOwnerReading>());
-vi.mock('../guidedTour/GuidedTour',()=>({useTourOwnerReading:(reading:TourOwnerReading|null)=>{if(reading)tourReadings.set(reading.step,reading);}}));
+vi.mock('../guidedTour/GuidedTour',()=>({useGuidedTour:()=>({captureScope:()=>null}),useTourOwnerReading:(reading:TourOwnerReading|null)=>{if(reading)tourReadings.set(reading.step,reading);}}));
 import * as api from './combatApi';
 import * as live from '../api/liveApi';
 import type {CombatEncounterRecord,MechanicsAdoptionOutcome,MechanicsAdoptionPreview,AdoptMechanicsRequest} from './combatTypes';

@@ -1,3 +1,4 @@
+import {useGuidedTour} from '../guidedTour/GuidedTour';
 import {TourImageProvider,collectTourMediaAssets} from '../guidedTour/ImageObservations';
 import {planPin} from '../guidedTour/ownerPins';
 import {PlanTourObservation,type TourPlanSave} from '../guidedTour/OwnerObservations';
@@ -349,6 +350,7 @@ function durableTimestamp(value: string | null | undefined): string | null {
 }
 
 function WorldOwnedPlanPage({ worldId, worldName }: { worldId: string; worldName: string }) {
+ const guidance=useGuidedTour();
   const { activateNode } = useWorldPlanGraphReferenceActivation();
   const [localDraft] = useState(() => {
     const existing = readWorldPlanLocalDraft(worldId);
@@ -930,6 +932,7 @@ function WorldOwnedPlanPage({ worldId, worldName }: { worldId: string; worldName
   };
 
   const save = async (announceSuccess = true) => {
+ const tourDispatch=guidance?.captureScope()??null;
     if (statusRef.current !== "ready") return;
     const fidelityIssues = getLiveFidelityWarnings(editorRef.current?.getJSON());
     if (fidelityIssues.length) {
@@ -1263,7 +1266,7 @@ function WorldOwnedPlanPage({ worldId, worldName }: { worldId: string; worldName
       serverDigestRef.current = committed.normalized_content_sha256;
       if (isCurrent()) {
         setLastSavedAt(committedAt);
-        setTourPlanSave(committedAt?{worldId,documentId:exactId,revision:committed.registry_revision,digest:committed.normalized_content_sha256,observedAt:committedAt}:null);
+        setTourPlanSave(committedAt?{dispatchScope:tourDispatch,worldId,documentId:exactId,revision:committed.registry_revision,digest:committed.normalized_content_sha256,observedAt:committedAt}:null);
         setSavedBasis({
           status: "verified",
           revision: committed.registry_revision,

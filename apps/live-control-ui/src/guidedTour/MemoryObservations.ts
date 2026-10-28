@@ -1,18 +1,17 @@
 import {useMemo,useRef} from 'react';
 import type {WorldAgentConversationHistoryResponse,SessionSummarySupport,SurfaceEvidenceCompletionV4} from '../api/types';
 import {sessionCitationTarget} from '../shared/sessionEvidenceCitation';
-import type {TourOwnerReading} from './GuidedTour';
+import type {TourOwnerReading,TourDispatchScope} from './GuidedTour';
 import {samePin,type Walkthrough,type MemoryEntryEvidence} from './protocol';
 const digest=(value:string)=>/^[a-f0-9]{64}$/.test(value);
 /** Read the normal accepted history projection; this does not validate model claims or fetch evidence again. */
-export function useSessionMemoryReading(history:WorldAgentConversationHistoryResponse|null,walkthrough:Walkthrough|null):TourOwnerReading|null {
- const baseline=useRef(new Map<string,number>()),seen=useRef(new Map<string,{observedAt:string;origin:'existing'|'acknowledged'}>());
+export function useSessionMemoryReading(history:WorldAgentConversationHistoryResponse|null,walkthrough:Walkthrough|null,dispatches:ReadonlyMap<string,TourDispatchScope|null>=new Map()):TourOwnerReading|null {
+ const seen=useRef(new Map<string,{observedAt:string}>());
  useMemo(()=>{
   if(!history?.conversation_id)return;
   const key=`${history.world_id}:${history.conversation_id}`;
   const completed=history.turns.filter(turn=>turn.lifecycle_status==='completed');
-  if(!baseline.current.has(key))baseline.current.set(key,completed.reduce((max,turn)=>Math.max(max,turn.sequence),0));
-  for(const turn of completed){const id=`${key}:${turn.turn_id}`;if(!seen.current.has(id))seen.current.set(id,{observedAt:new Date().toISOString(),origin:turn.sequence>baseline.current.get(key)!?'acknowledged':'existing'});}
+  for(const turn of completed){const id=`${key}:${turn.turn_id}`;if(!seen.current.has(id))seen.current.set(id,{observedAt:new Date().toISOString()});}
  },[history]);
  const run=walkthrough?.bindings.run,plan=walkthrough?.bindings.plan;
  if(!walkthrough||!run||!plan)return null;
@@ -34,7 +33,7 @@ export function useSessionMemoryReading(history:WorldAgentConversationHistoryRes
   if(!['scene_note','closing_reflections'].every(kind=>entries.some(e=>e.kind===kind))||new Set(entries.map(e=>e.packetDigest)).size!==1)continue;
   const observed=seen.current.get(`${history.world_id}:${history.conversation_id}:${turn.turn_id}`);
   if(!observed)continue;
-  return {step:'memory',target:reflection!.target,parent:plan,control:'memory',status:'ready',observation:{step:'memory',target:reflection!.target,parent:plan,...observed,receiptId:`memory:${turn.turn_id}:${completion.context_receipt_sha256}`,proof:{kind:'session-memory',turnId:turn.turn_id,reviewRevision:review.reviewRevision,checkpointContentDigest:review.contentDigest,contextReceiptDigest:completion.context_receipt_sha256,entries}}};
+  return {step:'memory',dispatchScope:dispatches.get(turn.turn_id),target:reflection!.target,parent:plan,control:'memory',status:'ready',observation:{step:'memory',target:reflection!.target,parent:plan,...observed,origin:dispatches.get(turn.turn_id)?'acknowledged':'existing',receiptId:`memory:${turn.turn_id}:${completion.context_receipt_sha256}`,proof:{kind:'session-memory',turnId:turn.turn_id,reviewRevision:review.reviewRevision,checkpointContentDigest:review.contentDigest,contextReceiptDigest:completion.context_receipt_sha256,entries}}};
  }
  return unavailable;
 }

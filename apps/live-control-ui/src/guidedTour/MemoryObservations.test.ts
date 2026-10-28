@@ -17,11 +17,11 @@ function history(sequence=1,c=completion()):WorldAgentConversationHistoryRespons
  return {schema:'dmb_agent_conversation_history_v2',world_id:'world',conversation_state:'active',conversation_id:'conversation',active_conversation_id:'conversation',pointer_revision:1,next_before_sequence:null,turns:[{turn_id:`turn-${sequence}`,sequence,lifecycle_status:'completed',user_text:'What happened?',assistant_text:'The route remains unresolved.',provenance:{world_id:'world'},plan_context:{completion:c}}]} as WorldAgentConversationHistoryResponse;
 }
 it('recognizes a delivered typed answer pinned to saved notes and closing reflections',()=>{
- const value=walkthrough();const first=history();const hook=renderHook(({h})=>useSessionMemoryReading(h,value),{initialProps:{h:first}});
+ const value=walkthrough();const scope={worldId:'world',walkthroughId:'walk',epoch:0};const dispatches=new Map([['turn-2',scope]]);const first=history();const hook=renderHook(({h})=>useSessionMemoryReading(h,value,dispatches),{initialProps:{h:first}});
  expect(hook.result.current?.observation?.origin).toBe('existing');
  hook.rerender({h:history(2)});
  const observation=hook.result.current?.observation;
- expect(observation?.origin).toBe('acknowledged');expect(validObservation(observation,'world')).toBe(true);
+ expect(hook.result.current?.dispatchScope).toEqual(scope);expect(observation?.origin).toBe('acknowledged');expect(validObservation(observation,'world')).toBe(true);
  expect(observation?.proof).toMatchObject({kind:'session-memory',turnId:'turn-2',reviewRevision:4,checkpointContentDigest:'f'.repeat(64)});
  expect(JSON.stringify(observation)).not.toContain('Saved source text.');
 });
@@ -43,3 +43,5 @@ it('does not accept a foreign World history projection',()=>{
  const h=history();h.world_id='another-world';const hook=renderHook(()=>useSessionMemoryReading(h,walkthrough()));
  expect(hook.result.current?.observation).toBeUndefined();
 });
+
+it('does not infer fresh dispatch merely from a newly delivered sequence',()=>{const value=walkthrough();const hook=renderHook(({h})=>useSessionMemoryReading(h,value),{initialProps:{h:history(1)}});hook.rerender({h:history(2)});expect(hook.result.current?.observation?.origin).toBe('existing');});

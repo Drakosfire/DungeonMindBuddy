@@ -4,10 +4,10 @@ import {TourImageProvider,useTourImage,collectTourMediaAssets} from './ImageObse
 import type {TourOwnerReading} from './GuidedTour';
 import {validObservation} from './protocol';
 const readings=vi.hoisted(()=>new Map<string,TourOwnerReading>());
-vi.mock('./GuidedTour',()=>({useGuidedTour:()=>({tracking:true}),useTourOwnerReading:(reading:TourOwnerReading)=>readings.set(reading.step,reading)}));
+vi.mock('./GuidedTour',()=>({useGuidedTour:()=>({tracking:true,captureScope:()=>({worldId:"world",walkthroughId:"walk",epoch:0}),isScopeCurrent:()=>true}),useTourOwnerReading:(reading:TourOwnerReading)=>readings.set(reading.step,reading)}));
 const assetId='ac6c15cc-8c68-4732-8ae2-d9f3f051393a';
 const pin={kind:'plan' as const,worldId:'world',objectId:'plan',revision:3,revisionId:'work-3',digest:'a'.repeat(64)};
-function Controls(){const image=useTourImage();return <><button onClick={()=>image?.generated([assetId],'actual-model')}>Observed generation</button><button onClick={()=>image?.placed(assetId)}>Verified placement</button></>;}
+function Controls(){const image=useTourImage();return <><button onClick={()=>image?.generated([assetId],'actual-model',image.captureScope())}>Observed generation</button><button onClick={()=>image?.placed(assetId)}>Verified placement</button></>;}
 beforeEach(()=>readings.clear());
 it('requires generation, verified placement and the saved Plan asset together',()=>{
  const mounted=render(<TourImageProvider worldId='world' documentId='plan' verified={null}><Controls/></TourImageProvider>);

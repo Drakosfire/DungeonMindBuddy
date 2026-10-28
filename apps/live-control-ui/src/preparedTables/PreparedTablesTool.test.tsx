@@ -3,7 +3,7 @@ import {render,screen,fireEvent,waitFor,cleanup} from '@testing-library/react';
 import {PreparedTablesTool} from './PreparedTablesTool';
 import type {TourOwnerReading} from '../guidedTour/GuidedTour';
 const tourReadings=vi.hoisted(()=>new Map<string,TourOwnerReading>());
-vi.mock('../guidedTour/GuidedTour',()=>({useTourOwnerReading:(reading:TourOwnerReading)=>tourReadings.set(reading.step,reading)}));
+vi.mock('../guidedTour/GuidedTour',()=>({useGuidedTour:()=>({captureScope:()=>null}),useTourOwnerReading:(reading:TourOwnerReading)=>tourReadings.set(reading.step,reading)}));
 import {pendingTableKey} from './preparedTablesProjection';
 import type {WorldPlayRunRecordV2} from '../api/types';
 const request=vi.hoisted(()=>vi.fn());

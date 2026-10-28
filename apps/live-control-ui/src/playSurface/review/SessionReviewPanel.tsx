@@ -1,3 +1,4 @@
+import {useGuidedTour} from '../../guidedTour/GuidedTour';
 import {useSessionReviewTourObservation,type AcknowledgedSessionReview} from '../../guidedTour/SessionObservations';
 import {useEffect,useMemo,useRef,useState} from "react";
 import type {PlayRunContent} from "../playRunContentTypes";
@@ -6,6 +7,7 @@ import {buildSurfaceInteractionIdentity} from "../../surfaceInteraction/surfaceI
 import {readSessionReview,saveSessionReview,type SessionReview,type ReviewCommand} from "./sessionReviewApi";
 
 export function SessionReviewPanel({runId,worldId,runRevision,content,blocked,sceneTitles}:{runId:string;worldId:string;runRevision:number;content:PlayRunContent;blocked:boolean;sceneTitles:Record<string,string>}){
+ const guidance=useGuidedTour();
  const [tourAcknowledged,setTourAcknowledged]=useState<AcknowledgedSessionReview|null>(null);
  const [review,setReview]=useState<SessionReview|null>(null);
  const [earlierBrowserText,setEarlierBrowserText]=useState<string|null>(null);
@@ -28,11 +30,12 @@ export function SessionReviewPanel({runId,worldId,runRevision,content,blocked,sc
   setText(draft);setLoaded(true);if(value.review?.status==="ended")setOpen(true);
  }).catch(cause=>{if(!cancelled)setError(String(cause.message??cause))});return()=>{cancelled=true}},[runId,worldId,key]);
  const write=async(action:ReviewCommand["action"],retry=false)=>{
+ const tourDispatch=guidance?.captureScope()??null;
   if(saving||!loaded||action==="end"&&blocked)return;
   const attempt=retry?pending.current:{id:crypto.randomUUID(),body:{action,expected_revision:review?.revision??0,expected_run_revision:runRevision,expected_content_sha256:content.content_sha256,final_thoughts:latestText.current}};
   if(!attempt)return;pending.current=attempt;setSaving(true);setError(null);
   try{const accepted=await saveSessionReview(runId,worldId,attempt.id,attempt.body);if(!mounted.current)return;
-   setReview(accepted);setTourAcknowledged({worldId,runId,revision:accepted.revision,commandId:attempt.id});pending.current=null;if(action==="end")setChanged(false);
+   setReview(accepted);setTourAcknowledged({dispatchScope:tourDispatch,worldId,runId,revision:accepted.revision,commandId:attempt.id});pending.current=null;if(action==="end")setChanged(false);
    if(action==="end")setText(accepted.final_thoughts);
    if(action==="reopen")setOpen(false);
    try{if(action!=="save"||latestText.current===attempt.body.final_thoughts)localStorage.removeItem(key);

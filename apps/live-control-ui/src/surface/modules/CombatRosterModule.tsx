@@ -413,7 +413,7 @@ export function CombatRosterModule({scope}:{scope?:CombatHostScope} = {}) {
     const requestedWorldId = worldId;
     const submittedRecord = visibleRecord;
     const submittedDraft = cloneDraft(pendingSave.current?.draft ?? visibleDraft);
-    const generation = worldRequestGeneration.current,tourAtDispatch=tour?.tracking?tourRun:null;
+    const generation = worldRequestGeneration.current,tourAtDispatch=tour?.tracking?tourRun:null,tourDispatch=tour?.captureScope()??null;
     setBusy("save");
     setError(null);
     try {
@@ -432,7 +432,7 @@ export function CombatRosterModule({scope}:{scope?:CombatHostScope} = {}) {
       else recoverySession.current.write(saved, nextDraft);
       pendingSave.current = null; recordRef.current = saved; draftRef.current = nextDraft;
       setRecord(saved); setDraft(nextDraft); setRecoveryMessage(null);
-      if(tourAtDispatch&&scope?.runScope)setTourAcknowledged({scope:tourAtDispatch,sceneId:scope.runScope.sceneId,before:submittedRecord,saved});
+      if(tourAtDispatch&&scope?.runScope)setTourAcknowledged({dispatchScope:tourDispatch,scope:tourAtDispatch,sceneId:scope.runScope.sceneId,before:submittedRecord,saved});
       setEncounters((current) => [saved, ...current.filter((item) => item.encounter_id !== saved.encounter_id)]);
     } catch (caught) {
       if (generation === worldRequestGeneration.current) setError(caught instanceof Error ? caught.message : String(caught));

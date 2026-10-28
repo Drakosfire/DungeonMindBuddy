@@ -1,3 +1,4 @@
+import type {TourDispatchScope} from '../guidedTour/GuidedTour';
 import {TourRunProvider} from '../guidedTour/RunScope';
 import {RunStateTourObservations} from '../guidedTour/RunObservations';
 import {PlayTourObservation} from '../guidedTour/OwnerObservations';
@@ -591,7 +592,7 @@ function PlayRuntimePage() {
     playChooserQuery(window.location.search) ? "chooser" : "loading"
   ));
   const [detail, setDetail] = useState<string | null>(null);
-  const [tourAcknowledgedRun,setTourAcknowledgedRun]=useState<{worldId:string;runId:string;revision:number}|null>(null);
+  const [tourAcknowledgedRun,setTourAcknowledgedRun]=useState<{worldId:string;runId:string;revision:number;dispatchScope?:TourDispatchScope|null}|null>(null);
   const [admission, setAdmission] = useState<NativeRunbookAdmission | null>(null);
   const admissionRef = useRef<NativeRunbookAdmission | null>(null);
   admissionRef.current = admission;
@@ -1138,7 +1139,7 @@ function PlayRuntimePage() {
             mutationStatus={mutationStatus}
             onMutationStatus={setMutationStatus}
             onNoteUnsubmittedChange={onNoteDraftStateChange}
-            onAuthoritativeRun={(nextRun) => {
+            onAuthoritativeRun={(nextRun,tourDispatch) => {
               if (nextRun.run_id !== v2Deck.run.run_id) return;
               const overlaid = overlayRuntimeOnV2Ready(v2Deck, nextRun);
               if (!overlaid) {
@@ -1146,7 +1147,7 @@ function PlayRuntimePage() {
                 return;
               }
               setAdmission(overlaid);
-              if(nextRun.schema_version==="dmb_world_play_run_record_v2")setTourAcknowledgedRun({worldId:nextRun.world_id,runId:nextRun.run_id,revision:nextRun.run_revision});
+              if(nextRun.schema_version==="dmb_world_play_run_record_v2")setTourAcknowledgedRun({dispatchScope:tourDispatch,worldId:nextRun.world_id,runId:nextRun.run_id,revision:nextRun.run_revision});
             }}
           />
           {detail ? (

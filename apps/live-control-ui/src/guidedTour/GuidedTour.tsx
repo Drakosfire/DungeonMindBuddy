@@ -7,10 +7,11 @@ import {pointerKey,readWalkthrough,writeWalkthrough,type StoredWalkthrough} from
 import './guidedTour.css';
 export interface TourOwnerReading {
  step:StepId;target:TargetPin|null;parent?:TargetPin;control:string;label?:string;
- status:'ready'|'unavailable'|'failed';reason?:string;observation?:Observation;
+ status:'ready'|'unavailable'|'failed';reason?:string;observation?:Observation;dispatchScope?:TourDispatchScope|null;
 }
+export interface TourDispatchScope {worldId:string;walkthroughId:string;epoch:number}
 interface TourApi {
- tracking:boolean;open:()=>void;recordRunCreation:(observation:Observation)=>void;publish:(token:symbol,reading:TourOwnerReading|null)=>void;
+ tracking:boolean;open:()=>void;recordConversationDispatch:(turnId:string,scope:TourDispatchScope|null)=>void;captureScope:()=>TourDispatchScope|null;isScopeCurrent:(scope:TourDispatchScope|null)=>boolean;recordRunCreation:(observation:Observation,scope:TourDispatchScope|null)=>void;publish:(token:symbol,reading:TourOwnerReading|null)=>void;
 }
 const TourContext=createContext<TourApi|null>(null);
 export const useGuidedTour=()=>useContext(TourContext);
@@ -50,22 +51,31 @@ export function GuidedTourProvider({worldId,worldName,children,history=null}:{wo
    });
   }).catch(cause=>{if(mounted.current)setError(cause instanceof Error?cause.message:'The walkthrough could not be retained.');});
  },[worldId]);
- const publish=useCallback((token:symbol,reading:TourOwnerReading|null)=>{
+ const scopeWorld=useRef(worldId);scopeWorld.current=worldId;
+ const isScopeCurrent=useCallback((scope:TourDispatchScope|null)=>{
+  if(!scope||scopeWorld.current!==scope.worldId||externalEpoch.current!==scope.epoch||current.current?.record.id!==scope.walkthroughId||current.current.record.phase!=='running')return false;
+  try{return readWalkthrough(localStorage,scope.worldId)?.record.id===scope.walkthroughId;}catch{return false;}
+ },[]);
+ const captureScope=useCallback(()=>{const record=current.current?.record;const scope=worldId&&record?{worldId,walkthroughId:record.id,epoch:externalEpoch.current}:null;return isScopeCurrent(scope)?scope:null;},[worldId,isScopeCurrent]);
+ const publish=useCallback((token:symbol,incoming:TourOwnerReading|null)=>{
+  const reading=incoming?.observation?.origin==='acknowledged'&&!isScopeCurrent(incoming.dispatchScope??null)?{...incoming,observation:{...incoming.observation,origin:'existing' as const}}:incoming;
   if(!mounted.current)return;
   setOwners(previous=>{const next=new Map(previous);if(reading&&worldId&&(!reading.target||reading.target.worldId===worldId))next.set(token,reading);else next.delete(token);return next;});
   if(reading?.observation&&reading.target?.worldId===worldId&&current.current?.record.phase==='running')change({kind:'observe',observation:reading.observation});
- },[change,worldId]);
- const recordRunCreation=useCallback((observation:Observation)=>{
+ },[change,worldId,isScopeCurrent]);
+ const recordRunCreation=useCallback((observation:Observation,scope:TourDispatchScope|null)=>{
   const walk=current.current?.record;
-  if(!worldId||!walk||walk.phase!=='running'||observation.step!=='play'||observation.origin!=='acknowledged'||!validObservation(observation,worldId))return;
+  if(!isScopeCurrent(scope)||!worldId||!walk||walk.phase!=='running'||observation.step!=='play'||observation.origin!=='acknowledged'||!validObservation(observation,worldId))return;
   runCreationReceipts.current.set(observation.receiptId,observation);
-  if(!walk.bindings.run&&walk.bindings.plan&&observation.parent&&samePin(walk.bindings.plan,observation.parent))change({kind:'bind',pin:observation.target,parent:observation.parent});
-  change({kind:'observe',observation});
- },[change,worldId]);
- const memoryReading=useSessionMemoryReading(history,stored?.record??null),memoryToken=useRef(Symbol('session-memory'));
+  if(!walk.bindings.run&&walk.bindings.plan&&observation.parent&&samePin(walk.bindings.plan,observation.parent))change({kind:'bind',pin:observation.target,parent:observation.parent},scope!.walkthroughId,scope!.epoch);
+  change({kind:'observe',observation},scope!.walkthroughId,scope!.epoch);
+ },[change,worldId,isScopeCurrent]);
+ const conversationDispatches=useRef(new Map<string,TourDispatchScope|null>());
+ const recordConversationDispatch=useCallback((turnId:string,scope:TourDispatchScope|null)=>{if(!conversationDispatches.current.has(turnId))conversationDispatches.current.set(turnId,scope);},[]);
+ const memoryReading=useSessionMemoryReading(history,stored?.record??null,conversationDispatches.current),memoryToken=useRef(Symbol('session-memory'));
  const memorySignature=JSON.stringify(memoryReading);
  useEffect(()=>{publish(memoryToken.current,memoryReading);return()=>publish(memoryToken.current,null);},[publish,memorySignature]);
- const api=useMemo(()=>({tracking:stored?.record.phase==='running',open:()=>setVisible(true),publish,recordRunCreation}),[publish,recordRunCreation,stored?.record.phase]);
+ const api=useMemo(()=>({tracking:stored?.record.phase==='running',open:()=>setVisible(true),publish,recordRunCreation,captureScope,isScopeCurrent,recordConversationDispatch}),[publish,recordRunCreation,captureScope,isScopeCurrent,recordConversationDispatch,stored?.record.phase]);
  const walkthrough=stored?.record;
  const renderedEpoch=externalEpoch.current;
  const userChange=(action:TourAction|{kind:'start';adventure:Adventure})=>change(action,stored?.record.id??null,renderedEpoch);
@@ -90,7 +100,7 @@ export function GuidedTourProvider({worldId,worldName,children,history=null}:{wo
   // Capture the other admitted capabilities already visible for this same exact object.
   // Multiple candidates for one capability remain ambiguous.
   for(const candidate of owners.values())if(candidate.observation&&candidate.target&&samePin(candidate.target,reading.target)
-   &&Array.from(owners.values()).filter(other=>other.step===candidate.step).length===1)userChange({kind:'observe',observation:candidate.observation});
+   &&Array.from(owners.values()).filter(other=>other.step===candidate.step).length===1)userChange({kind:'observe',observation:candidate.observation.origin==='acknowledged'&&!isScopeCurrent(candidate.dispatchScope??null)?{...candidate.observation,origin:'existing'}:candidate.observation});
   for(const receipt of runCreationReceipts.current.values())if(samePin(receipt.target,reading.target))userChange({kind:'observe',observation:receipt});
  };
  const showControl=()=>{

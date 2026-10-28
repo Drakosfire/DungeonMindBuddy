@@ -15,7 +15,7 @@ import {TourRunProvider} from "../../guidedTour/RunScope";
 import type {TourOwnerReading} from "../../guidedTour/GuidedTour";
 import type {WorldPlayRunRecordV2} from "../../api/types";
 const tourReadings=vi.hoisted(()=>new Map<string,TourOwnerReading>());
-vi.mock("../../guidedTour/GuidedTour",()=>({useGuidedTour:()=>({tracking:true}),useTourOwnerReading:(reading:TourOwnerReading|null)=>{if(reading)tourReadings.set(reading.step,reading);}}));
+vi.mock("../../guidedTour/GuidedTour",()=>({useGuidedTour:()=>({tracking:true,captureScope:()=>null}),useTourOwnerReading:(reading:TourOwnerReading|null)=>{if(reading)tourReadings.set(reading.step,reading);}}));
 
 const entity = {
   id: "drake-1",

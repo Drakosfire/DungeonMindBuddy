@@ -1,3 +1,4 @@
+import {useGuidedTour} from '../guidedTour/GuidedTour';
 import {useTourEncounter,sameEncounterScope} from '../guidedTour/EncounterScope';
 import {AdoptionTourObservation,type AcknowledgedMechanicsAdoption} from '../guidedTour/MechanicsObservations';
 import {useEffect,useRef,useState} from 'react';
@@ -11,6 +12,7 @@ import {readPendingAdoption,sameAdoptionValue,verifyAdoptionOutcome,type Pending
 
 export function CombatMechanicsAdoption({record,disabled,onLockChange,onReconciled,scope}:{record:CombatEncounterRecord;disabled:boolean;scope?:import("./runEncountersApi").RunEncounterScope;
   onLockChange:(locked:boolean)=>void;onReconciled:(current:CombatEncounterRecord)=>void}) {
+ const guidance=useGuidedTour();
   const tourScope=useTourEncounter(),latestTourScope=useRef(tourScope);latestTourScope.current=tourScope;
   const [tourAcknowledged,setTourAcknowledged]=useState<AcknowledgedMechanicsAdoption|null>(null);
   const worldId=record.world_id,encounterId=record.encounter_id,epoch=useRef(0);
@@ -52,7 +54,7 @@ export function CombatMechanicsAdoption({record,disabled,onLockChange,onReconcil
     catch(error){if(token===epoch.current)setMessage(String(error));}finally{if(token===epoch.current)setBusy(false);}
   }
   async function submit(retained:PendingMechanicsAdoption,cancel=false){
-    const token=++epoch.current,tourAtDispatch=tourScope;setBusy(true);setMessage(cancel?'Checking cancellation…':'Applying exact saved version…');
+    const token=++epoch.current,tourAtDispatch=tourScope,tourDispatch=guidance?.captureScope()??null;setBusy(true);setMessage(cancel?'Checking cancellation…':'Applying exact saved version…');
     try{
       const raw=localStorage.getItem(storageKey);
       if(!raw||!sameAdoptionValue(readPendingAdoption(raw,worldId,encounterId),retained))throw new Error('Pending adoption changed; its recovery is retained.');
@@ -61,7 +63,7 @@ export function CombatMechanicsAdoption({record,disabled,onLockChange,onReconcil
       onReconciled(result.encounter);
       if(localStorage.getItem(storageKey)!==raw)throw new Error('Pending adoption storage changed; inspect its outcome again.');
       localStorage.removeItem(storageKey);setPending(null);setPreview(null);setActors({});
-      if(tourAtDispatch&&sameEncounterScope(tourAtDispatch,latestTourScope.current))setTourAcknowledged({scope:tourAtDispatch,outcome:result});
+      if(tourAtDispatch&&sameEncounterScope(tourAtDispatch,latestTourScope.current))setTourAcknowledged({dispatchScope:tourDispatch,scope:tourAtDispatch,outcome:result});
       setMessage(result.receipt.state==='canceled'?'Pending adoption canceled before commit. Current encounter state loaded; this command changed no actors.':
         result.advanced_since_apply?'This adoption committed earlier. Newer encounter changes are loaded and preserved.':
           cancel?'This adoption already committed; Cancel did not undo it.':'Selected actors now use this exact version. Other actors and World associations are unchanged.');

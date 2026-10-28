@@ -1,7 +1,7 @@
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { MediaImageWizard, type ImageGenerationPort } from './MediaImageWizard';
-const tourImage=vi.hoisted(()=>({generated:vi.fn(),placed:vi.fn()}));
+const tourImage=vi.hoisted(()=>({generated:vi.fn(),placed:vi.fn(),captureScope:()=>null}));
 vi.mock('../guidedTour/ImageObservations',()=>({useTourImage:()=>tourImage}));
 beforeEach(()=>{tourImage.generated.mockClear();tourImage.placed.mockClear();});
 const createPort = (): ImageGenerationPort => ({ capabilities: vi.fn().mockResolvedValue({ configured: true, library_ready: true, storage_configured: true, models: [
@@ -24,7 +24,7 @@ describe('MediaImageWizard', () => {
     fireEvent.change(screen.getByLabelText('Quality'), { target: { value: 'low' } });
     fireEvent.click(screen.getByRole('button', { name: 'Generate image' }));
     await screen.findByRole('link', { name: 'Download image' });
-    expect(api.generate).toHaveBeenCalledTimes(1);expect(tourImage.generated).toHaveBeenCalledExactlyOnceWith(['asset-1'],'flux-2-pro');
+    expect(api.generate).toHaveBeenCalledTimes(1);expect(tourImage.generated).toHaveBeenCalledExactlyOnceWith(['asset-1'],'flux-2-pro',null);
     expect(api.generate).toHaveBeenCalledWith(expect.objectContaining({ options: { quality: 'low', background: 'auto', output_format: 'png' } }));
   });
   it('blocks duplicate submission and retains preview after failure', async () => {
