@@ -73,6 +73,7 @@ it('validates the closed shape and rejects forged nested metadata',()=>{
  summary.supports[0]!.source_ordinal=-1;
  expect(isSurfaceEvidenceCompletion(bad,'a'.repeat(64),'plan')).toBe(false);
  expect(isSurfaceEvidenceCompletion(completion,'a'.repeat(64),'play')).toBe(false);
+ expect(isSurfaceEvidenceCompletion({...completion,surface_id:'play'},'a'.repeat(64),'play')).toBe(true);
 });
 it('opens the immutable selected source with no editing controls',async()=>{
  const {packet,summary}=fixture();const target=sessionCitationTarget(packet.world_id,summary.supports[1]!);

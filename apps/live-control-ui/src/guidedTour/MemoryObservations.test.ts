@@ -52,3 +52,13 @@ it.each(['world','conversation'] as const)('does not accept history with another
 it('labels a reloaded accepted answer without ephemeral dispatch knowledge as existing',()=>{const h=history(2),value=walkthrough();const hook=renderHook(()=>useSessionMemoryReading(h,value,new Map([[key(2),{worldId:'world',walkthroughId:'walk',epoch:0}]])));expect(hook.result.current?.observation?.origin).toBe('acknowledged');hook.unmount();const loaded=renderHook(()=>useSessionMemoryReading(h,value));expect(loaded.result.current?.observation?.origin).toBe('existing');});
 
 it('refuses fresh credit for ambiguous physical rows sharing a correlation key',()=>{const h=history(2);h.turns.push({...h.turns[0]!,turn_id:'another-physical-turn',sequence:3});const hook=renderHook(()=>useSessionMemoryReading(h,walkthrough(),new Map([[key(2),{worldId:'world',walkthroughId:'walk',epoch:0}]])));expect(hook.result.current?.observation?.origin).toBe('existing');});
+
+
+it('recognizes native Play session summaries with the same exact Run/review support',()=>{
+ const h=history(2),turn=h.turns[0]! as unknown as Record<string,unknown>,c=completion();c.surface_id='play';
+ delete turn.plan_context;turn.play_context={completion:c};
+ const scope={worldId:'world',walkthroughId:'walk',epoch:0};
+ const hook=renderHook(()=>useSessionMemoryReading(h,walkthrough(),new Map([[key(2),scope]])));
+ expect(hook.result.current?.observation?.origin).toBe('acknowledged');
+ expect(hook.result.current?.observation?.proof).toMatchObject({kind:'session-memory',reviewRevision:4});
+});

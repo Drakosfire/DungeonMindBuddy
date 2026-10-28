@@ -34,6 +34,17 @@ def producing_session_titles(turn, authorization, raw):
                      and row.get("type") in {"text", "input_text"}]
             current = texts[0] if len(texts) == 1 else None
         packets = []
+        if isinstance(current,str):
+            try: carrier = strict_json(current)
+            except (ValueError,TypeError): carrier = None
+            if isinstance(carrier,dict) and carrier.get('schema') == 'dmb_native_play_input_v6':
+                from .play_graph_input import NativePlayInputV6
+                from .play_session_input import validate_turn_packets
+                parsed = NativePlayInputV6.model_validate_json(current)
+                if parsed.submission_id != turn.idempotency_key:
+                    raise ValueError('Play session labels have another producer')
+                packets = parsed.resolved_sessions()
+                validate_turn_packets(turn,packets)
         if isinstance(current, str) and current.startswith(PREFIX):
             payload, _ = json.JSONDecoder().raw_decode(current.split("\n", 1)[1])
             if not isinstance(payload, list):

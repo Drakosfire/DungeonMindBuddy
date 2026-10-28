@@ -744,7 +744,7 @@ class AgentPlayWorldGraphContextResponseV1(BaseModel):
         default="dmb_agent_play_world_graph_context_response_v1", alias="schema"
     )
     receipt: PlayWorldGraphContextReceiptV1
-    completion: PlayWorldGraphCompletionV1 | SurfaceSourceCompletionV1 | SurfaceEvidenceCompletionV3 | SurfaceEvidenceCompletionV2 | SurfaceEvidenceCompletionV1 | None
+    completion: PlayWorldGraphCompletionV1 | SurfaceSourceCompletionV1 | SurfaceEvidenceCompletionV4 | SurfaceEvidenceCompletionV3 | SurfaceEvidenceCompletionV2 | SurfaceEvidenceCompletionV1 | None
     execution: AgentPlanWorldGraphExecutionProjectionV1 | None
     delivery_replay: bool
 

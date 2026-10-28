@@ -289,6 +289,7 @@ def _mock_atomic_play_context_snapshot(monkeypatch: Any) -> None:
         return run, content
 
     monkeypatch.setattr(play, "read_context_snapshot", snapshot)
+    monkeypatch.setattr("application_state.play.session_review.read_review", lambda **_: {"review":None,"source_changed":False}, raising=False)
 
 
 def test_play_run_turn_requires_world_owner_and_bounded_graph_intent() -> None:
@@ -727,7 +728,7 @@ def test_play_world_graph_http_freezes_native_binding_and_independent_pins(
                 api_request_id = str(uuid4())
             else:
                 final_text = json.dumps({
-                    "schema":"dmb_surface_evidence_answer_v4", "limitations":[], "requested_detail_gaps":[],
+                    "schema":"dmb_surface_evidence_answer_v5", "limitations":[], "requested_detail_gaps":[],
                     "answer_segments":[{"kind":"authored_excerpt","selection_id":next(
                         block['selection_id'] for source in json.loads(play_input)['source_frame']['sources']
                         for block in source['text_blocks'] if block['text'].strip())}],
@@ -1045,7 +1046,7 @@ def test_pending_play_http_retry_uses_frozen_moment_after_run_advances(
                 return await client.post("/api/live/agent/turn", json=payload)
 
         response = asyncio.run(post())
-        assert response.status_code == 200, response.text
+        assert response.status_code == 200
         assert len(runtime.invocations) == 1
         moment = runtime.invocations[0].context_packet.surface_context.current_play
         assert moment.current_beat.element_id == "beat:hold-the-gate"
@@ -4406,7 +4407,7 @@ def test_verified_world_projection_reaches_runtime_through_full_http_route(
 
     response = asyncio.run(post_turn())
 
-    assert response.status_code == 200, response.text
+    assert response.status_code == 200
     body = response.json()
     assert body["owner_scope"]["owner_id"] == managed_world.world_id
     assert body["graph"]["status"] == "ready"

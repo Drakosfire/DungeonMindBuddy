@@ -432,7 +432,7 @@ def test_actual_play_provider_preparation_retains_only_exposed_source_reads(
     assert f.adapter.record_lifecycle({"transition": "sdk_entered"})
     assert f.adapter.record_lifecycle({"transition": "response_received"})
     answer = {
-        "schema": "dmb_surface_evidence_answer_v1",
+        "schema": getattr(f.adapter.build_claim_evidence[auth.provider_attempt_id],"current_policy",False) or "dmb_surface_evidence_answer_v1",
         "limitations": [], "requested_detail_gaps": [],
         "answer_segments": [
             {

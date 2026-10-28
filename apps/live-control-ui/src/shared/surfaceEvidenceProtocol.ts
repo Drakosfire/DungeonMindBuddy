@@ -11,7 +11,6 @@ export function isSurfaceEvidenceCompletion(v:unknown, receiptHash:string, surfa
     || !['dmb_surface_evidence_completion_v1','dmb_surface_evidence_completion_v2','dmb_surface_evidence_completion_v3','dmb_surface_evidence_completion_v4'].includes(String(v.schema)) || v.surface_id !== surface || v.context_receipt_sha256 !== receiptHash
     || v.answer_basis !== 'mixed_evidence' || !Array.isArray(v.answer_segments) || !v.answer_segments.length || v.answer_segments.length > 128
     || !Array.isArray(v.source_citations) || v.source_citations.length > 16384) return false;
-  if(v.schema==='dmb_surface_evidence_completion_v4' && surface!=='plan') return false;
   const claims = new Map<string,{index:number;segment:Record<string,unknown>}>(), sources = new Set<number>();
   let authored=false, proposal=false, partial=false;
   const blocks=new Set<string>();
@@ -110,9 +109,9 @@ export function surfaceEvidenceReceiptBound(c:SurfaceEvidenceCompletion,r:WorldP
   if(c.surface_id !== (plan ? 'plan':'play')) return false;
   return c.answer_segments.every(s=>{
     if(s.kind === 'graph_claim') return s.graph_revision === r.graph_authority.graph_revision;
-    if(s.kind === 'session_summary') return plan;
+    if(s.kind === 'session_summary') return plan || s.supports.every(support=>support.object_id===r.play_basis.run_id && support.checkpoint_content_sha256===r.play_basis.content_sha256);
     if(s.kind !== 'authored_quote' && s.kind !== 'authored_excerpt') return true;
-    if(s.source_kind === 'session') return plan;
+    if(s.source_kind === 'session') return plan || s.object_id===r.play_basis.run_id;
     if(s.source_kind === 'plan') return plan && s.object_id === r.plan_basis.document_id
       && s.revision === r.plan_basis.work_revision_id && s.owner_sha256 === r.plan_basis.content_sha256 && s.body_sha256 === s.owner_sha256;
     if(plan) return false;

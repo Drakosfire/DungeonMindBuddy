@@ -110,19 +110,19 @@ class NativePlayInputV4(NativePlayInputV1):
 
 
 
-def pack_selector_play_frame(frame,scope):
+def pack_selector_play_frame(frame,scope,extra_sources=()):
     from .authored_excerpt_blocks import selection_catalog,project_selection_blocks
     value=frame.model_dump(mode='json',by_alias=True)
     value['schema']='dmb_play_block_frame_v2'
-    catalog=selection_catalog(((entry.source_id,source.text)
-        for source,entry in zip(frame.sources,frame.manifest.entries,strict=True)),str(scope))
+    catalog=selection_catalog([(entry.source_id,source.text)
+        for source,entry in zip(frame.sources,frame.manifest.entries,strict=True)] + list(extra_sources),str(scope))
     for source,entry in zip(value['sources'],frame.manifest.entries,strict=True):
         source['schema']='dmb_play_block_payload_v2'
         source['text_blocks']=project_selection_blocks(source.pop('text'),entry.source_id,catalog)
     return value
 
 
-def unpack_selector_play_frame(value,scope):
+def unpack_selector_play_frame(value,scope,extra_sources=()):
     from .authored_excerpt_blocks import restore_selection_blocks
     from copy import deepcopy
     if not isinstance(value,dict) or value.get('schema')!='dmb_play_block_frame_v2':
@@ -134,7 +134,7 @@ def unpack_selector_play_frame(value,scope):
         source['schema']='dmb_play_source_payload_v1'
         source['text']=restore_selection_blocks(source.pop('text_blocks'))
     frame=t.PlaySourceFrameV1.model_validate_json(json.dumps(raw))
-    if pack_selector_play_frame(frame,scope)!=value:
+    if pack_selector_play_frame(frame,scope,extra_sources)!=value:
         raise ValueError('Play selectors changed exact frozen spans or submission scope')
     return frame
 
@@ -155,6 +155,36 @@ class NativePlayInputV5(NativePlayInputV1):
 
     def resolved_source_frame(self):
         return unpack_selector_play_frame(self.source_frame,str(self.submission_id))
+
+
+class NativePlayInputV6(NativePlayInputV1):
+    schema_: Literal['dmb_native_play_input_v6'] = Field(default='dmb_native_play_input_v6',alias='schema')
+    source_frame: dict
+    session_evidence: list[dict]
+    answer_policy: Literal['dmb_surface_evidence_answer_v5'] = 'dmb_surface_evidence_answer_v5'
+    answer_instructions: str
+
+    @model_validator(mode='after')
+    def exact_session_policy(self):
+        from .surface_evidence_answer import PLAN_INSTRUCTIONS
+        if self.answer_instructions != PLAN_INSTRUCTIONS:
+            raise ValueError('Play requires its exact session summary policy')
+        self.resolved_source_frame()
+        return self
+
+    def resolved_sessions(self):
+        from .play_session_input import restore
+        return restore(self.session_evidence)
+
+    def resolved_source_frame(self):
+        from .play_session_input import packet_sources, pack
+        sessions = self.resolved_sessions()
+        extras = [(s.handle,s.text) for s in packet_sources(sessions)]
+        frame = unpack_selector_play_frame(self.source_frame,str(self.submission_id),extras)
+        expected_frame, expected_sessions = pack(frame,str(self.submission_id),sessions)
+        if expected_frame != self.source_frame or expected_sessions != self.session_evidence:
+            raise ValueError('Play session selection blocks changed')
+        return frame
 
 
 def _user_texts(body, mode):
@@ -190,6 +220,7 @@ def prove_play_source_input(
     event_id: UUID, owner_resolved_current_moment_text: str | None = None,
     owner_resolver: Callable[[t.PlaySourceFrameV1], str | None] | None = None,
     native_section_inclusion: t.NativeSourceProviderInclusionV1 | None = None,
+    session_owner_resolver: Callable[[list], None] | None = None,
 ) -> t.PlaySourceProviderInclusionV1:
     """Derive a witness only from the exact current producing request body.
 
@@ -210,17 +241,21 @@ def prove_play_source_input(
             value = strict_json(text)
         except (ValueError, TypeError):
             continue
-        if not isinstance(value, dict) or value.get("schema") not in {"dmb_native_play_input_v1", "dmb_native_play_input_v2", "dmb_native_play_input_v3", "dmb_native_play_input_v4", "dmb_native_play_input_v5"}:
+        if not isinstance(value, dict) or value.get("schema") not in {"dmb_native_play_input_v1", "dmb_native_play_input_v2", "dmb_native_play_input_v3", "dmb_native_play_input_v4", "dmb_native_play_input_v5", "dmb_native_play_input_v6"}:
             continue
-        model = {"dmb_native_play_input_v1":NativePlayInputV1,"dmb_native_play_input_v2":NativePlayInputV2,"dmb_native_play_input_v3":NativePlayInputV3,"dmb_native_play_input_v4":NativePlayInputV4,"dmb_native_play_input_v5":NativePlayInputV5}[value["schema"]]
+        model = {"dmb_native_play_input_v1":NativePlayInputV1,"dmb_native_play_input_v2":NativePlayInputV2,"dmb_native_play_input_v3":NativePlayInputV3,"dmb_native_play_input_v4":NativePlayInputV4,"dmb_native_play_input_v5":NativePlayInputV5,"dmb_native_play_input_v6":NativePlayInputV6}[value["schema"]]
         carrier = model.model_validate_json(json.dumps(value, ensure_ascii=False))
         if carrier.submission_id == submission_id:
             carriers.append(carrier)
     if len(carriers) != 1 or carriers[0].message != original_message:
         raise ValueError("Native Play request lacks one exact current-submission source carrier")
-    frame = carriers[0].resolved_source_frame() if isinstance(carriers[0],(NativePlayInputV3,NativePlayInputV4,NativePlayInputV5)) else carriers[0].source_frame
+    frame = carriers[0].resolved_source_frame() if isinstance(carriers[0],(NativePlayInputV3,NativePlayInputV4,NativePlayInputV5,NativePlayInputV6)) else carriers[0].source_frame
     if frame.manifest != receipt.play_sources or t.canonical_sha256(frame) != receipt.play_source_frame_sha256:
         raise ValueError("Native Play source frame differs from its frozen receipt")
+    if isinstance(carriers[0],NativePlayInputV6):
+        if session_owner_resolver is None:
+            raise ValueError('Current Play input requires independent session ownership')
+        session_owner_resolver(carriers[0].resolved_sessions())
     if owner_resolver is not None:
         if owner_resolved_current_moment_text is not None:
             raise ValueError("Native Play source proof requires one independent owner resolver")

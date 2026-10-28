@@ -2228,7 +2228,7 @@ SurfaceEvidenceSegmentV3 = Annotated[SurfaceEvidenceSegmentV2 | SessionSummaryV1
 
 
 class SurfaceEvidenceCompletionV4(SurfaceEvidenceCompletionV3):
-    surface_id: Literal["plan"] = "plan"
+    surface_id: Literal["plan", "play"] = "plan"
     schema_: Literal["dmb_surface_evidence_completion_v4"] = Field(default="dmb_surface_evidence_completion_v4", alias="schema")
     answer_segments: list[SurfaceEvidenceSegmentV3] = Field(min_length=1, max_length=128)
 

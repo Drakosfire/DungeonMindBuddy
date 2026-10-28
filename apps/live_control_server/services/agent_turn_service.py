@@ -6844,7 +6844,7 @@ def execute_agent_turn(
         from .native_play_graph_owner import native_play_input_message, prepare_play_sources
         try:
             native_play_frame, _play_moment = prepare_play_sources(request, work)
-            runtime_message = native_play_input_message(request, native_play_frame)
+            runtime_message = native_play_input_message(request, native_play_frame, (work.session_evidence or {}).get("sessions", []))
         except (TypeError, ValueError) as exc:
             raise AgentTurnServiceError(
                 "The exact saved Play Beat/Scene source could not be frozen.",
@@ -7168,7 +7168,7 @@ def execute_agent_turn(
                     None if policy_bootstrap is None else policy_bootstrap.retrieval_session
                 ),
             )
-        if work is not None and work.session_evidence is not None:
+        if work is not None and work.session_evidence is not None and request.surface.surface_id != "play":
             assembly = replace(assembly, invocation=replace(assembly.invocation,
                 context_packet=replace(assembly.invocation.context_packet,session_evidence=work.session_evidence),
                 input_kind="server_assembled_saved_work" if work.session_evidence.get("sessions") else assembly.invocation.input_kind))
