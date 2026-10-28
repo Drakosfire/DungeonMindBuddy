@@ -5,6 +5,7 @@ from __future__ import annotations
 import argparse
 import os
 import sys
+from functools import cache
 from pathlib import Path
 
 from alembic import command
@@ -23,7 +24,13 @@ def alembic_config() -> Config:
     return cfg
 
 
+@cache
 def _alembic_head() -> str:
+    """Discover the immutable installed package head once per serving process.
+
+    Delivery stops the process before replacing package files. Database revision
+    reads and comparisons remain fresh; unsuccessful discovery is not cached.
+    """
     cfg = alembic_config()
     script = ScriptDirectory.from_config(cfg)
     heads = script.get_heads()
