@@ -1,6 +1,8 @@
 # BUILD — intentional answer citation readback
 
-ACTIVE PRIME serial slice at base3593afef63054cc43677010e9319bbd8657211ed, branch codex/build-intentional-citation-readback, existing buddy-context-loop checkout/shared dependencies. Runtime API2833755 serves immutable eaf580788/schema0085; UI2615636 unchanged. Hosted1828 and held1764 disjoint; no overlapping open implementation PR. No new checkout/environment.
+SETTLED by PR1849 mergeb6e74c28a010cba5d77230bc48fef568937cf03d, independently approved exact196460232 (cycle1;40tests), author40pass, hosted40616839384 bothsuccess. Protected API2868005 preserves all3881APP/1157native/40932files exactly. Existing ordinary Conks answer opens all3inline citations and survives reload/reopen; no new provider call/save/publication. Next confirmed publication regression belongs to HANDOFF-INGEST-confirm-eligible-identity.md. Full journey acceptance remains incomplete.
+
+Historical activation: PRIME serial slice at base3593afef63054cc43677010e9319bbd8657211ed, branch codex/build-intentional-citation-readback, existing buddy-context-loop checkout/shared dependencies. Runtime API2833755 serves immutable eaf580788/schema0085; UI2615636 unchanged. Hosted1828 and held1764 disjoint; no overlapping open implementation PR. No new checkout/environment.
 
 ## Evidence and critiqued invariant
 PR1848 merged3593afef and protected delivered. Ordinary Conks Retry160b403c-a9d3-42f6-a3e8-f1713490070a completed with manually supported Sarni/Nar answer. All seven retained citations fail source_passage_completion_unavailable before native IO: the reader admits BuildGraphCompletionV2 but omits standalone BuildIntentionalResponseCompletionV1 and its subclasses. Original failures remain private. Literal quote witnesses do not prove entailment.

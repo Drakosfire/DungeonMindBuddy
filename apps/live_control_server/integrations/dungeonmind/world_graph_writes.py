@@ -1907,10 +1907,10 @@ def _reprove_pinned_canonical_identity_bindings(
         _known_party_anchor, _reviewed_binding_anchor,
     )
     from graph_memory.extract_promote_proposal import (
-        contribution_slices_from_effect, verify_source_local_identity_basis,
+        contribution_slices_from_effect,
     )
     from apps.live_control_server.services.candidate_graph_admission import (
-        canonical_candidate_digest,
+        project_candidate_graph_for_confirmation,
     )
 
     effect = dict(package.get("effect") or {})
@@ -1931,15 +1931,10 @@ def _reprove_pinned_canonical_identity_bindings(
         )
     try:
         candidate = json.loads(Path(path).read_text(encoding="utf-8"))
-        admission = dict(effect.get("candidate_admission") or {})
-        digest = canonical_candidate_digest(candidate)
-        if digest != admission.get("candidate_digest"):
-            raise ValueError("exact candidate digest changed")
-        verify_source_local_identity_basis(
-            effect, candidate_sha256=digest, candidate_graph=candidate,
-            require=True,
+        projected = project_candidate_graph_for_confirmation(
+            review_package=package, candidate_graph=candidate,
         )
-        preview = load_typed_candidate_graph(candidate)
+        preview = load_typed_candidate_graph(projected)
         nodes = {node.node_id: node for node in preview.nodes}
         for item, local_id, record in canonical:
             node = nodes.get(local_id)
