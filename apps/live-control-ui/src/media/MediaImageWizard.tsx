@@ -1,3 +1,4 @@
+import {useTourImage} from '../guidedTour/ImageObservations';
 import { useEffect, useRef, useState } from 'react';
 import { authenticatedApiFetch } from '../api/liveApi';
 import './MediaImageWizard.css';
@@ -57,6 +58,7 @@ function LibraryThumbnail({ record, port }: { record: MediaRecord; port: ImageGe
 export function MediaImageWizard({ onClose, onChoose, initialPrompt = '', initialPurpose = 'illustration', preparationId, chooseLabel = 'Insert into page', port = livePort }: {
   initialPrompt?: string; initialPurpose?: 'illustration' | 'map'; preparationId?: string; chooseLabel?: string; onClose: () => void; onChoose?: (image: GeneratedMediaImage, result: ImageGenerationResult, placement: { mode: 'click' | 'drag'; signal: AbortSignal }) => void | Promise<void>; port?: ImageGenerationPort;
 }) {
+  const tourImage=useTourImage();
   const [collapsed, setCollapsed] = useState(false);
   const [placing, setPlacing] = useState(false);
   const placementAbort = useRef<AbortController | null>(null);
@@ -117,6 +119,7 @@ export function MediaImageWizard({ onClose, onChoose, initialPrompt = '', initia
     if (model.controls.includes('seed') && seed !== '') options.seed = Number(seed);
     try {
       const generated = await port.generate({ prompt, purpose, model: modelId, width, height, options, ...(preparationId ? { preparation_id: preparationId } : {}) });
+      tourImage?.generated(generated.images.map(image=>image.asset_id),generated.model);
       setCompletion(generated.images[0] ?? null);
       if (libraryOpenRef.current) {
         void port.list().then(page => setLibrary(page.items)).catch(() => { /* Completion still opens the acknowledged asset. */ });

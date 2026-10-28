@@ -5,7 +5,7 @@ import {readWalkthrough,writeWalkthrough,recordKey,pointerKey,type TourStorage} 
 const now='2026-10-28T00:00:00Z';
 const pin=(kind:TargetPin['kind'],objectId:string=kind):TargetPin=>({kind,worldId:'world',objectId,revision:1,digest:'a'.repeat(64),...(kind==='plan'?{revisionId:'work-revision-1'}:{})});
 const fresh=()=>createWalkthrough('world','conks','walk-one',now);
-const observation=(step:Observation['step']='source',origin:Observation['origin']='acknowledged'):Observation=>({step,target:pin(JOURNEY_STEPS.find(s=>s.id===step)!.target),origin,observedAt:now,receiptId:'owner-receipt'});
+const observation=(step:Observation['step']='source',origin:Observation['origin']='acknowledged'):Observation=>({step,target:pin(JOURNEY_STEPS.find(s=>s.id===step)!.target),origin,observedAt:now,receiptId:'owner-receipt',...(step==='play'?{proof:{kind:'run-creation' as const,entrySceneId:null,preparedSceneIds:[]}}:{})});
 const store=():TourStorage=>{const values=new Map<string,string>();return {getItem:k=>values.get(k)??null,setItem:(k,v)=>{values.set(k,v);}};};
 describe('ordinary-control journey recognition',()=>{
  it.each(Object.keys(ADVENTURES) as ('conks'|'sheep')[])('uses the complete shared flow for %s',adventure=>{const run=createWalkthrough('world',adventure,'id',now);expect(Object.keys(run.steps)).toEqual(JOURNEY_STEPS.map(s=>s.id));expect(JOURNEY_STEPS.at(-1)?.id).toBe('memory');});

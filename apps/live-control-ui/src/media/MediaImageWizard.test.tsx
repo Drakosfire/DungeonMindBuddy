@@ -1,6 +1,9 @@
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
-import { describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { MediaImageWizard, type ImageGenerationPort } from './MediaImageWizard';
+const tourImage=vi.hoisted(()=>({generated:vi.fn(),placed:vi.fn()}));
+vi.mock('../guidedTour/ImageObservations',()=>({useTourImage:()=>tourImage}));
+beforeEach(()=>{tourImage.generated.mockClear();tourImage.placed.mockClear();});
 const createPort = (): ImageGenerationPort => ({ capabilities: vi.fn().mockResolvedValue({ configured: true, library_ready: true, storage_configured: true, models: [
   { id: 'flux-2-pro', label: 'FLUX 2 Pro', formats: ['png', 'jpeg'], controls: ['seed'] },
   { id: 'gpt-image-1.5', label: 'GPT Image 1.5', formats: ['png', 'jpeg', 'webp'], controls: ['quality', 'background'] },
@@ -14,14 +17,14 @@ async function settings(api: ImageGenerationPort) {
 describe('MediaImageWizard', () => {
   it('submits only explicit Generate with model-supported controls', async () => {
     const api = createPort(); await settings(api);
-    expect(api.generate).not.toHaveBeenCalled();
+    expect(api.generate).not.toHaveBeenCalled();expect(tourImage.generated).not.toHaveBeenCalled();
     expect(screen.getByLabelText(/Seed/)).toBeInTheDocument();
     fireEvent.change(screen.getByLabelText('Model'), { target: { value: 'gpt-image-1.5' } });
     expect(screen.queryByLabelText(/Seed/)).not.toBeInTheDocument();
     fireEvent.change(screen.getByLabelText('Quality'), { target: { value: 'low' } });
     fireEvent.click(screen.getByRole('button', { name: 'Generate image' }));
     await screen.findByRole('link', { name: 'Download image' });
-    expect(api.generate).toHaveBeenCalledTimes(1);
+    expect(api.generate).toHaveBeenCalledTimes(1);expect(tourImage.generated).toHaveBeenCalledExactlyOnceWith(['asset-1'],'flux-2-pro');
     expect(api.generate).toHaveBeenCalledWith(expect.objectContaining({ options: { quality: 'low', background: 'auto', output_format: 'png' } }));
   });
   it('blocks duplicate submission and retains preview after failure', async () => {

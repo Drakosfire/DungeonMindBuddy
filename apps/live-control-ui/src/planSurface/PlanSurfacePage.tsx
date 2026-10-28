@@ -1,3 +1,5 @@
+import {TourImageProvider,collectTourMediaAssets} from '../guidedTour/ImageObservations';
+import {planPin} from '../guidedTour/ownerPins';
 import {PlanTourObservation,type TourPlanSave} from '../guidedTour/OwnerObservations';
 import {capturePlanPlacementCatalog} from './agentEdit/planPlacementCatalog';
 import {readPlanAuthoringReview,type PlanReviewApplication} from "../api/planAuthoringReviewApi";
@@ -441,6 +443,7 @@ function WorldOwnedPlanPage({ worldId, worldName }: { worldId: string; worldName
   const [lastSavedAt, setLastSavedAt] = useState<string | null>(null);
   const [startingPlay, setStartingPlay] = useState(false);
   const [startPlayError, setStartPlayError] = useState<string | null>(null);
+  const [tourVerifiedPlan,setTourVerifiedPlan]=useState<{documentId:string;worldId:string;objectRevision:number;pin:{revisionN:number;workRevisionId:string;contentSha256:string};assetIds:string[]}|null>(null);
   const [sessionStart,setSessionStart]=useState<{documentId:string;worldId:string;pin:{revisionN:number;workRevisionId:string;contentSha256:string};sceneId:string|null}|null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -1723,6 +1726,7 @@ function WorldOwnedPlanPage({ worldId, worldName }: { worldId: string; worldName
       ) {
         throw new Error("The selected Plan or World changed before Play could start. Reopen the Plan and try again.");
       }
+      setTourVerifiedPlan({documentId:selectedDocumentId,worldId,objectRevision:committed.object_revision,pin:{revisionN:committed.revision_n,workRevisionId:committed.work_revision_id,contentSha256:committed.content_sha256},assetIds:collectTourMediaAssets(cardProjectionDocument)});
       setSessionStart({documentId:selectedDocumentId,worldId,pin:{revisionN:committed.revision_n,workRevisionId:committed.work_revision_id,contentSha256:committed.content_sha256},sceneId:navigationSceneId});
     } catch (reason) {
       if (
@@ -1985,9 +1989,10 @@ function WorldOwnedPlanPage({ worldId, worldName }: { worldId: string; worldName
     };
     return find(savedCardProjection.roots);
   })();
+  const currentTourPlan=canStartPlayFromSavedPlan&&!savedPlanDirty&&savedBasis.status==="verified"&&tourVerifiedPlan?.documentId===documentId&&tourVerifiedPlan.worldId===worldId&&tourVerifiedPlan.objectRevision===savedBasis.revision&&tourVerifiedPlan.pin.contentSha256===savedBasis.contentSha256?tourVerifiedPlan:null;
   return (
-    <AppChrome activeRoute="plan" editorTools={editorToolsGeneration} editToolboxLayout="dock" workspaceLayout="bounded">
-      <PlanTourObservation verified={canStartPlayFromSavedPlan&&!savedPlanDirty&&savedBasis.status==="verified"&&sessionStart?.documentId===documentId&&sessionStart?.worldId===worldId&&sessionStart.pin.contentSha256===savedBasis.contentSha256?sessionStart:null} error={startPlayError} saved={tourPlanSave} registryRevision={savedBasis.status==="verified"?savedBasis.revision:null}/>
+    <TourImageProvider worldId={worldId} documentId={documentId} verified={currentTourPlan?{pin:planPin(worldId,currentTourPlan.documentId,currentTourPlan.pin),assetIds:currentTourPlan.assetIds}:null}><AppChrome activeRoute="plan" editorTools={editorToolsGeneration} editToolboxLayout="dock" workspaceLayout="bounded">
+      <PlanTourObservation label={title} verified={currentTourPlan} error={startPlayError} saved={tourPlanSave} registryRevision={savedBasis.status==="verified"?savedBasis.revision:null}/>
       <WorldPlanSurfaceContext
         worldId={worldId}
         worldName={worldName}
@@ -2014,7 +2019,7 @@ function WorldOwnedPlanPage({ worldId, worldName }: { worldId: string; worldName
               onClick={() => { setSourceEditing(false); selectPlanView("cards"); }}
             >Cards</button>
           </nav>
-          <button type="button" aria-label="Open Image Studio" aria-expanded={Boolean(imageStudio.session)} disabled={!documentId || status !== "ready" || fidelityBlocked || recoveryConflict}
+          <button type="button" aria-label="Open Image Studio" data-guided-control="image" aria-expanded={Boolean(imageStudio.session)} disabled={!documentId || status !== "ready" || fidelityBlocked || recoveryConflict}
             onClick={() => { if (imageStudio.open()) setSourceEditing(false); }}>Images</button>
           <WorkspaceTrashControl showTrash={false} worldId={worldId}
             current={documentId && revisionRef.current ? {kind:"document", id:documentId, title, surface:"plan", revision:revisionRef.current} : null}
@@ -2247,6 +2252,6 @@ function WorldOwnedPlanPage({ worldId, worldName }: { worldId: string; worldName
         onClearPlayableEditTarget={clearPlayableEditTarget}
       />}
       </PlanConversationDockAdapter>
-    </AppChrome>
+    </AppChrome></TourImageProvider>
   );
 }

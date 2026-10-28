@@ -1,4 +1,4 @@
-import {GuidedTourProvider} from './guidedTour/GuidedTour';
+import {WorldGuidedTour} from './guidedTour/WorldGuidedTour';
 import { DocumentReferenceSurfaceHost } from './documentReference/DocumentReferenceSurfaceHost';
 import { useCallback, useEffect, useMemo, useState, useSyncExternalStore } from "react";
 
@@ -367,7 +367,7 @@ function SelectedWorldApp({ locationSnapshot }: { locationSnapshot: string }) {
       <AskPluginSlotProvider>
         <WorldAgentConversationProvider key={selectedWorld.kind === "managed" ? selectedWorld.worldId : "legacy"}
           worldId={selectedWorld.kind === "managed" ? selectedWorld.worldId : null}>
-          <GuidedTourProvider worldId={selectedWorld.kind === "managed" ? selectedWorld.worldId : null}>
+          <WorldGuidedTour worldId={selectedWorld.kind === "managed" ? selectedWorld.worldId : null} worldName={selectedWorld.kind === "managed" ? selectedWorld.name : undefined}>
           <WorldGraphLensProvider
             key={selectedWorld.kind === "managed" ? selectedWorld.worldId : "legacy"}
             planCampaignId={WORLD_GRAPH_LENS_DEFAULT_CAMPAIGN_ID}
@@ -391,7 +391,7 @@ function SelectedWorldApp({ locationSnapshot }: { locationSnapshot: string }) {
               </SurfaceContextProvider>
             </WorldGraphLensProjectionProvider>
           </WorldGraphLensProvider>
-          </GuidedTourProvider>
+          </WorldGuidedTour>
         </WorldAgentConversationProvider>
       </AskPluginSlotProvider>
     </AgentInteractionProvider>
