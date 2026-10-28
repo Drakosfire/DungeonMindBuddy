@@ -64,10 +64,13 @@ def store_failure(exc, *, stage, turn_id, attempt):
 
 def failure_code(exc):
     """Only an exact host-owned failure gets an explanatory public code."""
+    from .build_jev_writer import WriterCapacityError
     current = exc
     seen = set()
     while current is not None and id(current) not in seen and len(seen) < 8:
         seen.add(id(current))
+        if type(current) is WriterCapacityError and current.code in {"build_writer_request_over_budget", "build_writer_context_over_budget"}:
+            return current.code
         if type(current) is ValueError and str(current) == "World passage lacks its host-provided source name":
             return "build_source_name_missing"
         current = current.__cause__ or (None if current.__suppress_context__ else current.__context__)

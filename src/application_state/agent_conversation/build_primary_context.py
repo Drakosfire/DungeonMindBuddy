@@ -1,4 +1,4 @@
-"""Exact acquired primary work, distinct from relevance-selected evidence."""
+"""Frozen saved-page projections; full draft and saved evidence stay distinct."""
 
 from __future__ import annotations
 
@@ -6,7 +6,10 @@ from uuid import UUID
 
 STATUS_POLICY = "host_retrieval_status_finite_output_v1"
 POLICY = "exact_acquired_primary_work_context_v1"
+DRAFT_POLICY = "selected_saved_work_with_full_draft_v2"
 SCHEMA = "dmb_build_primary_context_writer_v1"
+DRAFT_SCHEMA = "dmb_build_primary_context_writer_v2"
+SCHEMAS = (SCHEMA, DRAFT_SCHEMA)
 ROLE = "authored_page_under_edit_not_world_or_played_truth"
 
 
@@ -14,6 +17,10 @@ def enabled(policy):
     from .types import BuildPrimaryWorkPolicyV1, BuildPrimaryWorkImagePolicyV1
 
     return isinstance(policy, (BuildPrimaryWorkPolicyV1, BuildPrimaryWorkImagePolicyV1))
+
+
+def schema(policy):
+    return DRAFT_SCHEMA if policy.primary_work_context_policy == DRAFT_POLICY else SCHEMA
 
 
 def selection(execution):
@@ -47,6 +54,15 @@ def records(execution, basis=None):
         raise ValueError("Primary work read belongs to another saved basis")
     if len({e.read_id for e in rows}) != len(rows):
         raise ValueError("Duplicate primary work read")
+    if execution.policy.primary_work_context_policy == DRAFT_POLICY:
+        from .types import BuildDraftContextCapturedV1
+        captures = [e for e in execution.events[:boundary] if isinstance(e, BuildDraftContextCapturedV1)]
+        if len(captures) != 1 or captures[0].record.snapshot.snapshot_sha256 != execution.policy.working_draft_snapshot_sha256:
+            raise ValueError("Selected primary work requires its complete captured draft")
+        chosen = selection(execution).section_read_ids
+        if len(set(chosen)) != len(chosen) or not set(chosen) <= {e.read_id for e in rows}:
+            raise ValueError("Selected primary work requires unique acquired pre-selection reads")
+        rows = tuple(e for e in rows if e.read_id in chosen)
     return rows
 
 
@@ -57,7 +73,7 @@ def writer_read_ids(execution):
 
 def project(execution, basis=None):
     return {
-        "policy": POLICY,
+        "policy": execution.policy.primary_work_context_policy,
         "role": ROLE,
         "sections": [
             {
@@ -79,10 +95,11 @@ def packet_rows(packet):
     if lane is None:
         return []
     if (
-        packet.get("schema") != SCHEMA
+        packet.get("schema") not in SCHEMAS
         or not isinstance(lane, dict)
         or set(lane) != {"policy", "role", "sections"}
-        or lane["policy"] != POLICY
+        or lane["policy"] not in (POLICY, DRAFT_POLICY)
+        or (packet.get("schema") == DRAFT_SCHEMA) != (lane["policy"] == DRAFT_POLICY)
         or lane["role"] != ROLE
         or not isinstance(lane["sections"], list)
     ):
@@ -124,7 +141,7 @@ def validate_packet(packet, execution, basis):
         raise ValueError("World context capability differs from frozen policy")
     selected = packet.get("exposure", {}).get("saved_sections", [])
     if not enabled(execution.policy):
-        if "artifact_under_edit" in packet or packet.get("schema") == SCHEMA:
+        if "artifact_under_edit" in packet or packet.get("schema") in SCHEMAS:
             raise ValueError("Historical policy cannot gain primary work context")
         rows = [ValidatedBuildSectionReadV1.model_validate(e) for e in selected]
         if [e.model_dump(mode="json", by_alias=True) for e in rows] != selected:
@@ -132,13 +149,17 @@ def validate_packet(packet, execution, basis):
                 "Historical saved section differs from exact serialized read"
             )
         return rows
+    if execution.policy.primary_work_context_policy == DRAFT_POLICY and "working_draft_context" not in packet:
+        raise ValueError("Selected saved context requires its complete working draft lane")
+    if packet.get("schema") != schema(execution.policy):
+        raise ValueError("Primary writer schema differs from frozen policy")
     packet_rows(packet)
     expected = project(execution, basis)
     from .build_draft_context import resolve_body_aliases
     packet = resolve_body_aliases(packet)
     if packet.get("artifact_under_edit") != expected:
         raise ValueError("Primary work context differs from exact acquired saved reads")
-    # All saved sections in Build belong to primary work. Their bodies occur once,
+    # Supplied saved sections belong to primary work. Their bodies occur once,
     # in this lane; the selection receipt still records the unchanged evidence vote.
     if selected:
         raise ValueError("Primary work must not be duplicated into selected evidence")

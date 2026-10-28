@@ -350,8 +350,8 @@ def finite_output_schema(packet: dict, *, requested_detail_gaps: bool = False) -
         choice for choice in choices if choice["$ref"].split("/")[-1] in schema["$defs"]
     ]
     if "writer_status_policy" in packet:
-        from .build_primary_context import STATUS_POLICY, SCHEMA
-        if packet["writer_status_policy"] != STATUS_POLICY or packet.get("schema") != SCHEMA:
+        from .build_primary_context import STATUS_POLICY, SCHEMAS
+        if packet["writer_status_policy"] != STATUS_POLICY or packet.get("schema") not in SCHEMAS:
             raise ValueError("Unknown writer status capability")
         disposition = packet.get("retrieval_disposition")
         if (not isinstance(disposition, dict)

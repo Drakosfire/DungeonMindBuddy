@@ -330,6 +330,11 @@ class WriterProjection:
             "It is never accepted World or played truth. A request to read a page and discuss it can be "
             "answered with useful authored context even when another requested source is missing. "
             "Keep missing World evidence separate; do not declare this supplied page unavailable.\n") if primary else ""
+        if packet.get("schema") == "dmb_build_primary_context_writer_v2":
+            primary_instructions = ("\nworking_draft_context is the complete captured current working page. "
+                "artifact_under_edit contains only relevance-selected saved sections, which may differ from that draft. "
+                "Use supplied saved read IDs for saved_source_claim; unsaved draft text has no saved citation authority. "
+                "Neither authored lane is accepted World or played truth.\n")
         from application_state.agent_conversation.reviewed_action import SCOPE_KEY, SCOPE_FORMAT, SCOPE_GUIDANCE
         scoped = SCOPE_KEY in packet
         from application_state.agent_conversation.plan_objective import selection_packet, INTENTIONAL_SELECTION_FORMAT, REVIEWED_SELECTION_FORMAT, SELECTION_GUIDANCE
@@ -475,6 +480,13 @@ def with_disposition(staged: WriterProjection, disposition) -> WriterProjection:
         separators=(",", ":"), sort_keys=True, allow_nan=False))
 
 
+class WriterCapacityError(ValueError):
+    """Local pre-dispatch refusal, distinct from provider or contract failures."""
+    def __init__(self, message, *, code, actual, limit):
+        super().__init__(f"{message} ({actual} > {limit}.)")
+        self.code, self.actual, self.limit = code, actual, limit
+
+
 def role_budget() -> dict:
     # Deliberate application allowance below the verified Luna model window.
     # The controller and historical writers retain their own existing limits.
@@ -512,10 +524,10 @@ def validate_body(payload: str, expected: WriterProjection, *, budget: dict | No
             raise ValueError("writer context budget role differs")
         context_limit, request_limit = accepted_budget.context_limit_tokens, accepted_budget.max_request_bytes
     if raw_bytes > request_limit:
-        raise ValueError("writer raw request exceeds its role allowance")
+        raise WriterCapacityError("Buddy could not send the writing request: its raw request exceeds the application role allowance. Your request is retained; the writing provider was not called.", code="build_writer_request_over_budget", actual=raw_bytes, limit=request_limit)
     upper = raw_bytes + 64 * (1 + _json_nodes(body))
     if upper + OUTPUT_RESERVE > context_limit:
-        raise ValueError("Writer input and output reserve exceed context allowance")
+        raise WriterCapacityError("Buddy could not send the writing request: its estimated input and output reserve exceed the application context allowance. Your request is retained; the writing provider was not called.", code="build_writer_context_over_budget", actual=upper + OUTPUT_RESERVE, limit=context_limit)
     return body
 
 
@@ -724,7 +736,7 @@ def source_projection(
         supplied = {e["read_id"] for e in packet["exposure"]["saved_sections"]}
         if supplied != {str(rid) for rid in primary.writer_read_ids(execution)} or supplied != expected:
             raise ValueError("Primary writer exposure differs from exact acquired page context")
-        packet["schema"] = primary.SCHEMA
+        packet["schema"] = primary.schema(execution.policy)
         packet["artifact_under_edit"] = primary.project(execution)
         packet["exposure"]["saved_sections"] = []
         if getattr(execution.policy, "writer_status_policy", None) is not None:

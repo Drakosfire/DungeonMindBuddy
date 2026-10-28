@@ -2742,8 +2742,20 @@ class _PolicyExecutionAdapter:
         if (staged is None or staged.event_sequence != len(self._broker_execution().events)
                 or staged.prior_provider_attempt_id != (str(self.last_provider_attempt_id) if self.last_provider_attempt_id else None)):
             return False
+        from application_state.agent_conversation.build_primary_context import DRAFT_POLICY
+        policy = self._broker_execution().policy
+        if (getattr(policy, "working_draft_context_policy", None) is not None
+                and policy.primary_work_context_policy != DRAFT_POLICY):
+            return False
+        self.writer_admission_failure = None
         try:
             view = writer.prepared_view(prepared, staged, budget=self._frozen_build_writer_budget())
+        except writer.WriterCapacityError as exc:
+            self.writer_admission_failure = exc
+            if self.context_capture is not None:
+                self.context_capture.observe({"kind": "failure", "phase": "context_build",
+                    "code": exc.code})
+            return False
         except (AttributeError, KeyError, TypeError, ValueError):
             return False
         self._prepared_build_authorizing = view
