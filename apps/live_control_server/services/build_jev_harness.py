@@ -127,6 +127,8 @@ class BuildJevHarness:
             if not named_citations:
                 raise ValueError("Working draft requires the current named Build context runtime")
             from application_state.agent_conversation.build_draft_context import POLICY as DRAFT_POLICY
+            from application_state.agent_conversation.build_primary_context import DRAFT_POLICY as PRIMARY_DRAFT_POLICY
+            budget["buildJevActions"]["primary_work_context_policy"] = PRIMARY_DRAFT_POLICY
             budget["buildJevActions"].update(saved_section_read_policy="exact_saved_lines_provider_capacity_v1", working_draft_context_policy=DRAFT_POLICY,
                 working_draft_snapshot_sha256=draft.snapshot.snapshot_sha256,
                 working_draft_context_sha256=digest(draft.model_dump(mode="json", by_alias=True)))
@@ -658,6 +660,11 @@ class BuildJevHarness:
             return result
         except Exception as exc:
             self._failed(exc, started, "writer")
+            capacity = getattr(adapter, "writer_admission_failure", None)
+            if capacity is not None:
+                from .agent_turn_service import AgentTurnServiceError
+                raise AgentTurnServiceError(str(capacity), code=capacity.code,
+                    status_code=422, provider_dispatched=bool(self.calls)) from capacity
             raise
         finally:
             await client.aclose()

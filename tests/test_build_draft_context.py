@@ -324,7 +324,7 @@ def test_draft_only_answer_is_durable_without_saved_or_world_citations(draft_bui
     assert get_workspace_document_snapshot(tmp_path,source.record.document_id).markdown==source.markdown
     from alembic import command
     from application_state.cli import alembic_config
-    with pytest.raises(RuntimeError, match="Selection-context Build decisions require recovery forward"):
+    with pytest.raises(RuntimeError, match="Selected saved draft context requires recovery forward"):
         command.downgrade(alembic_config(), "20261023_0060")
     assert any(row.completion==completion for row in AgentConversationService().list_turns("elderwyld",cap.conversation_id))
 

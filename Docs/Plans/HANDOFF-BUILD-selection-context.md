@@ -1,6 +1,8 @@
 # BUILD — evidence selection uses its required context capacity
 
-ACTIVE PRIME serial slice at base46c1fa02d43d218470457c9bd4613f5e1e9d2b1e, branch codex/build-selection-context, existing buddy-context-loop checkout. No new environment/worktree. Live API2705661 is immutable candidatec472a14d7/schema0082; UI2615636 unchanged. Hosted1828 and held1764 disjoint; ADVERSARY owns harness/gold. Guided tour remains a separate selected successor.
+SETTLED by PR1846, merge51902b7e615c45026ec8e0b0801093c2471bac33. Reviewed head3a5123c07 passed independent review and hosted checks; protected API delivery preserves retained state. Ordinary Conks Retry now passes selection but refuses at the separate writer allowance before any writer send. Successor HANDOFF-BUILD-draft-selected-context.md owns that remaining failure. No active lease remains here.
+
+Historical activation: PRIME serial slice at base46c1fa02d43d218470457c9bd4613f5e1e9d2b1e, branch codex/build-selection-context, existing buddy-context-loop checkout. No new environment/worktree. Live API2705661 is immutable candidatec472a14d7/schema0082; UI2615636 unchanged. Hosted1828 and held1764 disjoint; ADVERSARY owns harness/gold. Guided tour remains a separate selected successor.
 
 ## Evidence and invariant critique
 Original Conks failuree5a21e64 is preserved. Ordinary Retry853980de-0f7b-4190-b561-319a9a9064ed on delivered1845 reached four successful Jev requests: navigate long32884 and assess long61558. WriterSelectionDriver then refuses default32k before the fifth provider request or any writer. Private diagnosticff53d70c-0dbe-497d-b0ed-428204d0b9c1 preserves the stack. The original navigation correction works; end-to-end answer remains failed.

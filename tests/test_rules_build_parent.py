@@ -561,6 +561,9 @@ def test_mixed_rules_preserves_exact_related_witnesses_or_current_relationship(b
             response=await super().handle_async_request(request)
             body=json.loads(request.content);answer=response.json()
             for key,value in answer['answers'].items():
+                # Draft v2 offers saved authority only when this exact read was selected.
+                if relationship and body['state'].get('writer_selection_policy'):
+                    value.update(choice='direct_support', probabilities={choice:float(choice=='direct_support') for choice in body['questions'][key]['criteria']})
                 if relationship and key=='requested_work':
                     choices=body['questions'][key]['criteria']
                     value.update(choice='review_relationship',probabilities={choice:float(choice=='review_relationship') for choice in choices})
@@ -602,3 +605,31 @@ def test_mixed_rules_preserves_exact_related_witnesses_or_current_relationship(b
     if relationship:assert completed.base_projection.turn.completion.collaboration.kind=='relationship'
     else:assert len(claims)==1 and claims[0].page.document_id==page.document_id
     assert AgentConversationService().inspect_turn(world_id=completed.envelope.world_id,turn_id=completed.envelope.turn_id)==completed
+    from copy import deepcopy
+    from application_state.agent_conversation.rules_authority_build_input import verify_build_prepared_input
+    from application_state.agent_conversation.rules_authority_events import RulesBuildProviderAuthorizedV1, RulesBuildProviderIncludedV1
+    from application_state.agent_conversation.build_primary_context import DRAFT_SCHEMA
+    execution = adapter.rules_runtime.record.execution
+    auth, = [e for e in execution.events if isinstance(e, RulesBuildProviderAuthorizedV1) and e.role == 'writer']
+    inclusion, = [e for e in execution.events if isinstance(e, RulesBuildProviderIncludedV1) and e.role == 'writer']
+    assert auth.carrier_schema == inclusion.carrier_schema == DRAFT_SCHEMA
+    assert auth.provider_attempt_id == inclusion.provider_attempt_id == completed.accepted_binding.producing_provider_attempt_id
+    body = json.loads(writer.calls[0].content)
+    carrier = json.loads(body['input'])
+    assert carrier['schema'] == carrier['rules_projection']['carrier_schema'] == DRAFT_SCHEMA
+    # A carrier substitution must fail both the Rules binding and primary pairing.
+    for fault in ('event_carrier', 'outer_schema', 'primary_policy', 'missing_draft'):
+        changed = deepcopy(body)
+        packet = json.loads(changed['input'])
+        event = auth
+        if fault == 'event_carrier':
+            event = auth.model_copy(update={'carrier_schema':'dmb_build_primary_context_writer_v1'})
+        elif fault == 'outer_schema':
+            packet['schema'] = 'dmb_build_primary_context_writer_v1'
+        elif fault == 'primary_policy':
+            packet['artifact_under_edit']['policy'] = 'exact_acquired_primary_work_context_v1'
+        else:
+            del packet['working_draft_context']
+        changed['input'] = json.dumps(packet)
+        with pytest.raises(ValueError):
+            verify_build_prepared_input(execution, event, changed)

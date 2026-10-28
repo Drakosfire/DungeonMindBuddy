@@ -2904,12 +2904,16 @@ class BuildContainedActionControllerWriterPolicyV1(BuildPhaseActionControllerWri
 
 
 class BuildDraftWorldContextPolicyV1(BuildNamedWorldContextPolicyV1):
+    # Exact frozen literal versions semantics without changing historical digests.
+    primary_work_context_policy: Literal["exact_acquired_primary_work_context_v1", "selected_saved_work_with_full_draft_v2"]
     working_draft_context_policy: Literal["captured_build_working_draft_context_v1"]
     working_draft_snapshot_sha256: str = Field(pattern=r"^[a-f0-9]{64}$")
     working_draft_context_sha256: str = Field(pattern=r"^[a-f0-9]{64}$")
 
 
 class BuildDraftWorldContextImagePolicyV1(BuildNamedWorldContextImagePolicyV1):
+    # Exact frozen literal versions semantics without changing historical digests.
+    primary_work_context_policy: Literal["exact_acquired_primary_work_context_v1", "selected_saved_work_with_full_draft_v2"]
     working_draft_context_policy: Literal["captured_build_working_draft_context_v1"]
     working_draft_snapshot_sha256: str = Field(pattern=r"^[a-f0-9]{64}$")
     working_draft_context_sha256: str = Field(pattern=r"^[a-f0-9]{64}$")
