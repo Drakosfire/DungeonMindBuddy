@@ -71,7 +71,7 @@ class ExperimentalAccounting:
             "questions": {name: question}}) for name, question in body["questions"].items())
 
     def context_mode(self, body: dict) -> str:
-        return selected_mode(phase(body), self.estimate(body), self.question_estimate(body))
+        return selected_mode(phase(body), self.estimate(body), self.question_estimate(body), policy=POLICY)
 
     def validate(self, body: dict, raw: bytes, *, context_mode: str = "default") -> None:
         if len(raw) > RAW_WIRE_LIMIT:

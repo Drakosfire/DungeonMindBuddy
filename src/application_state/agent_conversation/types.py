@@ -2792,8 +2792,13 @@ class BuildControllerContinuationAccountingV2(BuildControllerContinuationAccount
     context_selection_policy: Literal["build_navigate_assess_if_default_exceeded_v1"]
 
 
+class BuildControllerContinuationAccountingV3(BuildControllerContinuationAccountingV2):
+    policy: Literal["o200k_double_plus_4096_adaptive_context_v3"]
+    context_selection_policy: Literal["build_acquisition_selection_if_default_exceeded_v2"]
+
+
 class BuildEstimatedActionControllerWriterPolicyV1(BuildPhaseActionControllerWriterPolicyV1):
-    controller_continuation_accounting: BuildControllerContinuationAccountingV2 | BuildControllerContinuationAccountingV1
+    controller_continuation_accounting: BuildControllerContinuationAccountingV3 | BuildControllerContinuationAccountingV2 | BuildControllerContinuationAccountingV1
 
 
 class BuildJointSupportActionControllerWriterPolicyV1(BuildEstimatedActionControllerWriterPolicyV1):
@@ -2837,7 +2842,7 @@ class BuildSelectedSourceActionControllerWriterPolicyV1(BuildCitedSourceActionCo
 
 
 class BuildInitialEstimatedSelectedSourcePolicyV1(BuildSelectedSourceActionControllerWriterPolicyV1):
-    controller_initial_accounting: BuildControllerContinuationAccountingV2 | BuildControllerContinuationAccountingV1
+    controller_initial_accounting: BuildControllerContinuationAccountingV3 | BuildControllerContinuationAccountingV2 | BuildControllerContinuationAccountingV1
 
     @model_validator(mode="after")
     def validate_initial_accounting(self):
@@ -4167,7 +4172,7 @@ def validate_graph_execution_record(execution, *, dynamic_source_scope: bool, al
                 expected_estimator = descriptor.policy if estimated else execution.policy.provider_input_accounting.estimator
                 if event.input_accounting_kind != expected_kind or event.input_estimator != expected_estimator:
                     raise ValueError("provider attempt accounting differs from accepted role policy")
-                if descriptor.policy == "o200k_double_plus_4096_adaptive_context_v2" and role == controller:
+                if descriptor.policy in {"o200k_double_plus_4096_adaptive_context_v2", "o200k_double_plus_4096_adaptive_context_v3"} and role == controller:
                     if not isinstance(event, ProviderAttemptAuthorizedEventV5):
                         raise ValueError("Current Build controller requires mode-bound authorization")
                 elif isinstance(event, ProviderAttemptAuthorizedEventV5):
