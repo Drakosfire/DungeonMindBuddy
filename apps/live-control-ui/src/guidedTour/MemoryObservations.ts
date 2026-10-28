@@ -33,7 +33,11 @@ export function useSessionMemoryReading(history:WorldAgentConversationHistoryRes
   if(!['scene_note','closing_reflections'].every(kind=>entries.some(e=>e.kind===kind))||new Set(entries.map(e=>e.packetDigest)).size!==1)continue;
   const observed=seen.current.get(`${history.world_id}:${history.conversation_id}:${turn.turn_id}`);
   if(!observed)continue;
-  return {step:'memory',dispatchScope:dispatches.get(turn.turn_id),target:reflection!.target,parent:plan,control:'memory',status:'ready',observation:{step:'memory',target:reflection!.target,parent:plan,...observed,origin:dispatches.get(turn.turn_id)?'acknowledged':'existing',receiptId:`memory:${turn.turn_id}:${completion.context_receipt_sha256}`,proof:{kind:'session-memory',turnId:turn.turn_id,reviewRevision:review.reviewRevision,checkpointContentDigest:review.contentDigest,contextReceiptDigest:completion.context_receipt_sha256,entries}}};
+  const key='idempotency_key' in turn&&typeof turn.idempotency_key==='string'?turn.idempotency_key:null;
+  const unique=!!key&&history.turns.filter(row=>'idempotency_key' in row&&row.idempotency_key===key).length===1;
+  const captured=unique?dispatches.get(key):null;
+  const dispatch=captured?.worldId===history.world_id?captured:null;
+  return {step:'memory',dispatchScope:dispatch,target:reflection!.target,parent:plan,control:'memory',status:'ready',observation:{step:'memory',target:reflection!.target,parent:plan,...observed,origin:dispatch?'acknowledged':'existing',receiptId:`memory:${turn.turn_id}:${completion.context_receipt_sha256}`,proof:{kind:'session-memory',turnId:turn.turn_id,reviewRevision:review.reviewRevision,checkpointContentDigest:review.contentDigest,contextReceiptDigest:completion.context_receipt_sha256,entries}}};
  }
  return unavailable;
 }

@@ -11,7 +11,7 @@ export interface TourOwnerReading {
 }
 export interface TourDispatchScope {worldId:string;walkthroughId:string;epoch:number}
 interface TourApi {
- tracking:boolean;open:()=>void;recordConversationDispatch:(turnId:string,scope:TourDispatchScope|null)=>void;captureScope:()=>TourDispatchScope|null;isScopeCurrent:(scope:TourDispatchScope|null)=>boolean;recordRunCreation:(observation:Observation,scope:TourDispatchScope|null)=>void;publish:(token:symbol,reading:TourOwnerReading|null)=>void;
+ tracking:boolean;open:()=>void;recordConversationDispatch:(correlationKey:string,scope:TourDispatchScope|null)=>void;captureScope:()=>TourDispatchScope|null;isScopeCurrent:(scope:TourDispatchScope|null)=>boolean;recordRunCreation:(observation:Observation,scope:TourDispatchScope|null)=>void;publish:(token:symbol,reading:TourOwnerReading|null)=>void;
 }
 const TourContext=createContext<TourApi|null>(null);
 export const useGuidedTour=()=>useContext(TourContext);
@@ -71,7 +71,9 @@ export function GuidedTourProvider({worldId,worldName,children,history=null}:{wo
   change({kind:'observe',observation},scope!.walkthroughId,scope!.epoch);
  },[change,worldId,isScopeCurrent]);
  const conversationDispatches=useRef(new Map<string,TourDispatchScope|null>());
- const recordConversationDispatch=useCallback((turnId:string,scope:TourDispatchScope|null)=>{if(!conversationDispatches.current.has(turnId))conversationDispatches.current.set(turnId,scope);},[]);
+ // The conversation owner supplies its existing World-scoped idempotency key.
+ // The first dispatch owns this request even if guidance restarts before retry.
+ const recordConversationDispatch=useCallback((correlationKey:string,scope:TourDispatchScope|null)=>{if(!conversationDispatches.current.has(correlationKey))conversationDispatches.current.set(correlationKey,scope);},[]);
  const memoryReading=useSessionMemoryReading(history,stored?.record??null,conversationDispatches.current),memoryToken=useRef(Symbol('session-memory'));
  const memorySignature=JSON.stringify(memoryReading);
  useEffect(()=>{publish(memoryToken.current,memoryReading);return()=>publish(memoryToken.current,null);},[publish,memorySignature]);

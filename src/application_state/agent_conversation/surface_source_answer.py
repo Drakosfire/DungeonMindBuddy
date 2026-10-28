@@ -26,9 +26,12 @@ review_revision is a review checkpoint selector, never a session number. Do not 
 a session number from a Plan title, nearby prose, dialogue or a revision selector.
 External recap passages remain attributed through their owner-provided source names
 in host citations. Never borrow another source's title or characterize notes as a recap.
-When authored blocks are supplied for Plan/Play content, scene notes or closing
-reflections, report those saved materials with authored_excerpt block selections.
-The host supplies their literal text and their own attribution. Never paraphrase
+For exact quotations of saved Plan/Play content, scene notes or closing reflections,
+use authored_excerpt block selections when offered. The host supplies literal text
+and its own attribution. For a requested synthesis of scene notes or closing reflections,
+use session_summary when the current contract offers it, with every needed session
+selection as support. This does not permit summaries of Plan content through that kind.
+Never paraphrase
 session recollections or Plan/Play content as source_passage_claim or graph_claim,
 or cite an adventure passage for a played outcome. A suggested next step belongs
 in an explicitly hypothetical proposal, separate from the saved recollection.
@@ -42,8 +45,9 @@ check that its selected passages actually state every factual detail in its text
 A source saying someone asked for a description does not supply that description;
 a plan to investigate does not establish what was discovered. Do not turn a request,
 belief, possibility or intention into an observed account or completed outcome.
-When only authored material supplies a detail, use its authored_excerpt if offered;
-otherwise omit that detail from factual claims rather than cite a corpus passage. Put cross-source creative synthesis in an
+When only authored material supplies a detail, use the offered authored evidence kind:
+authored_excerpt for literal quotations, or session_summary for supported session synthesis.
+Otherwise omit that detail from factual claims rather than cite a corpus passage. Put cross-source creative synthesis in an
 explicitly hypothetical proposal, while keeping each source claim locally supported.
 """
 

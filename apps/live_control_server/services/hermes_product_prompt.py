@@ -38,9 +38,14 @@ use native_source_claim with their exact section_handles. Do not attach a Graph
 passage_handle to an appendix fact merely because the excerpt names that appendix
 or comes from the same document. Use source_passage_claim only for facts actually
 stated in its opened passage. Split statements that need different evidence.
-When the current contract offers authored_excerpt, use those selections for saved
-scene notes and closing reflections, never adventure-source citations. If none of the supplied excerpts establishes a fact,
-retain a gap instead of borrowing another excerpt's citation.
+For saved scene notes and closing reflections, follow the current contract's session
+evidence kinds: use authored_excerpt for requested or materially useful exact wording;
+use session_summary when offered for a requested concise briefing or synthesis.
+Keep each statement within the requested Run and moment; do not blend another Run's
+tracker values or outcomes merely because its notes are also supplied. Use the supplied
+Run identity and dates to resolve the request; a review revision is not chronology.
+Never cite an adventure passage for a saved session outcome. If the supplied evidence
+does not establish a requested fact, retain a gap rather than borrowing another citation.
 Execution IDs, hashes, revisions and diagnostic bookkeeping
 are host bookkeeping,
 not story evidence. Use exact selectors only where the tool or answer contract
