@@ -48,7 +48,17 @@ def stage_summary(a, *, authoring=False, rules_used=False):
 
 def test_summary_preserves_exact_two_entry_support_history_and_page_links(plan_adapter):
     writer,packet,payload=stage_summary(plan_adapter)
-    result=asyncio.run(writer.run(transport=WriterWire(plan_adapter,json.dumps(payload)),api_key="synthetic"))
+    wire=WriterWire(plan_adapter,json.dumps(payload))
+    result=asyncio.run(writer.run(transport=wire,api_key="synthetic"))
+    # Inspect the assembled SDK request, where the original conflicting directives met.
+    instructions=json.loads(wire.calls[0].content)["instructions"]
+    assert "use session_summary when offered for a requested concise briefing or synthesis" in instructions
+    assert "use session_summary when the current contract offers it" in instructions
+    assert "use authored_excerpt for requested or materially useful exact wording" in instructions
+    assert "report those saved materials with authored_excerpt block selections" not in instructions
+    assert "use those selections for saved\nscene notes and closing reflections" not in instructions
+    assert "session recollections or Plan/Play content as source_passage_claim or graph_claim" in instructions
+    assert "do not blend another Run's" in instructions
     assert isinstance(result.completion,t.SurfaceEvidenceCompletionV4)
     # Exercise the public response union as well as the APP/history contract.
     from pydantic import TypeAdapter, ValidationError
@@ -89,6 +99,20 @@ def test_summary_preserves_exact_two_entry_support_history_and_page_links(plan_a
     forged[0].supports[0]=forged[0].supports[0].model_copy(update={"owner_sha256":"f"*64})
     with pytest.raises(ValueError,match="frozen turn provenance"):
         t.validate_session_evidence_claims(forged,result.provenance)
+
+
+def test_requested_literal_session_note_still_uses_exact_saved_block(plan_adapter):
+    writer,packet,payload=stage_summary(plan_adapter)
+    selection=payload["answer_segments"][0]["selection_ids"][0]
+    payload["answer_segments"]=[dict(kind="authored_excerpt",selection_id=selection)]
+    wire=WriterWire(plan_adapter,json.dumps(payload))
+    result=asyncio.run(writer.run(transport=wire,api_key="synthetic"))
+    segment=result.completion.answer_segments[0]
+    assert segment.kind=="authored_excerpt"
+    assert segment.text==packet["sources"][0]["text"]
+    assert not isinstance(segment,t.SessionSummaryV1)
+    reopened=AgentConversationService().inspect_turn(world_id=result.world_id,turn_id=result.turn_id)
+    assert reopened.completion==result.completion
 
 
 @pytest.mark.parametrize("bad",["unknown","plan","duplicate","metadata"])
