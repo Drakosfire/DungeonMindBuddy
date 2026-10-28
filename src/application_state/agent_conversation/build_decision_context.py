@@ -40,7 +40,7 @@ def validate_event(event, execution):
     if descriptor is None or descriptor.policy != POLICY:
         raise ValueError("Decision context requires its frozen V2 accounting")
     if (event.provider, event.model, event.api_mode) != execution.policy.provider_roles.controller.identity():
-        raise ValueError("Decision context belongs only to the Build controller")
+        raise ValueError("Decision context role belongs only to the Build controller")
     if (event.provider, event.model, event.api_mode) != ("typesafe", "jev-1.14.0", "typesafe_decision"):
         raise ValueError("Decision context provider identity differs")
     if event.context_mode != selected_mode(event.context_phase, event.input_tokens, event.max_question_input_tokens):
