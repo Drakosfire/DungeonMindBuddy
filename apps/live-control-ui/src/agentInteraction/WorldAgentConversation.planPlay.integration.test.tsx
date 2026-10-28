@@ -50,6 +50,9 @@ import { ToolHost } from "../surfaceInteraction/toolHost/ToolHost";
 import { LegacyProjectionHostAdapter } from "../planSurface/projection/LegacyProjectionHostAdapter";
 import type { CapturedWorldPlanEditTarget, WorldPlanEditBridge } from "../planSurface/agentEdit/planAgentEditProposal";
 
+import {readDiscussionRetryInput} from '../api/conversationRetryApi';
+vi.mock('../api/conversationRetryApi',async(original)=>({...await original<typeof import('../api/conversationRetryApi')>(),readDiscussionRetryInput:vi.fn()}));
+
 const selectedWorld = vi.hoisted(() => ({ id: "world-one" }));
 vi.mock("../selectedWorld/SelectedWorldContext", async (importOriginal) => ({
   ...(await importOriginal<typeof import("../selectedWorld/SelectedWorldContext")>()),
@@ -786,6 +789,54 @@ describe("one App-level World conversation host across Plan and Play", () => {
     expect(screen.getByLabelText("Message DungeonBuddy")).toHaveValue("My next thought");
     expect(localStorage.getItem(key)).toBe(envelope);
     expect(postWorldBuildAgentTurn).toHaveBeenCalledTimes(1);
+  });
+
+  it('retains an unknown-outcome original-context retry across reload without automatic resend',async()=>{
+    const request:WorldBuildAgentTurnRequestV1={schema:'dmb_agent_turn_request_v1',client_thread_id:'00000000-0000-4000-8000-000000000021',turn_id:'00000000-0000-4000-8000-000000000022',
+      surface:{surface_id:'build',instance_id:'original-surface'},owner_scope:{kind:'world',world_id:WORLD},
+      primary_work:{kind:'build',object_id:'source-other',expected_revision:2,expected_content_sha256:SHA},client_work_state:'saved_dirty',
+      graph_request:{mode:'world',world_id:WORLD,campaign_id:null,revision_pin:null,focus:{kind:'none',session_id:null,campaign_id:null}},graph_selection:null,message:'Original question',
+      build_draft_context:{snapshot:{...draftSnapshot(),document_id:'source-other'},conversation_id:'11111111-1111-4111-8111-111111111111',expected_pointer_revision:1},
+      retry_of:{turn_id:'22222222-2222-4222-8222-000000000001',revision:4,retained_snapshot_sha256:SHA}};
+    const key='dmb:world-play-pending-turn:v1:'+WORLD,serialized=JSON.stringify({schema:'dmb_world_play_pending_turn_v1',request});
+    localStorage.setItem(key,serialized);
+    vi.mocked(postWorldBuildAgentTurn).mockImplementation(()=>new Promise(()=>{}));
+    const bridge=retryBridge();render(<Harness initial='build' buildBridge={bridge}/>);
+    fireEvent.click(await screen.findByRole('button',{name:'Open'}));
+    openConversationOptions();
+    const retry=await screen.findByRole('button',{name:'Retry exact saved turn'});
+    await waitFor(()=>expect(retry).toBeEnabled());
+    expect(postWorldBuildAgentTurn).not.toHaveBeenCalled();expect(localStorage.getItem(key)).toBe(serialized);
+    fireEvent.click(retry);
+    await waitFor(()=>expect(vi.mocked(postWorldBuildAgentTurn).mock.calls[0]?.[0]).toEqual(request));
+    expect(bridge.captureContext).not.toHaveBeenCalled();expect(readDiscussionRetryInput).not.toHaveBeenCalled();
+  });
+
+  it('retries with retained foreign-page context without capturing the current editor or clearing typing',async()=>{
+    const prior=turn('plan',1,'');
+    const terminal={...prior,lifecycle_status:'interrupted' as const,provenance:{...prior.provenance,surface_id:'build' as const,primary_work:{...prior.provenance.primary_work,object_id:'source-other'}}};
+    const saved=history([terminal]);
+    vi.mocked(getWorldAgentConversationHistory).mockResolvedValue(saved);
+    const snapshot={...draftSnapshot(),document_id:'source-other'};
+    vi.mocked(readDiscussionRetryInput).mockResolvedValue({schema:'dmb_build_retained_discussion_retry_input_v1',world_id:WORLD,conversation_id:saved.conversation_id!,turn_id:saved.turns[0].turn_id,revision:4,pointer_revision:1,surface_instance_id:'original-surface',message:prior.user_text,client_work_state:'saved_clean',snapshot,snapshot_sha256:SHA,authored_references:null});
+    vi.mocked(postWorldBuildAgentTurn).mockImplementation(()=>new Promise(()=>{}));
+    const bridge=retryBridge();
+    render(<Harness initial='build' buildBridge={bridge}/>);
+    fireEvent.click(await screen.findByRole('button',{name:'Open'}));
+    const retry=await screen.findByRole('button',{name:'Retry question'});
+    await waitFor(()=>expect(retry).toBeEnabled());
+    const input=screen.getByLabelText('Message DungeonBuddy');
+    fireEvent.change(input,{target:{value:'Keep the newer Edge draft'}});
+    fireEvent.click(retry);fireEvent.click(retry);
+    await waitFor(()=>expect(postWorldBuildAgentTurn).toHaveBeenCalledTimes(1));
+    const request=vi.mocked(postWorldBuildAgentTurn).mock.calls[0][0];
+    expect(request.primary_work.object_id).toBe('source-other');expect(request.client_work_state).toBe('saved_clean');
+    expect(request.build_draft_context?.snapshot).toEqual(snapshot);
+    expect(request.retry_of).toEqual({turn_id:saved.turns[0].turn_id,revision:4,retained_snapshot_sha256:SHA});
+    expect(request.build_write_capability).toBeUndefined();
+    expect(bridge.captureContext).not.toHaveBeenCalled();expect(bridge.capture).not.toHaveBeenCalled();
+    expect(input).toHaveValue('Keep the newer Edge draft');
+    expect(JSON.parse(localStorage.getItem('dmb:world-play-pending-turn:v1:'+WORLD)! ).request).toEqual(request);
   });
 
   it.each((["plan", "play", "build"] as const).flatMap(surface => [false,true].map(otherDraft=>({surface,otherDraft}))))("retries terminal $surface in one click and preserves another draft: $otherDraft", async ({surface,otherDraft}) => {

@@ -157,3 +157,9 @@ def test_ineligible_predecessor_reaches_no_provider(failed_case, tmp_path):
     assert failure.value.provider_dispatched is False
     assert len(harness().decision_transport.calls) == controller_calls
     assert len(writer.calls) == 1
+
+
+def test_writing_failure_cannot_be_downgraded_to_retained_discussion(failed_case):
+    _, _, _, parent, _, _, _ = failed_case
+    with pytest.raises(retry.RetryUnavailableError, match="authoring target"):
+        retry.read_discussion_retry_input(parent.world_id, parent.conversation_id, parent.turn_id, parent.revision)

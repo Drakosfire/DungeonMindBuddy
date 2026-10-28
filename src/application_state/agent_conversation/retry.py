@@ -219,6 +219,107 @@ def validate_reference_retry(parent, intent):
         raise RetryUnavailableError('Retry requires the original Graph references and selection snapshots')
 
 
+def retained_discussion_capture(turn):
+    """Only an admitted discussion can reuse its old draft without write authority."""
+    from .types import BuildRequestedWorkResolutionV1
+    from .build_draft_context import context_record, validate_record
+
+    execution = turn.graph_context_execution
+    decisions = [e for e in execution.events if isinstance(e, BuildRequestedWorkResolutionV1)] if execution else []
+    if len(decisions) != 1 or decisions[0].requested_work != "discuss" or decisions[0].operation != "answer_from_sources":
+        raise RetryUnavailableError("This request needs its authoring target; it cannot be retried as a discussion")
+    try:
+        captured = context_record(execution).record
+        validate_record(captured, turn)
+    except (ValueError, AttributeError) as exc:
+        raise RetryUnavailableError("The original working draft could not be verified") from exc
+    return captured
+
+
+def retained_discussion_work_state(conn, turn, captured):
+    """Recover a closed enum by its original intent fingerprint, never draft heuristics.
+
+    Ordinary turns retain the intent hash, not its body. All other candidate
+    fields come from already validated owning records. An unmatched shape refuses.
+    """
+    from .types import BuildGraphIntentV2, submitted_turn_intent_fingerprint_v2
+    from .authored_graph_references import capture, policy_enabled
+    from .build_draft_context import context_record, validate_record
+    execution = turn.graph_context_execution
+    snapshot = captured.snapshot
+    references = capture(execution).references if policy_enabled(execution.policy) else None
+    incoming = conn.execute(
+        "SELECT predecessor_id,predecessor_revision FROM agent.turn_retry WHERE successor_id=%s AND world_id=%s AND conversation_id=%s",
+        (turn.turn_id, turn.world_id, turn.conversation_id),
+    ).fetchone()
+    retry_candidates = [None]
+    if incoming:
+        retry_candidates = [{"turn_id": str(incoming[0]), "revision": incoming[1]}]
+        predecessor = repo.get_turn(conn, turn.world_id, incoming[0])
+        if not isinstance(predecessor, Turn) or predecessor.conversation_id != turn.conversation_id:
+            raise RetryUnavailableError("The original retry lineage could not be verified")
+        try:
+            previous = context_record(predecessor.graph_context_execution).record
+            validate_record(previous, predecessor)
+        except (ValueError, AttributeError) as exc:
+            raise RetryUnavailableError("The original retry capture could not be verified") from exc
+        retry_candidates.append({**retry_candidates[0], "retained_snapshot_sha256": previous.snapshot.snapshot_sha256})
+    matches = []
+    for state in ("saved_clean", "saved_dirty"):
+        for retry_of in retry_candidates:
+            candidate = (BuildGraphIntentV2 if references is not None else BuildGraphIntentV1)(
+                world_id=turn.world_id, client_thread_id="excluded_from_fingerprint", message=turn.user_text,
+                surface_id="build", surface_instance_id=turn.provenance.surface_instance_id,
+                client_work_state=state,
+                primary_work={"kind":"build", "object_id":snapshot.document_id,
+                    "expected_revision":snapshot.registry_revision, "expected_content_sha256":snapshot.content_sha256},
+                graph_request={"mode":"world", "world_id":turn.world_id, "campaign_id":None,
+                    "revision_pin":None, "focus":{"kind":"none", "session_id":None, "campaign_id":None}},
+                graph_selection=None, retry_of=retry_of,
+                build_draft_context_sha256=execution.policy.working_draft_context_sha256,
+                build_write_capability_sha256=getattr(execution.policy,"action_capability_sha256",None),
+                **({"authored_references":references} if references is not None else {}),
+            )
+            if submitted_turn_intent_fingerprint_v2(candidate) == turn.submitted_intent_fingerprint_v2:
+                matches.append(state)
+    if len(matches) != 1:
+        raise RetryUnavailableError("The original request state could not be verified; nothing was sent")
+    return matches[0]
+
+
+def read_discussion_retry_input(world, conversation, turn_id, revision):
+    """Read original context only; admission and execution still happen in normal POST."""
+    from .service import _ready_dsn
+    from .authored_graph_references import capture, policy_enabled
+
+    with unit_of_work(_ready_dsn()) as conn:
+        conn.execute("SET TRANSACTION ISOLATION LEVEL REPEATABLE READ READ ONLY")
+        pointer = repo.get_world_state(conn, world)
+        owner = repo.get_conversation(conn, world, conversation)
+        turn = repo.get_turn(conn, world, turn_id)
+        if owner is None or not isinstance(turn, Turn) or turn.conversation_id != conversation:
+            raise ApplicationStateNotFoundError("The failed request is unavailable in this conversation")
+        if pointer is None or pointer.active_conversation_id != conversation or owner.status != "active":
+            raise RetryUnavailableError("The original conversation is no longer active")
+        retry_context = context(conn, turn, active=True)
+        if turn.revision != revision or retry_context is None or retry_context["reason"] != "ready":
+            raise RetryUnavailableError("The failed request changed or still needs outcome recovery")
+        record = retained_discussion_capture(turn)
+        references = capture(turn.graph_context_execution).references if policy_enabled(turn.graph_context_execution.policy) else None
+        return {
+            "schema": "dmb_build_retained_discussion_retry_input_v1",
+            "world_id": world, "conversation_id": str(conversation),
+            "turn_id": str(turn_id), "revision": revision,
+            "pointer_revision": pointer.revision,
+            "surface_instance_id": turn.provenance.surface_instance_id,
+            "message": turn.user_text,
+            "client_work_state": retained_discussion_work_state(conn, turn, record),
+            "snapshot": record.snapshot.model_dump(mode="json", by_alias=True),
+            "snapshot_sha256": record.snapshot.snapshot_sha256,
+            "authored_references": references.model_dump(mode="json", by_alias=True) if references is not None else None,
+        }
+
+
 def validate_predecessor(conn, submission):
     intent = submission.submitted_intent_v2
     reference = intent.retry_of if isinstance(intent, BuildGraphIntentV1) else None
@@ -247,6 +348,22 @@ def validate_predecessor(conn, submission):
     ):
         raise RetryUnavailableError("Retry requires the same question and Build page")
     validate_reference_retry(parent, intent)
+    if reference.retained_snapshot_sha256 is not None:
+        from .build_draft_context import digest
+        record = retained_discussion_capture(parent)
+        pointer = repo.get_world_state(conn, submission.world_id)
+        if (
+            intent.build_write_capability_sha256 is not None
+            or intent.client_work_state != retained_discussion_work_state(conn, parent, record)
+            or reference.retained_snapshot_sha256 != record.snapshot.snapshot_sha256
+            or pointer is None or pointer.active_conversation_id != parent.conversation_id
+            or intent.build_draft_context_sha256 != digest({
+                "snapshot": record.snapshot.model_dump(mode="json", by_alias=True),
+                "conversation_id": str(parent.conversation_id),
+                "expected_pointer_revision": pointer.revision,
+            })
+        ):
+            raise RetryUnavailableError("The retained discussion draft or conversation pointer changed; nothing was sent")
     previous_capability = getattr(
         getattr(parent.graph_context_execution, "policy", None),
         "action_capability_sha256",

@@ -100,3 +100,18 @@ def test_retry_context_is_authenticated_and_uses_exact_scoped_turn_ids(client,mo
     assert not read.called
     assert client.client.get(url,params={'turn_ids':str(tid)},headers={'Authorization':'Bearer invalid'}).status_code in {401,403}
     assert not read.called
+
+
+def test_retained_discussion_input_is_authenticated_read_only_and_strict(client, monkeypatch):
+    from application_state.agent_conversation import retry
+    read = Mock(return_value={"schema": "dmb_build_retained_discussion_retry_input_v1"})
+    monkeypatch.setattr(retry, "read_discussion_retry_input", read)
+    cid, tid = uuid4(), uuid4()
+    url = f"/api/live/agent/worlds/world-one/conversations/{cid}/turns/{tid}/discussion-retry-input"
+    assert client.client.get(url, params={"revision": 4}, headers={"Authorization": "Bearer invalid"}).status_code in {401, 403}
+    read.assert_not_called()
+    assert client.client.get(url + "?revision=4&revision=5").status_code == 422
+    assert client.client.get(url + "?revision=4&extra=x").status_code == 422
+    read.assert_not_called()
+    assert client.client.get(url, params={"revision": 4}).status_code == 200
+    read.assert_called_once_with("world-one", cid, tid, 4)

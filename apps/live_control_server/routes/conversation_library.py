@@ -106,3 +106,9 @@ def retry_attempts(
         limit=limit,
         before_sequence=before_sequence,
     )
+
+
+@router.get("/{conversation_id}/turns/{turn_id}/discussion-retry-input")
+def discussion_retry_input(world_id: str, conversation_id: UUID, turn_id: UUID, request: Request, revision: int = Query(..., ge=1)):
+    from application_state.agent_conversation.retry import read_discussion_retry_input
+    return call(read_discussion_retry_input, scope(request, world_id, {"revision"}), conversation_id, turn_id, revision)

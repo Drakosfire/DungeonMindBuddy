@@ -224,20 +224,7 @@ class BuildJevHarness:
             acquire_authored_references(adapter)
             from .build_related_pages import acquire_selected_pages
             acquire_selected_pages(adapter)
-            if adapter.request.build_draft_context is not None:
-                from uuid import uuid4
-                from application_state.agent_conversation.build_draft_context import BuildDraftContextRecordV1
-                from .agent_turn_service import _require_fresh_execution_append
-                record = BuildDraftContextRecordV1(record_id=uuid4(), turn_id=adapter.turn.turn_id,
-                    conversation_id=adapter.turn.conversation_id, attempt=adapter.turn.attempt,
-                    submitted_intent_fingerprint=adapter.turn.submitted_intent_fingerprint_v2,
-                    expected_pointer_revision=adapter.request.build_draft_context.expected_pointer_revision,
-                    snapshot=adapter.request.build_draft_context.snapshot)
-                event = ledger.BuildDraftContextCapturedV1(event_id=uuid4(),
-                    sequence=len(adapter._broker_execution().events), kind="build_draft_context_captured_v1", record=record)
-                adapter.turn = _require_fresh_execution_append(adapter.fence.append(
-                    "record_build_draft_context", "event", event))
-                adapter.build_draft_record = record
+            self._capture_draft_context(adapter)
             if adapter.rules_runtime is not None:
                 adapter.rules_runtime.lookup_selected()
             if driver.operation == "prepare_build_image":
@@ -441,6 +428,33 @@ class BuildJevHarness:
             phase,
         )
 
+    def _capture_draft_context(self, adapter):
+        if adapter.request.build_draft_context is None:
+            return
+        from application_state.agent_conversation.build_draft_context import context_record, validate_record
+        existing = [e for e in adapter._broker_execution().events if isinstance(e, ledger.BuildDraftContextCapturedV1)]
+        if existing:
+            record = context_record(adapter._broker_execution()).record
+            validate_record(record, adapter.turn)
+            if (record.snapshot != adapter.request.build_draft_context.snapshot
+                or record.expected_pointer_revision != adapter.request.build_draft_context.expected_pointer_revision):
+                raise ValueError("Retained working draft differs from this admitted request")
+            adapter.build_draft_record = record
+            return
+        from uuid import uuid4
+        from application_state.agent_conversation.build_draft_context import BuildDraftContextRecordV1
+        from .agent_turn_service import _require_fresh_execution_append
+        record = BuildDraftContextRecordV1(record_id=uuid4(), turn_id=adapter.turn.turn_id,
+            conversation_id=adapter.turn.conversation_id, attempt=adapter.turn.attempt,
+            submitted_intent_fingerprint=adapter.turn.submitted_intent_fingerprint_v2,
+            expected_pointer_revision=adapter.request.build_draft_context.expected_pointer_revision,
+            snapshot=adapter.request.build_draft_context.snapshot)
+        event = ledger.BuildDraftContextCapturedV1(event_id=uuid4(),
+            sequence=len(adapter._broker_execution().events), kind="build_draft_context_captured_v1", record=record)
+        adapter.turn = _require_fresh_execution_append(adapter.fence.append(
+            "record_build_draft_context", "event", event))
+        adapter.build_draft_record = record
+
     async def _decide(self, adapter, driver):
         self.failure_stage = "controller_prepare"
         plan, intent = driver.stage(), driver.step
@@ -449,6 +463,9 @@ class BuildJevHarness:
         async def authorize(prepared):
             nonlocal admission_failure
             accepted = driver.authorize(prepared)
+            if accepted:
+                # Retain author input after the claim, before a controller failure can lose it.
+                self._capture_draft_context(adapter)
             if not accepted:
                 admission_failure = (getattr(driver, "admission_failure", None)
                     or getattr(adapter, "decision_admission_failure", None))

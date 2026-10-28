@@ -1004,6 +1004,14 @@ from .authored_graph_references import AuthoredGraphReferencesV1
 class RetryTurnReference(StrictModel):
     turn_id: UUID
     revision: int = Field(strict=True, ge=1)
+    retained_snapshot_sha256: str | None = Field(default=None, pattern=r"^[a-f0-9]{64}$")
+
+    @model_serializer(mode="wrap")
+    def retain_ordinary_reference(self, serialize):
+        value = serialize(self)
+        if self.retained_snapshot_sha256 is None:
+            value.pop("retained_snapshot_sha256", None)
+        return value
 
 
 class BuildGraphIntentV1(SubmittedTurnIntentV1):
