@@ -9,6 +9,7 @@ from application_state.agent_conversation import AgentConversationService
 from application_state.agent_conversation.rules_authority_reads import MixedCompletedTurnV1
 from application_state.agent_conversation.types import (
     BuildGraphCompletionV2,
+    BuildIntentionalResponseCompletionV1,
     BuildGraphContextReceiptV1,
     SurfaceSourceCompletionV1,
     SurfaceEvidenceCompletionV1,
@@ -56,12 +57,23 @@ def open_source_passage(
         turn = turn.base_projection.turn
     if turn.world_id != world_id or turn.turn_id != turn_id:
         raise SourcePassageOpenError("source_passage_binding_invalid")
-    if (
-        turn.status != "completed"
-        or not (isinstance(turn.completion, BuildGraphCompletionV2)
+    if turn.status != "completed" or not (
+        (
+            isinstance(
+                turn.completion,
+                (BuildGraphCompletionV2, BuildIntentionalResponseCompletionV1),
+            )
             and isinstance(turn.graph_context_receipt, BuildGraphContextReceiptV1)
-            or isinstance(turn.completion, (SurfaceSourceCompletionV1, SurfaceEvidenceCompletionV1))
-            and isinstance(turn.graph_context_receipt, (PlanWorldGraphContextReceiptV1, PlayWorldGraphContextReceiptV1)))
+        )
+        or (
+            isinstance(
+                turn.completion, (SurfaceSourceCompletionV1, SurfaceEvidenceCompletionV1)
+            )
+            and isinstance(
+                turn.graph_context_receipt,
+                (PlanWorldGraphContextReceiptV1, PlayWorldGraphContextReceiptV1),
+            )
+        )
     ):
         raise SourcePassageOpenError("source_passage_completion_unavailable", 404)
     if citation_index >= len(turn.completion.source_citations):
