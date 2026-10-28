@@ -219,6 +219,55 @@ def validate_reference_retry(parent, intent):
         raise RetryUnavailableError('Retry requires the original Graph references and selection snapshots')
 
 
+def retained_discussion_capture(turn):
+    """Only an admitted discussion can reuse its old draft without write authority."""
+    from .types import BuildRequestedWorkResolutionV1
+    from .build_draft_context import context_record, validate_record
+
+    execution = turn.graph_context_execution
+    decisions = [e for e in execution.events if isinstance(e, BuildRequestedWorkResolutionV1)] if execution else []
+    if len(decisions) != 1 or decisions[0].requested_work != "discuss" or decisions[0].operation != "answer_from_sources":
+        raise RetryUnavailableError("This request needs its authoring target; it cannot be retried as a discussion")
+    try:
+        captured = context_record(execution).record
+        validate_record(captured, turn)
+    except (ValueError, AttributeError) as exc:
+        raise RetryUnavailableError("The original working draft could not be verified") from exc
+    return captured
+
+
+def read_discussion_retry_input(world, conversation, turn_id, revision):
+    """Read original context only; admission and execution still happen in normal POST."""
+    from .service import _ready_dsn
+    from .authored_graph_references import capture, policy_enabled
+
+    with unit_of_work(_ready_dsn()) as conn:
+        conn.execute("SET TRANSACTION ISOLATION LEVEL REPEATABLE READ READ ONLY")
+        pointer = repo.get_world_state(conn, world)
+        owner = repo.get_conversation(conn, world, conversation)
+        turn = repo.get_turn(conn, world, turn_id)
+        if owner is None or not isinstance(turn, Turn) or turn.conversation_id != conversation:
+            raise ApplicationStateNotFoundError("The failed request is unavailable in this conversation")
+        if pointer is None or pointer.active_conversation_id != conversation or owner.status != "active":
+            raise RetryUnavailableError("The original conversation is no longer active")
+        retry_context = context(conn, turn, active=True)
+        if turn.revision != revision or retry_context is None or retry_context["reason"] != "ready":
+            raise RetryUnavailableError("The failed request changed or still needs outcome recovery")
+        record = retained_discussion_capture(turn)
+        references = capture(turn.graph_context_execution).references if policy_enabled(turn.graph_context_execution.policy) else None
+        return {
+            "schema": "dmb_build_retained_discussion_retry_input_v1",
+            "world_id": world, "conversation_id": str(conversation),
+            "turn_id": str(turn_id), "revision": revision,
+            "pointer_revision": pointer.revision,
+            "surface_instance_id": turn.provenance.surface_instance_id,
+            "message": turn.user_text,
+            "snapshot": record.snapshot.model_dump(mode="json", by_alias=True),
+            "snapshot_sha256": record.snapshot.snapshot_sha256,
+            "authored_references": references.model_dump(mode="json", by_alias=True) if references is not None else None,
+        }
+
+
 def validate_predecessor(conn, submission):
     intent = submission.submitted_intent_v2
     reference = intent.retry_of if isinstance(intent, BuildGraphIntentV1) else None
@@ -247,6 +296,21 @@ def validate_predecessor(conn, submission):
     ):
         raise RetryUnavailableError("Retry requires the same question and Build page")
     validate_reference_retry(parent, intent)
+    if reference.retained_snapshot_sha256 is not None:
+        from .build_draft_context import digest
+        record = retained_discussion_capture(parent)
+        pointer = repo.get_world_state(conn, submission.world_id)
+        if (
+            intent.build_write_capability_sha256 is not None
+            or reference.retained_snapshot_sha256 != record.snapshot.snapshot_sha256
+            or pointer is None or pointer.active_conversation_id != parent.conversation_id
+            or intent.build_draft_context_sha256 != digest({
+                "snapshot": record.snapshot.model_dump(mode="json", by_alias=True),
+                "conversation_id": str(parent.conversation_id),
+                "expected_pointer_revision": pointer.revision,
+            })
+        ):
+            raise RetryUnavailableError("The retained discussion draft or conversation pointer changed; nothing was sent")
     previous_capability = getattr(
         getattr(parent.graph_context_execution, "policy", None),
         "action_capability_sha256",
