@@ -42,7 +42,7 @@ export function decodeWalkthrough(bytes:string,world:string):Walkthrough {
  for(const step of JOURNEY_STEPS){
   const row=v.steps[step.id] as unknown as StepRecord;
   if(row.state==='completed'&&!row.evidence.some(e=>e.origin!=='existing'&&Date.parse(e.observedAt)>=Date.parse(v.startedAt as string)))throw new Error('Completion has no newly demonstrated evidence.');
-  for(const e of row.evidence){const bound=v.bindings[e.target.kind];if(!validPin(bound,world)||bound.objectId!==e.target.objectId||e.target.revision<bound.revision||e.target.revision===bound.revision&&e.target.digest!==bound.digest)throw new Error('Evidence belongs to a different target.');
+  for(const e of row.evidence){const bound=v.bindings[e.target.kind];if(!validPin(bound,world)||bound.objectId!==e.target.objectId||e.target.revision===bound.revision&&e.target.digest!==bound.digest)throw new Error('Evidence belongs to a different target.');
    if(e.target.kind==='run'&&(!validPin(v.bindings.plan,world)||!e.parent||!samePin(v.bindings.plan,e.parent)))throw new Error('Run evidence has a different Plan pin.');}
  }
  return v as unknown as Walkthrough;
@@ -57,7 +57,7 @@ export function reduceTour(current:Walkthrough,action:TourAction):Walkthrough {
   const pin=action.pin;
   if(!validPin(pin,current.worldId))throw new Error('The selected target belongs to another World or has no verified basis.');
   const bound=current.bindings[pin.kind];
-  if(bound&&!samePin(bound,pin))throw new Error('This walkthrough already has a different target. Start a separate walkthrough to keep its evidence.');
+  if(bound&&!samePin(bound,pin)&&(bound.objectId!==pin.objectId||pin.revision<=bound.revision||pin.kind==='run'||pin.kind==='plan'&&!!current.bindings.run))throw new Error('This walkthrough already has a different target or a Run pinned to that Plan. Start a separate walkthrough to keep its evidence.');
   if(pin.kind==='run'&&(!current.bindings.plan||!action.parent||!samePin(current.bindings.plan,action.parent)))throw new Error('Select the exact saved Plan that owns this Run before binding it.');
   return {...current,bindings:{...current.bindings,[pin.kind]:pin}};
  }
