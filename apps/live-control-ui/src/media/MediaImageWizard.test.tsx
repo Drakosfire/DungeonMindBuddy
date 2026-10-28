@@ -1,8 +1,20 @@
-import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { MediaImageWizard, type ImageGenerationPort } from './MediaImageWizard';
 const tourImage=vi.hoisted(()=>({generated:vi.fn(),placed:vi.fn(),captureScope:()=>null}));
 vi.mock('../guidedTour/ImageObservations',()=>({useTourImage:()=>tourImage}));
+const createUrlDescriptor = Object.getOwnPropertyDescriptor(URL, 'createObjectURL');
+const revokeUrlDescriptor = Object.getOwnPropertyDescriptor(URL, 'revokeObjectURL');
+beforeEach(() => {
+  Object.defineProperty(URL, 'createObjectURL', { configurable: true, value: vi.fn(() => 'blob:original-image') });
+  Object.defineProperty(URL, 'revokeObjectURL', { configurable: true, value: vi.fn() });
+});
+afterEach(() => {
+  cleanup();
+  for (const [key, descriptor] of [['createObjectURL', createUrlDescriptor], ['revokeObjectURL', revokeUrlDescriptor]] as const) {
+    if (descriptor) Object.defineProperty(URL, key, descriptor); else Reflect.deleteProperty(URL, key);
+  }
+});
 beforeEach(()=>{tourImage.generated.mockClear();tourImage.placed.mockClear();});
 const createPort = (): ImageGenerationPort => ({ capabilities: vi.fn().mockResolvedValue({ configured: true, library_ready: true, storage_configured: true, models: [
   { id: 'flux-2-pro', label: 'FLUX 2 Pro', formats: ['png', 'jpeg'], controls: ['seed'] },
@@ -132,7 +144,7 @@ describe('MediaImageWizard', () => {
     await act(async()=>finish({images:[{data_url:'data:image/png;base64,original',media_type:'image/png',asset_id:'asset-1',state:'staged'}],prompt:'Edge',model:'flux-2-pro'}));
     expect(screen.getByText('Image ready')).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button',{name:'Expand image studio'}));
-    expect(await screen.findByRole('link',{name:'Download image'})).toHaveAttribute('href','data:image/png;base64,original');
+    expect(await screen.findByRole('link',{name:'Download image'})).toHaveAttribute('href','blob:original-image');
     expect(api.generate).toHaveBeenCalledTimes(1);
   });
 
@@ -220,3 +232,18 @@ describe('MediaImageWizard', () => {
   fireEvent.click(screen.getByRole('button',{name:'Generate image'}));
   await waitFor(()=>expect(api.generate).toHaveBeenCalledWith(expect.objectContaining({purpose:override})));
  });
+
+it('keeps preview and explicit Save usable when original download metadata conflicts', async () => {
+  const api = createPort();
+  vi.mocked(api.generate).mockResolvedValue({
+    images: [{ data_url: 'data:image/jpeg;base64,AA==', media_type: 'image/png', asset_id: 'asset-1', state: 'staged' }],
+    prompt: 'Edge', model: 'flux-2-pro',
+  });
+  await settings(api);
+  fireEvent.click(screen.getByRole('button', { name: 'Generate image' }));
+  expect(await screen.findByRole('alert')).toHaveTextContent('could not be prepared for download');
+  expect(screen.getByAltText('Edge')).toBeInTheDocument();
+  expect(screen.getByRole('button', { name: 'Save image' })).toBeEnabled();
+  expect(screen.queryByRole('link', { name: 'Download image' })).not.toBeInTheDocument();
+  expect(api.save).not.toHaveBeenCalled();
+});
