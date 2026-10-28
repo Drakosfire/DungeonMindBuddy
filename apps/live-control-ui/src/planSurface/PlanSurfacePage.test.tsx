@@ -13,6 +13,9 @@ import { ToolHost } from "../surfaceInteraction/toolHost/ToolHost";
 import { PeekRegionProvider, PeekRegionSlot } from "../surfaceInteraction/peekHost";
 import { LegacyProjectionHostAdapter } from "./projection/LegacyProjectionHostAdapter";
 import { PlanSurfacePage } from "./PlanSurfacePage";
+import { GuidedTourProvider, useGuidedTour } from "../guidedTour/GuidedTour";
+import { createWalkthrough, reduceTour } from "../guidedTour/protocol";
+import { readWalkthrough, writeWalkthrough } from "../guidedTour/storage";
 import { WorldGraphLensProvider } from "../graphLens/WorldGraphLensContext";
 import { WorldGraphLensProjectionProvider } from "../graphLens/useWorldGraphLensProjection";
 import { AgentInteractionProvider, useAgentInteraction } from "../agentInteraction/AgentInteractionProvider";
@@ -4652,4 +4655,146 @@ it.each(['valid','wrong_work_revision','lost_confirm','lost_confirm_newer','lost
   expect(screen.getByTestId('world-owned-plan-markdown-editor')).toHaveTextContent('Keep this cue.');
   expect(post).toHaveBeenCalledTimes(1);expect(commands.mock.calls.filter(call=>call[2].operation==='confirm')).toHaveLength(mode==='lost_before_commit'?2:1);
   mounted.unmount();
+});
+
+
+function OpenPlanTour() {
+  const tour = useGuidedTour();
+  return <button onClick={tour?.open}>Open Plan walkthrough</button>;
+}
+function ResumedPlanPage() {
+  return <GuidedTourProvider worldId={worldId}><VerifiedPlanPage /><OpenPlanTour /></GuidedTourProvider>;
+}
+async function resumedPlanFixture(phase: 'running' | 'paused' = 'running') {
+  planEncounterCapture.context = null;
+  const record = mockSavedPlanForAgent(savedAgentPlanId, 7, 7, currentTwoScenePlanMarkdown);
+  const prior = await liveApi.getWorldOwnedPlanCommittedRevision(record.document_id);
+  const committed = {...prior, has_divergent_working_copy:false};
+  const read = vi.mocked(liveApi.getWorldOwnedPlanCommittedRevision).mockResolvedValue(committed);
+  read.mockClear();
+  Object.defineProperty(navigator, 'locks', {configurable:true,value:{request:vi.fn(async (_:string, action:()=>unknown)=>action())}});
+  let walkthrough = createWalkthrough(worldId, 'sheep', 'resumed-plan-tour', '2026-10-28T00:00:00Z');
+  walkthrough = reduceTour(walkthrough, {kind:'bind',pin:{kind:'plan',worldId,objectId:record.document_id,revision:committed.revision_n,revisionId:committed.work_revision_id,digest:committed.content_sha256}});
+  if (phase === 'paused') walkthrough = reduceTour(walkthrough,{kind:'phase',phase});
+  writeWalkthrough(localStorage,walkthrough,null);
+  const location = `/plan?world=${worldId}&documentId=${record.document_id}`;
+  const mount = () => render(<SelectedWorldProvider locationSnapshot={location}><ResumedPlanPage /></SelectedWorldProvider>);
+  return {committed, read, mount};
+}
+
+it('reverifies a resumed clean Plan on mount/remount without opening Play or writing, and only observes an existing Plan', async () => {
+  const {committed,read,mount}=await resumedPlanFixture();
+  const write=vi.spyOn(liveApi,'commitWorldOwnedPlanMarkdownWrite');
+  const first=mount();
+  await waitFor(()=>expect(planEncounterCapture.context?.verifiedPlan?.workRevisionId).toBe(committed.work_revision_id));
+  expect(read).toHaveBeenCalledOnce();
+  expect(screen.queryByRole('heading',{name:'Play this Plan'})).not.toBeInTheDocument();
+  await waitFor(()=>expect(readWalkthrough(localStorage,worldId)?.record.steps.plan.state).toBe('existing'));
+  expect(readWalkthrough(localStorage,worldId)?.record.steps.mechanics.evidence).toEqual([]);
+  expect(readWalkthrough(localStorage,worldId)?.record.steps.adoption.evidence).toEqual([]);
+  first.unmount();planEncounterCapture.context=null;mount();
+  await waitFor(()=>expect(planEncounterCapture.context?.verifiedPlan?.workRevisionId).toBe(committed.work_revision_id));
+  expect(read).toHaveBeenCalledTimes(2);expect(write).not.toHaveBeenCalled();
+});
+
+it('does not verify paused guidance until Resume and does not open a Play dialog', async () => {
+  const {committed,read,mount}=await resumedPlanFixture('paused');mount();
+  await screen.findByTestId('world-owned-plan-markdown-editor');
+  await waitFor(()=>expect(screen.getByTestId('world-plan-start-play')).toBeEnabled());
+  expect(read).not.toHaveBeenCalled();expect(planEncounterCapture.context?.verifiedPlan).toBeNull();
+  fireEvent.click(screen.getByRole('button',{name:'Open Plan walkthrough'}));
+  fireEvent.click(screen.getByRole('button',{name:'Resume',exact:true}));
+  await waitFor(()=>expect(planEncounterCapture.context?.verifiedPlan?.workRevisionId).toBe(committed.work_revision_id));
+  expect(read).toHaveBeenCalledOnce();expect(screen.queryByRole('heading',{name:'Play this Plan'})).not.toBeInTheDocument();
+});
+
+it.each(['world','revision','hash','body','working-copy','inactive','campaign','work-id'] as const)(
+  'refuses resumed Plan verification with mismatched %s and does not automatically retry',async mode=>{
+    const {committed,read,mount}=await resumedPlanFixture();
+    const changed={...committed};
+    if(mode==='world')changed.world_id='different-world';
+    if(mode==='revision')changed.object_revision++;
+    if(mode==='hash')changed.content_sha256='e'.repeat(64);
+    if(mode==='body')changed.markdown+='Changed text';
+    if(mode==='working-copy')changed.has_divergent_working_copy=true;
+    if(mode==='inactive')changed.status='trashed';
+    if(mode==='campaign')changed.campaign_id='foreign-campaign';
+    if(mode==='work-id')changed.work_revision_id='not-an-immutable-uuid';
+    read.mockResolvedValue(changed);mount();
+    await screen.findByTestId('world-plan-start-play-error');
+    expect(planEncounterCapture.context?.verifiedPlan).toBeNull();
+    await act(async()=>{});expect(read).toHaveBeenCalledOnce();
+    expect(readWalkthrough(localStorage,worldId)?.record.steps.mechanics.evidence).toEqual([]);
+    read.mockResolvedValue(committed);fireEvent.click(screen.getByTestId('world-plan-start-play'));
+    await screen.findByRole('heading',{name:'Play this Plan'});
+    expect(planEncounterCapture.context?.verifiedPlan?.workRevisionId).toBe(committed.work_revision_id);
+    // Session preparation also performs its own read; no background retry happened before this explicit click.
+  },
+);
+
+it.each(['edit','location','unmount','pause'] as const)('drops a resumed Plan reply after %s',async mode=>{
+ const {committed,read,mount}=await resumedPlanFixture();let resolve!:(v:WorldOwnedCommittedRevisionV2)=>void;
+ read.mockImplementationOnce(()=>new Promise(r=>{resolve=r;}));const mounted=mount();
+ await waitFor(()=>expect(read).toHaveBeenCalledOnce());
+ if(mode==='edit')act(()=>capturedPlanControls().changeTitle({target:{value:'New unsaved draft'}}));
+ if(mode==='location')window.history.replaceState({},'',`/plan?world=other&documentId=${savedAgentPlanId}`);
+ if(mode==='unmount')mounted.unmount();
+ if(mode==='pause'){fireEvent.click(screen.getByRole('button',{name:'Open Plan walkthrough'}));fireEvent.click(screen.getByRole('button',{name:'Pause',exact:true}));await screen.findByText('Guidance paused');}
+ await act(async()=>resolve(committed));
+ expect(planEncounterCapture.context?.verifiedPlan).toBeNull();
+ expect(readWalkthrough(localStorage,worldId)?.record.steps.plan.evidence).toEqual([]);
+ if(mode==='edit')expect(JSON.parse(localStorage.getItem(`dmb:world-plan-local-draft:v2:${worldId}`)!).title).toBe('New unsaved draft');
+});
+
+it('restarts pending verification for the new walkthrough and rejects the old reply',async()=>{
+ const {committed,read,mount}=await resumedPlanFixture();let resolve!:(v:WorldOwnedCommittedRevisionV2)=>void;
+ read.mockImplementationOnce(()=>new Promise(r=>{resolve=r;}));mount();await waitFor(()=>expect(read).toHaveBeenCalledOnce());
+ fireEvent.click(screen.getByRole('button',{name:'Open Plan walkthrough'}));fireEvent.click(screen.getByRole('button',{name:'Restart guidance',exact:true}));
+ await waitFor(()=>expect(read).toHaveBeenCalledTimes(2));
+ await waitFor(()=>expect(planEncounterCapture.context?.verifiedPlan?.workRevisionId).toBe(committed.work_revision_id));
+ await act(async()=>resolve({...committed,world_id:'old-foreign-world'}));
+ expect(screen.queryByTestId('world-plan-start-play-error')).not.toBeInTheDocument();
+ expect(readWalkthrough(localStorage,worldId)?.record.id).not.toBe('resumed-plan-tour');
+});
+
+it('manual preview supersedes a pending background refusal and later refusal clears cached scope',async()=>{
+ const {committed,read,mount}=await resumedPlanFixture();let reject!:(v:Error)=>void;
+ read.mockImplementationOnce(()=>new Promise((_,r)=>{reject=r;}));mount();await waitFor(()=>expect(read).toHaveBeenCalledOnce());
+ fireEvent.click(screen.getByTestId('world-plan-start-play'));await screen.findByRole('heading',{name:'Play this Plan'});
+ await act(async()=>reject(new Error('Earlier background failure')));
+ expect(screen.queryByTestId('world-plan-start-play-error')).not.toBeInTheDocument();
+ expect(planEncounterCapture.context?.verifiedPlan?.workRevisionId).toBe(committed.work_revision_id);
+ // Close the preview, then explicitly check again against a now-refused owner result.
+ fireEvent.keyDown(document,{key:'Escape'});
+ await waitFor(()=>expect(screen.queryByRole('heading',{name:'Play this Plan'})).not.toBeInTheDocument());
+ read.mockResolvedValue({...committed,has_divergent_working_copy:true});fireEvent.click(screen.getByTestId('world-plan-start-play'));
+ await screen.findByTestId('world-plan-start-play-error');
+ expect(planEncounterCapture.context?.verifiedPlan).toBeNull();
+});
+
+
+it('cancels a pending background read when another tab replaces the running walkthrough',async()=>{
+ const {committed,read,mount}=await resumedPlanFixture();let resolve!:(v:WorldOwnedCommittedRevisionV2)=>void;
+ read.mockImplementationOnce(()=>new Promise(r=>{resolve=r;}));mount();await waitFor(()=>expect(read).toHaveBeenCalledOnce());
+ const retained=readWalkthrough(localStorage,worldId)!;
+ writeWalkthrough(localStorage,createWalkthrough(worldId,'sheep','other-tab-walk','2026-10-28T01:00:00Z'),retained);
+ act(()=>window.dispatchEvent(new StorageEvent('storage',{key:`dmb:guided-journey:v1:${worldId}:current`})));
+ await waitFor(()=>expect(read).toHaveBeenCalledTimes(2));
+ await waitFor(()=>expect(planEncounterCapture.context?.verifiedPlan?.workRevisionId).toBe(committed.work_revision_id));
+ await act(async()=>resolve({...committed,world_id:'old-foreign-world'}));
+ expect(screen.queryByTestId('world-plan-start-play-error')).not.toBeInTheDocument();
+ expect(readWalkthrough(localStorage,worldId)?.record.id).toBe('other-tab-walk');
+});
+
+
+it('rechecks on pause/resume and clears a previously cached pin when the owner refuses it',async()=>{
+ const {committed,read,mount}=await resumedPlanFixture();mount();
+ await waitFor(()=>expect(planEncounterCapture.context?.verifiedPlan?.workRevisionId).toBe(committed.work_revision_id));
+ fireEvent.click(screen.getByRole('button',{name:'Open Plan walkthrough'}));
+ fireEvent.click(screen.getByRole('button',{name:'Pause',exact:true}));await screen.findByText('Guidance paused');
+ read.mockRejectedValue(new Error('Owner temporarily unavailable. Use Start Play to retry verification.'));
+ fireEvent.click(screen.getByRole('button',{name:'Resume',exact:true}));
+ await screen.findByTestId('world-plan-start-play-error');
+ expect(planEncounterCapture.context?.verifiedPlan).toBeNull();
+ await act(async()=>{});expect(read).toHaveBeenCalledTimes(2);
 });
