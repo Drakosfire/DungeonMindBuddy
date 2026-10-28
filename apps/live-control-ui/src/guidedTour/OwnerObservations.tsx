@@ -13,7 +13,7 @@ export function BuildTourObservations({source,session}:{source:SavedWorldBuildCo
  const initialReceipt=useRef(receipt);
  const stamp=useMemo(()=>new Date().toISOString(),[receipt]);
  const receiptStamp=receipt?.committed_record?.updated_at;
- const saved=verified&&receipt!==initialReceipt.current&&receipt?.writer_ok===true&&receipt.world_id===source.worldId&&typeof receiptStamp==='string'&&Number.isFinite(Date.parse(receiptStamp))&&receipt.document_id===source.documentId&&receipt.registry_revision===source.revision&&receipt.normalized_content_sha256===source.contentSha256;
+ const saved=verified&&receipt!==initialReceipt.current&&receipt?.writer_ok===true&&receipt.committed_record?.world_id===source.worldId&&(receipt.world_id==null||receipt.world_id===source.worldId)&&typeof receiptStamp==='string'&&Number.isFinite(Date.parse(receiptStamp))&&receipt.document_id===source.documentId&&receipt.registry_revision===source.revision&&receipt.normalized_content_sha256===source.contentSha256;
  useTourOwnerReading({step:'source',target,control:'source',label:source?.title,status:verified?'ready':'unavailable',reason:verified?undefined:'Open a verified page. Unsaved drafts and pending work are kept; finish or inspect them through the ordinary controls.',
   ...(verified&&target?{observation:{step:'source',target,observedAt:stamp,origin:'existing',receiptId:`source:${target.objectId}:${target.revision}:${target.digest}`}}:{})});
  useTourOwnerReading({step:'authoring',dispatchScope:session?.tourSaveScope,target,control:'save',label:source?.title,status:verified?'ready':'unavailable',reason:verified?undefined:session?.saveDisabledReason??'Finish the page through the ordinary editor and Save controls.',
