@@ -904,6 +904,8 @@ def test_selected_logical_deadline_reaches_request_and_owned_worker(
 
 
 def test_wrapper_persists_ledger_on_failed_result(tmp_path, monkeypatch):
+    from tests.test_recap_managed_standing_context import seed_binding
+    seed_binding(tmp_path,"managed-fixture-world","world:synthetic")
     from apps.live_control_server.services import graph_preview_runner as wrapper
 
     engine = Engine(TextResult(text="{}", observation=observation()))
@@ -960,6 +962,8 @@ def test_wrapper_persists_ledger_on_failed_result(tmp_path, monkeypatch):
 
 
 def test_ge_incomplete_through_one_recap_never_appends_candidate(tmp_path, monkeypatch):
+    from tests.test_recap_managed_standing_context import seed_binding
+    seed_binding(tmp_path,"managed-fixture-world","world:synthetic")
     import hashlib
     from apps.live_control_server.services import graph_preview_runner as wrapper
     from apps.live_control_server.services import graph_run_registry as registry
@@ -1027,16 +1031,6 @@ def test_ge_incomplete_through_one_recap_never_appends_candidate(tmp_path, monke
         category_candidate_graph_extractor as extractor,
     )
 
-    monkeypatch.setattr(
-        extractor,
-        "build_party_context_for_campaign",
-        lambda *a: extractor._empty_party_context("synthetic"),
-    )
-    monkeypatch.setattr(
-        extractor,
-        "build_known_entity_registry",
-        lambda *a, **k: extractor._empty_known_entity_registry("synthetic"),
-    )
     output = tmp_path / "new-output"
     result = wrapper.run_recap_production_extraction(
         repo_root=tmp_path,

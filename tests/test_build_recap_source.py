@@ -21,7 +21,8 @@ def context():
 @pytest.fixture
 def source(tmp_path,monkeypatch):
     monkeypatch.setenv("DMB_ARTIFACT_DATA_ROOT",str(tmp_path))
-    (tmp_path/"corpus/managed-a-markdown").mkdir(parents=True)
+    from tests.test_recap_managed_standing_context import seed_binding
+    seed_binding(tmp_path)
     record=create_workspace_document(tmp_path,title="External recap",campaign_id="workspace-campaign",world_id="managed-a",kind="worldbuilding_source",
         source_domain="worldbuilding",document_class="lore",authority_state="draft",visibility_state="internal")
     target=tmp_path/record.target_relpath;target.parent.mkdir(parents=True,exist_ok=True)

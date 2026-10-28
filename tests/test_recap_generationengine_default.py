@@ -21,6 +21,8 @@ from src.graph_memory.ingestion.extraction_run import ExtractionRunStatus
 @pytest.fixture
 def ordinary(monkeypatch, tmp_path):
     monkeypatch.setenv("DMB_ARTIFACT_DATA_ROOT", str(tmp_path))
+    from tests.test_recap_managed_standing_context import seed_binding
+    seed_binding(tmp_path,"managed-fixture-world","world:synthetic")
     source = SimpleNamespace(
         source_artifact_id="artifact:synthetic",
         source_sha256="a" * 64,
@@ -29,7 +31,7 @@ def ordinary(monkeypatch, tmp_path):
     monkeypatch.setattr(service, "create_recap_source_artifact", lambda *a, **k: source)
     monkeypatch.setattr(service, "_normalized_from_registered", lambda *a: source)
     monkeypatch.setattr(
-        service, "_recap_identity_snapshot", lambda *a: {"roster": ["Ari"]}
+        service, "_recap_identity_snapshot", lambda *a, **k: {"roster": ["Ari"]}
     )
     engine = Engine(
         TextResult(
