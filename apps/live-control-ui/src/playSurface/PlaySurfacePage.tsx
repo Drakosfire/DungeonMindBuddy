@@ -1070,7 +1070,7 @@ function PlayRuntimePage() {
   const blocked = v2Deck == null;
 
   return (
-    <AppChrome activeRoute="play">
+    <TourRunProvider run={admittedRun?.schema_version==="dmb_world_play_run_record_v2"?admittedRun:null}><AppChrome activeRoute="play">
       <RunStateTourObservations run={admittedRun?.schema_version==="dmb_world_play_run_record_v2"?admittedRun:null} content={v2Deck?.effectiveContent??null} blocked={sessionCopyBlocked||tableHeld||mutationStatus!=="idle"} acknowledgedRun={tourAcknowledgedRun}/>
       <PlayTourObservation run={admittedRun?.schema_version==="dmb_world_play_run_record_v2"?admittedRun:null} blocked={sessionCopyBlocked||mutationStatus!=="idle"} error={loadStatus==="integrity_failure"?detail:null}/>
       {loadStatus !== "chooser" ? <PlaySurfaceContext id="play-page-context" order={10} identity={playSurfaceContextIdentity(admittedRun, runQuery)}>
@@ -1115,7 +1115,7 @@ function PlayRuntimePage() {
           data-play-document-id={publication.documentId ?? ""}
         >
 
-          {selectedWorldId && v2Deck.run.schema_version === "dmb_world_play_run_record_v2" && v2Deck.effectiveContent ? <TourRunProvider run={v2Deck.run}><SessionReviewPanel key={`review:${v2Deck.run.run_id}`} runId={v2Deck.run.run_id} worldId={selectedWorldId} runRevision={v2Deck.run.run_revision} content={v2Deck.effectiveContent} blocked={sessionCopyBlocked||tableHeld||mutationStatus!=="idle"} sceneTitles={Object.fromEntries(v2Deck.beats.flatMap(beat=>[[beat.id,beat.title],...beat.scenes.map(scene=>[scene.id,scene.title])]))}/></TourRunProvider> : null}
+          {selectedWorldId && v2Deck.run.schema_version === "dmb_world_play_run_record_v2" && v2Deck.effectiveContent ? <SessionReviewPanel key={`review:${v2Deck.run.run_id}`} runId={v2Deck.run.run_id} worldId={selectedWorldId} runRevision={v2Deck.run.run_revision} content={v2Deck.effectiveContent} blocked={sessionCopyBlocked||tableHeld||mutationStatus!=="idle"} sceneTitles={Object.fromEntries(v2Deck.beats.flatMap(beat=>[[beat.id,beat.title],...beat.scenes.map(scene=>[scene.id,scene.title])]))}/> : null}
           {v2Deck.effectiveContent ? <PlaySessionContentEditor
             key={sessionCopyIdentity}
             content={v2Deck.effectiveContent}
@@ -1178,6 +1178,6 @@ function PlayRuntimePage() {
           ) : null}
         </main>
       ) : null}
-    </AppChrome>
+    </AppChrome></TourRunProvider>
   );
 }

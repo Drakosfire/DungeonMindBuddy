@@ -1,6 +1,9 @@
 import {beforeEach,describe,it,expect,vi} from 'vitest';
 import {render,screen,fireEvent,waitFor,cleanup} from '@testing-library/react';
 import {PreparedTablesTool} from './PreparedTablesTool';
+import type {TourOwnerReading} from '../guidedTour/GuidedTour';
+const tourReadings=vi.hoisted(()=>new Map<string,TourOwnerReading>());
+vi.mock('../guidedTour/GuidedTour',()=>({useTourOwnerReading:(reading:TourOwnerReading)=>tourReadings.set(reading.step,reading)}));
 import {pendingTableKey} from './preparedTablesProjection';
 import type {WorldPlayRunRecordV2} from '../api/types';
 const request=vi.hoisted(()=>vi.fn());
@@ -11,7 +14,7 @@ const table={schema_version:'dmb_roll_table_v1',table_id:'table:weather',title:'
 const inventory={run,source,source_title:'Journey',can_record:true,tables:[table]};
 const ok=(body:unknown,status=200)=>({response:{ok:status<400,status,json:async()=>body}});
 const receipt=(id:string,body:any)=>({schema_version:'dmb_prepared_table_receipt_v1',world_id:run.world_id,run_id:run.run_id,command_id:id,source,source_title:'Journey',table_id:body.table_id,table_sha256:body.table_sha256,table_title:'Weather',die_sides:6,physical_value:body.physical_value,row_id:'row:rain',outcome:'Rain',expected_run_revision:1,resulting_run_revision:2,recorded_at:'2026-10-22T00:00:00Z'});
-beforeEach(()=>{cleanup();localStorage.clear();Object.defineProperty(navigator,'locks',{configurable:true,value:{request:(_name:string,action:()=>unknown)=>Promise.resolve().then(action)}});request.mockReset();request.mockImplementation(async(path:string)=>ok(path.includes('/receipts')?{receipts:[],next_before:null}:inventory));});
+beforeEach(()=>{tourReadings.clear();cleanup();localStorage.clear();Object.defineProperty(navigator,'locks',{configurable:true,value:{request:(_name:string,action:()=>unknown)=>Promise.resolve().then(action)}});request.mockReset();request.mockImplementation(async(path:string)=>ok(path.includes('/receipts')?{receipts:[],next_before:null}:inventory));});
 describe('prepared table pending command',()=>{
   it('persists before sending, recovers unknown outcome and explicitly retries exact identity',async()=>{
     const onRun=vi.fn(),onHeld=vi.fn();let firstId='';let firstBody='';let attempts=0;
@@ -34,6 +37,7 @@ describe('prepared table pending command',()=>{
     await waitFor(()=>expect(onRun).toHaveBeenCalledWith({...run,run_revision:2}));
     expect(onHeld).toHaveBeenLastCalledWith(false);
     expect(localStorage.getItem(pendingTableKey(run.world_id,run.run_id))).toBeNull();
+    expect(tourReadings.get('roll')?.observation).toMatchObject({origin:'acknowledged',target:{objectId:run.run_id,revision:2},parent:{revisionId:run.playable_work_revision_id},proof:{kind:'recorded-roll',commandId:firstId,physicalValue:4,dieSides:6,tableId:table.table_id,tableDigest:table.table_sha256,rowId:'row:rain'}});
   });
   it('retains entered values after a known conflict and requires refresh',async()=>{
     request.mockImplementation(async(path:string)=>path.includes('/commands/')?ok({detail:'Session changed'},409):ok(inventory));
