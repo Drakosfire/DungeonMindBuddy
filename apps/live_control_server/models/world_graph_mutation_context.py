@@ -643,13 +643,25 @@ def _active_provisional_objects(
     return result
 
 
+def _article_plausibility_terms(terms: set[str]) -> set[str]:
+    """Expand surfaces for review only; a definite article never proves identity."""
+    expanded = {" ".join(term.split()) for term in terms if term.strip()}
+    expanded.update(term[4:] for term in tuple(expanded) if term.startswith("the ") and term[4:])
+    return expanded
+
+
 def _alias_map_matches(
     context: WorldGraphMutationContext,
     terms: set[str],
+    *,
+    article_variants: bool = False,
 ) -> list[str]:
     matches: list[str] = []
     for alias, owners in context.alias_owners.items():
-        if _norm(alias) not in terms:
+        alias_terms = {_norm(alias)}
+        if article_variants:
+            alias_terms = _article_plausibility_terms(alias_terms)
+        if not (alias_terms & terms):
             continue
         matches.extend(owners)
     return matches
@@ -723,8 +735,11 @@ def _find_plausible_matches(
     candidate: IdentityCandidate,
     *,
     policy: IdentityResolutionPolicy,
+    article_variants: bool = False,
 ) -> tuple[list[MutationObject], list[MutationObject], list[MutationObject]]:
     terms = _candidate_surface_terms(candidate)
+    if article_variants:
+        terms = _article_plausibility_terms(terms)
     if not terms:
         return [], [], []
 
@@ -740,7 +755,7 @@ def _find_plausible_matches(
 
 
     if policy.alias_match_kinds:
-        for node_id in _alias_map_matches(context, terms):
+        for node_id in _alias_map_matches(context, terms, article_variants=article_variants):
             resolved_id = _resolve_redirect(node_id, context.identity_redirects)
             if resolved_id in canonical:
                 obj = canonical[resolved_id]
@@ -764,7 +779,10 @@ def _find_plausible_matches(
 
 
     for object_id, obj in canonical.items():
-        if not (terms & _object_surface_terms(obj)):
+        object_terms = _object_surface_terms(obj)
+        if article_variants:
+            object_terms = _article_plausibility_terms(object_terms)
+        if not (terms & object_terms):
             continue
         if policy.exact_label_match_kinds and _norm_kind(obj.kind) == candidate_kind:
             same_kind[object_id] = obj
@@ -773,7 +791,10 @@ def _find_plausible_matches(
 
 
     for object_id, obj in provisional.items():
-        if not (terms & _object_surface_terms(obj)):
+        object_terms = _object_surface_terms(obj)
+        if article_variants:
+            object_terms = _article_plausibility_terms(object_terms)
+        if not (terms & object_terms):
             continue
         if _norm_kind(obj.kind) == candidate_kind:
             provisional_same_kind[object_id] = obj
@@ -862,7 +883,7 @@ def resolve_identity_against_context(
                 requires_human_review=True,
             )
         same_kind, cross_kind, provisional = _find_plausible_matches(
-            context, candidate, policy=active_policy
+            context, candidate, policy=active_policy, article_variants=True
         )
         if same_kind or cross_kind or provisional:
             matches = sorted({
