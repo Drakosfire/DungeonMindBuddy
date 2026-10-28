@@ -172,7 +172,7 @@ def read_prompt(world_id: str, action_id: UUID):
 
 
 async def compose_with_writer(
-    request: BuildDocumentProposalRequest, writer_gate: TextDispatchGate, *, transport=None, frozen_history=None, related_authored_pages=None, authored_reference_material=None,
+    request: BuildDocumentProposalRequest, writer_gate: TextDispatchGate, *, writer_model: str, transport=None, frozen_history=None, related_authored_pages=None, authored_reference_material=None,
 ):
     """Trusted parent seam: one proposal call, jointly authorized; never import text.
 
@@ -182,14 +182,14 @@ async def compose_with_writer(
     """
     if not isinstance(writer_gate, TextDispatchGate) or request.origin is None:
         raise BuildComposeError("build_compose_writer_origin_required")
-    return await _compose(request, transport=transport, writer_gate=writer_gate, frozen_history=frozen_history, related_authored_pages=related_authored_pages, authored_reference_material=authored_reference_material)
+    return await _compose(request, transport=transport, writer_gate=writer_gate, writer_model=writer_model, frozen_history=frozen_history, related_authored_pages=related_authored_pages, authored_reference_material=authored_reference_material)
 
 
 async def compose(request: BuildDocumentProposalRequest, *, transport=None):
     return await _compose(request, transport=transport)
 
 
-async def _compose(request: BuildDocumentProposalRequest, *, transport=None, writer_gate=None, frozen_history=None, related_authored_pages=None, authored_reference_material=None):
+async def _compose(request: BuildDocumentProposalRequest, *, transport=None, writer_gate=None, writer_model=None, frozen_history=None, related_authored_pages=None, authored_reference_material=None):
     store = BuildProposalService()
     reservation = request.reservation_only()
     # Check an accepted operation before consulting mutable source state. A replay
@@ -203,7 +203,9 @@ async def _compose(request: BuildDocumentProposalRequest, *, transport=None, wri
             raise BuildComposeError("build_compose_request_changed")
         return existing
     snapshot = _source(request)
-    model = _model()
+    model = writer_model if writer_gate is not None else _model()
+    if not isinstance(model, str) or not model.strip():
+        raise BuildComposeError("build_compose_writer_model_required")
     world = reservation.basis.world_id
     def advance(state, **fields):
         nonlocal record
@@ -328,10 +330,12 @@ async def _compose(request: BuildDocumentProposalRequest, *, transport=None, wri
             await client.aclose()
 
 
-def prepare_writer_request(request, *, frozen_history=None, related_authored_pages=None, authored_reference_material=None):
+def prepare_writer_request(request, *, writer_model: str, frozen_history=None, related_authored_pages=None, authored_reference_material=None):
     """Owned deterministic request for trusted staging; never reserves or sends."""
-    snapshot, model = _source(request), _model()
-    return _writer_request(request, snapshot, model, frozen_history=frozen_history, related_authored_pages=related_authored_pages, authored_reference_material=authored_reference_material)
+    snapshot = _source(request)
+    if not isinstance(writer_model, str) or not writer_model.strip():
+        raise BuildComposeError("build_compose_writer_model_required")
+    return _writer_request(request, snapshot, writer_model, frozen_history=frozen_history, related_authored_pages=related_authored_pages, authored_reference_material=authored_reference_material)
 
 
 def _writer_request(request, snapshot, model, *, frozen_history=None, related_authored_pages=None, authored_reference_material=None):

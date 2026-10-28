@@ -13,7 +13,9 @@ from starlette.requests import Request
 
 from apps.live_control_server.services.world_container_registry import (
     REGISTRY_SCHEMA,
+    authorize_world_access,
     create_world_container as _create_provisioned_world,
+    grant_world_access,
     list_world_containers,
     world_containers_path,
 )
@@ -26,9 +28,13 @@ from apps.live_control_server.services.world_graph_binding import (
 )
 
 
-def _existing_unbound_world(root: Path, *, name: str):
+def _existing_unbound_world(
+    root: Path, *, name: str, owner_subject: str | None = None
+):
     """Explicit retained unbound fixture for the existing-Graph binding contract."""
-    created = _create_provisioned_world(root, name=name)
+    created = _create_provisioned_world(
+        root, name=name, owner_subject=owner_subject
+    )
     path = world_containers_path(root)
     payload = json.loads(path.read_text())
     for record in payload["records"]:
@@ -39,7 +45,7 @@ def _existing_unbound_world(root: Path, *, name: str):
 
 
 LOCAL_TOKEN = "binding-test-local-operator-token-long-enough"
-NATIVE_ID = "eldyrwild"
+NATIVE_ID = "test-native-world"
 
 
 class _Authority:
@@ -108,7 +114,7 @@ def root(tmp_path: Path) -> Path:
     return tmp_path
 
 
-def test_initial_bind_reads_exact_head_revision_then_persists_v2(root: Path) -> None:
+def test_initial_bind_reads_exact_head_revision_then_persists_v3(root: Path) -> None:
     managed = _existing_unbound_world(root, name="Binding Target")
     authority = _Authority()
     before = managed.model_dump()
@@ -134,7 +140,7 @@ def test_initial_bind_reads_exact_head_revision_then_persists_v2(root: Path) -> 
 
     payload = __import__("json").loads(world_containers_path(root).read_text(encoding="utf-8"))
     assert payload["schema_version"] == REGISTRY_SCHEMA
-    assert payload["records"][0]["schema_version"] == "dmb_world_container_record_v2"
+    assert payload["records"][0]["schema_version"] == "dmb_world_container_record_v3"
     assert list_world_containers(root)[0].native_graph_binding == binding
 
 
@@ -155,11 +161,46 @@ def test_bind_preserves_exact_opaque_head_revision_id(root: Path) -> None:
     assert active.native_graph_binding.validated_head_revision_id == " rev:opaque-head "
 
 
+def test_graph_binding_mutations_preserve_owner_and_access_grants(root: Path) -> None:
+    world = _existing_unbound_world(
+        root,
+        name="Synthetic Bound World",
+        owner_subject="subject:owner",
+    )
+    grant_world_access(
+        root,
+        world.world_id,
+        actor_subject="subject:owner",
+        subject="subject:reader",
+        permissions=["read"],
+    )
+    authority = _Authority(world_id="world:synthetic-graph")
+
+    active = bind_native_graph(
+        root,
+        world.world_id,
+        native_world_id="world:synthetic-graph",
+        expected_binding_version=0,
+        authority_validator=lambda _world_id: authority,
+    )
+    assert active.owner_subject == "subject:owner"
+    assert active.access_grants[0].subject == "subject:reader"
+    assert authorize_world_access(
+        root, world.world_id, subject="subject:reader", permission="read"
+    ).world_id == world.world_id
+
+    deactivated = deactivate_native_graph_binding(
+        root, world.world_id, expected_binding_version=1
+    )
+    assert deactivated.owner_subject == "subject:owner"
+    assert deactivated.access_grants[0].subject == "subject:reader"
+
+
 @pytest.mark.parametrize(
     ("world_id", "revision_id", "stored_world_id", "stored_revision_id", "exists"),
     [
         ("other-world", "rev:head-1", None, None, True),
-        (" eldyrwild ", "rev:head-1", None, None, True),
+        (" test-native-world ", "rev:head-1", None, None, True),
         (NATIVE_ID, "rev:head-1", "wrong-world", "rev:head-1", True),
         (NATIVE_ID, "rev:head-1", NATIVE_ID, "rev:wrong", True),
         (NATIVE_ID, "rev:missing", None, None, False),
@@ -377,7 +418,7 @@ def test_legacy_v1_world_is_migrated_only_by_successful_locked_bind(root: Path) 
 
     payload = __import__("json").loads(path.read_text(encoding="utf-8"))
     assert payload["schema_version"] == REGISTRY_SCHEMA
-    assert payload["records"][0]["schema_version"] == "dmb_world_container_record_v2"
+    assert payload["records"][0]["schema_version"] == "dmb_world_container_record_v3"
     assert payload["records"][0]["world_id"] == legacy.world_id
     assert payload["records"][0]["name"] == legacy.name
     assert payload["records"][0]["source_root_relpath"] == legacy.source_root_relpath

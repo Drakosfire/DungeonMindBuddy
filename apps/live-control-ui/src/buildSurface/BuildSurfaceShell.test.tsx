@@ -1,4 +1,7 @@
 import {useState} from "react";
+import {GuidedTourProvider} from "../guidedTour/GuidedTour";
+import {createWalkthrough,reduceTour} from "../guidedTour/protocol";
+import {readWalkthrough,writeWalkthrough} from "../guidedTour/storage";
 import {createPortal} from "react-dom";
 import type { ComponentProps } from "react";
 import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
@@ -387,6 +390,51 @@ describe("BuildSurfaceShell", () => {
     expect(classAndAttributeCount(buildNarrowEditSelector)).toBeGreaterThan(
       classAndAttributeCount(sharedOpenEditSelector),
     );
+  });
+
+  it.each([
+    {outerWorld:null,newerEdit:false},
+    {outerWorld:'tour-world',newerEdit:false},
+    {outerWorld:null,newerEdit:true},
+  ])('observes ordinary autosave ownership through the mounted tour (outer=$outerWorld, newer=$newerEdit)',async({outerWorld,newerEdit})=>{
+    const world='tour-world';
+    Object.defineProperty(navigator,'locks',{configurable:true,value:{request:vi.fn(async(_name:string,callback:()=>unknown)=>callback())}});
+    let walkthrough=createWalkthrough(world,'conks','live-autosave',new Date(Date.now()-1000).toISOString());
+    walkthrough=reduceTour(walkthrough,{kind:'bind',pin:{kind:'source',worldId:world,objectId:DOC_ID,revision:1,digest:'a'.repeat(64)}});
+    walkthrough=reduceTour(walkthrough,{kind:'move',index:1});
+    writeWalkthrough(localStorage,walkthrough,null);
+    const original=buildWorldbuildingSnapshot(DOC_ID);
+    const snapshot={...original,record:{...original.record,world_id:world,content_status:'committed' as const},content_sha256:'a'.repeat(64),file_exists:true};
+    const committedAt=new Date().toISOString();
+    const record={...snapshot.record,revision:2,updated_at:committedAt};
+    const committedSnapshot={...snapshot,record,loaded_revision:2,content_sha256:'b'.repeat(64),file_fingerprint:'saved',markdown:'# Build Source\n\nFresh authoring.\n'};
+    vi.mocked(liveApi.getWorkspaceDocumentSnapshot).mockResolvedValue(committedSnapshot).mockResolvedValueOnce(snapshot);
+    vi.mocked(liveApi.prepareTiptapMarkdownWrite).mockResolvedValue({schema_version:'dmb_tiptap_markdown_write_prepare_v1',document_id:DOC_ID,title:record.title,
+      target_relpath:record.target_relpath,target_display_path:record.target_relpath,registry_revision:1,file_exists:true,writer_ok:true,writer_phase:'prepare',writer_confirm_token:'current-save',writer_diff:'+Fresh authoring',warnings:[],diagnostics:[]});
+    let finish!:()=>void;
+    const pending=new Promise<void>(resolve=>{finish=resolve;});
+    vi.mocked(liveApi.commitTiptapMarkdownWrite).mockImplementation(async()=>{
+      await pending;
+      return {schema_version:'dmb_tiptap_markdown_write_commit_v1',world_id:outerWorld,document_id:DOC_ID,title:record.title,target_relpath:record.target_relpath,
+        target_display_path:record.target_relpath,registry_revision:2,committed_revision:2,committed_record:record,normalized_content_sha256:'b'.repeat(64),writer_ok:true,
+        writer_phase:'commit',file_fingerprint:'saved',diagnostics:[]};
+    });
+    render(<GuidedTourProvider worldId={world}><BuildDocumentHarness documentId={DOC_ID}/></GuidedTourProvider>);
+    await waitForEditor();
+    await waitFor(()=>expect(screen.getByTestId('build-markdown-editor')).toHaveAttribute('data-markdown-editor-status','ready'));
+    act(()=>buildShellTestEditor!.commands.insertContent('Fresh authoring.'));
+    await waitFor(()=>expect(liveApi.commitTiptapMarkdownWrite).toHaveBeenCalledTimes(1),{timeout:2500});
+    if(newerEdit)act(()=>buildShellTestEditor!.commands.insertContent(' Newer unsaved draft.'));
+    await act(async()=>{finish();await pending;});
+    if(newerEdit){
+      await waitFor(()=>expect(screen.getByTestId('build-document-status')).toHaveTextContent('Unsaved'));
+      expect(buildShellTestEditor!.getText()).toContain('Newer unsaved draft.');
+      expect(readWalkthrough(localStorage,world)!.record.steps.authoring.state).not.toBe('completed');
+    }else{
+      await waitFor(()=>expect(readWalkthrough(localStorage,world)!.record.steps.authoring.state).toBe('completed'));
+      expect(readWalkthrough(localStorage,world)!.record.steps.authoring.evidence).toEqual(expect.arrayContaining([expect.objectContaining({origin:'acknowledged',target:expect.objectContaining({worldId:world,objectId:DOC_ID,revision:2,digest:'b'.repeat(64)})})]));
+    }
+    expect(liveApi.commitTiptapMarkdownWrite).toHaveBeenCalledTimes(1);
   });
 
   it("autosaves an authored Build edit through the shared durable write boundary", async () => {

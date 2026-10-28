@@ -53,6 +53,11 @@ def _isolate_live_server_session_dir(
     if "tests/test_live_" not in request.node.nodeid:
         return
 
+    if request.node.name == "test_recap_ingest_generate_recap_memory_with_graph_extraction_fake_client":
+        # This test owns a fully synthetic session fixture and must not copy
+        # the repository's C2 live-session inputs, even into a temporary dir.
+        return
+
     repo_root = Path(__file__).resolve().parents[1]
     seed_session = repo_root / "evals/c2_live_prep/live/session_22"
     isolated = tmp_path / "live_session"

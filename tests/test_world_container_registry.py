@@ -36,7 +36,7 @@ def test_create_world_persists_exact_identity_and_root(root: Path) -> None:
     assert created.name == "The Glass Orchard"
     assert created.source_root_relpath == "corpus/the-glass-orchard-markdown"
     assert (root / created.source_root_relpath).is_dir()
-    assert created.schema_version == "dmb_world_container_record_v2"
+    assert created.schema_version == "dmb_world_container_record_v3"
 
     listed = list_world_containers(root)
     assert len(listed) == 1
@@ -190,7 +190,7 @@ def test_managed_root_enables_workspace_source_without_weakening_missing_root(
 
 
 def test_registry_schema_constant() -> None:
-    assert REGISTRY_SCHEMA == "dmb_world_container_registry_v2"
+    assert REGISTRY_SCHEMA == "dmb_world_container_registry_v3"
 
 
 def test_legacy_v1_registry_read_is_unbound_and_does_not_rewrite_bytes(root: Path) -> None:
@@ -216,11 +216,50 @@ def test_legacy_v1_registry_read_is_unbound_and_does_not_rewrite_bytes(root: Pat
     listed = list_world_containers(root)
 
     assert len(listed) == 1
-    assert listed[0].schema_version == "dmb_world_container_record_v2"
+    assert listed[0].schema_version == "dmb_world_container_record_v3"
     assert listed[0].world_id == "legacy-world"
     assert listed[0].name == "Legacy World"
     assert listed[0].source_root_relpath == "corpus/legacy-world-markdown"
     assert listed[0].native_graph_binding is None
+    assert path.read_bytes() == original
+
+
+def test_legacy_v2_registry_read_is_unowned_and_does_not_rewrite_bytes(root: Path) -> None:
+    path = world_containers_path(root)
+    path.parent.mkdir(parents=True)
+    original = json.dumps(
+        {
+            "schema_version": "dmb_world_container_registry_v2",
+            "records": [
+                {
+                    "schema_version": "dmb_world_container_record_v2",
+                    "world_id": "retained-world",
+                    "name": "Retained World",
+                    "source_root_relpath": "corpus/retained-world-markdown",
+                    "created_at": "2026-01-01T00:00:00Z",
+                    "native_graph_binding": {
+                        "schema_version": "dmb_managed_world_native_graph_binding_v1",
+                        "provider": "dungeonmind_v2",
+                        "native_world_id": "world:synthetic-retained",
+                        "status": "active",
+                        "binding_version": 2,
+                        "validated_at": "2026-01-01T00:00:00Z",
+                        "validated_head_revision_id": "rev:synthetic-retained",
+                    },
+                }
+            ],
+        },
+        separators=(",", ":"),
+    ).encode("utf-8")
+    path.write_bytes(original)
+
+    [record] = list_world_containers(root)
+
+    assert record.schema_version == "dmb_world_container_record_v3"
+    assert record.owner_subject is None
+    assert record.access_grants == []
+    assert record.native_graph_binding is not None
+    assert record.native_graph_binding.native_world_id == "world:synthetic-retained"
     assert path.read_bytes() == original
 
 
@@ -253,7 +292,6 @@ def test_reservation_grants_source_identity_without_graph_read_or_binding_author
         bind_native_graph, deactivate_native_graph_binding, WorldGraphBindingError,
     )
     from apps.live_control_server.services.first_world_graph import first_world_native_target
-    from graph_memory.worldbuilding_write_plan import WorldbuildingWritePlanError
 
     world = create_world_container(root, name="Reserved sources")
     reserved = world.native_graph_binding
@@ -285,7 +323,7 @@ def test_reservation_cannot_be_duplicated_in_registry(root: Path) -> None:
 
 
 def test_reconcile_existing_unbound_world_does_not_allocate_or_rewrite(root: Path) -> None:
-    world = create_world_container(root, name="Retained unbound")
+    create_world_container(root, name="Retained unbound")
     path = world_containers_path(root)
     payload = json.loads(path.read_text())
     payload["records"][0]["native_graph_binding"] = None

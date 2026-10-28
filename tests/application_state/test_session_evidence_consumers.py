@@ -132,6 +132,8 @@ def test_external_recap_source_stays_exact_and_supplement_is_sealed_and_reuse_bo
     run_id=ended_session();packet=read_session_evidence(world_id=WORLD,run_id=run_id,revision=1)
     bundle=resolve_evidence_refs(WORLD,[{key:packet[key] for key in ('run_id','review_revision','sha256')}])
     monkeypatch.setenv('DMB_ARTIFACT_DATA_ROOT',str(tmp_path));source=tmp_path/'external-recap.md';raw='The company crossed the damaged boardwalk.\n';source.write_text(raw)
+    from tests.test_recap_managed_standing_context import seed_binding
+    seed_binding(tmp_path,WORLD,'world:synthetic')
     context=replace(_fixture_ingest_context('longmont-c2'),managed_world_id=WORLD)
     result=run_recap_production_extraction(repo_root=tmp_path,campaign_id='longmont-c2',session_id='session-30',recap_path=source,profile='category_baseline',allow_llm=False,output_dir=tmp_path/'extraction',ingest_context=context,supplemental_evidence=bundle)
     assert source.read_text()==raw

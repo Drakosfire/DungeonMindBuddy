@@ -160,6 +160,8 @@ def test_source_and_future_producer_share_data_root(split_roots, monkeypatch):
     assert source_artifacts_path(code) == data / "out/registries/source_artifacts.json"
     assert load_registered_source_artifact_text(code, artifact.source_artifact_id)[1] == original.read_text()
     assert graph_ingest_output_root(code).is_relative_to(data)
+    from tests.test_recap_managed_standing_context import seed_binding
+    seed_binding(data,"managed-fixture-world","fixture-world")
     calls = []
     monkeypatch.setattr(
         "apps.live_control_server.services.graph_preview_runner.run_production_extraction",

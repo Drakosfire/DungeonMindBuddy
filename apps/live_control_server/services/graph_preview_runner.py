@@ -115,6 +115,7 @@ def _recap_identity_snapshot(
     campaign_id: str,
     session_id: str,
     extra_known_entities: tuple[KnownEntity, ...] | None,
+    *, corpus_root: Path,
 ) -> dict[str, Any]:
     from src.graph_memory.extraction.known_entity_registry import (
         build_known_entity_registry,
@@ -122,10 +123,27 @@ def _recap_identity_snapshot(
     )
 
     session_number = int(session_id.removeprefix("session-"))
-    registry = build_known_entity_registry(campaign_id, session_number)
+    from src.graph_memory.party_context import build_party_context_for_campaign
+    party = build_party_context_for_campaign(campaign_id, session_number, corpus_root=corpus_root)
+    registry = build_known_entity_registry(campaign_id, session_number, corpus_root=corpus_root, party_ctx=party)
     if extra_known_entities:
         registry = extend_known_entity_registry(registry, extra_known_entities)
-    return asdict(registry)
+    return {"party_context": asdict(party), "known_entity_registry": asdict(registry)}
+
+
+def _standing_corpus_root(root: Path, context: dict[str, Any]) -> Path:
+    from apps.live_control_server.services.managed_world_graph_projection import resolve_managed_world_binding
+    binding = resolve_managed_world_binding(context["managed_world_id"], root=root)
+    if (binding.native_world_id, binding.binding_version) != (context["native_world_id"], context["binding_version"]):
+        raise SourceArtifactRegistryError("Managed World binding changed before extraction", status_code=409)
+    relative = Path(binding.source_root_relpath)
+    candidate = root / relative
+    resolved = candidate.resolve()
+    if relative.is_absolute() or not resolved.is_relative_to(root.resolve()) or not resolved.is_dir():
+        raise SourceArtifactRegistryError("Managed standing-context root is invalid", status_code=409)
+    if any(path.is_symlink() for path in [candidate, *candidate.parents] if path != root and path.is_relative_to(root)):
+        raise SourceArtifactRegistryError("Managed standing-context root redirects through a symlink", status_code=409)
+    return resolved
 
 
 def _verified_ingest_context_lineage(
@@ -219,6 +237,7 @@ def run_recap_production_extraction(
         ingest_context,
         campaign_id=campaign_id,
     )
+    standing_root = _standing_corpus_root(repo_root, frozen_context)
     if supplemental_evidence is not None and supplemental_evidence.get("world_id")!=frozen_context["managed_world_id"]:
         raise ValueError("Session supplement belongs to another managed World")
     if (recap_path is None) == (build_source_artifact_id is None):
@@ -318,10 +337,9 @@ def run_recap_production_extraction(
             "Extract only claims supported by the actual recap source; do not turn GM preferences or reflections into recap events.\n"+render_session_evidence(supplemental_evidence))
         supplement_lineage={"session_evidence":{"sha256":supplemental_evidence["sha256"],"uri":str((private/"session_evidence.json").relative_to(repo_root)),"artifact_sha256":hashlib.sha256((private/"session_evidence.json").read_bytes()).hexdigest(),
             "sources":[{"run_id":item["run_id"],"review_revision":item["review_revision"],"sha256":item["sha256"],"citation_url":item["citation_url"]} for item in supplemental_evidence["sessions"]]}}
+    snapshot = _recap_identity_snapshot(campaign_id, session_id, extra_known_entities, corpus_root=standing_root)
+    identity_sha256 = hashlib.sha256(json.dumps(snapshot, sort_keys=True, separators=(",", ":")).encode()).hexdigest()
     if default_ge:
-        snapshot = _recap_identity_snapshot(
-            campaign_id, session_id, extra_known_entities
-        )
         private = output_dir / ".private"
         private.mkdir(mode=0o700,exist_ok=True)
         _write_recap_private_json(private / "identity_context.json", snapshot)
@@ -359,6 +377,8 @@ def run_recap_production_extraction(
                 allow_llm=allow_llm,
                 category_client=category_client,
                 extra_known_entities=extra_known_entities,
+                corpus_root=standing_root,
+                expected_standing_context_sha256=identity_sha256,
                 output_dir=output_dir,
                 context_vocabulary_packet=context_vocabulary_packet,
                 enable_node_vocabulary_packet=enable_node_vocabulary_packet,

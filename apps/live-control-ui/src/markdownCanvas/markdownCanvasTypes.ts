@@ -1,3 +1,4 @@
+import type {TourDispatchScope} from '../guidedTour/GuidedTour';
 import type { WorkspaceConflictRecovery } from "../workspaceDocument/workspaceConflictRecovery";
 import type { WorkspaceDraftRecoveryReview, WorkspaceDraftRestoreReview } from "../workspaceDocument/workspaceDocumentRecovery";
 import type { ReactNode } from "react";
@@ -105,6 +106,7 @@ export type AdmissionLookupResult =
   };
 
 export interface MarkdownCanvasSessionValue extends CanvasDocumentState {
+  tourSaveScope?:TourDispatchScope|null;
   statusLabel: string;
   reconciliation: ReconcileLocalDraftResult | null;
   editorContent: unknown;

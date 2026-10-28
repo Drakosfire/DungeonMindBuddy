@@ -1,3 +1,4 @@
+import {useTourImage} from '../guidedTour/ImageObservations';
 import { useEffect, useRef } from 'react';
 import { authenticatedApiFetch } from '../api/liveApi';
 import { MediaImageWizard } from './MediaImageWizard';
@@ -8,6 +9,7 @@ import './DocumentImageStudio.css';
 export function DocumentImageStudio({ bridge, onClose, targetLabel, initialPrompt = "" }: {
   bridge: DocumentMediaBridge; onClose: () => void; targetLabel: string; initialPrompt?: string;
 }) {
+  const tourImage=useTourImage();
   const active = useRef(true);
   useEffect(() => { active.current = true; return () => { active.current = false; }; }, [bridge]);
   return <aside className="document-image-studio" aria-label={`Image Studio · ${targetLabel}`}>
@@ -20,6 +22,7 @@ export function DocumentImageStudio({ bridge, onClose, targetLabel, initialPromp
       placement.signal.throwIfAborted();
       if (!active.current || !asset || typeof asset !== 'object' || asset.asset_id !== image.asset_id || asset.state !== 'ready') throw new Error('Save this image before placing it in the current document.');
       bridge.insert(target, asset.asset_id, 'Saved artwork');
+      tourImage?.placed(asset.asset_id);
       onClose();
     }} />
   </aside>;

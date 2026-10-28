@@ -1,3 +1,4 @@
+import {useGuidedTour,type TourDispatchScope} from '../../guidedTour/GuidedTour';
 import { SurfaceCardLayout } from "../../shared/SurfaceCardLayout";
 import { ContentsToggle } from "../../shared/Contents";
 import { CardSceneNavigation } from "../../shared/CardSceneNavigation";
@@ -42,7 +43,7 @@ export interface PlayCurrentMomentCockpitProps {
   mutationStatus: RunbookMutationStatus;
   externalMutationBlocked?: boolean;
   onMutationStatus: (status: RunbookMutationStatus) => void;
-  onAuthoritativeRun: (run: AnyPlayRunRecord) => void;
+  onAuthoritativeRun: (run: AnyPlayRunRecord, tourDispatch?:TourDispatchScope|null) => void;
   onNoteUnsubmittedChange?: (hasUnsubmitted: boolean) => void;
 }
 
@@ -356,6 +357,7 @@ export function PlayCurrentMomentCockpit({
   onAuthoritativeRun,
   onNoteUnsubmittedChange,
 }: PlayCurrentMomentCockpitProps) {
+  const guidance=useGuidedTour();
   const run = deck.run;
   const runIdentity = run.schema_version === "dmb_world_play_run_record_v2"
     ? JSON.stringify([
@@ -487,6 +489,7 @@ export function PlayCurrentMomentCockpit({
       || activeSceneNoteDraft.basisText !== serverSceneNote);
 
   const replaceProgress = async (next: PlayRunProgress, options?: ProgressReplacementOptions) => {
+    const tourDispatch=guidance?.captureScope()??null;
     const explicitRetryIsCurrent = options?.allowExplicitRetry === true
       && (mutationStatus === "idle" || exactRereadSucceeded);
     if (externalMutationBlocked || (!mutationsOpen && !explicitRetryIsCurrent) || mutationStatus === "saving" || inFlightRef.current) return;
@@ -512,7 +515,7 @@ export function PlayCurrentMomentCockpit({
         return;
       }
       options?.onSaved?.(updated, expected);
-      onAuthoritativeRun(updated);
+      onAuthoritativeRun(updated,tourDispatch);
       onMutationStatus("idle");
       setWorkspace({ kind: "current" });
     } catch (error) {
@@ -533,7 +536,7 @@ export function PlayCurrentMomentCockpit({
         || liveRunIdentityRef.current !== boundRunIdentity || requestSerialRef.current !== serial) {
         return;
       }
-      if (reconciled) onAuthoritativeRun(reconciled);
+      if (reconciled) onAuthoritativeRun(reconciled,null);
       setExactRereadSucceeded(reconciled != null);
       if (status === 409) {
         onMutationStatus(reconciled ? "conflict" : "unknown");

@@ -1,3 +1,8 @@
+import type {TourDispatchScope} from '../guidedTour/GuidedTour';
+import {runPins} from '../guidedTour/ownerPins';
+import {TourRunProvider} from '../guidedTour/RunScope';
+import {RunStateTourObservations} from '../guidedTour/RunObservations';
+import {PlayTourObservation} from '../guidedTour/OwnerObservations';
 import {useAgentInteraction} from '../agentInteraction/useAgentInteraction';
 import {SceneEncounterLauncher} from '../combat/SceneEncounterLauncher';
 import {TABLE_TOOL,TABLE_PROJECTION,TABLE_BINDING_ID,pendingTableKey,usePreparedTablesProjection,type PreparedTablesBinding} from "../preparedTables/preparedTablesProjection";
@@ -343,8 +348,8 @@ function PlaySurfacePublisher({
   usePublishSurfaceInteraction(publication);
   useRulesLookupProjection("play", true);
   const runEncounterContext=useMemo(()=>admittedRun?.schema_version==='dmb_world_play_run_record_v2'&&currentMoment?.sceneId?{
-    worldId:admittedRun.world_id,runId:admittedRun.run_id,sceneId:currentMoment.sceneId,sceneTitle:currentMoment.sceneTitle??'Scene',
-  }:null,[admittedRun?.run_id,admittedRun?.schema_version,currentMoment?.sceneId,currentMoment?.sceneTitle]);
+    worldId:admittedRun.world_id,runId:admittedRun.run_id,sceneId:currentMoment.sceneId,sceneTitle:currentMoment.sceneTitle??'Scene',tourRun:runPins(admittedRun),
+  }:null,[admittedRun,currentMoment?.sceneId,currentMoment?.sceneTitle]);
   useCombatProjection("play", true,runEncounterContext);
   usePreparedTablesProjection();
   usePublishAgentSurfaceContext(agentContext);
@@ -588,6 +593,7 @@ function PlayRuntimePage() {
     playChooserQuery(window.location.search) ? "chooser" : "loading"
   ));
   const [detail, setDetail] = useState<string | null>(null);
+  const [tourAcknowledgedRun,setTourAcknowledgedRun]=useState<{worldId:string;runId:string;revision:number;dispatchScope?:TourDispatchScope|null}|null>(null);
   const [admission, setAdmission] = useState<NativeRunbookAdmission | null>(null);
   const admissionRef = useRef<NativeRunbookAdmission | null>(null);
   admissionRef.current = admission;
@@ -1066,9 +1072,11 @@ function PlayRuntimePage() {
   const blocked = v2Deck == null;
 
   return (
-    <AppChrome activeRoute="play">
+    <TourRunProvider run={admittedRun?.schema_version==="dmb_world_play_run_record_v2"?admittedRun:null}><AppChrome activeRoute="play">
+      <RunStateTourObservations run={admittedRun?.schema_version==="dmb_world_play_run_record_v2"?admittedRun:null} content={v2Deck?.effectiveContent??null} blocked={sessionCopyBlocked||tableHeld||mutationStatus!=="idle"} acknowledgedRun={tourAcknowledgedRun}/>
+      <PlayTourObservation run={admittedRun?.schema_version==="dmb_world_play_run_record_v2"?admittedRun:null} blocked={sessionCopyBlocked||mutationStatus!=="idle"} error={loadStatus==="integrity_failure"?detail:null}/>
       {loadStatus !== "chooser" ? <PlaySurfaceContext id="play-page-context" order={10} identity={playSurfaceContextIdentity(admittedRun, runQuery)}>
-        <SurfaceContextAction type="button" data-testid="play-load-run" onClick={navigateToChooser}>Load</SurfaceContextAction>
+        <SurfaceContextAction type="button" data-testid="play-load-run" data-guided-control="recovery" onClick={navigateToChooser}>Load</SurfaceContextAction>
         {selectedWorldId ? <WorkspaceTrashControl showTrash={false} worldId={selectedWorldId}
           current={v2Deck?.effectiveContent && admittedRun ? {kind:"session", id:admittedRun.run_id,
             title:`${("record" in v2Deck.snapshot ? v2Deck.snapshot.record.title : v2Deck.snapshot.title)} — ${currentWorldScene?.title ?? "Play session"}`,
@@ -1102,7 +1110,7 @@ function PlayRuntimePage() {
       ) : null}
       {v2Deck ? (
         <main
-          className="play-surface"
+          className="play-surface" data-guided-control="progress" tabIndex={-1}
           data-testid="play-surface-ready"
           data-play-grammar="v2"
           data-play-campaign-id={publication.campaignId ?? ""}
@@ -1132,7 +1140,7 @@ function PlayRuntimePage() {
             mutationStatus={mutationStatus}
             onMutationStatus={setMutationStatus}
             onNoteUnsubmittedChange={onNoteDraftStateChange}
-            onAuthoritativeRun={(nextRun) => {
+            onAuthoritativeRun={(nextRun,tourDispatch) => {
               if (nextRun.run_id !== v2Deck.run.run_id) return;
               const overlaid = overlayRuntimeOnV2Ready(v2Deck, nextRun);
               if (!overlaid) {
@@ -1140,6 +1148,7 @@ function PlayRuntimePage() {
                 return;
               }
               setAdmission(overlaid);
+              if(nextRun.schema_version==="dmb_world_play_run_record_v2")setTourAcknowledgedRun({dispatchScope:tourDispatch,worldId:nextRun.world_id,runId:nextRun.run_id,revision:nextRun.run_revision});
             }}
           />
           {detail ? (
@@ -1171,6 +1180,6 @@ function PlayRuntimePage() {
           ) : null}
         </main>
       ) : null}
-    </AppChrome>
+    </AppChrome></TourRunProvider>
   );
 }

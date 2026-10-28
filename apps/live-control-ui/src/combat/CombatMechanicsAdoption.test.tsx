@@ -3,6 +3,10 @@ import userEvent from '@testing-library/user-event';
 import {afterEach,beforeEach,expect,it,vi} from 'vitest';
 import {webcrypto} from 'node:crypto';
 import {CombatMechanicsAdoption} from './CombatMechanicsAdoption';
+import {TourEncounterProvider,type TourEncounterScope} from '../guidedTour/EncounterScope';
+import type {TourOwnerReading} from '../guidedTour/GuidedTour';
+const tourReadings=vi.hoisted(()=>new Map<string,TourOwnerReading>());
+vi.mock('../guidedTour/GuidedTour',()=>({useGuidedTour:()=>({captureScope:()=>null}),useTourOwnerReading:(reading:TourOwnerReading|null)=>{if(reading)tourReadings.set(reading.step,reading);}}));
 import * as api from './combatApi';
 import * as live from '../api/liveApi';
 import type {CombatEncounterRecord,MechanicsAdoptionOutcome,MechanicsAdoptionPreview,AdoptMechanicsRequest} from './combatTypes';
@@ -12,13 +16,14 @@ vi.mock('../api/liveApi',()=>({listSavedMechanicsVersions:vi.fn()}));
 vi.mock('../statblocks/revision/SavedMechanicsRevisionEditor',()=>({SavedMechanicsRevisionEditor:()=>null}));
 vi.mock('./CombatMechanicsInspection',()=>({CombatMechanicsInspection:()=>null}));
 const world='elderwyld',id='11111111-1111-4111-8111-111111111111',draftId='22222222-2222-4222-8222-222222222222';
+const tourScope:TourEncounterScope={plan:{kind:'plan',worldId:world,objectId:'plan',revision:2,revisionId:'work-2',digest:'d'.repeat(64)},sceneId:'scene',encounterId:id};
 const locator={provider:'dungeonmind',statblock_id:'sb_keeper',revision_id:'rev_two',contract:'dungeonmind.dungeonbuddy-statblocks',contract_version:'1.0.0',definition_digest:'sha256:'+'a'.repeat(64)} as const;
 const original={locator:{...locator,revision_id:'rev_one'},snapshot_digest:'sha256:'+'b'.repeat(64)};
 const record={world_id:world,encounter_id:id,revision:4,draft:{entities:[{id:'one',name:'Keeper',ac:12,hp:35,max_hp:40,temp_hp:7,defeated:true,mechanics_snapshot:original},
   {id:'other',name:'Sibling',ac:12,hp:10,max_hp:40,temp_hp:0,mechanics_snapshot:original}]}} as unknown as CombatEncounterRecord;
 const preview={snapshot:{origin:'buddy_saved_mechanics_override_v1',managed_world_id:world,draft_id:draftId,locator,snapshot_digest:'sha256:'+'c'.repeat(64)},armor_class:20,hit_points:28} as MechanicsAdoptionPreview;
 beforeEach(()=>{
-  vi.clearAllMocks();localStorage.clear();sessionStorage.clear();vi.stubGlobal('crypto',webcrypto);
+  vi.clearAllMocks();tourReadings.clear();localStorage.clear();sessionStorage.clear();vi.stubGlobal('crypto',webcrypto);
   vi.mocked(api.listAcceptedCombatMechanics).mockResolvedValue({choices:[{name:'Keeper source',draft_id:draftId,draft_version:3}],nextOffset:null});
   vi.mocked(live.listSavedMechanicsVersions).mockResolvedValue({world_id:world,draft_id:draftId,name:'Keeper',original:locator,operations:[],pending:null,next_offset:null});
   vi.mocked(api.previewSavedCombatMechanics).mockResolvedValue(preview);
@@ -41,13 +46,15 @@ async function outcome(body:AdoptMechanicsRequest,advanced=false):Promise<Mechan
 }
 it('explicitly adopts selected actors with preserving defaults and unchanged sibling',async()=>{
   const reconciled=vi.fn();vi.mocked(api.adoptCombatMechanics).mockImplementation(async(_w,_e,body)=>outcome(body));
-  render(<CombatMechanicsAdoption record={record} disabled={false} onLockChange={()=>{}} onReconciled={reconciled}/>);await select();
-  expect(api.adoptCombatMechanics).not.toHaveBeenCalled();expect(screen.getByLabelText('AC policy for Keeper (1)')).toHaveValue('keep');
+  render(<TourEncounterProvider scope={tourScope}><CombatMechanicsAdoption record={record} disabled={false} onLockChange={()=>{}} onReconciled={reconciled}/></TourEncounterProvider>);await select();
+  expect(api.adoptCombatMechanics).not.toHaveBeenCalled();expect(tourReadings.get('adoption')?.status).toBe('unavailable');expect(tourReadings.get('adoption')?.reason).toContain('An applied receipt is required');expect(screen.getByLabelText('AC policy for Keeper (1)')).toHaveValue('keep');
   expect(screen.getByLabelText('HP policy for Keeper (1)')).toHaveValue('keep');
   await userEvent.click(screen.getByRole('button',{name:'Use version for selected actors'}));
   await screen.findByText('Selected actors now use this exact version. Other actors and World associations are unchanged.');
   expect(vi.mocked(api.adoptCombatMechanics).mock.calls[0][2].actors).toEqual([{actor_id:'one',expected_snapshot_digest:original.snapshot_digest,ac_policy:'keep',hp_policy:'keep'}]);
   expect(reconciled.mock.calls[0][0].draft.entities[1]).toEqual(record.draft.entities[1]);
+  expect(tourReadings.get('adoption')?.status).toBe('ready');
+  expect(tourReadings.get('adoption')?.observation).toMatchObject({origin:'acknowledged',target:tourScope.plan,proof:{kind:'adoption',sceneId:'scene',encounterId:id,encounterRevision:5,locator,actors:[{actorId:'one',beforeDigest:original.snapshot_digest,afterDigest:preview.snapshot.snapshot_digest,acPolicy:'keep',hpPolicy:'keep'}]}});
 });
 it('shows lower maximum and reset consequences before sending',async()=>{
   render(<CombatMechanicsAdoption record={record} disabled={false} onLockChange={()=>{}} onReconciled={()=>{}}/>);await select();

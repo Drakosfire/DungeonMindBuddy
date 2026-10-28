@@ -1,3 +1,5 @@
+import {useGuidedTour} from '../guidedTour/GuidedTour';
+import {RecordedRollTourObservation,type AcknowledgedRoll} from '../guidedTour/RollObservations';
 import {useCallback,useEffect,useRef,useState} from 'react';
 import {authenticatedApiFetch,LiveApiError} from '../api/liveApi';
 import type {WorldPlayRunRecordV2} from '../api/types';
@@ -31,6 +33,8 @@ async function call(path:string,init:RequestInit={}){
 }
 
 export function PreparedTablesTool({run,blocked,onHeld,onRun}:PreparedTablesBinding){
+ const guidance=useGuidedTour();
+  const [tourAcknowledged,setTourAcknowledged]=useState<AcknowledgedRoll|null>(null);
   const [inventory,setInventory]=useState<Inventory|null>(null),[tableId,setTableId]=useState(''),[value,setValue]=useState('');
   const [history,setHistory]=useState<Receipt[]>([]),[before,setBefore]=useState<number|null>(null),[historyLoaded,setHistoryLoaded]=useState(false);
   const [pending,setPending]=useState<Pending|null>(null),[busy,setBusy]=useState(false),[error,setError]=useState<string|null>(null),[storageBlocked,setStorageBlocked]=useState(false);
@@ -58,6 +62,7 @@ export function PreparedTablesTool({run,blocked,onHeld,onRun}:PreparedTablesBind
     void refresh();
   },[key,refresh]);
   const send=async(retry=false)=>{
+ const tourDispatch=guidance?.captureScope()??null;
     if(sending.current||props.current.blocked||storageBlocked)return;
     const table=inventory?.tables.find(t=>t.table_id===tableId);
     let command=pending;
@@ -100,6 +105,7 @@ export function PreparedTablesTool({run,blocked,onHeld,onRun}:PreparedTablesBind
         if(localStorage.getItem(key)!==raw)throw new Error('Pending roll changed in another view. Its recovery copy was retained.');
         // Admit the host response before releasing its exact recovery command.
         props.current.onRun(result.run);
+        setTourAcknowledged({dispatchScope:tourDispatch,receipt:result.receipt,run:result.run});
         localStorage.removeItem(key);setPending(null);props.current.onHeld(false);
         setHistory(prior=>[result.receipt,...prior.filter(r=>r.command_id!==result.receipt.command_id)]);
         setInventory(prior=>prior?{...prior,run:result.run}:prior);
@@ -131,7 +137,7 @@ export function PreparedTablesTool({run,blocked,onHeld,onRun}:PreparedTablesBind
     }catch(cause){if(live.current&&turn===generation.current)setError(cause instanceof Error?cause.message:String(cause));}
   };
   const table=inventory?.tables.find(t=>t.table_id===tableId);
-  return <section aria-label="Prepared tables"><h2>Prepared tables</h2><p>Enter a physical roll to record an outcome from this session’s saved preparation.</p>
+  return <section data-guided-control="roll" tabIndex={-1} aria-label="Prepared tables"><RecordedRollTourObservation run={run} history={history} acknowledged={tourAcknowledged} blocked={blocked||busy||!!pending||storageBlocked} error={error}/><h2>Prepared tables</h2><p>Enter a physical roll to record an outcome from this session’s saved preparation.</p>
     {inventory?<p>From {inventory.source_title}</p>:null}
     {blocked?<p role="status">Save or resolve your session changes before recording a roll.</p>:null}
     {error?<p role="alert">{error}</p>:null}

@@ -29,6 +29,11 @@ import {
   threadStorageKey,
 } from "../agentInteraction/agentInteractionStorage";
 
+const planEncounterCapture=vi.hoisted(()=>({context:null as import('../combat/sceneTemplatesApi').PlanEncounterContext|null}));
+vi.mock('../combat/combatProjection',async importOriginal=>{
+ const actual=await importOriginal<typeof import('../combat/combatProjection')>();
+ return {...actual,useCombatProjection:(...args:Parameters<typeof actual.useCombatProjection>)=>{if(args[0]==='plan')planEncounterCapture.context=args[2] as import('../combat/sceneTemplatesApi').PlanEncounterContext|null;return actual.useCombatProjection(...args);}};
+});
 const planImageHostCapture = vi.hoisted(() => ({ props: null as any }));
 vi.mock("../agentInteraction/WorldAgentConversation", async (importOriginal) => {
   const actual = await importOriginal<typeof import("../agentInteraction/WorldAgentConversation")>();
@@ -3251,12 +3256,14 @@ it.each(["lf", "crlf", "changed-body", "changed-space", "changed-hash", "changed
     }
     if (mode === "lf" || mode === "crlf") {
       await screen.findByRole("heading", { name: "Play this Plan" });
+      expect(planEncounterCapture.context?.verifiedPlan).toEqual({revisionN:saved.revision_n,workRevisionId:saved.work_revision_id,contentSha256:saved.content_sha256});
       expect(screen.queryByTestId("world-plan-start-play-error")).not.toBeInTheDocument();
       expect(screen.getByTestId("world-owned-plan-markdown-editor")).toBe(mounted);
       expect(JSON.parse(localStorage.getItem(`dmb:world-plan-local-draft:v2:${worldId}`)!).markdown).toBe(submitted);
       expect(window.location.pathname).toBe("/plan");
     } else {
       await screen.findByTestId("world-plan-start-play-error");
+      expect(planEncounterCapture.context?.verifiedPlan).toBeNull();
       expect(screen.queryByRole("heading", { name: "Play this Plan" })).not.toBeInTheDocument();
     }
   },
