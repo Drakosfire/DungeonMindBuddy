@@ -183,6 +183,9 @@ def synthetic_client_env(
     graph_root.mkdir(parents=True, exist_ok=True)
     monkeypatch.setenv("DUNGEONMIND_WORLD_GRAPH_ROOT", str(graph_root))
 
+    from tests.test_recap_managed_standing_context import seed_binding
+    seed_binding(tmp_path,"synthetic-world","world:synthetic-world",version=3)
+
     class FakeContext:
         def as_lineage(self) -> dict[str, object]:
             return {

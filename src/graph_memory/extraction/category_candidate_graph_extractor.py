@@ -7,8 +7,9 @@ import logging
 import os
 import re
 import time
-from dataclasses import dataclass, field, replace
+from dataclasses import asdict, dataclass, field, replace
 from copy import deepcopy
+from pathlib import Path
 from typing import Any, Mapping, Protocol, Sequence
 
 from src.bootstrap_env import load_dungeonmindbuddy_dotenv
@@ -289,6 +290,8 @@ class CategoryGraphExtractionOptions:
     # deterministic registry after party-roster construction; party wins
     # id/slug collisions. Default None preserves party-only behavior.
     extra_known_entities: tuple[Any, ...] | None = None
+    corpus_root: Path | None = None
+    expected_standing_context_sha256: str | None = None
 
 
 def resolve_source_identity(
@@ -1102,10 +1105,13 @@ def consolidate_category_outputs(
     known_entity_sidecar: KnownEntityMentionSidecar | None = None,
     known_entity_registry: KnownEntityRegistry | None = None,
     profile: ExtractionProfile | None = None,
+    party_context: PartyContext | None = None,
 ) -> dict[str, Any]:
     active_profile = profile or RECAP_EXTRACTION_PROFILE
     semantic_state = dict(active_profile.default_semantic_state)
-    if session is None:
+    if party_context is not None:
+        party_ctx = party_context
+    elif session is None or active_profile.admitted_source_domains != frozenset({"recap"}):
         party_ctx = _empty_party_context(campaign_id)
     else:
         party_ctx = build_party_context_for_campaign(campaign_id, session)
@@ -2041,23 +2047,29 @@ def _run_category_pipeline_impl(
                 if isinstance(val, str):
                     allowed_span_refs.add(val)
 
-    if options.session_number is None:
+    if options.session_number is None or active_profile.admitted_source_domains != frozenset({"recap"}):
         party_ctx = _empty_party_context(options.campaign_id)
         known_entity_registry = _empty_known_entity_registry(options.campaign_id)
     else:
         party_ctx = build_party_context_for_campaign(
-            options.campaign_id, options.session_number
+            options.campaign_id, options.session_number, corpus_root=options.corpus_root
         )
         known_entity_registry = build_known_entity_registry(
             options.campaign_id,
             options.session_number,
             party_ctx=party_ctx,
+            corpus_root=options.corpus_root,
         )
     if options.extra_known_entities:
         known_entity_registry = extend_known_entity_registry(
             known_entity_registry,
             options.extra_known_entities,
         )
+    if options.expected_standing_context_sha256 is not None:
+        snapshot = {"party_context": asdict(party_ctx), "known_entity_registry": asdict(known_entity_registry)}
+        actual_sha256 = hashlib.sha256(json.dumps(snapshot, sort_keys=True, separators=(",", ":")).encode()).hexdigest()
+        if actual_sha256 != options.expected_standing_context_sha256:
+            raise CategoryGraphExtractionError("Standing identity context changed before provider dispatch")
     known_entity_sidecar = match_known_entities_in_spans(
         source_rows,
         known_entity_registry,
@@ -2135,6 +2147,7 @@ def _run_category_pipeline_impl(
             known_entity_sidecar=known_entity_sidecar,
             known_entity_registry=known_entity_registry,
             profile=active_profile,
+            party_context=party_ctx,
         )["nodes"]
         beat_result = _run_pass(
             beat.pass_id,
@@ -2165,6 +2178,7 @@ def _run_category_pipeline_impl(
         known_entity_sidecar=known_entity_sidecar,
         known_entity_registry=known_entity_registry,
         profile=active_profile,
+        party_context=party_ctx,
     )
     encounter_pass = active_profile.encounter_job_pass
     if options.enable_encounter_job_pass:
@@ -2233,6 +2247,7 @@ def _run_category_pipeline_impl(
             known_entity_sidecar=known_entity_sidecar,
             known_entity_registry=known_entity_registry,
             profile=active_profile,
+            party_context=party_ctx,
         )
     edge = active_profile.edge_pass
     edge_prompt, edge_vocabulary_diag, encounter_job_edge_diag = build_edge_pass_prompt(
@@ -2270,6 +2285,7 @@ def _run_category_pipeline_impl(
         known_entity_sidecar=known_entity_sidecar,
         known_entity_registry=known_entity_registry,
         profile=active_profile,
+        party_context=party_ctx,
     )
     inherit_edge_evidence = active_profile.enable_edge_evidence_inheritance
     repair_diag = repair_edge_evidence_refs(

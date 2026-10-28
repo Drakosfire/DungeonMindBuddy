@@ -72,6 +72,8 @@ class ProductionExtractionRequest:
     initial_lineage: dict[str, Any] | None = None
     extra_known_entities: tuple[KnownEntity, ...] | None = None
     reserved_run: ExtractionRun | None = None
+    corpus_root: Path | None = None
+    expected_standing_context_sha256: str | None = None
 
 
 @dataclass
@@ -456,6 +458,8 @@ def run_production_extraction(
         model_id=model_id,
         profile=profile,
         extra_known_entities=request.extra_known_entities,
+        corpus_root=request.corpus_root,
+        expected_standing_context_sha256=request.expected_standing_context_sha256,
         enable_encounter_job_pass=profile.enable_encounter_job_pass,
         enable_party_participation_attachment=profile.enable_party_participation_attachment,
         enable_encounter_job_edge_guidance=profile.enable_encounter_job_edge_guidance,

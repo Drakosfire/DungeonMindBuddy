@@ -66,6 +66,8 @@ class RecordingClient:
 @pytest.mark.parametrize("context,mentioned", [(True, True), (False, True), (True, False)])
 def test_registered_known_npc_context_survives_run_readback(tmp_path, application_state_dsn, monkeypatch, context, mentioned):
     monkeypatch.setenv("DMB_ARTIFACT_DATA_ROOT", str(tmp_path))
+    from tests.test_recap_managed_standing_context import seed_binding
+    seed_binding(tmp_path,"managed-fixture-world","world:elderwyld")
     path = tmp_path / "recap.txt"
     path.write_text("Vela serves ale at the Lantern Inn.\n" if mentioned else "The Lantern Inn is quiet.\n")
     client = RecordingClient()
