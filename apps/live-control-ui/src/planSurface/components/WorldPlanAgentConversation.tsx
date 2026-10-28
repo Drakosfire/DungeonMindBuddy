@@ -4195,7 +4195,7 @@ export function WorldPlanAgentConversation({
         schema:'dmb_agent_turn_request_v1',client_thread_id:crypto.randomUUID(),turn_id:crypto.randomUUID(),
         surface:{surface_id:'build',instance_id:original.surface_instance_id},owner_scope:{kind:'world',world_id:world},
         primary_work:{kind:'build',object_id:snapshot.document_id,expected_revision:snapshot.registry_revision,expected_content_sha256:snapshot.content_sha256},
-        client_work_state:'saved_dirty',message:original.message,
+        client_work_state:original.client_work_state,message:original.message,
         graph_request:{mode:'world',world_id:world,campaign_id:null,revision_pin:null,focus:{kind:'none',session_id:null,campaign_id:null}},graph_selection:null,
         build_draft_context:{snapshot,conversation_id:conversation,expected_pointer_revision:original.pointer_revision},
         retry_of:{turn_id:retry.turn_id,revision:retry.revision,retained_snapshot_sha256:original.snapshot_sha256},

@@ -180,7 +180,7 @@ def completed(build_case, monkeypatch, tmp_path, request):
         "answer_from_sources"
         if mode
         in {
-            "interrupted", "tied_read", "tied_skip", "retained_retry_failure",
+            "interrupted", "tied_read", "tied_skip", "retained_retry_failure", "retained_retry_dirty_failure", "retained_controller_failure",
             "typed_plan", "typed_plan_only", "typed_plan_empty", "typed_plan_bad_schema",
             "typed_questions",
             "connected_page", "connected_page_cap", "multi_related_quotes", "multi_related_quotes_cap",
@@ -215,6 +215,7 @@ def completed(build_case, monkeypatch, tmp_path, request):
         {
             **request.model_dump(mode="json", by_alias=True),
             "turn_id": str(uuid4()),
+            "client_work_state": "saved_dirty" if mode == "retained_retry_dirty_failure" else "saved_clean",
             "message": {
                 "answer_from_sources": "Read the Quarry Households table and tell me Copper House’s task. Do not change the page.",
                 "propose_build_insertion": "Use the Quarry Households table to prepare a proposed page addition about Copper House.",
@@ -288,8 +289,15 @@ def completed(build_case, monkeypatch, tmp_path, request):
     writer.object_only = mode in {'typed_plan_only','typed_plan_empty','typed_plan_bad_schema'}
     writer.bad_plan_schema = mode == 'typed_plan_bad_schema'
     writer.connected = mode in {"connected_page", "connected_page_cap"}
-    writer.invalid_quote = mode in {"invalid_quote", "retained_retry_failure"}
+    writer.invalid_quote = mode in {"invalid_quote", "retained_retry_failure", "retained_retry_dirty_failure"}
     writer.original_case = (source, request, bootstrap)
+    if mode == "retained_controller_failure":
+        def reject_related_selection(*args, **kwargs):
+            raise ValueError("controlled_related_selection_rejection")
+        from apps.live_control_server.services import build_related_pages as producer
+        original_select_pages = producer.select_pages
+        monkeypatch.setattr(producer, "select_pages", reject_related_selection)
+        writer.restore_selection = lambda: monkeypatch.setattr(producer, "select_pages", original_select_pages)
     if mode in {'typed_plan', 'typed_plan_only', 'typed_plan_empty', 'typed_plan_bad_schema'}:
         writer.collaboration = {
             "kind": "plan",
@@ -344,7 +352,7 @@ def completed(build_case, monkeypatch, tmp_path, request):
         turn = service.list_turns("elderwyld", conversation.conversation_id)[0]
         assert turn.status == "interrupted" and not reads
         return turn, service, page, body, reads, writer, decisions
-    if mode in {"invalid_quote", "typed_plan_bad_schema", "retained_retry_failure"}:
+    if mode in {"invalid_quote", "typed_plan_bad_schema", "retained_retry_failure", "retained_retry_dirty_failure", "retained_controller_failure"}:
         from apps.live_control_server.services.agent_turn_service import (
             AgentTurnServiceError,
         )
@@ -357,7 +365,8 @@ def completed(build_case, monkeypatch, tmp_path, request):
                 operator_subject="local_operator",
             )
         turn = service.list_turns("elderwyld", conversation.conversation_id)[0]
-        assert turn.status == "interrupted" and reads
+        assert turn.status == "interrupted"
+        assert bool(reads) == (mode != "retained_controller_failure")
         assert turn.completion is None
         return turn, service, page, body, reads, writer, decisions
     response = execute(
@@ -1050,17 +1059,33 @@ def test_optional_read_tie_rule_still_refuses_invalid_votes(selected, probabilit
         should_read_page(page, question, SimpleNamespace(selected=selected, probabilities=probabilities))
 
 
-@pytest.mark.parametrize("completed", ["retained_retry_failure"], indirect=True)
-def test_retained_discussion_retry_uses_exact_capture_and_ordinary_dispatch(completed, tmp_path):
+@pytest.mark.parametrize("completed", ["retained_retry_failure", "retained_retry_dirty_failure"], indirect=True)
+@pytest.mark.parametrize("ancestor", ["root", "ordinary", "retained"])
+def test_retained_discussion_retry_uses_exact_capture_and_ordinary_dispatch(completed, tmp_path, ancestor):
     from application_state.agent_conversation import retry
     from application_state.agent_conversation.build_draft_context import context_record
     turn, service, _, _, _, writer, _ = completed
     source, original, bootstrap = writer.original_case
+    if ancestor != "root":
+        from apps.live_control_server.services.agent_turn_service import AgentTurnServiceError
+        first = retry.read_discussion_retry_input(turn.world_id, turn.conversation_id, turn.turn_id, turn.revision)
+        original = AgentTurnRequest.model_validate({**original.model_dump(mode="json", by_alias=True),
+            "client_thread_id": str(uuid4()), "turn_id": str(uuid4()),
+            "retry_of": {"turn_id": str(turn.turn_id), "revision": turn.revision,
+                **({"retained_snapshot_sha256":first["snapshot_sha256"]} if ancestor == "retained" else {})},
+            "build_draft_context": {"snapshot":first["snapshot"], "conversation_id":str(turn.conversation_id), "expected_pointer_revision":first["pointer_revision"]}})
+        failing_writer = PagesWriter()
+        failing_writer.invalid_quote = True
+        failing = BuildJevHarness(world_context=True,named_citations=True,related_pages=True,decision_transport=PagesDecision(),writer_transport=failing_writer,accounting=counter())
+        with pytest.raises(AgentTurnServiceError):
+            execute((source, original, bootstrap), tmp_path, failing, operator_subject="local_operator")
+        turn = service.list_turns(turn.world_id, turn.conversation_id)[-1]
     captured = context_record(turn.graph_context_execution).record.snapshot
     before = service.list_turns(turn.world_id, turn.conversation_id)
     prepared = retry.read_discussion_retry_input(turn.world_id, turn.conversation_id, turn.turn_id, turn.revision)
     assert prepared == retry.read_discussion_retry_input(turn.world_id, turn.conversation_id, turn.turn_id, turn.revision)
     assert service.list_turns(turn.world_id, turn.conversation_id) == before
+    assert prepared["client_work_state"] == original.client_work_state
     assert prepared["snapshot"] == captured.model_dump(mode="json", by_alias=True)
     request = AgentTurnRequest.model_validate({
         **original.model_dump(mode="json", by_alias=True),
@@ -1080,7 +1105,7 @@ def test_retained_discussion_retry_uses_exact_capture_and_ordinary_dispatch(comp
 
 
 @pytest.mark.parametrize("completed", ["retained_retry_failure"], indirect=True)
-@pytest.mark.parametrize("change", ["draft", "marker", "pointer", "question", "document"])
+@pytest.mark.parametrize("change", ["draft", "marker", "pointer", "question", "document", "state", "capability"])
 def test_retained_discussion_retry_refuses_drift_before_provider(completed, tmp_path, change):
     from application_state.agent_conversation import retry
     from apps.live_control_server.services.agent_turn_service import AgentTurnServiceError
@@ -1094,6 +1119,13 @@ def test_retained_discussion_retry_refuses_drift_before_provider(completed, tmp_
     if change == "draft":
         data["build_draft_context"]["snapshot"]["draft_markdown"] = "A substituted current editor"
         data["build_draft_context"]["snapshot"]["draft_sha256"] = sha256(b"A substituted current editor").hexdigest()
+    elif change == "capability":
+        snap = data["build_draft_context"]["snapshot"]
+        data["build_write_capability"] = {"idempotency_key":str(uuid4()), "conversation_id":str(turn.conversation_id),
+            "expected_pointer_revision":prepared["pointer_revision"], "draft_markdown":snap["draft_markdown"],
+            "basis":{**{k:snap[k] for k in ("world_id","document_id","content_sha256","visibility","draft_sha256","editor_sha256","draft_generation")},
+                "registry_revision":snap["registry_revision"], "caret":0, "selection_generation":0}}
+    elif change == "state": data["client_work_state"] = "saved_dirty" if original.client_work_state == "saved_clean" else "saved_clean"
     elif change == "marker": data["retry_of"]["retained_snapshot_sha256"] = "f" * 64
     elif change == "pointer": data["build_draft_context"]["expected_pointer_revision"] += 1
     elif change == "question": data["message"] = "A different question"
@@ -1120,3 +1152,35 @@ def test_retained_discussion_preparation_preserves_unknown_outcome_refusal(compl
     turn, *_ = completed
     with pytest.raises(retry.RetryUnavailableError, match="outcome recovery"):
         retry.read_discussion_retry_input(turn.world_id, turn.conversation_id, turn.turn_id, turn.revision)
+
+
+@pytest.mark.parametrize("completed", ["retained_controller_failure"], indirect=True)
+def test_controller_rejection_keeps_original_draft_for_read_only_retry(completed, tmp_path):
+    from application_state.agent_conversation import retry
+    turn, _, _, _, _, writer, _ = completed
+    events = turn.graph_context_execution.events
+    capture = next(e for e in events if isinstance(e, t.BuildDraftContextCapturedV1))
+    selected = next(e for e in events if isinstance(e, t.BuildRequestedWorkResolutionV1))
+    assert capture.sequence < selected.sequence
+    prepared = retry.read_discussion_retry_input(turn.world_id, turn.conversation_id, turn.turn_id, turn.revision)
+    source, original, bootstrap = writer.original_case
+    assert prepared["snapshot"] == original.build_draft_context.snapshot.model_dump(mode="json", by_alias=True)
+    writer.restore_selection()
+    request = AgentTurnRequest.model_validate({**original.model_dump(mode="json", by_alias=True),
+        "turn_id":str(uuid4()), "client_thread_id":str(uuid4()),
+        "retry_of":{"turn_id":str(turn.turn_id),"revision":turn.revision,"retained_snapshot_sha256":prepared["snapshot_sha256"]}})
+    fresh = PagesWriter()
+    harness = BuildJevHarness(world_context=True,named_citations=True,related_pages=True,decision_transport=PagesDecision(),writer_transport=fresh,accounting=counter())
+    assert execute((source,request,bootstrap),tmp_path,harness,operator_subject="local_operator").answer.status == "ok"
+    assert len(fresh.calls) == 1
+
+@pytest.mark.parametrize("completed", ["retained_retry_failure"], indirect=True)
+def test_missing_historical_capture_remains_unavailable_without_substitution(completed, monkeypatch):
+    from application_state.agent_conversation import retry
+    turn, *_ = completed
+    historical = turn.model_copy(update={"graph_context_execution":turn.graph_context_execution.model_copy(update={
+        "events":[e for e in turn.graph_context_execution.events if not isinstance(e,t.BuildDraftContextCapturedV1)]})})
+    original = retry.repo.get_turn
+    monkeypatch.setattr(retry.repo,"get_turn",lambda conn,world,tid:historical if tid == turn.turn_id else original(conn,world,tid))
+    with pytest.raises(retry.RetryUnavailableError,match="original working draft"):
+        retry.read_discussion_retry_input(turn.world_id,turn.conversation_id,turn.turn_id,turn.revision)

@@ -45,7 +45,7 @@ export async function readRetryAttempts(world:string,conversation:string,turn:st
 
 export interface DiscussionRetryInput {
  schema:'dmb_build_retained_discussion_retry_input_v1';world_id:string;conversation_id:string;turn_id:string;
- revision:number;pointer_revision:number;surface_instance_id:string;message:string;
+ revision:number;pointer_revision:number;surface_instance_id:string;message:string;client_work_state:'saved_clean'|'saved_dirty';
  snapshot:import('./types').WorldBuildDraftSnapshotV1;snapshot_sha256:string;authored_references:AuthoredGraphReferencesV1|null;
 }
 export async function readDiscussionRetryInput(world:string,conversation:string,turn:string,revision:number):Promise<DiscussionRetryInput>{
@@ -54,10 +54,10 @@ export async function readDiscussionRetryInput(world:string,conversation:string,
  const v=await response.json();
  if(!response.ok)throw new LiveApiError(typeof v.detail==='string'?v.detail:'The original request context is unavailable.',response.status);
  const sha=(x:unknown):x is string=>typeof x==='string'&&/^[a-f0-9]{64}$/.test(x);
- if(!exact(v,['schema','world_id','conversation_id','turn_id','revision','pointer_revision','surface_instance_id','message','snapshot','snapshot_sha256','authored_references'])
+ if(!exact(v,['schema','world_id','conversation_id','turn_id','revision','pointer_revision','surface_instance_id','message','client_work_state','snapshot','snapshot_sha256','authored_references'])
   ||v.schema!=='dmb_build_retained_discussion_retry_input_v1'||v.world_id!==world||v.conversation_id!==conversation||v.turn_id!==turn||v.revision!==revision
   ||!Number.isSafeInteger(v.pointer_revision)||v.pointer_revision<1||typeof v.surface_instance_id!=='string'||!v.surface_instance_id.trim()
-  ||typeof v.message!=='string'||!v.message.trim()||!sha(v.snapshot_sha256)
+  ||!['saved_clean','saved_dirty'].includes(v.client_work_state)||typeof v.message!=='string'||!v.message.trim()||!sha(v.snapshot_sha256)
   ||!(v.authored_references===null||isAuthoredGraphReferences(v.authored_references,world))
   ||!exact(v.snapshot,['schema','world_id','document_id','registry_revision','content_sha256','visibility','draft_markdown','draft_sha256','editor_sha256','draft_generation'])
   ||v.snapshot.schema!=='dmb_build_draft_snapshot_v1'||v.snapshot.world_id!==world||typeof v.snapshot.document_id!=='string'||!v.snapshot.document_id.trim()

@@ -818,7 +818,7 @@ describe("one App-level World conversation host across Plan and Play", () => {
     const saved=history([terminal]);
     vi.mocked(getWorldAgentConversationHistory).mockResolvedValue(saved);
     const snapshot={...draftSnapshot(),document_id:'source-other'};
-    vi.mocked(readDiscussionRetryInput).mockResolvedValue({schema:'dmb_build_retained_discussion_retry_input_v1',world_id:WORLD,conversation_id:saved.conversation_id!,turn_id:saved.turns[0].turn_id,revision:4,pointer_revision:1,surface_instance_id:'original-surface',message:prior.user_text,snapshot,snapshot_sha256:SHA,authored_references:null});
+    vi.mocked(readDiscussionRetryInput).mockResolvedValue({schema:'dmb_build_retained_discussion_retry_input_v1',world_id:WORLD,conversation_id:saved.conversation_id!,turn_id:saved.turns[0].turn_id,revision:4,pointer_revision:1,surface_instance_id:'original-surface',message:prior.user_text,client_work_state:'saved_clean',snapshot,snapshot_sha256:SHA,authored_references:null});
     vi.mocked(postWorldBuildAgentTurn).mockImplementation(()=>new Promise(()=>{}));
     const bridge=retryBridge();
     render(<Harness initial='build' buildBridge={bridge}/>);
@@ -830,7 +830,7 @@ describe("one App-level World conversation host across Plan and Play", () => {
     fireEvent.click(retry);fireEvent.click(retry);
     await waitFor(()=>expect(postWorldBuildAgentTurn).toHaveBeenCalledTimes(1));
     const request=vi.mocked(postWorldBuildAgentTurn).mock.calls[0][0];
-    expect(request.primary_work.object_id).toBe('source-other');
+    expect(request.primary_work.object_id).toBe('source-other');expect(request.client_work_state).toBe('saved_clean');
     expect(request.build_draft_context?.snapshot).toEqual(snapshot);
     expect(request.retry_of).toEqual({turn_id:saved.turns[0].turn_id,revision:4,retained_snapshot_sha256:SHA});
     expect(request.build_write_capability).toBeUndefined();
