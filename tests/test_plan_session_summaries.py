@@ -69,8 +69,8 @@ def test_summary_preserves_exact_two_entry_support_history_and_page_links(plan_a
     plan_response=TypeAdapter(AgentPlanWorldGraphContextResponseV2.model_fields["completion"].annotation)
     assert plan_response.validate_python(wire_completion)==result.completion
     play_response=TypeAdapter(AgentPlayWorldGraphContextResponseV1.model_fields["completion"].annotation)
-    with pytest.raises(ValidationError):
-        play_response.validate_python(wire_completion)
+    # Shared wire schema is admitted by both surfaces; the receipt owner fences scope.
+    assert play_response.validate_python(wire_completion)==result.completion
     summary=result.completion.answer_segments[0]
     assert isinstance(summary,t.SessionSummaryV1)
     assert summary.text not in " ".join(source["text"] for source in packet["sources"])

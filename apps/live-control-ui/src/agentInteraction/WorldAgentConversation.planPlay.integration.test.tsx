@@ -2345,6 +2345,26 @@ describe("one App-level World conversation host across Plan and Play", () => {
     expect(postWorldBuildAgentTurn).toHaveBeenCalledTimes(1);
   });
 
+  it('rehydrates native Play synthesis with separate note and reflection links',async()=>{
+    const request=nativePlayRequestFixture();request.primary_work.object_id='22222222-2222-4222-8222-222222222222';
+    const base=nativePlayContextFixture(request);
+    const text='The rehearsal kept the decision open; the reflection proposes talking next.';
+    base.completion={schema:'dmb_surface_evidence_completion_v4',surface_id:'play',context_receipt_sha256:base.receipt.context_receipt_sha256,
+      answer_basis:'mixed_evidence',answer_context_status:'authored_grounded',citation_map:null,source_citations:[],native_source_citations:[],answer_segments:[
+        {kind:'session_summary',text,supports:[0,1].map(i=>({kind:'authored_excerpt' as const,text:'Saved source text.',source_kind:'session' as const,
+          source_name:'Saved rehearsal',object_id:base.receipt.play_basis.run_id,revision:'4',body_sha256:'b'.repeat(64),owner_sha256:'c'.repeat(64),
+          source_handle:'q'+'a'.repeat(64),block_handle:'b'+String(i+3).repeat(64),partition_version:'markdown_source_blocks_v1' as const,
+          byte_start:0,byte_end:18,block_sha256:'b'.repeat(64),entry_identity:String(i+1).repeat(64),source_ordinal:i,
+          entry_kind:i?'closing_reflections' as const:'scene_note' as const,element_id:i?null:'scene:gate',checkpoint_content_sha256:base.receipt.play_basis.content_sha256}))}]};
+    const row={...turn('play',1,text),play_context:base,provenance:nativePlayProvenanceFixture(base)};
+    vi.mocked(getWorldAgentConversationHistory).mockResolvedValue({...history(),schema:'dmb_agent_conversation_history_v2',turns:[row]});
+    render(<Harness initial="play"/>);fireEvent.click(await screen.findByRole('button',{name:'Open',exact:true}));
+    expect(await screen.findByLabelText('Saved session summary')).toHaveTextContent(text);
+    expect(screen.getByRole('link',{name:'1'})).toHaveAttribute('title','Saved rehearsal · Scene notes');
+    expect(screen.getByRole('link',{name:'2'})).toHaveAttribute('title','Saved rehearsal · Closing reflections');
+    expect(postWorldPlayAgentTurn).not.toHaveBeenCalled();
+  });
+
   it.each(['plan','play'] as const)('rehydrates quoted Play evidence on %s with the same source authority',async initial=>{
     const base=nativePlayContextFixture(nativePlayRequestFixture());
     const entry=base.receipt.play_sources.entries[0]!;

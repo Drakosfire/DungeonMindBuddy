@@ -148,8 +148,17 @@ def plan_authored_sources(turn, markdown, sessions, *, block_policy=False):
         raise ValueError('Authored Plan differs from the frozen committed body')
     result = [authored_support('plan', 'Committed Plan', basis.document_id,
               str(basis.work_revision_id), basis.content_sha256, markdown)] if markdown.strip() else []
+    return tuple(result) + session_authored_sources(turn, sessions, block_policy=block_policy)
+
+
+def session_authored_sources(turn, sessions, *, block_policy=True):
     frozen = {(r.object_id, r.revision): r.content_sha256 for r in turn.provenance.supporting_work
               if r.kind == 'session_evidence_v1'}
+    return session_sources(sessions, frozen, block_policy=block_policy)
+
+
+def session_sources(sessions, frozen, *, block_policy=True):
+    result = []
     for session in sessions:
         key = (session['run_id'], str(session['review_revision']))
         if key not in frozen:
@@ -216,9 +225,9 @@ def producing_authored(turn, auth, raw):
     for text in _user_texts(strict_json(raw), auth.api_mode):
         try: row = strict_json(text)
         except (ValueError, TypeError): continue
-        if isinstance(row, dict) and row.get('schema') in {'dmb_native_play_input_v2','dmb_native_play_input_v3','dmb_native_play_input_v4','dmb_native_play_input_v5'}:
-            from .play_graph_input import NativePlayInputV2,NativePlayInputV3,NativePlayInputV4,NativePlayInputV5
-            carrier = ({'dmb_native_play_input_v2':NativePlayInputV2,'dmb_native_play_input_v3':NativePlayInputV3,'dmb_native_play_input_v4':NativePlayInputV4,'dmb_native_play_input_v5':NativePlayInputV5}[row['schema']]).model_validate_json(json.dumps(row))
+        if isinstance(row, dict) and row.get('schema') in {'dmb_native_play_input_v2','dmb_native_play_input_v3','dmb_native_play_input_v4','dmb_native_play_input_v5','dmb_native_play_input_v6'}:
+            from .play_graph_input import NativePlayInputV2,NativePlayInputV3,NativePlayInputV4,NativePlayInputV5,NativePlayInputV6
+            carrier = ({'dmb_native_play_input_v2':NativePlayInputV2,'dmb_native_play_input_v3':NativePlayInputV3,'dmb_native_play_input_v4':NativePlayInputV4,'dmb_native_play_input_v5':NativePlayInputV5,'dmb_native_play_input_v6':NativePlayInputV6}[row['schema']]).model_validate_json(json.dumps(row))
             if carrier.submission_id == turn.idempotency_key:
                 carriers.append(carrier)
     if len(carriers) != 1:
@@ -234,6 +243,11 @@ def producing_authored(turn, auth, raw):
             source.locator.run_id, str(source.locator.run_revision), entry.text_sha256,
             entry.payload_sha256, source.text)
         result.append(candidate)
+    if hasattr(carriers[0], 'resolved_sessions'):
+        sessions = carriers[0].resolved_sessions()
+        from .play_session_input import validate_turn_packets
+        validate_turn_packets(turn,sessions)
+        result.extend(session_authored_sources(turn,sessions))
     return tuple(result)
 
 
@@ -266,7 +280,7 @@ def _current_carrier(text, submission_id):
         if UUID(str(row.get('submission_id'))) != submission_id: return False
     except ValueError:
         return False
-    return SELECTOR_POLICY if row.get('schema')=='dmb_native_play_input_v5' else NATIVE_POLICY if row.get('schema')=='dmb_native_play_input_v4' else POLICY if row.get('schema')=='dmb_native_play_input_v3' else HISTORICAL_POLICY if row.get('schema')=='dmb_native_play_input_v2' else False
+    return PLAN_POLICY if row.get('schema')=='dmb_native_play_input_v6' else SELECTOR_POLICY if row.get('schema')=='dmb_native_play_input_v5' else NATIVE_POLICY if row.get('schema')=='dmb_native_play_input_v4' else POLICY if row.get('schema')=='dmb_native_play_input_v3' else HISTORICAL_POLICY if row.get('schema')=='dmb_native_play_input_v2' else False
 
 
 def _limit(code, phrase=None):
@@ -506,8 +520,9 @@ def validate_completion(c, receipt, execution, producer, bindings):
     for s in (support for segment in c.answer_segments for support in
               (segment.supports if isinstance(segment,t.SessionSummaryV1) else [segment])):
         if not isinstance(s,t.SurfaceAuthoredQuoteV1): continue
-        if s.source_kind == 'session' and c.surface_id != 'plan':
-            raise ValueError('Session reflections belong to their frozen Plan provenance')
+        if s.source_kind == 'session' and c.surface_id == 'play':
+            if not isinstance(receipt,t.PlayWorldGraphContextReceiptV1) or s.object_id != receipt.play_basis.run_id or isinstance(s,t.SessionSummarySupportV1) and s.checkpoint_content_sha256 != receipt.play_basis.content_sha256:
+                raise ValueError('Session reflections differ from their frozen Play owner')
         if s.source_kind == 'play' and c.surface_id != 'play':
             raise ValueError('Play quote cannot be rebound to Plan authority')
         if s.source_kind == 'plan':

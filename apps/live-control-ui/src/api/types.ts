@@ -1270,7 +1270,7 @@ export type SessionSummarySupport = Extract<SurfaceEvidenceCompletionV2['answer_
 };
 export interface SessionSummarySegment {kind:"session_summary";text:string;supports:SessionSummarySupport[]}
 export interface SurfaceEvidenceCompletionV4 extends Omit<SurfaceEvidenceCompletionV3,"schema"|"surface_id"|"answer_segments"> {
-  schema:"dmb_surface_evidence_completion_v4";surface_id:"plan";
+  schema:"dmb_surface_evidence_completion_v4";surface_id:"plan"|"play";
   answer_segments:(SurfaceEvidenceCompletionV3['answer_segments'][number]|SessionSummarySegment)[];
 }
 export interface AgentNativeSourceSectionReadResponseV1 {

@@ -69,3 +69,17 @@ def resolve_native_play_source_owner(conn, turn: t.Turn, frame: t.PlaySourceFram
             for e in turn.graph_context_execution.events):
         return moment
     return read_native_play_current_moment(conn,receipt.play_basis)
+
+
+def resolve_native_play_sessions(conn, turn, sessions):
+    from .play_session_input import validate_turn_packets
+    from application_state.play.session_evidence import evidence
+    validate_turn_packets(turn,sessions)
+    for packet in sessions:
+        with conn.cursor(row_factory=dict_row) as cur:
+            cur.execute("""SELECT e.payload FROM play.session_review_revision e
+                JOIN play.run r USING(run_id) WHERE r.world_id=%s AND e.run_id=%s AND e.revision_n=%s""",
+                (turn.world_id,packet['run_id'],packet['review_revision']))
+            row=cur.fetchone()
+        if row is None or evidence(row['payload'],turn.world_id,packet['run_id'],packet['review_revision']) != packet:
+            raise ValueError('Play packet differs from its immutable review owner')

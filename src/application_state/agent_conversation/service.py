@@ -1537,7 +1537,7 @@ class AgentConversationService:
             if native_play_prepared_request_json is not None:
                 from .types import PlayWorldGraphContextReceiptV1
                 from .play_graph_input import prove_play_source_input
-                from .play_graph_source_owner import resolve_native_play_source_owner
+                from .play_graph_source_owner import resolve_native_play_source_owner, resolve_native_play_sessions
                 if (not isinstance(execution, PlayWorldGraphExecutionV1)
                         or not isinstance(turn.graph_context_receipt, PlayWorldGraphContextReceiptV1)
                         or not isinstance(event, ProviderAttemptAuthorizedEventV3)):
@@ -1547,6 +1547,7 @@ class AgentConversationService:
                         prepared_request_json=native_play_prepared_request_json,
                         submission_id=turn.idempotency_key, original_message=turn.user_text, event_id=uuid4(),
                         owner_resolver=lambda frame: resolve_native_play_source_owner(conn, turn, frame),
+                        session_owner_resolver=lambda sessions: resolve_native_play_sessions(conn, turn, sessions),
                         native_section_inclusion=section_inclusion)
                 except ValueError as exc:
                     raise ApplicationStateValidationError(str(exc)) from exc

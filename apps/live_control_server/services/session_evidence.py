@@ -42,3 +42,32 @@ def render_session_evidence(bundle):
            "Prepared scene content and legacy generated recap text are not included. Do not claim these are an external recap or published Graph facts.\n"+json.dumps(bounded,ensure_ascii=False,separators=(",", ":")))
     if len(block)>MAX_CONTEXT_CHARS:raise ApplicationStateValidationError("Session evidence context exceeds its bound")
     return block
+
+
+def playing_session_evidence(world_id, basis, provenance=None):
+    """Only the selected Run; retries preserve even an originally empty set."""
+    if provenance is not None:
+        refs=[{"run_id":r.object_id,"review_revision":int(r.revision),"sha256":r.content_sha256}
+              for r in provenance.supporting_work if r.kind==REFERENCE_KIND]
+        if any(ref['run_id'] != basis.run_id for ref in refs):
+            raise ApplicationStateValidationError('Play evidence belongs to another Run')
+        bundle=resolve_evidence_refs(world_id,refs)
+    else:
+        from application_state.play.session_review import read_review
+        from application_state.play.session_evidence import evidence
+        selected=read_review(world_id=world_id,run_id=basis.run_id)
+        head=selected['review']
+        packets=[]
+        if head and head['status']=='ended' and not selected['source_changed']:
+            checkpoint=head['checkpoint']
+            if (checkpoint['run_revision']==basis.run_revision
+                    and checkpoint['content']['content_sha256']==basis.content_sha256):
+                packets=[evidence(head,world_id,basis.run_id,head['revision'])]
+        bundle={"schema_version":"dmb_session_evidence_bundle_v1","world_id":world_id,"sessions":packets}
+    from application_state.agent_conversation.play_session_input import validate_packets
+    validate_packets(bundle['sessions'],world_id=world_id,run_id=basis.run_id)
+    for packet in bundle['sessions']:
+        if (packet['checkpoint_run_revision']!=basis.run_revision
+                or packet['session_content_sha256']!=basis.content_sha256):
+            raise ApplicationStateValidationError('Play review checkpoint differs from frozen Run')
+    return bundle

@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from apps.live_control_server.services.session_evidence import playing_session_evidence
+
 from contextlib import nullcontext
 from hashlib import sha256
 from typing import Any, Literal, Mapping
@@ -238,6 +240,7 @@ def _work_resolver(
             changed_since_expected=False, owner_kind="world", owner_id=str(owner["id"]),
             world_id=str(owner["id"]), surface_context=context,
             play_context_receipt=receipt,
+            session_evidence=playing_session_evidence(str(owner["id"]),receipt),
         )
     if locator.kind != "plan":
         raise AgentTurnServiceError(
@@ -430,6 +433,7 @@ def _historical_work_resolver(
             changed_since_expected=False, owner_kind="world", owner_id=provenance.world_id,
             world_id=provenance.world_id, surface_context=context,
             play_context_receipt=receipt,
+            session_evidence=playing_session_evidence(provenance.world_id,receipt,provenance),
         )
     if (
         reference.resolution != "resolved"
