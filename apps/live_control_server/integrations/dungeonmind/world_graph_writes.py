@@ -200,10 +200,7 @@ def _recap_extraction_evidence_view(
 
 def _open_repository_bundle(database_url: str) -> Any:
     try:
-        from dungeonmind.infrastructure.postgres import (
-            PostgresDatabase,
-            PostgresRepositoryBundle,
-        )
+        from .graph_read_composition import open_repository_bundle
     except ImportError as exc:  # pragma: no cover - dependency is pinned
         raise WorldGraphWriteError(
             "dungeonmind postgres adapter is unavailable",
@@ -211,7 +208,7 @@ def _open_repository_bundle(database_url: str) -> Any:
             details={"reason": type(exc).__name__},
         ) from exc
     try:
-        return PostgresRepositoryBundle(PostgresDatabase(database_url))
+        return open_repository_bundle(database_url)
     except Exception as exc:
         raise WorldGraphWriteError(
             "DungeonMind authority database is unavailable",
@@ -236,19 +233,9 @@ def _require_database_url(database_url: str | None) -> str:
 
 
 def _build_graph_reader() -> Any:
-    from dungeonmind.application.graph_snapshot import (
-        VersionedUnionGraphSnapshotReader,
-    )
-    from dungeonmind.infrastructure.semantic_profiles import (
-        StaticSemanticProfileRegistry,
-    )
-    from dungeonmind_dnd.application.world_object_vocabulary import (
-        load_builtin_v3_descriptor,
-    )
+    from .graph_read_composition import build_graph_reader
 
-    return VersionedUnionGraphSnapshotReader(
-        profile_registry=StaticSemanticProfileRegistry([load_builtin_v3_descriptor()])
-    )
+    return build_graph_reader()
 
 
 def _direct_services(database_url: str, world_id: str) -> Any:
