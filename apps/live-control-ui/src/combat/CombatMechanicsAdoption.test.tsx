@@ -47,12 +47,13 @@ async function outcome(body:AdoptMechanicsRequest,advanced=false):Promise<Mechan
 it('explicitly adopts selected actors with preserving defaults and unchanged sibling',async()=>{
   const reconciled=vi.fn();vi.mocked(api.adoptCombatMechanics).mockImplementation(async(_w,_e,body)=>outcome(body));
   render(<TourEncounterProvider scope={tourScope}><CombatMechanicsAdoption record={record} disabled={false} onLockChange={()=>{}} onReconciled={reconciled}/></TourEncounterProvider>);await select();
-  expect(api.adoptCombatMechanics).not.toHaveBeenCalled();expect(screen.getByLabelText('AC policy for Keeper (1)')).toHaveValue('keep');
+  expect(api.adoptCombatMechanics).not.toHaveBeenCalled();expect(tourReadings.get('adoption')?.status).toBe('unavailable');expect(tourReadings.get('adoption')?.reason).toContain('An applied receipt is required');expect(screen.getByLabelText('AC policy for Keeper (1)')).toHaveValue('keep');
   expect(screen.getByLabelText('HP policy for Keeper (1)')).toHaveValue('keep');
   await userEvent.click(screen.getByRole('button',{name:'Use version for selected actors'}));
   await screen.findByText('Selected actors now use this exact version. Other actors and World associations are unchanged.');
   expect(vi.mocked(api.adoptCombatMechanics).mock.calls[0][2].actors).toEqual([{actor_id:'one',expected_snapshot_digest:original.snapshot_digest,ac_policy:'keep',hp_policy:'keep'}]);
   expect(reconciled.mock.calls[0][0].draft.entities[1]).toEqual(record.draft.entities[1]);
+  expect(tourReadings.get('adoption')?.status).toBe('ready');
   expect(tourReadings.get('adoption')?.observation).toMatchObject({origin:'acknowledged',target:tourScope.plan,proof:{kind:'adoption',sceneId:'scene',encounterId:id,encounterRevision:5,locator,actors:[{actorId:'one',beforeDigest:original.snapshot_digest,afterDigest:preview.snapshot.snapshot_digest,acPolicy:'keep',hpPolicy:'keep'}]}});
 });
 it('shows lower maximum and reset consequences before sending',async()=>{

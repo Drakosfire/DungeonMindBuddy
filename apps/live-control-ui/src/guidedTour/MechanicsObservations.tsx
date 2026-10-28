@@ -18,7 +18,7 @@ export function AdoptionTourObservation({scope,worldId,encounterId,acknowledged,
  const scoped=!!scope&&scope.plan.worldId===worldId&&scope.encounterId===encounterId;
  const receipt=acknowledged?.outcome.receipt;
  const usable=scoped&&!blocked&&!!acknowledged&&sameEncounterScope(scope,acknowledged.scope)&&receipt?.state==='applied'&&receipt.world_id===worldId&&receipt.encounter_id===encounterId&&receipt.committed_revision!==null;
- useTourOwnerReading(scoped?{step:'adoption',target:scope.plan,control:'adoption',status:blocked?'unavailable':'ready',reason:blocked?'Recover the retained adoption or finish encounter edits through the ordinary controls.':undefined,
+ useTourOwnerReading(scoped?{step:'adoption',target:scope.plan,control:'adoption',status:usable?'ready':'unavailable',reason:usable?undefined:blocked?'Recover the retained adoption or finish encounter edits through the ordinary controls.':'Preview the exact saved version, choose actors and tracker policies, then explicitly use that version. An applied receipt is required.',
   ...(usable?{observation:{step:'adoption',target:scope.plan,origin:'acknowledged',observedAt:receipt.created_at,receiptId:`adoption:${receipt.operation_id}:${receipt.committed_revision}`,proof:{kind:'adoption',sceneId:scope.sceneId,encounterId,operationId:receipt.operation_id,encounterRevision:receipt.committed_revision!,locator:receipt.source,actors:receipt.transitions.map(t=>({actorId:t.actor_id,beforeDigest:t.before_snapshot_digest,afterDigest:t.after_snapshot_digest,acPolicy:t.ac_policy,hpPolicy:t.hp_policy}))}}}:{})}:null);
  return null;
 }
