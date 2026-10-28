@@ -776,8 +776,9 @@ class BuildJevHarness:
         related_pages=related_page_project(adapter._broker_execution())
         from .build_authored_references import writer_material
         authored_material = writer_material(adapter)
+        writer_model = adapter._broker_execution().policy.provider_roles.writer.model
         expected = proposal_owner.prepare_writer_request(
-            request, frozen_history=history, related_authored_pages=related_pages,
+            request, writer_model=writer_model, frozen_history=history, related_authored_pages=related_pages,
             authored_reference_material=authored_material
         )
         adapter._build_writer_projection = ProposalWriterProjection(
@@ -804,6 +805,7 @@ class BuildJevHarness:
                 proposal_owner.compose_with_writer(
                     request,
                     TextDispatchGate(authorize, record),
+                    writer_model=writer_model,
                     transport=self.writer_transport,
                     frozen_history=history,
                     related_authored_pages=related_pages,

@@ -131,7 +131,7 @@ class WriterWire(httpx.AsyncBaseTransport):
                 "object": "response",
                 "created_at": 1,
                 "status": "completed",
-                "model": "gpt-6-luna",
+                "model": body["model"],
                 "output": [
                     {
                         "type": "message",

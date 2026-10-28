@@ -11,7 +11,7 @@ from uuid import UUID
 from .build_jev_dispatch import REQUEST_LIMIT, _json_nodes
 
 PROVIDER = "openai"
-MODEL = "gpt-6-luna"
+MODEL = "gpt-6.1-sol"
 API_MODE = "responses"
 SERIALIZER = "openai-sdk-json-v1"
 ENDPOINT = "https://api.openai.com/v1/responses"
@@ -133,6 +133,14 @@ A saved/source row with text_ref=working_draft_context uses that exact complete 
 read or passage selector retains the row's original authority. Equal bytes do not merge provenance.
 Use source_passage_claim with passage_handles for related opened sources and saved_source_claim with
 section_read_ids only for supplied saved sections. Preserve uncertainty, motives and source attribution.
+Split answer portions that require different supporting evidence into separate typed answer_segments.
+For each portion, select the supplied source that actually states its facts, using that source's evidence lane.
+Do not combine facts from an opened World passage and a saved page section in one source_passage_claim:
+use a separate saved_source_claim for the facts supported by the saved section and its exact read_id.
+A quote supporting one clause does not support neighboring clauses about the same person, page or topic.
+Every factual clause in a segment must follow from that segment's selected witnesses, not from other
+supplied context, dialogue or memory. When another supplied source supports the remaining answer portion,
+use it in its own segment; do not omit that portion or invent an evidence gap. Keep the prose readable.
 Use kind suggestion for creative possibilities; requested page writing uses the separate proposal operation.
 When the user wants clarification or a plan before execution, collaborate in conversation: use a short
 numbered list of concrete questions, or a short Markdown task list of proposed steps in a suggestion segment.
@@ -493,7 +501,7 @@ class WriterCapacityError(ValueError):
 
 
 def role_budget() -> dict:
-    # Deliberate application allowance below the verified Luna model window.
+    # Deliberate application allowance; changing writer allocation does not widen it.
     # The controller and historical writers retain their own existing limits.
     return {"schema": "dmb_build_writer_context_budget_v1", "provider": PROVIDER,
             "model": MODEL, "api_mode": API_MODE,
