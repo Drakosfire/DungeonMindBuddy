@@ -25,6 +25,11 @@ ordinary validated Buddy binding, separate vNext source admission proof.
 - Existing private `runtime-config/elderwyld-publication.env`: change only the
   publication World selector from `eldyrwild` to `elderwyld`, preserving credentials
   and an exact private backup. Its local port8001 is currently not running.
+- Primary `.env`: set only the supported recap-ingest corpus-root override to
+  the canonical `corpus/elderwyld-markdown` directory; preserve every other
+  setting and a private exact backup. This prevents the active recap pipeline
+  from choosing its historical checkout-relative default. Historical offline
+  fixtures and unmounted legacy tools are not renamed by this local operation.
 - Owned API8000/UI5202 only as needed for protected delivery; no other service.
 
 Other open ingestion and hosting lanes do not own these new script/test paths.
