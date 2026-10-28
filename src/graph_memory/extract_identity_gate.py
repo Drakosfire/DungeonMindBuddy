@@ -386,6 +386,9 @@ def _reviewed_binding_anchor(
         or binding.candidate_sha256 != context.exact_candidate_sha256
     ):
         raise CandidateGraphMappingError("reviewed canonical binding basis mismatch")
+    location_binding = binding.corpus_ref_type == "location"
+    if location_binding and node.corpus_ref is not None:
+        raise CandidateGraphMappingError("reviewed location binding conflicts with corpus reference")
     if node.corpus_ref is not None:
         referenced = _known_party_anchor(
             node, context, world_id=world_id, campaign_id=campaign_id
@@ -393,11 +396,12 @@ def _reviewed_binding_anchor(
         if referenced is None or referenced.object_id != binding.target_object_id:
             raise CandidateGraphMappingError("reviewed canonical binding reference mismatch")
     target = context.objects.get(binding.target_object_id)
-    expected_kind = "player_character" if binding.corpus_ref_type == "pc" else "npc"
+    expected_kind = "location" if location_binding else "npc"
+    expected_node_type = "location" if location_binding else "character"
     if (
         target is None or target.object_id in context.identity_redirects
-        or node.node_type != "character"
-        or binding.corpus_ref_type not in {"pc", "npc"}
+        or node.node_type != expected_node_type
+        or binding.corpus_ref_type not in {"location", "npc"}
         or _norm_kind(target.kind) != expected_kind
         or target.canon_state != "canonical"
         or target.memory_state in {"merged_away", "rejected"}

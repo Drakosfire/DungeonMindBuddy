@@ -30,7 +30,7 @@ from apps.live_control_server.models.world_graph_identity_policy import (
 
 
 if TYPE_CHECKING:
-    from apps.live_control_server.models.extract_promote import ReviewedCorpusNativeBindingV1
+    from apps.live_control_server.models.extract_promote import ReviewedCorpusNativeBinding
 
 
 _SLUG_RE = re.compile(r"[^a-z0-9]+")
@@ -91,7 +91,7 @@ class WorldGraphMutationContext:
     identity_decisions: tuple[IdentityDecisionRecord, ...] = ()
     identity_ledger_records: tuple[Mapping[str, Any], ...] = ()
     relationships: Mapping[str, MutationRelationship] = field(default_factory=dict)
-    reviewed_corpus_bindings: tuple[ReviewedCorpusNativeBindingV1, ...] = ()
+    reviewed_corpus_bindings: tuple[ReviewedCorpusNativeBinding, ...] = ()
     exact_candidate_sha256: str | None = None
 
 
@@ -673,7 +673,7 @@ def _decision_for_candidate(
 ) -> IdentityDecisionRecord | None:
     active = []
     for record in context.identity_decisions:
-        if record.reason.startswith(REVIEWED_CORPUS_BINDING_REASON_PREFIX):
+        if record.reason.startswith(REVIEWED_CORPUS_BINDING_REASON_PREFIXES):
             continue  # Typed bindings are consumed only by the pinned anchor gate.
         if record.status != "active":
             continue
@@ -1210,21 +1210,26 @@ __all__ = [
 
 
 REVIEWED_CORPUS_BINDING_REASON_PREFIX = "dmb-reviewed-corpus-native-binding-v1:"
+REVIEWED_CORPUS_BINDING_REASON_PREFIX_V2 = "dmb-reviewed-corpus-native-binding-v2:"
+REVIEWED_CORPUS_BINDING_REASON_PREFIXES = (REVIEWED_CORPUS_BINDING_REASON_PREFIX, REVIEWED_CORPUS_BINDING_REASON_PREFIX_V2)
 
 
 def reviewed_corpus_bindings_from_decisions(records, *, world_id, revision_id):
     """Recognize only explicitly versioned reviewed carrier records."""
     import json
-    from apps.live_control_server.models.extract_promote import ReviewedCorpusNativeBindingV1
+    from apps.live_control_server.models.extract_promote import (
+        ReviewedCorpusNativeBindingV1, ReviewedCorpusNativeBindingV2,
+    )
 
     bindings = []
     for record in records:
         reason = str(record.get("reason") or "")
-        if not reason.startswith(REVIEWED_CORPUS_BINDING_REASON_PREFIX):
+        prefix = next((p for p in REVIEWED_CORPUS_BINDING_REASON_PREFIXES if reason.startswith(p)), None)
+        if prefix is None:
             continue
-        binding = ReviewedCorpusNativeBindingV1.model_validate(
-            json.loads(reason[len(REVIEWED_CORPUS_BINDING_REASON_PREFIX):])
-        )
+        model = (ReviewedCorpusNativeBindingV2 if prefix == REVIEWED_CORPUS_BINDING_REASON_PREFIX_V2
+                 else ReviewedCorpusNativeBindingV1)
+        binding = model.model_validate(json.loads(reason[len(prefix):]))
         if (record.get("decision_kind") != "human_override"
             or record.get("world_id") != binding.world_id
             or record.get("decision_id") != binding.decision_id
