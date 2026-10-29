@@ -251,7 +251,7 @@ def test_cli_defaults_readonly_and_preserves_original_incident(
     proof.main(["--clone-root", str(root)])
     first = json.loads(capsys.readouterr().out)
     assert first["mode"] == "read_only_preflight" and first["apply_ready"] is False
-    evidence = tmp_path / "native-review-context-v2/q01-fullworld-v1"
+    evidence = tmp_path / ("native-review-context-v2/" + proof.CHECKPOINT)
     original = (evidence / "preflight.json").read_bytes()
     (evidence / "source-request.json").write_text("{}")
     state["new_observation"] = True
@@ -267,7 +267,7 @@ def test_apply_stops_before_snapshot_for_missing_capability_or_stale_pins(
 ):
     root = tmp_path / "working"
     root.mkdir()
-    evidence = tmp_path / "native-review-context-v2/q01-fullworld-v1"
+    evidence = tmp_path / ("native-review-context-v2/" + proof.CHECKPOINT)
     evidence.mkdir(parents=True)
     state = {"statement_kernel_available": not unavailable}
     (evidence / "preflight.json").write_text(json.dumps(state))
@@ -346,3 +346,239 @@ def test_imported_source_integrity_checks_actual_bytes(tmp_path, change):
         data.write_text('{"version":2}')
     with pytest.raises(ValueError, match="actual dependency source differs"):
         proof.verify_source_tree(repo / "src", repo, ref, ("example",))
+
+
+@pytest.fixture
+def transition_lane(tmp_path, monkeypatch):
+    from tests import test_source_statements as fixtures
+    from graph_memory.vnext.domain_runtime import (
+        dungeonbuddy_dnd5e_semantic_profile,
+        dungeonbuddy_dnd5e_custom_predicate_profile,
+    )
+    from apps.live_control_server.integrations.dungeonmind.native_registry_source import (
+        descriptors,
+    )
+    from dungeonmind.contracts.vnext.profile_transition import (
+        KnowledgeProfileTransitionV1,
+    )
+    from dungeonmind.application.vnext.publication import _command_from_stored
+    from dungeonmind.application.vnext.authority import revision_from_command
+    from dungeonmind.domain.canonical import canonical_sha256
+
+    monkeypatch.setattr(
+        fixtures,
+        "dungeonbuddy_dnd5e_custom_predicate_profile",
+        dungeonbuddy_dnd5e_semantic_profile,
+    )
+    lane = native_lane.__wrapped__(tmp_path, monkeypatch)
+    parent = lane.repo.get_revision(
+        lane.world.world_id, lane.repo.get_head(lane.world.world_id).head_revision_id
+    )
+    domain, current = descriptors(
+        lane.repo, lane.world.world_id, parent.revision.revision_id
+    )
+    target = dungeonbuddy_dnd5e_custom_predicate_profile()
+    request = KnowledgeProfileTransitionV1(
+        space_id=lane.world.world_id,
+        expected_parent_revision_id=parent.revision.revision_id,
+        domain_contract_ref=parent.revision.domain_contract_ref,
+        from_profile_ref=parent.revision.semantic_profile_ref,
+        to_profile_ref={
+            "profile_id": target.profile_id,
+            "profile_revision": target.profile_revision,
+            "descriptor_sha256": canonical_sha256(target.model_dump(mode="json")),
+        },
+        publication_id="reviewed-transition-test",
+        created_at=proof.NOW,
+    )
+    command = _command_from_stored(parent).model_copy(
+        update={
+            "parent_revision_id": parent.revision.revision_id,
+            "expected_parent_revision_id": parent.revision.revision_id,
+            "operation_ids": [request.publication_id],
+            "semantic_profile_ref": request.to_profile_ref,
+            "created_at": request.created_at,
+        }
+    )
+    lane.authority = (request, domain, current, target)
+    lane.commitments = {
+        "child": revision_from_command(command).revision_id,
+        "command_sha": canonical_sha256(command.model_dump(mode="json")),
+        "graph_sha": parent.graph_payload_sha256,
+    }
+    return lane
+
+
+def test_transition_exact_retry_after_descendants(transition_lane):
+    from tests.test_source_statements import advance
+
+    lane = transition_lane
+    receipt = proof.execute_transition(
+        lane.repo,
+        lane.authority,
+        lambda *_: None,
+        expected_epoch=0,
+        epoch_reader=lambda: 0,
+        **lane.commitments,
+    )
+    advance(lane)
+    head = lane.repo.get_head(lane.world.world_id)
+    replay = proof.execute_transition(
+        lane.repo,
+        lane.authority,
+        lambda *_: None,
+        expected_epoch=0,
+        epoch_reader=lambda: 0,
+        **lane.commitments,
+    )
+    assert receipt == replay
+    assert lane.repo.get_head(lane.world.world_id) == head
+
+
+@pytest.mark.parametrize(
+    "mutation", ["missing", "parent", "child", "command", "graph", "ref"]
+)
+def test_wrong_transition_receipt_or_readback_refuses(transition_lane, mutation):
+    lane = transition_lane
+    receipt = proof.execute_transition(
+        lane.repo,
+        lane.authority,
+        lambda *_: None,
+        expected_epoch=0,
+        epoch_reader=lambda: 0,
+        **lane.commitments,
+    )
+    request = lane.authority[0]
+    if mutation == "missing":
+        receipt = None
+    elif mutation == "ref":
+        request = request.model_copy(
+            update={"to_profile_ref": request.from_profile_ref}
+        )
+    else:
+        field = {
+            "parent": "expected_parent_revision_id",
+            "child": "published_revision_id",
+            "command": "command_sha256",
+            "graph": "graph_payload_sha256",
+        }[mutation]
+        receipt = receipt.model_copy(update={field: "wrong"})
+    with pytest.raises(ValueError, match="transition"):
+        proof.verify_transition_receipt(lane.repo, request, receipt, **lane.commitments)
+
+
+def test_transition_lost_ack_recovers_original(transition_lane):
+    lane = transition_lane
+
+    class LostAck:
+        def __getattr__(self, name):
+            return getattr(lane.repo, name)
+
+        def publish_publication(self, *args, **kwargs):
+            lane.repo.publish_publication(*args, **kwargs)
+            raise RuntimeError("lost acknowledgement")
+
+    receipt = proof.execute_transition(
+        LostAck(),
+        lane.authority,
+        lambda *_: None,
+        expected_epoch=0,
+        epoch_reader=lambda: 0,
+        **lane.commitments,
+    )
+    assert receipt == lane.repo.get_publication_receipt(
+        lane.world.world_id, lane.authority[0].publication_id
+    )
+
+
+@pytest.mark.parametrize("epochs", [(1,), (0, 1)])
+def test_transition_source_epoch_drift_refuses(transition_lane, epochs):
+    lane = transition_lane
+    reads = iter(epochs)
+    with pytest.raises(ValueError, match="epoch"):
+        proof.execute_transition(
+            lane.repo,
+            lane.authority,
+            lambda *_: None,
+            expected_epoch=0,
+            epoch_reader=lambda: next(reads),
+            **lane.commitments,
+        )
+
+
+def test_transition_then_explicit_post_head_source_statement_proof(transition_lane):
+    lane = transition_lane
+    receipt = proof.execute_transition(
+        lane.repo,
+        lane.authority,
+        lambda *_: None,
+        expected_epoch=0,
+        epoch_reader=lambda: 0,
+        **lane.commitments,
+    )
+    body, pins, binding = inputs(lane)
+    result = proof.execute_native_proof(
+        lane.repo,
+        body,
+        pins,
+        binding,
+        lambda *_: None,
+        initial_head=receipt.published_revision_id,
+        operation_namespace=proof.CHECKPOINT,
+    )
+    proof.require_complete_evaluation(result["evaluation"])
+    assert result["initial_revision"] == receipt.published_revision_id
+    assert all(result["prior_graph_preserved"].values())
+
+
+@pytest.mark.parametrize("mutation", ["source", "epoch", "graph"])
+def test_transition_only_conservation_refuses_other_mutation(mutation):
+    before, after = allowed_tables()
+    appends = {
+        name: 1
+        for name in (
+            "dungeonmind.knowledge_revisions",
+            "dungeonmind.knowledge_head_events",
+            "dungeonmind.knowledge_publication_receipts",
+        )
+    }
+    after = deepcopy(before)
+    for name in appends:
+        after[name] = inventory([("child-" + name, proof.WORLD)])
+    after["dungeonmind.knowledge_heads"] = inventory(
+        [("new-head", proof.WORLD), ("other-world-head", "other")]
+    )
+    assert proof.conservation(
+        before, after, appends=appends, source_epoch_change=False
+    )["passed"]
+    table = {
+        "source": "dungeonmind.knowledge_native_source_admissions",
+        "epoch": "dungeonmind.knowledge_native_source_authority",
+        "graph": "dungeonmind.graph_revisions",
+    }[mutation]
+    after[table] = inventory([("unexpected", proof.WORLD)])
+    assert not proof.conservation(
+        before, after, appends=appends, source_epoch_change=False
+    )["passed"]
+
+
+def test_apply_preserves_existing_snapshot_checkpoint(tmp_path, monkeypatch):
+    root = tmp_path / "working"
+    root.mkdir()
+    evidence = tmp_path / "native-review-context-v2" / proof.CHECKPOINT
+    evidence.mkdir(parents=True)
+    state = {"statement_kernel_available": False, "transition_ready": True}
+    (evidence / "preflight.json").write_text(json.dumps(state))
+    (evidence / "native-before.dump").write_bytes(b"original snapshot")
+    monkeypatch.setattr(proof, "preflight", lambda _: deepcopy(state))
+    with pytest.raises(ValueError, match="snapshot already exists"):
+        proof.main(
+            [
+                "--clone-root",
+                str(root),
+                "--apply",
+                "--preflight-sha256",
+                proof.digest(state),
+            ]
+        )
+    assert (evidence / "native-before.dump").read_bytes() == b"original snapshot"
