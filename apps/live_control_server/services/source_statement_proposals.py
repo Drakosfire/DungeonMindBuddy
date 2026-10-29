@@ -23,6 +23,7 @@ from . import source_statements as statements
 from graph_memory.extraction.statement_source_catalog import CONTRACT, catalog
 
 MODEL = "gpt-6-luna"
+SCHEMA_NAME = "qualified_source_propositions_v3"
 
 
 def _producer_budget():
@@ -155,14 +156,29 @@ def get(operation_id, world, principal):
     request = ProposalRequest.model_validate_json(canonical(record["intent"]))
     _, _, material, extent = _acquire(request, principal)
     saved = record["input"]
-    if "contract" not in saved:
-        # Only actual retained V1 failures are supported; no old success producer.
-        if (
-            record["state"] != "failed"
-            or set(saved) != set(material) | {"output_schema"}
-            or any(saved[key] != value for key, value in material.items())
-            or not isinstance(saved["output_schema"], dict)
-        ):
+    if record["state"] == "failed":
+        if "contract" not in saved:
+            valid = set(saved) == set(material) | {"output_schema"} and all(
+                saved[key] == value for key, value in material.items()
+            )
+        elif saved["contract"] in {"qualified_source_handles_v2", CONTRACT}:
+            identity = {
+                key: material[key] for key in ("logical_source", "authority", "scope")
+            }
+            valid = (
+                set(saved)
+                == (set(material) - {"source"})
+                | {"contract", "source_catalog", "output_schema"}
+                and all(
+                    saved[key] == value
+                    for key, value in material.items()
+                    if key != "source"
+                )
+                and saved["source_catalog"] == catalog(material["source"], identity)
+            )
+        else:
+            valid = False
+        if not valid or not isinstance(saved.get("output_schema"), dict):
             raise ValueError("Retained failed proposal source correspondence changed")
     elif saved != _render(material):
         raise ValueError("Retained proposal source correspondence changed")
@@ -198,6 +214,12 @@ async def produce(request, principal, *, transport=None):
     from generationengine.text_dispatch import TextDispatchGate
     from .plan_jev_writer import PlanWriterProvider
 
+    from generationengine.utils.schema_utils import make_schema_strict
+
+    # PostgreSQL JSONB does not retain object-key order. Derive native property
+    # order from the canonical frozen schema, not an in-memory mapping order.
+    provider_schema = strict_json(canonical(packet["output_schema"]))
+    output_format = None
     messages = [{"role": "user", "content": canonical(packet)}]
     prepared_request = None
     raw_output = None
@@ -228,6 +250,7 @@ async def produce(request, principal, *, transport=None):
             or body.get("model") != MODEL
             or body.get("input") != messages
             or body.get("instructions") != INSTRUCTIONS
+            or body.get("text") != {"format": output_format}
             or body.get("tools")
             or body.get("max_output_tokens") != budget["outputReserveTokens"]
         ):
@@ -261,11 +284,17 @@ async def produce(request, principal, *, transport=None):
     budget = None
     try:
         budget = _producer_budget()
+        output_format = {
+            "type": "json_schema",
+            "name": SCHEMA_NAME,
+            "schema": make_schema_strict(provider_schema),
+            "strict": True,
+        }
         provider = PlanWriterProvider(
             dispatch_gate=TextDispatchGate(authorize, lifecycle), transport=transport
         )
         client = GenerationClient(text_providers={"openai": provider})
-        result = await client.generate_text(
+        result = await client.generate_structured(
             TextRequest(
                 provider="openai",
                 model=MODEL,
@@ -274,6 +303,8 @@ async def produce(request, principal, *, transport=None):
                 temperature=None,
                 reasoning_effort="none",
                 max_output_tokens=budget["outputReserveTokens"],
+                json_schema=provider_schema,
+                schema_name=SCHEMA_NAME,
                 max_conformance_retries=0,
                 max_transport_retries=0,
             )

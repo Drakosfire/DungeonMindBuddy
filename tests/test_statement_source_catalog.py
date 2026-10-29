@@ -33,7 +33,9 @@ def output(source):
                 "reporter_mention": None,
                 "referent_mentions": ["a"],
                 "uncertainty": ["source-local ambiguity"],
-                "qualifications": {"observation": "not onset or causality"},
+                "qualifications": [
+                    {"key": "observation", "value": "not onset or causality"}
+                ],
                 "episode": "e1",
                 "unresolved": [],
             }
