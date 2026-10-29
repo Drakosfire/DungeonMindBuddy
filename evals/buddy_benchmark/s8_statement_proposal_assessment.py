@@ -192,13 +192,13 @@ def verify_record(record, request, source, packet):
         )
 
 
-def runtime_inventory():
+def runtime_inventory(root=None, ref=BASE):
     """Every runtime package byte, including untracked files, must match base."""
-    root = Path(__file__).resolve().parents[2]
+    root = Path(root) if root is not None else Path(__file__).resolve().parents[2]
     result = {}
     for folder in ("apps/live_control_server", "src"):
         entries = subprocess.check_output(
-            ["git", "ls-tree", "-rz", BASE, "--", folder], cwd=root
+            ["git", "ls-tree", "-rz", ref, "--", folder], cwd=root
         )
         expected = {}
         for entry in entries.split(b"\0"):

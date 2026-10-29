@@ -52,7 +52,11 @@ counts real entries, captures the complete SDK response and checks stored text
 against that response. Replay must add neither SDK entries nor lifecycle/state.
 The automated run observation remains distinct from semantic adjudication;
 current-observations.json is written after every actual proposal is inspected.
-New suite33/33 and predecessor answer-harness45/45 pass; Ruff passes. No extraction,
+Runtime-inventory controls use an isolated temporary Git fixture, including
+dirty, untracked, missing and symlinked files; they do not require future product
+checkouts to remain at this historical runtime base. The actual run still pins
+and verifies every runtime byte against its accepted base.
+New suite37/37 and predecessor answer-harness45/45 pass; Ruff passes. No extraction,
 selection, publication, discovery or answer success is claimed.
 Original full-system verification remains0/15. Exact-head review and CI remain
 completion gates; broader corpus integration and operator acceptance remain open.

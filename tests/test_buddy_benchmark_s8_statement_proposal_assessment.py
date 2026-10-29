@@ -215,9 +215,46 @@ def test_provider_switch_never_bypasses_preflight(tmp_path):
         )
 
 
-def test_exact_runtime_packages_match_accepted_base():
-    result = assessment.runtime_inventory()
-    assert all(row["files"] > 0 for row in result.values())
+@pytest.mark.parametrize("change", [None, "dirty", "untracked", "missing", "symlink"])
+def test_runtime_pin_checks_actual_bytes_including_untracked(tmp_path, change):
+    import subprocess
+
+    for folder in ("src", "apps/live_control_server"):
+        path = tmp_path / folder
+        path.mkdir(parents=True)
+        (path / "module.py").write_text("accepted\n")
+
+    def git(*args):
+        return subprocess.check_output(["git", "-C", str(tmp_path), *args])
+
+    git("init", "--initial-branch=codex/test")
+    git("add", ".")
+    git(
+        "-c",
+        "user.name=Test",
+        "-c",
+        "user.email=test@example.invalid",
+        "commit",
+        "-m",
+        "fixture",
+    )
+    ref = git("rev-parse", "HEAD").decode().strip()
+    target = tmp_path / "src/module.py"
+    if change == "dirty":
+        target.write_text("different\n")
+    elif change == "untracked":
+        (tmp_path / "src/extra.py").write_text("extra\n")
+    elif change == "missing":
+        target.unlink()
+    elif change == "symlink":
+        target.unlink()
+        target.symlink_to(tmp_path / "apps/live_control_server/module.py")
+    if change:
+        with pytest.raises(ValueError):
+            assessment.runtime_inventory(tmp_path, ref)
+    else:
+        result = assessment.runtime_inventory(tmp_path, ref)
+        assert all(row["files"] == 1 for row in result.values())
 
 
 def test_sdk_observer_forwards_exact_arguments_results_and_counts(monkeypatch):
