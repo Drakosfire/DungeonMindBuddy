@@ -70,3 +70,12 @@ their immutable decision digest without rewriting prior decisions. Same-byte
 other-root extension is refused. A122-check combined disposable APP/native run
 passed before adding the explicit PostgreSQL parameter to both same-root/wrong-
 root proposal cases; the final cumulative run and review cover that addition.
+
+
+Expanded PostgreSQL parameterization initially yielded122pass/2setup errors:
+fixed fixture World names reused source operation identity across cases. Core
+correctly refused allocated_evidence_present_in_parent; the original failed log
+is retained. Fixture Worlds now receive independent UUID names, with no product
+or acceptance gate change. Final combined124 checks pass, including both actual
+PostgreSQL original-proposal→extension-selection cases. Owned native/APP test
+databases were removed. No primary migration or publication occurred.
