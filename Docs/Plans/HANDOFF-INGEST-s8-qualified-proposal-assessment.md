@@ -1,6 +1,6 @@
 # INGEST — independent real S8 proposal assessment
 
-Original assessments settled by PR1900/1903/1905; the ACTIVE V5 successor is below.
+Original assessments settled by PR1900/1903/1905; the ACTIVE V6 successor is below.
 The original pinned authority is OverMind
 94d3a8557a77fcd6fe0c33a4f37d6979894438c5, subsequently merged as
 bb289e6789ca87d8ebaca48dbeb263a7d36fcb79. Runtime base is Buddy
@@ -431,7 +431,7 @@ spent. Full-system verification remains0/15; no complete ingestion or answer
 success is claimed. Final exact-head evidence review and CI remain PR gates.
 
 
-## ACTIVE V5 source-handle assessment
+## V5 source-handle assessment — settled by PR1907
 
 Authority: independently reviewed OverMind daf766b91e87f4fd33e281dc84de575a9ad0010c,
 merged16e7823bb489ea59684240e8fe442179a728ac44 (control85). Runtime PR1906
@@ -558,3 +558,172 @@ current-observations.json retains exact metrics/pins/regressions and next-owner
 actions separately from the immutable original runs and gold. PRIME owns the
 structured attribution/coverage disposition. V5 is spent; another run needs a
 named experiment. Final exact-head evidence review and CI remain outstanding.
+
+## ACTIVE V6 provider-enforced assessment
+
+Portable authority OverMind9bd6bd837c88c7a9f5c9dfc06bfafbdac7d3d88a, independently
+approved and merged8e600b353fed14feb0535a8be5ff8f5e279761a0 (control87).
+V5 PR1907 finalcf174961365abc39f4c713910f0a1db1d263c93a passed independent
+all-output review/147tests/three CI checks and mergedef37b89fbf23873355a54f36fe55c6d77147d672.
+The immutable original V5 failed operation/raw/all13 assessment remains unchanged.
+Frozen historical V4/V5 harnesses must run under their own pinned runtimes;
+current parser imports are not a compatibility promise across producer versions.
+
+Runtime1908 exact148bce42bc867a71ed59d4e64380c24951d8a94a independently approved
+with118tests/three CI checks, mergedf86eb9152b61c60977acf3b2ff8592e999719d3c.
+Protected API854614/UI10527/APP0093 delivery retained4075APP/371native/41058files
+and ordinary Conks reopening. The exact delivery/reopen/four-failure-replay proofs
+are verified and hashed by preflight. Replay did no current rendering, historical
+parsing or provider preparation. Imported runtime/Core/WK/GE/SDK byte guards remain.
+
+Existing clean isolated checkout, branchcodex/s8-native-schema-assessment from
+fetched runtime main. Exactly the same three-path assessment/test/owning-handoff
+lease; one successor PR, PRIME owns merge. No runtime/gold/old-ledger changes.
+
+New operations use qualified_source_handles_v3. Source6172bytes/catalog13units,
+identity/authority/scope and native-name context remain exactly V5. Protocol,
+instructions, output schema and actual provider strict native text.format change;
+qualification wire arrays deterministically become host dictionaries. This declared
+V3 representation is not repair of invalid V5 output.
+
+The independent verifier compares the complete actual native format/name/schema
+with the projection of canonical saved input, then inspects root object/nested
+branches and every object's required/closed shape. A JSON Schema validator,
+independent of local Pydantic post-validators, rejects reported/null and accepts
+valid reported/narrator/uncertain attribution shapes. It validates completed raw
+output against that actual native schema. Raw-to-host comparison independently
+checks every qualification pair, key/value and all other batch fields; duplicates,
+blank keys/values, missing/invented values and unknown local references refuse.
+Physical partition/materialization/accounting and context-only negative controls
+remain. None of these mechanical checks establishes semantic truth or recall.
+
+Reverify exact four original failed operation IDs/states/no reviews in the owned
+APP. Fresh sibling s8-qualified-proposals-v6 and operation UUID only after exact
+pre-call review. Snapshot APP0093 only; no migration/restore. One actual ordinary
+authenticated GE/SDK operation with strict schema and128000reserve, no retry,
+salvage/field inference/partial promotion. Existing same-corpus permission applies.
+Only the new owned operation may change APP; all original rows/native/files and
+Q01/S8V1–V5 evidence remain read-only. No review/prepare/confirm/publication,
+source-span extension, new canonical identity or primary write.
+
+Post-call rechecks cover actual full runtime and Core/WK/GE/SDK dependencies,
+not just provider packages. Retain exact SDK/wire/lifecycle/usage/latency and
+DB-row/read/replay with zero added IO, then independently inspect every actual
+proposition. Report structural validity, attribution, qualification preservation,
+semantic granularity/support/coverage and downstream stages separately. One broad
+summary is not automatically false; multiple proposals are not proof of recall.
+Original Q01/S8Q13 support criteria remain unchanged and gold enters only after
+output. Full-system ingestion remains0/15; the retained small native fixture is
+not an integrated historical supergraph. No accepted batch may imply publication,
+retrieval/answer success or tour acceptance.
+
+Provider-free assessment132/132 plus45/45 predecessor answer-harness tests pass
+(177total) under declared GE and held Core/WK. Ruff and diff checks pass.
+Read-only actual-clone preflight verifies contract V3,13units/catalog commitment
+7e680ff6b48c503be5ec79dad6f1424dcbdf261dd1ecfadf0e1c026f77f85a49,
+exact V5 source/context equality, four expected failed operations and unchanged
+before/after state. No V6 case/snapshot/operation/provider call exists yet.
+Delivery/replay/reopen proof digests are respectively
+6889975212bf9aa89724a68ed8c48acbd91e965f09745339a52e05fcc5f88814,
+f0b1820fa61859eb600bec254f1b951d89b1febe8385d60fdcc02d9e96941a57,
+19ae8f2d3b14b7995d59070812498c0ad09918ba68ba14ede46f6cb2a7c68ed3.
+Exact pre-call review and all-output final evidence review remain required;
+no extraction outcome or semantic improvement is preclaimed.
+
+## V6 actual outcome — schema valid, reference/accounting invalid
+
+Independent pre-call approval covered56ae701ca34ef986e83b8d0bd9196b19b41f877e,
+177tests and actual read-only preflight. Executed that unchanged head; harness
+SHA2564339465e1cff9b8ba59346f5d434ec59c615f3c76a7a0a6f9e67f855314b0148.
+Frozen preflight8cb4b0150aa9f234c5f77bf20025cd78b2f56642db05a7ad81510d2ef66145f5.
+Owned APP snapshot readable276TOCentries, SHA256
+268b45a95a8e093c6a7779450b3fce02f5ea701f80d40b21e4756ce9ada99aac.
+No migration/restore. Exactly one new operation65cf6adb-2a08-4786-a7a3-86964e8a9779
+was added. Actual row ID/owner/World/fullpayload agrees with ordinary readback;
+GET and same-key POST preserve the failed operation with zero extra SDK/lifecycle/
+state. All four old failures, original APP rows/native/files and V1–V5/Q01 evidence
+remain unchanged. Full runtime and Core/WK/GE/SDK post-call inventories match.
+
+One SDK response resp_0226530a75ae54f5006ae3ada96b2887d19aa80b9d6b237a07 completed:
+7271input/8587output/0reasoning tokens,34727.035198ms endpoint elapsed. Internal
+stage attribution remains unassessed; this is the source producer, not the full
+Jev answer loop. Exact final-answer SDK text equals stored raw output.
+
+The original JSON has18mentions,59proposals and13unit dispositions. Independent
+validation against the actual native strict schema reports zero errors. All
+92qualification pairs have distinct nonblank keys/nonblank values; raw handles
+are valid. These are mechanical diagnostics, not accepted host materialization:
+stored state is failed/resultnull, and no output was repaired or promoted.
+
+### Confirmed reference and accounting failures
+
+p11b combines Berin's tunnel knowledge and Lysandra's military-use report, then
+sets reporter_mention to `m_berin and m_lysandra`. That entire string is not one
+of the18declared local mentions. Semantic attribution names both people in text;
+this does not satisfy the singular local reference contract. The unchanged local
+validator correctly refuses Unknown local mention. Do not split/replace/infer a
+reporter to make the original batch pass.
+
+A separate independent audit finds8/13unit dispositions inconsistent, omitting
+10of59actual primary proposal IDs: u3:p3d; u4:p4d/p4e; u7:p7e/p7f; u9:p9f;
+u10:p10c; u11:p11g; u12:p12e; u13:p13d. No extra IDs were listed. Schema-valid
+lists do not establish referential consistency or complete processing accounting.
+These remain errors even if the first reporter failure is hypothetically removed;
+no repaired batch was constructed to demonstrate them.
+
+### Every-proposition source and semantic inspection
+
+All59original interpretations were compared with their exact source units,
+including meaning, mode/reporter, local actors, qualifications, uncertainty and
+unresolved claims. Manual source-comparison dispositions:52no issue found,
+5review holds,1confirmed reference-contract failure and1confirmed source
+qualification loss. Those counts do not imply52accepted/atomic/correct graph facts;
+unit accounting failures independently invalidate the batch.
+
+Confirmed qualification loss: p7c says the narrator reports no one is left in the
+building; source says there is no sign of anyone left. Perceptual absence became
+categorical absence without its source qualification. Holds cover p5d assigning
+the memory presentation to the Fey, p8c sharing status between planned watching
+and actual symptoms, p9c completing the fragmentary Wolf arrival sentence,
+p10b claiming unspecified participants despite named distraction actors, and
+p11d directly attributing narrative barbecue/storage material to Lysandra.
+Holds remain unresolved judgments, not five proved graph errors.
+
+| Objective | Met / assessed | Interpretation |
+| --- | --- | --- |
+| Actual native structural schema validity | 1 / 1 |Zero native-schema errors in original raw JSON |
+| Valid local proposal reporter/referent references | 58 / 59 |p11b uses an undeclared compound reporter string |
+| Consistent source-unit dispositions | 5 / 13 |Eight omit ten actual proposal IDs |
+| Actual proposal IDs represented in accounting | 49 / 59 |No extra IDs; omissions are not repaired |
+| Accepted extraction batch | 0 / 1 |Failed/null; no accepted host materialization |
+| Raw bounded target cores | 3 / 3 |Diagnostic only; symptom mixed-status hold retained |
+| Exact persistence/replay/conservation | 1 / 1 |One owned row only; protected state unchanged |
+| Identity review/selection/publication/discovery/answers | 0 / 0 |Not executed or assessed |
+
+Q01:1 appears in p11f with no named plane/checker/cause. Q13:2 appears in p5b
+with faintly heard repeated feeding and unknown feeder. Q13:3 now appears in
+p8c's meaning and appearance qualification with correct Torbin referent. Its
+planned watching assignment shares a record/status with actual symptom description,
+so granularity remains held; this is not the prior total absence of the assertion.
+No meat cause or post-escape onset is inferred. S7 remains outside this run.
+Accepted Q01 facts0/1 and accepted S8Q13 facts0/2 because no batch was accepted.
+
+All12substantive units have multiple proposals versus11/12having one in V5;
+59versus13proposals signals changed granularity, not certified atomicity. Target
+core recovery is a diagnostic improvement in one sample; it establishes neither
+reliability nor causation by the schema/prompt change. Composites and mixed reporters/
+status still occur. Original full-system ingestion remains0/15unverified.
+
+### Immutable evidence and next owner
+
+Private case: /home/drakosfire/Projects/.codex/historical-graph-repair/cache/native-review-context-v2/s8-qualified-proposals-v6.
+SHA256 pins: selected raw text8e94798b641c7bb0336af617ebbacd3ad4bcb711a306ce04f02bb34d04083707;
+operation.json cb48ab268d7405b35ee45547eb1b50f5f754654c5c119d1f92e7100a37144540;
+read-replay.json b2fecc0a4e2b584ee8fc0785fc79650358ba6666606ad60ccc0cc21a6ec3131d;
+independent-semantic-assessment.json cf4979d243797df3e46ab53d7de4894261d476980d1dd23540b1d59fbea7c8d8;
+current-observations.json41fe2e3e4d25ad9805d675fb8a453a3e01544a768dc4078e7119a45d29218cbe.
+The all59assessment retains each original proposal and exact selected source units.
+Gold/criteria and historical scores are unchanged. No retry, source expansion,
+review/prepare/confirm/publication or new native identity occurred. PRIME owns
+reference/accounting/qualification-loss disposition. V6 is spent; final exact-head
+evidence review and CI remain outstanding before merge/settlement.
