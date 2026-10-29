@@ -54,7 +54,7 @@ def lane(tmp_path, monkeypatch):
     return make_lane(tmp_path, monkeypatch)
 
 
-def make_lane(tmp_path, monkeypatch, *, repo=None, narrow=False):
+def make_lane(tmp_path, monkeypatch, *, repo=None, narrow=False, multiple=False):
     monkeypatch.setenv("DMB_GRAPH_REVIEW_PREPARE_BINDING_KEY", "statement-tests")
     repo = repo if repo is not None else InMemoryNativeSourceEvidenceRepository()
     monkeypatch.setattr(sources, "_repository", lambda: repo)
@@ -73,12 +73,17 @@ def make_lane(tmp_path, monkeypatch, *, repo=None, narrow=False):
         domain_contract=domain,
         semantic_profile=profile,
     )
-    if narrow:
+    if narrow or multiple:
         from dungeonmind.application.vnext import publish_native_text_source_evidence
         from dungeonmind.contracts.vnext.native_source import (
             NativeTextSourceAdmissionV1,
         )
         size = len(BODY.splitlines(keepends=True)[0].encode())
+        spans = [{"client_ref": "first", "evidence_role": "support", "start_byte": 0,
+                  "end_byte": size, "expected_slice_sha256": hashlib.sha256(BODY.encode()[:size]).hexdigest()}]
+        if multiple:
+            spans.append({"client_ref": "second", "evidence_role": "support", "start_byte": size,
+                          "end_byte": len(BODY.encode()), "expected_slice_sha256": hashlib.sha256(BODY.encode()[size:]).hexdigest()})
         root = publish_native_text_source_evidence(
             repository=repo, domain_contract=domain, semantic_profile=profile,
             request=NativeTextSourceAdmissionV1(
@@ -89,8 +94,7 @@ def make_lane(tmp_path, monkeypatch, *, repo=None, narrow=False):
                 source_classification="dungeonbuddy.source:worldbuilding",
                 authority="primary", visibility={"kind": "labels_any", "labels": [GM_LABEL]},
                 origin={"namespace": "test.document", "object_id": record.document_id, "revision_id": "1"},
-                spans=[{"client_ref": "first", "evidence_role": "support", "start_byte": 0,
-                        "end_byte": size, "expected_slice_sha256": hashlib.sha256(BODY.encode()[:size]).hexdigest()}],
+                spans=spans,
             ),
         )
         source = SimpleNamespace(admission_id=root.admission_id, evidence_ref_id=root.bindings[0].evidence_ref_id)
