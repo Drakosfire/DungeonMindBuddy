@@ -245,3 +245,132 @@ def test_proposal_cannot_erase_qualifications(change):
     batch["proposals"][0].update(change)
     with pytest.raises(ValueError):
         parse(json.dumps(batch), BODY)
+
+
+@pytest.fixture
+def partial_span_lane(lane):
+    """An actual new synthetic source whose registered evidence is one clause."""
+    from datetime import UTC, datetime
+    from dungeonmind.application.vnext import publish_native_text_source_evidence
+    from dungeonmind.contracts.vnext.native_source import NativeTextSourceAdmissionV1
+    from types import SimpleNamespace
+    repo = lane.repo
+    selected = lane.selection
+    _, access, domain, profile = source_statements._context(repo, lane.world.world_id,
+        selected.expected_parent_revision_id, "c1")
+    old = repo.get_native_source_admission_receipt(lane.world.world_id, selected.source_admission_id)
+    material = access.source_view.get_native_text_source(source_artifact_id=old.source_artifact_id,
+        source_revision_id=old.source_revision_id, span_id=old.bindings[0].span_id)
+    artifact = material.source_artifact
+    admission = publish_native_text_source_evidence(repository=repo, domain_contract=domain,
+        semantic_profile=profile, request=NativeTextSourceAdmissionV1(
+            space_id=lane.world.world_id, admission_id="synthetic-partial-span-source",
+            expected_parent_revision_id=selected.expected_parent_revision_id,
+            created_at=datetime(2026,10,29,tzinfo=UTC), body_text=BODY,
+            expected_body_sha256=selected.source_sha256,
+            source_classification=artifact.source_classification, authority=artifact.authority,
+            visibility=artifact.visibility, domain_metadata=list(artifact.domain_metadata),
+            origin={"namespace":"synthetic-test","object_id":"partial-source","revision_id":selected.source_sha256},
+            spans=[{"client_ref":"first-clause","evidence_role":"support", "start_byte":0,
+                    "end_byte":selected.end_byte,"expected_slice_sha256":selected.clause_sha256}]))
+    changed = selected.model_copy(update={"expected_parent_revision_id":admission.published_revision_id,
+        "source_admission_id":admission.admission_id,"evidence_ref_id":admission.bindings[0].evidence_ref_id})
+    return SimpleNamespace(repo=repo, world=lane.world, selection=changed, ids=lane.ids, meta=lane.meta)
+
+
+def test_partial_evidence_allows_inspection_without_publication_widening(partial_span_lane, application_state_dsn, monkeypatch):
+    from hashlib import sha256
+    from application_state.statement_proposals import service as store
+    lane = partial_span_lane
+    second = BODY.splitlines(keepends=True)[1]
+    batch = deepcopy(BATCH)
+    batch["proposals"].append({**batch["proposals"][0], "proposal_id":"p2", "quote":second,
+        "meaning":"Another episode is described", "mode":"narrator", "reporter_mention":None,
+        "episode":"episode-2"})
+    wire = Wire(json.dumps(batch))
+    before_head = lane.repo.get_head(lane.world.world_id)
+    before_epoch = lane.repo.open_native_source_view(lane.world.world_id).epoch
+    with client(monkeypatch, wire) as c:
+        req, record = produce(c, lane)
+        assert record["state"] == "completed", record
+        sent = json.loads(wire.requests[0]["input"][0]["content"])
+        assert sent["source"] == BODY
+        assert "registered_evidence_extent" not in sent
+        assert record["review_eligibility"]["p1"]["status"] == "eligible_for_review"
+        assert record["review_eligibility"]["p2"]["status"] == "outside_registered_evidence"
+        assert all(row["semantic_acceptance"] == "not_established" for row in record["review_eligibility"].values())
+        persisted = store.read(req.operation_id, GM.subject, req.managed_world_id)
+        assert "review_eligibility" not in persisted
+        assert c.get(url(req)).json() == record
+        assert c.post("/api/live/source-statements/proposals", json=req.model_dump(mode="json")).json() == record
+        assert len(wire.requests) == 1
+        assert store.read(req.operation_id, GM.subject, req.managed_world_id) == persisted
+        outside = review_body(lane, record)
+        outside["proposal_id"] = "p2"
+        outside["selection"].update(start_byte=lane.selection.end_byte, end_byte=len(BODY.encode()),
+            clause_sha256=sha256(second.encode()).hexdigest())
+        refused = c.post(review_url(req), json=outside)
+        assert refused.status_code == 409, refused.text
+        assert "outside its admitted evidence span" in refused.text
+        assert c.get(url(req)).json()["reviews"] == []
+        inside = c.post(review_url(req), json=review_body(lane, record))
+        assert inside.status_code == 200, inside.text
+    assert lane.repo.get_head(lane.world.world_id) == before_head
+    assert lane.repo.open_native_source_view(lane.world.world_id).epoch == before_epoch
+
+
+@pytest.mark.parametrize("bad_field,bad_value", [("source_admission_id","missing"), ("source_sha256","0"*64), ("managed_world_id","foreign")])
+def test_partial_source_bad_proof_refuses_before_claim_or_provider(partial_span_lane, application_state_dsn, monkeypatch, bad_field, bad_value):
+    from application_state.statement_proposals import service as store
+    wire = Wire()
+    lane = partial_span_lane
+    req = request_for(lane)
+    bad = req.model_dump(mode="json") | {bad_field:bad_value}
+    with client(monkeypatch, wire) as c:
+        assert c.post("/api/live/source-statements/proposals", json=bad).status_code == 409
+    assert wire.requests == []
+    assert store.read(req.operation_id, GM.subject, bad["managed_world_id"]) is None
+
+
+def test_partial_source_visibility_denial_precedes_claim(partial_span_lane, application_state_dsn, monkeypatch):
+    from application_state.statement_proposals import service as store
+    lane = partial_span_lane
+    original = source_statements._context
+    def no_audience(*args, **kwargs):
+        read, access, domain, profile = original(*args, **kwargs)
+        return read, replace(access, audience_labels=frozenset()), domain, profile
+    monkeypatch.setattr(source_statements, "_context", no_audience)
+    wire = Wire()
+    req = request_for(lane)
+    with client(monkeypatch, wire) as c:
+        assert c.post("/api/live/source-statements/proposals", json=req.model_dump(mode="json")).status_code == 409
+    assert wire.requests == []
+    assert store.read(req.operation_id, GM.subject, req.managed_world_id) is None
+
+
+def test_corrupt_native_body_never_becomes_proposal_input(partial_span_lane, application_state_dsn, monkeypatch):
+    from application_state.statement_proposals import service as store
+    lane = partial_span_lane
+    receipt = lane.repo.get_native_source_admission_receipt(lane.world.world_id, lane.selection.source_admission_id)
+    key = (lane.world.world_id, receipt.source_artifact_id)
+    # Fault injection into actual repository: Core must reject its stale fingerprint.
+    lane.repo._native_records[key] = replace(lane.repo._native_records[key], body=b"corrupt")
+    req, wire = request_for(lane), Wire()
+    with client(monkeypatch, wire) as c:
+        response = c.post("/api/live/source-statements/proposals", json=req.model_dump(mode="json"))
+        assert response.status_code == 409, response.text
+    assert wire.requests == []
+    assert store.read(req.operation_id, GM.subject, req.managed_world_id) is None
+
+
+def test_ambiguous_eligibility_is_a_derived_view_only():
+    from graph_memory.extraction.qualified_statement_proposals import parse
+    batch = deepcopy(BATCH)
+    batch["proposals"][0]["quote"] = "A"
+    original = {"result":parse(json.dumps(batch), BODY)}
+    before = deepcopy(original)
+    view = service._view(original, {"start_byte":0,"end_byte":len(BODY.splitlines(keepends=True)[0].encode())})
+    assert original == before
+    offered = view["review_eligibility"]["p1"]
+    assert offered["status"] == "ambiguous"
+    assert {m["eligibility"] for m in offered["matches"]} == {"eligible_for_review","outside_registered_evidence"}

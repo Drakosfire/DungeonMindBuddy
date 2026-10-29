@@ -1,7 +1,12 @@
 # INGEST — admitted-source qualified proposals
 
-ACTIVE serial PRIME slice; base ff1ce340266384004172091c228d405bd7d6f1c2,
-branch codex/corpus-statement-proposals, existing buddy-context-loop checkout.
+Predecessor1899 merged d479bf566866c3e2171eb47d052dae8a683e11f5 and delivered
+API731678/schema0093/UI10527. All4075APP/371native/41058files unchanged through
+ordinary Conks Run reopening. ACTIVE serial source-access repair now based479bf566,
+branch codex/proposal-source-access in the same existing checkout; authority
+OverMind178f43153e4e13c1444e693a8830d3306fa96ff0,
+Docs/Plans/HANDOFF-INGEST-proposal-source-access.md. Exclusive repair lease is only
+this handoff, services/source_statement_proposals.py and its ordinary route tests.
 Authority: OverMind76 design c8fab153e8a974133644e83b2922e42e83f0876e plus
 pinned control allocation 3e44b3f in DungeonOverMind branch
 codex/corpus-statement-proposal-runtime. Independent architecture_review_1197
@@ -12,9 +17,11 @@ No UI, primary source/APP/native writes or real provider diagnostic is activated
 ## Delivered boundary under review
 
 Authenticated GM POST /api/live/source-statements/proposals selects an exact
-native-admitted whole-source span and caller operation UUID. Host reopens source
+native-admitted source body through a registered evidence anchor and caller operation UUID. Host reopens source
 through exact Core descriptors, admission receipt/origin and evidence access.
-Input contains actual source plus Core-admitted native names under the same R,
+Authenticate the actual registered span/digest through the original receipt, then
+independently verify the full body digest returned by Core source access. Body
+inspection is separate from clause acceptance. Input contains actual source plus Core-admitted native names under the same R,
 World/campaign/GM context. Structural IDs are enumerated but only admitted name
 assertions reach the model. Hidden/no-name entities are omitted; context claims
 no semantic completeness or approved identity correspondence. Exact binding,
@@ -27,6 +34,11 @@ and SDK lifecycle acknowledgments persist before IO/completion. Original text or
 incomplete SDK response remains retained on failure. No classic profile defaults,
 identity consolidation, relationship sweep or endpoint citation inheritance.
 Malformed quotes/fields are failures; repeated matches remain explicitly ambiguous.
+Host-only derived review eligibility distinguishes eligible_for_review from
+outside_registered_evidence, with ambiguous occurrences unresolved. These labels
+are evidence coverage, not semantic correctness. Raw output and stored operation
+payload remain unchanged; no original span bounds are added as model guidance.
+Outside-span preparation still fails under the existing evidence proof.
 Host derives every UTF-8 byte occurrence. Model returns local mentions and qualified
 proposals, not canonical IDs. Coverage remains not established even on successful
 extraction. Empty output is not a proof of absence.
@@ -59,15 +71,11 @@ native discovery is a separate successor. Full15 remains0/15; Q01 selected-subje
 proof and original V1 failure are preserved. Broader guided-tour, real image/roll,
 ordinary full-loop dogfood and operator acceptance remain required.
 
-Exclusive lease: this handoff; new models/source_statement_proposals.py and
-services/source_statement_proposals.py under apps/live_control_server; existing
-routes/source_statements.py only proposal routes; new
-src/graph_memory/extraction/qualified_statement_proposals.py;
-new src/application_state/statement_proposals/{__init__,service}.py;
-new src/application_state/migrations/versions/20261029_0093_statement_proposals.py;
-tests/test_source_statement_proposals.py and
-tests/application_state/test_statement_proposals.py. Held1853/1855/1868 excluded.
-API8000/UI5202 remain untouched until exact review/CI and protected delivery.
+The1899 ten-path lease is settled. The active repair exclusively owns this
+handoff, apps/live_control_server/services/source_statement_proposals.py and
+tests/test_source_statement_proposals.py. Held1853/1855/1868 remain excluded.
+API731678/UI10527 remain untouched until exact repair review/CI and protected
+delivery. No schema upgrade or native-source write is part of this repair.
 
 ## Verification
 
@@ -81,4 +89,13 @@ acknowledgment after native advancement, competing APP revision and simultaneous
 operation claims. Original failed requests and tests are retained in the work log.
 Initial HTTP UUID strictness defect fixed with explicit UUID JSON field parsing;
 test-only native StoredKnowledgeRevision accessor corrected. Static checks pass.
-Final exact-head independent review, CI, merge and protected delivery remain gates.
+1899 independent review and CI passed; protected delivery completed. This repair
+adds actual partial-span/full-body tests: full input/replay without source/epoch
+mutation, inside-span preparation, outside-span refusal, denied visibility,
+foreign binding, corrupt body and derived ambiguity. Focused54tests pass20.78s.
+Two test-only assumptions were corrected during development: source epoch is
+exposed by the actual source view; corrupt source refusal returns HTTP409 before
+claim rather than necessarily raising its internal integrity exception.
+Repair exact-head independent review, CI, merge and protected delivery remain gates.
+No new APP schema or persistent payload contract is required: older code refuses
+partial-span work rather than misinterpreting it; no compatibility path is added.

@@ -14,11 +14,13 @@ from . import source_statements as statements
 MODEL = "gpt-6-luna"
 
 
-def source(request, principal):
+def source(request, principal, *, include_extent=False):
     require_native_graph_gm(principal)
     if not principal.subject:
         raise ValueError("Authenticated proposal owner required")
     bound = statements.native.binding(request.managed_world_id)
+    if bound["managed_world_id"] != request.managed_world_id:
+        raise ValueError("Managed World binding differs from request")
     repo = statements.native.repository()
     space = bound["native_world_id"]
     read, access, _, _ = statements._context(repo, space, request.read_revision_id, request.campaign_id)
@@ -26,11 +28,12 @@ def source(request, principal):
     if opened.status != "available" or opened.body_sha256 != request.source_sha256:
         raise ValueError("Admitted source is unavailable or changed")
     raw = opened.body_text.encode()
-    if opened.span_start_byte != 0 or opened.span_end_byte != len(raw):
-        raise ValueError("Whole-source proposal requires an admitted whole-body span")
-    logical, body = statements._source(repo, space, access,
+    if sha256(raw).hexdigest() != request.source_sha256:
+        raise ValueError("Authorized source body digest changed")
+    logical, _anchor = statements._source(repo, space, access,
         {"source_admission_id": request.source_admission_id, "evidence_ref_id": request.evidence_ref_id},
-        request.source_sha256, 0, len(raw), sha256(raw).hexdigest())
+        request.source_sha256, opened.span_start_byte, opened.span_end_byte, opened.span_sha256)
+    body = opened.body_text
     identities = []
     for entity_id in sorted(read.parsed.entities_by_id):
         admitted = EntityReadService().get_entity(read, entity_id)
@@ -43,11 +46,26 @@ def source(request, principal):
     authority = {"binding": {key: bound[key] for key in ("managed_world_id", "native_world_id", "binding_version")},
                  "domain": jsonable_encoder(snapshot.revision.domain_contract_ref),
                  "profile": jsonable_encoder(snapshot.revision.semantic_profile_ref)}
-    return repo, space, {"source": body, "logical_source": logical, "authority": authority,
+    packet = {"source": body, "logical_source": logical, "authority": authority,
                         "world_identity_context": {"kind": "authorized_native_name_context",
                            "coverage": "not_semantic_completeness", "entities": identities},
                         "scope": request.model_dump(mode="json", exclude={"operation_id"}),
                         "output_schema": ProposalBatch.model_json_schema()}
+    extent = {"start_byte": opened.span_start_byte, "end_byte": opened.span_end_byte,
+              "span_sha256": opened.span_sha256}
+    return (repo, space, packet, extent) if include_extent else (repo, space, packet)
+
+
+def _view(record, extent):
+    eligibility = {}
+    if record["result"] is not None:
+        for key, location in record["result"]["locations"].items():
+            matches = [{**match, "eligibility": "eligible_for_review" if
+                extent["start_byte"] <= match["start_byte"] < match["end_byte"] <= extent["end_byte"]
+                else "outside_registered_evidence"} for match in location["matches"]]
+            eligibility[key] = {"status": "ambiguous" if len(matches) != 1 else matches[0]["eligibility"],
+                                "matches": matches, "semantic_acceptance": "not_established"}
+    return {**record, "review_eligibility": eligibility}
 
 
 def get(operation_id, world, principal):
@@ -56,16 +74,16 @@ def get(operation_id, world, principal):
     if record is None:
         raise ApplicationStateNotFoundError("Proposal operation is unavailable")
     request = ProposalRequest.model_validate_json(canonical(record["intent"]))
-    _, _, packet = source(request, principal)
+    _, _, packet, extent = source(request, principal, include_extent=True)
     if packet != record["input"]:
         raise ValueError("Retained proposal source correspondence changed")
     if record["state"] == "completed" and parse(record["raw_output"], packet["source"]) != record["result"]:
         raise ValueError("Retained proposal output changed")
-    return record
+    return _view(record, extent)
 
 
 async def produce(request, principal, *, transport=None):
-    _, _, packet = source(request, principal)
+    _, _, packet, extent = source(request, principal, include_extent=True)
     record, fresh = store.claim(request.operation_id, principal.subject,
                                 request.model_dump(mode="json"), packet)
     if not fresh:
@@ -134,8 +152,9 @@ async def produce(request, principal, *, transport=None):
             raise ValueError("Proposal response does not match original provider output")
         if source(request, principal)[2] != packet:
             raise ValueError("Source authority changed during proposal generation")
-        return store.change(record, state="completed", raw_output=raw_output,
-                            result=parse(raw_output, packet["source"]))
+        record = store.change(record, state="completed", raw_output=raw_output,
+                              result=parse(raw_output, packet["source"]))
+        return _view(record, extent)
     except Exception:
         if raw_output is None and provider is not None and provider.actual_response is not None:
             raw_output = canonical(provider.actual_response.model_dump(mode="json"))
@@ -143,7 +162,7 @@ async def produce(request, principal, *, transport=None):
         if record["state"] in {"claimed", "entered"}:
             record = store.change(record, state="failed", raw_output=raw_output,
                                   failure="proposal_generation_failed_after_entry" if prepared_request else "proposal_generation_not_dispatched")
-        return record
+        return _view(record, extent)
     finally:
         if client is not None:
             await client.aclose()
