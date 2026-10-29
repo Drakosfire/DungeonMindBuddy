@@ -196,3 +196,39 @@ def test_commit_revalidates_private_asset_after_prepare(request_case, applicatio
             document_id=source.record.document_id, markdown=markdown, expected_revision=prepared.registry_revision,
             writer_confirm_token=prepared.writer_confirm_token))
     assert get_workspace_document_snapshot(root, source.record.document_id).markdown == source.markdown
+
+
+def test_contextual_candidate_real_app_save_and_reopen_preserves_original(request_case, monkeypatch):
+    import asyncio
+    from types import SimpleNamespace
+    from unittest.mock import AsyncMock
+    from fastapi import Response
+    from starlette.requests import Request
+    from generationengine import GeneratedImage
+    from apps.live_control_server.routes import media_images
+    _, source, root = request_case
+    parent = saved_image('local_operator')
+    before = media.get_asset(parent['asset_id'], 'local_operator')
+    original = media.read_staged_bytes(parent['asset_id'], 'local_operator')
+    content = io.BytesIO(); Image.new('RGB', (5, 4), 'blue').save(content, format='PNG')
+    client = SimpleNamespace(edit_image=AsyncMock(return_value=SimpleNamespace(
+        images=[GeneratedImage(content=content.getvalue(), media_type='image/png')],
+        observation=SimpleNamespace(model_dump=lambda **_: {'provider': 'synthetic'}))), aclose=AsyncMock())
+    monkeypatch.setattr(media_images, 'enforce_native_graph_gm', lambda _: SimpleNamespace(subject='local_operator'))
+    monkeypatch.setattr(media_images, '_fal_key', lambda: 'synthetic-never-sent')
+    monkeypatch.setattr(media_images, '_image_client', lambda: client)
+    result = asyncio.run(media_images.regenerate_image(parent['asset_id'], media_images.ContextualImageRequest(
+        mode='image_to_image', instructions='Change the light.', expected_content_sha256=parent['content_sha256']),
+        Request({'type':'http','headers':[]}), Response()))
+    child = media.get_asset(result['asset_id'], 'local_operator')
+    assert child['state'] == 'staged' and child['provenance']['parent_asset_id'] == str(parent['asset_id'])
+    assert media.get_asset(parent['asset_id'], 'local_operator') == before
+    assert media.read_staged_bytes(parent['asset_id'], 'local_operator') == original
+    markdown = source.markdown.rstrip() + f"\n\n![Alternative](dmb-media:{result['asset_id']})\n"
+    prepared = prepare_tiptap_markdown_write(root=root, request=TiptapMarkdownWritePrepareRequest(
+        document_id=source.record.document_id, markdown=markdown, expected_revision=source.loaded_revision))
+    commit_tiptap_markdown_write(root=root, request=TiptapMarkdownWriteCommitRequest(
+        document_id=source.record.document_id, markdown=markdown, expected_revision=prepared.registry_revision,
+        writer_confirm_token=prepared.writer_confirm_token))
+    assert get_workspace_document_snapshot(root, source.record.document_id).markdown == markdown
+    assert media.read_staged_bytes(child['asset_id'], 'local_operator') == content.getvalue()

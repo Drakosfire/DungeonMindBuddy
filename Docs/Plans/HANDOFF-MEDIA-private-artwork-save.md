@@ -10,3 +10,6 @@ This handoff; predecessor HANDOFF-MEDIA-private-artwork-placement.md settlement;
 
 ## Acceptance
 Real disposable APP prepare→commit→snapshot proves staged private UUID persistence and retained bytes; ready regression, foreign/corrupt/state rejection and commit revalidation, existing authenticated route checks. Exact cumulative independent Bugbot review, CI, merge, protected API delivery and ordinary Retry Save/reload of the preserved future Conks Plan. Account only authorized Plan revision/draft/file deltas; no old Run or source change. Full tour/operator acceptance remains open.
+
+## Delivered evidence
+PR1875 reviewed ca909fb6f54d08431421f9ecdfdce67d892fb471, merged e12f5a1ce.21 independent tests+3CI passed; protected one-module API delivery preserved all state. Ordinary RetrySave acknowledged, reload decoded private1536px artwork; UUID-only Plan reference saved, asset metadata/state staged/no delivery URL unchanged. Native/source/endedRun preservation proven; concurrent operator edits retained. Full tour acceptance remains open.

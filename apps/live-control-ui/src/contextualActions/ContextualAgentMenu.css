@@ -1,0 +1,14 @@
+.contextual-agent-action__trigger { opacity:0; transition:opacity .12s; }
+[data-contextual-object]:hover .contextual-agent-action__trigger,
+[data-contextual-object]:focus-within .contextual-agent-action__trigger,
+.contextual-agent-action__trigger:focus-visible,
+.contextual-agent-action__trigger[aria-expanded=true] { opacity:1; }
+@media (hover:none) { .contextual-agent-action__trigger { opacity:1; } }
+.contextual-agent-menu { position:fixed; z-index:1500; box-sizing:border-box; width:min(360px,calc(100vw - 16px)); max-height:calc(100vh - 16px); overflow:auto; background:#202a38; color:#edf1f5; border:1px solid #67758a; border-radius:.6rem; box-shadow:0 8px 28px #0007; padding:.75rem; font:.9rem/1.4 system-ui,sans-serif; }
+.contextual-agent-menu header { display:flex; justify-content:space-between; align-items:center; margin-bottom:.5rem; }
+.contextual-agent-menu label { display:grid; gap:.25rem; margin-bottom:.6rem; }
+.contextual-agent-menu textarea,.contextual-agent-menu select { box-sizing:border-box; width:100%; font:inherit; background:#141d28; color:inherit; border:1px solid #748298; border-radius:.3rem; padding:.4rem; }
+.contextual-agent-menu button { font:inherit; background:#29384a; color:inherit; border:1px solid #8491a4; border-radius:.3rem; padding:.3rem .6rem; cursor:pointer; }
+.contextual-agent-menu button:disabled { opacity:.55; cursor:default; }
+.contextual-agent-menu p { margin:.5rem 0; }
+.contextual-agent-menu img { max-width:100%; max-height:180px; object-fit:contain; }

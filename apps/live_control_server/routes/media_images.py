@@ -162,6 +162,68 @@ async def generate_image_preview(body: ImagePreviewRequest, request: Request, re
             "settings": body.model_dump(mode="json", exclude={"prompt"}), "observation": result.observation.model_dump(mode="json")}
 
 
+class ContextualImageRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    mode: Literal["image_to_image", "new"]
+    instructions: str = Field(min_length=1, max_length=16000)
+    expected_content_sha256: str = Field(pattern=r"^[a-f0-9]{64}$")
+
+    @model_validator(mode="after")
+    def nonempty_instructions(self):
+        if not self.instructions.strip():
+            raise ValueError("Write image instructions first.")
+        return self
+
+
+@router.post('/{asset_id}/regenerate')
+async def regenerate_image(asset_id: UUID, body: ContextualImageRequest, request: Request, response: Response):
+    """Retain a new candidate; never mutate the source or its occurrences."""
+    principal = enforce_native_graph_gm(request)
+    response.headers['Cache-Control'] = 'no-store'
+    try:
+        assert_at_head()
+        parent = media.get_asset(asset_id, principal.subject)
+        if parent['state'] not in {'staged', 'ready'} or parent['content_sha256'] != body.expected_content_sha256:
+            raise HTTPException(409, detail="The image changed or is not ready. Reopen its edit menu.")
+        original = media.read_staged_bytes(asset_id, principal.subject)
+    except ApplicationStateError as error:
+        raise HTTPException(error.status_code, detail="The original image is unavailable or failed integrity verification.") from error
+    if not _fal_key():
+        raise HTTPException(503, detail="Image generation needs the server's fal credential.")
+    model = 'flux-2-pro' if body.mode == 'image_to_image' else DEFAULT_IMAGE_MODEL
+    source = f"data:{parent['mime_type']};base64,{base64.b64encode(original).decode('ascii')}" if body.mode == 'image_to_image' else None
+    client = None
+    try:
+        client = _image_client()
+        image_request = ImageRequest(prompt=body.instructions, model=model,
+            width=parent['width'], height=parent['height'], num_images=1,
+            base_image_base64=source, deadline_ms=180000)
+        result = await (client.edit_image(image_request) if body.mode == 'image_to_image' else client.generate_image(image_request))
+    except GenerationEngineError as error:
+        raise HTTPException(502, detail={"code": error.failure.code.value,
+            "message": "Generation could not be confirmed. Your original is unchanged; check the library before trying again."}) from error
+    except (ValueError, ImportError) as error:
+        raise HTTPException(503, detail="Image generation is unavailable. Your original is unchanged.") from error
+    finally:
+        if client is not None:
+            await client.aclose()
+    if len(result.images) != 1:
+        raise HTTPException(502, detail="A single image result could not be confirmed. Your original is unchanged.")
+    image = result.images[0]
+    if image.media_type not in {'image/png', 'image/jpeg', 'image/webp'} or len(image.content) > 20 * 1024 * 1024:
+        raise HTTPException(502, detail="The generated image could not be retained. Your original is unchanged.")
+    try:
+        child = media.stage_image(image.content, principal.subject, {
+            'kind': 'contextual_image_generation_v1', 'parent_asset_id': str(asset_id),
+            'parent_content_sha256': parent['content_sha256'], 'mode': body.mode,
+            'instructions': body.instructions, 'prompt': body.instructions, 'authored_prompt': body.instructions,
+            'model': model, 'observation': result.observation.model_dump(mode='json'),
+        })
+    except ApplicationStateError as error:
+        raise HTTPException(error.status_code, detail="Generated-image retention could not be confirmed. Your original is unchanged; check the library before trying again.") from error
+    return {'asset_id': str(child['asset_id']), 'state': child['state'], 'model': model, 'parent_asset_id': str(asset_id)}
+
+
 def _public_record(row: dict) -> dict:
     return {key: row[key] for key in ['asset_id', 'created_at', 'mime_type', 'width', 'height', 'byte_length', 'content_sha256', 'provenance', 'state']} | {
         'delivery_url': row['receipt']['delivery_url'] if row['state'] == 'ready' else None,

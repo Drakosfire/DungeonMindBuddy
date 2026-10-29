@@ -326,3 +326,92 @@ async def test_prepared_generation_passes_real_storage_json_admission(setup, mon
     assert seen[0]['settings']['preparation_id'] == str(preparation_id)
     assert response.json()['settings']['preparation_id'] == str(preparation_id)
     setup[1].generate_image.assert_awaited_once()
+
+
+PARENT = 'ac6c15cc-8c68-4732-8ae2-d9f3f051393a'
+CHILD = 'bc6c15cc-8c68-4732-8ae2-d9f3f051393a'
+
+
+@pytest.fixture
+def contextual(setup, monkeypatch):
+    import hashlib
+    content = b'retained-original'
+    parent = {'asset_id': PARENT, 'state': 'staged', 'mime_type': 'image/png', 'width': 1536,
+              'height': 1024, 'content_sha256': hashlib.sha256(content).hexdigest()}
+    monkeypatch.setattr(media_images.media, 'get_asset', lambda *_: parent)
+    monkeypatch.setattr(media_images.media, 'read_staged_bytes', lambda *_: content)
+    setup[1].edit_image = AsyncMock(return_value=setup[1].generate_image.return_value)
+    staged = []
+    def stage(data, owner, provenance):
+        staged.append((data, owner, provenance))
+        return {'asset_id': CHILD, 'state': 'staged'}
+    monkeypatch.setattr(media_images.media, 'stage_image', stage)
+    return setup, parent, content, staged
+
+
+async def regenerate(contextual, changes=None, authenticated=True):
+    (app, _), parent, _, _ = contextual
+    body = {'mode': 'image_to_image', 'instructions': 'Keep the retreat path clear.',
+            'expected_content_sha256': parent['content_sha256']} | (changes or {})
+    async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app, client=('127.0.0.1', 1234)),
+        base_url='http://test', headers={'Authorization': f'Bearer {TOKEN}'} if authenticated else {}) as http:
+        return await http.post(f'/api/live/media/images/{PARENT}/regenerate', json=body)
+
+
+@pytest.mark.parametrize('mode', ['image_to_image', 'new'])
+async def test_contextual_generation_retains_immutable_child_and_correct_input(contextual, mode):
+    import base64
+    setup, parent, original, staged = contextual
+    result = await regenerate(contextual, {'mode': mode})
+    assert result.status_code == 200 and result.headers['cache-control'] == 'no-store'
+    assert result.json()['asset_id'] == CHILD and result.json()['parent_asset_id'] == PARENT
+    called = setup[1].edit_image if mode == 'image_to_image' else setup[1].generate_image
+    other = setup[1].generate_image if mode == 'image_to_image' else setup[1].edit_image
+    called.assert_awaited_once(); other.assert_not_awaited()
+    request = called.call_args.args[0]
+    assert request.prompt == 'Keep the retreat path clear.'
+    assert request.source_image_url is None
+    assert request.base_image_base64 == ('data:image/png;base64,' + base64.b64encode(original).decode() if mode == 'image_to_image' else None)
+    assert request.model == ('flux-2-pro' if mode == 'image_to_image' else 'gpt-image-2.5-flare')
+    assert len(staged) == 1 and staged[0][1] == 'local_operator'
+    provenance = staged[0][2]
+    assert provenance['parent_asset_id'] == PARENT and provenance['parent_content_sha256'] == parent['content_sha256']
+    assert provenance['mode'] == mode and provenance['instructions'] == request.prompt
+    assert parent['state'] == 'staged' and 'base_image_base64' not in provenance
+    setup[1].aclose.assert_awaited_once()
+
+
+async def test_contextual_generation_requires_auth_before_asset_or_provider(contextual, monkeypatch):
+    def forbidden(*_):
+        pytest.fail('Asset read before authorization')
+    monkeypatch.setattr(media_images.media, 'get_asset', forbidden)
+    assert (await regenerate(contextual, authenticated=False)).status_code == 401
+    contextual[0][1].edit_image.assert_not_awaited()
+
+
+@pytest.mark.parametrize('state', ['uploading', 'unknown'])
+async def test_contextual_generation_rejects_unready_source(contextual, state):
+    contextual[1]['state'] = state
+    assert (await regenerate(contextual)).status_code == 409
+    contextual[0][1].edit_image.assert_not_awaited()
+
+
+async def test_contextual_generation_rejects_hash_drift_before_provider(contextual):
+    assert (await regenerate(contextual, {'expected_content_sha256': 'b'*64})).status_code == 409
+    contextual[0][1].edit_image.assert_not_awaited()
+
+
+@pytest.mark.parametrize('failure', ['foreign', 'corrupt'])
+async def test_contextual_generation_rejects_unowned_or_corrupt_source(contextual, monkeypatch, failure):
+    from application_state.errors import ApplicationStateNotFoundError, ApplicationStateIntegrityError
+    def refuse(*_):
+        raise (ApplicationStateNotFoundError('Unavailable') if failure == 'foreign' else ApplicationStateIntegrityError('Corrupt'))
+    monkeypatch.setattr(media_images.media, 'get_asset' if failure == 'foreign' else 'read_staged_bytes', refuse)
+    assert (await regenerate(contextual)).status_code in {404, 409, 500}
+    contextual[0][1].edit_image.assert_not_awaited()
+
+
+@pytest.mark.parametrize('changes', [{'instructions': ' '}, {'mode': 'fake'}, {'owner': 'foreign'}, {'source_image_url': 'https://foreign.test/image'}, {'model': 'unselected'}])
+async def test_contextual_generation_rejects_untrusted_request_fields(contextual, changes):
+    assert (await regenerate(contextual, changes)).status_code == 422
+    contextual[0][1].edit_image.assert_not_awaited()
