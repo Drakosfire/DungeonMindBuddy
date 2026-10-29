@@ -86,7 +86,7 @@ export function useBuildCompose({ worldId, history, bridge, enabled, onHistory, 
       action = crypto.randomUUID();
       captures.current.set(action, captured);
       const result = await composeBuildProposal({ idempotency_key: action, conversation_id: pointer.conversation_id,
-        expected_pointer_revision: pointer.pointer_revision, basis: captured.basis, instruction, draft_markdown: captured.draftMarkdown });
+        expected_pointer_revision: pointer.pointer_revision, basis: captured.basis, instruction, draft_markdown: captured.draftMarkdown, ...(captured.pageBodyOffer?{page_body_offer:captured.pageBodyOffer}:{}) });
       if (result.proposal) admitMarkdownInsertion(buildProposalMarkdown(result.proposal.replacement_markdown).markdown);
       put(result, ownerScope, epoch, ownerScope === start.scope ? undefined : start.scope);
       return true;
@@ -177,7 +177,7 @@ export function useBuildCompose({ worldId, history, bridge, enabled, onHistory, 
     if(captured)captures.current.set(action,captured);
     return {history:pointer,initializedConversation,draftContext:{snapshot,conversation_id:pointer.conversation_id,expected_pointer_revision:pointer.pointer_revision},
       capability:captured?{idempotency_key:action,conversation_id:pointer.conversation_id,expected_pointer_revision:pointer.pointer_revision,
-        basis:captured.basis,draft_markdown:captured.draftMarkdown}:undefined};
+        basis:captured.basis,draft_markdown:captured.draftMarkdown,...(captured.pageBodyOffer?{page_body_offer:captured.pageBodyOffer}:{})}:undefined};
   }
   const values=records.scope===scope?records.values:[];
   const selected=opened?.documentId===pageDocumentId?opened:null;

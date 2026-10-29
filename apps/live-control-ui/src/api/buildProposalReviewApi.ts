@@ -1,6 +1,7 @@
-import type {BuildProposalBasis} from './buildDocumentProposalApi';
+import type {BuildProposalBasis,BuildPageBodyTarget} from './buildDocumentProposalApi';
 import {authenticatedApiFetch} from './liveApi';
 export interface ProposalApplyReceipt {
+  page_body_target?:BuildPageBodyTarget|null;
   placement_caret:number;apply_id:string; before_editor_sha256:string; after_editor_sha256:string;
   before_draft_sha256:string; after_draft_sha256:string; reviewed_sha256:string;
 }
@@ -13,6 +14,7 @@ export interface RetiredPlacement {
   command_id:string|null;disposition:'superseded_unresolved'|'superseded_unapplied';
 }
 export interface BuildProposalReview {
+  page_body_target?:BuildPageBodyTarget|null;
   schema:'dmb_build_proposal_review_v2'|'dmb_build_proposal_review_v3';world_id:string;action_id:string;reservation_sha256:string;
   placement_caret:number;revision:number;state:'editing'|'discarded'|'applying'|'applied';markdown:string;markdown_sha256:string;
   apply:ProposalApplyReceipt|null;updated_at:string;placement?:PlacementCapability;retired_placements?:RetiredPlacement[];

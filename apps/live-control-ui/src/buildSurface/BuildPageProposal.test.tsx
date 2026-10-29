@@ -44,7 +44,7 @@ beforeEach(async()=>{
     retired_placements:[...(saved.retired_placements??[]),{basis:{...(saved.placement?.basis??record.reservation.basis),caret:saved.placement_caret},markdown:saved.markdown,
       markdown_sha256:saved.markdown_sha256,apply:saved.apply,command_id:saved.placement?.command_id??null,
       disposition:saved.apply?'superseded_unresolved':'superseded_unapplied'}]};
-  if(command.operation==='prepare')saved={...saved,revision:saved.revision+1,state:'applying',apply:{placement_caret:saved.placement_caret,apply_id:command.apply_id!,before_editor_sha256:(saved.placement?.basis??record.reservation.basis).editor_sha256!,before_draft_sha256:(saved.placement?.basis??record.reservation.basis).draft_sha256,
+  if(command.operation==='prepare')saved={...saved,revision:saved.revision+1,state:'applying',apply:{...(saved.page_body_target?{page_body_target:saved.page_body_target}:{}),placement_caret:saved.placement_caret,apply_id:command.apply_id!,before_editor_sha256:(saved.placement?.basis??record.reservation.basis).editor_sha256!,before_draft_sha256:(saved.placement?.basis??record.reservation.basis).draft_sha256,
    after_editor_sha256:command.after_editor_sha256!,after_draft_sha256:command.after_draft_sha256!,reviewed_sha256:saved.markdown_sha256}};
   if(command.operation==='prepare'&&lostPrepare)throw new Error('Prepared outcome unavailable');
   if(command.operation==='confirm'){if(lostAck)throw new Error('Acknowledgment unavailable');saved={...saved,revision:saved.revision+1,state:'applied'};}
@@ -427,4 +427,29 @@ it('acknowledges the same saved result after spacer recovery without another ins
  expect(docChanges).not.toHaveBeenCalled();expect(editor.getJSON()).toEqual(currentJson);expect(saved.apply).toEqual(originalReceipt);
  expect(editor.getText().match(/A proposed custom/g)).toHaveLength(1);expect(complete).toHaveBeenCalledWith('applied');
  sourceRead.mockRestore();
+});
+
+
+it('reviews the whole body explicitly and recovers a lost save acknowledgment without appending',async()=>{
+ const captured=await bridge.capture();
+ record.reservation.page_body_offer=captured.pageBodyOffer;
+ record.proposal!.target='page_body';
+ record.proposal!.replacement_markdown='Preparation only.\n\nOffer communication first.';
+ saved={...saved,page_body_target:captured.pageBodyOffer,markdown:record.proposal!.replacement_markdown,
+   markdown_sha256:await digest(record.proposal!.replacement_markdown)};
+ lostAck=true;
+ const view=render(<Review/>);await screen.findByText('Replaces the entire page body when you Save.');
+ fireEvent.click(screen.getByText('Original page body'));
+ expect(screen.getByText(/Before\s+After/)).toBeInTheDocument();
+ fireEvent.click(screen.getByRole('button',{name:'Save',exact:true}));
+ await waitFor(()=>expect(saved.state).toBe('applying'));
+ await screen.findByRole('button',{name:'Check insertion'});
+ expect(screen.queryByRole('button',{name:'Choose a new position'})).not.toBeInTheDocument();
+ expect(editor.getJSON().content).toHaveLength(2);
+ expect(editor.getText()).toBe('Preparation only.\n\nOffer communication first.');
+ const after=editor.getJSON();view.unmount();lostAck=false;render(<Review/>);
+ fireEvent.click(await screen.findByRole('button',{name:'Check insertion'}));
+ await waitFor(()=>expect(saved.state).toBe('applied'));
+ expect(editor.getJSON()).toEqual(after);
+ expect(vi.mocked(proposalReview).mock.calls.filter(([, ,cmd])=>cmd?.operation==='prepare')).toHaveLength(1);
 });

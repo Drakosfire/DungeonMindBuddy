@@ -47,7 +47,7 @@ def request_case(tmp_path,monkeypatch,application_state_dsn):
 class Wire(httpx.AsyncBaseTransport):
     def __init__(self,request,text=None,timeout=False):
         self.request,self.calls,self.timeout=request,[],timeout
-        self.text=text or json.dumps(dict(destination='current_page',replacement_markdown=TABLE,summary='Proposed NPC table.',assumptions=['Nia is invented.']))
+        self.text=text or json.dumps(dict(target='captured',destination='current_page',replacement_markdown=TABLE,summary='Proposed NPC table.',assumptions=['Nia is invented.']))
     async def handle_async_request(self,request):
         row = BuildProposalService().get('elderwyld',self.request.idempotency_key)
         assert row.state=='sdk_entered' and row.authorization is not None
@@ -108,7 +108,7 @@ def test_uncertain_dispatch_is_not_replayed(request_case):
 @pytest.mark.parametrize('markdown',['<script>bad</script>','[Nia](dmb-node:npc:invented)','<!-- dmb-playable-element:v2:fake -->','```dmb-work-plan-v1\n{}\n```'])
 def test_inert_markdown_validation_rejects_fabricated_authority(request_case,markdown):
     request,_,_=request_case
-    wire=Wire(request,text=json.dumps(dict(destination='current_page',replacement_markdown=markdown,summary='Bad proposal',assumptions=[])))
+    wire=Wire(request,text=json.dumps(dict(target='captured',destination='current_page',replacement_markdown=markdown,summary='Bad proposal',assumptions=[])))
     with pytest.raises(ValueError):
         asyncio.run(owner.compose(request,transport=wire))
     row=BuildProposalService().get('elderwyld',request.idempotency_key)
@@ -263,7 +263,7 @@ def test_invalid_selected_revision_target_is_refused(request_case, selection):
 @pytest.mark.parametrize('destination', ['different_page', 'unresolved'])
 def test_writer_refuses_foreign_destination_without_creating_a_proposal(request_case, destination):
     request, source, _ = request_case
-    raw = json.dumps(dict(destination=destination, replacement_markdown='',
+    raw = json.dumps(dict(target="captured",destination=destination, replacement_markdown='',
         summary='The requested destination differs or is unresolved.', assumptions=[]))
     wire = Wire(request, text=raw)
     with pytest.raises(owner.BuildComposeTargetMismatch, match='build_compose_target_mismatch'):
@@ -292,4 +292,56 @@ def test_destination_is_not_added_to_retained_proposal_records():
     raw = dict(replacement_markdown='A useful paragraph.', summary='Writing.', assumptions=[])
     stored = BuildGeneratedProposal.model_validate(raw)
     assert stored.model_dump() == raw
-    assert owner._result(json.dumps(dict(destination='current_page', **raw))) == stored
+    assert owner._result(json.dumps(dict(target='captured',destination='current_page', **raw))) == stored.model_copy(update={"target":"captured"})
+
+
+def test_whole_body_offer_is_bound_into_request_result_and_replay(request_case):
+    from application_state.build_proposal.types import BuildPageBodyOffer
+    request, source, _ = request_case
+    request = request.model_copy(update={
+        'basis': request.basis.model_copy(update={'editor_sha256':'e'*64}),
+        'page_body_offer':BuildPageBodyOffer(end=83),
+    })
+    body = dict(destination='current_page', target='page_body',
+        replacement_markdown='Preparation only.\n\nOffer communication before combat.',
+        summary='Replace the page body.', assumptions=[])
+    wire=Wire(request,text=json.dumps(body))
+    record=asyncio.run(owner.compose(request,transport=wire))
+    assert record.proposal.target=='page_body'
+    assert record.reservation.basis.caret==1 and record.reservation.basis.selection is None
+    packet=json.loads(json.loads(wire.calls[0].content)['input'])
+    assert packet['page_body_offer']=={'end':83}
+    assert asyncio.run(owner.compose(request,transport=wire))==record
+    assert len(wire.calls)==1
+    changed=request.model_copy(update={'page_body_offer':BuildPageBodyOffer(end=84)})
+    with pytest.raises(owner.BuildComposeError,match='request_changed'):
+        asyncio.run(owner.compose(changed,transport=wire))
+    assert get_workspace_document_snapshot(owner.managed_world_data_root(),source.record.document_id)==source
+
+
+@pytest.mark.parametrize('target,markdown', [('page_body','Complete body.'),('unavailable','')])
+def test_unoffered_or_unavailable_whole_page_never_falls_back_to_append(target,markdown):
+    with pytest.raises(owner.BuildComposeTargetMismatch):
+        owner._result(json.dumps(dict(destination='current_page',target=target,
+            replacement_markdown=markdown,summary='Cannot safely replace.',assumptions=[])))
+
+
+def test_new_writer_output_requires_target_but_old_stored_result_keeps_exact_bytes():
+    from pydantic import ValidationError
+    from application_state.build_proposal.types import BuildGeneratedProposal
+    raw=dict(replacement_markdown='Old fragment.',summary='Retained.',assumptions=[])
+    assert BuildGeneratedProposal.model_validate(raw).model_dump()==raw
+    with pytest.raises(ValidationError):
+        owner._result(json.dumps(dict(destination='current_page',**raw)))
+
+
+def test_offered_body_cannot_be_interpreted_as_a_historical_targetless_result(request_case):
+    from application_state.build_proposal.types import BuildPageBodyOffer, BuildProposalRecord
+    from pydantic import ValidationError
+    request,_,_=request_case
+    request=request.model_copy(update={'basis':request.basis.model_copy(update={'editor_sha256':'e'*64}),
+        'page_body_offer':BuildPageBodyOffer(end=83)})
+    record=asyncio.run(owner.compose(request,transport=Wire(request)))
+    raw=record.model_dump(mode='json');raw['proposal'].pop('target')
+    with pytest.raises(ValidationError,match='explicit generated target'):
+        BuildProposalRecord.model_validate(raw)
