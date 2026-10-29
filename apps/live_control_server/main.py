@@ -32,6 +32,7 @@ from apps.live_control_server.routes.world_mechanics_associations import router 
 from apps.live_control_server.routes.live import router as live_router
 from apps.live_control_server.routes.party_registry import router as party_registry_router
 from apps.live_control_server.routes.play_runs import router as play_runs_router
+from apps.live_control_server.routes.source_statements import router as source_statements_router
 from apps.live_control_server.routes.play_prepared_tables import router as play_prepared_tables_router
 from apps.live_control_server.routes.recap_ingest import router as recap_ingest_router
 from apps.live_control_server.routes.world_graph_bootstrap import (
@@ -187,6 +188,7 @@ def create_app() -> FastAPI:
     application.include_router(world_graph_bootstrap_router)
     application.include_router(extract_promote_router)
     application.include_router(registry_standing_router)
+    application.include_router(source_statements_router)
     application.include_router(world_graph_projection_router)
     application.include_router(world_graph_retrieval_router)
     application.include_router(rules_lookup_router)
