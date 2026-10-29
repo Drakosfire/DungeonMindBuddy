@@ -34,6 +34,11 @@ complete revised page BODY, preserving relevant existing facts and all link/imag
 references. Never remove or alter a reference destination. This excludes metadata.
 For whole-page work without an offer, or ambiguous scope, choose target=unavailable
 and return empty replacement_markdown with an explanation; never append a fallback.
+For an explicit request to append below/after all existing page content, choose
+target=page_end only when page_end_offer is present. Emit just the requested addition,
+never repeat or replace existing paragraphs. The host owns the exact end position;
+do not use the captured caret or page_body as a fallback. If no end offer exists,
+choose unavailable with empty replacement_markdown. For unclear placement ask instead.
 Otherwise choose target=captured. When source_basis.selection is present, revise only that selected passage: its text
 is reference data and its end/start are host-owned. Return the complete replacement
 for that passage, preserving its relevant names, facts and requested formatting.
@@ -108,7 +113,7 @@ class BuildComposeOutput(BuildGeneratedProposal):
 
     replacement_markdown: str = Field(max_length=12_000)
     destination: Literal["current_page", "different_page", "unresolved"]
-    target: Literal["captured", "page_body", "unavailable"]
+    target: Literal["captured", "page_body", "page_end", "unavailable"]
 
 
 def _model():
@@ -142,7 +147,7 @@ def _source(request):
     return snapshot
 
 
-def _result(text, page_body_offer=None):
+def _result(text, page_body_offer=None, page_end_offer=None):
     def unique(pairs):
         value = {}
         for key, item in pairs:
@@ -158,6 +163,8 @@ def _result(text, page_body_offer=None):
             raise BuildComposeError("build_compose_unavailable_content")
         raise BuildComposeTargetMismatch("build_compose_target_unavailable")
     if wire.target == "page_body" and page_body_offer is None:
+        raise BuildComposeTargetMismatch("build_compose_target_not_offered")
+    if wire.target == "page_end" and page_end_offer is None:
         raise BuildComposeTargetMismatch("build_compose_target_not_offered")
     output = BuildGeneratedProposal.model_validate(wire.model_dump(exclude={"destination"}))
     markdown = output.replacement_markdown
@@ -325,7 +332,7 @@ async def _compose(request: BuildDocumentProposalRequest, *, transport=None, wri
         if not isinstance(result.final_text, str):
             raise BuildComposeError("build_compose_output_unavailable")
         advance("response_received", raw_response=result.final_text, observation=result.observation.model_dump(mode="json"))
-        proposal = _result(result.final_text, reservation.page_body_offer)
+        proposal = _result(result.final_text, reservation.page_body_offer, reservation.page_end_offer)
         advance("proposed", proposal=proposal)
         progress("ready", proposal.replacement_markdown)
         return record
@@ -370,6 +377,7 @@ def _writer_request(request, snapshot, model, *, frozen_history=None, related_au
         **({"tool_origin": reservation.origin.model_dump(mode="json")} if reservation.origin else {}),
         "source_title": snapshot.record.title, "source_basis": reservation.basis.model_dump(mode="json"),
         "page_body_offer": reservation.page_body_offer.model_dump(mode="json") if reservation.page_body_offer else None,
+        "page_end_offer": reservation.page_end_offer.model_dump(mode="json") if reservation.page_end_offer else None,
         "instruction": reservation.instruction, "draft_markdown": request.draft_markdown}, ensure_ascii=False, separators=(",", ":"))
     schema = BuildComposeOutput.model_json_schema()
     expected = {"model": model, "input": packet, "instructions": SYSTEM + ("\nUse related_authored_pages as exact saved authored references before inventing substitutes. They are authored context, not played facts; preserve row/column meanings and source attribution.\n" if related_authored_pages is not None else "") + dialogue_rule(messages),

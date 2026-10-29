@@ -1,6 +1,8 @@
 # PLAN — target-specific passage selectors
 
-ACTIVE. PRIME owns this serial runtime successor on codex/plan-target-passage-selectors, based on fetched main30f230240b8a50094f2d2898f3e50644b55e00c6. Reuse buddy-context-loop; one bounded PR, independent exact-head review/CI and protected API8000 delivery. UI5202, sources, Graph, drafts and Runs remain intact.
+DELIVERED through PR1885, merge6771ab9731437c75aa9ca8614aebb009f2c59d12, reviewed5a161ce34cf3e04a0406ec58f4288d3486c34c85;91focused tests/all3CI passed and ordinary retry/citations verified with original failure retained. Successor HANDOFF-BUILD-page-end-insertion.md records settlement.
+
+Historical authority: PRIME owned this serial runtime successor on codex/plan-target-passage-selectors, based on fetched main30f230240b8a50094f2d2898f3e50644b55e00c6. Reuse buddy-context-loop; one bounded PR, independent exact-head review/CI and protected API8000 delivery. UI5202, sources, Graph, drafts and Runs remain intact.
 
 ## Invariant and pre-code critique
 A current ordinary Plan question reached the writer with complete scope-correct reads, but chose an e2 passage for an e3 Graph target. Preserve the initial failure privately. Independent authoring_forward_audit approved: join exact graph_records.evidence to opened_passages.evidence; only eligible real handles. Group schema branches by kind and identical eligible handle sets, constraining corresponding target IDs. Distinct evidence closures for one target are ambiguous and cannot be offered. Equal text/ranges never merge receipt identities. Graph targets without eligible opened passages offer only an empty passage list. Independent source claims retain all eligible passages. Final normalization, scope, receipts and claim acceptance stay unchanged.

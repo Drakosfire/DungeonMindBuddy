@@ -19,7 +19,18 @@ export function BuildPageProposal({record,bridge,sourceKey,requestKey,onStatus,o
   const world=record.reservation.basis.world_id;
   function basisFor(saved:BuildProposalReview){return saved.placement?.basis??record.reservation.basis;}
   const wholePage=record.proposal?.target==='page_body';
+  const atEnd=record.proposal?.target==='page_end';
+  const fixedTarget=wholePage||atEnd;
+  function endFor(saved:BuildProposalReview){
+    const expected=atEnd?record.reservation.page_end_offer:undefined;
+    if(JSON.stringify(saved.page_end_target??null)!==JSON.stringify(expected??null)
+      ||atEnd&&(!expected||saved.placement||saved.placement_caret!==record.reservation.basis.caret)
+      ||saved.apply&&JSON.stringify(saved.apply.page_end_target??null)!==JSON.stringify(expected??null))
+      throw new Error('The saved review differs from the captured page-end target.');
+    return expected??undefined;
+  }
   function bodyFor(saved:BuildProposalReview){
+    endFor(saved);
     const expected=wholePage?record.reservation.page_body_offer:undefined;
     if(JSON.stringify(saved.page_body_target??null)!==JSON.stringify(expected??null)
       ||wholePage&&(!expected||saved.placement||saved.placement_caret!==record.reservation.basis.caret)
@@ -54,7 +65,7 @@ export function BuildPageProposal({record,bridge,sourceKey,requestKey,onStatus,o
               setText(local.markdown);setConflict(local.revision!==saved.revision&&local.markdown!==saved.markdown);
             }
           }catch{setError('The local suggestion could not be read. The saved review remains available.');}
-          const captured=await bridge.restore({...basisFor(saved),caret:saved.placement_caret},bodyFor(saved));
+          const captured=await bridge.restore({...basisFor(saved),caret:saved.placement_caret},bodyFor(saved),endFor(saved));
           if(active.current&&epoch.current===current)setPlacement(captured);
         }
       }catch(reason){if(active.current&&epoch.current===current)setError(reason instanceof Error?reason.message:'Suggestion unavailable');}
@@ -70,7 +81,7 @@ export function BuildPageProposal({record,bridge,sourceKey,requestKey,onStatus,o
     bodyFor(checked);setReview(checked);
     if(checked.state==='editing'){
       setPlacement(null);
-      const captured=await bridge.restore({...basisFor(checked),caret:checked.placement_caret},bodyFor(checked));
+      const captured=await bridge.restore({...basisFor(checked),caret:checked.placement_caret},bodyFor(checked),endFor(checked));
       if(current(start))setPlacement(captured);
     }
     if(checked.state==='applying')callbacks.current.onStatus('Check insertion');
@@ -110,13 +121,13 @@ export function BuildPageProposal({record,bridge,sourceKey,requestKey,onStatus,o
   }
   function keep(){void transact(async(saved,start)=>{
     if(saved.state!=='editing')return;
-    const captured=await bridge.restore({...basisFor(saved),caret:saved.placement_caret},bodyFor(saved));
+    const captured=await bridge.restore({...basisFor(saved),caret:saved.placement_caret},bodyFor(saved),endFor(saved));
     const prepared=await bridge.prepareProposal(captured,buildProposalMarkdown(text).markdown);
     if(!current(start))return;
     saved=await save(saved,prepared.markdown);
     if(!current(start))return;
     setReview(saved);setText(saved.markdown);clearCache();
-    const pending=await proposalReview(world,record.action_id,{operation:'prepare',expected_revision:saved.revision,...(bodyFor(saved)?{page_body_target:bodyFor(saved)}:{}),
+    const pending=await proposalReview(world,record.action_id,{operation:'prepare',expected_revision:saved.revision,...(bodyFor(saved)?{page_body_target:bodyFor(saved)}:{}),...(endFor(saved)?{page_end_target:endFor(saved)}:{}),
       apply_id:crypto.randomUUID(),after_editor_sha256:prepared.afterEditorSha256,after_draft_sha256:prepared.afterDraftSha256});
     if(!current(start))return;
     bodyFor(pending);setReview(pending);
@@ -129,7 +140,7 @@ export function BuildPageProposal({record,bridge,sourceKey,requestKey,onStatus,o
     if(!current(start))return;
     if(state.state==='changed')throw new Error('The current page differs from the earlier insertion snapshots. Its outcome is unresolved. Review the retained text before choosing a new position.');
     if(state.state==='before'){
-      const captured=await bridge.restore({...basisFor(saved),caret:saved.placement_caret},bodyFor(saved));
+      const captured=await bridge.restore({...basisFor(saved),caret:saved.placement_caret},bodyFor(saved),endFor(saved));
       const prepared=await bridge.prepareProposal(captured,saved.markdown);
       if(!current(start))return;
       if(prepared.afterEditorSha256!==saved.apply.after_editor_sha256||prepared.afterDraftSha256!==saved.apply.after_draft_sha256)
@@ -147,7 +158,7 @@ export function BuildPageProposal({record,bridge,sourceKey,requestKey,onStatus,o
     if(!current(start))return;
     const result=await proposalReview(world,record.action_id,{operation:'move',expected_revision:saved.revision,placement_caret:position});
     if(!current(start))return;
-    const captured=await bridge.restore({...basisFor(result),caret:result.placement_caret},bodyFor(result));
+    const captured=await bridge.restore({...basisFor(result),caret:result.placement_caret},bodyFor(result),endFor(result));
     if(current(start)){setReview(result);setPlacement(captured);clearCache();}
   });}
   function replacePlacement(replaceSelection=false){void transact(async(saved,start)=>{
@@ -177,11 +188,11 @@ export function BuildPageProposal({record,bridge,sourceKey,requestKey,onStatus,o
         placement:{command_id:crypto.randomUUID(),conversation_id:record.reservation.conversation_id,
           expected_pointer_revision:record.reservation.expected_pointer_revision,basis:captured.basis,draft_markdown:captured.draftMarkdown}});
       if(!current(start))return;
-      const restored=await bridge.restore({...basisFor(next),caret:next.placement_caret},bodyFor(next));
+      const restored=await bridge.restore({...basisFor(next),caret:next.placement_caret},bodyFor(next),endFor(next));
       if(current(start)){setReview(next);setText(next.markdown);setPlacement(restored);setError(null);clearCache();callbacks.current.onStatus('Review suggestion on page');}
     }finally{if(picker.current===controller)picker.current=null;if(current(start))setChoosing(false);}
   });}
-  const replacementControls=wholePage?<p>This replacement stays bound to the original page body. If the page changed, request a new revision; your suggestion is retained.</p>:<>
+  const replacementControls=fixedTarget?<p>This suggestion stays bound to its captured page target. If the page changed, request a new revision; your suggestion is retained.</p>:<>
     <p>Earlier insertion receipts are retained for inspection. Choosing a new position does not remove any text already on the page.</p>
     <button type="button" disabled={busy} onClick={()=>replacePlacement()}>Choose a new position</button>
     <button type="button" disabled={busy} onClick={()=>replacePlacement(true)}>Replace selected text</button>
@@ -189,9 +200,10 @@ export function BuildPageProposal({record,bridge,sourceKey,requestKey,onStatus,o
     {review?<RetiredPlacementHistory review={review}/>:null}
   </>;
   const controls=<>
+    {atEnd?<p role="note">Adds after all existing page content when you Save. Existing text is preserved.</p>:null}
     {wholePage?<><p role="note">Replaces the entire page body when you Save.</p>
       <details><summary>Original page body</summary><blockquote>{placement?.draftMarkdown??'Open the unchanged original page to inspect its captured body.'}</blockquote></details></>:null}
-    {!wholePage&&review&&basisFor(review).selection ? <>
+    {!fixedTarget&&review&&basisFor(review).selection ? <>
       <p role="note">Replaces your selected passage when you Save.</p>
       <details><summary>Original passage</summary><blockquote>{review&&basisFor(review).selection?.text}</blockquote></details>
     </> : null}
@@ -219,8 +231,8 @@ export function BuildPageProposal({record,bridge,sourceKey,requestKey,onStatus,o
     {replacementControls}
     <button type="button" disabled={busy} onClick={recover}>Check insertion</button>{error?<p role="alert">{error}</p>:null}
   </section>;
-  if(placement&&review?.state==='editing')return <SurfacePageProposal editor={placement.editor} position={wholePage?0:placement.basis.caret}
-    editorJson={placement.editorJson} placementId={record.action_id} onMove={wholePage||basisFor(review).selection ? undefined : move} busy={busy||conflict} revealKey={requestKey} onStale={()=>{if(running.current!==epoch.current){setPlacement(null);setError('The page changed. The saved suggestion is retained; request a new placement.');}}}>{controls}</SurfacePageProposal>;
+  if(placement&&review?.state==='editing')return <SurfacePageProposal editor={placement.editor} position={wholePage?0:atEnd?placement.pageEndTarget!.end:placement.basis.caret}
+    editorJson={placement.editorJson} placementId={record.action_id} onMove={fixedTarget||basisFor(review).selection ? undefined : move} busy={busy||conflict} revealKey={requestKey} onStale={()=>{if(running.current!==epoch.current){setPlacement(null);setError('The page changed. The saved suggestion is retained; request a new placement.');}}}>{controls}</SurfacePageProposal>;
   return error?<section aria-label="Suggestion placement unavailable" role="status"><p>{error}</p><p>The saved suggestion is retained.</p><blockquote>{text}</blockquote>{review&&replacementControls}</section>:null;
 }
 
