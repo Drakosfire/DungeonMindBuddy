@@ -1,5 +1,5 @@
 import type { Editor } from '@tiptap/core';
-import { admitMarkdownInsertion, insertReviewedMarkdown } from '../documentEditing/markdownInsertion';
+import { admitMarkdownInsertion, insertReviewedMarkdownAtAnchor } from '../documentEditing/markdownInsertion';
 import { pickMediaInsertion } from '../documentEditing/pickMediaInsertion';
 import { mediaMarkdown, MEDIA_ASSET_ID } from './mediaReferences';
 
@@ -32,7 +32,13 @@ export function createDocumentMediaBridge(getCurrent: () => DocumentMediaState |
       if (applied.has(capture)) throw new Error('This image has already been placed.');
       if (!same({ ...capture, canEdit: true }) || !MEDIA_ASSET_ID.test(assetId)) throw new Error('The document changed. Place the image again.');
       const admitted = admitMarkdownInsertion(mediaMarkdown(assetId, alt));
-      insertReviewedMarkdown(capture.editor, capture.caret, admitted.content, capture.editorJson);
+      if (!capture.editor.state.selection.empty || capture.editor.state.selection.from !== capture.caret) {
+        throw new Error('The page or insertion point changed. Place the image again.');
+      }
+      // Artwork follows the clicked top-level block; splitting prose can change its Markdown.
+      const point = capture.editor.state.doc.resolve(capture.caret);
+      const afterBlock = point.depth > 0 ? point.after(1) : capture.caret;
+      insertReviewedMarkdownAtAnchor(capture.editor, afterBlock, admitted.content, capture.editorJson);
       applied.add(capture);
     },
   };
