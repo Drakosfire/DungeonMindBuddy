@@ -229,3 +229,14 @@ original failed-run evidence, fixture proof and gold were not changed. The contr
 local-operator credential is a test limitation; real owner/campaign/role resolution
 was exercised. These are in-process HTTP checks, not browser or subject-picker proof.
 Full-system ingestion acceptance remains 0/15 verified.
+
+## Independent review correction
+
+Review of initial head02109da65 found that equal HTTP reply/replay text could be
+empty or carry an error status and still pass the delivery check. The corrected
+acceptance requires both answers to have status `ok`, nonblank text, and exact
+equality with persisted `assistant_text` and the owning completion's normalized
+text. Ordinary history must retain that same text. Eight new negative controls
+cover each reply's empty/error/divergent text, matching empty error replies and
+persisted-text drift. The original actual red run, its metrics and all private
+evidence remain unchanged; no provider operation was repeated.

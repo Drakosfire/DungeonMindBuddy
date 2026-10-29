@@ -119,10 +119,37 @@ def delivered_sample():
         "start_byte": 4868,
         "end_byte": 4939,
     }
-    completion = {"native_clause_citations": [citation]}
+    citation.update(
+        segment_index=0,
+        statement_id="ent:statement",
+        provider_attempt_id="00000000-0000-0000-0000-000000000001",
+        envelope_sha256=proof.fixture.sha(raw.encode()),
+        context_receipt_sha256="0" * 64,
+        managed_world_id=proof.fixture.WORLD,
+        native_world_id=proof.fixture.WORLD,
+        campaign_id=proof.fixture.CAMPAIGN,
+        publication_revision_id=proof.READ_REVISION,
+        source_artifact_id="source",
+        source_revision_id="source-version",
+        semantic_digest="0" * 64,
+    )
+    completion = {
+        "schema": "dmb_native_statement_completion_v1",
+        "context_receipt_sha256": "0" * 64,
+        "answer_context_status": "source_attributed",
+        "answer_segments": [
+            {
+                "kind": "source_report",
+                "text": "the meat came from another plane.",
+                "statement_ids": ["ent:statement"],
+            }
+        ],
+        "native_clause_citations": [citation],
+    }
     turn = {
         "turn_id": "one-turn",
         "status": "completed",
+        "assistant_text": "Source reports: the meat came from another plane.",
         "graph_context_receipt": {"frame": frame},
         "completion": completion,
         "graph_context_execution": {
@@ -139,12 +166,16 @@ def delivered_sample():
     }
     reply = {
         "native_statement_context": {"completion": completion},
-        "answer": {"text": "Source reports: the meat came from another plane."},
+        "answer": {
+            "status": "ok",
+            "text": "Source reports: the meat came from another plane.",
+        },
     }
     history = {
         "turns": [
             {
                 "turn_id": "one-turn",
+                "assistant_text": turn["assistant_text"],
                 "native_statement_context": {"completion": completion},
             }
         ]
@@ -177,10 +208,13 @@ def test_missing_delivery_evidence_or_replay_dispatch_refuses(mutation):
 
 def test_unsupported_semantics_never_gets_integrity_pass_as_semantic_verdict():
     sample = list(delivered_sample())
-    sample[1]["answer"]["text"] = (
-        "Source reports: the meat came from the Abyss because of the Academy."
-    )
+    text = "the meat came from the Abyss because of the Academy."
+    sample[0]["completion"]["answer_segments"][0]["text"] = text
+    sample[0]["assistant_text"] = "Source reports: " + text
+    sample[1]["answer"]["text"] = sample[0]["assistant_text"]
+    sample[2]["turns"][0]["assistant_text"] = sample[0]["assistant_text"]
     sample[4] = deepcopy(sample[1])
+    sample[5] = deepcopy(sample[0])
     verdict = proof.require_delivered(*sample)
     assert verdict["semantic_support"] == "unassessed"
     assert verdict["autonomous_discovery"] == "unassessed"
@@ -309,3 +343,32 @@ def test_unknown_or_entered_operation_refuses_before_configuration(tmp_path):
     (tmp_path / "provider-operation-intent.json").write_text("{}")
     with pytest.raises(ValueError, match="no automatic redispatch"):
         proof.apply_answer(tmp_path / "unavailable-root", tmp_path, {})
+
+
+@pytest.mark.parametrize("target", [1, 4])
+@pytest.mark.parametrize("mutation", ["empty", "error", "divergent"])
+def test_http_answer_must_be_successful_nonblank_exact_completion(target, mutation):
+    sample = list(delivered_sample())
+    if mutation == "empty":
+        sample[target]["answer"]["text"] = ""
+    elif mutation == "error":
+        sample[target]["answer"]["status"] = "error"
+    else:
+        sample[target]["answer"]["text"] = "Another answer"
+    with pytest.raises(ValueError, match="HTTP answer"):
+        proof.require_delivered(*sample)
+
+
+def test_matching_empty_error_replies_are_not_delivery():
+    sample = list(delivered_sample())
+    sample[1]["answer"] = sample[4]["answer"] = {"status": "error", "text": ""}
+    with pytest.raises(ValueError, match="HTTP answer"):
+        proof.require_delivered(*sample)
+
+
+def test_persisted_text_must_match_normalized_completion():
+    sample = list(delivered_sample())
+    sample[0]["assistant_text"] = "Unrelated persisted answer"
+    sample[5] = deepcopy(sample[0])
+    with pytest.raises(ValueError, match="persisted answer"):
+        proof.require_delivered(*sample)

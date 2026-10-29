@@ -626,6 +626,27 @@ def require_delivered(turn, reply, history, opened, replay, after_replay):
         "producing request hash differs",
     )
     completion = turn.get("completion") or {}
+    from application_state.agent_conversation.native_statement_answer import (
+        NativeStatementCompletionV1,
+        answer_text,
+    )
+
+    normalized_text = answer_text(
+        NativeStatementCompletionV1.model_validate(completion)
+    )
+    require(
+        bool(normalized_text.strip()) and turn.get("assistant_text") == normalized_text,
+        "persisted answer differs from normalized completion",
+    )
+    for delivered in (reply, replay):
+        answer = delivered.get("answer") or {}
+        require(
+            answer.get("status") == "ok"
+            and isinstance(answer.get("text"), str)
+            and bool(answer["text"].strip())
+            and answer["text"] == normalized_text,
+            "HTTP answer is unsuccessful, empty or differs from persisted completion",
+        )
     citations = completion.get("native_clause_citations") or []
     require(
         citations and len(opened) == len(citations), "citation opening evidence missing"
@@ -653,6 +674,7 @@ def require_delivered(turn, reply, history, opened, replay, after_replay):
     ]
     require(
         len(matches) == 1
+        and matches[0].get("assistant_text") == normalized_text
         and matches[0].get("native_statement_context", {}).get("completion")
         == completion,
         "ordinary history completion missing",
