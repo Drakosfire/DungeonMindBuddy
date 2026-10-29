@@ -278,3 +278,7 @@ it('reports a real capability read error as failed',async()=>{
  render(<MediaImageWizard onClose={()=>{}} port={api}/>);
  await waitFor(()=>expect(tourImage.inspect).toHaveBeenLastCalledWith({status:'failed',reason:'Capability read failed.'}));expect(api.generate).not.toHaveBeenCalled();
 });
+
+it('does not add a guidance launcher outside the existing tour context',async()=>{
+ const api=createPort();await settings(api);expect(screen.queryByRole('button',{name:'Open guided journey'})).not.toBeInTheDocument();expect(api.generate).not.toHaveBeenCalled();
+});

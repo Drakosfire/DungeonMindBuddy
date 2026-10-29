@@ -4,6 +4,8 @@ import {GuidedTourProvider,useGuidedTour,useTourOwnerReading} from './GuidedTour
 import {readWalkthrough,writeWalkthrough,pointerKey} from './storage';
 import {createWalkthrough,reduceTour,type TargetPin} from './protocol';
 import {useState} from 'react';
+import {MediaImageWizard,type ImageGenerationPort} from '../media/MediaImageWizard';
+import '../media/DocumentImageStudio.css';
 const pin={kind:'source' as const,worldId:'world',objectId:'page',revision:1,digest:'a'.repeat(64)};
 function Controls(){const tour=useGuidedTour();useTourOwnerReading({step:'source',target:pin,control:'source',status:'ready',observation:{step:'source',target:pin,origin:'existing',observedAt:'2026-01-01T00:00:00Z',receiptId:'verified-load'}});return <><button onClick={tour?.open}>Open guidance</button><button data-guided-control="source" onClick={()=>{throw new Error('Guidance must never execute this control');}}>Ordinary source control</button></>;}
 afterEach(()=>vi.restoreAllMocks());
@@ -121,4 +123,27 @@ it('reconciles scoped unavailable to pending without credit and preserves failur
  await waitFor(()=>expect(readWalkthrough(localStorage,'world')?.record.steps.source.state).toBe('failed'));
  mounted.rerender(<GuidedTourProvider worldId='world'><UnavailableControls status='pending' reason='Try the ordinary controls.'/></GuidedTourProvider>);
  await act(async()=>{});expect(readWalkthrough(localStorage,'world')?.record.steps.source.state).toBe('failed');
+});
+
+it('focuses guidance only on opening and restores a usable invoker on explicit Close',async()=>{
+ const mounted=render(<GuidedTourProvider worldId='world'><UnavailableControls status='pending' reason='Inspect the source.'/></GuidedTourProvider>);
+ const invoker=screen.getByText('Open guidance');invoker.focus();fireEvent.click(invoker);
+ const close=screen.getByRole('button',{name:'Close tour panel'});expect(close).toHaveFocus();
+ fireEvent.click(screen.getByRole('button',{name:'Of Conks and Cons'}));await screen.findByRole('heading',{name:'Open the source'});
+ const next=screen.getByRole('button',{name:'Next'});next.focus();
+ mounted.rerender(<GuidedTourProvider worldId='world'><UnavailableControls status='pending' reason='Updated owner instructions.'/></GuidedTourProvider>);
+ expect(next).toHaveFocus();fireEvent.click(close);expect(invoker).toHaveFocus();
+ invoker.focus();fireEvent.click(invoker);expect(screen.getByRole('button',{name:'Close tour panel'})).toHaveFocus();
+});
+
+it('keeps the actual nonmodal Studio and its typed draft mounted while guidance opens and closes',async()=>{
+ const port:ImageGenerationPort={capabilities:vi.fn().mockResolvedValue({configured:true,library_ready:true,storage_configured:false,models:[{id:'model',label:'Model',formats:['png'],controls:[]}]}),generate:vi.fn(),list:vi.fn(),get:vi.fn(),save:vi.fn()};
+ render(<GuidedTourProvider worldId='world'><Reopen/><aside className='document-image-studio' aria-label='Image Studio fixture'><MediaImageWizard port={port} onClose={()=>{}}/></aside></GuidedTourProvider>);
+ await screen.findByRole('option',{name:'Model'});
+ const prompt=screen.getByRole('textbox',{name:'What would you like to see?'});fireEvent.change(prompt,{target:{value:'Layer test only; do not generate.'}});
+ const invoker=screen.getByRole('button',{name:'Open guided journey'});invoker.focus();fireEvent.click(invoker);
+ expect(screen.getByRole('button',{name:'Close tour panel'})).toHaveFocus();expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+ fireEvent.click(screen.getByRole('button',{name:'Close tour panel'}));
+ expect(screen.getByRole('textbox',{name:'What would you like to see?'})).toBe(prompt);expect(prompt).toHaveValue('Layer test only; do not generate.');expect(invoker).toHaveFocus();
+ expect(port.generate).not.toHaveBeenCalled();expect(port.save).not.toHaveBeenCalled();
 });
