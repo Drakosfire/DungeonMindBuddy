@@ -31,7 +31,16 @@ DATABASE = "benchmark_ingestion_native_e785f5a2e2"
 APP_DATABASE = "benchmark_ingestion_app_e785f5a2e2"
 INITIAL_HEAD = "rev:dfbd4025e3638a751afd276c511fe3e4"
 SYSTEM_ID = "7701521766801596454"
-CONTROL_HEAD = "066c22165e7d1817d35563380bb76151ee544b06"
+CONTROL_HEAD = "a6292c2112ef96a89f658504f9a7611c7c90b6df"
+CORE_REF = "38c87bc78bcd05a538bd89fdbb928fca54c3a283"
+CORE_ROOT = Path(
+    "/home/drakosfire/Projects/.codex/native-profile-transition/worktrees/DungeonMind"
+)
+CHECKPOINT = "q01-fullworld-profile2-v1"
+TRANSITION_CHILD = "rev:5e8dda8979518632f905cd53d7c622aa"
+TRANSITION_COMMAND = "2c102971fc8a47575e9b4edefd0408632bdc1fc93954e9736ab7fe9c32af6bc0"
+TRANSITION_GRAPH = "2b20e71e56fc251433f66bfd7b0bc7564ecdd0ee4e231b230ec4d3160fdd6e42"
+TRANSITION_ID = "q01-fullworld-profile-1-to-2-v1"
 SIGNING_KEY = "native-review-context-v2/dossier-standing-v1/test-signing-key"
 BODY_SHA = "a5a1a534941b01c3a5b422a9b0f0504d309c6eb06da2a485454c027f265c7ac1"
 CLAUSE_SHA = "3256990becae288400b705809901d258a074dcce39313fb6d3d236cc4ba93cb2"
@@ -152,6 +161,192 @@ def verify_source_tree(import_root, repository_root, ref, packages):
         actual == expected, "actual dependency source differs from accepted Git ref"
     )
     return {"ref": ref, "files": len(expected), "tree_digest": digest(expected)}
+
+
+def transition_authority(repo):
+    """Derive commitments only; this function cannot publish."""
+    from dungeonmind.contracts.vnext.profile_transition import (
+        KnowledgeProfileTransitionV1,
+    )
+    from dungeonmind.application.vnext.authority import revision_from_command
+    from dungeonmind.application.vnext.publication import _command_from_stored
+    from dungeonmind.domain.canonical import canonical_sha256
+    from apps.live_control_server.integrations.dungeonmind.native_registry_source import (
+        descriptors,
+    )
+    from graph_memory.vnext.domain_runtime import (
+        dungeonbuddy_dnd5e_custom_predicate_profile,
+    )
+
+    parent = repo.get_revision(WORLD, INITIAL_HEAD)
+    require(parent is not None, "transition immutable parent missing")
+    domain, current = descriptors(repo, WORLD, INITIAL_HEAD)
+    target = dungeonbuddy_dnd5e_custom_predicate_profile()
+    require(
+        parent.graph_payload_sha256 == TRANSITION_GRAPH, "transition graph hash differs"
+    )
+    require(
+        current.profile_revision == "1"
+        and canonical_sha256(current.model_dump(mode="json"))
+        == "51ea47ff45bc86ea158939c34a5769e7ee56de3911278d473570e3795edb7e14",
+        "transition from ref differs",
+    )
+    require(
+        domain.domain_revision == "2"
+        and canonical_sha256(domain.model_dump(mode="json"))
+        == "d12f3a517a37d29a2ba52455d9ae1691bc5e4ff3fd6853b701a9e28e46ec65cd",
+        "transition domain ref differs",
+    )
+    require(
+        canonical_sha256(target.model_dump(mode="json"))
+        == "d40a352d1c6cbd24df68be887be6dc65a470e4cea8fb64970ef9ad89b96a3339",
+        "transition target ref differs",
+    )
+    request = KnowledgeProfileTransitionV1(
+        space_id=WORLD,
+        expected_parent_revision_id=INITIAL_HEAD,
+        domain_contract_ref=parent.revision.domain_contract_ref,
+        from_profile_ref=parent.revision.semantic_profile_ref,
+        to_profile_ref={
+            "profile_id": target.profile_id,
+            "profile_revision": target.profile_revision,
+            "descriptor_sha256": canonical_sha256(target.model_dump(mode="json")),
+        },
+        publication_id=TRANSITION_ID,
+        created_at=datetime(2026, 10, 29, 16, 34, 32, tzinfo=UTC),
+    )
+    command = _command_from_stored(parent).model_copy(
+        update={
+            "parent_revision_id": INITIAL_HEAD,
+            "expected_parent_revision_id": INITIAL_HEAD,
+            "operation_ids": [TRANSITION_ID],
+            "semantic_profile_ref": request.to_profile_ref,
+            "created_at": request.created_at,
+        }
+    )
+    require(
+        canonical_sha256(command.model_dump(mode="json")) == TRANSITION_COMMAND,
+        "transition command commitment differs",
+    )
+    require(
+        revision_from_command(command).revision_id == TRANSITION_CHILD,
+        "transition child commitment differs",
+    )
+    return request, domain, current, target
+
+
+def verify_transition_receipt(
+    repo,
+    request,
+    receipt,
+    *,
+    child=TRANSITION_CHILD,
+    command_sha=TRANSITION_COMMAND,
+    graph_sha=TRANSITION_GRAPH,
+):
+    require(receipt is not None, "transition receipt missing")
+    require(
+        receipt.space_id == request.space_id
+        and receipt.publication_id == request.publication_id
+        and receipt.expected_parent_revision_id == request.expected_parent_revision_id
+        and receipt.published_revision_id == child
+        and receipt.command_sha256 == command_sha
+        and receipt.graph_payload_sha256 == graph_sha,
+        "transition receipt differs",
+    )
+    parent = repo.get_revision(request.space_id, request.expected_parent_revision_id)
+    after = repo.get_revision(request.space_id, child)
+    require(parent is not None and after is not None, "transition revision missing")
+    require(
+        parent.graph_payload == after.graph_payload
+        and after.graph_payload_sha256 == graph_sha,
+        "transition graph changed",
+    )
+    require(
+        after.revision.parent_revision_id == parent.revision.revision_id
+        and after.revision.domain_contract_ref == request.domain_contract_ref
+        and parent.revision.semantic_profile_ref == request.from_profile_ref
+        and after.revision.semantic_profile_ref == request.to_profile_ref
+        and after.revision.migration_origin_ref == parent.revision.migration_origin_ref,
+        "transition revision authority differs",
+    )
+    cursor, seen = repo.get_head(request.space_id).head_revision_id, set()
+    while cursor != child:
+        require(
+            cursor is not None and cursor not in seen,
+            "transition descendant lineage differs",
+        )
+        seen.add(cursor)
+        node = repo.get_revision(request.space_id, cursor)
+        require(
+            node is not None
+            and node.revision.domain_contract_ref == request.domain_contract_ref
+            and node.revision.semantic_profile_ref == request.to_profile_ref,
+            "transition descendant authority differs",
+        )
+        cursor = node.revision.parent_revision_id
+    return receipt
+
+
+def execute_transition(
+    repo,
+    authority,
+    save,
+    *,
+    expected_epoch=26,
+    child=TRANSITION_CHILD,
+    command_sha=TRANSITION_COMMAND,
+    graph_sha=TRANSITION_GRAPH,
+    epoch_reader=None,
+):
+    from dungeonmind.application.vnext import transition_knowledge_semantic_profile
+    from dungeonmind.application.vnext.publication import get_publication_receipt
+    from apps.live_control_server.integrations.dungeonmind.native_registry_source import (
+        access_context,
+    )
+
+    request, domain, current, target = authority
+    epoch_reader = epoch_reader or (
+        lambda: access_context(repo, request.space_id)[0]["source_epoch"]
+    )
+    save(
+        "transition-request",
+        {
+            "request": request.model_dump(mode="json"),
+            "domain": domain.model_dump(mode="json"),
+            "current_profile": current.model_dump(mode="json"),
+            "target_profile": target.model_dump(mode="json"),
+        },
+    )
+    # Recover exact publication before considering the mutable head.
+    receipt = get_publication_receipt(
+        request.space_id, request.publication_id, repository=repo
+    )
+    require(epoch_reader() == expected_epoch, "transition source epoch differs")
+    if receipt is None:
+        require(
+            repo.get_head(request.space_id).head_revision_id
+            == request.expected_parent_revision_id,
+            "fresh transition parent changed",
+        )
+        receipt = transition_knowledge_semantic_profile(
+            repository=repo,
+            request=request,
+            domain_contract=domain,
+            current_profile=current,
+            target_profile=target,
+        )
+    verify_transition_receipt(
+        repo,
+        request,
+        receipt,
+        child=child,
+        command_sha=command_sha,
+        graph_sha=graph_sha,
+    )
+    require(epoch_reader() == expected_epoch, "transition source epoch changed")
+    save("transition-receipt", receipt.model_dump(mode="json"))
+    return receipt
 
 
 def supports_statement_kernel(profile):
@@ -323,7 +518,15 @@ def frozen_payload(selection, world, origin, source, meat_id, pins):
     }
 
 
-def execute_native_proof(repo, body, pins, binding, save, initial_head=INITIAL_HEAD):
+def execute_native_proof(
+    repo,
+    body,
+    pins,
+    binding,
+    save,
+    initial_head=INITIAL_HEAD,
+    operation_namespace="q01-fullworld-v1",
+):
     """Only exported governed source/WK APIs and merged signed statement service.
 
     ``save`` durably checkpoints original requests/packets before their calls.
@@ -366,7 +569,8 @@ def execute_native_proof(repo, body, pins, binding, save, initial_head=INITIAL_H
         "current native parent cannot admit statement kernel; governed descriptor transition required",
     )
     origin = NativeTextSourceOriginV1(
-        namespace="dungeonbuddy.benchmark.q01-app-version-bridge:v1",
+        namespace="dungeonbuddy.benchmark.q01-app-version-bridge:"
+        + operation_namespace,
         object_id=canonical(
             {
                 "artifact": APP_ARTIFACT,
@@ -378,7 +582,9 @@ def execute_native_proof(repo, body, pins, binding, save, initial_head=INITIAL_H
     )
     request = NativeTextSourceAdmissionV1(
         space_id=world,
-        admission_id="q01-fixture-source:v1:"
+        admission_id="q01-fixture-source:"
+        + operation_namespace
+        + ":"
         + digest({"world": world, "origin": origin.model_dump(mode="json")}),
         expected_parent_revision_id=initial_head,
         created_at=NOW,
@@ -423,7 +629,10 @@ def execute_native_proof(repo, body, pins, binding, save, initial_head=INITIAL_H
         domain,
         profile,
         now=NOW,
-        operation_id="q01-fixture-meat:v1:" + digest(origin.model_dump(mode="json")),
+        operation_id="q01-fixture-meat:"
+        + operation_namespace
+        + ":"
+        + digest(origin.model_dump(mode="json")),
     )
     intent = wk.WorldChangeIntent(
         world,
@@ -654,10 +863,14 @@ def preflight(root):
     )
     native_identity = check_server(connection["dsn"], DATABASE, donor)
     app_identity = check_server(connection["app_dsn"], APP_DATABASE, donor)
+    require(
+        Path(dungeonmind.__file__).resolve().parent.parent == CORE_ROOT / "src",
+        "actual Core import differs from fixture dependency",
+    )
     core_integrity = verify_source_tree(
         Path(dungeonmind.__file__).resolve().parent.parent,
-        Path("/home/drakosfire/Projects/DungeonOverMind/DungeonMind"),
-        "4ccd39a1e433d81569d86c05273ac33ee8f27ef3",
+        CORE_ROOT,
+        CORE_REF,
         ("dungeonmind", "dungeonmind_dnd"),
     )
     wkroot = Path(worldkeeper.__file__).resolve().parents[1]
@@ -700,10 +913,23 @@ def preflight(root):
             "reviewed immutable APP source differs",
         )
     repo = repository(connection["dsn"], native_identity)
+    from dungeonmind.application.vnext.publication import get_publication_receipt
+
+    authority = transition_authority(repo)
+    receipt = get_publication_receipt(WORLD, TRANSITION_ID, repository=repo)
+    if receipt is not None:
+        verify_transition_receipt(repo, authority[0], receipt)
     head = repo.get_head(WORLD)
     require(
-        head.head_revision_id == INITIAL_HEAD,
-        "initial native head changed; review retained checkpoint before retry",
+        receipt is not None or head.head_revision_id == INITIAL_HEAD,
+        "initial native head changed without transition receipt",
+    )
+    old_checkpoint = root.parent / "native-review-context-v2/q01-fullworld-v1"
+    old_request = json.loads((old_checkpoint / "source-request.json").read_text())
+    require(
+        repo.get_native_source_admission_receipt(WORLD, old_request["admission_id"])
+        is None,
+        "original refused source request has admission receipt",
     )
     native_graph = repo.get_revision(WORLD, INITIAL_HEAD).graph_payload
     parent_revision = repo.get_revision(WORLD, INITIAL_HEAD).revision
@@ -724,7 +950,11 @@ def preflight(root):
         "app_identity": app_identity,
         "container": donor["container"],
         "file_root": str(files),
-        "native_head": INITIAL_HEAD,
+        "native_head": head.head_revision_id,
+        "transition_request": authority[0].model_dump(mode="json"),
+        "transition_ready": receipt is None and head.head_revision_id == INITIAL_HEAD,
+        "transition_receipt": receipt.model_dump(mode="json") if receipt else None,
+        "original_checkpoint": file_fingerprints(old_checkpoint),
         "domain_ref": parent_revision.domain_contract_ref.model_dump(mode="json"),
         "profile_ref": parent_revision.semantic_profile_ref.model_dump(mode="json"),
         "statement_kernel_available": supports_statement_kernel(profile),
@@ -758,7 +988,8 @@ APPENDS = {
 }
 
 
-def conservation(before, after):
+def conservation(before, after, *, appends=None, source_epoch_change=True):
+    appends = APPENDS if appends is None else appends
     failures = []
     if set(before) != set(after):
         failures.append("table inventory changed")
@@ -775,10 +1006,10 @@ def conservation(before, after):
             "removed_or_changed": sum(removed.values()),
             "added_or_changed": sum(added.values()),
         }
-        if table in APPENDS:
+        if table in appends:
             if (
                 removed
-                or sum(added.values()) != APPENDS[table]
+                or sum(added.values()) != appends[table]
                 or any(new["owners"].get(h) != WORLD for h in added)
             ):
                 failures.append(table + ": unexpected append or prior-row mutation")
@@ -790,7 +1021,10 @@ def conservation(before, after):
                 or any(new["owners"].get(h) != WORLD for h in added)
             ):
                 failures.append(table + ": unrelated head changed")
-        elif table == "dungeonmind.knowledge_native_source_authority":
+        elif (
+            table == "dungeonmind.knowledge_native_source_authority"
+            and source_epoch_change
+        ):
             if (
                 old["count"] != 1
                 or new["count"] != 1
@@ -800,7 +1034,7 @@ def conservation(before, after):
                 failures.append(table + ": unexpected authority delta")
         else:
             failures.append(table + ": outside permitted delta")
-    for table in APPENDS:
+    for table in appends:
         if table not in deltas:
             failures.append(table + ": required publication rows missing")
     return {"passed": not failures, "failures": failures, "table_deltas": deltas}
@@ -813,12 +1047,18 @@ def main(argv=None):
     parser.add_argument("--preflight-sha256")
     args = parser.parse_args(argv)
     root = args.clone_root.resolve(strict=True)
-    evidence = root.parent / "native-review-context-v2/q01-fullworld-v1"
+    evidence = root.parent / "native-review-context-v2" / CHECKPOINT
     evidence.mkdir(parents=True, exist_ok=True, mode=0o700)
     evidence.chmod(0o700)
 
     def save(name, value):
         target = evidence / (name + ".json")
+        if target.exists():
+            require(
+                json.loads(target.read_text()) == value,
+                "checkpoint collision: preserve original " + name,
+            )
+            return
         temporary = target.with_suffix(".json.pending")
         descriptor = os.open(temporary, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
         with os.fdopen(descriptor, "w") as output:
@@ -835,12 +1075,9 @@ def main(argv=None):
     current = preflight(root)
     if not args.apply:
         prior_incident = (evidence / "source-request.json").exists()
-        save(
-            "preflight-observation-" + digest(current)
-            if prior_incident
-            else "preflight",
-            current,
-        )
+        save("preflight-observation-" + digest(current), current)
+        if not (evidence / "preflight.json").exists():
+            save("preflight", current)
         print(
             json.dumps(
                 {
@@ -849,16 +1086,24 @@ def main(argv=None):
                     "evidence": str(evidence),
                     "prior_apply_checkpoint": prior_incident,
                     "statement_kernel_available": current["statement_kernel_available"],
-                    "apply_ready": current["statement_kernel_available"]
+                    "apply_ready": (
+                        current.get("transition_ready", False)
+                        or current["statement_kernel_available"]
+                    )
                     and not prior_incident,
                 }
             )
         )
         return
-    frozen = json.loads((evidence / "preflight.json").read_text())
+    selected = evidence / (
+        "preflight-observation-" + str(args.preflight_sha256) + ".json"
+    )
+    frozen = json.loads(
+        (selected if selected.exists() else evidence / "preflight.json").read_text()
+    )
     require(
-        current["statement_kernel_available"],
-        "current native parent lacks statement kernel; no writes or transition authorized",
+        current.get("transition_ready", False) or current["statement_kernel_available"],
+        "current native parent lacks statement kernel or pinned transition authority",
     )
     require(
         args.preflight_sha256 == digest(frozen) == digest(current),
@@ -867,6 +1112,10 @@ def main(argv=None):
     require(
         not (evidence / "native-before.dump").exists(),
         "snapshot already exists; original incident must be inspected, not reminted",
+    )
+    require(
+        current["native_head"] == INITIAL_HEAD and current["source_epoch"] == 26,
+        "fresh profile2 proof requires original head and source epoch",
     )
     connection, donor, files = retained_inputs(root)
     # Snapshot the SAME database through the already verified retained container.
@@ -922,12 +1171,43 @@ def main(argv=None):
         {"DMB_GRAPH_REVIEW_PREPARE_BINDING_KEY": keyfile.read_text().strip()},
     ):
         try:
+            repo = repository(connection["dsn"], current["native_identity"])
+            execute_transition(repo, transition_authority(repo), save)
+            transition_after = database_fingerprints(connection["dsn"])
+            transition_guard = conservation(
+                current["native_tables"],
+                transition_after,
+                appends={
+                    "dungeonmind.knowledge_revisions": 1,
+                    "dungeonmind.knowledge_head_events": 1,
+                    "dungeonmind.knowledge_publication_receipts": 1,
+                },
+                source_epoch_change=False,
+            )
+            require(transition_guard["passed"], "transition conservation failed")
+            require(
+                database_fingerprints(connection["app_dsn"]) == current["app_tables"]
+                and file_fingerprints(files) == current["files"],
+                "transition unrelated state changed",
+            )
+            save("transition-conservation", transition_guard)
+            save(
+                "post-transition-head",
+                {
+                    "parent": INITIAL_HEAD,
+                    "child": TRANSITION_CHILD,
+                    "publication_id": TRANSITION_ID,
+                    "source_epoch": 26,
+                },
+            )
             result = execute_native_proof(
-                repository(connection["dsn"], current["native_identity"]),
+                repo,
                 (files / SOURCE_PATH).read_bytes(),
                 current["source"],
                 current["binding"],
                 save,
+                initial_head=TRANSITION_CHILD,
+                operation_namespace=CHECKPOINT,
             )
             save("proof", result)
         except Exception as exc:
@@ -963,7 +1243,16 @@ def main(argv=None):
     after_native = database_fingerprints(connection["dsn"])
     after_app = database_fingerprints(connection["app_dsn"])
     after_files = file_fingerprints(files)
-    guard = conservation(current["native_tables"], after_native)
+    guard = conservation(
+        current["native_tables"],
+        after_native,
+        appends=APPENDS
+        | {
+            "dungeonmind.knowledge_revisions": 4,
+            "dungeonmind.knowledge_head_events": 4,
+            "dungeonmind.knowledge_publication_receipts": 4,
+        },
+    )
     guard.update(
         {
             "app_unchanged": current["app_tables"] == after_app,
@@ -991,6 +1280,11 @@ def main(argv=None):
         )[0]["source_epoch"]
         == current["source_epoch"] + 1,
         "unexpected source authority epoch delta",
+    )
+    require(
+        file_fingerprints(root.parent / "native-review-context-v2/q01-fullworld-v1")
+        == current["original_checkpoint"],
+        "original refused checkpoint changed",
     )
     require_complete_evaluation(result["evaluation"])
     print(
