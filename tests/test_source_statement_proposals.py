@@ -4,17 +4,21 @@ import json
 from copy import deepcopy
 from dataclasses import replace
 from uuid import uuid4
+
 import httpx
 import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
-from tests.test_source_statements import lane as lane, GM, BODY, advance
-from tests.application_state.conftest import (
-    application_state_dsn as application_state_dsn,
-)
+
 from apps.live_control_server.models.source_statement_proposals import ProposalRequest
 from apps.live_control_server.services import source_statement_proposals as service
 from apps.live_control_server.services import source_statements
+from tests.application_state.conftest import (
+    application_state_dsn as application_state_dsn,
+)
+from tests.test_source_statements import BODY, GM, NOW, advance
+from tests.test_source_statements import extension_lane as extension_lane
+from tests.test_source_statements import lane as lane
 
 BATCH = {
     "contract": "qualified_source_handles_v3",
@@ -428,9 +432,10 @@ def source_lane(lane, body, *, partial=True):
     """An actual new synthetic source whose registered evidence is one clause."""
     from datetime import UTC, datetime
     from hashlib import sha256
+    from types import SimpleNamespace
+
     from dungeonmind.application.vnext import publish_native_text_source_evidence
     from dungeonmind.contracts.vnext.native_source import NativeTextSourceAdmissionV1
-    from types import SimpleNamespace
 
     repo = lane.repo
     selected = lane.selection
@@ -542,6 +547,7 @@ def test_partial_evidence_allows_inspection_without_publication_widening(
     partial_span_lane, application_state_dsn, monkeypatch
 ):
     from hashlib import sha256
+
     from application_state.statement_proposals import service as store
 
     lane = partial_span_lane
@@ -878,8 +884,9 @@ def test_historical_failed_contract_replays_without_current_rendering(
 def test_stored_result_and_wire_input_tampering_refuse(
     lane, application_state_dsn, monkeypatch, tamper
 ):
-    from application_state.unit_of_work import unit_of_work
     from psycopg.types.json import Jsonb
+
+    from application_state.unit_of_work import unit_of_work
 
     with client(monkeypatch, Wire()) as c:
         req, row = produce(c, lane)
@@ -954,8 +961,8 @@ def test_review_narrows_same_unit_but_conflicting_clause_meaning_refuses(
 def test_actual_prepared_native_schema_expresses_reporter_dependency(
     lane, application_state_dsn, monkeypatch
 ):
-    from jsonschema import Draft202012Validator
     from generationengine.utils.schema_utils import make_schema_strict
+    from jsonschema import Draft202012Validator
 
     wire = Wire()
     with client(monkeypatch, wire) as c:
@@ -1151,6 +1158,7 @@ def test_actual_wire_preserves_dependency_order_after_jsonb_reload(
     lane, application_state_dsn, monkeypatch
 ):
     from generationengine.utils.schema_utils import make_schema_strict
+
     from application_state.statement_proposals import service as store
 
     original_claim = store.claim
@@ -1257,3 +1265,99 @@ def test_changed_schema_sequence_retains_failure_without_dispatch(
         assert row["failure"] == "proposal_generation_not_dispatched"
         assert not wire.requests
         assert c.get(url(req)).json() == row
+
+
+@pytest.mark.parametrize("extension_lane", ["memory", "postgres"], indirect=True)
+@pytest.mark.parametrize("wrong_root", [False, True])
+def test_original_proposal_review_with_extension_proof(
+    extension_lane, application_state_dsn, monkeypatch, wrong_root,
+):
+    lane = extension_lane
+    from hashlib import sha256
+
+    from dungeonmind.application.vnext import publish_native_text_source_evidence
+    from dungeonmind.contracts.vnext.native_source import NativeTextSourceAdmissionV1
+
+    from apps.live_control_server.models.source_statements import ConfirmStatement
+    from graph_memory.vnext.domain_runtime import (
+        GM_LABEL,
+        dungeonbuddy_dnd5e_custom_predicate_profile,
+        dungeonbuddy_world_domain_contract,
+    )
+    from tests.test_source_statements import extension_request, extension_selection
+
+    # Extraction is retained on its ORIGINAL admission and read revision. It is
+    # never regenerated from the extension, and the private wire is synthetic.
+    wire = Wire()
+    with client(monkeypatch, wire) as c:
+        req, record = produce(c, lane)
+        original_intent = deepcopy(record["intent"])
+        original_raw = record["raw_output"]
+        request = extension_request(lane)
+        if wrong_root:
+            # Same World AND same body, but a different immutable source root.
+            root = publish_native_text_source_evidence(
+                repository=lane.repo,
+                domain_contract=dungeonbuddy_world_domain_contract(),
+                semantic_profile=dungeonbuddy_dnd5e_custom_predicate_profile(),
+                request=NativeTextSourceAdmissionV1(
+                    space_id=lane.world.world_id, admission_id="another-root",
+                    expected_parent_revision_id=lane.repo.get_head(lane.world.world_id).head_revision_id,
+                    created_at=NOW,
+                    body_text=BODY, expected_body_sha256=sha256(BODY.encode()).hexdigest(),
+                    source_classification="dungeonbuddy.source:worldbuilding",
+                    authority="primary", visibility={"kind": "labels_any", "labels": [GM_LABEL]},
+                    origin={"namespace": "test.document", "object_id": "different", "revision_id": "1"},
+                    spans=[{"client_ref": "first", "evidence_role": "support", "start_byte": 0,
+                            "end_byte": 1, "expected_slice_sha256": sha256(BODY.encode()[:1]).hexdigest()}],
+                ),
+            )
+            request = request.model_copy(update={
+                "original_admission_id": root.admission_id,
+                "source_artifact_id": root.source_artifact_id, "source_revision_id": root.source_revision_id,
+                "expected_parent_revision_id": root.published_revision_id,
+                "expected_source_authority_epoch": lane.repo.open_native_source_view(lane.world.world_id).epoch,
+            })
+        receipt = source_statements.extend_source_evidence(request, GM)["receipt"]
+        lane.selection = extension_selection(lane, receipt)
+        body = review_body(lane, record)
+        head = lane.repo.get_head(lane.world.world_id)
+        reviewed = c.post(review_url(req), json=body)
+        if wrong_root:
+            assert reviewed.status_code == 409, reviewed.text
+            assert "another original source" in reviewed.text
+            assert lane.repo.get_head(lane.world.world_id) == head
+            assert c.get(url(req)).json()["reviews"] == []
+            return
+        assert reviewed.status_code == 200, reviewed.text
+        decision = reviewed.json()
+        packet = ConfirmStatement(**{k: decision["prepared_packet"][k] for k in ("envelope", "prepared", "token")})
+        assert packet.envelope["payload"]["proof"]["source_evidence_extension_id"] == request.extension_id
+        published = source_statements.confirm(packet, GM)
+        assert published["status"] == "committed"
+        advance(lane)
+        assert c.post(review_url(req), json=body).json() == decision
+        assert source_statements.confirm(packet, GM)["recovered"]
+        read = source_statements.read_subject(
+            managed_world_id=req.managed_world_id, campaign_id=req.campaign_id,
+            revision_id=lane.repo.get_head(lane.world.world_id).head_revision_id,
+            entity_id=lane.ids["B"], principal=GM,
+        )
+        assert len(read["statements"]) == 1
+        assert read["statements"][0]["payload"] == packet.envelope["payload"]
+        retained = c.get(url(req)).json()
+        assert retained["intent"] == original_intent
+        assert retained["raw_output"] == original_raw and len(wire.requests) == 1
+
+
+def test_original_review_identity_omits_absent_extension_field(lane, application_state_dsn, monkeypatch):
+    with client(monkeypatch, Wire()) as c:
+        req, record = produce(c, lane)
+        body = review_body(lane, record)
+        body["selection"].pop("source_evidence_extension_id")
+        response = c.post(review_url(req), json=body)
+        assert response.status_code == 200, response.text
+        decision = response.json()
+        assert decision["intent"]["selection"] == body["selection"]
+        body["selection"]["source_evidence_extension_id"] = None
+        assert c.post(review_url(req), json=body).json() == decision

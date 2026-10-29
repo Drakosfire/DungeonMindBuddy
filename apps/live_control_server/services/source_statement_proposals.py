@@ -1,26 +1,28 @@
 """Admitted source → private proposals → explicit review → existing WK preparation."""
 
 from hashlib import sha256
+
+from dungeonmind.application.vnext import EntityReadService, open_admitted_native_text
 from fastapi.encoders import jsonable_encoder
-from dungeonmind.application.vnext import open_admitted_native_text, EntityReadService
-from application_state.statement_proposals import service as store
+
 from application_state.errors import (
     ApplicationStateConflictError,
     ApplicationStateNotFoundError,
 )
-from graph_memory.extraction.qualified_statement_proposals import (
-    canonical,
-    digest,
-    strict_json,
-    parse,
-    ProposalBatch,
-    INSTRUCTIONS,
-)
+from application_state.statement_proposals import service as store
 from apps.live_control_server.models.source_statement_proposals import ProposalRequest
 from apps.live_control_server.services.agent_graph_auth import require_native_graph_gm
-from . import source_statements as statements
-
+from graph_memory.extraction.qualified_statement_proposals import (
+    INSTRUCTIONS,
+    ProposalBatch,
+    canonical,
+    digest,
+    parse,
+    strict_json,
+)
 from graph_memory.extraction.statement_source_catalog import CONTRACT, catalog
+
+from . import source_statements as statements
 
 MODEL = "gpt-6-luna"
 SCHEMA_NAME = "qualified_source_propositions_v3"
@@ -228,9 +230,9 @@ async def produce(request, principal, *, transport=None):
         return get(request.operation_id, request.managed_world_id, principal)
     from generationengine import GenerationClient, TextRequest
     from generationengine.text_dispatch import TextDispatchGate
-    from .plan_jev_writer import PlanWriterProvider
-
     from generationengine.utils.schema_utils import make_schema_strict
+
+    from .plan_jev_writer import PlanWriterProvider
 
     provider_schema = None
     output_format = None
@@ -406,7 +408,11 @@ def review(operation_id, world, request, principal):
     record = get(operation_id, world, principal)
     intent = {
         "proposal_id": request.proposal_id,
-        "selection": request.selection.model_dump(mode="json"),
+        "selection": request.selection.model_dump(
+            mode="json",
+            exclude={"source_evidence_extension_id"}
+            if request.selection.source_evidence_extension_id is None else set(),
+        ),
     }
     key, fingerprint = str(request.decision_id), digest(intent)
     old = next((r for r in record["reviews"] if r["decision_id"] == key), None)
@@ -426,8 +432,6 @@ def review(operation_id, world, request, principal):
     for field in (
         "managed_world_id",
         "campaign_id",
-        "source_admission_id",
-        "evidence_ref_id",
         "source_sha256",
     ):
         if getattr(extraction, field) != getattr(selected, field):
@@ -443,6 +447,26 @@ def review(operation_id, world, request, principal):
     if proposal is None:
         raise ValueError("Unknown source proposal")
     repo, space, material, _ = _acquire(extraction, principal)
+    if selected.source_evidence_extension_id is None:
+        if (selected.source_admission_id, selected.evidence_ref_id) != (
+            extraction.source_admission_id, extraction.evidence_ref_id,
+        ):
+            raise ValueError("Review changed the extraction source proof")
+    else:
+        extension = repo.get_native_source_evidence_extension_receipt(
+            space, selected.source_evidence_extension_id
+        )
+        root = repo.get_native_source_admission_receipt(space, extraction.source_admission_id)
+        if (
+            extension is None or root is None
+            or extension.original_admission_id != extraction.source_admission_id
+            or extension.source_artifact_id != root.source_artifact_id
+            or extension.source_revision_id != root.source_revision_id
+        ):
+            raise ValueError("Review extension belongs to another original source")
+        # This relation is necessary, never sufficient: statements.prepare below
+        # authenticates Core's root fingerprint/publication, current access,
+        # extension membership and exact selected source bytes before any review save.
     raw = material["source"].encode("utf-8")
     if not any(
         unit["start_byte"]

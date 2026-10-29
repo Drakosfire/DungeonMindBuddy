@@ -529,8 +529,21 @@ def test_actual_cross_scope_dependency_is_partial(lane, hidden_component):
 
 
 @pytest.fixture
-def extension_lane(tmp_path, monkeypatch):
-    return make_lane(tmp_path, monkeypatch, narrow=True)
+def extension_lane(tmp_path, monkeypatch, request):
+    repo = None
+    if getattr(request, "param", "memory") == "postgres":
+        from urllib.parse import urlsplit
+
+        from dungeonmind.infrastructure.postgres import (
+            PostgresDatabase,
+            PostgresNativeSourceEvidenceRepository,
+        )
+        dsn = os.environ.get("DMB_NATIVE_SOURCE_EXTENSION_TEST_DATABASE_URL")
+        if not dsn:
+            pytest.skip("requires an owned disposable migrated native PostgreSQL database")
+        assert urlsplit(dsn).path.removeprefix("/").startswith("test_native_extension_")
+        repo = PostgresNativeSourceEvidenceRepository(PostgresDatabase(dsn))
+    return make_lane(tmp_path, monkeypatch, repo=repo, narrow=True)
 
 
 def extension_request(lane):

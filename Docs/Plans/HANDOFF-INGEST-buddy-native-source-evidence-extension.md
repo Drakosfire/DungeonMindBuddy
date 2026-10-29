@@ -41,14 +41,15 @@ This is implementation evidence, not independent review, deployment or full-chai
 acceptance. Original signed-proof replay after extension and existing registry
 caller checks are included in the final cumulative review/run.
 
-## Proposed lease amendment — pending independent architecture approval
+## Approved lease amendment
 
 The cumulative consumer audit found source_statement_proposals.review compares
 selected admission/evidence IDs directly with extraction IDs. An extension is a
 distinct proof, so this would reject the actual V7 review before prepare. Keep
 this PR open and undelivered. This is part of the same proof-consumer capability.
 
-Propose adding exactly two owned paths: apps/live_control_server/services/
+Independent architecture APPROVE exactd2cc94f90b416e5c8f03d08eb19f10011e12c3fd
+authorizes adding exactly two owned paths: apps/live_control_server/services/
 source_statement_proposals.py and tests/test_source_statement_proposals.py.
 Retain exact original proof equality when original admission is chosen. When an
 extension is explicitly chosen, require its original_admission_id to equal the
@@ -60,3 +61,12 @@ order or extraction ancestry. Independently exercise actual persisted proposal
 review → extension-selected prepare → confirm → durable readback/replay using
 synthetic source/proposals, with no provider call. Reject an extension from another
 root even if bytes match. No other path or semantic capability is allocated.
+
+The approved amendment keeps extraction on its original proof/read revision and
+allows the explicit review to choose a same-root extension. Root/source pair and
+body are checked; Core-backed prepare remains mandatory before storing review.
+Existing original review intent bytes omit the absent new proof field, preserving
+their immutable decision digest without rewriting prior decisions. Same-byte
+other-root extension is refused. A122-check combined disposable APP/native run
+passed before adding the explicit PostgreSQL parameter to both same-root/wrong-
+root proposal cases; the final cumulative run and review cover that addition.
