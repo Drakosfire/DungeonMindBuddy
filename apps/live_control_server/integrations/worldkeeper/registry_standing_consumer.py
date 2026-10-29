@@ -14,7 +14,7 @@ from worldkeeper.application import contracts as wk
 from worldkeeper.integrations.dungeonmind import DungeonMindWorldKeeperRuntime
 
 CODEC = "dmb_wk_prepared_standing_v1"
-# Explicit types, never request-directed imports. Relationships are outside this slice.
+# Explicit types, never request-directed imports. Intent builders define allowed semantics.
 _TYPES = {
     c.__name__: c
     for c in (
@@ -23,6 +23,9 @@ _TYPES = {
         wk.PreparedEvidenceWitness,
         wk.ProspectiveHandle,
         wk.CreateObject,
+        wk.CreateRelationship,
+        wk.DurableObjectRef,
+        wk.ResultOf,
         wk.UseExisting,
         wk.CreateFact,
         wk.LiteralFactValue,
