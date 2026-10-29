@@ -168,6 +168,10 @@ Under apps/live-control-ui/src/:
 
 Tests:
 
+- tests/test_agent_selected_knowledge_context.py and
+  tests/application_state/test_agent_conversation_service.py: update predecessor
+  fingerprint fixtures to exclude the absent native selector; retain exact
+  historical hash assertions. No production compatibility bypass.
 - tests/test_agent_native_statement_answers.py (new): real ordinary POST through
   provider fixture, APP complete/reload/replay and historical-open boundary;
 - tests/application_state/test_native_statement_answers.py (new): policy bypass,
