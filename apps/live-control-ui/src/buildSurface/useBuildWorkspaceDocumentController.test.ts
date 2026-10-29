@@ -1840,4 +1840,22 @@ describe("useBuildWorkspaceDocumentController", () => {
     }finally{selected.mockRestore();}
   });
 
+  it.each(['restart','step'])('does not admit a pending guided routed source after %s, allowing explicit ordinary selection',async kind=>{
+    const selected=vi.spyOn(worldSelection,'useSelectedWorld').mockReturnValue({kind:'managed',worldId:'world',name:'World',documentId:DOC_B});
+    try{
+      let release!:(value:ReturnType<typeof mockSnapshot>)=>void;
+      vi.mocked(liveApi.getWorkspaceDocumentSnapshot).mockReturnValueOnce(new Promise(resolve=>{release=resolve;}));
+      window.history.replaceState({},'',`/build?world=world&documentId=${DOC_B}`);
+      let scope:NavigationScope={worldId:'world',walkthroughId:'source-route',epoch:0,step:'source',index:0,bindings:{source:{kind:'source',worldId:'world',objectId:DOC_B,revision:1,digest:'a'.repeat(64)}}};
+      const registry=new TourNavigationRegistry(()=>scope);registry.beginDestination(scope);
+      const {result}=renderHook(()=>useBuildWorkspaceDocumentController(),{wrapper:({children})=>createElement(TourNavigationProvider,{registry,children})});
+      await waitFor(()=>expect(release).toBeTypeOf('function'));scope=kind==='restart'?{...scope,walkthroughId:'replacement'}:{...scope,step:'authoring',index:1};
+      await act(async()=>release(mockSnapshot(DOC_B,{world_id:'world',campaign_id:'world'})));
+      expect(result.current.activeRecord).toBeNull();expect(result.current.switchError).toMatch(/canceled/);
+      vi.mocked(liveApi.getWorkspaceDocumentSnapshot).mockResolvedValue(mockSnapshot(DOC_B,{world_id:'world',campaign_id:'world'}));
+      await act(async()=>{await result.current.selectDocument(DOC_B);});expect(result.current.activeDocumentId).toBe(DOC_B);
+      expect(liveApi.commitTiptapMarkdownWrite).not.toHaveBeenCalled();
+    }finally{selected.mockRestore();}
+  });
+
 });

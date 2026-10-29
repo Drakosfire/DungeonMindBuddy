@@ -4855,3 +4855,18 @@ it('refuses an unavailable exact Plan version on guided route entry before admit
  expect(readWalkthrough(localStorage,worldId)?.record.bindings.plan?.revision).toBe(committed.revision_n-1);
  expect(readWalkthrough(localStorage,worldId)?.record.bindings.run).toBeUndefined();
 });
+
+it.each(['restart','step'])('cancels a pending guided routed Plan after %s before publishing its editor',async kind=>{
+ const {committed}=await resumedPlanFixture();const old=readWalkthrough(localStorage,worldId)!;
+ writeWalkthrough(localStorage,{...old.record,index:2},old);
+ const original=await liveApi.getWorldOwnedPlanSnapshot(savedAgentPlanId);let release!:(value:typeof original)=>void;
+ vi.mocked(liveApi.getWorldOwnedPlanSnapshot).mockReturnValueOnce(new Promise(resolve=>{release=resolve;}));
+ function MarkRoute(){const registry=useTourNavigationRegistry();useLayoutEffect(()=>{registry?.beginDestination(navigationScope(readWalkthrough(localStorage,worldId)!.record,0)!);},[registry]);return null;}
+ render(<SelectedWorldProvider locationSnapshot={window.location.pathname+window.location.search}><GuidedTourProvider worldId={worldId}><MarkRoute/><VerifiedPlanPage/></GuidedTourProvider></SelectedWorldProvider>);
+ await waitFor(()=>expect(release).toBeTypeOf('function'));
+ const retained=readWalkthrough(localStorage,worldId)!;
+ writeWalkthrough(localStorage,kind==='restart'?createWalkthrough(worldId,'sheep','replacement','2026-10-28T01:00:00Z'):reduceTour(retained.record,{kind:'move',index:3}),retained);
+ await act(async()=>release(original));await screen.findByText(/Guided navigation canceled/);
+ expect(screen.queryByDisplayValue(original.markdown)).not.toBeInTheDocument();expect(readWalkthrough(localStorage,worldId)?.record.bindings.run).toBeUndefined();
+ expect(committed.document_id).toBe(savedAgentPlanId);
+});

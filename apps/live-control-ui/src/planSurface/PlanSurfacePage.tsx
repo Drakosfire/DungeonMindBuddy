@@ -715,6 +715,8 @@ function WorldOwnedPlanPage({ worldId, worldName }: { worldId: string; worldName
 
   useEffect(() => {
     let cancelled = false;
+    const destination=initialDocumentId?tourNavigation?.claimDestination('plan',worldId,initialDocumentId):null;
+    const assertDestinationCurrent=()=>{if(destination&&!destination.isCurrent())throw new Error("Guided navigation canceled. Choose a Plan explicitly or retry to open it normally.");};
     void (async () => {
       try {
         const context = await getManagedWorldPlanContext(worldId);
@@ -732,10 +734,12 @@ function WorldOwnedPlanPage({ worldId, worldName }: { worldId: string; worldName
           if (snapshot.record.world_id !== worldId || snapshot.record.campaign_id !== null || snapshot.record.kind !== "plan") {
             throw new Error("This Plan does not belong to the selected World.");
           }
-          const requestedPin=tourNavigation?.destinationPin('plan',worldId,initialDocumentId);
+          assertDestinationCurrent();
+          const requestedPin=destination?.pin;
           if(requestedPin)await verifyGuidedPlanSelection(snapshot,requestedPin);
           if (cancelled) return;
-          if(requestedPin)tourNavigation?.completeDestination('plan',worldId,initialDocumentId);
+          assertDestinationCurrent();
+          destination?.complete();
           const recoverLocal = localDraft?.document_id === initialDocumentId;
           setLastSavedAt(snapshot.record.content_status === "committed"
             ? durableTimestamp(snapshot.record.updated_at)
@@ -810,6 +814,7 @@ function WorldOwnedPlanPage({ worldId, worldName }: { worldId: string; worldName
 
   const openPlan = async (nextDocumentId: string, allowRetry = false, isCurrent:()=>boolean = ()=>true, expectedPin?:import('../guidedTour/protocol').TargetPin) => {
     if(!isCurrent())return;
+    if(!expectedPin)tourNavigation?.discardDestination('plan');
     if (savingRef.current || (statusRef.current !== "ready" && !allowRetry)) return;
     const epoch = ++selectionEpochRef.current;
     const priorDocumentId = documentIdRef.current;
@@ -898,6 +903,7 @@ function WorldOwnedPlanPage({ worldId, worldName }: { worldId: string; worldName
       void openPlan(retryTarget.documentId, true);
       return;
     }
+    tourNavigation?.discardDestination('plan');
     setStatus("loading");
     setError(null);
     setInitialLoadAttempt((attempt) => attempt + 1);

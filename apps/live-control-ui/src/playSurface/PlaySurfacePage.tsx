@@ -623,8 +623,13 @@ function PlayRuntimePage() {
 
   const tourNavigation=useTourNavigationRegistry();
   const loadExactRun = useCallback(async (runId: string) => {
-    const inspectionPin=selectedWorldId?tourNavigation?.destinationPin('play',selectedWorldId,runId):null;
-    const inspectionParent=selectedWorldId?tourNavigation?.destinationParent(selectedWorldId,runId):null;
+    const destination=selectedWorldId?tourNavigation?.claimDestination('play',selectedWorldId,runId):null;
+    const inspectionPin=destination?.pin;
+    const inspectionParent=destination?.parent;
+    const canceledGuidance=()=>{
+      if(!destination||destination.isCurrent())return false;
+      setAdmission(null);setLoadStatus('unavailable');setDetail('Guided navigation canceled. Choose a saved Run explicitly to open it normally.');return true;
+    };
     const skipWorldActiveWrite = Boolean(
       selectedWorldId && (skipWorldActiveWriteRunRef.current === runId||inspectionPin),
     );
@@ -641,6 +646,7 @@ function PlayRuntimePage() {
         ? await getWorldPlayRun(runId, selectedWorldId)
         : await getPlayRun(runId, { ensureNativeReady: true });
       if (loadSerialRef.current !== serial) return;
+      if(canceledGuidance())return;
       if (
         selectedWorldId
         && (loaded.schema_version !== "dmb_world_play_run_record_v2" || loaded.world_id !== selectedWorldId)
@@ -668,6 +674,7 @@ function PlayRuntimePage() {
         if (manifest == null) throw new TypeError("Run schema does not match the selected Play scope.");
       } catch (error) {
         if (loadSerialRef.current !== serial) return;
+        if(canceledGuidance())return;
         const classified = error instanceof LiveApiError && error.status === 404
           ? "integrity_failure"
           : classifyLoadError(error);
@@ -695,6 +702,7 @@ function PlayRuntimePage() {
         if (committed == null) throw new TypeError("Run schema does not match the selected committed-revision scope.");
       } catch (error) {
         if (loadSerialRef.current !== serial) return;
+        if(canceledGuidance())return;
         if (error instanceof LiveApiError && (error.status === 404 || error.status === 409)) {
           setLoadStatus("integrity_failure");
           setDetail(error instanceof Error ? error.message : "bound Playable revision could not be loaded");
@@ -708,6 +716,7 @@ function PlayRuntimePage() {
         return;
       }
       if (loadSerialRef.current !== serial) return;
+      if(canceledGuidance())return;
       if (manifest.schema_version === "dmb_play_run_reference_manifest_v1") {
         setLoadStatus("unsupported_playable");
         setDetail("This session uses an unsupported Playable format. Play requires v2 markers; open its source in Plan to author current cards. The saved session and notes have not been changed.");
@@ -721,10 +730,13 @@ function PlayRuntimePage() {
         try {
           const content = await getWorldPlayRunContent(loaded.run_id, selectedWorldId);
           if (loadSerialRef.current !== serial) return;
+          if(canceledGuidance())return;
           nextAdmission = await admitEffectivePlayRunContent(nextAdmission, content);
           if (loadSerialRef.current !== serial) return;
+          if(canceledGuidance())return;
         } catch (error) {
           if (loadSerialRef.current !== serial) return;
+          if(canceledGuidance())return;
           setLoadStatus(error instanceof TypeError || error instanceof LiveApiError && [0, 404, 409, 422].includes(error.status)
             ? "integrity_failure" : classifyLoadError(error));
           setDetail(error instanceof Error ? error.message : "Effective session content could not be admitted.");
@@ -743,6 +755,7 @@ function PlayRuntimePage() {
           selectedWorldId,
         );
         if (loadSerialRef.current !== serial) return;
+        if(canceledGuidance())return;
         if (current.status !== "active") {
           setLoadStatus("integrity_failure");
           setDetail("The bound World Runbook is discarded; Play will not rebase to it.");
@@ -767,11 +780,10 @@ function PlayRuntimePage() {
         }
       }
       if (loadSerialRef.current !== serial) return;
-
-      if (loadSerialRef.current !== serial) return;
+      if(canceledGuidance())return;
       setAdmission(nextAdmission);
       if (nextAdmission.status === "ready") {
-        if(inspectionPin&&selectedWorldId)tourNavigation?.completeDestination('play',selectedWorldId,runId);
+        destination?.complete();
         setLoadStatus("ready");
         setDetail(null);
         setMutationStatus("idle");
@@ -806,6 +818,7 @@ function PlayRuntimePage() {
                     settledWorldWriteIntentRef.current = { key: intentKey, status: "failed" };
                   }
                   if (loadSerialRef.current !== serial) return;
+                  if(canceledGuidance())return;
                   setDetail(
                     error instanceof Error
                       ? `Run is open, but Resume state could not be saved: ${error.message}`
@@ -820,10 +833,12 @@ function PlayRuntimePage() {
           .catch(() => undefined)
           .then(async () => {
             if (loadSerialRef.current !== serial) return;
+            if(canceledGuidance())return;
             try {
               await putPlayActiveRun(loaded.run_id);
             } catch (error) {
               if (loadSerialRef.current !== serial) return;
+              if(canceledGuidance())return;
               setDetail(
                 error instanceof Error
                   ? `Run is open, but Resume state could not be saved: ${error.message}`
@@ -839,6 +854,7 @@ function PlayRuntimePage() {
       }
     } catch (error) {
       if (loadSerialRef.current !== serial) return;
+      if(canceledGuidance())return;
       const classified = classifyLoadError(error);
       setLoadStatus(classified);
       setDetail(error instanceof Error ? error.message : null);

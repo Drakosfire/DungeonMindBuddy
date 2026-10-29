@@ -394,7 +394,9 @@ export function useBuildWorkspaceDocumentController(): BuildWorkspaceDocumentCon
         requestedId != null &&
         requestedId !== activeRecordRef.current.document_id;
       const retainedSearch = locationSearchRef.current;
-      const routePin=requestedId&&selectedWorldId?tourNavigation?.destinationPin('build',selectedWorldId,requestedId):null;
+      const destination=!expectedSnapshot&&requestedId&&selectedWorldId?tourNavigation?.claimDestination('build',selectedWorldId,requestedId):null;
+      const routePin=destination?.pin;
+      const selectionIsCurrent=()=>isCurrent()&&(!destination||destination.isCurrent());
       const expected=expectedSnapshot??(routePin?{worldId:routePin.worldId,revision:routePin.revision,digest:routePin.digest}:null);
 
       if (!requestedId) {
@@ -419,13 +421,13 @@ export function useBuildWorkspaceDocumentController(): BuildWorkspaceDocumentCon
         const record = validateBuildSourceRecord(snapshot.record, requestedId, selectedWorldId);
         if (generation !== documentLoadGenerationRef.current) return false;
 
-        if(!isCurrent()){
+        if(!selectionIsCurrent()){
           // This reservation still owns loading, but may not replace a newly dirty editor.
           setSwitching(false);setLoadStatus(activeRecordRef.current?'ready':'empty');
           setSwitchError('Guided selection canceled. The current page and its draft are retained.');return false;
         }
         if(expected&&(record.world_id!==expected.worldId||snapshot.loaded_revision!==expected.revision||record.revision!==expected.revision||snapshot.content_sha256!==expected.digest))throw new Error('The bound saved source version is unavailable. The current page and draft were retained.');
-        if(routePin&&selectedWorldId)tourNavigation?.completeDestination('build',selectedWorldId,requestedId);
+        destination?.complete();
         setActiveRecord(record);
         setLoadStatus("ready");
         setSwitching(false);
@@ -473,7 +475,7 @@ export function useBuildWorkspaceDocumentController(): BuildWorkspaceDocumentCon
         return true;
       } catch (error) {
         if (generation !== documentLoadGenerationRef.current) return false;
-        const message = expected&&!isCurrent()?'Guided selection canceled. The current page and its draft are retained.'
+        const message = expected&&!selectionIsCurrent()?'Guided selection canceled. The current page and its draft are retained.'
           : error instanceof Error ? error.message : "Failed to load worldbuilding source";
 
         if (purpose === "create_activate") {
@@ -522,6 +524,7 @@ export function useBuildWorkspaceDocumentController(): BuildWorkspaceDocumentCon
     async (documentId: string, isCurrent:()=>boolean = ()=>true, expected?:{worldId:string;revision:number;digest:string}) => {
       if(!isCurrent())return false;
       if (typeof window === "undefined") return false;
+      if(!expected)tourNavigation?.discardDestination('build');
       if (documentId === activeRecordRef.current?.document_id && !switchingRef.current) return true;
       createControllerRef.current.supersedePendingCreateIntent();
       setCreateError(null);

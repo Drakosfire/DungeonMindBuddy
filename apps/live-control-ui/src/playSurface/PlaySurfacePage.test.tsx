@@ -1,4 +1,4 @@
-import {useSyncExternalStore} from 'react';
+import {StrictMode,useSyncExternalStore} from 'react';
 import {TourNavigationRegistry,TourNavigationProvider,TourNavigationActions,useTourNavigationOwner,type NavigationScope} from '../guidedTour/Navigation';
 import {getAppLocationSnapshot,subscribeAppLocation} from '../chrome/appNavigation';
 import {useCombatProjection} from '../combat/combatProjection';
@@ -249,6 +249,18 @@ describe("Play selected-World admission", () => {
     vi.mocked(getWorldPlayRun).mockResolvedValue(worldRun({run_revision:2}));
     render(<TourNavigationProvider registry={registry}><PlaySurfacePage/></TourNavigationProvider>);
     await screen.findByText(/exact bound Run version is unavailable/);expect(screen.queryByTestId('play-surface-ready')).not.toBeInTheDocument();expect(putWorldPlayActiveRun).not.toHaveBeenCalled();
+  });
+
+  it.each(['restart','step'])('cancels a delayed routed Run after %s in StrictMode without active writes',async kind=>{
+    mockReadyWorldRuns([runId]);const pins=runPins(worldRun());
+    let scope:NavigationScope={worldId:'world-b',walkthroughId:'guided-run',epoch:0,step:'progress',index:8,bindings:{plan:pins.parent,run:pins.target}};
+    const registry=new TourNavigationRegistry(()=>scope);registry.beginDestination(scope);
+    let release!:(value:ReturnType<typeof worldRun>)=>void;const pending=new Promise<ReturnType<typeof worldRun>>(resolve=>{release=resolve;});
+    vi.mocked(getWorldPlayRun).mockReturnValue(pending);
+    render(<StrictMode><TourNavigationProvider registry={registry}><PlaySurfacePage/></TourNavigationProvider></StrictMode>);
+    await waitFor(()=>expect(getWorldPlayRun).toHaveBeenCalled());scope=kind==='restart'?{...scope,walkthroughId:'replacement'}:{...scope,step:'roll',index:9};
+    await act(async()=>release(worldRun()));await screen.findByText(/Guided navigation canceled/);
+    expect(screen.queryByTestId('play-surface-ready')).not.toBeInTheDocument();expect(putWorldPlayActiveRun).not.toHaveBeenCalled();expect(putWorldPlayRunProgress).not.toHaveBeenCalled();
   });
   it("opens the shared Rules tool only on request without selecting or changing a Run", async () => {
     const { getRulesCatalog } = await import("../api/liveApi");

@@ -28,23 +28,27 @@ export interface NavigationOwner {role?:'surface'|'panel';worldId:string;surface
 export interface NavigationGuard {worldId:string|null;reason:(impact:NavigationImpact,reservation?:symbol)=>string|null}
 /** Presentation permissions, separate from result observations and domain execution. */
 export class TourNavigationRegistry {
- private destination:{surface:TourSurface;pin:TargetPin;parent?:TargetPin}|null=null;
+ private destination:{surface:TourSurface;pin:TargetPin;parent?:TargetPin;scope:NavigationScope}|null=null;
  /** A restriction on route loading, never a read/write grant or retained evidence. */
  beginDestination(scope:NavigationScope){
   if(!this.isCurrentScope(scope))throw new Error('The guidance changed before navigation.');
-  const target=tourDestination(scope);this.destination=target.pin?{surface:target.surface,pin:structuredClone(target.pin),...(target.pin.kind==='run'&&scope.bindings.plan?{parent:structuredClone(scope.bindings.plan)}:{})}:null;
+  const target=tourDestination(scope);this.destination=target.pin?{surface:target.surface,pin:structuredClone(target.pin),scope:structuredClone(scope),...(target.pin.kind==='run'&&scope.bindings.plan?{parent:structuredClone(scope.bindings.plan)}:{})}:null;
  }
  clearForLocation(){
   if(!this.destination)return;
   const params=new URLSearchParams(window.location.search),{surface,pin}=this.destination;
   if(appRouteFromLocationSnapshot(getAppLocationSnapshot())!==surface||params.get('world')!==pin.worldId||params.get(surface==='play'?'run':'documentId')!==pin.objectId)this.destination=null;
  }
- destinationPin(surface:TourSurface,worldId:string,objectId:string):TargetPin|null{
+ /** Capture once at read start, including a stale intent so it cannot become a manual load. */
+ claimDestination(surface:TourSurface,worldId:string,objectId:string){
   this.clearForLocation();const target=this.destination;
-  return target?.surface===surface&&target.pin.worldId===worldId&&target.pin.objectId===objectId?structuredClone(target.pin):null;
+  if(!target||target.surface!==surface||target.pin.worldId!==worldId||target.pin.objectId!==objectId)return null;
+  const isCurrent=()=>{this.clearForLocation();return this.destination===target&&this.isCurrentScope(target.scope);};
+  return {pin:structuredClone(target.pin),parent:target.parent?structuredClone(target.parent):undefined,isCurrent,
+   complete:()=>{if(isCurrent())this.destination=null;}};
  }
- completeDestination(surface:TourSurface,worldId:string,objectId:string){if(this.destinationPin(surface,worldId,objectId))this.destination=null;}
- destinationParent(worldId:string,runId:string):TargetPin|null{return this.destinationPin('play',worldId,runId)?this.destination?.parent??null:null;}
+ /** Only an explicit ordinary selection may supersede a canceled guided route. */
+ discardDestination(surface:TourSurface){if(this.destination?.surface===surface)this.destination=null;}
  private listeners=new Set<()=>void>();
  private version=0;
  subscribe=(listener:()=>void)=>{this.listeners.add(listener);return ()=>{this.listeners.delete(listener);};};

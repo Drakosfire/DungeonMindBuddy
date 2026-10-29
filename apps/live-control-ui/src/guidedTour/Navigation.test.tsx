@@ -40,4 +40,18 @@ describe('tour navigation intent',()=>{
   const {registry,scope}=setup();let live:NavigationOwner|null=owner();const registration=registry.registerOwner(()=>live);live=null;expect(registry.inspections(scope)).toEqual([]);await expect(registry.inspect(scope,registration.token,'preview')).rejects.toThrow();registration.release();
  });
 
+ it.each(['restart','step','epoch','pins'] as const)('invalidates a captured destination on %s while retaining its restriction',kind=>{
+  const {registry,scope,setScope}=setup();window.history.replaceState({},'','/plan?world=world&documentId=plan');registry.beginDestination(scope);
+  const first=registry.claimDestination('plan','world','plan')!,strictReplay=registry.claimDestination('plan','world','plan')!;
+  expect(first.isCurrent()).toBe(true);expect(strictReplay.isCurrent()).toBe(true);
+  setScope(kind==='restart'?{...scope,walkthroughId:'new'}:kind==='step'?{...scope,index:3,step:'encounter'}:kind==='epoch'?{...scope,epoch:1}:{...scope,bindings:{plan:{...pin,revision:3}}});
+  expect(first.isCurrent()).toBe(false);first.complete();expect(registry.claimDestination('plan','world','plan')?.isCurrent()).toBe(false);
+  registry.discardDestination('plan');expect(registry.claimDestination('plan','world','plan')).toBeNull();
+ });
+ it('does not consume a destination during an abandoned StrictMode load or source unmount',()=>{
+  const {registry,scope}=setup();window.history.replaceState({},'','/plan?world=world&documentId=plan');const source=registry.registerOwner(()=>owner());registry.beginDestination(scope);
+  const abandoned=registry.claimDestination('plan','world','plan')!;source.release();expect(abandoned.isCurrent()).toBe(true);
+  const admitted=registry.claimDestination('plan','world','plan')!;expect(admitted.isCurrent()).toBe(true);admitted.complete();expect(registry.claimDestination('plan','world','plan')).toBeNull();
+ });
+
 });
