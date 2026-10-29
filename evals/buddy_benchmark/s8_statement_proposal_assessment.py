@@ -22,8 +22,9 @@ from . import q01_native_answer_proof as answer
 from . import q01_native_fixture_proof as fixture
 
 AUTHORITY = "94d3a8557a77fcd6fe0c33a4f37d6979894438c5"
-BASE = "d479bf566866c3e2171eb47d052dae8a683e11f5"
-CASE = "s8-qualified-proposals-v1"
+BASE = "dd50ce2694b140aa477c18f3ec7a544b0aba5ac1"
+SOURCE_ACCESS_AUTHORITY = "178f43153e4e13c1444e693a8830d3306fa96ff0"
+CASE = "s8-qualified-proposals-v2"
 START = "20261029_0092"
 END = "20261029_0093"
 TABLE = "ingest.statement_proposal_operation"
@@ -63,6 +64,7 @@ def observe_sdk():
 
 
 def assert_whole_source(opened):
+    """Historical producer prerequisite; retained to prove the original refusal."""
     require(opened.status == "available", "native source unavailable")
     raw = opened.body_text.encode()
     require(
@@ -73,6 +75,51 @@ def assert_whole_source(opened):
         raise SourcePrerequisiteError(
             "whole-source admission missing: available body is not full-span authority"
         )
+
+
+def assert_source_inspection(opened):
+    require(opened.status == "available", "native source unavailable")
+    raw = opened.body_text.encode()
+    require(
+        len(raw) == 6172 and fixture.sha(raw) == fixture.BODY_SHA,
+        "exact S8 source body differs",
+    )
+    start, end = opened.span_start_byte, opened.span_end_byte
+    require(
+        0 <= start < end <= len(raw)
+        and fixture.sha(raw[start:end]) == opened.span_sha256,
+        "registered source anchor differs",
+    )
+    return {"start_byte": start, "end_byte": end, "span_sha256": opened.span_sha256}
+
+
+def verify_eligibility(record, extent):
+    expected = {}
+    if record["result"] is not None:
+        for key, location in record["result"]["locations"].items():
+            matches = [
+                {
+                    **match,
+                    "eligibility": "eligible_for_review"
+                    if extent["start_byte"]
+                    <= match["start_byte"]
+                    < match["end_byte"]
+                    <= extent["end_byte"]
+                    else "outside_registered_evidence",
+                }
+                for match in location["matches"]
+            ]
+            expected[key] = {
+                "status": "ambiguous"
+                if len(matches) != 1
+                else matches[0]["eligibility"],
+                "matches": matches,
+                "semantic_acceptance": "not_established",
+            }
+    require(
+        record.get("review_eligibility") == expected,
+        "host review eligibility differs from actual registered span",
+    )
 
 
 def verify_sdk_output(record, observed):
@@ -311,6 +358,7 @@ def capture(root):
                 "q01-fullworld-profile2-v1",
                 "q01-native-answer-v1",
                 "q01-native-answer-v2",
+                "s8-qualified-proposals-v1",
             )
         },
     }
@@ -387,7 +435,7 @@ def preflight(root, receipt_path, schema=START):
         repo, fixture.WORLD, answer.READ_REVISION, fixture.CAMPAIGN
     )
     opened = open_admitted_native_text(access, evidence)
-    assert_whole_source(opened)
+    extent = assert_source_inspection(opened)
     request = ProposalRequest(
         operation_id=uuid4(),
         managed_world_id=fixture.WORLD,
@@ -430,6 +478,7 @@ def preflight(root, receipt_path, schema=START):
     )
     return {
         "authority": AUTHORITY,
+        "source_access_authority": SOURCE_ACCESS_AUTHORITY,
         "base": BASE,
         "harness_head": subprocess.check_output(
             ["git", "rev-parse", "HEAD"], text=True
@@ -439,6 +488,7 @@ def preflight(root, receipt_path, schema=START):
         "dependencies": dependencies,
         "schema": schema,
         "receipt": receipt,
+        "registered_extent": extent,
         "request": request.model_dump(mode="json"),
         "input": packet,
         "state": capture(root),
@@ -466,12 +516,7 @@ def main(argv=None):
     root = args.clone_root.resolve(strict=True)
     case = root.parent / "native-review-context-v2" / CASE
     if not (args.migrate or args.apply or args.provider):
-        require(
-            not case.exists()
-            or {path.name for path in case.iterdir()}
-            == {"preflight-source-span-refusal.json"},
-            "fresh assessment output required; only the original source refusal may precede it",
-        )
+        require(not case.exists(), "fresh assessment case required")
         before = capture(root)
         try:
             result = preflight(root, args.source_receipt)
@@ -609,6 +654,7 @@ def main(argv=None):
         verify_record(
             record, frozen["request"], frozen["input"]["source"], frozen["input"]
         )
+        verify_eligibility(record, frozen["registered_extent"])
         verify_sdk_output(record, observed)
         before = capture(root)
         unchanged(frozen["state"], before)

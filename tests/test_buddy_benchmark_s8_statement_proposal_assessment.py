@@ -20,7 +20,11 @@ def source(monkeypatch, start=0, end=6172):
         assessment.fixture, "BODY_SHA", assessment.fixture.sha(body.encode())
     )
     return SimpleNamespace(
-        status="available", body_text=body, span_start_byte=start, span_end_byte=end
+        status="available",
+        body_text=body,
+        span_start_byte=start,
+        span_end_byte=end,
+        span_sha256=assessment.fixture.sha(body[start:end].encode()),
     )
 
 
@@ -36,6 +40,34 @@ def test_whole_source_exact_identity(monkeypatch):
     opened.body_text = "different"
     with pytest.raises(ValueError, match="body differs"):
         assessment.assert_whole_source(opened)
+
+
+def test_authorized_body_inspection_does_not_require_full_evidence_extent(monkeypatch):
+    opened = source(monkeypatch, 4868, 4939)
+    extent = assessment.assert_source_inspection(opened)
+    assert extent["start_byte"] == 4868 and extent["end_byte"] == 4939
+    opened.span_sha256 = "wrong"
+    with pytest.raises(ValueError, match="anchor differs"):
+        assessment.assert_source_inspection(opened)
+
+
+@pytest.mark.parametrize("inside", [True, False])
+def test_eligibility_cannot_promote_inspection_to_evidence(inside):
+    record, _, _, _ = example()
+    extent = {"start_byte": 0 if inside else 100, "end_byte": 100 if inside else 120}
+    match = record["result"]["locations"]["p1"]["matches"][0]
+    eligibility = "eligible_for_review" if inside else "outside_registered_evidence"
+    record["review_eligibility"] = {
+        "p1": {
+            "status": eligibility,
+            "matches": [{**match, "eligibility": eligibility}],
+            "semantic_acceptance": "not_established",
+        }
+    }
+    assessment.verify_eligibility(record, extent)
+    record["review_eligibility"]["p1"]["semantic_acceptance"] = "accepted"
+    with pytest.raises(ValueError):
+        assessment.verify_eligibility(record, extent)
 
 
 def rows(schema="20261029_0092"):
