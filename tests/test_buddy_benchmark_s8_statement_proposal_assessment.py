@@ -52,7 +52,12 @@ def test_exact_migration_and_one_operation():
     migrated = rows(assessment.END) | {assessment.TABLE: []}
     assessment.app_conservation(before, migrated, migrated=True)
     after = deepcopy(migrated)
-    after[assessment.TABLE] = [{"sha256": "new", "keys": {}}]
+    after[assessment.TABLE] = [
+        {
+            "sha256": "new",
+            "keys": {"operation_id": "operation", "world_id": assessment.fixture.WORLD},
+        }
+    ]
     assessment.app_conservation(migrated, after, operation="operation")
 
 
@@ -71,7 +76,12 @@ def test_app_conservation_rejects_unleased_changes(change):
         assessment.TABLE: [{"sha256": "prior", "keys": {}}]
     }
     after = deepcopy(before)
-    after[assessment.TABLE].append({"sha256": "new", "keys": {}})
+    after[assessment.TABLE].append(
+        {
+            "sha256": "new",
+            "keys": {"operation_id": "operation", "world_id": assessment.fixture.WORLD},
+        }
+    )
     if change == "old_row":
         after["agent.turn"][0]["sha256"] = "changed"
     elif change == "second_operation":
@@ -137,6 +147,55 @@ def example():
 
 def test_actual_completed_output_is_independently_reparsed():
     assessment.verify_record(*example())
+
+
+@pytest.mark.parametrize(
+    "change", [None, "other_operation", "other_world", "missing_identity"]
+)
+def test_added_row_must_be_exact_authorized_operation(change):
+    before = rows(assessment.END) | {assessment.TABLE: []}
+    after = deepcopy(before)
+    keys = {
+        "operation_id": "authorized-operation",
+        "world_id": assessment.fixture.WORLD,
+    }
+    if change == "other_operation":
+        keys["operation_id"] = "other-operation"
+    elif change == "other_world":
+        keys["world_id"] = "other-world"
+    elif change == "missing_identity":
+        keys = {}
+    after[assessment.TABLE] = [{"sha256": "new", "keys": keys}]
+    if change:
+        with pytest.raises(ValueError, match="authorized operation/World"):
+            assessment.app_conservation(before, after, operation="authorized-operation")
+    else:
+        assessment.app_conservation(before, after, operation="authorized-operation")
+
+
+@pytest.mark.parametrize(
+    "change", [None, "missing", "operation_id", "world_id", "owner", "payload"]
+)
+def test_readback_binds_exact_actual_stored_row(change):
+    record, _, _, _ = example()
+    row = {
+        "operation_id": record["operation_id"],
+        "owner": record["owner"],
+        "world_id": assessment.fixture.WORLD,
+        "payload": deepcopy(record),
+    }
+    if change == "missing":
+        row = None
+    elif change == "payload":
+        row["payload"]["raw_output"] = "changed"
+    elif change:
+        row[change] = "different"
+    if change:
+        with pytest.raises(ValueError):
+            assessment.verify_stored_operation(row, record)
+    else:
+        # Eligibility is host-derived, never another stored publication fact.
+        assessment.verify_stored_operation(row, record | {"review_eligibility": {}})
 
 
 @pytest.mark.parametrize(

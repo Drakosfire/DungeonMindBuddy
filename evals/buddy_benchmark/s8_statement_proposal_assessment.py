@@ -121,6 +121,14 @@ def app_conservation(before, after, *, migrated=False, operation=None):
                 not old - new and sum((new - old).values()) == 1,
                 "only one new proposal operation is allowed",
             )
+            added = new - old
+            rows = [row for row in after[table] if row["sha256"] in added]
+            require(
+                len(rows) == 1
+                and rows[0]["keys"].get("operation_id") == operation
+                and rows[0]["keys"].get("world_id") == fixture.WORLD,
+                "new proposal row is not the authorized operation/World",
+            )
         else:
             require(
                 before.get(table, []) == after[table],
@@ -192,6 +200,23 @@ def verify_record(record, request, source, packet):
         )
 
 
+def verify_stored_operation(row, record):
+    require(
+        row is not None
+        and row["operation_id"] == record["operation_id"]
+        and row["owner"] == record["owner"]
+        and row["world_id"] == fixture.WORLD,
+        "actual stored operation identity differs",
+    )
+    expected = {
+        key: value for key, value in record.items() if key != "review_eligibility"
+    }
+    require(
+        row["payload"] == expected,
+        "actual stored operation payload differs from readback",
+    )
+
+
 def runtime_inventory(root=None, ref=BASE):
     """Every runtime package byte, including untracked files, must match base."""
     root = Path(root) if root is not None else Path(__file__).resolve().parents[2]
@@ -227,10 +252,54 @@ def runtime_inventory(root=None, ref=BASE):
     return result
 
 
+def row_inventory(dsn):
+    """One repeatable-read snapshot, retaining exact operation identity too."""
+    from psycopg import sql
+
+    result = {}
+    with fixture.readonly(dsn) as conn:
+        conn.execute("SET TRANSACTION ISOLATION LEVEL REPEATABLE READ")
+        tables = conn.execute(
+            "SELECT table_schema,table_name FROM information_schema.tables WHERE table_type='BASE TABLE' AND table_schema NOT IN ('pg_catalog','information_schema') ORDER BY 1,2"
+        ).fetchall()
+        for table in tables:
+            name = table["table_schema"] + "." + table["table_name"]
+            rows = conn.execute(
+                sql.SQL("SELECT row_to_json(t)::text AS body FROM {}.{} t").format(
+                    sql.Identifier(table["table_schema"]),
+                    sql.Identifier(table["table_name"]),
+                )
+            ).fetchall()
+            inventory = []
+            for row in rows:
+                body = json.loads(row["body"])
+                inventory.append(
+                    {
+                        "sha256": fixture.sha(row["body"].encode()),
+                        "keys": {
+                            key: body[key]
+                            for key in (
+                                "world_id",
+                                "operation_id",
+                                "conversation_id",
+                                "turn_id",
+                                "command_id",
+                                "reference_role",
+                                "ordinal",
+                                "version_num",
+                            )
+                            if key in body
+                        },
+                    }
+                )
+            result[name] = sorted(inventory, key=lambda row: row["sha256"])
+    return result
+
+
 def capture(root):
     connection, donor, files = fixture.retained_inputs(root)
     return {
-        "app": answer.row_inventory(connection["app_dsn"]),
+        "app": row_inventory(connection["app_dsn"]),
         "native": fixture.database_fingerprints(connection["dsn"]),
         "files": fixture.file_fingerprints(files),
         "prior_evidence": {
@@ -530,6 +599,13 @@ def main(argv=None):
         )
         record = response.json()
         save(case, "operation", record)
+        with fixture.readonly(connection["app_dsn"]) as conn:
+            stored = conn.execute(
+                "SELECT operation_id::text,owner,world_id,payload FROM ingest.statement_proposal_operation WHERE operation_id=%s",
+                (frozen["request"]["operation_id"],),
+            ).fetchone()
+        save(case, "stored-operation", stored)
+        verify_stored_operation(stored, record)
         verify_record(
             record, frozen["request"], frozen["input"]["source"], frozen["input"]
         )

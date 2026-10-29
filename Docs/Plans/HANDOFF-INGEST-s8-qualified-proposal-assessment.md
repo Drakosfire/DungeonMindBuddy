@@ -56,7 +56,15 @@ Runtime-inventory controls use an isolated temporary Git fixture, including
 dirty, untracked, missing and symlinked files; they do not require future product
 checkouts to remain at this historical runtime base. The actual run still pins
 and verifies every runtime byte against its accepted base.
-New suite37/37 and predecessor answer-harness45/45 pass; Ruff passes. No extraction,
+Independent review found a false-pass in the initial conservation helper: any
+one new proposal row passed without checking the authorized operation ID. The
+owning harness now takes a single repeatable-read row inventory including exact
+operation IDs, binds the added row to the authorized operation and World, and
+independently reopens that exact stored row to compare its complete payload with
+ordinary HTTP readback. The reviewer counterexample and wrong/missing identity,
+World, owner and payload controls are retained. No actual row-conservation pass
+was claimed from a real extraction before this correction.
+New suite47/47 and predecessor answer-harness45/45 pass; Ruff passes. No extraction,
 selection, publication, discovery or answer success is claimed.
 Original full-system verification remains0/15. Exact-head review and CI remain
 completion gates; broader corpus integration and operator acceptance remain open.
