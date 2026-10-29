@@ -157,6 +157,7 @@ def example():
             "input": [{"role": "user", "content": canonical(packet)}],
             "instructions": INSTRUCTIONS,
             "model": "gpt-6-luna",
+            "max_output_tokens": assessment.OUTPUT_RESERVE,
         }
     )
     record = {
@@ -239,6 +240,7 @@ def test_readback_binds_exact_actual_stored_row(change):
         "wire_hash",
         "wire_input",
         "wire_tools",
+        "wire_capacity",
         "no_response",
         "parsed_result",
         "raw_output",
@@ -256,11 +258,14 @@ def test_completion_cannot_be_inferred_from_http_success(change):
         record["input"] = {"source": "different"}
     elif change == "wire_hash":
         record["wire_digest"] = "bad"
-    elif change in {"wire_input", "wire_tools"}:
+    elif change in {"wire_input", "wire_tools", "wire_capacity"}:
         import json
 
         body = json.loads(record["wire"])
-        body["input" if change == "wire_input" else "tools"] = ["changed"]
+        if change == "wire_capacity":
+            body["max_output_tokens"] = 8192
+        else:
+            body["input" if change == "wire_input" else "tools"] = ["changed"]
         record["wire"] = canonical(body)
         record["wire_digest"] = assessment.fixture.sha(record["wire"].encode())
     elif change == "no_response":
@@ -290,7 +295,8 @@ def test_read_only_state_and_old_evidence_preserved(key):
         assessment.unchanged(before, before | {key: "changed"})
 
 
-def test_provider_switch_never_bypasses_preflight(tmp_path):
+def test_provider_switch_never_bypasses_preflight(tmp_path, monkeypatch):
+    monkeypatch.setattr(assessment, "declared_ge_inventory", lambda: {"verified": True})
     with pytest.raises(FileNotFoundError):
         assessment.main(
             [
@@ -425,3 +431,103 @@ def test_sdk_output_binding_is_independent_of_stored_result(change):
             assessment.verify_sdk_output(record, observed)
     else:
         assessment.verify_sdk_output(record, observed)
+
+
+@pytest.mark.parametrize(
+    "change", [None, "model", "input", "instructions", "capacity", "old_capacity"]
+)
+def test_capacity_contrast_changes_only_the_named_execution_parameter(change):
+    old = {
+        "model": "gpt-6-luna",
+        "input": ["same source and names"],
+        "instructions": "same instructions",
+        "max_output_tokens": 8192,
+    }
+    current = old | {"max_output_tokens": 128000}
+    if change == "old_capacity":
+        old["max_output_tokens"] = 9000
+    elif change == "capacity":
+        current["max_output_tokens"] = 8192
+    elif change:
+        current[change] = "changed"
+    if change:
+        with pytest.raises(ValueError):
+            assessment.capacity_contrast(canonical(current), canonical(old))
+    else:
+        assessment.capacity_contrast(canonical(current), canonical(old))
+
+
+def test_v3_does_not_offer_a_migration_command(tmp_path):
+    with pytest.raises(SystemExit):
+        assessment.main(
+            ["--clone-root", str(tmp_path), "--source-receipt", "unused", "--migrate"]
+        )
+
+
+@pytest.mark.parametrize(
+    "change", [None, "wrong_origin", "dirty", "untracked", "missing", "symlink"]
+)
+def test_generationengine_guard_checks_origin_and_every_package_byte(tmp_path, change):
+    import shutil
+    import subprocess
+
+    repository = tmp_path / "repository"
+    package = repository / "src/generationengine"
+    package.mkdir(parents=True)
+    (package / "__init__.py").write_text("accepted\n")
+    (package / "provider-data.json").write_text('{"accepted":true}\n')
+
+    def git(*args):
+        return subprocess.check_output(["git", "-C", str(repository), *args])
+
+    git("init", "--initial-branch=codex/test")
+    git("add", ".")
+    git(
+        "-c",
+        "user.name=Test",
+        "-c",
+        "user.email=test@example.invalid",
+        "commit",
+        "-m",
+        "fixture",
+    )
+    ref = git("rev-parse", "HEAD").decode().strip()
+    expected_root = tmp_path / "immutable"
+    actual_root = expected_root
+    shutil.copytree(package, actual_root / "generationengine")
+    selected = actual_root / "generationengine/__init__.py"
+    if change == "wrong_origin":
+        actual_root = tmp_path / "site-packages"
+        shutil.copytree(package, actual_root / "generationengine")
+    elif change == "dirty":
+        selected.write_text("old implementation\n")
+    elif change == "untracked":
+        (selected.parent / "extra.json").write_text("untracked\n")
+    elif change == "missing":
+        selected.unlink()
+    elif change == "symlink":
+        selected.unlink()
+        selected.symlink_to(package / "__init__.py")
+    if change:
+        with pytest.raises(ValueError):
+            assessment.verify_ge_import(
+                actual_root, repository=repository, ref=ref, expected_root=expected_root
+            )
+    else:
+        result = assessment.verify_ge_import(
+            actual_root, repository=repository, ref=ref, expected_root=expected_root
+        )
+        assert result["files"] == 2 and result["ref"] == ref
+
+
+def test_ge_failure_precedes_any_action_or_database_capture(tmp_path, monkeypatch):
+    touched = []
+
+    def reject():
+        raise ValueError("wrong GE import")
+
+    monkeypatch.setattr(assessment, "declared_ge_inventory", reject)
+    monkeypatch.setattr(assessment, "capture", lambda root: touched.append(root))
+    with pytest.raises(ValueError, match="wrong GE import"):
+        assessment.main(["--clone-root", str(tmp_path), "--source-receipt", "unused"])
+    assert touched == [] and list(tmp_path.iterdir()) == []

@@ -14,25 +14,77 @@ import json
 import os
 from pathlib import Path
 import subprocess
-import sys
 from time import perf_counter
 from uuid import uuid4
 
 from . import q01_native_answer_proof as answer
 from . import q01_native_fixture_proof as fixture
 
-AUTHORITY = "94d3a8557a77fcd6fe0c33a4f37d6979894438c5"
-BASE = "dd50ce2694b140aa477c18f3ec7a544b0aba5ac1"
+AUTHORITY = "fd6daae7343e9ec57736752543a8ae05f79d54f7"
+BASE = "d099f45d69c06a97ede20a9f7c90be4b1839d401"
 SOURCE_ACCESS_AUTHORITY = "178f43153e4e13c1444e693a8830d3306fa96ff0"
-CASE = "s8-qualified-proposals-v2"
-START = "20261029_0092"
+CASE = "s8-qualified-proposals-v3"
+START = "20261029_0093"
 END = "20261029_0093"
+OUTPUT_RESERVE = 128_000
+V2_PREFLIGHT = "237a23221e439102735bccb9d7ffef87c8b89314a724f6a14bd681d79c4f1f63"
+GE_REF = "e9366efad89b76ad0a62b1efacb0d8353120af0d"
+GE_ROOT = Path(
+    "/home/drakosfire/.local/state/dungeonmindbuddy/runtime-dependencies/generationengine-e9366ef"
+)
+GE_REPOSITORY = Path(
+    "/home/drakosfire/Projects/DungeonOverMind/GenerationEngine/GenerationEngine"
+)
 TABLE = "ingest.statement_proposal_operation"
 MIGRATION = (
     "src/application_state/migrations/versions/20261029_0093_statement_proposals.py"
 )
 require = fixture.require
 save = answer.immutable_save
+
+
+def verify_ge_import(
+    import_root=None, *, repository=GE_REPOSITORY, ref=GE_REF, expected_root=GE_ROOT
+):
+    """Reject the installed fallback, missing files and drift before any action."""
+    if import_root is None:
+        import generationengine
+
+        import_root = Path(generationengine.__file__).resolve().parents[1]
+    actual = Path(import_root).resolve(strict=True)
+    require(
+        actual == Path(expected_root).resolve(strict=True),
+        "actual GenerationEngine import origin differs from declared immutable runtime",
+    )
+    inventory = fixture.verify_source_tree(
+        actual, repository, ref, ("generationengine",)
+    )
+    return {"actual_import_root": str(actual), **inventory}
+
+
+def declared_ge_inventory():
+    import tomllib
+
+    root = Path(__file__).resolve().parents[2]
+    project = tomllib.loads((root / "pyproject.toml").read_text())
+    declarations = [
+        value
+        for value in project["project"]["dependencies"]
+        if value.startswith("generationengine[")
+    ]
+    require(
+        len(declarations) == 1 and declarations[0].endswith("@" + GE_REF),
+        "declared GenerationEngine pin differs",
+    )
+    lock = tomllib.loads((root / "uv.lock").read_text())
+    packages = [
+        value for value in lock["package"] if value["name"] == "generationengine"
+    ]
+    require(
+        len(packages) == 1 and packages[0]["source"]["git"].endswith("#" + GE_REF),
+        "locked GenerationEngine pin differs",
+    )
+    return verify_ge_import()
 
 
 class SourcePrerequisiteError(ValueError):
@@ -217,7 +269,8 @@ def verify_record(record, request, source, packet):
         body["input"] == [{"role": "user", "content": fixture.canonical(packet)}]
         and body["instructions"] == INSTRUCTIONS
         and not body.get("tools")
-        and body["model"] == "gpt-6-luna",
+        and body["model"] == "gpt-6-luna"
+        and body.get("max_output_tokens") == OUTPUT_RESERVE,
         "provider input differs",
     )
     outcomes = [e["outcome"] for e in record["lifecycle"]]
@@ -299,6 +352,17 @@ def runtime_inventory(root=None, ref=BASE):
     return result
 
 
+def capacity_contrast(current_wire, old_wire):
+    from graph_memory.extraction.qualified_statement_proposals import strict_json
+
+    old, current = strict_json(old_wire), strict_json(current_wire)
+    require(old.get("max_output_tokens") == 8192, "original capacity baseline differs")
+    require(
+        current == old | {"max_output_tokens": OUTPUT_RESERVE},
+        "capacity experiment changed something besides output reserve",
+    )
+
+
 def row_inventory(dsn):
     """One repeatable-read snapshot, retaining exact operation identity too."""
     from psycopg import sql
@@ -359,6 +423,7 @@ def capture(root):
                 "q01-native-answer-v1",
                 "q01-native-answer-v2",
                 "s8-qualified-proposals-v1",
+                "s8-qualified-proposals-v2",
             )
         },
     }
@@ -370,6 +435,7 @@ def unchanged(before, after):
 
 
 def preflight(root, receipt_path, schema=START):
+    ge = declared_ge_inventory()
     import dungeonmind
     import worldkeeper
     from psycopg.conninfo import make_conninfo
@@ -404,6 +470,7 @@ def preflight(root, receipt_path, schema=START):
             ("dungeonmind", "dungeonmind_dnd"),
         )
     }
+    dependencies["generationengine"] = ge
     wk = Path(worldkeeper.__file__).resolve().parents[1]
     dependencies["wk"] = fixture.verify_source_tree(
         wk, wk.parent, "a30ee81ae0e777037c68afea8847b04a2c736ae1", ("worldkeeper",)
@@ -448,6 +515,19 @@ def preflight(root, receipt_path, schema=START):
     _, _, packet = service.source(
         request, NativeGraphPrincipal("local_operator", "gm", "local_operator")
     )
+    v2_case = root.parent / "native-review-context-v2/s8-qualified-proposals-v2"
+    previous = json.loads(
+        (v2_case / ("preflight-" + V2_PREFLIGHT + ".json")).read_text()
+    )
+    require(
+        fixture.digest(previous) == V2_PREFLIGHT and packet == previous["input"],
+        "v3 source/context/model schema input differs from frozen v2",
+    )
+    budget = service._producer_budget()
+    require(
+        budget["outputReserveTokens"] == OUTPUT_RESERVE,
+        "producer output capacity differs",
+    )
     with fixture.readonly(connection["app_dsn"]) as conn:
         require(
             conn.execute(
@@ -489,6 +569,8 @@ def preflight(root, receipt_path, schema=START):
         "schema": schema,
         "receipt": receipt,
         "registered_extent": extent,
+        "producer_budget": budget,
+        "v2_preflight_sha256": V2_PREFLIGHT,
         "request": request.model_dump(mode="json"),
         "input": packet,
         "state": capture(root),
@@ -509,13 +591,14 @@ def main(argv=None):
     p.add_argument("--clone-root", type=Path, required=True)
     p.add_argument("--source-receipt", type=Path, required=True)
     p.add_argument("--preflight-sha256")
-    p.add_argument("--migrate", action="store_true")
+    p.add_argument("--snapshot", action="store_true")
     p.add_argument("--apply", action="store_true")
     p.add_argument("--provider", action="store_true")
     args = p.parse_args(argv)
+    declared_ge_inventory()
     root = args.clone_root.resolve(strict=True)
     case = root.parent / "native-review-context-v2" / CASE
-    if not (args.migrate or args.apply or args.provider):
+    if not (args.snapshot or args.apply or args.provider):
         require(not case.exists(), "fresh assessment case required")
         before = capture(root)
         try:
@@ -560,45 +643,38 @@ def main(argv=None):
     )
     require(fixture.digest(frozen) == args.preflight_sha256, "preflight digest differs")
     connection, donor, _ = fixture.retained_inputs(root)
-    if args.migrate:
+    if args.snapshot:
         require(
             not args.apply and not args.provider,
-            "migration and provider must be separate",
+            "snapshot and provider must be separate",
         )
         freeze_matches(preflight(root, args.source_receipt), frozen)
         answer.snapshot_app(connection, donor, case)
         freeze_matches(preflight(root, args.source_receipt), frozen)
-        save(case, "migration-intent", {"from": START, "to": END})
-        env = dict(os.environ)
-        env["DUNGEONBUDDY_APPLICATION_STATE_DATABASE_URL"] = answer.app_connection_url(
-            connection["app_dsn"]
-        )
-        subprocess.run(
-            [
-                sys.executable,
-                "-B",
-                "-m",
-                "alembic",
-                "-c",
-                "src/application_state/alembic.ini",
-                "upgrade",
-                END,
-            ],
-            env=env,
-            check=True,
-        )
         after = preflight(root, args.source_receipt, END)
-        freeze_matches(after, frozen, migrated=True)
-        save(case, "migration-result", {"schema": END, "state": after["state"]})
-        print(json.dumps({"schema": END, "original_rows_preserved": True}))
+        freeze_matches(after, frozen)
+        save(
+            case,
+            "snapshot-result",
+            {"schema": END, "state": after["state"], "migration_executed": False},
+        )
+        print(
+            json.dumps(
+                {
+                    "schema": END,
+                    "original_rows_preserved": True,
+                    "migration_executed": False,
+                }
+            )
+        )
         return
     require(args.apply and args.provider, "explicit apply and provider required")
     require(
         not (case / "provider-intent.json").exists(),
         "original operation retained; no redispatch",
     )
-    require((case / "migration-result.json").is_file(), "verified migration required")
-    freeze_matches(preflight(root, args.source_receipt, END), frozen, migrated=True)
+    require((case / "snapshot-result.json").is_file(), "verified snapshot required")
+    freeze_matches(preflight(root, args.source_receipt, END), frozen)
     _, _, _, token = answer.configure_operation(root, case)
     from fastapi import FastAPI
     from fastapi.testclient import TestClient
@@ -644,6 +720,23 @@ def main(argv=None):
         )
         record = response.json()
         save(case, "operation", record)
+        old_wire = json.loads(
+            (
+                root.parent
+                / "native-review-context-v2/s8-qualified-proposals-v2/operation.json"
+            ).read_text()
+        )["wire"]
+        capacity_contrast(record["wire"], old_wire)
+        save(
+            case,
+            "capacity-contrast",
+            {
+                "only_wire_change": "max_output_tokens",
+                "old": 8192,
+                "new": OUTPUT_RESERVE,
+                "v2_preflight_sha256": V2_PREFLIGHT,
+            },
+        )
         with fixture.readonly(connection["app_dsn"]) as conn:
             stored = conn.execute(
                 "SELECT operation_id::text,owner,world_id,payload FROM ingest.statement_proposal_operation WHERE operation_id=%s",
@@ -659,7 +752,7 @@ def main(argv=None):
         before = capture(root)
         unchanged(frozen["state"], before)
         app_conservation(
-            json.loads((case / "migration-result.json").read_text())["state"]["app"],
+            json.loads((case / "snapshot-result.json").read_text())["state"]["app"],
             before["app"],
             operation=record["operation_id"],
         )
