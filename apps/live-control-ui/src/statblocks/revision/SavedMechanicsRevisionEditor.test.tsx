@@ -1,3 +1,4 @@
+import {GenerationPlanProvider} from '../../guidedTour/GenerationObservations';
 import {render,screen,waitFor,cleanup} from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import {beforeEach,afterEach,it,expect,vi} from 'vitest';
@@ -6,7 +7,8 @@ import {SavedMechanicsRevisionEditor} from './SavedMechanicsRevisionEditor';
 import {TourEncounterProvider,type TourEncounterScope} from '../../guidedTour/EncounterScope';
 import type {TourOwnerReading} from '../../guidedTour/GuidedTour';
 const tourReadings=vi.hoisted(()=>new Map<string,TourOwnerReading>());
-vi.mock('../../guidedTour/GuidedTour',()=>({useGuidedTour:()=>({captureScope:()=>null}),useTourOwnerReading:(reading:TourOwnerReading|null)=>{if(reading)tourReadings.set(reading.step,reading);}}));
+const generatedBinding=vi.hoisted(()=>({current:null as import('../../guidedTour/protocol').GeneratedMechanicsScope|null}));
+vi.mock('../../guidedTour/GuidedTour',()=>({useGuidedTour:()=>({captureScope:()=>null,captureMechanicsScope:()=>generatedBinding.current}),useTourOwnerReading:(reading:TourOwnerReading|null)=>{if(reading)tourReadings.set(reading.step,reading);}}));
 import {baseCandidateDefinition} from '../editor/editorFixtures';
 import type {OpenSavedMechanicsVersion,RevisionSaveOutcome,SavedMechanicsVersionList} from './savedMechanicsRevisionTypes';
 vi.mock('../../api/liveApi',()=>({listSavedMechanicsVersions:vi.fn(),openSavedMechanicsVersion:vi.fn(),saveMechanicsRevision:vi.fn(),recoverMechanicsRevision:vi.fn(),inspectMechanicsRevision:vi.fn(),validateStatblockDefinition:vi.fn()}));
@@ -22,7 +24,7 @@ function opened(revision=base.revision_id):OpenSavedMechanicsVersion{
     resource:{statblock_id:base.statblock_id,revision_id:revision,definition} as OpenSavedMechanicsVersion['resource']};
 }
 beforeEach(()=>{
-  vi.resetAllMocks();tourReadings.clear();localStorage.clear();
+  vi.resetAllMocks();generatedBinding.current=null;tourReadings.clear();localStorage.clear();
   outcome={operation_id:'22222222-2222-4222-8222-222222222222',state:'committed',base,result:next,refusal_code:null,change_summary:'Stronger',created_at:'2026-10-22T00:00:00Z'};
   vi.mocked(api.listSavedMechanicsVersions).mockResolvedValue(page());
   vi.mocked(api.openSavedMechanicsVersion).mockImplementation(async(_d,_w,rev)=>opened(rev));
@@ -126,4 +128,40 @@ it('shows actionable producer issues and clears them when mechanics change',asyn
   expect(screen.getByRole('list',{name:'Mechanics validation issues'}).textContent).toContain('vitality.hit_points.displayed_average');
   expect(api.saveMechanicsRevision).not.toHaveBeenCalled();await edit();
   expect(screen.queryByRole('list',{name:'Mechanics validation issues'})).toBeNull();
+});
+
+it('standalone saved editor observes the generated creature manual successor without changing any encounter',async()=>{
+ generatedBinding.current={plan:tourScope.plan,walkthroughId:'tour',draftId:draft,acceptOperationId:'accept',original:base,dispatchRevision:4};
+ vi.mocked(api.saveMechanicsRevision).mockImplementation(async(_d,body)=>({...outcome,operation_id:body.operation_id}));
+ render(<GenerationPlanProvider pin={tourScope.plan}><SavedMechanicsRevisionEditor worldId={world} draftId={draft}/></GenerationPlanProvider>);await load();await edit();await validate();
+ await userEvent.click(screen.getByRole('button',{name:'Save new version'}));await screen.findByText('New mechanics version saved. Encounters and World associations are unchanged.');
+ expect(tourReadings.get('mechanics')?.observation).toMatchObject({origin:'acknowledged',target:tourScope.plan,proof:{kind:'generated-mechanics-revision',scope:generatedBinding.current,lineage:[{base,locator:next}]}});
+ expect(api.saveMechanicsRevision).toHaveBeenCalledTimes(1);expect(api.openSavedMechanicsVersion).toHaveBeenLastCalledWith(draft,world,next.revision_id);
+});
+it('standalone editor inspects the existing successor without another Save',async()=>{
+ generatedBinding.current={plan:tourScope.plan,walkthroughId:'tour',draftId:draft,acceptOperationId:'accept',original:base,dispatchRevision:4};
+ vi.mocked(api.listSavedMechanicsVersions).mockResolvedValue({...page(),operations:[outcome]});
+ render(<GenerationPlanProvider pin={tourScope.plan}><SavedMechanicsRevisionEditor worldId={world} draftId={draft}/></GenerationPlanProvider>);await load();
+ await userEvent.selectOptions(screen.getByRole('combobox',{name:'Saved mechanics version'}),next.revision_id);
+ await waitFor(()=>expect(tourReadings.get('mechanics')?.observation?.origin).toBe('existing'));
+ expect(api.saveMechanicsRevision).not.toHaveBeenCalled();expect(api.recoverMechanicsRevision).not.toHaveBeenCalled();
+});
+it('standalone unknown-save recovery verifies the retained result without another Save',async()=>{
+ generatedBinding.current={plan:tourScope.plan,walkthroughId:'tour',draftId:draft,acceptOperationId:'accept',original:base,dispatchRevision:4};
+ let id='';vi.mocked(api.saveMechanicsRevision).mockImplementation(async(_d,body)=>{id=body.operation_id;return {...outcome,operation_id:id,state:'outcome_unknown',result:null};});
+ vi.mocked(api.recoverMechanicsRevision).mockImplementation(async()=>({...outcome,operation_id:id}));
+ render(<GenerationPlanProvider pin={tourScope.plan}><SavedMechanicsRevisionEditor worldId={world} draftId={draft}/></GenerationPlanProvider>);await load();await edit();await validate();await userEvent.click(screen.getByRole('button',{name:'Save new version'}));await screen.findByText(/Save outcome is unknown/);
+ expect(tourReadings.get('mechanics')?.observation).toBeUndefined();
+ await userEvent.click(screen.getByRole('button',{name:'Recover Save'}));await screen.findByText('New mechanics version saved. Encounters and World associations are unchanged.');
+ expect(tourReadings.get('mechanics')?.observation?.origin).toBe('acknowledged');expect(api.saveMechanicsRevision).toHaveBeenCalledTimes(1);
+});
+
+it('does not transfer an interrupted generated Save acknowledgement after guidance changes',async()=>{
+ generatedBinding.current={plan:tourScope.plan,walkthroughId:'tour',draftId:draft,acceptOperationId:'accept',original:base,dispatchRevision:4};
+ let id='';vi.mocked(api.saveMechanicsRevision).mockImplementation(async(_d,body)=>{id=body.operation_id;return {...outcome,operation_id:id,state:'outcome_unknown',result:null};});
+ vi.mocked(api.recoverMechanicsRevision).mockImplementation(async()=>{vi.mocked(api.listSavedMechanicsVersions).mockResolvedValue({...page(),operations:[{...outcome,operation_id:id}]});return {...outcome,operation_id:id};});
+ const mounted=render(<GenerationPlanProvider pin={tourScope.plan}><SavedMechanicsRevisionEditor worldId={world} draftId={draft}/></GenerationPlanProvider>);await load();await edit();await validate();await userEvent.click(screen.getByRole('button',{name:'Save new version'}));await screen.findByText(/Save outcome is unknown/);
+ generatedBinding.current={...generatedBinding.current!,dispatchRevision:6};mounted.rerender(<GenerationPlanProvider pin={tourScope.plan}><SavedMechanicsRevisionEditor worldId={world} draftId={draft}/></GenerationPlanProvider>);
+ await userEvent.click(screen.getByRole('button',{name:'Recover Save'}));await screen.findByText('New mechanics version saved. Encounters and World associations are unchanged.');
+ expect(tourReadings.get('mechanics')?.observation?.origin).toBe('existing');expect(api.saveMechanicsRevision).toHaveBeenCalledTimes(1);
 });

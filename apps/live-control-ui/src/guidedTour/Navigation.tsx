@@ -9,7 +9,7 @@ export interface NavigationScope {worldId:string;walkthroughId:string;epoch:numb
 export function navigationScope(walk:Walkthrough|null,epoch:number):NavigationScope|null {
  if(!walk||walk.version!==3)return null;
  const proof=walk?.steps[JOURNEY_STEPS[walk.index].id].evidence.at(-1)?.proof;
- return !walk||walk.version!==3||walk.phase!=='running'?null:{worldId:walk.worldId,walkthroughId:walk.id,epoch,step:JOURNEY_STEPS[walk.index].id,index:walk.index,bindings:structuredClone(walk.bindings),...(proof&&'sceneId' in proof?{sceneId:proof.sceneId}:{}),...(proof?.kind==='mechanics'?{draftId:proof.draftId}:{})};
+ return !walk||walk.version!==3||walk.phase!=='running'?null:{worldId:walk.worldId,walkthroughId:walk.id,epoch,step:JOURNEY_STEPS[walk.index].id,index:walk.index,bindings:structuredClone(walk.bindings),...(proof&&'sceneId' in proof?{sceneId:proof.sceneId}:{}),...(proof?.kind==='mechanics'?{draftId:proof.draftId}:proof?.kind==='generated-mechanics-revision'?{draftId:proof.scope.draftId}:{})};
 }
 export function sameNavigationScope(a:NavigationScope|null,b:NavigationScope|null):boolean {
  if(!a||!b||a.worldId!==b.worldId||a.walkthroughId!==b.walkthroughId||a.epoch!==b.epoch||a.step!==b.step||a.index!==b.index||a.sceneId!==b.sceneId||a.draftId!==b.draftId)return false;

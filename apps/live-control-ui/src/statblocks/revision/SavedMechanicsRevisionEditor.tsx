@@ -1,7 +1,9 @@
+import {useGenerationPlan} from '../../guidedTour/GenerationObservations';
+import type {GeneratedMechanicsScope} from '../../guidedTour/protocol';
 import {useTourNavigationGuard} from '../../guidedTour/Navigation';
 import {useGuidedTour,type TourDispatchScope} from '../../guidedTour/GuidedTour';
 import {useTourEncounter,sameEncounterScope,type TourEncounterScope} from '../../guidedTour/EncounterScope';
-import {MechanicsTourObservation,sameMechanicsLocator,type AcknowledgedMechanicsSave} from '../../guidedTour/MechanicsObservations';
+import {MechanicsTourObservation,GeneratedMechanicsTourObservation,sameGeneratedMechanicsScope,type AcknowledgedGeneratedMechanicsSave,sameMechanicsLocator,type AcknowledgedMechanicsSave} from '../../guidedTour/MechanicsObservations';
 import {useEffect,useRef,useState} from 'react';
 import {listSavedMechanicsVersions,openSavedMechanicsVersion,saveMechanicsRevision,recoverMechanicsRevision,inspectMechanicsRevision,validateStatblockDefinition} from '../../api/liveApi';
 import {StatblockDefinitionEditor} from '../editor/StatblockDefinitionEditor';
@@ -21,7 +23,10 @@ function sameShape(base:unknown,value:unknown):boolean {
 }
 
 export function SavedMechanicsRevisionEditor({worldId,draftId}:{worldId:string;draftId:string}) {
- const guidance=useGuidedTour();
+ const guidance=useGuidedTour(),generationPlan=useGenerationPlan();
+ const generatedScope=guidance&&generationPlan?guidance.captureMechanicsScope(generationPlan,draftId):null,latestGeneratedScope=useRef(generatedScope);latestGeneratedScope.current=generatedScope;
+ const [generatedAcknowledged,setGeneratedAcknowledged]=useState<AcknowledgedGeneratedMechanicsSave|null>(null);
+ const generatedDispatch=useRef<{operationId:string;scope:GeneratedMechanicsScope|null;dispatchScope:TourDispatchScope|null}|null>(null);
   const [writer]=useState(()=>{
     const key='dmb-manual-mechanics-writer';
     try{let id=sessionStorage.getItem(key);if(!id){id=crypto.randomUUID();sessionStorage.setItem(key,id);}return {id,recoverable:true};}
@@ -92,7 +97,7 @@ export function SavedMechanicsRevisionEditor({worldId,draftId}:{worldId:string;d
     finally{if(token===epoch.current)setBusy(false);}
   }
   function clearPending(id:string){if(localStorage.getItem(`${scope}:pending`)===id)localStorage.removeItem(`${scope}:pending`);setPending(null);}
-  async function applyOutcome(outcome:RevisionSaveOutcome,token:number,expectedId:string,tourAtDispatch:TourEncounterScope|null,tourDispatch:TourDispatchScope|null) {
+  async function applyOutcome(outcome:RevisionSaveOutcome,token:number,expectedId:string,tourAtDispatch:TourEncounterScope|null,tourDispatch:TourDispatchScope|null,generatedAtDispatch:GeneratedMechanicsScope|null) {
     if(token!==epoch.current)return;
     if(outcome.operation_id!==expectedId||!opened||JSON.stringify(outcome.base)!==JSON.stringify(opened.locator))throw new Error('Save outcome belongs to another version or operation.');
     if(outcome.state==='committed'||outcome.state==='refused'){
@@ -101,6 +106,7 @@ export function SavedMechanicsRevisionEditor({worldId,draftId}:{worldId:string;d
         if(opened)localStorage.removeItem(sourceKey(opened.locator.revision_id));
         const exact=await load(outcome.result.revision_id);if(epoch.current===token+1){
           setMessage('New mechanics version saved. Encounters and World associations are unchanged.');
+          if(exact&&sameMechanicsLocator(exact.locator,outcome.result)&&generatedAtDispatch&&sameGeneratedMechanicsScope(generatedAtDispatch,latestGeneratedScope.current))setGeneratedAcknowledged({scope:generatedAtDispatch,dispatchScope:tourDispatch,operation:outcome});
           if(exact&&sameMechanicsLocator(exact.locator,outcome.result)&&tourAtDispatch&&sameEncounterScope(tourAtDispatch,latestTourScope.current))setTourAcknowledged({dispatchScope:tourDispatch,scope:tourAtDispatch,draftId,operation:outcome});
         }
       }else setMessage('The source version changed. Your edits are retained; inspect the saved versions before trying again.');
@@ -109,12 +115,13 @@ export function SavedMechanicsRevisionEditor({worldId,draftId}:{worldId:string;d
   async function save() {
     if(!writer.recoverable||!opened||!editor||pending||validated!==fingerprintDefinition(editor.workingCopy))return;
     const retained=localStorage.getItem(`${scope}:pending`);if(retained){setPending(retained);setMessage('Recover the existing Save before making another version.');return;}
-    const token=++epoch.current,id=crypto.randomUUID(),tourAtDispatch=tourScope,tourDispatch=guidance?.captureScope()??null;setBusy(true);setMessage('Saving new mechanics version…');
+    const token=++epoch.current,id=crypto.randomUUID(),tourAtDispatch=tourScope,tourDispatch=guidance?.captureScope()??null,generatedAtDispatch=generatedScope;setBusy(true);setMessage('Saving new mechanics version…');
+    generatedDispatch.current={operationId:id,scope:generatedAtDispatch,dispatchScope:tourDispatch};
     try {
       remember(editor);localStorage.setItem(`${scope}:pending`,id);setPending(id);
       const result=await saveMechanicsRevision(draftId,{operation_id:id,world_id:worldId,base:opened.locator,
         definition:editor.workingCopy,change_summary:summary});
-      await applyOutcome(result,token,id,tourAtDispatch,tourDispatch);
+      await applyOutcome(result,token,id,tourAtDispatch,tourDispatch,generatedAtDispatch);
     }catch(error){
       if(token!==epoch.current)return;
       // Inspection never cancels an in-flight preflight. Only the explicit
@@ -122,22 +129,23 @@ export function SavedMechanicsRevisionEditor({worldId,draftId}:{worldId:string;d
       try {
         const status=await inspectMechanicsRevision(draftId,worldId,id);
         if(token!==epoch.current)return;
-        if(status.operation)await applyOutcome(status.operation,token,id,tourAtDispatch,tourDispatch);
+        if(status.operation)await applyOutcome(status.operation,token,id,tourAtDispatch,tourDispatch,generatedAtDispatch);
         else setMessage('Save has no durable result yet. Recover Save to finish it or safely release its intent.');
       }catch{if(token===epoch.current)setMessage('Save outcome could not be checked. Your edits and Save identity are retained. Recover before continuing.');}
     }finally{if(token===epoch.current)setBusy(false);}
   }
   async function recover() {
-    if(!pending)return;const token=++epoch.current,tourAtDispatch=tourScope,tourDispatch=guidance?.captureScope()??null;setBusy(true);setMessage('Checking saved result…');
+    if(!pending)return;const token=++epoch.current,tourAtDispatch=tourScope,originalDispatch=generatedDispatch.current?.operationId===pending?generatedDispatch.current:null,tourDispatch=originalDispatch?.dispatchScope??guidance?.captureScope()??null,generatedAtDispatch=originalDispatch?.scope??null;setBusy(true);setMessage('Checking saved result…');
     try{
       const result=await recoverMechanicsRevision(draftId,worldId,pending);if(token!==epoch.current)return;
       if(!result){clearPending(pending);setMessage('Save was safely canceled before dispatch. Your edits are available.');return;}
-      await applyOutcome(result,token,pending,tourAtDispatch,tourDispatch);
+      await applyOutcome(result,token,pending,tourAtDispatch,tourDispatch,generatedAtDispatch);
     }catch(error){if(token===epoch.current)setMessage(error instanceof Error?error.message:String(error));}
     finally{if(token===epoch.current)setBusy(false);}
   }
   useTourNavigationGuard({worldId,reason:()=>busy||pending||!!editor&&editor.baselineFingerprint!==fingerprintDefinition(editor.workingCopy)?'Save or recover the manual mechanics revision before leaving these controls.':null});
   return <section data-guided-control="mechanics" tabIndex={-1} className="statblock-section" aria-label="Saved mechanics versions">
+    {!tourScope&&<GeneratedMechanicsTourObservation scope={generatedScope} opened={opened} history={history} acknowledged={generatedAcknowledged} blocked={busy||!!pending||!!editor&&editor.baselineFingerprint!==fingerprintDefinition(editor.workingCopy)}/>}
     <MechanicsTourObservation scope={tourScope} opened={opened} history={history} acknowledged={tourAcknowledged} blocked={busy||!!pending||!!editor&&editor.baselineFingerprint!==fingerprintDefinition(editor.workingCopy)}/>
     <h3>Saved versions</h3>
     <p>Edit saved mechanics and create a new version. Choosing it for a fight is a separate action.</p>
