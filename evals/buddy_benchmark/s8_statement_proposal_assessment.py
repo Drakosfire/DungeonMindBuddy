@@ -20,20 +20,24 @@ from uuid import uuid4
 from . import q01_native_answer_proof as answer
 from . import q01_native_fixture_proof as fixture
 
-AUTHORITY = "fd6daae7343e9ec57736752543a8ae05f79d54f7"
-BASE = "d099f45d69c06a97ede20a9f7c90be4b1839d401"
+AUTHORITY = "52056b8e3bf0ae00558c5cce772281f8f386b93f"
+BASE = "958f2bed133687a02976c1cff4ad739603239725"
 SOURCE_ACCESS_AUTHORITY = "178f43153e4e13c1444e693a8830d3306fa96ff0"
-CASE = "s8-qualified-proposals-v3"
+CASE = "s8-qualified-proposals-v4"
 START = "20261029_0093"
 END = "20261029_0093"
 OUTPUT_RESERVE = 128_000
 V2_PREFLIGHT = "237a23221e439102735bccb9d7ffef87c8b89314a724f6a14bd681d79c4f1f63"
+V3_PREFLIGHT = "c27c66e4e34b05457c19e4ae41847a12d75c0700fb9c86af0ed3d2602619a557"
 GE_REF = "e9366efad89b76ad0a62b1efacb0d8353120af0d"
 GE_ROOT = Path(
     "/home/drakosfire/.local/state/dungeonmindbuddy/runtime-dependencies/generationengine-e9366ef"
 )
 GE_REPOSITORY = Path(
     "/home/drakosfire/Projects/DungeonOverMind/GenerationEngine/GenerationEngine"
+)
+SDK_ROOT = Path(
+    "/home/drakosfire/.codex/worktrees/buddy-context-loop/DungeonMindBuddy/.venv/lib/python3.13/site-packages/openai"
 )
 TABLE = "ingest.statement_proposal_operation"
 MIGRATION = (
@@ -85,6 +89,75 @@ def declared_ge_inventory():
         "locked GenerationEngine pin differs",
     )
     return verify_ge_import()
+
+
+def verify_sdk_package(
+    root, expected, *, version, locked_version, expected_root=SDK_ROOT
+):
+    root = Path(root).resolve(strict=True)
+    require(
+        root == Path(expected_root).resolve(strict=True) and version == locked_version,
+        "actual OpenAI SDK origin/version differs",
+    )
+    actual = {}
+    for path in root.rglob("*"):
+        if "__pycache__" in path.parts or path.suffix == ".pyc":
+            continue
+        require(not path.is_symlink(), "SDK package symlink differs")
+        if path.is_file():
+            actual[path.relative_to(root).as_posix()] = fixture.sha(path.read_bytes())
+    require(
+        actual == expected and bool(actual),
+        "actual SDK package bytes differ from wheel RECORD",
+    )
+    return {
+        "actual_import_root": str(root),
+        "version": version,
+        "files": len(actual),
+        "tree_digest": fixture.digest(actual),
+        "expected_hash_authority": "installed wheel RECORD, version pinned by uv.lock",
+    }
+
+
+def declared_sdk_inventory():
+    import base64
+    from importlib.metadata import distribution
+    import openai
+    import tomllib
+
+    root = Path(__file__).resolve().parents[2]
+    lock = tomllib.loads((root / "uv.lock").read_text())
+    packages = [p for p in lock["package"] if p["name"] == "openai"]
+    require(len(packages) == 1, "locked SDK package is ambiguous")
+    dist = distribution("openai")
+    require(
+        dist.version == openai.__version__, "SDK module/distribution version differs"
+    )
+    expected = {}
+    for file in dist.files:
+        name = str(file)
+        if (
+            not name.startswith("openai/")
+            or "__pycache__" in file.parts
+            or name.endswith(".pyc")
+        ):
+            continue
+        require(
+            file.hash is not None and file.hash.mode == "sha256",
+            "SDK wheel file lacks SHA256",
+        )
+        expected[name.removeprefix("openai/")] = base64.urlsafe_b64decode(
+            file.hash.value + "=" * (-len(file.hash.value) % 4)
+        ).hex()
+    result = verify_sdk_package(
+        Path(openai.__file__).resolve().parent,
+        expected,
+        version=openai.__version__,
+        locked_version=packages[0]["version"],
+    )
+    return result | {
+        "wheel_record_sha256": fixture.sha(dist.read_text("RECORD").encode())
+    }
 
 
 class SourcePrerequisiteError(ValueError):
@@ -352,14 +425,23 @@ def runtime_inventory(root=None, ref=BASE):
     return result
 
 
-def capacity_contrast(current_wire, old_wire):
-    from graph_memory.extraction.qualified_statement_proposals import strict_json
+def instruction_contrast(current_wire, old_wire):
+    from graph_memory.extraction.qualified_statement_proposals import (
+        strict_json,
+        INSTRUCTIONS,
+    )
 
     old, current = strict_json(old_wire), strict_json(current_wire)
-    require(old.get("max_output_tokens") == 8192, "original capacity baseline differs")
     require(
-        current == old | {"max_output_tokens": OUTPUT_RESERVE},
-        "capacity experiment changed something besides output reserve",
+        old.get("max_output_tokens") == OUTPUT_RESERVE, "v3 capacity baseline differs"
+    )
+    require(
+        old.get("instructions") != INSTRUCTIONS,
+        "v4 must use the delivered literal-copy instruction change",
+    )
+    require(
+        current == old | {"instructions": INSTRUCTIONS},
+        "literal-copy experiment changed something besides declared instructions",
     )
 
 
@@ -424,6 +506,7 @@ def capture(root):
                 "q01-native-answer-v2",
                 "s8-qualified-proposals-v1",
                 "s8-qualified-proposals-v2",
+                "s8-qualified-proposals-v3",
             )
         },
     }
@@ -436,6 +519,7 @@ def unchanged(before, after):
 
 def preflight(root, receipt_path, schema=START):
     ge = declared_ge_inventory()
+    sdk = declared_sdk_inventory()
     import dungeonmind
     import worldkeeper
     from psycopg.conninfo import make_conninfo
@@ -471,6 +555,7 @@ def preflight(root, receipt_path, schema=START):
         )
     }
     dependencies["generationengine"] = ge
+    dependencies["openai_sdk"] = sdk
     wk = Path(worldkeeper.__file__).resolve().parents[1]
     dependencies["wk"] = fixture.verify_source_tree(
         wk, wk.parent, "a30ee81ae0e777037c68afea8847b04a2c736ae1", ("worldkeeper",)
@@ -521,7 +606,18 @@ def preflight(root, receipt_path, schema=START):
     )
     require(
         fixture.digest(previous) == V2_PREFLIGHT and packet == previous["input"],
-        "v3 source/context/model schema input differs from frozen v2",
+        "v4 source/context/model schema input differs from frozen v2",
+    )
+    previous_v3 = json.loads(
+        (
+            root.parent
+            / "native-review-context-v2/s8-qualified-proposals-v3"
+            / ("preflight-" + V3_PREFLIGHT + ".json")
+        ).read_text()
+    )
+    require(
+        fixture.digest(previous_v3) == V3_PREFLIGHT and packet == previous_v3["input"],
+        "v4 source/context/model schema input differs from frozen v3",
     )
     budget = service._producer_budget()
     require(
@@ -571,6 +667,7 @@ def preflight(root, receipt_path, schema=START):
         "registered_extent": extent,
         "producer_budget": budget,
         "v2_preflight_sha256": V2_PREFLIGHT,
+        "v3_preflight_sha256": V3_PREFLIGHT,
         "request": request.model_dump(mode="json"),
         "input": packet,
         "state": capture(root),
@@ -596,6 +693,7 @@ def main(argv=None):
     p.add_argument("--provider", action="store_true")
     args = p.parse_args(argv)
     declared_ge_inventory()
+    declared_sdk_inventory()
     root = args.clone_root.resolve(strict=True)
     case = root.parent / "native-review-context-v2" / CASE
     if not (args.snapshot or args.apply or args.provider):
@@ -720,21 +818,32 @@ def main(argv=None):
         )
         record = response.json()
         save(case, "operation", record)
+        post_dependencies = {
+            "generationengine": declared_ge_inventory(),
+            "openai_sdk": declared_sdk_inventory(),
+        }
+        save(case, "post-provider-dependencies", post_dependencies)
+        require(
+            all(
+                post_dependencies[key] == frozen["dependencies"][key]
+                for key in post_dependencies
+            ),
+            "provider dependency identity changed during the operation",
+        )
         old_wire = json.loads(
             (
                 root.parent
-                / "native-review-context-v2/s8-qualified-proposals-v2/operation.json"
+                / "native-review-context-v2/s8-qualified-proposals-v3/operation.json"
             ).read_text()
         )["wire"]
-        capacity_contrast(record["wire"], old_wire)
+        instruction_contrast(record["wire"], old_wire)
         save(
             case,
-            "capacity-contrast",
+            "instruction-contrast",
             {
-                "only_wire_change": "max_output_tokens",
-                "old": 8192,
-                "new": OUTPUT_RESERVE,
-                "v2_preflight_sha256": V2_PREFLIGHT,
+                "only_wire_change": "instructions",
+                "output_reserve_unchanged": OUTPUT_RESERVE,
+                "v3_preflight_sha256": V3_PREFLIGHT,
             },
         )
         with fixture.readonly(connection["app_dsn"]) as conn:

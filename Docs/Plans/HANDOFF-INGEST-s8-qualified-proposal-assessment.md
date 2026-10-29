@@ -1,6 +1,6 @@
 # INGEST — independent real S8 proposal assessment
 
-Original assessment settled by PR1900; the ACTIVE v3 successor is allocated below.
+Original assessments settled by PR1900/1903; the ACTIVE v4 successor is below.
 The original pinned authority is OverMind
 94d3a8557a77fcd6fe0c33a4f37d6979894438c5, subsequently merged as
 bb289e6789ca87d8ebaca48dbeb263a7d36fcb79. Runtime base is Buddy
@@ -159,7 +159,7 @@ separate; no re-admission/reminted source was used. Original full-system
 verification remains0/15. Exact final-head review and CI remain PR gates;
 broader corpus integration and operator acceptance remain open.
 
-## Active v3 capacity contrast
+## V3 capacity contrast — settled by PR1903
 
 Pinned portable allocation OverMindfd6daae7343e9ec57736752543a8ae05f79d54f7,
 independently approved and mergedc3f01d4837a9de035247fe426f731dbc85a4a438.
@@ -298,3 +298,50 @@ This post-run repair does not retroactively make v3 a declared-runtime evaluatio
 PRIME owns the separately bounded literal-copy instruction repair and next named
 experiment. No new call is authorized by this handback. V3 is spent and immutable;
 no retry, whitespace/case normalization, partial-output salvage or native publication.
+
+## Active v4 exact-literal assessment
+
+Portable authority OverMind52056b8e3bf0ae00558c5cce772281f8f386b93f, independently
+approved/merged69509592e38980fdf9b259cb4c5e06fc8ebd07e7. Corrected PR1903 exact
+1d470c323574e3f1b9fadc9851c1fa015442a53b passed independent110tests, actual GE
+guard/evidence review and all CI; merged958f2bed133687a02976c1cff4ad739603239725.
+That main is this successor's base. Same existing checkout/environment, branch
+codex/s8-literal-quote-assessment, one serial PR, same three exclusive paths.
+
+PR1904 reviewed e6a606926db8697743034a581968a1d079797c21 passed independent71tests
+and all CI, merged d66dc47514797512ece27538c2752baf4dc601f1 and protected delivered
+API787939/UI10527/schema0093. Only producer literal-copy instructions changed;
+source/model/schema/parser and128000reserve remain unchanged. No benchmark
+criteria, source text, normalization or semantic repair is authorized here.
+
+Fresh sibling s8-qualified-proposals-v4 and new operation UUID, one ordinary
+authenticated S8 call after exact-head independent pre-call review. The full
+source/name-context/schema input packet must equal both frozen V2 and V3 packets.
+The actual wire must differ from V3 only in the declared delivered instructions.
+The already-fixed GE phase selector is mandatory; no new product phase patch.
+No retries, case/whitespace repair, JSON salvage, partial-batch promotion,
+review/prepare/confirm, source re-admission or native publication.
+
+The corrected GE guard remains: actual immutable import root plus every package
+file against declared Git e9366ef. SDK actual origin/version is also frozen:
+shared SDK openai2.24.0 matches uv.lock and the live interpreter's package origin.
+All1054SDK package files are checked against installed wheel RECORD SHA256 entries;
+changed/extra/missing/symlinked files or version/origin drift refuse before database
+capture. This records the installed-wheel hash authority, not an invented
+independent wheel-download verification. GE and SDK inventories are rechecked
+after the provider operation. SDK tree digest
+fd5cb3fac74254bc64be464273fefb9fdcd7f9358a1b23eefa9731815fdf607f;
+wheel RECORD SHA256becea41152bc6e1ce6777475f5d871f7a0f82d194c1598fd0fe59174e326b3f0.
+
+Existing APP0093 is snapshotted without migration/restore. Its V2/V3 rows and
+every original row remain unchanged; only one exact newly owned operation may
+appear. Native/files/all prior source/Q01/v1/v2/v3 evidence and corrections stay
+read-only. These bounds do not authorize new evidence spans; outside the original
+Q01 span remains ineligible for publication even if extraction succeeds.
+
+Read-only preparatory preflight confirms exact V2/V3 packet equality, actual
+GE23files/SDK1054files/runtime/Core/WK identities and two existing operation rows.
+It created no v4 case, snapshot, APP row or provider call. Provider-free suite
+74/74 plus45/45 predecessor tests passes (119total), Ruff/diff pass. The exact
+pre-call head and eventual actual evidence require independent review; no actual
+v4 output or extraction success is claimed yet. Full-system verification0/15.
