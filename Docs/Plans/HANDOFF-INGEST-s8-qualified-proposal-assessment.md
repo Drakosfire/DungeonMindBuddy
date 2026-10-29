@@ -1,6 +1,6 @@
 # INGEST — independent real S8 proposal assessment
 
-Original assessments settled by PR1900/1903/1905; the ACTIVE V6 successor is below.
+Original assessments settled by PR1900/1903/1905; the ACTIVE V7 successor is below.
 The original pinned authority is OverMind
 94d3a8557a77fcd6fe0c33a4f37d6979894438c5, subsequently merged as
 bb289e6789ca87d8ebaca48dbeb263a7d36fcb79. Runtime base is Buddy
@@ -559,7 +559,7 @@ actions separately from the immutable original runs and gold. PRIME owns the
 structured attribution/coverage disposition. V5 is spent; another run needs a
 named experiment. Final exact-head evidence review and CI remain outstanding.
 
-## ACTIVE V6 provider-enforced assessment
+## V6 provider-enforced assessment — settled by PR1909
 
 Portable authority OverMind9bd6bd837c88c7a9f5c9dfc06bfafbdac7d3d88a, independently
 approved and merged8e600b353fed14feb0535a8be5ff8f5e279761a0 (control87).
@@ -727,3 +727,63 @@ Gold/criteria and historical scores are unchanged. No retry, source expansion,
 review/prepare/confirm/publication or new native identity occurred. PRIME owns
 reference/accounting/qualification-loss disposition. V6 is spent; final exact-head
 evidence review and CI remain outstanding before merge/settlement.
+
+## ACTIVE V7 ordering-only assessment
+
+Authority OverMind929ebb4fe3fd39e90870ff6ec6c53bc4fbca268d independently approved,
+merged2fc9c642c105228eb8c638b4a044261e85789a98 (control89). V6 final45281c04
+passed independent all59source/evidence review/177tests/all3CI and merged47ccdaac.
+Original V6 raw/output/failure/assessment and separate accounting-order hypothesis
+remain immutable. No earlier result is reinterpreted using today's parser.
+
+Runtime1911 exact0eecfce3be2940cc207e74213d3b0c2d6bc17876 independently approved
+with99owning tests/all3CI and merged65b3251af6f61aac8ba60c0b7e68d09723cad89b.
+Protected API893190/UI10527/APP0093 delivery preserves4078APP/371native/41058files;
+ordinary Conks Plan/image and original Run pin/scene/choice/notes/reflection reopen.
+Delivery/reopen/five-failure replay proof files are required and hashed in preflight.
+All five retained failures replay without current rendering/parsing/provider work.
+
+Existing clean checkout/shared environment; branchcodex/s8-schema-order-assessment
+from fetched main65b3251af. Same exclusive assessment/test/owning-handoff three paths,
+one serial PR, PRIME owns merge. No runtime/Core/WK/GE/schema/gold/old-ledger edits.
+
+V7 canonical input packet must exactly equal frozen V6, including source catalog,
+identity/scope/native names, V3 schema, instructions/model/budget. Actual native root
+schema property/required order changes to contract,catalog_sha256,mentions,proposals,
+dispositions,limitations. Independent expected projection starts from frozen schema,
+validates the exact required array/all-property correspondence, orders only root
+properties, then applies declared GE strict projection. It never imports the owning
+runtime ordering helper. Actual SDK wire property keys and required array are checked
+explicitly; mapping equality alone cannot detect a property-order regression.
+
+The actual V6 operation artifact is pinned at SHA256
+cb48ab268d7405b35ee45547eb1b50f5f754654c5c119d1f92e7100a37144540 and its wire digest
+is checked before use. Recursively compare actual V7 wire with actual V6 wire,
+including key sequences: only root schema properties order and root required array
+order may differ. All request values, other mapping order, nested schema order,
+input string, instructions, provider/model/envelope remain fixed. Negative controls
+reject property-only/nested-order/content/budget/instruction drift and malformed
+frozen required sequences. Prior native validity/qualifier/reference/accounting/
+physical-source/conservation negatives remain; no semantic criterion changes.
+
+Fresh s8-qualified-proposals-v7/new UUID, one SDK operation after independent exact
+pre-call review. Snapshot owned APP0093 only, no migration/restore. All five original
+failed IDs/states/no reviews must match; only the newly owned row may change APP.
+Preserve native/files/primary and Q01/S8V1–V6 artifacts, including the ordering
+hypothesis. No retry, salvage, reference/accounting repair, partial promotion,
+review/prepare/confirm/publication/source-span extension/new native identity.
+Full runtime/Core/WK/GE/SDK before/after guards remain. Retain SDK/wire/lifecycle/
+usage/elapsed/DBrow/readback/replay zeroIO, then independently inspect every output
+with unchanged gold/support/granularity criteria. Accepted extraction is not native
+integration/discovery/answer delivery; full-system ingestion remains0/15unverified.
+
+Provider-free assessment148/148 plus45/45 predecessor answer-harness tests pass
+(193total) under declared GE/held Core/WK. Ruff and diff checks pass. Read-only
+actual-clone preflight verifies runtime65b3251af, exact frozen V6 canonical packet,
+13catalog units, five expected failed operations and unchanged before/after state.
+Delivery/five-replay/reopen proof digests respectively:
+92dc61fa0f3fc8a67b95e5972199de977da652a6be576366b954ba9e157220e1,
+d3a4760cc25601a010ad3470cbcb30fc1d3699693b0bc7932e30743cb09ac134,
+81250cb7cc8df23b5c16d5d4502df6db094085a132c1bd58e7d4bc03ed489826.
+No V7 case/snapshot/operation/provider call exists yet. Exact pre-call and later
+all-output final evidence review remain gates; no ordering benefit is preclaimed.
