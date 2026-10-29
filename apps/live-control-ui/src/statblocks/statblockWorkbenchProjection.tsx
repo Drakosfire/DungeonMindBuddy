@@ -1,3 +1,5 @@
+import {GenerationPlanProvider} from '../guidedTour/GenerationObservations';
+import type {TargetPin} from '../guidedTour/protocol';
 import { useEffect } from "react";
 import { useAgentInteraction } from "../agentInteraction/useAgentInteraction";
 import type { SurfaceInteractionToolContribution, SurfaceInteractionProjectionDescriptor } from "../surfaceInteraction/types";
@@ -19,10 +21,10 @@ const DeferredWorkbench = deferredComponent(
 );
 
 /** Surface opt-in; the existing workbench admits its verified selected-World scope. */
-export function useStatblockWorkbenchProjection(surfaceId: string) {
+export function useStatblockWorkbenchProjection(surfaceId: string,generationPlan:TargetPin|null=null) {
   const { registerProjectionCatalog } = useAgentInteraction();
   useEffect(() => registerProjectionCatalog({
     projectionId: STATBLOCK_WORKBENCH_ID, surfaceId, kind: "tool", preferredSize: "wide",
-    requiredBindingIds: [], render: () => <DeferredWorkbench />,
-  }), [registerProjectionCatalog, surfaceId]);
+    requiredBindingIds: [], render: () => <GenerationPlanProvider pin={generationPlan}><DeferredWorkbench /></GenerationPlanProvider>,
+  }), [registerProjectionCatalog, surfaceId,JSON.stringify(generationPlan)]);
 }

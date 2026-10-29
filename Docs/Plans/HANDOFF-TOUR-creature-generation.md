@@ -1,0 +1,19 @@
+# TOUR — observed creature generation in preparation
+
+ACTIVE. PRIME owns this serial successor under the continuing authorized goal. Reuse buddy-context-loop checkout, codex/tour-creature-generation from fetched main3ece1043c5a0a242e4726199510e476856971811. One PR, independent exact-head review and CI, then authorized protected UI5202 delivery. No backend/schema/dependency/primary-data changes.
+
+## Invariant and pre-code critique
+Independent authoring_forward_audit approved the bounded design: v3 has a separate generation/initial acceptance step between Plan and Encounter, existing manual mechanics successor/adoption remain separate. Plan publishes the existing shared Workbench projection through selected-World admission and Plan activation identity. Guided inspection only opens that projection/highlights ordinary Create & generate; it never generates or saves automatically.
+
+Fresh credit requires the existing frozen Workbench request/draft/source-version, returned candidate membership and real provider receipt, plus exact mechanics_saved acknowledgment. Optional attribution lives on that same existing attempt, never a second retry journal. Bind World/walkthrough/generation step/index/exact Plan pin/dispatchRevision before the first dispatch; retries preserve it. Physical navigation/reload retains attribution; leaving the step, changing bindings, pause/restart or cross-tab presentation changes invalidates it. Unknown/old candidates cannot gain fresh credit. Keep all initial failures/recovery in existing owners.
+
+v1/v2 are retained strictly decoded read-only history with their original14 steps/bytes; explicit Restart creates separate v3. No silent upgrade or back-credit. New v3 presentation mutations advance dispatchRevision; observations do not. Save authority/candidate validation remain in Workbench.
+
+## Exclusive write lease
+This handoff; settlement of Docs/Plans/HANDOFF-BUILD-page-body-revision.md; apps/live-control-ui/src/guidedTour/{definition,protocol,storage,GuidedTour,Navigation,GenerationObservations}.ts(x) and direct tests; apps/live-control-ui/src/surface/modules/{statblockDraftScope,StatblockWorkbenchModule}.ts(x) and direct tests; apps/live-control-ui/src/planSurface/PlanSurfacePage.tsx and direct tests. Historical read-only decoder may be factored into guidedTour/history.ts. Lease amendment before edit: apps/live-control-ui/src/statblocks/statblockWorkbenchProjection.tsx and its direct test. The app-level projection host is outside the Plan subtree; the existing catalog render closure must carry the exact verified Plan pin into the Workbench observation context. Build keeps a null Plan context. No new runtime operation/provenance authority. Open1853/1855/1868 ingestion,1828 hosting, held1764 checked: none lease these UI paths. No runtime lease during implementation; delivery re-anchors owned UI process/release/data first.
+
+## Verification
+Provider-free real Workbench dispatch→navigate/unmount→reopen same attempt/candidate without duplicate dispatch→explicit accept/save; old/unattributed/wrong-candidate/fixture receipts do not credit. Exact Plan/World/step/restart/phase/cross-tab fences. Old bytes preserved/read-only, explicit v3 restart. Existing manual successor/adoption/navigation and stored-data suites, typecheck/build, cumulative independent review/CI. Ordinary guided generation/recovery after delivery remains required; tests are not operator acceptance. Preserve original failures and existing Run state.
+
+## Settled predecessor
+1883 independently approved at795beaae21757d3934073f76ab3c5bc31e8dde6d, all3CI passed, merged3ece1043c5a0a242e4726199510e476856971811 and delivered. Reader fence0089 rewrote no rows. Ordinary Conks two-paragraph replacement/Save/reload passed; older failed evidence retained. Existing real Conks generation/accept/manual successor/adoption/reload outside paused tour is historical ordinary-control evidence, not fresh tour credit.

@@ -14,7 +14,7 @@ function legacy(){
  record=reduceTour(record,{kind:'bind',pin:{kind:'run',worldId:'world',objectId:'run',revision:1,digest:plan.digest},parent:plan});
  record=reduceTour(record,{kind:'disposition',step:'roll',state:'unavailable',reason:'Physical roll pending.'});
  record=reduceTour(record,{kind:'move',index:13});
- const value=JSON.parse(JSON.stringify(record));value.schema='dmb_guided_journey_v1';value.version=1;delete value.bindings.page;
+ const value=JSON.parse(JSON.stringify(record));delete value.steps.generation;delete value.dispatchRevision;value.schema='dmb_guided_journey_v1';value.version=1;delete value.bindings.page;
  value.steps.authoring.evidence=value.steps.authoring.evidence.map((e:Record<string,unknown>)=>({...e,target:{...(e.target as object),kind:'source'}}));
  return JSON.stringify(value);
 }
@@ -31,32 +31,31 @@ it('upgrades active guidance once without changing evidence freshness or Run lin
  for(const key of Object.keys(old.steps))if(key!=='authoring')expect(next.steps[key as keyof typeof next.steps]).toEqual(old.steps[key]);
  expect(decodeWalkthrough(JSON.stringify(next),'world')).toEqual(next);
 });
-it('retains original bytes and selects a separate successor only on a CAS-protected write',()=>{
+it('keeps v1 read-only and restarts as a separate v3 under CAS',()=>{
  const bytes=legacy(),s=storage(bytes),before=readWalkthrough(s,'world')!;
  expect(s.getItem(recordKey('world','old-v2'))).toBeNull();expect(before.legacy).toEqual({id:'old'});
- const saved=writeWalkthrough(s,reduceTour(before.record,{kind:'phase',phase:'paused'}),before);
- expect(s.getItem(recordKey('world','old'))).toBe(bytes);expect(readWalkthrough(s,'world')).toEqual(saved);expect(saved.record.phase).toBe('paused');
- expect(()=>writeWalkthrough(s,before.record,before)).toThrow('Another tab');
+ expect(reduceTour(before.record,{kind:'phase',phase:'paused'})).toBe(before.record);
+ expect(()=>writeWalkthrough(s,before.record,before)).toThrow('read-only');
+ const saved=writeWalkthrough(s,createWalkthrough('world','conks','fresh',stamp),before);
+ expect(s.getItem(recordKey('world','old'))).toBe(bytes);expect(readWalkthrough(s,'world')).toEqual(saved);expect(saved.record.version).toBe(3);
+ expect(()=>writeWalkthrough(s,saved.record,before)).toThrow('Another tab');
 });
-it.each(['corrupt-original','changed-original','conflicting-successor','changed-pointer'] as const)('refuses %s without selecting an older authority',mode=>{
- const s=storage(),before=readWalkthrough(s,'world')!;
- if(mode==='corrupt-original'){s.setItem(recordKey('world','old'),'broken');expect(()=>readWalkthrough(s,'world')).toThrow();}
- else if(mode==='changed-original')s.setItem(recordKey('world','old'),legacy()+' ');
- else if(mode==='conflicting-successor')s.setItem(recordKey('world','old-v2'),'other retained record');
- else s.setItem(pointerKey('world'),'other tab selection');
- expect(()=>writeWalkthrough(s,before.record,before)).toThrow();
-});
-it('does not fall back to legacy guidance after a selected successor is corrupt',()=>{
- const s=storage(),before=readWalkthrough(s,'world')!;writeWalkthrough(s,before.record,before);s.setItem(recordKey('world','old-v2'),'broken');expect(()=>readWalkthrough(s,'world')).toThrow();expect(s.getItem(recordKey('world','old'))).toBe(legacy());
+it('keeps a v2 record byte-for-byte with its original14 steps and refuses damaged history',()=>{
+ const v2=upgradeWalkthroughV1(legacy(),'world'),bytes=JSON.stringify(v2),s=storage();
+ s.setItem(pointerKey('world'),JSON.stringify({schema:'dmb_guided_journey_pointer_v2',id:v2.id}));s.setItem(recordKey('world',v2.id),bytes);
+ const before=readWalkthrough(s,'world')!;expect(before.bytes).toBe(bytes);expect(Object.keys(before.record.steps)).toHaveLength(14);
+ expect(()=>writeWalkthrough(s,before.record,before)).toThrow('read-only');
+ writeWalkthrough(s,createWalkthrough('world','conks','new-v3',stamp),before);expect(s.getItem(recordKey('world',v2.id))).toBe(bytes);
+ s.setItem(recordKey('world','new-v3'),'broken');expect(()=>readWalkthrough(s,'world')).toThrow();
 });
 it('preserves a paused record and refuses foreign or forged migration evidence',()=>{
  const v=JSON.parse(legacy());v.phase='paused';expect(upgradeWalkthroughV1(JSON.stringify(v),'world').phase).toBe('paused');
  expect(()=>upgradeWalkthroughV1(JSON.stringify(v),'foreign')).toThrow();v.steps.authoring.evidence[0].target.objectId='unbound';expect(()=>upgradeWalkthroughV1(JSON.stringify(v),'world')).toThrow();
 });
 
-it('refuses an old-tab edit made between successor write and pointer selection',()=>{
+it('refuses an old-tab edit made between new walkthrough write and pointer selection',()=>{
  const s=storage(),before=readWalkthrough(s,'world')!,set=s.setItem;
- s.setItem=(key,value)=>{set(key,value);if(key===recordKey('world','old-v2'))set(recordKey('world','old'),legacy()+' ');};
- expect(()=>writeWalkthrough(s,before.record,before)).toThrow('during upgrade');
- expect(JSON.parse(s.getItem(pointerKey('world'))!).id).toBe('old');expect(s.getItem(recordKey('world','old-v2'))).not.toBeNull();
+ s.setItem=(key,value)=>{set(key,value);if(key===recordKey('world','fresh'))set(recordKey('world','old'),legacy()+' ');};
+ expect(()=>writeWalkthrough(s,createWalkthrough('world','conks','fresh',stamp),before)).toThrow('during upgrade');
+ expect(JSON.parse(s.getItem(pointerKey('world'))!).id).toBe('old');expect(s.getItem(recordKey('world','fresh'))).not.toBeNull();
 });

@@ -1,3 +1,4 @@
+import {useStatblockWorkbenchProjection,STATBLOCK_WORKBENCH_TOOL,STATBLOCK_WORKBENCH_PROJECTION} from '../statblocks/statblockWorkbenchProjection';
 import {useTourNavigationOwner,useTourNavigationGuard,useTourNavigationRegistry} from '../guidedTour/Navigation';
 import {planPin as guidedPlanPin} from '../guidedTour/ownerPins';
 import {useGuidedTour} from '../guidedTour/GuidedTour';
@@ -511,9 +512,9 @@ function WorldOwnedPlanPage({ worldId, worldName }: { worldId: string; worldName
       workObject,
     },
     agentContext: null,
-    tools: [RULES_LOOKUP_TOOL, COMBAT_TOOL],
+    tools: [RULES_LOOKUP_TOOL, COMBAT_TOOL,STATBLOCK_WORKBENCH_TOOL],
     editCommands: [],
-    projections: [RULES_LOOKUP_PROJECTION, COMBAT_PROJECTION],
+    projections: [RULES_LOOKUP_PROJECTION, COMBAT_PROJECTION,STATBLOCK_WORKBENCH_PROJECTION],
     projectionBindings: [],
   } : null, [status, surfaceIdentity, workObject]);
   usePublishSurfaceInteraction(activePublication);
@@ -2045,6 +2046,7 @@ function WorldOwnedPlanPage({ worldId, worldName }: { worldId: string; worldName
   const imageStudio = useSurfaceImageStudio(mediaIdentity, Boolean(documentId) && status === "ready" && !fidelityBlocked && !recoveryConflict);
   const tourSelection=useRef<symbol|null>(null),tourInspection=useRef<symbol|null>(null);
   const navigationPlan=!savedPlanDirty&&savedBasis.status==='verified'&&tourVerifiedPlan?.documentId===documentId&&tourVerifiedPlan.worldId===worldId&&tourVerifiedPlan.objectRevision===savedBasis.revision&&tourVerifiedPlan.pin.contentSha256===savedBasis.contentSha256?guidedPlanPin(worldId,tourVerifiedPlan.documentId,tourVerifiedPlan.pin):null;
+  useStatblockWorkbenchProjection("plan",navigationPlan);
   useTourNavigationGuard({worldId,reason:(impact,reservation)=>{
     if(startingPlay&&reservation!==tourInspection.current)return 'Wait for the saved Plan preview to finish opening.';
     if(imageStudio.session)return 'Finish or close Image Studio before navigating away from its work.';
@@ -2059,6 +2061,7 @@ function WorldOwnedPlanPage({ worldId, worldName }: { worldId: string; worldName
   },inspections:[
     ...(['plan','play'] as const).map(step=>({id:'plan-preview',label:'Open saved Plan preview',step,target:navigationPlan,impact:'projection' as const,ownedReservation:tourInspection.current??undefined,unavailable:!canStartPlayFromSavedPlan?'Save and verify a clean Plan first.':undefined,perform:async(request:import('../guidedTour/Navigation').InspectionRequest)=>{if(!request.isCurrent())return;tourInspection.current=request.reservation;try{await startPlayFromSavedPlan(request.isCurrent);}finally{if(tourInspection.current===request.reservation)tourInspection.current=null;}}})),
     ...(['encounter','mechanics','adoption'] as const).map(step=>({id:'plan-encounter',label:'Open scene encounter controls',step,target:navigationPlan,impact:'projection' as const,unavailable:!sceneEncounterContext?'Select the intended scene in a saved Plan.':undefined,perform:async(request:import('../guidedTour/Navigation').InspectionRequest)=>{if(request.scope.sceneId&&request.scope.sceneId!==navigationSceneId)throw new Error('Select the scene recorded by this step before opening its encounter.');if(request.isCurrent()&&!await openSceneEncounterTool('combat'))throw new Error('The scene encounter controls are not available.');}})),
+    {id:'plan-generation',label:'Open Statblocks',step:'generation',target:navigationPlan,impact:'projection',unavailable:!navigationPlan?'Select and verify the saved Plan first.':undefined,perform:async request=>{if(request.isCurrent()&&!await openSceneEncounterTool('statblock-workbench'))throw new Error('Statblocks is not available.');}},
     {id:'plan-images',label:'Open Image Studio',step:'image',target:navigationPlan,impact:'projection',perform:request=>{if(request.isCurrent()&&!imageStudio.open())throw new Error('Image Studio is not available.');}},
   ]});
   const mediaState = useRef<DocumentMediaState | null>(null);

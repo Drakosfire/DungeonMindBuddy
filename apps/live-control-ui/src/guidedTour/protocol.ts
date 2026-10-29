@@ -1,4 +1,4 @@
-import {JOURNEY_STEPS,TOUR_DEFINITION,type Adventure,type StepId,type TargetKind} from './definition';
+import {JOURNEY_STEPS,TOUR_DEFINITION,journeySteps,type Adventure,type StepId,type TargetKind} from './definition';
 export interface TargetPin {kind:TargetKind;worldId:string;objectId:string;revision:number;digest:string;revisionId?:string}
 export interface EncounterEvidence {kind:'encounter';sceneId:string;encounterId:string;revision:number;digest:string;operationId:string}
 export interface MechanicsLocatorEvidence {provider:'dungeonmind';statblock_id:string;revision_id:string;contract:string;contract_version:string;definition_digest:string}
@@ -12,6 +12,8 @@ export interface ImageEvidence {kind:'generated-image';assetId:string;generation
 export interface MemoryEntryEvidence {kind:'scene_note'|'closing_reflections';elementId:string|null;sourceOrdinal:number;entryIdentity:string;bodyDigest:string;packetDigest:string}
 export interface MemoryEvidence {kind:'session-memory';turnId:string;reviewRevision:number;checkpointContentDigest:string;contextReceiptDigest:string;entries:MemoryEntryEvidence[]}
 export interface RunCreationEvidence {kind:'run-creation';entrySceneId:string|null;preparedSceneIds:string[]}
+export interface GenerationScope {worldId:string;walkthroughId:string;step:'generation';index:number;plan:TargetPin;dispatchRevision:number}
+export interface GenerationEvidence {kind:'creature-generation';scope:GenerationScope;dispatchInstanceId:string;acceptedInstanceId:string;providerRequestId:string;providerResponseId:string;draftId:string;sourceVersion:number;requestId:string;candidateId:string;provider:string;model:string;generatedAt:string;acceptOperationId:string;locator:MechanicsLocatorEvidence}
 export interface Observation {
  step:StepId;target:TargetPin;observedAt:string;
  origin:'existing'|'acknowledged'|'reloaded';
@@ -19,12 +21,13 @@ export interface Observation {
  receiptId:string;
  /** Parent pins and specialized evidence are checked by the owning adapter. */
  parent?:TargetPin;
- proof?:EncounterEvidence|MechanicsEvidence|AdoptionEvidence|RunStateEvidence|SessionReviewEvidence|RecordedRollEvidence|CombatTrackerEvidence|ImageEvidence|MemoryEvidence|RunCreationEvidence;
+ proof?:GenerationEvidence|EncounterEvidence|MechanicsEvidence|AdoptionEvidence|RunStateEvidence|SessionReviewEvidence|RecordedRollEvidence|CombatTrackerEvidence|ImageEvidence|MemoryEvidence|RunCreationEvidence;
 }
 export type StepState = 'pending'|'existing'|'completed'|'skipped'|'failed'|'unavailable';
 export interface StepRecord {state:StepState;reason:string|null;evidence:Observation[]}
 export interface Walkthrough {
- schema:'dmb_guided_journey_v2';definition:typeof TOUR_DEFINITION.id;version:2;
+ schema:'dmb_guided_journey_v2'|'dmb_guided_journey_v3';definition:typeof TOUR_DEFINITION.id;version:2|3;
+ dispatchRevision?:number;
  upgradedFrom?:{id:string;version:1};
  id:string;worldId:string;adventure:Adventure;startedAt:string;phase:'running'|'paused'|'exited';index:number;
  bindings:Partial<Record<TargetKind,TargetPin>>;
@@ -45,7 +48,8 @@ function checkObservation(v:unknown,world:string,legacy=false):v is Observation 
  if(!record(v)||!exact(v,['step','target','observedAt','origin','receiptId',...('parent' in v?['parent']:[]),...('proof' in v?['proof']:[])]))return false;
  const definition=JOURNEY_STEPS.find(s=>s.id===v.step);
  if(v.step==='recovery'&&v.origin==='acknowledged')return false;
- if(v.step==='encounter'){const p=v.proof;if(!exact(p,['kind','sceneId','encounterId','revision','digest','operationId'])||p.kind!=='encounter'||!text(p.sceneId)||!text(p.encounterId)||!Number.isSafeInteger(p.revision)||Number(p.revision)<1||!text(p.digest)||!/^sha256:[a-f0-9]{64}$/.test(p.digest)||!text(p.operationId))return false;}
+ if(v.step==='generation'){const p=v.proof;if(!exact(p,['kind','scope','dispatchInstanceId','acceptedInstanceId','providerRequestId','providerResponseId','draftId','sourceVersion','requestId','candidateId','provider','model','generatedAt','acceptOperationId','locator'])||p.kind!=='creature-generation'||!validGenerationScope(p.scope)||!validPin(v.target,world)||!samePin(p.scope.plan,v.target)||![p.dispatchInstanceId,p.acceptedInstanceId,p.providerRequestId,p.providerResponseId,p.draftId,p.requestId,p.candidateId,p.provider,p.model,p.acceptOperationId,p.generatedAt].every(text)||p.dispatchInstanceId===p.acceptedInstanceId||!Number.isFinite(Date.parse(String(p.generatedAt)))||!Number.isSafeInteger(p.sourceVersion)||Number(p.sourceVersion)<1||!validLocator(p.locator))return false;}
+ else if(v.step==='encounter'){const p=v.proof;if(!exact(p,['kind','sceneId','encounterId','revision','digest','operationId'])||p.kind!=='encounter'||!text(p.sceneId)||!text(p.encounterId)||!Number.isSafeInteger(p.revision)||Number(p.revision)<1||!text(p.digest)||!/^sha256:[a-f0-9]{64}$/.test(p.digest)||!text(p.operationId))return false;}
  else if(v.step==='mechanics'){const p=v.proof;if(!exact(p,['kind','sceneId','encounterId','draftId','operationId','locator'])||p.kind!=='mechanics'||![p.sceneId,p.encounterId,p.draftId,p.operationId].every(text)||!validLocator(p.locator))return false;}
  else if(v.step==='adoption'){const p=v.proof;if(!exact(p,['kind','sceneId','encounterId','operationId','encounterRevision','locator','actors'])||p.kind!=='adoption'||![p.sceneId,p.encounterId,p.operationId].every(text)||!Number.isSafeInteger(p.encounterRevision)||Number(p.encounterRevision)<1||!validLocator(p.locator)||!Array.isArray(p.actors)||!p.actors.length||!p.actors.every(a=>exact(a,['actorId','beforeDigest','afterDigest','acPolicy','hpPolicy'])&&[a.actorId,a.beforeDigest,a.afterDigest].every(text)&&['keep','use_saved'].includes(String(a.acPolicy))&&['keep','preserve_current','clamp_current','reset_full'].includes(String(a.hpPolicy)))||new Set(p.actors.map(a=>(a as {actorId:string}).actorId)).size!==p.actors.length)return false;}
  else if(v.step==='progress'||v.step==='recovery'){const p=v.proof;if(!exact(p,['kind','stateDigest','pageInstanceId','contentRevision','contentRevisionId','contentDigest'])||p.kind!=='run-state'||!digest(p.stateDigest)||!text(p.pageInstanceId)||!Number.isSafeInteger(p.contentRevision)||Number(p.contentRevision)<0||(p.contentRevision===0?p.contentRevisionId!==null:!text(p.contentRevisionId))||!digest(p.contentDigest))return false;}
@@ -62,19 +66,21 @@ function checkObservation(v:unknown,world:string,legacy=false):v is Observation 
 export const validObservation=(v:unknown,world:string):v is Observation=>checkObservation(v,world);
 export function createWalkthrough(worldId:string,adventure:Adventure,id:string,now:string):Walkthrough {
  if(!text(worldId)||!text(id)||!Number.isFinite(Date.parse(now))||!Object.hasOwn({conks:1,sheep:1},adventure))throw new Error('Select a managed World and adventure before starting.');
- return {schema:'dmb_guided_journey_v2',definition:TOUR_DEFINITION.id,version:2,id,worldId,adventure,startedAt:now,phase:'running',index:0,bindings:{},steps:Object.fromEntries(JOURNEY_STEPS.map(s=>[s.id,{state:'pending',reason:null,evidence:[]}])) as unknown as Walkthrough['steps']};
+ return {schema:'dmb_guided_journey_v3',definition:TOUR_DEFINITION.id,version:3,dispatchRevision:0,id,worldId,adventure,startedAt:now,phase:'running',index:0,bindings:{},steps:Object.fromEntries(JOURNEY_STEPS.map(s=>[s.id,{state:'pending',reason:null,evidence:[]}])) as unknown as Walkthrough['steps']};
 }
 function decodeRecord(bytes:string,world:string,legacy=false):Walkthrough {
  const v:unknown=JSON.parse(bytes);
- if(!exact(v,['schema','definition','version','id','worldId','adventure','startedAt','phase','index','bindings','steps',...(record(v)&&'upgradedFrom' in v?['upgradedFrom']:[])])||v.schema!==(legacy?'dmb_guided_journey_v1':'dmb_guided_journey_v2')||v.definition!==TOUR_DEFINITION.id||v.version!==(legacy?1:2)||v.worldId!==world||!text(v.id)||!['conks','sheep'].includes(String(v.adventure))||!text(v.startedAt)||!Number.isFinite(Date.parse(v.startedAt))||!['running','paused','exited'].includes(String(v.phase))||!Number.isSafeInteger(v.index)||Number(v.index)<0||Number(v.index)>=JOURNEY_STEPS.length||!record(v.bindings)||!exact(v.steps,JOURNEY_STEPS.map(s=>s.id)))throw new Error('The saved walkthrough cannot be verified. Its original record was preserved.');
- if('upgradedFrom' in v&&(legacy||!exact(v.upgradedFrom,['id','version'])||!text(v.upgradedFrom.id)||v.upgradedFrom.version!==1||v.id!==v.upgradedFrom.id+'-v2'))throw new Error('The guidance upgrade has an invalid predecessor.');
+ const version=record(v)&&v.version===3?3:2, steps=journeySteps(version);
+ if(!exact(v,['schema','definition','version','id','worldId','adventure','startedAt','phase','index','bindings','steps',...(record(v)&&'upgradedFrom' in v?['upgradedFrom']:[]),...(version===3?['dispatchRevision']:[])])||v.schema!==(legacy?'dmb_guided_journey_v1':version===3?'dmb_guided_journey_v3':'dmb_guided_journey_v2')||v.definition!==TOUR_DEFINITION.id||v.version!==(legacy?1:version)||v.worldId!==world||!text(v.id)||!['conks','sheep'].includes(String(v.adventure))||!text(v.startedAt)||!Number.isFinite(Date.parse(v.startedAt))||!['running','paused','exited'].includes(String(v.phase))||!Number.isSafeInteger(v.index)||Number(v.index)<0||Number(v.index)>=steps.length||!record(v.bindings)||!exact(v.steps,steps.map(s=>s.id)))throw new Error('The saved walkthrough cannot be verified. Its original record was preserved.');
+ if(version===3&&(!Number.isSafeInteger(v.dispatchRevision)||Number(v.dispatchRevision)<0))throw new Error('The guidance dispatch revision is invalid.');
+ if('upgradedFrom' in v&&(version===3||legacy||!exact(v.upgradedFrom,['id','version'])||!text(v.upgradedFrom.id)||v.upgradedFrom.version!==1||v.id!==v.upgradedFrom.id+'-v2'))throw new Error('The guidance upgrade has an invalid predecessor.');
  for(const [kind,pin] of Object.entries(v.bindings))if(!(legacy?['source','plan','run']:['source','page','plan','run']).includes(kind)||!validPin(pin,world)||pin.kind!==kind)throw new Error('The walkthrough has a different target.');
- for(const step of JOURNEY_STEPS){const row=v.steps[step.id];if(!exact(row,['state','reason','evidence'])||!['pending','existing','completed','skipped','failed','unavailable'].includes(String(row.state))||!(row.reason===null||text(row.reason))||!Array.isArray(row.evidence)||!row.evidence.every(e=>checkObservation(e,world,legacy)&&e.step===step.id))throw new Error('The walkthrough evidence cannot be verified.');}
- for(const step of JOURNEY_STEPS){
+ for(const step of steps){const row=v.steps[step.id];if(!exact(row,['state','reason','evidence'])||!['pending','existing','completed','skipped','failed','unavailable'].includes(String(row.state))||!(row.reason===null||text(row.reason))||!Array.isArray(row.evidence)||!row.evidence.every(e=>checkObservation(e,world,legacy)&&e.step===step.id))throw new Error('The walkthrough evidence cannot be verified.');}
+ for(const step of steps){
   const row=v.steps[step.id] as unknown as StepRecord;
   if(row.state==='completed'&&!row.evidence.some(e=>e.origin!=='existing'&&Date.parse(e.observedAt)>=Date.parse(v.startedAt as string)))throw new Error('Completion has no newly demonstrated evidence.');
   if(step.id==='recovery'&&row.state==='completed'&&!row.evidence.some((e,index)=>e.origin==='reloaded'&&e.proof?.kind==='run-state'&&row.evidence.slice(0,index).some(prior=>prior.proof?.kind==='run-state'&&samePin(prior.target,e.target)&&prior.proof.stateDigest===(e.proof as RunStateEvidence).stateDigest&&prior.proof.pageInstanceId!==(e.proof as RunStateEvidence).pageInstanceId)))throw new Error('Recovery has no matching saved-state observation from an earlier page instance.');
-  for(const e of row.evidence){const bound=v.bindings[e.target.kind];if(!validPin(bound,world)||bound.objectId!==e.target.objectId||e.target.revision===bound.revision&&!samePin(e.target,bound))throw new Error('Evidence belongs to a different target.');
+  for(const e of row.evidence){if(e.proof?.kind==='creature-generation'&&e.origin!=='existing'&&e.proof.scope.walkthroughId!==v.id)throw new Error('Generation evidence belongs to a different walkthrough.');const bound=v.bindings[e.target.kind];if(!validPin(bound,world)||bound.objectId!==e.target.objectId||e.target.revision===bound.revision&&!samePin(e.target,bound))throw new Error('Evidence belongs to a different target.');
    if(e.target.kind==='run'&&(!validPin(v.bindings.plan,world)||!e.parent||!samePin(v.bindings.plan,e.parent)))throw new Error('Run evidence has a different Plan pin.');}
  }
  return v as unknown as Walkthrough;
@@ -92,6 +98,8 @@ export const decodeWalkthrough=(bytes:string,world:string):Walkthrough=>decodeRe
 export type TourAction = {kind:'move';index:number}|{kind:'phase';phase:Walkthrough['phase']}|{kind:'disposition';step:StepId;state:'skipped'|'failed'|'unavailable';reason:string}|{kind:'bind';pin:TargetPin;parent?:TargetPin}|{kind:'observe';observation:Observation};
 /** This reducer has no IO and cannot execute any product operation. */
 export function reduceTour(current:Walkthrough,action:TourAction):Walkthrough {
+ if(current.version!==3)return current;
+ if(['move','bind','phase'].includes(action.kind))current={...current,dispatchRevision:(current.dispatchRevision??0)+1};
  if(action.kind==='move')return Number.isSafeInteger(action.index)&&action.index>=0&&action.index<JOURNEY_STEPS.length?{...current,index:action.index}:current;
  if(action.kind==='phase')return {...current,phase:action.phase};
  if(current.phase!=='running')return current;
@@ -108,6 +116,7 @@ export function reduceTour(current:Walkthrough,action:TourAction):Walkthrough {
   return {...current,steps:{...current.steps,[action.step]:{...current.steps[action.step],state:action.state,reason:action.reason}}};
  }
  let observation=action.observation;
+ if(observation.step==='generation'&&observation.origin==='acknowledged'&&(observation.proof?.kind!=='creature-generation'||!sameGenerationScope(observation.proof.scope,generationScope(current))))observation={...observation,origin:'existing'};
  if(!validObservation(observation,current.worldId))throw new Error('The observation has no verified owner basis.');
  const bound=current.bindings[observation.target.kind];
  // A later revision of the same selected object is evidence, never a target replacement.
@@ -127,3 +136,9 @@ export function reduceTour(current:Walkthrough,action:TourAction):Walkthrough {
  const state:StepState=isNew?'completed':row.state==='completed'?'completed':'existing';
  return {...current,steps:{...current.steps,[observation.step]:{state,reason:null,evidence:[...row.evidence,observation]}}};
 }
+
+export function generationScope(walk:Walkthrough|null):GenerationScope|null {
+ return walk?.version===3&&walk.phase==='running'&&JOURNEY_STEPS[walk.index]?.id==='generation'&&walk.bindings.plan?{worldId:walk.worldId,walkthroughId:walk.id,step:'generation',index:walk.index,plan:structuredClone(walk.bindings.plan),dispatchRevision:walk.dispatchRevision!}:null;
+}
+export function validGenerationScope(value:unknown):value is GenerationScope {return exact(value,['worldId','walkthroughId','step','index','plan','dispatchRevision'])&&text(value.worldId)&&text(value.walkthroughId)&&value.step==='generation'&&value.index===JOURNEY_STEPS.findIndex(s=>s.id==='generation')&&Number.isSafeInteger(value.dispatchRevision)&&Number(value.dispatchRevision)>=0&&validPin(value.plan,value.worldId)&&value.plan.kind==='plan';}
+export function sameGenerationScope(a:GenerationScope|null,b:GenerationScope|null):boolean {return !!a&&!!b&&a.worldId===b.worldId&&a.walkthroughId===b.walkthroughId&&a.step===b.step&&a.index===b.index&&a.dispatchRevision===b.dispatchRevision&&samePin(a.plan,b.plan);}
