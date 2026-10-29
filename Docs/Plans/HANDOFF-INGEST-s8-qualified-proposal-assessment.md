@@ -492,3 +492,69 @@ state capture equals the first. Initial sandbox networking refused the database
 connection; the same read-only check succeeded with local-network access. No
 V5 case, snapshot, operation, migration or provider call was created. Exact-head
 review and later all-output assessment remain outstanding; this is not a completed run.
+
+## V5 actual outcome — structured attribution failure, symptom still omitted
+
+Independent exact pre-call approval covered2704cdc7ea91228d8612b26c8a9faed0dabc820f
+with147tests. Executed that unchanged head and frozen preflight
+98ea4ac71d98311b92cdfa53fef974e94e916d79795913452cd67109c972d3b3.
+APP snapshot is readable276TOCentries, SHA256
+6e448bb73e4fe677deb4af92c00a58ab9835dee44327021230eec223e945bd03.
+No migration/restore. Only new owned operation
+3eb3b544-d7a9-4669-b3bb-6e46203b76af was added. Exact DB ID/owner/World/full
+payload, ordinary readback and same-key replay agree. All old rows, three old
+failed operations, native/files and V1–V4/Q01 evidence are preserved; replay adds
+zero SDK/lifecycle/state. GE/SDK inventories before/after match the frozen pins.
+
+One actual SDK response resp_0110f201111f8e0c006ae3a579c1d087d1b13bb52e863a004e
+completed:6046input/4746output/0reasoning tokens,21791.119626ms endpoint elapsed.
+No stage-level latency attribution is claimed. This is the ordinary source
+producer, not the full Jev answer loop. No retry or second operation occurred.
+
+The original JSON has16mentions,13proposals and13unit dispositions. Its catalog
+commitment and all raw selected handles/accounting are valid diagnostically.
+Twelve units are proposed and metadata unit u1 is skipped. None of this establishes
+semantic completeness. Runtime correctly rejects the whole batch: proposal
+p-u3-lysandra-belief has mode reported and reporter_mention null. Its meaning and
+belief qualification explicitly attribute Lysandra, so this is missing required
+structured attribution, not proof that the semantic attribution was absent.
+No field was filled, batch repaired or partial result promoted. Stored result is
+null. No completed host-materialized extraction result exists; input source units
+are verified, and potential selections are only raw-output diagnostics.
+
+Every one of13proposals was independently compared with the exact source:
+9core comparisons with no issue found,3review holds,1confirmed contract failure.
+Holds concern completing the fragmentary Wolf arrival sentence, an overly broad
+missing-participants qualification for the Caelynn/Baergrom distraction, and
+composite attribution in the inn/barbecue account. These remain held judgments,
+not three proved graph errors. All original fields and individual notes are in
+private independent-semantic-assessment.json.
+
+| Objective | Met / assessed | Interpretation |
+| --- | --- | --- |
+| Exact complete catalog/source exposure | 1 / 1 |6172bytes/13units; source identity/authority/names match V2–V4 |
+| Raw unit-handle/accounting consistency | 13 / 13 |Model-declared processing only; not factual completeness |
+| Accepted extraction batch | 0 / 1 |Reported-mode proposal lacks required reporter field |
+| Raw bounded target cores | 2 / 3 |Arcana origin and faintly heard feeding present; Torbin symptoms absent |
+| Exact persistence/readback/replay/conservation | 1 / 1 |One owned row only; no extra replay IO or protected-state change |
+| Identity review/selection/publication/discovery/answers | 0 / 0 |Not executed or assessed |
+
+Q01:1 appears in p-u11-meeting-and-analysis, with no named plane/checker/cause.
+Q13:2 appears in p-u5-ephanna-dream, preserving faintly heard repeat feeding,
+sleep/dream setting and unnamed feeder. Q13:3 is absent from every proposal's
+meaning and qualifications, including all correctly resolved Torbin referents.
+Primary u8 includes the exact symptom parenthetical[3246,3302), but
+p-u8-party-plan only retains intended roles. Torbin's mention and complete source
+paragraph/accounting are not a symptom assertion. Bill and rotating guards'
+oily-eye descriptions are different actors. No post-escape onset or meat cause
+is inferred. S7 remains outside this run, not scored missing.
+
+Thus the structural change prevents model-copied source splicing by design and
+exposes intact source units, but this actual run does not prove accepted host
+materialization or semantic recall. Diagnostic target recall remains2/3; accepted
+Q01 facts0/1 and accepted S8Q13 facts0/2 because the batch failed. The original
+full-system ledger remains0/15. No native publication or source-span extension.
+current-observations.json retains exact metrics/pins/regressions and next-owner
+actions separately from the immutable original runs and gold. PRIME owns the
+structured attribution/coverage disposition. V5 is spent; another run needs a
+named experiment. Final exact-head evidence review and CI remain outstanding.
