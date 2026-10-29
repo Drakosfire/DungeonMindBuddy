@@ -34,8 +34,7 @@ from graph_memory.vnext.domain_runtime import (
     PLAYER_LABEL,
     DungeonBuddyVNextProjectionInput,
     build_dungeonbuddy_read_context,
-    dungeonbuddy_world_domain_contract,
-    dungeonbuddy_dnd5e_semantic_profile,
+    resolve_dungeonbuddy_descriptors,
 )
 from apps.live_control_server.integrations.worldkeeper.registry_standing_consumer import (
     digest,
@@ -48,8 +47,14 @@ def repository():
     )
 
 
-def descriptors():
-    return dungeonbuddy_world_domain_contract(), dungeonbuddy_dnd5e_semantic_profile()
+def descriptors(repo, space_id, revision_id):
+    snapshot = repo.get_revision(space_id, revision_id)
+    if snapshot is None:
+        raise ValueError("Selected native World revision is missing")
+    return resolve_dungeonbuddy_descriptors(
+        domain_ref=snapshot.revision.domain_contract_ref,
+        profile_ref=snapshot.revision.semantic_profile_ref,
+    )
 
 
 def binding(managed_world_id):
@@ -142,10 +147,10 @@ def load_sources(request, bound):
 
 
 def access_context(repo, space_id):
-    domain, _ = descriptors()
     head = repo.get_head(space_id)
     if head is None:
         raise ValueError("native World has no head")
+    domain, _ = descriptors(repo, space_id, head.head_revision_id)
     access = open_native_text_source_access_context(
         repository=repo,
         space_id=space_id,
@@ -216,8 +221,8 @@ def alternatives(repo, context, access, rows):
 
 
 def admit_sources(repo, request, bound, rows, principal):
-    domain, profile = descriptors()
     parent = request.expected_parent_revision_id
+    domain, profile = descriptors(repo, bound["native_world_id"], parent)
     admitted = []
     for row in rows:
         admission_id = "dmb-dossier:" + digest(

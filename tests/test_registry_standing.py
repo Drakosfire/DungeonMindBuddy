@@ -26,6 +26,11 @@ from apps.live_control_server.integrations.dungeonmind import (
 from apps.live_control_server.integrations.worldkeeper import (
     registry_standing_consumer as wk,
 )
+from graph_memory.vnext.domain_runtime import (
+    dungeonbuddy_world_domain_contract,
+    dungeonbuddy_dnd5e_semantic_profile,
+    dungeonbuddy_dnd5e_custom_predicate_profile,
+)
 from dungeonmind.application.vnext import initialize_empty_knowledge_space
 from dungeonmind.contracts.vnext.knowledge import PublishKnowledgeRevisionCommand
 from dungeonmind.infrastructure.memory.vnext_sources import (
@@ -37,11 +42,16 @@ GM = NativeGraphPrincipal("test-operator", "gm", "local_operator")
 NAMES = ["Ada", "Bea", "Cai", "Dee", "Eli", "Fay"]
 
 
-@pytest.fixture
-def lane(tmp_path, monkeypatch):
+@pytest.fixture(params=("1", "2"))
+def lane(tmp_path, monkeypatch, request):
     monkeypatch.setenv("DMB_GRAPH_REVIEW_PREPARE_BINDING_KEY", "standing-test-key")
     repo = InMemoryNativeSourceEvidenceRepository()
-    domain, profile = native.descriptors()
+    domain = dungeonbuddy_world_domain_contract()
+    profile = (
+        dungeonbuddy_dnd5e_custom_predicate_profile()
+        if request.param == "2"
+        else dungeonbuddy_dnd5e_semantic_profile()
+    )
     initial = initialize_empty_knowledge_space(
         repository=repo,
         space_id="test-world",
@@ -251,7 +261,9 @@ def test_stale_confirm_and_core_cas_refuse_without_rebase(lane):
         service.confirm(ConfirmRequest(**packet), GM)
     from worldkeeper.application.commit import PreparedChangeStale
 
-    domain, profile = native.descriptors()
+    domain, profile = native.descriptors(
+        lane.repo, "test-world", lane.repo.get_head("test-world").head_revision_id
+    )
     with pytest.raises(PreparedChangeStale):
         wk.runtime(
             lane.repo, domain, profile, now=NOW, operation_id=decoded.prepared_change_id
@@ -441,7 +453,9 @@ def test_synthetic_c2_existing_person_fact_addition_does_not_leak_to_c1(lane):
     intent = contracts.WorldChangeIntent(
         "test-world", "test:synthetic-c2", (contracts.UseExisting(target, (fact,)),)
     )
-    domain, profile = native.descriptors()
+    domain, profile = native.descriptors(
+        lane.repo, "test-world", lane.repo.get_head("test-world").head_revision_id
+    )
     runtime = wk.runtime(
         lane.repo, domain, profile, now=NOW, operation_id="synthetic-c2-reuse"
     )
@@ -498,3 +512,47 @@ def test_forwarded_or_wrong_principal_never_gets_standing_authority(lane, monkey
     packet = prepared(lane)
     with pytest.raises((ValueError, GraphObjectAuthoringError)):
         service.confirm(ConfirmRequest(**packet), replace(GM, subject="other-operator"))
+
+
+@pytest.mark.parametrize(
+    "field,change,code",
+    (
+        (
+            "domain_contract_ref",
+            {"domain_id": "foreign.world"},
+            "descriptor_unsupported",
+        ),
+        ("domain_contract_ref", {"domain_revision": "99"}, "descriptor_unsupported"),
+        ("domain_contract_ref", {"descriptor_sha256": "0" * 64}, "descriptor_mismatch"),
+        ("semantic_profile_ref", {"profile_revision": "99"}, "descriptor_unsupported"),
+        (
+            "semantic_profile_ref",
+            {"descriptor_sha256": "0" * 64},
+            "descriptor_mismatch",
+        ),
+    ),
+)
+def test_registry_rejects_unrecognized_parent_before_source_write(
+    lane, monkeypatch, field, change, code
+):
+    from graph_memory.vnext.domain_runtime import DungeonBuddyDescriptorError
+
+    head = lane.repo.get_head("test-world")
+    original = lane.repo.get_revision
+
+    def invalid_revision(space_id, revision_id):
+        snapshot = original(space_id, revision_id)
+        ref = getattr(snapshot.revision, field).model_copy(update=change)
+        return SimpleNamespace(
+            revision=snapshot.revision.model_copy(update={field: ref})
+        )
+
+    def forbidden_write(**_):
+        raise AssertionError("Invalid parent descriptors reached source mutation")
+
+    monkeypatch.setattr(lane.repo, "get_revision", invalid_revision)
+    monkeypatch.setattr(native, "publish_native_text_source_evidence", forbidden_write)
+    with pytest.raises(DungeonBuddyDescriptorError) as caught:
+        sources(lane)
+    assert caught.value.code == code
+    assert lane.repo.get_head("test-world") == head
