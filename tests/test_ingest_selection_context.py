@@ -107,6 +107,11 @@ def context(monkeypatch, tmp_path):
         service.source_service, "get_source_markdown", lambda **kwargs: source
     )
     monkeypatch.setattr(service, "resolve_managed_world_binding", lambda world: binding)
+    monkeypatch.setattr(service, "resolve_native_review_context", lambda **kwargs: {
+        "revision_id": "native-revision-test",
+        "selections": [],
+        "identity_approval": False,
+    })
     second_start = len(text.splitlines(keepends=True)[0]) + 1
     selection = {
         "source_span_ref_id": index["spans"][1]["source_span_id"],
@@ -115,6 +120,7 @@ def context(monkeypatch, tmp_path):
         "text": "Ari 🐉",
     }
     body = {
+        "schema": "dmb_ingest_native_review_request_v2",
         "expected_run_revision": 6,
         "expected_candidate_sha256": components["candidate_graph"].sha256,
         "expected_source_sha256": sha,
@@ -360,12 +366,10 @@ def test_authenticated_route_and_schema_rejection(context):
     asyncio.run(exercise())
 
 
-def test_read_only_unbound_context_does_not_invent_world(context):
+def test_unbound_context_cannot_fall_back_to_worldless_review(context):
     context.source.world_id = None
-    output = resolve(context, expected_world_id=None)
-    assert output["scope"]["status"] == "unbound"
-    assert output["scope"]["native_world_id"] is None
-    assert output["permissions"]["graph_write"] is False
+    with pytest.raises(ExtractPromoteError, match="active managed World binding"):
+        resolve(context, expected_world_id=None)
 
 
 def test_concurrent_run_change_rejects_context(context, monkeypatch):
@@ -385,16 +389,42 @@ def test_concurrent_run_change_rejects_context(context, monkeypatch):
         resolve(context)
 
 
-def test_source_domain_generic_without_recap_assumptions(context):
+def test_worldbuilding_cannot_silently_select_recap_review_scope(context):
     context.source.source_domain = "worldbuilding"
     context.source.session_id = None
     context.run.source_domain = "worldbuilding"
     context.run.session_id = None
     context.payload["session_id"] = None
     rewrite_component(context, "candidate_graph", "candidate.json", context.payload)
-    output = resolve(context)
-    assert output["scope"]["session_id"] is None
-    assert output["source_selection"]["text"] == "Ari 🐉"
+    with pytest.raises(ExtractPromoteError, match="recap with exact campaign and session"):
+        resolve(context)
+
+
+@pytest.mark.parametrize("field", ["campaign_id", "session_id"])
+@pytest.mark.parametrize("value", [None, "", "   "])
+def test_missing_recap_scope_refuses_before_native_binding(context, monkeypatch, field, value):
+    context.run = context.run.model_copy(update={field: value})
+    setattr(context.source, field, value)
+    monkeypatch.setattr(service, "get_extraction_run", lambda *_: context.run)
+
+    def forbidden_binding(*_):
+        pytest.fail("incomplete recap scope reached native binding resolution")
+
+    monkeypatch.setattr(service, "resolve_managed_world_binding", forbidden_binding)
+    with pytest.raises(ExtractPromoteError, match="recap with exact campaign and session"):
+        resolve(context)
+
+
+def test_observation_cannot_substitute_another_session(context):
+    context.run.lineage["world_campaign_ingest_context"] = {
+        "managed_world_id": "world-a",
+        "native_world_id": "native-a",
+        "binding_version": 2,
+        "campaign_id": "c1",
+        "session_id": "session-other",
+    }
+    with pytest.raises(ExtractPromoteError, match="another session"):
+        resolve(context)
 
 
 def test_selected_edge_loads_both_endpoints_without_label_resolution(context):
@@ -412,10 +442,29 @@ def test_request_does_not_accept_authority_or_excessive_records(context):
 
     for change in (
         {"native_world_id": "other"},
+        {"campaign_id": "other"},
+        {"session_id": "other"},
+        {"role": "player"},
+        {"standing_selector": ["established"]},
+        {"revision_id": "chosen-by-client"},
         {"candidate_path": "/etc/passwd"},
         {"node_ids": ["ari", "ari"]},
         {"node_ids": [str(i) for i in range(33)]},
         {"expected_run_revision": True},
+        {"schema": "dmb_ingest_selection_context_v1"},
     ):
         with pytest.raises(ValidationError):
             IngestSelectionContextRequest.model_validate({**context.body, **change})
+    untagged = {key: value for key, value in context.body.items() if key != "schema"}
+    with pytest.raises(ValidationError):
+        IngestSelectionContextRequest.model_validate(untagged)
+
+
+def test_binding_drift_during_native_read_rejects(context, monkeypatch):
+    def changed(**kwargs):
+        context.binding.binding_version += 1
+        return {"revision_id": "revision", "selections": [], "identity_approval": False}
+
+    monkeypatch.setattr(service, "resolve_native_review_context", changed)
+    with pytest.raises(ExtractPromoteError, match="binding changed while resolving"):
+        resolve(context)

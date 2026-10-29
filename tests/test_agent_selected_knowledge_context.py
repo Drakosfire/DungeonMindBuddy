@@ -82,6 +82,7 @@ def request_for(context, **changes):
         graph_selection=None,
         message="What relationships does the highlighted person have?",
         selected_knowledge={
+            "schema": "dmb_agent_native_review_selection_v2",
             "run_id": "test-run",
             "context_request": context.body,
             "expected_context_sha256": resolve(context)["context_sha256"],
@@ -114,7 +115,7 @@ def execute(context, request, runtime, conversation, **changes):
 
 
 def test_selection_survives_real_app_storage_and_completed_replay(
-    context, application_state_dsn
+    context, application_state_dsn, monkeypatch
 ):
     request = request_for(context)
     runtime = RecordingRuntime()
@@ -153,6 +154,13 @@ def test_selection_survives_real_app_storage_and_completed_replay(
     )
     # Historical replay must not depend on the run still being current.
     context.run.revision = 7
+    def forbidden_read(*args, **kwargs):
+        pytest.fail("completed replay consulted current source/run/native authority")
+
+    monkeypatch.setattr(selection_fixtures.service, "get_extraction_run", forbidden_read)
+    monkeypatch.setattr(selection_fixtures.service, "resolve_native_review_context", forbidden_read)
+    monkeypatch.setattr(selection_fixtures.service, "resolve_managed_world_binding", forbidden_read)
+    monkeypatch.setattr(selection_fixtures.service.source_service, "get_source_markdown", forbidden_read)
     replay = execute(context, request, runtime, fresh)
     assert replay.answer.status == "ok"
     assert len(runtime.invocations) == 1
@@ -166,9 +174,9 @@ def test_selection_survives_real_app_storage_and_completed_replay(
     assert len(runtime.invocations) == 1
 
 
-@pytest.mark.parametrize("change", ["revision", "digest", "source", "annotation"])
+@pytest.mark.parametrize("change", ["revision", "digest", "source", "annotation", "native_head"])
 def test_changed_selection_rejects_before_provider(
-    context, application_state_dsn, change
+    context, application_state_dsn, change, monkeypatch
 ):
     request = request_for(context)
     if change == "revision":
@@ -183,6 +191,10 @@ def test_changed_selection_rejects_before_provider(
         )
     elif change == "source":
         context.source.markdown = "changed"
+    elif change == "native_head":
+        monkeypatch.setattr(selection_fixtures.service, "resolve_native_review_context", lambda **kwargs: {
+            "revision_id": "changed-native-revision", "selections": [], "identity_approval": False,
+        })
     else:
         request.selected_knowledge.context_request.annotation = (
             "Changed after context preview"

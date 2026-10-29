@@ -13,6 +13,10 @@ from pathlib import Path
 
 from application_state.source import service as source_service
 from apps.live_control_server.config import artifact_data_root, repo_root
+from apps.live_control_server.integrations.dungeonmind.vnext_review_context import (
+    NativeReviewConflict,
+    resolve_native_review_context,
+)
 from apps.live_control_server.models.ingest_selection_context import (
     IngestSelectionContextRequest,
 )
@@ -85,6 +89,13 @@ def _load_component(root: Path, run, kind: str, expected: str) -> tuple[bytes, s
 
 
 def _scope(run, source, expected_world: str | None) -> dict:
+    # This caller reconciles one frozen recap. World ownership of its source
+    # does not grant a World-wide assertion query or a campaign fallback.
+    if run.source_domain != "recap" or any(
+        not isinstance(value, str) or not value.strip()
+        for value in (run.campaign_id, run.session_id)
+    ):
+        _reject("native review requires a recap with exact campaign and session")
     observation = run.lineage.get("world_campaign_ingest_context")
     observation = observation if isinstance(observation, dict) else {}
     world = source.world_id or observation.get("managed_world_id")
@@ -95,6 +106,10 @@ def _scope(run, source, expected_world: str | None) -> dict:
         _reject("source and run World ownership disagree")
     if observation and observation.get("campaign_id") != run.campaign_id:
         _reject("run World observation belongs to another campaign")
+    if observation.get("session_id") not in (None, run.session_id):
+        _reject("run World observation belongs to another session")
+    if not isinstance(world, str) or not world.strip():
+        _reject("native review requires an active managed World binding")
     if world != expected_world:
         _reject("selection belongs to another World", conflict=True)
     result = {
@@ -242,8 +257,20 @@ def resolve_ingest_selection_context(
             "range_convention": "source_relative_half_open",
             "provenance": "saved_source",
         }
+    try:
+        native_context = resolve_native_review_context(
+            scope=scope,
+            nodes=[nodes[key] for key in sorted(selected_nodes)],
+        )
+    except NativeReviewConflict as exc:
+        _reject(str(exc), conflict=True)
+    scope["admitted_world_facts_included"] = any(
+        alternative["entity_result"]["assertions"]
+        for selection in native_context["selections"]
+        for alternative in selection["alternatives"]
+    )
     response = {
-        "schema": "dmb_ingest_selection_context_v1",
+        "schema": "dmb_ingest_native_review_context_v2",
         "run_id": run.run_id,
         "run_revision": run.revision,
         "source_domain": run.source_domain,
@@ -253,6 +280,7 @@ def resolve_ingest_selection_context(
         "source_sha256": request.expected_source_sha256,
         "span_index_sha256": span_sha,
         "scope": scope,
+        "native_context": native_context,
         "source_selection": passage,
         "selected_node_ids": sorted(request.node_ids),
         "selected_edge_ids": sorted(request.edge_ids),
@@ -296,5 +324,9 @@ def resolve_ingest_selection_context(
     # A concurrent lifecycle change must not be hidden by an otherwise valid file snapshot.
     if get_extraction_run(root, run_id).revision != run.revision:
         _reject("selected run changed while resolving context", conflict=True)
+    final_scope = _scope(run, source, request.expected_world_id)
+    final_scope["admitted_world_facts_included"] = scope["admitted_world_facts_included"]
+    if final_scope != scope:
+        _reject("World binding changed while resolving context", conflict=True)
     response["context_sha256"] = _record_hash(response)
     return response
