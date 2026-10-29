@@ -158,6 +158,70 @@ Independent exact-head review and CI precede PRIME merge. Return exact evidence,
 model/provider identity, limitations and outstanding failures. The full ordinary
 authoring/preparation/Play/recovery tour and operator acceptance remain active.
 
+## Named V2 regression diagnostic successor
+
+ACTIVE at this pinned committed portable amendment after independent architecture
+review approved the bounded successor. This section governs the new operation;
+the preceding V1 lease and its original outcomes remain historical evidence.
+PR1896 merged40e66322efe083680dc74dc4f041d6c783925ab0 after independent review
+and all CI. Its actual one-call Luna result remains red: supported sentence,
+wrong subject ID used as a citation, interrupted turn and no delivered answer.
+Preserve q01-native-answer-v1 and original turn8e8f82a9-265c-45a4-92cd-746aa79cc9e1
+byte/logically unchanged. Do not replay, repair or relabel that attempt.
+
+Runtime repair PR1897 reviewed65fd9c80c810d57629ca41d459c68ad6384af14e merged
+7880f07b56533f7ffdbf6fd5de9b4788b1178956 after independent37 owning tests and all
+three CI checks. It freezes native writer V2 with receipt-derived finite statement
+selectors and APP0092. Re-anchor these exact dependencies before implementation.
+This serial successor extends only the same three runner/test/handoff paths;
+runtime fixes remain PRIME-owned and outside ADVERSARY's write lease.
+
+Reuse the same disposable databases, identities, World/binding/fullrefs/subject/R
+and original question pinned above. Native connections remain read-only. No new
+service, database, clone, environment or primary mutation. Use a new explicit
+checkpoint native-review-context-v2/q01-native-answer-v2, preserving the entire
+V1 checkpoint fingerprint. Snapshot this SAME APP database before the exact
+0091→0092 migration; refuse another starting schema or unexplained data drift.
+Only schema constraints/reader fence may change during migration; old rows remain
+identical. Migration and provider execution remain separate explicit switches.
+
+Reuse the already-owned active conversation
+0c1b54ff-c28a-4e7a-9a2a-0a0f791cf35a at pointer_revision73. Freeze its complete
+current row, exact revision and next_turn_sequence before mutation. No new or
+archived conversation, pointer change, command receipt or previous-turn edit is
+authorized. For one new ordinary turn, permit only that owned conversation's
+revision+1, next_turn_sequence+1 and updated_at, plus the new owned turn/references
+and normal capture/trace rows frozen in the pre-execution allowlist. Preserve all
+other existing APP rows, native data and source files.
+
+Freeze a distinctly named new turn/idempotency identity using the normal API's
+conversation/client binding rules; preserve the existing client-thread binding
+where required. No bypass to force identifiers. The original V1 operation is not
+retried. One configured real GE writer operation is permitted through the actual
+authenticated ordinary route. Before transport, verify actual prepared policyV2
+and its exact sorted enum of included statement IDs. Keep the same original
+question and complete qualified source frame; do not simplify the task or pass a
+prewritten answer. Entered/unknown failure ends this diagnostic without redispatch.
+
+On success, require typed normalized completion, successful nonblank HTTP answer
+equal to persisted text, ordinary history readback, exact completed replay with
+zero added authorization/transport calls, and authenticated historical citation
+opening at original bytes/version/digest/extent. Preserve full actual request/raw
+output and independent semantic assessment. Report V2 wire acceptance, delivery,
+persistence/replay/citation opening, semantics and unassessed autonomous discovery
+separately. Missing checks cannot pass by vacuous equality or nonempty model prose.
+
+The new checkpoint is recovery evidence, not APP/Core authority. Unknown outcomes
+retain the original new request/receipts; never remint another operation or rewind.
+No automatic restore, downgrade, extra provider attempt or old-conversation reopen.
+Amend recovery explicitly if needed, preserving all failure evidence first.
+
+Finish tests, cumulative diff, commit/push and one independently reviewed PR; all
+CI and PRIME merge remain gates. The original failure and fifteen-case score stay
+unchanged. This selected-subject diagnostic does not establish corpus discovery,
+Q13 repair, the complete live tour or operator acceptance.
+
+
 ## Execution and regression — 2026-10-29
 
 This adoption includes the exact ordinary-conversation amendment at
@@ -240,3 +304,66 @@ text. Ordinary history must retain that same text. Eight new negative controls
 cover each reply's empty/error/divergent text, matching empty error replies and
 persisted-text drift. The original actual red run, its metrics and all private
 evidence remain unchanged; no provider operation was repeated.
+
+## Named V2 diagnostic execution — 2026-10-29
+
+The active V2 appendix was adopted at exact authority
+7a6c83d81e1d915161ec44263c663ac8cd64595a (merged OverMind75,
+a6cfd3cd0d9c9e7eae9d37d643ffcf4814a06f0c). Code starts from accepted runtime
+7880f07b56533f7ffdbf6fd5de9b4788b1178956. The new frozen preflight commitment is
+`f46128d81e1c68cd5d412a14faed248f91378c7abfe8f41b4fa9ef423e60e970`.
+Private evidence is under `native-review-context-v2/q01-native-answer-v2`.
+
+The same APP was snapshotted and its snapshot readability verified. Exact
+0091→0092 migration passed full retained-row/native/file conservation. The V2
+preflight froze the current owned conversation row/revision/sequence, V1 checkpoint
+fingerprint, complete qualified frame and sorted statement-ID enum. Accepted source
+pins establish the actual runtime gate checks prepared policy/request bytes before
+SDK entry. Independent inspection of the retained actual producing request verifies
+that same V2 policy/enum; no provider, repository or owner resolver was replaced.
+
+Exactly one real OpenAI/gpt-6-luna operation completed. New turn
+`247124a6-7220-480d-853c-fe858981ae54` belongs to the existing owned conversation
+`0c1b54ff-c28a-4e7a-9a2a-0a0f791cf35a`. The original client-thread binding was
+retained with a distinctly named new turn. The model selected actual statement
+`ent:5770c3f82ed010f1b754fbc5f51f92a9`, not the subject ID.
+
+Actual producing request SHA256:
+`25df001091f3089324b6d4faefb083abf6a98a717adc126169b4b9ef95b2c509`.
+Actual selected output SHA256:
+`ce963f0b9806d0f6815b56894c17ebdbc4b6bac4a03c1fb3c2b36f7eb7fb8e4a`.
+
+The successful HTTP answer is exactly the normalized/persisted text:
+“Source reports: The recap says an Arcana check revealed that the meat came from
+another plane of existence; it does not name the plane.” Ordinary history returned
+that completion/text. Completed replay returned the same answer, unchanged persisted
+turn and APP inventory, with zero additional authorizations/SDK entries. The one
+returned historical citation opened through the authenticated route at R and
+matched the exact source body/version, bytes[4868,4939), digest and clause text.
+
+| V2 dimension | Objectives met / assessed | Evidence |
+| --- | --- | --- |
+| Actual V2 wire contract and included support | 1 / 1 | Retained request, policy and exact enum |
+| Useful answer delivery | 1 / 1 | Status ok, nonblank exact normalized text |
+| Persistence and ordinary history | 1 / 1 | Completed APP turn and history response |
+| Completed replay without redispatch | 1 / 1 | Same turn/events/data; one total SDK entry |
+| Exact historical citation opening | 1 / 1 | Authenticated GET, source/hash/extent match |
+| Semantic support and qualification | 1 / 1 | Independent manual judgment against opened clause |
+| Autonomous subject discovery | 0 / 0 | Unassessed; subject supplied by evaluator |
+| First-shot reliability across new questions | 0 / 0 | Unassessed; one V2 sample |
+| Internal stage latency attribution | 0 / 0 | Unassessed; endpoint timings only |
+
+Measured endpoint times: answer POST2333.39ms, history40.78ms,
+citation GET115.98ms, completed replay14.26ms. These do not separate provider,
+controller, read or local orchestration time.
+
+Final all-table conservation permits only the existing owned conversation's
+revision+1/sequence+1/updated_at, one new turn and three owned references. No
+conversation creation/archive, pointer or command-receipt changes occurred.
+Every previous turn (including V1's interrupted failure), native row, source file
+and entire V1 checkpoint remains unchanged. No retry, provider repair or extra
+operation occurred. The historical V1 failure remains red; V2 is a separately
+versioned diagnostic. Full-system ingestion acceptance remains 0/15 verified.
+This result proves selected-subject answer integration over a manual fixture,
+not automatic extraction/discovery or full-corpus ingestion. Those upstream gaps
+remain the priority after settlement of this bounded regression proof.
