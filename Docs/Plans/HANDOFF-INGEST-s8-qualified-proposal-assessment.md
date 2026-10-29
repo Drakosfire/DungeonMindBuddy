@@ -787,3 +787,107 @@ d3a4760cc25601a010ad3470cbcb30fc1d3699693b0bc7932e30743cb09ac134,
 81250cb7cc8df23b5c16d5d4502df6db094085a132c1bd58e7d4bc03ed489826.
 No V7 case/snapshot/operation/provider call exists yet. Exact pre-call and later
 all-output final evidence review remain gates; no ordering benefit is preclaimed.
+
+## V7 actual outcome — first accepted private extraction, integration unproved
+
+Independent exact pre-call approval coveredb02af1eae33f195df781d01104100b90a78fc041,
+193tests and actual read-only preflight. Executed that unchanged head; harness
+SHA256fedc091b104a26822bf1739bc38db19dd752157708842f06d02476b2bd4d1abc.
+Frozen preflight55e7021375b2cd22e6a20f4eaa8fdbed241a7df3e3ee190514e1ed39e1a22a1f.
+Snapshot readable276TOCentries, SHA256
+4cc2304ead5b18ccfd3005cec656a15a42d50efd9b1ead5087f2766371485e70.
+No migration/restore. Only new owned operation5f9d2f91-8edf-4e62-b1cc-5d7e7eca5621
+was added. State completed/result retained; exact stored row ID/owner/World/payload,
+ordinary GET/same-key POST agree. Replay adds zero SDK/lifecycle/state. Five old
+failures, all old APP rows/native/files/Q01/S8V1–V6 evidence and ordering hypothesis
+are unchanged. Full runtime/Core/WK/GE/SDK post-call inventories match preflight.
+
+One SDK response resp_0414c1ec78b0e253006ae3b577d44487d1905f30430460e5de completed:
+7271input/8315output/0reasoning tokens,33709.383948ms endpoint elapsed. Internal
+stage attribution remains unassessed; source producer is not full Jev answer loop.
+Actual ordered wire comparison passes: ONLY native root properties and required
+array order changed from V6. Complete canonical input packet, instructions, model,
+provider, output reserve, nested schema order/constraints and all other request
+values/key sequences remain exact. Actual raw root order is contract,catalog_sha256,
+mentions,proposals,dispositions,limitations. One sample pair does not establish
+causation or first-shot reliability, despite the isolated intended contrast.
+
+The accepted batch contains18local mentions,62proposals and13consistent source-unit
+dispositions. All62proposal references resolve to declared local mentions. All62IDs
+are correctly listed in accounting; no combined unknown reporter or omitted IDs.
+The full host passages match exact complete source units, separately retained;
+all99wire qualification pairs become exactly99host dictionary values without loss,
+invention or repair. Every raw/output/materialization check and native schema
+validation passed. No retry/salvage/field inference or runtime normalization of an
+invalid prior batch occurred. This is private extraction acceptance, not publication.
+
+### Every-proposal semantic audit and remaining judgments
+
+All62interpretations were independently source-compared, including actors/mode/
+reporter/qualifications/uncertainty/unresolved claims. Dispositions:51comparisons
+with no issue found,11review holds,0new confirmed semantic failures. These are
+manual source-comparison dispositions, not a certified precision or atomicity rate.
+All12substantive source units have multiple proposals; broad supported composites
+remain valid representations rather than automatic errors.
+
+Seven held proposals(p13,p29,p34,p35,p36,p37,p51) reuse m_guards, whose label says
+guards accompanying Lysandra, for independently unspecified storeroom/guardhouse
+or target guards. The source does not establish those cohorts' identity. This is
+held local-reference resolution, not a published native merge or proved canonical
+graph defect. Separate party handles describe the initial group excluding Ephanna
+and the later reunited party; their plurality alone is not identity fragmentation.
+
+Other holds: p18 assigns the death warning to the Fey without explicit speaker;
+p36 completes the unfinished Wolf clause with future presence; p41's unresolved
+participants wording is broader than the named distraction actors; p44 directly
+attributes Berin's narrated lack of knowledge as speech; p47 directly attributes
+the entire barbecue/storage narrative to Lysandra. No hold was silently repaired.
+p36 has both alias/fragment holds and counts once in the11total.
+
+Prior V6 no-sign certainty loss is not repeated: p24 retains appeared empty and
+perception/no-one-found qualification. Memory presentation in p17 remains passive
+with showing agent unresolved. p44/p45 now separate Berin's knowledge and Lysandra's
+military-use report, resolving the compound-reference contract failure while leaving
+Berin's speech-mode interpretation held.
+
+| Objective | Met / assessed | Interpretation |
+| --- | --- | --- |
+| Ordering-only actual wire contrast | 1 / 1 |All other request values and nested order unchanged |
+| Structurally accepted private extraction | 1 / 1 |First completed batch with exact host materialization |
+| Valid local proposal references | 62 / 62 |Semantic/local identity review remains separate |
+| Consistent source-unit accounting | 13 / 13 |Model processing accounting is not semantic completeness |
+| Actual proposal IDs accounted | 62 / 62 |No V6-style omitted suffix IDs |
+| Qualification pairs preserved | 99 / 99 |Every raw key/value survives declared host dictionary conversion |
+| Bounded target core support | 3 / 3 |Source-supported private extraction, not publication |
+| Exact persistence/replay/conservation | 1 / 1 |One owned row; no additional replay IO/protected-state change |
+| Native identity/selection/publication/discovery/answers | 0 / 0 |Not executed or assessed |
+
+Q01:1 origin appears in p49; no named plane/checker or meat cause invented.
+Q13:2 appears in p15, faintly heard repeat feeding with unnamed feeder. Q13:3
+appears in p30 with correct Torbin referent and actual oily-eye signs. Its status
+qualification specifically governs planned watcher position, while a separate
+appearance qualification preserves symptoms. This valid composite is not the
+V6 mixed planned-position-and-observation status. Narrative reunion context does
+not establish onset after escape or meat causation. S7 remains outside this run.
+Bounded Q01 core extraction1/1 and S8Q13core extraction2/2 are now supported in an
+accepted private batch; this does not verify all facts of either original question.
+
+Full-system ingestion remains0/15unverified. Retained R is still the small native
+fixture, not an integrated historical supergraph. Original sole registered Q01
+span still does not admit all S8 publication clauses. Native identity decisions,
+actual selection, governed evidence extension/publication, ordinary readback,
+automatic discovery and composed answers remain separate unproved stages.
+
+### Immutable evidence and next owner
+
+Private case: /home/drakosfire/Projects/.codex/historical-graph-repair/cache/native-review-context-v2/s8-qualified-proposals-v7.
+SHA256 pins: selected raw aebe1ebc256070cd2e14e2b55ea2d6bbfd54452316a7d477c2c603099a613e8f;
+wire9b36f3566ecb7b362d12f96987ec66412ef2cd7be39c00a2938d1efa1df24437;
+operation.json d7696172a3aa317268a8c3de29692fae26691d4a1d8822ba1d268c0e5f8569f7;
+read-replay.json5f2cb47b353b175d04a640bd8b402e7369f569fa7eca58381287a7a90c5092ff;
+independent-semantic-assessment.json d4f34d2ad45631927a17958156b256f9363937efed891acd311eab246bafaa4e;
+current-observations.json aa3163feb66df71e5e89a732535e234946c3bb46bc65c327e92bf31c6c2e4b16.
+Every original proposal and exact selected source unit is retained in the all62audit.
+Gold/criteria/historical scores unchanged. PRIME owns semantic/local-identity holds
+and the governed evidence/identity/selection/publication successor. V7 is spent;
+no extra call/publication allocated. Final exact-head evidence review/CI remain.
