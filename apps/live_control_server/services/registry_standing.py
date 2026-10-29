@@ -2,6 +2,10 @@
 
 from __future__ import annotations
 
+from dungeonmind.contracts.vnext import DomainContractRef
+from dungeonmind.contracts.semantic_profile import SemanticProfileRef
+from graph_memory.vnext.domain_runtime import resolve_dungeonbuddy_descriptors
+
 from datetime import UTC, datetime, timedelta
 import hmac
 
@@ -160,7 +164,9 @@ def prepare(request, principal):
         bound["native_world_id"], packet["rows"], request.choices
     )
     _validate_reuse(packet, request.choices)
-    domain, profile = native.descriptors()
+    domain, profile = native.descriptors(
+        repo, bound["native_world_id"], packet["context"]["revision_id"]
+    )
     runtime = wk.runtime(repo, domain, profile, now=_now(), operation_id=operation)
     prepared = runtime.prepare_change(intent)
     # WK reads authority internally: compare its returned parent before signing.
@@ -229,7 +235,18 @@ def confirm(request, principal):
     if completed is None:
         verify_publication_intent(request.token, envelope)
         _validate_current(repo, source_packet)
-    domain, profile = native.descriptors()
+    domain, profile = resolve_dungeonbuddy_descriptors(
+        domain_ref=DomainContractRef(
+            domain_id=prepared.domain_contract_ref.authority_id,
+            domain_revision=prepared.domain_contract_ref.revision,
+            descriptor_sha256=prepared.domain_contract_ref.descriptor_sha256,
+        ),
+        profile_ref=SemanticProfileRef(
+            profile_id=prepared.semantic_profile_ref.authority_id,
+            profile_revision=prepared.semantic_profile_ref.revision,
+            descriptor_sha256=prepared.semantic_profile_ref.descriptor_sha256,
+        ),
+    )
     runtime = wk.runtime(
         repo,
         domain,

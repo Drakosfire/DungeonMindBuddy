@@ -327,7 +327,8 @@ def test_foreign_world_and_descriptor_drift_fail_before_native_mutation(
     assert memory_repository.get_head(world.world_id) is None
 
     monkeypatch.setattr(native, "get_workspace_document_snapshot", original_snapshot)
-    monkeypatch.setattr(native, "canonical_sha256", lambda _value: "0" * 64)
+    from graph_memory.vnext import domain_runtime
+    monkeypatch.setattr(domain_runtime, "canonical_sha256", lambda _value: "0" * 64)
     with pytest.raises(native.NativeWorldSourceAdmissionError) as drift:
         _admit(tmp_path, record.document_id)
     assert drift.value.code == "descriptor_drift"
@@ -617,3 +618,39 @@ def test_reserved_operation_change_during_admission_fails_closed(
     with pytest.raises(native.NativeWorldSourceAdmissionError) as error:
         _admit(tmp_path, record.document_id)
     assert error.value.code == "native_graph_binding_changed"
+
+
+@pytest.mark.parametrize("profile_revision", ("1", "2"))
+def test_existing_world_preserves_profile_and_original_receipt(
+    tmp_path, memory_repository, monkeypatch, profile_revision,
+):
+    from datetime import UTC, datetime
+    from dungeonmind.application.vnext import initialize_empty_knowledge_space
+    from graph_memory.vnext.domain_runtime import dungeonbuddy_dnd5e_custom_predicate_profile
+    world, record = _committed_source(tmp_path, markdown="# Original source\n")
+    profile = (dungeonbuddy_dnd5e_custom_predicate_profile() if profile_revision == "2"
+               else native.dungeonbuddy_dnd5e_semantic_profile())
+    initialize_empty_knowledge_space(
+        repository=memory_repository, space_id=world.world_id,
+        initialization_id="existing-world", created_at=datetime(2026, 10, 29, tzinfo=UTC),
+        domain_contract=native.dungeonbuddy_world_domain_contract(), semantic_profile=profile,
+    )
+    def forbidden_genesis(**_):
+        raise AssertionError("Existing World must not be reinitialized")
+    monkeypatch.setattr(native, "initialize_empty_knowledge_space", forbidden_genesis)
+    first = _admit(tmp_path, record.document_id)
+    _, second_record = _committed_source(tmp_path, markdown="# Descendant source\n", world=world)
+    second = _admit(tmp_path, second_record.document_id)
+    head = memory_repository.get_head(world.world_id)
+    snapshot = memory_repository.get_revision(world.world_id, head.head_revision_id)
+    assert snapshot.revision.semantic_profile_ref.profile_revision == profile_revision
+    selected = []
+    original = native._descriptors
+    def track(repository, space_id, revision_id):
+        selected.append(revision_id)
+        return original(repository, space_id, revision_id)
+    monkeypatch.setattr(native, "_descriptors", track)
+    assert _admit(tmp_path, record.document_id) == first
+    assert first.evidence_ref_id != second.evidence_ref_id
+    assert selected == [first.published_revision_id]
+    assert memory_repository.get_head(world.world_id) == head

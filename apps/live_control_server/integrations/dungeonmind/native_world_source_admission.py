@@ -30,7 +30,8 @@ from dungeonmind.contracts.vnext.native_source import (
     NativeTextSourceAdmissionV1,
     NativeTextSourceOriginV1,
 )
-from dungeonmind.domain.canonical import canonical_sha256
+from dungeonmind.contracts.vnext import DomainContractRef
+from dungeonmind.contracts.semantic_profile import SemanticProfileRef
 from dungeonmind.infrastructure.postgres import (
     PostgresDatabase,
     PostgresNativeSourceEvidenceRepository,
@@ -40,6 +41,8 @@ from graph_memory.vnext.domain_runtime import (
     DUNGEONBUDDY_DOMAIN_DIGEST,
     DUNGEONBUDDY_PROFILE_DIGEST,
     GM_LABEL,
+    DungeonBuddyDescriptorError,
+    resolve_dungeonbuddy_descriptors,
     dungeonbuddy_dnd5e_semantic_profile,
     dungeonbuddy_world_domain_contract,
 )
@@ -124,19 +127,27 @@ def _stable_id(prefix: str, *parts: str) -> str:
     return f"{prefix}:{hashlib.sha256(payload).hexdigest()}"
 
 
-def _descriptors():
-    domain = dungeonbuddy_world_domain_contract()
-    profile = dungeonbuddy_dnd5e_semantic_profile()
-    if canonical_sha256(domain.model_dump(mode="json")) != DUNGEONBUDDY_DOMAIN_DIGEST:
-        raise NativeWorldSourceAdmissionError(
-            "descriptor_drift", "The accepted DungeonBuddy World descriptor has changed", status_code=503
-        )
-    if canonical_sha256(profile.model_dump(mode="json")) != DUNGEONBUDDY_PROFILE_DIGEST:
-        raise NativeWorldSourceAdmissionError(
-            "descriptor_drift", "The accepted DungeonBuddy D&D profile has changed", status_code=503
-        )
-    return domain, profile
+def _descriptors(repository, space_id, revision_id):
+    snapshot = repository.get_revision(space_id, revision_id)
+    if snapshot is None:
+        raise NativeWorldSourceAdmissionError("native_revision_missing", "Selected native World revision is missing")
+    return _resolve_descriptors(snapshot.revision.domain_contract_ref, snapshot.revision.semantic_profile_ref)
 
+
+def _resolve_descriptors(domain_ref, profile_ref):
+    try:
+        return resolve_dungeonbuddy_descriptors(domain_ref=domain_ref, profile_ref=profile_ref)
+    except DungeonBuddyDescriptorError as exc:
+        raise NativeWorldSourceAdmissionError(exc.code, str(exc), status_code=503 if exc.code == "descriptor_drift" else 409) from exc
+
+
+def _genesis_descriptors():
+    # Only an absent head takes the existing explicit default genesis policy.
+    domain, profile = dungeonbuddy_world_domain_contract(), dungeonbuddy_dnd5e_semantic_profile()
+    return _resolve_descriptors(
+        DomainContractRef(domain_id=domain.domain_id, domain_revision=domain.domain_revision, descriptor_sha256=DUNGEONBUDDY_DOMAIN_DIGEST),
+        SemanticProfileRef(profile_id=profile.profile_id, profile_revision=profile.profile_revision, descriptor_sha256=DUNGEONBUDDY_PROFILE_DIGEST),
+    )
 
 def _repository():
     database_url = config.world_graph_authority_database_url()
@@ -275,7 +286,7 @@ def _verify_receipt_and_source(
     record = snapshot.record
     world_id = record.world_id
     assert world_id is not None
-    domain, _profile = _descriptors()
+    domain, _profile = _descriptors(repository, native_world_id, receipt.published_revision_id)
     expected_origin = _origin(snapshot)
     if (
         receipt.space_id != native_world_id
@@ -423,7 +434,6 @@ def admit_native_world_source(
     world_id = record.world_id
     assert world_id is not None
     native_world_id = sealed_world_binding.native_world_id
-    domain, profile = _descriptors()
     repository = _repository()
     try:
         prior = repository.get_native_source_admission_receipt(native_world_id, admission_id)
@@ -441,23 +451,26 @@ def admit_native_world_source(
             root=root, sealed_world_binding=sealed_world_binding,
         )
 
-    created_at = _parse_timestamp(
-        get_world_container(config.managed_world_data_root(root), world_id).created_at,
-        field="managed World created_at",
-    )
     _require_source_binding(root, world_id, sealed_world_binding)
-    initialization_id = _stable_id("dmb-world-genesis", native_world_id)
     try:
-        initialize_empty_knowledge_space(
-            repository=repository,
-            space_id=native_world_id,
-            initialization_id=initialization_id,
-            created_at=created_at,
-            domain_contract=domain,
-            semantic_profile=profile,
-        )
+        existing_head = repository.get_head(native_world_id)
     except Exception as exc:
-        raise _authority_failure(exc, default_code="native_genesis_failed") from exc
+        raise _authority_failure(exc, default_code="native_status_failed") from exc
+    if existing_head is None:
+        domain, profile = _genesis_descriptors()
+        created_at = _parse_timestamp(
+            get_world_container(config.managed_world_data_root(root), world_id).created_at,
+            field="managed World created_at",
+        )
+        initialization_id = _stable_id("dmb-world-genesis", native_world_id)
+        try:
+            initialize_empty_knowledge_space(
+                repository=repository, space_id=native_world_id,
+                initialization_id=initialization_id, created_at=created_at,
+                domain_contract=domain, semantic_profile=profile,
+            )
+        except Exception as exc:
+            raise _authority_failure(exc, default_code="native_genesis_failed") from exc
 
     expected_origin = _origin(snapshot)
     for attempt in range(MAX_ADMISSION_ATTEMPTS):
@@ -474,6 +487,7 @@ def admit_native_world_source(
             raise NativeWorldSourceAdmissionError(
                 "native_genesis_missing", "Native World initialization did not create a head", status_code=503
             )
+        domain, profile = _descriptors(repository, native_world_id, head.head_revision_id)
         span = NativeTextEvidenceSpanRequestV1(
             client_ref=WHOLE_DOCUMENT_SPAN_REF,
             evidence_role="context",
