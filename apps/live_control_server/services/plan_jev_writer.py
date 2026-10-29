@@ -20,6 +20,10 @@ INSTRUCTIONS = SOURCE_ATTRIBUTION_INSTRUCTIONS + EVIDENCE_INSTRUCTIONS + """
 Answer the current co-GM question directly using relevant supplied material. Preserve
 beliefs, time and authored versus played events. Entity labels and dialogue are
 navigation/context, not evidence. Read short evidence handles only as passage joins.
+For a graph_claim, select passages only from that target's schema branch: their
+opened_passages.evidence token must occur in the graph record's evidence list.
+Identical passage text or line ranges do not make different evidence tokens interchangeable.
+Use source_passage_claim for a claim grounded independently in an opened passage.
 For authored excerpts, select an exact block_handle from the ordered authored blocks.
 The host supplies its literal text; never emit quote text or the whole-source handle. Do not quote unrelated evidence.
 For image grounding give a coherent visual brief and unresolved composition question;

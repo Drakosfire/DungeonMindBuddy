@@ -20,8 +20,8 @@ from application_state.agent_conversation.surface_evidence_answer import PLAN_PO
 def frame():
     return {
         "answer_policy": SELECTOR_POLICY,
-        "graph_records": [{"kind": "assertion", "target_id": "assertion:pond"}],
-        "opened_passages": [{"passage_handle": "p-current"}],
+        "graph_records": [{"kind": "assertion", "target_id": "assertion:pond", "evidence": ["e0"]}],
+        "opened_passages": [{"passage_handle": "p-current", "evidence": "e0"}],
         "committed_plan_blocks": [
             {"selection_id": "a-current", "text": "Saved preparation."}
         ],
@@ -173,7 +173,7 @@ def test_schema_is_exact_strict_and_does_not_mutate_or_add_prose_limits():
     Draft202012Validator.check_schema(schema)
     assert output_format(f, r) == {
         "type": "json_schema",
-        "name": "plan_evidence_selectors_v2",
+        "name": "plan_evidence_selectors_v3",
         "schema": schema,
         "strict": True,
     }
@@ -256,3 +256,56 @@ def test_retained_v4_producer_format_is_verified_without_becoming_a_current_exec
     with pytest.raises(ValueError): verify_format(changed,f,rules())
     current=frame()
     with pytest.raises(ValueError): verify_format(body,current,rules())
+
+
+def test_graph_passages_join_exact_evidence_even_when_text_and_lines_match():
+    f = frame()
+    f["graph_records"] += [
+        {"kind": "assertion", "target_id": "assertion:bridge", "evidence": ["e1"]},
+        {"kind": "assertion", "target_id": "assertion:rail", "evidence": ["e0"]},
+        {"kind": "relationship", "target_id": "edge:pond:bridge", "evidence": ["e1"]},
+        {"kind": "assertion", "target_id": "assertion:unopened", "evidence": ["e2"]},
+    ]
+    f["opened_passages"] = [
+        {"passage_handle": "p-current", "evidence": "e0", "text": "Same words.", "line_start": 1},
+        {"passage_handle": "p-other", "evidence": "e1", "text": "Same words.", "line_start": 1},
+        {"passage_handle": None, "evidence": "e2", "text": "Insufficient."},
+    ]
+    validator = Draft202012Validator(output_schema(f, rules()))
+    for kind, target, allowed in [("assertion", "assertion:pond", "p-current"),
+                                  ("assertion", "assertion:rail", "p-current"),
+                                  ("assertion", "assertion:bridge", "p-other"),
+                                  ("relationship", "edge:pond:bridge", "p-other"),
+                                  ("assertion", "assertion:unopened", None)]:
+        for handles in ([], ["p-current"], ["p-other"], ["p-current", "p-other"]):
+            candidate = answer({"kind": "graph_claim", "claim_id": "one", "text": "Reported.",
+                                "target_kind": kind, "target_id": target, "passage_handles": handles})
+            assert validator.is_valid(candidate) == (not handles or handles == [allowed])
+    validator.validate(answer({"kind": "source_passage_claim", "text": "Source reports.",
+                               "passage_handles": ["p-current", "p-other"]}))
+
+
+def test_ambiguous_target_closures_are_not_offered_but_equal_closures_coalesce():
+    f = frame()
+    f["graph_records"].append(deepcopy(f["graph_records"][0]))
+    schema = output_schema(f, rules())
+    graph = answer({"kind": "graph_claim", "claim_id": "one", "text": "Reported.",
+                    "target_kind": "assertion", "target_id": "assertion:pond", "passage_handles": []})
+    Draft202012Validator(schema).validate(graph)
+    f["graph_records"][-1]["evidence"] = ["e-other"]
+    with pytest.raises(ValidationError):
+        Draft202012Validator(output_schema(f, rules())).validate(graph)
+
+
+def test_retained_v2_format_is_exact_read_proof_not_current_dispatch():
+    from pathlib import Path
+    from application_state.agent_conversation.plan_writer_output_schema import verify_format
+    frozen = json.loads((Path(__file__).parent / "fixtures/plan_writer_selector_v2_format.json").read_text())
+    f = frozen["producer_frame"]
+    body = {"text": {"format": frozen["producer_format"]}}
+    verify_format(body, f, rules())
+    assert output_format(f, rules())["name"] == "plan_evidence_selectors_v3"
+    assert output_format(f, rules()) != frozen["producer_format"]
+    changed = deepcopy(body)
+    changed["text"]["format"]["schema"]["properties"]["answer_segments"]["minItems"] = 1
+    with pytest.raises(ValueError): verify_format(changed, f, rules())
