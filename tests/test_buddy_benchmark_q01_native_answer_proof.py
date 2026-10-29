@@ -372,3 +372,170 @@ def test_persisted_text_must_match_normalized_completion():
     sample[5] = deepcopy(sample[0])
     with pytest.raises(ValueError, match="persisted answer"):
         proof.require_delivered(*sample)
+
+
+@pytest.fixture
+def actual_v2_wire(tmp_path, monkeypatch):
+    from tests.test_source_statements import lane as native_lane, commit, GM
+    from tests.test_agent_native_statement_answers import selection_for
+    from apps.live_control_server.services.native_statement_answer_context import (
+        build_frame,
+    )
+    from application_state.agent_conversation.native_statement_input import (
+        NativeStatementContextReceiptV1,
+        NativeStatementWriterPolicyV2,
+        canonical,
+        digest,
+    )
+    from application_state.agent_conversation.native_statement_answer import (
+        writer_contract,
+    )
+
+    lane = native_lane.__wrapped__(tmp_path, monkeypatch)
+    commit(lane)
+    frame = build_frame(selection_for(lane), GM)
+    payload = {
+        "schema": "dmb_native_statement_context_receipt_v1",
+        "selection": selection_for(lane).model_dump(mode="json", by_alias=True),
+        "frame": frame.model_dump(mode="json", by_alias=True),
+        "user_text": proof.QUESTION,
+        "provenance_sha256": "0" * 64,
+    }
+    receipt = NativeStatementContextReceiptV1.model_validate(
+        payload | {"context_receipt_sha256": digest(payload)}
+    )
+    policy = NativeStatementWriterPolicyV2(
+        model="gpt-6-luna", output_token_reserve=8192, context_limit_tokens=1050000
+    )
+    instructions, schema = writer_contract(receipt, policy)
+    body = {
+        "model": policy.model,
+        "input": [
+            {
+                "role": "user",
+                "content": canonical(
+                    {
+                        "question": proof.QUESTION,
+                        "native_statement_context": frame.model_dump(
+                            mode="json", by_alias=True
+                        ),
+                    }
+                ),
+            }
+        ],
+        "instructions": instructions,
+        "max_output_tokens": 8192,
+        "text": {
+            "format": {
+                "type": "json_schema",
+                "name": "native_statement_answer",
+                "strict": True,
+                "schema": schema,
+            }
+        },
+        "tools": [],
+        "stream": False,
+        "reasoning": {"effort": "none"},
+        "service_tier": "fast",
+    }
+    raw = canonical(body)
+    turn = {
+        "graph_context_receipt": receipt.model_dump(mode="json", by_alias=True),
+        "graph_context_execution": {
+            "policy": policy.model_dump(mode="json"),
+            "events": [
+                {
+                    "kind": "native_statement_input_v1",
+                    "prepared_request_json": raw,
+                    "envelope_sha256": proof.fixture.sha(raw.encode()),
+                }
+            ],
+        },
+    }
+    return turn, [s.statement_id for s in frame.supports]
+
+
+@pytest.mark.parametrize("mutation", ["subject_enum", "wrong_policy", "wrong_hash"])
+def test_actual_v2_contract_rejects_wrong_policy_selector_or_hash(
+    actual_v2_wire, mutation
+):
+    turn, ids = actual_v2_wire
+    assert proof.verify_v2_wire(turn, ids)["allowed_statement_ids"] == ids
+    if mutation == "wrong_policy":
+        turn["graph_context_execution"]["policy"]["policy_version"] = (
+            "native_statement_writer_v1"
+        )
+    elif mutation == "wrong_hash":
+        turn["graph_context_execution"]["events"][0]["envelope_sha256"] = "0" * 64
+    else:
+        event = turn["graph_context_execution"]["events"][0]
+        body = json.loads(event["prepared_request_json"])
+        body["text"]["format"]["schema"]["properties"]["segments"]["items"][
+            "properties"
+        ]["statement_ids"]["items"]["enum"] = [proof.SUBJECT]
+        event["prepared_request_json"] = json.dumps(body)
+        event["envelope_sha256"] = proof.fixture.sha(
+            event["prepared_request_json"].encode()
+        )
+    with pytest.raises(ValueError):
+        proof.verify_v2_wire(turn, ids)
+
+
+def v2_rows():
+    def row(sha, **keys):
+        return {"sha256": sha, "keys": keys}
+
+    before = {
+        "agent.conversation": [
+            row("old-owned", conversation_id=proof.OWNED_CONVERSATION)
+        ],
+        "agent.turn": [row("failed", turn_id=proof.ORIGINAL_FAILED_TURN)],
+        "agent.turn_reference": [],
+        "agent.world_state": [row("fixed-pointer")],
+        "agent.command_receipt": [],
+    }
+    after = deepcopy(before)
+    after["agent.conversation"] = [
+        row("advanced-owned", conversation_id=proof.OWNED_CONVERSATION)
+    ]
+    after["agent.turn"].append(
+        row(
+            "new-turn",
+            turn_id="v2",
+            conversation_id=proof.OWNED_CONVERSATION,
+            world_id=proof.fixture.WORLD,
+        )
+    )
+    after["agent.turn_reference"] = [
+        row("ref" + str(i), turn_id="v2", reference_role=role, ordinal=0)
+        for i, role in enumerate(("primary", "supporting", "selected"))
+    ]
+    return before, after
+
+
+@pytest.mark.parametrize(
+    "mutation", ["old_turn", "pointer", "command", "other_conversation"]
+)
+def test_v2_cannot_change_failed_turn_pointer_or_create_conversation(mutation):
+    before, after = v2_rows()
+    proof.v2_app_conservation(
+        before, after, conversation=proof.OWNED_CONVERSATION, turn="v2"
+    )
+    if mutation == "old_turn":
+        after["agent.turn"][0]["sha256"] = "rewritten"
+    elif mutation == "pointer":
+        after["agent.world_state"][0]["sha256"] = "rewritten"
+    elif mutation == "command":
+        after["agent.command_receipt"] = [{"sha256": "new-command", "keys": {}}]
+    else:
+        after["agent.conversation"][0]["keys"]["conversation_id"] = "other"
+    with pytest.raises(ValueError):
+        proof.v2_app_conservation(
+            before, after, conversation=proof.OWNED_CONVERSATION, turn="v2"
+        )
+
+
+def test_v2_new_turn_preserves_original_client_thread_binding():
+    request = proof.request_body()
+    assert request["client_thread_id"] == "q01-native-answer-v1"
+    assert request["turn_id"] == "q01-native-answer-v2-q01"

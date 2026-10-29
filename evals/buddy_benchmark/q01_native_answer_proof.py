@@ -14,22 +14,20 @@ import subprocess
 
 from . import q01_native_fixture_proof as fixture
 
-AUTHORITY = "504c1d67b7bb244628de4b86c51cd7b3c045fd8c"
-BASE = "c731056c8e7351a372f65be8ee2ad9719c181d86"
-CHECKPOINT = "q01-native-answer-v1"
+AUTHORITY = "7a6c83d81e1d915161ec44263c663ac8cd64595a"
+BASE = "7880f07b56533f7ffdbf6fd5de9b4788b1178956"
+CHECKPOINT = "q01-native-answer-v2"
+OWNED_CONVERSATION = "0c1b54ff-c28a-4e7a-9a2a-0a0f791cf35a"
+ORIGINAL_FAILED_TURN = "8e8f82a9-265c-45a4-92cd-746aa79cc9e1"
 READ_REVISION = "rev:738443ee1f86e2485134a12d6695b0fc"
 SUBJECT = "ent:6c8019cf4fe118ee7ae8411bb60469a1"
 OLD_CONVERSATION = "1c8ee3dd-f0d8-43e5-bfa1-fb17578dfee5"
 COMMAND_ID = "338dd1ba-4e2a-4cc7-adcb-f024193ab745"
 QUESTION = "What did the party's arcana check reveal about the strange meat found beneath the guardhouse?"
-START_SCHEMA = "20261028_0087"
-END_SCHEMA = "20261029_0091"
-MIGRATIONS = (
-    "20261028_0088_play_session_summary.py",
-    "20261028_0089_build_page_body.py",
-    "20261029_0090_build_page_end.py",
-    "20261029_0091_native_statement_answers.py",
-)
+START_SCHEMA = "20261029_0091"
+END_SCHEMA = "20261029_0092"
+MIGRATIONS = ("20261029_0092_native_statement_support_handles.py",)
+
 require = fixture.require
 
 
@@ -157,7 +155,7 @@ def command(pointer):
 def request_body():
     return {
         "schema": "dmb_agent_turn_request_v1",
-        "client_thread_id": CHECKPOINT,
+        "client_thread_id": "q01-native-answer-v1",
         "turn_id": CHECKPOINT + "-q01",
         "surface": {"surface_id": "plan", "instance_id": CHECKPOINT},
         "owner_scope": {"kind": "world", "world_id": fixture.WORLD},
@@ -203,6 +201,82 @@ def migration_inventory():
         )
         result[relative] = fixture.sha(expected)
     return result
+
+
+def v2_preflight_contract(root):
+    """Use actual immutable support and the owning V2 contract before dispatch."""
+    from application_state.agent_conversation.native_statement_input import (
+        NativeStatementContextReceiptV1,
+        NativeStatementWriterPolicyV2,
+    )
+    from application_state.agent_conversation.native_statement_answer import (
+        writer_contract,
+    )
+    from apps.live_control_server.services.native_statement_answer_context import (
+        build_frame,
+    )
+    from apps.live_control_server.services.agent_graph_auth import NativeGraphPrincipal
+    from apps.live_control_server.services.agent_turn_service import (
+        _policy_request_budget,
+    )
+
+    v1 = root.parent / "native-review-context-v2/q01-native-answer-v1"
+    original = json.loads((v1 / "persisted-turn.json").read_text())
+    require(
+        original["turn_id"] == ORIGINAL_FAILED_TURN
+        and original["status"] == "interrupted"
+        and original["completion"] is None,
+        "original red turn evidence differs",
+    )
+    receipt = NativeStatementContextReceiptV1.model_validate(
+        original["graph_context_receipt"]
+    )
+    actual = build_frame(
+        receipt.selection,
+        NativeGraphPrincipal("benchmark-controlled-preflight", "gm", "local_operator"),
+    )
+    require(
+        actual == receipt.frame and receipt.user_text == QUESTION,
+        "original qualified frame changed",
+    )
+    budget = _policy_request_budget()
+    policy = NativeStatementWriterPolicyV2(
+        model=budget["model"],
+        output_token_reserve=budget["outputReserveTokens"],
+        context_limit_tokens=budget["contextLimitTokens"],
+    )
+    instructions, schema = writer_contract(receipt, policy)
+    ids = sorted(s.statement_id for s in actual.supports)
+    enum = schema["properties"]["segments"]["items"]["properties"]["statement_ids"][
+        "items"
+    ].get("enum")
+    require(enum == ids and SUBJECT not in ids, "preflight V2 citation enum differs")
+    code_root = Path(__file__).resolve().parents[2]
+    pins = {}
+    for path in (
+        "src/application_state/agent_conversation/native_statement_answer.py",
+        "src/application_state/agent_conversation/native_statement_input.py",
+        "apps/live_control_server/services/native_statement_answer_runtime.py",
+    ):
+        accepted = subprocess.run(
+            ["git", "show", BASE + ":" + path],
+            cwd=code_root,
+            capture_output=True,
+            check=True,
+        ).stdout
+        require(
+            (code_root / path).read_bytes() == accepted,
+            "accepted pretransport gate differs",
+        )
+        pins[path] = fixture.sha(accepted)
+    return {
+        "policy": policy.model_dump(mode="json"),
+        "allowed_statement_ids": ids,
+        "instructions_sha256": fixture.sha(instructions.encode()),
+        "output_schema": schema,
+        "frame_sha256": fixture.digest(actual.model_dump(mode="json", by_alias=True)),
+        "owner_pretransport_source_pins": pins,
+    }
 
 
 def preflight(root, expected_schema=START_SCHEMA):
@@ -290,10 +364,10 @@ def preflight(root, expected_schema=START_SCHEMA):
         ).fetchone()
         old = conn.execute(
             "SELECT row_to_json(c) AS body FROM agent.conversation c WHERE conversation_id=%s",
-            (OLD_CONVERSATION,),
+            (OWNED_CONVERSATION,),
         ).fetchone()
     old = None if old is None else old["body"]
-    validate_pointer(pointer, old)
+    validate_owned_pointer(pointer, old)
     require(
         fixture.validate_source((files / fixture.SOURCE_PATH).read_bytes())[
             "body_sha256"
@@ -311,27 +385,29 @@ def preflight(root, expected_schema=START_SCHEMA):
         "wk": wk_integrity,
         "migrations": migration_inventory(),
         "pointer": pointer,
-        "old_conversation": old,
-        "new_conversation_command": command(pointer),
+        "owned_conversation": old,
+        "v1_checkpoint": fixture.file_fingerprints(
+            root.parent / "native-review-context-v2/q01-native-answer-v1"
+        ),
+        "v2_writer_contract": v2_preflight_contract(root),
         "question_request": request_body(),
         "allowlist": {
-            "application_state.schema_migrations": "0087→0091 only",
+            "application_state.schema_migrations": "0091→0092 only",
             "agent.conversation": {
-                "append": 1,
-                "archive_existing": OLD_CONVERSATION,
-                "archive_columns": ["status", "revision", "archived_at", "updated_at"],
+                "id": OWNED_CONVERSATION,
+                "revision_delta": 1,
+                "sequence_delta": 1,
+                "other_mutable": ["updated_at"],
             },
-            "agent.world_state": {"world": fixture.WORLD, "pointer": 73},
-            "agent.command_receipt": {"append": 1, "command_id": COMMAND_ID},
             "agent.turn": {
                 "append": 1,
-                "world": fixture.WORLD,
-                "single_owned_conversation": True,
+                "conversation": OWNED_CONVERSATION,
+                "original_turn_preserved": ORIGINAL_FAILED_TURN,
             },
             "agent.turn_reference": {
                 "append": 3,
                 "roles": ["primary", "supporting", "selected"],
-                "single_owned_turn": True,
+                "ordinal": 0,
             },
         },
         "native_tables": fixture.database_fingerprints(connection["dsn"]),
@@ -690,34 +766,150 @@ def require_delivered(turn, reply, history, opened, replay, after_replay):
     }
 
 
+def validate_owned_pointer(pointer, row):
+    require(
+        pointer is not None
+        and pointer["world_id"] == fixture.WORLD
+        and pointer["active_conversation_id"] == OWNED_CONVERSATION
+        and pointer["pointer_revision"] == 73,
+        "owned conversation pointer differs",
+    )
+    require(
+        row is not None
+        and row["conversation_id"] == OWNED_CONVERSATION
+        and row["world_id"] == fixture.WORLD
+        and row["status"] == "active",
+        "owned conversation differs",
+    )
+
+
+def v2_app_conservation(before, after, *, conversation, turn):
+    from collections import Counter
+
+    require(set(before) == set(after), "APP table inventory changed")
+    deltas = {}
+    for table in before:
+        prior = {r["sha256"]: r for r in before[table]}
+        later = {r["sha256"]: r for r in after[table]}
+        removed = Counter(r["sha256"] for r in before[table]) - Counter(
+            r["sha256"] for r in after[table]
+        )
+        added = Counter(r["sha256"] for r in after[table]) - Counter(
+            r["sha256"] for r in before[table]
+        )
+        if not removed and not added:
+            continue
+        deltas[table] = {"removed": sum(removed.values()), "added": sum(added.values())}
+        if table == "agent.conversation":
+            require(
+                sum(removed.values()) == sum(added.values()) == 1
+                and all(
+                    prior[h]["keys"].get("conversation_id") == conversation
+                    for h in removed
+                )
+                and all(
+                    later[h]["keys"].get("conversation_id") == conversation
+                    for h in added
+                ),
+                "unrelated conversation mutation",
+            )
+        elif table == "agent.turn":
+            require(
+                not removed
+                and sum(added.values()) == 1
+                and all(
+                    later[h]["keys"].get("turn_id") == turn
+                    and later[h]["keys"].get("conversation_id") == conversation
+                    and later[h]["keys"].get("world_id") == fixture.WORLD
+                    for h in added
+                ),
+                "unrelated or multiple turn append",
+            )
+        elif table == "agent.turn_reference":
+            require(
+                not removed
+                and sum(added.values()) == 3
+                and all(
+                    later[h]["keys"].get("turn_id") == turn
+                    and later[h]["keys"].get("ordinal") == 0
+                    for h in added
+                )
+                and {later[h]["keys"].get("reference_role") for h in added}
+                == {"primary", "supporting", "selected"},
+                "owned references differ",
+            )
+        else:
+            require(False, "forbidden V2 APP delta: " + table)
+    require(
+        set(deltas) == {"agent.conversation", "agent.turn", "agent.turn_reference"},
+        "V2 lifecycle rows missing",
+    )
+    return deltas
+
+
+def verify_v2_wire(turn, expected_ids):
+    from application_state.agent_conversation.native_statement_input import (
+        NativeStatementContextReceiptV1,
+        NativeStatementWriterPolicyV2,
+        validate_request,
+    )
+
+    execution = turn["graph_context_execution"]
+    policy = NativeStatementWriterPolicyV2.model_validate(execution["policy"])
+    receipt = NativeStatementContextReceiptV1.model_validate(
+        turn["graph_context_receipt"]
+    )
+    inputs = [
+        e for e in execution["events"] if e["kind"] == "native_statement_input_v1"
+    ]
+    require(len(inputs) == 1, "one actual prepared V2 request required")
+    raw = inputs[0]["prepared_request_json"]
+    require(
+        fixture.sha(raw.encode()) == inputs[0]["envelope_sha256"],
+        "V2 prepared request hash differs",
+    )
+    request = validate_request(receipt, policy, raw)
+    ids = request["text"]["format"]["schema"]["properties"]["segments"]["items"][
+        "properties"
+    ]["statement_ids"]["items"].get("enum")
+    require(
+        ids == sorted(expected_ids)
+        and ids == sorted(s.statement_id for s in receipt.frame.supports),
+        "actual prepared V2 enum differs from included statements",
+    )
+    require(SUBJECT not in ids, "subject was admitted as citation selector")
+    return {
+        "policy_version": policy.policy_version,
+        "allowed_statement_ids": ids,
+        "prepared_request_sha256": fixture.sha(raw.encode()),
+        "owner_pretransport_gate": "frozen NativeStatementWriter.authorize validates actual request before sdk_entered",
+    }
+
+
 def apply_answer(root, evidence, frozen):
     require(
         not (evidence / "provider-operation-intent.json").exists(),
         "original operation retained; no automatic redispatch",
     )
     connection, donor, files, token = configure_operation(root, evidence)
-    # All normal runtime imports occur after explicit isolated configuration.
     from fastapi import FastAPI
     from fastapi.testclient import TestClient
     from apps.live_control_server.routes import agent
     from application_state.agent_conversation import AgentConversationService
-    from application_state.agent_conversation.types import (
-        ConversationCommand,
-        request_fingerprint,
-    )
     from application_state.config import load_runtime_dsn
     from apps.live_control_server import config
     from psycopg.conninfo import conninfo_to_dict
     from uuid import UUID
+    from time import perf_counter
 
     require(
         conninfo_to_dict(load_runtime_dsn())["dbname"] == fixture.APP_DATABASE,
-        "ordinary APP repository target differs",
+        "ordinary APP target differs",
     )
     require(
         conninfo_to_dict(config.world_graph_authority_database_url())["options"]
         == "-c default_transaction_read_only=on",
-        "ordinary native connections not read-only",
+        "ordinary native sessions not read-only",
     )
     current = preflight(root, expected_schema=END_SCHEMA)
     for key in frozen:
@@ -726,165 +918,164 @@ def apply_answer(root, evidence, frozen):
                 current[key] == frozen[key], "post-migration authority drift: " + key
             )
     migration_conservation(frozen["app_tables"], current["app_tables"])
-    require(
-        not (evidence / "provider-operation-intent.json").exists(),
-        "original operation retained; no automatic redispatch",
-    )
-    typed = ConversationCommand(
-        world_id=fixture.WORLD,
-        command_id=UUID(COMMAND_ID),
-        expected_pointer_revision=72,
-        expected_active_conversation_id=UUID(OLD_CONVERSATION),
-    )
-    immutable_save(
-        evidence,
-        "conversation-command",
-        {
-            "request": frozen["new_conversation_command"],
-            "request_fingerprint": request_fingerprint(typed),
-            "old_row": frozen["old_conversation"],
-        },
-    )
     app = FastAPI()
     app.include_router(agent.router, prefix="/api/live")
     service = AgentConversationService()
     client = TestClient(
         app, client=("127.0.0.1", 42000), headers={"Authorization": "Bearer " + token}
     )
-    started = client.post(
-        f"/api/live/agent/worlds/{fixture.WORLD}/conversation/new",
-        json=frozen["new_conversation_command"],
-    )
-    immutable_save(
-        evidence,
-        "conversation-http",
-        {"status": started.status_code, "body": started.json()},
-    )
-    require(started.status_code == 200, "ordinary conversation command failed")
-    owned = started.json()["conversation_id"]
-    again = client.post(
-        f"/api/live/agent/worlds/{fixture.WORLD}/conversation/new",
-        json=frozen["new_conversation_command"],
-    )
-    require(
-        again.status_code == 200 and again.json() == started.json(),
-        "exact conversation command replay differs",
-    )
     immutable_save(
         evidence,
         "provider-operation-intent",
         {
             "request": frozen["question_request"],
+            "owned_conversation": OWNED_CONVERSATION,
+            "preflight_writer_contract": frozen["v2_writer_contract"],
             "auth": "controlled_local_operator",
             "no_automatic_redispatch": True,
         },
     )
+    started = perf_counter()
     response = client.post("/api/live/agent/turn", json=frozen["question_request"])
     immutable_save(
         evidence,
         "answer-http",
-        {"status": response.status_code, "body": response.json()},
+        {
+            "status": response.status_code,
+            "body": response.json(),
+            "elapsed_ms": (perf_counter() - started) * 1000,
+        },
     )
-    turns = service.list_turns(fixture.WORLD, UUID(owned))
-    require(len(turns) == 1, "single owned turn missing")
-    turn = turns[0].model_dump(mode="json", by_alias=True)
+    turns = service.list_turns(fixture.WORLD, UUID(OWNED_CONVERSATION))
+    fresh = [t for t in turns if str(t.turn_id) != ORIGINAL_FAILED_TURN]
+    require(len(turns) == 2 and len(fresh) == 1, "single new owned turn missing")
+    turn = fresh[0].model_dump(mode="json", by_alias=True)
     immutable_save(evidence, "persisted-turn", turn)
-    # Always audit rows, even when the provider outcome is interrupted.
+    wire = verify_v2_wire(turn, frozen["v2_writer_contract"]["allowed_statement_ids"])
+    immutable_save(evidence, "v2-wire", wire)
     with fixture.readonly(connection["app_dsn"]) as conn:
-        old = conn.execute(
+        row = conn.execute(
             "SELECT row_to_json(c) AS body FROM agent.conversation c WHERE conversation_id=%s",
-            (OLD_CONVERSATION,),
+            (OWNED_CONVERSATION,),
         ).fetchone()["body"]
         pointer = conn.execute(
-            "SELECT active_conversation_id::text,pointer_revision FROM agent.world_state WHERE world_id=%s",
+            "SELECT world_id,active_conversation_id::text,pointer_revision,updated_at::text FROM agent.world_state WHERE world_id=%s",
             (fixture.WORLD,),
         ).fetchone()
-        command_receipt = conn.execute(
-            "SELECT row_to_json(r) AS body FROM agent.command_receipt r WHERE world_id=%s AND command_id=%s",
-            (fixture.WORLD, COMMAND_ID),
-        ).fetchone()["body"]
-    validate_archive(frozen["old_conversation"], old)
+    before = frozen["owned_conversation"]
+    mutable = {"revision", "next_turn_sequence", "updated_at"}
     require(
-        pointer == {"active_conversation_id": owned, "pointer_revision": 73},
-        "new conversation pointer differs",
+        {k: v for k, v in row.items() if k not in mutable}
+        == {k: v for k, v in before.items() if k not in mutable}
+        and row["revision"] == before["revision"] + 1
+        and row["next_turn_sequence"] == before["next_turn_sequence"] + 1,
+        "owned conversation mutation differs",
     )
-    require(
-        command_receipt["request_fingerprint"] == request_fingerprint(typed),
-        "durable command request binding differs",
-    )
-    immutable_save(evidence, "conversation-receipt", command_receipt)
+    require(pointer == frozen["pointer"], "V2 diagnostic changed active pointer")
     before_reads = row_inventory(connection["app_dsn"])
-    deltas = app_conservation(
+    deltas = v2_app_conservation(
         current["app_tables"],
         before_reads,
-        conversation=owned,
+        conversation=OWNED_CONVERSATION,
         turn=turn["turn_id"],
-        old_conversation=OLD_CONVERSATION,
     )
+    v1 = root.parent / "native-review-context-v2/q01-native-answer-v1"
     require(
         fixture.database_fingerprints(connection["dsn"]) == frozen["native_tables"]
-        and fixture.file_fingerprints(files) == frozen["files"],
-        "native/files changed during answer",
+        and fixture.file_fingerprints(files) == frozen["files"]
+        and fixture.file_fingerprints(v1) == frozen["v1_checkpoint"],
+        "native/files/V1 evidence changed",
     )
     immutable_save(
         evidence,
         "conservation",
-        {"app_deltas": deltas, "native_unchanged": True, "files_unchanged": True},
+        {
+            "app_deltas": deltas,
+            "native_unchanged": True,
+            "files_unchanged": True,
+            "v1_unchanged": True,
+            "pointer_unchanged": True,
+        },
     )
     require(
         response.status_code == 200 and turn["status"] == "completed",
-        "original writer outcome retained; no redispatch",
+        "original V2 outcome retained; no redispatch",
     )
+    started = perf_counter()
     history = client.get(
         f"/api/live/agent/worlds/{fixture.WORLD}/conversation?include_turn_correlation=true"
     )
     immutable_save(
         evidence,
         "history-http",
-        {"status": history.status_code, "body": history.json()},
+        {
+            "status": history.status_code,
+            "body": history.json(),
+            "elapsed_ms": (perf_counter() - started) * 1000,
+        },
     )
     require(history.status_code == 200, "ordinary history failed")
-    reopened = []
+    opened = []
     for index in range(len(turn["completion"]["native_clause_citations"])):
-        opened = client.get(
+        started = perf_counter()
+        value = client.get(
             f"/api/live/agent/worlds/{fixture.WORLD}/conversation/turns/{turn['turn_id']}/native-source-clauses/{index}"
         )
         immutable_save(
             evidence,
             "citation-http-" + str(index),
-            {"status": opened.status_code, "body": opened.json()},
+            {
+                "status": value.status_code,
+                "body": value.json(),
+                "elapsed_ms": (perf_counter() - started) * 1000,
+            },
         )
-        require(opened.status_code == 200, "ordinary historical clause opening failed")
-        reopened.append(opened.json())
+        require(value.status_code == 200, "historical citation opening failed")
+        opened.append(value.json())
+    started = perf_counter()
     replay = client.post("/api/live/agent/turn", json=frozen["question_request"])
     immutable_save(
-        evidence, "replay-http", {"status": replay.status_code, "body": replay.json()}
+        evidence,
+        "replay-http",
+        {
+            "status": replay.status_code,
+            "body": replay.json(),
+            "elapsed_ms": (perf_counter() - started) * 1000,
+        },
     )
-    after_replay = service.list_turns(fixture.WORLD, UUID(owned))[0].model_dump(
-        mode="json", by_alias=True
-    )
+    after_replay = next(
+        t
+        for t in service.list_turns(fixture.WORLD, UUID(OWNED_CONVERSATION))
+        if str(t.turn_id) == turn["turn_id"]
+    ).model_dump(mode="json", by_alias=True)
     require(replay.status_code == 200, "completed replay failed")
     require(
         row_inventory(connection["app_dsn"]) == before_reads,
         "read/replay changed APP state",
     )
+    require(
+        fixture.database_fingerprints(connection["dsn"]) == frozen["native_tables"]
+        and fixture.file_fingerprints(files) == frozen["files"]
+        and fixture.file_fingerprints(v1) == frozen["v1_checkpoint"],
+        "read/replay changed protected authority",
+    )
     verdict = require_delivered(
-        turn, response.json(), history.json(), reopened, replay.json(), after_replay
+        turn, response.json(), history.json(), opened, replay.json(), after_replay
     )
     immutable_save(
         evidence,
         "assessment",
         verdict
         | {
+            "v2_wire": wire,
             "answer_text": response.json()["answer"]["text"],
-            "fixture_publication": "independently_verified_predecessor",
             "full_system_verified": False,
         },
     )
     print(
         json.dumps(
             {
-                "status": "selected_subject_http_proof",
+                "status": "selected_subject_v2_http_proof",
                 "assessment": verdict,
                 "answer_text": response.json()["answer"]["text"],
             }
