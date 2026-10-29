@@ -230,15 +230,26 @@ def _turn_from_row(
         PlayWorldGraphCompletionV1,
     )
     import json
+    from .native_statement_input import NativeStatementContextReceiptV1
+    from .native_statement_answer import NativeStatementCompletionV1
+    from .types import NativeStatementExecutionV1
 
     for key, model in (
         ("graph_context_receipt", PlayWorldGraphContextReceiptV1),
         ("graph_context_execution", PlayWorldGraphExecutionV1),
         ("completion", PlayWorldGraphCompletionV1),
+        ("graph_context_receipt", NativeStatementContextReceiptV1),
+        ("graph_context_execution", NativeStatementExecutionV1),
+        ("completion", NativeStatementCompletionV1),
     ):
         value = fields.get(key)
         if isinstance(value, dict) and value.get("schema") == model.model_fields["schema_"].default:
-            fields[key] = model.model_validate_json(json.dumps(value, ensure_ascii=False))
+            try:
+                fields[key] = model.model_validate_json(json.dumps(value, ensure_ascii=False))
+            except ValidationError as exc:
+                if model in (NativeStatementContextReceiptV1, NativeStatementExecutionV1, NativeStatementCompletionV1):
+                    raise ApplicationStateIntegrityError("Stored native context failed typed validation") from exc
+                raise
     marker = row["answer_composition_kind"]
     summary = row["rules_summary"]
     # Discriminate BEFORE ordinary Turn parsing, especially Build text equality.
@@ -252,7 +263,12 @@ def _turn_from_row(
             raise ApplicationStateIntegrityError(
                 "accepted Rules authority has no mixed turn marker"
             )
-        turn = Turn(**fields)
+        try:
+            turn = Turn(**fields)
+        except ValidationError as exc:
+            if isinstance(fields.get("graph_context_receipt"), NativeStatementContextReceiptV1):
+                raise ApplicationStateIntegrityError("Native completion differs from its captured producing output") from exc
+            raise
         from .build_authoring import validate_stored_proposal
 
         validate_stored_proposal(conn, turn, turn.completion)

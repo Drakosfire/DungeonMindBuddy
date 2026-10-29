@@ -1454,6 +1454,7 @@ export type AgentConversationTurnLifecycleV1 =
   | "interrupted";
 
 export interface WorldAgentConversationHistoryTurnV1 {
+  native_statement_context?: NativeStatementAnswerContextV1;
   plan_proposal?: import("./planAuthoringReviewApi").PlanAuthoredProposal | null;
   retry_context?: import("./conversationRetryApi").TurnRetryContext | null;
   knowledge_context?: WorldBuildKnowledgeContextV1;
@@ -6173,4 +6174,46 @@ export interface AgentConnectedPageOriginV1 {
   turn_id:string;
   read_id:string;
   origin:import('./connectedPageApi').SavedExcerptOrigin;
+}
+
+/** Native source attribution, deliberately outside classic Graph context types. */
+export interface NativeStatementSelectionV1 {
+  schema: 'dmb_native_statement_selection_v1'; managedWorldId:string; campaignId:string;
+  revisionId:string; subjectId:string; domainRef:Record<string,string>; profileRef:Record<string,string>;
+}
+export interface NativeStatementSupportV1 {
+  statement_id:string; payload:Record<string,unknown>; semantic_digest:string; assertion_ids:string[];
+  publication_receipt:Record<string,unknown>; result_mappings:Record<string,unknown>[];
+  ancestry:Record<string,unknown>[]; source_artifact_id:string; source_revision_id:string;
+  source_body_sha256:string; clause_start_byte:number; clause_end_byte:number;
+  clause_sha256:string; clause_text:string;
+}
+export interface NativeStatementReceiptV1 {
+  schema:'dmb_native_statement_context_receipt_v1'; selection:NativeStatementSelectionV1;
+  frame:{schema:'dmb_native_statement_frame_v1';authority:'native_vnext';managed_world_id:string;
+    native_world_id:string;binding_version:number;campaign_id:string;role:'gm'|'player';revision_id:string;
+    domain_ref:Record<string,string>;profile_ref:Record<string,string>;subject_id:string;
+    status:'complete'|'partial'|'no_visible_statements';gap_codes:string[];
+    supports:NativeStatementSupportV1[];universal_absence_claimed:false};
+  user_text:string;provenance_sha256:string;context_receipt_sha256:string;
+}
+export interface NativeStatementClauseCitationV1 {
+  segment_index:number;statement_id:string;provider_attempt_id:string;envelope_sha256:string;
+  context_receipt_sha256:string;managed_world_id:string;native_world_id:string;campaign_id:string;
+  read_revision_id:string;publication_revision_id:string;source_artifact_id:string;source_revision_id:string;
+  body_sha256:string;start_byte:number;end_byte:number;clause_sha256:string;semantic_digest:string;
+}
+export interface NativeStatementCompletionV1 {
+  schema:'dmb_native_statement_completion_v1';surface_id:'plan';context_receipt_sha256:string;
+  answer_context_status:'source_attributed'|'source_attributed_partial'|'insufficient_evidence';
+  answer_segments:{kind:'source_report'|'proposal'|'limitation';text:string;statement_ids:string[]}[];
+  native_clause_citations:NativeStatementClauseCitationV1[];
+}
+export interface NativeStatementAnswerContextV1 {
+  schema:'dmb_native_statement_answer_context_v1';receipt:NativeStatementReceiptV1;
+  completion:NativeStatementCompletionV1|null;delivery_replay:boolean;
+}
+export interface NativeStatementClauseReadV1 {
+  schema:'dmb_native_statement_clause_read_v1';world_id:string;turn_id:string;citation_index:number;
+  citation:NativeStatementClauseCitationV1;content:string;
 }

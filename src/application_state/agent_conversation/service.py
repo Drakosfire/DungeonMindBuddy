@@ -276,6 +276,13 @@ def _validated_base_execution_locked(
     mixed_output_context=None, native_output_verified=False,
 ):
     """Validate the unchanged base-domain completion without committing a Turn."""
+    from .types import NativeStatementExecutionV1
+    if isinstance(turn.graph_context_execution, NativeStatementExecutionV1):
+        from .native_statement_answer import accept_result
+        try:
+            return accept_result(turn, result)
+        except (ValueError, TypeError, KeyError, AttributeError) as exc:
+            raise ApplicationStateValidationError(str(exc)) from exc
     from .types import (
         BuildAuthoringCompletionV1,
         BuildImagePreparationCompletionV1,
@@ -1243,6 +1250,34 @@ class AgentConversationService:
             raise ApplicationStateConflictError(
                 f"expired {interrupted_domain} provider claim was recorded as potentially sent and cannot be reclaimed"
             )
+
+    def append_native_statement_events(self, world_id, conversation_id, turn_id, *,
+                                       expected_revision, expected_attempt, events):
+        """One native writer append under the existing claimed-turn attempt fence."""
+        from .types import NativeStatementExecutionV1
+        from .native_statement_answer import validate_record
+        from .retry import require_leaf
+        with unit_of_work(_ready_dsn()) as conn:
+            turn = _ordinary_mutation_turn(repo.lock_turn(conn, _world_id(world_id), turn_id), conversation_id)
+            if (turn is None or turn.conversation_id != conversation_id or turn.status != "running"
+                    or turn.revision != expected_revision or turn.attempt != expected_attempt
+                    or turn.claim_expires_at is None or turn.claim_expires_at <= repo.database_clock(conn)):
+                raise ApplicationStateConflictError("Native writer append is fenced by its current claimed attempt")
+            require_leaf(conn, turn)
+            if not isinstance(turn.graph_context_execution, NativeStatementExecutionV1):
+                raise ApplicationStateValidationError("Native writer requires its own frozen execution")
+            try:
+                execution = NativeStatementExecutionV1.model_validate(
+                    turn.graph_context_execution.model_dump(mode="python", by_alias=True) |
+                    {"events": [*turn.graph_context_execution.events, *events]})
+                validate_record(turn.graph_context_receipt, execution, turn.provenance)
+            except (ValueError, TypeError, KeyError, AttributeError) as exc:
+                raise ApplicationStateValidationError(str(exc)) from exc
+            updated = repo.update_graph_execution(conn, world_id=world_id, turn_id=turn_id,
+                expected_revision=expected_revision, execution=execution)
+            if updated is None:
+                raise ApplicationStateConflictError("Native writer claim expired during append")
+            return updated, True
 
     def _append_graph_execution_event(
         self,

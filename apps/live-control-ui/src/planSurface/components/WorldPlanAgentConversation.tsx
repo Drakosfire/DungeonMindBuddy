@@ -1,3 +1,5 @@
+import {isNativeStatementContext,nativeStatementDigestsBound,nativeAnswerText} from "../../shared/nativeStatementAnswerProtocol";
+import {NativeStatementAnswer} from "./NativeStatementAnswer";
 import {useGuidedTour,type TourDispatchScope} from '../../guidedTour/GuidedTour';
 import {PlanPageProposal} from '../agentEdit/PlanPageProposal';
 import {isPlanAuthoringCapture,isPlanAuthoredProposal,planProposalDigestsBound} from '../../api/planAuthoringReviewApi';
@@ -1553,6 +1555,16 @@ function isHistoryTurn(
   worldId: string,
 ): boolean {
   if (!isRecord(value)) return false;
+  if(Object.hasOwn(value,'native_statement_context')){
+    if(schema!=='dmb_agent_conversation_history_v4'||value.schema!=='dmb_native_statement_history_turn_v1'
+      ||!isNativeStatementContext(value.native_statement_context,worldId))return false;
+    const {schema:_schema,native_statement_context:context,...envelope}=value;
+    return isHistoryTurn(envelope,'dmb_agent_conversation_history_v3',worldId)
+      &&isRecord(value.provenance)&&value.provenance.surface_id==='plan'
+      &&context.receipt.user_text===value.user_text
+      &&(value.lifecycle_status==='completed'?(context.completion!==null&&nativeAnswerText(context)===value.assistant_text)
+        :context.completion===null&&value.assistant_text===null);
+  }
   if(Object.hasOwn(value,'plan_proposal')){
     const {plan_proposal:proposal,...envelope}=value;
     if(!isPlanAuthoredProposal(proposal)||!isRecord(value.provenance)||!isRecord(value.provenance.primary_work))return false;
@@ -1856,6 +1868,11 @@ async function isReceiptDigestBound(receipt: WorldPlanGraphContextReceiptV1 | Wo
 
 async function isHistoryReceiptDigestBound(turn: unknown): Promise<boolean> {
   if (!isRecord(turn)) return true;
+  if(Object.hasOwn(turn,'native_statement_context')){
+    return isRecord(turn.provenance)&&typeof turn.provenance.world_id==='string'
+      &&isNativeStatementContext(turn.native_statement_context,turn.provenance.world_id)
+      &&await nativeStatementDigestsBound(turn.native_statement_context,turn.provenance);
+  }
   if(Object.hasOwn(turn,'plan_proposal')){
     if(!isPlanAuthoredProposal(turn.plan_proposal)||!await planProposalDigestsBound(turn.plan_proposal))return false;
     const rules=isRecord(turn.rules_context)?turn.rules_context:null;
@@ -6002,7 +6019,8 @@ export function WorldPlanAgentConversation({
                 {rulesContextForTurn(turn)!.accepted_binding.support_table.length ? 'Rules evidence' : 'Rules lookup: no evidence'}
               </span>}
             </div>
-            {!pageProposalAcknowledgment&&(graphContextForTurn(turn)?.completion?.schema === "dmb_surface_evidence_completion_v1" || graphContextForTurn(turn)?.completion?.schema === "dmb_surface_evidence_completion_v2" || (graphContextForTurn(turn)?.completion?.schema === "dmb_surface_evidence_completion_v3" || graphContextForTurn(turn)?.completion?.schema === "dmb_surface_evidence_completion_v4"))
+            {turn.native_statement_context ? <NativeStatementAnswer context={turn.native_statement_context}
+              worldId={turn.provenance.world_id} turnId={turn.turn_id}/> : !pageProposalAcknowledgment&&(graphContextForTurn(turn)?.completion?.schema === "dmb_surface_evidence_completion_v1" || graphContextForTurn(turn)?.completion?.schema === "dmb_surface_evidence_completion_v2" || (graphContextForTurn(turn)?.completion?.schema === "dmb_surface_evidence_completion_v3" || graphContextForTurn(turn)?.completion?.schema === "dmb_surface_evidence_completion_v4"))
               ? <SurfaceEvidenceAnswer completion={graphContextForTurn(turn)!.completion as import("../../api/types").SurfaceEvidenceCompletion}
                 worldId={verifiedWorldId} turnId={turn.turn_id} composition={rulesContextForTurn(turn) ? {text:replyText,ranges:rulesContextForTurn(turn)!.accepted_binding.segment_map} : undefined}/>
               : citedAnswer ?? <WorldPlanAgentAnswer

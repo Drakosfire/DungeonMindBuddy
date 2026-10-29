@@ -49,6 +49,10 @@ from application_state.agent_conversation.types import (
 )
 
 
+from graph_memory.ingestion.selection_context import NativeStatementSelectionV1
+from .native_statement_answers import NativeStatementAnswerContextV1
+
+
 class AgentTurnSurface(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
@@ -256,6 +260,7 @@ class AgentTurnRequest(BaseModel):
     graph_request: AgentTurnGraphRequest
     graph_selection: AgentTurnGraphSelection | None
     selected_knowledge: AgentKnowledgeSelection | None = None
+    native_statement_selection: NativeStatementSelectionV1 | None = None
     build_write_capability: BuildWriteCapability | None = None
     build_draft_context: BuildDraftContextRequestV1 | None = None
     build_authored_references: AuthoredGraphReferencesV1 | None = None
@@ -282,6 +287,18 @@ class AgentTurnRequest(BaseModel):
 
     @model_validator(mode="after")
     def reject_contradictory_unsaved_work(self) -> AgentTurnRequest:
+        if self.native_statement_selection is not None:
+            if (self.surface.surface_id != "plan" or self.owner_scope is None
+                    or self.owner_scope.kind != "world"
+                    or self.native_statement_selection.managed_world_id != self.owner_scope.world_id
+                    or self.selected_knowledge is not None or self.graph_request.mode != "none"
+                    or self.graph_selection is not None or self.plan_context_policy is not None
+                    or self.playable_target is not None or self.play_target is not None
+                    or self.build_write_capability is not None or self.build_draft_context is not None
+                    or self.build_authored_references is not None or self.retry_of is not None
+                    or self.reviewed_step is not None or self.plan_authoring_capture is not None
+                    or self.plan_placement_catalog is not None):
+                raise ValueError("Native statement selection requires its explicit graphless Plan question capability")
         if self.retry_of is not None and (self.surface.surface_id != "build" or self.graph_request.mode != "world" or self.build_draft_context is None or self.reviewed_step is not None):
             raise ValueError("Retry requires fresh ordinary World Build context")
         if self.reviewed_step is not None and (self.surface.surface_id != "build" or self.graph_request.mode != "world" or self.build_draft_context is None):
@@ -925,6 +942,20 @@ class AgentRulesTurnResponseV1(AgentTurnResponse):
         return self
 
 
+class AgentNativeStatementTurnResponseV1(AgentTurnResponse):
+    native_statement_context: NativeStatementAnswerContextV1
+
+    @model_validator(mode="after")
+    def native_answer_binding(self):
+        from application_state.agent_conversation.native_statement_answer import answer_text
+        context = self.native_statement_context
+        if (context.completion is None or context.completion.context_receipt_sha256 != context.receipt.context_receipt_sha256
+                or self.answer.text != answer_text(context.completion) or self.answer.graph_grounded
+                or self.owner_scope.owner_id != context.receipt.frame.managed_world_id):
+            raise ValueError("Native answer requires its own source-attributed receipt and completion")
+        return self
+
+
 class AgentConversationHistoryTurn(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
@@ -962,6 +993,23 @@ class AgentConversationHistoryTurnV2(AgentConversationHistoryTurn):
 
 class AgentConversationHistoryTurnV3(AgentConversationHistoryTurn):
     idempotency_key: UUID
+
+
+class AgentConversationHistoryNativeStatementTurnV1(AgentConversationHistoryTurnV3):
+    schema_: Literal["dmb_native_statement_history_turn_v1"] = Field(default="dmb_native_statement_history_turn_v1", alias="schema")
+    native_statement_context: NativeStatementAnswerContextV1
+
+    @model_validator(mode="after")
+    def native_owner(self):
+        from application_state.agent_conversation.native_statement_input import digest
+        from application_state.agent_conversation.native_statement_answer import answer_text
+        c = self.native_statement_context
+        if (self.provenance.world_id != c.receipt.frame.managed_world_id
+                or self.provenance.surface_id != "plan" or digest(self.provenance) != c.receipt.provenance_sha256
+                or (self.lifecycle_status == "completed") != (c.completion is not None)
+                or (c.completion is not None and self.assistant_text != answer_text(c.completion))):
+            raise ValueError("Native history differs from its exact source-attributed context")
+        return self
 
 
 class AgentConversationHistoryPlanTurnV3(AgentConversationHistoryTurnV3):
@@ -1103,7 +1151,7 @@ def _validate_play_source_history(row):
 class AgentConversationHistoryResponseV4(AgentConversationHistoryResponse):
     schema_: Literal["dmb_agent_conversation_history_v4"] = Field(
         default="dmb_agent_conversation_history_v4", alias="schema")
-    turns: list[AgentConversationHistoryPlayRulesTurnV1 | AgentConversationHistoryPlaySourceTurnV1 |
+    turns: list[AgentConversationHistoryNativeStatementTurnV1 | AgentConversationHistoryPlayRulesTurnV1 | AgentConversationHistoryPlaySourceTurnV1 |
         AgentConversationHistoryMixedTurnV1 | AgentConversationHistoryBuildTurnV3 |
         AgentConversationHistoryPlanTurnV3 | AgentConversationHistoryPlayTurnV3 |
         AgentConversationHistoryTurnV3 | AgentConversationHistoryBuildTurnV2 |
