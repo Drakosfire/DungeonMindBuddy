@@ -17,7 +17,7 @@ from apps.live_control_server.services import source_statement_proposals as serv
 from apps.live_control_server.services import source_statements
 
 BATCH = {
-    "contract": "qualified_source_handles_v2",
+    "contract": "qualified_source_handles_v3",
     "catalog_sha256": "TEST_CATALOG",
     "mentions": [
         {"mention_id": "a", "label": "A", "source_unit_ids": ["u1"]},
@@ -33,7 +33,7 @@ BATCH = {
             "reporter_mention": "a",
             "referent_mentions": ["b"],
             "uncertainty": ["uncertain"],
-            "qualifications": {"source_local": "report only"},
+            "qualifications": [{"key": "source_local", "value": "report only"}],
             "episode": "episode-1",
             "unresolved": ["native identities need review"],
         }
@@ -54,8 +54,32 @@ def sent_body(packet):
     return "".join(unit["text"] for unit in packet["source_catalog"]["units"])
 
 
+def retained_text(record):
+    """Failed structured validation may retain the complete actual SDK response."""
+    try:
+        value = json.loads(record["raw_output"])
+    except ValueError:
+        return record["raw_output"]
+    if isinstance(value, dict) and value.get("object") == "response":
+        return "".join(
+            part["text"]
+            for item in value["output"]
+            for part in item.get("content", [])
+            if part["type"] == "output_text"
+        )
+    return record["raw_output"]
+
+
 class Wire:
-    def __init__(self, raw=None, failure=False, *, incomplete=False, output_tokens=100):
+    def __init__(
+        self,
+        raw=None,
+        failure=False,
+        *,
+        incomplete=False,
+        output_tokens=100,
+        refusal=False,
+    ):
         self.requests = []
         self.raw = json.dumps(BATCH) if raw is None else raw
         outer = self
@@ -89,6 +113,10 @@ class Wire:
                                 "role": "assistant",
                                 "status": "completed",
                                 "content": [
+                                    {"type": "refusal", "refusal": "synthetic refusal"}
+                                ]
+                                if refusal
+                                else [
                                     {
                                         "type": "output_text",
                                         "text": outer.raw,
@@ -181,7 +209,7 @@ def test_routes_produce_reload_review_publish_and_replay(
             "sending",
             "response_received",
         ]
-        assert record["raw_output"] == wire.raw
+        assert retained_text(record) == wire.raw
         assert json.loads(record["wire"]) == wire.requests[0]
         sent = json.loads(wire.requests[0]["input"][0]["content"])
         assert sent_body(sent) == BODY
@@ -250,7 +278,7 @@ def test_original_bad_output_preserved_no_redispatch(
     with client(monkeypatch, wire) as c:
         req, record = produce(c, lane)
         assert record["state"] == "failed"
-        assert record["raw_output"] == wire.raw
+        assert retained_text(record) == wire.raw
         assert (
             c.post(
                 "/api/live/source-statements/proposals",
@@ -697,8 +725,13 @@ def test_completed_output_beyond_old_limit_persists_exactly(
         assert record["state"] == "completed", record
         assert wire.requests[0]["max_output_tokens"] == 128_000
         assert sent_body(json.loads(wire.requests[0]["input"][0]["content"])) == BODY
-        assert record["raw_output"] == wire.raw
-        assert record["result"]["batch"] == json.loads(wire.raw)
+        assert retained_text(record) == wire.raw
+        expected = json.loads(wire.raw)
+        expected["proposals"][0]["qualifications"] = {
+            pair["key"]: pair["value"]
+            for pair in expected["proposals"][0]["qualifications"]
+        }
+        assert record["result"]["batch"] == expected
         assert c.get(url(req)).json() == record
         assert len(wire.requests) == 1
 
@@ -790,19 +823,24 @@ def test_forged_catalog_commitment_fails_without_repair(
         _, record = produce(c, lane)
         assert record["state"] == "failed"
         assert record["result"] is None
-        assert record["raw_output"] == wire.raw
+        assert retained_text(record) == wire.raw
 
 
 @pytest.mark.parametrize("entered", [True, False])
-def test_actual_v1_failed_contract_replays_without_current_rendering(
-    lane, application_state_dsn, monkeypatch, entered
+@pytest.mark.parametrize("history", ["literal_v1", "handles_v2"])
+def test_historical_failed_contract_replays_without_current_rendering(
+    lane, application_state_dsn, monkeypatch, entered, history
 ):
     from application_state.statement_proposals import service as store
     from graph_memory.extraction.qualified_statement_proposals import canonical
 
     req = request_for(lane)
     _, _, old_input, _ = service._acquire(req, GM)
-    old_input["output_schema"] = {"title": "Original V1 output schema"}
+    if history == "handles_v2":
+        old_input = service._render(old_input) | {
+            "contract": "qualified_source_handles_v2"
+        }
+    old_input["output_schema"] = {"title": "Original frozen output schema"}
     row, _ = store.claim(
         req.operation_id, GM.subject, req.model_dump(mode="json"), old_input
     )
@@ -911,3 +949,194 @@ def test_review_narrows_same_unit_but_conflicting_clause_meaning_refuses(
         ).head_revision_id
         response = c.post(review_url(req), json=other)
         assert response.status_code == 409, response.text
+
+
+def test_actual_prepared_native_schema_expresses_reporter_dependency(
+    lane, application_state_dsn, monkeypatch
+):
+    from jsonschema import Draft202012Validator
+    from generationengine.utils.schema_utils import make_schema_strict
+
+    wire = Wire()
+    with client(monkeypatch, wire) as c:
+        _, row = produce(c, lane)
+        assert row["state"] == "completed"
+    native = wire.requests[0]["text"]["format"]
+    assert native == {
+        "type": "json_schema",
+        "name": service.SCHEMA_NAME,
+        "schema": make_schema_strict(
+            json.loads(service.canonical(row["input"]["output_schema"]))
+        ),
+        "strict": True,
+    }
+    schema = native["schema"]
+    assert schema["type"] == "object" and "anyOf" not in schema
+    assert len(schema["properties"]["proposals"]["items"]["anyOf"]) == 2
+
+    def closed(value):
+        if isinstance(value, dict):
+            if value.get("type") == "object":
+                assert value["additionalProperties"] is False
+                assert set(value["required"]) == set(value["properties"])
+            for child in value.values():
+                closed(child)
+        elif isinstance(value, list):
+            for child in value:
+                closed(child)
+
+    closed(schema)
+    original = json.loads(wire.raw)
+    validator = Draft202012Validator(schema)
+    assert not list(validator.iter_errors(original))
+    original["proposals"][0]["reporter_mention"] = None
+    assert list(validator.iter_errors(original))
+    for mode in ("narrator", "uncertain"):
+        original["proposals"][0]["mode"] = mode
+        assert not list(validator.iter_errors(original))
+
+
+def test_reported_null_refuses_before_host_parser_without_repair(
+    lane, application_state_dsn, monkeypatch
+):
+    batch = deepcopy(BATCH)
+    batch["proposals"][0]["reporter_mention"] = None
+    wire = Wire(json.dumps(batch))
+
+    from unittest.mock import Mock
+
+    forbidden = Mock(
+        side_effect=AssertionError("GE schema must reject this before host parsing")
+    )
+    monkeypatch.setattr(service, "parse", forbidden)
+    with client(monkeypatch, wire) as c:
+        req, row = produce(c, lane)
+        assert row["state"] == "failed" and row["result"] is None
+        assert retained_text(row) == wire.raw
+        assert c.get(url(req)).json() == row
+        assert (
+            c.post(
+                "/api/live/source-statements/proposals",
+                json=req.model_dump(mode="json"),
+            ).json()
+            == row
+        )
+        assert len(wire.requests) == 1
+        forbidden.assert_not_called()
+
+
+@pytest.mark.parametrize(
+    "change",
+    [
+        "duplicate",
+        "blank_key",
+        "blank_value",
+        "unknown_reporter",
+        "empty_reporter",
+        "blank_reporter",
+    ],
+)
+def test_structurally_valid_output_still_requires_host_qualification_and_identity_checks(
+    lane, application_state_dsn, monkeypatch, change
+):
+    batch = deepcopy(BATCH)
+    proposal = batch["proposals"][0]
+    if change == "duplicate":
+        proposal["qualifications"].append({"key": "source_local", "value": "different"})
+    elif change == "blank_key":
+        proposal["qualifications"][0]["key"] = " "
+    elif change == "blank_value":
+        proposal["qualifications"][0]["value"] = " "
+    elif change in {"empty_reporter", "blank_reporter"}:
+        proposal.update(
+            mode="narrator", reporter_mention="" if change == "empty_reporter" else " "
+        )
+    else:
+        proposal["reporter_mention"] = "unknown"
+    wire = Wire(json.dumps(batch))
+    with client(monkeypatch, wire) as c:
+        _, row = produce(c, lane)
+        assert row["state"] == "failed" and row["result"] is None
+        assert retained_text(row) == wire.raw and len(wire.requests) == 1
+
+
+@pytest.mark.parametrize(
+    "mode,reporter",
+    [("reported", "a"), ("narrator", None), ("uncertain", None), ("narrator", "a")],
+)
+def test_lossless_qualification_materialization_and_attribution_shapes(
+    lane, application_state_dsn, monkeypatch, mode, reporter
+):
+    batch = deepcopy(BATCH)
+    pairs = [
+        {"key": "source_local", "value": "report only"},
+        {"key": "wording é", "value": "exact qualifier\nwith line break"},
+    ]
+    batch["proposals"][0].update(
+        mode=mode, reporter_mention=reporter, qualifications=pairs
+    )
+    wire = Wire(json.dumps(batch, ensure_ascii=False))
+    with client(monkeypatch, wire) as c:
+        req, row = produce(c, lane)
+        assert row["state"] == "completed", row
+        assert json.loads(row["raw_output"])["proposals"][0]["qualifications"] == pairs
+        assert row["result"]["batch"]["proposals"][0]["qualifications"] == {
+            pair["key"]: pair["value"] for pair in pairs
+        }
+        assert c.get(url(req)).json() == row
+        assert len(wire.requests) == 1
+
+
+@pytest.mark.parametrize("change", ["missing", "schema", "name", "not_strict"])
+def test_prepared_native_format_drift_refuses_before_transport(
+    lane, application_state_dsn, monkeypatch, change
+):
+    import generationengine
+
+    original = generationengine.TextRequest
+
+    def changed(**kwargs):
+        if change == "missing":
+            kwargs["json_schema"] = None
+        elif change == "schema":
+            kwargs["json_schema"] = {
+                "type": "object",
+                "properties": {},
+                "required": [],
+                "additionalProperties": False,
+            }
+        elif change == "name":
+            kwargs["schema_name"] = "other"
+        else:
+            kwargs["json_object"] = True
+        return original(**kwargs)
+
+    monkeypatch.setattr(generationengine, "TextRequest", changed)
+    wire = Wire()
+    with client(monkeypatch, wire) as c:
+        _, row = produce(c, lane)
+        assert row["state"] == "failed" and row["wire"] is None
+        assert row["failure"] == "proposal_generation_not_dispatched"
+        assert not wire.requests
+
+
+def test_refusal_retains_actual_sdk_response_and_never_retries(
+    lane, application_state_dsn, monkeypatch
+):
+    wire = Wire(refusal=True)
+    with client(monkeypatch, wire) as c:
+        req, row = produce(c, lane)
+        assert row["state"] == "failed" and row["result"] is None
+        sdk = json.loads(row["raw_output"])
+        assert sdk["output"][0]["content"][0] == {
+            "type": "refusal",
+            "refusal": "synthetic refusal",
+        }
+        assert (
+            c.post(
+                "/api/live/source-statements/proposals",
+                json=req.model_dump(mode="json"),
+            ).json()
+            == row
+        )
+        assert len(wire.requests) == 1

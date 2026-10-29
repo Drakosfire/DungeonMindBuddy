@@ -1,95 +1,86 @@
-# INGEST — admitted-source qualified proposals
+# INGEST — provider-enforced qualified propositions
 
-ACTIVE serial source-handle successor. PRIME owns runtime design, implementation,
-verification and delivery; ADVERSARY independently assesses semantic recall/support.
-Authority: DungeonOverMind6cfb22f780549f99dc69e366702d7514315da0c5,
-Docs/Plans/HANDOFF-INGEST-source-handle-proposals.md, independently approved exact
-control41880ca. Base Buddy005fd8404f2536077e8e7a6c7cab21d58c3357ab;
-branch codex/source-handle-proposals in the existing PRIME runtime checkout.
+ACTIVE serial PRIME runtime slice under DungeonOverMind a307a5e2fb1b3d11b33e88a8af4e14acd6a61e4f,
+Docs/Plans/HANDOFF-INGEST-provider-enforced-proposals.md; exact control e2a9ab99
+independently approved. Base Buddyef37b89fbf23873355a54f36fe55c6d77147d672,
+branchcodex/provider-enforced-proposals, existing PRIME checkout/dependencies.
 
-## Evidence and settled predecessors
+## Settled evidence and scope
 
-1899 introduced private admitted-source proposals;1901 separated full-body source
-inspection from registered publication evidence;1902 raised only producer output
-reserve to128000;1904 clarified literal copying. These were independently reviewed,
-merged and protected-delivered with APP0093 and retained state unchanged.
-1905 merged005fd840 after independent approval/119tests/three CI checks. Its verified
-real V4 operationbdd89481-e884-4867-9e26-be5bcd093196 completed but correctly failed
-parsing: p8 spliced source passages, omitting113 bytes. It also omitted an episode.
-Original V1–V4 evidence, V3 stale-GE correction and full15 ledger0/15 stay immutable.
-Prior lease/status text is superseded; Git history retains original contracts.
+1906 source handles reviewed8d945ae, merged9fca5958 and protected-delivered with
+4075APP/371native/41058files conserved and ordinary Conks reopening.1907 V5
+assessment reviewedcf174961, mergedef37b89 after independent147tests/threeCI.
+V5 actualoperation3eb3b544-d7a9-4669-b3bb-6e46203b76af completed oneSDK21.791s,
+6046input/4746output, but remains failed/null: reported mode lacks local reporter.
+Semantic Lysandra attribution exists in text; Torbin symptoms remain omitted.
+Four actual failed operations and the full15 ledger0/15 remain preserved.
+Source quote fabrication is no longer delegated to model copying; schema validity
+and semantic recall remain independent. Git history retains prior slice contracts.
 
-## One capability and exclusive lease
+Exclusive six paths: qualified_statement_proposals.py and statement_source_catalog.py
+in src/graph_memory/extraction; apps/live_control_server/services/source_statement_proposals.py;
+tests/test_source_statement_proposals.py; tests/test_statement_source_catalog.py;
+this handoff. No schema/store/model/Core/WK/GE/UI/harness/gold edits or real call.
 
-Replace model-copied quotes with host-owned committed source-unit selection,
-complete verbatim materialization and explicit publication-clause narrowing.
-Only these six paths are leased: qualified_statement_proposals.py and new
-statement_source_catalog.py in src/graph_memory/extraction;
-apps/live_control_server/services/source_statement_proposals.py;
-tests/test_source_statement_proposals.py; new tests/test_statement_source_catalog.py;
-and this handoff. No store/model/schema/Core/WK/GE/UI or benchmark harness/gold edits.
-One runtime PR. Held ingestion1853/1855/1868 remain excluded.
+## Declared V3 representation and transport
 
-## Runtime contract
+New operations use qualified_source_handles_v3 only. Existing blank_line_units_v1
+catalog/body/scope/identity/authorized names and exact complete passages are unchanged.
+Provider qualifications are nonempty arrays of closed {key,value} records. Blank
+and duplicate keys/values refuse; host materializes the complete qualification
+dictionary in the result batch, preserving every pair. Raw output retains the
+exact arrays. This conversion is the declared V3 representation, not repair of V2.
 
-New operations use only qualified_source_handles_v2. The blank_line_units_v1
-catalog partitions all authorized UTF8 source bytes into maximal nonblank physical
-line runs with following blank lines; leading blank lines attach to the first run.
-CR, LF and CRLF terminate lines; Unicode separators remain text. Space/tab-only
-lines are blank. Preserve exact offsets, text, line endings, digest and order.
-No selected important subset; source text appears once. Catalog commitment binds
-policy/ordered units/source identity/World binding/revision/scope; ordinal handles
-are local navigation, not another provenance or canonical identity authority.
+The root schema stays an object. Nested anyOf proposals encode reported mode with
+nonnull local reporter; narrator/uncertain preserve nullable attribution, including
+narrator descriptions of reported speech. Cross-reference/qualification/source
+checks remain host-owned. No inferred reporter, canonical identity or event truth.
 
-One tool-free guarded actual GE/SDK operation retains prepared wire/lifecycle before
-IO, verified model/provider/envelope and128000 reserve, with no automatic retries.
-Model output echoes contract/commitment, selects primary/context/mention units,
-and retains qualified interpretations/local references. Host validates all handles
-and materializes full separate passages. Disjoint units never become one quote.
-Every source unit has exactly one consistent proposed/unresolved/skipped disposition.
-This is model-declared processing accounting, never semantic completeness.
-Malformed/incomplete/forged output stays failed with original wire/raw retained.
+Use existing actual guarded GE.generate_structured with json_schema and a fixed
+schema name. Prepared SDK text.format must equal the intended strict projected
+schema/name exactly. Preserve exact messages/instructions/model/provider/tool-free
+wire, request byte/context budget checks,128000 reserve and one SDK entry with
+zero conformance/transport retries. Invalid, refused or incomplete output remains
+failed with original text or entire actual SDK response retained; never salvage.
 
-A symptom assertion must identify the correct actor through supported meaning,
-qualifications and local referents; literal name repetition is unnecessary. Merely
-including that actor's paragraph or mention is not recall. Context presence, mode,
-onset/cause, observed/planned and heard/seen distinctions remain independently
-assessed; no private gold or target cues enter the producer.
+A source unit is an evidence container, not a proposition. Instructions request
+independently reviewable assertions with their own actors, attribution, uncertainty
+and episode, allowing multiple per unit without forcing claims or completing
+source fragments. Unit accounting/schema validity do not establish atomicity,
+entailment or recall. No target-specific benchmark cues enter model input.
 
-## Persistence and review
+## Immutable work, review and publication
 
-Authenticate owner/GM/World and exact submitted intent before replay. Reprove current
-source access independently of today's packet renderer. Historical failed operations
-retain original input/schema/wire/raw/failure/state without reparsing as success or
-new IO. Before implementation, read-only inventory confirmed0 primary rows and3
-owned clone failed rows,0 completed/reviews. No speculative successful V1 generator
-or general compatibility framework. New completed reads revalidate V2 materialization.
-Verify actual prepared wire/input correspondence, not only model-echoed commitments.
+Before implementation, read-only inventory confirmed0primary/4owned-clone failed
+rows and0completed/reviews. Reprove historical source correspondence separately
+from current schema rendering; preserve actual versionless V1 and V2 failure
+input/wire/raw/state/revision/lifecycle with zero replay IO. No old successful
+producer/parser fallback. New completed V3 reads revalidate exact input and host
+materialization. Existing owned operation UUID/exact intent takes precedence over
+new rendering. Unexpected retained completed/active work requires settlement.
 
-Explicit review still supplies existing StatementSelection. Verify exact UTF8 clause
-extent/hash within one primary unit, never across units or context-only. Then retain
-existing revision ancestry, native endpoint/qualified-meaning validation, registered
-evidence containment and signed WK preparation. Catalog inspection grants no wider
-publication span. Stable clause identity/conflicts, decision CAS/idempotency and
-existing confirm as sole publication authority remain unchanged. No DB migration.
+Exact explicit StatementSelection must remain within one primary unit and original
+registered evidence. Existing native endpoints/qualified-meaning review, revision
+ancestry, stable clause conflicts, decision CAS/idempotency and signed WK prepare/
+confirm are unchanged. No source admission, native identity or publication writes
+are authorized by this implementation slice. APP remains0093; old readers refuse
+changed packet correspondence rather than treating a new contract as old success.
 
-## Verification and delivery gates
+## Verification and delivery
 
-Provider-free catalog tests cover complete reconstruction, CR/LF/CRLF/Unicode,
-leading/trailing blanks, repeated passages, Markdown code/table/list text, forged
-handles/commitments/descriptors, disjoint context, full intervening sentence and
-complete processing accounting without semantic pass claims. Ordinary authenticated
-route tests use actual disposable APP plus declared Core/WK and immutable GE sources:
-production/read/replay, historical failed conservation/0 extra IO, ownership/scope,
-malformed output, exact clause narrowing, registered-span refusal, conflict/CAS and
-normal signed confirm/readback. No real provider call or native primary write.
+Focused provider-free tests inspect the actual prepared SDK schema and test
+reported/null versus valid narrator/uncertain/reported branches, qualifier-pair
+preservation/duplicates/blanks, invalid local references and catalog identity.
+Actual disposable APP/Core/WK routes exercise production/read/replay, retained
+historical failures, owner/scope/intent and tamper refusals, no retry on incomplete/
+refused/invalid response, exact primary-unit clause review and existing signed
+confirmation/conflicts. Declared immutable GE is used, not stale installed metadata.
 
 Exact cumulative independent Bugbot-role review and CI precede merge/delivery.
-Protected delivery must re-anchor owned API lease/PID/dependency composition,
-preserve all APP/native rows and corpus/outfiles and verify ordinary Conks reopening.
-No delivery or acceptance is preclaimed. ADVERSARY's frozen V4 harness is pinned to
-its original runtime; a separately owned successor must assess the intentional V2
-protocol change without changing original evidence or semantic criteria.
-A fresh real S8 assessment requires its subsequent named allocation after delivery.
-An accepted producer batch is not publication, supported answering, tour completion
-or operator acceptance. The full authoring/preparation/play goal remains active.
+Independently review the exact protected source-composition guard: current owned
+PID/lease,0unexpected producer work after stop/drain, recoverable predecessor,
+row/file conservation and ordinary Conks reopen. No deployment preclaimed.
+ADVERSARY's next real assessment is a separately named allocation after delivery;
+current V5 harness remains pinned to its original protocol/runtime. No semantic
+improvement or accepted extraction is established by these tests. Full authoring,
+preparation/play, real image/roll and operator acceptance goal remains active.

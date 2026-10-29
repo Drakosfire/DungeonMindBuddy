@@ -5,7 +5,7 @@ import json
 import re
 
 POLICY = "blank_line_units_v1"
-CONTRACT = "qualified_source_handles_v2"
+CONTRACT = "qualified_source_handles_v3"
 
 
 def canonical(value):
