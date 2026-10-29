@@ -264,11 +264,12 @@ def test_no_selection_fingerprint_preserves_existing_authored_intent(context):
     old = intent.model_dump(
         mode="json",
         by_alias=True,
-        exclude={"client_thread_id", "playable_target", "selected_knowledge"},
+        exclude={"client_thread_id", "playable_target", "selected_knowledge", "native_statement_selection"},
     )
     expected = hashlib.sha256(
         json.dumps(old, sort_keys=True, separators=(",", ":")).encode()
     ).hexdigest()
+    assert expected == "b6690cc8e2e4cfd5f76777dc4f632b79e6f96985dd1866e45ac1c9715d249e87"
     assert submitted_turn_intent_fingerprint_v1(intent) == expected
     selected = _submitted_turn_intent(request_for(context), world_id="world-a")
     assert submitted_turn_intent_fingerprint_v1(selected) != expected

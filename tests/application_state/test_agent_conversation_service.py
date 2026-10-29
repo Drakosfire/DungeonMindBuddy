@@ -626,6 +626,8 @@ def test_submitted_turn_intent_v1_fingerprint_covers_replayable_semantics() -> N
     if historical_payload.get("selected_knowledge") is None:
         historical_payload.pop("selected_knowledge", None)
 
+    historical_payload.pop("native_statement_selection", None)
+    assert fingerprint == "fe758d54d25df53b685862ef66bf36857bdd6cd44ba8dc3c42a35e82a6e342a3"
     assert len(fingerprint) == 64
     assert fingerprint == _fingerprint(historical_payload)
     assert submitted_turn_intent_fingerprint_v1(intent) == fingerprint
@@ -666,6 +668,7 @@ def test_submitted_turn_intent_v1_fingerprint_covers_replayable_semantics() -> N
     pre_target_payload.pop("playable_target", None)
     pre_target_payload["primary_work"].pop("play_content_basis", None)
     pre_target_payload.pop("selected_knowledge", None)
+    pre_target_payload.pop("native_statement_selection", None)
     assert plan_fingerprint == hashlib.sha256(
         json.dumps(pre_target_payload, sort_keys=True, separators=(",", ":")).encode("utf-8")
     ).hexdigest()

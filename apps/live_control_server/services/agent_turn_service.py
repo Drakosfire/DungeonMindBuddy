@@ -5129,7 +5129,7 @@ def _submitted_turn_intent(
                 policy=request.plan_context_policy.policy
             ),
         )
-    return SubmittedTurnIntentV1(**common, selected_knowledge=request.selected_knowledge)
+    return SubmittedTurnIntentV1(**common, selected_knowledge=request.selected_knowledge, native_statement_selection=request.native_statement_selection)
 
 
 def _turn_idempotency_key(world_id: str, turn_id: str) -> UUID:
@@ -5348,6 +5348,7 @@ def _completed_turn_replay(
     owner: Mapping[str, Any],
     turn: Turn | MixedCompletedTurnV1,
     trace_builder: AgentTurnTraceBuilder | None = None,
+    native_model_calls=None,
 ) -> AgentTurnResponse:
     """Project a completed durable receipt without loading runtime/current state."""
     mixed = isinstance(turn, MixedCompletedTurnV1)
@@ -5372,16 +5373,16 @@ def _completed_turn_replay(
         mode="replay",
     )
     trace.agent_thread_id = segment_thread_id
-    trace.runtime = "durable_receipt"
-    trace.backend = "application_state"
-    trace.mode = "replay"
+    trace.runtime = "generationengine_native_statement" if native_model_calls is not None else "durable_receipt"
+    trace.backend = "openai" if native_model_calls is not None else "application_state"
+    trace.mode = "native_statement_writer" if native_model_calls is not None else "replay"
     trace.bind_durable_turn(turn_meta)
     final_trace = trace.finalize_and_log(
         status="ok",
-        model_calls=0,
-        extra_warnings=["durable_turn_replay_no_provider_dispatch"],
-        hermes_fields={"conversation_context": "durable_replay"},
-        observed_model_call_count=0,
+        model_calls=native_model_calls if native_model_calls is not None else [],
+        extra_warnings=[] if native_model_calls is not None else ["durable_turn_replay_no_provider_dispatch"],
+        hermes_fields={} if native_model_calls is not None else {"conversation_context": "durable_replay"},
+        observed_model_call_count=len(native_model_calls) if native_model_calls is not None else 0,
     )
     primary = turn_meta.provenance.primary_work
     graph_reference = _stored_graph_reference(turn_meta.provenance)
@@ -5544,6 +5545,13 @@ def _completed_turn_replay(
             "trace": final_trace,
         },
     )
+    from application_state.agent_conversation.native_statement_input import NativeStatementContextReceiptV1
+    if not mixed and isinstance(turn.graph_context_receipt, NativeStatementContextReceiptV1):
+        from apps.live_control_server.models.agent_turn import AgentNativeStatementTurnResponseV1
+        return AgentNativeStatementTurnResponseV1.model_validate({
+            **response.model_dump(mode="python", by_alias=True),
+            "native_statement_context": {"receipt": turn.graph_context_receipt,
+                "completion": turn.completion, "delivery_replay": native_model_calls is None}})
     if mixed:
         from .rules_answer_presentation import project_rules_answer_context
         from apps.live_control_server.models.agent_turn import AgentRulesTurnResponseV1
@@ -6439,6 +6447,8 @@ def execute_agent_turn(
     conversation_service: AgentConversationService | None = None,
     trace_builder: AgentTurnTraceBuilder | None = None,
     operator_subject: str | None = None,
+    native_principal=None,
+    native_statement_transport=None,
 ) -> AgentTurnResponse:
     """Resolve authority on each call, then execute one read-only conversation turn.
 
@@ -6815,6 +6825,12 @@ def execute_agent_turn(
                 code="turn_receipt_unverifiable",
                 status_code=409,
             )
+    if request.native_statement_selection is not None:
+        from .native_statement_answer_runtime import execute as execute_native_statement
+        return execute_native_statement(request, service=conversation_service, principal=native_principal,
+            owner=owner or {}, work=work, submitted_intent=submitted_intent, existing_turn=durable_turn,
+            trace=trace, transport=native_statement_transport)
+
     runtime_message = request.message
     if work is not None and work.build_source is not None:
         if request.surface.surface_id != "build" or work.kind != "build":

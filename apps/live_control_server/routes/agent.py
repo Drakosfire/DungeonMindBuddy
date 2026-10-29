@@ -1438,6 +1438,10 @@ def get_world_conversation_history(
         and isinstance(turn.graph_context_receipt, PlayWorldGraphContextReceiptV1)
         for turn in turns
     )
+    from application_state.agent_conversation.native_statement_input import NativeStatementContextReceiptV1
+    from apps.live_control_server.models.agent_turn import AgentConversationHistoryNativeStatementTurnV1
+    contains_native_statement = any(not isinstance(turn, MixedCompletedTurnV1)
+        and isinstance(turn.graph_context_receipt, NativeStatementContextReceiptV1) for turn in turns)
     contains_plan_context = any(
         not isinstance(turn, MixedCompletedTurnV1)
         and turn.graph_context_receipt is not None
@@ -1470,7 +1474,7 @@ def get_world_conversation_history(
             "assistant_text": turn.assistant_text,
             "provenance": turn.provenance,
         }
-        if include_turn_correlation or source_only_play(turn):
+        if include_turn_correlation or source_only_play(turn) or isinstance(turn.graph_context_receipt, NativeStatementContextReceiptV1):
             persisted_key = getattr(turn, "idempotency_key", None)
             if not isinstance(persisted_key, UUID):
                 raise HTTPException(
@@ -1481,7 +1485,11 @@ def get_world_conversation_history(
                     },
                 )
             values["idempotency_key"] = persisted_key
-        if source_only_play(turn):
+        if isinstance(turn.graph_context_receipt, NativeStatementContextReceiptV1):
+            history_turns.append(AgentConversationHistoryNativeStatementTurnV1(**values,
+                native_statement_context={"receipt": turn.graph_context_receipt,
+                    "completion": turn.completion, "delivery_replay": True}))
+        elif source_only_play(turn):
             history_turns.append(AgentConversationHistoryPlaySourceTurnV1(**values,
                 play_source_context=project_play_source_context(turn,delivery_replay=True)))
         elif isinstance(turn.graph_context_receipt, BuildGraphContextReceiptV1):
@@ -1520,7 +1528,7 @@ def get_world_conversation_history(
                 if include_turn_correlation else AgentConversationHistoryTurn
             )
             history_turns.append(turn_model(**values))
-    if contains_mixed or contains_play_source:
+    if contains_mixed or contains_play_source or contains_native_statement:
         response_model = AgentConversationHistoryResponseV4
     elif include_turn_correlation:
         response_model = AgentConversationHistoryResponseV3
@@ -1595,6 +1603,23 @@ def get_world_turn_saved_section(world_id: str, turn_id: UUID, segment_index: in
         raise HTTPException(status_code=exc.status_code, detail={"code": "saved_section_turn_unavailable"}) from exc
     except (ValidationError, ValueError, KeyError) as exc:
         raise HTTPException(status_code=409, detail={"code": "saved_section_binding_invalid"}) from exc
+
+
+@router.get("/worlds/{world_id}/conversation/turns/{turn_id}/native-source-clauses/{citation_index}")
+def get_world_turn_native_source_clause(world_id: str, turn_id: UUID, citation_index: int, request: Request):
+    principal = enforce_native_graph_gm(request)
+    verified_world = _verified_world_id(world_id)
+    if request.query_params or citation_index < 0:
+        raise HTTPException(status_code=422, detail={"code": "native_clause_selector_invalid"})
+    from apps.live_control_server.services.native_statement_clause_reads import open_clause
+    from apps.live_control_server.services.agent_source_passages import SourcePassageOpenError
+    try:
+        return open_clause(world_id=verified_world, turn_id=turn_id, citation_index=citation_index,
+            principal=principal, service=_conversation_service(request)).model_dump(mode="json", by_alias=True)
+    except SourcePassageOpenError as exc:
+        raise HTTPException(status_code=exc.status_code, detail={"code": exc.code}) from exc
+    except ApplicationStateError as exc:
+        raise HTTPException(status_code=exc.status_code, detail={"code": "native_clause_turn_unavailable"}) from exc
 
 
 @router.get("/worlds/{world_id}/conversation/turns/{turn_id}/native-source-sections/{citation_index}")
@@ -1930,6 +1955,8 @@ def _execute_agent_turn(body: AgentTurnRequest, request: Request) -> dict[str, A
             build_runtime_factory=getattr(getattr(request.app, "state", None), "build_jev_runtime_factory", None),
             trace_builder=trace,
             operator_subject=principal.subject,
+            native_principal=principal,
+            native_statement_transport=getattr(request.app.state, "native_statement_writer_transport", None),
         )
         _finalize_unlogged_agent_trace(trace, status="ok")
         return result.model_dump(mode="json", by_alias=True)

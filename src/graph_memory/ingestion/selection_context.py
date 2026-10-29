@@ -63,3 +63,25 @@ class AgentKnowledgeSelection(SelectionModel):
     run_id: RecordId
     context_request: IngestSelectionContextRequest
     expected_context_sha256: Digest
+
+
+class NativeStatementSelectionV1(SelectionModel):
+    """Exact native authority selector; never caller-supplied qualified content."""
+
+    schema_: Literal["dmb_native_statement_selection_v1"] = Field(default="dmb_native_statement_selection_v1", alias="schema")
+    managed_world_id: RecordId
+    campaign_id: RecordId
+    revision_id: RecordId
+    subject_id: str = Field(pattern=r"^ent:.+")
+    domain_ref: dict[str, str]
+    profile_ref: dict[str, str]
+
+    @model_validator(mode="after")
+    def closed_references(self):
+        import re
+        for ref in (self.domain_ref, self.profile_ref):
+            if (set(ref) != {"authority_id", "revision", "descriptor_sha256"}
+                    or not ref["authority_id"].strip() or not ref["revision"].strip()
+                    or not re.fullmatch(r"[a-f0-9]{64}", ref["descriptor_sha256"])):
+                raise ValueError("Complete exact native authority reference required")
+        return self

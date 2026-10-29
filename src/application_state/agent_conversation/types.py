@@ -26,6 +26,10 @@ from .relationship_review import RelationshipCollaboration
 from .build_draft_context import BuildDraftContextRecordV1, DraftReferenceClaimV1
 from .build_related_pages import PagePointer, RelatedPagesSelection, RelatedPageRead, RelatedPageClaim, RelatedPageInclusion
 
+from graph_memory.ingestion.selection_context import NativeStatementSelectionV1
+from .native_statement_input import NativeStatementContextReceiptV1, NativeStatementWriterPolicyV1, NativeStatementInputEventV1
+from .native_statement_answer import NativeStatementCompletionV1
+
 Resolution = Literal["resolved", "absent", "unresolved", "unavailable"]
 ConversationStatus = Literal["active", "archived"]
 TurnStatus = Literal["accepted", "running", "completed", "failed", "interrupted"]
@@ -783,10 +787,18 @@ class SubmittedTurnIntentV1(StrictModel):
     playable_target: SubmittedPlanPlayableTargetV1 | None = None
     graph_request: SubmittedGraphRequestIntentV1
     selected_knowledge: AgentKnowledgeSelection | None = None
+    native_statement_selection: NativeStatementSelectionV1 | None = None
     graph_selection: SubmittedGraphSelectionIntentV1 | None
 
     @model_validator(mode="after")
     def validate_identity(self) -> "SubmittedTurnIntentV1":
+        if self.native_statement_selection is not None and (
+            self.surface_id != "plan" or self.graph_request.mode != "none"
+            or self.graph_selection is not None or self.selected_knowledge is not None
+            or self.playable_target is not None
+            or self.native_statement_selection.managed_world_id != self.world_id
+        ):
+            raise ValueError("Native selection requires its own graphless Plan intent")
         if self.selected_knowledge is not None and (
             self.surface_id != "ingest"
             or self.primary_work is not None
@@ -844,6 +856,8 @@ def submitted_turn_intent_fingerprint_v1(intent: SubmittedTurnIntentV1) -> str:
         payload.pop("playable_target", None)
     if payload.get("selected_knowledge") is None:
         payload.pop("selected_knowledge", None)
+    if payload.get("native_statement_selection") is None:
+        payload.pop("native_statement_selection", None)
     primary_work_payload = payload.get("primary_work")
     if isinstance(primary_work_payload, dict) and primary_work_payload.get("play_content_basis") is None:
         primary_work_payload.pop("play_content_basis", None)
@@ -1422,7 +1436,7 @@ class PlayWorldGraphContextReceiptV1(ClosedRulesModel):
 
 
 GraphContextReceipt = Annotated[
-    PlanWorldGraphContextReceiptV1 | BuildGraphContextReceiptV1 | PlayWorldGraphContextReceiptV1,
+    PlanWorldGraphContextReceiptV1 | BuildGraphContextReceiptV1 | PlayWorldGraphContextReceiptV1 | NativeStatementContextReceiptV1,
     Field(discriminator="schema_"),
 ]
 
@@ -2233,7 +2247,7 @@ class SurfaceEvidenceCompletionV4(SurfaceEvidenceCompletionV3):
     answer_segments: list[SurfaceEvidenceSegmentV3] = Field(min_length=1, max_length=128)
 
 
-GraphTurnCompletion = BuildIntentionalResponseCompletionV3 | BuildRelationshipReviewCompletionV3 | BuildIntentionalResponseCompletionV2 | BuildRelationshipReviewCompletionV2 | BuildIntentionalResponseCompletionV1 | BuildRelationshipReviewCompletionV1 | BuildConnectedPageReviewCompletionV1 | BuildCollaborationCompletionV1 | BuildRelatedPageCompletionV1 | BuildDraftContextCompletionV1 | BuildNamedGraphCompletionV3 | SurfaceEvidenceCompletionV4 | SurfaceEvidenceCompletionV3 | SurfaceEvidenceCompletionV2 | SurfaceEvidenceCompletionV1 | SurfaceSourceCompletionV1 | PlayWorldGraphCompletionV1 | PlanWorldGraphCompletion | BuildGraphCompletionV1 | BuildGraphCompletionV2 | BuildAuthoringCompletionV1 | BuildImagePreparationCompletionV1
+GraphTurnCompletion = NativeStatementCompletionV1 | BuildIntentionalResponseCompletionV3 | BuildRelationshipReviewCompletionV3 | BuildIntentionalResponseCompletionV2 | BuildRelationshipReviewCompletionV2 | BuildIntentionalResponseCompletionV1 | BuildRelationshipReviewCompletionV1 | BuildConnectedPageReviewCompletionV1 | BuildCollaborationCompletionV1 | BuildRelatedPageCompletionV1 | BuildDraftContextCompletionV1 | BuildNamedGraphCompletionV3 | SurfaceEvidenceCompletionV4 | SurfaceEvidenceCompletionV3 | SurfaceEvidenceCompletionV2 | SurfaceEvidenceCompletionV1 | SurfaceSourceCompletionV1 | PlayWorldGraphCompletionV1 | PlanWorldGraphCompletion | BuildGraphCompletionV1 | BuildGraphCompletionV2 | BuildAuthoringCompletionV1 | BuildImagePreparationCompletionV1
 
 
 class GraphCompletionRejectionCode(str, Enum):
@@ -5040,7 +5054,33 @@ class PlayWorldGraphExecutionV1(ClosedRulesModel):
 
 
 PlanWorldGraphExecution = PlanWorldGraphExecutionV1 | PlanWorldGraphExecutionV2 | PlanWorldGraphExecutionV3
-GraphTurnExecution = PlanWorldGraphExecution | PlayWorldGraphExecutionV1
+class NativeStatementOutputCapturedV1(StrictModel):
+    kind: Literal["native_statement_output_captured_v1"] = "native_statement_output_captured_v1"
+    event_id: UUID
+    sequence: int = Field(ge=0, strict=True)
+    provider_attempt_id: UUID
+    envelope_sha256: str = Field(pattern=r"^[a-f0-9]{64}$")
+    response_sha256: str = Field(pattern=r"^[a-f0-9]{64}$")
+    raw_output_json: str
+
+
+class NativeStatementExecutionV1(StrictModel):
+    schema_: Literal["dmb_native_statement_execution_v1"] = Field(default="dmb_native_statement_execution_v1", alias="schema")
+    context_receipt_sha256: str = Field(pattern=r"^[a-f0-9]{64}$")
+    policy: NativeStatementWriterPolicyV1
+    execution_policy_sha256: str = Field(pattern=r"^[a-f0-9]{64}$")
+    events: list[Annotated[ProviderAttemptAuthorizedEventV1 | ProviderOutcomeEventV1 |
+        NativeStatementInputEventV1 | NativeStatementOutputCapturedV1 | CompletionBindingEventV1,
+        Field(discriminator="kind")]]
+
+    @model_validator(mode="after")
+    def exact_native_execution(self):
+        from .native_statement_answer import validate_execution
+        validate_execution(self)
+        return self
+
+
+GraphTurnExecution = PlanWorldGraphExecution | PlayWorldGraphExecutionV1 | NativeStatementExecutionV1
 
 
 _SELECTED_SOURCE_INDEX_SELECTION_POLICY_V1 = "parent_initial_retrieval_with_selected_source_index_v1"
@@ -6023,6 +6063,16 @@ class TurnSubmission(StrictModel):
             and self.submitted_intent_v2 is not None
         ):
             raise ValueError("a turn cannot carry both submitted intent v1 and v2")
+        if isinstance(self.graph_context_receipt, NativeStatementContextReceiptV1) or (
+                self.submitted_intent_v1 is not None and self.submitted_intent_v1.native_statement_selection is not None):
+            from .native_statement_answer import validate_record
+            intent = self.submitted_intent_v1
+            if (intent is None or intent.native_statement_selection != self.graph_context_receipt.selection
+                    or self.submitted_intent_v2 is not None or self.graph_context_receipt.user_text != self.user_text
+                    or self.graph_context_execution.events):
+                raise ValueError("Native admission requires its exact intent and empty execution")
+            validate_record(self.graph_context_receipt, self.graph_context_execution, self.provenance)
+            return self
         if isinstance(self.submitted_intent_v1, PlayRulesIntentV1):
             intent, receipt = self.submitted_intent_v1, self.play_context_receipt
             if (not isinstance(receipt, PlayRunTurnContextReceiptV2)
@@ -6301,6 +6351,12 @@ def validate_turn_graph_fields(
     completion: GraphTurnCompletion | None,
     assistant_text: str | None,
 ) -> None:
+    if (isinstance(graph_context_receipt, NativeStatementContextReceiptV1)
+            or isinstance(graph_context_execution, NativeStatementExecutionV1)
+            or isinstance(completion, NativeStatementCompletionV1)):
+        from .native_statement_answer import validate_record
+        validate_record(graph_context_receipt, graph_context_execution, provenance, completion, assistant_text)
+        return
     if isinstance(graph_context_receipt, PlayWorldGraphContextReceiptV1) or isinstance(graph_context_execution, PlayWorldGraphExecutionV1) or isinstance(completion, PlayWorldGraphCompletionV1):
         from .play_graph_context import validate_play_graph_execution_binding, validate_play_graph_provenance
         from .play_graph_completion import validate_play_graph_completion
@@ -6456,6 +6512,8 @@ class Turn(StrictModel):
                 or (self.status == "completed" and (self.completion is None or self.completed_at is None))
                 or (self.status != "completed" and self.completion is not None)):
             raise ValueError("Native Play retained lifecycle/context must match its owning receipt")
+        if isinstance(self.graph_context_receipt, NativeStatementContextReceiptV1) and (self.submitted_intent_fingerprint_v1 is None or (self.status == "completed" and self.completion is None)):
+            raise ValueError("Native receipt requires its exact submitted-intent fingerprint")
         validate_turn_graph_fields(
             provenance=self.provenance,
             submitted_intent_fingerprint_v2=self.submitted_intent_fingerprint_v2,
