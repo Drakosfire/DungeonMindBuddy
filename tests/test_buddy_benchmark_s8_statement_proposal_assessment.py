@@ -157,6 +157,7 @@ def example():
             "input": [{"role": "user", "content": canonical(packet)}],
             "instructions": INSTRUCTIONS,
             "model": "gpt-6-luna",
+            "max_output_tokens": assessment.OUTPUT_RESERVE,
         }
     )
     record = {
@@ -239,6 +240,7 @@ def test_readback_binds_exact_actual_stored_row(change):
         "wire_hash",
         "wire_input",
         "wire_tools",
+        "wire_capacity",
         "no_response",
         "parsed_result",
         "raw_output",
@@ -256,11 +258,14 @@ def test_completion_cannot_be_inferred_from_http_success(change):
         record["input"] = {"source": "different"}
     elif change == "wire_hash":
         record["wire_digest"] = "bad"
-    elif change in {"wire_input", "wire_tools"}:
+    elif change in {"wire_input", "wire_tools", "wire_capacity"}:
         import json
 
         body = json.loads(record["wire"])
-        body["input" if change == "wire_input" else "tools"] = ["changed"]
+        if change == "wire_capacity":
+            body["max_output_tokens"] = 8192
+        else:
+            body["input" if change == "wire_input" else "tools"] = ["changed"]
         record["wire"] = canonical(body)
         record["wire_digest"] = assessment.fixture.sha(record["wire"].encode())
     elif change == "no_response":
@@ -425,3 +430,34 @@ def test_sdk_output_binding_is_independent_of_stored_result(change):
             assessment.verify_sdk_output(record, observed)
     else:
         assessment.verify_sdk_output(record, observed)
+
+
+@pytest.mark.parametrize(
+    "change", [None, "model", "input", "instructions", "capacity", "old_capacity"]
+)
+def test_capacity_contrast_changes_only_the_named_execution_parameter(change):
+    old = {
+        "model": "gpt-6-luna",
+        "input": ["same source and names"],
+        "instructions": "same instructions",
+        "max_output_tokens": 8192,
+    }
+    current = old | {"max_output_tokens": 128000}
+    if change == "old_capacity":
+        old["max_output_tokens"] = 9000
+    elif change == "capacity":
+        current["max_output_tokens"] = 8192
+    elif change:
+        current[change] = "changed"
+    if change:
+        with pytest.raises(ValueError):
+            assessment.capacity_contrast(canonical(current), canonical(old))
+    else:
+        assessment.capacity_contrast(canonical(current), canonical(old))
+
+
+def test_v3_does_not_offer_a_migration_command(tmp_path):
+    with pytest.raises(SystemExit):
+        assessment.main(
+            ["--clone-root", str(tmp_path), "--source-receipt", "unused", "--migrate"]
+        )

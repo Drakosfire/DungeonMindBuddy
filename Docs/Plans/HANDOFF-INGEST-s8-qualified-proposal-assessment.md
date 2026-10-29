@@ -1,6 +1,7 @@
 # INGEST — independent real S8 proposal assessment
 
-ACTIVE serial ADVERSARY harness slice. Pinned authority is OverMind
+Original assessment settled by PR1900; the ACTIVE v3 successor is allocated below.
+The original pinned authority is OverMind
 94d3a8557a77fcd6fe0c33a4f37d6979894438c5, subsequently merged as
 bb289e6789ca87d8ebaca48dbeb263a7d36fcb79. Runtime base is Buddy
 dd50ce2694b140aa477c18f3ec7a544b0aba5ac1 (PR1901, following PR1899). Branch:
@@ -157,3 +158,41 @@ new experiment; this one call is spent. Governed new-span publication remains
 separate; no re-admission/reminted source was used. Original full-system
 verification remains0/15. Exact final-head review and CI remain PR gates;
 broader corpus integration and operator acceptance remain open.
+
+## Active v3 capacity contrast
+
+Pinned portable allocation OverMindfd6daae7343e9ec57736752543a8ae05f79d54f7,
+independently approved and mergedc3f01d4837a9de035247fe426f731dbc85a4a438.
+PR1900 exact697c7619ce51c2db85024db6fe14e915d009d13e was independently approved,
+95tests and all CI green, merged atd099f45d69c06a97ede20a9f7c90be4b1839d401.
+This current main is the v3 base. One serial successor PR, same three exclusive
+paths, branchcodex/s8-proposal-capacity-assessment in the existing checkout.
+No runtime, source, gold, model, prompt, output-schema or acceptance edits.
+
+PR1902 exact6d787502f49a01a491074151acc39a7efa9dc256 passed independent review,
+63tests and all CI; merged83878930f0e4fc358021cf2710a6cf672fba8806 and protected
+delivered API761354/UI10527/APP0093. Producer reserve is now128000, while general
+answer capacity is unchanged. The paragraph-context defect is not repaired.
+
+One new ordinary authenticated S8 operation is authorized in fresh sibling
+native-review-context-v2/s8-qualified-proposals-v3, after exact harness review.
+The old v1/v2 cases, v2 failed operation and every original APP row are immutable.
+Existing source/model/prompt/schema/criteria remain exact. The harness verifies
+the complete model-input packet equals the frozen v2 packet, and the actual wire
+differs only in max_output_tokens8192→128000. Native/files/primary remain read-only.
+No selection, review, prepare, confirm, source re-admission or publication.
+
+The leased APP is already0093. V3 offers --snapshot, not --migrate: snapshot and
+fingerprint unchanged state, no migration/restore command, then at most one new
+exact owned operation. Existing operation ID/World/full-payload guards remain.
+Replay must add no SDK calls, lifecycle records or state changes. No automatic
+retry, truncated-output salvage, whitespace or attribution repair is authorized.
+
+Provider-free controls58/58 plus45/45 predecessor harness tests pass (103 total).
+They retain the original P2 counterexample and test unchanged source/input and
+capacity-only contrast, including model/prompt/input/old-budget drift refusal.
+Actual v3 call has not occurred. Independent exact-head review remains before
+the call; CI and independent real-evidence review remain before merge.
+Any accepted batch must still receive complete independent semantic inspection;
+neither larger capacity nor valid JSON proves publication or question success.
+Original full-system verification remains0/15.
