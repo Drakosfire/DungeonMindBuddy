@@ -13,7 +13,7 @@ export function DocumentImageStudio({ bridge, onClose, targetLabel, initialPromp
   const active = useRef(true);
   useEffect(() => { active.current = true; return () => { active.current = false; }; }, [bridge]);
   return <aside className="document-image-studio" aria-label={`Image Studio · ${targetLabel}`}>
-    <MediaImageWizard initialPrompt={initialPrompt} onClose={onClose} chooseLabel={`Place in ${targetLabel}`} onChoose={async (image, _result, placement) => {
+    <MediaImageWizard placeAfterBlock initialPrompt={initialPrompt} onClose={onClose} chooseLabel={`Place in ${targetLabel}`} onChoose={async (image, _result, placement) => {
       const generation = getNativeGraphAccessGeneration();
       const target = await bridge.pickInsertion({ ...placement, assetId: image.asset_id });
       placement.signal.throwIfAborted();
