@@ -25,6 +25,7 @@ STATEMENT_FIELDS = {
     "qualifications", "referents", "embedded_content_factive", "assertion_target",
 }
 CONTEXT_FIELDS = {"world", "campaign", "visibility", "revision", "domain_ref", "profile_ref"}
+EDGE_FIELDS = {"edge_id", "statement_id", "entity_id", "predicate", "context"}
 
 
 def _digest(value):
@@ -128,13 +129,43 @@ def _statements(rows, context):
     return result
 
 
+def _partial_order(rows, expected):
+    """Reject duplicate pairs (even with different support) and cycles."""
+    adjacency = {key: set() for key in expected}
+    indegree = {key: 0 for key in expected}
+    pairs = set()
+    for row in rows:
+        _fields(row, {"before", "after", "source_support_ref"}, "partial order")
+        for value in row.values():
+            _text(value, "partial order reference")
+        before, after = row["before"], row["after"]
+        if before not in expected or after not in expected or before == after:
+            raise ValueError("partial order references unknown or identical clauses")
+        if (before, after) in pairs:
+            raise ValueError("duplicate partial order edge")
+        pairs.add((before, after))
+        adjacency[before].add(after)
+        indegree[after] += 1
+    ready = [key for key, degree in indegree.items() if degree == 0]
+    visited = 0
+    while ready:
+        key = ready.pop()
+        visited += 1
+        for after in adjacency[key]:
+            indegree[after] -= 1
+            if indegree[after] == 0:
+                ready.append(after)
+    if visited != len(expected):
+        raise ValueError("cyclic partial order")
+
+
 def evaluate_contract(review, capture):
     """Compare independent reviewed expectations with a captured experiment.
 
     Invalid oracle input raises; observed counterexamples become failed
     objectives. No providers, persistence, runtime imports or source copies.
     """
-    _fields(review, {"schema", "context", "statements", "direct_relations", "order", "original_bindings"}, "review")
+    _fields(review, {"schema", "context", "statements", "direct_relations", "order", "original_bindings", "about_edges"}, "review")
     if review["schema"] != REVIEW_SCHEMA:
         raise ValueError("unknown review envelope")
     _context(review["context"])
@@ -161,11 +192,25 @@ def evaluate_contract(review, capture):
             _text(value, "direct relation")
         if relation["predicate"] in {"about", "reported_by"}:
             raise ValueError("index/attribution is not a direct event fact")
-    for order in review["order"]:
-        _fields(order, {"before", "after", "source_support_ref"}, "partial order")
-        if order["before"] not in expected or order["after"] not in expected or order["before"] == order["after"]:
-            raise ValueError("partial order references unknown or identical clauses")
-        _text(order["source_support_ref"], "source order support")
+    _partial_order(review["order"], expected)
+    # These are independently pinned expected index edges, not adapter claims
+    # that native authorization was verified. Real adapters must prove that.
+    if not isinstance(review["about_edges"], list):
+        raise ValueError("reviewed about edges required")
+    expected_edges = {}
+    by_id = {original_bindings[correspondence_key(s["clause"])]["native_id"]: s
+             for s in review["statements"]}
+    for edge in review["about_edges"]:
+        _fields(edge, EDGE_FIELDS, "reviewed about edge")
+        for field in ("edge_id", "statement_id", "entity_id", "predicate"):
+            _text(edge[field], field)
+        if (edge["predicate"] != "about" or edge["context"] != review["context"]
+                or edge["statement_id"] not in by_id
+                or edge["entity_id"] not in by_id[edge["statement_id"]]["referents"]):
+            raise ValueError("reviewed about edge does not bind reviewed entity and statement")
+        if edge["edge_id"] in expected_edges:
+            raise ValueError("duplicate reviewed edge ID")
+        expected_edges[edge["edge_id"]] = edge
 
     checks = {}
     details = {}
@@ -236,7 +281,7 @@ def evaluate_contract(review, capture):
         found, previous, seen_cursors = set(), None, set()
         for page in pages:
             _fields(page, {"context", "entity_id", "cursor", "next_cursor", "has_more", "statement_ids",
-                           "predicate", "direction", "hops"}, "page")
+                           "predicate", "direction", "hops", "edges"}, "page")
             if (page["predicate"] != "about" or page["direction"] != "incoming"
                     or type(page["hops"]) is not int or page["hops"] != 1):
                 raise ValueError("discovery requires one incoming-about hop")
@@ -245,6 +290,21 @@ def evaluate_contract(review, capture):
             if page["cursor"] != previous or type(page["has_more"]) is not bool:
                 raise ValueError("broken continuation chain")
             _strings(page["statement_ids"], "page statements")
+            if not isinstance(page["edges"], list):
+                raise ValueError("captured incoming edge bindings required")
+            page_edge_ids, page_subject_ids = set(), set()
+            for edge in page["edges"]:
+                _fields(edge, EDGE_FIELDS, "captured about edge")
+                _text(edge["edge_id"], "captured edge ID")
+                if (edge != expected_edges.get(edge["edge_id"])
+                        or edge["entity_id"] != discovery["entity_id"]):
+                    raise ValueError("missing/foreign/changed reviewed incoming edge binding")
+                if edge["edge_id"] in page_edge_ids:
+                    raise ValueError("duplicate edge in one page")
+                page_edge_ids.add(edge["edge_id"])
+                page_subject_ids.add(edge["statement_id"])
+            if page_subject_ids != set(page["statement_ids"]):
+                raise ValueError("discovery pointer lacks matching incoming edge binding")
             if not set(page["statement_ids"]) <= relevant:
                 raise ValueError("foreign/hidden statement leaked through index")
             found.update(page["statement_ids"])

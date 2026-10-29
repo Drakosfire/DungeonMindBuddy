@@ -41,8 +41,11 @@ def packet():
     order = [dict(before=keys[0], after=keys[1], source_support_ref="source:explicit-later")]
     relations = [dict(subject="person:mara", predicate="member_of", object="group:party",
                       independent_review_ref="review:separate-membership-fact")]
+    edges = [dict(edge_id=f"edge:{i}", statement_id=f"statement:{i}", entity_id="place:door",
+                  predicate="about", context=copy.deepcopy(context)) for i in range(2)]
     review = dict(schema=REVIEW_SCHEMA, context=context, statements=statements,
-                  direct_relations=relations, order=order, original_bindings=copy.deepcopy(bindings))
+                  direct_relations=relations, order=order, original_bindings=copy.deepcopy(bindings),
+                  about_edges=copy.deepcopy(edges))
     capture = dict(
         schema=CAPTURE_SCHEMA, selection_context=copy.deepcopy(context),
         read_context=copy.deepcopy(context), selected_keys=keys, selected_statements=copy.deepcopy(statements),
@@ -51,7 +54,7 @@ def packet():
         discovery=dict(entity_id="place:door", pages=[dict(
             context=copy.deepcopy(context), entity_id="place:door", cursor=None,
             next_cursor=None, has_more=False, statement_ids=["statement:0", "statement:1"],
-            predicate="about", direction="incoming", hops=1)],
+            predicate="about", direction="incoming", hops=1, edges=copy.deepcopy(edges))],
             expanded_ids=["statement:0", "statement:1"], claims_absence=False),
         recovery=dict(acknowledgment_lost=True, original_bindings=copy.deepcopy(bindings),
                       recovered_bindings=copy.deepcopy(bindings), fresh_publications=0))
@@ -130,9 +133,10 @@ def test_supported_paging_deduplicates_repeated_incoming_edges():
     review, capture = packet()
     first = capture["discovery"]["pages"][0]
     first.update(statement_ids=["statement:0"], has_more=True, next_cursor="cursor:1")
+    first["edges"] = [copy.deepcopy(review["about_edges"][0])]
     second = copy.deepcopy(first)
     second.update(cursor="cursor:1", has_more=False, next_cursor=None,
-                  statement_ids=["statement:0", "statement:1"])
+                  statement_ids=["statement:0", "statement:1"], edges=copy.deepcopy(review["about_edges"]))
     capture["discovery"]["pages"].append(second)
     assert evaluate_contract(review, capture)["contract_conforms"]
 
@@ -140,7 +144,8 @@ def test_supported_paging_deduplicates_repeated_incoming_edges():
 def test_partial_discovery_stays_partial_without_false_absence():
     review, capture = packet()
     capture["discovery"]["pages"][0].update(
-        statement_ids=["statement:0"], has_more=True, next_cursor="cursor:1")
+        statement_ids=["statement:0"], has_more=True, next_cursor="cursor:1",
+        edges=[copy.deepcopy(review["about_edges"][0])])
     capture["discovery"]["expanded_ids"] = ["statement:0"]
     result = evaluate_contract(review, capture)
     assert result["checks"]["qualified_discovery"]
@@ -286,3 +291,50 @@ def test_discovery_route_requires_exact_one_incoming_about_hop(field, value):
     review, capture = packet()
     capture["discovery"]["pages"][0][field] = value
     assert not evaluate_contract(review, capture)["checks"]["qualified_discovery"]
+
+
+@pytest.mark.parametrize("defect", ["missing", "invented_edge", "wrong_statement", "wrong_entity",
+                                  "wrong_context", "wrong_predicate", "extra", "duplicate"])
+def test_direction_labels_do_not_replace_independently_pinned_incoming_edge_binding(defect):
+    review, capture = packet()
+    page = capture["discovery"]["pages"][0]
+    if defect == "missing":
+        page["edges"] = []
+    elif defect == "extra":
+        extra = copy.deepcopy(page["edges"][0])
+        extra["edge_id"] = "edge:invented"
+        page["edges"].append(extra)
+    elif defect == "duplicate":
+        page["edges"].append(copy.deepcopy(page["edges"][0]))
+    else:
+        edge = page["edges"][0]
+        field, value = {"invented_edge": ("edge_id", "edge:invented"),
+                        "wrong_statement": ("statement_id", "statement:1"),
+                        "wrong_entity": ("entity_id", "entity:unreviewed"),
+                        "wrong_context": ("context", {**review["context"], "revision": "rev:other"}),
+                        "wrong_predicate": ("predicate", "reported_by")}[defect]
+        edge[field] = value
+    result = evaluate_contract(review, capture)
+    assert not result["checks"]["qualified_discovery"]
+    assert not result["runtime_behavior_verified"]
+
+
+@pytest.mark.parametrize("defect", ["cycle", "duplicate", "duplicate_other_support", "malformed", "self", "unknown"])
+def test_reviewed_partial_order_rejects_cycles_and_duplicate_pairs(defect):
+    review, capture = packet()
+    edge = review["order"][0]
+    if defect == "cycle":
+        review["order"].append(dict(before=edge["after"], after=edge["before"], source_support_ref="other"))
+    elif defect.startswith("duplicate"):
+        duplicate = copy.deepcopy(edge)
+        if defect == "duplicate_other_support":
+            duplicate["source_support_ref"] = "other"
+        review["order"].append(duplicate)
+    elif defect == "malformed":
+        edge["before"] = []
+    elif defect == "self":
+        edge["after"] = edge["before"]
+    else:
+        edge["after"] = "clause:unknown"
+    with pytest.raises(ValueError):
+        evaluate_contract(review, capture)
