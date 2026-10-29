@@ -2084,7 +2084,7 @@ function WorldOwnedPlanPage({ worldId, worldName }: { worldId: string; worldName
     return find(savedCardProjection.roots);
   })();
   return (
-    <TourImageProvider worldId={worldId} documentId={documentId} verified={currentTourPlan?{pin:planPin(worldId,currentTourPlan.documentId,currentTourPlan.pin),assetIds:currentTourPlan.assetIds}:null}><AppChrome activeRoute="plan" editorTools={editorToolsGeneration} editToolboxLayout="dock" workspaceLayout="bounded">
+    <TourImageProvider worldId={worldId} documentId={documentId} blockedReason={!documentId || status !== "ready" || fidelityBlocked || recoveryConflict ? "Open a ready Plan and resolve its recovery or fidelity block before using Image Studio." : null} verified={currentTourPlan?{pin:planPin(worldId,currentTourPlan.documentId,currentTourPlan.pin),assetIds:currentTourPlan.assetIds}:null}><AppChrome activeRoute="plan" editorTools={editorToolsGeneration} editToolboxLayout="dock" workspaceLayout="bounded">
       <PlanTourObservation label={title} verified={currentTourPlan} error={startPlayError} saved={tourPlanSave} registryRevision={savedBasis.status==="verified"?savedBasis.revision:null}/>
       <WorldPlanSurfaceContext
         worldId={worldId}

@@ -13,7 +13,7 @@ it('stages an existing source, keeps Next separate from completion and retains r
 it('reopens paused guidance after a component reload with the same bound identity',async()=>{const first=render(<GuidedTourProvider worldId='world'><Controls/></GuidedTourProvider>);fireEvent.click(screen.getByText('Open guidance'));fireEvent.click(screen.getByRole('button',{name:'A Wild Sheep Chase'}));await screen.findByRole('heading',{name:'Open the source'});fireEvent.click(screen.getByRole('button',{name:'Use this source'}));await screen.findByText('Existing example inspected');fireEvent.click(screen.getByRole('button',{name:'Pause'}));await screen.findByText('Guidance paused');first.unmount();render(<GuidedTourProvider worldId='world'><Controls/></GuidedTourProvider>);fireEvent.click(screen.getByText('Open guidance'));expect(screen.getByText('Guidance paused')).toBeInTheDocument();expect(readWalkthrough(localStorage,'world')?.record.bindings.source).toEqual(pin);});
 it('preserves corrupt guidance and refuses replacement',async()=>{localStorage.setItem('dmb:guided-journey:v1:world:current','original damaged selection');render(<GuidedTourProvider worldId='world'><Controls/></GuidedTourProvider>);fireEvent.click(screen.getByText('Open guidance'));expect(screen.getByRole('alert')).toBeInTheDocument();expect(screen.getByRole('button',{name:'Of Conks and Cons'})).toBeDisabled();await act(async()=>{});expect(localStorage.getItem('dmb:guided-journey:v1:world:current')).toBe('original damaged selection');});
 
-function UnavailableControls({status,reason}:{status:'failed'|'unavailable';reason:string}){
+function UnavailableControls({status,reason}:{status:'failed'|'unavailable'|'pending';reason:string}){
  const tour=useGuidedTour();useTourOwnerReading({step:'source',target:pin,control:'source',status,reason});
  return <button onClick={tour?.open}>Open guidance</button>;
 }
@@ -108,4 +108,17 @@ it('shows historical14-step guidance read-only and restarts into a separate15-st
  expect(screen.getByRole('heading',{name:'Ask about the session'})).toBeInTheDocument();expect(screen.getByRole('button',{name:'Next',exact:true})).toBeDisabled();expect(screen.getByRole('button',{name:'Show control'})).toBeDisabled();
  expect(localStorage.getItem(key)).toBe(bytes);fireEvent.click(screen.getByRole('button',{name:'Restart guidance'}));
  await waitFor(()=>expect(readWalkthrough(localStorage,'world')?.record.version).toBe(3));expect(readWalkthrough(localStorage,'world')?.record.steps.generation.state).toBe('pending');expect(localStorage.getItem(key)).toBe(bytes);
+});
+
+it('reconciles scoped unavailable to pending without credit and preserves failures',async()=>{
+ let walk=reduceTour(createWalkthrough('world','conks','pending',new Date().toISOString()),{kind:'bind',pin});
+ walk=reduceTour(walk,{kind:'disposition',step:'source',state:'unavailable',reason:'Owner was blocked.'});writeWalkthrough(localStorage,walk,null);
+ const mounted=render(<GuidedTourProvider worldId='world'><UnavailableControls status='pending' reason='Use the ordinary source control.'/></GuidedTourProvider>);
+ fireEvent.click(screen.getByText('Open guidance'));
+ await waitFor(()=>expect(readWalkthrough(localStorage,'world')?.record.steps.source).toEqual({state:'pending',reason:null,evidence:[]}));
+ expect(screen.getByText('Use the ordinary source control.')).toBeInTheDocument();
+ mounted.rerender(<GuidedTourProvider worldId='world'><UnavailableControls status='failed' reason='Current source read failed.'/></GuidedTourProvider>);
+ await waitFor(()=>expect(readWalkthrough(localStorage,'world')?.record.steps.source.state).toBe('failed'));
+ mounted.rerender(<GuidedTourProvider worldId='world'><UnavailableControls status='pending' reason='Try the ordinary controls.'/></GuidedTourProvider>);
+ await act(async()=>{});expect(readWalkthrough(localStorage,'world')?.record.steps.source.state).toBe('failed');
 });

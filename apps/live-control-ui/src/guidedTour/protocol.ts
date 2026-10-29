@@ -95,7 +95,7 @@ export function upgradeWalkthroughV1(bytes:string,world:string):Walkthrough {
  return decodeWalkthrough(JSON.stringify(next),world);
 }
 export const decodeWalkthrough=(bytes:string,world:string):Walkthrough=>decodeRecord(bytes,world);
-export type TourAction = {kind:'move';index:number}|{kind:'phase';phase:Walkthrough['phase']}|{kind:'disposition';step:StepId;state:'skipped'|'failed'|'unavailable';reason:string}|{kind:'bind';pin:TargetPin;parent?:TargetPin}|{kind:'observe';observation:Observation};
+export type TourAction = {kind:'move';index:number}|{kind:'phase';phase:Walkthrough['phase']}|{kind:'disposition';step:StepId;state:'skipped'|'failed'|'unavailable';reason:string}|{kind:'bind';pin:TargetPin;parent?:TargetPin}|{kind:'observe';observation:Observation}|{kind:'pending';step:StepId;target:TargetPin;parent?:TargetPin};
 /** This reducer has no IO and cannot execute any product operation. */
 export function reduceTour(current:Walkthrough,action:TourAction):Walkthrough {
  if(current.version!==3)return current;
@@ -110,6 +110,15 @@ export function reduceTour(current:Walkthrough,action:TourAction):Walkthrough {
   if(bound&&!samePin(bound,pin)&&(bound.objectId!==pin.objectId||pin.revision<=bound.revision||pin.kind==='run'||pin.kind==='plan'&&!!current.bindings.run))throw new Error('This walkthrough already has a different target or a Run pinned to that Plan. Start a separate walkthrough to keep its evidence.');
   if(pin.kind==='run'&&(!current.bindings.plan||!action.parent||!samePin(current.bindings.plan,action.parent)))throw new Error('Select the exact saved Plan that owns this Run before binding it.');
   return {...current,bindings:{...current.bindings,[pin.kind]:pin}};
+ }
+ if(action.kind==='pending'){
+  const bound=current.bindings[action.target.kind],row=current.steps[action.step];
+  if(!validPin(action.target,current.worldId)||JOURNEY_STEPS.find(step=>step.id===action.step)?.target!==action.target.kind
+   ||!bound||bound.objectId!==action.target.objectId||action.target.revision<bound.revision
+   ||action.target.revision===bound.revision&&!samePin(bound,action.target)
+   ||action.target.kind==='run'&&(!current.bindings.plan||!action.parent||!samePin(current.bindings.plan,action.parent))
+   ||row.state!=='unavailable'||row.evidence.length)return current;
+  return {...current,steps:{...current.steps,[action.step]:{...row,state:'pending',reason:null}}};
  }
  if(action.kind==='disposition'){
   if(!text(action.reason))throw new Error('Explain why this step was skipped or unavailable.');
