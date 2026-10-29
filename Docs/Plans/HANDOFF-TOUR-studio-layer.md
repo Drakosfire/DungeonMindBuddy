@@ -1,0 +1,15 @@
+# TOUR — reopen guidance above nonmodal Studio
+
+ACTIVE. PRIME bounded serial successor under the continuing guided journey goal. Branch codex/tour-studio-layer, fetched base5ec75e8a55db781b32ea114c13a6cdabfd005cea, existing buddy-context-loop checkout. One reviewed PR/CI and protected UI5202 delivery, no API/data migration, no new checkout/environment.
+
+## Invariant and independent pre-code critique
+Ordinary Conks dogfood reproduced Studio z120 covering reopened guidance z75: Export pointer action hit the underlying Format selector and download timed out. Closing Studio restored Export. Independent tour_final_review approved a local layer/focus direction before code; no side-by-side layout or overlay framework needed. Guidance is above nonmodal Studio, below confirmations, and focuses Close only when opened. Observation rerenders do not steal focus. Explicit Close restores a connected usable invoker; Show control/capability navigation keep destination focus. No trap/inertness/domain action. Studio remains mounted and its draft/candidate/pending state is preserved when guidance closes. Narrow-screen bounds, scrolling and Close/Export/navigation remain reachable.
+
+## Exclusive expected paths
+This handoff; settlement of HANDOFF-TOUR-pending-observations.md; apps/live-control-ui/src/guidedTour/{GuidedTour.tsx,guidedTour.css,GuidedTour.test.tsx}. Direct mounted Studio integration belongs in that focused test. Private browser evidence/delivery under established runtime-evidence/tour-studio-layer-20261029. Port5202 UI only after review; API8000 unchanged. A temporary loopback UI preview may serve the existing built dist solely for rendered pre-merge proof, owned/cleaned by PRIME; no extra source export, dependencies or primary data writes. Other active PRs1868/1855/1853/1828 do not overlap;1764 remains held/excluded. No overlapping tour lease;1887 delivered.
+
+## Required verification
+Mounted focus transition, no focus theft on owner update, explicit Close restore, Show control focus, Studio draft retained, zero generation. Actual desktop and narrow rendered hit-testing: reopened guide visible; Export downloads the same walkthrough; Studio Format unchanged; explicit Close preserves entered instructions. Inspect cumulative diff; independent exact-head manual Bugbot-role review, CI, protected UI delivery with primary DB/source/files and old assets retained. Ordinary verification after delivery. No guidance progress credit from these presentation actions.
+
+## Settled predecessor
+1887 independently approved exacthead0469ed7e09498618c2a899d5b1ce5abd800b027f;185focused tests, tsc/build and all3CI passed. Merged5ec75e8a55db781b32ea114c13a6cdabfd005cea and delivered UI-only; API346591 retained,1615oldassets retained.4061APP/371native/41057files identical before/after delivery and ordinary verification. Export of same v3 Conks tour reconciled only evidence-free image unavailable→pending; bindings and all other evidence unchanged. Full journey and acceptance remain open.

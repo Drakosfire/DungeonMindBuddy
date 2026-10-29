@@ -33,7 +33,10 @@ export function GuidedTourProvider({worldId,worldName,children,history=null}:{wo
  const [visible,setVisible]=useState(false),[stored,setStored]=useState<StoredWalkthrough|null>(null),[error,setError]=useState<string|null>(null);
  const [owners,setOwners]=useState<Map<symbol,TourOwnerReading>>(new Map());
  const [focusedControl,setFocusedControl]=useState<FocusedControl|null>(null);
- const open=useCallback(()=>{setFocusedControl(null);setVisible(true);},[]);
+ const closeControl=useRef<HTMLButtonElement|null>(null),invoker=useRef<HTMLElement|null>(null),isVisible=useRef(visible);isVisible.current=visible;
+ const open=useCallback(()=>{if(!isVisible.current)invoker.current=document.activeElement instanceof HTMLElement?document.activeElement:null;setFocusedControl(null);setVisible(true);},[]);
+ useLayoutEffect(()=>{if(visible)closeControl.current?.focus();},[visible]);
+ const close=()=>{setFocusedControl(null);setVisible(false);if(invoker.current&&usableControl(invoker.current))invoker.current.focus({preventScroll:true});};
  const current=useRef(stored);current.current=stored;
  const runCreationReceipts=useRef(new Map<string,Observation>());
  const mounted=useRef(true),queue=useRef(Promise.resolve()),externalEpoch=useRef(0);
@@ -169,7 +172,7 @@ export function GuidedTourProvider({worldId,worldName,children,history=null}:{wo
   const link=document.createElement('a');link.href=url;link.download=`buddy-walkthrough-${walkthrough.id}.json`;link.click();URL.revokeObjectURL(url);
  };
  return <TourContext.Provider value={api}><TourNavigationProvider registry={navigationRegistry}>{children}{visible&&<aside className="guided-tour" aria-label="Guided journey">
-  <header><strong>Guided journey</strong><button type="button" aria-label="Close tour panel" onClick={()=>setVisible(false)}>×</button></header>
+  <header><strong>Guided journey</strong><button ref={closeControl} type="button" aria-label="Close tour panel" onClick={close}>×</button></header>
   <p className="guided-tour__scope">Guidance uses the ordinary controls. It never repeats your actions.</p>
   {!worldId?<p>Select a managed World before starting a walkthrough.</p>:!walkthrough?<><p>Choose the adventure you are walking through in this World.</p>{Object.entries(ADVENTURES).map(([id,label])=><button key={id} type="button" disabled={!!error} onClick={()=>userChange({kind:'start',adventure:id as Adventure})}>{label}</button>)}</>:<>
    <p>{ADVENTURES[walkthrough.adventure]} · {worldName??'Selected World'}</p>
