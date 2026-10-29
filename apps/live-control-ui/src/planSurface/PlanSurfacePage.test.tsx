@@ -1,7 +1,8 @@
+import {useTourNavigationRegistry,navigationScope} from '../guidedTour/Navigation';
 import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { readFileSync } from "node:fs";
 import { createHash, webcrypto } from "node:crypto";
-import { StrictMode, type ReactElement, type ReactNode } from "react";
+import { StrictMode,useLayoutEffect, type ReactElement, type ReactNode } from "react";
 import { afterEach, beforeAll, beforeEach, expect, it, vi } from "vitest";
 
 import * as liveApi from "../api/liveApi";
@@ -4824,5 +4825,33 @@ it('does not open a late guided Plan preview after guidance restarts',async()=>{
  await waitFor(()=>expect(release).toBeTypeOf('function'));
  fireEvent.click(screen.getByRole('button',{name:'Restart guidance'}));await waitFor(()=>expect(readWalkthrough(localStorage,worldId)?.record.id).not.toBe('resumed-plan-tour'));
  await act(async()=>{release(committed);});expect(screen.queryByRole('heading',{name:'Play this Plan'})).not.toBeInTheDocument();
+ expect(readWalkthrough(localStorage,worldId)?.record.bindings.run).toBeUndefined();
+});
+
+
+it('rejects a changed bound Plan before replacing the current editor and URL through guidance',async()=>{
+ const {committed,mount}=await resumedPlanFixture();
+ const original=await liveApi.getWorldOwnedPlanSnapshot(savedAgentPlanId);
+ const otherId='99999999-9999-4999-8999-999999999999',otherWork='88888888-8888-4888-8888-888888888888';
+ const other={...original,record:{...original.record,document_id:otherId,title:'Other saved Plan'}};
+ vi.mocked(liveApi.getWorldOwnedPlanSnapshot).mockImplementation(async id=>id===otherId?other:original);
+ vi.mocked(liveApi.getWorldOwnedPlanCommittedRevision).mockImplementation(async id=>id===otherId?{...committed,document_id:otherId,work_revision_id:otherWork}:committed);
+ vi.mocked(liveApi.listWorldOwnedPlans).mockResolvedValue({schema_version:'dmb_workspace_document_registry_v2',scope_mode:'world',world_id:worldId,records:[original.record,other.record]});
+ const old=readWalkthrough(localStorage,worldId)!;
+ let walk=createWalkthrough(worldId,'sheep','bound-plan-drift','2026-10-28T00:00:00Z');
+ walk=reduceTour(walk,{kind:'bind',pin:{kind:'plan',worldId,objectId:otherId,revision:committed.revision_n,revisionId:otherWork,digest:'c'.repeat(64)}});walk=reduceTour(walk,{kind:'move',index:2});writeWalkthrough(localStorage,walk,old);
+ mount();await waitFor(()=>expect(planEncounterCapture.context?.verifiedPlan?.workRevisionId).toBe(committed.work_revision_id));
+ fireEvent.click(screen.getByRole('button',{name:'Open Plan walkthrough'}));fireEvent.click(await screen.findByRole('button',{name:'Open the bound plan'}));
+ await screen.findByText(/exact bound Plan version is unavailable/);
+ expect(screen.getByLabelText('Plan document')).toHaveValue(savedAgentPlanId);expect(new URLSearchParams(window.location.search).get('documentId')).toBe(savedAgentPlanId);
+ expect(readWalkthrough(localStorage,worldId)?.record.bindings.plan?.objectId).toBe(otherId);
+});
+it('refuses an unavailable exact Plan version on guided route entry before admitting a newer snapshot',async()=>{
+ const {committed}=await resumedPlanFixture();const old=readWalkthrough(localStorage,worldId)!;
+ const walk={...old.record,index:2,bindings:{plan:{...old.record.bindings.plan!,revision:committed.revision_n-1}}};writeWalkthrough(localStorage,walk,old);
+ function MarkRoute(){const registry=useTourNavigationRegistry();useLayoutEffect(()=>{registry?.beginDestination(navigationScope(readWalkthrough(localStorage,worldId)!.record,0)!);},[registry]);return null;}
+ render(<SelectedWorldProvider locationSnapshot={window.location.pathname+window.location.search}><GuidedTourProvider worldId={worldId}><MarkRoute/><VerifiedPlanPage/></GuidedTourProvider></SelectedWorldProvider>);
+ await screen.findByText(/exact bound Plan version is unavailable/);
+ expect(readWalkthrough(localStorage,worldId)?.record.bindings.plan?.revision).toBe(committed.revision_n-1);
  expect(readWalkthrough(localStorage,worldId)?.record.bindings.run).toBeUndefined();
 });

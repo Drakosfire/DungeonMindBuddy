@@ -1,4 +1,4 @@
-import {useTourNavigationOwner,useTourNavigationGuard} from '../guidedTour/Navigation';
+import {useTourNavigationOwner,useTourNavigationGuard,useTourNavigationRegistry} from '../guidedTour/Navigation';
 import type {TourDispatchScope} from '../guidedTour/GuidedTour';
 import {runPins} from '../guidedTour/ownerPins';
 import {TourRunProvider} from '../guidedTour/RunScope';
@@ -621,9 +621,12 @@ function PlayRuntimePage() {
     routeIdentityRef.current.generation === route.generation
   ), []);
 
+  const tourNavigation=useTourNavigationRegistry();
   const loadExactRun = useCallback(async (runId: string) => {
+    const inspectionPin=selectedWorldId?tourNavigation?.destinationPin('play',selectedWorldId,runId):null;
+    const inspectionParent=selectedWorldId?tourNavigation?.destinationParent(selectedWorldId,runId):null;
     const skipWorldActiveWrite = Boolean(
-      selectedWorldId && skipWorldActiveWriteRunRef.current === runId,
+      selectedWorldId && (skipWorldActiveWriteRunRef.current === runId||inspectionPin),
     );
     if (skipWorldActiveWrite) skipWorldActiveWriteRunRef.current = null;
     const serial = loadSerialRef.current + 1;
@@ -645,6 +648,11 @@ function PlayRuntimePage() {
         setLoadStatus("integrity_failure");
         setDetail(`Run ${runId} does not belong to World ${selectedWorldId}.`);
         return;
+      }
+      if(inspectionPin&&(loaded.schema_version!=='dmb_world_play_run_record_v2'||loaded.run_id!==inspectionPin.objectId||loaded.world_id!==inspectionPin.worldId
+        ||loaded.run_revision!==inspectionPin.revision||loaded.playable_content_sha256!==inspectionPin.digest
+        ||inspectionParent&&(loaded.playable_artifact_id!==inspectionParent.objectId||loaded.playable_revision!==inspectionParent.revision||loaded.playable_work_revision_id!==inspectionParent.revisionId||loaded.playable_content_sha256!==inspectionParent.digest))){
+        setLoadStatus('integrity_failure');setDetail('The exact bound Run version is unavailable. No active selection or saved session state was changed.');return;
       }
       if (loaded.schema_version === "dmb_world_play_run_record_v2" && loaded.lifecycle_status === "trashed") {
         setLoadStatus("trashed");
@@ -763,6 +771,7 @@ function PlayRuntimePage() {
       if (loadSerialRef.current !== serial) return;
       setAdmission(nextAdmission);
       if (nextAdmission.status === "ready") {
+        if(inspectionPin&&selectedWorldId)tourNavigation?.completeDestination('play',selectedWorldId,runId);
         setLoadStatus("ready");
         setDetail(null);
         setMutationStatus("idle");
@@ -835,7 +844,7 @@ function PlayRuntimePage() {
       setDetail(error instanceof Error ? error.message : null);
       setAdmission(null);
     }
-  }, [selectedWorldId]);
+  }, [selectedWorldId,tourNavigation]);
 
   const rebaseWorldRun = useCallback(async () => {
     const route = renderedRoute;
@@ -1077,7 +1086,7 @@ function PlayRuntimePage() {
   const publication = playPublicationAuthority({ admittedRun, runQuery });
   const blocked = v2Deck == null;
   useTourNavigationGuard(selectedWorldId?{worldId:selectedWorldId,reason:impact=>impact==='departure'&&(sessionCopyBlocked||tableHeld||mutationStatus!=='idle'||loadStatus==='loading')?'Finish saving or recover the current Run before navigating.':null}:null);
-  useTourNavigationOwner(selectedWorldId?{worldId:selectedWorldId,surface:'play',objectId:admittedRun?.run_id??null,parent:admittedRun?.schema_version==='dmb_world_play_run_record_v2'?runPins(admittedRun).parent:undefined,inspections:admittedRun?.schema_version==='dmb_world_play_run_record_v2'?[{id:'play-recovery',step:'recovery',label:'Open saved Run recovery',target:runPins(admittedRun).target,impact:'departure',perform:request=>{if(request.isCurrent())navigateToChooser();}}]:[],select:(pin,request)=>{if(request.isCurrent())navigateToRun(pin.objectId);}}:null);
+  useTourNavigationOwner(selectedWorldId?{worldId:selectedWorldId,surface:'play',objectId:admittedRun?.run_id??null,targets:admittedRun?.schema_version==='dmb_world_play_run_record_v2'?[runPins(admittedRun).target]:[],parent:admittedRun?.schema_version==='dmb_world_play_run_record_v2'?runPins(admittedRun).parent:undefined,inspections:admittedRun?.schema_version==='dmb_world_play_run_record_v2'?[{id:'play-recovery',step:'recovery',label:'Open saved Run recovery',target:runPins(admittedRun).target,impact:'departure',perform:request=>{if(request.isCurrent())navigateToChooser();}}]:[],select:(pin,request)=>{if(request.isCurrent()){tourNavigation?.beginDestination(request.scope);navigateToRun(pin.objectId);}}}:null);
 
 
   return (

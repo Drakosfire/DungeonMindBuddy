@@ -1,3 +1,6 @@
+import {useSyncExternalStore} from 'react';
+import {TourNavigationRegistry,TourNavigationProvider,TourNavigationActions,useTourNavigationOwner,type NavigationScope} from '../guidedTour/Navigation';
+import {getAppLocationSnapshot,subscribeAppLocation} from '../chrome/appNavigation';
 import {useCombatProjection} from '../combat/combatProjection';
 import {runPins} from '../guidedTour/ownerPins';
 import { AgentInteractionProvider } from "../agentInteraction/AgentInteractionProvider";
@@ -222,6 +225,31 @@ describe("Play selected-World admission", () => {
     window.history.replaceState({}, "", `/play?world=world-b&run=${runId}`);
   });
 
+
+  it.each(['same-surface','cross-surface'])('opens an admitted bound Run for %s guided inspection without persisting active selection',async route=>{
+    mockReadyWorldRuns([runId]);
+    const pins=runPins(worldRun()),scope:NavigationScope={worldId:'world-b',walkthroughId:'guided-run',epoch:0,step:'progress',index:8,bindings:{plan:pins.parent,run:pins.target}};
+    const registry=new TourNavigationRegistry(()=>scope);
+    function BuildOwner(){useTourNavigationOwner({worldId:'world-b',surface:'build',objectId:null,inspections:[]});return <p>Source surface</p>;}
+    function Routed(){const location=useSyncExternalStore(subscribeAppLocation,getAppLocationSnapshot);return <>{location.startsWith('/build')?<BuildOwner/>:<PlaySurfacePage/>}<TourNavigationActions scope={scope} onOpened={()=>{}}/></>;}
+    window.history.replaceState({},'',route==='cross-surface'?'/build?world=world-b':'/play?world=world-b&choose=1');
+    render(<TourNavigationProvider registry={registry}><Routed/></TourNavigationProvider>);
+    fireEvent.click(await screen.findByRole('button',{name:route==='cross-surface'?'Open Play':'Open the bound run',exact:true}));
+    await screen.findByTestId('play-surface-ready');await act(async()=>{await Promise.resolve();});
+    expect(new URLSearchParams(window.location.search).get('run')).toBe(runId);
+    expect(putWorldPlayActiveRun).not.toHaveBeenCalled();expect(putWorldPlayRunProgress).not.toHaveBeenCalled();
+    // Admission consumes only this read-only inspection intent. Explicit ordinary Load retains its normal semantics.
+    fireEvent.click(screen.getByTestId('play-load-run'));
+    fireEvent.click(await screen.findByTestId(`play-session-${runId}`));
+    await waitFor(()=>expect(putWorldPlayActiveRun).toHaveBeenCalledExactlyOnceWith('world-b',runId));
+  });
+  it('refuses a newer bound Run on guided route entry before active-selection persistence',async()=>{
+    mockReadyWorldRuns([runId]);const pins=runPins(worldRun()),scope:NavigationScope={worldId:'world-b',walkthroughId:'guided-run',epoch:0,step:'progress',index:8,bindings:{plan:pins.parent,run:pins.target}};
+    const registry=new TourNavigationRegistry(()=>scope);registry.beginDestination(scope);
+    vi.mocked(getWorldPlayRun).mockResolvedValue(worldRun({run_revision:2}));
+    render(<TourNavigationProvider registry={registry}><PlaySurfacePage/></TourNavigationProvider>);
+    await screen.findByText(/exact bound Run version is unavailable/);expect(screen.queryByTestId('play-surface-ready')).not.toBeInTheDocument();expect(putWorldPlayActiveRun).not.toHaveBeenCalled();
+  });
   it("opens the shared Rules tool only on request without selecting or changing a Run", async () => {
     const { getRulesCatalog } = await import("../api/liveApi");
     window.history.replaceState({}, "", "/play?world=world-b&choose=1");

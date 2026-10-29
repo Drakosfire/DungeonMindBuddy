@@ -89,9 +89,9 @@ export function BuildSurfaceContext({
   const trashWorldId = selectedWorld.kind === "managed" ? selectedWorld.worldId : null;
   const tourSelection=useRef<symbol|null>(null);
   useTourNavigationGuard(trashWorldId?{worldId:trashWorldId,reason:(_impact,reservation)=>creating?'Finish creating or importing the current source first.':switching&&reservation!==tourSelection.current?'Wait for source selection to finish.':null}:null);
-  useTourNavigationOwner(trashWorldId?{worldId:trashWorldId,surface:'build',objectId:activeDocumentId,inspections:[],select:async(pin,request)=>{
+  useTourNavigationOwner(trashWorldId?{worldId:trashWorldId,surface:'build',objectId:activeDocumentId,targets:session?.snapshot&&activeRecord?.world_id?(['source','page'] as const).map(kind=>({kind,worldId:activeRecord.world_id!,objectId:activeRecord.document_id,revision:session.snapshot!.loaded_revision,digest:session.snapshot!.content_sha256})):[],inspections:[],select:async(pin,request)=>{
     if(!request.isCurrent())return;tourSelection.current=request.reservation;
-    try{const opened=await selectDocument(pin.objectId,request.isCurrent);if(!opened&&request.isCurrent())throw new Error('The bound source could not be opened. Your current page is retained.');}
+    try{const opened=await selectDocument(pin.objectId,request.isCurrent,{worldId:pin.worldId,revision:pin.revision,digest:pin.digest});if(!opened&&request.isCurrent())throw new Error('The bound source could not be opened. Your current page is retained.');}
     finally{if(tourSelection.current===request.reservation)tourSelection.current=null;}
   }}:null);
   const trashInventoryVersion = useWorkspaceInventoryVersion(trashWorldId);

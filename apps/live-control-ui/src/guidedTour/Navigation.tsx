@@ -24,10 +24,27 @@ export function tourDestination(scope:NavigationScope):{surface:TourSurface;pin:
 }
 export interface InspectionRequest {scope:NavigationScope;/** Check immediately before each post-await presentation change. */isCurrent:()=>boolean;reservation:symbol}
 export interface TourInspection {id:string;label:string;step:StepId;target:TargetPin|null;unavailable?:string;ownedReservation?:symbol;impact:NavigationImpact;perform:(request:InspectionRequest)=>void|Promise<void>}
-export interface NavigationOwner {role?:'surface'|'panel';worldId:string;surface:TourSurface;objectId:string|null;parent?:TargetPin;inspections:readonly TourInspection[];select?:(pin:TargetPin,request:InspectionRequest)=>void|Promise<void>}
+export interface NavigationOwner {role?:'surface'|'panel';worldId:string;surface:TourSurface;objectId:string|null;parent?:TargetPin;targets?:readonly TargetPin[];inspections:readonly TourInspection[];select?:(pin:TargetPin,request:InspectionRequest)=>void|Promise<void>}
 export interface NavigationGuard {worldId:string|null;reason:(impact:NavigationImpact,reservation?:symbol)=>string|null}
 /** Presentation permissions, separate from result observations and domain execution. */
 export class TourNavigationRegistry {
+ private destination:{surface:TourSurface;pin:TargetPin;parent?:TargetPin}|null=null;
+ /** A restriction on route loading, never a read/write grant or retained evidence. */
+ beginDestination(scope:NavigationScope){
+  if(!this.isCurrentScope(scope))throw new Error('The guidance changed before navigation.');
+  const target=tourDestination(scope);this.destination=target.pin?{surface:target.surface,pin:structuredClone(target.pin),...(target.pin.kind==='run'&&scope.bindings.plan?{parent:structuredClone(scope.bindings.plan)}:{})}:null;
+ }
+ clearForLocation(){
+  if(!this.destination)return;
+  const params=new URLSearchParams(window.location.search),{surface,pin}=this.destination;
+  if(appRouteFromLocationSnapshot(getAppLocationSnapshot())!==surface||params.get('world')!==pin.worldId||params.get(surface==='play'?'run':'documentId')!==pin.objectId)this.destination=null;
+ }
+ destinationPin(surface:TourSurface,worldId:string,objectId:string):TargetPin|null{
+  this.clearForLocation();const target=this.destination;
+  return target?.surface===surface&&target.pin.worldId===worldId&&target.pin.objectId===objectId?structuredClone(target.pin):null;
+ }
+ completeDestination(surface:TourSurface,worldId:string,objectId:string){if(this.destinationPin(surface,worldId,objectId))this.destination=null;}
+ destinationParent(worldId:string,runId:string):TargetPin|null{return this.destinationPin('play',worldId,runId)?this.destination?.parent??null:null;}
  private listeners=new Set<()=>void>();
  private version=0;
  subscribe=(listener:()=>void)=>{this.listeners.add(listener);return ()=>{this.listeners.delete(listener);};};
@@ -79,8 +96,9 @@ export class TourNavigationRegistry {
  }
 }
 const Context=createContext<TourNavigationRegistry|null>(null);
-export function TourNavigationProvider({registry,children}:{registry:TourNavigationRegistry;children:ReactNode}){return <Context.Provider value={registry}>{children}</Context.Provider>;}
+export function TourNavigationProvider({registry,children}:{registry:TourNavigationRegistry;children:ReactNode}){useLayoutEffect(()=>registry.clearForLocation());return <Context.Provider value={registry}>{children}</Context.Provider>;}
 /** Incidental busy renders refresh live refs without replacing an owner registration. */
+export const useTourNavigationRegistry=()=>useContext(Context);
 export function useTourNavigationOwner(owner:NavigationOwner|null){
  const registry=useContext(Context),live=useRef(owner);live.current=owner;
  const world=owner?.worldId,surface=owner?.surface,objectId=owner?.objectId,signature=JSON.stringify(owner);
@@ -105,12 +123,13 @@ export function TourNavigationActions({scope,onOpened}:{scope:NavigationScope|nu
  const navigation=route!==destination.surface?<button type="button" onClick={()=>void run(()=>{
   const reason=registry.departureReason(scope,'departure');if(reason)throw new Error(reason);
   if(['build','plan','play'].includes(route)&&registry.surfaceOwners(scope.worldId,route).length!==1)throw new Error('Wait for the current surface to finish opening.');
-  navigatePrimaryAppHref(destination.href);
+  registry.beginDestination(scope);navigatePrimaryAppHref(destination.href);
  })}>Open {destination.surface==='build'?'Build':destination.surface==='plan'?'Plan':'Play'}</button>
  :owners.length!==1?<p>Waiting for one intended {destination.surface} view to finish opening.</p>
  :destination.pin&&owners[0].owner.objectId!==destination.pin.objectId?<button type="button" onClick={()=>void run(()=>registry.select(scope,owners[0].token,destination.pin!))}>Open the bound {destination.pin.kind}</button>:null;
+ const versionUnavailable=!!destination.pin&&owners.length===1&&owners[0].owner.objectId===destination.pin.objectId&&!!owners[0].owner.targets&&!owners[0].owner.targets.some(pin=>samePin(pin,destination.pin!));
  const actions=route===destination.surface&&owners.length===1&&(!destination.pin||owners[0].owner.objectId===destination.pin.objectId)?registry.inspections(scope):[];
- return <section aria-label="Open this capability">{navigation}{actions.map(({owner,inspection},index)=><button key={`${inspection.id}:${index}`} type="button" disabled={!!inspection.unavailable} title={inspection.unavailable} onClick={()=>void run(async()=>{await registry.inspect(scope,owner,inspection.id);if(registry.isCurrentScope(scope))onOpened();})}>{inspection.label}</button>)}{actions.filter(item=>item.inspection.unavailable).map(({inspection},index)=><p key={`reason:${inspection.id}:${index}`}>{inspection.unavailable}</p>)}{error&&sameNavigationScope(error.scope,scope)&&<p role="alert">{error.message}</p>}</section>;
+ return <section aria-label="Open this capability">{navigation}{versionUnavailable&&<p>The bound saved version is not available in this view. Inspect ordinary version or recovery controls, or explicitly choose a newer saved version for guidance.</p>}{actions.map(({owner,inspection},index)=><button key={`${inspection.id}:${index}`} type="button" disabled={!!inspection.unavailable} title={inspection.unavailable} onClick={()=>void run(async()=>{await registry.inspect(scope,owner,inspection.id);if(registry.isCurrentScope(scope))onOpened();})}>{inspection.label}</button>)}{actions.filter(item=>item.inspection.unavailable).map(({inspection},index)=><p key={`reason:${inspection.id}:${index}`}>{inspection.unavailable}</p>)}{error&&sameNavigationScope(error.scope,scope)&&<p role="alert">{error.message}</p>}</section>;
 }
 const emptySubscribe=()=>()=>{};
 const emptySnapshot=()=>0;
