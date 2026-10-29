@@ -282,3 +282,13 @@ it('reports a real capability read error as failed',async()=>{
 it('does not add a guidance launcher outside the existing tour context',async()=>{
  const api=createPort();await settings(api);expect(screen.queryByRole('button',{name:'Open guided journey'})).not.toBeInTheDocument();expect(api.generate).not.toHaveBeenCalled();
 });
+
+it('names the actual document placement control in its block instructions', async()=>{
+  const api=createPort();
+  render(<MediaImageWizard initialPrompt="Village" placeAfterBlock chooseLabel="Place in Plan" onClose={()=>{}} onChoose={()=>{}} port={api}/>);
+  await waitFor(()=>expect(screen.getByRole('button',{name:'Generate image'})).toBeEnabled());
+  fireEvent.click(screen.getByRole('button',{name:'Generate image'}));
+  expect(await screen.findByRole('button',{name:'Place in Plan'})).toBeInTheDocument();
+  expect(screen.getByText(/choose Place in Plan and click a block/)).toBeInTheDocument();
+  expect(screen.queryByRole('button',{name:'Place on page'})).not.toBeInTheDocument();
+});
