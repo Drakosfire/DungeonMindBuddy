@@ -26,7 +26,7 @@ BATCH = {
 
 
 class Wire:
-    def __init__(self, raw=None, failure=False):
+    def __init__(self, raw=None, failure=False, *, incomplete=False, output_tokens=100):
         self.requests = []
         self.raw = json.dumps(BATCH) if raw is None else raw
         outer = self
@@ -38,11 +38,12 @@ class Wire:
                     raise httpx.ReadTimeout("synthetic unknown", request=request)
                 return httpx.Response(200, request=request, json={
                     "id": "resp_proposal", "object": "response", "created_at": 1,
-                    "status": "completed", "model": "gpt-6-luna",
+                    "status": "incomplete" if incomplete else "completed", "model": "gpt-6-luna",
+                    "incomplete_details": {"reason": "max_output_tokens"} if incomplete else None,
                     "output": [{"type": "message", "id": "msg_proposal", "role": "assistant",
                         "status": "completed", "content": [{"type": "output_text",
                         "text": outer.raw, "annotations": []}]}],
-                    "usage": {"input_tokens": 200, "output_tokens": 100, "total_tokens": 300}})
+                    "usage": {"input_tokens": 200, "output_tokens": output_tokens, "total_tokens": 200 + output_tokens}})
             async def aclose(self):
                 pass
         self.transport = Transport()
@@ -374,3 +375,88 @@ def test_ambiguous_eligibility_is_a_derived_view_only():
     offered = view["review_eligibility"]["p1"]
     assert offered["status"] == "ambiguous"
     assert {m["eligibility"] for m in offered["matches"]} == {"eligible_for_review","outside_registered_evidence"}
+
+
+def test_producer_budget_does_not_mutate_answer_policy(monkeypatch):
+    from apps.live_control_server.services import agent_turn_service
+    original = agent_turn_service._policy_request_budget()
+    monkeypatch.setattr(agent_turn_service, "_policy_request_budget", lambda: original)
+    assert service._producer_budget() == original | {"outputReserveTokens": 128_000}
+    assert original["outputReserveTokens"] == 8192
+
+
+def test_completed_output_beyond_old_limit_persists_exactly(lane, application_state_dsn, monkeypatch):
+    batch = deepcopy(BATCH)
+    # SDK fixture usage represents output above the old ceiling, not a live-model measurement.
+    batch["limitations"] = ["synthetic coverage caveat " * 9000]
+    wire = Wire(json.dumps(batch), output_tokens=9000)
+    with client(monkeypatch, wire) as c:
+        req, record = produce(c, lane)
+        assert record["state"] == "completed", record
+        assert wire.requests[0]["max_output_tokens"] == 128_000
+        assert json.loads(wire.requests[0]["input"][0]["content"])["source"] == BODY
+        assert record["raw_output"] == wire.raw
+        assert record["result"]["batch"] == batch
+        assert c.get(url(req)).json() == record
+        assert len(wire.requests) == 1
+
+
+def test_old_incomplete_operation_replay_after_budget_change(lane, application_state_dsn, monkeypatch):
+    current = service._producer_budget
+    monkeypatch.setattr(service, "_producer_budget", lambda: current() | {"outputReserveTokens": 8192})
+    wire = Wire('{"mentions":[', incomplete=True, output_tokens=8192)
+    with client(monkeypatch, wire) as c:
+        req, record = produce(c, lane)
+        assert record["state"] == "failed"
+        raw = json.loads(record["raw_output"])
+        assert raw["status"] == "incomplete"
+        assert raw["incomplete_details"]["reason"] == "max_output_tokens"
+        assert raw["usage"]["output_tokens"] == 8192
+        assert json.loads(record["wire"])["max_output_tokens"] == 8192
+        assert record["result"] is None
+        monkeypatch.setattr(service, "_producer_budget", current)
+        assert service._producer_budget()["outputReserveTokens"] == 128_000
+        assert c.post("/api/live/source-statements/proposals", json=req.model_dump(mode="json")).json() == record
+        assert c.get(url(req)).json() == record
+        assert len(wire.requests) == 1
+
+
+@pytest.mark.parametrize("change", [{"model":"unverified"}, {"provider":"unverified"},
+    {"contextLimitTokens":128_000}, {"maxProviderRequestBytes":1}])
+def test_unverified_or_oversized_producer_refuses_before_transport(lane, application_state_dsn, monkeypatch, change):
+    from apps.live_control_server.services import agent_turn_service
+    original = agent_turn_service._policy_request_budget()
+    monkeypatch.setattr(agent_turn_service, "_policy_request_budget", lambda: original | change)
+    wire = Wire()
+    with client(monkeypatch, wire) as c:
+        _, record = produce(c, lane)
+        assert record["state"] == "failed"
+        assert record["failure"] == "proposal_generation_not_dispatched"
+        assert record["wire"] is None
+        assert record["result"] is None
+        assert wire.requests == []
+
+
+def test_prepared_output_budget_drift_refuses_before_transport(lane, application_state_dsn, monkeypatch):
+    import generationengine
+    original = generationengine.TextRequest
+    monkeypatch.setattr(generationengine, "TextRequest", lambda **kwargs: original(**(kwargs | {"max_output_tokens":8192})))
+    wire = Wire()
+    with client(monkeypatch, wire) as c:
+        _, record = produce(c, lane)
+        assert record["state"] == "failed"
+        assert record["failure"] == "proposal_generation_not_dispatched"
+        assert record["wire"] is None
+        assert wire.requests == []
+
+
+def test_nonexact_paragraph_context_still_fails_without_repair(lane, application_state_dsn, monkeypatch):
+    batch = deepcopy(BATCH)
+    batch["proposals"][0]["context_quotes"] = [BODY.replace("\n", " ")]
+    wire = Wire(json.dumps(batch))
+    with client(monkeypatch, wire) as c:
+        _, record = produce(c, lane)
+        assert record["state"] == "failed"
+        assert record["result"] is None
+        assert record["raw_output"] == wire.raw
+        assert wire.requests[0]["max_output_tokens"] == 128_000

@@ -14,6 +14,16 @@ from . import source_statements as statements
 MODEL = "gpt-6-luna"
 
 
+def _producer_budget():
+    from .agent_turn_service import _policy_request_budget
+    budget = dict(_policy_request_budget())
+    if budget["model"] != MODEL or budget["provider"] != "openai-api":
+        raise ValueError("Unsupported qualified producer model")
+    # Whole-source structured extraction uses the verified model output ceiling.
+    # https://developers.openai.com/api/docs/models/gpt-6-luna
+    return budget | {"outputReserveTokens": 128_000}
+
+
 def source(request, principal, *, include_extent=False):
     require_native_graph_gm(principal)
     if not principal.subject:
@@ -126,10 +136,7 @@ async def produce(request, principal, *, transport=None):
     provider = client = None
     budget = None
     try:
-        from .agent_turn_service import _policy_request_budget
-        budget = _policy_request_budget()
-        if budget["model"] != MODEL:
-            raise ValueError("Unsupported qualified producer model")
+        budget = _producer_budget()
         provider = PlanWriterProvider(dispatch_gate=TextDispatchGate(authorize, lifecycle), transport=transport)
         client = GenerationClient(text_providers={"openai": provider})
         result = await client.generate_text(TextRequest(

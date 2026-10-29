@@ -99,3 +99,24 @@ claim rather than necessarily raising its internal integrity exception.
 Repair exact-head independent review, CI, merge and protected delivery remain gates.
 No new APP schema or persistent payload contract is required: older code refuses
 partial-span work rather than misinterpreting it; no compatibility path is added.
+
+
+## Producer capacity repair
+
+Source inspection repair1901 merged atdd50ce2694b140aa477c18f3ec7a544b0aba5ac1
+and protected-delivered with APP0093 and retained state unchanged.
+The real S8 operation13744ada-d20c-437b-a405-04950ad703b2 then failed at8192
+output tokens after32.8s. Original raw response/failure/replay remain retained.
+ADVERSARY also found a nonexact paragraph context quote; capacity alone does not
+resolve that independent output-contract failure or establish accepted extraction.
+
+Active serial capacity repair follows OverMind allocationf1f8bb7612757d5f72719c6025ecd3b1bb2a4815.
+Only this handoff, source_statement_proposals.py and its tests are leased.
+The producer copies the admitted Luna policy and reserves its documented128000
+maximum output tokens; general answers retain8192. Exact prepared wire, byte and
+input-plus-reserve checks remain; unknown models/providers fail before dispatch.
+No prompt/schema, source, identity, review, publication or APP-format changes.
+Incomplete output stays failed without salvage or redispatch. A new named run
+must independently assess capacity and exact-context failures after delivery.
+Official capacity: https://developers.openai.com/api/docs/models/gpt-6-luna .
+Independent cumulative review, CI and protected delivery remain required.
