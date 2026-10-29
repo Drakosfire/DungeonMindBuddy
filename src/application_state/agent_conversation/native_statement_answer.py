@@ -45,6 +45,45 @@ OUTPUT_SCHEMA = {
 }
 
 
+# V1 constants above remain exact for retained producing-request validation.
+INSTRUCTIONS_V2 = (
+    INSTRUCTIONS
+    + """
+For statement_ids, copy only statement_id values from the supports array.
+The selected subject_id and IDs in referents, reporter, assertion_ids or source
+metadata are not citation handles. Choose supporting statements from the finite
+schema enum; never substitute an entity merely because the question is about it.
+"""
+)
+
+
+def writer_contract(receipt, policy):
+    """Reconstruct the producing contract from frozen authority, never model JSON."""
+    from copy import deepcopy
+    import re
+
+    if policy.policy_version == "native_statement_writer_v1":
+        return INSTRUCTIONS, deepcopy(OUTPUT_SCHEMA)
+    if policy.policy_version != "native_statement_writer_v2":
+        raise ValueError("Unknown native writer policy")
+    identities = [support.statement_id for support in receipt.frame.supports]
+    if any(
+        not isinstance(identity, str) or not re.fullmatch(r"ent:\S+", identity)
+        for identity in identities
+    ) or len(identities) != len(set(identities)):
+        raise ValueError(
+            "Native citation supports require distinct valid statement IDs"
+        )
+    schema = deepcopy(OUTPUT_SCHEMA)
+    properties = schema["properties"]["segments"]["items"]["properties"]
+    if identities:
+        properties["statement_ids"]["items"]["enum"] = sorted(identities)
+    else:
+        properties["kind"]["enum"] = ["proposal", "limitation"]
+        properties["statement_ids"]["maxItems"] = 0
+    return INSTRUCTIONS_V2, schema
+
+
 class NativeStatementSegmentV1(Strict):
     kind: Literal["source_report", "proposal", "limitation"]
     text: str = Field(min_length=1)

@@ -228,14 +228,23 @@ class NativeStatementContextReceiptV1(Strict):
         return self
 
 
-class NativeStatementWriterPolicyV1(Strict):
-    policy_version: Literal["native_statement_writer_v1"] = "native_statement_writer_v1"
+class _NativeStatementWriterPolicy(Strict):
     provider: Literal["openai"] = "openai"
     model: str = Field(min_length=1)
     api_mode: Literal["responses"] = "responses"
     output_token_reserve: int = Field(gt=0, strict=True)
     context_limit_tokens: int = Field(gt=0, strict=True)
     requires_native_output_proof: Literal[True] = True
+
+
+class NativeStatementWriterPolicyV1(_NativeStatementWriterPolicy):
+    """Retained producing requests only; new dispatch uses V2."""
+
+    policy_version: Literal["native_statement_writer_v1"] = "native_statement_writer_v1"
+
+
+class NativeStatementWriterPolicyV2(_NativeStatementWriterPolicy):
+    policy_version: Literal["native_statement_writer_v2"] = "native_statement_writer_v2"
 
 
 class NativeStatementInputEventV1(Strict):
@@ -257,9 +266,10 @@ class NativeStatementInputEventV1(Strict):
 
 
 def validate_request(receipt, policy, raw):
-    from .native_statement_answer import OUTPUT_SCHEMA, INSTRUCTIONS
+    from .native_statement_answer import writer_contract
     from .source_writer_output import strict_json
 
+    instructions, output_schema = writer_contract(receipt, policy)
     body = strict_json(raw)
     expected = {
         "model": policy.model,
@@ -276,14 +286,14 @@ def validate_request(receipt, policy, raw):
                 ),
             }
         ],
-        "instructions": INSTRUCTIONS,
+        "instructions": instructions,
         "max_output_tokens": policy.output_token_reserve,
         "text": {
             "format": {
                 "type": "json_schema",
                 "name": "native_statement_answer",
                 "strict": True,
-                "schema": OUTPUT_SCHEMA,
+                "schema": output_schema,
             }
         },
         "tools": [],

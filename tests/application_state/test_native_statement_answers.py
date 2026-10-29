@@ -119,3 +119,123 @@ def test_authorized_native_claim_expiry_is_unknown_and_cannot_redispatch(
     assert retained.failure_code == "provider_outcome_unknown"
     assert retained.graph_context_execution.events[-1].outcome == "outcome_unknown"
     assert len(retained.graph_context_execution.events) == 3
+
+
+@pytest.mark.parametrize("historical_status", ["completed", "interrupted"])
+def test_retained_v1_turns_reconstruct_original_request_and_remain_readable(
+    completed_native, historical_status
+):
+    """Retained data need the exact V1 contract, without enabling new V1 calls."""
+    import json
+    from hashlib import sha256
+    from application_state.agent_conversation.native_statement_input import (
+        NativeStatementWriterPolicyV1,
+        canonical,
+        digest,
+        native_input_tokens,
+    )
+    from application_state.agent_conversation.native_statement_answer import (
+        writer_contract,
+        normalize_output,
+        answer_text,
+    )
+    from application_state.agent_conversation.types import (
+        ProviderAttemptAuthorizedEventV1,
+    )
+
+    service, turn, dsn = completed_native
+    execution = turn.graph_context_execution.model_dump(mode="json", by_alias=True)
+    policy = NativeStatementWriterPolicyV1(
+        **{**execution["policy"], "policy_version": "native_statement_writer_v1"}
+    )
+    execution["policy"] = policy.model_dump(mode="json")
+    execution["execution_policy_sha256"] = digest(policy)
+    inclusion = next(
+        e for e in execution["events"] if e["kind"] == "native_statement_input_v1"
+    )
+    request = json.loads(inclusion["prepared_request_json"])
+    instructions, schema = writer_contract(turn.graph_context_receipt, policy)
+    request["instructions"] = instructions
+    request["text"]["format"]["schema"] = schema
+    raw = canonical(request)
+    envelope = sha256(raw.encode()).hexdigest()
+    inclusion["prepared_request_json"] = raw
+    for event in execution["events"]:
+        if "envelope_sha256" in event:
+            event["envelope_sha256"] = envelope
+    execution["events"][0]["input_tokens"] = native_input_tokens(raw)
+    capture = next(
+        e
+        for e in execution["events"]
+        if e["kind"] == "native_statement_output_captured_v1"
+    )
+    auth = ProviderAttemptAuthorizedEventV1.model_validate(execution["events"][0])
+    completion = normalize_output(
+        turn.graph_context_receipt, auth, capture["raw_output_json"]
+    )
+    execution["events"][-1]["completion_sha256"] = digest(completion)
+    if historical_status == "interrupted":
+        execution["events"] = execution["events"][:-1]
+    with psycopg.connect(dsn) as conn:
+        conn.execute(
+            "UPDATE agent.turn SET graph_context_execution=%s, completion=%s, assistant_text=%s, status=%s, failure_code=CASE WHEN %s='interrupted' THEN 'retained_native_test_failure' ELSE NULL END WHERE turn_id=%s",
+            (
+                Jsonb(execution),
+                Jsonb(completion.model_dump(mode="json", by_alias=True))
+                if historical_status == "completed"
+                else None,
+                answer_text(completion) if historical_status == "completed" else None,
+                historical_status,
+                historical_status,
+                turn.turn_id,
+            ),
+        )
+    loaded = service.inspect_turn(world_id=turn.world_id, turn_id=turn.turn_id)
+    assert loaded.status == historical_status
+    assert (
+        loaded.graph_context_execution.policy.policy_version
+        == "native_statement_writer_v1"
+    )
+    retained = next(
+        e
+        for e in loaded.graph_context_execution.events
+        if e.kind == "native_statement_input_v1"
+    )
+    assert retained.prepared_request_json == raw
+    if historical_status == "completed":
+        assert loaded.completion == completion
+    else:
+        assert loaded.completion is None
+
+
+def test_historical_empty_v1_execution_cannot_start_a_new_call(
+    completed_native, monkeypatch, tmp_path, lane
+):
+    from application_state.agent_conversation.native_statement_input import (
+        NativeStatementWriterPolicyV1,
+        digest,
+    )
+
+    service, turn, dsn = completed_native
+    execution = turn.graph_context_execution.model_dump(mode="json", by_alias=True)
+    policy = NativeStatementWriterPolicyV1(
+        **{**execution["policy"], "policy_version": "native_statement_writer_v1"}
+    )
+    execution.update(
+        policy=policy.model_dump(mode="json"),
+        execution_policy_sha256=digest(policy),
+        events=[],
+    )
+    with psycopg.connect(dsn) as conn:
+        conn.execute(
+            "UPDATE agent.turn SET graph_context_execution=%s, status='accepted', completion=NULL, assistant_text=NULL, completed_at=NULL WHERE turn_id=%s",
+            (Jsonb(execution), turn.turn_id),
+        )
+    wire = Wire()
+    client = native_client(lane, monkeypatch, tmp_path, wire)
+    reply = client.post("/api/live/agent/turn", json=request_for(lane))
+    assert reply.status_code == 409
+    assert (
+        reply.json()["detail"]["code"] == "native_statement_historical_policy_retained"
+    )
+    assert wire.requests == []
