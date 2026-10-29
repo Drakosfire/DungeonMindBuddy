@@ -1,4 +1,6 @@
 import { Node } from '@tiptap/core';
+import {ImageContextEdit} from '../../media/ImageContextEdit';
+import {captureImageOccurrence} from '../../media/imageOccurrence';
 import { NodeViewWrapper, ReactNodeViewRenderer, type NodeViewProps } from '@tiptap/react';
 import { Plugin } from '@tiptap/pm/state';
 import { mediaDragScroll } from './mediaImageDragScroll';
@@ -7,7 +9,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useSavedMediaImage } from '../../media/useSavedMediaImage';
 import { MEDIA_ASSET_ID, imagePresentation } from '../../media/mediaReferences';
 
-export function MediaImageView({ node, editor, updateAttributes }: NodeViewProps) {
+export function MediaImageView({ node, editor, updateAttributes, getPos }: NodeViewProps) {
   const id = String(node.attrs.assetId);
   const { url, status, onError } = useSavedMediaImage(id);
   const [editable, setEditable] = useState(editor.isEditable);
@@ -31,11 +33,12 @@ export function MediaImageView({ node, editor, updateAttributes }: NodeViewProps
     if (commit && active && editor.isEditable && !editor.isDestroyed) updateAttributes({width: active.next, collapsed});
   }
   useEffect(() => () => { resize.current = null; }, []);
-  return <NodeViewWrapper as="span" className="document-media-image" contentEditable={false} data-media-asset-id={id}
+  return <NodeViewWrapper as="span" className="document-media-image" contentEditable={false} data-media-asset-id={id} data-contextual-object
     ref={frame} style={{width: `${previewWidth ?? width}%`}}>
     <span className="document-media-image__toolbar">
       <span data-drag-handle draggable={editable} className="document-media-image__handle" title="Drag image to move" aria-label="Drag image to move">⠿</span>
       <span className="document-media-image__title" title={title}>{title}</span>
+      <ImageContextEdit assetId={id} editable={editable} captureApply={()=>captureImageOccurrence(editor,getPos,id)}/>
       <button type="button" aria-label={collapsed ? 'Expand image' : 'Collapse image'} aria-expanded={!collapsed}
         onMouseDown={event => event.preventDefault()} onClick={() => { if (editor.isEditable && !editor.isDestroyed) updateAttributes({width, collapsed: !collapsed}); }}
         disabled={!editable}>{collapsed ? 'Expand' : 'Collapse'}</button>

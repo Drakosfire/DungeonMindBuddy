@@ -4,7 +4,7 @@ import { Editor, EditorContent } from '@tiptap/react';
 import { DEFAULT_MARKDOWN_EDITOR_EXTENSIONS } from '../MarkdownEditorCore';
 import { markdownToTiptapDoc } from '../markdown/markdownToTiptap';
 import { tiptapJsonToSemanticMarkdown } from '../markdown/calloutMarkdown';
-vi.mock('../../api/liveApi', () => ({authenticatedApiFetch: vi.fn(async () => ({response:{ok:true,json:async()=>({asset_id:id,state:'ready',delivery_url:'https://imagedelivery.net/account/map/public'})}}))}));
+vi.mock('../../api/liveApi', () => ({getNativeGraphAccessGeneration:()=>0,NATIVE_GRAPH_ACCESS_TOKEN_CHANGED_EVENT:'dmb:access-test',authenticatedApiFetch: vi.fn(async () => ({requestEpoch:0,response:{ok:true,json:async()=>({asset_id:id,state:'ready',delivery_url:'https://imagedelivery.net/account/map/public'})}}))}));
 const id = 'ac6c15cc-8c68-4732-8ae2-d9f3f051393a';
 let editor: Editor;
 vi.stubGlobal('PointerEvent', MouseEvent);
