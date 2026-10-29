@@ -116,7 +116,7 @@ export function BuildPageProposal({record,bridge,sourceKey,requestKey,onStatus,o
     saved=await save(saved,prepared.markdown);
     if(!current(start))return;
     setReview(saved);setText(saved.markdown);clearCache();
-    const pending=await proposalReview(world,record.action_id,{operation:'prepare',expected_revision:saved.revision,
+    const pending=await proposalReview(world,record.action_id,{operation:'prepare',expected_revision:saved.revision,...(bodyFor(saved)?{page_body_target:bodyFor(saved)}:{}),
       apply_id:crypto.randomUUID(),after_editor_sha256:prepared.afterEditorSha256,after_draft_sha256:prepared.afterDraftSha256});
     if(!current(start))return;
     bodyFor(pending);setReview(pending);

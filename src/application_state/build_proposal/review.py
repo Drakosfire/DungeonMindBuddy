@@ -152,6 +152,7 @@ class BuildReviewCommand(StrictModel):
     after_draft_sha256: str | None = Field(default=None, pattern=r"^[a-f0-9]{64}$")
 
     placement: PlacementCapability | None = None
+    page_body_target: BuildPageBodyOffer | None = None
 
     @model_validator(mode="after")
     def exact_fields(self):
@@ -162,10 +163,13 @@ class BuildReviewCommand(StrictModel):
             "prepare": {"apply_id", "after_editor_sha256", "after_draft_sha256"},
             "confirm": {"apply_id"},
         }.get(self.operation, set())
+        if self.operation == "prepare" and self.page_body_target is not None:
+            required = required | {"page_body_target"}
         present = {
             name
             for name in (
                 "markdown",
+                "page_body_target",
                 "placement",
                 "placement_caret",
                 "apply_id",
@@ -277,6 +281,8 @@ class BuildProposalReviewService:
                 and previous.apply.apply_id == command.apply_id
             ):
                 if command.operation == "prepare":
+                    if command.page_body_target != expected_body:
+                        raise ApplicationStateConflictError("This editor must acknowledge the exact whole-page target before applying it")
                     if (
                         previous.apply.after_editor_sha256
                         != command.after_editor_sha256
@@ -335,6 +341,8 @@ class BuildProposalReviewService:
             elif command.operation == "discard":
                 update["state"] = "discarded"
             elif command.operation == "prepare":
+                if command.page_body_target != expected_body:
+                    raise ApplicationStateConflictError("This editor must acknowledge the exact whole-page target before applying it")
                 if previous.placement:
                     if self.validate_source is None:
                         raise ApplicationStateConflictError("Current source validation is unavailable")

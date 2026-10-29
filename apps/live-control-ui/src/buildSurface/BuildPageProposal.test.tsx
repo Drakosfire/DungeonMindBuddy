@@ -445,6 +445,7 @@ it('reviews the whole body explicitly and recovers a lost save acknowledgment wi
  await waitFor(()=>expect(saved.state).toBe('applying'));
  await screen.findByRole('button',{name:'Check insertion'});
  expect(screen.queryByRole('button',{name:'Choose a new position'})).not.toBeInTheDocument();
+ expect(vi.mocked(proposalReview).mock.calls.find(([, ,cmd])=>cmd?.operation==='prepare')?.[2]).toMatchObject({page_body_target:captured.pageBodyOffer});
  expect(editor.getJSON().content).toHaveLength(2);
  expect(editor.getText()).toBe('Preparation only.\n\nOffer communication first.');
  const after=editor.getJSON();view.unmount();lostAck=false;render(<Review/>);

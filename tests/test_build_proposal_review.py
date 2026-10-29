@@ -440,11 +440,17 @@ def test_whole_page_review_resolves_target_and_never_becomes_a_moved_insertion(r
         command('replace_placement',review.revision,placement=cap)
     review=command('save',review.revision,markdown='Edited first.\n\nEdited second.')
     apply_id=uuid4()
-    pending=command('prepare',review.revision,apply_id=apply_id,
+    with pytest.raises(ApplicationStateConflictError,match='acknowledge the exact whole-page target'):
+        command('prepare',review.revision,apply_id=apply_id,
+            after_editor_sha256='a'*64,after_draft_sha256='b'*64)
+    with pytest.raises(ApplicationStateConflictError,match='acknowledge the exact whole-page target'):
+        command('prepare',review.revision,apply_id=apply_id,page_body_target=BuildPageBodyOffer(end=84),
+            after_editor_sha256='a'*64,after_draft_sha256='b'*64)
+    pending=command('prepare',review.revision,apply_id=apply_id,page_body_target=request.page_body_offer,
         after_editor_sha256='a'*64,after_draft_sha256='b'*64)
     assert pending.apply.page_body_target==request.page_body_offer
     assert service.get('elderwyld',proposal.action_id)==pending
-    assert command('prepare',review.revision,apply_id=apply_id,
+    assert command('prepare',review.revision,apply_id=apply_id,page_body_target=request.page_body_offer,
         after_editor_sha256='a'*64,after_draft_sha256='b'*64)==pending
     applied=command('confirm',pending.revision,apply_id=apply_id)
     assert applied.state=='applied' and applied.apply.page_body_target==request.page_body_offer

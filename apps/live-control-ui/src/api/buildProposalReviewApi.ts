@@ -20,7 +20,7 @@ export interface BuildProposalReview {
   apply:ProposalApplyReceipt|null;updated_at:string;placement?:PlacementCapability;retired_placements?:RetiredPlacement[];
 }
 export type BuildReviewCommand = {operation:'open'|'save'|'move'|'discard'|'prepare'|'confirm'|'replace_placement';expected_revision:number;
-  placement?:PlacementCapability;placement_caret?:number;markdown?:string;apply_id?:string;after_editor_sha256?:string;after_draft_sha256?:string};
+  page_body_target?:BuildPageBodyTarget;placement?:PlacementCapability;placement_caret?:number;markdown?:string;apply_id?:string;after_editor_sha256?:string;after_draft_sha256?:string};
 export async function proposalReview(world:string,action:string,command?:BuildReviewCommand):Promise<BuildProposalReview> {
   const {response}=await authenticatedApiFetch(`/api/live/agent/worlds/${encodeURIComponent(world)}/build-proposals/${encodeURIComponent(action)}/review`,
     command?{method:'POST',cache:'no-store',body:JSON.stringify(command)}:{cache:'no-store'});
