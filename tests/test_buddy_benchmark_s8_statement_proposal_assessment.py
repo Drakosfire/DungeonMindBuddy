@@ -1,5 +1,6 @@
 """Provider-free negative controls for the independent assessment boundary."""
 
+import json
 from copy import deepcopy
 from types import SimpleNamespace
 
@@ -11,6 +12,7 @@ from graph_memory.extraction.qualified_statement_proposals import (
     canonical,
     digest,
     parse,
+    ProposalBatch,
 )
 from graph_memory.extraction.statement_source_catalog import catalog, CONTRACT
 
@@ -150,7 +152,7 @@ def example():
         "authority": {},
         "scope": {},
         "world_identity_context": {"entities": []},
-        "output_schema": {"v2": True},
+        "output_schema": ProposalBatch.model_json_schema(),
     }
     packet["source_catalog"] = catalog(
         text, {key: packet[key] for key in ("logical_source", "authority", "scope")}
@@ -169,7 +171,7 @@ def example():
                 "reporter_mention": None,
                 "referent_mentions": ["m1"],
                 "uncertainty": [],
-                "qualifications": {"perception": "heard"},
+                "qualifications": [{"key": "perception", "value": "heard"}],
                 "episode": "e1",
                 "unresolved": [],
             }
@@ -185,12 +187,24 @@ def example():
         "limitations": [],
     }
     raw = canonical(batch)
+    from generationengine.utils.schema_utils import make_schema_strict
+
     wire = canonical(
         {
             "input": [{"role": "user", "content": canonical(packet)}],
             "instructions": INSTRUCTIONS,
             "model": "gpt-6-luna",
             "max_output_tokens": assessment.OUTPUT_RESERVE,
+            "text": {
+                "format": {
+                    "type": "json_schema",
+                    "name": assessment.SCHEMA_NAME,
+                    "strict": True,
+                    "schema": make_schema_strict(
+                        json.loads(canonical(packet["output_schema"]))
+                    ),
+                }
+            },
         }
     )
     record = {
@@ -740,7 +754,7 @@ def test_context_only_disposition_is_not_primary_extraction():
     packet["source_catalog"] = catalog(
         text, {key: packet[key] for key in ("logical_source", "authority", "scope")}
     )
-    batch = deepcopy(record["result"]["batch"])
+    batch = json.loads(record["raw_output"])
     batch["catalog_sha256"] = packet["source_catalog"]["catalog_sha256"]
     batch["proposals"][0]["context_unit_ids"] = ["u2"]
     batch["dispositions"].append(
@@ -811,3 +825,192 @@ def test_rehashed_catalog_cannot_forge_physical_partition(change):
     )
     with pytest.raises(ValueError, match="descriptor or partition|partition count"):
         assessment.verify_catalog(packet, text)
+
+
+@pytest.mark.parametrize(
+    "change", [None, "missing", "name", "strict", "schema", "root", "open_object"]
+)
+def test_actual_native_schema_guard(change):
+    import json
+
+    record, _, _, packet = example()
+    body = json.loads(record["wire"])
+    if change == "missing":
+        del body["text"]
+    elif change in {"name", "strict", "schema"}:
+        body["text"]["format"][change] = "forged"
+    elif change in {"root", "open_object"}:
+        if change == "root":
+            packet["output_schema"]["type"] = "array"
+        else:
+            packet["output_schema"]["$defs"]["Qualification"]["type"] = "string"
+    if change:
+        with pytest.raises(ValueError):
+            assessment.verify_native_schema(body, packet)
+    else:
+        assessment.verify_native_schema(body, packet)
+
+
+@pytest.mark.parametrize(
+    "change",
+    [
+        None,
+        "lost",
+        "invented",
+        "duplicate",
+        "blank_key",
+        "blank_value",
+        "null_reported",
+        "unknown_reporter",
+        "unknown_referent",
+    ],
+)
+def test_wire_qualifications_materialize_losslessly(change):
+    import json
+
+    record, _, _, _ = example()
+    raw = json.loads(record["raw_output"])
+    host = deepcopy(record["result"]["batch"])
+    p = raw["proposals"][0]
+    if change == "lost":
+        host["proposals"][0]["qualifications"] = {}
+    elif change == "invented":
+        host["proposals"][0]["qualifications"]["extra"] = "invented"
+    elif change == "duplicate":
+        p["qualifications"].append(deepcopy(p["qualifications"][0]))
+    elif change == "blank_key":
+        p["qualifications"][0]["key"] = " "
+    elif change == "blank_value":
+        p["qualifications"][0]["value"] = " "
+    elif change == "null_reported":
+        p["mode"] = "reported"
+    elif change == "unknown_reporter":
+        p["reporter_mention"] = "unknown"
+    elif change == "unknown_referent":
+        p["referent_mentions"] = ["unknown"]
+    if change:
+        with pytest.raises(ValueError):
+            assessment.verify_qualification_materialization(raw, host)
+    else:
+        assessment.verify_qualification_materialization(raw, host)
+
+
+def test_actual_native_schema_rejects_reported_null_without_local_validator():
+    import json
+    import jsonschema
+
+    record, _, _, packet = example()
+    schema = assessment.verify_native_schema(json.loads(record["wire"]), packet)
+    raw = json.loads(record["raw_output"])
+    raw["proposals"][0]["mode"] = "reported"
+    assert not jsonschema.Draft202012Validator(schema).is_valid(raw)
+    raw["proposals"][0]["reporter_mention"] = "m1"
+    assert jsonschema.Draft202012Validator(schema).is_valid(raw)
+
+
+@pytest.mark.parametrize("change", [None, "catalog", "names", "schema", "contract"])
+def test_v5_source_catalog_and_authority_remain_exact(change):
+    _, _, _, packet = example()
+    old = deepcopy(packet)
+    old.update(contract="qualified_source_handles_v2", output_schema={"v2": True})
+    if change == "catalog":
+        packet["source_catalog"]["units"][0]["text"] = "changed"
+    elif change == "names":
+        packet["world_identity_context"] = {"entities": ["changed"]}
+    elif change == "schema":
+        old["output_schema"] = packet["output_schema"]
+    elif change == "contract":
+        packet["contract"] = "old"
+    if change:
+        with pytest.raises(ValueError):
+            assessment.verify_v5_contrast(packet, old)
+    else:
+        assessment.verify_v5_contrast(packet, old)
+
+
+@pytest.mark.parametrize(
+    "change", [None, "merge", "reopen", "provider", "old_state", "old_identity"]
+)
+def test_delivery_proof_is_a_pinned_read_only_prerequisite(tmp_path, change):
+    import json
+
+    reviewed = "148bce42bc867a71ed59d4e64380c24951d8a94a"
+    delivery = {
+        "merge": assessment.BASE,
+        "reviewed_head": reviewed,
+        "retained_state_identical": True,
+        "ready": 200,
+        "schema": assessment.END,
+    }
+    reopen = {
+        "merge": assessment.BASE,
+        "reviewed_head": reviewed,
+        "retained_state_identical": True,
+        "ordinary_reload_verified": True,
+        "four_notes_and_saved_reflection_preserved": True,
+    }
+    replay = {
+        "runtime_head": reviewed,
+        "read_only_connections": True,
+        "current_renderer_calls": 0,
+        "historical_parser_calls": 0,
+        "provider_preparation_calls": 0,
+        "app_native_files_prior_evidence_and_v5_unchanged": True,
+        "operations": [
+            {"operation_id": key, "state": "failed", "exact_read_and_replay": True}
+            for key in sorted(assessment.RETAINED_OPERATIONS)
+        ],
+    }
+    if change == "merge":
+        delivery["merge"] = "other"
+    elif change == "reopen":
+        reopen["ordinary_reload_verified"] = False
+    elif change == "provider":
+        replay["provider_preparation_calls"] = 1
+    elif change == "old_state":
+        replay["operations"][0]["state"] = "completed"
+    elif change == "old_identity":
+        replay["operations"][0]["operation_id"] = "other"
+    for name, value in (
+        ("delivery-proof", delivery),
+        ("ordinary-reopen-proof", reopen),
+        ("actual-four-failure-replay", replay),
+    ):
+        (tmp_path / (name + ".json")).write_text(json.dumps(value))
+    if change:
+        with pytest.raises(ValueError):
+            assessment.declared_delivery_proof(tmp_path)
+    else:
+        assert len(assessment.declared_delivery_proof(tmp_path)) == 3
+
+
+def test_reprojected_native_schema_cannot_hide_missing_reporter_dependency():
+    import json
+    from generationengine.utils.schema_utils import make_schema_strict
+
+    record, _, _, packet = example()
+    packet["output_schema"]["$defs"]["ReportedStatement"]["properties"][
+        "reporter_mention"
+    ] = {"type": ["string", "null"]}
+    body = json.loads(record["wire"])
+    body["text"]["format"]["schema"] = make_schema_strict(
+        json.loads(canonical(packet["output_schema"]))
+    )
+    with pytest.raises(ValueError, match="permits reported/null"):
+        assessment.verify_native_schema(body, packet)
+
+
+def test_multiple_unicode_qualifications_survive_without_other_batch_changes():
+    import json
+
+    record, _, _, _ = example()
+    raw = json.loads(record["raw_output"])
+    host = deepcopy(record["result"]["batch"])
+    raw["proposals"][0]["qualifications"].append(
+        {"key": "uncertainty", "value": "é🦉 remains unknown"}
+    )
+    host["proposals"][0]["qualifications"]["uncertainty"] = "é🦉 remains unknown"
+    assessment.verify_qualification_materialization(raw, host)
+    host["proposals"][0]["meaning"] = "different interpretation"
+    with pytest.raises(ValueError, match="materialization differs"):
+        assessment.verify_qualification_materialization(raw, host)

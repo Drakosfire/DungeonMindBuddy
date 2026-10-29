@@ -20,16 +20,24 @@ from uuid import uuid4
 from . import q01_native_answer_proof as answer
 from . import q01_native_fixture_proof as fixture
 
-AUTHORITY = "daf766b91e87f4fd33e281dc84de575a9ad0010c"
-BASE = "9fca5958e33c7b36cdd2fc77010b85b8343b50bf"
+AUTHORITY = "9bd6bd837c88c7a9f5c9dfc06bfafbdac7d3d88a"
+BASE = "f86eb9152b61c60977acf3b2ff8592e999719d3c"
 SOURCE_ACCESS_AUTHORITY = "178f43153e4e13c1444e693a8830d3306fa96ff0"
-CASE = "s8-qualified-proposals-v5"
+CASE = "s8-qualified-proposals-v6"
 START = "20261029_0093"
 END = "20261029_0093"
 OUTPUT_RESERVE = 128_000
 V2_PREFLIGHT = "237a23221e439102735bccb9d7ffef87c8b89314a724f6a14bd681d79c4f1f63"
 V3_PREFLIGHT = "c27c66e4e34b05457c19e4ae41847a12d75c0700fb9c86af0ed3d2602619a557"
 V4_PREFLIGHT = "772bb2529d8ab3dee7df89fe7288f8b2c62666ac45b60feb70ebdb74af6d45b8"
+V5_PREFLIGHT = "98ea4ac71d98311b92cdfa53fef974e94e916d79795913452cd67109c972d3b3"
+RETAINED_OPERATIONS = {
+    "13744ada-d20c-437b-a405-04950ad703b2",
+    "d7a8ec1d-4734-4898-aebb-81e7718506e2",
+    "bdd89481-e884-4867-9e26-be5bcd093196",
+    "3eb3b544-d7a9-4669-b3bb-6e46203b76af",
+}
+SCHEMA_NAME = "qualified_source_propositions_v3"
 GE_REF = "e9366efad89b76ad0a62b1efacb0d8353120af0d"
 GE_ROOT = Path(
     "/home/drakosfire/.local/state/dungeonmindbuddy/runtime-dependencies/generationengine-e9366ef"
@@ -252,7 +260,7 @@ def verify_catalog(packet, source):
 
     catalog = packet["source_catalog"]
     require(
-        packet.get("contract") == "qualified_source_handles_v2"
+        packet.get("contract") == "qualified_source_handles_v3"
         and "source" not in packet,
         "source-handle contract differs or source duplicated",
     )
@@ -378,6 +386,111 @@ def verify_materialization(result, packet, source):
     )
 
 
+def verify_qualification_materialization(raw_batch, host_batch):
+    """Only the declared qualification representation may change in host output."""
+    from copy import deepcopy
+
+    expected = deepcopy(raw_batch)
+    mentions = {m["mention_id"] for m in raw_batch["mentions"]}
+    for proposal in expected["proposals"]:
+        reporter = proposal["reporter_mention"]
+        require(
+            reporter is None or (reporter.strip() and reporter in mentions),
+            "invalid reporter reference",
+        )
+        require(
+            proposal["mode"] != "reported" or reporter is not None,
+            "reported proposal lacks reporter",
+        )
+        require(not set(proposal["referent_mentions"]) - mentions, "unknown referent")
+        pairs = proposal["qualifications"]
+        require(bool(pairs), "empty qualifications")
+        keys = [pair["key"] for pair in pairs]
+        require(
+            len(keys) == len(set(keys))
+            and all(
+                set(pair) == {"key", "value"}
+                and pair["key"].strip()
+                and pair["value"].strip()
+                for pair in pairs
+            ),
+            "blank or duplicate qualification pair",
+        )
+        proposal["qualifications"] = {pair["key"]: pair["value"] for pair in pairs}
+    require(
+        expected == host_batch, "wire-to-host qualification materialization differs"
+    )
+
+
+def verify_native_schema(body, packet):
+    """Compare exact GE projection and independently inspect its structural contract."""
+    from generationengine.utils.schema_utils import make_schema_strict
+
+    schema = make_schema_strict(json.loads(fixture.canonical(packet["output_schema"])))
+    expected = {
+        "format": {
+            "type": "json_schema",
+            "name": SCHEMA_NAME,
+            "schema": schema,
+            "strict": True,
+        }
+    }
+    require(body.get("text") == expected, "native strict schema/name differs")
+    require(
+        schema.get("type") == "object" and "anyOf" not in schema,
+        "native root must be object",
+    )
+
+    def inspect(node):
+        if isinstance(node, dict):
+            if node.get("type") == "object":
+                require(
+                    node.get("additionalProperties") is False
+                    and node.get("required") == list(node.get("properties", {})),
+                    "native object is not closed and fully required",
+                )
+            for child in node.values():
+                inspect(child)
+        elif isinstance(node, list):
+            for child in node:
+                inspect(child)
+
+    inspect(schema)
+    # Evaluate actual native branches, independently of Pydantic post-validators.
+    import jsonschema
+
+    items = schema["properties"]["proposals"]["items"]
+    require("anyOf" in items, "native proposal mode branches missing")
+    validator = jsonschema.Draft202012Validator(
+        {"$defs": schema.get("$defs", {}), **items}
+    )
+    sample = {
+        "proposal_id": "p",
+        "source_unit_ids": ["u1"],
+        "context_unit_ids": [],
+        "meaning": "A qualified assertion",
+        "referent_mentions": ["m"],
+        "uncertainty": [],
+        "qualifications": [{"key": "source", "value": "recap"}],
+        "episode": "e",
+        "unresolved": [],
+        "mode": "reported",
+        "reporter_mention": None,
+    }
+    require(not validator.is_valid(sample), "native schema permits reported/null")
+    for mode, reporter in (
+        ("reported", "m"),
+        ("narrator", None),
+        ("uncertain", None),
+        ("narrator", "m"),
+    ):
+        require(
+            validator.is_valid(sample | {"mode": mode, "reporter_mention": reporter}),
+            "native schema rejects valid attribution shape",
+        )
+    return schema
+
+
 def verify_sdk_output(record, observed):
     require(observed["sdk_entries"] == 1, "exactly one actual SDK entry required")
     if record["state"] != "completed":
@@ -478,6 +591,7 @@ def verify_record(record, request, source, packet):
         and body.get("max_output_tokens") == OUTPUT_RESERVE,
         "provider input differs",
     )
+    native_schema = verify_native_schema(body, packet)
     outcomes = [e["outcome"] for e in record["lifecycle"]]
     require(
         outcomes
@@ -498,6 +612,14 @@ def verify_record(record, request, source, packet):
             record["result"] == parse(record["raw_output"], packet["source_catalog"]),
             "retained parsed output differs",
         )
+        import jsonschema
+
+        raw_batch = strict_json(record["raw_output"])
+        require(
+            jsonschema.Draft202012Validator(native_schema).is_valid(raw_batch),
+            "completed raw output violates actual native schema",
+        )
+        verify_qualification_materialization(raw_batch, record["result"]["batch"])
         verify_materialization(record["result"], packet, source)
     else:
         require(
@@ -594,6 +716,24 @@ def verify_protocol_contrast(packet, old_packet):
     )
 
 
+def verify_v5_contrast(packet, old_packet):
+    for key in (
+        "source_catalog",
+        "logical_source",
+        "authority",
+        "scope",
+        "world_identity_context",
+    ):
+        require(packet[key] == old_packet[key], "v5 source/context differs: " + key)
+    require(
+        old_packet["contract"] == "qualified_source_handles_v2"
+        and packet["contract"] == "qualified_source_handles_v3"
+        and packet["output_schema"] != old_packet["output_schema"]
+        and set(packet) == set(old_packet),
+        "unexpected v6 protocol contrast",
+    )
+
+
 def row_inventory(dsn):
     """One repeatable-read snapshot, retaining exact operation identity too."""
     from psycopg import sql
@@ -657,6 +797,7 @@ def capture(root):
                 "s8-qualified-proposals-v2",
                 "s8-qualified-proposals-v3",
                 "s8-qualified-proposals-v4",
+                "s8-qualified-proposals-v5",
             )
         },
     }
@@ -667,9 +808,54 @@ def unchanged(before, after):
         require(before[key] == after[key], "read-only state changed: " + key)
 
 
-def preflight(root, receipt_path, schema=START):
+def declared_delivery_proof(root=None):
+    root = (
+        Path(root)
+        if root is not None
+        else Path(
+            "/home/drakosfire/.local/state/dungeonmindbuddy/runtime-evidence/proposal-provider-schema-20261029"
+        )
+    )
+    names = ("delivery-proof", "actual-four-failure-replay", "ordinary-reopen-proof")
+    data = {name: json.loads((root / (name + ".json")).read_text()) for name in names}
+    delivery, replay, reopen = (data[name] for name in names)
+    reviewed = "148bce42bc867a71ed59d4e64380c24951d8a94a"
+    require(
+        delivery["merge"] == reopen["merge"] == BASE
+        and delivery["reviewed_head"]
+        == reopen["reviewed_head"]
+        == replay["runtime_head"]
+        == reviewed
+        and delivery["retained_state_identical"] is True
+        and reopen["retained_state_identical"] is True
+        and delivery["ready"] == 200
+        and delivery["schema"] == END
+        and reopen["ordinary_reload_verified"] is True
+        and reopen["four_notes_and_saved_reflection_preserved"] is True,
+        "delivered runtime/reopen proof differs",
+    )
+    require(
+        replay["read_only_connections"] is True
+        and replay["current_renderer_calls"]
+        == replay["historical_parser_calls"]
+        == replay["provider_preparation_calls"]
+        == 0
+        and replay["app_native_files_prior_evidence_and_v5_unchanged"] is True
+        and len(replay["operations"]) == 4
+        and {o["operation_id"] for o in replay["operations"]} == RETAINED_OPERATIONS
+        and all(
+            o["state"] == "failed" and o["exact_read_and_replay"] is True
+            for o in replay["operations"]
+        ),
+        "historical failure delivery proof differs",
+    )
+    return {name: fixture.digest(value) for name, value in data.items()}
+
+
+def preflight(root, receipt_path, schema=START, *, operation_id=None):
     ge = declared_ge_inventory()
     sdk = declared_sdk_inventory()
+    delivery = declared_delivery_proof()
     import dungeonmind
     import worldkeeper
     from psycopg.conninfo import make_conninfo
@@ -773,6 +959,15 @@ def preflight(root, receipt_path, schema=START):
     require(fixture.digest(previous_v4) == V4_PREFLIGHT, "frozen v4 preflight differs")
     for prior in (previous, previous_v3, previous_v4):
         verify_protocol_contrast(packet, prior["input"])
+    previous_v5 = json.loads(
+        (
+            root.parent
+            / "native-review-context-v2/s8-qualified-proposals-v5"
+            / ("preflight-" + V5_PREFLIGHT + ".json")
+        ).read_text()
+    )
+    require(fixture.digest(previous_v5) == V5_PREFLIGHT, "frozen v5 preflight differs")
+    verify_v5_contrast(packet, previous_v5["input"])
     verify_catalog(packet, opened.body_text)
     budget = service._producer_budget()
     require(
@@ -786,6 +981,19 @@ def preflight(root, receipt_path, schema=START):
             ).fetchone()["version_num"]
             == schema,
             "APP schema differs",
+        )
+        operations = conn.execute(
+            "SELECT operation_id::text,payload FROM ingest.statement_proposal_operation"
+        ).fetchall()
+        retained = [o for o in operations if o["operation_id"] != operation_id]
+        require(
+            len(retained) == 4
+            and {o["operation_id"] for o in retained} == RETAINED_OPERATIONS
+            and all(
+                o["payload"]["state"] == "failed" and not o["payload"]["reviews"]
+                for o in retained
+            ),
+            "original four failed operation inventory differs",
         )
         # Exact retained APP source version, not only a file of the same name.
         row = conn.execute(
@@ -809,6 +1017,7 @@ def preflight(root, receipt_path, schema=START):
     )
     return {
         "authority": AUTHORITY,
+        "delivery_proof": delivery,
         "source_access_authority": SOURCE_ACCESS_AUTHORITY,
         "base": BASE,
         "harness_head": subprocess.check_output(
@@ -824,6 +1033,7 @@ def preflight(root, receipt_path, schema=START):
         "v2_preflight_sha256": V2_PREFLIGHT,
         "v3_preflight_sha256": V3_PREFLIGHT,
         "v4_preflight_sha256": V4_PREFLIGHT,
+        "v5_preflight_sha256": V5_PREFLIGHT,
         "request": request.model_dump(mode="json"),
         "input": packet,
         "state": capture(root),
@@ -974,10 +1184,14 @@ def main(argv=None):
         )
         record = response.json()
         save(case, "operation", record)
-        post_dependencies = {
-            "generationengine": declared_ge_inventory(),
-            "openai_sdk": declared_sdk_inventory(),
-        }
+        postflight = preflight(
+            root, args.source_receipt, END, operation_id=record["operation_id"]
+        )
+        post_dependencies = postflight["dependencies"]
+        require(
+            postflight["runtime"] == frozen["runtime"],
+            "runtime changed during operation",
+        )
         save(case, "post-provider-dependencies", post_dependencies)
         require(
             all(
@@ -992,9 +1206,9 @@ def main(argv=None):
             {
                 "changed": [
                     "instructions",
-                    "catalog input",
+                    "provider native strict schema",
                     "output schema",
-                    "handle output and host materialization",
+                    "wire qualification pairs to lossless host dictionary",
                 ],
                 "unchanged": [
                     "source body and identity",
@@ -1008,6 +1222,7 @@ def main(argv=None):
                 "v2_preflight_sha256": V2_PREFLIGHT,
                 "v3_preflight_sha256": V3_PREFLIGHT,
                 "v4_preflight_sha256": V4_PREFLIGHT,
+                "v5_preflight_sha256": V5_PREFLIGHT,
             },
         )
         with fixture.readonly(connection["app_dsn"]) as conn:
