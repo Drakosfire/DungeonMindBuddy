@@ -20,15 +20,16 @@ from uuid import uuid4
 from . import q01_native_answer_proof as answer
 from . import q01_native_fixture_proof as fixture
 
-AUTHORITY = "52056b8e3bf0ae00558c5cce772281f8f386b93f"
-BASE = "958f2bed133687a02976c1cff4ad739603239725"
+AUTHORITY = "daf766b91e87f4fd33e281dc84de575a9ad0010c"
+BASE = "9fca5958e33c7b36cdd2fc77010b85b8343b50bf"
 SOURCE_ACCESS_AUTHORITY = "178f43153e4e13c1444e693a8830d3306fa96ff0"
-CASE = "s8-qualified-proposals-v4"
+CASE = "s8-qualified-proposals-v5"
 START = "20261029_0093"
 END = "20261029_0093"
 OUTPUT_RESERVE = 128_000
 V2_PREFLIGHT = "237a23221e439102735bccb9d7ffef87c8b89314a724f6a14bd681d79c4f1f63"
 V3_PREFLIGHT = "c27c66e4e34b05457c19e4ae41847a12d75c0700fb9c86af0ed3d2602619a557"
+V4_PREFLIGHT = "772bb2529d8ab3dee7df89fe7288f8b2c62666ac45b60feb70ebdb74af6d45b8"
 GE_REF = "e9366efad89b76ad0a62b1efacb0d8353120af0d"
 GE_ROOT = Path(
     "/home/drakosfire/.local/state/dungeonmindbuddy/runtime-dependencies/generationengine-e9366ef"
@@ -221,29 +222,159 @@ def assert_source_inspection(opened):
 def verify_eligibility(record, extent):
     expected = {}
     if record["result"] is not None:
-        for key, location in record["result"]["locations"].items():
-            matches = [
+        for key, passages in record["result"]["passages"].items():
+            candidates = [
                 {
-                    **match,
-                    "eligibility": "eligible_for_review"
-                    if extent["start_byte"]
-                    <= match["start_byte"]
-                    < match["end_byte"]
-                    <= extent["end_byte"]
-                    else "outside_registered_evidence",
+                    "unit_id": u["unit_id"],
+                    "start_byte": max(u["start_byte"], extent["start_byte"]),
+                    "end_byte": min(u["end_byte"], extent["end_byte"]),
                 }
-                for match in location["matches"]
+                for u in passages["primary"]
+                if max(u["start_byte"], extent["start_byte"])
+                < min(u["end_byte"], extent["end_byte"])
             ]
             expected[key] = {
-                "status": "ambiguous"
-                if len(matches) != 1
-                else matches[0]["eligibility"],
-                "matches": matches,
+                "status": "requires_explicit_clause_selection"
+                if candidates
+                else "outside_registered_evidence",
+                "candidate_extents": candidates,
                 "semantic_acceptance": "not_established",
             }
     require(
         record.get("review_eligibility") == expected,
         "host review eligibility differs from actual registered span",
+    )
+
+
+def verify_catalog(packet, source):
+    """Independent physical partition/commitment proof, not the product validator."""
+    import hashlib
+
+    catalog = packet["source_catalog"]
+    require(
+        packet.get("contract") == "qualified_source_handles_v2"
+        and "source" not in packet,
+        "source-handle contract differs or source duplicated",
+    )
+    require(
+        catalog["selector_policy"] == "blank_line_units_v1", "selector policy differs"
+    )
+    raw = source.encode("utf-8")
+    require(
+        raw.strip(b" \t\r\n") and catalog["body_sha256"] == fixture.sha(raw),
+        "catalog body differs",
+    )
+    identity = {key: packet[key] for key in ("logical_source", "authority", "scope")}
+    require(catalog["source_identity"] == identity, "catalog source identity differs")
+    committed = {
+        key: value for key, value in catalog.items() if key != "catalog_sha256"
+    }
+    require(
+        fixture.digest(committed) == catalog["catalog_sha256"],
+        "catalog commitment differs",
+    )
+    # Derive physical lines independently, without the runtime regex/catalog helper.
+    lines, start, cursor = [], 0, 0
+    while cursor < len(raw):
+        if raw[cursor] in (10, 13):
+            cursor += 2 if raw[cursor : cursor + 2] == b"\r\n" else 1
+            lines.append((start, cursor))
+            start = cursor
+        else:
+            cursor += 1
+    if start < len(raw):
+        lines.append((start, len(raw)))
+    boundaries, seen, blank_before = [0], False, False
+    for start, end in lines:
+        blank = not raw[start:end].rstrip(b"\r\n").strip(b" \t")
+        if not blank and seen and blank_before:
+            boundaries.append(start)
+        seen = seen or not blank
+        blank_before = blank
+    units = catalog["units"]
+    require(len(units) == len(boundaries), "catalog partition count differs")
+    for ordinal, (unit, start, end) in enumerate(
+        zip(units, boundaries, boundaries[1:] + [len(raw)]), 1
+    ):
+        expected = {
+            "unit_id": f"u{ordinal}",
+            "start_byte": start,
+            "end_byte": end,
+            "sha256": hashlib.sha256(raw[start:end]).hexdigest(),
+            "text": raw[start:end].decode("utf-8"),
+        }
+        require(unit == expected, "catalog descriptor or partition differs")
+    require(
+        "".join(u["text"] for u in units) == source, "catalog reconstruction differs"
+    )
+    return {u["unit_id"]: u for u in units}
+
+
+def verify_materialization(result, packet, source):
+    """Check retained selections/accounting separately from semantic fact recall."""
+    units = verify_catalog(packet, source)
+    batch = result["batch"]
+    require(
+        result["contract"] == batch["contract"] == packet["contract"]
+        and batch["catalog_sha256"] == packet["source_catalog"]["catalog_sha256"],
+        "output commitment differs",
+    )
+
+    def selected(ids):
+        require(
+            len(ids) == len(set(ids)) and not set(ids) - units.keys(),
+            "invalid selected handles",
+        )
+        return [u for key, u in units.items() if key in ids]
+
+    mentions = {
+        m["mention_id"]: selected(m["source_unit_ids"]) for m in batch["mentions"]
+    }
+    require(len(mentions) == len(batch["mentions"]), "duplicate mentions")
+    passages, accounting = {}, {key: set() for key in units}
+    for p in batch["proposals"]:
+        require(
+            p["proposal_id"] not in passages and p["source_unit_ids"],
+            "duplicate or empty proposal selection",
+        )
+        require(
+            not set(p["source_unit_ids"]) & set(p["context_unit_ids"]),
+            "primary/context overlap",
+        )
+        passages[p["proposal_id"]] = {
+            "primary": selected(p["source_unit_ids"]),
+            "context": selected(p["context_unit_ids"]),
+        }
+        for key in p["source_unit_ids"]:
+            accounting[key].add(p["proposal_id"])
+    require(
+        result["passages"] == passages and result["mention_passages"] == mentions,
+        "host materialization differs",
+    )
+    dispositions = batch["dispositions"]
+    require(
+        len(dispositions) == len(units)
+        and {d["unit_id"] for d in dispositions} == units.keys(),
+        "missing or duplicate unit accounting",
+    )
+    for d in dispositions:
+        expected = accounting[d["unit_id"]]
+        require(
+            len(d["proposal_ids"]) == len(set(d["proposal_ids"]))
+            and set(d["proposal_ids"]) == expected
+            and d["status"] in {"proposed", "unresolved", "skipped"}
+            and (d["status"] == "proposed") == bool(expected)
+            and bool(d["reason"].strip()),
+            "inconsistent unit accounting",
+        )
+    require(
+        result["coverage"]
+        == {
+            "kind": "model_declared_processing_accounting",
+            "semantic_completeness": "not_established",
+        }
+        and result["embedded_content_factive"] is False,
+        "processing accounting promoted to semantic acceptance",
     )
 
 
@@ -328,9 +459,10 @@ def verify_record(record, request, source, packet):
         "operation owner/intent differs",
     )
     require(
-        record["input"] == packet and packet["source"] == source,
+        record["input"] == packet,
         "actual source/context input differs",
     )
+    verify_catalog(packet, source)
     require(not record["reviews"], "extraction assessment cannot select or prepare")
     wire = record["wire"]
     require(
@@ -363,9 +495,10 @@ def verify_record(record, request, source, packet):
             "completion lacks actual response",
         )
         require(
-            record["result"] == parse(record["raw_output"], source),
+            record["result"] == parse(record["raw_output"], packet["source_catalog"]),
             "retained parsed output differs",
         )
+        verify_materialization(record["result"], packet, source)
     else:
         require(
             record["state"] == "failed" and record["result"] is None,
@@ -425,10 +558,9 @@ def runtime_inventory(root=None, ref=BASE):
     return result
 
 
-def instruction_contrast(current_wire, old_wire):
+def instruction_contrast(current_wire, old_wire, expected_instructions):
     from graph_memory.extraction.qualified_statement_proposals import (
         strict_json,
-        INSTRUCTIONS,
     )
 
     old, current = strict_json(old_wire), strict_json(current_wire)
@@ -436,12 +568,29 @@ def instruction_contrast(current_wire, old_wire):
         old.get("max_output_tokens") == OUTPUT_RESERVE, "v3 capacity baseline differs"
     )
     require(
-        old.get("instructions") != INSTRUCTIONS,
+        old.get("instructions") != expected_instructions,
         "v4 must use the delivered literal-copy instruction change",
     )
     require(
-        current == old | {"instructions": INSTRUCTIONS},
+        current == old | {"instructions": expected_instructions},
         "literal-copy experiment changed something besides declared instructions",
+    )
+
+
+def verify_protocol_contrast(packet, old_packet):
+    source = old_packet["source"]
+    verify_catalog(packet, source)
+    for key in ("logical_source", "authority", "scope", "world_identity_context"):
+        require(
+            packet[key] == old_packet[key], "source/context contrast differs: " + key
+        )
+    require(
+        set(packet) == (set(old_packet) - {"source"}) | {"contract", "source_catalog"},
+        "unexpected protocol input field",
+    )
+    require(
+        packet["output_schema"] != old_packet["output_schema"],
+        "new protocol schema did not change",
     )
 
 
@@ -507,6 +656,7 @@ def capture(root):
                 "s8-qualified-proposals-v1",
                 "s8-qualified-proposals-v2",
                 "s8-qualified-proposals-v3",
+                "s8-qualified-proposals-v4",
             )
         },
     }
@@ -604,10 +754,7 @@ def preflight(root, receipt_path, schema=START):
     previous = json.loads(
         (v2_case / ("preflight-" + V2_PREFLIGHT + ".json")).read_text()
     )
-    require(
-        fixture.digest(previous) == V2_PREFLIGHT and packet == previous["input"],
-        "v4 source/context/model schema input differs from frozen v2",
-    )
+    require(fixture.digest(previous) == V2_PREFLIGHT, "frozen v2 preflight differs")
     previous_v3 = json.loads(
         (
             root.parent
@@ -615,10 +762,18 @@ def preflight(root, receipt_path, schema=START):
             / ("preflight-" + V3_PREFLIGHT + ".json")
         ).read_text()
     )
-    require(
-        fixture.digest(previous_v3) == V3_PREFLIGHT and packet == previous_v3["input"],
-        "v4 source/context/model schema input differs from frozen v3",
+    require(fixture.digest(previous_v3) == V3_PREFLIGHT, "frozen v3 preflight differs")
+    previous_v4 = json.loads(
+        (
+            root.parent
+            / "native-review-context-v2/s8-qualified-proposals-v4"
+            / ("preflight-" + V4_PREFLIGHT + ".json")
+        ).read_text()
     )
+    require(fixture.digest(previous_v4) == V4_PREFLIGHT, "frozen v4 preflight differs")
+    for prior in (previous, previous_v3, previous_v4):
+        verify_protocol_contrast(packet, prior["input"])
+    verify_catalog(packet, opened.body_text)
     budget = service._producer_budget()
     require(
         budget["outputReserveTokens"] == OUTPUT_RESERVE,
@@ -668,6 +823,7 @@ def preflight(root, receipt_path, schema=START):
         "producer_budget": budget,
         "v2_preflight_sha256": V2_PREFLIGHT,
         "v3_preflight_sha256": V3_PREFLIGHT,
+        "v4_preflight_sha256": V4_PREFLIGHT,
         "request": request.model_dump(mode="json"),
         "input": packet,
         "state": capture(root),
@@ -830,20 +986,28 @@ def main(argv=None):
             ),
             "provider dependency identity changed during the operation",
         )
-        old_wire = json.loads(
-            (
-                root.parent
-                / "native-review-context-v2/s8-qualified-proposals-v3/operation.json"
-            ).read_text()
-        )["wire"]
-        instruction_contrast(record["wire"], old_wire)
         save(
             case,
-            "instruction-contrast",
+            "protocol-contrast",
             {
-                "only_wire_change": "instructions",
-                "output_reserve_unchanged": OUTPUT_RESERVE,
+                "changed": [
+                    "instructions",
+                    "catalog input",
+                    "output schema",
+                    "handle output and host materialization",
+                ],
+                "unchanged": [
+                    "source body and identity",
+                    "scope",
+                    "authority",
+                    "authorized native names",
+                    "model",
+                    "output reserve",
+                ],
+                "output_reserve": OUTPUT_RESERVE,
+                "v2_preflight_sha256": V2_PREFLIGHT,
                 "v3_preflight_sha256": V3_PREFLIGHT,
+                "v4_preflight_sha256": V4_PREFLIGHT,
             },
         )
         with fixture.readonly(connection["app_dsn"]) as conn:
@@ -854,7 +1018,10 @@ def main(argv=None):
         save(case, "stored-operation", stored)
         verify_stored_operation(stored, record)
         verify_record(
-            record, frozen["request"], frozen["input"]["source"], frozen["input"]
+            record,
+            frozen["request"],
+            "".join(u["text"] for u in frozen["input"]["source_catalog"]["units"]),
+            frozen["input"],
         )
         verify_eligibility(record, frozen["registered_extent"])
         verify_sdk_output(record, observed)

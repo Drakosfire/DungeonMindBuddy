@@ -12,6 +12,7 @@ from graph_memory.extraction.qualified_statement_proposals import (
     digest,
     parse,
 )
+from graph_memory.extraction.statement_source_catalog import catalog, CONTRACT
 
 
 def source(monkeypatch, start=0, end=6172):
@@ -55,12 +56,24 @@ def test_authorized_body_inspection_does_not_require_full_evidence_extent(monkey
 def test_eligibility_cannot_promote_inspection_to_evidence(inside):
     record, _, _, _ = example()
     extent = {"start_byte": 0 if inside else 100, "end_byte": 100 if inside else 120}
-    match = record["result"]["locations"]["p1"]["matches"][0]
-    eligibility = "eligible_for_review" if inside else "outside_registered_evidence"
+    unit = record["result"]["passages"]["p1"]["primary"][0]
+    candidates = (
+        [
+            {
+                "unit_id": unit["unit_id"],
+                "start_byte": max(unit["start_byte"], extent["start_byte"]),
+                "end_byte": min(unit["end_byte"], extent["end_byte"]),
+            }
+        ]
+        if inside
+        else []
+    )
     record["review_eligibility"] = {
         "p1": {
-            "status": eligibility,
-            "matches": [{**match, "eligibility": eligibility}],
+            "status": "requires_explicit_clause_selection"
+            if inside
+            else "outside_registered_evidence",
+            "candidate_extents": candidates,
             "semantic_acceptance": "not_established",
         }
     }
@@ -131,13 +144,26 @@ def test_app_conservation_rejects_unleased_changes(change):
 def example():
     text = "A heard a sound."
     request = {"operation_id": "operation", "source_sha256": "source"}
-    packet = {"source": text, "world_identity_context": {"entities": []}}
+    packet = {
+        "contract": CONTRACT,
+        "logical_source": "local-source",
+        "authority": {},
+        "scope": {},
+        "world_identity_context": {"entities": []},
+        "output_schema": {"v2": True},
+    }
+    packet["source_catalog"] = catalog(
+        text, {key: packet[key] for key in ("logical_source", "authority", "scope")}
+    )
     batch = {
-        "mentions": [{"mention_id": "m1", "label": "A", "quote": "A"}],
+        "contract": CONTRACT,
+        "catalog_sha256": packet["source_catalog"]["catalog_sha256"],
+        "mentions": [{"mention_id": "m1", "label": "A", "source_unit_ids": ["u1"]}],
         "proposals": [
             {
                 "proposal_id": "p1",
-                "quote": text,
+                "source_unit_ids": ["u1"],
+                "context_unit_ids": [],
                 "meaning": "A heard a sound.",
                 "mode": "narrator",
                 "reporter_mention": None,
@@ -145,8 +171,15 @@ def example():
                 "uncertainty": [],
                 "qualifications": {"perception": "heard"},
                 "episode": "e1",
-                "context_quotes": [],
                 "unresolved": [],
+            }
+        ],
+        "dispositions": [
+            {
+                "unit_id": "u1",
+                "status": "proposed",
+                "proposal_ids": ["p1"],
+                "reason": "heard event",
             }
         ],
         "limitations": [],
@@ -173,7 +206,7 @@ def example():
         "state": "completed",
         "failure": None,
         "raw_output": raw,
-        "result": parse(raw, text),
+        "result": parse(raw, packet["source_catalog"]),
     }
     return record, request, text, packet
 
@@ -455,20 +488,25 @@ def test_instruction_contrast_changes_only_the_declared_instructions(change):
         "instructions": "same instructions",
         "max_output_tokens": 128000,
     }
-    current = old | {"instructions": INSTRUCTIONS}
+    historical_instructions = "frozen historical v4 instructions"
+    current = old | {"instructions": historical_instructions}
     if change == "old_capacity":
         old["max_output_tokens"] = 8192
     elif change == "capacity":
         current["max_output_tokens"] = 8192
     elif change == "no_instruction_change":
-        old["instructions"] = INSTRUCTIONS
+        old["instructions"] = historical_instructions
     elif change:
         current[change] = "changed"
     if change:
         with pytest.raises(ValueError):
-            assessment.instruction_contrast(canonical(current), canonical(old))
+            assessment.instruction_contrast(
+                canonical(current), canonical(old), historical_instructions
+            )
     else:
-        assessment.instruction_contrast(canonical(current), canonical(old))
+        assessment.instruction_contrast(
+            canonical(current), canonical(old), historical_instructions
+        )
 
 
 def test_v3_does_not_offer_a_migration_command(tmp_path):
@@ -608,3 +646,168 @@ def test_sdk_failure_precedes_database_capture(tmp_path, monkeypatch):
     with pytest.raises(ValueError, match="wrong SDK import"):
         assessment.main(["--clone-root", str(tmp_path), "--source-receipt", "unused"])
     assert touched == [] and list(tmp_path.iterdir()) == []
+
+
+@pytest.mark.parametrize(
+    "change",
+    [
+        None,
+        "commitment",
+        "extent",
+        "text",
+        "identity",
+        "duplicate_source",
+        "missing_unit",
+        "policy",
+    ],
+)
+def test_independent_catalog_reconstruction_rejects_forgery(change):
+    _, _, text, packet = example()
+    c = packet["source_catalog"]
+    if change == "commitment":
+        c["catalog_sha256"] = "0" * 64
+    elif change == "extent":
+        c["units"][0]["end_byte"] -= 1
+    elif change == "text":
+        c["units"][0]["text"] = "fabricated"
+    elif change == "identity":
+        c["source_identity"]["logical_source"] = "different"
+    elif change == "duplicate_source":
+        packet["source"] = text
+    elif change == "missing_unit":
+        c["units"] = []
+    elif change == "policy":
+        c["selector_policy"] = "other"
+    if change:
+        with pytest.raises(ValueError):
+            assessment.verify_catalog(packet, text)
+    else:
+        assessment.verify_catalog(packet, text)
+
+
+@pytest.mark.parametrize(
+    "change",
+    [
+        None,
+        "handle",
+        "materialization",
+        "mention_passage",
+        "missing_accounting",
+        "wrong_accounting",
+        "semantic_credit",
+        "factive",
+    ],
+)
+def test_independent_materialization_and_accounting(change):
+    record, _, text, packet = example()
+    result = record["result"]
+    if change == "handle":
+        result["batch"]["proposals"][0]["source_unit_ids"] = ["unknown"]
+    elif change == "materialization":
+        result["passages"]["p1"]["primary"][0] = {"text": "truncated"}
+    elif change == "mention_passage":
+        result["mention_passages"]["m1"] = []
+    elif change == "missing_accounting":
+        result["batch"]["dispositions"] = []
+    elif change == "wrong_accounting":
+        result["batch"]["dispositions"][0]["proposal_ids"] = []
+    elif change == "semantic_credit":
+        result["coverage"]["semantic_completeness"] = "established"
+    elif change == "factive":
+        result["embedded_content_factive"] = True
+    if change:
+        with pytest.raises(ValueError):
+            assessment.verify_materialization(result, packet, text)
+    else:
+        assessment.verify_materialization(result, packet, text)
+
+
+def test_physical_partition_preserves_unicode_line_endings_and_intervening_sentence():
+    _, _, _, packet = example()
+    text = " \r\nFirst é. Intervening sentence. Last 🦉.\r\n\t\r\nSecond\u2028line.\r"
+    packet["source_catalog"] = catalog(
+        text, {key: packet[key] for key in ("logical_source", "authority", "scope")}
+    )
+    units = assessment.verify_catalog(packet, text)
+    assert len(units) == 2
+    assert "Intervening sentence." in units["u1"]["text"]
+    assert "\u2028" in units["u2"]["text"]
+
+
+def test_context_only_disposition_is_not_primary_extraction():
+    record, _, _, packet = example()
+    text = "A heard.\n\nB spoke."
+    packet["source_catalog"] = catalog(
+        text, {key: packet[key] for key in ("logical_source", "authority", "scope")}
+    )
+    batch = deepcopy(record["result"]["batch"])
+    batch["catalog_sha256"] = packet["source_catalog"]["catalog_sha256"]
+    batch["proposals"][0]["context_unit_ids"] = ["u2"]
+    batch["dispositions"].append(
+        {
+            "unit_id": "u2",
+            "status": "skipped",
+            "proposal_ids": [],
+            "reason": "context only",
+        }
+    )
+    result = parse(canonical(batch), packet["source_catalog"])
+    assessment.verify_materialization(result, packet, text)
+    result["batch"]["dispositions"][1].update(status="proposed", proposal_ids=["p1"])
+    with pytest.raises(ValueError):
+        assessment.verify_materialization(result, packet, text)
+
+
+@pytest.mark.parametrize("change", [None, "names", "source", "scope", "extra"])
+def test_protocol_contrast_preserves_source_and_authority(change):
+    _, _, text, packet = example()
+    old = {
+        key: deepcopy(packet[key])
+        for key in ("logical_source", "authority", "scope", "world_identity_context")
+    }
+    old.update(source=text, output_schema={"v1": True})
+    if change == "names":
+        packet["world_identity_context"] = {"entities": ["different"]}
+    elif change == "source":
+        old["source"] = "different"
+    elif change == "scope":
+        packet["scope"] = {"other": True}
+    elif change == "extra":
+        packet["extra"] = True
+    if change:
+        with pytest.raises(ValueError):
+            assessment.verify_protocol_contrast(packet, old)
+    else:
+        assessment.verify_protocol_contrast(packet, old)
+
+
+@pytest.mark.parametrize(
+    "change", ["extent", "text", "unit_digest", "ordinal", "split_nonblank"]
+)
+def test_rehashed_catalog_cannot_forge_physical_partition(change):
+    _, _, text, packet = example()
+    c = packet["source_catalog"]
+    if change == "extent":
+        c["units"][0]["start_byte"] = 1
+    elif change == "text":
+        c["units"][0]["text"] = "invented"
+    elif change == "unit_digest":
+        c["units"][0]["sha256"] = "0" * 64
+    elif change == "ordinal":
+        c["units"][0]["unit_id"] = "foreign"
+    else:
+        c["units"] = [
+            {
+                "unit_id": f"u{i + 1}",
+                "start_byte": a,
+                "end_byte": b,
+                "sha256": assessment.fixture.sha(text.encode()[a:b]),
+                "text": text[a:b],
+            }
+            for i, (a, b) in enumerate([(0, 2), (2, len(text))])
+        ]
+    c["catalog_sha256"] = digest(
+        {key: value for key, value in c.items() if key != "catalog_sha256"}
+    )
+    with pytest.raises(ValueError, match="descriptor or partition|partition count"):
+        assessment.verify_catalog(packet, text)
