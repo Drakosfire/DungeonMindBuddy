@@ -1,6 +1,8 @@
 # MEDIA — contextual image instructions and regeneration
 
-ACTIVE. PRIME activates the operator-requested serial slice after independent invariant critique approved the bounded direction. Base e12f5a1ce (fetched main); branch codex/contextual-image-edit in reused buddy-context-loop. Open ingestion1853/1855/1868,hosting1828 and held1764 checked; no overlapping paths. One capability/PR; no new checkout, environment, graph or task bus.
+MERGED / DELIVERED through PR1876 (merge dd612c41cd2bbe420d1b52f90e803c0590775f42). Independent review approved exact head e45cfd9849ddb8733467313fc33c90545fcabb9a after one corrected P2; CI passed and API/UI delivery preserved retained state. Ordinary local instruction recovery verified; external fal generation remains unverified pending the specific payload/destination permission. No live provider call has been made. Historical activation follows.
+
+PRIME activated the operator-requested serial slice after independent invariant critique approved the bounded direction. Base e12f5a1ce (fetched main); branch codex/contextual-image-edit in reused buddy-context-loop. Open ingestion1853/1855/1868,hosting1828 and held1764 checked; no overlapping paths. One capability/PR; no new checkout, environment, graph or task bus.
 
 ## User interaction and boundaries
 An authored image exposes a hover/focus/touch edit icon and small floating contextual menu: Image to image / New image, text instructions, explicit Generate, candidate preview, explicit Use this version. Shared popup owns presentation only; image adapter owns authorization, drafts, provider calls and exact-occurrence application. Preserve original, alt/width/collapse and other occurrences. No implicit publication or document Save.

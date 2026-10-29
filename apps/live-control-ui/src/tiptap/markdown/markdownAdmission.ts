@@ -409,14 +409,10 @@ function visitHeading(node: Heading, context: AdmissionContext, state: VisitorSt
   }
   if (allowsSourceFormChecks(context)) {
     const firstLine = spanLines(node, state)[0] ?? "";
-    if (!firstLine.startsWith("#")) {
-      if (/^\s{1,3}#/.test(firstLine)) {
-        warn(state, "Indented Markdown blocks and list continuations are not supported yet.", nodeStartLine(node));
-      } else {
-        // Setext heading: the parser established the heading; only its spelling is unsupported.
-        warn(state, "Setext-style headings are not supported; use ATX # headings.", nodeEndLine(node));
-      }
+    if (/^\s{1,3}#/.test(firstLine)) {
+      warn(state, "Indented Markdown blocks and list continuations are not supported yet.", nodeStartLine(node));
     }
+    // The AST already identifies Setext headings; export uses canonical ATX spelling.
   }
   return { type: "heading", attrs: { level: node.depth }, content: visitInlineChildren(node.children, state) };
 }
