@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Annotated
+from typing import Annotated, Literal
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 from pydantic.alias_generators import to_camel
 
@@ -34,6 +34,7 @@ class IngestSourceSelection(SelectionModel):
 
 
 class IngestSelectionContextRequest(SelectionModel):
+    schema_: Literal["dmb_ingest_native_review_request_v2"] = Field(alias="schema")
     expected_run_revision: int = Field(ge=1)
     expected_candidate_sha256: Digest
     expected_source_sha256: Digest
@@ -58,6 +59,7 @@ class IngestSelectionContextRequest(SelectionModel):
 class AgentKnowledgeSelection(SelectionModel):
     """Exact submitted selector; resolved context is always rebuilt by Buddy."""
 
+    schema_: Literal["dmb_agent_native_review_selection_v2"] = Field(alias="schema")
     run_id: RecordId
     context_request: IngestSelectionContextRequest
     expected_context_sha256: Digest
