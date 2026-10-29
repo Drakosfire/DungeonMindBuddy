@@ -497,12 +497,34 @@ describe("markdownToTiptapDoc", () => {
     ]));
   });
 
-  it("fails closed on Setext headings while preserving explicit hard breaks", () => {
+  it("admits Setext headings while preserving explicit hard breaks", () => {
     const imported = markdownToTiptapDoc("Legacy title\n===\n\nLine one  \nLine two\n");
-    expect(imported.diagnostics).toEqual(expect.arrayContaining([
-      expect.objectContaining({ level: "warning", line: 2 }),
-    ]));
+    expect(imported.diagnostics).toEqual([]);
     expect(imported.doc.content?.some(node => node.content?.some(child => child.type === "hardBreak"))).toBe(true);
+  });
+
+  it.each([
+    "Title\n===\n",
+    "Section\n---\n",
+    "A **bold** title with *emphasis* and [a link](https://example.com)\n===\n",
+    "A multiline\nsection title\n---\n",
+    "Title\n===\n\n---\n\nSection\n---\n\nText.\n",
+  ])("preserves Setext heading semantics through canonical export: %s", markdown => {
+    const imported = markdownToTiptapDoc(markdown);
+    expect(imported.diagnostics).toEqual([]);
+    const canonical = tiptapJsonToSemanticMarkdown(imported.doc);
+    expect(canonical).toMatch(/^#{1,2} /);
+    const reopened = markdownToTiptapDoc(canonical);
+    expect(reopened.diagnostics).toEqual([]);
+    expect(reopened.doc).toEqual(imported.doc);
+  });
+
+  it.each([
+    "  # Indented heading\n",
+    "- item\n\n  # Nested heading\n",
+    "<div>Unsupported HTML</div>\n",
+  ])("retains refusal of unsupported heading contexts and HTML: %s", markdown => {
+    expect(markdownToTiptapDoc(markdown).diagnostics.some(item => item.level === "warning")).toBe(true);
   });
 
   it("imports canonical top-level Decision/Consequence with two ordered panes", () => {

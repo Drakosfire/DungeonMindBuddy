@@ -39,6 +39,8 @@ afterAll(() => {
 });
 
 vi.mock("../api/liveApi", () => ({
+  NATIVE_GRAPH_ACCESS_TOKEN_CHANGED_EVENT: "dmb:native-graph-access-token-changed",
+  getNativeGraphAccessGeneration: vi.fn(() => 0),
   getWorkspaceDocumentSnapshot: vi.fn(),
   authenticatedApiFetch: vi.fn().mockResolvedValue({ response: { ok: false } }),
   prepareTiptapMarkdownWrite: vi.fn(),
@@ -746,6 +748,36 @@ describe("verified protected draft recovery", () => {
     }));
   }
   beforeEach(() => { vi.clearAllMocks(); localStorage.clear(); });
+  it.each(["current", "source"] as const)("recovers Setext source through the actual %s control while retaining both copies", async mode => {
+    const rawSource = "Original **heading**\n===\n\nSource section\n---\n\nOriginal wording.\n";
+    seed(rawSource);
+    let current!: ReturnType<typeof useMarkdownCanvasSession>;
+    function Canvas() {
+      current = useMarkdownCanvasSession();
+      return <><BuildDraftRecovery session={current} />{current.phase.startsWith("ready") ? <MarkdownEditorCore documentKey={current.documentKey}
+        content={current.editorContent as Content} editable onEditorChange={current.setEditor} onUpdate={current.handleEditorUpdate} /> : null}</>;
+    }
+    render(<MarkdownCanvasSessionProvider documentId={DOC_ID} surface="build" kind="worldbuilding_source"><Canvas /></MarkdownCanvasSessionProvider>);
+    await waitFor(() => expect(current.editor).not.toBeNull());
+    const originalJson = current.editor!.getJSON();
+    fireEvent.click(screen.getByRole("button", {name:"Review protected draft",exact:true}));
+    const dialog = screen.getByRole("dialog", {name:"Review protected draft"});
+    const keep = within(dialog).getByRole("button", {name:"Keep current page and resume saving"});
+    const preserved = within(dialog).getByRole("button", {name:"Use preserved version"});
+    expect(keep).toBeEnabled();
+    expect(preserved).toBeEnabled();
+    expect(localStorage.getItem(key)).toBeNull();
+    expect(current.exportedMarkdownAuthoritative).toBe(true);
+    fireEvent.click(mode === "current" ? keep : preserved);
+    await waitFor(() => expect(current.exportedMarkdownAuthoritative).toBe(false));
+    const copies = JSON.parse(localStorage.getItem(key)!).copies;
+    expect(copies.some((copy: {state: {exported_markdown: string; tiptap_json: unknown}}) =>
+      copy.state.exported_markdown === rawSource && JSON.stringify(copy.state.tiptap_json) === JSON.stringify(originalJson))).toBe(true);
+    expect(copies).toHaveLength(2);
+    await waitFor(() => expect(current.editor?.getText()).toContain(mode === "current" ? "Unsaved local wording" : "Original wording."));
+    expect(prepareTiptapMarkdownWrite).not.toHaveBeenCalled();
+    expect(commitTiptapMarkdownWrite).not.toHaveBeenCalled();
+  });
   it("preserves both versions and restores exact protected content after remount without server writes", async () => {
     seed();
     const first = renderHook(() => useWorkspaceDocumentAuthoring({ documentId: DOC_ID, surface: "build", kind: "worldbuilding_source" }));
