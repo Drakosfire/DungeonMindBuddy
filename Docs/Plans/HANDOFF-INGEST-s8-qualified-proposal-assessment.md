@@ -188,11 +188,113 @@ exact owned operation. Existing operation ID/World/full-payload guards remain.
 Replay must add no SDK calls, lifecycle records or state changes. No automatic
 retry, truncated-output salvage, whitespace or attribution repair is authorized.
 
-Provider-free controls58/58 plus45/45 predecessor harness tests pass (103 total).
+Pre-call provider-free controls58/58 plus45/45 predecessor harness tests passed
+(103 total); exact b8dfd7b0608e07ac0f53b89e1216ce6bfea4017a was independently approved
+before the call, including a real read-only preflight and unchanged-state capture.
 They retain the original P2 counterexample and test unchanged source/input and
 capacity-only contrast, including model/prompt/input/old-budget drift refusal.
-Actual v3 call has not occurred. Independent exact-head review remains before
-the call; CI and independent real-evidence review remain before merge.
+The actual outcome and post-run dependency correction are below. Final exact-head
+and independent real-evidence review plus CI remain before merge.
 Any accepted batch must still receive complete independent semantic inspection;
 neither larger capacity nor valid JSON proves publication or question success.
 Original full-system verification remains0/15.
+
+## V3 actual result and corrected runtime classification
+
+Executed headb8dfd7b0608e07ac0f53b89e1216ce6bfea4017a, harness SHA256
+bbb9e7beba0cf61c13e6e5383d4652aaee132b5755d5f9c111754b9c13961420.
+Frozen preflightc27c66e4e34b05457c19e4ae41847a12d75c0700fb9c86af0ed3d2602619a557.
+Snapshot readable276TOCentries/SHA256
+e0c08e8d32f2a3f5b7ea10161faba6673e4d7124e74cc186349e0a8be3d69ba1;
+no migration or restore. Existing48APP tables/rows, native state,40991retained
+files and all v1/v2/Q01 evidence remained unchanged. Exactly one new owned
+operationd7a8ec1d-4734-4898-aebb-81e7718506e2 was persisted and independently
+bound by ID/owner/World/full payload; ordinary reload/replay made no added SDK
+calls, lifecycle or state changes. No review or publication.
+
+One actual GPT-6 Luna SDK call returned HTTP200 and completed response
+resp_0181c79c20d9cc8b006ae393fe536087d1a026845b024c8eb9:
+4341input tokens (4338cached),10716output, zero reasoning tokens,
+40458.901139ms endpoint elapsed. Actual wire differs from v2 only in
+max_output_tokens8192→128000; no source/prompt/schema/model drift. This clears
+the old output ceiling in this experimental setup; it is not reliability proof.
+Internal stage latency attribution remains unassessed.
+
+The retained operation nevertheless failed: commentary and final_answer messages
+were concatenated, producing invalid JSON at character0. The initial diagnostic
+wrongly attributed this to current Buddy/GE response assembly. PRIME discovered
+that the benchmark imported the older shared-venv GE, while the live launcher
+uses the already-fixed declared immutable GE. No duplicate product fix is justified.
+
+### Dependency audit and correction
+
+The executed preflight froze Core, WK and Buddy files but omitted GenerationEngine.
+Post-run actual import/source audit identifies installedGE
+af21356fab4f04210b3699bc846da4b8f27d9323, provider file SHA256
+1d403eb80a67b9f37f4701569324c372f3a5ce116cee5e943f7a82273af14ac0.
+Buddy pyproject/uv.lock and live runtime declare
+e9366efad89b76ad0a62b1efacb0d8353120af0d, provider file SHA256
+5d46525b5eeb500d0101c449d321ffc815cc84b894bffff60af84a4431739e63.
+Eight files differ (one is missing); all23live Python files match the declared pin.
+The recorded launch lacked the immutable GE prefix. GE bytes were not frozen at
+dispatch, so this is a post-run audit, not invented contemporaneous inventory.
+
+V3 is therefore an experiment runtime-setup failure, not evidence of a new
+current-product phase-selection regression. Both v2/v3 used the same unmanaged
+benchmark GE setup: their observed capacity/wire comparison remains useful,
+but neither establishes fidelity to the complete declared live runtime.
+Original raw responses and machine failures are unchanged. The initial immutable
+current-observations.json and semantic assessment are retained; the authoritative
+attribution correction is current-observations-correction-ge-runtime.json,
+with dependency-runtime-audit.json, within the same private v3 case.
+
+Provider-free replay under actual declared GE selects the exact final message,
+SHA256d39e750ec9187a61225d6ec5344dfcf3d8d387dca43c6f5301789365eb3613ae,
+then the unchanged source parser refuses `Mention quote is not source text`.
+PRIME independently replayed through PlanWriterProvider as well and preserved
+10716usage. No accepted batch or operation update was constructed. An initial
+strict SDK Response revalidation rejected returned service_tier=fast; the retained
+diagnostic uses ordinary SDK lenient construct_type with that value unchanged,
+rather than altering provider data. Both probe outcomes remain recorded.
+
+### Full diagnostic source/semantic inspection
+
+The separate final message is valid JSON with26mentions and45complete proposals.
+All45were compared against the exact source. All45clause and45context quotes
+match;25/26mention anchors match. The failing mention is `A Fey`, while source
+has `a Fey`. This exact-case error remains independently observable even with
+the declared phase selector. It invalidates the batch; it is not repaired here.
+No emitted context crosses a paragraph boundary, so the v2 paragraph-copy failure
+was not triggered in v3 and is not proved fixed.
+
+Manual core-source dispositions:39/45no issue found,6/45review holds. Holds cover
+explicit chronological linkage from narrative conjunction, mapped guard identity,
+completion of the fragmentary Wolf sentence, unrelated Lysandra barbecue referent,
+guard identity despite explicit uncertainty, and an unspecified-count qualifier
+where three remaining cultists is derivable from earlier five/two facts. Holds
+are unresolved judgments, not six proven graph errors. All45notes and original
+fields are retained in independent-semantic-assessment.json.
+
+Q01:1/p32 and S8Q13:2/p12, Q13:3/p20 retain all3bounded core facts in diagnostic
+final-message output; no named plane, invented feeder, meat causation or post-escape
+onset is asserted. S7 is outside this run. No accepted extraction or downstream
+stage is promoted. Current declared-runtime full ingestion remains untested here;
+full-system verification remains0/15, not15failed questions.
+
+### Owning harness guard repair after the run
+
+PRIME explicitly assigned the missing GE guard to this same PR/path lease.
+The harness now verifies pyproject and lock pins, actual immutable import origin
+and every package file against the declared Git tree before any action. Its
+preflight records GE alongside Core/WK/runtime. Metadata labels or a directory
+name alone do not suffice. The real old installed fallback is refused; the actual
+declared immutable23-file tree passes with inventory digest
+7cef5a11bda9b8b7cf8622e4e67315c393a46d41c637dced7f02d2eb3d1de927.
+Provider-free negative controls reject wrong origin, dirty/untracked/missing/
+symlinked files and prove refusal precedes database capture. Tests now65/65 plus
+45/45predecessor harness tests pass under declared GE (110total); Ruff/diff pass.
+This post-run repair does not retroactively make v3 a declared-runtime evaluation.
+
+PRIME owns the separately bounded literal-copy instruction repair and next named
+experiment. No new call is authorized by this handback. V3 is spent and immutable;
+no retry, whitespace/case normalization, partial-output salvage or native publication.

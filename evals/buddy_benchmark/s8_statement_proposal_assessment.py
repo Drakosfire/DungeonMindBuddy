@@ -28,12 +28,63 @@ START = "20261029_0093"
 END = "20261029_0093"
 OUTPUT_RESERVE = 128_000
 V2_PREFLIGHT = "237a23221e439102735bccb9d7ffef87c8b89314a724f6a14bd681d79c4f1f63"
+GE_REF = "e9366efad89b76ad0a62b1efacb0d8353120af0d"
+GE_ROOT = Path(
+    "/home/drakosfire/.local/state/dungeonmindbuddy/runtime-dependencies/generationengine-e9366ef"
+)
+GE_REPOSITORY = Path(
+    "/home/drakosfire/Projects/DungeonOverMind/GenerationEngine/GenerationEngine"
+)
 TABLE = "ingest.statement_proposal_operation"
 MIGRATION = (
     "src/application_state/migrations/versions/20261029_0093_statement_proposals.py"
 )
 require = fixture.require
 save = answer.immutable_save
+
+
+def verify_ge_import(
+    import_root=None, *, repository=GE_REPOSITORY, ref=GE_REF, expected_root=GE_ROOT
+):
+    """Reject the installed fallback, missing files and drift before any action."""
+    if import_root is None:
+        import generationengine
+
+        import_root = Path(generationengine.__file__).resolve().parents[1]
+    actual = Path(import_root).resolve(strict=True)
+    require(
+        actual == Path(expected_root).resolve(strict=True),
+        "actual GenerationEngine import origin differs from declared immutable runtime",
+    )
+    inventory = fixture.verify_source_tree(
+        actual, repository, ref, ("generationengine",)
+    )
+    return {"actual_import_root": str(actual), **inventory}
+
+
+def declared_ge_inventory():
+    import tomllib
+
+    root = Path(__file__).resolve().parents[2]
+    project = tomllib.loads((root / "pyproject.toml").read_text())
+    declarations = [
+        value
+        for value in project["project"]["dependencies"]
+        if value.startswith("generationengine[")
+    ]
+    require(
+        len(declarations) == 1 and declarations[0].endswith("@" + GE_REF),
+        "declared GenerationEngine pin differs",
+    )
+    lock = tomllib.loads((root / "uv.lock").read_text())
+    packages = [
+        value for value in lock["package"] if value["name"] == "generationengine"
+    ]
+    require(
+        len(packages) == 1 and packages[0]["source"]["git"].endswith("#" + GE_REF),
+        "locked GenerationEngine pin differs",
+    )
+    return verify_ge_import()
 
 
 class SourcePrerequisiteError(ValueError):
@@ -384,6 +435,7 @@ def unchanged(before, after):
 
 
 def preflight(root, receipt_path, schema=START):
+    ge = declared_ge_inventory()
     import dungeonmind
     import worldkeeper
     from psycopg.conninfo import make_conninfo
@@ -418,6 +470,7 @@ def preflight(root, receipt_path, schema=START):
             ("dungeonmind", "dungeonmind_dnd"),
         )
     }
+    dependencies["generationengine"] = ge
     wk = Path(worldkeeper.__file__).resolve().parents[1]
     dependencies["wk"] = fixture.verify_source_tree(
         wk, wk.parent, "a30ee81ae0e777037c68afea8847b04a2c736ae1", ("worldkeeper",)
@@ -542,6 +595,7 @@ def main(argv=None):
     p.add_argument("--apply", action="store_true")
     p.add_argument("--provider", action="store_true")
     args = p.parse_args(argv)
+    declared_ge_inventory()
     root = args.clone_root.resolve(strict=True)
     case = root.parent / "native-review-context-v2" / CASE
     if not (args.snapshot or args.apply or args.provider):
