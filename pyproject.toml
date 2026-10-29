@@ -37,8 +37,8 @@ dependencies = [
     # The postgres extra carries the in-process PostgreSQL adapter
     # dependencies used by the DungeonMind-backed World Graph authority.
     "dungeonmind[postgres] @ git+https://github.com/Drakosfire/DungeonMind.git@b73c115ab84bf9fd273c68852411e6f740b24dc8",
-    # Accepted WK13 source/standing composition; existing-object fact addition.
-    "worldkeeper @ git+https://github.com/Drakosfire/WorldKeeper.git@a30ee81ae0e777037c68afea8847b04a2c736ae1",
+    # Accepted WK14 exact-intent commit classification; source/standing composition.
+    "worldkeeper @ git+https://github.com/Drakosfire/WorldKeeper.git@ef9c50f2d6aa89a35e9408f83fc4d0ba47825ca2",
     # Exact source pin: reviewed GenerationEngine #28 merge (exact final-answer phase selection).
     # This source pin does not update any deployed/serving runtime.
     "generationengine[openai,openrouter,typesafe,fal,vercel] @ git+https://github.com/Drakosfire/GenerationEngine.git@e9366efad89b76ad0a62b1efacb0d8353120af0d",

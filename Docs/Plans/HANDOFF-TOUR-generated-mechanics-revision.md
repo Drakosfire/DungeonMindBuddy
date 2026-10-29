@@ -1,6 +1,12 @@
 # TOUR — recognize generated creature manual revisions
 
-ACTIVE — PRIME owns one serial UI repair under the continuing ordinary-tour goal.
+DELIVERED — PR1914 reviewed6e9f46ac204a1a91b172dca134e7ee591da6cbc3, merged
+5168920ae69ed4fd6428895a358e3609811ecad9 after independent approval and all CI.
+Protected UI delivery preserved4081 APP/371 native rows and41064 files. Ordinary
+Sheep successor inspection now records existing evidence without another Save or
+generation; full journey/operator acceptance remains open. Lease released.
+
+Historical authority: PRIME owned one serial UI repair under the continuing goal.
 Base b243cf70c37c0957b13f58f0063200523f5a5433; reuse buddy-context-loop,
 branch codex/tour-generated-mechanics-revision. Open ingestion1853/1855/1868,
 hosting1828 and held1764 inspected; no overlapping UI lease. No new environment.

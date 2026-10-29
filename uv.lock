@@ -494,7 +494,7 @@ requires-dist = [
     { name = "sentence-transformers", marker = "extra == 'embedding'", specifier = ">=3.0" },
     { name = "tiktoken", specifier = "==0.14.0" },
     { name = "uvicorn", specifier = ">=0.30.0" },
-    { name = "worldkeeper", git = "https://github.com/Drakosfire/WorldKeeper.git?rev=a30ee81ae0e777037c68afea8847b04a2c736ae1" },
+    { name = "worldkeeper", git = "https://github.com/Drakosfire/WorldKeeper.git?rev=ef9c50f2d6aa89a35e9408f83fc4d0ba47825ca2" },
 ]
 provides-extras = ["embedding"]
 
@@ -2523,7 +2523,7 @@ wheels = [
 [[package]]
 name = "worldkeeper"
 version = "0.1.0"
-source = { git = "https://github.com/Drakosfire/WorldKeeper.git?rev=a30ee81ae0e777037c68afea8847b04a2c736ae1#a30ee81ae0e777037c68afea8847b04a2c736ae1" }
+source = { git = "https://github.com/Drakosfire/WorldKeeper.git?rev=ef9c50f2d6aa89a35e9408f83fc4d0ba47825ca2#ef9c50f2d6aa89a35e9408f83fc4d0ba47825ca2" }
 dependencies = [
     { name = "dungeonmind" },
 ]
