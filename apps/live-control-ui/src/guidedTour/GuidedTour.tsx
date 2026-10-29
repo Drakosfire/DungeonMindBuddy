@@ -2,17 +2,17 @@ import {TourNavigationRegistry,TourNavigationProvider,TourNavigationActions,navi
 import type {WorldAgentConversationHistoryResponse} from '../api/types';
 import {useSessionMemoryReading} from './MemoryObservations';
 import {createContext,useCallback,useContext,useEffect,useLayoutEffect,useMemo,useRef,useState,type ReactNode} from 'react';
-import {ADVENTURES,JOURNEY_STEPS,type Adventure,type StepId} from './definition';
-import {createWalkthrough,reduceTour,samePin,validObservation,type Observation,type TargetPin,type TourAction} from './protocol';
+import {ADVENTURES,JOURNEY_STEPS,journeySteps,type Adventure,type StepId} from './definition';
+import {createWalkthrough,generationScope,sameGenerationScope,type GenerationScope,reduceTour,samePin,validObservation,type Observation,type TargetPin,type TourAction} from './protocol';
 import {pointerKey,readWalkthrough,writeWalkthrough,type StoredWalkthrough} from './storage';
 import './guidedTour.css';
 export interface TourOwnerReading {
  step:StepId;target:TargetPin|null;parent?:TargetPin;control:string;label?:string;
- status:'ready'|'unavailable'|'failed';reason?:string;observation?:Observation;dispatchScope?:TourDispatchScope|null;
+ status:'ready'|'unavailable'|'failed';reason?:string;observation?:Observation;generationScope?:GenerationScope|null;dispatchScope?:TourDispatchScope|null;
 }
 export interface TourDispatchScope {worldId:string;walkthroughId:string;epoch:number;/** Present only when a page was explicitly selected before dispatch. */page?:TargetPin}
 interface TourApi {
- tracking:boolean;open:()=>void;recordConversationDispatch:(correlationKey:string,scope:TourDispatchScope|null)=>void;captureScope:()=>TourDispatchScope|null;isScopeCurrent:(scope:TourDispatchScope|null)=>boolean;recordRunCreation:(observation:Observation,scope:TourDispatchScope|null)=>void;publish:(token:symbol,reading:TourOwnerReading|null)=>void;
+ tracking:boolean;captureGenerationScope:()=>GenerationScope|null;isGenerationScopeCurrent:(scope:GenerationScope|null)=>boolean;open:()=>void;recordConversationDispatch:(correlationKey:string,scope:TourDispatchScope|null)=>void;captureScope:()=>TourDispatchScope|null;isScopeCurrent:(scope:TourDispatchScope|null)=>boolean;recordRunCreation:(observation:Observation,scope:TourDispatchScope|null)=>void;publish:(token:symbol,reading:TourOwnerReading|null)=>void;
 }
 const TourContext=createContext<TourApi|null>(null);
 function usableControl(target:HTMLElement):boolean {
@@ -60,6 +60,7 @@ export function GuidedTourProvider({worldId,worldName,children,history=null}:{wo
     const actual=readWalkthrough(localStorage,worldId),expected=current.current;
     if((expected?.record.id??null)!==expectedId)throw new Error('The selected walkthrough changed before this action. Reload its guidance.');
     if(actual?.bytes!==expected?.bytes||actual?.pointer!==expected?.pointer)throw new Error('Another tab changed the walkthrough. Reload its guidance before continuing.');
+    if(action.kind!=='start'&&expected?.record.version!==3)throw new Error('Historical guidance is read-only. Restart guidance to create a new walkthrough.');
     const next=action.kind==='start'?createWalkthrough(worldId,action.adventure,crypto.randomUUID(),new Date().toISOString()):expected?reduceTour(expected.record,action):null;
     if(!next)return;
     const value=writeWalkthrough(localStorage,next,expected);current.current=value;setStored(value);setError(null);
@@ -68,19 +69,21 @@ export function GuidedTourProvider({worldId,worldName,children,history=null}:{wo
  },[worldId]);
  const scopeWorld=useRef(worldId);scopeWorld.current=worldId;
  const isScopeCurrent=useCallback((scope:TourDispatchScope|null)=>{
-  if(!scope||scopeWorld.current!==scope.worldId||externalEpoch.current!==scope.epoch||current.current?.record.id!==scope.walkthroughId||current.current.record.phase!=='running')return false;
+  if(!scope||scopeWorld.current!==scope.worldId||externalEpoch.current!==scope.epoch||current.current?.record.id!==scope.walkthroughId||current.current.record.version!==3||current.current.record.phase!=='running')return false;
   try{return readWalkthrough(localStorage,scope.worldId)?.record.id===scope.walkthroughId;}catch{return false;}
  },[]);
+ const captureGenerationScope=useCallback(()=>generationScope(current.current?.record??null),[]);
+ const isGenerationScopeCurrent=useCallback((scope:GenerationScope|null)=>{if(!scope||scopeWorld.current!==scope.worldId||!sameGenerationScope(scope,generationScope(current.current?.record??null)))return false;try{return sameGenerationScope(scope,generationScope(readWalkthrough(localStorage,scope.worldId)?.record??null));}catch{return false;}},[]);
  const captureScope=useCallback(()=>{const record=current.current?.record;const scope=worldId&&record?{worldId,walkthroughId:record.id,epoch:externalEpoch.current,...(record.bindings.page?{page:record.bindings.page}:{})}:null;return isScopeCurrent(scope)?scope:null;},[worldId,isScopeCurrent]);
  const publish=useCallback((token:symbol,incoming:TourOwnerReading|null)=>{
   const boundPage=current.current?.record.bindings.page;
   const pageAtDispatch=incoming?.dispatchScope?.page;
   const pageSelectedAtDispatch=incoming?.step!=='authoring'||!!boundPage&&!!pageAtDispatch&&samePin(boundPage,pageAtDispatch);
-  const reading=incoming?.observation?.origin==='acknowledged'&&(!isScopeCurrent(incoming.dispatchScope??null)||!pageSelectedAtDispatch)?{...incoming,observation:{...incoming.observation,origin:'existing' as const}}:incoming;
+  const reading=incoming?.observation?.origin==='acknowledged'&&(incoming.step==='generation'?!isGenerationScopeCurrent(incoming.generationScope??null):!isScopeCurrent(incoming.dispatchScope??null)||!pageSelectedAtDispatch)?{...incoming,observation:{...incoming.observation,origin:'existing' as const}}:incoming;
   if(!mounted.current)return;
   setOwners(previous=>{const next=new Map(previous);if(reading&&worldId&&(!reading.target||reading.target.worldId===worldId))next.set(token,reading);else next.delete(token);return next;});
-  if(reading?.observation&&reading.target?.worldId===worldId&&current.current?.record.phase==='running')change({kind:'observe',observation:reading.observation});
- },[change,worldId,isScopeCurrent]);
+  if(reading?.observation&&reading.target?.worldId===worldId&&current.current?.record.version===3&&current.current.record.phase==='running')change({kind:'observe',observation:reading.observation});
+ },[change,worldId,isScopeCurrent,isGenerationScopeCurrent]);
  const recordRunCreation=useCallback((observation:Observation,scope:TourDispatchScope|null)=>{
   const walk=current.current?.record;
   if(!isScopeCurrent(scope)||!worldId||!walk||walk.phase!=='running'||observation.step!=='play'||observation.origin!=='acknowledged'||!validObservation(observation,worldId))return;
@@ -95,11 +98,13 @@ export function GuidedTourProvider({worldId,worldName,children,history=null}:{wo
  const memoryReading=useSessionMemoryReading(history,stored?.record??null,conversationDispatches.current),memoryToken=useRef(Symbol('session-memory'));
  const memorySignature=JSON.stringify(memoryReading);
  useEffect(()=>{publish(memoryToken.current,memoryReading);return()=>publish(memoryToken.current,null);},[publish,memorySignature]);
- const api=useMemo(()=>({tracking:stored?.record.phase==='running',open,publish,recordRunCreation,captureScope,isScopeCurrent,recordConversationDispatch}),[open,publish,recordRunCreation,captureScope,isScopeCurrent,recordConversationDispatch,stored?.record.phase,stored?.record.id,externalEpoch.current]);
+ const api=useMemo(()=>({tracking:stored?.record.version===3&&stored.record.phase==='running',captureGenerationScope,isGenerationScopeCurrent,open,publish,recordRunCreation,captureScope,isScopeCurrent,recordConversationDispatch}),[captureGenerationScope,isGenerationScopeCurrent,open,publish,recordRunCreation,captureScope,isScopeCurrent,recordConversationDispatch,stored?.record.phase,stored?.record.id,externalEpoch.current]);
  const walkthrough=stored?.record;
  const renderedEpoch=externalEpoch.current;
  const userChange=(action:TourAction|{kind:'start';adventure:Adventure})=>change(action,stored?.record.id??null,renderedEpoch);
- const step=JOURNEY_STEPS[walkthrough?.index??0];
+ const steps=journeySteps(walkthrough?.version??3);
+ const historical=!!walkthrough&&walkthrough.version!==3;
+ const step=steps[walkthrough?.index??0];
  const candidates=Array.from(owners.values()).filter(r=>r.step===step.id);
  const reading=candidates.length===1?candidates[0]:null;
  const readingSignature=JSON.stringify(reading);
@@ -107,7 +112,7 @@ export function GuidedTourProvider({worldId,worldName,children,history=null}:{wo
  const newerPlans=Array.from(owners.values()).flatMap(r=>r.step==='plan'&&r.status==='ready'&&r.target?[r.target]:r.step==='play'&&r.status==='ready'&&r.parent?[r.parent]:[]).filter(pin=>walkthrough?.bindings.plan&&pin.objectId===walkthrough.bindings.plan.objectId&&pin.revision>walkthrough.bindings.plan.revision);
  const revisedPlan=newerPlans.length&&newerPlans.every(pin=>samePin(pin,newerPlans[0]))?newerPlans[0]:null;
  useEffect(()=>{
-  if(!walkthrough||walkthrough.phase!=='running'||!reading||reading.status==='ready'||!reading.reason||!row
+  if(!walkthrough||walkthrough.version!==3||walkthrough.phase!=='running'||!reading||reading.status==='ready'||!reading.reason||!row
    ||!['pending','failed','unavailable'].includes(row.state))return;
   const bound=reading.target?walkthrough.bindings[reading.target.kind]:null;
   if(bound&&reading.target&&bound.objectId!==reading.target.objectId)return;
@@ -156,7 +161,7 @@ export function GuidedTourProvider({worldId,worldName,children,history=null}:{wo
   :reading?.reason??(candidates.length>1?'Open one intended object to identify the control.':'Open the ordinary controls for this step. This walkthrough has not verified its result yet.');
  const exportRecord=()=>{
   if(!walkthrough)return;
-  const url=URL.createObjectURL(new Blob([JSON.stringify({definition:{id:'buddy-live-journey',version:2,steps:JOURNEY_STEPS},walkthrough},null,2)],{type:'application/json'}));
+  const url=URL.createObjectURL(new Blob([JSON.stringify({definition:{id:'buddy-live-journey',version:walkthrough.version,steps},walkthrough},null,2)],{type:'application/json'}));
   const link=document.createElement('a');link.href=url;link.download=`buddy-walkthrough-${walkthrough.id}.json`;link.click();URL.revokeObjectURL(url);
  };
  return <TourContext.Provider value={api}><TourNavigationProvider registry={navigationRegistry}>{children}{visible&&<aside className="guided-tour" aria-label="Guided journey">
@@ -164,7 +169,9 @@ export function GuidedTourProvider({worldId,worldName,children,history=null}:{wo
   <p className="guided-tour__scope">Guidance uses the ordinary controls. It never repeats your actions.</p>
   {!worldId?<p>Select a managed World before starting a walkthrough.</p>:!walkthrough?<><p>Choose the adventure you are walking through in this World.</p>{Object.entries(ADVENTURES).map(([id,label])=><button key={id} type="button" disabled={!!error} onClick={()=>userChange({kind:'start',adventure:id as Adventure})}>{label}</button>)}</>:<>
    <p>{ADVENTURES[walkthrough.adventure]} · {worldName??'Selected World'}</p>
-   <p role="status">{walkthrough.phase==='running'?`${walkthrough.index+1} of ${JOURNEY_STEPS.length}`:walkthrough.phase==='paused'?'Guidance paused':'Walkthrough exited. Its record is retained.'}</p>
+   <p role="status">{walkthrough.phase==='running'?`${walkthrough.index+1} of ${steps.length}`:walkthrough.phase==='paused'?'Guidance paused':'Walkthrough exited. Its record is retained.'}</p>
+   {historical&&<p>This is a read-only record of the earlier 14-step tour. Restart guidance to begin a new walkthrough that includes creature generation. Its original record is retained.</p>}
+   <fieldset disabled={historical} style={{border:0,padding:0,margin:0,minWidth:0}}>
    {revisedPlan&&!walkthrough.bindings.run&&<p>The selected Plan has a newer verified saved version. <button type="button" onClick={()=>userChange({kind:'bind',pin:revisedPlan})}>Use saved Plan version {revisedPlan.revision}</button></p>}
    <h2>{step.title}</h2><p>{step.purpose}</p><p><strong>Expected:</strong> {step.expected}</p><p>{step.action}</p>
    <p role="status">{walkthrough.steps[step.id].state==='completed'?'Demonstrated during this walkthrough':walkthrough.steps[step.id].state==='existing'?'Existing example inspected':walkthrough.steps[step.id].state}{walkthrough.steps[step.id].reason?` · ${walkthrough.steps[step.id].reason}`:''}</p>
@@ -174,12 +181,13 @@ export function GuidedTourProvider({worldId,worldName,children,history=null}:{wo
    <TourNavigationActions scope={navigationScope(walkthrough??null,renderedEpoch)} onOpened={()=>{setFocusedControl(null);setVisible(false);}}/>
    <p>Show control hides this panel and highlights the control. Reopen Guided journey from navigation to continue.</p>
    <button type="button" onClick={showControl}>Show control</button>
-   <div className="guided-tour__actions"><button type="button" disabled={!walkthrough.index} onClick={()=>userChange({kind:'move',index:walkthrough.index-1})}>Back</button><button type="button" disabled={walkthrough.index===JOURNEY_STEPS.length-1} onClick={()=>userChange({kind:'move',index:walkthrough.index+1})}>Next</button>
+   <div className="guided-tour__actions"><button type="button" disabled={!walkthrough.index} onClick={()=>userChange({kind:'move',index:walkthrough.index-1})}>Back</button><button type="button" disabled={walkthrough.index===steps.length-1} onClick={()=>userChange({kind:'move',index:walkthrough.index+1})}>Next</button>
     <button type="button" onClick={()=>userChange({kind:'phase',phase:walkthrough.phase==='running'?'paused':'running'})}>{walkthrough.phase==='running'?'Pause':'Resume'}</button>
     <button type="button" disabled={walkthrough.phase!=='running'} onClick={()=>userChange({kind:'disposition',step:step.id,state:'skipped',reason:'Explicitly skipped in guidance; no product action was performed.'})}>Skip</button>
    </div>
-   <details><summary>Steps and demonstrated results</summary><ol>{JOURNEY_STEPS.map((s,index)=><li key={s.id}><button type="button" onClick={()=>userChange({kind:'move',index})}>{s.title}</button> · {walkthrough.steps[s.id].state}</li>)}</ol></details>
-   <div className="guided-tour__actions"><button type="button" onClick={exportRecord}>Export walkthrough</button><button type="button" onClick={()=>userChange({kind:'phase',phase:'exited'})}>Exit</button><button type="button" onClick={()=>userChange({kind:'start',adventure:walkthrough.adventure})}>Restart guidance</button></div>
+   <details><summary>Steps and demonstrated results</summary><ol>{steps.map((s,index)=><li key={s.id}><button type="button" onClick={()=>userChange({kind:'move',index})}>{s.title}</button> · {walkthrough.steps[s.id].state}</li>)}</ol></details>
+   </fieldset>
+   <div className="guided-tour__actions"><button type="button" onClick={exportRecord}>Export walkthrough</button><button type="button" disabled={historical} onClick={()=>userChange({kind:'phase',phase:'exited'})}>Exit</button><button type="button" onClick={()=>userChange({kind:'start',adventure:walkthrough.adventure})}>Restart guidance</button></div>
   </>}
   {error?<div role="alert"><p>{error}</p><button type="button" onClick={reload}>Reload saved guidance</button></div>:null}
  </aside>}</TourNavigationProvider></TourContext.Provider>;

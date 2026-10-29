@@ -1,3 +1,6 @@
+import {samePin} from '../../guidedTour/protocol';
+import {useGuidedTour} from '../../guidedTour/GuidedTour';
+import {GenerationTourObservation,useGenerationPlan} from '../../guidedTour/GenerationObservations';
 import {SavedMechanicsRevisionEditor} from "../../statblocks/revision/SavedMechanicsRevisionEditor";
 import { WorldMechanicsAssociationPanel } from "../../statblocks/WorldMechanicsAssociationPanel";
 import { verifyManagedWorldGraphProjectionResponse } from "../../worldGraph/verifyManagedWorldGraphProjectionResponse";
@@ -1166,7 +1169,9 @@ function AcceptMechanicsFlow({
   draftAuthorityUnavailable = false,
   onMechanicsSaved,
   publicationDock = null,
+  generationTour,
 }: {
+  generationTour?: {attempt:StoredGenerationAttempt|null;draft:ThreatDraft|null;candidate:ReadStatblockCandidateResponseV1|null;reopened:boolean;acceptedInstanceId:string};
   preview: PreviewValidation | null;
   editorState: StatblockEditorState;
   editorEpoch: number;
@@ -1701,6 +1706,8 @@ function AcceptMechanicsFlow({
   };
 
   return (
+    <>
+      {generationTour&&<GenerationTourObservation {...generationTour} accepted={acceptResult}/>}
     <div data-testid="accept-mechanics-flow" data-owned-draft={normalizedDraftId}>
       {mechanicsSavedDraft ? <p>These mechanics are saved. Editing this candidate does not change a saved version.</p> : null}
       {restorePending && !acceptResult && !existenceUnresolved ? (
@@ -1971,6 +1978,7 @@ function AcceptMechanicsFlow({
         </div>
       </div>
     </div>
+    </>
   );
 }
 
@@ -1999,6 +2007,10 @@ export function StatblockWorkbenchModule() {
 }
 
 function ScopedStatblockWorkbench({ scope: launchScope }: { scope: StatblockDraftScope }) {
+  const guidedTour=useGuidedTour();
+  const generationPlan=useGenerationPlan();
+  const [generationInstanceId]=useState(()=>Array.from(crypto.getRandomValues(new Uint32Array(4))).join("-"));
+  const captureGenerationScope=()=>{const captured=guidedTour?.captureGenerationScope()??null;return captured&&generationPlan&&samePin(captured.plan,generationPlan)?captured:null;};
   // This component's key is the exact launch activation, including Plan identity.
   // Assets/cache remain scope-owned; changing Plan never rebinds an asset.
   const [scope] = useState(launchScope);
@@ -2800,9 +2812,10 @@ function ScopedStatblockWorkbench({ scope: launchScope }: { scope: StatblockDraf
   const runGenerateFromDraft = async (
     draftId: string,
     expectedVersion: number,
-    options?: { opId?: number },
+    options?: { opId?: number; tourScope?: ReturnType<NonNullable<ReturnType<typeof useGuidedTour>>["captureGenerationScope"]> },
   ) => {
     if (generationInFlightRef.current) return;
+    const tourScope=options&&"tourScope" in options?options.tourScope:captureGenerationScope();
     const opId = options?.opId ?? beginCandidateOp();
     if (!isCurrentCandidateOp(opId)) return;
     generationInFlightRef.current = true;
@@ -2822,6 +2835,8 @@ function ScopedStatblockWorkbench({ scope: launchScope }: { scope: StatblockDraf
         : {
             schema: "dmb_sbw_generation_attempt_v1", draft_id: draftId,
             expected_draft_version: expectedVersion, client_request_id: crypto.randomUUID(), candidate_id: null,
+            tour_scope: tourScope,
+            ...(tourScope?{tour_dispatch_instance_id:generationInstanceId}:{}),
           };
       if (attempt.draft_id !== draftId) throw new Error("Unresolved generation belongs to another draft; resume it first.");
       if (!isUnresolvedGenerationAttempt(previous) && verified.version !== expectedVersion) {
@@ -2924,6 +2939,7 @@ function ScopedStatblockWorkbench({ scope: launchScope }: { scope: StatblockDraf
   };
 
   const onCreateAndGenerate = async (event: FormEvent) => {
+    const tourScope=captureGenerationScope();
     event.preventDefault();
     if (createAndGenerateInFlightRef.current || pendingGenerate || createPhase === "creating") {
       return;
@@ -3016,7 +3032,7 @@ function ScopedStatblockWorkbench({ scope: launchScope }: { scope: StatblockDraf
       }
 
       if (!isCurrentCandidateOp(opId)) return;
-      await runGenerateFromDraft(created.draft_id, created.version, { opId });
+      await runGenerateFromDraft(created.draft_id, created.version, { opId,tourScope });
     } finally {
       createAndGenerateInFlightRef.current = false;
     }
@@ -3338,6 +3354,7 @@ function ScopedStatblockWorkbench({ scope: launchScope }: { scope: StatblockDraf
                 createPhase === "creating" ||
                 createPhase === "generating"
               }
+              data-guided-control="generation"
               data-testid="create-and-generate-submit"
             >
               {createPhase === "creating"
@@ -3613,6 +3630,7 @@ function ScopedStatblockWorkbench({ scope: launchScope }: { scope: StatblockDraf
           {/* Dock stays mounted in review and edit — Validate/Accept operate on the working copy. */}
           {editorState ? (
             <AcceptMechanicsFlow
+              generationTour={{attempt:generationAttempt,draft:threatDraft,candidate:loadState.kind==="success"?loadState.response:null,reopened:!!initialGeneration.attempt&&initialGeneration.attempt.client_request_id===generationAttempt?.client_request_id,acceptedInstanceId:generationInstanceId}}
               preview={previewValidation}
               editorState={editorState}
               editorEpoch={editorEpoch}

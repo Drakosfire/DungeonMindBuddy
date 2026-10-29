@@ -1,6 +1,6 @@
 # BUILD — reviewed whole-page body revision
 
-ACTIVE. PRIME owns design/implementation under the continuing operator-authorized goal. Serial slice, reused buddy-context-loop checkout, codex/build-page-body-revision from fetched4feac211e8238177e5e20f18c014c35626271e0b. One PR; independent exact-head review/CI before PRIME merge/protected paired delivery. UI5202/API8000 PRIME-owned; primary data is never a test fixture. No new environment.
+SETTLED by merged1883 (3ece1043c5a0a242e4726199510e476856971811), independently approved at795beaae21757d3934073f76ab3c5bc31e8dde6d; all3CI passed, delivered, ordinary Save/reload verified. Lease released to TOUR-creature-generation. PRIME owned design/implementation under the continuing operator-authorized goal. Serial slice, reused buddy-context-loop checkout, codex/build-page-body-revision from fetched4feac211e8238177e5e20f18c014c35626271e0b. One PR; independent exact-head review/CI before PRIME merge/protected paired delivery. UI5202/API8000 PRIME-owned; primary data is never a test fixture. No new environment.
 
 ## Evidence and pre-code critique
 Conks notes01a2a979-dc59-470e-853c-929d33775654, turnc0041022-2d06-4d28-9382-228b52b77614 requested two-paragraph whole-page revision. Current caret contract appended the result, leaving three paragraphs. Preserve runtime-evidence/conks-second-rehearsal-20261028/authoring-original-failure.json. Missing capability, not broken insertion contract.

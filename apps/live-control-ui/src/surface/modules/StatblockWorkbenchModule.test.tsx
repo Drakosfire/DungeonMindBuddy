@@ -1,3 +1,7 @@
+import {GuidedTourProvider} from '../../guidedTour/GuidedTour';
+import {GenerationPlanProvider} from '../../guidedTour/GenerationObservations';
+import {createWalkthrough,reduceTour,type TargetPin} from '../../guidedTour/protocol';
+import {readWalkthrough,writeWalkthrough} from '../../guidedTour/storage';
 import { act, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -3181,6 +3185,46 @@ describe("StatblockWorkbenchModule", () => {
           created_at: "now", status: "active" as const, lineage: null,
         })),
       }));
+    });
+
+    it.each(["unchanged","step-departure","restart","cross-tab"] as const)("attributes recovered generation only to its original tour dispatch: %s", async (mode) => {
+      Object.defineProperty(navigator,"locks",{configurable:true,value:{request:async(_name:string,fn:()=>unknown)=>fn()}});
+      const plan:TargetPin={kind:'plan',worldId:'eldyrwild',objectId:'legacy-plan',revision:1,revisionId:'wr1',digest:'a'.repeat(64)};
+      let walk=createWalkthrough('eldyrwild','conks','generation-tour','2020-01-01T00:00:00Z');walk=reduceTour(walk,{kind:'bind',pin:plan});walk=reduceTour(walk,{kind:'move',index:3});writeWalkthrough(localStorage,walk,null);
+      const locator={provider:'dungeonmind' as const,statblock_id:'sb_recovered',revision_id:'rev_original',contract:'statblocks',contract_version:'1',definition_digest:PREVIEW_DIGEST};
+      const receiptCandidate={...candidate,generation_receipt:{request_id:GENERATION_REQUEST,provider:'openai',model:'configured-model',prompt_version:'v1',schema_version:'v1',schema_fingerprint:'schema',generated_at:new Date().toISOString(),caller_scope:'workbench',provider_request_id:'p-request',provider_response_id:'p-response'}};
+      let accepted=false;
+      const getDraft=()=>legacyDraftFixture({draft_id:DRAFT_ID,version:accepted?2:1,candidate_refs:[{candidate_id:candidate.candidate_id,generated_from_draft_version:1,request_id:GENERATION_REQUEST,status:accepted?'accepted_source':'active',created_at:new Date().toISOString()}],workflow_state:accepted?'mechanics_saved':'candidate_ready',accepted_mechanics_ref:accepted?{...locator,accepted_from_candidate_id:candidate.candidate_id,accepted_from_draft_version:1,accepted_at:new Date().toISOString()}:null});
+      vi.mocked(liveApi.getThreatDraft).mockImplementation(async()=>getDraft());
+      vi.spyOn(liveApi,'createThreatDraft').mockResolvedValue(mockCreatedDraft());
+      let finish!:(value:GenerateThreatDraftCandidateResponseV1)=>void;
+      const generate=vi.spyOn(liveApi,'generateThreatDraftCandidate').mockImplementation(()=>new Promise(resolve=>{finish=resolve;}));
+      vi.spyOn(liveApi,'getStatblockCandidate').mockResolvedValue({...ownedResponse,candidate:receiptCandidate});
+      vi.spyOn(liveApi,'validateStatblockDefinition').mockResolvedValue(successValidate('valid'));
+      vi.spyOn(liveApi,'acceptThreatDraftMechanics').mockImplementation(async()=>{accepted=true;return {schema:'dmb_accept_threat_draft_mechanics_response_v1',draft_id:DRAFT_ID,operation_id:'op_recovered',result_label:'mechanics_saved',locator};});
+      const content=()=> <GuidedTourProvider worldId='eldyrwild'><GenerationPlanProvider pin={plan}><StatblockWorkbenchModule/></GenerationPlanProvider></GuidedTourProvider>;
+      const first=render(content()),user=userEvent.setup();await fillRequiredCreateFields(user);await user.click(screen.getByTestId('create-and-generate-submit'));
+      await waitFor(()=>expect(generate).toHaveBeenCalledTimes(1));
+      const owner={mode:'campaign' as const,worldId:'eldyrwild',campaignId:'longmont-c2'};
+      expect(readGenerationAttempt(owner)?.tour_scope).toMatchObject({walkthroughId:'generation-tour',plan});
+      first.unmount();
+      await act(async()=>finish({schema:'dmb_generate_threat_draft_candidate_response_v1',draft_id:DRAFT_ID,generated_from_draft_version:1,request_id:GENERATION_REQUEST,outcome:'success',candidate:receiptCandidate,cache_status:'stored',persistence_failures:[]}));
+      expect(readGenerationAttempt(owner)?.candidate_id).toBe(candidate.candidate_id);
+      render(content());await waitFor(()=>expect(screen.getByTestId('statblock-definition-editor')).toBeTruthy());
+      expect(generate).toHaveBeenCalledTimes(1);expect(readWalkthrough(localStorage,'eldyrwild')?.record.steps.generation.state).not.toBe('completed');
+      if(mode!=="unchanged"){
+        const prior=readWalkthrough(localStorage,'eldyrwild')!;
+        let next=mode==="restart"?createWalkthrough('eldyrwild','conks','restarted-tour','2020-01-01T00:00:00Z'):reduceTour(prior.record,{kind:'move',index:4});
+        if(mode==="restart")next=reduceTour(next,{kind:'bind',pin:plan});next=reduceTour(next,{kind:'move',index:3});
+        writeWalkthrough(localStorage,next,prior);
+        if(mode!=="cross-tab")act(()=>window.dispatchEvent(new StorageEvent('storage',{key:'dmb:guided-journey:v1:eldyrwild:current'})));
+      }
+      await validateWorkingCopy(user);await user.click(screen.getByRole('button',{name:'Accept/Save mechanics'}));
+      if(mode!=="unchanged"){await screen.findByText(/Mechanics saved; not published/i);await act(async()=>{});expect(readWalkthrough(localStorage,'eldyrwild')?.record.steps.generation.state).not.toBe('completed');expect(generate).toHaveBeenCalledTimes(1);return;}
+      await waitFor(()=>expect(readWalkthrough(localStorage,'eldyrwild')?.record.steps.generation.state).toBe('completed'));
+      const proof=readWalkthrough(localStorage,'eldyrwild')!.record.steps.generation.evidence.at(-1)!.proof;
+      expect(proof).toMatchObject({kind:'creature-generation',requestId:GENERATION_REQUEST,candidateId:candidate.candidate_id,acceptOperationId:'op_recovered',locator});
+      expect(generate).toHaveBeenCalledTimes(1);
     });
 
     it("creates a draft then generates and loads using the returned identity", async () => {

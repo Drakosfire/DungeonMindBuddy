@@ -4801,6 +4801,20 @@ it('rechecks on pause/resume and clears a previously cached pin when the owner r
 });
 
 
+it('opens the ordinary Statblocks projection from the exact Plan generation step without dispatching or saving',async()=>{
+ const {committed}=await resumedPlanFixture();const retained=readWalkthrough(localStorage,worldId)!;
+ writeWalkthrough(localStorage,reduceTour(retained.record,{kind:'move',index:3}),retained);
+ const generate=vi.spyOn(liveApi,'generateThreatDraftCandidate'),save=vi.spyOn(liveApi,'commitWorldOwnedPlanMarkdownWrite');
+ const location=`/plan?world=${worldId}&documentId=${savedAgentPlanId}`;
+ render(<SelectedWorldProvider locationSnapshot={location}><AgentInteractionProvider><AskPluginSlotProvider><GuidedTourProvider worldId={worldId}><PlanSurfacePage/><ToolHost/><LegacyProjectionHostAdapter/><OpenPlanTour/></GuidedTourProvider></AskPluginSlotProvider></AgentInteractionProvider></SelectedWorldProvider>);
+ await waitFor(()=>expect(planEncounterCapture.context?.verifiedPlan?.workRevisionId).toBe(committed.work_revision_id));
+ fireEvent.click(screen.getByRole('button',{name:'Open Plan walkthrough'}));fireEvent.click(await screen.findByRole('button',{name:'Open Statblocks',exact:true}));
+ await screen.findByTestId('create-and-generate-submit');
+ expect(screen.getByTestId('create-and-generate-submit')).toHaveAttribute('data-guided-control','generation');
+ expect(generate).not.toHaveBeenCalled();expect(save).not.toHaveBeenCalled();
+ expect(readWalkthrough(localStorage,worldId)?.record.steps.generation.state).not.toBe('completed');
+});
+
 it('opens the real saved Plan preview through guidance without starting a Run or saving',async()=>{
  const {committed,mount}=await resumedPlanFixture();
  const retained=readWalkthrough(localStorage,worldId)!;

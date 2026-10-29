@@ -9,17 +9,19 @@ export function readWalkthrough(storage:TourStorage,world:string):StoredWalkthro
  const pointer=storage.getItem(pointerKey(world));
  if(pointer===null)return null;
  const value:unknown=JSON.parse(pointer);
- if(!value||typeof value!=='object'||Array.isArray(value)||Object.keys(value).length!==2||!('schema' in value)||!['dmb_guided_journey_pointer_v1','dmb_guided_journey_pointer_v2'].includes(String(value.schema))||!('id' in value)||typeof value.id!=='string'||!value.id.trim())throw new Error('The saved tour selection is damaged. Its original record was preserved.');
+ if(!value||typeof value!=='object'||Array.isArray(value)||Object.keys(value).length!==2||!('schema' in value)||!['dmb_guided_journey_pointer_v1','dmb_guided_journey_pointer_v2','dmb_guided_journey_pointer_v3'].includes(String(value.schema))||!('id' in value)||typeof value.id!=='string'||!value.id.trim())throw new Error('The saved tour selection is damaged. Its original record was preserved.');
  const bytes=storage.getItem(recordKey(world,value.id));
  if(bytes===null)throw new Error('The selected walkthrough is missing. Nothing was replaced.');
  const legacy=value.schema==='dmb_guided_journey_pointer_v1';
  const record=legacy?upgradeWalkthroughV1(bytes,world):decodeWalkthrough(bytes,world);
+ if(!legacy&&value.schema!==`dmb_guided_journey_pointer_v${record.version}`)throw new Error('The walkthrough selection has a different version.');
  if((legacy?record.upgradedFrom?.id:record.id)!==value.id)throw new Error('The walkthrough record differs from its selection.');
  return {record,bytes,pointer,...(legacy?{legacy:{id:value.id}}:{})};
 }
 /** Caller holds the World guidance Web Lock. CAS also detects external storage changes. */
 export function writeWalkthrough(storage:TourStorage,next:Walkthrough,expected:StoredWalkthrough|null):StoredWalkthrough {
- const key=recordKey(next.worldId,next.id),pointer=JSON.stringify({schema:'dmb_guided_journey_pointer_v2',id:next.id});
+ if(next.version!==3)throw new Error('Historical guidance is read-only. Restart guidance to create a new walkthrough.');
+ const key=recordKey(next.worldId,next.id),pointer=JSON.stringify({schema:'dmb_guided_journey_pointer_v3',id:next.id});
  if(storage.getItem(pointerKey(next.worldId))!==(expected?.pointer??null))throw new Error('Another tab changed this walkthrough. Reload its guidance; your records were preserved.');
  if(expected?.legacy&&storage.getItem(recordKey(next.worldId,expected.legacy.id))!==expected.bytes)throw new Error('The original walkthrough changed before upgrade. Its records were preserved.');
  const old=storage.getItem(key);
