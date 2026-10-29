@@ -1,4 +1,5 @@
 import {useTourNavigationGuard} from '../guidedTour/Navigation';
+import {useGuidedTour} from '../guidedTour/GuidedTour';
 import {useTourImage} from '../guidedTour/ImageObservations';
 import { useEffect, useRef, useState } from 'react';
 import { authenticatedApiFetch } from '../api/liveApi';
@@ -60,7 +61,7 @@ function LibraryThumbnail({ record, port }: { record: MediaRecord; port: ImageGe
 export function MediaImageWizard({ onClose, onChoose, initialPrompt = '', initialPurpose = 'illustration', preparationId, chooseLabel = 'Insert into page', port = livePort }: {
   initialPrompt?: string; initialPurpose?: 'illustration' | 'map'; preparationId?: string; chooseLabel?: string; onClose: () => void; onChoose?: (image: GeneratedMediaImage, result: ImageGenerationResult, placement: { mode: 'click' | 'drag'; signal: AbortSignal }) => void | Promise<void>; port?: ImageGenerationPort;
 }) {
-  const tourImage=useTourImage();
+  const tourImage=useTourImage(),tour=useGuidedTour();
   const [collapsed, setCollapsed] = useState(false);
   const [placing, setPlacing] = useState(false);
   const placementAbort = useRef<AbortController | null>(null);
@@ -214,6 +215,7 @@ export function MediaImageWizard({ onClose, onChoose, initialPrompt = '', initia
           <button type="button" onClick={() => { placementAbort.current?.abort(); onClose(); }} disabled={pending || saving !== null} aria-label="Close image studio">×</button>
         </div></div>
       <div className="media-image-wizard__status-row"><p role="status">{phase}</p>
+        {tour&&<button type="button" aria-label="Open guided journey" onClick={tour.open}>Guidance</button>}
         {placing && <button type="button" onClick={cancelPlacement}>Cancel placement</button>}
         {!collapsed && (libraryOpen || view === 'preview') && <button type="button" onClick={showCreate}>Create image</button>}
       </div>
