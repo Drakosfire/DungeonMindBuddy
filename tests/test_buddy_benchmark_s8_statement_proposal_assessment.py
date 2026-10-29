@@ -143,6 +143,16 @@ def test_app_conservation_rejects_unleased_changes(change):
         assessment.app_conservation(before, after, operation="operation")
 
 
+def projected_schema(schema):
+    from generationengine.utils.schema_utils import make_schema_strict
+
+    frozen = json.loads(canonical(schema))
+    frozen["properties"] = {
+        key: frozen["properties"][key] for key in assessment.ROOT_ORDER
+    }
+    return make_schema_strict(frozen)
+
+
 def example():
     text = "A heard a sound."
     request = {"operation_id": "operation", "source_sha256": "source"}
@@ -187,9 +197,7 @@ def example():
         "limitations": [],
     }
     raw = canonical(batch)
-    from generationengine.utils.schema_utils import make_schema_strict
-
-    wire = canonical(
+    wire = json.dumps(
         {
             "input": [{"role": "user", "content": canonical(packet)}],
             "instructions": INSTRUCTIONS,
@@ -200,9 +208,7 @@ def example():
                     "type": "json_schema",
                     "name": assessment.SCHEMA_NAME,
                     "strict": True,
-                    "schema": make_schema_strict(
-                        json.loads(canonical(packet["output_schema"]))
-                    ),
+                    "schema": projected_schema(packet["output_schema"]),
                 }
             },
         }
@@ -929,12 +935,13 @@ def test_v5_source_catalog_and_authority_remain_exact(change):
 
 
 @pytest.mark.parametrize(
-    "change", [None, "merge", "reopen", "provider", "old_state", "old_identity"]
+    "change",
+    [None, "merge", "reopen", "run_pin", "provider", "old_state", "old_identity"],
 )
 def test_delivery_proof_is_a_pinned_read_only_prerequisite(tmp_path, change):
     import json
 
-    reviewed = "148bce42bc867a71ed59d4e64380c24951d8a94a"
+    reviewed = "0eecfce3be2940cc207e74213d3b0c2d6bc17876"
     delivery = {
         "merge": assessment.BASE,
         "reviewed_head": reviewed,
@@ -945,28 +952,34 @@ def test_delivery_proof_is_a_pinned_read_only_prerequisite(tmp_path, change):
     reopen = {
         "merge": assessment.BASE,
         "reviewed_head": reviewed,
-        "retained_state_identical": True,
-        "ordinary_reload_verified": True,
-        "four_notes_and_saved_reflection_preserved": True,
+        "all_retained_state_identical": True,
+        "ordinary_plan_reopen": True,
+        "new_private_village_image_loaded": True,
+        "original_run_plan_pin_not_updated": True,
+        "communication_choice_and_four_notes_reflection_preserved": True,
     }
     replay = {
         "runtime_head": reviewed,
         "read_only_connections": True,
+        "provider_schema_calls": 0,
+        "provider_calls": 0,
         "current_renderer_calls": 0,
         "historical_parser_calls": 0,
-        "provider_preparation_calls": 0,
-        "app_native_files_prior_evidence_and_v5_unchanged": True,
+        "provider_budget_calls": 0,
+        "all_app_native_files_prior_evidence_v6_unchanged": True,
         "operations": [
-            {"operation_id": key, "state": "failed", "exact_read_and_replay": True}
+            {"operation_id": key, "state": "failed", "exact_read_replay": True}
             for key in sorted(assessment.RETAINED_OPERATIONS)
         ],
     }
     if change == "merge":
         delivery["merge"] = "other"
     elif change == "reopen":
-        reopen["ordinary_reload_verified"] = False
+        reopen["ordinary_plan_reopen"] = False
+    elif change == "run_pin":
+        reopen["original_run_plan_pin_not_updated"] = False
     elif change == "provider":
-        replay["provider_preparation_calls"] = 1
+        replay["provider_budget_calls"] = 1
     elif change == "old_state":
         replay["operations"][0]["state"] = "completed"
     elif change == "old_identity":
@@ -974,7 +987,7 @@ def test_delivery_proof_is_a_pinned_read_only_prerequisite(tmp_path, change):
     for name, value in (
         ("delivery-proof", delivery),
         ("ordinary-reopen-proof", reopen),
-        ("actual-four-failure-replay", replay),
+        ("actual-five-failure-replay", replay),
     ):
         (tmp_path / (name + ".json")).write_text(json.dumps(value))
     if change:
@@ -986,16 +999,13 @@ def test_delivery_proof_is_a_pinned_read_only_prerequisite(tmp_path, change):
 
 def test_reprojected_native_schema_cannot_hide_missing_reporter_dependency():
     import json
-    from generationengine.utils.schema_utils import make_schema_strict
 
     record, _, _, packet = example()
     packet["output_schema"]["$defs"]["ReportedStatement"]["properties"][
         "reporter_mention"
     ] = {"type": ["string", "null"]}
     body = json.loads(record["wire"])
-    body["text"]["format"]["schema"] = make_schema_strict(
-        json.loads(canonical(packet["output_schema"]))
-    )
+    body["text"]["format"]["schema"] = projected_schema(packet["output_schema"])
     with pytest.raises(ValueError, match="permits reported/null"):
         assessment.verify_native_schema(body, packet)
 
@@ -1014,3 +1024,99 @@ def test_multiple_unicode_qualifications_survive_without_other_batch_changes():
     host["proposals"][0]["meaning"] = "different interpretation"
     with pytest.raises(ValueError, match="materialization differs"):
         assessment.verify_qualification_materialization(raw, host)
+
+
+@pytest.mark.parametrize(
+    "change",
+    [
+        None,
+        "only_properties",
+        "required_sequence",
+        "nested_order",
+        "nested_value",
+        "input",
+        "instructions",
+        "budget",
+        "extra_field",
+    ],
+)
+def test_order_only_wire_contrast_preserves_every_other_value_and_order(change):
+    record, _, _, packet = example()
+    current = json.loads(record["wire"])
+    prior = deepcopy(current)
+    schema = prior["text"]["format"]["schema"]
+    schema["properties"] = {
+        key: schema["properties"][key] for key in sorted(assessment.ROOT_ORDER)
+    }
+    schema["required"] = sorted(assessment.ROOT_ORDER)
+    if change == "only_properties":
+        current["text"]["format"]["schema"]["properties"] = deepcopy(
+            schema["properties"]
+        )
+    elif change == "required_sequence":
+        current["text"]["format"]["schema"]["required"].reverse()
+    elif change == "nested_order":
+        node = current["text"]["format"]["schema"]["$defs"]["ReportedStatement"][
+            "properties"
+        ]
+        current["text"]["format"]["schema"]["$defs"]["ReportedStatement"][
+            "properties"
+        ] = dict(reversed(list(node.items())))
+    elif change == "nested_value":
+        current["text"]["format"]["schema"]["$defs"]["ReportedStatement"]["properties"][
+            "reporter_mention"
+        ]["minLength"] = 2
+    elif change == "input":
+        current["input"] = []
+    elif change == "instructions":
+        current["instructions"] = "different"
+    elif change == "budget":
+        current["max_output_tokens"] = 1
+    elif change == "extra_field":
+        current["extra"] = True
+    if change:
+        with pytest.raises(ValueError):
+            assessment.verify_order_only_contrast(
+                json.dumps(current), json.dumps(prior)
+            )
+    else:
+        assessment.verify_order_only_contrast(json.dumps(current), json.dumps(prior))
+        assessment.verify_native_schema(current, packet)
+
+
+def test_native_property_order_only_change_cannot_pass_dict_equality():
+    record, _, _, packet = example()
+    body = json.loads(record["wire"])
+    altered = deepcopy(body)
+    props = altered["text"]["format"]["schema"]["properties"]
+    altered["text"]["format"]["schema"]["properties"] = dict(
+        reversed(list(props.items()))
+    )
+    assert altered == body
+    with pytest.raises(ValueError, match="actual native root order"):
+        assessment.verify_native_schema(altered, packet)
+
+
+@pytest.mark.parametrize("change", ["reverse", "duplicate", "missing", "foreign"])
+def test_frozen_required_array_controls_independent_projection(change):
+    record, _, _, packet = example()
+    order = packet["output_schema"]["required"]
+    if change == "reverse":
+        order.reverse()
+    elif change == "duplicate":
+        order.append(order[0])
+    elif change == "missing":
+        order.pop()
+    else:
+        order[0] = "foreign"
+    with pytest.raises(ValueError, match="frozen declared root order"):
+        assessment.verify_native_schema(json.loads(record["wire"]), packet)
+
+
+def test_v6_wire_reference_refuses_changed_historical_artifact(tmp_path):
+    root = tmp_path / "clone"
+    case = tmp_path / "native-review-context-v2/s8-qualified-proposals-v6"
+    case.mkdir(parents=True)
+    (case / "operation.json").write_text('{"wire":"fabricated"}')
+    with pytest.raises(ValueError, match="original v6 operation artifact differs"):
+        assessment.v6_wire_reference(root)

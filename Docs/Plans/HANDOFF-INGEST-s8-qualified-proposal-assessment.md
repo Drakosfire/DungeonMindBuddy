@@ -1,6 +1,6 @@
 # INGEST — independent real S8 proposal assessment
 
-Original assessments settled by PR1900/1903/1905; the ACTIVE V6 successor is below.
+Original assessments settled by PR1900/1903/1905; the ACTIVE V7 successor is below.
 The original pinned authority is OverMind
 94d3a8557a77fcd6fe0c33a4f37d6979894438c5, subsequently merged as
 bb289e6789ca87d8ebaca48dbeb263a7d36fcb79. Runtime base is Buddy
@@ -559,7 +559,7 @@ actions separately from the immutable original runs and gold. PRIME owns the
 structured attribution/coverage disposition. V5 is spent; another run needs a
 named experiment. Final exact-head evidence review and CI remain outstanding.
 
-## ACTIVE V6 provider-enforced assessment
+## V6 provider-enforced assessment — settled by PR1909
 
 Portable authority OverMind9bd6bd837c88c7a9f5c9dfc06bfafbdac7d3d88a, independently
 approved and merged8e600b353fed14feb0535a8be5ff8f5e279761a0 (control87).
@@ -727,3 +727,167 @@ Gold/criteria and historical scores are unchanged. No retry, source expansion,
 review/prepare/confirm/publication or new native identity occurred. PRIME owns
 reference/accounting/qualification-loss disposition. V6 is spent; final exact-head
 evidence review and CI remain outstanding before merge/settlement.
+
+## ACTIVE V7 ordering-only assessment
+
+Authority OverMind929ebb4fe3fd39e90870ff6ec6c53bc4fbca268d independently approved,
+merged2fc9c642c105228eb8c638b4a044261e85789a98 (control89). V6 final45281c04
+passed independent all59source/evidence review/177tests/all3CI and merged47ccdaac.
+Original V6 raw/output/failure/assessment and separate accounting-order hypothesis
+remain immutable. No earlier result is reinterpreted using today's parser.
+
+Runtime1911 exact0eecfce3be2940cc207e74213d3b0c2d6bc17876 independently approved
+with99owning tests/all3CI and merged65b3251af6f61aac8ba60c0b7e68d09723cad89b.
+Protected API893190/UI10527/APP0093 delivery preserves4078APP/371native/41058files;
+ordinary Conks Plan/image and original Run pin/scene/choice/notes/reflection reopen.
+Delivery/reopen/five-failure replay proof files are required and hashed in preflight.
+All five retained failures replay without current rendering/parsing/provider work.
+
+Existing clean checkout/shared environment; branchcodex/s8-schema-order-assessment
+from fetched main65b3251af. Same exclusive assessment/test/owning-handoff three paths,
+one serial PR, PRIME owns merge. No runtime/Core/WK/GE/schema/gold/old-ledger edits.
+
+V7 canonical input packet must exactly equal frozen V6, including source catalog,
+identity/scope/native names, V3 schema, instructions/model/budget. Actual native root
+schema property/required order changes to contract,catalog_sha256,mentions,proposals,
+dispositions,limitations. Independent expected projection starts from frozen schema,
+validates the exact required array/all-property correspondence, orders only root
+properties, then applies declared GE strict projection. It never imports the owning
+runtime ordering helper. Actual SDK wire property keys and required array are checked
+explicitly; mapping equality alone cannot detect a property-order regression.
+
+The actual V6 operation artifact is pinned at SHA256
+cb48ab268d7405b35ee45547eb1b50f5f754654c5c119d1f92e7100a37144540 and its wire digest
+is checked before use. Recursively compare actual V7 wire with actual V6 wire,
+including key sequences: only root schema properties order and root required array
+order may differ. All request values, other mapping order, nested schema order,
+input string, instructions, provider/model/envelope remain fixed. Negative controls
+reject property-only/nested-order/content/budget/instruction drift and malformed
+frozen required sequences. Prior native validity/qualifier/reference/accounting/
+physical-source/conservation negatives remain; no semantic criterion changes.
+
+Fresh s8-qualified-proposals-v7/new UUID, one SDK operation after independent exact
+pre-call review. Snapshot owned APP0093 only, no migration/restore. All five original
+failed IDs/states/no reviews must match; only the newly owned row may change APP.
+Preserve native/files/primary and Q01/S8V1–V6 artifacts, including the ordering
+hypothesis. No retry, salvage, reference/accounting repair, partial promotion,
+review/prepare/confirm/publication/source-span extension/new native identity.
+Full runtime/Core/WK/GE/SDK before/after guards remain. Retain SDK/wire/lifecycle/
+usage/elapsed/DBrow/readback/replay zeroIO, then independently inspect every output
+with unchanged gold/support/granularity criteria. Accepted extraction is not native
+integration/discovery/answer delivery; full-system ingestion remains0/15unverified.
+
+Provider-free assessment148/148 plus45/45 predecessor answer-harness tests pass
+(193total) under declared GE/held Core/WK. Ruff and diff checks pass. Read-only
+actual-clone preflight verifies runtime65b3251af, exact frozen V6 canonical packet,
+13catalog units, five expected failed operations and unchanged before/after state.
+Delivery/five-replay/reopen proof digests respectively:
+92dc61fa0f3fc8a67b95e5972199de977da652a6be576366b954ba9e157220e1,
+d3a4760cc25601a010ad3470cbcb30fc1d3699693b0bc7932e30743cb09ac134,
+81250cb7cc8df23b5c16d5d4502df6db094085a132c1bd58e7d4bc03ed489826.
+No V7 case/snapshot/operation/provider call exists yet. Exact pre-call and later
+all-output final evidence review remain gates; no ordering benefit is preclaimed.
+
+## V7 actual outcome — first accepted private extraction, integration unproved
+
+Independent exact pre-call approval coveredb02af1eae33f195df781d01104100b90a78fc041,
+193tests and actual read-only preflight. Executed that unchanged head; harness
+SHA256fedc091b104a26822bf1739bc38db19dd752157708842f06d02476b2bd4d1abc.
+Frozen preflight55e7021375b2cd22e6a20f4eaa8fdbed241a7df3e3ee190514e1ed39e1a22a1f.
+Snapshot readable276TOCentries, SHA256
+4cc2304ead5b18ccfd3005cec656a15a42d50efd9b1ead5087f2766371485e70.
+No migration/restore. Only new owned operation5f9d2f91-8edf-4e62-b1cc-5d7e7eca5621
+was added. State completed/result retained; exact stored row ID/owner/World/payload,
+ordinary GET/same-key POST agree. Replay adds zero SDK/lifecycle/state. Five old
+failures, all old APP rows/native/files/Q01/S8V1–V6 evidence and ordering hypothesis
+are unchanged. Full runtime/Core/WK/GE/SDK post-call inventories match preflight.
+
+One SDK response resp_0414c1ec78b0e253006ae3b577d44487d1905f30430460e5de completed:
+7271input/8315output/0reasoning tokens,33709.383948ms endpoint elapsed. Internal
+stage attribution remains unassessed; source producer is not full Jev answer loop.
+Actual ordered wire comparison passes: ONLY native root properties and required
+array order changed from V6. Complete canonical input packet, instructions, model,
+provider, output reserve, nested schema order/constraints and all other request
+values/key sequences remain exact. Actual raw root order is contract,catalog_sha256,
+mentions,proposals,dispositions,limitations. One sample pair does not establish
+causation or first-shot reliability, despite the isolated intended contrast.
+
+The accepted batch contains18local mentions,62proposals and13consistent source-unit
+dispositions. All62proposal references resolve to declared local mentions. All62IDs
+are correctly listed in accounting; no combined unknown reporter or omitted IDs.
+The full host passages match exact complete source units, separately retained;
+all99wire qualification pairs become exactly99host dictionary values without loss,
+invention or repair. Every raw/output/materialization check and native schema
+validation passed. No retry/salvage/field inference or runtime normalization of an
+invalid prior batch occurred. This is private extraction acceptance, not publication.
+
+### Every-proposal semantic audit and remaining judgments
+
+All62interpretations were independently source-compared, including actors/mode/
+reporter/qualifications/uncertainty/unresolved claims. Dispositions:51comparisons
+with no issue found,11review holds,0new confirmed semantic failures. These are
+manual source-comparison dispositions, not a certified precision or atomicity rate.
+All12substantive source units have multiple proposals; broad supported composites
+remain valid representations rather than automatic errors.
+
+Seven held proposals(p13,p29,p34,p35,p36,p37,p51) reuse m_guards, whose label says
+guards accompanying Lysandra, for independently unspecified storeroom/guardhouse
+or target guards. The source does not establish those cohorts' identity. This is
+held local-reference resolution, not a published native merge or proved canonical
+graph defect. Separate party handles describe the initial group excluding Ephanna
+and the later reunited party; their plurality alone is not identity fragmentation.
+
+Other holds: p18 assigns the death warning to the Fey without explicit speaker;
+p36 completes the unfinished Wolf clause with future presence; p41's unresolved
+participants wording is broader than the named distraction actors; p44 directly
+attributes Berin's narrated lack of knowledge as speech; p47 directly attributes
+the entire barbecue/storage narrative to Lysandra. No hold was silently repaired.
+p36 has both alias/fragment holds and counts once in the11total.
+
+Prior V6 no-sign certainty loss is not repeated: p24 retains appeared empty and
+perception/no-one-found qualification. Memory presentation in p17 remains passive
+with showing agent unresolved. p44/p45 now separate Berin's knowledge and Lysandra's
+military-use report, resolving the compound-reference contract failure while leaving
+Berin's speech-mode interpretation held.
+
+| Objective | Met / assessed | Interpretation |
+| --- | --- | --- |
+| Ordering-only actual wire contrast | 1 / 1 |All other request values and nested order unchanged |
+| Structurally accepted private extraction | 1 / 1 |First completed batch with exact host materialization |
+| Valid local proposal references | 62 / 62 |Semantic/local identity review remains separate |
+| Consistent source-unit accounting | 13 / 13 |Model processing accounting is not semantic completeness |
+| Actual proposal IDs accounted | 62 / 62 |No V6-style omitted suffix IDs |
+| Qualification pairs preserved | 99 / 99 |Every raw key/value survives declared host dictionary conversion |
+| Bounded target core support | 3 / 3 |Source-supported private extraction, not publication |
+| Exact persistence/replay/conservation | 1 / 1 |One owned row; no additional replay IO/protected-state change |
+| Native identity/selection/publication/discovery/answers | 0 / 0 |Not executed or assessed |
+
+Q01:1 origin appears in p49; no named plane/checker or meat cause invented.
+Q13:2 appears in p15, faintly heard repeat feeding with unnamed feeder. Q13:3
+appears in p30 with correct Torbin referent and actual oily-eye signs. Its status
+qualification specifically governs planned watcher position, while a separate
+appearance qualification preserves symptoms. This valid composite is not the
+V6 mixed planned-position-and-observation status. Narrative reunion context does
+not establish onset after escape or meat causation. S7 remains outside this run.
+Bounded Q01 core extraction1/1 and S8Q13core extraction2/2 are now supported in an
+accepted private batch; this does not verify all facts of either original question.
+
+Full-system ingestion remains0/15unverified. Retained R is still the small native
+fixture, not an integrated historical supergraph. Original sole registered Q01
+span still does not admit all S8 publication clauses. Native identity decisions,
+actual selection, governed evidence extension/publication, ordinary readback,
+automatic discovery and composed answers remain separate unproved stages.
+
+### Immutable evidence and next owner
+
+Private case: /home/drakosfire/Projects/.codex/historical-graph-repair/cache/native-review-context-v2/s8-qualified-proposals-v7.
+SHA256 pins: selected raw aebe1ebc256070cd2e14e2b55ea2d6bbfd54452316a7d477c2c603099a613e8f;
+wire9b36f3566ecb7b362d12f96987ec66412ef2cd7be39c00a2938d1efa1df24437;
+operation.json d7696172a3aa317268a8c3de29692fae26691d4a1d8822ba1d268c0e5f8569f7;
+read-replay.json5f2cb47b353b175d04a640bd8b402e7369f569fa7eca58381287a7a90c5092ff;
+independent-semantic-assessment.json d4f34d2ad45631927a17958156b256f9363937efed891acd311eab246bafaa4e;
+current-observations.json aa3163feb66df71e5e89a732535e234946c3bb46bc65c327e92bf31c6c2e4b16.
+Every original proposal and exact selected source unit is retained in the all62audit.
+Gold/criteria/historical scores unchanged. PRIME owns semantic/local-identity holds
+and the governed evidence/identity/selection/publication successor. V7 is spent;
+no extra call/publication allocated. Final exact-head evidence review/CI remain.

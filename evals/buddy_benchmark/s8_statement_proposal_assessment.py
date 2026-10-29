@@ -20,10 +20,10 @@ from uuid import uuid4
 from . import q01_native_answer_proof as answer
 from . import q01_native_fixture_proof as fixture
 
-AUTHORITY = "9bd6bd837c88c7a9f5c9dfc06bfafbdac7d3d88a"
-BASE = "f86eb9152b61c60977acf3b2ff8592e999719d3c"
+AUTHORITY = "929ebb4fe3fd39e90870ff6ec6c53bc4fbca268d"
+BASE = "65b3251af6f61aac8ba60c0b7e68d09723cad89b"
 SOURCE_ACCESS_AUTHORITY = "178f43153e4e13c1444e693a8830d3306fa96ff0"
-CASE = "s8-qualified-proposals-v6"
+CASE = "s8-qualified-proposals-v7"
 START = "20261029_0093"
 END = "20261029_0093"
 OUTPUT_RESERVE = 128_000
@@ -31,7 +31,17 @@ V2_PREFLIGHT = "237a23221e439102735bccb9d7ffef87c8b89314a724f6a14bd681d79c4f1f63
 V3_PREFLIGHT = "c27c66e4e34b05457c19e4ae41847a12d75c0700fb9c86af0ed3d2602619a557"
 V4_PREFLIGHT = "772bb2529d8ab3dee7df89fe7288f8b2c62666ac45b60feb70ebdb74af6d45b8"
 V5_PREFLIGHT = "98ea4ac71d98311b92cdfa53fef974e94e916d79795913452cd67109c972d3b3"
+V6_PREFLIGHT = "8cb4b0150aa9f234c5f77bf20025cd78b2f56642db05a7ad81510d2ef66145f5"
+ROOT_ORDER = [
+    "contract",
+    "catalog_sha256",
+    "mentions",
+    "proposals",
+    "dispositions",
+    "limitations",
+]
 RETAINED_OPERATIONS = {
+    "65cf6adb-2a08-4786-a7a3-86964e8a9779",
     "13744ada-d20c-437b-a405-04950ad703b2",
     "d7a8ec1d-4734-4898-aebb-81e7718506e2",
     "bdd89481-e884-4867-9e26-be5bcd093196",
@@ -426,7 +436,14 @@ def verify_native_schema(body, packet):
     """Compare exact GE projection and independently inspect its structural contract."""
     from generationengine.utils.schema_utils import make_schema_strict
 
-    schema = make_schema_strict(json.loads(fixture.canonical(packet["output_schema"])))
+    frozen = json.loads(fixture.canonical(packet["output_schema"]))
+    require(
+        frozen.get("required") == ROOT_ORDER
+        and set(frozen.get("properties", {})) == set(ROOT_ORDER),
+        "frozen declared root order differs",
+    )
+    frozen["properties"] = {key: frozen["properties"][key] for key in ROOT_ORDER}
+    schema = make_schema_strict(frozen)
     expected = {
         "format": {
             "type": "json_schema",
@@ -436,6 +453,11 @@ def verify_native_schema(body, packet):
         }
     }
     require(body.get("text") == expected, "native strict schema/name differs")
+    actual = body["text"]["format"]["schema"]
+    require(
+        list(actual["properties"]) == actual["required"] == ROOT_ORDER,
+        "actual native root order differs",
+    )
     require(
         schema.get("type") == "object" and "anyOf" not in schema,
         "native root must be object",
@@ -734,6 +756,71 @@ def verify_v5_contrast(packet, old_packet):
     )
 
 
+def v6_wire_reference(root):
+    path = (
+        root.parent
+        / "native-review-context-v2/s8-qualified-proposals-v6/operation.json"
+    )
+    raw = path.read_bytes()
+    require(
+        fixture.sha(raw)
+        == "cb48ab268d7405b35ee45547eb1b50f5f754654c5c119d1f92e7100a37144540",
+        "original v6 operation artifact differs",
+    )
+    record = json.loads(raw)
+    require(
+        fixture.sha(record["wire"].encode()) == record["wire_digest"],
+        "v6 wire digest differs",
+    )
+    return record
+
+
+def verify_order_only_contrast(current_wire, prior_wire):
+    """Only native ROOT property/required order may change; retain nested key order."""
+    from graph_memory.extraction.qualified_statement_proposals import strict_json
+
+    current, prior = strict_json(current_wire), strict_json(prior_wire)
+    root = ("text", "format", "schema")
+    old_schema, new_schema = (
+        prior["text"]["format"]["schema"],
+        current["text"]["format"]["schema"],
+    )
+    require(
+        list(old_schema["properties"]) == old_schema["required"] == sorted(ROOT_ORDER),
+        "v6 actual root order differs",
+    )
+    require(
+        list(new_schema["properties"]) == new_schema["required"] == ROOT_ORDER,
+        "v7 actual root order differs",
+    )
+
+    def compare(new, old, path=()):
+        require(type(new) is type(old), "wire type contrast differs: " + str(path))
+        if isinstance(new, dict):
+            require(set(new) == set(old), "wire keys contrast differs: " + str(path))
+            if path != root + ("properties",):
+                require(
+                    list(new) == list(old),
+                    "nested wire key order differs: " + str(path),
+                )
+            for key in old:
+                compare(new[key], old[key], path + (key,))
+        elif isinstance(new, list):
+            if path == root + ("required",):
+                require(
+                    set(new) == set(old) and len(new) == len(old),
+                    "root required contents differ",
+                )
+            else:
+                require(len(new) == len(old), "wire array length differs: " + str(path))
+                for index, (n, o) in enumerate(zip(new, old)):
+                    compare(n, o, path + (index,))
+        else:
+            require(new == old, "wire value contrast differs: " + str(path))
+
+    compare(current, prior)
+
+
 def row_inventory(dsn):
     """One repeatable-read snapshot, retaining exact operation identity too."""
     from psycopg import sql
@@ -798,6 +885,7 @@ def capture(root):
                 "s8-qualified-proposals-v3",
                 "s8-qualified-proposals-v4",
                 "s8-qualified-proposals-v5",
+                "s8-qualified-proposals-v6",
             )
         },
     }
@@ -813,13 +901,13 @@ def declared_delivery_proof(root=None):
         Path(root)
         if root is not None
         else Path(
-            "/home/drakosfire/.local/state/dungeonmindbuddy/runtime-evidence/proposal-provider-schema-20261029"
+            "/home/drakosfire/.local/state/dungeonmindbuddy/runtime-evidence/proposal-schema-order-20261029"
         )
     )
-    names = ("delivery-proof", "actual-four-failure-replay", "ordinary-reopen-proof")
+    names = ("delivery-proof", "actual-five-failure-replay", "ordinary-reopen-proof")
     data = {name: json.loads((root / (name + ".json")).read_text()) for name in names}
     delivery, replay, reopen = (data[name] for name in names)
-    reviewed = "148bce42bc867a71ed59d4e64380c24951d8a94a"
+    reviewed = "0eecfce3be2940cc207e74213d3b0c2d6bc17876"
     require(
         delivery["merge"] == reopen["merge"] == BASE
         and delivery["reviewed_head"]
@@ -827,24 +915,27 @@ def declared_delivery_proof(root=None):
         == replay["runtime_head"]
         == reviewed
         and delivery["retained_state_identical"] is True
-        and reopen["retained_state_identical"] is True
+        and reopen["all_retained_state_identical"] is True
         and delivery["ready"] == 200
         and delivery["schema"] == END
-        and reopen["ordinary_reload_verified"] is True
-        and reopen["four_notes_and_saved_reflection_preserved"] is True,
+        and reopen["ordinary_plan_reopen"] is True
+        and reopen["new_private_village_image_loaded"] is True
+        and reopen["original_run_plan_pin_not_updated"] is True
+        and reopen["communication_choice_and_four_notes_reflection_preserved"] is True,
         "delivered runtime/reopen proof differs",
     )
     require(
         replay["read_only_connections"] is True
+        and replay["provider_schema_calls"] == replay["provider_calls"] == 0
         and replay["current_renderer_calls"]
         == replay["historical_parser_calls"]
-        == replay["provider_preparation_calls"]
+        == replay["provider_budget_calls"]
         == 0
-        and replay["app_native_files_prior_evidence_and_v5_unchanged"] is True
-        and len(replay["operations"]) == 4
+        and replay["all_app_native_files_prior_evidence_v6_unchanged"] is True
+        and len(replay["operations"]) == 5
         and {o["operation_id"] for o in replay["operations"]} == RETAINED_OPERATIONS
         and all(
-            o["state"] == "failed" and o["exact_read_and_replay"] is True
+            o["state"] == "failed" and o["exact_read_replay"] is True
             for o in replay["operations"]
         ),
         "historical failure delivery proof differs",
@@ -968,6 +1059,19 @@ def preflight(root, receipt_path, schema=START, *, operation_id=None):
     )
     require(fixture.digest(previous_v5) == V5_PREFLIGHT, "frozen v5 preflight differs")
     verify_v5_contrast(packet, previous_v5["input"])
+    previous_v6 = json.loads(
+        (
+            root.parent
+            / "native-review-context-v2/s8-qualified-proposals-v6"
+            / ("preflight-" + V6_PREFLIGHT + ".json")
+        ).read_text()
+    )
+    require(
+        fixture.digest(previous_v6) == V6_PREFLIGHT and packet == previous_v6["input"],
+        "v7 canonical input packet differs from frozen v6",
+    )
+    v6_record = v6_wire_reference(root)
+    require(v6_record["input"] == packet, "v6 actual operation input differs")
     verify_catalog(packet, opened.body_text)
     budget = service._producer_budget()
     require(
@@ -987,13 +1091,13 @@ def preflight(root, receipt_path, schema=START, *, operation_id=None):
         ).fetchall()
         retained = [o for o in operations if o["operation_id"] != operation_id]
         require(
-            len(retained) == 4
+            len(retained) == 5
             and {o["operation_id"] for o in retained} == RETAINED_OPERATIONS
             and all(
                 o["payload"]["state"] == "failed" and not o["payload"]["reviews"]
                 for o in retained
             ),
-            "original four failed operation inventory differs",
+            "original five failed operation inventory differs",
         )
         # Exact retained APP source version, not only a file of the same name.
         row = conn.execute(
@@ -1034,6 +1138,7 @@ def preflight(root, receipt_path, schema=START, *, operation_id=None):
         "v3_preflight_sha256": V3_PREFLIGHT,
         "v4_preflight_sha256": V4_PREFLIGHT,
         "v5_preflight_sha256": V5_PREFLIGHT,
+        "v6_preflight_sha256": V6_PREFLIGHT,
         "request": request.model_dump(mode="json"),
         "input": packet,
         "state": capture(root),
@@ -1200,17 +1305,20 @@ def main(argv=None):
             ),
             "provider dependency identity changed during the operation",
         )
+        previous_operation = v6_wire_reference(root)
+        verify_order_only_contrast(record["wire"], previous_operation["wire"])
         save(
             case,
             "protocol-contrast",
             {
                 "changed": [
-                    "instructions",
-                    "provider native strict schema",
-                    "output schema",
-                    "wire qualification pairs to lossless host dictionary",
+                    "native root properties order",
+                    "native root required order",
                 ],
                 "unchanged": [
+                    "canonical input packet",
+                    "instructions",
+                    "nested schema order and constraints",
                     "source body and identity",
                     "scope",
                     "authority",
@@ -1223,6 +1331,7 @@ def main(argv=None):
                 "v3_preflight_sha256": V3_PREFLIGHT,
                 "v4_preflight_sha256": V4_PREFLIGHT,
                 "v5_preflight_sha256": V5_PREFLIGHT,
+                "v6_preflight_sha256": V6_PREFLIGHT,
             },
         )
         with fixture.readonly(connection["app_dsn"]) as conn:
