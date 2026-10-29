@@ -1,0 +1,14 @@
+# TOUR — use ordinary controls without the guidance overlay
+
+ACTIVE. PRIME activates this bounded independently critiqued UI repair under the operator's continuing authoring/preparation/play goal. Base1447a1fde55932fe8395dd99a88124d02f212d08; branch codex/tour-control-focus, reused buddy-context-loop. Parallel-independent of ADVERSARY's explicitly allocated native-review-context-v2 backend caller paths; no overlap. Open1853/1855/1868,1828,1764 inspected. One capability/PR, no new checkout, environment or domain contract.
+
+## Observed invariant and critique
+Ordinary SheepB rehearsal showed the floating tour covering Make Current; closing it allowed the same control to work. Completed roll/combat/memory steps also displayed pending-only instructions after their owner panels closed. Guidance must preserve recorded evidence while accurately separating current availability. Show control must focus/highlight an existing control and clear its own overlay without invoking any domain action. Existing navigation reopens guidance. No new floating launcher or automatic panel/domain operations.
+
+Independent tour_final_review APPROVE before activation: one connected usable anchor, recheck after layout, stale-scope/duplicate/missing/disconnected refusal, focus visibility, no activation/credit, cleanup on reopen/disconnection/step/World/walkthrough/unmount. Preserve actual failed owner reasons; do not downgrade stored completed results or pending/failure instructions.
+
+## Exclusive write lease and resources
+This handoff; backward-looking predecessor settlement HANDOFF-BUILD-setext-source-recovery.md; apps/live-control-ui/src/guidedTour/GuidedTour.tsx and GuidedTour.test.tsx; guidedTour.css only if necessary. No protocol/storage/schema/owner-event contract or other UI/runtime changes. PRIME owns reviewed UI5202 delivery with retained assets and primary APP/native/files conservation. API8000 unchanged (same composed source, recovery restart PID4173446); no providers or domain writes in this slice.
+
+## Verification
+Mounted owner integration: Show control tucks guidance, highlights/focuses exact usable anchor, never activates or changes domain/progress; keyboard reopen and highlight cleanup. Missing/duplicate/disabled/disconnected and stale scope refuse safely; retain explanation. Retained completion/existing evidence remains distinguishable from current unavailable or failed inspection. Pending/failed/unavailable reasons retained. Typecheck/build, exact cumulative independent Bugbot and CI before PRIME merge/protected delivery. Ordinary Sheep controls and retained tour evidence after reload, without new Run/roll/save/publication. Full journey/operator acceptance remains open.
