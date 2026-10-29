@@ -1,6 +1,8 @@
 """Selected source meaning, never an assertion that its embedded event happened."""
 
+from datetime import datetime
 from typing import Any, Literal
+
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 
@@ -31,7 +33,8 @@ class StatementSelection(Strict):
     managed_world_id: str = Field(min_length=1)
     campaign_id: str = Field(min_length=1)
     expected_parent_revision_id: str = Field(min_length=1)
-    source_admission_id: str = Field(min_length=1)
+    source_admission_id: str | None = Field(default=None, min_length=1)
+    source_evidence_extension_id: str | None = Field(default=None, min_length=1)
     evidence_ref_id: str = Field(min_length=1)
     source_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
     start_byte: int = Field(ge=0, strict=True)
@@ -50,6 +53,8 @@ class StatementSelection(Strict):
 
     @model_validator(mode="after")
     def closed_meaning(self):
+        if (self.source_admission_id is None) == (self.source_evidence_extension_id is None):
+            raise ValueError("choose exactly one original admission or evidence extension")
         if self.end_byte <= self.start_byte:
             raise ValueError("nonempty source clause required")
         if self.mode == "reported" and not self.reporter:
@@ -83,3 +88,36 @@ class ConfirmStatement(Strict):
     envelope: dict[str, Any]
     prepared: dict[str, Any]
     token: str
+
+
+class EvidenceInterval(Strict):
+    client_ref: str = Field(min_length=1)
+    evidence_role: Literal["support", "contradiction", "context"]
+    start_byte: int = Field(ge=0)
+    end_byte: int = Field(gt=0)
+    expected_slice_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+
+    @model_validator(mode="after")
+    def nonempty(self):
+        if self.end_byte <= self.start_byte:
+            raise ValueError("nonempty source interval required")
+        return self
+
+
+class ExtendSourceEvidence(Strict):
+    managed_world_id: str = Field(min_length=1)
+    extension_id: str = Field(min_length=1)
+    original_admission_id: str = Field(min_length=1)
+    source_artifact_id: str = Field(min_length=1)
+    source_revision_id: str = Field(min_length=1)
+    expected_body_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+    expected_parent_revision_id: str = Field(min_length=1)
+    expected_source_authority_epoch: int = Field(ge=1)
+    created_at: str = Field(min_length=1)
+    spans: list[EvidenceInterval] = Field(min_length=1)
+
+    @model_validator(mode="after")
+    def aware_timestamp(self):
+        if datetime.fromisoformat(self.created_at).utcoffset() is None:
+            raise ValueError("timezone-aware created_at required")
+        return self

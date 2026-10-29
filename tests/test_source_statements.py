@@ -1,44 +1,48 @@
 """Actual pinned Core/WK and authenticated routes, never a full-ingestion score."""
 
+import hashlib
+import os
 from copy import deepcopy
 from dataclasses import replace
 from datetime import UTC, datetime
-import hashlib
 from types import SimpleNamespace
 from uuid import uuid4
 
 import pytest
-from fastapi import FastAPI
-from fastapi.testclient import TestClient
 from dungeonmind.application.vnext import initialize_empty_knowledge_space
 from dungeonmind.contracts.vnext.knowledge import PublishKnowledgeRevisionCommand
 from dungeonmind.infrastructure.memory.vnext_sources import (
     InMemoryNativeSourceEvidenceRepository,
 )
-from graph_memory.vnext.domain_runtime import (
-    dungeonbuddy_world_domain_contract,
-    dungeonbuddy_dnd5e_custom_predicate_profile,
-    CAMPAIGN_SCOPE_AXIS,
-    GM_LABEL,
-)
-from tests.test_demo_j1_native_world_source_admission import (
-    _committed_source,
-    _admit,
-    native as sources,
-)
-from apps.live_control_server.models.source_statements import (
-    StatementSelection,
-    ConfirmStatement,
-)
-from apps.live_control_server.services import source_statements as service
+from fastapi import FastAPI
+from fastapi.testclient import TestClient
+from worldkeeper.application import contracts as wk
+
 from apps.live_control_server.integrations.worldkeeper import (
     registry_standing_consumer as transport,
 )
 from apps.live_control_server.integrations.worldkeeper import (
     source_statements as mapping,
 )
+from apps.live_control_server.models.source_statements import (
+    ConfirmStatement,
+    StatementSelection,
+)
+from apps.live_control_server.services import source_statements as service
 from apps.live_control_server.services.agent_graph_auth import NativeGraphPrincipal
-from worldkeeper.application import contracts as wk
+from graph_memory.vnext.domain_runtime import (
+    CAMPAIGN_SCOPE_AXIS,
+    GM_LABEL,
+    dungeonbuddy_dnd5e_custom_predicate_profile,
+    dungeonbuddy_world_domain_contract,
+)
+from tests.test_demo_j1_native_world_source_admission import (
+    _admit,
+    _committed_source,
+)
+from tests.test_demo_j1_native_world_source_admission import (
+    native as sources,
+)
 
 NOW = datetime(2026, 10, 29, tzinfo=UTC)
 GM = NativeGraphPrincipal("operator", "gm", "local_operator")
@@ -47,8 +51,12 @@ BODY = "A reports that B fled; uncertain.\nAnother source-local episode.\n"
 
 @pytest.fixture
 def lane(tmp_path, monkeypatch):
+    return make_lane(tmp_path, monkeypatch)
+
+
+def make_lane(tmp_path, monkeypatch, *, repo=None, narrow=False):
     monkeypatch.setenv("DMB_GRAPH_REVIEW_PREPARE_BINDING_KEY", "statement-tests")
-    repo = InMemoryNativeSourceEvidenceRepository()
+    repo = repo if repo is not None else InMemoryNativeSourceEvidenceRepository()
     monkeypatch.setattr(sources, "_repository", lambda: repo)
     world, record = _committed_source(tmp_path, markdown=BODY)
     domain = dungeonbuddy_world_domain_contract()
@@ -61,7 +69,29 @@ def lane(tmp_path, monkeypatch):
         domain_contract=domain,
         semantic_profile=profile,
     )
-    source = _admit(tmp_path, record.document_id)
+    if narrow:
+        from dungeonmind.application.vnext import publish_native_text_source_evidence
+        from dungeonmind.contracts.vnext.native_source import (
+            NativeTextSourceAdmissionV1,
+        )
+        size = len(BODY.splitlines(keepends=True)[0].encode())
+        root = publish_native_text_source_evidence(
+            repository=repo, domain_contract=domain, semantic_profile=profile,
+            request=NativeTextSourceAdmissionV1(
+                space_id=world.world_id, admission_id="source:narrow",
+                expected_parent_revision_id=repo.get_head(world.world_id).head_revision_id,
+                created_at=NOW, body_text=BODY,
+                expected_body_sha256=hashlib.sha256(BODY.encode()).hexdigest(),
+                source_classification="dungeonbuddy.source:worldbuilding",
+                authority="primary", visibility={"kind": "labels_any", "labels": [GM_LABEL]},
+                origin={"namespace": "test.document", "object_id": record.document_id, "revision_id": "1"},
+                spans=[{"client_ref": "first", "evidence_role": "support", "start_byte": 0,
+                        "end_byte": size, "expected_slice_sha256": hashlib.sha256(BODY.encode()[:size]).hexdigest()}],
+            ),
+        )
+        source = SimpleNamespace(admission_id=root.admission_id, evidence_ref_id=root.bindings[0].evidence_ref_id)
+    else:
+        source = _admit(tmp_path, record.document_id)
     meta = wk.AssertionMetadata(
         scope=(wk.ScopeBinding(CAMPAIGN_SCOPE_AXIS, "c1"),),
         visibility=wk.Visibility("labels_any", (GM_LABEL,)),
@@ -304,8 +334,8 @@ def test_incomplete_discovered_bundle_is_partial_not_flattened(lane, monkeypatch
 def test_authenticated_routes_and_strict_selection(lane):
     from apps.live_control_server.routes.source_statements import router
     from apps.live_control_server.services.agent_graph_auth import (
-        native_graph_gm_dependency,
         authenticate_native_graph_principal,
+        native_graph_gm_dependency,
     )
 
     app = FastAPI()
@@ -496,3 +526,289 @@ def test_actual_cross_scope_dependency_is_partial(lane, hidden_component):
     )
     output = read(lane, result.child_revision_id)
     assert output["status"] == "partial" and output["statements"] == []
+
+
+@pytest.fixture
+def extension_lane(tmp_path, monkeypatch):
+    return make_lane(tmp_path, monkeypatch, narrow=True)
+
+
+def extension_request(lane):
+    from apps.live_control_server.models.source_statements import ExtendSourceEvidence
+
+    root = lane.repo.get_native_source_admission_receipt(lane.world.world_id, lane.selection.source_admission_id)
+    start = len(BODY.splitlines(keepends=True)[0].encode())
+    return ExtendSourceEvidence(
+        managed_world_id=lane.world.world_id, extension_id="extension:second-clause",
+        original_admission_id=root.admission_id,
+        source_artifact_id=root.source_artifact_id, source_revision_id=root.source_revision_id,
+        expected_body_sha256=lane.selection.source_sha256,
+        expected_parent_revision_id=lane.repo.get_head(lane.world.world_id).head_revision_id,
+        expected_source_authority_epoch=lane.repo.open_native_source_view(lane.world.world_id).epoch,
+        created_at=NOW.isoformat(),
+        spans=[{"client_ref": "second", "evidence_role": "support", "start_byte": start,
+                "end_byte": len(BODY.encode()),
+                "expected_slice_sha256": hashlib.sha256(BODY.encode()[start:]).hexdigest()}],
+    )
+
+
+def extension_selection(lane, receipt):
+    from apps.live_control_server.models.source_statements import StatementSelection
+
+    start = len(BODY.splitlines(keepends=True)[0].encode())
+    data = lane.selection.model_dump()
+    data.update(source_admission_id=None, source_evidence_extension_id=receipt["extension_id"],
+                evidence_ref_id=receipt["bindings"][0]["evidence_ref_id"],
+                expected_parent_revision_id=receipt["publication_receipt"]["published_revision_id"],
+                start_byte=start, end_byte=len(BODY.encode()),
+                clause_sha256=hashlib.sha256(BODY.encode()[start:]).hexdigest(),
+                meaning="Another source-local episode", mode="narrator", reporter=None,
+                episode="episode-2", uncertainty=[], qualifications={"source_local": "only the second clause"})
+    return StatementSelection(**data)
+
+
+def exercise_extension(lane):
+    request = extension_request(lane)
+    root_before = lane.repo.get_native_source_admission_receipt(lane.world.world_id, request.original_admission_id)
+    # A readable retained body does not authorize a clause outside the original span.
+    data = lane.selection.model_dump()
+    data.update(start_byte=request.spans[0].start_byte, end_byte=request.spans[0].end_byte,
+                clause_sha256=request.spans[0].expected_slice_sha256)
+    with pytest.raises(service.StatementError) as refused:
+        service.prepare(StatementSelection(**data), GM)
+    assert refused.value.code == "statement_span_invalid"
+    original_prepared = packet(lane)
+    receipt = service.extend_source_evidence(request, GM)["receipt"]
+    lane.selection = extension_selection(lane, receipt)
+    prepared, result = commit(lane)
+    final = read(lane, result["result"]["receipt"]["published_revision_id"])
+    assert final["status"] == "complete" and len(final["statements"]) == 1
+    assert final["statements"][0]["payload"] == prepared.envelope["payload"]
+    assert final["statements"][0]["payload"]["proof"] == {
+        "source_evidence_extension_id": request.extension_id,
+        "evidence_ref_id": receipt["bindings"][0]["evidence_ref_id"],
+    }
+    advance(lane)
+    head = lane.repo.get_head(lane.world.world_id)
+    assert service.extend_source_evidence(request, GM)["receipt"] == receipt
+    assert service.confirm(prepared, GM)["recovered"]
+    assert service.prepare(lane.selection, GM)["recovered"]
+    assert lane.repo.get_head(lane.world.world_id) == head
+    assert lane.repo.get_native_source_admission_receipt(lane.world.world_id, request.original_admission_id) == root_before
+    assert original_prepared.envelope["payload"]["proof"]["source_admission_id"] == root_before.admission_id
+    return request, receipt, prepared
+
+
+def test_extension_delivers_second_clause_and_recovers_after_descendants(extension_lane):
+    exercise_extension(extension_lane)
+
+
+@pytest.mark.parametrize("change", ["both", "neither", "unknown"])
+def test_explicit_proof_choice_is_closed(lane, change):
+    from pydantic import ValidationError
+
+    data = lane.selection.model_dump(exclude_none=True)
+    if change == "both":
+        data["source_evidence_extension_id"] = "extension:wrong"
+    elif change == "neither":
+        del data["source_admission_id"]
+    else:
+        data["source_proof_alias"] = "anything"
+    with pytest.raises(ValidationError):
+        StatementSelection(**data)
+
+
+@pytest.mark.parametrize("change", ["root", "publication", "membership", "source", "origin", "body", "outside", "slice", "original-id-alias"])
+def test_extension_proof_tamper_refuses_before_publication(extension_lane, monkeypatch, change):
+    lane = extension_lane
+    request = extension_request(lane)
+    receipt = service.extend_source_evidence(request, GM)["receipt"]
+    lane.selection = extension_selection(lane, receipt)
+    head = lane.repo.get_head(lane.world.world_id)
+    if change in {"root", "publication", "membership", "source", "origin"}:
+        original = lane.repo.get_native_source_evidence_extension_receipt
+        def tampered(*args):
+            value = original(*args)
+            if value is None:
+                return value
+            update = {
+                "root": {"original_admission_sha256": "0" * 64},
+                "publication": {"publication_receipt": value.publication_receipt.model_copy(update={"publication_id": "wrong"})},
+                "membership": {"bindings": []},
+                "source": {"source_revision_id": "wrong"},
+                "origin": {"origin": None},
+            }[change]
+            return value.model_copy(update=update)
+        monkeypatch.setattr(lane.repo, "get_native_source_evidence_extension_receipt", tampered)
+    else:
+        changes = {
+            "body": {"source_sha256": "0" * 64},
+            "outside": {"start_byte": 0},
+            "slice": {"clause_sha256": "0" * 64},
+            "original-id-alias": {"source_admission_id": request.extension_id, "source_evidence_extension_id": None},
+        }[change]
+        lane.selection = lane.selection.model_copy(update=changes)
+    with pytest.raises(service.StatementError):
+        service.prepare(lane.selection, GM)
+    assert lane.repo.get_head(lane.world.world_id) == head
+
+
+def extension_client(principal=GM):
+    from apps.live_control_server.routes.source_statements import router
+    from apps.live_control_server.services.agent_graph_auth import (
+        authenticate_native_graph_principal,
+    )
+    app = FastAPI()
+    app.include_router(router)
+    if principal is not None:
+        app.dependency_overrides[authenticate_native_graph_principal] = lambda: principal
+    return TestClient(app, client=("127.0.0.1", 50000))
+
+
+def test_http_extension_prepare_confirm_read_and_replay(extension_lane):
+    lane = extension_lane
+    request = extension_request(lane)
+    with extension_client() as client:
+        url = "/api/live/source-statements/extend-evidence"
+        reply = client.post(url, json=request.model_dump())
+        assert reply.status_code == 200, reply.text
+        receipt = reply.json()["receipt"]
+        lane.selection = extension_selection(lane, receipt)
+        staged = client.post("/api/live/source-statements/prepare", json=lane.selection.model_dump(exclude_none=True))
+        assert staged.status_code == 200, staged.text
+        body = {k: staged.json()[k] for k in ("envelope", "prepared", "token")}
+        delivered = client.post("/api/live/source-statements/confirm", json=body)
+        assert delivered.status_code == 200, delivered.text
+        revision = delivered.json()["result"]["receipt"]["published_revision_id"]
+        opened = client.get(f"/api/live/source-statements/{lane.world.world_id}/subjects/{lane.ids['B']}",
+                            params={"revision_id": revision, "campaign_id": "c1"})
+        assert opened.status_code == 200 and opened.json()["status"] == "complete"
+        advance(lane)
+        assert client.post(url, json=request.model_dump()).json()["receipt"] == receipt
+        conflict = request.model_dump()
+        conflict["spans"][0]["client_ref"] = "changed-intent"
+        response = client.post(url, json=conflict)
+        assert response.status_code == 409
+        assert response.json()["detail"]["code"] == "knowledge_publication_idempotency_conflict"
+
+
+@pytest.mark.parametrize("role", ["anonymous", "player", "wrong-world"])
+def test_http_extension_authority_refusal_before_core_io(extension_lane, monkeypatch, role):
+    from fastapi import HTTPException
+    lane = extension_lane
+    request = extension_request(lane)
+    monkeypatch.setenv("DMB_AGENT_GRAPH_AUTH_MODE", "local_operator")
+    monkeypatch.setenv("DMB_AGENT_GRAPH_AUTH_ENVIRONMENT", "local")
+    monkeypatch.setenv("DMB_AGENT_GRAPH_LOCAL_OPERATOR_TOKEN", "x" * 40)
+    monkeypatch.setattr(service.native, "repository", lambda: pytest.fail("unauthorized Core I/O"))
+    if role == "wrong-world":
+        def refused(_):
+            raise HTTPException(404, "managed World has no native binding")
+        monkeypatch.setattr(service.native, "binding", refused)
+    principal = None if role == "anonymous" else replace(GM, role="player") if role == "player" else GM
+    with extension_client(principal) as client:
+        response = client.post("/api/live/source-statements/extend-evidence", json=request.model_dump())
+        assert response.status_code == {"anonymous": 401, "player": 403, "wrong-world": 404}[role]
+
+
+def test_http_extension_unknown_outcome_preserves_exact_recovery_key(extension_lane, monkeypatch):
+    from dungeonmind.application.vnext.errors import (
+        KnowledgePublicationOutcomeUnknownError,
+    )
+    lane = extension_lane
+    request = extension_request(lane)
+    publish = service.publish_native_source_evidence_extension
+    def lost(**kwargs):
+        result = publish(**kwargs)
+        raise KnowledgePublicationOutcomeUnknownError(
+            space_id=result.space_id, publication_id=result.extension_id,
+            expected_published_revision_id=result.publication_receipt.published_revision_id,
+            reason="synthetic lost acknowledgement",
+        )
+    monkeypatch.setattr(service, "publish_native_source_evidence_extension", lost)
+    with extension_client() as client:
+        failed = client.post("/api/live/source-statements/extend-evidence", json=request.model_dump())
+        assert failed.status_code == 409
+        assert failed.json()["detail"]["retry_original_packet"] is True
+        assert failed.json()["detail"]["recovery"]["action"] == "retry_exact_request"
+        assert failed.json()["detail"]["recovery"]["publication_id"] == request.extension_id
+        monkeypatch.setattr(service, "publish_native_source_evidence_extension", publish)
+        recovered = client.post("/api/live/source-statements/extend-evidence", json=request.model_dump())
+        assert recovered.status_code == 200
+        assert recovered.json()["receipt"]["extension_id"] == request.extension_id
+
+
+@pytest.mark.skipif(
+    not os.environ.get("DMB_NATIVE_SOURCE_EXTENSION_TEST_DATABASE_URL"),
+    reason="requires an owned disposable migrated native PostgreSQL database",
+)
+def test_postgres_extension_http_wk_statement_reopen_and_recovery(
+    tmp_path, monkeypatch, application_state_dsn,
+):
+    from urllib.parse import urlsplit
+
+    from dungeonmind.infrastructure.postgres import (
+        PostgresDatabase,
+        PostgresNativeSourceEvidenceRepository,
+    )
+
+    dsn = os.environ["DMB_NATIVE_SOURCE_EXTENSION_TEST_DATABASE_URL"]
+    assert urlsplit(dsn).path.removeprefix("/").startswith("test_native_extension_")
+    database = PostgresDatabase(dsn)
+    repo = PostgresNativeSourceEvidenceRepository(database)
+    lane = make_lane(tmp_path, monkeypatch, repo=repo, narrow=True)
+    test_http_extension_prepare_confirm_read_and_replay(lane)
+    reopened = PostgresNativeSourceEvidenceRepository(database)
+    monkeypatch.setattr(service.native, "repository", lambda: reopened)
+    lane.repo = reopened
+    head = repo.get_head(lane.world.world_id)
+    output = read(lane, head.head_revision_id)
+    assert output["status"] == "complete" and len(output["statements"]) == 1
+    staged = service.prepare(lane.selection, GM)
+    assert staged["recovered"]
+    assert reopened.get_head(lane.world.world_id) == head
+
+
+@pytest.mark.parametrize("change", ["both", "neither", "body", "authority"])
+def test_http_closed_requests_refuse_before_repository(extension_lane, monkeypatch, change):
+    lane = extension_lane
+    if change in {"both", "neither"}:
+        body = lane.selection.model_dump(exclude_none=True)
+        if change == "both":
+            body["source_evidence_extension_id"] = "extension:wrong"
+        else:
+            del body["source_admission_id"]
+        url = "/api/live/source-statements/prepare"
+    else:
+        body = extension_request(lane).model_dump()
+        body["body_text" if change == "body" else "authority"] = "untrusted"
+        url = "/api/live/source-statements/extend-evidence"
+    monkeypatch.setattr(service.native, "repository", lambda: pytest.fail("invalid request reached Core"))
+    with extension_client() as client:
+        assert client.post(url, json=body).status_code == 422
+
+
+def test_extension_selected_clause_must_not_split_utf8(tmp_path, monkeypatch):
+    import sys
+    monkeypatch.setattr(sys.modules[__name__], "BODY", "A reports that B fled; uncertain.\nÉpisode local.\n")
+    lane = make_lane(tmp_path, monkeypatch, narrow=True)
+    request = extension_request(lane)
+    receipt = service.extend_source_evidence(request, GM)["receipt"]
+    selection = extension_selection(lane, receipt)
+    selection = selection.model_copy(update={"end_byte": selection.start_byte + 1})
+    head = lane.repo.get_head(lane.world.world_id)
+    with pytest.raises(service.StatementError, match="splits UTF8"):
+        service.prepare(selection, GM)
+    assert lane.repo.get_head(lane.world.world_id) == head
+
+
+def test_original_signed_statement_recovers_unchanged_after_extension(extension_lane):
+    lane = extension_lane
+    prepared, result = commit(lane)
+    original_payload = deepcopy(prepared.envelope["payload"])
+    service.extend_source_evidence(extension_request(lane), GM)
+    head = lane.repo.get_head(lane.world.world_id)
+    assert service.confirm(prepared, GM)["result"] == result["result"]
+    assert service.prepare(lane.selection, GM)["result"] == result["result"]
+    assert prepared.envelope["payload"] == original_payload
+    assert lane.repo.get_head(lane.world.world_id) == head

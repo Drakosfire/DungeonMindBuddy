@@ -1,18 +1,21 @@
 """Governed source-statement publication and complete qualified subject readback."""
 
-from datetime import UTC, datetime, timedelta
 import hashlib
 import hmac
 import json
+from datetime import UTC, datetime, timedelta
 
-from fastapi.encoders import jsonable_encoder
 from dungeonmind.application.vnext import (
     EntityReadService,
     open_admitted_native_text,
     open_native_text_source_access_context,
+    publish_native_source_evidence_extension,
 )
 from dungeonmind.application.vnext.prospective import get_prospective_publication
-from apps.live_control_server.models.source_statements import StatementSelection
+from dungeonmind.contracts.vnext.native_source import NativeSourceEvidenceExtensionV1
+from dungeonmind.domain.canonical import canonical_sha256
+from fastapi.encoders import jsonable_encoder
+
 from apps.live_control_server.integrations.dungeonmind import (
     native_registry_source as native,
 )
@@ -22,15 +25,16 @@ from apps.live_control_server.integrations.worldkeeper import (
 from apps.live_control_server.integrations.worldkeeper import (
     source_statements as mapping,
 )
+from apps.live_control_server.models.source_statements import StatementSelection
 from apps.live_control_server.services.agent_graph_auth import require_native_graph_gm
 from apps.live_control_server.services.graph_object_authoring_prepare import (
     decode_publication_intent,
     sign_publication_intent,
 )
 from graph_memory.vnext.domain_runtime import (
+    CAMPAIGN_SCOPE_AXIS,
     GM_LABEL,
     PLAYER_LABEL,
-    CAMPAIGN_SCOPE_AXIS,
     DungeonBuddyVNextProjectionInput,
     build_dungeonbuddy_read_context,
 )
@@ -104,24 +108,47 @@ def _context(repo, space, revision, campaign, role="gm"):
 
 
 def _source(repo, space, access, proof, source_sha256, start, end, clause_sha256):
-    if set(proof) != {"source_admission_id", "evidence_ref_id"}:
+    if type(proof) is not dict:
         _refuse("statement_source_invalid", "Complete admitted source proof required")
-    receipt = repo.get_native_source_admission_receipt(
-        space, proof["source_admission_id"]
-    )
+    if set(proof) == {"source_admission_id", "evidence_ref_id"}:
+        receipt = repo.get_native_source_admission_receipt(space, proof["source_admission_id"])
+        bindings = receipt.bindings if receipt is not None else ()
+    elif set(proof) == {"source_evidence_extension_id", "evidence_ref_id"}:
+        extension = repo.get_native_source_evidence_extension_receipt(
+            space, proof["source_evidence_extension_id"]
+        )
+        receipt = (
+            repo.get_native_source_admission_receipt(space, extension.original_admission_id)
+            if extension is not None else None
+        )
+        if (
+            extension is None or receipt is None
+            or extension.space_id != space
+            or extension.extension_id != proof["source_evidence_extension_id"]
+            or extension.original_admission_sha256 != canonical_sha256(receipt.model_dump(mode="json"))
+            or extension.source_artifact_id != receipt.source_artifact_id
+            or extension.source_revision_id != receipt.source_revision_id
+            or extension.origin != receipt.origin
+            or repo.get_publication_receipt(space, extension.extension_id) != extension.publication_receipt
+        ):
+            _refuse("statement_source_invalid", "Extension does not match its original admitted source")
+        bindings = extension.bindings
+    else:
+        _refuse("statement_source_invalid", "Choose exactly one admitted source proof")
     opened = open_admitted_native_text(access, proof["evidence_ref_id"])
     if (
         receipt is None
         or receipt.space_id != space
         or receipt.origin is None
-        or repo.get_publication_receipt(space, proof["source_admission_id"])
+        or repo.get_publication_receipt(space, receipt.admission_id)
         != receipt.publication_receipt
         or opened.status != "available"
+        or opened.body_text is None
         or opened.body_sha256 != source_sha256
         or opened.source_artifact_id != receipt.source_artifact_id
         or opened.source_revision_id != receipt.source_revision_id
         or not any(
-            b.evidence_ref_id == proof["evidence_ref_id"] for b in receipt.bindings
+            b.evidence_ref_id == proof["evidence_ref_id"] for b in bindings
         )
     ):
         _refuse(
@@ -148,10 +175,13 @@ def _source(repo, space, access, proof, source_sha256, start, end, clause_sha256
 
 
 def _payload(request, repo, space, access):
-    proof = {
-        "source_admission_id": request.source_admission_id,
-        "evidence_ref_id": request.evidence_ref_id,
-    }
+    if (request.source_admission_id is None) == (request.source_evidence_extension_id is None):
+        _refuse("statement_source_invalid", "Choose exactly one admitted source proof")
+    proof = {"evidence_ref_id": request.evidence_ref_id}
+    if request.source_admission_id is not None:
+        proof["source_admission_id"] = request.source_admission_id
+    else:
+        proof["source_evidence_extension_id"] = request.source_evidence_extension_id
     logical, quote = _source(
         repo,
         space,
@@ -629,3 +659,23 @@ def read_subject(*, managed_world_id, campaign_id, revision_id, entity_id, princ
         "gap_codes": sorted(set(gaps)),
         "universal_absence_claimed": False,
     }
+
+
+def extend_source_evidence(request, principal):
+    """GM requests evidence only; Core owns immutable identity and atomic recovery."""
+    require_native_graph_gm(principal)
+    bound = native.binding(request.managed_world_id)
+    space = bound["native_world_id"]
+    repo = native.repository()
+    domain, profile = native.descriptors(repo, space, request.expected_parent_revision_id)
+    receipt = publish_native_source_evidence_extension(
+        repository=repo,
+        request=NativeSourceEvidenceExtensionV1(
+            space_id=space,
+            **request.model_dump(exclude={"managed_world_id"}),
+        ),
+        domain_contract=domain,
+        semantic_profile=profile,
+        audience_labels=(GM_LABEL, PLAYER_LABEL),
+    )
+    return {"status": "committed", "receipt": receipt.model_dump(mode="json")}
