@@ -62,3 +62,12 @@ calls. Actual revised WK descendant conflict + original exact replay controls on
 retained clone with zero extra effects; preserve original RED and initialHOLD.
 All consumer CI and independent cumulative review before merge. Runtime/helper
 adoption and fullchain/operator acceptance remain separate from unit tests.
+
+## Author evidence prepared for review
+uv lock --check passes with no installs or unrelated lock changes. Initial isolated
+runner used test_wk_consumer_ prefix, so fixture safety guards refused three PG
+cases (121 passed/1 failed/2 setup errors); retained exact log
+cache/buddy-wk-exact-intent-test_wk_consumer_7407aa377632.log. Corrected runner uses
+the required test_native_extension_ prefix, with no fixture/product change. The
+exact immutable WK/Core/GE import roots are asserted before migrations/tests.
+Full consumer tests and independent review remain gates, not assumed successes.
