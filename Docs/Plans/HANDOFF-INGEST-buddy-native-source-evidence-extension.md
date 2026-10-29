@@ -40,3 +40,23 @@ whitespace checks pass. No primary database, provider or runtime restart was use
 This is implementation evidence, not independent review, deployment or full-chain
 acceptance. Original signed-proof replay after extension and existing registry
 caller checks are included in the final cumulative review/run.
+
+## Proposed lease amendment — pending independent architecture approval
+
+The cumulative consumer audit found source_statement_proposals.review compares
+selected admission/evidence IDs directly with extraction IDs. An extension is a
+distinct proof, so this would reject the actual V7 review before prepare. Keep
+this PR open and undelivered. This is part of the same proof-consumer capability.
+
+Propose adding exactly two owned paths: apps/live_control_server/services/
+source_statement_proposals.py and tests/test_source_statement_proposals.py.
+Retain exact original proof equality when original admission is chosen. When an
+extension is explicitly chosen, require its original_admission_id to equal the
+extraction's original admission, preserve managed World/campaign/body equality,
+and route through existing current-scope access and statements.prepare checks
+for original root hash/source identity, membership, exact clause and confirmation.
+Never replace whole-World identity review, primary-unit containment, source byte
+order or extraction ancestry. Independently exercise actual persisted proposal
+review → extension-selected prepare → confirm → durable readback/replay using
+synthetic source/proposals, with no provider call. Reject an extension from another
+root even if bytes match. No other path or semantic capability is allocated.
