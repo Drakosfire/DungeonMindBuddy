@@ -45,12 +45,13 @@ def packet():
                   direct_relations=relations, order=order, original_bindings=copy.deepcopy(bindings))
     capture = dict(
         schema=CAPTURE_SCHEMA, selection_context=copy.deepcopy(context),
-        read_context=copy.deepcopy(context), selected_keys=keys,
+        read_context=copy.deepcopy(context), selected_keys=keys, selected_statements=copy.deepcopy(statements),
         statements=copy.deepcopy(statements), direct_relations=copy.deepcopy(relations),
         order=copy.deepcopy(order), bindings=copy.deepcopy(bindings),
         discovery=dict(entity_id="place:door", pages=[dict(
             context=copy.deepcopy(context), entity_id="place:door", cursor=None,
-            next_cursor=None, has_more=False, statement_ids=["statement:0", "statement:1"])],
+            next_cursor=None, has_more=False, statement_ids=["statement:0", "statement:1"],
+            predicate="about", direction="incoming", hops=1)],
             expanded_ids=["statement:0", "statement:1"], claims_absence=False),
         recovery=dict(acknowledgment_lost=True, original_bindings=copy.deepcopy(bindings),
                       recovered_bindings=copy.deepcopy(bindings), fresh_publications=0))
@@ -267,3 +268,21 @@ def test_explicit_empty_selection_is_not_defaults():
     review, capture = packet()
     capture["selected_keys"] = []
     assert not evaluate_contract(review, capture)["checks"]["actual_selection"]
+
+
+@pytest.mark.parametrize("field,value", [("reporter", None), ("uncertainty", []),
+                                        ("episode", None), ("qualifications", {})])
+def test_selection_must_preserve_atomic_bundle_even_if_readback_restores_it(field, value):
+    review, capture = packet()
+    capture["selected_statements"][0][field] = value
+    result = evaluate_contract(review, capture)
+    assert not result["checks"]["actual_selection"]
+    assert result["checks"]["atomic_nonfactive_bundles"]
+
+
+@pytest.mark.parametrize("field,value", [("predicate", "reported_by"), ("direction", "outgoing"),
+                                        ("hops", 2), ("hops", True)])
+def test_discovery_route_requires_exact_one_incoming_about_hop(field, value):
+    review, capture = packet()
+    capture["discovery"]["pages"][0][field] = value
+    assert not evaluate_contract(review, capture)["checks"]["qualified_discovery"]

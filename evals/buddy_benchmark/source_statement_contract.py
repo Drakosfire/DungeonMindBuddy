@@ -175,7 +175,7 @@ def evaluate_contract(review, capture):
         if not passed:
             details[name] = reason
 
-    capture_fields = {"schema", "selection_context", "read_context", "selected_keys",
+    capture_fields = {"schema", "selection_context", "read_context", "selected_keys", "selected_statements",
                       "statements", "direct_relations", "order", "bindings", "discovery", "recovery"}
     if not isinstance(capture, Mapping) or set(capture) != capture_fields:
         raise ValueError("capture: missing or unknown fields")
@@ -185,8 +185,10 @@ def evaluate_contract(review, capture):
     try:
         _strings(capture["selected_keys"], "selection", nonempty=True)
         selected = set(capture["selected_keys"])
-        check("actual_selection", selected == set(expected), "selection missing, extra or changed")
-    except ValueError as exc:
+        selected_bundles = _statements(capture["selected_statements"], review["context"])
+        check("actual_selection", selected == set(expected) and selected_bundles == expected,
+              "selection missing, extra or changed; complete qualified bundles required")
+    except (ValueError, TypeError) as exc:
         selected = set()
         check("actual_selection", False, str(exc))
     try:
@@ -233,7 +235,11 @@ def evaluate_contract(review, capture):
             raise ValueError("discovery pages required")
         found, previous, seen_cursors = set(), None, set()
         for page in pages:
-            _fields(page, {"context", "entity_id", "cursor", "next_cursor", "has_more", "statement_ids"}, "page")
+            _fields(page, {"context", "entity_id", "cursor", "next_cursor", "has_more", "statement_ids",
+                           "predicate", "direction", "hops"}, "page")
+            if (page["predicate"] != "about" or page["direction"] != "incoming"
+                    or type(page["hops"]) is not int or page["hops"] != 1):
+                raise ValueError("discovery requires one incoming-about hop")
             if page["context"] != review["context"] or page["entity_id"] != discovery["entity_id"]:
                 raise ValueError("cross-scope/revision continuation")
             if page["cursor"] != previous or type(page["has_more"]) is not bool:
