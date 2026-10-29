@@ -153,3 +153,46 @@ def test_write_routes_require_auth_for_encoded_image(request_case, monkeypatch, 
         getattr(live, "post_tiptap_markdown_write_" + operation)(
             model(**values), Request({"type": "http", "headers": []}))
     assert error.value.status_code == 401
+
+
+@pytest.mark.parametrize("state", ["staged", "ready"])
+def test_document_writer_saves_owned_retained_artwork_without_upload(request_case, state):
+    _, source, root = request_case
+    image = saved_image("local_operator")
+    if state == "ready":
+        ready(image)
+    original = media.read_staged_bytes(image["asset_id"], "local_operator")
+    markdown = source.markdown.rstrip() + f"\n\n![Private artwork](dmb-media:{image['asset_id']})\n"
+    prepared = prepare_tiptap_markdown_write(root=root, request=TiptapMarkdownWritePrepareRequest(
+        document_id=source.record.document_id, markdown=markdown, expected_revision=source.loaded_revision))
+    commit_tiptap_markdown_write(root=root, request=TiptapMarkdownWriteCommitRequest(
+        document_id=source.record.document_id, markdown=markdown, expected_revision=prepared.registry_revision,
+        writer_confirm_token=prepared.writer_confirm_token))
+    reopened = get_workspace_document_snapshot(root, source.record.document_id)
+    assert reopened.markdown == markdown
+    assert "data:" not in reopened.markdown and "https:" not in reopened.markdown
+    assert media.get_asset(image["asset_id"], "local_operator")["state"] == state
+    assert media.read_staged_bytes(image["asset_id"], "local_operator") == original
+
+
+@pytest.mark.parametrize("change", ["uploading", "corrupt", "foreign"])
+def test_commit_revalidates_private_asset_after_prepare(request_case, application_state_dsn, change):
+    import psycopg
+    _, source, root = request_case
+    image = saved_image("local_operator")
+    markdown = source.markdown.rstrip() + f"\n\n![Private artwork](dmb-media:{image['asset_id']})\n"
+    prepared = prepare_tiptap_markdown_write(root=root, request=TiptapMarkdownWritePrepareRequest(
+        document_id=source.record.document_id, markdown=markdown, expected_revision=source.loaded_revision))
+    if change == "uploading":
+        media.claim_upload(image["asset_id"], "local_operator")
+    else:
+        with psycopg.connect(application_state_dsn) as conn:
+            if change == "corrupt":
+                conn.execute("UPDATE media.storage SET staged_bytes=%s WHERE asset_id=%s", (b"corrupt", image["asset_id"]))
+            else:
+                conn.execute("UPDATE media.asset SET owner_id='foreign' WHERE asset_id=%s", (image["asset_id"],))
+    with pytest.raises(TiptapMarkdownWriteError):
+        commit_tiptap_markdown_write(root=root, request=TiptapMarkdownWriteCommitRequest(
+            document_id=source.record.document_id, markdown=markdown, expected_revision=prepared.registry_revision,
+            writer_confirm_token=prepared.writer_confirm_token))
+    assert get_workspace_document_snapshot(root, source.record.document_id).markdown == source.markdown

@@ -13,3 +13,6 @@ Provider-free staged click/drag, ready rendering, rejected states, identity/auth
 
 ## Predecessor settlement
 PR1872 merged b66c35c1241925106fc17c5d167e0a1cc620522a and delivered reviewed head 4258d5fc2820eef1ed03d5e5345102b9a340d76a. Both Conks and Sheep original downloads matched retained SHA256 bytes. This slice adds placement; it does not repeat generation or publication.
+
+## Delivered UI and discovered persistence gate
+PR1874 merged ee9bea0e2f88ccc7e1e8f7846b44313a52586c36, reviewed head512b7028e076a1507f812d4b2a2932e05c3662b5;61 independent tests and3CI checks passed. Protected UI delivery preserved3926APP/371native/41006files. Ordinary private placement displays original1536px, but Save rejects the existing server public-delivery requirement. Draft preserved; durable placement is not accepted. The serial private-artwork-save successor owns this missing persistence boundary.

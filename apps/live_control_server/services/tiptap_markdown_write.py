@@ -135,10 +135,15 @@ def validate_saved_media_references(markdown: str, owner: str = "local_operator"
                 raise TiptapMarkdownWriteError('Invalid saved image reference')
             try:
                 record = media.get_asset(match[1], owner)
+                if record['state'] == 'staged':
+                    # Retained originals are private durable assets. Reuse APP's
+                    # byte-integrity authority at both prepare and commit.
+                    media.read_staged_bytes(match[1], owner)
+                    continue
             except ApplicationStateError as error:
-                raise TiptapMarkdownWriteError('Saved image is not available to this operator') from error
+                raise TiptapMarkdownWriteError('Saved image is not available to this operator or its original failed integrity verification') from error
             if record['state'] != 'ready' or record['receipt']['visibility'] != 'public':
-                raise TiptapMarkdownWriteError('Save the image with public delivery before inserting it')
+                raise TiptapMarkdownWriteError('The image is not ready for placement. Reopen it in Image Studio and check its status')
 
 
 def _editor_image_lines(markdown: str) -> set[int]:
