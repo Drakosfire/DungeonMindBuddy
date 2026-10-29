@@ -36,3 +36,27 @@ describe('walkthrough-only retained state',()=>{
  it('rejects an external record or selection change before overwrite',()=>{const storage=store(),saved=writeWalkthrough(storage,fresh(),null);storage.setItem(recordKey('world','walk-one'),'other-tab');expect(()=>writeWalkthrough(storage,fresh(),saved)).toThrow();expect(storage.getItem(recordKey('world','walk-one'))).toBe('other-tab');storage.setItem(pointerKey('world'),'other selection');expect(()=>writeWalkthrough(storage,fresh(),saved)).toThrow();});
  it('does not accept completed flags without supporting observations',()=>{const run=fresh();run.steps.memory.state='completed';expect(()=>decodeWalkthrough(JSON.stringify(run),'world')).toThrow();});
 });
+
+describe('scoped pending reconciliation',()=>{
+ it('requires the intended target and parent and never grants evidence',()=>{
+  let walk=reduceTour(fresh(),{kind:'bind',pin:pin('plan')});walk=reduceTour(walk,{kind:'bind',pin:pin('run'),parent:pin('plan')});
+  walk=reduceTour(walk,{kind:'disposition',step:'progress',state:'unavailable',reason:'Run was blocked.'});
+  const action={kind:'pending' as const,step:'progress' as const,target:pin('run'),parent:pin('plan')};
+  expect(reduceTour(walk,{...action,parent:pin('plan','other')})).toBe(walk);
+  expect(reduceTour(walk,{...action,target:{...pin('run'),worldId:'other'}})).toBe(walk);
+  expect(reduceTour(walk,{...action,target:{...pin('run'),digest:'b'.repeat(64)}})).toBe(walk);
+  expect(reduceTour(walk,action).steps.progress).toEqual({state:'pending',reason:null,evidence:[]});
+  const paused=reduceTour(walk,{kind:'phase',phase:'paused'});expect(reduceTour(paused,action)).toBe(paused);
+ });
+ it.each(['failed','skipped','completed','existing'] as const)('never replaces %s or retained evidence',state=>{
+  let walk=reduceTour(fresh(),{kind:'bind',pin:pin('source')});
+  if(state==='completed'||state==='existing')walk=reduceTour(walk,{kind:'observe',observation:observation('source',state==='completed'?'acknowledged':'existing')});
+  else walk=reduceTour(walk,{kind:'disposition',step:'source',state,reason:'Retain this result.'});
+  expect(reduceTour(walk,{kind:'pending',step:'source',target:pin('source')})).toBe(walk);
+ });
+});
+
+it('never reconciles historical tour dispositions',()=>{
+ const historical={...fresh(),version:2 as const};
+ expect(reduceTour(historical,{kind:'pending',step:'image',target:pin('plan')})).toBe(historical);
+});

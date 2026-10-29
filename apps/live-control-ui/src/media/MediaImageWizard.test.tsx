@@ -1,7 +1,7 @@
 import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { MediaImageWizard, type ImageGenerationPort } from './MediaImageWizard';
-const tourImage=vi.hoisted(()=>({generated:vi.fn(),placed:vi.fn(),captureScope:()=>null}));
+const tourImage=vi.hoisted(()=>({inspect:vi.fn(),generated:vi.fn(),placed:vi.fn(),captureScope:()=>null}));
 vi.mock('../guidedTour/ImageObservations',()=>({useTourImage:()=>tourImage}));
 const createUrlDescriptor = Object.getOwnPropertyDescriptor(URL, 'createObjectURL');
 const revokeUrlDescriptor = Object.getOwnPropertyDescriptor(URL, 'revokeObjectURL');
@@ -15,7 +15,7 @@ afterEach(() => {
     if (descriptor) Object.defineProperty(URL, key, descriptor); else Reflect.deleteProperty(URL, key);
   }
 });
-beforeEach(()=>{tourImage.generated.mockClear();tourImage.placed.mockClear();});
+beforeEach(()=>{tourImage.inspect.mockClear();tourImage.generated.mockClear();tourImage.placed.mockClear();});
 const createPort = (): ImageGenerationPort => ({ capabilities: vi.fn().mockResolvedValue({ configured: true, library_ready: true, storage_configured: true, models: [
   { id: 'flux-2-pro', label: 'FLUX 2 Pro', formats: ['png', 'jpeg'], controls: ['seed'] },
   { id: 'gpt-image-1.5', label: 'GPT Image 1.5', formats: ['png', 'jpeg', 'webp'], controls: ['quality', 'background'] },
@@ -261,4 +261,20 @@ it.each(['click','drag'] as const)('places staged artwork by %s without public S
  await waitFor(()=>expect(choose).toHaveBeenCalledOnce());
  expect(choose).toHaveBeenCalledWith(expect.objectContaining({state:'staged'}),expect.anything(),expect.objectContaining({mode}));
  expect(api.save).not.toHaveBeenCalled();
+});
+
+it('reports actual capability readiness without running generation or requiring prompt text',async()=>{
+ const api=createPort();const mounted=render(<MediaImageWizard onClose={()=>{}} port={api}/>);
+ await waitFor(()=>expect(tourImage.inspect).toHaveBeenLastCalledWith(expect.objectContaining({status:'pending',reason:expect.stringContaining('Generate an image')})));
+ expect(api.generate).not.toHaveBeenCalled();mounted.unmount();expect(tourImage.inspect).toHaveBeenLastCalledWith(null);
+});
+it.each([{configured:false,library_ready:true,reason:'fal credential'},{configured:true,library_ready:false,reason:'library'}])('reports unavailable capability $reason without generation',async({configured,library_ready,reason})=>{
+ const api=createPort();vi.mocked(api.capabilities).mockResolvedValue({configured,library_ready,storage_configured:false,models:[{id:'model',label:'Model',formats:['png'],controls:[]}]});
+ render(<MediaImageWizard onClose={()=>{}} port={api}/>);
+ await waitFor(()=>expect(tourImage.inspect).toHaveBeenLastCalledWith({status:'unavailable',reason:expect.stringContaining(reason)}));expect(api.generate).not.toHaveBeenCalled();
+});
+it('reports a real capability read error as failed',async()=>{
+ const api=createPort();vi.mocked(api.capabilities).mockRejectedValue(new Error('Capability read failed.'));
+ render(<MediaImageWizard onClose={()=>{}} port={api}/>);
+ await waitFor(()=>expect(tourImage.inspect).toHaveBeenLastCalledWith({status:'failed',reason:'Capability read failed.'}));expect(api.generate).not.toHaveBeenCalled();
 });

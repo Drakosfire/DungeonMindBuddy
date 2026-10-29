@@ -69,6 +69,7 @@ export function MediaImageWizard({ onClose, onChoose, initialPrompt = '', initia
   useEffect(() => () => placementAbort.current?.abort(), []);
   const [models, setModels] = useState<Model[]>([]);
   const [configured, setConfigured] = useState(false);
+  const [capabilityState,setCapabilityState]=useState<'loading'|'loaded'|'failed'>('loading');
   const [storageConfigured, setStorageConfigured] = useState(false);
   const [libraryReady, setLibraryReady] = useState(false);
   const [library, setLibrary] = useState<MediaRecord[]>([]);
@@ -98,9 +99,16 @@ export function MediaImageWizard({ onClose, onChoose, initialPrompt = '', initia
   const model = models.find(item => item.id === modelId);
   useEffect(() => {
     let active = true;
-    port.capabilities().then(data => { if (active) { setMapFraming(data.map_framing ?? ''); setModels(data.models); setModelId(current => data.models.some(item => item.id === current) ? current : data.default_model_id ?? data.models[0]?.id ?? ''); setConfigured(data.configured); setStorageConfigured(data.storage_configured); setLibraryReady(data.library_ready); } }).catch(error => { if (active) setError(error.message); });
+    setCapabilityState('loading');
+    port.capabilities().then(data => { if (active) { setCapabilityState('loaded'); setMapFraming(data.map_framing ?? ''); setModels(data.models); setModelId(current => data.models.some(item => item.id === current) ? current : data.default_model_id ?? data.models[0]?.id ?? ''); setConfigured(data.configured); setStorageConfigured(data.storage_configured); setLibraryReady(data.library_ready); } }).catch(error => { if (active) { setCapabilityState('failed'); setError(error.message); } });
     return () => { active = false; };
   }, [port]);
+  const imageInspection=capabilityState==='failed'||error?{status:'failed' as const,reason:error||'Image Studio capabilities could not be read.'}
+    :capabilityState==='loading'?{status:'pending' as const,reason:'Checking Image Studio capabilities…'}
+    :!configured||!libraryReady||!model?{status:'unavailable' as const,reason:!configured?'Connect the server’s fal credential to generate images.':!libraryReady?'The private image library is not ready.':'Choose an available image model.'}
+    :{status:'pending' as const,reason:pending?'Image generation is in progress.':placing?'Finish placing the artwork in the Plan.':saving?'Image Save is in progress.':'Generate an image, place the retained artwork in this Plan, then Save and inspect the exact saved Plan.'};
+  const inspectionSignature=JSON.stringify(imageInspection);
+  useEffect(()=>{tourImage?.inspect(imageInspection);return()=>tourImage?.inspect(null);},[tourImage?.inspect,inspectionSignature]);
   const readCatalog = async (more = false) => {
     if (!port.catalog || catalogInFlight.current) return;
     catalogInFlight.current = true; setCatalogBusy(true); setCatalogError('');

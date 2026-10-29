@@ -8,7 +8,7 @@ import {pointerKey,readWalkthrough,writeWalkthrough,type StoredWalkthrough} from
 import './guidedTour.css';
 export interface TourOwnerReading {
  step:StepId;target:TargetPin|null;parent?:TargetPin;control:string;label?:string;
- status:'ready'|'unavailable'|'failed';reason?:string;observation?:Observation;generationScope?:GenerationScope|null;dispatchScope?:TourDispatchScope|null;
+ status:'ready'|'pending'|'unavailable'|'failed';reason?:string;observation?:Observation;generationScope?:GenerationScope|null;dispatchScope?:TourDispatchScope|null;
 }
 export interface TourDispatchScope {worldId:string;walkthroughId:string;epoch:number;/** Present only when a page was explicitly selected before dispatch. */page?:TargetPin}
 interface TourApi {
@@ -116,6 +116,10 @@ export function GuidedTourProvider({worldId,worldName,children,history=null}:{wo
    ||!['pending','failed','unavailable'].includes(row.state))return;
   const bound=reading.target?walkthrough.bindings[reading.target.kind]:null;
   if(bound&&reading.target&&bound.objectId!==reading.target.objectId)return;
+  if(reading.status==='pending'){
+   if(reading.target&&row.state==='unavailable'&&!row.evidence.length)change({kind:'pending',step:step.id,target:reading.target,...(reading.parent?{parent:reading.parent}:{})},walkthrough.id);
+   return;
+  }
   if(row.state===reading.status&&row.reason===reading.reason)return;
   change({kind:'disposition',step:step.id,state:reading.status,reason:reading.reason},walkthrough.id);
  },[walkthrough?.id,walkthrough?.phase,step.id,readingSignature,row?.state,row?.reason,change]);

@@ -28,7 +28,7 @@ it('credits progress only from an acknowledged current Run with choices and save
  expect(readings.get('progress')?.observation).toBeUndefined();expect(readings.get('recovery')?.observation).toBeUndefined();
  mounted.rerender(<RunStateTourObservations run={{...run,progress:{...run.progress,notes_by_element_id:{}}}} content={content} blocked={false} acknowledgedRun={acknowledgedRun}/>);
  await waitFor(()=>expect(readings.get('recovery')?.status).toBe('ready'));
- expect(readings.get('progress')?.observation).toBeUndefined();
+ expect(readings.get('progress')?.observation).toBeUndefined();expect(readings.get('progress')?.status).toBe('pending');
 });
 
 afterEach(()=>vi.restoreAllMocks());
@@ -36,4 +36,12 @@ it('does no saved-state fingerprinting when no walkthrough is running',()=>{
  mode.tracking=false;const digest=vi.spyOn(crypto.subtle,'digest');
  render(<RunStateTourObservations run={run} content={content} blocked={false} acknowledgedRun={null}/>);
  expect(digest).not.toHaveBeenCalled();expect(readings.get('recovery')?.observation).toBeUndefined();
+});
+
+it('keeps blocked admission unavailable and actual fingerprint failure failed',async()=>{
+ const mounted=render(<RunStateTourObservations run={run} content={content} blocked={true} acknowledgedRun={null}/>);
+ expect(readings.get('progress')?.status).toBe('unavailable');expect(readings.get('progress')?.observation).toBeUndefined();
+ vi.spyOn(crypto.subtle,'digest').mockRejectedValue(new Error('Digest unavailable'));
+ mounted.rerender(<RunStateTourObservations run={run} content={content} blocked={false} acknowledgedRun={null}/>);
+ await waitFor(()=>expect(readings.get('progress')?.status).toBe('failed'));expect(readings.get('recovery')?.status).toBe('failed');expect(readings.get('progress')?.observation).toBeUndefined();
 });
