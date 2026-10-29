@@ -26,6 +26,22 @@ MODEL = "gpt-6-luna"
 SCHEMA_NAME = "qualified_source_propositions_v3"
 
 
+def _provider_schema(frozen_schema):
+    """Restore declared root generation order without relying on JSONB key order."""
+    schema = strict_json(canonical(frozen_schema))
+    required = schema.get("required")
+    properties = schema.get("properties")
+    if (
+        schema.get("type") != "object"
+        or required != ProposalBatch.model_json_schema()["required"]
+        or not isinstance(properties, dict)
+        or set(required) != set(properties)
+    ):
+        raise ValueError("Qualified producer root schema order differs")
+    schema["properties"] = {key: properties[key] for key in required}
+    return schema
+
+
 def _producer_budget():
     from .agent_turn_service import _policy_request_budget
 
@@ -216,9 +232,7 @@ async def produce(request, principal, *, transport=None):
 
     from generationengine.utils.schema_utils import make_schema_strict
 
-    # PostgreSQL JSONB does not retain object-key order. Derive native property
-    # order from the canonical frozen schema, not an in-memory mapping order.
-    provider_schema = strict_json(canonical(packet["output_schema"]))
+    provider_schema = None
     output_format = None
     messages = [{"role": "user", "content": canonical(packet)}]
     prepared_request = None
@@ -251,6 +265,8 @@ async def produce(request, principal, *, transport=None):
             or body.get("input") != messages
             or body.get("instructions") != INSTRUCTIONS
             or body.get("text") != {"format": output_format}
+            or list(body["text"]["format"]["schema"]["properties"])
+            != list(provider_schema["properties"])
             or body.get("tools")
             or body.get("max_output_tokens") != budget["outputReserveTokens"]
         ):
@@ -284,6 +300,8 @@ async def produce(request, principal, *, transport=None):
     budget = None
     try:
         budget = _producer_budget()
+        # JSONB preserves the explicit required array, unlike object-key order.
+        provider_schema = _provider_schema(packet["output_schema"])
         output_format = {
             "type": "json_schema",
             "name": SCHEMA_NAME,

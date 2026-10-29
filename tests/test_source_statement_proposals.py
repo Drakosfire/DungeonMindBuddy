@@ -966,7 +966,7 @@ def test_actual_prepared_native_schema_expresses_reporter_dependency(
         "type": "json_schema",
         "name": service.SCHEMA_NAME,
         "schema": make_schema_strict(
-            json.loads(service.canonical(row["input"]["output_schema"]))
+            service._provider_schema(row["input"]["output_schema"])
         ),
         "strict": True,
     }
@@ -1140,3 +1140,120 @@ def test_refusal_retains_actual_sdk_response_and_never_retries(
             == row
         )
         assert len(wire.requests) == 1
+
+
+ROOT_ORDER = [
+    "contract", "catalog_sha256", "mentions", "proposals", "dispositions", "limitations"
+]
+
+
+def test_actual_wire_preserves_dependency_order_after_jsonb_reload(
+    lane, application_state_dsn, monkeypatch
+):
+    from generationengine.utils.schema_utils import make_schema_strict
+    from application_state.statement_proposals import service as store
+
+    original_claim = store.claim
+
+    def reloaded_claim(key, owner, intent, packet):
+        record, fresh = original_claim(key, owner, intent, packet)
+        reloaded = store.read(key, owner, intent["managed_world_id"])
+        assert list(reloaded["input"]["output_schema"]["properties"]) != ROOT_ORDER
+        # Exercise actual dispatch with the schema mapping order read from JSONB.
+        packet["output_schema"] = deepcopy(reloaded["input"]["output_schema"])
+        return record, fresh
+
+    monkeypatch.setattr(store, "claim", reloaded_claim)
+    wire = Wire()
+    with client(monkeypatch, wire) as c:
+        req, row = produce(c, lane)
+        assert row["state"] == "completed"
+        stored = store.read(req.operation_id, GM.subject, req.managed_world_id)
+        assert stored["input"] == row["input"]
+        schema = wire.requests[0]["text"]["format"]["schema"]
+        assert list(schema["properties"]) == ROOT_ORDER
+        assert schema["required"] == ROOT_ORDER
+        assert json.loads(stored["wire"])["text"]["format"]["schema"]["required"] == ROOT_ORDER
+        assert list(json.loads(stored["wire"])["text"]["format"]["schema"]["properties"]) == ROOT_ORDER
+        original = stored["input"]["output_schema"]
+        reversed_mapping = deepcopy(original)
+        reversed_mapping["properties"] = dict(reversed(list(original["properties"].items())))
+        for frozen in (original, reversed_mapping, json.loads(service.canonical(original))):
+            projected = service._provider_schema(frozen)
+            assert list(projected["properties"]) == ROOT_ORDER
+            # Only root key order changes; nested schema and all constraints are identical.
+            assert projected == original
+            previous = make_schema_strict(json.loads(service.canonical(original)))
+            assert {k: v for k, v in schema.items() if k != "required"} == {
+                k: v for k, v in previous.items() if k != "required"
+            }
+            assert set(schema["required"]) == set(previous["required"])
+            for name, definition in schema["$defs"].items():
+                prior = previous["$defs"][name]
+                assert list(definition.get("properties", {})) == list(prior.get("properties", {}))
+                assert definition.get("required") == prior.get("required")
+        assert c.get(url(req)).json() == row
+        assert c.post("/api/live/source-statements/proposals",json=req.model_dump(mode="json")).json() == row
+        assert len(wire.requests) == 1
+
+
+@pytest.mark.parametrize("change", ["duplicate", "missing", "unknown", "reordered"])
+def test_malformed_declared_schema_order_refuses(change):
+    schema = service.ProposalBatch.model_json_schema()
+    if change == "duplicate":
+        schema["required"].append(schema["required"][0])
+    elif change == "missing":
+        schema["required"].pop()
+    elif change == "unknown":
+        schema["properties"]["extra"] = {"type":"string"}
+    else:
+        schema["required"].reverse()
+    with pytest.raises(ValueError, match="root schema order"):
+        service._provider_schema(schema)
+
+
+def test_property_only_wire_reordering_refuses_before_transport(
+    lane, application_state_dsn, monkeypatch
+):
+    from apps.live_control_server.services.plan_jev_writer import PlanWriterProvider
+
+    original = PlanWriterProvider._request_kwargs
+    seen = []
+    def reordered(self, call, *, streaming=False):
+        options = original(self, call, streaming=streaming)
+        schema = options["text"]["format"]["schema"]
+        before = deepcopy(schema)
+        schema["properties"] = dict(sorted(schema["properties"].items()))
+        assert schema == before  # Schema/dict equality alone misses this fault.
+        assert list(schema["properties"]) != ROOT_ORDER
+        assert schema["required"] == ROOT_ORDER
+        seen.append(True)
+        return options
+
+    monkeypatch.setattr(PlanWriterProvider, "_request_kwargs", reordered)
+    wire = Wire()
+    with client(monkeypatch, wire) as c:
+        req, row = produce(c, lane)
+        assert seen and not wire.requests
+        assert row["state"] == "failed" and row["wire"] is None
+        assert row["failure"] == "proposal_generation_not_dispatched"
+        assert row["raw_output"] is None and row["result"] is None
+        assert c.get(url(req)).json() == row
+
+
+def test_changed_schema_sequence_retains_failure_without_dispatch(
+    lane, application_state_dsn, monkeypatch
+):
+    original = service._render
+    def changed(material):
+        packet = original(material)
+        packet["output_schema"]["required"].reverse()
+        return packet
+    monkeypatch.setattr(service, "_render", changed)
+    wire = Wire()
+    with client(monkeypatch, wire) as c:
+        req, row = produce(c, lane)
+        assert row["state"] == "failed" and row["wire"] is None
+        assert row["failure"] == "proposal_generation_not_dispatched"
+        assert not wire.requests
+        assert c.get(url(req)).json() == row
