@@ -74,7 +74,86 @@ independently reopens that exact stored row to compare its complete payload with
 ordinary HTTP readback. The reviewer counterexample and wrong/missing identity,
 World, owner and payload controls are retained. No actual row-conservation pass
 was claimed from a real extraction before this correction.
-New suite50/50 and predecessor answer-harness45/45 pass; Ruff passes. No extraction,
-selection, publication, discovery or answer success is claimed.
-Original full-system verification remains0/15. Exact-head review and CI remain
-completion gates; broader corpus integration and operator acceptance remain open.
+New suite50/50 and predecessor answer-harness45/45 pass; Ruff passes.
+
+## Actual v2 outcome — failed incomplete extraction, retained honestly
+
+Executed harness head1e6630e051acc49daffcafb86a0af5fe46e43dbd, file SHA256
+171d0b1f3a34c8d3570b0badb352a0577fc6a4fd6b6490910f90ef6c3060a79f.
+Frozen preflight237a23221e439102735bccb9d7ffef87c8b89314a724f6a14bd681d79c4f1f63.
+Actual imported Core203files matched38c87bc78bcd05a538bd89fdbb928fca54c3a283,
+inventory6c7730a85a52eb496f6a9b7dfdb796f5b15adc14569b1be3b3ae26171c0d357f.
+WK13files matcheda30ee81ae0e777037c68afea8847b04a2c736ae1,
+inventory1d0666d3d9b0184b7fd7ab1a355107336f29c60bc16fc04ca0a70b7020f79df1.
+Actual Buddy runtime349API/486src files matched the accepted base. This is the
+retained small native graph at R above, not an integrated historical supergraph.
+
+The owned disposable APP snapshot is readable273TOCentries, SHA256
+834b2c1fefe996608497249bf25e39260d234dacd0bd5281484ae81fcfe32e2a.
+Restore was not executed. Explicit0092→0093 upgrade preserved all47original
+APP tables' retained rows, native state,40991retained files and all prior evidence.
+
+Actual ordinary authenticated operation13744ada-d20c-437b-a405-04950ad703b2 made
+one OpenAI/GE GPT-6 Luna SDK entry. HTTP200 SDK response
+resp_0c883a9ae741fe7d006ae38ea46f5087d1bca3df88d1e4b3a9 has status
+`incomplete`, reason `max_output_tokens`. The runtime's configured8192output
+reservation was exhausted:4341input +8192output tokens, zero reasoning tokens.
+No source clipping or harness-specific output cap was introduced. Ordinary
+endpoint elapsed32826.325724ms; internal provider/source/store attribution is
+unassessed. This is the source producer, not the full Jev answer loop.
+
+| Objective | Met / assessed | Interpretation |
+| --- | --- | --- |
+| Authorized source/body/context reaches actual provider | 1 / 1 | Exact whole S8 and authorized native names; no gold/question input |
+| Complete accepted extraction batch | 0 / 1 | Output cut off mid-JSON; stored result is null |
+| Exact owned operation persistence/readback/replay | 1 / 1 | Exact DB ID/owner/World/payload and HTTP reload agree |
+| Protected-state conservation | 1 / 1 | Only schema head and one authorized new operation; old rows/native/files/evidence preserved |
+| Replay without more SDK or lifecycle work | 1 / 1 | Both ordinary GET and same-key POST retain the exact failed operation |
+| Identity, selection, publication, discovery, answer composition | 0 / 0 | Not executed or assessed by this run |
+
+No retry, partial-output salvage, review/prepare/confirm or publication occurred.
+The full raw SDK response, wire, failed operation, actual stored row, timing,
+snapshot, original state, reload/replay and conservation remain immutable in the
+private v2 case. The still-red original v1 refusal and all Q01 runs are preserved.
+
+## Independent inspection of incomplete output — diagnostic only
+
+The response contains25source-local mentions and36complete JSON proposal
+fragments, then an incomplete p37. Every complete fragment was independently
+compared with the exact source; none was converted into an accepted batch.
+All25mention anchors occur in source. All36clause quotes match uniquely;
+35/36individual fragments pass schema and exact source/context correspondence.
+These are fragment diagnostics, not accepted-output precision or ingestion recall.
+
+One independent source-copy failure exists before the truncation: p22's context
+joins two paragraphs using a space where source has two newline characters.
+Increasing output capacity alone would not repair this exact-text failure.
+
+Manual dispositions:30/36no issue found in source comparison,5/36review holds,
+1/36source-contract failure. Holds are p17/p31 reusing an earlier guard mention
+while explicitly qualifying that identity as unlinked, p18 unenumerated group
+versus party referent, and p24/p26 combining narrator and reported claims under
+one reporter/mode. These are held judgments, not five proved graph defects.
+All36fragment notes, exact locations and qualifications are retained in
+independent-semantic-assessment.json; no repaired source text was substituted.
+
+Raw fragments contain all3bounded target cores: Q01:1 in p28 (another plane),
+Q13:2 in p9 (faintly heard repeated feeding), Q13:3 in p16 (oily-eye signs).
+They preserve important limits: unnamed plane/checker; no invented feeder;
+no meat-causation claim; no asserted post-escape onset. Escape/reunion and planning
+context support the later symptom mention separately from its unknown onset.
+Q13:1 belongs to S7 and is outside this extraction, not an S8 omission.
+Accepted Q01 extraction remains0/1; accepted S8 Q13 facts0/2 because no accepted
+batch exists. No identity/publication/discovery/answer score was promoted.
+
+current-observations.json now holds exact source/revision/runtime/wire/SDK and
+evidence pins, these question-stage outcomes, regressions and next-owner action.
+The original gold SHA256e574efadde0df1e0da2cfdc77d0a00840f136c1dea19e71685cdf5b11450568a
+is unchanged and was consulted only after actual output existed.
+
+PRIME owns disposition of producer output exhaustion and exact context-copy
+failure, plus held attribution/identity judgments. Any next run requires a named
+new experiment; this one call is spent. Governed new-span publication remains
+separate; no re-admission/reminted source was used. Original full-system
+verification remains0/15. Exact final-head review and CI remain PR gates;
+broader corpus integration and operator acceptance remain open.
