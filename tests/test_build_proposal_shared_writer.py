@@ -164,7 +164,7 @@ def test_failed_final_evidence_acknowledgment_cannot_produce_ready_proposal(requ
 def test_parent_refuses_destination_conflict_without_ready_or_resend(request_case, monkeypatch, destination):
     from apps.live_control_server.services.build_construction_stream import construction_sink
     _, _, _, parent, tool, message, wire, _ = setup(request_case, monkeypatch)
-    wire.text = json.dumps(dict(destination=destination, replacement_markdown='',
+    wire.text = json.dumps(dict(target="captured",destination=destination, replacement_markdown='',
         summary='Writing belongs on another page or needs clarification.', assumptions=[]))
     observed = []
     token = construction_sink.set(observed.append)

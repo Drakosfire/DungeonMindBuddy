@@ -390,3 +390,68 @@ it.each(['text','marks','media','spacers','readonly','visibility','older'] as co
   expect(result.state).toBe('changed');expect(result.savedProjection).toBeUndefined();
  }finally{editor.destroy();}
 });
+
+it('offers whole-body replacement independently of the real selection and replaces instead of appending',async()=>{
+ const {editor,bridge,state}=setup();try{
+  editor.commands.setTextSelection({from:1,to:3});
+  const captured=await bridge.capture();
+  expect(captured.pageBodyOffer).toEqual({end:6});
+  expect(captured.basis.caret).toBe(1);expect(captured.basis.selection?.text).toBe('Ed');
+  const restored=await bridge.restore(captured.basis,captured.pageBodyOffer);
+  const prepared=await bridge.prepareProposal(restored,'Preparation only.\n\nOffer communication before combat.');
+  bridge.applyPrepared(prepared);
+  expect(editor.getJSON().content).toHaveLength(2);
+  expect(editor.getText()).toBe('Preparation only.\n\nOffer communication before combat.');
+  expect(editor.getText()).not.toContain('Edge');
+  expect((await bridge.inspectProposal(captured.basis,prepared.afterEditorSha256,prepared.afterDraftSha256)).state).toBe('after');
+  state.draftGeneration++;
+  expect(()=>bridge.applyPrepared(prepared)).toThrow('already');
+ }finally{editor.destroy();}
+});
+
+it('restores an interrupted whole-body preparation without replaying the wrong range',async()=>{
+ const {editor,bridge}=setup();try{
+  const original=await bridge.capture();
+  const captured=await bridge.restore(original.basis,original.pageBodyOffer);
+  const prepared=await bridge.prepareProposal(captured,'New first.\n\nNew second.');
+  expect((await bridge.inspectProposal(original.basis,prepared.afterEditorSha256,prepared.afterDraftSha256)).state).toBe('before');
+  const retry=await bridge.prepareProposal(await bridge.restore(original.basis,original.pageBodyOffer),prepared.markdown);
+  expect(retry.afterEditorSha256).toBe(prepared.afterEditorSha256);
+  bridge.applyPrepared(retry);expect(editor.getJSON().content).toHaveLength(2);
+  await expect(bridge.restore(original.basis,original.pageBodyOffer)).rejects.toThrow('changed');
+ }finally{editor.destroy();}
+});
+
+it('refuses a stale whole-body extent or permission without changing the document',async()=>{
+ const {editor,bridge,state}=setup();try{
+  const captured=await bridge.capture();
+  await expect(bridge.restore(captured.basis,{end:999})).rejects.toThrow('body changed');
+  state.canEdit=false;
+  await expect(bridge.restore(captured.basis,captured.pageBodyOffer)).rejects.toThrow('editable');
+  expect(editor.getText()).toBe('Edge');
+ }finally{editor.destroy();}
+});
+
+it('refuses deleting or changing a link even in an author-edited whole-page review',async()=>{
+ const {editor,bridge}=setup();try{
+  editor.commands.setContent('<p><a href="https://example.org/source">Source</a> context.</p>');
+  const captured=await bridge.capture();expect(captured.pageBodyOffer).toBeDefined();
+  const whole=await bridge.restore(captured.basis,captured.pageBodyOffer);
+  await expect(bridge.prepareProposal(whole,'No reference.')).rejects.toThrow('preserve every');
+  await expect(bridge.prepareProposal(whole,'[Source](https://example.org/other) context.')).rejects.toThrow('preserve every');
+  const prepared=await bridge.prepareProposal(whole,'[Source](https://example.org/source) revised context.');
+  bridge.applyPrepared(prepared);expect(editor.getText()).toBe('Source revised context.');
+ }finally{editor.destroy();}
+});
+
+it('does not offer a whole-body target for a retained typed work plan',async()=>{
+ const {editor,bridge}=setup();
+ const reference={schema:'dmb_surface_work_plan_ref_v1' as const,world_id:'elderwyld',document_id:'edge',conversation_id:'11111111-1111-4111-8111-111111111111',source_turn_id:'22222222-2222-4222-8222-222222222222',source_answer_sha256:'b'.repeat(64),title:'Work plan'};
+ try{
+  const captured=await bridge.capture();bridge.applyWorkPlan!(await bridge.prepareWorkPlan!(captured,reference));
+  const retained=editor.getJSON();const next=await bridge.capture();
+  expect(next.pageBodyOffer).toBeUndefined();
+  await expect(bridge.restore(next.basis,{end:editor.state.doc.content.size})).rejects.toThrow();
+  expect(editor.getJSON()).toEqual(retained);
+ }finally{editor.destroy();}
+});

@@ -80,8 +80,9 @@ class DecisionWire(httpx2.AsyncBaseTransport):
 
 
 class WriterWire(httpx.AsyncBaseTransport):
-    def __init__(self, *, timeout=False, answer_status="source_grounded_partial"):
+    def __init__(self, *, timeout=False, answer_status="source_grounded_partial", target="captured"):
         self.calls, self.timeout, self.answer_status = [], timeout, answer_status
+        self.target = target
 
     async def handle_async_request(self, request):
         self.calls.append(request)
@@ -93,6 +94,7 @@ class WriterWire(httpx.AsyncBaseTransport):
             text = json.dumps(
                 {
                     "destination": "current_page",
+                    "target": self.target,
                     "replacement_markdown": "| NPC | Job |\n| --- | --- |\n| Nia | Baker |",
                     "summary": "A creative NPC suggestion.",
                     "assumptions": ["Nia is invented."],
@@ -1172,3 +1174,22 @@ def test_acquisition_exception_has_durable_diagnostic_before_claim_stop(build_ca
     assert 'synthetic private acquisition detail' in json.loads(payload)['traceback']
     assert 'synthetic private acquisition detail' not in traces[0].model_dump_json()
     assert turn.status == 'interrupted'
+
+
+def test_ordinary_whole_body_choice_is_bound_through_parent_authority(build_case,monkeypatch,tmp_path):
+    from application_state.build_proposal.types import BuildPageBodyOffer
+    case,calls=ordinary_case(build_case,monkeypatch,authoring=True)
+    source,request,bootstrap=case
+    cap=request.build_write_capability.model_copy(update={
+        "basis":request.build_write_capability.basis.model_copy(update={"editor_sha256":"e"*64}),
+        "page_body_offer":BuildPageBodyOffer(end=83)})
+    request=request.model_copy(update={"message":"Revise the entire current page body.","build_write_capability":cap})
+    decisions,writer=DecisionWire(operation="propose_build_insertion"),WriterWire(target="page_body")
+    result=execute((source,request,bootstrap),tmp_path,BuildJevHarness(decision_transport=decisions,writer_transport=writer))
+    completion=result.knowledge_context.completion
+    assert isinstance(completion,ledger.BuildAuthoringCompletionV1)
+    action=BuildProposalService().get("elderwyld",completion.action_id)
+    assert action.proposal.target=="page_body" and action.reservation.page_body_offer==cap.page_body_offer
+    assert action.reservation.basis==cap.basis
+    assert json.loads(json.loads(writer.calls[0].content)["input"])["page_body_offer"]=={"end":83}
+    assert len(writer.calls)==len(decisions.calls)==1 and calls=={"graph":0,"source":0}

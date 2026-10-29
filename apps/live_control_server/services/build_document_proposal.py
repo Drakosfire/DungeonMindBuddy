@@ -28,10 +28,16 @@ from src.model_policy import load_buddy_model_policy
 
 SYSTEM = '''You are DungeonBuddy helping a GM write worldbuilding on the Build surface.
 Compose an inert Markdown fragment for the captured page target.
-When source_basis.selection is present, revise only that selected passage: its text
+Choose target=page_body only when the instruction explicitly requests revision or
+replacement of the whole current page, and page_body_offer is present. Return the
+complete revised page BODY, preserving relevant existing facts and all link/image
+references. Never remove or alter a reference destination. This excludes metadata.
+For whole-page work without an offer, or ambiguous scope, choose target=unavailable
+and return empty replacement_markdown with an explanation; never append a fallback.
+Otherwise choose target=captured. When source_basis.selection is present, revise only that selected passage: its text
 is reference data and its end/start are host-owned. Return the complete replacement
 for that passage, preserving its relevant names, facts and requested formatting.
-Otherwise compose an addition at the captured caret. Do not choose another target.
+Otherwise compose an addition at the captured caret. Only the offered target enum may be chosen.
 Report destination as current_page only when the current instruction requests writing
 at this captured page, including development of a newly created page that is now
 the captured current target. A page being new does not make it a different target.
@@ -86,7 +92,7 @@ each row should offer something usable, while keeping conditional outcomes unpla
 Do not claim anything was inserted, saved or published.
 Use ordinary Markdown, including headings, lists and standard pipe tables. Do not
 return HTML, paths, executable code, graph identities, dmb-node links, hidden markers
-or an entire replacement document. You have no tools and cannot request more reads.'''
+or document metadata. You have no tools and cannot request more reads.'''
 
 
 class BuildComposeError(ValueError):
@@ -98,10 +104,11 @@ class BuildComposeTargetMismatch(BuildComposeError):
 
 
 class BuildComposeOutput(BuildGeneratedProposal):
-    """Generation-only wire shape; stored proposals retain their existing contract."""
+    """New writer output requires an explicit disposition over frozen host targets."""
 
     replacement_markdown: str = Field(max_length=12_000)
     destination: Literal["current_page", "different_page", "unresolved"]
+    target: Literal["captured", "page_body", "unavailable"]
 
 
 def _model():
@@ -135,7 +142,7 @@ def _source(request):
     return snapshot
 
 
-def _result(text):
+def _result(text, page_body_offer=None):
     def unique(pairs):
         value = {}
         for key, item in pairs:
@@ -146,6 +153,12 @@ def _result(text):
     wire = BuildComposeOutput.model_validate(json.loads(text, object_pairs_hook=unique))
     if wire.destination != "current_page":
         raise BuildComposeTargetMismatch("build_compose_target_mismatch")
+    if wire.target == "unavailable":
+        if wire.replacement_markdown:
+            raise BuildComposeError("build_compose_unavailable_content")
+        raise BuildComposeTargetMismatch("build_compose_target_unavailable")
+    if wire.target == "page_body" and page_body_offer is None:
+        raise BuildComposeTargetMismatch("build_compose_target_not_offered")
     output = BuildGeneratedProposal.model_validate(wire.model_dump(exclude={"destination"}))
     markdown = output.replacement_markdown
     if re.search(r"(?m)^ {0,3}(?:`{3,}|~{3,})dmb-work-plan-v1(?:[ \t]|$)", markdown):
@@ -312,7 +325,7 @@ async def _compose(request: BuildDocumentProposalRequest, *, transport=None, wri
         if not isinstance(result.final_text, str):
             raise BuildComposeError("build_compose_output_unavailable")
         advance("response_received", raw_response=result.final_text, observation=result.observation.model_dump(mode="json"))
-        proposal = _result(result.final_text)
+        proposal = _result(result.final_text, reservation.page_body_offer)
         advance("proposed", proposal=proposal)
         progress("ready", proposal.replacement_markdown)
         return record
@@ -356,6 +369,7 @@ def _writer_request(request, snapshot, model, *, frozen_history=None, related_au
         "source_class": "proposed_authored_worldbuilding_not_played_truth",
         **({"tool_origin": reservation.origin.model_dump(mode="json")} if reservation.origin else {}),
         "source_title": snapshot.record.title, "source_basis": reservation.basis.model_dump(mode="json"),
+        "page_body_offer": reservation.page_body_offer.model_dump(mode="json") if reservation.page_body_offer else None,
         "instruction": reservation.instruction, "draft_markdown": request.draft_markdown}, ensure_ascii=False, separators=(",", ":"))
     schema = BuildComposeOutput.model_json_schema()
     expected = {"model": model, "input": packet, "instructions": SYSTEM + ("\nUse related_authored_pages as exact saved authored references before inventing substitutes. They are authored context, not played facts; preserve row/column meanings and source attribution.\n" if related_authored_pages is not None else "") + dialogue_rule(messages),
