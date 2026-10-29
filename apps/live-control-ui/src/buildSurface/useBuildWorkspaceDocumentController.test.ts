@@ -1779,4 +1779,35 @@ describe("useBuildWorkspaceDocumentController", () => {
     expect(result.current.activeRecord?.document_id).toBe(DOC_A);
     expect(result.current.pendingImportDocumentId).toBe(DOC_B);
   });
+  it.each(['guidance restart','new unsaved edits'])('cancels a staged source read after %s, retaining the old page and URL',async()=>{
+    let release!:(value:ReturnType<typeof mockSnapshot>)=>void;
+    const pending=new Promise<ReturnType<typeof mockSnapshot>>(resolve=>{release=resolve;});
+    vi.mocked(liveApi.getWorkspaceDocumentSnapshot).mockImplementation(async id=>id===DOC_B?pending:mockSnapshot(id));
+    window.history.replaceState({},'',`/build?documentId=${DOC_A}`);
+    const {result}=renderHook(()=>useBuildWorkspaceDocumentController());
+    await waitFor(()=>expect(result.current.activeDocumentId).toBe(DOC_A));
+    let current=true,selection!:Promise<boolean>;
+    act(()=>{selection=result.current.selectDocument(DOC_B,()=>current);});
+    await waitFor(()=>expect(result.current.switching).toBe(true));
+    current=false;
+    await act(async()=>{release(mockSnapshot(DOC_B));await selection;});
+    expect(result.current.activeDocumentId).toBe(DOC_A);expect(new URLSearchParams(window.location.search).get('documentId')).toBe(DOC_A);
+    expect(result.current.switching).toBe(false);expect(result.current.switchError).toMatch(/canceled/);
+    expect(liveApi.commitTiptapMarkdownWrite).not.toHaveBeenCalled();
+  });
+  it('does not clear a newer manual selection when a canceled guided read finishes',async()=>{
+    const docC='33333333-3333-4333-8333-333333333333';
+    let releaseB!:(value:ReturnType<typeof mockSnapshot>)=>void,releaseC!:(value:ReturnType<typeof mockSnapshot>)=>void;
+    const b=new Promise<ReturnType<typeof mockSnapshot>>(resolve=>{releaseB=resolve;}),c=new Promise<ReturnType<typeof mockSnapshot>>(resolve=>{releaseC=resolve;});
+    vi.mocked(liveApi.getWorkspaceDocumentSnapshot).mockImplementation(async id=>id===DOC_B?b:id===docC?c:mockSnapshot(id));
+    window.history.replaceState({},'',`/build?documentId=${DOC_A}`);const {result}=renderHook(()=>useBuildWorkspaceDocumentController());
+    await waitFor(()=>expect(result.current.activeDocumentId).toBe(DOC_A));let current=true,guided!:Promise<boolean>,manual!:Promise<boolean>;
+    act(()=>{guided=result.current.selectDocument(DOC_B,()=>current);});
+    await waitFor(()=>expect(result.current.switching).toBe(true));
+    act(()=>{manual=result.current.selectDocument(docC);});current=false;
+    await act(async()=>{releaseB(mockSnapshot(DOC_B));await guided;});
+    expect(result.current.switching).toBe(true);expect(result.current.activeDocumentId).toBe(DOC_A);
+    await act(async()=>{releaseC(mockSnapshot(docC));await manual;});expect(result.current.activeDocumentId).toBe(docC);
+  });
+
 });

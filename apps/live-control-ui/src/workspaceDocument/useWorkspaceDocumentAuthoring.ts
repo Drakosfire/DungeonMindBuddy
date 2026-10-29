@@ -1,3 +1,4 @@
+import {useTourNavigationGuard} from '../guidedTour/Navigation';
 import {WorkspaceDraftCoordinator, type DraftPersistenceStatus} from "./workspaceDraftCoordinator";
 import { conflictCopiesKey, preserveConflictCopies, type WorkspaceConflictRecovery, type WorkspaceConflictReview } from "./workspaceConflictRecovery";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -929,6 +930,10 @@ export function useWorkspaceDocumentAuthoring(
     : (requireDirtyToSave && !dirty) ? "No unsaved changes."
     : canSave && !canSave() ? "This document is read-only or cannot be saved here."
     : null;
+  const tourDepartureReason = persistenceStatus.pending ? 'Wait for the local draft to finish saving.'
+    : persistenceStatus.error ?? (dirty ? 'Wait for Saved, or resolve the retained document draft before navigating.'
+    : phase !== 'ready_clean' ? 'Finish loading or resolve the document recovery before navigating.' : null);
+  useTourNavigationGuard(snapshot?.record.world_id ? {worldId:snapshot.record.world_id,reason:impact=>impact==='departure'?tourDepartureReason:null}:null);
   const legacyStatus: WorkspaceDocumentAuthoringStatus = phase;
 
   return {

@@ -275,7 +275,7 @@ export interface BuildWorkspaceDocumentController {
   createError: string | null;
   activationError: string | null;
   importError: string | null;
-  selectDocument: (documentId: string) => Promise<boolean>;
+  selectDocument: (documentId: string, isCurrent?:()=>boolean) => Promise<boolean>;
   createDocument: (payload: {
     starter?: boolean;
     title: string;
@@ -380,7 +380,9 @@ export function useBuildWorkspaceDocumentController(): BuildWorkspaceDocumentCon
       search: string,
       urlCommit: DocumentUrlCommit,
       purpose: "default" | "create_activate" = "default",
+      isCurrent:()=>boolean = ()=>true,
     ): Promise<boolean> => {
+      if(!isCurrent())return false;
       const generation = ++documentLoadGenerationRef.current;
       const requestedId = readDocumentIdFromSearch(search);
       const switchingNow =
@@ -412,6 +414,11 @@ export function useBuildWorkspaceDocumentController(): BuildWorkspaceDocumentCon
         const record = validateBuildSourceRecord(snapshot.record, requestedId, selectedWorldId);
         if (generation !== documentLoadGenerationRef.current) return false;
 
+        if(!isCurrent()){
+          // This reservation still owns loading, but may not replace a newly dirty editor.
+          setSwitching(false);setLoadStatus(activeRecordRef.current?'ready':'empty');
+          setSwitchError('Guided selection canceled. The current page and its draft are retained.');return false;
+        }
         setActiveRecord(record);
         setLoadStatus("ready");
         setSwitching(false);
@@ -505,7 +512,8 @@ export function useBuildWorkspaceDocumentController(): BuildWorkspaceDocumentCon
   }, [loadBuildDocument]);
 
   const selectDocument = useCallback(
-    async (documentId: string) => {
+    async (documentId: string, isCurrent:()=>boolean = ()=>true) => {
+      if(!isCurrent())return false;
       if (typeof window === "undefined") return false;
       if (documentId === activeRecordRef.current?.document_id && !switchingRef.current) return true;
       createControllerRef.current.supersedePendingCreateIntent();
@@ -528,7 +536,7 @@ export function useBuildWorkspaceDocumentController(): BuildWorkspaceDocumentCon
         documentId,
         campaignHint,
       );
-      return loadBuildDocument(search, { mode: "push", search });
+      return loadBuildDocument(search, { mode: "push", search }, "default", isCurrent);
     },
     [documents, loadBuildDocument, persistPendingImportDocumentId],
   );

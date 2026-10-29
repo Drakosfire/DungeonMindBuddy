@@ -1,3 +1,5 @@
+import {useTourNavigationOwner,useTourNavigationGuard} from '../../guidedTour/Navigation';
+import {useTourRun} from '../../guidedTour/RunScope';
 import {useGuidedTour} from '../../guidedTour/GuidedTour';
 import {useSessionReviewTourObservation,type AcknowledgedSessionReview} from '../../guidedTour/SessionObservations';
 import {useEffect,useMemo,useRef,useState} from "react";
@@ -49,6 +51,9 @@ export function SessionReviewPanel({runId,worldId,runRevision,content,blocked,sc
  },[text,loaded,review,error,saving]);
  const dirty=Boolean(review&&text!==review.final_thoughts);
  useEffect(()=>{if(!dirty)return;const guard=(event:BeforeUnloadEvent)=>{event.preventDefault();event.returnValue=""};window.addEventListener("beforeunload",guard);return()=>window.removeEventListener("beforeunload",guard)},[dirty]);
+ const tourRun=useTourRun();
+ useTourNavigationGuard({worldId,reason:impact=>impact==='departure'&&(saving||pending.current||text!==(review?.final_thoughts??''))?'Finish saving or resolve the session reflections before navigating.':null});
+ useTourNavigationOwner(tourRun?{role:'panel',worldId,surface:'play',objectId:runId,parent:tourRun.parent,inspections:[{id:'play-reflections',step:'reflection',label:'Open session reflections',target:tourRun.target,impact:'projection',perform:request=>{if(request.isCurrent())setOpen(true);}}]}:null);
  const identity=useMemo(()=>buildSurfaceInteractionIdentity({surfaceId:"play",instanceParts:["session-review",worldId,runId]}),[runId,worldId]);
  const nav=useMemo(()=><SurfaceContextAction data-guided-control="reflection" onClick={()=>setOpen(value=>!value)}>{review?.status==="ended"?"Session reflections":"End session"}</SurfaceContextAction>,[review?.status]);
  useSurfaceContextContribution({id:"play-session-review",order:25,surfaceIdentity:identity,content:nav});

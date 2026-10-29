@@ -1,3 +1,5 @@
+import {useTourNavigationOwner} from '../../guidedTour/Navigation';
+import {runPins as guidedRunPins} from '../../guidedTour/ownerPins';
 import {useGuidedTour,type TourDispatchScope} from '../../guidedTour/GuidedTour';
 import { SurfaceCardLayout } from "../../shared/SurfaceCardLayout";
 import { ContentsToggle } from "../../shared/Contents";
@@ -470,6 +472,10 @@ export function PlayCurrentMomentCockpit({
     ? beatForScene(deck, workspace.sceneId)
     : null;
   const worldOwnedRun = run.schema_version === "dmb_world_play_run_record_v2";
+  useTourNavigationOwner(worldOwnedRun?{role:'panel',worldId:run.world_id,surface:'play',objectId:run.run_id,parent:guidedRunPins(run).parent,inspections:[{
+    id:'play-scene-notes',step:'progress',label:'Open current scene notes',target:guidedRunPins(run).target,impact:'projection',unavailable:!currentScene?'Select a current scene through the ordinary controls.':undefined,
+    perform:request=>{if(request.isCurrent())setNotesOpen(true);},
+  }]}:null);
   const sceneNoteId = worldOwnedRun ? currentScene?.id ?? null : null;
   const sceneNoteScope = sceneNoteId && worldOwnedRun
     ? sceneNoteScopeKey(run, sceneNoteId)

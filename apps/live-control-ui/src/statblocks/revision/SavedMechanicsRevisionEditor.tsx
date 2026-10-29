@@ -1,3 +1,4 @@
+import {useTourNavigationGuard} from '../../guidedTour/Navigation';
 import {useGuidedTour,type TourDispatchScope} from '../../guidedTour/GuidedTour';
 import {useTourEncounter,sameEncounterScope,type TourEncounterScope} from '../../guidedTour/EncounterScope';
 import {MechanicsTourObservation,sameMechanicsLocator,type AcknowledgedMechanicsSave} from '../../guidedTour/MechanicsObservations';
@@ -135,6 +136,7 @@ export function SavedMechanicsRevisionEditor({worldId,draftId}:{worldId:string;d
     }catch(error){if(token===epoch.current)setMessage(error instanceof Error?error.message:String(error));}
     finally{if(token===epoch.current)setBusy(false);}
   }
+  useTourNavigationGuard({worldId,reason:()=>busy||pending||!!editor&&editor.baselineFingerprint!==fingerprintDefinition(editor.workingCopy)?'Save or recover the manual mechanics revision before leaving these controls.':null});
   return <section data-guided-control="mechanics" tabIndex={-1} className="statblock-section" aria-label="Saved mechanics versions">
     <MechanicsTourObservation scope={tourScope} opened={opened} history={history} acknowledged={tourAcknowledged} blocked={busy||!!pending||!!editor&&editor.baselineFingerprint!==fingerprintDefinition(editor.workingCopy)}/>
     <h3>Saved versions</h3>

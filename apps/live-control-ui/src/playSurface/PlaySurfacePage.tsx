@@ -1,3 +1,4 @@
+import {useTourNavigationOwner,useTourNavigationGuard} from '../guidedTour/Navigation';
 import type {TourDispatchScope} from '../guidedTour/GuidedTour';
 import {runPins} from '../guidedTour/ownerPins';
 import {TourRunProvider} from '../guidedTour/RunScope';
@@ -353,7 +354,12 @@ function PlaySurfacePublisher({
   useCombatProjection("play", true,runEncounterContext);
   usePreparedTablesProjection();
   usePublishAgentSurfaceContext(agentContext);
-  const {activateProjectionTool}=useAgentInteraction();
+  const {activateProjectionTool,setPaneOpen}=useAgentInteraction();
+  const navigationRun=admittedRun?.schema_version==='dmb_world_play_run_record_v2'?runPins(admittedRun).target:null;
+  useTourNavigationOwner(navigationRun?{role:'panel',worldId:navigationRun.worldId,surface:'play',objectId:navigationRun.objectId,parent:admittedRun?.schema_version==='dmb_world_play_run_record_v2'?runPins(admittedRun).parent:undefined,inspections:[
+    ...([{step:'combat',tool:'combat',label:'Open scene encounter'},{step:'roll',tool:'prepared-tables',label:'Open prepared tables'}] as const).map(({step,tool,label})=>({id:`play-${tool}`,step,label,target:navigationRun,impact:'projection' as const,perform:async(request:import('../guidedTour/Navigation').InspectionRequest)=>{if(request.isCurrent()&&!await activateProjectionTool(tool))throw new Error('These controls are not available for the current Run.');}})),
+    {id:'play-memory',step:'memory',label:'Open Buddy for this Run',target:navigationRun,impact:'projection',perform:request=>{if(request.isCurrent())setPaneOpen(true);}},
+  ]}:null);
   return runEncounterContext?<PlaySurfaceContext id="play-scene-encounter" order={20} identity={publication.identity}><SceneEncounterLauncher onOpen={()=>void activateProjectionTool('combat')}/></PlaySurfaceContext>:null;
 }
 
@@ -1070,6 +1076,9 @@ function PlayRuntimePage() {
   const currentWorldScene = currentWorldBeat?.scenes.find((scene) => scene.id === v2Deck?.currentSceneId) ?? null;
   const publication = playPublicationAuthority({ admittedRun, runQuery });
   const blocked = v2Deck == null;
+  useTourNavigationGuard(selectedWorldId?{worldId:selectedWorldId,reason:impact=>impact==='departure'&&(sessionCopyBlocked||tableHeld||mutationStatus!=='idle'||loadStatus==='loading')?'Finish saving or recover the current Run before navigating.':null}:null);
+  useTourNavigationOwner(selectedWorldId?{worldId:selectedWorldId,surface:'play',objectId:admittedRun?.run_id??null,parent:admittedRun?.schema_version==='dmb_world_play_run_record_v2'?runPins(admittedRun).parent:undefined,inspections:admittedRun?.schema_version==='dmb_world_play_run_record_v2'?[{id:'play-recovery',step:'recovery',label:'Open saved Run recovery',target:runPins(admittedRun).target,impact:'departure',perform:request=>{if(request.isCurrent())navigateToChooser();}}]:[],select:(pin,request)=>{if(request.isCurrent())navigateToRun(pin.objectId);}}:null);
+
 
   return (
     <TourRunProvider run={admittedRun?.schema_version==="dmb_world_play_run_record_v2"?admittedRun:null}><AppChrome activeRoute="play">

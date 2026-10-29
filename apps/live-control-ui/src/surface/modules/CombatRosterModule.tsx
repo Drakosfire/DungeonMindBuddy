@@ -1,3 +1,4 @@
+import {useTourNavigationGuard} from '../../guidedTour/Navigation';
 import {useTourEncounter,type TourEncounterScope} from '../../guidedTour/EncounterScope';
 import type {TourDispatchScope} from '../../guidedTour/GuidedTour';
 import {useTourRun} from '../../guidedTour/RunScope';
@@ -534,6 +535,7 @@ export function CombatRosterModule({scope}:{scope?:CombatHostScope} = {}) {
   }
 
   const preparedBlocked=busy!==null||dirty||availableRecovery!==null||!!pendingSave.current||adoptionBlocked;
+  useTourNavigationGuard(worldId?{worldId,reason:()=>preparedBlocked?'Save or recover the encounter work before leaving these controls.':null}:null);
   const preparedListener=scope?.onPreparedState;
   useEffect(()=>{preparedListener?.({record:visibleRecord,blocked:preparedBlocked,error,acknowledged:preparedAcknowledged});},[preparedListener,visibleRecord,preparedBlocked,error,preparedAcknowledged]);
   useEffect(()=>()=>preparedListener?.(null),[preparedListener]);

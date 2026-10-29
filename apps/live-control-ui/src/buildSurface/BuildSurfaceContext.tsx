@@ -1,3 +1,4 @@
+import {useTourNavigationOwner,useTourNavigationGuard} from '../guidedTour/Navigation';
 import { useOptionalAgentInteraction } from "../agentInteraction/AgentInteractionProvider";
 import { BUILD_FIND_EXISTING_TOOL_ID } from "./reference/buildReferenceIds";
 import { SurfaceNavbarIconButton } from "../surfaceInteraction/contextHost/SurfaceNavbarIconButton";
@@ -86,6 +87,13 @@ export function BuildSurfaceContext({
   const linkAvailable = agentInteraction?.surfaceInteractionPublication?.tools.some(tool => tool.id === BUILD_FIND_EXISTING_TOOL_ID && tool.availability.status === "enabled") ?? false;
   const selectedWorld = useSelectedWorld();
   const trashWorldId = selectedWorld.kind === "managed" ? selectedWorld.worldId : null;
+  const tourSelection=useRef<symbol|null>(null);
+  useTourNavigationGuard(trashWorldId?{worldId:trashWorldId,reason:(_impact,reservation)=>creating?'Finish creating or importing the current source first.':switching&&reservation!==tourSelection.current?'Wait for source selection to finish.':null}:null);
+  useTourNavigationOwner(trashWorldId?{worldId:trashWorldId,surface:'build',objectId:activeDocumentId,inspections:[],select:async(pin,request)=>{
+    if(!request.isCurrent())return;tourSelection.current=request.reservation;
+    try{const opened=await selectDocument(pin.objectId,request.isCurrent);if(!opened&&request.isCurrent())throw new Error('The bound source could not be opened. Your current page is retained.');}
+    finally{if(tourSelection.current===request.reservation)tourSelection.current=null;}
+  }}:null);
   const trashInventoryVersion = useWorkspaceInventoryVersion(trashWorldId);
   const consumedTrashInventory = useRef<{worldId:string|null; version:number} | null>(null);
   useEffect(() => {

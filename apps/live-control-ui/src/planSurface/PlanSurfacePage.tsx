@@ -1,3 +1,5 @@
+import {useTourNavigationOwner,useTourNavigationGuard} from '../guidedTour/Navigation';
+import {planPin as guidedPlanPin} from '../guidedTour/ownerPins';
 import {useGuidedTour} from '../guidedTour/GuidedTour';
 import {TourImageProvider,collectTourMediaAssets} from '../guidedTour/ImageObservations';
 import {planPin} from '../guidedTour/ownerPins';
@@ -792,10 +794,12 @@ function WorldOwnedPlanPage({ worldId, worldName }: { worldId: string; worldName
     return () => { cancelled = true; };
   }, [initialDocumentId, initialLoadAttempt, localDraft, worldId]);
 
-  const openPlan = async (nextDocumentId: string, allowRetry = false) => {
+  const openPlan = async (nextDocumentId: string, allowRetry = false, isCurrent:()=>boolean = ()=>true) => {
+    if(!isCurrent())return;
     if (savingRef.current || (statusRef.current !== "ready" && !allowRetry)) return;
     const epoch = ++selectionEpochRef.current;
     const priorDocumentId = documentIdRef.current;
+    const priorSavedBasis = savedBasis;
     startPlayRequestRef.current += 1;
     setStartingPlay(false);
     setStartPlayError(null);
@@ -816,6 +820,10 @@ function WorldOwnedPlanPage({ worldId, worldName }: { worldId: string; worldName
         throw new Error("This Plan does not belong to the selected World.");
       }
       if (!selectedViewIsCurrent(epoch, priorDocumentId)) return;
+      if(!isCurrent()){
+        switchingDocumentRef.current=false;setSavedBasis(priorSavedBasis);setStatus('ready');setEditorGeneration(value=>value+1);
+        setError('Guided selection canceled. Your current Plan and draft are retained.');return;
+      }
       const preservedUncertainDraft = readWorldPlanLocalDraft(worldId)?.uncertain_create_draft
         ?? uncertainCreateDraftRef.current;
       const url = new URL(window.location.href);
@@ -1732,14 +1740,15 @@ function WorldOwnedPlanPage({ worldId, worldName }: { worldId: string; worldName
     setTourVerifiedPlan(verified);
     return verified;
   };
-  const startPlayFromSavedPlan = async () => {
+  const startPlayFromSavedPlan = async (tourIsCurrent:()=>boolean = ()=>true) => {
+    if(!tourIsCurrent())return;
     if (!canStartPlayFromSavedPlan || !documentId) return;
     const selectedDocumentId = documentId;
     const selectionEpoch = selectionEpochRef.current;
     const request = ++startPlayRequestRef.current;
     const verification = ++planVerificationRequestRef.current;
     tourPlanVerificationAttemptRef.current = tourVerificationKey;
-    const isCurrent = () => startPlayRequestRef.current === request
+    const isCurrent = () => tourIsCurrent() && startPlayRequestRef.current === request
       && planVerificationRequestRef.current === verification
       && selectedViewIsCurrent(selectionEpoch, selectedDocumentId);
     setStartingPlay(true);
@@ -2012,6 +2021,24 @@ function WorldOwnedPlanPage({ worldId, worldName }: { worldId: string; worldName
   } : null;
   const mediaIdentity = `${worldId}:${documentId ?? localDraftId}`;
   const imageStudio = useSurfaceImageStudio(mediaIdentity, Boolean(documentId) && status === "ready" && !fidelityBlocked && !recoveryConflict);
+  const tourSelection=useRef<symbol|null>(null),tourInspection=useRef<symbol|null>(null);
+  const navigationPlan=!savedPlanDirty&&savedBasis.status==='verified'&&tourVerifiedPlan?.documentId===documentId&&tourVerifiedPlan.worldId===worldId&&tourVerifiedPlan.objectRevision===savedBasis.revision&&tourVerifiedPlan.pin.contentSha256===savedBasis.contentSha256?guidedPlanPin(worldId,tourVerifiedPlan.documentId,tourVerifiedPlan.pin):null;
+  useTourNavigationGuard({worldId,reason:(impact,reservation)=>{
+    if(startingPlay&&reservation!==tourInspection.current)return 'Wait for the saved Plan preview to finish opening.';
+    if(imageStudio.session)return 'Finish or close Image Studio before navigating away from its work.';
+    if(impact!=='departure')return null;
+    if(savedPlanDirty||savingRef.current||pendingWriteRef.current||createUncertain||recoveryConflict||fidelityBlocked)return 'Finish saving or resolve the retained Plan work before navigating.';
+    if(status!=='ready'&&reservation!==tourSelection.current)return 'Wait for Plan selection to finish.';
+    return null;
+  }});
+  useTourNavigationOwner({worldId,surface:'plan',objectId:documentId,select:async(pin,request)=>{
+    if(!request.isCurrent())return;tourSelection.current=request.reservation;
+    try{await openPlan(pin.objectId,false,request.isCurrent);}finally{if(tourSelection.current===request.reservation)tourSelection.current=null;}
+  },inspections:[
+    ...(['plan','play'] as const).map(step=>({id:'plan-preview',label:'Open saved Plan preview',step,target:navigationPlan,impact:'projection' as const,ownedReservation:tourInspection.current??undefined,unavailable:!canStartPlayFromSavedPlan?'Save and verify a clean Plan first.':undefined,perform:async(request:import('../guidedTour/Navigation').InspectionRequest)=>{if(!request.isCurrent())return;tourInspection.current=request.reservation;try{await startPlayFromSavedPlan(request.isCurrent);}finally{if(tourInspection.current===request.reservation)tourInspection.current=null;}}})),
+    ...(['encounter','mechanics','adoption'] as const).map(step=>({id:'plan-encounter',label:'Open scene encounter controls',step,target:navigationPlan,impact:'projection' as const,unavailable:!sceneEncounterContext?'Select the intended scene in a saved Plan.':undefined,perform:async(request:import('../guidedTour/Navigation').InspectionRequest)=>{if(request.scope.sceneId&&request.scope.sceneId!==navigationSceneId)throw new Error('Select the scene recorded by this step before opening its encounter.');if(request.isCurrent()&&!await openSceneEncounterTool('combat'))throw new Error('The scene encounter controls are not available.');}})),
+    {id:'plan-images',label:'Open Image Studio',step:'image',target:navigationPlan,impact:'projection',perform:request=>{if(request.isCurrent()&&!imageStudio.open())throw new Error('Image Studio is not available.');}},
+  ]});
   const mediaState = useRef<DocumentMediaState | null>(null);
   mediaState.current = editor ? { editor, identity: mediaIdentity,
     version: `${revisionRef.current}:${editGenerationRef.current}:${editorIdentity}:${cardScopeEpoch.current.generation}`,

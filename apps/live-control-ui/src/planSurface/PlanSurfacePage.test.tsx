@@ -4798,3 +4798,31 @@ it('rechecks on pause/resume and clears a previously cached pin when the owner r
  expect(planEncounterCapture.context?.verifiedPlan).toBeNull();
  await act(async()=>{});expect(read).toHaveBeenCalledTimes(2);
 });
+
+
+it('opens the real saved Plan preview through guidance without starting a Run or saving',async()=>{
+ const {committed,mount}=await resumedPlanFixture();
+ const retained=readWalkthrough(localStorage,worldId)!;
+ writeWalkthrough(localStorage,reduceTour(retained.record,{kind:'move',index:2}),retained);
+ const save=vi.spyOn(liveApi,'commitWorldOwnedPlanMarkdownWrite');
+ mount();await waitFor(()=>expect(planEncounterCapture.context?.verifiedPlan?.workRevisionId).toBe(committed.work_revision_id));
+ fireEvent.click(screen.getByRole('button',{name:'Open Plan walkthrough'}));
+ fireEvent.click(await screen.findByRole('button',{name:'Open saved Plan preview'}));
+ await screen.findByRole('heading',{name:'Play this Plan'});
+ expect(screen.queryByRole('complementary',{name:'Guided journey'})).not.toBeInTheDocument();
+ expect(window.location.pathname).toBe('/plan');expect(save).not.toHaveBeenCalled();
+ expect(readWalkthrough(localStorage,worldId)?.record.bindings.run).toBeUndefined();
+ expect(readWalkthrough(localStorage,worldId)?.record.steps.play.evidence).toEqual([]);
+});
+it('does not open a late guided Plan preview after guidance restarts',async()=>{
+ const {committed,read,mount}=await resumedPlanFixture();const retained=readWalkthrough(localStorage,worldId)!;
+ writeWalkthrough(localStorage,reduceTour(retained.record,{kind:'move',index:2}),retained);
+ mount();await waitFor(()=>expect(planEncounterCapture.context?.verifiedPlan?.workRevisionId).toBe(committed.work_revision_id));
+ let release!:(value:WorldOwnedCommittedRevisionV2)=>void;
+ read.mockImplementationOnce(()=>new Promise(resolve=>{release=resolve;}));
+ fireEvent.click(screen.getByRole('button',{name:'Open Plan walkthrough'}));fireEvent.click(await screen.findByRole('button',{name:'Open saved Plan preview'}));
+ await waitFor(()=>expect(release).toBeTypeOf('function'));
+ fireEvent.click(screen.getByRole('button',{name:'Restart guidance'}));await waitFor(()=>expect(readWalkthrough(localStorage,worldId)?.record.id).not.toBe('resumed-plan-tour'));
+ await act(async()=>{release(committed);});expect(screen.queryByRole('heading',{name:'Play this Plan'})).not.toBeInTheDocument();
+ expect(readWalkthrough(localStorage,worldId)?.record.bindings.run).toBeUndefined();
+});
