@@ -1,141 +1,95 @@
 # INGEST — admitted-source qualified proposals
 
-Predecessor1899 merged d479bf566866c3e2171eb47d052dae8a683e11f5 and delivered
-API731678/schema0093/UI10527. All4075APP/371native/41058files unchanged through
-ordinary Conks Run reopening. ACTIVE serial source-access repair now based479bf566,
-branch codex/proposal-source-access in the same existing checkout; authority
-OverMind178f43153e4e13c1444e693a8830d3306fa96ff0,
-Docs/Plans/HANDOFF-INGEST-proposal-source-access.md. Exclusive repair lease is only
-this handoff, services/source_statement_proposals.py and its ordinary route tests.
-Authority: OverMind76 design c8fab153e8a974133644e83b2922e42e83f0876e plus
-pinned control allocation 3e44b3f in DungeonOverMind branch
-codex/corpus-statement-proposal-runtime. Independent architecture_review_1197
-critiqued storage/recovery before implementation: separate extraction R from
-publication P, deterministic review decisions, real SDK gate, existing authority.
-No UI, primary source/APP/native writes or real provider diagnostic is activated.
+ACTIVE serial source-handle successor. PRIME owns runtime design, implementation,
+verification and delivery; ADVERSARY independently assesses semantic recall/support.
+Authority: DungeonOverMind6cfb22f780549f99dc69e366702d7514315da0c5,
+Docs/Plans/HANDOFF-INGEST-source-handle-proposals.md, independently approved exact
+control41880ca. Base Buddy005fd8404f2536077e8e7a6c7cab21d58c3357ab;
+branch codex/source-handle-proposals in the existing PRIME runtime checkout.
 
-## Delivered boundary under review
+## Evidence and settled predecessors
 
-Authenticated GM POST /api/live/source-statements/proposals selects an exact
-native-admitted source body through a registered evidence anchor and caller operation UUID. Host reopens source
-through exact Core descriptors, admission receipt/origin and evidence access.
-Authenticate the actual registered span/digest through the original receipt, then
-independently verify the full body digest returned by Core source access. Body
-inspection is separate from clause acceptance. Input contains actual source plus Core-admitted native names under the same R,
-World/campaign/GM context. Structural IDs are enumerated but only admitted name
-assertions reach the model. Hidden/no-name entities are omitted; context claims
-no semantic completeness or approved identity correspondence. Exact binding,
-version and descriptor refs accompany the source; no question/gold/success span
-or supplied answer handle enters extraction.
+1899 introduced private admitted-source proposals;1901 separated full-body source
+inspection from registered publication evidence;1902 raised only producer output
+reserve to128000;1904 clarified literal copying. These were independently reviewed,
+merged and protected-delivered with APP0093 and retained state unchanged.
+1905 merged005fd840 after independent approval/119tests/three CI checks. Its verified
+real V4 operationbdd89481-e884-4867-9e26-be5bcd093196 completed but correctly failed
+parsing: p8 spliced source passages, omitting113 bytes. It also omitted an episode.
+Original V1–V4 evidence, V3 stale-GE correction and full15 ledger0/15 stay immutable.
+Prior lease/status text is superseded; Git history retains original contracts.
 
-One tool-free guarded GE operation uses configured verified GPT-6 Luna envelope,
-with no transport/conformance retry or source clipping. Actual prepared request
-and SDK lifecycle acknowledgments persist before IO/completion. Original text or
-incomplete SDK response remains retained on failure. No classic profile defaults,
-identity consolidation, relationship sweep or endpoint citation inheritance.
-Malformed quotes/fields are failures; repeated matches remain explicitly ambiguous.
-Host-only derived review eligibility distinguishes eligible_for_review from
-outside_registered_evidence, with ambiguous occurrences unresolved. These labels
-are evidence coverage, not semantic correctness. Raw output and stored operation
-payload remain unchanged; no original span bounds are added as model guidance.
-Outside-span preparation still fails under the existing evidence proof.
-Host derives every UTF-8 byte occurrence. Model returns local mentions and qualified
-proposals, not canonical IDs. Coverage remains not established even on successful
-extraction. Empty output is not a proof of absence.
+## One capability and exclusive lease
 
-APP ingest.statement_proposal_operation owns this private work only. A claim is
-transactional and idempotent by owner/World/operation/intent. Entered or failed
-work never redispatches on replay. GET reauthenticates and reproves source and
-retained output; original proposals and input remain immutable. Migration0093
-creates one work table without rewriting retained rows; schema-head admission
-fences older code. No migrate-on-boot, new Core schema or publication ledger.
+Replace model-copied quotes with host-owned committed source-unit selection,
+complete verbatim materialization and explicit publication-clause narrowing.
+Only these six paths are leased: qualified_statement_proposals.py and new
+statement_source_catalog.py in src/graph_memory/extraction;
+apps/live_control_server/services/source_statement_proposals.py;
+tests/test_source_statement_proposals.py; new tests/test_statement_source_catalog.py;
+and this handoff. No store/model/schema/Core/WK/GE/UI or benchmark harness/gold edits.
+One runtime PR. Held ingestion1853/1855/1868 remain excluded.
 
-Explicit review names decision UUID, expected APP revision, proposal ID and full
-reviewed StatementSelection. Host requires the same World/campaign/source and an
-exact offered clause occurrence, proves extraction R→selected P ancestry, then
-uses existing source_statements.prepare to validate native endpoints/source and
-produce the signed packet. Human interpretation changes are retained explicitly.
-APP CAS acknowledges only the saved packet. Same review key/different intent
-refuses; same saved decision replays exact packet before current-head checks.
-Stale/expired packets need an explicit new decision, never automatic retarget.
-Existing confirm remains the sole native publication path, with original clause
-identity, semantic conflict and lost-ack recovery authorities unchanged.
+## Runtime contract
 
-## Scope and acceptance limits
+New operations use only qualified_source_handles_v2. The blank_line_units_v1
+catalog partitions all authorized UTF8 source bytes into maximal nonblank physical
+line runs with following blank lines; leading blank lines attach to the first run.
+CR, LF and CRLF terminate lines; Unicode separators remain text. Space/tab-only
+lines are blank. Preserve exact offsets, text, line endings, digest and order.
+No selected important subset; source text appears once. Catalog commitment binds
+policy/ordered units/source identity/World binding/revision/scope; ordinal handles
+are local navigation, not another provenance or canonical identity authority.
 
-Producer/review API integration is independently useful; there is no new UI.
-Missing Torbin identities remain unresolved and cannot be published through this
-slice. S7 NULL-World correspondence is still an explicit source-admission step;
-S8 is the already-admitted first real assessment source. Automatic question→typed
-native discovery is a separate successor. Full15 remains0/15; Q01 selected-subject
-proof and original V1 failure are preserved. Broader guided-tour, real image/roll,
-ordinary full-loop dogfood and operator acceptance remain required.
+One tool-free guarded actual GE/SDK operation retains prepared wire/lifecycle before
+IO, verified model/provider/envelope and128000 reserve, with no automatic retries.
+Model output echoes contract/commitment, selects primary/context/mention units,
+and retains qualified interpretations/local references. Host validates all handles
+and materializes full separate passages. Disjoint units never become one quote.
+Every source unit has exactly one consistent proposed/unresolved/skipped disposition.
+This is model-declared processing accounting, never semantic completeness.
+Malformed/incomplete/forged output stays failed with original wire/raw retained.
 
-The1899 ten-path lease is settled. The active repair exclusively owns this
-handoff, apps/live_control_server/services/source_statement_proposals.py and
-tests/test_source_statement_proposals.py. Held1853/1855/1868 remain excluded.
-API731678/UI10527 remain untouched until exact repair review/CI and protected
-delivery. No schema upgrade or native-source write is part of this repair.
+A symptom assertion must identify the correct actor through supported meaning,
+qualifications and local referents; literal name repetition is unnecessary. Merely
+including that actor's paragraph or mention is not recall. Context presence, mode,
+onset/cause, observed/planned and heard/seen distinctions remain independently
+assessed; no private gold or target cues enter the producer.
 
-## Verification
+## Persistence and review
 
-Actual Core4ccd39a and WK current source fixtures with real disposable APP
-PostgreSQL exercise authenticated routes→real guarded GE fixture transport→durable
-reload→review→existing signed confirm→qualified readback. No actual provider call.
-Controls cover malformed/duplicate JSON, invented quotes, missing qualification,
-unknown local mentions, repeated UTF-8 quotes, owner/World/GM/source mismatch,
-wrong endpoint, stale/explicit descendant parent, immutable output, lost review
-acknowledgment after native advancement, competing APP revision and simultaneous
-operation claims. Original failed requests and tests are retained in the work log.
-Initial HTTP UUID strictness defect fixed with explicit UUID JSON field parsing;
-test-only native StoredKnowledgeRevision accessor corrected. Static checks pass.
-1899 independent review and CI passed; protected delivery completed. This repair
-adds actual partial-span/full-body tests: full input/replay without source/epoch
-mutation, inside-span preparation, outside-span refusal, denied visibility,
-foreign binding, corrupt body and derived ambiguity. Focused54tests pass20.78s.
-Two test-only assumptions were corrected during development: source epoch is
-exposed by the actual source view; corrupt source refusal returns HTTP409 before
-claim rather than necessarily raising its internal integrity exception.
-Repair exact-head independent review, CI, merge and protected delivery remain gates.
-No new APP schema or persistent payload contract is required: older code refuses
-partial-span work rather than misinterpreting it; no compatibility path is added.
+Authenticate owner/GM/World and exact submitted intent before replay. Reprove current
+source access independently of today's packet renderer. Historical failed operations
+retain original input/schema/wire/raw/failure/state without reparsing as success or
+new IO. Before implementation, read-only inventory confirmed0 primary rows and3
+owned clone failed rows,0 completed/reviews. No speculative successful V1 generator
+or general compatibility framework. New completed reads revalidate V2 materialization.
+Verify actual prepared wire/input correspondence, not only model-echoed commitments.
 
+Explicit review still supplies existing StatementSelection. Verify exact UTF8 clause
+extent/hash within one primary unit, never across units or context-only. Then retain
+existing revision ancestry, native endpoint/qualified-meaning validation, registered
+evidence containment and signed WK preparation. Catalog inspection grants no wider
+publication span. Stable clause identity/conflicts, decision CAS/idempotency and
+existing confirm as sole publication authority remain unchanged. No DB migration.
 
-## Producer capacity repair
+## Verification and delivery gates
 
-Source inspection repair1901 merged atdd50ce2694b140aa477c18f3ec7a544b0aba5ac1
-and protected-delivered with APP0093 and retained state unchanged.
-The real S8 operation13744ada-d20c-437b-a405-04950ad703b2 then failed at8192
-output tokens after32.8s. Original raw response/failure/replay remain retained.
-ADVERSARY also found a nonexact paragraph context quote; capacity alone does not
-resolve that independent output-contract failure or establish accepted extraction.
+Provider-free catalog tests cover complete reconstruction, CR/LF/CRLF/Unicode,
+leading/trailing blanks, repeated passages, Markdown code/table/list text, forged
+handles/commitments/descriptors, disjoint context, full intervening sentence and
+complete processing accounting without semantic pass claims. Ordinary authenticated
+route tests use actual disposable APP plus declared Core/WK and immutable GE sources:
+production/read/replay, historical failed conservation/0 extra IO, ownership/scope,
+malformed output, exact clause narrowing, registered-span refusal, conflict/CAS and
+normal signed confirm/readback. No real provider call or native primary write.
 
-Active serial capacity repair follows OverMind allocationf1f8bb7612757d5f72719c6025ecd3b1bb2a4815.
-Only this handoff, source_statement_proposals.py and its tests are leased.
-The producer copies the admitted Luna policy and reserves its documented128000
-maximum output tokens; general answers retain8192. Exact prepared wire, byte and
-input-plus-reserve checks remain; unknown models/providers fail before dispatch.
-No prompt/schema, source, identity, review, publication or APP-format changes.
-Incomplete output stays failed without salvage or redispatch. A new named run
-must independently assess capacity and exact-context failures after delivery.
-Official capacity: https://developers.openai.com/api/docs/models/gpt-6-luna .
-Independent cumulative review, CI and protected delivery remain required.
-
-
-## Literal quote instruction repair
-
-Capacity repair1902 merged83878930f0e4fc358021cf2710a6cf672fba8806 and was
-protected-delivered with retained state unchanged. S8v3 provider completed10716
-output tokens. Its phase-concatenation failure came from benchmark GEaf21356;
-declared/live GEe9366ef already selects final messages. Provider-free retained SDK
-replay through declared GE selects final text, then correctly rejects mention
-quote `A Fey` where source says `a Fey`. No duplicate phase fix is authorized.
-
-Active OverMind allocation8e565f19f8c56a079a077d42e614cf7c68934530 leases only
-this handoff, qualified_statement_proposals.py instructions and the proposal tests.
-Clarify exact literal copying for mention/clause/context quotes, including case,
-Unicode and escaped whitespace. Separate disjoint context entries and preserve
-all needed qualifications. Schema/parser, source, model, review and publication
-are unchanged. Old failed operations retain original wire/raw and replay with no
-IO. Exact review, CI and protected delivery remain gates; a new named real run
-requires corrected actual GE dependency verification by independent ADVERSARY.
+Exact cumulative independent Bugbot-role review and CI precede merge/delivery.
+Protected delivery must re-anchor owned API lease/PID/dependency composition,
+preserve all APP/native rows and corpus/outfiles and verify ordinary Conks reopening.
+No delivery or acceptance is preclaimed. ADVERSARY's frozen V4 harness is pinned to
+its original runtime; a separately owned successor must assess the intentional V2
+protocol change without changing original evidence or semantic criteria.
+A fresh real S8 assessment requires its subsequent named allocation after delivery.
+An accepted producer batch is not publication, supported answering, tour completion
+or operator acceptance. The full authoring/preparation/play goal remains active.
