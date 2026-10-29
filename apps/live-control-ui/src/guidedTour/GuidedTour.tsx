@@ -1,6 +1,6 @@
 import type {WorldAgentConversationHistoryResponse} from '../api/types';
 import {useSessionMemoryReading} from './MemoryObservations';
-import {createContext,useCallback,useContext,useEffect,useMemo,useRef,useState,type ReactNode} from 'react';
+import {createContext,useCallback,useContext,useEffect,useLayoutEffect,useMemo,useRef,useState,type ReactNode} from 'react';
 import {ADVENTURES,JOURNEY_STEPS,type Adventure,type StepId} from './definition';
 import {createWalkthrough,reduceTour,samePin,validObservation,type Observation,type TargetPin,type TourAction} from './protocol';
 import {pointerKey,readWalkthrough,writeWalkthrough,type StoredWalkthrough} from './storage';
@@ -14,6 +14,13 @@ interface TourApi {
  tracking:boolean;open:()=>void;recordConversationDispatch:(correlationKey:string,scope:TourDispatchScope|null)=>void;captureScope:()=>TourDispatchScope|null;isScopeCurrent:(scope:TourDispatchScope|null)=>boolean;recordRunCreation:(observation:Observation,scope:TourDispatchScope|null)=>void;publish:(token:symbol,reading:TourOwnerReading|null)=>void;
 }
 const TourContext=createContext<TourApi|null>(null);
+function usableControl(target:HTMLElement):boolean {
+ if(!target.isConnected||target.closest('[hidden],[inert],[aria-hidden="true"]')||target.matches(':disabled,[aria-disabled="true"]'))return false;
+ for(let node:HTMLElement|null=target;node;node=node.parentElement){const style=window.getComputedStyle(node);if(style.display==='none'||style.visibility==='hidden'||style.visibility==='collapse')return false;}
+ return target.getClientRects().length>0;
+}
+interface FocusedControl {target:HTMLElement;worldId:string;walkthroughId:string;stepId:StepId;epoch:number}
+
 export const useGuidedTour=()=>useContext(TourContext);
 /** Owners call this only with admitted current state, never optimistic button state. */
 export function useTourOwnerReading(reading:TourOwnerReading|null){
@@ -24,6 +31,8 @@ export function useTourOwnerReading(reading:TourOwnerReading|null){
 export function GuidedTourProvider({worldId,worldName,children,history=null}:{worldId:string|null;worldName?:string;children:ReactNode;history?:WorldAgentConversationHistoryResponse|null}){
  const [visible,setVisible]=useState(false),[stored,setStored]=useState<StoredWalkthrough|null>(null),[error,setError]=useState<string|null>(null);
  const [owners,setOwners]=useState<Map<symbol,TourOwnerReading>>(new Map());
+ const [focusedControl,setFocusedControl]=useState<FocusedControl|null>(null);
+ const open=useCallback(()=>{setFocusedControl(null);setVisible(true);},[]);
  const current=useRef(stored);current.current=stored;
  const runCreationReceipts=useRef(new Map<string,Observation>());
  const mounted=useRef(true),queue=useRef(Promise.resolve()),externalEpoch=useRef(0);
@@ -80,7 +89,7 @@ export function GuidedTourProvider({worldId,worldName,children,history=null}:{wo
  const memoryReading=useSessionMemoryReading(history,stored?.record??null,conversationDispatches.current),memoryToken=useRef(Symbol('session-memory'));
  const memorySignature=JSON.stringify(memoryReading);
  useEffect(()=>{publish(memoryToken.current,memoryReading);return()=>publish(memoryToken.current,null);},[publish,memorySignature]);
- const api=useMemo(()=>({tracking:stored?.record.phase==='running',open:()=>setVisible(true),publish,recordRunCreation,captureScope,isScopeCurrent,recordConversationDispatch}),[publish,recordRunCreation,captureScope,isScopeCurrent,recordConversationDispatch,stored?.record.phase,stored?.record.id,externalEpoch.current]);
+ const api=useMemo(()=>({tracking:stored?.record.phase==='running',open,publish,recordRunCreation,captureScope,isScopeCurrent,recordConversationDispatch}),[open,publish,recordRunCreation,captureScope,isScopeCurrent,recordConversationDispatch,stored?.record.phase,stored?.record.id,externalEpoch.current]);
  const walkthrough=stored?.record;
  const renderedEpoch=externalEpoch.current;
  const userChange=(action:TourAction|{kind:'start';adventure:Adventure})=>change(action,stored?.record.id??null,renderedEpoch);
@@ -111,12 +120,34 @@ export function GuidedTourProvider({worldId,worldName,children,history=null}:{wo
  const showControl=()=>{
   const targets=document.querySelectorAll<HTMLElement>(`[data-guided-control~="${step.control}"]`);
   if(targets.length!==1){setError(targets.length?'More than one control is available. Open the intended object first.':'Open the surface and controls described in this step.');return;}
-  const target=targets[0];
-  target.scrollIntoView({block:'center',behavior:window.matchMedia('(prefers-reduced-motion: reduce)').matches?'auto':'smooth'});
-  target.setAttribute('data-guided-highlight','true');
-  target.focus({preventScroll:true});
+  if(!worldId||!walkthrough||!usableControl(targets[0])){setError('This control is not currently available. Open the surface and controls described in this step.');return;}
+  setFocusedControl({target:targets[0],worldId,walkthroughId:walkthrough.id,stepId:step.id,epoch:renderedEpoch});
+  setVisible(false);
  };
- useEffect(()=>()=>{document.querySelectorAll('[data-guided-highlight]').forEach(node=>node.removeAttribute('data-guided-highlight'));},[step.id,visible]);
+ useLayoutEffect(()=>{
+  if(!focusedControl)return;
+  const {target}=focusedControl;
+  const selector=`[data-guided-control~="${JOURNEY_STEPS.find(item=>item.id===focusedControl.stepId)!.control}"]`;
+  const stillCurrent=()=>{
+   const targets=document.querySelectorAll<HTMLElement>(selector);
+   return focusedControl.worldId===scopeWorld.current&&focusedControl.walkthroughId===current.current?.record.id
+    &&focusedControl.stepId===JOURNEY_STEPS[current.current?.record.index??0].id&&focusedControl.epoch===externalEpoch.current
+    &&targets.length===1&&targets[0]===target&&usableControl(target);
+  };
+  const refuse=()=>{setFocusedControl(null);setVisible(true);setError('The control changed or is unavailable. Reopen the intended controls before highlighting them.');};
+  if(!stillCurrent()){refuse();return;}
+  target.scrollIntoView({block:'center',behavior:window.matchMedia('(prefers-reduced-motion: reduce)').matches?'auto':'smooth'});
+  if(!stillCurrent()){refuse();return;}
+  target.setAttribute('data-guided-highlight','true');target.focus({preventScroll:true});
+  const observer=new MutationObserver(()=>{if(!stillCurrent())refuse();});
+  observer.observe(document.body,{subtree:true,childList:true,attributes:true,attributeFilter:['hidden','inert','aria-hidden','disabled','aria-disabled','class','style','data-guided-control']});
+  return()=>{observer.disconnect();target.removeAttribute('data-guided-highlight');};
+ },[focusedControl,worldId,walkthrough?.id,walkthrough?.index,renderedEpoch]);
+ const retainedResult=row?.state==='completed'||row?.state==='existing';
+ const availabilityMessage=reading?.status==='ready'?null:reading?.status==='failed'
+  ?`Current inspection failed: ${reading.reason??'Open the ordinary controls to inspect the failure.'}`
+  :retainedResult?'The recorded result is retained. Open its ordinary controls to inspect the current state.'
+  :reading?.reason??(candidates.length>1?'Open one intended object to identify the control.':'Open the ordinary controls for this step. This walkthrough has not verified its result yet.');
  const exportRecord=()=>{
   if(!walkthrough)return;
   const url=URL.createObjectURL(new Blob([JSON.stringify({definition:{id:'buddy-live-journey',version:2,steps:JOURNEY_STEPS},walkthrough},null,2)],{type:'application/json'}));
@@ -131,9 +162,10 @@ export function GuidedTourProvider({worldId,worldName,children,history=null}:{wo
    {revisedPlan&&!walkthrough.bindings.run&&<p>The selected Plan has a newer verified saved version. <button type="button" onClick={()=>userChange({kind:'bind',pin:revisedPlan})}>Use saved Plan version {revisedPlan.revision}</button></p>}
    <h2>{step.title}</h2><p>{step.purpose}</p><p><strong>Expected:</strong> {step.expected}</p><p>{step.action}</p>
    <p role="status">{walkthrough.steps[step.id].state==='completed'?'Demonstrated during this walkthrough':walkthrough.steps[step.id].state==='existing'?'Existing example inspected':walkthrough.steps[step.id].state}{walkthrough.steps[step.id].reason?` · ${walkthrough.steps[step.id].reason}`:''}</p>
-   {reading?.status!=='ready'?<p>{reading?.reason??(candidates.length>1?'Open one intended object to identify the control.':'Open the ordinary controls for this step. This walkthrough has not verified its result yet.')}</p>:null}
+   {availabilityMessage?<p>{availabilityMessage}</p>:null}
    {reading?.status==='ready'&&reading.target&&(!walkthrough.bindings[reading.target.kind]||reading.target.objectId===walkthrough.bindings[reading.target.kind]!.objectId&&reading.target.revision>walkthrough.bindings[reading.target.kind]!.revision&&reading.target.kind!=='run'&&!(reading.target.kind==='plan'&&walkthrough.bindings.run))?<button type="button" onClick={bind}>Use this {reading.target.kind}{reading.label?` · ${reading.label}`:''}</button>:null}
    {reading?.target&&walkthrough.bindings[reading.target.kind]&&!samePin(walkthrough.bindings[reading.target.kind]!,reading.target)&&reading.target.objectId!==walkthrough.bindings[reading.target.kind]!.objectId?<p>This is a different target. Reopen the bound object or restart guidance; the earlier record will be kept.</p>:null}
+   <p>Show control hides this panel and highlights the control. Reopen Guided journey from navigation to continue.</p>
    <button type="button" onClick={showControl}>Show control</button>
    <div className="guided-tour__actions"><button type="button" disabled={!walkthrough.index} onClick={()=>userChange({kind:'move',index:walkthrough.index-1})}>Back</button><button type="button" disabled={walkthrough.index===JOURNEY_STEPS.length-1} onClick={()=>userChange({kind:'move',index:walkthrough.index+1})}>Next</button>
     <button type="button" onClick={()=>userChange({kind:'phase',phase:walkthrough.phase==='running'?'paused':'running'})}>{walkthrough.phase==='running'?'Pause':'Resume'}</button>
