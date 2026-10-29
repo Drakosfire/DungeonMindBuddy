@@ -8,7 +8,7 @@ from uuid import UUID, uuid4
 from application_state.agent_conversation import types as t
 from application_state.agent_conversation.native_statement_input import (
     NativeStatementContextReceiptV1,
-    NativeStatementWriterPolicyV1,
+    NativeStatementWriterPolicyV2,
     NativeStatementInputEventV1,
     canonical,
     digest,
@@ -16,8 +16,7 @@ from application_state.agent_conversation.native_statement_input import (
     native_input_tokens,
 )
 from application_state.agent_conversation.native_statement_answer import (
-    INSTRUCTIONS,
-    OUTPUT_SCHEMA,
+    writer_contract,
     answer_text,
     normalize_output,
 )
@@ -127,64 +126,9 @@ class NativeStatementWriter:
         )
         return True
 
-    async def run(self, *, transport=None):
-        from generationengine import GenerationClient, TextRequest
-        from generationengine.text_dispatch import TextDispatchGate
-
-        receipt, policy = (
-            self.turn.graph_context_receipt,
-            self.turn.graph_context_execution.policy,
-        )
-        messages = [
-            {
-                "role": "user",
-                "content": canonical(
-                    {
-                        "question": receipt.user_text,
-                        "native_statement_context": receipt.frame.model_dump(
-                            mode="json", by_alias=True
-                        ),
-                    }
-                ),
-            }
-        ]
-        provider = PlanWriterProvider(
-            dispatch_gate=TextDispatchGate(self.authorize, self.lifecycle),
-            transport=transport,
-        )
-        client = GenerationClient(text_providers={"openai": provider})
-        started = perf_counter()
-        result = await client.generate_structured(
-            TextRequest(
-                provider="openai",
-                model=policy.model,
-                user_prompt=canonical(messages),
-                system_prompt=INSTRUCTIONS,
-                temperature=None,
-                reasoning_effort="none",
-                max_output_tokens=policy.output_token_reserve,
-                json_schema=OUTPUT_SCHEMA,
-                schema_name="native_statement_answer",
-                max_conformance_retries=0,
-                max_transport_retries=0,
-            )
-        )
-        observation = result.observation
-        self.model_calls.append(
-            {
-                "provider": "openai",
-                "model": policy.model,
-                "requested_model": policy.model,
-                "response_model": observation.response_model,
-                "status": "ok",
-                "duration_ms": (perf_counter() - started) * 1000,
-                "usage": {
-                    "status": "reported",
-                    "input_tokens": observation.input_tokens,
-                    "output_tokens": observation.output_tokens,
-                },
-            }
-        )
+    def capture_output(self, provider):
+        """Capture one actual completed SDK text before accepting its schema."""
+        policy = self.turn.graph_context_execution.policy
         response = provider.actual_response
         if (
             response is None
@@ -193,16 +137,6 @@ class NativeStatementWriter:
         ):
             raise ValueError("Native writer lacks an exact completed SDK reply")
         selected = provider.consume_selected_text(response)
-        if (
-            result.text != selected
-            or not selected
-            or result.observation.state.value != "completed"
-            or result.observation.retry_count != 0
-            or result.observation.provider_attempt_count != 1
-        ):
-            raise ValueError(
-                "Native writer output does not match its acknowledged SDK reply"
-            )
         for item in response.output:
             if item.type == "reasoning":
                 continue
@@ -227,6 +161,85 @@ class NativeStatementWriter:
                 )
             ]
         )
+        return selected
+
+    async def run(self, *, transport=None):
+        from generationengine import GenerationClient, TextRequest
+        from generationengine.text_dispatch import TextDispatchGate
+
+        receipt, policy = (
+            self.turn.graph_context_receipt,
+            self.turn.graph_context_execution.policy,
+        )
+        instructions, output_schema = writer_contract(receipt, policy)
+        messages = [
+            {
+                "role": "user",
+                "content": canonical(
+                    {
+                        "question": receipt.user_text,
+                        "native_statement_context": receipt.frame.model_dump(
+                            mode="json", by_alias=True
+                        ),
+                    }
+                ),
+            }
+        ]
+        provider = PlanWriterProvider(
+            dispatch_gate=TextDispatchGate(self.authorize, self.lifecycle),
+            transport=transport,
+        )
+        client = GenerationClient(text_providers={"openai": provider})
+        started = perf_counter()
+        try:
+            result = await client.generate_structured(
+                TextRequest(
+                    provider="openai",
+                    model=policy.model,
+                    user_prompt=canonical(messages),
+                    system_prompt=instructions,
+                    temperature=None,
+                    reasoning_effort="none",
+                    max_output_tokens=policy.output_token_reserve,
+                    json_schema=output_schema,
+                    schema_name="native_statement_answer",
+                    max_conformance_retries=0,
+                    max_transport_retries=0,
+                )
+            )
+        except Exception:
+            # GE may reject schema conformance after receiving a real SDK reply.
+            # Retain that original reply too; it never becomes a completion.
+            if provider.actual_response is not None:
+                self.capture_output(provider)
+            raise
+        observation = result.observation
+        self.model_calls.append(
+            {
+                "provider": "openai",
+                "model": policy.model,
+                "requested_model": policy.model,
+                "response_model": observation.response_model,
+                "status": "ok",
+                "duration_ms": (perf_counter() - started) * 1000,
+                "usage": {
+                    "status": "reported",
+                    "input_tokens": observation.input_tokens,
+                    "output_tokens": observation.output_tokens,
+                },
+            }
+        )
+        selected = self.capture_output(provider)
+        if (
+            result.text != selected
+            or not selected
+            or result.observation.state.value != "completed"
+            or result.observation.retry_count != 0
+            or result.observation.provider_attempt_count != 1
+        ):
+            raise ValueError(
+                "Native writer output does not match its acknowledged SDK reply"
+            )
         completion = normalize_output(receipt, self.authorization, selected)
         _, renewal_error = self.fence.stop()
         if renewal_error is not None:
@@ -321,11 +334,12 @@ def execute(
                 payload | {"context_receipt_sha256": digest(payload)}
             )
             budget = turns._policy_request_budget()
-            policy = NativeStatementWriterPolicyV1(
+            policy = NativeStatementWriterPolicyV2(
                 model=budget["model"],
                 output_token_reserve=budget["outputReserveTokens"],
                 context_limit_tokens=budget["contextLimitTokens"],
             )
+            writer_contract(receipt, policy)
             execution = t.NativeStatementExecutionV1(
                 context_receipt_sha256=receipt.context_receipt_sha256,
                 policy=policy,
@@ -354,6 +368,16 @@ def execute(
         raise turns.AgentTurnServiceError(
             "Original turn has no matching native capability.",
             code="native_statement_context_changed",
+            status_code=409,
+            provider_dispatched=False,
+        )
+    if (
+        existing_turn.graph_context_execution.policy.policy_version
+        != "native_statement_writer_v2"
+    ):
+        raise turns.AgentTurnServiceError(
+            "Retained native writer policy cannot start a new provider operation.",
+            code="native_statement_historical_policy_retained",
             status_code=409,
             provider_dispatched=False,
         )

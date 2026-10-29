@@ -27,7 +27,7 @@ from .build_draft_context import BuildDraftContextRecordV1, DraftReferenceClaimV
 from .build_related_pages import PagePointer, RelatedPagesSelection, RelatedPageRead, RelatedPageClaim, RelatedPageInclusion
 
 from graph_memory.ingestion.selection_context import NativeStatementSelectionV1
-from .native_statement_input import NativeStatementContextReceiptV1, NativeStatementWriterPolicyV1, NativeStatementInputEventV1
+from .native_statement_input import NativeStatementContextReceiptV1, NativeStatementWriterPolicyV1, NativeStatementWriterPolicyV2, NativeStatementInputEventV1
 from .native_statement_answer import NativeStatementCompletionV1
 
 Resolution = Literal["resolved", "absent", "unresolved", "unavailable"]
@@ -5067,7 +5067,7 @@ class NativeStatementOutputCapturedV1(StrictModel):
 class NativeStatementExecutionV1(StrictModel):
     schema_: Literal["dmb_native_statement_execution_v1"] = Field(default="dmb_native_statement_execution_v1", alias="schema")
     context_receipt_sha256: str = Field(pattern=r"^[a-f0-9]{64}$")
-    policy: NativeStatementWriterPolicyV1
+    policy: Annotated[NativeStatementWriterPolicyV1 | NativeStatementWriterPolicyV2, Field(discriminator="policy_version")]
     execution_policy_sha256: str = Field(pattern=r"^[a-f0-9]{64}$")
     events: list[Annotated[ProviderAttemptAuthorizedEventV1 | ProviderOutcomeEventV1 |
         NativeStatementInputEventV1 | NativeStatementOutputCapturedV1 | CompletionBindingEventV1,

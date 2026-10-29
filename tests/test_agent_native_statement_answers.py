@@ -477,3 +477,232 @@ def test_multiple_publication_children_reach_one_writer_without_episode_loss(
     ]
     assert len(citations) == 2
     assert first_packet.envelope["payload"]["reporter"] is not None
+
+
+def _citation_policy(version=2):
+    from application_state.agent_conversation.native_statement_input import (
+        NativeStatementWriterPolicyV1,
+        NativeStatementWriterPolicyV2,
+    )
+
+    cls = (
+        NativeStatementWriterPolicyV2 if version == 2 else NativeStatementWriterPolicyV1
+    )
+    return cls(
+        model="gpt-6-luna", output_token_reserve=8192, context_limit_tokens=1050000
+    )
+
+
+def _schema_receipt(identities):
+    from types import SimpleNamespace
+
+    return SimpleNamespace(
+        frame=SimpleNamespace(
+            supports=[SimpleNamespace(statement_id=i) for i in identities]
+        )
+    )
+
+
+def test_writer_schema_selects_exact_sorted_statement_ids_not_subjects():
+    from application_state.agent_conversation.native_statement_answer import (
+        writer_contract,
+        OUTPUT_SCHEMA,
+    )
+    from jsonschema import validate, ValidationError
+
+    receipt = _schema_receipt(["ent:statement-z", "ent:statement-a"])
+    instructions, schema = writer_contract(receipt, _citation_policy())
+    props = schema["properties"]["segments"]["items"]["properties"]
+    assert props["statement_ids"]["items"]["enum"] == [
+        "ent:statement-a",
+        "ent:statement-z",
+    ]
+    assert "subject_id" in instructions
+    assert (
+        "enum"
+        not in OUTPUT_SCHEMA["properties"]["segments"]["items"]["properties"][
+            "statement_ids"
+        ]["items"]
+    )
+    body = {
+        "segments": [
+            {
+                "kind": "source_report",
+                "text": "Two qualified reports.",
+                "statement_ids": ["ent:statement-a", "ent:statement-z"],
+            }
+        ]
+    }
+    validate(body, schema)
+    for wrong in ["ent:subject", "ent:cross-turn", "ent:reporter"]:
+        body["segments"][0]["statement_ids"] = [wrong]
+        with pytest.raises(ValidationError):
+            validate(body, schema)
+
+
+@pytest.mark.parametrize(
+    "identities",
+    [["ent:s", "ent:s"], [""], ["ent:"], ["subject"], ["ent:bad id"], [None]],
+)
+def test_writer_schema_refuses_duplicate_or_malformed_supports(identities):
+    from application_state.agent_conversation.native_statement_answer import (
+        writer_contract,
+    )
+
+    with pytest.raises(ValueError, match="distinct valid statement IDs"):
+        writer_contract(_schema_receipt(identities), _citation_policy())
+
+
+def test_no_support_schema_allows_only_uncited_proposals_and_limitations():
+    from application_state.agent_conversation.native_statement_answer import (
+        writer_contract,
+    )
+    from jsonschema import validate, ValidationError
+
+    _, schema = writer_contract(_schema_receipt([]), _citation_policy())
+    assert '"enum": []' not in __import__("json").dumps(schema)
+    for kind in ["proposal", "limitation"]:
+        validate(
+            {
+                "segments": [
+                    {"kind": kind, "text": "No visible support.", "statement_ids": []}
+                ]
+            },
+            schema,
+        )
+    for kind, ids in [("source_report", []), ("limitation", ["ent:anything"])]:
+        with pytest.raises(ValidationError):
+            validate(
+                {
+                    "segments": [
+                        {"kind": kind, "text": "No support.", "statement_ids": ids}
+                    ]
+                },
+                schema,
+            )
+
+
+@pytest.mark.parametrize("attack", ["extra", "omitted", "reordered", "downgrade"])
+def test_prepared_request_cannot_broaden_or_change_frozen_selector_schema(lane, attack):
+    import json
+    from copy import deepcopy
+    from application_state.agent_conversation.native_statement_input import (
+        canonical,
+        validate_request,
+    )
+    from application_state.agent_conversation.native_statement_answer import (
+        writer_contract,
+    )
+
+    commit(lane)
+    frame = build_frame(selection_for(lane), GM)
+    support = frame.supports[0]
+    # Schema reconstruction is independent of context order, with a second handle
+    # only in this isolated request-validation fixture.
+    second = support.model_copy(update={"statement_id": "ent:synthetic-second"})
+    frame = frame.model_copy(update={"supports": [support, second]})
+    payload = {
+        "schema": "dmb_native_statement_context_receipt_v1",
+        "selection": selection_for(lane),
+        "frame": frame,
+        "user_text": "What do both accounts report?",
+        "provenance_sha256": "a" * 64,
+    }
+    # This test concerns exact prepared contract membership; the ordinary POST
+    # tests independently exercise actual governed support and source validation.
+    from types import SimpleNamespace
+
+    receipt = SimpleNamespace(user_text=payload["user_text"], frame=frame)
+    policy = _citation_policy()
+    instructions, schema = writer_contract(receipt, policy)
+    body = {
+        "model": policy.model,
+        "input": [
+            {
+                "role": "user",
+                "content": canonical(
+                    {
+                        "question": receipt.user_text,
+                        "native_statement_context": frame.model_dump(
+                            mode="json", by_alias=True
+                        ),
+                    }
+                ),
+            }
+        ],
+        "instructions": instructions,
+        "max_output_tokens": policy.output_token_reserve,
+        "text": {
+            "format": {
+                "type": "json_schema",
+                "name": "native_statement_answer",
+                "strict": True,
+                "schema": schema,
+            }
+        },
+        "tools": [],
+        "stream": False,
+        "reasoning": {"effort": "none"},
+        "service_tier": "fast",
+    }
+    validate_request(receipt, policy, canonical(body))
+    altered = deepcopy(body)
+    enum = altered["text"]["format"]["schema"]["properties"]["segments"]["items"][
+        "properties"
+    ]["statement_ids"]["items"]["enum"]
+    if attack == "extra":
+        enum.append(frame.subject_id)
+    elif attack == "omitted":
+        enum.pop()
+    elif attack == "reordered":
+        enum.reverse()
+    else:
+        policy = _citation_policy(1)
+    with pytest.raises(ValueError, match="Actual native writer request changed"):
+        validate_request(receipt, policy, json.dumps(altered))
+
+
+def test_ordinary_v2_wire_schema_does_not_accept_the_subject_as_citation(
+    lane, application_state_dsn, monkeypatch, tmp_path
+):
+    from application_state.agent_conversation import AgentConversationService
+
+    commit(lane)
+    wire = Wire(
+        alter_output=lambda raw: {
+            "segments": [
+                {
+                    "kind": "source_report",
+                    "text": "A reports B fled.",
+                    "statement_ids": [lane.ids["B"]],
+                }
+            ]
+        }
+    )
+    client = native_client(lane, monkeypatch, tmp_path, wire)
+    request = request_for(lane)
+    response = client.post("/api/live/agent/turn", json=request)
+    assert response.status_code == 502
+    assert len(wire.requests) == 1
+    enum = wire.requests[0]["text"]["format"]["schema"]["properties"]["segments"][
+        "items"
+    ]["properties"]["statement_ids"]["items"]["enum"]
+    assert lane.ids["B"] not in enum
+    frame = __import__("json").loads(wire.requests[0]["input"][0]["content"])[
+        "native_statement_context"
+    ]
+    assert enum == sorted(s["statement_id"] for s in frame["supports"])
+    service = AgentConversationService()
+    (turn,) = service.list_turns(
+        lane.selection.managed_world_id,
+        service.get_active_conversation(
+            lane.selection.managed_world_id
+        ).conversation_id,
+    )
+    assert turn.status == "interrupted" and turn.completion is None
+    assert (
+        turn.graph_context_execution.policy.policy_version
+        == "native_statement_writer_v2"
+    )
+    assert client.post("/api/live/agent/turn", json=request).status_code == 409
+    assert len(wire.requests) == 1
