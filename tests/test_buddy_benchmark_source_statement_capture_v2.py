@@ -327,8 +327,8 @@ def test_order_endpoint_not_selected_is_unassessed(lane):
     )
 
 
-def multiple(lane):
-    first_review, first_capture = lifecycle(lane)
+def multiple(lane, recovery_first=False):
+    first_review, first_capture = lifecycle(lane, recovery=recovery_first)
     start = len(BODY.splitlines(keepends=True)[0].encode())
     lane.selection = lane.selection.model_copy(
         update={
@@ -353,6 +353,7 @@ def multiple(lane):
     capture = capture_native_lifecycle(
         lane.repo, records, second_capture["read_response"], GM
     )
+    capture["recovery"] = first_capture["recovery"]
     return first_review + second_review, capture
 
 
@@ -422,3 +423,19 @@ def test_multi_statement_corruption(lane, change):
             "previous-valid-assertion"
         ]
     assert evaluate_lifecycle(review, capture)["counts"]["fail"] > 0
+
+
+@pytest.mark.parametrize("swapped", ["packet", "original_and_retry"])
+def test_recovery_packet_and_result_must_belong_to_same_publication(lane, swapped):
+    review, capture = multiple(lane, recovery_first=True)
+    control = evaluate_lifecycle(review, capture)
+    assert control["counts"]["fail"] == control["counts"]["unassessed"] == 0
+    other = capture["records"][1]
+    if swapped == "packet":
+        capture["recovery"]["packet_before"] = deepcopy(other["prepare"])
+        capture["recovery"]["packet_after"] = deepcopy(other["prepare"])
+    else:
+        capture["recovery"]["original_result"] = deepcopy(other["confirm"]["result"])
+        capture["recovery"]["retry_result"] = deepcopy(other["confirm"])
+    result = evaluate_lifecycle(review, capture)
+    assert result["checks"]["executed_original_packet_recovery"]["status"] == "fail"

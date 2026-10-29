@@ -716,14 +716,22 @@ def evaluate_lifecycle(review, capture):
             "requires observed lost-ack/retry and durable original receipt",
         )
     else:
-        originals = [r["confirm"]["result"] for r in rows]
+        # Membership in two independent inventories is insufficient: packet B
+        # and receipt A can each be genuine while describing different commits.
+        same_publication = [
+            row
+            for row in rows
+            if row["prepare"] == recovery["packet_before"]
+            and row["confirm"]["result"] == recovery["original_result"]
+        ]
         check(
             "executed_original_packet_recovery",
             recovery.get("schema") == "buddy_observed_lost_ack_retry_v2"
             and recovery.get("result_before_first_call") is None
             and recovery["packet_before"] == recovery["packet_after"]
-            and recovery["packet_before"] in [r["prepare"] for r in rows]
-            and recovery["original_result"] in originals
+            and len(same_publication) == 1
+            and recovery["original_result"]["receipt"]["publication_id"]
+            == native_publication_id(recovery["packet_before"]["envelope"]["payload"])
             and recovery["retry_result"].get("result") == recovery["original_result"]
             and recovery["head_before_retry"] == recovery["head_after_retry"],
         )
