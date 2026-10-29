@@ -11,11 +11,11 @@ export function ImageContextEdit({assetId,editable,captureApply}:{assetId:string
  const [busy,setBusy]=useState(false);const [applying,setApplying]=useState(false);const [error,setError]=useState('');const [storageWarning,setStorageWarning]=useState('');
  const [candidate,setCandidate]=useState<ImageCandidate|null>(null);
  const pending=useRef<AbortController|null>(null);const active=useRef(true);const apply=useRef<((id:string)=>void)|null>(null);
- const candidateGeneration=useRef<number|null>(null);const tour=useTourImage();
+ const hydrated=useRef(false);const candidateGeneration=useRef<number|null>(null);const tour=useTourImage();
  const key=`dmb:image-context-instructions:v1:${assetId}`;
  useEffect(()=>{
   active.current=true;
-  const reset=()=>{pending.current?.abort();pending.current=null;setBusy(false);setApplying(false);setOpen(false);setContext(null);setCandidate(null);setInstructions('');setMode('image_to_image');setError('');apply.current=null;};
+  const reset=()=>{hydrated.current=false;pending.current?.abort();pending.current=null;setBusy(false);setApplying(false);setOpen(false);setContext(null);setCandidate(null);setInstructions('');setMode('image_to_image');setError('');apply.current=null;};
   reset();window.addEventListener(NATIVE_GRAPH_ACCESS_TOKEN_CHANGED_EVENT,reset);
   return()=>{active.current=false;pending.current?.abort();window.removeEventListener(NATIVE_GRAPH_ACCESS_TOKEN_CHANGED_EVENT,reset);};
  },[assetId]);
@@ -27,6 +27,8 @@ export function ImageContextEdit({assetId,editable,captureApply}:{assetId:string
   imageEditContext(assetId,generation,abort.signal).then(value=>{
    if(abort.signal.aborted||!active.current||generation!==getNativeGraphAccessGeneration())return;
    setContext(value);
+   if(hydrated.current)return;
+   hydrated.current=true;
    try {const raw=localStorage.getItem(key);if(raw!==null){const saved=JSON.parse(raw);if(saved.schema!=='dmb_image_context_draft_v1'||!['image_to_image','new'].includes(saved.mode)||typeof saved.instructions!=='string')throw new Error('Invalid draft');setInstructions(saved.instructions);setMode(saved.mode);}}
    catch {setStorageWarning('These instructions are kept while this page is open; browser draft storage is unavailable.');}
   }).catch(reason=>{if(!abort.signal.aborted)setError(reason instanceof Error?reason.message:'Image unavailable.');});

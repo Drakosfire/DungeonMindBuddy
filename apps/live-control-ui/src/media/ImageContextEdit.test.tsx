@@ -97,3 +97,16 @@ it('fences a generation result after the authenticated owner changes',async()=>{
  await act(async()=>finish(reply({asset_id:child,parent_asset_id:parent,state:'staged',model:'flux-2-pro'})));
  expect(screen.queryByRole('dialog')).not.toBeInTheDocument();expect(editor.getJSON()).toEqual(before);
 });
+
+
+it('never replaces newer unpersisted text or mode with an older stored draft on reopen',async()=>{
+ localStorage.setItem(draftKey,JSON.stringify({schema:'dmb_image_context_draft_v1',mode:'image_to_image',instructions:'Older stored note'}));
+ mount();await open();expect(screen.getByLabelText('Instructions')).toHaveValue('Older stored note');
+ vi.spyOn(Storage.prototype,'setItem').mockImplementation(()=>{throw new Error('Quota');});
+ fireEvent.change(screen.getByLabelText('Action'),{target:{value:'new'}});
+ fireEvent.change(screen.getByLabelText('Instructions'),{target:{value:'Newer instruction must survive'}});
+ fireEvent.click(screen.getByRole('button',{name:'Close edit menu'}));await open();
+ expect(screen.getByLabelText('Instructions')).toHaveValue('Newer instruction must survive');
+ expect(screen.getByLabelText('Action')).toHaveValue('new');
+ expect(JSON.parse(localStorage.getItem(draftKey)!).instructions).toBe('Older stored note');
+});
