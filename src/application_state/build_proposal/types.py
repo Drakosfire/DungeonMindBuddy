@@ -75,6 +75,11 @@ class BuildPageBodyOffer(StrictModel):
     end: int = Field(strict=True, ge=1)
 
 
+class BuildPageEndOffer(StrictModel):
+    """Host-frozen append boundary; never a replacement range or a moved caret."""
+    end: int = Field(strict=True, ge=1)
+
+
 class BuildProposalReservation(StrictModel):
     idempotency_key: UUID
     conversation_id: UUID
@@ -83,11 +88,12 @@ class BuildProposalReservation(StrictModel):
     instruction: str = Field(min_length=1)
     origin: BuildProposalOrigin | None = None
     page_body_offer: BuildPageBodyOffer | None = None
+    page_end_offer: BuildPageEndOffer | None = None
 
     @model_validator(mode="after")
     def body_requires_exact_editor(self):
-        if self.page_body_offer is not None and not self.basis.editor_sha256:
-            raise ValueError("Whole-page revision requires its exact editor basis")
+        if (self.page_body_offer is not None or self.page_end_offer is not None) and not self.basis.editor_sha256:
+            raise ValueError("Offered page targets require their exact editor basis")
         return self
 
     @model_serializer(mode="wrap")
@@ -95,6 +101,8 @@ class BuildProposalReservation(StrictModel):
         value = serialize(self)
         if self.page_body_offer is None:
             value.pop("page_body_offer", None)
+        if self.page_end_offer is None:
+            value.pop("page_end_offer", None)
         return value
 
     @property
@@ -113,7 +121,7 @@ class BuildGeneratedProposal(StrictModel):
     replacement_markdown: str = Field(min_length=1, max_length=12_000)
     summary: str = Field(min_length=1, max_length=1000)
     assumptions: list[str] = Field(max_length=20)
-    target: Literal["captured", "page_body"] | None = None
+    target: Literal["captured", "page_body", "page_end"] | None = None
 
     @model_serializer(mode="wrap")
     def preserve_historical_proposal(self, serialize):
@@ -178,10 +186,12 @@ class BuildProposalRecord(StrictModel):
             raise ValueError(
                 "Only a completed Build proposal carries generated Markdown"
             )
-        if self.proposal and self.proposal.target is None and self.reservation.page_body_offer is not None:
+        if self.proposal and self.proposal.target is None and (self.reservation.page_body_offer is not None or self.reservation.page_end_offer is not None):
             raise ValueError("An offered target requires an explicit generated target choice")
         if self.proposal and self.proposal.target == "page_body" and self.reservation.page_body_offer is None:
             raise ValueError("Whole-page result requires its frozen offered target")
+        if self.proposal and self.proposal.target == "page_end" and self.reservation.page_end_offer is None:
+            raise ValueError("Page-end result requires its frozen offered target")
         if self.inserted_in_draft and self.proposal is None:
             raise ValueError(
                 "Only a reviewed proposal can be reported inserted in the draft"

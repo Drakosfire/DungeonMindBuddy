@@ -7,8 +7,10 @@ export interface BuildProposalBasis {
   selection?: { end: number; text: string } | null;
 }
 export interface BuildPageBodyTarget { end: number }
+export interface BuildPageEndTarget { end: number }
 export interface BuildProposalRequest {
   page_body_offer?: BuildPageBodyTarget | null;
+  page_end_offer?: BuildPageEndTarget | null;
   idempotency_key: string; conversation_id: string; expected_pointer_revision: number;
   basis: BuildProposalBasis; instruction: string; draft_markdown: string;
   origin?: { client_turn_id: string; durable_turn_id: string; turn_attempt: number; broker_operation_id: string; arguments_sha256: string } | null;
@@ -21,7 +23,7 @@ export interface BuildProposalRecord {
   created_at: string; updated_at: string; claim_expires_at: string;
   authorization: null | { provider_attempt_id: string; provider: string; model: string; api_mode: string;
     payload_sha256: string; payload_utf8_bytes: number; evidence_id: string | null; serializer_version: string };
-  proposal: null | { replacement_markdown: string; summary: string; assumptions: string[]; target?: 'captured' | 'page_body' | null };
+  proposal: null | { replacement_markdown: string; summary: string; assumptions: string[]; target?: 'captured' | 'page_body' | 'page_end' | null };
   failure_code: string | null; inserted_in_draft: boolean;
 }
 const root = (world: string) => `/api/live/agent/worlds/${encodeURIComponent(world)}/build-proposals`;

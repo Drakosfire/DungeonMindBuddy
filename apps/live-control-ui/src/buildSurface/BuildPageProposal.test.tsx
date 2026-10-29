@@ -44,7 +44,7 @@ beforeEach(async()=>{
     retired_placements:[...(saved.retired_placements??[]),{basis:{...(saved.placement?.basis??record.reservation.basis),caret:saved.placement_caret},markdown:saved.markdown,
       markdown_sha256:saved.markdown_sha256,apply:saved.apply,command_id:saved.placement?.command_id??null,
       disposition:saved.apply?'superseded_unresolved':'superseded_unapplied'}]};
-  if(command.operation==='prepare')saved={...saved,revision:saved.revision+1,state:'applying',apply:{...(saved.page_body_target?{page_body_target:saved.page_body_target}:{}),placement_caret:saved.placement_caret,apply_id:command.apply_id!,before_editor_sha256:(saved.placement?.basis??record.reservation.basis).editor_sha256!,before_draft_sha256:(saved.placement?.basis??record.reservation.basis).draft_sha256,
+  if(command.operation==='prepare')saved={...saved,revision:saved.revision+1,state:'applying',apply:{...(saved.page_body_target?{page_body_target:saved.page_body_target}:{}),...(saved.page_end_target?{page_end_target:saved.page_end_target}:{}),placement_caret:saved.placement_caret,apply_id:command.apply_id!,before_editor_sha256:(saved.placement?.basis??record.reservation.basis).editor_sha256!,before_draft_sha256:(saved.placement?.basis??record.reservation.basis).draft_sha256,
    after_editor_sha256:command.after_editor_sha256!,after_draft_sha256:command.after_draft_sha256!,reviewed_sha256:saved.markdown_sha256}};
   if(command.operation==='prepare'&&lostPrepare)throw new Error('Prepared outcome unavailable');
   if(command.operation==='confirm'){if(lostAck)throw new Error('Acknowledgment unavailable');saved={...saved,revision:saved.revision+1,state:'applied'};}
@@ -453,4 +453,40 @@ it('reviews the whole body explicitly and recovers a lost save acknowledgment wi
  await waitFor(()=>expect(saved.state).toBe('applied'));
  expect(editor.getJSON()).toEqual(after);
  expect(vi.mocked(proposalReview).mock.calls.filter(([, ,cmd])=>cmd?.operation==='prepare')).toHaveLength(1);
+});
+
+
+it('saves a reviewed append after both original paragraphs and recovers once after lost acknowledgment',async()=>{
+ editor.commands.setTextSelection(1);
+ const captured=await bridge.capture(),before=editor.getJSON();
+ record.reservation.basis=captured.basis;
+ record.reservation.page_end_offer=captured.pageEndOffer;
+ record.proposal!.target='page_end';record.proposal!.replacement_markdown='## Readiness\n\n- Check the proposed route.';
+ saved={...saved,placement_caret:1,page_end_target:captured.pageEndOffer,markdown:record.proposal!.replacement_markdown,
+   markdown_sha256:await digest(record.proposal!.replacement_markdown)};
+ lostAck=true;
+ const view=render(<Review/>);
+ await screen.findByText('Adds after all existing page content when you Save. Existing text is preserved.');
+ expect(screen.queryByRole('button',{name:'Move',exact:true})).not.toBeInTheDocument();
+ fireEvent.click(screen.getByRole('button',{name:'Save',exact:true}));
+ await waitFor(()=>expect(saved.state).toBe('applying'));
+ await screen.findByRole('button',{name:'Check insertion'});
+ expect(editor.getJSON().content?.slice(0,2)).toEqual(before.content);
+ expect(editor.getJSON().content?.[2].type).toBe('heading');
+ expect(vi.mocked(proposalReview).mock.calls.find(([, ,cmd])=>cmd?.operation==='prepare')?.[2]).toMatchObject({page_end_target:captured.pageEndOffer});
+ expect(saved.apply?.page_end_target).toEqual(captured.pageEndOffer);
+ const after=editor.getJSON();view.unmount();lostAck=false;render(<Review/>);
+ fireEvent.click(await screen.findByRole('button',{name:'Check insertion'}));
+ await waitFor(()=>expect(saved.state).toBe('applied'));
+ expect(editor.getJSON()).toEqual(after);
+ expect(vi.mocked(proposalReview).mock.calls.filter(([, ,cmd])=>cmd?.operation==='prepare')).toHaveLength(1);
+});
+
+it('refuses a returned review that drops the immutable page-end target',async()=>{
+ const captured=await bridge.capture(),before=editor.getJSON();
+ record.reservation.page_end_offer=captured.pageEndOffer;record.proposal!.target='page_end';
+ render(<Review/>);
+ await screen.findByText('The saved review differs from the captured page-end target.');
+ expect(editor.getJSON()).toEqual(before);
+ expect(vi.mocked(proposalReview).mock.calls.some(([, ,cmd])=>cmd?.operation==='prepare')).toBe(false);
 });

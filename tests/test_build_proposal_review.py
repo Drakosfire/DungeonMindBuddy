@@ -456,3 +456,38 @@ def test_whole_page_review_resolves_target_and_never_becomes_a_moved_insertion(r
     assert applied.state=='applied' and applied.apply.page_body_target==request.page_body_offer
     assert len(wire.calls)==1
     assert (root/source.record.target_relpath).read_text()==source.markdown
+
+
+def test_page_end_review_rejects_old_tab_ack_and_preserves_exact_recovery(request_case):
+    import json
+    from application_state.build_proposal.types import BuildPageEndOffer
+    request, source, root = request_case
+    request=request.model_copy(update={'basis':request.basis.model_copy(update={'editor_sha256':'e'*64}),
+        'page_end_offer':BuildPageEndOffer(end=83)})
+    wire=Wire(request,text=json.dumps(dict(destination='current_page',target='page_end',
+        replacement_markdown='## Readiness\n\n- Check proposed route.',summary='Append.',assumptions=[])))
+    proposal=asyncio.run(owner.compose(request,transport=wire))
+    service=BuildProposalReviewService()
+    def command(op,revision=0,**fields):
+        return service.execute('elderwyld',proposal.action_id,
+            BuildReviewCommand(operation=op,expected_revision=revision,**fields))
+    review=command('open')
+    assert review.page_end_target==request.page_end_offer and review.page_body_target is None
+    assert review.placement_caret==request.basis.caret==1
+    with pytest.raises(ApplicationStateConflictError,match='stays at its captured end'):
+        command('move',review.revision,placement_caret=2)
+    apply_id=uuid4()
+    fields=dict(apply_id=apply_id,after_editor_sha256='a'*64,after_draft_sha256='b'*64)
+    for acknowledgment in ({},{'page_end_target':BuildPageEndOffer(end=84)}):
+        with pytest.raises(ApplicationStateConflictError,match='acknowledge the exact page-end target'):
+            command('prepare',review.revision,**fields,**acknowledgment)
+    pending=command('prepare',review.revision,page_end_target=request.page_end_offer,**fields)
+    assert pending.apply.page_end_target==request.page_end_offer
+    assert service.get('elderwyld',proposal.action_id)==pending
+    assert command('prepare',review.revision,page_end_target=request.page_end_offer,**fields)==pending
+    # A stale client cannot turn an idempotent retry into captured-caret authority.
+    with pytest.raises(ApplicationStateConflictError,match='acknowledge the exact page-end target'):
+        command('prepare',review.revision,**fields)
+    applied=command('confirm',pending.revision,apply_id=apply_id)
+    assert applied.state=='applied' and applied.apply.page_end_target==request.page_end_offer
+    assert (root/source.record.target_relpath).read_text()==source.markdown and len(wire.calls)==1

@@ -345,3 +345,42 @@ def test_offered_body_cannot_be_interpreted_as_a_historical_targetless_result(re
     raw=record.model_dump(mode='json');raw['proposal'].pop('target')
     with pytest.raises(ValidationError,match='explicit generated target'):
         BuildProposalRecord.model_validate(raw)
+
+
+def test_page_end_is_a_distinct_frozen_writer_choice_not_a_moved_caret(request_case):
+    from application_state.build_proposal.types import BuildPageEndOffer
+    request, source, _ = request_case
+    request = request.model_copy(update={
+        'basis': request.basis.model_copy(update={'editor_sha256':'e'*64}),
+        'page_end_offer':BuildPageEndOffer(end=83),
+    })
+    body = dict(destination='current_page', target='page_end',
+        replacement_markdown='## Readiness\n\n- Check the proposed route.',
+        summary='Add after existing content.', assumptions=[])
+    wire=Wire(request,text=json.dumps(body))
+    record=asyncio.run(owner.compose(request,transport=wire))
+    assert record.proposal.target=='page_end'
+    assert record.reservation.basis.caret==1 and record.reservation.basis.selection is None
+    packet=json.loads(json.loads(wire.calls[0].content)['input'])
+    assert packet['page_end_offer']=={'end':83} and packet['page_body_offer'] is None
+    assert asyncio.run(owner.compose(request,transport=wire))==record and len(wire.calls)==1
+    changed=request.model_copy(update={'page_end_offer':BuildPageEndOffer(end=84)})
+    with pytest.raises(owner.BuildComposeError,match='request_changed'):
+        asyncio.run(owner.compose(changed,transport=wire))
+    assert get_workspace_document_snapshot(owner.managed_world_data_root(),source.record.document_id)==source
+
+
+def test_unoffered_page_end_never_falls_back_to_caret():
+    with pytest.raises(owner.BuildComposeTargetMismatch,match='not_offered'):
+        owner._result(json.dumps(dict(destination='current_page',target='page_end',
+            replacement_markdown='Addition.',summary='Append.',assumptions=[])))
+
+
+def test_historical_reservation_has_no_implicit_page_end_offer(request_case):
+    from application_state.build_proposal.types import BuildProposalReservation
+    request,_,_=request_case
+    original=request.reservation_only()
+    raw=original.model_dump(mode='json')
+    assert 'page_end_offer' not in raw
+    assert BuildProposalReservation.model_validate(raw).model_dump(mode='json')==raw
+    assert BuildProposalReservation.model_validate(raw).fingerprint==original.fingerprint

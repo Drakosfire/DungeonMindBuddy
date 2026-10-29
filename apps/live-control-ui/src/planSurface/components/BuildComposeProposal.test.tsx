@@ -324,3 +324,16 @@ it('captures real work-plan NodeSelection as discussion context without inventin
   expect(JSON.stringify(editor.getJSON())).toBe(before);expect(changed).not.toHaveBeenCalled();hook.unmount();
  }finally{editor.destroy();}
 });
+
+
+it('carries the frozen page-end offer through ordinary chat preparation without moving the caret',async()=>{
+ const frozen={...captured,pageEndOffer:{end:83}};
+ vi.mocked(bridge.capture).mockResolvedValue(frozen);
+ const hook=renderHook(()=>useBuildCompose({worldId:'world',pageDocumentId:'doc',history,bridge,enabled:true,onHistory:vi.fn()}));
+ let prepared:Awaited<ReturnType<typeof hook.result.current.prepareHarnessTurn>>|undefined;
+ await act(async()=>{prepared=await hook.result.current.prepareHarnessTurn('33333333-3333-4333-8333-333333333333');});
+ expect(prepared?.capability?.page_end_offer).toEqual({end:83});
+ expect(prepared?.capability?.basis).toEqual(captured.basis);
+ expect(prepared?.capability?.basis.caret).toBe(1);
+ expect(prepared?.draftContext?.snapshot.draft_markdown).toBe('# Edge');
+});

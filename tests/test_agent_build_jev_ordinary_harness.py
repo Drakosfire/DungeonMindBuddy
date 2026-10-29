@@ -1176,20 +1176,24 @@ def test_acquisition_exception_has_durable_diagnostic_before_claim_stop(build_ca
     assert turn.status == 'interrupted'
 
 
-def test_ordinary_whole_body_choice_is_bound_through_parent_authority(build_case,monkeypatch,tmp_path):
-    from application_state.build_proposal.types import BuildPageBodyOffer
+@pytest.mark.parametrize("target,instruction", [("page_body","Revise the entire current page body."),
+                                               ("page_end","Add the checklist below all existing paragraphs.")])
+def test_ordinary_page_target_choice_is_bound_through_parent_authority(build_case,monkeypatch,tmp_path,target,instruction):
+    from application_state.build_proposal.types import BuildPageBodyOffer, BuildPageEndOffer
     case,calls=ordinary_case(build_case,monkeypatch,authoring=True)
     source,request,bootstrap=case
+    offer_key = target + "_offer"
+    offer = BuildPageBodyOffer(end=83) if target == "page_body" else BuildPageEndOffer(end=83)
     cap=request.build_write_capability.model_copy(update={
         "basis":request.build_write_capability.basis.model_copy(update={"editor_sha256":"e"*64}),
-        "page_body_offer":BuildPageBodyOffer(end=83)})
-    request=request.model_copy(update={"message":"Revise the entire current page body.","build_write_capability":cap})
-    decisions,writer=DecisionWire(operation="propose_build_insertion"),WriterWire(target="page_body")
+        offer_key:offer})
+    request=request.model_copy(update={"message":instruction,"build_write_capability":cap})
+    decisions,writer=DecisionWire(operation="propose_build_insertion"),WriterWire(target=target)
     result=execute((source,request,bootstrap),tmp_path,BuildJevHarness(decision_transport=decisions,writer_transport=writer))
     completion=result.knowledge_context.completion
     assert isinstance(completion,ledger.BuildAuthoringCompletionV1)
     action=BuildProposalService().get("elderwyld",completion.action_id)
-    assert action.proposal.target=="page_body" and action.reservation.page_body_offer==cap.page_body_offer
+    assert action.proposal.target==target and getattr(action.reservation,offer_key)==offer
     assert action.reservation.basis==cap.basis
-    assert json.loads(json.loads(writer.calls[0].content)["input"])["page_body_offer"]=={"end":83}
+    assert json.loads(json.loads(writer.calls[0].content)["input"])[offer_key]=={"end":83}
     assert len(writer.calls)==len(decisions.calls)==1 and calls=={"graph":0,"source":0}

@@ -12,7 +12,7 @@ from pydantic import ConfigDict, Field, model_validator, model_serializer
 from psycopg.types.json import Jsonb
 
 from application_state.agent_conversation.service import _lock_pointer, _ready_dsn
-from application_state.build_proposal.types import StrictModel, BuildProposalBasis, BuildPageBodyOffer
+from application_state.build_proposal.types import StrictModel, BuildProposalBasis, BuildPageBodyOffer, BuildPageEndOffer
 from application_state.build_proposal.service import _load, _save
 from application_state.errors import (
     ApplicationStateConflictError,
@@ -29,6 +29,7 @@ def digest(text):
 
 class ReviewApply(StrictModel):
     page_body_target: BuildPageBodyOffer | None = None
+    page_end_target: BuildPageEndOffer | None = None
     placement_caret: int = Field(strict=True, ge=0)
     apply_id: UUID
     before_editor_sha256: str = Field(pattern=r"^[a-f0-9]{64}$")
@@ -43,6 +44,8 @@ class ReviewApply(StrictModel):
         value = serialize(self)
         if self.page_body_target is None:
             value.pop("page_body_target", None)
+        if self.page_end_target is None:
+            value.pop("page_end_target", None)
         return value
 
 
@@ -98,6 +101,7 @@ class BuildProposalReview(StrictModel):
     apply: ReviewApply | None = None
     updated_at: datetime
     page_body_target: BuildPageBodyOffer | None = None
+    page_end_target: BuildPageEndOffer | None = None
     placement: PlacementCapability | None = None
     retired_placements: list[RetiredPlacement] = Field(default_factory=list)
 
@@ -106,6 +110,8 @@ class BuildProposalReview(StrictModel):
         value = serialize(self)
         if self.page_body_target is None:
             value.pop("page_body_target", None)
+        if self.page_end_target is None:
+            value.pop("page_end_target", None)
         if self.schema_version == "dmb_build_proposal_review_v2":
             value.pop("placement", None)
             value.pop("retired_placements", None)
@@ -126,6 +132,12 @@ class BuildProposalReview(StrictModel):
                 self.apply.before_editor_sha256 != self.placement.basis.editor_sha256
                 or self.apply.before_draft_sha256 != self.placement.basis.draft_sha256):
             raise ValueError("Apply differs from its fresh placement basis")
+        if self.page_body_target is not None and self.page_end_target is not None:
+            raise ValueError("A review cannot replace the body and append at its end")
+        if self.page_end_target is not None and (self.placement is not None or self.retired_placements):
+            raise ValueError("Page-end target cannot gain another placement")
+        if self.apply and self.apply.page_end_target != self.page_end_target:
+            raise ValueError("Apply differs from resolved page-end target")
         if self.page_body_target is not None and (self.placement is not None or self.retired_placements):
             raise ValueError("Whole-page target cannot gain another placement")
         if self.apply and self.apply.page_body_target != self.page_body_target:
@@ -153,6 +165,7 @@ class BuildReviewCommand(StrictModel):
 
     placement: PlacementCapability | None = None
     page_body_target: BuildPageBodyOffer | None = None
+    page_end_target: BuildPageEndOffer | None = None
 
     @model_validator(mode="after")
     def exact_fields(self):
@@ -165,11 +178,14 @@ class BuildReviewCommand(StrictModel):
         }.get(self.operation, set())
         if self.operation == "prepare" and self.page_body_target is not None:
             required = required | {"page_body_target"}
+        if self.operation == "prepare" and self.page_end_target is not None:
+            required = required | {"page_end_target"}
         present = {
             name
             for name in (
                 "markdown",
                 "page_body_target",
+                "page_end_target",
                 "placement",
                 "placement_caret",
                 "apply_id",
@@ -217,9 +233,11 @@ class BuildProposalReviewService:
             ).fetchone()
             previous = BuildProposalReview.model_validate(row[0]) if row else None
             expected_body = proposal.reservation.page_body_offer if proposal.proposal and proposal.proposal.target == "page_body" else None
+            expected_end = proposal.reservation.page_end_offer if proposal.proposal and proposal.proposal.target == "page_end" else None
             if previous and (previous.reservation_sha256 != proposal.request_fingerprint
                     or previous.page_body_target != expected_body
-                    or expected_body is not None and previous.placement_caret != proposal.reservation.basis.caret):
+                    or previous.page_end_target != expected_end
+                    or (expected_body is not None or expected_end is not None) and previous.placement_caret != proposal.reservation.basis.caret):
                 raise ApplicationStateConflictError("Review differs from immutable target")
             if command.operation == "open" and previous:
                 return previous
@@ -242,7 +260,8 @@ class BuildProposalReviewService:
                     revision=1,
                     state="editing",
                     placement_caret=proposal.reservation.basis.caret,
-                    page_body_target=proposal.reservation.page_body_offer if proposal.proposal.target == "page_body" else None,
+                    page_body_target=expected_body,
+                    page_end_target=expected_end,
                     markdown=proposal.proposal.replacement_markdown,
                     markdown_sha256=digest(proposal.proposal.replacement_markdown),
                     updated_at=now,
@@ -260,11 +279,11 @@ class BuildProposalReviewService:
                     "Open the exact proposal review first"
                 )
             expected_body = proposal.reservation.page_body_offer if proposal.proposal.target == "page_body" else None
-            if previous.page_body_target != expected_body:
+            if previous.page_body_target != expected_body or previous.page_end_target != expected_end:
                 raise ApplicationStateConflictError("Review differs from immutable target")
-            if expected_body is not None and command.operation in {"move", "replace_placement"}:
-                raise ApplicationStateConflictError("Whole-page revision stays at its captured body. Request a new revision on the changed page.")
-            if expected_body is not None and previous.placement_caret != proposal.reservation.basis.caret:
+            if (expected_body is not None or expected_end is not None) and command.operation in {"move", "replace_placement"}:
+                raise ApplicationStateConflictError("Whole-page revision stays at its captured body. Request a new revision on the changed page." if expected_body else "Page-end insertion stays at its captured end. Request a new addition on the changed page.")
+            if (expected_body is not None or expected_end is not None) and previous.placement_caret != proposal.reservation.basis.caret:
                 raise ApplicationStateConflictError("Whole-page editor basis changed")
             if command.operation == "replace_placement":
                 if previous.placement and previous.placement.command_id == command.placement.command_id:
@@ -281,8 +300,8 @@ class BuildProposalReviewService:
                 and previous.apply.apply_id == command.apply_id
             ):
                 if command.operation == "prepare":
-                    if command.page_body_target != expected_body:
-                        raise ApplicationStateConflictError("This editor must acknowledge the exact whole-page target before applying it")
+                    if command.page_body_target != expected_body or command.page_end_target != expected_end:
+                        raise ApplicationStateConflictError("This editor must acknowledge the exact whole-page target before applying it" if expected_body else "This editor must acknowledge the exact page-end target before applying it")
                     if (
                         previous.apply.after_editor_sha256
                         != command.after_editor_sha256
@@ -341,8 +360,8 @@ class BuildProposalReviewService:
             elif command.operation == "discard":
                 update["state"] = "discarded"
             elif command.operation == "prepare":
-                if command.page_body_target != expected_body:
-                    raise ApplicationStateConflictError("This editor must acknowledge the exact whole-page target before applying it")
+                if command.page_body_target != expected_body or command.page_end_target != expected_end:
+                    raise ApplicationStateConflictError("This editor must acknowledge the exact whole-page target before applying it" if expected_body else "This editor must acknowledge the exact page-end target before applying it")
                 if previous.placement:
                     if self.validate_source is None:
                         raise ApplicationStateConflictError("Current source validation is unavailable")
@@ -355,6 +374,7 @@ class BuildProposalReviewService:
                     state="applying",
                     apply=ReviewApply(
                         page_body_target=previous.page_body_target,
+                        page_end_target=previous.page_end_target,
                         placement_caret=previous.placement_caret,
                         apply_id=command.apply_id,
                         before_editor_sha256=basis.editor_sha256,

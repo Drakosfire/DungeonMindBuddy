@@ -450,8 +450,37 @@ it('does not offer a whole-body target for a retained typed work plan',async()=>
  try{
   const captured=await bridge.capture();bridge.applyWorkPlan!(await bridge.prepareWorkPlan!(captured,reference));
   const retained=editor.getJSON();const next=await bridge.capture();
-  expect(next.pageBodyOffer).toBeUndefined();
+  expect(next.pageBodyOffer).toBeUndefined();expect(next.pageEndOffer).toBeUndefined();
   await expect(bridge.restore(next.basis,{end:editor.state.doc.content.size})).rejects.toThrow();
   expect(editor.getJSON()).toEqual(retained);
+ }finally{editor.destroy();}
+});
+
+
+it('appends at the frozen page end with caret at start and preserves every original node',async()=>{
+ const {editor,bridge}=setup();try{
+  editor.commands.setContent('<p>First original paragraph.</p><p><a href="https://example.org/source">Second original</a> paragraph.</p>');
+  editor.commands.setTextSelection(1);
+  const before=editor.getJSON(),selection=editor.state.selection.toJSON();
+  const captured=await bridge.capture();
+  expect(captured.basis.caret).toBe(1);expect(editor.state.selection.toJSON()).toEqual(selection);
+  expect(captured.pageEndOffer).toEqual({end:editor.state.doc.content.size});
+  const end=await bridge.restore(captured.basis,undefined,captured.pageEndOffer);
+  const prepared=await bridge.prepareProposal(end,'## Readiness\n\n- Confirm the proposed route.');
+  expect(editor.getJSON()).toEqual(before);
+  bridge.applyPrepared(prepared);
+  expect(editor.getJSON().content?.slice(0,2)).toEqual(before.content);
+  expect(editor.getJSON().content?.[2].type).toBe('heading');
+  expect(tiptapJsonToSemanticMarkdown(editor.getJSON())).toContain('## Readiness');
+  await expect(bridge.restore(captured.basis,undefined,captured.pageEndOffer)).rejects.toThrow('changed');
+ }finally{editor.destroy();}
+});
+
+it('refuses an altered or conflicting page-end offer without falling back to caret',async()=>{
+ const {editor,bridge}=setup();try{
+  const captured=await bridge.capture(),before=editor.getJSON();
+  await expect(bridge.restore(captured.basis,undefined,{end:999})).rejects.toThrow('end changed');
+  await expect(bridge.restore(captured.basis,captured.pageBodyOffer,captured.pageEndOffer)).rejects.toThrow('Conflicting');
+  expect(editor.getJSON()).toEqual(before);
  }finally{editor.destroy();}
 });

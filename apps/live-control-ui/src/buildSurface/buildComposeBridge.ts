@@ -4,7 +4,7 @@ import type { Editor } from '@tiptap/core';
 import type { WorldBuildDraftSnapshotV1 } from '../api/types';
 import { TextSelection } from '@tiptap/pm/state';
 import {pageBodyReferences,preservePageBodyReferences} from './pageBodyTarget';
-import type { BuildProposalBasis, BuildPageBodyTarget } from '../api/buildDocumentProposalApi';
+import type { BuildProposalBasis, BuildPageBodyTarget, BuildPageEndTarget } from '../api/buildDocumentProposalApi';
 import {markdownToTiptapDoc} from '../tiptap/markdown/markdownToTiptap';
 import {semanticMarkdownSerializationDiagnostics} from '../tiptap/markdown/semanticMarkdownSafety';
 import { tiptapJsonToSemanticMarkdown } from '../tiptap/markdown/calloutMarkdown';
@@ -16,6 +16,7 @@ export interface BuildComposeEditorState {
 }
 export interface CapturedBuildInsertion {
   pageBodyOffer?:BuildPageBodyTarget; pageBodyTarget?:BuildPageBodyTarget;
+  pageEndOffer?:BuildPageEndTarget; pageEndTarget?:BuildPageEndTarget;
   basis: BuildProposalBasis; draftMarkdown: string; editor: Editor; editorJson: string;
 }
 export interface PreparedBuildProposal {
@@ -46,7 +47,7 @@ export interface BuildComposeBridge {
   applyPrepared: (prepared: PreparedBuildProposal) => void;
   saveProposal: (basis: BuildProposalBasis, afterEditor: string, afterDraft: string, savedProjection?:SavedProposalProjection) => Promise<void>;
   inspectProposal: (basis: BuildProposalBasis, afterEditor: string, afterDraft: string) => Promise<ProposalInspection>;
-  restore: (basis: BuildProposalBasis, pageBodyTarget?:BuildPageBodyTarget) => Promise<CapturedBuildInsertion>;
+  restore: (basis: BuildProposalBasis, pageBodyTarget?:BuildPageBodyTarget, pageEndTarget?:BuildPageEndTarget) => Promise<CapturedBuildInsertion>;
   insertProposal: (captured: CapturedBuildInsertion, markdown: string) => void;
 }
 async function sha256(value: string) {
@@ -72,6 +73,13 @@ export async function captureBuildDraftSnapshot(getCurrent: () => BuildComposeEd
     document_id:start.documentId, registry_revision:start.revision, content_sha256:start.contentSha256,
     visibility:start.visibility, draft_markdown:draftMarkdown, draft_sha256:draftDigest,
     editor_sha256:editorDigest, draft_generation:start.draftGeneration});
+}
+
+/** Appending must not join, replace or rewrite any existing editor node. */
+function preservePrefix(before:ReturnType<Editor['getJSON']>,after:ReturnType<Editor['getJSON']>){
+  const original=before.content??[];
+  if(JSON.stringify((after.content??[]).slice(0,original.length))!==JSON.stringify(original))
+    throw new Error('Page-end insertion would change existing content. Nothing was inserted.');
 }
 
 export function createBuildComposeBridge(getCurrent: () => BuildComposeEditorState | null, changed: (editor: Editor) => void, persist?: BuildComposeBridge['saveProposal']): BuildComposeBridge {
@@ -100,7 +108,15 @@ export function createBuildComposeBridge(getCurrent: () => BuildComposeEditorSta
     }
   }
   function target(captured:CapturedBuildInsertion) {
-    const {basis,pageBodyTarget}=captured;
+    const {basis,pageBodyTarget,pageEndTarget}=captured;
+    if(pageBodyTarget&&pageEndTarget)throw new Error('Conflicting page targets. Nothing was inserted.');
+    if(pageEndTarget){
+      if(pageEndTarget.end!==captured.editor.state.doc.content.size)throw new Error('The captured page end changed. Nothing was inserted.');
+      admitMarkdownInsertion(captured.draftMarkdown);
+      if(!canonicalProjection(captured.editor,captured.draftMarkdown))throw new Error('This page contains unsupported formatting. Nothing was inserted.');
+      pageBodyReferences(JSON.parse(captured.editorJson));
+      return pageEndTarget.end;
+    }
     if(pageBodyTarget){
       if(pageBodyTarget.end!==captured.editor.state.doc.content.size)throw new Error('The captured page body changed. Nothing was replaced.');
       admitMarkdownInsertion(captured.draftMarkdown);
@@ -144,7 +160,10 @@ export function createBuildComposeBridge(getCurrent: () => BuildComposeEditorSta
       try{
         admitMarkdownInsertion(draftMarkdown);
         pageBodyReferences(JSON.parse(editorJson));
-        if(canonicalProjection(now.editor,draftMarkdown))captured.pageBodyOffer={end:now.editor.state.doc.content.size};
+        if(canonicalProjection(now.editor,draftMarkdown)){
+          captured.pageBodyOffer={end:now.editor.state.doc.content.size};
+          captured.pageEndOffer={end:now.editor.state.doc.content.size};
+        }
       }catch{/* Unsupported objects remain editable through their owning controls. */}
       return captured;
     },
@@ -153,6 +172,7 @@ export function createBuildComposeBridge(getCurrent: () => BuildComposeEditorSta
       assertSame(captured, true);
       const result = prepareReviewedMarkdownAtAnchor(captured.editor,target(captured),admitted.content,captured.editorJson);
       if(captured.pageBodyTarget)preservePageBodyReferences(JSON.parse(captured.editorJson),result);
+      if(captured.pageEndTarget)preservePrefix(JSON.parse(captured.editorJson),result);
       const prepared = {captured, markdown: admitted.markdown, afterEditorSha256: await sha256(JSON.stringify(result)),
         afterDraftSha256: await sha256(tiptapJsonToSemanticMarkdown(result))};
       assertSame(captured, true);
@@ -207,13 +227,13 @@ export function createBuildComposeBridge(getCurrent: () => BuildComposeEditorSta
         &&savedPageMatches(now,basis,true))return {state:'before'};
       return {state:'changed'};
     },
-    async restore(basis,pageBodyTarget) {
+    async restore(basis,pageBodyTarget,pageEndTarget) {
       if (!basis.editor_sha256) throw new Error('This earlier proposal has no saved insertion anchor. Ask again where you want the new text.');
       const now = getCurrent();
       if (!now?.canEdit || now.editor.isDestroyed) throw new Error('Open the original editable Build page first.');
       const editorJson = JSON.stringify(now.editor.getJSON());
       const draftMarkdown = tiptapJsonToSemanticMarkdown(now.editor.getJSON());
-      const captured: CapturedBuildInsertion = {editor: now.editor, editorJson, draftMarkdown, pageBodyTarget,
+      const captured: CapturedBuildInsertion = {editor: now.editor, editorJson, draftMarkdown, pageBodyTarget, pageEndTarget,
         basis: {...basis, draft_generation: now.draftGeneration, selection_generation: now.selectionGeneration}};
       if (await sha256(editorJson) !== basis.editor_sha256 || await sha256(draftMarkdown) !== basis.draft_sha256
         || !Number.isInteger(basis.caret) || basis.caret < 0 || basis.caret > now.editor.state.doc.content.size) {
@@ -229,9 +249,10 @@ export function createBuildComposeBridge(getCurrent: () => BuildComposeEditorSta
       const admitted = admitMarkdownInsertion(markdown);
       assertSame(captured, true);
       const range=target(captured);
-      if(captured.pageBodyTarget){
+      if(captured.pageBodyTarget||captured.pageEndTarget){
         const result=prepareReviewedMarkdownAtAnchor(captured.editor,range,admitted.content,captured.editorJson);
-        preservePageBodyReferences(JSON.parse(captured.editorJson),result);
+        if(captured.pageBodyTarget)preservePageBodyReferences(JSON.parse(captured.editorJson),result);
+        if(captured.pageEndTarget)preservePrefix(JSON.parse(captured.editorJson),result);
       }
       insertReviewedMarkdownAtAnchor(captured.editor, range, admitted.content, captured.editorJson);
       applied.add(captured); changed(captured.editor);
