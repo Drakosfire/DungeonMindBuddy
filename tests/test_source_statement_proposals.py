@@ -700,12 +700,12 @@ def test_unit_eligibility_is_a_derived_view_not_clause_acceptance():
     batch = deepcopy(BATCH) | {"catalog_sha256": source["catalog_sha256"]}
     original = {"result": parse(json.dumps(batch), source)}
     before = deepcopy(original)
-    view = service._view(original, {"start_byte": 0, "end_byte": 5})
+    view = service._view(original, [{"evidence_ref_id": "ev:unit", "start_byte": 0, "end_byte": 5}])
     assert original == before
     offered = view["review_eligibility"]["p1"]
     assert offered["status"] == "requires_explicit_clause_selection"
     assert offered["candidate_extents"] == [
-        {"unit_id": "u1", "start_byte": 0, "end_byte": 5}
+        {"unit_id": "u1", "evidence_ref_id": "ev:unit", "start_byte": 0, "end_byte": 5}
     ]
     assert offered["semantic_acceptance"] == "not_established"
 
@@ -1361,3 +1361,111 @@ def test_original_review_identity_omits_absent_extension_field(lane, application
         assert decision["intent"]["selection"] == body["selection"]
         body["selection"]["source_evidence_extension_id"] = None
         assert c.post(review_url(req), json=body).json() == decision
+
+
+@pytest.fixture
+def sibling_span_lane(tmp_path, monkeypatch):
+    from tests.test_source_statements import make_lane
+    return make_lane(tmp_path, monkeypatch, multiple=True)
+
+
+def test_review_sibling_admitted_span_routes_publish_and_replay(
+    sibling_span_lane, application_state_dsn, monkeypatch
+):
+    from hashlib import sha256
+    from apps.live_control_server.models.source_statements import ConfirmStatement
+    from application_state.statement_proposals import service as store
+
+    lane = sibling_span_lane
+    receipt = lane.repo.get_native_source_admission_receipt(
+        lane.world.world_id, lane.selection.source_admission_id
+    )
+    assert len(receipt.bindings) == 2
+    sibling = next(b.evidence_ref_id for b in receipt.bindings
+                   if b.evidence_ref_id != lane.selection.evidence_ref_id)
+    wire = Wire()
+    with client(monkeypatch, wire) as c:
+        req, record = produce(c, lane)
+        original = store.read(req.operation_id, GM.subject, req.managed_world_id)
+        extents = record["review_eligibility"]["p1"]["candidate_extents"]
+        assert {e["evidence_ref_id"] for e in extents} == {
+            lane.selection.evidence_ref_id, sibling
+        }
+        body = review_body(lane, record)
+        start = len(BODY.splitlines(keepends=True)[0].encode())
+        body["selection"].update(evidence_ref_id=sibling, start_byte=start,
+            end_byte=len(BODY.encode()), clause_sha256=sha256(BODY.encode()[start:]).hexdigest(),
+            meaning="Another source-local episode is described", mode="narrator", reporter=None)
+        reviewed = c.post(review_url(req), json=body)
+        assert reviewed.status_code == 200, reviewed.text
+        packet = reviewed.json()["prepared_packet"]
+        published = source_statements.confirm(ConfirmStatement(
+            **{k: packet[k] for k in ("envelope", "prepared", "token")}), GM)
+        assert published["status"] == "committed"
+        advance(lane)
+        assert c.post(review_url(req), json=body).json() == reviewed.json()
+        read = source_statements.read_subject(managed_world_id=req.managed_world_id,
+            campaign_id="c1", revision_id=published["result"]["receipt"]["published_revision_id"],
+            entity_id=lane.ids["B"], principal=GM)
+        assert read["statements"][0]["payload"]["proof"]["evidence_ref_id"] == sibling
+        saved = store.read(req.operation_id, GM.subject, req.managed_world_id)
+        for key in ("input", "intent", "wire", "raw_output", "result", "lifecycle"):
+            assert saved[key] == original[key]
+        assert len(wire.requests) == 1
+
+
+@pytest.mark.parametrize("bad", ["foreign_admission", "unregistered_evidence", "outside_span", "digest", "source", "parent"])
+def test_sibling_review_bad_proof_does_not_save_or_publish(
+    sibling_span_lane, application_state_dsn, monkeypatch, bad
+):
+    from hashlib import sha256
+    from application_state.statement_proposals import service as store
+
+    lane = sibling_span_lane
+    receipt = lane.repo.get_native_source_admission_receipt(lane.world.world_id, lane.selection.source_admission_id)
+    sibling = next(b.evidence_ref_id for b in receipt.bindings if b.evidence_ref_id != lane.selection.evidence_ref_id)
+    with client(monkeypatch, Wire()) as c:
+        req, record = produce(c, lane)
+        before = store.read(req.operation_id, GM.subject, req.managed_world_id)
+        head = lane.repo.get_head(lane.world.world_id)
+        epoch = lane.repo.open_native_source_view(lane.world.world_id).epoch
+        body = review_body(lane, record)
+        start = len(BODY.splitlines(keepends=True)[0].encode())
+        selected = body["selection"]
+        selected.update(evidence_ref_id=sibling, start_byte=start, end_byte=len(BODY.encode()),
+            clause_sha256=sha256(BODY.encode()[start:]).hexdigest())
+        if bad == "foreign_admission":
+            selected["source_admission_id"] = "different-admission"
+        elif bad == "unregistered_evidence":
+            selected["evidence_ref_id"] = "ev:missing"
+        elif bad == "outside_span":
+            selected.update(start_byte=0, clause_sha256=sha256(BODY.encode()).hexdigest())
+        elif bad == "digest":
+            selected["clause_sha256"] = "0" * 64
+        elif bad == "source":
+            selected["source_sha256"] = "0" * 64
+        else:
+            selected["expected_parent_revision_id"] = "rev:missing"
+        response = c.post(review_url(req), json=body)
+        assert response.status_code == 409, response.text
+        assert store.read(req.operation_id, GM.subject, req.managed_world_id) == before
+        assert lane.repo.get_head(lane.world.world_id) == head
+        assert lane.repo.open_native_source_view(lane.world.world_id).epoch == epoch
+
+
+
+def test_unavailable_sibling_refuses_before_provider_or_claim(
+    sibling_span_lane, application_state_dsn, monkeypatch
+):
+    from application_state.statement_proposals import service as store
+
+    lane = sibling_span_lane
+    receipt = lane.repo.get_native_source_admission_receipt(lane.world.world_id, lane.selection.source_admission_id)
+    sibling = next(b for b in receipt.bindings if b.evidence_ref_id != lane.selection.evidence_ref_id)
+    del lane.repo._by_span[(lane.world.world_id, sibling.span_id)]
+    req, wire = request_for(lane), Wire()
+    with client(monkeypatch, wire) as c:
+        response = c.post("/api/live/source-statements/proposals", json=req.model_dump(mode="json"))
+        assert response.status_code == 409, response.text
+    assert not wire.requests
+    assert store.read(req.operation_id, GM.subject, req.managed_world_id) is None

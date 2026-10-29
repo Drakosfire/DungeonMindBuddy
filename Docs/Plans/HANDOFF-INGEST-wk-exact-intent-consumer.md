@@ -1,6 +1,15 @@
 # INGEST — consume exact-intent WK publication classification
 
-ACTIVE — PRIME owns this serial dependency/delivery successor under the confirmed
+DELIVERED predecessor: Buddy1915 merged7126b4326d98cbc7f8db5bf1b5b46aa8ab587df7;
+independent exact review and all3CI passed,124 actual consumer tests passed.
+WKef9 delivered on8000 with protected APP/native/files/source conservation and
+ordinary Build/Plan/Run reopening. Original transient TIME_WAIT bind refusal,
+restored API recovery and independently reviewed retry are retained under
+.runtime evidence wk-exact-intent-1915 and wk-exact-intent-1915-retry in the
+established private runtime-evidence root. Actual clone p15/p30 publications and
+original p15 replay after p30 independently approved; full15 remains0.
+
+Original bounded scope: PRIME owns this serial dependency/delivery successor under the confirmed
 regression goal. Base fetched Buddy5168920ae69ed4fd6428895a358e3609811ecad9;
 reuse buddy-context-loop branch codex/wk-exact-intent-consumer. One Buddy PR after
 merged WK14. Independent exact cumulative review, all configured CI, protected

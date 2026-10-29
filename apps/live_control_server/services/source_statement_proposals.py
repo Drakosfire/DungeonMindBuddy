@@ -119,12 +119,33 @@ def _acquire(request, principal):
         },
         "scope": request.model_dump(mode="json", exclude={"operation_id"}),
     }
-    extent = {
-        "start_byte": opened.span_start_byte,
-        "end_byte": opened.span_end_byte,
-        "span_sha256": opened.span_sha256,
-    }
-    return repo, space, packet, extent
+    # The seed authenticates the source identity. Every sibling candidate still
+    # needs its own receipted membership and Core access/integrity verification.
+    receipt = repo.get_native_source_admission_receipt(space, request.source_admission_id)
+    extents = []
+    for binding in receipt.bindings:
+        sibling = open_admitted_native_text(access, binding.evidence_ref_id)
+        if (
+            sibling.status != "available"
+            or sibling.source_artifact_id != opened.source_artifact_id
+            or sibling.source_revision_id != opened.source_revision_id
+            or sibling.body_sha256 != request.source_sha256
+        ):
+            raise ValueError("Admitted sibling evidence is unavailable or changed")
+        statements._source(
+            repo, space, access,
+            {"source_admission_id": request.source_admission_id,
+             "evidence_ref_id": binding.evidence_ref_id},
+            request.source_sha256, sibling.span_start_byte,
+            sibling.span_end_byte, sibling.span_sha256,
+        )
+        extents.append({
+            "evidence_ref_id": binding.evidence_ref_id,
+            "start_byte": sibling.span_start_byte,
+            "end_byte": sibling.span_end_byte,
+            "span_sha256": sibling.span_sha256,
+        })
+    return repo, space, packet, extents
 
 
 def _render(material):
@@ -142,17 +163,19 @@ def source(request, principal, *, include_extent=False):
     return (repo, space, packet, extent) if include_extent else (repo, space, packet)
 
 
-def _view(record, extent):
+def _view(record, extents):
     eligibility = {}
     if record["result"] is not None:
         for key, passages in record["result"]["passages"].items():
             candidates = [
                 {
                     "unit_id": unit["unit_id"],
+                    "evidence_ref_id": extent["evidence_ref_id"],
                     "start_byte": max(unit["start_byte"], extent["start_byte"]),
                     "end_byte": min(unit["end_byte"], extent["end_byte"]),
                 }
                 for unit in passages["primary"]
+                for extent in extents
                 if max(unit["start_byte"], extent["start_byte"])
                 < min(unit["end_byte"], extent["end_byte"])
             ]
@@ -448,10 +471,10 @@ def review(operation_id, world, request, principal):
         raise ValueError("Unknown source proposal")
     repo, space, material, _ = _acquire(extraction, principal)
     if selected.source_evidence_extension_id is None:
-        if (selected.source_admission_id, selected.evidence_ref_id) != (
-            extraction.source_admission_id, extraction.evidence_ref_id,
-        ):
-            raise ValueError("Review changed the extraction source proof")
+        if selected.source_admission_id != extraction.source_admission_id:
+            raise ValueError("Review changed the extraction source admission")
+        # statements.prepare authenticates the selected sibling membership, source
+        # pair, current access and exact clause before any review is stored.
     else:
         extension = repo.get_native_source_evidence_extension_receipt(
             space, selected.source_evidence_extension_id
