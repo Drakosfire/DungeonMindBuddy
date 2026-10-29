@@ -343,5 +343,89 @@ Read-only preparatory preflight confirms exact V2/V3 packet equality, actual
 GE23files/SDK1054files/runtime/Core/WK identities and two existing operation rows.
 It created no v4 case, snapshot, APP row or provider call. Provider-free suite
 74/74 plus45/45 predecessor tests passes (119total), Ruff/diff pass. The exact
-pre-call head and eventual actual evidence require independent review; no actual
-v4 output or extraction success is claimed yet. Full-system verification0/15.
+pre-call head was independently approved; the actual outcome follows.
+
+## V4 actual outcome — source splicing and missing target fact
+
+Executed independently approved head7021bc921395b79bea50847e902ecf4cd1c7b5ae;
+harness SHA256bc2848f011e4845650c49c0febf58bf5fd10ad8e335d159571bf1ba919cb4af1.
+Frozen preflight772bb2529d8ab3dee7df89fe7288f8b2c62666ac45b60feb70ebdb74af6d45b8.
+Snapshot readable276TOCentries, SHA256
+d4a05e59aaa3a11715e8bd42cbe6309977cd4f63bd1558972890d718128e6fb3;
+no migration/restore. All original48APP tables' retained rows, native state,
+40991files and every Q01/v1/v2/v3 artifact/correction were preserved. Exactly
+one new owned operationbdd89481-e884-4867-9e26-be5bcd093196 was added and its
+actual ID/owner/World/full payload independently bound to ordinary HTTP readback.
+Same-key POST and GET retain the failed operation with no new SDK/lifecycle/state.
+
+One actual GPT-6 Luna SDK operation returned HTTP200 completed response
+resp_0b800b52c86e5ff3006ae39b4cc22887d1a537a41893679d9e,
+4433input/7126output tokens, zero reasoning,27811.560817ms endpoint elapsed.
+SDK commentary/final_answer phases were correctly handled: stored raw text is
+the exact selected final JSON, not concatenation. Actual wire differs from v3
+only in instructions; reserve128000/source/name-context/model/schema unchanged.
+Declared GE23files and SDK1054files matched their frozen inventories before and
+after the provider. No capacity, phase-selection or runtime-setup failure occurred.
+This measures the ordinary source producer, not a full Jev answer loop;
+internal stage latency attribution remains unassessed.
+
+The JSON is structurally valid with21source-local mentions and12proposals, but
+the unchanged source parser refuses the batch. No accepted extraction was created.
+
+| Objective | Met / assessed | Meaning |
+| --- | --- | --- |
+| Bounded declared runtime/dependency fidelity | 1 / 1 | GE/Core/WK/Buddy/SDK pins and actual import/file checks pass |
+| Completed SDK response and exact final-message selection | 1 / 1 | No truncation or commentary concatenation |
+| Whole accepted extraction batch | 0 / 1 | One context field is not an exact contiguous source passage |
+| Raw bounded target cores | 2 / 3 | Diagnostic only: Arcana origin and heard feeding present; Torbin symptoms absent |
+| Exact owned persistence/readback/replay and conservation | 1 / 1 | New owned row only; no added replay IO or protected-state change |
+| Identity review, selection, publication, discovery, answers | 0 / 0 | Not executed or assessed |
+
+### Confirmed noncontiguous context construction
+
+Every mention anchor21/21 and selected clause12/12 matches source. Context
+passages12/13 match;11/12individual proposals pass schema and source checks.
+p8's core Arcana clause is exact, but its one context string concatenates
+source[4606,4755) with source[4868,4939), omitting113bytes between them:
+the complete sentence about Lysandra taking3–4trusted guards to the Warehouse
+District. The actual omitted source uses `3-4`; no normalized replacement was
+used. The bad context SHA256 is
+41c5d13f7497327d29f8e08201ace9ad3c0b983bb4d0f06ba7c89a4cffb4ce9e.
+Both copied regions are in one paragraph. This demonstrates semantic compression
+into a manufactured quote despite explicit literal-copy instructions, rather
+than the prior paragraph-newline substitution. No context crossed a paragraph
+boundary, so that older trigger remains unexercised, not proved fixed.
+
+### Independent semantic and coverage inspection
+
+All12proposals were inspected, not merely the rejected p8. Manual dispositions:
+8core-source comparisons with no issue found,3review holds,1confirmed source
+contract failure. Holds concern p7's mixed expectation/attributed uncertainty
+under a single reporter, p9 observer/possessive precision for the Sprite, and p10's
+temporal qualification saying after the party cannot react where source says
+before the party can react. These holds are not three proven graph defects.
+Per-proposal fields, context locations, notes and exact omitted text remain in
+independent-semantic-assessment.json; no output was repaired or salvaged.
+
+Q01:1 core remains in p8, but that proposal's context binding fails. Q13:2 remains
+in p5 with faintly heard repeat feeding and unnamed listener/feeder preserved.
+Q13:3, Torbin's oily-eye signs, is absent from every returned meaning, clause,
+context and qualification despite being present in actual input. Bill's eyes in
+p2 and the rotating desk guards in p4 are different actors, not an alternate
+representation of Torbin. His name appearing in the mention list is not fact
+retention. S7's feeding episode is outside this run and not scored as an omission.
+
+Raw bounded core coverage is2/3 versus3/3 in v3's diagnostic final message.
+Neither run had an accepted batch; this is not a historical score promotion,
+nor does one stochastic pair prove the instruction change caused the omission.
+Twelve versus45proposals alone says nothing about factual recall. The actual
+target comparison exposes the missing fact. Literal source binding and semantic
+coverage must remain independent gates in any structural successor.
+
+current-observations.json now records these question-stage outcomes, dependency/
+runtime/source/wire/SDK pins, exact splicing offsets, regressions and next-owner
+action. Gold is unchanged and was consulted only after output existed. No retry,
+case/whitespace repair, partial promotion, review/prepare/confirm or publication.
+PRIME owns the structural correspondence/coverage disposition; the v4 call is
+spent. Full-system verification remains0/15; no complete ingestion or answer
+success is claimed. Final exact-head evidence review and CI remain PR gates.
