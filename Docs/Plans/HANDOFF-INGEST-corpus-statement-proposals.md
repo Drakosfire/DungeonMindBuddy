@@ -120,3 +120,22 @@ Incomplete output stays failed without salvage or redispatch. A new named run
 must independently assess capacity and exact-context failures after delivery.
 Official capacity: https://developers.openai.com/api/docs/models/gpt-6-luna .
 Independent cumulative review, CI and protected delivery remain required.
+
+
+## Literal quote instruction repair
+
+Capacity repair1902 merged83878930f0e4fc358021cf2710a6cf672fba8806 and was
+protected-delivered with retained state unchanged. S8v3 provider completed10716
+output tokens. Its phase-concatenation failure came from benchmark GEaf21356;
+declared/live GEe9366ef already selects final messages. Provider-free retained SDK
+replay through declared GE selects final text, then correctly rejects mention
+quote `A Fey` where source says `a Fey`. No duplicate phase fix is authorized.
+
+Active OverMind allocation8e565f19f8c56a079a077d42e614cf7c68934530 leases only
+this handoff, qualified_statement_proposals.py instructions and the proposal tests.
+Clarify exact literal copying for mention/clause/context quotes, including case,
+Unicode and escaped whitespace. Separate disjoint context entries and preserve
+all needed qualifications. Schema/parser, source, model, review and publication
+are unchanged. Old failed operations retain original wire/raw and replay with no
+IO. Exact review, CI and protected delivery remain gates; a new named real run
+requires corrected actual GE dependency verification by independent ADVERSARY.
