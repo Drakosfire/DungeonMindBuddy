@@ -460,3 +460,56 @@ def test_nonexact_paragraph_context_still_fails_without_repair(lane, application
         assert record["result"] is None
         assert record["raw_output"] == wire.raw
         assert wire.requests[0]["max_output_tokens"] == 128_000
+
+
+@pytest.mark.parametrize("separate", [False, True])
+def test_exact_quote_copy_preserves_paragraphs_and_allows_descriptive_labels(separate):
+    from graph_memory.extraction.qualified_statement_proposals import parse
+    body = "a Fey — é\n\n" + BODY
+    batch = deepcopy(BATCH)
+    batch["mentions"][0].update(label="A Fey (source narrator)", quote="a Fey")
+    batch["proposals"][0]["context_quotes"] = ["a Fey — é", BODY] if separate else [body]
+    parsed = parse(json.dumps(batch), body)
+    assert parsed["batch"] == batch
+
+
+@pytest.mark.parametrize("change", ["case", "joined", "double_escape", "crlf", "unicode"])
+def test_nonliteral_quote_copy_never_normalizes(change):
+    from graph_memory.extraction.qualified_statement_proposals import parse
+    body = "a Fey — é\n\n" + BODY
+    batch = deepcopy(BATCH)
+    batch["mentions"][0].update(label="A Fey", quote="a Fey")
+    batch["proposals"][0]["context_quotes"] = [body]
+    if change == "case":
+        batch["mentions"][0]["quote"] = "A Fey"
+    else:
+        changes = {"joined":body.replace("\n\n", " "),
+            "double_escape":body.replace("\n", r"\n"), "crlf":body.replace("\n", "\r\n"),
+            "unicode":body.replace("é", "e\u0301")}
+        batch["proposals"][0]["context_quotes"] = [changes[change]]
+    with pytest.raises(ValueError, match="quote is not source text"):
+        parse(json.dumps(batch), body)
+
+
+def test_original_quote_failure_replays_after_instruction_change(lane, application_state_dsn, monkeypatch):
+    current = service.INSTRUCTIONS
+    old = "Original producer instructions before exact-quote clarification."
+    monkeypatch.setattr(service, "INSTRUCTIONS", old)
+    batch = deepcopy(BATCH)
+    batch["mentions"][0]["quote"] = "nonexistent source spelling"
+    wire = Wire(json.dumps(batch))
+    with client(monkeypatch, wire) as c:
+        req, failed = produce(c, lane)
+        assert failed["state"] == "failed" and failed["result"] is None
+        assert json.loads(failed["wire"])["instructions"] == old
+        monkeypatch.setattr(service, "INSTRUCTIONS", current)
+        assert c.post("/api/live/source-statements/proposals", json=req.model_dump(mode="json")).json() == failed
+        assert c.get(url(req)).json() == failed
+        assert len(wire.requests) == 1
+        _, fresh = produce(c, lane)
+        assert fresh["state"] == "failed"
+        assert fresh["raw_output"] == failed["raw_output"]
+        assert wire.requests[1]["instructions"] == current
+        assert "Every mention quote, clause quote and context quote" in current
+        assert "Preserve case, Unicode" in current
+        assert json.loads(wire.requests[1]["input"][0]["content"])["source"] == BODY
