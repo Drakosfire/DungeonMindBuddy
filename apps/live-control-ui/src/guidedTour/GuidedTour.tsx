@@ -1,3 +1,4 @@
+import {TourNavigationRegistry,TourNavigationProvider,TourNavigationActions,navigationScope} from './Navigation';
 import type {WorldAgentConversationHistoryResponse} from '../api/types';
 import {useSessionMemoryReading} from './MemoryObservations';
 import {createContext,useCallback,useContext,useEffect,useLayoutEffect,useMemo,useRef,useState,type ReactNode} from 'react';
@@ -36,6 +37,11 @@ export function GuidedTourProvider({worldId,worldName,children,history=null}:{wo
  const current=useRef(stored);current.current=stored;
  const runCreationReceipts=useRef(new Map<string,Observation>());
  const mounted=useRef(true),queue=useRef(Promise.resolve()),externalEpoch=useRef(0);
+ const navigationWorld=useRef(worldId);navigationWorld.current=worldId;
+ const [navigationRegistry]=useState(()=>new TourNavigationRegistry(()=>{
+  const world=navigationWorld.current;if(!world)return null;
+  try{return navigationScope(readWalkthrough(localStorage,world)?.record??null,externalEpoch.current);}catch{return null;}
+ }));
  useEffect(()=>{mounted.current=true;return()=>{mounted.current=false;}},[]);
  const reload=useCallback(()=>{
   if(!worldId){setStored(null);return;}
@@ -153,7 +159,7 @@ export function GuidedTourProvider({worldId,worldName,children,history=null}:{wo
   const url=URL.createObjectURL(new Blob([JSON.stringify({definition:{id:'buddy-live-journey',version:2,steps:JOURNEY_STEPS},walkthrough},null,2)],{type:'application/json'}));
   const link=document.createElement('a');link.href=url;link.download=`buddy-walkthrough-${walkthrough.id}.json`;link.click();URL.revokeObjectURL(url);
  };
- return <TourContext.Provider value={api}>{children}{visible&&<aside className="guided-tour" aria-label="Guided journey">
+ return <TourContext.Provider value={api}><TourNavigationProvider registry={navigationRegistry}>{children}{visible&&<aside className="guided-tour" aria-label="Guided journey">
   <header><strong>Guided journey</strong><button type="button" aria-label="Close tour panel" onClick={()=>setVisible(false)}>×</button></header>
   <p className="guided-tour__scope">Guidance uses the ordinary controls. It never repeats your actions.</p>
   {!worldId?<p>Select a managed World before starting a walkthrough.</p>:!walkthrough?<><p>Choose the adventure you are walking through in this World.</p>{Object.entries(ADVENTURES).map(([id,label])=><button key={id} type="button" disabled={!!error} onClick={()=>userChange({kind:'start',adventure:id as Adventure})}>{label}</button>)}</>:<>
@@ -165,6 +171,7 @@ export function GuidedTourProvider({worldId,worldName,children,history=null}:{wo
    {availabilityMessage?<p>{availabilityMessage}</p>:null}
    {reading?.status==='ready'&&reading.target&&(!walkthrough.bindings[reading.target.kind]||reading.target.objectId===walkthrough.bindings[reading.target.kind]!.objectId&&reading.target.revision>walkthrough.bindings[reading.target.kind]!.revision&&reading.target.kind!=='run'&&!(reading.target.kind==='plan'&&walkthrough.bindings.run))?<button type="button" onClick={bind}>Use this {reading.target.kind}{reading.label?` · ${reading.label}`:''}</button>:null}
    {reading?.target&&walkthrough.bindings[reading.target.kind]&&!samePin(walkthrough.bindings[reading.target.kind]!,reading.target)&&reading.target.objectId!==walkthrough.bindings[reading.target.kind]!.objectId?<p>This is a different target. Reopen the bound object or restart guidance; the earlier record will be kept.</p>:null}
+   <TourNavigationActions scope={navigationScope(walkthrough??null,renderedEpoch)} onOpened={()=>{setFocusedControl(null);setVisible(false);}}/>
    <p>Show control hides this panel and highlights the control. Reopen Guided journey from navigation to continue.</p>
    <button type="button" onClick={showControl}>Show control</button>
    <div className="guided-tour__actions"><button type="button" disabled={!walkthrough.index} onClick={()=>userChange({kind:'move',index:walkthrough.index-1})}>Back</button><button type="button" disabled={walkthrough.index===JOURNEY_STEPS.length-1} onClick={()=>userChange({kind:'move',index:walkthrough.index+1})}>Next</button>
@@ -175,5 +182,5 @@ export function GuidedTourProvider({worldId,worldName,children,history=null}:{wo
    <div className="guided-tour__actions"><button type="button" onClick={exportRecord}>Export walkthrough</button><button type="button" onClick={()=>userChange({kind:'phase',phase:'exited'})}>Exit</button><button type="button" onClick={()=>userChange({kind:'start',adventure:walkthrough.adventure})}>Restart guidance</button></div>
   </>}
   {error?<div role="alert"><p>{error}</p><button type="button" onClick={reload}>Reload saved guidance</button></div>:null}
- </aside>}</TourContext.Provider>;
+ </aside>}</TourNavigationProvider></TourContext.Provider>;
 }

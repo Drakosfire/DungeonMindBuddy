@@ -1,3 +1,4 @@
+import {useTourNavigationOwner,useTourNavigationGuard,useTourNavigationRegistry} from '../guidedTour/Navigation';
 import type {TourDispatchScope} from '../guidedTour/GuidedTour';
 import {runPins} from '../guidedTour/ownerPins';
 import {TourRunProvider} from '../guidedTour/RunScope';
@@ -353,7 +354,12 @@ function PlaySurfacePublisher({
   useCombatProjection("play", true,runEncounterContext);
   usePreparedTablesProjection();
   usePublishAgentSurfaceContext(agentContext);
-  const {activateProjectionTool}=useAgentInteraction();
+  const {activateProjectionTool,setPaneOpen}=useAgentInteraction();
+  const navigationRun=admittedRun?.schema_version==='dmb_world_play_run_record_v2'?runPins(admittedRun).target:null;
+  useTourNavigationOwner(navigationRun?{role:'panel',worldId:navigationRun.worldId,surface:'play',objectId:navigationRun.objectId,parent:admittedRun?.schema_version==='dmb_world_play_run_record_v2'?runPins(admittedRun).parent:undefined,inspections:[
+    ...([{step:'combat',tool:'combat',label:'Open scene encounter'},{step:'roll',tool:'prepared-tables',label:'Open prepared tables'}] as const).map(({step,tool,label})=>({id:`play-${tool}`,step,label,target:navigationRun,impact:'projection' as const,perform:async(request:import('../guidedTour/Navigation').InspectionRequest)=>{if(request.isCurrent()&&!await activateProjectionTool(tool))throw new Error('These controls are not available for the current Run.');}})),
+    {id:'play-memory',step:'memory',label:'Open Buddy for this Run',target:navigationRun,impact:'projection',perform:request=>{if(request.isCurrent())setPaneOpen(true);}},
+  ]}:null);
   return runEncounterContext?<PlaySurfaceContext id="play-scene-encounter" order={20} identity={publication.identity}><SceneEncounterLauncher onOpen={()=>void activateProjectionTool('combat')}/></PlaySurfaceContext>:null;
 }
 
@@ -615,9 +621,17 @@ function PlayRuntimePage() {
     routeIdentityRef.current.generation === route.generation
   ), []);
 
+  const tourNavigation=useTourNavigationRegistry();
   const loadExactRun = useCallback(async (runId: string) => {
+    const destination=selectedWorldId?tourNavigation?.claimDestination('play',selectedWorldId,runId):null;
+    const inspectionPin=destination?.pin;
+    const inspectionParent=destination?.parent;
+    const canceledGuidance=()=>{
+      if(!destination||destination.isCurrent())return false;
+      setAdmission(null);setLoadStatus('unavailable');setDetail('Guided navigation canceled. Choose a saved Run explicitly to open it normally.');return true;
+    };
     const skipWorldActiveWrite = Boolean(
-      selectedWorldId && skipWorldActiveWriteRunRef.current === runId,
+      selectedWorldId && (skipWorldActiveWriteRunRef.current === runId||inspectionPin),
     );
     if (skipWorldActiveWrite) skipWorldActiveWriteRunRef.current = null;
     const serial = loadSerialRef.current + 1;
@@ -632,6 +646,7 @@ function PlayRuntimePage() {
         ? await getWorldPlayRun(runId, selectedWorldId)
         : await getPlayRun(runId, { ensureNativeReady: true });
       if (loadSerialRef.current !== serial) return;
+      if(canceledGuidance())return;
       if (
         selectedWorldId
         && (loaded.schema_version !== "dmb_world_play_run_record_v2" || loaded.world_id !== selectedWorldId)
@@ -639,6 +654,11 @@ function PlayRuntimePage() {
         setLoadStatus("integrity_failure");
         setDetail(`Run ${runId} does not belong to World ${selectedWorldId}.`);
         return;
+      }
+      if(inspectionPin&&(loaded.schema_version!=='dmb_world_play_run_record_v2'||loaded.run_id!==inspectionPin.objectId||loaded.world_id!==inspectionPin.worldId
+        ||loaded.run_revision!==inspectionPin.revision||loaded.playable_content_sha256!==inspectionPin.digest
+        ||inspectionParent&&(loaded.playable_artifact_id!==inspectionParent.objectId||loaded.playable_revision!==inspectionParent.revision||loaded.playable_work_revision_id!==inspectionParent.revisionId||loaded.playable_content_sha256!==inspectionParent.digest))){
+        setLoadStatus('integrity_failure');setDetail('The exact bound Run version is unavailable. No active selection or saved session state was changed.');return;
       }
       if (loaded.schema_version === "dmb_world_play_run_record_v2" && loaded.lifecycle_status === "trashed") {
         setLoadStatus("trashed");
@@ -654,6 +674,7 @@ function PlayRuntimePage() {
         if (manifest == null) throw new TypeError("Run schema does not match the selected Play scope.");
       } catch (error) {
         if (loadSerialRef.current !== serial) return;
+        if(canceledGuidance())return;
         const classified = error instanceof LiveApiError && error.status === 404
           ? "integrity_failure"
           : classifyLoadError(error);
@@ -681,6 +702,7 @@ function PlayRuntimePage() {
         if (committed == null) throw new TypeError("Run schema does not match the selected committed-revision scope.");
       } catch (error) {
         if (loadSerialRef.current !== serial) return;
+        if(canceledGuidance())return;
         if (error instanceof LiveApiError && (error.status === 404 || error.status === 409)) {
           setLoadStatus("integrity_failure");
           setDetail(error instanceof Error ? error.message : "bound Playable revision could not be loaded");
@@ -694,6 +716,7 @@ function PlayRuntimePage() {
         return;
       }
       if (loadSerialRef.current !== serial) return;
+      if(canceledGuidance())return;
       if (manifest.schema_version === "dmb_play_run_reference_manifest_v1") {
         setLoadStatus("unsupported_playable");
         setDetail("This session uses an unsupported Playable format. Play requires v2 markers; open its source in Plan to author current cards. The saved session and notes have not been changed.");
@@ -707,10 +730,13 @@ function PlayRuntimePage() {
         try {
           const content = await getWorldPlayRunContent(loaded.run_id, selectedWorldId);
           if (loadSerialRef.current !== serial) return;
+          if(canceledGuidance())return;
           nextAdmission = await admitEffectivePlayRunContent(nextAdmission, content);
           if (loadSerialRef.current !== serial) return;
+          if(canceledGuidance())return;
         } catch (error) {
           if (loadSerialRef.current !== serial) return;
+          if(canceledGuidance())return;
           setLoadStatus(error instanceof TypeError || error instanceof LiveApiError && [0, 404, 409, 422].includes(error.status)
             ? "integrity_failure" : classifyLoadError(error));
           setDetail(error instanceof Error ? error.message : "Effective session content could not be admitted.");
@@ -729,6 +755,7 @@ function PlayRuntimePage() {
           selectedWorldId,
         );
         if (loadSerialRef.current !== serial) return;
+        if(canceledGuidance())return;
         if (current.status !== "active") {
           setLoadStatus("integrity_failure");
           setDetail("The bound World Runbook is discarded; Play will not rebase to it.");
@@ -753,10 +780,10 @@ function PlayRuntimePage() {
         }
       }
       if (loadSerialRef.current !== serial) return;
-
-      if (loadSerialRef.current !== serial) return;
+      if(canceledGuidance())return;
       setAdmission(nextAdmission);
       if (nextAdmission.status === "ready") {
+        destination?.complete();
         setLoadStatus("ready");
         setDetail(null);
         setMutationStatus("idle");
@@ -791,6 +818,7 @@ function PlayRuntimePage() {
                     settledWorldWriteIntentRef.current = { key: intentKey, status: "failed" };
                   }
                   if (loadSerialRef.current !== serial) return;
+                  if(canceledGuidance())return;
                   setDetail(
                     error instanceof Error
                       ? `Run is open, but Resume state could not be saved: ${error.message}`
@@ -805,10 +833,12 @@ function PlayRuntimePage() {
           .catch(() => undefined)
           .then(async () => {
             if (loadSerialRef.current !== serial) return;
+            if(canceledGuidance())return;
             try {
               await putPlayActiveRun(loaded.run_id);
             } catch (error) {
               if (loadSerialRef.current !== serial) return;
+              if(canceledGuidance())return;
               setDetail(
                 error instanceof Error
                   ? `Run is open, but Resume state could not be saved: ${error.message}`
@@ -824,12 +854,13 @@ function PlayRuntimePage() {
       }
     } catch (error) {
       if (loadSerialRef.current !== serial) return;
+      if(canceledGuidance())return;
       const classified = classifyLoadError(error);
       setLoadStatus(classified);
       setDetail(error instanceof Error ? error.message : null);
       setAdmission(null);
     }
-  }, [selectedWorldId]);
+  }, [selectedWorldId,tourNavigation]);
 
   const rebaseWorldRun = useCallback(async () => {
     const route = renderedRoute;
@@ -1070,6 +1101,9 @@ function PlayRuntimePage() {
   const currentWorldScene = currentWorldBeat?.scenes.find((scene) => scene.id === v2Deck?.currentSceneId) ?? null;
   const publication = playPublicationAuthority({ admittedRun, runQuery });
   const blocked = v2Deck == null;
+  useTourNavigationGuard(selectedWorldId?{worldId:selectedWorldId,reason:impact=>impact==='departure'&&(sessionCopyBlocked||tableHeld||mutationStatus!=='idle'||loadStatus==='loading')?'Finish saving or recover the current Run before navigating.':null}:null);
+  useTourNavigationOwner(selectedWorldId?{worldId:selectedWorldId,surface:'play',objectId:admittedRun?.run_id??null,targets:admittedRun?.schema_version==='dmb_world_play_run_record_v2'?[runPins(admittedRun).target]:[],parent:admittedRun?.schema_version==='dmb_world_play_run_record_v2'?runPins(admittedRun).parent:undefined,inspections:admittedRun?.schema_version==='dmb_world_play_run_record_v2'?[{id:'play-recovery',step:'recovery',label:'Open saved Run recovery',target:runPins(admittedRun).target,impact:'departure',perform:request=>{if(request.isCurrent())navigateToChooser();}}]:[],select:(pin,request)=>{if(request.isCurrent()){tourNavigation?.beginDestination(request.scope);navigateToRun(pin.objectId);}}}:null);
+
 
   return (
     <TourRunProvider run={admittedRun?.schema_version==="dmb_world_play_run_record_v2"?admittedRun:null}><AppChrome activeRoute="play">

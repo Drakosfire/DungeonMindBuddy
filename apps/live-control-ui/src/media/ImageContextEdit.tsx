@@ -1,3 +1,4 @@
+import {useTourNavigationGuard} from '../guidedTour/Navigation';
 import {useEffect,useRef,useState} from 'react';
 import {ContextualAgentMenu} from '../contextualActions/ContextualAgentMenu';
 import {getNativeGraphAccessGeneration,NATIVE_GRAPH_ACCESS_TOKEN_CHANGED_EVENT} from '../api/liveApi';
@@ -66,6 +67,7 @@ export function ImageContextEdit({assetId,editable,captureApply}:{assetId:string
   }catch(reason){if(active.current&&!abort.signal.aborted)setError(reason instanceof Error?reason.message:'The page changed. The image remains in your library.');}
   finally{if(pending.current===abort){pending.current=null;if(active.current)setApplying(false);}}
  }
+ useTourNavigationGuard({worldId:null,reason:()=>busy||applying||open&&!!candidate?'Finish or close the image edit before leaving its candidate.':null});
  if(!editable)return null;
  return <ContextualAgentMenu label="image" open={open} onOpen={()=>setOpen(true)} onClose={()=>setOpen(false)} mode={mode}
   modes={[{value:'image_to_image',label:'Image to image'},{value:'new',label:'New image'}]} onMode={changeMode}

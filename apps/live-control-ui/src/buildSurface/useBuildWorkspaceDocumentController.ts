@@ -1,3 +1,4 @@
+import {useTourNavigationRegistry} from '../guidedTour/Navigation';
 import { buildStarterKey } from "./buildStudioActions";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
@@ -275,7 +276,7 @@ export interface BuildWorkspaceDocumentController {
   createError: string | null;
   activationError: string | null;
   importError: string | null;
-  selectDocument: (documentId: string) => Promise<boolean>;
+  selectDocument: (documentId: string, isCurrent?:()=>boolean, expected?:{worldId:string;revision:number;digest:string}) => Promise<boolean>;
   createDocument: (payload: {
     starter?: boolean;
     title: string;
@@ -298,6 +299,7 @@ export interface BuildWorkspaceDocumentController {
 }
 
 export function useBuildWorkspaceDocumentController(): BuildWorkspaceDocumentController {
+  const tourNavigation=useTourNavigationRegistry();
   const selectedWorld = useSelectedWorld();
   const selectedWorldId = selectedWorld.kind === "managed" ? selectedWorld.worldId : null;
   const [locationSearch, setLocationSearch] = useState(
@@ -380,7 +382,10 @@ export function useBuildWorkspaceDocumentController(): BuildWorkspaceDocumentCon
       search: string,
       urlCommit: DocumentUrlCommit,
       purpose: "default" | "create_activate" = "default",
+      isCurrent:()=>boolean = ()=>true,
+      expectedSnapshot?:{worldId:string;revision:number;digest:string},
     ): Promise<boolean> => {
+      if(!isCurrent())return false;
       const generation = ++documentLoadGenerationRef.current;
       const requestedId = readDocumentIdFromSearch(search);
       const switchingNow =
@@ -389,6 +394,10 @@ export function useBuildWorkspaceDocumentController(): BuildWorkspaceDocumentCon
         requestedId != null &&
         requestedId !== activeRecordRef.current.document_id;
       const retainedSearch = locationSearchRef.current;
+      const destination=!expectedSnapshot&&requestedId&&selectedWorldId?tourNavigation?.claimDestination('build',selectedWorldId,requestedId):null;
+      const routePin=destination?.pin;
+      const selectionIsCurrent=()=>isCurrent()&&(!destination||destination.isCurrent());
+      const expected=expectedSnapshot??(routePin?{worldId:routePin.worldId,revision:routePin.revision,digest:routePin.digest}:null);
 
       if (!requestedId) {
         if (generation !== documentLoadGenerationRef.current) return false;
@@ -412,6 +421,13 @@ export function useBuildWorkspaceDocumentController(): BuildWorkspaceDocumentCon
         const record = validateBuildSourceRecord(snapshot.record, requestedId, selectedWorldId);
         if (generation !== documentLoadGenerationRef.current) return false;
 
+        if(!selectionIsCurrent()){
+          // This reservation still owns loading, but may not replace a newly dirty editor.
+          setSwitching(false);setLoadStatus(activeRecordRef.current?'ready':'empty');
+          setSwitchError('Guided selection canceled. The current page and its draft are retained.');return false;
+        }
+        if(expected&&(record.world_id!==expected.worldId||snapshot.loaded_revision!==expected.revision||record.revision!==expected.revision||snapshot.content_sha256!==expected.digest))throw new Error('The bound saved source version is unavailable. The current page and draft were retained.');
+        destination?.complete();
         setActiveRecord(record);
         setLoadStatus("ready");
         setSwitching(false);
@@ -459,8 +475,8 @@ export function useBuildWorkspaceDocumentController(): BuildWorkspaceDocumentCon
         return true;
       } catch (error) {
         if (generation !== documentLoadGenerationRef.current) return false;
-        const message =
-          error instanceof Error ? error.message : "Failed to load worldbuilding source";
+        const message = expected&&!selectionIsCurrent()?'Guided selection canceled. The current page and its draft are retained.'
+          : error instanceof Error ? error.message : "Failed to load worldbuilding source";
 
         if (purpose === "create_activate") {
           setSwitching(false);
@@ -469,7 +485,7 @@ export function useBuildWorkspaceDocumentController(): BuildWorkspaceDocumentCon
 
         if (switchingNow) {
           setSwitching(false);
-          setSwitchError("Could not open that source. Try another.");
+          setSwitchError(expected?message:"Could not open that source. Try another.");
           setLoadStatus("ready");
           if (urlCommit.mode === "history" && typeof window !== "undefined") {
             const retainedUrl = `${window.location.pathname}${retainedSearch}`;
@@ -486,7 +502,7 @@ export function useBuildWorkspaceDocumentController(): BuildWorkspaceDocumentCon
         return false;
       }
     },
-    [persistPendingImportDocumentId, refreshDocuments, selectedWorldId],
+    [persistPendingImportDocumentId, refreshDocuments, selectedWorldId, tourNavigation],
   );
 
   useEffect(() => {
@@ -505,8 +521,10 @@ export function useBuildWorkspaceDocumentController(): BuildWorkspaceDocumentCon
   }, [loadBuildDocument]);
 
   const selectDocument = useCallback(
-    async (documentId: string) => {
+    async (documentId: string, isCurrent:()=>boolean = ()=>true, expected?:{worldId:string;revision:number;digest:string}) => {
+      if(!isCurrent())return false;
       if (typeof window === "undefined") return false;
+      if(!expected)tourNavigation?.discardDestination('build');
       if (documentId === activeRecordRef.current?.document_id && !switchingRef.current) return true;
       createControllerRef.current.supersedePendingCreateIntent();
       setCreateError(null);
@@ -528,7 +546,7 @@ export function useBuildWorkspaceDocumentController(): BuildWorkspaceDocumentCon
         documentId,
         campaignHint,
       );
-      return loadBuildDocument(search, { mode: "push", search });
+      return loadBuildDocument(search, { mode: "push", search }, "default", isCurrent, expected);
     },
     [documents, loadBuildDocument, persistPendingImportDocumentId],
   );

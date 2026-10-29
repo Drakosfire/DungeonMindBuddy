@@ -1,3 +1,4 @@
+import {useTourNavigationGuard} from '../guidedTour/Navigation';
 import {useGuidedTour} from '../guidedTour/GuidedTour';
 import {RecordedRollTourObservation,type AcknowledgedRoll} from '../guidedTour/RollObservations';
 import {useCallback,useEffect,useRef,useState} from 'react';
@@ -35,6 +36,7 @@ async function call(path:string,init:RequestInit={}){
 export function PreparedTablesTool({run,blocked,onHeld,onRun}:PreparedTablesBinding){
  const guidance=useGuidedTour();
   const [tourAcknowledged,setTourAcknowledged]=useState<AcknowledgedRoll|null>(null);
+  const [enteredDirty,setEnteredDirty]=useState(false);
   const [inventory,setInventory]=useState<Inventory|null>(null),[tableId,setTableId]=useState(''),[value,setValue]=useState('');
   const [history,setHistory]=useState<Receipt[]>([]),[before,setBefore]=useState<number|null>(null),[historyLoaded,setHistoryLoaded]=useState(false);
   const [pending,setPending]=useState<Pending|null>(null),[busy,setBusy]=useState(false),[error,setError]=useState<string|null>(null),[storageBlocked,setStorageBlocked]=useState(false);
@@ -105,6 +107,7 @@ export function PreparedTablesTool({run,blocked,onHeld,onRun}:PreparedTablesBind
         if(localStorage.getItem(key)!==raw)throw new Error('Pending roll changed in another view. Its recovery copy was retained.');
         // Admit the host response before releasing its exact recovery command.
         props.current.onRun(result.run);
+        setEnteredDirty(false);
         setTourAcknowledged({dispatchScope:tourDispatch,receipt:result.receipt,run:result.run});
         localStorage.removeItem(key);setPending(null);props.current.onHeld(false);
         setHistory(prior=>[result.receipt,...prior.filter(r=>r.command_id!==result.receipt.command_id)]);
@@ -137,6 +140,7 @@ export function PreparedTablesTool({run,blocked,onHeld,onRun}:PreparedTablesBind
     }catch(cause){if(live.current&&turn===generation.current)setError(cause instanceof Error?cause.message:String(cause));}
   };
   const table=inventory?.tables.find(t=>t.table_id===tableId);
+  useTourNavigationGuard({worldId:run.world_id,reason:()=>busy||pending||storageBlocked||enteredDirty?'Resolve the pending roll, or record or clear the entered value before leaving Prepared tables.':null});
   return <section data-guided-control="roll" tabIndex={-1} aria-label="Prepared tables"><RecordedRollTourObservation run={run} history={history} acknowledged={tourAcknowledged} blocked={blocked||busy||!!pending||storageBlocked} error={error}/><h2>Prepared tables</h2><p>Enter a physical roll to record an outcome from this session’s saved preparation.</p>
     {inventory?<p>From {inventory.source_title}</p>:null}
     {blocked?<p role="status">Save or resolve your session changes before recording a roll.</p>:null}
@@ -144,7 +148,7 @@ export function PreparedTablesTool({run,blocked,onHeld,onRun}:PreparedTablesBind
     <button disabled={busy||Boolean(pending)} onClick={()=>{setError(null);void refresh()}}>Refresh saved preparation</button>
     {inventory?.tables.length===0?<p>No prepared tables in this session’s saved preparation. Author a typed table in Plan Markdown before starting a new session.</p>:null}
     {inventory?.tables.length?<><label>Table<select value={tableId} disabled={Boolean(pending)||busy} onChange={e=>setTableId(e.target.value)}>{inventory.tables.map(t=><option key={t.table_id} value={t.table_id}>{t.title} · d{t.die_sides}</option>)}</select></label>
-      <label>Physical roll<input inputMode="numeric" value={value} disabled={Boolean(pending)||busy} onChange={e=>setValue(e.target.value)}/></label>
+      <label>Physical roll<input inputMode="numeric" value={value} disabled={Boolean(pending)||busy} onChange={e=>{setValue(e.target.value);setEnteredDirty(!!e.target.value.trim());}}/></label>
       {!pending?<button disabled={blocked||busy||storageBlocked||!inventory.can_record} onClick={()=>void send()}>Record outcome</button>:null}
       {!inventory.can_record?<p>Reopen this session to record another outcome.</p>:null}
       {table?<details><summary>Table entries</summary><table><tbody>{table.rows.map(r=><tr key={r.row_id}><th>{r.min===r.max?r.min:`${r.min}–${r.max}`}</th><td>{r.outcome}</td></tr>)}</tbody></table></details>:null}</>:null}

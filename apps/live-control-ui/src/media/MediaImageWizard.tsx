@@ -1,3 +1,4 @@
+import {useTourNavigationGuard} from '../guidedTour/Navigation';
 import {useTourImage} from '../guidedTour/ImageObservations';
 import { useEffect, useRef, useState } from 'react';
 import { authenticatedApiFetch } from '../api/liveApi';
@@ -193,6 +194,7 @@ export function MediaImageWizard({ onClose, onChoose, initialPrompt = '', initia
   };
   const showCreate = () => { ++browseSequence.current; libraryOpenRef.current = false; setLibraryBusy(false); setLibraryOpen(false); setView('create'); };
   const cancelPlacement = () => { placementAbort.current?.abort(); placementAbort.current = null; setPlacing(false); setCollapsed(false); };
+  useTourNavigationGuard({worldId:null,reason:()=>pending||placing||saving!==null||!!prompt.trim()||!!result||!!completion?'Finish or explicitly close Image Studio before leaving its work.':null});
   const phase = placing ? 'Click the page or drop the image to place it' : pending ? 'Generating…' : saving ? 'Saving…' : error ? 'Couldn’t finish — expand for details' : completion || result ? 'Image ready' : 'Ready';
   return <section className={'media-image-wizard' + (collapsed ? ' is-collapsed' : '')} aria-label="Create an image" aria-busy={pending}>
     <header className="media-image-wizard__header" role="toolbar" aria-label="Image Studio controls">

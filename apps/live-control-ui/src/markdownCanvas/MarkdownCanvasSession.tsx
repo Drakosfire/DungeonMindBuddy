@@ -1,3 +1,4 @@
+import {useTourNavigationGuard} from '../guidedTour/Navigation';
 import {useGuidedTour} from '../guidedTour/GuidedTour';
 import {
   createContext,
@@ -278,6 +279,7 @@ export function MarkdownCanvasSessionProvider(props: MarkdownCanvasSessionProvid
     [authoring, runDocumentCommand, saveConflicts],
   );
 
+  useTourNavigationGuard(authoring.record?.world_id?{worldId:authoring.record.world_id,reason:()=>activeCommand?'Finish the current document action before opening other controls.':null}:null);
   const saveBlockedByCommand = Boolean(
     activeCommand && saveConflicts.includes(activeCommand.id),
   );

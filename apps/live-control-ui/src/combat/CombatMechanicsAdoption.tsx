@@ -1,3 +1,4 @@
+import {useTourNavigationOwner,useTourNavigationGuard} from '../guidedTour/Navigation';
 import {useGuidedTour} from '../guidedTour/GuidedTour';
 import {useTourEncounter,sameEncounterScope} from '../guidedTour/EncounterScope';
 import {AdoptionTourObservation,type AcknowledgedMechanicsAdoption} from '../guidedTour/MechanicsObservations';
@@ -14,6 +15,7 @@ import {readPendingAdoption,sameAdoptionValue,verifyAdoptionOutcome,type Pending
 export function CombatMechanicsAdoption({record,disabled,onLockChange,onReconciled,scope}:{record:CombatEncounterRecord;disabled:boolean;scope?:import("./runEncountersApi").RunEncounterScope;
   onLockChange:(locked:boolean)=>void;onReconciled:(current:CombatEncounterRecord)=>void}) {
  const guidance=useGuidedTour();
+ const [mechanicsOpen,setMechanicsOpen]=useState(false);
   const tourScope=useTourEncounter(),latestTourScope=useRef(tourScope);latestTourScope.current=tourScope;
   const [tourAcknowledged,setTourAcknowledged]=useState<AcknowledgedMechanicsAdoption|null>(null);
   const [tourInspected,setTourInspected]=useState<AcknowledgedMechanicsAdoption|null>(null);
@@ -84,6 +86,11 @@ export function CombatMechanicsAdoption({record,disabled,onLockChange,onReconcil
       setPending(retained);void submit(retained);
     }catch(error){setMessage(String(error));}
   }
+  useTourNavigationGuard({worldId,reason:()=>busy||pending||fatal?'Resolve the retained mechanics adoption before leaving these controls.':null});
+  useTourNavigationOwner(tourScope?{role:'panel',worldId,surface:'plan',objectId:tourScope.plan.objectId,inspections:[{
+    id:'encounter-mechanics-editor',step:'mechanics',label:'Open saved mechanics editor',target:tourScope.plan,impact:'projection',unavailable:!source?'Choose a saved creature in the encounter first.':undefined,
+    perform:request=>{if(request.scope.sceneId&&request.scope.sceneId!==tourScope.sceneId)throw new Error('Select the scene recorded by this step first.');if(request.scope.draftId&&request.scope.draftId!==source?.draft_id)throw new Error('Choose the saved creature recorded by this step first.');if(request.isCurrent())setMechanicsOpen(true);},
+  }]}:null);
   return <section data-guided-control="adoption" tabIndex={-1} aria-label="Use saved mechanics version">
     <AdoptionTourObservation scope={tourScope} worldId={worldId} encounterId={encounterId} acknowledged={tourAcknowledged} inspected={tourInspected} blocked={blocked}/>
     <h3>Use a saved mechanics version</h3>
@@ -106,7 +113,7 @@ export function CombatMechanicsAdoption({record,disabled,onLockChange,onReconcil
         <button type="button" onClick={()=>void openPreview()}>Preview exact version</button>
       </>}
     </fieldset>
-    {source&&!pending&&<details><summary>Edit saved mechanics separately</summary>
+    {source&&!pending&&<details open={mechanicsOpen} onToggle={event=>setMechanicsOpen(event.currentTarget.open)}><summary>Edit saved mechanics separately</summary>
       <SavedMechanicsRevisionEditor key={source.draft_id} worldId={worldId} draftId={source.draft_id}/>
       <p>After saving, refresh versions above and preview the version you want to use.</p>
     </details>}
