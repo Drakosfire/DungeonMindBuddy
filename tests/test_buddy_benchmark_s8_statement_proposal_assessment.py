@@ -297,6 +297,9 @@ def test_read_only_state_and_old_evidence_preserved(key):
 
 def test_provider_switch_never_bypasses_preflight(tmp_path, monkeypatch):
     monkeypatch.setattr(assessment, "declared_ge_inventory", lambda: {"verified": True})
+    monkeypatch.setattr(
+        assessment, "declared_sdk_inventory", lambda: {"verified": True}
+    )
     with pytest.raises(FileNotFoundError):
         assessment.main(
             [
@@ -434,27 +437,38 @@ def test_sdk_output_binding_is_independent_of_stored_result(change):
 
 
 @pytest.mark.parametrize(
-    "change", [None, "model", "input", "instructions", "capacity", "old_capacity"]
+    "change",
+    [
+        None,
+        "model",
+        "input",
+        "instructions",
+        "capacity",
+        "old_capacity",
+        "no_instruction_change",
+    ],
 )
-def test_capacity_contrast_changes_only_the_named_execution_parameter(change):
+def test_instruction_contrast_changes_only_the_declared_instructions(change):
     old = {
         "model": "gpt-6-luna",
         "input": ["same source and names"],
         "instructions": "same instructions",
-        "max_output_tokens": 8192,
+        "max_output_tokens": 128000,
     }
-    current = old | {"max_output_tokens": 128000}
+    current = old | {"instructions": INSTRUCTIONS}
     if change == "old_capacity":
-        old["max_output_tokens"] = 9000
+        old["max_output_tokens"] = 8192
     elif change == "capacity":
         current["max_output_tokens"] = 8192
+    elif change == "no_instruction_change":
+        old["instructions"] = INSTRUCTIONS
     elif change:
         current[change] = "changed"
     if change:
         with pytest.raises(ValueError):
-            assessment.capacity_contrast(canonical(current), canonical(old))
+            assessment.instruction_contrast(canonical(current), canonical(old))
     else:
-        assessment.capacity_contrast(canonical(current), canonical(old))
+        assessment.instruction_contrast(canonical(current), canonical(old))
 
 
 def test_v3_does_not_offer_a_migration_command(tmp_path):
@@ -529,5 +543,68 @@ def test_ge_failure_precedes_any_action_or_database_capture(tmp_path, monkeypatc
     monkeypatch.setattr(assessment, "declared_ge_inventory", reject)
     monkeypatch.setattr(assessment, "capture", lambda root: touched.append(root))
     with pytest.raises(ValueError, match="wrong GE import"):
+        assessment.main(["--clone-root", str(tmp_path), "--source-receipt", "unused"])
+    assert touched == [] and list(tmp_path.iterdir()) == []
+
+
+@pytest.mark.parametrize(
+    "change",
+    [None, "wrong_origin", "version", "dirty", "untracked", "missing", "symlink"],
+)
+def test_sdk_package_requires_actual_bytes_and_locked_version(tmp_path, change):
+    root = tmp_path / "openai"
+    root.mkdir()
+    source = root / "__init__.py"
+    source.write_text("accepted\n")
+    expected = {"__init__.py": assessment.fixture.sha(source.read_bytes())}
+    actual_root = root
+    version = "locked"
+    if change == "wrong_origin":
+        actual_root = tmp_path / "other"
+        actual_root.mkdir()
+        (actual_root / "__init__.py").write_text("accepted\n")
+    elif change == "version":
+        version = "old"
+    elif change == "dirty":
+        source.write_text("changed\n")
+    elif change == "untracked":
+        (root / "extra.json").write_text("extra\n")
+    elif change == "missing":
+        source.unlink()
+    elif change == "symlink":
+        other = tmp_path / "elsewhere"
+        other.write_text("accepted\n")
+        source.unlink()
+        source.symlink_to(other)
+    if change:
+        with pytest.raises(ValueError):
+            assessment.verify_sdk_package(
+                actual_root,
+                expected,
+                version=version,
+                locked_version="locked",
+                expected_root=root,
+            )
+    else:
+        actual = assessment.verify_sdk_package(
+            actual_root,
+            expected,
+            version=version,
+            locked_version="locked",
+            expected_root=root,
+        )
+        assert actual["files"] == 1 and actual["version"] == "locked"
+
+
+def test_sdk_failure_precedes_database_capture(tmp_path, monkeypatch):
+    touched = []
+    monkeypatch.setattr(assessment, "declared_ge_inventory", lambda: {"verified": True})
+
+    def reject():
+        raise ValueError("wrong SDK import")
+
+    monkeypatch.setattr(assessment, "declared_sdk_inventory", reject)
+    monkeypatch.setattr(assessment, "capture", lambda root: touched.append(root))
+    with pytest.raises(ValueError, match="wrong SDK import"):
         assessment.main(["--clone-root", str(tmp_path), "--source-receipt", "unused"])
     assert touched == [] and list(tmp_path.iterdir()) == []
