@@ -37,6 +37,7 @@ from apps.live_control_server.routes.recap_ingest import router as recap_ingest_
 from apps.live_control_server.routes.world_graph_bootstrap import (
     router as world_graph_bootstrap_router,
 )
+from apps.live_control_server.routes.registry_standing import router as registry_standing_router
 from apps.live_control_server.routes.extract_promote import (
     router as extract_promote_router,
 )
@@ -185,6 +186,7 @@ def create_app() -> FastAPI:
     application.include_router(play_prepared_tables_router)
     application.include_router(world_graph_bootstrap_router)
     application.include_router(extract_promote_router)
+    application.include_router(registry_standing_router)
     application.include_router(world_graph_projection_router)
     application.include_router(world_graph_retrieval_router)
     application.include_router(rules_lookup_router)
