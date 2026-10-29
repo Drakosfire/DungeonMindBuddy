@@ -53,6 +53,107 @@ def require(condition, message):
         raise ValueError(message)
 
 
+def require_complete_evaluation(evaluation):
+    checks = evaluation["checks"]
+    recovery = "executed_original_packet_recovery"
+    globals_ = {
+        "capture_schema",
+        "selected_clause_inventory",
+        "unique_headers",
+        "distinct_native_statements",
+        "exact_typed_edge_inventory",
+        "complete_discovery",
+        "no_false_absence",
+    }
+    suffixes = {
+        "selected_payload",
+        "signed_selection",
+        "parent_context",
+        "prepared_parent_binding",
+        "native_header_context",
+        "publication_parent",
+        "original_receipt",
+        "publication_context",
+        "native_publication_identity",
+        "published_payload",
+        "native_semantic_digest",
+        "native_mappings",
+        "valid_data_preserved",
+        "no_direct_event_leakage",
+        "read_descends_from_child",
+        "read_context",
+        "read_payload",
+        "read_mapping_identity",
+        "authorized_about_discovery",
+        "source_bytes",
+    }
+    prefixes = [
+        name[: -len("selected_payload")]
+        for name in checks
+        if name.endswith(":selected_payload")
+    ]
+    require(len(prefixes) == 1, "required Q01 evaluation inventory missing")
+    expected = globals_ | {prefixes[0] + suffix for suffix in suffixes}
+    require(
+        set(checks) == expected | {recovery},
+        "required Q01 evaluation inventory differs",
+    )
+    require(
+        all(checks[name]["status"] == "pass" for name in expected),
+        "required lifecycle evaluation not assessed and passing",
+    )
+    require(
+        checks[recovery]["status"] in {"pass", "unassessed"},
+        "executed recovery evaluation failed",
+    )
+
+
+def verify_source_tree(import_root, repository_root, ref, packages):
+    """Compare actual imported package bytes, including untracked additions, to Git."""
+    import_root, repository_root = Path(import_root), Path(repository_root)
+    tree = subprocess.run(
+        [
+            "git",
+            "-C",
+            str(repository_root),
+            "ls-tree",
+            "-rz",
+            ref,
+            "--",
+            *["src/" + package for package in packages],
+        ],
+        check=True,
+        capture_output=True,
+    ).stdout
+    expected = {}
+    for entry in tree.split(b"\0"):
+        if not entry:
+            continue
+        metadata, path = entry.split(b"\t", 1)
+        mode, kind, oid = metadata.decode().split()
+        require(
+            kind == "blob" and mode in {"100644", "100755"},
+            "unsupported dependency tree entry",
+        )
+        expected[path.decode().removeprefix("src/")] = oid
+    require(bool(expected), "pinned dependency source missing")
+    actual = {}
+    for package in packages:
+        for path in (import_root / package).rglob("*"):
+            if "__pycache__" in path.parts or path.suffix == ".pyc":
+                continue
+            require(not path.is_symlink(), "dependency symlink not permitted")
+            if path.is_file():
+                body = path.read_bytes()
+                actual[path.relative_to(import_root).as_posix()] = hashlib.sha1(
+                    b"blob " + str(len(body)).encode() + b"\0" + body
+                ).hexdigest()
+    require(
+        actual == expected, "actual dependency source differs from accepted Git ref"
+    )
+    return {"ref": ref, "files": len(expected), "tree_digest": digest(expected)}
+
+
 def supports_statement_kernel(profile):
     return any(
         rule.namespace == "dungeonbuddy.custom"
@@ -404,13 +505,14 @@ def execute_native_proof(repo, body, pins, binding, save, initial_head=INITIAL_H
         }
     ]
     evaluation = evaluate_lifecycle(review, capture)
+    save("evaluation", evaluation)
+    require_complete_evaluation(evaluation)
     after = repo.get_revision(world, revision).graph_payload
     preservation = {
         section: all(row in after[section] for row in before[section])
         for section in before
         if isinstance(before[section], list)
     }
-    save("evaluation", evaluation)
     return {
         "source_receipt": jsonable_encoder(source),
         "identity_result": jsonable_encoder(identity_result),
@@ -552,28 +654,19 @@ def preflight(root):
     )
     native_identity = check_server(connection["dsn"], DATABASE, donor)
     app_identity = check_server(connection["app_dsn"], APP_DATABASE, donor)
-    require(
-        "runtime-dependencies/core-4ccd39a/" in dungeonmind.__file__,
-        "actual Core import is not explicit serving pin",
+    core_integrity = verify_source_tree(
+        Path(dungeonmind.__file__).resolve().parent.parent,
+        Path("/home/drakosfire/Projects/DungeonOverMind/DungeonMind"),
+        "4ccd39a1e433d81569d86c05273ac33ee8f27ef3",
+        ("dungeonmind", "dungeonmind_dnd"),
     )
-    # Compare source tree bytes, not the installed metadata of a different package.
     wkroot = Path(worldkeeper.__file__).resolve().parents[1]
     require(wkroot.name == "src", "explicit WK source import required")
-    wk_repo = wkroot.parent
-    subprocess.run(
-        [
-            "git",
-            "-C",
-            str(wk_repo),
-            "diff",
-            "--exit-code",
-            "a30ee81ae0e777037c68afea8847b04a2c736ae1",
-            "HEAD",
-            "--",
-            "src",
-        ],
-        check=True,
-        capture_output=True,
+    wk_integrity = verify_source_tree(
+        wkroot,
+        wkroot.parent,
+        "a30ee81ae0e777037c68afea8847b04a2c736ae1",
+        ("worldkeeper",),
     )
     registry = json.loads((files / "out/registries/world_containers.json").read_text())
     record = next(r for r in registry["records"] if r["world_id"] == WORLD)
@@ -644,6 +737,8 @@ def preflight(root):
         "source": pins,
         "app_artifact": APP_ARTIFACT,
         "app_revision": APP_REVISION,
+        "core_integrity": core_integrity,
+        "wk_integrity": wk_integrity,
         "core_module": dungeonmind.__file__,
         "wk_module": worldkeeper.__file__,
         "native_tables": database_fingerprints(connection["dsn"]),
@@ -897,10 +992,7 @@ def main(argv=None):
         == current["source_epoch"] + 1,
         "unexpected source authority epoch delta",
     )
-    require(
-        result["evaluation"]["counts"]["fail"] == 0,
-        "independent lifecycle evaluation failed",
-    )
+    require_complete_evaluation(result["evaluation"])
     print(
         json.dumps(
             {

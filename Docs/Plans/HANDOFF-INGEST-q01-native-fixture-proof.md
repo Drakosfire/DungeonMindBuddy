@@ -127,3 +127,14 @@ existing governed transition/equivalent; no such write is authorized here.
 The profile2 in-memory positive control and profile1 pre-write refusal regression
 are separate evidence. The real Q01 fixture proof remains incomplete, and the
 original fifteen-case/full-system scores remain unchanged.
+
+Independent review of PR1893's initial head found that zero failed evaluator
+checks could incorrectly admit unassessed required acquisition evidence. The
+runner now requires the complete Q01 check inventory to pass; only deliberately
+unexecuted recovery may remain unassessed. Negative tests remove acquired edges,
+read context and source bytes after an actual in-memory lifecycle. Dependency
+preflight now compares all imported Core/WK package files against accepted Git
+blob identities, including data files and untracked additions, rather than
+trusting a directory name or comparing only committed heads. Dirty, missing,
+extra and altered-data negative controls exercise that boundary. These repairs
+change no retained graph state or full-system score.

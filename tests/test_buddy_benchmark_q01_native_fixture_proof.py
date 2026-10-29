@@ -289,3 +289,60 @@ def test_apply_stops_before_snapshot_for_missing_capability_or_stale_pins(
             ["--clone-root", str(root), "--apply", "--preflight-sha256", "wrong-pins"]
         )
     assert not (evidence / "native-before.dump").exists()
+
+
+@pytest.mark.parametrize("missing", ["edges", "read_context", "source_bytes"])
+def test_missing_acquired_evidence_cannot_prove_fixture(lane, monkeypatch, missing):
+    original = proof.capture_native_lifecycle
+
+    def incomplete(*args, **kwargs):
+        result = original(*args, **kwargs)
+        result[missing] = {} if missing == "source_bytes" else None
+        return result
+
+    monkeypatch.setattr(proof, "capture_native_lifecycle", incomplete)
+    body, pins, binding = inputs(lane)
+    saved = {}
+    with pytest.raises(ValueError, match="required lifecycle evaluation"):
+        proof.execute_native_proof(
+            lane.repo,
+            body,
+            pins,
+            binding,
+            lambda name, value: saved.update({name: deepcopy(value)}),
+            initial_head=lane.repo.get_head(lane.world.world_id).head_revision_id,
+        )
+    assert saved["evaluation"]["counts"]["fail"] == 0
+    assert saved["evaluation"]["counts"]["unassessed"] > 1
+
+
+@pytest.mark.parametrize("change", ["dirty", "untracked", "missing", "data"])
+def test_imported_source_integrity_checks_actual_bytes(tmp_path, change):
+    import subprocess
+
+    repo = tmp_path / "repository"
+    package = repo / "src/example"
+    package.mkdir(parents=True)
+    source = package / "__init__.py"
+    source.write_text("PIN = 1\n")
+    data = package / "profile.json"
+    data.write_text('{"version":1}')
+    subprocess.run(["git", "init", "-q", str(repo)], check=True)
+    subprocess.run(["git", "-C", str(repo), "add", "src"], check=True)
+    ref = subprocess.run(
+        ["git", "-C", str(repo), "write-tree"],
+        check=True,
+        capture_output=True,
+        text=True,
+    ).stdout.strip()
+    assert proof.verify_source_tree(repo / "src", repo, ref, ("example",))["files"] == 2
+    if change == "dirty":
+        source.write_text("PIN = 2\n")
+    elif change == "untracked":
+        (package / "injected.py").write_text("INJECTED = True\n")
+    elif change == "missing":
+        source.unlink()
+    else:
+        data.write_text('{"version":2}')
+    with pytest.raises(ValueError, match="actual dependency source differs"):
+        proof.verify_source_tree(repo / "src", repo, ref, ("example",))
