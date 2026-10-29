@@ -1,6 +1,8 @@
 # TOUR — observed creature generation in preparation
 
-ACTIVE. PRIME owns this serial successor under the continuing authorized goal. Reuse buddy-context-loop checkout, codex/tour-creature-generation from fetched main3ece1043c5a0a242e4726199510e476856971811. One PR, independent exact-head review and CI, then authorized protected UI5202 delivery. No backend/schema/dependency/primary-data changes.
+DELIVERED through PR1884, merge30f230240b8a50094f2d2898f3e50644b55e00c6, independently reviewed head d245b5c9f254071c4330fcf9e10fe1422f35b139 with passing CI. Ordinary generation/recovery, manual successor, exact adoption and restart retained state; full journey acceptance remains open. The successor HANDOFF-PLAN-target-passage-selectors.md records settlement.
+
+Historical authority: PRIME owned this serial successor under the continuing authorized goal. Reuse buddy-context-loop checkout, codex/tour-creature-generation from fetched main3ece1043c5a0a242e4726199510e476856971811. One PR, independent exact-head review and CI, then authorized protected UI5202 delivery. No backend/schema/dependency/primary-data changes.
 
 ## Invariant and pre-code critique
 Independent authoring_forward_audit approved the bounded design: v3 has a separate generation/initial acceptance step between Plan and Encounter, existing manual mechanics successor/adoption remain separate. Plan publishes the existing shared Workbench projection through selected-World admission and Plan activation identity. Guided inspection only opens that projection/highlights ordinary Create & generate; it never generates or saves automatically.

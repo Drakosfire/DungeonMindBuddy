@@ -15,7 +15,7 @@ from apps.live_control_server.services.plan_jev_driver import PlanJevDriver
 from tests.test_plan_jev_dispatch import plan_adapter  # noqa: F401
 
 
-def fixture_reads(adapter, *, anchors=1, body_chars=None, node_only=False, shared_ref=False, source_text=None, source_lines=(1,1), subject_searches=False):
+def fixture_reads(adapter, *, anchors=1, body_chars=None, node_only=False, shared_ref=False, source_text=None, source_lines=(1,1), subject_searches=False, claim_anchor_indexes=None):
     graph_calls, source_calls = [], []
     adapter._test_source_acquisitions = []
     @contextmanager
@@ -42,7 +42,8 @@ def fixture_reads(adapter, *, anchors=1, body_chars=None, node_only=False, share
                       {'nodeId': 'bridge', 'label': 'Footbridge', 'kind': 'location'}],
             'attributes': [] if operation == 'search' or node_only else [{'assertionId': f'assertion:{node}',
                 'subjectNodeId': node, 'predicate': 'description', 'value': 'A recorded wooden walkway',
-                'epistemicKind': 'reported', 'temporalScope': 'past', 'evidenceRefIds': refs}],
+                'epistemicKind': 'reported', 'temporalScope': 'past', 'evidenceRefIds': (refs if claim_anchor_indexes is None
+                    else sorted({anchor_refs[i] for i in claim_anchor_indexes}))}],
             'sourceAnchors': [] if operation == 'search' else [{'anchorId': pin.anchor_id,
                 'evidenceRefId': pin.evidence_ref_id, 'readable': True} for pin in pins]}
         if subject_searches:

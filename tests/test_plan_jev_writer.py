@@ -624,3 +624,55 @@ def test_final_phase_does_not_authorize_unsupported_claim(plan_adapter):
     assert len(wire.calls) == 1 and wire.closed
     assert plan_adapter.fence.turn.completion is None
     assert unvalidated_texts(plan_adapter) == ['commentary' + final]
+
+
+def test_equal_text_distinct_receipts_bind_only_the_selected_graph_target(plan_adapter):
+    from copy import deepcopy
+    from dataclasses import replace
+    from hashlib import sha256
+    from jsonschema import Draft202012Validator
+    from application_state.agent_conversation.native_answer_output import NativeAnswerError, parse_native_answer
+
+    a = plan_adapter
+    a.bootstrap.retrieval_session.referents = [GraphReferent(id='pond', label='Park pond')]
+    fixture_reads(a, anchors=2, source_text='The park journal records a wooden walkway.',
+                  claim_anchor_indexes=(1,))
+    rules = PlanRulesRuntime(a, rules_capability(graph=True))
+    proof = asyncio.run(PlanJevDriver(a).run(transport=Decisions(), api_key='synthetic-not-secret'))
+    writer = PlanJevWriter(a, proof, rules)
+    frame = writer.projection.frame
+    record = next(row for row in frame['graph_records'] if row['target_id'] == 'assertion:pond')
+    matching = [row for row in frame['opened_passages'] if row['evidence'] in record['evidence']]
+    other = [row for row in frame['opened_passages'] if row['evidence'] not in record['evidence']]
+    assert len(matching) == len(other) == 1
+    assert matching[0]['text'] == other[0]['text']
+    candidate = graph_answer()
+    candidate['answer_segments'][0]['passage_handles'] = [matching[0]['passage_handle']]
+    wrong = deepcopy(candidate)
+    wrong['answer_segments'][0]['passage_handles'] = [other[0]['passage_handle']]
+    validator = Draft202012Validator(writer.output_format['schema'])
+    validator.validate(candidate)
+    assert not validator.is_valid(wrong)
+    wire = WriterWire(a, json.dumps(candidate))
+    completed = asyncio.run(writer.run(transport=wire, api_key='synthetic-not-secret'))
+    assert completed.status == 'completed' and len(wire.calls) == 1
+    entry = completed.completion.citation_map.entries[0]
+    assert entry.source_opened and entry.evidence_ref_ids == ['evidence:park:1']
+    assert entry.source_read_ids == ['read:anchor:park:1']
+    saved = AgentConversationService().list_turns(a.world_id, completed.conversation_id)[-1]
+    assert saved.completion == completed.completion
+    # Even bypassing producer syntax cannot bypass the unchanged final binding gate.
+    with pytest.raises(NativeAnswerError) as error:
+        parse_native_answer(json.dumps(wrong), saved, writer.authorization.provider_attempt_id,
+                            support=a.build_claim_evidence[writer.authorization.provider_attempt_id])
+    assert (error.value.stage, error.value.reason) == ('binding', 'mixed_evidence_binding')
+    assert 'Selected passage does not belong to Graph target' in str(error.value.__cause__)
+    # Historical format verification never permits a current dispatch downgrade.
+    body = json.loads(writer.prepared.body)
+    body['text']['format']['name'] = 'plan_evidence_selectors_v2'
+    raw = json.dumps(body).encode()
+    downgraded = replace(writer.prepared, body=raw, body_size=len(raw), body_sha256=sha256(raw).hexdigest())
+    writer.prepared = None
+    with pytest.raises(ValueError, match='differs from staged'):
+        writer.authorize(downgraded)
+    assert json.loads(wire.calls[0].content)['text']['format']['name'] == 'plan_evidence_selectors_v3'

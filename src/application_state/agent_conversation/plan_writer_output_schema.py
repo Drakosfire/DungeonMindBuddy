@@ -5,7 +5,7 @@ from .source_writer_output import LIMITATIONS
 from .rules_authority_types import canonical_bytes
 from .surface_evidence_answer import PLAN_POLICY, SELECTOR_POLICY
 
-SCHEMA_NAME = "plan_evidence_selectors_v2"
+SCHEMA_NAME = "plan_evidence_selectors_v3"
 
 
 def _object(properties):
@@ -42,10 +42,41 @@ def _values(rows, key):
 
 def output_schema(frame, rules):
     """Current execution uses only the current Plan policy."""
-    return _frozen_schema(frame, rules, PLAN_POLICY)
+    return _frozen_schema(frame, rules, PLAN_POLICY, target_scoped=True)
 
 
-def _frozen_schema(frame, rules, policy):
+def _graph_groups(frame, passages, *, target_scoped):
+    if not target_scoped:
+        # Exact historical grammar; never used by a current dispatch.
+        return [(kind, _values([row for row in frame["graph_records"]
+                               if row["kind"] == kind], "target_id"), passages)
+                for kind in ("assertion", "relationship")]
+    closures = {}
+    for row in frame["graph_records"]:
+        if row["kind"] not in {"assertion", "relationship"}:
+            continue
+        target = _values([row], "target_id")[0]
+        evidence = row.get("evidence")
+        if not isinstance(evidence, list) or any(
+            not isinstance(token, str) or not token.strip() for token in evidence
+        ):
+            raise ValueError("Graph target evidence selectors are malformed")
+        closures.setdefault((row["kind"], target), set()).add(tuple(sorted(set(evidence))))
+    groups = {}
+    for (kind, target), alternatives in sorted(closures.items()):
+        # The final target binder requires exactly one evidence closure.
+        if len(alternatives) != 1:
+            continue
+        evidence = next(iter(alternatives))
+        handles = tuple(sorted({row["passage_handle"] for row in frame["opened_passages"]
+                                if row.get("passage_handle") in passages
+                                and row.get("evidence") in evidence}))
+        groups.setdefault((kind, handles), []).append(target)
+    return [(kind, targets, list(handles))
+            for (kind, handles), targets in sorted(groups.items())]
+
+
+def _frozen_schema(frame, rules, policy, *, target_scoped=False):
     """One exact projection also verifies retained producer formats during reads."""
     if frame.get("answer_policy") != policy or not isinstance(
         rules, PlanRulesEvidenceFrameV1
@@ -70,14 +101,11 @@ def _frozen_schema(frame, rules, policy):
         [row for row in blocks if row.get("selection_id") is not None], "selection_id"
     )
     variants = []
-    for kind in ("assertion", "relationship"):
-        targets = _values(
-            [row for row in frame["graph_records"] if row["kind"] == kind], "target_id"
-        )
+    for kind, targets, eligible in _graph_groups(frame, passages, target_scoped=target_scoped):
         if targets:
             handles = (
-                _array(_enum(passages))
-                if passages
+                _array(_enum(eligible))
+                if eligible
                 else {"type": "array", "items": {"type": "string"}, "maxItems": 0}
             )
             variants.append(
@@ -202,6 +230,10 @@ def verify_format(body, frame, rules):
     if frame.get("schema") in {"dmb_plan_jev_writer_frame_v3", "dmb_plan_jev_writer_frame_v4"}:
         expected = {"type": "json_schema", "name": "plan_evidence_selectors_v1",
                     "schema": _frozen_schema(frame, rules, SELECTOR_POLICY), "strict": True}
+    elif (frame.get("schema") == "dmb_plan_jev_writer_frame_v5"
+          and body.get("text", {}).get("format", {}).get("name") == "plan_evidence_selectors_v2"):
+        expected = {"type": "json_schema", "name": "plan_evidence_selectors_v2",
+                    "schema": _frozen_schema(frame, rules, PLAN_POLICY), "strict": True}
     else:
         expected = output_format(frame, rules)
     if canonical_bytes(body.get("text", {}).get("format")) != canonical_bytes(expected):
