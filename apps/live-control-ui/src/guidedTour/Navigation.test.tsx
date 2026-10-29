@@ -1,7 +1,7 @@
 import {describe,it,expect,vi} from 'vitest';
 import {act,render} from '@testing-library/react';
 import {createWalkthrough,type TargetPin} from './protocol';
-import {navigationScope,tourDestination,TourNavigationRegistry,TourNavigationProvider,useTourNavigationOwner,useTourNavigationGuard,type NavigationOwner,type NavigationScope,type NavigationGuard} from './Navigation';
+import {navigationScope,tourDestination,matchesNavigationTarget,TourNavigationRegistry,TourNavigationProvider,useTourNavigationOwner,useTourNavigationGuard,type NavigationOwner,type NavigationScope,type NavigationGuard} from './Navigation';
 const pin:TargetPin={kind:'plan',worldId:'world',objectId:'plan',revision:2,revisionId:'version',digest:'a'.repeat(64)};
 function setup(){const walk=createWalkthrough('world','conks','walk',new Date().toISOString());walk.index=2;walk.bindings.plan=pin;let scope:NavigationScope|null=navigationScope(walk,0);return {registry:new TourNavigationRegistry(()=>scope),scope:scope!,setScope:(next:NavigationScope|null)=>{scope=next;}};}
 function owner(perform:NavigationOwner['inspections'][number]['perform']=vi.fn()):NavigationOwner{return {worldId:'world',surface:'plan',objectId:'plan',inspections:[{id:'preview',label:'Open saved Plan preview',step:'plan',target:pin,impact:'projection',perform}]};}
@@ -52,6 +52,25 @@ describe('tour navigation intent',()=>{
   const {registry,scope}=setup();window.history.replaceState({},'','/plan?world=world&documentId=plan');const source=registry.registerOwner(()=>owner());registry.beginDestination(scope);
   const abandoned=registry.claimDestination('plan','world','plan')!;source.release();expect(abandoned.isCurrent()).toBe(true);
   const admitted=registry.claimDestination('plan','world','plan')!;expect(admitted.isCurrent()).toBe(true);admitted.complete();expect(registry.claimDestination('plan','world','plan')).toBeNull();
+ });
+
+ it('permits current Run progress without weakening immutable pins or changing the baseline',()=>{
+  const run={...pin,kind:'run' as const,objectId:'run',revisionId:undefined},before=structuredClone(run);
+  expect(matchesNavigationTarget(run,{...run,revision:5},pin,pin)).toBe(true);expect(run).toEqual(before);
+  expect(matchesNavigationTarget(pin,{...pin,revision:5})).toBe(false);
+  expect(matchesNavigationTarget(run,{...run,revision:1},pin,pin)).toBe(false);
+  expect(matchesNavigationTarget(run,{...run,revision:5})).toBe(false);
+ });
+ it.each(['kind','worldId','objectId','revision','revisionId','digest'] as const)('refuses a different immutable Run parent %s',field=>{
+  const run={...pin,kind:'run' as const,objectId:'run',revisionId:undefined};
+  const changed={...pin,[field]:field==='revision'?9:'changed'} as TargetPin;
+  expect(matchesNavigationTarget(run,{...run,revision:5},pin,changed)).toBe(false);
+ });
+ it('allows a current Run inspection after its owner reports saved progress, without rebinding',async()=>{
+  const {registry,scope,setScope}=setup(),run={...pin,kind:'run' as const,objectId:'run',revisionId:undefined},perform=vi.fn();
+  const selected={...scope,step:'roll' as const,index:9,bindings:{plan:pin,run}};setScope(selected);
+  const registration=registry.registerOwner(()=>({worldId:'world',surface:'play',objectId:'run',parent:pin,inspections:[{id:'tables',label:'Open tables',step:'roll',target:{...run,revision:5},impact:'projection',perform}]}));
+  await registry.inspect(selected,registration.token,'tables');expect(perform).toHaveBeenCalledOnce();expect(selected.bindings.run.revision).toBe(run.revision);
  });
 
 });

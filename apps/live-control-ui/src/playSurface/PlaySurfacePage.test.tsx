@@ -243,14 +243,51 @@ describe("Play selected-World admission", () => {
     fireEvent.click(await screen.findByTestId(`play-session-${runId}`));
     await waitFor(()=>expect(putWorldPlayActiveRun).toHaveBeenCalledExactlyOnceWith('world-b',runId));
   });
-  it('refuses a newer bound Run on guided route entry before active-selection persistence',async()=>{
+  it('refuses a rolled-back bound Run on guided route entry before active-selection persistence',async()=>{
     mockReadyWorldRuns([runId]);const pins=runPins(worldRun()),scope:NavigationScope={worldId:'world-b',walkthroughId:'guided-run',epoch:0,step:'progress',index:8,bindings:{plan:pins.parent,run:pins.target}};
+    scope.bindings.run={...pins.target,revision:2};
     const registry=new TourNavigationRegistry(()=>scope);registry.beginDestination(scope);
-    vi.mocked(getWorldPlayRun).mockResolvedValue(worldRun({run_revision:2}));
+    vi.mocked(getWorldPlayRun).mockResolvedValue(worldRun());
     render(<TourNavigationProvider registry={registry}><PlaySurfacePage/></TourNavigationProvider>);
-    await screen.findByText(/exact bound Run version is unavailable/);expect(screen.queryByTestId('play-surface-ready')).not.toBeInTheDocument();expect(putWorldPlayActiveRun).not.toHaveBeenCalled();
+    await screen.findByText(/bound Run identity, saved preparation or progress baseline is unavailable/);expect(screen.queryByTestId('play-surface-ready')).not.toBeInTheDocument();expect(putWorldPlayActiveRun).not.toHaveBeenCalled();
   });
 
+
+  it('opens a newer revision of the same bound Run without persisting active selection',async()=>{
+    mockReadyWorldRuns([runId]);const pins=runPins(worldRun()),scope:NavigationScope={worldId:'world-b',walkthroughId:'current-run',epoch:0,step:'progress',index:8,bindings:{plan:pins.parent,run:pins.target}};
+    const registry=new TourNavigationRegistry(()=>scope);registry.beginDestination(scope);
+    vi.mocked(getWorldPlayRun).mockResolvedValue(worldRun({run_revision:4,progress:{...worldRun().progress,notes_by_element_id:{'scene:gate':'Retained note.'}}}));
+    render(<TourNavigationProvider registry={registry}><PlaySurfacePage/><TourNavigationActions scope={scope} onOpened={()=>{}}/></TourNavigationProvider>);
+    await screen.findByTestId('play-surface-ready');fireEvent.click(await screen.findByRole('button',{name:'Open current scene notes',exact:true}));
+    expect(await screen.findByLabelText('Scene note')).toHaveValue('Retained note.');expect(scope.bindings.run?.revision).toBe(1);expect(putWorldPlayActiveRun).not.toHaveBeenCalled();
+  });
+  it.each(['kind','worldId','objectId','revision','revisionId','digest'] as const)('refuses forward Run entry with a mismatched immutable Plan parent %s',async field=>{
+    mockReadyWorldRuns([runId]);const pins=runPins(worldRun()),scope:NavigationScope={worldId:'world-b',walkthroughId:'foreign-parent',epoch:0,step:'progress',index:8,bindings:{plan:{...pins.parent,[field]:field==='revision'?2:'changed'} as typeof pins.parent,run:pins.target}};
+    const registry=new TourNavigationRegistry(()=>scope);registry.beginDestination(scope);vi.mocked(getWorldPlayRun).mockResolvedValue(worldRun({run_revision:4}));
+    render(<TourNavigationProvider registry={registry}><PlaySurfacePage/></TourNavigationProvider>);
+    await screen.findByText(/bound Run identity, saved preparation or progress baseline is unavailable/);expect(screen.queryByTestId('play-surface-ready')).not.toBeInTheDocument();expect(putWorldPlayActiveRun).not.toHaveBeenCalled();
+  });
+  it('opens guided notes and tables after an ordinary saved note advances the Run',async()=>{
+    mockReadyWorldRuns([runId]);const pins=runPins(worldRun());let scope:NavigationScope={worldId:'world-b',walkthroughId:'saved-progress',epoch:0,step:'progress',index:8,bindings:{plan:pins.parent,run:pins.target}};
+    let current=worldRun();vi.mocked(getWorldPlayRun).mockImplementation(async()=>current);
+    vi.mocked(putWorldPlayRunProgress).mockImplementation(async(_id,_world,request)=>{current={...current,run_revision:current.run_revision+1,progress:request.progress};return current;});
+    const registry=new TourNavigationRegistry(()=>scope),opened=vi.fn();
+    const view=render(<TourNavigationProvider registry={registry}><PlaySurfacePage/><TourNavigationActions scope={scope} onOpened={opened}/></TourNavigationProvider>);
+    await screen.findByTestId('play-surface-ready');fireEvent.click(screen.getByRole('button',{name:/Notes · Gate/}));
+    fireEvent.change(screen.getByLabelText('Scene note'),{target:{value:'Saved during the current walkthrough.'}});
+    await waitFor(()=>expect(putWorldPlayRunProgress).toHaveBeenCalledOnce());await waitFor(()=>expect(vi.mocked(usePublishWorldPlayConversation).mock.calls.at(-1)?.[0]?.runRevision).toBe(2));
+    fireEvent.click(await screen.findByRole('button',{name:'Open current scene notes',exact:true}));await waitFor(()=>expect(opened).toHaveBeenCalledOnce());
+    scope={...scope,step:'roll',index:9};view.rerender(<TourNavigationProvider registry={registry}><PlaySurfacePage/><TourNavigationActions scope={scope} onOpened={opened}/></TourNavigationProvider>);
+    fireEvent.click(await screen.findByRole('button',{name:'Open prepared tables',exact:true}));await waitFor(()=>expect(opened).toHaveBeenCalledTimes(2));
+    expect(scope.bindings.run?.revision).toBe(1);expect(screen.queryByText(/bound saved version is not available/)).not.toBeInTheDocument();expect(putWorldPlayRunProgress).toHaveBeenCalledOnce();
+  });
+  it('still refuses a current edition that fails ordinary admission on a forward Run revision',async()=>{
+    mockReadyWorldRuns([runId]);const pins=runPins(worldRun()),scope:NavigationScope={worldId:'world-b',walkthroughId:'edition',epoch:0,step:'progress',index:8,bindings:{plan:pins.parent,run:pins.target}};
+    const registry=new TourNavigationRegistry(()=>scope);registry.beginDestination(scope);
+    vi.mocked(getWorldPlayRun).mockResolvedValue(worldRun({run_revision:3}));vi.mocked(getWorldPlayRunContent).mockRejectedValue(new TypeError('Current edition failed admission.'));
+    render(<TourNavigationProvider registry={registry}><PlaySurfacePage/></TourNavigationProvider>);
+    await screen.findByText('Current edition failed admission.');expect(screen.queryByTestId('play-surface-ready')).not.toBeInTheDocument();expect(putWorldPlayActiveRun).not.toHaveBeenCalled();
+  });
   it.each(['restart','step'])('cancels a delayed routed Run after %s in StrictMode without active writes',async kind=>{
     mockReadyWorldRuns([runId]);const pins=runPins(worldRun());
     let scope:NavigationScope={worldId:'world-b',walkthroughId:'guided-run',epoch:0,step:'progress',index:8,bindings:{plan:pins.parent,run:pins.target}};
@@ -259,7 +296,7 @@ describe("Play selected-World admission", () => {
     vi.mocked(getWorldPlayRun).mockReturnValue(pending);
     render(<StrictMode><TourNavigationProvider registry={registry}><PlaySurfacePage/></TourNavigationProvider></StrictMode>);
     await waitFor(()=>expect(getWorldPlayRun).toHaveBeenCalled());scope=kind==='restart'?{...scope,walkthroughId:'replacement'}:{...scope,step:'roll',index:9};
-    await act(async()=>release(worldRun()));await screen.findByText(/Guided navigation canceled/);
+    await act(async()=>release(worldRun({run_revision:4})));await screen.findByText(/Guided navigation canceled/);
     expect(screen.queryByTestId('play-surface-ready')).not.toBeInTheDocument();expect(putWorldPlayActiveRun).not.toHaveBeenCalled();expect(putWorldPlayRunProgress).not.toHaveBeenCalled();
   });
   it("opens the shared Rules tool only on request without selecting or changing a Run", async () => {

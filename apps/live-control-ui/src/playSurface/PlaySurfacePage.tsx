@@ -1,4 +1,4 @@
-import {useTourNavigationOwner,useTourNavigationGuard,useTourNavigationRegistry} from '../guidedTour/Navigation';
+import {matchesNavigationTarget,useTourNavigationOwner,useTourNavigationGuard,useTourNavigationRegistry} from '../guidedTour/Navigation';
 import type {TourDispatchScope} from '../guidedTour/GuidedTour';
 import {runPins} from '../guidedTour/ownerPins';
 import {TourRunProvider} from '../guidedTour/RunScope';
@@ -655,10 +655,9 @@ function PlayRuntimePage() {
         setDetail(`Run ${runId} does not belong to World ${selectedWorldId}.`);
         return;
       }
-      if(inspectionPin&&(loaded.schema_version!=='dmb_world_play_run_record_v2'||loaded.run_id!==inspectionPin.objectId||loaded.world_id!==inspectionPin.worldId
-        ||loaded.run_revision!==inspectionPin.revision||loaded.playable_content_sha256!==inspectionPin.digest
-        ||inspectionParent&&(loaded.playable_artifact_id!==inspectionParent.objectId||loaded.playable_revision!==inspectionParent.revision||loaded.playable_work_revision_id!==inspectionParent.revisionId||loaded.playable_content_sha256!==inspectionParent.digest))){
-        setLoadStatus('integrity_failure');setDetail('The exact bound Run version is unavailable. No active selection or saved session state was changed.');return;
+      if(inspectionPin&&(loaded.schema_version!=='dmb_world_play_run_record_v2'
+        ||!matchesNavigationTarget(inspectionPin,runPins(loaded).target,inspectionParent,runPins(loaded).parent))){
+        setLoadStatus('integrity_failure');setDetail('The bound Run identity, saved preparation or progress baseline is unavailable. No active selection or saved session state was changed.');return;
       }
       if (loaded.schema_version === "dmb_world_play_run_record_v2" && loaded.lifecycle_status === "trashed") {
         setLoadStatus("trashed");

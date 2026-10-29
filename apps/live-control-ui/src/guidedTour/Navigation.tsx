@@ -14,6 +14,14 @@ export function sameNavigationScope(a:NavigationScope|null,b:NavigationScope|nul
  if(!a||!b||a.worldId!==b.worldId||a.walkthroughId!==b.walkthroughId||a.epoch!==b.epoch||a.step!==b.step||a.index!==b.index||a.sceneId!==b.sceneId||a.draftId!==b.draftId)return false;
  return (['source','page','plan','run'] as const).every(kind=>{const x=a.bindings[kind],y=b.bindings[kind];return x&&y?samePin(x,y):x===y;});
 }
+/** Viewing a mutable Run does not freeze its progress or change retained evidence pins. */
+export function matchesNavigationTarget(expected:TargetPin,current:TargetPin,expectedParent?:TargetPin,currentParent?:TargetPin):boolean {
+ if(expected.kind!=='run')return samePin(expected,current);
+ return current.kind==='run'&&expected.worldId===current.worldId&&expected.objectId===current.objectId
+  &&current.revision>=expected.revision&&expected.digest===current.digest&&expected.revisionId===current.revisionId
+  &&expectedParent?.kind==='plan'&&currentParent?.kind==='plan'
+  &&expectedParent.worldId===expected.worldId&&currentParent.worldId===current.worldId&&samePin(expectedParent,currentParent);
+}
 export function tourDestination(scope:NavigationScope):{surface:TourSurface;pin:TargetPin|null;href:string} {
  const surface:TourSurface=scope.step==='source'||scope.step==='authoring'?'build'
   :['progress','roll','combat','recovery','reflection','memory'].includes(scope.step)||scope.step==='play'&&!!scope.bindings.run?'play':'plan';
@@ -91,7 +99,7 @@ export class TourNavigationRegistry {
    if(actions.length!==1||actions[0].owner!==token)return null;
    const action=actions[0].inspection,pin=tourDestination(scope).pin;
    if(action.target?.kind==='run'&&scope.bindings.plan&&(!owner.parent||!samePin(owner.parent,scope.bindings.plan)))return null;
-   if(action.target&&(action.target.worldId!==scope.worldId||pin&&!samePin(pin,action.target)))return null;
+   if(action.target&&(action.target.worldId!==scope.worldId||pin&&!matchesNavigationTarget(pin,action.target,scope.bindings.plan,owner.parent)))return null;
    if(pin&&(!action.target||action.target.objectId!==owner.objectId))return null;
    if(action.unavailable&&action.ownedReservation!==reservation||this.departureReason(scope,action.impact,reservation))return null;return action;
   };
@@ -131,7 +139,7 @@ export function TourNavigationActions({scope,onOpened}:{scope:NavigationScope|nu
  })}>Open {destination.surface==='build'?'Build':destination.surface==='plan'?'Plan':'Play'}</button>
  :owners.length!==1?<p>Waiting for one intended {destination.surface} view to finish opening.</p>
  :destination.pin&&owners[0].owner.objectId!==destination.pin.objectId?<button type="button" onClick={()=>void run(()=>registry.select(scope,owners[0].token,destination.pin!))}>Open the bound {destination.pin.kind}</button>:null;
- const versionUnavailable=!!destination.pin&&owners.length===1&&owners[0].owner.objectId===destination.pin.objectId&&!!owners[0].owner.targets&&!owners[0].owner.targets.some(pin=>samePin(pin,destination.pin!));
+ const versionUnavailable=!!destination.pin&&owners.length===1&&owners[0].owner.objectId===destination.pin.objectId&&!!owners[0].owner.targets&&!owners[0].owner.targets.some(pin=>matchesNavigationTarget(destination.pin!,pin,scope.bindings.plan,owners[0].owner.parent));
  const actions=route===destination.surface&&owners.length===1&&(!destination.pin||owners[0].owner.objectId===destination.pin.objectId)?registry.inspections(scope):[];
  return <section aria-label="Open this capability">{navigation}{versionUnavailable&&<p>The bound saved version is not available in this view. Inspect ordinary version or recovery controls, or explicitly choose a newer saved version for guidance.</p>}{actions.map(({owner,inspection},index)=><button key={`${inspection.id}:${index}`} type="button" disabled={!!inspection.unavailable} title={inspection.unavailable} onClick={()=>void run(async()=>{await registry.inspect(scope,owner,inspection.id);if(registry.isCurrentScope(scope))onOpened();})}>{inspection.label}</button>)}{actions.filter(item=>item.inspection.unavailable).map(({inspection},index)=><p key={`reason:${inspection.id}:${index}`}>{inspection.unavailable}</p>)}{error&&sameNavigationScope(error.scope,scope)&&<p role="alert">{error.message}</p>}</section>;
 }
