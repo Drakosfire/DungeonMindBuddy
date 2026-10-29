@@ -3,6 +3,8 @@ export interface TargetPin {kind:TargetKind;worldId:string;objectId:string;revis
 export interface EncounterEvidence {kind:'encounter';sceneId:string;encounterId:string;revision:number;digest:string;operationId:string}
 export interface MechanicsLocatorEvidence {provider:'dungeonmind';statblock_id:string;revision_id:string;contract:string;contract_version:string;definition_digest:string}
 export interface MechanicsEvidence {kind:'mechanics';sceneId:string;encounterId:string;draftId:string;operationId:string;locator:MechanicsLocatorEvidence}
+export interface GeneratedMechanicsScope {plan:TargetPin;walkthroughId:string;draftId:string;acceptOperationId:string;original:MechanicsLocatorEvidence;dispatchRevision:number}
+export interface GeneratedMechanicsEvidence {kind:'generated-mechanics-revision';scope:GeneratedMechanicsScope;lineage:{operationId:string;base:MechanicsLocatorEvidence;locator:MechanicsLocatorEvidence}[]}
 export interface AdoptionEvidence {kind:'adoption';sceneId:string;encounterId:string;operationId:string;encounterRevision:number;locator:MechanicsLocatorEvidence;actors:{actorId:string;beforeDigest:string;afterDigest:string;acPolicy:string;hpPolicy:string}[]}
 export interface RunStateEvidence {kind:'run-state';stateDigest:string;pageInstanceId:string;contentRevision:number;contentRevisionId:string|null;contentDigest:string}
 export interface SessionReviewEvidence {kind:'session-review';reviewRevision:number;checkpointRunRevision:number;contentRevision:number;contentRevisionId:string|null;contentDigest:string;commandId:string|null}
@@ -21,7 +23,7 @@ export interface Observation {
  receiptId:string;
  /** Parent pins and specialized evidence are checked by the owning adapter. */
  parent?:TargetPin;
- proof?:GenerationEvidence|EncounterEvidence|MechanicsEvidence|AdoptionEvidence|RunStateEvidence|SessionReviewEvidence|RecordedRollEvidence|CombatTrackerEvidence|ImageEvidence|MemoryEvidence|RunCreationEvidence;
+ proof?:GenerationEvidence|EncounterEvidence|MechanicsEvidence|GeneratedMechanicsEvidence|AdoptionEvidence|RunStateEvidence|SessionReviewEvidence|RecordedRollEvidence|CombatTrackerEvidence|ImageEvidence|MemoryEvidence|RunCreationEvidence;
 }
 export type StepState = 'pending'|'existing'|'completed'|'skipped'|'failed'|'unavailable';
 export interface StepRecord {state:StepState;reason:string|null;evidence:Observation[]}
@@ -50,6 +52,7 @@ function checkObservation(v:unknown,world:string,legacy=false):v is Observation 
  if(v.step==='recovery'&&v.origin==='acknowledged')return false;
  if(v.step==='generation'){const p=v.proof;if(!exact(p,['kind','scope','dispatchInstanceId','acceptedInstanceId','providerRequestId','providerResponseId','draftId','sourceVersion','requestId','candidateId','provider','model','generatedAt','acceptOperationId','locator'])||p.kind!=='creature-generation'||!validGenerationScope(p.scope)||!validPin(v.target,world)||!samePin(p.scope.plan,v.target)||![p.dispatchInstanceId,p.acceptedInstanceId,p.providerRequestId,p.providerResponseId,p.draftId,p.requestId,p.candidateId,p.provider,p.model,p.acceptOperationId,p.generatedAt].every(text)||p.dispatchInstanceId===p.acceptedInstanceId||!Number.isFinite(Date.parse(String(p.generatedAt)))||!Number.isSafeInteger(p.sourceVersion)||Number(p.sourceVersion)<1||!validLocator(p.locator))return false;}
  else if(v.step==='encounter'){const p=v.proof;if(!exact(p,['kind','sceneId','encounterId','revision','digest','operationId'])||p.kind!=='encounter'||!text(p.sceneId)||!text(p.encounterId)||!Number.isSafeInteger(p.revision)||Number(p.revision)<1||!text(p.digest)||!/^sha256:[a-f0-9]{64}$/.test(p.digest)||!text(p.operationId))return false;}
+ else if(v.step==='mechanics'&&record(v.proof)&&v.proof.kind==='generated-mechanics-revision'){if(!validGeneratedMechanicsEvidence(v.proof,world)||!validPin(v.target,world)||!samePin(v.proof.scope.plan,v.target))return false;}
  else if(v.step==='mechanics'){const p=v.proof;if(!exact(p,['kind','sceneId','encounterId','draftId','operationId','locator'])||p.kind!=='mechanics'||![p.sceneId,p.encounterId,p.draftId,p.operationId].every(text)||!validLocator(p.locator))return false;}
  else if(v.step==='adoption'){const p=v.proof;if(!exact(p,['kind','sceneId','encounterId','operationId','encounterRevision','locator','actors'])||p.kind!=='adoption'||![p.sceneId,p.encounterId,p.operationId].every(text)||!Number.isSafeInteger(p.encounterRevision)||Number(p.encounterRevision)<1||!validLocator(p.locator)||!Array.isArray(p.actors)||!p.actors.length||!p.actors.every(a=>exact(a,['actorId','beforeDigest','afterDigest','acPolicy','hpPolicy'])&&[a.actorId,a.beforeDigest,a.afterDigest].every(text)&&['keep','use_saved'].includes(String(a.acPolicy))&&['keep','preserve_current','clamp_current','reset_full'].includes(String(a.hpPolicy)))||new Set(p.actors.map(a=>(a as {actorId:string}).actorId)).size!==p.actors.length)return false;}
  else if(v.step==='progress'||v.step==='recovery'){const p=v.proof;if(!exact(p,['kind','stateDigest','pageInstanceId','contentRevision','contentRevisionId','contentDigest'])||p.kind!=='run-state'||!digest(p.stateDigest)||!text(p.pageInstanceId)||!Number.isSafeInteger(p.contentRevision)||Number(p.contentRevision)<0||(p.contentRevision===0?p.contentRevisionId!==null:!text(p.contentRevisionId))||!digest(p.contentDigest))return false;}
@@ -80,7 +83,9 @@ function decodeRecord(bytes:string,world:string,legacy=false):Walkthrough {
   const row=v.steps[step.id] as unknown as StepRecord;
   if(row.state==='completed'&&!row.evidence.some(e=>e.origin!=='existing'&&Date.parse(e.observedAt)>=Date.parse(v.startedAt as string)))throw new Error('Completion has no newly demonstrated evidence.');
   if(step.id==='recovery'&&row.state==='completed'&&!row.evidence.some((e,index)=>e.origin==='reloaded'&&e.proof?.kind==='run-state'&&row.evidence.slice(0,index).some(prior=>prior.proof?.kind==='run-state'&&samePin(prior.target,e.target)&&prior.proof.stateDigest===(e.proof as RunStateEvidence).stateDigest&&prior.proof.pageInstanceId!==(e.proof as RunStateEvidence).pageInstanceId)))throw new Error('Recovery has no matching saved-state observation from an earlier page instance.');
-  for(const e of row.evidence){if(e.proof?.kind==='creature-generation'&&e.origin!=='existing'&&e.proof.scope.walkthroughId!==v.id)throw new Error('Generation evidence belongs to a different walkthrough.');const bound=v.bindings[e.target.kind];if(!validPin(bound,world)||bound.objectId!==e.target.objectId||e.target.revision===bound.revision&&!samePin(e.target,bound))throw new Error('Evidence belongs to a different target.');
+  for(const e of row.evidence){if(e.proof?.kind==='generated-mechanics-revision'){
+    const proof=e.proof;if(proof.scope.walkthroughId!==v.id||!(v.steps as unknown as Walkthrough['steps']).generation?.evidence.some(g=>g.proof?.kind==='creature-generation'&&samePin(g.target,e.target)&&g.proof.draftId===proof.scope.draftId&&g.proof.acceptOperationId===proof.scope.acceptOperationId&&sameMechanicsPin(g.proof.locator,proof.scope.original)))throw new Error('Mechanics revision has no matching generation acceptance.');
+   }if(e.proof?.kind==='creature-generation'&&e.origin!=='existing'&&e.proof.scope.walkthroughId!==v.id)throw new Error('Generation evidence belongs to a different walkthrough.');const bound=v.bindings[e.target.kind];if(!validPin(bound,world)||bound.objectId!==e.target.objectId||e.target.revision===bound.revision&&!samePin(e.target,bound))throw new Error('Evidence belongs to a different target.');
    if(e.target.kind==='run'&&(!validPin(v.bindings.plan,world)||!e.parent||!samePin(v.bindings.plan,e.parent)))throw new Error('Run evidence has a different Plan pin.');}
  }
  return v as unknown as Walkthrough;
@@ -126,6 +131,11 @@ export function reduceTour(current:Walkthrough,action:TourAction):Walkthrough {
  }
  let observation=action.observation;
  if(observation.step==='generation'&&observation.origin==='acknowledged'&&(observation.proof?.kind!=='creature-generation'||!sameGenerationScope(observation.proof.scope,generationScope(current))))observation={...observation,origin:'existing'};
+ if(observation.proof?.kind==='generated-mechanics-revision'){
+  const expected=mechanicsGenerationScope(current,observation.target,observation.proof.scope.draftId);
+  if(!expected||expected.walkthroughId!==observation.proof.scope.walkthroughId||expected.acceptOperationId!==observation.proof.scope.acceptOperationId||!sameMechanicsPin(expected.original,observation.proof.scope.original))return current;
+  if(observation.origin==='acknowledged'&&expected.dispatchRevision!==observation.proof.scope.dispatchRevision)observation={...observation,origin:'existing'};
+ }
  if(!validObservation(observation,current.worldId))throw new Error('The observation has no verified owner basis.');
  const bound=current.bindings[observation.target.kind];
  // A later revision of the same selected object is evidence, never a target replacement.
@@ -151,3 +161,23 @@ export function generationScope(walk:Walkthrough|null):GenerationScope|null {
 }
 export function validGenerationScope(value:unknown):value is GenerationScope {return exact(value,['worldId','walkthroughId','step','index','plan','dispatchRevision'])&&text(value.worldId)&&text(value.walkthroughId)&&value.step==='generation'&&value.index===JOURNEY_STEPS.findIndex(s=>s.id==='generation')&&Number.isSafeInteger(value.dispatchRevision)&&Number(value.dispatchRevision)>=0&&validPin(value.plan,value.worldId)&&value.plan.kind==='plan';}
 export function sameGenerationScope(a:GenerationScope|null,b:GenerationScope|null):boolean {return !!a&&!!b&&a.worldId===b.worldId&&a.walkthroughId===b.walkthroughId&&a.step===b.step&&a.index===b.index&&a.dispatchRevision===b.dispatchRevision&&samePin(a.plan,b.plan);}
+
+export const sameMechanicsPin=(a:MechanicsLocatorEvidence,b:MechanicsLocatorEvidence)=>a.provider===b.provider&&a.statblock_id===b.statblock_id&&a.revision_id===b.revision_id&&a.contract===b.contract&&a.contract_version===b.contract_version&&a.definition_digest===b.definition_digest;
+export function validGeneratedMechanicsScope(v:unknown,world:string):v is GeneratedMechanicsScope {
+ return exact(v,['plan','walkthroughId','draftId','acceptOperationId','original','dispatchRevision'])&&validPin(v.plan,world)&&v.plan.kind==='plan'&&[v.walkthroughId,v.draftId,v.acceptOperationId].every(text)&&validLocator(v.original)&&Number.isSafeInteger(v.dispatchRevision)&&Number(v.dispatchRevision)>=0;
+}
+export function validGeneratedMechanicsEvidence(v:unknown,world:string):v is GeneratedMechanicsEvidence {
+ if(!exact(v,['kind','scope','lineage'])||v.kind!=='generated-mechanics-revision'||!validGeneratedMechanicsScope(v.scope,world)||!Array.isArray(v.lineage)||!v.lineage.length)return false;
+ let base=v.scope.original;const revisions=new Set([base.revision_id]),operations=new Set<string>();
+ for(const row of v.lineage){
+  if(!exact(row,['operationId','base','locator'])||!text(row.operationId)||operations.has(row.operationId)||!validLocator(row.base)||!validLocator(row.locator)||!sameMechanicsPin(base,row.base)||row.locator.statblock_id!==base.statblock_id||row.locator.provider!==base.provider||row.locator.contract!==base.contract||row.locator.contract_version!==base.contract_version||revisions.has(row.locator.revision_id))return false;
+  operations.add(row.operationId);revisions.add(row.locator.revision_id);base=row.locator;
+ }return true;
+}
+export function mechanicsGenerationScope(walk:Walkthrough|null,plan:TargetPin|null,draftId:string):GeneratedMechanicsScope|null {
+ if(!walk||walk.version!==3||walk.phase!=='running'||JOURNEY_STEPS[walk.index].id!=='mechanics'||!plan||!walk.bindings.plan||!samePin(plan,walk.bindings.plan))return null;
+ const proofs=walk.steps.generation.evidence.flatMap(e=>e.proof?.kind==='creature-generation'&&samePin(e.target,plan)&&e.proof.draftId===draftId?[e.proof]:[]);
+ const proof=proofs.at(-1);if(!proof)return null;
+ if(proofs.some(p=>p.acceptOperationId!==proof.acceptOperationId||!sameMechanicsPin(p.locator,proof.locator)))return null;
+ return {plan,walkthroughId:walk.id,draftId,acceptOperationId:proof.acceptOperationId,original:proof.locator,dispatchRevision:walk.dispatchRevision!};
+}

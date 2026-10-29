@@ -1,3 +1,5 @@
+import {samePin,sameMechanicsPin,validGeneratedMechanicsEvidence,type GeneratedMechanicsScope,type GeneratedMechanicsEvidence} from './protocol';
+import type {TourOwnerReading} from './GuidedTour';
 import type {OpenSavedMechanicsVersion,RevisionSaveOutcome,SavedMechanicsVersionList,SavedMechanicsLocator} from '../statblocks/revision/savedMechanicsRevisionTypes';
 import type {MechanicsAdoptionOutcome} from '../combat/combatTypes';
 import {useTourOwnerReading,type TourDispatchScope} from './GuidedTour';
@@ -23,3 +25,27 @@ export function AdoptionTourObservation({scope,worldId,encounterId,acknowledged,
   ...(usable?{observation:{step:'adoption',target:scope.plan,origin:selected===acknowledged?'acknowledged':'existing',observedAt:receipt.created_at,receiptId:`adoption:${receipt.operation_id}:${receipt.committed_revision}`,proof:{kind:'adoption',sceneId:scope.sceneId,encounterId,operationId:receipt.operation_id,encounterRevision:receipt.committed_revision!,locator:receipt.source,actors:receipt.transitions.map(t=>({actorId:t.actor_id,beforeDigest:t.before_snapshot_digest,afterDigest:t.after_snapshot_digest,acPolicy:t.ac_policy,hpPolicy:t.hp_policy}))}}}:{})}:null);
  return null;
 }
+
+export interface AcknowledgedGeneratedMechanicsSave {scope:GeneratedMechanicsScope;dispatchScope:TourDispatchScope|null;operation:RevisionSaveOutcome}
+export const sameGeneratedMechanicsScope=(a:GeneratedMechanicsScope|null,b:GeneratedMechanicsScope|null)=>!!a&&!!b&&a.walkthroughId===b.walkthroughId&&a.draftId===b.draftId&&a.acceptOperationId===b.acceptOperationId&&a.dispatchRevision===b.dispatchRevision&&samePin(a.plan,b.plan)&&sameMechanicsPin(a.original,b.original);
+export function generatedMechanicsReading(scope:GeneratedMechanicsScope|null,opened:OpenSavedMechanicsVersion|null,history:SavedMechanicsVersionList|null,acknowledged:AcknowledgedGeneratedMechanicsSave|null,blocked:boolean):TourOwnerReading|null {
+ if(!scope)return null;
+ const fresh=sameGeneratedMechanicsScope(scope,acknowledged?.scope??null);
+ const operations=[...(history?.operations??[]),...(fresh&&acknowledged?[acknowledged.operation]:[])];
+ const lineage:GeneratedMechanicsEvidence['lineage']=[];let at=opened?.locator;const seen=new Set<string>();
+ if(opened&&history&&opened.world_id===scope.plan.worldId&&opened.draft_id===scope.draftId&&history.world_id===opened.world_id&&history.draft_id===opened.draft_id&&sameMechanicsPin(history.original,scope.original)){
+  while(at&&!sameMechanicsPin(at,scope.original)&&!seen.has(at.revision_id)){
+   seen.add(at.revision_id);
+   const matches=operations.filter(op=>op.state==='committed'&&op.result&&sameMechanicsPin(op.result,at!));
+   const op=matches[0];if(!op||matches.some(other=>other.operation_id!==op.operation_id||!sameMechanicsPin(other.base,op.base)))break;
+   lineage.unshift({operationId:op.operation_id,base:op.base,locator:op.result!});at=op.base;
+  }
+ }
+ const proof:GeneratedMechanicsEvidence={kind:'generated-mechanics-revision',scope,lineage};
+ const ready=!blocked&&!history?.pending&&!!opened&&!!at&&sameMechanicsPin(at,scope.original)&&validGeneratedMechanicsEvidence(proof,scope.plan.worldId);
+ const last=lineage.at(-1),operation=last?operations.find(op=>op.operation_id===last.operationId):null;
+ const isFresh=fresh&&!!last&&acknowledged?.operation.operation_id===last.operationId;
+ return {step:'mechanics',target:scope.plan,control:'mechanics',status:ready?'ready':'unavailable',reason:ready?undefined:'Open the generated creature’s saved mechanics and a verified manual successor. Finish or recover pending edits first.',dispatchScope:isFresh?acknowledged?.dispatchScope:null,
+  ...(ready&&last&&operation?{observation:{step:'mechanics',target:scope.plan,origin:isFresh?'acknowledged':'existing',observedAt:operation.created_at,receiptId:`mechanics:${operation.operation_id}:${last.locator.revision_id}`,proof}}:{})};
+}
+export function GeneratedMechanicsTourObservation(props:{scope:GeneratedMechanicsScope|null;opened:OpenSavedMechanicsVersion|null;history:SavedMechanicsVersionList|null;acknowledged:AcknowledgedGeneratedMechanicsSave|null;blocked:boolean}){useTourOwnerReading(generatedMechanicsReading(props.scope,props.opened,props.history,props.acknowledged,props.blocked));return null;}

@@ -3,7 +3,7 @@ import type {AcceptThreatDraftMechanicsResponseV1,ReadStatblockCandidateResponse
 import type {StoredGenerationAttempt} from '../surface/modules/statblockDraftScope';
 import {persistGenerationAttempt,readGenerationAttempt,settleGenerationAttempt} from '../surface/modules/statblockDraftScope';
 import {generationReading} from './GenerationObservations';
-import {createWalkthrough,decodeWalkthrough,generationScope,reduceTour,sameGenerationScope,type TargetPin} from './protocol';
+import {createWalkthrough,mechanicsGenerationScope,decodeWalkthrough,generationScope,reduceTour,sameGenerationScope,type TargetPin} from './protocol';
 import {readWalkthrough,writeWalkthrough} from './storage';
 import fixture from '../../../../tests/fixtures/statblocks/v1/candidate-response.json';
 const plan:TargetPin={kind:'plan',worldId:'conks',objectId:'plan',revision:2,revisionId:'wr2',digest:'a'.repeat(64)};
@@ -58,4 +58,16 @@ it('observations do not invalidate a pending dispatch, and retries cannot rewrit
  expect(()=>persistGenerationAttempt(owner,{...attempt,tour_scope:{...x.scope,dispatchRevision:99}})).toThrow('attribution');
  expect(()=>persistGenerationAttempt(owner,{...attempt,tour_dispatch_instance_id:'another'})).toThrow('attribution');
  expect(readGenerationAttempt(owner)).toEqual(attempt);
+});
+
+it('binds standalone manual lineage to the actual generation acceptance and preserves its stored proof',()=>{
+ const x=shapes(),generated=generationReading(x.attempt,x.draft,x.candidate,x.accepted,true,true,'second')!.observation!;
+ const walk=reduceTour(reduceTour(x.walk,{kind:'observe',observation:generated}),{kind:'move',index:5});
+ const binding=mechanicsGenerationScope(walk,plan,'draft')!;expect(binding.original).toEqual(locator);
+ const observation={step:'mechanics' as const,target:plan,observedAt:stamp,origin:'acknowledged' as const,receiptId:'manual:op',proof:{kind:'generated-mechanics-revision' as const,scope:binding,lineage:[{operationId:'op',base:locator,locator:{...locator,revision_id:'manual',definition_digest:'sha256:'+'d'.repeat(64)}}]}};
+ const recorded=reduceTour(walk,{kind:'observe',observation});expect(recorded.steps.mechanics.state).toBe('completed');expect(decodeWalkthrough(JSON.stringify(recorded),'conks')).toEqual(recorded);
+ for(const missing of ['generation','wrong-accept'] as const){const tampered=structuredClone(recorded);if(missing==='generation'){tampered.steps.generation.evidence=[];tampered.steps.generation.state='pending';}else if(tampered.steps.mechanics.evidence[0].proof?.kind==='generated-mechanics-revision')tampered.steps.mechanics.evidence[0].proof.scope.acceptOperationId='other';expect(()=>decodeWalkthrough(JSON.stringify(tampered),'conks')).toThrow('matching generation');}
+ expect(mechanicsGenerationScope(walk,plan,'other')).toBeNull();expect(mechanicsGenerationScope(walk,{...plan,revisionId:'different'},'draft')).toBeNull();
+ for(const stale of [reduceTour(reduceTour(walk,{kind:'move',index:6}),{kind:'move',index:5}),reduceTour(reduceTour(walk,{kind:'phase',phase:'paused'}),{kind:'phase',phase:'running'})])expect(reduceTour(stale,{kind:'observe',observation}).steps.mechanics.state).toBe('existing');
+ const restarted={...walk,id:'new-tour'};expect(reduceTour(restarted,{kind:'observe',observation}).steps.mechanics.evidence).toEqual([]);
 });
