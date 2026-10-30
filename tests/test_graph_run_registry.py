@@ -177,17 +177,16 @@ def test_source_artifact_idempotent_and_collision_safe(tmp_path: Path) -> None:
     )
     assert first.source_artifact_id == second.source_artifact_id
 
-    # Corrupt registry foreign key while keeping the same id prefix path.
-    registry_path = tmp_path / "out/registries/source_artifacts.json"
-    payload = json.loads(registry_path.read_text(encoding="utf-8"))
-    payload["records"][0]["campaign_id"] = "other-world"
-    registry_path.write_text(json.dumps(payload), encoding="utf-8")
-    with pytest.raises(SourceArtifactRegistryError, match="collision|malformed|campaign"):
-        create_source_artifact_from_workspace_document(
-            tmp_path,
-            document_id=record.document_id,
-            expected_revision=record.revision,
-        )
+    # The immutable input owner rejects registration with changed scope.
+    from apps.live_control_server.services.source_artifact_registry import (
+        _upsert_source_artifact, load_registered_source_artifact_text,
+    )
+    content = load_registered_source_artifact_text(tmp_path, first.source_artifact_id)[1]
+    with pytest.raises(SourceArtifactRegistryError, match="identity does not match the persisted source") as exc:
+        _upsert_source_artifact(tmp_path, content=content,
+            candidate=first.model_copy(update={"campaign_id": "other-world"}))
+    assert exc.value.status_code == 409
+    assert get_source_artifact(tmp_path, first.source_artifact_id) == first
 
 
 def test_worldbuilding_span_persists_and_resolves(tmp_path: Path) -> None:
@@ -1217,19 +1216,16 @@ def test_historical_recap_inspection_reads_validated_run(tmp_path: Path) -> None
     assert before.model_dump() == after.model_dump()
 
 
-def test_historical_recap_inspection_does_not_require_source_registry(
-    tmp_path: Path,
+def test_historical_recap_inspection_does_not_require_input_descriptor(
+    tmp_path: Path, application_state_dsn: str,
 ) -> None:
     from apps.live_control_server.services.graph_run_registry import (
         get_historical_recap_inspection,
     )
-    from apps.live_control_server.services.source_artifact_registry import (
-        source_artifacts_path,
-    )
-
-    run, _artifact, source_path = _validated_recap_run(tmp_path)
-    source_registry_path = source_artifacts_path(tmp_path)
-    source_registry_path.unlink()
+    import psycopg
+    run, artifact, source_path = _validated_recap_run(tmp_path)
+    with psycopg.connect(application_state_dsn) as conn:
+        conn.execute("UPDATE source.artifact SET input_descriptor=NULL WHERE source_artifact_id=%s", (artifact.source_artifact_id,))
 
     inspection = get_historical_recap_inspection(tmp_path, run.run_id)
 

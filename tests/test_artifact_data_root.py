@@ -20,10 +20,11 @@ from apps.live_control_server.services.source_artifact_registry import (
     create_recap_source_artifact,
     get_source_artifact,
     load_registered_source_artifact_text,
-    source_artifacts_path,
     source_span_index_path,
 )
 from graph_memory.ingestion.extraction_run import ExtractionRun, ExtractionRunComponentRef
+
+pytestmark = pytest.mark.usefixtures("application_state_dsn")
 
 
 def _ingest_context():
@@ -144,9 +145,9 @@ def test_bad_explicit_root_fails_without_code_fallback(tmp_path, monkeypatch, va
 
 def test_missing_registry_is_not_resolved_from_code(split_roots):
     code, data, _ = split_roots
-    with pytest.raises(SourceArtifactRegistryError, match="not found"):
+    with pytest.raises(SourceArtifactRegistryError, match="not registered in database"):
         get_source_artifact(code, "absent")
-    assert not source_artifacts_path(code).exists()
+    assert not (data / "out/registries/source_artifacts.json").exists()
     assert not (data / "out").exists()
 
 
@@ -157,7 +158,7 @@ def test_source_and_future_producer_share_data_root(split_roots, monkeypatch):
     artifact = create_recap_source_artifact(
         code, world_id="fixture-world", campaign_id="campaign-a", session_id="session-1", recap_path=original,
     )
-    assert source_artifacts_path(code) == data / "out/registries/source_artifacts.json"
+    assert not (data / "out/registries/source_artifacts.json").exists()
     assert load_registered_source_artifact_text(code, artifact.source_artifact_id)[1] == original.read_text()
     assert graph_ingest_output_root(code).is_relative_to(data)
     from tests.test_recap_managed_standing_context import seed_binding
@@ -245,13 +246,14 @@ def test_registry_and_seal_symlink_escape_fail(split_roots, monkeypatch, tmp_pat
     seal_parent.symlink_to(outside, target_is_directory=True)
     with pytest.raises(PromotableIngestRunError, match="seal escapes"):
         resolve_promotable_ingest_run(run.run_id, root=code)
-    registry = source_artifacts_path(code)
+    # A planted historical registry path is inert, even if it points outside.
+    registry = data / "out/registries/source_artifacts.json"
+    registry.parent.mkdir(parents=True, exist_ok=True)
     copied = outside / "registry.json"
-    copied.write_bytes(registry.read_bytes())
-    registry.unlink()
+    copied.write_text("not source authority")
     registry.symlink_to(copied)
-    with pytest.raises(SourceArtifactRegistryError, match="escapes"):
-        get_source_artifact(code, artifact.source_artifact_id)
+    assert get_source_artifact(code, artifact.source_artifact_id) == artifact
+
     assert not list(outside.glob("*/normalized_source.md"))
 
 
@@ -274,7 +276,7 @@ def test_confirm_owner_uses_declared_root_and_rejects_relocation(split_roots, mo
     assert exc.value.code == "candidate_binding_invalid"
 
 
-def test_source_body_symlink_and_scope_drift_fail(split_roots, monkeypatch, tmp_path):
+def test_source_mirror_is_inert_and_database_scope_drift_fails(split_roots, monkeypatch, tmp_path, application_state_dsn):
     code, data, _ = split_roots
     artifact, run, files, _ = _run(code, data, monkeypatch)
     source = files["source_artifact"]
@@ -282,20 +284,18 @@ def test_source_body_symlink_and_scope_drift_fail(split_roots, monkeypatch, tmp_
     outside.write_bytes(source.read_bytes())
     source.unlink()
     source.symlink_to(outside)
-    with pytest.raises(SourceArtifactRegistryError, match="escapes"):
-        load_registered_source_artifact_text(code, artifact.source_artifact_id)
+    assert load_registered_source_artifact_text(code, artifact.source_artifact_id)[1] == outside.read_text()
     with pytest.raises(PromotableIngestRunError, match="escapes"):
         resolve_promotable_ingest_run(run.run_id, root=code)
     source.unlink()
     source.write_bytes(outside.read_bytes())
-    metadata = source_artifacts_path(code)
-    doc = json.loads(metadata.read_text())
-    doc["records"][0]["session_id"] = "session-2"
-    metadata.write_text(json.dumps(doc))
-    with pytest.raises(
-        SourceArtifactRegistryError,
-        match="World-scoped recap SourceArtifact ID does not match its identity",
-    ):
+    # Test-only metadata corruption must fail at the actual DB input owner.
+    import psycopg
+    with psycopg.connect(application_state_dsn) as conn:
+        conn.execute("""UPDATE source.artifact SET input_descriptor=
+            jsonb_set(input_descriptor, '{session_id}', '"session-2"')
+            WHERE source_artifact_id=%s""", (artifact.source_artifact_id,))
+    with pytest.raises(SourceArtifactRegistryError, match="World-scoped recap SourceArtifact ID does not match its identity"):
         get_source_artifact(code, artifact.source_artifact_id)
     with pytest.raises(
         PromotableIngestRunError,
