@@ -60,60 +60,7 @@ def build_frame(selection, principal):
     supports = []
     for bundle in read["statements"]:
         try:
-            original = statements._recover(repo, space, bundle["payload"])
-            if (
-                original is None
-                or original["bundle"]["statement_id"] != bundle["statement_id"]
-            ):
-                raise ValueError("Original qualified statement publication unavailable")
-            child = original["receipt"]["published_revision_id"]
-            ancestry, seen, cursor = [], set(), selection.revision_id
-            while cursor is not None:
-                if cursor in seen:
-                    raise ValueError("Native correspondence ancestry cycles")
-                seen.add(cursor)
-                node = repo.get_revision(space, cursor)
-                if node is None:
-                    raise ValueError("Native correspondence ancestry unavailable")
-                row = header(node)
-                ancestry.append(row)
-                if cursor == child:
-                    if (
-                        row["parent_revision_id"]
-                        != original["receipt"]["expected_parent_revision_id"]
-                        or row["graph_sha256"]
-                        != original["receipt"]["graph_payload_sha256"]
-                    ):
-                        raise ValueError("Native original receipt/header differs")
-                    break
-                cursor = row["parent_revision_id"]
-            else:
-                raise ValueError("Read revision is not descended from publication")
-            payload = bundle["payload"]
-            opened = open_admitted_native_text(
-                pinned[1], payload["proof"]["evidence_ref_id"]
-            )
-            if opened.status != "available":
-                raise ValueError("Exact admitted source unavailable")
-            clause = payload["clause"]
-            supports.append(
-                {
-                    "statement_id": bundle["statement_id"],
-                    "payload": payload,
-                    "semantic_digest": bundle["semantic_digest"],
-                    "assertion_ids": bundle["assertion_ids"],
-                    "publication_receipt": original["receipt"],
-                    "result_mappings": original["bindings"],
-                    "ancestry": ancestry,
-                    "source_artifact_id": opened.source_artifact_id,
-                    "source_revision_id": opened.source_revision_id,
-                    "source_body_sha256": opened.body_sha256,
-                    "clause_start_byte": clause["start_byte"],
-                    "clause_end_byte": clause["end_byte"],
-                    "clause_sha256": clause["clause_sha256"],
-                    "clause_text": payload["quote"],
-                }
-            )
+            supports.append(build_support(repo, space, selection.revision_id, bundle, pinned))
         except (ValueError, TypeError, KeyError, AttributeError):
             gaps.append("statement_correspondence_unavailable")
     if statements.native.binding(selection.managed_world_id) != bound:
@@ -140,3 +87,61 @@ def build_frame(selection, principal):
             }
         )
     )
+
+
+def build_support(repo, space, revision_id, bundle, pinned, *, with_body_size=False):
+    """One original publication/source proof, shared by both read owners."""
+    original = statements._recover(repo, space, bundle["payload"])
+    if (
+        original is None
+        or original["bundle"]["statement_id"] != bundle["statement_id"]
+    ):
+        raise ValueError("Original qualified statement publication unavailable")
+    child = original["receipt"]["published_revision_id"]
+    ancestry, seen, cursor = [], set(), revision_id
+    while cursor is not None:
+        if cursor in seen:
+            raise ValueError("Native correspondence ancestry cycles")
+        seen.add(cursor)
+        node = repo.get_revision(space, cursor)
+        if node is None:
+            raise ValueError("Native correspondence ancestry unavailable")
+        row = header(node)
+        ancestry.append(row)
+        if cursor == child:
+            if (
+                row["parent_revision_id"]
+                != original["receipt"]["expected_parent_revision_id"]
+                or row["graph_sha256"]
+                != original["receipt"]["graph_payload_sha256"]
+            ):
+                raise ValueError("Native original receipt/header differs")
+            break
+        cursor = row["parent_revision_id"]
+    else:
+        raise ValueError("Read revision is not descended from publication")
+    payload = bundle["payload"]
+    opened = open_admitted_native_text(
+        pinned[1], payload["proof"]["evidence_ref_id"]
+    )
+    if opened.status != "available":
+        raise ValueError("Exact admitted source unavailable")
+    clause = payload["clause"]
+    support = {
+        "statement_id": bundle["statement_id"],
+        "payload": payload,
+        "semantic_digest": bundle["semantic_digest"],
+        "assertion_ids": bundle["assertion_ids"],
+        "publication_receipt": original["receipt"],
+        "result_mappings": original["bindings"],
+        "ancestry": ancestry,
+        "source_artifact_id": opened.source_artifact_id,
+        "source_revision_id": opened.source_revision_id,
+        "source_body_sha256": opened.body_sha256,
+        "clause_start_byte": clause["start_byte"],
+        "clause_end_byte": clause["end_byte"],
+        "clause_sha256": clause["clause_sha256"],
+        "clause_text": payload["quote"],
+    }
+
+    return (support, len(opened.body_text.encode("utf-8"))) if with_body_size else support

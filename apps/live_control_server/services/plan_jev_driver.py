@@ -17,6 +17,7 @@ class PlanJevDriver:
         self.native_sources = navigator(adapter)
         self.dialogue = [{"role": item["role"], "content": item["content"]} for item in dialogue]
         self.catalog = {}
+        self.native_statement_attempts = set()
         self.node_kinds = {}
         self.graph_available = adapter.bootstrap is not None
         if self.graph_available:
@@ -73,6 +74,12 @@ class PlanJevDriver:
                 seen.add(key)
         if self.rules is not None and not self.rules.selected:
             result.append(rules_candidate())
+        from application_state.agent_conversation.native_plan_statements import NativePlanQueryV1, selection_handle
+        query = getattr(self.adapter, 'native_query', None)
+        if isinstance(query, NativePlanQueryV1):
+            result.extend(RetrievalCandidate(handle=selection_handle(query, match), label=match.label,
+                kind='Qualified native source statement; select to open its complete attributed support')
+                for match in query.matches if match.statement_id not in self.native_statement_attempts)
         result.extend(self.native_sources.offered())
         return tuple(result)
 
@@ -130,6 +137,13 @@ class PlanJevDriver:
             if not set(selected.selected_handles) <= offered:
                 raise ValueError("Plan selection changed its offered catalog")
             native_handles = {candidate.handle for candidate in self.native_sources.offered()}
+            from application_state.agent_conversation.native_plan_statements import NativePlanQueryV1, selection_handle
+            query = getattr(self.adapter, 'native_query', None)
+            if isinstance(query, NativePlanQueryV1):
+                selected_ids = [m.statement_id for m in query.matches if selection_handle(query, m) in selected.selected_handles]
+                if selected_ids:
+                    self._read_native_statements(selected_ids)
+
             nodes = [self.catalog[handle][0] for handle in selected.selected_handles
                      if handle.startswith("node:")]
             if any(node in self.attempted_nodes for node in nodes):
@@ -164,6 +178,28 @@ class PlanJevDriver:
                     self.rules.lookup_selected(dispatch.parent.model_dump_json(by_alias=True))
             return
         self._read_new_sources(operations)
+
+    def _read_native_statements(self, identities):
+        from uuid import uuid4
+        from .native_plan_statements import read_selected
+        a = self.adapter
+        if self.native_statement_attempts & set(identities):
+            raise ValueError('Native statement cannot be reacquired')
+        grant_id = uuid4()
+        # The owning APP fence validates the current acknowledged Jev selection.
+        from .agent_turn_service import _require_fresh_execution_append
+        a.turn = _require_fresh_execution_append(a.fence.append('authorize_native_plan_statement_read', 'event_id', grant_id,
+            statement_ids=tuple(identities)))
+        self.native_statement_attempts.update(identities)
+        from application_state.agent_conversation.native_plan_statements import NativePlanStatementReadAuthorizedV1
+        grant = next(e for e in a.fence.turn.graph_context_execution.events
+            if isinstance(e, NativePlanStatementReadAuthorizedV1) and e.event_id == grant_id)
+        context = a.native_query_context
+        reads, unavailable = read_selected(context, grant, context.principal)
+        a.turn = _require_fresh_execution_append(a.fence.append('observe_native_plan_statement_read', 'event_id', uuid4(),
+            authorization_event_id=grant_id, reads=reads, unavailable_statement_ids=unavailable))
+        if unavailable:
+            self.gaps.append('native_statement_support_unavailable')
 
     async def run(self, *, transport=None, api_key=None):
         async def authorize(prepared):

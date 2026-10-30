@@ -125,7 +125,7 @@ _LOG = logging.getLogger(__name__)
 def _is_provider_authorization(event: Any) -> bool:
     return getattr(event, "kind", None) in {
         "provider_attempt_authorized", "provider_attempt_authorized_v2",
-        "provider_attempt_authorized_v3", "provider_attempt_authorized_v4", "provider_attempt_authorized_v5", "plan_jev_provider_authorized_v1", "plan_requested_work_authorized_v1", "plan_requested_work_authorized_v2", "plan_jev_writer_authorized_v1", "plan_jev_writer_authorized_v2",
+        "provider_attempt_authorized_v3", "provider_attempt_authorized_v4", "provider_attempt_authorized_v5", "plan_jev_provider_authorized_v1", "plan_requested_work_authorized_v1", "plan_requested_work_authorized_v2", "plan_jev_writer_authorized_v1", "plan_jev_writer_authorized_v2", "plan_native_writer_authorized_v1",
     }
 
 
@@ -1720,6 +1720,7 @@ class _PolicyExecutionAdapter:
         expected_conversation_id: UUID | None = None,
         native_corpus_context=None,
         native_source_authority=None,
+        native_query_context=None, native_query=None,
     ) -> None:
         self.rules_runtime = None
         self.native_source_reply = None
@@ -1734,6 +1735,7 @@ class _PolicyExecutionAdapter:
         self.bootstrap = bootstrap
         self.native_corpus_context = native_corpus_context
         self.native_source_authority = native_source_authority
+        self.native_query_context, self.native_query = native_query_context, native_query
         if native_source_authority is not None:
             from application_state.agent_conversation.native_corpus import NativeCorpusAuthorityV1
             if native_source_authority.managed_world_id != world_id:
@@ -1979,7 +1981,7 @@ class _PolicyExecutionAdapter:
                         self.request, self.work, self.bootstrap, self.playable_target, view, self.budget,
                         context_read_enabled=self.context_read_enabled, plan_jev_request=plan_jev_request)
                 receipt, execution, membership = freeze(self.request, self.work, self.playable_target,
-                    view, self.budget, authority=self.native_source_authority,
+                    view, self.budget, authority=self.native_source_authority, native_query=self.native_query,
                     graph_receipt=graph_receipt, graph_policy=graph_execution.policy if graph_execution is not None else None,
                     plan_jev_request=plan_jev_request)
             else:
@@ -5862,7 +5864,7 @@ def _evidence_anchor_open_projection(
         (
             event for event in execution.events
             if getattr(event, "kind", None) in {
-                "provider_attempt_authorized_v2", "provider_attempt_authorized_v3", "provider_attempt_authorized_v4", "provider_attempt_authorized_v5", "plan_jev_writer_authorized_v1", "plan_jev_writer_authorized_v2",
+                "provider_attempt_authorized_v2", "provider_attempt_authorized_v3", "provider_attempt_authorized_v4", "provider_attempt_authorized_v5", "plan_jev_writer_authorized_v1", "plan_jev_writer_authorized_v2", "plan_native_writer_authorized_v1",
             }
             and binding is not None
             and event.provider_attempt_id == binding.provider_attempt_id
@@ -6261,8 +6263,9 @@ def project_plan_turn_context(
             completed=turn.status == "completed",
         )
     if isinstance(receipt, _app_state_graph_execution_types().PlanSourceContextReceiptV1):
-        from apps.live_control_server.models.agent_turn import AgentPlanSourceContextResponseV1
-        return AgentPlanSourceContextResponseV1(receipt=receipt, completion=turn.completion,
+        from apps.live_control_server.models.agent_turn import AgentPlanSourceContextResponseV1, AgentPlanNativeContextResponseV1
+        response_type = AgentPlanNativeContextResponseV1 if isinstance(receipt, _app_state_graph_execution_types().PlanNativeContextReceiptV1) else AgentPlanSourceContextResponseV1
+        return response_type(receipt=receipt, completion=turn.completion,
             execution=execution_projection, delivery_replay=delivery_replay)
     from .agent_source_names import source_names_for_turns
     if source_names is None:
@@ -6493,6 +6496,7 @@ def execute_agent_turn(
     historical_work_resolver: HistoricalWorkResolver | None = None,
     graph_resolver: GraphResolver,
     plan_graph_resolver: PlanGraphResolver | None = None,
+    native_plan_query_resolver=None,
     runtime: AgentRuntime | None = None,
     runtime_factory: Callable[[], AgentRuntime | None] | None = None,
     build_runtime_factory: Any | None = None,
@@ -6601,6 +6605,7 @@ def execute_agent_turn(
     native_plan_sources = (request.surface.surface_id == "plan" and request.plan_context_policy is not None
         and (durable_turn is None or isinstance(durable_turn.graph_context_receipt, graph_types.PlanSourceContextReceiptV1)))
     native_corpus_context = native_source_authority = None
+    native_query_context = native_query = None
     selected_knowledge_context = None
     if request.selected_knowledge is not None:
         if conversation_service is None or not operator_subject:
@@ -6965,7 +6970,11 @@ def execute_agent_turn(
         # The source owner is established first. A provisioning-only World has
         # no Graph capability; missing Graph cannot suppress source/Rules work.
         frozen_graph = frozen.graph_capability if frozen is not None else None
-        if plan_graph_resolver is not None and (frozen is None or frozen_graph is not None):
+        if native_plan_query_resolver is not None and (frozen is None or hasattr(frozen, 'native_query')):
+            with trace.phase('plan_native_statement_query'):
+                native_query_context, native_query = native_plan_query_resolver(
+                    request, owner, work, frozen, native_corpus_context)
+        elif plan_graph_resolver is not None and (frozen is None or frozen_graph is not None):
             try:
                 with trace.phase("plan_optional_graph_context") as parent_span_id:
                     policy_bootstrap = plan_graph_resolver(request, owner, work, frozen_graph, parent_span_id)
@@ -7428,6 +7437,7 @@ def execute_agent_turn(
             expected_conversation_id=policy_conversation_id,
             native_corpus_context=native_corpus_context,
             native_source_authority=native_source_authority,
+            native_query_context=native_query_context, native_query=native_query,
         )
         if isinstance(selected_runtime, BuildJevHarness):
             adapter.build_image_owner = operator_subject

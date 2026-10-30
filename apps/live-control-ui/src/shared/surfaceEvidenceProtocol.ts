@@ -1,15 +1,17 @@
+import {isNativeClauseCitation} from './nativeStatementAnswerProtocol';
 import {isNativeSourceCitation,isNativeBodyCitation} from './nativeSourceCitationProtocol';
-import type {SurfaceEvidenceCompletion,PlanSourceContextReceiptV1,WorldPlanGraphContextReceiptV1,WorldPlayGraphContextReceiptV1} from "../api/types";
+import type {SurfaceEvidenceCompletion,PlanNativeContextReceiptV1,PlanSourceContextReceiptV1,WorldPlanGraphContextReceiptV1,WorldPlayGraphContextReceiptV1} from "../api/types";
 import {exact, canonical, isSurfaceSourceCompletion} from "./sourcePassageProtocol";
 const text = (v:unknown):v is string => typeof v === 'string' && !!v.trim();
 const hash = (v:unknown):v is string => typeof v === 'string' && /^[a-f0-9]{64}$/.test(v);
 const sorted = (v:unknown):v is string[] => Array.isArray(v) && v.every((x,i) => text(x) && (!i || v[i-1] < x));
 /** Closed presentation shape. The server independently proves producer input and authority. */
 export function isSurfaceEvidenceCompletion(v:unknown, receiptHash:string, surface:'plan'|'play'):v is SurfaceEvidenceCompletion {
-  const native=typeof v==='object' && v!==null && 'schema' in v && ['dmb_surface_evidence_completion_v3','dmb_surface_evidence_completion_v4','dmb_surface_evidence_completion_v5'].includes(String(v.schema));
-  const body=typeof v==='object' && v!==null && 'schema' in v && v.schema==='dmb_surface_evidence_completion_v5';
-  if (!exact(v,['schema','surface_id','context_receipt_sha256','answer_basis','answer_context_status','answer_segments','citation_map','source_citations',...(native ? ['native_source_citations']:[]),...(body ? ['native_body_citations']:[])])
-    || !['dmb_surface_evidence_completion_v1','dmb_surface_evidence_completion_v2','dmb_surface_evidence_completion_v3','dmb_surface_evidence_completion_v4','dmb_surface_evidence_completion_v5'].includes(String(v.schema)) || body && surface!=='plan' || v.surface_id !== surface || v.context_receipt_sha256 !== receiptHash
+  const native=typeof v==='object' && v!==null && 'schema' in v && ['dmb_surface_evidence_completion_v3','dmb_surface_evidence_completion_v4','dmb_surface_evidence_completion_v5','dmb_surface_evidence_completion_v6'].includes(String(v.schema));
+  const statement=typeof v==='object' && v!==null && 'schema' in v && v.schema==='dmb_surface_evidence_completion_v6';
+  const body=typeof v==='object' && v!==null && 'schema' in v && (v.schema==='dmb_surface_evidence_completion_v5'||statement);
+  if (!exact(v,['schema','surface_id','context_receipt_sha256','answer_basis','answer_context_status','answer_segments','citation_map','source_citations',...(native ? ['native_source_citations']:[]),...(body ? ['native_body_citations']:[]),...(statement ? ['native_clause_citations']:[])])
+    || !['dmb_surface_evidence_completion_v1','dmb_surface_evidence_completion_v2','dmb_surface_evidence_completion_v3','dmb_surface_evidence_completion_v4','dmb_surface_evidence_completion_v5','dmb_surface_evidence_completion_v6'].includes(String(v.schema)) || body && surface!=='plan' || v.surface_id !== surface || v.context_receipt_sha256 !== receiptHash
     || v.answer_basis !== 'mixed_evidence' || !Array.isArray(v.answer_segments) || !v.answer_segments.length || v.answer_segments.length > 128
     || !Array.isArray(v.source_citations) || v.source_citations.length > 16384) return false;
   const claims = new Map<string,{index:number;segment:Record<string,unknown>}>(), sources = new Set<number>();
@@ -37,7 +39,7 @@ export function isSurfaceEvidenceCompletion(v:unknown, receiptHash:string, surfa
         || !['plan','session','play'].includes(String(s.source_kind)) || ![s.source_handle,s.source_name,s.object_id,s.revision].every(text)
         || !hash(s.body_sha256) || !hash(s.owner_sha256)) return false;
       authored=true;
-    } else if (s.kind === 'session_summary' && ['dmb_surface_evidence_completion_v4','dmb_surface_evidence_completion_v5'].includes(String(v.schema))) {
+    } else if (s.kind === 'session_summary' && ['dmb_surface_evidence_completion_v4','dmb_surface_evidence_completion_v5','dmb_surface_evidence_completion_v6'].includes(String(v.schema))) {
       if(!exact(s,['kind','text','supports']) || !Array.isArray(s.supports) || !s.supports.length) return false;
       const supportBlocks=new Set<string>();
       for(const support of s.supports) {
@@ -92,6 +94,14 @@ export function isSurfaceEvidenceCompletion(v:unknown, receiptHash:string, surfa
       if(seen.has(key)) return false; seen.add(key); cited.add(c.segment_index);
     }
   }
+  if(statement) {
+    if(!Array.isArray(v.native_clause_citations))return false;
+    for(const c of v.native_clause_citations) {
+      if(!isNativeClauseCitation(c,receiptHash)||v.answer_segments[c.segment_index]?.kind!=='source_passage_claim')return false;
+      const key=canonical(['statement',c.segment_index,c.statement_id]);
+      if(seen.has(key))return false;seen.add(key);cited.add(c.segment_index);
+    }
+  }
   if([...sources].some(i => !cited.has(i))) return false;
   const map=v.citation_map;
   if(!claims.size) { if(map !== null) return false; }
@@ -113,11 +123,19 @@ export function isSurfaceEvidenceCompletion(v:unknown, receiptHash:string, surfa
 }
 
 
-export function surfaceEvidenceReceiptBound(c:SurfaceEvidenceCompletion,r:WorldPlanGraphContextReceiptV1|WorldPlayGraphContextReceiptV1|PlanSourceContextReceiptV1):boolean {
+export function surfaceEvidenceReceiptBound(c:SurfaceEvidenceCompletion,r:WorldPlanGraphContextReceiptV1|WorldPlayGraphContextReceiptV1|PlanSourceContextReceiptV1|PlanNativeContextReceiptV1):boolean {
   if(c.context_receipt_sha256 !== r.context_receipt_sha256) return false;
   const plan=r.schema !== 'dmb_play_world_graph_context_receipt_v1';
-  const source=r.schema==='dmb_plan_source_context_receipt_v1';
-  if((c.schema==='dmb_surface_evidence_completion_v5') !== source) return false;
+  const statement=r.schema==='dmb_plan_native_context_receipt_v1';
+  const source=r.schema==='dmb_plan_source_context_receipt_v1'||statement;
+  if((c.schema==='dmb_surface_evidence_completion_v5'||c.schema==='dmb_surface_evidence_completion_v6') !== source
+    || (c.schema==='dmb_surface_evidence_completion_v6')!==statement) return false;
+  if(statement && c.schema==='dmb_surface_evidence_completion_v6') {
+    const q=r.native_query;
+    if(c.native_clause_citations.some(x=>q.schema!=='dmb_native_plan_query_v1'||x.managed_world_id!==q.authority.managed_world_id
+      ||x.native_world_id!==q.authority.native_world_id||x.read_revision_id!==q.authority.revision_id
+      ||!q.matches.some(m=>m.statement_id===x.statement_id&&m.campaign_id===x.campaign_id)))return false;
+  }
   const graph=source ? r.graph_capability : r;
   if(c.surface_id !== (plan ? 'plan':'play')) return false;
   return c.answer_segments.every(s=>{

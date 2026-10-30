@@ -285,6 +285,9 @@ def project(turn, proof, trace):
         frame['schema'] = 'dmb_plan_jev_writer_frame_v6'
         frame['answer_policy'] = BODY_POLICY
         frame['native_body_evidence'] = model_body_frame(turn)
+    if isinstance(receipt, t.PlanNativeContextReceiptV1):
+        from .native_plan_statements import model_frame, POLICY
+        frame.update(schema='dmb_plan_jev_writer_frame_v7', answer_policy=POLICY, native_statements=model_frame(turn))
     if isinstance(execution.policy, t.PlanAuthoringPolicyV1):
         choices = [event for event in execution.events if isinstance(event, t.PlanRequestedWorkSelectedV1)]
         if len(choices) != 1:
@@ -322,7 +325,7 @@ def frame_in_request(raw):
             value = strict_json(content)
         except (ValueError, TypeError):
             continue
-        if isinstance(value, dict) and value.get("schema") in {SCHEMA,"dmb_plan_jev_writer_frame_v6","dmb_plan_jev_writer_frame_v4","dmb_plan_jev_writer_frame_v3","dmb_plan_jev_writer_frame_v2","dmb_plan_jev_writer_frame_v1"}:
+        if isinstance(value, dict) and value.get("schema") in {SCHEMA,"dmb_plan_jev_writer_frame_v7","dmb_plan_jev_writer_frame_v6","dmb_plan_jev_writer_frame_v4","dmb_plan_jev_writer_frame_v3","dmb_plan_jev_writer_frame_v2","dmb_plan_jev_writer_frame_v1"}:
             frames.append(value)
     if len(frames) != 1:
         raise ValueError("Plan writer requires one exact evidence frame")
@@ -345,6 +348,9 @@ def verify_writer_input(turn, authorization, raw, proof, trace):
             or tuple(authorization.included_relationship_ids) != projected.relationship_ids
             or tuple(authorization.included_evidence_ref_ids) != projected.evidence_ref_ids):
         raise ValueError("Plan writer actual input differs from its exact opened evidence projection")
+    if isinstance(turn.graph_context_receipt, t.PlanNativeContextReceiptV1):
+        from .native_plan_statements import producing_reads
+        producing_reads(turn, authorization, raw)
     from .plan_writer_output_schema import verify_format
     from .rules_authority_plan_packet import _frame_in_actual_request
     verify_format(body, projected.frame, _frame_in_actual_request(body))

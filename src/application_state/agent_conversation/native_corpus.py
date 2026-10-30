@@ -403,19 +403,7 @@ def validate_native_body_events(execution):
             included = [reads.get(identity) for identity in event.read_event_ids]
             if any(row is None or row.excerpt is None for row in included):
                 raise ValueError("Native body inclusion references unavailable or unknown reads")
-            exposures, explicit_full, sizes = {}, set(), {}
-            for row in included:
-                excerpt = row.excerpt
-                catalog = next(c for c in search.catalogs if c.catalog_sha256 == excerpt.catalog_sha256)
-                pair = (catalog.source.artifact.source_artifact_id,
-                    catalog.source.revision.source_revision_id, catalog.source.revision.content_sha256)
-                exposures.setdefault(pair, []).append((excerpt.section.byte_start, excerpt.section.byte_end))
-                sizes[pair] = catalog.body_bytes
-                if excerpt.selector_policy == "native_full_document_v1":
-                    explicit_full.add(pair)
-            if any(covers_full_document(ranges, sizes[pair]) and pair not in explicit_full
-                    for pair, ranges in exposures.items()):
-                raise ValueError("Accumulated whole-document exposure requires an explicit full-document decision")
+            validate_combined_exposure(execution, included)
             expected = sha256(canonical(body_frame(included)).encode()).hexdigest()
             if expected != event.frame_sha256:
                 raise ValueError("Native body inclusion frame differs from selected excerpts")
@@ -617,7 +605,7 @@ def prove_body_writer_input(turn, authorization, raw, *, sequence, event_id):
     if sha256(raw.encode()).hexdigest() != authorization.envelope_sha256:
         raise ValueError('Native body inclusion differs from actual SDK bytes')
     frame = frame_in_request(raw)
-    if (frame.get('schema') != 'dmb_plan_jev_writer_frame_v6'
+    if (frame.get('schema') not in {'dmb_plan_jev_writer_frame_v6', 'dmb_plan_jev_writer_frame_v7'}
             or canonical_sha256(frame) != authorization.frame_sha256
             or frame.get('native_body_evidence') != model_body_frame(turn)):
         raise ValueError('Native body actual writer frame changed selected bytes or extent')
@@ -703,3 +691,33 @@ def validate_body_citations(completion, receipt, execution, producer):
 def body_input_partial(execution):
     return any(isinstance(event, NativeBodySearchObservedV1) and event.unavailable_source_count > 0
         or isinstance(event, NativeBodyReadObservedV1) and event.excerpt is None for event in execution.events)
+
+
+def validate_combined_exposure(execution, body_reads):
+    """One source-byte union guard across body and qualified-statement exposures."""
+    from .native_plan_statements import NativePlanStatementReadObservedV1
+    searches = [event for event in execution.events if isinstance(event, NativeBodySearchObservedV1)]
+    catalogs = {c.catalog_sha256: c for search in searches for c in search.catalogs}
+    exposures, sizes, explicit_full = {}, {}, set()
+    def include(pair, start, end, size):
+        if pair in sizes and sizes[pair] != size:
+            raise ValueError('Native evidence kinds disagree on original body size')
+        sizes[pair] = size
+        exposures.setdefault(pair, []).append((start, end))
+    for row in body_reads:
+        excerpt = row.excerpt
+        catalog = catalogs[excerpt.catalog_sha256]
+        pair = (catalog.source.artifact.source_artifact_id, catalog.source.revision.source_revision_id,
+            catalog.source.revision.content_sha256)
+        include(pair, excerpt.section.byte_start, excerpt.section.byte_end, catalog.body_bytes)
+        if excerpt.selector_policy == 'native_full_document_v1':
+            explicit_full.add(pair)
+    for event in execution.events:
+        if isinstance(event, NativePlanStatementReadObservedV1):
+            for read in event.reads:
+                s = read.support
+                include((s.source_artifact_id, s.source_revision_id, s.source_body_sha256),
+                    s.clause_start_byte, s.clause_end_byte, read.source_body_bytes)
+    if any(covers_full_document(ranges, sizes[pair]) and pair not in explicit_full
+            for pair, ranges in exposures.items()):
+        raise ValueError('Accumulated whole-document exposure requires an explicit full-document decision')

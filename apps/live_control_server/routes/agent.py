@@ -747,8 +747,19 @@ def _plan_context_resolver(
     trace: AgentTurnTraceBuilder | None = None,
     parent_span_id: str | None = None,
     frozen_source_scope: Any | None = None,
+    native_source_context=None, native_query_mode=False, native_principal=None,
 ) -> AgentPlanWorldGraphBootstrap:
     """Resolve one source-free, revision-pinned DungeonMind retrieval packet."""
+    if native_query_mode:
+        from apps.live_control_server.services.native_plan_statements import prepare_query
+        if owner is None or owner.get('kind') != 'world' or work is None or work.world_id != owner.get('id') or body.surface.surface_id != 'plan':
+            raise AgentTurnServiceError('Native Plan query scope differs from saved work.', code='plan_context_scope_rejected', status_code=403)
+        from application_state.agent_conversation.native_plan_statements import NativePlanQueryV1
+        frozen_query = getattr(frozen_receipt, 'native_query', None)
+        return prepare_query(work.world_id, body.message, native_principal,
+            source_context=native_source_context,
+            revision_id=frozen_query.authority.revision_id if isinstance(frozen_query, NativePlanQueryV1) else None)
+
     from graph_memory.interaction.authority_classifier import (
         claims_from_retrieval_result,
     )
@@ -1965,6 +1976,9 @@ def _execute_agent_turn(body: AgentTurnRequest, request: Request) -> dict[str, A
                 turn, owner, work, receipt, trace=trace,
                 parent_span_id=parent_span_id, frozen_source_scope=frozen_source_scope,
             ),
+            native_plan_query_resolver=lambda turn, owner, work, receipt, source_context: _plan_context_resolver(
+                turn, owner, work, receipt, trace=trace, native_query_mode=True,
+                native_source_context=source_context, native_principal=principal),
             runtime_factory=lambda: getattr(
                 request.app.state, "agent_turn_runtime", None
             ),

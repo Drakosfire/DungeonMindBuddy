@@ -75,6 +75,10 @@ class StatementError(ValueError):
         super().__init__(message)
 
 
+class StatementUnavailableError(StatementError):
+    """Core could not find the selected statement; this is not an absence proof."""
+
+
 def _refuse(code, message):
     raise StatementError(code, message)
 
@@ -84,7 +88,7 @@ def semantic_digest(payload):
     return transport.digest({k: v for k, v in payload.items() if k != "proof"})
 
 
-def _context(repo, space, revision, campaign, role="gm"):
+def _context(repo, space, revision, campaign, role="gm", *, scope_mode="campaign"):
     domain, profile = native.descriptors(repo, space, revision)
     access = open_native_text_source_access_context(
         repository=repo,
@@ -98,7 +102,7 @@ def _context(repo, space, revision, campaign, role="gm"):
         projection_input=DungeonBuddyVNextProjectionInput(
             world_id=space,
             revision_id=revision,
-            scope_mode="campaign",
+            scope_mode=scope_mode,
             campaign_id=campaign,
             role=role,
         ),
@@ -303,7 +307,9 @@ def _bundle(repo, space, revision, campaign, statement_id, role="gm", pinned=Non
         else _context(repo, space, revision, campaign, role)
     )
     statement = EntityReadService().get_complete_entity(read, statement_id)
-    if not statement.found or statement.completeness.status != "complete":
+    if not statement.found:
+        raise StatementUnavailableError("statement_bundle_unavailable", "Complete statement is unavailable")
+    if statement.completeness.status != "complete":
         _refuse("statement_bundle_unavailable", "Complete statement is unavailable")
     summaries = [
         a

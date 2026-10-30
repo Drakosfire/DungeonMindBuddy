@@ -54,3 +54,30 @@ describe('host-materialized authored blocks',()=>{
     expect(isSurfaceEvidenceCompletion(c,'a'.repeat(64),'plan')).toBe(false);
   });
 });
+
+describe('native statement source reports',()=>{
+  function native():import('../api/types').SurfaceEvidenceCompletionV6 {
+    return {schema:'dmb_surface_evidence_completion_v6',surface_id:'plan',context_receipt_sha256:'a'.repeat(64),
+      answer_basis:'mixed_evidence',answer_context_status:'source_grounded',citation_map:null,
+      source_citations:[],native_source_citations:[],native_body_citations:[],
+      answer_segments:[{kind:'source_passage_claim',text:'Source reports: an uncertain escape.'}],
+      native_clause_citations:[{segment_index:0,statement_id:'ent:statement',provider_attempt_id:'attempt',
+        envelope_sha256:'b'.repeat(64),context_receipt_sha256:'a'.repeat(64),managed_world_id:'world',native_world_id:'native',
+        campaign_id:'c1',read_revision_id:'rev:R',publication_revision_id:'rev:C',source_artifact_id:'source',
+        source_revision_id:'source:1',body_sha256:'c'.repeat(64),start_byte:0,end_byte:10,
+        clause_sha256:'d'.repeat(64),semantic_digest:'e'.repeat(64)}]};
+  }
+  it('admits the closed native citation family as source attribution, not a World fact',()=>{
+    expect(isSurfaceEvidenceCompletion(native(),'a'.repeat(64),'plan')).toBe(true);
+  });
+  it.each(['uncited','wrong-receipt','extra','duplicate','wrong-kind','out-of-range','wrong-surface'])('rejects native %s',change=>{
+    const c=native();
+    if(change==='uncited')c.native_clause_citations=[];
+    if(change==='wrong-receipt')c.native_clause_citations[0]!.context_receipt_sha256='f'.repeat(64);
+    if(change==='extra')Object.assign(c.native_clause_citations[0]!,{source_opened:true});
+    if(change==='duplicate')c.native_clause_citations.push(c.native_clause_citations[0]!);
+    if(change==='wrong-kind')c.answer_segments=[{kind:'proposal',text:'A possibility.',label:'invented_idea'}];
+    if(change==='out-of-range')c.native_clause_citations[0]!.segment_index=7;
+    expect(isSurfaceEvidenceCompletion(c,'a'.repeat(64),change==='wrong-surface'?'play':'plan')).toBe(false);
+  });
+});

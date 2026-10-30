@@ -5185,6 +5185,71 @@ describe("World Plan conversation consumer", () => {
     expect(open).toHaveBeenCalledWith(worldId,turnId,0);
   });
 
+  it.each(['exact','fresh','foreign-world','extra-query','foreign-campaign'])("rehydrates native-statement Plan history: %s",async change=>{
+    const old=await planGraphContext('graph_grounded');
+    const turnId='11111111-1111-4111-8111-111111111111',text='Source reports: an uncertain escape.',passage='A reports that B fled; uncertain.';
+    const ref={authority_id:'domain',revision:'1',descriptor_sha256:'e'.repeat(64)};
+    const authority:import('../api/types').NativePlanQueryAuthorityV1={schema:'dmb_native_plan_query_authority_v1',
+      managed_world_id:worldId,native_world_id:'native-world',binding_version:1,revision_id:'rev:R',domain_ref:ref,profile_ref:ref,
+      acquisition_epoch:4,role:'gm',scope_mode:'world',campaign_id:null,session_id:null};
+    const receipt:import('../api/types').PlanNativeContextReceiptV1={schema:'dmb_plan_native_context_receipt_v1',
+      receipt_serializer_version:'canonical-json-utf8-v1',context_receipt_sha256:'0'.repeat(64),
+      plan_context_policy:old.receipt.plan_context_policy,plan_basis:old.receipt.plan_basis,playable_target:null,
+      source_authority:{schema_version:'dmb_native_corpus_authority_v1',managed_world_id:worldId,native_world_id:'native-world',
+        binding_version:1,provisioning_id:null,revision_id:'rev:R',acquisition_epoch:4,domain_ref:ref,profile_ref:ref,
+        scope:'gm_world_cross_campaign_source_inspection',role:'gm'},graph_capability:null,
+      assembled_input:{assembler_version:'plan_source_jev_initial_v1',provider_model_name:'jev',provider_model_version:'1',
+        tokenizer_name:'test',tokenizer_version:'1',provider_envelope_input_tokens:12,output_token_reserve:10,
+        context_window_limit:100,included_history:[],assembled_input_sha256:'c'.repeat(64)},
+      native_query:{schema:'dmb_native_plan_query_v1',authority,question:'What was reported?',search_result_sha256:'f'.repeat(64),
+        discovered_entity_ids:['ent:statement'],matches:[{statement_id:'ent:statement',discovered_entity_ids:['ent:statement'],
+          discovery_assertion_ids:['assertion:summary'],campaign_id:'c1',logical_source:{namespace:'source',object_id:'recap'},
+          episode:'episode-1',label:'Recap · episode-1'}],status:'complete',gap_codes:[],universal_absence_claimed:false}};
+    const citation:import('../api/types').NativeStatementClauseCitationV1={segment_index:0,statement_id:'ent:statement',
+      provider_attempt_id:turnId,envelope_sha256:'b'.repeat(64),context_receipt_sha256:receipt.context_receipt_sha256,
+      managed_world_id:worldId,native_world_id:'native-world',campaign_id:'c1',read_revision_id:'rev:R',publication_revision_id:'rev:C',
+      source_artifact_id:'source',source_revision_id:'source:1',body_sha256:'c'.repeat(64),start_byte:0,
+      end_byte:new TextEncoder().encode(passage).length,clause_sha256:await sha256Hex(passage),semantic_digest:'d'.repeat(64)};
+    const context:import('../api/types').AgentPlanNativeContextResponseV1={schema:'dmb_agent_plan_native_context_response_v1',receipt,
+      completion:{schema:'dmb_surface_evidence_completion_v6',surface_id:'plan',context_receipt_sha256:receipt.context_receipt_sha256,
+        answer_basis:'mixed_evidence',answer_context_status:'source_grounded',answer_segments:[{kind:'source_passage_claim',text}],
+        citation_map:null,source_citations:[],native_source_citations:[],native_body_citations:[],native_clause_citations:[citation]},
+      execution:old.execution,delivery_replay:false,source_open_targets:[],evidence_anchor_statuses:[],related_recap_context_statuses:[]};
+    if(change==='foreign-world')authority.managed_world_id='foreign';
+    if(change==='extra-query')Object.assign(receipt.native_query,{fallback_graph_revision:'invented'});
+    if(change==='foreign-campaign')citation.campaign_id='foreign';
+    await resealPlanGraphContext(context);citation.context_receipt_sha256=receipt.context_receipt_sha256;
+    const turn=policyHistoryTurn(1,turnId,'What was reported?',text,context);
+    const api=setupApi({...history('conversation-a',1,[]),schema:'dmb_agent_conversation_history_v2',turns:change==='fresh'?[]:[turn]} as WorldAgentConversationHistoryResponse);
+    if(change==='fresh')vi.spyOn(liveApi,'postWorldPlanAgentTurn').mockImplementation(async request=>{
+      receipt.plan_basis={...receipt.plan_basis,object_revision:request.primary_work.expected_revision,
+        revision_n:request.primary_work.expected_revision_n,content_sha256:request.primary_work.expected_content_sha256};
+      if(receipt.native_query.schema==='dmb_native_plan_query_v1')receipt.native_query.question=request.message;
+      await resealPlanGraphContext(context);citation.context_receipt_sha256=receipt.context_receipt_sha256;
+      api.setCurrent(await historyV3('conversation-a',1,[withPersistedCorrelation(
+        policyHistoryTurn(1,turnId,request.message,text,context,'completed',request),
+        await expectedHistoryCorrelationKey(worldId,request.turn_id),turnId)]));
+      const response=await policyResponse(request,'conversation-a',text);
+      return {...response,answer:{...response.answer,graph_grounded:false},plan_context:context};
+    });
+    const open=vi.spyOn(liveApi,'getAgentNativeSourceClause').mockResolvedValue({schema:'dmb_native_statement_clause_read_v1',
+      world_id:worldId,turn_id:turnId,citation_index:0,citation,content:passage});
+    mountComponent();
+    if(change==='fresh') {
+      await screen.findByRole('textbox',{name:'Message DungeonBuddy'});ensureWorldGraphAskEnabled();
+      fireEvent.change(screen.getByRole('textbox',{name:'Message DungeonBuddy'}),{target:{value:'What was reported?'}});
+      fireEvent.click(screen.getByRole('button',{name:'Send message'}));await screen.findByText(text);
+    }
+    if(!['exact','fresh'].includes(change)) {
+      await screen.findByText(/invalid Graph-context receipt/);expect(open).not.toHaveBeenCalled();return;
+    }
+    await screen.findByText('What was reported?');
+    fireEvent.click(screen.getByText('Evidence trail',{selector:'summary'}));
+    fireEvent.click(screen.getByRole('button',{name:'Read source statement · c1'}));
+    await screen.findByRole('region',{name:'Opened source section'});
+    expect(open).toHaveBeenCalledWith(worldId,turnId,0);
+  });
+
   it("rehydrates a cited session summary with its immutable original instead of a quote",async()=>{
     const context=await planGraphContext('graph_grounded');
     const turnId='11111111-1111-4111-8111-111111111111',text='No fight occurred; the next route remains open.';

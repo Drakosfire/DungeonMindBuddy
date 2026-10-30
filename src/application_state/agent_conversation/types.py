@@ -1378,6 +1378,33 @@ class PlanSourceContextReceiptV1(StrictModel):
         return self
 
 
+from .native_plan_statements import (
+    NativePlanQueryV1, NativePlanQueryUnavailableV1,
+    NativePlanStatementReadAuthorizedV1, NativePlanStatementReadObservedV1,
+)
+
+
+class PlanNativeContextReceiptV1(PlanSourceContextReceiptV1):
+    schema_: Literal["dmb_plan_native_context_receipt_v1"] = Field(
+        default="dmb_plan_native_context_receipt_v1", alias="schema")
+    native_query: NativePlanQueryV1 | NativePlanQueryUnavailableV1
+
+    @model_validator(mode="after")
+    def native_capability(self):
+        if self.graph_capability is not None:
+            raise ValueError("Native Plan cannot expose a classic Graph capability")
+        query = self.native_query
+        authority = query.authority if isinstance(query, NativePlanQueryV1) else query
+        if authority.managed_world_id != self.plan_basis.world_id:
+            raise ValueError("Native query differs from Plan World")
+        if isinstance(query, NativePlanQueryV1) and isinstance(self.source_authority, NativeCorpusAuthorityV1):
+            source, native = self.source_authority, query.authority
+            if any(getattr(source, field) != getattr(native, field) for field in (
+                    "native_world_id", "binding_version", "revision_id", "domain_ref", "profile_ref", "acquisition_epoch")):
+                raise ValueError("Independent source/query capabilities changed coherent authority")
+        return self
+
+
 def validate_graph_packet_input(
     packet: PlanWorldGraphPacketV1, assembled: PlanWorldGraphAssembledInputV1,
 ) -> None:
@@ -1501,7 +1528,7 @@ class PlayWorldGraphContextReceiptV1(ClosedRulesModel):
 
 
 GraphContextReceipt = Annotated[
-    PlanWorldGraphContextReceiptV1 | PlanSourceContextReceiptV1 | BuildGraphContextReceiptV1 | PlayWorldGraphContextReceiptV1 | NativeStatementContextReceiptV1,
+    PlanWorldGraphContextReceiptV1 | PlanSourceContextReceiptV1 | PlanNativeContextReceiptV1 | BuildGraphContextReceiptV1 | PlayWorldGraphContextReceiptV1 | NativeStatementContextReceiptV1,
     Field(discriminator="schema_"),
 ]
 
@@ -2339,7 +2366,15 @@ class SurfaceEvidenceCompletionV5(SurfaceEvidenceCompletionV4):
         max_length=MAX_CITATION_SOURCE_READ_IDS)
 
 
-GraphTurnCompletion = SurfaceEvidenceCompletionV5 | NativeStatementCompletionV1 | BuildIntentionalResponseCompletionV3 | BuildRelationshipReviewCompletionV3 | BuildIntentionalResponseCompletionV2 | BuildRelationshipReviewCompletionV2 | BuildIntentionalResponseCompletionV1 | BuildRelationshipReviewCompletionV1 | BuildConnectedPageReviewCompletionV1 | BuildCollaborationCompletionV1 | BuildRelatedPageCompletionV1 | BuildDraftContextCompletionV1 | BuildNamedGraphCompletionV3 | SurfaceEvidenceCompletionV4 | SurfaceEvidenceCompletionV3 | SurfaceEvidenceCompletionV2 | SurfaceEvidenceCompletionV1 | SurfaceSourceCompletionV1 | PlayWorldGraphCompletionV1 | PlanWorldGraphCompletion | BuildGraphCompletionV1 | BuildGraphCompletionV2 | BuildAuthoringCompletionV1 | BuildImagePreparationCompletionV1
+from .native_statement_answer import NativeStatementClauseCitationV1
+
+
+class SurfaceEvidenceCompletionV6(SurfaceEvidenceCompletionV5):
+    schema_: Literal['dmb_surface_evidence_completion_v6'] = Field(default='dmb_surface_evidence_completion_v6', alias='schema')
+    native_clause_citations: list[NativeStatementClauseCitationV1]
+
+
+GraphTurnCompletion = SurfaceEvidenceCompletionV6 | SurfaceEvidenceCompletionV5 | NativeStatementCompletionV1 | BuildIntentionalResponseCompletionV3 | BuildRelationshipReviewCompletionV3 | BuildIntentionalResponseCompletionV2 | BuildRelationshipReviewCompletionV2 | BuildIntentionalResponseCompletionV1 | BuildRelationshipReviewCompletionV1 | BuildConnectedPageReviewCompletionV1 | BuildCollaborationCompletionV1 | BuildRelatedPageCompletionV1 | BuildDraftContextCompletionV1 | BuildNamedGraphCompletionV3 | SurfaceEvidenceCompletionV4 | SurfaceEvidenceCompletionV3 | SurfaceEvidenceCompletionV2 | SurfaceEvidenceCompletionV1 | SurfaceSourceCompletionV1 | PlayWorldGraphCompletionV1 | PlanWorldGraphCompletion | BuildGraphCompletionV1 | BuildGraphCompletionV2 | BuildAuthoringCompletionV1 | BuildImagePreparationCompletionV1
 
 
 class GraphCompletionRejectionCode(str, Enum):
@@ -2500,6 +2535,20 @@ class PlanEvidenceHistoryAttributionV5(PlanEvidenceHistoryAttributionV4):
         return self
 
 
+class PlanEvidenceHistoryAttributionV6(PlanEvidenceHistoryAttributionV5):
+    schema_: Literal['dmb_plan_evidence_history_attribution_v6'] = Field(default='dmb_plan_evidence_history_attribution_v6', alias='schema')
+    native_clause_citations: list[NativeStatementClauseCitationV1]
+
+    @model_validator(mode='after')
+    def mixed_history_shape(self):
+        SurfaceEvidenceCompletionV6(surface_id='plan', context_receipt_sha256=self.context_receipt_sha256,
+            answer_basis=self.answer_basis, answer_context_status=self.answer_context_status,
+            answer_segments=self.answer_segments, citation_map=self.citation_map,
+            source_citations=self.source_citations, native_source_citations=self.native_source_citations,
+            native_body_citations=self.native_body_citations, native_clause_citations=self.native_clause_citations)
+        return self
+
+
 class CompletedPlanAskPair(StrictModel):
     """Visible Ask pair with optional validated Graph attribution."""
 
@@ -2509,7 +2558,7 @@ class CompletedPlanAskPair(StrictModel):
     accepted_at: datetime
     question: str = Field(min_length=1)
     answer: str = Field(min_length=1)
-    history_attribution: PlanEvidenceHistoryAttributionV5 | PlanEvidenceHistoryAttributionV4 | PlanEvidenceHistoryAttributionV3 | PlanEvidenceHistoryAttributionV2 | PlanEvidenceHistoryAttributionV1 | PlanAskHistoryAttributionV1 | MixedHistoryAttributionV1 | None = None
+    history_attribution: PlanEvidenceHistoryAttributionV6 | PlanEvidenceHistoryAttributionV5 | PlanEvidenceHistoryAttributionV4 | PlanEvidenceHistoryAttributionV3 | PlanEvidenceHistoryAttributionV2 | PlanEvidenceHistoryAttributionV1 | PlanAskHistoryAttributionV1 | MixedHistoryAttributionV1 | None = None
 
     @model_validator(mode="after")
     def validate_visible_text(self) -> "CompletedPlanAskPair":
@@ -2560,20 +2609,20 @@ class GraphExecutionPolicyV1(StrictModel):
             self.max_total_provider_input_tokens, self.max_total_provider_output_tokens,
         )
         if (
-            self.policy_version == "plan_source_execution_uncapped_v1"
+            self.policy_version in {"plan_source_execution_uncapped_v1", "plan_native_execution_uncapped_v1"}
             and not isinstance(self, PlanSourceExecutionPolicyV1)
         ):
             raise ValueError("source execution version requires the typed source policy")
         uncapped = self.policy_version in {
             "world_graph_execution_uncapped_v1",
             "world_graph_execution_selected_scope_uncapped_v1",
-            "plan_source_execution_uncapped_v1",
+            "plan_source_execution_uncapped_v1", "plan_native_execution_uncapped_v1",
         }
         if uncapped and any(limit is not None for limit in limits):
             raise ValueError("uncapped execution policy requires explicit null limits")
         if not uncapped and any(limit is None for limit in limits):
             raise ValueError("null limits require an explicit uncapped execution policy")
-        if not self.allowed_graph_operations and self.policy_version != "plan_source_execution_uncapped_v1":
+        if not self.allowed_graph_operations and self.policy_version not in {"plan_source_execution_uncapped_v1", "plan_native_execution_uncapped_v1"}:
             raise ValueError("Only an explicit source-capable policy can omit Graph operations")
         if any(not item.strip() for item in self.allowed_graph_operations):
             raise ValueError("allowed Graph operations cannot be blank")
@@ -4324,6 +4373,7 @@ def validate_graph_execution_record(execution, *, dynamic_source_scope: bool, al
                 RelatedPagesSelection, RelatedPageRead, RelatedPageInclusion, BuildAuthoredReferencesCapturedV1, BuildAuthoredReferenceAuthorizedV1, BuildAuthoredReferenceReadV1, BuildAuthoredProviderInclusionV1, BuildDraftContextCapturedV1, BuildDraftProviderInclusionV1, BuildSectionReadAuthorizationV1, ValidatedBuildSectionReadV1, BuildWorldReadSelectionV1,
                 BuildSectionProviderInclusionV1, BuildSectionAnswerBindingV1,
                 BuildJevActionSelectionV1, BuildReviewedActionSelectionV1, BuildPlanOutputContractV1, BuildPlanOutputContractV2, BuildWriterEvidenceSelectionV1, PlanRequestedWorkSelectedV1, PlanJevRetrievalSelectionV1,
+                NativePlanStatementReadAuthorizedV1, NativePlanStatementReadObservedV1,
             ),
         ):
             continue
@@ -4369,6 +4419,8 @@ def validate_graph_execution_record(execution, *, dynamic_source_scope: bool, al
             payload.pop("parent_request_sha256", None)
         if isinstance(event, PlanJevWriterAuthorizedV1):
             payload.pop("frame_sha256", None)
+        if isinstance(event, PlanNativeWriterAuthorizedV1):
+            payload.pop("native_statement_read_event_ids", None)
         if isinstance(event, ProviderAttemptAuthorizedEventV2):
             payload["kind"] = "provider_attempt_authorized"
             payload.pop("included_source_read_event_ids", None)
@@ -4887,6 +4939,36 @@ class PlanSourceExecutionV1(PlanWorldGraphExecutionV3):
     ]] = Field(max_length=2048)
 
 
+class PlanNativeWriterAuthorizedV1(PlanJevWriterAuthorizedV2):
+    kind: Literal["plan_native_writer_authorized_v1"] = "plan_native_writer_authorized_v1"
+    native_statement_read_event_ids: list[UUID]
+
+
+class PlanNativeExecutionPolicyV1(PlanSourceExecutionPolicyV1):
+    policy_version: Literal["plan_native_execution_uncapped_v1"] = "plan_native_execution_uncapped_v1"
+    driver_schema: Literal["dmb_plan_native_jev_retrieval_v1"] = "dmb_plan_native_jev_retrieval_v1"
+    native_query_sha256: str = Field(pattern=r"^[a-f0-9]{64}$")
+
+
+class PlanNativeExecutionV1(PlanSourceExecutionV1):
+    schema_: Literal["dmb_plan_native_execution_v1"] = Field(
+        default="dmb_plan_native_execution_v1", alias="schema")
+    policy: PlanNativeExecutionPolicyV1
+    events: list[Annotated[
+        ValidatedGraphOperationEventV3 | PlanRequestedWorkAuthorizedV2 | PlanRequestedWorkAuthorizedV1
+        | PlanJevProviderAuthorizedV1 | PlanJevWriterAuthorizedV2 | PlanJevWriterAuthorizedV1
+        | PlanNativeWriterAuthorizedV1 | ProviderOutcomeEventV1 | CompletionBindingEventV1
+        | SourceScopeExtensionEventV3 | SourceReadAuthorizationEventV2 | ValidatedSourceReadEventV2
+        | SourcePassageReuseEventV1 | RelatedRecapContextAuthorizationEventV2
+        | ValidatedRelatedRecapContextEventV2 | RelatedRecapContextProviderInclusionEventV2
+        | PlanRequestedWorkSelectedV2 | PlanRequestedWorkSelectedV1 | PlanJevRetrievalSelectionV1
+        | NativeBodySearchAuthorizedV1 | NativeBodySearchObservedV1 | NativeBodyReadAuthorizedV1
+        | NativeBodyReadObservedV1 | NativeBodyProviderIncludedV1
+        | NativePlanStatementReadAuthorizedV1 | NativePlanStatementReadObservedV1,
+        Field(discriminator="kind"),
+    ]] = Field(max_length=2048)
+
+
 def _effective_source_pins(execution) -> dict[str, GraphSourceScopeAnchorV2]:
     """Read the exact frozen and extended pins from an already validated ledger."""
     scope = execution.policy.source_read_scope
@@ -5248,7 +5330,7 @@ class NativeStatementExecutionV1(StrictModel):
 
 GraphTurnExecution = Annotated[
     PlanWorldGraphExecutionV1 | PlanWorldGraphExecutionV2 | PlanWorldGraphExecutionV3
-    | PlanSourceExecutionV1 | PlayWorldGraphExecutionV1 | NativeStatementExecutionV1,
+    | PlanSourceExecutionV1 | PlanNativeExecutionV1 | PlayWorldGraphExecutionV1 | NativeStatementExecutionV1,
     Field(discriminator="schema_"),
 ]
 

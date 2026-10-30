@@ -1143,10 +1143,30 @@ export interface PlanSourceContextReceiptV1 {
     tokenizer_name:string;tokenizer_version:string;provider_envelope_input_tokens:number;output_token_reserve:number;
     context_window_limit:number;included_history:WorldPlanGraphContextReceiptV1['assembled_input']['included_history'];assembled_input_sha256:string};
 }
+export interface NativePlanQueryAuthorityV1 {
+  schema:'dmb_native_plan_query_authority_v1';managed_world_id:string;native_world_id:string;binding_version:number;
+  revision_id:string;domain_ref:{authority_id:string;revision:string;descriptor_sha256:string};
+  profile_ref:{authority_id:string;revision:string;descriptor_sha256:string};acquisition_epoch:number;
+  role:'gm';scope_mode:'world'|'campaign';campaign_id:string|null;session_id:string|null;
+}
+export interface NativePlanQueryV1 {
+  schema:'dmb_native_plan_query_v1';authority:NativePlanQueryAuthorityV1;question:string;search_result_sha256:string;
+  discovered_entity_ids:string[];matches:{statement_id:string;discovered_entity_ids:string[];discovery_assertion_ids:string[];
+    campaign_id:string;logical_source:{namespace:string;object_id:string};episode:string;label:string}[];
+  status:'complete'|'partial';gap_codes:string[];universal_absence_claimed:false;
+}
+export interface PlanNativeContextReceiptV1 extends Omit<PlanSourceContextReceiptV1,'schema'|'graph_capability'> {
+  schema:'dmb_plan_native_context_receipt_v1';graph_capability:null;
+  native_query:NativePlanQueryV1|{schema:'dmb_native_plan_query_unavailable_v1';managed_world_id:string;
+    reason:'native_graph_binding_unavailable'|'native_graph_head_unavailable'};
+}
+export interface AgentPlanNativeContextResponseV1 extends Omit<AgentPlanSourceContextResponseV1,'schema'|'receipt'|'completion'> {
+  schema:'dmb_agent_plan_native_context_response_v1';receipt:PlanNativeContextReceiptV1;completion:SurfaceEvidenceCompletionV6|null;
+}
 export interface AgentPlanSourceContextResponseV1 extends Omit<LegacyWorldPlanAgentPlanContextV2,'schema'|'receipt'|'completion'> {
   schema:'dmb_agent_plan_source_context_response_v1';receipt:PlanSourceContextReceiptV1;completion:SurfaceEvidenceCompletionV5|null;
 }
-export type WorldPlanAgentPlanContextV2 = LegacyWorldPlanAgentPlanContextV2 | AgentPlanSourceContextResponseV1;
+export type WorldPlanAgentPlanContextV2 = LegacyWorldPlanAgentPlanContextV2 | AgentPlanSourceContextResponseV1 | AgentPlanNativeContextResponseV1;
 
 export interface WorldBuildGraphReceiptV1 extends Omit<WorldPlanGraphContextReceiptV1, "schema" | "plan_context_policy" | "plan_basis" | "playable_target"> {
   schema: "dmb_build_graph_context_receipt_v1";
@@ -1304,11 +1324,14 @@ export interface NativeBodyExcerptCitationV1 extends Omit<NativeSourceSectionCit
 export interface SurfaceEvidenceCompletionV5 extends Omit<SurfaceEvidenceCompletionV4,'schema'|'surface_id'> {
   schema:'dmb_surface_evidence_completion_v5';surface_id:'plan';native_body_citations:NativeBodyExcerptCitationV1[];
 }
+export interface SurfaceEvidenceCompletionV6 extends Omit<SurfaceEvidenceCompletionV5,'schema'> {
+  schema:'dmb_surface_evidence_completion_v6';native_clause_citations:NativeStatementClauseCitationV1[];
+}
 export interface AgentNativeBodyExcerptReadResponseV1 {
   schema:'dmb_agent_native_body_excerpt_read_v1';world_id:string;turn_id:string;citation_index:number;
   citation:NativeBodyExcerptCitationV1;content:string;
 }
-export type SurfaceEvidenceCompletion = SurfaceEvidenceCompletionV1 | SurfaceEvidenceCompletionV2 | SurfaceEvidenceCompletionV3 | SurfaceEvidenceCompletionV4 | SurfaceEvidenceCompletionV5;
+export type SurfaceEvidenceCompletion = SurfaceEvidenceCompletionV1 | SurfaceEvidenceCompletionV2 | SurfaceEvidenceCompletionV3 | SurfaceEvidenceCompletionV4 | SurfaceEvidenceCompletionV5 | SurfaceEvidenceCompletionV6;
 export interface AgentSourcePassageReadResponseV1 {
   schema: "dmb_agent_source_passage_read_v1";
   target: {schema: "dmb_agent_source_passage_open_target_v1"; kind: "source_passage";
