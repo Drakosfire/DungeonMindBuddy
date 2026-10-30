@@ -879,3 +879,101 @@ def test_generic_run_cannot_inject_or_drop_source_admission_intent(lane):
             lineage=run.lineage,
         )
     assert ingest.get_extraction_run(ordinary.run_id) == ordinary
+
+
+@pytest.mark.parametrize("provenance_origin", [False, True])
+def test_oversized_selected_or_provenance_source_refuses_before_read(
+    lane, monkeypatch, provenance_origin
+):
+    from dungeonmind.contracts.vnext.native_source import MAX_NATIVE_TEXT_BYTES
+
+    large = lane.path
+    large.write_bytes(b"x" * (MAX_NATIVE_TEXT_BYTES + 1))
+    if provenance_origin:
+        normalized = lane.root / "out/normalized.md"
+        normalized.parent.mkdir(exist_ok=True)
+        normalized.write_text("A bounded normalized source.\n")
+        monkeypatch.setattr(
+            route, "_normalized_recap_graph_path", lambda *_: str(normalized)
+        )
+        from apps.live_control_server.services import recap_graph_preview_ingest
+
+        monkeypatch.setattr(
+            recap_graph_preview_ingest,
+            "_lineage_for_normalized_recap",
+            lambda *_: (str(large), "a" * 64),
+        )
+    actual = Path.open
+
+    def guarded(path, *args, **kwargs):
+        assert path != large, "Oversized source was opened instead of rejected by size"
+        return actual(path, *args, **kwargs)
+
+    monkeypatch.setattr(Path, "open", guarded)
+    response = post(lane)
+    assert response.status_code == 413
+    assert response.json()["detail"]["code"] == "native_recap_source_too_large"
+    assert ingest.list_extraction_runs() == []
+
+
+def test_reader_fence_preserves_old_rows_blocks_old_writers_and_refuses_downgrade(
+    lane, monkeypatch
+):
+    from application_state import cli
+    from application_state.errors import ApplicationStateMigrationError
+    from graph_memory.ingestion.extraction_run import ExtractionRun, ExtractionRunStatus
+
+    cfg = cli.alembic_config()
+    # Empty disposable fixture only: stamp the no-op predecessor, then populate
+    # an ordinary row using that installed head before exercising the real upgrade.
+    assert ingest.list_extraction_runs() == []
+    command.stamp(cfg, "20261030_0095")
+    with monkeypatch.context() as older:
+        older.setattr(cli, "_alembic_head", lambda: "20261030_0095")
+        retained = ingest.create_extraction_run(
+            ExtractionRun.model_validate(
+                {
+                    "run_id": "er_older_" + uuid4().hex,
+                    "source_artifact_id": "sa_older_fixture",
+                    "source_domain": "recap",
+                    "status": "draft",
+                    "revision": 1,
+                    "campaign_id": "campaign",
+                    "session_id": "session-8",
+                    "created_at": NOW.isoformat(),
+                    "updated_at": NOW.isoformat(),
+                    "components": {},
+                    "lineage": {},
+                }
+            )
+        )
+    command.upgrade(cfg, "head")
+    assert cli._read_current_revision(lane.dsn) == "20261030_0096"
+    assert ingest.get_extraction_run(retained.run_id) == retained
+    status = native(post(lane))
+    run = ingest.get_extraction_run(status["run_id"])
+    with monkeypatch.context() as older:
+        older.setattr(cli, "_alembic_head", lambda: "20261030_0095")
+        with pytest.raises(ApplicationStateMigrationError):
+            ingest.get_extraction_run(run.run_id)
+        with pytest.raises(ApplicationStateMigrationError):
+            ingest.update_extraction_run(
+                run.run_id,
+                status=ExtractionRunStatus.PREPARED,
+                expected_revision=run.revision,
+                lineage={},
+            )
+        with pytest.raises(ApplicationStateMigrationError):
+            ingest.supersede_extraction_run(
+                run.run_id,
+                expected_revision=run.revision,
+                successor=retained.model_copy(
+                    update={"run_id": str(uuid4()), "supersedes_run_id": run.run_id}
+                ),
+            )
+    assert ingest.get_extraction_run(run.run_id) == run
+    with pytest.raises(RuntimeError, match="recovery forward"):
+        command.downgrade(cfg, "20261030_0095")
+    assert cli._read_current_revision(lane.dsn) == "20261030_0096"
+    assert native(inspection(lane, status)) == status
+    assert ingest.get_extraction_run(retained.run_id) == retained

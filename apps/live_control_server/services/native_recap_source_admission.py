@@ -332,6 +332,20 @@ def _execute(root, run, record, source, actor, authority_basis, resume, authorit
     return _status(run, record, source, authority)
 
 
+def _read_source_bytes(path):
+    from dungeonmind.contracts.vnext.native_source import MAX_NATIVE_TEXT_BYTES
+
+    # Reuse Core's source budget, including for provenance input. The bounded read
+    # also handles a file growing after stat without allocating its whole contents.
+    if path.stat().st_size > MAX_NATIVE_TEXT_BYTES:
+        raise NativeRecapError("native_recap_source_too_large", status_code=413)
+    with path.open("rb") as stream:
+        raw = stream.read(MAX_NATIVE_TEXT_BYTES + 1)
+    if len(raw) > MAX_NATIVE_TEXT_BYTES:
+        raise NativeRecapError("native_recap_source_too_large", status_code=413)
+    return raw
+
+
 def admit(
     root,
     *,
@@ -362,10 +376,10 @@ def admit(
             origin is None
             or not origin.is_relative_to(world_root)
             or not origin.is_file()
-            or hashlib.sha256(origin.read_bytes()).hexdigest() != sha
+            or hashlib.sha256(_read_source_bytes(origin)).hexdigest() != sha
         ):
             raise NativeRecapError("native_recap_source_world_mismatch")
-    raw = path.read_bytes()
+    raw = _read_source_bytes(path)
     text = (
         raw.decode("utf-8").replace("\r\n", "\n").replace("\r", "\n").rstrip("\n")
         + "\n"
