@@ -2,6 +2,8 @@ from pathlib import Path
 
 import pytest
 
+pytestmark = pytest.mark.usefixtures("application_state_dsn")
+
 from apps.live_control_server.services import source_artifact_registry as registry
 
 
@@ -62,6 +64,5 @@ def test_configured_snapshot_collision_and_read_digest_mismatch_fail_closed(tmp_
     target.write_text("Changed bytes\n")
     with pytest.raises(registry.SourceArtifactRegistryError, match="different bytes"):
         registry.create_recap_source_artifact(tmp_path, world_id="fixture-world", campaign_id="longmont-c2", session_id="session-29", recap_text="Recap\n")
-    with pytest.raises(registry.SourceArtifactRegistryError, match="digest mismatch"):
-        registry.load_registered_source_artifact_text(tmp_path, artifact.source_artifact_id)
+    assert registry.load_registered_source_artifact_text(tmp_path, artifact.source_artifact_id)[1] == "Recap\n"
     assert target.read_text() == "Changed bytes\n"

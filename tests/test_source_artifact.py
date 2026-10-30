@@ -136,7 +136,7 @@ def test_workspace_id_cannot_equal_source_artifact_id() -> None:
         )
 
 
-def test_world_scoped_source_artifact_uses_record_world_id(tmp_path: Path) -> None:
+def test_world_scoped_source_artifact_uses_record_world_id(tmp_path: Path, application_state_dsn) -> None:
     from apps.live_control_server.services.source_artifact_registry import (
         create_source_artifact_from_workspace_document,
     )
@@ -191,7 +191,7 @@ def test_world_scoped_source_artifact_uses_record_world_id(tmp_path: Path) -> No
     assert artifact.campaign_id == "longmont-c2"
 
 
-def test_legacy_worldbuilding_source_artifact_uses_campaign_id_compat(tmp_path: Path) -> None:
+def test_legacy_worldbuilding_source_artifact_uses_campaign_id_compat(tmp_path: Path, application_state_dsn) -> None:
     from apps.live_control_server.services.source_artifact_registry import (
         create_source_artifact_from_workspace_document,
     )

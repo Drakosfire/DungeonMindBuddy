@@ -19,7 +19,7 @@ from application_state.source import service as source_service
 from apps.live_control_server.services.source_artifact_registry import (
     SourceArtifactRegistryError,
     get_source_artifact,
-    load_registered_source_artifact_text,
+    load_registered_source_artifact_bytes,
 )
 from graph_memory.evidence.source_artifact import GraphMemorySourceArtifact
 from graph_memory.ingestion.extraction_run import (
@@ -415,58 +415,6 @@ def _bind_run_to_artifact(
     return artifact
 
 
-def _persist_source_authority(
-    root: Path,
-    artifact: GraphMemorySourceArtifact,
-) -> None:
-    """Adopt exact recap/Worldbuilding input before its ExtractionRun is canonical."""
-    source_domain = str(artifact.source_domain)
-    if source_domain not in {"recap", "worldbuilding"}:
-        return
-    try:
-        registered_artifact, markdown = load_registered_source_artifact_text(
-            root,
-            artifact.source_artifact_id,
-        )
-        if (
-            registered_artifact.source_artifact_id != artifact.source_artifact_id
-            or registered_artifact.world_id != artifact.world_id
-            or registered_artifact.content_sha256 != artifact.content_sha256
-        ):
-            raise GraphRunRegistryError(
-                "registered SourceArtifact changed before durable source adoption",
-                status_code=409,
-            )
-        persisted = source_service.persist_source_markdown(
-            source_artifact_id=artifact.source_artifact_id,
-            source_domain=source_domain,
-            campaign_id=artifact.campaign_id,
-            session_id=artifact.session_id,
-            world_id=artifact.world_id,
-            markdown=markdown,
-            content_sha256=artifact.content_sha256,
-            lineage=(
-                {
-                    "adopted_from_uri": artifact.uri,
-                    "workspace_document_id": artifact.workspace_document_id,
-                    "workspace_document_revision": artifact.workspace_document_revision,
-                }
-                if source_domain == "worldbuilding"
-                else {"adopted_from_uri": artifact.uri}
-            ),
-        )
-        if persisted.world_id != artifact.world_id:
-            raise GraphRunRegistryError(
-                "durable source World does not match its registered SourceArtifact",
-                status_code=409,
-            )
-    except (SourceArtifactRegistryError, ApplicationStateError) as exc:
-        raise GraphRunRegistryError(
-            f"durable {source_domain} source persistence failed: {exc}",
-            status_code=getattr(exc, "status_code", 409),
-        ) from exc
-
-
 def get_extraction_run(root: Path, run_id: str) -> ExtractionRun:
     del root
     try:
@@ -646,7 +594,24 @@ def create_extraction_run(
             "cannot create an extraction run directly in a terminal status",
             status_code=422,
         )
-    _persist_source_authority(root, artifact)
+    # Registration owns durable input storage. Run creation only opens that
+    # exact binding; it never adopts a mutable file as a new source authority.
+    if str(artifact.source_domain) in {"recap", "worldbuilding"}:
+        try:
+            registered, _ = load_registered_source_artifact_bytes(root, artifact.source_artifact_id)
+            binding_fields = (
+                "source_artifact_id", "source_domain", "content_sha256",
+                "world_id", "campaign_id", "session_id",
+            )
+            if any(getattr(registered, field) != getattr(artifact, field) for field in binding_fields):
+                raise GraphRunRegistryError(
+                    "registered source binding changed before run creation", status_code=409,
+                )
+        except SourceArtifactRegistryError as exc:
+            raise GraphRunRegistryError(
+                f"durable {artifact.source_domain} source unavailable: {exc}",
+                status_code=exc.status_code,
+            ) from exc
 
     now = _utc_now_iso()
     run = ExtractionRun(
