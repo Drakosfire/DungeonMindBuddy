@@ -242,8 +242,8 @@ def test_legacy_worldbuilding_source_artifact_uses_campaign_id_compat(tmp_path: 
     assert record.world_id is None
 
 
-def test_registered_source_byte_loader_preserves_exact_bytes_and_rejects_changed_digest(
-    tmp_path: Path,
+def test_registered_source_byte_loader_preserves_exact_database_bytes(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, application_state_dsn: str,
 ) -> None:
     import json
 
@@ -268,6 +268,14 @@ def test_registered_source_byte_loader_preserves_exact_bytes_and_rejects_changed
         "records": [artifact.model_dump(mode="json")],
     }))
 
+    from application_state.source.service import persist_source_markdown
+    monkeypatch.setenv("DMB_ARTIFACT_DATA_ROOT", str(tmp_path))
+    saved = persist_source_markdown(
+        source_artifact_id=artifact.source_artifact_id, source_domain="recap",
+        campaign_id=artifact.campaign_id, session_id=artifact.session_id,
+        world_id=artifact.world_id, markdown=content.decode("utf-8"), content_sha256=digest,
+    )
+
     loaded, exact = load_registered_source_artifact_bytes(
         tmp_path, artifact.source_artifact_id,
     )
@@ -275,12 +283,17 @@ def test_registered_source_byte_loader_preserves_exact_bytes_and_rejects_changed
     assert exact == content
 
     (tmp_path / "source.md").write_bytes(b"First line\nSecond line\n")
-    with pytest.raises(SourceArtifactRegistryError, match="raw-byte digest mismatch"):
+    assert load_registered_source_artifact_bytes(tmp_path, artifact.source_artifact_id)[1] == content
+    import psycopg
+    with psycopg.connect(application_state_dsn) as conn:
+        conn.execute("UPDATE source.revision SET markdown=%s WHERE source_revision_id=%s",
+                     ("First line\nSecond line\n", saved.source_revision_id))
+    with pytest.raises(SourceArtifactRegistryError, match="digest mismatch"):
         load_registered_source_artifact_bytes(tmp_path, artifact.source_artifact_id)
 
 
-def test_registered_source_byte_loader_rejects_symlinked_path_component(
-    tmp_path: Path,
+def test_registered_source_byte_loader_does_not_follow_symlink_locator(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, application_state_dsn: str,
 ) -> None:
     import json
 
@@ -308,8 +321,18 @@ def test_registered_source_byte_loader_rejects_symlinked_path_component(
         "records": [artifact.model_dump(mode="json")],
     }))
 
-    with pytest.raises(SourceArtifactRegistryError, match="failed safe read"):
-        load_registered_source_artifact_bytes(tmp_path, artifact.source_artifact_id)
+    from application_state.source.service import persist_source_markdown
+    from apps.live_control_server.services import source_artifact_registry
+    monkeypatch.setenv("DMB_ARTIFACT_DATA_ROOT", str(tmp_path))
+    persist_source_markdown(
+        source_artifact_id=artifact.source_artifact_id, source_domain="recap",
+        campaign_id=artifact.campaign_id, session_id=artifact.session_id,
+        world_id=artifact.world_id, markdown=content.decode("utf-8"), content_sha256=digest,
+    )
+    (target / "source.md").write_bytes(b"Unrelated file bytes")
+    monkeypatch.setattr(source_artifact_registry, "_read_exact_repo_uri_bytes",
+                        lambda *args: pytest.fail("Database body read followed a file locator"))
+    assert load_registered_source_artifact_bytes(tmp_path, artifact.source_artifact_id)[1] == content
 
 
 @pytest.mark.skipif(not hasattr(os, "mkfifo"), reason="FIFO paths require POSIX")
