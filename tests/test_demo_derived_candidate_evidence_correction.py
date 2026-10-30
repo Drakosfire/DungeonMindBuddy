@@ -72,15 +72,10 @@ def _fixture(monkeypatch: pytest.MonkeyPatch, tmp_path: Path, *, two_invalid: bo
     )
     span_path = tmp_path / "span-index.json"
     span_path.write_text("frozen span index")
-    resolved = SimpleNamespace(
-        run_id="parent", candidate_graph_path=parent_path,
-        normalized_recap_path=source, source_span_index_path=span_path, source_artifact_id=artifact_id,
-        campaign_id="demo", session_id=None, source_domain="worldbuilding",
-        extraction_profile=correction._PROFILE, world_id="demo",
-    )
     span_index = SimpleNamespace(spans=[
         SimpleNamespace(source_span_id=span_id, start_line=1, end_line=1),
     ])
+    parent._test_span_index = span_index
     child_store: dict[str, SimpleNamespace] = {}
 
     def get_run(_repo, run_id):
@@ -120,11 +115,19 @@ def _fixture(monkeypatch: pytest.MonkeyPatch, tmp_path: Path, *, two_invalid: bo
 
     monkeypatch.setattr(candidate_graph_admission, "validate_candidate_document_integrity", typed)
     monkeypatch.setattr(correction, "repo_root", lambda: tmp_path)
-    monkeypatch.setattr(correction, "resolve_promotable_ingest_run", lambda run_id, **_: resolved)
+    def load_data(repo, run_id):
+        run = get_run(repo, run_id)
+        if run.status != ExtractionRunStatus.REVIEWABLE:
+            raise GraphRunRegistryError("not reviewable", status_code=422)
+        candidate = parent_path if run_id == "parent" else repo / run.components["candidate_graph"].uri
+        return SimpleNamespace(run=run, candidate_bytes=candidate.read_bytes(),
+            source_bytes=source.read_bytes(), span_bytes=span_path.read_bytes(),
+            source_artifact=SimpleNamespace(world_id="demo"),
+            span_index=parent._test_span_index)
+    monkeypatch.setattr(correction, "load_reviewable_extraction_data", load_data)
     monkeypatch.setattr(correction, "get_extraction_run", get_run)
     monkeypatch.setattr(correction, "create_extraction_run", create_run)
     monkeypatch.setattr(correction, "update_extraction_run_status", update_run)
-    monkeypatch.setattr(correction, "_load_frozen_span_index_for_resolved_run", lambda _: span_index)
     monkeypatch.setattr(correction, "admit_managed_world", lambda *_: None)
     return parent, parent_bytes, parent_sha, span_id, child_store
 

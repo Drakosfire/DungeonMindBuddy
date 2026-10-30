@@ -21,7 +21,6 @@ from apps.live_control_server.services.extract_promote import (
     ExtractPromoteError,
     _assert_and_project_candidate_evidence,
     _assert_candidate_scope_matches_run,
-    _load_frozen_span_index_for_resolved_run,
     _paragraph_for_span,
 )
 from apps.live_control_server.services.first_world_graph import admit_managed_world
@@ -31,10 +30,6 @@ from apps.live_control_server.services.graph_run_registry import (
     get_extraction_run,
     load_reviewable_extraction_data,
     update_extraction_run_status,
-)
-from apps.live_control_server.services.promotable_ingest_run import (
-    PromotableIngestRunError,
-    resolve_promotable_ingest_run,
 )
 from graph_memory.anchor_quotes import find_anchor_quote_matches
 from graph_memory.ingestion.extraction_run import (
@@ -110,7 +105,7 @@ def _canonical_bytes(value: object) -> bytes:
     return (json.dumps(value, sort_keys=True, ensure_ascii=False, separators=(",", ":")) + "\n").encode("utf-8")
 
 
-def _qualify_payload(*, payload: dict, resolved: object, source_prose: str, span_index: object) -> None:
+def _qualify_payload(*, payload: dict, parent: ExtractionRun, source_prose: str, span_index: object) -> None:
     from src.graph_memory.extraction.extraction_profile import get_extraction_profile
     from src.graph_memory.extraction.worldbuilding_extraction_profile import (
         WORLDBUILDING_PROFILE_ID,
@@ -119,13 +114,13 @@ def _qualify_payload(*, payload: dict, resolved: object, source_prose: str, span
 
     _assert_candidate_scope_matches_run(
         payload,
-        campaign_id=resolved.campaign_id,
-        session_id=resolved.session_id,
+        campaign_id=parent.campaign_id,
+        session_id=parent.session_id,
     )
     _assert_and_project_candidate_evidence(
         candidate_payload=payload,
         source_prose=source_prose,
-        source_artifact_id=resolved.source_artifact_id,
+        source_artifact_id=parent.source_artifact_id,
         span_index=span_index,
     )
     profile = get_extraction_profile(
@@ -213,59 +208,55 @@ def _apply_literal_quote_corrections(
 def _worldbuilding_parent(run_id):
     repo = artifact_data_root(repo_root())
     try:
-        resolved = resolve_promotable_ingest_run(run_id, root=repo)
-        parent = get_extraction_run(repo, run_id)
-    except (PromotableIngestRunError, GraphRunRegistryError) as exc:
-        raise _reject(f"parent run is not reviewable: {exc}") from exc
-    if (
-        resolved.source_domain != "worldbuilding"
-        or parent.source_domain != "worldbuilding"
-        or resolved.extraction_profile != _PROFILE
-        or parent.profile_id != _PROFILE
-    ):
+        data = load_reviewable_extraction_data(repo, run_id)
+    except GraphRunRegistryError as exc:
+        raise ExtractPromoteError(
+            f"parent Worldbuilding evidence unavailable: {exc}",
+            code="evidence_correction_unavailable" if exc.status_code >= 500 else "evidence_correction_invalid",
+            status_code=exc.status_code,
+        ) from exc
+    parent = data.run
+    if parent.source_domain != "worldbuilding" or parent.profile_id != _PROFILE:
         raise _reject("correction requires the exact managed-World worldbuilding profile")
-    if parent.status != ExtractionRunStatus.REVIEWABLE:
-        raise _reject("parent run is no longer reviewable", status_code=409)
-    if not resolved.world_id or resolved.session_id:
+    if not data.source_artifact.world_id or parent.session_id:
         raise _reject("worldbuilding run has an invalid World/session binding")
     try:
-        admit_managed_world(repo, resolved.world_id)
+        admit_managed_world(repo, data.source_artifact.world_id)
     except Exception as exc:  # noqa: BLE001 - managed World admission fails closed
         raise _reject("parent run does not belong to a managed World") from exc
 
-    parent_bytes = resolved.candidate_graph_path.read_bytes()
     try:
-        payload = json.loads(parent_bytes)
-        source_prose = resolved.normalized_recap_path.read_text(encoding="utf-8")
-    except (OSError, json.JSONDecodeError) as exc:
+        payload = json.loads(data.candidate_bytes)
+        source_prose = data.source_bytes.decode("utf-8")
+    except (UnicodeDecodeError, json.JSONDecodeError) as exc:
         raise _reject("parent candidate or source is unreadable") from exc
     if not isinstance(payload, dict):
         raise _reject("parent candidate root must be an object")
-    span_index = _load_frozen_span_index_for_resolved_run(resolved)
+    span_index = data.span_index
     # Integrity, artifact and span bindings must already be sound. Only false
     # quote membership is allowed to pass through this inspection gate.
     _assert_and_project_candidate_evidence(
         candidate_payload=payload,
         source_prose=source_prose,
-        source_artifact_id=resolved.source_artifact_id,
+        source_artifact_id=parent.source_artifact_id,
         span_index=span_index,
         inspect_false_anchor_quotes=True,
     )
-    return repo, resolved, parent, payload, source_prose, span_index
+    return repo, data, parent, payload, source_prose, span_index
 
 
 def get_worldbuilding_frozen_spans(run_id: str) -> WorldbuildingFrozenSpanCatalog:
     """Project exact frozen paragraphs, never client-derived paragraph identities."""
-    _, resolved, parent, payload, source, index = _worldbuilding_parent(run_id)
+    _, data, parent, payload, source, index = _worldbuilding_parent(run_id)
     spans = list(index.spans)
     if len({span.source_span_id for span in spans}) != len(spans):
         raise _reject("frozen source span IDs are ambiguous")
     return WorldbuildingFrozenSpanCatalog(
         parent_run_id=run_id, parent_revision=parent.revision, parent_status=parent.status,
-        world_id=resolved.world_id, source_artifact_id=resolved.source_artifact_id,
-        source_sha256=_sha(resolved.normalized_recap_path.read_bytes()),
-        span_index_sha256=_sha(resolved.source_span_index_path.read_bytes()),
-        parent_candidate_sha256=_sha(resolved.candidate_graph_path.read_bytes()),
+        world_id=data.source_artifact.world_id, source_artifact_id=parent.source_artifact_id,
+        source_sha256=_sha(data.source_bytes),
+        span_index_sha256=_sha(data.span_bytes),
+        parent_candidate_sha256=_sha(data.candidate_bytes),
         spans=[dict(source_span_ref_id=span.source_span_id, start_line=span.start_line,
             end_line=span.end_line, paragraph_text=_paragraph_for_span(source.splitlines(),
                 start_line=int(span.start_line), end_line=int(span.end_line)).strip()) for span in spans],
@@ -341,18 +332,18 @@ def correct_exact_run_evidence(
     request: WorldbuildingEvidenceCorrectionRequest,
 ) -> ExactRunEvidenceCorrectionResponse:
     """Derive an unpublished, completely qualified child from explicit frozen spans."""
-    repo, resolved, parent, payload, source_prose, span_index = _worldbuilding_parent(request.parent_run_id)
-    parent_sha = _sha(resolved.candidate_graph_path.read_bytes())
+    repo, data, parent, payload, source_prose, span_index = _worldbuilding_parent(request.parent_run_id)
+    parent_sha = _sha(data.candidate_bytes)
     if (parent.revision != request.expected_parent_revision or parent.status != request.expected_parent_status
-        or parent_sha != request.parent_candidate_sha256 or resolved.world_id != request.world_id
-        or resolved.source_artifact_id != request.source_artifact_id
-        or _sha(resolved.normalized_recap_path.read_bytes()) != request.source_sha256
-        or _sha(resolved.source_span_index_path.read_bytes()) != request.span_index_sha256):
+        or parent_sha != request.parent_candidate_sha256 or data.source_artifact.world_id != request.world_id
+        or parent.source_artifact_id != request.source_artifact_id
+        or _sha(data.source_bytes) != request.source_sha256
+        or _sha(data.span_bytes) != request.span_index_sha256):
         raise _reject("frozen parent/source/span-index preimage changed", status_code=409)
     ordered = _apply_evidence_partitions(
         payload, request, source_prose=source_prose, span_index=span_index
     )
-    _qualify_payload(payload=payload, resolved=resolved, source_prose=source_prose, span_index=span_index)
+    _qualify_payload(payload=payload, parent=parent, source_prose=source_prose, span_index=span_index)
 
     canonical_corrections = [item.model_dump(mode="json", by_alias=True) for item in ordered]
     correction_digest = _sha(_canonical_bytes(request.model_dump(mode="json", by_alias=True) |
@@ -410,7 +401,7 @@ def correct_exact_run_evidence(
     from application_state.ingest.components import persist_component_payload
 
     for kind, data in (("candidate_graph", child_bytes),
-                       ("source_span_index", resolved.source_span_index_path.read_bytes())):
+                       ("source_span_index", data.span_bytes)):
         persist_component_payload(run_id=child_id, expected_revision=child.revision,
                                   kind=kind, payload=data)
     for _ in range(8):
@@ -431,8 +422,12 @@ def correct_exact_run_evidence(
         raise _reject("derived run could not be sealed", status_code=409)
     if child_path.read_bytes() != child_bytes:
         raise _reject("derived candidate changed during seal", status_code=409)
-    # Canonical registry resolution checks source/index/candidate component SHAs.
-    resolve_promotable_ingest_run(child_id, root=repo)
+    # The same database owner validates the final bound child evidence.
+    try:
+        load_reviewable_extraction_data(repo, child_id)
+    except GraphRunRegistryError as exc:
+        raise ExtractPromoteError(str(exc), code="evidence_correction_invalid",
+                                  status_code=exc.status_code) from exc
     return ExactRunEvidenceCorrectionResponse(
         run_id=child_id,
         parent_run_id=request.parent_run_id,
