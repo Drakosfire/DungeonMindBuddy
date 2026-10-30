@@ -6,7 +6,7 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 from dungeonmind.contracts.vnext.source import SourceArtifactV3, SourceRevisionV2
-from .native_statement_input import NativeAuthorityRefV1
+from .native_statement_input import NativeAuthorityRefV1, canonical
 
 
 class Strict(BaseModel):
@@ -29,8 +29,19 @@ class NativeCorpusAuthorityV1(Strict):
 
 class NativeCorpusMemberV1(Strict):
     """One authorized body with its original access interval, not a new fact."""
-    artifact: SourceArtifactV3
-    revision: SourceRevisionV2
+    artifact_json: str
+    revision_json: str
+
+    @property
+    def artifact(self) -> SourceArtifactV3:
+        # Core models contain mutable nested fields. Expose a fresh validated
+        # copy while the authoritative metadata remains immutable JSON bytes.
+        return SourceArtifactV3.model_validate_json(self.artifact_json)
+
+    @property
+    def revision(self) -> SourceRevisionV2:
+        return SourceRevisionV2.model_validate_json(self.revision_json)
+
     evidence_ref_id: str = Field(min_length=1)
     access_span_id: str = Field(min_length=1)
     access_start_byte: int = Field(ge=0, strict=True)
@@ -42,6 +53,8 @@ class NativeCorpusMemberV1(Strict):
 
     @model_validator(mode="after")
     def exact_source_pair(self):
+        if canonical(self.artifact) != self.artifact_json or canonical(self.revision) != self.revision_json:
+            raise ValueError("Native corpus metadata requires canonical immutable bytes")
         if (self.artifact.status != "active"
                 or self.artifact.source_artifact_id != self.revision.source_artifact_id
                 or self.artifact.current_revision_id != self.revision.source_revision_id

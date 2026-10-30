@@ -168,3 +168,18 @@ def test_preparation_does_not_open_body_before_search_authorization(lane, monkey
     result = capture(lane, prepared=prepared)
     assert result.authority == prepared.authority
     assert len(result.members) == 1
+
+
+def test_captured_provenance_cannot_be_mutated_through_core_models(lane):
+    admit(lane)
+    member = capture(lane).members[0]
+    before = member.model_dump_json()
+    exposed = member.artifact
+    exposed.source_classification = "dungeonbuddy.source:worldbuilding"
+    exposed.foreign_refs.append("injected:reference")
+    exposed.visibility.labels.append("injected:audience")
+    member.revision.content_sha256 = "0" * 64
+    assert member.model_dump_json() == before
+    assert member.artifact.source_classification == "dungeonbuddy.source:session_recap"
+    assert "injected:reference" not in member.artifact.foreign_refs
+    member.verify_body(BODY)

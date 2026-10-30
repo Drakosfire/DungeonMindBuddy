@@ -10,6 +10,7 @@ from dungeonmind.application.vnext import (
     open_admitted_native_text,
     open_native_text_source_access_context,
 )
+from application_state.agent_conversation.native_statement_input import canonical
 from application_state.agent_conversation.native_corpus import (
     NativeCorpusAuthorityV1,
     NativeCorpusMemberV1,
@@ -113,7 +114,7 @@ def capture_native_sources(*, managed_world_id, principal, revision_id=None,
             artifact, revision = snapshot.get_artifact(pair[0]), snapshot.get_revision(pair[1])
             if artifact is None or revision is None:
                 raise ValueError("Authorized native corpus provenance is unavailable")
-            member = NativeCorpusMemberV1(artifact=artifact, revision=revision,
+            member = NativeCorpusMemberV1(artifact_json=canonical(artifact), revision_json=canonical(revision),
                 evidence_ref_id=evidence.evidence_ref_id,
                 access_span_id=evidence.source_span_ref_id,
                 access_start_byte=opened.span_start_byte,
