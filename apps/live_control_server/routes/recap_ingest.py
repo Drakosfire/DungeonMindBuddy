@@ -594,6 +594,24 @@ def _native_source_request(body, request):
                 status_code=409,
                 detail={"code": "native_recap_committed_source_required"},
             )
+        stage = (
+            status.get("ingest_report", {})
+            .get("derivative_stages", {})
+            .get("normalized_recap", {})
+        )
+        expected_sha = stage.get("expected_sha256")
+        import re
+
+        if (
+            stage.get("state") != "current"
+            or not isinstance(expected_sha, str)
+            or re.fullmatch(r"[a-f0-9]{64}", expected_sha) is None
+            or stage.get("output_sha256") != expected_sha
+        ):
+            raise HTTPException(
+                status_code=409,
+                detail={"code": "native_recap_committed_digest_required"},
+            )
         path = _normalized_recap_graph_path(status, corpus)
         if not path:
             raise HTTPException(
@@ -606,6 +624,7 @@ def _native_source_request(body, request):
                 repo_root(),
                 context=context,
                 path=path,
+                expected_raw_sha256=expected_sha,
                 session=body.session,
                 actor=actor,
                 authority_basis=authority_basis,

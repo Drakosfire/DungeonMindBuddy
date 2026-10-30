@@ -122,7 +122,7 @@ def lane(tmp_path, monkeypatch, application_state_dsn, native_core_dsn):
     monkeypatch.setattr(
         route,
         "inspect_recap_ingest_status",
-        lambda **_: {"synthetic_selected_source": True},
+        lambda **_: verified_status(path.read_bytes()),
     )
     monkeypatch.setattr(route, "_normalized_recap_is_graph_ready", lambda _: True)
     monkeypatch.setattr(route, "_normalized_recap_graph_path", lambda *_: str(path))
@@ -157,6 +157,21 @@ def lane(tmp_path, monkeypatch, application_state_dsn, native_core_dsn):
         headers={"Authorization": "Bearer " + TOKEN},
         dsn=application_state_dsn,
     )
+
+
+def verified_status(raw):
+    digest = sha256(raw).hexdigest()
+    return {
+        "ingest_report": {
+            "derivative_stages": {
+                "normalized_recap": {
+                    "state": "current",
+                    "expected_sha256": digest,
+                    "output_sha256": digest,
+                }
+            }
+        }
+    }
 
 
 def post(lane, **extra):
@@ -903,6 +918,9 @@ def test_oversized_selected_or_provenance_source_refuses_before_read(
             "_lineage_for_normalized_recap",
             lambda *_: (str(large), "a" * 64),
         )
+    monkeypatch.setattr(
+        route, "inspect_recap_ingest_status", lambda **_: verified_status(lane.raw)
+    )
     actual = Path.open
 
     def guarded(path, *args, **kwargs):
@@ -977,3 +995,57 @@ def test_reader_fence_preserves_old_rows_blocks_old_writers_and_refuses_downgrad
     assert cli._read_current_revision(lane.dsn) == "20261030_0096"
     assert native(inspection(lane, status)) == status
     assert ingest.get_extraction_run(retained.run_id) == retained
+
+
+def test_source_change_after_committed_status_is_rejected_before_persistence(
+    lane, monkeypatch
+):
+    actual = service.admit
+    before = lane.repo.get_head(lane.context.native_world_id)
+
+    def changed(*args, **kwargs):
+        lane.path.write_bytes(lane.raw + b"Unverified concurrent edit.\n")
+        return actual(*args, **kwargs)
+
+    monkeypatch.setattr(service, "admit", changed)
+    response = post(lane)
+    assert response.status_code == 409
+    assert response.json()["detail"]["code"] == "native_recap_committed_source_changed"
+    assert ingest.list_extraction_runs() == []
+    assert lane.repo.get_head(lane.context.native_world_id) == before
+
+
+@pytest.mark.parametrize(
+    "stage",
+    [{}, {"state": "current", "expected_sha256": "a" * 64, "output_sha256": "b" * 64}],
+)
+def test_ready_flag_without_matching_committed_digest_is_not_source_authority(
+    lane, monkeypatch, stage
+):
+    monkeypatch.setattr(
+        route,
+        "inspect_recap_ingest_status",
+        lambda **_: {
+            "ingest_report": {"derivative_stages": {"normalized_recap": stage}},
+        },
+    )
+    monkeypatch.setattr(
+        service,
+        "admit",
+        lambda *_args, **_kwargs: pytest.fail("Unverified source admission"),
+    )
+    assert post(lane).status_code == 409
+
+
+def test_managed_source_root_and_artifact_root_can_be_separate(lane, monkeypatch):
+    artifacts = lane.root / "separate-artifact-store"
+    artifacts.mkdir()
+    monkeypatch.setenv(config.ARTIFACT_DATA_ROOT_ENV, str(artifacts))
+    value = native(post(lane))
+    assert value["state"] == "admitted" and value["opening"]["state"] == "verified"
+    source = sources.get_source_markdown(
+        source_artifact_id=value["app_source_artifact_id"],
+        content_sha256=value["app_body_sha256"],
+    )
+    assert source.lineage["selected_input_uri"] == lane.path.as_uri()
+    assert lane.path.read_bytes() == lane.raw

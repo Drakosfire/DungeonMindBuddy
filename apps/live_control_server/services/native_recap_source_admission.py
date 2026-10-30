@@ -351,6 +351,7 @@ def admit(
     *,
     context,
     path,
+    expected_raw_sha256: str,
     session: int,
     actor,
     authority_basis,
@@ -359,11 +360,12 @@ def admit(
     _execution_mode()
     root = config.artifact_data_root(root)
     path = Path(path).resolve()
-    world = get_world_container(
-        config.managed_world_data_root(root), context.managed_world_id
-    )
-    world_root = (root / world.source_root_relpath).resolve()
-    if not path.is_relative_to(root) or not path.is_file():
+    managed_root = config.managed_world_data_root(root).resolve()
+    world = get_world_container(managed_root, context.managed_world_id)
+    world_root = (managed_root / world.source_root_relpath).resolve()
+    if not path.is_file() or not (
+        path.is_relative_to(root) or path.is_relative_to(world_root)
+    ):
         raise NativeRecapError("native_recap_source_path_invalid")
     if not path.is_relative_to(world_root):
         from apps.live_control_server.services.recap_graph_preview_ingest import (
@@ -385,6 +387,8 @@ def admit(
         + "\n"
     )
     raw_sha = hashlib.sha256(raw).hexdigest()
+    if raw_sha != expected_raw_sha256:
+        raise NativeRecapError("native_recap_committed_source_changed")
     sha = hashlib.sha256(text.encode()).hexdigest()
     from dungeonmind.contracts.vnext.native_source import MAX_NATIVE_TEXT_BYTES
 
@@ -422,7 +426,7 @@ def admit(
         content_sha256=sha,
         lineage={
             "adopted_from_uri": artifact.uri,
-            "selected_input_uri": str(path.relative_to(root)),
+            "selected_input_uri": path.as_uri(),
             "raw_original_sha256": raw_sha,
             "normalization_policy": NORMALIZATION,
         },
