@@ -296,6 +296,45 @@ def test_original_bad_output_preserved_no_redispatch(
         )
 
 
+def test_undeclared_referent_and_reporter_retain_exact_failure_without_repair(
+    lane, application_state_dsn, monkeypatch
+):
+    batch = deepcopy(BATCH)
+    batch["proposals"][0]["referent_mentions"] = ["undeclared-item"]
+    other = deepcopy(batch["proposals"][0])
+    other.update(
+        proposal_id="p2", referent_mentions=["b"], reporter_mention="undeclared-speaker"
+    )
+    batch["proposals"].append(other)
+    batch["dispositions"][0]["proposal_ids"].append("p2")
+    wire = Wire(json.dumps(batch))
+    with client(monkeypatch, wire) as c:
+        req, row = produce(c, lane)
+        assert row["state"] == "failed" and row["result"] is None
+        assert row["reviews"] == [] and row["review_eligibility"] == {}
+        assert retained_text(row) == wire.raw
+        prefix, details = row["failure"].split(": ", 1)
+        assert prefix == "proposal_output_invalid"
+        errors = json.loads(details)
+        assert len(errors) == 1
+        assert set(errors[0]) == {"type", "loc", "msg"}
+        assert errors[0]["type"] == "value_error"
+        assert json.loads(errors[0]["msg"].split("Unknown local mention: ", 1)[1]) == {
+            "p1": ["undeclared-item"],
+            "p2": ["undeclared-speaker"],
+        }
+        assert c.get(url(req)).json() == row
+        assert (
+            c.post(
+                "/api/live/source-statements/proposals",
+                json=req.model_dump(mode="json"),
+            ).json()
+            == row
+        )
+        assert c.post(review_url(req), json=review_body(lane, row)).status_code == 409
+        assert len(wire.requests) == 1
+
+
 def test_unknown_io_remains_nonretryable(lane, application_state_dsn, monkeypatch):
     wire = Wire(failure=True)
     with client(monkeypatch, wire) as c:
