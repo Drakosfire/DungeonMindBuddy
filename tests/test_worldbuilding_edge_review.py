@@ -284,7 +284,7 @@ def test_success_storage_failure_is_not_reviewable_or_replayed(tmp_path, applica
         drafts.append(run)
         return run
     monkeypatch.setattr(runner, "_create_draft_run", capture_draft)
-    def unavailable(*args):
+    def unavailable(*args, **kwargs):
         raise RuntimeError("Could not persist private extraction failure evidence")
     monkeypatch.setattr(runner, "_retain_raw_failure_response", unavailable)
     with pytest.raises(RuntimeError, match="persist private"):

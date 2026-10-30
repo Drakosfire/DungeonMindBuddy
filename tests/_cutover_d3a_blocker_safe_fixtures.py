@@ -773,7 +773,7 @@ def _write_reviewable_extraction_run(
     ``campaign_id=None`` produces a campaignless worldbuilding run/artifact
     (worldbuilding SourceArtifacts may omit campaign). The workspace document
     still needs a storage campaign for the file write; the artifact/run are
-    then rewritten to drop that campaign before promotion.
+    registered without a campaign before promotion.
 
 
     ``pin_noncanonical_span_index=True`` writes a second valid index for the same
@@ -787,10 +787,7 @@ def _write_reviewable_extraction_run(
         update_extraction_run_status,
     )
     from apps.live_control_server.services.source_artifact_registry import (
-        SourceArtifactRegistryDocument,
         create_source_artifact_from_workspace_document,
-        get_source_artifact,
-        source_artifacts_path,
         source_span_index_relpath,
     )
     from apps.live_control_server.services.workspace_document_registry import (
@@ -805,7 +802,7 @@ def _write_reviewable_extraction_run(
     from graph_memory.source_span import (
         source_span_index_to_dict,
     )
-    from src.live_play.live_store import load_json, write_json
+    from src.live_play.live_store import write_json
 
 
     if candidate_campaign_id is ...:
@@ -835,33 +832,28 @@ def _write_reviewable_extraction_run(
         "# Lore\n\nWorldbuilding source for promote.\n\nA second paragraph.\n",
         encoding="utf-8",
     )
-    artifact = create_source_artifact_from_workspace_document(
-        repo, document_id=committed.document_id, expected_revision=committed.revision
-    )
-
-
     if campaign_id is None:
-        # Worldbuilding SourceArtifacts may omit campaign; rewrite the registry
-        # record so the ExtractionRun binds to a truly campaignless artifact.
-        path = source_artifacts_path(repo)
-        document_payload = SourceArtifactRegistryDocument.model_validate(load_json(path))
-        rewritten = []
-        for row in document_payload.records:
-            if row.source_artifact_id == artifact.source_artifact_id:
-                rewritten.append(
-                    row.model_copy(update={"campaign_id": None, "world_id": None})
-                )
-            else:
-                rewritten.append(row)
-        write_json(
-            path,
-            SourceArtifactRegistryDocument(
-                schema_version=document_payload.schema_version,
-                records=rewritten,
-            ).model_dump(mode="json"),
+        # Register the campaignless input correctly at creation; immutable DB
+        # descriptors/bodies must never be retargeted after registration.
+        from apps.live_control_server.services.source_artifact_registry import _upsert_source_artifact
+        from graph_memory.evidence.source_artifact import GraphMemorySourceArtifact, build_worldbuilding_source_artifact_id
+        content = source.read_text(encoding="utf-8")
+        digest = hashlib.sha256(content.encode("utf-8")).hexdigest()
+        artifact = _upsert_source_artifact(repo, content=content, candidate=GraphMemorySourceArtifact(
+            source_artifact_id=build_worldbuilding_source_artifact_id(
+                workspace_document_id=committed.document_id,
+                workspace_document_revision=committed.revision, content_sha256=digest),
+            source_domain="worldbuilding", campaign_id=None, world_id=None,
+            uri=f"repo://{committed.target_relpath}", content_sha256=digest,
+            artifact_kind="worldbuilding_markdown", document_class="lore",
+            authority_state="draft", visibility_state="internal",
+            workspace_document_id=committed.document_id,
+            workspace_document_revision=committed.revision,
+        ))
+    else:
+        artifact = create_source_artifact_from_workspace_document(
+            repo, document_id=committed.document_id, expected_revision=committed.revision
         )
-        artifact = get_source_artifact(repo, artifact.source_artifact_id)
-        assert artifact.campaign_id is None
 
 
     span_rel = source_span_index_relpath(artifact.source_artifact_id)
