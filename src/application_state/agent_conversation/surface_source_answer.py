@@ -142,7 +142,7 @@ def producing_passages(turn, authorization, request_json):
         seen_selectors=set()
         for row in frame.get("opened_passages", []):
             handle=row.get('passage_handle')
-            if frame.get('schema') in {FRAME_SCHEMA,'dmb_plan_jev_writer_frame_v4'} and handle is not None:
+            if frame.get('schema') in {FRAME_SCHEMA,'dmb_plan_jev_writer_frame_v4','dmb_plan_jev_writer_frame_v6'} and handle is not None:
                 if handle in seen_selectors:raise ValueError('Repeated Plan source selector row')
                 seen_selectors.add(handle)
                 selected_event,read=resolve_selector(turn,authorization,handle,'p')

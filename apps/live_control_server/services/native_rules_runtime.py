@@ -120,6 +120,25 @@ class NativeRulesRuntime:
                 or (turn.submitted_intent_fingerprint_v1 if not self.graph_enabled
                     else turn.submitted_intent_fingerprint_v2) != self.intent_sha):
             raise ValueError("Native Rules scope differs from the locked logical submission")
+        from application_state.agent_conversation.types import (
+            PlanWorldGraphContextReceiptV1, PlanWorldGraphExecutionV3,
+            PlanSourceContextReceiptV1, PlanSourceExecutionV1,
+            PlayWorldGraphContextReceiptV1, PlayWorldGraphExecutionV1,
+        )
+        receipt, graph = turn.graph_context_receipt, turn.graph_context_execution
+        if not self.graph_enabled:
+            if receipt is not None or graph is not None:
+                raise ValueError("Rules-only scope cannot inherit combined context")
+        elif isinstance(receipt, PlanSourceContextReceiptV1) or isinstance(graph, PlanSourceExecutionV1):
+            from application_state.agent_conversation.plan_source_context import validate_source_execution_binding
+            validate_source_execution_binding(receipt, graph)
+        elif not (isinstance(receipt, PlanWorldGraphContextReceiptV1)
+                and isinstance(graph, PlanWorldGraphExecutionV3)
+                or isinstance(receipt, PlayWorldGraphContextReceiptV1)
+                and isinstance(graph, PlayWorldGraphExecutionV1)):
+            raise ValueError("Native Rules requires the current native Plan or Play capability pair")
+        if self.graph_enabled and receipt.context_receipt_sha256 != graph.context_receipt_sha256:
+            raise ValueError("Native Rules receipt and execution differ")
         if self.record is None:
             cap = self.capability
             scope = RulesScopeV1(
@@ -133,26 +152,6 @@ class NativeRulesRuntime:
         elif (self.record.execution.scope.turn_id != turn.turn_id
                 or self.record.execution.scope.product_attempt != turn.attempt):
             raise ValueError("Native Rules execution crossed a product attempt")
-        from application_state.agent_conversation.types import (
-            PlanWorldGraphContextReceiptV1,
-            PlanWorldGraphExecutionV3,
-            PlayWorldGraphContextReceiptV1,
-            PlayWorldGraphExecutionV1,
-        )
-        receipt, graph = turn.graph_context_receipt, turn.graph_context_execution
-        if not self.graph_enabled:
-            if receipt is not None or graph is not None:
-                raise ValueError("Rules-only scope cannot inherit Graph context")
-            return turn
-        if not (
-            isinstance(receipt, PlanWorldGraphContextReceiptV1)
-            and isinstance(graph, PlanWorldGraphExecutionV3)
-            or isinstance(receipt, PlayWorldGraphContextReceiptV1)
-            and isinstance(graph, PlayWorldGraphExecutionV1)
-        ):
-            raise ValueError("Native Rules requires the current native Plan or Play Graph pair")
-        if receipt.context_receipt_sha256 != graph.context_receipt_sha256:
-            raise ValueError("Native Rules Graph receipt and execution differ")
         return turn
 
     def _actual_lookup_material(self, body):

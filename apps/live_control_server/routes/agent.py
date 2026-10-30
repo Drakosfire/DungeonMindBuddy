@@ -1622,6 +1622,23 @@ def get_world_turn_native_source_clause(world_id: str, turn_id: UUID, citation_i
         raise HTTPException(status_code=exc.status_code, detail={"code": "native_clause_turn_unavailable"}) from exc
 
 
+@router.get("/worlds/{world_id}/conversation/turns/{turn_id}/native-body-excerpts/{citation_index}")
+def get_world_turn_native_body_excerpt(world_id: str, turn_id: UUID, citation_index: int, request: Request):
+    principal = enforce_native_graph_gm(request)
+    world = _verified_world_id(world_id)
+    if request.query_params or not 0 <= citation_index <= 16383:
+        raise HTTPException(status_code=422, detail={"code": "native_body_selector_invalid"})
+    from apps.live_control_server.services.agent_native_source_sections import open_native_body_excerpt
+    from apps.live_control_server.services.agent_source_passages import SourcePassageOpenError
+    try:
+        return open_native_body_excerpt(world_id=world, turn_id=turn_id, citation_index=citation_index,
+            principal=principal, service=_conversation_service(request)).model_dump(mode="json", by_alias=True)
+    except SourcePassageOpenError as exc:
+        raise HTTPException(status_code=exc.status_code, detail={"code": exc.code}) from exc
+    except ApplicationStateError as exc:
+        raise HTTPException(status_code=exc.status_code, detail={"code": "native_body_turn_unavailable"}) from exc
+
+
 @router.get("/worlds/{world_id}/conversation/turns/{turn_id}/native-source-sections/{citation_index}")
 def get_world_turn_native_source_section(world_id: str, turn_id: UUID, citation_index: int,request: Request):
     enforce_native_graph_gm(request)

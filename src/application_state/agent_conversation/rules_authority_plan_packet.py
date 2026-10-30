@@ -145,10 +145,14 @@ def verify_plan_rules_packet_input(execution: RulesExecutionV1, turn, prepared_r
     Caller supplies its locked, owner-loaded Turn, not a model/HTTP substitute.
     Nothing returned by this pure verifier is itself permission to dispatch/cite.
     """
-    from .types import Turn, PlanWorldGraphContextReceiptV1
-    if not isinstance(turn, Turn) or not isinstance(turn.graph_context_receipt, PlanWorldGraphContextReceiptV1):
+    from .types import Turn, PlanWorldGraphContextReceiptV1, PlanSourceContextReceiptV1
+    if not isinstance(turn, Turn) or not isinstance(turn.graph_context_receipt,
+            (PlanWorldGraphContextReceiptV1, PlanSourceContextReceiptV1)):
         raise ValueError("Rules packet requires an actual Plan receipt")
-    receipt = PlanWorldGraphContextReceiptV1.model_validate_json(turn.graph_context_receipt.model_dump_json(by_alias=True))
+    receipt = type(turn.graph_context_receipt).model_validate_json(turn.graph_context_receipt.model_dump_json(by_alias=True))
+    if isinstance(receipt, PlanSourceContextReceiptV1):
+        from .plan_source_context import validate_source_execution_binding
+        validate_source_execution_binding(receipt, turn.graph_context_execution)
     execution = RulesExecutionV1.model_validate_json(execution.model_dump_json(by_alias=True))
     scope = execution.scope
     if (turn.status != "running" or turn.provenance.surface_id != "plan" or execution.state != "active"

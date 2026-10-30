@@ -4,7 +4,8 @@ import psycopg
 from psycopg.types.json import Jsonb
 import pytest
 from application_state.config import load_runtime_dsn
-from application_state.agent_conversation import repository as repo
+from application_state.agent_conversation import repository as repo, types as t
+from application_state.agent_conversation.plan_source_context import capability_bases
 from tests.test_plan_jev_dispatch import plan_adapter  # noqa: F401
 from tests.test_source_passage_reuse import complete_origin
 
@@ -15,10 +16,14 @@ def navigation(adapter, origin, page=None, authority=None):
         page = service.list_turns(origin.world_id, origin.conversation_id)
     return service.retained_graph_navigation(world_id=origin.world_id,
         conversation_id=origin.conversation_id,
-        authority=authority or origin.graph_context_receipt.graph_authority, previous_turns=page)
+        authority=authority or capability_bases(origin.graph_context_receipt).graph.graph_authority, previous_turns=page)
 
 
-def test_navigation_projects_one_existing_history_page_and_deduplicates(plan_adapter, monkeypatch):
+@pytest.mark.parametrize('source_root',[False,True])
+def test_navigation_projects_one_existing_history_page_and_deduplicates(plan_adapter, monkeypatch,source_root):
+    if source_root:
+        plan_adapter.native_source_authority=t.NativeCorpusUnavailableV1(
+            managed_world_id=plan_adapter.world_id,failure_code='native_source_head_unavailable')
     origin, trace = complete_origin(plan_adapter)
     page = plan_adapter.service.list_turns(origin.world_id, origin.conversation_id)
     calls=[]
@@ -33,6 +38,12 @@ def test_navigation_projects_one_existing_history_page_and_deduplicates(plan_ada
     assert [subject.node_id for subject in subjects]==['bridge','pond']
     assert [subject.label for subject in subjects]==['Footbridge','Park pond']
     assert len(calls)==1 and calls[0]==(origin.turn_id,)
+    if source_root:
+        authority=origin.graph_context_receipt.graph_capability.graph_authority
+        assert navigation(plan_adapter,origin,page,authority.model_copy(update={'graph_revision':'other'}))==()
+        # Projection never promotes a source root without an independent Graph capability.
+        source_only=origin.model_copy(update={'graph_context_receipt':origin.graph_context_receipt.model_copy(update={'graph_capability':None})})
+        assert navigation(plan_adapter,origin,[source_only],authority)==()
     assert not any(hasattr(subject,'text') or hasattr(subject,'evidence_ref_ids') for subject in subjects)
 
 

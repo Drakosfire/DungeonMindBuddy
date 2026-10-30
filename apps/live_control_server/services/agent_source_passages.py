@@ -13,7 +13,7 @@ from application_state.agent_conversation.types import (
     BuildGraphContextReceiptV1,
     SurfaceSourceCompletionV1,
     SurfaceEvidenceCompletionV1,
-    PlanWorldGraphContextReceiptV1,
+    PlanWorldGraphContextReceiptV1, PlanSourceContextReceiptV1,
     PlayWorldGraphContextReceiptV1,
 )
 from apps.live_control_server.config import artifact_data_root
@@ -71,7 +71,7 @@ def open_source_passage(
             )
             and isinstance(
                 turn.graph_context_receipt,
-                (PlanWorldGraphContextReceiptV1, PlayWorldGraphContextReceiptV1),
+                (PlanWorldGraphContextReceiptV1, PlanSourceContextReceiptV1, PlayWorldGraphContextReceiptV1),
             )
         )
     ):
@@ -80,7 +80,10 @@ def open_source_passage(
         raise SourcePassageOpenError("source_passage_not_found", 404)
     citation = turn.completion.source_citations[citation_index]
     receipt = citation.receipt
-    authority = turn.graph_context_receipt.graph_authority
+    from application_state.agent_conversation.plan_source_context import require_graph
+    root = turn.graph_context_receipt
+    graph = require_graph(root) if isinstance(root, PlanSourceContextReceiptV1) else root
+    authority = graph.graph_authority
     request = WorldGraphSourceAnchorReadRequest.model_validate(
         {
             "schema": "dmb_world_graph_source_anchor_read_request_v1",

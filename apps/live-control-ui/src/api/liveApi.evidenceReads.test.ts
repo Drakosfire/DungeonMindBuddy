@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
-const cases = ['trace', 'historical-passage', 'prompt', 'source-passage', 'native-section', 'related-page', 'work-plan', 'action-index', 'action-prompt', 'action-diagnostic'] as const
+const cases = ['trace', 'historical-passage', 'prompt', 'source-passage', 'native-section', 'native-body', 'related-page', 'work-plan', 'action-index', 'action-prompt', 'action-diagnostic'] as const
 async function setup(base = '') {
   vi.stubEnv('VITE_LIVE_API_BASE_URL', base)
   vi.resetModules()
@@ -14,6 +14,7 @@ function read(api: Api, kind: typeof cases[number]) {
   if (kind === 'action-prompt') return api.getPlanActionPromptBody('world/a', 'action-a', 'provider-a')
   if (kind === 'work-plan') return api.authenticatedApiFetch('/api/live/agent/worlds/world%2Fa/conversations/11111111-1111-4111-8111-111111111111/work-plans/22222222-2222-4222-8222-222222222222').then(r=>r.response.json())
   if (kind === 'related-page') return api.getAgentRelatedPage('world/a','turn-a','12345678-1234-1234-1234-123456789012')
+  if (kind === 'native-body') return api.getAgentNativeBodyExcerpt('world/a','turn-a',0)
   if (kind === 'native-section') return api.getAgentNativeSourceSection('world/a','turn-a',0)
   if (kind === 'source-passage') return api.getAgentSourcePassage('world/a', 'turn-a', 0)
   return kind === 'trace' ? api.getWorldAgentTurnContextTrace('world/a', 'turn-a')
@@ -27,7 +28,7 @@ describe.each(cases)('Agent %s evidence read authorization', kind => {
     const fetch = vi.spyOn(globalThis, 'fetch').mockResolvedValue(Response.json({ fixture: true }))
     await read(api, kind)
     const [url, init] = fetch.mock.calls[0]
-    expect(String(url)).toContain(kind === 'work-plan' ? '/worlds/world%2Fa/conversations/11111111-1111-4111-8111-111111111111/work-plans/22222222-2222-4222-8222-222222222222' : kind === 'action-diagnostic' ? '/world-plan-edit/actions/action-a/terminal-diagnostic' : kind.startsWith('action-') ? '/world-plan-edit/actions/action-a/prompts' : '/worlds/world%2Fa/conversation/turns/turn-a/' + (kind === 'source-passage' ? 'source-passages/0' : kind === 'native-section' ? 'native-source-sections/0' : kind === 'related-page' ? 'related-pages/12345678-1234-1234-1234-123456789012' : 'context-trace'))
+    expect(String(url)).toContain(kind === 'work-plan' ? '/worlds/world%2Fa/conversations/11111111-1111-4111-8111-111111111111/work-plans/22222222-2222-4222-8222-222222222222' : kind === 'action-diagnostic' ? '/world-plan-edit/actions/action-a/terminal-diagnostic' : kind.startsWith('action-') ? '/world-plan-edit/actions/action-a/prompts' : '/worlds/world%2Fa/conversation/turns/turn-a/' + (kind === 'source-passage' ? 'source-passages/0' : kind === 'native-body' ? 'native-body-excerpts/0' : kind === 'native-section' ? 'native-source-sections/0' : kind === 'related-page' ? 'related-pages/12345678-1234-1234-1234-123456789012' : 'context-trace'))
     if (kind.startsWith('action-')) expect(init?.cache).toBe('no-store')
     expect(new Headers(init?.headers).get('Authorization')).toBe('Bearer synthetic-evidence-token')
     expect(init?.redirect).toBe('error')
@@ -200,3 +201,9 @@ it.each(['export','12345678-1234-1234-1234-123456789012/export','-1','1.5'])('do
 const planRoute='/api/live/agent/worlds/world/conversations/11111111-1111-4111-8111-111111111111/work-plans/22222222-2222-4222-8222-222222222222';
 it.each(['PUT','POST'])('never repeats an uncertain work-plan %s',async method=>{const api=await setup();api.setNativeGraphAccessToken('synthetic-plan-token');const fetch=vi.spyOn(globalThis,'fetch').mockRejectedValue(new TypeError('unknown outcome'));await expect(api.authenticatedApiFetch(planRoute+(method==='POST'?'/continue':''),{method,body:'{}'})).rejects.toThrow();expect(fetch).toHaveBeenCalledTimes(1);expect(new Headers(fetch.mock.calls[0][1]?.headers).get('Authorization')).toBe('Bearer synthetic-plan-token')});
 it.each(['/export','/continue/export','-other'])('does not authorize near-miss work-plan %s',async suffix=>{const api=await setup();api.setNativeGraphAccessToken('synthetic-plan-token');const fetch=vi.spyOn(globalThis,'fetch').mockResolvedValue(Response.json({}));await api.authenticatedApiFetch(planRoute+suffix);expect(new Headers(fetch.mock.calls[0][1]?.headers).has('Authorization')).toBe(false)});
+
+it.each([-1,0.5,16384,NaN])('refuses malformed native body excerpt indexes before fetching: %s',async index=>{
+  const api=await setup();const fetch=vi.spyOn(globalThis,'fetch');
+  await expect(api.getAgentNativeBodyExcerpt('world','turn',index)).rejects.toThrow('Invalid excerpt index');
+  expect(fetch).not.toHaveBeenCalled();
+});

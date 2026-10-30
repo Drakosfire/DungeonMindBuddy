@@ -18,7 +18,7 @@ from enum import Enum
 from typing import Annotated, ClassVar, Literal, NoReturn, Protocol
 from uuid import UUID, uuid4
 
-from pydantic import BaseModel, ConfigDict, Field, model_validator, model_serializer
+from pydantic import BaseModel, ConfigDict, Field, TypeAdapter, model_validator, model_serializer
 
 from .rules_authority_types import ClosedRulesModel, Digest, canonical_bytes, canonical_sha256
 from .collaboration import Collaboration, ConnectedCollaboration
@@ -29,6 +29,9 @@ from .build_related_pages import PagePointer, RelatedPagesSelection, RelatedPage
 from graph_memory.ingestion.selection_context import NativeStatementSelectionV1
 from .native_statement_input import NativeStatementContextReceiptV1, NativeStatementWriterPolicyV1, NativeStatementWriterPolicyV2, NativeStatementInputEventV1
 from .native_statement_answer import NativeStatementCompletionV1
+from .native_corpus import (NativeCorpusAuthorityV1, NativeBodySearchAuthorizedV1,
+    NativeBodySearchObservedV1, NativeBodyReadAuthorizedV1, NativeBodyReadObservedV1,
+    NativeBodyProviderIncludedV1, NATIVE_BODY_EVENTS)
 
 Resolution = Literal["resolved", "absent", "unresolved", "unavailable"]
 ConversationStatus = Literal["active", "archived"]
@@ -1313,6 +1316,68 @@ class PlanWorldGraphContextReceiptV1(StrictModel):
         return self
 
 
+
+class NativeCorpusUnavailableV1(StrictModel):
+    schema_: Literal["dmb_native_corpus_unavailable_v1"] = Field(
+        default="dmb_native_corpus_unavailable_v1", alias="schema")
+    managed_world_id: str = Field(min_length=1)
+    failure_code: Literal["native_source_identity_unavailable", "native_source_head_unavailable",
+                          "native_source_authority_unavailable"]
+
+
+class PlanSourceProviderInputV1(StrictModel):
+    """Actual first decision accounting, with no fabricated Graph packet."""
+    assembler_version: Literal["plan_source_jev_initial_v1"] = "plan_source_jev_initial_v1"
+    provider_model_name: str = Field(min_length=1)
+    provider_model_version: str = Field(min_length=1)
+    tokenizer_name: str = Field(min_length=1)
+    tokenizer_version: str = Field(min_length=1)
+    provider_envelope_input_tokens: int = Field(ge=0, strict=True)
+    output_token_reserve: int = Field(ge=0, strict=True)
+    context_window_limit: int = Field(gt=0, strict=True)
+    included_history: list[PlanWorldGraphHistoryPinV1]
+    assembled_input_sha256: str = Field(pattern=r"^[a-f0-9]{64}$")
+
+    @model_validator(mode="after")
+    def exact_allowance(self):
+        if self.provider_envelope_input_tokens + self.output_token_reserve > self.context_window_limit:
+            raise ValueError("Actual Plan decision exceeds its provider context allowance")
+        return self
+
+
+class PlanSourceContextReceiptV1(StrictModel):
+    """Source-capable Plan owner; a native revision never becomes Graph authority."""
+    schema_: Literal["dmb_plan_source_context_receipt_v1"] = Field(
+        default="dmb_plan_source_context_receipt_v1", alias="schema")
+    receipt_serializer_version: Literal["canonical-json-utf8-v1"]
+    context_receipt_sha256: str = Field(pattern=r"^[a-f0-9]{64}$")
+    plan_context_policy: PlanContextPolicyV1
+    plan_basis: PlanAskContextBasis
+    playable_target: PlanPlayableTargetReceiptV1 | None
+    source_authority: NativeCorpusAuthorityV1 | NativeCorpusUnavailableV1
+    graph_capability: PlanWorldGraphContextReceiptV1 | None
+    assembled_input: PlanSourceProviderInputV1
+
+    @model_validator(mode="after")
+    def exact_capability_bases(self):
+        if self.source_authority.managed_world_id != self.plan_basis.world_id:
+            raise ValueError("Source authority differs from the actual Plan World")
+        if self.graph_capability is not None and (
+                self.graph_capability.plan_basis != self.plan_basis
+                or self.graph_capability.playable_target != self.playable_target
+                or self.graph_capability.plan_context_policy != self.plan_context_policy):
+            raise ValueError("Independent Graph capability differs from the actual Plan basis")
+        if self.graph_capability is not None and isinstance(self.source_authority, NativeCorpusAuthorityV1):
+            graph = self.graph_capability.graph_authority
+            if (graph.native_world_id != self.source_authority.native_world_id
+                    or graph.binding_version != self.source_authority.binding_version):
+                raise ValueError("Independent capabilities differ from their managed/native World binding")
+        payload = self.model_dump(mode="json", by_alias=True, exclude={"context_receipt_sha256"})
+        if canonical_sha256(payload) != self.context_receipt_sha256:
+            raise ValueError("Source-capable Plan receipt digest differs from its contents")
+        return self
+
+
 def validate_graph_packet_input(
     packet: PlanWorldGraphPacketV1, assembled: PlanWorldGraphAssembledInputV1,
 ) -> None:
@@ -1436,7 +1501,7 @@ class PlayWorldGraphContextReceiptV1(ClosedRulesModel):
 
 
 GraphContextReceipt = Annotated[
-    PlanWorldGraphContextReceiptV1 | BuildGraphContextReceiptV1 | PlayWorldGraphContextReceiptV1 | NativeStatementContextReceiptV1,
+    PlanWorldGraphContextReceiptV1 | PlanSourceContextReceiptV1 | BuildGraphContextReceiptV1 | PlayWorldGraphContextReceiptV1 | NativeStatementContextReceiptV1,
     Field(discriminator="schema_"),
 ]
 
@@ -2247,7 +2312,34 @@ class SurfaceEvidenceCompletionV4(SurfaceEvidenceCompletionV3):
     answer_segments: list[SurfaceEvidenceSegmentV3] = Field(min_length=1, max_length=128)
 
 
-GraphTurnCompletion = NativeStatementCompletionV1 | BuildIntentionalResponseCompletionV3 | BuildRelationshipReviewCompletionV3 | BuildIntentionalResponseCompletionV2 | BuildRelationshipReviewCompletionV2 | BuildIntentionalResponseCompletionV1 | BuildRelationshipReviewCompletionV1 | BuildConnectedPageReviewCompletionV1 | BuildCollaborationCompletionV1 | BuildRelatedPageCompletionV1 | BuildDraftContextCompletionV1 | BuildNamedGraphCompletionV3 | SurfaceEvidenceCompletionV4 | SurfaceEvidenceCompletionV3 | SurfaceEvidenceCompletionV2 | SurfaceEvidenceCompletionV1 | SurfaceSourceCompletionV1 | PlayWorldGraphCompletionV1 | PlanWorldGraphCompletion | BuildGraphCompletionV1 | BuildGraphCompletionV2 | BuildAuthoringCompletionV1 | BuildImagePreparationCompletionV1
+class NativeBodyExcerptCitationV1(StrictModel):
+    """An opened native body extent, never an APP source or Graph assertion span."""
+    segment_index: int = Field(strict=True, ge=0)
+    text_sha256: str = Field(pattern=r"^[a-f0-9]{64}$")
+    provider_attempt_id: UUID
+    envelope_sha256: str = Field(pattern=r"^[a-f0-9]{64}$")
+    read_event_id: UUID
+    catalog_sha256: str = Field(pattern=r"^[a-f0-9]{64}$")
+    source_artifact_id: str = Field(min_length=1)
+    native_source_revision_id: str = Field(min_length=1)
+    content_sha256: str = Field(pattern=r"^[a-f0-9]{64}$")
+    excerpt_sha256: str = Field(pattern=r"^[a-f0-9]{64}$")
+    section_id: str = Field(pattern=r"^[a-f0-9]{64}$")
+    selector_policy: Literal["markdown_sections_v1", "native_full_document_v1"]
+    source_name: str = Field(min_length=1)
+    section_title: str = Field(min_length=1)
+    line_start: int = Field(strict=True, ge=1)
+    line_end: int = Field(strict=True, ge=1)
+
+
+class SurfaceEvidenceCompletionV5(SurfaceEvidenceCompletionV4):
+    surface_id: Literal["plan"] = "plan"
+    schema_: Literal["dmb_surface_evidence_completion_v5"] = Field(default="dmb_surface_evidence_completion_v5", alias="schema")
+    native_body_citations: list[NativeBodyExcerptCitationV1] = Field(default_factory=list,
+        max_length=MAX_CITATION_SOURCE_READ_IDS)
+
+
+GraphTurnCompletion = SurfaceEvidenceCompletionV5 | NativeStatementCompletionV1 | BuildIntentionalResponseCompletionV3 | BuildRelationshipReviewCompletionV3 | BuildIntentionalResponseCompletionV2 | BuildRelationshipReviewCompletionV2 | BuildIntentionalResponseCompletionV1 | BuildRelationshipReviewCompletionV1 | BuildConnectedPageReviewCompletionV1 | BuildCollaborationCompletionV1 | BuildRelatedPageCompletionV1 | BuildDraftContextCompletionV1 | BuildNamedGraphCompletionV3 | SurfaceEvidenceCompletionV4 | SurfaceEvidenceCompletionV3 | SurfaceEvidenceCompletionV2 | SurfaceEvidenceCompletionV1 | SurfaceSourceCompletionV1 | PlayWorldGraphCompletionV1 | PlanWorldGraphCompletion | BuildGraphCompletionV1 | BuildGraphCompletionV2 | BuildAuthoringCompletionV1 | BuildImagePreparationCompletionV1
 
 
 class GraphCompletionRejectionCode(str, Enum):
@@ -2394,6 +2486,20 @@ class PlanEvidenceHistoryAttributionV4(PlanEvidenceHistoryAttributionV3):
         return self
 
 
+class PlanEvidenceHistoryAttributionV5(PlanEvidenceHistoryAttributionV4):
+    schema_: Literal["dmb_plan_evidence_history_attribution_v5"] = Field(default="dmb_plan_evidence_history_attribution_v5", alias="schema")
+    native_body_citations: list[NativeBodyExcerptCitationV1]
+
+    @model_validator(mode="after")
+    def mixed_history_shape(self):
+        SurfaceEvidenceCompletionV5(surface_id="plan", context_receipt_sha256=self.context_receipt_sha256,
+            answer_basis=self.answer_basis, answer_context_status=self.answer_context_status,
+            answer_segments=self.answer_segments, citation_map=self.citation_map,
+            source_citations=self.source_citations, native_source_citations=self.native_source_citations,
+            native_body_citations=self.native_body_citations)
+        return self
+
+
 class CompletedPlanAskPair(StrictModel):
     """Visible Ask pair with optional validated Graph attribution."""
 
@@ -2403,7 +2509,7 @@ class CompletedPlanAskPair(StrictModel):
     accepted_at: datetime
     question: str = Field(min_length=1)
     answer: str = Field(min_length=1)
-    history_attribution: PlanEvidenceHistoryAttributionV4 | PlanEvidenceHistoryAttributionV3 | PlanEvidenceHistoryAttributionV2 | PlanEvidenceHistoryAttributionV1 | PlanAskHistoryAttributionV1 | MixedHistoryAttributionV1 | None = None
+    history_attribution: PlanEvidenceHistoryAttributionV5 | PlanEvidenceHistoryAttributionV4 | PlanEvidenceHistoryAttributionV3 | PlanEvidenceHistoryAttributionV2 | PlanEvidenceHistoryAttributionV1 | PlanAskHistoryAttributionV1 | MixedHistoryAttributionV1 | None = None
 
     @model_validator(mode="after")
     def validate_visible_text(self) -> "CompletedPlanAskPair":
@@ -2438,7 +2544,7 @@ class GraphExecutionAccountingV1(StrictModel):
 
 class GraphExecutionPolicyV1(StrictModel):
     policy_version: str = Field(min_length=1, max_length=128)
-    allowed_graph_operations: list[str] = Field(min_length=1, max_length=32)
+    allowed_graph_operations: list[str] = Field(max_length=32)
     max_provider_attempts: int | None = Field(strict=True, ge=1, le=128)
     max_graph_operations: int | None = Field(strict=True, ge=0, le=512)
     max_results_per_operation: int = Field(strict=True, ge=0, le=4096)
@@ -2453,14 +2559,22 @@ class GraphExecutionPolicyV1(StrictModel):
             self.max_provider_attempts, self.max_graph_operations,
             self.max_total_provider_input_tokens, self.max_total_provider_output_tokens,
         )
+        if (
+            self.policy_version == "plan_source_execution_uncapped_v1"
+            and not isinstance(self, PlanSourceExecutionPolicyV1)
+        ):
+            raise ValueError("source execution version requires the typed source policy")
         uncapped = self.policy_version in {
             "world_graph_execution_uncapped_v1",
             "world_graph_execution_selected_scope_uncapped_v1",
+            "plan_source_execution_uncapped_v1",
         }
         if uncapped and any(limit is not None for limit in limits):
             raise ValueError("uncapped execution policy requires explicit null limits")
         if not uncapped and any(limit is None for limit in limits):
             raise ValueError("null limits require an explicit uncapped execution policy")
+        if not self.allowed_graph_operations and self.policy_version != "plan_source_execution_uncapped_v1":
+            raise ValueError("Only an explicit source-capable policy can omit Graph operations")
         if any(not item.strip() for item in self.allowed_graph_operations):
             raise ValueError("allowed Graph operations cannot be blank")
         if self.allowed_graph_operations != sorted(set(self.allowed_graph_operations)):
@@ -2751,6 +2865,26 @@ class PlanPlacementAuthoringPolicyV1(PlanCorpusAuthoringPolicyV1):
     def exact_placement_catalog(self):
         if (self.placement_catalog_sha256 is None) != (self.plan_authoring_capture_sha256 is None):
             raise ValueError('Plan placement policy requires its original capture and catalog together')
+        return self
+
+
+class PlanSourceExecutionPolicyV1(PlanPlacementAuthoringPolicyV1):
+    """Shared Plan provider lifecycle with an explicitly optional Graph scope."""
+    policy_version: Literal["plan_source_execution_uncapped_v1"] = "plan_source_execution_uncapped_v1"
+    driver_schema: Literal["dmb_plan_source_jev_retrieval_v1"] = "dmb_plan_source_jev_retrieval_v1"
+    corpus_source_policy: Literal["native_admitted_body_sections_v1"] = "native_admitted_body_sections_v1"
+    source_read_scope: GraphSelectedSourceReadScopeV2 | GraphSourceReadScopeV2 | None
+    source_authority_sha256: str = Field(pattern=r"^[a-f0-9]{64}$")
+    allowed_graph_operations: list[str] = Field(max_length=32)
+
+    @model_validator(mode="after")
+    def validate_selected_scope(self):
+        # A genuine Graph capability supplies its independently validated scope;
+        # absence is explicit and never encoded as a native-R Graph scope.
+        if self.source_read_scope is None and self.allowed_graph_operations:
+            raise ValueError("Graph operations require an actual Graph capability scope")
+        if self.source_read_scope is not None and not self.allowed_graph_operations:
+            raise ValueError("An actual Graph scope requires its admitted operations")
         return self
 
 
@@ -3871,6 +4005,85 @@ GraphExecutionEventV1 = Annotated[
 ]
 
 
+def validate_provider_execution(policy, events) -> None:
+    """Shared provider lifecycle checks over the actual validated policy."""
+    if [event.sequence for event in events] != list(range(len(events))):
+        raise ValueError("Graph execution events must have contiguous sequence numbers")
+    if len({event.event_id for event in events}) != len(events):
+        raise ValueError("Graph execution event IDs must be unique")
+    operation_ids: set[UUID] = set()
+    attempts: dict[UUID, ProviderAttemptAuthorizedEventV1] = {}
+    outcomes: dict[UUID, list[str]] = {}
+    completion_bindings = 0
+    for event in events:
+        if isinstance(event, ValidatedGraphOperationEventV1):
+            if attempts:
+                latest_attempt_id = next(reversed(attempts))
+                if outcomes[latest_attempt_id][-1:] == ["outcome_unknown"]:
+                    raise ValueError("Graph operations cannot continue after an unknown provider outcome")
+            if event.operation not in policy.allowed_graph_operations:
+                raise ValueError("Graph operation is outside the accepted policy")
+            if event.operation_id in operation_ids:
+                raise ValueError("Graph operation ID must be unique within the turn")
+            operation_ids.add(event.operation_id)
+        elif isinstance(event, ProviderAttemptAuthorizedEventV1):
+            if event.provider_attempt_id in attempts:
+                raise ValueError("provider attempt ID was authorized more than once")
+            if attempts:
+                latest_attempt_id = next(reversed(attempts))
+                prior_outcomes = outcomes[latest_attempt_id]
+                if not prior_outcomes or prior_outcomes[-1] not in {"response_received", "known_not_sent"}:
+                    raise ValueError("a new provider attempt requires a resolved prior attempt")
+            if event.input_accounting_kind != policy.provider_input_accounting.kind or event.input_estimator != policy.provider_input_accounting.estimator:
+                raise ValueError("provider attempt accounting differs from accepted policy")
+            attempts[event.provider_attempt_id] = event
+            outcomes[event.provider_attempt_id] = []
+        elif isinstance(event, ProviderOutcomeEventV1):
+            if event.provider_attempt_id not in attempts:
+                raise ValueError("provider outcome requires a prior authorization")
+            prior = outcomes[event.provider_attempt_id]
+            if event.outcome == "sdk_entered" and prior:
+                raise ValueError("SDK entry must be the first provider outcome")
+            if event.outcome == "known_not_sent" and prior:
+                raise ValueError("known-not-sent must be recorded before SDK entry")
+            if event.outcome not in {"sdk_entered", "known_not_sent", "outcome_unknown"} and not prior:
+                raise ValueError("provider outcome requires observed SDK entry")
+            if prior and prior[-1] in {"response_received", "known_not_sent", "outcome_unknown"}:
+                raise ValueError("provider attempt already has a terminal outcome")
+            prior.append(event.outcome)
+        elif isinstance(event, CompletionBindingEventV1):
+            completion_bindings += 1
+            if completion_bindings > 1 or event.sequence != len(events) - 1:
+                raise ValueError("completion binding must be unique and the final execution event")
+            if event.provider_attempt_id not in attempts or outcomes[event.provider_attempt_id][-1:] != ["response_received"]:
+                raise ValueError("completion binding requires a response-received attempt")
+    if policy.max_provider_attempts is not None and len(attempts) > policy.max_provider_attempts:
+        raise ValueError("provider attempt policy limit exceeded")
+    graph_events = [e for e in events if isinstance(e, ValidatedGraphOperationEventV1)]
+    if policy.max_graph_operations is not None and len(graph_events) > policy.max_graph_operations:
+        raise ValueError("Graph operation policy limit exceeded")
+    graph_by_event_id = {event.event_id: event for event in graph_events}
+    if any(
+        len(event.assertion_ids) + len(event.relationship_ids) + len(event.evidence_ref_ids)
+        > policy.max_results_per_operation
+        for event in graph_events
+    ):
+        raise ValueError("Graph operation result limit exceeded")
+    input_total = sum(event.input_tokens for event in attempts.values())
+    output_total = sum(event.output_token_reserve for event in attempts.values())
+    if (
+        policy.max_total_provider_input_tokens is not None
+        and input_total > policy.max_total_provider_input_tokens
+    ) or (
+        policy.max_total_provider_output_tokens is not None
+        and output_total > policy.max_total_provider_output_tokens
+    ):
+        raise ValueError("provider token budget exceeded")
+    for attempt in attempts.values():
+        if any(event_id not in graph_by_event_id for event_id in attempt.included_graph_event_ids):
+            raise ValueError("provider envelope references an unknown Graph operation event")
+
+
 class PlanWorldGraphExecutionV1(StrictModel):
     schema_: Literal["dmb_agent_plan_world_graph_execution_v1"] = Field(
         default="dmb_agent_plan_world_graph_execution_v1", alias="schema"
@@ -3881,81 +4094,7 @@ class PlanWorldGraphExecutionV1(StrictModel):
 
     @model_validator(mode="after")
     def validate_execution(self) -> "PlanWorldGraphExecutionV1":
-        if [event.sequence for event in self.events] != list(range(len(self.events))):
-            raise ValueError("Graph execution events must have contiguous sequence numbers")
-        if len({event.event_id for event in self.events}) != len(self.events):
-            raise ValueError("Graph execution event IDs must be unique")
-        operation_ids: set[UUID] = set()
-        attempts: dict[UUID, ProviderAttemptAuthorizedEventV1] = {}
-        outcomes: dict[UUID, list[str]] = {}
-        completion_bindings = 0
-        for event in self.events:
-            if isinstance(event, ValidatedGraphOperationEventV1):
-                if attempts:
-                    latest_attempt_id = next(reversed(attempts))
-                    if outcomes[latest_attempt_id][-1:] == ["outcome_unknown"]:
-                        raise ValueError("Graph operations cannot continue after an unknown provider outcome")
-                if event.operation not in self.policy.allowed_graph_operations:
-                    raise ValueError("Graph operation is outside the accepted policy")
-                if event.operation_id in operation_ids:
-                    raise ValueError("Graph operation ID must be unique within the turn")
-                operation_ids.add(event.operation_id)
-            elif isinstance(event, ProviderAttemptAuthorizedEventV1):
-                if event.provider_attempt_id in attempts:
-                    raise ValueError("provider attempt ID was authorized more than once")
-                if attempts:
-                    latest_attempt_id = next(reversed(attempts))
-                    prior_outcomes = outcomes[latest_attempt_id]
-                    if not prior_outcomes or prior_outcomes[-1] not in {"response_received", "known_not_sent"}:
-                        raise ValueError("a new provider attempt requires a resolved prior attempt")
-                if event.input_accounting_kind != self.policy.provider_input_accounting.kind or event.input_estimator != self.policy.provider_input_accounting.estimator:
-                    raise ValueError("provider attempt accounting differs from accepted policy")
-                attempts[event.provider_attempt_id] = event
-                outcomes[event.provider_attempt_id] = []
-            elif isinstance(event, ProviderOutcomeEventV1):
-                if event.provider_attempt_id not in attempts:
-                    raise ValueError("provider outcome requires a prior authorization")
-                prior = outcomes[event.provider_attempt_id]
-                if event.outcome == "sdk_entered" and prior:
-                    raise ValueError("SDK entry must be the first provider outcome")
-                if event.outcome == "known_not_sent" and prior:
-                    raise ValueError("known-not-sent must be recorded before SDK entry")
-                if event.outcome not in {"sdk_entered", "known_not_sent", "outcome_unknown"} and not prior:
-                    raise ValueError("provider outcome requires observed SDK entry")
-                if prior and prior[-1] in {"response_received", "known_not_sent", "outcome_unknown"}:
-                    raise ValueError("provider attempt already has a terminal outcome")
-                prior.append(event.outcome)
-            elif isinstance(event, CompletionBindingEventV1):
-                completion_bindings += 1
-                if completion_bindings > 1 or event.sequence != len(self.events) - 1:
-                    raise ValueError("completion binding must be unique and the final execution event")
-                if event.provider_attempt_id not in attempts or outcomes[event.provider_attempt_id][-1:] != ["response_received"]:
-                    raise ValueError("completion binding requires a response-received attempt")
-        if self.policy.max_provider_attempts is not None and len(attempts) > self.policy.max_provider_attempts:
-            raise ValueError("provider attempt policy limit exceeded")
-        graph_events = [e for e in self.events if isinstance(e, ValidatedGraphOperationEventV1)]
-        if self.policy.max_graph_operations is not None and len(graph_events) > self.policy.max_graph_operations:
-            raise ValueError("Graph operation policy limit exceeded")
-        graph_by_event_id = {event.event_id: event for event in graph_events}
-        if any(
-            len(event.assertion_ids) + len(event.relationship_ids) + len(event.evidence_ref_ids)
-            > self.policy.max_results_per_operation
-            for event in graph_events
-        ):
-            raise ValueError("Graph operation result limit exceeded")
-        input_total = sum(event.input_tokens for event in attempts.values())
-        output_total = sum(event.output_token_reserve for event in attempts.values())
-        if (
-            self.policy.max_total_provider_input_tokens is not None
-            and input_total > self.policy.max_total_provider_input_tokens
-        ) or (
-            self.policy.max_total_provider_output_tokens is not None
-            and output_total > self.policy.max_total_provider_output_tokens
-        ):
-            raise ValueError("provider token budget exceeded")
-        for attempt in attempts.values():
-            if any(event_id not in graph_by_event_id for event_id in attempt.included_graph_event_ids):
-                raise ValueError("provider envelope references an unknown Graph operation event")
+        validate_provider_execution(self.policy, self.events)
         if len(self.model_dump_json(by_alias=True).encode("utf-8")) > 1_048_576:
             raise ValueError("Graph execution record exceeds the storage size limit")
         return self
@@ -4032,7 +4171,15 @@ def validate_graph_execution_record(execution, *, dynamic_source_scope: bool, al
     if len({event.event_id for event in execution.events}) != len(execution.events):
         raise ValueError("Graph execution event IDs must be unique")
     scope = execution.policy.source_read_scope
-    scope_by_anchor = {anchor.anchor_id: anchor for anchor in scope.admitted_anchors}
+    if scope is None:
+        if not isinstance(execution.policy, PlanSourceExecutionPolicyV1):
+            raise ValueError("Only an explicit source-capable Plan can omit Graph scope")
+        if any(isinstance(event, (ValidatedGraphOperationEventV1, SourceScopeExtensionEventV3,
+                SourceReadAuthorizationEventV2, ValidatedSourceReadEventV2, SourcePassageReuseEventV1,
+                RelatedRecapContextAuthorizationEventV2, ValidatedRelatedRecapContextEventV2))
+                for event in execution.events):
+            raise ValueError("Graph acquisition requires its independently authorized capability")
+    scope_by_anchor = {anchor.anchor_id: anchor for anchor in scope.admitted_anchors} if scope is not None else {}
     origins: dict[UUID, ValidatedGraphOperationEventV3] = {}
     auths: dict[UUID, SourceReadAuthorizationEventV2] = {}
     receipts_by_event: dict[UUID, ValidatedSourceReadEventV2] = {}
@@ -4140,6 +4287,11 @@ def validate_graph_execution_record(execution, *, dynamic_source_scope: bool, al
         raise ValueError("source-read anchor budget exceeded")
     source_read_character_usage(execution.policy, execution.events)
 
+    from .native_corpus import validate_native_body_events
+    if isinstance(execution.policy, PlanSourceExecutionPolicyV1):
+        validate_native_body_events(execution)
+    elif any(isinstance(event, NATIVE_BODY_EVENTS) for event in execution.events):
+        raise ValueError("Native body events require their explicit source-capable Plan policy")
     _validate_related_recap_context_events(execution)
     from .corpus_source_search import validate_events as validate_corpus_events
     validate_corpus_events(execution)
@@ -4156,6 +4308,8 @@ def validate_graph_execution_record(execution, *, dynamic_source_scope: bool, al
     legacy_events: list[dict[str, object]] = []
     provider_index = 0
     for event in execution.events:
+        if isinstance(event, NATIVE_BODY_EVENTS):
+            continue
         if isinstance(
             event,
             (
@@ -4224,21 +4378,13 @@ def validate_graph_execution_record(execution, *, dynamic_source_scope: bool, al
             payload.pop("returned_source_pins", None)
         payload["sequence"] = len(legacy_events)
         legacy_events.append(payload)
-    legacy_policy = {
-        key: value for key, value in execution.policy.model_dump(mode="json", by_alias=True).items()
-        if key in {
-            "policy_version", "allowed_graph_operations", "max_provider_attempts",
-            "max_graph_operations", "max_results_per_operation",
-            "max_total_provider_input_tokens", "max_total_provider_output_tokens",
-            "provider_input_accounting", "source_opened",
-        }
-    }
-    PlanWorldGraphExecutionV1.model_validate({
-        "schema": "dmb_agent_plan_world_graph_execution_v1",
-        "context_receipt_sha256": execution.context_receipt_sha256,
-        "policy": legacy_policy,
-        "events": legacy_events,
-    })
+    # Keep the real source-capable policy. Project only event syntax into the
+    # shared provider lifecycle; never admit a source discriminator as a generic
+    # legacy Graph policy just to run those checks.
+    validate_provider_execution(
+        execution.policy,
+        TypeAdapter(list[GraphExecutionEventV1]).validate_python(legacy_events),
+    )
     if len(execution.model_dump_json(by_alias=True).encode("utf-8")) > 1_048_576:
         raise ValueError("Graph execution record exceeds the storage size limit")
     if dynamic_source_scope and len(json.dumps(execution.model_dump(mode="json", by_alias=True), ensure_ascii=True).encode("utf-8")) > 1_048_576:
@@ -4722,9 +4868,29 @@ class PlanWorldGraphExecutionV3(PlanWorldGraphExecutionV2):
         return _effective_source_pins(self)
 
 
+class PlanSourceExecutionV1(PlanWorldGraphExecutionV3):
+    """Distinct source-capable ledger using the existing provider state machine."""
+    schema_: Literal["dmb_plan_source_execution_v1"] = Field(
+        default="dmb_plan_source_execution_v1", alias="schema")
+    policy: PlanSourceExecutionPolicyV1
+    events: list[Annotated[
+        ValidatedGraphOperationEventV3 | PlanRequestedWorkAuthorizedV2 | PlanRequestedWorkAuthorizedV1
+        | PlanJevProviderAuthorizedV1 | PlanJevWriterAuthorizedV2 | PlanJevWriterAuthorizedV1
+        | ProviderOutcomeEventV1 | CompletionBindingEventV1
+        | SourceScopeExtensionEventV3 | SourceReadAuthorizationEventV2 | ValidatedSourceReadEventV2
+        | SourcePassageReuseEventV1 | RelatedRecapContextAuthorizationEventV2
+        | ValidatedRelatedRecapContextEventV2 | RelatedRecapContextProviderInclusionEventV2
+        | PlanRequestedWorkSelectedV2 | PlanRequestedWorkSelectedV1 | PlanJevRetrievalSelectionV1
+        | NativeBodySearchAuthorizedV1 | NativeBodySearchObservedV1 | NativeBodyReadAuthorizedV1
+        | NativeBodyReadObservedV1 | NativeBodyProviderIncludedV1,
+        Field(discriminator="kind"),
+    ]] = Field(max_length=2048)
+
+
 def _effective_source_pins(execution) -> dict[str, GraphSourceScopeAnchorV2]:
     """Read the exact frozen and extended pins from an already validated ledger."""
-    pins = {pin.anchor_id: pin for pin in execution.policy.source_read_scope.admitted_anchors}
+    scope = execution.policy.source_read_scope
+    pins = {pin.anchor_id: pin for pin in scope.admitted_anchors} if scope is not None else {}
     for event in execution.events:
         if isinstance(event, SourceScopeExtensionEventV3):
             pins.update({pin.anchor_id: pin for pin in event.pins})
@@ -5080,7 +5246,11 @@ class NativeStatementExecutionV1(StrictModel):
         return self
 
 
-GraphTurnExecution = PlanWorldGraphExecution | PlayWorldGraphExecutionV1 | NativeStatementExecutionV1
+GraphTurnExecution = Annotated[
+    PlanWorldGraphExecutionV1 | PlanWorldGraphExecutionV2 | PlanWorldGraphExecutionV3
+    | PlanSourceExecutionV1 | PlayWorldGraphExecutionV1 | NativeStatementExecutionV1,
+    Field(discriminator="schema_"),
+]
 
 
 _SELECTED_SOURCE_INDEX_SELECTION_POLICY_V1 = "parent_initial_retrieval_with_selected_source_index_v1"
@@ -5127,6 +5297,12 @@ def validate_graph_provider_envelope(
     event: ProviderAttemptAuthorizedEventV1,
 ) -> None:
     """Shared admitted-ID, first-envelope and frozen-context-window checks."""
+    validate_graph_provider_evidence(inputs, execution, event)
+    validate_provider_envelope_accounting(inputs.assembled_input, execution, event)
+
+
+def validate_graph_provider_evidence(inputs, execution, event) -> None:
+    """Only admitted Graph IDs may appear in a provider envelope."""
     graph_events = [e for e in execution.events if isinstance(e, ValidatedGraphOperationEventV1)]
     included_graph_events = set(event.included_graph_event_ids)
     included_operations = [e for e in graph_events if e.event_id in included_graph_events]
@@ -5135,7 +5311,14 @@ def validate_graph_provider_envelope(
     available_evidence = set(inputs.assembled_input.dispatched_evidence_ref_ids) | {x for e in included_operations for x in e.evidence_ref_ids}
     if not set(event.included_assertion_ids).issubset(available_assertions) or not set(event.included_relationship_ids).issubset(available_relationships) or not set(event.included_evidence_ref_ids).issubset(available_evidence):
         raise ValueError("provider envelope includes IDs absent from admitted Graph evidence")
-    context_limit = inputs.assembled_input.context_window_limit
+    operation_event_ids = {e.event_id for e in graph_events}
+    if not set(event.included_graph_event_ids).issubset(operation_event_ids):
+        raise ValueError("provider envelope references an unknown Graph operation event")
+
+
+def validate_provider_envelope_accounting(assembled, execution, event) -> None:
+    """First-call commitment and role budget over the actual owning input."""
+    context_limit = assembled.context_window_limit
     if (isinstance(execution.policy, BuildWriterBudgetActionControllerWriterPolicyV1)
             and (event.provider, event.model, event.api_mode) == execution.policy.writer_context_budget.identity()):
         context_limit = execution.policy.writer_context_budget.context_limit_tokens
@@ -5143,12 +5326,8 @@ def validate_graph_provider_envelope(
             raise ValueError("writer reserve differs from its frozen role budget")
     if event.input_tokens + event.output_token_reserve > context_limit:
         raise ValueError("provider envelope exceeds the frozen context window")
-    operation_event_ids = {e.event_id for e in graph_events}
-    if not set(event.included_graph_event_ids).issubset(operation_event_ids):
-        raise ValueError("provider envelope references an unknown Graph operation event")
     previous_attempts = [e for e in execution.events if isinstance(e, ProviderAttemptAuthorizedEventV1)]
     if not previous_attempts:
-        assembled = inputs.assembled_input
         if assembled.assembler_version == "reviewed_author_admission_v1":
             selected = [e for e in execution.events if isinstance(e, BuildReviewedActionSelectionV1)]
             if len(selected) != 1 or _canonical_sha256({"schema":"dmb_reviewed_action_admission_v1", "intent":selected[0].intent.model_dump(mode="json", by_alias=True)}) != assembled.assembled_input_sha256:
@@ -5167,6 +5346,10 @@ def validate_selected_source_binding(
     receipt: GraphContextReceipt,
     execution: GraphTurnExecution | None,
 ) -> None:
+    if isinstance(receipt, PlanSourceContextReceiptV1) or isinstance(execution, PlanSourceExecutionV1):
+        from .plan_source_context import validate_source_execution_binding
+        validate_source_execution_binding(receipt, execution)
+        return
     if execution is not None and isinstance(execution.policy, PlanJevRetrievalPolicyV1):
         if not isinstance(receipt, PlanWorldGraphContextReceiptV1):
             raise ValueError("Plan Jev policy requires its actual Plan receipt")
@@ -5230,6 +5413,10 @@ def validate_related_recap_context_scope(
     receipt: GraphContextReceipt,
     execution: GraphTurnExecution | None,
 ) -> None:
+    if isinstance(receipt, PlanSourceContextReceiptV1) or isinstance(execution, PlanSourceExecutionV1):
+        from .plan_source_context import validate_source_execution_binding
+        validate_source_execution_binding(receipt, execution)
+        return
     if execution is not None and isinstance(execution.policy, PlanJevRetrievalPolicyV1):
         if not isinstance(receipt, PlanWorldGraphContextReceiptV1):
             raise ValueError("Plan Jev policy requires its actual Plan receipt")
@@ -6073,6 +6260,10 @@ class TurnSubmission(StrictModel):
                 raise ValueError("Native admission requires its exact intent and empty execution")
             validate_record(self.graph_context_receipt, self.graph_context_execution, self.provenance)
             return self
+        if isinstance(self.graph_context_receipt, PlanSourceContextReceiptV1) or isinstance(self.graph_context_execution, PlanSourceExecutionV1):
+            from .plan_source_context import validate_source_submission
+            validate_source_submission(self)
+            return self
         if isinstance(self.submitted_intent_v1, PlayRulesIntentV1):
             intent, receipt = self.submitted_intent_v1, self.play_context_receipt
             if (not isinstance(receipt, PlayRunTurnContextReceiptV2)
@@ -6357,6 +6548,26 @@ def validate_turn_graph_fields(
         from .native_statement_answer import validate_record
         validate_record(graph_context_receipt, graph_context_execution, provenance, completion, assistant_text)
         return
+    if isinstance(graph_context_receipt, PlanSourceContextReceiptV1) or isinstance(graph_context_execution, PlanSourceExecutionV1):
+        from .plan_source_context import validate_source_provenance, validate_source_execution_binding
+        if submitted_intent_fingerprint_v2 is None:
+            raise ValueError("Source-capable Plan requires its submitted-intent fingerprint")
+        if not isinstance(graph_context_receipt, PlanSourceContextReceiptV1) or not isinstance(graph_context_execution, PlanSourceExecutionV1):
+            raise ValueError("Source-capable Plan requires its own receipt and execution")
+        validate_source_provenance(graph_context_receipt, provenance)
+        validate_source_execution_binding(graph_context_receipt, graph_context_execution)
+        bindings = [event for event in graph_context_execution.events if isinstance(event, CompletionBindingEventV1)]
+        if completion is None:
+            if assistant_text is not None or bindings:
+                raise ValueError("Source-capable Plan requires its own validated answer contract")
+            return
+        if (not isinstance(completion, SurfaceEvidenceCompletionV5) or len(bindings) != 1
+                or assistant_text != "\n".join(segment.text for segment in completion.answer_segments)):
+            raise ValueError("Source-capable Plan requires its own validated answer contract")
+        binding = bindings[0]
+        validate_execution_completion(completion, graph_context_receipt, graph_context_execution,
+            binding.provider_attempt_id, binding.claim_graph_event_ids)
+        return
     if isinstance(graph_context_receipt, PlayWorldGraphContextReceiptV1) or isinstance(graph_context_execution, PlayWorldGraphExecutionV1) or isinstance(completion, PlayWorldGraphCompletionV1):
         from .play_graph_context import validate_play_graph_execution_binding, validate_play_graph_provenance
         from .play_graph_completion import validate_play_graph_completion
@@ -6512,6 +6723,11 @@ class Turn(StrictModel):
                 or (self.status == "completed" and (self.completion is None or self.completed_at is None))
                 or (self.status != "completed" and self.completion is not None)):
             raise ValueError("Native Play retained lifecycle/context must match its owning receipt")
+        if isinstance(self.graph_context_receipt, PlanSourceContextReceiptV1) and (
+                self.world_id != self.graph_context_receipt.plan_basis.world_id
+                or (self.status == "completed" and (self.completion is None or self.completed_at is None))
+                or (self.status != "completed" and self.completion is not None)):
+            raise ValueError("Source-capable Plan lifecycle requires its validated completion")
         if isinstance(self.graph_context_receipt, NativeStatementContextReceiptV1) and (self.submitted_intent_fingerprint_v1 is None or (self.status == "completed" and self.completion is None)):
             raise ValueError("Native receipt requires its exact submitted-intent fingerprint")
         validate_turn_graph_fields(
@@ -6522,6 +6738,10 @@ class Turn(StrictModel):
             completion=self.completion,
             assistant_text=self.assistant_text,
         )
+        if isinstance(self.graph_context_receipt, PlanSourceContextReceiptV1):
+            for event in self.graph_context_execution.events:
+                if isinstance(event, NativeBodySearchAuthorizedV1) and event.query_sha256 != sha256(self.user_text.encode()).hexdigest():
+                    raise ValueError("Native source search differs from its actual turn question")
         from .reviewed_action import digest
         for event in self.graph_context_execution.events if self.graph_context_execution is not None else ():
             if isinstance(event, BuildReviewedActionSelectionV1):

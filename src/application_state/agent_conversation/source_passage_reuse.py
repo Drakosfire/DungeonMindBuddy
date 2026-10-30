@@ -43,12 +43,18 @@ def eligible_passages(current, previous, payload, requested, max_chars):
         if previous.base_projection.kind != "approved":
             return ()
         previous = previous.base_projection.turn
+    from .plan_source_context import capability_bases
+    def graph_basis(turn):
+        receipt = turn.graph_context_receipt
+        return capability_bases(receipt).graph if isinstance(receipt, (t.PlanSourceContextReceiptV1, t.PlanWorldGraphContextReceiptV1)) else None
+    current_graph, previous_graph = graph_basis(current), graph_basis(previous)
     if (previous.status != "completed" or previous.completed_at is None
             or previous.world_id != current.world_id or previous.conversation_id != current.conversation_id
             or previous.sequence >= current.sequence or previous.completion is None
             or previous.graph_context_execution is None or previous.graph_context_receipt is None
             or current.graph_context_receipt is None
-            or previous.graph_context_receipt.graph_authority != current.graph_context_receipt.graph_authority):
+            or current_graph is None or previous_graph is None
+            or previous_graph.graph_authority != current_graph.graph_authority):
         return ()
     try:
         trace = TurnContextTraceV1.model_validate(payload)
@@ -91,7 +97,7 @@ def eligible_passages(current, previous, payload, requested, max_chars):
             fields = ("anchor_id", "evidence_ref_id", "source_artifact_id", "source_revision_id",
                       "content_sha256", "line_start", "line_end", "returned_chars", "outcome")
             if (passage.read_call_id != read.read_call_id or passage.world_id != current.world_id
-                    or passage.graph_revision != current.graph_context_receipt.graph_authority.graph_revision
+                    or passage.graph_revision != current_graph.graph_authority.graph_revision
                     or any(getattr(passage, key) != getattr(receipt, key) for key in fields)):
                 continue
             found.append(RetainedPassage(previous, producer, read, receipt, passage))

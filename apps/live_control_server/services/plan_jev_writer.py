@@ -60,7 +60,7 @@ class PlanClaimEvidence:
     provider_attempt_id: UUID
     envelope_sha256: str
     context_receipt_sha256: str
-    graph_revision: str
+    graph_revision: str | None
     closures: tuple
     session_titles: tuple = ()
     passages: tuple = ()
@@ -68,6 +68,7 @@ class PlanClaimEvidence:
     authored: tuple = ()
     current_policy: bool | str = False
     native_sections: tuple = ()
+    body_excerpts: tuple = ()
 
 
 class PlanWriterProvider(OpenAITextProvider):
@@ -131,9 +132,13 @@ class PlanJevWriter:
         self.messages = [{'role': 'user', 'content': canonical_bytes(self.projection.frame).decode()},
                          {'role': 'user', 'content': canonical_bytes(rule_frame).decode()},
                          {'role': 'user', 'content': 'Return JSON.'}]
-        from application_state.agent_conversation.surface_evidence_answer import PLAN_INSTRUCTIONS
-        instructions = INSTRUCTIONS.replace(EVIDENCE_INSTRUCTIONS, PLAN_INSTRUCTIONS)
+        from application_state.agent_conversation.surface_evidence_answer import PLAN_INSTRUCTIONS, BODY_INSTRUCTIONS
+        instructions = INSTRUCTIONS.replace(EVIDENCE_INSTRUCTIONS,
+            BODY_INSTRUCTIONS if isinstance(adapter.fence.turn.graph_context_receipt, t.PlanSourceContextReceiptV1) else PLAN_INSTRUCTIONS)
         instructions = instructions.replace('exact block_handle', 'exact selection_id')
+        if isinstance(adapter.fence.turn.graph_context_receipt, t.PlanSourceContextReceiptV1):
+            instructions = instructions.replace('native_source_claim uses its selected section_handles',
+                'native_body_claim uses its selected excerpt_handles')
         if self.projection.frame.get('requested_work') == 'clarify':
             instructions += '\nAsk the specific clarifying question needed to resolve the intended work or destination. Keep it in conversation; do not draft the page yet.'
         if getattr(rules,'authoring',None) is not None:
@@ -173,7 +178,8 @@ class PlanJevWriter:
         if estimate + a.budget['outputReserveTokens'] > a.budget['contextLimitTokens']:
             raise ValueError('Plan writer exceeds the existing provider context allowance')
         event = t.PlanJevWriterAuthorizedV2(kind='plan_jev_writer_authorized_v2', event_id=uuid4(),
-            sequence=len(a._broker_execution().events), provider_attempt_id=UUID(prepared.attempt_id),
+            sequence=len(a._broker_execution().events) + (1 if isinstance(a._broker_receipt(), t.PlanSourceContextReceiptV1) else 0),
+            provider_attempt_id=UUID(prepared.attempt_id),
             envelope_sha256=prepared.body_sha256, serializer_version='openai-sdk-json-v1',
             provider='openai', model=self.model, api_mode='responses', tool_schema_sha256=sha256(b'[]').hexdigest(),
             input_accounting_kind='conservative_upper_bound', input_estimator=a.budget['estimator'],
@@ -203,12 +209,15 @@ class PlanJevWriter:
         passages, source_partial = producing_passages(a.turn, event, view["payloadJson"])
         from application_state.agent_conversation.native_source_answer import producing_sections
         from application_state.agent_conversation.surface_evidence_answer import producing_authored, require_current_policy
+        from application_state.agent_conversation.plan_source_context import capability_bases
+        from application_state.agent_conversation.native_corpus import producing_bodies, body_input_partial
+        graph = capability_bases(a._broker_receipt()).graph
         a.build_claim_evidence[event.provider_attempt_id] = PlanClaimEvidence(event.provider_attempt_id,
             event.envelope_sha256, a._broker_execution().context_receipt_sha256,
-            a._broker_receipt().graph_authority.graph_revision, projection.closures,
-            producing_session_titles(a.turn, event, view["payloadJson"]), passages, source_partial,
+            graph.graph_authority.graph_revision if graph is not None else None, projection.closures,
+            producing_session_titles(a.turn, event, view["payloadJson"]), passages, source_partial or body_input_partial(a._broker_execution()),
             producing_authored(a.turn, event, view["payloadJson"]), require_current_policy(a.turn, event, view["payloadJson"]),
-            producing_sections(a.turn,event,view["payloadJson"]))
+            producing_sections(a.turn,event,view["payloadJson"]), producing_bodies(a.turn,event,view["payloadJson"]))
         self.prepared, self.authorization = prepared, event
         return True
 

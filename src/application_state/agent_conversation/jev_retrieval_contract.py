@@ -35,13 +35,10 @@ class RetrievalDialogue(_Frozen):
     content: StrictStr
 
 
-class RetrievalDecisionInput(_Frozen):
-    schema_: Literal["dmb_retrieval_decision_input_v1"] = Field(
-        default="dmb_retrieval_decision_input_v1", alias="schema")
+class _RetrievalDecisionInputBase(_Frozen):
     request_id: UUID
     parent_attempt_id: UUID
     scope_sha256: Digest
-    revision: StrictStr = Field(min_length=1)
     question: StrictStr = Field(min_length=1)
     dialogue: tuple[RetrievalDialogue, ...] = ()
     candidates: tuple[RetrievalCandidate, ...]
@@ -61,6 +58,27 @@ class RetrievalDecisionInput(_Frozen):
         payload = json.dumps(self.model_dump(mode="json", by_alias=True), ensure_ascii=False,
                              sort_keys=True, separators=(",", ":"), allow_nan=False)
         return sha256(payload.encode()).hexdigest()
+
+
+class RetrievalDecisionInput(_RetrievalDecisionInputBase):
+    schema_: Literal["dmb_retrieval_decision_input_v1"] = Field(
+        default="dmb_retrieval_decision_input_v1", alias="schema")
+    revision: StrictStr = Field(min_length=1)
+
+
+class PlanSourceRetrievalDecisionInputV1(_RetrievalDecisionInputBase):
+    """Host-only source/Graph pins are explicit and never interchangeable."""
+    schema_: Literal["dmb_plan_source_retrieval_decision_input_v1"] = Field(
+        default="dmb_plan_source_retrieval_decision_input_v1", alias="schema")
+    source_authority_status: Literal["available", "unavailable"]
+    source_revision: Annotated[StrictStr, Field(min_length=1)] | None
+    graph_revision: Annotated[StrictStr, Field(min_length=1)] | None
+
+    @model_validator(mode="after")
+    def exact_source_disposition(self):
+        if (self.source_authority_status == "available") != (self.source_revision is not None):
+            raise ValueError("Source decision revision differs from its authority disposition")
+        return self
 
 
 class RetrievalSelection(_Frozen):
@@ -123,6 +141,12 @@ def prepare_decision(request: RetrievalDecisionInput) -> DecisionRequest:
             'Prefer the most specific relevant sections first. Acquired examined sections have already supplied their exact bodies '
             'to the writer; exclude equivalent or weaker candidates for those same details. Unavailable sections supplied no evidence. '
             'Additional sections remain available when a different requested detail needs them. Never infer source completeness.')
+    if any(c.kind == "Explicit full-document read" for c in request.candidates):
+        state["full_document_selection_guidance"] = (
+            "Select a full-document action only when the requested details need its complete context, "
+            "or no smaller section is available. Exclude it when offered or already acquired sections "
+            "address those details. Full-document access is a separate explicit choice; ordinary section "
+            "votes never authorize it. Do not select both merely because they concern the same subject.")
     if request.examined_candidates:
         state["examined_subjects"] = [{"label": c.label, "kind": c.kind} for c in request.examined_candidates]
     if request.dialogue:
@@ -184,6 +208,27 @@ def validate_selection(request: RetrievalDecisionInput, selection: RetrievalSele
     if (request.digest != expected_request_sha256 or request.scope_sha256 != current_scope_sha256
             or request.revision != current_revision or request.parent_attempt_id != current_parent_attempt_id):
         raise ValueError("Decision request, parent or frozen scope changed")
+    return _admitted_candidates(request, selection)
+
+
+def validate_source_selection(request: PlanSourceRetrievalDecisionInputV1,
+                              selection: RetrievalSelection, *,
+                              expected_request_sha256: str, current_scope_sha256: str,
+                              current_source_revision: str | None,
+                              current_graph_revision: str | None,
+                              current_parent_attempt_id: UUID) -> tuple[RetrievalCandidate, ...]:
+    """Validate distinct capability pins without making a universal revision."""
+    if (not isinstance(request, PlanSourceRetrievalDecisionInputV1)
+            or request.digest != expected_request_sha256
+            or request.scope_sha256 != current_scope_sha256
+            or request.source_revision != current_source_revision
+            or request.graph_revision != current_graph_revision
+            or request.parent_attempt_id != current_parent_attempt_id):
+        raise ValueError("Source decision request, capability pins or frozen scope changed")
+    return _admitted_candidates(request, selection)
+
+
+def _admitted_candidates(request, selection):
     if selection.operation not in request.allowed_operations:
         raise ValueError("Operation not admitted by parent")
     catalog = {c.handle: c for c in request.candidates}

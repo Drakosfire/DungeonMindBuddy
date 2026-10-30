@@ -22,6 +22,7 @@ from .types import (
     Turn,
     PlanAskHistoryAttributionV1,
     PlanEvidenceHistoryAttributionV1, PlanEvidenceHistoryAttributionV2, PlanEvidenceHistoryAttributionV3,
+    PlanEvidenceHistoryAttributionV4, PlanEvidenceHistoryAttributionV5,
     TurnProvenance,
     GraphContextReceipt,
     GraphTurnExecution,
@@ -98,6 +99,13 @@ RulesBaseProjectionV1 = Annotated[
 def validate_unclaimed_receipt_owner(
     envelope: CompletedTurnEnvelopeV1 | Turn, receipt: GraphContextReceipt
 ) -> None:
+    from .types import PlanSourceContextReceiptV1
+    if isinstance(receipt, PlanSourceContextReceiptV1):
+        from .plan_source_context import validate_source_provenance
+        if receipt.plan_basis.world_id != envelope.world_id:
+            raise ValueError("Unclaimed Plan source receipt belongs to another World")
+        validate_source_provenance(receipt, envelope.provenance)
+        return
     if isinstance(receipt, PlayWorldGraphContextReceiptV1):
         from .play_graph_context import validate_play_graph_provenance
         if (receipt.play_basis.world_id != envelope.world_id
@@ -274,7 +282,7 @@ class MixedHistoryAttributionV1(ClosedRulesModel):
     schema_: Literal["dmb_mixed_history_attribution_v1"] = Field(alias="schema")
     source_sequence: Annotated[int, Field(ge=1)]
     accepted_binding: RulesAcceptedBindingV1
-    base_attribution: "PlanEvidenceHistoryAttributionV3 | PlanEvidenceHistoryAttributionV2 | PlanEvidenceHistoryAttributionV1 | PlanAskHistoryAttributionV1 | None"
+    base_attribution: "PlanEvidenceHistoryAttributionV5 | PlanEvidenceHistoryAttributionV4 | PlanEvidenceHistoryAttributionV3 | PlanEvidenceHistoryAttributionV2 | PlanEvidenceHistoryAttributionV1 | PlanAskHistoryAttributionV1 | None"
 
     @model_validator(mode="after")
     def exact_base_attribution(self):

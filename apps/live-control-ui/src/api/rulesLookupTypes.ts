@@ -53,7 +53,7 @@ export interface RulesAnswerContext {
 /** Frozen execution identity for a completed Rules answer with no base claims. */
 export interface RulesUnclaimedContext {
   schema: 'dmb_agent_rules_unclaimed_context_v1';
-  receipt: import('./types').WorldPlanGraphContextReceiptV1 | import('./types').WorldBuildGraphReceiptV1 | import('./types').WorldPlayGraphContextReceiptV1;
+  receipt: import('./types').PlanSourceContextReceiptV1 | import('./types').WorldPlanGraphContextReceiptV1 | import('./types').WorldBuildGraphReceiptV1 | import('./types').WorldPlayGraphContextReceiptV1;
   execution: import('./types').WorldPlanGraphExecutionProjectionV1;
   delivery_replay: boolean;
 }

@@ -1376,6 +1376,9 @@ class AgentConversationService:
                         raise ValueError("Related page read lacks its exact source-owner materialization")
             except (ValueError,KeyError,TypeError,AttributeError) as exc:
                 raise ApplicationStateValidationError(str(exc)) from exc
+            from .native_corpus import NATIVE_BODY_EVENTS
+            if native_source_materializer is None and isinstance(event, NATIVE_BODY_EVENTS):
+                raise ApplicationStateValidationError("Native body event requires its immutable source transaction owner")
             from .types import NativeSourceCatalogObservedV1, NativeSourceSectionAuthorizedV1, NativeSourceSectionObservedV1, NativeSourceProviderInclusionV1, CorpusSourceSearchAuthorizedV1, CorpusSourceSearchObservedV1
             if native_source_materializer is None and isinstance(event, (CorpusSourceSearchAuthorizedV1, CorpusSourceSearchObservedV1, NativeSourceCatalogObservedV1,
                     NativeSourceSectionAuthorizedV1, NativeSourceSectionObservedV1, NativeSourceProviderInclusionV1)):
@@ -1586,6 +1589,14 @@ class AgentConversationService:
                         native_section_inclusion=section_inclusion)
                 except ValueError as exc:
                     raise ApplicationStateValidationError(str(exc)) from exc
+            from .types import PlanSourceContextReceiptV1
+            if isinstance(event, PlanJevWriterAuthorizedV1) and isinstance(turn.graph_context_receipt, PlanSourceContextReceiptV1):
+                from .native_corpus import prove_body_writer_input
+                try:
+                    native_inclusion = prove_body_writer_input(turn, event,
+                        plan_jev_writer_proof['prepared_request_json'], sequence=len(execution.events), event_id=uuid4())
+                except (ValueError, TypeError, KeyError, AttributeError) as exc:
+                    raise ApplicationStateValidationError(str(exc)) from exc
             # Materialize only after every existing owner/Rules writer fence.
             if native_source_materializer is not None:
                 event = native_source_materializer(conn, turn)
@@ -1600,9 +1611,14 @@ class AgentConversationService:
                 receipt = turn.graph_context_receipt
                 assert receipt is not None
                 try:
-                    validate_graph_provider_envelope(
-                        _ask_graph_validation_inputs(receipt), execution, event
-                    )
+                    from .types import PlanSourceContextReceiptV1
+                    if isinstance(receipt, PlanSourceContextReceiptV1):
+                        from .plan_source_context import validate_source_provider_envelope
+                        validate_source_provider_envelope(receipt, execution, event)
+                    else:
+                        validate_graph_provider_envelope(
+                            _ask_graph_validation_inputs(receipt), execution, event
+                        )
                 except ValueError as exc:
                     raise ApplicationStateValidationError(str(exc)) from exc
             if trace_active and isinstance(event, ProviderAttemptAuthorizedEventV3):
@@ -1635,6 +1651,10 @@ class AgentConversationService:
             if isinstance(event, ValidatedGraphOperationEventV1):
                 receipt = turn.graph_context_receipt
                 assert receipt is not None
+                from .types import PlanSourceContextReceiptV1
+                if isinstance(receipt, PlanSourceContextReceiptV1):
+                    from .plan_source_context import require_graph
+                    receipt = require_graph(receipt)
                 if event.graph_revision != receipt.graph_authority.graph_revision:
                     raise ApplicationStateValidationError("Graph operation event must use the frozen Graph revision")
             source_observations: list[TraceSourcePassage] = []
@@ -1828,6 +1848,50 @@ class AgentConversationService:
         return self._append_graph_execution_event(world_id, conversation_id, turn_id,
             expected_revision=expected_revision, expected_attempt=expected_attempt,
             event=inclusion, duplicate_key="event_id")
+
+    def _append_native_body_materialization(self, world_id, conversation_id, turn_id, *,
+            expected_revision, expected_attempt, materialize):
+        def produce(conn, turn):
+            try:
+                return materialize(turn)
+            except (ValueError, TypeError, KeyError, AttributeError) as exc:
+                raise ApplicationStateValidationError(str(exc)) from exc
+        return self._append_graph_execution_event(world_id, conversation_id, turn_id,
+            expected_revision=expected_revision, expected_attempt=expected_attempt,
+            event=None, duplicate_key="event_id", native_source_materializer=produce)
+
+    def authorize_native_body_search(self, world_id, conversation_id, turn_id, *,
+            expected_revision, expected_attempt, event_id):
+        from .native_corpus import authorize_body_search_locked
+        return self._append_native_body_materialization(world_id, conversation_id, turn_id,
+            expected_revision=expected_revision, expected_attempt=expected_attempt,
+            materialize=lambda turn: authorize_body_search_locked(turn, event_id=event_id))
+
+    def observe_native_body_search(self, world_id, conversation_id, turn_id, *,
+            expected_revision, expected_attempt, event_id, authorization_event_id, capture):
+        from .native_corpus import observe_body_search_locked
+        return self._append_native_body_materialization(world_id, conversation_id, turn_id,
+            expected_revision=expected_revision, expected_attempt=expected_attempt,
+            materialize=lambda turn: observe_body_search_locked(turn, event_id=event_id,
+                authorization_event_id=authorization_event_id, capture=capture))
+
+    def authorize_native_body_read(self, world_id, conversation_id, turn_id, *,
+            expected_revision, expected_attempt, event_id, search_event_id, catalog_sha256,
+            retrieval_kind, section_id):
+        from .native_corpus import authorize_body_read_locked
+        return self._append_native_body_materialization(world_id, conversation_id, turn_id,
+            expected_revision=expected_revision, expected_attempt=expected_attempt,
+            materialize=lambda turn: authorize_body_read_locked(turn, event_id=event_id,
+                search_event_id=search_event_id, catalog_sha256=catalog_sha256,
+                retrieval_kind=retrieval_kind, section_id=section_id))
+
+    def observe_native_body_read(self, world_id, conversation_id, turn_id, *,
+            expected_revision, expected_attempt, event_id, authorization_event_id, read):
+        from .native_corpus import observe_body_read_locked
+        return self._append_native_body_materialization(world_id, conversation_id, turn_id,
+            expected_revision=expected_revision, expected_attempt=expected_attempt,
+            materialize=lambda turn: observe_body_read_locked(turn, event_id=event_id,
+                authorization_event_id=authorization_event_id, read=read))
 
     def authorize_native_source_section(
         self, world_id: str, conversation_id: UUID, turn_id: UUID, *, expected_revision: int,

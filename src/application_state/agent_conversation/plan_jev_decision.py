@@ -20,8 +20,12 @@ def _owner(turn):
     from . import types as t
     if (not isinstance(turn, t.Turn) or turn.status != "running"
             or turn.provenance.surface_id != "plan" or turn.provenance.surface_resolution != "resolved"
-            or not isinstance(turn.graph_context_receipt, t.PlanWorldGraphContextReceiptV1)
-            or not isinstance(turn.graph_context_execution, t.PlanWorldGraphExecutionV3)
+            or not (
+                (isinstance(turn.graph_context_receipt, t.PlanSourceContextReceiptV1)
+                 and isinstance(turn.graph_context_execution, t.PlanSourceExecutionV1))
+                or (isinstance(turn.graph_context_receipt, t.PlanWorldGraphContextReceiptV1)
+                    and isinstance(turn.graph_context_execution, t.PlanWorldGraphExecutionV3)
+                    and not isinstance(turn.graph_context_execution, t.PlanSourceExecutionV1)))
             or not isinstance(turn.graph_context_execution.policy, t.PlanJevRetrievalPolicyV1)):
         raise ValueError("Jev decision requires the current resolved Plan owner and frozen policy")
     return turn.graph_context_receipt, turn.graph_context_execution
@@ -29,18 +33,31 @@ def _owner(turn):
 
 def scope_digest(turn):
     """Host-only binding; identical Plan content cannot transfer between turns."""
+    from . import types as t
     receipt, execution = _owner(turn)
     value = {"world_id": turn.world_id, "conversation_id": str(turn.conversation_id),
         "turn_id": str(turn.turn_id), "product_attempt": turn.attempt,
         "context_receipt_sha256": receipt.context_receipt_sha256,
-        "execution_policy_sha256": execution.execution_policy_sha256,
-        "graph_revision": receipt.graph_authority.graph_revision}
+        "execution_policy_sha256": execution.execution_policy_sha256}
+    if isinstance(receipt, t.PlanSourceContextReceiptV1):
+        value.update(_source_pins(receipt))
+    else:
+        value["graph_revision"] = receipt.graph_authority.graph_revision
     return sha256(json.dumps(value, sort_keys=True, separators=(",", ":"), allow_nan=False).encode()).hexdigest()
+
+
+def _source_pins(receipt):
+    from .native_corpus import NativeCorpusAuthorityV1
+    available = isinstance(receipt.source_authority, NativeCorpusAuthorityV1)
+    return {"source_authority_status": "available" if available else "unavailable",
+        "source_revision": receipt.source_authority.revision_id if available else None,
+        "graph_revision": receipt.graph_capability.graph_authority.graph_revision
+            if receipt.graph_capability is not None else None}
 
 
 def verify_input(turn, auth, proof):
     from . import types as t
-    from .jev_retrieval_contract import RetrievalDecisionInput, validate_wire_body, MODEL, PROVIDER
+    from .jev_retrieval_contract import RetrievalDecisionInput, PlanSourceRetrievalDecisionInputV1, validate_wire_body, MODEL, PROVIDER
     receipt, execution = _owner(turn)
     if (not isinstance(auth, t.PlanJevProviderAuthorizedV1) or not isinstance(proof, dict)
             or set(proof) != {"parent_request_json", "request_json"}):
@@ -74,11 +91,17 @@ def verify_input(turn, auth, proof):
         if request.target_capture_sha256 != execution.policy.plan_authoring_capture_sha256:
             raise ValueError('Plan semantic target differs from its frozen capture')
     else:
-        request = RetrievalDecisionInput.model_validate(strict_json(parent))
+        parent_type = PlanSourceRetrievalDecisionInputV1 if isinstance(receipt, t.PlanSourceContextReceiptV1) else RetrievalDecisionInput
+        request = parent_type.model_validate(strict_json(parent))
+    pins_match = True
+    if not semantic:
+        pins_match = (all(getattr(request, key) == value for key, value in _source_pins(receipt).items())
+            if isinstance(receipt, t.PlanSourceContextReceiptV1)
+            else request.revision == receipt.graph_authority.graph_revision)
     if (request.digest != auth.parent_request_sha256 or request.request_id != auth.decision_request_id
             or request.question != turn.user_text or request.parent_attempt_id != auth.provider_attempt_id
             or request.scope_sha256 != scope_digest(turn)
-            or (not semantic and request.revision != receipt.graph_authority.graph_revision)
+            or not pins_match
             or sha256(raw.encode()).hexdigest() != auth.envelope_sha256
             or (auth.provider, auth.model, auth.api_mode) != (PROVIDER, MODEL, "decision")
             or auth.serializer_version != "typesafe-sdk-json-v1"
@@ -95,7 +118,7 @@ def verify_input(turn, auth, proof):
 
 def verify_selection(turn, event, proof, trace):
     from . import types as t
-    from .jev_retrieval_contract import decode_selection, validate_selection
+    from .jev_retrieval_contract import decode_selection, validate_selection, validate_source_selection
     from generationengine.types import DecisionResult
     receipt, execution = _owner(turn)
     if not isinstance(proof, dict) or set(proof) != {"parent_request_json", "request_json", "response_json"}:
@@ -151,9 +174,15 @@ def verify_selection(turn, event, proof, trace):
             raise ValueError('Plan destination differs from its exact typed result or capture')
     else:
         selected = decode_selection(request, result)
-        validate_selection(request, selected, expected_request_sha256=auth.parent_request_sha256,
-            current_scope_sha256=scope_digest(turn), current_revision=receipt.graph_authority.graph_revision,
-            current_parent_attempt_id=auth.provider_attempt_id)
+        if isinstance(receipt, t.PlanSourceContextReceiptV1):
+            pins = _source_pins(receipt)
+            validate_source_selection(request, selected, expected_request_sha256=auth.parent_request_sha256,
+                current_scope_sha256=scope_digest(turn), current_source_revision=pins["source_revision"],
+                current_graph_revision=pins["graph_revision"], current_parent_attempt_id=auth.provider_attempt_id)
+        else:
+            validate_selection(request, selected, expected_request_sha256=auth.parent_request_sha256,
+                current_scope_sha256=scope_digest(turn), current_revision=receipt.graph_authority.graph_revision,
+                current_parent_attempt_id=auth.provider_attempt_id)
     observation = result.observation
     if (event.context_receipt_sha256 != receipt.context_receipt_sha256
             or event.execution_policy_sha256 != execution.execution_policy_sha256

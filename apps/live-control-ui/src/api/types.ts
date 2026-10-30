@@ -1116,7 +1116,7 @@ export interface WorldPlanGraphCompletionV2 extends Omit<WorldPlanGraphCompletio
 }
 
 /** Exact policy-only response envelope defined by SERVER's accepted wire contract. */
-export interface WorldPlanAgentPlanContextV2 {
+export interface LegacyWorldPlanAgentPlanContextV2 {
   schema: "dmb_agent_plan_world_graph_context_response_v2";
   receipt: WorldPlanGraphContextReceiptV1;
   completion: WorldPlanGraphCompletionV1 | WorldPlanGraphCompletionV2 | SurfaceSourceCompletionV1 | SurfaceEvidenceCompletion | null;
@@ -1126,6 +1126,27 @@ export interface WorldPlanAgentPlanContextV2 {
   evidence_anchor_statuses?: WorldPlanEvidenceAnchorStatusV1[];
   related_recap_context_statuses?: WorldPlanRelatedRecapContextStatusV2[];
 }
+
+/** Native body ownership and optional Graph capability remain distinct. */
+export interface PlanSourceContextReceiptV1 {
+  schema:'dmb_plan_source_context_receipt_v1';receipt_serializer_version:'canonical-json-utf8-v1';
+  context_receipt_sha256:string;plan_context_policy:WorldPlanContextPolicyV1;
+  plan_basis:WorldPlanGraphContextReceiptV1['plan_basis'];playable_target:WorldPlanGraphContextReceiptV1['playable_target'];
+  source_authority:{schema:'dmb_native_corpus_unavailable_v1';managed_world_id:string;
+    failure_code:'native_source_identity_unavailable'|'native_source_head_unavailable'|'native_source_authority_unavailable'} | {
+    schema_version:'dmb_native_corpus_authority_v1';managed_world_id:string;native_world_id:string;binding_version:number;
+    provisioning_id:string|null;revision_id:string;domain_ref:{authority_id:string;revision:string;descriptor_sha256:string};
+    profile_ref:{authority_id:string;revision:string;descriptor_sha256:string};acquisition_epoch:number;
+    scope:'gm_world_cross_campaign_source_inspection';role:'gm'};
+  graph_capability:WorldPlanGraphContextReceiptV1|null;
+  assembled_input:{assembler_version:'plan_source_jev_initial_v1';provider_model_name:string;provider_model_version:string;
+    tokenizer_name:string;tokenizer_version:string;provider_envelope_input_tokens:number;output_token_reserve:number;
+    context_window_limit:number;included_history:WorldPlanGraphContextReceiptV1['assembled_input']['included_history'];assembled_input_sha256:string};
+}
+export interface AgentPlanSourceContextResponseV1 extends Omit<LegacyWorldPlanAgentPlanContextV2,'schema'|'receipt'|'completion'> {
+  schema:'dmb_agent_plan_source_context_response_v1';receipt:PlanSourceContextReceiptV1;completion:SurfaceEvidenceCompletionV5|null;
+}
+export type WorldPlanAgentPlanContextV2 = LegacyWorldPlanAgentPlanContextV2 | AgentPlanSourceContextResponseV1;
 
 export interface WorldBuildGraphReceiptV1 extends Omit<WorldPlanGraphContextReceiptV1, "schema" | "plan_context_policy" | "plan_basis" | "playable_target"> {
   schema: "dmb_build_graph_context_receipt_v1";
@@ -1277,7 +1298,17 @@ export interface AgentNativeSourceSectionReadResponseV1 {
   schema:"dmb_agent_native_source_section_read_v1";world_id:string;turn_id:string;citation_index:number;
   citation:NativeSourceSectionCitationV1;content:string;
 }
-export type SurfaceEvidenceCompletion = SurfaceEvidenceCompletionV1 | SurfaceEvidenceCompletionV2 | SurfaceEvidenceCompletionV3 | SurfaceEvidenceCompletionV4;
+export interface NativeBodyExcerptCitationV1 extends Omit<NativeSourceSectionCitationV1,'catalog_event_id'|'app_source_revision_id'|'selector_policy'> {
+  catalog_sha256:string;selector_policy:'markdown_sections_v1'|'native_full_document_v1';
+}
+export interface SurfaceEvidenceCompletionV5 extends Omit<SurfaceEvidenceCompletionV4,'schema'|'surface_id'> {
+  schema:'dmb_surface_evidence_completion_v5';surface_id:'plan';native_body_citations:NativeBodyExcerptCitationV1[];
+}
+export interface AgentNativeBodyExcerptReadResponseV1 {
+  schema:'dmb_agent_native_body_excerpt_read_v1';world_id:string;turn_id:string;citation_index:number;
+  citation:NativeBodyExcerptCitationV1;content:string;
+}
+export type SurfaceEvidenceCompletion = SurfaceEvidenceCompletionV1 | SurfaceEvidenceCompletionV2 | SurfaceEvidenceCompletionV3 | SurfaceEvidenceCompletionV4 | SurfaceEvidenceCompletionV5;
 export interface AgentSourcePassageReadResponseV1 {
   schema: "dmb_agent_source_passage_read_v1";
   target: {schema: "dmb_agent_source_passage_open_target_v1"; kind: "source_passage";

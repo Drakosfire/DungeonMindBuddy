@@ -14,16 +14,19 @@ class RetainedGraphSubject:
 
 def from_history(conn, *, world_id, conversation_id, authority, previous_turns):
     from . import repository as repo
+    from .plan_source_context import capability_bases
     eligible = {}
     for previous in previous_turns:
         if isinstance(previous, MixedCompletedTurnV1):
             if previous.base_projection.kind != 'approved':
                 continue
             previous = previous.base_projection.turn
+        receipt = previous.graph_context_receipt
+        graph = capability_bases(receipt).graph if isinstance(receipt, (t.PlanSourceContextReceiptV1, t.PlanWorldGraphContextReceiptV1)) else None
         if (previous.status == 'completed' and previous.completed_at is not None
                 and previous.world_id == world_id and previous.conversation_id == conversation_id
-                and previous.graph_context_receipt is not None
-                and previous.graph_context_receipt.graph_authority == authority
+                and graph is not None
+                and graph.graph_authority == authority
                 and previous.graph_context_execution is not None):
             eligible[previous.turn_id] = previous
     selected = {}
