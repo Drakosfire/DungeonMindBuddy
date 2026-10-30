@@ -18,7 +18,7 @@ from enum import Enum
 from typing import Annotated, ClassVar, Literal, NoReturn, Protocol
 from uuid import UUID, uuid4
 
-from pydantic import BaseModel, ConfigDict, Field, model_validator, model_serializer
+from pydantic import BaseModel, ConfigDict, Field, TypeAdapter, model_validator, model_serializer
 
 from .rules_authority_types import ClosedRulesModel, Digest, canonical_bytes, canonical_sha256
 from .collaboration import Collaboration, ConnectedCollaboration
@@ -2513,6 +2513,11 @@ class GraphExecutionPolicyV1(StrictModel):
             self.max_provider_attempts, self.max_graph_operations,
             self.max_total_provider_input_tokens, self.max_total_provider_output_tokens,
         )
+        if (
+            self.policy_version == "plan_source_execution_uncapped_v1"
+            and not isinstance(self, PlanSourceExecutionPolicyV1)
+        ):
+            raise ValueError("source execution version requires the typed source policy")
         uncapped = self.policy_version in {
             "world_graph_execution_uncapped_v1",
             "world_graph_execution_selected_scope_uncapped_v1",
@@ -3954,6 +3959,85 @@ GraphExecutionEventV1 = Annotated[
 ]
 
 
+def validate_provider_execution(policy, events) -> None:
+    """Shared provider lifecycle checks over the actual validated policy."""
+    if [event.sequence for event in events] != list(range(len(events))):
+        raise ValueError("Graph execution events must have contiguous sequence numbers")
+    if len({event.event_id for event in events}) != len(events):
+        raise ValueError("Graph execution event IDs must be unique")
+    operation_ids: set[UUID] = set()
+    attempts: dict[UUID, ProviderAttemptAuthorizedEventV1] = {}
+    outcomes: dict[UUID, list[str]] = {}
+    completion_bindings = 0
+    for event in events:
+        if isinstance(event, ValidatedGraphOperationEventV1):
+            if attempts:
+                latest_attempt_id = next(reversed(attempts))
+                if outcomes[latest_attempt_id][-1:] == ["outcome_unknown"]:
+                    raise ValueError("Graph operations cannot continue after an unknown provider outcome")
+            if event.operation not in policy.allowed_graph_operations:
+                raise ValueError("Graph operation is outside the accepted policy")
+            if event.operation_id in operation_ids:
+                raise ValueError("Graph operation ID must be unique within the turn")
+            operation_ids.add(event.operation_id)
+        elif isinstance(event, ProviderAttemptAuthorizedEventV1):
+            if event.provider_attempt_id in attempts:
+                raise ValueError("provider attempt ID was authorized more than once")
+            if attempts:
+                latest_attempt_id = next(reversed(attempts))
+                prior_outcomes = outcomes[latest_attempt_id]
+                if not prior_outcomes or prior_outcomes[-1] not in {"response_received", "known_not_sent"}:
+                    raise ValueError("a new provider attempt requires a resolved prior attempt")
+            if event.input_accounting_kind != policy.provider_input_accounting.kind or event.input_estimator != policy.provider_input_accounting.estimator:
+                raise ValueError("provider attempt accounting differs from accepted policy")
+            attempts[event.provider_attempt_id] = event
+            outcomes[event.provider_attempt_id] = []
+        elif isinstance(event, ProviderOutcomeEventV1):
+            if event.provider_attempt_id not in attempts:
+                raise ValueError("provider outcome requires a prior authorization")
+            prior = outcomes[event.provider_attempt_id]
+            if event.outcome == "sdk_entered" and prior:
+                raise ValueError("SDK entry must be the first provider outcome")
+            if event.outcome == "known_not_sent" and prior:
+                raise ValueError("known-not-sent must be recorded before SDK entry")
+            if event.outcome not in {"sdk_entered", "known_not_sent", "outcome_unknown"} and not prior:
+                raise ValueError("provider outcome requires observed SDK entry")
+            if prior and prior[-1] in {"response_received", "known_not_sent", "outcome_unknown"}:
+                raise ValueError("provider attempt already has a terminal outcome")
+            prior.append(event.outcome)
+        elif isinstance(event, CompletionBindingEventV1):
+            completion_bindings += 1
+            if completion_bindings > 1 or event.sequence != len(events) - 1:
+                raise ValueError("completion binding must be unique and the final execution event")
+            if event.provider_attempt_id not in attempts or outcomes[event.provider_attempt_id][-1:] != ["response_received"]:
+                raise ValueError("completion binding requires a response-received attempt")
+    if policy.max_provider_attempts is not None and len(attempts) > policy.max_provider_attempts:
+        raise ValueError("provider attempt policy limit exceeded")
+    graph_events = [e for e in events if isinstance(e, ValidatedGraphOperationEventV1)]
+    if policy.max_graph_operations is not None and len(graph_events) > policy.max_graph_operations:
+        raise ValueError("Graph operation policy limit exceeded")
+    graph_by_event_id = {event.event_id: event for event in graph_events}
+    if any(
+        len(event.assertion_ids) + len(event.relationship_ids) + len(event.evidence_ref_ids)
+        > policy.max_results_per_operation
+        for event in graph_events
+    ):
+        raise ValueError("Graph operation result limit exceeded")
+    input_total = sum(event.input_tokens for event in attempts.values())
+    output_total = sum(event.output_token_reserve for event in attempts.values())
+    if (
+        policy.max_total_provider_input_tokens is not None
+        and input_total > policy.max_total_provider_input_tokens
+    ) or (
+        policy.max_total_provider_output_tokens is not None
+        and output_total > policy.max_total_provider_output_tokens
+    ):
+        raise ValueError("provider token budget exceeded")
+    for attempt in attempts.values():
+        if any(event_id not in graph_by_event_id for event_id in attempt.included_graph_event_ids):
+            raise ValueError("provider envelope references an unknown Graph operation event")
+
+
 class PlanWorldGraphExecutionV1(StrictModel):
     schema_: Literal["dmb_agent_plan_world_graph_execution_v1"] = Field(
         default="dmb_agent_plan_world_graph_execution_v1", alias="schema"
@@ -3964,81 +4048,7 @@ class PlanWorldGraphExecutionV1(StrictModel):
 
     @model_validator(mode="after")
     def validate_execution(self) -> "PlanWorldGraphExecutionV1":
-        if [event.sequence for event in self.events] != list(range(len(self.events))):
-            raise ValueError("Graph execution events must have contiguous sequence numbers")
-        if len({event.event_id for event in self.events}) != len(self.events):
-            raise ValueError("Graph execution event IDs must be unique")
-        operation_ids: set[UUID] = set()
-        attempts: dict[UUID, ProviderAttemptAuthorizedEventV1] = {}
-        outcomes: dict[UUID, list[str]] = {}
-        completion_bindings = 0
-        for event in self.events:
-            if isinstance(event, ValidatedGraphOperationEventV1):
-                if attempts:
-                    latest_attempt_id = next(reversed(attempts))
-                    if outcomes[latest_attempt_id][-1:] == ["outcome_unknown"]:
-                        raise ValueError("Graph operations cannot continue after an unknown provider outcome")
-                if event.operation not in self.policy.allowed_graph_operations:
-                    raise ValueError("Graph operation is outside the accepted policy")
-                if event.operation_id in operation_ids:
-                    raise ValueError("Graph operation ID must be unique within the turn")
-                operation_ids.add(event.operation_id)
-            elif isinstance(event, ProviderAttemptAuthorizedEventV1):
-                if event.provider_attempt_id in attempts:
-                    raise ValueError("provider attempt ID was authorized more than once")
-                if attempts:
-                    latest_attempt_id = next(reversed(attempts))
-                    prior_outcomes = outcomes[latest_attempt_id]
-                    if not prior_outcomes or prior_outcomes[-1] not in {"response_received", "known_not_sent"}:
-                        raise ValueError("a new provider attempt requires a resolved prior attempt")
-                if event.input_accounting_kind != self.policy.provider_input_accounting.kind or event.input_estimator != self.policy.provider_input_accounting.estimator:
-                    raise ValueError("provider attempt accounting differs from accepted policy")
-                attempts[event.provider_attempt_id] = event
-                outcomes[event.provider_attempt_id] = []
-            elif isinstance(event, ProviderOutcomeEventV1):
-                if event.provider_attempt_id not in attempts:
-                    raise ValueError("provider outcome requires a prior authorization")
-                prior = outcomes[event.provider_attempt_id]
-                if event.outcome == "sdk_entered" and prior:
-                    raise ValueError("SDK entry must be the first provider outcome")
-                if event.outcome == "known_not_sent" and prior:
-                    raise ValueError("known-not-sent must be recorded before SDK entry")
-                if event.outcome not in {"sdk_entered", "known_not_sent", "outcome_unknown"} and not prior:
-                    raise ValueError("provider outcome requires observed SDK entry")
-                if prior and prior[-1] in {"response_received", "known_not_sent", "outcome_unknown"}:
-                    raise ValueError("provider attempt already has a terminal outcome")
-                prior.append(event.outcome)
-            elif isinstance(event, CompletionBindingEventV1):
-                completion_bindings += 1
-                if completion_bindings > 1 or event.sequence != len(self.events) - 1:
-                    raise ValueError("completion binding must be unique and the final execution event")
-                if event.provider_attempt_id not in attempts or outcomes[event.provider_attempt_id][-1:] != ["response_received"]:
-                    raise ValueError("completion binding requires a response-received attempt")
-        if self.policy.max_provider_attempts is not None and len(attempts) > self.policy.max_provider_attempts:
-            raise ValueError("provider attempt policy limit exceeded")
-        graph_events = [e for e in self.events if isinstance(e, ValidatedGraphOperationEventV1)]
-        if self.policy.max_graph_operations is not None and len(graph_events) > self.policy.max_graph_operations:
-            raise ValueError("Graph operation policy limit exceeded")
-        graph_by_event_id = {event.event_id: event for event in graph_events}
-        if any(
-            len(event.assertion_ids) + len(event.relationship_ids) + len(event.evidence_ref_ids)
-            > self.policy.max_results_per_operation
-            for event in graph_events
-        ):
-            raise ValueError("Graph operation result limit exceeded")
-        input_total = sum(event.input_tokens for event in attempts.values())
-        output_total = sum(event.output_token_reserve for event in attempts.values())
-        if (
-            self.policy.max_total_provider_input_tokens is not None
-            and input_total > self.policy.max_total_provider_input_tokens
-        ) or (
-            self.policy.max_total_provider_output_tokens is not None
-            and output_total > self.policy.max_total_provider_output_tokens
-        ):
-            raise ValueError("provider token budget exceeded")
-        for attempt in attempts.values():
-            if any(event_id not in graph_by_event_id for event_id in attempt.included_graph_event_ids):
-                raise ValueError("provider envelope references an unknown Graph operation event")
+        validate_provider_execution(self.policy, self.events)
         if len(self.model_dump_json(by_alias=True).encode("utf-8")) > 1_048_576:
             raise ValueError("Graph execution record exceeds the storage size limit")
         return self
@@ -4322,21 +4332,13 @@ def validate_graph_execution_record(execution, *, dynamic_source_scope: bool, al
             payload.pop("returned_source_pins", None)
         payload["sequence"] = len(legacy_events)
         legacy_events.append(payload)
-    legacy_policy = {
-        key: value for key, value in execution.policy.model_dump(mode="json", by_alias=True).items()
-        if key in {
-            "policy_version", "allowed_graph_operations", "max_provider_attempts",
-            "max_graph_operations", "max_results_per_operation",
-            "max_total_provider_input_tokens", "max_total_provider_output_tokens",
-            "provider_input_accounting", "source_opened",
-        }
-    }
-    PlanWorldGraphExecutionV1.model_validate({
-        "schema": "dmb_agent_plan_world_graph_execution_v1",
-        "context_receipt_sha256": execution.context_receipt_sha256,
-        "policy": legacy_policy,
-        "events": legacy_events,
-    })
+    # Keep the real source-capable policy. Project only event syntax into the
+    # shared provider lifecycle; never admit a source discriminator as a generic
+    # legacy Graph policy just to run those checks.
+    validate_provider_execution(
+        execution.policy,
+        TypeAdapter(list[GraphExecutionEventV1]).validate_python(legacy_events),
+    )
     if len(execution.model_dump_json(by_alias=True).encode("utf-8")) > 1_048_576:
         raise ValueError("Graph execution record exceeds the storage size limit")
     if dynamic_source_scope and len(json.dumps(execution.model_dump(mode="json", by_alias=True), ensure_ascii=True).encode("utf-8")) > 1_048_576:

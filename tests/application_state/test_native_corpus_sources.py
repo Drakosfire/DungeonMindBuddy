@@ -172,6 +172,15 @@ def test_historical_graph_policy_cannot_disable_graph_by_using_empty_operations(
         t.GraphExecutionPolicyV1.model_validate(old)
 
 
+@pytest.mark.parametrize("operations", [[], ["object"]])
+def test_generic_graph_policy_cannot_claim_source_only_uncapped_version(operations):
+    payload = source_policy().model_dump(mode="json", by_alias=True)
+    generic = {key: payload[key] for key in t.GraphExecutionPolicyV1.model_fields}
+    generic["allowed_graph_operations"] = operations
+    with pytest.raises(ValidationError, match="typed source policy"):
+        t.GraphExecutionPolicyV1.model_validate(generic)
+
+
 def native_body_ledger(lane, *, failed_read=False, full_document=False, all_sections=False):
     from hashlib import sha256
     from application_state.agent_conversation.native_corpus import (
