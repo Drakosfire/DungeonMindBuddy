@@ -245,12 +245,9 @@ def test_legacy_worldbuilding_source_artifact_uses_campaign_id_compat(tmp_path: 
 def test_registered_source_byte_loader_preserves_exact_database_bytes(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, application_state_dsn: str,
 ) -> None:
-    import json
-
     from apps.live_control_server.services.source_artifact_registry import (
         SourceArtifactRegistryError,
         load_registered_source_artifact_bytes,
-        source_artifacts_path,
     )
 
     content = b"First line\r\nSecond line\r\n"
@@ -261,19 +258,13 @@ def test_registered_source_byte_loader_preserves_exact_database_bytes(
         uri="repo://source.md", content_sha256=digest,
     )
     (tmp_path / "source.md").write_bytes(content)
-    registry = source_artifacts_path(tmp_path)
-    registry.parent.mkdir(parents=True, exist_ok=True)
-    registry.write_text(json.dumps({
-        "schema_version": "dmb_source_artifact_registry_v1",
-        "records": [artifact.model_dump(mode="json")],
-    }))
-
     from application_state.source.service import persist_source_markdown
     monkeypatch.setenv("DMB_ARTIFACT_DATA_ROOT", str(tmp_path))
     saved = persist_source_markdown(
         source_artifact_id=artifact.source_artifact_id, source_domain="recap",
         campaign_id=artifact.campaign_id, session_id=artifact.session_id,
         world_id=artifact.world_id, markdown=content.decode("utf-8"), content_sha256=digest,
+        input_descriptor=artifact.model_dump(mode="json"),
     )
 
     loaded, exact = load_registered_source_artifact_bytes(
@@ -295,12 +286,8 @@ def test_registered_source_byte_loader_preserves_exact_database_bytes(
 def test_registered_source_byte_loader_does_not_follow_symlink_locator(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, application_state_dsn: str,
 ) -> None:
-    import json
-
     from apps.live_control_server.services.source_artifact_registry import (
-        SourceArtifactRegistryError,
         load_registered_source_artifact_bytes,
-        source_artifacts_path,
     )
 
     content = b"Immutable source\n"
@@ -314,13 +301,6 @@ def test_registered_source_byte_loader_does_not_follow_symlink_locator(
     target.mkdir()
     (target / "source.md").write_bytes(content)
     (tmp_path / "alias").symlink_to(target, target_is_directory=True)
-    registry = source_artifacts_path(tmp_path)
-    registry.parent.mkdir(parents=True, exist_ok=True)
-    registry.write_text(json.dumps({
-        "schema_version": "dmb_source_artifact_registry_v1",
-        "records": [artifact.model_dump(mode="json")],
-    }))
-
     from application_state.source.service import persist_source_markdown
     from apps.live_control_server.services import source_artifact_registry
     monkeypatch.setenv("DMB_ARTIFACT_DATA_ROOT", str(tmp_path))
@@ -328,6 +308,7 @@ def test_registered_source_byte_loader_does_not_follow_symlink_locator(
         source_artifact_id=artifact.source_artifact_id, source_domain="recap",
         campaign_id=artifact.campaign_id, session_id=artifact.session_id,
         world_id=artifact.world_id, markdown=content.decode("utf-8"), content_sha256=digest,
+        input_descriptor=artifact.model_dump(mode="json"),
     )
     (target / "source.md").write_bytes(b"Unrelated file bytes")
     monkeypatch.setattr(source_artifact_registry, "_read_exact_repo_uri_bytes",

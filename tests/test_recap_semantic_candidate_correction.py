@@ -219,6 +219,13 @@ def _fixture(
     monkeypatch.setattr(service, "create_extraction_run", create_run)
     monkeypatch.setattr(service, "update_extraction_run_status", update_run)
     from application_state.source import service as source_service
+    # This pure correction fixture stubs product metadata storage. Actual DB
+    # descriptor lookup and file denial are covered by test_source_input_metadata_database.
+    monkeypatch.setattr(source_service, "get_source_input_descriptors", lambda *, source_artifact_ids: {
+        row["source_artifact_id"]: row
+        for row in json.loads(artifact_registry.read_text())["records"]
+        if row["source_artifact_id"] in source_artifact_ids
+    })
     monkeypatch.setattr(
         source_service, "persist_source_markdown",
         lambda **_kwargs: SimpleNamespace(source_artifact_id=artifact_id),

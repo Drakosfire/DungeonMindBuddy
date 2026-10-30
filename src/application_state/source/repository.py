@@ -249,3 +249,26 @@ def insert_source_markdown(
     if loaded is None:
         raise RuntimeError("source revision insert did not persist")
     return loaded
+
+
+def get_input_descriptors(conn: psycopg.Connection, artifact_ids: list[str]) -> list[dict]:
+    """Exact metadata lookup; this query never selects a source body."""
+    with conn.cursor(row_factory=dict_row) as cur:
+        cur.execute(
+            "SELECT source_artifact_id, source_domain, campaign_id, session_id, world_id, input_descriptor "
+            "FROM source.artifact WHERE source_artifact_id = ANY(%s::text[]) AND input_descriptor IS NOT NULL",
+            (artifact_ids,),
+        )
+        return [dict(row) for row in cur.fetchall()]
+
+
+def get_input_descriptor(conn: psycopg.Connection, artifact_id: str, *, for_update: bool = False) -> dict | None:
+    with conn.cursor(row_factory=dict_row) as cur:
+        lock = " FOR UPDATE" if for_update else ""
+        cur.execute("SELECT input_descriptor FROM source.artifact WHERE source_artifact_id=%s" + lock, (artifact_id,))
+        row = cur.fetchone()
+        return None if row is None else row["input_descriptor"]
+
+
+def set_input_descriptor(conn: psycopg.Connection, artifact_id: str, descriptor: dict) -> None:
+    conn.execute("UPDATE source.artifact SET input_descriptor=%s WHERE source_artifact_id=%s", (Jsonb(descriptor), artifact_id))
