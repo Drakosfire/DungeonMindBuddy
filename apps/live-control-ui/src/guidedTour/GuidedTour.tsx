@@ -2,7 +2,8 @@ import {TourNavigationRegistry,TourNavigationProvider,TourNavigationActions,navi
 import type {WorldAgentConversationHistoryResponse} from '../api/types';
 import {useSessionMemoryReading} from './MemoryObservations';
 import {createContext,useCallback,useContext,useEffect,useLayoutEffect,useMemo,useRef,useState,type ReactNode} from 'react';
-import {ADVENTURES,JOURNEY_STEPS,journeySteps,type Adventure,type StepId} from './definition';
+import {TourCoachmark} from './TourCoachmark';
+import {ADVENTURES,TOUR_HINTS,JOURNEY_STEPS,journeySteps,type Adventure,type StepId} from './definition';
 import {createWalkthrough,mechanicsGenerationScope,type GeneratedMechanicsScope,generationScope,sameGenerationScope,type GenerationScope,reduceTour,samePin,validObservation,type Observation,type TargetPin,type TourAction} from './protocol';
 import {pointerKey,readWalkthrough,writeWalkthrough,type StoredWalkthrough} from './storage';
 import './guidedTour.css';
@@ -140,32 +141,41 @@ export function GuidedTourProvider({worldId,worldName,children,history=null}:{wo
    &&Array.from(owners.values()).filter(other=>other.step===candidate.step).length===1)userChange({kind:'observe',observation:reading.target.kind==='page'||candidate.observation.origin==='acknowledged'&&!isScopeCurrent(candidate.dispatchScope??null)?{...candidate.observation,origin:'existing'}:candidate.observation});
   for(const receipt of runCreationReceipts.current.values())if(samePin(receipt.target,reading.target))userChange({kind:'observe',observation:receipt});
  };
+ const returnToGuidance=useCallback(()=>{setFocusedControl(null);setVisible(true);},[]);
+ const unavailableControl=useCallback((reason:string)=>{setFocusedControl(null);setVisible(true);setError(reason);},[]);
  const showControl=()=>{
   const targets=document.querySelectorAll<HTMLElement>(`[data-guided-control~="${step.control}"]`);
   if(targets.length!==1){setError(targets.length?'More than one control is available. Open the intended object first.':'Open the surface and controls described in this step.');return;}
   if(!worldId||!walkthrough||!usableControl(targets[0])){setError('This control is not currently available. Open the surface and controls described in this step.');return;}
-  setFocusedControl({target:targets[0],worldId,walkthroughId:walkthrough.id,stepId:step.id,epoch:renderedEpoch});
+  setError(null);setFocusedControl({target:targets[0],worldId,walkthroughId:walkthrough.id,stepId:step.id,epoch:renderedEpoch});
   setVisible(false);
  };
  useLayoutEffect(()=>{
   if(!focusedControl)return;
+  const record=current.current?.record;
+  if(record&&focusedControl.worldId===worldId&&focusedControl.walkthroughId===record.id&&focusedControl.epoch===renderedEpoch&&record.phase==='running'&&focusedControl.stepId!==step.id){
+   const targets=document.querySelectorAll<HTMLElement>(`[data-guided-control~="${step.control}"]`);
+   if(targets.length===1&&usableControl(targets[0])){setFocusedControl({...focusedControl,target:targets[0],stepId:step.id});return;}
+   unavailableControl('The next control is unavailable or ambiguous. Open its ordinary controls to continue.');return;
+  }
   const {target}=focusedControl;
   const selector=`[data-guided-control~="${JOURNEY_STEPS.find(item=>item.id===focusedControl.stepId)!.control}"]`;
   const stillCurrent=()=>{
    const targets=document.querySelectorAll<HTMLElement>(selector);
    return focusedControl.worldId===scopeWorld.current&&focusedControl.walkthroughId===current.current?.record.id
-    &&focusedControl.stepId===JOURNEY_STEPS[current.current?.record.index??0].id&&focusedControl.epoch===externalEpoch.current
+    &&current.current?.record.phase==='running'&&focusedControl.stepId===JOURNEY_STEPS[current.current?.record.index??0].id&&focusedControl.epoch===externalEpoch.current
     &&targets.length===1&&targets[0]===target&&usableControl(target);
   };
   const refuse=()=>{setFocusedControl(null);setVisible(true);setError('The control changed or is unavailable. Reopen the intended controls before highlighting them.');};
   if(!stillCurrent()){refuse();return;}
-  target.scrollIntoView({block:'center',behavior:window.matchMedia('(prefers-reduced-motion: reduce)').matches?'auto':'smooth'});
+  // Position once without a scrolling animation racing the popup measurement.
+  target.scrollIntoView({block:'center',behavior:'instant'});
   if(!stillCurrent()){refuse();return;}
   target.setAttribute('data-guided-highlight','true');target.focus({preventScroll:true});
   const observer=new MutationObserver(()=>{if(!stillCurrent())refuse();});
   observer.observe(document.body,{subtree:true,childList:true,attributes:true,attributeFilter:['hidden','inert','aria-hidden','disabled','aria-disabled','class','style','data-guided-control']});
   return()=>{observer.disconnect();target.removeAttribute('data-guided-highlight');};
- },[focusedControl,worldId,walkthrough?.id,walkthrough?.index,renderedEpoch]);
+ },[focusedControl,worldId,walkthrough?.id,walkthrough?.index,walkthrough?.phase,renderedEpoch,step.id,step.control,unavailableControl]);
  const retainedResult=row?.state==='completed'||row?.state==='existing';
  const availabilityMessage=reading?.status==='ready'?null:reading?.status==='failed'
   ?`Current inspection failed: ${reading.reason??'Open the ordinary controls to inspect the failure.'}`
@@ -176,7 +186,9 @@ export function GuidedTourProvider({worldId,worldName,children,history=null}:{wo
   const url=URL.createObjectURL(new Blob([JSON.stringify({definition:{id:'buddy-live-journey',version:walkthrough.version,steps},walkthrough},null,2)],{type:'application/json'}));
   const link=document.createElement('a');link.href=url;link.download=`buddy-walkthrough-${walkthrough.id}.json`;link.click();URL.revokeObjectURL(url);
  };
- return <TourContext.Provider value={api}><TourNavigationProvider registry={navigationRegistry}>{children}{visible&&<aside className="guided-tour" aria-label="Guided journey">
+ return <TourContext.Provider value={api}><TourNavigationProvider registry={navigationRegistry}>{children}{focusedControl&&walkthrough?.phase==='running'&&focusedControl.worldId===worldId&&focusedControl.walkthroughId===walkthrough.id&&focusedControl.stepId===step.id&&focusedControl.epoch===renderedEpoch&&<TourCoachmark anchor={focusedControl.target} title={`${walkthrough.index+1} of ${steps.length} · ${step.title}`} instruction={TOUR_HINTS[step.id]} status={`${row?.state==='completed'?'Demonstrated during this walkthrough':row?.state==='existing'?'Existing example inspected':row?.state}${row?.reason?` · ${row.reason}`:''}`} onMore={returnToGuidance} onUnavailable={unavailableControl}>
+  <div className="guided-tour__actions"><button type="button" disabled={!walkthrough.index} onClick={()=>userChange({kind:'move',index:walkthrough.index-1})}>Back</button><button type="button" disabled={walkthrough.index===steps.length-1} onClick={()=>userChange({kind:'move',index:walkthrough.index+1})}>Next</button><button type="button" onClick={()=>{userChange({kind:'phase',phase:'paused'});returnToGuidance();}}>Pause</button><button type="button" onClick={()=>{userChange({kind:'phase',phase:'exited'});returnToGuidance();}}>Exit</button></div>
+ </TourCoachmark>}{visible&&<aside className="guided-tour" aria-label="Guided journey">
   <header><strong>Guided journey</strong><button ref={closeControl} type="button" aria-label="Close tour panel" onClick={close}>×</button></header>
   <p className="guided-tour__scope">Guidance uses the ordinary controls. It never repeats your actions.</p>
   {!worldId?<p>Select a managed World before starting a walkthrough.</p>:!resolved&&!error?<p>Opening saved guidance…</p>:!walkthrough?<><p>Choose the adventure you are walking through in this World.</p>{Object.entries(ADVENTURES).map(([id,label])=><button key={id} type="button" disabled={!!error||!resolved} onClick={()=>userChange({kind:'start',adventure:id as Adventure})}>{label}</button>)}</>:<>
@@ -191,7 +203,7 @@ export function GuidedTourProvider({worldId,worldName,children,history=null}:{wo
    {reading?.status==='ready'&&reading.target&&(!walkthrough.bindings[reading.target.kind]||reading.target.objectId===walkthrough.bindings[reading.target.kind]!.objectId&&reading.target.revision>walkthrough.bindings[reading.target.kind]!.revision&&reading.target.kind!=='run'&&!(reading.target.kind==='plan'&&walkthrough.bindings.run))?<button type="button" onClick={bind}>Use this {reading.target.kind}{reading.label?` · ${reading.label}`:''}</button>:null}
    {reading?.target&&walkthrough.bindings[reading.target.kind]&&!samePin(walkthrough.bindings[reading.target.kind]!,reading.target)&&reading.target.objectId!==walkthrough.bindings[reading.target.kind]!.objectId?<p>This is a different target. Reopen the bound object or restart guidance; the earlier record will be kept.</p>:null}
    <TourNavigationActions scope={navigationScope(walkthrough??null,renderedEpoch)} onOpened={()=>{setFocusedControl(null);setVisible(false);}}/>
-   <p>Show control hides this panel and highlights the control. Reopen Guided journey from navigation to continue.</p>
+   <p>Show control opens a short guide beside the ordinary control. Use More guidance to return here.</p>
    <button type="button" onClick={showControl}>Show control</button>
    <div className="guided-tour__actions"><button type="button" disabled={!walkthrough.index} onClick={()=>userChange({kind:'move',index:walkthrough.index-1})}>Back</button><button type="button" disabled={walkthrough.index===steps.length-1} onClick={()=>userChange({kind:'move',index:walkthrough.index+1})}>Next</button>
     <button type="button" onClick={()=>userChange({kind:'phase',phase:walkthrough.phase==='running'?'paused':'running'})}>{walkthrough.phase==='running'?'Pause':'Resume'}</button>

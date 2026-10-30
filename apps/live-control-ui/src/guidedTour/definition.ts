@@ -26,3 +26,22 @@ export const ADVENTURES: Record<Adventure,string> = {conks:'Of Conks and Cons',s
 /** Historical walkthroughs retain the exact original step order. */
 export const HISTORICAL_STEPS = JOURNEY_STEPS.filter(step=>step.id!=='generation');
 export const journeySteps=(version:number)=>version===3?JOURNEY_STEPS:HISTORICAL_STEPS;
+
+/** Brief interface teaching copy; observations and saved evidence remain unchanged. */
+export const TOUR_HINTS:Record<StepId,string>={
+ source:'Open the source you want to use. Its original material stays intact.',
+ authoring:'Edit your page here. Wait for Saved, or use Save when available.',
+ plan:'Prepare your scenes, then save the Plan before starting Play.',
+ generation:'Describe a creature and generate a candidate. Review it before saving mechanics.',
+ encounter:'Open the scene encounter to prepare its actors.',
+ mechanics:'Edit and save a new mechanics version. Earlier versions are retained.',
+ adoption:'Preview the exact saved version, then explicitly adopt it for the chosen actors.',
+ image:'Generate an image, choose where it belongs, then save the Plan.',
+ play:'Review the saved Plan and entry scene before starting this Run.',
+ progress:'Record a choice and notes. Keep unresolved possibilities clearly marked.',
+ roll:'Roll your physical die, then enter that actual result here.',
+ combat:'Track the intended HP, condition or other encounter change here.',
+ recovery:'Finish pending saves, reload, and reopen the same Run.',
+ reflection:'Save your closing reflections. These remain session notes.',
+ memory:'Ask about this session, then open the answer’s citations to inspect its support.',
+};
