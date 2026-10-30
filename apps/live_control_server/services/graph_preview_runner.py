@@ -17,7 +17,7 @@ from src.graph_memory.extraction.bounded_recap_execution import (
     RecapExecutionLimits,
 )
 
-from apps.live_control_server.config import artifact_data_root
+from apps.live_control_server.config import artifact_data_root, managed_world_data_root
 from apps.live_control_server.services.source_artifact_registry import (
     SourceArtifactRegistryError,
     create_recap_source_artifact,
@@ -132,6 +132,8 @@ def _recap_identity_snapshot(
 
 
 def _standing_corpus_root(root: Path, context: dict[str, Any]) -> Path:
+    # Managed source authority is independent of the extraction artifact store.
+    root = managed_world_data_root(root).resolve()
     from apps.live_control_server.services.managed_world_graph_projection import resolve_managed_world_binding
     binding = resolve_managed_world_binding(context["managed_world_id"], root=root)
     if (binding.native_world_id, binding.binding_version) != (context["native_world_id"], context["binding_version"]):
