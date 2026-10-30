@@ -30,9 +30,6 @@ _WORLD_GRAPH_AUTHORITY_RETIRED_MODES = frozenset(
 WORLD_GRAPH_AUTHORITY_DATABASE_URL_ENV = (
     "DUNGEONMIND_WORLD_GRAPH_AUTHORITY_DATABASE_URL"
 )
-# Cache root leftover from the retired DungeonMind-hydrated read model.
-# Mounted product must not consume it; env/function remain for unmounted names.
-WORLD_GRAPH_AUTHORITY_CACHE_ROOT_ENV = "DUNGEONMIND_WORLD_GRAPH_AUTHORITY_CACHE_ROOT"
 MANAGED_WORLD_DATA_ROOT_ENV = "DMB_MANAGED_WORLD_DATA_ROOT"
 ARTIFACT_DATA_ROOT_ENV = "DMB_ARTIFACT_DATA_ROOT"
 
@@ -161,16 +158,6 @@ def world_graph_authority_database_url() -> str | None:
     """PostgreSQL DSN for the DungeonMind-backed authority, when configured."""
     override = os.environ.get(WORLD_GRAPH_AUTHORITY_DATABASE_URL_ENV, "").strip()
     return override or None
-
-
-def world_graph_authority_cache_root() -> Path:
-    """Retired hydration-cache path. Not used by mounted production reads/writes."""
-    override = os.environ.get(WORLD_GRAPH_AUTHORITY_CACHE_ROOT_ENV, "").strip()
-    if override:
-        return Path(override).expanduser().resolve()
-    return (
-        repo_root() / "out" / "cache" / "dungeonmind_world_graph_authority"
-    ).resolve()
 
 
 def world_graph_native_production_read(root: Path | None = None) -> bool:
