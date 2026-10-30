@@ -102,10 +102,6 @@ def _session_number(session_id: str | None) -> int | None:
     return int(match.group(1))
 
 
-def _file_sha256(path: Path) -> str:
-    return hashlib.sha256(path.read_bytes()).hexdigest()
-
-
 def _repo_uri(repo_root: Path, path: Path) -> str:
     root = repo_root.resolve()
     resolved = path.resolve()
@@ -113,25 +109,34 @@ def _repo_uri(repo_root: Path, path: Path) -> str:
     return f"repo://{relpath}"
 
 
-def _write_json(path: Path, payload: Mapping[str, Any]) -> None:
+def _write_json(path: Path, payload: Mapping[str, Any]) -> bytes:
+    data = (json.dumps(payload, indent=2, sort_keys=True) + "\n").encode("utf-8")
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    path.write_bytes(data)
+    return data
 
 
 def _component(
     kind: ExtractionRunComponentKind,
     *,
     uri: str,
-    sha256: str,
-    exists: bool = True,
+    run: ExtractionRun,
+    data: bytes,
 ) -> ExtractionRunComponentRef:
-    return ExtractionRunComponentRef(kind=kind, uri=uri, exists=exists, sha256=sha256)
+    digest = hashlib.sha256(data).hexdigest()
+    if kind != ExtractionRunComponentKind.SOURCE_ARTIFACT:
+        from application_state.ingest.components import persist_component_payload
+        digest = persist_component_payload(
+            run_id=run.run_id, expected_revision=run.revision, kind=kind, payload=data,
+        )
+    return ExtractionRunComponentRef(kind=kind, uri=uri, exists=True, sha256=digest)
 
 
 def _retain_raw_failure_response(
     repo_root: Path,
     output_dir: Path,
     content: str,
+    *, run: ExtractionRun,
 ) -> ExtractionRunComponentRef:
     """Durably retain returned private text before recording a failed run."""
     temporary: Path | None = None
@@ -155,7 +160,7 @@ def _retain_raw_failure_response(
         return _component(
             ExtractionRunComponentKind.RAW_MODEL_RESPONSE,
             uri=uri,
-            sha256=hashlib.sha256(data).hexdigest(),
+            run=run, data=data,
         )
     except Exception:
         raise RuntimeError(
@@ -176,6 +181,7 @@ def _retain_private_json_component(
     filename: str,
     payload: Mapping[str, Any],
     kind: ExtractionRunComponentKind,
+    run: ExtractionRun,
 ) -> ExtractionRunComponentRef:
     """Persist private review diagnostics atomically and bind them by digest."""
     temporary: Path | None = None
@@ -201,7 +207,7 @@ def _retain_private_json_component(
         return _component(
             kind,
             uri=uri,
-            sha256=hashlib.sha256(data).hexdigest(),
+            run=run, data=data,
         )
     except Exception:
         raise RuntimeError("Could not persist private extraction diagnostics") from None
@@ -319,6 +325,7 @@ def _build_prepared_components(
     repo_root: Path,
     source: NormalizedExtractionSource,
     output_dir: Path,
+    *, run: ExtractionRun,
 ) -> tuple[dict[str, ExtractionRunComponentRef], dict[str, Any]]:
     digest = source.source_sha256.removeprefix("sha256:")
     source_bytes = source.source_text.encode("utf-8")
@@ -341,17 +348,17 @@ def _build_prepared_components(
     )
     span_payload = source_span_index_to_dict(index)
     span_path = output_dir / "source_span_index.json"
-    _write_json(span_path, span_payload)
+    span_data = _write_json(span_path, span_payload)
     components = {
         "source_artifact": _component(
             ExtractionRunComponentKind.SOURCE_ARTIFACT,
             uri=_repo_uri(repo_root, source_path),
-            sha256=digest,
+            run=run, data=source_bytes,
         ),
         "source_span_index": _component(
             ExtractionRunComponentKind.SOURCE_SPAN_INDEX,
             uri=_repo_uri(repo_root, span_path),
-            sha256=_file_sha256(span_path),
+            run=run, data=span_data,
         ),
     }
     return components, span_payload
@@ -421,7 +428,7 @@ def run_production_extraction(
     output_dir.mkdir(parents=True, exist_ok=True)
 
     components, span_payload = _build_prepared_components(
-        request.repo_root, source, output_dir
+        request.repo_root, source, output_dir, run=draft
     )
     prepared = _advance_run(
         request.repo_root,
@@ -495,7 +502,7 @@ def run_production_extraction(
             components = {
                 **components,
                 "raw_model_response": _retain_raw_failure_response(
-                    request.repo_root, output_dir, exc.raw_model_response,
+                    request.repo_root, output_dir, exc.raw_model_response, run=prepared,
                 ),
             }
         message = str(exc)
@@ -572,7 +579,7 @@ def run_production_extraction(
         components = {
             **components,
             "raw_model_response": _retain_raw_failure_response(
-                request.repo_root, output_dir, extraction.private_response_evidence,
+                request.repo_root, output_dir, extraction.private_response_evidence, run=prepared,
             ),
         }
 
@@ -612,7 +619,7 @@ def run_production_extraction(
                 output_dir,
                 filename="consolidation_diagnostics.json",
                 payload=failure_diagnostics,
-                kind=ExtractionRunComponentKind.CONSOLIDATION_DIAGNOSTICS,
+                kind=ExtractionRunComponentKind.CONSOLIDATION_DIAGNOSTICS, run=prepared,
             )
             components = {
                 **components,
@@ -655,7 +662,7 @@ def run_production_extraction(
         output_dir,
         filename="consolidation_diagnostics.json",
         payload=consolidation_diagnostics,
-        kind=ExtractionRunComponentKind.CONSOLIDATION_DIAGNOSTICS,
+        kind=ExtractionRunComponentKind.CONSOLIDATION_DIAGNOSTICS, run=prepared,
     )
     components = {
         **components,
@@ -663,22 +670,22 @@ def run_production_extraction(
     }
 
     candidate_path = output_dir / "candidate_graph.json"
-    _write_json(candidate_path, candidate_graph)
+    candidate_data = _write_json(candidate_path, candidate_graph)
     components = {
         **components,
         "candidate_graph": _component(
             ExtractionRunComponentKind.CANDIDATE_GRAPH,
             uri=_repo_uri(request.repo_root, candidate_path),
-            sha256=_file_sha256(candidate_path),
+            run=prepared, data=candidate_data,
         ),
     }
     if extraction.known_entity_mentions is not None:
         mention_path = output_dir / "known_entity_mentions.json"
-        _write_json(mention_path, extraction.known_entity_mentions)
+        mention_data = _write_json(mention_path, extraction.known_entity_mentions)
         components[ExtractionRunComponentKind.PROVENANCE_INDEX.value] = _component(
             ExtractionRunComponentKind.PROVENANCE_INDEX,
             uri=_repo_uri(request.repo_root, mention_path),
-            sha256=_file_sha256(mention_path),
+            run=prepared, data=mention_data,
         )
     extracted = _advance_run(
         request.repo_root,

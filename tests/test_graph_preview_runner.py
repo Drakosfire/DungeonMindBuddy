@@ -1110,6 +1110,16 @@ def test_recap_snapshot_rejects_path_escape(tmp_path: Path) -> None:
         )
 
 
+def runner_run_for_snapshot(source):
+    from application_state.ingest import service as ingest
+    from graph_memory.ingestion.extraction_run import ExtractionRun
+    from uuid import uuid4
+    return ingest.create_extraction_run(ExtractionRun(
+        run_id=str(uuid4()), source_artifact_id=source.source_artifact_id,
+        source_domain=source.source_domain, campaign_id=source.campaign_id,
+    ))
+
+
 def test_prepared_source_snapshot_survives_mutable_source_edit(tmp_path):
     import hashlib
     from src.graph_memory.extraction.graph_preview_runner import _build_prepared_components
@@ -1118,16 +1128,19 @@ def test_prepared_source_snapshot_survives_mutable_source_edit(tmp_path):
     body = mutable.read_text()
     source = NormalizedExtractionSource("artifact:test", "worldbuilding", body,
         hashlib.sha256(body.encode()).hexdigest(), "repo://document.md", "world", None)
-    components, _ = _build_prepared_components(tmp_path, source, tmp_path / "run")
+    from application_state.ingest import service as ingest
+    from graph_memory.ingestion.extraction_run import ExtractionRun
+    run = ingest.create_extraction_run(ExtractionRun(run_id="snapshot-run", source_artifact_id=source.source_artifact_id, source_domain="worldbuilding", campaign_id="world"))
+    components, _ = _build_prepared_components(tmp_path, source, tmp_path / "run", run=run)
     mutable.write_text("# Later edit\n")
     frozen = tmp_path / components["source_artifact"].uri.removeprefix("repo://")
     assert frozen.read_text() == body
-    replay, _ = _build_prepared_components(tmp_path, source, tmp_path / "run")
+    replay, _ = _build_prepared_components(tmp_path, source, tmp_path / "run", run=run)
     assert replay["source_artifact"] == components["source_artifact"]
     changed = replace(source, source_text="# Different\n",
                       source_sha256=hashlib.sha256(b"# Different\n").hexdigest())
     with pytest.raises(ValueError, match="conflicts"):
-        _build_prepared_components(tmp_path, changed, tmp_path / "run")
+        _build_prepared_components(tmp_path, changed, tmp_path / "run", run=run)
     assert frozen.read_text() == body
 
 
@@ -1136,7 +1149,7 @@ def test_prepared_snapshot_rejects_incorrect_digest(tmp_path):
     source = NormalizedExtractionSource("artifact:test", "worldbuilding", "# Body\n",
                                        "0" * 64, "repo://document.md", "world", None)
     with pytest.raises(ValueError, match="digest mismatch"):
-        _build_prepared_components(tmp_path, source, tmp_path / "run")
+        _build_prepared_components(tmp_path, source, tmp_path / "run", run=runner_run_for_snapshot(source))
     assert not (tmp_path / "run/source.md").exists()
 
 
@@ -1152,5 +1165,35 @@ def test_prepared_snapshot_rejects_same_byte_symlink(tmp_path):
     source = NormalizedExtractionSource("artifact:test", "worldbuilding", body,
         hashlib.sha256(body.encode()).hexdigest(), "repo://document.md", "world", None)
     with pytest.raises(ValueError, match="regular owned file"):
-        _build_prepared_components(tmp_path, source, run_dir)
+        _build_prepared_components(tmp_path, source, run_dir, run=runner_run_for_snapshot(source))
     assert mutable.read_text() == body
+
+
+def test_production_outputs_survive_deleted_files_in_ingest_store(tmp_path, monkeypatch):
+    import hashlib
+    from application_state.ingest.components import get_component_bytes
+    source = _admit_worldbuilding(tmp_path)
+    result = run_production_extraction(ProductionExtractionRequest(
+        repo_root=tmp_path, source=source,
+        profile_id=WORLDBUILDING_PLUMBING_PROFILE_ID,
+        profile_version=WORLDBUILDING_PLUMBING_PROFILE_VERSION,
+        allow_llm=True, category_client=FixtureClient(span_ref=_first_paragraph_span_id(source)),
+        output_dir=tmp_path / "database-outputs",
+    ))
+    assert result.run.status == ExtractionRunStatus.REVIEWABLE
+    expected = {}
+    for name, ref in result.run.components.items():
+        if name == "source_artifact":
+            continue
+        path = tmp_path / ref.uri.removeprefix("repo://")
+        expected[name] = path.read_bytes()
+        path.unlink()
+    monkeypatch.setattr(Path, "read_bytes", lambda *a, **k: pytest.fail("output read file"))
+    monkeypatch.setattr(Path, "read_text", lambda *a, **k: pytest.fail("output read file"))
+    for name, raw in expected.items():
+        ref = result.run.components[name]
+        actual = get_component_bytes(run_id=result.run.run_id, kind=ref.kind, content_sha256=ref.sha256)
+        assert actual == raw
+        assert hashlib.sha256(actual).hexdigest() == ref.sha256
+    assert json.loads(expected["candidate_graph"]) == result.candidate_graph
+    assert json.loads(expected["source_span_index"]) == result.source_span_index

@@ -733,8 +733,8 @@ def _install_worldbuilding_repo(monkeypatch, tmp_path: Path, native_id=DEFAULT_W
             output_dir = (root / components["candidate_graph"].uri.removeprefix("repo://")).parent
             frozen_components, _ = _build_prepared_components(root, NormalizedExtractionSource(
                 run.source_artifact_id, "worldbuilding", body, source_component.sha256,
-                source_component.uri, run.campaign_id, None), output_dir)
-            kwargs["components"] = {**components, "source_artifact": frozen_components["source_artifact"]}
+                source_component.uri, run.campaign_id, None), output_dir, run=run)
+            kwargs["components"] = {**components, **frozen_components}
         return original_update(root, run_id, **kwargs)
     monkeypatch.setattr(graph_run_registry, "update_extraction_run_status", update_with_frozen_source)
     return repo

@@ -111,7 +111,7 @@ def test_no_raw_response_does_not_invent_evidence(tmp_path, application_state_ds
     assert not list((tmp_path / "out/runs/failure").rglob("raw_model_response.txt"))
 
 
-def test_private_consolidation_diagnostics_component_is_digest_bound(tmp_path):
+def test_private_consolidation_diagnostics_component_is_digest_bound(tmp_path, application_state_dsn):
     payload = {
         "livestock_semantic_hygiene": {
             "deferred_proposals": {
@@ -135,12 +135,14 @@ def test_private_consolidation_diagnostics_component_is_digest_bound(tmp_path):
     }
     output_dir = tmp_path / "out" / "run"
     output_dir.mkdir(parents=True)
+    from application_state.ingest import service as ingest
+    run = ingest.create_extraction_run(runner.ExtractionRun(run_id="diagnostics-run", source_artifact_id="source:input", source_domain="worldbuilding"))
     component = runner._retain_private_json_component(
         tmp_path,
         output_dir,
         filename="consolidation_diagnostics.json",
         payload=payload,
-        kind=runner.ExtractionRunComponentKind.CONSOLIDATION_DIAGNOSTICS,
+        kind=runner.ExtractionRunComponentKind.CONSOLIDATION_DIAGNOSTICS, run=run,
     )
     path = tmp_path / component.uri.removeprefix("repo://")
     raw = path.read_bytes()
@@ -165,6 +167,7 @@ def test_private_diagnostics_write_failure_does_not_echo_payload(tmp_path, monke
             filename="consolidation_diagnostics.json",
             payload={"private": "SOURCE_TEXT"},
             kind=runner.ExtractionRunComponentKind.CONSOLIDATION_DIAGNOSTICS,
+            run=runner.ExtractionRun(run_id="unexecuted", source_artifact_id="source", source_domain="worldbuilding"),
         )
     assert "SOURCE_TEXT" not in str(exc.value)
 
@@ -176,7 +179,7 @@ def test_storage_failure_cannot_report_retention_or_return_candidate(
 ):
     calls = []
 
-    def unavailable(*args):
+    def unavailable(*args, **kwargs):
         calls.append(args)
         raise RuntimeError("Could not persist private extraction failure evidence")
 
@@ -193,5 +196,6 @@ def test_writer_failure_is_controlled_and_never_echoes_body(tmp_path, monkeypatc
 
     monkeypatch.setattr(runner.tempfile, "mkstemp", unavailable)
     with pytest.raises(RuntimeError, match="Could not persist private") as exc:
-        runner._retain_raw_failure_response(tmp_path, tmp_path, "PRIVATE_BODY")
+        runner._retain_raw_failure_response(tmp_path, tmp_path, "PRIVATE_BODY",
+            run=runner.ExtractionRun(run_id="unexecuted", source_artifact_id="source", source_domain="worldbuilding"))
     assert "PRIVATE_BODY" not in str(exc.value)
