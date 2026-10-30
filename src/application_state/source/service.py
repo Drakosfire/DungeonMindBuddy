@@ -72,11 +72,14 @@ def persist_source_markdown(
     lineage: dict[str, object] | None = None,
     source_revision_id: UUID | None = None,
     dry_run: bool = False,
+    input_descriptor: dict[str, object] | None = None,
 ) -> SourceMarkdownRecord:
     """Persist exact source bytes once and return the immutable revision.
 
     The digest is computed from the UTF-8 text supplied by the caller. A
     caller-provided digest is an assertion, never a replacement for hashing.
+    An optional immutable producer input descriptor is committed in the same
+    transaction as the body. It conveys no DungeonMind admission authority.
     Repeating the same artifact/digest is idempotent; different bytes can only
     create a different digest-keyed revision.
 
@@ -102,106 +105,92 @@ def persist_source_markdown(
     dsn = load_runtime_dsn()
     assert_at_head(dsn=dsn)
     with unit_of_work(dsn) as conn:
-        artifact = repository.get_source_artifact(conn, artifact_id)
-        if artifact is not None:
-            _scope_conflict(
-                source_domain=artifact["source_domain"],
-                campaign_id=artifact["campaign_id"],
-                session_id=artifact["session_id"],
-                world_id=artifact["world_id"],
-                expected_domain=domain,
-                expected_campaign_id=campaign_id,
-                expected_session_id=session_id,
-                expected_world_id=world_id,
-            )
-        existing = repository.get_source_markdown(
-            conn,
-            source_artifact_id=artifact_id,
-            content_sha256=actual_digest,
+        record = _persist_source_markdown(
+            conn, artifact_id=artifact_id, domain=domain, campaign_id=campaign_id,
+            session_id=session_id, world_id=world_id, exact_markdown=exact_markdown,
+            actual_digest=actual_digest, media_type=media_type, encoding=encoding,
+            requested_lineage=requested_lineage, source_revision_id=source_revision_id,
+            dry_run=dry_run,
         )
-        by_revision = (
-            repository.get_source_markdown_by_revision_id(conn, source_revision_id)
-            if source_revision_id is not None
-            else None
-        )
-        if source_revision_id is not None and by_revision is not None:
-            if (
-                by_revision.source_artifact_id != artifact_id
-                or by_revision.content_sha256 != actual_digest
-                or by_revision.markdown != exact_markdown
-            ):
-                raise ApplicationStateConflictError(
-                    "requested source revision already belongs to different source state"
-                )
-            _scope_conflict(
-                source_domain=by_revision.source_domain,
-                campaign_id=by_revision.campaign_id,
-                session_id=by_revision.session_id,
-                world_id=by_revision.world_id,
-                expected_domain=domain,
-                expected_campaign_id=campaign_id,
-                expected_session_id=session_id,
-                expected_world_id=world_id,
-            )
-        if existing is not None:
-            if existing.markdown != exact_markdown:
-                raise ApplicationStateConflictError(
-                    "source artifact digest is already bound to different Markdown"
-                )
-            _scope_conflict(
-                source_domain=existing.source_domain,
-                campaign_id=existing.campaign_id,
-                session_id=existing.session_id,
-                world_id=existing.world_id,
-                expected_domain=domain,
-                expected_campaign_id=campaign_id,
-                expected_session_id=session_id,
-                expected_world_id=world_id,
-            )
-            if (
-                source_revision_id is not None
-                and existing.source_revision_id != source_revision_id
-            ):
-                raise ApplicationStateConflictError(
-                    "source artifact/digest already exists under a different source revision"
-                )
-            if dry_run:
-                return existing
-            if existing.world_id is None and world_id is not None:
-                return repository.insert_source_markdown(
-                    conn,
-                    source_artifact_id=artifact_id,
-                    source_domain=domain,
-                    campaign_id=campaign_id,
-                    session_id=session_id,
-                    world_id=world_id,
-                    content_sha256=actual_digest,
-                    media_type=media_type,
-                    encoding=encoding,
-                    markdown=exact_markdown,
-                    lineage=requested_lineage,
-                    source_revision_id=existing.source_revision_id,
-                )
-            return existing
+        if input_descriptor is not None:
+            _store_input_descriptor(conn, record, input_descriptor, dry_run=dry_run)
+        return record
 
+
+def _persist_source_markdown(
+    conn: psycopg.Connection, *, artifact_id: str, domain: str,
+    campaign_id: str | None, session_id: str | None, world_id: str | None,
+    exact_markdown: str, actual_digest: str, media_type: str, encoding: str,
+    requested_lineage: dict[str, object], source_revision_id: UUID | None,
+    dry_run: bool,
+) -> SourceMarkdownRecord:
+    artifact = repository.get_source_artifact(conn, artifact_id)
+    if artifact is not None:
+        _scope_conflict(
+            source_domain=artifact["source_domain"],
+            campaign_id=artifact["campaign_id"],
+            session_id=artifact["session_id"],
+            world_id=artifact["world_id"],
+            expected_domain=domain,
+            expected_campaign_id=campaign_id,
+            expected_session_id=session_id,
+            expected_world_id=world_id,
+        )
+    existing = repository.get_source_markdown(
+        conn,
+        source_artifact_id=artifact_id,
+        content_sha256=actual_digest,
+    )
+    by_revision = (
+        repository.get_source_markdown_by_revision_id(conn, source_revision_id)
+        if source_revision_id is not None
+        else None
+    )
+    if source_revision_id is not None and by_revision is not None:
+        if (
+            by_revision.source_artifact_id != artifact_id
+            or by_revision.content_sha256 != actual_digest
+            or by_revision.markdown != exact_markdown
+        ):
+            raise ApplicationStateConflictError(
+                "requested source revision already belongs to different source state"
+            )
+        _scope_conflict(
+            source_domain=by_revision.source_domain,
+            campaign_id=by_revision.campaign_id,
+            session_id=by_revision.session_id,
+            world_id=by_revision.world_id,
+            expected_domain=domain,
+            expected_campaign_id=campaign_id,
+            expected_session_id=session_id,
+            expected_world_id=world_id,
+        )
+    if existing is not None:
+        if existing.markdown != exact_markdown:
+            raise ApplicationStateConflictError(
+                "source artifact digest is already bound to different Markdown"
+            )
+        _scope_conflict(
+            source_domain=existing.source_domain,
+            campaign_id=existing.campaign_id,
+            session_id=existing.session_id,
+            world_id=existing.world_id,
+            expected_domain=domain,
+            expected_campaign_id=campaign_id,
+            expected_session_id=session_id,
+            expected_world_id=world_id,
+        )
+        if (
+            source_revision_id is not None
+            and existing.source_revision_id != source_revision_id
+        ):
+            raise ApplicationStateConflictError(
+                "source artifact/digest already exists under a different source revision"
+            )
         if dry_run:
-            return SourceMarkdownRecord(
-                source_revision_id=source_revision_id or uuid4(),
-                source_artifact_id=artifact_id,
-                source_domain=domain,
-                campaign_id=campaign_id,
-                session_id=session_id,
-                world_id=world_id,
-                content_sha256=actual_digest,
-                media_type=media_type,
-                encoding=encoding,
-                markdown=exact_markdown,
-                lineage=requested_lineage,
-                created_at=datetime.now(UTC),
-            )
-
-        try:
-            loaded = repository.insert_source_markdown(
+            return existing
+        if existing.world_id is None and world_id is not None:
+            return repository.insert_source_markdown(
                 conn,
                 source_artifact_id=artifact_id,
                 source_domain=domain,
@@ -213,20 +202,53 @@ def persist_source_markdown(
                 encoding=encoding,
                 markdown=exact_markdown,
                 lineage=requested_lineage,
-                source_revision_id=source_revision_id,
+                source_revision_id=existing.source_revision_id,
             )
-        except psycopg.errors.UniqueViolation as exc:
-            raise ApplicationStateConflictError(
-                "requested source revision already belongs to different source state"
-            ) from exc
-        if (
-            source_revision_id is not None
-            and loaded.source_revision_id != source_revision_id
-        ):
-            raise ApplicationStateConflictError(
-                "source artifact/digest already exists under a different source revision"
-            )
-        return loaded
+        return existing
+
+    if dry_run:
+        return SourceMarkdownRecord(
+            source_revision_id=source_revision_id or uuid4(),
+            source_artifact_id=artifact_id,
+            source_domain=domain,
+            campaign_id=campaign_id,
+            session_id=session_id,
+            world_id=world_id,
+            content_sha256=actual_digest,
+            media_type=media_type,
+            encoding=encoding,
+            markdown=exact_markdown,
+            lineage=requested_lineage,
+            created_at=datetime.now(UTC),
+        )
+
+    try:
+        loaded = repository.insert_source_markdown(
+            conn,
+            source_artifact_id=artifact_id,
+            source_domain=domain,
+            campaign_id=campaign_id,
+            session_id=session_id,
+            world_id=world_id,
+            content_sha256=actual_digest,
+            media_type=media_type,
+            encoding=encoding,
+            markdown=exact_markdown,
+            lineage=requested_lineage,
+            source_revision_id=source_revision_id,
+        )
+    except psycopg.errors.UniqueViolation as exc:
+        raise ApplicationStateConflictError(
+            "requested source revision already belongs to different source state"
+        ) from exc
+    if (
+        source_revision_id is not None
+        and loaded.source_revision_id != source_revision_id
+    ):
+        raise ApplicationStateConflictError(
+            "source artifact/digest already exists under a different source revision"
+        )
+    return loaded
 
 
 def get_source_markdown(
@@ -313,3 +335,59 @@ def get_source_artifact_scope(*, source_artifact_id: str) -> dict | None:
     if row is None:
         return None
     return {key: row[key] for key in ("world_id", "source_domain", "campaign_id", "session_id")}
+
+
+def _input_signature(descriptor: dict) -> dict:
+    # Registration timestamps and historical presentation locator do not change
+    # immutable input identity. The original values remain stored on exact replay.
+    return {key: value for key, value in descriptor.items() if key not in {"created_at", "updated_at", "uri"}}
+
+
+def _store_input_descriptor(
+    conn: psycopg.Connection, record: SourceMarkdownRecord,
+    raw_descriptor: dict[str, object], *, dry_run: bool,
+) -> None:
+    from graph_memory.evidence.source_artifact import GraphMemorySourceArtifact
+    try:
+        descriptor = GraphMemorySourceArtifact.model_validate(raw_descriptor).model_dump(mode="json")
+    except ValueError as exc:
+        raise ApplicationStateValidationError(f"invalid source input descriptor: {exc}") from exc
+    fields = ("source_artifact_id", "source_domain", "world_id", "campaign_id", "session_id")
+    if (any(descriptor[field] != getattr(record, field) for field in fields)
+            or _normalize_digest(descriptor.get("content_sha256") or "") != record.content_sha256):
+        raise ApplicationStateConflictError("source input descriptor does not match its exact stored body binding")
+    existing = repository.get_input_descriptor(conn, record.source_artifact_id, for_update=not dry_run)
+    if existing is not None and _input_signature(existing) != _input_signature(descriptor):
+        raise ApplicationStateConflictError("source input descriptor is already registered with different immutable metadata")
+    if not dry_run and existing is None:
+        repository.set_input_descriptor(conn, record.source_artifact_id, descriptor)
+
+
+def get_source_input_descriptors(*, source_artifact_ids: list[str]) -> dict[str, dict]:
+    """Read exact registered producer metadata, never latest bodies or provenance authority."""
+    from graph_memory.evidence.source_artifact import GraphMemorySourceArtifact
+    from application_state.errors import ApplicationStateIntegrityError
+    if any(not isinstance(value, str) or not value.strip() for value in source_artifact_ids):
+        raise ApplicationStateValidationError("source input lookup requires exact artifact IDs")
+    ids = list(dict.fromkeys(source_artifact_ids))
+    if not ids:
+        return {}
+    dsn = load_runtime_dsn()
+    assert_at_head(dsn=dsn)
+    with unit_of_work(dsn) as conn:
+        conn.execute("SET TRANSACTION READ ONLY")
+        rows = repository.get_input_descriptors(conn, ids)
+    result = {}
+    for row in rows:
+        try:
+            descriptor = GraphMemorySourceArtifact.model_validate(row["input_descriptor"])
+            fields = ("source_artifact_id", "source_domain", "world_id", "campaign_id", "session_id")
+            if any(getattr(descriptor, field) != row[field] for field in fields):
+                raise ValueError("descriptor scope differs from its source input row")
+            digest = _normalize_digest(descriptor.content_sha256 or "")
+            if len(digest) != 64 or any(char not in "0123456789abcdef" for char in digest):
+                raise ValueError("descriptor lacks exact SHA-256 content digest")
+        except ValueError as exc:
+            raise ApplicationStateIntegrityError(f"invalid registered source input metadata: {exc}") from exc
+        result[descriptor.source_artifact_id] = descriptor.model_dump(mode="json")
+    return result

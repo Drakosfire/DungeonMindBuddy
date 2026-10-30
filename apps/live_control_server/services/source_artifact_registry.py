@@ -1,4 +1,4 @@
-"""Server-owned SourceArtifact registry for committed workspace revisions."""
+"""Database-backed immutable producer source inputs; Core owns provenance admission."""
 
 from __future__ import annotations
 
@@ -10,7 +10,7 @@ import stat
 from datetime import UTC, datetime
 from pathlib import Path
 
-from pydantic import BaseModel, Field, ValidationError
+from pydantic import ValidationError
 
 from application_state.errors import ApplicationStateError
 from application_state.source import service as source_service
@@ -30,7 +30,6 @@ from graph_memory.evidence.source_artifact import (
     GraphMemorySourceArtifact,
     build_world_scoped_recap_source_artifact_id,
     build_worldbuilding_source_artifact_id,
-    validate_source_artifact_scope,
 )
 from graph_memory.source_span import (
     SourceSpanIndex,
@@ -43,17 +42,13 @@ from graph_memory.source_span import (
     resolve_source_span_ref,
 )
 from apps.live_control_server.services.registry_file_lock import (
-    registry_mutation_lock,
-    registry_token,
     workspace_document_mutation_lock,
 )
 from src.live_play.live_store import load_json, write_json
 
-DEFAULT_SOURCE_ARTIFACT_REGISTRY_REL = "out/registries/source_artifacts.json"
 DEFAULT_SOURCE_SPAN_INDEX_DIR_REL = "out/registries/source_span_indexes"
 RECAP_SOURCE_CONTENT_ROOT_ENV = "DUNGEONMIND_RECAP_SOURCE_CONTENT_ROOT"
 DEFAULT_RECAP_SOURCE_CONTENT_ROOT = "out/registries/source_content/recap"
-SOURCE_ARTIFACT_REGISTRY_SCHEMA = "dmb_source_artifact_registry_v1"
 
 _SAFE_ARTIFACT_DIR_RE = re.compile(r"[^A-Za-z0-9._-]+")
 # Single path segment: no slashes, no ``..``, no empty / absolute segments.
@@ -68,11 +63,6 @@ class SourceArtifactRegistryError(ValueError):
         self.status_code = status_code
 
 
-class SourceArtifactRegistryDocument(BaseModel):
-    schema_version: str = SOURCE_ARTIFACT_REGISTRY_SCHEMA
-    records: list[GraphMemorySourceArtifact] = Field(default_factory=list)
-
-
 def _artifact_root(root: Path) -> Path:
     try:
         return artifact_data_root(root)
@@ -82,10 +72,6 @@ def _artifact_root(root: Path) -> Path:
 
 def _utc_now_iso() -> str:
     return datetime.now(UTC).isoformat().replace("+00:00", "Z")
-
-
-def source_artifacts_path(root: Path) -> Path:
-    return _resolve_registry_content_path(root, DEFAULT_SOURCE_ARTIFACT_REGISTRY_REL)
 
 
 def _normalize_committed_markdown(markdown: str) -> str:
@@ -155,63 +141,6 @@ def source_span_index_path(root: Path, source_artifact_id: str) -> Path:
     return _resolve_registry_content_path(root, source_span_index_relpath(source_artifact_id))
 
 
-def _validate_registry_records(records: list[GraphMemorySourceArtifact]) -> None:
-    seen: set[str] = set()
-    for record in records:
-        try:
-            validate_source_artifact_scope(record)
-        except ValueError as exc:
-            raise SourceArtifactRegistryError(
-                f"malformed source artifact registry record: {exc}",
-                status_code=500,
-            ) from exc
-        if record.source_artifact_id in seen:
-            raise SourceArtifactRegistryError(
-                f"duplicate source artifact id: {record.source_artifact_id}",
-                status_code=500,
-            )
-        seen.add(record.source_artifact_id)
-
-
-def _load_unlocked(root: Path) -> tuple[SourceArtifactRegistryDocument, str]:
-    path = source_artifacts_path(root)
-    token = registry_token(path)
-    if not path.is_file():
-        return SourceArtifactRegistryDocument(), token
-    try:
-        document = SourceArtifactRegistryDocument.model_validate(load_json(path))
-    except (ValidationError, TypeError, ValueError) as exc:
-        raise SourceArtifactRegistryError(
-            f"malformed source artifact registry: {exc}",
-            status_code=500,
-        ) from exc
-    _validate_registry_records(document.records)
-    return document, token
-
-
-def _load(root: Path) -> SourceArtifactRegistryDocument:
-    document, _token = _load_unlocked(root)
-    return document
-
-
-def _save_cas(
-    root: Path,
-    document: SourceArtifactRegistryDocument,
-    *,
-    expected_token: str,
-) -> None:
-    _validate_registry_records(document.records)
-    path = source_artifacts_path(root)
-    path.parent.mkdir(parents=True, exist_ok=True)
-    current = registry_token(path)
-    if current != expected_token:
-        raise SourceArtifactRegistryError(
-            "source artifact registry changed concurrently",
-            status_code=409,
-        )
-    write_json(path, document.model_dump(mode="json"))
-
-
 def _read_committed_target_markdown(root: Path, record) -> tuple[str, str, str]:
     """Resolve BLD-02 target, read committed bytes, return (relpath, markdown, digest)."""
     try:
@@ -234,23 +163,6 @@ def _read_committed_target_markdown(root: Path, record) -> tuple[str, str, str]:
     content = _normalize_committed_markdown(raw)
     digest = hashlib.sha256(content.encode("utf-8")).hexdigest()
     return relpath, content, digest
-
-
-def _records_match(existing: GraphMemorySourceArtifact, candidate: GraphMemorySourceArtifact) -> bool:
-    fields = (
-        "source_artifact_id",
-        "source_domain",
-        "campaign_id",
-        "session_id",
-        "world_id",
-        "uri",
-        "content_sha256",
-        "artifact_kind",
-        "document_class",
-        "workspace_document_id",
-        "workspace_document_revision",
-    )
-    return all(getattr(existing, field) == getattr(candidate, field) for field in fields)
 
 
 def _persist_span_index(root: Path, index: SourceSpanIndex) -> str:
@@ -328,22 +240,21 @@ def resolve_worldbuilding_source_span(
 
 
 def get_source_artifacts(root: Path, source_artifact_ids: set[str]) -> dict[str, GraphMemorySourceArtifact]:
-    """Resolve one exact metadata batch from one registry snapshot; never open bodies."""
-    if not source_artifact_ids:
-        return {}
-    return {record.source_artifact_id: record for record in _load(root).records
-            if record.source_artifact_id in source_artifact_ids}
+    """Exact metadata lookup from APP; no source bodies or filesystem discovery."""
+    del root
+    try:
+        rows = source_service.get_source_input_descriptors(source_artifact_ids=sorted(source_artifact_ids))
+    except ApplicationStateError as exc:
+        raise SourceArtifactRegistryError(str(exc), status_code=exc.status_code) from exc
+    return {key: GraphMemorySourceArtifact.model_validate(value) for key, value in rows.items()}
 
 
 def get_source_artifact(root: Path, source_artifact_id: str) -> GraphMemorySourceArtifact:
-    document = _load(root)
-    for record in document.records:
-        if record.source_artifact_id == source_artifact_id:
-            return record
-    raise SourceArtifactRegistryError(
-        f"source artifact not found: {source_artifact_id}",
-        status_code=404,
-    )
+    records = get_source_artifacts(root, {source_artifact_id})
+    artifact = records.get(source_artifact_id)
+    if artifact is None:
+        raise SourceArtifactRegistryError(f"source input not registered in database: {source_artifact_id}", status_code=404)
+    return artifact
 
 
 def create_source_artifact_from_workspace_document(
@@ -452,41 +363,7 @@ def _create_source_artifact_from_workspace_document_unlocked(
         updated_at=now,
     )
 
-    _persist_registered_body(candidate, content)
-    path = source_artifacts_path(root)
-    with registry_mutation_lock(path):
-        document, token = _load_unlocked(root)
-        existing = next(
-            (row for row in document.records if row.source_artifact_id == source_artifact_id),
-            None,
-        )
-        if existing is not None:
-            if not _records_match(existing, candidate):
-                raise SourceArtifactRegistryError(
-                    "source artifact id collision with mismatched digest or foreign keys",
-                    status_code=409,
-                )
-            try:
-                load_source_span_index(root, existing.source_artifact_id)
-            except SourceArtifactRegistryError:
-                index = build_source_span_index_for_text(
-                    source_artifact_id=existing.source_artifact_id,
-                    content_sha256=existing.content_sha256 or content_sha256,
-                    text=content,
-                )
-                _persist_span_index(root, index)
-            return existing
-
-        index = build_source_span_index_for_text(
-            source_artifact_id=source_artifact_id,
-            content_sha256=content_sha256,
-            text=content,
-        )
-        _persist_span_index(root, index)
-
-        document.records.append(candidate)
-        _save_cas(root, document, expected_token=token)
-        return candidate
+    return _upsert_source_artifact(root, candidate=candidate, content=content)
 
 
 def create_recap_source_artifact_from_workspace_document(
@@ -581,7 +458,7 @@ def _normalize_source_text(text: str) -> str:
     return text.rstrip("\n") + "\n"
 
 
-def _persist_registered_body(artifact: GraphMemorySourceArtifact, content: str) -> None:
+def _register_source_input(artifact: GraphMemorySourceArtifact, content: str) -> GraphMemorySourceArtifact:
     """Store product input bytes before exposing their descriptor to ingestion.
 
     This does not admit source provenance or publish Graph facts. DungeonMind
@@ -596,6 +473,7 @@ def _persist_registered_body(artifact: GraphMemorySourceArtifact, content: str) 
             world_id=artifact.world_id,
             markdown=content,
             content_sha256=artifact.content_sha256,
+            input_descriptor=artifact.model_dump(mode="json"),
             lineage={
                 "workspace_document_id": artifact.workspace_document_id,
                 "workspace_document_revision": artifact.workspace_document_revision,
@@ -605,6 +483,9 @@ def _persist_registered_body(artifact: GraphMemorySourceArtifact, content: str) 
         raise SourceArtifactRegistryError(
             f"source body persistence failed: {exc}", status_code=exc.status_code,
         ) from exc
+    # Exact replays return the frozen descriptor, including original timestamps
+    # and inert historical locator. Input storage grants no Core authority.
+    return get_source_artifact(Path(), artifact.source_artifact_id)
 
 
 def _upsert_source_artifact(
@@ -613,70 +494,14 @@ def _upsert_source_artifact(
     candidate: GraphMemorySourceArtifact,
     content: str,
 ) -> GraphMemorySourceArtifact:
-    root = _artifact_root(root)
-    _persist_registered_body(candidate, content)
-    path = source_artifacts_path(root)
-    with registry_mutation_lock(path):
-        document, token = _load_unlocked(root)
-        existing = next(
-            (
-                row
-                for row in document.records
-                if row.source_artifact_id == candidate.source_artifact_id
-            ),
-            None,
-        )
-        if existing is not None:
-            same_bytes = (existing.content_sha256 or "") == (candidate.content_sha256 or "")
-            same_scope = (
-                existing.source_domain == candidate.source_domain
-                and existing.campaign_id == candidate.campaign_id
-                and existing.session_id == candidate.session_id
-                and existing.world_id == candidate.world_id
-                and existing.artifact_kind == candidate.artifact_kind
-                and existing.document_class == candidate.document_class
-                and existing.workspace_document_id == candidate.workspace_document_id
-                and existing.workspace_document_revision
-                == candidate.workspace_document_revision
-            )
-            if same_bytes and same_scope:
-                # Idempotent re-admission of the same bytes. Keep the existing URI
-                # so previously reviewable runs remain bound to immutable content.
-                try:
-                    load_source_span_index(root, existing.source_artifact_id)
-                except SourceArtifactRegistryError:
-                    index = build_source_span_index_for_text(
-                        source_artifact_id=existing.source_artifact_id,
-                        content_sha256=existing.content_sha256 or candidate.content_sha256 or "",
-                        text=content,
-                    )
-                    _persist_span_index(root, index)
-                return existing
-            if not _records_match(existing, candidate):
-                raise SourceArtifactRegistryError(
-                    "source artifact id collision with mismatched digest or foreign keys",
-                    status_code=409,
-                )
-            try:
-                load_source_span_index(root, existing.source_artifact_id)
-            except SourceArtifactRegistryError:
-                index = build_source_span_index_for_text(
-                    source_artifact_id=existing.source_artifact_id,
-                    content_sha256=existing.content_sha256 or candidate.content_sha256 or "",
-                    text=content,
-                )
-                _persist_span_index(root, index)
-            return existing
-
-        index = build_source_span_index_for_text(
-            source_artifact_id=candidate.source_artifact_id,
-            content_sha256=candidate.content_sha256 or "",
-            text=content,
-        )
-        _persist_span_index(root, index)
-        document.records.append(candidate)
-        _save_cas(root, document, expected_token=token)
-        return candidate
+    registered = _register_source_input(candidate, content)
+    index = build_source_span_index_for_text(
+        source_artifact_id=registered.source_artifact_id,
+        content_sha256=registered.content_sha256 or "",
+        text=content,
+    )
+    _persist_span_index(root, index)
+    return registered
 
 
 def create_recap_source_artifact(

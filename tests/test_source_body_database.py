@@ -103,7 +103,8 @@ def test_database_persistence_failure_does_not_register_source(tmp_path, monkeyp
             tmp_path, world_id="source-world", campaign_id="source-campaign",
             session_id="session-1", recap_text="Source\n",
         )
-    assert not registry.source_artifacts_path(tmp_path).exists()
+    assert sources.get_source_input_descriptors(source_artifact_ids=["missing"]) == {}
+    assert not (tmp_path / "out/registries/source_artifacts.json").exists()
 
 
 def test_text_reader_preserves_exact_database_crlf(registered_source, monkeypatch):
