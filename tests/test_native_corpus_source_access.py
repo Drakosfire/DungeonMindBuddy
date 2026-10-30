@@ -38,7 +38,7 @@ def lane():
 
 def admit(lane, name="first", *, body=BODY, multiple=False):
     raw = body.encode()
-    first = raw.index(b"\n\n") + 2
+    first = len(body.splitlines(keepends=True)[0].encode())
     spans = [dict(client_ref="opening", evidence_role="support", start_byte=0,
         end_byte=first, expected_slice_sha256=sha256(raw[:first]).hexdigest())]
     if multiple:
@@ -183,3 +183,77 @@ def test_captured_provenance_cannot_be_mutated_through_core_models(lane):
     assert member.artifact.source_classification == "dungeonbuddy.source:session_recap"
     assert "injected:reference" not in member.artifact.foreign_refs
     member.verify_body(BODY)
+
+
+@pytest.mark.parametrize("body", [
+    "# One\r\n\r\nÉphanna waited.\r\n\r\n## Two\r\nThe party reunited.\r\n",
+    "Introduction\n\nHeading\n=======\n\n```md\n# Not a heading\n```\n\n## End\nLast line",
+    "A source without headings.\nIts second line.\n",
+])
+def test_native_catalog_exact_utf8_crlf_and_existing_markdown_selectors(lane, body):
+    from application_state.agent_conversation.native_corpus import (
+        build_native_body_catalog, select_native_body_excerpt,
+    )
+    admit(lane, body=body)
+    captured = capture(lane)
+    catalog = build_native_body_catalog(captured.authority, captured.members[0], body)
+    excerpts = [select_native_body_excerpt(catalog, body, row.section_id) for row in catalog.sections]
+    assert "".join(row.text for row in excerpts) == body
+    for excerpt in excerpts:
+        section = excerpt.section
+        assert body.encode()[section.byte_start:section.byte_end].decode() == excerpt.text
+        assert "".join(body.splitlines(keepends=True)[section.line_start-1:section.line_end]) == excerpt.text
+    assert "app_source_revision_id" not in catalog.model_dump()
+    assert "assertion_id" not in catalog.model_dump()
+
+
+def test_selected_body_excerpt_outside_original_evidence_interval_is_distinct(lane):
+    from application_state.agent_conversation.native_corpus import (
+        build_native_body_catalog, select_native_body_excerpt,
+    )
+    body = "# Opening\n\nOriginal interval is only this heading.\n\n# Later\n\nThe party reunited.\n"
+    admit(lane, body=body)
+    captured = capture(lane)
+    member = captured.members[0]
+    catalog = build_native_body_catalog(captured.authority, member, body)
+    section = catalog.sections[-1]
+    assert section.byte_start > member.access_end_byte
+    excerpt = select_native_body_excerpt(catalog, body, section.section_id)
+    assert "The party reunited" in excerpt.text
+    assert excerpt.schema_version == "dmb_native_body_excerpt_v1"
+    assert member.access_end_byte == catalog.source.access_end_byte
+
+
+def test_forged_catalog_boundaries_cannot_select_different_body_text(lane):
+    from application_state.agent_conversation.native_corpus import (
+        NativeCorpusCatalogV1, build_native_body_catalog, select_native_body_excerpt,
+    )
+    from application_state.agent_conversation.native_statement_input import canonical
+    body = "# One\n\nFirst.\n\n# Two\n\nSecond.\n"
+    admit(lane, body=body)
+    captured = capture(lane)
+    catalog = build_native_body_catalog(captured.authority, captured.members[0], body)
+    changed = catalog.model_dump(mode="json", exclude={"catalog_sha256"})
+    # Preserve continuity and recompute an apparently valid catalog digest while
+    # moving a character across the actual Markdown boundary.
+    changed["sections"][0]["char_end"] += 1
+    changed["sections"][0]["byte_end"] += 1
+    changed["sections"][1]["char_start"] += 1
+    changed["sections"][1]["byte_start"] += 1
+    forged = NativeCorpusCatalogV1.model_validate(changed | {
+        "catalog_sha256": sha256(canonical(changed).encode()).hexdigest()})
+    with pytest.raises(ValueError, match="catalog differs"):
+        select_native_body_excerpt(forged, body, forged.sections[0].section_id)
+
+
+def test_changed_body_and_unknown_section_refuse(lane):
+    from application_state.agent_conversation.native_corpus import (
+        build_native_body_catalog, select_native_body_excerpt,
+    )
+    admit(lane)
+    captured = capture(lane)
+    catalog = build_native_body_catalog(captured.authority, captured.members[0], BODY)
+    with pytest.raises(ValueError, match="source revision"):
+        select_native_body_excerpt(catalog, BODY + "changed", catalog.sections[0].section_id)
+    with pytest.raises(ValueError, match="not in its catalog"):
+        select_native_body_excerpt(catalog, BODY, "f" * 64)

@@ -85,3 +85,41 @@ def test_actual_provider_allowance_cannot_be_overrun(lane):
     payload["assembled_input"]["provider_envelope_input_tokens"] = 900
     with pytest.raises(ValidationError, match="provider context allowance"):
         t.PlanSourceContextReceiptV1.model_validate(rehash(payload))
+
+
+def test_source_decision_never_relabels_native_revision_as_graph():
+    from application_state.agent_conversation.jev_retrieval_contract import (
+        PlanSourceRetrievalDecisionInputV1, RetrievalSelection, validate_source_selection,
+    )
+    request = PlanSourceRetrievalDecisionInputV1(request_id=uuid4(), parent_attempt_id=uuid4(),
+        scope_sha256="a" * 64, question="What did the check reveal?", candidates=(
+            {"handle": "source-search", "label": "Search sources", "kind": "navigation"},),
+        allowed_operations=("select_candidates", "finish_retrieval"),
+        source_authority_status="available", source_revision="native:R", graph_revision=None)
+    choice = RetrievalSelection(operation="select_candidates", selected_handles=("source-search",))
+    args = dict(expected_request_sha256=request.digest, current_scope_sha256=request.scope_sha256,
+        current_source_revision="native:R", current_graph_revision=None,
+        current_parent_attempt_id=request.parent_attempt_id)
+    assert validate_source_selection(request, choice, **args)[0].handle == "source-search"
+    with pytest.raises(ValueError, match="capability pins"):
+        validate_source_selection(request, choice, **(args | {
+            "current_source_revision": None, "current_graph_revision": "native:R"}))
+    with pytest.raises(ValueError, match="capability pins"):
+        validate_source_selection(request, choice, **(args | {"current_source_revision": "native:changed"}))
+    with pytest.raises(ValueError, match="not admitted"):
+        validate_source_selection(request, choice.model_copy(update={"selected_handles": ("foreign",)}), **args)
+
+
+def test_unavailable_source_decision_keeps_independent_choices_without_fake_pin():
+    from application_state.agent_conversation.jev_retrieval_contract import (
+        PlanSourceRetrievalDecisionInputV1, prepare_decision,
+    )
+    request = PlanSourceRetrievalDecisionInputV1(request_id=uuid4(), parent_attempt_id=uuid4(),
+        scope_sha256="a" * 64, question="Which rule applies?", candidates=(
+            {"handle": "rules", "label": "Read rules", "kind": "rules"},),
+        allowed_operations=("select_candidates", "finish_retrieval"),
+        source_authority_status="unavailable", source_revision=None, graph_revision=None)
+    assert prepare_decision(request).questions
+    invalid = request.model_dump(mode="json", by_alias=True) | {"source_revision": "native:invented"}
+    with pytest.raises(ValidationError, match="authority disposition"):
+        PlanSourceRetrievalDecisionInputV1.model_validate(invalid)
