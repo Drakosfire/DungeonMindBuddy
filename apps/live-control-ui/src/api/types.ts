@@ -4885,15 +4885,6 @@ export interface ExtractPromoteReviewSummary {
   standingAcceptedProposalsCount?: number | null;
 }
 
-export interface ExtractPromoteStatusResponse {
-  schema: "dmb_extract_promote_status_v1";
-  worldId: string;
-  initialized: boolean;
-  worldState: "initialized" | "uninitialized" | "unreadable";
-  headRevisionId?: string | null;
-  diagnostics: string[];
-}
-
 export interface ExactRunReviewEvidence {
   sourceArtifactId: string;
   sourceSpanRefId: string;

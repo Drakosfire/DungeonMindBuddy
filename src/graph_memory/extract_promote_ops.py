@@ -1,8 +1,7 @@
-"""Shared prepare/confirm orchestration for extract → World Supergraph promote.
+"""Shared preparation and sealed contribution reconstruction for native publication.
 
-
-Used by the operator CLI and the live-control HTTP layer. Durable contribution
-construction always goes through sealed proposal fields only.
+DungeonMind owns confirmation and publication. Contribution reconstruction uses
+only sealed proposal fields.
 """
 
 
@@ -49,22 +48,7 @@ from apps.live_control_server.models.world_graph_contributions import (
 )
 
 
-def _kernel():
-    raise ExtractPromoteWorldError(
-        "Buddy World Graph kernel is deleted; use DungeonMind extract-promote paths"
-    )
-
-
 DEFAULT_WORLD_ID = "eldyrwild"
-DEFAULT_LIVE_ROOT_NAME = "out"
-
-
-RETRY_GUIDANCE_DO_NOT_RETRY = "reload_status_inspect_head_do_not_retry_confirm"
-RETRY_GUIDANCE_NONE = "none"
-
-
-class ExtractPromoteLiveWorldError(ValueError):
-    """Raised when confirm would mutate the live world root without allow."""
 
 
 class ExtractPromoteWorldError(ValueError):
@@ -88,28 +72,6 @@ class ExtractPromotePrepareResult:
     confirmable: bool = True
     review_items: list[dict[str, Any]] = field(default_factory=list)
     review_summary: dict[str, Any] = field(default_factory=dict)
-
-
-@dataclass(frozen=True)
-class ExtractPromoteConfirmResult:
-    ok: bool
-    dry_run: bool
-    payload: dict[str, Any]
-    failure_reason: str | None = None
-
-
-@dataclass(frozen=True)
-class ExtractPromoteStatusResult:
-    world_id: str
-    initialized: bool
-    world_state: str = "uninitialized"
-    head_revision_id: str | None = None
-    diagnostics: list[str] = field(default_factory=list)
-
-
-def default_live_root(*, repo_root: Path) -> Path:
-    """CLI default live root (<repo>/out). HTTP uses config.live_world_graph_root."""
-    return (repo_root / DEFAULT_LIVE_ROOT_NAME).resolve()
 
 
 def normalize_assertion_selection(
@@ -204,65 +166,6 @@ def _gate_from_contribution_slice(
         source_revision_id=str(slice_body.get("source_revision_id") or ""),
         source_artifact_id=str(slice_body.get("source_artifact_id") or ""),
         verified_source_uri=str(slice_body.get("verified_source_uri") or ""),
-    )
-
-
-def get_extract_promote_status(
-    *,
-    world_root: Path,
-    world_id: str = DEFAULT_WORLD_ID,
-) -> ExtractPromoteStatusResult:
-    """Report whether the configured world has an openable head."""
-    root = world_root.resolve()
-    world = (world_id or DEFAULT_WORLD_ID).strip() or DEFAULT_WORLD_ID
-    try:
-        head, _rev, _store = _kernel().open_current_world_graph(root, world)
-    except FileNotFoundError as exc:
-        return ExtractPromoteStatusResult(
-            world_id=world,
-            initialized=False,
-            world_state="uninitialized",
-            head_revision_id=None,
-            diagnostics=[f"world_not_initialized:{exc.__class__.__name__}"],
-        )
-    except PermissionError as exc:
-        return ExtractPromoteStatusResult(
-            world_id=world,
-            initialized=False,
-            world_state="unreadable",
-            head_revision_id=None,
-            diagnostics=[f"world_unreadable:{exc.__class__.__name__}"],
-        )
-    except Exception as exc:  # noqa: BLE001 — classify remaining open failures
-        name = exc.__class__.__name__
-        # Missing-head / not-found style errors stay uninitialized; everything
-        # else (corruption, parse failures, unexpected IO) is unreadable.
-        uninitialized_markers = (
-            "NotFound",
-            "not found",
-            "no graph head",
-            "WorldGraphNotFound",
-        )
-        message = str(exc)
-        if any(marker in name or marker in message for marker in uninitialized_markers):
-            state = "uninitialized"
-            diagnostic = f"world_not_initialized:{name}"
-        else:
-            state = "unreadable"
-            diagnostic = f"world_unreadable:{name}"
-        return ExtractPromoteStatusResult(
-            world_id=world,
-            initialized=False,
-            world_state=state,
-            head_revision_id=None,
-            diagnostics=[diagnostic],
-        )
-    return ExtractPromoteStatusResult(
-        world_id=world,
-        initialized=True,
-        world_state="initialized",
-        head_revision_id=head.head_revision_id,
-        diagnostics=[],
     )
 
 
@@ -655,31 +558,3 @@ def resolve_merged_contribution_from_package(
         proposal_digest=verified["proposal_digest"],
     )
     return verified, merged_contribution
-
-
-def confirm_extract_promote(
-    *,
-    review_package: Mapping[str, Any],
-    world_root: Path | None,
-    confirming_principal: str,
-    assertion_ids: Sequence[str] | None = None,
-    dry_run: bool = False,
-    allow_live_world: bool = False,
-    allow_idempotent_noop: bool = False,
-    live_root: Path,
-    repo_root: Path,
-    disclose_source_digest: bool = True,
-) -> ExtractPromoteConfirmResult:
-    """Verify sealed proposal and merge (or dry-run) against the world head.
-
-
-    Publishes every sealed contribution slice (standing_context + recap
-    source_extraction, when present) as ONE atomic Kernel contribution in a
-    single ``merge_contribution_to_revision`` call. The head either advances
-    exactly once for the whole selection, or not at all — there is no
-    sequential per-slice publish that could advance the head partway through
-    a multi-slice promote (PR011A3 review P0).
-    """
-    raise ExtractPromoteWorldError(
-        "Buddy filesystem extract-promote confirm is retired; use DungeonMind confirm paths"
-    )

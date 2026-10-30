@@ -14,7 +14,6 @@ import type {
   ExtractPromoteErrorBody,
   ExtractPromotePrepareRequest,
   ExtractPromotePrepareResponse,
-  ExtractPromoteStatusResponse,
   FirstWorldGraphConfirmReceipt,
   FirstWorldGraphConfirmRequest,
   FirstWorldGraphPlan,
@@ -82,10 +81,6 @@ async function extractPromoteFetch<T>(path: string, init?: RequestInit, authenti
     throw new ExtractPromoteApiError(detail, response.status, code, body);
   }
   return parseJsonBody<T>(response);
-}
-
-export async function getExtractPromoteStatus(): Promise<ExtractPromoteStatusResponse> {
-  return extractPromoteFetch<ExtractPromoteStatusResponse>("/api/live/extract-promote/status");
 }
 
 export async function getExactRunReviewPackage(runId: string): Promise<ExactRunReviewPackage> {
