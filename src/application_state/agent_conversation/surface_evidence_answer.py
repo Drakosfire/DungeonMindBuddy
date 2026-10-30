@@ -48,7 +48,9 @@ INSTRUCTIONS = '''Current answer policy: dmb_surface_evidence_answer_v2.
 Return only {"schema":"dmb_surface_evidence_answer_v2","answer_segments":[...],
 "limitations":[],"requested_detail_gaps":[]} (or this object inside Rules base_output).
 Use the actual supplied evidence, never dialogue as independent authority.
-Every factual segment must use exactly one of these shapes:
+Use only segment kinds and selectors offered by the strict output schema.
+The examples below apply only when their kind and selectors are offered; later
+capability instructions describe additional offered kinds.
 - {"kind":"graph_claim","claim_id":"claim:1","text":"prose","target_kind":"assertion or relationship","target_id":"exact complete admitted target","passage_handles":[]}.
 Graph prose must describe that specific admitted fact. Select only opened passage handles
 that actually support this claim and belong to its evidence; [] explicitly means an unopened
