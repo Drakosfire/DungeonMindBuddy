@@ -6,7 +6,7 @@ import hashlib
 import json
 import os
 from concurrent.futures import ThreadPoolExecutor
-from datetime import timedelta
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from types import SimpleNamespace
 from urllib.parse import urlparse
@@ -15,19 +15,59 @@ import pytest
 from dungeonmind.application.contribution_review_v2 import (
     finalize_contribution_review_v2,
 )
-from dungeonmind.application.graph_snapshot import VersionedUnionGraphSnapshotReader
-from dungeonmind.contracts.contribution_review import derive_confirmation_id
+from dungeonmind.application.graph_snapshot import (
+    GRAPH_SCHEMA_V6,
+    VersionedUnionGraphSnapshotReader,
+)
+from dungeonmind.application.graph_snapshot_v6 import UnionGraphV6Payload
+from dungeonmind.application.semantic_profiles import descriptor_sha256
+from dungeonmind.contracts import (
+    Admissibility,
+    CapabilityCategory,
+    CapabilityEffect,
+    CapabilityPolicy,
+    GraphScope,
+    ToolCapabilityRule,
+)
+from dungeonmind.contracts.contribution import (
+    AcceptanceState,
+    ContributionSourceKind,
+    GraphContributionAssertionV2,
+    GraphContributionV2,
+)
+from dungeonmind.contracts.contribution_review import (
+    ContributionAssertionVerdict,
+    ContributionPlanRef,
+    derive_confirmation_id,
+)
 from dungeonmind.contracts.contribution_review_v2 import (
+    FINALIZE_REVIEW_V2_TOOL,
     CommitConfirmationReceiptV2,
+    ContributionReviewIntentV2,
     ContributionReviewSubmissionV2,
     contribution_v2_payload_sha256,
     derive_review_intent_sha256_v2,
 )
+from dungeonmind.contracts.evidence import (
+    EvidenceRef,
+    EvidenceRole,
+    SourceArtifact,
+    SourceDomain,
+    SourceRevision,
+    SourceStatus,
+)
+from dungeonmind.contracts.graph import PublishRevisionCommand
 from dungeonmind.domain.canonical import canonical_sha256
 from dungeonmind.infrastructure.memory import (
     InMemoryContributionRepository,
     InMemoryContributionReviewRepository,
     InMemoryFinalizedReviewPublicationRepository,
+    InMemorySourceRepository,
+    InMemoryWorldGraphRepository,
+)
+from dungeonmind.infrastructure.semantic_profiles import StaticSemanticProfileRegistry
+from dungeonmind_dnd.application.world_object_vocabulary import (
+    load_builtin_v3_descriptor,
 )
 
 from apps.live_control_server.integrations.dungeonmind import world_graph_writes
@@ -40,18 +80,306 @@ from apps.live_control_server.services import reviewed_extract_confirmation as s
 from apps.live_control_server.services.candidate_graph_admission import (
     canonical_candidate_digest,
 )
-from tests.test_reviewed_existing_relation_prepare import (
-    CAMPAIGN,
-    NOW,
-    WORLD,
-    _case,
-    _policy,
-    _prepare,
+from graph_memory.source_span import (
+    build_source_span_index_for_text,
+    source_span_index_to_dict,
 )
+
+NOW = datetime(2026, 10, 10, 12, 0, tzinfo=UTC)
+WORLD = "world:test-relations"
+CAMPAIGN = "camp:test-relations"
+ARTIFACT = "artifact:test-relations"
+SOURCE = "The scout knows the gate.\n"
 
 
 def _sha(data: bytes) -> str:
     return hashlib.sha256(data).hexdigest()
+
+
+def _metadata(assertion_id: str, evidence_id: str) -> dict:
+    return {
+        "assertion_id": assertion_id,
+        "campaign_scope": CAMPAIGN,
+        "visibility": "gm",
+        "epistemic_kind": "fact",
+        "canon_state": "canonical",
+        "evidence_ref_ids": [evidence_id],
+        "session_refs": [],
+        "temporal_scope": {"kind": "unknown", "fictional_time_ref": None},
+    }
+
+
+def _policy(
+    parent_id: str, *, admissibility: Admissibility = Admissibility.GM
+) -> CapabilityPolicy:
+    return CapabilityPolicy(
+        policy_id="policy:reviewed-relations",
+        graph_scope=GraphScope(
+            world_id=WORLD,
+            campaign_id=CAMPAIGN,
+            admissibility=admissibility,
+            revision_pin=parent_id,
+        ),
+        enabled_tools=[FINALIZE_REVIEW_V2_TOOL],
+        tool_rules=[
+            ToolCapabilityRule(
+                tool_name=FINALIZE_REVIEW_V2_TOOL,
+                category=CapabilityCategory.CONFIRM_COMMIT,
+                allowed_effects=[CapabilityEffect.COMMIT],
+            ),
+        ],
+    )
+
+
+def _case(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> dict:
+    """Synthetic source/graph inputs for confirmation tests, not a product preparer."""
+    descriptor = load_builtin_v3_descriptor()
+    profiles = StaticSemanticProfileRegistry([descriptor])
+    profile = {
+        "schema_version": "dm_semantic_profile_ref_v1",
+        "profile_id": descriptor.profile_id,
+        "profile_revision": descriptor.profile_revision,
+        "descriptor_sha256": descriptor_sha256(descriptor),
+    }
+    parent_evidence = "evidence:parent"
+    graph_payload = UnionGraphV6Payload.model_validate(
+        {
+            "world_id": WORLD,
+            "semantic_profile": profile,
+            "objects": [
+                {
+                    "object_id": "npc:scout",
+                    "kind": "dnd5e:npc",
+                    "label": "Scout",
+                    "assertion_metadata": _metadata("ka:npc", parent_evidence),
+                },
+                {
+                    "object_id": "loc:gate",
+                    "kind": "dnd5e:location",
+                    "label": "Gate",
+                    "assertion_metadata": _metadata("ka:gate", parent_evidence),
+                },
+            ],
+            "evidence_refs": [
+                {
+                    "evidence_ref_id": parent_evidence,
+                    "source_artifact_id": "artifact:parent",
+                    "source_revision_id": None,
+                    "source_domain_key": "session_recap",
+                    "source_domain": "session_recap",
+                    "evidence_role": "support",
+                    "can_open_source": True,
+                    "can_highlight_span": False,
+                    "session_id": None,
+                    "source_span_ref_id": None,
+                    "locator": None,
+                    "uri": None,
+                    "source_locator": None,
+                    "line_ref": None,
+                }
+            ],
+        }
+    ).model_dump(mode="json")
+    graph = InMemoryWorldGraphRepository()
+    parent = graph.publish_revision(
+        PublishRevisionCommand(
+            world_id=WORLD,
+            parent_revision_id=None,
+            expected_parent_revision_id=None,
+            operation_ids=["init:test-relations"],
+            graph_schema=GRAPH_SCHEMA_V6,
+            graph_payload=graph_payload,
+            created_at=NOW,
+        )
+    )
+    sources = InMemorySourceRepository()
+    source_sha = _sha(SOURCE.encode())
+    source_revision_id = f"sha256:{source_sha}"
+    sources.put_artifact(
+        SourceArtifact(
+            source_artifact_id=ARTIFACT,
+            source_domain=SourceDomain.SESSION_RECAP,
+            world_id=WORLD,
+            campaign_id=CAMPAIGN,
+            session_id="session-1",
+            current_revision_id=source_revision_id,
+            status=SourceStatus.ACTIVE,
+            created_at=NOW,
+        )
+    )
+    sources.put_revision(
+        SourceRevision(
+            source_revision_id=source_revision_id,
+            source_artifact_id=ARTIFACT,
+            content_sha256=source_sha,
+            body_storage="postgres",
+            created_at=NOW,
+        )
+    )
+    span_index = build_source_span_index_for_text(
+        source_artifact_id=ARTIFACT,
+        content_sha256=source_sha,
+        text=SOURCE,
+    )
+    span_id = span_index.spans[0].source_span_id
+    source_path = tmp_path / "source.md"
+    candidate_path = tmp_path / "candidate.json"
+    span_path = tmp_path / "spans.json"
+    source_path.write_bytes(SOURCE.encode())
+    candidate_path.write_bytes(
+        json.dumps(
+            {
+                "campaign_id": CAMPAIGN,
+                "edges": [
+                    {
+                        "edge_id": "edge:candidate",
+                        "evidence_refs": [
+                            {
+                                "source_artifact_id": ARTIFACT,
+                                "source_span_ref_id": span_id,
+                                "anchor_quotes": ["knows the gate"],
+                            }
+                        ],
+                    }
+                ],
+            },
+            sort_keys=True,
+        ).encode()
+    )
+    span_path.write_bytes(
+        json.dumps(source_span_index_to_dict(span_index), sort_keys=True).encode()
+    )
+    run = SimpleNamespace(
+        components={
+            "source_artifact": SimpleNamespace(
+                sha256="sha256:" + _sha(source_path.read_bytes())
+            ),
+            "candidate_graph": SimpleNamespace(
+                sha256="sha256:" + _sha(candidate_path.read_bytes())
+            ),
+            "source_span_index": SimpleNamespace(
+                sha256="sha256:" + _sha(span_path.read_bytes())
+            ),
+        }
+    )
+    resolved = SimpleNamespace(
+        run_id="run:reviewed",
+        world_id=None,
+        campaign_id=CAMPAIGN,
+        session_id="session-1",
+        source_artifact_id=ARTIFACT,
+        source_revision_id=source_revision_id,
+        source_domain="recap",
+        source_span_index_path=span_path,
+        normalized_recap_path=source_path,
+        candidate_graph_path=candidate_path,
+    )
+    context = SimpleNamespace(
+        buddy_world_id="buddy-world",
+        native_world_id=WORLD,
+        campaign_id=CAMPAIGN,
+        expected_parent_revision_id=parent.revision_id,
+        expected_parent_payload_sha256=canonical_sha256(graph_payload),
+    )
+    review = SimpleNamespace(
+        buddy_world_id=context.buddy_world_id,
+        native_world_id=WORLD,
+        campaign_id=CAMPAIGN,
+        source_run_id=resolved.run_id,
+        source_session_id="session-1",
+        source_artifact_id=ARTIFACT,
+        source_revision_id=source_revision_id,
+        source_body_sha256=source_sha,
+        source_span_index_sha256=_sha(span_path.read_bytes()),
+        candidate_graph_sha256=_sha(candidate_path.read_bytes()),
+        expected_parent_revision_id=parent.revision_id,
+        expected_parent_payload_sha256=canonical_sha256(graph_payload),
+        semantic_reviewer_kind="agent_steward",
+        semantic_reviewer_id="steward:prime",
+        reviewed_at=NOW,
+        review_sha256="0" * 64,
+    )
+    return locals()
+
+
+def _synthetic_review_intent(case):
+    """Build a Core fixture directly; no retired Buddy preparation path."""
+    assertion = GraphContributionAssertionV2(
+        assertion_id="assertion:synthetic-relation",
+        assertion_kind="edge",
+        subject_object_id="npc:scout",
+        object_object_id="loc:gate",
+        predicate="dnd5e:aware_of",
+        value=json.dumps(
+            {
+                "dm_predicate": "dnd5e:aware_of",
+                "edge_id": "edge:synthetic-relation",
+                "session_ids": ["session-1"],
+            }
+        ),
+        evidence_refs=[
+            EvidenceRef(
+                evidence_ref_id="evidence:synthetic-relation",
+                source_artifact_id=ARTIFACT,
+                source_revision_id=case["review"].source_revision_id,
+                source_domain=SourceDomain.SESSION_RECAP,
+                evidence_role=EvidenceRole.SUPPORT,
+                can_open_source=True,
+                can_highlight_span=True,
+                locator=case["span_id"],
+            )
+        ],
+        source_artifact_id=ARTIFACT,
+        source_revision_id=case["review"].source_revision_id,
+        campaign_scope=CAMPAIGN,
+        temporal_scope={"kind": "unknown"},
+    )
+    contribution = GraphContributionV2(
+        contribution_id="contrib:synthetic-relation",
+        world_id=WORLD,
+        source_kind=ContributionSourceKind.GRAPH_REVIEW,
+        source_artifact_id=ARTIFACT,
+        source_revision_id=case["review"].source_revision_id,
+        produced_at=NOW,
+        campaign_scope=CAMPAIGN,
+        authored_by=subject.SERVICE_PRINCIPAL,
+        assertions=[assertion],
+    )
+    digest = contribution_v2_payload_sha256(contribution)
+    plan_ref = ContributionPlanRef(
+        source_plan_schema="synthetic_confirmation_fixture_v1",
+        source_plan_id="plan:synthetic-relation",
+        source_plan_sha256="c" * 64,
+        source_input_sha256=case["review"].candidate_graph_sha256,
+        preview_content_sha256=digest,
+        candidate_contribution_sha256=digest,
+        expected_parent_revision_id=case["parent"].revision_id,
+        base_graph_schema=GRAPH_SCHEMA_V6,
+        base_graph_payload_sha256=canonical_sha256(case["graph_payload"]),
+        semantic_profile=UnionGraphV6Payload.model_validate(
+            case["graph_payload"]
+        ).semantic_profile,
+    )
+    fields = dict(
+        operation_id="reviewop:" + _sha(b"synthetic-relation")[:32],
+        world_id=WORLD,
+        campaign_id=CAMPAIGN,
+        plan_ref=plan_ref,
+        candidate_contribution=contribution,
+        identity_proposals=[],
+        identity_verdicts=[],
+        assertion_verdicts=[
+            ContributionAssertionVerdict(
+                assertion_id=assertion.assertion_id,
+                acceptance_state=AcceptanceState.ACCEPTED,
+            )
+        ],
+        reviewer_id=subject.SERVICE_PRINCIPAL,
+        reviewed_at=NOW,
+    )
+    return ContributionReviewIntentV2(
+        **fields, review_intent_sha256=derive_review_intent_sha256_v2(**fields)
+    )
 
 
 def _inputs(case: dict, *, disposition: str = "accept") -> tuple[bytes, str, bytes]:
@@ -170,9 +498,9 @@ def test_selection_must_be_explicitly_accepted(
 def test_trusted_service_closes_bytes_and_passes_actual_review_time(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    from apps.live_control_server.services import extract_promote
-    from apps.live_control_server.services import candidate_graph_admission
     from apps.live_control_server.services import (
+        candidate_graph_admission,
+        extract_promote,
         graph_run_registry,
         promotable_ingest_run,
     )
@@ -261,7 +589,7 @@ def test_trusted_service_closes_bytes_and_passes_actual_review_time(
 
 def _finalized_case(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
     case = _case(tmp_path, monkeypatch)
-    original = _prepare(case)
+    original = _synthetic_review_intent(case)
     selection = sorted(verdict.assertion_id for verdict in original.assertion_verdicts)
     effect = {"synthetic": "exact pinned effect"}
     package = {
@@ -437,18 +765,21 @@ def test_writer_uses_frozen_review_time_and_recovers_lost_responses(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, lost_response: str | None
 ) -> None:
     from dungeonmind.application import contribution_review_v2, review_publication
+
     from graph_memory import extract_promote_proposal
 
     # This recovery test uses a synthetic package with no recap contribution.
     # The source-local identity basis is exercised by admission/confirm tests.
     monkeypatch.setattr(
-        extract_promote_proposal, "verify_source_local_identity_basis", lambda *_a, **_k: None
+        extract_promote_proposal,
+        "verify_source_local_identity_basis",
+        lambda *_a, **_k: None,
     )
 
     case, _package, binding, _old_bundle, _state = _finalized_case(
         tmp_path, monkeypatch
     )
-    prepared = _prepare(case)
+    prepared = _synthetic_review_intent(case)
     contributions = InMemoryContributionRepository()
     reviews = InMemoryContributionReviewRepository(contributions)
     publications = InMemoryFinalizedReviewPublicationRepository(reviews, case["graph"])
