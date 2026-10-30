@@ -35,14 +35,19 @@ def seed_roster(corpus, label='Canonical'):
 
 
 @pytest.mark.parametrize('session', [20,21])
-def test_real_service_pipeline_uses_canonical_root_for_prompt_and_consolidation(tmp_path,monkeypatch,application_state_dsn,session):
+@pytest.mark.parametrize('separate_roots', [False, True])
+def test_real_service_pipeline_uses_canonical_root_for_prompt_and_consolidation(tmp_path,monkeypatch,application_state_dsn,session,separate_roots):
     from apps.live_control_server.services.recap_ingest_context import RecapContextSnapshot
     from tests.test_graph_preview_runner import FixtureClient
     from src.graph_memory.extraction import category_candidate_graph_extractor as extractor
-    root=tmp_path/'data';root.mkdir();corpus=seed_binding(root);seed_roster(corpus)
+    root=tmp_path/'artifacts';root.mkdir()
+    managed_root=tmp_path/'managed' if separate_roots else root
+    corpus=seed_binding(managed_root);seed_roster(corpus)
+    monkeypatch.setenv('DMB_MANAGED_WORLD_DATA_ROOT',str(managed_root))
     poison=tmp_path/'code/corpus/eldyrwild-markdown';seed_roster(poison,'Poison')
     monkeypatch.chdir(tmp_path/'code');monkeypatch.setenv('DMB_ARTIFACT_DATA_ROOT',str(root))
     source=corpus/'recap.md';source.write_text('A keeper guards a gate.\n')
+    managed_before={p.relative_to(managed_root):p.read_bytes() for p in managed_root.rglob('*') if p.is_file()}
     ctx=RecapContextSnapshot(schema='dm_world_campaign_ingest_context_v1',managed_world_id='managed-a',native_world_id='native-a',binding_version=1,
         campaign_id='longmont-c2',head_revision_id='rev:fixture',graph_schema='dm_graph_v1',graph_payload_sha256='a'*64)
     rendered=[];render=extractor.render_category_pass_prompts
@@ -75,12 +80,19 @@ def test_real_service_pipeline_uses_canonical_root_for_prompt_and_consolidation(
     assert any('Canonical alias' in e['aliases'] for e in registry['entities'])
     assert registry['roster_carry_forward']==(session==21)
     assert 'Poison' not in json.dumps(snapshot)
+    if separate_roots:
+        assert not (root/'corpus').exists()
+        assert {p.relative_to(managed_root):p.read_bytes() for p in managed_root.rglob('*') if p.is_file()}==managed_before
 
 
 @pytest.mark.parametrize('change', ['version','native','missing','symlink'])
-def test_authority_drift_refuses_before_source_or_output_or_provider(tmp_path,monkeypatch,change):
+@pytest.mark.parametrize('separate_roots', [False, True])
+def test_authority_drift_refuses_before_source_or_output_or_provider(tmp_path,monkeypatch,change,separate_roots):
     from tests.test_bounded_recap_execution import _fixture_ingest_context
-    root=tmp_path/'data';root.mkdir();corpus=seed_binding(root,'managed-fixture-world','world:synthetic')
+    root=tmp_path/'artifacts';root.mkdir()
+    managed_root=tmp_path/'managed' if separate_roots else root
+    corpus=seed_binding(managed_root,'managed-fixture-world','world:synthetic')
+    monkeypatch.setenv('DMB_MANAGED_WORLD_DATA_ROOT',str(managed_root))
     ctx=_fixture_ingest_context('longmont-c2')
     if change=='version':ctx=replace(ctx,binding_version=2)
     elif change=='native':ctx=replace(ctx,native_world_id='other')
