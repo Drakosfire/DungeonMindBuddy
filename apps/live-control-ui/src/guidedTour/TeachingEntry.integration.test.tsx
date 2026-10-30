@@ -1,4 +1,4 @@
-import {act,fireEvent,render,screen,waitFor} from '@testing-library/react';
+import {act,fireEvent,render,screen,waitFor,within} from '@testing-library/react';
 import {afterEach,beforeEach,expect,it,vi} from 'vitest';
 import {CompactAppNavigation} from '../chrome/CompactAppNavigation';
 import {GuidedTourProvider,useTourOwnerReading} from './GuidedTour';
@@ -111,4 +111,17 @@ it.each(['Close tour panel','More guidance'])('ignores late inspection after %s 
  if(action==='Close tour panel')expect(screen.queryByRole('complementary',{name:'Guided journey'})).not.toBeInTheDocument();
  else expect(screen.getByRole('button',{name:'Export walkthrough'})).toBeVisible();
  expect(clicked).not.toHaveBeenCalled();
+});
+
+it.each(['running','paused','exited'] as const)('shows all retained result states in %s compact guidance without rewriting evidence',phase=>{
+ for(const state of ['completed','existing','pending','skipped','failed','unavailable'] as const){
+  localStorage.clear();const record=createWalkthrough('world','conks','walk','2026-10-30T00:00:00Z');record.phase=phase;record.bindings.source=pin;
+  record.steps.source={state,reason:state==='failed'?'Saved source failure':state==='unavailable'?'Source unavailable':null,evidence:state==='completed'||state==='existing'?[{step:'source',target:pin,origin:state==='completed'?'acknowledged':'existing',observedAt:'2026-10-30T00:00:01Z',receiptId:'retained-source-proof'}]:[]};
+  writeWalkthrough(localStorage,record,null);const bytes=readWalkthrough(localStorage,'world')!.bytes;
+  const view=render(<Workspace kind="missing"/>);fireEvent.click(screen.getByRole('button',{name:'Resume tour'}));
+  const card=within(screen.getByRole('complementary',{name:'Guided journey'}));
+  const label=state==='completed'?'Demonstrated during this walkthrough':state==='existing'?'Existing example inspected':state;
+  expect(card.getAllByRole('status').some(node=>node.textContent===label+(record.steps.source.reason?' · '+record.steps.source.reason:''))).toBe(true);
+  expect(readWalkthrough(localStorage,'world')!.bytes).toBe(bytes);expect(clicked).not.toHaveBeenCalled();view.unmount();
+ }
 });

@@ -1,6 +1,12 @@
 # TOUR — start beside the ordinary control
 
-ACTIVE: PRIME serial UI capability under the operator's Canva-style live-tour goal.
+SETTLED: PR #1928 merged a3dc980fd5063cab91c5fff73e91a050e844fae7 after
+independent approval of f08e7c5f9,223 affected tests and all3CI gates. UI-only5202
+delivery plus desktop/narrow direct-entry proof retained all4139 APP/371 native
+rows and41067 files exactly. Runtime lease released; operator acceptance remains
+open. Bounded successor: HANDOFF-TOUR-retained-step-status.md.
+
+Original PRIME serial UI capability under the operator's Canva-style live-tour goal.
 Branch codex/tour-direct-teaching-entry from fetched8169a82f79c8b63e53fff68edd854c7d44a0141f;
 reuse buddy-context-loop/dependencies. Open ingestion1853/1855/1868, hosted1828,
 parked1764 inspected; no overlapping UI allocation. API1659752/UI1645597/schema0096

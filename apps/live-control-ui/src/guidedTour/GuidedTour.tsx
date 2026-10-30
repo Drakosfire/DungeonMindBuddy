@@ -226,7 +226,9 @@ export function GuidedTourProvider({worldId,worldName,children,history=null}:{wo
   <p className="guided-tour__scope">Guidance uses the ordinary controls. It never repeats your actions.</p>
   {!worldId?<p>Select a managed World before starting a walkthrough.</p>:!resolved&&!error?<p>Opening saved guidance…</p>:!walkthrough?<><p>Choose the adventure you are walking through in this World.</p>{Object.entries(ADVENTURES).map(([id,label])=><button key={id} type="button" disabled={!!error||!resolved} onClick={()=>userChange({kind:'start',adventure:id as Adventure})}>{label}</button>)}</>:teaching?<>
    <p role="status">{walkthrough.phase==='running'?`${walkthrough.index+1} of ${steps.length}`:walkthrough.phase==='paused'?'Guidance paused':'Walkthrough exited. Its record is retained.'}</p>
-   <h2>{step.title}</h2><p>{TOUR_HINTS[step.id]}</p>
+   <h2>{step.title}</h2>
+   <p role="status">{row?.state==='completed'?'Demonstrated during this walkthrough':row?.state==='existing'?'Existing example inspected':row?.state}{row?.reason?` · ${row.reason}`:''}</p>
+   <p>{TOUR_HINTS[step.id]}</p>
    {walkthrough.phase==='running'?<>
     {availabilityMessage&&<p>{availabilityMessage}</p>}{targetSelectionAction}
     <TourNavigationActions scope={navigationScope(walkthrough,renderedEpoch)} onOpened={openedCapability}/>
