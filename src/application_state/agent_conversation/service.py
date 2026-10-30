@@ -1589,6 +1589,14 @@ class AgentConversationService:
                         native_section_inclusion=section_inclusion)
                 except ValueError as exc:
                     raise ApplicationStateValidationError(str(exc)) from exc
+            from .types import PlanSourceContextReceiptV1
+            if isinstance(event, PlanJevWriterAuthorizedV1) and isinstance(turn.graph_context_receipt, PlanSourceContextReceiptV1):
+                from .native_corpus import prove_body_writer_input
+                try:
+                    native_inclusion = prove_body_writer_input(turn, event,
+                        plan_jev_writer_proof['prepared_request_json'], sequence=len(execution.events), event_id=uuid4())
+                except (ValueError, TypeError, KeyError, AttributeError) as exc:
+                    raise ApplicationStateValidationError(str(exc)) from exc
             # Materialize only after every existing owner/Rules writer fence.
             if native_source_materializer is not None:
                 event = native_source_materializer(conn, turn)

@@ -116,6 +116,10 @@ included excerpts. No additional capability or provider policy is allocated.
 The same reviewer additionally approved services/native_rules_runtime.py for
 matched source receipt/execution validation before Rules ledger creation/use;
 Rules retains its independent policy, authorization, intent and attempt joins.
+The reviewer also approved src/application_state/agent_conversation/
+native_answer_output.py for matched source owner/v6-only normalization and genuine
+optional Graph authority with root producer SHA, and surface_source_answer.py for
+v6 exact Graph passage selectors. No historical output fallback is allocated.
 
 ## Current evidence and owning defect
 

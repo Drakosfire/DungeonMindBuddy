@@ -111,6 +111,22 @@ For a requested concise briefing prefer supported synthesis over repeating entir
 Do not append citation URLs, source names, hashes or locator metadata; the host derives them.
 """
 
+BODY_POLICY = 'dmb_surface_evidence_answer_v6'
+BODY_INSTRUCTIONS = PLAN_INSTRUCTIONS.replace(PLAN_POLICY, BODY_POLICY).replace(
+    '"kind":"native_source_claim"', '"kind":"native_body_claim"').replace(
+    '"section_handles":["exact exposed section_handle"]',
+    '"excerpt_handles":["exact exposed excerpt_handle"]') + """
+Selected native body excerpts are source-attributed text, not published Graph facts.
+Use {"kind":"native_body_claim","text":"source-attributed prose",
+"excerpt_handles":["exact supplied excerpt_handle"]} for their factual claims.
+Select every excerpt needed and split claims with different support. These selectors
+cannot support graph_claim, authored_excerpt or session_summary. Source campaign/session
+scope may be unestablished; do not infer it from a title or filename. Preserve beliefs,
+conditional possibilities, chronology and the distinction between proposed and played events.
+Only explicitly selected full_document rows represent complete documents. Partial sections
+and lexical navigation never establish corpus completeness. Do not mint citation metadata.
+"""
+
 @dataclass(frozen=True)
 class AuthoredSupport:
     handle: str
@@ -194,9 +210,9 @@ def producing_authored(turn, auth, raw):
         frame = frame_in_request(raw)
         if canonical_sha256(frame) != auth.frame_sha256:
             raise ValueError('Authored frame changed after admission')
-        if frame.get('schema') in {'dmb_plan_jev_writer_frame_v2','dmb_plan_jev_writer_frame_v3','dmb_plan_jev_writer_frame_v4','dmb_plan_jev_writer_frame_v5'}:
+        if frame.get('schema') in {'dmb_plan_jev_writer_frame_v2','dmb_plan_jev_writer_frame_v3','dmb_plan_jev_writer_frame_v4','dmb_plan_jev_writer_frame_v5','dmb_plan_jev_writer_frame_v6'}:
             from .authored_excerpt_blocks import restore_blocks, verify_blocks, selection_catalog, restore_selection_blocks, verify_selection_blocks
-            short=frame['schema'] in {'dmb_plan_jev_writer_frame_v3','dmb_plan_jev_writer_frame_v4','dmb_plan_jev_writer_frame_v5'}
+            short=frame['schema'] in {'dmb_plan_jev_writer_frame_v3','dmb_plan_jev_writer_frame_v4','dmb_plan_jev_writer_frame_v5','dmb_plan_jev_writer_frame_v6'}
             restore=restore_selection_blocks if short else restore_blocks
             from copy import deepcopy
             sessions = deepcopy(frame['session_evidence'])
@@ -257,13 +273,15 @@ def require_current_policy(turn, auth, raw):
         from .plan_jev_graph_packet import frame_in_request
         frame=frame_in_request(raw)
         policy=frame.get('answer_policy')
-        if frame.get('schema') == 'dmb_plan_jev_writer_frame_v5':
+        if frame.get('schema') == 'dmb_plan_jev_writer_frame_v6':
+            if policy != BODY_POLICY: raise ValueError('Native body frame requires its exact source answer policy')
+        elif frame.get('schema') == 'dmb_plan_jev_writer_frame_v5':
             if policy != PLAN_POLICY: raise ValueError('Current Plan frame requires its session summary policy')
         elif frame.get('schema') in {'dmb_plan_jev_writer_frame_v3','dmb_plan_jev_writer_frame_v4'}:
             if policy != SELECTOR_POLICY: raise ValueError('Retained Plan frame changed its selector policy')
-        elif policy in {SELECTOR_POLICY, PLAN_POLICY}:
+        elif policy in {SELECTOR_POLICY, PLAN_POLICY, BODY_POLICY}:
             raise ValueError('Selector policy requires its exact Plan frame')
-        return policy if policy in {PLAN_POLICY,SELECTOR_POLICY,NATIVE_POLICY,POLICY,HISTORICAL_POLICY} else False
+        return policy if policy in {BODY_POLICY,PLAN_POLICY,SELECTOR_POLICY,NATIVE_POLICY,POLICY,HISTORICAL_POLICY} else False
     from .play_graph_input import _user_texts
     policies = {_current_carrier(text, turn.idempotency_key) for text in _user_texts(body, auth.api_mode)} - {False}
     if len(policies)>1: raise ValueError('Ambiguous current answer policy')

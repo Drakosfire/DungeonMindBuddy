@@ -242,12 +242,12 @@ class NativeBodyNavigation:
             raise ValueError("Native navigation requires its original trusted source context")
         self.adapter = adapter
 
-    def _events(self):
+    def _events(self, turn=None):
         from application_state.agent_conversation.native_corpus import (
             NativeBodySearchAuthorizedV1, NativeBodySearchObservedV1,
             NativeBodyReadAuthorizedV1, NativeBodyReadObservedV1,
         )
-        events = self.adapter.fence.turn.graph_context_execution.events
+        events = (turn if turn is not None else self.adapter.fence.turn).graph_context_execution.events
         grant = next((e for e in events if isinstance(e, NativeBodySearchAuthorizedV1)), None)
         search = next((e for e in events if isinstance(e, NativeBodySearchObservedV1)), None)
         auths = [e for e in events if isinstance(e, NativeBodyReadAuthorizedV1)]
@@ -341,14 +341,16 @@ class NativeBodyNavigation:
             raise ValueError("Native source selection differs from its offered current catalog")
         with a.fence.renewer._lock:
             for handle in handles:
-                turn = a.fence.turn
+                # This owner already holds the non-reentrant claim lock. Do not
+                # re-enter the public snapshot accessor while materializing.
+                turn = a.fence.renewer._turn
                 if handle == native_corpus_search_handle(sha256(turn.user_text.encode()).hexdigest()):
                     grant = self._commit("authorize_native_body_search", event_id=uuid4())
                     self._commit("observe_native_body_search", event_id=uuid4(), authorization_event_id=grant.event_id,
                         capture=lambda: capture_native_sources(managed_world_id=turn.world_id,
                             principal=context.principal, prepared=context))
                 else:
-                    _, search, _, _ = self._events()
+                    _, search, _, _ = self._events(turn)
                     if handle.startswith("native-full-document:"):
                         catalog_sha, section, kind = handle.removeprefix("native-full-document:"), None, "full_document"
                     else:

@@ -3,7 +3,7 @@
 from .rules_authority_plan_packet import PlanRulesEvidenceFrameV1
 from .source_writer_output import LIMITATIONS
 from .rules_authority_types import canonical_bytes
-from .surface_evidence_answer import PLAN_POLICY, SELECTOR_POLICY
+from .surface_evidence_answer import PLAN_POLICY, SELECTOR_POLICY, BODY_POLICY
 
 SCHEMA_NAME = "plan_evidence_selectors_v3"
 
@@ -42,7 +42,7 @@ def _values(rows, key):
 
 def output_schema(frame, rules):
     """Current execution uses only the current Plan policy."""
-    return _frozen_schema(frame, rules, PLAN_POLICY, target_scoped=True)
+    return _frozen_schema(frame, rules, BODY_POLICY if frame.get("schema") == "dmb_plan_jev_writer_frame_v6" else PLAN_POLICY, target_scoped=True)
 
 
 def _graph_groups(frame, passages, *, target_scoped):
@@ -140,6 +140,11 @@ def _frozen_schema(frame, rules, policy, *, target_scoped=False):
                 }
             )
         )
+    if policy == BODY_POLICY:
+        body_handles = _values(frame['native_body_evidence']['excerpts'], 'excerpt_handle')
+        if body_handles:
+            variants.append(_object({'kind': _literal('native_body_claim'), 'text': prose,
+                'excerpt_handles': _array(_enum(body_handles), nonempty=True)}))
     if selections:
         variants.append(
             _object(
@@ -152,7 +157,7 @@ def _frozen_schema(frame, rules, policy, *, target_scoped=False):
     session_selections = _values([block for session in frame["session_evidence"]
         for source in session["sources"] for block in source["text_blocks"]
         if block.get("selection_id") is not None], "selection_id")
-    if session_selections and policy == PLAN_POLICY:
+    if session_selections and policy in {PLAN_POLICY, BODY_POLICY}:
         variants.append(_object({"kind": _literal("session_summary"), "text": prose,
                                  "selection_ids": _array(_enum(session_selections), nonempty=True)}))
     variants.append(
@@ -218,7 +223,7 @@ def _frozen_schema(frame, rules, policy, *, target_scoped=False):
 def output_format(frame, rules):
     return {
         "type": "json_schema",
-        "name": SCHEMA_NAME,
+        "name": "plan_evidence_selectors_v4" if frame.get('schema') == 'dmb_plan_jev_writer_frame_v6' else SCHEMA_NAME,
         "schema": output_schema(frame, rules),
         "strict": True,
     }

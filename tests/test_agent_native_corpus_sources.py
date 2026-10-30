@@ -214,3 +214,97 @@ def test_source_only_actual_rules_selection_reads_once_under_its_own_authority(s
     assert proof['graph_packets'] == {} and a.fence.turn.graph_context_receipt.graph_capability is None
     rules.frame()
     assert calls == [a.request.message]
+
+
+class SourceChoices(httpx2.AsyncBaseTransport):
+    def __init__(self, *, sections=False):
+        self.calls = []
+        self.read_kind = 'Exact source section' if sections else 'Explicit full-document read'
+
+    async def handle_async_request(self, request):
+        body = json.loads(request.content)
+        self.calls.append(body)
+        assert len(self.calls) <= 4, body['state']
+        answers = {}
+        for name, entry in body['questions'].items():
+            choice = 'finish_retrieval' if name == 'operation' else 'exclude'
+            if name.startswith('candidate_'):
+                candidate = body['state']['candidates'][int(name.split('_')[-1])]
+                if candidate['kind'] in {'Source lexical navigation; not evidence or semantic completeness',
+                                         self.read_kind}:
+                    choice = 'include'
+            answers[name] = {'type': 'choice', 'choice': choice, 'confidence': 1.0,
+                'probabilities': {key: float(key == choice) for key in entry['criteria']}}
+        return httpx2.Response(200, request=request, json={'model': 'jev-1.14.0', 'answers': answers,
+            'usage': {'input_tokens': 37, 'output_tokens': 9}})
+
+
+def test_actual_sdk_writer_receives_only_explicitly_selected_native_body(source_adapter):
+    from apps.live_control_server.services.plan_jev_driver import PlanJevDriver
+    from apps.live_control_server.services.plan_jev_rules_runtime import PlanRulesRuntime
+    from apps.live_control_server.services.plan_jev_writer import PlanJevWriter
+    from application_state.agent_conversation.rules_authority_policy import rules_capability
+    from application_state.agent_conversation.native_corpus import NativeBodyProviderIncludedV1, selected_body_reads
+    from tests.test_plan_jev_writer import WriterWire
+    from generationengine import GenerationEngineError
+    a = source_adapter
+    a.request = a.request.model_copy(update={'message': 'Whom did Éphanna hear?'})
+    a.submitted_intent = owner._submitted_turn_intent(a.request, world_id=a.world_id)
+    semantic = PlanJevDispatch.requested_work(a, page_title='Synthetic park Plan')
+    asyncio.run(semantic.run(transport=DecisionWire(a), api_key='synthetic-not-secret'))
+    rules = PlanRulesRuntime(a, rules_capability(graph=True))
+    driver = PlanJevDriver(a)
+    proof = asyncio.run(driver.run(transport=SourceChoices(), api_key='synthetic-not-secret'))
+    reads = selected_body_reads(a.fence.turn.graph_context_execution)
+    assert len(reads) == 1 and reads[0].excerpt.selector_policy == 'native_full_document_v1'
+    writer = PlanJevWriter(a, proof, rules)
+    wire = WriterWire(a, '{}', status='incomplete')
+    # Deliberately stop before answer normalization: this is actual input proof,
+    # not a completed-answer or Q01/Q13 acceptance claim.
+    with pytest.raises((ValueError, GenerationEngineError)):
+        asyncio.run(writer.run(transport=wire, api_key='synthetic-not-secret'))
+    assert len(wire.calls) == 1
+    raw = wire.calls[0].content.decode()
+    body = json.loads(raw)
+    frame = json.loads(body['input'][0]['content'])
+    evidence = frame['native_body_evidence']
+    assert frame['schema'] == 'dmb_plan_jev_writer_frame_v6'
+    assert evidence['excerpts'][0]['text'] == BODY
+    assert evidence['excerpts'][0]['extent_kind'] == 'full_document'
+    assert raw.count(BODY.splitlines()[2]) == 1
+    assert a.native_source_authority.revision_id not in raw
+    turn = AgentConversationService().list_turns(a.world_id, a.turn.conversation_id)[0]
+    included = [e for e in turn.graph_context_execution.events if isinstance(e, NativeBodyProviderIncludedV1)]
+    assert len(included) == 1 and included[0].read_event_ids == (reads[0].event_id,)
+    assert included[0].envelope_sha256 == writer.prepared.body_sha256
+    assert turn.status == 'running' and turn.completion is None
+
+
+def test_actual_sdk_refuses_accumulated_whole_document_without_full_read(source_adapter, lane):
+    from apps.live_control_server.services.plan_jev_driver import PlanJevDriver
+    from apps.live_control_server.services.plan_jev_rules_runtime import PlanRulesRuntime
+    from apps.live_control_server.services.plan_jev_writer import PlanJevWriter
+    from application_state.agent_conversation.rules_authority_policy import rules_capability
+    from application_state.agent_conversation.native_corpus import NativeBodyProviderIncludedV1, selected_body_reads
+    from tests.test_plan_jev_writer import WriterWire
+    from generationengine import GenerationEngineError
+    a = source_adapter
+    admit(lane, name='multi-section', body='# Meeting\n\nÉphanna heard the guard.\n\n## After\n\nÉphanna reunited with the party.\n')
+    a.native_corpus_context, a.native_source_authority = prepare(a.world_id, GM,
+        repository=lane.repo, resolve_identity=lambda _: lane.bound)
+    a.request = a.request.model_copy(update={'message': 'Whom did Éphanna hear?'})
+    a.submitted_intent = owner._submitted_turn_intent(a.request, world_id=a.world_id)
+    semantic = PlanJevDispatch.requested_work(a, page_title='Synthetic park Plan')
+    asyncio.run(semantic.run(transport=DecisionWire(a), api_key='synthetic-not-secret'))
+    rules = PlanRulesRuntime(a, rules_capability(graph=True))
+    proof = asyncio.run(PlanJevDriver(a).run(transport=SourceChoices(sections=True), api_key='synthetic-not-secret'))
+    reads = selected_body_reads(a.fence.turn.graph_context_execution)
+    assert len(reads) == 2 and all(read.excerpt.selector_policy == 'markdown_sections_v1' for read in reads)
+    writer = PlanJevWriter(a, proof, rules)
+    wire = WriterWire(a, '{}')
+    with pytest.raises(GenerationEngineError):
+        asyncio.run(writer.run(transport=wire, api_key='synthetic-not-secret'))
+    assert wire.calls == []
+    turn = AgentConversationService().list_turns(a.world_id, a.turn.conversation_id)[0]
+    assert not any(isinstance(event, (NativeBodyProviderIncludedV1, t.PlanJevWriterAuthorizedV1))
+        for event in turn.graph_context_execution.events)

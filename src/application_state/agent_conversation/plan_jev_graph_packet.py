@@ -58,6 +58,8 @@ def _covered_by_native(read, native_reads):
 def project(turn, proof, trace):
     from . import types as t
     receipt, execution = _owner(turn)
+    from .plan_source_context import capability_bases
+    graph_receipt = capability_bases(receipt).graph
     if not isinstance(execution.policy,t.PlanNativeSourceSectionsPolicyV1):
         raise ValueError('Current Plan writer requires its native selector capability')
     required={"graph_packets", "source_names", "plan_markdown", "session_evidence", "dialogue"}
@@ -137,10 +139,10 @@ def project(turn, proof, trace):
         event = operations.get(event_id)
         original = strict_json(raw)
         snapshot = original.get("snapshot", {}) if isinstance(original, dict) else {}
-        if (event is None or not isinstance(original, dict) or canonical_sha256(original) != event.result_packet_sha256
-                or event.graph_revision != receipt.graph_authority.graph_revision
-                or snapshot.get("revisionId") != receipt.graph_authority.graph_revision
-                or snapshot.get("worldId") != receipt.graph_authority.native_world_id):
+        if (graph_receipt is None or event is None or not isinstance(original, dict) or canonical_sha256(original) != event.result_packet_sha256
+                or event.graph_revision != graph_receipt.graph_authority.graph_revision
+                or snapshot.get("revisionId") != graph_receipt.graph_authority.graph_revision
+                or snapshot.get("worldId") != graph_receipt.graph_authority.native_world_id):
             raise ValueError("Plan writer Graph bytes differ from their durable operation/snapshot")
         originals.append((event_id, event, original))
         refs.update(event.evidence_ref_ids)
@@ -200,7 +202,7 @@ def project(turn, proof, trace):
         source = sources.get(passage.source_read_event_id)
         matches = [row for row in source.receipts if row.source_read_id == passage.source_read_id] if source else []
         if (len(matches) != 1 or passage.source_read_id in seen
-                or (passage.world_id, passage.graph_revision) != (turn.world_id, receipt.graph_authority.graph_revision)):
+                or (passage.world_id, passage.graph_revision) != (turn.world_id, graph_receipt.graph_authority.graph_revision)):
             raise ValueError("Plan source capture differs from its actual receipt")
         read = matches[0]
         for field in ("anchor_id", "evidence_ref_id", "source_artifact_id", "source_revision_id", "content_sha256", "returned_chars", "outcome", "line_start", "line_end"):
@@ -277,6 +279,12 @@ def project(turn, proof, trace):
         frame["native_source_sections"] = {**native_sections,'sections':[
             {**row,'section_handle':native_aliases[row['section_handle']]}
             for row in native_sections['sections']]}
+    if isinstance(receipt, t.PlanSourceContextReceiptV1):
+        from .native_corpus import model_body_frame
+        from .surface_evidence_answer import BODY_POLICY
+        frame['schema'] = 'dmb_plan_jev_writer_frame_v6'
+        frame['answer_policy'] = BODY_POLICY
+        frame['native_body_evidence'] = model_body_frame(turn)
     if isinstance(execution.policy, t.PlanAuthoringPolicyV1):
         choices = [event for event in execution.events if isinstance(event, t.PlanRequestedWorkSelectedV1)]
         if len(choices) != 1:
@@ -314,7 +322,7 @@ def frame_in_request(raw):
             value = strict_json(content)
         except (ValueError, TypeError):
             continue
-        if isinstance(value, dict) and value.get("schema") in {SCHEMA,"dmb_plan_jev_writer_frame_v4","dmb_plan_jev_writer_frame_v3","dmb_plan_jev_writer_frame_v2","dmb_plan_jev_writer_frame_v1"}:
+        if isinstance(value, dict) and value.get("schema") in {SCHEMA,"dmb_plan_jev_writer_frame_v6","dmb_plan_jev_writer_frame_v4","dmb_plan_jev_writer_frame_v3","dmb_plan_jev_writer_frame_v2","dmb_plan_jev_writer_frame_v1"}:
             frames.append(value)
     if len(frames) != 1:
         raise ValueError("Plan writer requires one exact evidence frame")
@@ -347,6 +355,8 @@ def producing_closures(turn, authorization, proof):
     """Recheck admitted record bytes in the actual tool-free producing frame."""
     from . import types as t
     receipt, execution = _owner(turn)
+    from .plan_source_context import capability_bases
+    graph_receipt = capability_bases(receipt).graph
     if not isinstance(authorization, t.PlanJevWriterAuthorizedV1):
         raise ValueError("Plan direct Graph support requires its own writer authorization")
     frame = frame_in_request(proof.prepared_request_json)

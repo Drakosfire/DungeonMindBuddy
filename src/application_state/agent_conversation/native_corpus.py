@@ -562,3 +562,67 @@ def observe_body_read_locked(turn, *, event_id, authorization_event_id, read):
             failure = "native_body_integrity_error"
     return NativeBodyReadObservedV1(event_id=event_id, sequence=len(execution.events),
         authorization_event_id=auth.event_id, excerpt=excerpt, failure_code=failure)
+
+
+def selected_body_reads(execution):
+    return tuple(event for event in execution.events
+        if isinstance(event, NativeBodyReadObservedV1) and event.excerpt is not None)
+
+
+def body_selector(turn, read):
+    """Current-input address only; the durable read retains source authority."""
+    from .plan_source_selectors import _scope
+    return 'b' + _scope(turn) + ':' + str(read.sequence)
+
+
+def model_body_frame(turn):
+    """Expose selected text once; Core metadata and receipt IDs remain host-only."""
+    from . import types as t
+    receipt, execution = turn.graph_context_receipt, turn.graph_context_execution
+    if not isinstance(receipt, t.PlanSourceContextReceiptV1) or not isinstance(execution, t.PlanSourceExecutionV1):
+        raise ValueError('Native body writer frame requires its source-capable Plan owner')
+    from .plan_source_context import validate_source_execution_binding
+    validate_source_execution_binding(receipt, execution)
+    searches = [event for event in execution.events if isinstance(event, NativeBodySearchObservedV1)]
+    search = searches[0] if searches else None
+    catalogs = {catalog.catalog_sha256: catalog for catalog in search.catalogs} if search else {}
+    rows = []
+    for read in selected_body_reads(execution):
+        excerpt = read.excerpt
+        catalog = catalogs.get(excerpt.catalog_sha256)
+        if catalog is None:
+            raise ValueError('Native body writer read lacks its exact observed catalog')
+        rows.append(dict(excerpt_handle=body_selector(turn, read), source_name=catalog.sections[0].label,
+            section_title=excerpt.section.label,
+            extent_kind='full_document' if excerpt.selector_policy == 'native_full_document_v1' else 'section',
+            line_start=excerpt.section.line_start, line_end=excerpt.section.line_end,
+            campaign_scope=catalog.source.campaign_scope, session_scope=catalog.source.session_scope,
+            text=excerpt.text))
+    return dict(schema='dmb_native_body_writer_evidence_v1',
+        scope='GM whole-World cross-campaign source inspection; not campaign fact publication',
+        source_authority_status='available' if isinstance(receipt.source_authority, NativeCorpusAuthorityV1) else 'unavailable',
+        excerpts=rows, coverage=dict(search_performed=search is not None,
+            accessible_source_count=len(catalogs) if search else None,
+            unavailable_source_count=search.unavailable_source_count if search else None,
+            semantic_recall='not_established', global_completeness='not_established'))
+
+
+def prove_body_writer_input(turn, authorization, raw, *, sequence, event_id):
+    """Reconstruct inclusion from exact actual SDK bytes under the locked owner."""
+    from . import types as t
+    from .plan_jev_graph_packet import frame_in_request
+    from .rules_authority_types import canonical_sha256
+    if not isinstance(authorization, t.PlanJevWriterAuthorizedV1):
+        raise ValueError('Native body inclusion requires its exact Plan writer')
+    if sha256(raw.encode()).hexdigest() != authorization.envelope_sha256:
+        raise ValueError('Native body inclusion differs from actual SDK bytes')
+    frame = frame_in_request(raw)
+    if (frame.get('schema') != 'dmb_plan_jev_writer_frame_v6'
+            or canonical_sha256(frame) != authorization.frame_sha256
+            or frame.get('native_body_evidence') != model_body_frame(turn)):
+        raise ValueError('Native body actual writer frame changed selected bytes or extent')
+    reads = selected_body_reads(turn.graph_context_execution)
+    return NativeBodyProviderIncludedV1(kind='native_body_provider_included_v1',
+        event_id=event_id, sequence=sequence, provider_attempt_id=authorization.provider_attempt_id,
+        envelope_sha256=authorization.envelope_sha256, read_event_ids=tuple(read.event_id for read in reads),
+        frame_sha256=canonical_sha256(body_frame(reads)))
