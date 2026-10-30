@@ -551,9 +551,9 @@ export function CombatRosterModule({scope}:{scope?:CombatHostScope} = {}) {
         : null;
 
   return (
-    <div className="module-panel combat-roster" data-module-id="combat_roster" data-guided-control="combat" tabIndex={-1}>
+    <div className="module-panel combat-roster" data-module-id="combat_roster">
       <CombatTourObservation record={visibleRecord} runScope={scope?.runScope??null} acknowledged={tourAcknowledged} blocked={busy!==null||dirty||availableRecovery!==null||!!pendingSave.current||adoptionBlocked} error={error}/>
-      <h2 className="module-title">Combat</h2>
+      <h2 className="module-title" data-guided-control="combat" data-guided-control-group="true" tabIndex={-1}>Combat</h2>
       {worldMessage ? <p className="module-muted">{worldMessage}</p> : null}
       {error ? <p className="module-error" role="alert">Combat: {error}</p> : null}
       {worldId ? (

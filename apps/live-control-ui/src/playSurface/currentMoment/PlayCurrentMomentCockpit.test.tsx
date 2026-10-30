@@ -624,6 +624,8 @@ describe("PlayCurrentMomentCockpit", () => {
     const shell = screen.getByTestId("play-cockpit-shell");
     expect(shell).toHaveAttribute("data-glance-collapsed", "true");
     expect(screen.queryByTestId("play-recorded-outcomes-body")).not.toBeInTheDocument();
+    expect(document.querySelectorAll('[data-guided-control="progress"]')).toHaveLength(1);
+    expect(screen.getByRole("combobox", { name: "Inspect scene" })).toHaveAttribute("data-guided-control","progress");
     await user.selectOptions(screen.getByRole("combobox", { name: "Inspect scene" }), "scene:courtyard");
     await user.click(screen.getByRole("button", { name: "Previous scene" }));
     expect(screen.getByTestId("play-workspace-inspect")).toHaveTextContent("North Gate");

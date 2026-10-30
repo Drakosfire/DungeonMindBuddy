@@ -144,12 +144,12 @@ export function SavedMechanicsRevisionEditor({worldId,draftId}:{worldId:string;d
     finally{if(token===epoch.current)setBusy(false);}
   }
   useTourNavigationGuard({worldId,reason:()=>busy||pending||!!editor&&editor.baselineFingerprint!==fingerprintDefinition(editor.workingCopy)?'Save or recover the manual mechanics revision before leaving these controls.':null});
-  return <section data-guided-control="mechanics" tabIndex={-1} className="statblock-section" aria-label="Saved mechanics versions">
+  return <section className="statblock-section" aria-label="Saved mechanics versions">
     {!tourScope&&<GeneratedMechanicsTourObservation scope={generatedScope} opened={opened} history={history} acknowledged={generatedAcknowledged} blocked={busy||!!pending||!!editor&&editor.baselineFingerprint!==fingerprintDefinition(editor.workingCopy)}/>}
     <MechanicsTourObservation scope={tourScope} opened={opened} history={history} acknowledged={tourAcknowledged} blocked={busy||!!pending||!!editor&&editor.baselineFingerprint!==fingerprintDefinition(editor.workingCopy)}/>
     <h3>Saved versions</h3>
     <p>Edit saved mechanics and create a new version. Choosing it for a fight is a separate action.</p>
-    <button type="button" disabled={busy} onClick={()=>void load()}>Open saved mechanics</button>
+    <button type="button" data-guided-control="mechanics" disabled={busy} onClick={()=>void load()}>Open saved mechanics</button>
     {history&&<label>Mechanics version <select aria-label="Saved mechanics version" disabled={busy||!!pending} value={opened?.locator.revision_id??''} onChange={event=>void load(event.target.value)}>
       <option value={history.original.revision_id}>Original saved mechanics</option>
       {history.operations.filter(op=>op.state==='committed'&&op.result).map((op,index)=><option key={op.operation_id} value={op.result!.revision_id}>Version {index+2} · {op.change_summary}</option>)}

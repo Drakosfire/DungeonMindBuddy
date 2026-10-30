@@ -937,7 +937,7 @@ export function PlayCurrentMomentCockpit({
 
       <PlaySurfaceContext id="play-cockpit-context" order={20} identity={surfaceIdentity}>
         <ContentsToggle buttonRef={scenesNavbarToggleRef} className="surface-context-action play-surface-context__outline" label="Contents" controls="play-outline-body" onKeyDown={event => dismissSurfacePanelOnEscape(event, "scenes")} onToggle={toggleOutline} expanded={!beatCollapsed} />
-        <SurfaceContextSelect className="play-surface-context__scene" aria-label="Inspect scene" value={inspectedScene?.id ?? currentScene?.id ?? ""}
+        <SurfaceContextSelect data-guided-control="progress" className="play-surface-context__scene" aria-label="Inspect scene" value={inspectedScene?.id ?? currentScene?.id ?? ""}
           onChange={event => { const scene = sceneInAnyBeat(deck, event.target.value); if (scene) openInspect(scene); }}>
           {!currentScene ? <option value="">Choose scene</option> : null}
           {deck.beats.map(beat => <optgroup key={beat.id} label={beat.title}>{beat.scenes.map(scene => <option key={scene.id} value={scene.id}>{scene.id === currentScene?.id ? "Current: " : ""}{scene.title}</option>)}</optgroup>)}

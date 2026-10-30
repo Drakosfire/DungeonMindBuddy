@@ -91,7 +91,7 @@ export function CombatMechanicsAdoption({record,disabled,onLockChange,onReconcil
     id:'encounter-mechanics-editor',step:'mechanics',label:'Open saved mechanics editor',target:tourScope.plan,impact:'projection',unavailable:!source?'Choose a saved creature in the encounter first.':undefined,
     perform:request=>{if(request.scope.sceneId&&request.scope.sceneId!==tourScope.sceneId)throw new Error('Select the scene recorded by this step first.');if(request.scope.draftId&&request.scope.draftId!==source?.draft_id)throw new Error('Choose the saved creature recorded by this step first.');if(request.isCurrent())setMechanicsOpen(true);},
   }]}:null);
-  return <section data-guided-control="adoption" tabIndex={-1} aria-label="Use saved mechanics version">
+  return <section aria-label="Use saved mechanics version">
     <AdoptionTourObservation scope={tourScope} worldId={worldId} encounterId={encounterId} acknowledged={tourAcknowledged} inspected={tourInspected} blocked={blocked}/>
     <h3>Use a saved mechanics version</h3>
     <p>Choose which existing actors use a version. This is an encounter override; World creature associations stay unchanged.</p>
@@ -101,7 +101,7 @@ export function CombatMechanicsAdoption({record,disabled,onLockChange,onReconcil
     {disabled&&!pending&&<p>Save or recover the encounter draft before changing its mechanics.</p>}
     {!writer&&<p>Browser recovery is unavailable. Adoption is disabled.</p>}
     <fieldset disabled={blocked}>
-      <button type="button" onClick={()=>void sources()}>Find saved creatures</button>
+      <button type="button" data-guided-control="adoption" onClick={()=>void sources()}>Find saved creatures</button>
       {choices.map(choice=><button type="button" key={choice.draft_id} onClick={()=>void loadVersions(choice)}>{choice.name}</button>)}
       {next!==null&&choices.length>0&&<button type="button" onClick={()=>void sources(next)}>More saved creatures</button>}
       {source&&<>

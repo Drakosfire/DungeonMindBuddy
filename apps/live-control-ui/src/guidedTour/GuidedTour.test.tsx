@@ -9,7 +9,7 @@ import '../media/DocumentImageStudio.css';
 const pin={kind:'source' as const,worldId:'world',objectId:'page',revision:1,digest:'a'.repeat(64)};
 function Controls(){const tour=useGuidedTour();useTourOwnerReading({step:'source',target:pin,control:'source',status:'ready',observation:{step:'source',target:pin,origin:'existing',observedAt:'2026-01-01T00:00:00Z',receiptId:'verified-load'}});return <><button onClick={tour?.open}>Open guidance</button><button data-guided-control="source" onClick={()=>{throw new Error('Guidance must never execute this control');}}>Ordinary source control</button></>;}
 afterEach(()=>vi.restoreAllMocks());
-beforeEach(()=>{vi.spyOn(HTMLElement.prototype,'getClientRects').mockReturnValue([new DOMRect(0,0,100,24)] as unknown as DOMRectList);Object.defineProperty(HTMLElement.prototype,'scrollIntoView',{configurable:true,value:vi.fn()});Object.defineProperty(window,'matchMedia',{configurable:true,value:vi.fn(()=>({matches:true}))});localStorage.clear();Object.defineProperty(navigator,'locks',{configurable:true,value:{request:vi.fn(async(_name:string,callback:()=>unknown)=>callback())}});});
+beforeEach(()=>{vi.spyOn(HTMLElement.prototype,'getBoundingClientRect').mockReturnValue(new DOMRect(100,100,100,24));vi.spyOn(HTMLElement.prototype,'getClientRects').mockReturnValue([new DOMRect(0,0,100,24)] as unknown as DOMRectList);Object.defineProperty(HTMLElement.prototype,'scrollIntoView',{configurable:true,value:vi.fn()});Object.defineProperty(window,'matchMedia',{configurable:true,value:vi.fn(()=>({matches:true}))});localStorage.clear();Object.defineProperty(navigator,'locks',{configurable:true,value:{request:vi.fn(async(_name:string,callback:()=>unknown)=>callback())}});});
 it('requires a managed World and keeps ordinary controls usable',()=>{render(<GuidedTourProvider worldId={null}><Controls/></GuidedTourProvider>);fireEvent.click(screen.getByText('Open guidance'));expect(screen.getByText('Select a managed World before starting a walkthrough.')).toBeInTheDocument();expect(screen.getByText('Ordinary source control')).toBeEnabled();});
 it('stages an existing source, keeps Next separate from completion and retains restart history',async()=>{render(<GuidedTourProvider worldId='world'><Controls/></GuidedTourProvider>);fireEvent.click(screen.getByText('Open guidance'));fireEvent.click(screen.getByRole('button',{name:'Of Conks and Cons'}));await screen.findByRole('heading',{name:'Open the source'});fireEvent.click(screen.getByRole('button',{name:'Use this source'}));await screen.findByText('Existing example inspected');const old=readWalkthrough(localStorage,'world')!;expect(old.record.steps.source.state).toBe('existing');fireEvent.click(screen.getByRole('button',{name:'Next'}));await screen.findByRole('heading',{name:'Develop and save a page'});expect(readWalkthrough(localStorage,'world')?.record.steps.authoring.state).toBe('pending');fireEvent.click(screen.getByRole('button',{name:'Pause'}));await screen.findByText('Guidance paused');fireEvent.click(screen.getByRole('button',{name:'Resume'}));await screen.findByText('2 of 15');fireEvent.click(screen.getByRole('button',{name:'Restart guidance'}));await waitFor(()=>expect(readWalkthrough(localStorage,'world')?.record.id).not.toBe(old.record.id));expect(localStorage.getItem('dmb:guided-journey:v1:world:record:'+old.record.id)).not.toBeNull();});
 it('reopens paused guidance after a component reload with the same bound identity',async()=>{const first=render(<GuidedTourProvider worldId='world'><Controls/></GuidedTourProvider>);fireEvent.click(screen.getByText('Open guidance'));fireEvent.click(screen.getByRole('button',{name:'A Wild Sheep Chase'}));await screen.findByRole('heading',{name:'Open the source'});fireEvent.click(screen.getByRole('button',{name:'Use this source'}));await screen.findByText('Existing example inspected');fireEvent.click(screen.getByRole('button',{name:'Pause'}));await screen.findByText('Guidance paused');first.unmount();render(<GuidedTourProvider worldId='world'><Controls/></GuidedTourProvider>);fireEvent.click(screen.getByText('Open guidance'));expect(screen.getByText('Guidance paused')).toBeInTheDocument();expect(readWalkthrough(localStorage,'world')?.record.bindings.source).toEqual(pin);});
@@ -52,11 +52,11 @@ it('highlights and focuses an existing control with reduced motion, without clic
  render(<GuidedTourProvider worldId='world'><Controls/></GuidedTourProvider>);
  fireEvent.click(screen.getByText('Open guidance'));fireEvent.click(screen.getByRole('button',{name:'Of Conks and Cons'}));await screen.findByRole('heading',{name:'Open the source'});
  fireEvent.click(screen.getByRole('button',{name:'Show control'}));
- const ordinary=screen.getByText('Ordinary source control');expect(ordinary).toHaveFocus();expect(ordinary).toHaveAttribute('data-guided-highlight','true');expect(scroll).toHaveBeenCalledWith({block:'center',behavior:'auto'});
+ const ordinary=screen.getByText('Ordinary source control');expect(ordinary).toHaveFocus();expect(ordinary).toHaveAttribute('data-guided-highlight','true');expect(scroll).toHaveBeenCalledWith({block:'center',behavior:'instant'});
  expect(screen.queryByRole('complementary',{name:'Guided journey'})).not.toBeInTheDocument();
  expect(readWalkthrough(localStorage,'world')?.record.steps.source.state).toBe('pending');
  fireEvent.click(screen.getByText('Open guidance'));expect(ordinary).not.toHaveAttribute('data-guided-highlight');
- expect(screen.getByText(/Show control hides this panel/)).toBeInTheDocument();
+ expect(screen.getByText(/Show control opens a short guide/)).toBeInTheDocument();
 });
 
 it('refuses an action from the old rendered walkthrough after another tab switches it',async()=>{
@@ -146,4 +146,59 @@ it('keeps the actual nonmodal Studio and its typed draft mounted while guidance 
  fireEvent.click(screen.getByRole('button',{name:'Close tour panel'}));
  expect(screen.getByRole('textbox',{name:'What would you like to see?'})).toBe(prompt);expect(prompt).toHaveValue('Layer test only; do not generate.');expect(invoker).toHaveFocus();
  expect(port.generate).not.toHaveBeenCalled();expect(port.save).not.toHaveBeenCalled();
+});
+
+it('shows brief anchored guidance, keeps Next action-free and returns for an unavailable next control',async()=>{
+ render(<GuidedTourProvider worldId='world'><Controls/></GuidedTourProvider>);await startFocusTour();
+ const write=vi.spyOn(Storage.prototype,'setItem');fireEvent.click(screen.getByRole('button',{name:'Show control'}));
+ const popup=await screen.findByRole('dialog',{name:'1 of 15 · Open the source'});expect(popup).toBeVisible();
+ expect(screen.getByText('Open the source you want to use. Its original material stays intact.')).toBeInTheDocument();
+ expect(write).not.toHaveBeenCalled();
+ fireEvent.click(screen.getByRole('button',{name:'Use control'}));expect(screen.getByText('Ordinary source control')).toHaveFocus();
+ fireEvent.click(screen.getByRole('button',{name:'Next',exact:true}));
+ await screen.findByRole('complementary',{name:'Guided journey'});expect(screen.getByRole('alert')).toHaveTextContent('next control is unavailable');
+ expect(readWalkthrough(localStorage,'world')?.record.index).toBe(1);expect(readWalkthrough(localStorage,'world')?.record.steps.source.state).toBe('pending');
+});
+it('reanchors Back and Next only to the unique next ordinary control',async()=>{
+ const product=vi.fn();render(<GuidedTourProvider worldId='world'><Controls/><button data-guided-control="save" onClick={product}>Ordinary save</button></GuidedTourProvider>);await startFocusTour();
+ fireEvent.click(screen.getByRole('button',{name:'Show control'}));await screen.findByRole('dialog');fireEvent.click(screen.getByRole('button',{name:'Next',exact:true}));
+ await screen.findByRole('dialog',{name:'2 of 15 · Develop and save a page'});expect(screen.getByText('Ordinary save')).toHaveAttribute('data-guided-highlight');
+ expect(screen.getByText('Ordinary source control')).not.toHaveAttribute('data-guided-highlight');expect(product).not.toHaveBeenCalled();
+ fireEvent.click(screen.getByRole('button',{name:'Back',exact:true}));await screen.findByRole('dialog',{name:'1 of 15 · Open the source'});expect(screen.getByText('Ordinary source control')).toHaveAttribute('data-guided-highlight');
+});
+it.each(['Pause','Exit'] as const)('cleans popup and highlight on %s while retaining the exact record',async action=>{
+ render(<GuidedTourProvider worldId='world'><Controls/></GuidedTourProvider>);await startFocusTour();const id=readWalkthrough(localStorage,'world')!.record.id;
+ fireEvent.click(screen.getByRole('button',{name:'Show control'}));await screen.findByRole('dialog');fireEvent.click(screen.getByRole('button',{name:action,exact:true}));
+ await screen.findByRole('complementary',{name:'Guided journey'});await waitFor(()=>expect(readWalkthrough(localStorage,'world')?.record.phase).toBe(action==='Pause'?'paused':'exited'));
+ expect(readWalkthrough(localStorage,'world')?.record.id).toBe(id);expect(screen.queryByRole('dialog')).not.toBeInTheDocument();expect(screen.getByText('Ordinary source control')).not.toHaveAttribute('data-guided-highlight');
+});
+it('Escape from the actual control returns to guidance without exiting or rewriting its record',async()=>{
+ render(<GuidedTourProvider worldId='world'><Controls/></GuidedTourProvider>);await startFocusTour();
+ fireEvent.click(screen.getByRole('button',{name:'Show control'}));await screen.findByRole('dialog');const write=vi.spyOn(Storage.prototype,'setItem');
+ fireEvent.keyDown(screen.getByText('Ordinary source control'),{key:'Escape'});expect(screen.getByRole('button',{name:'Close tour panel'})).toHaveFocus();
+ expect(screen.queryByRole('dialog')).not.toBeInTheDocument();expect(write).not.toHaveBeenCalled();expect(readWalkthrough(localStorage,'world')?.record.phase).toBe('running');
+});
+function AcknowledgedSource(){
+ const tour=useGuidedTour()!;const [ack,setAck]=useState<{scope:ReturnType<typeof tour.captureScope>;at:string}|null>(null);
+ useTourOwnerReading({step:'source',target:pin,control:'source',status:'ready',...(ack?{dispatchScope:ack.scope,observation:{step:'source' as const,target:pin,origin:'acknowledged' as const,observedAt:ack.at,receiptId:'ordinary-source-open'}}:{})});
+ return <><button onClick={tour.open}>Open guidance</button><button data-guided-control="source" onClick={()=>setAck({scope:tour.captureScope(),at:new Date().toISOString()})}>Open actual source</button></>;
+}
+it('recognizes an acknowledged ordinary action while its popup remains open',async()=>{
+ render(<GuidedTourProvider worldId='world'><AcknowledgedSource/></GuidedTourProvider>);await startFocusTour();
+ fireEvent.click(screen.getByRole('button',{name:'Use this source'}));await act(async()=>{});
+ fireEvent.click(screen.getByRole('button',{name:'Show control'}));await screen.findByRole('dialog');
+ fireEvent.click(screen.getByText('Open actual source'));await screen.findByText('Demonstrated during this walkthrough');
+ expect(screen.getByRole('dialog')).toBeVisible();expect(readWalkthrough(localStorage,'world')?.record.steps.source.evidence[0].receiptId).toBe('ordinary-source-open');
+});
+
+it.each(['duplicate','disabled','hidden'] as const)('closes a live popup when its anchor becomes %s',async kind=>{
+ render(<GuidedTourProvider worldId='world'><Controls/></GuidedTourProvider>);await startFocusTour();
+ fireEvent.click(screen.getByRole('button',{name:'Show control'}));await screen.findByRole('dialog');const target=screen.getByText('Ordinary source control');let duplicate:HTMLElement|undefined;
+ act(()=>{if(kind==='duplicate'){duplicate=target.cloneNode(true) as HTMLElement;document.body.appendChild(duplicate);}else if(kind==='disabled')target.setAttribute('disabled','');else target.hidden=true;});
+ await screen.findByRole('alert');expect(screen.queryByRole('dialog')).not.toBeInTheDocument();expect(target).not.toHaveAttribute('data-guided-highlight');duplicate?.remove();
+});
+it('closes the old popup when another tab selects a different walkthrough',async()=>{
+ render(<GuidedTourProvider worldId='world'><Controls/></GuidedTourProvider>);await startFocusTour();fireEvent.click(screen.getByRole('button',{name:'Show control'}));await screen.findByRole('dialog');
+ await act(async()=>{writeWalkthrough(localStorage,createWalkthrough('world','sheep','new-walk',new Date().toISOString()),readWalkthrough(localStorage,'world'));window.dispatchEvent(new StorageEvent('storage',{key:pointerKey('world')}));});
+ expect(screen.queryByRole('dialog')).not.toBeInTheDocument();expect(screen.getByText('Ordinary source control')).not.toHaveAttribute('data-guided-highlight');expect(readWalkthrough(localStorage,'world')?.record.id).toBe('new-walk');
 });
