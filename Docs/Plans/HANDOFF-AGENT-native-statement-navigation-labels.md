@@ -1,6 +1,6 @@
 # AGENT — meaningful subject navigation for qualified statements
 
-ACTIVE code-only lease. PRIME owns this serial bounded slice under the standing answer-delivery goal. Base6b36a4c4626541e4c3c165bcd7b378b0ea5fb01f, branch codex/native-statement-navigation-labels, reused buddy-context-loop checkout/dependencies. Open ingestion1853/1855/1868, hosted1828 and held1764 remain separate. No new checkout/environment.
+MERGED / DELIVERED: PR1919 merge46316727a10666d2160e2d707a578349bf5b020b from approved5d61f4d929ca6f6d3153b0a45174602e461c5c72, all CI passed. API1460446/UI1451516/schema0095;4139APP/371native/41067files conserved. Implementation lease released. Q01PASS;Q13corefacts+support3/3, strictoriginal2+1partial. Historical allocation follows. PRIME owns this serial bounded slice under the standing answer-delivery goal. Base6b36a4c4626541e4c3c165bcd7b378b0ea5fb01f, branch codex/native-statement-navigation-labels, reused buddy-context-loop checkout/dependencies. Open ingestion1853/1855/1868, hosted1828 and held1764 remain separate. No new checkout/environment.
 
 ## Observed defect and invariant
 Independent ADVERSARY ca1a95a Q13: discovery3/3, targetselection0/3; all3Torbin candidates have opaque APPobjectID/generic episode labels while Arcana names its topic. Q13 remains a citation-support failure, not repaired by opening exact bytes. Opaque labels are a plausible selection defect, not proven sole cause. Q01 passes on1918; original failures retained.

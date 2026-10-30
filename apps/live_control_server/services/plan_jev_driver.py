@@ -201,6 +201,37 @@ class PlanJevDriver:
         if unavailable:
             self.gaps.append('native_statement_support_unavailable')
 
+    def _native_statement_examined(self):
+        """Truthful read outcomes for navigation, never an answer-sufficiency verdict."""
+        from application_state.agent_conversation.native_plan_statements import (
+            NativePlanQueryV1, NativePlanStatementReadAuthorizedV1,
+            NativePlanStatementReadObservedV1, validate_execution, selection_handle)
+        a = self.adapter
+        receipt = a.fence.turn.graph_context_receipt
+        if not isinstance(receipt, t.PlanNativeContextReceiptV1):
+            return ()
+        execution = a._broker_execution()
+        validate_execution(receipt, execution)
+        query = receipt.native_query
+        if not isinstance(query, NativePlanQueryV1):
+            return ()
+        if not isinstance(a.native_query, NativePlanQueryV1) or a.native_query.sha256 != query.sha256:
+            raise ValueError('Native controller query differs from its frozen receipt')
+        grants = {e.event_id: e for e in execution.events if isinstance(e, NativePlanStatementReadAuthorizedV1)}
+        observed = [e for e in execution.events if isinstance(e, NativePlanStatementReadObservedV1)]
+        if set(grants) != {e.authorization_event_id for e in observed}:
+            raise ValueError('Native acquisition must settle before another controller decision')
+        matches = {m.statement_id: m for m in query.matches}
+        result = []
+        for event in observed:
+            opened = {read.support.statement_id for read in event.reads}
+            for identity in grants[event.authorization_event_id].statement_ids:
+                match = matches[identity]
+                status = 'opened' if identity in opened else 'unavailable'
+                result.append(RetrievalCandidate(handle=selection_handle(query, match), label=match.label,
+                    kind=f'Previously selected native statement: {status}; not an answer-sufficiency verdict'))
+        return tuple(result)
+
     async def run(self, *, transport=None, api_key=None):
         async def authorize(prepared):
             return self.current.authorize(prepared) if self.current is not None else False
@@ -215,6 +246,7 @@ class PlanJevDriver:
                 if self.rules is not None and self.rules.selected:
                     examined.append(rules_candidate())
                 examined.extend(self.native_sources.examined())
+                examined.extend(self._native_statement_examined())
                 dispatch = PlanJevDispatch(self.adapter, self.offered(), dialogue=self.dialogue,
                     examined_candidates=examined, allowed_operations=operations)
                 self.current = dispatch
