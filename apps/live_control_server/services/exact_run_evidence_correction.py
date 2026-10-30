@@ -29,6 +29,7 @@ from apps.live_control_server.services.graph_run_registry import (
     GraphRunRegistryError,
     create_extraction_run,
     get_extraction_run,
+    load_reviewable_extraction_data,
     update_extraction_run_status,
 )
 from apps.live_control_server.services.promotable_ingest_run import (
@@ -452,55 +453,43 @@ def correct_recap_run_evidence(
 
     repo = artifact_data_root(repo_root())
     try:
-        resolved = resolve_promotable_ingest_run(request.parent_run_id, root=repo)
-        parent = get_extraction_run(repo, request.parent_run_id)
-    except (PromotableIngestRunError, GraphRunRegistryError) as exc:
-        raise _reject(f"parent run is not reviewable: {exc}") from exc
+        data = load_reviewable_extraction_data(repo, request.parent_run_id)
+    except GraphRunRegistryError as exc:
+        raise ExtractPromoteError(
+            f"parent recap evidence unavailable: {exc}",
+            code="evidence_correction_unavailable" if exc.status_code >= 500 else "evidence_correction_invalid",
+            status_code=exc.status_code,
+        ) from exc
+    parent = data.run
     if (
-        resolved.source_domain != "recap"
-        or parent.source_domain != "recap"
-        or resolved.extraction_profile != _RECAP_PROFILE
+        parent.source_domain != "recap"
         or parent.profile_id != _RECAP_PROFILE
-        or parent.status != ExtractionRunStatus.REVIEWABLE
-        or not parent.has_required_review_components()
         or not parent.campaign_id
         or not parent.session_id
-        or resolved.campaign_id != parent.campaign_id
-        or resolved.session_id != parent.session_id
-        or resolved.source_artifact_id != parent.source_artifact_id
-        or getattr(resolved, "source_span_index_path", None) is None
     ):
         raise _reject("correction requires an exact frozen recap review bundle")
     world_lineage = _frozen_recap_world_lineage(parent)
 
-    try:
-        parent_bytes = resolved.candidate_graph_path.read_bytes()
-    except OSError as exc:
-        raise _reject("parent candidate is unreadable") from exc
+    parent_bytes = data.candidate_bytes
     parent_sha = _sha(parent_bytes)
-    parent_candidate = parent.components[ExtractionRunComponentKind.CANDIDATE_GRAPH.value]
     source = parent.components[ExtractionRunComponentKind.SOURCE_ARTIFACT.value]
     spans = parent.components[ExtractionRunComponentKind.SOURCE_SPAN_INDEX.value]
     source_sha = source.sha256.removeprefix("sha256:").lower()
     span_sha = spans.sha256.removeprefix("sha256:").lower()
-    if (
-        parent_sha != request.parent_candidate_sha256
-        or parent_sha != parent_candidate.sha256.removeprefix("sha256:").lower()
-        or source_sha != resolved.source_revision_id.removeprefix("sha256:").lower()
-    ):
+    if parent_sha != request.parent_candidate_sha256:
         raise _reject("parent candidate or source digest changed", status_code=409)
     try:
         payload = json.loads(parent_bytes)
-        source_prose = resolved.normalized_recap_path.read_text(encoding="utf-8")
-    except (OSError, json.JSONDecodeError) as exc:
+        source_prose = data.source_bytes.decode("utf-8")
+    except (UnicodeDecodeError, json.JSONDecodeError) as exc:
         raise _reject("parent candidate or source is unreadable") from exc
     if not isinstance(payload, dict):
         raise _reject("parent candidate root must be an object")
-    span_index = _load_frozen_span_index_for_resolved_run(resolved)
+    span_index = data.span_index
     _assert_and_project_candidate_evidence(
         candidate_payload=payload,
         source_prose=source_prose,
-        source_artifact_id=resolved.source_artifact_id,
+        source_artifact_id=parent.source_artifact_id,
         span_index=span_index,
         inspect_false_anchor_quotes=True,
     )
@@ -513,7 +502,7 @@ def correct_recap_run_evidence(
     _assert_and_project_candidate_evidence(
         candidate_payload=payload,
         source_prose=source_prose,
-        source_artifact_id=resolved.source_artifact_id,
+        source_artifact_id=parent.source_artifact_id,
         span_index=span_index,
     )
 
@@ -635,10 +624,10 @@ def correct_recap_run_evidence(
         _write_child_candidate(child_path, child_bytes, repo=repo)
     from application_state.ingest.components import persist_component_payload
 
-    for kind, data in (("candidate_graph", child_bytes),
-                       ("source_span_index", resolved.source_span_index_path.read_bytes())):
+    for kind, payload_bytes in (("candidate_graph", child_bytes),
+                       ("source_span_index", data.span_bytes)):
         persist_component_payload(run_id=child_id, expected_revision=child.revision,
-                                  kind=kind, payload=data)
+                                  kind=kind, payload=payload_bytes)
     for _ in range(8):
         child = get_extraction_run(repo, child_id)
         if child.status == ExtractionRunStatus.REVIEWABLE:
@@ -655,7 +644,7 @@ def correct_recap_run_evidence(
                 raise _reject(f"derived run seal failed: {exc}") from exc
     if child.status != ExtractionRunStatus.REVIEWABLE or child_path.read_bytes() != child_bytes:
         raise _reject("derived recap child could not be sealed", status_code=409)
-    resolve_promotable_ingest_run(child_id, root=repo)
+    load_reviewable_extraction_data(repo, child_id)
     return RecapEvidenceCorrectionResponse(
         run_id=child_id,
         parent_run_id=parent.run_id,
