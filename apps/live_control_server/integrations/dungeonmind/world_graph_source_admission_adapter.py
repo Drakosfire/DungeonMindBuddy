@@ -329,7 +329,7 @@ def _map_buddy_source(
 
 def _catalog_identity(artifact: Any, revision: Any, buddy_token: str) -> AdmittedSourceIdentity:
     """Serialize the native-proven records using the existing review-seal format."""
-    locator = revision.locator
+    locator = str(revision.locator or "").strip()
     if not locator:
         raise WorldGraphSourceAdmissionError(
             "Native source has no external locator expressible by this review seal.",
