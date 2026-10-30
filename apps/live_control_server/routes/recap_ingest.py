@@ -571,6 +571,19 @@ def _native_source_request(body, request):
                     body.session,
                 ),
             )
+        if body.native_recap_resume is not None:
+            return _native_source_envelope(
+                body,
+                native.resume_admission(
+                    repo_root(),
+                    resume=body.native_recap_resume,
+                    world=body.managed_world_id,
+                    campaign=body.campaign_id,
+                    session=body.session,
+                    actor=actor,
+                    authority_basis=authority_basis,
+                ),
+            )
         if not body.managed_world_id:
             raise HTTPException(
                 status_code=422, detail={"code": "managed_world_context_required"}
@@ -628,7 +641,6 @@ def _native_source_request(body, request):
                 session=body.session,
                 actor=actor,
                 authority_basis=authority_basis,
-                resume=body.native_recap_resume,
             ),
         )
     except HTTPException:

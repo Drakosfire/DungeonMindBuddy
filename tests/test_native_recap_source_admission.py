@@ -1049,3 +1049,48 @@ def test_managed_source_root_and_artifact_root_can_be_separate(lane, monkeypatch
     )
     assert source.lineage["selected_input_uri"] == lane.path.as_uri()
     assert lane.path.read_bytes() == lane.raw
+
+
+@pytest.mark.parametrize("committed", [False, True])
+def test_explicit_recovery_uses_frozen_APP_source_after_live_file_removed(
+    lane, monkeypatch, committed
+):
+    actual = NativeRecapAuthority.dispatch
+
+    def interrupted(self, record, body):
+        if committed:
+            actual(self, record, body)
+        raise RuntimeError("synthetic interrupted delivery")
+
+    monkeypatch.setattr(NativeRecapAuthority, "dispatch", interrupted)
+    first = native(post(lane))
+    run = ingest.get_extraction_run(first["run_id"])
+    record = Record.model_validate(run.lineage[KEY])
+    frozen = record.command.sha256
+    lane.path.unlink()
+    monkeypatch.setattr(
+        route,
+        "inspect_recap_ingest_status",
+        lambda **_: pytest.fail("Recovery scanned live corpus"),
+    )
+    monkeypatch.setattr(
+        route,
+        "_request_recap_context",
+        lambda *_: pytest.fail("Recovery retargeted live context"),
+    )
+    calls = []
+
+    def dispatch(self, record, body):
+        calls.append(record.command.sha256)
+        return actual(self, record, body)
+
+    monkeypatch.setattr(NativeRecapAuthority, "dispatch", dispatch)
+    recovered = native(post(lane, native_recap_resume=resume(first)))
+    assert recovered["state"] == "admitted"
+    assert calls == ([] if committed else [frozen])
+    settled = Record.model_validate(
+        ingest.get_extraction_run(first["run_id"]).lineage[KEY]
+    )
+    assert settled.app_source_revision_id == record.app_source_revision_id
+    assert settled.command.sha256 == frozen and settled.receipt is not None
+    assert settled.command.deliveries[0].failure_code is not None

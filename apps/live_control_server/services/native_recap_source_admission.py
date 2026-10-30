@@ -332,6 +332,32 @@ def _execute(root, run, record, source, actor, authority_basis, resume, authorit
     return _status(run, record, source, authority)
 
 
+def resume_admission(
+    root, *, resume: Resume, world, campaign, session, actor, authority_basis
+):
+    """Recover the exact saved intent; current corpus files cannot retarget it."""
+    _execution_mode()
+    root = config.artifact_data_root(root)
+    run, record, source = _load(resume.run_id, world, campaign, session)
+    authority = NativeRecapAuthority(root)
+    lock = PublicationProgressStore(root / "out/native_recap_source_locks")
+    try:
+        with lock.exclusive(record.admission_id):
+            # Re-read under the mutex, then let the exact revision/hash gate and
+            # winning CAS govern all reconciliation and dispatch.
+            run, record, source = _load(resume.run_id, world, campaign, session)
+            return _execute(
+                root, run, record, source, actor, authority_basis, resume, authority
+            )
+    except ProgressConflict as exc:
+        if str(exc) != "operation_busy":
+            raise NativeRecapError(
+                "native_recap_execution_unavailable", status_code=503
+            ) from exc
+        run, record, source = _load(resume.run_id, world, campaign, session)
+        return _status(run, record, source, authority, busy=True)
+
+
 def _read_source_bytes(path):
     from dungeonmind.contracts.vnext.native_source import MAX_NATIVE_TEXT_BYTES
 
@@ -355,7 +381,6 @@ def admit(
     session: int,
     actor,
     authority_basis,
-    resume: Resume | None = None,
 ):
     _execution_mode()
     root = config.artifact_data_root(root)
@@ -451,8 +476,6 @@ def admit(
         with lock.exclusive(candidate.admission_id):
             existing = ingest.get_extraction_run_optional(candidate.run_id)
             if existing is None:
-                if resume is not None:
-                    raise NativeRecapError("native_recap_resume_missing")
                 run = create_extraction_run(
                     root,
                     run_id=candidate.run_id,
@@ -480,10 +503,9 @@ def admit(
                     or record.raw_original_sha256 != raw_sha
                 ):
                     raise NativeRecapError("native_recap_source_input_changed")
-                if resume is None:
-                    return _status(run, record, source, authority)
+                return _status(run, record, source, authority)
             return _execute(
-                root, run, record, source, actor, authority_basis, resume, authority
+                root, run, record, source, actor, authority_basis, None, authority
             )
     except ProgressConflict as exc:
         if str(exc) != "operation_busy":
