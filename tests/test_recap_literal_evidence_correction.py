@@ -414,6 +414,9 @@ def test_recap_child_round_trips_real_disposable_run_registry(
             },
         },
     )
+    from application_state.ingest.components import persist_component_payload
+    for kind, payload in (("candidate_graph", parent_bytes), ("source_span_index", span_path.read_bytes())):
+        persist_component_payload(run_id=parent.run_id, expected_revision=parent.revision, kind=kind, payload=payload)
     for status in (
         ExtractionRunStatus.PREPARED, ExtractionRunStatus.EXTRACTED,
         ExtractionRunStatus.VALIDATED, ExtractionRunStatus.REVIEWABLE,

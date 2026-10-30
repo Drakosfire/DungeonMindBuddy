@@ -7,7 +7,6 @@ callers do not learn SQL. There is no file-registry fallback or dual write.
 
 from __future__ import annotations
 
-import hashlib
 import json
 from dataclasses import dataclass
 from datetime import UTC, datetime
@@ -35,7 +34,6 @@ from graph_memory.ingestion.extraction_run import (
     assert_allowed_extraction_run_transition,
 )
 from graph_memory.source_span import SourceSpanIndex, source_span_index_from_dict, validate_source_span_index
-from src.live_play.live_store import load_json
 
 if TYPE_CHECKING:
     from apps.live_control_server.models.historical_recap_inspection import (
@@ -174,14 +172,6 @@ def _resolve_repo_contained_uri(root: Path, uri: str) -> Path:
     return resolved
 
 
-def _file_sha256(path: Path) -> str:
-    digest = hashlib.sha256()
-    with path.open("rb") as handle:
-        for chunk in iter(lambda: handle.read(65536), b""):
-            digest.update(chunk)
-    return digest.hexdigest()
-
-
 def _component_by_kind(
     components: dict[str, ExtractionRunComponentRef],
     kind: ExtractionRunComponentKind,
@@ -268,112 +258,65 @@ class ReviewableExtractionData:
 
 def load_reviewable_extraction_data(root: Path, run_id: str) -> ReviewableExtractionData:
     """Read one run's exact database bindings, never its presentation locators."""
-    from application_state.ingest.components import get_component_bytes
-
     run = get_extraction_run(root, run_id)
     if run.status != ExtractionRunStatus.REVIEWABLE:
         raise GraphRunRegistryError(f"extraction run is not reviewable: {run.status.value}", status_code=422)
+    return _load_bound_run_evidence(root, run)
+
+
+def _load_bound_run_evidence(root: Path, run: ExtractionRun) -> ReviewableExtractionData:
+    from application_state.ingest.components import get_component_bytes
+
     artifact, source = _load_run_source_input(root, run)
     _, span_ref, candidate_ref = _review_components(run)
     try:
-        spans = get_component_bytes(run_id=run_id, kind=span_ref.kind, content_sha256=span_ref.sha256)
-        candidate = get_component_bytes(run_id=run_id, kind=candidate_ref.kind, content_sha256=candidate_ref.sha256)
+        spans = get_component_bytes(run_id=run.run_id, kind=span_ref.kind, content_sha256=span_ref.sha256)
+        candidate = get_component_bytes(run_id=run.run_id, kind=candidate_ref.kind, content_sha256=candidate_ref.sha256)
     except ApplicationStateError as exc:
         raise GraphRunRegistryError(str(exc), status_code=exc.status_code if exc.status_code >= 500 else 422) from exc
-    try:
-        index = source_span_index_from_dict(json.loads(spans))
-        validate_source_span_index(index, source_artifact_id=artifact.source_artifact_id,
-            content_sha256=artifact.content_sha256 or "")
-    except (TypeError, ValueError, KeyError) as exc:
-        raise GraphRunRegistryError(f"source_span_index is not bound to source artifact: {exc}", status_code=422) from exc
+    index = _parse_run_span_index(spans, artifact)
     return ReviewableExtractionData(run, artifact, source, candidate, spans, index)
 
 
-def assert_run_reviewable_evidence(root: Path, run: ExtractionRun) -> None:
-    """Server-side evidence resolution required for reviewable/promoted runs."""
-    artifact, _ = _load_run_source_input(root, run)
-    _, span_component, graph_component = _review_components(run)
-
-    span_path = _assert_component_bytes(root, span_component)
+def _parse_run_span_index(payload: bytes, artifact: GraphMemorySourceArtifact) -> SourceSpanIndex:
     try:
-        from graph_memory.source_span import source_span_index_from_dict
-
-        index = source_span_index_from_dict(load_json(span_path))
-        validate_source_span_index(
-            index,
-            source_artifact_id=artifact.source_artifact_id,
-            content_sha256=artifact.content_sha256 or "",
-        )
+        index = source_span_index_from_dict(json.loads(payload))
+        validate_source_span_index(index, source_artifact_id=artifact.source_artifact_id,
+                                   content_sha256=artifact.content_sha256 or "")
     except (TypeError, ValueError, KeyError) as exc:
         raise GraphRunRegistryError(
-            f"source_span_index is not bound to source artifact: {exc}",
-            status_code=422,
+            f"source_span_index is not bound to source artifact: {exc}", status_code=422,
         ) from exc
+    return index
 
-    _assert_component_bytes(root, graph_component)
+
+def assert_run_reviewable_evidence(root: Path, run: ExtractionRun) -> None:
+    """Require exact bound APP output bytes before review or promotion."""
+    _load_bound_run_evidence(root, run)
 
 
-def assert_immutable_component_refs(root: Path, run: ExtractionRun) -> None:
-    """Validate any supplied immutable component references present on a run."""
+def assert_immutable_component_refs(root: Path, run: ExtractionRun, *, expected_revision: int) -> None:
+    """Verify actual staged bytes before a terminal metadata CAS; never files."""
+    from application_state.ingest.components import verify_transition_component_bytes
+
     artifact: GraphMemorySourceArtifact | None = None
     for component in run.components.values():
-        if not component.uri.strip() or not (component.sha256 or "").strip():
+        if not (component.sha256 or "").strip():
             continue
         if component.kind == ExtractionRunComponentKind.SOURCE_ARTIFACT:
             artifact, _ = _load_run_source_input(root, run)
             continue
-        path = _assert_component_bytes(root, component)
+        try:
+            payload = verify_transition_component_bytes(run_id=run.run_id,
+                expected_revision=expected_revision, kind=component.kind, content_sha256=component.sha256)
+        except ApplicationStateError as exc:
+            raise GraphRunRegistryError(
+                str(exc), status_code=exc.status_code if exc.status_code >= 500 or exc.status_code == 409 else 422,
+            ) from exc
         if component.kind == ExtractionRunComponentKind.SOURCE_SPAN_INDEX:
             if artifact is None:
                 artifact, _ = _load_run_source_input(root, run)
-            try:
-                from graph_memory.source_span import source_span_index_from_dict
-
-                index = source_span_index_from_dict(load_json(path))
-                validate_source_span_index(
-                    index,
-                    source_artifact_id=artifact.source_artifact_id,
-                    content_sha256=artifact.content_sha256 or "",
-                )
-            except (TypeError, ValueError, KeyError) as exc:
-                raise GraphRunRegistryError(
-                    f"source_span_index is not bound to source artifact: {exc}",
-                    status_code=422,
-                ) from exc
-
-
-def _assert_component_bytes(
-    root: Path,
-    component: ExtractionRunComponentRef,
-    *,
-    expected_digest: str | None = None,
-) -> Path:
-    from graph_memory.ingestion.extraction_run import normalize_content_digest
-
-    path = _resolve_repo_contained_uri(root, component.uri)
-    if not path.is_file():
-        raise GraphRunRegistryError(
-            f"component file missing: {component.uri}",
-            status_code=422,
-        )
-    digest = _file_sha256(path)
-    claimed = normalize_content_digest(component.sha256)
-    if not claimed:
-        raise GraphRunRegistryError(
-            f"component digest required: {component.kind.value}",
-            status_code=422,
-        )
-    if claimed != digest:
-        raise GraphRunRegistryError(
-            f"component digest mismatch: {component.kind.value}",
-            status_code=422,
-        )
-    if expected_digest is not None and digest != normalize_content_digest(expected_digest):
-        raise GraphRunRegistryError(
-            f"component digest does not match expected source digest: {component.kind.value}",
-            status_code=422,
-        )
-    return path
+            _parse_run_span_index(payload, artifact)
 
 
 def _bind_run_to_artifact(
@@ -542,6 +485,8 @@ def create_extraction_run(
     diagnostics: ExtractionRunDiagnostics | None = None,
     lineage: dict[str, Any] | None = None,
 ) -> ExtractionRun:
+    if status == ExtractionRunStatus.REVIEWABLE:
+        raise GraphRunRegistryError("create a staged run and persist its output bytes before review", status_code=422)
     artifact = _bind_run_to_artifact(
         root,
         source_artifact_id=source_artifact_id,
@@ -595,8 +540,6 @@ def create_extraction_run(
         diagnostics=diagnostics or ExtractionRunDiagnostics(),
         lineage=dict(lineage or {}),
     )
-    if status == ExtractionRunStatus.REVIEWABLE:
-        assert_run_reviewable_evidence(root, run)
     try:
         return ingest_service.create_extraction_run(run)
     except ApplicationStateError as exc:
@@ -647,7 +590,7 @@ def update_extraction_run_status(
     if status in _REVIEW_BUNDLE_STATUSES:
         assert_run_reviewable_evidence(root, proposed)
     elif status in TERMINAL_EXTRACTION_RUN_STATUSES:
-        assert_immutable_component_refs(root, proposed)
+        assert_immutable_component_refs(root, proposed, expected_revision=expected_revision)
     try:
         return ingest_service.update_extraction_run(
             run_id,
@@ -672,6 +615,8 @@ def supersede_extraction_run(
     status: ExtractionRunStatus = ExtractionRunStatus.DRAFT,
 ) -> ExtractionRun:
     """Mark an exact run superseded and create a successor in one transaction."""
+    if status == ExtractionRunStatus.REVIEWABLE:
+        raise GraphRunRegistryError("create a staged successor and persist its output bytes before review", status_code=422)
     if status in TERMINAL_EXTRACTION_RUN_STATUSES:
         raise GraphRunRegistryError(
             "cannot create an extraction run directly in a terminal status",
@@ -698,8 +643,6 @@ def supersede_extraction_run(
         components=components if components is not None else dict(existing.components),
         supersedes_run_id=existing.run_id,
     )
-    if status == ExtractionRunStatus.REVIEWABLE:
-        assert_run_reviewable_evidence(root, successor)
     try:
         return ingest_service.supersede_extraction_run(
             run_id,

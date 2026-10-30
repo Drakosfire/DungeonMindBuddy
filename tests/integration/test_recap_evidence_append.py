@@ -176,6 +176,9 @@ def test_append_durable_child_fresh_read_retry_and_pc_proof(disposable_append_ap
         components=components, status=ExtractionRunStatus.DRAFT,
         lineage={"world_campaign_ingest_context": world_context},
     )
+    from application_state.ingest.components import persist_component_payload
+    for kind, data in (("candidate_graph", candidate_bytes), ("source_span_index", span_bytes)):
+        persist_component_payload(run_id=parent.run_id, expected_revision=parent.revision, kind=kind, payload=data)
     for state in correction._LIFECYCLE[1:]:
         parent = original_update(
             tmp_path, parent.run_id, status=state, expected_revision=parent.revision,
@@ -433,6 +436,8 @@ print(json.dumps({'revision':child.revision,'state':child.lineage['semantic_disp
         components=legacy_parent_components, status=ExtractionRunStatus.DRAFT,
         lineage={"world_campaign_ingest_context": world_context},
     )
+    for kind, data in (("candidate_graph", raw), ("source_span_index", span_bytes)):
+        persist_component_payload(run_id=legacy_parent.run_id, expected_revision=legacy_parent.revision, kind=kind, payload=data)
     for state in correction._LIFECYCLE[1:]:
         legacy_parent = original_update(
             tmp_path, legacy_parent.run_id, status=state,
@@ -503,6 +508,8 @@ print(json.dumps({'revision':child.revision,'state':child.lineage['semantic_disp
             components=legacy_components, status=ExtractionRunStatus.DRAFT,
             lineage=lineage,
         )
+        for kind, data in (("candidate_graph", candidate_bytes), ("source_span_index", span_bytes)):
+            persist_component_payload(run_id=legacy.run_id, expected_revision=legacy.revision, kind=kind, payload=data)
         if state in {"exact", "mismatched"}:
             for next_state in correction._LIFECYCLE[1:]:
                 legacy = original_update(
