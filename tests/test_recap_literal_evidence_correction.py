@@ -111,13 +111,6 @@ def _fixture(monkeypatch: pytest.MonkeyPatch, tmp_path: Path, *, two_invalid: bo
         status=ExtractionRunStatus.REVIEWABLE, components=components,
         lineage={"native_world_id": "fixture-world", "campaign_id": "c"},
     )
-    resolved = SimpleNamespace(
-        run_id="parent", candidate_graph_path=parent_path,
-        normalized_recap_path=source, source_artifact_id=artifact_id,
-        source_revision_id=source_sha, source_span_index_path=span_file,
-        campaign_id="c", session_id="s", source_domain="recap",
-        extraction_profile="recap_category_v1@1.0",
-    )
     span_index = SimpleNamespace(spans=[
         SimpleNamespace(source_span_id=span_id, start_line=1, end_line=1),
     ])
@@ -142,21 +135,21 @@ def _fixture(monkeypatch: pytest.MonkeyPatch, tmp_path: Path, *, two_invalid: bo
         children[run_id] = updated
         return updated
 
-    def resolve(run_id, **_kwargs):
-        if run_id == "parent":
-            return resolved
-        child = children[run_id]
-        candidate = tmp_path / child.components["candidate_graph"].uri
-        assert child.status == ExtractionRunStatus.REVIEWABLE
-        assert _sha(candidate.read_bytes()) == child.components["candidate_graph"].sha256
-        return SimpleNamespace(run_id=run_id)
+    def review_data(_root, run_id):
+        run = get_run(_root, run_id)
+        if run.status != ExtractionRunStatus.REVIEWABLE:
+            raise GraphRunRegistryError("not reviewable", status_code=422)
+        candidate = tmp_path / run.components["candidate_graph"].uri
+        data = candidate.read_bytes()
+        assert _sha(data) == run.components["candidate_graph"].sha256
+        return SimpleNamespace(run=run, source_bytes=source.read_bytes(),
+            candidate_bytes=data, span_bytes=span_file.read_bytes(), span_index=span_index)
 
     monkeypatch.setattr(correction, "repo_root", lambda: tmp_path)
-    monkeypatch.setattr(correction, "resolve_promotable_ingest_run", resolve)
+    monkeypatch.setattr(correction, "load_reviewable_extraction_data", review_data)
     monkeypatch.setattr(correction, "get_extraction_run", get_run)
     monkeypatch.setattr(correction, "create_extraction_run", create_run)
     monkeypatch.setattr(correction, "update_extraction_run_status", update_run)
-    monkeypatch.setattr(correction, "_load_frozen_span_index_for_resolved_run", lambda _resolved: span_index)
     return parent, parent_bytes, source_bytes, span_file.read_bytes(), span_id, children
 
 
