@@ -29,6 +29,7 @@ from .build_related_pages import PagePointer, RelatedPagesSelection, RelatedPage
 from graph_memory.ingestion.selection_context import NativeStatementSelectionV1
 from .native_statement_input import NativeStatementContextReceiptV1, NativeStatementWriterPolicyV1, NativeStatementWriterPolicyV2, NativeStatementInputEventV1
 from .native_statement_answer import NativeStatementCompletionV1
+from .native_corpus import NativeCorpusAuthorityV1
 
 Resolution = Literal["resolved", "absent", "unresolved", "unavailable"]
 ConversationStatus = Literal["active", "archived"]
@@ -1310,6 +1311,63 @@ class PlanWorldGraphContextReceiptV1(StrictModel):
         validate_graph_packet_input(self.graph_packet, self.assembled_input)
         if self.context_receipt_sha256 != plan_world_graph_context_receipt_digest(self):
             raise ValueError("Graph context receipt digest does not match its contents")
+        return self
+
+
+
+class NativeCorpusUnavailableV1(StrictModel):
+    schema_: Literal["dmb_native_corpus_unavailable_v1"] = Field(
+        default="dmb_native_corpus_unavailable_v1", alias="schema")
+    managed_world_id: str = Field(min_length=1)
+    failure_code: Literal["native_source_identity_unavailable", "native_source_head_unavailable",
+                          "native_source_authority_unavailable"]
+
+
+class PlanSourceProviderInputV1(StrictModel):
+    """Actual first decision accounting, with no fabricated Graph packet."""
+    assembler_version: Literal["plan_source_jev_initial_v1"] = "plan_source_jev_initial_v1"
+    provider_model_name: str = Field(min_length=1)
+    provider_model_version: str = Field(min_length=1)
+    tokenizer_name: str = Field(min_length=1)
+    tokenizer_version: str = Field(min_length=1)
+    provider_envelope_input_tokens: int = Field(ge=0, strict=True)
+    output_token_reserve: int = Field(ge=0, strict=True)
+    context_window_limit: int = Field(gt=0, strict=True)
+    included_history: list[PlanWorldGraphHistoryPinV1]
+    assembled_input_sha256: str = Field(pattern=r"^[a-f0-9]{64}$")
+
+    @model_validator(mode="after")
+    def exact_allowance(self):
+        if self.provider_envelope_input_tokens + self.output_token_reserve > self.context_window_limit:
+            raise ValueError("Actual Plan decision exceeds its provider context allowance")
+        return self
+
+
+class PlanSourceContextReceiptV1(StrictModel):
+    """Source-capable Plan owner; a native revision never becomes Graph authority."""
+    schema_: Literal["dmb_plan_source_context_receipt_v1"] = Field(
+        default="dmb_plan_source_context_receipt_v1", alias="schema")
+    receipt_serializer_version: Literal["canonical-json-utf8-v1"]
+    context_receipt_sha256: str = Field(pattern=r"^[a-f0-9]{64}$")
+    plan_context_policy: PlanContextPolicyV1
+    plan_basis: PlanAskContextBasis
+    playable_target: PlanPlayableTargetReceiptV1 | None
+    source_authority: NativeCorpusAuthorityV1 | NativeCorpusUnavailableV1
+    graph_capability: PlanWorldGraphContextReceiptV1 | None
+    assembled_input: PlanSourceProviderInputV1
+
+    @model_validator(mode="after")
+    def exact_capability_bases(self):
+        if self.source_authority.managed_world_id != self.plan_basis.world_id:
+            raise ValueError("Source authority differs from the actual Plan World")
+        if self.graph_capability is not None and (
+                self.graph_capability.plan_basis != self.plan_basis
+                or self.graph_capability.playable_target != self.playable_target
+                or self.graph_capability.plan_context_policy != self.plan_context_policy):
+            raise ValueError("Independent Graph capability differs from the actual Plan basis")
+        payload = self.model_dump(mode="json", by_alias=True, exclude={"context_receipt_sha256"})
+        if canonical_sha256(payload) != self.context_receipt_sha256:
+            raise ValueError("Source-capable Plan receipt digest differs from its contents")
         return self
 
 
