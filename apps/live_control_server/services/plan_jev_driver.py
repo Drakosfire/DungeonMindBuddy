@@ -207,6 +207,9 @@ class PlanJevDriver:
             NativePlanQueryV1, NativePlanStatementReadAuthorizedV1,
             NativePlanStatementReadObservedV1, validate_execution, selection_handle)
         a = self.adapter
+        # The first controller dispatch may precede the initial durable claim.
+        if a.fence is None:
+            return ()
         receipt = a.fence.turn.graph_context_receipt
         if not isinstance(receipt, t.PlanNativeContextReceiptV1):
             return ()
