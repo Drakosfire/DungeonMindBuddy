@@ -1378,6 +1378,33 @@ class PlanSourceContextReceiptV1(StrictModel):
         return self
 
 
+from .native_plan_statements import (
+    NativePlanQueryV1, NativePlanQueryUnavailableV1,
+    NativePlanStatementReadAuthorizedV1, NativePlanStatementReadObservedV1,
+)
+
+
+class PlanNativeContextReceiptV1(PlanSourceContextReceiptV1):
+    schema_: Literal["dmb_plan_native_context_receipt_v1"] = Field(
+        default="dmb_plan_native_context_receipt_v1", alias="schema")
+    native_query: NativePlanQueryV1 | NativePlanQueryUnavailableV1
+
+    @model_validator(mode="after")
+    def native_capability(self):
+        if self.graph_capability is not None:
+            raise ValueError("Native Plan cannot expose a classic Graph capability")
+        query = self.native_query
+        authority = query.authority if isinstance(query, NativePlanQueryV1) else query
+        if authority.managed_world_id != self.plan_basis.world_id:
+            raise ValueError("Native query differs from Plan World")
+        if isinstance(query, NativePlanQueryV1) and isinstance(self.source_authority, NativeCorpusAuthorityV1):
+            source, native = self.source_authority, query.authority
+            if any(getattr(source, field) != getattr(native, field) for field in (
+                    "native_world_id", "binding_version", "revision_id", "domain_ref", "profile_ref", "acquisition_epoch")):
+                raise ValueError("Independent source/query capabilities changed coherent authority")
+        return self
+
+
 def validate_graph_packet_input(
     packet: PlanWorldGraphPacketV1, assembled: PlanWorldGraphAssembledInputV1,
 ) -> None:
@@ -1501,7 +1528,7 @@ class PlayWorldGraphContextReceiptV1(ClosedRulesModel):
 
 
 GraphContextReceipt = Annotated[
-    PlanWorldGraphContextReceiptV1 | PlanSourceContextReceiptV1 | BuildGraphContextReceiptV1 | PlayWorldGraphContextReceiptV1 | NativeStatementContextReceiptV1,
+    PlanWorldGraphContextReceiptV1 | PlanSourceContextReceiptV1 | PlanNativeContextReceiptV1 | BuildGraphContextReceiptV1 | PlayWorldGraphContextReceiptV1 | NativeStatementContextReceiptV1,
     Field(discriminator="schema_"),
 ]
 
@@ -4887,6 +4914,36 @@ class PlanSourceExecutionV1(PlanWorldGraphExecutionV3):
     ]] = Field(max_length=2048)
 
 
+class PlanNativeWriterAuthorizedV1(PlanJevWriterAuthorizedV2):
+    kind: Literal["plan_native_writer_authorized_v1"] = "plan_native_writer_authorized_v1"
+    native_statement_read_event_ids: list[UUID]
+
+
+class PlanNativeExecutionPolicyV1(PlanSourceExecutionPolicyV1):
+    policy_version: Literal["plan_native_execution_uncapped_v1"] = "plan_native_execution_uncapped_v1"
+    driver_schema: Literal["dmb_plan_native_jev_retrieval_v1"] = "dmb_plan_native_jev_retrieval_v1"
+    native_query_sha256: str = Field(pattern=r"^[a-f0-9]{64}$")
+
+
+class PlanNativeExecutionV1(PlanSourceExecutionV1):
+    schema_: Literal["dmb_plan_native_execution_v1"] = Field(
+        default="dmb_plan_native_execution_v1", alias="schema")
+    policy: PlanNativeExecutionPolicyV1
+    events: list[Annotated[
+        ValidatedGraphOperationEventV3 | PlanRequestedWorkAuthorizedV2 | PlanRequestedWorkAuthorizedV1
+        | PlanJevProviderAuthorizedV1 | PlanJevWriterAuthorizedV2 | PlanJevWriterAuthorizedV1
+        | PlanNativeWriterAuthorizedV1 | ProviderOutcomeEventV1 | CompletionBindingEventV1
+        | SourceScopeExtensionEventV3 | SourceReadAuthorizationEventV2 | ValidatedSourceReadEventV2
+        | SourcePassageReuseEventV1 | RelatedRecapContextAuthorizationEventV2
+        | ValidatedRelatedRecapContextEventV2 | RelatedRecapContextProviderInclusionEventV2
+        | PlanRequestedWorkSelectedV2 | PlanRequestedWorkSelectedV1 | PlanJevRetrievalSelectionV1
+        | NativeBodySearchAuthorizedV1 | NativeBodySearchObservedV1 | NativeBodyReadAuthorizedV1
+        | NativeBodyReadObservedV1 | NativeBodyProviderIncludedV1
+        | NativePlanStatementReadAuthorizedV1 | NativePlanStatementReadObservedV1,
+        Field(discriminator="kind"),
+    ]] = Field(max_length=2048)
+
+
 def _effective_source_pins(execution) -> dict[str, GraphSourceScopeAnchorV2]:
     """Read the exact frozen and extended pins from an already validated ledger."""
     scope = execution.policy.source_read_scope
@@ -5248,7 +5305,7 @@ class NativeStatementExecutionV1(StrictModel):
 
 GraphTurnExecution = Annotated[
     PlanWorldGraphExecutionV1 | PlanWorldGraphExecutionV2 | PlanWorldGraphExecutionV3
-    | PlanSourceExecutionV1 | PlayWorldGraphExecutionV1 | NativeStatementExecutionV1,
+    | PlanSourceExecutionV1 | PlanNativeExecutionV1 | PlayWorldGraphExecutionV1 | NativeStatementExecutionV1,
     Field(discriminator="schema_"),
 ]
 

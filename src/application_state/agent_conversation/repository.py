@@ -233,9 +233,11 @@ def _turn_from_row(
     import json
     from .native_statement_input import NativeStatementContextReceiptV1
     from .native_statement_answer import NativeStatementCompletionV1
-    from .types import NativeStatementExecutionV1, PlanSourceContextReceiptV1, PlanSourceExecutionV1
+    from .types import NativeStatementExecutionV1, PlanSourceContextReceiptV1, PlanSourceExecutionV1, PlanNativeContextReceiptV1, PlanNativeExecutionV1
 
     for key, model in (
+        ("graph_context_receipt", PlanNativeContextReceiptV1),
+        ("graph_context_execution", PlanNativeExecutionV1),
         ("graph_context_receipt", PlanSourceContextReceiptV1),
         ("graph_context_execution", PlanSourceExecutionV1),
         ("graph_context_receipt", PlayWorldGraphContextReceiptV1),

@@ -40,6 +40,9 @@ def validate_source_execution_binding(receipt, execution):
             or execution.policy.source_authority_sha256 != t.canonical_sha256(
                 receipt.source_authority.model_dump(mode="json", by_alias=True))):
         raise ValueError("Plan source execution differs from its frozen receipt authority")
+    if isinstance(receipt, t.PlanNativeContextReceiptV1):
+        from .native_plan_statements import validate_execution
+        validate_execution(receipt, execution)
     scope = execution.policy.source_read_scope
     graph = receipt.graph_capability
     if graph is None:
@@ -103,6 +106,8 @@ def validate_source_submission(submission):
             or execution.policy.plan_authoring_capture_sha256 != intent.plan_authoring_capture_sha256
             or execution.policy.placement_catalog_sha256 != intent.plan_placement_catalog_sha256):
         raise ValueError("Source-capable Plan receipt differs from its submitted Plan basis or capture")
+    if isinstance(receipt, t.PlanNativeContextReceiptV1) and isinstance(receipt.native_query, t.NativePlanQueryV1) and receipt.native_query.question != submission.user_text:
+        raise ValueError("Native query differs from unchanged submitted question")
     validate_source_provenance(receipt, submission.provenance)
     validate_source_execution_binding(receipt, execution)
     if execution.events:
