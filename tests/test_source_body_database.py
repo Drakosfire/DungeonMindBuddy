@@ -43,7 +43,9 @@ def test_source_body_survives_removed_file(registered_source, monkeypatch):
 
 
 def test_missing_database_body_does_not_fall_back_to_valid_file(registered_source):
-    root, artifact, raw, _ = registered_source
+    root, artifact, raw, dsn = registered_source
+    with psycopg.connect(dsn) as conn:
+        conn.execute("DELETE FROM source.revision WHERE source_artifact_id=%s", (artifact.source_artifact_id,))
     assert (root / artifact.uri.removeprefix("repo://")).read_bytes() == raw
     with pytest.raises(registry.SourceArtifactRegistryError, match="database"):
         registry.load_registered_source_artifact_bytes(root, artifact.source_artifact_id)
@@ -74,3 +76,45 @@ def test_database_body_read_does_not_interpret_file_locator(registered_source, m
     changed = artifact.model_copy(update={"uri": "file:///unrelated/private/file"})
     monkeypatch.setattr(registry, "get_source_artifact", lambda *a: changed)
     assert registry.load_registered_source_artifact_bytes(root, artifact.source_artifact_id)[1] == raw
+
+
+def test_registration_persists_body_before_run_or_provider_call(registered_source):
+    root, artifact, raw, _ = registered_source
+    stored = sources.get_source_markdown(
+        source_artifact_id=artifact.source_artifact_id,
+        content_sha256=artifact.content_sha256,
+    )
+    assert stored is not None
+    assert stored.markdown.encode("utf-8") == raw
+    (root / artifact.uri.removeprefix("repo://")).unlink()
+    assert registry.load_registered_source_artifact_text(root, artifact.source_artifact_id) == (artifact, raw.decode("utf-8"))
+
+
+def test_database_persistence_failure_does_not_register_source(tmp_path, monkeypatch, application_state_dsn):
+    from application_state.errors import ApplicationStateConflictError
+    monkeypatch.setenv("DMB_ARTIFACT_DATA_ROOT", str(tmp_path))
+
+    def reject(**kwargs):
+        raise ApplicationStateConflictError("source conflict")
+
+    monkeypatch.setattr(sources, "persist_source_markdown", reject)
+    with pytest.raises(registry.SourceArtifactRegistryError, match="source body persistence"):
+        registry.create_recap_source_artifact(
+            tmp_path, world_id="source-world", campaign_id="source-campaign",
+            session_id="session-1", recap_text="Source\n",
+        )
+    assert not registry.source_artifacts_path(tmp_path).exists()
+
+
+def test_text_reader_preserves_exact_database_crlf(registered_source, monkeypatch):
+    root, artifact, _, _ = registered_source
+    raw = b"First\r\n\r\nSecond\r\n"
+    digest = hashlib.sha256(raw).hexdigest()
+    exact = artifact.model_copy(update={"content_sha256": digest})
+    sources.persist_source_markdown(
+        source_artifact_id=artifact.source_artifact_id, source_domain=str(artifact.source_domain),
+        world_id=artifact.world_id, campaign_id=artifact.campaign_id,
+        session_id=artifact.session_id, markdown=raw.decode(), content_sha256=digest,
+    )
+    monkeypatch.setattr(registry, "get_source_artifact", lambda *args: exact)
+    assert registry.load_registered_source_artifact_text(root, artifact.source_artifact_id)[1].encode() == raw

@@ -7,7 +7,8 @@ from uuid import uuid4
 
 import pytest
 
-from application_state.errors import ApplicationStateConflictError
+pytestmark = pytest.mark.usefixtures("application_state_dsn")
+
 from application_state.source.types import SourceMarkdownRecord
 from apps.live_control_server.services import graph_run_registry as runs
 from apps.live_control_server.services import worldbuilding_source_span_read as reader
@@ -144,83 +145,52 @@ def _open(root, artifact, span_id, batch=None):
     )
 
 
-def test_worldbuilding_run_persists_exact_registered_source(monkeypatch, tmp_path):
+def test_worldbuilding_registration_owns_storage_not_run_creation(monkeypatch, tmp_path):
+    from application_state.source import service as sources
     _document, artifact, markdown = _registered_source(tmp_path, monkeypatch)
-    persisted: list[dict] = []
-    monkeypatch.setattr(
-        runs,
-        "load_registered_source_artifact_text",
-        lambda _root, artifact_id: (artifact, markdown)
-        if artifact_id == artifact.source_artifact_id
-        else pytest.fail("wrong source artifact requested"),
-    )
-    monkeypatch.setattr(
-        runs.source_service,
-        "persist_source_markdown",
-        lambda **kwargs: persisted.append(kwargs),
-    )
-    monkeypatch.setattr(runs.ingest_service, "create_extraction_run", lambda run: run)
-
-    run = runs.create_extraction_run(
-        tmp_path,
+    stored = sources.get_source_markdown(
         source_artifact_id=artifact.source_artifact_id,
-        source_domain="worldbuilding",
-        campaign_id=artifact.campaign_id,
-        components={},
-        status=ExtractionRunStatus.DRAFT,
+        content_sha256=artifact.content_sha256,
     )
-
+    assert stored is not None
+    assert stored.markdown == markdown
+    assert stored.world_id == artifact.world_id
+    monkeypatch.setattr(sources, "persist_source_markdown", lambda **kwargs: pytest.fail("run adopted source again"))
+    monkeypatch.setattr(runs.ingest_service, "create_extraction_run", lambda run: run)
+    run = runs.create_extraction_run(
+        tmp_path, source_artifact_id=artifact.source_artifact_id,
+        source_domain="worldbuilding", campaign_id=artifact.campaign_id,
+        components={}, status=ExtractionRunStatus.DRAFT,
+    )
     assert run.source_artifact_id == artifact.source_artifact_id
-    assert len(persisted) == 1
-    assert persisted[0] == {
-        "source_artifact_id": artifact.source_artifact_id,
-        "source_domain": "worldbuilding",
-        "campaign_id": artifact.campaign_id,
-        "session_id": None,
-        "world_id": artifact.world_id,
-        "markdown": markdown,
-        "content_sha256": artifact.content_sha256,
-        "lineage": {
-            "adopted_from_uri": artifact.uri,
-            "workspace_document_id": artifact.workspace_document_id,
-            "workspace_document_revision": artifact.workspace_document_revision,
-        },
-    }
 
 
-def test_worldbuilding_persistence_failure_prevents_run_creation(monkeypatch, tmp_path):
-    _document, artifact, markdown = _registered_source(tmp_path, monkeypatch)
-    run_creation: list[object] = []
-    monkeypatch.setattr(
-        runs,
-        "load_registered_source_artifact_text",
-        lambda _root, _artifact_id: (artifact, markdown),
-    )
-
-    def reject_persist(**_kwargs):
-        raise ApplicationStateConflictError("source digest conflict")
-
-    monkeypatch.setattr(
-        runs.source_service,
-        "persist_source_markdown",
-        reject_persist,
-    )
-    monkeypatch.setattr(
-        runs.ingest_service,
-        "create_extraction_run",
-        lambda run: run_creation.append(run),
-    )
-
+def test_missing_durable_body_prevents_run_creation(monkeypatch, tmp_path, application_state_dsn):
+    import psycopg
+    _document, artifact, _markdown = _registered_source(tmp_path, monkeypatch)
+    with psycopg.connect(application_state_dsn) as conn:
+        conn.execute("DELETE FROM source.revision WHERE source_artifact_id=%s", (artifact.source_artifact_id,))
+    monkeypatch.setattr(runs.ingest_service, "create_extraction_run", lambda run: pytest.fail("created run without durable input"))
     with pytest.raises(runs.GraphRunRegistryError, match="durable worldbuilding source"):
         runs.create_extraction_run(
-            tmp_path,
-            source_artifact_id=artifact.source_artifact_id,
-            source_domain="worldbuilding",
-            campaign_id=artifact.campaign_id,
-            components={},
-            status=ExtractionRunStatus.DRAFT,
+            tmp_path, source_artifact_id=artifact.source_artifact_id,
+            source_domain="worldbuilding", campaign_id=artifact.campaign_id,
+            components={}, status=ExtractionRunStatus.DRAFT,
         )
-    assert run_creation == []
+
+
+@pytest.mark.parametrize("field", ["world_id", "campaign_id", "session_id", "source_domain", "content_sha256"])
+def test_run_rejects_source_binding_drift_before_creation(monkeypatch, tmp_path, field):
+    _document, artifact, markdown = _registered_source(tmp_path, monkeypatch)
+    changed = artifact.model_copy(update={field: "changed"})
+    monkeypatch.setattr(runs, "load_registered_source_artifact_bytes", lambda *args: (changed, markdown.encode()))
+    monkeypatch.setattr(runs.ingest_service, "create_extraction_run", lambda run: pytest.fail("created run from changed binding"))
+    with pytest.raises(runs.GraphRunRegistryError, match="binding changed"):
+        runs.create_extraction_run(
+            tmp_path, source_artifact_id=artifact.source_artifact_id,
+            source_domain="worldbuilding", campaign_id=artifact.campaign_id,
+            components={}, status=ExtractionRunStatus.DRAFT,
+        )
 
 
 def test_historical_span_reads_from_durable_body_after_workspace_edit_and_sidecar_loss(

@@ -12,6 +12,9 @@ from pathlib import Path
 
 from pydantic import BaseModel, Field, ValidationError
 
+from application_state.errors import ApplicationStateError
+from application_state.source import service as source_service
+
 from apps.live_control_server.config import ArtifactDataRootError, artifact_data_root
 
 from apps.live_control_server.services.tiptap_markdown_write import (
@@ -304,23 +307,8 @@ def resolve_worldbuilding_source_span(
             "resolve_worldbuilding_source_span requires a worldbuilding artifact",
             status_code=422,
         )
-    if not artifact.uri.startswith("repo://"):
-        raise SourceArtifactRegistryError("artifact uri must be repo-relative", status_code=500)
-    relpath = artifact.uri.removeprefix("repo://")
-    try:
-        target = resolve_tiptap_markdown_target(root, relpath)
-        text = _normalize_committed_markdown(target.read_text(encoding="utf-8"))
-    except (TiptapMarkdownWriteError, OSError) as exc:
-        raise SourceArtifactRegistryError(
-            f"failed to load artifact text for span resolution: {exc}",
-            status_code=500,
-        ) from exc
-    digest = hashlib.sha256(text.encode("utf-8")).hexdigest()
-    if digest != (artifact.content_sha256 or ""):
-        raise SourceArtifactRegistryError(
-            "artifact content digest mismatch during span resolution",
-            status_code=409,
-        )
+    _, raw = load_registered_source_artifact_bytes(root, source_artifact_id)
+    text = raw.decode("utf-8")
     index = load_source_span_index(root, source_artifact_id)
     refs = source_span_refs_from_index(index)
     if not refs:
@@ -464,6 +452,7 @@ def _create_source_artifact_from_workspace_document_unlocked(
         updated_at=now,
     )
 
+    _persist_registered_body(candidate, content)
     path = source_artifacts_path(root)
     with registry_mutation_lock(path):
         document, token = _load_unlocked(root)
@@ -592,6 +581,32 @@ def _normalize_source_text(text: str) -> str:
     return text.rstrip("\n") + "\n"
 
 
+def _persist_registered_body(artifact: GraphMemorySourceArtifact, content: str) -> None:
+    """Store product input bytes before exposing their descriptor to ingestion.
+
+    This does not admit source provenance or publish Graph facts. DungeonMind
+    owns those decisions; APP owns the immutable body supplied to them.
+    """
+    try:
+        source_service.persist_source_markdown(
+            source_artifact_id=artifact.source_artifact_id,
+            source_domain=str(artifact.source_domain),
+            campaign_id=artifact.campaign_id,
+            session_id=artifact.session_id,
+            world_id=artifact.world_id,
+            markdown=content,
+            content_sha256=artifact.content_sha256,
+            lineage={
+                "workspace_document_id": artifact.workspace_document_id,
+                "workspace_document_revision": artifact.workspace_document_revision,
+            } if artifact.workspace_document_id else {},
+        )
+    except ApplicationStateError as exc:
+        raise SourceArtifactRegistryError(
+            f"source body persistence failed: {exc}", status_code=exc.status_code,
+        ) from exc
+
+
 def _upsert_source_artifact(
     root: Path,
     *,
@@ -599,6 +614,7 @@ def _upsert_source_artifact(
     content: str,
 ) -> GraphMemorySourceArtifact:
     root = _artifact_root(root)
+    _persist_registered_body(candidate, content)
     path = source_artifacts_path(root)
     with registry_mutation_lock(path):
         document, token = _load_unlocked(root)
@@ -777,34 +793,9 @@ def load_registered_source_artifact_text(
     root: Path,
     source_artifact_id: str,
 ) -> tuple[GraphMemorySourceArtifact, str]:
-    """Load a registered SourceArtifact and its committed text bytes."""
-    artifact = get_source_artifact(root, source_artifact_id)
-    if not artifact.uri.startswith("repo://"):
-        raise SourceArtifactRegistryError(
-            "artifact uri must be repo-relative",
-            status_code=500,
-        )
-    relpath = artifact.uri.removeprefix("repo://")
-    target = _resolve_registry_content_path(root, relpath)
-    if not target.is_file():
-        raise SourceArtifactRegistryError(
-            "registered source artifact file is missing",
-            status_code=409,
-        )
-    try:
-        content = _normalize_source_text(target.read_text(encoding="utf-8"))
-    except OSError as exc:
-        raise SourceArtifactRegistryError(
-            f"failed to read registered source artifact: {exc}",
-            status_code=500,
-        ) from exc
-    digest = hashlib.sha256(content.encode("utf-8")).hexdigest()
-    if digest != (artifact.content_sha256 or ""):
-        raise SourceArtifactRegistryError(
-            "registered source artifact digest mismatch",
-            status_code=409,
-        )
-    return artifact, content
+    """Open the same exact database body as the byte reader, without normalization."""
+    artifact, raw = load_registered_source_artifact_bytes(root, source_artifact_id)
+    return artifact, raw.decode("utf-8")
 
 
 def _read_exact_repo_uri_bytes(root: Path, uri: str) -> bytes:
