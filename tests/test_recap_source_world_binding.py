@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 from pathlib import Path
 from uuid import uuid4
 
@@ -13,7 +14,7 @@ from apps.live_control_server.services.graph_run_registry import (
 from application_state.ingest import service as ingest_service
 from application_state.source import service as source_service
 from graph_memory.evidence.source_artifact import GraphMemorySourceArtifact
-from src.live_play.live_store import write_json
+pytestmark = pytest.mark.usefixtures("application_state_dsn")
 
 
 def test_same_recap_is_idempotent_per_world_and_distinct_across_worlds(
@@ -66,32 +67,28 @@ def test_fresh_recap_requires_world_before_writing_registry_or_source_bytes(
             recap_text="Session 29\n\nNo implicit World.\n",
         )
 
-    assert not registry.source_artifacts_path(tmp_path).exists()
+    assert not (tmp_path / "out/registries/source_artifacts.json").exists()
     assert not (tmp_path / registry.DEFAULT_RECAP_SOURCE_CONTENT_ROOT).exists()
     assert not (tmp_path / registry.DEFAULT_SOURCE_SPAN_INDEX_DIR_REL).exists()
 
 
-def test_existing_worldless_recap_registry_entry_remains_unchanged(tmp_path: Path) -> None:
+def test_explicitly_registered_worldless_recap_remains_unchanged(tmp_path: Path) -> None:
+    content = "# Older recap\n"
     legacy = GraphMemorySourceArtifact(
         source_artifact_id="artifact:recap:longmont-c2:session-28:abc123abc123",
         source_domain="recap",
         campaign_id="longmont-c2",
         session_id="session-28",
         uri="repo://legacy/recap.md",
-        content_sha256="a" * 64,
+        content_sha256=hashlib.sha256(content.encode()).hexdigest(),
     )
-    path = registry.source_artifacts_path(tmp_path)
-    path.parent.mkdir(parents=True, exist_ok=True)
-    write_json(
-        path,
-        registry.SourceArtifactRegistryDocument(records=[legacy]).model_dump(mode="json"),
-    )
-
+    registered = registry._upsert_source_artifact(tmp_path, candidate=legacy, content=content)
+    before = source_service.get_source_input_descriptors(source_artifact_ids=[legacy.source_artifact_id])
     loaded = registry.get_source_artifact(tmp_path, legacy.source_artifact_id)
-
-    assert loaded == legacy
+    assert loaded == registered
     assert loaded.world_id is None
-    assert registry._load(tmp_path).records == [legacy]
+    assert source_service.get_source_input_descriptors(source_artifact_ids=[legacy.source_artifact_id]) == before
+    assert registry.load_registered_source_artifact_text(tmp_path, legacy.source_artifact_id)[1] == content
 
 
 def test_mismatched_world_run_is_rejected_before_source_or_run_persistence(
@@ -108,6 +105,10 @@ def test_mismatched_world_run_is_rejected_before_source_or_run_persistence(
     )
     run_id = f"world-binding-mismatch-{uuid4()}"
 
+    original_body = source_service.get_source_markdown(
+        source_artifact_id=artifact.source_artifact_id, content_sha256=artifact.content_sha256 or "",
+    )
+    assert original_body is not None
     with pytest.raises(GraphRunRegistryError, match="does not match its exact"):
         create_extraction_run(
             tmp_path,
@@ -128,5 +129,5 @@ def test_mismatched_world_run_is_rejected_before_source_or_run_persistence(
             source_artifact_id=artifact.source_artifact_id,
             content_sha256=artifact.content_sha256 or "",
         )
-        is None
+        == original_body
     )

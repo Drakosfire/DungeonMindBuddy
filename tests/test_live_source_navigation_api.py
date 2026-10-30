@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import hashlib
-import json
 from pathlib import Path
 
 import pytest
@@ -14,7 +13,7 @@ from apps.live_control_server.services.source_artifact_registry import (
     create_recap_source_artifact,
     create_source_artifact_from_workspace_document,
     load_source_span_index,
-    source_artifacts_path,
+    get_source_artifact,
 )
 from apps.live_control_server.services.tiptap_markdown_write import (
     TiptapMarkdownWriteCommitRequest,
@@ -26,7 +25,9 @@ from apps.live_control_server.services.workspace_document_registry import (
     create_workspace_document,
     workspace_documents_path,
 )
-from src.live_play.live_store import load_json, write_json
+from src.live_play.live_store import load_json
+
+pytestmark = pytest.mark.usefixtures("application_state_dsn")
 
 GLASS_ORCHARD_WORLD_ID = "the-glass-orchard"
 
@@ -43,7 +44,9 @@ def client(root: Path, monkeypatch: pytest.MonkeyPatch) -> TestClient:
         "apps.live_control_server.routes.source_navigation.repo_root",
         lambda: root,
     )
-    return TestClient(create_app())
+    monkeypatch.setenv("DMB_DEPLOYMENT_ENVIRONMENT", "local")
+    monkeypatch.setenv("DMB_AUTH_MODE", "local_operator")
+    return TestClient(create_app(), client=("127.0.0.1", 50000))
 
 
 def _commit_markdown(
@@ -236,17 +239,17 @@ def test_recap_artifact_rejected(client: TestClient, root: Path) -> None:
     assert response.status_code == 422
 
 
-def test_foreign_world_lineage_mismatch_rejected(client: TestClient, root: Path) -> None:
+def test_foreign_world_lineage_mismatch_rejected(client: TestClient, root: Path, application_state_dsn: str) -> None:
     markdown = "# Hesta\n\nFirst paragraph.\n\nSecond paragraph for evidence.\n\nThird.\n"
     artifact_id, _document_id, span_id, _, _ = _setup_glass_orchard_source(root, markdown)
 
-    registry_path = source_artifacts_path(root)
-    payload = load_json(registry_path)
-    for record in payload.get("records", []):
-        if record.get("source_artifact_id") == artifact_id:
-            record["world_id"] = "other-world"
-            record["campaign_id"] = "other-world"
-    write_json(registry_path, payload)
+    # Deliberate test-owned DB corruption: the source belongs to a different
+    # World than the linked workspace document. File metadata cannot grant scope.
+    import psycopg
+    with psycopg.connect(application_state_dsn) as conn:
+        conn.execute("""UPDATE source.artifact SET world_id='other-world', campaign_id='other-world',
+            input_descriptor=jsonb_set(jsonb_set(input_descriptor,'{world_id}','"other-world"'),
+                '{campaign_id}','"other-world"') WHERE source_artifact_id=%s""", (artifact_id,))
 
     response = client.get(_navigation_url(artifact_id=artifact_id, span_id=span_id))
     assert response.status_code == 409
@@ -277,9 +280,8 @@ def test_navigation_is_read_only(client: TestClient, root: Path) -> None:
     markdown = "# Hesta\n\nFirst paragraph.\n\nSecond paragraph for evidence.\n\nThird.\n"
     artifact_id, document_id, span_id, _, _ = _setup_glass_orchard_source(root, markdown)
 
-    artifact_registry = source_artifacts_path(root)
     workspace_registry = workspace_documents_path(root)
-    before_artifact_registry = _registry_digest(artifact_registry)
+    before_source_metadata = get_source_artifact(root, artifact_id)
     before_workspace_registry = _registry_digest(workspace_registry)
     target_relpath = None
     for record in load_json(workspace_registry).get("records", []):
@@ -295,6 +297,6 @@ def test_navigation_is_read_only(client: TestClient, root: Path) -> None:
         assert response.status_code == 200
         assert response.json()["status"] == "exact"
 
-    assert _registry_digest(artifact_registry) == before_artifact_registry
+    assert get_source_artifact(root, artifact_id) == before_source_metadata
     assert _registry_digest(workspace_registry) == before_workspace_registry
     assert hashlib.sha256(source_path.read_bytes()).hexdigest() == before_source_digest
