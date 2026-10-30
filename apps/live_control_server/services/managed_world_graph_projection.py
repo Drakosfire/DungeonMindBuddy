@@ -15,7 +15,6 @@ from apps.live_control_server.services.world_container_registry import (
     NativeGraphProvisioningRecord,
     WorldContainerRegistryError,
     get_world_container,
-    world_source_root_relpath,
 )
 from apps.live_control_server.services.world_graph_projection import (
     WorldGraphProjectionServiceError,
@@ -63,7 +62,7 @@ class ManagedWorldGraphProjectionResponse(BaseModel):
 
 @dataclass(frozen=True)
 class VerifiedManagedWorldBinding:
-    """Private source-root proof and active native publication/read identity."""
+    """Active native identity with a legacy source-storage hint, not a proof."""
 
     managed_world_id: str
     native_world_id: str
@@ -97,14 +96,10 @@ def _verified_managed_record(root: Path, managed_world_id: str) -> WorldContaine
             status_code=exc.status_code,
         ) from None
 
-    expected_source_root = world_source_root_relpath(record.world_id)
-    if (
-        record.source_root_relpath != expected_source_root
-        or not (root / expected_source_root).is_dir()
-    ):
+    if record.world_id != managed_world_id:
         raise WorldGraphProjectionServiceError(
-            "Managed World is not verified by its source root.",
-            code="managed_world_unverified",
+            "Managed World record does not match the requested identity.",
+            code="managed_world_identity_mismatch",
             status_code=409,
         )
     return record

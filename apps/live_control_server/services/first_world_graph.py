@@ -113,12 +113,8 @@ def _digest(payload: object) -> str:
     return f"sha256:{hashlib.sha256(_canonical_json(payload).encode('utf-8')).hexdigest()}"
 
 
-def expected_source_root_relpath(world_id: str) -> str:
-    return f"corpus/{world_id}-markdown"
-
-
 def admit_managed_world(repo: Path, world_id: str):
-    """Fail closed unless W is a managed world with matching source root."""
+    """Require the exact registered World; a corpus folder grants no authority."""
     cleaned = (world_id or "").strip()
     if not cleaned:
         raise WorldbuildingWritePlanError(
@@ -134,23 +130,9 @@ def admit_managed_world(repo: Path, world_id: str):
             code="world_unmanaged",
             status_code=422,
         ) from exc
-    expected = expected_source_root_relpath(cleaned)
     if record.world_id != cleaned:
         raise WorldbuildingWritePlanError(
             "managed world record world_id mismatch",
-            code="world_unmanaged",
-            status_code=422,
-        )
-    if record.source_root_relpath != expected:
-        raise WorldbuildingWritePlanError(
-            f"managed world source root must be {expected!r}",
-            code="world_unmanaged",
-            status_code=422,
-        )
-    source_root = (repo / record.source_root_relpath).resolve()
-    if not source_root.is_dir():
-        raise WorldbuildingWritePlanError(
-            f"managed world source root does not exist: {expected}",
             code="world_unmanaged",
             status_code=422,
         )
