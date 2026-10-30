@@ -16,6 +16,7 @@ from application_state.errors import (
     ApplicationStateUnavailableError,
 )
 from application_state.ingest.service import list_extraction_runs
+from apps.live_control_server.services.native_recap_source_admission import public_run
 
 INGEST_RUN_CATALOG_SCHEMA = "dmb_extraction_run_catalog_v1"
 
@@ -73,6 +74,6 @@ def list_canonical_extraction_runs() -> dict[str, Any]:
             status_code=exc.status_code,
         ) from exc
 
-    runs = [record.model_dump(mode="json") for record in records]
+    runs = [public_run(record) for record in records]
     runs.sort(key=_sort_key)
     return {"schema_version": INGEST_RUN_CATALOG_SCHEMA, "runs": runs}

@@ -1636,6 +1636,29 @@ def record_recap_semantic_disposition(
 
 
 def create_extraction_run(run: ExtractionRun) -> ExtractionRun:
+    if (
+        "native_recap_source" in run.lineage
+        or run.profile_id == "fresh_recap_native_source_v1"
+    ):
+        from graph_memory.ingestion.native_recap_source import Record, PROFILE
+
+        try:
+            record = Record.model_validate(run.lineage.get("native_recap_source"))
+            if (
+                run.run_id != record.run_id
+                or run.profile_id != PROFILE
+                or run.components
+                or run.status != ExtractionRunStatus.DRAFT
+                or run.source_artifact_id != record.app_source_artifact_id
+                or run.source_domain != "recap"
+                or run.campaign_id != record.campaign_id
+                or run.session_id != record.session_id
+            ):
+                raise ValueError("Invalid source-only run")
+        except ValueError as exc:
+            raise ApplicationStateValidationError(
+                "Invalid native recap source intent"
+            ) from exc
     if run.status in TERMINAL_EXTRACTION_RUN_STATUSES:
         raise ApplicationStateValidationError(
             "cannot create an extraction run directly in a terminal status"
@@ -1674,6 +1697,14 @@ def update_extraction_run(
         existing = repo.lock_run(conn, canonical)
         if existing is None:
             raise ApplicationStateNotFoundError(f"extraction run not found: {canonical}")
+        if (
+            "native_recap_source" in existing.lineage
+            or existing.profile_id == "fresh_recap_native_source_v1"
+            or (lineage is not None and "native_recap_source" in lineage)
+        ):
+            raise ApplicationStateConflictError(
+                "Native source-only runs use their exact admission recovery, never generic extraction"
+            )
         if existing.revision != expected_revision:
             raise ApplicationStateConflictError(
                 f"revision mismatch: expected {expected_revision}, current {existing.revision}"
@@ -1737,6 +1768,13 @@ def supersede_extraction_run(
         existing = repo.lock_run(conn, canonical)
         if existing is None:
             raise ApplicationStateNotFoundError(f"extraction run not found: {canonical}")
+        if (
+            "native_recap_source" in existing.lineage
+            or existing.profile_id == "fresh_recap_native_source_v1"
+            or "native_recap_source" in successor.lineage
+            or successor.profile_id == "fresh_recap_native_source_v1"
+        ):
+            raise ApplicationStateConflictError("Native source intents cannot be superseded by extraction")
         if existing.revision != expected_revision:
             raise ApplicationStateConflictError(
                 f"revision mismatch: expected {expected_revision}, current {existing.revision}"
@@ -1753,9 +1791,13 @@ def supersede_extraction_run(
             }
         )
         if predecessor.superseded_by_run_id != successor.run_id:
-            raise ApplicationStateIntegrityError("supersession lineage is not reciprocal")
+            raise ApplicationStateIntegrityError(
+                "supersession lineage is not reciprocal"
+            )
         if successor.supersedes_run_id != predecessor.run_id:
-            raise ApplicationStateIntegrityError("supersession lineage is not reciprocal")
+            raise ApplicationStateIntegrityError(
+                "supersession lineage is not reciprocal"
+            )
         try:
             inserted = repo.insert_run(conn, successor)
             persisted = repo.cas_update_run(
@@ -1769,3 +1811,59 @@ def supersede_extraction_run(
             )
         _validate_connected_lineage(conn, inserted)
         return inserted
+
+
+def update_native_recap_source(
+    run_id: str, *, expected_revision: int, record
+) -> ExtractionRun:
+    """Narrow same-lifecycle CAS. No source intent/effect authority outside this row."""
+    from graph_memory.ingestion.native_recap_source import (
+        Record,
+        KEY,
+        PROFILE,
+        validate_change,
+    )
+
+    canonical = _require_run_id(run_id)
+    try:
+        value = Record.model_validate(record)
+    except ValueError as exc:
+        raise ApplicationStateConflictError(
+            "Native source intent correspondence changed"
+        ) from exc
+    dsn = load_runtime_dsn()
+    assert_at_head(dsn=dsn)
+    with unit_of_work(dsn) as conn:
+        existing = repo.lock_run(conn, canonical)
+        if existing is None:
+            raise ApplicationStateNotFoundError("Native source intent not found")
+        if existing.revision != expected_revision:
+            raise ApplicationStateConflictError("Native source intent revision changed")
+        if (
+            existing.status != ExtractionRunStatus.DRAFT
+            or existing.profile_id != PROFILE
+            or existing.components
+        ):
+            raise ApplicationStateConflictError("Not a native source-only run")
+        try:
+            prior = Record.model_validate(existing.lineage.get(KEY))
+            validate_change(prior, value)
+            if canonical != value.run_id:
+                raise ValueError("Foreign source intent")
+        except ValueError as exc:
+            raise ApplicationStateConflictError(
+                "Native source intent correspondence changed"
+            ) from exc
+        updated = existing.model_copy(
+            update={
+                "revision": existing.revision + 1,
+                "updated_at": _iso_now(),
+                "lineage": {**existing.lineage, KEY: value.model_dump(mode="json")},
+            }
+        )
+        persisted = repo.cas_update_run(
+            conn, updated, expected_revision=expected_revision
+        )
+        if persisted is None:
+            raise ApplicationStateConflictError("Native source intent CAS lost")
+        return persisted

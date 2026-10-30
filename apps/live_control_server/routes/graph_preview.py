@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from apps.live_control_server.services.native_recap_source_admission import public_run
+
 from pathlib import Path
 from typing import Annotated, Any
 
@@ -183,7 +185,7 @@ def get_extraction_run_by_id(run_id: str) -> dict[str, Any]:
         run = get_extraction_run(repo_root(), run_id)
     except GraphRunRegistryError as exc:
         raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc
-    return run.model_dump(mode="json")
+    return public_run(run)
 
 
 @router.get("/extraction-runs/{run_id}/recap-inspection")
@@ -352,7 +354,7 @@ def get_extraction_run_build_context(run_id: str) -> dict[str, Any]:
     }
     return {
         "schema_version": "dmb_extraction_run_status_v1",
-        "run": run.model_dump(mode="json"),
+        "run": public_run(run),
         "source_artifact_id": artifact.source_artifact_id,
         "document_id": document_id,
         "document_revision": document_revision,
@@ -502,7 +504,7 @@ def post_extraction_run(body: dict[str, Any]) -> dict[str, Any]:
     content_sha256 = artifact.content_sha256 or expected_content_sha256.removeprefix("sha256:").strip().lower()
     return {
         "schema_version": "dmb_extraction_run_launch_v1",
-        "run": result.run.model_dump(mode="json"),
+        "run": public_run(result.run),
         "source_artifact_id": artifact.source_artifact_id,
         "document_id": record.document_id,
         "document_revision": record.revision,

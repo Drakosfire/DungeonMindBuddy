@@ -22,12 +22,18 @@ from graph_memory.ingestion.extraction_run import (
 )
 
 
+@pytest.fixture(autouse=True)
+def _declared_local_requests(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("DMB_DEPLOYMENT_ENVIRONMENT", "local")
+    monkeypatch.setenv("DMB_AUTH_MODE", "local_operator")
+
+
 @pytest.fixture
 def client(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, application_state_dsn: str
 ) -> TestClient:
     monkeypatch.setattr("apps.live_control_server.routes.graph_preview.repo_root", lambda: tmp_path)
-    return TestClient(create_app())
+    return TestClient(create_app(), client=("127.0.0.1", 50000))
 
 
 def _run(*, run_id: str | None = None, **overrides) -> ExtractionRun:
