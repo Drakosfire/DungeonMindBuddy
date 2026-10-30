@@ -125,8 +125,8 @@ def test_query_does_not_open_clauses_before_selected_read(lane, monkeypatch):
     assert ctx is not None and result.matches
 
 
-@pytest.mark.parametrize('whole_clause', [False, True])
-def test_ordinary_http_query_selects_native_support_in_actual_sdk_and_reopens(lane, application_state_dsn, monkeypatch, tmp_path, whole_clause):
+@pytest.mark.parametrize('whole_clause,unavailable_read', [(False, False), (True, False), (False, True)])
+def test_ordinary_http_query_selects_native_support_in_actual_sdk_and_reopens(lane, application_state_dsn, monkeypatch, tmp_path, whole_clause, unavailable_read):
     import json
     import httpx2
     from hashlib import sha256
@@ -172,11 +172,17 @@ def test_ordinary_http_query_selects_native_support_in_actual_sdk_and_reopens(la
     monkeypatch.setattr(agent, '_graph_resolver', lambda *_: pytest.fail('Generic Graph fallback'))
     monkeypatch.setattr('apps.live_control_server.integrations.dungeonmind.world_graph_reads.direct_services_from_config',
         lambda *_: pytest.fail('Classic reader used by default Plan query'))
+    examined_inputs = []
+    if unavailable_read:
+        monkeypatch.setattr(native_query, 'read_selected', lambda context, authorization, principal:
+            ((), authorization.statement_ids))
     class Decisions(httpx2.AsyncBaseTransport):
         async def handle_async_request(self, req):
             body = json.loads(req.content)
             candidates = body.get('state', {}).get('candidates', [])
             native = {i for i, c in enumerate(candidates) if str(c.get('kind', '')).startswith('Qualified native')}
+            examined_inputs.extend(row for row in body.get('state', {}).get('examined_subjects', [])
+                if row['kind'].startswith('Previously selected native statement:'))
             assert BODY not in req.content.decode()
             assert all(candidates[i]['label'].startswith('About B [') for i in native)
             answers = {}
@@ -191,6 +197,12 @@ def test_ordinary_http_query_selects_native_support_in_actual_sdk_and_reopens(la
     class Writer(WriterWire):
         async def handle_async_request(self, req):
             frame = json.loads(json.loads(req.content)['input'][0]['content'])
+            if unavailable_read:
+                assert not frame['native_statements']['statements']
+                self.text = json.dumps({'schema': frame['answer_policy'], 'answer_segments': [],
+                    'limitations': ['missing_requested_details', 'partial_retrieval'],
+                    'requested_detail_gaps': [{'question_phrase': 'What did B do?'}]})
+                return await super().handle_async_request(req)
             row = frame['native_statements']['statements'][0]
             assert row['payload']['quote'] == BODY.splitlines(keepends=True)[0]
             assert row['payload']['embedded_content_factive'] is False
@@ -217,6 +229,16 @@ def test_ordinary_http_query_selects_native_support_in_actual_sdk_and_reopens(la
     app = FastAPI(); app.include_router(agent.router, prefix='/api/live')
     client = TestClient(app, client=('127.0.0.1', 42000), headers={'Authorization': 'Bearer ' + token})
     response = client.post('/api/live/agent/turn', json=request.model_dump(mode='json', by_alias=True))
+    assert len(examined_inputs) == 1
+    assert examined_inputs[0]['label'].startswith('About B [')
+    assert (': unavailable;' if unavailable_read else ': opened;') in examined_inputs[0]['kind']
+    if unavailable_read:
+        assert response.status_code == 200, response.text + getattr(wire, 'failure', '')
+        assert not response.json()['plan_context']['completion']['native_clause_citations']
+        replay = client.post('/api/live/agent/turn', json=request.model_dump(mode='json', by_alias=True))
+        assert replay.json()['plan_context']['completion'] == response.json()['plan_context']['completion']
+        assert len(wire.calls) == 1
+        return
     if whole_clause:
         assert response.status_code == 503 and not wire.calls
         assert 'explicit full-document decision' in wire.failure
@@ -242,6 +264,34 @@ def test_ordinary_http_query_selects_native_support_in_actual_sdk_and_reopens(la
     settled = turn.graph_context_execution.model_copy(update={'events': [
         unavailable if e is observation else e for e in events]})
     validate_execution(turn.graph_context_receipt, settled)
+    # New controller calls cannot outrun a read or substitute another frozen query.
+    import asyncio
+    from apps.live_control_server.services.plan_jev_driver import PlanJevDriver
+    driver = PlanJevDriver(wire.adapter)
+    assert len(driver._native_statement_examined()) == 1
+    assert ': opened;' in driver._native_statement_examined()[0].kind
+    class NoProvider(httpx2.AsyncBaseTransport):
+        async def handle_async_request(self, req):
+            pytest.fail('Controller provider reached before acquisition validation')
+    original_execution = wire.adapter._broker_execution
+    grant_index = next(i for i, e in enumerate(events) if e.kind == 'native_plan_statement_read_authorized_v1')
+    unfinished = turn.graph_context_execution.model_copy(update={'events': events[:grant_index + 1]})
+    monkeypatch.setattr(wire.adapter, '_broker_execution', lambda: unfinished)
+    with pytest.raises(ValueError, match='must settle before another controller'):
+        asyncio.run(driver.run(transport=NoProvider(), api_key='synthetic-not-secret'))
+    monkeypatch.setattr(wire.adapter, '_broker_execution', lambda: settled)
+    assert ': unavailable;' in driver._native_statement_examined()[0].kind
+    monkeypatch.setattr(wire.adapter, '_broker_execution', original_execution)
+    original_query = wire.adapter.native_query
+    monkeypatch.setattr(wire.adapter, 'native_query', original_query.model_copy(update={'question': 'Foreign question'}))
+    with pytest.raises(ValueError, match='differs from its frozen receipt'):
+        asyncio.run(driver.run(transport=NoProvider(), api_key='synthetic-not-secret'))
+    monkeypatch.setattr(wire.adapter, 'native_query', original_query)
+    duplicated = turn.graph_context_execution.model_copy(update={'events': [*events, observation]})
+    monkeypatch.setattr(wire.adapter, '_broker_execution', lambda: duplicated)
+    with pytest.raises(ValueError, match='observation differs'):
+        asyncio.run(driver.run(transport=NoProvider(), api_key='synthetic-not-secret'))
+    monkeypatch.setattr(wire.adapter, '_broker_execution', original_execution)
     advance(lane)
     opened = client.get(f'/api/live/agent/worlds/{world}/conversation/turns/{turn.turn_id}/native-source-clauses/0')
     assert opened.status_code == 200, opened.text

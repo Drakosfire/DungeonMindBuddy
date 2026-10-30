@@ -1,0 +1,13 @@
+# AGENT — report settled native reads to the controller
+
+ACTIVE bounded code-only lease. PRIME owns one serial repair under the standing goal. Base46316727a10666d2160e2d707a578349bf5b020b, branch codex/native-read-controller-feedback, reused buddy-context-loop/dependencies. Open ingestion1853/1855/1868, hosted1828 and held1764 remain separate. No new checkout/environment.
+
+## Confirmed defect and limits
+ADVERSARY1919 actual-controller audit shows all selected native support disappears from offered candidates but never appears in examined_subjects. Four native statements remain present in writer input; this is missing controller acquisition feedback, not missing writer evidence. Q01 still reads12whole documents; all explicitly selected. Causation or efficiency benefit is unproven.
+
+Restore existing examined navigation rows from frozen query, authorized read and exactly one settled durable observation under the same turn/original controller attempt. Reuse APPvalidate_execution as the owner of joins/authority. Preserve earlier settled reads across later controller attempts. Labels/handles come from that frozen query. Report only opened or unavailable; neither means sufficient/relevant/fullyanswered. Refuse next controller dispatch while a grant is unsettled; keep APPwriter enforcement. Reject foreign/duplicate/inconsistent joins. No clauses/payloads/meaning/source bodies in controller input, no extra reads, new schema/authority, host-forced stop or caps.
+
+Independent architecture_review_1197 approved before implementation, including pending-dispatch refusal as driver control flow over APP-owned state. Failed instruction-only1920 exactc45d00f is closed unmerged with retained SDK/raw evidence; its instructions do not carry over. Sol-low exact1919writer diagnostic also omitted context; no production model change. Q13strict2+1partial/corefacts+support3/3 and upstreamcontext/admission gaps remain explicit.
+
+## Exclusive paths and gates
+This handoff; navigation-label predecessor status; apps/live_control_server/services/plan_jev_driver.py; tests/test_native_plan_statements.py. Prove actual successive controller SDK input includes opened/unavailable outcomes without source bodies; earlier settled support persists; pending/foreign/duplicate refusal before provider I/O; no extra reads. Existing HTTP/APP/producer/history/citation and driver regressions. Inspect cumulative diff, independent exact-head Bugbot, CI, commit/push/open owning PR. Separately pinned unchanged ordinary Q01/Q13 evaluation before stopping/latency/quality claims. No provider/evaluator/primary write lease is activated by this code contract; protected delivery follows standing PRIME authority and gates.
