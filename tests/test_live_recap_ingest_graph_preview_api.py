@@ -18,6 +18,12 @@ CANDIDATE_FIXTURE = FIXTURE_DIR / "candidate_graph_fixture.json"
 
 
 @pytest.fixture(autouse=True)
+def _declared_local_requests(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("DMB_DEPLOYMENT_ENVIRONMENT", "local")
+    monkeypatch.setenv("DMB_AUTH_MODE", "local_operator")
+
+
+@pytest.fixture(autouse=True)
 def _ingest_application_state(application_state_dsn: str) -> str:
     return application_state_dsn
 
@@ -158,7 +164,7 @@ def client_env(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> tuple[TestCli
     candidate.parent.mkdir(parents=True, exist_ok=True)
     candidate.write_text(CANDIDATE_FIXTURE.read_text(encoding="utf-8"), encoding="utf-8")
     try:
-        yield TestClient(create_app()), corpus, candidate
+        yield TestClient(create_app(), client=("127.0.0.1", 50000)), corpus, candidate
     finally:
         shutil.rmtree(graph_runs, ignore_errors=True)
 
@@ -397,7 +403,7 @@ def test_recap_ingest_build_graph_preview_bundle_from_normalized_recap(client_en
         },
     )
 
-    assert response.status_code == 200
+    assert response.status_code == 200, response.text
     body = response.json()
     graph = body["ingest_report"]["graph_preview"]
     assert graph["status"] == "source_span_bundle_ready"
@@ -1476,7 +1482,7 @@ def recap_inspection_client(
         lambda: tmp_path,
         raising=False,
     )
-    return TestClient(create_app())
+    return TestClient(create_app(), client=("127.0.0.1", 50000))
 
 
 def test_recap_inspection_route_returns_validated_source(

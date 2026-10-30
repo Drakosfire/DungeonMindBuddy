@@ -34,7 +34,10 @@ from apps.live_control_server.routes.party_registry import router as party_regis
 from apps.live_control_server.routes.play_runs import router as play_runs_router
 from apps.live_control_server.routes.source_statements import router as source_statements_router
 from apps.live_control_server.routes.play_prepared_tables import router as play_prepared_tables_router
-from apps.live_control_server.routes.recap_ingest import router as recap_ingest_router
+from apps.live_control_server.routes.recap_ingest import (
+    router as recap_ingest_router,
+    resolve_native_recap_hosted_world,
+)
 from apps.live_control_server.routes.world_graph_bootstrap import (
     router as world_graph_bootstrap_router,
 )
@@ -131,12 +134,19 @@ def _load_graph_preview_router():
     return router
 
 
+HOSTED_WORLD_SCOPE_RESOLVERS = {
+    ("POST", "/api/live/recap-ingest"): resolve_native_recap_hosted_world,
+}
+
+
 @asynccontextmanager
 async def lifespan(_application: FastAPI) -> AsyncIterator[None]:
     """Prepare local Agent dependencies and own deterministic host shutdown."""
     dms_http_client: httpx.AsyncClient | None = None
     if deployment_environment() == PRODUCTION_ENVIRONMENT:
-        config_errors = validate_hosted_auth_configuration()
+        config_errors = validate_hosted_auth_configuration(
+            world_scope_resolvers=HOSTED_WORLD_SCOPE_RESOLVERS
+        )
         if config_errors:
             raise RuntimeError(
                 "hosted_auth_configuration_invalid:" + ",".join(config_errors)
@@ -205,7 +215,9 @@ def create_app() -> FastAPI:
     application.include_router(statblock_candidates_router)
     application.include_router(source_navigation_router)
 
-    install_hosted_request_boundary(application)
+    install_hosted_request_boundary(
+        application, world_scope_resolvers=HOSTED_WORLD_SCOPE_RESOLVERS
+    )
 
     @application.get(CURRENT_USER_PATH, include_in_schema=False)
     async def current_user(request: Request) -> dict[str, str]:
@@ -316,7 +328,9 @@ def create_app() -> FastAPI:
     def health_ready() -> dict[str, str] | Response:
         if deployment_environment() != PRODUCTION_ENVIRONMENT:
             return {"status": "ready"}
-        config_errors = validate_hosted_auth_configuration()
+        config_errors = validate_hosted_auth_configuration(
+            world_scope_resolvers=HOSTED_WORLD_SCOPE_RESOLVERS
+        )
         if config_errors:
             return JSONResponse(
                 status_code=503,

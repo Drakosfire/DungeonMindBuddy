@@ -25,6 +25,12 @@ def _seed_corpus(tmp_path: Path) -> Path:
     return corpus
 
 
+@pytest.fixture(autouse=True)
+def _declared_local_requests(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("DMB_DEPLOYMENT_ENVIRONMENT", "local")
+    monkeypatch.setenv("DMB_AUTH_MODE", "local_operator")
+
+
 @pytest.fixture
 def isolated_session(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     for name in ("live_packet.json", "surface_layout.json", "current_state.json"):
@@ -39,7 +45,7 @@ def isolated_session(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
 
 @pytest.fixture
 def client(isolated_session: Path) -> TestClient:
-    return TestClient(create_app())
+    return TestClient(create_app(), client=("127.0.0.1", 50000))
 
 
 def _raw_text() -> str:
