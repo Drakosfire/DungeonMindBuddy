@@ -1572,7 +1572,6 @@ def verify_child_replay(run, parent, root: Path) -> bool:
     try:
         from application_state.ingest.service import RecapSemanticBasisV12
         from apps.live_control_server.services.source_artifact_registry import (
-            _read_exact_repo_uri_bytes,
             load_registered_source_artifact_bytes,
         )
         from graph_memory.evidence.source_artifact import validate_source_artifact_scope
@@ -1598,10 +1597,9 @@ def verify_child_replay(run, parent, root: Path) -> bool:
             if key == "source_artifact" and not source_binding and parent_ref != child_ref:
                 return False
             for owner, ref in (("parent", parent_ref), ("child", child_ref)):
-                value = _read_exact_repo_uri_bytes(root, ref.uri)
-                if _sha(value) != ref.sha256.removeprefix("sha256:"):
-                    return False
-                material[f"{owner}:{key}"] = value
+                material[f"{owner}:{key}"] = _frozen_component(
+                    parent if owner == "parent" else run, key, root,
+                )
         if run.lineage.get("derivation") == SOURCE_BINDING_DERIVATION_V11:
             raw_basis = run.lineage.get("semantic_source_binding_basis_v12")
             if not isinstance(raw_basis, dict):
@@ -1781,20 +1779,19 @@ def inherited_pc_proof_digest(proof: dict) -> str:
 
 
 def _frozen_component(run: ExtractionRun, key: str, root: Path) -> bytes:
-    """Read one exact immutable component without escaping its artifact root."""
-    from apps.live_control_server.services.source_artifact_registry import (
-        SourceArtifactRegistryError,
-        _read_exact_repo_uri_bytes,
-    )
+    """Open the exact stored binding; locators never select replay evidence."""
+    from application_state.errors import ApplicationStateError
+    from application_state.ingest.components import get_component_bytes
+    from apps.live_control_server.services.graph_run_registry import load_run_source_input
 
     ref = run.components[key]
     try:
-        value = _read_exact_repo_uri_bytes(root, ref.uri)
-    except SourceArtifactRegistryError as exc:
-        raise _reject("inherited PC component escaped its artifact root", status_code=409) from exc
-    if _sha(value) != ref.sha256.removeprefix("sha256:"):
-        raise _reject("inherited PC component digest changed", status_code=409)
-    return value
+        if key == "source_artifact":
+            return load_run_source_input(root, run)[1]
+        return get_component_bytes(run_id=run.run_id, kind=ref.kind, content_sha256=ref.sha256)
+    except (ApplicationStateError, GraphRunRegistryError) as exc:
+        raise _reject(f"stored correction component unavailable: {exc}",
+            status_code=exc.status_code if exc.status_code >= 500 else 409) from exc
 
 
 def _unique_pc_node(payload: dict, node_id: str) -> dict:

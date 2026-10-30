@@ -76,9 +76,11 @@ def test_append_durable_child_fresh_read_retry_and_pc_proof(disposable_append_ap
     original_descriptors = source_service.get_source_input_descriptors
     original_source_body = source_service.get_source_markdown
     from application_state.ingest import components as output_store
+    original_get_output = output_store.get_component_bytes
     original_persist_output = output_store.persist_component_payload
     original_review_data = registry.load_reviewable_extraction_data
     parent_fixture, _, _, pc_body, _, fixture_index = _append_fixture(monkeypatch, tmp_path)
+    monkeypatch.setattr(output_store, "get_component_bytes", original_get_output)
     monkeypatch.setattr(output_store, "persist_component_payload", original_persist_output)
     monkeypatch.setattr(registry, "load_reviewable_extraction_data", original_review_data)
     monkeypatch.setattr(source_service, "persist_source_markdown", original_persist_source_markdown)
@@ -489,6 +491,15 @@ print(json.dumps({'revision':child.revision,'state':child.lineage['semantic_disp
             status=ExtractionRunStatus.REVIEWABLE, components=legacy_components,
             lineage=copy.deepcopy(lineage),
         )
+        legacy = original_create(
+            tmp_path, run_id=legacy_id, source_artifact_id=artifact.source_artifact_id,
+            source_domain="recap", campaign_id=artifact.campaign_id,
+            session_id=artifact.session_id, profile_id=correction.PROFILE,
+            components=legacy_components, status=ExtractionRunStatus.DRAFT,
+            lineage=lineage,
+        )
+        for kind, data in (("candidate_graph", candidate_bytes), ("source_span_index", span_bytes)):
+            persist_component_payload(run_id=legacy.run_id, expected_revision=legacy.revision, kind=kind, payload=data)
         if state != "mismatched":
             assessment = assess_recap_semantics(
                 provisional, parent=legacy_parent,
@@ -501,15 +512,11 @@ print(json.dumps({'revision':child.revision,'state':child.lineage['semantic_disp
             }
         else:
             lineage["manifest_sha256"] = "0" * 64
-        legacy = original_create(
-            tmp_path, run_id=legacy_id, source_artifact_id=artifact.source_artifact_id,
-            source_domain="recap", campaign_id=artifact.campaign_id,
-            session_id=artifact.session_id, profile_id=correction.PROFILE,
-            components=legacy_components, status=ExtractionRunStatus.DRAFT,
-            lineage=lineage,
-        )
-        for kind, data in (("candidate_graph", candidate_bytes), ("source_span_index", span_bytes)):
-            persist_component_payload(run_id=legacy.run_id, expected_revision=legacy.revision, kind=kind, payload=data)
+        # Explicit historical-shape fixture metadata, never a product fallback.
+        # Replay now requires the actual output rows to exist before assessment.
+        from tests._cutover_d3a_blocker_safe_fixtures import _patch_extraction_run
+        _patch_extraction_run(legacy.run_id, lineage=lineage)
+        legacy = ingest.get_extraction_run(legacy.run_id)
         if state in {"exact", "mismatched"}:
             for next_state in correction._LIFECYCLE[1:]:
                 legacy = original_update(
