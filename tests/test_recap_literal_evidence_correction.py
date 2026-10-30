@@ -429,8 +429,8 @@ def test_recap_child_round_trips_real_disposable_run_registry(
             replacement_quote="found the silver key",
         )],
     )
-    resolved = correction.resolve_promotable_ingest_run(parent.run_id, root=tmp_path)
-    assert resolved.source_revision_id.removeprefix("sha256:") == artifact.content_sha256
+    data = graph_run_registry.load_reviewable_extraction_data(tmp_path, parent.run_id)
+    assert _sha(data.source_bytes) == artifact.content_sha256
     assert parent.components["candidate_graph"].sha256 == _sha(parent_bytes)
     response = correction.correct_recap_run_evidence(request)
     child = graph_run_registry.get_reviewable_extraction_run(tmp_path, response.run_id)

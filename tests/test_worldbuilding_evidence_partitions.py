@@ -20,7 +20,7 @@ def stage(monkeypatch,tmp_path):
     source=tmp_path/'source.md';source.write_text('Torbin, who bought the strange seed, repaired the roof.\nMara keeps a lantern.\n')
     index=SimpleNamespace(spans=[SimpleNamespace(source_span_id=span,start_line=1,end_line=1),
         SimpleNamespace(source_span_id='second-paragraph',start_line=2,end_line=2)])
-    monkeypatch.setattr(owner,'_load_frozen_span_index_for_resolved_run',lambda _:index)
+    parent._test_span_index=index
     q=_request(hashlib.sha256(before).hexdigest(),span)
     q.source_sha256=hashlib.sha256(source.read_bytes()).hexdigest()
     q.corrections[0].expected_ref_sha256=owner._sha(owner._canonical_bytes(ref))
