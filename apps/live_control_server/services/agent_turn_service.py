@@ -6970,7 +6970,10 @@ def execute_agent_turn(
         # The source owner is established first. A provisioning-only World has
         # no Graph capability; missing Graph cannot suppress source/Rules work.
         frozen_graph = frozen.graph_capability if frozen is not None else None
-        if native_plan_query_resolver is not None and (frozen is None or hasattr(frozen, 'native_query')):
+        # New questions use the managed World's publication Graph. A saved
+        # native-query receipt keeps its original reader and revision on retry.
+        if (native_plan_query_resolver is not None
+                and isinstance(frozen, graph_types.PlanNativeContextReceiptV1)):
             with trace.phase('plan_native_statement_query'):
                 native_query_context, native_query = native_plan_query_resolver(
                     request, owner, work, frozen, native_corpus_context)

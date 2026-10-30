@@ -126,7 +126,7 @@ def test_query_does_not_open_clauses_before_selected_read(lane, monkeypatch):
 
 
 @pytest.mark.parametrize('whole_clause,unavailable_read', [(False, False), (True, False), (False, True)])
-def test_ordinary_http_query_selects_native_support_in_actual_sdk_and_reopens(lane, application_state_dsn, monkeypatch, tmp_path, whole_clause, unavailable_read):
+def test_historical_native_http_retry_preserves_reader_support_and_citations(lane, application_state_dsn, monkeypatch, tmp_path, whole_clause, unavailable_read):
     import json
     import httpx2
     from hashlib import sha256
@@ -169,9 +169,10 @@ def test_ordinary_http_query_selects_native_support_in_actual_sdk_and_reopens(la
     monkeypatch.setattr(agent, '_owner_resolver', lambda _: {'kind': 'world', 'id': world, 'name': 'Synthetic World'})
     monkeypatch.setattr(agent, '_verified_world_id', lambda value: value)
     monkeypatch.setattr(agent, '_work_resolver', lambda *_: work)
+    monkeypatch.setattr(agent, '_historical_work_resolver', lambda *_args, **_kwargs: work)
     monkeypatch.setattr(agent, '_graph_resolver', lambda *_: pytest.fail('Generic Graph fallback'))
     monkeypatch.setattr('apps.live_control_server.integrations.dungeonmind.world_graph_reads.direct_services_from_config',
-        lambda *_: pytest.fail('Classic reader used by default Plan query'))
+        lambda *_: pytest.fail('Historical native retry changed its reader'))
     examined_inputs = []
     if unavailable_read:
         monkeypatch.setattr(native_query, 'read_selected', lambda context, authorization, principal:
@@ -226,9 +227,43 @@ def test_ordinary_http_query_selects_native_support_in_actual_sdk_and_reopens(la
     monkeypatch.setattr(plan_jev_harness, 'default_plan_jev_runtime', lambda: Harness(
         decision_transport=Decisions(), writer_transport=wire,
         decision_api_key='synthetic-not-secret', writer_api_key='synthetic-not-secret'))
+    # Retain a genuine interrupted native turn from the prior reader contract.
+    # Fresh questions use the managed publication Graph; this retry stays pinned.
+    import asyncio
+    from application_state.agent_conversation import AgentConversationService, types as t
+    from apps.live_control_server.services import agent_turn_service as owner
+    from apps.live_control_server.services.plan_source_turn import prepare
+    from apps.live_control_server.services.plan_jev_dispatch import PlanJevDispatch, request_budget
+    corpus, authority = prepare(world, GM)
+    context, query_record = native_query.prepare_query(world, request.message, GM,
+        source_context=corpus)
+    service = AgentConversationService()
+    prior = owner._PolicyExecutionAdapter(service=service, request=request,
+        world_id=world, work=work, bootstrap=None, playable_target=None,
+        submitted_intent=owner._submitted_turn_intent(request, world_id=world), existing_turn=None,
+        budget=request_budget(), context_read_enabled=True, native_corpus_context=corpus,
+        native_source_authority=authority, native_query_context=context, native_query=query_record)
+    initial = PlanJevDispatch.requested_work(prior, page_title='Query Plan')
+    def interrupt_after_claim(view):
+        owner._PolicyExecutionAdapter._ensure_claimed(prior, view)
+        raise RuntimeError('synthetic interruption before provider authorization')
+    prior._ensure_claimed = interrupt_after_claim
+    try:
+        with pytest.raises(Exception):
+            asyncio.run(initial.run(transport=Decisions(), api_key='synthetic-not-secret'))
+        retained = prior.fence.turn
+        assert isinstance(retained.graph_context_receipt, t.PlanNativeContextReceiptV1)
+        assert retained.graph_context_execution.events == []
+        service.fail_turn(t.TurnFailure(world_id=world, conversation_id=retained.conversation_id,
+            turn_id=retained.turn_id, expected_revision=retained.revision,
+            failure_code='synthetic_interruption'), interrupted=True)
+    finally:
+        if prior.fence is not None:
+            prior.fence.renewer.stop_and_join()
     app = FastAPI(); app.include_router(agent.router, prefix='/api/live')
     client = TestClient(app, client=('127.0.0.1', 42000), headers={'Authorization': 'Bearer ' + token})
     response = client.post('/api/live/agent/turn', json=request.model_dump(mode='json', by_alias=True))
+    assert response.status_code == (503 if whole_clause else 200), response.text + getattr(wire, 'failure', '')
     assert len(examined_inputs) == 1
     assert examined_inputs[0]['label'].startswith('About B [')
     assert (': unavailable;' if unavailable_read else ': opened;') in examined_inputs[0]['kind']
