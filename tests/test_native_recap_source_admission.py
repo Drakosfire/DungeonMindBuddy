@@ -1055,7 +1055,12 @@ def test_ready_flag_without_matching_committed_digest_is_not_source_authority(
     assert post(lane).status_code == 409
 
 
-def test_managed_source_root_and_artifact_root_can_be_separate(lane, monkeypatch):
+@pytest.mark.parametrize("managed_override", [True, False])
+def test_managed_source_root_and_artifact_root_can_be_separate(
+    lane, monkeypatch, managed_override
+):
+    if not managed_override:
+        monkeypatch.delenv(config.MANAGED_WORLD_DATA_ROOT_ENV)
     artifacts = lane.root / "separate-artifact-store"
     artifacts.mkdir()
     monkeypatch.setenv(config.ARTIFACT_DATA_ROOT_ENV, str(artifacts))
@@ -1067,6 +1072,10 @@ def test_managed_source_root_and_artifact_root_can_be_separate(lane, monkeypatch
     )
     assert source.lineage["selected_input_uri"] == lane.path.as_uri()
     assert lane.path.read_bytes() == lane.raw
+
+    assert native(inspection(lane, value)) == value
+    lane.path.unlink()
+    assert native(post(lane, native_recap_resume=resume(value))) == value
 
 
 @pytest.mark.parametrize("committed", [False, True])

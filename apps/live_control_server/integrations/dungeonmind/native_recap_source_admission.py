@@ -36,15 +36,15 @@ class NativeRecapError(RuntimeError):
 
 
 class NativeRecapAuthority:
-    def __init__(self, root, repository=None):
-        self.root = root
+    def __init__(self, managed_root, repository=None):
+        self.managed_root = managed_root
         self.repository = repository or PostgresNativeSourceEvidenceRepository(
             PostgresDatabase(config.world_graph_authority_database_url())
         )
 
     def check_binding(self, record):
         binding = resolve_managed_source_identity(
-            record.managed_world_id, root=config.managed_world_data_root(self.root)
+            record.managed_world_id, root=self.managed_root
         )
         if (
             binding.native_world_id != record.native_world_id

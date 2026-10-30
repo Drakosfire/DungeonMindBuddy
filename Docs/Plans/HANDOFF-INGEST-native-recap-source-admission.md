@@ -54,7 +54,7 @@ with matching valid expected/output digests; pin that digest through the actual
 read before persistence. Resolved paths must lie inside the authoritative managed
 World source_root, including symlink-escape refusal. The old normalized-path
 helper returns its own path/digest and is not original-source provenance; no
-outside-root fallback is allowed. Artifact/output storage may be separate.
+outside-root fallback is allowed. Artifact/output storage may be separate. Resolve the managed root from the original caller root before applying an artifact-root override; retain that exact managed root through admission, status, binding checks and recovery.
 
 Check selected-input size against Core's existing MAX_NATIVE_TEXT_BYTES before
 opening and use a limit+1 bounded read to defend growth. Preserve input bytes,

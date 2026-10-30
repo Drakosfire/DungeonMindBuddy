@@ -231,7 +231,12 @@ def _status(run, record, source, authority, *, busy=False):
 
 def inspect(root, run_id, world, campaign, session):
     run, record, source = _load(run_id, world, campaign, session)
-    return _status(run, record, source, NativeRecapAuthority(root))
+    return _status(
+        run,
+        record,
+        source,
+        NativeRecapAuthority(config.managed_world_data_root(root).resolve()),
+    )
 
 
 def _cas(run, record):
@@ -337,9 +342,10 @@ def resume_admission(
 ):
     """Recover the exact saved intent; current corpus files cannot retarget it."""
     _execution_mode()
+    managed_root = config.managed_world_data_root(root).resolve()
     root = config.artifact_data_root(root)
     run, record, source = _load(resume.run_id, world, campaign, session)
-    authority = NativeRecapAuthority(root)
+    authority = NativeRecapAuthority(managed_root)
     lock = PublicationProgressStore(root / "out/native_recap_source_locks")
     try:
         with lock.exclusive(record.admission_id):
@@ -383,9 +389,9 @@ def admit(
     authority_basis,
 ):
     _execution_mode()
+    managed_root = config.managed_world_data_root(root).resolve()
     root = config.artifact_data_root(root)
     path = Path(path).resolve()
-    managed_root = config.managed_world_data_root(root).resolve()
     world = get_world_container(managed_root, context.managed_world_id)
     world_root = (managed_root / world.source_root_relpath).resolve()
     if not path.is_relative_to(world_root):
@@ -410,7 +416,7 @@ def admit(
     )
 
     current = resolve_managed_source_identity(
-        context.managed_world_id, root=config.managed_world_data_root(root)
+        context.managed_world_id, root=managed_root
     )
     if (current.native_world_id, current.binding_version) != (
         context.native_world_id,
@@ -465,7 +471,7 @@ def admit(
         created_authority_basis=authority_basis,
         created_at=source.created_at,
     )
-    authority = NativeRecapAuthority(root)
+    authority = NativeRecapAuthority(managed_root)
     lock = PublicationProgressStore(root / "out/native_recap_source_locks")
     try:
         with lock.exclusive(candidate.admission_id):
