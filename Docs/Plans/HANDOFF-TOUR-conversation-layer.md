@@ -1,6 +1,6 @@
 # TOUR — keep teaching visible over ordinary conversation
 
-ACTIVE: PRIME serial UI slice under the continuing guided-tour goal. Branch
+SETTLED: PR1926 reviewed44a4b0b3b5ce19392d4573803aad7c1e14247ac8, mergedb5f173e8403a9def6ca9060c3a293332280ea9f4 and UI-only delivered5202. Independent approval/3CI/195 tour tests/typecheck/build; actual desktop/narrow mouse popup and target hit tests/nonoverlap passed. All4139APP/371native rows/41067files exact through live checks; draft and guidance position restored. Implementation lease released. Direct teaching entry is separately allocated in HANDOFF-TOUR-direct-teaching-entry.md. Operator/full journey acceptance remains open. Former allocation: PRIME serial UI slice under the continuing guided-tour goal. Branch
 codex/tour-conversation-layer from fetched6c7382ed7076ebae2b84678015d9f4ec42eaba56,
 reused buddy-context-loop/shared dependencies. Open ingestion1853/1855/1868,
 hosted1828/held1764 inspected: no overlapping allocation.

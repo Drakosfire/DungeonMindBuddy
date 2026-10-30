@@ -100,6 +100,7 @@ describe('visible tour entry',()=>{
     seed();localStorage.setItem(pointerKey('damaged-world'),'damaged');
     const write=vi.spyOn(Storage.prototype,'setItem');const view=render(<Workspace/>);
     fireEvent.click(screen.getByRole('button',{name:'Resume tour'}));
+    fireEvent.click(screen.getByRole('button',{name:'More guidance'}));
     expect(screen.getByRole('button',{name:'Export walkthrough'})).toBeVisible();
     view.rerender(<Workspace worldId="damaged-world"/>);
     expect(screen.getByRole('button',{name:'Open tour'})).toBeVisible();
