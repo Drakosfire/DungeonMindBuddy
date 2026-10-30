@@ -26,6 +26,8 @@ class NativeCorpusContext:
     binding: Any
     access: Any
     resolve_identity: Callable
+    principal: Any
+    repository: Any
 
 
 @dataclass(frozen=True)
@@ -78,7 +80,7 @@ def prepare_native_source_context(*, managed_world_id, principal, revision_id=No
         acquisition_epoch=access.source_view.epoch)
     if resolve_identity(managed_world_id) != bound:
         raise ValueError("Native source ownership changed during context preparation")
-    return NativeCorpusContext(authority, bound, access, resolve_identity)
+    return NativeCorpusContext(authority, bound, access, resolve_identity, principal, repo)
 
 
 def capture_native_sources(*, managed_world_id, principal, revision_id=None,
@@ -134,3 +136,35 @@ def capture_native_sources(*, managed_world_id, principal, revision_id=None,
     if prepared.resolve_identity(managed_world_id) != prepared.binding:
         raise ValueError("Native source ownership changed during capture")
     return NativeCorpusCapture(authority, tuple(members), MappingProxyType(bodies), unavailable)
+
+
+def read_native_corpus_member(*, authority, member, principal,
+                              repository=None, resolve_identity=None):
+    """Recheck current Core access to the original R/body without requiring head equality."""
+    fresh = prepare_native_source_context(managed_world_id=authority.managed_world_id,
+        principal=principal, revision_id=authority.revision_id, repository=repository,
+        resolve_identity=resolve_identity)
+    original = authority.model_dump(mode="json", exclude={"acquisition_epoch"})
+    if fresh.authority.model_dump(mode="json", exclude={"acquisition_epoch"}) != original:
+        raise ValueError("Native source authority changed before the selected read")
+    evidence = fresh.access.parsed.evidence_by_id.get(member.evidence_ref_id)
+    if (evidence is None or evidence.source_artifact_id != member.artifact.source_artifact_id
+            or evidence.source_revision_id != member.revision.source_revision_id
+            or evidence.source_span_ref_id != member.access_span_id):
+        raise ValueError("Selected native source member differs from original revision membership")
+    opened = open_admitted_native_text(fresh.access, member.evidence_ref_id)
+    if fresh.resolve_identity(authority.managed_world_id) != fresh.binding:
+        raise ValueError("Native source ownership changed during the selected read")
+    if opened.status != "available":
+        return None
+    if (opened.source_artifact_id != member.artifact.source_artifact_id
+            or opened.source_revision_id != member.revision.source_revision_id
+            or opened.span_start_byte != member.access_start_byte
+            or opened.span_end_byte != member.access_end_byte
+            or opened.span_sha256 != member.access_slice_sha256
+            or opened.source_authority_epoch > fresh.authority.acquisition_epoch):
+        raise ValueError("Selected native source read differs from its original access proof")
+    member.verify_body(opened.body_text)
+    if fresh.resolve_identity(authority.managed_world_id) != fresh.binding:
+        raise ValueError("Native source ownership changed during the selected read")
+    return opened.body_text

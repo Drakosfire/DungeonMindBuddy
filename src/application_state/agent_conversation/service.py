@@ -1837,6 +1837,50 @@ class AgentConversationService:
             expected_revision=expected_revision, expected_attempt=expected_attempt,
             event=inclusion, duplicate_key="event_id")
 
+    def _append_native_body_materialization(self, world_id, conversation_id, turn_id, *,
+            expected_revision, expected_attempt, materialize):
+        def produce(conn, turn):
+            try:
+                return materialize(turn)
+            except (ValueError, TypeError, KeyError, AttributeError) as exc:
+                raise ApplicationStateValidationError(str(exc)) from exc
+        return self._append_graph_execution_event(world_id, conversation_id, turn_id,
+            expected_revision=expected_revision, expected_attempt=expected_attempt,
+            event=None, duplicate_key="event_id", native_source_materializer=produce)
+
+    def authorize_native_body_search(self, world_id, conversation_id, turn_id, *,
+            expected_revision, expected_attempt, event_id):
+        from .native_corpus import authorize_body_search_locked
+        return self._append_native_body_materialization(world_id, conversation_id, turn_id,
+            expected_revision=expected_revision, expected_attempt=expected_attempt,
+            materialize=lambda turn: authorize_body_search_locked(turn, event_id=event_id))
+
+    def observe_native_body_search(self, world_id, conversation_id, turn_id, *,
+            expected_revision, expected_attempt, event_id, authorization_event_id, capture):
+        from .native_corpus import observe_body_search_locked
+        return self._append_native_body_materialization(world_id, conversation_id, turn_id,
+            expected_revision=expected_revision, expected_attempt=expected_attempt,
+            materialize=lambda turn: observe_body_search_locked(turn, event_id=event_id,
+                authorization_event_id=authorization_event_id, capture=capture))
+
+    def authorize_native_body_read(self, world_id, conversation_id, turn_id, *,
+            expected_revision, expected_attempt, event_id, search_event_id, catalog_sha256,
+            retrieval_kind, section_id):
+        from .native_corpus import authorize_body_read_locked
+        return self._append_native_body_materialization(world_id, conversation_id, turn_id,
+            expected_revision=expected_revision, expected_attempt=expected_attempt,
+            materialize=lambda turn: authorize_body_read_locked(turn, event_id=event_id,
+                search_event_id=search_event_id, catalog_sha256=catalog_sha256,
+                retrieval_kind=retrieval_kind, section_id=section_id))
+
+    def observe_native_body_read(self, world_id, conversation_id, turn_id, *,
+            expected_revision, expected_attempt, event_id, authorization_event_id, read):
+        from .native_corpus import observe_body_read_locked
+        return self._append_native_body_materialization(world_id, conversation_id, turn_id,
+            expected_revision=expected_revision, expected_attempt=expected_attempt,
+            materialize=lambda turn: observe_body_read_locked(turn, event_id=event_id,
+                authorization_event_id=authorization_event_id, read=read))
+
     def authorize_native_source_section(
         self, world_id: str, conversation_id: UUID, turn_id: UUID, *, expected_revision: int,
         expected_attempt: int, event_id: UUID, read_id: UUID, catalog_event_id: UUID, section_id: str,

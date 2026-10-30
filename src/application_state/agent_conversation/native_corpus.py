@@ -420,3 +420,145 @@ def validate_native_body_events(execution):
             if expected != event.frame_sha256:
                 raise ValueError("Native body inclusion frame differs from selected excerpts")
             pending = event
+
+
+def _native_owner(turn):
+    from . import types as t
+    from .plan_source_context import validate_source_execution_binding
+    from .plan_jev_decision import _owner
+    receipt, execution = _owner(turn)
+    if not isinstance(receipt, t.PlanSourceContextReceiptV1) or not isinstance(receipt.source_authority, NativeCorpusAuthorityV1):
+        raise ValueError("Native body acquisition requires its available source-capable Plan owner")
+    validate_source_execution_binding(receipt, execution)
+    return receipt, execution
+
+
+def _prior_event(execution, event_id, model, **identity):
+    prior = next((event for event in execution.events if event.event_id == event_id), None)
+    if prior is not None and (not isinstance(prior, model)
+            or any(getattr(prior, key) != value for key, value in identity.items())):
+        raise ValueError("Native body event identity was reused with a changed target")
+    return prior
+
+
+def _selected_controller(turn, handle):
+    from .plan_jev_decision import current_selection
+    selected = current_selection(turn)
+    if selected.operation != "select_candidates" or handle not in selected.selected_handles:
+        raise ValueError("Native body acquisition was not selected by the current controller")
+    return selected.controller_attempt_id
+
+
+def authorize_body_search_locked(turn, *, event_id):
+    receipt, execution = _native_owner(turn)
+    query = sha256(turn.user_text.encode()).hexdigest()
+    prior = _prior_event(execution, event_id, NativeBodySearchAuthorizedV1, query_sha256=query)
+    if prior is not None:
+        return prior
+    return NativeBodySearchAuthorizedV1(event_id=event_id, sequence=len(execution.events),
+        provider_attempt_id=_selected_controller(turn, native_corpus_search_handle(query)),
+        context_receipt_sha256=receipt.context_receipt_sha256,
+        execution_policy_sha256=execution.execution_policy_sha256,
+        authority=receipt.source_authority, query_sha256=query)
+
+
+def observe_body_search_locked(turn, *, event_id, authorization_event_id, capture):
+    """The trusted Core capture runs only after a durable selected search grant."""
+    from .corpus_source_search import terms
+    receipt, execution = _native_owner(turn)
+    prior = _prior_event(execution, event_id, NativeBodySearchObservedV1,
+        authorization_event_id=authorization_event_id)
+    if prior is not None:
+        return prior
+    grant = next((event for event in execution.events if isinstance(event, NativeBodySearchAuthorizedV1)
+        and event.event_id == authorization_event_id), None)
+    if grant is None or _selected_controller(turn, native_corpus_search_handle(grant.query_sha256)) != grant.provider_attempt_id:
+        raise ValueError("Native source search lacks its current durable authorization")
+    if any(isinstance(event, NativeBodySearchObservedV1) and event.authorization_event_id == grant.event_id
+            for event in execution.events):
+        raise ValueError("Native source search already has an observation; reuse its receipt")
+    captured = capture()
+    if captured.authority != receipt.source_authority:
+        raise ValueError("Native source capture differs from its frozen authority")
+    catalogs, matches = [], []
+    query = set(terms(turn.user_text))
+    for member in captured.members:
+        key = (member.artifact.source_artifact_id, member.revision.source_revision_id)
+        catalog = build_native_body_catalog(receipt.source_authority, member, captured.bodies[key])
+        catalogs.append(catalog)
+        for section in catalog.sections:
+            # Keep every literal match, even when a term occurs in all sections.
+            # Relevance and sufficiency remain separate controller/writer choices.
+            matched = tuple(sorted(query & set(terms(captured.bodies[key][section.char_start:section.char_end]))))
+            if matched:
+                matches.append(NativeBodySectionMatchV1(catalog_sha256=catalog.catalog_sha256,
+                    section_id=section.section_id, matched_terms=matched))
+    return NativeBodySearchObservedV1(event_id=event_id, sequence=len(execution.events),
+        authorization_event_id=grant.event_id, catalogs=tuple(catalogs), matches=tuple(matches),
+        unavailable_source_count=captured.unavailable_source_count)
+
+
+def authorize_body_read_locked(turn, *, event_id, search_event_id, catalog_sha256,
+                               retrieval_kind, section_id):
+    _, execution = _native_owner(turn)
+    prior = _prior_event(execution, event_id, NativeBodyReadAuthorizedV1,
+        search_event_id=search_event_id, catalog_sha256=catalog_sha256,
+        retrieval_kind=retrieval_kind, section_id=section_id)
+    if prior is not None:
+        return prior
+    search = next((event for event in execution.events if isinstance(event, NativeBodySearchObservedV1)
+        and event.event_id == search_event_id), None)
+    catalog = next((row for row in search.catalogs if row.catalog_sha256 == catalog_sha256), None) if search else None
+    if catalog is None:
+        raise ValueError("Selected native source catalog is unavailable")
+    if retrieval_kind == "section":
+        section = next((row for row in catalog.sections if row.section_id == section_id), None)
+        if section is None:
+            raise ValueError("Selected native body section is unavailable")
+        if section.byte_start == 0 and section.byte_end == catalog.body_bytes:
+            raise ValueError("Whole-body exposure requires an explicit full-document decision")
+        handle = native_body_handle(catalog_sha256, section_id)
+    elif retrieval_kind == "full_document" and section_id is None:
+        handle = native_full_document_handle(catalog_sha256)
+    else:
+        raise ValueError("Native body read requires an explicit section or full-document selector")
+    return NativeBodyReadAuthorizedV1(event_id=event_id, sequence=len(execution.events),
+        provider_attempt_id=_selected_controller(turn, handle), search_event_id=search_event_id,
+        catalog_sha256=catalog_sha256, retrieval_kind=retrieval_kind, section_id=section_id)
+
+
+def observe_body_read_locked(turn, *, event_id, authorization_event_id, read):
+    """Read through the trusted Core owner; select only the authorized exact extent."""
+    receipt, execution = _native_owner(turn)
+    prior = _prior_event(execution, event_id, NativeBodyReadObservedV1,
+        authorization_event_id=authorization_event_id)
+    if prior is not None:
+        return prior
+    auth = next((event for event in execution.events if isinstance(event, NativeBodyReadAuthorizedV1)
+        and event.event_id == authorization_event_id), None)
+    if auth is None:
+        raise ValueError("Native body read lacks its durable authorization")
+    full = auth.retrieval_kind == "full_document"
+    handle = native_full_document_handle(auth.catalog_sha256) if full else native_body_handle(auth.catalog_sha256, auth.section_id)
+    if _selected_controller(turn, handle) != auth.provider_attempt_id:
+        raise ValueError("Native body read authorization is no longer current")
+    search = next(event for event in execution.events if isinstance(event, NativeBodySearchObservedV1)
+        and event.event_id == auth.search_event_id)
+    catalog = next(row for row in search.catalogs if row.catalog_sha256 == auth.catalog_sha256)
+    # Access/authority failures from the owner propagate. They cannot become an
+    # apparently successful empty read or permit a provider to skip the grant.
+    if any(isinstance(event, NativeBodyReadObservedV1) and event.authorization_event_id == auth.event_id
+            for event in execution.events):
+        raise ValueError("Native body read already has an observation; reuse its receipt")
+    text = read(receipt.source_authority, catalog.source)
+    if text is not None and not isinstance(text, str):
+        raise ValueError("Native body owner must return verified text or explicit unavailability")
+    excerpt, failure = None, "native_body_unavailable"
+    if text is not None:
+        try:
+            excerpt = select_native_full_document(catalog, text) if full else select_native_body_excerpt(catalog, text, auth.section_id)
+            failure = None
+        except (ValueError, UnicodeError):
+            failure = "native_body_integrity_error"
+    return NativeBodyReadObservedV1(event_id=event_id, sequence=len(execution.events),
+        authorization_event_id=auth.event_id, excerpt=excerpt, failure_code=failure)

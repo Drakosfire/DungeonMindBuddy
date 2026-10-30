@@ -285,3 +285,31 @@ def test_degenerate_whole_body_section_requires_explicit_full_document(lane):
 def test_full_document_exposure_uses_interval_union(intervals, expected):
     from application_state.agent_conversation.native_corpus import covers_full_document
     assert covers_full_document(intervals, 10) is expected
+
+
+def test_selected_native_read_rechecks_core_at_original_revision_after_epoch_advance(lane):
+    from apps.live_control_server.integrations.dungeonmind.native_corpus_source import read_native_corpus_member
+    admit(lane)
+    original = capture(lane)
+    admit(lane, "unrelated", body="""# Different
+
+A later unrelated document.
+""")
+    current = capture(lane)
+    assert current.authority.acquisition_epoch > original.authority.acquisition_epoch
+    head = lane.repo.get_head("world:test")
+    assert read_native_corpus_member(authority=original.authority, member=original.members[0], principal=GM,
+        repository=lane.repo, resolve_identity=lambda _: lane.bound) == BODY
+    assert lane.repo.get_head("world:test") == head
+
+
+def test_selected_native_read_refuses_changed_world_binding_and_player_before_body_io(lane):
+    from apps.live_control_server.integrations.dungeonmind.native_corpus_source import read_native_corpus_member
+    admit(lane)
+    original = capture(lane)
+    kwargs = dict(authority=original.authority, member=original.members[0], repository=lane.repo,
+        resolve_identity=lambda _: SimpleNamespace(**(vars(lane.bound) | {"binding_version": 2})))
+    with pytest.raises(ValueError, match="authority changed"):
+        read_native_corpus_member(principal=GM, **kwargs)
+    with pytest.raises(ValueError, match="GM authority"):
+        read_native_corpus_member(principal=SimpleNamespace(role="player"), **kwargs)

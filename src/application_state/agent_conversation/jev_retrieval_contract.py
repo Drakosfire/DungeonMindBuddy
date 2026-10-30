@@ -141,6 +141,12 @@ def prepare_decision(request: RetrievalDecisionInput) -> DecisionRequest:
             'Prefer the most specific relevant sections first. Acquired examined sections have already supplied their exact bodies '
             'to the writer; exclude equivalent or weaker candidates for those same details. Unavailable sections supplied no evidence. '
             'Additional sections remain available when a different requested detail needs them. Never infer source completeness.')
+    if any(c.kind == "Explicit full-document read" for c in request.candidates):
+        state["full_document_selection_guidance"] = (
+            "Select a full-document action only when the requested details need its complete context, "
+            "or no smaller section is available. Exclude it when offered or already acquired sections "
+            "address those details. Full-document access is a separate explicit choice; ordinary section "
+            "votes never authorize it. Do not select both merely because they concern the same subject.")
     if request.examined_candidates:
         state["examined_subjects"] = [{"label": c.label, "kind": c.kind} for c in request.examined_candidates]
     if request.dialogue:

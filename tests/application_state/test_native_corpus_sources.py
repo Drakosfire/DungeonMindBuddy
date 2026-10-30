@@ -9,9 +9,11 @@ from application_state.agent_conversation.plan_source_context import capability_
 from tests.test_native_corpus_source_access import lane, admit, capture  # noqa: F401
 
 
-def receipt_payload(lane):
-    admit(lane)
-    source = capture(lane)
+def receipt_payload(lane, *, captured=None):
+    if captured is None:
+        admit(lane)
+        captured = capture(lane)
+    source = captured
     value = dict(schema="dmb_plan_source_context_receipt_v1",
         receipt_serializer_version="canonical-json-utf8-v1",
         plan_context_policy={"policy": "auto_plan_world"},
@@ -181,7 +183,7 @@ def test_generic_graph_policy_cannot_claim_source_only_uncapped_version(operatio
         t.GraphExecutionPolicyV1.model_validate(generic)
 
 
-def native_body_ledger(lane, *, failed_read=False, full_document=False, all_sections=False):
+def native_body_ledger(lane, *, failed_read=False, full_document=False, all_sections=False, body_override=None):
     from hashlib import sha256
     from application_state.agent_conversation.native_corpus import (
         NativeBodySearchAuthorizedV1, NativeBodySearchObservedV1, NativeBodySectionMatchV1,
@@ -191,7 +193,7 @@ def native_body_ledger(lane, *, failed_read=False, full_document=False, all_sect
         select_native_full_document,
     )
     from tests.test_native_corpus_source_access import BODY
-    body = BODY + "\n## Unrelated scene\nUnrelated source context.\n"
+    body = BODY + "\n## Unrelated scene\nUnrelated source context.\n" if body_override is None else body_override
     admit(lane, body=body)
     captured = capture(lane)
     catalog = build_native_body_catalog(captured.authority, captured.members[0], body)
@@ -347,8 +349,8 @@ def test_accumulated_section_choices_cannot_expose_whole_document(lane):
         native_body_ledger(lane, all_sections=True)
 
 
-def source_submission(lane, *, unavailable=False):
-    value = receipt_payload(lane)
+def source_submission(lane, *, unavailable=False, captured=None, question="What did the check reveal?"):
+    value = receipt_payload(lane, captured=captured)
     if unavailable:
         value["source_authority"] = dict(schema="dmb_native_corpus_unavailable_v1",
             managed_world_id="managed", failure_code="native_source_head_unavailable")
@@ -360,7 +362,7 @@ def source_submission(lane, *, unavailable=False):
     execution = t.PlanSourceExecutionV1.model_validate(payload | {
         "execution_policy_sha256": t.canonical_sha256(payload), "events": []})
     intent = t.SubmittedTurnIntentV2(world_id=basis.world_id, client_thread_id="test",
-        message="What did the check reveal?", surface_id="plan", surface_instance_id="plan-instance",
+        message=question, surface_id="plan", surface_instance_id="plan-instance",
         client_work_state="saved_clean", primary_work=dict(kind="plan", object_id=basis.document_id,
             expected_revision=basis.object_revision, expected_revision_n=basis.revision_n,
             expected_content_sha256=basis.content_sha256), plan_context_policy=receipt.plan_context_policy,
@@ -720,3 +722,228 @@ def test_source_and_graph_cannot_combine_different_world_bindings(lane, field, v
     graph["context_receipt_sha256"] = t.canonical_sha256(graph)
     with pytest.raises(ValidationError, match="managed/native World binding"):
         t.PlanSourceContextReceiptV1.model_validate_json(json.dumps(rehash(payload)))
+
+
+def native_acquisition_fixture(lane, application_state_dsn, *, full_document=False, body_override=None):
+    """Synthetic acknowledged decisions; real APP acquisition and Core body IO.
+
+    Provider request/response proof is covered separately by the actual SDK gate
+    tests. Seed only a typed current-controller prefix in the disposable DB here.
+    """
+    import json
+    import psycopg
+    from psycopg.types.json import Jsonb
+    from types import SimpleNamespace
+    from application_state.agent_conversation import AgentConversationService
+    from application_state.agent_conversation.native_corpus import NativeBodySearchAuthorizedV1
+    from tests.application_state.test_agent_conversation_postgres import _new
+    ledger = native_body_ledger(lane, full_document=full_document, body_override=body_override)
+    grant = next(e for e in ledger.events if isinstance(e, NativeBodySearchAuthorizedV1))
+    question = "What did the party learn about the source context?"
+    sub = source_submission(lane, captured=SimpleNamespace(authority=grant.authority), question=question)
+    payload = sub.model_dump(mode="json", by_alias=True)
+    payload["graph_context_receipt"]["assembled_input"]["provider_envelope_input_tokens"] = ledger.events[0].input_tokens
+    receipt = rehash(payload["graph_context_receipt"])
+    execution = payload["graph_context_execution"]
+    execution["context_receipt_sha256"] = receipt["context_receipt_sha256"]
+    execution["execution_policy_sha256"] = t.canonical_sha256({key: execution[key]
+        for key in ("schema", "context_receipt_sha256", "policy")})
+    service = AgentConversationService()
+    conversation = _new(service, "managed")
+    payload["conversation_id"] = str(conversation.conversation_id)
+    accepted = service.accept_turn(t.TurnSubmission.model_validate_json(json.dumps(payload)))
+    claimed = service.claim_turn("managed", conversation.conversation_id, accepted.turn_id,
+        expected_revision=accepted.revision).turn
+    def rebound(events):
+        for event in events:
+            row = event.model_dump(mode="json", by_alias=True)
+            if "context_receipt_sha256" in row:
+                row["context_receipt_sha256"] = receipt["context_receipt_sha256"]
+            if "execution_policy_sha256" in row:
+                row["execution_policy_sha256"] = execution["execution_policy_sha256"]
+            yield row
+    def seed(events):
+        value = execution | {"events": list(rebound(events))}
+        validated = t.PlanSourceExecutionV1.model_validate_json(json.dumps(value))
+        with psycopg.connect(application_state_dsn) as conn:
+            conn.execute("UPDATE agent.turn SET graph_context_execution=%s WHERE turn_id=%s",
+                (Jsonb(validated.model_dump(mode="json", by_alias=True)), claimed.turn_id))
+        return service.list_turns("managed", conversation.conversation_id)[0]
+    current = seed(ledger.events[:grant.sequence])
+    return SimpleNamespace(service=service, current=current, ledger=ledger, grant=grant, seed=seed)
+
+
+def append_native(fixture, method, **kwargs):
+    turn = fixture.current
+    updated, fresh = getattr(fixture.service, method)(turn.world_id, turn.conversation_id, turn.turn_id,
+        expected_revision=turn.revision, expected_attempt=turn.attempt, **kwargs)
+    fixture.current = updated
+    return updated.graph_context_execution.events[-1], fresh
+
+
+@pytest.mark.parametrize("body_result,full_document", [
+    ("actual", False), ("actual", True), ("unavailable", False),
+    ("corrupt", False), ("authority_changed", False),
+])
+def test_native_body_acquisition_uses_durable_grants_and_actual_core_bytes(application_state_dsn, lane, body_result, full_document):
+    from application_state.agent_conversation import AgentConversationService
+    from application_state.agent_conversation.native_corpus import (
+        NativeBodySearchAuthorizedV1, NativeBodySearchObservedV1, NativeBodyReadAuthorizedV1,
+    )
+    from application_state.errors import ApplicationStateValidationError
+    from apps.live_control_server.integrations.dungeonmind.native_corpus_source import read_native_corpus_member
+    from tests.test_native_corpus_source_access import GM, BODY
+    fixture = native_acquisition_fixture(lane, application_state_dsn, full_document=full_document)
+    calls = {"capture": 0, "read": 0}
+    grant, _ = append_native(fixture, "authorize_native_body_search", event_id=uuid4())
+    def acquire():
+        calls["capture"] += 1
+        durable = AgentConversationService().list_turns("managed", fixture.current.conversation_id)[0]
+        assert durable.graph_context_execution.events[-1] == grant
+        return capture(lane, revision_id=grant.authority.revision_id)
+    search, _ = append_native(fixture, "observe_native_body_search", event_id=uuid4(),
+        authorization_event_id=grant.event_id, capture=acquire)
+    assert search.matches and calls["capture"] == 1
+    # Retrying the same observation never rescans the corpus.
+    _, fresh = append_native(fixture, "observe_native_body_search", event_id=search.event_id,
+        authorization_event_id=grant.event_id, capture=acquire)
+    assert not fresh and calls["capture"] == 1
+    with pytest.raises(ApplicationStateValidationError, match="already has an observation"):
+        append_native(fixture, "observe_native_body_search", event_id=uuid4(),
+            authorization_event_id=grant.event_id, capture=acquire)
+    assert calls["capture"] == 1
+    original_search = next(e for e in fixture.ledger.events if isinstance(e, NativeBodySearchObservedV1))
+    original_read = next(e for e in fixture.ledger.events if isinstance(e, NativeBodyReadAuthorizedV1))
+    current = fixture.current.graph_context_execution.events
+    fixture.current = fixture.seed([*current, *fixture.ledger.events[original_search.sequence+1:original_read.sequence]])
+    catalog = search.catalogs[0]
+    selected = catalog.sections[0]
+    auth, _ = append_native(fixture, "authorize_native_body_read", event_id=uuid4(),
+        search_event_id=search.event_id, catalog_sha256=catalog.catalog_sha256,
+        retrieval_kind="full_document" if full_document else "section",
+        section_id=None if full_document else selected.section_id)
+    def read(authority, member):
+        calls["read"] += 1
+        durable = AgentConversationService().list_turns("managed", fixture.current.conversation_id)[0]
+        assert durable.graph_context_execution.events[-1] == auth
+        if body_result == "unavailable":
+            return None
+        if body_result == "corrupt":
+            return "corrupted source bytes"
+        if body_result == "authority_changed":
+            raise ValueError("Native source authority changed")
+        return read_native_corpus_member(authority=authority, member=member, principal=GM,
+            repository=lane.repo, resolve_identity=lambda _: lane.bound)
+    if body_result == "authority_changed":
+        with pytest.raises(ApplicationStateValidationError, match="authority changed"):
+            append_native(fixture, "observe_native_body_read", event_id=uuid4(),
+                authorization_event_id=auth.event_id, read=read)
+        assert AgentConversationService().list_turns("managed", fixture.current.conversation_id)[0].graph_context_execution.events[-1] == auth
+    else:
+        observed, _ = append_native(fixture, "observe_native_body_read", event_id=uuid4(),
+            authorization_event_id=auth.event_id, read=read)
+        assert calls["read"] == 1
+        if body_result == "actual":
+            expected = BODY + "\n## Unrelated scene\nUnrelated source context.\n" if full_document else BODY + "\n"
+            assert observed.excerpt.text == expected and observed.failure_code is None
+            assert (observed.excerpt.selector_policy == "native_full_document_v1") == full_document
+            assert observed.excerpt.section.byte_end > catalog.source.access_end_byte
+        else:
+            assert observed.excerpt is None
+            assert observed.failure_code == ("native_body_unavailable" if body_result == "unavailable" else "native_body_integrity_error")
+        _, fresh = append_native(fixture, "observe_native_body_read", event_id=observed.event_id,
+            authorization_event_id=auth.event_id, read=read)
+        assert not fresh and calls["read"] == 1
+        with pytest.raises(ApplicationStateValidationError, match="already has an observation"):
+            append_native(fixture, "observe_native_body_read", event_id=uuid4(),
+                authorization_event_id=auth.event_id, read=read)
+        assert calls["read"] == 1
+
+
+def test_native_search_refuses_stale_claim_before_core_capture(application_state_dsn, lane):
+    from application_state.errors import ApplicationStateConflictError
+    fixture = native_acquisition_fixture(lane, application_state_dsn)
+    grant, _ = append_native(fixture, "authorize_native_body_search", event_id=uuid4())
+    stale = fixture.current
+    fixture.service.fail_turn(t.TurnFailure(world_id=stale.world_id, conversation_id=stale.conversation_id,
+        turn_id=stale.turn_id, expected_revision=stale.revision, failure_code="synthetic_interruption"))
+    calls = []
+    with pytest.raises(ApplicationStateConflictError):
+        append_native(fixture, "observe_native_body_search", event_id=uuid4(),
+            authorization_event_id=grant.event_id, capture=lambda: calls.append("unexpected source IO"))
+    assert calls == []
+
+
+@pytest.mark.parametrize("whole_document", [False, True])
+def test_native_navigator_uses_ordinary_app_controls_without_classic_registry(application_state_dsn, lane, monkeypatch, whole_document):
+    from threading import RLock
+    from types import SimpleNamespace
+    from application_state.agent_conversation.native_corpus import NativeBodySearchObservedV1, NativeBodyReadAuthorizedV1
+    from apps.live_control_server.integrations.dungeonmind import native_corpus_source as owner
+    from apps.live_control_server.services import corpus_source_navigation as old_navigation
+    from apps.live_control_server.services.native_source_navigation import navigator
+    body = "# Source\n\nThe party learned source context in the guarded room.\n" if whole_document else None
+    if body is not None:
+        assert len(body.encode()) == 64
+    fixture = native_acquisition_fixture(lane, application_state_dsn, full_document=whole_document, body_override=body)
+    from tests.test_native_corpus_source_access import GM, BODY
+    context = owner.prepare_native_source_context(managed_world_id="managed", principal=GM,
+        repository=lane.repo, resolve_identity=lambda _: lane.bound)
+    renewer = SimpleNamespace(_turn=fixture.current, _lock=RLock())
+    class Fence:
+        def __init__(self): self.renewer = renewer
+        @property
+        def turn(self): return self.renewer._turn
+    adapter = SimpleNamespace(fence=Fence(), service=fixture.service, turn=fixture.current,
+        native_corpus_context=context, context_capture=None)
+    def obsolete(*args, **kwargs):
+        raise AssertionError("Native source navigation dispatched the obsolete classic registry")
+    monkeypatch.setattr(old_navigation, "collect_source_view", obsolete)
+    monkeypatch.setattr(old_navigation, "direct_services_from_config", obsolete)
+    opened = []
+    original_open = owner.open_admitted_native_text
+    def tracked_open(*args, **kwargs):
+        opened.append("Core body open")
+        return original_open(*args, **kwargs)
+    monkeypatch.setattr(owner, "open_admitted_native_text", tracked_open)
+    nav = navigator(adapter)
+    initial = nav.offered()
+    assert len(initial) == 1 and not opened
+    result = nav.select([initial[0].handle])
+    assert result["body_text_exposed"] is False and opened
+    offers = nav.offered()
+    assert (not any(row.kind == "Exact source section" for row in offers)) == whole_document
+    assert BODY not in repr(offers)
+    selected = next(row for row in offers if row.kind == (
+        "Explicit full-document read" if whole_document else "Exact source section"))
+    original_search = next(e for e in fixture.ledger.events if isinstance(e, NativeBodySearchObservedV1))
+    original_read = next(e for e in fixture.ledger.events if isinstance(e, NativeBodyReadAuthorizedV1))
+    renewer._turn = fixture.seed([*adapter.fence.turn.graph_context_execution.events,
+        *fixture.ledger.events[original_search.sequence+1:original_read.sequence]])
+    before = len(opened)
+    result = nav.select([selected.handle])
+    assert len(opened) == before + 1 and result["body_text_exposed"] is False
+    read = adapter.fence.turn.graph_context_execution.events[-1]
+    assert read.excerpt.text == (body if whole_document else BODY + "\n")
+    assert selected.handle not in {row.handle for row in nav.offered()}
+    assert any(row.handle == selected.handle and row.kind == "Acquired exact source text" for row in nav.examined())
+
+
+def test_native_acquisition_refuses_ungranted_or_unselected_io_and_foreign_append(application_state_dsn, lane):
+    from application_state.errors import ApplicationStateValidationError
+    fixture = native_acquisition_fixture(lane, application_state_dsn)
+    calls = []
+    with pytest.raises(ApplicationStateValidationError, match="durable authorization"):
+        append_native(fixture, "observe_native_body_search", event_id=uuid4(),
+            authorization_event_id=uuid4(), capture=lambda: calls.append("unexpected body access"))
+    assert not calls
+    events = fixture.current.graph_context_execution.events
+    changed = events[-1].model_copy(update={"selected_handles": ["unrelated:selection"]})
+    fixture.current = fixture.seed([*events[:-1], changed])
+    with pytest.raises(ApplicationStateValidationError, match="not selected"):
+        append_native(fixture, "authorize_native_body_search", event_id=uuid4())
+    turn = fixture.current
+    with pytest.raises(ApplicationStateValidationError, match="immutable source transaction owner"):
+        fixture.service.record_provider_outcome(turn.world_id, turn.conversation_id, turn.turn_id,
+            expected_revision=turn.revision, expected_attempt=turn.attempt, outcome=fixture.grant)
+    assert not calls

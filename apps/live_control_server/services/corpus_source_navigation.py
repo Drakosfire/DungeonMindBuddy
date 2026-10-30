@@ -228,3 +228,141 @@ class CorpusSourceNavigation:
                                for s in c.sections if s.section_id == hit.section_id),
                  'matched_query_terms': owner.query_matches['native-section:' + hit.section_id],
                  'source_revision': self.revision_metadata(next(h for h,c in owner.catalogs.items() if c.event_id == hit.catalog_event_id))} for hit in matches]}
+
+
+class NativeBodyNavigation:
+    """Native-only Plan navigation; no classic registry dispatch or body cache."""
+    def __init__(self, adapter):
+        from application_state.agent_conversation.native_corpus import NativeCorpusAuthorityV1
+        from ..integrations.dungeonmind.native_corpus_source import NativeCorpusContext
+        authority = adapter.fence.turn.graph_context_receipt.source_authority
+        context = getattr(adapter, "native_corpus_context", None)
+        if isinstance(authority, NativeCorpusAuthorityV1) and (
+                not isinstance(context, NativeCorpusContext) or context.authority != authority):
+            raise ValueError("Native navigation requires its original trusted source context")
+        self.adapter = adapter
+
+    def _events(self):
+        from application_state.agent_conversation.native_corpus import (
+            NativeBodySearchAuthorizedV1, NativeBodySearchObservedV1,
+            NativeBodyReadAuthorizedV1, NativeBodyReadObservedV1,
+        )
+        events = self.adapter.fence.turn.graph_context_execution.events
+        grant = next((e for e in events if isinstance(e, NativeBodySearchAuthorizedV1)), None)
+        search = next((e for e in events if isinstance(e, NativeBodySearchObservedV1)), None)
+        auths = [e for e in events if isinstance(e, NativeBodyReadAuthorizedV1)]
+        reads = {e.authorization_event_id: e for e in events if isinstance(e, NativeBodyReadObservedV1)}
+        return grant, search, auths, reads
+
+    @staticmethod
+    def _handle(auth):
+        from application_state.agent_conversation.native_corpus import native_body_handle, native_full_document_handle
+        return (native_full_document_handle(auth.catalog_sha256) if auth.retrieval_kind == "full_document"
+            else native_body_handle(auth.catalog_sha256, auth.section_id))
+
+    def offered(self):
+        from application_state.agent_conversation.native_corpus import (
+            NativeCorpusAuthorityV1, native_corpus_search_handle, native_body_handle, native_full_document_handle,
+        )
+        turn = self.adapter.fence.turn
+        if not isinstance(turn.graph_context_receipt.source_authority, NativeCorpusAuthorityV1):
+            return ()
+        grant, search, auths, reads = self._events()
+        if any(auth.event_id not in reads for auth in auths):
+            raise ValueError("Native source read has an unresolved durable grant")
+        if grant is None:
+            return (RetrievalCandidate(handle=native_corpus_search_handle(sha256(turn.user_text.encode()).hexdigest()),
+                label="Search admitted native source sections for the current question",
+                kind="Source lexical navigation; not evidence or semantic completeness"),)
+        if search is None:
+            raise ValueError("Native source search has an unresolved durable grant")
+        attempted = {self._handle(auth) for auth in auths}
+        rows = []
+        hits = {(row.catalog_sha256, row.section_id): row.matched_terms for row in search.matches}
+        for catalog in search.catalogs:
+            name = catalog.sections[0].label
+            matched = [row for row in catalog.sections if (catalog.catalog_sha256, row.section_id) in hits]
+            for section in matched:
+                # A degenerate one-section document offers only its explicit
+                # full-document action, never an implicit whole-body section.
+                if section.byte_start == 0 and section.byte_end == catalog.body_bytes:
+                    continue
+                handle = native_body_handle(catalog.catalog_sha256, section.section_id)
+                if handle not in attempted:
+                    rows.append(RetrievalCandidate(handle=handle,
+                        label=name + " · " + section.label + " · matched terms: " + ", ".join(hits[(catalog.catalog_sha256, section.section_id)]),
+                        kind="Exact source section"))
+            handle = native_full_document_handle(catalog.catalog_sha256)
+            if matched and handle not in attempted:
+                rows.append(RetrievalCandidate(handle=handle, label="Read full document: " + name,
+                    kind="Explicit full-document read"))
+        return tuple(rows)
+
+    def examined(self):
+        from application_state.agent_conversation.native_corpus import NativeCorpusAuthorityV1, native_corpus_search_handle
+        turn = self.adapter.fence.turn
+        authority = turn.graph_context_receipt.source_authority
+        if not isinstance(authority, NativeCorpusAuthorityV1):
+            return (RetrievalCandidate(handle="native-source-unavailable:" + authority.failure_code,
+                label="Native source inspection unavailable", kind=authority.failure_code + "; not evidence of absence"),)
+        grant, search, auths, reads = self._events()
+        rows = []
+        if grant is not None:
+            rows.append(RetrievalCandidate(handle=native_corpus_search_handle(grant.query_sha256),
+                label="Admitted native source search", kind=(
+                    f"Navigation scan: {len(search.catalogs)} accessible revisions, {search.unavailable_source_count} unavailable; semantic/global completeness not established"
+                    if search is not None else "Unresolved source search")))
+        for auth in auths:
+            read = reads.get(auth.event_id)
+            rows.append(RetrievalCandidate(handle=self._handle(auth), label="Previously selected native source extent",
+                kind=("Acquired exact source text" if read is not None and read.excerpt is not None
+                    else "Unavailable source read" if read is not None else "Unresolved source read")))
+        return tuple(rows)
+
+    def _commit(self, method, **fields):
+        a = self.adapter
+        turn = a.fence.renewer._turn
+        result = getattr(a.service, method)(turn.world_id, turn.conversation_id, turn.turn_id,
+            expected_revision=turn.revision, expected_attempt=turn.attempt, **fields)
+        a.fence.renewer._turn = a.turn = result[0]
+        return result[0].graph_context_execution.events[-1]
+
+    def select(self, handles):
+        from application_state.agent_conversation.native_corpus import native_corpus_search_handle
+        from ..integrations.dungeonmind.native_corpus_source import (
+            NativeCorpusContext, capture_native_sources, read_native_corpus_member,
+        )
+        a = self.adapter
+        context = getattr(a, "native_corpus_context", None)
+        if not isinstance(context, NativeCorpusContext) or context.authority != a.fence.turn.graph_context_receipt.source_authority:
+            raise ValueError("Native navigation requires its original trusted source context")
+        offered = {row.handle for row in self.offered()}
+        if not handles or len(set(handles)) != len(handles) or not set(handles) <= offered:
+            raise ValueError("Native source selection differs from its offered current catalog")
+        with a.fence.renewer._lock:
+            for handle in handles:
+                turn = a.fence.turn
+                if handle == native_corpus_search_handle(sha256(turn.user_text.encode()).hexdigest()):
+                    grant = self._commit("authorize_native_body_search", event_id=uuid4())
+                    self._commit("observe_native_body_search", event_id=uuid4(), authorization_event_id=grant.event_id,
+                        capture=lambda: capture_native_sources(managed_world_id=turn.world_id,
+                            principal=context.principal, prepared=context))
+                else:
+                    _, search, _, _ = self._events()
+                    if handle.startswith("native-full-document:"):
+                        catalog_sha, section, kind = handle.removeprefix("native-full-document:"), None, "full_document"
+                    else:
+                        catalog_sha, section = handle.removeprefix("native-body:").split(":", 1)
+                        kind = "section"
+                    auth = self._commit("authorize_native_body_read", event_id=uuid4(), search_event_id=search.event_id,
+                        catalog_sha256=catalog_sha, retrieval_kind=kind, section_id=section)
+                    self._commit("observe_native_body_read", event_id=uuid4(), authorization_event_id=auth.event_id,
+                        read=lambda authority, member: read_native_corpus_member(authority=authority, member=member,
+                            principal=context.principal, repository=context.repository, resolve_identity=context.resolve_identity))
+        return {"schema": "dmb_native_body_navigation_result_v1", "body_text_exposed": False}
+
+    def unavailable(self, code):
+        capture = getattr(self.adapter, "context_capture", None)
+        if capture is not None:
+            capture.observe({"kind": "failure", "phase": "source_read", "code": code})
+        return {"schema": "dmb_native_body_navigation_unavailable_v1", "code": code}
