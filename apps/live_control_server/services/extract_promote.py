@@ -1186,7 +1186,7 @@ def decide_recap_semantic_disposition(
     from apps.live_control_server.services.graph_run_registry import (
         GraphRunRegistryError,
         get_extraction_run,
-        get_reviewable_extraction_run,
+        load_reviewable_extraction_data,
     )
     from apps.live_control_server.services.recap_semantic_disposition import (
         assess_recap_semantics,
@@ -1203,13 +1203,9 @@ def decide_recap_semantic_disposition(
         CANDIDATE_DERIVATION_V11,
         is_recap_correction,
     )
-    from apps.live_control_server.services.source_artifact_registry import (
-        SourceArtifactRegistryError,
-        get_source_artifact,
-    )
-
     try:
-        run = get_reviewable_extraction_run(_artifact_root(), run_id)
+        data = load_reviewable_extraction_data(_artifact_root(), run_id)
+        run = data.run
         if not is_recap_correction(run):
             raise ExtractPromoteError(
                 "run is not a corrected recap child",
@@ -1217,11 +1213,12 @@ def decide_recap_semantic_disposition(
             )
         parent_id = run.lineage.get("parent_run_id")
         parent = get_extraction_run(_artifact_root(), parent_id) if isinstance(parent_id, str) else None
-        artifact = get_source_artifact(_artifact_root(), run.source_artifact_id)
-    except (GraphRunRegistryError, SourceArtifactRegistryError) as exc:
+        artifact = data.source_artifact
+    except GraphRunRegistryError as exc:
         raise ExtractPromoteError(
             "canonical corrected recap evidence is unavailable",
-            code="recap_semantic_decision_invalid", status_code=409,
+            code="recap_semantic_decision_invalid",
+            status_code=exc.status_code if exc.status_code >= 500 else 409,
         ) from exc
     assessment = assess_recap_semantics(
         run, parent=parent, source_revision_id=artifact.content_sha256,
@@ -1262,14 +1259,13 @@ def decide_recap_semantic_disposition(
                 code="recap_semantic_decision_conflict", status_code=409,
             )
     if request.decision == "accepted":
-        resolved = resolve_promotable_ingest_run(run_id, root=_artifact_root())
-        payload = json.loads(resolved.candidate_graph_path.read_text(encoding="utf-8"))
+        payload = json.loads(data.candidate_bytes)
         _assert_candidate_scope_matches_run(payload, campaign_id=run.campaign_id, session_id=run.session_id)
         _assert_and_project_candidate_evidence(
             candidate_payload=payload,
-            source_prose=resolved.normalized_recap_path.read_text(encoding="utf-8"),
+            source_prose=data.source_bytes.decode("utf-8"),
             source_artifact_id=run.source_artifact_id,
-            span_index=_load_frozen_span_index_for_resolved_run(resolved),
+            span_index=data.span_index,
         )
     try:
         basis_type = (
