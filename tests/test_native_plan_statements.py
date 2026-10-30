@@ -1,4 +1,4 @@
-"""Core-backed query/support characterization; HTTP ownership cases follow below."""
+"""Core-backed query/support characterization; ordinary HTTP integration remains an acceptance gate."""
 from dataclasses import replace
 from types import SimpleNamespace
 from uuid import uuid4

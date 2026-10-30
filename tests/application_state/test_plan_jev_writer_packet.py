@@ -185,9 +185,9 @@ def test_writer_source_passage_comes_once_from_protected_receipt(application_sta
     proof = evidence(case, packets) | {"source_names": {"synthetic-pond-read": "Synthetic Session Notes"}}
     auth, raw = writer_request(case, proof)
     frame = project(case.turn, proof, trace(case)).frame
-    from application_state.agent_conversation.surface_source_answer import passage_handle
-    source_receipt = next(e for e in case.turn.graph_context_execution.events if e.event_id == read_event_id).receipts[0]
-    assert frame["opened_passages"] == [{"passage_handle": passage_handle(source_receipt), "evidence": "e0", "source_name": "Synthetic Session Notes",
+    from application_state.agent_conversation.plan_source_selectors import source_selector
+    source_event = next(e for e in case.turn.graph_context_execution.events if e.event_id == read_event_id)
+    assert frame["opened_passages"] == [{"passage_handle": source_selector(case.turn, source_event), "evidence": "e0", "source_name": "Synthetic Session Notes",
         "text": text, "line_start": 3, "line_end": 3, "outcome": "enough",
         "truncated": False, "evidence_sufficiency": "sufficient"}]
     assert frame["unopened_evidence"] == [] and auth.included_source_read_event_ids == [read_event_id]
