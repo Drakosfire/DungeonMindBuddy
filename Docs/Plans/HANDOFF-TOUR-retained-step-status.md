@@ -1,6 +1,11 @@
 # TOUR — retain result status in short guidance
 
-ACTIVE serial PRIME UI slice from fetched main a3dc980fd5063cab91c5fff73e91a050e844fae7,
+SETTLED: PR #1929 merged9d87d1af8d8bce172faee0d251f84ca65daabec8 after
+independent approval of398a30f02,226 tests and all3CI gates. Protected UI delivery
+and ordinary paused Conks roll readback passed. Lease released; operator acceptance
+remains open. Independent successor: HANDOFF-PLAY-session-heading-contrast.md.
+
+Original serial PRIME UI slice from fetched main a3dc980fd5063cab91c5fff73e91a050e844fae7,
 branch codex/tour-retained-step-status in reused buddy-context-loop. Independent
 open ingestion1853/1855/1868 and hosted1828 checked; no overlapping tour lease.
 API1659752/UI1680763/schema0096 remain unchanged until reviewed UI-only delivery.

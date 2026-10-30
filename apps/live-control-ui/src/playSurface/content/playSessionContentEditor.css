@@ -37,6 +37,7 @@
 .play-session-content__frontmatter pre { max-height: 12rem; overflow: auto; white-space: pre-wrap; }
 .play-session-content__visual { max-width: 100%; min-height: 22rem; overflow: auto; border: 1px solid #57667b; border-radius: .5rem; background: #f7ebd4; color: #29251e; padding: clamp(1rem, 3vw, 2rem); }
 .play-session-content__visual .ProseMirror { min-height: 20rem; outline: none; }
+.play-session-content__visual .ProseMirror :is(h1, h2, h3, h4, h5, h6) { color: inherit; }
 .play-session-content__visual .ProseMirror:focus { outline: 2px solid #d7a83f; outline-offset: .35rem; }
 .play-session-content__visual .ProseMirror > *:first-child { margin-top: 0; }
 .play-session-content__visual .ProseMirror > *:last-child { margin-bottom: 0; }
