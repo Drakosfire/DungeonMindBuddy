@@ -12,6 +12,7 @@ export interface TourOwnerReading {
 }
 export interface TourDispatchScope {worldId:string;walkthroughId:string;epoch:number;/** Present only when a page was explicitly selected before dispatch. */page?:TargetPin}
 interface TourApi {
+ entryLabel:'Start tour'|'Resume tour'|'Review tour'|'Open tour';
  tracking:boolean;captureMechanicsScope:(plan:TargetPin|null,draftId:string)=>GeneratedMechanicsScope|null;captureGenerationScope:()=>GenerationScope|null;isGenerationScopeCurrent:(scope:GenerationScope|null)=>boolean;open:()=>void;recordConversationDispatch:(correlationKey:string,scope:TourDispatchScope|null)=>void;captureScope:()=>TourDispatchScope|null;isScopeCurrent:(scope:TourDispatchScope|null)=>boolean;recordRunCreation:(observation:Observation,scope:TourDispatchScope|null)=>void;publish:(token:symbol,reading:TourOwnerReading|null)=>void;
 }
 const TourContext=createContext<TourApi|null>(null);
@@ -31,6 +32,7 @@ export function useTourOwnerReading(reading:TourOwnerReading|null){
 }
 export function GuidedTourProvider({worldId,worldName,children,history=null}:{worldId:string|null;worldName?:string;children:ReactNode;history?:WorldAgentConversationHistoryResponse|null}){
  const [visible,setVisible]=useState(false),[stored,setStored]=useState<StoredWalkthrough|null>(null),[error,setError]=useState<string|null>(null);
+ const [readWorld,setReadWorld]=useState<string|null>(null);
  const [owners,setOwners]=useState<Map<symbol,TourOwnerReading>>(new Map());
  const [focusedControl,setFocusedControl]=useState<FocusedControl|null>(null);
  const closeControl=useRef<HTMLButtonElement|null>(null),invoker=useRef<HTMLElement|null>(null),isVisible=useRef(visible);isVisible.current=visible;
@@ -47,9 +49,9 @@ export function GuidedTourProvider({worldId,worldName,children,history=null}:{wo
  }));
  useEffect(()=>{mounted.current=true;return()=>{mounted.current=false;}},[]);
  const reload=useCallback(()=>{
-  if(!worldId){setStored(null);return;}
-  try{const value=readWalkthrough(localStorage,worldId);current.current=value;setStored(value);setError(null);}
-  catch(cause){setError(cause instanceof Error?cause.message:'The walkthrough could not be read.');}
+  if(!worldId){current.current=null;setStored(null);setReadWorld(null);setError(null);return;}
+  try{const value=readWalkthrough(localStorage,worldId);current.current=value;setStored(value);setReadWorld(worldId);setError(null);}
+  catch(cause){setReadWorld(null);setError(cause instanceof Error?cause.message:'The walkthrough could not be read.');}
  },[worldId]);
  useEffect(()=>{reload();const changed=(e:StorageEvent)=>{if(worldId&&(e.key===pointerKey(worldId)||e.key?.startsWith(`dmb:guided-journey:v1:${encodeURIComponent(worldId)}:`))){externalEpoch.current++;reload();}};window.addEventListener('storage',changed);return()=>window.removeEventListener('storage',changed);},[reload,worldId]);
  const change=useCallback((action:TourAction|{kind:'start';adventure:Adventure},expectedId:string|null=current.current?.record.id??null,expectedEpoch=externalEpoch.current)=>{
@@ -102,7 +104,8 @@ export function GuidedTourProvider({worldId,worldName,children,history=null}:{wo
  const memoryReading=useSessionMemoryReading(history,stored?.record??null,conversationDispatches.current),memoryToken=useRef(Symbol('session-memory'));
  const memorySignature=JSON.stringify(memoryReading);
  useEffect(()=>{publish(memoryToken.current,memoryReading);return()=>publish(memoryToken.current,null);},[publish,memorySignature]);
- const api=useMemo(()=>({captureMechanicsScope,tracking:stored?.record.version===3&&stored.record.phase==='running',captureGenerationScope,isGenerationScopeCurrent,open,publish,recordRunCreation,captureScope,isScopeCurrent,recordConversationDispatch}),[captureMechanicsScope,captureGenerationScope,isGenerationScopeCurrent,open,publish,recordRunCreation,captureScope,isScopeCurrent,recordConversationDispatch,stored?.record.phase,stored?.record.id,stored?.record.dispatchRevision,externalEpoch.current]);
+ const entryLabel:TourApi['entryLabel']=!worldId||readWorld!==worldId||error?'Open tour':!stored?'Start tour':stored.record.version===3?'Resume tour':'Review tour';
+ const api=useMemo(()=>({entryLabel,captureMechanicsScope,tracking:stored?.record.version===3&&stored.record.phase==='running',captureGenerationScope,isGenerationScopeCurrent,open,publish,recordRunCreation,captureScope,isScopeCurrent,recordConversationDispatch}),[entryLabel,captureMechanicsScope,captureGenerationScope,isGenerationScopeCurrent,open,publish,recordRunCreation,captureScope,isScopeCurrent,recordConversationDispatch,stored?.record.phase,stored?.record.id,stored?.record.dispatchRevision,externalEpoch.current]);
  const walkthrough=stored?.record;
  const renderedEpoch=externalEpoch.current;
  const userChange=(action:TourAction|{kind:'start';adventure:Adventure})=>change(action,stored?.record.id??null,renderedEpoch);

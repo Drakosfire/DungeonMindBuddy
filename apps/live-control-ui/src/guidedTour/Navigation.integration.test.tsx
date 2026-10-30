@@ -96,7 +96,7 @@ vi.mock("../api/liveApi", async (importOriginal) => {
     let walk=createWalkthrough(world,'sheep','route-walk','2026-10-28T00:00:00Z');walk=reduceTour(walk,{kind:'move',index:13});writeWalkthrough(localStorage,walk,null);
     window.history.replaceState({},'',`/build?world=${world}`);render(<App/>);
     await screen.findByTestId('build-surface-empty');
-    fireEvent.click(screen.getByRole('button',{name:'Open navigation'}));fireEvent.click(screen.getByRole('button',{name:'Guided journey'}));
+    fireEvent.click(screen.getByRole('button',{name:'Resume tour'}));
     fireEvent.click(await screen.findByRole('button',{name:'Open Play',exact:true}));
     await screen.findByTestId('play-run-chooser');
     expect(window.location.search).toBe(`?world=${world}&choose=1`);
