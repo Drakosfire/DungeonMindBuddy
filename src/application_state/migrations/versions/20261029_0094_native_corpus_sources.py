@@ -46,7 +46,24 @@ AND graph_context_execution#>>'{policy,corpus_source_policy}'='native_admitted_b
 AND graph_context_execution#>>'{policy,source_authority_sha256}' ~ '^[a-f0-9]{64}$'
 AND jsonb_typeof(graph_context_execution->'events')='array'
 AND NOT jsonb_path_exists(graph_context_execution,'$.events[*] ? (@.kind != "completion_binding" && @.kind != "native_body_provider_included_v1" && @.kind != "native_body_read_authorized_v1" && @.kind != "native_body_read_observed_v1" && @.kind != "native_body_search_authorized_v1" && @.kind != "native_body_search_observed_v1" && @.kind != "plan_jev_provider_authorized_v1" && @.kind != "plan_jev_retrieval_selected_v1" && @.kind != "plan_jev_writer_authorized_v1" && @.kind != "plan_jev_writer_authorized_v2" && @.kind != "plan_requested_work_authorized_v1" && @.kind != "plan_requested_work_authorized_v2" && @.kind != "plan_requested_work_selected_v1" && @.kind != "plan_requested_work_selected_v2" && @.kind != "provider_outcome" && @.kind != "related_recap_context_authorized_v2" && @.kind != "related_recap_context_provider_inclusion_v2" && @.kind != "source_passage_reused_v1" && @.kind != "source_read_authorized_v2" && @.kind != "source_scope_extension_v3" && @.kind != "validated_graph_operation_v3" && @.kind != "validated_related_recap_context_v2" && @.kind != "validated_source_read_v2")')
-AND status<>'completed' AND completion IS NULL AND assistant_text IS NULL
+AND (
+ (status<>'completed' AND completion IS NULL AND assistant_text IS NULL)
+ OR (status='completed' AND completed_at IS NOT NULL AND assistant_text IS NOT NULL
+  AND answer_composition_kind='rules_mixed_v1' AND completion IS NULL
+  AND NOT jsonb_path_exists(graph_context_execution,'$.events[*] ? (@.kind == "completion_binding")'))
+ OR (status='completed' AND completed_at IS NOT NULL AND assistant_text IS NOT NULL
+  AND jsonb_typeof(completion)='object'
+  AND completion ?& ARRAY['schema','surface_id','context_receipt_sha256','answer_basis','answer_context_status','answer_segments','citation_map','source_citations','native_source_citations','native_body_citations']
+  AND completion - ARRAY['schema','surface_id','context_receipt_sha256','answer_basis','answer_context_status','answer_segments','citation_map','source_citations','native_source_citations','native_body_citations']='{}'::jsonb
+  AND completion->>'schema'='dmb_surface_evidence_completion_v5'
+  AND completion->>'surface_id'='plan' AND completion->>'answer_basis'='mixed_evidence'
+  AND completion->>'context_receipt_sha256'=graph_context_receipt->>'context_receipt_sha256'
+  AND jsonb_typeof(completion->'answer_segments')='array' AND jsonb_array_length(completion->'answer_segments')>0
+  AND jsonb_typeof(completion->'source_citations')='array'
+  AND completion->'native_source_citations'='[]'::jsonb
+  AND jsonb_typeof(completion->'native_body_citations')='array'
+  AND jsonb_path_exists(graph_context_execution,'$.events[*] ? (@.kind == "completion_binding")'))
+)
 """
 
 

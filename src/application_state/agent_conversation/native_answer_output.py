@@ -30,17 +30,19 @@ class GraphClaimSupport(Protocol):
     provider_attempt_id: UUID
     envelope_sha256: str
     context_receipt_sha256: str
-    graph_revision: str
+    graph_revision: str | None
     closures: tuple[tuple[str, str, tuple[str, ...]], ...]
 
 
 def _target_claim(segment, support, receipt, auth):
     if set(segment) != {'kind','claim_id','text','target_kind','target_id'}:
         raise ValueError('Graph claim must select a target without evidence metadata')
-    if (support is None or support.provider_attempt_id != auth.provider_attempt_id
+    from .plan_source_context import capability_bases
+    graph = capability_bases(receipt).graph if isinstance(receipt, t.PlanSourceContextReceiptV1) else receipt
+    if (graph is None or support is None or support.provider_attempt_id != auth.provider_attempt_id
             or support.envelope_sha256 != auth.envelope_sha256
             or support.context_receipt_sha256 != receipt.context_receipt_sha256
-            or support.graph_revision != receipt.graph_authority.graph_revision):
+            or support.graph_revision != graph.graph_authority.graph_revision):
         raise ValueError('Graph support differs from the actual producing envelope')
     matches={refs for kind,target,refs in support.closures
         if kind==segment['target_kind'] and target==segment['target_id']}
@@ -70,10 +72,19 @@ def normalize_native_answer(candidate, turn: t.Turn, producer: UUID, *, support:
     receipt,execution=turn.graph_context_receipt,turn.graph_context_execution
     play=isinstance(receipt,t.PlayWorldGraphContextReceiptV1) and isinstance(execution,t.PlayWorldGraphExecutionV1)
     plan=isinstance(receipt,t.PlanWorldGraphContextReceiptV1) and isinstance(execution,t.PlanWorldGraphExecutionV3)
-    if not (play or plan):
+    source = isinstance(receipt, t.PlanSourceContextReceiptV1) and isinstance(execution, t.PlanSourceExecutionV1)
+    if isinstance(receipt, t.PlanSourceContextReceiptV1) or isinstance(execution, t.PlanSourceExecutionV1):
+        from .plan_source_context import validate_source_execution_binding
+        try:
+            validate_source_execution_binding(receipt, execution)
+        except ValueError as exc:
+            raise NativeAnswerError('authority','native_owner_missing') from exc
+    if not (play or plan or source):
         raise NativeAnswerError('authority','native_owner_missing')
-    from .surface_evidence_answer import POLICY, NATIVE_POLICY, SELECTOR_POLICY, PLAN_POLICY, normalize as normalize_evidence
-    if isinstance(candidate, dict) and candidate.get('schema') in {PLAN_POLICY,SELECTOR_POLICY,NATIVE_POLICY,POLICY,'dmb_surface_evidence_answer_v1'}:
+    from .surface_evidence_answer import POLICY, NATIVE_POLICY, SELECTOR_POLICY, PLAN_POLICY, BODY_POLICY, normalize as normalize_evidence
+    if source and (not isinstance(candidate, dict) or candidate.get('schema') != BODY_POLICY):
+        raise NativeAnswerError('shape', 'current_evidence_contract_required')
+    if isinstance(candidate, dict) and candidate.get('schema') in ({BODY_POLICY} if source else {PLAN_POLICY,SELECTOR_POLICY,NATIVE_POLICY,POLICY,'dmb_surface_evidence_answer_v1'}):
         try:
             return normalize_evidence(candidate, turn, producer, support)
         except (ValueError, KeyError, TypeError, StopIteration) as exc:

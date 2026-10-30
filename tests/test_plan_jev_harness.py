@@ -10,6 +10,14 @@ from tests.test_plan_jev_dispatch import plan_adapter  # noqa: F401
 from tests.test_plan_jev_writer import WriterWire
 
 
+@pytest.fixture(autouse=True)
+def unavailable_native_sources(monkeypatch):
+    from application_state.agent_conversation.types import NativeCorpusUnavailableV1
+    monkeypatch.setattr('apps.live_control_server.services.plan_source_turn.prepare',
+        lambda world_id, *_args, **_kwargs: (None, NativeCorpusUnavailableV1(
+            managed_world_id=world_id, failure_code='native_source_head_unavailable')))
+
+
 class Finish(httpx2.AsyncBaseTransport):
     def __init__(self): self.calls=[]
     async def handle_async_request(self, request):
@@ -33,14 +41,15 @@ def route_case(a,tmp_path,*,status='completed'):
         async def handle_async_request(self, request):
             frame=json.loads(json.loads(request.content)['input'][0]['content'])
             block=next(block for block in frame['committed_plan_blocks'] if 'proposed visit' in block['text'])
-            self.text=json.dumps({'schema':'dmb_surface_evidence_answer_v5',
+            self.text=json.dumps({'schema':frame['answer_policy'],
                 'answer_segments':[{'kind':'authored_excerpt','selection_id':block['selection_id']}],
                 'limitations':[], 'requested_detail_gaps':[]})
             return await super().handle_async_request(request)
     wire=AuthoredWire(None,'',status=status)
     harness=Harness(decision_transport=decisions,writer_transport=wire,
         decision_api_key='synthetic-not-secret',writer_api_key='synthetic-not-secret')
-    kwargs=dict(root=tmp_path,pointer_store=HermesSessionPointerStore(tmp_path/'pointers'),
+    from types import SimpleNamespace
+    kwargs=dict(native_principal=SimpleNamespace(role='gm'),root=tmp_path,pointer_store=HermesSessionPointerStore(tmp_path/'pointers'),
         owner_resolver=lambda request:{'kind':'world','id':a.world_id,'name':'Synthetic park World'},
         work_resolver=lambda *_args:a.work,graph_resolver=lambda *_args:pytest.fail('unused campaign graph'),
         plan_graph_resolver=lambda *_args:a.bootstrap,runtime=harness,conversation_service=AgentConversationService())
@@ -202,7 +211,7 @@ def test_owner_offers_navigation_labels_without_admitting_discovery_as_claims(pl
     result=execute_agent_turn(plan_adapter.request,**kwargs)
     offered=json.loads(decisions.calls[1].content)['state']['candidates']
     assert {'label':'Footbridge','kind':'World entity'} in offered
-    receipt=result.plan_context.receipt
+    receipt=result.plan_context.receipt.graph_capability
     assert receipt.graph_packet.candidate_assertion_ids==[]
     assert receipt.graph_packet.candidate_relationship_ids==[]
     assert receipt.assembled_input.dispatched_assertion_ids==[]
@@ -234,9 +243,11 @@ def test_ordinary_empty_discovery_recovers_typed_subjects_and_delivers_current_c
     class CurrentSourceWire(WriterWire):
         async def handle_async_request(self,request):
             frame=json.loads(json.loads(request.content)['input'][0]['content'])
+            from tests.test_source_passage_reuse import capture_graphs
+            capture_graphs(self.adapter)
             assert frame['opened_passages']
             assert 'Previously explored' not in json.dumps(frame['entity_index'])
-            self.text=json.dumps({'schema':'dmb_surface_evidence_answer_v5','limitations':[],
+            self.text=json.dumps({'schema':frame['answer_policy'],'limitations':[],
                 'requested_detail_gaps':[],'answer_segments':[{'kind':'source_passage_claim',
                 'text':'The park account describes a walkway.',
                 'passage_handles':[frame['opened_passages'][0]['passage_handle']]}]})
@@ -270,5 +281,14 @@ def test_ordinary_empty_discovery_recovers_typed_subjects_and_delivers_current_c
     assert {row['kind'] for row in candidates}=={
         'Previously explored location; navigation only, not current evidence',
         'public_rules_lookup',
-        'Corpus lexical navigation, independent of Graph connections; matches are not evidence',
     }
+
+    # A subsequent ordinary follow-up recovers navigation from the source-root
+    # completion through its independent Graph authority and exact trace joins.
+    third=followup.model_copy(update={'turn_id':str(uuid4())})
+    third_start=len(choices.calls)
+    delivered=execute_agent_turn(third,**kwargs)
+    assert delivered.answer.status=='ok'
+    offered=next(body['state']['candidates'] for body in
+        (json.loads(call.content) for call in choices.calls[third_start:]) if 'candidates' in body['state'])
+    assert {r['label'] for r in offered if r['kind'].startswith('Previously explored')}=={'Footbridge','Park pond'}

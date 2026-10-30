@@ -24,6 +24,7 @@ from application_state.agent_conversation.types import (
     PlanEvidenceHistoryAttributionV1, PlanEvidenceHistoryAttributionV2, SurfaceEvidenceCompletionV2,
     PlanEvidenceHistoryAttributionV3, SurfaceEvidenceCompletionV3,
     PlanEvidenceHistoryAttributionV4, SurfaceEvidenceCompletionV4,
+    PlanEvidenceHistoryAttributionV5, SurfaceEvidenceCompletionV5,
     SurfaceEvidenceCompletionV1,
     CompletionBindingEventV1,
     GraphTurnCompletion,
@@ -775,7 +776,10 @@ def list_retained_graph_tools(conn, world_id, conversation_id, turn_ids, authori
           WHEN jsonb_typeof(x.payload->'observations')='array' THEN x.payload->'observations'
           ELSE '[]'::jsonb END) WITH ORDINALITY AS o(event, ordinal)
         WHERE t.world_id=%s AND t.conversation_id=%s AND t.turn_id=ANY(%s)
-          AND t.status='completed' AND t.graph_context_receipt->'graph_authority'=%s
+          AND t.status='completed' AND (CASE
+            WHEN t.graph_context_receipt->>'schema'='dmb_plan_source_context_receipt_v1'
+            THEN t.graph_context_receipt->'graph_capability'->'graph_authority'
+            ELSE t.graph_context_receipt->'graph_authority' END)=%s
           AND x.payload->>'world_id'=t.world_id
           AND x.payload->>'conversation_id'=t.conversation_id::text
           AND x.payload->>'turn_id'=t.turn_id::text
@@ -790,6 +794,10 @@ def list_retained_graph_tools(conn, world_id, conversation_id, turn_ids, authori
 
 def list_retained_source_turns(conn, current, anchor_ids) -> list[TurnReadModel]:
     """Filter one existing history window before materializing heavy ledgers."""
+    from .plan_source_context import capability_bases
+    graph = capability_bases(current.graph_context_receipt).graph
+    if graph is None:
+        return []
     with conn.cursor(row_factory=dict_row) as cur:
         cur.execute(f"""
             WITH history AS (
@@ -798,7 +806,9 @@ def list_retained_source_turns(conn, current, anchor_ids) -> list[TurnReadModel]
             )
             SELECT {_TURN_COLS} FROM agent.turn
             WHERE turn_id IN (SELECT turn_id FROM history) AND status='completed'
-              AND graph_context_receipt->'graph_authority'=%s
+              AND (CASE WHEN graph_context_receipt->>'schema'='dmb_plan_source_context_receipt_v1'
+                THEN graph_context_receipt->'graph_capability'->'graph_authority'
+                ELSE graph_context_receipt->'graph_authority' END)=%s
               AND EXISTS (
                 SELECT 1 FROM jsonb_array_elements(graph_context_execution->'events') AS e
                 CROSS JOIN LATERAL jsonb_array_elements(CASE WHEN e->>'kind'='validated_source_read_v2'
@@ -806,7 +816,7 @@ def list_retained_source_turns(conn, current, anchor_ids) -> list[TurnReadModel]
                 WHERE r->>'anchor_id'=ANY(%s))
             ORDER BY sequence
             """, (current.world_id, current.conversation_id, current.sequence,
-                Jsonb(current.graph_context_receipt.graph_authority.model_dump(mode='json')), sorted(anchor_ids)))
+                Jsonb(graph.graph_authority.model_dump(mode='json')), sorted(anchor_ids)))
         rows=cur.fetchall()
     references=_turn_reference_page(conn,rows)
     return [_turn_from_row(conn,row,references=references[row['turn_id']]) for row in rows]
@@ -982,10 +992,11 @@ def _plan_ask_history_attribution(
         )
 
     current = isinstance(completion, SurfaceEvidenceCompletionV1)
-    history_type = PlanEvidenceHistoryAttributionV4 if isinstance(completion,SurfaceEvidenceCompletionV4) else PlanEvidenceHistoryAttributionV3 if isinstance(completion,SurfaceEvidenceCompletionV3) else PlanEvidenceHistoryAttributionV2 if isinstance(completion,SurfaceEvidenceCompletionV2) else PlanEvidenceHistoryAttributionV1 if current else PlanAskHistoryAttributionV1
+    history_type = PlanEvidenceHistoryAttributionV5 if isinstance(completion,SurfaceEvidenceCompletionV5) else PlanEvidenceHistoryAttributionV4 if isinstance(completion,SurfaceEvidenceCompletionV4) else PlanEvidenceHistoryAttributionV3 if isinstance(completion,SurfaceEvidenceCompletionV3) else PlanEvidenceHistoryAttributionV2 if isinstance(completion,SurfaceEvidenceCompletionV2) else PlanEvidenceHistoryAttributionV1 if current else PlanAskHistoryAttributionV1
     return history_type(
         **({'source_citations':completion.source_citations} if current else {}),
         **({'native_source_citations':completion.native_source_citations} if isinstance(completion,SurfaceEvidenceCompletionV3) else {}),
+        **({'native_body_citations':completion.native_body_citations} if isinstance(completion,SurfaceEvidenceCompletionV5) else {}),
         source_turn_id=turn.turn_id,
         source_conversation_id=turn.conversation_id,
         source_sequence=turn.sequence,

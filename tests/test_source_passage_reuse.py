@@ -17,9 +17,13 @@ from apps.live_control_server.services.plan_jev_rules_runtime import PlanRulesRu
 from application_state.agent_conversation.rules_authority_policy import rules_capability
 from graph_memory.interaction.session import GraphRetrievalSession, GraphReferent, SessionSnapshot
 from tests.test_plan_jev_dispatch import plan_adapter  # noqa: F401
-from tests.test_surface_source_answers import stage, answer
+from tests.test_surface_source_answers import stage, answer as source_answer
 from tests.test_plan_jev_writer import WriterWire
 from tests.test_plan_jev_driver import Decisions, fixture_reads
+
+
+def answer(writer):
+    return source_answer(writer) | {'schema': writer.projection.frame['answer_policy']}
 
 
 def capture_graphs(adapter):
@@ -39,7 +43,16 @@ def capture_graphs(adapter):
                 returned_counts=counts,total_counts=counts,omission_codes=[])))
 
 
+def prepare_source_claim(adapter):
+    if adapter.native_source_authority is not None:
+        from apps.live_control_server.services.plan_jev_dispatch import PlanJevDispatch
+        from tests.test_plan_jev_harness import Finish
+        asyncio.run(PlanJevDispatch.requested_work(adapter, page_title='Synthetic park Plan').run(
+            transport=Finish(), api_key='synthetic'))
+
+
 def complete_origin(adapter):
+    prepare_source_claim(adapter)
     writer = stage(adapter)
     capture_graphs(adapter)
     turn = asyncio.run(writer.run(transport=WriterWire(adapter, json.dumps(answer(writer))), api_key='synthetic'))
@@ -56,6 +69,7 @@ def next_adapter(first):
         world_id=first.world_id, work=first.work, bootstrap=replace(first.bootstrap,retrieval_session=session),
         playable_target=None, submitted_intent=owner._submitted_turn_intent(request,world_id=first.world_id),
         existing_turn=None, budget=first.budget, context_read_enabled=True,
+        native_source_authority=first.native_source_authority, native_corpus_context=first.native_corpus_context,
         expected_conversation_id=first.turn.conversation_id)
 
 
@@ -75,13 +89,18 @@ def stage_reuse(first, monkeypatch, holder=None, *, anchors=2, internal=False):
             source_anchors=[SimpleNamespace(anchor_id=a,readable=True) for a in pins],
             project_for_hermes=lambda: {})
     monkeypatch.setattr('graph_memory.interaction.session_store.get_session', session)
+    prepare_source_claim(adapter)
     rules = PlanRulesRuntime(adapter, rules_capability(graph=True))
     proof = asyncio.run(PlanJevDriver(adapter).run(transport=Decisions(),api_key='synthetic'))
     capture_graphs(adapter)
     return adapter, PlanJevWriter(adapter,proof,rules), fresh_calls
 
 
-def test_two_actual_turns_reuse_without_corpus_io_and_reopen(plan_adapter,monkeypatch,application_state_dsn):
+@pytest.mark.parametrize('source_root', [False, True])
+def test_two_actual_turns_reuse_without_corpus_io_and_reopen(plan_adapter,monkeypatch,application_state_dsn,source_root):
+    if source_root:
+        plan_adapter.native_source_authority = t.NativeCorpusUnavailableV1(
+            managed_world_id=plan_adapter.world_id, failure_code='native_source_head_unavailable')
     origin, origin_trace = complete_origin(plan_adapter)
     second, writer, reads = stage_reuse(plan_adapter,monkeypatch)
     try:

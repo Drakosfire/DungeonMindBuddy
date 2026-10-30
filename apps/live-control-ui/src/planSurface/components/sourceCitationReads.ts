@@ -1,5 +1,5 @@
-import {getAgentSourcePassage,getAgentNativeSourceSection,getAgentRelatedPage} from '../../api/liveApi';
-import type {WorldBuildSourceCompletion,SurfaceSourceCompletionV1,SurfaceEvidenceCompletion,SurfaceEvidenceCompletionV3} from '../../api/types';
+import {getAgentSourcePassage,getAgentNativeSourceSection,getAgentNativeBodyExcerpt,getAgentRelatedPage} from '../../api/liveApi';
+import type {WorldBuildSourceCompletion,SurfaceSourceCompletionV1,SurfaceEvidenceCompletion,SurfaceEvidenceCompletionV3,SurfaceEvidenceCompletionV5} from '../../api/types';
 import {exact,canonical} from '../../shared/sourcePassageProtocol';
 import type {CitationChoice} from './SourceCitationEvidence';
 export type PassageCompletion=WorldBuildSourceCompletion|SurfaceSourceCompletionV1|SurfaceEvidenceCompletion;
@@ -42,8 +42,8 @@ export function passageChoices(completion:PassageCompletion,worldId:string,turnI
   });
   return [...passages,...pages];
 }
-export function nativeChoices(completion:Pick<SurfaceEvidenceCompletionV3,"native_source_citations">,worldId:string,turnId:string,segmentIndex:number):CitationChoice[] {
-  return completion.native_source_citations.flatMap((citation,index)=>citation.segment_index!==segmentIndex ? [] : [{
+export function nativeChoices(completion:Pick<SurfaceEvidenceCompletionV3,"native_source_citations"> & Partial<Pick<SurfaceEvidenceCompletionV5,"native_body_citations">>,worldId:string,turnId:string,segmentIndex:number):CitationChoice[] {
+  const sections=completion.native_source_citations.flatMap((citation,index)=>citation.segment_index!==segmentIndex ? [] : [{
     key:`section:${index}`,number:index+1,title:`${citation.source_name} · ${citation.section_title}`,
     label:`${citation.source_name} · ${citation.section_title}`,kind:'section' as const,load:async()=>{
       const result=await getAgentNativeSourceSection(worldId,turnId,index);
@@ -54,4 +54,16 @@ export function nativeChoices(completion:Pick<SurfaceEvidenceCompletionV3,"nativ
       return result.content;
     },
   }]);
+  return [...sections,...(completion.native_body_citations??[]).flatMap((citation,index)=>citation.segment_index!==segmentIndex?[]:[{
+    key:`body:${index}`,number:sections.length+index+1,title:`${citation.source_name} · ${citation.section_title}`,
+    label:`${citation.source_name} · ${citation.section_title}`,kind:'section' as const,load:async()=>{
+      const result=await getAgentNativeBodyExcerpt(worldId,turnId,index);
+      if(!exact(result,['schema','world_id','turn_id','citation_index','citation','content'])
+        || result.schema!=='dmb_agent_native_body_excerpt_read_v1' || result.world_id!==worldId
+        || result.turn_id!==turnId || result.citation_index!==index || canonical(result.citation)!==canonical(citation)
+        || typeof result.content!=='string' || !result.content || await hash(result.content)!==citation.excerpt_sha256)
+        throw new Error('Source excerpt binding differs');
+      return result.content;
+    },
+  }])];
 }

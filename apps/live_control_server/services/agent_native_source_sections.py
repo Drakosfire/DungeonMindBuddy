@@ -81,3 +81,46 @@ def open_native_source_section(*, world_id: str, turn_id: UUID, citation_index: 
     from apps.live_control_server.models.agent_turn import AgentNativeSourceSectionReadResponseV1
     return AgentNativeSourceSectionReadResponseV1(world_id=world_id,turn_id=turn_id,
         citation_index=citation_index,citation=citation,content=text)
+
+
+def open_native_body_excerpt(*, world_id, turn_id, citation_index, principal, service=None,
+                             repository=None, resolve_identity=None):
+    """Reopen the original body extent through fresh Core access, never trace text."""
+    if principal is None or principal.role != 'gm':
+        raise SourcePassageOpenError('native_body_access_denied', 403)
+    if isinstance(citation_index, bool) or not isinstance(citation_index, int) or not 0 <= citation_index <= 16383:
+        raise SourcePassageOpenError('native_body_selector_invalid', 422)
+    turn = (service or AgentConversationService()).inspect_turn(world_id=world_id, turn_id=turn_id)
+    if isinstance(turn, MixedCompletedTurnV1):
+        if turn.base_projection.kind != 'approved':
+            raise SourcePassageOpenError('native_body_completion_unavailable', 404)
+        turn = turn.base_projection.turn
+    if (turn.world_id != world_id or turn.turn_id != turn_id or turn.status != 'completed'
+            or not isinstance(turn.graph_context_receipt, t.PlanSourceContextReceiptV1)
+            or not isinstance(turn.completion, t.SurfaceEvidenceCompletionV5)):
+        raise SourcePassageOpenError('native_body_completion_unavailable', 404)
+    if citation_index >= len(turn.completion.native_body_citations):
+        raise SourcePassageOpenError('native_body_not_found', 404)
+    citation = turn.completion.native_body_citations[citation_index]
+    from application_state.agent_conversation.native_corpus import NativeBodyReadObservedV1, NativeBodySearchObservedV1
+    execution = turn.graph_context_execution
+    read = next(event for event in execution.events if isinstance(event, NativeBodyReadObservedV1)
+        and event.event_id == citation.read_event_id)
+    catalog = next(catalog for event in execution.events if isinstance(event, NativeBodySearchObservedV1)
+        for catalog in event.catalogs if catalog.catalog_sha256 == read.excerpt.catalog_sha256)
+    from ..integrations.dungeonmind.native_corpus_source import read_native_corpus_member
+    try:
+        body = read_native_corpus_member(authority=turn.graph_context_receipt.source_authority,
+            member=catalog.source, principal=principal, repository=repository, resolve_identity=resolve_identity)
+        if body is None:
+            raise ValueError('Historical native body is unavailable')
+        section = read.excerpt.section
+        text = body[section.char_start:section.char_end]
+        if (text != read.excerpt.text or sha256(text.encode()).hexdigest() != citation.excerpt_sha256
+                or body.encode()[section.byte_start:section.byte_end] != text.encode()):
+            raise ValueError('Historical native body extent changed')
+    except Exception as exc:
+        raise SourcePassageOpenError('native_body_access_unavailable', 409) from exc
+    from apps.live_control_server.models.agent_turn import AgentNativeBodyExcerptReadResponseV1
+    return AgentNativeBodyExcerptReadResponseV1(world_id=world_id, turn_id=turn_id,
+        citation_index=citation_index, citation=citation, content=text)

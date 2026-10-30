@@ -37,7 +37,8 @@ from .types import (
     PlanWorldGraphContextReceiptV1,
     PlanWorldGraphCompletionV2,
     SurfaceSourceCompletionV1,
-    SurfaceEvidenceCompletionV1, SurfaceEvidenceCompletionV2, SurfaceEvidenceCompletionV3, SurfaceEvidenceCompletionV4,
+    SurfaceEvidenceCompletionV1, SurfaceEvidenceCompletionV2, SurfaceEvidenceCompletionV3, SurfaceEvidenceCompletionV4, SurfaceEvidenceCompletionV5,
+    PlanSourceContextReceiptV1, PlanSourceExecutionV1,
     PlanWorldGraphExecutionV3,
     PlayWorldGraphCompletionV1,
     PlayWorldGraphContextReceiptV1,
@@ -328,7 +329,7 @@ def verify_native_output(graph_execution, rules_execution, proof, capture, *, pl
 class NativeRulesNormalizedOutputV1:
     """Pure normalization result; it is not a durable acceptance receipt."""
 
-    base_completion: PlanWorldGraphCompletionV2 | PlayWorldGraphCompletionV1 | SurfaceSourceCompletionV1 | SurfaceEvidenceCompletionV4 | SurfaceEvidenceCompletionV3 | SurfaceEvidenceCompletionV2 | SurfaceEvidenceCompletionV1 | None
+    base_completion: PlanWorldGraphCompletionV2 | PlayWorldGraphCompletionV1 | SurfaceSourceCompletionV1 | SurfaceEvidenceCompletionV5 | SurfaceEvidenceCompletionV4 | SurfaceEvidenceCompletionV3 | SurfaceEvidenceCompletionV2 | SurfaceEvidenceCompletionV1 | None
     claim_graph_event_ids: dict[str, list[UUID]]
     composition: AnswerCompositionV1
     assistant_text: str
@@ -364,6 +365,10 @@ def normalize_native_mixed_output(
     native_plan = isinstance(receipt, PlanWorldGraphContextReceiptV1) and isinstance(
         graph_execution, PlanWorldGraphExecutionV3
     )
+    if isinstance(receipt, PlanSourceContextReceiptV1) or isinstance(graph_execution, PlanSourceExecutionV1):
+        from .plan_source_context import validate_source_execution_binding
+        validate_source_execution_binding(receipt, graph_execution)
+        native_plan = True
     native_play = isinstance(receipt, PlayWorldGraphContextReceiptV1) and isinstance(
         graph_execution, PlayWorldGraphExecutionV1
     )
@@ -474,14 +479,18 @@ def sealed_native_producer(turn, rules_execution, proof):
     from .native_source_input import partial_input
     from .native_source_answer import producing_sections
     from .surface_evidence_answer import producing_authored, require_current_policy
+    from .plan_source_context import capability_bases
+    from .native_corpus import producing_bodies, body_input_partial
+    graph = capability_bases(receipt).graph if isinstance(receipt, PlanSourceContextReceiptV1) else receipt
     graph_support = SimpleNamespace(
         provider_attempt_id=proof.producing_provider_attempt_id,
         envelope_sha256=graph_auth.envelope_sha256,
         context_receipt_sha256=receipt.context_receipt_sha256,
-        graph_revision=receipt.graph_authority.graph_revision,
+        graph_revision=graph.graph_authority.graph_revision if graph is not None else None,
         closures=tuple(closures),
-        passages=passages, source_partial=source_partial or partial_input(turn,graph_auth,proof.prepared_request_json),
+        passages=passages, source_partial=source_partial or partial_input(turn,graph_auth,proof.prepared_request_json) or body_input_partial(turn.graph_context_execution),
         native_sections=producing_sections(turn,graph_auth,proof.prepared_request_json),
+        body_excerpts=producing_bodies(turn,graph_auth,proof.prepared_request_json),
         authored=producing_authored(turn, graph_auth, proof.prepared_request_json),
         current_policy=require_current_policy(turn, graph_auth, proof.prepared_request_json),
         session_titles=producing_session_titles(turn, graph_auth, proof.prepared_request_json),

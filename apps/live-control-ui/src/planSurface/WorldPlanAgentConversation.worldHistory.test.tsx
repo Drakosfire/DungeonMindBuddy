@@ -5122,6 +5122,69 @@ describe("World Plan conversation consumer", () => {
     await screen.findByRole('region',{name:'Opened source passage'});expect(open).toHaveBeenCalledWith(worldId,turnId,0);
   });
 
+  it.each(['exact','fresh','foreign-world','extra-authority','graph-alias','citation-family','digest'])("rehydrates native-body Plan history with closed source ownership: %s",async change=>{
+    const old=await planGraphContext('graph_grounded');
+    const turnId='11111111-1111-4111-8111-111111111111',text='The keeper lights three copper lanterns.';
+    const hash=await sha256Hex(text);
+    const receipt:import('../api/types').PlanSourceContextReceiptV1={schema:'dmb_plan_source_context_receipt_v1',
+      receipt_serializer_version:'canonical-json-utf8-v1',context_receipt_sha256:'0'.repeat(64),
+      plan_context_policy:old.receipt.plan_context_policy,plan_basis:old.receipt.plan_basis,playable_target:null,
+      source_authority:{schema_version:'dmb_native_corpus_authority_v1',managed_world_id:worldId,native_world_id:'native-world',
+        binding_version:1,provisioning_id:null,revision_id:'rev:source-original',acquisition_epoch:4,
+        domain_ref:{authority_id:'domain',revision:'1',descriptor_sha256:'e'.repeat(64)},
+        profile_ref:{authority_id:'profile',revision:'1',descriptor_sha256:'f'.repeat(64)},
+        scope:'gm_world_cross_campaign_source_inspection',role:'gm'},graph_capability:null,
+      assembled_input:{assembler_version:'plan_source_jev_initial_v1',provider_model_name:'jev',provider_model_version:'1',
+        tokenizer_name:'test',tokenizer_version:'1',provider_envelope_input_tokens:12,output_token_reserve:10,
+        context_window_limit:100,included_history:[],assembled_input_sha256:'c'.repeat(64)}};
+    const citation:import('../api/types').NativeBodyExcerptCitationV1={segment_index:0,text_sha256:hash,
+      provider_attempt_id:turnId,envelope_sha256:'b'.repeat(64),read_event_id:turnId,catalog_sha256:'d'.repeat(64),
+      source_artifact_id:'source:lanterns',native_source_revision_id:'rev:source-original',content_sha256:hash,
+      excerpt_sha256:hash,section_id:'e'.repeat(64),selector_policy:'native_full_document_v1',source_name:'Lantern notes',
+      section_title:'Full document',line_start:1,line_end:1};
+    const context:import('../api/types').AgentPlanSourceContextResponseV1={schema:'dmb_agent_plan_source_context_response_v1',
+      receipt,completion:{schema:'dmb_surface_evidence_completion_v5',surface_id:'plan',context_receipt_sha256:receipt.context_receipt_sha256,
+        answer_basis:'mixed_evidence',answer_context_status:'source_grounded',answer_segments:[{kind:'source_passage_claim',text}],
+        citation_map:null,source_citations:[],native_source_citations:[],native_body_citations:[citation]},
+      execution:old.execution,delivery_replay:false,source_open_targets:[],evidence_anchor_statuses:[],related_recap_context_statuses:[]};
+    if(change==='foreign-world')receipt.source_authority.managed_world_id='foreign';
+    if(change==='extra-authority')Object.assign(receipt.source_authority,{campaign_id:'invented'});
+    if(change==='graph-alias')Object.assign(receipt,{graph_authority:{graph_revision:'rev:source-original'}});
+    if(change==='citation-family')Object.assign(citation,{app_source_revision_id:turnId});
+    await resealPlanGraphContext(context);
+    if(change==='digest')receipt.context_receipt_sha256='a'.repeat(64);
+    const turn=policyHistoryTurn(1,turnId,'What do the native notes say?',text,context);
+    const api=setupApi({...history('conversation-a',1,[]),schema:'dmb_agent_conversation_history_v2',turns:change==='fresh'?[]:[turn]} as WorldAgentConversationHistoryResponse);
+    if(change==='fresh')vi.spyOn(liveApi,'postWorldPlanAgentTurn').mockImplementation(async request=>{
+      receipt.plan_basis={...receipt.plan_basis,object_revision:request.primary_work.expected_revision,
+        revision_n:request.primary_work.expected_revision_n,content_sha256:request.primary_work.expected_content_sha256};
+      await resealPlanGraphContext(context);
+      api.setCurrent(await historyV3('conversation-a',1,[withPersistedCorrelation(
+        policyHistoryTurn(1,turnId,request.message,text,context,'completed',request),
+        await expectedHistoryCorrelationKey(worldId,request.turn_id),turnId)]));
+      const response=await policyResponse(request,'conversation-a',text);
+      return {...response,answer:{...response.answer,graph_grounded:false},plan_context:context};
+    });
+    const open=vi.spyOn(liveApi,'getAgentNativeBodyExcerpt').mockResolvedValue({schema:'dmb_agent_native_body_excerpt_read_v1',
+      world_id:worldId,turn_id:turnId,citation_index:0,citation,content:text});
+    mountComponent();
+    if(change==='fresh') {
+      await screen.findByRole('textbox',{name:'Message DungeonBuddy'});
+      ensureWorldGraphAskEnabled();
+      fireEvent.change(screen.getByRole('textbox',{name:'Message DungeonBuddy'}),{target:{value:'What do the native notes say?'}});
+      fireEvent.click(screen.getByRole('button',{name:'Send message'}));
+      await screen.findByText(text);
+    }
+    if(!['exact','fresh'].includes(change)) {
+      await screen.findByText(/invalid Graph-context receipt/);expect(open).not.toHaveBeenCalled();return;
+    }
+    await screen.findByText('What do the native notes say?');
+    fireEvent.click(screen.getByText('Evidence trail',{selector:'summary'}));
+    fireEvent.click(screen.getByRole('button',{name:'Lantern notes · Full document'}));
+    await screen.findByRole('region',{name:'Opened source section'});
+    expect(open).toHaveBeenCalledWith(worldId,turnId,0);
+  });
+
   it("rehydrates a cited session summary with its immutable original instead of a quote",async()=>{
     const context=await planGraphContext('graph_grounded');
     const turnId='11111111-1111-4111-8111-111111111111',text='No fight occurred; the next route remains open.';

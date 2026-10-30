@@ -68,6 +68,7 @@ class PlanClaimEvidence:
     authored: tuple = ()
     current_policy: bool | str = False
     native_sections: tuple = ()
+    body_excerpts: tuple = ()
 
 
 class PlanWriterProvider(OpenAITextProvider):
@@ -209,13 +210,14 @@ class PlanJevWriter:
         from application_state.agent_conversation.native_source_answer import producing_sections
         from application_state.agent_conversation.surface_evidence_answer import producing_authored, require_current_policy
         from application_state.agent_conversation.plan_source_context import capability_bases
+        from application_state.agent_conversation.native_corpus import producing_bodies, body_input_partial
         graph = capability_bases(a._broker_receipt()).graph
         a.build_claim_evidence[event.provider_attempt_id] = PlanClaimEvidence(event.provider_attempt_id,
             event.envelope_sha256, a._broker_execution().context_receipt_sha256,
             graph.graph_authority.graph_revision if graph is not None else None, projection.closures,
-            producing_session_titles(a.turn, event, view["payloadJson"]), passages, source_partial,
+            producing_session_titles(a.turn, event, view["payloadJson"]), passages, source_partial or body_input_partial(a._broker_execution()),
             producing_authored(a.turn, event, view["payloadJson"]), require_current_policy(a.turn, event, view["payloadJson"]),
-            producing_sections(a.turn,event,view["payloadJson"]))
+            producing_sections(a.turn,event,view["payloadJson"]), producing_bodies(a.turn,event,view["payloadJson"]))
         self.prepared, self.authorization = prepared, event
         return True
 

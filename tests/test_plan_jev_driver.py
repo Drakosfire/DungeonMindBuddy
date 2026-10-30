@@ -30,7 +30,7 @@ def fixture_reads(adapter, *, anchors=1, body_chars=None, node_only=False, share
     def graph(message):
         arguments = message['arguments']; graph_calls.append(arguments)
         operation = arguments['operation']; node = arguments.get('targets', [{'id': 'discovery'}])[0]['id']
-        execution = adapter._broker_execution(); authority = adapter._broker_receipt().graph_authority
+        execution = adapter._broker_execution(); authority = adapter._broker_graph_receipt().graph_authority
         anchor_refs = [f'evidence:park:{0 if shared_ref else i}' for i in range(anchors)]
         refs = sorted(set(anchor_refs))
         pins = [t.GraphSourceScopeAnchorV2(anchor_id=f'anchor:park:{i}', evidence_ref_id=ref,

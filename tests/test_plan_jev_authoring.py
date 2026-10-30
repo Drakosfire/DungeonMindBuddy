@@ -8,6 +8,7 @@ import pytest
 from pydantic import ValidationError
 
 from tests.application_state.test_plan_authoring import capture_payload
+from tests.test_plan_jev_harness import unavailable_native_sources  # noqa: F401
 from apps.live_control_server.models.agent_turn import AgentTurnRequest
 from apps.live_control_server.services.agent_turn_service import _submitted_turn_intent
 from application_state.agent_conversation.types import (
@@ -497,9 +498,10 @@ def authoring_writer(plan_adapter, *, rules_used=False, graph_used=True, placeme
     return PlanJevWriter(plan_adapter, proof, rules), action, capture
 
 
+@pytest.mark.parametrize("source_root", [False, True])
 @pytest.mark.parametrize("mode", ["base", "rules_only", "mixed"])
 def test_one_writer_atomically_stores_plan_result_and_exact_replay(
-    plan_adapter, mode, monkeypatch
+    plan_adapter, mode, monkeypatch, source_root
 ):
     import asyncio
     from application_state.agent_conversation import types as t
@@ -513,10 +515,14 @@ def test_one_writer_atomically_stores_plan_result_and_exact_replay(
     from application_state.content.service import commit_plan
     from tests.test_plan_jev_writer import WriterWire, graph_answer
 
+    if source_root:
+        plan_adapter.native_source_authority=t.NativeCorpusUnavailableV1(
+            managed_world_id=plan_adapter.world_id,failure_code='native_source_head_unavailable')
     writer, action, capture = authoring_writer(
         plan_adapter, rules_used=mode != "base", graph_used=mode != "rules_only"
     )
     answer = graph_answer()
+    answer["schema"] = writer.projection.frame["answer_policy"]
     answer["answer_segments"].append(
         {
             "kind": "proposal",

@@ -227,7 +227,7 @@ class SourceChoices(httpx2.AsyncBaseTransport):
         assert len(self.calls) <= 4, body['state']
         answers = {}
         for name, entry in body['questions'].items():
-            choice = 'finish_retrieval' if name == 'operation' else 'exclude'
+            choice = 'discuss' if name == 'requested_work' else 'finish_retrieval' if name == 'operation' else 'exclude'
             if name.startswith('candidate_'):
                 candidate = body['state']['candidates'][int(name.split('_')[-1])]
                 if candidate['kind'] in {'Source lexical navigation; not evidence or semantic completeness',
@@ -308,3 +308,214 @@ def test_actual_sdk_refuses_accumulated_whole_document_without_full_read(source_
     turn = AgentConversationService().list_turns(a.world_id, a.turn.conversation_id)[0]
     assert not any(isinstance(event, (NativeBodyProviderIncludedV1, t.PlanJevWriterAuthorizedV1))
         for event in turn.graph_context_execution.events)
+
+
+def stage_source_writer(a):
+    from apps.live_control_server.services.plan_jev_driver import PlanJevDriver
+    from apps.live_control_server.services.plan_jev_rules_runtime import PlanRulesRuntime
+    from apps.live_control_server.services.plan_jev_writer import PlanJevWriter
+    from application_state.agent_conversation.rules_authority_policy import rules_capability
+    a.request = a.request.model_copy(update={'message': 'Whom did Éphanna hear?'})
+    a.submitted_intent = owner._submitted_turn_intent(a.request, world_id=a.world_id)
+    semantic = PlanJevDispatch.requested_work(a, page_title='Synthetic park Plan')
+    asyncio.run(semantic.run(transport=DecisionWire(a), api_key='synthetic-not-secret'))
+    rules = PlanRulesRuntime(a, rules_capability(graph=True))
+    proof = asyncio.run(PlanJevDriver(a).run(transport=SourceChoices(), api_key='synthetic-not-secret'))
+    return PlanJevWriter(a, proof, rules)
+
+
+def test_actual_native_body_answer_completes_and_reloads_with_exact_citation(source_adapter):
+    from tests.test_plan_jev_writer import WriterWire
+    a = source_adapter
+    writer = stage_source_writer(a)
+    handle = writer.projection.frame['native_body_evidence']['excerpts'][0]['excerpt_handle']
+    output = {'schema': 'dmb_surface_evidence_answer_v6', 'limitations': [], 'requested_detail_gaps': [],
+        'answer_segments': [{'kind': 'native_body_claim', 'text': 'The source says Éphanna heard the guard.',
+            'excerpt_handles': [handle]}]}
+    wire = WriterWire(a, json.dumps(output, ensure_ascii=False))
+    completed = asyncio.run(writer.run(transport=wire, api_key='synthetic-not-secret'))
+    assert completed.status == 'completed' and len(wire.calls) == 1
+    assert isinstance(completed.completion, t.SurfaceEvidenceCompletionV5)
+    assert completed.completion.answer_context_status == 'source_grounded'
+    citation = completed.completion.native_body_citations[0]
+    assert citation.selector_policy == 'native_full_document_v1'
+    assert not hasattr(citation, 'app_source_revision_id')
+    fresh = AgentConversationService().inspect_turn(world_id=a.world_id, turn_id=completed.turn_id)
+    assert fresh == completed and fresh.completion.native_body_citations == [citation]
+
+
+def finish_body_answer(a):
+    from tests.test_plan_jev_writer import WriterWire
+    writer = stage_source_writer(a)
+    handle = writer.projection.frame['native_body_evidence']['excerpts'][0]['excerpt_handle']
+    output = {'schema': 'dmb_surface_evidence_answer_v6', 'limitations': [], 'requested_detail_gaps': [],
+        'answer_segments': [{'kind': 'native_body_claim', 'text': 'The source says Éphanna heard the guard.',
+            'excerpt_handles': [handle]}]}
+    completed = asyncio.run(writer.run(transport=WriterWire(a, json.dumps(output)), api_key='synthetic-not-secret'))
+    return writer, output, completed
+
+
+def test_native_body_history_replay_and_current_access_open_original_revision(source_adapter, lane):
+    from apps.live_control_server.services.agent_native_source_sections import open_native_body_excerpt
+    from apps.live_control_server.services.agent_source_passages import SourcePassageOpenError
+    from application_state.agent_conversation.repository import _plan_ask_history_attribution
+    a = source_adapter
+    _, _, completed = finish_body_answer(a)
+    history = _plan_ask_history_attribution(completed)
+    assert isinstance(history, t.PlanEvidenceHistoryAttributionV5)
+    assert type(history).model_validate_json(history.model_dump_json()) == history
+    replay = owner._completed_turn_replay(a.request, owner={'kind': 'world', 'id': a.world_id}, turn=completed)
+    assert replay.answer.text == completed.assistant_text
+    assert replay.plan_context.schema_ == 'dmb_agent_plan_source_context_response_v1'
+    assert replay.plan_context.completion == completed.completion and replay.plan_context.delivery_replay
+    original_revision = completed.graph_context_receipt.source_authority.revision_id
+    admit(lane, name='later-head', body='# Later\n\nAnother scene.\n')
+    assert lane.repo.get_head('world:test').head_revision_id != original_revision
+    opened = open_native_body_excerpt(world_id=a.world_id, turn_id=completed.turn_id, citation_index=0,
+        principal=GM, repository=lane.repo, resolve_identity=lambda _: lane.bound)
+    assert opened.content == BODY and opened.citation == completed.completion.native_body_citations[0]
+    # Current ownership change cannot be bypassed by retained body/trace bytes.
+    lane.bound = SimpleNamespace(**(vars(lane.bound) | {'binding_version': 2}))
+    with pytest.raises(SourcePassageOpenError, match='native_body_access_unavailable'):
+        open_native_body_excerpt(world_id=a.world_id, turn_id=completed.turn_id, citation_index=0,
+            principal=GM, repository=lane.repo, resolve_identity=lambda _: lane.bound)
+    refused_service = SimpleNamespace(inspect_turn=lambda **_: pytest.fail('player reached APP/source IO'))
+    with pytest.raises(SourcePassageOpenError, match='native_body_access_denied'):
+        open_native_body_excerpt(world_id=a.world_id, turn_id=completed.turn_id, citation_index=0,
+            principal=SimpleNamespace(role='player'), service=refused_service)
+
+
+def test_native_body_completion_refuses_producer_scope_and_citation_substitutions(source_adapter):
+    from application_state.agent_conversation.native_answer_output import normalize_native_answer, NativeAnswerError
+    a = source_adapter
+    writer, output, completed = finish_body_answer(a)
+    support = a.build_claim_evidence[writer.authorization.provider_attempt_id]
+    for changed in (replace(support, context_receipt_sha256='f' * 64),
+                    replace(support, provider_attempt_id=uuid4()), replace(support, envelope_sha256='f' * 64)):
+        with pytest.raises(NativeAnswerError):
+            normalize_native_answer(output, completed, writer.authorization.provider_attempt_id, support=changed)
+    for field in ('read_event_id', 'excerpt_sha256', 'native_source_revision_id', 'selector_policy'):
+        value = completed.model_dump(mode='json', by_alias=True)
+        row = value['completion']['native_body_citations'][0]
+        row[field] = (str(uuid4()) if field == 'read_event_id' else '0' * 64 if field == 'excerpt_sha256'
+            else 'foreign-revision' if field == 'native_source_revision_id' else 'markdown_sections_v1')
+        for event in value['graph_context_execution']['events']:
+            if event['kind'] == 'completion_binding':
+                event['completion_sha256'] = t.canonical_sha256(value['completion'])
+        with pytest.raises(ValueError):
+            t.Turn.model_validate(value)
+    missing = completed.model_dump(mode='json', by_alias=True)
+    events = missing['graph_context_execution']['events']
+    events[:] = [event for event in events if event['kind'] != 'native_body_provider_included_v1']
+    for sequence, event in enumerate(events): event['sequence'] = sequence
+    with pytest.raises(ValueError, match='unique producing inclusion'):
+        t.Turn.model_validate(missing)
+    # Source answers cannot select an unoffered handle or downgrade their grammar.
+    forged = json.loads(json.dumps(output))
+    forged['answer_segments'][0]['excerpt_handles'] = ['b-foreign']
+    with pytest.raises(NativeAnswerError):
+        normalize_native_answer(forged, completed, writer.authorization.provider_attempt_id, support=support)
+    with pytest.raises(NativeAnswerError):
+        normalize_native_answer(output | {'schema': 'dmb_surface_evidence_answer_v5'}, completed,
+            writer.authorization.provider_attempt_id, support=support)
+    graph_claim = output | {'answer_segments': [{'kind': 'graph_claim', 'claim_id': 'claim:1',
+        'text': 'Forged Graph fact.', 'target_kind': 'assertion', 'target_id': 'assertion:foreign',
+        'passage_handles': []}]}
+    with pytest.raises(NativeAnswerError):
+        normalize_native_answer(graph_claim, completed, writer.authorization.provider_attempt_id, support=support)
+
+
+def test_source_only_rules_completion_and_reload_has_no_fabricated_graph(source_adapter):
+    from apps.live_control_server.services.plan_jev_driver import PlanJevDriver
+    from apps.live_control_server.services.plan_jev_rules_runtime import PlanRulesRuntime
+    from apps.live_control_server.services.plan_jev_writer import PlanJevWriter
+    from application_state.agent_conversation.rules_authority_policy import rules_capability
+    from application_state.agent_conversation.rules_authority_reads import MixedCompletedTurnV1
+    from tests.test_plan_jev_writer import WriterWire
+    from tests.test_rules_lookup_broker import args
+    a = source_adapter
+    a.request = a.request.model_copy(update={'message': args().question})
+    a.submitted_intent = owner._submitted_turn_intent(a.request, world_id=a.world_id)
+    semantic = PlanJevDispatch.requested_work(a, page_title='Synthetic park Plan')
+    asyncio.run(semantic.run(transport=DecisionWire(a), api_key='synthetic-not-secret'))
+    rules = PlanRulesRuntime(a, rules_capability(graph=True))
+    proof = asyncio.run(PlanJevDriver(a, rules=rules).run(transport=DecisionWire(a, select_rule=True), api_key='synthetic-not-secret'))
+    frame = rules.frame()
+    support = frame.supports[0]
+    output = {'schema': 'dmb_rules_mixed_answer_v1', 'base_output': None,
+        'rules_segments': [{'kind': 'rules_claim', 'text': support.excerpt_text,
+            'support_ids': [str(support.support_id)]}], 'ordered_refs': [{'domain': 'rules', 'segment_index': 0}]}
+    completed = asyncio.run(PlanJevWriter(a, proof, rules).run(transport=WriterWire(a, json.dumps(output)), api_key='synthetic-not-secret'))
+    assert isinstance(completed, MixedCompletedTurnV1)
+    assert completed.base_projection.kind == 'unclaimed' and not completed.accepted_binding.graph_used
+    assert completed.base_projection.graph_context_receipt.graph_capability is None
+    assert AgentConversationService().inspect_turn(world_id=a.world_id, turn_id=completed.envelope.turn_id) == completed
+
+
+def test_ordinary_http_plan_native_source_answer_replay_history_and_citation(source_adapter, lane, monkeypatch, tmp_path):
+    from fastapi import FastAPI
+    from fastapi.testclient import TestClient
+    from apps.live_control_server.routes import agent
+    from apps.live_control_server.services import plan_jev_harness
+    from apps.live_control_server.services.plan_jev_harness import PlanJevHarness
+    from apps.live_control_server.services import managed_world_graph_projection as managed
+    from apps.live_control_server.integrations.dungeonmind import native_registry_source
+    from tests.test_plan_jev_writer import WriterWire
+    a = source_adapter
+    request = a.request.model_copy(update={'message': 'Whom did Éphanna hear?'})
+    monkeypatch.setenv('DMB_AGENT_GRAPH_AUTH_MODE', 'local_operator')
+    monkeypatch.setenv('DMB_AGENT_GRAPH_AUTH_ENVIRONMENT', 'local')
+    token = 'synthetic-native-test-token-1234567890'
+    monkeypatch.setenv('DMB_AGENT_GRAPH_LOCAL_OPERATOR_TOKEN', token)
+    monkeypatch.setattr(agent, 'repo_root', lambda: tmp_path)
+    monkeypatch.setattr(agent, 'session_dir', lambda: tmp_path / 'sessions')
+    monkeypatch.setattr(agent, '_owner_resolver', lambda _: {'kind': 'world', 'id': a.world_id, 'name': 'Synthetic World'})
+    monkeypatch.setattr(agent, '_verified_world_id', lambda world: world)
+    monkeypatch.setattr(agent, '_work_resolver', lambda *_: a.work)
+    monkeypatch.setattr(agent, '_graph_resolver', lambda *_: pytest.fail('unexpected generic Graph fallback'))
+    def no_classic(*_args, **_kwargs):
+        raise owner.AgentTurnServiceError('Graph publication is pending.', code='native_graph_binding_unavailable', status_code=409)
+    monkeypatch.setattr(agent, '_plan_context_resolver', no_classic)
+    monkeypatch.setattr(managed, 'resolve_managed_source_identity', lambda _: lane.bound)
+    monkeypatch.setattr(native_registry_source, 'repository', lambda: lane.repo)
+    choices = SourceChoices()
+    class SourceWriter(WriterWire):
+        async def handle_async_request(self, request):
+            frame = json.loads(json.loads(request.content)['input'][0]['content'])
+            handle = frame['native_body_evidence']['excerpts'][0]['excerpt_handle']
+            self.text = json.dumps({'schema': 'dmb_surface_evidence_answer_v6', 'limitations': [], 'requested_detail_gaps': [],
+                'answer_segments': [{'kind': 'native_body_claim', 'text': 'The source says Éphanna heard the guard.', 'excerpt_handles': [handle]}]})
+            return await super().handle_async_request(request)
+    wire = SourceWriter(None, '')
+    class Harness(PlanJevHarness):
+        def execute(self, adapter, **kwargs):
+            wire.adapter = adapter
+            return super().execute(adapter, **kwargs)
+    constructions = []
+    def factory():
+        constructions.append(True)
+        return Harness(decision_transport=choices, writer_transport=wire,
+            decision_api_key='synthetic-not-secret', writer_api_key='synthetic-not-secret')
+    monkeypatch.setattr(plan_jev_harness, 'default_plan_jev_runtime', factory)
+    app = FastAPI(); app.include_router(agent.router, prefix='/api/live')
+    client = TestClient(app, client=('127.0.0.1', 42000), headers={'Authorization': 'Bearer ' + token})
+    response = client.post('/api/live/agent/turn', json=request.model_dump(mode='json', by_alias=True))
+    assert response.status_code == 200, response.text
+    data = response.json()
+    assert data['plan_context']['schema'] == 'dmb_agent_plan_source_context_response_v1'
+    assert data['plan_context']['receipt']['graph_capability'] is None
+    assert data['answer']['status'] == 'ok' and not data['answer']['graph_grounded']
+    assert len(wire.calls) == 1 and len(constructions) == 1 and len(choices.calls) == 4
+    turn = wire.adapter.turn
+    admit(lane, name='head-after-http-answer', body='# Later\n\nAnother event.\n')
+    opened = client.get(f'/api/live/agent/worlds/{a.world_id}/conversation/turns/{turn.turn_id}/native-body-excerpts/0')
+    assert opened.status_code == 200, opened.text
+    assert opened.json()['content'] == BODY
+    replay = client.post('/api/live/agent/turn', json=request.model_dump(mode='json', by_alias=True))
+    assert replay.status_code == 200, replay.text
+    assert replay.json()['plan_context']['completion'] == data['plan_context']['completion']
+    assert replay.json()['plan_context']['delivery_replay']
+    assert len(wire.calls) == len(constructions) == 1 and len(choices.calls) == 4
+    history = client.get(f'/api/live/agent/worlds/{a.world_id}/conversation?include_turn_correlation=true')
+    assert history.status_code == 200, history.text
+    assert history.json()['turns'][0]['plan_context']['completion'] == data['plan_context']['completion']

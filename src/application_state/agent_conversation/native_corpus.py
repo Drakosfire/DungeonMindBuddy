@@ -626,3 +626,80 @@ def prove_body_writer_input(turn, authorization, raw, *, sequence, event_id):
         event_id=event_id, sequence=sequence, provider_attempt_id=authorization.provider_attempt_id,
         envelope_sha256=authorization.envelope_sha256, read_event_ids=tuple(read.event_id for read in reads),
         frame_sha256=canonical_sha256(body_frame(reads)))
+
+
+from dataclasses import dataclass
+
+@dataclass(frozen=True)
+class NativeBodySupport:
+    handle: str
+    read: NativeBodyReadObservedV1
+    catalog: NativeCorpusCatalogV1
+
+
+def producing_bodies(turn, authorization, raw):
+    """Only the exact producing inclusion supplies eligible body selectors."""
+    from . import types as t
+    if not isinstance(turn.graph_context_receipt, t.PlanSourceContextReceiptV1):
+        return ()
+    execution = turn.graph_context_execution
+    witnesses = [event for event in execution.events if isinstance(event, NativeBodyProviderIncludedV1)
+        and event.provider_attempt_id == authorization.provider_attempt_id]
+    if len(witnesses) != 1:
+        raise ValueError('Native body output requires its unique producing inclusion')
+    stored = witnesses[0]
+    if prove_body_writer_input(turn, authorization, raw, sequence=stored.sequence, event_id=stored.event_id) != stored:
+        raise ValueError('Native body output differs from actual producing bytes')
+    catalogs = {catalog.catalog_sha256: catalog for event in execution.events
+        if isinstance(event, NativeBodySearchObservedV1) for catalog in event.catalogs}
+    reads = {event.event_id: event for event in selected_body_reads(execution)}
+    return tuple(NativeBodySupport(body_selector(turn, reads[identity]), reads[identity],
+        catalogs[reads[identity].excerpt.catalog_sha256]) for identity in stored.read_event_ids)
+
+
+def body_citation(support, *, index, text, producer, envelope_sha256):
+    from . import types as t
+    read, catalog = support.read, support.catalog
+    excerpt = read.excerpt
+    return t.NativeBodyExcerptCitationV1(segment_index=index, text_sha256=sha256(text.encode()).hexdigest(),
+        provider_attempt_id=producer, envelope_sha256=envelope_sha256, read_event_id=read.event_id,
+        catalog_sha256=catalog.catalog_sha256, source_artifact_id=catalog.source.artifact.source_artifact_id,
+        native_source_revision_id=catalog.source.revision.source_revision_id,
+        content_sha256=catalog.source.revision.content_sha256, excerpt_sha256=excerpt.excerpt_sha256,
+        section_id=excerpt.section.section_id, selector_policy=excerpt.selector_policy,
+        source_name=catalog.sections[0].label, section_title=excerpt.section.label,
+        line_start=excerpt.section.line_start, line_end=excerpt.section.line_end)
+
+
+def validate_body_citations(completion, receipt, execution, producer):
+    from . import types as t
+    if not isinstance(completion, t.SurfaceEvidenceCompletionV5):
+        if isinstance(receipt, t.PlanSourceContextReceiptV1):
+            raise ValueError('Source-capable Plan requires its native body completion contract')
+        return
+    if (not isinstance(receipt, t.PlanSourceContextReceiptV1) or not isinstance(execution, t.PlanSourceExecutionV1)
+            or completion.native_source_citations):
+        raise ValueError('Native body completion cannot inherit another source family')
+    witnesses = [event for event in execution.events if isinstance(event, NativeBodyProviderIncludedV1)
+        and event.provider_attempt_id == producer]
+    if len(witnesses) != 1:
+        raise ValueError('Native body completion lacks its unique producing inclusion')
+    witness = witnesses[0]
+    catalogs = {catalog.catalog_sha256: catalog for event in execution.events
+        if isinstance(event, NativeBodySearchObservedV1) for catalog in event.catalogs}
+    reads = {event.event_id: event for event in selected_body_reads(execution)}
+    for citation in completion.native_body_citations:
+        read = reads.get(citation.read_event_id)
+        if read is None or read.event_id not in witness.read_event_ids or read.sequence >= witness.sequence:
+            raise ValueError('Native body citation was not included in its producing writer')
+        support = NativeBodySupport('', read, catalogs[read.excerpt.catalog_sha256])
+        expected = body_citation(support, index=citation.segment_index,
+            text=completion.answer_segments[citation.segment_index].text,
+            producer=producer, envelope_sha256=witness.envelope_sha256)
+        if citation != expected:
+            raise ValueError('Native body citation changed its exact source, extent or producer')
+
+
+def body_input_partial(execution):
+    return any(isinstance(event, NativeBodySearchObservedV1) and event.unavailable_source_count > 0
+        or isinstance(event, NativeBodyReadObservedV1) and event.excerpt is None for event in execution.events)

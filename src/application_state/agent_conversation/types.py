@@ -2312,7 +2312,34 @@ class SurfaceEvidenceCompletionV4(SurfaceEvidenceCompletionV3):
     answer_segments: list[SurfaceEvidenceSegmentV3] = Field(min_length=1, max_length=128)
 
 
-GraphTurnCompletion = NativeStatementCompletionV1 | BuildIntentionalResponseCompletionV3 | BuildRelationshipReviewCompletionV3 | BuildIntentionalResponseCompletionV2 | BuildRelationshipReviewCompletionV2 | BuildIntentionalResponseCompletionV1 | BuildRelationshipReviewCompletionV1 | BuildConnectedPageReviewCompletionV1 | BuildCollaborationCompletionV1 | BuildRelatedPageCompletionV1 | BuildDraftContextCompletionV1 | BuildNamedGraphCompletionV3 | SurfaceEvidenceCompletionV4 | SurfaceEvidenceCompletionV3 | SurfaceEvidenceCompletionV2 | SurfaceEvidenceCompletionV1 | SurfaceSourceCompletionV1 | PlayWorldGraphCompletionV1 | PlanWorldGraphCompletion | BuildGraphCompletionV1 | BuildGraphCompletionV2 | BuildAuthoringCompletionV1 | BuildImagePreparationCompletionV1
+class NativeBodyExcerptCitationV1(StrictModel):
+    """An opened native body extent, never an APP source or Graph assertion span."""
+    segment_index: int = Field(strict=True, ge=0)
+    text_sha256: str = Field(pattern=r"^[a-f0-9]{64}$")
+    provider_attempt_id: UUID
+    envelope_sha256: str = Field(pattern=r"^[a-f0-9]{64}$")
+    read_event_id: UUID
+    catalog_sha256: str = Field(pattern=r"^[a-f0-9]{64}$")
+    source_artifact_id: str = Field(min_length=1)
+    native_source_revision_id: str = Field(min_length=1)
+    content_sha256: str = Field(pattern=r"^[a-f0-9]{64}$")
+    excerpt_sha256: str = Field(pattern=r"^[a-f0-9]{64}$")
+    section_id: str = Field(pattern=r"^[a-f0-9]{64}$")
+    selector_policy: Literal["markdown_sections_v1", "native_full_document_v1"]
+    source_name: str = Field(min_length=1)
+    section_title: str = Field(min_length=1)
+    line_start: int = Field(strict=True, ge=1)
+    line_end: int = Field(strict=True, ge=1)
+
+
+class SurfaceEvidenceCompletionV5(SurfaceEvidenceCompletionV4):
+    surface_id: Literal["plan"] = "plan"
+    schema_: Literal["dmb_surface_evidence_completion_v5"] = Field(default="dmb_surface_evidence_completion_v5", alias="schema")
+    native_body_citations: list[NativeBodyExcerptCitationV1] = Field(default_factory=list,
+        max_length=MAX_CITATION_SOURCE_READ_IDS)
+
+
+GraphTurnCompletion = SurfaceEvidenceCompletionV5 | NativeStatementCompletionV1 | BuildIntentionalResponseCompletionV3 | BuildRelationshipReviewCompletionV3 | BuildIntentionalResponseCompletionV2 | BuildRelationshipReviewCompletionV2 | BuildIntentionalResponseCompletionV1 | BuildRelationshipReviewCompletionV1 | BuildConnectedPageReviewCompletionV1 | BuildCollaborationCompletionV1 | BuildRelatedPageCompletionV1 | BuildDraftContextCompletionV1 | BuildNamedGraphCompletionV3 | SurfaceEvidenceCompletionV4 | SurfaceEvidenceCompletionV3 | SurfaceEvidenceCompletionV2 | SurfaceEvidenceCompletionV1 | SurfaceSourceCompletionV1 | PlayWorldGraphCompletionV1 | PlanWorldGraphCompletion | BuildGraphCompletionV1 | BuildGraphCompletionV2 | BuildAuthoringCompletionV1 | BuildImagePreparationCompletionV1
 
 
 class GraphCompletionRejectionCode(str, Enum):
@@ -2459,6 +2486,20 @@ class PlanEvidenceHistoryAttributionV4(PlanEvidenceHistoryAttributionV3):
         return self
 
 
+class PlanEvidenceHistoryAttributionV5(PlanEvidenceHistoryAttributionV4):
+    schema_: Literal["dmb_plan_evidence_history_attribution_v5"] = Field(default="dmb_plan_evidence_history_attribution_v5", alias="schema")
+    native_body_citations: list[NativeBodyExcerptCitationV1]
+
+    @model_validator(mode="after")
+    def mixed_history_shape(self):
+        SurfaceEvidenceCompletionV5(surface_id="plan", context_receipt_sha256=self.context_receipt_sha256,
+            answer_basis=self.answer_basis, answer_context_status=self.answer_context_status,
+            answer_segments=self.answer_segments, citation_map=self.citation_map,
+            source_citations=self.source_citations, native_source_citations=self.native_source_citations,
+            native_body_citations=self.native_body_citations)
+        return self
+
+
 class CompletedPlanAskPair(StrictModel):
     """Visible Ask pair with optional validated Graph attribution."""
 
@@ -2468,7 +2509,7 @@ class CompletedPlanAskPair(StrictModel):
     accepted_at: datetime
     question: str = Field(min_length=1)
     answer: str = Field(min_length=1)
-    history_attribution: PlanEvidenceHistoryAttributionV4 | PlanEvidenceHistoryAttributionV3 | PlanEvidenceHistoryAttributionV2 | PlanEvidenceHistoryAttributionV1 | PlanAskHistoryAttributionV1 | MixedHistoryAttributionV1 | None = None
+    history_attribution: PlanEvidenceHistoryAttributionV5 | PlanEvidenceHistoryAttributionV4 | PlanEvidenceHistoryAttributionV3 | PlanEvidenceHistoryAttributionV2 | PlanEvidenceHistoryAttributionV1 | PlanAskHistoryAttributionV1 | MixedHistoryAttributionV1 | None = None
 
     @model_validator(mode="after")
     def validate_visible_text(self) -> "CompletedPlanAskPair":
@@ -6515,11 +6556,17 @@ def validate_turn_graph_fields(
             raise ValueError("Source-capable Plan requires its own receipt and execution")
         validate_source_provenance(graph_context_receipt, provenance)
         validate_source_execution_binding(graph_context_receipt, graph_context_execution)
-        # Completion acceptance belongs to the source answer contract. Until a
-        # typed source answer is supplied, no legacy completion/text may bind it.
-        if completion is not None or assistant_text is not None or any(
-                isinstance(event, CompletionBindingEventV1) for event in graph_context_execution.events):
+        bindings = [event for event in graph_context_execution.events if isinstance(event, CompletionBindingEventV1)]
+        if completion is None:
+            if assistant_text is not None or bindings:
+                raise ValueError("Source-capable Plan requires its own validated answer contract")
+            return
+        if (not isinstance(completion, SurfaceEvidenceCompletionV5) or len(bindings) != 1
+                or assistant_text != "\n".join(segment.text for segment in completion.answer_segments)):
             raise ValueError("Source-capable Plan requires its own validated answer contract")
+        binding = bindings[0]
+        validate_execution_completion(completion, graph_context_receipt, graph_context_execution,
+            binding.provider_attempt_id, binding.claim_graph_event_ids)
         return
     if isinstance(graph_context_receipt, PlayWorldGraphContextReceiptV1) or isinstance(graph_context_execution, PlayWorldGraphExecutionV1) or isinstance(completion, PlayWorldGraphCompletionV1):
         from .play_graph_context import validate_play_graph_execution_binding, validate_play_graph_provenance

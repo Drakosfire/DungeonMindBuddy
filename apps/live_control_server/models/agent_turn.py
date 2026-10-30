@@ -33,7 +33,8 @@ from application_state.agent_conversation.types import (
     BuildSourcePassageCitationV1,
     SurfaceSourcePassageCitationV1,
     SurfaceSourceCompletionV1,
-    SurfaceEvidenceCompletionV1, SurfaceEvidenceCompletionV2, SurfaceEvidenceCompletionV3, SurfaceEvidenceCompletionV4,
+    SurfaceEvidenceCompletionV1, SurfaceEvidenceCompletionV2, SurfaceEvidenceCompletionV3, SurfaceEvidenceCompletionV4, SurfaceEvidenceCompletionV5,
+    PlanSourceContextReceiptV1, NativeBodyExcerptCitationV1,
     BuildSourceContextBasisV1,
     BuildGraphContextReceiptV1,
     PlanWorldGraphCompletionV1,
@@ -754,6 +755,12 @@ class AgentPlanWorldGraphContextResponseV2(BaseModel):
     )
 
 
+class AgentPlanSourceContextResponseV1(AgentPlanWorldGraphContextResponseV2):
+    schema_: Literal["dmb_agent_plan_source_context_response_v1"] = Field(default="dmb_agent_plan_source_context_response_v1", alias="schema")
+    receipt: PlanSourceContextReceiptV1
+    completion: SurfaceEvidenceCompletionV5 | None
+
+
 class AgentPlayWorldGraphContextResponseV1(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
@@ -770,7 +777,7 @@ class AgentTurnResponseV2(AgentTurnResponse):
     schema_: Literal["dmb_agent_turn_response_v2"] = Field(
         default="dmb_agent_turn_response_v2", alias="schema"
     )
-    plan_context: AgentPlanWorldGraphContextResponseV2
+    plan_context: AgentPlanSourceContextResponseV1 | AgentPlanWorldGraphContextResponseV2
 
 
 class AgentPlayGraphTurnResponseV1(AgentTurnResponse):
@@ -897,7 +904,7 @@ class AgentRulesAnswerContextV1(BaseModel):
         default="dmb_agent_rules_answer_context_v1", alias="schema")
     accepted_binding: RulesAcceptedBindingV1
     accepted_binding_sha256: str = Field(pattern=r"^[a-f0-9]{64}$")
-    base_context: AgentBuildGraphContextResponseV1 | AgentPlanWorldGraphContextResponseV2 | AgentPlayWorldGraphContextResponseV1 | None
+    base_context: AgentBuildGraphContextResponseV1 | AgentPlanSourceContextResponseV1 | AgentPlanWorldGraphContextResponseV2 | AgentPlayWorldGraphContextResponseV1 | None
     unclaimed_context: AgentRulesUnclaimedContextV1 | None
 
     @model_validator(mode="after")
@@ -909,7 +916,8 @@ class AgentRulesAnswerContextV1(BaseModel):
             raise ValueError("Only an unclaimed base has execution-only context")
         if self.unclaimed_context is not None:
             receipt = self.unclaimed_context.receipt
-            if receipt.graph_authority.managed_world_id != self.accepted_binding.world_id:
+            world_id = receipt.plan_basis.world_id if isinstance(receipt, PlanSourceContextReceiptV1) else receipt.graph_authority.managed_world_id
+            if world_id != self.accepted_binding.world_id:
                 raise ValueError("Unclaimed Rules context belongs to another World")
         if approved != (self.base_context is not None):
             raise ValueError("Only an independently approved base has answer context")
@@ -988,7 +996,7 @@ class AgentConversationHistoryTurn(BaseModel):
 
 
 class AgentConversationHistoryTurnV2(AgentConversationHistoryTurn):
-    plan_context: AgentPlanWorldGraphContextResponseV2
+    plan_context: AgentPlanSourceContextResponseV1 | AgentPlanWorldGraphContextResponseV2
 
 
 class AgentConversationHistoryTurnV3(AgentConversationHistoryTurn):
@@ -1013,7 +1021,7 @@ class AgentConversationHistoryNativeStatementTurnV1(AgentConversationHistoryTurn
 
 
 class AgentConversationHistoryPlanTurnV3(AgentConversationHistoryTurnV3):
-    plan_context: AgentPlanWorldGraphContextResponseV2
+    plan_context: AgentPlanSourceContextResponseV1 | AgentPlanWorldGraphContextResponseV2
 
 
 class AgentPlayRulesTurnResponseV1(AgentRulesTurnResponseV1):
@@ -1304,4 +1312,14 @@ class AgentNativeSourceSectionReadResponseV1(BaseModel):
     turn_id: UUID
     citation_index: int = Field(strict=True,ge=0,le=16383)
     citation: NativeSourceSectionCitationV1
+    content: str = Field(min_length=1)
+
+
+class AgentNativeBodyExcerptReadResponseV1(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    schema_: Literal["dmb_agent_native_body_excerpt_read_v1"] = Field(default="dmb_agent_native_body_excerpt_read_v1", alias="schema")
+    world_id: str
+    turn_id: UUID
+    citation_index: int = Field(strict=True, ge=0, le=16383)
+    citation: NativeBodyExcerptCitationV1
     content: str = Field(min_length=1)

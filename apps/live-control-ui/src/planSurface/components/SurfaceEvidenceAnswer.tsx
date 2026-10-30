@@ -43,7 +43,9 @@ export function SurfaceEvidenceAnswer({completion,composition,worldId,turnId}:{
         statements={[{text:s.text,choices:choicesBySegment[index]!}]}/> : <WorldPlanAgentAnswer answer={s.text}/>}
       {!worldId || !turnId ? <>{selected.map((c,i)=><cite key={i}>{c.source_name}</cite>)}
         {'native_source_citations' in completion ? completion.native_source_citations.filter(c=>c.segment_index===index)
-          .map((c,i)=><cite key={`native-${i}`}>{c.source_name} · {c.section_title}</cite>):null}</>:null}
+          .map((c,i)=><cite key={`native-${i}`}>{c.source_name} · {c.section_title}</cite>):null}
+        {'native_body_citations' in completion ? completion.native_body_citations.filter(c=>c.segment_index===index)
+          .map((c,i)=><cite key={`body-${i}`}>{c.source_name} · {c.section_title}</cite>):null}</>:null}
     </section>;
   };
   const chars=composition ? Array.from(composition.text) : [];

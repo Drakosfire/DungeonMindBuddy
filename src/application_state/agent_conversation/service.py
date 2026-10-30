@@ -1651,6 +1651,10 @@ class AgentConversationService:
             if isinstance(event, ValidatedGraphOperationEventV1):
                 receipt = turn.graph_context_receipt
                 assert receipt is not None
+                from .types import PlanSourceContextReceiptV1
+                if isinstance(receipt, PlanSourceContextReceiptV1):
+                    from .plan_source_context import require_graph
+                    receipt = require_graph(receipt)
                 if event.graph_revision != receipt.graph_authority.graph_revision:
                     raise ApplicationStateValidationError("Graph operation event must use the frozen Graph revision")
             source_observations: list[TraceSourcePassage] = []

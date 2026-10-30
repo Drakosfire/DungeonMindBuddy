@@ -119,7 +119,26 @@ Rules retains its independent policy, authorization, intent and attempt joins.
 The reviewer also approved src/application_state/agent_conversation/
 native_answer_output.py for matched source owner/v6-only normalization and genuine
 optional Graph authority with root producer SHA, and surface_source_answer.py for
-v6 exact Graph passage selectors. No historical output fallback is allocated.
+v6 exact Graph passage selectors. No historical output fallback is allocated. The reviewer additionally approved
+src/application_state/agent_conversation/native_rules_output.py for locked
+source-body producer reconstruction and matched source/Rules completion only.
+The same reviewer approved services/agent_source_passages.py for independently
+genuine Graph passages under a source root, and UI components
+WorldPlanAgentConversation.tsx / SurfaceEvidenceAnswer.tsx for closed source
+context/history/Rules admission and the existing citation UI, plus adjacent tests.
+The reviewer additionally approved agent_conversation/retained_graph_navigation.py
+and tests/test_plan_jev_harness.py / test_plan_jev_driver.py for genuine optional
+Graph navigation from prior source-root turns and current source-aware fixtures;
+root execution and trace joins remain mandatory, and navigation is not evidence.
+The reviewer approved api/rulesLookupTypes.ts for the source-root receipt union
+only; actual closed guards retain matched execution and Rules ownership.
+The reviewer approved source_passage_reuse.py and existing test_source_passage_reuse.py /
+test_retained_graph_navigation.py only to resolve genuine optional Graph bases
+for unchanged exact reuse; source-only has none, and all producer/trace/pin joins
+remain mandatory. No native body reuse or caching is allocated.
+The reviewer approved tests/test_plan_jev_authoring.py for source-root cases
+proving the existing editable-proposal flow and stale-owner refusal; no new
+Plan authoring runtime contract is allocated.
 
 ## Current evidence and owning defect
 
