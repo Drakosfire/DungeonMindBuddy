@@ -406,6 +406,12 @@ def correct_exact_run_evidence(
     ):
         raise _reject("derived run identity conflicts with existing run", status_code=409)
     _write_child_candidate(child_path, child_bytes, repo=repo)
+    from application_state.ingest.components import persist_component_payload
+
+    for kind, data in (("candidate_graph", child_bytes),
+                       ("source_span_index", resolved.source_span_index_path.read_bytes())):
+        persist_component_payload(run_id=child_id, expected_revision=child.revision,
+                                  kind=kind, payload=data)
     for _ in range(8):
         child = get_extraction_run(repo, child_id)
         if child.status == ExtractionRunStatus.REVIEWABLE:
@@ -627,6 +633,12 @@ def correct_recap_run_evidence(
             raise _reject("derived candidate changed after seal", status_code=409)
     else:
         _write_child_candidate(child_path, child_bytes, repo=repo)
+    from application_state.ingest.components import persist_component_payload
+
+    for kind, data in (("candidate_graph", child_bytes),
+                       ("source_span_index", resolved.source_span_index_path.read_bytes())):
+        persist_component_payload(run_id=child_id, expected_revision=child.revision,
+                                  kind=kind, payload=data)
     for _ in range(8):
         child = get_extraction_run(repo, child_id)
         if child.status == ExtractionRunStatus.REVIEWABLE:

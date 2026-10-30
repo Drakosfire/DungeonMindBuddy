@@ -28,6 +28,8 @@ from graph_memory.ingestion.extraction_run import (
 
 
 def _fixture(monkeypatch: pytest.MonkeyPatch, tmp_path: Path, *, two_invalid: bool = False):
+    from application_state.ingest import components as output_store
+    monkeypatch.setattr(output_store, "persist_component_payload", lambda **kwargs: hashlib.sha256(kwargs["payload"]).hexdigest())
     source = tmp_path / "source.md"
     source.write_text("Torbin, who bought the strange seed, repaired the roof.\n")
     artifact_id = "artifact:worldbuilding:demo:r1:abc"

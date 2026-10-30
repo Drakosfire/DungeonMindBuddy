@@ -379,6 +379,10 @@ def test_held_review_package_remains_readable(
         "get_extraction_run",
         lambda _root, run_id: {"parent": parent, "child": child}[run_id],
     )
+    monkeypatch.setattr(graph_run_registry, "load_reviewable_extraction_data", lambda *_args: SimpleNamespace(
+        run=child, source_artifact=SimpleNamespace(world_id="w", content_sha256="a" * 64),
+        source_bytes=source.read_bytes(), candidate_bytes=candidate.read_bytes(), span_bytes=b"{}",
+        span_index=extract_promote._load_frozen_span_index_for_resolved_run(resolved)))
     review = extract_promote.get_exact_run_review_package("child")
     assert review.inspection_status == "ready"
     assert review.invalid_evidence_count == 0

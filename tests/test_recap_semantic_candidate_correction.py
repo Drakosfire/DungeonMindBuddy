@@ -211,6 +211,30 @@ def _fixture(
         runs[run_id] = updated
         return updated
 
+    # Unit-only output owner double. The disposable-PG integration restores
+    # the real owner; ordinary API/file-denial coverage lives in database review.
+    from application_state.ingest import components as output_store
+    outputs = {}
+
+    def persist_output(*, run_id, expected_revision, kind, payload):
+        assert runs[run_id].revision == expected_revision
+        digest = _sha(payload)
+        assert digest == runs[run_id].components[str(kind)].sha256.removeprefix("sha256:")
+        outputs[(run_id, str(kind))] = payload
+        return digest
+
+    def review_data(_root, run_id):
+        resolved = extract_promote.resolve_promotable_ingest_run(run_id, root=root)
+        return SimpleNamespace(run=runs[run_id],
+            source_artifact=SimpleNamespace(world_id=resolved.world_id, content_sha256=resolved.source_revision_id),
+            source_bytes=resolved.normalized_recap_path.read_bytes(),
+            candidate_bytes=outputs.get((run_id, "candidate_graph"), resolved.candidate_graph_path.read_bytes()),
+            span_bytes=resolved.source_span_index_path.read_bytes(),
+            span_index=extract_promote._load_frozen_span_index_for_resolved_run(resolved))
+
+    monkeypatch.setattr(output_store, "persist_component_payload", persist_output)
+    monkeypatch.setattr(graph_run_registry, "load_reviewable_extraction_data", review_data)
+
     monkeypatch.setattr(service, "repo_root", lambda: root)
     monkeypatch.setattr(service, "resolve_promotable_ingest_run", resolve)
     monkeypatch.setattr(extract_promote, "resolve_promotable_ingest_run", resolve)
