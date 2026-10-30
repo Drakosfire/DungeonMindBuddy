@@ -39,9 +39,10 @@ export function GuidedTourProvider({worldId,worldName,children,history=null}:{wo
  const [focusedControl,setFocusedControl]=useState<FocusedControl|null>(null);
  const [teaching,setTeaching]=useState(false),[teachingEntry,setTeachingEntry]=useState<TeachingEntry|null>(null);
  const closeControl=useRef<HTMLButtonElement|null>(null),invoker=useRef<HTMLElement|null>(null),isVisible=useRef(visible);isVisible.current=visible;
- const open=useCallback(()=>{if(!isVisible.current)invoker.current=document.activeElement instanceof HTMLElement?document.activeElement:null;setTeaching(false);setTeachingEntry(null);setFocusedControl(null);setVisible(true);},[]);
+ const presentationEpoch=useRef(0);
+ const open=useCallback(()=>{presentationEpoch.current++;if(!isVisible.current)invoker.current=document.activeElement instanceof HTMLElement?document.activeElement:null;setTeaching(false);setTeachingEntry(null);setFocusedControl(null);setVisible(true);},[]);
  useLayoutEffect(()=>{if(visible)closeControl.current?.focus();},[visible]);
- const close=()=>{setTeaching(false);setTeachingEntry(null);setFocusedControl(null);setVisible(false);if(invoker.current&&usableControl(invoker.current))invoker.current.focus({preventScroll:true});};
+ const close=()=>{presentationEpoch.current++;setTeaching(false);setTeachingEntry(null);setFocusedControl(null);setVisible(false);if(invoker.current&&usableControl(invoker.current))invoker.current.focus({preventScroll:true});};
  const current=useRef(stored);current.current=stored;
  const runCreationReceipts=useRef(new Map<string,Observation>());
  const mounted=useRef(true),queue=useRef(Promise.resolve()),externalEpoch=useRef(0);
@@ -77,6 +78,7 @@ export function GuidedTourProvider({worldId,worldName,children,history=null}:{wo
  },[worldId]);
  const teach=useCallback(()=>{
   if(!worldId)return;
+  presentationEpoch.current++;
   if(!isVisible.current)invoker.current=document.activeElement instanceof HTMLElement?document.activeElement:null;
   const record=current.current?.record;
   setTeaching(true);setFocusedControl(null);setVisible(true);
@@ -150,7 +152,7 @@ export function GuidedTourProvider({worldId,worldName,children,history=null}:{wo
    &&Array.from(owners.values()).filter(other=>other.step===candidate.step).length===1)userChange({kind:'observe',observation:reading.target.kind==='page'||candidate.observation.origin==='acknowledged'&&!isScopeCurrent(candidate.dispatchScope??null)?{...candidate.observation,origin:'existing'}:candidate.observation});
   for(const receipt of runCreationReceipts.current.values())if(samePin(receipt.target,reading.target))userChange({kind:'observe',observation:receipt});
  };
- const returnToGuidance=useCallback(()=>{setTeaching(false);setTeachingEntry(null);setFocusedControl(null);setVisible(true);},[]);
+ const returnToGuidance=useCallback(()=>{presentationEpoch.current++;setTeaching(false);setTeachingEntry(null);setFocusedControl(null);setVisible(true);},[]);
  const unavailableControl=useCallback((reason:string)=>{setTeachingEntry(null);setFocusedControl(null);setVisible(true);setError(reason);},[]);
  const showControl=()=>{
   const targets=document.querySelectorAll<HTMLElement>(`[data-guided-control~="${step.control}"]`);
@@ -209,7 +211,8 @@ export function GuidedTourProvider({worldId,worldName,children,history=null}:{wo
  const requestCurrentControl=(index=walkthrough?.index??0)=>{
   if(worldId&&walkthrough)setTeachingEntry({worldId,walkthroughId:walkthrough.id,index,epoch:renderedEpoch});
  };
- const openedCapability=()=>{setFocusedControl(null);if(teaching){setVisible(true);requestCurrentControl();}else setVisible(false);};
+ const renderedPresentationEpoch=presentationEpoch.current;
+ const openedCapability=()=>{if(renderedPresentationEpoch!==presentationEpoch.current)return;setFocusedControl(null);if(teaching){setVisible(true);requestCurrentControl();}else setVisible(false);};
  const exportRecord=()=>{
   if(!walkthrough)return;
   const url=URL.createObjectURL(new Blob([JSON.stringify({definition:{id:'buddy-live-journey',version:walkthrough.version,steps},walkthrough},null,2)],{type:'application/json'}));

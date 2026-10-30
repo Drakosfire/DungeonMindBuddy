@@ -2,6 +2,7 @@ import {act,fireEvent,render,screen,waitFor} from '@testing-library/react';
 import {afterEach,beforeEach,expect,it,vi} from 'vitest';
 import {CompactAppNavigation} from '../chrome/CompactAppNavigation';
 import {GuidedTourProvider,useTourOwnerReading} from './GuidedTour';
+import {useTourNavigationOwner} from './Navigation';
 import {createWalkthrough} from './protocol';
 import {readWalkthrough,writeWalkthrough} from './storage';
 vi.mock('../selectedWorld/SelectedWorldContext',()=>({useSelectedWorld:()=>({kind:'managed',worldId:'world',name:'World'})}));
@@ -96,4 +97,18 @@ it('removes an active hint when another tab clears all retained guidance',()=>{
  expect(document.querySelector('[data-guided-highlight]')).not.toBeNull();
  act(()=>{localStorage.clear();window.dispatchEvent(new StorageEvent('storage',{key:null}));});
  expect(document.querySelector('[data-guided-highlight]')).toBeNull();expect(clicked).not.toHaveBeenCalled();
+});
+
+function DelayedInspection({perform}:{perform:()=>Promise<void>}){
+ useTourNavigationOwner({worldId:'world',surface:'build',objectId:null,inspections:[{id:'open-source',label:'Open source controls',step:'source',target:null,impact:'projection',perform}]});return null;
+}
+it.each(['Close tour panel','More guidance'])('ignores late inspection after %s cancels teaching',async action=>{
+ seed();window.history.replaceState({},'','/build?world=world');let release!:()=>void;const pending=new Promise<void>(resolve=>{release=resolve}),perform=vi.fn(()=>pending);
+ render(<GuidedTourProvider worldId="world"><CompactAppNavigation activeRoute="build"/><Controls kind="waiting"/><DelayedInspection perform={perform}/></GuidedTourProvider>);
+ fireEvent.click(screen.getByRole('button',{name:'Resume tour'}));fireEvent.click(screen.getByRole('button',{name:'Open source controls'}));expect(perform).toHaveBeenCalledOnce();
+ fireEvent.click(screen.getByRole('button',{name:action}));await act(async()=>{release();await pending;});
+ expect(document.querySelector('[data-guided-highlight]')).toBeNull();
+ if(action==='Close tour panel')expect(screen.queryByRole('complementary',{name:'Guided journey'})).not.toBeInTheDocument();
+ else expect(screen.getByRole('button',{name:'Export walkthrough'})).toBeVisible();
+ expect(clicked).not.toHaveBeenCalled();
 });
