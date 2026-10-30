@@ -104,6 +104,19 @@ from all evidence in parsed R, including admissions with no assertion supporters
 ADVERSARY characterized these contracts12/12 read-only checks on the exact Core
 pin. Raw source inspection does not raise full ingestion above0/15.
 
+### Closeout consumer lease amendment
+
+Independent architecture_review_1197 approved the two-path closeout amendment
+against e6cea6b989a174eca0e1c24720ba0cab44b14b88: add
+apps/live_control_server/services/plan_jev_acquisition.py for genuine optional
+Graph capability access only, and src/application_state/agent_conversation/
+plan_writer_output_schema.py for the finite native body-excerpt v6 claim branch.
+Retained frame formats remain exact; source selectors must belong to actual
+included excerpts. No additional capability or provider policy is allocated.
+The same reviewer additionally approved services/native_rules_runtime.py for
+matched source receipt/execution validation before Rules ledger creation/use;
+Rules retains its independent policy, authorization, intent and attempt joins.
+
 ## Current evidence and owning defect
 
 Re-anchored OverMind main a31a080e601b1742baddb5d2fe1102754578947a and
@@ -283,4 +296,4 @@ The Canva-style interactive tour, remaining journey acceptance gaps, retained
 performance evidence and operator acceptance remain active independent work.
 This bounded source consumer does not establish full ingestion or goal completion.
 
-Owning runtime adoption: original portable activation f35e0756ce1d10cdacf0a9bf7897b663841f01a4, independently approved operator amendment c322366e92edefc5c771f87943c98d3dbf681e72. This draft implements the complete connected source-QA slice; primitive or in-memory lifecycle tests alone do not activate default routing or establish Q01/Q13 acceptance.
+Owning runtime adoption: original portable activation f35e0756ce1d10cdacf0a9bf7897b663841f01a4, independently approved operator amendment c322366e92edefc5c771f87943c98d3dbf681e72. This draft is allocated to the connected source-QA slice. Ordinary routing, actual writer inclusion, completion/reload and historical citation opening remain delivery gates; primitive or in-memory lifecycle tests do not establish Q01/Q13 acceptance.

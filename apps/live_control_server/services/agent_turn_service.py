@@ -1702,7 +1702,7 @@ class _PolicyExecutionAdapter:
         request: AgentTurnRequest,
         world_id: str,
         work: AgentTurnResolvedWork,
-        bootstrap: AgentPlanWorldGraphBootstrap,
+        bootstrap: AgentPlanWorldGraphBootstrap | None,
         playable_target: PlanPlayableTargetReceiptV1 | None,
         submitted_intent: SubmittedTurnIntentV2 | BuildGraphIntentV1 | PlayGraphIntentV1,
         existing_turn: Turn | None,
@@ -1711,6 +1711,8 @@ class _PolicyExecutionAdapter:
         trace: AgentTurnTraceBuilder | None = None,
         admission_span_id: str | None = None,
         expected_conversation_id: UUID | None = None,
+        native_corpus_context=None,
+        native_source_authority=None,
     ) -> None:
         self.rules_runtime = None
         self.native_source_reply = None
@@ -1723,10 +1725,20 @@ class _PolicyExecutionAdapter:
         self.world_id = world_id
         self.work = work
         self.bootstrap = bootstrap
-        self.initial_session_projection = json.loads(json.dumps(
-            bootstrap.retrieval_session.project_for_hermes(),
-            ensure_ascii=False,
-        ))
+        self.native_corpus_context = native_corpus_context
+        self.native_source_authority = native_source_authority
+        if native_source_authority is not None:
+            from application_state.agent_conversation.native_corpus import NativeCorpusAuthorityV1
+            if native_source_authority.managed_world_id != world_id:
+                raise ValueError("Plan source authority differs from the resolved World")
+            if isinstance(native_source_authority, NativeCorpusAuthorityV1) and (
+                    native_corpus_context is None or native_corpus_context.authority != native_source_authority):
+                raise ValueError("Plan source execution requires its trusted source context")
+        elif bootstrap is None:
+            raise ValueError("Plan execution requires an actual capability basis")
+        self.initial_session_projection = (json.loads(json.dumps(
+            bootstrap.retrieval_session.project_for_hermes(), ensure_ascii=False))
+            if bootstrap is not None else None)
         self.playable_target = playable_target
         self.submitted_intent = submitted_intent
         self.turn = existing_turn
@@ -1885,6 +1897,12 @@ class _PolicyExecutionAdapter:
         self, view: Mapping[str, Any],
     ) -> tuple[Turn, list[str], list[str], list[str]]:
         plan_jev_request = getattr(self, "_active_plan_jev_request", None)
+        if self.native_source_authority is not None:
+            from .plan_jev_dispatch import verify_initial_input
+            verify_initial_input(view, self.request, self.work, plan_jev_request)
+            if self.fence is not None:
+                return self.fence.turn, [], [], []
+            return self._claim_initial(view, plan_jev_request=plan_jev_request)
         _verify_policy_plan_payload(
             view, self.request, self.work, self.playable_target, self.bootstrap,
             plan_jev_request=plan_jev_request,
@@ -1937,6 +1955,8 @@ class _PolicyExecutionAdapter:
                     code="turn_receipt_unverifiable", status_code=409,
                     provider_dispatched=None,
                 )
+            if isinstance(receipt, _app_state_graph_execution_types().PlanSourceContextReceiptV1):
+                return self.fence.turn, [], [], []
             return (
                 self.fence.turn,
                 list(receipt.assembled_input.dispatched_assertion_ids),
@@ -1944,15 +1964,27 @@ class _PolicyExecutionAdapter:
                 list(receipt.assembled_input.dispatched_evidence_ref_ids),
             )
         if self.turn is None:
-            receipt, execution, membership = _freeze_policy_receipt(
-                self.request, self.work, self.bootstrap,
-                self.playable_target, view, self.budget,
-                context_read_enabled=self.context_read_enabled,
-                build_jev_expected_state=getattr(self, "_active_build_jev_expected_state", None),
-                included_history=getattr(self, "build_history_for_inclusion", ()),
-                build_jev_accounting=getattr(self, "_build_jev_accounting", None),
-                plan_jev_request=plan_jev_request, reviewed_admission=reviewed_admission,
-            )
+            if self.native_source_authority is not None:
+                from .plan_source_turn import freeze
+                graph_receipt = graph_execution = None
+                if self.bootstrap is not None:
+                    graph_receipt, graph_execution, _ = _freeze_policy_receipt(
+                        self.request, self.work, self.bootstrap, self.playable_target, view, self.budget,
+                        context_read_enabled=self.context_read_enabled, plan_jev_request=plan_jev_request)
+                receipt, execution, membership = freeze(self.request, self.work, self.playable_target,
+                    view, self.budget, authority=self.native_source_authority,
+                    graph_receipt=graph_receipt, graph_policy=graph_execution.policy if graph_execution is not None else None,
+                    plan_jev_request=plan_jev_request)
+            else:
+                receipt, execution, membership = _freeze_policy_receipt(
+                    self.request, self.work, self.bootstrap,
+                    self.playable_target, view, self.budget,
+                    context_read_enabled=self.context_read_enabled,
+                    build_jev_expected_state=getattr(self, "_active_build_jev_expected_state", None),
+                    included_history=getattr(self, "build_history_for_inclusion", ()),
+                    build_jev_accounting=getattr(self, "_build_jev_accounting", None),
+                    plan_jev_request=plan_jev_request, reviewed_admission=reviewed_admission,
+                )
             provenance = _conversation_provenance(
                 self.request,
                 world_id=self.world_id,
@@ -2001,10 +2033,12 @@ class _PolicyExecutionAdapter:
             receipt = self.turn.graph_context_receipt
             if (
                 receipt is None
-                or receipt.graph_authority.graph_revision
-                != self.bootstrap.world_scope.revision_id
-                or receipt.graph_authority.binding_version
-                != self.bootstrap.binding_version
+                or (self.native_source_authority is None and (
+                    receipt.graph_authority.graph_revision != self.bootstrap.world_scope.revision_id
+                    or receipt.graph_authority.binding_version != self.bootstrap.binding_version))
+                or (self.native_source_authority is not None and (
+                    not isinstance(receipt, _app_state_graph_execution_types().PlanSourceContextReceiptV1)
+                    or receipt.source_authority != self.native_source_authority))
                 or receipt.assembled_input.assembled_input_sha256
                 != (_canonical_sha256({"schema":"dmb_reviewed_action_admission_v1", "intent":reviewed_admission.model_dump(mode="json", by_alias=True)}) if reviewed_admission is not None else view["payloadSha256"])
             ):
@@ -2029,11 +2063,11 @@ class _PolicyExecutionAdapter:
                     code="turn_already_authorized", status_code=409,
                     provider_dispatched=None,
                 )
-        membership = (
+        membership = (([], [], []) if isinstance(receipt, _app_state_graph_execution_types().PlanSourceContextReceiptV1) else (
             list(receipt.assembled_input.dispatched_assertion_ids),
             list(receipt.assembled_input.dispatched_relationship_ids),
             list(receipt.assembled_input.dispatched_evidence_ref_ids),
-        )
+        ))
         assert self.turn is not None
         if self.trace is None:
             claim = self.service.claim_turn(

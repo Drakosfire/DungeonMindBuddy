@@ -7,7 +7,7 @@ from uuid import UUID, uuid4
 
 from application_state.agent_conversation import types as t
 from application_state.agent_conversation.jev_retrieval_contract import (
-    MODEL, PROVIDER, RetrievalDecisionInput, decode_selection,
+    MODEL, PROVIDER, RetrievalDecisionInput, PlanSourceRetrievalDecisionInputV1, decode_selection,
     prepare_decision, validate_prepared_decision, validate_wire_body,
 )
 from application_state.agent_conversation.plan_jev_decision import scope_digest
@@ -40,7 +40,7 @@ def decision_client(*, authorize, record, transport=None, api_key=None):
 
 def verify_initial_input(view, request, work, parent):
     from .agent_turn_service import _governed_graph_turn
-    if (not isinstance(parent, (RetrievalDecisionInput, PlanRequestedWorkInputV1)) or request.surface.surface_id != "plan"
+    if (not isinstance(parent, (RetrievalDecisionInput, PlanSourceRetrievalDecisionInputV1, PlanRequestedWorkInputV1)) or request.surface.surface_id != "plan"
             or not _governed_graph_turn(request) or work.content_basis is None
             or not isinstance(work.plan_markdown, str) or parent.question != request.message
             or (view.get("provider"), view.get("model"), view.get("apiMode")) != (PROVIDER, MODEL, "decision")):
@@ -59,10 +59,19 @@ class PlanJevDispatch:
     """
     def __init__(self, adapter, candidates, *, dialogue=(), examined_candidates=(), allowed_operations=("select_candidates", "discover_more", "finish_retrieval")):
         self.adapter = adapter
-        self.parent = RetrievalDecisionInput(request_id=uuid4(), parent_attempt_id=uuid4(), scope_sha256="0" * 64,
-            revision=adapter.bootstrap.world_scope.revision_id, question=adapter.request.message,
-            dialogue=tuple(dialogue), candidates=tuple(candidates), examined_candidates=tuple(examined_candidates),
-            allowed_operations=tuple(allowed_operations))
+        fields = dict(request_id=uuid4(), parent_attempt_id=uuid4(), scope_sha256="0" * 64,
+            question=adapter.request.message, dialogue=tuple(dialogue), candidates=tuple(candidates),
+            examined_candidates=tuple(examined_candidates), allowed_operations=tuple(allowed_operations))
+        authority = getattr(adapter, "native_source_authority", None)
+        if authority is not None:
+            from application_state.agent_conversation.native_corpus import NativeCorpusAuthorityV1
+            available = isinstance(authority, NativeCorpusAuthorityV1)
+            self.parent = PlanSourceRetrievalDecisionInputV1(**fields,
+                source_authority_status="available" if available else "unavailable",
+                source_revision=authority.revision_id if available else None,
+                graph_revision=adapter.bootstrap.world_scope.revision_id if adapter.bootstrap is not None else None)
+        else:
+            self.parent = RetrievalDecisionInput(**fields, revision=adapter.bootstrap.world_scope.revision_id)
         self.prepared = None
         self.authorization = None
         self.selection = None

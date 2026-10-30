@@ -98,6 +98,13 @@ RulesBaseProjectionV1 = Annotated[
 def validate_unclaimed_receipt_owner(
     envelope: CompletedTurnEnvelopeV1 | Turn, receipt: GraphContextReceipt
 ) -> None:
+    from .types import PlanSourceContextReceiptV1
+    if isinstance(receipt, PlanSourceContextReceiptV1):
+        from .plan_source_context import validate_source_provenance
+        if receipt.plan_basis.world_id != envelope.world_id:
+            raise ValueError("Unclaimed Plan source receipt belongs to another World")
+        validate_source_provenance(receipt, envelope.provenance)
+        return
     if isinstance(receipt, PlayWorldGraphContextReceiptV1):
         from .play_graph_context import validate_play_graph_provenance
         if (receipt.play_basis.world_id != envelope.world_id

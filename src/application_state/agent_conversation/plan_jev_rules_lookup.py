@@ -5,7 +5,7 @@ operation identity and all database authority remain host-owned.
 """
 from uuid import uuid4
 
-from .jev_retrieval_contract import RetrievalCandidate, RetrievalDecisionInput
+from .jev_retrieval_contract import RetrievalCandidate, RetrievalDecisionInput, PlanSourceRetrievalDecisionInputV1
 from .plan_jev_decision import _owner, scope_digest, strict_json
 from .rules_authority_events import (
     RulesPlanJevToolAuthorizedV1, normalized_question, query_identity, plan_jev_rules_operation_id,
@@ -24,7 +24,12 @@ def _selected_offer(turn, parent_request_json):
     receipt, graph = _owner(turn)
     if not isinstance(parent_request_json, str):
         raise ValueError("Plan Rules read requires its exact serialized parent request")
-    parent = RetrievalDecisionInput.model_validate(strict_json(parent_request_json))
+    from .types import PlanSourceContextReceiptV1
+    from .plan_jev_decision import _source_pins
+    source_owned = isinstance(receipt, PlanSourceContextReceiptV1)
+    parent = (PlanSourceRetrievalDecisionInputV1 if source_owned else RetrievalDecisionInput).model_validate(strict_json(parent_request_json))
+    pins_match = (all(getattr(parent, key) == value for key, value in _source_pins(receipt).items())
+        if source_owned else parent.revision == receipt.graph_authority.graph_revision)
     choices = [e for e in graph.events if isinstance(e, PlanJevRetrievalSelectionV1)]
     providers = [e for e in graph.events if isinstance(e, ProviderAttemptAuthorizedEventV1)]
     if not choices or not providers:
@@ -36,7 +41,7 @@ def _selected_offer(turn, parent_request_json):
             or choice.parent_request_sha256 != parent.digest or provider.parent_request_sha256 != parent.digest
             or choice.decision_request_id != parent.request_id or provider.decision_request_id != parent.request_id
             or parent.parent_attempt_id != provider.provider_attempt_id
-            or parent.scope_sha256 != scope_digest(turn) or parent.revision != receipt.graph_authority.graph_revision
+            or parent.scope_sha256 != scope_digest(turn) or not pins_match
             or parent.question != turn.user_text or rules_candidate() not in parent.candidates):
         raise ValueError("Plan Rules read differs from its actual selected Jev offer")
     return choice

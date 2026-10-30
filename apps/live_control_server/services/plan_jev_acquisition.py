@@ -78,7 +78,9 @@ def query_identity(query):
 
 def read_subject_labels(adapter):
     """Only validated current object packets supply search labels, never claims."""
-    authority = adapter._broker_receipt().graph_authority if adapter.fence is not None else None
+    from application_state.agent_conversation.plan_source_context import capability_bases
+    graph = capability_bases(adapter._broker_receipt()).graph if adapter.fence is not None else None
+    authority = graph.graph_authority if graph is not None else None
     if authority is None:
         return {}
     events = {e.event_id: e for e in adapter._broker_execution().events

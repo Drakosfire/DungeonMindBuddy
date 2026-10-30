@@ -18,19 +18,24 @@ class PlanJevDriver:
         self.dialogue = [{"role": item["role"], "content": item["content"]} for item in dialogue]
         self.catalog = {}
         self.node_kinds = {}
-        self._remember_node_kinds(adapter.bootstrap.graph_envelope.get("nodes", []), "node_id")
+        self.graph_available = adapter.bootstrap is not None
+        if self.graph_available:
+            self._remember_node_kinds(adapter.bootstrap.graph_envelope.get("nodes", []), "node_id")
         self.attempted_nodes, self.attempted_anchors = set(), set()
-        self.discovered = adapter.bootstrap.completed_discovery_query == adapter.request.message
+        self.discovered = not self.graph_available or adapter.bootstrap.completed_discovery_query == adapter.request.message
         from .plan_jev_acquisition import query_identity
         self.attempted_queries = ({query_identity(adapter.bootstrap.completed_discovery_query)}
-            if adapter.bootstrap.completed_discovery_query else set())
+            if self.graph_available and adapter.bootstrap.completed_discovery_query else set())
         self.finished = False
         self.calls = []
         self.gaps = []
         self.current = None
-        self._collect_candidates(adapter.bootstrap.retrieval_session.project_for_hermes())
-        self._collect_candidates({"candidates": [{"kind": "node", "id": node, "label": label}
-            for node, label in adapter.bootstrap.navigation_candidates]})
+        if self.graph_available:
+            self._collect_candidates(adapter.bootstrap.retrieval_session.project_for_hermes())
+            self._collect_candidates({"candidates": [{"kind": "node", "id": node, "label": label}
+                for node, label in adapter.bootstrap.navigation_candidates]})
+        elif retained_navigation:
+            raise ValueError("Prior Graph labels cannot grant an absent current Graph capability")
         for subject in retained_navigation:
             self.catalog.setdefault(f"node:{subject.node_id}", (subject.node_id, RetrievalCandidate(
                 handle=f"node:{subject.node_id}", label=subject.label,
@@ -73,6 +78,8 @@ class PlanJevDriver:
 
     def _graph_read(self, operation, node=None, *, query=None):
         a = self.adapter
+        if not self.graph_available:
+            raise ValueError("This Plan turn has no authorized Graph capability")
         arguments = {"retrievalSessionId": a.bootstrap.retrieval_session.id, "operation": operation}
         if node is not None: arguments["targets"] = [{"kind": "node", "id": node}]
         else: arguments["queryText"] = a.request.message if query is None else query
