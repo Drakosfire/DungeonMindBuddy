@@ -187,15 +187,21 @@ def _component_by_kind(
     return components.get(kind.value)
 
 
+def _require_run_source_artifact(root: Path, source_artifact_id: str) -> GraphMemorySourceArtifact:
+    """Translate missing input as bad run evidence; preserve owner failures."""
+    try:
+        return get_source_artifact(root, source_artifact_id)
+    except SourceArtifactRegistryError as exc:
+        if exc.status_code >= 500:
+            raise GraphRunRegistryError(str(exc), status_code=exc.status_code) from exc
+        raise GraphRunRegistryError(
+            f"unknown source_artifact_id: {source_artifact_id}", status_code=422,
+        ) from exc
+
+
 def assert_run_reviewable_evidence(root: Path, run: ExtractionRun) -> None:
     """Server-side evidence resolution required for reviewable/promoted runs."""
-    try:
-        artifact = get_source_artifact(root, run.source_artifact_id)
-    except SourceArtifactRegistryError as exc:
-        raise GraphRunRegistryError(
-            f"unknown source_artifact_id: {run.source_artifact_id}",
-            status_code=422,
-        ) from exc
+    artifact = _require_run_source_artifact(root, run.source_artifact_id)
 
     if str(artifact.source_domain) != run.source_domain:
         raise GraphRunRegistryError(
@@ -258,13 +264,7 @@ def assert_immutable_component_refs(root: Path, run: ExtractionRun) -> None:
             continue
         if component.kind == ExtractionRunComponentKind.SOURCE_ARTIFACT:
             if artifact is None:
-                try:
-                    artifact = get_source_artifact(root, run.source_artifact_id)
-                except SourceArtifactRegistryError as exc:
-                    raise GraphRunRegistryError(
-                        f"unknown source_artifact_id: {run.source_artifact_id}",
-                        status_code=422,
-                    ) from exc
+                artifact = _require_run_source_artifact(root, run.source_artifact_id)
             _assert_component_bytes(
                 root, component, expected_digest=artifact.content_sha256
             )
@@ -274,13 +274,7 @@ def assert_immutable_component_refs(root: Path, run: ExtractionRun) -> None:
         path = _assert_component_bytes(root, component)
         if component.kind == ExtractionRunComponentKind.SOURCE_SPAN_INDEX:
             if artifact is None:
-                try:
-                    artifact = get_source_artifact(root, run.source_artifact_id)
-                except SourceArtifactRegistryError as exc:
-                    raise GraphRunRegistryError(
-                        f"unknown source_artifact_id: {run.source_artifact_id}",
-                        status_code=422,
-                    ) from exc
+                artifact = _require_run_source_artifact(root, run.source_artifact_id)
             try:
                 from graph_memory.source_span import source_span_index_from_dict
 
@@ -383,13 +377,7 @@ def _bind_run_to_artifact(
 ) -> GraphMemorySourceArtifact:
     if not source_artifact_id.strip():
         raise GraphRunRegistryError("source_artifact_id is required", status_code=422)
-    try:
-        artifact = get_source_artifact(root, source_artifact_id)
-    except SourceArtifactRegistryError as exc:
-        raise GraphRunRegistryError(
-            f"unknown source_artifact_id: {source_artifact_id}",
-            status_code=422,
-        ) from exc
+    artifact = _require_run_source_artifact(root, source_artifact_id)
     if str(artifact.source_domain) != source_domain:
         raise GraphRunRegistryError(
             "source_domain does not match SourceArtifact",

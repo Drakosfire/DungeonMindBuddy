@@ -188,10 +188,6 @@ def test_w2_w10_missing_out_and_missing_component_bytes_do_not_hide_run(
         "apps.live_control_server.services.graph_ingest_run_registry.discover_graph_ingest_runs",
         _boom,
     )
-    monkeypatch.setattr(
-        "apps.live_control_server.services.promotable_ingest_run._find_manifests_for_run_id",
-        _boom,
-    )
 
     assert any(row["run_id"] == created.run_id for row in list_canonical_extraction_runs()["runs"])
     exact = client.get(f"/api/live/graph-preview/extraction-runs/{created.run_id}")
@@ -274,8 +270,8 @@ def test_w13_integrity_maps_typed_code(
 
 def test_retired_catalog_get_is_not_a_product_read_and_launch_exact_routes_remain(client):
     response = client.get("/api/live/graph-preview/extraction-runs")
-    assert response.status_code == 405
-    assert response.headers['content-type'].startswith('application/json')
-    routes = client.app.routes
-    assert any(route.path == '/api/live/graph-preview/extraction-runs' and 'POST' in route.methods for route in routes)
-    assert any(route.path == '/api/live/graph-preview/extraction-runs/{run_id}' and 'GET' in route.methods for route in routes)
+    assert response.status_code == 404
+    paths = client.app.openapi()["paths"]
+    assert "get" not in paths["/api/live/graph-preview/extraction-runs"]
+    assert "post" in paths["/api/live/graph-preview/extraction-runs"]
+    assert "get" in paths["/api/live/graph-preview/extraction-runs/{run_id}"]

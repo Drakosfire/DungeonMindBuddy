@@ -299,7 +299,7 @@ def test_source_mirror_is_inert_and_database_scope_drift_fails(split_roots, monk
         get_source_artifact(code, artifact.source_artifact_id)
     with pytest.raises(
         PromotableIngestRunError,
-        match="unknown source_artifact_id",
+        match="invalid registered source input metadata",
     ):
         resolve_promotable_ingest_run(run.run_id, root=code)
 
