@@ -51,7 +51,7 @@ export function GuidedTourProvider({worldId,worldName,children,history=null}:{wo
  const reload=useCallback(()=>{
   if(!worldId){current.current=null;setStored(null);setReadWorld(null);setError(null);return;}
   try{const value=readWalkthrough(localStorage,worldId);current.current=value;setStored(value);setReadWorld(worldId);setError(null);}
-  catch(cause){setReadWorld(null);setError(cause instanceof Error?cause.message:'The walkthrough could not be read.');}
+  catch(cause){current.current=null;setStored(null);setReadWorld(null);setError(cause instanceof Error?cause.message:'The walkthrough could not be read.');}
  },[worldId]);
  useEffect(()=>{reload();const changed=(e:StorageEvent)=>{if(worldId&&(e.key===pointerKey(worldId)||e.key?.startsWith(`dmb:guided-journey:v1:${encodeURIComponent(worldId)}:`))){externalEpoch.current++;reload();}};window.addEventListener('storage',changed);return()=>window.removeEventListener('storage',changed);},[reload,worldId]);
  const change=useCallback((action:TourAction|{kind:'start';adventure:Adventure},expectedId:string|null=current.current?.record.id??null,expectedEpoch=externalEpoch.current)=>{
@@ -106,7 +106,8 @@ export function GuidedTourProvider({worldId,worldName,children,history=null}:{wo
  useEffect(()=>{publish(memoryToken.current,memoryReading);return()=>publish(memoryToken.current,null);},[publish,memorySignature]);
  const entryLabel:TourApi['entryLabel']=!worldId||readWorld!==worldId||error?'Open tour':!stored?'Start tour':stored.record.version===3?'Resume tour':'Review tour';
  const api=useMemo(()=>({entryLabel,captureMechanicsScope,tracking:stored?.record.version===3&&stored.record.phase==='running',captureGenerationScope,isGenerationScopeCurrent,open,publish,recordRunCreation,captureScope,isScopeCurrent,recordConversationDispatch}),[entryLabel,captureMechanicsScope,captureGenerationScope,isGenerationScopeCurrent,open,publish,recordRunCreation,captureScope,isScopeCurrent,recordConversationDispatch,stored?.record.phase,stored?.record.id,stored?.record.dispatchRevision,externalEpoch.current]);
- const walkthrough=stored?.record;
+ const resolved=!!worldId&&readWorld===worldId;
+ const walkthrough=resolved?stored?.record:undefined;
  const renderedEpoch=externalEpoch.current;
  const userChange=(action:TourAction|{kind:'start';adventure:Adventure})=>change(action,stored?.record.id??null,renderedEpoch);
  const steps=journeySteps(walkthrough?.version??3);
@@ -178,7 +179,7 @@ export function GuidedTourProvider({worldId,worldName,children,history=null}:{wo
  return <TourContext.Provider value={api}><TourNavigationProvider registry={navigationRegistry}>{children}{visible&&<aside className="guided-tour" aria-label="Guided journey">
   <header><strong>Guided journey</strong><button ref={closeControl} type="button" aria-label="Close tour panel" onClick={close}>×</button></header>
   <p className="guided-tour__scope">Guidance uses the ordinary controls. It never repeats your actions.</p>
-  {!worldId?<p>Select a managed World before starting a walkthrough.</p>:!walkthrough?<><p>Choose the adventure you are walking through in this World.</p>{Object.entries(ADVENTURES).map(([id,label])=><button key={id} type="button" disabled={!!error} onClick={()=>userChange({kind:'start',adventure:id as Adventure})}>{label}</button>)}</>:<>
+  {!worldId?<p>Select a managed World before starting a walkthrough.</p>:!resolved&&!error?<p>Opening saved guidance…</p>:!walkthrough?<><p>Choose the adventure you are walking through in this World.</p>{Object.entries(ADVENTURES).map(([id,label])=><button key={id} type="button" disabled={!!error||!resolved} onClick={()=>userChange({kind:'start',adventure:id as Adventure})}>{label}</button>)}</>:<>
    <p>{ADVENTURES[walkthrough.adventure]} · {worldName??'Selected World'}</p>
    <p role="status">{walkthrough.phase==='running'?`${walkthrough.index+1} of ${steps.length}`:walkthrough.phase==='paused'?'Guidance paused':'Walkthrough exited. Its record is retained.'}</p>
    {historical&&<p>This is a read-only record of the earlier 14-step tour. Restart guidance to begin a new walkthrough that includes creature generation. Its original record is retained.</p>}

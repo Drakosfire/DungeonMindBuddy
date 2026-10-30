@@ -96,6 +96,19 @@ describe('visible tour entry',()=>{
     view.rerender(<Workspace worldId={null}/>);expect(screen.getByRole('button',{name:'Open tour'})).toBeVisible();
     expect(screen.getByText('Select a managed World before starting a walkthrough.')).toBeVisible();
   });
+  it('never presents the prior World walkthrough when the next World record cannot be read',()=>{
+    seed();localStorage.setItem(pointerKey('damaged-world'),'damaged');
+    const write=vi.spyOn(Storage.prototype,'setItem');const view=render(<Workspace/>);
+    fireEvent.click(screen.getByRole('button',{name:'Resume tour'}));
+    expect(screen.getByRole('button',{name:'Export walkthrough'})).toBeVisible();
+    view.rerender(<Workspace worldId="damaged-world"/>);
+    expect(screen.getByRole('button',{name:'Open tour'})).toBeVisible();
+    expect(screen.getByRole('alert')).toBeVisible();
+    expect(screen.queryByRole('button',{name:'Export walkthrough'})).not.toBeInTheDocument();
+    expect(screen.queryByRole('heading',{name:'Open the source'})).not.toBeInTheDocument();
+    expect(screen.getByRole('button',{name:'Of Conks and Cons'})).toBeDisabled();
+    expect(write).not.toHaveBeenCalled();
+  });
   it('does not advertise Start or the prior World record while a new World resolves',()=>{
     seed();const labels:string[]=[];
     function Probe(){labels.push(useGuidedTour()!.entryLabel);return null;}
