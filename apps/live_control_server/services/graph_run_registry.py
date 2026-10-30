@@ -201,7 +201,7 @@ def _require_run_source_artifact(root: Path, source_artifact_id: str) -> GraphMe
         ) from exc
 
 
-def _review_components(run: ExtractionRun, artifact: GraphMemorySourceArtifact):
+def _assert_run_source_scope(run: ExtractionRun, artifact: GraphMemorySourceArtifact) -> None:
     if str(artifact.source_domain) != run.source_domain:
         raise GraphRunRegistryError(
             "extraction run source_domain does not match SourceArtifact",
@@ -218,6 +218,25 @@ def _review_components(run: ExtractionRun, artifact: GraphMemorySourceArtifact):
             status_code=422,
         )
 
+
+def _load_run_source_input(root: Path, run: ExtractionRun) -> tuple[GraphMemorySourceArtifact, bytes]:
+    """Verify the registered input, never a source mirror or its directory."""
+    from graph_memory.ingestion.extraction_run import normalize_content_digest
+
+    try:
+        artifact, source = load_registered_source_artifact_bytes(root, run.source_artifact_id)
+    except SourceArtifactRegistryError as exc:
+        raise GraphRunRegistryError(
+            str(exc), status_code=exc.status_code if exc.status_code >= 500 else 422,
+        ) from exc
+    _assert_run_source_scope(run, artifact)
+    component = _component_by_kind(run.components, ExtractionRunComponentKind.SOURCE_ARTIFACT)
+    if component is not None and normalize_content_digest(component.sha256) != normalize_content_digest(artifact.content_sha256):
+        raise GraphRunRegistryError("source_artifact component digest does not match SourceArtifact", status_code=422)
+    return artifact, source
+
+
+def _review_components(run: ExtractionRun):
     source_component = _component_by_kind(
         run.components, ExtractionRunComponentKind.SOURCE_ARTIFACT
     )
@@ -250,18 +269,12 @@ class ReviewableExtractionData:
 def load_reviewable_extraction_data(root: Path, run_id: str) -> ReviewableExtractionData:
     """Read one run's exact database bindings, never its presentation locators."""
     from application_state.ingest.components import get_component_bytes
-    from graph_memory.ingestion.extraction_run import normalize_content_digest
 
     run = get_extraction_run(root, run_id)
     if run.status != ExtractionRunStatus.REVIEWABLE:
         raise GraphRunRegistryError(f"extraction run is not reviewable: {run.status.value}", status_code=422)
-    try:
-        artifact, source = load_registered_source_artifact_bytes(root, run.source_artifact_id)
-    except SourceArtifactRegistryError as exc:
-        raise GraphRunRegistryError(str(exc), status_code=exc.status_code if exc.status_code >= 500 else 422) from exc
-    source_ref, span_ref, candidate_ref = _review_components(run, artifact)
-    if normalize_content_digest(source_ref.sha256) != normalize_content_digest(artifact.content_sha256):
-        raise GraphRunRegistryError("source_artifact component digest does not match SourceArtifact", status_code=422)
+    artifact, source = _load_run_source_input(root, run)
+    _, span_ref, candidate_ref = _review_components(run)
     try:
         spans = get_component_bytes(run_id=run_id, kind=span_ref.kind, content_sha256=span_ref.sha256)
         candidate = get_component_bytes(run_id=run_id, kind=candidate_ref.kind, content_sha256=candidate_ref.sha256)
@@ -278,12 +291,8 @@ def load_reviewable_extraction_data(root: Path, run_id: str) -> ReviewableExtrac
 
 def assert_run_reviewable_evidence(root: Path, run: ExtractionRun) -> None:
     """Server-side evidence resolution required for reviewable/promoted runs."""
-    artifact = _require_run_source_artifact(root, run.source_artifact_id)
-
-    source_component, span_component, graph_component = _review_components(run, artifact)
-
-    _assert_component_bytes(root, source_component, expected_digest=artifact.content_sha256)
-    _assert_source_component_matches_artifact(source_component, artifact, span_component)
+    artifact, _ = _load_run_source_input(root, run)
+    _, span_component, graph_component = _review_components(run)
 
     span_path = _assert_component_bytes(root, span_component)
     try:
@@ -311,18 +320,12 @@ def assert_immutable_component_refs(root: Path, run: ExtractionRun) -> None:
         if not component.uri.strip() or not (component.sha256 or "").strip():
             continue
         if component.kind == ExtractionRunComponentKind.SOURCE_ARTIFACT:
-            if artifact is None:
-                artifact = _require_run_source_artifact(root, run.source_artifact_id)
-            _assert_component_bytes(
-                root, component, expected_digest=artifact.content_sha256
-            )
-            _assert_source_component_matches_artifact(component, artifact,
-                _component_by_kind(run.components, ExtractionRunComponentKind.SOURCE_SPAN_INDEX))
+            artifact, _ = _load_run_source_input(root, run)
             continue
         path = _assert_component_bytes(root, component)
         if component.kind == ExtractionRunComponentKind.SOURCE_SPAN_INDEX:
             if artifact is None:
-                artifact = _require_run_source_artifact(root, run.source_artifact_id)
+                artifact, _ = _load_run_source_input(root, run)
             try:
                 from graph_memory.source_span import source_span_index_from_dict
 
@@ -337,48 +340,6 @@ def assert_immutable_component_refs(root: Path, run: ExtractionRun) -> None:
                     f"source_span_index is not bound to source artifact: {exc}",
                     status_code=422,
                 ) from exc
-
-
-def _assert_source_component_matches_artifact(
-    component: ExtractionRunComponentRef,
-    artifact: GraphMemorySourceArtifact,
-    span_component: ExtractionRunComponentRef | None = None,
-) -> None:
-    from graph_memory.ingestion.extraction_run import normalize_content_digest
-
-    uri = component.uri
-    if uri != uri.strip():
-        raise GraphRunRegistryError(
-            "source_artifact component uri is whitespace-contaminated",
-            status_code=422,
-        )
-    expected = artifact.uri
-    snapshot_uri = None
-    # Corrected candidates move; the inherited source/span bundle does not.
-    if span_component is not None and span_component.uri.startswith("repo://"):
-        snapshot_uri = span_component.uri.rsplit("/", 1)[0] + "/source.md"
-    if uri == snapshot_uri:
-        return
-    if uri.startswith("repo://"):
-        if uri != expected:
-            raise GraphRunRegistryError(
-                "source_artifact component uri does not match SourceArtifact",
-                status_code=422,
-            )
-    else:
-        expected_rel = expected.removeprefix("repo://")
-        if uri != expected_rel:
-            raise GraphRunRegistryError(
-                "source_artifact component uri does not match SourceArtifact",
-                status_code=422,
-            )
-    if normalize_content_digest(component.sha256) != normalize_content_digest(
-        artifact.content_sha256
-    ):
-        raise GraphRunRegistryError(
-            "source_artifact component digest does not match SourceArtifact",
-            status_code=422,
-        )
 
 
 def _assert_component_bytes(
@@ -485,7 +446,6 @@ def resolve_registered_source_snapshot(root: Path, artifact: GraphMemorySourceAr
             continue
         if run.source_domain != artifact.source_domain or run.campaign_id != artifact.campaign_id:
             raise GraphRunRegistryError("Source snapshot ownership mismatch", status_code=409)
-        _assert_source_component_matches_artifact(source, artifact, index)
         _assert_component_bytes(root, index)
         return _assert_component_bytes(root, source, expected_digest=artifact.content_sha256)
     return None
