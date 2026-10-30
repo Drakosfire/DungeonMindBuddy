@@ -29,3 +29,34 @@ def require_graph(receipt):
     if graph is None:
         raise ValueError("This Plan turn has no authorized Graph capability")
     return graph
+
+
+def validate_source_execution_binding(receipt, execution):
+    """Bind native source and optional Graph capabilities without cross-family IDs."""
+    from .native_corpus import NativeBodySearchAuthorizedV1
+    if not isinstance(receipt, t.PlanSourceContextReceiptV1) or not isinstance(execution, t.PlanSourceExecutionV1):
+        raise ValueError("Source-capable Plan requires its exact receipt and execution")
+    if (execution.context_receipt_sha256 != receipt.context_receipt_sha256
+            or execution.policy.source_authority_sha256 != t.canonical_sha256(
+                receipt.source_authority.model_dump(mode="json", by_alias=True))):
+        raise ValueError("Plan source execution differs from its frozen receipt authority")
+    scope = execution.policy.source_read_scope
+    graph = receipt.graph_capability
+    if graph is None:
+        if scope is not None or execution.policy.allowed_graph_operations:
+            raise ValueError("Plan source execution manufactured an absent Graph capability")
+    else:
+        authority = graph.graph_authority
+        if (scope is None or scope.world_id != authority.managed_world_id
+                or scope.campaign_id != authority.campaign_id
+                or scope.graph_revision != authority.graph_revision):
+            raise ValueError("Plan Graph scope differs from its independently frozen authority")
+        inputs = t._ask_graph_validation_inputs(graph).model_copy(update={
+            "context_receipt_sha256": receipt.context_receipt_sha256})
+        t.validate_graph_selected_source_binding(inputs, execution)
+        t.validate_graph_related_recap_context_scope(inputs, execution)
+    for event in execution.events:
+        if isinstance(event, NativeBodySearchAuthorizedV1) and (
+                not isinstance(receipt.source_authority, NativeCorpusAuthorityV1)
+                or event.authority != receipt.source_authority):
+            raise ValueError("Native source search differs from its frozen source-only authority")

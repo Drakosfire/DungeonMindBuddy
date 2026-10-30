@@ -192,12 +192,13 @@ def test_captured_provenance_cannot_be_mutated_through_core_models(lane):
 ])
 def test_native_catalog_exact_utf8_crlf_and_existing_markdown_selectors(lane, body):
     from application_state.agent_conversation.native_corpus import (
-        build_native_body_catalog, select_native_body_excerpt,
+        build_native_body_catalog, select_native_body_excerpt, select_native_full_document,
     )
     admit(lane, body=body)
     captured = capture(lane)
     catalog = build_native_body_catalog(captured.authority, captured.members[0], body)
-    excerpts = [select_native_body_excerpt(catalog, body, row.section_id) for row in catalog.sections]
+    excerpts = ([select_native_full_document(catalog, body)] if len(catalog.sections) == 1 else
+        [select_native_body_excerpt(catalog, body, row.section_id) for row in catalog.sections])
     assert "".join(row.text for row in excerpts) == body
     for excerpt in excerpts:
         section = excerpt.section
@@ -257,3 +258,30 @@ def test_changed_body_and_unknown_section_refuse(lane):
         select_native_body_excerpt(catalog, BODY + "changed", catalog.sections[0].section_id)
     with pytest.raises(ValueError, match="not in its catalog"):
         select_native_body_excerpt(catalog, BODY, "f" * 64)
+
+
+def test_degenerate_whole_body_section_requires_explicit_full_document(lane):
+    from application_state.agent_conversation.native_corpus import (
+        build_native_body_catalog, select_native_body_excerpt, select_native_full_document,
+    )
+    body = "x" * 63 + "\n"
+    assert len(body.encode()) == 64
+    admit(lane, body=body)
+    captured = capture(lane)
+    catalog = build_native_body_catalog(captured.authority, captured.members[0], body)
+    with pytest.raises(ValueError, match="explicit full-document decision"):
+        select_native_body_excerpt(catalog, body, catalog.sections[0].section_id)
+    full = select_native_full_document(catalog, body)
+    assert full.text == body and full.selector_policy == "native_full_document_v1"
+
+
+@pytest.mark.parametrize("intervals, expected", [
+    ([(0, 4), (4, 10)], True),
+    ([(0, 6), (4, 10)], True),
+    ([(0, 4), (6, 10)], False),
+    ([(2, 8), (4, 9)], False),
+    ([(0, 5), (0, 5)], False),
+])
+def test_full_document_exposure_uses_interval_union(intervals, expected):
+    from application_state.agent_conversation.native_corpus import covers_full_document
+    assert covers_full_document(intervals, 10) is expected

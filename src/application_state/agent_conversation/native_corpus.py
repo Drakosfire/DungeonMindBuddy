@@ -3,6 +3,7 @@ from __future__ import annotations
 
 from hashlib import sha256
 from typing import Literal
+from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 from dungeonmind.contracts.vnext.source import SourceArtifactV3, SourceRevisionV2
@@ -131,6 +132,7 @@ class NativeCorpusExcerptV1(Strict):
     """Selected body text; neither an APP source nor an admitted assertion span."""
     schema_version: Literal["dmb_native_body_excerpt_v1"] = "dmb_native_body_excerpt_v1"
     catalog_sha256: str = Field(pattern=r"^[a-f0-9]{64}$")
+    selector_policy: Literal["markdown_sections_v1", "native_full_document_v1"]
     section: NativeCorpusSectionV1
     text: str = Field(min_length=1)
     excerpt_sha256: str = Field(pattern=r"^[a-f0-9]{64}$")
@@ -175,6 +177,246 @@ def select_native_body_excerpt(catalog, markdown, section_id):
     section = next((row for row in catalog.sections if row.section_id == section_id), None)
     if section is None:
         raise ValueError("Selected native body section is not in its catalog")
+    if section.byte_start == 0 and section.byte_end == catalog.body_bytes:
+        raise ValueError("An explicit full-document decision is required for whole-body exposure")
     text = markdown[section.char_start:section.char_end]
     return NativeCorpusExcerptV1(catalog_sha256=catalog.catalog_sha256,
-        section=section, text=text, excerpt_sha256=sha256(text.encode()).hexdigest())
+        selector_policy="markdown_sections_v1", section=section,
+        text=text, excerpt_sha256=sha256(text.encode()).hexdigest())
+
+
+def full_document_section(catalog):
+    source, revision = catalog.source.artifact, catalog.source.revision
+    identity = {"selector_policy": "native_full_document_v1",
+        "source_artifact_id": source.source_artifact_id,
+        "source_revision_id": revision.source_revision_id,
+        "content_sha256": revision.content_sha256}
+    return NativeCorpusSectionV1(section_id=sha256(canonical(identity).encode()).hexdigest(),
+        label="Full document", line_start=1, line_end=catalog.sections[-1].line_end,
+        char_start=0, char_end=catalog.body_chars, byte_start=0, byte_end=catalog.body_bytes)
+
+
+def select_native_full_document(catalog, markdown):
+    """Only the explicit full-document action may call this producing selector."""
+    if build_native_body_catalog(catalog.authority, catalog.source, markdown) != catalog:
+        raise ValueError("Native catalog differs from the exact source body")
+    return NativeCorpusExcerptV1(catalog_sha256=catalog.catalog_sha256,
+        selector_policy="native_full_document_v1", section=full_document_section(catalog),
+        text=markdown, excerpt_sha256=sha256(markdown.encode()).hexdigest())
+
+
+def covers_full_document(intervals, body_bytes):
+    """Union coverage includes disjoint, overlapping and accumulated excerpts."""
+    cursor = 0
+    ordered = sorted(intervals)
+    if body_bytes <= 0 or any(start < 0 or end <= start or end > body_bytes for start, end in ordered):
+        raise ValueError("Source exposure interval exceeds the exact body")
+    for start, end in ordered:
+        if start > cursor:
+            return False
+        cursor = max(cursor, end)
+    return cursor == body_bytes
+
+
+class NativeBodyEvent(Strict):
+    event_id: UUID
+    sequence: int = Field(ge=0, strict=True)
+
+
+class NativeBodySearchAuthorizedV1(NativeBodyEvent):
+    kind: Literal["native_body_search_authorized_v1"] = "native_body_search_authorized_v1"
+    provider_attempt_id: UUID
+    context_receipt_sha256: str = Field(pattern=r"^[a-f0-9]{64}$")
+    execution_policy_sha256: str = Field(pattern=r"^[a-f0-9]{64}$")
+    authority: NativeCorpusAuthorityV1
+    query_sha256: str = Field(pattern=r"^[a-f0-9]{64}$")
+
+
+class NativeBodySectionMatchV1(Strict):
+    catalog_sha256: str = Field(pattern=r"^[a-f0-9]{64}$")
+    section_id: str = Field(pattern=r"^[a-f0-9]{64}$")
+    matched_terms: tuple[str, ...] = Field(min_length=1)
+
+
+class NativeBodySearchObservedV1(NativeBodyEvent):
+    kind: Literal["native_body_search_observed_v1"] = "native_body_search_observed_v1"
+    authorization_event_id: UUID
+    catalogs: tuple[NativeCorpusCatalogV1, ...]
+    matches: tuple[NativeBodySectionMatchV1, ...]
+    unavailable_source_count: int = Field(ge=0, strict=True)
+    global_completeness: Literal["not_established"] = "not_established"
+
+
+class NativeBodyReadAuthorizedV1(NativeBodyEvent):
+    kind: Literal["native_body_read_authorized_v1"] = "native_body_read_authorized_v1"
+    provider_attempt_id: UUID
+    search_event_id: UUID
+    catalog_sha256: str = Field(pattern=r"^[a-f0-9]{64}$")
+    retrieval_kind: Literal["section", "full_document"]
+    section_id: str | None
+
+    @model_validator(mode="after")
+    def explicit_extent_kind(self):
+        if (self.retrieval_kind == "section") != (self.section_id is not None):
+            raise ValueError("A section and a full-document decision have distinct selectors")
+        return self
+
+
+class NativeBodyReadObservedV1(NativeBodyEvent):
+    kind: Literal["native_body_read_observed_v1"] = "native_body_read_observed_v1"
+    authorization_event_id: UUID
+    excerpt: NativeCorpusExcerptV1 | None
+    failure_code: Literal["native_body_unavailable", "native_body_integrity_error"] | None
+
+    @model_validator(mode="after")
+    def exact_outcome(self):
+        if (self.excerpt is None) != (self.failure_code is not None):
+            raise ValueError("Native body read requires either exact text or a recorded failure")
+        return self
+
+
+class NativeBodyProviderIncludedV1(NativeBodyEvent):
+    kind: Literal["native_body_provider_included_v1"] = "native_body_provider_included_v1"
+    provider_attempt_id: UUID
+    envelope_sha256: str = Field(pattern=r"^[a-f0-9]{64}$")
+    read_event_ids: tuple[UUID, ...]
+    frame_sha256: str = Field(pattern=r"^[a-f0-9]{64}$")
+
+
+NATIVE_BODY_EVENTS = (NativeBodySearchAuthorizedV1, NativeBodySearchObservedV1,
+    NativeBodyReadAuthorizedV1, NativeBodyReadObservedV1, NativeBodyProviderIncludedV1)
+
+
+def native_body_handle(catalog_sha256, section_id):
+    return "native-body:" + catalog_sha256 + ":" + section_id
+
+
+def native_full_document_handle(catalog_sha256):
+    return "native-full-document:" + catalog_sha256
+
+
+def native_corpus_search_handle(query_sha256):
+    return "native-corpus-search:" + query_sha256
+
+
+def body_frame(reads):
+    """Only actual selected excerpts are writer evidence; catalogs are navigation."""
+    return {"schema": "dmb_native_body_frame_v1", "excerpts": [
+        {"read_event_id": str(row.event_id),
+         "section_handle": (native_full_document_handle(row.excerpt.catalog_sha256)
+             if row.excerpt.selector_policy == "native_full_document_v1" else
+             native_body_handle(row.excerpt.catalog_sha256, row.excerpt.section.section_id)),
+         "excerpt": row.excerpt.model_dump(mode="json")}
+        for row in reads]}
+
+
+def validate_native_body_events(execution):
+    """One selected search, unique reads and inclusion tied to actual providers."""
+    from . import types as t
+    grant = search = None
+    reads, authorizations, selected_sections = {}, {}, set()
+    provider = outcome = None
+    pending = None
+    writer = False
+    selection = None
+    def selected(handle):
+        return (selection is not None and selection.controller_attempt_id == provider
+            and selection.operation == "select_candidates" and handle in selection.selected_handles)
+    for event in execution.events:
+        if isinstance(event, t.ProviderAttemptAuthorizedEventV1):
+            if grant is not None and search is None:
+                raise ValueError("Provider cannot proceed with an unresolved native source search")
+            if set(authorizations) != {row.authorization_event_id for row in reads.values()}:
+                raise ValueError("Provider cannot proceed with an unresolved native body read")
+            if pending is not None:
+                if (event.provider_attempt_id != pending.provider_attempt_id
+                        or event.envelope_sha256 != pending.envelope_sha256
+                        or (event.provider, event.model, event.api_mode) != execution.policy.provider_roles.writer.identity()):
+                    raise ValueError("Native body inclusion requires its exact authorized writer")
+                pending = None
+            provider, outcome = event.provider_attempt_id, None
+            writer = (event.provider, event.model, event.api_mode) == execution.policy.provider_roles.writer.identity()
+        elif isinstance(event, t.ProviderOutcomeEventV1) and event.provider_attempt_id == provider:
+            outcome = event.outcome
+        elif isinstance(event, t.PlanJevRetrievalSelectionV1):
+            selection = event
+        elif isinstance(event, NativeBodySearchAuthorizedV1):
+            if (grant is not None or writer or provider != event.provider_attempt_id
+                    or outcome != "response_received"
+                    or event.context_receipt_sha256 != execution.context_receipt_sha256
+                    or event.execution_policy_sha256 != execution.execution_policy_sha256
+                    or not selected(native_corpus_search_handle(event.query_sha256))
+                    or sha256(canonical(event.authority).encode()).hexdigest()
+                        != execution.policy.source_authority_sha256):
+                raise ValueError("Native search requires its unique acknowledged current controller")
+            grant = event
+        elif isinstance(event, NativeBodySearchObservedV1):
+            if (grant is None or search is not None or event.authorization_event_id != grant.event_id
+                    or writer or outcome != "response_received" or provider != grant.provider_attempt_id):
+                raise ValueError("Native search observation lacks its current authorization")
+            pairs, catalogs = set(), {}
+            for catalog in event.catalogs:
+                pair = (catalog.source.artifact.source_artifact_id, catalog.source.revision.source_revision_id)
+                if catalog.authority != grant.authority or pair in pairs:
+                    raise ValueError("Native search repeated or changed its source authority")
+                pairs.add(pair)
+                catalogs[catalog.catalog_sha256] = {section.section_id for section in catalog.sections}
+            matches = [(row.catalog_sha256, row.section_id) for row in event.matches]
+            if len(matches) != len(set(matches)) or any(
+                    sid not in catalogs.get(cid, set()) for cid, sid in matches):
+                raise ValueError("Native search matches differ from its actual section catalogs")
+            search = event
+        elif isinstance(event, NativeBodyReadAuthorizedV1):
+            key = (event.catalog_sha256, event.retrieval_kind, event.section_id)
+            full = event.retrieval_kind == "full_document"
+            handle = native_full_document_handle(event.catalog_sha256) if full else native_body_handle(event.catalog_sha256, event.section_id)
+            eligible = search is not None and (any(row.catalog_sha256 == event.catalog_sha256 for row in search.matches)
+                if full else any((row.catalog_sha256, row.section_id) == (event.catalog_sha256, event.section_id)
+                    for row in search.matches))
+            if (search is None or writer or outcome != "response_received"
+                    or event.provider_attempt_id != provider or event.search_event_id != search.event_id
+                    or not selected(handle) or key in selected_sections or not eligible):
+                raise ValueError("Native body read lacks its unique current selected source section")
+            authorizations[event.event_id] = event
+            selected_sections.add(key)
+        elif isinstance(event, NativeBodyReadObservedV1):
+            authorized = authorizations.get(event.authorization_event_id)
+            if (authorized is None or writer or outcome != "response_received"
+                    or authorized.provider_attempt_id != provider
+                    or any(row.authorization_event_id == event.authorization_event_id for row in reads.values())):
+                raise ValueError("Native body observation lacks its current unique authorization")
+            if event.excerpt is not None:
+                catalog = next(row for row in search.catalogs if row.catalog_sha256 == authorized.catalog_sha256)
+                full = authorized.retrieval_kind == "full_document"
+                section = full_document_section(catalog) if full else next(
+                    row for row in catalog.sections if row.section_id == authorized.section_id)
+                expected_policy = "native_full_document_v1" if full else "markdown_sections_v1"
+                if (event.excerpt.catalog_sha256 != catalog.catalog_sha256 or event.excerpt.section != section
+                        or event.excerpt.selector_policy != expected_policy
+                        or not full and section.byte_start == 0 and section.byte_end == catalog.body_bytes):
+                    raise ValueError("Native body text differs from its explicitly authorized extent")
+            reads[event.event_id] = event
+        elif isinstance(event, NativeBodyProviderIncludedV1):
+            if (pending is not None or writer or outcome != "response_received"
+                    or len(event.read_event_ids) != len(set(event.read_event_ids))):
+                raise ValueError("Native body inclusion must be unique and precede the writer")
+            included = [reads.get(identity) for identity in event.read_event_ids]
+            if any(row is None or row.excerpt is None for row in included):
+                raise ValueError("Native body inclusion references unavailable or unknown reads")
+            exposures, explicit_full, sizes = {}, set(), {}
+            for row in included:
+                excerpt = row.excerpt
+                catalog = next(c for c in search.catalogs if c.catalog_sha256 == excerpt.catalog_sha256)
+                pair = (catalog.source.artifact.source_artifact_id,
+                    catalog.source.revision.source_revision_id, catalog.source.revision.content_sha256)
+                exposures.setdefault(pair, []).append((excerpt.section.byte_start, excerpt.section.byte_end))
+                sizes[pair] = catalog.body_bytes
+                if excerpt.selector_policy == "native_full_document_v1":
+                    explicit_full.add(pair)
+            if any(covers_full_document(ranges, sizes[pair]) and pair not in explicit_full
+                    for pair, ranges in exposures.items()):
+                raise ValueError("Accumulated whole-document exposure requires an explicit full-document decision")
+            expected = sha256(canonical(body_frame(included)).encode()).hexdigest()
+            if expected != event.frame_sha256:
+                raise ValueError("Native body inclusion frame differs from selected excerpts")
+            pending = event

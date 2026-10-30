@@ -49,6 +49,52 @@ existing shared agent/type paths are serial PRIME-owned. Held1764 Graph-writer
 and1853/1855/1868 identity/read work must not be imported or overwritten.
 No primary service/schema/data change is authorized by code allocation alone.
 
+### Operator amendment: explicit whole-document selection and retirement
+
+Verified direct operator messages in ADVERSARY on2026-10-29 require retirement
+of the obsolete ordinary source-registry path and prohibit implicit full-document
+model exposure. This amendment is part of the same native source-QA capability,
+not authorization to destroy retained data or change evaluator expectations.
+
+Full local body opening for integrity verification and section discovery is
+distinct from provider-visible text. Only selected excerpts enter the writer.
+A complete document requires a separately identifiable, recorded Buddy selection
+to read the full document. A Markdown section equal to the whole body must not
+silently use the section action. Offer an explicit full-document action instead,
+bind that exact choice to the authorization/observation/inclusion receipts and
+label its extent in captured provider input. Ordinary section selection must
+refuse a whole-body extent. Do not introduce an arbitrary size threshold: this
+also applies to the retained64-byte document. Provider-free and actual producing
+request proof must cover both degenerate and multi-section full-document reads,
+unselected/full-body substitution, and zero body text in the decision request.
+
+Whole-document exposure is determined from the union of provider-visible byte
+intervals for each exact source artifact/revision/body, including accumulated
+selected reads. Selecting all ordinary sections separately cannot bypass the
+full-document choice. Before inclusion that completes whole-body coverage,
+require an explicitly selected full-document action with its successful exact
+read/inclusion receipt, or refuse that inclusion. Partial overlapping excerpts
+remain partial; disjoint/overlapping excerpts whose union covers the body require
+the full-document decision. Verify this across multiple controller decisions,
+including closure/reuse where allowed, without any size threshold. The actual
+producing request must match the validated exposure union; host-only catalogs
+and unexposed body reads grant no model-context inclusion.
+
+For new Plan/Jev questions,1917 must replace and remove the old ordinary classic
+registry search dispatch, not retain it as fallback or a hidden alternate route.
+Old answer/citation opening is an explicitly historical reader contract and must
+remain valid or receive an independently verified migration before its storage
+can be removed. No retained data removal is currently allocated.
+
+If other live surfaces still depend on the obsolete registry, their source-only
+adoption and final shared runtime lookup removal are the next bounded successor:
+first prove native ordinary discovery/read/writer/citation/reload on those owning
+surfaces, preserve unique retained content and historical openings, then remove
+their old dispatch/lookup. Do not add dual reads during transition. Name that
+successor's exact write lease before implementation; it is not silently included
+in1917. General native Graph retrieval and complete ingestion acceptance remain
+separate unfinished successors; raw source QA earns neither credit.
+
 Core pins exact R membership plus a coherent source-view acquisition epoch.
 An evidence proof may predate that epoch; preserve both. Do not compare epochs
 to opaque revision IDs or demand an API for historical-R epoch lookup. Historical
@@ -237,4 +283,4 @@ The Canva-style interactive tour, remaining journey acceptance gaps, retained
 performance evidence and operator acceptance remain active independent work.
 This bounded source consumer does not establish full ingestion or goal completion.
 
-Owning runtime adoption: portable OverMind activation f35e0756ce1d10cdacf0a9bf7897b663841f01a4. This Buddy PR implements the complete connected source-QA slice; access helper tests alone do not activate default routing or establish Q01/Q13 acceptance.
+Owning runtime adoption: original portable activation f35e0756ce1d10cdacf0a9bf7897b663841f01a4, independently approved operator amendment c322366e92edefc5c771f87943c98d3dbf681e72. This draft implements the complete connected source-QA slice; primitive or in-memory lifecycle tests alone do not activate default routing or establish Q01/Q13 acceptance.

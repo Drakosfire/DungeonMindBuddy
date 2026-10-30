@@ -29,7 +29,9 @@ from .build_related_pages import PagePointer, RelatedPagesSelection, RelatedPage
 from graph_memory.ingestion.selection_context import NativeStatementSelectionV1
 from .native_statement_input import NativeStatementContextReceiptV1, NativeStatementWriterPolicyV1, NativeStatementWriterPolicyV2, NativeStatementInputEventV1
 from .native_statement_answer import NativeStatementCompletionV1
-from .native_corpus import NativeCorpusAuthorityV1
+from .native_corpus import (NativeCorpusAuthorityV1, NativeBodySearchAuthorizedV1,
+    NativeBodySearchObservedV1, NativeBodyReadAuthorizedV1, NativeBodyReadObservedV1,
+    NativeBodyProviderIncludedV1, NATIVE_BODY_EVENTS)
 
 Resolution = Literal["resolved", "absent", "unresolved", "unavailable"]
 ConversationStatus = Literal["active", "archived"]
@@ -2496,7 +2498,7 @@ class GraphExecutionAccountingV1(StrictModel):
 
 class GraphExecutionPolicyV1(StrictModel):
     policy_version: str = Field(min_length=1, max_length=128)
-    allowed_graph_operations: list[str] = Field(min_length=1, max_length=32)
+    allowed_graph_operations: list[str] = Field(max_length=32)
     max_provider_attempts: int | None = Field(strict=True, ge=1, le=128)
     max_graph_operations: int | None = Field(strict=True, ge=0, le=512)
     max_results_per_operation: int = Field(strict=True, ge=0, le=4096)
@@ -2514,11 +2516,14 @@ class GraphExecutionPolicyV1(StrictModel):
         uncapped = self.policy_version in {
             "world_graph_execution_uncapped_v1",
             "world_graph_execution_selected_scope_uncapped_v1",
+            "plan_source_execution_uncapped_v1",
         }
         if uncapped and any(limit is not None for limit in limits):
             raise ValueError("uncapped execution policy requires explicit null limits")
         if not uncapped and any(limit is None for limit in limits):
             raise ValueError("null limits require an explicit uncapped execution policy")
+        if not self.allowed_graph_operations and self.policy_version != "plan_source_execution_uncapped_v1":
+            raise ValueError("Only an explicit source-capable policy can omit Graph operations")
         if any(not item.strip() for item in self.allowed_graph_operations):
             raise ValueError("allowed Graph operations cannot be blank")
         if self.allowed_graph_operations != sorted(set(self.allowed_graph_operations)):
@@ -2809,6 +2814,26 @@ class PlanPlacementAuthoringPolicyV1(PlanCorpusAuthoringPolicyV1):
     def exact_placement_catalog(self):
         if (self.placement_catalog_sha256 is None) != (self.plan_authoring_capture_sha256 is None):
             raise ValueError('Plan placement policy requires its original capture and catalog together')
+        return self
+
+
+class PlanSourceExecutionPolicyV1(PlanPlacementAuthoringPolicyV1):
+    """Shared Plan provider lifecycle with an explicitly optional Graph scope."""
+    policy_version: Literal["plan_source_execution_uncapped_v1"] = "plan_source_execution_uncapped_v1"
+    driver_schema: Literal["dmb_plan_source_jev_retrieval_v1"] = "dmb_plan_source_jev_retrieval_v1"
+    corpus_source_policy: Literal["native_admitted_body_sections_v1"] = "native_admitted_body_sections_v1"
+    source_read_scope: GraphSelectedSourceReadScopeV2 | GraphSourceReadScopeV2 | None
+    source_authority_sha256: str = Field(pattern=r"^[a-f0-9]{64}$")
+    allowed_graph_operations: list[str] = Field(max_length=32)
+
+    @model_validator(mode="after")
+    def validate_selected_scope(self):
+        # A genuine Graph capability supplies its independently validated scope;
+        # absence is explicit and never encoded as a native-R Graph scope.
+        if self.source_read_scope is None and self.allowed_graph_operations:
+            raise ValueError("Graph operations require an actual Graph capability scope")
+        if self.source_read_scope is not None and not self.allowed_graph_operations:
+            raise ValueError("An actual Graph scope requires its admitted operations")
         return self
 
 
@@ -4090,7 +4115,15 @@ def validate_graph_execution_record(execution, *, dynamic_source_scope: bool, al
     if len({event.event_id for event in execution.events}) != len(execution.events):
         raise ValueError("Graph execution event IDs must be unique")
     scope = execution.policy.source_read_scope
-    scope_by_anchor = {anchor.anchor_id: anchor for anchor in scope.admitted_anchors}
+    if scope is None:
+        if not isinstance(execution.policy, PlanSourceExecutionPolicyV1):
+            raise ValueError("Only an explicit source-capable Plan can omit Graph scope")
+        if any(isinstance(event, (ValidatedGraphOperationEventV1, SourceScopeExtensionEventV3,
+                SourceReadAuthorizationEventV2, ValidatedSourceReadEventV2, SourcePassageReuseEventV1,
+                RelatedRecapContextAuthorizationEventV2, ValidatedRelatedRecapContextEventV2))
+                for event in execution.events):
+            raise ValueError("Graph acquisition requires its independently authorized capability")
+    scope_by_anchor = {anchor.anchor_id: anchor for anchor in scope.admitted_anchors} if scope is not None else {}
     origins: dict[UUID, ValidatedGraphOperationEventV3] = {}
     auths: dict[UUID, SourceReadAuthorizationEventV2] = {}
     receipts_by_event: dict[UUID, ValidatedSourceReadEventV2] = {}
@@ -4198,6 +4231,11 @@ def validate_graph_execution_record(execution, *, dynamic_source_scope: bool, al
         raise ValueError("source-read anchor budget exceeded")
     source_read_character_usage(execution.policy, execution.events)
 
+    from .native_corpus import validate_native_body_events
+    if isinstance(execution.policy, PlanSourceExecutionPolicyV1):
+        validate_native_body_events(execution)
+    elif any(isinstance(event, NATIVE_BODY_EVENTS) for event in execution.events):
+        raise ValueError("Native body events require their explicit source-capable Plan policy")
     _validate_related_recap_context_events(execution)
     from .corpus_source_search import validate_events as validate_corpus_events
     validate_corpus_events(execution)
@@ -4214,6 +4252,8 @@ def validate_graph_execution_record(execution, *, dynamic_source_scope: bool, al
     legacy_events: list[dict[str, object]] = []
     provider_index = 0
     for event in execution.events:
+        if isinstance(event, NATIVE_BODY_EVENTS):
+            continue
         if isinstance(
             event,
             (
@@ -4780,9 +4820,20 @@ class PlanWorldGraphExecutionV3(PlanWorldGraphExecutionV2):
         return _effective_source_pins(self)
 
 
+class PlanSourceExecutionV1(PlanWorldGraphExecutionV3):
+    """Distinct source-capable ledger using the existing provider state machine."""
+    schema_: Literal["dmb_plan_source_execution_v1"] = Field(
+        default="dmb_plan_source_execution_v1", alias="schema")
+    policy: PlanSourceExecutionPolicyV1
+    events: list[GraphExecutionEventV3 | NativeBodySearchAuthorizedV1 |
+        NativeBodySearchObservedV1 | NativeBodyReadAuthorizedV1 |
+        NativeBodyReadObservedV1 | NativeBodyProviderIncludedV1] = Field(max_length=2048)
+
+
 def _effective_source_pins(execution) -> dict[str, GraphSourceScopeAnchorV2]:
     """Read the exact frozen and extended pins from an already validated ledger."""
-    pins = {pin.anchor_id: pin for pin in execution.policy.source_read_scope.admitted_anchors}
+    scope = execution.policy.source_read_scope
+    pins = {pin.anchor_id: pin for pin in scope.admitted_anchors} if scope is not None else {}
     for event in execution.events:
         if isinstance(event, SourceScopeExtensionEventV3):
             pins.update({pin.anchor_id: pin for pin in event.pins})
