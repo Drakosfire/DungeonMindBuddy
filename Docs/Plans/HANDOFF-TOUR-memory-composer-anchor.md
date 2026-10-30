@@ -1,6 +1,6 @@
 # TOUR — highlight the open memory composer
 
-ACTIVE: PRIME owns this bounded serial UI slice under the operator's live-tour goal.
+SETTLED: PR1925 reviewed ae3facd29f690466c322dc55f633de53ce08bf0e, merged6c7382ed7076ebae2b84678015d9f4ec42eaba56 and delivered5202. Independent approval,3CI,typecheck/build;400 affected checks passed with one unrelated proposal failure reproduced on exact main. Live closed/open target and preserved unsent draft verified; no turn submitted. All4139APP/371native rows/41067files exact. Implementation lease released. Live popup layering defect is separately allocated in HANDOFF-TOUR-conversation-layer.md. Operator/full-journey acceptance remains open. Former allocation: PRIME owned this bounded serial UI slice under the operator's live-tour goal.
 Branch codex/tour-memory-composer-anchor from fetched7168322fbc39e2cfd51dd093749910ec12bd2800;
 reuse buddy-context-loop and shared dependencies. Open ingestion1853/1855/1868,
 hosted1828 and held1764 inspected; no overlapping UI lease. No new environment.
