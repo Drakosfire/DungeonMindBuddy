@@ -885,17 +885,44 @@ def load_registered_source_artifact_bytes(
     root: Path,
     source_artifact_id: str,
 ) -> tuple[GraphMemorySourceArtifact, bytes]:
-    """Load canonical source bytes and verify their exact registered digest.
+    """Read an already adopted exact source revision from product database storage.
 
-    Unlike :func:`load_registered_source_artifact_text`, this function does not
-    normalize line endings or trailing newlines. It is intended for immutable
-    snapshot identity checks that require byte-for-byte equality.
+    DungeonMind owns provenance admission. This reader supplies the product-owned
+    body by its registered identity and digest; a file mirror grants no fallback.
     """
+    from application_state.errors import ApplicationStateError
+    from application_state.source import service as source_service
+
     artifact = get_source_artifact(root, source_artifact_id)
-    content = _read_exact_repo_uri_bytes(root, artifact.uri)
-    digest = hashlib.sha256(content).hexdigest()
-    if digest != (artifact.content_sha256 or "").removeprefix("sha256:"):
+    expected = (artifact.content_sha256 or "").removeprefix("sha256:")
+    try:
+        source = source_service.get_source_markdown(
+            source_artifact_id=source_artifact_id, content_sha256=expected,
+        )
+    except ApplicationStateError as exc:
         raise SourceArtifactRegistryError(
-            "registered source artifact raw-byte digest mismatch", status_code=409,
+            "database source body is unavailable", status_code=exc.status_code,
+        ) from exc
+    if source is None:
+        raise SourceArtifactRegistryError(
+            "registered source body is missing from the database", status_code=409,
+        )
+    if (source.source_artifact_id != artifact.source_artifact_id
+        or source.content_sha256 != expected
+        or source.source_domain != str(artifact.source_domain)
+        or source.world_id != artifact.world_id
+        or source.campaign_id != artifact.campaign_id
+        or source.session_id != artifact.session_id):
+        raise SourceArtifactRegistryError(
+            "database source body scope does not match the registered source", status_code=409,
+        )
+    if source.encoding.lower() != "utf-8" or source.media_type != "text/markdown":
+        raise SourceArtifactRegistryError(
+            "database source body is not UTF-8 Markdown", status_code=409,
+        )
+    content = source.markdown.encode("utf-8")
+    if hashlib.sha256(content).hexdigest() != expected:
+        raise SourceArtifactRegistryError(
+            "database source body digest mismatch", status_code=409,
         )
     return artifact, content

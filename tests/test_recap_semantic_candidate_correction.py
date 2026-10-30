@@ -223,6 +223,22 @@ def _fixture(
         source_service, "persist_source_markdown",
         lambda **_kwargs: SimpleNamespace(source_artifact_id=artifact_id),
     )
+    def database_source(**kwargs):
+        # This unit fixture stubs storage boundaries; real PostgreSQL source
+        # reads and missing-file behavior are exercised in test_source_body_database.
+        from apps.live_control_server.services.source_artifact_registry import (
+            get_source_artifact, _read_exact_repo_uri_bytes,
+        )
+        stored = get_source_artifact(root, kwargs["source_artifact_id"])
+        return SimpleNamespace(
+            source_artifact_id=stored.source_artifact_id,
+            content_sha256=stored.content_sha256,
+            source_domain=str(stored.source_domain), world_id=stored.world_id,
+            campaign_id=stored.campaign_id, session_id=stored.session_id,
+            media_type="text/markdown", encoding="utf-8",
+            markdown=_read_exact_repo_uri_bytes(root, stored.uri).decode("utf-8"),
+        )
+    monkeypatch.setattr(source_service, "get_source_markdown", database_source)
     monkeypatch.setattr(
         service, "_load_frozen_span_index_for_resolved_run",
         lambda _resolved: SimpleNamespace(spans=[SimpleNamespace(
