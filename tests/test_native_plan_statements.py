@@ -123,3 +123,118 @@ def test_query_does_not_open_clauses_before_selected_read(lane, monkeypatch):
     monkeypatch.setattr(support, 'open_admitted_native_text', forbidden)
     ctx, result = query(lane)
     assert ctx is not None and result.matches
+
+
+@pytest.mark.parametrize('whole_clause', [False, True])
+def test_ordinary_http_query_selects_native_support_in_actual_sdk_and_reopens(lane, application_state_dsn, monkeypatch, tmp_path, whole_clause):
+    import json
+    import httpx2
+    from hashlib import sha256
+    from fastapi import FastAPI
+    from fastapi.testclient import TestClient
+    from apps.live_control_server.routes import agent
+    from apps.live_control_server.services import plan_jev_harness, managed_world_graph_projection as managed
+    from apps.live_control_server.services import native_plan_statements as native_query
+    from apps.live_control_server.services.plan_jev_harness import PlanJevHarness
+    from tests.test_agent_turn_service import _pinned_plan_request, _pinned_plan_work
+    from tests.test_plan_jev_writer import WriterWire
+    if whole_clause:
+        lane.selection = lane.selection.model_copy(update={'end_byte': len(BODY.encode()),
+            'clause_sha256': sha256(BODY.encode()).hexdigest()})
+    commit(lane)
+    world = lane.world.world_id
+    binding = SimpleNamespace(managed_world_id=world, native_world_id=world, binding_version=1,
+        provisioning_id=None)
+    monkeypatch.setattr(managed, 'resolve_managed_source_identity', lambda _: binding)
+    monkeypatch.setattr(native_query, 'resolve_managed_world_binding', lambda _: binding)
+    monkeypatch.setattr('apps.live_control_server.services.agent_graph_policy.resolve_agent_graph_openai_inference',
+        lambda **_: ('openai-api', 'gpt-6-luna', 'https://api.openai.com/v1'))
+    markdown = '# Query Plan\n\nA proposed visit.\n'
+    work = _pinned_plan_work(markdown)
+    work = replace(work, world_id=world, owner_id=world, content_basis=work.content_basis.model_copy(update={
+        'world_id': world, 'content_sha256': sha256(markdown.encode()).hexdigest(), 'work_revision_id': str(uuid4())}))
+    request = _pinned_plan_request()
+    request = type(request).model_validate(request.model_dump(mode='json', by_alias=True) | {
+        'turn_id': str(uuid4()), 'message': 'What did B do?',
+        'owner_scope': {'kind': 'world', 'world_id': world},
+        'primary_work': request.primary_work.model_dump(mode='json', by_alias=True) | {
+            'expected_content_sha256': work.content_basis.content_sha256},
+        'plan_context_policy': {'policy': 'auto_plan_world'}, 'graph_request': {'mode': 'none'}})
+    monkeypatch.setenv('DMB_AGENT_GRAPH_AUTH_MODE', 'local_operator')
+    monkeypatch.setenv('DMB_AGENT_GRAPH_AUTH_ENVIRONMENT', 'local')
+    token = 'synthetic-native-plan-test-token-1234567890'
+    monkeypatch.setenv('DMB_AGENT_GRAPH_LOCAL_OPERATOR_TOKEN', token)
+    monkeypatch.setattr(agent, 'repo_root', lambda: tmp_path)
+    monkeypatch.setattr(agent, 'session_dir', lambda: tmp_path / 'sessions')
+    monkeypatch.setattr(agent, '_owner_resolver', lambda _: {'kind': 'world', 'id': world, 'name': 'Synthetic World'})
+    monkeypatch.setattr(agent, '_verified_world_id', lambda value: value)
+    monkeypatch.setattr(agent, '_work_resolver', lambda *_: work)
+    monkeypatch.setattr(agent, '_graph_resolver', lambda *_: pytest.fail('Generic Graph fallback'))
+    monkeypatch.setattr('apps.live_control_server.integrations.dungeonmind.world_graph_reads.direct_services_from_config',
+        lambda *_: pytest.fail('Classic reader used by default Plan query'))
+    class Decisions(httpx2.AsyncBaseTransport):
+        async def handle_async_request(self, req):
+            body = json.loads(req.content)
+            candidates = body.get('state', {}).get('candidates', [])
+            native = {i for i, c in enumerate(candidates) if str(c.get('kind', '')).startswith('Qualified native')}
+            assert BODY not in req.content.decode()
+            answers = {}
+            for name, entry in body['questions'].items():
+                choice = ('discuss' if name == 'requested_work' else
+                    'finish_retrieval' if name == 'operation' else
+                    'include' if name.startswith('candidate_') and int(name.split('_')[-1]) in native else 'exclude')
+                answers[name] = {'type': 'choice', 'choice': choice, 'confidence': 1,
+                    'probabilities': {key: float(key == choice) for key in entry['criteria']}}
+            return httpx2.Response(200, request=req, json={'model': 'jev-1.14.0', 'answers': answers,
+                'usage': {'input_tokens': 37, 'output_tokens': 9}})
+    class Writer(WriterWire):
+        async def handle_async_request(self, req):
+            frame = json.loads(json.loads(req.content)['input'][0]['content'])
+            row = frame['native_statements']['statements'][0]
+            assert row['payload']['quote'] == BODY.splitlines(keepends=True)[0]
+            assert row['payload']['embedded_content_factive'] is False
+            assert len(frame['native_statements']['statements']) == 1
+            assert 'clause_text' not in row
+            assert json.dumps(frame).count(row['payload']['quote'].strip()) == 1
+            self.text = json.dumps({'schema': frame['answer_policy'], 'limitations': [], 'requested_detail_gaps': [],
+                'answer_segments': [{'kind': 'native_statement_report', 'text': 'A reports that B fled, with uncertainty.',
+                    'statement_handles': [row['statement_handle']]}]})
+            return await super().handle_async_request(req)
+    wire = Writer(None, '')
+    class Harness(PlanJevHarness):
+        def execute(self, adapter, **kwargs):
+            wire.adapter = adapter
+            try:
+                return super().execute(adapter, **kwargs)
+            except BaseException:
+                import traceback
+                wire.failure = traceback.format_exc()
+                raise
+    monkeypatch.setattr(plan_jev_harness, 'default_plan_jev_runtime', lambda: Harness(
+        decision_transport=Decisions(), writer_transport=wire,
+        decision_api_key='synthetic-not-secret', writer_api_key='synthetic-not-secret'))
+    app = FastAPI(); app.include_router(agent.router, prefix='/api/live')
+    client = TestClient(app, client=('127.0.0.1', 42000), headers={'Authorization': 'Bearer ' + token})
+    response = client.post('/api/live/agent/turn', json=request.model_dump(mode='json', by_alias=True))
+    if whole_clause:
+        assert response.status_code == 503 and not wire.calls
+        assert 'explicit full-document decision' in wire.failure
+        return
+    assert response.status_code == 200, response.text + getattr(wire, "failure", "")
+    data = response.json()
+    assert data['answer']['status'] == 'ok', data
+    assert data['plan_context']['schema'] == 'dmb_agent_plan_native_context_response_v1'
+    assert data['plan_context']['receipt']['graph_capability'] is None
+    completion = data['plan_context']['completion']
+    assert completion['schema'] == 'dmb_surface_evidence_completion_v6' and completion['native_clause_citations']
+    turn = wire.adapter.turn
+    advance(lane)
+    opened = client.get(f'/api/live/agent/worlds/{world}/conversation/turns/{turn.turn_id}/native-source-clauses/0')
+    assert opened.status_code == 200, opened.text
+    assert opened.json()['content'] == BODY.splitlines(keepends=True)[0]
+    replay = client.post('/api/live/agent/turn', json=request.model_dump(mode='json', by_alias=True))
+    assert replay.status_code == 200, replay.text
+    assert replay.json()['plan_context']['completion'] == completion and len(wire.calls) == 1
+    history = client.get(f'/api/live/agent/worlds/{world}/conversation?include_turn_correlation=true')
+    assert history.status_code == 200, history.text
+    assert history.json()['turns'][0]['plan_context']['completion'] == completion

@@ -184,3 +184,29 @@ failures remain real regressions to fix under the full goal; neither typed trans
 nor a different model automatically establishes their acceptance. General native
 Graph operations, complete recap admission/identity/publication and the tour remain
 separate selected successors. Do not expand this into another1917.
+
+
+## PRIME amendment — exact capture and source-only acceptance consumers
+
+Within this same serial capability, PRIME extends the exclusive lease to
+`src/application_state/agent_conversation/context_trace_store.py` solely to admit
+`plan_native_writer_authorized_v1` in the existing locked prompt/producer validation,
+and `tests/test_agent_native_corpus_sources.py` solely to preserve ordinary HTTP
+unavailable-native-query/available-source, actual input and reload proof. The actual
+HTTP test demonstrated the closed capture-kind rejection before SDK entry. Held
+1853/1855/1868/1764 path sets remain disjoint. Independent architecture review approved
+this two-path amendment before edits; no new ledger/framework is authorized.
+
+For producer input, “once” means one complete qualified payload and one clause
+representation per selected statement. Independently selected body excerpts may
+overlap those bytes with distinct selection, receipts and producer inclusion. One
+shared byte-union guard counts their coverage without duplication. Full-document
+selection does not fabricate statement support. No reference/range codec or cross-
+family literal deduplication is allocated.
+
+The same reviewed capture-consumer amendment also includes
+`apps/live_control_server/services/agent_context_trace_collector.py` solely for the
+exact native writer kind in last-producer/acknowledged-response selection. The
+ordinary HTTP test reached the stubbed SDK response and demonstrated this remaining
+closed collector rejection. Independent architecture review approved before editing;
+locked capture and mismatched/missing response refusal remain mandatory.

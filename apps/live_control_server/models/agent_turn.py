@@ -34,7 +34,7 @@ from application_state.agent_conversation.types import (
     SurfaceSourcePassageCitationV1,
     SurfaceSourceCompletionV1,
     SurfaceEvidenceCompletionV1, SurfaceEvidenceCompletionV2, SurfaceEvidenceCompletionV3, SurfaceEvidenceCompletionV4, SurfaceEvidenceCompletionV5,
-    PlanSourceContextReceiptV1, NativeBodyExcerptCitationV1,
+    PlanSourceContextReceiptV1, PlanNativeContextReceiptV1, SurfaceEvidenceCompletionV6, NativeBodyExcerptCitationV1,
     BuildSourceContextBasisV1,
     BuildGraphContextReceiptV1,
     PlanWorldGraphCompletionV1,
@@ -761,6 +761,12 @@ class AgentPlanSourceContextResponseV1(AgentPlanWorldGraphContextResponseV2):
     completion: SurfaceEvidenceCompletionV5 | None
 
 
+class AgentPlanNativeContextResponseV1(AgentPlanSourceContextResponseV1):
+    schema_: Literal['dmb_agent_plan_native_context_response_v1'] = Field(default='dmb_agent_plan_native_context_response_v1', alias='schema')
+    receipt: PlanNativeContextReceiptV1
+    completion: SurfaceEvidenceCompletionV6 | None
+
+
 class AgentPlayWorldGraphContextResponseV1(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
@@ -777,7 +783,7 @@ class AgentTurnResponseV2(AgentTurnResponse):
     schema_: Literal["dmb_agent_turn_response_v2"] = Field(
         default="dmb_agent_turn_response_v2", alias="schema"
     )
-    plan_context: AgentPlanSourceContextResponseV1 | AgentPlanWorldGraphContextResponseV2
+    plan_context: AgentPlanNativeContextResponseV1 | AgentPlanSourceContextResponseV1 | AgentPlanWorldGraphContextResponseV2
 
 
 class AgentPlayGraphTurnResponseV1(AgentTurnResponse):
@@ -904,7 +910,7 @@ class AgentRulesAnswerContextV1(BaseModel):
         default="dmb_agent_rules_answer_context_v1", alias="schema")
     accepted_binding: RulesAcceptedBindingV1
     accepted_binding_sha256: str = Field(pattern=r"^[a-f0-9]{64}$")
-    base_context: AgentBuildGraphContextResponseV1 | AgentPlanSourceContextResponseV1 | AgentPlanWorldGraphContextResponseV2 | AgentPlayWorldGraphContextResponseV1 | None
+    base_context: AgentBuildGraphContextResponseV1 | AgentPlanNativeContextResponseV1 | AgentPlanSourceContextResponseV1 | AgentPlanWorldGraphContextResponseV2 | AgentPlayWorldGraphContextResponseV1 | None
     unclaimed_context: AgentRulesUnclaimedContextV1 | None
 
     @model_validator(mode="after")
@@ -996,7 +1002,7 @@ class AgentConversationHistoryTurn(BaseModel):
 
 
 class AgentConversationHistoryTurnV2(AgentConversationHistoryTurn):
-    plan_context: AgentPlanSourceContextResponseV1 | AgentPlanWorldGraphContextResponseV2
+    plan_context: AgentPlanNativeContextResponseV1 | AgentPlanSourceContextResponseV1 | AgentPlanWorldGraphContextResponseV2
 
 
 class AgentConversationHistoryTurnV3(AgentConversationHistoryTurn):
@@ -1021,7 +1027,7 @@ class AgentConversationHistoryNativeStatementTurnV1(AgentConversationHistoryTurn
 
 
 class AgentConversationHistoryPlanTurnV3(AgentConversationHistoryTurnV3):
-    plan_context: AgentPlanSourceContextResponseV1 | AgentPlanWorldGraphContextResponseV2
+    plan_context: AgentPlanNativeContextResponseV1 | AgentPlanSourceContextResponseV1 | AgentPlanWorldGraphContextResponseV2
 
 
 class AgentPlayRulesTurnResponseV1(AgentRulesTurnResponseV1):

@@ -473,9 +473,13 @@ def test_ordinary_http_plan_native_source_answer_replay_history_and_citation(sou
     monkeypatch.setattr(agent, '_verified_world_id', lambda world: world)
     monkeypatch.setattr(agent, '_work_resolver', lambda *_: a.work)
     monkeypatch.setattr(agent, '_graph_resolver', lambda *_: pytest.fail('unexpected generic Graph fallback'))
-    def no_classic(*_args, **_kwargs):
-        raise owner.AgentTurnServiceError('Graph publication is pending.', code='native_graph_binding_unavailable', status_code=409)
-    monkeypatch.setattr(agent, '_plan_context_resolver', no_classic)
+    from apps.live_control_server.services import native_plan_statements
+    from apps.live_control_server.services.world_graph_projection import WorldGraphProjectionServiceError
+    def pending_graph(*_args, **_kwargs):
+        raise WorldGraphProjectionServiceError('Publication pending.', code='native_graph_provisioning_pending', status_code=409)
+    monkeypatch.setattr(native_plan_statements, 'resolve_managed_world_binding', pending_graph)
+    monkeypatch.setattr('apps.live_control_server.integrations.dungeonmind.world_graph_reads.direct_services_from_config',
+        lambda *_: pytest.fail('Classic fallback in source-only Plan'))
     monkeypatch.setattr(managed, 'resolve_managed_source_identity', lambda _: lane.bound)
     monkeypatch.setattr(native_registry_source, 'repository', lambda: lane.repo)
     choices = SourceChoices()
@@ -483,14 +487,19 @@ def test_ordinary_http_plan_native_source_answer_replay_history_and_citation(sou
         async def handle_async_request(self, request):
             frame = json.loads(json.loads(request.content)['input'][0]['content'])
             handle = frame['native_body_evidence']['excerpts'][0]['excerpt_handle']
-            self.text = json.dumps({'schema': 'dmb_surface_evidence_answer_v6', 'limitations': [], 'requested_detail_gaps': [],
+            self.text = json.dumps({'schema': frame['answer_policy'], 'limitations': [], 'requested_detail_gaps': [],
                 'answer_segments': [{'kind': 'native_body_claim', 'text': 'The source says Éphanna heard the guard.', 'excerpt_handles': [handle]}]})
             return await super().handle_async_request(request)
     wire = SourceWriter(None, '')
     class Harness(PlanJevHarness):
         def execute(self, adapter, **kwargs):
             wire.adapter = adapter
-            return super().execute(adapter, **kwargs)
+            try:
+                return super().execute(adapter, **kwargs)
+            except BaseException:
+                import traceback
+                wire.failure = traceback.format_exc()
+                raise
     constructions = []
     def factory():
         constructions.append(True)
@@ -500,9 +509,10 @@ def test_ordinary_http_plan_native_source_answer_replay_history_and_citation(sou
     app = FastAPI(); app.include_router(agent.router, prefix='/api/live')
     client = TestClient(app, client=('127.0.0.1', 42000), headers={'Authorization': 'Bearer ' + token})
     response = client.post('/api/live/agent/turn', json=request.model_dump(mode='json', by_alias=True))
-    assert response.status_code == 200, response.text
+    assert response.status_code == 200, response.text + getattr(wire,"failure","")
     data = response.json()
-    assert data['plan_context']['schema'] == 'dmb_agent_plan_source_context_response_v1'
+    assert data['plan_context']['schema'] == 'dmb_agent_plan_native_context_response_v1'
+    assert data['plan_context']['receipt']['native_query']['schema'] == 'dmb_native_plan_query_unavailable_v1'
     assert data['plan_context']['receipt']['graph_capability'] is None
     assert data['answer']['status'] == 'ok' and not data['answer']['graph_grounded']
     assert len(wire.calls) == 1 and len(constructions) == 1 and len(choices.calls) == 4

@@ -21,6 +21,9 @@ def open_clause(*, world_id, turn_id, citation_index, principal, service=None):
     turn = (service or AgentConversationService()).inspect_turn(
         world_id=world_id, turn_id=turn_id
     )
+    from application_state.agent_conversation import types as t
+    if isinstance(turn.graph_context_receipt, t.PlanNativeContextReceiptV1):
+        return _open_plan_clause(turn, world_id, turn_id, citation_index, principal)
     if (
         turn.world_id != world_id
         or turn.turn_id != turn_id
@@ -62,3 +65,31 @@ def open_clause(*, world_id, turn_id, citation_index, principal, service=None):
         citation=citation,
         content=support.clause_text,
     )
+
+
+def _open_plan_clause(turn, world_id, turn_id, citation_index, principal):
+    from application_state.agent_conversation import types as t
+    from application_state.agent_conversation.native_plan_statements import NativePlanStatementReadObservedV1, NativePlanStatementReadAuthorizedV1
+    from .native_plan_statements import reopen_context, read_selected
+    if (turn.world_id != world_id or turn.turn_id != turn_id or turn.status != 'completed'
+            or not isinstance(turn.completion, t.SurfaceEvidenceCompletionV6)):
+        raise SourcePassageOpenError('native_clause_completion_unavailable', 404)
+    if citation_index >= len(turn.completion.native_clause_citations):
+        raise SourcePassageOpenError('native_clause_not_found', 404)
+    citation = turn.completion.native_clause_citations[citation_index]
+    try:
+        receipt, execution = turn.graph_context_receipt, turn.graph_context_execution
+        original = next((event, read) for event in execution.events
+            if isinstance(event, NativePlanStatementReadObservedV1)
+            for read in event.reads if read.support.statement_id == citation.statement_id)
+        observed, read = original
+        grant = next(e for e in execution.events if isinstance(e, NativePlanStatementReadAuthorizedV1)
+            and e.event_id == observed.authorization_event_id)
+        context = reopen_context(receipt.native_query, principal)
+        reopened, unavailable = read_selected(context, grant.model_copy(update={'statement_ids': (citation.statement_id,)}), principal)
+        if unavailable or len(reopened) != 1 or reopened[0] != read:
+            raise ValueError('Pinned native clause no longer admits the original support')
+    except (ValueError, TypeError, KeyError, AttributeError, StopIteration) as exc:
+        raise SourcePassageOpenError('native_clause_access_or_bytes_unavailable', 409) from exc
+    return NativeStatementClauseReadV1(world_id=world_id, turn_id=str(turn_id),
+        citation_index=citation_index, citation=citation, content=read.support.clause_text)

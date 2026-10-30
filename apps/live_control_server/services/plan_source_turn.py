@@ -41,7 +41,7 @@ def prepare(managed_world_id, principal, *, revision_id=None, repository=None, r
 
 
 def freeze(request, work, playable_target, view, budget, *, authority, graph_receipt=None,
-           graph_policy=None, included_history=(), plan_jev_request=None):
+           graph_policy=None, included_history=(), plan_jev_request=None, native_query=None):
     """Freeze the actual first Jev wire under independent source/Graph bases."""
     from .agent_turn_service import _json_node_count
     from .plan_jev_dispatch import verify_initial_input
@@ -71,13 +71,15 @@ def freeze(request, work, playable_target, view, budget, *, authority, graph_rec
     plan_basis = t.PlanAskContextBasis(world_id=basis.world_id, document_id=basis.document_id,
         object_revision=basis.object_revision, work_revision_id=basis.work_revision_id,
         revision_n=basis.revision_n, content_sha256=basis.content_sha256)
-    provisional = t.PlanSourceContextReceiptV1.model_construct(
+    receipt_type = t.PlanNativeContextReceiptV1 if native_query is not None else t.PlanSourceContextReceiptV1
+    provisional = receipt_type.model_construct(
         receipt_serializer_version="canonical-json-utf8-v1", context_receipt_sha256="0" * 64,
         plan_context_policy=request.plan_context_policy, plan_basis=plan_basis,
         playable_target=playable_target, source_authority=authority,
-        graph_capability=graph_receipt, assembled_input=assembled)
+        graph_capability=graph_receipt, assembled_input=assembled,
+        **({"native_query": native_query} if native_query is not None else {}))
     payload = provisional.model_dump(mode="json", by_alias=True, exclude={"context_receipt_sha256"})
-    receipt = t.PlanSourceContextReceiptV1.model_validate(payload | {"context_receipt_sha256": canonical_sha256(payload)})
+    receipt = receipt_type.model_validate(payload | {"context_receipt_sha256": canonical_sha256(payload)})
     fields = dict(allowed_graph_operations=[], max_provider_attempts=None, max_graph_operations=None,
         max_results_per_operation=0, max_total_provider_input_tokens=None,
         max_total_provider_output_tokens=None, provider_input_accounting={
@@ -93,11 +95,15 @@ def freeze(request, work, playable_target, view, budget, *, authority, graph_rec
         for key in ("allowed_graph_operations", "max_results_per_operation", "source_read_scope",
                     "max_source_read_chars", "max_chars_per_source_read"):
             fields[key] = getattr(graph_policy, key)
-    policy = t.PlanSourceExecutionPolicyV1(**fields)
-    execution_payload = dict(schema="dmb_plan_source_execution_v1",
+    if native_query is not None:
+        fields['native_query_sha256'] = canonical_sha256(native_query.model_dump(mode='json', by_alias=True))
+    policy_type = t.PlanNativeExecutionPolicyV1 if native_query is not None else t.PlanSourceExecutionPolicyV1
+    execution_type = t.PlanNativeExecutionV1 if native_query is not None else t.PlanSourceExecutionV1
+    policy = policy_type(**fields)
+    execution_payload = dict(schema=execution_type.model_fields['schema_'].default,
         context_receipt_sha256=receipt.context_receipt_sha256,
         policy=policy.model_dump(mode="json", by_alias=True))
-    execution = t.PlanSourceExecutionV1.model_validate(execution_payload | {
+    execution = execution_type.model_validate(execution_payload | {
         "execution_policy_sha256": canonical_sha256(execution_payload), "events": []})
     validate_source_execution_binding(receipt, execution)
     return receipt, execution, ([], [], [])

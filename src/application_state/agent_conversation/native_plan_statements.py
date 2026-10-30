@@ -251,3 +251,83 @@ def model_frame(turn):
             'source_revision_id': read.support.source_revision_id,
             'source_body_sha256': read.support.source_body_sha256}
             for event, read in rows]}
+
+
+POLICY = 'dmb_surface_evidence_answer_v7'
+INSTRUCTIONS = """Native statements record what sources say, not independent proof that embedded events happened.
+Use {"kind":"native_statement_report","text":"source-attributed prose","statement_handles":["exact exposed handle"]}.
+Select only supports actually relevant to the claim. Preserve all relevant episodes,
+reporter, uncertainty, qualifications and nonfactive embedded content. Textual source
+order does not prove fictional chronology or causality. Do not attach nearby unsupported
+clauses. Partial discovery or no matches never proves universal absence.
+"""
+
+
+def producing_reads(turn, authorization, raw):
+    from . import types as t
+    if not isinstance(turn.graph_context_receipt, t.PlanNativeContextReceiptV1):
+        return ()
+    from hashlib import sha256
+    from .plan_jev_graph_packet import frame_in_request
+    from .rules_authority_types import canonical_sha256
+    frame = frame_in_request(raw)
+    expected = model_frame(turn)
+    if (not isinstance(authorization, t.PlanNativeWriterAuthorizedV1)
+            or sha256(raw.encode()).hexdigest() != authorization.envelope_sha256
+            or canonical_sha256(frame) != authorization.frame_sha256
+            or frame.get('native_statements') != expected):
+        raise ValueError('Native statements differ from actual producing input')
+    reads = selected_reads(turn)
+    if set(authorization.native_statement_read_event_ids) != {event.event_id for event, _ in reads} | {
+            event.event_id for event in turn.graph_context_execution.events
+            if isinstance(event, NativePlanStatementReadObservedV1)}:
+        raise ValueError('Native statement exposure differs from producing authorization')
+    return tuple((row['statement_handle'], event, read)
+        for row, (event, read) in zip(expected['statements'], reads, strict=True))
+
+
+def citation(receipt, authorization, read, *, index):
+    from .native_statement_answer import NativeStatementClauseCitationV1
+    authority, support = receipt.native_query.authority, read.support
+    return NativeStatementClauseCitationV1(segment_index=index, statement_id=support.statement_id,
+        provider_attempt_id=authorization.provider_attempt_id, envelope_sha256=authorization.envelope_sha256,
+        context_receipt_sha256=receipt.context_receipt_sha256,
+        managed_world_id=authority.managed_world_id, native_world_id=authority.native_world_id,
+        campaign_id=support.payload['clause']['campaign'], read_revision_id=authority.revision_id,
+        publication_revision_id=support.publication_receipt['published_revision_id'],
+        source_artifact_id=support.source_artifact_id, source_revision_id=support.source_revision_id,
+        body_sha256=support.source_body_sha256, start_byte=support.clause_start_byte,
+        end_byte=support.clause_end_byte, clause_sha256=support.clause_sha256,
+        semantic_digest=support.semantic_digest)
+
+
+def validate_citations(completion, receipt, execution, authorization):
+    from . import types as t
+    if not isinstance(receipt, t.PlanNativeContextReceiptV1):
+        if getattr(completion, 'native_clause_citations', ()):
+            raise ValueError('Native statement citations require their own Plan query')
+        return
+    if not isinstance(completion, t.SurfaceEvidenceCompletionV6):
+        raise ValueError('Native Plan requires its retained native-report completion')
+    validate_execution(receipt, execution)
+    reads = {read.support.statement_id: read for event in execution.events
+        if isinstance(event, NativePlanStatementReadObservedV1)
+        and event.event_id in authorization.native_statement_read_event_ids for read in event.reads}
+    seen = set()
+    for item in completion.native_clause_citations:
+        key = item.segment_index, item.statement_id
+        if (key in seen or item.segment_index >= len(completion.answer_segments)
+                or not isinstance(completion.answer_segments[item.segment_index], t.SourcePassageClaimV1)
+                or item.statement_id not in reads
+                or item != citation(receipt, authorization, reads[item.statement_id], index=item.segment_index)):
+            raise ValueError('Native clause citation differs from original included support')
+        seen.add(key)
+
+
+def input_partial(turn):
+    from . import types as t
+    receipt = turn.graph_context_receipt
+    return isinstance(receipt, t.PlanNativeContextReceiptV1) and (
+        isinstance(receipt.native_query, NativePlanQueryV1) and receipt.native_query.status == 'partial'
+        or any(isinstance(e, NativePlanStatementReadObservedV1) and e.status == 'partial'
+               for e in turn.graph_context_execution.events))

@@ -22,6 +22,8 @@ class QueryContext:
     binding: object
     pinned: tuple
     repository: object
+    principal: object
+    resolve_binding: object
 
 
 def _principal(principal):
@@ -154,7 +156,7 @@ def prepare_query(managed_world_id, question, principal, *, source_context=None,
         matches=tuple(matches), status='partial' if gaps else 'complete', gap_codes=tuple(sorted(set(gaps))))
     if resolve(managed_world_id) != bound:
         raise ValueError('Active Graph binding changed during native query')
-    return QueryContext(query, bound, pinned, repo), query
+    return QueryContext(query, bound, pinned, repo, principal, resolve), query
 
 
 def read_selected(context, authorization, principal, *, resolve_binding=None):
@@ -162,7 +164,7 @@ def read_selected(context, authorization, principal, *, resolve_binding=None):
     _principal(principal)
     query, repo = context.query, context.repository
     authority = query.authority
-    resolve = resolve_binding or resolve_managed_world_binding
+    resolve = resolve_binding or context.resolve_binding
     if resolve(authority.managed_world_id) != context.binding:
         raise ValueError('Native query binding changed before selected read')
     if not isinstance(authorization, NativePlanStatementReadAuthorizedV1) or authorization.query_sha256 != query.sha256:
@@ -189,3 +191,20 @@ def read_selected(context, authorization, principal, *, resolve_binding=None):
     if resolve(authority.managed_world_id) != context.binding:
         raise ValueError('Native query binding changed during selected read')
     return tuple(reads), tuple(unavailable)
+
+
+def reopen_context(query, principal):
+    """Current access to a retained query's original R, without re-running search."""
+    _principal(principal)
+    authority = query.authority
+    bound = resolve_managed_world_binding(authority.managed_world_id)
+    if (bound.native_world_id, bound.binding_version) != (authority.native_world_id, authority.binding_version):
+        raise ValueError('Historical native query binding changed')
+    repo = statements.native.repository()
+    pinned = statements._context(repo, authority.native_world_id, authority.revision_id,
+        authority.campaign_id, principal.role, scope_mode=authority.scope_mode)
+    h = header(repo.get_revision(authority.native_world_id, authority.revision_id))
+    if (h['domain_ref'] != authority.domain_ref.model_dump() or h['profile_ref'] != authority.profile_ref.model_dump()
+            or pinned[1].source_view.epoch < authority.acquisition_epoch):
+        raise ValueError('Historical native query authority changed')
+    return QueryContext(query, bound, pinned, repo, principal, resolve_managed_world_binding)

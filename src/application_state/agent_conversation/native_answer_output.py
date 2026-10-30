@@ -82,9 +82,11 @@ def normalize_native_answer(candidate, turn: t.Turn, producer: UUID, *, support:
     if not (play or plan or source):
         raise NativeAnswerError('authority','native_owner_missing')
     from .surface_evidence_answer import POLICY, NATIVE_POLICY, SELECTOR_POLICY, PLAN_POLICY, BODY_POLICY, normalize as normalize_evidence
-    if source and (not isinstance(candidate, dict) or candidate.get('schema') != BODY_POLICY):
+    from .native_plan_statements import POLICY as STATEMENT_POLICY
+    source_policy = STATEMENT_POLICY if isinstance(receipt, t.PlanNativeContextReceiptV1) else BODY_POLICY
+    if source and (not isinstance(candidate, dict) or candidate.get('schema') != source_policy):
         raise NativeAnswerError('shape', 'current_evidence_contract_required')
-    if isinstance(candidate, dict) and candidate.get('schema') in ({BODY_POLICY} if source else {PLAN_POLICY,SELECTOR_POLICY,NATIVE_POLICY,POLICY,'dmb_surface_evidence_answer_v1'}):
+    if isinstance(candidate, dict) and candidate.get('schema') in ({source_policy} if source else {PLAN_POLICY,SELECTOR_POLICY,NATIVE_POLICY,POLICY,'dmb_surface_evidence_answer_v1'}):
         try:
             return normalize_evidence(candidate, turn, producer, support)
         except (ValueError, KeyError, TypeError, StopIteration) as exc:

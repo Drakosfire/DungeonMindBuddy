@@ -1,5 +1,5 @@
-import {getAgentSourcePassage,getAgentNativeSourceSection,getAgentNativeBodyExcerpt,getAgentRelatedPage} from '../../api/liveApi';
-import type {WorldBuildSourceCompletion,SurfaceSourceCompletionV1,SurfaceEvidenceCompletion,SurfaceEvidenceCompletionV3,SurfaceEvidenceCompletionV5} from '../../api/types';
+import {getAgentNativeSourceClause,getAgentSourcePassage,getAgentNativeSourceSection,getAgentNativeBodyExcerpt,getAgentRelatedPage} from '../../api/liveApi';
+import type {WorldBuildSourceCompletion,SurfaceSourceCompletionV1,SurfaceEvidenceCompletion,SurfaceEvidenceCompletionV3,SurfaceEvidenceCompletionV5,SurfaceEvidenceCompletionV6} from '../../api/types';
 import {exact,canonical} from '../../shared/sourcePassageProtocol';
 import type {CitationChoice} from './SourceCitationEvidence';
 export type PassageCompletion=WorldBuildSourceCompletion|SurfaceSourceCompletionV1|SurfaceEvidenceCompletion;
@@ -42,7 +42,7 @@ export function passageChoices(completion:PassageCompletion,worldId:string,turnI
   });
   return [...passages,...pages];
 }
-export function nativeChoices(completion:Pick<SurfaceEvidenceCompletionV3,"native_source_citations"> & Partial<Pick<SurfaceEvidenceCompletionV5,"native_body_citations">>,worldId:string,turnId:string,segmentIndex:number):CitationChoice[] {
+export function nativeChoices(completion:Pick<SurfaceEvidenceCompletionV3,"native_source_citations"> & Partial<Pick<SurfaceEvidenceCompletionV5,"native_body_citations"> & Pick<SurfaceEvidenceCompletionV6,"native_clause_citations">>,worldId:string,turnId:string,segmentIndex:number):CitationChoice[] {
   const sections=completion.native_source_citations.flatMap((citation,index)=>citation.segment_index!==segmentIndex ? [] : [{
     key:`section:${index}`,number:index+1,title:`${citation.source_name} · ${citation.section_title}`,
     label:`${citation.source_name} · ${citation.section_title}`,kind:'section' as const,load:async()=>{
@@ -63,6 +63,17 @@ export function nativeChoices(completion:Pick<SurfaceEvidenceCompletionV3,"nativ
         || result.turn_id!==turnId || result.citation_index!==index || canonical(result.citation)!==canonical(citation)
         || typeof result.content!=='string' || !result.content || await hash(result.content)!==citation.excerpt_sha256)
         throw new Error('Source excerpt binding differs');
+      return result.content;
+    },
+  }]),...(completion.native_clause_citations??[]).flatMap((citation,index)=>citation.segment_index!==segmentIndex?[]:[{
+    key:`statement:${index}`,number:sections.length+index+1,title:`Source statement · ${citation.campaign_id}`,
+    label:`Read source statement · ${citation.campaign_id}`,kind:'section' as const,load:async()=>{
+      const result=await getAgentNativeSourceClause(worldId,turnId,index);
+      if(!exact(result,['schema','world_id','turn_id','citation_index','citation','content'])
+        ||result.schema!=='dmb_native_statement_clause_read_v1'||result.world_id!==worldId||result.turn_id!==turnId
+        ||result.citation_index!==index||canonical(result.citation)!==canonical(citation)||typeof result.content!=='string'
+        ||new TextEncoder().encode(result.content).length!==citation.end_byte-citation.start_byte
+        ||await hash(result.content)!==citation.clause_sha256)throw new Error('Native statement source binding differs');
       return result.content;
     },
   }])];

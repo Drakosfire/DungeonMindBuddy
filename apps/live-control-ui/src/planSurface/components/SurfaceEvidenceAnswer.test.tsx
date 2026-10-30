@@ -1,8 +1,8 @@
 import {render,screen,fireEvent} from '@testing-library/react';
 import {it,expect,vi} from 'vitest';
 import {webcrypto,createHash} from 'node:crypto';
-import {getAgentSourcePassage} from '../../api/liveApi';
-vi.mock('../../api/liveApi',()=>({getAgentSourcePassage:vi.fn()}));
+import {getAgentSourcePassage,getAgentNativeSourceClause} from '../../api/liveApi';
+vi.mock('../../api/liveApi',()=>({getAgentSourcePassage:vi.fn(),getAgentNativeSourceClause:vi.fn()}));
 import {SurfaceEvidenceAnswer} from './SurfaceEvidenceAnswer';
 import type {SurfaceEvidenceCompletionV1} from '../../api/types';
 function evidence():SurfaceEvidenceCompletionV1 {
@@ -73,3 +73,29 @@ it.each([{kind:'plan' as const,world:'park'},{kind:'session' as const,world:null
     expect(screen.queryByRole('link')).toBeNull();
     expect(screen.getByText('A proposed outing.').closest('blockquote')).not.toBeNull();
   });
+
+
+it.each(['exact','changed-bytes','changed-revision','changed-campaign'])('opens only the original native statement clause: %s',async change=>{
+  vi.stubGlobal('crypto',webcrypto);
+  const content='A reports that B fled; uncertain.\n';
+  const hash=(s:string)=>createHash('sha256').update(s).digest('hex');
+  const citation:import('../../api/types').NativeStatementClauseCitationV1={segment_index:0,
+    statement_id:'ent:statement',provider_attempt_id:'attempt',envelope_sha256:'b'.repeat(64),context_receipt_sha256:'a'.repeat(64),
+    managed_world_id:'native-world',native_world_id:'native',campaign_id:'c1',read_revision_id:'rev:R',publication_revision_id:'rev:C',
+    source_artifact_id:'source',source_revision_id:'source:1',body_sha256:'c'.repeat(64),start_byte:0,
+    end_byte:new TextEncoder().encode(content).length,clause_sha256:hash(content),semantic_digest:'d'.repeat(64)};
+  const completion:import('../../api/types').SurfaceEvidenceCompletionV6={schema:'dmb_surface_evidence_completion_v6',surface_id:'plan',
+    context_receipt_sha256:'a'.repeat(64),answer_basis:'mixed_evidence',answer_context_status:'source_grounded',citation_map:null,
+    source_citations:[],native_source_citations:[],native_body_citations:[],native_clause_citations:[citation],
+    answer_segments:[{kind:'source_passage_claim',text:'Source reports: an uncertain escape.'}]};
+  const response={schema:'dmb_native_statement_clause_read_v1' as const,world_id:'native-world',turn_id:'turn',citation_index:0,citation:{...citation},content};
+  if(change==='changed-bytes')response.content='Nearby unsupported prose.';
+  if(change==='changed-revision')response.citation.source_revision_id='source:new-head';
+  if(change==='changed-campaign')response.citation.campaign_id='foreign';
+  vi.mocked(getAgentNativeSourceClause).mockResolvedValue(response);
+  render(<SurfaceEvidenceAnswer completion={completion} worldId="native-world" turnId="turn"/>);
+  fireEvent.click(screen.getByRole('button',{name:'Read source statement · c1'}));
+  if(change==='exact')await screen.findByText('A reports that B fled; uncertain.');
+  else await screen.findByText('The exact cited section is unavailable. No newer text has been substituted.');
+  expect(getAgentNativeSourceClause).toHaveBeenCalledWith('native-world','turn',0);
+});
