@@ -82,3 +82,47 @@ def test_native_source_only_run_cannot_use_generic_output_store(application_stat
         components.persist_component_payload(run_id=run.run_id, expected_revision=1, kind=Kind.CANDIDATE_GRAPH, payload=b"x")
     with pytest.raises(ApplicationStateConflictError, match="source-only"):
         components.get_component_bytes(run_id=run.run_id, kind=Kind.CANDIDATE_GRAPH, content_sha256=hashlib.sha256(b"x").hexdigest())
+
+
+def test_transition_verification_is_revision_fenced_without_binding():
+    run = run_with()
+    payload = b"staged failed response"
+    digest = components.persist_component_payload(run_id=run.run_id, expected_revision=1, kind=Kind.RAW_MODEL_RESPONSE, payload=payload)
+    options = dict(run_id=run.run_id, kind=Kind.RAW_MODEL_RESPONSE, content_sha256=digest)
+    assert components.verify_transition_component_bytes(expected_revision=1, **options) == payload
+    assert service.get_extraction_run(run.run_id) == run
+    with pytest.raises(ApplicationStateConflictError, match="run binding"):
+        components.get_component_bytes(**options)
+    with pytest.raises(ApplicationStateConflictError, match="changed"):
+        components.verify_transition_component_bytes(expected_revision=2, **options)
+
+
+def test_transition_verification_missing_and_corrupt_bytes(application_state_dsn):
+    run = run_with()
+    payload = b"exact"
+    digest = hashlib.sha256(payload).hexdigest()
+    options = dict(run_id=run.run_id, expected_revision=1, kind=Kind.CANDIDATE_GRAPH, content_sha256=digest)
+    with pytest.raises(ApplicationStateNotFoundError, match="not durable"):
+        components.verify_transition_component_bytes(**options)
+    components.persist_component_payload(run_id=run.run_id, expected_revision=1, kind=Kind.CANDIDATE_GRAPH, payload=payload)
+    with psycopg.connect(application_state_dsn) as conn:
+        conn.execute("UPDATE ingest.component_payload SET payload=%s WHERE run_id=%s", (b"corrupt", run.run_id))
+    with pytest.raises(ApplicationStateIntegrityError, match="digest mismatch"):
+        components.verify_transition_component_bytes(**options)
+
+
+def test_transition_verification_frozen_owner_and_source_boundaries(application_state_dsn):
+    run = run_with(payload=b"bound", status=Status.REVIEWABLE)
+    other = b"unbound"
+    digest = hashlib.sha256(other).hexdigest()
+    with psycopg.connect(application_state_dsn) as conn:
+        conn.execute("INSERT INTO ingest.component_payload (run_id,kind,content_sha256,payload) VALUES (%s,%s,%s,%s)", (run.run_id, Kind.CANDIDATE_GRAPH.value, digest, other))
+    options = dict(run_id=run.run_id, expected_revision=1, kind=Kind.CANDIDATE_GRAPH, content_sha256=digest)
+    with pytest.raises(ApplicationStateConflictError, match="frozen"):
+        components.verify_transition_component_bytes(**options)
+    with pytest.raises(ApplicationStateValidationError, match="source store"):
+        components.verify_transition_component_bytes(**{**options, "kind": Kind.SOURCE_ARTIFACT})
+    with psycopg.connect(application_state_dsn) as conn:
+        conn.execute("UPDATE ingest.run SET lineage=%s::jsonb WHERE run_id=%s", ('{"native_recap_source": {}}', run.run_id))
+    with pytest.raises(ApplicationStateConflictError, match="source-only"):
+        components.verify_transition_component_bytes(**options)

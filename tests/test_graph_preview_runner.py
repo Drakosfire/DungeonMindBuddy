@@ -483,7 +483,7 @@ def test_gazetteer_deferred_proposals_are_persisted_and_source_resolvable(
         and edge["to_node_id"] in candidate_node_ids
         for edge in candidate["edges"]
     )
-    assert_immutable_component_refs(tmp_path, loaded)
+    assert_immutable_component_refs(tmp_path, loaded, expected_revision=loaded.revision)
 
 
 @pytest.mark.parametrize("mode,kind", [("refusal", "refusal"), ("incomplete", "incomplete"), ("schema", "schema")])

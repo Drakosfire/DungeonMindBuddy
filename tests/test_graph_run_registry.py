@@ -109,6 +109,15 @@ def _reviewable_components(root: Path, artifact, graph_payload: dict | None = No
     }
 
 
+def _store_fixture_outputs(root: Path, run):
+    from application_state.ingest.components import persist_component_payload
+
+    for key, ref in run.components.items():
+        if key != "source_artifact":
+            persist_component_payload(run_id=run.run_id, expected_revision=run.revision,
+                kind=key, payload=(root / ref.uri.removeprefix("repo://")).read_bytes())
+
+
 def test_source_artifact_reads_committed_file_not_client_markdown(tmp_path: Path) -> None:
     record, digest = _committed_worldbuilding(tmp_path, "# Canon\n\nFrom disk.\n")
     artifact = create_source_artifact_from_workspace_document(
@@ -303,86 +312,16 @@ def test_reviewable_requires_resolvable_evidence(tmp_path: Path) -> None:
         )
 
 
-def test_reviewable_rejects_unknown_paths_and_hash_mismatch(tmp_path: Path) -> None:
-    record, _digest = _committed_worldbuilding(tmp_path)
-    artifact = create_source_artifact_from_workspace_document(
-        tmp_path,
-        document_id=record.document_id,
-        expected_revision=record.revision,
-    )
-    run = create_extraction_run(
-        tmp_path,
-        source_artifact_id=artifact.source_artifact_id,
-        source_domain="worldbuilding",
-    )
-    components = _reviewable_components(tmp_path, artifact)
-    components["candidate_graph"] = ExtractionRunComponentRef(
-        kind=ExtractionRunComponentKind.CANDIDATE_GRAPH,
-        uri="repo://../escape.json",
-        sha256="a" * 64,
-    )
-    prepared = update_extraction_run_status(
-        tmp_path,
-        run.run_id,
-        status=ExtractionRunStatus.PREPARED,
-        expected_revision=run.revision,
-        components=components,
-    )
-    extracted = update_extraction_run_status(
-        tmp_path,
-        prepared.run_id,
-        status=ExtractionRunStatus.EXTRACTED,
-        expected_revision=prepared.revision,
-    )
-    validated = update_extraction_run_status(
-        tmp_path,
-        extracted.run_id,
-        status=ExtractionRunStatus.VALIDATED,
-        expected_revision=extracted.revision,
-    )
-    with pytest.raises(GraphRunRegistryError, match="unsafe|escape"):
-        update_extraction_run_status(
-            tmp_path,
-            validated.run_id,
-            status=ExtractionRunStatus.REVIEWABLE,
-            expected_revision=validated.revision,
-        )
+def test_file_only_outputs_do_not_grant_reviewable(tmp_path: Path) -> None:
+    record, _ = _committed_worldbuilding(tmp_path)
+    artifact = create_source_artifact_from_workspace_document(tmp_path, document_id=record.document_id, expected_revision=record.revision)
+    run = create_extraction_run(tmp_path, source_artifact_id=artifact.source_artifact_id,
+        source_domain="worldbuilding", components=_reviewable_components(tmp_path, artifact),
+        status=ExtractionRunStatus.VALIDATED)
+    with pytest.raises(GraphRunRegistryError, match="not durable"):
+        update_extraction_run_status(tmp_path, run.run_id, status=ExtractionRunStatus.REVIEWABLE, expected_revision=run.revision)
+    assert get_extraction_run(tmp_path, run.run_id) == run
 
-    components = _reviewable_components(tmp_path, artifact)
-    components["candidate_graph"] = components["candidate_graph"].model_copy(
-        update={"sha256": "0" * 64}
-    )
-    run2 = create_extraction_run(
-        tmp_path,
-        source_artifact_id=artifact.source_artifact_id,
-        source_domain="worldbuilding",
-        components=components,
-    )
-    prepared2 = update_extraction_run_status(
-        tmp_path,
-        run2.run_id,
-        status=ExtractionRunStatus.PREPARED,
-        expected_revision=run2.revision,
-    )
-    extracted2 = update_extraction_run_status(
-        tmp_path,
-        prepared2.run_id,
-        status=ExtractionRunStatus.EXTRACTED,
-        expected_revision=prepared2.revision,
-    )
-    validated2 = update_extraction_run_status(
-        tmp_path,
-        extracted2.run_id,
-        status=ExtractionRunStatus.VALIDATED,
-        expected_revision=extracted2.revision,
-    )
-    with pytest.raises(GraphRunRegistryError, match="digest mismatch"):
-        update_extraction_run_status(
-            tmp_path,
-            validated2.run_id,
-            status=ExtractionRunStatus.REVIEWABLE,
-            expected_revision=validated2.revision,
-        )
 
 
 def test_reviewable_happy_path_and_terminal_protection(tmp_path: Path) -> None:
@@ -399,6 +338,7 @@ def test_reviewable_happy_path_and_terminal_protection(tmp_path: Path) -> None:
         source_domain="worldbuilding",
         components=components,
     )
+    _store_fixture_outputs(tmp_path, run)
     for status in (
         ExtractionRunStatus.PREPARED,
         ExtractionRunStatus.EXTRACTED,
@@ -475,6 +415,7 @@ def test_get_reviewable_extraction_run_ignores_duplicate_file_records(
         components=components,
     )
     db_create(first)
+    _store_fixture_outputs(tmp_path, first)
     path = tmp_path / LEGACY_EXTRACTION_RUN_REGISTRY_REL
     path.parent.mkdir(parents=True, exist_ok=True)
     document = ExtractionRunRegistryDocument(records=[first, first.model_copy(deep=True)])
@@ -595,7 +536,9 @@ def test_malformed_registry_fails_closed_on_load(
         get_extraction_run(tmp_path, run.run_id)
 
 
-def _advance_to_reviewable(tmp_path: Path, run, components):
+def _advance_to_reviewable(tmp_path: Path, run, components, *, persist=True):
+    if persist:
+        _store_fixture_outputs(tmp_path, run.model_copy(update={"components": components}))
     current = run
     for status in (
         ExtractionRunStatus.PREPARED,
@@ -711,7 +654,7 @@ def test_supersede_save_failure_leaves_predecessor_unchanged(
     assert not (tmp_path / "out/registries/extraction_runs.json").exists()
 
 
-def test_promoted_run_integrity_checked_on_load(tmp_path: Path) -> None:
+def test_promoted_run_integrity_checked_on_load(tmp_path: Path, application_state_dsn: str) -> None:
     record, _digest = _committed_worldbuilding(tmp_path)
     artifact = create_source_artifact_from_workspace_document(
         tmp_path,
@@ -742,52 +685,24 @@ def test_promoted_run_integrity_checked_on_load(tmp_path: Path) -> None:
         assert_run_reviewable_evidence,
     )
 
+    assert_run_reviewable_evidence(tmp_path, catalog)
+    import psycopg
+    with psycopg.connect(application_state_dsn) as conn:
+        conn.execute("UPDATE ingest.component_payload SET payload=%s WHERE run_id=%s AND kind='candidate_graph'", (b"corrupt", catalog.run_id))
     with pytest.raises(GraphRunRegistryError, match="integrity|digest mismatch"):
         assert_run_reviewable_evidence(tmp_path, catalog)
 
 
-def test_whitespace_contaminated_component_uri_is_rejected(tmp_path: Path) -> None:
-    record, _digest = _committed_worldbuilding(tmp_path)
-    artifact = create_source_artifact_from_workspace_document(
-        tmp_path,
-        document_id=record.document_id,
-        expected_revision=record.revision,
-    )
+def test_component_uri_is_not_lifecycle_authority(tmp_path: Path) -> None:
+    record, _ = _committed_worldbuilding(tmp_path)
+    artifact = create_source_artifact_from_workspace_document(tmp_path, document_id=record.document_id, expected_revision=record.revision)
     components = _reviewable_components(tmp_path, artifact)
-    components["candidate_graph"] = components["candidate_graph"].model_copy(
-        update={"uri": " repo://out/registries/test_candidate_graph.json "}
-    )
-    run = create_extraction_run(
-        tmp_path,
-        source_artifact_id=artifact.source_artifact_id,
-        source_domain="worldbuilding",
-        components=components,
-    )
-    prepared = update_extraction_run_status(
-        tmp_path,
-        run.run_id,
-        status=ExtractionRunStatus.PREPARED,
-        expected_revision=run.revision,
-    )
-    extracted = update_extraction_run_status(
-        tmp_path,
-        prepared.run_id,
-        status=ExtractionRunStatus.EXTRACTED,
-        expected_revision=prepared.revision,
-    )
-    validated = update_extraction_run_status(
-        tmp_path,
-        extracted.run_id,
-        status=ExtractionRunStatus.VALIDATED,
-        expected_revision=extracted.revision,
-    )
-    with pytest.raises(GraphRunRegistryError, match="unsafe component uri"):
-        update_extraction_run_status(
-            tmp_path,
-            validated.run_id,
-            status=ExtractionRunStatus.REVIEWABLE,
-            expected_revision=validated.revision,
-        )
+    run = create_extraction_run(tmp_path, source_artifact_id=artifact.source_artifact_id, source_domain="worldbuilding", components=components)
+    _store_fixture_outputs(tmp_path, run)
+    components = {key: ref.model_copy(update={"uri": " historical:never-open "}) for key, ref in components.items()}
+    sealed = _advance_to_reviewable(tmp_path, run, components, persist=False)
+    assert get_reviewable_extraction_run(tmp_path, sealed.run_id) == sealed
+
 
 
 def test_source_artifact_snapshot_waits_across_commit_barrier(
@@ -1385,9 +1300,11 @@ def _frozen_snapshot_child(root: Path):
         components[kind] = ref.model_copy(update={"uri": "repo://" + path.relative_to(root).as_posix()})
     parent = create_extraction_run(
         root, source_artifact_id=artifact.source_artifact_id, source_domain="worldbuilding",
-        components=components, status=ExtractionRunStatus.REVIEWABLE,
+        components=components, status=ExtractionRunStatus.VALIDATED,
         profile_id="worldbuilding_shepherds_flock_v0@0.1",
     )
+    _store_fixture_outputs(root, parent)
+    parent = update_extraction_run_status(root, parent.run_id, status=ExtractionRunStatus.REVIEWABLE, expected_revision=parent.revision)
     child_path = root / "out/derived/child/candidate_graph.json"
     child_path.parent.mkdir(parents=True)
     child_path.write_text('{"nodes": [], "edges": [], "reviewed": true}')
@@ -1401,6 +1318,7 @@ def _frozen_snapshot_child(root: Path):
         components=child_components, status=ExtractionRunStatus.VALIDATED,
         profile_id=parent.profile_id, lineage={"parent_run_id": parent.run_id},
     )
+    _store_fixture_outputs(root, child)
     return parent, child, frozen, child_path
 
 
@@ -1425,11 +1343,13 @@ def test_corrected_child_seals_with_inherited_frozen_evidence_and_reopens_exactl
 
 
 @pytest.mark.parametrize("tamper", ["span_bytes", "span_identity"])
-def test_corrected_child_rejects_substituted_frozen_evidence(tmp_path: Path, tamper: str):
+def test_corrected_child_rejects_substituted_frozen_evidence(tmp_path: Path, application_state_dsn: str, tamper: str):
     parent, child, frozen, child_path = _frozen_snapshot_child(tmp_path)
     components = dict(child.components)
     if tamper == "span_bytes":
-        (frozen / "source_span_index.json").write_text("{}")
+        import psycopg
+        with psycopg.connect(application_state_dsn) as conn:
+            conn.execute("UPDATE ingest.component_payload SET payload=%s WHERE run_id=%s AND kind='source_span_index'", (b"{}", child.run_id))
     elif tamper == "span_identity":
         path = frozen / "source_span_index.json"
         payload = json.loads(path.read_text())
@@ -1444,6 +1364,7 @@ def test_corrected_child_rejects_substituted_frozen_evidence(tmp_path: Path, tam
             components=components, status=ExtractionRunStatus.VALIDATED,
             profile_id=parent.profile_id, lineage={"parent_run_id": parent.run_id},
         )
+        _store_fixture_outputs(tmp_path, child)
     with pytest.raises(GraphRunRegistryError):
         update_extraction_run_status(
             tmp_path, child.run_id, status=ExtractionRunStatus.REVIEWABLE,

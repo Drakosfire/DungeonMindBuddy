@@ -75,9 +75,7 @@ def get_component_bytes(*, run_id: str, kind: ExtractionRunComponentKind | str,
                         content_sha256: str) -> bytes:
     """Open one current exact run binding and verify bytes, with no file fallback."""
     kind = _output_kind(kind)
-    digest = normalize_content_digest(content_sha256)
-    if len(digest) != 64 or any(char not in "0123456789abcdef" for char in digest):
-        raise ApplicationStateValidationError("exact output SHA-256 is required")
+    digest = _output_digest(content_sha256)
     dsn = load_runtime_dsn()
     assert_at_head(dsn=dsn)
     with unit_of_work(dsn) as conn:
@@ -89,13 +87,52 @@ def get_component_bytes(*, run_id: str, kind: ExtractionRunComponentKind | str,
         ref = run.components.get(kind.value)
         if ref is None or normalize_content_digest(ref.sha256) != digest:
             raise ApplicationStateConflictError("requested output differs from the extraction run binding")
-        row = conn.execute(
-            "SELECT payload FROM ingest.component_payload WHERE run_id=%s AND kind=%s AND content_sha256=%s",
-            (run_id, kind.value, digest),
-        ).fetchone()
+        return _verified_payload_bytes(conn, run_id=run_id, kind=kind, digest=digest)
+
+
+def _output_digest(content_sha256: str) -> str:
+    digest = normalize_content_digest(content_sha256)
+    if len(digest) != 64 or any(char not in "0123456789abcdef" for char in digest):
+        raise ApplicationStateValidationError("exact output SHA-256 is required")
+    return digest
+
+
+def _verified_payload_bytes(conn, *, run_id: str, kind: ExtractionRunComponentKind, digest: str) -> bytes:
+    row = conn.execute(
+        "SELECT payload FROM ingest.component_payload WHERE run_id=%s AND kind=%s AND content_sha256=%s",
+        (run_id, kind.value, digest),
+    ).fetchone()
     if row is None:
         raise ApplicationStateNotFoundError("referenced extraction output is not durable")
     data = bytes(row[0])
     if hashlib.sha256(data).hexdigest() != digest:
         raise ApplicationStateIntegrityError("stored extraction output digest mismatch")
     return data
+
+
+def verify_transition_component_bytes(*, run_id: str, expected_revision: int,
+                                      kind: ExtractionRunComponentKind | str,
+                                      content_sha256: str) -> bytes:
+    """Verify stored producer bytes before a revision-fenced lifecycle binding.
+
+    Mutable runs may stage outputs before referencing them. This operation
+    grants no bound-read, review or publication authority. Frozen runs still
+    permit only their current exact binding; metadata CAS owns the transition.
+    """
+    kind = _output_kind(kind)
+    digest = _output_digest(content_sha256)
+    dsn = load_runtime_dsn()
+    assert_at_head(dsn=dsn)
+    with unit_of_work(dsn) as conn:
+        conn.execute("SET TRANSACTION READ ONLY")
+        run = repository.get_run(conn, run_id)
+        if run is None:
+            raise ApplicationStateNotFoundError("extraction run not found")
+        _require_output_owner(run)
+        if run.revision != expected_revision:
+            raise ApplicationStateConflictError("extraction run changed before output verification")
+        if run.status in FROZEN_COMPONENT_STATUSES:
+            ref = run.components.get(kind.value)
+            if ref is None or normalize_content_digest(ref.sha256) != digest:
+                raise ApplicationStateConflictError("frozen extraction output binding cannot change")
+        return _verified_payload_bytes(conn, run_id=run_id, kind=kind, digest=digest)
