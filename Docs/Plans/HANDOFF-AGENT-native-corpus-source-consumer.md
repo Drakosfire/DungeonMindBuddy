@@ -1,6 +1,6 @@
 # AGENT — native corpus discovery to cited ordinary answers
 
-Status: ACTIVE serial Buddy code allocation at this pinned portable commit after
+Status: IMPLEMENTATION MERGED/DELIVERED through PR1917, mergeed72db3ce494934480b1005e567f84dc7b26b600. The former implementation lease is released; historical failures and incomplete full-ingestion/operator acceptance remain retained. Current default Q01 passed after the separately reviewed1918/1919/1921/1924 corrections; Q13 discovers/selects3/3 essential targets and delivers supported3/3, with original report-context coverage2+1partial. Current writer-kind wording correction is separately allocated in HANDOFF-AGENT-current-writer-kind-guidance.md. Former allocation: serial Buddy code at this pinned portable commit after
 independent architecture_review_1197 APPROVE of a6e8b4f6ec66467d9865d0b7ddd55c0fa84fdc20.
 PRIME owns implementation under the active Buddy acceptance goal. No primary
 runtime/schema/data or evaluator lease is activated here. This is source inspection,
