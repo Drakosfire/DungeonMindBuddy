@@ -1,0 +1,13 @@
+# AGENT — meaningful subject navigation for qualified statements
+
+ACTIVE code-only lease. PRIME owns this serial bounded slice under the standing answer-delivery goal. Base6b36a4c4626541e4c3c165bcd7b378b0ea5fb01f, branch codex/native-statement-navigation-labels, reused buddy-context-loop checkout/dependencies. Open ingestion1853/1855/1868, hosted1828 and held1764 remain separate. No new checkout/environment.
+
+## Observed defect and invariant
+Independent ADVERSARY ca1a95a Q13: discovery3/3, targetselection0/3; all3Torbin candidates have opaque APPobjectID/generic episode labels while Arcana names its topic. Q13 remains a citation-support failure, not repaired by opening exact bytes. Opaque labels are a plausible selection defect, not proven sole cause. Q01 passes on1918; original failures retained.
+
+Change existing query label derivation only. Name subjects from already query-discovered complete Core entities at the same scope/R, connected by admitted ABOUT witnesses. Use only unambiguous nonblank admitted dnd5e:name literals in the statement campaign; otherwise show stableIDs. No extra referent lookup, search, source/body/meaning exposure, writer support or claim credit. Direct statement hits do not authorize referent expansion. Keep episode/source/campaign visible and frozen historical labels/query digests unchanged. Labels identify subjects, not actions/reporters/truth.
+
+Independent architecture_review_1197 approved this direction before implementation, with the bounds above. Existing query schema/digest and actual decision projection remain the owner; no new durable contract/version, provider policy, ingestion/publication or synthesis change.
+
+## Exclusive paths and gates
+This handoff; backward-looking settlement of HANDOFF-AGENT-native-plan-readback.md; apps/live_control_server/services/native_plan_statements.py; tests/test_native_plan_statements.py. Tests: actual offered labels; shared episode/source distinct subjects; missing/conflicting/wrongcampaign/partial names useIDs; no unadmitted name or extra lookup; no preselection body/quote. Existing HTTP/read authority cases remain green. Inspect cumulative diff, independent exact-head Bugbot, CI, commit/push/open owning PR. Independently pinned unchanged Q13/Q01 reruns remain necessary; labels or selection counts do not establish semantic acceptance. No new provider or clone-write lease is activated by this code contract. Protected delivery remains separately gated under standing PRIME authority.

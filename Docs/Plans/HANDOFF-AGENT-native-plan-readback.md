@@ -4,7 +4,7 @@ Owning authority: DungeonOverMind commit `1bb51b4d22d419aaee701b541f688b8961d69d
 reviewed contract head `317db2fba7b9326a8f6b525ac25fc4dd8fb7f8f5` (PR97).
 Runtime lane: `codex/native-plan-statement-readback`, serial, base `ed72db3ce494934480b1005e567f84dc7b26b600`.
 
-Status: ACTIVE at the reviewed pinned commit containing this contract. PRIME owns
+Status: MERGED / DELIVERED via PR1918 merge6b36a4c4626541e4c3c165bcd7b378b0ea5fb01f from independently approved ca1a95ab709dfc4eb7cb161e2f71f0867dc107d5; all CI passed. APP0095/API1451469/UI1451516 on5202;4139APP/371native/41067files conserved. Independent Q01PASS, Q13citation-supportFAIL. Implementation lease released; next bounded labels slice is HANDOFF-AGENT-native-statement-navigation-labels.md. Historical allocation follows. PRIME owns
 this one serial Buddy capability under the active acceptance goal. This is an amendment
 to the first-caller exclusions in HANDOFF-INGEST-vnext-query-consumer.md, not an
 activation of its entire Graph/ingestion table. This allocates code only; no new

@@ -178,6 +178,7 @@ def test_ordinary_http_query_selects_native_support_in_actual_sdk_and_reopens(la
             candidates = body.get('state', {}).get('candidates', [])
             native = {i for i, c in enumerate(candidates) if str(c.get('kind', '')).startswith('Qualified native')}
             assert BODY not in req.content.decode()
+            assert all(candidates[i]['label'].startswith('About B [') for i in native)
             answers = {}
             for name, entry in body['questions'].items():
                 choice = ('discuss' if name == 'requested_work' else
@@ -289,3 +290,68 @@ def test_core_not_found_is_typed_unavailable_but_incomplete_is_fatal(lane, monke
             completeness=SimpleNamespace(status='partial'))))
     with pytest.raises(native.statements.StatementError):
         selected(lane, ctx)
+
+
+@pytest.mark.parametrize('case', ['missing', 'conflicting', 'wrong_campaign', 'partial', 'other_predicate'])
+def test_navigation_names_require_unambiguous_admitted_scoped_identity(lane, monkeypatch, case):
+    from apps.live_control_server.services import native_plan_statements as native
+    commit(lane)
+    original = native.EntityReadService()
+    calls = []
+    def read(context, identity):
+        calls.append(identity)
+        entity = original.get_complete_entity(context, identity)
+        if identity != lane.ids['B']:
+            return entity
+        name = next(a for a in entity.assertions if a.subject_entity_id == identity and a.predicate == 'dnd5e:name')
+        assertions = [a for a in entity.assertions if a is not name]
+        if case == 'conflicting':
+            assertions += [name, replace(name, assertion_id='asrt:conflicting',
+                value=replace(name.value, value='Other', canonical_json_text='"Other"'))]
+        elif case == 'wrong_campaign':
+            assertions += [replace(name, metadata=replace(name.metadata,
+                scope=(replace(name.metadata.scope[0], value='c2'),)))]
+        elif case == 'other_predicate':
+            assertions += [replace(name, predicate='dnd5e:summary')]
+        elif case == 'partial':
+            return replace(entity, completeness=replace(entity.completeness, status='partial', reason='support_unavailable'))
+        return replace(entity, assertions=tuple(assertions))
+    monkeypatch.setattr(native, 'EntityReadService', lambda: SimpleNamespace(get_complete_entity=read))
+    _, result = query(lane)
+    assert len(result.matches) == 1
+    assert result.matches[0].label.startswith('About ' + lane.ids['B'] + ' · ')
+    assert 'About B [' not in result.matches[0].label and 'Other' not in result.matches[0].label
+    assert len(calls) == len(set(calls))
+    assert set(calls) <= set(result.discovered_entity_ids) | {m.statement_id for m in result.matches}
+
+
+def test_shared_source_and_episode_labels_distinguish_about_subjects(lane, monkeypatch):
+    commit(lane)
+    lane.selection = lane.selection.model_copy(update={
+        'referents': [lane.ids['A']], 'meaning': 'A reports another source-local episode',
+        'start_byte': len(BODY.splitlines(keepends=True)[0].encode()), 'end_byte': len(BODY.encode()),
+        'clause_sha256': __import__('hashlib').sha256(BODY.splitlines(keepends=True)[1].encode()).hexdigest(),
+        'expected_parent_revision_id': lane.repo.get_head(lane.world.world_id).head_revision_id})
+    commit(lane)
+    _, result = query(lane, 'A B')
+    labels = [m.label for m in result.matches]
+    assert len(labels) == 2
+    assert any(label.startswith('About A [') for label in labels)
+    assert any(label.startswith('About B [') for label in labels)
+    assert all('episode-1 (c1)' in label for label in labels)
+    assert all('flight' not in label and 'fled' not in label and 'uncertain' not in label for label in labels)
+
+
+def test_direct_statement_hit_never_expands_referent_names(lane, monkeypatch):
+    from apps.live_control_server.services import native_plan_statements as native
+    commit(lane)
+    original = native.EntityReadService()
+    calls = []
+    def read(context, identity):
+        calls.append(identity)
+        assert identity not in lane.ids.values()
+        return original.get_complete_entity(context, identity)
+    monkeypatch.setattr(native, 'EntityReadService', lambda: SimpleNamespace(get_complete_entity=read))
+    _, result = query(lane, 'episode-1')
+    assert len(result.matches) == 1 and calls == list(result.discovered_entity_ids)
+    assert not result.matches[0].label.startswith('About ')
