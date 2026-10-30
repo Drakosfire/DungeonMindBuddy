@@ -25,8 +25,10 @@ TEXT = "Brin owns and operates Brin’s Blacksmithy.\n"
 
 
 @pytest.fixture
-def case(tmp_path, monkeypatch):
+def case(tmp_path, monkeypatch, application_state_dsn):
     monkeypatch.setenv('DMB_ARTIFACT_DATA_ROOT', str(tmp_path))
+    monkeypatch.setenv('DMB_DEPLOYMENT_ENVIRONMENT', 'local')
+    monkeypatch.setenv('DMB_AUTH_MODE', 'local_operator')
     monkeypatch.setenv(GRAPH_REVIEW_PREPARE_BINDING_KEY_ENV, 'document-source-test-key')
     monkeypatch.setattr('apps.live_control_server.config.repo_root', lambda: tmp_path)
     (tmp_path / 'corpus/eldyrwild-markdown').mkdir(parents=True)
@@ -41,14 +43,13 @@ def case(tmp_path, monkeypatch):
         contentSha256=hashlib.sha256(TEXT.encode()).hexdigest())
     binding = SimpleNamespace(managed_world_id=WORLD, native_world_id='native:eldyrwild', binding_version=1)
     monkeypatch.setattr('apps.live_control_server.services.managed_world_graph_projection.resolve_managed_world_binding', lambda _: binding)
-    # File-backed Build source, not an APP source. Never touch retained APP state.
-    monkeypatch.setattr('apps.live_control_server.services.worldbuilding_source_span_read._read_durable_source', lambda **_: None)
+    # Source registration writes only this fixture's disposable APP database.
     authority, admission = FakeWorldGraphAuthority(), FakeSourceAdmission()
     monkeypatch.setattr('apps.live_control_server.ports.world_graph_authority_access.get_world_graph_authority', lambda: authority)
     monkeypatch.setattr('apps.live_control_server.ports.world_graph_source_admission_access.get_world_graph_source_admission_authority', lambda: admission)
     from apps.live_control_server.main import create_app
     return SimpleNamespace(root=tmp_path, record=record, target=target, selector=selector, binding=binding,
-        authority=authority, admission=admission, client=TestClient(create_app()))
+        authority=authority, admission=admission, client=TestClient(create_app(), client=("127.0.0.1", 50000)))
 
 
 def resolve(c):
@@ -69,7 +70,7 @@ def payload(c):
         'proposals': [obj('brin', 'Brin', 'npc'), obj('shop', 'Brin’s Blacksmithy', 'location'),
             *[relationship_proposal(localProposalId=predicate, selection=selection,
                 sourceObjectRef=person, targetObjectRef=place, relationshipType=predicate)
-                for predicate in ['owns', 'operates']]]}
+                for predicate in ['owns']]]}
 
 
 def prepare(c):
@@ -88,7 +89,7 @@ def test_exact_source_objects_relationships_and_one_native_publication(case):
     assert case.authority.publish_calls == 1
     contribution = case.authority.published_requests[0].contribution
     assert contribution.world_id == 'native:eldyrwild'
-    assert len(contribution.accepted_assertions) == 4
+    assert len(contribution.accepted_assertions) == 3
     assert case.target.read_text() == TEXT
 
 

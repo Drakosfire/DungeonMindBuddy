@@ -7,17 +7,14 @@ Does not call the Build /source-navigation route or accept caller path authority
 
 from __future__ import annotations
 
-import hashlib
 from pathlib import Path
 
-from application_state.errors import ApplicationStateError
-from application_state.source import service as source_service
-from apps.live_control_server.config import artifact_data_root, managed_world_data_root, ManagedWorldDataRootError
+from apps.live_control_server.config import managed_world_data_root, ManagedWorldDataRootError
 
 from apps.live_control_server.services.source_artifact_registry import (
     SourceArtifactRegistryError,
     get_source_artifact,
-    load_source_span_index,
+    load_source_input_bytes,
 )
 from apps.live_control_server.services.source_navigation import (
     SourceNavigationError,
@@ -27,7 +24,6 @@ from apps.live_control_server.services.source_navigation import (
 from apps.live_control_server.services.workspace_document_registry import (
     WorkspaceDocumentRegistryError,
     get_workspace_document,
-    get_workspace_document_snapshot,
 )
 from graph_memory.evidence.source_artifact import GraphMemorySourceArtifact
 from graph_memory.retrieval.errors import WorldGraphRetrievalError
@@ -40,8 +36,6 @@ from graph_memory.retrieval.models import (
 from graph_memory.retrieval.source_reader import (
     SourceReadError,
     SourceReadOutcome,
-    parse_repo_uri,
-    read_repo_line_span_text,
 )
 from graph_memory.source_span import (
     SourceSpanIndex,
@@ -106,48 +100,22 @@ def _read_durable_source(
     *,
     artifact: GraphMemorySourceArtifact,
     expected_digest: str,
-) -> tuple[str, SourceSpanIndex] | None:
-    """Load the exact immutable APP-STATE revision and derive its stable spans."""
+) -> tuple[str, SourceSpanIndex]:
+    """Read the exact APP input through the shared byte/identity owner."""
+    if expected_digest != _normalize_sha256(artifact.content_sha256):
+        _raise("Requested source digest does not match registered input.",
+               code="source_integrity_error", status_code=409)
     try:
-        source = source_service.get_source_markdown(
-            source_artifact_id=artifact.source_artifact_id,
-            content_sha256=expected_digest,
-        )
-    except ApplicationStateError:
-        # Existing exact file-backed reads remain available when APP-STATE is
-        # temporarily unavailable. No latest-workspace fallback is introduced.
-        return None
-    if source is None:
-        return None
-
-    if (
-        source.source_artifact_id != artifact.source_artifact_id
-        or source.source_domain != str(artifact.source_domain)
-        or source.campaign_id != artifact.campaign_id
-        or source.session_id != artifact.session_id
-        or source.world_id != artifact.world_id
-        or source.media_type != "text/markdown"
-        or source.encoding.lower() != "utf-8"
-    ):
-        _raise(
-            "Durable source identity does not match the registered Worldbuilding artifact.",
-            code="source_integrity_error",
-            status_code=409,
-        )
-
-    actual_digest = hashlib.sha256(source.markdown.encode("utf-8")).hexdigest()
-    if actual_digest != expected_digest or source.content_sha256 != expected_digest:
-        _raise(
-            "Durable source bytes do not match the admitted source digest.",
-            code="source_integrity_error",
-            status_code=409,
-        )
+        text = load_source_input_bytes(artifact).decode("utf-8")
+    except SourceArtifactRegistryError as exc:
+        _raise(str(exc), code="source_integrity_error" if exc.status_code in {409, 422} else "source_unavailable",
+               status_code=exc.status_code)
 
     try:
         index = build_source_span_index_for_text(
             source_artifact_id=artifact.source_artifact_id,
             content_sha256=expected_digest,
-            text=source.markdown,
+            text=text,
         )
         validate_source_span_index(
             index,
@@ -160,7 +128,7 @@ def _read_durable_source(
             code="source_span_index_error",
             status_code=409,
         )
-    return source.markdown, index
+    return text, index
 
 
 class WorldbuildingSourceReadBatch:
@@ -174,12 +142,10 @@ class WorldbuildingSourceReadBatch:
     def __init__(self) -> None:
         self._sources: dict[tuple[str, str], tuple[str, SourceSpanIndex]] = {}
 
-    def read(self, artifact: GraphMemorySourceArtifact, digest: str) -> tuple[str, SourceSpanIndex] | None:
+    def read(self, artifact: GraphMemorySourceArtifact, digest: str) -> tuple[str, SourceSpanIndex]:
         key = (artifact.model_dump_json(), digest)
         if key not in self._sources:
             loaded = _read_durable_source(artifact=artifact, expected_digest=digest)
-            if loaded is None:
-                return None
             self._sources[key] = loaded
         return self._sources[key]
 
@@ -192,14 +158,7 @@ def _read_text_line_span(
     end_line: int,
     max_chars: int,
 ) -> SourceReadOutcome:
-    """Read one digest-verified span from immutable Markdown already in memory."""
-    raw_bytes = text.encode("utf-8")
-    actual_digest = hashlib.sha256(raw_bytes).hexdigest()
-    if actual_digest != expected_content_sha256:
-        raise SourceReadError(
-            "Durable source content does not match the admitted digest.",
-            code="source_integrity_error",
-        )
+    """Project a span from bytes already verified by the exact input reader."""
     if start_line < 1 or end_line < start_line:
         raise SourceReadError("Line-span bounds are invalid.", code="unsupported_locator")
     lines = text.splitlines()
@@ -223,7 +182,7 @@ def _read_text_line_span(
     return SourceReadOutcome(
         content=bounded_text,
         media_type="text/markdown",
-        content_sha256=actual_digest,
+        content_sha256=expected_content_sha256,
         line_start=line_start,
         line_end=line_end,
         truncated=truncated,
@@ -347,7 +306,8 @@ def read_admitted_worldbuilding_span(
     except SourceArtifactRegistryError as exc:
         _raise(
             str(exc),
-            code="source_artifact_not_found",
+            code=("source_unavailable" if exc.status_code >= 500 else
+                  "source_artifact_not_found" if exc.status_code == 404 else "source_integrity_error"),
             status_code=exc.status_code,
         )
 
@@ -403,20 +363,10 @@ def read_admitted_worldbuilding_span(
             status_code=409,
         )
 
-    durable_source = (_source_batch.read(artifact, registry_digest) if _source_batch is not None
-                      else _read_durable_source(artifact=artifact, expected_digest=registry_digest))
-    if durable_source is not None:
-        durable_markdown, index = durable_source
-    else:
-        durable_markdown = None
-        try:
-            index = load_source_span_index(root, cleaned_artifact_id)
-        except SourceArtifactRegistryError as exc:
-            _raise(
-                str(exc),
-                code="source_span_index_error",
-                status_code=exc.status_code,
-            )
+    durable_markdown, index = (
+        _source_batch.read(artifact, registry_digest) if _source_batch is not None
+        else _read_durable_source(artifact=artifact, expected_digest=registry_digest)
+    )
 
     span = _find_span_entry(index.spans, cleaned_span_id)
     if span.source_artifact_id != cleaned_artifact_id:
@@ -433,70 +383,21 @@ def read_admitted_worldbuilding_span(
             status_code=409,
         )
 
-    if durable_markdown is not None:
-        try:
-            read_outcome = _read_text_line_span(
-                text=durable_markdown,
-                expected_content_sha256=registry_digest,
-                start_line=int(span.start_line),
-                end_line=int(span.end_line),
-                max_chars=max_chars,
-            )
-        except SourceReadError as exc:
-            status = 409
-            if exc.code == "source_unavailable":
-                status = 404
-            elif exc.code == "unsupported_locator":
-                status = 422
-            _raise(str(exc), code=exc.code, status_code=status)
-    else:
-        from apps.live_control_server.services.graph_run_registry import (
-            GraphRunRegistryError, resolve_registered_source_snapshot,
+    try:
+        read_outcome = _read_text_line_span(
+            text=durable_markdown,
+            expected_content_sha256=registry_digest,
+            start_line=int(span.start_line),
+            end_line=int(span.end_line),
+            max_chars=max_chars,
         )
-
-        # Preserve the older file-backed integrity checks only when this exact
-        # immutable APP-STATE revision is unavailable.
-        try:
-            workspace = get_workspace_document_snapshot(root, document_id)
-        except WorkspaceDocumentRegistryError as exc:
-            _raise(
-                str(exc),
-                code="workspace_document_error",
-                status_code=exc.status_code,
-            )
-        frozen_source = None
-        if _normalize_sha256(workspace.content_sha256) != registry_digest or not workspace.file_exists:
-            try:
-                frozen_source = resolve_registered_source_snapshot(artifact_data_root(root), artifact)
-            except GraphRunRegistryError as exc:
-                _raise(str(exc), code="source_integrity_error", status_code=409)
-        source_uri = artifact.uri
-        if frozen_source is not None:
-            source_uri = "repo://" + frozen_source.relative_to(artifact_data_root(root).resolve()).as_posix()
-        relative_path = parse_repo_uri(source_uri)
-        if relative_path is None:
-            _raise(
-                "Worldbuilding SourceArtifact URI must be repo:// relative.",
-                code="unsupported_locator",
-                status_code=422,
-            )
-
-        try:
-            read_outcome = read_repo_line_span_text(
-                repo_root=artifact_data_root(root),
-                relative_path=relative_path,
-                start_line=int(span.start_line),
-                end_line=int(span.end_line),
-                max_chars=max_chars,
-                expected_content_sha256=registry_digest,
-            )
-        except SourceReadError as exc:
-            status = 409
-            if exc.code == "source_unavailable":
-                status = 404
-            elif exc.code in {"path_escape", "unsupported_locator"}:
-                status = 422
-            _raise(str(exc), code=exc.code, status_code=status)
+    except SourceReadError as exc:
+        status = 409
+        if exc.code == "source_unavailable":
+            status = 404
+        elif exc.code == "unsupported_locator":
+            status = 422
+        _raise(str(exc), code=exc.code, status_code=status)
 
     outcome = "truncated" if read_outcome.truncated else "enough"
     diagnostics: list[WorldGraphRetrievalDiagnostic] = []
