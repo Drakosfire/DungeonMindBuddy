@@ -114,8 +114,11 @@ def root(tmp_path: Path) -> Path:
     return tmp_path
 
 
-def test_initial_bind_reads_exact_head_revision_then_persists_v3(root: Path) -> None:
+@pytest.mark.parametrize("corpus_present", [True, False])
+def test_initial_bind_reads_exact_head_revision_then_persists_v3(root: Path, corpus_present: bool) -> None:
     managed = _existing_unbound_world(root, name="Binding Target")
+    if not corpus_present:
+        (root / managed.source_root_relpath).rmdir()
     authority = _Authority()
     before = managed.model_dump()
 

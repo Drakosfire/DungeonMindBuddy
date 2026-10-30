@@ -139,7 +139,7 @@ def test_shared_binding_resolver_does_not_read_native_graph(
 
 
 @pytest.mark.parametrize(
-    "state", ["missing-record", "unbound", "inactive", "unverified"]
+    "state", ["missing-record", "unbound", "inactive", "wrong-world"]
 )
 def test_unresolvable_or_unverified_binding_fails_before_native_read(
     tmp_path: Path,
@@ -148,10 +148,12 @@ def test_unresolvable_or_unverified_binding_fails_before_native_read(
 ) -> None:
     managed = create_world_container(tmp_path, name="The Glass Orchard")
     record = managed
-    if state == "inactive":
+    if state == "unbound":
+        record = managed.model_copy(update={"native_graph_binding": None})
+    elif state == "inactive":
         record = _record_with_binding(managed, status="inactive")
-    elif state == "unverified":
-        record = managed.model_copy(update={"source_root_relpath": "corpus/other-root"})
+    elif state == "wrong-world":
+        record = _record_with_binding(managed).model_copy(update={"world_id": "other-world"})
 
     def resolve(_root: Path, _world_id: str) -> WorldContainerRecord:
         if state == "missing-record":
@@ -174,7 +176,7 @@ def test_unresolvable_or_unverified_binding_fails_before_native_read(
         "missing-record": "managed_world_not_found",
         "unbound": "native_graph_binding_missing",
         "inactive": "native_graph_binding_inactive",
-        "unverified": "managed_world_unverified",
+        "wrong-world": "managed_world_identity_mismatch",
     }
     assert exc_info.value.code == expected_codes[state]
 

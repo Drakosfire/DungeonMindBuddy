@@ -24,7 +24,6 @@ from apps.live_control_server.services.world_container_registry import (
     _save_cas,
     _validate_world_id,
     world_containers_path,
-    world_source_root_relpath,
 )
 
 
@@ -62,19 +61,11 @@ NativeGraphAuthorityValidator = Callable[[str], Any]
 
 def _managed_record(
     document: WorldContainerRegistryDocument,
-    root: Path,
     world_id: str,
 ) -> WorldContainerRecord:
     record = next((row for row in document.records if row.world_id == world_id), None)
     if record is None:
         raise WorldGraphBindingError("Managed World was not found.", status_code=404)
-    if (
-        record.source_root_relpath != world_source_root_relpath(record.world_id)
-        or not (root / record.source_root_relpath).is_dir()
-    ):
-        raise WorldGraphBindingError(
-            "Managed World is not verified by its source root.", status_code=409
-        )
     return record
 
 
@@ -85,7 +76,7 @@ def _load_binding_snapshot(
     path = world_containers_path(root)
     with registry_mutation_lock(path):
         document, token = _load_unlocked(root)
-        record = _managed_record(document, root, world_id)
+        record = _managed_record(document, world_id)
         return record, token
 
 
@@ -232,7 +223,7 @@ def bind_native_graph(
                 "Managed World registry changed during native Graph validation.",
                 status_code=409,
             )
-        current = _managed_record(document, root, cleaned_managed_id)
+        current = _managed_record(document, cleaned_managed_id)
         _require_expected_version(current, expected_binding_version)
         if current.native_graph_binding is not None and current.native_graph_binding.status == "active":
             raise WorldGraphBindingError(
@@ -341,7 +332,7 @@ def activate_reviewed_native_graph(
 
     with registry_mutation_lock(world_containers_path(root)):
         document, current_token = _load_unlocked(root)
-        current = _managed_record(document, root, managed_world_id)
+        current = _managed_record(document, managed_world_id)
         if token != current_token or current != initial:
             raise WorldGraphBindingError("World registry changed; retry the original reviewed request.")
         _check_native_graph_claim_is_unique(document, managed_world_id=managed_world_id,
@@ -379,7 +370,7 @@ def deactivate_native_graph_binding(
     path = world_containers_path(root)
     with registry_mutation_lock(path):
         document, token = _load_unlocked(root)
-        current = _managed_record(document, root, cleaned_managed_id)
+        current = _managed_record(document, cleaned_managed_id)
         _require_expected_version(current, expected_binding_version)
         binding = current.native_graph_binding
         if binding is None:
