@@ -158,6 +158,8 @@ def validate_execution(receipt, execution):
             if isinstance(event, t.PlanJevWriterAuthorizedV1):
                 if not isinstance(event, t.PlanNativeWriterAuthorizedV1):
                     raise ValueError('Native query Plan requires its own writer inclusion')
+                if set(grants) != {e.authorization_event_id for e in observations.values()}:
+                    raise ValueError('Native writer requires every selected read grant to be settled')
                 if (len(event.native_statement_read_event_ids) != len(set(event.native_statement_read_event_ids))
                         or set(event.native_statement_read_event_ids) != set(observations)):
                     raise ValueError('Native writer changed selected support exposure')

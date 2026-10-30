@@ -210,3 +210,5 @@ exact native writer kind in last-producer/acknowledged-response selection. The
 ordinary HTTP test reached the stubbed SDK response and demonstrated this remaining
 closed collector rejection. Independent architecture review approved before editing;
 locked capture and mismatched/missing response refusal remain mandatory.
+
+Independent architecture amendment: source_statements.py may distinguish Core found=False with StatementUnavailableError (preserving the existing code); selected reads catch only that subtype. Incomplete/integrity/authority failures remain fatal. Approved by architecture_review_1197 before implementation.

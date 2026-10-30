@@ -75,6 +75,10 @@ class StatementError(ValueError):
         super().__init__(message)
 
 
+class StatementUnavailableError(StatementError):
+    """Core could not find the selected statement; this is not an absence proof."""
+
+
 def _refuse(code, message):
     raise StatementError(code, message)
 
@@ -303,7 +307,9 @@ def _bundle(repo, space, revision, campaign, statement_id, role="gm", pinned=Non
         else _context(repo, space, revision, campaign, role)
     )
     statement = EntityReadService().get_complete_entity(read, statement_id)
-    if not statement.found or statement.completeness.status != "complete":
+    if not statement.found:
+        raise StatementUnavailableError("statement_bundle_unavailable", "Complete statement is unavailable")
+    if statement.completeness.status != "complete":
         _refuse("statement_bundle_unavailable", "Complete statement is unavailable")
     summaries = [
         a

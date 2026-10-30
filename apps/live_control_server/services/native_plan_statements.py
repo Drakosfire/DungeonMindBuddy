@@ -186,7 +186,7 @@ def read_selected(context, authorization, principal, *, resolve_binding=None):
             read = NativePlanStatementReadV1(support=support, source_body_bytes=body_size)
             validate_support_authority(authority, read)
             reads.append(read)
-        except (ValueError, TypeError, KeyError, AttributeError):
+        except statements.StatementUnavailableError:
             unavailable.append(identity)
     if resolve(authority.managed_world_id) != context.binding:
         raise ValueError('Native query binding changed during selected read')

@@ -228,6 +228,19 @@ def test_ordinary_http_query_selects_native_support_in_actual_sdk_and_reopens(la
     completion = data['plan_context']['completion']
     assert completion['schema'] == 'dmb_surface_evidence_completion_v6' and completion['native_clause_citations']
     turn = wire.adapter.turn
+    from application_state.agent_conversation.native_plan_statements import (
+        validate_execution, NativePlanStatementReadObservedV1)
+    events = turn.graph_context_execution.events
+    observation = next(e for e in events if isinstance(e, NativePlanStatementReadObservedV1))
+    pending = turn.graph_context_execution.model_copy(update={'events': [
+        e for e in events if not isinstance(e, NativePlanStatementReadObservedV1)]})
+    with pytest.raises(ValueError, match='every selected read grant'):
+        validate_execution(turn.graph_context_receipt, pending)
+    unavailable = observation.model_copy(update={'reads': (), 'status': 'partial',
+        'unavailable_statement_ids': tuple(r.support.statement_id for r in observation.reads)})
+    settled = turn.graph_context_execution.model_copy(update={'events': [
+        unavailable if e is observation else e for e in events]})
+    validate_execution(turn.graph_context_receipt, settled)
     advance(lane)
     opened = client.get(f'/api/live/agent/worlds/{world}/conversation/turns/{turn.turn_id}/native-source-clauses/0')
     assert opened.status_code == 200, opened.text
@@ -238,3 +251,41 @@ def test_ordinary_http_query_selects_native_support_in_actual_sdk_and_reopens(la
     history = client.get(f'/api/live/agent/worlds/{world}/conversation?include_turn_correlation=true')
     assert history.status_code == 200, history.text
     assert history.json()['turns'][0]['plan_context']['completion'] == completion
+
+
+@pytest.mark.parametrize('failure', ['statement_payload_invalid', 'statement_receipt_invalid',
+    'statement_semantic_conflict', 'statement_bundle_unavailable', 'witness', 'type'])
+def test_selected_integrity_errors_are_not_partial_retrieval(lane, monkeypatch, failure):
+    from apps.live_control_server.services import native_plan_statements as native
+    commit(lane)
+    ctx, _ = query(lane)
+    if failure == 'witness':
+        original = native.statements._bundle
+        def changed(*args, **kwargs):
+            return original(*args, **kwargs) | {'assertion_ids': []}
+        monkeypatch.setattr(native.statements, '_bundle', changed)
+        error = ValueError
+    else:
+        error = TypeError if failure == 'type' else native.statements.StatementError
+        def broken(*args, **kwargs):
+            if failure == 'type':
+                raise TypeError('Malformed support')
+            raise native.statements.StatementError(failure, 'Invalid selected support')
+        monkeypatch.setattr(native.statements, '_bundle', broken)
+    with pytest.raises(error):
+        selected(lane, ctx)
+
+
+def test_core_not_found_is_typed_unavailable_but_incomplete_is_fatal(lane, monkeypatch):
+    from apps.live_control_server.services import native_plan_statements as native
+    commit(lane)
+    ctx, _ = query(lane)
+    monkeypatch.setattr(native.statements, 'EntityReadService', lambda: SimpleNamespace(
+        get_complete_entity=lambda *_: SimpleNamespace(found=False)))
+    reads, unavailable = selected(lane, ctx)
+    assert not reads and unavailable == tuple(m.statement_id for m in ctx.query.matches)
+    monkeypatch.setattr(native.statements, 'EntityReadService', lambda: SimpleNamespace(
+        get_complete_entity=lambda *_: SimpleNamespace(found=True,
+            completeness=SimpleNamespace(status='partial'))))
+    with pytest.raises(native.statements.StatementError):
+        selected(lane, ctx)
