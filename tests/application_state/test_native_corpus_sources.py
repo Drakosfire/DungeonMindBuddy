@@ -313,7 +313,7 @@ def test_native_execution_rejects_acquisition_and_inclusion_substitutions(lane, 
 def test_source_execution_binds_exact_receipt_and_source_authority(lane):
     from application_state.agent_conversation.plan_source_context import validate_source_execution_binding
     receipt = t.PlanSourceContextReceiptV1.model_validate(receipt_payload(lane))
-    policy = source_policy(t.canonical_sha256(receipt.source_authority.model_dump(mode="json")))
+    policy = source_policy(t.canonical_sha256(receipt.source_authority.model_dump(mode="json", by_alias=True)))
     payload = {"schema": "dmb_plan_source_execution_v1", "context_receipt_sha256": receipt.context_receipt_sha256,
         "policy": policy.model_dump(mode="json", by_alias=True)}
     payload["execution_policy_sha256"] = t.canonical_sha256(payload)
@@ -345,3 +345,161 @@ def test_accumulated_section_choices_cannot_expose_whole_document(lane):
     # cover the source only when combined for the final writer.
     with pytest.raises(ValidationError, match="Accumulated whole-document exposure"):
         native_body_ledger(lane, all_sections=True)
+
+
+def source_submission(lane, *, unavailable=False):
+    value = receipt_payload(lane)
+    if unavailable:
+        value["source_authority"] = dict(schema="dmb_native_corpus_unavailable_v1",
+            managed_world_id="managed", failure_code="native_source_head_unavailable")
+    receipt = t.PlanSourceContextReceiptV1.model_validate(rehash(value))
+    basis = receipt.plan_basis
+    policy = source_policy(t.canonical_sha256(receipt.source_authority.model_dump(mode="json", by_alias=True)))
+    payload = {"schema": "dmb_plan_source_execution_v1", "context_receipt_sha256": receipt.context_receipt_sha256,
+        "policy": policy.model_dump(mode="json", by_alias=True)}
+    execution = t.PlanSourceExecutionV1.model_validate(payload | {
+        "execution_policy_sha256": t.canonical_sha256(payload), "events": []})
+    intent = t.SubmittedTurnIntentV2(world_id=basis.world_id, client_thread_id="test",
+        message="What did the check reveal?", surface_id="plan", surface_instance_id="plan-instance",
+        client_work_state="saved_clean", primary_work=dict(kind="plan", object_id=basis.document_id,
+            expected_revision=basis.object_revision, expected_revision_n=basis.revision_n,
+            expected_content_sha256=basis.content_sha256), plan_context_policy=receipt.plan_context_policy,
+        graph_request=dict(mode="none", focus=None), graph_selection=None)
+    provenance = t.TurnProvenance(world_id=basis.world_id, surface_resolution="resolved",
+        surface_id="plan", surface_instance_id=intent.surface_instance_id,
+        primary_work=dict(resolution="resolved", kind="plan", object_id=basis.document_id,
+            object_revision=basis.object_revision, work_revision_id=basis.work_revision_id,
+            revision_n=basis.revision_n, content_sha256=basis.content_sha256),
+        selected_object=dict(resolution="absent"))
+    return t.TurnSubmission(world_id=basis.world_id, conversation_id=uuid4(), idempotency_key=uuid4(),
+        expected_conversation_revision=1, user_text=intent.message, provenance=provenance,
+        submitted_intent_v2=intent, graph_context_receipt=receipt, graph_context_execution=execution)
+
+
+def test_source_submission_uses_ordinary_plan_intent_and_closed_union(lane):
+    submission = source_submission(lane)
+    reopened = t.TurnSubmission.model_validate_json(submission.model_dump_json(by_alias=True))
+    assert reopened == submission
+    assert isinstance(reopened.graph_context_receipt, t.PlanSourceContextReceiptV1)
+    assert isinstance(reopened.graph_context_execution, t.PlanSourceExecutionV1)
+    assert reopened.graph_context_receipt.graph_capability is None
+
+
+@pytest.mark.parametrize("field,value", [
+    ("expected_revision", 2), ("expected_revision_n", 2),
+    ("expected_content_sha256", "f" * 64), ("object_id", "plan:other"),
+])
+def test_source_submission_rejects_changed_plan_intent(lane, field, value):
+    payload = source_submission(lane).model_dump(mode="json", by_alias=True)
+    payload["submitted_intent_v2"]["primary_work"][field] = value
+    with pytest.raises(ValidationError, match="submitted Plan basis"):
+        t.TurnSubmission.model_validate(payload)
+
+
+@pytest.mark.parametrize("field,value", [
+    ("object_revision", 2), ("revision_n", 2),
+    ("content_sha256", "f" * 64), ("work_revision_id", str(uuid4())),
+])
+def test_source_submission_rejects_changed_resolved_provenance(lane, field, value):
+    payload = source_submission(lane).model_dump(mode="json", by_alias=True)
+    payload["provenance"]["primary_work"][field] = value
+    with pytest.raises(ValidationError, match="resolved provenance"):
+        t.TurnSubmission.model_validate(payload)
+
+
+def source_turn(submission):
+    from datetime import datetime, timezone
+    now = datetime.now(timezone.utc)
+    return t.Turn(turn_id=uuid4(), conversation_id=submission.conversation_id, world_id=submission.world_id,
+        idempotency_key=submission.idempotency_key, sequence=1, revision=1, status="running",
+        user_text=submission.user_text, assistant_text=None, failure_code=None,
+        provenance=submission.provenance, submitted_intent_fingerprint_v2=t.submitted_turn_intent_fingerprint_v2(submission.submitted_intent_v2),
+        graph_context_receipt=submission.graph_context_receipt, graph_context_execution=submission.graph_context_execution,
+        attempt=1, accepted_at=now, completed_at=None, updated_at=now)
+
+
+def test_source_turn_reopens_without_manufactured_graph_authority(lane):
+    turn = source_turn(source_submission(lane))
+    assert t.Turn.model_validate_json(turn.model_dump_json(by_alias=True)) == turn
+    payload = turn.model_dump(mode="json", by_alias=True)
+    payload["status"] = "completed"
+    with pytest.raises(ValidationError, match="validated completion"):
+        t.Turn.model_validate(payload)
+    payload["status"] = "running"
+    payload["assistant_text"] = "Ungrounded answer"
+    with pytest.raises(ValidationError, match="own validated answer"):
+        t.Turn.model_validate(payload)
+
+
+def source_decision_proof(turn, **changes):
+    import json
+    from hashlib import sha256
+    from application_state.agent_conversation.plan_jev_decision import scope_digest
+    from application_state.agent_conversation.jev_retrieval_contract import PlanSourceRetrievalDecisionInputV1, prepare_decision
+    attempt_id = uuid4()
+    values = dict(request_id=uuid4(), parent_attempt_id=attempt_id, scope_sha256=scope_digest(turn),
+        question=turn.user_text, candidates=(), allowed_operations=("discover_more", "finish_retrieval"),
+        source_authority_status="available", source_revision=turn.graph_context_receipt.source_authority.revision_id,
+        graph_revision=None)
+    request = PlanSourceRetrievalDecisionInputV1(**(values | changes))
+    prepared = prepare_decision(request)
+    raw = json.dumps({"model": prepared.model, "state": prepared.state,
+        "questions": {row.name: {"type": "choice", "instructions": row.question,
+            "criteria": {option: None for option in row.options}} for row in prepared.questions}})
+    auth = t.PlanJevProviderAuthorizedV1(kind="plan_jev_provider_authorized_v1", event_id=uuid4(), sequence=0,
+        provider_attempt_id=attempt_id, decision_request_id=request.request_id,
+        parent_request_sha256=request.digest, envelope_sha256=sha256(raw.encode()).hexdigest(),
+        serializer_version="typesafe-sdk-json-v1", provider="typesafe", model="jev-1.14.0", api_mode="decision",
+        tool_schema_sha256=t.canonical_sha256([]), input_accounting_kind="conservative_upper_bound",
+        input_estimator="utf8_json_bytes_plus_64_per_node_v1", input_tokens=100, output_token_reserve=200,
+        included_assertion_ids=[], included_relationship_ids=[], included_evidence_ref_ids=[],
+        included_graph_event_ids=[], included_source_read_event_ids=[])
+    return request, auth, {"parent_request_json": request.model_dump_json(by_alias=True), "request_json": raw}
+
+
+def test_source_decision_proof_binds_actual_turn_and_distinct_capability_pins(lane):
+    from application_state.agent_conversation.plan_jev_decision import verify_input, scope_digest
+    turn = source_turn(source_submission(lane))
+    request, auth, proof = source_decision_proof(turn)
+    assert verify_input(turn, auth, proof) == request
+    assert "graph_revision" not in proof["request_json"]
+    assert request.source_revision not in proof["request_json"]
+    other = t.Turn.model_validate(turn.model_dump(mode="python", by_alias=True) | {"turn_id": uuid4()})
+    assert scope_digest(other) != scope_digest(turn)
+    with pytest.raises(ValueError, match="owner/authorization"):
+        verify_input(other, auth, proof)
+
+
+@pytest.mark.parametrize("changes", [
+    {"source_revision": "rev:another"}, {"graph_revision": "rev:invented"},
+    {"source_authority_status": "unavailable", "source_revision": None},
+    {"question": "A different question"},
+])
+def test_source_decision_refuses_rebound_proof_even_with_valid_self_digests(lane, changes):
+    from application_state.agent_conversation.plan_jev_decision import verify_input
+    turn = source_turn(source_submission(lane))
+    _, auth, proof = source_decision_proof(turn, **changes)
+    with pytest.raises(ValueError, match="owner/authorization"):
+        verify_input(turn, auth, proof)
+
+
+def test_unavailable_source_plan_submission_preserves_ordinary_non_graph_owner(lane):
+    submission = source_submission(lane, unavailable=True)
+    assert submission.graph_context_receipt.source_authority.failure_code == "native_source_head_unavailable"
+    assert source_turn(submission).graph_context_execution.policy.source_read_scope is None
+
+
+def test_source_submission_cannot_invent_playable_target_provenance(lane):
+    payload = source_submission(lane).model_dump(mode="json", by_alias=True)
+    payload["provenance"]["supporting_work"] = [t.encode_plan_playable_target_reference(
+        t.PlanPlayableTargetReceiptV1(schema="dmb_plan_playable_target_receipt_v1", kind="scene",
+            id="scene:other", marker_grammar_version="v2")).model_dump(mode="json")]
+    with pytest.raises(ValidationError, match="target differs"):
+        t.TurnSubmission.model_validate(payload)
+
+
+def test_stored_source_turn_cannot_move_to_another_world(lane):
+    turn = source_turn(source_submission(lane))
+    payload = turn.model_dump(mode="json", by_alias=True) | {"world_id": "another"}
+    with pytest.raises(ValidationError, match="Source-capable Plan lifecycle"):
+        t.Turn.model_validate(payload)

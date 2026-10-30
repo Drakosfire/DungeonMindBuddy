@@ -1496,7 +1496,7 @@ class PlayWorldGraphContextReceiptV1(ClosedRulesModel):
 
 
 GraphContextReceipt = Annotated[
-    PlanWorldGraphContextReceiptV1 | BuildGraphContextReceiptV1 | PlayWorldGraphContextReceiptV1 | NativeStatementContextReceiptV1,
+    PlanWorldGraphContextReceiptV1 | PlanSourceContextReceiptV1 | BuildGraphContextReceiptV1 | PlayWorldGraphContextReceiptV1 | NativeStatementContextReceiptV1,
     Field(discriminator="schema_"),
 ]
 
@@ -5191,7 +5191,7 @@ class NativeStatementExecutionV1(StrictModel):
         return self
 
 
-GraphTurnExecution = PlanWorldGraphExecution | PlayWorldGraphExecutionV1 | NativeStatementExecutionV1
+GraphTurnExecution = PlanWorldGraphExecution | PlanSourceExecutionV1 | PlayWorldGraphExecutionV1 | NativeStatementExecutionV1
 
 
 _SELECTED_SOURCE_INDEX_SELECTION_POLICY_V1 = "parent_initial_retrieval_with_selected_source_index_v1"
@@ -6184,6 +6184,10 @@ class TurnSubmission(StrictModel):
                 raise ValueError("Native admission requires its exact intent and empty execution")
             validate_record(self.graph_context_receipt, self.graph_context_execution, self.provenance)
             return self
+        if isinstance(self.graph_context_receipt, PlanSourceContextReceiptV1) or isinstance(self.graph_context_execution, PlanSourceExecutionV1):
+            from .plan_source_context import validate_source_submission
+            validate_source_submission(self)
+            return self
         if isinstance(self.submitted_intent_v1, PlayRulesIntentV1):
             intent, receipt = self.submitted_intent_v1, self.play_context_receipt
             if (not isinstance(receipt, PlayRunTurnContextReceiptV2)
@@ -6468,6 +6472,20 @@ def validate_turn_graph_fields(
         from .native_statement_answer import validate_record
         validate_record(graph_context_receipt, graph_context_execution, provenance, completion, assistant_text)
         return
+    if isinstance(graph_context_receipt, PlanSourceContextReceiptV1) or isinstance(graph_context_execution, PlanSourceExecutionV1):
+        from .plan_source_context import validate_source_provenance, validate_source_execution_binding
+        if submitted_intent_fingerprint_v2 is None:
+            raise ValueError("Source-capable Plan requires its submitted-intent fingerprint")
+        if not isinstance(graph_context_receipt, PlanSourceContextReceiptV1) or not isinstance(graph_context_execution, PlanSourceExecutionV1):
+            raise ValueError("Source-capable Plan requires its own receipt and execution")
+        validate_source_provenance(graph_context_receipt, provenance)
+        validate_source_execution_binding(graph_context_receipt, graph_context_execution)
+        # Completion acceptance belongs to the source answer contract. Until a
+        # typed source answer is supplied, no legacy completion/text may bind it.
+        if completion is not None or assistant_text is not None or any(
+                isinstance(event, CompletionBindingEventV1) for event in graph_context_execution.events):
+            raise ValueError("Source-capable Plan requires its own validated answer contract")
+        return
     if isinstance(graph_context_receipt, PlayWorldGraphContextReceiptV1) or isinstance(graph_context_execution, PlayWorldGraphExecutionV1) or isinstance(completion, PlayWorldGraphCompletionV1):
         from .play_graph_context import validate_play_graph_execution_binding, validate_play_graph_provenance
         from .play_graph_completion import validate_play_graph_completion
@@ -6623,6 +6641,11 @@ class Turn(StrictModel):
                 or (self.status == "completed" and (self.completion is None or self.completed_at is None))
                 or (self.status != "completed" and self.completion is not None)):
             raise ValueError("Native Play retained lifecycle/context must match its owning receipt")
+        if isinstance(self.graph_context_receipt, PlanSourceContextReceiptV1) and (
+                self.world_id != self.graph_context_receipt.plan_basis.world_id
+                or (self.status == "completed" and (self.completion is None or self.completed_at is None))
+                or (self.status != "completed" and self.completion is not None)):
+            raise ValueError("Source-capable Plan lifecycle requires its validated completion")
         if isinstance(self.graph_context_receipt, NativeStatementContextReceiptV1) and (self.submitted_intent_fingerprint_v1 is None or (self.status == "completed" and self.completion is None)):
             raise ValueError("Native receipt requires its exact submitted-intent fingerprint")
         validate_turn_graph_fields(
@@ -6633,6 +6656,10 @@ class Turn(StrictModel):
             completion=self.completion,
             assistant_text=self.assistant_text,
         )
+        if isinstance(self.graph_context_receipt, PlanSourceContextReceiptV1):
+            for event in self.graph_context_execution.events:
+                if isinstance(event, NativeBodySearchAuthorizedV1) and event.query_sha256 != sha256(self.user_text.encode()).hexdigest():
+                    raise ValueError("Native source search differs from its actual turn question")
         from .reviewed_action import digest
         for event in self.graph_context_execution.events if self.graph_context_execution is not None else ():
             if isinstance(event, BuildReviewedActionSelectionV1):

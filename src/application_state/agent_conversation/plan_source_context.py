@@ -60,3 +60,54 @@ def validate_source_execution_binding(receipt, execution):
                 not isinstance(receipt.source_authority, NativeCorpusAuthorityV1)
                 or event.authority != receipt.source_authority):
             raise ValueError("Native source search differs from its frozen source-only authority")
+
+
+def validate_source_provenance(receipt, provenance):
+    basis, ref = receipt.plan_basis, provenance.primary_work
+    targets = [t.decode_plan_playable_target_reference(row) for row in provenance.supporting_work
+        if row.kind == t.PLAN_PLAYABLE_TARGET_REFERENCE_KIND]
+    if targets != ([] if receipt.playable_target is None else [receipt.playable_target]):
+        raise ValueError("Source-capable Plan target differs from its resolved provenance")
+    if (provenance.world_id != basis.world_id
+            or provenance.surface_resolution != "resolved"
+            or provenance.surface_id != "plan" or not provenance.surface_instance_id
+            or provenance.selected_object.resolution != "absent"
+            or ref.resolution != "resolved" or ref.kind != "plan"
+            or ref.object_id != basis.document_id
+            or ref.object_revision != basis.object_revision
+            or ref.work_revision_id != basis.work_revision_id
+            or ref.revision_n != basis.revision_n
+            or ref.content_sha256 != basis.content_sha256):
+        raise ValueError("Source-capable Plan receipt differs from its resolved provenance")
+
+
+def validate_source_submission(submission):
+    receipt, execution = submission.graph_context_receipt, submission.graph_context_execution
+    intent = submission.submitted_intent_v2
+    if (not isinstance(intent, t.SubmittedTurnIntentV2)
+            or not isinstance(receipt, t.PlanSourceContextReceiptV1)
+            or not isinstance(execution, t.PlanSourceExecutionV1)
+            or submission.submitted_intent_v1 is not None
+            or submission.play_context_receipt is not None
+            or intent.world_id != submission.world_id or intent.message != submission.user_text
+            or submission.provenance.surface_instance_id != intent.surface_instance_id):
+        raise ValueError("Source-capable Plan requires its exact submitted intent and execution")
+    basis, primary = receipt.plan_basis, intent.primary_work
+    if (basis.world_id != submission.world_id
+            or receipt.plan_context_policy != intent.plan_context_policy
+            or basis.document_id != primary.object_id
+            or basis.object_revision != primary.expected_revision
+            or basis.revision_n != primary.expected_revision_n
+            or basis.content_sha256 != primary.expected_content_sha256
+            or not t._receipt_target_matches_intent(receipt.playable_target, intent.playable_target)
+            or execution.policy.plan_authoring_capture_sha256 != intent.plan_authoring_capture_sha256
+            or execution.policy.placement_catalog_sha256 != intent.plan_placement_catalog_sha256):
+        raise ValueError("Source-capable Plan receipt differs from its submitted Plan basis or capture")
+    validate_source_provenance(receipt, submission.provenance)
+    validate_source_execution_binding(receipt, execution)
+    if execution.events:
+        raise ValueError("Accepted source-capable Plan execution must start empty")
+    accounting, assembled = execution.policy.provider_input_accounting, receipt.assembled_input
+    if (accounting.estimator != assembled.tokenizer_name
+            or (accounting.kind == "conservative_upper_bound" and assembled.tokenizer_version != "v1")):
+        raise ValueError("Source-capable receipt differs from its frozen provider accounting")
