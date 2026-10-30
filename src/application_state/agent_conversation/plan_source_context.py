@@ -111,3 +111,17 @@ def validate_source_submission(submission):
     if (accounting.estimator != assembled.tokenizer_name
             or (accounting.kind == "conservative_upper_bound" and assembled.tokenizer_version != "v1")):
         raise ValueError("Source-capable receipt differs from its frozen provider accounting")
+
+
+def validate_source_provider_envelope(receipt, execution, event):
+    validate_source_execution_binding(receipt, execution)
+    graph = receipt.graph_capability
+    if graph is None:
+        if (event.included_assertion_ids or event.included_relationship_ids
+                or event.included_evidence_ref_ids or event.included_graph_event_ids
+                or getattr(event, "included_source_read_event_ids", ())
+                or getattr(event, "included_source_reuse_event_ids", ())):
+            raise ValueError("Source-capable turn cannot include absent Graph evidence")
+    else:
+        t.validate_graph_provider_evidence(t._ask_graph_validation_inputs(graph), execution, event)
+    t.validate_provider_envelope_accounting(receipt.assembled_input, execution, event)

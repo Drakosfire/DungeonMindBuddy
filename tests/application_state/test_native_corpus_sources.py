@@ -503,3 +503,220 @@ def test_stored_source_turn_cannot_move_to_another_world(lane):
     payload = turn.model_dump(mode="json", by_alias=True) | {"world_id": "another"}
     with pytest.raises(ValidationError, match="Source-capable Plan lifecycle"):
         t.Turn.model_validate(payload)
+
+
+@pytest.mark.parametrize("unavailable", [False, True])
+def test_source_turn_persists_claim_failure_and_exact_replay(application_state_dsn, lane, unavailable):
+    from application_state.agent_conversation import AgentConversationService
+    from tests.application_state.test_agent_conversation_postgres import _new
+    service = AgentConversationService()
+    conversation = _new(service, "managed")
+    value = source_submission(lane, unavailable=unavailable).model_dump(mode="python", by_alias=True)
+    value["conversation_id"] = conversation.conversation_id
+    submission = t.TurnSubmission.model_validate(value)
+    accepted = service.accept_turn(submission)
+    receipt_bytes = accepted.graph_context_receipt.model_dump_json(by_alias=True)
+    reopened = AgentConversationService().list_turns("managed", conversation.conversation_id)[0]
+    assert reopened == accepted
+    assert type(reopened.graph_context_execution) is t.PlanSourceExecutionV1
+    assert service.accept_turn(submission) == accepted
+    claimed = service.claim_turn("managed", conversation.conversation_id, accepted.turn_id,
+        expected_revision=accepted.revision).turn
+    failed = service.fail_turn(t.TurnFailure(world_id="managed", conversation_id=conversation.conversation_id,
+        turn_id=claimed.turn_id, expected_revision=claimed.revision, failure_code="synthetic_source_unavailable"))
+    reopened = AgentConversationService().list_turns("managed", conversation.conversation_id)[0]
+    assert reopened == failed and reopened.status == "failed"
+    assert reopened.graph_context_receipt.model_dump_json(by_alias=True) == receipt_bytes
+    assert service.reconcile_turn("managed", submission.idempotency_key, submission.submitted_intent_v2) == reopened
+
+
+@pytest.mark.parametrize("mutation", ["receipt", "execution", "unknown_event"])
+def test_source_sql_pair_cannot_fall_through_historical_checks(application_state_dsn, lane, mutation):
+    import psycopg
+    from psycopg.errors import CheckViolation
+    from application_state.agent_conversation import AgentConversationService
+    from tests.application_state.test_agent_conversation_postgres import _new
+    service = AgentConversationService()
+    conversation = _new(service, "managed")
+    value = source_submission(lane).model_dump(mode="python", by_alias=True)
+    value["conversation_id"] = conversation.conversation_id
+    turn = service.accept_turn(t.TurnSubmission.model_validate(value))
+    with psycopg.connect(application_state_dsn) as conn:
+        with pytest.raises(CheckViolation):
+            if mutation == "receipt":
+                conn.execute("UPDATE agent.turn SET graph_context_receipt=jsonb_set(graph_context_receipt, '{schema}', '\"legacy:invented\"'::jsonb) WHERE turn_id=%s", (turn.turn_id,))
+            elif mutation == "execution":
+                conn.execute("UPDATE agent.turn SET graph_context_execution=jsonb_set(graph_context_execution, '{schema}', '\"legacy:invented\"'::jsonb) WHERE turn_id=%s", (turn.turn_id,))
+            else:
+                conn.execute("UPDATE agent.turn SET graph_context_execution=jsonb_set(graph_context_execution, '{events}', '[{\"kind\":\"corpus_source_search_authorized_v1\"}]'::jsonb) WHERE turn_id=%s", (turn.turn_id,))
+    assert AgentConversationService().list_turns("managed", conversation.conversation_id)[0] == turn
+
+
+@pytest.mark.parametrize("changed_accounting", [False, True])
+def test_actual_ge_source_plan_dispatch_is_durable_before_synthetic_wire(application_state_dsn, lane, changed_accounting):
+    import asyncio
+    import json
+    from uuid import UUID
+    import httpx2
+    from generationengine import GenerationEngineError
+    from application_state.agent_conversation import AgentConversationService
+    from application_state.agent_conversation.plan_authoring import prepare_requested_work_decision, validate_prepared_requested_work
+    from application_state.agent_conversation.plan_placement import PlanRequestedWorkInputV3
+    from application_state.agent_conversation.plan_jev_decision import scope_digest
+    from application_state.errors import ApplicationStateValidationError
+    from apps.live_control_server.services.agent_turn_service import _json_node_count
+    from apps.live_control_server.services.plan_jev_dispatch import decision_client
+    from tests.application_state.test_agent_conversation_postgres import _new
+    from tests.test_native_corpus_source_access import BODY
+    service = AgentConversationService()
+    conversation = _new(service, "managed")
+    submission = source_submission(lane)
+    parent = PlanRequestedWorkInputV3(request_id=uuid4(), parent_attempt_id=uuid4(), scope_sha256="a" * 64,
+        question=submission.user_text, page_title="Synthetic Plan", target_available=False,
+        original_capture=None, placement_catalog=None)
+    state = {"turn": None, "parent": parent, "auth": None, "sent": [], "rejection": None}
+
+    async def authorize(prepared):
+        validate_prepared_requested_work(state["parent"], prepared)
+        raw = prepared.body.decode()
+        estimate = len(prepared.body) + 64 * (1 + _json_node_count(json.loads(raw)))
+        value = submission.model_dump(mode="json", by_alias=True)
+        value["conversation_id"] = str(conversation.conversation_id)
+        receipt = value["graph_context_receipt"]
+        receipt["assembled_input"].update(assembled_input_sha256=prepared.body_sha256,
+            provider_envelope_input_tokens=estimate, context_window_limit=32000)
+        value["graph_context_receipt"] = rehash(receipt)
+        execution = value["graph_context_execution"]
+        execution["context_receipt_sha256"] = receipt["context_receipt_sha256"]
+        execution["execution_policy_sha256"] = t.canonical_sha256({key: execution[key]
+            for key in ("schema", "context_receipt_sha256", "policy")})
+        accepted = service.accept_turn(t.TurnSubmission.model_validate_json(json.dumps(value)))
+        turn = service.claim_turn("managed", conversation.conversation_id, accepted.turn_id,
+            expected_revision=accepted.revision).turn
+        state["parent"] = state["parent"].model_copy(update={"parent_attempt_id": UUID(prepared.attempt_id),
+            "scope_sha256": scope_digest(turn)})
+        auth = t.PlanRequestedWorkAuthorizedV2(kind="plan_requested_work_authorized_v2", event_id=uuid4(), sequence=0,
+            provider_attempt_id=UUID(prepared.attempt_id), decision_request_id=parent.request_id,
+            parent_request_sha256=state["parent"].digest, envelope_sha256=prepared.body_sha256,
+            serializer_version="typesafe-sdk-json-v1", provider="typesafe", model="jev-1.14.0", api_mode="decision",
+            tool_schema_sha256=t.canonical_sha256([]), input_accounting_kind="conservative_upper_bound",
+            input_estimator="utf8_json_bytes_plus_64_per_node_v1", input_tokens=estimate + int(changed_accounting),
+            output_token_reserve=200, included_assertion_ids=[], included_relationship_ids=[],
+            included_evidence_ref_ids=[], included_graph_event_ids=[], included_source_read_event_ids=[])
+        state["turn"], state["auth"] = turn, auth
+        try:
+            state["turn"], _ = service.authorize_plan_jev_provider("managed", conversation.conversation_id, turn.turn_id,
+                expected_revision=turn.revision, expected_attempt=turn.attempt, authorization=auth,
+                producer_proof={"parent_request_json": state["parent"].model_dump_json(by_alias=True), "request_json": raw})
+        except ApplicationStateValidationError as exc:
+            state["rejection"] = str(exc)
+            raise
+        return True
+
+    async def record(event):
+        if state["rejection"] is not None:
+            assert event.outcome == "known_not_sent"
+            return True  # No durable provider authorization exists to settle.
+        transition = {"sending": "sdk_entered", "response_received": "response_received"}[event.outcome]
+        turn = state["turn"]
+        state["turn"], _ = service.record_provider_outcome("managed", conversation.conversation_id, turn.turn_id,
+            expected_revision=turn.revision, expected_attempt=turn.attempt,
+            outcome=t.ProviderOutcomeEventV1(kind="provider_outcome", event_id=uuid4(),
+                sequence=len(turn.graph_context_execution.events), provider_attempt_id=state["auth"].provider_attempt_id,
+                outcome=transition))
+        return True
+
+    class Wire(httpx2.AsyncBaseTransport):
+        async def handle_async_request(self, request):
+            state["sent"].append(request)
+            raw = request.content.decode()
+            assert BODY not in raw and "revision_id" not in raw and "native_world_id" not in raw
+            durable = AgentConversationService().list_turns("managed", conversation.conversation_id)[0]
+            assert durable.graph_context_execution.events[-1].outcome == "sdk_entered"
+            body = json.loads(raw)
+            options = body["questions"]["requested_work"]["criteria"]
+            return httpx2.Response(200, request=request, json={"model": "jev-1.14.0",
+                "usage": {"input_tokens": 42, "output_tokens": 3}, "answers": {"requested_work": {
+                    "type": "choice", "choice": "discuss", "confidence": 1,
+                    "probabilities": {key: float(key == "discuss") for key in options}}}})
+
+    async def run():
+        client = decision_client(authorize=authorize, record=record, transport=Wire(), api_key="synthetic-test-key")
+        try:
+            return await client.decide(prepare_requested_work_decision(parent))
+        finally:
+            await client.aclose()
+    if changed_accounting:
+        # GE must not send after durable authorization refuses the first envelope.
+        with pytest.raises(GenerationEngineError):
+            asyncio.run(run())
+        assert "first provider authorization" in state["rejection"]
+        assert not state["sent"]
+        assert not AgentConversationService().list_turns("managed", conversation.conversation_id)[0].graph_context_execution.events
+    else:
+        assert asyncio.run(run()).answers["requested_work"].selected == "discuss"
+        reopened = AgentConversationService().list_turns("managed", conversation.conversation_id)[0]
+        assert len(state["sent"]) == 1 and reopened == state["turn"]
+        assert [e.kind for e in reopened.graph_context_execution.events] == [
+            "plan_requested_work_authorized_v2", "provider_outcome", "provider_outcome"]
+
+
+@pytest.mark.parametrize("kind", ["corpus_source_search_authorized_v1", "native_source_section_observed_v1", "build_section_read_authorized_v1"])
+def test_source_execution_rejects_obsolete_or_foreign_materializers(kind):
+    payload = source_execution().model_dump(mode="json", by_alias=True)
+    payload["events"] = [{"kind": kind}]
+    with pytest.raises(ValidationError, match="union_tag_invalid"):
+        t.PlanSourceExecutionV1.model_validate(payload)
+
+
+def source_with_graph_submission(lane):
+    import json
+    from tests.application_state.test_agent_conversation_postgres import _graph_receipt
+    submission = source_submission(lane)
+    payload = submission.model_dump(mode="json", by_alias=True)
+    receipt = payload["graph_context_receipt"]
+    source = receipt["source_authority"]
+    graph = _graph_receipt("managed", uuid4()).model_dump(mode="json", by_alias=True)
+    graph["plan_basis"] = receipt["plan_basis"]
+    graph["graph_authority"].update(native_world_id=source["native_world_id"], binding_version=source["binding_version"])
+    graph.pop("context_receipt_sha256")
+    graph["context_receipt_sha256"] = t.canonical_sha256(graph)
+    receipt["graph_capability"] = graph
+    payload["graph_context_receipt"] = rehash(receipt)
+    execution = payload["graph_context_execution"]
+    execution["context_receipt_sha256"] = receipt["context_receipt_sha256"]
+    execution["policy"]["allowed_graph_operations"] = ["object"]
+    execution["policy"]["source_read_scope"] = dict(retrieval_session_id="actual-classic-session",
+        world_id="managed", campaign_id=None, graph_revision=graph["graph_authority"]["graph_revision"], admitted_anchors=[])
+    execution["policy"] = t.PlanSourceExecutionPolicyV1.model_validate(execution["policy"]).model_dump(mode="json", by_alias=True)
+    execution["execution_policy_sha256"] = t.canonical_sha256({key: execution[key]
+        for key in ("schema", "context_receipt_sha256", "policy")})
+    return t.TurnSubmission.model_validate_json(json.dumps(payload))
+
+
+def test_source_with_genuine_graph_capability_persists_distinct_revisions(application_state_dsn, lane):
+    from application_state.agent_conversation import AgentConversationService
+    from tests.application_state.test_agent_conversation_postgres import _new
+    service = AgentConversationService()
+    conversation = _new(service, "managed")
+    submission = source_with_graph_submission(lane)
+    submission = t.TurnSubmission.model_validate(submission.model_dump(mode="python", by_alias=True) | {
+        "conversation_id": conversation.conversation_id})
+    accepted = service.accept_turn(submission)
+    reopened = AgentConversationService().list_turns("managed", conversation.conversation_id)[0]
+    assert reopened == accepted
+    receipt = reopened.graph_context_receipt
+    assert receipt.source_authority.revision_id != receipt.graph_capability.graph_authority.graph_revision
+    assert require_graph(receipt) == receipt.graph_capability
+
+
+@pytest.mark.parametrize("field,value", [("native_world_id", "foreign"), ("binding_version", 999)])
+def test_source_and_graph_cannot_combine_different_world_bindings(lane, field, value):
+    import json
+    payload = source_with_graph_submission(lane).graph_context_receipt.model_dump(mode="json", by_alias=True)
+    graph = payload["graph_capability"]
+    graph["graph_authority"][field] = value
+    graph.pop("context_receipt_sha256")
+    graph["context_receipt_sha256"] = t.canonical_sha256(graph)
+    with pytest.raises(ValidationError, match="managed/native World binding"):
+        t.PlanSourceContextReceiptV1.model_validate_json(json.dumps(rehash(payload)))

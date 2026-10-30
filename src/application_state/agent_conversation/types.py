@@ -1367,6 +1367,11 @@ class PlanSourceContextReceiptV1(StrictModel):
                 or self.graph_capability.playable_target != self.playable_target
                 or self.graph_capability.plan_context_policy != self.plan_context_policy):
             raise ValueError("Independent Graph capability differs from the actual Plan basis")
+        if self.graph_capability is not None and isinstance(self.source_authority, NativeCorpusAuthorityV1):
+            graph = self.graph_capability.graph_authority
+            if (graph.native_world_id != self.source_authority.native_world_id
+                    or graph.binding_version != self.source_authority.binding_version):
+                raise ValueError("Independent capabilities differ from their managed/native World binding")
         payload = self.model_dump(mode="json", by_alias=True, exclude={"context_receipt_sha256"})
         if canonical_sha256(payload) != self.context_receipt_sha256:
             raise ValueError("Source-capable Plan receipt digest differs from its contents")
@@ -4827,9 +4832,18 @@ class PlanSourceExecutionV1(PlanWorldGraphExecutionV3):
     schema_: Literal["dmb_plan_source_execution_v1"] = Field(
         default="dmb_plan_source_execution_v1", alias="schema")
     policy: PlanSourceExecutionPolicyV1
-    events: list[GraphExecutionEventV3 | NativeBodySearchAuthorizedV1 |
-        NativeBodySearchObservedV1 | NativeBodyReadAuthorizedV1 |
-        NativeBodyReadObservedV1 | NativeBodyProviderIncludedV1] = Field(max_length=2048)
+    events: list[Annotated[
+        ValidatedGraphOperationEventV3 | PlanRequestedWorkAuthorizedV2 | PlanRequestedWorkAuthorizedV1
+        | PlanJevProviderAuthorizedV1 | PlanJevWriterAuthorizedV2 | PlanJevWriterAuthorizedV1
+        | ProviderOutcomeEventV1 | CompletionBindingEventV1
+        | SourceScopeExtensionEventV3 | SourceReadAuthorizationEventV2 | ValidatedSourceReadEventV2
+        | SourcePassageReuseEventV1 | RelatedRecapContextAuthorizationEventV2
+        | ValidatedRelatedRecapContextEventV2 | RelatedRecapContextProviderInclusionEventV2
+        | PlanRequestedWorkSelectedV2 | PlanRequestedWorkSelectedV1 | PlanJevRetrievalSelectionV1
+        | NativeBodySearchAuthorizedV1 | NativeBodySearchObservedV1 | NativeBodyReadAuthorizedV1
+        | NativeBodyReadObservedV1 | NativeBodyProviderIncludedV1,
+        Field(discriminator="kind"),
+    ]] = Field(max_length=2048)
 
 
 def _effective_source_pins(execution) -> dict[str, GraphSourceScopeAnchorV2]:
@@ -5191,7 +5205,11 @@ class NativeStatementExecutionV1(StrictModel):
         return self
 
 
-GraphTurnExecution = PlanWorldGraphExecution | PlanSourceExecutionV1 | PlayWorldGraphExecutionV1 | NativeStatementExecutionV1
+GraphTurnExecution = Annotated[
+    PlanWorldGraphExecutionV1 | PlanWorldGraphExecutionV2 | PlanWorldGraphExecutionV3
+    | PlanSourceExecutionV1 | PlayWorldGraphExecutionV1 | NativeStatementExecutionV1,
+    Field(discriminator="schema_"),
+]
 
 
 _SELECTED_SOURCE_INDEX_SELECTION_POLICY_V1 = "parent_initial_retrieval_with_selected_source_index_v1"
@@ -5238,6 +5256,12 @@ def validate_graph_provider_envelope(
     event: ProviderAttemptAuthorizedEventV1,
 ) -> None:
     """Shared admitted-ID, first-envelope and frozen-context-window checks."""
+    validate_graph_provider_evidence(inputs, execution, event)
+    validate_provider_envelope_accounting(inputs.assembled_input, execution, event)
+
+
+def validate_graph_provider_evidence(inputs, execution, event) -> None:
+    """Only admitted Graph IDs may appear in a provider envelope."""
     graph_events = [e for e in execution.events if isinstance(e, ValidatedGraphOperationEventV1)]
     included_graph_events = set(event.included_graph_event_ids)
     included_operations = [e for e in graph_events if e.event_id in included_graph_events]
@@ -5246,7 +5270,14 @@ def validate_graph_provider_envelope(
     available_evidence = set(inputs.assembled_input.dispatched_evidence_ref_ids) | {x for e in included_operations for x in e.evidence_ref_ids}
     if not set(event.included_assertion_ids).issubset(available_assertions) or not set(event.included_relationship_ids).issubset(available_relationships) or not set(event.included_evidence_ref_ids).issubset(available_evidence):
         raise ValueError("provider envelope includes IDs absent from admitted Graph evidence")
-    context_limit = inputs.assembled_input.context_window_limit
+    operation_event_ids = {e.event_id for e in graph_events}
+    if not set(event.included_graph_event_ids).issubset(operation_event_ids):
+        raise ValueError("provider envelope references an unknown Graph operation event")
+
+
+def validate_provider_envelope_accounting(assembled, execution, event) -> None:
+    """First-call commitment and role budget over the actual owning input."""
+    context_limit = assembled.context_window_limit
     if (isinstance(execution.policy, BuildWriterBudgetActionControllerWriterPolicyV1)
             and (event.provider, event.model, event.api_mode) == execution.policy.writer_context_budget.identity()):
         context_limit = execution.policy.writer_context_budget.context_limit_tokens
@@ -5254,12 +5285,8 @@ def validate_graph_provider_envelope(
             raise ValueError("writer reserve differs from its frozen role budget")
     if event.input_tokens + event.output_token_reserve > context_limit:
         raise ValueError("provider envelope exceeds the frozen context window")
-    operation_event_ids = {e.event_id for e in graph_events}
-    if not set(event.included_graph_event_ids).issubset(operation_event_ids):
-        raise ValueError("provider envelope references an unknown Graph operation event")
     previous_attempts = [e for e in execution.events if isinstance(e, ProviderAttemptAuthorizedEventV1)]
     if not previous_attempts:
-        assembled = inputs.assembled_input
         if assembled.assembler_version == "reviewed_author_admission_v1":
             selected = [e for e in execution.events if isinstance(e, BuildReviewedActionSelectionV1)]
             if len(selected) != 1 or _canonical_sha256({"schema":"dmb_reviewed_action_admission_v1", "intent":selected[0].intent.model_dump(mode="json", by_alias=True)}) != assembled.assembled_input_sha256:
@@ -5278,6 +5305,10 @@ def validate_selected_source_binding(
     receipt: GraphContextReceipt,
     execution: GraphTurnExecution | None,
 ) -> None:
+    if isinstance(receipt, PlanSourceContextReceiptV1) or isinstance(execution, PlanSourceExecutionV1):
+        from .plan_source_context import validate_source_execution_binding
+        validate_source_execution_binding(receipt, execution)
+        return
     if execution is not None and isinstance(execution.policy, PlanJevRetrievalPolicyV1):
         if not isinstance(receipt, PlanWorldGraphContextReceiptV1):
             raise ValueError("Plan Jev policy requires its actual Plan receipt")
@@ -5341,6 +5372,10 @@ def validate_related_recap_context_scope(
     receipt: GraphContextReceipt,
     execution: GraphTurnExecution | None,
 ) -> None:
+    if isinstance(receipt, PlanSourceContextReceiptV1) or isinstance(execution, PlanSourceExecutionV1):
+        from .plan_source_context import validate_source_execution_binding
+        validate_source_execution_binding(receipt, execution)
+        return
     if execution is not None and isinstance(execution.policy, PlanJevRetrievalPolicyV1):
         if not isinstance(receipt, PlanWorldGraphContextReceiptV1):
             raise ValueError("Plan Jev policy requires its actual Plan receipt")

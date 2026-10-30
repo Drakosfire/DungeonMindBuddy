@@ -1376,6 +1376,9 @@ class AgentConversationService:
                         raise ValueError("Related page read lacks its exact source-owner materialization")
             except (ValueError,KeyError,TypeError,AttributeError) as exc:
                 raise ApplicationStateValidationError(str(exc)) from exc
+            from .native_corpus import NATIVE_BODY_EVENTS
+            if native_source_materializer is None and isinstance(event, NATIVE_BODY_EVENTS):
+                raise ApplicationStateValidationError("Native body event requires its immutable source transaction owner")
             from .types import NativeSourceCatalogObservedV1, NativeSourceSectionAuthorizedV1, NativeSourceSectionObservedV1, NativeSourceProviderInclusionV1, CorpusSourceSearchAuthorizedV1, CorpusSourceSearchObservedV1
             if native_source_materializer is None and isinstance(event, (CorpusSourceSearchAuthorizedV1, CorpusSourceSearchObservedV1, NativeSourceCatalogObservedV1,
                     NativeSourceSectionAuthorizedV1, NativeSourceSectionObservedV1, NativeSourceProviderInclusionV1)):
@@ -1600,9 +1603,14 @@ class AgentConversationService:
                 receipt = turn.graph_context_receipt
                 assert receipt is not None
                 try:
-                    validate_graph_provider_envelope(
-                        _ask_graph_validation_inputs(receipt), execution, event
-                    )
+                    from .types import PlanSourceContextReceiptV1
+                    if isinstance(receipt, PlanSourceContextReceiptV1):
+                        from .plan_source_context import validate_source_provider_envelope
+                        validate_source_provider_envelope(receipt, execution, event)
+                    else:
+                        validate_graph_provider_envelope(
+                            _ask_graph_validation_inputs(receipt), execution, event
+                        )
                 except ValueError as exc:
                     raise ApplicationStateValidationError(str(exc)) from exc
             if trace_active and isinstance(event, ProviderAttemptAuthorizedEventV3):
