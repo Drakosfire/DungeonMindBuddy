@@ -209,7 +209,7 @@ def _assert_run_source_scope(run: ExtractionRun, artifact: GraphMemorySourceArti
         )
 
 
-def _load_run_source_input(root: Path, run: ExtractionRun) -> tuple[GraphMemorySourceArtifact, bytes]:
+def load_run_source_input(root: Path, run: ExtractionRun) -> tuple[GraphMemorySourceArtifact, bytes]:
     """Verify the registered input, never a source mirror or its directory."""
     from graph_memory.ingestion.extraction_run import normalize_content_digest
 
@@ -267,7 +267,7 @@ def load_reviewable_extraction_data(root: Path, run_id: str) -> ReviewableExtrac
 def _load_bound_run_evidence(root: Path, run: ExtractionRun) -> ReviewableExtractionData:
     from application_state.ingest.components import get_component_bytes
 
-    artifact, source = _load_run_source_input(root, run)
+    artifact, source = load_run_source_input(root, run)
     _, span_ref, candidate_ref = _review_components(run)
     try:
         spans = get_component_bytes(run_id=run.run_id, kind=span_ref.kind, content_sha256=span_ref.sha256)
@@ -304,7 +304,7 @@ def assert_immutable_component_refs(root: Path, run: ExtractionRun, *, expected_
         if not (component.sha256 or "").strip():
             continue
         if component.kind == ExtractionRunComponentKind.SOURCE_ARTIFACT:
-            artifact, _ = _load_run_source_input(root, run)
+            artifact, _ = load_run_source_input(root, run)
             continue
         try:
             payload = verify_transition_component_bytes(run_id=run.run_id,
@@ -315,7 +315,7 @@ def assert_immutable_component_refs(root: Path, run: ExtractionRun, *, expected_
             ) from exc
         if component.kind == ExtractionRunComponentKind.SOURCE_SPAN_INDEX:
             if artifact is None:
-                artifact, _ = _load_run_source_input(root, run)
+                artifact, _ = load_run_source_input(root, run)
             _parse_run_span_index(payload, artifact)
 
 

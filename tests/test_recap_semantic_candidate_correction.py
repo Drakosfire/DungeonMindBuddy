@@ -232,6 +232,20 @@ def _fixture(
             span_bytes=resolved.source_span_index_path.read_bytes(),
             span_index=extract_promote._load_frozen_span_index_for_resolved_run(resolved))
 
+    def get_output(*, run_id, kind, content_sha256):
+        from application_state.errors import ApplicationStateConflictError, ApplicationStateIntegrityError
+        run = runs[run_id]
+        ref = run.components[str(kind)]
+        if content_sha256.removeprefix("sha256:") != ref.sha256.removeprefix("sha256:"):
+            raise ApplicationStateConflictError("fixture output binding changed")
+        # Unit storage double reads fixture payloads; the actual database owner
+        # is exercised with file access denied in test_database_semantic_replay.
+        payload = _component_path(root, run, str(kind)).read_bytes()
+        if _sha(payload) != content_sha256.removeprefix("sha256:"):
+            raise ApplicationStateIntegrityError("fixture stored output digest mismatch")
+        return payload
+
+    monkeypatch.setattr(output_store, "get_component_bytes", get_output)
     monkeypatch.setattr(output_store, "persist_component_payload", persist_output)
     monkeypatch.setattr(graph_run_registry, "load_reviewable_extraction_data", review_data)
 
@@ -749,6 +763,7 @@ def test_source_binding_never_duplicates_or_adopts_legacy_child(
     legacy_dir.mkdir(parents=True, exist_ok=True)
     if historical_state != "orphan":
         (legacy_dir / "candidate_graph.json").write_bytes(candidate_bytes)
+        runs[legacy_id] = legacy
         assessment = assess_recap_semantics(
             legacy,
             parent=parent,
@@ -3255,6 +3270,7 @@ def test_inherited_pc_proof_survives_legacy_v9_into_source_bound_v7(monkeypatch,
         "components": legacy_components,
         "lineage": legacy_lineage,
     })
+    runs[legacy_id] = legacy
     assert service.verify_child_replay(legacy, parent, tmp_path)
     legacy_assessment = assess_recap_semantics(
         legacy, parent=parent, source_revision_id=body["source_revision_sha256"], root=tmp_path,
