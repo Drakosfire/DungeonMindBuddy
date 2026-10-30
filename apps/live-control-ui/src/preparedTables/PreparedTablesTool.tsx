@@ -141,7 +141,7 @@ export function PreparedTablesTool({run,blocked,onHeld,onRun}:PreparedTablesBind
   };
   const table=inventory?.tables.find(t=>t.table_id===tableId);
   useTourNavigationGuard({worldId:run.world_id,reason:()=>busy||pending||storageBlocked||enteredDirty?'Resolve the pending roll, or record or clear the entered value before leaving Prepared tables.':null});
-  return <section data-guided-control="roll" tabIndex={-1} aria-label="Prepared tables"><RecordedRollTourObservation run={run} history={history} acknowledged={tourAcknowledged} blocked={blocked||busy||!!pending||storageBlocked} error={error}/><h2>Prepared tables</h2><p>Enter a physical roll to record an outcome from this session’s saved preparation.</p>
+  return <section aria-label="Prepared tables"><RecordedRollTourObservation run={run} history={history} acknowledged={tourAcknowledged} blocked={blocked||busy||!!pending||storageBlocked} error={error}/><h2 data-guided-control="roll" data-guided-control-group="true" tabIndex={-1}>Prepared tables</h2><p>Enter a physical roll to record an outcome from this session’s saved preparation.</p>
     {inventory?<p>From {inventory.source_title}</p>:null}
     {blocked?<p role="status">Save or resolve your session changes before recording a roll.</p>:null}
     {error?<p role="alert">{error}</p>:null}

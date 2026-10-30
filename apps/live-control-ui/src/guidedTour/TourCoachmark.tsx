@@ -60,7 +60,7 @@ export function TourCoachmark({anchor,title,instruction,status,children,onMore,o
  return createPortal(<div ref={ref} role="dialog" aria-modal="false" aria-labelledby={`${id}-title`} className="guided-tour-coachmark" style={{left:position?.left??0,top:position?.top??0,visibility:position?'visible':'hidden'}}>
   <header><strong id={`${id}-title`}>{title}</strong><button type="button" aria-label="Return to tour guidance" onClick={onMore}>×</button></header>
   <p id={id}>{instruction}</p><p role="status" className="guided-tour-coachmark__status">{status}</p>
-  <div className="guided-tour__actions"><button type="button" onClick={()=>anchor.focus({preventScroll:true})}>Use control</button><button type="button" onClick={onMore}>More guidance</button></div>
+  <div className="guided-tour__actions"><button type="button" onClick={()=>anchor.focus({preventScroll:true})}>{anchor.dataset.guidedControlGroup==='true'?'Focus controls':'Use control'}</button><button type="button" onClick={onMore}>More guidance</button></div>
   {children}
  </div>,root);
 }

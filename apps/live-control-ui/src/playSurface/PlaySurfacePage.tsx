@@ -1143,7 +1143,7 @@ function PlayRuntimePage() {
       ) : null}
       {v2Deck ? (
         <main
-          className="play-surface" data-guided-control="progress" tabIndex={-1}
+          className="play-surface"
           data-testid="play-surface-ready"
           data-play-grammar="v2"
           data-play-campaign-id={publication.campaignId ?? ""}

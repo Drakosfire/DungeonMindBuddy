@@ -129,9 +129,9 @@ export function PlanSceneEncounter({context}:{context:PlanEncounterContext}){
   }).catch(caught=>{if(active&&current===epoch.current)setError(String(caught));});
   return()=>{active=false;};
  },[needsVersion,saved,identity]);
- return <section data-guided-control="encounter" tabIndex={-1} aria-label={`Encounter preparation for ${context.sceneTitle}`}>
+ return <section aria-label={`Encounter preparation for ${context.sceneTitle}`}>
   <EncounterTourObservation view={currentView} context={context} roster={roster} acknowledgedOperation={acknowledgedOperation} dispatchScope={tourDispatchScope} error={error} pending={!!pending||busy||admittedIdentity!==identity}/>
-  <h2>{context.sceneTitle} · Encounter</h2>
+  <h2 data-guided-control="encounter" data-guided-control-group="true" tabIndex={-1}>{context.sceneTitle} · Encounter</h2>
   <p>Prepare this scene’s enemies here. Saved versions stay with the Plan.</p>
   {error&&<p role="alert">{error}</p>}{!loaded&&error&&!recoveryInvalid&&<button disabled={busy} onClick={()=>void refresh()}>Retry opening encounter</button>}
   {pending&&<section aria-label="Encounter creation recovery"><p>Creation outcome is unconfirmed. Its exact request is retained.</p><button disabled={busy} onClick={()=>void inspect()}>Check creation</button><button disabled={busy} onClick={()=>void create(true)}>Retry same creation</button><button disabled={busy} onClick={()=>void cancel()}>Cancel creation</button>{view&&view.binding.operation_id!==pending.operation_id&&<button disabled={busy} onClick={()=>{sessionStorage.removeItem(recoveryKey(context));setPending(null);}}>Open existing scene encounter</button>}</section>}
