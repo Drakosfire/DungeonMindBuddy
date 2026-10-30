@@ -87,9 +87,9 @@ def test_prove_or_admit_writes_missing_pair_and_is_idempotent() -> None:
     request = _request(artifact_id=ARTIFACT_A)
     first = adapter.prove_or_admit(request)
     assert first.source_artifact_id == ARTIFACT_A
-    assert first.source_revision_id == TOKEN
+    assert first.source_revision_id == f"{TOKEN}::{ARTIFACT_A}"
     assert sources.get_artifact(ARTIFACT_A) is not None
-    assert sources.get_revision(TOKEN) is not None
+    assert sources.get_revision(f"{TOKEN}::{ARTIFACT_A}") is not None
     snapshot = sources.get_provenance_snapshot(
         artifact_ids=[ARTIFACT_A],
         revision_ids=[first.source_revision_id],
@@ -153,14 +153,14 @@ def test_partial_pair_and_material_drift_fail_closed_without_puts() -> None:
     assert exc.value.code == "source_identity_conflict"
 
 
-def test_prove_or_admit_collision_seals_as_token_suffix() -> None:
+def test_prove_or_admit_binds_every_new_revision_to_its_artifact() -> None:
     sources = InMemorySourceRepository()
     adapter = DungeonMindWorldGraphSourceAdmissionAdapter(sources=sources)
     first = adapter.prove_or_admit(_request(artifact_id=ARTIFACT_A))
-    assert first.source_revision_id == TOKEN
+    assert first.source_revision_id == f"{TOKEN}::{ARTIFACT_A}"
     second = adapter.prove_or_admit(_request(artifact_id=ARTIFACT_B))
     assert second.source_revision_id == f"{TOKEN}::{ARTIFACT_B}"
-    assert sources.get_revision(TOKEN).source_artifact_id == ARTIFACT_A
+    assert sources.get_revision(f"{TOKEN}::{ARTIFACT_A}").source_artifact_id == ARTIFACT_A
     assert sources.get_revision(second.source_revision_id).source_artifact_id == ARTIFACT_B
     proven = adapter.prove(
         world_id=WORLD_ID,
@@ -223,7 +223,7 @@ def test_mapper_resolves_legacy_missing_world_before_strict_artifact_v2(
     assert mapped.source_domain.value == "worldbuilding"
     assert mapped.campaign_id == CAMPAIGN_ID
     assert mapped.uri == f"object://{ARTIFACT_A}"
-    assert mapped.current_revision_id == TOKEN
+    assert mapped.current_revision_id == f"{TOKEN}::{ARTIFACT_A}"
     assert revision.source_artifact_id == ARTIFACT_A
     assert revision.content_sha256 == "ab" * 32
     assert token == TOKEN
@@ -341,7 +341,7 @@ def test_prove_or_admit_works_when_legacy_graph_engine_imports_are_blocked() -> 
         adapter = DungeonMindWorldGraphSourceAdmissionAdapter(sources=sources)
         admitted = adapter.prove_or_admit(request)
         assert admitted.source_artifact_id == artifact_id
-        assert admitted.source_revision_id == token
+        assert admitted.source_revision_id == f"{{token}}::{{artifact_id}}"
         proven = adapter.prove(
             world_id=world_id,
             source_artifact_id=artifact_id,
@@ -853,3 +853,51 @@ def test_world_owned_request_cannot_retag_existing_campaign_source():
     assert adapter.prove(world_id=WORLD_ID, source_artifact_id=ARTIFACT_A,
                          source_revision_id=original.source_revision_id,
                          source_revision_token=TOKEN).campaign_id == CAMPAIGN_ID
+
+
+def test_existing_pair_uses_one_native_snapshot_for_catalog_matching():
+    class CountingSources(InMemorySourceRepository):
+        snapshots = 0
+
+        def get_provenance_snapshot(self, **kwargs):
+            self.snapshots += 1
+            return super().get_provenance_snapshot(**kwargs)
+
+    sources = CountingSources()
+    adapter = DungeonMindWorldGraphSourceAdmissionAdapter(sources=sources)
+    request = _request(artifact_id=ARTIFACT_A)
+    first = adapter.prove_or_admit(request)
+    sources.snapshots = 0
+    assert adapter.prove_or_admit(request) == first
+    assert sources.snapshots == 1
+    sources.snapshots = 0
+    assert adapter.prove(world_id=WORLD_ID, source_artifact_id=ARTIFACT_A,
+        source_revision_id=first.source_revision_id, source_revision_token=TOKEN) == first
+    assert sources.snapshots == 1
+
+
+def test_native_catalog_denial_cannot_fall_back_to_buddy_writes(monkeypatch):
+    from dungeonmind.application import source_admission as native
+    from dungeonmind.domain.errors import IdempotencyConflictError
+
+    sources = InMemorySourceRepository()
+    def denied(**_kwargs):
+        raise IdempotencyConflictError("synthetic native catalog denial")
+    monkeypatch.setattr(native, "match_admitted_source_revision", denied)
+    with pytest.raises(WorldGraphSourceAdmissionError) as failure:
+        DungeonMindWorldGraphSourceAdmissionAdapter(sources=sources).prove_or_admit(_request(artifact_id=ARTIFACT_A))
+    assert failure.value.code == "source_identity_conflict"
+    assert sources.list_artifacts_for_world(WORLD_ID) == []
+
+
+def test_native_read_failure_does_not_return_buddy_source_identity(monkeypatch):
+    from dungeonmind.application import source_admission as native
+    from dungeonmind.domain.errors import PersistenceUnavailableError
+
+    def unavailable(**_kwargs):
+        raise PersistenceUnavailableError("synthetic native source outage")
+    monkeypatch.setattr(native, "load_admitted_source_pair", unavailable)
+    with pytest.raises(WorldGraphSourceAdmissionError) as failure:
+        DungeonMindWorldGraphSourceAdmissionAdapter(sources=InMemorySourceRepository()).prove(
+            world_id=WORLD_ID, source_artifact_id=ARTIFACT_A, source_revision_id=TOKEN)
+    assert failure.value.code == "authority_unavailable"
