@@ -6811,6 +6811,7 @@ export function WorldPlanAgentConversation({
         <label className="sr-only" htmlFor="world-plan-agent-message">Message DungeonBuddy</label>
         <textarea
           id="world-plan-agent-message"
+          data-guided-control={visible && agent.paneState.isOpen ? "memory" : undefined}
           rows={1}
           value={composerMessage}
           onChange={(event) => {

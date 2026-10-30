@@ -519,6 +519,54 @@ describe("one App-level World conversation host across Plan and Play", () => {
 
 
 
+  it.each(['plan', 'play', 'build'] as const)('teaches memory at the actual %s composer without sending or crediting a turn', async initial => {
+    const rect = vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockReturnValue(new DOMRect(100, 100, 200, 40));
+    const rects = vi.spyOn(HTMLElement.prototype, 'getClientRects').mockReturnValue([new DOMRect(100, 100, 200, 40)] as unknown as DOMRectList);
+    const priorScroll = Object.getOwnPropertyDescriptor(HTMLElement.prototype, 'scrollIntoView');
+    Object.defineProperty(HTMLElement.prototype, 'scrollIntoView', {configurable: true, value: vi.fn()});
+    const record = reduceTour(createWalkthrough(WORLD, 'conks', 'memory-anchor', '2026-01-01T00:00:00Z'), {kind: 'move', index: 14});
+    writeWalkthrough(localStorage, record, null);
+    const memoryTargets = () => document.querySelectorAll('[data-guided-control~="memory"]');
+    const mounted = render(<Harness initial={initial} guided/>);
+    try {
+      const launcher = await screen.findByRole('button', {name: 'Open', exact: true});
+      expect(memoryTargets()).toHaveLength(1);
+      expect(memoryTargets()[0]).toBe(launcher);
+      fireEvent.click(launcher);
+      const composer = await screen.findByLabelText('Message DungeonBuddy');
+      await waitFor(() => expect(composer).toBeEnabled());
+      expect(memoryTargets()).toHaveLength(1);
+      expect(memoryTargets()[0]).toBe(composer);
+      fireEvent.change(composer, {target: {value: 'Unsent continuity question'}});
+      fireEvent.click(screen.getByRole('button', {name: 'Open guidance'}));
+      await screen.findByRole('heading', {name: 'Ask about the session'});
+      fireEvent.click(screen.getByRole('button', {name: 'Show control'}));
+      await screen.findByRole('dialog', {name: /Ask about the session/});
+      expect(composer).toHaveAttribute('data-guided-highlight', 'true');
+      expect(composer).toHaveFocus();
+      fireEvent.click(screen.getByRole('button', {name: initial === 'plan' ? 'Close chat' : 'Close conversation'}));
+      await waitFor(() => expect(memoryTargets()).toHaveLength(1));
+      expect(memoryTargets()[0]).toBe(screen.getByRole('button', {name: 'Open', exact: true}));
+      await screen.findByRole('complementary', {name: 'Guided journey'});
+      fireEvent.click(screen.getByRole('button', {name: 'Open', exact: true}));
+      const reopened = await screen.findByLabelText('Message DungeonBuddy');
+      expect(reopened).toHaveValue('Unsent continuity question');
+      expect(memoryTargets()).toHaveLength(1);
+      expect(memoryTargets()[0]).toBe(reopened);
+      fireEvent.click(screen.getByRole('button', {name: 'Show control'}));
+      await screen.findByRole('dialog', {name: /Ask about the session/});
+      expect(reopened).toHaveFocus();
+      expect(postWorldPlanAgentTurn).not.toHaveBeenCalled();
+      expect(postWorldPlayAgentTurn).not.toHaveBeenCalled();
+      expect(readWalkthrough(localStorage, WORLD)?.record.steps.memory.state).toBe('pending');
+      expect(readWalkthrough(localStorage, WORLD)?.record.steps.memory.evidence).toHaveLength(0);
+    } finally {
+      mounted.unmount(); rect.mockRestore(); rects.mockRestore();
+      if (priorScroll) Object.defineProperty(HTMLElement.prototype, 'scrollIntoView', priorScroll);
+      else delete (HTMLElement.prototype as Partial<HTMLElement>).scrollIntoView;
+    }
+  });
+
   it.each(['fresh','restart','retry-after-restart','restart-preparation','plan-preparation','wrong-key','wrong-review','missing-correlation'] as const)('correlates actual Plan memory dispatch with independent server identity: %s',async mode=>{
     Object.defineProperty(navigator,'locks',{configurable:true,value:{request:vi.fn(async(_key:string,callback:()=>unknown)=>callback())}});
     const runId='22222222-2222-4222-8222-222222222222',physicalId='33333333-3333-4333-8333-333333333333';
