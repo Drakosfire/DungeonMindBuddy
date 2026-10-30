@@ -1954,7 +1954,7 @@ def prepare_worldbuilding(
 
 
 def _load_typed_worldbuilding_preview_for_run(resolved, *, allow_gazetteer=True):
-    """Shared prepare/confirm admission for one exact BLD-08 worldbuilding run."""
+    """Qualify exact stored run evidence; locators do not supply publication input."""
     if resolved.source_domain != "worldbuilding":
         raise ExtractPromoteError(
             "operation requires a worldbuilding ExtractionRun",
@@ -1998,16 +1998,35 @@ def _load_typed_worldbuilding_preview_for_run(resolved, *, allow_gazetteer=True)
         )
 
 
-    assert_sealed_source_uri_allowed(resolved.sealed_source_uri)
+    from apps.live_control_server.services.graph_run_registry import (
+        GraphRunRegistryError, load_reviewable_extraction_data,
+    )
     try:
-        candidate_payload = json.loads(
-            resolved.candidate_graph_path.read_text(encoding="utf-8")
+        data = load_reviewable_extraction_data(resolved.registry_root, resolved.run_id)
+    except GraphRunRegistryError as exc:
+        raise ExtractPromoteError(
+            str(exc), code="run_not_promotable", status_code=exc.status_code,
+        ) from exc
+    run = data.run
+    if (
+        run.source_domain != resolved.source_domain
+        or run.profile_id != expected_profile
+        or (run.campaign_id or "") != resolved.campaign_id
+        or (run.session_id or "") != resolved.session_id
+        or run.source_artifact_id != resolved.source_artifact_id
+        or data.source_artifact.world_id != resolved.world_id
+        or f"sha256:{hashlib.sha256(data.source_bytes).hexdigest()}" != resolved.source_revision_id
+    ):
+        raise ExtractPromoteError(
+            "resolved publication input differs from the stored run",
+            code="run_scope_mismatch", status_code=409,
         )
-    except (OSError, json.JSONDecodeError) as exc:
+    try:
+        candidate_payload = json.loads(data.candidate_bytes)
+    except (UnicodeDecodeError, json.JSONDecodeError) as exc:
         raise ExtractPromoteError(
             "exact-run candidate graph could not be read",
-            code="run_not_promotable",
-            status_code=422,
+            code="run_not_promotable", status_code=422,
             diagnostics=[_diagnostic("candidate_unreadable", str(exc))],
         ) from exc
     if not isinstance(candidate_payload, dict):
@@ -2070,21 +2089,12 @@ def _load_typed_worldbuilding_preview_for_run(resolved, *, allow_gazetteer=True)
         )
 
 
-    try:
-        source_prose = resolved.normalized_recap_path.read_text(encoding="utf-8")
-    except OSError as exc:
-        raise ExtractPromoteError(
-            "exact-run source prose could not be read",
-            code="run_not_promotable",
-            status_code=422,
-            diagnostics=[_diagnostic("source_unreadable", str(exc))],
-        ) from exc
-    span_index = _load_frozen_span_index_for_resolved_run(resolved)
+    source_prose = data.source_bytes.decode("utf-8")
     _assert_and_project_candidate_evidence(
         candidate_payload=candidate_payload,
         source_prose=source_prose,
         source_artifact_id=resolved.source_artifact_id,
-        span_index=span_index,
+        span_index=data.span_index,
         allow_source_observations=(expected_profile in SOURCE_OBSERVATION_WORLDBUILDING_PROFILES),
     )
     return typed_preview, expected_profile
