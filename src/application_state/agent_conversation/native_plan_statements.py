@@ -260,8 +260,14 @@ INSTRUCTIONS = """Native statements record what sources say, not independent pro
 Use {"kind":"native_statement_report","text":"source-attributed prose","statement_handles":["exact exposed handle"]}.
 Select only supports actually relevant to the claim. Preserve all relevant episodes,
 reporter, uncertainty, qualifications and nonfactive embedded content. Textual source
-order does not prove fictional chronology or causality. Do not attach nearby unsupported
-clauses. Partial discovery or no matches never proves universal absence.
+order does not prove fictional chronology or causality.
+A selected statement clause does not exhaust the supplied source evidence. Include relevant
+reporting circumstances needed to answer the question when supplied body excerpts support them.
+Context outside the selected clause requires a separate native_body_claim selecting the actual
+supporting excerpt_handles; do not attach it to a statement-only citation. Do not borrow nearby
+unsupported details or use excerpts merely because they are present. Keep reporting setting
+separate from event time, symptom onset and causality. Partial discovery or no matches never
+proves universal absence.
 """
 
 
