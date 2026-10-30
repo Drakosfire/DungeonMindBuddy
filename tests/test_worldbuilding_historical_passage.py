@@ -9,6 +9,7 @@ import psycopg
 
 from application_state.source.service import get_source_markdown
 from apps.live_control_server.services import graph_run_registry as runs
+from apps.live_control_server.services import source_artifact_registry as inputs
 from apps.live_control_server.services import worldbuilding_source_span_read as reader
 from apps.live_control_server.services.source_artifact_registry import (
     create_source_artifact_from_workspace_document,
@@ -222,15 +223,15 @@ def test_durable_world_mismatch_fails_closed(
     tmp_path, monkeypatch, application_state_dsn
 ):
     _doc, artifact, span, _directory = fixture_source(tmp_path, monkeypatch)
-    get_source = reader.source_service.get_source_markdown
+    get_source = inputs.source_service.get_source_markdown
 
     def wrong_world(**kwargs):
         record = get_source(**kwargs)
         assert record is not None
         return record.model_copy(update={"world_id": "foreign-world"})
 
-    monkeypatch.setattr(reader.source_service, "get_source_markdown", wrong_world)
-    with pytest.raises(WorldGraphRetrievalError, match="Durable source identity"):
+    monkeypatch.setattr(inputs.source_service, "get_source_markdown", wrong_world)
+    with pytest.raises(WorldGraphRetrievalError, match="database source body scope"):
         open_span(tmp_path, artifact, span)
 
 
@@ -247,7 +248,7 @@ def test_missing_historical_snapshot_never_opens_current_text(
     (directory / "source.md").unlink()
     (directory / "spans.json").unlink()
     source_span_index_path(tmp_path, artifact.source_artifact_id).unlink()
-    with pytest.raises(WorldGraphRetrievalError, match="not found"):
+    with pytest.raises(WorldGraphRetrievalError, match="missing from the database"):
         open_span(tmp_path, artifact, span)
 
 

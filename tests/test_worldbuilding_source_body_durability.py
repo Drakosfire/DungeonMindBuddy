@@ -7,8 +7,7 @@ from uuid import uuid4
 
 import pytest
 
-pytestmark = pytest.mark.usefixtures("application_state_dsn")
-
+from apps.live_control_server.services import source_artifact_registry as inputs
 from application_state.source.types import SourceMarkdownRecord
 from apps.live_control_server.services import graph_run_registry as runs
 from apps.live_control_server.services import worldbuilding_source_span_read as reader
@@ -31,6 +30,8 @@ from graph_memory.ingestion.extraction_run import ExtractionRunStatus
 from graph_memory.retrieval.errors import WorldGraphRetrievalError
 from graph_memory.retrieval.models import WorldGraphRetrievalSnapshot
 from graph_memory.source_span import build_source_span_index_for_text
+
+pytestmark = pytest.mark.usefixtures("application_state_dsn")
 
 
 def _save_source(root, document, markdown: str):
@@ -199,7 +200,7 @@ def test_historical_span_reads_from_durable_body_after_workspace_edit_and_sideca
     document, artifact, original = _registered_source(tmp_path, monkeypatch)
     record = _durable_record(artifact, original)
     monkeypatch.setattr(
-        reader.source_service,
+        inputs.source_service,
         "get_source_markdown",
         lambda **kwargs: record
         if kwargs
@@ -236,12 +237,12 @@ def test_durable_source_mismatch_fails_closed(monkeypatch, tmp_path, updates):
     _document, artifact, markdown = _registered_source(tmp_path, monkeypatch)
     record = _durable_record(artifact, markdown).model_copy(update=updates)
     monkeypatch.setattr(
-        reader.source_service,
+        inputs.source_service,
         "get_source_markdown",
         lambda **_kwargs: record,
     )
 
-    with pytest.raises(WorldGraphRetrievalError, match="Durable source"):
+    with pytest.raises(WorldGraphRetrievalError, match="database source body"):
         _open(tmp_path, artifact, _span_id(artifact, markdown))
 
 
@@ -251,7 +252,7 @@ def test_batch_reuses_validated_body_index_and_revalidates_next_batch(monkeypatc
     record = _durable_record(artifact, markdown)
     load = Mock(return_value=record)
     index = Mock(wraps=reader.build_source_span_index_for_text)
-    monkeypatch.setattr(reader.source_service, 'get_source_markdown', load)
+    monkeypatch.setattr(inputs.source_service, 'get_source_markdown', load)
     monkeypatch.setattr(reader, 'build_source_span_index_for_text', index)
     batch = reader.WorldbuildingSourceReadBatch()
     span_id = _span_id(artifact, markdown)
@@ -263,7 +264,7 @@ def test_batch_reuses_validated_body_index_and_revalidates_next_batch(monkeypatc
     assert load.call_count == index.call_count == 1
     # A new operation must not inherit cached success or bypass byte verification.
     load.return_value = record.model_copy(update={'markdown': '# Corrupted\n'})
-    with pytest.raises(WorldGraphRetrievalError, match='Durable source bytes'):
+    with pytest.raises(WorldGraphRetrievalError, match='database source body digest'):
         _open(tmp_path, artifact, span_id, reader.WorldbuildingSourceReadBatch())
     assert load.call_count == 2
 
@@ -272,7 +273,7 @@ def test_batch_still_checks_artifact_lineage_on_every_span(monkeypatch, tmp_path
     from unittest.mock import Mock
     _document, artifact, markdown = _registered_source(tmp_path, monkeypatch)
     load = Mock(return_value=_durable_record(artifact, markdown))
-    monkeypatch.setattr(reader.source_service, 'get_source_markdown', load)
+    monkeypatch.setattr(inputs.source_service, 'get_source_markdown', load)
     batch = reader.WorldbuildingSourceReadBatch()
     span_id = _span_id(artifact, markdown)
     _open(tmp_path, artifact, span_id, batch)
@@ -287,10 +288,10 @@ def test_batch_failed_validation_is_not_cached_and_metadata_keys_are_distinct(mo
     _document, artifact, markdown = _registered_source(tmp_path, monkeypatch)
     valid = _durable_record(artifact, markdown)
     load = Mock(side_effect=[valid.model_copy(update={'world_id': 'foreign'}), valid, valid])
-    monkeypatch.setattr(reader.source_service, 'get_source_markdown', load)
+    monkeypatch.setattr(inputs.source_service, 'get_source_markdown', load)
     batch = reader.WorldbuildingSourceReadBatch()
     span_id = _span_id(artifact, markdown)
-    with pytest.raises(WorldGraphRetrievalError, match='Durable source identity'):
+    with pytest.raises(WorldGraphRetrievalError, match='database source body scope'):
         _open(tmp_path, artifact, span_id, batch)
     assert _open(tmp_path, artifact, span_id, batch).content == 'The tower watches the river.'
     assert load.call_count == 2
@@ -304,8 +305,45 @@ def test_unavailable_immutable_source_does_not_poison_batch_cache(monkeypatch, t
     from unittest.mock import Mock
     _document, artifact, markdown = _registered_source(tmp_path, monkeypatch)
     load = Mock(side_effect=[None, _durable_record(artifact, markdown)])
-    monkeypatch.setattr(reader.source_service, 'get_source_markdown', load)
+    monkeypatch.setattr(inputs.source_service, 'get_source_markdown', load)
     batch = reader.WorldbuildingSourceReadBatch()
-    assert batch.read(artifact, artifact.content_sha256) is None
+    with pytest.raises(WorldGraphRetrievalError, match="missing from the database"):
+        batch.read(artifact, artifact.content_sha256)
     assert batch.read(artifact, artifact.content_sha256)[0] == markdown
     assert load.call_count == 2
+
+
+@pytest.mark.parametrize("failure,status", [("missing", 409), ("unavailable", 503), ("corrupt", 409)])
+def test_source_failure_never_falls_back_to_valid_markdown(monkeypatch, tmp_path, failure, status):
+    from pathlib import Path
+    from application_state.errors import ApplicationStateUnavailableError
+
+    _document, artifact, markdown = _registered_source(tmp_path, monkeypatch)
+    if failure == "unavailable":
+        def load(**kwargs):
+            raise ApplicationStateUnavailableError("test-owned source store outage")
+    else:
+        record = None if failure == "missing" else _durable_record(artifact, markdown).model_copy(update={"markdown": "corrupt"})
+        def load(**kwargs):
+            return record
+    monkeypatch.setattr(inputs.source_service, "get_source_markdown", load)
+    original = Path.open
+    def deny_markdown(path, *args, **kwargs):
+        if path.suffix == ".md":
+            pytest.fail("an input failure must not fall back to Markdown")
+        return original(path, *args, **kwargs)
+    monkeypatch.setattr(Path, "open", deny_markdown)
+    with pytest.raises(WorldGraphRetrievalError) as error:
+        _open(tmp_path, artifact, _span_id(artifact, markdown))
+    assert error.value.status_code == status
+
+
+def test_source_metadata_outage_is_not_reported_as_missing(monkeypatch, tmp_path):
+    _document, artifact, markdown = _registered_source(tmp_path, monkeypatch)
+    def unavailable(*args, **kwargs):
+        raise inputs.SourceArtifactRegistryError("test-owned metadata outage", status_code=503)
+    monkeypatch.setattr(reader, "get_source_artifact", unavailable)
+    with pytest.raises(WorldGraphRetrievalError) as error:
+        _open(tmp_path, artifact, _span_id(artifact, markdown))
+    assert error.value.status_code == 503
+    assert error.value.code == "source_unavailable"

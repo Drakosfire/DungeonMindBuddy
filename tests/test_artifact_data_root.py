@@ -222,7 +222,7 @@ def test_frozen_component_digest_drift_fails(split_roots, monkeypatch, kind):
     code, data, _ = split_roots
     _, run, files, _ = _run(code, data, monkeypatch)
     files[kind].write_bytes(files[kind].read_bytes() + b" ")
-    with pytest.raises(PromotableIngestRunError, match="digest mismatch"):
+    with pytest.raises(PromotableIngestRunError, match="digest"):
         resolve_promotable_ingest_run(run.run_id, root=code)
 
 
@@ -285,8 +285,9 @@ def test_source_mirror_is_inert_and_database_scope_drift_fails(split_roots, monk
     source.unlink()
     source.symlink_to(outside)
     assert load_registered_source_artifact_text(code, artifact.source_artifact_id)[1] == outside.read_text()
-    with pytest.raises(PromotableIngestRunError, match="escapes"):
+    with pytest.raises(PromotableIngestRunError, match="unsafe or missing") as error:
         resolve_promotable_ingest_run(run.run_id, root=code)
+    assert any("escapes" in diagnostic for diagnostic in error.value.diagnostics)
     source.unlink()
     source.write_bytes(outside.read_bytes())
     # Test-only metadata corruption must fail at the actual DB input owner.

@@ -690,14 +690,19 @@ def load_registered_source_artifact_bytes(
     DungeonMind owns provenance admission. This reader supplies the product-owned
     body by its registered identity and digest; a file mirror grants no fallback.
     """
+    artifact = get_source_artifact(root, source_artifact_id)
+    return artifact, load_source_input_bytes(artifact)
+
+
+def load_source_input_bytes(artifact: GraphMemorySourceArtifact) -> bytes:
+    """Read exact APP input bytes for registered metadata, never admit provenance."""
     from application_state.errors import ApplicationStateError
     from application_state.source import service as source_service
 
-    artifact = get_source_artifact(root, source_artifact_id)
     expected = (artifact.content_sha256 or "").removeprefix("sha256:")
     try:
         source = source_service.get_source_markdown(
-            source_artifact_id=source_artifact_id, content_sha256=expected,
+            source_artifact_id=artifact.source_artifact_id, content_sha256=expected,
         )
     except ApplicationStateError as exc:
         raise SourceArtifactRegistryError(
@@ -725,4 +730,4 @@ def load_registered_source_artifact_bytes(
         raise SourceArtifactRegistryError(
             "database source body digest mismatch", status_code=409,
         )
-    return artifact, content
+    return content
