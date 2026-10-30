@@ -1,6 +1,8 @@
 # AGENT — report settled native reads to the controller
 
-ACTIVE bounded code-only lease. PRIME owns one serial repair under the standing goal. Base46316727a10666d2160e2d707a578349bf5b020b, branch codex/native-read-controller-feedback, reused buddy-context-loop/dependencies. Open ingestion1853/1855/1868, hosted1828 and held1764 remain separate. No new checkout/environment.
+SETTLED predecessor: reviewed f6f2d262e6c3c717ed0d1115cb4a33139a2d53e6, merged PR1921 at ba7a64c9f602258e9617b00f1987afc0fb1040e4 and delivered API-only on 5202. All retained APP/native rows and files verified unchanged. Independent ordinary Q01 PASS; Q13 essential facts/support3/3 but original strict2+1partial/reporting context0/1 remains open. One-sample Q01 5.711s, whole-document reads0; no reliability claim. Evidence: runtime-evidence/native-controller-feedback-1921 in established private state.
+
+Former bounded code-only lease: PRIME owns one serial repair under the standing goal. Base46316727a10666d2160e2d707a578349bf5b020b, branch codex/native-read-controller-feedback, reused buddy-context-loop/dependencies. Open ingestion1853/1855/1868, hosted1828 and held1764 remain separate. No new checkout/environment.
 
 ## Confirmed defect and limits
 ADVERSARY1919 actual-controller audit shows all selected native support disappears from offered candidates but never appears in examined_subjects. Four native statements remain present in writer input; this is missing controller acquisition feedback, not missing writer evidence. Q01 still reads12whole documents; all explicitly selected. Causation or efficiency benefit is unproven.

@@ -23,3 +23,12 @@
 }
 
 .app-nav-world-context > button { flex: 0 0 auto; font-size: .8rem; padding: .35rem .55rem; }
+
+.app-site-nav--compact .app-nav-tour { flex: 0 0 auto; margin-left: auto; padding: .4rem .65rem; color: #f2d28b; background: #25251f; border: 1px solid #776239; border-radius: 6px; white-space: nowrap; cursor: pointer; }
+.app-site-nav--compact .app-nav-tour:hover { background: #363026; }
+.app-site-nav--compact .app-nav-tour:focus-visible { outline: 2px solid #d9a840; outline-offset: 2px; }
+.app-site-nav--compact .app-nav-tour + .app-nav-world-context { margin-left: 0; }
+@media (max-width: 700px) {
+  .app-site-nav.app-site-nav--compact { flex-wrap: wrap; }
+  .app-site-nav--compact .app-nav-world-context { flex-basis: 100%; justify-content: flex-end; }
+}
