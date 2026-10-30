@@ -388,24 +388,10 @@ def admit(
     managed_root = config.managed_world_data_root(root).resolve()
     world = get_world_container(managed_root, context.managed_world_id)
     world_root = (managed_root / world.source_root_relpath).resolve()
-    if not path.is_file() or not (
-        path.is_relative_to(root) or path.is_relative_to(world_root)
-    ):
-        raise NativeRecapError("native_recap_source_path_invalid")
     if not path.is_relative_to(world_root):
-        from apps.live_control_server.services.recap_graph_preview_ingest import (
-            _lineage_for_normalized_recap,
-        )
-
-        original, sha = _lineage_for_normalized_recap(root, str(path))
-        origin = Path(original).resolve() if original else None
-        if (
-            origin is None
-            or not origin.is_relative_to(world_root)
-            or not origin.is_file()
-            or hashlib.sha256(_read_source_bytes(origin)).hexdigest() != sha
-        ):
-            raise NativeRecapError("native_recap_source_world_mismatch")
+        raise NativeRecapError("native_recap_source_world_mismatch")
+    if not path.is_file():
+        raise NativeRecapError("native_recap_source_path_invalid")
     raw = _read_source_bytes(path)
     text = (
         raw.decode("utf-8").replace("\r\n", "\n").replace("\r", "\n").rstrip("\n")
@@ -433,6 +419,15 @@ def admit(
         raise NativeRecapError("native_recap_binding_changed")
     if not text.strip():
         raise NativeRecapError("native_recap_empty_source")
+    from scripts.materialize_normalized_recaps import _parse_minimal_frontmatter
+
+    metadata, _ = _parse_minimal_frontmatter(text)
+    if (
+        metadata.get("campaign_id") != context.campaign_id
+        or type(metadata.get("session")) is not int
+        or metadata["session"] != session
+    ):
+        raise NativeRecapError("native_recap_source_grouping_mismatch")
     artifact = create_recap_source_artifact(
         root,
         world_id=context.native_world_id,

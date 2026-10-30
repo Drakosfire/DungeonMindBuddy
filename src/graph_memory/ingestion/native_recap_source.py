@@ -22,6 +22,13 @@ class Closed(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True)
 
 
+class SourceScope(Closed):
+    managed_world_id: str = Field(min_length=1)
+    native_world_id: str = Field(min_length=1)
+    binding_version: int = Field(ge=1)
+    campaign_id: str = Field(min_length=1)
+
+
 class Delivery(Closed):
     actor: str = Field(min_length=1)
     authority_basis: Literal["local_gm", "world_manage"]
@@ -72,6 +79,7 @@ class Record(Closed):
     native_world_id: str = Field(min_length=1)
     binding_version: int = Field(ge=1)
     campaign_id: str = Field(min_length=1)
+    grouping_basis: Literal["normalized_source_metadata"] = "normalized_source_metadata"
     session_id: str = Field(pattern=r"^session-[1-9][0-9]*$")
     app_source_artifact_id: str = Field(pattern=r"^artifact:recap:v2:.+")
     app_source_revision_id: UUID
@@ -196,6 +204,7 @@ class Status(Closed):
     native_world_id: str
     binding_version: int
     campaign_id: str
+    grouping_basis: Literal["normalized_source_metadata"] = "normalized_source_metadata"
     session_id: str
     app_source_artifact_id: str
     app_source_revision_id: UUID

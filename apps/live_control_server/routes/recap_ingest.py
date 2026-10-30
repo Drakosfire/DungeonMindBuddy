@@ -588,12 +588,21 @@ def _native_source_request(body, request):
             raise HTTPException(
                 status_code=422, detail={"code": "managed_world_context_required"}
             )
-        context = _request_recap_context(body)
-        if (
-            context.managed_world_id != body.managed_world_id
-            or context.campaign_id != body.campaign_id
-        ):
-            raise native.NativeRecapError("native_recap_context_mismatch")
+        from apps.live_control_server import config
+        from apps.live_control_server.services.managed_world_graph_projection import (
+            resolve_managed_source_identity,
+        )
+        from graph_memory.ingestion.native_recap_source import SourceScope
+
+        binding = resolve_managed_source_identity(
+            body.managed_world_id, root=config.managed_world_data_root(repo_root())
+        )
+        context = SourceScope(
+            managed_world_id=binding.managed_world_id,
+            native_world_id=binding.native_world_id,
+            binding_version=binding.binding_version,
+            campaign_id=body.campaign_id,
+        )
         corpus = _pipeline_corpus_root()
         status = inspect_recap_ingest_status(
             campaign_id=body.campaign_id,

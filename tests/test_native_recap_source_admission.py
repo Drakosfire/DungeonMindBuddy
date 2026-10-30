@@ -109,13 +109,18 @@ def lane(tmp_path, monkeypatch, application_state_dsn, native_core_dsn):
         semantic_profile=dungeonbuddy_dnd5e_custom_predicate_profile(),
     )
     path = tmp_path / world.source_root_relpath / "Session 8.md"
-    raw = b"# Session 8\r\n\r\nTorbin reported strange meat and an Arcana result.\r\n"
+    raw = b"---\r\ncampaign_id: campaign\r\nsession: 8\r\n---\r\n# Session 8\r\n\r\nTorbin reported strange meat and an Arcana result.\r\n"
     path.write_bytes(raw)
     context = SimpleNamespace(
         managed_world_id=world.world_id,
         native_world_id=native,
         binding_version=1,
         campaign_id="campaign",
+    )
+    real_selection = (
+        route.inspect_recap_ingest_status,
+        route._normalized_recap_is_graph_ready,
+        route._normalized_recap_graph_path,
     )
     monkeypatch.setattr(route, "repo_root", lambda: tmp_path)
     monkeypatch.setattr(route, "_request_recap_context", lambda _: context)
@@ -147,6 +152,7 @@ def lane(tmp_path, monkeypatch, application_state_dsn, native_core_dsn):
     }
     return SimpleNamespace(
         root=tmp_path,
+        real_selection=real_selection,
         world=world,
         repo=repo,
         path=path,
@@ -896,28 +902,11 @@ def test_generic_run_cannot_inject_or_drop_source_admission_intent(lane):
     assert ingest.get_extraction_run(ordinary.run_id) == ordinary
 
 
-@pytest.mark.parametrize("provenance_origin", [False, True])
-def test_oversized_selected_or_provenance_source_refuses_before_read(
-    lane, monkeypatch, provenance_origin
-):
+def test_oversized_selected_source_refuses_before_read(lane, monkeypatch):
     from dungeonmind.contracts.vnext.native_source import MAX_NATIVE_TEXT_BYTES
 
     large = lane.path
     large.write_bytes(b"x" * (MAX_NATIVE_TEXT_BYTES + 1))
-    if provenance_origin:
-        normalized = lane.root / "out/normalized.md"
-        normalized.parent.mkdir(exist_ok=True)
-        normalized.write_text("A bounded normalized source.\n")
-        monkeypatch.setattr(
-            route, "_normalized_recap_graph_path", lambda *_: str(normalized)
-        )
-        from apps.live_control_server.services import recap_graph_preview_ingest
-
-        monkeypatch.setattr(
-            recap_graph_preview_ingest,
-            "_lineage_for_normalized_recap",
-            lambda *_: (str(large), "a" * 64),
-        )
     monkeypatch.setattr(
         route, "inspect_recap_ingest_status", lambda **_: verified_status(lane.raw)
     )
@@ -932,6 +921,35 @@ def test_oversized_selected_or_provenance_source_refuses_before_read(
     assert response.status_code == 413
     assert response.json()["detail"]["code"] == "native_recap_source_too_large"
     assert ingest.list_extraction_runs() == []
+
+
+@pytest.mark.parametrize("kind", ["artifact", "foreign", "symlink"])
+def test_selected_source_requires_real_World_root_not_claimed_lineage(
+    lane, monkeypatch, kind
+):
+    outside = lane.root / "outside.md"
+    if kind == "foreign":
+        foreign = create_world_container(lane.root, name="Foreign source World")
+        outside = lane.root / foreign.source_root_relpath / "Session 8.md"
+    outside.write_bytes(lane.raw)
+    selected = outside
+    if kind == "symlink":
+        selected = lane.path.parent / "escape.md"
+        selected.symlink_to(outside)
+    from apps.live_control_server.services import recap_graph_preview_ingest
+
+    monkeypatch.setattr(
+        recap_graph_preview_ingest,
+        "_lineage_for_normalized_recap",
+        lambda *_: (str(lane.path), sha256(lane.raw).hexdigest()),
+    )
+    monkeypatch.setattr(route, "_normalized_recap_graph_path", lambda *_: str(selected))
+    before = lane.repo.get_head(lane.context.native_world_id)
+    response = post(lane)
+    assert response.status_code == 409
+    assert response.json()["detail"]["code"] == "native_recap_source_world_mismatch"
+    assert ingest.list_extraction_runs() == []
+    assert lane.repo.get_head(lane.context.native_world_id) == before
 
 
 def test_reader_fence_preserves_old_rows_blocks_old_writers_and_refuses_downgrade(
@@ -1094,3 +1112,83 @@ def test_explicit_recovery_uses_frozen_APP_source_after_live_file_removed(
     assert settled.app_source_revision_id == record.app_source_revision_id
     assert settled.command.sha256 == frozen and settled.receipt is not None
     assert settled.command.deliveries[0].failure_code is not None
+
+
+@pytest.mark.parametrize(
+    "changes", [{"session": 9}, {"campaign_id": "another-campaign"}]
+)
+def test_source_grouping_must_match_committed_frontmatter(lane, changes):
+    response = post(lane, **changes)
+    assert response.status_code == 409
+    assert response.json()["detail"]["code"] == "native_recap_source_grouping_mismatch"
+    assert ingest.list_extraction_runs() == []
+
+
+def test_ordinary_source_only_uses_real_normalization_without_legacy_broker(
+    lane, monkeypatch
+):
+    from src.live_play.recap_ingest_pipeline import _expected_normalized_content
+    from src.live_play.recap_stage_paths import RecapStagePaths
+
+    world_root = lane.root / lane.world.source_root_relpath
+    paths = RecapStagePaths.build(
+        campaign_id="longmont-c1", session=8, slug_tail="Fixture Discovery"
+    )
+    canonical = world_root / paths.canonical_recap_rel
+    canonical.parent.mkdir(parents=True)
+    canonical.write_text(
+        "---\ntitle: Session 8 - Fixture Discovery\ncampaign_id: longmont-c1\nsession: 8\n---\n# Recap\nA synthetic discovery was reported.\n"
+    )
+    normalized = world_root / paths.normalized_recap_rel
+    normalized.parent.mkdir()
+    normalized.write_text(
+        _expected_normalized_content(
+            corpus=world_root,
+            canonical_recap_rel=paths.canonical_recap_rel,
+            session=8,
+            title="Session 8 - Fixture Discovery",
+        )
+    )
+    for name, actual in zip(
+        (
+            "inspect_recap_ingest_status",
+            "_normalized_recap_is_graph_ready",
+            "_normalized_recap_graph_path",
+        ),
+        lane.real_selection,
+    ):
+        monkeypatch.setattr(route, name, actual)
+    monkeypatch.setenv("DUNGEONMIND_RECAP_INGEST_CORPUS_ROOT", str(world_root))
+    monkeypatch.delenv("DUNGEONMIND_PUBLICATION_BASE_URL", raising=False)
+    monkeypatch.delenv("DUNGEONMIND_PUBLICATION_BEARER_TOKEN", raising=False)
+    monkeypatch.setattr(
+        route,
+        "_request_recap_context",
+        lambda *_: pytest.fail("Source admission used classic broker"),
+    )
+    value = native(
+        post(lane, campaign_id="longmont-c1", title="Session 8 - Fixture Discovery")
+    )
+    assert (
+        value["state"] == "admitted"
+        and value["grouping_basis"] == "normalized_source_metadata"
+    )
+    assert value["opening"]["state"] == "verified"
+    assert value["raw_original_sha256"] == sha256(normalized.read_bytes()).hexdigest()
+
+    from fastapi import HTTPException
+
+    def required_classic_context(_):
+        raise HTTPException(
+            status_code=503, detail={"code": "classic_publication_context_required"}
+        )
+
+    monkeypatch.setattr(route, "_request_recap_context", required_classic_context)
+    legacy = post(
+        lane,
+        campaign_id="longmont-c1",
+        title="Session 8 - Fixture Discovery",
+        include_graph_extraction=True,
+    )
+    assert legacy.status_code == 503
+    assert legacy.json()["detail"]["code"] == "classic_publication_context_required"

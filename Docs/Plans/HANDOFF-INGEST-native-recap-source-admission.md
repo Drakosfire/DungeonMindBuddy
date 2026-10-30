@@ -1,33 +1,158 @@
-# INGEST — fresh recap native source admission
+# INGEST — native recap source admission
 
-ACTIVE serial PRIME-owned vertical capability. Basee0fc8907aaa32c9b413a00ca6d282a2ee626360b; branchcodex/native-recap-source-admission; reusebuddy-context-loop/dependencies. Re-anchored openPR1853/1855/1868 own historical identity/V7 reads,1828hosting,1764held; no shared write lease transferred. Exact paths below are exclusive to PRIME for this slice. No new checkout/env/source export. Models/providers/prompts/extraction/identity/fact publication and primary APP/native/corpus data are outside implementation/test lease.
+## Authority and lane
 
-## Approved contract and corrections
-ADVERSARY portable read-only contract v1 SHA742f99cbec8cdddbcffe8997b35308b1230590547b0a2cde86e63afd367d0f34, v2 SHA71e0f48b3a5e3a4256a2d0a5422008931610b79edad683ab6efeacd1a933647c, v3 SHA4c555e38680fb096125070b796313b77a8e823f41558775c55e5294d37196d41, v4 SHA4e1ca8951409372aadef1ce33c4544d99209111f146ea73e733dfdb4f5a60c88 under established private INTROOT/recap-admission-contract-preflight-v1. Independent architecture_review_1197 approved v4 and the final seam correction before activation. PRIME owns runtime; independent ADVERSARY retains harness/fixtures/gold/original failures.
+ACTIVE, serial, PRIME-owned source-admission capability. Base:
+`e0fc8907aaa32c9b413a00ca6d282a2ee626360b`; branch:
+`codex/native-recap-source-admission`; reuse the existing Buddy context-loop
+checkout and pinned dependencies. Open1853/1855/1868 own historical identity/V7
+reads;1828 owns hosting;1764 remains held. No overlapping lease is transferred.
+No new checkout, container, environment or source export. Models, prompts,
+extraction, identity repair and fact publication are outside this slice.
 
-Existing POST/api/live/recap-ingest operationbuild_graph_preview_bundle with extract_graph=false,candidate_graph_path=null,force_graph_run=false,materialize_after_extract=false,include_graph_extraction=false,session_evidence=[],raw_text=null,graph_model_id=null is source-only. Verify capability authority BEFORE source files/APP/native IO. Local declared deployment retains existing nonblank GM check; hosted declared deployment requires the middleware-resolved authenticated subject and authoritative World MANAGE permission, retaining origin and World middleware checks. Record subject and local_gm/world_manage basis in immutable intent and each delivery; no hosted denial may fall back to local credentials. Independent architecture review approved this route-specific amendment; no global native auth change. Resolve current normalized committed Markdown for explicit managed World/campaign/session, preserve selected original bytes, record raw-input SHA separately from canonical UTF8/universal-newline/terminal-LF SHA. Validate containment and exact World binding. Pass the status inspection's matching current expected/output raw digest to admission and compare the actual bounded read before persistence; a changed file fails closed, never silently adopts unverified new bytes. Selected raw input and provenance-origin reads use Core's existing MAX_NATIVE_TEXT_BYTES budget before reading, plus a bounded read guarding file growth; canonical body must satisfy that same Core budget. No NULL-World inference/migration.
+PRIME owns runtime and delivery; ADVERSARY owns independent fixtures, gold,
+assessment and original failures. Starting portable contracts under the private
+recap-admission-contract-preflight-v1 root remain retained:
 
-Seam correction: bypass classic build_recap_graph_preview_bundle/extraction/span bundle on this exact source-only branch. Reuse existing World-scoped recap registration and immutable APP source persistence. Deterministic source-admission-only DRAFT ingest.run, profilefresh_recap_native_source_v1, no fabricated extraction components/classic head/REVIEWABLE/source_span_bundle_ready. Persist exact source intent before native effects; freeze current native parent/descriptors/command hash before dispatch. Return truthful nested strict dmb_native_recap_source_status_v1: APP snapshot preparation, native commitment and actual verified opening are separate. No second random preview run, model or classic fallback. Native receipt full canonical-body span admits source only, not model exposure or narrative facts.
+- v1:742f99cbec8cdddbcffe8997b35308b1230590547b0a2cde86e63afd367d0f34
+- v2:71e0f48b3a5e3a4256a2d0a5422008931610b79edad683ab6efeacd1a933647c
+- v3:4c555e38680fb096125070b796313b77a8e823f41558775c55e5294d37196d41
+- v4:4e1ca8951409372aadef1ce33c4544d99209111f146ea73e733dfdb4f5a60c88
 
-Strict source/origin/run correspondence uses immutable APP artifact+revision/body/scope, not run nonce/time; retain old rows/files. Native dungeonbuddy.source:session_recap, primary, GM-private. Reconstruct body only from exact immutable APP version and compare full frozen Core request hash. Original receipt/child survive current-access/opening/APP settlement failure. Source-admission state remains on existing ingest.run; no new ledger/table/schema. Ordinary updates cannot drop/tamper with the private frozen block or treat the source-only run as model extraction.
+Independent architecture review approved the source-only seam and the explicit
+corrections below. This current contract supersedes earlier assumptions about
+outside-root provenance and the legacy publication broker. The independent0750
+ordinary503 and all prior failures remain evidence; they are not rewritten.
+
+## Initial admission
+
+Use ordinary POST `/api/live/recap-ingest`, operation
+`build_graph_preview_bundle`, with exact source-only flags: extract_graph=false,
+candidate_graph_path=null, force_graph_run=false, materialize_after_extract=false,
+include_graph_extraction=false, session_evidence=[], raw_text=null,
+graph_model_id=null, force_stage=false, force_recap=false.
+
+Authorize before source/APP/native access. Declared local deployment retains the
+existing nonblank GM check. Hosted deployment uses the real middleware principal,
+origin/World checks and authoritative World owner/MANAGE permission. Record the
+subject and local_gm/world_manage basis. No hosted denial falls back to local
+credentials. One narrow code-owned route resolver mapping is shared by hosted
+middleware and startup/readiness validation; other recap operations stay denied
+through that hosted mapping. No global native-auth change.
+
+Resolve managed/native identity and binding version with
+`resolve_managed_source_identity`; use a small typed source scope. Campaign and
+session are source-grouping metadata, verified against actual committed
+normalized frontmatter. They are not verified membership, Graph context,
+permission or fact-publication authority. Later fact publication must obtain its
+own lawful campaign authority. Existing classic Graph/extraction operations
+retain `_request_recap_context` and their broker enforcement unchanged. Native
+source admission has no legacy publication endpoint/token/head dependency.
+
+Use the current committed normalized-source inspection. Require a current stage
+with matching valid expected/output digests; pin that digest through the actual
+read before persistence. Resolved paths must lie inside the authoritative managed
+World source_root, including symlink-escape refusal. The old normalized-path
+helper returns its own path/digest and is not original-source provenance; no
+outside-root fallback is allowed. Artifact/output storage may be separate.
+
+Check selected-input size against Core's existing MAX_NATIVE_TEXT_BYTES before
+opening and use a limit+1 bounded read to defend growth. Preserve input bytes,
+raw SHA and separate canonical UTF8/universal-newline/terminal-LF SHA; canonical
+body must satisfy the same Core budget. Never infer or rewrite NULL-World rows.
+
+Bypass classic preview/extraction/span-bundle generation on this exact branch.
+Reuse World-scoped recap artifact registration and immutable APP source storage.
+Create a deterministic source-only DRAFT ingest.run using
+fresh_recap_native_source_v1: no fabricated components, classic head, REVIEWABLE
+status or source_span_bundle_ready claim. Persist intent before native effects;
+freeze exact Core parent/descriptors/request hash before dispatch. Core must
+already own a native head; do not create a new genesis authority.
+
+Admit only dungeonbuddy.source:session_recap, primary, GM-private, with one full
+canonical-body context span. A receipt proves source admission, not model
+exposure, extraction, played facts or full ingestion. Core owns head/effect/
+idempotency; existing APP ingest.run and CAS own intent/recovery. No new ledger
+or table. Preserve actual receipt/child before opening or APP settlement can fail.
 
 ## Recovery and visibility
-Production POST same route operationinspect_status with exact UUID native_recap_run_id+managed_world_id/campaign/session, GM first, branch before scans. Strict read-only: no CAS/lock-file creation/provider/native publish/files writes. Return same strict native status and server-generated exact status_request POST body, never latest. Do not mount graph_preview developer/eval router. Pure generic public-run serializer omits ONLY lineage.native_recap_source on copies through every raw run/result.run/build-context/catalog runs[] envelope; internal records remain complete. Other projected responses/errors must not reflect private sentinel/command data.
 
-Explicit source-only mutation resume block native_recap_resume={run_id,expected_run_revision,command_sha256}; command hash null only while no command has yet been frozen. Exact immutable source/scope/current verified GM, winning existing-run CAS; ordinary duplicate imports return status only. Explicit recovery loads the referenced frozen APP run/source directly before corpus/context scanning; edited or deleted live files cannot block or retarget its existing command. New admissions still require current committed normalized verification. Borrow PublicationProgressStore.exclusive MUTEX ONLY, stable server-derived admission-origin key, canonical shared artifact root/out/native_recap_source_locks; hold across reconciliation/CAS/Core I/O/settlement. Never unlink/replace lockfiles or read/write progress JSON. Busy means no dispatch. Single-host shared-root execution contract only; unsupported topology refuses execution/resume; no timestamp/PID inference. Inspection never probes the mutating mutex.
+Production-mounted status uses the same POST route, operation inspect_status,
+exact native_recap_run_id and selected World/campaign/session. Authorize first,
+then load exact scope before corpus scanning. No CAS, lock creation, provider,
+publication or file write. Return strict dmb_native_recap_source_status_v1 and a
+server-generated exact status_request; do not mount the developer/eval router.
+Generic raw run/result.run/build-context/catalog serializers omit only the private
+lineage.native_recap_source block on copies; storage stays complete. Errors and
+other projections must not leak private commands or validation inputs.
 
-Entered/unknown after hard crash may reconcile/redeliver SAME frozen command only under explicit resume+mutex+CAS+Core idempotency. Absence of receipt never permits reparenting. New parent ONLY typed definitive pre-write stale outcome, explicit resume and retained prior command/outcome; one attempt per POST, no retry loop/cap. Acquiring local mutex is not proof of no in-flight remote effect. Existing APP/CAS owns intent; Core owns effect receipt/idempotency. Retain initial failures and all prior deliveries.
+Explicit source-only resume is {run_id,expected_run_revision,command_sha256}; hash
+is null only before a command exists. Load the frozen APP run/source directly,
+revalidate selected scope and current caller, and re-read under the origin mutex.
+Changed/deleted live files cannot block or retarget recovery. Ordinary duplicate
+imports are status-only. New admissions still require current committed source
+verification.
 
-## Hosted reachability amendment
-Independent architecture_review_1197 approved narrow registration after real production tests exposed the empty default route mapping. PRIME activates main.py wiring only: one code-owned recap source/status resolver mapping is reused by middleware and startup/readiness validation. The resolver parses strict source-only or exact status forms and resolves the authoritative World registry record before source/APP/native access. Existing origin/principal/World middleware remains; route MANAGE and frozen resource scope checks remain mandatory. Other recap operations stay denied in hosted mode. No general hosted-route activation.
+Borrow PublicationProgressStore.exclusive as a mutex only, keyed by immutable
+admission origin under the canonical shared artifact root's
+out/native_recap_source_locks. Hold across reconciliation, CAS, Core I/O and APP
+settlement; never unlink/replace lock files or read/write progress JSON. Busy
+means no dispatch. Execution requires single-host/shared-root topology; inspection
+never probes that mutating mutex. No elapsed-time/PID inference.
 
-## Durable reader/writer fence amendment
-Independent architecture_review_1197 confirmed that an older0095 generic writer could replace the new private intent despite Core retaining its effect. PRIME activates no-row-rewrite APP revision20261030_0096 after the re-fetched0095 head. It changes only the installed reader/writer version fence; new guards remain. Downgrade refuses (recover forward). Protected delivery drains old writers, backs up/fingerprints, explicitly upgrades, starts compatible code and verifies retained state. No new table or row transformation. Tests cover prior row conservation, old-head get/update/supersede refusal before mutation, retained new work and refused downgrade.
+Entered/unknown recovery may reconcile or redeliver only the same frozen request
+under explicit resume, mutex, winning CAS and Core idempotency. Receipt absence
+never permits reparenting. Only Core's typed definitive prewrite-stale outcome
+permits an explicit new-parent command, preserving the prior command/outcome.
+One attempt per POST; no implicit retry loop or arbitrary attempt cap. Retain all
+initial failures and delivery history. A local mutex does not prove absence of a
+remote effect.
+
+## Reader fence and delivery
+
+New APP0096 follows0095 without rewriting rows. Exact-head checks fence older
+generic writers that could replace the new private intent; new same-lifecycle
+CAS/update/supersession guards remain. Downgrade refuses: recover forward.
+Protected delivery drains owned writers, verifies backup/fingerprints, explicitly
+advances APP and starts compatible code, then proves retained state and health.
+Preserve the pre-existing local standing-router omission under the independently
+approved exact two-line composition; this slice does not deliver standing.
 
 ## Exclusive expected writes
-This handoff; anchored-coachmark predecessor settlement; new src/graph_memory/ingestion/native_recap_source.py (strict owning intent/status contracts); src/application_state/ingest/service.py (narrow frozen-block source-only CAS/protection); src/application_state/migrations/versions/20261030_0096_native_recap_source_intent.py (no-row-rewrite reader fence); new apps/live_control_server/integrations/dungeonmind/native_recap_source_admission.py (Core composition); new apps/live_control_server/services/native_recap_source_admission.py (ordinary source intent/executor/status/pure public projection); routes/recap_ingest.py (exact source-only and read-only status request/result, hosted World resolver); main.py (same narrow resolver mapping at middleware/startup/readiness only); routes/graph_preview.py (public omission only); services/ingest_run_catalog.py (same omission); services/graph_run_registry.py and source_artifact_registry.py only if owning source-persistence seam requires it. Owning provider-free tests tests/test_native_recap_source_admission.py, tests/application_state/test_native_recap_source_admission.py; existing route/catalog/registry tests if required. No Core edits, broad router mount, generic locking framework or production extraction runner changes.
 
-## Gates and external resources
-Real disposable APP/Core repositories through authenticated ordinary HTTP: exact source version/native opening; auth/scope before effects; raw/canonical normalization; idempotent same source, changed source/new origin, NULL refusal; all raw generic serializers redacted without storage damage; production-mode status route without eval router; malformed/error non-disclosure. Separate-process mutex contention/hard-kill/slow in-flight Core, exact unknown replay, APP/native partial commits, prewrite-stale explicit reparent and active CAS loser; inspection zero writes/files/providers. Use existing test PostgreSQL and temporary pytest-owned directories, no primary APP/native/corpus mutation. Locked Coreb73c115/GEe9366ef/WKef9c50f dependencies.
+- This handoff and anchored-coachmark predecessor settlement.
+- src/graph_memory/ingestion/native_recap_source.py.
+- src/application_state/ingest/service.py and migration
+  versions/20261030_0096_native_recap_source_intent.py.
+- apps/live_control_server/integrations/dungeonmind/native_recap_source_admission.py.
+- apps/live_control_server/services/native_recap_source_admission.py.
+- routes/recap_ingest.py; main.py only the narrow hosted resolver wiring.
+- routes/graph_preview.py and services/ingest_run_catalog.py: public omission only.
+- services/graph_run_registry.py and source_artifact_registry.py only if the owning
+  persistence seam requires it; neither currently needs an edit.
+- Owning source-admission tests and affected recap/catalog/APP tests.
 
-Inspect cumulative diff, independent exact-head Bugbot/architecture as needed, CI, commit/push/open one owning PR. Separate explicit evaluator resource/write lease after review; preserve original failure/0of15 full-ingestion credit until actual chain proved. Protected local delivery under standing PRIME authority only after gates. Tour memory composer anchor follow-up and overall J1–J6/operator acceptance remain open.
+Paths without a root above are under apps/live_control_server. No Core edits,
+broad router activation, generic locking framework or production extraction
+runner changes. Re-anchor and amend before expanding this lease.
+
+## Gates
+
+Real disposable APP/Core authority through authenticated ordinary HTTP: exact
+version/opening, real normalization without a broker, scope/frontmatter/root/
+symlink refusal, raw/canonical hashing, same-source idempotency, changed-source
+origins and NULL refusal. Verify all generic projections omit private lineage
+without altering storage, production status routing and error non-disclosure.
+
+Cover separate-process contention/hard-kill and committed in-flight Core effects,
+unknown replay, live-file removal, partial APP/native commits, explicit stale-parent
+recovery and CAS losers. Prove read-only status has zero writes. Verify old rows
+survive0096; older installed heads refuse get/update/supersede before mutation;
+retained new work survives and downgrade refuses. Use existing fixture services
+and pinned Coreb73c115/GEe9366ef/WKef9c50f; no primary-state test mutations.
+
+Inspect cumulative diff; obtain independent exact-head review and CI; commit,
+push and update the one owning PR. Evaluator effects require a separate exact
+resource lease after review. Preserve frozen originals and full-ingestion0/15
+until the complete independent chain is proved. Protected delivery follows gates.
+Tour memory-anchor follow-up, remaining journeys and operator acceptance stay open.
