@@ -120,16 +120,20 @@ class ProposalBatch(Closed):
             raise ValueError("Producer identities must be local mentions")
         if any(not m.label.strip() for m in self.mentions):
             raise ValueError("Blank mention label")
+        unknown_mentions = {}
         for proposal in self.proposals:
-            if set(
+            missing = set(
                 proposal.referent_mentions
                 + (
                     [proposal.reporter_mention]
                     if proposal.reporter_mention is not None
                     else []
                 )
-            ) - set(ids):
-                raise ValueError("Unknown local mention")
+            ) - set(ids)
+            if missing:
+                unknown_mentions[proposal.proposal_id] = sorted(missing)
+        if unknown_mentions:
+            raise ValueError("Unknown local mention: " + canonical(unknown_mentions))
         return self
 
 
@@ -198,7 +202,11 @@ reviewable propositions, each with its own actors, attribution and qualification
 Use multiple proposals for distinct assertions in a unit; do not replace them with
 one broad paragraph summary or complete an unfinished source fragment.
 Qualifications are key/value pairs; preserve each distinct key once without blanks.
-Use source-local mention IDs. Mention labels describe interpretations, not resolved identity.
+Use source-local mention IDs. Declare every referent and reporter in mentions exactly once.
+Every referent_mentions entry and every non-null reporter_mention must match a declared
+mention_id, including items and unnamed actors. Check this closure across the entire
+batch before returning; do not leave a referenced mention undeclared.
+Mention labels describe interpretations, not resolved identity.
 Authorized World names are context for human identity review, never proof of identity.
 Preserve distinct actors and episodes, narrator/reported/uncertain mode, reporter,
 uncertainty, qualifications and unresolved interpretation/identity.

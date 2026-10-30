@@ -4,6 +4,7 @@ from hashlib import sha256
 
 from dungeonmind.application.vnext import EntityReadService, open_admitted_native_text
 from fastapi.encoders import jsonable_encoder
+from pydantic import ValidationError
 
 from application_state.errors import (
     ApplicationStateConflictError,
@@ -262,6 +263,7 @@ async def produce(request, principal, *, transport=None):
     messages = [{"role": "user", "content": canonical(packet)}]
     prepared_request = None
     raw_output = None
+    validation_failure = None
 
     async def authorize(prepared):
         nonlocal record, prepared_request
@@ -382,11 +384,23 @@ async def produce(request, principal, *, transport=None):
             )
         if source(request, principal)[2] != packet:
             raise ValueError("Source authority changed during proposal generation")
+        try:
+            parsed = parse(raw_output, packet["source_catalog"])
+        except ValueError as exc:
+            # Persist only validation diagnostics, never Pydantic's embedded input
+            # or an arbitrary exception from source acquisition/persistence.
+            details = (
+                exc.errors(include_input=False, include_context=False, include_url=False)
+                if isinstance(exc, ValidationError)
+                else [{"type": "value_error", "loc": [], "msg": str(exc)}]
+            )
+            validation_failure = "proposal_output_invalid: " + canonical(details)
+            raise
         record = store.change(
             record,
             state="completed",
             raw_output=raw_output,
-            result=parse(raw_output, packet["source_catalog"]),
+            result=parsed,
         )
         return _view(record, extent)
     except Exception:
@@ -402,9 +416,12 @@ async def produce(request, principal, *, transport=None):
                 record,
                 state="failed",
                 raw_output=raw_output,
-                failure="proposal_generation_failed_after_entry"
-                if prepared_request
-                else "proposal_generation_not_dispatched",
+                failure=validation_failure
+                or (
+                    "proposal_generation_failed_after_entry"
+                    if prepared_request
+                    else "proposal_generation_not_dispatched"
+                ),
             )
         return _view(record, extent)
     finally:
