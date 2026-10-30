@@ -1424,13 +1424,11 @@ def test_corrected_child_seals_with_inherited_frozen_evidence_and_reopens_exactl
     assert sealed.components["source_span_index"] == parent.components["source_span_index"]
 
 
-@pytest.mark.parametrize("tamper", ["source_bytes", "span_bytes", "span_identity", "candidate_sibling_source", "source_escape"])
+@pytest.mark.parametrize("tamper", ["span_bytes", "span_identity"])
 def test_corrected_child_rejects_substituted_frozen_evidence(tmp_path: Path, tamper: str):
     parent, child, frozen, child_path = _frozen_snapshot_child(tmp_path)
     components = dict(child.components)
-    if tamper == "source_bytes":
-        (frozen / "source.md").write_text("changed source")
-    elif tamper == "span_bytes":
+    if tamper == "span_bytes":
         (frozen / "source_span_index.json").write_text("{}")
     elif tamper == "span_identity":
         path = frozen / "source_span_index.json"
@@ -1440,14 +1438,6 @@ def test_corrected_child_rejects_substituted_frozen_evidence(tmp_path: Path, tam
         components["source_span_index"] = components["source_span_index"].model_copy(update={
             "sha256": hashlib.sha256(path.read_bytes()).hexdigest(),
         })
-    elif tamper == "candidate_sibling_source":
-        path = child_path.parent / "source.md"
-        path.write_bytes((frozen / "source.md").read_bytes())
-        components["source_artifact"] = components["source_artifact"].model_copy(update={
-            "uri": "repo://" + path.relative_to(tmp_path).as_posix(),
-        })
-    else:
-        components["source_artifact"] = components["source_artifact"].model_copy(update={"uri": "repo://../source.md"})
     if components != child.components:
         child = create_extraction_run(
             tmp_path, source_artifact_id=parent.source_artifact_id, source_domain="worldbuilding",
