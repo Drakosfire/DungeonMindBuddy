@@ -762,16 +762,15 @@ def test_decision_service_uses_canonical_basis_and_appstate_cas(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     from application_state.ingest import service as ingest_service
-    from apps.live_control_server.services import source_artifact_registry
 
     parent, child = _runs()
     held = _assessment(parent, child)
     child.lineage["semantic_disposition"] = {
         "version": 1, "state": "held", "basis_sha256": held.basis_sha256,
     }
-    monkeypatch.setattr(graph_run_registry, "get_reviewable_extraction_run", lambda _root, _id: child)
+    monkeypatch.setattr(graph_run_registry, "load_reviewable_extraction_data", lambda *_args: SimpleNamespace(
+        run=child, source_artifact=SimpleNamespace(content_sha256="a" * 64)))
     monkeypatch.setattr(graph_run_registry, "get_extraction_run", lambda _root, _id: parent)
-    monkeypatch.setattr(source_artifact_registry, "get_source_artifact", lambda _root, _id: SimpleNamespace(content_sha256="a" * 64))
     calls = []
 
     def record(run_id, *, expected_revision, basis, decision):
