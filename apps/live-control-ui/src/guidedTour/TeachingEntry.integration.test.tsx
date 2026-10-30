@@ -1,4 +1,4 @@
-import {fireEvent,render,screen,waitFor} from '@testing-library/react';
+import {act,fireEvent,render,screen,waitFor} from '@testing-library/react';
 import {afterEach,beforeEach,expect,it,vi} from 'vitest';
 import {CompactAppNavigation} from '../chrome/CompactAppNavigation';
 import {GuidedTourProvider,useTourOwnerReading} from './GuidedTour';
@@ -10,8 +10,8 @@ vi.mock('../chrome/AppChromeWorldGraphStatus',()=>({AppChromeWorldGraphStatus:()
 const clicked=vi.fn();
 const pin={kind:'source' as const,worldId:'world',objectId:'source',revision:1,digest:'a'.repeat(64)};
 function Controls({kind='ready'}:{kind?:string}){
- useTourOwnerReading({step:'source',target:pin,control:'source',status:'ready'});
- return <>{kind!=='missing'&&<button data-guided-control="source" disabled={kind==='disabled'} hidden={kind==='hidden'} onClick={clicked}>Ordinary source</button>}{kind==='duplicate'&&<button data-guided-control="source">Other source</button>}</>;
+ useTourOwnerReading({step:'source',target:pin,control:'source',status:kind==='waiting'?'pending':'ready'});
+ return <>{kind!=='missing'&&kind!=='waiting'&&<button data-guided-control="source" disabled={kind==='disabled'} hidden={kind==='hidden'} onClick={clicked}>Ordinary source</button>}{kind==='duplicate'&&<button data-guided-control="source">Other source</button>}</>;
 }
 function Workspace({kind='ready',worldId='world'}:{kind?:string;worldId?:string}){return <GuidedTourProvider worldId={worldId}><CompactAppNavigation activeRoute="build"/><Controls kind={kind}/></GuidedTourProvider>;}
 function seed(phase:'running'|'paused'|'exited'='running'){
@@ -68,7 +68,7 @@ it('drops old teaching focus on a World change',()=>{
  expect(document.querySelector('[data-guided-highlight]')).toBeNull();expect(clicked).not.toHaveBeenCalled();
 });
 it('waits for normal owner mount, but Close cancels that pending teaching',()=>{
- seed();const view=render(<Workspace kind="missing"/>);fireEvent.click(screen.getByRole('button',{name:'Resume tour'}));
+ seed();const view=render(<Workspace kind="waiting"/>);fireEvent.click(screen.getByRole('button',{name:'Resume tour'}));
  fireEvent.click(screen.getByRole('button',{name:'Close tour panel'}));view.rerender(<Workspace/>);
  expect(document.querySelector('[data-guided-highlight]')).toBeNull();expect(screen.queryByRole('complementary',{name:'Guided journey'})).not.toBeInTheDocument();
 });
@@ -81,4 +81,19 @@ it('reopens the same paused record after reload without repeating actions',()=>{
  seed('paused');const first=render(<Workspace/>);fireEvent.click(screen.getByRole('button',{name:'Resume tour'}));first.unmount();
  render(<Workspace/>);fireEvent.click(screen.getByRole('button',{name:'Resume tour'}));
  expect(screen.getByText('Guidance paused')).toBeVisible();expect(readWalkthrough(localStorage,'world')?.record.id).toBe('walk');expect(clicked).not.toHaveBeenCalled();
+});
+
+it('cancels pending teaching when another tab clears all retained guidance',()=>{
+ seed();const view=render(<Workspace kind="waiting"/>);fireEvent.click(screen.getByRole('button',{name:'Resume tour'}));
+ act(()=>{localStorage.clear();window.dispatchEvent(new StorageEvent('storage',{key:null}));});
+ view.rerender(<Workspace/>);
+ expect(screen.getByRole('button',{name:'Start tour'})).toBeVisible();
+ expect(document.querySelector('[data-guided-highlight]')).toBeNull();
+ expect(screen.queryByRole('heading',{name:'Open the source'})).not.toBeInTheDocument();expect(clicked).not.toHaveBeenCalled();
+});
+it('removes an active hint when another tab clears all retained guidance',()=>{
+ seed();render(<Workspace/>);fireEvent.click(screen.getByRole('button',{name:'Resume tour'}));
+ expect(document.querySelector('[data-guided-highlight]')).not.toBeNull();
+ act(()=>{localStorage.clear();window.dispatchEvent(new StorageEvent('storage',{key:null}));});
+ expect(document.querySelector('[data-guided-highlight]')).toBeNull();expect(clicked).not.toHaveBeenCalled();
 });

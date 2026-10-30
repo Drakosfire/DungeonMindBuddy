@@ -56,7 +56,7 @@ export function GuidedTourProvider({worldId,worldName,children,history=null}:{wo
   try{const value=readWalkthrough(localStorage,worldId);current.current=value;setStored(value);setReadWorld(worldId);setError(null);}
   catch(cause){current.current=null;setStored(null);setReadWorld(null);setError(cause instanceof Error?cause.message:'The walkthrough could not be read.');}
  },[worldId]);
- useEffect(()=>{reload();const changed=(e:StorageEvent)=>{if(worldId&&(e.key===pointerKey(worldId)||e.key?.startsWith(`dmb:guided-journey:v1:${encodeURIComponent(worldId)}:`))){externalEpoch.current++;reload();}};window.addEventListener('storage',changed);return()=>window.removeEventListener('storage',changed);},[reload,worldId]);
+ useEffect(()=>{reload();const changed=(e:StorageEvent)=>{if(worldId&&(e.key===null||e.key===pointerKey(worldId)||e.key?.startsWith(`dmb:guided-journey:v1:${encodeURIComponent(worldId)}:`))){externalEpoch.current++;reload();}};window.addEventListener('storage',changed);return()=>window.removeEventListener('storage',changed);},[reload,worldId]);
  const change=useCallback((action:TourAction|{kind:'start';adventure:Adventure},expectedId:string|null=current.current?.record.id??null,expectedEpoch=externalEpoch.current)=>{
   if(!worldId||!mounted.current)return;
   const epoch=expectedEpoch;
