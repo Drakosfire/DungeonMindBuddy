@@ -279,19 +279,19 @@ def test_project_candidate_graph_for_promote_party_anchors_do_not_block_typed_lo
     assert report.issues == ()
 
 
-def test_party_registry_category_pipeline_persists_promotable_for_resolve(
-    tmp_path, monkeypatch
+def test_category_output_file_cannot_authorize_promotion(
+    tmp_path, monkeypatch, application_state_dsn
 ) -> None:
-    """Owning path: real party registry → category runner → persisted run → resolve."""
+    """Typed category output and a file manifest do not grant promotion authority."""
     import hashlib
     import json
-    from pathlib import Path
+    import pytest
 
     from apps.live_control_server.services.graph_ingest_run_registry import (
         GRAPH_INGEST_RUNS_ENV,
     )
     from apps.live_control_server.services.promotable_ingest_run import (
-        resolve_promotable_ingest_run,
+        PromotableIngestRunError, resolve_promotable_ingest_run,
     )
     from graph_memory.candidate_graph_preview import validate_candidate_graph_preview
     from src.graph_memory.candidate_graph_to_contribution import load_typed_candidate_graph
@@ -372,12 +372,10 @@ def test_party_registry_category_pipeline_persists_promotable_for_resolve(
     )
     candidate_path.write_text(json.dumps(graph, indent=2) + "\n", encoding="utf-8")
 
-    resolved = resolve_promotable_ingest_run(run_id, root=repo)
-    assert resolved.run_id == run_id
-    asserted = json.loads(
-        Path(resolved.candidate_graph_path).read_text(encoding="utf-8")
-    )
-    load_typed_candidate_graph(asserted)
+    with pytest.raises(PromotableIngestRunError) as exc:
+        resolve_promotable_ingest_run(run_id, root=repo)
+    assert exc.value.code == "run_not_found"
+    assert exc.value.status_code == 404
 
 
 def test_assemble_envelope_edges_are_typed_loadable() -> None:

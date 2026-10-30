@@ -221,8 +221,6 @@ def discover_graph_ingest_runs(
             summary = _summarize_manifest(
                 repo,
                 manifest_path,
-                registry_root=search_root,
-                include_eval_roots=include_eval_roots,
             )
             if summary is None:
                 continue
@@ -444,9 +442,6 @@ def _manifest_health_rel_path(repo: Path, manifest_path: Path) -> str:
 def _summarize_manifest(
     repo: Path,
     manifest_path: Path,
-    *,
-    registry_root: Path,
-    include_eval_roots: bool = False,
 ) -> GraphIngestRunSummary | None:
     try:
         safe_manifest_path = _resolve_repo_contained_path(manifest_path, repo)
@@ -462,18 +457,6 @@ def _summarize_manifest(
     metadata = _extract_graph_run_metadata(
         manifest, payload, safe_manifest_path, repo, preview_path
     )
-    # Lazy import avoids circular dependency with promotable_ingest_run.
-    from apps.live_control_server.services.promotable_ingest_run import (
-        assess_manifest_promotability,
-    )
-
-    promotable, promotable_reason = assess_manifest_promotability(
-        repo=repo,
-        manifest_path=safe_manifest_path,
-        payload=payload,
-        registry_root=registry_root.resolve(),
-        include_eval_roots=include_eval_roots,
-    )
     return GraphIngestRunSummary(
         manifest_path=_repo_relative(safe_manifest_path, repo),
         run_dir=_repo_relative(safe_manifest_path.parent, repo),
@@ -488,8 +471,8 @@ def _summarize_manifest(
         edge_count=manifest.health.edge_count,
         evidence_ref_count=manifest.health.evidence_ref_count,
         next_actions=list(manifest.next_actions),
-        promotable=promotable,
-        promotable_reason=promotable_reason,
+        promotable=False,
+        promotable_reason="Historical file manifests are inspection-only; promotion requires an exact database ExtractionRun.",
         **metadata,
     )
 
