@@ -9,8 +9,9 @@ from __future__ import annotations
 from copy import deepcopy
 import hashlib
 import json
-from pathlib import Path
 
+from application_state.errors import ApplicationStateError
+from application_state.ingest.components import get_component_bytes
 from application_state.source import service as source_service
 from apps.live_control_server.config import artifact_data_root, repo_root
 from apps.live_control_server.integrations.dungeonmind.vnext_review_context import (
@@ -22,7 +23,6 @@ from apps.live_control_server.models.ingest_selection_context import (
 )
 from apps.live_control_server.services.extract_promote import ExtractPromoteError
 from apps.live_control_server.services.graph_run_registry import (
-    _assert_component_bytes,
     get_extraction_run,
 )
 from apps.live_control_server.services.managed_world_graph_projection import (
@@ -76,15 +76,18 @@ def _records(rows: object, key: str) -> dict[str, dict]:
     return records
 
 
-def _load_component(root: Path, run, kind: str, expected: str) -> tuple[bytes, str]:
+def _load_component(run, kind: str, expected: str) -> tuple[bytes, str]:
     component = run.components.get(kind)
     if component is None or normalize_content_digest(component.sha256) != expected:
         _reject("selected component precondition changed", conflict=True)
-    path = _assert_component_bytes(root, component)
-    data = path.read_bytes()
-    # Recheck the bytes actually consumed, including a file swap after resolution.
-    if _hash(data) != expected:
-        _reject("selected component bytes changed", conflict=True)
+    try:
+        data = get_component_bytes(run_id=run.run_id, kind=component.kind, content_sha256=expected)
+    except ApplicationStateError as exc:
+        raise ExtractPromoteError(
+            f"selected stored output is unavailable: {exc}",
+            code="ingest_selection_conflict" if exc.status_code < 500 else "ingest_selection_unavailable",
+            status_code=409 if exc.status_code < 500 else exc.status_code,
+        ) from exc
     return data, expected
 
 
@@ -172,10 +175,10 @@ def resolve_ingest_selection_context(
         _reject("saved source identity or content does not match run")
     scope = _scope(run, source, request.expected_world_id)
     candidate_bytes, candidate_sha = _load_component(
-        root, run, "candidate_graph", request.expected_candidate_sha256
+        run, "candidate_graph", request.expected_candidate_sha256
     )
     span_bytes, span_sha = _load_component(
-        root, run, "source_span_index", request.expected_span_index_sha256
+        run, "source_span_index", request.expected_span_index_sha256
     )
     try:
         candidate = json.loads(candidate_bytes)
@@ -321,7 +324,7 @@ def resolve_ingest_selection_context(
             "provider_call": False,
         },
     }
-    # A concurrent lifecycle change must not be hidden by an otherwise valid file snapshot.
+    # A concurrent lifecycle change must not be hidden by an otherwise valid stored snapshot.
     if get_extraction_run(root, run_id).revision != run.revision:
         _reject("selected run changed while resolving context", conflict=True)
     final_scope = _scope(run, source, request.expected_world_id)

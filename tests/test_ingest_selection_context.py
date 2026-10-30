@@ -63,12 +63,14 @@ def context(monkeypatch, tmp_path):
         ],
     }
     components = {}
+    outputs = {}
     for kind, filename, content in [
         ("source_artifact", "source.md", text.encode()),
         ("candidate_graph", "candidate.json", json.dumps(payload).encode()),
         ("source_span_index", "index.json", json.dumps(index).encode()),
     ]:
         (tmp_path / filename).write_bytes(content)
+        outputs[kind] = content
         components[kind] = ExtractionRunComponentRef(
             kind=kind, uri=filename, sha256=digest(content), exists=True
         )
@@ -102,6 +104,15 @@ def context(monkeypatch, tmp_path):
             raise GraphRunRegistryError("missing run")
         return run
 
+    def get_output(*, run_id, kind, content_sha256):
+        from application_state.errors import ApplicationStateIntegrityError
+        assert run_id == run.run_id
+        data = outputs[str(kind)]
+        if digest(data) != content_sha256:
+            raise ApplicationStateIntegrityError("fixture stored output digest mismatch")
+        return data
+
+    monkeypatch.setattr(service, "get_component_bytes", get_output)
     monkeypatch.setattr(service, "get_extraction_run", get_run)
     monkeypatch.setattr(
         service.source_service, "get_source_markdown", lambda **kwargs: source
@@ -140,6 +151,7 @@ def context(monkeypatch, tmp_path):
         payload=payload,
         binding=binding,
         text=text,
+        outputs=outputs,
     )
 
 
@@ -155,6 +167,7 @@ def resolve(context, **changes):
 def rewrite_component(context, kind, filename, payload):
     data = json.dumps(payload).encode()
     (context.root / filename).write_bytes(data)
+    context.outputs[kind] = data
     context.run.components[kind] = context.run.components[kind].model_copy(
         update={"sha256": digest(data)}
     )
@@ -266,7 +279,7 @@ def test_foreign_components_and_source_identity_reject(context, target):
         context.index["source_artifact_id"] = "other"
         rewrite_component(context, "source_span_index", "index.json", context.index)
     elif target == "damaged_bytes":
-        (context.root / "candidate.json").write_text("{}")
+        context.outputs["candidate_graph"] = b"{}"
     with pytest.raises((ExtractPromoteError, GraphRunRegistryError)):
         resolve(context)
 
