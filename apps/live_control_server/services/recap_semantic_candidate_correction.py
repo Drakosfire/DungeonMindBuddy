@@ -2575,6 +2575,11 @@ def correct_recap_candidate(
                 f"source-binding child {child_id} package did not seal; held status preserved",
                 status_code=409,
             )
+        from application_state.ingest.components import persist_component_payload
+
+        for kind, payload in (("candidate_graph", child_bytes), ("source_span_index", span_bytes)):
+            persist_component_payload(run_id=child_id, expected_revision=child.revision,
+                                      kind=kind, payload=payload)
         for _ in range(8):
             if child.status == ExtractionRunStatus.REVIEWABLE:
                 break

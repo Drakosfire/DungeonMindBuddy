@@ -64,6 +64,17 @@ def _fixture(
     monkeypatch.setattr(extract_promote, "resolve_promotable_ingest_run", lambda *_args, **_kwargs: resolved)
     monkeypatch.setattr(extract_promote, "_load_frozen_span_index_for_resolved_run", lambda _: span_index)
     monkeypatch.setattr(extract_promote, "resolve_first_world_capability", lambda **_kwargs: capability)
+    from graph_memory.ingestion.extraction_run import ExtractionRunStatus
+    run = SimpleNamespace(**{key: getattr(resolved, key) for key in (
+        "run_id", "source_artifact_id", "source_domain", "campaign_id", "session_id")},
+        status=ExtractionRunStatus.REVIEWABLE, profile_id=getattr(resolved, "extraction_profile", None),
+        lineage={}, diagnostics=SimpleNamespace(messages=[]))
+    data = SimpleNamespace(run=run,
+        source_artifact=SimpleNamespace(world_id=resolved.world_id, content_sha256="abc"),
+        source_bytes=source.read_bytes(), candidate_bytes=candidate.read_bytes(),
+        span_bytes=b"{}", span_index=span_index)
+    monkeypatch.setattr(graph_run_registry, "load_reviewable_extraction_data", lambda *_args: data)
+
     monkeypatch.setattr(
         graph_run_registry, "get_extraction_run",
         lambda *_args, **_kwargs: SimpleNamespace(lineage={}),
@@ -125,10 +136,13 @@ def test_unknown_span_remains_hard_failure(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
     _fixture(monkeypatch, tmp_path)
+    original = graph_run_registry.load_reviewable_extraction_data(tmp_path, "run-demo")
     monkeypatch.setattr(
-        extract_promote,
-        "_load_frozen_span_index_for_resolved_run",
-        lambda _: SimpleNamespace(spans=[]),
+        graph_run_registry,
+        "load_reviewable_extraction_data",
+        lambda *_args: SimpleNamespace(**{
+            **original.__dict__, "span_index": SimpleNamespace(spans=[])
+        }),
     )
     with pytest.raises(extract_promote.ExtractPromoteError) as exc_info:
         extract_promote.get_exact_run_review_package("run-demo")

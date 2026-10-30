@@ -938,19 +938,8 @@ def _assert_and_project_candidate_evidence(
     return assertions
 
 
-def _recap_semantic_assessment(resolved, run_record=None):
-    """Read canonical child and parent; legacy manifest runs have no gate."""
-    canonical = (
-        getattr(resolved, "source_span_index_path", None) is not None
-        or "resolved via canonical ExtractionRun registry" in getattr(resolved, "diagnostics", ())
-    )
-    if not canonical:
-        return None, None
-    if getattr(resolved, "source_span_index_path", None) is None:
-        raise ExtractPromoteError(
-            "canonical extraction run lost its span-index binding",
-            code="run_not_promotable", status_code=409,
-        )
+def _recap_semantic_assessment(run_id: str, source_revision_id: str, run_record=None):
+    """Assess only the exact database child and its parent."""
     from apps.live_control_server.services.graph_run_registry import (
         GraphRunRegistryError,
         get_extraction_run,
@@ -961,7 +950,7 @@ def _recap_semantic_assessment(resolved, run_record=None):
     )
 
     try:
-        run = run_record or get_extraction_run(_artifact_root(), resolved.run_id)
+        run = run_record or get_extraction_run(_artifact_root(), run_id)
     except GraphRunRegistryError as exc:
         raise ExtractPromoteError(
             "canonical extraction run could not be re-read",
@@ -983,7 +972,7 @@ def _recap_semantic_assessment(resolved, run_record=None):
             # The child's own exact source package remains inspectable. A
             # missing parent makes its semantic basis invalid and keeps it held.
     return run, assess_recap_semantics(
-        run, parent=parent, source_revision_id=resolved.source_revision_id,
+        run, parent=parent, source_revision_id=source_revision_id,
         root=_artifact_root(),
     )
 
@@ -1116,7 +1105,7 @@ def _assert_recap_semantics_at_confirm(locator: str, review_package) -> None:
             "candidate locator disagrees with canonical child",
             code="candidate_binding_invalid", status_code=409,
         )
-    current, assessment = _recap_semantic_assessment(resolved)
+    current, assessment = _recap_semantic_assessment(resolved.run_id, resolved.source_revision_id)
     if current is None or assessment is None or not assessment.accepted:
         raise ExtractPromoteError(
             "corrected recap child is held for semantic review",
@@ -1327,49 +1316,31 @@ def get_exact_run_review_package(run_id: str) -> ExactRunReviewPackage:
     """Build a source/evidence review projection for one exact ExtractionRun.
 
 
-    Resolves the run through the same server-owned promotable seam as prepare,
-    then projects canonical source prose and per-assertion span evidence without
-    sealing a proposal or inventing campaign/session scope.
+    Opens exact immutable product bytes, then applies the normal candidate
+    evidence and semantic review without sealing a publication proposal.
     """
+    from apps.live_control_server.services.graph_run_registry import (
+        GraphRunRegistryError, load_reviewable_extraction_data,
+    )
     try:
-        resolved = resolve_promotable_ingest_run(run_id, root=_artifact_root())
-    except PromotableIngestRunError as exc:
-        raise ExtractPromoteError(
-            str(exc),
-            code=exc.code,
-            status_code=exc.status_code,
-            diagnostics=[
-                _diagnostic(exc.code, item) for item in (exc.diagnostics or [str(exc)])
-            ],
-        ) from exc
-
+        data = load_reviewable_extraction_data(_artifact_root(), run_id)
+    except GraphRunRegistryError as exc:
+        raise ExtractPromoteError(str(exc), code="run_not_found" if exc.status_code == 404 else "run_not_promotable",
+            status_code=exc.status_code, diagnostics=[_diagnostic("run_evidence_unavailable", str(exc))]) from exc
+    run = data.run
+    artifact = data.source_artifact
+    source_revision_id = "sha256:" + (artifact.content_sha256 or "").removeprefix("sha256:")
 
     # Entire post-resolution package construction is one inspection boundary:
     # source prose, candidate parse, scope check, frozen span-index load/validate,
     # and evidence projection all share runStatus + inspectionStatus enrichment.
     try:
+        source_prose = data.source_bytes.decode("utf-8")
         try:
-            source_prose = resolved.normalized_recap_path.read_text(encoding="utf-8")
-        except OSError as exc:
-            raise ExtractPromoteError(
-                "exact-run source prose could not be read",
-                code="run_not_promotable",
-                status_code=422,
-                diagnostics=[_diagnostic("source_unreadable", str(exc))],
-            ) from exc
-
-
-        try:
-            candidate_payload = json.loads(
-                resolved.candidate_graph_path.read_text(encoding="utf-8")
-            )
-        except (OSError, json.JSONDecodeError) as exc:
-            raise ExtractPromoteError(
-                "exact-run candidate graph could not be read",
-                code="run_not_promotable",
-                status_code=422,
-                diagnostics=[_diagnostic("candidate_unreadable", str(exc))],
-            ) from exc
+            candidate_payload = json.loads(data.candidate_bytes)
+        except (UnicodeDecodeError, json.JSONDecodeError) as exc:
+            raise ExtractPromoteError("exact-run candidate graph is not UTF-8 JSON", code="run_not_promotable",
+                status_code=422, diagnostics=[_diagnostic("candidate_unreadable", str(exc))]) from exc
         if not isinstance(candidate_payload, dict):
             raise ExtractPromoteError(
                 "exact-run candidate graph root must be a JSON object",
@@ -1380,19 +1351,19 @@ def get_exact_run_review_package(run_id: str) -> ExactRunReviewPackage:
 
         _assert_candidate_scope_matches_run(
             candidate_payload,
-            campaign_id=resolved.campaign_id,
-            session_id=resolved.session_id,
+            campaign_id=run.campaign_id,
+            session_id=run.session_id,
         )
 
 
-        span_index = _load_frozen_span_index_for_resolved_run(resolved)
+        span_index = data.span_index
         assertions = _assert_and_project_candidate_evidence(
             candidate_payload=candidate_payload,
             source_prose=source_prose,
-            source_artifact_id=resolved.source_artifact_id,
+            source_artifact_id=run.source_artifact_id,
             span_index=span_index,
             inspect_false_anchor_quotes=True,
-            allow_source_observations=(resolved.source_domain == "worldbuilding" and resolved.extraction_profile in SOURCE_OBSERVATION_WORLDBUILDING_PROFILES),
+            allow_source_observations=(run.source_domain == "worldbuilding" and run.profile_id in SOURCE_OBSERVATION_WORLDBUILDING_PROFILES),
         )
 
         invalid_evidence_count = sum(
@@ -1402,24 +1373,20 @@ def get_exact_run_review_package(run_id: str) -> ExactRunReviewPackage:
         )
 
 
-        inspect_only = _is_worldbuilding_inspect_only(resolved)
+        inspect_only = _is_worldbuilding_inspect_only(run)
         capability = resolve_first_world_capability(
             repo=_artifact_root(),
             world_root=world_graph_root(),
-            source_domain=resolved.source_domain,
-            world_id=getattr(resolved, "world_id", None),
-            source_artifact_id=resolved.source_artifact_id,
-        )
-        from apps.live_control_server.services.graph_run_registry import (
-            GraphRunRegistryError,
-            get_extraction_run,
+            source_domain=run.source_domain,
+            world_id=artifact.world_id,
+            source_artifact_id=run.source_artifact_id,
         )
 
         derived_from_run_id: str | None = None
         inherited_pc_references = None
         semantic_assessment = None
         try:
-            run_record = get_extraction_run(_artifact_root(), resolved.run_id)
+            run_record = run
             # Historical immutable children keep their lineage label; the retired V1
             # worldbuilding mutation wire is not accepted by the correction route.
             if run_record.lineage.get("derivation") in {"operator_literal_evidence_correction_v1",
@@ -1431,7 +1398,7 @@ def get_exact_run_review_package(run_id: str) -> ExactRunReviewPackage:
 
             if is_recap_correction(run_record):
                 derived_from_run_id = str(run_record.lineage.get("parent_run_id") or "") or None
-                _, semantic_assessment = _recap_semantic_assessment(resolved, run_record)
+                _, semantic_assessment = _recap_semantic_assessment(run.run_id, source_revision_id, run_record)
                 operation_derivation = (
                     run_record.lineage.get("operation_derivation")
                     if run_record.lineage.get("derivation") == "operator_recap_semantic_source_binding_v11"
@@ -1475,26 +1442,26 @@ def get_exact_run_review_package(run_id: str) -> ExactRunReviewPackage:
                 raise
         semantic_held = semantic_assessment is not None and not semantic_assessment.accepted
         return ExactRunReviewPackage(
-            run_id=resolved.run_id,
+            run_id=run.run_id,
             derived_from_run_id=derived_from_run_id,
-            source_domain=resolved.source_domain,
-            source_artifact_id=resolved.source_artifact_id,
-            source_revision_id=resolved.source_revision_id,
-            campaign_id=resolved.campaign_id or None,
-            session_id=resolved.session_id or None,
+            source_domain=run.source_domain,
+            source_artifact_id=run.source_artifact_id,
+            source_revision_id=source_revision_id,
+            campaign_id=run.campaign_id or None,
+            session_id=run.session_id or None,
             source_prose=source_prose,
             assertions=assertions,
             inspection_status="invalid_evidence" if invalid_evidence_count else "ready",
             invalid_evidence_count=invalid_evidence_count,
-            diagnostics=[*resolved.diagnostics, *([
+            diagnostics=[*run.diagnostics.messages, "resolved via database ExtractionRun bytes", *([
                 "unresolved_quote_binding:" + json.dumps({
-                    "candidate_sha256": hashlib.sha256(resolved.candidate_graph_path.read_bytes()).hexdigest(),
-                    "source_sha256": hashlib.sha256(resolved.normalized_recap_path.read_bytes()).hexdigest(),
-                    "span_index_sha256": hashlib.sha256(resolved.source_span_index_path.read_bytes()).hexdigest(),
+                    "candidate_sha256": hashlib.sha256(data.candidate_bytes).hexdigest(),
+                    "source_sha256": hashlib.sha256(data.source_bytes).hexdigest(),
+                    "span_index_sha256": hashlib.sha256(data.span_bytes).hexdigest(),
                     "occurrences": [{key: value for key, value in item.items() if key != "reference"}
                         | {"reference_sha256": hashlib.sha256(json.dumps(item["reference"], ensure_ascii=False, sort_keys=True, separators=(",", ":")).encode()).hexdigest()}
                         for item in _candidate_quote_occurrences(candidate_payload=candidate_payload,
-                            source_prose=source_prose, source_artifact_id=resolved.source_artifact_id, span_index=span_index)],
+                            source_prose=source_prose, source_artifact_id=run.source_artifact_id, span_index=span_index)],
                 }, ensure_ascii=False, sort_keys=True)
             ] if invalid_evidence_count else [])],
             promotable=not inspect_only and invalid_evidence_count == 0 and not semantic_held,
@@ -1519,7 +1486,7 @@ def get_exact_run_review_package(run_id: str) -> ExactRunReviewPackage:
             inherited_pc_references=inherited_pc_references,
             # Recap has no first-World capability, but its canonical source/run
             # still owns a native World that the Build review must verify.
-            world_id=(resolved.world_id if resolved.source_domain == "recap" else capability.world_id),
+            world_id=(artifact.world_id if run.source_domain == "recap" else capability.world_id),
             world_state=capability.world_state,
             first_world_publish_eligible=(
                 capability.eligible and invalid_evidence_count == 0 and not semantic_held
@@ -1532,7 +1499,7 @@ def get_exact_run_review_package(run_id: str) -> ExactRunReviewPackage:
         )
     except ExtractPromoteError as exc:
         raise _with_review_package_inspection_context(
-            exc, run_status=resolved.status
+            exc, run_status=run.status.value
         ) from exc
 
 
@@ -1579,7 +1546,7 @@ def prepare(
             code="source_world_mismatch", status_code=409,
         )
 
-    canonical_run, semantic_assessment = _recap_semantic_assessment(resolved)
+    canonical_run, semantic_assessment = _recap_semantic_assessment(resolved.run_id, resolved.source_revision_id)
     if semantic_assessment is not None and not semantic_assessment.accepted:
         raise ExtractPromoteError(
             semantic_assessment.reason or "recap semantic review is required",

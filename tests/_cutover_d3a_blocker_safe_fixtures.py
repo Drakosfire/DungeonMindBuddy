@@ -56,7 +56,7 @@ def _patch_extraction_run(run_id: str, **updates: object) -> None:
             raise AssertionError(f"extraction run patch CAS failed: {run_id}")
 
 
-def _reseal_extraction_component_digest(run_id: str, *, kind: str, digest: str) -> None:
+def _reseal_extraction_component_digest(run_id: str, *, kind: str, digest: str, payload: bytes | None = None) -> None:
     """Test-only reseal of an immutable component digest on the APP-STATE row."""
     from application_state.config import load_runtime_dsn
     from application_state.ingest import repository as ingest_repo
@@ -78,6 +78,12 @@ def _reseal_extraction_component_digest(run_id: str, *, kind: str, digest: str) 
         )
         if persisted is None:
             raise AssertionError(f"extraction run reseal CAS failed: {run_id}")
+    if payload is not None:
+        from application_state.ingest.components import persist_component_payload
+
+        assert hashlib.sha256(payload).hexdigest() == digest
+        persist_component_payload(run_id=run_id, expected_revision=updated.revision,
+                                  kind=kind, payload=payload)
 
 
 CAMPAIGN_ID = "longmont-c2"
@@ -991,6 +997,13 @@ def _write_reviewable_extraction_run(
     }
 
 
+    from application_state.ingest.components import persist_component_payload
+
+    for kind, path in (("source_span_index", span_component_path),
+                       ("candidate_graph", candidate_path)):
+        persist_component_payload(run_id=run.run_id, expected_revision=run.revision,
+                                  kind=kind, payload=path.read_bytes())
+
     reachable = [
         ExtractionRunStatus.PREPARED,
         ExtractionRunStatus.EXTRACTED,
@@ -1058,7 +1071,7 @@ def _write_bld08_reviewable_run(
     candidate_path.write_text(json.dumps(candidate, indent=2) + "\n", encoding="utf-8")
     digest = hashlib.sha256(candidate_path.read_bytes()).hexdigest()
     _reseal_extraction_component_digest(
-        resolved_id, kind="candidate_graph", digest=digest
+        resolved_id, kind="candidate_graph", digest=digest, payload=candidate_path.read_bytes()
     )
     _patch_extraction_run(resolved_id, profile_id=profile_id)
     return resolved_id, source
@@ -1081,7 +1094,7 @@ def _mutate_extraction_candidate(repo, run_id: str, mutator) -> None:
     # Digest must match the component seal or reviewable evidence fails before
     # our span checks. Re-seal the component digest on the registry record.
     digest = hashlib.sha256(candidate_path.read_bytes()).hexdigest()
-    _reseal_extraction_component_digest(run_id, kind="candidate_graph", digest=digest)
+    _reseal_extraction_component_digest(run_id, kind="candidate_graph", digest=digest, payload=candidate_path.read_bytes())
 
 
 def _preview_node(

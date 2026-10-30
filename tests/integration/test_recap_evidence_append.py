@@ -73,8 +73,17 @@ def test_append_durable_child_fresh_read_retry_and_pc_proof(disposable_append_ap
     original_span_loader = correction._load_frozen_span_index_for_resolved_run
     from application_state.source import service as source_service
     original_persist_source_markdown = source_service.persist_source_markdown
+    original_descriptors = source_service.get_source_input_descriptors
+    original_source_body = source_service.get_source_markdown
+    from application_state.ingest import components as output_store
+    original_persist_output = output_store.persist_component_payload
+    original_review_data = registry.load_reviewable_extraction_data
     parent_fixture, _, _, pc_body, _, fixture_index = _append_fixture(monkeypatch, tmp_path)
+    monkeypatch.setattr(output_store, "persist_component_payload", original_persist_output)
+    monkeypatch.setattr(registry, "load_reviewable_extraction_data", original_review_data)
     monkeypatch.setattr(source_service, "persist_source_markdown", original_persist_source_markdown)
+    monkeypatch.setattr(source_service, "get_source_input_descriptors", original_descriptors)
+    monkeypatch.setattr(source_service, "get_source_markdown", original_source_body)
     monkeypatch.setattr(correction, "get_extraction_run", original_get)
     monkeypatch.setattr(correction, "create_extraction_run", original_create)
     monkeypatch.setattr(correction, "update_extraction_run_status", original_update)

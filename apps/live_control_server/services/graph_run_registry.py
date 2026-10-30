@@ -8,6 +8,8 @@ callers do not learn SQL. There is no file-registry fallback or dual write.
 from __future__ import annotations
 
 import hashlib
+import json
+from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, NoReturn
@@ -32,7 +34,7 @@ from graph_memory.ingestion.extraction_run import (
     ExtractionRunStatus,
     assert_allowed_extraction_run_transition,
 )
-from graph_memory.source_span import validate_source_span_index
+from graph_memory.source_span import SourceSpanIndex, source_span_index_from_dict, validate_source_span_index
 from src.live_play.live_store import load_json
 
 if TYPE_CHECKING:
@@ -199,10 +201,7 @@ def _require_run_source_artifact(root: Path, source_artifact_id: str) -> GraphMe
         ) from exc
 
 
-def assert_run_reviewable_evidence(root: Path, run: ExtractionRun) -> None:
-    """Server-side evidence resolution required for reviewable/promoted runs."""
-    artifact = _require_run_source_artifact(root, run.source_artifact_id)
-
+def _review_components(run: ExtractionRun, artifact: GraphMemorySourceArtifact):
     if str(artifact.source_domain) != run.source_domain:
         raise GraphRunRegistryError(
             "extraction run source_domain does not match SourceArtifact",
@@ -233,6 +232,55 @@ def assert_run_reviewable_evidence(root: Path, run: ExtractionRun) -> None:
             "reviewable runs require source_artifact, source_span_index, and candidate_graph",
             status_code=422,
         )
+
+    return source_component, span_component, graph_component
+
+
+@dataclass(frozen=True)
+class ReviewableExtractionData:
+    """Exact product bytes for review; DungeonMind still owns publication."""
+    run: ExtractionRun
+    source_artifact: GraphMemorySourceArtifact
+    source_bytes: bytes
+    candidate_bytes: bytes
+    span_bytes: bytes
+    span_index: SourceSpanIndex
+
+
+def load_reviewable_extraction_data(root: Path, run_id: str) -> ReviewableExtractionData:
+    """Read one run's exact database bindings, never its presentation locators."""
+    from application_state.ingest.components import get_component_bytes
+    from graph_memory.ingestion.extraction_run import normalize_content_digest
+
+    run = get_extraction_run(root, run_id)
+    if run.status != ExtractionRunStatus.REVIEWABLE:
+        raise GraphRunRegistryError(f"extraction run is not reviewable: {run.status.value}", status_code=422)
+    try:
+        artifact, source = load_registered_source_artifact_bytes(root, run.source_artifact_id)
+    except SourceArtifactRegistryError as exc:
+        raise GraphRunRegistryError(str(exc), status_code=exc.status_code if exc.status_code >= 500 else 422) from exc
+    source_ref, span_ref, candidate_ref = _review_components(run, artifact)
+    if normalize_content_digest(source_ref.sha256) != normalize_content_digest(artifact.content_sha256):
+        raise GraphRunRegistryError("source_artifact component digest does not match SourceArtifact", status_code=422)
+    try:
+        spans = get_component_bytes(run_id=run_id, kind=span_ref.kind, content_sha256=span_ref.sha256)
+        candidate = get_component_bytes(run_id=run_id, kind=candidate_ref.kind, content_sha256=candidate_ref.sha256)
+    except ApplicationStateError as exc:
+        raise GraphRunRegistryError(str(exc), status_code=exc.status_code if exc.status_code >= 500 else 422) from exc
+    try:
+        index = source_span_index_from_dict(json.loads(spans))
+        validate_source_span_index(index, source_artifact_id=artifact.source_artifact_id,
+            content_sha256=artifact.content_sha256 or "")
+    except (TypeError, ValueError, KeyError) as exc:
+        raise GraphRunRegistryError(f"source_span_index is not bound to source artifact: {exc}", status_code=422) from exc
+    return ReviewableExtractionData(run, artifact, source, candidate, spans, index)
+
+
+def assert_run_reviewable_evidence(root: Path, run: ExtractionRun) -> None:
+    """Server-side evidence resolution required for reviewable/promoted runs."""
+    artifact = _require_run_source_artifact(root, run.source_artifact_id)
+
+    source_component, span_component, graph_component = _review_components(run, artifact)
 
     _assert_component_bytes(root, source_component, expected_digest=artifact.content_sha256)
     _assert_source_component_matches_artifact(source_component, artifact, span_component)

@@ -74,6 +74,17 @@ def test_retained_style_review_uses_the_canonical_exact_run_projection(
     monkeypatch.setattr(extract_promote, "resolve_promotable_ingest_run", lambda *_args, **_kwargs: resolved)
     monkeypatch.setattr(extract_promote, "_load_frozen_span_index_for_resolved_run", lambda _: span_index)
     monkeypatch.setattr(extract_promote, "resolve_first_world_capability", lambda **_kwargs: capability)
+    from graph_memory.ingestion.extraction_run import ExtractionRunStatus
+    run = SimpleNamespace(**{key: getattr(resolved, key) for key in (
+        "run_id", "source_artifact_id", "source_domain", "campaign_id", "session_id")},
+        status=ExtractionRunStatus.REVIEWABLE, profile_id=getattr(resolved, "extraction_profile", None),
+        lineage={}, diagnostics=SimpleNamespace(messages=[]))
+    data = SimpleNamespace(run=run,
+        source_artifact=SimpleNamespace(world_id=resolved.world_id, content_sha256="abc"),
+        source_bytes=source.read_bytes(), candidate_bytes=candidate_path.read_bytes(),
+        span_bytes=b"{}", span_index=span_index)
+    monkeypatch.setattr(graph_run_registry, "load_reviewable_extraction_data", lambda *_args: data)
+
     monkeypatch.setattr(
         extract_promote,
         "_resolve_publication_target",

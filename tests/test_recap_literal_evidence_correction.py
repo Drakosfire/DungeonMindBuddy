@@ -39,6 +39,8 @@ def _fixture(monkeypatch: pytest.MonkeyPatch, tmp_path: Path, *, two_invalid: bo
         build_world_scoped_recap_source_artifact_id,
     )
 
+    from application_state.ingest import components as output_store
+    monkeypatch.setattr(output_store, "persist_component_payload", lambda **kwargs: hashlib.sha256(kwargs["payload"]).hexdigest())
     source = tmp_path / "source.md"
     source_bytes = b"Mira found the silver key under the old bridge.\n"
     source.write_bytes(source_bytes)
@@ -447,6 +449,14 @@ def test_recap_child_round_trips_real_disposable_run_registry(
     assert correction.correct_recap_run_evidence(request) == response
     assert parent_path.read_bytes() == parent_bytes
     assert graph_run_registry.get_extraction_run(tmp_path, parent.run_id).status == ExtractionRunStatus.REVIEWABLE
+    data = graph_run_registry.load_reviewable_extraction_data(tmp_path, response.run_id)
+    assert data.source_bytes == source_text.encode()
+    assert data.span_bytes == span_path.read_bytes()
+    review = extract_promote.get_exact_run_review_package(response.run_id)
+    assert review.inspection_status == "ready"
+    assert review.semantic_disposition["state"] == "held"
+    assert review.promotable is False
+
 
 
 def test_recap_route_requires_gm_and_preserves_private_quote_draft(
