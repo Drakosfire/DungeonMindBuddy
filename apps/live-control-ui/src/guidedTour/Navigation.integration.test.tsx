@@ -102,6 +102,7 @@ vi.mock("../api/liveApi", async (importOriginal) => {
     expect(window.location.search).toBe(`?world=${world}&choose=1`);
     expect(screen.getByRole('complementary',{name:'Guided journey'})).toBeInTheDocument();
     expect(active).not.toHaveBeenCalled();expect(readWalkthrough(localStorage,world)?.record.bindings.run).toBeUndefined();
+    fireEvent.click(screen.getByRole('button',{name:'More guidance'}));
     fireEvent.click(screen.getByText('Steps and demonstrated results'));fireEvent.click(screen.getByRole('button',{name:'Open the source',exact:true}));
     fireEvent.click(await screen.findByRole('button',{name:'Open Build',exact:true}));
     await screen.findByTestId('build-surface-empty');expect(new URLSearchParams(window.location.search).get('world')).toBe(world);
