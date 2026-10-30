@@ -55,6 +55,28 @@ def _payload(entity, statement_id):
     return payloads[0]
 
 
+def _subject_labels(statement_id, paths, entities, campaign):
+    """Navigation from admitted ABOUT/name records, never statement meaning."""
+    subjects = []
+    for identity, witnesses in paths:
+        if identity == statement_id:
+            continue
+        entity = entities[identity]
+        about = {a.assertion_id for a in entity.assertions
+            if a.subject_entity_id == statement_id and a.predicate == statements.mapping.ABOUT
+            and getattr(a.value, 'entity_id', None) == identity}
+        if not set(witnesses) <= about:
+            raise ValueError('Navigation subject differs from admitted ABOUT witness')
+        names = {a.value.value.strip() for a in entity.assertions
+            if a.subject_entity_id == identity and a.predicate == 'dnd5e:name'
+            and getattr(a.value, 'kind', None) == 'literal'
+            and isinstance(a.value.value, str) and a.value.value.strip()
+            and tuple((b.axis, b.value) for b in a.metadata.scope)
+                == ((statements.CAMPAIGN_SCOPE_AXIS, campaign),)} if entity.found and entity.completeness.status == 'complete' else set()
+        subjects.append(f'{next(iter(names))} [{identity}]' if len(names) == 1 else identity)
+    return ', '.join(sorted(set(subjects)))
+
+
 def prepare_query(managed_world_id, question, principal, *, source_context=None,
                   revision_id=None, repository=None, resolve_binding=None,
                   scope_mode='world', campaign_id=None):
@@ -146,11 +168,13 @@ def prepare_query(managed_world_id, question, principal, *, source_context=None,
         if not witness_ids <= own_ids:
             raise ValueError('Statement discovery links differ from admitted complete entity')
         logical = clause['logical_source']
+        subjects = _subject_labels(statement_id, paths, entities, clause['campaign'])
         matches.append(NativePlanStatementMatchV1(statement_id=statement_id,
             discovered_entity_ids=tuple(sorted({node for node, _ in paths})),
             discovery_assertion_ids=tuple(sorted(witness_ids)), campaign_id=clause['campaign'],
             logical_source=logical, episode=payload['episode'],
-            label=f"{logical['object_id']} — {payload['episode']} ({clause['campaign']})"))
+            label=(f"About {subjects} · " if subjects else "")
+                + f"{logical['object_id']} — {payload['episode']} ({clause['campaign']})"))
     query = NativePlanQueryV1(authority=authority, question=question,
         search_result_sha256=result.result_digest, discovered_entity_ids=discovered,
         matches=tuple(matches), status='partial' if gaps else 'complete', gap_codes=tuple(sorted(set(gaps))))
