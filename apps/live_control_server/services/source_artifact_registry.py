@@ -10,8 +10,6 @@ import stat
 from datetime import UTC, datetime
 from pathlib import Path
 
-from pydantic import ValidationError
-
 from application_state.errors import ApplicationStateError
 from application_state.source import service as source_service
 
@@ -35,7 +33,6 @@ from graph_memory.source_span import (
     SourceSpanIndex,
     build_source_span_index_for_text,
     source_artifact_text_from_markdown,
-    source_span_index_from_dict,
     source_span_index_to_dict,
     source_span_refs_from_index,
     validate_source_span_index,
@@ -44,7 +41,7 @@ from graph_memory.source_span import (
 from apps.live_control_server.services.registry_file_lock import (
     workspace_document_mutation_lock,
 )
-from src.live_play.live_store import load_json, write_json
+from src.live_play.live_store import write_json
 
 DEFAULT_SOURCE_SPAN_INDEX_DIR_REL = "out/registries/source_span_indexes"
 RECAP_SOURCE_CONTENT_ROOT_ENV = "DUNGEONMIND_RECAP_SOURCE_CONTENT_ROOT"
@@ -179,30 +176,17 @@ def _persist_span_index(root: Path, index: SourceSpanIndex) -> str:
 
 
 def load_source_span_index(root: Path, source_artifact_id: str) -> SourceSpanIndex:
-    path = source_span_index_path(root, source_artifact_id)
-    if not path.is_file():
-        raise SourceArtifactRegistryError(
-            f"source span index not found for artifact: {source_artifact_id}",
-            status_code=404,
-        )
-    try:
-        payload = load_json(path)
-        index = source_span_index_from_dict(payload)
-    except (TypeError, ValueError, KeyError, ValidationError) as exc:
-        raise SourceArtifactRegistryError(
-            f"malformed source span index: {exc}",
-            status_code=500,
-        ) from exc
-    artifact = get_source_artifact(root, source_artifact_id)
-    try:
-        validate_source_span_index(
-            index,
-            source_artifact_id=artifact.source_artifact_id,
-            content_sha256=artifact.content_sha256 or "",
-        )
-    except ValueError as exc:
-        raise SourceArtifactRegistryError(str(exc), status_code=500) from exc
-    return index
+    """Derive canonical paragraph spans from the exact stored input body.
+
+    Run-pinned custom indexes belong to extraction output storage. A historical
+    registry mirror cannot select source bytes or change paragraph identities.
+    """
+    artifact, raw = load_registered_source_artifact_bytes(root, source_artifact_id)
+    return build_source_span_index_for_text(
+        source_artifact_id=artifact.source_artifact_id,
+        content_sha256=artifact.content_sha256 or "",
+        text=raw.decode("utf-8"),
+    )
 
 
 def resolve_worldbuilding_source_span(
