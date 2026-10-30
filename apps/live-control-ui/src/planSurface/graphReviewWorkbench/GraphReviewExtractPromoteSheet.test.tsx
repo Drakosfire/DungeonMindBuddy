@@ -46,7 +46,6 @@ vi.mock("../../api/extractPromoteApi", async () => {
     );
   return {
     ...actual,
-    getExtractPromoteStatus: vi.fn(),
     prepareExtractPromote: vi.fn(),
     confirmExtractPromote: vi.fn(),
   };
@@ -865,16 +864,7 @@ describe("GraphReviewSessionToolbar", () => {
     }), { headers: { "Content-Type": "application/json" } }));
     vi.mocked(getUnionSupergraphProjection).mockReset();
     vi.mocked(getUnionSupergraphProjection).mockResolvedValue(projection);
-    vi.mocked(extractPromoteApi.getExtractPromoteStatus).mockReset();
     vi.mocked(extractPromoteApi.prepareExtractPromote).mockReset();
-    vi.mocked(extractPromoteApi.getExtractPromoteStatus).mockResolvedValue({
-      schema: "dmb_extract_promote_status_v1",
-      worldId: "eldyrwild",
-      initialized: true,
-      worldState: "initialized",
-      headRevisionId: "rev:head",
-      diagnostics: [],
-    });
     const useLiveState = graphReviewLiveStateContext.useGraphReviewLiveState;
     vi.spyOn(graphReviewLiveStateContext, "useGraphReviewLiveState").mockImplementation(
       () => ({
@@ -904,15 +894,7 @@ describe("GraphReviewSessionToolbar", () => {
     expect(extractPromoteApi.prepareExtractPromote).not.toHaveBeenCalled();
   });
 
-  it("uses the selected target when the global default-World status is unready", async () => {
-    vi.mocked(extractPromoteApi.getExtractPromoteStatus).mockResolvedValue({
-      schema: "dmb_extract_promote_status_v1",
-      worldId: "eldyrwild",
-      initialized: false,
-      worldState: "uninitialized",
-      headRevisionId: null,
-      diagnostics: [],
-    });
+  it("uses the explicitly selected managed World for preparation", async () => {
     vi.mocked(extractPromoteApi.prepareExtractPromote).mockResolvedValue(prepareResponse());
 
     renderWithLiveRun(baseRun(), <GraphReviewSessionToolbar />, "/ingest?world=managed-world-a");
@@ -926,7 +908,6 @@ describe("GraphReviewSessionToolbar", () => {
       runId: "graph-ingest:longmont-c2:session-25:run-a",
       managedWorldId: "managed-world-a",
     });
-    expect(extractPromoteApi.getExtractPromoteStatus).not.toHaveBeenCalled();
   });
 
   it("keeps a target-specific prepare rejection out of the review sheet", async () => {

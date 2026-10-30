@@ -50,7 +50,6 @@ from apps.live_control_server.models.extract_promote import (
     RecapCandidateCorrectionResponseV10,
     RecapCandidateCorrectionRequestV11,
     RecapCandidateCorrectionResponseV11,
-    ExtractPromoteStatusResponse,
     FirstWorldGraphConfirmReceipt,
     FirstWorldGraphConfirmRequest,
     FirstWorldGraphPlan,
@@ -68,7 +67,6 @@ from apps.live_control_server.services.extract_promote import (
     confirm_worldbuilding,
     decide_recap_semantic_disposition,
     get_exact_run_review_package,
-    get_status,
     prepare,
     prepare_first_world,
     prepare_worldbuilding,
@@ -184,24 +182,6 @@ def _reject_selector_query(request: Request) -> None:
                 )
             ],
         )
-
-
-@router.get("/status", response_model=ExtractPromoteStatusResponse)
-def get_extract_promote_status(request: Request) -> dict[str, Any] | JSONResponse:
-    try:
-        _reject_selector_query(request)
-        response = get_status()
-    except ExtractPromoteError as exc:
-        return _error_response(exc)
-    except Exception:
-        return _error_response(
-            ExtractPromoteError(
-                "The extract-promote status operation failed unexpectedly.",
-                code="extract_promote_internal_error",
-                status_code=500,
-            )
-        )
-    return response.model_dump(mode="json", by_alias=True)
 
 
 @router.get("/runs/{run_id}/review-package", response_model=ExactRunReviewPackage)

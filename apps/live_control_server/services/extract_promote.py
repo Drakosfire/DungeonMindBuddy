@@ -36,7 +36,6 @@ from apps.live_control_server.models.extract_promote import (
     ExtractPromotePrepareResponse,
     ExtractPromoteReviewSummary,
     ExtractPromotionReviewItem,
-    ExtractPromoteStatusResponse,
     FirstWorldGraphConfirmReceipt,
     FirstWorldGraphConfirmRequest,
     FirstWorldGraphPlan,
@@ -71,9 +70,7 @@ from graph_memory.candidate_graph_to_contribution import (
     load_typed_candidate_graph,
 )
 from graph_memory.extract_promote_ops import (
-    DEFAULT_WORLD_ID,
     ExtractPromoteWorldError,
-    get_extract_promote_status,
     resolve_merged_contribution_from_package,
 )
 from graph_memory.extract_promote_proposal import (
@@ -591,20 +588,6 @@ def _assert_candidate_scope_matches_run(
                 _diagnostic("manifest_session", run_session),
             ],
         )
-
-
-def get_status(*, world_id: str = DEFAULT_WORLD_ID) -> ExtractPromoteStatusResponse:
-    result = get_extract_promote_status(
-        world_root=world_graph_root(),
-        world_id=world_id or DEFAULT_WORLD_ID,
-    )
-    return ExtractPromoteStatusResponse(
-        world_id=result.world_id,
-        initialized=result.initialized,
-        world_state=result.world_state,  # type: ignore[arg-type]
-        head_revision_id=result.head_revision_id,
-        diagnostics=list(result.diagnostics),
-    )
 
 
 def _paragraph_for_span(
@@ -2462,7 +2445,6 @@ __all__ = [
     "confirm_first_world",
     "confirm_worldbuilding",
     "get_exact_run_review_package",
-    "get_status",
     "prepare_first_world",
     "prepare_worldbuilding",
     "prepare",

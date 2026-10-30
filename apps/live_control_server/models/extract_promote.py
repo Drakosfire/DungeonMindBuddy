@@ -31,7 +31,6 @@ WorldbuildingPublicationProfile = Annotated[
     WithJsonSchema({"type": "string", "enum": list(_PUBLICATION_PROFILE_IDS)}),
 ]
 
-STATUS_SCHEMA = "dmb_extract_promote_status_v1"
 PREPARE_REQUEST_SCHEMA = "dmb_extract_promote_prepare_request_v2"
 PREPARE_RESPONSE_SCHEMA = "dmb_extract_promote_prepare_v1"
 CONFIRM_REQUEST_SCHEMA = "dmb_extract_promote_confirm_request_v2"
@@ -107,17 +106,6 @@ def _nonblank(value: str, *, field_name: str) -> str:
     if len(text) > 256:
         raise ValueError(f"{field_name} must be at most 256 characters")
     return text
-
-
-class ExtractPromoteStatusResponse(_ExtractPromoteModel):
-    schema_: Literal["dmb_extract_promote_status_v1"] = Field(
-        default=STATUS_SCHEMA, alias="schema"
-    )
-    world_id: str
-    initialized: bool
-    world_state: WorldState = "uninitialized"
-    head_revision_id: str | None = None
-    diagnostics: list[str] = Field(default_factory=list)
 
 
 class ExtractPromotePrepareRequest(_ExtractPromoteModel):
