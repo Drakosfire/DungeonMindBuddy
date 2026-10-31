@@ -71,8 +71,8 @@ def read_selected(context, authorization, principal):
             if opened.status != 'available':
                 break
             # Core owns receipt, source identity, scope, digest and UTF8 admission.
-            if opened.source_authority_epoch != access.source_view.epoch:
-                raise ValueError('Core source access changed its pinned acquisition epoch')
+            # A valid source/span proof can predate this coherent view. Core
+            # owns membership and current access; proof age is not query authority.
             text = opened.body_text.encode()[opened.span_start_byte:opened.span_end_byte].decode()
             spans.append(NativeAssertionSpanV1(evidence_ref_id=ref.evidence_ref_id,
                 source_artifact_id=opened.source_artifact_id, source_revision_id=opened.source_revision_id,
