@@ -1336,7 +1336,7 @@ def test_tampered_identity_snapshot_fails_even_after_recompute(tmp_path, monkeyp
         WorldbuildingWritePlanPrepareRequest,
     )
     from apps.live_control_server.services.extract_promote import (
-        _load_typed_worldbuilding_preview_for_run,
+        _load_worldbuilding_publication_input,
     )
     from apps.live_control_server.services.promotable_ingest_run import (
         resolve_promotable_ingest_run,
@@ -1379,7 +1379,8 @@ def test_tampered_identity_snapshot_fails_even_after_recompute(tmp_path, monkeyp
 
 
     resolved = resolve_promotable_ingest_run(run_id, root=repo)
-    typed_preview, expected_profile = _load_typed_worldbuilding_preview_for_run(resolved)
+    publication_input = _load_worldbuilding_publication_input(resolved)
+    typed_preview, expected_profile = publication_input.preview, publication_input.profile_id
     graph_base = fake.mutation_context(DEFAULT_WORLD_ID, parent)
     snapshot = _identity_snapshot_payload(honest)
     attacks = {
@@ -1496,7 +1497,7 @@ def test_recomputed_plan_after_i1_cannot_reuse_prepare_binding(tmp_path, monkeyp
         WorldbuildingWritePlanPrepareRequest,
     )
     from apps.live_control_server.services.extract_promote import (
-        _load_typed_worldbuilding_preview_for_run,
+        _load_worldbuilding_publication_input,
     )
     from apps.live_control_server.services.promotable_ingest_run import (
         resolve_promotable_ingest_run,
@@ -1547,7 +1548,8 @@ def test_recomputed_plan_after_i1_cannot_reuse_prepare_binding(tmp_path, monkeyp
         "alias_owners": {},
     }
     resolved = resolve_promotable_ingest_run(run_id, root=repo)
-    typed_preview, expected_profile = _load_typed_worldbuilding_preview_for_run(resolved)
+    publication_input = _load_worldbuilding_publication_input(resolved)
+    typed_preview, expected_profile = publication_input.preview, publication_input.profile_id
     graph_base = fake.mutation_context(DEFAULT_WORLD_ID, parent)
     snapshot = _identity_snapshot_payload(prepared)
     rebuilt = build_worldbuilding_write_plan(

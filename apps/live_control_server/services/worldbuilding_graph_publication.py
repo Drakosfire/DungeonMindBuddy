@@ -47,7 +47,7 @@ from apps.live_control_server.ports.world_graph_authority_access import (
 from apps.live_control_server.services.extract_promote import (
     ExtractPromoteError,
     _diagnostic,
-    _load_typed_worldbuilding_preview_for_run,
+    _load_worldbuilding_publication_input,
 )
 from apps.live_control_server.services.promotable_ingest_run import (
     PromotableIngestRunError,
@@ -710,9 +710,8 @@ def prepare_worldbuilding(
     except PromotableIngestRunError as exc:
         raise _promotable_run_error(exc) from exc
 
-    typed_preview, expected_profile = _load_typed_worldbuilding_preview_for_run(
-        resolved
-    )
+    publication_input = _load_worldbuilding_publication_input(resolved)
+    typed_preview, expected_profile = publication_input.preview, publication_input.profile_id
     publication_binding = _registered_publication_binding(resolved)
     native_vocabulary_binding = _worldbuilding_native_vocabulary_binding()
     typed_preview = _world_scoped_preview(typed_preview, publication_binding)
@@ -898,9 +897,8 @@ def confirm_worldbuilding(
     except PromotableIngestRunError as exc:
         raise _promotable_run_error(exc) from exc
 
-    typed_preview, expected_profile = _load_typed_worldbuilding_preview_for_run(
-        resolved
-    )
+    publication_input = _load_worldbuilding_publication_input(resolved)
+    typed_preview, expected_profile = publication_input.preview, publication_input.profile_id
     publication_binding = _registered_publication_binding(resolved)
     native_vocabulary_binding = _worldbuilding_native_vocabulary_binding()
     typed_preview = _world_scoped_preview(typed_preview, publication_binding)

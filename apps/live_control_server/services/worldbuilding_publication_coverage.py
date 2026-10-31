@@ -14,7 +14,7 @@ from apps.live_control_server.ports.world_graph_authority import (
 from apps.live_control_server.ports.world_graph_authority_access import get_world_graph_authority
 from apps.live_control_server.services.extract_promote import (
     ExtractPromoteError,
-    _load_typed_worldbuilding_preview_for_run,
+    _load_worldbuilding_publication_input,
 )
 from apps.live_control_server.services.promotable_ingest_run import (
     PromotableIngestRunError,
@@ -33,7 +33,7 @@ def get_worldbuilding_publication_coverage(run_id: str) -> WorldbuildingPublicat
         resolved = resolve_promotable_ingest_run(run_id, root=live_config.repo_root())
     except PromotableIngestRunError as exc:
         raise _promotable_run_error(exc) from exc
-    preview, _profile = _load_typed_worldbuilding_preview_for_run(resolved)
+    preview = _load_worldbuilding_publication_input(resolved).preview
     binding = _registered_publication_binding(resolved)
     preview = _world_scoped_preview(preview, binding)
     authority = get_world_graph_authority()

@@ -8,9 +8,9 @@ from src.graph_memory.extraction.worldbuilding_profile_catalog import SOURCE_OBS
 
 import hashlib
 import json
-from dataclasses import replace
+from dataclasses import dataclass, replace
 from pathlib import Path
-from typing import Any, Literal, Mapping
+from typing import TYPE_CHECKING, Any, Literal, Mapping
 
 
 from apps.live_control_server.config import (
@@ -1963,7 +1963,23 @@ def prepare_worldbuilding(
     return _prepare(request)
 
 
-def _load_typed_worldbuilding_preview_for_run(resolved, *, allow_gazetteer=True):
+if TYPE_CHECKING:
+    from graph_memory.candidate_graph_preview import CandidateGraphPreview
+    from graph_memory.source_span import SourceSpanIndex
+
+
+@dataclass(frozen=True)
+class WorldbuildingPublicationInput:
+    """One exact database input and its qualified review projection."""
+
+    preview: CandidateGraphPreview
+    profile_id: str
+    source_prose: str
+    span_index: SourceSpanIndex
+    reviewed_assertions: tuple[ExactRunReviewAssertion, ...]
+
+
+def _load_worldbuilding_publication_input(resolved, *, allow_gazetteer=True) -> WorldbuildingPublicationInput:
     """Qualify exact stored run evidence; locators do not supply publication input."""
     if resolved.source_domain != "worldbuilding":
         raise ExtractPromoteError(
@@ -2100,14 +2116,16 @@ def _load_typed_worldbuilding_preview_for_run(resolved, *, allow_gazetteer=True)
 
 
     source_prose = data.source_bytes.decode("utf-8")
-    _assert_and_project_candidate_evidence(
+    reviewed_assertions = _assert_and_project_candidate_evidence(
         candidate_payload=candidate_payload,
         source_prose=source_prose,
         source_artifact_id=resolved.source_artifact_id,
         span_index=data.span_index,
         allow_source_observations=(expected_profile in SOURCE_OBSERVATION_WORLDBUILDING_PROFILES),
     )
-    return typed_preview, expected_profile
+    return WorldbuildingPublicationInput(
+        typed_preview, expected_profile, source_prose, data.span_index, tuple(reviewed_assertions),
+    )
 
 
 def confirm_worldbuilding(

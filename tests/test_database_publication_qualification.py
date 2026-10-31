@@ -23,17 +23,19 @@ def _case(monkeypatch, root):
 
 def test_qualification_uses_exact_custom_spans_without_any_evidence_files(monkeypatch, tmp_path):
     resolved, data = _case(monkeypatch, tmp_path)
-    expected, profile = publication._load_typed_worldbuilding_preview_for_run(resolved)
+    expected = publication._load_worldbuilding_publication_input(resolved)
     for path in tmp_path.rglob("*"):
         if path.is_file():
             path.unlink()
     with monkeypatch.context() as guard:
         guard.setattr(Path, "open", lambda *_a, **_k: pytest.fail("qualification opened a file"))
-        actual, actual_profile = publication._load_typed_worldbuilding_preview_for_run(resolved)
-    assert actual == expected and actual_profile == profile == data.run.profile_id
+        actual = publication._load_worldbuilding_publication_input(resolved)
+    assert actual == expected and actual.profile_id == data.run.profile_id
+    assert actual.source_prose.encode() == data.source_bytes
+    assert actual.span_index == data.span_index
     span_ids = {span.source_span_id for span in data.span_index.spans}
     assert len(span_ids) == 1
-    assert {ref.source_span_ref_id for node in actual.nodes for ref in node.evidence_refs} == span_ids
+    assert {ref.source_span_ref_id for node in actual.preview.nodes for ref in node.evidence_refs} == span_ids
     assert registry.load_reviewable_extraction_data(tmp_path, data.run.run_id) == data
 
 
@@ -52,7 +54,7 @@ def test_canonical_failure_cannot_fall_back_to_valid_files(monkeypatch, tmp_path
         else:
             conn.execute("UPDATE ingest.component_payload SET payload=%s WHERE run_id=%s AND kind=%s", (b"corrupt", data.run.run_id, kind))
     with pytest.raises(publication.ExtractPromoteError) as failure:
-        publication._load_typed_worldbuilding_preview_for_run(resolved)
+        publication._load_worldbuilding_publication_input(resolved)
     assert failure.value.status_code == (500 if violation == "corrupt" and kind != "source_artifact" else 422)
     assert registry.get_extraction_run(tmp_path, data.run.run_id) == data.run
 
@@ -64,5 +66,5 @@ def test_canonical_failure_cannot_fall_back_to_valid_files(monkeypatch, tmp_path
 def test_changed_resolved_binding_cannot_qualify_stored_run(monkeypatch, tmp_path, field, value):
     resolved, _ = _case(monkeypatch, tmp_path)
     with pytest.raises(publication.ExtractPromoteError) as failure:
-        publication._load_typed_worldbuilding_preview_for_run(replace(resolved, **{field: value}))
+        publication._load_worldbuilding_publication_input(replace(resolved, **{field: value}))
     assert failure.value.code == "run_scope_mismatch"

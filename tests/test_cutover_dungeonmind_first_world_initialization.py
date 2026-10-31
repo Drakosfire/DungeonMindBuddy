@@ -385,7 +385,7 @@ def _prepare_native_plan(client, repo: Path, *, with_rejected: bool = False) -> 
 
 def _sealed_native_request(repo: Path, plan: dict) -> WorldGraphInitializationRequest:
     from apps.live_control_server.services.extract_promote import (
-        _load_typed_worldbuilding_preview_for_run,
+        _load_worldbuilding_publication_input,
     )
     from apps.live_control_server.services.first_world_graph import (
         materialize_first_world_plan,
@@ -397,7 +397,8 @@ def _sealed_native_request(repo: Path, plan: dict) -> WorldGraphInitializationRe
 
 
     resolved = resolve_promotable_ingest_run(plan["runId"], root=repo)
-    typed_preview, expected_profile = _load_typed_worldbuilding_preview_for_run(resolved)
+    publication_input = _load_worldbuilding_publication_input(resolved)
+    typed_preview, expected_profile = publication_input.preview, publication_input.profile_id
     rematerialized = materialize_first_world_plan(
         preview=typed_preview,
         world_id=plan["worldId"],

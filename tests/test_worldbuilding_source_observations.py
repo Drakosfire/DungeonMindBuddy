@@ -272,7 +272,7 @@ def test_registered_runner_seals_independent_observations_and_reloads(
         resolve_promotable_ingest_run,
     )
     from apps.live_control_server.services.extract_promote import (
-        _load_typed_worldbuilding_preview_for_run,
+        _load_worldbuilding_publication_input,
     )
 
     text = "\n\n".join(row["text"] for row in source()) + "\n"
@@ -345,7 +345,7 @@ def test_registered_runner_seals_independent_observations_and_reloads(
     run = get_reviewable_extraction_run(tmp_path, result.run.run_id)
     assert run.profile_id == f"worldbuilding_gazetteer_v1@{profile_version}"
     resolved = resolve_promotable_ingest_run(run.run_id, root=tmp_path)
-    typed, _ = _load_typed_worldbuilding_preview_for_run(resolved)
+    typed = _load_worldbuilding_publication_input(resolved).preview
     assert len(typed.source_observations) == 2
     assert all(
         o.evidence_refs and all(r.can_open_source for r in o.evidence_refs)
