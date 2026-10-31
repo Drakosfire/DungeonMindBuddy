@@ -54,12 +54,6 @@ SCOPE_SOURCE_LABELS: dict[GraphObjectCandidateScope, str] = {
 }
 
 
-WORLDBUILDING_SOURCE_DOMAINS = frozenset(
-    {"worldbuilding", "location_note", "faction_note", "npc_note", "item_note"}
-)
-CAMPAIGN_MEMORY_SOURCE_DOMAINS = frozenset({"session_memory", "recap", "manual_seed"})
-
-
 class GraphObjectCandidateSource(BaseModel):
     scope: GraphObjectCandidateScope
     source_label: str
@@ -162,17 +156,6 @@ def _rank_and_cap(
 ) -> list[GraphObjectCandidate]:
     rows.sort(key=lambda row: (-row.score, row.label.lower(), row.node_id))
     return rows[:max_results]
-
-
-def _load_union_supergraph_store(
-    *,
-    campaign_id: str,
-    live_run_manifest_path: str | None,
-    repo: Path,
-) -> Any | None:
-    """UnionSupergraph candidate source retired with D.3B package deletion."""
-    del campaign_id, live_run_manifest_path, repo
-    return None
 
 
 _SESSION_NUMBER_RE = re.compile(r"session[-_](\d+)", re.IGNORECASE)
@@ -529,121 +512,6 @@ def _load_party_pc_rows(
     return rows, diagnostics
 
 
-def _union_supergraph_rows_for_scope(
-    store: Any,
-    *,
-    scope: GraphObjectCandidateScope,
-) -> list[dict[str, Any]]:
-    rows: list[dict[str, Any]] = []
-    focus_session_id = getattr(store, "focus_session_id", None)
-    for node_id, node in store.nodes.items():
-        source_domains = set(getattr(node, "source_domains", []) or [])
-        if scope == GraphObjectCandidateScope.worldbuilding:
-            if not source_domains & WORLDBUILDING_SOURCE_DOMAINS:
-                continue
-        elif scope == GraphObjectCandidateScope.campaign_memory:
-            if not source_domains & CAMPAIGN_MEMORY_SOURCE_DOMAINS:
-                continue
-            if focus_session_id and focus_session_id in (getattr(node, "evidence_ref_ids", []) or []):
-                pass
-        elif scope == GraphObjectCandidateScope.gm_private:
-            visibility = _node_visibility(store, node)
-            if visibility != "gm_private":
-                continue
-        else:
-            continue
-        rows.append(
-            {
-                "node_id": node_id,
-                "label": node.label,
-                "kind": node.kind,
-                "role": node.role,
-                "aliases": list(node.aliases or []),
-                "summary": None,
-                "authored": False,
-                "source_anchors": [],
-                "scope": scope,
-                "source_graph_id": getattr(store, "graph_id", None),
-                "visibility": _node_visibility(store, node),
-            }
-        )
-    return rows
-
-
-def _node_visibility(store: Any, node: Any) -> str | None:
-    for evidence_ref_id in getattr(node, "evidence_ref_ids", []) or []:
-        evidence = store.evidence.get(evidence_ref_id)
-        if evidence is None:
-            continue
-        visibility = getattr(evidence, "visibility_state", None)
-        if isinstance(visibility, str) and visibility:
-            return visibility
-        model_extra = getattr(evidence, "model_extra", None) or {}
-        if isinstance(model_extra, dict):
-            extra_visibility = model_extra.get("visibility_state")
-            if isinstance(extra_visibility, str) and extra_visibility:
-                return extra_visibility
-    artifact_ids = {
-        getattr(store.evidence.get(ref_id), "source_artifact_id", None)
-        for ref_id in getattr(node, "evidence_ref_ids", []) or []
-    }
-    for artifact_id in artifact_ids:
-        if not artifact_id:
-            continue
-        artifact = store.source_artifacts.get(artifact_id)
-        if artifact is None:
-            continue
-        visibility = getattr(artifact, "visibility_state", None)
-        if isinstance(visibility, str) and visibility:
-            return visibility
-    return None
-
-
-def _load_union_scope_rows(
-    context: GraphObjectCandidateSearchContext,
-    scope: GraphObjectCandidateScope,
-) -> tuple[list[dict[str, Any]], list[GraphObjectCandidateDiagnostic]]:
-    diagnostics: list[GraphObjectCandidateDiagnostic] = []
-    if context.repo_root is None:
-        diagnostics.append(
-            GraphObjectCandidateDiagnostic(
-                code="candidate_scope_unavailable",
-                message=f"{SCOPE_SOURCE_LABELS[scope]} search requires a repo root.",
-                scope=scope,
-            )
-        )
-        return [], diagnostics
-    store = _load_union_supergraph_store(
-        campaign_id=context.campaign_id,
-        live_run_manifest_path=context.live_run_manifest_path,
-        repo=context.repo_root,
-    )
-    if store is None:
-        code = {
-            GraphObjectCandidateScope.worldbuilding: "worldbuilding_graph_missing",
-            GraphObjectCandidateScope.campaign_memory: "candidate_scope_unavailable",
-            GraphObjectCandidateScope.gm_private: "gm_private_graph_missing",
-        }.get(scope, "candidate_scope_unavailable")
-        diagnostics.append(
-            GraphObjectCandidateDiagnostic(
-                code=code,
-                message=f"{SCOPE_SOURCE_LABELS[scope]} graph store is not available for this campaign.",
-                scope=scope,
-            )
-        )
-        return [], diagnostics
-    rows = _union_supergraph_rows_for_scope(store, scope=scope)
-    if not rows:
-        diagnostics.append(
-            GraphObjectCandidateDiagnostic(
-                code="candidate_scope_empty",
-                message=f"{SCOPE_SOURCE_LABELS[scope]} graph loaded but returned no searchable nodes.",
-                scope=scope,
-            )
-        )
-    return rows, diagnostics
-
-
 def _resolve_enabled_scopes(context: GraphObjectCandidateSearchContext) -> list[GraphObjectCandidateScope]:
     if context.scopes:
         return list(context.scopes)
@@ -685,7 +553,13 @@ def search_cross_scope_candidates(
             GraphObjectCandidateScope.campaign_memory,
             GraphObjectCandidateScope.gm_private,
         }:
-            rows, scope_diag = _load_union_scope_rows(context, scope)
+            rows, scope_diag = [], [
+                GraphObjectCandidateDiagnostic(
+                    code="candidate_scope_retired",
+                    message=f"{SCOPE_SOURCE_LABELS[scope]} candidate search through UnionSupergraph is retired.",
+                    scope=scope,
+                )
+            ]
         else:
             rows, scope_diag = [], [
                 GraphObjectCandidateDiagnostic(
