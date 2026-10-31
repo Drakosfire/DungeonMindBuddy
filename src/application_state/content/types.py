@@ -59,13 +59,17 @@ class AuthoredPageObject(_StoredDocument):
 
     kind: Literal["worldbuilding_source"] = "worldbuilding_source"
     world_id: str
-    campaign_id: None = None
+    campaign_id: str | None = None
     target_session: None = None
 
     @model_validator(mode="after")
     def validate_scope(self) -> "AuthoredPageObject":
         if not self.world_id or self.world_id != self.world_id.strip():
             raise ValueError("authored pages require an exact World owner")
+        if self.campaign_id is not None and (
+            not self.campaign_id or self.campaign_id != self.campaign_id.strip()
+        ):
+            raise ValueError("authored page campaign tag must be exact and nonblank")
         return self
 
 

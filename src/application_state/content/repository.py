@@ -91,7 +91,9 @@ def list_work_objects(
         clauses.append("status = %s")
         params.append(status)
     if world_id is not None:
-        clauses.extend(["world_id = %s", "campaign_id IS NULL"])
+        clauses.append("world_id = %s")
+        if kind != "worldbuilding_source":
+            clauses.append("campaign_id IS NULL")
         params.append(world_id)
     else:
         # V1 inventories remain campaign-owned, including the unfiltered legacy

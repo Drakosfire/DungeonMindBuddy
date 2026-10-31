@@ -88,6 +88,7 @@ def create_page(
     *,
     world_id: str,
     title: str,
+    campaign_id: str | None = None,
     metadata: PageMetadata | None = None,
     document_id: str | None = None,
 ) -> PageState:
@@ -106,6 +107,7 @@ def create_page(
     page = AuthoredPageObject(
         work_object_id=ident,
         world_id=world_id,
+        campaign_id=campaign_id,
         title=content._require_title(title),
         object_revision=1,
         created_at=now,
@@ -138,6 +140,7 @@ def create_page(
             if (
                 existing is not None
                 and existing.page.status == "active"
+                and existing.page.campaign_id == campaign_id
                 and existing.metadata.connected_page_operation_id
                 == metadata.connected_page_operation_id
             ):

@@ -465,3 +465,53 @@ def test_unknown_world_and_wrong_saved_digest_do_not_admit_page_data(world):
             expected_sha256=revision.content_sha256,
         )
     assert pages.get_page(ident(page), world_id=world) == page
+
+
+def test_page_campaign_tag_is_preserved_without_widening_playable_scope(world):
+    plain = pages.create_page(world_id=world, title="World page")
+    tagged = pages.create_page(
+        world_id=world, campaign_id="longmont-c2", title="Campaign context"
+    )
+    equal_tag = pages.create_page(
+        world_id=world, campaign_id=world, title="Unadjudicated equal tag"
+    )
+    assert plain.page.campaign_id is None
+    assert (
+        pages.get_page(ident(tagged), world_id=world).page.campaign_id == "longmont-c2"
+    )
+    assert pages.get_page(ident(equal_tag), world_id=world).page.campaign_id == world
+    assert {ident(row) for row in pages.list_pages(world_id=world)} == {
+        ident(plain),
+        ident(tagged),
+        ident(equal_tag),
+    }
+    with pytest.raises(ValidationError):
+        WorkObject.model_validate(tagged.page.model_dump() | {"kind": "plan"})
+    assert service.list_plans(world_id=world) == []
+
+
+@pytest.mark.parametrize("tag", ["", " padded", "padded "])
+def test_page_campaign_tag_cannot_be_silently_normalized(world, tag):
+    with pytest.raises(ValidationError, match="exact and nonblank"):
+        pages.create_page(world_id=world, campaign_id=tag, title="Unchanged tag")
+    assert pages.list_pages(world_id=world) == []
+
+
+def test_connected_page_reservation_cannot_change_campaign_tag(world):
+    metadata = pages.PageMetadata(connected_page_operation_id=uuid4())
+    page = pages.create_page(
+        world_id=world,
+        campaign_id="longmont-c2",
+        title="Reserved",
+        metadata=metadata,
+        document_id=str(uuid4()),
+    )
+    with pytest.raises(ApplicationStateConflictError):
+        pages.create_page(
+            world_id=world,
+            campaign_id="longmont-c1",
+            title="Reserved",
+            metadata=metadata,
+            document_id=ident(page),
+        )
+    assert pages.get_page(ident(page), world_id=world) == page

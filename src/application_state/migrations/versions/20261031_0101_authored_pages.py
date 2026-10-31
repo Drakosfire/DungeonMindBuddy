@@ -18,8 +18,11 @@ def upgrade():
     op.execute("""ALTER TABLE content.work_object ADD CONSTRAINT work_object_scope_check CHECK (
         (kind IN ('plan','runbook') AND campaign_id IS NOT NULL
             AND btrim(campaign_id) <> '' AND world_id IS NULL)
-        OR (campaign_id IS NULL AND world_id IS NOT NULL AND btrim(world_id) <> ''
-            AND target_session IS NULL))""")
+        OR (kind IN ('plan','runbook') AND campaign_id IS NULL
+            AND world_id IS NOT NULL AND btrim(world_id) <> '' AND target_session IS NULL)
+        OR (kind='worldbuilding_source' AND world_id IS NOT NULL AND btrim(world_id) <> ''
+            AND target_session IS NULL AND (campaign_id IS NULL
+                OR (campaign_id <> '' AND campaign_id=btrim(campaign_id)))))""")
     op.execute("""CREATE TABLE content.page_metadata (
         work_object_id UUID PRIMARY KEY REFERENCES content.work_object(work_object_id),
         document_class TEXT,
