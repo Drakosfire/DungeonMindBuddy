@@ -52,7 +52,6 @@ from apps.live_control_server.services.extract_promote import (
     ExtractPromoteError,
     _candidate_quote_occurrences,
     _assert_candidate_scope_matches_run,
-    _load_frozen_span_index_for_resolved_run,
 )
 from apps.live_control_server.services.graph_run_registry import (
     GraphRunRegistryError,
@@ -1695,34 +1694,22 @@ def _preflight_source_snapshot(parent: ExtractionRun, resolved, root: Path):
     """Verify exact canonical, parent, and span bytes before any child write."""
     from application_state.errors import ApplicationStateError
     from application_state.source import service as source_service
-    from apps.live_control_server.services.source_artifact_registry import (
-        SourceArtifactRegistryError,
-        _read_exact_repo_uri_bytes,
-        load_registered_source_artifact_bytes,
-    )
-    from graph_memory.evidence.source_artifact import validate_source_artifact_scope
+    from apps.live_control_server.services.graph_run_registry import load_reviewable_extraction_data
 
-    parent_source = parent.components.get("source_artifact")
-    parent_spans = parent.components.get("source_span_index")
-    parent_candidate = parent.components.get("candidate_graph")
-    if not all((parent_source, parent_spans, parent_candidate)):
-        raise _reject("parent recap components are incomplete", status_code=409)
     try:
-        artifact, canonical_source_bytes = load_registered_source_artifact_bytes(
-            root, parent.source_artifact_id,
-        )
-        parent_source_bytes = _read_exact_repo_uri_bytes(root, parent_source.uri)
-        span_bytes = _read_exact_repo_uri_bytes(root, parent_spans.uri)
-        parent_candidate_bytes = _read_exact_repo_uri_bytes(root, parent_candidate.uri)
-    except SourceArtifactRegistryError as exc:
+        data = load_reviewable_extraction_data(root, parent.run_id)
+    except GraphRunRegistryError as exc:
         raise _reject(f"parent source snapshot preflight failed: {exc}", status_code=exc.status_code) from exc
-    try:
-        validate_source_artifact_scope(artifact)
-    except ValueError as exc:
-        raise _reject(f"registered recap SourceArtifact is invalid: {exc}", status_code=409) from exc
+    if data.run != parent:
+        raise _reject("parent recap snapshot changed", status_code=409)
+    artifact = data.source_artifact
+    canonical_source_bytes = data.source_bytes
+    parent_candidate_bytes = data.candidate_bytes
+    span_bytes = data.span_bytes
     source_digest = _sha(canonical_source_bytes)
     if (
-        artifact.source_artifact_id != parent.source_artifact_id
+        getattr(resolved, "run_id", None) != parent.run_id
+        or artifact.source_artifact_id != parent.source_artifact_id
         or str(artifact.source_domain) != "recap"
         or artifact.campaign_id != parent.campaign_id
         or artifact.session_id != parent.session_id
@@ -1731,29 +1718,15 @@ def _preflight_source_snapshot(parent: ExtractionRun, resolved, root: Path):
         or getattr(resolved, "session_id", None) != parent.session_id
         or getattr(resolved, "source_artifact_id", None) != parent.source_artifact_id
         or getattr(resolved, "world_id", None) != artifact.world_id
-        or parent_source_bytes != canonical_source_bytes
-        or _sha(parent_source_bytes) != source_digest
-        or _sha(parent_source_bytes) != parent_source.sha256.removeprefix("sha256:")
         or source_digest != (artifact.content_sha256 or "").removeprefix("sha256:")
         or source_digest != resolved.source_revision_id.removeprefix("sha256:")
-        or _sha(span_bytes) != parent_spans.sha256.removeprefix("sha256:")
     ):
         raise _reject(
             "registered source, frozen parent, or resolved recap identity changed",
             status_code=409,
         )
     scope = _validated_recap_world_scope(parent, source_world_id=artifact.world_id)
-    try:
-        # The resolver paths must name the same immutable bytes as the frozen refs.
-        if (
-            resolved.normalized_recap_path.read_bytes() != canonical_source_bytes
-            or resolved.source_span_index_path.read_bytes() != span_bytes
-            or resolved.candidate_graph_path.read_bytes() != parent_candidate_bytes
-        ):
-            raise _reject("resolved recap files differ from the frozen component refs", status_code=409)
-        span_index = _load_frozen_span_index_for_resolved_run(resolved)
-    except (OSError, ValueError, KeyError, TypeError) as exc:
-        raise _reject(f"frozen source span index is invalid: {exc}", status_code=409) from exc
+    span_index = data.span_index
     try:
         source_service.persist_source_markdown(
             source_artifact_id=artifact.source_artifact_id,
