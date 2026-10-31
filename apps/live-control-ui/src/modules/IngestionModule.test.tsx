@@ -1476,7 +1476,7 @@ describe("IngestionModule", () => {
     expect(vi.mocked(recapIngestApi.postRecapIngest).mock.calls.every(([request]) => request.operation === "inspect_status")).toBe(true);
   });
 
-  it("blocks advanced graph extraction when reused status has no file proof", async () => {
+  it("does not start Process without input or a verified saved source", async () => {
     window.history.replaceState({}, "", "/ingest?world=elderwyld");
     window.localStorage.setItem("dmb.ingestion.longmont-c2.session.29", JSON.stringify({
       version: 3,
@@ -1503,15 +1503,7 @@ describe("IngestionModule", () => {
 
     await waitFor(() => expect(screen.getByText(/recap file presence is unverified/i)).toBeInTheDocument());
     await user.click(screen.getByText("Evidence & details"));
-    await user.click(screen.getByText("Advanced graph tools"));
-    await user.type(screen.getByLabelText("Candidate graph path"), "out/candidate.json");
-
-    const buildPreview = screen.getByRole("button", { name: "Build Graph Preview" });
-    expect(buildPreview).toBeDisabled();
-
-    // Exercise the handler guard independently of the disabled-button affordance.
-    buildPreview.removeAttribute("disabled");
-    fireEvent.click(buildPreview);
+    expect(screen.queryByRole("button", { name: "Process recap" })).not.toBeInTheDocument();
     expect(vi.mocked(recapIngestApi.postRecapIngest).mock.calls.every(([request]) => request.operation === "inspect_status")).toBe(true);
   });
 
@@ -1545,16 +1537,13 @@ describe("IngestionModule", () => {
       session: 23,
     })));
     await user.click(screen.getByText("Evidence & details"));
-    await user.click(screen.getByText("Advanced graph tools"));
-    await user.type(screen.getByLabelText("Candidate graph path"), "out/candidate.json");
-
-    const buildPreview = screen.getByRole("button", { name: "Build Graph Preview" });
-    expect(buildPreview).toBeEnabled();
+    expect(screen.getByRole("button", { name: "Process recap" })).toBeEnabled();
 
     const sessionInput = screen.getByLabelText("Recap/source session");
     fireEvent.change(sessionInput, { target: { value: "24" } });
     expect(sessionInput).toHaveValue(24);
-    expect(buildPreview).toBeDisabled();
+    const process = screen.queryByRole("button", { name: "Process recap" });
+    expect(process === null || (process as HTMLButtonElement).disabled).toBe(true);
     const extract = screen.queryByRole("button", { name: /run ingest|extract/i });
     if (extract) expect(extract).toBeDisabled();
 
@@ -1565,7 +1554,8 @@ describe("IngestionModule", () => {
       session: 24,
     })));
     await waitFor(() => {
-      expect(buildPreview).toBeDisabled();
+      const process = screen.queryByRole("button", { name: "Process recap" });
+      expect(process === null || (process as HTMLButtonElement).disabled).toBe(true);
       const currentExtract = screen.queryByRole("button", { name: /run ingest|extract/i });
       if (currentExtract) expect(currentExtract).toBeDisabled();
     });
@@ -2432,71 +2422,30 @@ describe("IngestionModule", () => {
     expect(screen.queryByRole("button", { name: "Open Recap View" })).not.toBeInTheDocument();
   });
 
-  it("submits build_graph_preview_bundle and shows source bundle blocked state", async () => {
+  it("keeps Process as the extraction action without artifact-path preview tools", async () => {
     const user = setupIngestUser();
-    const spy = vi.spyOn(recapIngestApi, "postRecapIngest").mockImplementation(async (body) => {
-      if (body.operation === "inspect_status") {
-        return makeStatus({
-          status: "ready_for_planning_activation",
-          states: ["recap_applied", "normalized_created"],
-        });
-      }
-      if (body.operation === "build_graph_preview_bundle") {
-        return makeStatus({
-          status: "ready_for_planning_activation",
-          states: ["graph_source_bundle_ready"],
-          ingest_report: {
-            graph_preview: {
-              status: "source_span_bundle_ready",
-              manifest_path: "out/graph_memory/runs/longmont-c2/session-22/run/graph_ingest_run_manifest.json",
-              blocked_reason: "Graph source bundle ready. Candidate graph extraction has not run yet.",
-            },
-          },
-        });
-      }
-      return makeStatus({
-        status: "ready_for_planning_activation",
-        states: [],
-      });
-    });
-
-    render(<IngestionModule campaignId="longmont-c2" session={23} />);
-    await user.click(screen.getByText("Advanced graph tools"));
-    const extractToggle = await screen.findByLabelText(
-      "Extract graph from recap with category extraction (DeepSeek V4.1 Flash 1017 · pinned)",
-    );
-    expect(extractToggle).toBeInTheDocument();
-    await user.click(extractToggle);
-    await waitFor(
-      () => expect(screen.getByRole("button", { name: "Build Graph Preview" })).toBeEnabled(),
-      { timeout: 5000 },
-    );
-    await user.click(screen.getByRole("button", { name: "Build Graph Preview" }));
-
-    await waitFor(() =>
-      expect(spy).toHaveBeenLastCalledWith(
-        expect.objectContaining({
-          operation: "build_graph_preview_bundle",
-          session: 22,
-          extract_graph: true,
-          graph_model_id: "deepseek/deepseek-v4.1-flash-1017",
-        }),
-      ),
-    );
-    expect(screen.getAllByText("Graph").length).toBeGreaterThan(0);
-    expect(screen.getAllByText("Graph source bundle ready. Candidate graph extraction has not run yet.").length).toBeGreaterThan(0);
+    render(<IngestionModule campaignId="longmont-c2" session={22} managedWorldId="elderwyld" />);
+    await fillRecapInputs(user, "Session 22 - Mireward Road\n\nThe party returns.", "Session 22 - Mireward Road");
+    expect(screen.getByRole("button", { name: "Process recap" })).toBeEnabled();
     await user.click(screen.getByText("Evidence & details"));
-    const graphPanel = screen.getByRole("region", { name: "Graph preview status" });
-    expect(graphPanel).toHaveTextContent("Graph extraction: candidate pending");
-    expect(graphPanel).not.toHaveTextContent("Graph extraction: blocked");
+    expect(screen.queryByText("Advanced graph tools")).not.toBeInTheDocument();
+    expect(screen.queryByLabelText("Candidate graph path")).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Build Graph Preview" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Open Graph Preview" })).not.toBeInTheDocument();
   });
 
-  it("offers extraction without the retired materialization control", async () => {
-    const user = userEvent.setup();
-    render(<IngestionModule campaignId="longmont-c2" session={23} />);
-    await user.click(screen.getByText("Advanced graph tools"));
-    expect(screen.getByRole("button", { name: "Build Graph Preview" })).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: /Materialize Preview Supergraph/ })).not.toBeInTheDocument();
+  it("retains explicit regeneration of a canonical candidate through Process", async () => {
+    window.history.replaceState({}, "", "/ingest?world=elderwyld&campaign=longmont-c2&session=session-22");
+    const user = setupIngestUser();
+    const result = makeStatus({ ingest_report: { graph_preview: { status: "candidate_validation_ready", extraction_run_id: "run-session-22" } } });
+    const requests = mockRecapIngestWithInspect(() => result);
+    render(<IngestionModule campaignId="longmont-c2" session={22} managedWorldId="elderwyld" />);
+    await fillRecapInputs(user, "Session 22 - Mireward Road\n\nThe party returns.", "Session 22 - Mireward Road");
+    await user.click(screen.getByRole("button", { name: "Process recap" }));
+    await user.click(await screen.findByRole("checkbox", { name: "Replace graph" }));
+    await user.click(screen.getByRole("button", { name: "Process recap" }));
+    expect(requests.mock.calls.filter(([body]) => body.operation === "generate_recap_memory")).toHaveLength(2);
+    expect(requests).toHaveBeenLastCalledWith(expect.objectContaining({ operation: "generate_recap_memory", force_graph_run: true, managed_world_id: "elderwyld" }));
   });
 
   it("keeps file replacement controls behind explicit advanced disclosure", async () => {
@@ -3245,7 +3194,6 @@ describe("IngestionModule", () => {
 
     await waitFor(() => expect(screen.getByText("Graph exists · choose Replace graph to run a fresh extraction.")).toBeInTheDocument());
     expect(screen.queryByText(/A graph already exists for this session/)).not.toBeInTheDocument();
-    await user.click(screen.getByText("Advanced graph tools"));
     expect(screen.queryByText(/Check "Replace existing graph"/)).not.toBeInTheDocument();
     expect(screen.getAllByLabelText("Replace graph")).toHaveLength(1);
     const reextractButton = screen.getByRole("button", { name: "Process recap" });

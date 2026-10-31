@@ -37,7 +37,6 @@ router = APIRouter(prefix="/api/live", tags=["live"])
 RecapIngestOperation = Literal[
     "generate_recap_memory",
     "build_graph_preview_bundle",
-    "inspect_graph_preview",
     "inspect_status",
     "reconcile_normalized_recap",
 ]
@@ -64,7 +63,6 @@ class RecapIngestRequest(BaseModel):
     keep_basename: str | None = None
     force_stage: bool = False
     force_recap: bool = False
-    candidate_graph_path: str | None = None
     force_graph_run: bool = False
     extract_graph: bool = False
     graph_model_id: str | None = None
@@ -443,7 +441,6 @@ def _source_only(body):
         body.operation == "build_graph_preview_bundle"
         and not body.include_graph_extraction
         and not body.extract_graph
-        and body.candidate_graph_path is None
         and not body.force_graph_run
         and not body.session_evidence
         and body.raw_text is None
@@ -659,6 +656,10 @@ def post_recap_ingest(
 ) -> dict[str, Any]:
     if body.native_recap_run_id is not None or _source_only(body):
         return _native_source_request(body, request)
+    # This wire operation remains native source-only intake. File-backed preview
+    # construction is retired; it must not fall through to corpus or model work.
+    if body.operation == "build_graph_preview_bundle":
+        raise HTTPException(status_code=422, detail="Artifact preview construction is retired. Use Process for extraction.")
     if body.session_evidence:
         from apps.live_control_server.services.agent_graph_auth import (
             enforce_native_graph_gm,
@@ -678,11 +679,6 @@ def post_recap_ingest(
             raise HTTPException(
                 status_code=422, detail="Session evidence requires the selected World"
             )
-        if body.candidate_graph_path:
-            raise HTTPException(
-                status_code=422,
-                detail="Session supplements require fresh extraction, not an imported candidate",
-            )
         try:
             body._resolved_session_evidence = resolve_evidence_refs(
                 body.managed_world_id,
@@ -696,40 +692,6 @@ def post_recap_ingest(
             return _generate_recap_memory_from_request(body, corpus)
         if body.operation == "inspect_status":
             return _inspect_status_with_graph(body, corpus)
-        if body.operation == "inspect_graph_preview":
-            return _inspect_status_with_graph(body, corpus)
-        if body.operation == "build_graph_preview_bundle":
-            status = inspect_recap_ingest_status(
-                campaign_id=body.campaign_id,
-                session=body.session,
-                title=body.title,
-                slug=body.slug,
-                corpus=corpus,
-            )
-            normalized = _normalized_recap_graph_path(status, corpus)
-            if not _normalized_recap_is_graph_ready(status):
-                return _remove_retired_derivative_details(_block_graph_without_current_normalized(status))
-            if not normalized:
-                raise HTTPException(status_code=422, detail="normalized recap missing")
-            ingest_context = _request_recap_context(body)
-            if body.extract_graph and body.candidate_graph_path:
-                raise HTTPException(
-                    status_code=422,
-                    detail="candidate_graph_path cannot be combined with extract_graph=true",
-                )
-            graph = build_recap_graph_preview_bundle(
-                repo_root=repo_root(),
-                campaign_id=body.campaign_id,
-                session=body.session,
-                normalized_recap_path=normalized,
-                force_graph_run=body.force_graph_run,
-                candidate_graph_path=body.candidate_graph_path,
-                extract_graph=body.extract_graph,
-                graph_model_id=body.graph_model_id,
-                ingest_context=ingest_context,
-                **({"supplemental_evidence":body._resolved_session_evidence} if body._resolved_session_evidence is not None else {}),
-            )
-            return _remove_retired_derivative_details(_append_graph_status(status, graph))
         if body.operation == "reconcile_normalized_recap":
             keep = (body.keep_basename or "").strip()
             if not keep:
@@ -760,4 +722,3 @@ def post_recap_ingest(
         raise HTTPException(status_code=422, detail=str(exc)) from exc
     except OSError as exc:
         raise HTTPException(status_code=500, detail=str(exc)) from exc
-    return status
