@@ -1,178 +1,429 @@
-from __future__ import annotations
+"""Recap status projects exact APP runs, never operational file manifests."""
 
-import hashlib
-import json
+from copy import deepcopy
 from pathlib import Path
 
-from apps.live_control_server.services import recap_graph_preview_ingest
+import psycopg
+import pytest
+from fastapi.testclient import TestClient
+
+from apps.live_control_server.main import create_app
+from apps.live_control_server.routes import recap_ingest as route
+from apps.live_control_server.services import ingest_run_catalog as catalog
+from apps.live_control_server.services import recap_graph_preview_ingest as service
+from graph_memory.ingestion.extraction_run import ExtractionRunStatus as Status
+from src.graph_memory.extraction.graph_preview_runner import (
+    ProductionExtractionRequest,
+    run_production_extraction,
+)
+from src.graph_memory.extraction.recap_extraction_profile import (
+    RECAP_PROFILE_ID,
+    RECAP_PROFILE_VERSION,
+)
+from tests.test_graph_preview_runner import (
+    FixtureClient,
+    _admit_recap,
+    _first_paragraph_span_id,
+    _recap_run_lineage,
+)
+from tests.test_recap_managed_standing_context import seed_binding
+
+pytestmark = pytest.mark.usefixtures("application_state_dsn")
+CONTEXT = {
+    "schema": "dm_world_campaign_ingest_context_v1",
+    "managed_world_id": "elderwyld",
+    "native_world_id": "world:elderwyld",
+    "binding_version": 3,
+    "campaign_id": "longmont-c2",
+    "head_revision_id": "rev:observed",
+    "graph_schema": "dm_graph_v1",
+    "graph_payload_sha256": "a" * 64,
+}
 
 
-def _normalized_source_digest(source: Path) -> str:
-    normalized = source.read_text(encoding="utf-8").rstrip("\n") + "\n"
-    return f"sha256:{hashlib.sha256(normalized.encode('utf-8')).hexdigest()}"
+@pytest.fixture
+def setup(tmp_path, monkeypatch):
+    monkeypatch.setenv("DMB_MANAGED_WORLD_DATA_ROOT", str(tmp_path))
+    monkeypatch.setenv("DMB_ARTIFACT_DATA_ROOT", str(tmp_path))
+    monkeypatch.setenv("DMB_DEPLOYMENT_ENVIRONMENT", "local")
+    monkeypatch.setenv("DMB_AUTH_MODE", "local_operator")
+    seed_binding(tmp_path, "elderwyld", "world:elderwyld", version=3)
+    return tmp_path
 
 
-def _write_candidate_run(
-    repo: Path,
-    *,
-    source_recap_path: str = "corpus/Session 29 normalized.md",
-    source_recap_sha256: str | None = None,
-) -> None:
-    run_dir = repo / "out/graph_memory/runs/longmont-c2/session-29/run"
-    run_dir.mkdir(parents=True)
-    candidate_path = run_dir / "candidate_graph.json"
-    candidate_bytes = b'{"nodes":[],"edges":[]}'
-    candidate_path.write_bytes(candidate_bytes)
-    candidate_digest = hashlib.sha256(candidate_bytes).hexdigest()
-    report_path = run_dir / "candidate_validation_report.json"
-    report = {
-        "schema": "dmb_candidate_graph_validation_report_v0",
-        "version": "0.1",
+def _case(root, *, mode="ok", context=None, output="runs"):
+    if context and (
+        context["native_world_id"] != CONTEXT["native_world_id"]
+        or context["campaign_id"] != CONTEXT["campaign_id"]
+    ):
+        from apps.live_control_server.services.source_artifact_registry import (
+            create_recap_source_artifact,
+        )
+        from tests.test_graph_preview_runner import _normalized_from_artifact
+
+        path = root / "recap.md"
+        path.write_text("Mirathorn is a river city.\n\nGuards watch the gate.\n")
+        artifact = create_recap_source_artifact(
+            root,
+            world_id=context["native_world_id"],
+            campaign_id=context["campaign_id"],
+            session_id="session-24",
+            recap_path=path,
+        )
+        source = _normalized_from_artifact(root, artifact.source_artifact_id)
+    else:
+        source = _admit_recap(root)
+    client = FixtureClient(mode=mode, span_ref=_first_paragraph_span_id(source))
+    result = run_production_extraction(
+        ProductionExtractionRequest(
+            repo_root=root,
+            source=source,
+            profile_id=RECAP_PROFILE_ID,
+            profile_version=RECAP_PROFILE_VERSION,
+            allow_llm=True,
+            category_client=client,
+            output_dir=root / output,
+            initial_lineage={
+                **_recap_run_lineage(source),
+                "world_campaign_ingest_context": context or CONTEXT,
+            },
+        )
+    )
+    assert result.run.status == (Status.REVIEWABLE if mode == "ok" else Status.FAILED)
+    return source, result.run
+
+
+def _client(root, monkeypatch, *, input_path=None):
+    monkeypatch.setattr(route, "repo_root", lambda: root)
+    monkeypatch.setattr(route, "_pipeline_corpus_root", lambda: None)
+    status = {
+        "schema": "dmb_raw_recap_ingest_status_v1",
         "campaign_id": "longmont-c2",
-        "session_id": "session-29",
-        "candidate_graph_path": candidate_path.relative_to(repo).as_posix(),
-        "candidate_graph_sha256": f"sha256:{candidate_digest}",
-        "valid": True,
-        "errors": [],
+        "session": 24,
+        "status": "recap_applied",
+        "states": ["recap_applied", "normalized_current"],
+        "paths": {"normalized_recap": str(input_path)} if input_path else {},
+        "authority": {},
         "warnings": [],
+        "errors": [],
+        "next_actions": [],
+        "ingest_report": {},
+        "entity_spelling_audit": [],
     }
-    report_bytes = json.dumps(report, sort_keys=True, indent=2).encode("utf-8")
-    report_path.write_bytes(report_bytes)
-    manifest = {
-        "schema": "dmb_graph_ingest_run_manifest_v0",
-        "run_id": "run-session-29",
-        "campaign_id": "longmont-c2",
-        "session_id": "session-29",
-        "status": "candidate_validation_ready",
-        "source": {
-            "normalized_recap_path": source_recap_path,
-            **(
-                {"normalized_recap_sha256": source_recap_sha256}
-                if source_recap_sha256
-                else {}
-            ),
+    monkeypatch.setattr(
+        route, "inspect_recap_ingest_status", lambda **kwargs: deepcopy(status)
+    )
+    return TestClient(create_app(), client=("127.0.0.1", 50000))
+
+
+def _inspect(client, **updates):
+    return client.post(
+        "/api/live/recap-ingest",
+        json={
+            "operation": "inspect_status",
+            "managed_world_id": "elderwyld",
+            "campaign_id": "longmont-c2",
+            "session": 24,
+            **updates,
         },
-        "next_actions": ["review_candidate"],
-        "artifacts": {
-            "candidate_graph": {
-                "kind": "candidate_graph",
-                "uri": candidate_path.relative_to(repo).as_posix(),
-                "sha256": f"sha256:{candidate_digest}",
-            },
-            "candidate_validation_report": {
-                "kind": "candidate_validation_report",
-                "uri": report_path.relative_to(repo).as_posix(),
-                "sha256": f"sha256:{hashlib.sha256(report_bytes).hexdigest()}",
-            },
+    )
+
+
+def test_status_reloads_database_run_after_mirrors_are_deleted(setup, monkeypatch):
+    root = setup
+    _, run = _case(root)
+    with _client(root, monkeypatch) as client:
+        for path in root.rglob("*"):
+            if path.is_file() and path.name != "world_containers.json":
+                path.unlink()
+        # D10 still owns the file-backed managed-World registry. Only that
+        # existing scope owner may read a file in this bounded D4 proof.
+        original_open = Path.open
+
+        def guarded(path, *args, **kwargs):
+            assert path == root / "out/registries/world_containers.json", (
+                "status reopened a source/run mirror"
+            )
+            return original_open(path, *args, **kwargs)
+
+        with monkeypatch.context() as guard:
+            guard.setattr(Path, "open", guarded)
+            response = _inspect(client)
+    assert response.status_code == 200, response.text
+    graph = response.json()["ingest_report"]["graph_preview"]
+    assert graph["extraction_run_id"] == run.run_id
+    assert graph["status"] == "candidate_validation_ready"
+    assert graph["source_match_mode"] == "retained_database"
+    assert graph["node_count"] > 0
+    assert graph["next_actions"] == ["review_candidate"]
+    assert "manifest_path" not in graph and "candidate_graph_path" not in graph
+
+
+def test_a_file_manifest_cannot_invent_an_extraction_run(setup, monkeypatch):
+    root = setup
+    folder = root / "out/graph_memory/runs/fake"
+    folder.mkdir(parents=True)
+    (folder / "graph_ingest_run_manifest.json").write_text(
+        '{"status":"candidate_validation_ready","campaign_id":"longmont-c2","session_id":"session-24","diagnostics":{"extraction_run_id":"file-only"}}'
+    )
+    with _client(root, monkeypatch) as client:
+        response = _inspect(client)
+    assert response.status_code == 200, response.text
+    graph = response.json()["ingest_report"]["graph_preview"]
+    assert graph["status"] == "missing" and not graph.get("extraction_run_id")
+
+
+@pytest.mark.parametrize(
+    "field,value",
+    [
+        ("managed_world_id", "other-world"),
+        ("native_world_id", "world:other"),
+        ("binding_version", 4),
+        ("campaign_id", "other-campaign"),
+    ],
+)
+def test_saved_context_cannot_cross_the_current_scope(setup, monkeypatch, field, value):
+    _case(setup, context={**CONTEXT, field: value})
+    with _client(setup, monkeypatch) as client:
+        response = _inspect(client)
+    assert response.status_code == 200, response.text
+    assert response.json()["ingest_report"]["graph_preview"]["status"] == "missing"
+
+
+def test_missing_world_does_not_read_campaign_global_records(setup, monkeypatch):
+    def forbidden(**kwargs):
+        pytest.fail("unscoped request read database run catalog")
+
+    monkeypatch.setattr(catalog, "list_extraction_runs", forbidden)
+    with _client(setup, monkeypatch) as client:
+        response = _inspect(client, managed_world_id=None)
+    assert response.status_code == 200, response.text
+    graph = response.json()["ingest_report"]["graph_preview"]
+    assert graph["status"] == "missing" and graph["next_actions"] == []
+
+
+@pytest.mark.parametrize(
+    "kind", ["source_artifact", "candidate_graph", "source_span_index"]
+)
+@pytest.mark.parametrize("violation", ["missing", "corrupt"])
+def test_file_mirrors_cannot_rescue_bad_database_evidence(
+    setup, monkeypatch, application_state_dsn, kind, violation
+):
+    _, run = _case(setup)
+    with psycopg.connect(application_state_dsn) as conn:
+        if kind == "source_artifact":
+            if violation == "missing":
+                conn.execute(
+                    "DELETE FROM source.revision WHERE source_artifact_id=%s",
+                    (run.source_artifact_id,),
+                )
+            else:
+                conn.execute(
+                    "UPDATE source.revision SET markdown='corrupt' WHERE source_artifact_id=%s",
+                    (run.source_artifact_id,),
+                )
+        elif violation == "missing":
+            conn.execute(
+                "DELETE FROM ingest.component_payload WHERE run_id=%s AND kind=%s",
+                (run.run_id, kind),
+            )
+        else:
+            conn.execute(
+                "UPDATE ingest.component_payload SET payload=%s WHERE run_id=%s AND kind=%s",
+                (b"corrupt", run.run_id, kind),
+            )
+    with _client(setup, monkeypatch) as client:
+        response = _inspect(client)
+    assert response.status_code in {409, 422, 500}, response.text
+    assert response.json()["detail"]["code"] == catalog.CODE_INTEGRITY
+
+
+def test_current_import_digest_does_not_select_another_source(setup, monkeypatch):
+    source, run = _case(setup)
+    original = setup / "original.md"
+    original.write_text(source.source_text)
+    with _client(setup, monkeypatch, input_path=original) as client:
+        response = _inspect(client)
+        graph = response.json()["ingest_report"]["graph_preview"]
+        assert (
+            graph["extraction_run_id"] == run.run_id
+            and graph["source_match_mode"] == "content_digest"
+        )
+        original.write_text("Different source.\n")
+        changed = _inspect(client)
+    assert changed.status_code == 200, changed.text
+    assert changed.json()["ingest_report"]["graph_preview"]["status"] == "missing"
+
+
+def test_graph_head_changes_do_not_hide_source_bound_work(setup, monkeypatch):
+    _, run = _case(
+        setup,
+        context={
+            **CONTEXT,
+            "head_revision_id": "rev:older",
+            "graph_payload_sha256": "b" * 64,
         },
-        "diagnostics": {"extraction_run_id": "run-session-29"},
-        "health": {"node_count": 59, "edge_count": 33, "beat_count": 4},
-        "steps": [],
-    }
-    manifest_path = run_dir / "graph_ingest_run_manifest.json"
-    manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
-
-
-def test_path_only_candidate_is_preserved_but_not_presented_as_current(
-    tmp_path: Path, monkeypatch
-) -> None:
-    repo = tmp_path.resolve()
-    missing_source = (
-        "Longmont Campaign/Campaign 2/Session Recaps/_normalized/"
-        "Session 29 - The Meat Mind of Mireward Reach.md"
     )
-    _write_candidate_run(repo, source_recap_path=missing_source)
-    monkeypatch.delenv("DUNGEONMIND_GRAPH_INGEST_RUNS_ROOT", raising=False)
-
-    status = recap_graph_preview_ingest.inspect_recap_graph_preview_status(
-        repo_root=repo,
-        campaign_id="longmont-c2",
-        session=29,
-        normalized_recap_path=missing_source,
+    with _client(setup, monkeypatch) as client:
+        response = _inspect(client)
+    assert response.status_code == 200, response.text
+    assert (
+        response.json()["ingest_report"]["graph_preview"]["extraction_run_id"]
+        == run.run_id
     )
 
-    assert status["status"] == "source_unverified"
-    assert status["artifact_status"] == "candidate_validation_ready"
-    assert status["source_match_mode"] == "path_only"
-    assert status["artifact_next_actions"] == ["review_candidate"]
-    assert status["next_actions"] == ["restore_or_load_verified_source"]
-    assert status["extraction_run_id"] == "run-session-29"
-    assert status["candidate_graph_path"].endswith("candidate_graph.json")
-    assert status["node_count"] == 59
-    assert status["edge_count"] == 33
-    assert status["candidate_validation"]["state"] == "valid"
-    assert "preserved" in status["blocked_reason"]
-    assert "before treating this output as current" in status["blocked_reason"]
 
-
-def test_session_candidate_without_source_path_is_marked_unverified(
-    tmp_path: Path, monkeypatch
-) -> None:
-    repo = tmp_path.resolve()
-    _write_candidate_run(repo)
-    monkeypatch.delenv("DUNGEONMIND_GRAPH_INGEST_RUNS_ROOT", raising=False)
-
-    status = recap_graph_preview_ingest.inspect_recap_graph_preview_status(
-        repo_root=repo,
-        campaign_id="longmont-c2",
-        session=29,
-        normalized_recap_path=None,
+def test_saved_failure_is_visible_without_reexecuting_or_leaking_details(
+    setup, monkeypatch
+):
+    _, run = _case(setup, mode="refusal")
+    monkeypatch.setattr(
+        service,
+        "run_recap_production_extraction",
+        lambda **kwargs: pytest.fail("inspection ran extraction"),
     )
+    with _client(setup, monkeypatch) as client:
+        response = _inspect(client)
+    assert response.status_code == 200, response.text
+    graph = response.json()["ingest_report"]["graph_preview"]
+    assert graph["extraction_run_id"] == run.run_id
+    assert graph["status"] == "failed" and graph["extraction_mode"] == "llm_blocked"
+    assert graph["next_actions"] == ["force_graph_run"]
+    assert "model refused" not in response.text
 
-    assert status["status"] == "source_unverified"
-    assert status["artifact_status"] == "candidate_validation_ready"
-    assert status["source_match_mode"] == "unavailable"
-    assert status["next_actions"] == ["restore_or_load_verified_source"]
+
+@pytest.mark.parametrize("content", [b"", b" \n", b"\xff"])
+def test_invalid_current_input_is_not_a_path_only_match(setup, monkeypatch, content):
+    _case(setup)
+    selected = setup / "selected.md"
+    selected.write_bytes(content)
+    with _client(setup, monkeypatch, input_path=selected) as client:
+        response = _inspect(client)
+    assert response.status_code == 200, response.text
+    graph = response.json()["ingest_report"]["graph_preview"]
+    assert graph["status"] == "source_unverified" and "extraction_run_id" not in graph
 
 
-def test_digest_verified_candidate_keeps_its_artifact_status(
-    tmp_path: Path, monkeypatch
-) -> None:
-    repo = tmp_path.resolve()
-    source = repo / "corpus/Session 29 normalized.md"
-    source.parent.mkdir(parents=True)
-    source.write_text("Session 29 normalized source.", encoding="utf-8")
-    _write_candidate_run(
-        repo,
-        source_recap_path=source.relative_to(repo).as_posix(),
-        source_recap_sha256=_normalized_source_digest(source),
+@pytest.mark.parametrize(
+    "error_name,code",
+    [
+        ("ApplicationStateUnavailableError", catalog.CODE_UNAVAILABLE),
+        ("ApplicationStateMigrationError", catalog.CODE_SCHEMA_UNAVAILABLE),
+    ],
+)
+def test_database_outage_is_not_missing_work(setup, monkeypatch, error_name, code):
+    from application_state import errors
+
+    def fail(**kwargs):
+        raise getattr(errors, error_name)("Database unavailable")
+
+    monkeypatch.setattr(catalog, "list_extraction_runs", fail)
+    with _client(setup, monkeypatch) as client:
+        response = _inspect(client)
+    assert response.status_code == 503, response.text
+    assert response.json()["detail"]["code"] == code
+
+
+def test_latest_failed_attempt_does_not_hide_behind_an_older_candidate(
+    setup, monkeypatch
+):
+    _case(setup, output="first")
+    _, latest = _case(setup, mode="refusal", output="second")
+    with _client(setup, monkeypatch) as client:
+        response = _inspect(client)
+    assert response.status_code == 200, response.text
+    graph = response.json()["ingest_report"]["graph_preview"]
+    assert graph["extraction_run_id"] == latest.run_id and graph["status"] == "failed"
+
+
+def test_corrupt_latest_attempt_does_not_fall_back_to_an_older_success(
+    setup, monkeypatch, application_state_dsn
+):
+    _case(setup, output="first")
+    _, latest = _case(setup, output="second")
+    with psycopg.connect(application_state_dsn) as conn:
+        conn.execute(
+            "UPDATE ingest.component_payload SET payload=%s WHERE run_id=%s AND kind='candidate_graph'",
+            (b"corrupt", latest.run_id),
+        )
+    with _client(setup, monkeypatch) as client:
+        response = _inspect(client)
+    assert response.status_code in {409, 422, 500}, response.text
+    assert response.json()["detail"]["code"] == catalog.CODE_INTEGRITY
+
+
+def test_run_without_managed_scope_is_not_selected(setup, monkeypatch):
+    source = _admit_recap(setup)
+    result = run_production_extraction(
+        ProductionExtractionRequest(
+            repo_root=setup,
+            source=source,
+            profile_id=RECAP_PROFILE_ID,
+            profile_version=RECAP_PROFILE_VERSION,
+            allow_llm=True,
+            category_client=FixtureClient(span_ref=_first_paragraph_span_id(source)),
+            output_dir=setup / "unscoped",
+            initial_lineage=_recap_run_lineage(source),
+        )
     )
-    monkeypatch.delenv("DUNGEONMIND_GRAPH_INGEST_RUNS_ROOT", raising=False)
-
-    status = recap_graph_preview_ingest.inspect_recap_graph_preview_status(
-        repo_root=repo,
-        campaign_id="longmont-c2",
-        session=29,
-        normalized_recap_path=str(source),
-    )
-
-    assert status["status"] == "candidate_validation_ready"
-    assert "artifact_status" not in status
-    assert status["source_match_mode"] == "content_digest"
-    assert status["next_actions"] == ["review_candidate"]
+    assert result.run.status == Status.REVIEWABLE
+    with _client(setup, monkeypatch) as client:
+        response = _inspect(client)
+    assert response.status_code == 200, response.text
+    assert response.json()["ingest_report"]["graph_preview"]["status"] == "missing"
 
 
-def test_changed_digest_does_not_use_path_only_candidate_fallback(
-    tmp_path: Path, monkeypatch
-) -> None:
-    repo = tmp_path.resolve()
-    source = repo / "corpus/Session 29 normalized.md"
-    source.parent.mkdir(parents=True)
-    source.write_text("Changed normalized source.", encoding="utf-8")
-    _write_candidate_run(
-        repo,
-        source_recap_path=source.relative_to(repo).as_posix(),
-        source_recap_sha256="sha256:" + hashlib.sha256(b"Old normalized source.\n").hexdigest(),
-    )
-    monkeypatch.delenv("DUNGEONMIND_GRAPH_INGEST_RUNS_ROOT", raising=False)
+def test_corrupt_source_world_cannot_use_matching_run_context(
+    setup, monkeypatch, application_state_dsn
+):
+    _, run = _case(setup)
+    with psycopg.connect(application_state_dsn) as conn:
+        conn.execute(
+            "UPDATE source.artifact SET input_descriptor=jsonb_set(input_descriptor, '{world_id}', '\"foreign\"') WHERE source_artifact_id=%s",
+            (run.source_artifact_id,),
+        )
+    with _client(setup, monkeypatch) as client:
+        response = _inspect(client)
+    assert response.status_code in {409, 422, 500}, response.text
+    assert response.json()["detail"]["code"] == catalog.CODE_INTEGRITY
 
-    status = recap_graph_preview_ingest.inspect_recap_graph_preview_status(
-        repo_root=repo,
-        campaign_id="longmont-c2",
-        session=29,
-        normalized_recap_path=str(source),
-    )
 
-    assert status["status"] == "missing"
-    assert status["source_match_mode"] == "content_digest"
-    assert status["next_actions"] == ["build_graph_preview_bundle"]
+@pytest.mark.parametrize("candidate", [b"[]", b"{}", b"not json"])
+def test_matching_hash_does_not_make_a_malformed_candidate_reviewable(
+    setup, monkeypatch, application_state_dsn, candidate
+):
+    import hashlib
+    from psycopg.types.json import Jsonb
+
+    _, run = _case(setup)
+    digest = hashlib.sha256(candidate).hexdigest()
+    with psycopg.connect(application_state_dsn) as conn:
+        # Simulate coherently rebound corrupt storage, not just a hash mismatch.
+        conn.execute(
+            "UPDATE ingest.run SET components=jsonb_set(components, '{candidate_graph,sha256}', %s) WHERE run_id=%s",
+            (Jsonb(digest), run.run_id),
+        )
+        conn.execute(
+            "UPDATE ingest.component_payload SET payload=%s, content_sha256=%s WHERE run_id=%s AND kind='candidate_graph'",
+            (candidate, digest, run.run_id),
+        )
+    with _client(setup, monkeypatch) as client:
+        response = _inspect(client)
+    assert response.status_code == 409, response.text
+    assert response.json()["detail"]["code"] == catalog.CODE_INTEGRITY
+
+
+def test_catalog_validation_errors_do_not_expose_private_context(setup, monkeypatch):
+    from application_state.errors import ApplicationStateIntegrityError
+
+    secret = "PRIVATE_MODEL_OUTPUT_/retained/private/path"
+
+    def fail(**kwargs):
+        raise ApplicationStateIntegrityError("bad persisted record: " + secret)
+
+    monkeypatch.setattr(catalog, "list_extraction_runs", fail)
+    with _client(setup, monkeypatch) as client:
+        response = _inspect(client)
+    assert response.status_code == 500
+    assert response.json()["detail"]["code"] == catalog.CODE_INTEGRITY
+    assert secret not in response.text

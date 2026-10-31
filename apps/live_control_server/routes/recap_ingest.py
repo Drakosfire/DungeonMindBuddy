@@ -24,6 +24,7 @@ from src.live_play.recap_ingest_pipeline import (
 )
 from src.live_play.recap_stage_paths import corpus_root as default_corpus_root
 from src.live_play.recap_derivative_provenance import record_archived_artifacts
+from apps.live_control_server.services.ingest_run_catalog import IngestRunCatalogError
 from apps.live_control_server.services.recap_graph_preview_ingest import (
     build_recap_graph_preview_bundle,
     inspect_recap_graph_preview_status,
@@ -267,6 +268,7 @@ def _inspect_status_with_graph(body: RecapIngestRequest, corpus: Path | None) ->
     )
     graph = inspect_recap_graph_preview_status(
         repo_root=repo_root(),
+        managed_world_id=body.managed_world_id,
         campaign_id=body.campaign_id,
         session=body.session,
         normalized_recap_path=normalized,
@@ -752,6 +754,8 @@ def post_recap_ingest(
                 )
             )
         raise HTTPException(status_code=422, detail=f"unsupported operation: {body.operation}")
+    except IngestRunCatalogError as exc:
+        raise HTTPException(status_code=exc.status_code, detail={"code": exc.code, "message": str(exc)}) from exc
     except (FileNotFoundError, ValueError) as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
     except OSError as exc:

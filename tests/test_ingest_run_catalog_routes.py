@@ -101,7 +101,7 @@ def test_w1_list_reads_app_state_only_when_legacy_registry_explodes(
     assert "preview_union_available" not in body["runs"][0]
 
 
-def test_w2_w10_missing_out_and_missing_component_bytes_do_not_hide_run(
+def test_w2_w10_missing_out_and_missing_database_bytes_do_not_hide_run(
     client: TestClient, tmp_path: Path, monkeypatch: pytest.MonkeyPatch, application_state_dsn: str
 ) -> None:
     import hashlib
@@ -203,7 +203,7 @@ def test_w2_w10_missing_out_and_missing_component_bytes_do_not_hide_run(
     payload = detail if isinstance(detail, dict) else body
     assert isinstance(payload, dict)
     message = str(payload.get("message") or payload)
-    assert "component file missing" in message.lower()
+    assert "referenced extraction output is not durable" in message.lower()
     assert "unknown source_artifact_id" not in message.lower()
     assert "manifest" not in message.lower() or "fallback" not in message.lower()
     assert not payload.get("fallback_run_id")

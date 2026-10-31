@@ -1663,11 +1663,14 @@ def test_failed_production_step_is_durable_safe_and_not_reexecuted(
     })
     assert inspected.status_code == 200, inspected.text
     readback = inspected.json()["ingest_report"]["graph_preview"]
-    for key in ("graph_steps", "current_graph_step", "blocked_reason", "extraction_run_status", "model_id"):
-        assert readback[key] == graph[key]
+    assert readback["extraction_run_id"] == graph["extraction_run_id"]
+    assert readback["extraction_run_status"] == "failed"
+    assert readback["status"] == "failed"
+    assert readback["next_actions"] == ["force_graph_run"]
+    assert "graph_steps" not in readback and secret not in inspected.text
     assert len(invocations) == 1
     assert manifest.read_bytes() == before
-    # A synthetic legacy manifest remains readable, without retroactive repair.
+    # A synthetic legacy manifest cannot override the database attempt.
     legacy = json.loads(before)
     for old_step in legacy["steps"]:
         if old_step["id"] == "extract_candidate_graph":
@@ -1680,7 +1683,7 @@ def test_failed_production_step_is_durable_safe_and_not_reexecuted(
     })
     assert legacy_read.status_code == 200
     legacy_graph = legacy_read.json()["ingest_report"]["graph_preview"]
-    assert legacy_graph["graph_steps"] == legacy["steps"]
+    assert legacy_graph == readback
     assert manifest.read_bytes() == before
     # A caller-supplied candidate cannot mask failed requested production,
     # even through the owning service rather than the rejecting HTTP route.
