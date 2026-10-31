@@ -4,8 +4,6 @@ from __future__ import annotations
 
 import hashlib
 import json
-import os
-import tempfile
 import re
 import copy
 from dataclasses import dataclass, field, replace
@@ -132,91 +130,36 @@ def _component(
     return ExtractionRunComponentRef(kind=kind, uri=uri, exists=True, sha256=digest)
 
 
-def _retain_raw_failure_response(
-    repo_root: Path,
-    output_dir: Path,
-    content: str,
-    *, run: ExtractionRun,
-) -> ExtractionRunComponentRef:
-    """Durably retain returned private text before recording a failed run."""
-    temporary: Path | None = None
+def _retain_private_response(content: str, *, run: ExtractionRun) -> ExtractionRunComponentRef:
+    """Retain exact private success/failure evidence before lifecycle advancement."""
     try:
-        target = output_dir / "raw_model_response.txt"
-        uri = _repo_uri(repo_root, target)
-        data = content.encode("utf-8")
-        descriptor, name = tempfile.mkstemp(prefix=".raw-response-", dir=output_dir)
-        temporary = Path(name)
-        with os.fdopen(descriptor, "wb") as stream:
-            os.fchmod(stream.fileno(), 0o600)
-            stream.write(data)
-            stream.flush()
-            os.fsync(stream.fileno())
-        os.replace(temporary, target)
-        directory = os.open(output_dir, os.O_RDONLY | os.O_DIRECTORY)
-        try:
-            os.fsync(directory)
-        finally:
-            os.close(directory)
         return _component(
             ExtractionRunComponentKind.RAW_MODEL_RESPONSE,
-            uri=uri,
-            run=run, data=data,
+            uri=f"urn:dmb:ingest-output:{run.run_id}:raw_model_response",
+            run=run, data=content.encode("utf-8"),
         )
     except Exception:
-        raise RuntimeError(
-            "Could not persist private extraction failure evidence"
-        ) from None
-    finally:
-        if temporary is not None:
-            try:
-                temporary.unlink(missing_ok=True)
-            except OSError:
-                pass  # Preserve the original storage outcome; leftover text stays private.
+        raise RuntimeError("Could not persist private extraction response evidence") from None
 
 
 def _retain_private_json_component(
-    repo_root: Path,
-    output_dir: Path,
     *,
-    filename: str,
     payload: Mapping[str, Any],
     kind: ExtractionRunComponentKind,
     run: ExtractionRun,
 ) -> ExtractionRunComponentRef:
-    """Persist private review diagnostics atomically and bind them by digest."""
-    temporary: Path | None = None
+    """Retain strict JSON diagnostics through the exact database output owner."""
     try:
-        target = output_dir / filename
-        uri = _repo_uri(repo_root, target)
         data = json.dumps(
             payload, indent=2, sort_keys=True, ensure_ascii=False, allow_nan=False,
         ).encode("utf-8") + b"\n"
-        descriptor, name = tempfile.mkstemp(prefix=".private-json-", dir=output_dir)
-        temporary = Path(name)
-        with os.fdopen(descriptor, "wb") as stream:
-            os.fchmod(stream.fileno(), 0o600)
-            stream.write(data)
-            stream.flush()
-            os.fsync(stream.fileno())
-        os.replace(temporary, target)
-        directory = os.open(output_dir, os.O_RDONLY | os.O_DIRECTORY)
-        try:
-            os.fsync(directory)
-        finally:
-            os.close(directory)
         return _component(
             kind,
-            uri=uri,
+            uri=f"urn:dmb:ingest-output:{run.run_id}:{kind.value}",
             run=run, data=data,
         )
     except Exception:
         raise RuntimeError("Could not persist private extraction diagnostics") from None
-    finally:
-        if temporary is not None:
-            try:
-                temporary.unlink(missing_ok=True)
-            except OSError:
-                pass
 
 
 def _create_draft_run(
@@ -501,8 +444,8 @@ def run_production_extraction(
         if isinstance(exc.raw_model_response, str):
             components = {
                 **components,
-                "raw_model_response": _retain_raw_failure_response(
-                    request.repo_root, output_dir, exc.raw_model_response, run=prepared,
+                "raw_model_response": _retain_private_response(
+                    exc.raw_model_response, run=prepared,
                 ),
             }
         message = str(exc)
@@ -562,8 +505,8 @@ def run_production_extraction(
         )
 
     if extraction.private_response_evidence is not None:
-        # Historical helper name: the same atomic private writer now also stores
-        # an explicitly versioned SUCCESS bundle, before any candidate artifact.
+        # Validate the versioned success bundle before storing private evidence
+        # or advancing a candidate.
         from src.graph_memory.extraction.worldbuilding_edge_review import json_copy
 
         try:
@@ -578,8 +521,8 @@ def run_production_extraction(
             raise RuntimeError("Could not validate private extraction success evidence") from None
         components = {
             **components,
-            "raw_model_response": _retain_raw_failure_response(
-                request.repo_root, output_dir, extraction.private_response_evidence, run=prepared,
+            "raw_model_response": _retain_private_response(
+                extraction.private_response_evidence, run=prepared,
             ),
         }
 
@@ -615,9 +558,6 @@ def run_production_extraction(
                 },
             }
             diagnostics_ref = _retain_private_json_component(
-                request.repo_root,
-                output_dir,
-                filename="consolidation_diagnostics.json",
                 payload=failure_diagnostics,
                 kind=ExtractionRunComponentKind.CONSOLIDATION_DIAGNOSTICS, run=prepared,
             )
@@ -658,9 +598,6 @@ def run_production_extraction(
         consolidation_diagnostics["recap_quote_integrity"] = quote_integrity_diagnostics
 
     diagnostics_ref = _retain_private_json_component(
-        request.repo_root,
-        output_dir,
-        filename="consolidation_diagnostics.json",
         payload=consolidation_diagnostics,
         kind=ExtractionRunComponentKind.CONSOLIDATION_DIAGNOSTICS, run=prepared,
     )

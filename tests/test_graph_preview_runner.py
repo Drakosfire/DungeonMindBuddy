@@ -316,7 +316,6 @@ def test_gazetteer_deferred_proposals_are_persisted_and_source_resolvable(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     import hashlib
-    import stat
     from dataclasses import replace as dataclass_replace
 
     from apps.live_control_server.services.graph_run_registry import (
@@ -439,11 +438,12 @@ def test_gazetteer_deferred_proposals_are_persisted_and_source_resolvable(
     assert result.run.status == ExtractionRunStatus.REVIEWABLE
     loaded = get_extraction_run(tmp_path, result.run.run_id)
     diagnostics_ref = loaded.components["consolidation_diagnostics"]
-    diagnostics_path = tmp_path / diagnostics_ref.uri.removeprefix("repo://")
-    diagnostics_bytes = diagnostics_path.read_bytes()
+    from application_state.ingest.components import get_component_bytes
+    diagnostics_bytes = get_component_bytes(run_id=loaded.run_id, kind=diagnostics_ref.kind,
+        content_sha256=diagnostics_ref.sha256)
     assert diagnostics_ref.sha256 == hashlib.sha256(diagnostics_bytes).hexdigest()
     assert diagnostics_ref.exists
-    assert stat.S_IMODE(diagnostics_path.stat().st_mode) == 0o600
+    assert not list(tmp_path.rglob("consolidation_diagnostics.json"))
     diagnostics = json.loads(diagnostics_bytes)
     proposals = diagnostics["source_section_retention"][
         "livestock_semantic_hygiene"]["deferred_proposals"]
@@ -1183,8 +1183,11 @@ def test_production_outputs_survive_deleted_files_in_ingest_store(tmp_path, monk
         if name == "source_artifact":
             continue
         path = tmp_path / ref.uri.removeprefix("repo://")
-        expected[name] = path.read_bytes()
-        path.unlink()
+        expected[name] = get_component_bytes(run_id=result.run.run_id, kind=ref.kind,
+            content_sha256=ref.sha256)
+        if path.is_file():
+            assert path.read_bytes() == expected[name]
+            path.unlink()
     monkeypatch.setattr(Path, "read_bytes", lambda *a, **k: pytest.fail("output read file"))
     monkeypatch.setattr(Path, "read_text", lambda *a, **k: pytest.fail("output read file"))
     for name, raw in expected.items():

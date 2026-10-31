@@ -1,11 +1,12 @@
 import hashlib
 import json
 import os
-import stat
 import subprocess
 import sys
 
 import pytest
+
+from application_state.ingest.components import get_component_bytes, verify_transition_component_bytes
 
 from tests.test_worldbuilding_profile_pipeline import (
     _admit_fixture_source,
@@ -71,21 +72,24 @@ def test_registered_failure_retains_exact_private_response_and_fresh_read(
 ):
     result = run_failure(tmp_path, raw)
     component = result.run.components["raw_model_response"]
-    path = tmp_path / component.uri.removeprefix("repo://")
-    assert path.read_bytes() == raw.encode()
+    assert get_component_bytes(run_id=result.run.run_id, kind=component.kind,
+        content_sha256=component.sha256) == raw.encode()
     assert component.sha256 == hashlib.sha256(raw.encode()).hexdigest()
-    assert component.exists and stat.S_IMODE(path.stat().st_mode) == 0o600
-    assert not list(path.parent.glob(".raw-response-*"))
+    assert component.exists
+    assert not list(tmp_path.rglob("raw_model_response.txt"))
+    assert not list(tmp_path.rglob(".raw-response-*"))
     if raw:
         assert raw not in json.dumps(result.diagnostics)
     script = """
 import hashlib,sys
 from pathlib import Path
 from apps.live_control_server.services.graph_run_registry import get_extraction_run
+from application_state.ingest.components import get_component_bytes
 root=Path(sys.argv[1]); run=get_extraction_run(root,sys.argv[2])
 assert run.status.value=='failed'
-ref=run.components['raw_model_response']; path=root/ref.uri.removeprefix('repo://')
-assert hashlib.sha256(path.read_bytes()).hexdigest()==ref.sha256==sys.argv[3]
+ref=run.components['raw_model_response']
+data=get_component_bytes(run_id=run.run_id,kind=ref.kind,content_sha256=ref.sha256)
+assert hashlib.sha256(data).hexdigest()==ref.sha256==sys.argv[3]
 print('private-failure-evidence-reopened')
 """
     child = subprocess.run(
@@ -133,38 +137,29 @@ def test_private_consolidation_diagnostics_component_is_digest_bound(tmp_path, a
             }
         }
     }
-    output_dir = tmp_path / "out" / "run"
-    output_dir.mkdir(parents=True)
     from application_state.ingest import service as ingest
     run = ingest.create_extraction_run(runner.ExtractionRun(run_id="diagnostics-run", source_artifact_id="source:input", source_domain="worldbuilding"))
     component = runner._retain_private_json_component(
-        tmp_path,
-        output_dir,
-        filename="consolidation_diagnostics.json",
         payload=payload,
         kind=runner.ExtractionRunComponentKind.CONSOLIDATION_DIAGNOSTICS, run=run,
     )
-    path = tmp_path / component.uri.removeprefix("repo://")
-    raw = path.read_bytes()
+    raw = verify_transition_component_bytes(run_id=run.run_id, expected_revision=run.revision,
+        kind=component.kind, content_sha256=component.sha256)
 
     assert component.kind.value == "consolidation_diagnostics"
     assert component.exists
     assert component.sha256 == hashlib.sha256(raw).hexdigest()
-    assert stat.S_IMODE(path.stat().st_mode) == 0o600
     assert json.loads(raw) == payload
-    assert not list(output_dir.glob(".private-json-*"))
+    assert not list(tmp_path.rglob("consolidation_diagnostics.json"))
 
 
 def test_private_diagnostics_write_failure_does_not_echo_payload(tmp_path, monkeypatch):
     def unavailable(*args, **kwargs):
-        raise OSError("disk full synthetic")
+        raise OSError("database unavailable with PRIVATE_BODY SOURCE_TEXT")
 
-    monkeypatch.setattr(runner.tempfile, "mkstemp", unavailable)
+    monkeypatch.setattr("application_state.ingest.components.persist_component_payload", unavailable)
     with pytest.raises(RuntimeError, match="Could not persist private extraction diagnostics") as exc:
         runner._retain_private_json_component(
-            tmp_path,
-            tmp_path,
-            filename="consolidation_diagnostics.json",
             payload={"private": "SOURCE_TEXT"},
             kind=runner.ExtractionRunComponentKind.CONSOLIDATION_DIAGNOSTICS,
             run=runner.ExtractionRun(run_id="unexecuted", source_artifact_id="source", source_domain="worldbuilding"),
@@ -177,25 +172,83 @@ def test_storage_failure_cannot_report_retention_or_return_candidate(
     application_state_dsn,
     monkeypatch,
 ):
+    from application_state.ingest import components
+    from application_state.ingest.service import list_extraction_runs
+
     calls = []
-
-    def unavailable(*args, **kwargs):
-        calls.append(args)
-        raise RuntimeError("Could not persist private extraction failure evidence")
-
-    monkeypatch.setattr(runner, "_retain_raw_failure_response", unavailable)
-    with pytest.raises(RuntimeError, match="persist private"):
+    original = components.persist_component_payload
+    def unavailable_private_output(**kwargs):
+        if kwargs["kind"] == runner.ExtractionRunComponentKind.RAW_MODEL_RESPONSE:
+            calls.append(kwargs["payload"])
+            raise OSError("private body in database error")
+        return original(**kwargs)
+    monkeypatch.setattr(components, "persist_component_payload", unavailable_private_output)
+    with pytest.raises(RuntimeError, match="persist private") as error:
         run_failure(tmp_path, "private body")
-    assert len(calls) == 1
+    assert str(error.value) == "Could not persist private extraction response evidence"
+    assert calls == [b"private body"]
+    [saved] = list_extraction_runs()
+    assert saved.status.value == "prepared"
+    assert "raw_model_response" not in saved.components and "candidate_graph" not in saved.components
     assert not list((tmp_path / "out/runs/failure").rglob("candidate_graph.json"))
 
 
 def test_writer_failure_is_controlled_and_never_echoes_body(tmp_path, monkeypatch):
     def unavailable(**kwargs):
-        raise OSError("disk full synthetic")
+        raise OSError("database unavailable with PRIVATE_BODY SOURCE_TEXT")
 
-    monkeypatch.setattr(runner.tempfile, "mkstemp", unavailable)
+    monkeypatch.setattr("application_state.ingest.components.persist_component_payload", unavailable)
     with pytest.raises(RuntimeError, match="Could not persist private") as exc:
-        runner._retain_raw_failure_response(tmp_path, tmp_path, "PRIVATE_BODY",
+        runner._retain_private_response("PRIVATE_BODY",
             run=runner.ExtractionRun(run_id="unexecuted", source_artifact_id="source", source_domain="worldbuilding"))
     assert "PRIVATE_BODY" not in str(exc.value)
+
+
+def test_private_file_unavailability_does_not_block_database_failure_retention(
+    tmp_path, application_state_dsn, monkeypatch,
+):
+    import tempfile
+    original = tempfile.mkstemp
+    def unavailable_private_file(*args, **kwargs):
+        if kwargs.get("prefix") in {".raw-response-", ".private-json-"}:
+            raise OSError("private mirror storage unavailable")
+        return original(*args, **kwargs)
+    monkeypatch.setattr(tempfile, "mkstemp", unavailable_private_file)
+    result = run_failure(tmp_path, "retained in database — 测试")
+    ref = result.run.components["raw_model_response"]
+    assert get_component_bytes(run_id=result.run.run_id, kind=ref.kind,
+        content_sha256=ref.sha256) == "retained in database — 测试".encode()
+    assert not list(tmp_path.rglob("raw_model_response.txt"))
+    assert not list(tmp_path.rglob("consolidation_diagnostics.json"))
+
+
+def test_database_diagnostic_failure_stops_before_candidate(tmp_path, application_state_dsn, monkeypatch):
+    from application_state.ingest import components
+    from application_state.ingest.service import list_extraction_runs
+    from tests.test_graph_preview_runner import FixtureClient, _run_recap_extraction
+
+    original = components.persist_component_payload
+    def unavailable_private_output(**kwargs):
+        if kwargs["kind"] == runner.ExtractionRunComponentKind.CONSOLIDATION_DIAGNOSTICS:
+            raise OSError("database error containing SOURCE_TEXT")
+        return original(**kwargs)
+    monkeypatch.setattr(components, "persist_component_payload", unavailable_private_output)
+    with pytest.raises(RuntimeError, match="Could not persist private extraction diagnostics") as error:
+        _run_recap_extraction(tmp_path, client=FixtureClient())
+    assert "SOURCE_TEXT" not in str(error.value)
+    [saved] = list_extraction_runs()
+    assert saved.status.value == "prepared"
+    assert "consolidation_diagnostics" not in saved.components and "candidate_graph" not in saved.components
+    assert not list(tmp_path.rglob("candidate_graph.json"))
+
+
+def test_private_diagnostic_serialization_refuses_non_json_without_storage(monkeypatch):
+    def unexpected(**kwargs):
+        pytest.fail("invalid private JSON reached storage")
+    monkeypatch.setattr("application_state.ingest.components.persist_component_payload", unexpected)
+    for value in (float("nan"), object()):
+        with pytest.raises(RuntimeError, match="Could not persist private extraction diagnostics") as error:
+            runner._retain_private_json_component(payload={"private": value},
+                kind=runner.ExtractionRunComponentKind.CONSOLIDATION_DIAGNOSTICS,
+                run=runner.ExtractionRun(run_id="unexecuted", source_artifact_id="source", source_domain="worldbuilding"))
+        assert "object at" not in str(error.value)

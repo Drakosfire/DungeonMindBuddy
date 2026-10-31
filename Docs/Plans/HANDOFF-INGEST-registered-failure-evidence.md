@@ -1,44 +1,42 @@
 # INGEST: retain registered extraction failure evidence
 
-Status DONE for this bounded repair. PR1179 merged
+Original repair COMPLETED: PR1179 merged
 4de42fa3bfc1115d909f82b40392e539cf98a0e3 from independently reviewed
-a43b99d172a66e952087315a9c6be0f44cad27d9; one review cycle. Write lease released.
-Base f1ef5ba5a0bc3c40eabff44af3afbf1101012f84. Independent of DOGFOOD1178
-(disjoint paths/state). Prerequisite split from BLOCKED advisory-review design:
-existing registered controller ignores CategoryGraphExtractionError's returned
-raw_model_response while legacy packaging retains it. No new review stage here.
+a43b99d172a66e952087315a9c6be0f44cad27d9; one review cycle. Original three-path
+write lease released. Base f1ef5ba5a0bc3c40eabff44af3afbf1101012f84.
+This repaired the registered controller ignoring supplied exception responses;
+it did not add semantic review, publication or provider replay.
 
-Exact three-path write lease:
-- this handoff
-- src/graph_memory/extraction/graph_preview_runner.py
-- tests/test_registered_extraction_failure_evidence.py
+## Current storage contract
 
-Persist a supplied raw response string (including empty) EXACTLY as UTF8 in a
-private0600 atomically replaced file beneath the already owned run outputdir.
-Use existing RAW_MODEL_RESPONSE component kind/key, repo URI and SHA256. Retain
-source/profile/model/run basis; mark FAILED only after evidence durability. No
-promotable candidate; no new schema, source/candidate edits, inference, retry,
-fallback, native/publication or serving change. Error diagnostics/logs must not
-newly contain raw body. None retains old absent-component behavior.
+Retain supplied raw response strings (including empty) exactly as UTF8 through
+the existing APP `ingest.component_payload` owner. The production controller no
+longer creates duplicate private files. This replaces the original private-file,
+mode0600, fsync and repo-URI requirements; Git history retains that implementation.
 
-Storage failure raises a controlled evidence-storage error without claiming
-retention or auto-replaying provider requests. No false completed run/candidate.
-The component is private run evidence, not a corpus discovery source or public
-response body. Future completed-pass bundles require separate producer review;
-this fix only preserves the existing exception's supplied payload.
+Use the existing RAW_MODEL_RESPONSE component kind/key and SHA256, retaining the
+source/profile/model/run basis. The component URI is an opaque
+`urn:dmb:ingest-output:<run_id>:<kind>` label, not a resolver, path or publication
+authority. Reads use the current exact run/kind/digest database binding. Retained
+older references already use that owner; there is no file fallback or migration.
 
-Owning registered-source tests with unique disposable APP DBs: Unicode and empty
-raw preservation/hash/0600, failed state/no candidate and unchanged source; None
-no artifact; fresh-process registry/component reopen; simulated storage failure
-must not advertise retained evidence or reviewable result. Cleanup fixture DBs.
-Inspect cumulative diff, commit/push/PR; independent exact-head review before
-merge. Goal remains full rich Mirathorn lifecycle, not merely this prerequisite.
+Mark FAILED only after evidence durability. No promotable candidate or automatic
+provider replay. A missing response does not invent a component. The optional
+versioned SUCCESS bundle from advisory review uses the same owner before candidate
+registration and lifecycle advancement; validate its strict JSON and source/profile
+identity first. Consolidation diagnostics also use this database owner with strict
+JSON serialization. No arbitrary repr serialization or NaN values.
 
-## Settlement
+Database failure raises a controlled storage error without echoing private bytes
+or claiming retention/success. Evidence remains private run data, not a corpus
+discovery source, public response body or publication approval. Separate bounded
+provider-attempt and outer execution captures retain their existing owners.
 
-Independent exact-head five-test pass used real disposable APP databases and
-fresh-process registry/component reads; no provider/retained/serving changes.
-Combined commit statuses were empty, not a CI-green claim. This preserves only
-raw text supplied by the exception. Earlier completed-pass journaling/semantic
-review and full Mirathorn lifecycle remain separate unfinished work. Later
-consumers must re-anchor on the merge and preserve private evidence semantics.
+## Owning proof
+
+Use synthetic registered controller success/failure with disposable APP databases:
+exact Unicode/empty response and digest, unchanged source, failed state without
+candidate, absent-response behavior, fresh-process bound database reopen, unavailable
+private files, strict serialization, and actual database failure before lifecycle
+advancement. Inspect the cumulative diff and obtain independent exact-head review.
+Tests do not establish semantic benchmark, publication, serving or operator acceptance.
