@@ -62,6 +62,9 @@ def test_changed_run_pins_fail_even_with_rehashed_effect(tmp_path, pin):
 @pytest.mark.parametrize("violation", ["missing", "corrupt"])
 def test_valid_mirrors_never_rescue_database_failure(tmp_path, application_state_dsn, kind, violation):
     data, package = _case(tmp_path)
+    # Untrusted files must not rescue missing/corrupt authoritative output.
+    for name, raw in (("candidate_graph", data.candidate_bytes), ("source_span_index", data.span_bytes)):
+        (tmp_path / data.run.components[name].uri.removeprefix("repo://")).write_bytes(raw)
     with psycopg.connect(application_state_dsn) as conn:
         if kind == "source_artifact":
             if violation == "missing":

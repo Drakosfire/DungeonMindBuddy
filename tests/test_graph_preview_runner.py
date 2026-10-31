@@ -266,11 +266,11 @@ def test_recap_fixture_extracts_reviewable_run(tmp_path: Path) -> None:
     assert loaded.profile_id == f"{RECAP_PROFILE_ID}@{RECAP_PROFILE_VERSION}"
     assert loaded.lineage.get("model_id")
     assert result.candidate_graph is not None
-    for key in ("source_artifact", "source_span_index", "candidate_graph"):
-        component = loaded.components[key]
-        assert component.uri.startswith("repo://")
-        assert component.sha256
-    # Re-run must not overwrite prior evidence bundle.
+    from application_state.ingest.components import get_component_bytes
+    first_candidate = loaded.components["candidate_graph"]
+    original_bytes = get_component_bytes(run_id=loaded.run_id, kind=first_candidate.kind,
+        content_sha256=first_candidate.sha256)
+    # Re-run must not overwrite the prior exact stored candidate.
     second = run_production_extraction(
         ProductionExtractionRequest(
             repo_root=tmp_path,
@@ -286,9 +286,9 @@ def test_recap_fixture_extracts_reviewable_run(tmp_path: Path) -> None:
     assert second.run.run_id != loaded.run_id
     still_first = get_extraction_run(tmp_path, loaded.run_id)
     assert still_first.status == ExtractionRunStatus.REVIEWABLE
-    assert still_first.components["candidate_graph"].uri != second.run.components[
-        "candidate_graph"
-    ].uri
+    assert still_first == loaded
+    assert get_component_bytes(run_id=loaded.run_id, kind=first_candidate.kind,
+        content_sha256=first_candidate.sha256) == original_bytes
 
 
 def test_worldbuilding_null_session_extracts(tmp_path: Path) -> None:
@@ -465,15 +465,13 @@ def test_gazetteer_deferred_proposals_are_persisted_and_source_resolvable(
     assert scenario_proposal["evidence_refs"][0]["source_ref_id"] == f"{source.source_artifact_id}:text"
 
     span_ref = loaded.components["source_span_index"]
-    span_index = json.loads(
-        (tmp_path / span_ref.uri.removeprefix("repo://")).read_text(encoding="utf-8")
-    )
+    span_index = json.loads(get_component_bytes(run_id=loaded.run_id, kind=span_ref.kind,
+        content_sha256=span_ref.sha256))
     span_ids = {item["source_span_id"] for item in span_index["spans"]}
     assert edge_proposal["evidence_refs"][0]["source_span_ref_id"] in span_ids
     candidate_ref = loaded.components["candidate_graph"]
-    candidate = json.loads(
-        (tmp_path / candidate_ref.uri.removeprefix("repo://")).read_text(encoding="utf-8")
-    )
+    candidate = json.loads(get_component_bytes(run_id=loaded.run_id, kind=candidate_ref.kind,
+        content_sha256=candidate_ref.sha256))
     candidate_node_ids = {item["node_id"] for item in candidate["nodes"]}
     assert "event:goats" not in candidate_node_ids
     assert "scene:gate" not in candidate_node_ids
@@ -530,10 +528,13 @@ def test_reviewable_candidate_evidence_binds_registered_artifact(tmp_path: Path)
     assert loaded.source_artifact_id == source.source_artifact_id
     assert ":" in source.source_artifact_id.split("session-24")[-1]
 
-    candidate_uri = loaded.components["candidate_graph"].uri.removeprefix("repo://")
-    graph = json.loads((tmp_path / candidate_uri).read_text(encoding="utf-8"))
-    span_uri = loaded.components["source_span_index"].uri.removeprefix("repo://")
-    span_index = json.loads((tmp_path / span_uri).read_text(encoding="utf-8"))
+    from application_state.ingest.components import get_component_bytes
+    graph_ref = loaded.components["candidate_graph"]
+    graph = json.loads(get_component_bytes(run_id=loaded.run_id, kind=graph_ref.kind,
+        content_sha256=graph_ref.sha256))
+    span_ref = loaded.components["source_span_index"]
+    span_index = json.loads(get_component_bytes(run_id=loaded.run_id, kind=span_ref.kind,
+        content_sha256=span_ref.sha256))
     expected_ref = document_source_ref_id(source.source_artifact_id)
     span_ids = {
         str(span.get("source_span_id") or span.get("source_span_ref_id"))
@@ -1197,3 +1198,47 @@ def test_production_outputs_survive_deleted_files_in_ingest_store(tmp_path, monk
         assert hashlib.sha256(actual).hexdigest() == ref.sha256
     assert json.loads(expected["candidate_graph"]) == result.candidate_graph
     assert json.loads(expected["source_span_index"]) == result.source_span_index
+
+
+def test_production_json_outputs_do_not_require_file_storage(tmp_path, monkeypatch):
+    from application_state.ingest.components import get_component_bytes
+    source = _admit_recap(tmp_path)
+    original = Path.write_bytes
+    def no_json_mirror(path, data):
+        if path.name in {"source_span_index.json", "candidate_graph.json", "known_entity_mentions.json"}:
+            raise OSError("synthetic JSON mirror unavailable")
+        return original(path, data)
+    monkeypatch.setattr(Path, "write_bytes", no_json_mirror)
+    result = run_production_extraction(ProductionExtractionRequest(
+        repo_root=tmp_path, source=source, profile_id=RECAP_PROFILE_ID,
+        profile_version=RECAP_PROFILE_VERSION, allow_llm=True,
+        category_client=FixtureClient(span_ref=_first_paragraph_span_id(source)),
+        output_dir=tmp_path / "controller", initial_lineage=_recap_run_lineage(source)))
+    assert result.run.status == ExtractionRunStatus.REVIEWABLE
+    expected = {"candidate_graph":result.candidate_graph, "source_span_index":result.source_span_index,
+                "provenance_index":result.known_entity_mentions}
+    assert expected["provenance_index"] is not None
+    for kind, payload in expected.items():
+        ref = result.run.components[kind]
+        actual = get_component_bytes(run_id=result.run.run_id, kind=kind, content_sha256=ref.sha256)
+        assert actual == (json.dumps(payload, indent=2, sort_keys=True) + "\n").encode()
+    assert not list((tmp_path / "controller").rglob("*.json"))
+
+
+@pytest.mark.parametrize("kind,expected_status", [
+    ("source_span_index", "draft"), ("candidate_graph", "prepared"), ("provenance_index", "prepared"),
+])
+def test_database_json_output_failure_does_not_advertise_missing_output(tmp_path, monkeypatch, kind, expected_status):
+    from application_state.ingest import components, service
+    original = components.persist_component_payload
+    def unavailable(**kwargs):
+        if kwargs["kind"].value == kind:
+            raise OSError("synthetic output store unavailable")
+        return original(**kwargs)
+    monkeypatch.setattr(components, "persist_component_payload", unavailable)
+    with pytest.raises(OSError, match="synthetic output store unavailable"):
+        _run_recap_extraction(tmp_path, client=FixtureClient())
+    [saved] = service.list_extraction_runs()
+    assert saved.status.value == expected_status
+    assert kind not in saved.components
+    assert not list(tmp_path.rglob("candidate_graph.json"))

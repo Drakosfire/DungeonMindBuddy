@@ -31,8 +31,12 @@ head reviewed above.
 ## Invariant
 
 For the recap profile `recap_category_v1@1.0`, validate positive candidate
-items at the host boundary after extraction returns but before writing
-`candidate_graph.json`, hashing its component, or advancing to `EXTRACTED`.
+items at the host boundary after extraction returns but before persisting the
+candidate component or advancing to `EXTRACTED`. The current production controller
+stores candidate, span-index and entity-mention JSON bytes through the existing APP
+output owner without duplicate JSON files. Locators are opaque labels; exact
+run/kind/digest bindings own reads. The historical artifact hashes below describe
+retained evidence from the original run, not a current filesystem requirement.
 Every source-bearing evidence quote must match the exact canonical paragraph
 for the candidate's source span using the existing normalized literal matcher
 from `graph_memory.anchor_quotes.find_anchor_quote_matches`. Preserve that

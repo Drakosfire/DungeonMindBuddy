@@ -614,8 +614,10 @@ def test_recap_runner_persists_sanitized_candidate_and_unchanged_private_respons
 
     loaded = get_extraction_run(tmp_path, result.run.run_id)
     assert loaded.status == ExtractionRunStatus.REVIEWABLE
-    candidate_path = tmp_path / loaded.components["candidate_graph"].uri.removeprefix("repo://")
-    saved_graph = json.loads(candidate_path.read_text(encoding="utf-8"))
+    from application_state.ingest.components import get_component_bytes
+    candidate_ref = loaded.components["candidate_graph"]
+    saved_graph = json.loads(get_component_bytes(run_id=loaded.run_id, kind=candidate_ref.kind,
+        content_sha256=candidate_ref.sha256))
     assert [node["node_id"] for node in saved_graph["nodes"]] == ["node:frank-sara"]
     assert {item["item_id"] for item in saved_graph["deferred_items"]} >= {
         "node:bad-north-guard",
@@ -623,14 +625,14 @@ def test_recap_runner_persists_sanitized_candidate_and_unchanged_private_respons
         "beat:dependent",
         "observation:dependent",
     }
-    from application_state.ingest.components import get_component_bytes
     raw_ref = loaded.components["raw_model_response"]
     assert get_component_bytes(run_id=loaded.run_id, kind=raw_ref.kind,
         content_sha256=raw_ref.sha256) == raw_response.encode("utf-8")
     source_path = tmp_path / loaded.components["source_artifact"].uri.removeprefix("repo://")
     assert source_path.read_text(encoding="utf-8") == source.source_text
-    index_path = tmp_path / loaded.components["source_span_index"].uri.removeprefix("repo://")
-    saved_index = json.loads(index_path.read_text(encoding="utf-8"))
+    index_ref = loaded.components["source_span_index"]
+    saved_index = json.loads(get_component_bytes(run_id=loaded.run_id, kind=index_ref.kind,
+        content_sha256=index_ref.sha256))
     assert saved_index == source.source_span_index
     diagnostics_ref = loaded.components["consolidation_diagnostics"]
     diagnostics = json.loads(get_component_bytes(run_id=loaded.run_id, kind=diagnostics_ref.kind,
