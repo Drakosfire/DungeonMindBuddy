@@ -786,7 +786,6 @@ def _plan_context_resolver(
     )
     from apps.live_control_server.services.world_container_registry import (
         get_world_container,
-        world_source_root_relpath,
     )
     from apps.live_control_server.services.agent_runtime import AgentWorldScope
 
@@ -818,7 +817,6 @@ def _plan_context_resolver(
             code="graph_unavailable", status_code=503,
             provider_dispatched=False,
         ) from exc
-    expected_root = world_source_root_relpath(managed_world_id)
     try:
         initial = get_world_container(registry_root, managed_world_id)
     except WorldContainerRegistryError as exc:
@@ -829,15 +827,8 @@ def _plan_context_resolver(
             provider_dispatched=False,
         ) from exc
     binding = initial.native_graph_binding
-    try:
-        source_root = (registry_root / expected_root).resolve(strict=True)
-        source_root_present = source_root.is_relative_to(registry_root.resolve()) and source_root.is_dir()
-    except (OSError, RuntimeError):
-        source_root_present = False
     if (
-        initial.source_root_relpath != expected_root
-        or not source_root_present
-        or binding is None
+        binding is None
         or binding.status != "active"
         or binding.binding_version <= 0
     ):
@@ -987,8 +978,7 @@ def _plan_context_resolver(
         ) from exc
     current_binding = current.native_graph_binding
     if (
-        current.source_root_relpath != initial.source_root_relpath
-        or current_binding is None
+        current_binding is None
         or current_binding.status != "active"
         or current_binding.native_world_id != native_world_id
         or current_binding.binding_version != binding.binding_version
@@ -997,6 +987,7 @@ def _plan_context_resolver(
             "Managed World binding changed during Graph retrieval; retry the turn.",
             code="native_graph_binding_changed",
             status_code=409,
+            provider_dispatched=False,
         )
     if result.snapshot is None or result.snapshot.world_id != native_world_id:
         raise AgentTurnServiceError(
@@ -1238,7 +1229,6 @@ def _plan_context_resolver(
     final_binding = final_world.native_graph_binding
     if (
         final_world.world_id != managed_world_id
-        or final_world.source_root_relpath != initial.source_root_relpath
         or final_binding is None
         or final_binding.status != "active"
         or final_binding.native_world_id != native_world_id
@@ -1281,7 +1271,6 @@ def _plan_context_resolver(
         ),
         retrieval_session=session,
         binding_version=binding.binding_version,
-        source_root_relpath=initial.source_root_relpath,
         candidate_assertion_ids=tuple(sorted({item.assertion_id for item in result.attributes})),
         candidate_relationship_ids=tuple(sorted({item.edge_id for item in result.relationships})),
         candidate_evidence_ref_ids=tuple(sorted({

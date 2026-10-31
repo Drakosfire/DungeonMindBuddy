@@ -1480,7 +1480,6 @@ class AgentPlanWorldGraphBootstrap:
     world_scope: AgentWorldScope
     retrieval_session: Any
     binding_version: int
-    source_root_relpath: str
     candidate_assertion_ids: tuple[str, ...]
     candidate_relationship_ids: tuple[str, ...]
     candidate_evidence_ref_ids: tuple[str, ...]

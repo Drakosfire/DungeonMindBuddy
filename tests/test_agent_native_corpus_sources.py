@@ -493,7 +493,7 @@ def test_ordinary_http_plan_source_answer_uses_published_graph_authority(source_
             world_scope=AgentWorldScope(**scope),
             retrieval_session=GraphRetrievalSession(snapshot=SessionSnapshot(**scope),
                 question=request.message), binding_version=lane.bound.binding_version,
-            source_root_relpath="corpus/world-one-markdown", candidate_assertion_ids=(),
+            candidate_assertion_ids=(),
             candidate_relationship_ids=(), candidate_evidence_ref_ids=(), evidence_by_anchor_id={})
     monkeypatch.setattr(agent, "_plan_context_resolver", published_graph)
     monkeypatch.setattr('apps.live_control_server.integrations.dungeonmind.world_graph_reads.direct_services_from_config',
