@@ -1058,6 +1058,8 @@ def _selected_passage(
 def _worldbuilding_run_passages(resolved_source, *, root: Path, artifact_id: str, digest: str, text: str):
     """Join manual assertions to the exact run's frozen index, never registry latest."""
     from graph_memory.source_span import source_span_index_from_dict, validate_source_span_index
+    from application_state.errors import ApplicationStateError
+    from application_state.ingest.components import get_component_bytes
 
     try:
         if getattr(resolved_source, "document_source_selector", None) is not None:
@@ -1066,10 +1068,10 @@ def _worldbuilding_run_passages(resolved_source, *, root: Path, artifact_id: str
             payload = source_span_index_to_dict(load_source_span_index(root, artifact_id))
             raw = (json.dumps(payload, sort_keys=True, ensure_ascii=False) + "\n").encode()
         else:
-            path = getattr(resolved_source, "source_span_index_path", None)
-            if not isinstance(path, Path) or not path.resolve().is_relative_to(root.resolve()):
-                raise ValueError("Missing or escaped run-pinned source index")
-            raw = path.read_bytes()
+            raw = get_component_bytes(
+                run_id=getattr(resolved_source, "run_id", None), kind="source_span_index",
+                content_sha256=getattr(resolved_source, "source_span_index_sha256", None),
+            )
         expected = getattr(resolved_source, "source_span_index_sha256", None)
         if not isinstance(expected, str) or hashlib.sha256(raw).hexdigest() != expected:
             raise ValueError("Frozen source index differs from the run's component digest")
@@ -1090,7 +1092,7 @@ def _worldbuilding_run_passages(resolved_source, *, root: Path, artifact_id: str
             previous_end = span.end_line
             passages.append((span.source_span_id, "\n".join(lines[span.start_line - 1:span.end_line])))
         return passages, hashlib.sha256(raw).hexdigest()
-    except (OSError, ValueError, TypeError, KeyError, AttributeError, RuntimeError) as exc:
+    except (ApplicationStateError, OSError, ValueError, TypeError, KeyError, AttributeError, RuntimeError) as exc:
         raise _source_span_error(
             "The exact run's frozen source span index is unreadable or changed. Prepare again.", drift=True,
         ) from exc
@@ -1114,7 +1116,6 @@ def verify_graph_review_assertion_spans(
         read_admitted_worldbuilding_span,
     )
     from graph_memory.retrieval.errors import WorldGraphRetrievalError
-    from graph_memory.retrieval.source_reader import parse_repo_uri
 
     artifact = _buddy_source_artifact(resolved_source)
     _scope_check_buddy_artifact(
@@ -1146,13 +1147,8 @@ def verify_graph_review_assertion_spans(
             if stored != artifact:
                 raise ValueError("Registered document source changed")
         else:
-            relative = parse_repo_uri(str(getattr(artifact, "uri", None) or ""))
-            if relative is None:
-                raise ValueError("The admitted source has no readable repo passage")
-            target = (root / relative).resolve()
-            if not target.is_relative_to(root):
-                raise ValueError("The admitted source path is outside its repository")
-            raw = target.read_bytes()
+            from apps.live_control_server.services.source_artifact_registry import load_source_input_bytes
+            raw = load_source_input_bytes(artifact)
         text = raw.decode("utf-8")
     except (OSError, ValueError) as exc:
         raise _source_span_error("The admitted source body is unreadable. Prepare again.", drift=True) from exc
