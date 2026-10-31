@@ -6,11 +6,15 @@ import logging
 import uuid
 from typing import Any
 
-from fastapi import APIRouter, Depends, Request
+from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from fastapi.routing import APIRoute
 
+from application_state.errors import ApplicationStateError
+from apps.live_control_server.integrations.dungeonmind.native_recap_source_admission import NativeRecapError
+from apps.live_control_server.models.native_recap_preparation import NativeRecapPrepareRequest
+from apps.live_control_server.routes.registry_standing import StrictJSONRoute
 from apps.live_control_server import config as live_config
 from apps.live_control_server.models.ingest_selection_context import IngestSelectionContextRequest
 from apps.live_control_server.models.worldbuilding_publication_coverage import WorldbuildingPublicationCoverage
@@ -614,3 +618,32 @@ def post_extract_promote_confirm(
             )
         )
     return response.model_dump(mode="json", by_alias=True)
+
+
+# Native preparation is non-mutating. Its typed WK packet is not a classic
+# review_package and cannot be submitted to the classic confirm operation.
+def prepare_native_recap(
+    body: NativeRecapPrepareRequest,
+    request: Request,
+    principal: NativeGraphPrincipal = Depends(native_graph_gm_dependency),
+):
+    from dungeonmind.domain.errors import DungeonMindError
+    from worldkeeper.application.preparation import InvalidWorldChange
+    from apps.live_control_server.services import native_recap_preparation
+
+    try:
+        _reject_selector_query(request)
+        return native_recap_preparation.prepare(body, principal)
+    except ExtractPromoteError as exc:
+        return _error_response(exc)
+    except (ValueError, ApplicationStateError, NativeRecapError, DungeonMindError, InvalidWorldChange) as exc:
+        raise HTTPException(getattr(exc, "status_code", 409), detail={
+            "code": getattr(exc, "code", "native_recap_prepare_refused"),
+            "message": str(exc),
+        }) from exc
+
+
+router.add_api_route(
+    "/native-prepare", prepare_native_recap, methods=["POST"],
+    route_class_override=StrictJSONRoute,
+)
