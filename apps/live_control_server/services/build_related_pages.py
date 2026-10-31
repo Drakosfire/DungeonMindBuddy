@@ -18,7 +18,7 @@ from apps.live_control_server.config import (
 )
 from .workspace_document_registry import (
     list_workspace_documents,
-    get_workspace_document_snapshot,
+    get_committed_page_snapshot,
 )
 
 
@@ -54,7 +54,7 @@ def discover(request):
 
 def materialize(pointer):
     page = PagePointer.model_validate(pointer)
-    snapshot = get_workspace_document_snapshot(root(), str(page.document_id))
+    snapshot = get_committed_page_snapshot(root(), str(page.document_id))
     r = snapshot.record
     if (
         r.world_id != page.world_id

@@ -6,6 +6,8 @@ Imported only after the legacy import blocker is armed in the owning witness.
 
 
 from __future__ import annotations
+from tests.page_fixtures import create_page_fixture, page_text, save_page
+from apps.live_control_server.services.workspace_document_registry import get_workspace_document
 
 
 import hashlib
@@ -259,10 +261,6 @@ def write_post_genesis_graph_review_run(repo: Path) -> str:
         create_source_artifact_from_workspace_document,
         source_span_index_relpath,
     )
-    from apps.live_control_server.services.workspace_document_registry import (
-        create_workspace_document,
-        mark_workspace_document_committed,
-    )
     from graph_memory.ingestion.extraction_run import (
         ExtractionRunComponentKind,
         ExtractionRunComponentRef,
@@ -274,7 +272,7 @@ def write_post_genesis_graph_review_run(repo: Path) -> str:
 
 
     (repo / f"corpus/{GLASS_ORCHARD_WORLD_ID}-markdown").mkdir(parents=True, exist_ok=True)
-    document = create_workspace_document(
+    document = create_page_fixture(
         repo,
         title="D2C4 Graph Review source",
         campaign_id=GLASS_ORCHARD_WORLD_ID,
@@ -285,15 +283,8 @@ def write_post_genesis_graph_review_run(repo: Path) -> str:
         authority_state="draft",
         visibility_state="internal",
     )
-    committed = mark_workspace_document_committed(
-        repo, document.document_id, expected_revision=document.revision
-    )
-    source = repo / committed.target_relpath
-    source.parent.mkdir(parents=True, exist_ok=True)
-    source.write_text(
-        "# D2C4 Graph Review\n\nPost-genesis source for manual authoring.\n",
-        encoding="utf-8",
-    )
+    committed = get_workspace_document(repo, document.document_id)
+    committed = save_page(repo, committed.document_id, '# D2C4 Graph Review\n\nPost-genesis source for manual authoring.\n')
     artifact = create_source_artifact_from_workspace_document(
         repo, document_id=committed.document_id, expected_revision=committed.revision
     )
@@ -771,7 +762,7 @@ def _write_reviewable_extraction_run(
     invent_session_in_candidate: bool = False,
     candidate_campaign_id: str | None = ...,  # type: ignore[assignment]
     pin_noncanonical_span_index: bool = False,
-) -> tuple[str, Path]:
+) -> tuple[str, bytes]:
     """Build a canonical worldbuilding ExtractionRun through its owning services.
 
 
@@ -801,10 +792,6 @@ def _write_reviewable_extraction_run(
         create_source_artifact_from_workspace_document,
         source_span_index_relpath,
     )
-    from apps.live_control_server.services.workspace_document_registry import (
-        create_workspace_document,
-        mark_workspace_document_committed,
-    )
     from graph_memory.ingestion.extraction_run import (
         ExtractionRunComponentKind,
         ExtractionRunComponentRef,
@@ -823,32 +810,25 @@ def _write_reviewable_extraction_run(
     storage_campaign = world_id or campaign_id or CAMPAIGN_ID
     if world_id is not None:
         (repo / f"corpus/{world_id}-markdown").mkdir(parents=True, exist_ok=True)
-    document = create_workspace_document(
+    document = create_page_fixture(
         repo,
         title="Worldbuilding lore",
         campaign_id=storage_campaign,
-        world_id=world_id,
+        world_id=world_id or storage_campaign,
         kind="worldbuilding_source",
         source_domain="worldbuilding",
         document_class="lore",
         authority_state="draft",
         visibility_state="internal",
     )
-    committed = mark_workspace_document_committed(
-        repo, document.document_id, expected_revision=document.revision
-    )
-    source = repo / committed.target_relpath
-    source.parent.mkdir(parents=True, exist_ok=True)
-    source.write_text(
-        "# Lore\n\nWorldbuilding source for promote.\n\nA second paragraph.\n",
-        encoding="utf-8",
-    )
+    committed = get_workspace_document(repo, document.document_id)
+    committed = save_page(repo, committed.document_id, '# Lore\n\nWorldbuilding source for promote.\n\nA second paragraph.\n')
     if campaign_id is None:
         # Register the campaignless input correctly at creation; immutable DB
         # descriptors/bodies must never be retargeted after registration.
         from apps.live_control_server.services.source_artifact_registry import _register_source_input
         from graph_memory.evidence.source_artifact import GraphMemorySourceArtifact, build_worldbuilding_source_artifact_id
-        content = source.read_text(encoding="utf-8")
+        content = page_text(repo, committed.document_id)
         digest = hashlib.sha256(content.encode("utf-8")).hexdigest()
         artifact = _register_source_input(content=content, artifact=GraphMemorySourceArtifact(
             source_artifact_id=build_worldbuilding_source_artifact_id(
@@ -874,7 +854,7 @@ def _write_reviewable_extraction_run(
     span_path.write_text(json.dumps(source_span_index_to_dict(
         load_source_span_index(repo, artifact.source_artifact_id)), indent=2, ensure_ascii=False) + "\n")
     span_index = json.loads(span_path.read_text(encoding="utf-8"))
-    source_lines = source.read_text(encoding="utf-8").splitlines()
+    source_lines = page_text(repo, committed.document_id).splitlines()
     span_ref_id = str(span_index["spans"][0]["source_span_id"])
     for span in span_index["spans"]:
         start = int(span["start_line"])
@@ -1036,7 +1016,7 @@ def _write_reviewable_extraction_run(
             break
     if status == "superseded":
         supersede_extraction_run(repo, run.run_id, expected_revision=run.revision)
-    return run.run_id, source
+    return run.run_id, page_text(repo, committed.document_id).encode("utf-8")
 
 
 def _write_bld08_reviewable_run(

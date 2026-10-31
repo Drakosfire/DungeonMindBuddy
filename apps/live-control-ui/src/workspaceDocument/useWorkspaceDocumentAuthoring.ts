@@ -744,7 +744,9 @@ export function useWorkspaceDocumentAuthoring(
           markdown,
           content_sha256: committed.normalized_content_sha256,
           file_fingerprint: committed.file_fingerprint as string,
-          file_exists: true,
+          file_exists: false,
+          committed_markdown: markdown,
+          committed_content_sha256: committed.normalized_content_sha256,
           loaded_revision: committed.committed_revision,
         };
         snapshotRef.current = nextSnapshot;

@@ -1,4 +1,6 @@
 from __future__ import annotations
+from tests.page_fixtures import create_page_fixture, page_text
+from apps.live_control_server.services.workspace_document_registry import get_workspace_document
 
 import hashlib
 from pathlib import Path
@@ -9,10 +11,6 @@ from fastapi.testclient import TestClient
 
 from apps.live_control_server.main import create_app
 from apps.live_control_server.services.source_artifact_registry import load_source_span_index
-from apps.live_control_server.services.workspace_document_registry import (
-    create_workspace_document,
-    mark_workspace_document_committed,
-)
 from graph_memory.source_span import source_span_index_to_dict
 from src.graph_memory.extraction.category_candidate_graph_extractor import (
     CategoryGraphExtractionError,
@@ -169,7 +167,7 @@ def _patch_build_extraction(
 
 
 def _commit_source(tmp_path: Path, *, body: str = "Mirathorn is a river city.\n"):
-    record = create_workspace_document(
+    record = create_page_fixture(
         tmp_path,
         title="Lore",
         campaign_id="eldyrwild",
@@ -182,13 +180,13 @@ def _commit_source(tmp_path: Path, *, body: str = "Mirathorn is a river city.\n"
     target = tmp_path / (record.target_relpath or "")
     target.parent.mkdir(parents=True, exist_ok=True)
     target.write_text(body, encoding="utf-8")
-    committed = mark_workspace_document_committed(tmp_path, record.document_id)
+    committed = get_workspace_document(tmp_path, record.document_id)
     digest = hashlib.sha256(body.encode("utf-8")).hexdigest()
     return committed, digest
 
 
 def test_launch_requires_committed_source(client: TestClient, tmp_path: Path) -> None:
-    record = create_workspace_document(
+    record = create_page_fixture(
         tmp_path,
         title="Draft lore",
         campaign_id="eldyrwild",
@@ -666,8 +664,7 @@ def test_build_launch_retains_run_under_separate_artifact_root(
     monkeypatch.setenv(ARTIFACT_DATA_ROOT_ENV, str(data))
     monkeypatch.setattr("apps.live_control_server.routes.graph_preview.repo_root", lambda: code)
     committed, digest = _commit_source(data)
-    source = data / committed.target_relpath
-    original = source.read_bytes()
+    original = page_text(data, committed.document_id).encode("utf-8")
     captured: list[dict[str, Any]] = []
     _patch_build_extraction(monkeypatch, capture=captured)
     launch = client.post("/api/live/graph-preview/extraction-runs", json={
@@ -700,5 +697,5 @@ def test_build_launch_retains_run_under_separate_artifact_root(
             body = get_component_bytes(run_id=run["run_id"], kind=component["kind"],
                                        content_sha256=component["sha256"])
             assert hashlib.sha256(body).hexdigest() == component["sha256"].removeprefix("sha256:")
-    assert source.read_bytes() == original
+    assert page_text(data, committed.document_id).encode("utf-8") == original
     assert not (code / "out").exists()

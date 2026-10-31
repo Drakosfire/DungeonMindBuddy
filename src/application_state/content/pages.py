@@ -1,6 +1,6 @@
 """Typed authored-page operations over the shared Content storage owner.
 
-No live route uses this foundation yet. No file fallback, legacy scope inference,
+Page authoring and committed-source reads share this owner. No file fallback,
 automatic adoption or native source/publication authority is provided here.
 """
 
@@ -46,7 +46,13 @@ class PageState(BaseModel):
     metadata: PageMetadata
 
 
+class CommittedPageSnapshot(PageState):
+    revision: WorkRevision | None
+    working_copy_revision: int | None
+
+
 class PageSnapshot(PageState):
+    committed_revision: WorkRevision | None
     markdown: str
     content_sha256: str
     from_working_copy: bool
@@ -169,18 +175,24 @@ def list_pages(
         return [_state(conn, str(row.work_object_id), world_id) for row in rows]
 
 
+def _editor_snapshot(conn, state: PageState) -> PageSnapshot:
+    markdown, digest, working, copy, committed = content._snapshot_body(
+        conn, state.page
+    )
+    return PageSnapshot(
+        **state.model_dump(),
+        markdown=markdown,
+        content_sha256=digest,
+        from_working_copy=working,
+        working_copy_revision=copy.working_copy_revision if copy else None,
+        committed_revision=committed,
+    )
+
+
 def snapshot_page(document_id: str, *, world_id: str) -> PageSnapshot:
     with unit_of_work(_dsn()) as conn:
         conn.execute("SET TRANSACTION ISOLATION LEVEL REPEATABLE READ READ ONLY")
-        state = _state(conn, document_id, world_id)
-        markdown, digest, working, copy = content._snapshot_body(conn, state.page)
-        return PageSnapshot(
-            **state.model_dump(),
-            markdown=markdown,
-            content_sha256=digest,
-            from_working_copy=working,
-            working_copy_revision=copy.working_copy_revision if copy else None,
-        )
+        return _editor_snapshot(conn, _state(conn, document_id, world_id))
 
 
 def _basis_values(
@@ -360,3 +372,91 @@ def read_revision(
         if revision.content_sha256 != expected_sha256:
             raise ApplicationStateConflictError("saved page revision digest differs")
         return revision
+
+
+def find_page(document_id: str) -> PageState | None:
+    """Exact opaque-ID dispatch for the workspace API, never Playable admission."""
+    with unit_of_work(_dsn()) as conn:
+        conn.execute("SET TRANSACTION ISOLATION LEVEL REPEATABLE READ READ ONLY")
+        obj = repo.get_work_object(conn, content._require_uuid(document_id))
+        if not isinstance(obj, AuthoredPageObject):
+            return None
+        return _state(conn, document_id, obj.world_id)
+
+
+def page_inventory(
+    *, campaign_id: str | None = None, status: str | None = "active"
+) -> list[PageState]:
+    """Workspace inventory over the same Page owner; campaign is only a tag."""
+    if status not in {None, "active", "discarded"}:
+        raise ApplicationStateValidationError("invalid page status")
+    with unit_of_work(_dsn()) as conn:
+        conn.execute("SET TRANSACTION ISOLATION LEVEL REPEATABLE READ READ ONLY")
+        clauses, params = ["w.kind='worldbuilding_source'"], []
+        if campaign_id is not None:
+            clauses.append("w.campaign_id=%s")
+            params.append(campaign_id)
+        if status is not None:
+            clauses.append("w.status=%s")
+            params.append(status)
+        with conn.cursor(row_factory=dict_row) as cur:
+            cur.execute(
+                "SELECT w.*,m.document_class,m.authority_state,m.visibility_state,m.connected_page_operation_id "
+                "FROM content.work_object w LEFT JOIN content.page_metadata m ON m.work_object_id=w.work_object_id "
+                "WHERE " + " AND ".join(clauses) + " ORDER BY w.updated_at DESC",
+                params,
+            )
+            rows = cur.fetchall()
+        result = []
+        for row in rows:
+            meta = {key: row.pop(key) for key in PageMetadata.model_fields}
+            if meta["authority_state"] is None:
+                raise ApplicationStateIntegrityError(
+                    "authored page metadata is missing"
+                )
+            result.append(
+                PageState(
+                    page=AuthoredPageObject.model_validate(row),
+                    metadata=PageMetadata.model_validate(meta),
+                )
+            )
+        return result
+
+
+def _committed_snapshot(conn, state: PageState) -> CommittedPageSnapshot:
+    revision = None
+    if state.page.current_revision_id is not None:
+        revision = repo.get_work_revision(conn, state.page.current_revision_id)
+        if revision is None:
+            raise ApplicationStateIntegrityError("saved Page revision is missing")
+        content._require_revision_owner(state.page, revision)
+    copy = repo.get_working_copy(conn, state.page.work_object_id)
+    return CommittedPageSnapshot(
+        **state.model_dump(),
+        revision=revision,
+        working_copy_revision=copy.working_copy_revision if copy else None,
+    )
+
+
+def committed_page(document_id: str, *, world_id: str) -> CommittedPageSnapshot:
+    """Read saved bytes and current CAS basis coherently, ignoring draft content."""
+    with unit_of_work(_dsn()) as conn:
+        conn.execute("SET TRANSACTION ISOLATION LEVEL REPEATABLE READ READ ONLY")
+        return _committed_snapshot(conn, _state(conn, document_id, world_id))
+
+
+def workspace_page_snapshot(
+    document_id: str, *, committed: bool = False
+) -> PageSnapshot | CommittedPageSnapshot | None:
+    """Opaque-ID workspace dispatch and body projection in one observation."""
+    with unit_of_work(_dsn()) as conn:
+        conn.execute("SET TRANSACTION ISOLATION LEVEL REPEATABLE READ READ ONLY")
+        obj = repo.get_work_object(conn, content._require_uuid(document_id))
+        if not isinstance(obj, AuthoredPageObject):
+            return None
+        state = _state(conn, document_id, obj.world_id)
+        return (
+            _committed_snapshot(conn, state)
+            if committed
+            else _editor_snapshot(conn, state)
+        )

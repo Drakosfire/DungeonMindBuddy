@@ -1,4 +1,6 @@
 from __future__ import annotations
+from tests.page_fixtures import create_page_fixture, save_page
+from apps.live_control_server.services.workspace_document_registry import get_workspace_document
 
 import copy
 import json
@@ -12,10 +14,6 @@ from apps.live_control_server.services.graph_run_registry import get_extraction_
 from apps.live_control_server.services.source_artifact_registry import (
     create_recap_source_artifact,
     create_source_artifact_from_workspace_document,
-)
-from apps.live_control_server.services.workspace_document_registry import (
-    create_workspace_document,
-    mark_workspace_document_committed,
 )
 from graph_memory.ingestion.extraction_run import ExtractionRunStatus
 from graph_memory.source_span import source_span_index_to_dict
@@ -110,7 +108,7 @@ def _admit_recap(tmp_path: Path, text: str = "Mirathorn is a river city.\n\nGuar
 
 
 def _admit_worldbuilding(tmp_path: Path, text: str = "Mirathorn is a river city.\n"):
-    record = create_workspace_document(
+    record = create_page_fixture(
         tmp_path,
         title="Lore",
         campaign_id="eldyrwild",
@@ -120,13 +118,9 @@ def _admit_worldbuilding(tmp_path: Path, text: str = "Mirathorn is a river city.
         authority_state="draft",
         visibility_state="internal",
     )
-    committed = mark_workspace_document_committed(
-        tmp_path, record.document_id, expected_revision=1
-    )
-    target = tmp_path / committed.target_relpath
-    target.parent.mkdir(parents=True, exist_ok=True)
+    committed = get_workspace_document(tmp_path, record.document_id)
     content = text.rstrip("\n") + "\n"
-    target.write_text(content, encoding="utf-8")
+    committed = save_page(tmp_path, committed.document_id, content)
     artifact = create_source_artifact_from_workspace_document(
         tmp_path,
         document_id=committed.document_id,

@@ -41,6 +41,7 @@ from apps.live_control_server.services.workspace_document_registry import (
     get_committed_playable_revision,
     get_workspace_document,
     get_workspace_document_snapshot,
+    get_committed_page_snapshot,
     list_workspace_documents,
     list_world_owned_plans_v2,
     create_world_owned_plan_v2,
@@ -418,9 +419,12 @@ def get_workspace_document_route(document_id: str) -> dict[str, Any]:
     "/workspace-documents/{document_id}/snapshot",
     response_model=WorkspaceDocumentSnapshotAny,
 )
-def get_workspace_document_snapshot_route(document_id: str) -> dict[str, Any]:
+def get_workspace_document_snapshot_route(
+    document_id: str, view: Literal["editor", "committed"] = "editor"
+) -> dict[str, Any]:
     try:
-        snapshot = get_workspace_document_snapshot(repo_root(), document_id)
+        reader = get_committed_page_snapshot if view == "committed" else get_workspace_document_snapshot
+        snapshot = reader(repo_root(), document_id)
     except WorkspaceDocumentRegistryError as exc:
         raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc
     if isinstance(snapshot.record, WorldOwnedRunbookRecordV2):

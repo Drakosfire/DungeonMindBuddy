@@ -171,7 +171,7 @@ export function SelectedWorldProvider({
         if (extractionRun && !extractionCampaignId) {
           throw new Error(`Extraction Run ${selection.extractionRunId} has no campaign binding.`);
         }
-        if (!selection.explicit && document && !worldOwnedPlan && /^longmont-c[12]$/.test(document.campaign_id)
+        if (!selection.explicit && document && !worldOwnedPlan && document.campaign_id !== null && /^longmont-c[12]$/.test(document.campaign_id)
           && (!document.world_id || document.world_id === "eldyrwild")) {
           if (!cancelled) setLoaded({ scope: selectionScope, value: { kind: "legacy" } });
           return;

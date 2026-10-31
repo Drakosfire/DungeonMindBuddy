@@ -64,9 +64,9 @@ export function BuildDocumentSelector({
 
     const byCampaign = new Map<string, WorkspaceDocumentRecord[]>();
     for (const record of listed) {
-      const bucket = byCampaign.get(record.campaign_id) ?? [];
+      const bucket = byCampaign.get(record.campaign_id ?? "") ?? [];
       bucket.push(record);
-      byCampaign.set(record.campaign_id, bucket);
+      byCampaign.set(record.campaign_id ?? "", bucket);
     }
 
     const groups: Array<{ campaignId: string; label: string; options: Array<{ id: string; label: string }> }> =
@@ -91,7 +91,7 @@ export function BuildDocumentSelector({
       if (seenCampaigns.has(campaignId)) continue;
       groups.push({
         campaignId,
-        label: formatReviewCampaignLabel(campaignId),
+        label: campaignId ? formatReviewCampaignLabel(campaignId) : "Pages without a campaign tag",
         options: records.map((record) => ({
           id: record.document_id,
           label: buildDocumentOptionLabel(record, records),
@@ -103,10 +103,10 @@ export function BuildDocumentSelector({
       activeRecord &&
       !listed.some((entry) => entry.document_id === activeRecord.document_id)
     ) {
-      const orphanCampaign = activeRecord.campaign_id;
+      const orphanCampaign = activeRecord.campaign_id ?? "";
       groups.unshift({
         campaignId: orphanCampaign,
-        label: formatReviewCampaignLabel(orphanCampaign),
+        label: orphanCampaign ? formatReviewCampaignLabel(orphanCampaign) : "Pages without a campaign tag",
         options: [
           {
             id: activeRecord.document_id,

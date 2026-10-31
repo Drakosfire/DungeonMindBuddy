@@ -471,7 +471,7 @@ def test_source_owner_refuses_changed_or_foreign_saved_page(
         file_exists=False,
     )
     monkeypatch.setattr(
-        owner, "get_workspace_document_snapshot", lambda root, doc: snap
+        owner, "get_committed_page_snapshot", lambda root, doc: snap
     )
     assert owner.materialize(page)["markdown"] == body
     if change == "revision":

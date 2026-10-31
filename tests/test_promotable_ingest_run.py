@@ -331,7 +331,7 @@ def test_resolve_reviewable_worldbuilding_extraction_run(tmp_path: Path) -> None
     assert resolved.source_artifact_id.startswith("artifact:worldbuilding:")
     assert resolved.world_id == CAMPAIGN_ID  # legacy fixture stamps campaign as world identity
     assert "world_id=" + CAMPAIGN_ID in resolved.diagnostics
-    assert resolved.source_revision_id == f"sha256:{hashlib.sha256(source.read_bytes()).hexdigest()}"
+    assert resolved.source_revision_id == f"sha256:{hashlib.sha256(source).hexdigest()}"
     assert resolved.candidate_graph_path.is_file()
     assert resolved.sealed_source_uri == resolved.data.source_artifact.uri
     assert resolved.normalized_recap_path.is_file()
@@ -340,7 +340,7 @@ def test_resolve_reviewable_worldbuilding_extraction_run(tmp_path: Path) -> None
     assert resolved.source_span_index_sha256 == hashlib.sha256(resolved.source_span_index_path.read_bytes()).hexdigest()
     assert "session_scope=null" in resolved.diagnostics
     # Resolution retains exact database bytes without creating another seal.
-    assert resolved.data.source_bytes == source.read_bytes()
+    assert resolved.data.source_bytes == source
     assert not (repo / "out/graph_memory/runs/promote_seals").exists()
     assert not (resolved.run_dir / "normalized_source.md").exists()
 
@@ -383,7 +383,7 @@ def test_resolve_ignores_source_mirror_changes(tmp_path: Path) -> None:
     repo = tmp_path / "repo"
     repo.mkdir()
     run_id, source = _write_reviewable_extraction_run(repo)
-    source.write_text("# Lore\n\nTampered after extraction.\n", encoding="utf-8")
+    (repo / "obsolete-source-mirror.md").write_text("# Lore\n\nTampered after extraction.\n", encoding="utf-8")
 
     resolved = resolve_promotable_ingest_run(run_id, root=repo)
     assert resolved.data.run.run_id == run_id

@@ -2693,6 +2693,13 @@ export async function getWorkspaceDocumentSnapshot(documentId: string): Promise<
   );
 }
 
+/** Saved Page projection; a divergent editor working copy is never a source. */
+export async function getCommittedPageSnapshot(documentId: string): Promise<WorkspaceDocumentSnapshot> {
+  return apiFetch<WorkspaceDocumentSnapshot>(
+    `/api/live/workspace-documents/${encodeURIComponent(documentId)}/snapshot?view=committed`,
+  );
+}
+
 export async function getNativeWorldSourceAdmissionStatus(
   documentId: string,
   expectedRevision?: number,

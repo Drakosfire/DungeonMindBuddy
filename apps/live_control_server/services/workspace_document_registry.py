@@ -1,4 +1,8 @@
-"""File-backed opaque workspace document registry for /plan authoring."""
+"""Workspace API projections over the Content database owner.
+
+The legacy registry reader exists solely for explicit offline Runbook adoption.
+Live Page/Plan/Runbook reads and writes never consult it.
+"""
 
 from __future__ import annotations
 
@@ -8,14 +12,14 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import TYPE_CHECKING, Annotated, Any, Literal, Union
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from apps.live_control_server.services.registry_file_lock import (
     registry_mutation_lock,
     registry_token,
     workspace_document_mutation_lock,
 )
-from src.live_play.live_store import load_json, write_json
+from src.live_play.live_store import load_json
 
 if TYPE_CHECKING:
     from application_state.content.service import CurrentWorldPlanRead
@@ -32,7 +36,6 @@ _UNSET: Any = object()
 def _iso_timestamp(value: object) -> str:
     if isinstance(value, str):
         return value
-    from datetime import UTC, datetime
 
     if isinstance(value, datetime):
         stamp = value if value.tzinfo is not None else value.replace(tzinfo=UTC)
@@ -83,21 +86,6 @@ def _record_from_work_object(
         world_id=world_id,
         **values,
     )
-
-
-def unswitched_workspace_record(
-    root: Path, document_id: str
-) -> WorkspaceDocumentRecord | None:
-    """Return a file-backed worldbuilding record without touching PostgreSQL.
-
-    Leftover ``kind=plan`` and ``kind=runbook`` file rows are not authority after
-    the Content switch.
-    """
-    document, _token = _load_unlocked(root)
-    record = _find_record(document, document_id)
-    if record is None or record.kind in ("plan", "runbook"):
-        return None
-    return record
 
 
 def capture_legacy_runbook_snapshots(root: Path) -> list:
@@ -154,7 +142,7 @@ class WorkspaceDocumentRecord(BaseModel):
     schema_version: Literal["dmb_workspace_document_record_v1"] = RECORD_SCHEMA
     document_id: str
     title: str
-    campaign_id: str
+    campaign_id: str | None
     world_id: str | None = None
     target_session: int | None = None
     kind: Literal["plan", "runbook", "worldbuilding_source"]
@@ -170,6 +158,15 @@ class WorkspaceDocumentRecord(BaseModel):
     document_class: str | None = None
     authority_state: Literal["draft", "reviewed", "canonical"] | None = None
     visibility_state: Literal["internal", "player_safe"] | None = None
+
+    @model_validator(mode="after")
+    def exact_owner(self):
+        if self.kind == "worldbuilding_source":
+            if not self.world_id:
+                raise ValueError("authored Page requires its World owner")
+        elif not self.campaign_id:
+            raise ValueError("campaign Plan/Runbook requires its campaign owner")
+        return self
 
 
 class WorldOwnedPlanRecordV2(BaseModel):
@@ -250,7 +247,7 @@ class WorldOwnedRunbooksResponseV2(BaseModel):
 
 class CreateWorkspaceDocumentRequest(BaseModel):
     title: str
-    campaign_id: str
+    campaign_id: str | None = None
     world_id: str | None = None
     kind: Literal["plan", "runbook", "worldbuilding_source"]
     target_session: int | None = None
@@ -304,6 +301,8 @@ class WorkspaceDocumentSnapshot(BaseModel):
         "dmb_workspace_document_snapshot_v1"
     )
     record: WorkspaceDocumentRecord
+    committed_markdown: str | None = None
+    committed_content_sha256: str | None = None
     markdown: str
     content_sha256: str
     file_fingerprint: str
@@ -391,12 +390,11 @@ WorkspaceCommittedRevisionAny = Annotated[
 ]
 
 
-def _utc_now_iso() -> str:
-    return datetime.now(UTC).isoformat().replace("+00:00", "Z")
-
-
 def workspace_documents_path(root: Path) -> Path:
-    from apps.live_control_server.config import ArtifactDataRootError, artifact_data_root
+    from apps.live_control_server.config import (
+        ArtifactDataRootError,
+        artifact_data_root,
+    )
 
     try:
         base = artifact_data_root(root)
@@ -404,7 +402,9 @@ def workspace_documents_path(root: Path) -> Path:
         raise WorkspaceDocumentRegistryError(str(exc), status_code=503) from exc
     path = (base / DEFAULT_REGISTRY_REL).resolve()
     if not path.is_relative_to(base):
-        raise WorkspaceDocumentRegistryError("workspace registry escapes artifact repository", status_code=422)
+        raise WorkspaceDocumentRegistryError(
+            "workspace registry escapes artifact repository", status_code=422
+        )
     return path
 
 
@@ -442,83 +442,6 @@ def _load_unlocked(root: Path) -> tuple[WorkspaceDocumentRegistryDocument, str]:
     return document, token
 
 
-def _load_registry_document(root: Path) -> WorkspaceDocumentRegistryDocument:
-    document, _token = _load_unlocked(root)
-    return document
-
-
-def _save_cas(
-    root: Path,
-    document: WorkspaceDocumentRegistryDocument,
-    *,
-    expected_token: str,
-) -> Path:
-    path = workspace_documents_path(root)
-    path.parent.mkdir(parents=True, exist_ok=True)
-    current = registry_token(path)
-    if current != expected_token:
-        raise WorkspaceDocumentRegistryError(
-            "workspace document registry changed concurrently",
-            status_code=409,
-        )
-    try:
-        write_json(path, document.model_dump(mode="json"))
-    except (OSError, TypeError, ValueError) as exc:
-        raise WorkspaceDocumentRegistryError(
-            f"failed to persist workspace document registry: {exc}",
-            status_code=500,
-        ) from exc
-    return path
-
-
-def _replace_record(
-    document: WorkspaceDocumentRegistryDocument,
-    updated: WorkspaceDocumentRecord,
-) -> None:
-    document.records = [
-        updated if r.document_id == updated.document_id else r for r in document.records
-    ]
-
-
-def load_workspace_document_under_registry_lock(
-    root: Path,
-    document_id: str,
-) -> WorkspaceDocumentRecord:
-    """Load one record under the shared registry-file lock.
-
-    Lock order: callers performing an isolated snapshot or mutation must hold
-    ``workspace_document_mutation_lock(document_id)`` first, then this acquires
-    the registry lock.
-    """
-    path = workspace_documents_path(root)
-    with registry_mutation_lock(path):
-        document, _token = _load_unlocked(root)
-        record = _find_record(document, document_id)
-        if record is None:
-            raise WorkspaceDocumentRegistryError(
-                f"workspace document not found: {_validate_document_id(document_id)}",
-                status_code=404,
-            )
-        return record
-
-
-def _find_record(
-    document: WorkspaceDocumentRegistryDocument, document_id: str
-) -> WorkspaceDocumentRecord | None:
-    cleaned = _validate_document_id(document_id)
-    return next((r for r in document.records if r.document_id == cleaned), None)
-
-
-def _check_expected_revision(
-    record: WorkspaceDocumentRecord, expected_revision: int | None
-) -> None:
-    if expected_revision is not None and record.revision != expected_revision:
-        raise WorkspaceDocumentRegistryError(
-            f"revision mismatch: expected {expected_revision}, current {record.revision}",
-            status_code=409,
-        )
-
-
 def list_workspace_documents(
     root: Path,
     *,
@@ -526,50 +449,34 @@ def list_workspace_documents(
     kind: Literal["plan", "runbook", "worldbuilding_source"] | None = None,
     status: Literal["active", "discarded"] | None = "active",
 ) -> list[WorkspaceDocumentRecord]:
-    records = [
-        r
-        for r in _load_registry_document(root).records
-        if r.kind not in ("plan", "runbook")
-    ]
-    if kind in (None, "plan", "runbook"):
-        from application_state.content.service import list_plans, list_runbooks
-        from application_state.errors import (
-            ApplicationStateError,
-            ApplicationStateMigrationError,
-            ApplicationStateUnavailableError,
-        )
+    from application_state.content import pages
+    from application_state.content.service import list_plans, list_runbooks
+    from application_state.errors import ApplicationStateError
 
-        try:
-            if kind in (None, "plan"):
-                records.extend(
-                    _record_from_work_object(obj)
-                    for obj in list_plans(campaign_id=campaign_id, status=status)
+    records = []
+    try:
+        if kind in (None, "worldbuilding_source"):
+            records.extend(
+                _record_from_page(state)
+                for state in pages.page_inventory(
+                    campaign_id=campaign_id, status=status
                 )
-            if kind in (None, "runbook"):
-                records.extend(
-                    _record_from_work_object(obj)
-                    for obj in list_runbooks(campaign_id=campaign_id, status=status)
-                    if obj.world_id is None
-                )
-        except (
-            ApplicationStateUnavailableError,
-            ApplicationStateMigrationError,
-        ) as exc:
-            raise _map_application_state_error(exc) from exc
-        except ApplicationStateError as exc:
-            raise _map_application_state_error(exc) from exc
-    if status is not None:
-        records = [r for r in records if r.status == status]
-    if campaign_id is not None:
-        records = [r for r in records if r.campaign_id == campaign_id]
-    if kind is not None:
-        records = [r for r in records if r.kind == kind]
+            )
+        if kind in (None, "plan"):
+            records.extend(
+                _record_from_work_object(obj)
+                for obj in list_plans(campaign_id=campaign_id, status=status)
+            )
+        if kind in (None, "runbook"):
+            records.extend(
+                _record_from_work_object(obj)
+                for obj in list_runbooks(campaign_id=campaign_id, status=status)
+                if obj.world_id is None
+            )
+    except ApplicationStateError as exc:
+        raise _map_application_state_error(exc) from exc
     records.sort(key=lambda row: row.updated_at, reverse=True)
     return records
-
-
-def _worldbuilding_target_relpath(document_id: str) -> str:
-    return f"out/workspace/worldbuilding/{document_id}.md"
 
 
 def _validate_world_id(world_id: str) -> str:
@@ -582,71 +489,8 @@ def _validate_world_id(world_id: str) -> str:
     return cleaned
 
 
-def _world_markdown_root_relpath(world_id: str) -> str:
-    return f"corpus/{world_id}-markdown"
-
-
-def _worldbuilding_world_scoped_target_relpath(world_id: str, document_id: str) -> str:
-    return (
-        f"{_world_markdown_root_relpath(world_id)}"
-        f"/_dungeonbuddy/sources/{document_id}/source.md"
-    )
-
-
-def _require_registered_world_target(root: Path, world_id: str) -> None:
-    from apps.live_control_server.config import artifact_data_root
-    from apps.live_control_server.services.world_container_registry import (
-        WorldContainerRegistryError, get_world_container,
-    )
-
-    try:
-        get_world_container(root, world_id)
-    except WorldContainerRegistryError as exc:
-        raise WorkspaceDocumentRegistryError(str(exc), status_code=exc.status_code) from exc
-    base = artifact_data_root(root)
-    try:
-        world_root = (base / _world_markdown_root_relpath(world_id)).resolve()
-    except (OSError, RuntimeError) as exc:
-        raise WorkspaceDocumentRegistryError("workspace source path cannot be resolved", status_code=422) from exc
-    if not world_root.is_relative_to(base):
-        raise WorkspaceDocumentRegistryError("workspace source escapes artifact repository", status_code=422)
-
-
 def _plan_workspace_target_relpath(document_id: str) -> str:
     return f"out/workspace/plan/{document_id}.md"
-
-
-def _require_unique_target_relpath(
-    document: WorkspaceDocumentRegistryDocument,
-    target_relpath: str | None,
-    *,
-    exclude_document_id: str | None = None,
-) -> None:
-    """Fail closed when another record already owns a non-null target_relpath.
-
-    Call only while holding the registry mutation lock. Null/empty paths are
-    unrestricted. ``exclude_document_id`` lets an update keep or restate its own path.
-    """
-    if target_relpath is None or target_relpath == "":
-        return
-    conflict = next(
-        (
-            existing
-            for existing in document.records
-            if existing.target_relpath == target_relpath
-            and (
-                exclude_document_id is None
-                or existing.document_id != exclude_document_id
-            )
-        ),
-        None,
-    )
-    if conflict is not None:
-        raise WorkspaceDocumentRegistryError(
-            "target_relpath is already owned by another workspace document: "
-            f"{conflict.document_id}",
-            status_code=409,
-        )
 
 
 def _validate_worldbuilding_metadata(
@@ -700,7 +544,7 @@ def create_workspace_document(
     root: Path,
     *,
     title: str,
-    campaign_id: str,
+    campaign_id: str | None,
     kind: Literal["plan", "runbook", "worldbuilding_source"],
     world_id: str | None = None,
     target_session: int | None = None,
@@ -711,140 +555,106 @@ def create_workspace_document(
     visibility_state: Literal["internal", "player_safe"] | None = None,
     _connected_reservation: tuple[str, str] | None = None,
 ) -> WorkspaceDocumentRecord:
+    from application_state.content import pages
+    from application_state.errors import ApplicationStateError
+
     cleaned_title = _validate_title(title)
-    cleaned_campaign = campaign_id.strip()
-    if not cleaned_campaign:
-        raise WorkspaceDocumentRegistryError("campaign_id is required", status_code=422)
-
-    if _connected_reservation is not None:
-        if kind != "worldbuilding_source" or not world_id or campaign_id != world_id:
-            raise WorkspaceDocumentRegistryError("Connected reservation requires a World Build page", status_code=422)
-        document_id, operation_id = (str(uuid.UUID(value)) for value in _connected_reservation)
-    else:
-        document_id, operation_id = str(uuid.uuid4()), None
-    worldbuilding_fields: dict[str, Any] = {
-        "source_domain": None,
-        "document_class": None,
-        "authority_state": None,
-        "visibility_state": None,
-    }
-    resolved_target = target_relpath
-    resolved_world_id: str | None = None
-
     if kind == "worldbuilding_source":
-        if target_relpath is not None:
+        if target_relpath is not None or target_session is not None:
             raise WorkspaceDocumentRegistryError(
-                "target_relpath is registry-owned for worldbuilding_source",
-                status_code=422,
+                "Page storage and session are not caller-assigned", status_code=422
             )
-        worldbuilding_fields = _validate_worldbuilding_metadata(
+        if not world_id:
+            raise WorkspaceDocumentRegistryError(
+                "Page requires an explicit World owner", status_code=422
+            )
+        fields = _validate_worldbuilding_metadata(
             source_domain=source_domain,
             document_class=document_class,
             authority_state=authority_state,
             visibility_state=visibility_state,
         )
-        if world_id is not None and world_id.strip():
-            resolved_world_id = _validate_world_id(world_id)
-            _require_registered_world_target(root, resolved_world_id)
-            resolved_target = _worldbuilding_world_scoped_target_relpath(
-                resolved_world_id,
-                document_id,
-            )
-        else:
-            resolved_target = _worldbuilding_target_relpath(document_id)
-    else:
-        if world_id is not None and world_id.strip():
+        if _connected_reservation is not None and campaign_id != world_id:
             raise WorkspaceDocumentRegistryError(
-                "world_id is only valid for kind=worldbuilding_source",
-                status_code=422,
+                "Connected reservation requires a World Build page", status_code=422
             )
-        if (
-            source_domain is not None
-            or document_class is not None
-            or authority_state is not None
-            or visibility_state is not None
-        ):
-            raise WorkspaceDocumentRegistryError(
-                "worldbuilding metadata is only valid for kind=worldbuilding_source",
-                status_code=422,
-            )
-        if kind == "plan":
-            if target_relpath is None or target_relpath == "":
-                # Product Create New Prep omits path; server owns UUID workspace draft storage.
-                # Explicit caller-supplied Plan paths remain for fixtures/compat only.
-                resolved_target = _plan_workspace_target_relpath(document_id)
-            else:
-                # Compatibility create must fail closed before append: illegal explicit
-                # paths cannot become active durable records that PATCH cannot repair.
-                from apps.live_control_server.services.tiptap_markdown_write import (
-                    TiptapMarkdownWriteError,
-                    require_legal_plan_target_relpath,
-                )
-
-                try:
-                    resolved_target = require_legal_plan_target_relpath(
-                        document_id, target_relpath
-                    )
-                except TiptapMarkdownWriteError as exc:
-                    raise WorkspaceDocumentRegistryError(
-                        str(exc),
-                        status_code=422,
-                    ) from exc
-
-    now = _utc_now_iso()
-    record = WorkspaceDocumentRecord(
-        document_id=document_id,
-        title=cleaned_title,
-        campaign_id=cleaned_campaign,
-        world_id=resolved_world_id,
-        target_session=target_session,
-        kind=kind,
-        target_relpath=resolved_target,
-        created_at=now,
-        updated_at=now,
-        connected_page_operation_id=operation_id,
-        **worldbuilding_fields,
-    )
-    if kind in ("plan", "runbook"):
-        from application_state.content.service import create_plan, create_runbook
-        from application_state.errors import ApplicationStateError
-
-        create_fn = create_plan if kind == "plan" else create_runbook
+        ident, operation_id = (
+            _connected_reservation if _connected_reservation else (None, None)
+        )
         try:
-            owner = _content_target_owner(resolved_target)
-            if owner is not None:
-                raise WorkspaceDocumentRegistryError(
-                    "target_relpath is already owned by another workspace document: "
-                    f"{owner}",
-                    status_code=409,
-                )
-            obj = create_fn(
+            state = pages.create_page(
+                world_id=_validate_world_id(world_id),
                 title=cleaned_title,
-                campaign_id=cleaned_campaign,
-                target_session=target_session,
-                target_relpath=resolved_target,
-                document_id=document_id,
+                campaign_id=campaign_id,
+                document_id=ident,
+                metadata=pages.PageMetadata(
+                    document_class=fields["document_class"],
+                    authority_state=fields["authority_state"],
+                    visibility_state=fields["visibility_state"],
+                    connected_page_operation_id=operation_id,
+                ),
             )
         except ApplicationStateError as exc:
             raise _map_application_state_error(exc) from exc
-        return _record_from_work_object(obj)
-    path = workspace_documents_path(root)
-    with registry_mutation_lock(path):
-        document, token = _load_unlocked(root)
-        if kind == "worldbuilding_source" and resolved_world_id is not None:
-            _require_registered_world_target(root, resolved_world_id)
-        if _connected_reservation is not None:
-            existing = _find_record(document, document_id)
-            if existing is not None:
-                if (existing.connected_page_operation_id != operation_id or existing.kind != kind
-                        or existing.world_id != resolved_world_id or existing.campaign_id != cleaned_campaign
-                        or existing.target_relpath != resolved_target or existing.status != "active"):
-                    raise WorkspaceDocumentRegistryError("Reserved page identity changed", status_code=409)
-                return existing
-        _require_unique_target_relpath(document, resolved_target)
-        document.records.append(record)
-        _save_cas(root, document, expected_token=token)
-    return record
+        return _record_from_page(state)
+    if _connected_reservation is not None:
+        raise WorkspaceDocumentRegistryError(
+            "Connected reservation requires a Page", status_code=422
+        )
+    if world_id is not None:
+        raise WorkspaceDocumentRegistryError(
+            "world_id is only valid for kind=worldbuilding_source", status_code=422
+        )
+    if any(
+        value is not None
+        for value in (source_domain, document_class, authority_state, visibility_state)
+    ):
+        raise WorkspaceDocumentRegistryError(
+            "worldbuilding metadata is only valid for kind=worldbuilding_source",
+            status_code=422,
+        )
+    cleaned_campaign = (campaign_id or "").strip()
+    if not cleaned_campaign:
+        raise WorkspaceDocumentRegistryError("campaign_id is required", status_code=422)
+    document_id = str(uuid.uuid4())
+    resolved_target = target_relpath
+    if kind == "plan":
+        if not target_relpath:
+            resolved_target = _plan_workspace_target_relpath(document_id)
+        else:
+            from apps.live_control_server.services.tiptap_markdown_write import (
+                require_legal_plan_target_relpath,
+                TiptapMarkdownWriteError,
+            )
+
+            try:
+                resolved_target = require_legal_plan_target_relpath(
+                    document_id, target_relpath
+                )
+            except TiptapMarkdownWriteError as exc:
+                raise WorkspaceDocumentRegistryError(str(exc), status_code=422) from exc
+    from application_state.content.service import create_plan, create_runbook
+    from application_state.errors import ApplicationStateError
+
+    create_fn = create_plan if kind == "plan" else create_runbook
+    try:
+        owner = _content_target_owner(resolved_target)
+        if owner is not None:
+            raise WorkspaceDocumentRegistryError(
+                "target_relpath is already owned by another workspace document: "
+                f"{owner}",
+                status_code=409,
+            )
+        obj = create_fn(
+            title=cleaned_title,
+            campaign_id=cleaned_campaign,
+            target_session=target_session,
+            target_relpath=resolved_target,
+            document_id=document_id,
+        )
+    except ApplicationStateError as exc:
+        raise _map_application_state_error(exc) from exc
+    return _record_from_work_object(obj)
 
 
 def create_world_owned_plan_v2(
@@ -1058,46 +868,48 @@ def get_world_owned_runbook_snapshot_v2(
 
 
 def get_workspace_document(root: Path, document_id: str) -> WorkspaceDocumentRecordAny:
-    file_record = unswitched_workspace_record(root, document_id)
-    if file_record is not None:
-        return file_record
+    from application_state.content import pages
     from application_state.content.service import snapshot_content
-    from application_state.errors import (
-        ApplicationStateError,
-        ApplicationStateNotFoundError,
-    )
+    from application_state.errors import ApplicationStateError
 
     try:
+        page = pages.find_page(document_id)
+        if page is not None:
+            return _record_from_page(page)
         snap = snapshot_content(document_id)
-    except ApplicationStateNotFoundError as exc:
-        raise WorkspaceDocumentRegistryError(
-            f"workspace document not found: {_validate_document_id(document_id)}",
-            status_code=404,
-        ) from exc
+        return _record_from_work_object(
+            snap.work_object, from_working_copy=snap.from_working_copy
+        )
     except ApplicationStateError as exc:
         raise _map_application_state_error(exc) from exc
-    return _record_from_work_object(
-        snap.work_object, from_working_copy=snap.from_working_copy
-    )
 
 
 def get_workspace_document_snapshot(
     root: Path, document_id: str
 ) -> WorkspaceDocumentSnapshotAny:
-    """Load record + target Markdown as one coherent revision snapshot.
+    from application_state.content import pages
+    from application_state.errors import ApplicationStateError
 
-    Holds ``workspace_document_mutation_lock`` across registry-record read, target
-    authorization, file-byte read, and digest/fingerprint construction so a concurrent
-    commit cannot mix revision N metadata with revision N+1 bytes.
-
-    ``content_status=committed`` with a missing/unreadable target is an integrity
-    failure (409), not an empty editor payload.
-    """
-    file_record = unswitched_workspace_record(root, document_id)
-    if file_record is not None:
-        with workspace_document_mutation_lock(root, document_id):
-            return get_workspace_document_snapshot_unlocked(root, document_id)
-    return _postgres_plan_snapshot(document_id)
+    try:
+        snap = pages.workspace_page_snapshot(document_id)
+        if snap is None:
+            return _postgres_plan_snapshot(document_id)
+        return WorkspaceDocumentSnapshot(
+            record=_record_from_page(snap, from_working_copy=snap.from_working_copy),
+            markdown=snap.markdown,
+            content_sha256=snap.content_sha256,
+            committed_markdown=snap.committed_revision.markdown
+            if snap.committed_revision
+            else None,
+            committed_content_sha256=snap.committed_revision.content_sha256
+            if snap.committed_revision
+            else None,
+            file_exists=False,
+            file_fingerprint="postgres",
+            loaded_revision=snap.page.object_revision,
+        )
+    except ApplicationStateError as exc:
+        raise _map_application_state_error(exc) from exc
 
 
 def _postgres_plan_snapshot(document_id: str) -> WorkspaceDocumentSnapshotAny:
@@ -1261,93 +1073,6 @@ def get_current_world_plan_revision(
         raise _map_application_state_error(exc) from exc
 
 
-def get_workspace_document_snapshot_unlocked(
-    root: Path, document_id: str
-) -> WorkspaceDocumentSnapshot:
-    """Snapshot read for callers that already hold ``workspace_document_mutation_lock``."""
-    import hashlib
-
-    from apps.live_control_server.services.tiptap_markdown_write import (
-        TiptapMarkdownWriteError,
-        authorize_target_for_record,
-        resolve_tiptap_markdown_target,
-    )
-
-    try:
-        record = load_workspace_document_under_registry_lock(root, document_id)
-    except WorkspaceDocumentRegistryError as exc:
-        if exc.status_code != 404:
-            raise
-        return _postgres_plan_snapshot(document_id)
-    if record.kind in ("plan", "runbook"):
-        return _postgres_plan_snapshot(document_id)
-    if record.target_relpath is None or record.target_relpath == "":
-        if record.content_status == "committed":
-            raise WorkspaceDocumentRegistryError(
-                "committed workspace document has no target_relpath",
-                status_code=409,
-            )
-        empty_digest = hashlib.sha256(b"").hexdigest()
-        return WorkspaceDocumentSnapshot(
-            record=record,
-            markdown="",
-            content_sha256=empty_digest,
-            file_fingerprint="absent",
-            file_exists=False,
-            loaded_revision=record.revision,
-        )
-
-    try:
-        relpath = authorize_target_for_record(record)
-        target = resolve_tiptap_markdown_target(root, relpath)
-        from apps.live_control_server.config import artifact_data_root
-
-        # This owner binds page identity/revision to its declared body. Readers
-        # must not each decide whether an operational path alias is admissible.
-        if target != artifact_data_root(root) / relpath:
-            raise TiptapMarkdownWriteError("workspace source target is redirected")
-    except TiptapMarkdownWriteError as exc:
-        raise WorkspaceDocumentRegistryError(str(exc), status_code=422) from exc
-
-    if not target.is_file():
-        if record.content_status == "committed":
-            raise WorkspaceDocumentRegistryError(
-                "committed workspace target file is missing",
-                status_code=409,
-            )
-        empty_digest = hashlib.sha256(b"").hexdigest()
-        return WorkspaceDocumentSnapshot(
-            record=record,
-            markdown="",
-            content_sha256=empty_digest,
-            file_fingerprint="absent",
-            file_exists=False,
-            loaded_revision=record.revision,
-        )
-
-    try:
-        raw = target.read_text(encoding="utf-8")
-    except OSError as exc:
-        raise WorkspaceDocumentRegistryError(
-            f"failed to read workspace target: {exc}",
-            status_code=500,
-        ) from exc
-
-    # Normalize newlines the same way SourceArtifact packaging does for digests.
-    content = raw.replace("\r\n", "\n").replace("\r", "\n")
-    digest = hashlib.sha256(content.encode("utf-8")).hexdigest()
-    stat = target.stat()
-    fingerprint = f"present:{stat.st_mtime_ns}:{stat.st_size}"
-    return WorkspaceDocumentSnapshot(
-        record=record,
-        markdown=content,
-        content_sha256=digest,
-        file_fingerprint=fingerprint,
-        file_exists=True,
-        loaded_revision=record.revision,
-    )
-
-
 def update_workspace_document_metadata(
     root: Path,
     document_id: str,
@@ -1360,193 +1085,106 @@ def update_workspace_document_metadata(
     visibility_state: Literal["internal", "player_safe"] | None | object = _UNSET,
     expected_revision: int | None = None,
 ) -> WorkspaceDocumentRecordAny:
-    file_record = unswitched_workspace_record(root, document_id)
-    if file_record is None:
-        from application_state.content.service import get_content_optional
-        from application_state.errors import ApplicationStateError
+    from application_state.content import pages
+    from application_state.errors import ApplicationStateError
 
-        try:
-            existing = get_content_optional(document_id)
-        except ApplicationStateError as exc:
-            raise _map_application_state_error(exc) from exc
-        if existing is None:
+    try:
+        state = pages.find_page(document_id)
+    except ApplicationStateError as exc:
+        raise _map_application_state_error(exc) from exc
+    if state is not None:
+        if target_relpath is not _UNSET and target_relpath is not None:
             raise WorkspaceDocumentRegistryError(
-                f"workspace document not found: {_validate_document_id(document_id)}",
-                status_code=404,
+                "Page has no file target", status_code=422
             )
-        if existing.kind not in ("plan", "runbook"):
+        if target_session is not _UNSET and target_session is not None:
             raise WorkspaceDocumentRegistryError(
-                f"workspace document not found: {_validate_document_id(document_id)}",
-                status_code=404,
+                "Page has no target session", status_code=422
             )
-        if (
-            existing.world_id is not None
-            and target_session is not _UNSET
-            and target_session is not None
-        ):
-            raise WorkspaceDocumentRegistryError(
-                "World-owned Plans cannot be assigned a target session",
-                status_code=422,
-            )
-        if target_relpath is not _UNSET and target_relpath != existing.target_relpath:
-            raise WorkspaceDocumentRegistryError(
-                "target_relpath cannot be changed via metadata update",
-                status_code=422,
-            )
-        if (
-            document_class is not _UNSET
-            or authority_state is not _UNSET
-            or visibility_state is not _UNSET
-        ):
-            raise WorkspaceDocumentRegistryError(
-                "worldbuilding metadata is only valid for kind=worldbuilding_source",
-                status_code=422,
-            )
-        from application_state.content.service import (
-            update_plan_metadata,
-            update_runbook_metadata,
+        changes = {
+            key: value
+            for key, value in {
+                "document_class": document_class,
+                "authority_state": authority_state,
+                "visibility_state": visibility_state,
+            }.items()
+            if value is not _UNSET
+        }
+        metadata = pages.PageMetadata.model_validate(
+            {**state.metadata.model_dump(), **changes}
         )
-
-        update_fn = (
-            update_plan_metadata if existing.kind == "plan" else update_runbook_metadata
-        )
+        kwargs = dict(title=None if title is _UNSET else str(title), metadata=metadata)
         try:
-            updated = update_fn(
+            updated = pages.update_page(
                 document_id,
-                title=None if title is _UNSET else str(title),
-                target_session=None if target_session is _UNSET else target_session,  # type: ignore[arg-type]
-                target_session_set=target_session is not _UNSET,
-                expected_revision=expected_revision,
+                world_id=state.page.world_id,
+                expected_revision=expected_revision
+                if expected_revision is not None
+                else state.page.object_revision,
+                **kwargs,
             )
         except ApplicationStateError as exc:
             raise _map_application_state_error(exc) from exc
-        return _record_from_work_object(updated)
-    with workspace_document_mutation_lock(root, document_id):
-        return _update_workspace_document_metadata_unlocked(
-            root,
+        return _record_from_page(updated)
+    from application_state.content.service import get_content_optional
+    from application_state.errors import ApplicationStateError
+
+    try:
+        existing = get_content_optional(document_id)
+    except ApplicationStateError as exc:
+        raise _map_application_state_error(exc) from exc
+    if existing is None:
+        raise WorkspaceDocumentRegistryError(
+            f"workspace document not found: {_validate_document_id(document_id)}",
+            status_code=404,
+        )
+    if existing.kind not in ("plan", "runbook"):
+        raise WorkspaceDocumentRegistryError(
+            f"workspace document not found: {_validate_document_id(document_id)}",
+            status_code=404,
+        )
+    if (
+        existing.world_id is not None
+        and target_session is not _UNSET
+        and target_session is not None
+    ):
+        raise WorkspaceDocumentRegistryError(
+            "World-owned Plans cannot be assigned a target session",
+            status_code=422,
+        )
+    if target_relpath is not _UNSET and target_relpath != existing.target_relpath:
+        raise WorkspaceDocumentRegistryError(
+            "target_relpath cannot be changed via metadata update",
+            status_code=422,
+        )
+    if (
+        document_class is not _UNSET
+        or authority_state is not _UNSET
+        or visibility_state is not _UNSET
+    ):
+        raise WorkspaceDocumentRegistryError(
+            "worldbuilding metadata is only valid for kind=worldbuilding_source",
+            status_code=422,
+        )
+    from application_state.content.service import (
+        update_plan_metadata,
+        update_runbook_metadata,
+    )
+
+    update_fn = (
+        update_plan_metadata if existing.kind == "plan" else update_runbook_metadata
+    )
+    try:
+        updated = update_fn(
             document_id,
-            title=title,
-            target_session=target_session,
-            target_relpath=target_relpath,
-            document_class=document_class,
-            authority_state=authority_state,
-            visibility_state=visibility_state,
+            title=None if title is _UNSET else str(title),
+            target_session=None if target_session is _UNSET else target_session,  # type: ignore[arg-type]
+            target_session_set=target_session is not _UNSET,
             expected_revision=expected_revision,
         )
-
-
-def _update_workspace_document_metadata_unlocked(
-    root: Path,
-    document_id: str,
-    *,
-    title: str | object = _UNSET,
-    target_session: int | None | object = _UNSET,
-    target_relpath: str | None | object = _UNSET,
-    document_class: str | None | object = _UNSET,
-    authority_state: Literal["draft", "reviewed", "canonical"] | None | object = _UNSET,
-    visibility_state: Literal["internal", "player_safe"] | None | object = _UNSET,
-    expected_revision: int | None = None,
-) -> WorkspaceDocumentRecordAny:
-    path = workspace_documents_path(root)
-    with registry_mutation_lock(path):
-        document, token = _load_unlocked(root)
-        existing = _find_record(document, document_id)
-        if existing is None:
-            raise WorkspaceDocumentRegistryError(
-                f"workspace document not found: {_validate_document_id(document_id)}",
-                status_code=404,
-            )
-        _check_expected_revision(existing, expected_revision)
-
-        updates: dict[str, Any] = {}
-        if title is not _UNSET:
-            updates["title"] = _validate_title(str(title))
-        if target_session is not _UNSET:
-            updates["target_session"] = target_session
-        if target_relpath is not _UNSET:
-            if existing.kind == "worldbuilding_source":
-                raise WorkspaceDocumentRegistryError(
-                    "target_relpath is registry-owned for worldbuilding_source",
-                    status_code=422,
-                )
-            resolved_update_target: str | None
-            if target_relpath is None:
-                resolved_update_target = None
-            elif isinstance(target_relpath, str):
-                resolved_update_target = target_relpath
-            else:
-                raise WorkspaceDocumentRegistryError(
-                    "target_relpath must be a string or null",
-                    status_code=422,
-                )
-            if (
-                existing.kind == "plan"
-                and resolved_update_target != existing.target_relpath
-            ):
-                # Generic PATCH must not act as hidden workspace→canonical promotion.
-                raise WorkspaceDocumentRegistryError(
-                    "plan target_relpath cannot be changed via metadata update",
-                    status_code=422,
-                )
-            _require_unique_target_relpath(
-                document,
-                resolved_update_target,
-                exclude_document_id=existing.document_id,
-            )
-            updates["target_relpath"] = resolved_update_target
-        if document_class is not _UNSET:
-            if existing.kind != "worldbuilding_source":
-                raise WorkspaceDocumentRegistryError(
-                    "document_class is only valid for worldbuilding_source",
-                    status_code=422,
-                )
-            cleaned_class = str(document_class or "").strip()
-            if not cleaned_class:
-                raise WorkspaceDocumentRegistryError(
-                    "document_class must be non-empty",
-                    status_code=422,
-                )
-            updates["document_class"] = cleaned_class
-        if authority_state is not _UNSET:
-            if existing.kind != "worldbuilding_source":
-                raise WorkspaceDocumentRegistryError(
-                    "authority_state is only valid for worldbuilding_source",
-                    status_code=422,
-                )
-            if authority_state is None:
-                raise WorkspaceDocumentRegistryError(
-                    "authority_state is required for worldbuilding_source",
-                    status_code=422,
-                )
-            updates["authority_state"] = authority_state
-        if visibility_state is not _UNSET:
-            if existing.kind != "worldbuilding_source":
-                raise WorkspaceDocumentRegistryError(
-                    "visibility_state is only valid for worldbuilding_source",
-                    status_code=422,
-                )
-            if visibility_state is None:
-                raise WorkspaceDocumentRegistryError(
-                    "visibility_state is required for worldbuilding_source",
-                    status_code=422,
-                )
-            updates["visibility_state"] = visibility_state
-        if not updates:
-            raise WorkspaceDocumentRegistryError(
-                "at least one metadata field is required",
-                status_code=422,
-            )
-
-        updated = existing.model_copy(
-            update={
-                **updates,
-                "revision": existing.revision + 1,
-                "updated_at": _utc_now_iso(),
-            }
-        )
-        _replace_record(document, updated)
-        _save_cas(root, document, expected_token=token)
-        return updated
+    except ApplicationStateError as exc:
+        raise _map_application_state_error(exc) from exc
+    return _record_from_work_object(updated)
 
 
 def discard_workspace_document(
@@ -1555,43 +1193,55 @@ def discard_workspace_document(
     *,
     expected_revision: int | None = None,
 ) -> WorkspaceDocumentRecord:
-    file_record = unswitched_workspace_record(root, document_id)
-    if file_record is None:
-        from application_state.content.service import (
-            get_content_optional,
-            update_plan_metadata,
-            update_runbook_metadata,
-        )
-        from application_state.errors import ApplicationStateError
+    from application_state.content import pages
+    from application_state.errors import ApplicationStateError
 
+    try:
+        state = pages.find_page(document_id)
+    except ApplicationStateError as exc:
+        raise _map_application_state_error(exc) from exc
+    if state is not None:
+        kwargs = dict(status="discarded")
         try:
-            existing = get_content_optional(document_id)
-        except ApplicationStateError as exc:
-            raise _map_application_state_error(exc) from exc
-        if existing is None or existing.kind not in ("plan", "runbook"):
-            raise WorkspaceDocumentRegistryError(
-                f"workspace document not found: {_validate_document_id(document_id)}",
-                status_code=404,
-            )
-        update_fn = (
-            update_plan_metadata if existing.kind == "plan" else update_runbook_metadata
-        )
-        try:
-            updated = update_fn(
+            updated = pages.update_page(
                 document_id,
-                status="discarded",
-                expected_revision=expected_revision,
+                world_id=state.page.world_id,
+                expected_revision=expected_revision
+                if expected_revision is not None
+                else state.page.object_revision,
+                **kwargs,
             )
         except ApplicationStateError as exc:
             raise _map_application_state_error(exc) from exc
-        return _record_from_work_object(updated)
-    with workspace_document_mutation_lock(root, document_id):
-        return _set_workspace_document_status_unlocked(
-            root,
+        return _record_from_page(updated)
+    from application_state.content.service import (
+        get_content_optional,
+        update_plan_metadata,
+        update_runbook_metadata,
+    )
+    from application_state.errors import ApplicationStateError
+
+    try:
+        existing = get_content_optional(document_id)
+    except ApplicationStateError as exc:
+        raise _map_application_state_error(exc) from exc
+    if existing is None or existing.kind not in ("plan", "runbook"):
+        raise WorkspaceDocumentRegistryError(
+            f"workspace document not found: {_validate_document_id(document_id)}",
+            status_code=404,
+        )
+    update_fn = (
+        update_plan_metadata if existing.kind == "plan" else update_runbook_metadata
+    )
+    try:
+        updated = update_fn(
             document_id,
             status="discarded",
             expected_revision=expected_revision,
         )
+    except ApplicationStateError as exc:
+        raise _map_application_state_error(exc) from exc
+    return _record_from_work_object(updated)
 
 
 def restore_workspace_document(
@@ -1600,229 +1250,104 @@ def restore_workspace_document(
     *,
     expected_revision: int | None = None,
 ) -> WorkspaceDocumentRecord:
-    file_record = unswitched_workspace_record(root, document_id)
-    if file_record is None:
-        from application_state.content.service import (
-            get_content_optional,
-            update_plan_metadata,
-            update_runbook_metadata,
-        )
-        from application_state.errors import ApplicationStateError
+    from application_state.content import pages
+    from application_state.errors import ApplicationStateError
 
+    try:
+        state = pages.find_page(document_id)
+    except ApplicationStateError as exc:
+        raise _map_application_state_error(exc) from exc
+    if state is not None:
+        kwargs = dict(status="active")
         try:
-            existing = get_content_optional(document_id)
-        except ApplicationStateError as exc:
-            raise _map_application_state_error(exc) from exc
-        if existing is None or existing.kind not in ("plan", "runbook"):
-            raise WorkspaceDocumentRegistryError(
-                f"workspace document not found: {_validate_document_id(document_id)}",
-                status_code=404,
-            )
-        update_fn = (
-            update_plan_metadata if existing.kind == "plan" else update_runbook_metadata
-        )
-        try:
-            updated = update_fn(
+            updated = pages.update_page(
                 document_id,
-                status="active",
-                expected_revision=expected_revision,
+                world_id=state.page.world_id,
+                expected_revision=expected_revision
+                if expected_revision is not None
+                else state.page.object_revision,
+                **kwargs,
             )
         except ApplicationStateError as exc:
             raise _map_application_state_error(exc) from exc
-        return _record_from_work_object(updated)
-    with workspace_document_mutation_lock(root, document_id):
-        return _set_workspace_document_status_unlocked(
-            root,
+        return _record_from_page(updated)
+    from application_state.content.service import (
+        get_content_optional,
+        update_plan_metadata,
+        update_runbook_metadata,
+    )
+    from application_state.errors import ApplicationStateError
+
+    try:
+        existing = get_content_optional(document_id)
+    except ApplicationStateError as exc:
+        raise _map_application_state_error(exc) from exc
+    if existing is None or existing.kind not in ("plan", "runbook"):
+        raise WorkspaceDocumentRegistryError(
+            f"workspace document not found: {_validate_document_id(document_id)}",
+            status_code=404,
+        )
+    update_fn = (
+        update_plan_metadata if existing.kind == "plan" else update_runbook_metadata
+    )
+    try:
+        updated = update_fn(
             document_id,
             status="active",
             expected_revision=expected_revision,
         )
+    except ApplicationStateError as exc:
+        raise _map_application_state_error(exc) from exc
+    return _record_from_work_object(updated)
 
 
-def mark_workspace_document_committed_unlocked(
-    root: Path,
-    document_id: str,
-    *,
-    expected_revision: int | None = None,
+def _record_from_page(
+    state, *, from_working_copy: bool = False
 ) -> WorkspaceDocumentRecord:
-    """Mark committed without acquiring the per-document mutation lock.
-
-    Callers that already hold ``workspace_document_mutation_lock`` (Markdown commit)
-    must use this form to avoid deadlock. Still acquires the registry-file lock and CAS.
-    Lock order: document lock (caller) → registry lock (here).
-    """
-    path = workspace_documents_path(root)
-    with registry_mutation_lock(path):
-        document, token = _load_unlocked(root)
-        existing = _find_record(document, document_id)
-        if existing is None:
-            raise WorkspaceDocumentRegistryError(
-                f"workspace document not found: {_validate_document_id(document_id)}",
-                status_code=404,
-            )
-        _check_expected_revision(existing, expected_revision)
-
-        updated = existing.model_copy(
-            update={
-                "content_status": "committed",
-                "revision": existing.revision + 1,
-                "updated_at": _utc_now_iso(),
-            }
-        )
-        _replace_record(document, updated)
-        _save_cas(root, document, expected_token=token)
-        return updated
-
-
-def mark_workspace_document_committed(
-    root: Path,
-    document_id: str,
-    *,
-    expected_revision: int | None = None,
-) -> WorkspaceDocumentRecord:
-    with workspace_document_mutation_lock(root, document_id):
-        return mark_workspace_document_committed_unlocked(
-            root,
-            document_id,
-            expected_revision=expected_revision,
-        )
-
-
-def _set_workspace_document_status_unlocked(
-    root: Path,
-    document_id: str,
-    *,
-    status: Literal["active", "discarded"],
-    expected_revision: int | None,
-) -> WorkspaceDocumentRecord:
-    path = workspace_documents_path(root)
-    with registry_mutation_lock(path):
-        document, token = _load_unlocked(root)
-        existing = _find_record(document, document_id)
-        if existing is None:
-            raise WorkspaceDocumentRegistryError(
-                f"workspace document not found: {_validate_document_id(document_id)}",
-                status_code=404,
-            )
-        _check_expected_revision(existing, expected_revision)
-
-        updated = existing.model_copy(
-            update={
-                "status": status,
-                "revision": existing.revision + 1,
-                "updated_at": _utc_now_iso(),
-            }
-        )
-        _replace_record(document, updated)
-        _save_cas(root, document, expected_token=token)
-        return updated
-
-
-def find_duplicate_target_relpath_ownership(
-    root: Path,
-) -> list[tuple[str, list[WorkspaceDocumentRecord]]]:
-    """Read-only scan: non-null target_relpath values owned by more than one record."""
-    document = _load_registry_document(root)
-    by_path: dict[str, list[WorkspaceDocumentRecord]] = {}
-    for record in document.records:
-        path = record.target_relpath
-        if path is None or path == "":
-            continue
-        by_path.setdefault(path, []).append(record)
-    return sorted(
-        ((path, owners) for path, owners in by_path.items() if len(owners) > 1),
-        key=lambda item: item[0],
+    obj, meta = state.page, state.metadata
+    return WorkspaceDocumentRecord(
+        document_id=str(obj.work_object_id),
+        title=obj.title,
+        campaign_id=obj.campaign_id,
+        world_id=obj.world_id,
+        target_session=None,
+        kind="worldbuilding_source",
+        target_relpath=None,
+        status=obj.status,
+        content_status="draft"
+        if from_working_copy or obj.current_revision_id is None
+        else "committed",
+        revision=obj.object_revision,
+        created_at=_iso_timestamp(obj.created_at),
+        updated_at=_iso_timestamp(obj.updated_at),
+        source_domain="worldbuilding",
+        **meta.model_dump(mode="json"),
     )
 
 
-def reinstate_workspace_document_record(
-    root: Path,
-    record: WorkspaceDocumentRecord,
-) -> WorkspaceDocumentRecord:
-    """Re-insert a previously removed registry identity under the mutation lock.
+def get_committed_page_snapshot(
+    root: Path, document_id: str
+) -> WorkspaceDocumentSnapshot:
+    from application_state.content import pages
+    from application_state.content.types import sha256_utf8
+    from application_state.errors import ApplicationStateError
 
-    Fails closed when the document_id already exists or a non-null target_relpath
-    collides with an existing owner. Used for bounded duplicate-repair restoration
-    only — not a general create path.
-    """
-    cleaned_id = _validate_document_id(record.document_id)
-    path = workspace_documents_path(root)
-    with registry_mutation_lock(path):
-        document, token = _load_unlocked(root)
-        if _find_record(document, cleaned_id) is not None:
+    try:
+        snap = pages.workspace_page_snapshot(document_id, committed=True)
+        if snap is None:
             raise WorkspaceDocumentRegistryError(
-                f"workspace document already exists: {cleaned_id}",
-                status_code=409,
+                "authored Page not found", status_code=404
             )
-        _require_unique_target_relpath(document, record.target_relpath)
-        document.records.append(record)
-        _save_cas(root, document, expected_token=token)
-        return record
-
-
-def release_target_relpath_from_discarded_duplicate(
-    root: Path,
-    *,
-    survivor_document_id: str,
-    retire_document_id: str,
-) -> WorkspaceDocumentRecord:
-    """Bounded duplicate repair: keep both identities; only survivor retains the path.
-
-    Preconditions (fail closed otherwise):
-    - both records exist
-    - they share the same non-null target_relpath
-    - retiree is discarded (survivor may be active or discarded)
-
-    Lock order matches ordinary document mutations: retiree document lock → registry lock.
-    """
-    survivor_id = _validate_document_id(survivor_document_id)
-    retire_id = _validate_document_id(retire_document_id)
-    if survivor_id == retire_id:
-        raise WorkspaceDocumentRegistryError(
-            "survivor and retire document ids must differ",
-            status_code=422,
+        revision = snap.revision
+        return WorkspaceDocumentSnapshot(
+            record=_record_from_page(snap),
+            markdown=revision.markdown if revision else "",
+            content_sha256=revision.content_sha256 if revision else sha256_utf8(""),
+            committed_markdown=revision.markdown if revision else None,
+            committed_content_sha256=revision.content_sha256 if revision else None,
+            file_exists=False,
+            file_fingerprint="postgres",
+            loaded_revision=snap.page.object_revision,
         )
-
-    with workspace_document_mutation_lock(root, retire_id):
-        path = workspace_documents_path(root)
-        with registry_mutation_lock(path):
-            document, token = _load_unlocked(root)
-            survivor = _find_record(document, survivor_id)
-            retire = _find_record(document, retire_id)
-            if survivor is None:
-                raise WorkspaceDocumentRegistryError(
-                    f"workspace document not found: {survivor_id}",
-                    status_code=404,
-                )
-            if retire is None:
-                raise WorkspaceDocumentRegistryError(
-                    f"workspace document not found: {retire_id}",
-                    status_code=404,
-                )
-            if retire.status != "discarded":
-                raise WorkspaceDocumentRegistryError(
-                    "retire document must already be discarded before releasing target_relpath",
-                    status_code=422,
-                )
-            shared = survivor.target_relpath
-            if shared is None or shared == "":
-                raise WorkspaceDocumentRegistryError(
-                    "survivor must own a non-null target_relpath",
-                    status_code=422,
-                )
-            if retire.target_relpath != shared:
-                raise WorkspaceDocumentRegistryError(
-                    "survivor and retire documents do not share the same target_relpath",
-                    status_code=422,
-                )
-
-            updated = retire.model_copy(
-                update={
-                    "target_relpath": None,
-                    "revision": retire.revision + 1,
-                    "updated_at": _utc_now_iso(),
-                }
-            )
-            _replace_record(document, updated)
-            _save_cas(root, document, expected_token=token)
-            return updated
+    except ApplicationStateError as exc:
+        raise _map_application_state_error(exc) from exc

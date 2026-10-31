@@ -9,6 +9,8 @@ Buddy overlay and UnionSupergraph writers are tripwired.
 
 
 from __future__ import annotations
+from tests.page_fixtures import create_page_fixture, save_page
+from apps.live_control_server.services.workspace_document_registry import get_workspace_document
 
 
 import hashlib
@@ -274,10 +276,6 @@ def _write_post_genesis_graph_review_run(repo: Path) -> str:
         create_source_artifact_from_workspace_document,
         source_span_index_relpath,
     )
-    from apps.live_control_server.services.workspace_document_registry import (
-        create_workspace_document,
-        mark_workspace_document_committed,
-    )
     from graph_memory.ingestion.extraction_run import (
         ExtractionRunComponentKind,
         ExtractionRunComponentRef,
@@ -289,7 +287,7 @@ def _write_post_genesis_graph_review_run(repo: Path) -> str:
 
 
     (repo / f"corpus/{GLASS_ORCHARD_WORLD_ID}-markdown").mkdir(parents=True, exist_ok=True)
-    document = create_workspace_document(
+    document = create_page_fixture(
         repo,
         title="D2C4 Graph Review source",
         campaign_id=GLASS_ORCHARD_WORLD_ID,
@@ -300,15 +298,8 @@ def _write_post_genesis_graph_review_run(repo: Path) -> str:
         authority_state="draft",
         visibility_state="internal",
     )
-    committed = mark_workspace_document_committed(
-        repo, document.document_id, expected_revision=document.revision
-    )
-    source = repo / committed.target_relpath
-    source.parent.mkdir(parents=True, exist_ok=True)
-    source.write_text(
-        "# D2C4 Graph Review\n\nPost-genesis source for manual authoring. The vial is associated with the reviewed object.\n",
-        encoding="utf-8",
-    )
+    committed = get_workspace_document(repo, document.document_id)
+    committed = save_page(repo, committed.document_id, '# D2C4 Graph Review\n\nPost-genesis source for manual authoring. The vial is associated with the reviewed object.\n')
     artifact = create_source_artifact_from_workspace_document(
         repo, document_id=committed.document_id, expected_revision=committed.revision
     )

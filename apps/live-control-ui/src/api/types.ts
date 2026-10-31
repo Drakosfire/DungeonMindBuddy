@@ -2576,14 +2576,12 @@ export type WorkspaceDocumentContentStatus = "draft" | "committed";
 export type WorldbuildingAuthorityState = "draft" | "reviewed" | "canonical";
 export type WorldbuildingVisibilityState = "internal" | "player_safe";
 
-export interface WorkspaceDocumentRecord {
+interface WorkspaceDocumentRecordFields {
   schema_version: "dmb_workspace_document_record_v1";
   document_id: string;
   title: string;
-  campaign_id: string;
   world_id?: string | null;
   target_session: number | null;
-  kind: WorkspaceDocumentKind;
   target_relpath: string | null;
   status: WorkspaceDocumentStatus;
   content_status: WorkspaceDocumentContentStatus;
@@ -2596,6 +2594,11 @@ export interface WorkspaceDocumentRecord {
   visibility_state?: WorldbuildingVisibilityState | null;
   connected_page_operation_id?: string | null;
 }
+
+export type WorkspaceDocumentRecord = WorkspaceDocumentRecordFields & (
+  | { kind: "plan" | "runbook"; campaign_id: string }
+  | { kind: "worldbuilding_source"; world_id: string; campaign_id: string | null }
+);
 
 export interface WorkspaceDocumentsListResponse {
   schema_version: "dmb_workspace_document_registry_v1";
@@ -2683,6 +2686,9 @@ export interface WorkspaceDocumentRevisionRequest {
 export interface WorkspaceDocumentSnapshot {
   schema_version: "dmb_workspace_document_snapshot_v1";
   record: WorkspaceDocumentRecord;
+  /** Saved Page body; null means no committed Page revision. Editor body remains separate. */
+  committed_markdown?: string | null;
+  committed_content_sha256?: string | null;
   markdown: string;
   content_sha256: string;
   file_fingerprint: string;

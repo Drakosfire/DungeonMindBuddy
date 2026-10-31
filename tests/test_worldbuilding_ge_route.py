@@ -1,4 +1,6 @@
 from __future__ import annotations
+from tests.page_fixtures import create_page_fixture
+from apps.live_control_server.services.workspace_document_registry import get_workspace_document
 
 import hashlib
 from pathlib import Path
@@ -8,10 +10,6 @@ from typing import Any
 import pytest
 
 from apps.live_control_server.routes import graph_preview
-from apps.live_control_server.services.workspace_document_registry import (
-    create_workspace_document,
-    mark_workspace_document_committed,
-)
 
 
 SOURCE = "The Azure Reach is a continent. Asterport is a city.\n"
@@ -22,7 +20,7 @@ def test_gazetteer_launch_binds_generation_to_committed_build_source(
     profile_version: str,
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    record = create_workspace_document(
+    record = create_page_fixture(
         tmp_path,
         title="The City of Asterport",
         campaign_id="azure-reach",
@@ -35,7 +33,7 @@ def test_gazetteer_launch_binds_generation_to_committed_build_source(
     source_path = tmp_path / (record.target_relpath or "")
     source_path.parent.mkdir(parents=True, exist_ok=True)
     source_path.write_text(SOURCE, encoding="utf-8")
-    committed = mark_workspace_document_committed(tmp_path, record.document_id)
+    committed = get_workspace_document(tmp_path, record.document_id)
     digest = hashlib.sha256(SOURCE.encode("utf-8")).hexdigest()
     monkeypatch.setattr(graph_preview, "repo_root", lambda: tmp_path)
 

@@ -125,11 +125,12 @@ function buildWorldbuildingSnapshot(documentId: string) {
       document_id: documentId,
       title: "Build Source",
       campaign_id: "eldyrwild",
+      world_id: "eldyrwild",
       target_session: null,
       kind: "worldbuilding_source" as const,
       target_relpath: `out/workspace/worldbuilding/${documentId}.md`,
       status: "active" as const,
-      content_status: "draft" as const,
+      content_status: "committed" as const,
       revision: 1,
       created_at: "2026-07-22T00:00:00Z",
       updated_at: "2026-07-22T00:00:00Z",
@@ -139,8 +140,10 @@ function buildWorldbuildingSnapshot(documentId: string) {
       visibility_state: "internal",
     },
     markdown: "# Build Source\n",
+    committed_markdown: "# Build Source\n",
+    committed_content_sha256: "sha-build",
     content_sha256: "sha-build",
-    file_fingerprint: "absent",
+    file_fingerprint: "postgres",
     file_exists: false,
     loaded_revision: 1,
   };
@@ -1467,6 +1470,23 @@ describe("BuildSurfaceShell", () => {
     expect(screen.getByTestId("build-document-status")).toHaveTextContent("Unsaved local changes");
   });
 
+  it("shows only committed evidence while retaining a divergent database working copy", async () => {
+    const snapshot = buildWorldbuildingSnapshot(DOC_ID);
+    vi.mocked(liveApi.getWorkspaceDocumentSnapshot).mockResolvedValue({
+      ...snapshot, record: {...snapshot.record, content_status: "draft"},
+      markdown: "# Server draft\nNot yet saved.\n", content_sha256: "draft-digest",
+      committed_markdown: "# Saved evidence\nA supported passage.\n", committed_content_sha256: "saved-digest",
+    });
+    vi.mocked(liveApi.getBuildSourceNavigation).mockResolvedValue(buildExactSourceNavigationResult());
+    pushBuildSourceNavigationUrl();
+    render(<BuildDocumentHarness documentId={DOC_ID} />);
+    const reader = await screen.findByTestId("build-source-reader");
+    expect(reader).toHaveTextContent("A supported passage.");
+    expect(reader).not.toHaveTextContent("Not yet saved.");
+    await waitFor(() => expect(buildShellTestEditor?.getText()).toContain("Not yet saved."));
+    expect(liveApi.commitTiptapMarkdownWrite).not.toHaveBeenCalled();
+  });
+
   it("keeps exact saved evidence separate from a dirty direct-edit draft", async () => {
     vi.mocked(liveApi.getWorkspaceDocumentSnapshot).mockResolvedValue(buildWorldbuildingSnapshot(DOC_ID));
     vi.mocked(liveApi.getBuildSourceNavigation).mockResolvedValue(buildExactSourceNavigationResult());
@@ -1544,6 +1564,8 @@ describe("BuildSurfaceShell", () => {
     vi.mocked(liveApi.getWorkspaceDocumentSnapshot).mockResolvedValue({
       ...buildWorldbuildingSnapshot(DOC_ID),
       markdown,
+      committed_markdown: markdown,
+      committed_content_sha256: "sha-build",
       content_sha256: "sha-build",
     });
     vi.mocked(liveApi.getBuildSourceNavigation).mockResolvedValue(

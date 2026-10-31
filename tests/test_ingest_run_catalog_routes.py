@@ -1,4 +1,6 @@
 from __future__ import annotations
+from tests.page_fixtures import create_page_fixture, save_page
+from apps.live_control_server.services.workspace_document_registry import get_workspace_document
 
 from pathlib import Path
 from uuid import uuid4
@@ -111,10 +113,6 @@ def test_w2_w10_missing_out_and_missing_database_bytes_do_not_hide_run(
     from apps.live_control_server.services.source_artifact_registry import (
         create_source_artifact_from_workspace_document,
     )
-    from apps.live_control_server.services.workspace_document_registry import (
-        create_workspace_document,
-        mark_workspace_document_committed,
-    )
 
     # Exact-review resolves SourceArtifact + component bytes through extract_promote's
     # repo_root; pin it to the same tmp_path as the SourceArtifact registry.
@@ -123,7 +121,7 @@ def test_w2_w10_missing_out_and_missing_database_bytes_do_not_hide_run(
 
     # Valid SourceArtifact identity first — W10 requires the evidence seam to
     # reach missing run-pinned component bytes, not unknown source_artifact_id.
-    record = create_workspace_document(
+    record = create_page_fixture(
         tmp_path,
         title="W10 Lore",
         campaign_id="eldyrwild",
@@ -133,13 +131,9 @@ def test_w2_w10_missing_out_and_missing_database_bytes_do_not_hide_run(
         authority_state="draft",
         visibility_state="internal",
     )
-    committed = mark_workspace_document_committed(
-        tmp_path, record.document_id, expected_revision=1
-    )
-    source_path = tmp_path / committed.target_relpath
-    source_path.parent.mkdir(parents=True, exist_ok=True)
+    committed = get_workspace_document(tmp_path, record.document_id)
     source_bytes = b"# W10\n\nCanonical source for missing-bytes witness.\n"
-    source_path.write_bytes(source_bytes)
+    committed = save_page(tmp_path, committed.document_id, source_bytes.decode('utf-8'))
     source_digest = hashlib.sha256(source_bytes).hexdigest()
     artifact = create_source_artifact_from_workspace_document(
         tmp_path,

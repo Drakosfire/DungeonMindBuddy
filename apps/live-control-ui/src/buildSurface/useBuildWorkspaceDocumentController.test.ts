@@ -13,7 +13,7 @@ vi.mock("../api/liveApi", async (importOriginal) => {
   const actual = await importOriginal<typeof import("../api/liveApi")>();
   return {
     ...actual,
-    getWorkspaceDocumentSnapshot: vi.fn(),
+    getCommittedPageSnapshot: vi.fn(),
     admitNativeWorldSource: vi.fn(),
     listWorkspaceDocuments: vi.fn(),
     listWorldContainers: vi.fn(),
@@ -139,7 +139,7 @@ describe("useBuildWorkspaceDocumentController", () => {
   });
 
   it("admits document from URL and canonicalizes campaign", async () => {
-    vi.mocked(liveApi.getWorkspaceDocumentSnapshot).mockResolvedValue(
+    vi.mocked(liveApi.getCommittedPageSnapshot).mockResolvedValue(
       mockSnapshot(DOC_A, { campaign_id: "longmont-c1" }),
     );
     window.history.pushState({}, "", `/build?documentId=${DOC_A}&campaign=longmont-c2`);
@@ -154,7 +154,7 @@ describe("useBuildWorkspaceDocumentController", () => {
   });
 
   it("selectDocument switches after successful resolve", async () => {
-    vi.mocked(liveApi.getWorkspaceDocumentSnapshot).mockImplementation(async (id) =>
+    vi.mocked(liveApi.getCommittedPageSnapshot).mockImplementation(async (id) =>
       mockSnapshot(id),
     );
     window.history.pushState({}, "", `/build?documentId=${DOC_A}`);
@@ -172,7 +172,7 @@ describe("useBuildWorkspaceDocumentController", () => {
   });
 
   it("failed switch keeps document A and sets switchError", async () => {
-    vi.mocked(liveApi.getWorkspaceDocumentSnapshot).mockImplementation(async (id) => {
+    vi.mocked(liveApi.getCommittedPageSnapshot).mockImplementation(async (id) => {
       if (id === DOC_B) throw new Error("missing");
       return mockSnapshot(id);
     });
@@ -197,7 +197,7 @@ describe("useBuildWorkspaceDocumentController", () => {
       resolveB = resolve;
     });
 
-    vi.mocked(liveApi.getWorkspaceDocumentSnapshot).mockImplementation(async (id) => {
+    vi.mocked(liveApi.getCommittedPageSnapshot).mockImplementation(async (id) => {
       if (id === DOC_B) return deferredB;
       return mockSnapshot(id);
     });
@@ -229,7 +229,7 @@ describe("useBuildWorkspaceDocumentController", () => {
     vi.mocked(liveApi.createWorkspaceDocument).mockResolvedValue(
       buildRecord(DOC_B, { title: "Ironveil Property", campaign_id: "longmont-c2" }),
     );
-    vi.mocked(liveApi.getWorkspaceDocumentSnapshot).mockImplementation(async (id) =>
+    vi.mocked(liveApi.getCommittedPageSnapshot).mockImplementation(async (id) =>
       mockSnapshot(id, { title: "Ironveil Property", campaign_id: "longmont-c2" }),
     );
 
@@ -286,7 +286,7 @@ describe("useBuildWorkspaceDocumentController", () => {
         campaign_id: "eldyrwild",
       }),
     );
-    vi.mocked(liveApi.getWorkspaceDocumentSnapshot).mockImplementation(async (id) =>
+    vi.mocked(liveApi.getCommittedPageSnapshot).mockImplementation(async (id) =>
       mockSnapshot(id, { title: "Eldyrwild Lore", campaign_id: "eldyrwild" }),
     );
 
@@ -315,7 +315,7 @@ describe("useBuildWorkspaceDocumentController", () => {
 
   it("suggests admitted loadable campaigns for New Source prefill", async () => {
     writeBuildLastCampaignId("longmont-c2");
-    vi.mocked(liveApi.getWorkspaceDocumentSnapshot).mockResolvedValue(
+    vi.mocked(liveApi.getCommittedPageSnapshot).mockResolvedValue(
       mockSnapshot(DOC_A, { campaign_id: "eldyrwild" }),
     );
     window.history.pushState({}, "", `/build?documentId=${DOC_A}&campaign=`);
@@ -342,7 +342,7 @@ describe("useBuildWorkspaceDocumentController", () => {
     vi.mocked(liveApi.createWorkspaceDocument).mockResolvedValue(
       buildRecord(DOC_B, { title: "Ironveil Property", campaign_id: "longmont-c2" }),
     );
-    vi.mocked(liveApi.getWorkspaceDocumentSnapshot).mockImplementation(async (id) => {
+    vi.mocked(liveApi.getCommittedPageSnapshot).mockImplementation(async (id) => {
       if (id === DOC_B) {
         bAttempts += 1;
         if (bAttempts === 1) throw new Error("activation failed");
@@ -389,7 +389,7 @@ describe("useBuildWorkspaceDocumentController", () => {
           resolveCreate = resolve;
         }),
     );
-    vi.mocked(liveApi.getWorkspaceDocumentSnapshot).mockImplementation(async (id) =>
+    vi.mocked(liveApi.getCommittedPageSnapshot).mockImplementation(async (id) =>
       mockSnapshot(id),
     );
     window.history.pushState({}, "", `/build?documentId=${DOC_A}`);
@@ -420,7 +420,7 @@ describe("useBuildWorkspaceDocumentController", () => {
 
   it("history.back restores A; failed history target keeps A and restores URL", async () => {
     const DOC_C = "33333333-3333-4333-8333-333333333333";
-    vi.mocked(liveApi.getWorkspaceDocumentSnapshot).mockImplementation(async (id) => {
+    vi.mocked(liveApi.getCommittedPageSnapshot).mockImplementation(async (id) => {
       if (id === DOC_C) throw new Error("gone");
       return mockSnapshot(id);
     });
@@ -468,7 +468,7 @@ describe("useBuildWorkspaceDocumentController", () => {
 
   it("does not expose documentId for Canvas until admission completes", async () => {
     let resolveSnapshot: ((value: ReturnType<typeof mockSnapshot>) => void) | null = null;
-    vi.mocked(liveApi.getWorkspaceDocumentSnapshot).mockImplementation(
+    vi.mocked(liveApi.getCommittedPageSnapshot).mockImplementation(
       () =>
         new Promise((resolve) => {
           resolveSnapshot = resolve;
@@ -489,7 +489,7 @@ describe("useBuildWorkspaceDocumentController", () => {
   });
 
   it("rejects direct-link discarded records without mounting Canvas", async () => {
-    vi.mocked(liveApi.getWorkspaceDocumentSnapshot).mockResolvedValue(
+    vi.mocked(liveApi.getCommittedPageSnapshot).mockResolvedValue(
       mockSnapshot(DOC_A, { status: "discarded" }),
     );
     window.history.pushState({}, "", `/build?documentId=${DOC_A}`);
@@ -501,7 +501,7 @@ describe("useBuildWorkspaceDocumentController", () => {
   });
 
   it("rejects direct-link non-worldbuilding records without mounting Canvas", async () => {
-    vi.mocked(liveApi.getWorkspaceDocumentSnapshot).mockResolvedValue(
+    vi.mocked(liveApi.getCommittedPageSnapshot).mockResolvedValue(
       mockSnapshot(DOC_A, { kind: "plan", target_relpath: "out/workspace/plan/x.md" }),
     );
     window.history.pushState({}, "", `/build?documentId=${DOC_A}`);
@@ -546,7 +546,7 @@ describe("useBuildWorkspaceDocumentController", () => {
       writer_ok: true,
       diagnostics: [],
     });
-    vi.mocked(liveApi.getWorkspaceDocumentSnapshot).mockImplementation(async (id) =>
+    vi.mocked(liveApi.getCommittedPageSnapshot).mockImplementation(async (id) =>
       mockSnapshot(id, {
         title: "Hesta's Apothecary",
         campaign_id: "longmont-c2",
@@ -555,7 +555,7 @@ describe("useBuildWorkspaceDocumentController", () => {
         revision: 2,
       }, {
         markdown: "# Hesta\n\n| a | b |\n",
-        file_exists: true,
+        file_exists: false,
       }),
     );
 
@@ -601,7 +601,7 @@ describe("useBuildWorkspaceDocumentController", () => {
     });
     vi.mocked(liveApi.createWorkspaceDocument).mockResolvedValue(imported);
     vi.mocked(liveApi.prepareTiptapMarkdownWrite).mockRejectedValue(new Error("prepare failed"));
-    vi.mocked(liveApi.getWorkspaceDocumentSnapshot).mockImplementation(async (id) =>
+    vi.mocked(liveApi.getCommittedPageSnapshot).mockImplementation(async (id) =>
       mockSnapshot(id, { content_status: "draft" }),
     );
     window.history.pushState({}, "", `/build?documentId=${DOC_A}`);
@@ -649,10 +649,10 @@ describe("useBuildWorkspaceDocumentController", () => {
       writer_ok: true,
       diagnostics: [],
     });
-    vi.mocked(liveApi.getWorkspaceDocumentSnapshot).mockImplementation(async (id) =>
+    vi.mocked(liveApi.getCommittedPageSnapshot).mockImplementation(async (id) =>
       mockSnapshot(id, { content_status: "committed", revision: 2 }, {
         markdown: "# Retry\n",
-        file_exists: true,
+        file_exists: false,
       }),
     );
 
@@ -701,7 +701,7 @@ describe("useBuildWorkspaceDocumentController", () => {
     });
 
     let activationAttempts = 0;
-    vi.mocked(liveApi.getWorkspaceDocumentSnapshot).mockImplementation(async (id) => {
+    vi.mocked(liveApi.getCommittedPageSnapshot).mockImplementation(async (id) => {
       if (id === DOC_B) {
         activationAttempts += 1;
         if (activationAttempts === 2) {
@@ -717,7 +717,7 @@ describe("useBuildWorkspaceDocumentController", () => {
           },
           {
             markdown: "# Imported\n",
-            file_exists: true,
+            file_exists: false,
           },
         );
       }
@@ -799,7 +799,7 @@ describe("useBuildWorkspaceDocumentController", () => {
       writer_ok: true,
       diagnostics: [],
     });
-    vi.mocked(liveApi.getWorkspaceDocumentSnapshot).mockImplementation(async (id) =>
+    vi.mocked(liveApi.getCommittedPageSnapshot).mockImplementation(async (id) =>
       mockSnapshot(id, { content_status: "committed", revision: 2 }),
     );
 
@@ -850,7 +850,7 @@ describe("useBuildWorkspaceDocumentController", () => {
     vi.mocked(liveApi.createWorkspaceDocument)
       .mockResolvedValueOnce(blankSource)
       .mockResolvedValueOnce(imported);
-    vi.mocked(liveApi.getWorkspaceDocumentSnapshot).mockImplementation(async (id) =>
+    vi.mocked(liveApi.getCommittedPageSnapshot).mockImplementation(async (id) =>
       mockSnapshot(id, {
         campaign_id: "longmont-c2",
         world_id: "eldyrwild",
@@ -934,7 +934,7 @@ describe("useBuildWorkspaceDocumentController", () => {
       schema_version: "dmb_workspace_document_registry_v1",
       records: [committedActive, buildRecord(DOC_B, { campaign_id: "longmont-c2" })],
     });
-    vi.mocked(liveApi.getWorkspaceDocumentSnapshot).mockImplementation(async (id) =>
+    vi.mocked(liveApi.getCommittedPageSnapshot).mockImplementation(async (id) =>
       mockSnapshot(id, {
         campaign_id: id === DOC_A ? "longmont-c1" : "longmont-c2",
         content_status: id === imported.document_id ? "committed" : "committed",
@@ -1010,7 +1010,7 @@ describe("useBuildWorkspaceDocumentController", () => {
       diagnostics: [],
     });
     vi.mocked(liveApi.commitTiptapMarkdownWrite).mockRejectedValue(new Error("network lost"));
-    vi.mocked(liveApi.getWorkspaceDocumentSnapshot).mockImplementation(async (id) =>
+    vi.mocked(liveApi.getCommittedPageSnapshot).mockImplementation(async (id) =>
       mockSnapshot(
         id,
         {
@@ -1066,7 +1066,7 @@ describe("useBuildWorkspaceDocumentController", () => {
       diagnostics: [],
     });
     vi.mocked(liveApi.commitTiptapMarkdownWrite).mockRejectedValue(new Error("network lost"));
-    vi.mocked(liveApi.getWorkspaceDocumentSnapshot).mockImplementation(async (id) =>
+    vi.mocked(liveApi.getCommittedPageSnapshot).mockImplementation(async (id) =>
       mockSnapshot(
         id,
         {
@@ -1076,7 +1076,7 @@ describe("useBuildWorkspaceDocumentController", () => {
         },
         {
           markdown: "# Imported\n",
-          file_exists: true,
+          file_exists: false,
         },
       ),
     );
@@ -1121,7 +1121,7 @@ describe("useBuildWorkspaceDocumentController", () => {
       "dmb.build.pendingSourceImport.v1",
       JSON.stringify({ documentId: DOC_B }),
     );
-    vi.mocked(liveApi.getWorkspaceDocumentSnapshot).mockImplementation(async (id) =>
+    vi.mocked(liveApi.getCommittedPageSnapshot).mockImplementation(async (id) =>
       mockSnapshot(id, {
         campaign_id: id === DOC_B ? "longmont-c2" : "longmont-c1",
         world_id: "eldyrwild",
@@ -1194,7 +1194,7 @@ describe("useBuildWorkspaceDocumentController", () => {
       world_id: "eldyrwild",
     });
     vi.mocked(liveApi.createWorkspaceDocument).mockResolvedValue(imported);
-    vi.mocked(liveApi.getWorkspaceDocumentSnapshot).mockImplementation(async (id) =>
+    vi.mocked(liveApi.getCommittedPageSnapshot).mockImplementation(async (id) =>
       mockSnapshot(id, {
         campaign_id: id === DOC_A ? "longmont-c1" : "longmont-c2",
         world_id: "eldyrwild",
@@ -1267,7 +1267,7 @@ describe("useBuildWorkspaceDocumentController", () => {
       "dmb.build.pendingSourceImport.v1",
       JSON.stringify({ documentId: DOC_B }),
     );
-    vi.mocked(liveApi.getWorkspaceDocumentSnapshot).mockImplementation(async (id) =>
+    vi.mocked(liveApi.getCommittedPageSnapshot).mockImplementation(async (id) =>
       mockSnapshot(
         id,
         {
@@ -1319,7 +1319,7 @@ describe("useBuildWorkspaceDocumentController", () => {
       JSON.stringify({ documentId: DOC_B }),
     );
     vi.mocked(liveApi.updateWorkspaceDocumentMetadata).mockResolvedValue(retitled);
-    vi.mocked(liveApi.getWorkspaceDocumentSnapshot).mockImplementation(async (id) =>
+    vi.mocked(liveApi.getCommittedPageSnapshot).mockImplementation(async (id) =>
       mockSnapshot(id, {
         campaign_id: id === DOC_B ? "longmont-c2" : "longmont-c1",
         world_id: "eldyrwild",
@@ -1409,7 +1409,7 @@ describe("useBuildWorkspaceDocumentController", () => {
         world_id: GLASS_ORCHARD_WORLD.world_id,
       }),
     );
-    vi.mocked(liveApi.getWorkspaceDocumentSnapshot).mockImplementation(async (id) =>
+    vi.mocked(liveApi.getCommittedPageSnapshot).mockImplementation(async (id) =>
       mockSnapshot(id, {
         title: "Orchard Lore",
         campaign_id: GLASS_ORCHARD_WORLD.world_id,
@@ -1476,7 +1476,7 @@ describe("useBuildWorkspaceDocumentController", () => {
       writer_ok: true,
       diagnostics: [],
     });
-    vi.mocked(liveApi.getWorkspaceDocumentSnapshot).mockImplementation(async (id) =>
+    vi.mocked(liveApi.getCommittedPageSnapshot).mockImplementation(async (id) =>
       mockSnapshot(id, {
         title: "Imported Orchard",
         campaign_id: GLASS_ORCHARD_WORLD.world_id,
@@ -1549,7 +1549,7 @@ describe("useBuildWorkspaceDocumentController", () => {
       writer_ok: true,
       diagnostics: [],
     });
-    vi.mocked(liveApi.getWorkspaceDocumentSnapshot).mockResolvedValue(
+    vi.mocked(liveApi.getCommittedPageSnapshot).mockResolvedValue(
       mockSnapshot(DOC_B, {
         campaign_id: GLASS_ORCHARD_WORLD.world_id,
         world_id: GLASS_ORCHARD_WORLD.world_id,
@@ -1557,7 +1557,7 @@ describe("useBuildWorkspaceDocumentController", () => {
         revision: 2,
       }, {
         markdown: "# Alternate Import\n",
-        file_exists: true,
+        file_exists: false,
       }),
     );
     const { result } = renderHook(() => useBuildWorkspaceDocumentController());
@@ -1579,7 +1579,7 @@ describe("useBuildWorkspaceDocumentController", () => {
       campaign_id: GLASS_ORCHARD_WORLD.world_id,
       world_id: GLASS_ORCHARD_WORLD.world_id,
     }));
-    expect(liveApi.getWorkspaceDocumentSnapshot).toHaveBeenCalledWith(DOC_B);
+    expect(liveApi.getCommittedPageSnapshot).toHaveBeenCalledWith(DOC_B);
     expect(liveApi.admitNativeWorldSource).toHaveBeenCalledWith(
       DOC_B,
       2,
@@ -1599,7 +1599,7 @@ describe("useBuildWorkspaceDocumentController", () => {
           world_id: GLASS_ORCHARD_WORLD.world_id,
         }),
       );
-    vi.mocked(liveApi.getWorkspaceDocumentSnapshot).mockImplementation(async (id) =>
+    vi.mocked(liveApi.getCommittedPageSnapshot).mockImplementation(async (id) =>
       mockSnapshot(id, {
         title: "Retry Lore",
         campaign_id: GLASS_ORCHARD_WORLD.world_id,
@@ -1650,7 +1650,7 @@ describe("useBuildWorkspaceDocumentController", () => {
         world_id: GLASS_ORCHARD_WORLD.world_id,
       }),
     );
-    vi.mocked(liveApi.getWorkspaceDocumentSnapshot).mockImplementation(async (id) =>
+    vi.mocked(liveApi.getCommittedPageSnapshot).mockImplementation(async (id) =>
       mockSnapshot(id, {
         title: "Reconciled Orchard",
         campaign_id: GLASS_ORCHARD_WORLD.world_id,
@@ -1697,7 +1697,7 @@ describe("useBuildWorkspaceDocumentController", () => {
       schema_version: "dmb_world_container_registry_v1",
       records: [collidingWorld],
     });
-    vi.mocked(liveApi.getWorkspaceDocumentSnapshot).mockResolvedValue(
+    vi.mocked(liveApi.getCommittedPageSnapshot).mockResolvedValue(
       mockSnapshot(DOC_B, {
         campaign_id: "longmont-c2",
         world_id: "longmont-c2",
@@ -1744,7 +1744,7 @@ describe("useBuildWorkspaceDocumentController", () => {
       "dmb.build.pendingSourceImport.v1",
       JSON.stringify({ documentId: DOC_B }),
     );
-    vi.mocked(liveApi.getWorkspaceDocumentSnapshot).mockImplementation(async (id) =>
+    vi.mocked(liveApi.getCommittedPageSnapshot).mockImplementation(async (id) =>
       mockSnapshot(
         id,
         {
@@ -1785,7 +1785,7 @@ describe("useBuildWorkspaceDocumentController", () => {
   it.each(['guidance restart','new unsaved edits'])('cancels a staged source read after %s, retaining the old page and URL',async()=>{
     let release!:(value:ReturnType<typeof mockSnapshot>)=>void;
     const pending=new Promise<ReturnType<typeof mockSnapshot>>(resolve=>{release=resolve;});
-    vi.mocked(liveApi.getWorkspaceDocumentSnapshot).mockImplementation(async id=>id===DOC_B?pending:mockSnapshot(id));
+    vi.mocked(liveApi.getCommittedPageSnapshot).mockImplementation(async id=>id===DOC_B?pending:mockSnapshot(id));
     window.history.replaceState({},'',`/build?documentId=${DOC_A}`);
     const {result}=renderHook(()=>useBuildWorkspaceDocumentController());
     await waitFor(()=>expect(result.current.activeDocumentId).toBe(DOC_A));
@@ -1802,7 +1802,7 @@ describe("useBuildWorkspaceDocumentController", () => {
     const docC='33333333-3333-4333-8333-333333333333';
     let releaseB!:(value:ReturnType<typeof mockSnapshot>)=>void,releaseC!:(value:ReturnType<typeof mockSnapshot>)=>void;
     const b=new Promise<ReturnType<typeof mockSnapshot>>(resolve=>{releaseB=resolve;}),c=new Promise<ReturnType<typeof mockSnapshot>>(resolve=>{releaseC=resolve;});
-    vi.mocked(liveApi.getWorkspaceDocumentSnapshot).mockImplementation(async id=>id===DOC_B?b:id===docC?c:mockSnapshot(id));
+    vi.mocked(liveApi.getCommittedPageSnapshot).mockImplementation(async id=>id===DOC_B?b:id===docC?c:mockSnapshot(id));
     window.history.replaceState({},'',`/build?documentId=${DOC_A}`);const {result}=renderHook(()=>useBuildWorkspaceDocumentController());
     await waitFor(()=>expect(result.current.activeDocumentId).toBe(DOC_A));let current=true,guided!:Promise<boolean>,manual!:Promise<boolean>;
     act(()=>{guided=result.current.selectDocument(DOC_B,()=>current);});
@@ -1816,7 +1816,7 @@ describe("useBuildWorkspaceDocumentController", () => {
   it.each(['revision','digest'])('refuses bound source %s drift before replacing the current editor or URL',async drift=>{
     const selected=vi.spyOn(worldSelection,'useSelectedWorld').mockReturnValue({kind:'managed',worldId:'world',name:'World',documentId:DOC_A});
     try{
-      vi.mocked(liveApi.getWorkspaceDocumentSnapshot).mockImplementation(async id=>{
+      vi.mocked(liveApi.getCommittedPageSnapshot).mockImplementation(async id=>{
         const snapshot=mockSnapshot(id,{world_id:'world',campaign_id:'world'});
         if(id===DOC_B){if(drift==='revision'){snapshot.loaded_revision=2;snapshot.record.revision=2;}else snapshot.content_sha256='b'.repeat(64);}return snapshot;
       });
@@ -1831,7 +1831,7 @@ describe("useBuildWorkspaceDocumentController", () => {
   it('refuses a newer source on guided routed entry without admitting it as the bound version',async()=>{
     const selected=vi.spyOn(worldSelection,'useSelectedWorld').mockReturnValue({kind:'managed',worldId:'world',name:'World',documentId:DOC_B});
     try{
-      vi.mocked(liveApi.getWorkspaceDocumentSnapshot).mockResolvedValue(mockSnapshot(DOC_B,{world_id:'world',campaign_id:'world',revision:2}));
+      vi.mocked(liveApi.getCommittedPageSnapshot).mockResolvedValue(mockSnapshot(DOC_B,{world_id:'world',campaign_id:'world',revision:2}));
       window.history.replaceState({},'',`/build?world=world&documentId=${DOC_B}`);
       const scope:NavigationScope={worldId:'world',walkthroughId:'source-route',epoch:0,step:'source',index:0,bindings:{source:{kind:'source',worldId:'world',objectId:DOC_B,revision:1,digest:'a'.repeat(64)}}};
       const registry=new TourNavigationRegistry(()=>scope);registry.beginDestination(scope);
@@ -1844,7 +1844,7 @@ describe("useBuildWorkspaceDocumentController", () => {
     const selected=vi.spyOn(worldSelection,'useSelectedWorld').mockReturnValue({kind:'managed',worldId:'world',name:'World',documentId:DOC_B});
     try{
       let release!:(value:ReturnType<typeof mockSnapshot>)=>void;
-      vi.mocked(liveApi.getWorkspaceDocumentSnapshot).mockReturnValueOnce(new Promise(resolve=>{release=resolve;}));
+      vi.mocked(liveApi.getCommittedPageSnapshot).mockReturnValueOnce(new Promise(resolve=>{release=resolve;}));
       window.history.replaceState({},'',`/build?world=world&documentId=${DOC_B}`);
       let scope:NavigationScope={worldId:'world',walkthroughId:'source-route',epoch:0,step:'source',index:0,bindings:{source:{kind:'source',worldId:'world',objectId:DOC_B,revision:1,digest:'a'.repeat(64)}}};
       const registry=new TourNavigationRegistry(()=>scope);registry.beginDestination(scope);
@@ -1852,7 +1852,7 @@ describe("useBuildWorkspaceDocumentController", () => {
       await waitFor(()=>expect(release).toBeTypeOf('function'));scope=kind==='restart'?{...scope,walkthroughId:'replacement'}:{...scope,step:'authoring',index:1};
       await act(async()=>release(mockSnapshot(DOC_B,{world_id:'world',campaign_id:'world'})));
       expect(result.current.activeRecord).toBeNull();expect(result.current.switchError).toMatch(/canceled/);
-      vi.mocked(liveApi.getWorkspaceDocumentSnapshot).mockResolvedValue(mockSnapshot(DOC_B,{world_id:'world',campaign_id:'world'}));
+      vi.mocked(liveApi.getCommittedPageSnapshot).mockResolvedValue(mockSnapshot(DOC_B,{world_id:'world',campaign_id:'world'}));
       await act(async()=>{await result.current.selectDocument(DOC_B);});expect(result.current.activeDocumentId).toBe(DOC_B);
       expect(liveApi.commitTiptapMarkdownWrite).not.toHaveBeenCalled();
     }finally{selected.mockRestore();}

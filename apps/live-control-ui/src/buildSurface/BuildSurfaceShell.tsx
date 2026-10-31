@@ -112,7 +112,7 @@ function BuildPresentableSourceView({
     {navigationTarget.status !== "none" ? <details className="build-source-evidence" open>
       <summary>Saved evidence passage</summary>
       <BuildSourceReader showOutline={false} title={session.record!.title}
-        markdown={session.snapshot!.markdown} dirty={session.dirty} navigationTarget={navigationTarget} />
+        markdown={session.snapshot!.committed_markdown ?? ""} dirty={session.dirty} navigationTarget={navigationTarget} />
     </details> : null}
     {showEmptySourcePrompt ? <section className="build-empty-document-prompt" data-testid="build-empty-document-prompt" aria-label="A beginning for this page">
       <div className="build-empty-document-prompt__art" aria-hidden="true">
@@ -293,10 +293,10 @@ export function BuildSurfaceShell({ onEditorTools, onReviewTarget }: { onEditorT
     (command) => command.id === BUILD_DOCUMENT_SAVE_COMMAND_ID,
   );
   const slots = useBuildMarkdownCanvasSlots({ hideFooterSave: hasSharedEditSave, hideDraftTools: true });
-  const conversationContext = useMemo(() => session.record?.world_id && session.record.content_status === "committed"
-    && session.snapshot && isPresentableSourcePhase(session.phase) ? {
+  const conversationContext = useMemo(() => session.record?.world_id && session.snapshot?.committed_markdown != null
+    && session.snapshot.committed_content_sha256 && isPresentableSourcePhase(session.phase) ? {
       worldId: session.record.world_id, documentId: session.record.document_id,
-      revision: session.snapshot.loaded_revision, contentSha256: session.snapshot.content_sha256,
+      revision: session.snapshot.loaded_revision, contentSha256: session.snapshot.committed_content_sha256,
       surfaceInstanceId: `build:${session.record.document_id}`, title: session.record.title, dirty: session.dirty,
     } : null, [session.record, session.snapshot, session.phase, session.dirty]);
   const composeGeneration = useRef({ draft: 0, selection: 0 });
@@ -381,6 +381,10 @@ export function BuildSurfaceShell({ onEditorTools, onReviewTarget }: { onEditorT
       return;
     }
 
+    if (session.record.campaign_id === null) {
+      publishNeutral("This page has no campaign context. Editing and Save remain available.");
+      return;
+    }
     rehydrateScope({
       campaignId: session.record.campaign_id,
       sessionNumber: null,

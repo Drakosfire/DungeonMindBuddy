@@ -1,4 +1,6 @@
 """Graph Review passage selection is bound to registered current bytes."""
+from tests.page_fixtures import create_page_fixture, save_page
+from apps.live_control_server.services.workspace_document_registry import get_workspace_document
 
 from hashlib import sha256
 from pathlib import Path
@@ -123,17 +125,13 @@ def test_prepare_to_confirm_body_drift_prevents_publication(
 
 
 def _worldbuilding_case(root: Path):
-    from apps.live_control_server.services.workspace_document_registry import (
-        create_workspace_document,
-        mark_workspace_document_committed,
-    )
     from apps.live_control_server.services.source_artifact_registry import (
         create_source_artifact_from_workspace_document,
         load_source_span_index,
     )
 
     (root / "corpus/longmont-c1-markdown").mkdir(parents=True)
-    document = create_workspace_document(
+    document = create_page_fixture(
         root,
         title="Readable Graph Review source",
         campaign_id="longmont-c1",
@@ -144,12 +142,8 @@ def _worldbuilding_case(root: Path):
         authority_state="draft",
         visibility_state="internal",
     )
-    committed = mark_workspace_document_committed(
-        root, document.document_id, expected_revision=document.revision
-    )
-    path = root / committed.target_relpath
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text("# Guild\n\nA named guild guards the road.\n", encoding="utf-8")
+    committed = get_workspace_document(root, document.document_id)
+    committed = save_page(root, committed.document_id, '# Guild\n\nA named guild guards the road.\n')
     artifact = create_source_artifact_from_workspace_document(
         root, document_id=committed.document_id, expected_revision=committed.revision
     )
@@ -181,7 +175,7 @@ def _worldbuilding_case(root: Path):
         span.source_span_id for span in index.spans
         if span.start_line == 3
     )
-    return assertions, resolved, path, frozen_index
+    return assertions, resolved, document.document_id, frozen_index
 
 
 def test_worldbuilding_index_and_body_are_both_required(tmp_path: Path) -> None:
@@ -213,7 +207,7 @@ def test_worldbuilding_wrong_digest_and_scope_fail_closed(tmp_path: Path) -> Non
     with pytest.raises(GraphObjectAuthoringError) as scope:
         verify_graph_review_assertion_spans(**{**kwargs, "campaign_id": "another-campaign"})
     assert scope.value.code == "source_inadmissible"
-    path.write_text("# Guild\n\nA changed guild guards the road.\n", encoding="utf-8")
+    resolved.source_artifact = resolved.source_artifact.model_copy(update={"content_sha256": "b" * 64})
     with pytest.raises(GraphObjectAuthoringError) as drift:
         verify_graph_review_assertion_spans(**kwargs)
     assert drift.value.code == "source_span_drift"

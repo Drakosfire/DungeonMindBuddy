@@ -98,7 +98,7 @@ from apps.live_control_server.services.workspace_document_registry import (
     get_committed_playable_revision,
     get_current_world_plan_revision,
     get_workspace_document,
-    get_workspace_document_snapshot,
+    get_committed_page_snapshot,
 )
 from apps.live_control_server.services.world_container_registry import (
     WorldContainerRegistryError,
@@ -176,15 +176,10 @@ def _build_work_resolver(body: AgentTurnRequest, owner: Mapping[str, Any] | None
         or owner is None or owner.get("kind") != "world" or not owner.get("id")):
         raise AgentTurnServiceError("Build requires a verified World source", code="build_source_unavailable", status_code=403)
     try:
-        snapshot = get_workspace_document_snapshot(_managed_world_root(), locator.object_id)
+        snapshot = get_committed_page_snapshot(_managed_world_root(), locator.object_id)
     except WorkspaceDocumentRegistryError as exc:
         raise AgentTurnServiceError("The saved source is unavailable", code="build_source_unavailable", status_code=exc.status_code) from exc
     record = snapshot.record
-    from apps.live_control_server.config import artifact_data_root
-    source_root = artifact_data_root(_managed_world_root()).resolve()
-    source_path = source_root / (record.target_relpath or "")
-    if not source_path.is_relative_to(source_root) or source_path.resolve() != source_path:
-        raise AgentTurnServiceError("The source path is not an exact managed file", code="build_source_unavailable", status_code=409)
     digest = sha256(snapshot.markdown.encode("utf-8")).hexdigest()
     if (record.kind != "worldbuilding_source" or record.status != "active"
         or record.content_status != "committed" or record.world_id != owner["id"]

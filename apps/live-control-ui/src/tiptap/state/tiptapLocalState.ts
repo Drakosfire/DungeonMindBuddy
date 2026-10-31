@@ -15,7 +15,7 @@ export interface WorkspaceDocumentLocalState {
   schema_version: typeof WORKSPACE_DOCUMENT_LOCAL_STATE_SCHEMA;
   document_id: string;
   title: string;
-  campaign_id: string;
+  campaign_id: string | null;
   kind: WorkspaceDocumentLocalKind;
   target_session: number | null;
   surface: WorkspaceDocumentLocalSurface;
@@ -174,7 +174,7 @@ function migrateV4LocalState(value: Record<string, unknown>): WorkspaceDocumentL
 export function buildInitialWorkspaceDocumentLocalState(args: {
   documentId: string;
   title: string;
-  campaignId: string;
+  campaignId: string | null;
   kind: WorkspaceDocumentLocalKind;
   targetSession: number | null;
   surface: WorkspaceDocumentLocalSurface;
@@ -209,7 +209,7 @@ export function buildInitialWorkingBoardState(
   descriptor: {
     documentId: string;
     title: string;
-    campaignId: string;
+    campaignId: string | null;
     kind?: "plan" | "runbook";
     targetSession?: number | null;
     session?: number;
@@ -238,7 +238,7 @@ export function isWorkspaceDocumentLocalState(value: unknown): value is Workspac
     value.schema_version === WORKSPACE_DOCUMENT_LOCAL_STATE_SCHEMA
     && typeof value.document_id === "string"
     && typeof value.title === "string"
-    && typeof value.campaign_id === "string"
+    && (typeof value.campaign_id === "string" || (value.kind === "worldbuilding_source" && value.campaign_id === null))
     && isWorkspaceDocumentLocalKind(value.kind)
     && (value.target_session === null || typeof value.target_session === "number")
     && isWorkspaceDocumentLocalSurface(value.surface)
@@ -372,7 +372,7 @@ export function finalizePromotedWorkspaceDocumentLocalState(
     committedRevision: number;
     normalizedContentSha256: string;
     title: string;
-    campaignId: string;
+    campaignId: string | null;
     targetSession: number | null;
     kind: WorkspaceDocumentLocalKind;
     surface: WorkspaceDocumentLocalSurface;
