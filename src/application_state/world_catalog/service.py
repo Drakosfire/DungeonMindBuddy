@@ -2,7 +2,10 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from datetime import UTC, datetime
 import re
+import unicodedata
+from uuid import uuid4
 
 import psycopg
 from psycopg.rows import dict_row
@@ -16,7 +19,8 @@ from application_state.errors import (
 )
 from application_state.unit_of_work import unit_of_work
 from application_state.world_catalog.types import (
-    REGISTRY_SCHEMA, RECORD_SCHEMA, WorldContainerRecord, WorldContainerRegistryDocument,
+    REGISTRY_SCHEMA, RECORD_SCHEMA, NativeGraphProvisioningRecord,
+    WorldContainerRecord, WorldContainerRegistryDocument, _validate_subject,
 )
 
 _PERMISSIONS = ('read', 'write', 'manage', 'share')
@@ -34,6 +38,68 @@ class WorldCatalogAdoption:
     world_count: int
     access_grant_count: int
     native_binding_count: int
+
+
+def normalize_world_name_for_compare(name: str) -> str:
+    """Trim, collapse whitespace and casefold for creator/name comparison."""
+    return " ".join(name.strip().split()).casefold()
+
+
+def display_world_name(name: str) -> str:
+    if not isinstance(name, str) or not name.strip():
+        raise ApplicationStateValidationError("That world name is required.")
+    return " ".join(name.strip().split())
+
+
+def derive_world_id_from_name(name: str) -> str:
+    """World metadata owns safe identifiers, independently of storage paths."""
+    display = display_world_name(name)
+    folded = unicodedata.normalize("NFKD", display).encode("ascii", "ignore").decode("ascii")
+    slug = re.sub(r"[^a-z0-9]+", "-", folded.casefold()).strip("-")
+    if not slug or not slug[0].isalpha():
+        slug = f"world-{slug}".strip("-") if slug else "world"
+    return slug[:63].strip("-")
+
+
+def world_source_root_relpath(world_id: str) -> str:
+    """Retained metadata hint; creation never reads or creates this directory."""
+    return f"corpus/{world_id}-markdown"
+
+
+def _world_id_for_owner(
+    records: list[WorldContainerRecord], *, base_world_id: str, owner_subject: str | None,
+    compare_name: str,
+) -> str:
+    matches = [record for record in records
+               if record.owner_subject == owner_subject
+               and normalize_world_name_for_compare(record.name) == compare_name]
+    if len(matches) > 1:
+        raise ApplicationStateConflictError("World creator/name is ambiguous; retained identities require review")
+    if matches:
+        return matches[0].world_id
+    occupied = {record.world_id: record for record in records}
+    if base_world_id not in occupied:
+        return base_world_id
+    if (normalize_world_name_for_compare(occupied[base_world_id].name) != compare_name
+            or owner_subject is None):
+        raise ApplicationStateConflictError("That world already exists.")
+    # Equal display names never merge different creators. One fresh identifier;
+    # uniqueness conflicts fail closed rather than silently retrying allocation.
+    candidate = f"{base_world_id[:30].rstrip('-')}-{uuid4().hex}"
+    if candidate in occupied:
+        raise ApplicationStateConflictError("World identity allocation conflicts with retained metadata")
+    return candidate
+
+
+def _new_world_record(world_id: str, *, name: str, owner_subject: str | None) -> WorldContainerRecord:
+    return WorldContainerRecord(
+        world_id=world_id, name=name, owner_subject=owner_subject,
+        source_root_relpath=world_source_root_relpath(world_id),
+        created_at=datetime.now(UTC).isoformat().replace("+00:00", "Z"),
+        native_graph_binding=NativeGraphProvisioningRecord(
+            native_world_id=f"world:{uuid4().hex}", provisioning_id=f"provision:{uuid4().hex}",
+        ),
+    )
 
 
 def _validated_record(record: WorldContainerRecord) -> WorldContainerRecord:
@@ -131,6 +197,42 @@ def _write(conn, record: WorldContainerRecord, *, revision: int) -> None:
             VALUES (%s,%s,%s,%s,%s,%s,%s,%s)''',
             (record.world_id, grant.subject, grant.granted_by_subject, ordinal,
              *(permission in grant.permissions for permission in _PERMISSIONS)))
+
+
+def create_world(*, name: str, owner_subject: str | None = None) -> StoredWorld:
+    """Atomically reconcile one creator/name or insert its metadata/reservation.
+
+    None identifies the existing unowned local mode, never another creator's
+    World. This writes no source directory and grants no native fact authority.
+    """
+    display = display_world_name(name)
+    try:
+        owner_subject = _validate_subject(owner_subject)
+    except ValueError as exc:
+        raise ApplicationStateValidationError("invalid World owner") from exc
+    base_world_id = derive_world_id_from_name(display)
+    compare_name = normalize_world_name_for_compare(display)
+    dsn = load_runtime_dsn()
+    assert_at_head(dsn=dsn)
+    try:
+        with unit_of_work(dsn) as conn:
+            # Match across every retained ID, including names whose casefold
+            # matches but whose ASCII slugs differ. Serialize with all metadata
+            # writers/adoption, not a separate name-lock or identity registry.
+            conn.execute('LOCK TABLE workspace.managed_world IN EXCLUSIVE MODE')
+            existing = _records(conn)
+            world_id = _world_id_for_owner(
+                [row.record for row in existing], base_world_id=base_world_id,
+                owner_subject=owner_subject, compare_name=compare_name,
+            )
+            for stored in existing:
+                if stored.record.world_id == world_id:
+                    return stored
+            record = _validated_record(_new_world_record(world_id, name=display, owner_subject=owner_subject))
+            _write(conn, record, revision=1)
+    except psycopg.IntegrityError as exc:
+        raise ApplicationStateConflictError('World identity or native reservation conflicts with stored metadata') from exc
+    return StoredWorld(record, 1)
 
 
 def save_world(record: WorldContainerRecord, *, expected_revision: int) -> StoredWorld:
