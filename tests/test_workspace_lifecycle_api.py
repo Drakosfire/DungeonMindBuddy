@@ -216,3 +216,5 @@ def test_session_route_requires_both_revisions_and_preserves_history(api):
         == 200
     )
     assert read(run.run_id).markdown == pin.markdown
+
+pytestmark = pytest.mark.usefixtures("application_state_dsn")

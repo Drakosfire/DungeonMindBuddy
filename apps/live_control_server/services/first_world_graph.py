@@ -17,7 +17,6 @@ from pathlib import Path
 from typing import Any, Literal, Mapping, Sequence
 
 
-from apps.live_control_server.config import managed_world_data_root
 from apps.live_control_server.models.extract_promote import FirstWorldNativeTarget
 
 from apps.live_control_server.services.source_artifact_registry import (
@@ -141,7 +140,7 @@ def admit_managed_world(repo: Path, world_id: str):
 
 def first_world_native_target(repo: Path, world_id: str) -> FirstWorldNativeTarget:
     """Resolve reserved identity, including exact original-confirm recovery after activation."""
-    record = admit_managed_world(managed_world_data_root(repo), world_id)
+    record = admit_managed_world(repo, world_id)
     binding = record.native_graph_binding
     if not isinstance(binding, (NativeGraphProvisioningRecord, NativeGraphBindingRecord)) or (
         isinstance(binding, NativeGraphBindingRecord)
@@ -304,7 +303,7 @@ def resolve_first_world_capability(
             reason=str(exc),
         )
     state: FirstWorldGraphState
-    record = get_world_container(managed_world_data_root(repo), cleaned)
+    record = get_world_container(repo, cleaned)
     recovering = (isinstance(record.native_graph_binding, NativeGraphProvisioningRecord)
                   and probed.initialization_id == target.provisioning_id)
     if probed.state == "initialized" and not recovering:

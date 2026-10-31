@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from tests.application_state.world_catalog_fixtures import world_snapshot
+
 from pathlib import Path
 from uuid import uuid4
 
@@ -41,7 +43,7 @@ def current_session_admission(monkeypatch):
 def gm_client(app):
     from apps.live_control_server.services.agent_graph_auth import authenticate_native_graph_principal, NativeGraphPrincipal
     app.dependency_overrides[authenticate_native_graph_principal] = lambda: NativeGraphPrincipal('test-gm', 'gm', 'local_session')
-    return TestClient(app)
+    return TestClient(app, client=("127.0.0.1", 50000))
 
 
 @pytest.fixture
@@ -416,8 +418,7 @@ def test_world_runbook_routes_use_managed_root_with_separate_code_root(
     client, code_root, managed_root = split_root_world_client
     world = create_world_container(managed_root, name="Split Root Runbook World")
     other_world = create_world_container(managed_root, name="Other Split Root World")
-    registry_path = managed_root / "out/registries/world_containers.json"
-    registry_bytes_before = registry_path.read_bytes()
+    registry_bytes_before = world_snapshot()
     code_resource = code_root / "out/config/keep.txt"
     code_resource.parent.mkdir(parents=True)
     code_resource.write_text("code-root resource\n", encoding="utf-8")
@@ -493,7 +494,7 @@ def test_world_runbook_routes_use_managed_root_with_separate_code_root(
     assert exact.status_code == 200, exact.text
     assert exact.json() == current.json()
 
-    assert registry_path.read_bytes() == registry_bytes_before
+    assert world_snapshot() == registry_bytes_before
     assert not (code_root / "out/registries/world_containers.json").exists()
     assert code_resource.read_text(encoding="utf-8") == "code-root resource\n"
 
@@ -1097,3 +1098,5 @@ def test_world_rebase_is_same_owner_newer_only_and_uses_run_revision_cas(
     assert client.get(
         f"{path}/reference-manifest", params={"world_id": "demo-world-a"}
     ).json() == sealed
+
+pytestmark = pytest.mark.usefixtures("application_state_dsn")

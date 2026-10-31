@@ -593,18 +593,23 @@ def _worldbuilding_world_scoped_target_relpath(world_id: str, document_id: str) 
     )
 
 
-def _require_existing_world_markdown_root(root: Path, world_id: str) -> None:
+def _require_registered_world_target(root: Path, world_id: str) -> None:
     from apps.live_control_server.config import artifact_data_root
+    from apps.live_control_server.services.world_container_registry import (
+        WorldContainerRegistryError, get_world_container,
+    )
 
+    try:
+        get_world_container(root, world_id)
+    except WorldContainerRegistryError as exc:
+        raise WorkspaceDocumentRegistryError(str(exc), status_code=exc.status_code) from exc
     base = artifact_data_root(root)
-    world_root = (base / _world_markdown_root_relpath(world_id)).resolve()
+    try:
+        world_root = (base / _world_markdown_root_relpath(world_id)).resolve()
+    except (OSError, RuntimeError) as exc:
+        raise WorkspaceDocumentRegistryError("workspace source path cannot be resolved", status_code=422) from exc
     if not world_root.is_relative_to(base):
         raise WorkspaceDocumentRegistryError("workspace source escapes artifact repository", status_code=422)
-    if not world_root.is_dir():
-        raise WorkspaceDocumentRegistryError(
-            f"world source root is missing: {_world_markdown_root_relpath(world_id)}",
-            status_code=422,
-        )
 
 
 def _plan_workspace_target_relpath(document_id: str) -> str:
@@ -740,7 +745,7 @@ def create_workspace_document(
         )
         if world_id is not None and world_id.strip():
             resolved_world_id = _validate_world_id(world_id)
-            _require_existing_world_markdown_root(root, resolved_world_id)
+            _require_registered_world_target(root, resolved_world_id)
             resolved_target = _worldbuilding_world_scoped_target_relpath(
                 resolved_world_id,
                 document_id,
@@ -827,7 +832,7 @@ def create_workspace_document(
     with registry_mutation_lock(path):
         document, token = _load_unlocked(root)
         if kind == "worldbuilding_source" and resolved_world_id is not None:
-            _require_existing_world_markdown_root(root, resolved_world_id)
+            _require_registered_world_target(root, resolved_world_id)
         if _connected_reservation is not None:
             existing = _find_record(document, document_id)
             if existing is not None:

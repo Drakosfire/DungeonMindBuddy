@@ -72,7 +72,7 @@ class ManagedWorldDataRootError(RuntimeError):
 
 
 def managed_world_data_root(default: Path | None = None) -> Path:
-    """Select only managed-World files; code and other product roots stay put."""
+    """Select the directory for remaining World file operations, not metadata."""
     raw = os.environ.get(MANAGED_WORLD_DATA_ROOT_ENV, "").strip()
     if not raw:
         return default if default is not None else repo_root()
@@ -83,8 +83,8 @@ def managed_world_data_root(default: Path | None = None) -> Path:
         root = path.resolve(strict=True)
     except OSError as exc:
         raise ManagedWorldDataRootError("managed_world_root_unavailable") from exc
-    if not root.is_dir() or not (root / "out/registries/world_containers.json").is_file():
-        raise ManagedWorldDataRootError("managed_world_registry_unavailable")
+    if not root.is_dir():
+        raise ManagedWorldDataRootError("managed_world_root_unavailable")
     return root
 
 

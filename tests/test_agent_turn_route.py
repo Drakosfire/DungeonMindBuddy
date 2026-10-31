@@ -456,7 +456,7 @@ def test_world_play_http_turn_replays_without_current_run_or_provider(
     from application_state.agent_conversation import AgentConversationService
     from application_state.agent_conversation.types import ConversationCommand
     from tests.test_agent_play_surface_context import (
-        _manifest, _world_committed, _world_play_record,
+        _world_committed, _world_play_record,
     )
 
     assert application_state_dsn
@@ -987,7 +987,7 @@ def test_pending_play_http_retry_uses_frozen_moment_after_run_advances(
         _conversation_provenance, _submitted_turn_intent, _turn_idempotency_key,
     )
     from tests.test_agent_play_surface_context import (
-        _manifest, _world_committed, _world_play_record,
+        _world_committed,
     )
 
     assert application_state_dsn
@@ -4608,7 +4608,7 @@ def test_selected_plan_head_advance_during_source_index_keeps_one_revision(tmp_p
 
 @pytest.mark.parametrize("unavailable", [False, True])
 def test_selected_consumer_freezes_before_provider_despite_513_and_keeps_graph_facts(tmp_path, monkeypatch, unavailable):
-    from application_state.agent_conversation.types import GraphSelectedSourceReadScopeV2, graph_execution_policy_digest_v2
+    from application_state.agent_conversation.types import GraphSelectedSourceReadScopeV2
     body, work, bootstrap, receipt, execution, membership = _selected_consumer_context(tmp_path, monkeypatch, unavailable=unavailable)
     assert receipt.graph_packet.selection_policy_version == "parent_initial_retrieval_with_selected_source_index_v1"
     assert isinstance(execution.policy.source_read_scope, GraphSelectedSourceReadScopeV2)
@@ -4843,3 +4843,5 @@ def test_world_plan_real_pin_reaches_http_runtime_and_stale_run_does_not(
         "primary_work": {**payload["primary_work"], "expected_revision": run.run_revision + 1}}))
     assert stale.status_code == 409, stale.text
     assert len(runtime.invocations) == 1
+
+pytestmark = pytest.mark.usefixtures("application_state_dsn")

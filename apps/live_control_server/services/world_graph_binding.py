@@ -11,19 +11,16 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from apps.live_control_server.models.extract_promote import FirstWorldNativeTarget
 from apps.live_control_server.ports.world_graph_initialization import WorldGraphInitializationReceipt
-from apps.live_control_server.services.registry_file_lock import registry_mutation_lock
+from application_state.errors import ApplicationStateError
+from application_state.world_catalog import service as catalog
 from apps.live_control_server.services.world_container_registry import (
     NativeGraphBindingRecord,
     NativeGraphProvisioningRecord,
     RECORD_SCHEMA,
-    REGISTRY_SCHEMA,
     WorldContainerRecord,
     WorldContainerRegistryError,
-    WorldContainerRegistryDocument,
-    _load_unlocked,
-    _save_cas,
+    _stored_world,
     _validate_world_id,
-    world_containers_path,
 )
 
 
@@ -59,25 +56,21 @@ class DeactivateNativeGraphBindingRequest(BaseModel):
 NativeGraphAuthorityValidator = Callable[[str], Any]
 
 
-def _managed_record(
-    document: WorldContainerRegistryDocument,
-    world_id: str,
-) -> WorldContainerRecord:
-    record = next((row for row in document.records if row.world_id == world_id), None)
-    if record is None:
-        raise WorldGraphBindingError("Managed World was not found.", status_code=404)
-    return record
+def _load_binding_snapshot(root: Path, world_id: str) -> tuple[WorldContainerRecord, int]:
+    del root
+    try:
+        stored = _stored_world(world_id)
+    except WorldContainerRegistryError as exc:
+        raise WorldGraphBindingError(str(exc), status_code=exc.status_code) from exc
+    return stored.record, stored.revision
 
 
-def _load_binding_snapshot(
-    root: Path,
-    world_id: str,
-) -> tuple[WorldContainerRecord, str]:
-    path = world_containers_path(root)
-    with registry_mutation_lock(path):
-        document, token = _load_unlocked(root)
-        record = _managed_record(document, world_id)
-        return record, token
+def _save_binding_record(record: WorldContainerRecord, revision: int) -> WorldContainerRecord:
+    try:
+        return catalog.save_world(record, expected_revision=revision).record
+    except ApplicationStateError as exc:
+        message = str(exc) if exc.status_code < 500 else "Managed World storage is unavailable."
+        raise WorldGraphBindingError(message, status_code=exc.status_code) from exc
 
 
 def _binding_version(record: WorldContainerRecord) -> int:
@@ -159,25 +152,6 @@ def _validated_head_and_revision(
     return head_revision_id
 
 
-def _check_native_graph_claim_is_unique(
-    document: WorldContainerRegistryDocument,
-    *,
-    managed_world_id: str,
-    native_world_id: str,
-) -> None:
-    if any(
-        record.world_id != managed_world_id
-        and record.native_graph_binding is not None
-        and record.native_graph_binding.status in {"active", "provisioning"}
-        and record.native_graph_binding.native_world_id == native_world_id
-        for record in document.records
-    ):
-        raise WorldGraphBindingError(
-            "That native Graph is already actively bound to another managed World.",
-            status_code=409,
-        )
-
-
 def bind_native_graph(
     root: Path,
     managed_world_id: str,
@@ -186,7 +160,7 @@ def bind_native_graph(
     expected_binding_version: int,
     authority_validator: NativeGraphAuthorityValidator | None = None,
 ) -> WorldContainerRecord:
-    """Validate MIND unlocked, then persist an exact-token/version CAS."""
+    """Validate MIND outside SQL, then CAS the exact World metadata revision."""
     cleaned_managed_id = _validate_world_id(managed_world_id)
     cleaned_native_id = BindNativeGraphRequest(
         native_world_id=native_world_id,
@@ -195,7 +169,7 @@ def bind_native_graph(
     if isinstance(expected_binding_version, bool) or expected_binding_version < 0:
         raise WorldGraphBindingError("Expected binding version must be non-negative.", status_code=422)
 
-    initial, expected_token = _load_binding_snapshot(root, cleaned_managed_id)
+    initial, expected_revision = _load_binding_snapshot(root, cleaned_managed_id)
     _require_expected_version(initial, expected_binding_version)
     if isinstance(initial.native_graph_binding, NativeGraphProvisioningRecord):
         raise WorldGraphBindingError(
@@ -210,52 +184,20 @@ def bind_native_graph(
             status_code=409,
         )
 
-    # MIND calls and database work must never hold the Buddy registry lock.
+    # Native calls must never run inside a Buddy metadata transaction.
     validator = authority_validator or _validate_with_mind
     services = validator(cleaned_native_id)
     validated_head_revision_id = _validated_head_and_revision(services, cleaned_native_id)
 
-    path = world_containers_path(root)
-    with registry_mutation_lock(path):
-        document, current_token = _load_unlocked(root)
-        if current_token != expected_token:
-            raise WorldGraphBindingError(
-                "Managed World registry changed during native Graph validation.",
-                status_code=409,
-            )
-        current = _managed_record(document, cleaned_managed_id)
-        _require_expected_version(current, expected_binding_version)
-        if current.native_graph_binding is not None and current.native_graph_binding.status == "active":
-            raise WorldGraphBindingError(
-                "Managed World binding changed during native Graph validation.",
-                status_code=409,
-            )
-        _check_native_graph_claim_is_unique(
-            document,
-            managed_world_id=cleaned_managed_id,
-            native_world_id=cleaned_native_id,
-        )
-
-        binding = NativeGraphBindingRecord(
-            native_world_id=cleaned_native_id,
-            status="active",
-            binding_version=expected_binding_version + 1,
-            validated_at=_utc_now_iso(),
-            validated_head_revision_id=validated_head_revision_id,
-        )
-        updated = current.model_copy(
-            update={"native_graph_binding": binding, "schema_version": RECORD_SCHEMA}
-        )
-        updated_records = [
-            updated if record.world_id == cleaned_managed_id else record
-            for record in document.records
-        ]
-        next_document = WorldContainerRegistryDocument(
-            schema_version=REGISTRY_SCHEMA,
-            records=updated_records,
-        )
-        _save_cas(root, next_document, expected_token=expected_token)
-        return updated
+    binding = NativeGraphBindingRecord(
+        native_world_id=cleaned_native_id, status="active",
+        binding_version=expected_binding_version + 1, validated_at=_utc_now_iso(),
+        validated_head_revision_id=validated_head_revision_id,
+    )
+    updated = initial.model_copy(update={"native_graph_binding": binding, "schema_version": RECORD_SCHEMA})
+    # The owner CAS preserves every concurrent change to this World; the DB
+    # unique claim constraint also covers races involving other Worlds.
+    return _save_binding_record(updated, expected_revision)
 
 
 def activate_reviewed_native_graph(
@@ -265,7 +207,7 @@ def activate_reviewed_native_graph(
     authority_validator: NativeGraphAuthorityValidator | None = None,
 ) -> WorldContainerRecord:
     """Verify real reviewed genesis unlocked, then promote only its exact reservation."""
-    initial, token = _load_binding_snapshot(root, _validate_world_id(managed_world_id))
+    initial, revision = _load_binding_snapshot(root, _validate_world_id(managed_world_id))
     binding = initial.native_graph_binding
     if binding is None or (
         binding.native_world_id != target.native_world_id
@@ -325,35 +267,24 @@ def activate_reviewed_native_graph(
             raise WorldGraphBindingError("Active World has a different initialization proof.")
         # This binding is immutable for this operation; a concurrent deactivate
         # must not be acknowledged as successful original-confirm recovery.
-        current, _ = _load_binding_snapshot(root, managed_world_id)
-        if current != initial:
+        current, current_revision = _load_binding_snapshot(root, managed_world_id)
+        if current_revision != revision or current != initial:
             raise WorldGraphBindingError("World binding changed during initialization recovery.")
         return current
 
-    with registry_mutation_lock(world_containers_path(root)):
-        document, current_token = _load_unlocked(root)
-        current = _managed_record(document, managed_world_id)
-        if token != current_token or current != initial:
-            raise WorldGraphBindingError("World registry changed; retry the original reviewed request.")
-        _check_native_graph_claim_is_unique(document, managed_world_id=managed_world_id,
-                                            native_world_id=target.native_world_id)
-        active = NativeGraphBindingRecord(
-            native_world_id=target.native_world_id, status="active",
-            binding_version=target.binding_version, provisioning_id=target.provisioning_id,
-            initialization_revision_id=receipt.published_revision_id,
-            validated_at=_utc_now_iso(), validated_head_revision_id=head_id,
-        )
-        updated = current.model_copy(update={"native_graph_binding": active})
-        next_document = WorldContainerRegistryDocument(records=[
-            updated if row.world_id == managed_world_id else row for row in document.records
-        ])
-        try:
-            _save_cas(root, next_document, expected_token=token)
-        except (WorldContainerRegistryError, OSError) as exc:
-            raise WorldGraphBindingError(
-                "Graph was published; activation must retry the original reviewed request.", status_code=503,
-            ) from exc
-        return updated
+    active = NativeGraphBindingRecord(
+        native_world_id=target.native_world_id, status="active",
+        binding_version=target.binding_version, provisioning_id=target.provisioning_id,
+        initialization_revision_id=receipt.published_revision_id,
+        validated_at=_utc_now_iso(), validated_head_revision_id=head_id,
+    )
+    updated = initial.model_copy(update={"native_graph_binding": active})
+    try:
+        return _save_binding_record(updated, revision)
+    except WorldGraphBindingError as exc:
+        raise WorldGraphBindingError(
+            "Graph was published; activation must retry the original reviewed request.", status_code=503,
+        ) from exc
 
 
 def deactivate_native_graph_binding(
@@ -362,43 +293,22 @@ def deactivate_native_graph_binding(
     *,
     expected_binding_version: int,
 ) -> WorldContainerRecord:
-    """Deactivate locally under the registry lock; MIND availability is irrelevant."""
+    """Deactivate by exact metadata CAS; MIND availability is irrelevant."""
     cleaned_managed_id = _validate_world_id(managed_world_id)
     if isinstance(expected_binding_version, bool) or expected_binding_version < 0:
         raise WorldGraphBindingError("Expected binding version must be non-negative.", status_code=422)
 
-    path = world_containers_path(root)
-    with registry_mutation_lock(path):
-        document, token = _load_unlocked(root)
-        current = _managed_record(document, cleaned_managed_id)
-        _require_expected_version(current, expected_binding_version)
-        binding = current.native_graph_binding
-        if binding is None:
-            raise WorldGraphBindingError(
-                "Managed World has no native Graph binding to deactivate.",
-                status_code=409,
-            )
-        if isinstance(binding, NativeGraphProvisioningRecord):
-            raise WorldGraphBindingError(
-                "A source identity reservation is not an active Graph binding.",
-                status_code=409,
-            )
-        if binding.status == "inactive":
-            return current
-
-        inactive_binding = binding.model_copy(
-            update={"status": "inactive", "binding_version": binding.binding_version + 1}
-        )
-        updated = current.model_copy(update={"native_graph_binding": inactive_binding})
-        next_document = WorldContainerRegistryDocument(
-            schema_version=REGISTRY_SCHEMA,
-            records=[
-                updated if record.world_id == cleaned_managed_id else record
-                for record in document.records
-            ],
-        )
-        _save_cas(root, next_document, expected_token=token)
-        return updated
+    current, revision = _load_binding_snapshot(root, cleaned_managed_id)
+    _require_expected_version(current, expected_binding_version)
+    binding = current.native_graph_binding
+    if binding is None:
+        raise WorldGraphBindingError("Managed World has no native Graph binding to deactivate.")
+    if isinstance(binding, NativeGraphProvisioningRecord):
+        raise WorldGraphBindingError("A source identity reservation is not an active Graph binding.")
+    if binding.status == "inactive":
+        return current
+    inactive = binding.model_copy(update={"status": "inactive", "binding_version": binding.binding_version + 1})
+    return _save_binding_record(current.model_copy(update={"native_graph_binding": inactive}), revision)
 
 
 def _utc_now_iso() -> str:

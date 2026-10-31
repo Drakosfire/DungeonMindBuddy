@@ -40,12 +40,13 @@ def test_actual_private_blob_roundtrip_and_corruption(monkeypatch, tmp_path):
         evidence.prompt_body(reference.world_id, reference.action_id, reference.provider_attempt_id)
 
 
-def test_mounted_prompt_reads_require_authentication_and_exact_world_selector(monkeypatch):
+def test_mounted_prompt_reads_require_authentication_and_exact_world_selector(monkeypatch, tmp_path, application_state_dsn):
     monkeypatch.setenv("DMB_AGENT_GRAPH_AUTH_MODE", "local_operator")
     monkeypatch.setenv("DMB_AGENT_GRAPH_AUTH_ENVIRONMENT", "local")
     monkeypatch.setenv("DMB_AGENT_GRAPH_LOCAL_OPERATOR_TOKEN", "x" * 40)
-    monkeypatch.setattr(live, "get_world_container", lambda root, world: SimpleNamespace(world_id=world))
-    monkeypatch.setattr(live, "managed_world_data_root", lambda root: root)
+    from apps.live_control_server.services.world_container_registry import create_world_container
+    create_world_container(tmp_path, name="World A")
+    monkeypatch.setenv("DMB_MANAGED_WORLD_DATA_ROOT", str(tmp_path / "missing-files"))
     reference = ref()
     called = []
     def read_action(self, *, world_id, action_id):

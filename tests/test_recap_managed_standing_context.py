@@ -1,4 +1,6 @@
 """Ordinary recap standing context follows managed source authority, never cwd."""
+from tests.application_state.world_catalog_fixtures import store_world
+
 from dataclasses import replace
 import json
 
@@ -10,16 +12,15 @@ from apps.live_control_server.services.source_artifact_registry import SourceArt
 
 def seed_binding(root, managed='managed-a', native='native-a', version=1):
     from apps.live_control_server.services.world_container_registry import (
-        WorldContainerRecord, WorldContainerRegistryDocument, NativeGraphBindingRecord, world_containers_path,
+        WorldContainerRecord, NativeGraphBindingRecord,
     )
     corpus = root / f'corpus/{managed}-markdown'
     corpus.mkdir(parents=True, exist_ok=True)
-    document = WorldContainerRegistryDocument(records=[WorldContainerRecord(
+    record = WorldContainerRecord(
         world_id=managed, name=managed, source_root_relpath=f'corpus/{managed}-markdown', created_at='2026-01-01T00:00:00Z',
         native_graph_binding=NativeGraphBindingRecord(native_world_id=native,status='active',binding_version=version,
-            validated_at='2026-01-01T00:00:00Z',validated_head_revision_id='rev:fixture'))])
-    path=world_containers_path(root);path.parent.mkdir(parents=True,exist_ok=True)
-    path.write_text(document.model_dump_json())
+            validated_at='2026-01-01T00:00:00Z',validated_head_revision_id='rev:fixture'))
+    store_world(record)
     return corpus
 
 
@@ -162,3 +163,5 @@ def test_missing_and_unconfigured_registries_remain_explicit(tmp_path):
     assert missing['known_entity_registry']['entities']==unknown['known_entity_registry']['entities']==()
     assert any('_party_registry.json' in warning for warning in missing['party_context']['warnings'])
     assert unknown['known_entity_registry']['warnings']==('no local corpus registered for campaign',)
+
+pytestmark = pytest.mark.usefixtures("application_state_dsn")

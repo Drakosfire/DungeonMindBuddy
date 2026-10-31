@@ -334,3 +334,50 @@ def test_create_serializes_with_other_metadata_writers_without_lock_upgrade(writ
         created = creating.result(timeout=10)
     assert created.record.world_id == 'concurrent-create'
     assert {row.record.world_id for row in service.list_worlds()} == {'elderwyld', 'concurrent-create'}
+
+
+def test_grant_transform_cannot_change_identity_or_binding_and_noop_keeps_revision():
+    initial = service.save_world(_world(), expected_revision=0)
+    def mutate_copy(record):
+        record.name = "Must not persist"
+        record.owner_subject = "subject:other"
+        record.native_graph_binding = None
+        return record.access_grants
+    assert service.update_world_grants(initial.record.world_id, mutate_copy) == initial
+    assert service.get_world(initial.record.world_id) == initial
+
+
+def test_invalid_grant_transform_rolls_back_and_missing_world_fails_closed():
+    from application_state.errors import ApplicationStateNotFoundError
+    initial = service.save_world(_world(), expected_revision=0)
+    with pytest.raises(ApplicationStateValidationError):
+        service.update_world_grants(initial.record.world_id, lambda _: [{"subject": "bad"}])
+    assert service.get_world(initial.record.world_id) == initial
+    with pytest.raises(ApplicationStateNotFoundError):
+        service.update_world_grants("absent", lambda _: [])
+
+
+def test_grant_transforms_read_latest_serialized_state(monkeypatch):
+    initial = service.save_world(_world(), expected_revision=0)
+    first_inside, release_first, second_started = Event(), Event(), Event()
+    seen = []
+    def first(record):
+        first_inside.set()
+        assert release_first.wait(timeout=10)
+        return record.access_grants + [WorldAccessGrant(subject="subject:first", permissions=("read",), granted_by_subject=record.owner_subject)]
+    def second(record):
+        seen.extend(grant.subject for grant in record.access_grants)
+        return record.access_grants + [WorldAccessGrant(subject="subject:second", permissions=("read",), granted_by_subject=record.owner_subject)]
+    def second_call():
+        second_started.set()
+        return service.update_world_grants(initial.record.world_id, second)
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        a = pool.submit(service.update_world_grants, initial.record.world_id, first)
+        assert first_inside.wait(timeout=10)
+        b = pool.submit(second_call)
+        assert second_started.wait(timeout=10)
+        release_first.set()
+        assert a.result(timeout=10).revision == initial.revision + 1
+        assert b.result(timeout=10).revision == initial.revision + 2
+    assert "subject:first" in seen
+    assert {g.subject for g in service.get_world(initial.record.world_id).record.access_grants} == {"subject:writer", "subject:reader", "subject:first", "subject:second"}

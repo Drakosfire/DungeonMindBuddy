@@ -62,6 +62,8 @@ jobs:
           uv run --locked ruff check
           src/application_state/world_catalog/service.py
           tests/application_state/test_world_catalog_postgres.py
+          tests/application_state/test_world_catalog_cutover_migration.py
+          tests/application_state/world_catalog_fixtures.py
           apps/live_control_server/services/world_container_registry.py
           apps/live_control_server/services/world_graph_binding.py
           tests/conftest.py
@@ -69,12 +71,24 @@ jobs:
           tests/test_world_access_control.py
           tests/test_world_container_registry.py
           tests/test_world_graph_binding.py
+          tests/test_reviewed_native_graph_activation.py
+          tests/test_world_admission_without_corpus_directory.py
+          tests/test_live_world_containers.py
+          tests/test_local_graph_launch_profile.py
 
       - name: Run synthetic ownership boundary tests
         run: >-
           uv run --locked pytest -q --tb=short --show-capture=no
           tests/application_state/test_world_catalog_postgres.py
+          tests/application_state/test_world_catalog_cutover_migration.py
           tests/test_world_access_control.py
           tests/test_world_container_registry.py
           tests/test_world_graph_binding.py
+          tests/test_reviewed_native_graph_activation.py
+          tests/test_world_admission_without_corpus_directory.py
+          tests/test_live_world_containers.py
+          tests/test_local_graph_launch_profile.py
           tests/test_live_recap_ingest_graph_preview_api.py::test_recap_ingest_generate_recap_memory_with_graph_extraction_fake_client
+          tests/test_demo_j1_native_world_source_admission.py::test_ordinary_fresh_world_source_admission_needs_no_active_graph
+          tests/test_plan_action_prompt_evidence.py::test_mounted_prompt_reads_require_authentication_and_exact_world_selector
+          tests/test_plan_action_terminal_diagnostic.py::test_mounted_diagnostic_read_requires_auth_owner_and_exact_selector

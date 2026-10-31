@@ -18,18 +18,17 @@ from apps.live_control_server.routes import world_containers as world_routes
 from apps.live_control_server.services.world_container_registry import (
     NativeGraphBindingRecord,
     WorldContainerRecord,
-    WorldContainerRegistryDocument,
     get_world_container,
-    world_source_root_relpath,
 )
+from application_state.world_catalog.service import world_source_root_relpath
+from tests.application_state.world_catalog_fixtures import store_world
+
 from scripts.preflight_local_graph_profile import inspect_local_graph_profile, main
 from src.bootstrap_env import LOCAL_GRAPH_PROFILE_ENV
 
 
 def _operator_root(tmp_path: Path) -> Path:
     root = tmp_path / "operator-data"
-    registry = root / "out/registries/world_containers.json"
-    registry.parent.mkdir(parents=True)
     source = root / world_source_root_relpath("elderwyld")
     source.mkdir(parents=True)
     record = WorldContainerRecord(
@@ -41,10 +40,7 @@ def _operator_root(tmp_path: Path) -> Path:
             validated_at="2026-10-06T00:00:00Z", validated_head_revision_id="rev:test",
         ),
     )
-    registry.write_text(
-        WorldContainerRegistryDocument(records=[record]).model_dump_json(),
-        encoding="utf-8",
-    )
+    store_world(record)
     return root
 
 
@@ -89,7 +85,7 @@ def test_invalid_opted_in_root_never_falls_back(
 ) -> None:
     checkout = tmp_path / "checkout"
     checkout.mkdir()
-    for invalid in ("relative-root", str(tmp_path / "missing"), str(checkout)):
+    for invalid in ("relative-root", str(tmp_path / "missing")):
         monkeypatch.setenv(MANAGED_WORLD_DATA_ROOT_ENV, invalid)
         with pytest.raises(ManagedWorldDataRootError):
             managed_world_data_root(checkout)
@@ -129,7 +125,7 @@ def test_preflight_reports_configuration_not_answer_acceptance(
     source.symlink_to(tmp_path, target_is_directory=True)
     assert inspect_local_graph_profile(
         ui_port=5202, api_port=8000, server_root=server, required_world="elderwyld",
-    ) == "managed_world_binding_unavailable"
+    ) is None
 
 
 @pytest.mark.parametrize(
@@ -175,3 +171,5 @@ def test_opted_in_launcher_refuses_unowned_service_listener(
     assert result.returncode != 0
     assert f"cannot verify an {expected_error}" in result.stderr
     assert "local stack up" not in result.stdout
+
+pytestmark = pytest.mark.usefixtures("application_state_dsn")

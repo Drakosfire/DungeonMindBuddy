@@ -133,17 +133,10 @@ def test_status_reloads_database_run_after_mirrors_are_deleted(setup, monkeypatc
     _, run = _case(root)
     with _client(root, monkeypatch) as client:
         for path in root.rglob("*"):
-            if path.is_file() and path.name != "world_containers.json":
+            if path.is_file():
                 path.unlink()
-        # D10 still owns the file-backed managed-World registry. Only that
-        # existing scope owner may read a file in this bounded D4 proof.
-        original_open = Path.open
-
         def guarded(path, *args, **kwargs):
-            assert path == root / "out/registries/world_containers.json", (
-                "status reopened a source/run mirror"
-            )
-            return original_open(path, *args, **kwargs)
+            pytest.fail(f"status reopened a retired file: {path}")
 
         with monkeypatch.context() as guard:
             guard.setattr(Path, "open", guarded)

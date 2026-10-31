@@ -1,5 +1,8 @@
 from __future__ import annotations
 
+from tests.application_state.world_catalog_fixtures import store_world
+
+
 from datetime import UTC, datetime, timedelta
 import hashlib
 import json
@@ -51,7 +54,6 @@ from dungeonmind_dnd.application.world_object_vocabulary import (
 )
 from apps.live_control_server.services.world_container_registry import (
     create_world_container,
-    world_containers_path,
     NativeGraphBindingRecord,
 )
 from apps.live_control_server.services.reviewed_corpus_publication import (
@@ -146,16 +148,10 @@ def corpus_case(tmp_path: Path, bundle=None):
     ).revision
     registry = tmp_path / "registry"
     managed = create_world_container(registry, name="Synthetic Corpus")
-    document_path = world_containers_path(registry)
-    document = json.loads(document_path.read_text())
-    document["records"][0]["native_graph_binding"] = NativeGraphBindingRecord(
-        native_world_id=native,
-        binding_version=1,
-        status="active",
-        validated_at=NOW.isoformat(),
-        validated_head_revision_id=parent.revision_id,
-    ).model_dump(mode="json")
-    document_path.write_text(json.dumps(document))
+    store_world(managed.model_copy(update={"native_graph_binding": NativeGraphBindingRecord(
+        native_world_id=native, binding_version=1, status="active",
+        validated_at=NOW.isoformat(), validated_head_revision_id=parent.revision_id,
+    )}))
     artifacts = tmp_path / "artifacts"
     body_path = artifacts / managed.source_root_relpath / "fixture.md"
     body_path.parent.mkdir(parents=True)
@@ -1150,3 +1146,5 @@ def test_exact_observation_proof_survives_relationship_truncation_guard(
         result["status"] == "published"
         and result["verification"]["status"] == "unavailable"
     )
+
+pytestmark = pytest.mark.usefixtures("application_state_dsn")

@@ -218,3 +218,5 @@ def test_client_cannot_select_native_identity_or_authority_fields() -> None:
         _request(bindingVersion=7)
     with pytest.raises(ValidationError):
         _request(admissibility="gm")
+
+pytestmark = pytest.mark.usefixtures("application_state_dsn")

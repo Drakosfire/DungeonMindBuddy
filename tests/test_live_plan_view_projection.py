@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from tests.application_state.world_catalog_fixtures import world_snapshot, legacy_world_catalog_path
+
 import json
 import shutil
 from pathlib import Path
@@ -46,7 +48,7 @@ def isolated_session(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
 
 @pytest.fixture
 def client(isolated_session: Path) -> TestClient:
-    return TestClient(create_app())
+    return TestClient(create_app(), client=("127.0.0.1", 50000))
 
 
 def test_builder_returns_non_authoritative_payload() -> None:
@@ -131,15 +133,13 @@ def test_plan_view_reopens_operator_world_from_separate_code_checkout(
     from apps.live_control_server.routes import live
     from apps.live_control_server.services.world_container_registry import (
         create_world_container,
-        world_containers_path,
-    )
+        )
 
     code_root = tmp_path / "clean-checkout"
     code_root.mkdir()
     operator_root = tmp_path / "operator-data"
     world = create_world_container(operator_root, name="Existing World")
-    registry = world_containers_path(operator_root)
-    original = registry.read_bytes()
+    original = world_snapshot()
     monkeypatch.setattr(live, "repo_root", lambda: code_root)
     monkeypatch.setenv(MANAGED_WORLD_DATA_ROOT_ENV, str(operator_root))
 
@@ -162,11 +162,11 @@ def test_plan_view_reopens_operator_world_from_separate_code_checkout(
     assert compatible.json()["schema_version"] == "dmb_managed_world_plan_context_v1"
     assert compatible.json()["world_id"] == world.world_id
     assert unknown.status_code == 404
-    assert registry.read_bytes() == original
-    assert not world_containers_path(code_root).exists()
+    assert world_snapshot() == original
+    assert not legacy_world_catalog_path(code_root).exists()
 
 
-def test_plan_view_invalid_explicit_world_root_fails_closed(
+def test_plan_view_unknown_world_does_not_depend_on_file_root(
     client: TestClient, tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     monkeypatch.setenv(MANAGED_WORLD_DATA_ROOT_ENV, str(tmp_path / "missing"))
@@ -176,8 +176,7 @@ def test_plan_view_invalid_explicit_world_root_fails_closed(
         params={"scope_mode": "world", "world_id": "existing-world"},
     )
 
-    assert response.status_code == 503
-    assert response.json()["detail"] == "Managed World storage is unavailable."
+    assert response.status_code == 404
 
 
 def test_builder_uses_planning_beats_when_present(tmp_path: Path) -> None:
@@ -218,3 +217,5 @@ def test_get_plan_view_endpoint_is_read_only(client: TestClient, isolated_sessio
     jobs_after = (isolated_session / "job_queue.jsonl").read_text(encoding="utf-8")
     assert events_after == events_before
     assert jobs_after == jobs_before
+
+pytestmark = pytest.mark.usefixtures("application_state_dsn")

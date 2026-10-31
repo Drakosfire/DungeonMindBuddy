@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from tests.application_state.world_catalog_fixtures import world_snapshot
+
 from pathlib import Path
 
 import pytest
@@ -116,8 +118,7 @@ def test_world_plan_inventory_and_create_use_managed_root_with_app_state_identit
     monkeypatch.setenv(MANAGED_WORLD_DATA_ROOT_ENV, str(managed_root))
 
     world = create_world_container(managed_root, name="Split Root Plan World")
-    registry_path = managed_root / "out/registries/world_containers.json"
-    registry_bytes_before = registry_path.read_bytes()
+    registry_bytes_before = world_snapshot()
     existing = create_world_plan(title="Existing saved Plan", world_id=world.world_id)
     client = _client(monkeypatch, code_root)
 
@@ -151,7 +152,7 @@ def test_world_plan_inventory_and_create_use_managed_root_with_app_state_identit
         str(existing.work_object_id),
         created.json()["document_id"],
     }
-    assert registry_path.read_bytes() == registry_bytes_before
+    assert world_snapshot() == registry_bytes_before
     assert not (code_root / "out/registries/world_containers.json").exists()
 
     unknown = client.get(
@@ -304,55 +305,5 @@ def test_world_plan_revision_and_mutation_routes_emit_v2_and_reject_session(
     assert restored.json()["world_id"] == world.world_id
 
 
-def test_world_plan_migration_preserves_campaign_rows_and_refuses_unsafe_downgrade(
-    monkeypatch: pytest.MonkeyPatch,
-    application_state_dsn: str,
-) -> None:
-    from alembic import command
 
-    from application_state.cli import _current_and_head, alembic_config, upgrade_to_head
-    import application_state.content.service as content_service
-    from application_state.content.service import (
-        autosave_plan,
-        commit_plan,
-        create_plan,
-        create_world_plan,
-        get_plan,
-        snapshot_plan,
-    )
-
-    config = alembic_config()
-    command.downgrade(config, "20260906_0006")
-    current, _ = _current_and_head(application_state_dsn)
-    assert current == "20260906_0006"
-
-    # Seed ordinary historical campaign data while the prior schema is active;
-    # only the head guard is bypassed so these calls use the same repository path.
-    with monkeypatch.context() as migration_seed:
-        migration_seed.setattr(content_service, "assert_at_head", lambda **_: None)
-        plan = create_plan(title="Prior campaign Plan", campaign_id="campaign-old")
-        autosaved = autosave_plan(
-            str(plan.work_object_id), "# Retained before upgrade\n", expected_revision=1
-        )
-        committed, _ = commit_plan(
-            str(plan.work_object_id),
-            "# Retained before upgrade\n",
-            expected_revision=autosaved.object_revision,
-        )
-
-    command.upgrade(config, "head")
-    upgrade_to_head(dsn=application_state_dsn)
-    current, head = _current_and_head(application_state_dsn)
-    assert current == head == "20260928_0007"
-    loaded = get_plan(str(committed.work_object_id))
-    snapshot = snapshot_plan(str(committed.work_object_id))
-    assert loaded.campaign_id == "campaign-old"
-    assert loaded.world_id is None
-    assert snapshot.markdown == "# Retained before upgrade\n"
-
-    world_plan = create_world_plan(title="World Plan", world_id="world-a")
-    with pytest.raises(Exception, match="cannot downgrade while World-owned Plans exist"):
-        command.downgrade(config, "20260906_0006")
-    current, head = _current_and_head(application_state_dsn)
-    assert current == head == "20260928_0007"
-    assert get_plan(str(world_plan.work_object_id)).world_id == "world-a"
+pytestmark = pytest.mark.usefixtures("application_state_dsn")

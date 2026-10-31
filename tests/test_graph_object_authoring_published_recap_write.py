@@ -315,7 +315,7 @@ def real_dungeonmind_recap_authority(
     from apps.live_control_server.services.world_container_registry import create_world_container
 
     create_world_container(repo, name="Eldyrwild")
-    client = TestClient(create_app())
+    client = TestClient(create_app(), client=("127.0.0.1", 50000))
     run_id, _ = _write_bld08_reviewable_run(
         repo,
         campaign_id=WORLD_ID,
@@ -432,3 +432,5 @@ def test_published_recap_write_uses_setting_world_for_campaign_scope(
     assert read.outcome == "enough"
     assert read.content == "# C1 Session 2\nA duplicate label appears."
     assert read.content_sha256 == digest
+
+pytestmark = pytest.mark.usefixtures("application_state_dsn")

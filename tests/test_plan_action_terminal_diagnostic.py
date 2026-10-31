@@ -96,7 +96,7 @@ def test_retention_storage_failure_preserves_original_action(application_state_d
     assert not hasattr(store.read_prompt_action(world_id=action.basis.world_id, action_id=action.action_id).consultation, "terminal_diagnostic")
 
 
-def test_mounted_diagnostic_read_requires_auth_owner_and_exact_selector(application_state_dsn, monkeypatch):
+def test_mounted_diagnostic_read_requires_auth_owner_and_exact_selector(application_state_dsn, monkeypatch, tmp_path):
     from fastapi import FastAPI
     from fastapi.testclient import TestClient
     from apps.live_control_server.routes import live
@@ -106,8 +106,9 @@ def test_mounted_diagnostic_read_requires_auth_owner_and_exact_selector(applicat
     monkeypatch.setenv("DMB_AGENT_GRAPH_AUTH_MODE", "local_operator")
     monkeypatch.setenv("DMB_AGENT_GRAPH_AUTH_ENVIRONMENT", "local")
     monkeypatch.setenv("DMB_AGENT_GRAPH_LOCAL_OPERATOR_TOKEN", "x" * 40)
-    monkeypatch.setattr(live, "get_world_container", lambda root, world: SimpleNamespace(world_id=world))
-    monkeypatch.setattr(live, "managed_world_data_root", lambda root: root)
+    from apps.live_control_server.services.world_container_registry import create_world_container
+    create_world_container(tmp_path, name="Synthetic World")
+    monkeypatch.setenv("DMB_MANAGED_WORLD_DATA_ROOT", str(tmp_path / "missing-files"))
     app = FastAPI(); app.include_router(live.router)
     client = TestClient(app, client=("127.0.0.1", 12345))
     path = f"/api/live/world-plan-edit/actions/{action.action_id}/terminal-diagnostic"

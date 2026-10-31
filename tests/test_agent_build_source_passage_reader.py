@@ -1,4 +1,6 @@
 """Producer → APP reload → authenticated receipt-bound historical read; no inference."""
+from application_state.world_catalog.service import get_world
+from tests.application_state.world_catalog_fixtures import store_world
 
 import asyncio
 from dataclasses import replace
@@ -235,12 +237,8 @@ def test_immutable_app_source_reopens_after_actual_workspace_edit(
     from graph_memory.retrieval.models import WorldGraphRetrievalSnapshot
 
     document, artifact, markdown = _registered_source(tmp_path, monkeypatch)
-    registry_path = tmp_path / "managed-registry/out/registries/world_containers.json"
-    registry = json.loads(registry_path.read_text())
-    registry["records"][0]["native_graph_binding"]["native_world_id"] = (
-        "native-build-world"
-    )
-    registry_path.write_text(json.dumps(registry))
+    world = get_world("managed-world").record
+    store_world(world.model_copy(update={"native_graph_binding": world.native_graph_binding.model_copy(update={"native_world_id": "native-build-world"})}))
     durable = source_service.persist_source_markdown(
         source_artifact_id=artifact.source_artifact_id,
         source_domain="worldbuilding",

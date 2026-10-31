@@ -1,6 +1,7 @@
 """Buddy World metadata persistence. This never admits sources or publishes facts."""
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import UTC, datetime
 import re
@@ -15,12 +16,12 @@ from application_state.cli import assert_at_head
 from application_state.config import load_runtime_dsn
 from application_state.errors import (
     ApplicationStateConflictError, ApplicationStateIntegrityError,
-    ApplicationStateValidationError,
+    ApplicationStateValidationError, ApplicationStateNotFoundError,
 )
 from application_state.unit_of_work import unit_of_work
 from application_state.world_catalog.types import (
     REGISTRY_SCHEMA, RECORD_SCHEMA, NativeGraphProvisioningRecord,
-    WorldContainerRecord, WorldContainerRegistryDocument, _validate_subject,
+    WorldAccessGrant, WorldContainerRecord, WorldContainerRegistryDocument, _validate_subject,
 )
 
 _PERMISSIONS = ('read', 'write', 'manage', 'share')
@@ -235,6 +236,45 @@ def create_world(*, name: str, owner_subject: str | None = None) -> StoredWorld:
     return StoredWorld(record, 1)
 
 
+def _lock_world_revision(conn, world_id: str) -> int:
+    # Consistent table intent before row locks; creation/adoption can queue
+    # safely while unrelated ordinary metadata writers remain compatible.
+    conn.execute('LOCK TABLE workspace.managed_world IN ROW EXCLUSIVE MODE')
+    row = conn.execute('SELECT revision FROM workspace.managed_world WHERE world_id=%s FOR UPDATE',
+                       (world_id,)).fetchone()
+    return row[0] if row else 0
+
+
+def update_world_grants(
+    world_id: str, transform: Callable[[WorldContainerRecord], list[WorldAccessGrant]],
+) -> StoredWorld:
+    """Serialize the product's grant policy against the latest World record.
+
+    The internal callback returns grants only. Identity, ownership, binding and
+    all other metadata are taken from the locked original, never the callback.
+    """
+    dsn = load_runtime_dsn()
+    assert_at_head(dsn=dsn)
+    try:
+        with unit_of_work(dsn) as conn:
+            revision = _lock_world_revision(conn, world_id)
+            if revision == 0:
+                raise ApplicationStateNotFoundError('World metadata was not found')
+            stored = _records(conn, world_id=world_id)[0]
+            grants = transform(stored.record.model_copy(deep=True))
+            if not isinstance(grants, list):
+                raise ApplicationStateValidationError('World grant update requires a grant list')
+            record = _validated_record(stored.record.model_copy(update={'access_grants': grants}))
+            grants = sorted(record.access_grants, key=lambda grant: grant.subject)
+            if grants == sorted(stored.record.access_grants, key=lambda grant: grant.subject):
+                return stored
+            record = record.model_copy(update={'access_grants': grants})
+            _write(conn, record, revision=revision + 1)
+    except psycopg.IntegrityError as exc:
+        raise ApplicationStateConflictError('World access metadata conflicts with stored state') from exc
+    return StoredWorld(record, revision + 1)
+
+
 def save_world(record: WorldContainerRecord, *, expected_revision: int) -> StoredWorld:
     """One exact metadata CAS; native descriptors are retained data, not verification."""
     record = _validated_record(record)
@@ -244,13 +284,7 @@ def save_world(record: WorldContainerRecord, *, expected_revision: int) -> Store
     assert_at_head(dsn=dsn)
     try:
         with unit_of_work(dsn) as conn:
-            # Take table write intent before any row lock, so a queued exclusive
-            # create/adoption cannot interpose between our row read and write.
-            # Ordinary saves remain mutually compatible at the table level.
-            conn.execute('LOCK TABLE workspace.managed_world IN ROW EXCLUSIVE MODE')
-            row = conn.execute('SELECT revision FROM workspace.managed_world WHERE world_id=%s FOR UPDATE',
-                               (record.world_id,)).fetchone()
-            current = row[0] if row else 0
+            current = _lock_world_revision(conn, record.world_id)
             if current != expected_revision:
                 raise ApplicationStateConflictError('World metadata changed; reload before writing')
             _write(conn, record, revision=current + 1)

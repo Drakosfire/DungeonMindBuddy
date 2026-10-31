@@ -2,7 +2,8 @@
 
 from __future__ import annotations
 
-import json
+from tests.application_state.world_catalog_fixtures import legacy_world_catalog_path, store_world, world_snapshot
+
 from pathlib import Path
 from types import SimpleNamespace
 from typing import Any
@@ -12,12 +13,10 @@ import pytest
 from starlette.requests import Request
 
 from apps.live_control_server.services.world_container_registry import (
-    REGISTRY_SCHEMA,
     authorize_world_access,
     create_world_container as _create_provisioned_world,
     grant_world_access,
     list_world_containers,
-    world_containers_path,
 )
 from apps.live_control_server.services.world_graph_binding import (
     BindNativeGraphRequest,
@@ -35,13 +34,7 @@ def _existing_unbound_world(
     created = _create_provisioned_world(
         root, name=name, owner_subject=owner_subject
     )
-    path = world_containers_path(root)
-    payload = json.loads(path.read_text())
-    for record in payload["records"]:
-        if record["world_id"] == created.world_id:
-            record["native_graph_binding"] = None
-    path.write_text(json.dumps(payload))
-    return created.model_copy(update={"native_graph_binding": None})
+    return store_world(created.model_copy(update={"native_graph_binding": None}))
 
 
 LOCAL_TOKEN = "binding-test-local-operator-token-long-enough"
@@ -117,8 +110,8 @@ def root(tmp_path: Path) -> Path:
 @pytest.mark.parametrize("corpus_present", [True, False])
 def test_initial_bind_reads_exact_head_revision_then_persists_v3(root: Path, corpus_present: bool) -> None:
     managed = _existing_unbound_world(root, name="Binding Target")
-    if not corpus_present:
-        (root / managed.source_root_relpath).rmdir()
+    if corpus_present:
+        (root / managed.source_root_relpath).mkdir(parents=True)
     authority = _Authority()
     before = managed.model_dump()
 
@@ -141,9 +134,7 @@ def test_initial_bind_reads_exact_head_revision_then_persists_v3(root: Path, cor
     assert active.name == before["name"]
     assert active.source_root_relpath == before["source_root_relpath"]
 
-    payload = __import__("json").loads(world_containers_path(root).read_text(encoding="utf-8"))
-    assert payload["schema_version"] == REGISTRY_SCHEMA
-    assert payload["records"][0]["schema_version"] == "dmb_world_container_record_v3"
+    assert world_snapshot()[0].record.schema_version == "dmb_world_container_record_v3"
     assert list_world_containers(root)[0].native_graph_binding == binding
 
 
@@ -226,8 +217,7 @@ def test_invalid_authority_or_head_revision_never_persists_active(
         stored_revision_id=stored_revision_id,
         revision_exists=exists,
     )
-    registry_path = world_containers_path(root)
-    original = registry_path.read_bytes()
+    original = world_snapshot()
 
     with pytest.raises(WorldGraphBindingError):
         bind_native_graph(
@@ -238,7 +228,7 @@ def test_invalid_authority_or_head_revision_never_persists_active(
             authority_validator=lambda _world_id: authority,
         )
 
-    assert registry_path.read_bytes() == original
+    assert world_snapshot() == original
     assert list_world_containers(root)[0].native_graph_binding is None
 
 
@@ -344,8 +334,7 @@ def test_duplicate_active_native_graph_claim_is_rejected_inside_mutation(root: P
         expected_binding_version=0,
         authority_validator=lambda _world_id: _Authority(),
     )
-    path = world_containers_path(root)
-    before = path.read_bytes()
+    before = world_snapshot()
 
     with pytest.raises(WorldGraphBindingError) as exc_info:
         bind_native_graph(
@@ -357,11 +346,27 @@ def test_duplicate_active_native_graph_claim_is_rejected_inside_mutation(root: P
         )
 
     assert exc_info.value.status_code == 409
-    assert path.read_bytes() == before
+    assert world_snapshot() == before
     assert list_world_containers(root)[1].native_graph_binding is None
 
 
-def test_registry_token_change_during_mind_validation_fails_compare_and_swap(
+@pytest.mark.parametrize("restore_original", [False, True])
+def test_same_world_change_during_native_validation_rejects_stale_binding(root, restore_original):
+    managed = _existing_unbound_world(root, name="Exact World CAS")
+    authority = _Authority()
+    def concurrent_change(_):
+        store_world(managed.model_copy(update={"name": "Concurrent metadata edit"}))
+        if restore_original:
+            store_world(managed)
+        return authority
+    with pytest.raises(WorldGraphBindingError) as error:
+        bind_native_graph(root, managed.world_id, native_world_id=NATIVE_ID,
+            expected_binding_version=0, authority_validator=concurrent_change)
+    assert error.value.status_code == 409
+    assert list_world_containers(root)[0].native_graph_binding is None
+
+
+def test_unrelated_world_change_during_native_validation_does_not_invalidate_binding(
     root: Path,
 ) -> None:
     managed = _existing_unbound_world(root, name="CAS World")
@@ -371,62 +376,19 @@ def test_registry_token_change_during_mind_validation_fails_compare_and_swap(
         _existing_unbound_world(root, name="Concurrent World")
         return authority
 
-    with pytest.raises(WorldGraphBindingError) as exc_info:
-        bind_native_graph(
-            root,
-            managed.world_id,
-            native_world_id=NATIVE_ID,
-            expected_binding_version=0,
-            authority_validator=validate_with_concurrent_registry_change,
-        )
-
-    assert exc_info.value.status_code == 409
+    active = bind_native_graph(root, managed.world_id, native_world_id=NATIVE_ID,
+        expected_binding_version=0, authority_validator=validate_with_concurrent_registry_change)
+    assert active.native_graph_binding.status == "active"
     assert len(list_world_containers(root)) == 2
-    assert list_world_containers(root)[0].native_graph_binding is None
 
 
-def test_legacy_v1_world_is_migrated_only_by_successful_locked_bind(root: Path) -> None:
-    from apps.live_control_server.services.world_container_registry import (
-        WorldContainerRecord,
-    )
-    from src.live_play.live_store import write_json
-
-    legacy = WorldContainerRecord.model_validate(
-        {
-            "schema_version": "dmb_world_container_record_v1",
-            "world_id": "legacy-world",
-            "name": "Legacy World",
-            "source_root_relpath": "corpus/legacy-world-markdown",
-            "created_at": "2026-01-01T00:00:00Z",
-        }
-    )
-    (root / legacy.source_root_relpath).mkdir(parents=True)
-    path = world_containers_path(root)
-    path.parent.mkdir(parents=True, exist_ok=True)
-    write_json(
-        path,
-        {
-            "schema_version": "dmb_world_container_registry_v1",
-            "records": [legacy.model_dump(mode="json")],
-        },
-    )
-
-    active = bind_native_graph(
-        root,
-        legacy.world_id,
-        native_world_id=NATIVE_ID,
-        expected_binding_version=0,
-        authority_validator=lambda _world_id: _Authority(),
-    )
-
-    payload = __import__("json").loads(path.read_text(encoding="utf-8"))
-    assert payload["schema_version"] == REGISTRY_SCHEMA
-    assert payload["records"][0]["schema_version"] == "dmb_world_container_record_v3"
-    assert payload["records"][0]["world_id"] == legacy.world_id
-    assert payload["records"][0]["name"] == legacy.name
-    assert payload["records"][0]["source_root_relpath"] == legacy.source_root_relpath
-    assert active.native_graph_binding is not None
-    assert active.native_graph_binding.binding_version == 1
+def test_retained_unbound_world_binds_without_files_or_migration(root):
+    managed = _existing_unbound_world(root, name="Retained World")
+    active = bind_native_graph(root, managed.world_id, native_world_id=NATIVE_ID,
+        expected_binding_version=0, authority_validator=lambda _: _Authority())
+    assert active.world_id == managed.world_id
+    assert active.native_graph_binding.status == "active"
+    assert not legacy_world_catalog_path(root).exists()
 
 
 def _call_binding_route_without_auth(
@@ -571,80 +533,32 @@ def test_successful_bind_route_returns_redacted_status_and_deactivation_skips_mi
     }
 
 
-@pytest.mark.parametrize("malformation", ["oversized_native_id", "missing_timestamp"])
-def test_malformed_registry_bind_error_does_not_echo_private_graph_identity(
-    root: Path,
-    monkeypatch: pytest.MonkeyPatch,
-    malformation: str,
-) -> None:
-    from apps.live_control_server.routes import world_containers
-
-    _enable_local_auth(monkeypatch)
-    monkeypatch.setattr(world_containers, "repo_root", lambda: root)
-    monkeypatch.setattr(
-        "apps.live_control_server.services.world_graph_binding._validate_with_mind",
-        lambda _world_id: pytest.fail("malformed registry must fail before MIND access"),
-    )
-    native_id = "native-leak-marker-" + "x" * 300
-    if malformation == "missing_timestamp":
-        native_id = "private-native-id"
-    path = world_containers_path(root)
-    path.parent.mkdir(parents=True, exist_ok=True)
-    binding = {
-        "schema_version": "dmb_managed_world_native_graph_binding_v1",
-        "provider": "dungeonmind_v2",
-        "native_world_id": native_id,
-        "status": "active",
-        "binding_version": 1,
-        "validated_at": "2026-01-01T00:00:00Z",
-        "validated_head_revision_id": "private-head-marker",
-    }
-    if malformation == "missing_timestamp":
-        binding.pop("validated_at")
-    path.write_text(
-        json.dumps(
-            {
-                "schema_version": "dmb_world_container_registry_v2",
-                "records": [
-                    {
-                        "schema_version": "dmb_world_container_record_v2",
-                        "world_id": "managed-world",
-                        "name": "Managed World",
-                        "source_root_relpath": "corpus/managed-world-markdown",
-                        "created_at": "2026-01-01T00:00:00Z",
-                        "native_graph_binding": binding,
-                    }
-                ],
-            }
-        ),
-        encoding="utf-8",
-    )
-
-    with pytest.raises(HTTPException) as exc_info:
-        world_containers.put_native_graph_binding(
-            managed_world_id="managed-world",
-            body=BindNativeGraphRequest(
-                native_world_id=NATIVE_ID,
-                expected_binding_version=1,
-            ),
-            request=_valid_request(
-                "/api/live/world-containers/managed-world/native-graph-binding"
-            ),
-        )
-
-    assert exc_info.value.status_code == 500
-    assert exc_info.value.detail == "malformed world container registry"
-    assert "native-leak-marker" not in str(exc_info.value.detail)
-    assert "private-head-marker" not in str(exc_info.value.detail)
-    assert "private-native-id" not in str(exc_info.value.detail)
-
-
 def test_existing_graph_binding_cannot_steal_a_reserved_native_identity(root: Path) -> None:
     reserved = _create_provisioned_world(root, name="Reserved owner")
     other = _existing_unbound_world(root, name="Existing other")
     native_id = reserved.native_graph_binding.native_world_id
-    before = world_containers_path(root).read_bytes()
+    before = world_snapshot()
     with pytest.raises(WorldGraphBindingError):
         bind_native_graph(root, other.world_id, native_world_id=native_id, expected_binding_version=0,
                           authority_validator=lambda _: _Authority(world_id=native_id))
-    assert world_containers_path(root).read_bytes() == before
+    assert world_snapshot() == before
+
+pytestmark = pytest.mark.usefixtures("application_state_dsn")
+
+
+def test_corrupt_database_metadata_fails_before_native_validation_without_private_details(root, application_state_dsn, monkeypatch):
+    import psycopg
+    from apps.live_control_server.routes import world_containers
+    world = _existing_unbound_world(root, name="Private metadata", owner_subject="subject:owner")
+    grant_world_access(root, world.world_id, actor_subject="subject:owner", subject="subject:reader", permissions=["read"])
+    with psycopg.connect(application_state_dsn) as conn:
+        conn.execute("UPDATE workspace.managed_world SET owner_subject=NULL WHERE world_id=%s", (world.world_id,))
+    _enable_local_auth(monkeypatch)
+    monkeypatch.setattr(world_containers, "repo_root", lambda: root)
+    monkeypatch.setattr("apps.live_control_server.services.world_graph_binding._validate_with_mind", lambda _: pytest.fail("corrupt metadata reached native validation"))
+    with pytest.raises(HTTPException) as error:
+        world_containers.put_native_graph_binding(world.world_id, BindNativeGraphRequest(native_world_id="private-native-marker", expected_binding_version=0), _valid_request("/api/live/world-containers/"+world.world_id+"/native-graph-binding"))
+    assert error.value.status_code == 500
+    assert error.value.detail == "Stored World metadata is invalid."
+    assert "subject:" not in error.value.detail
+    assert "private-native" not in error.value.detail

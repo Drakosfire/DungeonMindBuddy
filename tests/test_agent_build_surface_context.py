@@ -18,6 +18,8 @@ from apps.live_control_server.services.workspace_document_registry import (
 
 @pytest.fixture
 def source(tmp_path, monkeypatch):
+    from apps.live_control_server.services.world_container_registry import create_world_container
+    create_world_container(tmp_path, name='Elderwyld')
     (tmp_path / 'corpus/elderwyld-markdown').mkdir(parents=True)
     record = create_workspace_document(tmp_path, title='Mirathorn', campaign_id='elderwyld', world_id='elderwyld',
         kind='worldbuilding_source', source_domain='worldbuilding', document_class='lore', authority_state='draft', visibility_state='internal')
@@ -267,3 +269,5 @@ def test_large_saved_source_is_resolved_exactly_before_provider_admission(source
     wrong=body.model_copy(update={'primary_work':body.primary_work.model_copy(update={'expected_content_sha256':'f'*64})})
     with pytest.raises(AgentTurnServiceError):
         agent._build_work_resolver(wrong,{'kind':'world','id':'elderwyld'})
+
+pytestmark = pytest.mark.usefixtures("application_state_dsn")

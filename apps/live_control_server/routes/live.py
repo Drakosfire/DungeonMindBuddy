@@ -1069,12 +1069,7 @@ def get_live_plan_view(
     if scope_mode == "world" and world_id is None:
         raise HTTPException(status_code=422, detail="world_id is required for World Plan context.")
     if world_id is not None:
-        try:
-            world_root = managed_world_data_root(repo_root())
-        except ManagedWorldDataRootError as exc:
-            raise HTTPException(
-                status_code=503, detail="Managed World storage is unavailable."
-            ) from exc
+        world_root = repo_root()
         try:
             world = get_world_container(world_root, world_id)
         except WorldContainerRegistryError as exc:
@@ -1229,11 +1224,11 @@ def _read_plan_action_prompt(request: Request, world_id: str, action_id: UUID, p
     if list(request.query_params.keys()) != ["world_id"] or len(request.query_params.getlist("world_id")) != 1:
         raise HTTPException(status_code=422, detail="Only one managed world_id is accepted")
     try:
-        get_world_container(managed_world_data_root(repo_root()), world_id)
+        get_world_container(repo_root(), world_id)
         payload = (prompt_index(world_id, action_id) if provider_attempt_id is None
                    else prompt_body(world_id, action_id, provider_attempt_id))
         return JSONResponse(payload, headers={"Cache-Control": "no-store", "Pragma": "no-cache"})
-    except (ApplicationStateError, PromptEvidenceError, WorldContainerRegistryError, ManagedWorldDataRootError) as exc:
+    except (ApplicationStateError, PromptEvidenceError, WorldContainerRegistryError) as exc:
         raise HTTPException(status_code=404, detail={"code": "action_prompt_unavailable"},
                             headers={"Cache-Control": "no-store", "Pragma": "no-cache"}) from exc
 
@@ -1259,7 +1254,7 @@ def get_plan_action_terminal_diagnostic(request: Request, action_id: UUID,
     if list(request.query_params.keys()) != ["world_id"] or len(request.query_params.getlist("world_id")) != 1:
         raise HTTPException(status_code=422, detail="Only one managed world_id is accepted", headers=headers)
     try:
-        get_world_container(managed_world_data_root(repo_root()), world_id)
+        get_world_container(repo_root(), world_id)
         return JSONResponse(terminal_diagnostic(world_id, action_id), headers=headers)
-    except (ApplicationStateError, WorldContainerRegistryError, ManagedWorldDataRootError) as exc:
+    except (ApplicationStateError, WorldContainerRegistryError) as exc:
         raise HTTPException(status_code=404, detail={"code": "action_diagnostic_unavailable"}, headers=headers) from exc

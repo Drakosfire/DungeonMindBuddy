@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from tests.application_state.world_catalog_fixtures import world_snapshot, legacy_world_catalog_path
+
 import hashlib
 import json
 from concurrent.futures import ThreadPoolExecutor
@@ -27,7 +29,6 @@ from apps.live_control_server.services.workspace_document_registry import (
 )
 from apps.live_control_server.services.world_container_registry import (
     create_world_container,
-    world_containers_path,
 )
 from application_state.agent_conversation.types import (
     CompletedPlanAskPair,
@@ -2250,8 +2251,7 @@ def test_world_plan_route_uses_real_saved_world_plan_and_never_writes(
     _seed_completed_proposal_context(application_state_dsn, resolved_basis)
     code_root = tmp_path / "clean-code-checkout"
     code_root.mkdir()
-    registry = world_containers_path(tmp_path)
-    original_registry = registry.read_bytes()
+    original_registry = world_snapshot()
     monkeypatch.setattr(live, "repo_root", lambda: code_root)
     monkeypatch.setenv(MANAGED_WORLD_DATA_ROOT_ENV, str(tmp_path))
     response = client.post("/api/live/world-plan-edit/propose", json=request)
@@ -2308,8 +2308,8 @@ def test_world_plan_route_uses_real_saved_world_plan_and_never_writes(
     assert saved_after["loaded_revision"] == saved_before["loaded_revision"]
     assert saved_after["content_sha256"] == saved_before["content_sha256"]
     assert saved_after["markdown"] == committed_markdown
-    assert registry.read_bytes() == original_registry
-    assert not world_containers_path(code_root).exists()
+    assert world_snapshot() == original_registry
+    assert not legacy_world_catalog_path(code_root).exists()
 
 
 def test_world_plan_edit_routes_reject_invalid_explicit_world_root(
@@ -2626,3 +2626,5 @@ def test_same_key_is_world_scoped_and_foreign_retry_leaves_expired_action_untouc
         if future is not None:
             future.result(timeout=20)
         executor.shutdown(wait=True, cancel_futures=True)
+
+pytestmark = pytest.mark.usefixtures("application_state_dsn")
