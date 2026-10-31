@@ -160,6 +160,10 @@ def client_env(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> tuple[TestCli
     monkeypatch.setenv(CORPUS_ENV, str(corpus))
     monkeypatch.setenv("DUNGEONMIND_GRAPH_INGEST_RUNS_ROOT", "out/graph_memory/runs")
 
+    from tests.test_recap_managed_standing_context import seed_binding
+    monkeypatch.setenv("DMB_MANAGED_WORLD_DATA_ROOT", str(tmp_path))
+    seed_binding(tmp_path, "elderwyld", "world:elderwyld", version=3)
+
     candidate = ROOT / "out/test_recap_ingest_graph_preview/candidate_graph_fixture.json"
     candidate.parent.mkdir(parents=True, exist_ok=True)
     candidate.write_text(CANDIDATE_FIXTURE.read_text(encoding="utf-8"), encoding="utf-8")
@@ -373,20 +377,6 @@ def _stamp_fixture_candidate(
     )
 
 
-def _patch_retired_union_materialize(monkeypatch: pytest.MonkeyPatch) -> None:
-    """D.3B retired UnionSupergraph materialization; keep the recap producer path."""
-    import apps.live_control_server.routes.recap_ingest as recap_routes
-    from apps.live_control_server.services.recap_graph_preview_ingest import (
-        build_recap_graph_preview_bundle,
-    )
-
-    def _build_only(**kwargs):  # noqa: ANN003
-        kwargs.pop("manifest_path", None)
-        return build_recap_graph_preview_bundle(**kwargs)
-
-    monkeypatch.setattr(
-        recap_routes, "materialize_recap_preview_supergraph", _build_only
-    )
 
 
 def test_recap_ingest_build_graph_preview_bundle_from_normalized_recap(client_env: tuple[TestClient, Path, Path]) -> None:
@@ -413,64 +403,8 @@ def test_recap_ingest_build_graph_preview_bundle_from_normalized_recap(client_en
     assert next(step for step in graph["graph_steps"] if step["id"] == "extract_candidate_graph")["state"] == "skipped"
 
 
-def test_recap_ingest_materialize_preview_supergraph_blocks_without_candidate_graph(client_env: tuple[TestClient, Path, Path]) -> None:
-    client, _corpus, _candidate = client_env
-    _prepare_normalized(client)
-    client.post(
-        "/api/live/recap-ingest",
-        json={
-            "operation": "build_graph_preview_bundle",
-            "campaign_id": "longmont-c2",
-            "managed_world_id": "elderwyld",
-            "session": 22,
-        },
-    )
-
-    response = client.post(
-        "/api/live/recap-ingest",
-        json={
-            "operation": "materialize_preview_supergraph",
-            "campaign_id": "longmont-c2",
-            "managed_world_id": "elderwyld",
-            "session": 22,
-        },
-    )
-
-    assert response.status_code == 200
-    graph = response.json()["ingest_report"]["graph_preview"]
-    assert "Candidate graph extraction has not run yet" in graph["blocked_reason"]
-    assert graph["preview_union_store_path"] is None
 
 
-def test_recap_ingest_materialize_preview_supergraph_with_candidate_graph_path(
-    client_env: tuple[TestClient, Path, Path], monkeypatch: pytest.MonkeyPatch
-) -> None:
-    client, corpus, candidate = client_env
-    _prepare_normalized(client)
-    _stamp_fixture_candidate(client, corpus, candidate)
-    _patch_retired_union_materialize(monkeypatch)
-
-    response = client.post(
-        "/api/live/recap-ingest",
-        json={
-            "operation": "materialize_preview_supergraph",
-            "campaign_id": "longmont-c2",
-            "managed_world_id": "elderwyld",
-            "session": 22,
-            "candidate_graph_path": candidate.relative_to(ROOT).as_posix(),
-        },
-    )
-
-    assert response.status_code == 200, response.text
-    body = response.json()
-    graph = body["ingest_report"]["graph_preview"]
-    assert graph["status"] == "candidate_validation_ready"
-    assert (ROOT / graph["manifest_path"]).is_file()
-    assert "graph_candidate_ready" in body["states"]
-    from apps.live_control_server.services.graph_run_registry import get_extraction_run
-
-    run = get_extraction_run(ROOT, graph["extraction_run_id"])
-    assert run.source_artifact_id == graph["source_artifact_id"]
 
 
 def test_recap_ingest_rejects_unsafe_candidate_graph_path(client_env: tuple[TestClient, Path, Path]) -> None:
@@ -491,7 +425,7 @@ def test_recap_ingest_rejects_unsafe_candidate_graph_path(client_env: tuple[Test
     assert response.status_code == 422
 
 
-def _live_extraction_payload(*, source_artifact_id: str, spref: str) -> dict:
+def _live_extraction_payload(*, source_artifact_id: str, spref: str, corpus_root: Path, source_text: str, span_index: dict) -> dict:
     from tests.fixtures.graph_memory.category_extraction_helpers import (
         minimal_category_pass_outputs,
     )
@@ -501,34 +435,32 @@ def _live_extraction_payload(*, source_artifact_id: str, spref: str) -> dict:
         run_category_pipeline,
     )
 
-    # This route fixture covers evidence packaging and provenance, not party
-    # enrichment. Explicitly model a completed extraction without invoking the
-    # separate claimed-fill contract, so the candidate is valid for these tests.
-    span_index = {
-        "source_artifact_id": source_artifact_id,
-        "source_ref_id": f"{source_artifact_id}:text",
-        "spans": [
-            {
-                "kind": "paragraph",
-                "span_id": spref,
-                "source_span_ref_id": spref,
-                "source_artifact_id": source_artifact_id,
-                "line_start": 1,
-                "line_end": 3,
-                "text": "Bonogo scouts the Mireward road and regroups at dusk.",
-            }
-        ],
-    }
+    # Bind the quote to its actual paragraph, never the generated frontmatter.
+    lines = source_text.splitlines()
+    matches = [span["source_span_id"] for span in span_index["spans"]
+        if "Mireward road" in "\n".join(lines[span["start_line"] - 1:span["end_line"]])]
+    assert matches, "synthetic fixture must quote a real source paragraph"
+    spref = matches[0]
+    # Exercise packaging with one location actually named in these source fixtures.
+    # Keep the fake independent of the checkout's real standing-party registry.
+    outputs = minimal_category_pass_outputs(spref, node_label="Mireward road", node_id="node:mireward-road")
+    node = outputs["actor_pass"]["observation_nodes"][0]
+    node["node_type"] = "location"
+    outputs["actor_pass"] = {"observation_nodes": []}
+    outputs["location_pass"] = {"observation_nodes": [node]}
+    outputs["beat_pass"] = {"observation_beats": []}
     result = run_category_pipeline(
-        FixtureCategoryGraphPassClient(minimal_category_pass_outputs(spref)),
+        FixtureCategoryGraphPassClient(outputs),
         CategoryGraphExtractionOptions(
             campaign_id="longmont-c2",
             session_id="session-22",
             session_number=22,
             source_span_index=span_index,
+            source_text=source_text,
             source_artifact_id=source_artifact_id,
             source_ref_id=f"{source_artifact_id}:text",
             model_id="gpt-5.4-mini",
+            corpus_root=corpus_root,
             enable_party_claimed_fill=False,
         ),
     )
@@ -587,7 +519,7 @@ def _patch_fake_category_extract(monkeypatch: pytest.MonkeyPatch) -> None:
             or options.source_span_index.get("source_artifact_id")
             or ""
         ).strip()
-        graph = _live_extraction_payload(source_artifact_id=artifact, spref=spref)
+        graph = _live_extraction_payload(source_artifact_id=artifact, spref=spref, corpus_root=options.corpus_root, source_text=options.source_text, span_index=dict(options.source_span_index))
         if options.campaign_id:
             graph["campaign_id"] = options.campaign_id
         if options.session_id:
@@ -692,7 +624,7 @@ def test_recap_ingest_typed_validation_failure_blocks_candidate_and_preview_unio
             or options.source_span_index.get("source_artifact_id")
             or "artifact:missing"
         ).strip()
-        graph = _live_extraction_payload(source_artifact_id=artifact, spref=spref)
+        graph = _live_extraction_payload(source_artifact_id=artifact, spref=spref, corpus_root=options.corpus_root, source_text=options.source_text, span_index=dict(options.source_span_index))
         for node in graph.get("nodes") or []:
             if isinstance(node, dict):
                 node["semantic_state"] = {
@@ -752,13 +684,12 @@ def test_recap_ingest_typed_validation_failure_blocks_candidate_and_preview_unio
     materialize = client.post(
         "/api/live/recap-ingest",
         json={
-            "operation": "materialize_preview_supergraph",
+            "operation": "build_graph_preview_bundle",
             "campaign_id": "longmont-c2",
             "managed_world_id": "elderwyld",
             "session": 22,
             "extract_graph": True,
             "force_graph_run": True,
-            "materialize_after_extract": True,
             "graph_model_id": "deepseek/deepseek-v4.1-flash-1017",
         },
     )
@@ -871,23 +802,21 @@ def test_recap_ingest_packaged_span_index_resolves_evidence_for_surface(
         assert enriched.anchor_quotes or enriched.anchor_quote_matches
 
 
-def test_recap_ingest_materialize_preview_supergraph_extracts_without_candidate_path(
+def test_recap_ingest_extracts_without_candidate_path(
     client_env: tuple[TestClient, Path, Path], monkeypatch: pytest.MonkeyPatch
 ) -> None:
     client, _corpus, _candidate = client_env
     _prepare_normalized(client)
     _patch_fake_category_extract(monkeypatch)
-    _patch_retired_union_materialize(monkeypatch)
 
     response = client.post(
         "/api/live/recap-ingest",
         json={
-            "operation": "materialize_preview_supergraph",
+            "operation": "build_graph_preview_bundle",
             "campaign_id": "longmont-c2",
             "managed_world_id": "elderwyld",
             "session": 22,
             "extract_graph": True,
-            "materialize_after_extract": True,
         },
     )
 
@@ -902,7 +831,7 @@ def test_recap_ingest_materialize_preview_supergraph_extracts_without_candidate_
     assert run.source_artifact_id == graph["source_artifact_id"]
 
 
-def test_materialize_reextracts_when_selected_world_binding_changes(
+def test_extraction_restarts_when_selected_world_binding_changes(
     client_env: tuple[TestClient, Path, Path], monkeypatch: pytest.MonkeyPatch
 ) -> None:
     from apps.live_control_server.services import recap_ingest_context
@@ -911,7 +840,6 @@ def test_materialize_reextracts_when_selected_world_binding_changes(
     client, _corpus, _candidate = client_env
     _prepare_normalized(client)
     _patch_fake_category_extract(monkeypatch)
-    _patch_retired_union_materialize(monkeypatch)
     build = client.post(
         "/api/live/recap-ingest",
         json={
@@ -947,12 +875,11 @@ def test_materialize_reextracts_when_selected_world_binding_changes(
     materialized = client.post(
         "/api/live/recap-ingest",
         json={
-            "operation": "materialize_preview_supergraph",
+            "operation": "build_graph_preview_bundle",
             "campaign_id": "longmont-c2",
             "managed_world_id": "elderwyld",
             "session": 22,
             "extract_graph": True,
-            "materialize_after_extract": True,
         },
     )
     assert materialized.status_code == 200, materialized.text
@@ -1069,7 +996,6 @@ def test_recap_ingest_generate_recap_memory_with_graph_extraction_fake_client(
 
     client, corpus, _candidate = synthetic_client_env
     _patch_fake_category_extract(monkeypatch)
-    _patch_retired_union_materialize(monkeypatch)
 
     def synthetic_campaign_number(campaign_id: str) -> int:
         assert campaign_id == "synthetic-campaign"
@@ -1277,7 +1203,6 @@ def test_generate_recap_memory_reuses_preview_graph_without_force(
     client, _corpus, _candidate = client_env
     _prepare_normalized(client)
     _patch_fake_category_extract(monkeypatch)
-    _patch_retired_union_materialize(monkeypatch)
 
     payload = {
         "operation": "generate_recap_memory",
@@ -1306,7 +1231,6 @@ def test_generate_recap_memory_force_graph_run_starts_new_preview_run(
     client, _corpus, _candidate = client_env
     _prepare_normalized(client)
     _patch_fake_category_extract(monkeypatch)
-    _patch_retired_union_materialize(monkeypatch)
 
     payload = {
         "operation": "generate_recap_memory",
@@ -1333,7 +1257,6 @@ def test_generate_recap_memory_stops_on_staged_source_conflict(
 ) -> None:
     client, corpus, _candidate = client_env
     _patch_fake_category_extract(monkeypatch)
-    _patch_retired_union_materialize(monkeypatch)
     staged = corpus / "Longmont Campaign/Campaign 2/_ingest_staging/session_22_raw_notes.md"
     staged.write_text(
         "Session 22 Recap\n\nBonogo scouts the Mireward road and regroups at dusk.",
@@ -1412,12 +1335,11 @@ def test_real_recap_manifest_adapts_to_extraction_run(
     client, corpus, candidate = client_env
     _prepare_normalized(client)
     _stamp_fixture_candidate(client, corpus, candidate)
-    _patch_retired_union_materialize(monkeypatch)
 
     response = client.post(
         "/api/live/recap-ingest",
         json={
-            "operation": "materialize_preview_supergraph",
+            "operation": "build_graph_preview_bundle",
             "campaign_id": "longmont-c2",
             "managed_world_id": "elderwyld",
             "session": 22,
@@ -1654,8 +1576,6 @@ def test_unmocked_candidate_completion_recovers_without_provider_replay(client_e
         pytest.fail("Recovery must not dispatch a provider or invoke retired materialization")
 
     monkeypatch.setattr(production, "extract_category_candidate_graph", forbidden)
-    monkeypatch.setattr(service, "_materialize_preview_union_store_from_graph_ingest_run", forbidden)
-    monkeypatch.setattr(service, "_PreviewUnionMaterializeOptions", forbidden)
     request = {
         "operation": "generate_recap_memory",
         "campaign_id": "longmont-c2",

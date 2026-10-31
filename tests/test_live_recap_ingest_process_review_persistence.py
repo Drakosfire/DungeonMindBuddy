@@ -15,9 +15,6 @@ from apps.live_control_server.services.graph_run_registry import (
 from apps.live_control_server.services.source_artifact_registry import get_source_artifact
 from apps.live_control_server.routes import recap_ingest as recap_ingest_route
 from apps.live_control_server.services import recap_ingest_context
-from apps.live_control_server.services.recap_graph_preview_ingest import (
-    build_recap_graph_preview_bundle,
-)
 from fastapi.testclient import TestClient
 import pytest
 
@@ -70,16 +67,10 @@ def process_client_env(
     (campaign / "Session Recaps").mkdir(parents=True)
     monkeypatch.setenv("DUNGEONMIND_RECAP_INGEST_CORPUS_ROOT", str(corpus))
 
-    def build_only(**kwargs):  # noqa: ANN003
-        kwargs.pop("manifest_path", None)
-        return build_recap_graph_preview_bundle(**kwargs)
-
-    monkeypatch.setattr(
-        recap_ingest_route,
-        "materialize_recap_preview_supergraph",
-        build_only,
-    )
-    return TestClient(create_app()), corpus
+    from tests.test_recap_managed_standing_context import seed_binding
+    monkeypatch.setenv("DMB_MANAGED_WORLD_DATA_ROOT", str(tmp_path))
+    seed_binding(tmp_path, "elderwyld", "world:elderwyld", version=3)
+    return TestClient(create_app(), client=("127.0.0.1", 50000)), corpus
 
 
 def test_ordinary_process_candidate_evidence_survives_fresh_exact_run_review_client(
@@ -89,7 +80,6 @@ def test_ordinary_process_candidate_evidence_survives_fresh_exact_run_review_cli
     """A fresh exact-run reader recovers the Process source and evidence without rerunning."""
     client, corpus = process_client_env
     shared_ingest._patch_fake_category_extract(monkeypatch)
-    shared_ingest._patch_retired_union_materialize(monkeypatch)
 
     raw_text = (
         "Session 29 Recap\n\n"
@@ -167,7 +157,7 @@ def test_ordinary_process_candidate_evidence_survives_fresh_exact_run_review_cli
 
     # A new client must reload the same canonical APP-STATE run and durable source.
     client.close()
-    fresh = TestClient(create_app())
+    fresh = TestClient(create_app(), client=("127.0.0.1", 50000))
     try:
         reloaded_run = fresh.get(f"/api/live/graph-preview/extraction-runs/{run_id}")
         assert reloaded_run.status_code == 200, reloaded_run.text

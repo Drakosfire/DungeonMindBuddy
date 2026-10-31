@@ -14,7 +14,6 @@ from graph_memory.ingestion.native_recap_source import Status as NativeRecapSour
 
 from src.corpus.session_recap_paths import (
     is_generic_recap_tail,
-    normalized_recap_relpath,
     recap_tail,
 )
 from src.live_play.recap_ingest_pipeline import (
@@ -27,9 +26,7 @@ from src.live_play.recap_stage_paths import corpus_root as default_corpus_root
 from src.live_play.recap_derivative_provenance import record_archived_artifacts
 from apps.live_control_server.services.recap_graph_preview_ingest import (
     build_recap_graph_preview_bundle,
-    ensure_graph_ingest_projection_payload,
     inspect_recap_graph_preview_status,
-    materialize_recap_preview_supergraph,
 )
 
 from apps.live_control_server.models.session_evidence import SessionEvidenceRef
@@ -39,7 +36,6 @@ router = APIRouter(prefix="/api/live", tags=["live"])
 RecapIngestOperation = Literal[
     "generate_recap_memory",
     "build_graph_preview_bundle",
-    "materialize_preview_supergraph",
     "inspect_graph_preview",
     "inspect_status",
     "reconcile_normalized_recap",
@@ -71,7 +67,6 @@ class RecapIngestRequest(BaseModel):
     force_graph_run: bool = False
     extract_graph: bool = False
     graph_model_id: str | None = None
-    materialize_after_extract: bool = False
     include_graph_extraction: bool = True
 
     @model_validator(mode='after')
@@ -333,7 +328,7 @@ def _generate_recap_memory_from_request(body: RecapIngestRequest, corpus: Path |
     if body.include_graph_extraction:
         normalized = _normalized_recap_graph_path(status, corpus)
         if normalized and _normalized_recap_is_graph_ready(status):
-            graph = materialize_recap_preview_supergraph(
+            graph = build_recap_graph_preview_bundle(
                 repo_root=repo_root(),
                 campaign_id=body.campaign_id,
                 session=body.session,
@@ -342,7 +337,7 @@ def _generate_recap_memory_from_request(body: RecapIngestRequest, corpus: Path |
                 graph_model_id=body.graph_model_id,
                 force_graph_run=body.force_graph_run,
                 ingest_context=ingest_context,
-                **({"supplemental_evidence":body._resolved_session_evidence} if body._resolved_session_evidence is not None else {}),
+                    **({"supplemental_evidence":body._resolved_session_evidence} if body._resolved_session_evidence is not None else {}),
             )
             status = _append_graph_status(status, graph)
             if graph.get("extraction_mode") == "llm_blocked" or graph.get("blocked_reason"):
@@ -350,17 +345,6 @@ def _generate_recap_memory_from_request(body: RecapIngestRequest, corpus: Path |
                     status.setdefault("warnings", []),
                     f"preview graph extraction blocked: {graph.get('blocked_reason') or 'unknown reason'}",
                 )
-            if graph.get("status") == "preview_union_store_ready":
-                ensure_graph_ingest_projection_payload(
-                    repo_root=repo_root(),
-                    manifest_path=graph.get("manifest_path"),
-                    session_id=f"session-{body.session}",
-                )
-            if (
-                status.get("status") not in {"error", "needs_reconciliation"}
-                and graph.get("status") == "preview_union_store_ready"
-            ):
-                status["status"] = "ready_for_planning_activation"
         elif not _normalized_recap_is_graph_ready(status):
             _block_graph_without_current_normalized(status)
         else:
@@ -459,7 +443,6 @@ def _source_only(body):
         and not body.extract_graph
         and body.candidate_graph_path is None
         and not body.force_graph_run
-        and not body.materialize_after_extract
         and not body.session_evidence
         and body.raw_text is None
         and body.graph_model_id is None
@@ -713,7 +696,7 @@ def post_recap_ingest(
             return _inspect_status_with_graph(body, corpus)
         if body.operation == "inspect_graph_preview":
             return _inspect_status_with_graph(body, corpus)
-        if body.operation in {"build_graph_preview_bundle", "materialize_preview_supergraph"}:
+        if body.operation == "build_graph_preview_bundle":
             status = inspect_recap_ingest_status(
                 campaign_id=body.campaign_id,
                 session=body.session,
@@ -732,32 +715,18 @@ def post_recap_ingest(
                     status_code=422,
                     detail="candidate_graph_path cannot be combined with extract_graph=true",
                 )
-            if body.operation == "build_graph_preview_bundle":
-                graph = build_recap_graph_preview_bundle(
-                    repo_root=repo_root(),
-                    campaign_id=body.campaign_id,
-                    session=body.session,
-                    normalized_recap_path=normalized,
-                    force_graph_run=body.force_graph_run,
-                    candidate_graph_path=body.candidate_graph_path,
-                    extract_graph=body.extract_graph,
-                    graph_model_id=body.graph_model_id,
-                    ingest_context=ingest_context,
+            graph = build_recap_graph_preview_bundle(
+                repo_root=repo_root(),
+                campaign_id=body.campaign_id,
+                session=body.session,
+                normalized_recap_path=normalized,
+                force_graph_run=body.force_graph_run,
+                candidate_graph_path=body.candidate_graph_path,
+                extract_graph=body.extract_graph,
+                graph_model_id=body.graph_model_id,
+                ingest_context=ingest_context,
                 **({"supplemental_evidence":body._resolved_session_evidence} if body._resolved_session_evidence is not None else {}),
-                )
-            else:
-                graph = materialize_recap_preview_supergraph(
-                    repo_root=repo_root(),
-                    campaign_id=body.campaign_id,
-                    session=body.session,
-                    normalized_recap_path=normalized,
-                    candidate_graph_path=body.candidate_graph_path,
-                    extract_graph=body.extract_graph or body.materialize_after_extract,
-                    graph_model_id=body.graph_model_id,
-                    force_graph_run=body.force_graph_run,
-                    ingest_context=ingest_context,
-                **({"supplemental_evidence":body._resolved_session_evidence} if body._resolved_session_evidence is not None else {}),
-                )
+            )
             return _remove_retired_derivative_details(_append_graph_status(status, graph))
         if body.operation == "reconcile_normalized_recap":
             keep = (body.keep_basename or "").strip()
