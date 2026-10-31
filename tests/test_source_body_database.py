@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import hashlib
+from pathlib import Path
 
 import psycopg
 import pytest
@@ -41,7 +42,7 @@ def test_source_body_survives_removed_file(registered_source, monkeypatch):
     root, artifact, raw, _ = registered_source
     saved = persist(artifact, raw)
     (root / artifact.uri.removeprefix("repo://")).unlink()
-    monkeypatch.setattr(registry, "_read_exact_repo_uri_bytes", lambda *a: pytest.fail("file body read"))
+    monkeypatch.setattr(Path, "open", lambda *a, **k: pytest.fail("database body read opened a file"))
     actual, content = registry.load_registered_source_artifact_bytes(root, artifact.source_artifact_id)
     assert actual == artifact
     assert content == raw == saved.markdown.encode("utf-8")
