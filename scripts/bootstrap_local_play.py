@@ -21,17 +21,13 @@ from application_state.cli import (  # noqa: E402
     upgrade_to_head,
 )
 from application_state.config import APPLICATION_STATE_DSN_ENV, load_runtime_dsn  # noqa: E402
-from application_state.content.import_runbooks import import_runbooks_from_snapshots  # noqa: E402
 from application_state.content.service import (  # noqa: E402
     current_committed_revision,
     exact_committed_revision,
     list_runbooks,
 )
-from application_state.content.types import ImportReport  # noqa: E402
 from application_state.errors import (  # noqa: E402
-    ApplicationStateConflictError,
     ApplicationStateError,
-    ApplicationStateIntegrityError,
     ApplicationStateIsolationError,
     ApplicationStateMigrationError,
     ApplicationStateUnavailableError,
@@ -80,10 +76,8 @@ class ReadinessReport:
     schema_current: str | None = None
     schema_head: str | None = None
     schema_status: str = "unknown"
-    legacy_available: int | None = None
     startable_runbooks: int | None = None
     created_database: bool = False
-    import_report: ImportReport | None = None
     notes: list[str] = field(default_factory=list)
     dsn_for_redaction: str | None = None
 
@@ -178,22 +172,6 @@ def _schema_status(dsn: str) -> tuple[str | None, str, str]:
     return current, head, "behind"
 
 
-def _legacy_snapshot_count(repo_root: Path) -> int:
-    from apps.live_control_server.services.workspace_document_registry import (
-        capture_legacy_runbook_snapshots,
-    )
-
-    return len(capture_legacy_runbook_snapshots(repo_root))
-
-
-def _capture_legacy_snapshots(repo_root: Path):
-    from apps.live_control_server.services.workspace_document_registry import (
-        capture_legacy_runbook_snapshots,
-    )
-
-    return capture_legacy_runbook_snapshots(repo_root)
-
-
 def count_startable_runbooks() -> int:
     count = 0
     for obj in list_runbooks(status="active"):
@@ -216,18 +194,15 @@ def _readiness_after_schema(
     *,
     schema_status: str,
     startable: int | None,
-    legacy_available: int | None,
 ) -> str:
     if schema_status != "ready":
         return "NEEDS BOOTSTRAP"
     if startable and startable > 0:
         return "READY"
-    if legacy_available:
-        return "NEEDS BOOTSTRAP"
     return "PLAY CONTENT NOT READY"
 
 
-def inspect_readiness(*, repo_root: Path, load_env: bool = True) -> ReadinessReport:
+def inspect_readiness(*, load_env: bool = True) -> ReadinessReport:
     _load_env(load_env=load_env)
     raw = os.environ.get(APPLICATION_STATE_DSN_ENV, "").strip()
     if not raw:
@@ -268,7 +243,6 @@ def inspect_readiness(*, repo_root: Path, load_env: bool = True) -> ReadinessRep
         return report
     if exists is False:
         report.schema_status = "missing"
-        report.legacy_available = _legacy_snapshot_count(repo_root)
         report.play_readiness = "NEEDS BOOTSTRAP"
         report.notes.append("target logical database does not exist")
         return report
@@ -282,13 +256,11 @@ def inspect_readiness(*, repo_root: Path, load_env: bool = True) -> ReadinessRep
     report.schema_current = current
     report.schema_head = head
     report.schema_status = schema_status
-    report.legacy_available = _legacy_snapshot_count(repo_root)
     if schema_status == "ready":
         report.startable_runbooks = count_startable_runbooks()
     report.play_readiness = _readiness_after_schema(
         schema_status=schema_status,
         startable=report.startable_runbooks,
-        legacy_available=report.legacy_available,
     )
     return report
 
@@ -322,11 +294,11 @@ def _create_logical_database(dsn: str) -> None:
         ) from exc
 
 
-def apply_bootstrap(*, repo_root: Path, load_env: bool = True) -> ReadinessReport:
+def apply_bootstrap(*, load_env: bool = True) -> ReadinessReport:
     _load_env(load_env=load_env)
     raw = os.environ.get(APPLICATION_STATE_DSN_ENV, "").strip()
     if not raw:
-        return inspect_readiness(repo_root=repo_root, load_env=False)
+        return inspect_readiness(load_env=False)
     try:
         dsn = _validate_configured_dsn()
     except (ApplicationStateUnavailableError, ApplicationStateIsolationError) as exc:
@@ -383,20 +355,10 @@ def apply_bootstrap(*, repo_root: Path, load_env: bool = True) -> ReadinessRepor
     report.schema_head = head
     report.schema_status = schema_status
 
-    snapshots = _capture_legacy_snapshots(repo_root)
-    report.legacy_available = len(snapshots)
-    try:
-        report.import_report = import_runbooks_from_snapshots(snapshots)
-    except (ApplicationStateConflictError, ApplicationStateIntegrityError, ApplicationStateError) as exc:
-        report.play_readiness = "BLOCKED"
-        report.notes.append(redact_secrets(str(exc), dsn))
-        return report
-
     report.startable_runbooks = count_startable_runbooks()
     report.play_readiness = _readiness_after_schema(
         schema_status=schema_status,
         startable=report.startable_runbooks,
-        legacy_available=0,
     )
     return report
 
@@ -423,13 +385,6 @@ def format_report(report: ReadinessReport, *, command: str) -> str:
     lines.append(f"  current: {report.schema_current or 'none'}")
     lines.append(f"  head: {report.schema_head or 'none'}")
     lines.append(f"  status: {report.schema_status}")
-    lines.append("")
-    lines.append("Legacy Runbooks")
-    lines.append(f"  available for adoption: {_num(report.legacy_available)}")
-    if report.import_report is not None:
-        lines.append(f"  imported: {report.import_report.imported}")
-        lines.append(f"  noop: {report.import_report.noop}")
-        lines.append(f"  skipped empty: {report.import_report.skipped_empty}")
     lines.append("")
     lines.append("Content")
     lines.append(f"  active startable Runbooks: {_num(report.startable_runbooks)}")
@@ -470,15 +425,14 @@ def _num(value: int | None) -> str:
     return "unknown" if value is None else str(value)
 
 
-def main(argv: list[str] | None = None, *, load_env: bool = True, repo_root: Path | None = None) -> int:
+def main(argv: list[str] | None = None, *, load_env: bool = True) -> int:
     parser = argparse.ArgumentParser(description="Local Play application-state bootstrap")
     parser.add_argument("command", choices=("check", "apply"))
     args = parser.parse_args(argv)
-    root = repo_root or _REPO_ROOT
     if args.command == "check":
-        report = inspect_readiness(repo_root=root, load_env=load_env)
+        report = inspect_readiness(load_env=load_env)
     else:
-        report = apply_bootstrap(repo_root=root, load_env=load_env)
+        report = apply_bootstrap(load_env=load_env)
     sys.stdout.write(format_report(report, command=args.command))
     return 0 if report.play_readiness == "READY" else 2
 

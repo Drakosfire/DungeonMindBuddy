@@ -93,7 +93,7 @@ def run_runtime_preflight(
     load_env: bool = True,
 ) -> RuntimePreflightReport:
     checks = (
-        _check_app_state(repo_root, load_env=load_env),
+        _check_app_state(load_env=load_env),
         _check_dungeonmind_world(require_world=require_world),
         _check_campaign_registry(),
         _check_ingest_registry(repo_root),
@@ -139,8 +139,8 @@ def _format_detail_value(value: PreflightDetailValue) -> str:
     return str(value)
 
 
-def _check_app_state(repo_root: Path, *, load_env: bool) -> RuntimePreflightCheck:
-    readiness = inspect_readiness(repo_root=repo_root, load_env=load_env)
+def _check_app_state(*, load_env: bool) -> RuntimePreflightCheck:
+    readiness = inspect_readiness(load_env=load_env)
     details: dict[str, PreflightDetailValue] = {}
     if readiness.coordinates is not None:
         details["host"] = readiness.coordinates.host
