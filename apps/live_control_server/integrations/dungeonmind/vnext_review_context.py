@@ -3,19 +3,13 @@
 from __future__ import annotations
 
 from fastapi.encoders import jsonable_encoder
-from psycopg.conninfo import conninfo_to_dict, make_conninfo
 
-from apps.live_control_server.config import world_graph_authority_database_url
 from dungeonmind.application.vnext import (
     EntityReadService,
     EvidenceReadService,
     SearchReadService,
     open_admitted_native_text,
     open_native_text_source_access_context,
-)
-from dungeonmind.infrastructure.postgres import (
-    PostgresDatabase,
-    PostgresNativeSourceEvidenceRepository,
 )
 from graph_memory.vnext.domain_runtime import (
     DungeonBuddyVNextProjectionInput,
@@ -25,19 +19,13 @@ from graph_memory.vnext.domain_runtime import (
     dungeonbuddy_world_domain_contract,
 )
 
+from .native_registry_source import read_repository as _repository
+
 
 class NativeReviewConflict(ValueError):
     """The immutable snapshot cannot be returned as the current review context."""
 
 
-def _repository():
-    # Every connection made by this adapter is read-only, including source reads.
-    authority_dsn = world_graph_authority_database_url()
-    prior_options = conninfo_to_dict(authority_dsn).get("options", "")
-    dsn = make_conninfo(authority_dsn, options=(
-        prior_options + " -c default_transaction_read_only=on"
-    ).strip())
-    return PostgresNativeSourceEvidenceRepository(PostgresDatabase(dsn))
 
 
 def _preview(access, evidence_ref_id):

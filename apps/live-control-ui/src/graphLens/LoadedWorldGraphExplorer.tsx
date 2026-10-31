@@ -4,6 +4,7 @@ import { useWorldGraphLensProjectionDemand, useOptionalWorldGraphLensProjection,
 import type { WorldGraphProjection } from "../api/types";
 import { graphObjectTypeBadgeLabel, graphObjectSecondaryRoleLabel } from "../graphObjectCard/graphObjectDisplay";
 import "./LoadedWorldGraphExplorer.css";
+import {NativeGraphInspection} from "./NativeGraphInspection";
 
 function readableGraphLabel(value: string): string {
   const labels: Record<string, string> = {
@@ -18,19 +19,20 @@ export function LoadedWorldGraphExplorer() {
   const world = useSelectedWorld();
   const graph = useOptionalWorldGraphLensProjection();
   if (world.kind !== "managed" || !graph) return null;
-  return <LoadedGraphBrowser key={world.worldId} worldName={world.name}
+  return <LoadedGraphBrowser key={world.worldId} worldName={world.name} managedWorldId={world.worldId}
     projection={graph.projectionState === "ready" ? graph.projection : null}
     projectionState={graph.projectionState} projectionError={graph.projectionError} />;
 }
 
-export function LoadedGraphBrowser({ worldName, projection, projectionState, projectionError }: {
-  worldName: string; projection: WorldGraphProjection | null;
+export function LoadedGraphBrowser({ worldName, projection, projectionState, projectionError, managedWorldId }: {
+  managedWorldId?: string; worldName: string; projection: WorldGraphProjection | null;
   projectionState: WorldGraphLensProjectionState; projectionError: string | null;
 }) {
   const dialog = useRef<HTMLDialogElement>(null);
   const launcher = useRef<HTMLButtonElement>(null);
   const [open, setOpen] = useState(false);
-  const retry = useWorldGraphLensProjectionDemand(open);
+  const [view,setView]=useState<"existing"|"reviewed">("existing");
+  const retry = useWorldGraphLensProjectionDemand(open&&view==="existing");
   const [query, setQuery] = useState("");
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [kindFilter, setKindFilter] = useState("all");
@@ -66,8 +68,10 @@ export function LoadedGraphBrowser({ worldName, projection, projectionState, pro
       <header className="loaded-graph-explorer__header"><div>
         <span className="loaded-graph-explorer__eyebrow">World atlas</span>
         <h2>{worldName}</h2>
-        <p className="loaded-graph-explorer__scope">Browse the loaded World projection. Buddy retrieves relevant evidence separately for each question.</p>
+        <p className="loaded-graph-explorer__scope">{view==="reviewed" ? "Inspect reviewed objects and their supporting sources. This view does not publish changes." : "Browse the loaded World projection. Buddy retrieves relevant evidence separately for each question."}</p>
       </div><button type="button" className="loaded-graph-explorer__close" onClick={close} aria-label="Close graph" title="Close graph">×</button></header>
+      {managedWorldId ? <div role="group" aria-label="Graph material"><button type="button" aria-pressed={view==="existing"} onClick={()=>setView("existing")}>Existing Graph</button><button type="button" aria-pressed={view==="reviewed"} onClick={()=>setView("reviewed")}>Reviewed Graph · read-only</button></div>:null}
+      {view==="reviewed"&&managedWorldId ? (open?<NativeGraphInspection key={managedWorldId} worldId={managedWorldId}/>:null):<>
       {projection ? <div className="loaded-graph-explorer__overview" aria-label="Loaded graph summary">
         <span><strong>{nodes.length}</strong> subjects</span>
         <span><strong>{projection.summary.relationshipCount}</strong> connections</span>
@@ -115,6 +119,7 @@ export function LoadedGraphBrowser({ worldName, projection, projectionState, pro
             </> : <p>Select a node to inspect its summary and connections.</p>}
           </article>
         </div>}
+      </>}
     </dialog>
   </>;
 }

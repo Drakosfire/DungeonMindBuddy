@@ -8,7 +8,6 @@ from datetime import UTC, datetime, timedelta
 from dungeonmind.application.vnext import (
     EntityReadService,
     open_admitted_native_text,
-    open_native_text_source_access_context,
     publish_native_source_evidence_extension,
 )
 from dungeonmind.application.vnext.prospective import get_prospective_publication
@@ -35,8 +34,6 @@ from graph_memory.vnext.domain_runtime import (
     CAMPAIGN_SCOPE_AXIS,
     GM_LABEL,
     PLAYER_LABEL,
-    DungeonBuddyVNextProjectionInput,
-    build_dungeonbuddy_read_context,
 )
 
 PURPOSE = "dmb_source_statement_confirm_v1"
@@ -88,27 +85,7 @@ def semantic_digest(payload):
     return transport.digest({k: v for k, v in payload.items() if k != "proof"})
 
 
-def _context(repo, space, revision, campaign, role="gm", *, scope_mode="campaign"):
-    domain, profile = native.descriptors(repo, space, revision)
-    access = open_native_text_source_access_context(
-        repository=repo,
-        space_id=space,
-        revision_id=revision,
-        domain_contract=domain,
-        audience_labels=(GM_LABEL, PLAYER_LABEL) if role == "gm" else (PLAYER_LABEL,),
-    )
-    read = build_dungeonbuddy_read_context(
-        parsed_revision=access.parsed,
-        projection_input=DungeonBuddyVNextProjectionInput(
-            world_id=space,
-            revision_id=revision,
-            scope_mode=scope_mode,
-            campaign_id=campaign,
-            role=role,
-        ),
-        source_reader=access.source_view,
-    )
-    return read, access, domain, profile
+_context = native.read_context
 
 
 def _source(repo, space, access, proof, source_sha256, start, end, clause_sha256):
