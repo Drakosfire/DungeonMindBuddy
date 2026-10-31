@@ -25,6 +25,7 @@ it('uses the existing modal, loads native only on explicit demand and opens only
  fireEvent.click(screen.getByRole('button',{name:'Object 0'}));expect(await screen.findByText('belief · speculative · provisional')).toBeInTheDocument();expect(inspectNativeGraph).toHaveBeenCalledTimes(1);
  fireEvent.click(screen.getByRole('button',{name:'Read supporting source'}));expect(await screen.findByText(source.source.text)).toBeInTheDocument();
  expect(inspectNativeGraph).toHaveBeenLastCalledWith(scope,{kind:'source',assertion_id:'a0',evidence_ref_id:'ev'});
+ fireEvent.click(screen.getByRole('button',{name:'Object 0'}));expect(screen.getByText(source.source.text)).toBeInTheDocument();expect(screen.queryByText('Loading selected object…')).not.toBeInTheDocument();expect(inspectNativeGraph).toHaveBeenCalledTimes(2);
  fireEvent.click(screen.getByRole('button',{name:'Object 1'}));await screen.findByText('Object 1 · name: Object 1');expect(screen.queryByText(source.source.text)).not.toBeInTheDocument();
  fireEvent.click(screen.getByRole('button',{name:'Close graph'}));expect(screen.queryByRole('region',{name:'Reviewed Graph inspection'})).not.toBeInTheDocument();expect(JSON.stringify(packet)).toBe(original);
 });
@@ -43,4 +44,13 @@ it('discards a late selected detail',async()=>{
 it('distinguishes complete empty from unavailable authority and permits retry',async()=>{
  vi.mocked(getNativeGraphCatalog).mockRejectedValueOnce(new Error('Authority unavailable'));render(<NativeGraphInspection worldId="w"/>);expect(await screen.findByRole('alert')).toHaveTextContent('Authority unavailable');expect(screen.queryByText(/No reviewed objects/)).not.toBeInTheDocument();
  vi.mocked(getNativeGraphCatalog).mockResolvedValue({...packet,catalogue:{...packet.catalogue,entities:[]},assertions:[]});fireEvent.click(screen.getByRole('button',{name:'Refresh reviewed Graph'}));expect(await screen.findByText('No reviewed objects are available in this view.')).toBeInTheDocument();expect(screen.getByText(/0 objects/)).toBeInTheDocument();
+});
+
+it('retains a selected refusal on repeated click and recovers through explicit refresh',async()=>{
+ vi.mocked(inspectNativeGraph).mockRejectedValueOnce(new Error('Record unavailable'));
+ render(<NativeGraphInspection worldId="w"/>);await screen.findByText(/31 objects/);
+ fireEvent.click(screen.getByRole('button',{name:'Object 0'}));expect(await screen.findByRole('alert')).toHaveTextContent('Record unavailable');
+ fireEvent.click(screen.getByRole('button',{name:'Object 0'}));expect(screen.getByRole('alert')).toHaveTextContent('Record unavailable');expect(screen.queryByText('Loading selected object…')).not.toBeInTheDocument();expect(inspectNativeGraph).toHaveBeenCalledTimes(1);
+ fireEvent.click(screen.getByRole('button',{name:'Refresh reviewed Graph'}));await screen.findByText(/31 objects/);
+ fireEvent.click(screen.getByRole('button',{name:'Object 0'}));expect(await screen.findByText('belief · speculative · provisional')).toBeInTheDocument();expect(inspectNativeGraph).toHaveBeenCalledTimes(2);
 });

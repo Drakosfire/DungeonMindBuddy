@@ -59,7 +59,7 @@ export function NativeGraphInspection({worldId}:{worldId:string}) {
    <div className="loaded-graph-explorer__layout"><nav aria-label="Reviewed Graph objects">
     <label>Find an object<input type="search" value={query} onChange={e=>setQuery(e.target.value)}/></label>
     <ul>{nodes.map(n=><li key={n.entity_id}><button type="button" aria-current={selected===n.entity_id?'true':undefined}
-     onClick={()=>{setDetail(null);setDetailFailure(null);setSelected(n.entity_id);}}>{labels.get(n.entity_id)}</button></li>)}</ul>
+     onClick={()=>{if(selected===n.entity_id)return;setDetail(null);setDetailFailure(null);setSelected(n.entity_id);}}>{labels.get(n.entity_id)}</button></li>)}</ul>
     {!nodes.length?<p>{catalog.catalogue.entities.length?'No matching objects.':'No reviewed objects are available in this view.'}</p>:null}
    </nav><article aria-label="Reviewed object details">
     {!selected?<p>Select an object to inspect its records and sources.</p>:detailFailure?<p role="alert">{detailFailure}</p>:!detail?<p role="status">Loading selected object…</p>:<>
