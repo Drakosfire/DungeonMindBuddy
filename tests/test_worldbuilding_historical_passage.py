@@ -5,6 +5,7 @@ import sys
 
 import pytest
 import psycopg
+from graph_memory.source_span import source_span_index_to_dict
 
 from application_state.source.service import get_source_markdown
 from apps.live_control_server.services import graph_run_registry as runs
@@ -12,7 +13,6 @@ from apps.live_control_server.services import source_artifact_registry as inputs
 from apps.live_control_server.services import worldbuilding_source_span_read as reader
 from apps.live_control_server.services.source_artifact_registry import (
     create_source_artifact_from_workspace_document,
-    source_span_index_path,
 )
 from apps.live_control_server.services.workspace_document_registry import (
     create_workspace_document,
@@ -89,7 +89,8 @@ def fixture_source(root, monkeypatch):
     directory.mkdir(parents=True)
     original = (root / doc.target_relpath).read_bytes()
     (directory / "source.md").write_bytes(original)
-    index_bytes = source_span_index_path(root, artifact.source_artifact_id).read_bytes()
+    index_bytes = json.dumps(source_span_index_to_dict(
+        inputs.load_source_span_index(root, artifact.source_artifact_id)), indent=2, ensure_ascii=False).encode() + b"\n"
     (directory / "spans.json").write_bytes(index_bytes)
     return (
         doc,
@@ -161,7 +162,6 @@ def test_registered_historical_passage_after_real_save(
     # derived files, now carries the exact old passage and stable span IDs.
     (directory / "source.md").unlink()
     (directory / "spans.json").unlink()
-    source_span_index_path(tmp_path, artifact.source_artifact_id).unlink()
     (tmp_path / doc.target_relpath).unlink()
     assert open_span(tmp_path, artifact, span).content == "The tower watches the river."
     script = """
@@ -223,7 +223,6 @@ def test_missing_historical_snapshot_never_opens_current_text(
         )
     (directory / "source.md").unlink()
     (directory / "spans.json").unlink()
-    source_span_index_path(tmp_path, artifact.source_artifact_id).unlink()
     with pytest.raises(WorldGraphRetrievalError, match="missing from the database"):
         open_span(tmp_path, artifact, span)
 

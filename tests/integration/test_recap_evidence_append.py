@@ -112,6 +112,11 @@ def test_append_durable_child_fresh_read_retry_and_pc_proof(disposable_append_ap
         recap_text=source_bytes.decode("utf-8"),
     )
     span_path = source_span_index_path(tmp_path, artifact.source_artifact_id)
+    from apps.live_control_server.services.source_artifact_registry import load_source_span_index
+    from graph_memory.source_span import source_span_index_to_dict
+    span_path.parent.mkdir(parents=True, exist_ok=True)
+    span_path.write_text(json.dumps(source_span_index_to_dict(
+        load_source_span_index(tmp_path, artifact.source_artifact_id)), indent=2, ensure_ascii=False) + "\n")
     span_bytes = span_path.read_bytes()
     index = json.loads(span_bytes)
     span_by_line = {

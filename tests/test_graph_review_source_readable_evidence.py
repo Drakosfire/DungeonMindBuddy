@@ -129,7 +129,7 @@ def _worldbuilding_case(root: Path):
     )
     from apps.live_control_server.services.source_artifact_registry import (
         create_source_artifact_from_workspace_document,
-        source_span_index_path,
+        load_source_span_index,
     )
 
     (root / "corpus/longmont-c1-markdown").mkdir(parents=True)
@@ -170,10 +170,10 @@ def _worldbuilding_case(root: Path):
     # Current manual authoring resolves an exact extraction-run component, not
     # the registry's mutable canonical index. Give this verifier fixture a frozen copy.
     import json
-    from graph_memory.source_span import source_span_index_from_dict
-    canonical = source_span_index_path(root, artifact.source_artifact_id)
+    from graph_memory.source_span import source_span_index_from_dict, source_span_index_to_dict
+    canonical = load_source_span_index(root, artifact.source_artifact_id)
     frozen_index = root / "frozen-run-index.json"
-    frozen_index.write_bytes(canonical.read_bytes())
+    frozen_index.write_text(json.dumps(source_span_index_to_dict(canonical), indent=2, ensure_ascii=False) + "\n")
     resolved.source_span_index_path = frozen_index
     resolved.source_span_index_sha256 = sha256(frozen_index.read_bytes()).hexdigest()
     index = source_span_index_from_dict(json.loads(frozen_index.read_text()))

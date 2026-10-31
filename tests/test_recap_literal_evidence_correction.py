@@ -338,9 +338,11 @@ def test_recap_child_round_trips_real_disposable_run_registry(
     span_path = source_artifact_registry.source_span_index_path(
         tmp_path, artifact.source_artifact_id
     )
-    span = source_artifact_registry.load_source_span_index(
-        tmp_path, artifact.source_artifact_id
-    ).spans[0]
+    from graph_memory.source_span import source_span_index_to_dict
+    index = source_artifact_registry.load_source_span_index(tmp_path, artifact.source_artifact_id)
+    span_path.parent.mkdir(parents=True, exist_ok=True)
+    span_path.write_text(json.dumps(source_span_index_to_dict(index), indent=2, ensure_ascii=False) + "\n")
+    span = index.spans[0]
     payload = {
         "schema": "dmb_candidate_graph_preview_v0", "version": "0.1",
         "preview_id": "preview:recap-registry-test", "campaign_id": "c", "session_id": "s",

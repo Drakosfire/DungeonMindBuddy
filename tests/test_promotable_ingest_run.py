@@ -509,7 +509,7 @@ def test_resolve_carries_run_pinned_noncanonical_span_index_path(tmp_path: Path)
     assert resolved.source_span_index_path.name == "alt_source_span_index.json"
     assert resolved.source_span_index_sha256 == hashlib.sha256(resolved.source_span_index_path.read_bytes()).hexdigest()
     from apps.live_control_server.services.source_artifact_registry import (
-        source_span_index_path,
+        source_span_index_path, load_source_span_index,
     )
 
     canonical = source_span_index_path(repo, resolved.source_artifact_id)
@@ -521,7 +521,7 @@ def test_resolve_carries_run_pinned_noncanonical_span_index_path(tmp_path: Path)
         )["spans"]
     }
     canonical_ids = {
-        span["source_span_id"]
-        for span in json.loads(canonical.read_text(encoding="utf-8"))["spans"]
+        span.source_span_id
+        for span in load_source_span_index(repo, resolved.source_artifact_id).spans
     }
     assert pinned_ids.isdisjoint(canonical_ids)

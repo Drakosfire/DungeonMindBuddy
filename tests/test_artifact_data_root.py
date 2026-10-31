@@ -20,9 +20,10 @@ from apps.live_control_server.services.source_artifact_registry import (
     create_recap_source_artifact,
     get_source_artifact,
     load_registered_source_artifact_text,
-    source_span_index_path,
+    load_source_span_index,
 )
 from graph_memory.ingestion.extraction_run import ExtractionRun, ExtractionRunComponentRef
+from graph_memory.source_span import source_span_index_to_dict
 
 pytestmark = pytest.mark.usefixtures("application_state_dsn")
 
@@ -62,7 +63,7 @@ def _run(code, data, monkeypatch):
     )
     candidate = data / "out/graph_memory/runs/extraction/pinned/candidate_graph.json"
     candidate.parent.mkdir(parents=True)
-    index = json.loads(source_span_index_path(code, artifact.source_artifact_id).read_text())
+    index = source_span_index_to_dict(load_source_span_index(code, artifact.source_artifact_id))
     evidence = {
         "source_ref_id": index["source_ref_id"],
         "source_artifact_id": artifact.source_artifact_id,
@@ -95,9 +96,11 @@ def _run(code, data, monkeypatch):
             "unresolved_evidence_refs": 0, "missing_evidence_objects": 0, "warning_count": 0,
         },
     }))
+    span_path = candidate.parent / "source_span_index.json"
+    span_path.write_text(json.dumps(index, indent=2, ensure_ascii=False) + "\n")
     files = {
         "source_artifact": data / artifact.uri.removeprefix("repo://"),
-        "source_span_index": source_span_index_path(code, artifact.source_artifact_id),
+        "source_span_index": span_path,
         "candidate_graph": candidate,
     }
     components = {
@@ -335,7 +338,7 @@ def test_normal_workspace_commit_and_source_share_data_and_lock_owner(split_root
     assert load_registered_source_artifact_text(code, artifact.source_artifact_id)[1] == markdown
     resolve_worldbuilding_source_span(code, artifact.source_artifact_id)
     from apps.live_control_server.services.worldbuilding_source_span_read import read_admitted_worldbuilding_span
-    index = json.loads(source_span_index_path(code, artifact.source_artifact_id).read_text())
+    index = source_span_index_to_dict(load_source_span_index(code, artifact.source_artifact_id))
     result = read_admitted_worldbuilding_span(
         root=code, source_artifact_id=artifact.source_artifact_id,
         source_span_ref_id=index["spans"][-1]["source_span_id"],

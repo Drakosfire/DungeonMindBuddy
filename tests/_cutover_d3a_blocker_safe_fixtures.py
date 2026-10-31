@@ -297,8 +297,13 @@ def write_post_genesis_graph_review_run(repo: Path) -> str:
     artifact = create_source_artifact_from_workspace_document(
         repo, document_id=committed.document_id, expected_revision=committed.revision
     )
+    from apps.live_control_server.services.source_artifact_registry import load_source_span_index
+    from graph_memory.source_span import source_span_index_to_dict
     span_rel = source_span_index_relpath(artifact.source_artifact_id)
     span_path = repo / span_rel
+    span_path.parent.mkdir(parents=True, exist_ok=True)
+    span_path.write_text(json.dumps(source_span_index_to_dict(
+        load_source_span_index(repo, artifact.source_artifact_id)), indent=2, ensure_ascii=False) + "\n")
     span_index = json.loads(span_path.read_text(encoding="utf-8"))
     span_ref_id = str(span_index["spans"][0]["source_span_id"])
     run_dir = repo / "out" / "graph_memory" / "runs" / "extraction" / "d2c4"
@@ -841,11 +846,11 @@ def _write_reviewable_extraction_run(
     if campaign_id is None:
         # Register the campaignless input correctly at creation; immutable DB
         # descriptors/bodies must never be retargeted after registration.
-        from apps.live_control_server.services.source_artifact_registry import _upsert_source_artifact
+        from apps.live_control_server.services.source_artifact_registry import _register_source_input
         from graph_memory.evidence.source_artifact import GraphMemorySourceArtifact, build_worldbuilding_source_artifact_id
         content = source.read_text(encoding="utf-8")
         digest = hashlib.sha256(content.encode("utf-8")).hexdigest()
-        artifact = _upsert_source_artifact(repo, content=content, candidate=GraphMemorySourceArtifact(
+        artifact = _register_source_input(content=content, artifact=GraphMemorySourceArtifact(
             source_artifact_id=build_worldbuilding_source_artifact_id(
                 workspace_document_id=committed.document_id,
                 workspace_document_revision=committed.revision, content_sha256=digest),
@@ -862,8 +867,12 @@ def _write_reviewable_extraction_run(
         )
 
 
+    from apps.live_control_server.services.source_artifact_registry import load_source_span_index
     span_rel = source_span_index_relpath(artifact.source_artifact_id)
     span_path = repo / span_rel
+    span_path.parent.mkdir(parents=True, exist_ok=True)
+    span_path.write_text(json.dumps(source_span_index_to_dict(
+        load_source_span_index(repo, artifact.source_artifact_id)), indent=2, ensure_ascii=False) + "\n")
     span_index = json.loads(span_path.read_text(encoding="utf-8"))
     source_lines = source.read_text(encoding="utf-8").splitlines()
     span_ref_id = str(span_index["spans"][0]["source_span_id"])

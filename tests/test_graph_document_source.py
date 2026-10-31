@@ -221,17 +221,18 @@ def test_document_publication_ignores_denied_snapshot_files(case, monkeypatch, m
     body = case.root / source.sealed_source_uri.removeprefix('repo://')
     body.parent.mkdir(parents=True, exist_ok=True)
     index = source_span_index_path(case.root, source.source_artifact_id)
+    index.parent.mkdir(parents=True, exist_ok=True)
     if mirror == 'corrupt':
         body.write_text('not source authority')
         index.write_text('not span authority')
     elif mirror == 'missing':
-        index.unlink()
+        index.unlink(missing_ok=True)
     else:
         outside = case.root / 'untrusted'
         outside.mkdir()
         (outside / 'source.md').write_text('not source authority')
         body.symlink_to(outside / 'source.md')
-        index.unlink()
+        index.unlink(missing_ok=True)
         index.symlink_to(outside / 'source.md')
     original_open = Path.open
     def guarded(path, *args, **kwargs):

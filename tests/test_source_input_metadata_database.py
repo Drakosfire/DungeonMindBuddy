@@ -63,7 +63,7 @@ def test_atomic_failure_rolls_back_body_and_descriptor(tmp_path, monkeypatch, ap
 def test_idempotent_registration_keeps_frozen_metadata(source):
     root, artifact, text = source
     moved = artifact.model_copy(update={"uri": "file:///never-opened", "created_at": "later", "updated_at": "later"})
-    assert registry._upsert_source_artifact(root, candidate=moved, content=text) == artifact
+    assert registry._register_source_input(artifact=moved, content=text) == artifact
     assert registry.create_recap_source_artifact(root, world_id="input-world", campaign_id="input-campaign", session_id="session-1", recap_text=text) == artifact
 
 
@@ -72,14 +72,14 @@ def test_conflicting_input_never_overwrites_or_leaves_new_body(tmp_path, applica
     text = "Original\n"
     artifact = GraphMemorySourceArtifact(source_artifact_id="producer:exact:1", source_domain="worldbuilding", world_id="input-world", campaign_id="campaign",
         uri="historical:locator", content_sha256=hashlib.sha256(text.encode()).hexdigest(), workspace_document_id="doc-1", workspace_document_revision=1)
-    registry._upsert_source_artifact(tmp_path, candidate=artifact, content=text)
+    registry._register_source_input(artifact=artifact, content=text)
     updates = dict(change)
     new_text = text
     if "content_sha256" in updates:
         new_text = "Different\n"
         updates["content_sha256"] = hashlib.sha256(new_text.encode()).hexdigest()
     with pytest.raises(registry.SourceArtifactRegistryError):
-        registry._upsert_source_artifact(tmp_path, candidate=artifact.model_copy(update=updates), content=new_text)
+        registry._register_source_input(artifact=artifact.model_copy(update=updates), content=new_text)
     assert registry.get_source_artifact(tmp_path, artifact.source_artifact_id) == artifact
     with psycopg.connect(application_state_dsn) as conn:
         assert conn.execute("SELECT count(*) FROM source.revision WHERE source_artifact_id=%s", (artifact.source_artifact_id,)).fetchone()[0] == 1

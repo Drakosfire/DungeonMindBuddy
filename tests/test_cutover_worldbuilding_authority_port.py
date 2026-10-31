@@ -1735,7 +1735,7 @@ def test_two_registered_managed_worlds_publish_only_to_their_native_worlds(
     )
     from apps.live_control_server.services.source_artifact_registry import (
         get_source_artifact,
-        source_span_index_relpath,
+        load_source_span_index,
     )
     from apps.live_control_server.services.workspace_document_registry import (
         get_workspace_document,
@@ -1815,9 +1815,8 @@ def test_two_registered_managed_worlds_publish_only_to_their_native_worlds(
         resolved = resolve_promotable_ingest_run(run_id, root=repo)
         artifact = get_source_artifact(repo, resolved.source_artifact_id)
         marker = marker_by_managed[managed_id]
-        index = json.loads(
-            (repo / source_span_index_relpath(artifact.source_artifact_id)).read_text()
-        )
+        from graph_memory.source_span import source_span_index_to_dict
+        index = source_span_index_to_dict(load_source_span_index(repo, artifact.source_artifact_id))
         source_text = (repo / artifact.uri.removeprefix("repo://")).read_text()
         source_lines = source_text.splitlines()
         marker_span = next(

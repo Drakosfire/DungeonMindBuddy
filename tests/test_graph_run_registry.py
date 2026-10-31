@@ -19,12 +19,14 @@ from apps.live_control_server.services.source_artifact_registry import (
     create_source_artifact_from_workspace_document,
     get_source_artifact,
     resolve_worldbuilding_source_span,
+    load_source_span_index,
     source_span_index_relpath,
 )
 from apps.live_control_server.services.workspace_document_registry import (
     create_workspace_document,
     mark_workspace_document_committed,
 )
+from graph_memory.source_span import source_span_index_to_dict
 from graph_memory.ingestion.extraction_run import (
     ExtractionRunComponentKind,
     ExtractionRunComponentRef,
@@ -81,6 +83,9 @@ def _reviewable_components(root: Path, artifact, graph_payload: dict | None = No
     source_digest = hashlib.sha256(source_path.read_bytes()).hexdigest()
     span_rel = source_span_index_relpath(artifact.source_artifact_id)
     span_path = root / span_rel
+    span_path.parent.mkdir(parents=True, exist_ok=True)
+    span_path.write_text(json.dumps(source_span_index_to_dict(
+        load_source_span_index(root, artifact.source_artifact_id)), indent=2, ensure_ascii=False) + "\n")
     span_digest = hashlib.sha256(span_path.read_bytes()).hexdigest()
     graph_rel = "out/registries/test_candidate_graph.json"
     graph_path = root / graph_rel
@@ -188,12 +193,12 @@ def test_source_artifact_idempotent_and_collision_safe(tmp_path: Path) -> None:
 
     # The immutable input owner rejects registration with changed scope.
     from apps.live_control_server.services.source_artifact_registry import (
-        _upsert_source_artifact, load_registered_source_artifact_text,
+        _register_source_input, load_registered_source_artifact_text,
     )
     content = load_registered_source_artifact_text(tmp_path, first.source_artifact_id)[1]
     with pytest.raises(SourceArtifactRegistryError, match="identity does not match the persisted source") as exc:
-        _upsert_source_artifact(tmp_path, content=content,
-            candidate=first.model_copy(update={"campaign_id": "other-world"}))
+        _register_source_input(content=content,
+            artifact=first.model_copy(update={"campaign_id": "other-world"}))
     assert exc.value.status_code == 409
     assert get_source_artifact(tmp_path, first.source_artifact_id) == first
 

@@ -312,8 +312,13 @@ def _write_post_genesis_graph_review_run(repo: Path) -> str:
     artifact = create_source_artifact_from_workspace_document(
         repo, document_id=committed.document_id, expected_revision=committed.revision
     )
+    from apps.live_control_server.services.source_artifact_registry import load_source_span_index
+    from graph_memory.source_span import source_span_index_to_dict
     span_rel = source_span_index_relpath(artifact.source_artifact_id)
     span_path = repo / span_rel
+    span_path.parent.mkdir(parents=True, exist_ok=True)
+    span_path.write_text(json.dumps(source_span_index_to_dict(
+        load_source_span_index(repo, artifact.source_artifact_id)), indent=2, ensure_ascii=False) + "\n")
     span_index = json.loads(span_path.read_text(encoding="utf-8"))
     span_ref_id = str(span_index["spans"][0]["source_span_id"])
     run_dir = repo / "out" / "graph_memory" / "runs" / "extraction" / "d2c4"
