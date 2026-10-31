@@ -8,7 +8,9 @@ from uuid import UUID
 import psycopg
 from psycopg.rows import dict_row
 
-from application_state.content.types import WorkObject, WorkRevision, WorkingCopy
+from application_state.content.types import (
+    AuthoredPageObject, WorkObject, WorkRevision, WorkingCopy, _StoredContentObject,
+)
 from application_state.errors import ApplicationStateIntegrityError
 
 _WORK_OBJECT_COLUMNS = """
@@ -21,11 +23,12 @@ def _now() -> datetime:
     return datetime.now(UTC)
 
 
-def _work_object_from_row(row: dict) -> WorkObject:
-    return WorkObject.model_validate(row)
+def _work_object_from_row(row: dict) -> _StoredContentObject:
+    model = AuthoredPageObject if row["kind"] == "worldbuilding_source" else WorkObject
+    return model.model_validate(row)
 
 
-def insert_work_object(conn: psycopg.Connection, obj: WorkObject) -> WorkObject:
+def insert_work_object(conn: psycopg.Connection, obj: _StoredContentObject) -> _StoredContentObject:
     conn.execute(
         f"""
         INSERT INTO content.work_object ({_WORK_OBJECT_COLUMNS})
@@ -45,7 +48,7 @@ def insert_work_object(conn: psycopg.Connection, obj: WorkObject) -> WorkObject:
 
 def get_work_object(
     conn: psycopg.Connection, work_object_id: UUID
-) -> WorkObject | None:
+) -> _StoredContentObject | None:
     with conn.cursor(row_factory=dict_row) as cur:
         cur.execute(
             f"SELECT {_WORK_OBJECT_COLUMNS} FROM content.work_object WHERE work_object_id = %s",
@@ -57,7 +60,7 @@ def get_work_object(
 
 def lock_work_object(
     conn: psycopg.Connection, work_object_id: UUID
-) -> WorkObject | None:
+) -> _StoredContentObject | None:
     with conn.cursor(row_factory=dict_row) as cur:
         cur.execute(
             f"""
@@ -79,7 +82,7 @@ def list_work_objects(
     campaign_id: str | None = None,
     world_id: str | None = None,
     status: str | None = "active",
-) -> list[WorkObject]:
+) -> list[_StoredContentObject]:
     if campaign_id is not None and world_id is not None:
         raise ValueError("campaign_id and world_id are mutually exclusive scopes")
     clauses = ["kind = %s"]
@@ -88,7 +91,9 @@ def list_work_objects(
         clauses.append("status = %s")
         params.append(status)
     if world_id is not None:
-        clauses.extend(["world_id = %s", "campaign_id IS NULL"])
+        clauses.append("world_id = %s")
+        if kind != "worldbuilding_source":
+            clauses.append("campaign_id IS NULL")
         params.append(world_id)
     else:
         # V1 inventories remain campaign-owned, including the unfiltered legacy
@@ -112,10 +117,10 @@ def list_work_objects(
 
 def update_work_object(
     conn: psycopg.Connection,
-    obj: WorkObject,
+    obj: _StoredContentObject,
     *,
     expected_object_revision: int,
-) -> WorkObject | None:
+) -> _StoredContentObject | None:
     with conn.cursor(row_factory=dict_row) as cur:
         cur.execute(
             f"""
