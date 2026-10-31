@@ -342,6 +342,8 @@ def _admit_confirmable_recap_source(
     source_artifact: Any | None,
     source_admission: Any | None,
     candidate_digest: str,
+    source_body: bytes | None,
+    expected_head_revision_id: str,
 ) -> AdmittedSourceIdentity:
     if not source_artifact_id or not verified_revision_id or not source_uri:
         raise CandidateAdmissionNotConfirmableError(
@@ -351,13 +353,16 @@ def _admit_confirmable_recap_source(
     _scope_check_recap_source_artifact(
         artifact, world_id=world_id, campaign_id=campaign_id
     )
+    if not isinstance(source_body, bytes):
+        raise CandidateAdmissionNotConfirmableError("confirmable source admission requires exact source bytes")
     request = WorldGraphSourceAdmissionRequest(
         world_id=world_id,
         campaign_id=campaign_id,
         source_artifact=artifact,
         source_revision_token=verified_revision_id,
         source_uri=source_uri,
-        verified_input_sha256=verified_revision_id.removeprefix("sha256:"),
+        source_body=source_body,
+        expected_head_revision_id=expected_head_revision_id,
     )
     try:
         return _source_admission_authority(source_admission).prove_or_admit(request)
@@ -392,7 +397,8 @@ def _seal_source_admission(
 
 
 def prepare_candidate_graph_admission(
-    *, candidate_graph: Mapping[str, Any], **prepare_kwargs: Any
+    *, candidate_graph: Mapping[str, Any], source_body: bytes | None = None,
+    **prepare_kwargs: Any
 ) -> ExtractPromotePrepareResult:
     """Prepare and seal one exact candidate against one pinned parent."""
     source_admission = prepare_kwargs.pop("source_admission", None)
@@ -506,6 +512,8 @@ def prepare_candidate_graph_admission(
             ).strip(),
             source_artifact=source_artifact,
             source_admission=source_admission,
+            source_body=source_body,
+            expected_head_revision_id=result.parent_revision_id,
             candidate_digest=digest,
         )
         if admitted.source_locator and admitted.source_locator != str(

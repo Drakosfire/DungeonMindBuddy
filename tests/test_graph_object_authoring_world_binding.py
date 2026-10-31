@@ -26,6 +26,10 @@ def case(tmp_path, monkeypatch):
     monkeypatch.setenv(GRAPH_REVIEW_PREPARE_BINDING_KEY_ENV, 'synthetic-world-binding-key')
     text = 'Mara keeps the copper bell.\n'
     (tmp_path / 'source.md').write_text(text)
+    monkeypatch.setattr(
+        "apps.live_control_server.services.source_artifact_registry.load_source_input_bytes",
+        lambda original: text.encode(),
+    )
     digest = hashlib.sha256(text.encode()).hexdigest()
     resolved = fake_resolved_source()
     artifact = resolved.source_artifact
@@ -84,6 +88,8 @@ def test_managed_source_native_publication_and_exact_retry(case):
     transport = c.admission.prove_or_admit.call_args.args[0]
     assert transport.world_id == c.binding.native_world_id
     assert transport.campaign_id is None
+    assert transport.source_body == b"Mara keeps the copper bell.\n"
+    assert transport.expected_head_revision_id == "rev:d0"
     assert transport.source_artifact.world_id == c.binding.native_world_id
     assert transport.source_artifact.campaign_id is None
     assert vars(c.artifact) == original

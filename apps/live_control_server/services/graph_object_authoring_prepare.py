@@ -1565,6 +1565,7 @@ def prove_or_admit_graph_review_source(
     world_id: str,
     campaign_id: str,
     resolved_source: Any,
+    expected_head_revision_id: str,
     source_admission: Any | None = None,
     publication_context: Any | None = None,
 ) -> tuple[str, str]:
@@ -1583,14 +1584,22 @@ def prove_or_admit_graph_review_source(
                         if publication_context and publication_context.binding else world_id),
         authored_campaign=campaign_id,
     )
+    from apps.live_control_server.services.source_artifact_registry import (
+        load_source_input_bytes, SourceArtifactRegistryError,
+    )
+    try:
+        source_body = load_source_input_bytes(artifact)
+    except SourceArtifactRegistryError as exc:
+        raise GraphObjectAuthoringError(str(exc), code="source_inadmissible",
+                                        status_code=exc.status_code) from exc
     admission = source_admission or get_world_graph_source_admission_authority()
     request = WorldGraphSourceAdmissionRequest(
         world_id=world_id,
         campaign_id=(publication_context.campaign_scope if publication_context else campaign_id),
         source_artifact=(publication_context.transport_artifact(artifact) if publication_context else artifact),
         source_revision_token=str(getattr(resolved_source, "source_revision_id")),
-        verified_input_sha256=(publication_context.binding["source_sha256"]
-                               if publication_context and publication_context.binding else None),
+        source_body=source_body,
+        expected_head_revision_id=expected_head_revision_id,
         source_uri=getattr(resolved_source, "sealed_source_uri", None)
         or getattr(artifact, "uri", None),
     )
@@ -1767,6 +1776,7 @@ def prepare_graph_object_authoring_write(
             resolved_source=resolved,
             source_admission=source_admission,
             publication_context=context,
+            expected_head_revision_id=expected_parent,
         )
         from apps.live_control_server.integrations.dungeonmind.world_graph_writes import (
             graph_review_authority_operation_id,

@@ -2,7 +2,7 @@
 
 Maps Buddy SourceArtifact + revision token onto SourceArtifactV2 + SourceRevision
 using the already-landed mapping family and catalog-aware collision derivation,
-then delegates catalog pair validation/comparison to DungeonMind admission.
+then delegates catalog proof and atomic new-pair admission to DungeonMind.
 PostgreSQL stays inside this adapter. No new DungeonMind command or UoW.
 
 This module must be importable without ``world_graph_writes``,
@@ -210,12 +210,14 @@ def _require_database_url(database_url: str | None) -> str:
 
 def _map_provider_error(exc: BaseException) -> WorldGraphSourceAdmissionError:
     from dungeonmind.domain.errors import (
+        HeadNotFoundError,
         IdempotencyConflictError,
         PersistenceIntegrityError,
+        StaleParentRevisionError,
         PersistenceUnavailableError,
     )
 
-    if isinstance(exc, IdempotencyConflictError):
+    if isinstance(exc, (IdempotencyConflictError, HeadNotFoundError, StaleParentRevisionError, ValueError)):
         return WorldGraphSourceAdmissionError(
             str(exc),
             code="source_identity_conflict",
@@ -288,13 +290,6 @@ def _map_buddy_source(
             "Graph Review source revision digest is not a sha256 hex",
             code="inexpressible",
             details={"source_revision_token": buddy_token},
-        )
-    if request.verified_input_sha256 is not None and (
-        _hex_digest(request.verified_input_sha256) != digest
-    ):
-        raise WorldGraphSourceAdmissionError(
-            "Verified input bytes differ from the requested source revision.",
-            code="source_identity_conflict",
         )
     locator = (request.source_uri or getattr(artifact, "uri", None) or "").strip()
     if not locator:
@@ -370,7 +365,7 @@ def _match_existing_pair(
     try:
         pair = match_admitted_source_revision(
             artifact=mapped_artifact, revision=mapped_revision,
-            verified_input_sha256=request.verified_input_sha256,
+            verified_input_sha256=hashlib.sha256(request.source_body).hexdigest(),
             source_repository=sources,
         )
     except Exception as exc:
@@ -386,9 +381,11 @@ class DungeonMindWorldGraphSourceAdmissionAdapter:
         *,
         database_url: str | None = None,
         sources: Any | None = None,
+        world_graph: Any | None = None,
     ) -> None:
         self._database_url = database_url
         self._sources = sources
+        self._world_graph = world_graph
 
     def _source_repository(self) -> Any:
         if self._sources is not None:
@@ -396,10 +393,16 @@ class DungeonMindWorldGraphSourceAdmissionAdapter:
         dsn = _require_database_url(self._database_url)
         return _open_repository_bundle(dsn).sources
 
+    def _admission_repositories(self) -> tuple[Any, Any]:
+        if self._sources is not None:
+            return self._sources, self._world_graph
+        bundle = _open_repository_bundle(_require_database_url(self._database_url))
+        return bundle.sources, bundle.world_graph
+
     def prove_or_admit(
         self, request: WorldGraphSourceAdmissionRequest
     ) -> AdmittedSourceIdentity:
-        sources = self._source_repository()
+        sources, world_graph = self._admission_repositories()
         dm_artifact, revision, buddy_token = _map_buddy_source(request, sources)
         if (
             dm_artifact.world_id != request.world_id
@@ -415,16 +418,35 @@ class DungeonMindWorldGraphSourceAdmissionAdapter:
         )
         if identity is not None:
             return identity
-        try:
-            sources.put_artifact(dm_artifact)
-            sources.put_revision(revision)
-        except Exception as exc:
-            identity = _match_existing_pair(
-                sources, request=request, mapped_artifact=dm_artifact,
-                mapped_revision=revision, buddy_token=buddy_token,
+        if world_graph is None:
+            raise WorldGraphSourceAdmissionError(
+                "Atomic source admission requires its World Graph repository.",
+                code="authority_unavailable",
             )
-            if identity is not None:
-                return identity
+        from dungeonmind.application.source_admission import (
+            admit_source_revision,
+            source_admission_command_sha256,
+        )
+
+        try:
+            command_sha256 = source_admission_command_sha256(
+                world_id=request.world_id,
+                expected_head_revision_id=request.expected_head_revision_id,
+                artifact=dm_artifact,
+                revision=revision,
+            )
+            admit_source_revision(
+                world_id=request.world_id,
+                admission_id=f"admission:buddy:{command_sha256}",
+                expected_head_revision_id=request.expected_head_revision_id,
+                artifact=dm_artifact,
+                revision=revision,
+                source_body=request.source_body,
+                admitted_at=datetime.now(UTC),
+                world_graph_repository=world_graph,
+                source_repository=sources,
+            )
+        except Exception as exc:
             raise _map_provider_error(exc) from exc
         identity = _match_existing_pair(
             sources, request=request, mapped_artifact=dm_artifact,

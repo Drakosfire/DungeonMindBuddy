@@ -191,13 +191,16 @@ def prepare_source_proven_endpoints(
         }
         for row in proof["subjects"]
     }
+    from apps.live_control_server.services.source_artifact_registry import load_source_input_bytes
+    artifact = get_source_artifact(root, resolved.source_artifact_id)
     result = prepare_candidate_graph_admission(
         candidate_graph=raw,
+        source_body=load_source_input_bytes(artifact),
         source_uri=resolved.sealed_source_uri,
         source_revision_id=resolved.source_revision_id,
         world_id=target.native_world_id,
         source_artifact_id=resolved.source_artifact_id,
-        source_artifact=get_source_artifact(root, resolved.source_artifact_id),
+        source_artifact=artifact,
         campaign_scope=resolved.campaign_id,
         extraction_profile=resolved.extraction_profile,
         prepared_by="service:buddy:source-endpoint-prepare",

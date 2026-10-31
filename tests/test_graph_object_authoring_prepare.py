@@ -181,6 +181,10 @@ def graph_review_unit_seams(monkeypatch: pytest.MonkeyPatch) -> FakeSourceAdmiss
         "apps.live_control_server.services.graph_object_authoring_binding.resolve_publication_context",
         lambda request, resolved, **_: GraphReviewPublicationContext(request.world_id or request.campaign_id, request.campaign_id),
     )
+    monkeypatch.setattr(
+        "apps.live_control_server.services.source_artifact_registry.load_source_input_bytes",
+        lambda artifact: b"Synthetic proposal unit-test body",
+    )
     fake = FakeSourceAdmission()
     monkeypatch.setattr(
         "apps.live_control_server.ports.world_graph_source_admission_access.get_world_graph_source_admission_authority",

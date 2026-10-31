@@ -176,11 +176,12 @@ def observation_case(tmp_path,monkeypatch,application_state_dsn,request):
     resolved=resolve_promotable_ingest_run(run_id,root=tmp_path)
     context=writes.load_production_mutation_context(world)
     result=prepare_candidate_graph_admission(
+        source_body=paths["source_artifact"].read_bytes(),
         candidate_graph=raw,source_uri=resolved.sealed_source_uri,source_revision_id="sha256:"+artifact.content_sha256,
         world_id=world,source_artifact_id=artifact.source_artifact_id,source_artifact=artifact,
         campaign_scope="longmont-c2",extraction_profile="recap_category_v1@1.0",
         repo_root=tmp_path,candidate_graph_path=str(candidate),prepared_by="test:producer",
-        mutation_context=context,source_admission=DungeonMindWorldGraphSourceAdmissionAdapter(sources=bundle.sources))
+        mutation_context=context,source_admission=DungeonMindWorldGraphSourceAdmissionAdapter(sources=bundle.sources, world_graph=bundle.world_graph))
     package=writes.bind_identity_ledger_to_package(result.review_package,context)
     package=extract_promote._seal_publication_target(package,binding)
     assert package["effect"]["accepted_proposals"], json.dumps(package["effect"]["candidate_admission"]["dispositions"])

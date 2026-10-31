@@ -781,6 +781,8 @@ def _admit_and_confirm(
     source_admission = None if seams.prepare_admission is not None else _source_admission_authority(dsn=dsn)
     prepare_kwargs = dict(
         candidate_graph=candidate_graph,
+        # Explicit frozen replay input; native admission verifies its actual bytes.
+        source_body=(repo_root / entry.original_path).read_bytes(),
         source_uri=source_uri,
         source_revision_id=source_revision_id,
         prepared_by=OPERATOR,

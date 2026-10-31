@@ -62,7 +62,7 @@ from graph_memory.worldbuilding_write_plan import (
     verify_worldbuilding_write_plan,
 )
 
-from apps.live_control_server.services.source_artifact_registry import get_source_artifact, SourceArtifactRegistryError
+from apps.live_control_server.services.source_artifact_registry import get_source_artifact, load_source_input_bytes, SourceArtifactRegistryError
 from apps.live_control_server.services.workspace_document_registry import get_workspace_document, WorkspaceDocumentRegistryError
 from apps.live_control_server.services.managed_world_graph_projection import resolve_managed_world_binding, WorldGraphProjectionServiceError
 
@@ -111,7 +111,7 @@ def _world_scoped_preview(preview, binding):
     return replace(preview, campaign_id=None)
 
 
-def _prepare_source_admission(resolved, binding):
+def _prepare_source_admission(resolved, binding, *, expected_head_revision_id):
     from apps.live_control_server.ports.world_graph_source_admission import (
         WorldGraphSourceAdmissionRequest, WorldGraphSourceAdmissionError,
     )
@@ -122,7 +122,12 @@ def _prepare_source_admission(resolved, binding):
     if artifact.campaign_id not in (None, "", binding.managed_world_id):
         raise ExtractPromoteError("Build source has genuine campaign ownership",
                                  code="worldbuilding_source_binding_changed", status_code=409)
-    digest = hashlib.sha256(resolved.normalized_recap_path.read_bytes()).hexdigest()
+    try:
+        source_body = load_source_input_bytes(artifact)
+    except SourceArtifactRegistryError as exc:
+        raise ExtractPromoteError(str(exc), code="worldbuilding_source_binding_changed",
+                                  status_code=exc.status_code) from exc
+    digest = hashlib.sha256(source_body).hexdigest()
     if digest != binding.source_sha256:
         raise ExtractPromoteError("Frozen source digest changed",
                                  code="worldbuilding_source_binding_changed", status_code=409)
@@ -135,7 +140,8 @@ def _prepare_source_admission(resolved, binding):
             WorldGraphSourceAdmissionRequest(
                 world_id=binding.native_world_id, campaign_id=None,
                 source_artifact=transport, source_revision_token=resolved.source_revision_id,
-                source_uri=resolved.sealed_source_uri, verified_input_sha256=digest,
+                source_uri=resolved.sealed_source_uri, source_body=source_body,
+                expected_head_revision_id=expected_head_revision_id,
             )
         )
         result = WorldbuildingSourceAdmissionBinding.model_validate(asdict(identity))
@@ -832,7 +838,9 @@ def prepare_worldbuilding(
             status_code=500,
             diagnostics=[_diagnostic("plan_verification_failed", str(exc))],
         ) from exc
-    admitted = _prepare_source_admission(resolved, publication_binding)
+    admitted = _prepare_source_admission(
+        resolved, publication_binding, expected_head_revision_id=plan.parent_revision_id,
+    )
     if _registered_publication_binding(resolved) != publication_binding:
         raise ExtractPromoteError("World binding changed after source admission",
                                  code="worldbuilding_source_binding_changed", status_code=409)
