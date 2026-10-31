@@ -1,5 +1,4 @@
-"""File-backed managed World identity, ownership, and access registry."""
-
+"""Managed World metadata and product access policy over the APP catalog."""
 from __future__ import annotations
 
 import re
@@ -9,30 +8,18 @@ from typing import Literal
 from pydantic import BaseModel, ConfigDict, Field
 
 from application_state.errors import ApplicationStateError
-from application_state.world_catalog.service import (
-    _new_world_record,
-    _world_id_for_owner,
-    derive_world_id_from_name,
-    display_world_name,
-    normalize_world_name_for_compare,
-    world_source_root_relpath,
-)
+from application_state.world_catalog import service as catalog
+from application_state.world_catalog.service import StoredWorld, normalize_world_name_for_compare
 from application_state.world_catalog.types import (
-    LEGACY_REGISTRY_SCHEMA, LEGACY_RECORD_SCHEMA, V2_REGISTRY_SCHEMA, V2_RECORD_SCHEMA,
-    REGISTRY_SCHEMA, RECORD_SCHEMA, PUBLIC_REGISTRY_SCHEMA, PUBLIC_RECORD_SCHEMA,
-    WorldPermission, WorldAccessGrant, NativeGraphBindingRecord as NativeGraphBindingRecord, NativeGraphProvisioningRecord as NativeGraphProvisioningRecord,
-    WorldContainerRecord, WorldContainerRegistryDocument,
+    REGISTRY_SCHEMA as REGISTRY_SCHEMA, RECORD_SCHEMA as RECORD_SCHEMA,
+    PUBLIC_REGISTRY_SCHEMA, PUBLIC_RECORD_SCHEMA,
+    WorldPermission, WorldAccessGrant,
+    NativeGraphBindingRecord as NativeGraphBindingRecord,
+    NativeGraphProvisioningRecord as NativeGraphProvisioningRecord,
+    WorldContainerRecord, WorldContainerRegistryDocument as WorldContainerRegistryDocument,
     _PERMISSION_ORDER, _DELEGABLE_WORLD_PERMISSIONS, _validate_subject,
 )
 
-from apps.live_control_server.services.registry_file_lock import (
-    registry_mutation_lock,
-    registry_token,
-)
-from src.live_play.live_store import load_json, write_json
-
-DEFAULT_REGISTRY_REL = "out/registries/world_containers.json"
-# Must stay aligned with workspace_document_registry._SAFE_WORLD_ID_RE.
 _SAFE_WORLD_ID_RE = re.compile(r"^[a-z][a-z0-9_-]{0,62}$")
 
 
@@ -113,112 +100,46 @@ class CreateWorldContainerRequest(BaseModel):
     name: str
 
 
-def world_containers_path(root: Path) -> Path:
-    return root / DEFAULT_REGISTRY_REL
-
-
 def _validate_world_id(world_id: str) -> str:
     cleaned = world_id.strip()
     if not cleaned or not _SAFE_WORLD_ID_RE.fullmatch(cleaned):
-        raise WorldContainerRegistryError(
-            "world_id must match ^[a-z][a-z0-9_-]{0,62}$",
-            status_code=422,
-        )
+        raise WorldContainerRegistryError("world_id must match ^[a-z][a-z0-9_-]{0,62}$", status_code=422)
     return cleaned
 
 
-def _load_unlocked(root: Path) -> tuple[WorldContainerRegistryDocument, str]:
-    path = world_containers_path(root)
-    token = registry_token(path)
-    if not path.is_file():
-        return WorldContainerRegistryDocument(), token
-    try:
-        document = WorldContainerRegistryDocument.model_validate(load_json(path))
-        if document.schema_version in {LEGACY_REGISTRY_SCHEMA, V2_REGISTRY_SCHEMA}:
-            if document.schema_version == LEGACY_REGISTRY_SCHEMA and any(
-                record.native_graph_binding is not None for record in document.records
-            ):
-                raise ValueError("v1 registry cannot contain native Graph bindings")
-            expected_record_schema = (
-                LEGACY_RECORD_SCHEMA
-                if document.schema_version == LEGACY_REGISTRY_SCHEMA
-                else V2_RECORD_SCHEMA
-            )
-            if any(record.schema_version != expected_record_schema for record in document.records):
-                raise ValueError("registry contains a record with a mismatched schema")
-            # Legacy records remain unowned. Reads normalize only in memory;
-            # the original bytes are preserved until an authorized mutation.
-            records = [
-                record.model_copy(
-                    update={
-                        "schema_version": RECORD_SCHEMA,
-                        "owner_subject": None,
-                        "access_grants": [],
-                    }
-                )
-                for record in document.records
-            ]
-            document = WorldContainerRegistryDocument(
-                schema_version=REGISTRY_SCHEMA,
-                records=records,
-            )
-        elif document.schema_version == REGISTRY_SCHEMA and any(
-            record.schema_version != RECORD_SCHEMA for record in document.records
-        ):
-            raise ValueError("v3 registry contains a non-v3 WorldContainerRecord")
-    except (TypeError, ValueError) as exc:
-        raise WorldContainerRegistryError(
-            "malformed world container registry",
-            status_code=500,
-        ) from exc
-    return document, token
+def _catalog_error(exc: ApplicationStateError) -> WorldContainerRegistryError:
+    message = str(exc) if exc.status_code < 500 else (
+        "World storage is unavailable." if exc.status_code == 503 else "Stored World metadata is invalid."
+    )
+    return WorldContainerRegistryError(message, status_code=exc.status_code)
 
 
-def _save_cas(
-    root: Path,
-    document: WorldContainerRegistryDocument,
-    *,
-    expected_token: str,
-) -> Path:
-    path = world_containers_path(root)
-    path.parent.mkdir(parents=True, exist_ok=True)
-    current = registry_token(path)
-    if current != expected_token:
-        raise WorldContainerRegistryError(
-            "world container registry changed concurrently",
-            status_code=409,
-        )
+def _stored_world(world_id: str) -> StoredWorld:
+    cleaned = _validate_world_id(world_id)
     try:
-        write_json(path, document.model_dump(mode="json"))
-    except (OSError, TypeError, ValueError) as exc:
-        raise WorldContainerRegistryError(
-            f"failed to persist world container registry: {exc}",
-            status_code=500,
-        ) from exc
-    return path
+        stored = catalog.get_world(cleaned)
+    except ApplicationStateError as exc:
+        raise _catalog_error(exc) from exc
+    if stored is None:
+        raise WorldContainerRegistryError(f"world container not found: {cleaned}", status_code=404)
+    return stored
 
 
 def list_world_containers(root: Path) -> list[WorldContainerRecord]:
-    records = list(_load_unlocked(root)[0].records)
-    records.sort(key=lambda row: (row.name.casefold(), row.world_id))
-    return records
+    del root  # Artifact paths cannot select a different metadata catalog.
+    try:
+        records = [stored.record for stored in catalog.list_worlds()]
+    except ApplicationStateError as exc:
+        raise _catalog_error(exc) from exc
+    return sorted(records, key=lambda record: (record.name.casefold(), record.world_id))
 
 
 def get_world_container(root: Path, world_id: str) -> WorldContainerRecord:
-    cleaned = _validate_world_id(world_id)
-    document, _token = _load_unlocked(root)
-    record = next((r for r in document.records if r.world_id == cleaned), None)
-    if record is None:
-        raise WorldContainerRegistryError(
-            f"world container not found: {cleaned}",
-            status_code=404,
-        )
-    return record
+    del root
+    return _stored_world(world_id).record
 
 
-def find_world_container_by_normalized_name(
-    root: Path, name: str
-) -> WorldContainerRecord | None:
+def find_world_container_by_normalized_name(root: Path, name: str) -> WorldContainerRecord | None:
     needle = normalize_world_name_for_compare(name)
     if not needle:
         return None
@@ -228,109 +149,13 @@ def find_world_container_by_normalized_name(
     return None
 
 
-def _best_effort_remove_empty_root(path: Path) -> None:
+def create_world_container(root: Path, *, name: str, owner_subject: str | None = None) -> WorldContainerRecord:
+    """Create/reconcile exact metadata and reservation; never adopt a directory."""
+    del root
     try:
-        if path.is_dir() and not any(path.iterdir()):
-            path.rmdir()
-    except OSError:
-        return
-
-
-def create_world_container(
-    root: Path, *, name: str, owner_subject: str | None = None
-) -> WorldContainerRecord:
-    """Create or reconcile one managed world container + source root.
-
-    Idempotent per owner and normalized name (or per unowned local-mode
-    record). Fails closed on identity/path collisions and never silently
-    adopts unmanaged directories.
-    """
-    try:
-        display = display_world_name(name)
-        owner_subject = _validate_subject(owner_subject)
-        base_world_id = derive_world_id_from_name(display)
-        compare_name = normalize_world_name_for_compare(display)
+        return catalog.create_world(name=name, owner_subject=owner_subject).record
     except ApplicationStateError as exc:
-        raise WorldContainerRegistryError(str(exc), status_code=exc.status_code) from exc
-
-    path = world_containers_path(root)
-    created_root = False
-    with registry_mutation_lock(path):
-        document, token = _load_unlocked(root)
-
-        try:
-            world_id = _world_id_for_owner(
-                document.records,
-                base_world_id=base_world_id,
-                owner_subject=owner_subject,
-                compare_name=compare_name,
-            )
-        except ApplicationStateError as exc:
-            raise WorldContainerRegistryError(str(exc), status_code=exc.status_code) from exc
-        existing = next((record for record in document.records if record.world_id == world_id), None)
-        if existing is not None:
-            # Reconcile only the exact creator identity (or legacy local mode);
-            # a matching display name never adopts an unowned or other user's World.
-            if existing.owner_subject != owner_subject:
-                raise WorldContainerRegistryError("That world already exists.", status_code=409)
-            existing_root = root / existing.source_root_relpath
-            if not existing_root.is_dir():
-                raise WorldContainerRegistryError(
-                    "Could not create the world.",
-                    status_code=500,
-                )
-            return existing
-
-        source_root_rel = world_source_root_relpath(world_id)
-        source_root = root / source_root_rel
-
-        if source_root.exists():
-            raise WorldContainerRegistryError(
-                "That world already exists.",
-                status_code=409,
-            )
-
-        try:
-            source_root.mkdir(parents=True, exist_ok=False)
-            created_root = True
-        except FileExistsError as exc:
-            raise WorldContainerRegistryError(
-                "That world already exists.",
-                status_code=409,
-            ) from exc
-        except OSError as exc:
-            raise WorldContainerRegistryError(
-                "Could not create the world.",
-                status_code=500,
-            ) from exc
-
-        record = _new_world_record(world_id, name=display, owner_subject=owner_subject)
-        document.records.append(record)
-        try:
-            _save_cas(root, document, expected_token=token)
-        except WorldContainerRegistryError:
-            if created_root:
-                _best_effort_remove_empty_root(source_root)
-            raise
-        except Exception:
-            if created_root:
-                _best_effort_remove_empty_root(source_root)
-            raise
-
-        return record
-
-
-def _world_record_or_deny(
-    document: WorldContainerRegistryDocument, world_id: str
-) -> WorldContainerRecord:
-    try:
-        cleaned = _validate_world_id(world_id)
-    except (TypeError, AttributeError, WorldContainerRegistryError) as exc:
-        raise WorldAccessDenied("World access denied") from exc
-    record = next((row for row in document.records if row.world_id == cleaned), None)
-    if record is None:
-        raise WorldAccessDenied("World access denied")
-    return record
+        raise _catalog_error(exc) from exc
 
 
 def require_world_permission(
@@ -366,25 +191,15 @@ def require_world_permission(
 
 
 def authorize_world_access(
-    root: Path,
-    world_id: str,
-    *,
-    subject: str | None,
-    permission: WorldPermission | str,
-    resource_world_id: str | None = None,
+    root: Path, world_id: str, *, subject: str | None,
+    permission: WorldPermission | str, resource_world_id: str | None = None,
 ) -> WorldContainerRecord:
-    """Load and check access, collapsing missing and unauthorized Worlds."""
     try:
-        document, _token = _load_unlocked(root)
-        record = _world_record_or_deny(document, world_id)
-    except WorldContainerRegistryError as exc:
+        record = get_world_container(root, world_id)
+    except (TypeError, AttributeError, WorldContainerRegistryError) as exc:
         raise WorldAccessDenied("World access denied") from exc
-    return require_world_permission(
-        record,
-        subject=subject,
-        permission=permission,
-        resource_world_id=resource_world_id,
-    )
+    return require_world_permission(record, subject=subject, permission=permission,
+                                    resource_world_id=resource_world_id)
 
 
 def _requested_permissions(
@@ -433,60 +248,23 @@ def _prune_delegated_grants(record: WorldContainerRecord) -> WorldContainerRecor
     return record.model_copy(update={"access_grants": grants})
 
 
-def _persist_access_record(
-    root: Path,
-    document: WorldContainerRegistryDocument,
-    record: WorldContainerRecord,
-    *,
-    expected_token: str,
-) -> WorldContainerRecord:
-    record = record.model_copy(
-        update={
-            "access_grants": sorted(record.access_grants, key=lambda grant: grant.subject)
-        }
-    )
-    updated_records = [
-        record if row.world_id == record.world_id else row for row in document.records
-    ]
-    next_document = WorldContainerRegistryDocument(
-        schema_version=REGISTRY_SCHEMA,
-        records=updated_records,
-    )
-    _save_cas(root, next_document, expected_token=expected_token)
-    return record
-
-
 def grant_world_access(
-    root: Path,
-    world_id: str,
-    *,
-    actor_subject: str | None,
-    subject: str,
+    root: Path, world_id: str, *, actor_subject: str | None, subject: str,
     permissions: tuple[WorldPermission | str, ...] | list[WorldPermission | str],
 ) -> WorldContainerRecord:
-    """Create or replace an explicit grant under the registry CAS lock.
-
-    Owners may grant any independent actions. A delegated sharer may issue
-    only read/write they hold, and may update only grants they created.
-    """
+    """Apply the one product grant policy to the latest locked World grants."""
+    del root
     try:
         actor = _validate_subject(actor_subject)
         target = _validate_subject(subject)
-    except ValueError as exc:
+        cleaned = _validate_world_id(world_id)
+    except (ValueError, TypeError, AttributeError) as exc:
         raise WorldAccessDenied("World access denied") from exc
     if actor is None or target is None:
         raise WorldAccessDenied("World access denied")
     requested = _requested_permissions(permissions)
-    path = world_containers_path(root)
-    with registry_mutation_lock(path):
-        document, token = _load_unlocked(root)
-        record = _world_record_or_deny(document, world_id)
-        try:
-            require_world_permission(
-                record, subject=actor, permission=WorldPermission.SHARE
-            )
-        except WorldAccessDenied:
-            raise
+    def transform(record):
+        require_world_permission(record, subject=actor, permission=WorldPermission.SHARE)
         if target == actor or target == record.owner_subject:
             raise WorldAccessDenied("World access denied")
         is_owner = actor == record.owner_subject
@@ -513,33 +291,34 @@ def grant_world_access(
         grants.append(new_grant)
         updated = record.model_copy(update={"access_grants": grants})
         updated = _prune_delegated_grants(updated)
-        return _persist_access_record(root, document, updated, expected_token=token)
+        return updated.access_grants
+    try:
+        return catalog.update_world_grants(cleaned, transform).record
+    except ApplicationStateError as exc:
+        if exc.status_code == 404:
+            raise WorldAccessDenied("World access denied") from exc
+        raise _catalog_error(exc) from exc
 
 
 def revoke_world_access(
-    root: Path,
-    world_id: str,
-    *,
-    actor_subject: str | None,
-    subject: str,
+    root: Path, world_id: str, *, actor_subject: str | None, subject: str,
 ) -> WorldContainerRecord:
-    """Revoke a grant by its owner or its grantor, cascading delegated rights."""
+    """Revoke and cascade using the same serialized access-policy boundary."""
+    del root
     try:
         actor = _validate_subject(actor_subject)
         target = _validate_subject(subject)
-    except ValueError as exc:
+        cleaned = _validate_world_id(world_id)
+    except (ValueError, TypeError, AttributeError) as exc:
         raise WorldAccessDenied("World access denied") from exc
     if actor is None or target is None:
         raise WorldAccessDenied("World access denied")
-    path = world_containers_path(root)
-    with registry_mutation_lock(path):
-        document, token = _load_unlocked(root)
-        record = _world_record_or_deny(document, world_id)
+    def transform(record):
         require_world_permission(record, subject=actor, permission=WorldPermission.SHARE)
         is_owner = actor == record.owner_subject
         existing = next((grant for grant in record.access_grants if grant.subject == target), None)
         if existing is None:
-            return record
+            return record.access_grants
         if not is_owner and existing.granted_by_subject != actor:
             raise WorldAccessDenied("World access denied")
         updated = record.model_copy(
@@ -550,4 +329,10 @@ def revoke_world_access(
             }
         )
         updated = _prune_delegated_grants(updated)
-        return _persist_access_record(root, document, updated, expected_token=token)
+        return updated.access_grants
+    try:
+        return catalog.update_world_grants(cleaned, transform).record
+    except ApplicationStateError as exc:
+        if exc.status_code == 404:
+            raise WorldAccessDenied("World access denied") from exc
+        raise _catalog_error(exc) from exc

@@ -1031,3 +1031,5 @@ def test_world_play_context_rejects_unsupported_kind_or_broken_membership(tmp_pa
             validate_agent_play_world_surface_context_v2(
                 _world_play_request(), root=tmp_path, outer_world_id="world-a",
             )
+
+pytestmark = pytest.mark.usefixtures("application_state_dsn")

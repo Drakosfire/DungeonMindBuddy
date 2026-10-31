@@ -1200,3 +1200,5 @@ def test_ordinary_source_only_uses_real_normalization_without_legacy_broker(
     )
     assert legacy.status_code == 503
     assert legacy.json()["detail"]["code"] == "classic_publication_context_required"
+
+pytestmark = pytest.mark.usefixtures("application_state_dsn")

@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from tests.application_state.world_catalog_fixtures import legacy_world_catalog_path
+
 from pathlib import Path
 
 import pytest
@@ -12,7 +14,6 @@ from apps.live_control_server.services.world_container_registry import (
     PUBLIC_RECORD_SCHEMA,
     PUBLIC_REGISTRY_SCHEMA,
     create_world_container,
-    world_containers_path,
 )
 
 
@@ -27,7 +28,9 @@ def client(root: Path, monkeypatch: pytest.MonkeyPatch) -> TestClient:
         "apps.live_control_server.routes.world_containers.repo_root",
         lambda: root,
     )
-    return TestClient(create_app())
+    monkeypatch.setenv("DMB_DEPLOYMENT_ENVIRONMENT", "local")
+    monkeypatch.setenv("DMB_AUTH_MODE", "local_operator")
+    return TestClient(create_app(), client=("127.0.0.1", 50000))
 
 
 def test_list_empty_world_containers(client: TestClient) -> None:
@@ -51,7 +54,7 @@ def test_create_and_list_world_container(client: TestClient, root: Path) -> None
         "binding_version": 1,
     }
     assert "world_id" in created
-    assert (root / created["source_root_relpath"]).is_dir()
+    assert not (root / created["source_root_relpath"]).exists()
 
     listed = client.get("/api/live/world-containers")
     assert listed.status_code == 200
@@ -88,10 +91,11 @@ def test_create_is_idempotent_over_http(client: TestClient) -> None:
     assert len(listed["records"]) == 1
 
 
-def test_unmanaged_root_collision_over_http(client: TestClient, root: Path) -> None:
+def test_directory_does_not_claim_world_identity_over_http(client: TestClient, root: Path) -> None:
     (root / "corpus" / "stolen-path-markdown").mkdir(parents=True)
     response = client.post("/api/live/world-containers", json={"name": "Stolen Path"})
-    assert response.status_code == 409
+    assert response.status_code == 200
+    assert (root / "corpus/stolen-path-markdown").is_dir()
 
 
 def test_service_create_visible_to_http_list(client: TestClient, root: Path) -> None:
@@ -113,27 +117,27 @@ def test_http_list_uses_explicit_operator_root_across_checkouts(
 
     assert response.status_code == 200
     assert [record["world_id"] for record in response.json()["records"]] == ["operator-world"]
-    assert not world_containers_path(root).exists()
+    assert not legacy_world_catalog_path(root).exists()
 
 
-def test_http_list_fails_closed_for_invalid_explicit_root(
+def test_http_metadata_ignores_file_root_configuration(
     client: TestClient, tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     monkeypatch.setenv("DMB_MANAGED_WORLD_DATA_ROOT", str(tmp_path / "missing"))
 
     response = client.get("/api/live/world-containers")
 
-    assert response.status_code == 503
-    assert response.json()["detail"] == "Managed World storage is unavailable."
+    assert response.status_code == 200
+    assert response.json()["records"] == []
 
 
-def test_list_reads_legacy_registry_without_migration_or_mind_call(
+def test_list_ignores_legacy_registry_without_migration_or_mind_call(
     root: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     from apps.live_control_server.routes import world_containers
 
-    path = world_containers_path(root)
+    path = legacy_world_catalog_path(root)
     path.parent.mkdir(parents=True, exist_ok=True)
     original = (
         '{"schema_version":"dmb_world_container_registry_v1","records":['
@@ -150,8 +154,7 @@ def test_list_reads_legacy_registry_without_migration_or_mind_call(
 
     response = world_containers.get_world_containers()
 
-    assert response["records"][0]["native_graph_binding"] == {
-        "status": "unbound",
-        "binding_version": 0,
-    }
+    assert response["records"] == []
     assert path.read_bytes() == original
+
+pytestmark = pytest.mark.usefixtures("application_state_dsn")

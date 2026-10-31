@@ -1,4 +1,6 @@
 """Registered Build evidence must open through the actual native observation reader."""
+from application_state.world_catalog.service import get_world
+from tests.application_state.world_catalog_fixtures import store_world
 
 import os
 
@@ -132,16 +134,11 @@ def test_registered_build_prepare_admits_exact_world_source_and_confirm_only_pro
     )
 
     real_admit = publication._prepare_source_admission
-    registry_path = root / "out/registries/world_containers.json"
-    saved_registry = registry_path.read_bytes()
+    saved_world = get_world("publication-managed").record
 
     def rebind_after_admission(resolved_run, binding):
         result = real_admit(resolved_run, binding)
-        registry = json.loads(saved_registry)
-        registry["records"][0]["native_graph_binding"]["native_world_id"] = (
-            "other-native-world"
-        )
-        registry_path.write_text(json.dumps(registry))
+        store_world(saved_world.model_copy(update={"native_graph_binding": saved_world.native_graph_binding.model_copy(update={"native_world_id": "other-native-world"})}))
         return result
 
     with monkeypatch.context() as race:
@@ -164,7 +161,7 @@ def test_registered_build_prepare_admits_exact_world_source_and_confirm_only_pro
                 )
             )
         assert drift.value.code == "worldbuilding_source_binding_changed"
-    registry_path.write_bytes(saved_registry)
+    store_world(saved_world)
     assert (
         case["bundle"].world_graph.get_head(case["world"]).head_revision_id
         == parent.head_revision_id

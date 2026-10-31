@@ -1,7 +1,8 @@
 from __future__ import annotations
 
+from tests.application_state.world_catalog_fixtures import store_world
+
 import hashlib
-import json
 from datetime import UTC, datetime
 from uuid import uuid4
 
@@ -64,16 +65,13 @@ def _registered_source(tmp_path, monkeypatch):
     registry_root.mkdir()
     monkeypatch.setenv("DMB_MANAGED_WORLD_DATA_ROOT", str(registry_root))
     world = create_world_container(registry_root, name="Managed World")
-    registry_path = registry_root / "out/registries/world_containers.json"
-    payload = json.loads(registry_path.read_text(encoding="utf-8"))
-    payload["records"][0]["native_graph_binding"] = {
+    store_world(world.model_copy(update={"native_graph_binding": {
         "native_world_id": "native-world",
         "binding_version": 1,
         "status": "active",
         "validated_at": "2026-10-14T00:00:00Z",
         "validated_head_revision_id": "rev:accepted",
-    }
-    registry_path.write_text(json.dumps(payload), encoding="utf-8")
+    }}))
 
     markdown = "# Lore\n\nThe tower watches the river.\n"
     document = create_workspace_document(

@@ -20,7 +20,6 @@ from apps.live_control_server.config import (  # noqa: E402
 from apps.live_control_server.services.world_container_registry import (  # noqa: E402
     WorldContainerRegistryError,
     list_world_containers,
-    world_source_root_relpath,
 )
 from src.bootstrap_env import (  # noqa: E402
     LOCAL_GRAPH_PROFILE_ENV,
@@ -61,19 +60,10 @@ def inspect_local_graph_profile(
             str(exc) if isinstance(exc, ManagedWorldDataRootError)
             else "managed_world_registry_invalid"
         )
-    def source_is_contained(relpath: str) -> bool:
-        try:
-            source = (root / relpath).resolve(strict=True)
-        except (OSError, RuntimeError):
-            return False
-        return source.is_relative_to(root) and source.is_dir()
-
     active = [
         record for record in records
         if record.native_graph_binding is not None
         and record.native_graph_binding.status == "active"
-        and record.source_root_relpath == world_source_root_relpath(record.world_id)
-        and source_is_contained(record.source_root_relpath)
     ]
     if required_world:
         active = [record for record in active if record.world_id == required_world]

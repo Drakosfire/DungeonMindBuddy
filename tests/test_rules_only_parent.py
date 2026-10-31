@@ -306,3 +306,5 @@ def test_large_saved_play_source_crosses_actual_ipc_without_truncation(applicati
     assert len(runtime.mapped.question) > 8000 and note in runtime.mapped.question
     assert note not in (runtime.mapped.surface_context_block or "")
     assert read_retained() == retained
+
+pytestmark = pytest.mark.usefixtures("application_state_dsn")

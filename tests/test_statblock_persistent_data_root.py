@@ -1,6 +1,8 @@
 """Statblock HTTP lifecycle remains durable across code checkout replacement."""
 from __future__ import annotations
 
+import pytest
+
 import json
 from pathlib import Path
 
@@ -56,7 +58,7 @@ def test_http_generation_acceptance_survives_code_root_switch(monkeypatch, tmp_p
     accept = acceptance.begin_or_resume_acceptance
     monkeypatch.setattr(candidates, "generate_candidate_from_draft", lambda root, **kwargs: generate(root, client=dms, **kwargs))
     monkeypatch.setattr(candidates, "begin_or_resume_acceptance", lambda root, **kwargs: accept(root, client=dms, **kwargs))
-    client = TestClient(create_app())
+    client = TestClient(create_app(), client=("127.0.0.1", 50000))
     response = client.post("/api/live/threat-drafts", json={
         "scope_mode": "world", "world_id": world.world_id, "campaign_id": None,
         "name": "Durable Keeper", "description": "Synthetic keeper.", "threat_kind": "creature",
@@ -81,7 +83,7 @@ def test_http_generation_acceptance_survives_code_root_switch(monkeypatch, tmp_p
     snapshot = client.get(f"/api/live/threat-drafts/{draft_id}").json()
     monkeypatch.setattr(drafts, "repo_root", lambda: code_b)
     monkeypatch.setattr(candidates, "repo_root", lambda: code_b)
-    reopened = TestClient(create_app())
+    reopened = TestClient(create_app(), client=("127.0.0.1", 50000))
     assert reopened.get(f"/api/live/threat-drafts/{draft_id}").json() == snapshot
     assert reopened.get("/api/live/statblock-candidates/cand_durable1").json()["status"] == "active"
     journal = reopened.get(f"/api/live/threat-drafts/{draft_id}/acceptance-operations/accop_durable")
@@ -105,7 +107,7 @@ def test_artifact_root_does_not_change_default_managed_registry(monkeypatch, tmp
     monkeypatch.setenv("DMB_ARTIFACT_DATA_ROOT", str(data))
     monkeypatch.delenv("DMB_MANAGED_WORLD_DATA_ROOT", raising=False)
     monkeypatch.setattr(drafts, "repo_root", lambda: code)
-    client = TestClient(create_app())
+    client = TestClient(create_app(), client=("127.0.0.1", 50000))
     response = client.post("/api/live/threat-drafts", json={
         "scope_mode":"world", "world_id":world.world_id, "campaign_id":None,
         "name":"Keeper", "description":"Synthetic", "threat_kind":"creature",
@@ -116,3 +118,5 @@ def test_artifact_root_does_not_change_default_managed_registry(monkeypatch, tmp
     assert (data / "out/threat_drafts").is_dir()
     assert not (code / "out/threat_drafts").exists()
     assert not (data / "out/registries/world_containers.json").exists()
+
+pytestmark = pytest.mark.usefixtures("application_state_dsn")

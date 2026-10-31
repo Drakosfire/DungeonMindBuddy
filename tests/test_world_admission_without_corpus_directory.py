@@ -1,7 +1,8 @@
 """Corpus storage layout cannot authorize or disqualify a managed World."""
 from __future__ import annotations
 
-import json
+from tests.application_state.world_catalog_fixtures import store_world
+
 from pathlib import Path
 
 import pytest
@@ -10,7 +11,6 @@ from apps.live_control_server.services import first_world_graph as first_world
 from apps.live_control_server.services import managed_world_graph_projection as projection
 from apps.live_control_server.services.world_container_registry import (
     create_world_container,
-    world_containers_path,
 )
 from apps.live_control_server.services.world_graph_projection import WorldGraphProjectionServiceError
 from graph_memory.worldbuilding_write_plan import WorldbuildingWritePlanError
@@ -19,16 +19,11 @@ from tests.test_managed_world_graph_projection import _native_projection, _recor
 
 def _without_corpus(root: Path, *, active: bool = False, relocated_hint: bool = False):
     record = create_world_container(root, name="The Glass Orchard")
-    (root / record.source_root_relpath).rmdir()
     if active:
         record = _record_with_binding(record)
     if relocated_hint:
         record = record.model_copy(update={"source_root_relpath": "older-layout/retained-markdown"})
-    path = world_containers_path(root)
-    document = json.loads(path.read_text())
-    document["records"] = [record.model_dump(mode="json")]
-    path.write_text(json.dumps(document))
-    return record
+    return store_world(record)
 
 
 @pytest.mark.parametrize("relocated_hint", [False, True])
@@ -77,10 +72,9 @@ def test_a_directory_without_a_registered_world_grants_no_admission(tmp_path):
 def test_first_publication_cannot_use_an_unbound_record_without_reservation(tmp_path, monkeypatch):
     monkeypatch.delenv("DMB_MANAGED_WORLD_DATA_ROOT", raising=False)
     record = _without_corpus(tmp_path)
-    path = world_containers_path(tmp_path)
-    document = json.loads(path.read_text())
-    document["records"][0]["native_graph_binding"] = None
-    path.write_text(json.dumps(document))
+    store_world(record.model_copy(update={"native_graph_binding": None}))
     with pytest.raises(WorldbuildingWritePlanError) as error:
         first_world.first_world_native_target(tmp_path, record.world_id)
     assert error.value.code == "native_graph_provisioning_required"
+
+pytestmark = pytest.mark.usefixtures("application_state_dsn")

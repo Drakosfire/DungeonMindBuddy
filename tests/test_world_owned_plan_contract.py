@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from tests.application_state.world_catalog_fixtures import world_snapshot
+
 from pathlib import Path
 
 import pytest
@@ -116,8 +118,7 @@ def test_world_plan_inventory_and_create_use_managed_root_with_app_state_identit
     monkeypatch.setenv(MANAGED_WORLD_DATA_ROOT_ENV, str(managed_root))
 
     world = create_world_container(managed_root, name="Split Root Plan World")
-    registry_path = managed_root / "out/registries/world_containers.json"
-    registry_bytes_before = registry_path.read_bytes()
+    registry_bytes_before = world_snapshot()
     existing = create_world_plan(title="Existing saved Plan", world_id=world.world_id)
     client = _client(monkeypatch, code_root)
 
@@ -151,7 +152,7 @@ def test_world_plan_inventory_and_create_use_managed_root_with_app_state_identit
         str(existing.work_object_id),
         created.json()["document_id"],
     }
-    assert registry_path.read_bytes() == registry_bytes_before
+    assert world_snapshot() == registry_bytes_before
     assert not (code_root / "out/registries/world_containers.json").exists()
 
     unknown = client.get(
@@ -356,3 +357,5 @@ def test_world_plan_migration_preserves_campaign_rows_and_refuses_unsafe_downgra
     current, head = _current_and_head(application_state_dsn)
     assert current == head == "20260928_0007"
     assert get_plan(str(world_plan.work_object_id)).world_id == "world-a"
+
+pytestmark = pytest.mark.usefixtures("application_state_dsn")

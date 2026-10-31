@@ -3,6 +3,9 @@
 
 from __future__ import annotations
 
+from application_state.world_catalog.service import get_world
+from tests.application_state.world_catalog_fixtures import store_world, world_snapshot, change_binding
+
 
 import ast
 import hashlib
@@ -707,16 +710,12 @@ def _install_worldbuilding_repo(monkeypatch, tmp_path: Path, native_id=DEFAULT_W
     repo = tmp_path / "repo"
     repo.mkdir()
     from apps.live_control_server.services.world_container_registry import create_world_container
-    import json
-    create_world_container(repo, name="Publication Managed")
-    registry_path = repo / "out/registries/world_containers.json"
-    registry = json.loads(registry_path.read_text())
-    registry["records"][0]["native_graph_binding"] = {
+    world = create_world_container(repo, name="Publication Managed")
+    store_world(world.model_copy(update={"native_graph_binding": {
         "native_world_id": native_id, "binding_version": 1,
         "status": "active", "validated_at": "2026-10-14T00:00:00Z",
         "validated_head_revision_id": "rev:fixture",
-    }
-    registry_path.write_text(json.dumps(registry))
+    }}))
     absent = tmp_path / "buddy-world-graph-absent"
     monkeypatch.setenv(storage.WORLD_GRAPH_AUTHORITY_ENV, storage.WORLD_GRAPH_AUTHORITY_DUNGEONMIND)
     monkeypatch.setenv("DUNGEONMIND_WORLD_GRAPH_ROOT", str(absent))
@@ -817,44 +816,38 @@ def test_prepare_succeeds_with_buddy_graph_physically_absent(tmp_path, monkeypat
         confirm_worldbuilding(WorldbuildingWritePlanConfirmRequest(plan=forged))
     assert forged_error.value.code == "worldbuilding_source_binding_changed"
     assert fake.publish_calls == 0
-    import json
-    registry_path = repo / "out/registries/world_containers.json"
-    original_registry = registry_path.read_text()
+    original_world = get_world("publication-managed").record
     for binding_state in ("missing", "inactive"):
-        unavailable_registry = json.loads(original_registry)
         if binding_state == "missing":
-            unavailable_registry["records"][0]["native_graph_binding"] = None
+            store_world(original_world.model_copy(update={"native_graph_binding": None}))
         else:
-            unavailable_registry["records"][0]["native_graph_binding"]["status"] = "inactive"
-        registry_path.write_text(json.dumps(unavailable_registry))
+            store_world(original_world.model_copy(update={"native_graph_binding": original_world.native_graph_binding.model_copy(update={"status": "inactive"})}))
         with pytest.raises(Exception) as unavailable_error:
             confirm_worldbuilding(WorldbuildingWritePlanConfirmRequest(plan=plan))
         assert unavailable_error.value.code == "worldbuilding_source_binding_missing"
         assert unavailable_error.value.status_code == 409
         assert fake.publish_calls == 0
-    registry_path.write_text(original_registry)
-    changed_registry = json.loads(original_registry)
-    changed_registry["records"][0]["native_graph_binding"]["binding_version"] += 1
-    registry_path.write_text(json.dumps(changed_registry))
+    store_world(original_world)
+    change_binding(original_world.world_id, binding_version=original_world.native_graph_binding.binding_version + 1)
     with pytest.raises(Exception) as binding_error:
         confirm_worldbuilding(WorldbuildingWritePlanConfirmRequest(plan=plan))
     assert binding_error.value.code == "worldbuilding_source_binding_changed"
     assert fake.publish_calls == 0
-    registry_path.write_text(original_registry)
+    store_world(original_world)
     first = confirm_worldbuilding(WorldbuildingWritePlanConfirmRequest(plan=plan))
     assert first.outcome == "committed"
     assert first.world_id == native_id
     original_recover = fake.recover
     def changing_recover(*args, **kwargs):
         receipt = original_recover(*args, **kwargs)
-        registry_path.write_text(json.dumps(changed_registry))
+        change_binding(original_world.world_id, binding_version=original_world.native_graph_binding.binding_version + 1)
         return receipt
     monkeypatch.setattr(fake, "recover", changing_recover)
     with pytest.raises(Exception) as recovery_error:
         confirm_worldbuilding(WorldbuildingWritePlanConfirmRequest(plan=plan))
     assert recovery_error.value.code == "worldbuilding_source_binding_changed"
     assert fake.publish_calls == 1
-    registry_path.write_text(original_registry)
+    store_world(original_world)
     monkeypatch.setattr(fake, "recover", original_recover)
     retry = confirm_worldbuilding(WorldbuildingWritePlanConfirmRequest(plan=plan))
     assert retry.outcome == "already_applied"
@@ -1754,11 +1747,8 @@ def test_two_registered_managed_worlds_publish_only_to_their_native_worlds(
     )
 
     repo = _install_worldbuilding_repo(monkeypatch, tmp_path, native_id="native-alpha")
-    registry_path = repo / "out/registries/world_containers.json"
-    payload = json.loads(registry_path.read_text())
-    managed_a = payload["records"][0]["world_id"]
+    managed_a = "publication-managed"
     managed_b = create_world_container(repo, name="Second Publication Managed").world_id
-    payload = json.loads(registry_path.read_text())
     managed_to_native = {
         managed_a: "native-alpha",
         managed_b: "native-beta",
@@ -1767,16 +1757,16 @@ def test_two_registered_managed_worlds_publish_only_to_their_native_worlds(
         "native-alpha": "rev:parent-alpha",
         "native-beta": "rev:parent-beta",
     }
-    for row in payload["records"]:
-        native_id = managed_to_native[row["world_id"]]
-        row["native_graph_binding"] = {
+    for stored in world_snapshot():
+        row = stored.record
+        native_id = managed_to_native[row.world_id]
+        store_world(row.model_copy(update={"native_graph_binding": {
             "native_world_id": native_id,
             "binding_version": 1,
             "status": "active",
             "validated_at": "2026-10-14T00:00:00Z",
             "validated_head_revision_id": parent_by_native[native_id],
-        }
-    registry_path.write_text(json.dumps(payload))
+        }}))
 
     fake = FakeWorldGraphAuthority()
     for native_id, parent_id in parent_by_native.items():
@@ -1954,3 +1944,5 @@ def test_two_registered_managed_worlds_publish_only_to_their_native_worlds(
     assert fake.publish_calls == 2
     assert resolve_promotable_ingest_run(run_a, root=repo).normalized_recap_path.read_bytes() == source_bytes_a
     assert resolve_promotable_ingest_run(run_b, root=repo).normalized_recap_path.read_bytes() == source_bytes_b
+
+pytestmark = pytest.mark.usefixtures("application_state_dsn")

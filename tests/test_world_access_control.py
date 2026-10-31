@@ -2,7 +2,8 @@
 
 from __future__ import annotations
 
-import json
+from tests.application_state.world_catalog_fixtures import world_snapshot
+
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
@@ -10,13 +11,11 @@ import pytest
 
 from apps.live_control_server.services.world_container_registry import (
     WorldAccessDenied,
-    WorldContainerRegistryError,
     WorldPermission,
     authorize_world_access,
     create_world_container,
     grant_world_access,
     revoke_world_access,
-    world_containers_path,
 )
 
 
@@ -321,42 +320,28 @@ def test_owner_grants_serialize_as_v3_and_concurrent_updates_do_not_overwrite(
     with ThreadPoolExecutor(max_workers=4) as executor:
         list(executor.map(add_grant, subjects))
 
-    stored = json.loads(world_containers_path(root).read_text(encoding="utf-8"))
-    [stored_world] = stored["records"]
-    assert stored["schema_version"] == "dmb_world_container_registry_v3"
-    assert stored_world["schema_version"] == "dmb_world_container_record_v3"
-    assert {grant["subject"] for grant in stored_world["access_grants"]} == set(subjects)
-    assert [grant["subject"] for grant in stored_world["access_grants"]] == sorted(subjects)
-    assert all(grant["permissions"] == ["read"] for grant in stored_world["access_grants"])
+    [stored] = world_snapshot()
+    assert stored.record.schema_version == "dmb_world_container_record_v3"
+    assert {grant.subject for grant in stored.record.access_grants} == set(subjects)
+    assert [grant.subject for grant in stored.record.access_grants] == sorted(subjects)
+    assert all(grant.permissions == (WorldPermission.READ,) for grant in stored.record.access_grants)
     for subject in subjects:
         assert authorize_world_access(
             root, world.world_id, subject=subject, permission="read"
         ).world_id == world.world_id
 
 
-def test_stale_registry_cas_cannot_overwrite_serialized_access_state(root: Path) -> None:
-    from apps.live_control_server.services.registry_file_lock import registry_token
-    from apps.live_control_server.services.world_container_registry import (
-        _load_unlocked,
-        _save_cas,
-    )
-
+def test_stale_world_cas_cannot_overwrite_serialized_access_state(root):
+    from application_state.world_catalog import service as catalog
+    from application_state.errors import ApplicationStateConflictError
     world = create_world_container(root, name="CAS Grant State", owner_subject="subject:owner")
-    document, stale_token = _load_unlocked(root)
-    grant_world_access(
-        root,
-        world.world_id,
-        actor_subject="subject:owner",
-        subject="subject:reader",
-        permissions=["read"],
-    )
-    before = world_containers_path(root).read_bytes()
+    initial = catalog.get_world(world.world_id)
+    grant_world_access(root, world.world_id, actor_subject="subject:owner",
+                       subject="subject:reader", permissions=["read"])
+    before = world_snapshot()
+    with pytest.raises(ApplicationStateConflictError):
+        catalog.save_world(initial.record, expected_revision=initial.revision)
+    assert world_snapshot() == before
+    assert authorize_world_access(root, world.world_id, subject="subject:reader", permission="read").world_id == world.world_id
 
-    with pytest.raises(WorldContainerRegistryError) as error:
-        _save_cas(root, document, expected_token=stale_token)
-    assert error.value.status_code == 409
-    assert world_containers_path(root).read_bytes() == before
-    assert registry_token(world_containers_path(root)) != stale_token
-    assert authorize_world_access(
-        root, world.world_id, subject="subject:reader", permission="read"
-    ).world_id == world.world_id
+pytestmark = pytest.mark.usefixtures("application_state_dsn")

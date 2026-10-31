@@ -441,3 +441,5 @@ def test_source_import_write_mode_threads_through_prepare_commit(tmp_path: Path)
     assert (tmp_path / (record.target_relpath or "")).read_text(
         encoding="utf-8"
     ) == markdown
+
+pytestmark = pytest.mark.usefixtures("application_state_dsn")

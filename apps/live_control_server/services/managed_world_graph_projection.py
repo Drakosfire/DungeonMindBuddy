@@ -140,13 +140,7 @@ def resolve_managed_world_binding(
 ) -> VerifiedManagedWorldBinding:
     """Resolve the existing verified managed World and active native binding."""
 
-    try:
-        registry_root = root if root is not None else config.managed_world_data_root()
-    except config.ManagedWorldDataRootError as exc:
-        raise WorldGraphProjectionServiceError(
-            "Managed World storage is unavailable.",
-            code="managed_world_unavailable", status_code=503,
-        ) from exc
+    registry_root = root if root is not None else config.repo_root()
     record = _verified_managed_record(registry_root, managed_world_id)
     native_world_id, binding_version = _active_binding(record)
     return VerifiedManagedWorldBinding(
@@ -165,13 +159,7 @@ def resolve_managed_source_identity(
     This value grants no Graph read/publication authority. Promotion to an active
     binding requires a separately verified reviewed Graph initialization.
     """
-    try:
-        registry_root = root if root is not None else config.managed_world_data_root()
-    except config.ManagedWorldDataRootError as exc:
-        raise WorldGraphProjectionServiceError(
-            "Managed World storage is unavailable.",
-            code="managed_world_unavailable", status_code=503,
-        ) from exc
+    registry_root = root if root is not None else config.repo_root()
     record = _verified_managed_record(registry_root, managed_world_id)
     binding = record.native_graph_binding
     if isinstance(binding, NativeGraphProvisioningRecord):

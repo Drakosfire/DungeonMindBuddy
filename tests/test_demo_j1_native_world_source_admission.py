@@ -1,8 +1,10 @@
 from __future__ import annotations
 
+from application_state.world_catalog.service import get_world
+from tests.application_state.world_catalog_fixtures import store_world, change_binding, world_snapshot
+
 from hashlib import sha256
 from pathlib import Path
-import json
 
 import pytest
 from pydantic import ValidationError
@@ -32,16 +34,11 @@ def _committed_source(
     if world is None:
         world = create_world_container(root, name="J1 Test World")
     if not provisioned:
-        registry_path = root / "out/registries/world_containers.json"
-        registry_data = json.loads(registry_path.read_text())
-        for entry in registry_data["records"]:
-            if entry["world_id"] == world.world_id:
-                entry["native_graph_binding"] = {
-                    "native_world_id": world.world_id, "binding_version": 1,
-                    "status": "active", "validated_at": "2026-10-14T00:00:00Z",
-                    "validated_head_revision_id": "rev:fixture",
-                }
-        registry_path.write_text(json.dumps(registry_data))
+        world = store_world(world.model_copy(update={"native_graph_binding": {
+            "native_world_id": world.world_id, "binding_version": 1,
+            "status": "active", "validated_at": "2026-10-14T00:00:00Z",
+            "validated_head_revision_id": "rev:fixture",
+        }}))
     record = create_workspace_document(
         root,
         title="Test Source",
@@ -417,18 +414,11 @@ def test_source_admission_uses_separate_managed_registry_root(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
     memory_repository: InMemoryNativeSourceEvidenceRepository,
 ) -> None:
-    import shutil
-
     document_root = tmp_path / "documents"
     document_root.mkdir()
     world, record = _committed_source(document_root)
     registry_root = tmp_path / "managed"
-    registry = document_root / "out/registries/world_containers.json"
-    target = registry_root / "out/registries/world_containers.json"
-    target.parent.mkdir(parents=True)
-    (registry_root / world.source_root_relpath).mkdir(parents=True)
-    shutil.copyfile(registry, target)
-    registry.unlink()
+    registry_root.mkdir()
     monkeypatch.setenv(native.config.MANAGED_WORLD_DATA_ROOT_ENV, str(registry_root))
 
     admitted = _admit(document_root, record.document_id)
@@ -441,16 +431,13 @@ def test_source_admission_uses_separate_managed_registry_root(
     assert _admit(document_root, record.document_id).admission_id == admitted.admission_id
 
 
-@pytest.mark.parametrize("invalid_root", ["relative", "missing", "no_registry"])
+@pytest.mark.parametrize("invalid_root", ["relative", "missing"])
 def test_source_admission_invalid_managed_root_fails_without_publication(
     invalid_root: str, tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
     memory_repository: InMemoryNativeSourceEvidenceRepository,
 ) -> None:
     world, record = _committed_source(tmp_path)
-    if invalid_root == "no_registry":
-        (tmp_path / "empty-managed").mkdir()
-    configured = {"relative": "relative-root", "missing": str(tmp_path / "missing"),
-                  "no_registry": str(tmp_path / "empty-managed")}[invalid_root]
+    configured = {"relative": "relative-root", "missing": str(tmp_path / "missing")}[invalid_root]
     monkeypatch.setenv(native.config.MANAGED_WORLD_DATA_ROOT_ENV, configured)
     with pytest.raises(native.NativeWorldSourceAdmissionError) as error:
         _admit(tmp_path, record.document_id)
@@ -469,10 +456,7 @@ def test_source_admits_only_to_explicit_native_world(
     tmp_path, monkeypatch, memory_repository, native_id,
 ):
     world, record = _committed_source(tmp_path)
-    path = tmp_path / "out/registries/world_containers.json"
-    data = json.loads(path.read_text())
-    data["records"][0]["native_graph_binding"]["native_world_id"] = native_id
-    path.write_text(json.dumps(data))
+    change_binding(world.world_id, native_world_id=native_id)
     first = _admit(tmp_path, record.document_id)
     assert first.world_id == world.world_id
     assert first.space_id == native_id
@@ -484,10 +468,7 @@ def test_source_admits_only_to_explicit_native_world(
 
 def test_missing_binding_rejects_before_repository_access(tmp_path, monkeypatch):
     world, record = _committed_source(tmp_path)
-    path = tmp_path / "out/registries/world_containers.json"
-    data = json.loads(path.read_text())
-    data["records"][0]["native_graph_binding"] = None
-    path.write_text(json.dumps(data))
+    store_world(world.model_copy(update={"native_graph_binding": None}))
     monkeypatch.setattr(native, "_repository", lambda: pytest.fail("unbound native access"))
     with pytest.raises(native.NativeWorldSourceAdmissionError) as error:
         _admit(tmp_path, record.document_id)
@@ -497,12 +478,9 @@ def test_missing_binding_rejects_before_repository_access(tmp_path, monkeypatch)
 def test_binding_change_before_source_publication_rejects(tmp_path, monkeypatch, memory_repository):
     world, record = _committed_source(tmp_path)
     original = native.initialize_empty_knowledge_space
-    path = tmp_path / "out/registries/world_containers.json"
     def changing_initialize(**kwargs):
         result = original(**kwargs)
-        data = json.loads(path.read_text())
-        data["records"][0]["native_graph_binding"]["binding_version"] += 1
-        path.write_text(json.dumps(data))
+        change_binding(world.world_id, binding_version=get_world(world.world_id).record.native_graph_binding.binding_version + 1)
         return result
     monkeypatch.setattr(native, "initialize_empty_knowledge_space", changing_initialize)
     monkeypatch.setattr(native, "publish_native_text_source_evidence",
@@ -515,13 +493,10 @@ def test_binding_change_before_source_publication_rejects(tmp_path, monkeypatch,
 @pytest.mark.parametrize("state", ["inactive", "missing"])
 def test_unavailable_binding_blocks_status_and_admission(tmp_path, monkeypatch, state):
     world, record = _committed_source(tmp_path)
-    path = tmp_path / "out/registries/world_containers.json"
-    data = json.loads(path.read_text())
     if state == "missing":
-        data["records"][0]["native_graph_binding"] = None
+        store_world(world.model_copy(update={"native_graph_binding": None}))
     else:
-        data["records"][0]["native_graph_binding"]["status"] = "inactive"
-    path.write_text(json.dumps(data))
+        change_binding(world.world_id, status="inactive")
     monkeypatch.setattr(native, "_repository", lambda: pytest.fail("unbound native access"))
     for operation in [lambda: _admit(tmp_path, record.document_id),
                       lambda: native.get_native_world_source_status(tmp_path, record.document_id)]:
@@ -535,11 +510,8 @@ def test_binding_change_during_repository_access_rejects_admitted_result(
 ):
     world, record = _committed_source(tmp_path)
     _admit(tmp_path, record.document_id)
-    path = tmp_path / "out/registries/world_containers.json"
     def changed_repository():
-        data = json.loads(path.read_text())
-        data["records"][0]["native_graph_binding"]["binding_version"] += 1
-        path.write_text(json.dumps(data))
+        change_binding(world.world_id, binding_version=get_world(world.world_id).record.native_graph_binding.binding_version + 1)
         return memory_repository
     monkeypatch.setattr(native, "_repository", changed_repository)
     with pytest.raises(native.NativeWorldSourceAdmissionError) as error:
@@ -554,12 +526,9 @@ def test_binding_changes_during_native_readback_rejects(tmp_path, monkeypatch, m
     world, record = _committed_source(tmp_path)
     _admit(tmp_path, record.document_id)
     original = native.open_admitted_native_text
-    path = tmp_path / "out/registries/world_containers.json"
     def changed_readback(*args, **kwargs):
         result = original(*args, **kwargs)
-        data = json.loads(path.read_text())
-        data["records"][0]["native_graph_binding"]["binding_version"] += 1
-        path.write_text(json.dumps(data))
+        change_binding(world.world_id, binding_version=get_world(world.world_id).record.native_graph_binding.binding_version + 1)
         return result
     monkeypatch.setattr(native, "open_admitted_native_text", changed_readback)
     with pytest.raises(native.NativeWorldSourceAdmissionError) as error:
@@ -570,12 +539,9 @@ def test_binding_changes_during_native_readback_rejects(tmp_path, monkeypatch, m
 def test_committed_source_recovery_does_not_hide_binding_change(tmp_path, monkeypatch, memory_repository):
     world, record = _committed_source(tmp_path)
     original = native.publish_native_text_source_evidence
-    path = tmp_path / "out/registries/world_containers.json"
     def committed_then_changed(**kwargs):
         receipt = original(**kwargs)
-        data = json.loads(path.read_text())
-        data["records"][0]["native_graph_binding"]["binding_version"] += 1
-        path.write_text(json.dumps(data))
+        change_binding(world.world_id, binding_version=get_world(world.world_id).record.native_graph_binding.binding_version + 1)
         raise RuntimeError("synthetic outcome observation failure")
     monkeypatch.setattr(native, "publish_native_text_source_evidence", committed_then_changed)
     with pytest.raises(native.NativeWorldSourceAdmissionError) as error:
@@ -591,14 +557,14 @@ def test_ordinary_fresh_world_source_admission_needs_no_active_graph(
     world, record = _committed_source(tmp_path, provisioned=True)
     reservation = get_world_container(tmp_path, world.world_id).native_graph_binding
     assert reservation.status == "provisioning"
-    before = (tmp_path / "out/registries/world_containers.json").read_bytes()
+    before = world_snapshot()
     assert memory_repository.get_head(reservation.native_world_id) is None
     admitted = _admit(tmp_path, record.document_id)
     assert admitted.state == "admitted"
     assert admitted.world_id == world.world_id
     assert admitted.space_id == reservation.native_world_id != world.world_id
     assert _admit(tmp_path, record.document_id) == admitted
-    assert (tmp_path / "out/registries/world_containers.json").read_bytes() == before
+    assert world_snapshot() == before
     assert get_world_container(tmp_path, world.world_id).native_graph_binding == reservation
 
 
@@ -609,10 +575,7 @@ def test_reserved_operation_change_during_admission_fails_closed(
     original = native.initialize_empty_knowledge_space
     def changed_operation(**kwargs):
         result = original(**kwargs)
-        path = tmp_path / "out/registries/world_containers.json"
-        data = json.loads(path.read_text())
-        data["records"][0]["native_graph_binding"]["provisioning_id"] = "provision:" + "f" * 32
-        path.write_text(json.dumps(data))
+        change_binding(world.world_id, provisioning_id="provision:" + "f" * 32)
         return result
     monkeypatch.setattr(native, "initialize_empty_knowledge_space", changed_operation)
     with pytest.raises(native.NativeWorldSourceAdmissionError) as error:
@@ -654,3 +617,5 @@ def test_existing_world_preserves_profile_and_original_receipt(
     assert first.evidence_ref_id != second.evidence_ref_id
     assert selected == [first.published_revision_id]
     assert memory_repository.get_head(world.world_id) == head
+
+pytestmark = pytest.mark.usefixtures("application_state_dsn")

@@ -174,3 +174,5 @@ def test_managed_hermes_service_does_not_load_legacy_session(
         surface_context=AgentSurfaceContextRequest.model_validate(request["surface_context"]),
     )
     assert response == {"packet": {"campaign_id": world_id, "session": 1}, "session_base": None}
+
+pytestmark = pytest.mark.usefixtures("application_state_dsn")

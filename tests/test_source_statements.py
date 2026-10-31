@@ -833,3 +833,5 @@ def test_original_signed_statement_recovers_unchanged_after_extension(extension_
     assert service.prepare(lane.selection, GM)["result"] == result["result"]
     assert prepared.envelope["payload"] == original_payload
     assert lane.repo.get_head(lane.world.world_id) == head
+
+pytestmark = pytest.mark.usefixtures("application_state_dsn")

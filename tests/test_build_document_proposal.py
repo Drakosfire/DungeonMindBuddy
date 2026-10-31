@@ -77,7 +77,6 @@ def test_source_sdk_durable_proposal_and_no_replay(request_case):
     assert len(wire.calls)==1 and result.observation['conformance_retry_count']==0
     body=json.loads(wire.calls[0].content)
     assert body['tools']==[] and json.loads(body['input'])['draft_markdown']==source.markdown
-    from application_state.build_proposal.types import BuildGeneratedProposal
     assert body['text']['format'] == {'type':'json_schema','name':'build_document_proposal',
         'schema':owner.BuildComposeOutput.model_json_schema(),'strict':True}
     assert 'output_format' not in json.loads(body['input'])
@@ -384,3 +383,5 @@ def test_historical_reservation_has_no_implicit_page_end_offer(request_case):
     assert 'page_end_offer' not in raw
     assert BuildProposalReservation.model_validate(raw).model_dump(mode='json')==raw
     assert BuildProposalReservation.model_validate(raw).fingerprint==original.fingerprint
+
+pytestmark = pytest.mark.usefixtures("application_state_dsn")

@@ -849,7 +849,6 @@ def test_recap_ingest_generate_recap_memory_with_graph_extraction_fake_client(
     from apps.live_control_server.services.world_container_registry import (
         NativeGraphBindingRecord,
         WorldContainerRecord,
-        WorldContainerRegistryDocument,
     )
     from graph_memory.projection.world_projection import (
         WorldGraphProjection,
@@ -1025,13 +1024,8 @@ def test_recap_ingest_generate_recap_memory_with_graph_extraction_fake_client(
     managed_root = tmp_path / "managed-worlds"
     world_source_root = managed_root / "corpus/synthetic-world-markdown"
     world_source_root.mkdir(parents=True)
-    registry_path = managed_root / "out/registries/world_containers.json"
-    registry_path.parent.mkdir(parents=True)
-    registry_path.write_text(
-        json.dumps(
-            WorldContainerRegistryDocument(
-                records=[
-                    WorldContainerRecord(
+    from tests.application_state.world_catalog_fixtures import store_world
+    store_world(WorldContainerRecord(
                         world_id="synthetic-world",
                         name="Synthetic World",
                         source_root_relpath="corpus/synthetic-world-markdown",
@@ -1044,12 +1038,7 @@ def test_recap_ingest_generate_recap_memory_with_graph_extraction_fake_client(
                             validated_at="2026-01-01T00:00:00Z",
                             validated_head_revision_id="rev:observed-head",
                         ),
-                    )
-                ]
-            ).model_dump(mode="json"),
-        ),
-        encoding="utf-8",
-    )
+                    ))
     monkeypatch.setenv("DMB_MANAGED_WORLD_DATA_ROOT", str(managed_root))
     projection = client.get(
         f"/api/live/graph-preview/extraction-runs/{run.run_id}/recap-projection"

@@ -1,3 +1,4 @@
+from tests.application_state.world_catalog_fixtures import store_world
 import json
 import os
 import subprocess
@@ -61,16 +62,13 @@ def fixture_source(root, monkeypatch):
     monkeypatch.setenv("DMB_MANAGED_WORLD_DATA_ROOT", str(registry_root))
     world = create_world_container(registry_root, name="Managed World")
     assert world.world_id == "managed-world"
-    registry_path = registry_root / "out/registries/world_containers.json"
-    payload = json.loads(registry_path.read_text())
-    payload["records"][0]["native_graph_binding"] = {
+    store_world(world.model_copy(update={"native_graph_binding": {
         "native_world_id": "native-world",
         "binding_version": 1,
         "status": "active",
         "validated_at": "2026-10-14T00:00:00Z",
         "validated_head_revision_id": "rev:accepted",
-    }
-    registry_path.write_text(json.dumps(payload))
+    }}))
     doc = create_workspace_document(
         root,
         title="Lore",
@@ -231,9 +229,10 @@ def test_inactive_managed_binding_rejects_source(
     tmp_path, monkeypatch, application_state_dsn
 ):
     doc, artifact, span, directory = fixture_source(tmp_path, monkeypatch)
-    registry_path = tmp_path / "managed-registry/out/registries/world_containers.json"
-    payload = json.loads(registry_path.read_text())
-    payload["records"][0]["native_graph_binding"]["status"] = "inactive"
-    registry_path.write_text(json.dumps(payload))
+    from application_state.world_catalog.service import get_world
+    world = get_world("managed-world").record
+    store_world(world.model_copy(update={"native_graph_binding": world.native_graph_binding.model_copy(update={"status": "inactive"})}))
     with pytest.raises(WorldGraphRetrievalError, match="binding is unavailable"):
         open_span(tmp_path, artifact, span)
+
+pytestmark = pytest.mark.usefixtures("application_state_dsn")

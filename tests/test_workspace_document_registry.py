@@ -36,7 +36,9 @@ def client(root: Path, monkeypatch: pytest.MonkeyPatch) -> TestClient:
         "apps.live_control_server.routes.workspace_documents.repo_root",
         lambda: root,
     )
-    return TestClient(create_app())
+    monkeypatch.setenv("DMB_DEPLOYMENT_ENVIRONMENT", "local")
+    monkeypatch.setenv("DMB_AUTH_MODE", "local_operator")
+    return TestClient(create_app(), client=("127.0.0.1", 50000))
 
 
 def test_create_issues_uuid_persists_and_get_round_trips(root: Path) -> None:
@@ -376,7 +378,8 @@ def test_worldbuilding_source_issues_uuid_and_registry_owned_target(root: Path) 
 
 
 def _ensure_eldyrwild_world_root(root: Path) -> None:
-    (root / "corpus" / "eldyrwild-markdown").mkdir(parents=True)
+    from apps.live_control_server.services.world_container_registry import create_world_container
+    create_world_container(root, name="Eldyrwild")
 
 
 def test_worldbuilding_source_with_world_id_derives_managed_corpus_target(
@@ -436,20 +439,21 @@ def test_worldbuilding_source_rejects_missing_world_root_without_registry_row(
             authority_state="draft",
             visibility_state="internal",
         )
-    assert exc_info.value.status_code == 422
-    assert "world source root is missing" in str(exc_info.value)
+    assert exc_info.value.status_code == 404
+    assert "world" in str(exc_info.value)
     assert list_workspace_documents(root, kind="worldbuilding_source") == []
 
 
-def test_worldbuilding_source_succeeds_after_managed_world_container_creates_root(
+def test_worldbuilding_source_succeeds_without_world_directory(
     root: Path,
 ) -> None:
-    """Composition proof: world-container creates root; workspace create still requires it."""
+    """Registered World membership is sufficient; Save creates body directories."""
     from apps.live_control_server.services.world_container_registry import (
         create_world_container,
     )
 
     world = create_world_container(root, name="Managed Compose World")
+    assert not (root / world.source_root_relpath).exists()
     created = create_workspace_document(
         root,
         title="First managed source",
@@ -1510,3 +1514,5 @@ def test_current_world_plan_revision_maps_content_conflict_to_registry_conflict(
 
     assert exc_info.value.status_code == 409
     assert "digest changed" in str(exc_info.value)
+
+pytestmark = pytest.mark.usefixtures("application_state_dsn")
