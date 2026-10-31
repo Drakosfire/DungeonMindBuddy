@@ -64,8 +64,11 @@ jobs:
           src/application_state/content/repository.py
           src/application_state/content/service.py
           src/application_state/content/pages.py
+          src/application_state/content/import_pages.py
+          scripts/adopt_authored_pages.py
           src/application_state/migrations/versions/20261031_0101_authored_pages.py
           tests/application_state/test_authored_pages_postgres.py
+          tests/application_state/test_authored_page_adoption.py
           src/application_state/world_catalog/service.py
           tests/application_state/test_world_catalog_postgres.py
           tests/application_state/test_world_catalog_cutover_migration.py
@@ -90,6 +93,7 @@ jobs:
           tests/application_state/test_world_catalog_postgres.py
           tests/application_state/test_world_catalog_cutover_migration.py
           tests/application_state/test_authored_pages_postgres.py
+          tests/application_state/test_authored_page_adoption.py
           tests/application_state/test_plan_work_object_postgres.py::test_working_copy_survives_new_connection
           tests/application_state/test_plan_work_object_postgres.py::test_current_world_plan_read_returns_immutable_basis_and_divergence
           tests/application_state/test_plan_work_object_postgres.py::test_cas_conflict_one_success
