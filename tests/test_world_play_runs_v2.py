@@ -43,7 +43,7 @@ def current_session_admission(monkeypatch):
 def gm_client(app):
     from apps.live_control_server.services.agent_graph_auth import authenticate_native_graph_principal, NativeGraphPrincipal
     app.dependency_overrides[authenticate_native_graph_principal] = lambda: NativeGraphPrincipal('test-gm', 'gm', 'local_session')
-    return TestClient(app)
+    return TestClient(app, client=("127.0.0.1", 50000))
 
 
 @pytest.fixture
