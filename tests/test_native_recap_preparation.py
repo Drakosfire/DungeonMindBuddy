@@ -47,6 +47,7 @@ def lane(monkeypatch, tmp_path):
     monkeypatch.setenv("DMB_AGENT_GRAPH_AUTH_MODE", "local_operator")
     monkeypatch.setenv("DMB_AGENT_GRAPH_AUTH_ENVIRONMENT", "local")
     monkeypatch.setenv("DMB_AGENT_GRAPH_LOCAL_OPERATOR_TOKEN", TOKEN)
+    monkeypatch.setenv("DMB_GRAPH_REVIEW_PREPARE_BINDING_KEY", "synthetic-native-recap-review-key")
     seed = _repository(evidence=False)
     snapshot = seed.get_revision(SPACE_ID, seed.get_head(SPACE_ID).head_revision_id)
     repo = InMemoryNativeSourceEvidenceRepository()
@@ -474,3 +475,262 @@ def test_support_does_not_authorize_unselected_candidate_content(lane, unknown):
         expected = "unknown_candidate_field"
     response = lane.post()
     assert response.status_code == 409 and expected in response.text
+
+
+def confirmation(lane):
+    response = lane.post()
+    assert response.status_code == 200, response.text
+    return {key: response.json()[key] for key in ("envelope", "prepared", "token")}
+
+
+def confirm(lane, packet):
+    return lane.client.post("/api/live/extract-promote/native-confirm", json=packet,
+                           headers={"Authorization": "Bearer " + TOKEN})
+
+
+def test_ordinary_confirmation_commits_once_and_selected_query_opens_support(lane):
+    from apps.live_control_server.services.agent_graph_auth import NativeGraphPrincipal
+    from apps.live_control_server.services.native_plan_statements import prepare_query
+    from apps.live_control_server.services.native_plan_assertions import read_selected
+    from application_state.agent_conversation.native_plan_assertions import NativePlanAssertionReadAuthorizedV1
+    packet = confirmation(lane)
+    before = len(lane.repo.head_events(SPACE_ID))
+    response = confirm(lane, packet)
+    assert response.status_code == 200, response.text
+    result = response.json()
+    assert result["status"] == "committed" and not result["recovered"]
+    replay = confirm(lane, packet)
+    assert replay.status_code == 200, replay.text
+    assert replay.json()["recovered"] and replay.json()["result"] == result["result"]
+    assert len(lane.repo.head_events(SPACE_ID)) == before + 1
+    child = lane.repo.get_revision(SPACE_ID, result["result"]["child_revision_id"])
+    assert len(child.graph_payload["assertions"]) == 6  # selected fields and exact edge only
+    edge = next(a for a in child.graph_payload["assertions"] if a["predicate"] == "dungeonbuddy.custom:met_at")
+    assert edge["value"] == {"kind": "entity_ref", "entity_id": "ent:pippa"}
+    principal = NativeGraphPrincipal(subject="test:gm", role="gm", auth_method="local_operator")
+    binding = SimpleNamespace(managed_world_id="managed", **lane.bound)
+    context, query = prepare_query("managed", "new", principal, repository=lane.repo,
+        resolve_binding=lambda _: binding, scope_mode="campaign", campaign_id=CAMPAIGN_ID)
+    assert query.assertion_matches
+    grant = NativePlanAssertionReadAuthorizedV1(event_id=uuid4(), sequence=0,
+        provider_attempt_id=uuid4(), query_sha256=query.sha256,
+        assertion_ids=tuple(match.assertion_id for match in query.assertion_matches))
+    reads, unavailable = read_selected(context, grant, principal)
+    assert reads and not unavailable
+    assert all(r.spans[0].evidence_ref_id == lane.support_ids["first"] for r in reads)
+    assert all(r.spans[0].text == lane.text.splitlines(keepends=True)[0] for r in reads)
+
+
+@pytest.mark.parametrize("fault", ["token", "digest", "principal", "packet", "purpose", "extra", "naive_expiry", "binding", "expiry", "parent", "epoch"])
+def test_confirmation_refuses_invalid_authority_without_publication(lane, monkeypatch, fault):
+    from datetime import timedelta
+    packet = confirmation(lane)
+    if fault == "token":
+        packet["token"] += "x"
+    elif fault == "digest":
+        packet["envelope"]["prepared_digest"] = "0" * 64
+    elif fault == "principal":
+        packet["envelope"]["principal"] = "other:gm"
+        packet["token"] = service.sign_publication_intent(packet["envelope"])
+    elif fault == "packet":
+        packet["prepared"]["value"]["fields"]["producer"] = "foreign"
+    elif fault == "purpose":
+        packet["envelope"]["purpose"] = "another_review"
+    elif fault == "extra":
+        packet["envelope"]["skip_checks"] = True
+    elif fault == "naive_expiry":
+        packet["envelope"]["expires_at"] = "2026-10-31T12:00:00"
+    elif fault == "binding":
+        lane.bound["binding_version"] += 1
+    elif fault == "expiry":
+        class Later(datetime):
+            @classmethod
+            def now(cls, tz):
+                return datetime.now(tz) + timedelta(hours=2)
+        monkeypatch.setattr(service, "datetime", Later)
+    else:
+        original = service.native.access_context
+        def changed(*args):
+            context, access = original(*args)
+            context["revision_id" if fault == "parent" else "source_epoch"] = "rev:new" if fault == "parent" else context["source_epoch"] + 1
+            return context, access
+        monkeypatch.setattr(service.native, "access_context", changed)
+    before = len(lane.repo.head_events(SPACE_ID))
+    response = confirm(lane, packet)
+    assert response.status_code in (409, 422), response.text
+    expected = {"expiry": "candidate_review_expired", "binding": "candidate_binding_changed",
+                "parent": "candidate_parent_stale", "epoch": "candidate_source_authority_stale"}
+    if fault in expected:
+        assert response.json()["detail"]["code"] == expected[fault]
+    assert len(lane.repo.head_events(SPACE_ID)) == before
+    assert lane.repo.get_publication_receipt(SPACE_ID, packet["envelope"]["prepared_change_id"]) is None
+
+
+def test_confirmation_authentication_precedes_owner_io(lane, monkeypatch):
+    from apps.live_control_server.services.agent_graph_auth import native_graph_gm_dependency, NativeGraphPrincipal
+    packet = confirmation(lane)
+    monkeypatch.setattr(service.native, "repository", lambda: pytest.fail("unauthorized owner access"))
+    assert lane.client.post("/api/live/extract-promote/native-confirm", json=packet).status_code == 401
+    lane.app.dependency_overrides[native_graph_gm_dependency] = lambda: NativeGraphPrincipal(
+        subject="player", role="player", auth_method="local_operator")
+    assert confirm(lane, packet).status_code == 403
+
+
+@pytest.mark.parametrize("fault", ["missing", "corrupt", "epoch_race"])
+def test_first_commit_requires_current_core_source_opening(lane, monkeypatch, fault):
+    from dataclasses import replace
+    packet = confirmation(lane)
+    before = len(lane.repo.head_events(SPACE_ID))
+    if fault == "missing":
+        lane.repo._native_records.clear()
+    elif fault == "corrupt":
+        _, access = service.native.access_context(lane.repo, SPACE_ID)
+        view_type = type(access.source_view)
+        original = view_type.get_native_text_source
+        def corrupt(self, *args, **kwargs):
+            return replace(original(self, *args, **kwargs), body_bytes=b"tampered")
+        monkeypatch.setattr(view_type, "get_native_text_source", corrupt)
+    else:
+        original = service.open_admitted_native_text
+        def race(*args):
+            opened = original(*args)
+            view = lane.repo.open_native_source_view(SPACE_ID)
+            monkeypatch.setattr(lane.repo, "open_native_source_view", lambda _: SimpleNamespace(epoch=view.epoch + 1))
+            return opened
+        monkeypatch.setattr(service, "open_admitted_native_text", race)
+    response = confirm(lane, packet)
+    assert response.status_code == 409, response.text
+    assert ("candidate_support_unavailable" if fault == "missing" else
+            "candidate_source_authority_changed" if fault == "epoch_race" else
+            "native_text_source_access_integrity_error") in response.text
+    assert len(lane.repo.head_events(SPACE_ID)) == before
+
+
+def test_committed_recovery_survives_expiry_new_head_and_unavailable_sources(lane, monkeypatch):
+    from datetime import timedelta
+    packet = confirmation(lane)
+    first = confirm(lane, packet)
+    assert first.status_code == 200, first.text
+    # Advance the service clock; replay the identical original signed packet.
+    class Later(datetime):
+        @classmethod
+        def now(cls, tz):
+            return datetime.now(tz) + timedelta(hours=2)
+    monkeypatch.setattr(service, "datetime", Later)
+    raw = b"A later unrelated source."
+    publish_native_text_source_evidence(repository=lane.repo, domain_contract=lane.domain,
+        semantic_profile=lane.profile, request=NativeTextSourceAdmissionV1(
+            space_id=SPACE_ID, admission_id="later-source",
+            expected_parent_revision_id=lane.repo.get_head(SPACE_ID).head_revision_id,
+            created_at=datetime.now(UTC), body_text=raw.decode(), expected_body_sha256=sha256(raw).hexdigest(),
+            source_classification="dungeonbuddy.source:session_recap", authority="primary",
+            visibility=META["visibility"], spans=[dict(client_ref="context", evidence_role="context",
+                start_byte=0, end_byte=len(raw), expected_slice_sha256=sha256(raw).hexdigest())]))
+    lane.repo._native_records.clear()
+    monkeypatch.setattr(service, "load_reviewable_extraction_data", lambda *_: pytest.fail("APP run reload"))
+    monkeypatch.setattr(service.sources, "get_source_markdown", lambda **_: pytest.fail("APP source reload"))
+    monkeypatch.setattr(service.native, "access_context", lambda *_: pytest.fail("current source view on recovery"))
+    before = len(lane.repo.head_events(SPACE_ID))
+    retry = confirm(lane, packet)
+    assert retry.status_code == 200, retry.text
+    assert retry.json()["recovered"] and retry.json()["result"] == first.json()["result"]
+    assert len(lane.repo.head_events(SPACE_ID)) == before
+
+
+def test_committed_child_unavailable_and_corrupt_never_report_success(lane, monkeypatch):
+    from dungeonmind.domain.errors import PersistenceUnavailableError
+    packet = confirmation(lane)
+    first = confirm(lane, packet)
+    assert first.status_code == 200, first.text
+    child_id = first.json()["result"]["child_revision_id"]
+    original = lane.repo.get_revision
+    def unavailable(space, revision):
+        if revision == child_id:
+            raise PersistenceUnavailableError("fixture child offline")
+        return original(space, revision)
+    monkeypatch.setattr(lane.repo, "get_revision", unavailable)
+    failed = confirm(lane, packet)
+    assert failed.status_code == 503, failed.text
+    assert failed.json()["detail"]["code"] == "native_recap_commit_verification_unavailable"
+    assert failed.json()["detail"]["committed"] and failed.json()["detail"]["retry_original_packet"]
+    monkeypatch.setattr(lane.repo, "get_revision", original)
+    assert confirm(lane, packet).json()["result"] == first.json()["result"]
+    # Receipt presence alone cannot establish successful exact-child verification.
+    monkeypatch.setattr(lane.repo, "get_revision", lambda space, revision: None if revision == child_id else original(space, revision))
+    failed = confirm(lane, packet)
+    assert failed.status_code == 409, failed.text
+    assert failed.json()["detail"]["code"] == "native_recap_committed_integrity_failure"
+    assert failed.json()["detail"]["committed"] and not failed.json()["detail"]["retry_original_packet"]
+
+
+def test_unknown_commit_outcome_retries_original_packet_without_second_effect(lane, monkeypatch):
+    packet = confirmation(lane)
+    publish = lane.repo.publish_prospective_publication
+    lookup = lane.repo.get_prospective_publication
+    state = {"written": False, "calls": 0}
+    def interrupted(*args, **kwargs):
+        state["calls"] += 1
+        publish(*args, **kwargs)
+        state["written"] = True
+        raise TimeoutError("fixture lost acknowledgement")
+    def unavailable(*args, **kwargs):
+        if state["written"]:
+            raise TimeoutError("fixture receipt temporarily unavailable")
+        return lookup(*args, **kwargs)
+    monkeypatch.setattr(lane.repo, "publish_prospective_publication", interrupted)
+    monkeypatch.setattr(lane.repo, "get_prospective_publication", unavailable)
+    before = len(lane.repo.head_events(SPACE_ID))
+    failed = confirm(lane, packet)
+    assert failed.status_code == 503, failed.text
+    detail = failed.json()["detail"]
+    assert detail["code"] == "native_recap_commit_outcome_unknown"
+    assert detail["retry_original_packet"] and detail["committed"] is None
+    assert detail["publication_id"] == packet["envelope"]["prepared_change_id"]
+    monkeypatch.setattr(lane.repo, "get_prospective_publication", lookup)
+    recovered = confirm(lane, packet)
+    assert recovered.status_code == 200, recovered.text
+    assert recovered.json()["recovered"] and state["calls"] == 2  # exact-ID replay, one durable effect
+    assert len(lane.repo.head_events(SPACE_ID)) == before + 1
+
+
+@pytest.mark.parametrize("fault,code", [
+    ("producer", "candidate_review_invalid"), ("parent", "candidate_review_invalid"),
+    ("meaning", "native_recap_prepared_invalid"),
+])
+def test_authenticated_packet_still_obeys_native_identity_and_WK_integrity(lane, fault, code):
+    from dataclasses import replace
+    packet = confirmation(lane)
+    prepared = transport.decode_prepared(packet["prepared"])
+    if fault == "producer":
+        prepared = replace(prepared, producer="another:producer")
+    elif fault == "parent":
+        prepared = replace(prepared, expected_parent_revision_id="rev:foreign")
+    else:
+        op = prepared.prepared_operations[0]
+        changed = replace(op.facts[0], value=service.wk.LiteralFactValue("changed meaning"))
+        prepared = replace(prepared, prepared_operations=(replace(op, facts=(changed, *op.facts[1:])),
+            *prepared.prepared_operations[1:]))
+    packet["prepared"] = transport.encode_prepared(prepared)
+    packet["envelope"]["prepared_digest"] = transport.digest(packet["prepared"])
+    packet["token"] = service.sign_publication_intent(packet["envelope"])
+    before = len(lane.repo.head_events(SPACE_ID))
+    response = confirm(lane, packet)
+    assert response.status_code == 409, response.text
+    assert response.json()["detail"]["code"] == code
+    assert len(lane.repo.head_events(SPACE_ID)) == before
+
+
+def test_different_review_cannot_reuse_committed_publication_id(lane, monkeypatch):
+    monkeypatch.setattr(service, "uuid4", lambda: "fixture-same-id")
+    first = confirmation(lane)
+    lane.body["selections"][0]["facts"].append(dict(field="description", metadata=copy.deepcopy(META)))
+    second = confirmation(lane)
+    assert first["envelope"]["prepared_change_id"] == second["envelope"]["prepared_change_id"]
+    committed = confirm(lane, first)
+    assert committed.status_code == 200, committed.text
+    before = len(lane.repo.head_events(SPACE_ID))
+    conflict = confirm(lane, second)
+    assert conflict.status_code == 409, conflict.text
+    assert conflict.json()["detail"]["code"] == "native_recap_commit_conflict"
+    assert not conflict.json()["detail"]["retry_original_packet"]
+    assert len(lane.repo.head_events(SPACE_ID)) == before
