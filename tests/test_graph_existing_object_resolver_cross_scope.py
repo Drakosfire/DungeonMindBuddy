@@ -1,5 +1,7 @@
 from pathlib import Path
 
+import pytest
+
 from apps.live_control_server.services.graph_existing_object_resolver import (
     GraphReviewExistingObjectResolverRequest,
     GraphReviewResolverSelectedNode,
@@ -128,15 +130,65 @@ def test_projection_node_views_keep_authored_nodes_out_of_current_recap_scope():
     assert recap.source.source_label == "Current recap"
 
 
-def test_worldbuilding_candidate_returns_with_source_label():
-    response = resolve_existing_object_candidates(_request(query="Mirathorn"))
-    worldbuilding = [
-        candidate
-        for candidate in response.candidates
-        if candidate.graph_scope == GraphObjectCandidateScope.worldbuilding
-    ]
-    assert worldbuilding
-    assert worldbuilding[0].source_label == "Worldbuilding"
+@pytest.mark.parametrize("scope", [
+    GraphObjectCandidateScope.worldbuilding,
+    GraphObjectCandidateScope.campaign_memory,
+    GraphObjectCandidateScope.gm_private,
+])
+@pytest.mark.parametrize("storage", ["no_root", "missing_root", "present_mirror"])
+def test_retired_union_scope_reports_retirement_independent_of_storage(scope, storage, tmp_path):
+    root = None
+    if storage == "missing_root":
+        root = tmp_path / "absent"
+    elif storage == "present_mirror":
+        root = tmp_path
+        (root / "preview_union_supergraph.json").write_text("not a graph or authority")
+    candidates, diagnostics, searched = search_cross_scope_candidates(
+        GraphObjectCandidateSearchContext(
+            campaign_id="longmont-c1", session_id="session-1", query="Mirathorn",
+            scopes=[scope], repo_root=root,
+            live_run_manifest_path="preview_union_supergraph.json",
+        )
+    )
+    assert candidates == []
+    assert searched == [scope]
+    assert len(diagnostics) == 1
+    diagnostic = diagnostics[0]
+    assert diagnostic.code == "candidate_scope_retired"
+    assert diagnostic.scope == scope
+    assert "retired" in diagnostic.message.lower()
+    assert "missing" not in diagnostic.message.lower()
+
+
+def test_resolver_keeps_active_projection_rows_alongside_retired_diagnostics(monkeypatch, tmp_path):
+    from apps.live_control_server.services import graph_existing_object_resolver as resolver
+    from apps.live_control_server.services.graph_gold_review import GraphGoldReviewError
+
+    def no_gold(_session_id):
+        raise GraphGoldReviewError("Synthetic session has no gold fixture")
+
+    monkeypatch.setattr(resolver, "_session_entry", no_gold)
+    monkeypatch.setattr(resolver, "_candidate_dicts_from_live", lambda *_: [])
+    monkeypatch.setattr(resolver, "resolve_campaign_rel_for_search", lambda _: None)
+    response = resolve_existing_object_candidates(
+        _request(query="shared", include_party_pc=False, node_views={
+            "recap:shared": {"label": "shared", "kind": "location"},
+            "authored:shared": {"label": "shared", "kind": "location", "authored": True},
+        }),
+        root=tmp_path,
+    )
+    assert {candidate.candidate_id for candidate in response.candidates} == {
+        "recap:shared", "authored:shared",
+    }
+    assert {candidate.graph_scope for candidate in response.candidates} == {
+        GraphObjectCandidateScope.current_recap_projection,
+        GraphObjectCandidateScope.authored_overlay,
+    }
+    retired = [item for item in response.diagnostics if item.code == "candidate_scope_retired"]
+    assert {item.scope for item in retired} == {
+        GraphObjectCandidateScope.worldbuilding, GraphObjectCandidateScope.campaign_memory,
+    }
+    assert len(retired) == 2
 
 
 def test_party_pc_candidate_returns_when_fixture_exists():
@@ -168,7 +220,7 @@ def test_missing_optional_scope_returns_diagnostic_not_failure():
     )
     assert response.diagnostics
     assert any(
-        diagnostic.code in {"worldbuilding_graph_missing", "candidate_scope_empty", "candidate_scope_unavailable"}
+        diagnostic.code == "candidate_scope_retired"
         for diagnostic in response.diagnostics
     )
 
