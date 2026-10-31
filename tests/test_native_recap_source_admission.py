@@ -8,7 +8,7 @@ from types import SimpleNamespace
 import json
 import os
 from uuid import uuid4
-from urllib.parse import urlparse, urlunparse
+from psycopg.conninfo import conninfo_to_dict
 import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
@@ -51,12 +51,16 @@ def native_core_dsn(monkeypatch):
         pytest.skip(
             "DMB_NATIVE_RECAP_TEST_ADMIN_DSN requires an existing vector-capable disposable-test service"
         )
-    parsed = urlparse(admin)
-    assert parsed.hostname in {"127.0.0.1", "localhost", "::1"}
+    assert conninfo_to_dict(admin)["host"] in {"127.0.0.1", "localhost", "::1"}
     name = "dmb_recap_source_test_" + uuid4().hex[:12]
     with psycopg.connect(admin, autocommit=True) as conn:
         conn.execute(sql.SQL("CREATE DATABASE {}").format(sql.Identifier(name)))
-    dsn = urlunparse(parsed._replace(path="/" + name))
+    print("NATIVE_FIXTURE_CREATED", name)
+    from sqlalchemy import URL
+    params = conninfo_to_dict(admin)
+    dsn = URL.create("postgresql", username=params.get("user"),
+                     password=params.get("password"), host=params["host"],
+                     port=int(params.get("port", "5432")), database=name).render_as_string(hide_password=False)
     try:
         import dungeonmind
 
@@ -64,7 +68,8 @@ def native_core_dsn(monkeypatch):
         cfg = Config()
         cfg.set_main_option(
             "script_location",
-            str(Path(dungeonmind.__file__).resolve().parent.parent / "migrations"),
+            str(Path(os.environ.get("DMB_NATIVE_RECAP_TEST_CORE_ROOT",
+                                    str(Path(dungeonmind.__file__).resolve().parent.parent))) / "migrations"),
         )
         command.upgrade(cfg, "head")
         yield dsn
@@ -75,6 +80,7 @@ def native_core_dsn(monkeypatch):
                 (name,),
             )
             conn.execute(sql.SQL("DROP DATABASE {}").format(sql.Identifier(name)))
+        print("NATIVE_FIXTURE_DROPPED", name)
 
 
 @pytest.fixture
@@ -108,29 +114,18 @@ def lane(tmp_path, monkeypatch, application_state_dsn, native_core_dsn):
         domain_contract=dungeonbuddy_world_domain_contract(),
         semantic_profile=dungeonbuddy_dnd5e_custom_predicate_profile(),
     )
-    path = tmp_path / world.source_root_relpath / "Session 8.md"
-    raw = b"---\r\ncampaign_id: campaign\r\nsession: 8\r\n---\r\n# Session 8\r\n\r\nTorbin reported strange meat and an Arcana result.\r\n"
-    path.write_bytes(raw)
+    text = "# Session 8\n\nTorbin reported strange meat and an Arcana result.\n"
+    selection = register_source(tmp_path, native, text)
     context = SimpleNamespace(
         managed_world_id=world.world_id,
         native_world_id=native,
         binding_version=1,
         campaign_id="campaign",
     )
-    real_selection = (
-        route.inspect_recap_ingest_status,
-        route._normalized_recap_is_graph_ready,
-        route._normalized_recap_graph_path,
-    )
     monkeypatch.setattr(route, "repo_root", lambda: tmp_path)
-    monkeypatch.setattr(route, "_request_recap_context", lambda _: context)
-    monkeypatch.setattr(
-        route,
-        "inspect_recap_ingest_status",
-        lambda **_: verified_status(path.read_bytes()),
-    )
-    monkeypatch.setattr(route, "_normalized_recap_is_graph_ready", lambda _: True)
-    monkeypatch.setattr(route, "_normalized_recap_graph_path", lambda *_: str(path))
+    for name in ("_pipeline_corpus_root", "inspect_recap_ingest_status",
+                 "_normalized_recap_graph_path", "_request_recap_context"):
+        monkeypatch.setattr(route, name, lambda *_a, **_k: pytest.fail("Source intake used legacy file/broker selection"))
     import httpx
 
     monkeypatch.setattr(
@@ -149,14 +144,14 @@ def lane(tmp_path, monkeypatch, application_state_dsn, native_core_dsn):
         "campaign_id": "campaign",
         "session": 8,
         "include_graph_extraction": False,
+        "native_recap_source": selection,
     }
     return SimpleNamespace(
         root=tmp_path,
-        real_selection=real_selection,
         world=world,
         repo=repo,
-        path=path,
-        raw=raw,
+        text=text,
+        selection=selection,
         context=context,
         client=client,
         body=body,
@@ -165,25 +160,23 @@ def lane(tmp_path, monkeypatch, application_state_dsn, native_core_dsn):
     )
 
 
-def verified_status(raw):
-    digest = sha256(raw).hexdigest()
-    return {
-        "ingest_report": {
-            "derivative_stages": {
-                "normalized_recap": {
-                    "state": "current",
-                    "expected_sha256": digest,
-                    "output_sha256": digest,
-                }
-            }
-        }
-    }
+def register_source(root, world, text):
+    from apps.live_control_server.services.source_artifact_registry import create_recap_source_artifact
+    artifact = create_recap_source_artifact(
+        root, world_id=world, campaign_id="campaign", session_id="session-8", recap_text=text
+    )
+    source = sources.get_source_markdown(source_artifact_id=artifact.source_artifact_id,
+                                         content_sha256=artifact.content_sha256)
+    return {"source_artifact_id": artifact.source_artifact_id,
+            "source_revision_id": str(source.source_revision_id),
+            "content_sha256": source.content_sha256}
 
 
 def post(lane, **extra):
-    return lane.client.post(
-        "/api/live/recap-ingest", json={**lane.body, **extra}, headers=lane.headers
-    )
+    body = {**lane.body, **extra}
+    if extra.get("native_recap_resume") is not None or extra.get("native_recap_run_id") is not None:
+        body.pop("native_recap_source", None)
+    return lane.client.post("/api/live/recap-ingest", json=body, headers=lane.headers)
 
 
 def native(response):
@@ -227,8 +220,9 @@ def test_ordinary_http_admits_exact_APP_version_and_reopens_without_provider(
     value = native(post(lane))
     assert value["state"] == "admitted", value
     assert value["admission_committed"] and value["opening"]["state"] == "verified"
-    assert value["raw_original_sha256"] == sha256(lane.raw).hexdigest()
-    canonical = lane.raw.decode().replace("\r\n", "\n")
+    assert value["schema_version"] == "dmb_native_recap_source_status_v2"
+    assert "raw_original_sha256" not in value and "normalization_policy" not in value
+    canonical = lane.text
     assert value["app_body_sha256"] == sha256(canonical.encode()).hexdigest()
     run = ingest.get_extraction_run(value["run_id"])
     assert run.components == {} and run.status.value == "draft"
@@ -239,7 +233,9 @@ def test_ordinary_http_admits_exact_APP_version_and_reopens_without_provider(
         content_sha256=value["app_body_sha256"],
     )
     assert str(source.source_revision_id) == value["app_source_revision_id"]
-    assert source.markdown == canonical and lane.path.read_bytes() == lane.raw
+    assert source.markdown == canonical
+    assert value["app_source_revision_id"] == lane.selection["source_revision_id"]
+    assert "raw_original_sha256" not in record.model_dump()
     after = lane.repo.get_head(lane.context.native_world_id)
     assert after != before
     assert native(post(lane)) == value
@@ -266,9 +262,9 @@ def test_ordinary_http_admits_exact_APP_version_and_reopens_without_provider(
 
 def test_auth_and_foreign_scope_refuse_before_source_effects(lane, monkeypatch):
     monkeypatch.setattr(
-        route,
-        "_request_recap_context",
-        lambda _: pytest.fail("unauthorized request read sensitive source context"),
+        service,
+        "get_source_artifact",
+        lambda *_: pytest.fail("unauthorized request read sensitive source context"),
     )
     before = tree(lane.root)
     assert lane.client.post("/api/live/recap-ingest", json=lane.body).status_code == 401
@@ -385,8 +381,9 @@ def test_changed_source_gets_new_origin_and_bad_APP_or_generic_update_refuses(la
     from graph_memory.ingestion.extraction_run import ExtractionRunStatus
 
     first = native(post(lane))
-    lane.path.write_bytes(lane.raw + b"Another independently imported paragraph.\n")
-    second = native(post(lane))
+    selection = register_source(lane.root, lane.context.native_world_id,
+                                lane.text + "Another independently imported paragraph.\n")
+    second = native(post(lane, native_recap_source=selection))
     assert (
         first["app_source_revision_id"] != second["app_source_revision_id"]
         and first["admission_id"] != second["admission_id"]
@@ -901,53 +898,30 @@ def test_generic_run_cannot_inject_or_drop_source_admission_intent(lane):
     assert ingest.get_extraction_run(ordinary.run_id) == ordinary
 
 
-def test_oversized_selected_source_refuses_before_read(lane, monkeypatch):
+def test_source_budget_is_enforced_by_native_preflight(lane):
     from dungeonmind.contracts.vnext.native_source import MAX_NATIVE_TEXT_BYTES
-
-    large = lane.path
-    large.write_bytes(b"x" * (MAX_NATIVE_TEXT_BYTES + 1))
-    monkeypatch.setattr(
-        route, "inspect_recap_ingest_status", lambda **_: verified_status(lane.raw)
-    )
-    actual = Path.open
-
-    def guarded(path, *args, **kwargs):
-        assert path != large, "Oversized source was opened instead of rejected by size"
-        return actual(path, *args, **kwargs)
-
-    monkeypatch.setattr(Path, "open", guarded)
-    response = post(lane)
-    assert response.status_code == 413
-    assert response.json()["detail"]["code"] == "native_recap_source_too_large"
-    assert ingest.list_extraction_runs() == []
-
-
-@pytest.mark.parametrize("kind", ["artifact", "foreign", "symlink"])
-def test_selected_source_requires_real_World_root_not_claimed_lineage(
-    lane, monkeypatch, kind
-):
-    outside = lane.root / "outside.md"
-    if kind == "foreign":
-        foreign = create_world_container(lane.root, name="Foreign source World")
-        outside = lane.root / foreign.source_root_relpath / "Session 8.md"
-    outside.write_bytes(lane.raw)
-    selected = outside
-    if kind == "symlink":
-        selected = lane.path.parent / "escape.md"
-        selected.symlink_to(outside)
-    from apps.live_control_server.services import recap_graph_preview_ingest
-
-    monkeypatch.setattr(
-        recap_graph_preview_ingest,
-        "_normalized_recap_digest",
-        lambda *_: sha256(lane.raw).hexdigest(),
-    )
-    monkeypatch.setattr(route, "_normalized_recap_graph_path", lambda *_: str(selected))
+    selection = register_source(lane.root, lane.context.native_world_id,
+                                "x" * (MAX_NATIVE_TEXT_BYTES + 1))
     before = lane.repo.get_head(lane.context.native_world_id)
-    response = post(lane)
-    assert response.status_code == 409
-    assert response.json()["detail"]["code"] == "native_recap_source_world_mismatch"
-    assert ingest.list_extraction_runs() == []
+    value = native(post(lane, native_recap_source=selection))
+    assert value["state"] == "reserved" and value["failure_code"]
+    assert not value["admission_committed"]
+    assert lane.repo.get_head(lane.context.native_world_id) == before
+
+
+@pytest.mark.parametrize("changes", [
+    {"source_domain": "worldbuilding"}, {"artifact_kind": "image"},
+    {"world_id": None}, {"world_id": "foreign"}, {"campaign_id": "foreign"},
+    {"session_id": "session-9"}, {"content_sha256": "a" * 64},
+    {"status": "superseded"}, {"source_artifact_id": "artifact:recap:v2:" + "a" * 64},
+])
+def test_descriptor_mismatch_refuses_before_native_effects(lane, monkeypatch, changes):
+    actual = service.get_source_artifact
+    monkeypatch.setattr(service, "get_source_artifact",
+                        lambda *a: actual(*a).model_copy(update=changes))
+    before = lane.repo.get_head(lane.context.native_world_id)
+    assert post(lane).status_code == 409
+    assert not ingest.list_extraction_runs()
     assert lane.repo.get_head(lane.context.native_world_id) == before
 
 
@@ -959,31 +933,25 @@ def test_reader_fence_preserves_old_rows_blocks_old_writers_and_refuses_downgrad
     from graph_memory.ingestion.extraction_run import ExtractionRun, ExtractionRunStatus
 
     cfg = cli.alembic_config()
-    # Empty disposable fixture only: stamp the no-op predecessor, then populate
-    # an ordinary row using that installed head before exercising the real upgrade.
-    assert ingest.list_extraction_runs() == []
-    command.stamp(cfg, "20261030_0095")
-    with monkeypatch.context() as older:
-        older.setattr(cli, "_alembic_head", lambda: "20261030_0095")
-        retained = ingest.create_extraction_run(
-            ExtractionRun.model_validate(
-                {
-                    "run_id": "er_older_" + uuid4().hex,
-                    "source_artifact_id": "sa_older_fixture",
-                    "source_domain": "recap",
-                    "status": "draft",
-                    "revision": 1,
-                    "campaign_id": "campaign",
-                    "session_id": "session-8",
-                    "created_at": NOW.isoformat(),
-                    "updated_at": NOW.isoformat(),
-                    "components": {},
-                    "lineage": {},
-                }
-            )
+    head = cli._alembic_head()
+    assert cli._read_current_revision(lane.dsn) == head
+    retained = ingest.create_extraction_run(
+        ExtractionRun.model_validate(
+            {
+                "run_id": "er_older_" + uuid4().hex,
+                "source_artifact_id": "sa_older_fixture",
+                "source_domain": "recap",
+                "status": "draft",
+                "revision": 1,
+                "campaign_id": "campaign",
+                "session_id": "session-8",
+                "created_at": NOW.isoformat(),
+                "updated_at": NOW.isoformat(),
+                "components": {},
+                "lineage": {},
+            }
         )
-    command.upgrade(cfg, "head")
-    assert cli._read_current_revision(lane.dsn) == "20261030_0096"
+    )
     assert ingest.get_extraction_run(retained.run_id) == retained
     status = native(post(lane))
     run = ingest.get_extraction_run(status["run_id"])
@@ -1009,71 +977,55 @@ def test_reader_fence_preserves_old_rows_blocks_old_writers_and_refuses_downgrad
     assert ingest.get_extraction_run(run.run_id) == run
     with pytest.raises(RuntimeError, match="recovery forward"):
         command.downgrade(cfg, "20261030_0095")
-    assert cli._read_current_revision(lane.dsn) == "20261030_0096"
+    assert cli._read_current_revision(lane.dsn) == head
     assert native(inspection(lane, status)) == status
     assert ingest.get_extraction_run(retained.run_id) == retained
 
 
-def test_source_change_after_committed_status_is_rejected_before_persistence(
-    lane, monkeypatch
-):
-    actual = service.admit
+@pytest.mark.parametrize("changes", [
+    {"source_revision_id": "00000000-0000-0000-0000-000000000001"},
+    {"content_sha256": "a" * 64},
+])
+def test_wrong_exact_snapshot_refuses_without_native_effects(lane, changes):
     before = lane.repo.get_head(lane.context.native_world_id)
-
-    def changed(*args, **kwargs):
-        lane.path.write_bytes(lane.raw + b"Unverified concurrent edit.\n")
-        return actual(*args, **kwargs)
-
-    monkeypatch.setattr(service, "admit", changed)
-    response = post(lane)
-    assert response.status_code == 409
-    assert response.json()["detail"]["code"] == "native_recap_committed_source_changed"
-    assert ingest.list_extraction_runs() == []
+    assert post(lane, native_recap_source={**lane.selection, **changes}).status_code == 409
+    assert not ingest.list_extraction_runs()
     assert lane.repo.get_head(lane.context.native_world_id) == before
 
 
-@pytest.mark.parametrize(
-    "stage",
-    [{}, {"state": "current", "expected_sha256": "a" * 64, "output_sha256": "b" * 64}],
-)
-def test_ready_flag_without_matching_committed_digest_is_not_source_authority(
-    lane, monkeypatch, stage
-):
-    monkeypatch.setattr(
-        route,
-        "inspect_recap_ingest_status",
-        lambda **_: {
-            "ingest_report": {"derivative_stages": {"normalized_recap": stage}},
-        },
-    )
-    monkeypatch.setattr(
-        service,
-        "admit",
-        lambda *_args, **_kwargs: pytest.fail("Unverified source admission"),
-    )
-    assert post(lane).status_code == 409
+@pytest.mark.parametrize("extra", [
+    {"raw_text": "new input"}, {"include_graph_extraction": True},
+    {"title": "another selector"}, {"force_graph_run": True},
+    {"native_recap_run_id": "00000000-0000-0000-0000-000000000001"},
+])
+def test_exact_selection_cannot_mix_other_pipeline_actions(lane, extra):
+    body = {**lane.body, **extra}
+    assert lane.client.post("/api/live/recap-ingest", json=body, headers=lane.headers).status_code == 422
+    assert not ingest.list_extraction_runs()
+
+
+def test_missing_selection_refuses_before_source_io(lane, monkeypatch):
+    monkeypatch.setattr(service, "get_source_artifact", lambda *_: pytest.fail("Missing selector read source"))
+    response = post(lane, native_recap_source=None)
+    assert response.status_code == 422
+    assert response.json()["detail"]["code"] == "native_recap_source_selection_required"
 
 
 @pytest.mark.parametrize("managed_override", [True, False])
-def test_managed_source_root_and_artifact_root_can_be_separate(
-    lane, monkeypatch, managed_override
-):
+def test_database_source_does_not_require_source_directory_or_uri(lane, monkeypatch, managed_override):
     if not managed_override:
         monkeypatch.delenv(config.MANAGED_WORLD_DATA_ROOT_ENV)
+    actual = service.get_source_artifact
+    monkeypatch.setattr(service, "get_source_artifact", lambda *a: actual(*a).model_copy(
+        update={"uri": "file:///nonexistent/retired-source/Session8.md"}))
     artifacts = lane.root / "separate-artifact-store"
-    artifacts.mkdir()
     monkeypatch.setenv(config.ARTIFACT_DATA_ROOT_ENV, str(artifacts))
+    artifacts.mkdir()
+    assert not (lane.root / lane.world.source_root_relpath).exists()
+    monkeypatch.setattr(sources, "persist_source_markdown", lambda **_: pytest.fail("Intake recreated source"))
     value = native(post(lane))
     assert value["state"] == "admitted" and value["opening"]["state"] == "verified"
-    source = sources.get_source_markdown(
-        source_artifact_id=value["app_source_artifact_id"],
-        content_sha256=value["app_body_sha256"],
-    )
-    assert source.lineage["selected_input_uri"] == lane.path.as_uri()
-    assert lane.path.read_bytes() == lane.raw
-
     assert native(inspection(lane, value)) == value
-    lane.path.unlink()
     assert native(post(lane, native_recap_resume=resume(value))) == value
 
 
@@ -1093,7 +1045,7 @@ def test_explicit_recovery_uses_frozen_APP_source_after_live_file_removed(
     run = ingest.get_extraction_run(first["run_id"])
     record = Record.model_validate(run.lineage[KEY])
     frozen = record.command.sha256
-    lane.path.unlink()
+    # Recovery resolves the same immutable APP revision; no live corpus lookup.
     monkeypatch.setattr(
         route,
         "inspect_recap_ingest_status",
@@ -1125,80 +1077,83 @@ def test_explicit_recovery_uses_frozen_APP_source_after_live_file_removed(
 @pytest.mark.parametrize(
     "changes", [{"session": 9}, {"campaign_id": "another-campaign"}]
 )
-def test_source_grouping_must_match_committed_frontmatter(lane, changes):
+def test_source_grouping_must_match_exact_APP_scope(lane, changes):
     response = post(lane, **changes)
     assert response.status_code == 409
     assert response.json()["detail"]["code"] == "native_recap_source_grouping_mismatch"
     assert ingest.list_extraction_runs() == []
 
 
-def test_ordinary_source_only_uses_real_normalization_without_legacy_broker(
-    lane, monkeypatch
-):
-    from src.live_play.recap_ingest_pipeline import _expected_normalized_content
-    from src.live_play.recap_stage_paths import RecapStagePaths
+def test_intake_preserves_exact_APP_bytes_without_frontmatter_or_normalization(lane):
+    from graph_memory.evidence.source_artifact import (
+        GraphMemorySourceArtifact, build_world_scoped_recap_source_artifact_id,
+    )
+    body = "# Exact snapshot\r\n\r\nNo frontmatter or terminal newline."
+    digest = sha256(body.encode()).hexdigest()
+    artifact_id = build_world_scoped_recap_source_artifact_id(
+        world_id=lane.context.native_world_id, campaign_id="campaign",
+        session_id="session-8", content_sha256=digest,
+    )
+    descriptor = GraphMemorySourceArtifact(
+        source_artifact_id=artifact_id, source_domain="recap", artifact_kind="recap_markdown",
+        world_id=lane.context.native_world_id, campaign_id="campaign", session_id="session-8",
+        content_sha256=digest, uri="file:///nonexistent/retired-source/Session8.md",
+    )
+    source = sources.persist_source_markdown(
+        source_artifact_id=artifact_id, source_domain="recap", world_id=lane.context.native_world_id,
+        campaign_id="campaign", session_id="session-8", markdown=body, content_sha256=digest,
+        input_descriptor=descriptor.model_dump(mode="json"),
+    )
+    selection = {"source_artifact_id": artifact_id, "source_revision_id": str(source.source_revision_id),
+                 "content_sha256": digest}
+    result = native(post(lane, native_recap_source=selection))
+    assert result["state"] == "admitted" and result["opening"]["body_sha256"] == digest
+    assert sources.get_source_markdown(**selection) == source
+    assert native(inspection(lane, result)) == result
 
-    world_root = lane.root / lane.world.source_root_relpath
-    paths = RecapStagePaths.build(
-        campaign_id="longmont-c1", session=8, slug_tail="Fixture Discovery"
-    )
-    canonical = world_root / paths.canonical_recap_rel
-    canonical.parent.mkdir(parents=True)
-    canonical.write_text(
-        "---\ntitle: Session 8 - Fixture Discovery\ncampaign_id: longmont-c1\nsession: 8\n---\n# Recap\nA synthetic discovery was reported.\n"
-    )
-    normalized = world_root / paths.normalized_recap_rel
-    normalized.parent.mkdir()
-    normalized.write_text(
-        _expected_normalized_content(
-            corpus=world_root,
-            canonical_recap_rel=paths.canonical_recap_rel,
-            session=8,
-            title="Session 8 - Fixture Discovery",
-        )
-    )
-    for name, actual in zip(
-        (
-            "inspect_recap_ingest_status",
-            "_normalized_recap_is_graph_ready",
-            "_normalized_recap_graph_path",
-        ),
-        lane.real_selection,
-    ):
-        monkeypatch.setattr(route, name, actual)
-    monkeypatch.setenv("DUNGEONMIND_RECAP_INGEST_CORPUS_ROOT", str(world_root))
-    monkeypatch.delenv("DUNGEONMIND_PUBLICATION_BASE_URL", raising=False)
-    monkeypatch.delenv("DUNGEONMIND_PUBLICATION_BEARER_TOKEN", raising=False)
-    monkeypatch.setattr(
-        route,
-        "_request_recap_context",
-        lambda *_: pytest.fail("Source admission used classic broker"),
-    )
-    value = native(
-        post(lane, campaign_id="longmont-c1", title="Session 8 - Fixture Discovery")
-    )
-    assert (
-        value["state"] == "admitted"
-        and value["grouping_basis"] == "normalized_source_metadata"
-    )
-    assert value["opening"]["state"] == "verified"
-    assert value["raw_original_sha256"] == sha256(normalized.read_bytes()).hexdigest()
 
-    from fastapi import HTTPException
-
-    def required_classic_context(_):
-        raise HTTPException(
-            status_code=503, detail={"code": "classic_publication_context_required"}
-        )
-
-    monkeypatch.setattr(route, "_request_recap_context", required_classic_context)
-    legacy = post(
-        lane,
-        campaign_id="longmont-c1",
-        title="Session 8 - Fixture Discovery",
-        include_graph_extraction=True,
+def test_native_admission_identity_is_stable_across_record_version():
+    record = Record(
+        managed_world_id="synthetic-source-world", native_world_id="synthetic-native-source",
+        binding_version=1, campaign_id="synthetic-campaign", session_id="session-8",
+        app_source_artifact_id="artifact:recap:v2:" + "a" * 64,
+        app_source_revision_id="00000000-0000-0000-0000-000000000001",
+        app_body_sha256="b" * 64, created_by="identity-witness",
+        created_authority_basis="local_gm", created_at=NOW,
     )
-    assert legacy.status_code == 503
-    assert legacy.json()["detail"]["code"] == "classic_publication_context_required"
+    # Frozen from the actual V1 implementation, not a second copy of the recipe.
+    assert record.admission_id == "dmb-recap-source:67d20ea263489b9fb302b07a54f4f9c0a437b3b942a6ea583faeffba690e2a17"
+    assert record.run_id == "a048576e-7182-5934-9560-8952a0ff5ccb"
+    assert "normalization_policy" not in record.model_dump()
+
+
+def test_existing_core_receipt_without_saved_command_refuses_without_duplicate(lane, monkeypatch):
+    from graph_memory.ingestion.native_recap_source import SourceScope
+    # Exercise a real Core commit whose APP command capture was lost. This must
+    # not mint a replacement admission identity or fabricate a recovery command.
+    source = sources.get_source_markdown(**lane.selection)
+    scope = SourceScope(**vars(lane.context))
+    record = Record(**scope.model_dump(), session_id="session-8",
+                    app_source_artifact_id=source.source_artifact_id,
+                    app_source_revision_id=source.source_revision_id,
+                    app_body_sha256=source.content_sha256, created_by="recap-owner",
+                    created_authority_basis="local_gm", created_at=source.created_at)
+    authority = NativeRecapAuthority(lane.root)
+    cmd = authority.prepare(record, source.markdown)
+    frozen = record.model_copy(update={"commands": [cmd]})
+    receipt = authority.dispatch(frozen, source.markdown)
+    before = lane.repo.get_head(lane.context.native_world_id)
+    monkeypatch.setattr(NativeRecapAuthority, "dispatch", lambda *_: pytest.fail("Duplicate native admission"))
+    response = post(lane)
+    assert response.status_code == 409
+    assert response.json()["detail"]["code"] == "native_recap_saved_command_missing"
+    repeat = native(post(lane))
+    assert repeat["failure_code"] == "native_recap_saved_command_missing"
+    assert repeat["state"] == "unavailable" and not repeat["admission_committed"]
+    assert repeat["admission_id"] == receipt.admission_id
+    assert post(lane, native_recap_resume=resume(repeat)).status_code == 409
+    assert lane.repo.get_head(lane.context.native_world_id) == before
+    assert authority.receipt(record) == receipt
+
 
 pytestmark = pytest.mark.usefixtures("application_state_dsn")

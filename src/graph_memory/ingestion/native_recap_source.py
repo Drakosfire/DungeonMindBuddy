@@ -15,11 +15,18 @@ from dungeonmind.domain.canonical import canonical_sha256
 
 KEY = "native_recap_source"
 PROFILE = "fresh_recap_native_source_v1"
-NORMALIZATION = "utf8-universal-newlines-terminal-lf-v1"
+# Frozen identity ingredient only; no normalization or provenance authority.
+_ADMISSION_IDENTITY_TAG = "utf8-universal-newlines-terminal-lf-v1"
 
 
 class Closed(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True)
+
+
+class SourceSelection(Closed):
+    source_artifact_id: str = Field(pattern=r"^artifact:recap:v2:.+")
+    source_revision_id: UUID
+    content_sha256: str = Field(pattern=r"^[a-f0-9]{64}$")
 
 
 class SourceScope(Closed):
@@ -72,22 +79,18 @@ class Command(Closed):
 
 
 class Record(Closed):
-    schema_version: Literal["dmb_native_recap_source_record_v1"] = (
-        "dmb_native_recap_source_record_v1"
+    schema_version: Literal["dmb_native_recap_source_record_v2"] = (
+        "dmb_native_recap_source_record_v2"
     )
     managed_world_id: str = Field(min_length=1)
     native_world_id: str = Field(min_length=1)
     binding_version: int = Field(ge=1)
     campaign_id: str = Field(min_length=1)
-    grouping_basis: Literal["normalized_source_metadata"] = "normalized_source_metadata"
+    grouping_basis: Literal["exact_app_source_descriptor"] = "exact_app_source_descriptor"
     session_id: str = Field(pattern=r"^session-[1-9][0-9]*$")
     app_source_artifact_id: str = Field(pattern=r"^artifact:recap:v2:.+")
     app_source_revision_id: UUID
     app_body_sha256: str = Field(pattern=r"^[a-f0-9]{64}$")
-    raw_original_sha256: str = Field(pattern=r"^[a-f0-9]{64}$")
-    normalization_policy: Literal["utf8-universal-newlines-terminal-lf-v1"] = (
-        NORMALIZATION
-    )
     created_by: str = Field(min_length=1)
     created_authority_basis: Literal["local_gm", "world_manage"]
     created_at: datetime
@@ -99,9 +102,11 @@ class Record(Closed):
     def admission_id(self):
         return "dmb-recap-source:" + canonical_sha256(
             {
-                k: getattr(self, k)
-                if k != "app_source_revision_id"
+                k: _ADMISSION_IDENTITY_TAG
+                if k == "normalization_policy"
                 else str(self.app_source_revision_id)
+                if k == "app_source_revision_id"
+                else getattr(self, k)
                 for k in (
                     "managed_world_id",
                     "native_world_id",
@@ -191,8 +196,8 @@ class StatusRequest(Closed):
 
 
 class Status(Closed):
-    schema_version: Literal["dmb_native_recap_source_status_v1"] = (
-        "dmb_native_recap_source_status_v1"
+    schema_version: Literal["dmb_native_recap_source_status_v2"] = (
+        "dmb_native_recap_source_status_v2"
     )
     state: Literal[
         "reserved", "dispatching", "admitted", "unavailable", "conflict", "unknown"
@@ -204,12 +209,10 @@ class Status(Closed):
     native_world_id: str
     binding_version: int
     campaign_id: str
-    grouping_basis: Literal["normalized_source_metadata"] = "normalized_source_metadata"
+    grouping_basis: Literal["exact_app_source_descriptor"] = "exact_app_source_descriptor"
     session_id: str
     app_source_artifact_id: str
     app_source_revision_id: UUID
-    raw_original_sha256: str
-    normalization_policy: str
     app_body_sha256: str
     admission_id: str
     origin: dict[str, str]
