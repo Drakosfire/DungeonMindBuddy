@@ -961,20 +961,15 @@ def test_wrapper_persists_ledger_on_failed_result(tmp_path, monkeypatch):
         )
 
 
-def test_ge_incomplete_through_one_recap_never_appends_candidate(tmp_path, monkeypatch):
+def test_ge_incomplete_through_one_recap_never_appends_candidate(
+    tmp_path, monkeypatch, application_state_dsn,
+):
     from tests.test_recap_managed_standing_context import seed_binding
-    seed_binding(tmp_path,"managed-fixture-world","world:synthetic")
-    import hashlib
     from apps.live_control_server.services import graph_preview_runner as wrapper
     from apps.live_control_server.services import graph_run_registry as registry
-    from src.graph_memory.extraction import graph_preview_runner as controller
     from graph_memory.ingestion.extraction_run import ExtractionRunStatus
-    from graph_memory.source_span import (
-        build_source_span_index_for_text,
-        source_span_index_to_dict,
-    )
-    from src.graph_memory.extraction.source_adapter import NormalizedExtractionSource
 
+    seed_binding(tmp_path, "managed-fixture-world", "world:synthetic")
     code = FailureCode.PROVIDER_INCOMPLETE
     obs = observation().model_copy(
         update={"state": ObservationState.INCOMPLETE, "failure_code": code}
@@ -988,49 +983,8 @@ def test_ge_incomplete_through_one_recap_never_appends_candidate(tmp_path, monke
         RecapExecutionLimits(), engine_factory=lambda: engine
     )
     monkeypatch.setattr(wrapper, "BoundedRecapPassClient", lambda limits: client)
-    text = "A keeper guards a gate.\n"
-    digest = hashlib.sha256(text.encode()).hexdigest()
     source_path = tmp_path / "source.md"
-    source_path.write_text(text)
-    index = build_source_span_index_for_text(
-        source_artifact_id="synthetic-source", content_sha256=digest, text=text
-    )
-    source = NormalizedExtractionSource(
-        source_artifact_id="synthetic-source",
-        source_domain="recap",
-        source_text=text,
-        source_sha256=digest,
-        source_uri="repo://source.md",
-        campaign_id="synthetic",
-        session_id="session-1",
-        document_class="recap",
-        source_span_index=source_span_index_to_dict(index),
-    )
-    monkeypatch.setattr(
-        wrapper,
-        "create_recap_source_artifact",
-        lambda *a, **k: SimpleNamespace(source_artifact_id="synthetic-source"),
-    )
-    monkeypatch.setattr(wrapper, "_normalized_from_registered", lambda *a: source)
-    current = SimpleNamespace(
-        run_id="synthetic-run", revision=1, status=ExtractionRunStatus.DRAFT, lineage={}
-    )
-    states = []
-    monkeypatch.setattr(controller, "_create_draft_run", lambda *a, **k: current)
-
-    def advance(root, run, *, status, **kwargs):
-        current.status = status
-        current.revision += 1
-        current.lineage = kwargs.get("lineage") or current.lineage
-        states.append(status)
-        return current
-
-    monkeypatch.setattr(controller, "_advance_run", advance)
-    monkeypatch.setattr(registry, "get_extraction_run", lambda *a: current)
-    from src.graph_memory.extraction import (
-        category_candidate_graph_extractor as extractor,
-    )
-
+    source_path.write_text("A keeper guards a gate.\n")
     output = tmp_path / "new-output"
     result = wrapper.run_recap_production_extraction(
         repo_root=tmp_path,
@@ -1045,10 +999,9 @@ def test_ge_incomplete_through_one_recap_never_appends_candidate(tmp_path, monke
         ingest_context=_fixture_ingest_context("synthetic"),
     )
     assert result.failure_kind == "incomplete", result.diagnostics
-    assert (
-        result.candidate_graph is None and current.status == ExtractionRunStatus.FAILED
-    )
-    assert ExtractionRunStatus.REVIEWABLE not in states
+    stored = registry.get_extraction_run(tmp_path, result.run.run_id)
+    assert result.candidate_graph is None and stored.status == ExtractionRunStatus.FAILED
+    assert "candidate_graph" not in stored.components
     assert not list(output.rglob("candidate_graph.json"))
     assert len(engine.requests) == 1
     ledger = json.loads((output / "inference_call_ledger.json").read_text())
