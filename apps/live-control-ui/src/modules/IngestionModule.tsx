@@ -45,7 +45,6 @@ interface IngestionModuleProps {
 
 const INGESTION_DRAFT_STORAGE_VERSION = 3;
 const INGESTION_GRAPH_MODEL_ID = "deepseek/deepseek-v4.1-flash-1017";
-const INGESTION_GRAPH_MODEL_LABEL = "DeepSeek V4.1 Flash 1017 · pinned";
 
 type IngestionSourceMode = "raw" | "processed";
 
@@ -138,7 +137,6 @@ function requestedRecapSessionFromLocation(): number | null {
 type IngestionPaneState =
   | { status: "idle" }
   | { status: "running_full_ingest" }
-  | { status: "building_graph_preview" }
   | { status: "ready_for_planning_activation"; result: RecapIngestStatus }
   | { status: "error"; result?: RecapIngestStatus; message?: string };
 
@@ -329,10 +327,7 @@ function graphPreviewHasNotRun(
   paneStatus?: IngestionPaneState["status"],
   result?: RecapIngestStatus | null,
 ): boolean {
-  const graphWorkInProgress = [
-    "running_full_ingest",
-    "building_graph_preview",
-  ].includes(paneStatus ?? "");
+  const graphWorkInProgress = paneStatus === "running_full_ingest";
   return graphPreview?.status === "missing" &&
     !graphPreviewHasRunEvidence(graphPreview) &&
     !graphPreviewIsBlocked(graphPreview) &&
@@ -345,9 +340,7 @@ function ingestionStatusBadge(
   result: RecapIngestStatus | null,
   graphPreview?: RecapGraphPreviewReport,
 ): IngestionStatusBadge {
-  const processing =
-    paneStatus === "running_full_ingest" ||
-    paneStatus === "building_graph_preview";
+  const processing = paneStatus === "running_full_ingest";
   const graphReady = graphPreviewIsReviewable(graphPreview);
 
   if (paneStatus === "error") {
@@ -713,8 +706,6 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
   const [forceGraphRun, setForceGraphRun] = useState(false);
   /** Which primary action is in flight — drives spinner / status copy. */
   const [primaryOp, setPrimaryOp] = useState<"process" | null>(null);
-  const [candidateGraphPath, setCandidateGraphPath] = useState("");
-  const [extractGraphWithModel, setExtractGraphWithModel] = useState(false);
   const [state, setState] = useState<IngestionPaneState>({ status: "idle" });
   const [latestResult, setLatestResult] = useState<RecapIngestStatus | null>(null);
   // Keep read-only inspections separate so an older disk status cannot erase
@@ -965,7 +956,7 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
     let result: RecapIngestStatus;
     try {
       const refs=sessionSupplements.identity===evidenceTargetKey?sessionSupplements.refs:[];
-      result = await postRecapIngest({...request,...(refs.length&&["generate_recap_memory","build_graph_preview_bundle"].includes(request.operation)?{session_evidence:refs}:{})});
+      result = await postRecapIngest({...request,...(refs.length&&request.operation==="generate_recap_memory"?{session_evidence:refs}:{})});
     } catch (error) {
       // Resetting the draft invalidates pending responses and their failures.
       // Do not let an older request publish an error into the new draft.
@@ -1080,10 +1071,7 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
     (proofResult.status === "error" || proofResult.errors.length > 0)
     ? proofResult
     : null;
-  const busy = [
-    "running_full_ingest",
-    "building_graph_preview",
-  ].includes(state.status);
+  const busy = state.status === "running_full_ingest";
   const genericGuardPass = isNonGenericSlugOrTitle(effectiveSlug, effectiveTitle);
   const hasApplied =
     hasState(evidenceResult, "recap_applied") ||
@@ -1105,7 +1093,6 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
     processedSourceReady ||
     hasCurrentNormalizedSource;
   const isRunningFullIngest = state.status === "running_full_ingest";
-  const isBuildingGraphPreview = state.status === "building_graph_preview";
   const graphPreviewFromEvidence = evidenceResult?.ingest_report?.graph_preview as RecapGraphPreviewReport | undefined;
   const proofGraphPreview = proofResult?.ingest_report?.graph_preview as RecapGraphPreviewReport | undefined;
   const graphPreview = proofGraphPreview?.status === "source_unverified"
@@ -1210,12 +1197,10 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
   const hasPriorIngestWork = Boolean(
     resultOwnsSelection && matchingResult?.states.some((item) => item !== "ingest_status_inspected"),
   );
-  const canBuildGraphPreview = hasCurrentNormalizedSource && !busy && (!hasPreviewUnionStore || forceGraphRun);
   const workflowNextAction = (() => {
     if (state.status === "running_full_ingest") {
       return "Processing recap and building World Graph context.";
     }
-    if (state.status === "building_graph_preview") return "Working: building the graph source-span preview bundle.";
     if (readerMode) {
       if (reviewLoading) return `Opening saved recap · Session ${recapSession}…`;
       if (reviewError) return "Saved recap could not be opened. See the message on the recap surface.";
@@ -1247,11 +1232,6 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
     if (graphPreview?.status === "candidate_validation_ready") return "Graph candidate ready for review; World admission is a separate step.";
     return "Choose Process to build the enriched recap and graph context.";
   })();
-  const graphDisabledReason = !hasNormalizedRecap
-    ? "Build Graph Preview waits for a processed recap."
-    : !hasCurrentNormalizedSource
-      ? "Build Graph Preview waits for confirmed recap files and current normalized lineage."
-      : null;
   // One visible Process action accepts composer text or verified saved source.
   const canProcessRecap =
     !busy &&
@@ -1980,43 +1960,6 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
     }
   }
 
-  async function buildGraphPreview() {
-    if (!canBuildGraphPreview) return;
-    const targetIdentity = selectedIngestTarget;
-    const draftEpoch = recapDraftEpochRef.current;
-    invalidateInFlightHydrateInspect();
-    lastToastKeyRef.current = null;
-    setState({ status: "building_graph_preview" });
-    try {
-      const result = await postForSelectedIngestTarget({
-        operation: "build_graph_preview_bundle",
-        campaign_id: ingestCampaignId,
-        managed_world_id: managedWorldId,
-        session: recapSession,
-        candidate_graph_path: extractGraphWithModel ? undefined : candidateGraphPath.trim() || undefined,
-        extract_graph: extractGraphWithModel,
-        graph_model_id: extractGraphWithModel ? INGESTION_GRAPH_MODEL_ID : undefined,
-        force_graph_run: forceGraphRun || undefined,
-      }, targetIdentity);
-      if (!result) return;
-      applyOperationResult(result, targetIdentity, draftEpoch);
-      setState(derivePaneStateFromResult(result));
-    } catch (error) {
-      if (selectedIngestTargetRef.current !== targetIdentity) return;
-      setState({
-        status: "error",
-        result: latestResult ?? undefined,
-        message: error instanceof Error ? error.message : "Graph preview bundle build failed",
-      });
-    }
-  }
-
-  function openGraphPreview() {
-    if (typeof window !== "undefined") {
-      window.location.assign(`/plan?tool=graph-preview&session=session-${recapSession}`);
-    }
-  }
-
   async function reviewSavedSource(restore = false, preserveSelection = false, admittedMemory?: boolean) {
     restoreReaderRoute.current = false;
     const params = new URLSearchParams(window.location.search);
@@ -2440,7 +2383,7 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
               <div className="ingest-local-nav__stages" role="group" aria-label="Recap processing">
                 {showWorkflowActions ? (
                   <>
-                    {hasPreviewUnionStore ? (
+                    {hasPreviewUnionStore || graphReviewable ? (
                       <label className="ingestion-checkbox-row ingestion-replace-graph-row ingest-local-nav__replace">
                         <input
                           type="checkbox"
@@ -2732,47 +2675,6 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
                 </p>
               </div>
             ) : null}
-          </details>
-
-          <details className="ingestion-advanced-fold">
-            <summary>Advanced graph tools</summary>
-            <p className="module-muted">Manual graph artifact controls for inspection and recovery.</p>
-            <label htmlFor="ingestion-candidate-graph-path">Candidate graph path</label>
-            <input
-              id="ingestion-candidate-graph-path"
-              value={candidateGraphPath}
-              onChange={(event) => setCandidateGraphPath(event.target.value)}
-              placeholder="out/graph_memory/fixtures/candidate_graph.json"
-              disabled={extractGraphWithModel}
-            />
-            <label className="ingestion-checkbox-row">
-              <input
-                type="checkbox"
-                checked={extractGraphWithModel}
-                onChange={(event) => {
-                  const checked = event.target.checked;
-                  setExtractGraphWithModel(checked);
-                  if (checked) setCandidateGraphPath("");
-                }}
-              />
-              Extract graph from recap with category extraction ({INGESTION_GRAPH_MODEL_LABEL})
-            </label>
-            <p className="module-muted">
-              Optional preview-only candidate graph artifact. When category extraction is enabled, the backend extracts source-backed nodes and relationships from the saved recap.
-            </p>
-            <div className="ingestion-actions ingestion-manual-actions">
-              <button type="button" onClick={buildGraphPreview} disabled={!canBuildGraphPreview}>
-                {isBuildingGraphPreview ? "Building Graph Preview..." : "Build Graph Preview"}
-              </button>
-              {!isIngestSurfacePath() ? (
-                <button type="button" onClick={openGraphPreview} disabled={!hasPreviewUnionStore}>
-                  Open Graph Preview
-                </button>
-              ) : null}
-            </div>
-            <div className="ingestion-action-explainer">
-              {graphDisabledReason ? <p>{graphDisabledReason}</p> : null}
-            </div>
           </details>
 
           <div className="ingestion-evidence-header">

@@ -1,3 +1,8 @@
+> Historical preview evidence. Commands and artifact paths below describe the
+> recorded experiments. The standalone CLI is retired; current ingestion uses
+> Process and exact database runs. This record is not current ingestion or
+> Graph-publication acceptance evidence.
+
 # Runtime Encounter/Job Dogfood Report — Longmont C1S1
 
 **Status:** Dogfood complete

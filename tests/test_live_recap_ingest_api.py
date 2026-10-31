@@ -586,7 +586,7 @@ def test_inspect_status_verifies_generic_canonical_with_explicit_title_without_w
     assert normalized.read_bytes() == normalized_before
 
 
-def test_graph_preview_requires_a_current_normalized_source(
+def test_process_requires_current_normalized_source_before_graph_extraction(
     client: TestClient,
     isolated_session: Path,
     monkeypatch: pytest.MonkeyPatch,
@@ -624,7 +624,7 @@ def test_graph_preview_requires_a_current_normalized_source(
         lambda **kwargs: (graph_calls.append(kwargs) or {"status": "source_span_bundle_ready", "next_actions": []}),
     )
     payload = {
-        "operation": "build_graph_preview_bundle",
+        "operation": "generate_recap_memory",
         "campaign_id": "longmont-c2",
         "managed_world_id": "elderwyld",
         "session": 22,
@@ -636,11 +636,11 @@ def test_graph_preview_requires_a_current_normalized_source(
     assert stale.json()["status"] == "needs_reconciliation"
     assert "normalized_stale" in stale.json()["states"]
     assert graph_calls == []
-    assert context_calls == []
+    assert len(context_calls) == 1
 
     states[:] = ["normalized_reused", "normalized_current"]
     current = client.post("/api/live/recap-ingest", json=payload)
     assert current.status_code == 200
     assert len(graph_calls) == 1
-    assert len(context_calls) == 1
+    assert len(context_calls) == 2
     assert current.json()["ingest_report"]["graph_preview"]["status"] == "source_span_bundle_ready"

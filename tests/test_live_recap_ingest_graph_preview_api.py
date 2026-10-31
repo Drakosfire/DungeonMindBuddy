@@ -13,8 +13,6 @@ from apps.live_control_server.main import create_app
 ROOT = Path(__file__).resolve().parents[1]
 SEED_SESSION = ROOT / "evals/c2_live_prep/live/session_22"
 CORPUS_ENV = "DUNGEONMIND_RECAP_INGEST_CORPUS_ROOT"
-FIXTURE_DIR = ROOT / "tests/fixtures/graph_memory/category_preview_runner"
-CANDIDATE_FIXTURE = FIXTURE_DIR / "candidate_graph_fixture.json"
 
 
 @pytest.fixture(autouse=True)
@@ -108,7 +106,7 @@ def _write_synthetic_session(tmp_path: Path) -> None:
 
 
 @pytest.fixture
-def client_env(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> tuple[TestClient, Path, Path]:
+def client_env(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> tuple[TestClient, Path]:
     from apps.live_control_server.services import recap_ingest_context
 
     # Keep every repo-relative source/run/Graph fixture under this test's
@@ -164,11 +162,8 @@ def client_env(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> tuple[TestCli
     monkeypatch.setenv("DMB_MANAGED_WORLD_DATA_ROOT", str(tmp_path))
     seed_binding(tmp_path, "elderwyld", "world:elderwyld", version=3)
 
-    candidate = ROOT / "out/test_recap_ingest_graph_preview/candidate_graph_fixture.json"
-    candidate.parent.mkdir(parents=True, exist_ok=True)
-    candidate.write_text(CANDIDATE_FIXTURE.read_text(encoding="utf-8"), encoding="utf-8")
     try:
-        yield TestClient(create_app(), client=("127.0.0.1", 50000)), corpus, candidate
+        yield TestClient(create_app(), client=("127.0.0.1", 50000)), corpus
     finally:
         shutil.rmtree(graph_runs, ignore_errors=True)
 
@@ -176,7 +171,7 @@ def client_env(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> tuple[TestCli
 @pytest.fixture
 def synthetic_client_env(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> tuple[TestClient, Path, Path]:
+) -> tuple[TestClient, Path]:
     from apps.live_control_server.services import recap_ingest_context
 
     monkeypatch.setitem(globals(), "ROOT", tmp_path)
@@ -228,11 +223,8 @@ def synthetic_client_env(
     monkeypatch.setenv(CORPUS_ENV, str(corpus))
     monkeypatch.setenv("DUNGEONMIND_GRAPH_INGEST_RUNS_ROOT", "out/graph_memory/runs")
 
-    candidate = tmp_path / "out/test_recap_ingest_graph_preview/candidate_graph_fixture.json"
-    candidate.parent.mkdir(parents=True, exist_ok=True)
-    candidate.write_text(CANDIDATE_FIXTURE.read_text(encoding="utf-8"), encoding="utf-8")
     try:
-        yield TestClient(create_app(), client=("127.0.0.1", 50000)), corpus, candidate
+        yield TestClient(create_app(), client=("127.0.0.1", 50000)), corpus
     finally:
         shutil.rmtree(graph_runs, ignore_errors=True)
         shutil.rmtree(source_registry, ignore_errors=True)
@@ -257,9 +249,9 @@ def _prepare_normalized(client: TestClient) -> None:
 
 
 def test_recap_graph_ingest_requires_world_context_before_staging_or_source_registration(
-    client_env: tuple[TestClient, Path, Path], monkeypatch: pytest.MonkeyPatch
+    client_env: tuple[TestClient, Path], monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    client, corpus, _candidate = client_env
+    client, corpus = client_env
     from apps.live_control_server.routes import recap_ingest
 
     registry = ROOT / "out/registries/source_artifacts.json"
@@ -285,9 +277,9 @@ def test_recap_graph_ingest_requires_world_context_before_staging_or_source_regi
 
 
 def test_uninitialized_world_stops_before_recap_staging_or_source_registration(
-    client_env: tuple[TestClient, Path, Path], monkeypatch: pytest.MonkeyPatch
+    client_env: tuple[TestClient, Path], monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    client, corpus, _candidate = client_env
+    client, corpus = client_env
     from apps.live_control_server.routes import recap_ingest
     from apps.live_control_server.services import recap_ingest_context
 
@@ -323,106 +315,16 @@ def test_uninitialized_world_stops_before_recap_staging_or_source_registration(
     assert (registry.read_bytes() if registry.exists() else None) == registry_before
 
 
-def _stamp_fixture_candidate(
-    client: TestClient,
-    corpus: Path,
-    candidate: Path,
-) -> None:
-    """Give a manual candidate the exact identity packaging now requires."""
-    from apps.live_control_server.services.source_artifact_registry import (
-        create_recap_source_artifact,
-    )
-    from src.graph_memory.extraction.graph_ingest_packaging import (
-        _with_candidate_graph_identity,
-    )
-
-    status = client.post(
-        "/api/live/recap-ingest",
-        json={
-            "operation": "inspect_status",
-            "campaign_id": "longmont-c2",
-            "managed_world_id": "elderwyld",
-            "session": 22,
-        },
-    )
-    assert status.status_code == 200
-    rel = status.json().get("paths", {}).get("normalized_recap")
-    assert rel, status.json()
-    recap = Path(str(rel))
-    if not recap.is_absolute():
-        recap = corpus / recap
-    artifact = create_recap_source_artifact(
-        ROOT,
-        world_id="world:elderwyld",
-        campaign_id="longmont-c2",
-        session_id="session-22",
-        recap_path=recap,
-    )
-    graph = _with_candidate_graph_identity(
-        json.loads(candidate.read_text(encoding="utf-8")),
-        campaign_id="longmont-c2",
-        session_id="session-22",
-        source_artifact_id=artifact.source_artifact_id,
-    )
-    # Synthetic supplied candidates cite this exact admitted source.
-    from apps.live_control_server.services.source_artifact_registry import load_source_span_index
-    from src.graph_memory.source_span import source_span_index_to_dict
-    spans = source_span_index_to_dict(load_source_span_index(ROOT, artifact.source_artifact_id))["spans"]
-    for ref in graph.get("evidence_refs", []):
-        if isinstance(ref, dict):
-            ref["span_id"] = spans[0]["source_span_id"]
-    candidate.write_text(
-        json.dumps(graph, indent=2, sort_keys=True) + "\n",
-        encoding="utf-8",
-    )
-
-
-
-
-def test_recap_ingest_build_graph_preview_bundle_from_normalized_recap(client_env: tuple[TestClient, Path, Path]) -> None:
-    client, _corpus, _candidate = client_env
-    _prepare_normalized(client)
-
-    response = client.post(
-        "/api/live/recap-ingest",
-        json={
-            "operation": "build_graph_preview_bundle",
-            "campaign_id": "longmont-c2",
-            "managed_world_id": "elderwyld",
-            "session": 22,
-        },
-    )
-
-    assert response.status_code == 200, response.text
-    body = response.json()
-    graph = body["ingest_report"]["graph_preview"]
-    assert graph["status"] == "source_span_bundle_ready"
-    assert (ROOT / graph["manifest_path"]).is_file()
-    assert "graph_source_bundle_ready" in body["states"]
-    assert "Candidate graph extraction has not run yet" in graph["blocked_reason"]
-    assert next(step for step in graph["graph_steps"] if step["id"] == "extract_candidate_graph")["state"] == "skipped"
 
 
 
 
 
 
-def test_recap_ingest_rejects_unsafe_candidate_graph_path(client_env: tuple[TestClient, Path, Path]) -> None:
-    client, _corpus, _candidate = client_env
-    _prepare_normalized(client)
 
-    response = client.post(
-        "/api/live/recap-ingest",
-        json={
-            "operation": "build_graph_preview_bundle",
-            "campaign_id": "longmont-c2",
-            "managed_world_id": "elderwyld",
-            "session": 22,
-            "candidate_graph_path": "../escape.json",
-        },
-    )
 
-    assert response.status_code == 422
+
+
 
 
 def _live_extraction_payload(*, source_artifact_id: str, spref: str, corpus_root: Path, source_text: str, span_index: dict, location_label: str = "Mireward road") -> dict:
@@ -547,24 +449,24 @@ def _patch_fake_category_extract(monkeypatch: pytest.MonkeyPatch, *, location_la
     monkeypatch.setattr(prod_runner, "extract_category_candidate_graph", fake_extract)
 
 
-def test_recap_ingest_build_graph_preview_bundle_with_extract_graph_fake_client(
-    client_env: tuple[TestClient, Path, Path], monkeypatch: pytest.MonkeyPatch
+def test_process_extracts_canonical_graph_with_fake_client(
+    client_env: tuple[TestClient, Path], monkeypatch: pytest.MonkeyPatch
 ) -> None:
     from apps.live_control_server.services.graph_run_registry import get_extraction_run
     from graph_memory.ingestion.extraction_run import ExtractionRunStatus
 
-    client, _corpus, _candidate = client_env
+    client, _corpus = client_env
     _prepare_normalized(client)
     _patch_fake_category_extract(monkeypatch)
 
     response = client.post(
         "/api/live/recap-ingest",
         json={
-            "operation": "build_graph_preview_bundle",
+            "operation": "generate_recap_memory",
             "campaign_id": "longmont-c2",
             "managed_world_id": "elderwyld",
             "session": 22,
-            "extract_graph": True,
+
             "graph_model_id": "deepseek/deepseek-v4.1-flash-1017",
         },
     )
@@ -593,7 +495,7 @@ def test_recap_ingest_build_graph_preview_bundle_with_extract_graph_fake_client(
 
 
 def test_recap_ingest_typed_validation_failure_blocks_candidate_and_preview_union(
-    client_env: tuple[TestClient, Path, Path], monkeypatch: pytest.MonkeyPatch
+    client_env: tuple[TestClient, Path], monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """A typed-validation-failed candidate must not become candidate-ready or materialize."""
     import src.graph_memory.extraction.graph_preview_runner as prod_runner
@@ -601,7 +503,7 @@ def test_recap_ingest_typed_validation_failure_blocks_candidate_and_preview_unio
         CategoryGraphExtractionResult,
     )
 
-    client, _corpus, _candidate = client_env
+    client, _corpus = client_env
     _prepare_normalized(client)
 
     def fake_invalid_extract(options, *, client=None, progress_callback=None):  # noqa: ANN001
@@ -659,11 +561,11 @@ def test_recap_ingest_typed_validation_failure_blocks_candidate_and_preview_unio
     build = client.post(
         "/api/live/recap-ingest",
         json={
-            "operation": "build_graph_preview_bundle",
+            "operation": "generate_recap_memory",
             "campaign_id": "longmont-c2",
             "managed_world_id": "elderwyld",
             "session": 22,
-            "extract_graph": True,
+
             "force_graph_run": True,
             "graph_model_id": "deepseek/deepseek-v4.1-flash-1017",
         },
@@ -684,11 +586,11 @@ def test_recap_ingest_typed_validation_failure_blocks_candidate_and_preview_unio
     materialize = client.post(
         "/api/live/recap-ingest",
         json={
-            "operation": "build_graph_preview_bundle",
+            "operation": "generate_recap_memory",
             "campaign_id": "longmont-c2",
             "managed_world_id": "elderwyld",
             "session": 22,
-            "extract_graph": True,
+
             "force_graph_run": True,
             "graph_model_id": "deepseek/deepseek-v4.1-flash-1017",
         },
@@ -702,7 +604,7 @@ def test_recap_ingest_typed_validation_failure_blocks_candidate_and_preview_unio
 
 
 def test_recap_ingest_packaged_span_index_resolves_evidence_for_surface(
-    client_env: tuple[TestClient, Path, Path], monkeypatch: pytest.MonkeyPatch
+    client_env: tuple[TestClient, Path], monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """Every candidate EvidenceRef must resolve against the packaged canonical span index."""
     from apps.live_control_server.services.graph_preview_surface import (
@@ -714,18 +616,18 @@ def test_recap_ingest_packaged_span_index_resolves_evidence_for_surface(
         source_span_index_from_dict,
     )
 
-    client, _corpus, _candidate = client_env
+    client, _corpus = client_env
     _prepare_normalized(client)
     _patch_fake_category_extract(monkeypatch)
 
     response = client.post(
         "/api/live/recap-ingest",
         json={
-            "operation": "build_graph_preview_bundle",
+            "operation": "generate_recap_memory",
             "campaign_id": "longmont-c2",
             "managed_world_id": "elderwyld",
             "session": 22,
-            "extract_graph": True,
+
             "graph_model_id": "deepseek/deepseek-v4.1-flash-1017",
         },
     )
@@ -803,20 +705,20 @@ def test_recap_ingest_packaged_span_index_resolves_evidence_for_surface(
 
 
 def test_recap_ingest_extracts_without_candidate_path(
-    client_env: tuple[TestClient, Path, Path], monkeypatch: pytest.MonkeyPatch
+    client_env: tuple[TestClient, Path], monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    client, _corpus, _candidate = client_env
+    client, _corpus = client_env
     _prepare_normalized(client)
     _patch_fake_category_extract(monkeypatch)
 
     response = client.post(
         "/api/live/recap-ingest",
         json={
-            "operation": "build_graph_preview_bundle",
+            "operation": "generate_recap_memory",
             "campaign_id": "longmont-c2",
             "managed_world_id": "elderwyld",
             "session": 22,
-            "extract_graph": True,
+
         },
     )
 
@@ -832,22 +734,22 @@ def test_recap_ingest_extracts_without_candidate_path(
 
 
 def test_extraction_restarts_when_selected_world_binding_changes(
-    client_env: tuple[TestClient, Path, Path], monkeypatch: pytest.MonkeyPatch
+    client_env: tuple[TestClient, Path], monkeypatch: pytest.MonkeyPatch
 ) -> None:
     from apps.live_control_server.services import recap_ingest_context
     from apps.live_control_server.services.graph_run_registry import get_extraction_run
 
-    client, _corpus, _candidate = client_env
+    client, _corpus = client_env
     _prepare_normalized(client)
     _patch_fake_category_extract(monkeypatch)
     build = client.post(
         "/api/live/recap-ingest",
         json={
-            "operation": "build_graph_preview_bundle",
+            "operation": "generate_recap_memory",
             "campaign_id": "longmont-c2",
             "managed_world_id": "elderwyld",
             "session": 22,
-            "extract_graph": True,
+
             "graph_model_id": "deepseek/deepseek-v4.1-flash-1017",
         },
     )
@@ -877,11 +779,11 @@ def test_extraction_restarts_when_selected_world_binding_changes(
     materialized = client.post(
         "/api/live/recap-ingest",
         json={
-            "operation": "build_graph_preview_bundle",
+            "operation": "generate_recap_memory",
             "campaign_id": "longmont-c2",
             "managed_world_id": "elderwyld",
             "session": 22,
-            "extract_graph": True,
+
         },
     )
     assert materialized.status_code == 200, materialized.text
@@ -892,9 +794,9 @@ def test_extraction_restarts_when_selected_world_binding_changes(
 
 
 def test_recap_ingest_extract_graph_missing_api_key_returns_llm_blocked(
-    client_env: tuple[TestClient, Path, Path], monkeypatch: pytest.MonkeyPatch
+    client_env: tuple[TestClient, Path], monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    client, _corpus, _candidate = client_env
+    client, _corpus = client_env
     _prepare_normalized(client)
     monkeypatch.delenv("OPENAI_API_KEY", raising=False)
     monkeypatch.setattr(
@@ -905,11 +807,11 @@ def test_recap_ingest_extract_graph_missing_api_key_returns_llm_blocked(
     response = client.post(
         "/api/live/recap-ingest",
         json={
-            "operation": "build_graph_preview_bundle",
+            "operation": "generate_recap_memory",
             "campaign_id": "longmont-c2",
             "managed_world_id": "elderwyld",
             "session": 22,
-            "extract_graph": True,
+
             "force_graph_run": True,
         },
     )
@@ -922,32 +824,12 @@ def test_recap_ingest_extract_graph_missing_api_key_returns_llm_blocked(
     assert graph["can_open_union_graph"] is False
 
 
-def test_recap_ingest_rejects_candidate_path_with_extract_graph(
-    client_env: tuple[TestClient, Path, Path]
-) -> None:
-    client, _corpus, candidate = client_env
-    _prepare_normalized(client)
-
-    response = client.post(
-        "/api/live/recap-ingest",
-        json={
-            "operation": "build_graph_preview_bundle",
-            "campaign_id": "longmont-c2",
-            "managed_world_id": "elderwyld",
-            "session": 22,
-            "candidate_graph_path": candidate.relative_to(ROOT).as_posix(),
-            "extract_graph": True,
-        },
-    )
-
-    assert response.status_code == 422
-    assert "cannot be combined" in response.json()["detail"]
 
 
 def test_recap_ingest_generate_recap_memory_without_graph_extraction(
-    client_env: tuple[TestClient, Path, Path]
+    client_env: tuple[TestClient, Path]
 ) -> None:
-    client, _corpus, _candidate = client_env
+    client, _corpus = client_env
 
     response = client.post(
         "/api/live/recap-ingest",
@@ -970,7 +852,7 @@ def test_recap_ingest_generate_recap_memory_without_graph_extraction(
 
 
 def test_recap_ingest_generate_recap_memory_with_graph_extraction_fake_client(
-    synthetic_client_env: tuple[TestClient, Path, Path],
+    synthetic_client_env: tuple[TestClient, Path],
     monkeypatch: pytest.MonkeyPatch,
     tmp_path: Path,
 ) -> None:
@@ -996,7 +878,7 @@ def test_recap_ingest_generate_recap_memory_with_graph_extraction_fake_client(
     from src.live_play import planning_corpus_manifest, recap_stage_paths
     from src.live_play.recap_stage_paths import RecapStagePaths
 
-    client, corpus, _candidate = synthetic_client_env
+    client, corpus = synthetic_client_env
     _patch_fake_category_extract(monkeypatch, location_label="test location")
 
     def synthetic_campaign_number(campaign_id: str) -> int:
@@ -1200,9 +1082,9 @@ def test_recap_ingest_generate_recap_memory_with_graph_extraction_fake_client(
 
 
 def test_generate_recap_memory_reuses_preview_graph_without_force(
-    client_env: tuple[TestClient, Path, Path], monkeypatch: pytest.MonkeyPatch
+    client_env: tuple[TestClient, Path], monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    client, _corpus, _candidate = client_env
+    client, _corpus = client_env
     _prepare_normalized(client)
     _patch_fake_category_extract(monkeypatch)
 
@@ -1228,9 +1110,9 @@ def test_generate_recap_memory_reuses_preview_graph_without_force(
 
 
 def test_generate_recap_memory_force_graph_run_starts_new_preview_run(
-    client_env: tuple[TestClient, Path, Path], monkeypatch: pytest.MonkeyPatch
+    client_env: tuple[TestClient, Path], monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    client, _corpus, _candidate = client_env
+    client, _corpus = client_env
     _prepare_normalized(client)
     _patch_fake_category_extract(monkeypatch)
 
@@ -1255,9 +1137,9 @@ def test_generate_recap_memory_force_graph_run_starts_new_preview_run(
 
 
 def test_generate_recap_memory_stops_on_staged_source_conflict(
-    client_env: tuple[TestClient, Path, Path], monkeypatch: pytest.MonkeyPatch
+    client_env: tuple[TestClient, Path], monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    client, corpus, _candidate = client_env
+    client, corpus = client_env
     _patch_fake_category_extract(monkeypatch)
     staged = corpus / "Longmont Campaign/Campaign 2/_ingest_staging/session_22_raw_notes.md"
     staged.write_text(
@@ -1289,11 +1171,11 @@ def test_generate_recap_memory_stops_on_staged_source_conflict(
 
 
 def test_recap_ingest_generate_recap_memory_with_blocked_graph_preserves_recap_success(
-    client_env: tuple[TestClient, Path, Path], monkeypatch: pytest.MonkeyPatch
+    client_env: tuple[TestClient, Path], monkeypatch: pytest.MonkeyPatch
 ) -> None:
     import src.graph_memory.extraction.graph_preview_runner as prod_runner
 
-    client, _corpus, _candidate = client_env
+    client, _corpus = client_env
     shutil.rmtree(ROOT / "out/graph_memory/runs/longmont-c2/session-22", ignore_errors=True)
 
     def fake_extract_blocked(*_args, **_kwargs):  # noqa: ANN002, ANN003
@@ -1325,75 +1207,6 @@ def test_recap_ingest_generate_recap_memory_with_blocked_graph_preserves_recap_s
     assert any("preview graph extraction blocked" in warning for warning in body["warnings"])
 
 
-def test_real_recap_manifest_adapts_to_extraction_run(
-    client_env: tuple[TestClient, Path, Path], monkeypatch: pytest.MonkeyPatch
-) -> None:
-    """Regression: real recap preview producer manifest adapts to ExtractionRun."""
-    from graph_memory.ingestion.graph_ingest_run import (
-        GraphIngestRunManifest,
-        adapt_recap_manifest_to_extraction_run,
-    )
-
-    client, corpus, candidate = client_env
-    _prepare_normalized(client)
-    _stamp_fixture_candidate(client, corpus, candidate)
-
-    response = client.post(
-        "/api/live/recap-ingest",
-        json={
-            "operation": "build_graph_preview_bundle",
-            "campaign_id": "longmont-c2",
-            "managed_world_id": "elderwyld",
-            "session": 22,
-            "candidate_graph_path": candidate.relative_to(ROOT).as_posix(),
-        },
-    )
-    assert response.status_code == 200, response.text
-    graph = response.json()["ingest_report"]["graph_preview"]
-    manifest_path = ROOT / graph["manifest_path"]
-    assert manifest_path.is_file()
-    assert manifest_path.name == "graph_ingest_run_manifest.json"
-
-    payload = json.loads(manifest_path.read_text(encoding="utf-8"))
-    manifest = GraphIngestRunManifest.model_validate(payload)
-    run = adapt_recap_manifest_to_extraction_run(manifest)
-
-    assert run.run_id == manifest.run_id
-    assert run.campaign_id == manifest.campaign_id == "longmont-c2"
-    assert run.session_id == manifest.session_id
-    assert run.source_domain == (manifest.source.source_domain or "recap")
-    assert run.source_artifact_id == manifest.source.source_artifact_id
-    assert run.source_artifact_id
-    assert run.lineage["adapter"] == "graph_ingest_run_manifest_v0"
-    assert run.lineage["legacy_status"] == manifest.status.value
-
-    # Component mappings preserve recap artifact URIs and digests.
-    assert "source_artifact" in run.components
-    source_component = run.components["source_artifact"]
-    assert source_component.uri in {
-        manifest.source.input_path_record or "",
-        manifest.source.normalized_recap_path or "",
-    }
-    assert source_component.sha256 == manifest.source.normalized_recap_sha256
-
-    role_to_component = {
-        "source_span_index": "source_span_index",
-        "candidate_graph": "candidate_graph",
-        "candidate_validation_report": "validation_report",
-        "pass_outputs": "pass_outputs",
-        "pass_telemetry": "pass_telemetry",
-        "consolidation_diagnostics": "consolidation_diagnostics",
-        "raw_model_response": "raw_model_response",
-        "provenance_index": "provenance_index",
-    }
-    for key, artifact in manifest.artifacts.items():
-        mapped_key = role_to_component.get(key)
-        if mapped_key is None:
-            continue
-        assert mapped_key in run.components, f"missing adapted component for manifest role {key}"
-        mapped = run.components[mapped_key]
-        assert mapped.uri == artifact.uri
-        assert mapped.sha256 == artifact.sha256
 
 
 @pytest.fixture
@@ -1495,66 +1308,22 @@ def test_recap_inspection_route_rejects_worldbuilding(
     assert "not applicable" in response.json()["detail"]
 
 
-def test_recap_writer_and_discovery_use_configured_root(client_env, monkeypatch):
-    from apps.live_control_server.services.graph_ingest_run_registry import discover_graph_ingest_runs
-
-    client, _corpus, _candidate = client_env
-    configured = "out/test_recap_ingest_graph_preview/configured-runs"
-    monkeypatch.setenv("DUNGEONMIND_GRAPH_INGEST_RUNS_ROOT", configured)
-    _prepare_normalized(client)
-    try:
-        response = client.post("/api/live/recap-ingest", json={
-            "operation": "build_graph_preview_bundle", "campaign_id": "longmont-c2",
-            "managed_world_id": "elderwyld",
-            "session": 22,
-        })
-        assert response.status_code == 200, response.text
-        graph = response.json()["ingest_report"]["graph_preview"]
-        assert graph["status"] == "source_span_bundle_ready"
-        assert graph["manifest_path"].startswith(configured + "/longmont-c2/session-22/")
-        assert (ROOT / graph["manifest_path"]).is_file()
-        runs = discover_graph_ingest_runs(ROOT, campaign_id="longmont-c2", session_id="session-22")
-        assert any(run.manifest_path == graph["manifest_path"] for run in runs)
-    finally:
-        shutil.rmtree(ROOT / configured, ignore_errors=True)
 
 
-def test_recap_preview_uses_configured_immutable_content_root(client_env, monkeypatch):
-    client, _corpus, _candidate = client_env
-    configured = "out/test_recap_ingest_graph_preview/recap-content"
-    monkeypatch.setenv("DUNGEONMIND_RECAP_SOURCE_CONTENT_ROOT", configured)
-    _prepare_normalized(client)
-    try:
-        response = client.post("/api/live/recap-ingest", json={
-            "operation": "build_graph_preview_bundle", "campaign_id": "longmont-c2",
-            "managed_world_id": "elderwyld",
-            "session": 22,
-        })
-        assert response.status_code == 200, response.text
-        graph = response.json()["ingest_report"]["graph_preview"]
-        assert graph["status"] == "source_span_bundle_ready"
-        snapshots = list((ROOT / configured / "longmont-c2/session-22").glob("*.md"))
-        assert len(snapshots) == 1
-        assert "Mireward road" in snapshots[0].read_text()
-        from apps.live_control_server.services.source_artifact_registry import get_source_artifact
-        artifact = get_source_artifact(ROOT, graph["source_artifact_id"])
-        assert artifact.uri.startswith("repo://" + configured + "/")
-    finally:
-        shutil.rmtree(ROOT / configured, ignore_errors=True)
 
 
 def test_unmocked_candidate_completion_recovers_without_provider_replay(client_env, monkeypatch):
     import src.graph_memory.extraction.graph_preview_runner as production
     from apps.live_control_server.services import recap_graph_preview_ingest as service
 
-    client, _corpus, _candidate = client_env
+    client, _corpus = client_env
     _prepare_normalized(client)
     _patch_fake_category_extract(monkeypatch)
     built = client.post("/api/live/recap-ingest", json={
-        "operation": "build_graph_preview_bundle", "campaign_id": "longmont-c2",
+        "operation": "generate_recap_memory", "campaign_id": "longmont-c2",
         "managed_world_id": "elderwyld",
         "session": 22,
-        "extract_graph": True, "graph_model_id": "deepseek/deepseek-v4.1-flash-1017",
+        "graph_model_id": "deepseek/deepseek-v4.1-flash-1017",
     })
     assert built.status_code == 200, built.text
     initial = built.json()["ingest_report"]["graph_preview"]
@@ -1611,7 +1380,7 @@ def test_failed_production_step_is_durable_safe_and_not_reexecuted(
     import src.graph_memory.extraction.graph_preview_runner as producer
     from src.graph_memory.extraction.category_candidate_graph_extractor import CategoryGraphExtractionError
 
-    client, _corpus, candidate = client_env
+    client, _corpus = client_env
     _prepare_normalized(client)
     invocations = []
     provider_attempts = []
@@ -1634,9 +1403,9 @@ def test_failed_production_step_is_durable_safe_and_not_reexecuted(
 
     monkeypatch.setattr(producer, "extract_category_candidate_graph", fail_once)
     response = client.post("/api/live/recap-ingest", json={
-        "operation": "build_graph_preview_bundle", "campaign_id": "longmont-c2",
+        "operation": "generate_recap_memory", "campaign_id": "longmont-c2",
         "managed_world_id": "elderwyld", "session": 22,
-        "extract_graph": True, "force_graph_run": True,
+        "force_graph_run": True,
     })
     assert response.status_code == 200, response.text
     graph = response.json()["ingest_report"]["graph_preview"]
@@ -1685,17 +1454,3 @@ def test_failed_production_step_is_durable_safe_and_not_reexecuted(
     legacy_graph = legacy_read.json()["ingest_report"]["graph_preview"]
     assert legacy_graph == readback
     assert manifest.read_bytes() == before
-    # A caller-supplied candidate cannot mask failed requested production,
-    # even through the owning service rather than the rejecting HTTP route.
-    from apps.live_control_server.services.recap_graph_preview_ingest import build_recap_graph_preview_bundle
-    from apps.live_control_server.services.recap_ingest_context import read_recap_ingest_context
-    newer = build_recap_graph_preview_bundle(
-        repo_root=ROOT, campaign_id="longmont-c2", session=22,
-        normalized_recap_path=graph["normalized_recap_path"],
-        force_graph_run=True, candidate_graph_path=str(candidate.relative_to(ROOT)),
-        extract_graph=True, ingest_context=read_recap_ingest_context(),
-    )
-    assert newer["candidate_graph_path"] is None
-    assert newer["candidate_node_count"] == 0
-    assert manifest.read_bytes() == before
-    assert len(invocations) == 2

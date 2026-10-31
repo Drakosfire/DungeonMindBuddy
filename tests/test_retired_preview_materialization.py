@@ -65,13 +65,23 @@ def test_process_uses_extraction_without_materialization_or_planning_adoption(mo
     assert bool(body["warnings"]) == failed
 
 
-@pytest.mark.parametrize("flag", ["--materialize-preview-union", "--no-materialize-preview-union"])
-def test_historical_dogfood_cli_rejects_retired_flags_before_work(monkeypatch, flag):
-    from evals.graph_memory_layer import run_encounter_job_dogfood as cli
+
+
+@pytest.mark.parametrize("retired", [
+    {"operation": "inspect_graph_preview"},
+    {"operation": "build_graph_preview_bundle"},
+    {"operation": "build_graph_preview_bundle", "extract_graph": True},
+    {"operation": "generate_recap_memory", "candidate_graph_path": "out/manual.json"},
+    {"operation": "inspect_status", "candidate_graph_path": None},
+])
+def test_retired_artifact_preview_requests_never_reach_work(monkeypatch, retired):
     def forbidden(*args, **kwargs):
-        pytest.fail("retired CLI flag reached extraction")
-    monkeypatch.setattr(cli, "build_recap_graph_preview_bundle", forbidden)
-    monkeypatch.setattr("sys.argv", ["encounter-dogfood", flag])
-    with pytest.raises(SystemExit) as stopped:
-        cli.main()
-    assert stopped.value.code == 2
+        pytest.fail("retired artifact preview request reached execution")
+    monkeypatch.setattr(route, "_pipeline_corpus_root", forbidden)
+    monkeypatch.setattr(route, "build_recap_graph_preview_bundle", forbidden)
+    monkeypatch.setattr(route, "_request_recap_context", forbidden)
+    app = FastAPI()
+    app.include_router(route.router)
+    response = TestClient(app).post("/api/live/recap-ingest", json={
+        "campaign_id": "test-campaign", "managed_world_id": "world:test", "session": 8, **retired})
+    assert response.status_code == 422, response.text

@@ -2102,7 +2102,6 @@ export interface ResolvedRollResponse {
 export type RecapIngestOperation =
   | "generate_recap_memory"
   | "build_graph_preview_bundle"
-  | "inspect_graph_preview"
   | "inspect_status"
   | "reconcile_normalized_recap";
 
@@ -2118,7 +2117,6 @@ export interface RecapIngestRequest {
   keep_basename?: string;
   force_stage?: boolean;
   force_recap?: boolean;
-  candidate_graph_path?: string;
   force_graph_run?: boolean;
   extract_graph?: boolean;
   graph_model_id?: string | null;
