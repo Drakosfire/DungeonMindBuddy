@@ -433,7 +433,7 @@ def test_reconstructed_turn_rejects_foreign_unselected_or_changed_page(completed
         t.Turn.model_validate(payload)
 
 
-@pytest.mark.parametrize("change", ["revision", "world", "status", "digest", "title"])
+@pytest.mark.parametrize("change", ["revision", "world", "status", "digest", "title", "draft", "identity"])
 def test_source_owner_refuses_changed_or_foreign_saved_page(
     tmp_path, monkeypatch, change
 ):
@@ -441,7 +441,6 @@ def test_source_owner_refuses_changed_or_foreign_saved_page(
     from apps.live_control_server.services import build_related_pages as owner
 
     monkeypatch.setattr(owner, "root", lambda: tmp_path)
-    monkeypatch.setattr(owner, "artifact_data_root", lambda root: tmp_path)
     page = PagePointer(
         world_id="one",
         document_id=uuid4(),
@@ -450,7 +449,6 @@ def test_source_owner_refuses_changed_or_foreign_saved_page(
         visibility="internal",
     )
     body = "| Name | Work |\n| -- | -- |\n| Copper | Lantern |\n"
-    (tmp_path / "source.md").write_text(body)
     record = SimpleNamespace(
         world_id="one",
         document_id=str(page.document_id),
@@ -463,14 +461,14 @@ def test_source_owner_refuses_changed_or_foreign_saved_page(
         source_domain="worldbuilding",
         document_class="location",
         authority_state="draft",
-        target_relpath="source.md",
+        target_relpath=None,
     )
     snap = SimpleNamespace(
         record=record,
         markdown=body,
         content_sha256=sha256(body.encode()).hexdigest(),
         loaded_revision=4,
-        file_exists=True,
+        file_exists=False,
     )
     monkeypatch.setattr(
         owner, "get_workspace_document_snapshot", lambda root, doc: snap
@@ -486,6 +484,10 @@ def test_source_owner_refuses_changed_or_foreign_saved_page(
         snap.content_sha256 = "a" * 64
     if change == "title":
         record.title = "Changed name"
+    if change == "draft":
+        record.content_status = "draft"
+    if change == "identity":
+        record.document_id = str(uuid4())
     with pytest.raises(ValueError, match="no newer page was substituted"):
         owner.materialize(page)
 

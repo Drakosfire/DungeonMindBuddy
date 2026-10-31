@@ -73,6 +73,12 @@ jobs:
           tests/application_state/test_world_catalog_postgres.py
           tests/application_state/test_world_catalog_cutover_migration.py
           tests/application_state/world_catalog_fixtures.py
+          apps/live_control_server/services/build_related_pages.py
+          apps/live_control_server/services/build_document_proposal.py
+          apps/live_control_server/services/graph_document_relationship.py
+          apps/live_control_server/services/connected_page_authoring.py
+          apps/live_control_server/services/workspace_document_registry.py
+          tests/test_graph_document_source.py
           apps/live_control_server/services/world_container_registry.py
           apps/live_control_server/services/world_graph_binding.py
           tests/conftest.py
@@ -115,3 +121,15 @@ jobs:
           tests/test_plan_action_prompt_evidence.py::test_mounted_prompt_reads_require_authentication_and_exact_world_selector
           tests/test_plan_action_terminal_diagnostic.py::test_mounted_diagnostic_read_requires_auth_owner_and_exact_selector
           tests/test_reviewed_corpus_publication.py
+
+      - name: Run saved-page owner and semantic-reader tests
+        run: >-
+          uv run --locked pytest -q --tb=short --show-capture=no
+          tests/test_graph_document_source.py
+          tests/test_graph_document_relationship.py
+          tests/test_build_document_proposal.py
+          tests/test_build_related_pages.py::test_source_owner_refuses_changed_or_foreign_saved_page
+          tests/test_connected_page_authoring.py::test_saved_excerpt_uses_coherent_committed_owner_projection
+          tests/test_connected_page_authoring.py::test_saved_origin_refuses_mismatch_before_reservation
+          tests/test_workspace_document_registry.py::test_saved_snapshot_owner_refuses_redirected_page_target
+          tests/test_workspace_document_registry.py::test_snapshot_committed_missing_file_is_integrity_failure

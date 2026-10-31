@@ -15,7 +15,6 @@ from application_state.agent_conversation.build_related_pages import (
 from apps.live_control_server.config import (
     repo_root,
     managed_world_data_root,
-    artifact_data_root,
 )
 from .workspace_document_registry import (
     list_workspace_documents,
@@ -57,13 +56,8 @@ def materialize(pointer):
     page = PagePointer.model_validate(pointer)
     snapshot = get_workspace_document_snapshot(root(), str(page.document_id))
     r = snapshot.record
-    source_root = artifact_data_root(root()).resolve()
-    path = source_root / (r.target_relpath or "")
     if (
-        not path.is_relative_to(source_root)
-        or path.resolve() != path
-        or not snapshot.file_exists
-        or r.world_id != page.world_id
+        r.world_id != page.world_id
         or r.document_id != str(page.document_id)
         or r.kind != "worldbuilding_source"
         or r.status != "active"

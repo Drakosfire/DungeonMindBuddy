@@ -47,7 +47,10 @@ def relationship_request(root: Path, request: DocumentRelationshipRequest) -> Gr
     snapshot = get_workspace_document_snapshot(root, selector.document_id)
     if (snapshot.record.world_id != request.world_id or snapshot.record.campaign_id != request.world_id
             or snapshot.record.kind != "worldbuilding_source" or snapshot.record.status != "active"
-            or not snapshot.file_exists or snapshot.loaded_revision != selector.revision
+            or snapshot.record.content_status != "committed"
+            or snapshot.record.document_id != selector.document_id
+            or snapshot.record.revision != selector.revision
+            or snapshot.loaded_revision != selector.revision
             or snapshot.content_sha256 != selector.content_sha256):
         refuse("The saved page changed or belongs to another World. Select the current saved passage again.")
     body = snapshot.markdown

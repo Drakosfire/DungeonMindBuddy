@@ -1,5 +1,6 @@
 """Saved selection adapter through the real governed HTTP boundary; isolated native port."""
 from types import SimpleNamespace
+from uuid import uuid4
 import pytest
 from tests.test_graph_document_source import case, TEXT
 from apps.live_control_server.services.graph_document_relationship import DocumentRelationshipRequest, relationship_request
@@ -143,3 +144,25 @@ def test_runtime_checkout_and_retained_world_source_root_are_distinct(case,graph
     assert not (case.root/'out/registries/source_content/graph_documents').exists()
     assert not (runtime/'out').exists()
     assert case.authority.publish_calls==0
+
+
+def test_relationship_reader_uses_committed_snapshot_not_file_witness(request, graph, monkeypatch):
+    c = request.getfixturevalue("case")
+    from apps.live_control_server.services import graph_document_relationship as reader
+    from apps.live_control_server.services.workspace_document_registry import get_workspace_document_snapshot
+    from apps.live_control_server.services.graph_object_authoring_prepare import GraphObjectAuthoringError
+    original = get_workspace_document_snapshot(c.root, c.record.document_id)
+    projection = original.model_copy(update={"file_exists": False,
+        "record": original.record.model_copy(update={"target_relpath": None})})
+    monkeypatch.setattr(reader, "get_workspace_document_snapshot", lambda *args: projection)
+    request = DocumentRelationshipRequest.model_validate(intent(c))
+    # The existing real source resolver still verifies/freezes the exact source;
+    # this changes only its consumer projection, not source/native authority.
+    assert reader.relationship_request(c.root, request).proposals
+    assert c.authority.publish_calls == 0
+    for changes in ({"content_status": "draft"}, {"document_id": str(uuid4())},
+                    {"world_id": "foreign"}, {"revision": original.loaded_revision + 1}):
+        projection.record = original.record.model_copy(update=changes)
+        with pytest.raises(GraphObjectAuthoringError):
+            reader.relationship_request(c.root, request)
+    assert c.authority.publish_calls == 0

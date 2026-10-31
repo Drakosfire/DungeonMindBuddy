@@ -440,3 +440,20 @@ def test_supported_connected_page_uses_database_source_spans(case, monkeypatch):
     assert response.status_code == 200, response.text
     assert response.json()['connections']['relationships'] == ['owns']
     assert case.authority.publish_calls == 1
+
+
+def test_saved_excerpt_uses_coherent_committed_owner_projection(saved_case, monkeypatch):
+    c = saved_case
+    original = get_workspace_document_snapshot(c.root, c.record.document_id)
+    projection = original.model_copy(update={"file_exists": False,
+        "record": original.record.model_copy(update={"target_relpath": None})})
+    monkeypatch.setattr(owner, "get_workspace_document_snapshot", lambda *args: projection)
+    intent = owner.parse_connected_page_intent(c.request)
+    assert owner.verify_saved_excerpt(c.root, intent) == c.selector.content_sha256
+    for changes in ({"content_status": "draft"}, {"document_id": str(uuid.uuid4())},
+                    {"world_id": "foreign"}, {"revision": original.loaded_revision + 1},
+                    {"status": "discarded"}):
+        projection.record = original.record.model_copy(update=changes)
+        with pytest.raises(owner.ConnectedPageError):
+            owner.verify_saved_excerpt(c.root, intent)
+    assert c.authority.publish_calls == 0

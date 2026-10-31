@@ -131,14 +131,10 @@ def _source(request):
     get_world_container(root, request.basis.world_id)
     snapshot = get_workspace_document_snapshot(root, request.basis.document_id)
     record = snapshot.record
-    from apps.live_control_server.config import artifact_data_root
-    source_root = artifact_data_root(root).resolve()
-    source_path = source_root / (record.target_relpath or "")
-    if not source_path.is_relative_to(source_root) or source_path.resolve() != source_path:
-        raise BuildComposeError("build_compose_source_path_invalid")
     basis = request.basis
     if (record.kind != "worldbuilding_source" or record.status != "active"
             or record.content_status != "committed" or record.world_id != basis.world_id
+            or record.document_id != str(basis.document_id)
             or record.revision != basis.registry_revision or snapshot.loaded_revision != basis.registry_revision
             or record.visibility_state != basis.visibility or record.source_domain != "worldbuilding"
             or snapshot.content_sha256 != basis.content_sha256

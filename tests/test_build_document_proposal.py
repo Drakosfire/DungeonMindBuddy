@@ -385,3 +385,16 @@ def test_historical_reservation_has_no_implicit_page_end_offer(request_case):
     assert BuildProposalReservation.model_validate(raw).fingerprint==original.fingerprint
 
 pytestmark = pytest.mark.usefixtures("application_state_dsn")
+
+
+def test_source_reader_accepts_exact_committed_nonfile_owner_projection(request_case, monkeypatch):
+    request, source, _ = request_case
+    projection = source.model_copy(update={"file_exists": False,
+        "record": source.record.model_copy(update={"target_relpath": None})})
+    monkeypatch.setattr(owner, "get_workspace_document_snapshot", lambda *args: projection)
+    assert owner._source(request).markdown == source.markdown
+    for changes in ({"content_status": "draft"}, {"world_id": "foreign"},
+                    {"document_id": str(uuid4())}, {"revision": source.loaded_revision + 1}):
+        projection.record = source.record.model_copy(update=changes)
+        with pytest.raises(owner.BuildComposeError, match="build_compose_source_changed"):
+            owner._source(request)
