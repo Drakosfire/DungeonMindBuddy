@@ -425,7 +425,7 @@ def test_recap_ingest_rejects_unsafe_candidate_graph_path(client_env: tuple[Test
     assert response.status_code == 422
 
 
-def _live_extraction_payload(*, source_artifact_id: str, spref: str, corpus_root: Path, source_text: str, span_index: dict) -> dict:
+def _live_extraction_payload(*, source_artifact_id: str, spref: str, corpus_root: Path, source_text: str, span_index: dict, location_label: str = "Mireward road") -> dict:
     from tests.fixtures.graph_memory.category_extraction_helpers import (
         minimal_category_pass_outputs,
     )
@@ -438,12 +438,12 @@ def _live_extraction_payload(*, source_artifact_id: str, spref: str, corpus_root
     # Bind the quote to its actual paragraph, never the generated frontmatter.
     lines = source_text.splitlines()
     matches = [span["source_span_id"] for span in span_index["spans"]
-        if "Mireward road" in "\n".join(lines[span["start_line"] - 1:span["end_line"]])]
+        if location_label in "\n".join(lines[span["start_line"] - 1:span["end_line"]])]
     assert matches, "synthetic fixture must quote a real source paragraph"
     spref = matches[0]
     # Exercise packaging with one location actually named in these source fixtures.
     # Keep the fake independent of the checkout's real standing-party registry.
-    outputs = minimal_category_pass_outputs(spref, node_label="Mireward road", node_id="node:mireward-road")
+    outputs = minimal_category_pass_outputs(spref, node_label=location_label, node_id="node:fixture-location")
     node = outputs["actor_pass"]["observation_nodes"][0]
     node["node_type"] = "location"
     outputs["actor_pass"] = {"observation_nodes": []}
@@ -493,7 +493,7 @@ def _live_extraction_payload(*, source_artifact_id: str, spref: str, corpus_root
     return graph
 
 
-def _patch_fake_category_extract(monkeypatch: pytest.MonkeyPatch) -> None:
+def _patch_fake_category_extract(monkeypatch: pytest.MonkeyPatch, *, location_label: str = "Mireward road") -> None:
     import src.graph_memory.extraction.graph_preview_runner as prod_runner
     from src.graph_memory.extraction.category_candidate_graph_extractor import (
         CategoryGraphExtractionResult,
@@ -519,7 +519,7 @@ def _patch_fake_category_extract(monkeypatch: pytest.MonkeyPatch) -> None:
             or options.source_span_index.get("source_artifact_id")
             or ""
         ).strip()
-        graph = _live_extraction_payload(source_artifact_id=artifact, spref=spref, corpus_root=options.corpus_root, source_text=options.source_text, span_index=dict(options.source_span_index))
+        graph = _live_extraction_payload(source_artifact_id=artifact, spref=spref, corpus_root=options.corpus_root, source_text=options.source_text, span_index=dict(options.source_span_index), location_label=location_label)
         if options.campaign_id:
             graph["campaign_id"] = options.campaign_id
         if options.session_id:
@@ -872,6 +872,8 @@ def test_extraction_restarts_when_selected_world_binding_changes(
         "read_recap_ingest_context",
         lambda **_kwargs: ReboundContext(),
     )
+    from tests.test_recap_managed_standing_context import seed_binding
+    seed_binding(ROOT, "elderwyld", "world:elderwyld-rebound", version=4)
     materialized = client.post(
         "/api/live/recap-ingest",
         json={
@@ -995,7 +997,7 @@ def test_recap_ingest_generate_recap_memory_with_graph_extraction_fake_client(
     from src.live_play.recap_stage_paths import RecapStagePaths
 
     client, corpus, _candidate = synthetic_client_env
-    _patch_fake_category_extract(monkeypatch)
+    _patch_fake_category_extract(monkeypatch, location_label="test location")
 
     def synthetic_campaign_number(campaign_id: str) -> int:
         assert campaign_id == "synthetic-campaign"
@@ -1534,8 +1536,9 @@ def test_recap_preview_uses_configured_immutable_content_root(client_env, monkey
         snapshots = list((ROOT / configured / "longmont-c2/session-22").glob("*.md"))
         assert len(snapshots) == 1
         assert "Mireward road" in snapshots[0].read_text()
-        registry = json.loads((ROOT / "out/registries/source_artifacts.json").read_text())
-        assert any(record["uri"].startswith("repo://" + configured + "/") for record in registry["records"])
+        from apps.live_control_server.services.source_artifact_registry import get_source_artifact
+        artifact = get_source_artifact(ROOT, graph["source_artifact_id"])
+        assert artifact.uri.startswith("repo://" + configured + "/")
     finally:
         shutil.rmtree(ROOT / configured, ignore_errors=True)
 
