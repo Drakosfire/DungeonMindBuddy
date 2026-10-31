@@ -42,7 +42,7 @@ def _require(condition, message):
         raise SourceProvenEndpointError(message)
 
 
-def _prove_refs(*, bundle, world_id, parent_id, resolved, preview, references):
+def _prove_refs(*, bundle, world_id, parent_id, resolved, preview, references, source_data):
     rows = []
     packages = {}
     for reference in references:
@@ -66,6 +66,7 @@ def _prove_refs(*, bundle, world_id, parent_id, resolved, preview, references):
                 basis=basis,
                 resolved=resolved,
                 preview=preview,
+                source_data=source_data,
                 ref=reference.subject,
             )
         except SourceSubjectProofError as exc:
@@ -137,9 +138,6 @@ def prepare_source_proven_endpoints(
     from apps.live_control_server.services.managed_world_graph_projection import (
         resolve_managed_world_binding,
     )
-    from apps.live_control_server.services.source_artifact_registry import (
-        get_source_artifact,
-    )
     from apps.live_control_server.services.candidate_graph_admission import (
         prepare_candidate_graph_admission,
         canonical_candidate_digest,
@@ -152,7 +150,7 @@ def prepare_source_proven_endpoints(
     )
 
     root = artifact_data_root(repo_root)
-    run, resolved, raw, preview = _source_run(root, source_run_id)
+    source_data, resolved, raw, preview = _source_run(root, source_run_id)
     target = resolve_managed_world_binding(managed_world_id)
     _require(
         resolved.world_id in (None, target.native_world_id),
@@ -172,6 +170,7 @@ def prepare_source_proven_endpoints(
         resolved=resolved,
         preview=preview,
         references=endpoints,
+        source_data=source_data,
     )
     raw_ids = {node.node_id for node in preview.nodes}
     endpoint_ids = {row["raw_node_id"] for row in proof["subjects"]}
@@ -191,11 +190,10 @@ def prepare_source_proven_endpoints(
         }
         for row in proof["subjects"]
     }
-    from apps.live_control_server.services.source_artifact_registry import load_source_input_bytes
-    artifact = get_source_artifact(root, resolved.source_artifact_id)
+    artifact = source_data.source_artifact
     result = prepare_candidate_graph_admission(
         candidate_graph=raw,
-        source_body=load_source_input_bytes(artifact),
+        source_body=source_data.source_bytes,
         source_uri=resolved.sealed_source_uri,
         source_revision_id=resolved.source_revision_id,
         world_id=target.native_world_id,
@@ -225,9 +223,7 @@ def prepare_source_proven_endpoints(
     validate_source_proven_endpoint_basis(package["effect"])
     reprove_source_proven_endpoints(bundle=bundle, package=package, repo_root=root)
     _require(
-        canonical_candidate_digest(raw) == digest
-        and hashlib.sha256(resolved.candidate_graph_path.read_bytes()).hexdigest()
-        == run.components["candidate_graph"].sha256,
+        canonical_candidate_digest(raw) == digest,
         "FULL candidate bytes changed",
     )
     return {
@@ -244,7 +240,7 @@ def reprove_source_proven_endpoints(*, bundle, package, repo_root):
     if proof is None:
         return
     validate_source_proven_endpoint_basis(effect)
-    _, resolved, raw, preview = _source_run(
+    source_data, resolved, raw, preview = _source_run(
         artifact_data_root(repo_root), proof["source_run_id"]
     )
     from apps.live_control_server.services.candidate_graph_admission import (
@@ -281,5 +277,6 @@ def reprove_source_proven_endpoints(*, bundle, package, repo_root):
         resolved=resolved,
         preview=preview,
         references=references,
+        source_data=source_data,
     )
     _require(actual == proof, "historical/current endpoint proof drift")
