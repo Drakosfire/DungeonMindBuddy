@@ -139,8 +139,6 @@ type IngestionPaneState =
   | { status: "idle" }
   | { status: "running_full_ingest" }
   | { status: "building_graph_preview" }
-  | { status: "materializing_preview_supergraph" }
-  | { status: "preview_supergraph_ready"; result: RecapIngestStatus }
   | { status: "ready_for_planning_activation"; result: RecapIngestStatus }
   | { status: "error"; result?: RecapIngestStatus; message?: string };
 
@@ -326,7 +324,6 @@ function graphPreviewHasNotRun(
   const graphWorkInProgress = [
     "running_full_ingest",
     "building_graph_preview",
-    "materializing_preview_supergraph",
   ].includes(paneStatus ?? "");
   return graphPreview?.status === "missing" &&
     !graphPreviewHasRunEvidence(graphPreview) &&
@@ -342,8 +339,7 @@ function ingestionStatusBadge(
 ): IngestionStatusBadge {
   const processing =
     paneStatus === "running_full_ingest" ||
-    paneStatus === "building_graph_preview" ||
-    paneStatus === "materializing_preview_supergraph";
+    paneStatus === "building_graph_preview";
   const graphReady =
     graphPreview?.status === "candidate_validation_ready" ||
     graphPreview?.status === "preview_union_store_ready";
@@ -960,7 +956,7 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
     let result: RecapIngestStatus;
     try {
       const refs=sessionSupplements.identity===evidenceTargetKey?sessionSupplements.refs:[];
-      result = await postRecapIngest({...request,...(refs.length&&["generate_recap_memory","build_graph_preview_bundle","materialize_preview_supergraph"].includes(request.operation)?{session_evidence:refs}:{})});
+      result = await postRecapIngest({...request,...(refs.length&&["generate_recap_memory","build_graph_preview_bundle"].includes(request.operation)?{session_evidence:refs}:{})});
     } catch (error) {
       // Resetting the draft invalidates pending responses and their failures.
       // Do not let an older request publish an error into the new draft.
@@ -1077,7 +1073,6 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
   const busy = [
     "running_full_ingest",
     "building_graph_preview",
-    "materializing_preview_supergraph",
   ].includes(state.status);
   const genericGuardPass = isNonGenericSlugOrTitle(effectiveSlug, effectiveTitle);
   const hasApplied =
@@ -1101,7 +1096,6 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
     hasCurrentNormalizedSource;
   const isRunningFullIngest = state.status === "running_full_ingest";
   const isBuildingGraphPreview = state.status === "building_graph_preview";
-  const isMaterializingPreviewSupergraph = state.status === "materializing_preview_supergraph";
   const graphPreviewFromEvidence = evidenceResult?.ingest_report?.graph_preview as RecapGraphPreviewReport | undefined;
   const proofGraphPreview = proofResult?.ingest_report?.graph_preview as RecapGraphPreviewReport | undefined;
   const graphPreview = proofGraphPreview?.status === "source_unverified"
@@ -1207,18 +1201,11 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
     resultOwnsSelection && matchingResult?.states.some((item) => item !== "ingest_status_inspected"),
   );
   const canBuildGraphPreview = hasCurrentNormalizedSource && !busy && (!hasPreviewUnionStore || forceGraphRun);
-  const canMaterializePreviewSupergraph = hasCurrentNormalizedSource && !busy && (!hasPreviewUnionStore || forceGraphRun) && Boolean(
-    extractGraphWithModel ||
-    candidateGraphPath.trim() ||
-    graphPreview?.candidate_graph_path ||
-    graphPreview?.status === "candidate_validation_ready",
-  );
   const workflowNextAction = (() => {
     if (state.status === "running_full_ingest") {
       return "Processing recap and building World Graph context.";
     }
     if (state.status === "building_graph_preview") return "Working: building the graph source-span preview bundle.";
-    if (state.status === "materializing_preview_supergraph") return "Working: materializing the preview union supergraph.";
     if (readerMode) {
       if (reviewLoading) return `Opening saved recap · Session ${recapSession}…`;
       if (reviewError) return "Saved recap could not be opened. See the message on the recap surface.";
@@ -1254,21 +1241,6 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
     : !hasCurrentNormalizedSource
       ? "Build Graph Preview waits for confirmed recap files and current normalized lineage."
       : null;
-  const previewUnionSizeHint =
-    typeof graphPreview?.node_count === "number"
-      ? ` (${graphPreview.node_count} nodes${
-          typeof graphPreview.edge_count === "number" ? `, ${graphPreview.edge_count} edges` : ""
-        })`
-      : "";
-  const previewSupergraphDisabledReason = hasPreviewUnionStore && !forceGraphRun
-    ? `Preview union on disk${previewUnionSizeHint}. Choose Replace graph before processing again.`
-    : !hasNormalizedRecap
-      ? "Materialize Preview Supergraph waits for a normalized recap."
-      : !hasCurrentNormalizedSource
-        ? "Materialize Preview Supergraph waits for confirmed recap files and current normalized lineage."
-      : !canMaterializePreviewSupergraph
-        ? "Choose a candidate graph source or Process the recap before materializing a preview."
-        : null;
   // One visible Process action accepts composer text or verified saved source.
   const canProcessRecap =
     !busy &&
@@ -2026,42 +1998,6 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
     }
   }
 
-  async function materializePreviewSupergraph() {
-    if (!canMaterializePreviewSupergraph) return;
-    const targetIdentity = selectedIngestTarget;
-    const draftEpoch = recapDraftEpochRef.current;
-    invalidateInFlightHydrateInspect();
-    lastToastKeyRef.current = null;
-    setState({ status: "materializing_preview_supergraph" });
-    try {
-      const result = await postForSelectedIngestTarget({
-        operation: "materialize_preview_supergraph",
-        campaign_id: ingestCampaignId,
-        managed_world_id: managedWorldId,
-        session: recapSession,
-        candidate_graph_path: extractGraphWithModel ? undefined : candidateGraphPath.trim() || undefined,
-        extract_graph: extractGraphWithModel,
-        graph_model_id: extractGraphWithModel ? INGESTION_GRAPH_MODEL_ID : undefined,
-        materialize_after_extract: extractGraphWithModel,
-        force_graph_run: forceGraphRun || undefined,
-      }, targetIdentity);
-      if (!result) return;
-      applyOperationResult(result, targetIdentity, draftEpoch);
-      if (result.states.includes("preview_union_store_ready")) {
-        setState({ status: "preview_supergraph_ready", result });
-      } else {
-        setState(derivePaneStateFromResult(result));
-      }
-    } catch (error) {
-      if (selectedIngestTargetRef.current !== targetIdentity) return;
-      setState({
-        status: "error",
-        result: latestResult ?? undefined,
-        message: error instanceof Error ? error.message : "Preview supergraph materialization failed",
-      });
-    }
-  }
-
   function openGraphPreview() {
     if (typeof window !== "undefined") {
       window.location.assign(`/plan?tool=graph-preview&session=session-${recapSession}`);
@@ -2809,9 +2745,6 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
               <button type="button" onClick={buildGraphPreview} disabled={!canBuildGraphPreview}>
                 {isBuildingGraphPreview ? "Building Graph Preview..." : "Build Graph Preview"}
               </button>
-              <button type="button" onClick={materializePreviewSupergraph} disabled={!canMaterializePreviewSupergraph}>
-                {isMaterializingPreviewSupergraph ? "Materializing Preview Supergraph..." : "Materialize Preview Supergraph"}
-              </button>
               {!isIngestSurfacePath() ? (
                 <button type="button" onClick={openGraphPreview} disabled={!hasPreviewUnionStore}>
                   Open Graph Preview
@@ -2820,9 +2753,6 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
             </div>
             <div className="ingestion-action-explainer">
               {graphDisabledReason ? <p>{graphDisabledReason}</p> : null}
-              {previewSupergraphDisabledReason && !(hasPreviewUnionStore && !forceGraphRun) ? (
-                <p>{previewSupergraphDisabledReason}</p>
-              ) : null}
             </div>
           </details>
 

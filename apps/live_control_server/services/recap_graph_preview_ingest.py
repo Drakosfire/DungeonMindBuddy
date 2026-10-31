@@ -44,18 +44,6 @@ _MANIFEST_NAME = "graph_ingest_run_manifest.json"
 logger = logging.getLogger(__name__)
 
 
-def _materialize_preview_union_store_from_graph_ingest_run(*args, **kwargs):
-    raise RuntimeError(
-        "preview UnionSupergraph materialization is retired with D.3B package deletion"
-    )
-
-
-def _PreviewUnionMaterializeOptions(*args, **kwargs):
-    raise RuntimeError(
-        "preview UnionSupergraph materialization is retired with D.3B package deletion"
-    )
-
-
 def _resolve_repo_uri_path(repo: Path, uri: str) -> Path:
     raw = uri.removeprefix("repo://") if uri.startswith("repo://") else uri
     path = (repo / raw).resolve() if not Path(raw).is_absolute() else Path(raw).resolve()
@@ -494,295 +482,6 @@ def build_recap_graph_preview_bundle(
     return status
 
 
-def materialize_recap_preview_supergraph(
-    *,
-    repo_root: Path,
-    campaign_id: str,
-    session: int,
-    normalized_recap_path: str | None = None,
-    manifest_path: str | None = None,
-    candidate_graph_path: str | None = None,
-    extract_graph: bool = False,
-    graph_model_id: str | None = None,
-    force_graph_run: bool = False,
-    graph_extraction_profile: str | None = None,
-    context_vocabulary_packet: ContextVocabularyPacket | None = None,
-    enable_node_vocabulary_packet: bool = False,
-    enable_edge_vocabulary_packet: bool = False,
-    ingest_context: Any | None = None,
-    supplemental_evidence: dict[str, Any] | None = None,
-) -> dict[str, Any]:
-    """Materialize a preview union supergraph from a recap graph-ingest run."""
-
-
-    if ingest_context is None:
-        raise ValueError("managed World/campaign ingestion context is required")
-    repo = artifact_data_root(repo_root)
-    source_recap_path, source_recap_sha256 = _lineage_for_normalized_recap(
-        repo, normalized_recap_path
-    )
-    logger.info(
-        "preview union materialization requested campaign=%s session=session-%s normalized=%s "
-        "source_recap_path=%s source_recap_sha256=%s manifest_path=%s candidate_graph_path=%s "
-        "extract_graph=%s model_id=%s force_graph_run=%s graph_extraction_profile=%s",
-        campaign_id,
-        session,
-        normalized_recap_path,
-        source_recap_path,
-        source_recap_sha256,
-        manifest_path,
-        candidate_graph_path,
-        extract_graph,
-        graph_model_id,
-        force_graph_run,
-        graph_extraction_profile,
-    )
-    forced_build_status: dict[str, Any] | None = None
-    if candidate_graph_path:
-        if not normalized_recap_path:
-            raise ValueError("normalized recap is required when candidate_graph_path is supplied")
-        build_recap_graph_preview_bundle(
-            repo_root=repo,
-            campaign_id=campaign_id,
-            session=session,
-            normalized_recap_path=normalized_recap_path,
-            force_graph_run=True,
-            candidate_graph_path=candidate_graph_path,
-            extract_graph=extract_graph,
-            graph_model_id=graph_model_id,
-            graph_extraction_profile=graph_extraction_profile,
-            context_vocabulary_packet=context_vocabulary_packet,
-            enable_node_vocabulary_packet=enable_node_vocabulary_packet,
-            enable_edge_vocabulary_packet=enable_edge_vocabulary_packet,
-            ingest_context=ingest_context,
-        supplemental_evidence=supplemental_evidence,
-        )
-
-
-    if extract_graph and not candidate_graph_path and normalized_recap_path:
-        needs_extract = force_graph_run
-        if not needs_extract:
-            existing = discover_graph_ingest_runs(
-                repo,
-                campaign_id=campaign_id,
-                session_id=f"session-{session}",
-                source_recap_path=source_recap_path,
-                source_recap_sha256=source_recap_sha256,
-            )
-            existing = [
-                run for run in existing
-                if _summary_matches_ingest_context(repo, run, ingest_context, supplemental_evidence)
-            ]
-            logger.info(
-                "preview union extract-then-materialize discovered runs campaign=%s session=session-%s statuses=%s",
-                campaign_id,
-                session,
-                [run.status for run in existing[:5]],
-            )
-            if existing and existing[0].status == GraphIngestRunStatus.PREVIEW_UNION_STORE_READY.value:
-                needs_extract = not _manifest_is_candidate_reusable(
-                    repo, existing[0].manifest_path
-                )
-            else:
-                needs_extract = (
-                    not existing
-                    or existing[0].status != GraphIngestRunStatus.CANDIDATE_VALIDATION_READY.value
-                    or not _manifest_is_candidate_reusable(repo, existing[0].manifest_path)
-                )
-        if needs_extract:
-            forced_build_status = build_recap_graph_preview_bundle(
-                repo_root=repo,
-                campaign_id=campaign_id,
-                session=session,
-                normalized_recap_path=normalized_recap_path,
-                force_graph_run=True,
-                extract_graph=True,
-                graph_model_id=graph_model_id,
-                graph_extraction_profile=graph_extraction_profile,
-                context_vocabulary_packet=context_vocabulary_packet,
-                enable_node_vocabulary_packet=enable_node_vocabulary_packet,
-                enable_edge_vocabulary_packet=enable_edge_vocabulary_packet,
-                ingest_context=ingest_context,
-        supplemental_evidence=supplemental_evidence,
-            )
-
-
-    if manifest_path:
-        manifest = _resolve_existing_repo_path(repo, manifest_path, field_name="manifest_path")
-        summary = _summary_for_manifest(repo, manifest)
-        if summary is not None and not _summary_matches_ingest_context(
-            repo, summary, ingest_context, supplemental_evidence
-        ):
-            raise ValueError(
-                "selected graph-ingest run does not match the selected World/campaign binding"
-            )
-    elif forced_build_status and forced_build_status.get("manifest_path"):
-        forced_manifest = _resolve_existing_repo_path(
-            repo,
-            forced_build_status["manifest_path"],
-            field_name="manifest_path",
-        )
-        summary = _summary_for_manifest(repo, forced_manifest)
-    else:
-        runs = discover_graph_ingest_runs(
-            repo,
-            campaign_id=campaign_id,
-            session_id=f"session-{session}",
-            source_recap_path=source_recap_path,
-            source_recap_sha256=source_recap_sha256,
-        )
-        summary = next(
-            (
-                run for run in runs
-                if _summary_matches_ingest_context(repo, run, ingest_context, supplemental_evidence)
-            ),
-            None,
-        )
-
-
-    if summary is None:
-        logger.warning(
-            "preview union materialization missing graph run campaign=%s session=session-%s normalized=%s",
-            campaign_id,
-            session,
-            normalized_recap_path,
-        )
-        status = _missing_status(normalized_recap_path)
-        status["blocked_reason"] = (
-            "Candidate graph extraction has not run yet for this selected World/campaign binding"
-        )
-        status["next_actions"] = ["build_graph_preview_bundle", "extract_graph"]
-        return status
-    if (
-        summary.status == GraphIngestRunStatus.PREVIEW_UNION_STORE_READY.value
-        and not force_graph_run
-        and (
-            _manifest_is_candidate_reusable(repo, summary.manifest_path)
-            if extract_graph
-            else _manifest_is_manual_candidate_reusable(repo, summary.manifest_path)
-        )
-    ):
-        ensure_graph_ingest_projection_payload(
-            repo_root=repo,
-            manifest_path=summary.manifest_path,
-            session_id=f"session-{session}",
-        )
-        logger.info(
-            "preview union materialization reused ready run campaign=%s session=session-%s manifest=%s union_store=%s",
-            campaign_id,
-            session,
-            summary.manifest_path,
-            summary.preview_union_store_path,
-        )
-        return _status_from_summary(repo, summary, normalized_recap_path=normalized_recap_path)
-    if (
-        summary.status == GraphIngestRunStatus.PREVIEW_UNION_STORE_READY.value
-        and not force_graph_run
-        and extract_graph
-        and not _manifest_is_candidate_reusable(repo, summary.manifest_path)
-    ):
-        # Pre-migration / pre-repair extract-ready runs are not reusable.
-        status = _status_from_summary(repo, summary, normalized_recap_path=normalized_recap_path)
-        status["blocked_reason"] = (
-            "existing preview-ready run is missing production ExtractionRun lineage "
-            "or known_entity_mentions; re-run with force_graph_run or extract_graph to rebuild"
-        )
-        status["next_actions"] = ["force_graph_run", "extract_graph"]
-        logger.warning(
-            "preview union materialization refused pre-migration ready run campaign=%s session=session-%s manifest=%s",
-            campaign_id,
-            session,
-            summary.manifest_path,
-        )
-        return status
-    if (
-        summary.status == GraphIngestRunStatus.PREVIEW_UNION_STORE_READY.value
-        and not force_graph_run
-        and not extract_graph
-        and not _manifest_is_manual_candidate_reusable(repo, summary.manifest_path)
-    ):
-        status = _status_from_summary(repo, summary, normalized_recap_path=normalized_recap_path)
-        status["blocked_reason"] = (
-            "existing preview-ready run is missing known_entity_mentions or "
-            "usable SourceSpanIndex projection linkage; "
-            "re-run with force_graph_run or extract_graph to rebuild"
-        )
-        status["next_actions"] = ["force_graph_run", "extract_graph"]
-        return status
-    if summary.status != GraphIngestRunStatus.CANDIDATE_VALIDATION_READY.value:
-        status = _status_from_summary(repo, summary, normalized_recap_path=normalized_recap_path)
-        if forced_build_status:
-            for key in (
-                "extraction_run_id",
-                "extraction_run_status",
-                "source_artifact_id",
-                "extraction_mode",
-                "blocked_reason",
-                "model_id",
-            ):
-                if forced_build_status.get(key) is not None:
-                    status[key] = forced_build_status[key]
-        status["blocked_reason"] = (
-            status.get("blocked_reason")
-            or "candidate graph required before preview union materialization"
-        )
-        status["next_actions"] = ["supply candidate_graph_path", "build_graph_preview_bundle"]
-        logger.warning(
-            "preview union materialization blocked campaign=%s session=session-%s status=%s "
-            "manifest=%s extraction_mode=%s blocked_reason=%s next_actions=%s",
-            campaign_id,
-            session,
-            summary.status,
-            summary.manifest_path,
-            status.get("extraction_mode"),
-            status.get("blocked_reason"),
-            status.get("next_actions"),
-        )
-        return status
-    if not _manifest_has_known_entity_mentions(repo, summary.manifest_path):
-        status = _status_from_summary(repo, summary, normalized_recap_path=normalized_recap_path)
-        status["blocked_reason"] = (
-            "candidate-ready run is missing known_entity_mentions; "
-            "re-run with force_graph_run or extract_graph to rebuild"
-        )
-        status["next_actions"] = ["force_graph_run", "extract_graph"]
-        return status
-    if not _manifest_has_usable_source_span_linkage(repo, summary.manifest_path):
-        status = _status_from_summary(repo, summary, normalized_recap_path=normalized_recap_path)
-        status["blocked_reason"] = (
-            "candidate-ready run is missing usable SourceSpanIndex projection linkage; "
-            "re-run with force_graph_run or extract_graph to rebuild"
-        )
-        status["next_actions"] = ["force_graph_run", "extract_graph"]
-        return status
-    if extract_graph and not _manifest_has_production_lineage(repo, summary.manifest_path):
-        status = _status_from_summary(repo, summary, normalized_recap_path=normalized_recap_path)
-        status["blocked_reason"] = (
-            "candidate-ready run is missing production ExtractionRun lineage; "
-            "re-run with force_graph_run or extract_graph to rebuild"
-        )
-        status["next_actions"] = ["force_graph_run", "extract_graph"]
-        return status
-
-
-    # D.3B retired UnionSupergraph materialization. A validated candidate is
-    # the current completion boundary; native admission remains a later action.
-    status = _status_from_summary(repo, summary, normalized_recap_path=normalized_recap_path)
-    status["next_actions"] = ["review_candidate"]
-    return status
-
-
-def ensure_graph_ingest_projection_payload(
-    *,
-    repo_root: Path,
-    manifest_path: str | None,
-    session_id: str,
-) -> Path | None:
-    """Union-store projection payload persistence retired in D.3B."""
-    del repo_root, session_id
-    return None
-
-
 def _stamp_known_entity_artifact_digest(
     repo: Path, manifest_path: Path, known_entity_path: Path
 ) -> None:
@@ -935,12 +634,16 @@ def _summary_matches_ingest_context(
     except GraphRunRegistryError:
         return False
     stored_supplement=(run.lineage or {}).get("session_evidence")
-    if (stored_supplement or {}).get("sha256") != (supplemental_evidence or {}).get("sha256"):return False
+    if (stored_supplement or {}).get("sha256") != (supplemental_evidence or {}).get("sha256"):
+        return False
     if stored_supplement:
         try:
-            evidence_path=(repo/stored_supplement["uri"]).resolve();evidence_path.relative_to(repo.resolve())
-            if hashlib.sha256(evidence_path.read_bytes()).hexdigest()!=stored_supplement.get("artifact_sha256"):return False
-        except (KeyError,ValueError,OSError,TypeError):return False
+            evidence_path = (repo / stored_supplement["uri"]).resolve()
+            evidence_path.relative_to(repo.resolve())
+            if hashlib.sha256(evidence_path.read_bytes()).hexdigest() != stored_supplement.get("artifact_sha256"):
+                return False
+        except (KeyError, ValueError, OSError, TypeError):
+            return False
     return _same_recap_ingest_context_authority(
         (run.lineage or {}).get("world_campaign_ingest_context"),
         ingest_context.as_lineage(),
@@ -1450,7 +1153,7 @@ def _status_from_summary(
         "edge_count": summary.edge_count,
         "evidence_ref_count": summary.evidence_ref_count,
         "extracted_nodes": extracted_nodes,
-        "next_actions": list(summary.next_actions),
+        "next_actions": (["review_candidate"] if summary.status == GraphIngestRunStatus.CANDIDATE_VALIDATION_READY.value else list(summary.next_actions)),
         "can_open_union_graph": summary.status == GraphIngestRunStatus.PREVIEW_UNION_STORE_READY.value
         and bool(summary.preview_union_store_path),
         "blocked_reason": None,

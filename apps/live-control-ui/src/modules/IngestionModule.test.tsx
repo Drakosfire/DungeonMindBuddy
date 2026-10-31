@@ -1476,7 +1476,7 @@ describe("IngestionModule", () => {
     expect(vi.mocked(recapIngestApi.postRecapIngest).mock.calls.every(([request]) => request.operation === "inspect_status")).toBe(true);
   });
 
-  it("blocks advanced graph extraction and materialization when reused status has no file proof", async () => {
+  it("blocks advanced graph extraction when reused status has no file proof", async () => {
     window.history.replaceState({}, "", "/ingest?world=elderwyld");
     window.localStorage.setItem("dmb.ingestion.longmont-c2.session.29", JSON.stringify({
       version: 3,
@@ -1507,15 +1507,11 @@ describe("IngestionModule", () => {
     await user.type(screen.getByLabelText("Candidate graph path"), "out/candidate.json");
 
     const buildPreview = screen.getByRole("button", { name: "Build Graph Preview" });
-    const materializePreview = screen.getByRole("button", { name: "Materialize Preview Supergraph" });
     expect(buildPreview).toBeDisabled();
-    expect(materializePreview).toBeDisabled();
 
-    // Exercise both handler guards independently of the disabled-button affordance.
+    // Exercise the handler guard independently of the disabled-button affordance.
     buildPreview.removeAttribute("disabled");
-    materializePreview.removeAttribute("disabled");
     fireEvent.click(buildPreview);
-    fireEvent.click(materializePreview);
     expect(vi.mocked(recapIngestApi.postRecapIngest).mock.calls.every(([request]) => request.operation === "inspect_status")).toBe(true);
   });
 
@@ -1553,15 +1549,12 @@ describe("IngestionModule", () => {
     await user.type(screen.getByLabelText("Candidate graph path"), "out/candidate.json");
 
     const buildPreview = screen.getByRole("button", { name: "Build Graph Preview" });
-    const materializePreview = screen.getByRole("button", { name: "Materialize Preview Supergraph" });
     expect(buildPreview).toBeEnabled();
-    expect(materializePreview).toBeEnabled();
 
     const sessionInput = screen.getByLabelText("Recap/source session");
     fireEvent.change(sessionInput, { target: { value: "24" } });
     expect(sessionInput).toHaveValue(24);
     expect(buildPreview).toBeDisabled();
-    expect(materializePreview).toBeDisabled();
     const extract = screen.queryByRole("button", { name: /run ingest|extract/i });
     if (extract) expect(extract).toBeDisabled();
 
@@ -1573,7 +1566,6 @@ describe("IngestionModule", () => {
     })));
     await waitFor(() => {
       expect(buildPreview).toBeDisabled();
-      expect(materializePreview).toBeDisabled();
       const currentExtract = screen.queryByRole("button", { name: /run ingest|extract/i });
       if (currentExtract) expect(currentExtract).toBeDisabled();
     });
@@ -2399,113 +2391,12 @@ describe("IngestionModule", () => {
     expect(graphPanel).not.toHaveTextContent("Graph extraction: blocked");
   });
 
-  it("enables materialize_preview_supergraph with category extraction and no candidate path", async () => {
+  it("offers extraction without the retired materialization control", async () => {
     const user = userEvent.setup();
-    const spy = vi.spyOn(recapIngestApi, "postRecapIngest").mockImplementation(async (body) => {
-      if (body.operation === "inspect_status") {
-        return makeStatus({
-          status: "ready_for_planning_activation",
-          states: ["recap_applied", "normalized_created"],
-        });
-      }
-      if (body.operation === "materialize_preview_supergraph") {
-        return makeStatus({
-          status: "ready_for_planning_activation",
-          states: ["preview_union_store_ready"],
-          ingest_report: {
-            graph_preview: {
-              status: "preview_union_store_ready",
-              preview_union_store_path: "out/graph_memory/runs/longmont-c2/session-22/run/preview_union_supergraph.json",
-              can_open_union_graph: true,
-              extraction_mode: "category_decomposed",
-            },
-          },
-        });
-      }
-      return makeStatus({
-        status: "ready_for_planning_activation",
-        states: [],
-      });
-    });
-
     render(<IngestionModule campaignId="longmont-c2" session={23} />);
     await user.click(screen.getByText("Advanced graph tools"));
-    await user.type(screen.getByLabelText("Candidate graph path"), "out/candidate.json");
-    await user.click(screen.getByLabelText("Extract graph from recap with category extraction (DeepSeek V4.1 Flash 1017 · pinned)"));
-    expect(screen.getByLabelText("Candidate graph path")).toBeDisabled();
-    expect(screen.getByLabelText("Candidate graph path")).toHaveValue("");
-    await waitFor(() => expect(screen.getByRole("button", { name: "Materialize Preview Supergraph" })).toBeEnabled());
-    await user.click(screen.getByRole("button", { name: "Materialize Preview Supergraph" }));
-
-    await waitFor(() =>
-      expect(spy).toHaveBeenLastCalledWith(
-        expect.objectContaining({
-          operation: "materialize_preview_supergraph",
-          session: 22,
-          candidate_graph_path: undefined,
-          extract_graph: true,
-          graph_model_id: "deepseek/deepseek-v4.1-flash-1017",
-          materialize_after_extract: true,
-        }),
-      ),
-    );
-  });
-
-  it("submits materialize_preview_supergraph with a candidate graph path", async () => {
-    const user = userEvent.setup();
-    const spy = vi.spyOn(recapIngestApi, "postRecapIngest").mockImplementation(async (body) => {
-      if (body.operation === "inspect_status") {
-        return makeStatus({
-          status: "ready_for_planning_activation",
-          states: ["recap_applied", "normalized_created"],
-        });
-      }
-      if (body.operation === "materialize_preview_supergraph") {
-        return makeStatus({
-          status: "ready_for_planning_activation",
-          states: ["preview_union_store_ready"],
-          ingest_report: {
-            graph_preview: {
-              status: "preview_union_store_ready",
-              candidate_graph_path: "out/candidate.json",
-              preview_union_store_path: "out/graph_memory/runs/longmont-c2/session-22/run/preview_union_supergraph.json",
-              can_open_union_graph: true,
-              node_count: 2,
-              edge_count: 1,
-              extracted_nodes: [
-                { node_id: "character_stafl", kind: "character", label: "Stafl" },
-                { node_id: "location_mireward_gate", kind: "location", label: "Mireward Gate" },
-              ],
-            },
-          },
-        });
-      }
-      return makeStatus({
-        status: "ready_for_planning_activation",
-        states: [],
-      });
-    });
-
-    render(<IngestionModule campaignId="longmont-c2" session={23} />);
-    await user.click(screen.getByText("Advanced graph tools"));
-    await user.type(screen.getByLabelText("Candidate graph path"), "out/candidate.json");
-    await waitFor(() => expect(screen.getByRole("button", { name: "Materialize Preview Supergraph" })).toBeEnabled());
-    await user.click(screen.getByRole("button", { name: "Materialize Preview Supergraph" }));
-
-    await waitFor(() =>
-      expect(spy).toHaveBeenLastCalledWith(
-        expect.objectContaining({
-          operation: "materialize_preview_supergraph",
-          session: 22,
-          candidate_graph_path: "out/candidate.json",
-        }),
-      ),
-    );
-    expect(screen.getByText("status: preview_union_store_ready")).toBeInTheDocument();
-    expect(screen.getByText(/Nodes in this preview union \(2\)/)).toBeInTheDocument();
-    expect(screen.getByText("Stafl")).toBeInTheDocument();
-    expect(screen.getByText("Mireward Gate")).toBeInTheDocument();
-    expect(screen.getByRole("region", { name: "Graph preview status" })).toHaveTextContent("preview graph materialized");
+    expect(screen.getByRole("button", { name: "Build Graph Preview" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /Materialize Preview Supergraph/ })).not.toBeInTheDocument();
   });
 
   it("keeps file replacement controls behind explicit advanced disclosure", async () => {
