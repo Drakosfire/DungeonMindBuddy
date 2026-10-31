@@ -34,7 +34,7 @@ from application_state.agent_conversation.types import (
     SurfaceSourcePassageCitationV1,
     SurfaceSourceCompletionV1,
     SurfaceEvidenceCompletionV1, SurfaceEvidenceCompletionV2, SurfaceEvidenceCompletionV3, SurfaceEvidenceCompletionV4, SurfaceEvidenceCompletionV5,
-    PlanSourceContextReceiptV1, PlanNativeContextReceiptV1, SurfaceEvidenceCompletionV6, NativeBodyExcerptCitationV1,
+    PlanSourceContextReceiptV1, PlanNativeContextReceiptV1, SurfaceEvidenceCompletionV6, SurfaceEvidenceCompletionV7, NativeBodyExcerptCitationV1,
     BuildSourceContextBasisV1,
     BuildGraphContextReceiptV1,
     PlanWorldGraphCompletionV1,
@@ -42,7 +42,7 @@ from application_state.agent_conversation.types import (
     PlanWorldGraphContextReceiptV1,
     PlayWorldGraphCompletionV1,
     PlayWorldGraphContextReceiptV1,
-    PlanContextPolicyV1,
+    PlanContextPolicyV1, PlanContextPolicyV2,
     SubmittedPlanPlayableTargetV1,
     SubmittedPlayTargetV1,
     TurnProvenance,
@@ -267,7 +267,7 @@ class AgentTurnRequest(BaseModel):
     build_authored_references: AuthoredGraphReferencesV1 | None = None
     retry_of: RetryTurnReference | None = None
     reviewed_step: ReviewedStepReference | None = None
-    plan_context_policy: PlanContextPolicyV1 | None = None
+    plan_context_policy: PlanContextPolicyV2 | PlanContextPolicyV1 | None = None
     plan_authoring_capture: PlanAuthoringCaptureV1 | None = None
     plan_placement_catalog: PlanPlacementCatalogV1 | None = None
     message: str = Field(min_length=1)
@@ -764,7 +764,7 @@ class AgentPlanSourceContextResponseV1(AgentPlanWorldGraphContextResponseV2):
 class AgentPlanNativeContextResponseV1(AgentPlanSourceContextResponseV1):
     schema_: Literal['dmb_agent_plan_native_context_response_v1'] = Field(default='dmb_agent_plan_native_context_response_v1', alias='schema')
     receipt: PlanNativeContextReceiptV1
-    completion: SurfaceEvidenceCompletionV6 | None
+    completion: SurfaceEvidenceCompletionV7 | SurfaceEvidenceCompletionV6 | None
 
 
 class AgentPlayWorldGraphContextResponseV1(BaseModel):

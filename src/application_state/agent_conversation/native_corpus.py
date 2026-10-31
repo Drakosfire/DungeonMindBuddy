@@ -605,7 +605,7 @@ def prove_body_writer_input(turn, authorization, raw, *, sequence, event_id):
     if sha256(raw.encode()).hexdigest() != authorization.envelope_sha256:
         raise ValueError('Native body inclusion differs from actual SDK bytes')
     frame = frame_in_request(raw)
-    if (frame.get('schema') not in {'dmb_plan_jev_writer_frame_v6', 'dmb_plan_jev_writer_frame_v7'}
+    if (frame.get('schema') not in {'dmb_plan_jev_writer_frame_v6', 'dmb_plan_jev_writer_frame_v7', 'dmb_plan_jev_writer_frame_v8'}
             or canonical_sha256(frame) != authorization.frame_sha256
             or frame.get('native_body_evidence') != model_body_frame(turn)):
         raise ValueError('Native body actual writer frame changed selected bytes or extent')

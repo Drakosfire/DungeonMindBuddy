@@ -50,7 +50,7 @@ BODY = "A reports that B fled; uncertain.\nAnother source-local episode.\n"
 
 
 @pytest.fixture
-def lane(tmp_path, monkeypatch):
+def lane(application_state_dsn, tmp_path, monkeypatch):
     return make_lane(tmp_path, monkeypatch)
 
 

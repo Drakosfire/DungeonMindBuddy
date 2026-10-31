@@ -5,6 +5,7 @@ from .source_writer_output import LIMITATIONS
 from .rules_authority_types import canonical_bytes
 from .surface_evidence_answer import PLAN_POLICY, SELECTOR_POLICY, BODY_POLICY
 from .native_plan_statements import POLICY as STATEMENT_POLICY
+from .native_plan_assertions import POLICY as ASSERTION_POLICY
 
 SCHEMA_NAME = "plan_evidence_selectors_v3"
 
@@ -43,7 +44,7 @@ def _values(rows, key):
 
 def output_schema(frame, rules):
     """Current execution uses only the current Plan policy."""
-    return _frozen_schema(frame, rules, STATEMENT_POLICY if frame.get("schema") == "dmb_plan_jev_writer_frame_v7" else BODY_POLICY if frame.get("schema") == "dmb_plan_jev_writer_frame_v6" else PLAN_POLICY, target_scoped=True)
+    return _frozen_schema(frame, rules, ASSERTION_POLICY if frame.get("schema") == "dmb_plan_jev_writer_frame_v8" else STATEMENT_POLICY if frame.get("schema") == "dmb_plan_jev_writer_frame_v7" else BODY_POLICY if frame.get("schema") == "dmb_plan_jev_writer_frame_v6" else PLAN_POLICY, target_scoped=True)
 
 
 def _graph_groups(frame, passages, *, target_scoped):
@@ -141,16 +142,21 @@ def _frozen_schema(frame, rules, policy, *, target_scoped=False):
                 }
             )
         )
-    if policy == STATEMENT_POLICY:
+    if policy in {STATEMENT_POLICY, ASSERTION_POLICY}:
         handles = _values(frame["native_statements"]["statements"], "statement_handle")
         if handles:
             variants.append(_object({"kind": _literal("native_statement_report"), "text": prose,
                 "statement_handles": _array(_enum(handles), nonempty=True)}))
-    if policy in {BODY_POLICY, STATEMENT_POLICY}:
+    if policy in {BODY_POLICY, STATEMENT_POLICY, ASSERTION_POLICY}:
         body_handles = _values(frame['native_body_evidence']['excerpts'], 'excerpt_handle')
         if body_handles:
             variants.append(_object({'kind': _literal('native_body_claim'), 'text': prose,
                 'excerpt_handles': _array(_enum(body_handles), nonempty=True)}))
+    if policy == ASSERTION_POLICY:
+        handles = _values(frame['native_assertions']['assertions'], 'assertion_handle')
+        if handles:
+            variants.append(_object({'kind': _literal('native_assertion_claim'), 'text': prose,
+                'assertion_handles': _array(_enum(handles), nonempty=True)}))
     if selections:
         variants.append(
             _object(
@@ -163,7 +169,7 @@ def _frozen_schema(frame, rules, policy, *, target_scoped=False):
     session_selections = _values([block for session in frame["session_evidence"]
         for source in session["sources"] for block in source["text_blocks"]
         if block.get("selection_id") is not None], "selection_id")
-    if session_selections and policy in {PLAN_POLICY, BODY_POLICY, STATEMENT_POLICY}:
+    if session_selections and policy in {PLAN_POLICY, BODY_POLICY, STATEMENT_POLICY, ASSERTION_POLICY}:
         variants.append(_object({"kind": _literal("session_summary"), "text": prose,
                                  "selection_ids": _array(_enum(session_selections), nonempty=True)}))
     variants.append(
@@ -229,7 +235,7 @@ def _frozen_schema(frame, rules, policy, *, target_scoped=False):
 def output_format(frame, rules):
     return {
         "type": "json_schema",
-        "name": "plan_evidence_selectors_v5" if frame.get("schema") == "dmb_plan_jev_writer_frame_v7" else "plan_evidence_selectors_v4" if frame.get('schema') == 'dmb_plan_jev_writer_frame_v6' else SCHEMA_NAME,
+        "name": "plan_evidence_selectors_v6" if frame.get("schema") == "dmb_plan_jev_writer_frame_v8" else "plan_evidence_selectors_v5" if frame.get("schema") == "dmb_plan_jev_writer_frame_v7" else "plan_evidence_selectors_v4" if frame.get('schema') == 'dmb_plan_jev_writer_frame_v6' else SCHEMA_NAME,
         "schema": output_schema(frame, rules),
         "strict": True,
     }

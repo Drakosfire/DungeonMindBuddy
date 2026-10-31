@@ -3244,3 +3244,8 @@ export async function getAgentNativeBodyExcerpt(worldId:string,turnId:string,cit
   if(!Number.isSafeInteger(citationIndex) || citationIndex<0 || citationIndex>16383) throw new Error('Invalid excerpt index');
   return apiFetch(`/api/live/agent/worlds/${encodeURIComponent(worldId)}/conversation/turns/${encodeURIComponent(turnId)}/native-body-excerpts/${citationIndex}`);
 }
+
+export async function getAgentNativeAssertionSource(worldId:string,turnId:string,citationIndex:number):Promise<import('./types').NativeAssertionSourceReadV1>{
+  if(!Number.isSafeInteger(citationIndex)||citationIndex<0)throw new Error('Invalid assertion source index');
+  return apiFetch(`/api/live/agent/worlds/${encodeURIComponent(worldId)}/conversation/turns/${encodeURIComponent(turnId)}/native-assertion-sources/${citationIndex}`);
+}

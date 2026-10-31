@@ -2787,6 +2787,22 @@ describe("World Plan conversation consumer", () => {
     },
   );
 
+  it('sends an explicitly selected reviewed Graph source without client Graph identities or revisions', async()=>{
+    setupApi(history('conversation-a',4,[]));
+    const post=vi.spyOn(liveApi,'postWorldPlanAgentTurn').mockRejectedValue(new Error('Synthetic stop after request capture'));
+    render(conversationElement());
+    await waitForConversationReady();
+    fireEvent.change(screen.getByLabelText('Plan Graph source'),{target:{value:'reviewed_native_graph'}});
+    fireEvent.change(screen.getByLabelText('Message DungeonBuddy'),{target:{value:'What did B do?'}});
+    fireEvent.click(screen.getByRole('button',{name:'Send message'}));
+    await waitFor(()=>expect(post).toHaveBeenCalledTimes(1));
+    const request=post.mock.calls[0]![0];
+    expect(request.plan_context_policy).toEqual({schema:'dmb_plan_context_policy_v2',policy:'auto_plan_world',graph_source:'reviewed_native_graph'});
+    expect(request.graph_request).toEqual({mode:'none'});
+    expect(request.graph_selection).toBeNull();
+    expect(JSON.stringify(request)).not.toMatch(/native_world_id|assertion_id|revision_pin/);
+  });
+
   it("sends the explicit additive Graph policy with the committed Plan and card pins, then reads v2 history citations", async () => {
     const api = setupApi(history("conversation-a", 4, []));
     const card = { kind: "scene" as const, id: "scene:opening" };

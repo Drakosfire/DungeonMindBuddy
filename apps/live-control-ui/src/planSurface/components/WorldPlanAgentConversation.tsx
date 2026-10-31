@@ -88,7 +88,6 @@ import type {
   WorldPlanGraphCompletionV2,
   WorldPlanGraphContextReceiptV1,
   WorldPlanGraphExecutionProjectionV1,
-  WorldPlanContextPolicyV1,
   WorldPlanSelectedPlayableTargetV1,
 } from "../../api/types";
 import { deferredComponent } from "../../ui/deferredComponent";
@@ -1033,10 +1032,10 @@ function planThreadNamespace(worldId: string, documentId: string): string {
   return `world-plan-agent:world:${encodeURIComponent(worldId)}:document:${encodeURIComponent(documentId)}`;
 }
 
-function isWorldPlanContextPolicy(value: unknown): value is WorldPlanContextPolicyV1 {
-  return hasExactKeys(value, ["schema", "policy"])
-    && value.schema === "dmb_plan_context_policy_v1"
-    && value.policy === "auto_plan_world";
+function isWorldPlanContextPolicy(value: unknown): value is NonNullable<WorldPlanAgentTurnRequestV1['plan_context_policy']> {
+  return (hasExactKeys(value,["schema","policy"]) && value.schema==='dmb_plan_context_policy_v1' && value.policy==='auto_plan_world')
+    || (hasExactKeys(value,["schema","policy","graph_source"]) && value.schema==='dmb_plan_context_policy_v2'
+      && value.policy==='auto_plan_world' && value.graph_source==='reviewed_native_graph');
 }
 
 function isDigest(value: unknown): value is string {
@@ -1140,8 +1139,8 @@ function isPlanSourceReceipt(value:unknown,request?:WorldPlanAgentTurnRequestV1)
   }
   if(native && (value.graph_capability!==null || !isNativePlanQuery(value.native_query,String(b.world_id))))return false;
   const nq=value.native_query;
-  if(native && request && isNativePlanQuery(nq,String(b.world_id)) && nq.schema==='dmb_native_plan_query_v1' && nq.question!==request.message)return false;
-  if(native && isNativePlanQuery(nq,String(b.world_id)) && nq.schema==='dmb_native_plan_query_v1'
+  if(native && request && isNativePlanQuery(nq,String(b.world_id)) && (nq.schema==='dmb_native_plan_query_v1'||nq.schema==='dmb_native_plan_query_v2') && nq.question!==request.message)return false;
+  if(native && isNativePlanQuery(nq,String(b.world_id)) && (nq.schema==='dmb_native_plan_query_v1'||nq.schema==='dmb_native_plan_query_v2')
     && a.schema_version==='dmb_native_corpus_authority_v1' && ['native_world_id','binding_version','revision_id','domain_ref','profile_ref','acquisition_epoch'].some(key=>canonicalJson(a[key])!==canonicalJson(nq.authority[key as keyof typeof nq.authority])))return false;
   if(value.graph_capability!==null) {
     if(!isWorldPlanGraphReceipt(value.graph_capability,request)
@@ -1419,7 +1418,7 @@ function isWorldPlanContextProjection(
     const optional=['source_open_targets','evidence_anchor_statuses','related_recap_context_statuses','delivery_replay']
       .filter(key=>Object.hasOwn(value,key));
     if(!hasExactKeys(value,['schema','receipt','completion','execution',...optional]) || !isPlanSourceReceipt(value.receipt,request)
-      || (value.completion!==null && (!isRecord(value.completion) || value.completion.schema!==(value.schema==='dmb_agent_plan_native_context_response_v1'?'dmb_surface_evidence_completion_v6':'dmb_surface_evidence_completion_v5')
+      || (value.completion!==null && (!isRecord(value.completion) || !(['dmb_surface_evidence_completion_v6','dmb_surface_evidence_completion_v7'].includes(String(value.completion.schema))&&value.schema==='dmb_agent_plan_native_context_response_v1'||value.completion.schema==='dmb_surface_evidence_completion_v5'&&value.schema==='dmb_agent_plan_source_context_response_v1')
         || !isSurfaceEvidenceCompletion(value.completion,value.receipt.context_receipt_sha256,'plan')
         || !surfaceEvidenceReceiptBound(value.completion,value.receipt)))
       || (value.execution!==null && !isWorldPlanGraphExecution(value.execution))
@@ -2688,6 +2687,7 @@ export function WorldPlanAgentConversation({
   const playMessagesHostRef = useRef<HTMLDivElement | null>(null);
   const previousVerifiedWorldIdRef = useRef(verifiedWorldId);
   const [useWorldGraphForAsk, setUseWorldGraphForAsk] = useState(true);
+  const [planGraphSource, setPlanGraphSource] = useState<"existing"|"reviewed_native_graph">("existing");
   const buildPlacementFenceKey = JSON.stringify([scopeKey, buildMode?.savedSource, history?.conversation_id,
     history?.active_conversation_id, history?.conversation_state, history?.pointer_revision, useWorldGraphForAsk]);
   const buildPlacementLifecycle = useRef({key: buildPlacementFenceKey, bridge: buildMode?.composeBridge, epoch: 0});
@@ -4009,7 +4009,9 @@ export function WorldPlanAgentConversation({
         graph_request: { mode: "none" },
         graph_selection: null,
         ...(useWorldGraphForAsk ? {
-          plan_context_policy: { schema: "dmb_plan_context_policy_v1" as const, policy: "auto_plan_world" as const },
+          plan_context_policy: planGraphSource==='reviewed_native_graph'
+            ? {schema:'dmb_plan_context_policy_v2' as const,policy:'auto_plan_world' as const,graph_source:'reviewed_native_graph' as const}
+            : { schema: 'dmb_plan_context_policy_v1' as const, policy: 'auto_plan_world' as const },
         } : {}),
         ...(targetAtSubmit ? {
           playable_target: { schema: "dmb_plan_playable_target_v1" as const, ...targetAtSubmit },
@@ -5065,7 +5067,7 @@ export function WorldPlanAgentConversation({
       ? <BuildSavedSectionEvidence targets={planContext.saved_source_sections} basis={planContext.receipt.source_basis}
           sourceName={planContext.saved_source_name}
           segments={planContext.completion.answer_segments} worldId={verifiedWorldId} turnId={turn.turn_id} /> : null;
-    if ((planContext?.completion?.schema === "dmb_build_intentional_response_completion_v1" || (planContext?.completion?.schema==="dmb_build_intentional_response_completion_v2"||planContext?.completion?.schema==="dmb_build_intentional_response_completion_v3")) || (planContext?.completion?.schema === "dmb_build_relationship_review_completion_v1" || (planContext?.completion?.schema==="dmb_build_relationship_review_completion_v2"||planContext?.completion?.schema==="dmb_build_relationship_review_completion_v3")) || planContext?.completion?.schema === "dmb_build_connected_page_review_completion_v1" || planContext?.completion?.schema === "dmb_build_collaboration_completion_v1" || planContext?.completion?.schema === "dmb_build_related_page_completion_v1" || planContext?.completion?.schema === "dmb_build_draft_context_completion_v1" || planContext?.completion?.schema === "dmb_build_graph_completion_v2" || planContext?.completion?.schema === "dmb_build_graph_completion_v3" || planContext?.completion?.schema === "dmb_surface_source_completion_v1" || planContext?.completion?.schema === "dmb_surface_evidence_completion_v1" || planContext?.completion?.schema === "dmb_surface_evidence_completion_v2" || (planContext?.completion?.schema === "dmb_surface_evidence_completion_v3" || (planContext?.completion?.schema === "dmb_surface_evidence_completion_v4" || (planContext?.completion?.schema === "dmb_surface_evidence_completion_v5" || planContext?.completion?.schema === "dmb_surface_evidence_completion_v6")))) {
+    if ((planContext?.completion?.schema === "dmb_build_intentional_response_completion_v1" || (planContext?.completion?.schema==="dmb_build_intentional_response_completion_v2"||planContext?.completion?.schema==="dmb_build_intentional_response_completion_v3")) || (planContext?.completion?.schema === "dmb_build_relationship_review_completion_v1" || (planContext?.completion?.schema==="dmb_build_relationship_review_completion_v2"||planContext?.completion?.schema==="dmb_build_relationship_review_completion_v3")) || planContext?.completion?.schema === "dmb_build_connected_page_review_completion_v1" || planContext?.completion?.schema === "dmb_build_collaboration_completion_v1" || planContext?.completion?.schema === "dmb_build_related_page_completion_v1" || planContext?.completion?.schema === "dmb_build_draft_context_completion_v1" || planContext?.completion?.schema === "dmb_build_graph_completion_v2" || planContext?.completion?.schema === "dmb_build_graph_completion_v3" || planContext?.completion?.schema === "dmb_surface_source_completion_v1" || planContext?.completion?.schema === "dmb_surface_evidence_completion_v1" || planContext?.completion?.schema === "dmb_surface_evidence_completion_v2" || (planContext?.completion?.schema === "dmb_surface_evidence_completion_v3" || (planContext?.completion?.schema === "dmb_surface_evidence_completion_v4" || (planContext?.completion?.schema === "dmb_surface_evidence_completion_v5" || (planContext?.completion?.schema === "dmb_surface_evidence_completion_v6"||planContext?.completion?.schema === "dmb_surface_evidence_completion_v7"))))) {
       return <details className="world-plan-agent-conversation__evidence-trail">
         <summary>Evidence trail</summary>
         <ResponseEvidenceTabs evidence={verifiedWorldId
@@ -6099,7 +6101,7 @@ export function WorldPlanAgentConversation({
               </span>}
             </div>
             {turn.native_statement_context ? <NativeStatementAnswer context={turn.native_statement_context}
-              worldId={turn.provenance.world_id} turnId={turn.turn_id}/> : !pageProposalAcknowledgment&&(graphContextForTurn(turn)?.completion?.schema === "dmb_surface_evidence_completion_v1" || graphContextForTurn(turn)?.completion?.schema === "dmb_surface_evidence_completion_v2" || (graphContextForTurn(turn)?.completion?.schema === "dmb_surface_evidence_completion_v3" || (graphContextForTurn(turn)?.completion?.schema === "dmb_surface_evidence_completion_v4" || (graphContextForTurn(turn)?.completion?.schema === "dmb_surface_evidence_completion_v5" || graphContextForTurn(turn)?.completion?.schema === "dmb_surface_evidence_completion_v6"))))
+              worldId={turn.provenance.world_id} turnId={turn.turn_id}/> : !pageProposalAcknowledgment&&(graphContextForTurn(turn)?.completion?.schema === "dmb_surface_evidence_completion_v1" || graphContextForTurn(turn)?.completion?.schema === "dmb_surface_evidence_completion_v2" || (graphContextForTurn(turn)?.completion?.schema === "dmb_surface_evidence_completion_v3" || (graphContextForTurn(turn)?.completion?.schema === "dmb_surface_evidence_completion_v4" || (graphContextForTurn(turn)?.completion?.schema === "dmb_surface_evidence_completion_v5" || (graphContextForTurn(turn)?.completion?.schema === "dmb_surface_evidence_completion_v6"||graphContextForTurn(turn)?.completion?.schema === "dmb_surface_evidence_completion_v7")))))
               ? <SurfaceEvidenceAnswer completion={graphContextForTurn(turn)!.completion as import("../../api/types").SurfaceEvidenceCompletion}
                 worldId={verifiedWorldId} turnId={turn.turn_id} composition={rulesContextForTurn(turn) ? {text:replyText,ranges:rulesContextForTurn(turn)!.accepted_binding.segment_map} : undefined}/>
               : citedAnswer ?? <WorldPlanAgentAnswer
@@ -6809,6 +6811,13 @@ export function WorldPlanAgentConversation({
           <p className="world-plan-agent-conversation__target-error" role="alert">{sectionTargetStatus.message}</p>
         ) : null}
         <label className="sr-only" htmlFor="world-plan-agent-message">Message DungeonBuddy</label>
+        {!isReadOnly && !buildMode && !playMode && useWorldGraphForAsk ? <label>
+          Answer from <select aria-label="Plan Graph source" value={planGraphSource} disabled={composerBusy}
+            onChange={event=>setPlanGraphSource(event.currentTarget.value as 'existing'|'reviewed_native_graph')}>
+            <option value="existing">Existing World Graph</option><option value="reviewed_native_graph">Reviewed Graph</option>
+          </select>
+          {planGraphSource==='reviewed_native_graph' ? <small>Uses the reviewed native revision. Earlier Graph material may not yet be published here.</small>:null}
+        </label>:null}
         <textarea
           id="world-plan-agent-message"
           data-guided-control={visible && agent.paneState.isOpen ? "memory" : undefined}

@@ -101,7 +101,7 @@ export function isNativeClauseCitation(v:unknown,receiptHash:string):v is import
     && Number.isSafeInteger(v.end_byte) && Number(v.end_byte)>Number(v.start_byte);
 }
 
-export function isNativePlanQuery(v:unknown,worldId:string):v is import('../api/types').PlanNativeContextReceiptV1['native_query'] {
+function isNativePlanQueryV1(v:unknown,worldId:string):v is import('../api/types').PlanNativeContextReceiptV1['native_query'] {
   if(exact(v,['schema','managed_world_id','reason']) && v.schema==='dmb_native_plan_query_unavailable_v1')
     return v.managed_world_id===worldId && ['native_graph_binding_unavailable','native_graph_head_unavailable'].includes(String(v.reason));
   if(!exact(v,['schema','authority','question','search_result_sha256','discovered_entity_ids','matches','status','gap_codes','universal_absence_claimed'])
@@ -134,4 +134,20 @@ export function isNativePlanQuery(v:unknown,worldId:string):v is import('../api/
     seen.add(m.statement_id);
   }
   return true;
+}
+
+export function isNativePlanQuery(v:unknown,worldId:string):v is import('../api/types').PlanNativeContextReceiptV1['native_query'] {
+  if(typeof v!=='object'||v===null||!('schema' in v)||v.schema!=='dmb_native_plan_query_v2')return isNativePlanQueryV1(v,worldId);
+  const {assertion_matches,...base}=v as Record<string,unknown>;
+  if(!isNativePlanQueryV1({...base,schema:'dmb_native_plan_query_v1'},worldId)||!Array.isArray(assertion_matches)
+    ||!Array.isArray(base.discovered_entity_ids))return false;
+  const seen=new Set<string>();
+  return assertion_matches.every(m=>{
+    if(!exact(m,['assertion_id','subject_entity_id','discovered_entity_ids','assertion_sha256','label'])
+      ||typeof m.assertion_id!=='string'||!m.assertion_id||seen.has(m.assertion_id)||typeof m.subject_entity_id!=='string'
+      ||typeof m.label!=='string'||!m.label||typeof m.assertion_sha256!=='string'||!/^[a-f0-9]{64}$/.test(m.assertion_sha256)
+      ||!Array.isArray(m.discovered_entity_ids)||!m.discovered_entity_ids.length
+      ||!m.discovered_entity_ids.every((id:unknown)=>(base.discovered_entity_ids as unknown[]).includes(id)))return false;
+    seen.add(m.assertion_id);return true;
+  });
 }

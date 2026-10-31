@@ -18,6 +18,7 @@ class PlanJevDriver:
         self.dialogue = [{"role": item["role"], "content": item["content"]} for item in dialogue]
         self.catalog = {}
         self.native_statement_attempts = set()
+        self.native_assertion_attempts = set()
         self.node_kinds = {}
         self.graph_available = adapter.bootstrap is not None
         if self.graph_available:
@@ -80,6 +81,11 @@ class PlanJevDriver:
             result.extend(RetrievalCandidate(handle=selection_handle(query, match), label=match.label,
                 kind='Qualified native source statement; select to open its complete attributed support')
                 for match in query.matches if match.statement_id not in self.native_statement_attempts)
+        from application_state.agent_conversation.native_plan_assertions import NativePlanQueryV2, selection_handle as assertion_handle
+        if isinstance(query, NativePlanQueryV2):
+            result.extend(RetrievalCandidate(handle=assertion_handle(query, match), label=match.label,
+                kind='Reviewed native Graph assertion; select to read its qualifications and exact supporting evidence')
+                for match in query.assertion_matches if match.assertion_id not in self.native_assertion_attempts)
         result.extend(self.native_sources.offered())
         return tuple(result)
 
@@ -144,6 +150,13 @@ class PlanJevDriver:
                 if selected_ids:
                     self._read_native_statements(selected_ids)
 
+            from application_state.agent_conversation.native_plan_assertions import NativePlanQueryV2, selection_handle as assertion_handle
+            if isinstance(query, NativePlanQueryV2):
+                assertion_ids = [m.assertion_id for m in query.assertion_matches
+                    if assertion_handle(query, m) in selected.selected_handles]
+                if assertion_ids:
+                    self._read_native_assertions(assertion_ids)
+
             nodes = [self.catalog[handle][0] for handle in selected.selected_handles
                      if handle.startswith("node:")]
             if any(node in self.attempted_nodes for node in nodes):
@@ -178,6 +191,49 @@ class PlanJevDriver:
                     self.rules.lookup_selected(dispatch.parent.model_dump_json(by_alias=True))
             return
         self._read_new_sources(operations)
+
+    def _read_native_assertions(self, identities):
+        from uuid import uuid4
+        from .native_plan_assertions import read_selected
+        from application_state.agent_conversation.native_plan_assertions import NativePlanAssertionReadAuthorizedV1
+        from .agent_turn_service import _require_fresh_execution_append
+        a = self.adapter
+        if self.native_assertion_attempts & set(identities):
+            raise ValueError('Native assertion cannot be reacquired')
+        grant_id = uuid4()
+        a.turn = _require_fresh_execution_append(a.fence.append('authorize_native_plan_assertion_read', 'event_id', grant_id,
+            assertion_ids=tuple(identities)))
+        self.native_assertion_attempts.update(identities)
+        grant = next(e for e in a.fence.turn.graph_context_execution.events
+            if isinstance(e, NativePlanAssertionReadAuthorizedV1) and e.event_id == grant_id)
+        context = a.native_query_context
+        reads, unavailable = read_selected(context, grant, context.principal)
+        a.turn = _require_fresh_execution_append(a.fence.append('observe_native_plan_assertion_read', 'event_id', uuid4(),
+            authorization_event_id=grant_id, reads=reads, unavailable_assertion_ids=unavailable))
+        if unavailable:
+            self.gaps.append('native_assertion_support_unavailable')
+
+    def _native_assertion_examined(self):
+        from application_state.agent_conversation.native_plan_assertions import (
+            NativePlanQueryV2, NativePlanAssertionReadAuthorizedV1, NativePlanAssertionReadObservedV1, selection_handle)
+        a = self.adapter
+        if a.fence is None or not isinstance(getattr(a.fence.turn.graph_context_receipt, 'native_query', None), NativePlanQueryV2):
+            return ()
+        from application_state.agent_conversation.native_plan_statements import validate_execution
+        execution = a._broker_execution()
+        validate_execution(a.fence.turn.graph_context_receipt, execution)
+        query = a.fence.turn.graph_context_receipt.native_query
+        if a.native_query.sha256 != query.sha256:
+            raise ValueError('Native assertion query differs from its frozen receipt')
+        grants = {e.event_id: e for e in execution.events if isinstance(e, NativePlanAssertionReadAuthorizedV1)}
+        observed = [e for e in execution.events if isinstance(e, NativePlanAssertionReadObservedV1)]
+        if set(grants) != {e.authorization_event_id for e in observed}:
+            raise ValueError('Native assertion acquisition must settle before another decision')
+        matches = {m.assertion_id: m for m in query.assertion_matches}
+        return tuple(RetrievalCandidate(handle=selection_handle(query, matches[identity]), label=matches[identity].label,
+            kind='Previously selected native assertion: ' + ('opened' if identity in {r.assertion.assertion_id for r in event.reads} else 'unavailable')
+                + '; not an answer-sufficiency verdict')
+            for event in observed for identity in grants[event.authorization_event_id].assertion_ids)
 
     def _read_native_statements(self, identities):
         from uuid import uuid4
@@ -250,6 +306,7 @@ class PlanJevDriver:
                     examined.append(rules_candidate())
                 examined.extend(self.native_sources.examined())
                 examined.extend(self._native_statement_examined())
+                examined.extend(self._native_assertion_examined())
                 dispatch = PlanJevDispatch(self.adapter, self.offered(), dialogue=self.dialogue,
                     examined_candidates=examined, allowed_operations=operations)
                 self.current = dispatch
