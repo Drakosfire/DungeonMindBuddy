@@ -2103,6 +2103,106 @@ describe("IngestionModule", () => {
     window.removeEventListener("popstate", onPopState);
   });
 
+  it.each(["initialized", "source_unverified"])("opens the exact saved database Graph Review without import files (%s)", async (inputStatus) => {
+    window.history.replaceState({}, "", "/ingest?world=elderwyld&campaign=longmont-c2&session=session-22");
+    const user = setupIngestUser();
+    const requests = vi.mocked(recapIngestApi.postRecapIngest).mockResolvedValue(makeStatus({
+      status: inputStatus,
+      states: ["ingest_status_inspected", ...(inputStatus === "source_unverified" ? ["source_unverified"] : [])],
+      paths: { canonical_recap: null, normalized_recap: null },
+      errors: inputStatus === "source_unverified" ? ["The normalized recap is missing."] : [],
+      ingest_report: {
+        corpus_impact: [],
+        graph_preview: {
+          status: "candidate_validation_ready", extraction_run_id: "run-session-22",
+          source_match_mode: "retained_database", blocked_reason: null,
+          candidate_node_count: 3, candidate_edge_count: 2,
+        },
+      },
+      entity_spelling_audit: [],
+    }));
+    render(<IngestionModule campaignId="longmont-c2" session={22} managedWorldId="elderwyld" />);
+    const review = await screen.findByRole("button", { name: "Open Graph Review" });
+    expect(review).toBeEnabled();
+    expect(screen.getByText("Graph ready")).toBeInTheDocument();
+    if (inputStatus === "source_unverified") {
+      expect(await screen.findByText("Import source needs attention")).toBeInTheDocument();
+      expect(screen.getAllByText("The normalized recap is missing.").length).toBeGreaterThan(0);
+    }
+    expect(screen.queryByRole("button", { name: "Process recap" })).not.toBeInTheDocument();
+    expect(screen.queryByText("Saved graph result kept as history")).not.toBeInTheDocument();
+    await user.click(review);
+    const params = new URLSearchParams(window.location.search);
+    expect(params.get("world")).toBe("elderwyld");
+    expect(params.get("campaign")).toBe("longmont-c2");
+    expect(params.get("session")).toBe("session-22");
+    expect(params.get("extractionRunId")).toBe("run-session-22");
+    expect(requests.mock.calls.every(([request]) => request.operation === "inspect_status" && request.managed_world_id === "elderwyld")).toBe(true);
+    expect(liveApi.postWorldGraphRecapProjection).not.toHaveBeenCalled();
+    expect(liveApi.getHistoricalRecapWorldProjection).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    { status: "prepared" },
+    { status: "failed", extraction_mode: "llm_blocked" },
+    { status: "source_unverified" },
+    { status: "candidate_validation_ready", blocked_reason: "Saved source integrity failed." },
+    { status: "candidate_validation_ready", extraction_mode: "llm_blocked" },
+  ])("does not open an unavailable exact database extraction: %j", async (graph) => {
+    window.history.replaceState({}, "", "/ingest?world=elderwyld&campaign=longmont-c2&session=session-22");
+    const requests = vi.mocked(recapIngestApi.postRecapIngest).mockResolvedValue(makeStatus({
+      status: "initialized", states: ["ingest_status_inspected"], paths: {},
+      ingest_report: { corpus_impact: [], graph_preview: { ...graph, extraction_run_id: "run-session-22" } },
+      entity_spelling_audit: [],
+    }));
+    render(<IngestionModule campaignId="longmont-c2" session={22} managedWorldId="elderwyld" />);
+    await screen.findByRole("link", { name: "Evidence" });
+    expect(screen.queryByRole("button", { name: "Open Graph Review" })).not.toBeInTheDocument();
+    expect(new URLSearchParams(window.location.search).get("extractionRunId")).toBeNull();
+    expect(requests.mock.calls.every(([request]) => request.operation === "inspect_status")).toBe(true);
+  });
+
+  it.each([
+    { managedWorldId: "elderwyld", runId: undefined, reason: "exact extraction run" },
+    { managedWorldId: undefined, runId: "run-session-22", reason: "selected World" },
+  ])("requires $reason to open a retained database candidate", async ({ managedWorldId, runId, reason }) => {
+    window.history.replaceState({}, "", `/ingest?${managedWorldId ? `world=${managedWorldId}&` : ""}campaign=longmont-c2&session=session-22`);
+    vi.mocked(recapIngestApi.postRecapIngest).mockResolvedValue(makeStatus({
+      status: "initialized", states: ["ingest_status_inspected"], paths: {},
+      ingest_report: { corpus_impact: [], graph_preview: { status: "candidate_validation_ready", extraction_run_id: runId } },
+      entity_spelling_audit: [],
+    }));
+    render(<IngestionModule campaignId="longmont-c2" session={22} managedWorldId={managedWorldId} />);
+    expect(await screen.findByRole("button", { name: `Graph Review unavailable: ${reason} required` })).toBeDisabled();
+    expect(new URLSearchParams(window.location.search).get("extractionRunId")).toBeNull();
+  });
+
+  it("drops retained database review navigation while another World is being inspected", async () => {
+    window.history.replaceState({}, "", "/ingest?world=elderwyld&campaign=longmont-c2&session=session-22");
+    const user = setupIngestUser();
+    const nextWorld = deferred<RecapIngestStatus>();
+    const saved = (runId: string) => makeStatus({
+      status: "initialized", states: ["ingest_status_inspected"], paths: {},
+      ingest_report: { corpus_impact: [], graph_preview: { status: "candidate_validation_ready", extraction_run_id: runId } },
+      entity_spelling_audit: [],
+    });
+    const requests = vi.mocked(recapIngestApi.postRecapIngest).mockImplementation(async request =>
+      request.managed_world_id === "elderwyld" ? saved("run-world-a") : nextWorld.promise,
+    );
+    const view = render(<IngestionModule campaignId="longmont-c2" session={22} managedWorldId="elderwyld" />);
+    expect(await screen.findByRole("button", { name: "Open Graph Review" })).toBeEnabled();
+    window.history.replaceState({}, "", "/ingest?world=other-world&campaign=longmont-c2&session=session-22");
+    view.rerender(<IngestionModule campaignId="longmont-c2" session={22} managedWorldId="other-world" />);
+    await waitFor(() => expect(requests).toHaveBeenCalledWith(expect.objectContaining({ operation: "inspect_status", managed_world_id: "other-world" })));
+    expect(screen.queryByRole("button", { name: "Open Graph Review" })).not.toBeInTheDocument();
+    await act(async () => { nextWorld.resolve(saved("run-world-b")); });
+    await user.click(await screen.findByRole("button", { name: "Open Graph Review" }));
+    const params = new URLSearchParams(window.location.search);
+    expect(params.get("world")).toBe("other-world");
+    expect(params.get("extractionRunId")).toBe("run-world-b");
+    expect(requests.mock.calls.every(([request]) => request.operation === "inspect_status")).toBe(true);
+  });
+
   it("keeps Graph Review unavailable when the current result has no exact run ID", async () => {
     window.history.replaceState({}, "", "/ingest?world=elderwyld&campaign=longmont-c2&session=session-22");
     const user = setupIngestUser();
