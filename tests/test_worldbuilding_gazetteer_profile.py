@@ -615,11 +615,11 @@ def test_native_write_plan_retains_gazetteer_profile_and_rejects_unknown_version
 def test_gazetteer_is_not_admitted_to_pilot_only_bootstrap():
     from types import SimpleNamespace
     from apps.live_control_server.services.extract_promote import (
-        _load_typed_worldbuilding_preview_for_run, ExtractPromoteError,
+        _load_worldbuilding_publication_input, ExtractPromoteError,
     )
     resolved = SimpleNamespace(source_domain="worldbuilding", extraction_profile="worldbuilding_gazetteer_v1@1.0")
     with pytest.raises(ExtractPromoteError) as error:
-        _load_typed_worldbuilding_preview_for_run(resolved, allow_gazetteer=False)
+        _load_worldbuilding_publication_input(resolved, allow_gazetteer=False)
     assert error.value.code == "unsupported_worldbuilding_profile"
 
 

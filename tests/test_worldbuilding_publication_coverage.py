@@ -43,7 +43,7 @@ def coverage_case(monkeypatch):
         discover_worldbuilding_publications=lambda request: history,
     )
     monkeypatch.setattr(service, "resolve_promotable_ingest_run", lambda *a, **k: resolved)
-    monkeypatch.setattr(service, "_load_typed_worldbuilding_preview_for_run", lambda run: (preview, "profile"))
+    monkeypatch.setattr(service, "_load_worldbuilding_publication_input", lambda run: SimpleNamespace(preview=preview, profile_id="profile"))
     monkeypatch.setattr(service, "_registered_publication_binding", lambda run: binding)
     monkeypatch.setattr(service, "_world_scoped_preview", lambda p, b: p)
     monkeypatch.setattr(service, "get_world_graph_authority", lambda: authority)

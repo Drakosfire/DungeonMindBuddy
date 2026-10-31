@@ -31,10 +31,8 @@ from apps.live_control_server.ports.world_graph_initialization_access import (
 )
 from apps.live_control_server.services.extract_promote import (
     ExtractPromoteError,
-    _assert_and_project_candidate_evidence,
     _diagnostic,
-    _load_frozen_span_index_for_resolved_run,
-    _load_typed_worldbuilding_preview_for_run,
+    _load_worldbuilding_publication_input,
     _promotable_run_error,
 )
 from apps.live_control_server.services.first_world_graph import (
@@ -217,28 +215,12 @@ def prepare_first_world(
     except PromotableIngestRunError as exc:
         raise _promotable_run_error(exc) from exc
 
-    typed_preview, expected_profile = _load_typed_worldbuilding_preview_for_run(
+    publication_input = _load_worldbuilding_publication_input(
         resolved, allow_gazetteer=False
     )
-    try:
-        source_prose = resolved.normalized_recap_path.read_bytes().decode("utf-8")
-    except (OSError, UnicodeDecodeError) as exc:
-        raise ExtractPromoteError(
-            "exact-run source prose could not be read",
-            code="run_not_promotable",
-            status_code=422,
-            diagnostics=[_diagnostic("source_unreadable", str(exc))],
-        ) from exc
-    candidate_payload = json.loads(
-        resolved.candidate_graph_path.read_text(encoding="utf-8")
-    )
-    span_index = _load_frozen_span_index_for_resolved_run(resolved)
-    reviewed_evidence = _assert_and_project_candidate_evidence(
-        candidate_payload=candidate_payload,
-        source_prose=source_prose,
-        source_artifact_id=resolved.source_artifact_id,
-        span_index=span_index,
-    )
+    reviewed_evidence = publication_input.reviewed_assertions
+    source_prose = publication_input.source_prose
+    span_index = publication_input.span_index
 
     evidence_commitment = _source_evidence_commitment(
         reviewed_evidence, source_prose=source_prose, span_index=span_index,
@@ -250,7 +232,7 @@ def prepare_first_world(
 
     try:
         materialized = materialize_first_world_plan(
-            preview=typed_preview,
+            preview=publication_input.preview,
             world_id=lineage.world_id,
             native_target=native_target,
             run_id=resolved.run_id,
@@ -258,7 +240,7 @@ def prepare_first_world(
             source_revision_id=lineage.source_revision_id,
             source_uri=resolved.sealed_source_uri,
             source_evidence_sha256=evidence_commitment,
-            extraction_profile=expected_profile,
+            extraction_profile=publication_input.profile_id,
             campaign_scope=lineage.campaign_scope,
             workspace_document_id=lineage.workspace_document_id,
             workspace_document_revision=lineage.workspace_document_revision,
@@ -289,7 +271,7 @@ def prepare_first_world(
         workspace_document_revision=lineage.workspace_document_revision,
         campaign_scope=lineage.campaign_scope,
         session_scope=None,
-        extraction_profile=expected_profile,  # type: ignore[arg-type]
+        extraction_profile=publication_input.profile_id,  # type: ignore[arg-type]
         accepted_assertion_ids=list(materialized.accepted_assertion_ids),
         rejected_assertion_ids=list(materialized.rejected_assertion_ids),
         contribution_id=materialized.contribution.contribution_id,
@@ -516,7 +498,7 @@ def confirm_first_world(
     except PromotableIngestRunError as exc:
         raise _promotable_run_error(exc) from exc
 
-    typed_preview, expected_profile = _load_typed_worldbuilding_preview_for_run(
+    publication_input = _load_worldbuilding_publication_input(
         resolved, allow_gazetteer=False
     )
     resolved_world = (getattr(resolved, "world_id", None) or "").strip()
@@ -612,25 +594,9 @@ def confirm_first_world(
             ],
         )
 
-    try:
-        source_prose = resolved.normalized_recap_path.read_bytes().decode("utf-8")
-    except (OSError, UnicodeDecodeError) as exc:
-        raise ExtractPromoteError(
-            "exact-run source prose could not be read",
-            code="run_not_promotable",
-            status_code=422,
-            diagnostics=[_diagnostic("source_unreadable", str(exc))],
-        ) from exc
-    candidate_payload = json.loads(
-        resolved.candidate_graph_path.read_text(encoding="utf-8")
-    )
-    span_index = _load_frozen_span_index_for_resolved_run(resolved)
-    reviewed_evidence = _assert_and_project_candidate_evidence(
-        candidate_payload=candidate_payload,
-        source_prose=source_prose,
-        source_artifact_id=resolved.source_artifact_id,
-        span_index=span_index,
-    )
+    reviewed_evidence = publication_input.reviewed_assertions
+    source_prose = publication_input.source_prose
+    span_index = publication_input.span_index
 
     evidence_commitment = _source_evidence_commitment(
         reviewed_evidence, source_prose=source_prose, span_index=span_index,
@@ -650,7 +616,7 @@ def confirm_first_world(
     ]
     try:
         rematerialized = materialize_first_world_plan(
-            preview=typed_preview,
+            preview=publication_input.preview,
             world_id=plan.world_id,
             native_target=target,
             run_id=plan.run_id,
@@ -658,7 +624,7 @@ def confirm_first_world(
             source_revision_id=plan.source_revision_id,
             source_uri=resolved.sealed_source_uri,
             source_evidence_sha256=evidence_commitment,
-            extraction_profile=expected_profile,
+            extraction_profile=publication_input.profile_id,
             campaign_scope=plan.campaign_scope,
             workspace_document_id=plan.workspace_document_id,
             workspace_document_revision=plan.workspace_document_revision,
