@@ -1059,11 +1059,17 @@ def _worldbuilding_run_passages(resolved_source, *, root: Path, artifact_id: str
     """Join manual assertions to the exact run's frozen index, never registry latest."""
     from graph_memory.source_span import source_span_index_from_dict, validate_source_span_index
 
-    path = getattr(resolved_source, "source_span_index_path", None)
     try:
-        if not isinstance(path, Path) or not path.resolve().is_relative_to(root.resolve()):
-            raise ValueError("Missing or escaped run-pinned source index")
-        raw = path.read_bytes()
+        if getattr(resolved_source, "document_source_selector", None) is not None:
+            from apps.live_control_server.services.source_artifact_registry import load_source_span_index
+            from graph_memory.source_span import source_span_index_to_dict
+            payload = source_span_index_to_dict(load_source_span_index(root, artifact_id))
+            raw = (json.dumps(payload, sort_keys=True, ensure_ascii=False) + "\n").encode()
+        else:
+            path = getattr(resolved_source, "source_span_index_path", None)
+            if not isinstance(path, Path) or not path.resolve().is_relative_to(root.resolve()):
+                raise ValueError("Missing or escaped run-pinned source index")
+            raw = path.read_bytes()
         expected = getattr(resolved_source, "source_span_index_sha256", None)
         if not isinstance(expected, str) or hashlib.sha256(raw).hexdigest() != expected:
             raise ValueError("Frozen source index differs from the run's component digest")
@@ -1132,20 +1138,23 @@ def verify_graph_review_assertion_spans(
             "The admitted source revision or visibility is not current. Prepare again.",
             drift=True,
         )
-    source_uri = (getattr(resolved_source, "sealed_source_uri", None)
-                  if getattr(resolved_source, "document_source_selector", None) is not None
-                  else getattr(artifact, "uri", None))
-    relative = parse_repo_uri(str(source_uri or ""))
-    if relative is None:
-        raise _source_span_error("The admitted source has no readable repo passage.")
     root = artifact_data_root(source_root)
-    target = (root / relative).resolve()
-    if not target.is_relative_to(root):
-        raise _source_span_error("The admitted source path is outside its repository.")
     try:
-        raw = target.read_bytes()
+        if getattr(resolved_source, "document_source_selector", None) is not None:
+            from apps.live_control_server.services.source_artifact_registry import load_registered_source_artifact_bytes
+            stored, raw = load_registered_source_artifact_bytes(root, artifact_id)
+            if stored != artifact:
+                raise ValueError("Registered document source changed")
+        else:
+            relative = parse_repo_uri(str(getattr(artifact, "uri", None) or ""))
+            if relative is None:
+                raise ValueError("The admitted source has no readable repo passage")
+            target = (root / relative).resolve()
+            if not target.is_relative_to(root):
+                raise ValueError("The admitted source path is outside its repository")
+            raw = target.read_bytes()
         text = raw.decode("utf-8")
-    except (OSError, UnicodeDecodeError) as exc:
+    except (OSError, ValueError) as exc:
         raise _source_span_error("The admitted source body is unreadable. Prepare again.", drift=True) from exc
     if hashlib.sha256(raw).hexdigest() != digest:
         raise _source_span_error("The admitted source body changed. Prepare again.", drift=True)

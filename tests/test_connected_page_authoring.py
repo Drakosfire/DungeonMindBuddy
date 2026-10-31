@@ -424,3 +424,19 @@ def test_saved_origin_requires_existing_operator_authority(saved_case):
         assert client.post('/api/live/connected-pages/prepare',json=c.request).status_code==401
     assert len(list_workspace_documents(c.root,kind='worldbuilding_source'))==1
     assert c.authority.publish_calls==0
+
+
+def test_supported_connected_page_uses_database_source_spans(case, monkeypatch):
+    from pathlib import Path
+    case.request['relationships'] = ['owns']
+    original_open = Path.open
+    def guarded(path, *args, **kwargs):
+        if 'graph_documents' in path.parts or path.name == 'source_span_index.json':
+            pytest.fail('connected page reopened a source/span mirror')
+        return original_open(path, *args, **kwargs)
+    monkeypatch.setattr(Path, 'open', guarded)
+    operation = prepare(case)
+    response = confirm(case, operation)
+    assert response.status_code == 200, response.text
+    assert response.json()['connections']['relationships'] == ['owns']
+    assert case.authority.publish_calls == 1

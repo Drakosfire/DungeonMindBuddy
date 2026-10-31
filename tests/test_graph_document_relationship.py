@@ -140,6 +140,6 @@ def test_runtime_checkout_and_retained_world_source_root_are_distinct(case,graph
     request=relationship_request(runtime,DocumentRelationshipRequest.model_validate(intent(case)))
     assert observed==[case.root]
     assert request.document_source==case.selector
-    assert (case.root/'out/registries/source_content/graph_documents').is_dir()
+    assert not (case.root/'out/registries/source_content/graph_documents').exists()
     assert not (runtime/'out').exists()
     assert case.authority.publish_calls==0
