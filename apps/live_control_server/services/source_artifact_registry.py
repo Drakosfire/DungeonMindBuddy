@@ -4,9 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import json
-import os
 import re
-import stat
 from datetime import UTC, datetime
 from pathlib import Path
 
@@ -528,80 +526,6 @@ def load_registered_source_artifact_text(
     """Open the same exact database body as the byte reader, without normalization."""
     artifact, raw = load_registered_source_artifact_bytes(root, source_artifact_id)
     return artifact, raw.decode("utf-8")
-
-
-def _read_exact_repo_uri_bytes(root: Path, uri: str) -> bytes:
-    """Read one repository-relative URI without following any symlink."""
-    if not isinstance(uri, str) or not uri:
-        raise SourceArtifactRegistryError(
-            "artifact uri must be repo-relative", status_code=422,
-        )
-    raw = uri.removeprefix("repo://") if uri.startswith("repo://") else uri
-    parts = raw.split("/")
-    if (
-        not raw or raw.startswith("/") or "\\" in raw
-        or "://" in raw
-        or any(part in {"", ".", ".."} or ":" in part for part in parts)
-    ):
-        raise SourceArtifactRegistryError("unsafe artifact path", status_code=422)
-
-    resolved_root = _artifact_root(root)
-    directory_flag = getattr(os, "O_DIRECTORY", 0)
-    nofollow_flag = getattr(os, "O_NOFOLLOW", 0)
-    nonblocking_flag = getattr(os, "O_NONBLOCK", 0)
-    if not directory_flag or not nofollow_flag or not nonblocking_flag:
-        raise SourceArtifactRegistryError(
-            "safe no-follow source reads are unavailable", status_code=503,
-        )
-    root_fd = os.open(resolved_root, os.O_RDONLY | directory_flag | nofollow_flag)
-    current_fd = root_fd
-    try:
-        for part in parts[:-1]:
-            next_fd = os.open(
-                part, os.O_RDONLY | directory_flag | nofollow_flag,
-                dir_fd=current_fd,
-            )
-            if current_fd != root_fd:
-                os.close(current_fd)
-            current_fd = next_fd
-        file_fd = os.open(
-            parts[-1], os.O_RDONLY | nofollow_flag | nonblocking_flag,
-            dir_fd=current_fd,
-        )
-        try:
-            before = os.fstat(file_fd)
-            if not stat.S_ISREG(before.st_mode):
-                raise SourceArtifactRegistryError(
-                    "registered artifact is not a regular file", status_code=409,
-                )
-            chunks: list[bytes] = []
-            while True:
-                chunk = os.read(file_fd, 1024 * 1024)
-                if not chunk:
-                    break
-                chunks.append(chunk)
-            after = os.fstat(file_fd)
-            if (
-                before.st_dev, before.st_ino, before.st_size,
-                before.st_mtime_ns, before.st_ctime_ns,
-            ) != (
-                after.st_dev, after.st_ino, after.st_size,
-                after.st_mtime_ns, after.st_ctime_ns,
-            ):
-                raise SourceArtifactRegistryError(
-                    "registered artifact changed while it was being read", status_code=409,
-                )
-            return b"".join(chunks)
-        finally:
-            os.close(file_fd)
-    except OSError as exc:
-        raise SourceArtifactRegistryError(
-            f"failed safe read of registered source artifact: {exc}", status_code=409,
-        ) from exc
-    finally:
-        if current_fd != root_fd:
-            os.close(current_fd)
-        os.close(root_fd)
 
 
 def load_registered_source_artifact_bytes(

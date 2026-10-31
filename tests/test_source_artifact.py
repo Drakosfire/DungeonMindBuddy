@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import hashlib
-import os
 from pathlib import Path
 
 import pytest
@@ -302,7 +301,6 @@ def test_registered_source_byte_loader_does_not_follow_symlink_locator(
     (target / "source.md").write_bytes(content)
     (tmp_path / "alias").symlink_to(target, target_is_directory=True)
     from application_state.source.service import persist_source_markdown
-    from apps.live_control_server.services import source_artifact_registry
     monkeypatch.setenv("DMB_ARTIFACT_DATA_ROOT", str(tmp_path))
     persist_source_markdown(
         source_artifact_id=artifact.source_artifact_id, source_domain="recap",
@@ -311,29 +309,6 @@ def test_registered_source_byte_loader_does_not_follow_symlink_locator(
         input_descriptor=artifact.model_dump(mode="json"),
     )
     (target / "source.md").write_bytes(b"Unrelated file bytes")
-    monkeypatch.setattr(source_artifact_registry, "_read_exact_repo_uri_bytes",
-                        lambda *args: pytest.fail("Database body read followed a file locator"))
+    monkeypatch.setattr(Path, "open",
+                        lambda *args, **kwargs: pytest.fail("Database body read opened a file"))
     assert load_registered_source_artifact_bytes(tmp_path, artifact.source_artifact_id)[1] == content
-
-
-@pytest.mark.skipif(not hasattr(os, "mkfifo"), reason="FIFO paths require POSIX")
-def test_exact_source_reader_rejects_fifo_without_blocking(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    from apps.live_control_server.services import source_artifact_registry
-    from apps.live_control_server.services.source_artifact_registry import (
-        SourceArtifactRegistryError,
-    )
-
-    fifo = tmp_path / "component.fifo"
-    os.mkfifo(fifo)
-    original_open = os.open
-
-    def require_nonblocking(path, flags, *args, **kwargs):
-        if path == fifo.name:
-            assert flags & os.O_NONBLOCK
-        return original_open(path, flags, *args, **kwargs)
-
-    monkeypatch.setattr(source_artifact_registry.os, "open", require_nonblocking)
-    with pytest.raises(SourceArtifactRegistryError, match="not a regular file"):
-        source_artifact_registry._read_exact_repo_uri_bytes(tmp_path, "repo://component.fifo")
