@@ -342,12 +342,12 @@ def test_native_confirm_publishes_guarded_review_and_historical_replay_survives_
     package = bind_identity_ledger_to_package(prepared.review_package, context)
     pinned_context = replace(context, exact_candidate_sha256=candidate_digest)
     world_graph_writes._reprove_pinned_canonical_identity_bindings(
-        package=package, context=pinned_context,
+        package=package, context=pinned_context, candidate_graph=candidate,
     )
     with pytest.raises(world_graph_writes.WorldGraphWriteError, match="authority could not be proved"):
         world_graph_writes._reprove_pinned_canonical_identity_bindings(
             package=package,
-            context=replace(pinned_context, objects={}),
+            context=replace(pinned_context, objects={}), candidate_graph=candidate,
         )
     assertion_ids = tuple(
         str(item["assertion_id"])
@@ -379,7 +379,7 @@ def test_native_confirm_publishes_guarded_review_and_historical_replay_survives_
     def confirm():
         return world_graph_writes.confirm_extract_promote_via_dungeonmind(
             request, database_url="memory://synthetic", confirming_principal="gm@test",
-            assertion_ids=assertion_ids, repo_root=tmp_path,
+            assertion_ids=assertion_ids, repo_root=tmp_path, candidate_graph=candidate,
         )
     operation_id = world_graph_writes._derive_confirm_operation_id(
         world_id=world_id, package=package, assertion_ids=assertion_ids,
@@ -963,75 +963,6 @@ def test_graph_review_and_candidate_admission_share_recap_fingerprint(
     assert admission.calls == ["prove_or_admit", "prove_or_admit"]
 
 
-def test_product_prepare_fails_closed_when_canonical_source_artifact_missing(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    from apps.live_control_server.models.extract_promote import (
-        ExtractPromotePrepareRequest,
-    )
-    from apps.live_control_server.services import extract_promote as extract_promote_service
-    from apps.live_control_server.services.extract_promote import ExtractPromoteError
-    from apps.live_control_server.services.managed_world_graph_projection import (
-        VerifiedManagedWorldBinding,
-    )
-    from apps.live_control_server.services.source_artifact_registry import (
-        SourceArtifactRegistryError,
-    )
-
-    source, revision = _source_file(tmp_path)
-    candidate_path = tmp_path / "candidate_graph.json"
-    candidate_path.write_text(json.dumps(_candidate()), encoding="utf-8")
-    resolved = SimpleNamespace(
-        run_id="run:missing-source",
-        campaign_id=CAMPAIGN_ID,
-        session_id="session-9",
-        status="ready",
-        extraction_profile="current_default",
-        source_artifact_id=ARTIFACT_ID,
-        source_revision_id=revision,
-        normalized_recap_path=source,
-        candidate_graph_path=candidate_path,
-        preview_union_store_path=tmp_path / "union.json",
-        manifest_path=tmp_path / "manifest.json",
-        run_dir=tmp_path,
-        registry_root=tmp_path,
-        sealed_source_uri=str(source),
-        registry_context_graph_path=None,
-        diagnostics=[],
-        source_domain="recap",
-        world_id=WORLD_ID,
-        source_span_index_path=None,
-    )
-    monkeypatch.setattr(
-        extract_promote_service,
-        "resolve_promotable_ingest_run",
-        lambda *_args, **_kwargs: resolved,
-    )
-    monkeypatch.setattr(
-        extract_promote_service,
-        "_resolve_publication_target",
-        lambda _managed_id: VerifiedManagedWorldBinding(
-            managed_world_id="managed-world",
-            native_world_id=WORLD_ID,
-            binding_version=1,
-            source_root_relpath="corpus/managed-world-markdown",
-        ),
-    )
-    monkeypatch.setattr(
-        extract_promote_service,
-        "assert_sealed_source_uri_allowed",
-        lambda *_args, **_kwargs: None,
-    )
-    monkeypatch.setattr(
-        "apps.live_control_server.services.source_artifact_registry.get_source_artifact",
-        lambda *_args, **_kwargs: (_ for _ in ()).throw(
-            SourceArtifactRegistryError(f"source artifact not found: {ARTIFACT_ID}")
-        ),
-    )
-    with pytest.raises(ExtractPromoteError) as excinfo:
-        extract_promote_service.prepare(ExtractPromotePrepareRequest(run_id="run:missing-source", managed_world_id="managed-world"))
-    assert excinfo.value.code == "invalid_request"
-    assert "source_artifact_missing" in {item.code for item in excinfo.value.diagnostics}
 
 
 def test_confirm_rejects_missing_sealed_source_admission(tmp_path: Path) -> None:
@@ -1324,6 +1255,7 @@ def _confirm_via_product_seam(prepared) -> dict[str, Any]:
             confirming_principal="recap-provenance-test",
             assertion_ids=tuple(assertion_ids),
             repo_root=prepared.repo,
+            candidate_graph=prepared.candidate,
         ),
     )
 
@@ -1781,6 +1713,12 @@ def test_confirm_fails_closed_when_admitted_source_disappears(
     sealed = prepared.result.review_package["effect"]["source_admission"]
     artifact_id = sealed["source_artifact_id"]
     with psycopg.connect(prepared.dsn) as conn:
+        # Deliberate corruption in this disposable DB must remove the owning
+        # receipt first; native FK protection otherwise correctly prevents it.
+        conn.execute(
+            "DELETE FROM dungeonmind.source_admission_receipts WHERE source_artifact_id = %s",
+            (artifact_id,),
+        )
         conn.execute(
             "DELETE FROM dungeonmind.source_revisions WHERE source_artifact_id = %s",
             (artifact_id,),

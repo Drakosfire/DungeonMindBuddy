@@ -111,6 +111,15 @@ def _run(code, data, monkeypatch):
         source_artifact_id=artifact.source_artifact_id,
         campaign_id="campaign-a", session_id="session-1", components=components,
     )
+    from application_state.config import load_runtime_dsn
+    from application_state.ingest.repository import insert_run
+    from application_state.ingest.components import persist_component_payload
+    from application_state.unit_of_work import unit_of_work
+    with unit_of_work(load_runtime_dsn()) as conn:
+        run = insert_run(conn, run)
+    for kind in ("candidate_graph", "source_span_index"):
+        persist_component_payload(run_id=run.run_id, expected_revision=run.revision,
+            kind=kind, payload=files[kind].read_bytes())
     requested = []
     def canonical(run_id):
         requested.append(run_id)
@@ -211,19 +220,19 @@ def test_exact_run_reaches_real_prepare_boundary_with_separate_data(split_roots,
     assert requested and set(requested) == {run.run_id}
     assert {kind: path.read_bytes() for kind, path in files.items()} == before
     seal = data / "out/graph_memory/runs/promote_seals" / artifact.content_sha256 / "normalized_source.md"
-    assert seal.read_bytes() == files["source_artifact"].read_bytes()
+    assert not seal.exists()
     assert hermes.read_bytes() == b"unchanged code dependency"
     assert not (code / "out/registries").exists()
     assert not (code / "out/graph_memory").exists()
 
 
 @pytest.mark.parametrize("kind", ["source_artifact", "source_span_index", "candidate_graph"])
-def test_frozen_component_digest_drift_fails(split_roots, monkeypatch, kind):
+def test_frozen_component_mirrors_do_not_control_run(split_roots, monkeypatch, kind):
     code, data, _ = split_roots
     _, run, files, _ = _run(code, data, monkeypatch)
     files[kind].write_bytes(files[kind].read_bytes() + b" ")
-    with pytest.raises(PromotableIngestRunError, match="digest"):
-        resolve_promotable_ingest_run(run.run_id, root=code)
+    resolved = resolve_promotable_ingest_run(run.run_id, root=code)
+    assert resolved.data.run == run
 
 
 @pytest.mark.parametrize("uri", ["repo://../escaped.json", "/absolute.json", "repo://link/body.json"])
@@ -237,15 +246,15 @@ def test_component_path_escape_fails(split_roots, tmp_path, uri):
         graph_run_registry._resolve_repo_contained_uri(code, uri)
 
 
-def test_registry_and_seal_symlink_escape_fail(split_roots, monkeypatch, tmp_path):
+def test_retired_registry_and_seal_symlinks_are_inert(split_roots, monkeypatch, tmp_path):
     code, data, _ = split_roots
     artifact, run, _, _ = _run(code, data, monkeypatch)
     seal_parent = data / "out/graph_memory/runs/promote_seals"
     outside = tmp_path / "outside"
     outside.mkdir()
     seal_parent.symlink_to(outside, target_is_directory=True)
-    with pytest.raises(PromotableIngestRunError, match="seal escapes"):
-        resolve_promotable_ingest_run(run.run_id, root=code)
+    resolved = resolve_promotable_ingest_run(run.run_id, root=code)
+    assert resolved.data.run == run
     # A planted historical registry path is inert, even if it points outside.
     registry = data / "out/registries/source_artifacts.json"
     registry.parent.mkdir(parents=True, exist_ok=True)
@@ -257,24 +266,6 @@ def test_registry_and_seal_symlink_escape_fail(split_roots, monkeypatch, tmp_pat
     assert not list(outside.glob("*/normalized_source.md"))
 
 
-def test_confirm_owner_uses_declared_root_and_rejects_relocation(split_roots, monkeypatch):
-    code, data, _ = split_roots
-    _, run, files, _ = _run(code, data, monkeypatch)
-    from application_state.ingest import service
-    seen = []
-    def owner(*, uri, sha256):
-        seen.append((uri, sha256))
-        return SimpleNamespace(kind="unique", run=run)
-    monkeypatch.setattr(service, "lookup_extraction_run_by_candidate_component", owner)
-    assert extract_promote._candidate_owner_for_locator(str(files["candidate_graph"])) is run
-    assert seen[1] == (
-        run.components["candidate_graph"].uri, run.components["candidate_graph"].sha256,
-    )
-    monkeypatch.setenv(config.ARTIFACT_DATA_ROOT_ENV, str(code))
-    with pytest.raises(extract_promote.ExtractPromoteError) as exc:
-        extract_promote._candidate_owner_for_locator(str(files["candidate_graph"]))
-    assert exc.value.code == "candidate_binding_invalid"
-
 
 def test_source_mirror_is_inert_and_database_scope_drift_fails(split_roots, monkeypatch, tmp_path, application_state_dsn):
     code, data, _ = split_roots
@@ -285,9 +276,7 @@ def test_source_mirror_is_inert_and_database_scope_drift_fails(split_roots, monk
     source.unlink()
     source.symlink_to(outside)
     assert load_registered_source_artifact_text(code, artifact.source_artifact_id)[1] == outside.read_text()
-    with pytest.raises(PromotableIngestRunError, match="unsafe or missing") as error:
-        resolve_promotable_ingest_run(run.run_id, root=code)
-    assert any("escapes" in diagnostic for diagnostic in error.value.diagnostics)
+    assert resolve_promotable_ingest_run(run.run_id, root=code).data.run == run
     source.unlink()
     source.write_bytes(outside.read_bytes())
     # Test-only metadata corruption must fail at the actual DB input owner.

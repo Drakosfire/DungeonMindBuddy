@@ -1866,7 +1866,10 @@ def _reconstruct_selected_contribution(
         assertion_ids=assertion_ids,
         repo_root=repo_root,
         disclose_source_digest=False,
-        verify_source=True,
+        # Reconstruct the sealed selection only. Source authority is re-proved
+        # below through DungeonMind's admitted source/revision receipt; a local
+        # file is neither that authority nor the captured database body.
+        verify_source=False,
     )
 
 
@@ -1900,8 +1903,9 @@ def _confirm_proof_payload(
 
 def _reprove_pinned_canonical_identity_bindings(
     *, package: Mapping[str, Any], context: WorldGraphMutationContext,
+    candidate_graph: Mapping[str, Any] | None,
 ) -> None:
-    """Re-run explicit anchor proof against the exact candidate and pinned parent."""
+    """Re-run anchor proof on the supplied sealed candidate and pinned parent."""
     from graph_memory.candidate_graph_to_contribution import load_typed_candidate_graph
     from graph_memory.extract_identity_gate import (
         _known_party_anchor, _reviewed_binding_anchor,
@@ -1923,16 +1927,14 @@ def _reprove_pinned_canonical_identity_bindings(
     ]
     if not canonical:
         return
-    path = str(package.get("candidate_graph_path") or "").strip()
-    if not path:
+    if candidate_graph is None:
         raise WorldGraphWriteError(
             "reviewed canonical identity requires the exact candidate document",
             code="governed_write_inexpressible",
         )
     try:
-        candidate = json.loads(Path(path).read_text(encoding="utf-8"))
         projected = project_candidate_graph_for_confirmation(
-            review_package=package, candidate_graph=candidate,
+            review_package=package, candidate_graph=candidate_graph,
         )
         preview = load_typed_candidate_graph(projected)
         nodes = {node.node_id: node for node in preview.nodes}
@@ -2134,6 +2136,7 @@ def confirm_extract_promote_via_dungeonmind(
     repo_root: Path,
     semantic_binding: ReviewedExtractBinding | None = None,
     semantic_gm_policy: Any | None = None,
+    candidate_graph: Mapping[str, Any] | None = None,
     **_ignored: Any,
 ) -> dict[str, Any]:
     """Publish a D.1 package through DungeonMind without Buddy hydration."""
@@ -2336,7 +2339,7 @@ def confirm_extract_promote_via_dungeonmind(
         bundle, parent_stored, mutation_context, package=package,
     )
     _reprove_pinned_canonical_identity_bindings(
-        package=package, context=mutation_context,
+        package=package, context=mutation_context, candidate_graph=candidate_graph,
     )
     if (package.get("effect") or {}).get("source_proven_endpoint_basis") is not None:
         from apps.live_control_server.services.recap_source_endpoint_prepare import (

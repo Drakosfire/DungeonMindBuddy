@@ -30,7 +30,7 @@ from graph_memory.extract_promote_ops import (
     ExtractPromotePrepareResult,
     prepare_extract_promote,
 )
-from graph_memory.candidate_graph_to_contribution import verify_source_revision
+from graph_memory.candidate_graph_to_contribution import verify_source_bytes_revision
 from graph_memory.candidate_graph_to_contribution import kernel_kind_for_node_type
 from apps.live_control_server.integrations.dungeonmind.assertion_qualification import (
     CURRENT_V5_TARGET,
@@ -411,7 +411,7 @@ def prepare_candidate_graph_admission(
     has_structurally_admissible_nodes = bool(projected.get("nodes"))
     has_standing_context = prepare_kwargs.get("registry_context_graph") is not None
     if has_structurally_admissible_nodes or has_standing_context:
-        result = prepare_extract_promote(candidate_graph=projected, **prepare_kwargs)
+        result = prepare_extract_promote(candidate_graph=projected, source_body=source_body, **prepare_kwargs)
     else:
         mutation_context = prepare_kwargs.get("mutation_context")
         world_id = str(prepare_kwargs.get("world_id") or "eldyrwild")
@@ -423,10 +423,9 @@ def prepare_candidate_graph_admission(
                 )
             mutation_context = mutation_context_from_world_root(world_root, world_id)
         source_uri = str(prepare_kwargs.get("source_uri") or "")
-        source_revision_id = verify_source_revision(
-            source_uri=source_uri,
+        source_revision_id = verify_source_bytes_revision(
+            source_body=source_body,
             source_revision_id=str(prepare_kwargs.get("source_revision_id") or ""),
-            repo_root=prepare_kwargs.get("repo_root"),
             disclose_computed_digest=bool(
                 prepare_kwargs.get("disclose_source_digest", True)
             ),
@@ -521,6 +520,7 @@ def prepare_candidate_graph_admission(
         ).strip():
             result = prepare_extract_promote(
                 candidate_graph=projected,
+                source_body=source_body,
                 authoritative_source_uri=admitted.source_locator,
                 **prepare_kwargs,
             )

@@ -448,11 +448,11 @@ def test_exact_known_party_reference_remains_confirmable(tmp_path, rejected_depe
         json.dumps(candidate), encoding="utf-8"
     )
     world_graph_writes._reprove_pinned_canonical_identity_bindings(
-        package=result.review_package, context=context,
+        package=result.review_package, context=context, candidate_graph=candidate,
     )
     with pytest.raises(world_graph_writes.WorldGraphWriteError, match="authority could not be proved"):
         world_graph_writes._reprove_pinned_canonical_identity_bindings(
-            package=result.review_package, context=replace(context, objects={}),
+            package=result.review_package, context=replace(context, objects={}), candidate_graph=candidate,
         )
 
 

@@ -13,8 +13,6 @@ from apps.live_control_server.services.graph_ingest_run_registry import (
 )
 from apps.live_control_server.services.promotable_ingest_run import (
     PromotableIngestRunError,
-    is_under_ingest_runs,
-    is_under_world_store,
     resolve_promotable_ingest_run,
 )
 from graph_memory.candidate_graph_preview import (
@@ -307,39 +305,17 @@ def test_database_unavailability_does_not_fall_back_to_manifest(tmp_path, monkey
     assert "input owner unavailable" in str(exc.value)
 
 
-@pytest.mark.parametrize("failure_at", ["evidence", "resolved_metadata"])
-def test_source_owner_unavailability_remains_503(tmp_path, monkeypatch, failure_at):
+def test_source_owner_unavailability_remains_503(tmp_path, monkeypatch):
     from apps.live_control_server.services.source_artifact_registry import SourceArtifactRegistryError
     run_id, _ = _write_reviewable_extraction_run(tmp_path)
     def unavailable(*a, **k):
         raise SourceArtifactRegistryError("source owner unavailable", status_code=503)
-    target = ("graph_run_registry" if failure_at == "evidence" else "source_artifact_registry")
-    monkeypatch.setattr(f"apps.live_control_server.services.{target}.get_source_artifact", unavailable)
+    monkeypatch.setattr("apps.live_control_server.services.source_artifact_registry.get_source_artifact", unavailable)
     monkeypatch.setattr(Path, "rglob", lambda *a, **k: pytest.fail("promotion scanned files"))
     with pytest.raises(PromotableIngestRunError) as exc:
         resolve_promotable_ingest_run(run_id, root=tmp_path)
     assert exc.value.status_code == 503
     assert "source owner unavailable" in str(exc.value)
-
-
-def test_world_store_detection(tmp_path: Path, monkeypatch) -> None:
-    repo = tmp_path / "repo"
-    repo.mkdir()
-    worlds = repo / "out/graph_memory/worlds/eldyrwild/head.json"
-    worlds.parent.mkdir(parents=True, exist_ok=True)
-    worlds.write_text("{}\n", encoding="utf-8")
-    runs = repo / "out/graph_memory/runs/x/y/z.md"
-    runs.parent.mkdir(parents=True, exist_ok=True)
-    runs.write_text("ok\n", encoding="utf-8")
-
-    monkeypatch.setattr(
-        "apps.live_control_server.services.promotable_ingest_run.world_graph_root",
-        lambda: repo / "out/graph_memory/worlds",
-    )
-    assert is_under_world_store(worlds, root=repo) is True
-    assert is_under_world_store(runs, root=repo) is False
-    assert is_under_ingest_runs(runs, root=repo) is True
-
 
 
 def test_resolve_reviewable_worldbuilding_extraction_run(tmp_path: Path) -> None:
@@ -357,16 +333,15 @@ def test_resolve_reviewable_worldbuilding_extraction_run(tmp_path: Path) -> None
     assert "world_id=" + CAMPAIGN_ID in resolved.diagnostics
     assert resolved.source_revision_id == f"sha256:{hashlib.sha256(source.read_bytes()).hexdigest()}"
     assert resolved.candidate_graph_path.is_file()
-    assert resolved.sealed_source_uri.startswith("repo://out/graph_memory/runs/promote_seals/")
+    assert resolved.sealed_source_uri == resolved.data.source_artifact.uri
     assert resolved.normalized_recap_path.is_file()
     assert resolved.source_span_index_path is not None
     assert resolved.source_span_index_path.is_file()
     assert resolved.source_span_index_sha256 == hashlib.sha256(resolved.source_span_index_path.read_bytes()).hexdigest()
     assert "session_scope=null" in resolved.diagnostics
-    # Registry-owned source bytes are sealed by digest, not read in place, and the
-    # run's own artifact directory is never mutated to make that possible.
-    assert resolved.normalized_recap_path != source.resolve()
-    assert resolved.normalized_recap_path.read_bytes() == source.read_bytes()
+    # Resolution retains exact database bytes without creating another seal.
+    assert resolved.data.source_bytes == source.read_bytes()
+    assert not (repo / "out/graph_memory/runs/promote_seals").exists()
     assert not (resolved.run_dir / "normalized_source.md").exists()
 
 
@@ -403,19 +378,19 @@ def test_resolve_extraction_run_seal_is_idempotent(tmp_path: Path) -> None:
     assert second.normalized_recap_path.stat().st_mtime_ns == stat_before.st_mtime_ns
 
 
-def test_resolve_rejects_extraction_run_after_source_bytes_change(tmp_path: Path) -> None:
+def test_resolve_ignores_source_mirror_changes(tmp_path: Path) -> None:
     """An out-of-band edit under the same revision must not become sealed evidence."""
     repo = tmp_path / "repo"
     repo.mkdir()
     run_id, source = _write_reviewable_extraction_run(repo)
     source.write_text("# Lore\n\nTampered after extraction.\n", encoding="utf-8")
 
-    with pytest.raises(PromotableIngestRunError) as exc:
-        resolve_promotable_ingest_run(run_id, root=repo)
-    assert exc.value.code == "run_not_promotable"
+    resolved = resolve_promotable_ingest_run(run_id, root=repo)
+    assert resolved.data.run.run_id == run_id
+    assert resolved.data.candidate_bytes and resolved.data.source_bytes
 
 
-def test_resolve_rejects_extraction_run_with_missing_candidate_bytes(
+def test_resolve_ignores_missing_candidate_mirror(
     tmp_path: Path,
 ) -> None:
     repo = tmp_path / "repo"
@@ -426,12 +401,12 @@ def test_resolve_rejects_extraction_run_with_missing_candidate_bytes(
     )
     candidate.unlink()
 
-    with pytest.raises(PromotableIngestRunError) as exc:
-        resolve_promotable_ingest_run(run_id, root=repo)
-    assert exc.value.code == "run_not_promotable"
+    resolved = resolve_promotable_ingest_run(run_id, root=repo)
+    assert resolved.data.run.run_id == run_id
+    assert resolved.data.candidate_bytes and resolved.data.source_bytes
 
 
-def test_resolve_rejects_reviewable_candidate_byte_drift(tmp_path: Path) -> None:
+def test_resolve_ignores_candidate_mirror_changes(tmp_path: Path) -> None:
     """A child run cannot prepare from bytes changed after its candidate SHA seal."""
     repo = tmp_path / "repo"
     repo.mkdir()
@@ -441,9 +416,9 @@ def test_resolve_rejects_reviewable_candidate_byte_drift(tmp_path: Path) -> None
     )
     candidate.write_bytes(candidate.read_bytes() + b"\n")
 
-    with pytest.raises(PromotableIngestRunError) as exc:
-        resolve_promotable_ingest_run(run_id, root=repo)
-    assert exc.value.code == "run_not_promotable"
+    resolved = resolve_promotable_ingest_run(run_id, root=repo)
+    assert resolved.data.run.run_id == run_id
+    assert resolved.data.candidate_bytes and resolved.data.source_bytes
 
 
 def test_resolve_rejects_non_reviewable_extraction_run(tmp_path: Path) -> None:

@@ -6,18 +6,19 @@ Canonical component readers are being cut over to their immutable byte owner.
 
 from __future__ import annotations
 
-import hashlib
+import copy
+import json
 import re
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
-from apps.live_control_server.config import ArtifactDataRootError, artifact_data_root, repo_root, world_graph_root
-from apps.live_control_server.services.graph_ingest_run_registry import _graph_ingest_search_roots
+from apps.live_control_server.config import ArtifactDataRootError, artifact_data_root, repo_root
 
+from apps.live_control_server.services import graph_run_registry as run_registry
 from apps.live_control_server.services.graph_run_registry import (
     GraphRunRegistryError,
-    _resolve_repo_contained_uri,
+    ReviewableExtractionData,
 )
 
 
@@ -58,6 +59,7 @@ class PromotableIngestRun:
     extraction_profile: str | None
     source_artifact_id: str
     source_revision_id: str
+    data: ReviewableExtractionData
     normalized_recap_path: Path
     candidate_graph_path: Path
     preview_union_store_path: Path
@@ -69,77 +71,14 @@ class PromotableIngestRun:
     diagnostics: list[str] = field(default_factory=list)
     source_domain: str = "recap"
     # Exact SourceArtifact world identity for canonical Build ExtractionRuns.
-    # Legacy graph-ingest manifests leave this None; never invent DEFAULT_WORLD_ID.
+    # An undeclared World stays None; never invent DEFAULT_WORLD_ID.
     world_id: str | None = None
-    # Exact ExtractionRun path: the run-pinned source_span_index component path.
-    # Review/prepare must load this URI — never re-derive the registry canonical
-    # index from source_artifact_id alone.
+    # Presentation metadata only. Exact source/span bytes are carried in data.
     source_span_index_path: Path | None = None
     source_span_index_sha256: str | None = None
     # Immutable MIND membership/head observation captured before recap extraction.
     ingest_context: dict[str, Any] | None = None
 
-
-
-def ingest_run_registry_roots(
-    root: Path | None = None, *, include_eval_roots: bool = False
-) -> list[Path]:
-    """Configured registry search roots (honors ``DUNGEONMIND_GRAPH_INGEST_RUNS_ROOT``)."""
-    repo = _artifact_root(root)
-    return list(
-        _graph_ingest_search_roots(repo, include_eval_roots=include_eval_roots)
-    )
-
-
-def world_store_denied_roots(root: Path | None = None) -> list[Path]:
-    """Durable world-graph trees that must never become evidentiary source.
-
-    When ``world_graph_root()`` is the broad default ``<repo>/out``, only the
-    worlds subtree is denied so configured ingest-run registry roots can remain
-    registry-gated evidence. A more specific mutation root is denied wholesale.
-    """
-    repo = _artifact_root(root)
-    out_root = (repo / "out").resolve()
-    worlds = (repo / "out" / "graph_memory" / "worlds").resolve()
-    roots: list[Path] = [worlds]
-    wgr = world_graph_root().resolve()
-    if wgr != out_root:
-        roots.append(wgr)
-    seen: set[Path] = set()
-    unique: list[Path] = []
-    for item in roots:
-        if item not in seen:
-            seen.add(item)
-            unique.append(item)
-    return unique
-
-
-def is_under_world_store(path: Path, *, root: Path | None = None) -> bool:
-    resolved = path.resolve()
-    for denied in world_store_denied_roots(root):
-        try:
-            resolved.relative_to(denied)
-            return True
-        except ValueError:
-            continue
-    return False
-
-
-
-def is_under_ingest_runs(
-    path: Path, *, root: Path | None = None, include_eval_roots: bool = False
-) -> bool:
-    """True when ``path`` sits under any configured ingest-run registry root."""
-    resolved = path.resolve()
-    for registry_root in ingest_run_registry_roots(
-        root, include_eval_roots=include_eval_roots
-    ):
-        try:
-            resolved.relative_to(registry_root.resolve())
-            return True
-        except ValueError:
-            continue
-    return False
 
 
 def resolve_promotable_ingest_run(
@@ -161,66 +100,9 @@ def resolve_promotable_ingest_run(
     return extraction
 
 
-def _resolve_extraction_component_path(repo: Path, uri: str, *, label: str) -> Path:
-    """Resolve one ExtractionRun component URI under the registry's path contract."""
-    try:
-        path = _resolve_repo_contained_uri(repo, uri)
-    except GraphRunRegistryError as exc:
-        raise PromotableIngestRunError(
-            f"extraction run {label} uri is unsafe or missing",
-            code="run_not_promotable",
-            status_code=422,
-            diagnostics=[str(exc)],
-        ) from exc
-    if not path.is_file():
-        raise PromotableIngestRunError(
-            f"extraction run {label} artifact is not a file",
-            code="run_not_promotable",
-            status_code=422,
-        )
-    if is_under_world_store(path, root=repo):
-        raise PromotableIngestRunError(
-            f"extraction run {label} must not reference the world graph store",
-            code="run_not_promotable",
-            status_code=422,
-        )
-    return path
-
-
-def _seal_extraction_source(
-    repo: Path,
-    *,
-    source_path: Path,
-    source_revision_id: str,
-) -> Path:
-    """Return an allowlisted, content-addressed seal of the verified source bytes.
-
-    Registry-owned source bytes (a committed workspace document) live outside the
-    ingest-run seal roots, so prepare cannot reference them directly. The seal is
-    keyed by the already-verified content digest, so it is immutable, idempotent,
-    and never mutates the ExtractionRun's own artifact directory.
-    """
-    if is_under_ingest_runs(source_path, root=repo):
-        return source_path
-
-    digest_hex = source_revision_id.removeprefix("sha256:")
-    seal_root = ingest_run_registry_roots(repo)[0]
-    sealed = (seal_root / "promote_seals" / digest_hex / "normalized_source.md").resolve()
-    if not sealed.is_relative_to(repo.resolve()):
-        raise PromotableIngestRunError(
-            "source seal escapes artifact repository", code="run_not_promotable", status_code=422
-        )
-    payload = source_path.read_bytes()
-    if hashlib.sha256(payload).hexdigest() != digest_hex:
-        raise PromotableIngestRunError(
-            "extraction run source bytes disagree with the sealed content digest",
-            code="run_not_promotable",
-            status_code=422,
-        )
-    if not sealed.is_file() or hashlib.sha256(sealed.read_bytes()).hexdigest() != digest_hex:
-        sealed.parent.mkdir(parents=True, exist_ok=True)
-        sealed.write_bytes(payload)
-    return sealed
+def _resolve_extraction_component_path(repo: Path, uri: str) -> Path:
+    """Inert display metadata; never resolve symlinks or inspect a directory."""
+    return repo / uri.removeprefix("repo://")
 
 
 def _resolve_promotable_extraction_run(
@@ -228,16 +110,9 @@ def _resolve_promotable_extraction_run(
     run_id: str,
 ) -> PromotableIngestRun | None:
     """Resolve the sole live ExtractionRun promotion path."""
-    from apps.live_control_server.services.graph_run_registry import (
-        get_reviewable_extraction_run,
-    )
-    from apps.live_control_server.services.source_artifact_registry import (
-        SourceArtifactRegistryError,
-        get_source_artifact,
-    )
-
     try:
-        run = get_reviewable_extraction_run(repo, run_id)
+        data = run_registry.load_reviewable_extraction_data(repo, run_id)
+        run, artifact = data.run, data.source_artifact
     except GraphRunRegistryError as exc:
         if exc.status_code == 404:
             return None
@@ -249,24 +124,14 @@ def _resolve_promotable_extraction_run(
             diagnostics=[str(exc), f"status={run_id}"],
         ) from exc
 
-    try:
-        artifact = get_source_artifact(repo, run.source_artifact_id)
-    except SourceArtifactRegistryError as exc:
-        raise PromotableIngestRunError(
-            str(exc),
-            code="run_not_promotable",
-            status_code=exc.status_code if exc.status_code >= 500 else 422,
-            diagnostics=[str(exc)],
-        ) from exc
-
     candidate_path = _resolve_extraction_component_path(
-        repo, run.components["candidate_graph"].uri, label="candidate_graph"
+        repo, run.components["candidate_graph"].uri
     )
     source_path = _resolve_extraction_component_path(
-        repo, run.components["source_artifact"].uri, label="source_artifact"
+        repo, run.components["source_artifact"].uri
     )
     span_index_path = _resolve_extraction_component_path(
-        repo, run.components["source_span_index"].uri, label="source_span_index"
+        repo, run.components["source_span_index"].uri
     )
 
     source_revision_id = _normalize_digest(artifact.content_sha256)
@@ -277,9 +142,6 @@ def _resolve_promotable_extraction_run(
             status_code=422,
         )
 
-    sealed_source_path = _seal_extraction_source(
-        repo, source_path=source_path, source_revision_id=source_revision_id
-    )
     run_dir = candidate_path.parent
     artifact_world_id = (artifact.world_id or "").strip() or None
 
@@ -291,13 +153,14 @@ def _resolve_promotable_extraction_run(
         extraction_profile=run.profile_id,
         source_artifact_id=run.source_artifact_id,
         source_revision_id=source_revision_id,
-        normalized_recap_path=sealed_source_path,
+        data=data,
+        normalized_recap_path=source_path,
         candidate_graph_path=candidate_path,
         preview_union_store_path=run_dir,
         manifest_path=run_dir / "extraction_run.json",
         run_dir=run_dir,
         registry_root=repo,
-        sealed_source_uri=_seal_repo_uri(repo, sealed_source_path),
+        sealed_source_uri=artifact.uri,
         diagnostics=[
             "resolved via canonical ExtractionRun registry",
             f"source_domain={run.source_domain}",
@@ -328,6 +191,64 @@ def _normalize_digest(raw: str | None) -> str:
     return f"sha256:{text}"
 
 
-def _seal_repo_uri(repo: Path, path: Path) -> str:
-    rel = path.resolve().relative_to(repo.resolve()).as_posix()
-    return f"repo://{rel}"
+EXTRACTION_RUN_BINDING_KEY = "extraction_run"
+
+
+def extraction_run_binding(data: ReviewableExtractionData) -> dict[str, Any]:
+    """Pins inside the existing reviewed effect; no new receipt or authority."""
+    run = data.run
+    return {
+        "run_id": run.run_id, "run_revision": run.revision,
+        "profile_id": run.profile_id, "source_domain": run.source_domain,
+        "campaign_id": run.campaign_id, "session_id": run.session_id,
+        "world_id": data.source_artifact.world_id,
+        "source_artifact_id": run.source_artifact_id,
+        "source_revision_id": _normalize_digest(data.source_artifact.content_sha256),
+        "components": {
+            kind: _normalize_digest(run.components[kind].sha256)
+            for kind in ("source_artifact", "candidate_graph", "source_span_index")
+        },
+    }
+
+
+def seal_extraction_run(package: dict[str, Any], data: ReviewableExtractionData) -> dict[str, Any]:
+    from graph_memory.extract_promote_proposal import compute_proposal_digest
+    sealed = copy.deepcopy(package)
+    effect = dict(sealed.get("effect") or {})
+    effect[EXTRACTION_RUN_BINDING_KEY] = extraction_run_binding(data)
+    sealed["effect"] = effect
+    sealed["proposal_digest"] = compute_proposal_digest(effect)
+    return sealed
+
+
+def load_bound_extraction_run(package: dict[str, Any], *, root: Path) -> ReviewableExtractionData:
+    """Reopen only the exact reviewed APP run; no locator discovery/fallback."""
+    from graph_memory.extract_promote_proposal import compute_proposal_digest
+    from apps.live_control_server.services.candidate_graph_admission import canonical_candidate_digest
+
+    effect = package.get("effect") or {}
+    binding = effect.get(EXTRACTION_RUN_BINDING_KEY)
+    if (not isinstance(binding, dict) or not isinstance(binding.get("run_id"), str)
+        or not binding["run_id"].strip()
+        or package.get("proposal_digest") != compute_proposal_digest(effect)):
+        raise PromotableIngestRunError(
+            "Exact extraction run binding is required; prepare this review again.",
+            code="candidate_binding_invalid", status_code=409,
+        )
+    try:
+        data = run_registry.load_reviewable_extraction_data(root, binding["run_id"])
+    except GraphRunRegistryError as exc:
+        raise PromotableIngestRunError(str(exc), code="candidate_binding_invalid",
+                                      status_code=exc.status_code) from exc
+    admission = effect.get("candidate_admission") or {}
+    if (binding != extraction_run_binding(data)
+        or effect.get("source_artifact_id") != data.run.source_artifact_id
+        or effect.get("source_revision_id") != _normalize_digest(data.source_artifact.content_sha256)
+        or (data.source_artifact.world_id is not None and effect.get("world_id") != data.source_artifact.world_id)
+        or (effect.get("contribution_meta") or {}).get("campaign_scope") != data.run.campaign_id
+        or admission.get("candidate_digest") != canonical_candidate_digest(json.loads(data.candidate_bytes))):
+        raise PromotableIngestRunError(
+            "Reviewed extraction run or component pins changed; prepare again.",
+            code="candidate_binding_invalid", status_code=409,
+        )
+    return data

@@ -83,6 +83,7 @@ def test_retained_style_review_uses_the_canonical_exact_run_projection(
         source_artifact=SimpleNamespace(world_id=resolved.world_id, content_sha256="abc"),
         source_bytes=source.read_bytes(), candidate_bytes=candidate_path.read_bytes(),
         span_bytes=b"{}", span_index=span_index)
+    resolved.data = data
     monkeypatch.setattr(graph_run_registry, "load_reviewable_extraction_data", lambda *_args: data)
 
     monkeypatch.setattr(
@@ -91,7 +92,6 @@ def test_retained_style_review_uses_the_canonical_exact_run_projection(
         lambda _world_id: SimpleNamespace(native_world_id="synthetic-world"),
     )
     monkeypatch.setattr(extract_promote, "_recap_semantic_assessment", lambda *_args: (None, None))
-    monkeypatch.setattr(extract_promote, "assert_sealed_source_uri_allowed", lambda _uri: None)
     monkeypatch.setattr(
         graph_run_registry,
         "get_extraction_run",
