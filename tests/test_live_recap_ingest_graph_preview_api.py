@@ -1497,3 +1497,37 @@ def test_process_does_not_revive_an_older_success(client_env, monkeypatch, appli
         assert len(calls) == 1
         if latest == 'failed':
             assert get_extraction_run(ROOT,latest_id).status == ExtractionRunStatus.FAILED
+
+
+def test_process_and_status_select_source_before_loading_other_run_outputs(client_env, monkeypatch, application_state_dsn):
+    import psycopg
+    from apps.live_control_server.services import recap_graph_preview_ingest as service, recap_ingest_context
+    client, corpus = client_env
+    _prepare_normalized(client)
+    _patch_fake_category_extract(monkeypatch)
+    payload = {'operation':'generate_recap_memory','campaign_id':'longmont-c2',
+        'managed_world_id':'elderwyld','session':22,
+        'graph_model_id':'deepseek/deepseek-v4.1-flash-1017'}
+    first = client.post('/api/live/recap-ingest',json=payload)
+    assert first.status_code == 200, first.text
+    first_id = first.json()['ingest_report']['graph_preview']['extraction_run_id']
+    normalized = Path(first.json()['paths']['normalized_recap'])
+    if not normalized.is_absolute():
+        normalized = corpus / normalized
+    other = ROOT / 'other-source.md'
+    other.write_text(normalized.read_text()+'\n\nThe party waits for a second report.\n')
+    newer = service.run_recap_production_extraction(repo_root=ROOT,campaign_id='longmont-c2',
+        session_id='session-22',recap_path=other,model_id=payload['graph_model_id'],allow_llm=True,
+        ingest_context=recap_ingest_context.read_recap_ingest_context())
+    assert newer.run.status.value == 'reviewable'
+    assert newer.run.run_id != first_id
+    with psycopg.connect(application_state_dsn) as connection:
+        connection.execute('UPDATE ingest.component_payload SET payload=%s WHERE run_id=%s AND kind=%s',
+            (b'corrupt',newer.run.run_id,'candidate_graph'))
+    monkeypatch.setattr(service,'run_recap_production_extraction',
+        lambda **kwargs:pytest.fail('Other source output forced extraction for a valid selected source'))
+    for operation in ('generate_recap_memory','inspect_status'):
+        response = client.post('/api/live/recap-ingest',json={**payload,'operation':operation})
+        assert response.status_code == 200, response.text
+        graph = response.json()['ingest_report']['graph_preview']
+        assert graph['status'] == 'candidate_validation_ready' and graph['extraction_run_id'] == first_id

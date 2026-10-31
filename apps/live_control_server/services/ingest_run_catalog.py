@@ -22,6 +22,10 @@ from application_state.errors import (
 from application_state.ingest.service import list_extraction_runs
 from apps.live_control_server.services.native_recap_source_admission import public_run
 from apps.live_control_server.services import graph_run_registry as runs
+from apps.live_control_server.services.source_artifact_registry import (
+    SourceArtifactRegistryError,
+    get_source_artifact,
+)
 from graph_memory.ingestion.extraction_run import (
     ExtractionRun,
     ExtractionRunStatus,
@@ -142,6 +146,16 @@ def project_recap_extraction_run(
     copies and legacy manifests cannot substitute for missing database evidence.
     """
     try:
+        if source_content_sha256:
+            # Select by the immutable source owner's descriptor before opening
+            # output bytes from any run. Unselected outputs grant no authority
+            # and cannot block the requested source; matching bytes are still
+            # fully verified below by the existing source/component owner.
+            source = get_source_artifact(root, run.source_artifact_id)
+            if normalize_content_digest(
+                source.content_sha256
+            ) != normalize_content_digest(source_content_sha256):
+                return None
         data = None
         if run.status == ExtractionRunStatus.REVIEWABLE:
             data = runs.load_reviewable_extraction_data(root, run.run_id)
@@ -216,7 +230,13 @@ def project_recap_extraction_run(
                 }
             )
         return result
-    except (runs.GraphRunRegistryError, ValueError, TypeError, KeyError) as exc:
+    except (
+        runs.GraphRunRegistryError,
+        SourceArtifactRegistryError,
+        ValueError,
+        TypeError,
+        KeyError,
+    ) as exc:
         raise IngestRunCatalogError(
             "Saved extraction evidence is unavailable or failed integrity checks.",
             code=CODE_INTEGRITY,
