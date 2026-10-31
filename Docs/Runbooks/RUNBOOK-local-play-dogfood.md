@@ -43,8 +43,9 @@ configured safe Buddy application-state DSN
    ```
 
 That command may create the standard Buddy logical database when it is missing,
-upgrade it to Alembic head, and adopt leftover legacy Runbooks. It never starts
-a Play Run and never seeds a fake Runbook.
+and upgrade it to Alembic head. Runbooks are created and saved through Buddy’s
+normal controls in the Content database. Bootstrap does not discover or import
+workspace files, start a Play Run, or seed content.
 
 Inspect without mutating:
 

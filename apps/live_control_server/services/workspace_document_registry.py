@@ -1,7 +1,7 @@
 """Workspace API projections over the Content database owner.
 
-The legacy registry reader exists solely for explicit offline Runbook adoption.
-Live Page/Plan/Runbook reads and writes never consult it.
+Legacy registry path/schema definitions remain for explicit historical Plan
+continuity tools. Live Page/Plan/Runbook reads and writes use Content only.
 """
 
 from __future__ import annotations
@@ -13,13 +13,6 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Annotated, Any, Literal, Union
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
-
-from apps.live_control_server.services.registry_file_lock import (
-    registry_mutation_lock,
-    registry_token,
-    workspace_document_mutation_lock,
-)
-from src.live_play.live_store import load_json
 
 if TYPE_CHECKING:
     from application_state.content.service import CurrentWorldPlanRead
@@ -86,48 +79,6 @@ def _record_from_work_object(
         world_id=world_id,
         **values,
     )
-
-
-def capture_legacy_runbook_snapshots(root: Path) -> list:
-    """Capture leftover file-backed runbook rows + current bytes under predecessor locks.
-
-    Lock order matches the file-backed writer: ``workspace_document_mutation_lock``
-    first, then the registry file lock. Import consumes this snapshot and never
-    re-reads the target file.
-    """
-    from application_state.content.import_runbooks import freeze_legacy_runbook
-    from application_state.content.types import normalize_markdown
-
-    path = workspace_documents_path(root)
-    with registry_mutation_lock(path):
-        leftover_ids = [
-            r.document_id
-            for r in _load_unlocked(root)[0].records
-            if r.kind == "runbook"
-        ]
-    snapshots = []
-    for document_id in leftover_ids:
-        with workspace_document_mutation_lock(root, document_id):
-            with registry_mutation_lock(path):
-                record = next(
-                    (
-                        r
-                        for r in _load_unlocked(root)[0].records
-                        if r.document_id == document_id and r.kind == "runbook"
-                    ),
-                    None,
-                )
-                if record is None:
-                    continue
-                markdown = None
-                if record.target_relpath:
-                    target = root / record.target_relpath
-                    if target.is_file():
-                        markdown = normalize_markdown(
-                            target.read_text(encoding="utf-8")
-                        )
-                snapshots.append(freeze_legacy_runbook(record, markdown))
-    return snapshots
 
 
 class WorkspaceDocumentRegistryError(ValueError):
@@ -425,21 +376,6 @@ def _validate_title(title: str) -> str:
     if not cleaned:
         raise WorkspaceDocumentRegistryError("title is required", status_code=422)
     return cleaned
-
-
-def _load_unlocked(root: Path) -> tuple[WorkspaceDocumentRegistryDocument, str]:
-    path = workspace_documents_path(root)
-    token = registry_token(path)
-    if not path.is_file():
-        return WorkspaceDocumentRegistryDocument(), token
-    try:
-        document = WorkspaceDocumentRegistryDocument.model_validate(load_json(path))
-    except (TypeError, ValueError) as exc:
-        raise WorkspaceDocumentRegistryError(
-            f"malformed workspace document registry: {exc}",
-            status_code=500,
-        ) from exc
-    return document, token
 
 
 def list_workspace_documents(

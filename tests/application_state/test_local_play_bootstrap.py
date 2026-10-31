@@ -16,17 +16,14 @@ from apps.live_control_server.services.play_run_registry import (
     list_play_runs,
 )
 from apps.live_control_server.services.workspace_document_registry import (
-    WorkspaceDocumentRecord,
-    WorkspaceDocumentRegistryDocument,
     get_committed_playable_revision,
     list_workspace_documents,
-    workspace_documents_path,
 )
 from application_state.config import APPLICATION_STATE_DSN_ENV, load_runtime_dsn
-from application_state.content.types import sha256_utf8
+from application_state.content.service import commit_runbook, create_runbook
+from application_state.content.types import WorkObject, sha256_utf8
 from application_state.errors import ApplicationStateUnavailableError
 from application_state.naming import database_name_from_dsn
-from src.live_play.live_store import write_json
 from tests.application_state.conftest import (
     _admin_dsn,
     _create_database,
@@ -96,40 +93,14 @@ def provisionable_dsn(monkeypatch: pytest.MonkeyPatch) -> Iterator[tuple[str, st
             _drop_database(admin, name)
 
 
-def _legacy_runbook(
-    root: Path,
-    *,
-    markdown: str | None,
-    content_status: str = "committed",
-    revision: int = 17,
-    title: str = "Survive the Current Breach",
-) -> WorkspaceDocumentRecord:
-    document_id = str(uuid.uuid4())
-    relpath = f"out/workspace/runbooks/{document_id}.md"
-    if markdown is not None:
-        target = root / relpath
-        target.parent.mkdir(parents=True, exist_ok=True)
-        target.write_text(markdown, encoding="utf-8")
-    now = "2026-01-01T00:00:00Z"
-    return WorkspaceDocumentRecord(
-        document_id=document_id,
-        title=title,
-        campaign_id="longmont-c2",
-        target_session=23,
-        kind="runbook",
-        target_relpath=relpath,
-        status="active",
-        content_status=content_status,  # type: ignore[arg-type]
-        revision=revision,
-        created_at=now,
-        updated_at=now,
+def _committed_runbook() -> WorkObject:
+    obj = create_runbook(
+        title="Survive the Current Breach", campaign_id="longmont-c2", target_session=23
     )
-
-
-def _write_leftover_registry(root: Path, *records: WorkspaceDocumentRecord) -> None:
-    path = workspace_documents_path(root)
-    path.parent.mkdir(parents=True, exist_ok=True)
-    write_json(path, WorkspaceDocumentRegistryDocument(records=list(records)).model_dump(mode="json"))
+    obj, _revision = commit_runbook(
+        str(obj.work_object_id), V2_BREACH_MARKDOWN, expected_revision=obj.object_revision
+    )
+    return obj
 
 
 def _assert_no_secrets(output: str, dsn: str | None = None) -> None:
@@ -167,7 +138,7 @@ def test_missing_dsn_is_actionable_and_read_only(
     created: list[object] = []
     monkeypatch.setattr(bootstrap, "_probe_target_database", lambda dsn: probed.append(dsn) or (None, None, None))
     monkeypatch.setattr(bootstrap, "_create_logical_database", lambda dsn: created.append(dsn))
-    code = bootstrap.main(["check"], load_env=False, repo_root=tmp_path)
+    code = bootstrap.main(["check"], load_env=False)
     output = capsys.readouterr().out
     assert code == 2
     assert "PLAY READINESS: NEEDS CONFIGURATION" in output
@@ -190,7 +161,7 @@ def test_world_graph_dsn_as_app_state_is_rejected(
     world = "postgresql://buddy:secret@127.0.0.1:54329/dungeonbuddy_application_state_world"
     monkeypatch.setenv("DUNGEONMIND_WORLD_GRAPH_AUTHORITY_DATABASE_URL", world)
     monkeypatch.setenv(APPLICATION_STATE_DSN_ENV, world)
-    code = bootstrap.main(["check"], load_env=False, repo_root=tmp_path)
+    code = bootstrap.main(["check"], load_env=False)
     output = capsys.readouterr().out
     assert code == 2
     assert "PLAY READINESS: BLOCKED" in output
@@ -207,9 +178,9 @@ def test_forbidden_dungeonmind_database_is_rejected(
     )
     created: list[str] = []
     monkeypatch.setattr(bootstrap, "_create_logical_database", lambda dsn: created.append(dsn))
-    check_code = bootstrap.main(["check"], load_env=False, repo_root=tmp_path)
+    check_code = bootstrap.main(["check"], load_env=False)
     check_out = capsys.readouterr().out
-    apply_code = bootstrap.main(["apply"], load_env=False, repo_root=tmp_path)
+    apply_code = bootstrap.main(["apply"], load_env=False)
     apply_out = capsys.readouterr().out
     assert check_code == 2
     assert apply_code == 2
@@ -225,7 +196,7 @@ def test_unreachable_postgres_is_named_unavailable(
 ) -> None:
     dsn = f"postgresql://buddy:{SECRET_PASSWORD}@127.0.0.1:1/dungeonbuddy_application_state"
     monkeypatch.setenv(APPLICATION_STATE_DSN_ENV, dsn)
-    code = bootstrap.main(["check"], load_env=False, repo_root=tmp_path)
+    code = bootstrap.main(["check"], load_env=False)
     output = capsys.readouterr().out
     assert code == 2
     assert "PLAY READINESS: UNAVAILABLE" in output
@@ -237,7 +208,7 @@ def test_check_reports_missing_database_without_creating(
 ) -> None:
     dsn, name, admin = provisionable_dsn
     assert _database_exists(admin, name) is False
-    code = bootstrap.main(["check"], load_env=False, repo_root=tmp_path)
+    code = bootstrap.main(["check"], load_env=False)
     output = capsys.readouterr().out
     assert code == 2
     assert "exists: no" in output
@@ -251,7 +222,7 @@ def test_check_reports_schema_behind_without_migrating(
 ) -> None:
     dsn, name, admin = provisionable_dsn
     _create_database(admin, name)
-    code = bootstrap.main(["check"], load_env=False, repo_root=tmp_path)
+    code = bootstrap.main(["check"], load_env=False)
     output = capsys.readouterr().out
     assert code == 2
     assert "status: behind" in output
@@ -266,11 +237,8 @@ def test_check_reports_schema_behind_without_migrating(
 def test_check_ready_with_committed_runbook(
     application_state_dsn: str, tmp_path: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
-    from application_state.content.import_runbooks import freeze_legacy_runbook, import_runbooks_from_snapshots
-
-    record = _legacy_runbook(tmp_path, markdown=V2_BREACH_MARKDOWN)
-    import_runbooks_from_snapshots([freeze_legacy_runbook(record, V2_BREACH_MARKDOWN)])
-    code = bootstrap.main(["check"], load_env=False, repo_root=tmp_path)
+    _committed_runbook()
+    code = bootstrap.main(["check"], load_env=False)
     output = capsys.readouterr().out
     assert code == 0
     assert "PLAY READINESS: READY" in output
@@ -281,7 +249,7 @@ def test_check_ready_with_committed_runbook(
 def test_check_zero_committed_runbooks_is_content_not_ready(
     application_state_dsn: str, tmp_path: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
-    code = bootstrap.main(["check"], load_env=False, repo_root=tmp_path)
+    code = bootstrap.main(["check"], load_env=False)
     output = capsys.readouterr().out
     assert code == 2
     assert "Application state: READY" in output
@@ -301,7 +269,7 @@ def test_apply_unsafe_dsn_makes_zero_mutation(
     created: list[str] = []
     monkeypatch.setattr(bootstrap, "upgrade_to_head", lambda **kwargs: upgraded.append("yes"))
     monkeypatch.setattr(bootstrap, "_create_logical_database", lambda dsn: created.append(dsn))
-    code = bootstrap.main(["apply"], load_env=False, repo_root=tmp_path)
+    code = bootstrap.main(["apply"], load_env=False)
     output = capsys.readouterr().out
     assert code == 2
     assert upgraded == []
@@ -313,20 +281,18 @@ def test_apply_creates_standard_suffix_database(
     provisionable_dsn: tuple[str, str, str], tmp_path: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
     dsn, name, admin = provisionable_dsn
-    record = _legacy_runbook(tmp_path, markdown=V2_BREACH_MARKDOWN)
-    _write_leftover_registry(tmp_path, record)
     assert _database_exists(admin, name) is False
-    check_code = bootstrap.main(["check"], load_env=False, repo_root=tmp_path)
+    check_code = bootstrap.main(["check"], load_env=False)
     capsys.readouterr()
     assert check_code == 2
     assert _database_exists(admin, name) is False
-    code = bootstrap.main(["apply"], load_env=False, repo_root=tmp_path)
+    code = bootstrap.main(["apply"], load_env=False)
     output = capsys.readouterr().out
-    assert code == 0
+    assert code == 2
     assert _database_exists(admin, name) is True
     assert "created: yes" in output
-    assert "PLAY READINESS: READY" in output
-    assert "imported: 1" in output
+    assert "Play content: NOT READY" in output
+    assert "active startable Runbooks: 0" in output
     _assert_no_secrets(output, dsn)
 
 
@@ -338,7 +304,7 @@ def test_apply_refuses_arbitrary_custom_database_name(
     dsn = _replace_database(admin, name)
     monkeypatch.setenv(APPLICATION_STATE_DSN_ENV, dsn)
     try:
-        code = bootstrap.main(["apply"], load_env=False, repo_root=tmp_path)
+        code = bootstrap.main(["apply"], load_env=False)
         output = capsys.readouterr().out
         assert code == 2
         assert "will not create an arbitrary" in output
@@ -354,7 +320,7 @@ def test_apply_uses_existing_safe_database_without_drop(
     name = database_name_from_dsn(application_state_dsn)
     admin = _admin_dsn()
     assert _database_exists(admin, name) is True
-    code = bootstrap.main(["apply"], load_env=False, repo_root=tmp_path)
+    code = bootstrap.main(["apply"], load_env=False)
     output = capsys.readouterr().out
     assert _database_exists(admin, name) is True
     assert "created: yes" not in output
@@ -371,7 +337,7 @@ def test_apply_upgrades_schema_behind_to_head(
     current, _head, status = bootstrap._schema_status(dsn)
     assert current is None
     assert status == "behind"
-    code = bootstrap.main(["apply"], load_env=False, repo_root=tmp_path)
+    code = bootstrap.main(["apply"], load_env=False)
     output = capsys.readouterr().out
     assert code == 2
     current, head, status = bootstrap._schema_status(dsn)
@@ -381,152 +347,106 @@ def test_apply_upgrades_schema_behind_to_head(
     assert "Play content: NOT READY" in output
 
 
-def test_apply_adopts_legacy_committed_runbook_exactly(
-    provisionable_dsn: tuple[str, str, str], tmp_path: Path, capsys: pytest.CaptureFixture[str]
-) -> None:
-    record = _legacy_runbook(tmp_path, markdown=V2_BREACH_MARKDOWN, revision=17)
-    _write_leftover_registry(tmp_path, record)
-    first = bootstrap.main(["apply"], load_env=False, repo_root=tmp_path)
-    first_out = capsys.readouterr().out
-    assert first == 0
-    assert "imported: 1" in first_out
-    listed = list_workspace_documents(tmp_path, kind="runbook", status="active")
-    assert [row.document_id for row in listed] == [record.document_id]
-    committed = get_committed_playable_revision(record.document_id)
-    assert committed.revision_n == 17
-    assert committed.markdown == V2_BREACH_MARKDOWN
-    assert committed.content_sha256 == sha256_utf8(V2_BREACH_MARKDOWN)
-    second = bootstrap.main(["apply"], load_env=False, repo_root=tmp_path)
-    second_out = capsys.readouterr().out
-    assert second == 0
-    assert "imported: 0" in second_out
-    assert "noop: 1" in second_out
-    replay = get_committed_playable_revision(record.document_id)
-    assert replay.revision_n == 17
-    assert replay.content_sha256 == committed.content_sha256
-
-
-def test_legacy_draft_runbook_is_not_startable(
-    provisionable_dsn: tuple[str, str, str], tmp_path: Path, capsys: pytest.CaptureFixture[str]
-) -> None:
-    record = _legacy_runbook(
-        tmp_path,
-        markdown="# draft only\n",
-        content_status="draft",
-        revision=3,
-    )
-    _write_leftover_registry(tmp_path, record)
-    code = bootstrap.main(["apply"], load_env=False, repo_root=tmp_path)
-    output = capsys.readouterr().out
-    assert code == 2
-    assert "Play content: NOT READY" in output
-    assert "active startable Runbooks: 0" in output
-    listed = list_workspace_documents(tmp_path, kind="runbook", status="active")
-    assert listed[0].document_id == record.document_id
-    assert listed[0].content_status == "draft"
-
-
-def test_missing_committed_legacy_bytes_fail_closed(
-    provisionable_dsn: tuple[str, str, str], tmp_path: Path, capsys: pytest.CaptureFixture[str]
-) -> None:
-    record = _legacy_runbook(tmp_path, markdown=None, content_status="committed")
-    _write_leftover_registry(tmp_path, record)
-    code = bootstrap.main(["apply"], load_env=False, repo_root=tmp_path)
-    output = capsys.readouterr().out
-    assert code == 2
-    assert "PLAY READINESS: BLOCKED" in output
-    assert list_workspace_documents(tmp_path, kind="runbook", status="active") == []
-
-
-def test_identity_content_conflict_fails_closed_without_overwrite(
-    provisionable_dsn: tuple[str, str, str], tmp_path: Path, capsys: pytest.CaptureFixture[str]
-) -> None:
-    record = _legacy_runbook(tmp_path, markdown=V2_BREACH_MARKDOWN, revision=17)
-    _write_leftover_registry(tmp_path, record)
-    assert bootstrap.main(["apply"], load_env=False, repo_root=tmp_path) == 0
-    capsys.readouterr()
-    target = tmp_path / str(record.target_relpath)
-    target.write_text("# different semantic bytes\n", encoding="utf-8")
-    code = bootstrap.main(["apply"], load_env=False, repo_root=tmp_path)
-    output = capsys.readouterr().out
-    assert code == 2
-    assert "PLAY READINESS: BLOCKED" in output
-    committed = get_committed_playable_revision(record.document_id)
-    assert committed.markdown == V2_BREACH_MARKDOWN
-    assert committed.revision_n == 17
-
-
 def test_second_apply_does_not_mutate_existing_run(
-    provisionable_dsn: tuple[str, str, str], tmp_path: Path, capsys: pytest.CaptureFixture[str]
+    application_state_dsn: str, tmp_path: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
-    record = _legacy_runbook(tmp_path, markdown=V2_BREACH_MARKDOWN, revision=17)
-    _write_leftover_registry(tmp_path, record)
-    assert bootstrap.main(["apply"], load_env=False, repo_root=tmp_path) == 0
-    capsys.readouterr()
-    committed = get_committed_playable_revision(record.document_id)
+    record = _committed_runbook()
+    document_id = str(record.work_object_id)
+    committed = get_committed_playable_revision(document_id)
     created = create_or_replay_play_run(
         tmp_path,
         run_id=RUN_ID_A,
-        playable_artifact_id=record.document_id,
+        playable_artifact_id=document_id,
         expected_playable_revision=committed.revision_n,
         expected_playable_content_sha256=committed.content_sha256,
     )
     ready = ensure_v2_native_ready(tmp_path, RUN_ID_A)
     assert ready.progress.current_beat_id == "beat:survive-breach"
-    assert bootstrap.main(["apply"], load_env=False, repo_root=tmp_path) == 0
-    output = capsys.readouterr().out
-    assert "noop: 1" in output
-    unchanged = get_play_run(tmp_path, RUN_ID_A)
-    assert unchanged.run_revision == ready.run_revision
-    assert unchanged.progress.current_beat_id == ready.progress.current_beat_id
-    assert unchanged.progress.current_scene_id == ready.progress.current_scene_id
-    assert list_play_runs(tmp_path)[0].run_id == RUN_ID_A
-    assert created.run_id == RUN_ID_A
+    for _ in range(2):
+        assert bootstrap.main(["apply"], load_env=False) == 0
+        capsys.readouterr()
+        assert get_play_run(tmp_path, RUN_ID_A) == ready
+        assert get_committed_playable_revision(document_id) == committed
+    assert list_play_runs(tmp_path)[0].run_id == created.run_id
 
 
-def test_bootstrap_to_native_ready_play_seam(
+def test_bootstrap_then_normal_content_to_native_ready_play(
     provisionable_dsn: tuple[str, str, str], tmp_path: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
     dsn, name, admin = provisionable_dsn
-    record = _legacy_runbook(tmp_path, markdown=V2_BREACH_MARKDOWN, revision=17)
-    _write_leftover_registry(tmp_path, record)
-    assert bootstrap.main(["check"], load_env=False, repo_root=tmp_path) == 2
-    capsys.readouterr()
-    assert _database_exists(admin, name) is False
-    assert bootstrap.main(["apply"], load_env=False, repo_root=tmp_path) == 0
-    capsys.readouterr()
+    assert not _database_exists(admin, name)
+    assert bootstrap.main(["apply"], load_env=False) == 2
+    assert "Play content: NOT READY" in capsys.readouterr().out
+    record = _committed_runbook()
+    document_id = str(record.work_object_id)
     listed = list_workspace_documents(tmp_path, kind="runbook", status="active")
-    assert listed[0].document_id == record.document_id
-    committed = get_committed_playable_revision(record.document_id)
-    assert committed.revision_n == 17
+    assert [row.document_id for row in listed] == [document_id]
+    committed = get_committed_playable_revision(document_id)
     assert committed.content_sha256 == sha256_utf8(V2_BREACH_MARKDOWN)
-    assert "Tunnel unique body." in committed.markdown
+    assert committed.markdown == V2_BREACH_MARKDOWN
+    assert bootstrap.main(["check"], load_env=False) == 0
+    capsys.readouterr()
     create_or_replay_play_run(
         tmp_path,
         run_id=RUN_ID_A,
-        playable_artifact_id=record.document_id,
+        playable_artifact_id=document_id,
         expected_playable_revision=committed.revision_n,
         expected_playable_content_sha256=committed.content_sha256,
     )
     ready = ensure_v2_native_ready(tmp_path, RUN_ID_A)
-    assert ready.playable_artifact_id == record.document_id
-    assert ready.playable_revision == 17
+    assert ready.playable_revision == committed.revision_n
     assert ready.playable_content_sha256 == committed.content_sha256
     assert ready.progress.current_beat_id == "beat:survive-breach"
     assert ready.progress.current_scene_id is None
-    assert bootstrap.main(["apply"], load_env=False, repo_root=tmp_path) == 0
+    assert bootstrap.main(["apply"], load_env=False) == 0
     capsys.readouterr()
-    assert get_play_run(tmp_path, RUN_ID_A).run_id == RUN_ID_A
-    del dsn
+    assert get_play_run(tmp_path, RUN_ID_A) == ready
+
+
+@pytest.mark.parametrize("with_content", [False, True])
+def test_check_and_apply_ignore_and_preserve_stale_workspace_files(
+    application_state_dsn: str,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    with_content: bool,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    from apps.live_control_server.services.runtime_preflight import _check_app_state
+
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setenv("DMB_ARTIFACT_DATA_ROOT", str(tmp_path))
+    registry = tmp_path / "out/registries/workspace_documents.json"
+    registry.parent.mkdir(parents=True)
+    registry.write_bytes(b"malformed obsolete registry, not database authority")
+    body = tmp_path / "out/workspace/runbooks/leftover.md"
+    body.parent.mkdir(parents=True)
+    body.write_bytes(b"preserve these unadopted bytes")
+    expected = {f: f.read_bytes() for f in (registry, body)}
+    if with_content:
+        record = _committed_runbook()
+        committed = get_committed_playable_revision(str(record.work_object_id))
+    expected_code = 0 if with_content else 2
+    for command in ("check", "apply", "apply", "check"):
+        assert bootstrap.main([command], load_env=False) == expected_code
+        output = capsys.readouterr().out
+        assert "Legacy Runbooks" not in output
+        assert "NEEDS BOOTSTRAP" not in output
+        assert {f: f.read_bytes() for f in expected} == expected
+        listed = list_workspace_documents(tmp_path, kind="runbook", status="active")
+        assert len(listed) == int(with_content)
+        if with_content:
+            assert get_committed_playable_revision(str(record.work_object_id)) == committed
+    # Exercise the assembled runtime consumer rather than just the CLI helper.
+    assert _check_app_state(load_env=False).status == "READY"
 
 
 def test_check_and_apply_never_print_full_dsn(
     provisionable_dsn: tuple[str, str, str], tmp_path: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
     dsn, _name, _admin = provisionable_dsn
-    bootstrap.main(["check"], load_env=False, repo_root=tmp_path)
+    bootstrap.main(["check"], load_env=False)
     check_out = capsys.readouterr().out
-    bootstrap.main(["apply"], load_env=False, repo_root=tmp_path)
+    bootstrap.main(["apply"], load_env=False)
     apply_out = capsys.readouterr().out
     _assert_no_secrets(check_out, dsn)
     _assert_no_secrets(apply_out, dsn)
