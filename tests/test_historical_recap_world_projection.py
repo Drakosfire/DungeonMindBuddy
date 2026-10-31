@@ -222,11 +222,10 @@ def _install_projection(
         lambda **_kwargs: source,
     )
 
-    def fake_project(request, *, root, hydrate_product_local_excerpts=True):
+    def fake_project(request, *, root):
         captured["calls"] = int(captured["calls"]) + 1
         captured["request"] = request
         captured["root"] = root
-        captured["hydrate_product_local_excerpts"] = hydrate_product_local_excerpts
         return world
 
     monkeypatch.setattr(projection_service, "project_world_graph", fake_project)
@@ -247,10 +246,9 @@ def test_exact_run_projection_uses_durable_source_and_current_world(
     )
     captured: dict[str, object] = {}
 
-    def fake_project(request, *, root, hydrate_product_local_excerpts=True):
+    def fake_project(request, *, root):
         captured["request"] = request
         captured["root"] = root
-        captured["hydrate_product_local_excerpts"] = hydrate_product_local_excerpts
         return WorldGraphProjection(
             schema="dmb_world_graph_projection_v1",
             snapshot=WorldGraphProjectionSnapshot(
@@ -307,7 +305,6 @@ def test_exact_run_projection_uses_durable_source_and_current_world(
     assert captured["request"].world_id == "eldyrwild"
     assert captured["request"].focus.session_id == "session-25"
     assert captured["root"] == world_root
-    assert captured["hydrate_product_local_excerpts"] is False
 
 
 def test_exact_run_projection_fails_closed_when_source_was_not_adopted(
@@ -697,7 +694,6 @@ def test_orik_brin_excerpt_comes_from_app_state_without_source_sidecar(
     response = projection_service.build_historical_recap_world_projection(tmp_path, RUN_ID)
     relationship = response.node_views["node:orik"].adjacency[0]
 
-    assert captured["hydrate_product_local_excerpts"] is False
     assert captured["calls"] == 1
     assert response.source_revision_id == str(SOURCE_REVISION_ID)
     assert response.source_sha256 == f"sha256:{digest}"

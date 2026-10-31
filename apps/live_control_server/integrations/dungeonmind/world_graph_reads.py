@@ -46,10 +46,8 @@ Field classification (handoff §5.7)
   anchor id prefix adaptation (``dm-source-anchor:v1:`` ↔
   ``source-anchor:v1:``).
 * C (product-local join, non-authoritative): source artifact
-  title/uri/excerpt and anchor content. Generic World projection may join
-  relationship excerpts from checkout-local ``source_span_index.json`` when
-  ``repo_root`` is provided; callers pass ``repo_root=None`` to skip that
-  filesystem join. Historical recap projection overlays excerpts from
+  title/uri/excerpt and anchor content. Generic World projection does not
+  hydrate source text. Historical recap projection explicitly overlays excerpts from
   already-loaded APP-STATE ``source.revision`` bytes using
   ``extract_span_from_revision_bound_text``. Anchor reads still verify
   parent bytes against the DungeonMind source revision digest.
@@ -145,7 +143,6 @@ from graph_memory.projection.world_projection import (
     WorldGraphProjectionSourceArtifactView,
     WorldGraphProjectionSuggestedExpansion,
     WorldGraphProjectionSummary,
-    WorldGraphProjectionTextHighlightSpan,
     WorldGraphProjectionTrustBoundary,
     WorldGraphQueryContext,
 )
@@ -1118,49 +1115,6 @@ def _source_revision_digest(
     return revision.content_sha256 if revision is not None else None
 
 
-def _load_span_paragraph_text(
-    services: DirectWorldGraphReadServices,
-    artifact_ids: Iterable[str],
-    *,
-    repo_root: Path,
-) -> dict[str, str]:
-    """Span id → paragraph text from product-local ingest run indexes.
-
-    Mirrors the legacy kernel's ``source_span_index.json`` sidecar lookup,
-    keyed by admitted artifact URIs from DungeonMind's source repository.
-    """
-    texts: dict[str, str] = {}
-    for artifact_id in sorted(set(artifact_ids)):
-        try:
-            artifact = services.bundle.sources.get_artifact(artifact_id)
-        except Exception:  # noqa: BLE001
-            continue
-        uri = getattr(artifact, "uri", None) if artifact is not None else None
-        if not isinstance(uri, str) or not uri.strip():
-            continue
-        relative = parse_repo_uri(uri)
-        if relative is None:
-            continue
-        index_path = (repo_root / relative).parent / "source_span_index.json"
-        if not index_path.is_file():
-            continue
-        try:
-            raw = json.loads(index_path.read_text(encoding="utf-8"))
-        except Exception:  # noqa: BLE001
-            continue
-        rows = raw.get("spans") if isinstance(raw, dict) else None
-        if not isinstance(rows, list):
-            continue
-        for row in rows:
-            if not isinstance(row, dict):
-                continue
-            span_id = row.get("span_id") or row.get("source_span_ref_id")
-            text = row.get("paragraph_text") or row.get("text")
-            if isinstance(span_id, str) and isinstance(text, str):
-                texts.setdefault(span_id, text)
-    return texts
-
-
 # ---------------------------------------------------------------------------
 # Snapshot / evidence / relationship adaptation
 # ---------------------------------------------------------------------------
@@ -1337,27 +1291,6 @@ def _expansion_views(
     return expansions
 
 
-def _resolve_adjacency_excerpt(
-    evidence_rows: Sequence[GraphEvidenceRecord | EvidenceRefV2],
-    *,
-    paragraph_text_by_span_id: Mapping[str, str],
-) -> tuple[str | None, bool, list[WorldGraphProjectionTextHighlightSpan]]:
-    """First available full-paragraph excerpt for the edge's admitted evidence.
-
-    Buddy contribution-era ``label``/``anchor_quotes` evidence extras do not
-    exist in the adopted DungeonMind world, so excerpts are always whole
-    paragraphs (``is_full_paragraph=True``, no highlight spans).
-    """
-    for record in evidence_rows:
-        span_id = getattr(record, "source_span_ref_id", None)
-        if not span_id:
-            continue
-        text = paragraph_text_by_span_id.get(span_id)
-        if text:
-            return text, True, []
-    return None, False, []
-
-
 def _node_view(
     obj: GraphObjectView,
     *,
@@ -1366,7 +1299,6 @@ def _node_view(
     focus: _FocusContext,
     evidence_by_id: Mapping[str, GraphEvidenceRecord | EvidenceRefV2],
     artifact_campaigns: Mapping[str, str | None],
-    paragraph_text_by_span_id: Mapping[str, str],
     degree_by_node: Mapping[str, int],
 ) -> WorldGraphProjectionNodeView:
     badges = [
@@ -1388,9 +1320,6 @@ def _node_view(
         rel_evidence = [
             evidence_by_id[ref] for ref in rel.evidence_ref_ids if ref in evidence_by_id
         ]
-        excerpt, is_full, spans = _resolve_adjacency_excerpt(
-            rel_evidence, paragraph_text_by_span_id=paragraph_text_by_span_id
-        )
         rel_metadata = rel.assertion_metadata
         adjacency.append(
             WorldGraphProjectionAdjacencyCandidate(
@@ -1414,9 +1343,6 @@ def _node_view(
                     rel_metadata.campaign_scope if rel_metadata is not None else None
                 ),
                 related_summary=other.summary if other is not None else None,
-                source_excerpt=excerpt,
-                source_excerpt_is_full_paragraph=is_full,
-                source_excerpt_highlight_spans=spans,
             )
         )
     anchored = any(b.is_focus_session_evidence for b in badges) or any(
@@ -1456,16 +1382,12 @@ def _node_view(
 def project_world_graph_direct(
     services: DirectWorldGraphReadServices,
     request: WorldGraphProjectionRequest,
-    *,
-    repo_root: Path | None = None,
 ) -> WorldGraphProjection:
     """Execute one exact DungeonMind projection and adapt to the Buddy wire."""
     try:
         dnd_request = _map_projection_request(request, services.binding)
         result = services.projection.project(dnd_request)
-        projection = _adapt_projection_result(
-            services, result, request=request, repo_root=repo_root
-        )
+        projection = _adapt_projection_result(services, result, request=request)
         if request.query_text:
             search = services.retrieval.search(dnd_request, query_text=request.query_text)
             projection = projection.model_copy(
@@ -1485,7 +1407,6 @@ def _adapt_projection_result(
     result: WorldGraphProjectionResult,
     *,
     request: WorldGraphProjectionRequest,
-    repo_root: Path | None,
 ) -> WorldGraphProjection:
     graph = result.graph
     evidence_by_id: dict[str, GraphEvidenceRecord | EvidenceRefV2] = dict(graph.evidence)
@@ -1499,15 +1420,6 @@ def _adapt_projection_result(
     for rel in relationships:
         degree_by_node[rel.subject_object_id] = degree_by_node.get(rel.subject_object_id, 0) + 1
         degree_by_node[rel.object_object_id] = degree_by_node.get(rel.object_object_id, 0) + 1
-    paragraph_texts: dict[str, str] = {}
-    # Product-local sidecar join is optional. Historical recap projection
-    # passes repo_root=None and overlays APP-STATE bytes after this adapt.
-    if repo_root is not None:
-        paragraph_texts = _load_span_paragraph_text(
-            services,
-            (rec.source_artifact_id for rec in evidence_by_id.values()),
-            repo_root=repo_root,
-        )
     rel_views = [
         _relationship_view(
             rel,
@@ -1525,7 +1437,6 @@ def _adapt_projection_result(
             focus=focus,
             evidence_by_id=evidence_by_id,
             artifact_campaigns=artifact_campaigns,
-            paragraph_text_by_span_id=paragraph_texts,
             degree_by_node=degree_by_node,
         )
         for obj in objects_by_id.values()
@@ -2386,7 +2297,6 @@ def _complete_object_result_view(
         focus=focus,
         evidence_by_id=evidence_by_id,
         artifact_campaigns=artifact_campaigns,
-        paragraph_text_by_span_id={},
         degree_by_node=degree_by_node,
     )
     related = [
@@ -2397,7 +2307,6 @@ def _complete_object_result_view(
             focus=focus,
             evidence_by_id=evidence_by_id,
             artifact_campaigns=artifact_campaigns,
-            paragraph_text_by_span_id={},
             degree_by_node=degree_by_node,
         )
         for obj in result.related_objects
