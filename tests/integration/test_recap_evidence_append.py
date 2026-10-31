@@ -70,7 +70,6 @@ def test_append_durable_child_fresh_read_retry_and_pc_proof(disposable_append_ap
     original_create = registry.create_extraction_run
     original_update = registry.update_extraction_run_status
     original_resolve = correction.resolve_promotable_ingest_run
-    original_span_loader = correction._load_frozen_span_index_for_resolved_run
     from application_state.source import service as source_service
     original_persist_source_markdown = source_service.persist_source_markdown
     original_descriptors = source_service.get_source_input_descriptors
@@ -90,7 +89,6 @@ def test_append_durable_child_fresh_read_retry_and_pc_proof(disposable_append_ap
     monkeypatch.setattr(correction, "create_extraction_run", original_create)
     monkeypatch.setattr(correction, "update_extraction_run_status", original_update)
     monkeypatch.setattr(correction, "resolve_promotable_ingest_run", original_resolve)
-    monkeypatch.setattr(correction, "_load_frozen_span_index_for_resolved_run", original_span_loader)
     from apps.live_control_server.services import extract_promote
     monkeypatch.setattr(extract_promote, "_artifact_root", lambda: tmp_path)
     from apps.live_control_server.services.source_artifact_registry import (
