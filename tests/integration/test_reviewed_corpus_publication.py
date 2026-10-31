@@ -23,7 +23,7 @@ from tests.test_reviewed_corpus_publication import (
 
 
 @pytest.fixture
-def postgres_case(tmp_path, monkeypatch):
+def postgres_case(tmp_path, monkeypatch, request):
     admin = os.environ.get("DMB_REVIEWED_CORPUS_TEST_ADMIN_DSN", "")
     checkout = os.environ.get("DMB_REVIEWED_CORPUS_TEST_CORE_CHECKOUT", "")
     if not admin or not checkout:
@@ -45,6 +45,7 @@ def postgres_case(tmp_path, monkeypatch):
         and parts.port == 55443
         and parts.path == "/postgres"
     )
+    request.getfixturevalue("application_state_dsn")
     name = "dmb_reviewed_corpus_test_" + uuid4().hex[:12]
     dsn = urlunsplit(parts._replace(path="/" + name))
     with psycopg.connect(admin, autocommit=True) as conn:

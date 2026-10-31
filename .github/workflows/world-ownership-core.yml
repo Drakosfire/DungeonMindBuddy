@@ -75,6 +75,8 @@ jobs:
           tests/test_world_admission_without_corpus_directory.py
           tests/test_live_world_containers.py
           tests/test_local_graph_launch_profile.py
+          apps/live_control_server/services/reviewed_corpus_publication.py
+          tests/test_reviewed_corpus_publication.py
 
       - name: Run synthetic ownership boundary tests
         run: >-
@@ -92,3 +94,4 @@ jobs:
           tests/test_demo_j1_native_world_source_admission.py::test_ordinary_fresh_world_source_admission_needs_no_active_graph
           tests/test_plan_action_prompt_evidence.py::test_mounted_prompt_reads_require_authentication_and_exact_world_selector
           tests/test_plan_action_terminal_diagnostic.py::test_mounted_diagnostic_read_requires_auth_owner_and_exact_selector
+          tests/test_reviewed_corpus_publication.py

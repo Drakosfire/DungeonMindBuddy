@@ -71,7 +71,7 @@ NOW = datetime(2026, 10, 12, 10, tzinfo=UTC)
 BODY = b"# Fixture\n\nSynthetic reviewed statement.\n"
 
 
-def corpus_case(tmp_path: Path, bundle=None):
+def corpus_case(tmp_path: Path, bundle=None, *, locator=None, can_open=True):
     if bundle is None:
         graph, sources, contributions = (
             InMemoryWorldGraphRepository(),
@@ -158,8 +158,13 @@ def corpus_case(tmp_path: Path, bundle=None):
     body_path.write_bytes(BODY)
     uri = "repo://" + body_path.relative_to(artifacts).as_posix()
     sha = hashlib.sha256(BODY).hexdigest()
+    from apps.live_control_server.services.source_artifact_registry import create_recap_source_artifact
+    registered = create_recap_source_artifact(
+        artifacts, world_id=native, campaign_id="fixture-campaign", session_id="session-1",
+        recap_text=BODY.decode(), expected_content_sha256=sha,
+    )
     source = SourceArtifactV2(
-        source_artifact_id="source:fixture",
+        source_artifact_id=registered.source_artifact_id,
         world_id=native,
         campaign_id="fixture-campaign",
         session_id="session-1",
@@ -192,9 +197,9 @@ def corpus_case(tmp_path: Path, bundle=None):
         source_revision_id=revision.source_revision_id,
         source_domain="session_recap",
         evidence_role="support",
-        can_open_source=True,
+        can_open_source=can_open,
         can_highlight_span=False,
-        locator="heading:Fixture",
+        locator=locator if locator is not None else f"fixture:span:{sha[:12]}:3-3",
         uri=uri,
     )
     assertions = [
@@ -870,10 +875,12 @@ def test_committed_publication_inspection_survives_local_source_loss(
         case.packet, selected_world_id=case.packet.managed_world_id
     )
     assert (
-        result["status"] == "published"
+        result["status"] == "verified"
         and result["published_revision_id"] == publication.published_revision_id
     )
-    assert result["verification"]["source_open_status"] == "unavailable"
+    assert result["verification"]["source_open_status"] == "verified"
+    assert result["verification"]["opened_sources"]
+    assert result["verification"]["unavailable_sources"] == []
     assert all(value == "committed" for value in result["observed_stages"].values())
     assert before == {p.name: p.read_bytes() for p in case.store.directory.iterdir()}
     assert execute(case)["published_revision_id"] == publication.published_revision_id
@@ -1148,3 +1155,80 @@ def test_exact_observation_proof_survives_relationship_truncation_guard(
     )
 
 pytestmark = pytest.mark.usefixtures("application_state_dsn")
+
+
+@pytest.mark.parametrize(
+    "locator,can_open",
+    [
+        ("heading:Fixture", True),
+        ("https://untrusted.invalid/source.md", True),
+        (None, False),
+    ],
+)
+def test_required_unreadable_source_reports_native_reason_without_body_access(
+    tmp_path, monkeypatch, locator, can_open
+):
+    case = corpus_case(tmp_path, locator=locator, can_open=can_open)
+    real_verifier(case, monkeypatch)
+    from apps.live_control_server.integrations.dungeonmind import world_graph_reads
+
+    monkeypatch.setattr(
+        world_graph_reads,
+        "_load_admitted_source_body",
+        lambda **_: pytest.fail("unsupported or denied anchor opened body bytes"),
+    )
+    result = execute(case)
+    verification = result["verification"]
+    assert result["status"] == "published"
+    assert verification["core_verified"] is True
+    assert verification["source_open_status"] == "unavailable"
+    assert verification["opened_sources"] == []
+    assert len(verification["unavailable_sources"]) == 1
+    unavailable = verification["unavailable_sources"][0]
+    assert unavailable["outcome"] == "partial"
+    assert unavailable["diagnostic_codes"] == ["unsupported_locator"]
+    assert result["product_ready"] is False
+
+
+@pytest.mark.parametrize("damage", ["missing", "tampered"])
+def test_committed_publication_reports_lost_or_tampered_database_source(
+    case, monkeypatch, application_state_dsn, damage
+):
+    import psycopg
+
+    execute(case)
+    publication = case.backend.publication_probe(case.packet)
+    real_verifier(case, monkeypatch)
+    with psycopg.connect(application_state_dsn) as conn:
+        if damage == "missing":
+            conn.execute(
+                "DELETE FROM source.revision WHERE source_artifact_id=%s",
+                (case.packet.sources[0].artifact.source_artifact_id,),
+            )
+        else:
+            conn.execute(
+                "UPDATE source.revision SET markdown='Corrupt synthetic bytes' WHERE source_artifact_id=%s",
+                (case.packet.sources[0].artifact.source_artifact_id,),
+            )
+
+    def no_dispatch(*_):
+        pytest.fail("published inspection must not redispatch native writes")
+
+    for name in ("admit", "finalize", "publish"):
+        monkeypatch.setattr(case.backend, name, no_dispatch)
+    before = {p.name: p.read_bytes() for p in case.store.directory.iterdir()}
+    result = procedure(case).run(
+        case.packet, selected_world_id=case.packet.managed_world_id
+    )
+    assert result["status"] == "published"
+    assert result["published_revision_id"] == publication.published_revision_id
+    verification = result["verification"]
+    assert verification["core_verified"] is True
+    assert verification["source_open_status"] == "unavailable"
+    assert verification["opened_sources"] == []
+    assert len(verification["unavailable_sources"]) == 1
+    assert verification["unavailable_sources"][0]["diagnostic_codes"] == [
+        "source_integrity_error"
+    ]
+    assert all(value == "committed" for value in result["observed_stages"].values())
+    assert before == {p.name: p.read_bytes() for p in case.store.directory.iterdir()}
