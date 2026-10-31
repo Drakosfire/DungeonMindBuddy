@@ -29,7 +29,7 @@ from apps.live_control_server.integrations.dungeonmind.contribution_mapping impo
 from apps.live_control_server.integrations.dungeonmind.world_graph_reads import (
     _classify_locator_kind,
     _product_source_span_ref_id,
-    _read_admitted_repo_span,
+    _read_admitted_source_span,
     _source_anchor_views,
     extract_span_from_revision_bound_text,
     list_recap_context_direct_v2,
@@ -55,6 +55,7 @@ from graph_memory.retrieval.models import (
     RecapContextIndexRequestV2,
     RecapContextReadRequestV2,
 )
+from graph_memory.evidence.source_artifact import GraphMemorySourceArtifact
 from graph_memory.source_span import build_stable_source_span_id
 from tests.test_candidate_graph_admission_contract import _candidate
 
@@ -211,6 +212,27 @@ def _read_base(**overrides: Any) -> dict[str, Any]:
     }
     payload.update(overrides)
     return payload
+
+
+def _mock_stored_recap(monkeypatch, payload: bytes):
+    """Exercise the real shared byte validator with an isolated storage double."""
+    from apps.live_control_server.services import source_artifact_registry as inputs
+    from application_state.source import service
+
+    artifact = GraphMemorySourceArtifact(
+        source_artifact_id=ARTIFACT_ID, source_domain="recap",
+        world_id="world:recap-source-read-continuity", campaign_id="longmont-c2",
+        session_id="session-22", uri=REPO_URI, content_sha256=_digest_hex(payload),
+    )
+    record = SimpleNamespace(
+        source_artifact_id=artifact.source_artifact_id, source_domain="recap",
+        world_id=artifact.world_id, campaign_id=artifact.campaign_id,
+        session_id=artifact.session_id, content_sha256=artifact.content_sha256,
+        encoding="utf-8", media_type="text/markdown", markdown=payload.decode("utf-8"),
+    )
+    monkeypatch.setattr(inputs, "get_source_artifact", lambda root, artifact_id: artifact)
+    monkeypatch.setattr(service, "get_source_markdown", lambda **kwargs: record)
+    return record
 
 
 def test_write_stamps_canonical_span_onto_locator_not_file_uri() -> None:
@@ -494,13 +516,14 @@ def test_extract_span_rejects_unknown_and_mismatched_identities() -> None:
     )
 
 
-def test_admitted_repo_span_read_is_digest_verified(tmp_path: Path) -> None:
+def test_admitted_source_span_read_is_digest_verified(tmp_path: Path, monkeypatch) -> None:
     relative = "out/registries/source_content/recap/longmont-c2/session-22/ad4ecd013dad.md"
     path = tmp_path / relative
     path.parent.mkdir(parents=True)
     lines = [f"line-{index}" for index in range(1, 20)]
     payload = ("\n".join(lines) + "\n").encode("utf-8")
-    path.write_bytes(payload)
+    _mock_stored_recap(monkeypatch, payload)
+    path.write_bytes(b"obsolete mirror")
     digest = _digest_hex(payload)
     span = build_stable_source_span_id(
         source_artifact_id=ARTIFACT_ID,
@@ -516,7 +539,7 @@ def test_admitted_repo_span_read_is_digest_verified(tmp_path: Path) -> None:
         source_span_ref_id=None,
         uri=f"repo://{relative}",
     )
-    result = _read_admitted_repo_span(
+    result = _read_admitted_source_span(
         services,
         anchor,
         request=_read_request(),
@@ -530,7 +553,7 @@ def test_admitted_repo_span_read_is_digest_verified(tmp_path: Path) -> None:
     assert result.line_end == 16
 
 
-def test_admitted_recap_spans_use_configured_artifact_root(
+def test_admitted_recap_spans_are_independent_of_artifact_root(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     code_root = tmp_path / "code"
@@ -542,6 +565,8 @@ def test_admitted_recap_spans_use_configured_artifact_root(
     source.parent.mkdir(parents=True)
     source.write_text("first line\nsecond line\n", encoding="utf-8")
     digest = _digest_hex(source.read_bytes())
+    _mock_stored_recap(monkeypatch, source.read_bytes())
+    source.unlink()
     monkeypatch.setenv("DMB_ARTIFACT_DATA_ROOT", str(artifact_root))
 
     selected = _resolved_repo_root(root=None, repo_root=None)
@@ -557,7 +582,7 @@ def test_admitted_recap_spans_use_configured_artifact_root(
             start_line=line,
             end_line=line,
         )
-        result = _read_admitted_repo_span(
+        result = _read_admitted_source_span(
             services,
             _anchor(locator_identity=span, source_span_ref_id=None,
                     uri=f"repo://{relative}"),
@@ -570,7 +595,7 @@ def test_admitted_recap_spans_use_configured_artifact_root(
         assert result.content_sha256 == digest
         assert (result.line_start, result.line_end) == (line, line)
 
-    missing_under_code = _read_admitted_repo_span(
+    missing_under_code = _read_admitted_source_span(
         services,
         _anchor(locator_identity=span, source_span_ref_id=None,
                 uri=f"repo://{relative}"),
@@ -578,8 +603,8 @@ def test_admitted_recap_spans_use_configured_artifact_root(
         repo_root=code_root,
         base=_read_base(source_span_ref_id=span),
     )
-    assert missing_under_code.outcome == "unavailable"
-    assert missing_under_code.diagnostics[0].code == "source_unavailable"
+    assert missing_under_code.outcome == "enough"
+    assert missing_under_code.content == "second line"
 
 
 def test_source_batch_v2_opens_split_root_recap_spans_with_receipts(
@@ -601,6 +626,8 @@ def test_source_batch_v2_opens_split_root_recap_spans_with_receipts(
     source.parent.mkdir(parents=True)
     source.write_text("first line\nsecond line\n", encoding="utf-8")
     digest = _digest_hex(source.read_bytes())
+    _mock_stored_recap(monkeypatch, source.read_bytes())
+    source.unlink()
     monkeypatch.setenv("DMB_ARTIFACT_DATA_ROOT", str(artifact_root))
     assert not (REPO_ROOT / relative).exists()
 
@@ -673,7 +700,7 @@ def test_source_batch_v2_opens_split_root_recap_spans_with_receipts(
         clear_sessions()
 
 
-def test_admitted_repo_span_fails_closed_on_tampered_bytes(tmp_path: Path) -> None:
+def test_admitted_source_span_fails_closed_on_tampered_database_bytes(tmp_path: Path, monkeypatch) -> None:
     relative = "out/registries/source_content/recap/longmont-c2/session-22/ad4ecd013dad.md"
     path = tmp_path / relative
     path.parent.mkdir(parents=True)
@@ -689,8 +716,9 @@ def test_admitted_repo_span_fails_closed_on_tampered_bytes(tmp_path: Path) -> No
     services = SimpleNamespace(
         bundle=SimpleNamespace(sources=_FakeSources(locator=f"repo://{relative}", digest=digest))
     )
-    path.write_bytes(b"tampered recap bytes\n")
-    result = _read_admitted_repo_span(
+    record = _mock_stored_recap(monkeypatch, original)
+    record.markdown = "tampered database bytes\n"
+    result = _read_admitted_source_span(
         services,
         _anchor(locator_identity=span, source_span_ref_id=None, uri=f"repo://{relative}"),
         request=_read_request(),
@@ -703,12 +731,12 @@ def test_admitted_repo_span_fails_closed_on_tampered_bytes(tmp_path: Path) -> No
     assert [item.code for item in result.diagnostics] == ["source_integrity_error"]
 
 
-def test_admitted_repo_span_fails_closed_when_revision_missing(tmp_path: Path) -> None:
+def test_admitted_source_span_fails_closed_when_revision_missing(tmp_path: Path) -> None:
     services = SimpleNamespace(
         bundle=SimpleNamespace(sources=_FakeSources(locator=REPO_URI, digest=None))
     )
     services.bundle.sources.get_revision = lambda _rid: None  # type: ignore[method-assign]
-    result = _read_admitted_repo_span(
+    result = _read_admitted_source_span(
         services,
         _anchor(locator_identity=SPAN_ID, source_span_ref_id=None),
         request=_read_request(),
@@ -744,10 +772,10 @@ def _artifact(
     campaign_id: str,
     session_id: str,
     world_id: str,
-) -> SimpleNamespace:
+) -> GraphMemorySourceArtifact:
     from datetime import UTC, datetime
 
-    return SimpleNamespace(
+    return GraphMemorySourceArtifact(
         source_artifact_id=source_artifact_id,
         source_domain="recap",
         campaign_id=campaign_id,
@@ -942,6 +970,8 @@ def _prepare_session(
     )
     if source_name is not None:
         recap.lineage["source_name"] = source_name
+    from apps.live_control_server.services.source_artifact_registry import _register_source_input
+    _register_source_input(recap, recap_text)
     result = prepare_candidate_graph_admission(
         source_body=source.read_bytes(),
         candidate_graph=candidate,
@@ -1011,6 +1041,7 @@ def test_fresh_recap_publication_source_read_is_digest_verified(
     assert c2.result.confirmable is True
     published_c2 = _confirm_via_product_seam(c2)
     c2_rev = published_c2["committed_revision_id"]
+    c2_node = c2.package["effect"]["node_id_map"][c2.node_id]
     services = build_direct_world_graph_read_services(c2.dsn, world_id)
     found = get_object_direct(
         services,
@@ -1021,7 +1052,7 @@ def test_fresh_recap_publication_source_read_is_digest_verified(
                 "campaignId": "longmont-c2",
                 "revisionPin": c2_rev,
                 "scopeMode": "world",
-                "nodeId": "node:location:mireward",
+                "nodeId": c2_node,
             }
         ),
     )
@@ -1035,7 +1066,7 @@ def test_fresh_recap_publication_source_read_is_digest_verified(
                 "campaignId": "longmont-c2",
                 "revisionPin": c2_rev,
                 "scopeMode": "world",
-                "target": {"kind": "node", "id": "node:location:mireward"},
+                "target": {"kind": "node", "id": c2_node},
             }
         ),
     )
@@ -1043,6 +1074,7 @@ def test_fresh_recap_publication_source_read_is_digest_verified(
     anchor = evidence.source_anchors[0]
     assert anchor.source_span_ref_id == c2.span_id
     assert anchor.locator_kind == "source_span"
+    (c2.repo / c2.uri.removeprefix("repo://")).unlink()
     read = read_source_anchor_direct(
         services,
         WorldGraphSourceAnchorReadRequest.model_validate(
@@ -1094,6 +1126,7 @@ def test_fresh_recap_publication_source_read_is_digest_verified(
     )
     published_c1 = _confirm_via_product_seam(c1)
     c1_rev = published_c1["committed_revision_id"]
+    c1_node = c1.package["effect"]["node_id_map"][c1.node_id]
     assert c1_rev != c2_rev
     historical = get_evidence_direct(
         services,
@@ -1104,7 +1137,7 @@ def test_fresh_recap_publication_source_read_is_digest_verified(
                 "campaignId": "longmont-c2",
                 "revisionPin": c2_rev,
                 "scopeMode": "world",
-                "target": {"kind": "node", "id": "node:location:mireward"},
+                "target": {"kind": "node", "id": c2_node},
             }
         ),
     )
@@ -1140,7 +1173,7 @@ def test_fresh_recap_publication_source_read_is_digest_verified(
                 "campaignId": "longmont-c1",
                 "revisionPin": c1_rev,
                 "scopeMode": "world",
-                "target": {"kind": "node", "id": "node:character:torbin"},
+                "target": {"kind": "node", "id": c1_node},
             }
         ),
     )
