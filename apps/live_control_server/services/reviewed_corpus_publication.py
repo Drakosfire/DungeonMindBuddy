@@ -638,8 +638,7 @@ class CorePublicationBackend:
                     anchors[anchor.anchor_id] = anchor
         opened, unavailable, covered = [], [], set()
         for anchor_id, anchor in sorted(anchors.items()):
-            if not anchor.readable:
-                continue
+            # Report every required anchor through the source reader.
             try:
                 result = read_source_anchor_direct(
                     services,
