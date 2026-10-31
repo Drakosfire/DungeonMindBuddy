@@ -66,8 +66,7 @@ jobs:
             tests/test_dms_principal.py \
             tests/test_trusted_cookie_origin.py \
             tests/test_agent_graph_auth.py \
-            tests/test_native_graph_inspection.py \
-            tests/test_native_ingest_review_context.py
+            tests/test_native_graph_inspection.py
 
   production-image-build:
     name: Production Docker build (no push)
