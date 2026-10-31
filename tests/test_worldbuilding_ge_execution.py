@@ -1,4 +1,6 @@
 from __future__ import annotations
+from tests.page_fixtures import create_page_fixture
+from apps.live_control_server.services.workspace_document_registry import get_workspace_document
 
 import hashlib
 import json
@@ -13,17 +15,13 @@ import pytest
 from apps.live_control_server.services.source_artifact_registry import (
     create_source_artifact_from_workspace_document,
 )
-from apps.live_control_server.services.workspace_document_registry import (
-    create_workspace_document,
-    mark_workspace_document_committed,
-)
 
 
 SOURCE = "The Azure Reach is a continent at the edge of reality.\nAsterport is a city.\n"
 
 
 def _registered_source(root: Path):
-    record = create_workspace_document(
+    record = create_page_fixture(
         root,
         title="The City of Asterport",
         campaign_id="azure-reach",
@@ -36,7 +34,7 @@ def _registered_source(root: Path):
     path = root / (record.target_relpath or "")
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(SOURCE, encoding="utf-8")
-    committed = mark_workspace_document_committed(root, record.document_id)
+    committed = get_workspace_document(root, record.document_id)
     artifact = create_source_artifact_from_workspace_document(
         root,
         document_id=committed.document_id,

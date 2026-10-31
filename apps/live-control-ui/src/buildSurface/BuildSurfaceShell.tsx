@@ -21,6 +21,7 @@ import {
 import type { MarkdownCanvasSlots } from "../markdownCanvas/MarkdownCanvas";
 import { useAgentInteraction } from "../agentInteraction/useAgentInteraction";
 import { parseBuildSourceNavigationQuery } from "../sourceNavigation/sourceNavigation";
+import { getWorldIdForCampaign } from "../worldGraph/worldGraphSurfaceContext";
 import { BuildGraphObjectContext, parseBuildGraphPointerFromLocation } from "./BuildGraphObjectContext";
 import { BUILD_DOCUMENT_SAVE_COMMAND_ID } from "./buildDocumentCommands";
 import { useBuildAutosave } from "./useBuildAutosave";
@@ -112,7 +113,7 @@ function BuildPresentableSourceView({
     {navigationTarget.status !== "none" ? <details className="build-source-evidence" open>
       <summary>Saved evidence passage</summary>
       <BuildSourceReader showOutline={false} title={session.record!.title}
-        markdown={session.snapshot!.markdown} dirty={session.dirty} navigationTarget={navigationTarget} />
+        markdown={session.snapshot!.committed_markdown ?? ""} dirty={session.dirty} navigationTarget={navigationTarget} />
     </details> : null}
     {showEmptySourcePrompt ? <section className="build-empty-document-prompt" data-testid="build-empty-document-prompt" aria-label="A beginning for this page">
       <div className="build-empty-document-prompt__art" aria-hidden="true">
@@ -293,10 +294,10 @@ export function BuildSurfaceShell({ onEditorTools, onReviewTarget }: { onEditorT
     (command) => command.id === BUILD_DOCUMENT_SAVE_COMMAND_ID,
   );
   const slots = useBuildMarkdownCanvasSlots({ hideFooterSave: hasSharedEditSave, hideDraftTools: true });
-  const conversationContext = useMemo(() => session.record?.world_id && session.record.content_status === "committed"
-    && session.snapshot && isPresentableSourcePhase(session.phase) ? {
+  const conversationContext = useMemo(() => session.record?.world_id && session.snapshot?.committed_markdown != null
+    && session.snapshot.committed_content_sha256 && isPresentableSourcePhase(session.phase) ? {
       worldId: session.record.world_id, documentId: session.record.document_id,
-      revision: session.snapshot.loaded_revision, contentSha256: session.snapshot.content_sha256,
+      revision: session.snapshot.loaded_revision, contentSha256: session.snapshot.committed_content_sha256,
       surfaceInstanceId: `build:${session.record.document_id}`, title: session.record.title, dirty: session.dirty,
     } : null, [session.record, session.snapshot, session.phase, session.dirty]);
   const composeGeneration = useRef({ draft: 0, selection: 0 });
@@ -324,6 +325,10 @@ export function BuildSurfaceShell({ onEditorTools, onReviewTarget }: { onEditorT
   const composeBridge = useMemo(() => createBuildComposeBridge(() => composeCurrent.current,
     editor => composeChanged.current(editor.getJSON(), editor, { programmatic: false }),
     (basis,afterEditor,afterDraft,savedProjection)=>saveBuildProposal(()=>saveOwner.current,basis,afterEditor,afterDraft,savedProjection)), []);
+  const acceptedDocumentCampaignId = session.record?.campaign_id
+    && (session.record.campaign_id === session.record.world_id
+      || getWorldIdForCampaign(session.record.campaign_id) === session.record.world_id)
+    ? session.record.campaign_id : null;
   const lastAcceptedCampaignRef = useRef<string>("build");
   const [navigationTarget, setNavigationTarget] = useState<BuildSourceNavigationTarget>(
     IDLE_SOURCE_NAVIGATION_TARGET,
@@ -335,10 +340,10 @@ export function BuildSurfaceShell({ onEditorTools, onReviewTarget }: { onEditorT
     && isPresentableSourcePhase(session.phase);
 
   useEffect(() => {
-    if (session.record?.campaign_id) {
-      lastAcceptedCampaignRef.current = session.record.campaign_id;
+    if (session.record) {
+      lastAcceptedCampaignRef.current = acceptedDocumentCampaignId ?? "build";
     }
-  }, [session.record?.campaign_id]);
+  }, [session.record, acceptedDocumentCampaignId]);
 
   useEffect(() => {
     const publishNeutral = (ambientSummary: string) => {
@@ -381,8 +386,12 @@ export function BuildSurfaceShell({ onEditorTools, onReviewTarget }: { onEditorT
       return;
     }
 
+    if (!acceptedDocumentCampaignId) {
+      publishNeutral("This page has no admitted campaign context. Editing and Save remain available.");
+      return;
+    }
     rehydrateScope({
-      campaignId: session.record.campaign_id,
+      campaignId: acceptedDocumentCampaignId,
       sessionNumber: null,
       surfaceId: "build",
       documentId: session.record.document_id,
@@ -393,7 +402,7 @@ export function BuildSurfaceShell({ onEditorTools, onReviewTarget }: { onEditorT
     publishSurfaceContext({
       surfaceId: "build",
       label: `${BUILD_SURFACE_LABEL} · ${session.record.title}`,
-      campaignId: session.record.campaign_id,
+      campaignId: acceptedDocumentCampaignId,
       documentId: session.record.document_id,
       sessionNumber: null,
       ambientSummary: [
@@ -431,6 +440,7 @@ export function BuildSurfaceShell({ onEditorTools, onReviewTarget }: { onEditorT
     session.snapshot?.loaded_revision,
     publishSurfaceContext,
     rehydrateScope,
+    acceptedDocumentCampaignId,
   ]);
 
   // Leaving Build (or remounting for a new documentId) must not leave prior accepted context.
@@ -536,7 +546,6 @@ export function BuildSurfaceShell({ onEditorTools, onReviewTarget }: { onEditorT
   // document is loading, conflicted, or rejected, session.record is null — mounting
   // then would skip scope admission and race a later rejection.
   const graphPointer = parseBuildGraphPointerFromLocation();
-  const acceptedDocumentCampaignId = session.record?.campaign_id ?? null;
 
   const editSlots: MarkdownCanvasSlots = {
     ...slots,

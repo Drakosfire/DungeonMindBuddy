@@ -1,4 +1,6 @@
 """Build Recap source identity through actual document/source/run owners."""
+from tests.page_fixtures import create_page_fixture, save_page, page_text
+from apps.live_control_server.services.workspace_document_registry import get_workspace_document
 import hashlib
 import json
 from dataclasses import replace
@@ -9,7 +11,6 @@ from apps.live_control_server.services import graph_preview_runner as runner
 from apps.live_control_server.services.build_recap_source import register_build_recap_source, frozen_build_recap_configuration
 from apps.live_control_server.services.recap_ingest_context import RecapContextSnapshot
 from apps.live_control_server.services.source_artifact_registry import SourceArtifactRegistryError, load_registered_source_artifact_text, load_source_span_index
-from apps.live_control_server.services.workspace_document_registry import create_workspace_document, mark_workspace_document_committed, get_workspace_document
 
 pytestmark = pytest.mark.usefixtures("application_state_dsn")
 
@@ -23,13 +24,12 @@ def source(tmp_path,monkeypatch):
     monkeypatch.setenv("DMB_ARTIFACT_DATA_ROOT",str(tmp_path))
     from tests.test_recap_managed_standing_context import seed_binding
     seed_binding(tmp_path)
-    record=create_workspace_document(tmp_path,title="External recap",campaign_id="workspace-campaign",world_id="managed-a",kind="worldbuilding_source",
+    record=create_page_fixture(tmp_path,title="External recap",campaign_id="workspace-campaign",world_id="managed-a",kind="worldbuilding_source",
         source_domain="worldbuilding",document_class="lore",authority_state="draft",visibility_state="internal")
-    target=tmp_path/record.target_relpath;target.parent.mkdir(parents=True,exist_ok=True)
     text="Mirathorn’s party crossed the boardwalk.\n\nThey camped north of Mireward Reach.\n"
-    target.write_text(text,encoding="utf-8")
-    record=mark_workspace_document_committed(tmp_path,record.document_id)
-    return record,target,text,hashlib.sha256(text.encode()).hexdigest()
+    record = save_page(tmp_path, record.document_id, text)
+    record=get_workspace_document(tmp_path, record.document_id)
+    return record,None,text,hashlib.sha256(text.encode()).hexdigest()
 
 def register(tmp_path,source,context,**changes):
     record,_,_,digest=source
@@ -49,11 +49,11 @@ def test_freezes_exact_document_bytes_without_reinterpreting_document(tmp_path,s
     assert index.content_sha256==digest
     assert get_workspace_document(tmp_path,record.document_id).campaign_id=="workspace-campaign"
     assert get_workspace_document(tmp_path,record.document_id).source_domain=="worldbuilding"
-    assert target.read_text()==text
+    assert page_text(tmp_path, record.document_id)==text
     # Registry source remains immutable even when the editor later saves different text.
-    target.write_text("Newer editor text.\n",encoding="utf-8")
+    save_page(tmp_path, record.document_id, "Newer editor text.\n")
     assert load_registered_source_artifact_text(tmp_path,artifact.source_artifact_id)[1]==text
-    with pytest.raises(SourceArtifactRegistryError,match="digest changed"):
+    with pytest.raises(SourceArtifactRegistryError,match="revision changed"):
         register(tmp_path,source,context)
 
 
@@ -121,31 +121,30 @@ def test_runner_rejects_ambiguous_or_foreign_source_before_execution(tmp_path,so
     monkeypatch.setattr(runner,"run_production_extraction",lambda *a,**k:pytest.fail("must not execute"))
     args=dict(repo_root=tmp_path,campaign_id="longmont-c2",session_id="session-30",build_source_artifact_id=artifact.source_artifact_id,ingest_context=context)
     with pytest.raises(SourceArtifactRegistryError,match="exactly one"):
-        runner.run_recap_production_extraction(**args,recap_path=source[1])
+        runner.run_recap_production_extraction(**args,recap_path=tmp_path/"ambiguous-recap.md")
     with pytest.raises(SourceArtifactRegistryError,match="does not match"):
         runner.run_recap_production_extraction(**{**args,"session_id":"session-31"})
 
 
 def test_equal_bytes_in_another_document_do_not_erase_provenance(tmp_path,source,context):
     original=register(tmp_path,source,context)
-    other=create_workspace_document(tmp_path,title="Another recap",campaign_id="workspace-campaign",world_id="managed-a",kind="worldbuilding_source",
+    other=create_page_fixture(tmp_path,title="Another recap",campaign_id="workspace-campaign",world_id="managed-a",kind="worldbuilding_source",
         source_domain="worldbuilding",document_class="lore",authority_state="draft",visibility_state="internal")
-    target=tmp_path/other.target_relpath;target.parent.mkdir(parents=True,exist_ok=True);target.write_text(source[2])
-    other=mark_workspace_document_committed(tmp_path,other.document_id)
-    artifact=register(tmp_path,(other,target,source[2],source[3]),context)
+    pass;None;other = save_page(tmp_path, other.document_id, source[2])
+    other=get_workspace_document(tmp_path, other.document_id)
+    artifact=register(tmp_path,(other,None,source[2],source[3]),context)
     assert artifact.content_sha256==original.content_sha256
     assert artifact.source_artifact_id!=original.source_artifact_id
     assert artifact.workspace_document_id==other.document_id
 
 
-@pytest.mark.parametrize("state",["draft","discarded","missing"])
+@pytest.mark.parametrize("state",["draft","discarded"])
 def test_rejects_unusable_document_before_registration(tmp_path,source,context,state):
     from apps.live_control_server.services.workspace_document_registry import discard_workspace_document
     record,target,_,_=source
     if state=="discarded":discard_workspace_document(tmp_path,record.document_id)
-    elif state=="missing":target.unlink()
     else:
-        draft=create_workspace_document(tmp_path,title="Draft",campaign_id="workspace-campaign",world_id="managed-a",kind="worldbuilding_source",
+        draft=create_page_fixture(tmp_path,title="Draft",campaign_id="workspace-campaign",world_id="managed-a",kind="worldbuilding_source",
             source_domain="worldbuilding",document_class="lore",authority_state="draft",visibility_state="internal")
         source=(draft,target,source[2],source[3])
     with pytest.raises(SourceArtifactRegistryError):register(tmp_path,source,context)
@@ -184,4 +183,4 @@ def test_build_sources_freeze_document_names_across_later_renames(tmp_path, sour
     assert new_recap.lineage['source_name'] == new_worldbuilding.lineage['source_name'] == renamed.title
     assert new_recap.source_artifact_id != recap.source_artifact_id
     assert new_worldbuilding.source_artifact_id != worldbuilding.source_artifact_id
-    assert target.read_text() == text
+    assert page_text(tmp_path, record.document_id) == text

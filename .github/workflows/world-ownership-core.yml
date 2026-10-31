@@ -68,6 +68,7 @@ jobs:
           scripts/adopt_authored_pages.py
           src/application_state/migrations/versions/20261031_0101_authored_pages.py
           tests/application_state/test_authored_pages_postgres.py
+          tests/test_authored_page_database_cutover.py
           tests/application_state/test_authored_page_adoption.py
           src/application_state/world_catalog/service.py
           tests/application_state/test_world_catalog_postgres.py
@@ -131,5 +132,6 @@ jobs:
           tests/test_build_related_pages.py::test_source_owner_refuses_changed_or_foreign_saved_page
           tests/test_connected_page_authoring.py::test_saved_excerpt_uses_coherent_committed_owner_projection
           tests/test_connected_page_authoring.py::test_saved_origin_refuses_mismatch_before_reservation
-          tests/test_workspace_document_registry.py::test_saved_snapshot_owner_refuses_redirected_page_target
-          tests/test_workspace_document_registry.py::test_snapshot_committed_missing_file_is_integrity_failure
+          tests/test_authored_page_database_cutover.py
+          tests/test_workspace_document_registry.py
+          tests/test_tiptap_markdown_write.py

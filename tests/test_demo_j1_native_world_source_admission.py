@@ -1,4 +1,5 @@
 from __future__ import annotations
+from tests.page_fixtures import create_page_fixture
 
 from application_state.world_catalog.service import get_world
 from tests.application_state.world_catalog_fixtures import store_world, change_binding, world_snapshot
@@ -16,9 +17,6 @@ from apps.live_control_server.services.tiptap_markdown_write import (
     TiptapMarkdownWritePrepareRequest,
     commit_tiptap_markdown_write,
     prepare_tiptap_markdown_write,
-)
-from apps.live_control_server.services.workspace_document_registry import (
-    create_workspace_document,
 )
 from apps.live_control_server.services.world_container_registry import create_world_container
 from dungeonmind.infrastructure.memory.vnext_sources import InMemoryNativeSourceEvidenceRepository
@@ -39,7 +37,7 @@ def _committed_source(
             "status": "active", "validated_at": "2026-10-14T00:00:00Z",
             "validated_head_revision_id": "rev:fixture",
         }}))
-    record = create_workspace_document(
+    record = create_page_fixture(
         root,
         title="Test Source",
         campaign_id=world.world_id,
@@ -73,7 +71,7 @@ def _committed_source(
 
 
 def _admit(root: Path, document_id: str, *, expected_revision: int | None = None):
-    snapshot = native.get_workspace_document_snapshot(root, document_id)
+    snapshot = native.get_committed_page_snapshot(root, document_id)
     return native.admit_native_world_source(
         root,
         document_id,
@@ -102,7 +100,7 @@ def test_admission_is_exact_replayable_and_exposes_the_committed_whole_span(
         tmp_path, record.document_id, expected_revision=record.revision
     )
 
-    snapshot = native.get_workspace_document_snapshot(tmp_path, record.document_id)
+    snapshot = native.get_committed_page_snapshot(tmp_path, record.document_id)
     body = snapshot.markdown.encode("utf-8")
     assert first.state == replay.state == status.state == "admitted"
     assert first.admission_id == replay.admission_id == status.admission_id
@@ -209,9 +207,15 @@ def test_post_admission_body_pin_rejects_source_bytes_changed_without_registry_r
     memory_repository: InMemoryNativeSourceEvidenceRepository,
 ) -> None:
     world, record = _committed_source(tmp_path)
-    snapshot = native.get_workspace_document_snapshot(tmp_path, record.document_id)
-    target = tmp_path / record.target_relpath
-    target.write_text(snapshot.markdown + "\nChanged outside the registry.\n", encoding="utf-8")
+    snapshot = native.get_committed_page_snapshot(tmp_path, record.document_id)
+    pass
+    import psycopg
+    from application_state.config import load_runtime_dsn
+    changed = snapshot.markdown + "\nChanged outside the owner.\n"
+    with psycopg.connect(load_runtime_dsn()) as conn:
+        conn.execute("UPDATE content.work_revision SET markdown=%s,content_sha256=%s WHERE work_revision_id="
+            "(SELECT current_revision_id FROM content.work_object WHERE work_object_id=%s)",
+            (changed, sha256(changed.encode()).hexdigest(), record.document_id))
 
     with pytest.raises(native.NativeWorldSourceAdmissionError) as failure:
         native.admit_native_world_source(
@@ -243,7 +247,7 @@ def test_admission_digest_is_for_the_registry_snapshot_newline_representation(
         tmp_path,
         markdown="# Exact source\r\n\r\nCRLF is normalized by the workspace snapshot.\r\n",
     )
-    snapshot = native.get_workspace_document_snapshot(tmp_path, record.document_id)
+    snapshot = native.get_committed_page_snapshot(tmp_path, record.document_id)
 
     assert "\r" not in snapshot.markdown
     snapshot_body = snapshot.markdown.encode("utf-8")
@@ -296,7 +300,7 @@ def test_foreign_world_and_descriptor_drift_fail_before_native_mutation(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     world, record = _committed_source(tmp_path)
-    original_snapshot = native.get_workspace_document_snapshot
+    original_snapshot = native.get_committed_page_snapshot
     snapshot = original_snapshot(tmp_path, record.document_id)
 
     class ForeignWorldSnapshot:
@@ -311,7 +315,7 @@ def test_foreign_world_and_descriptor_drift_fail_before_native_mutation(
             return changed
 
     monkeypatch.setattr(
-        native, "get_workspace_document_snapshot", lambda *_args: ForeignWorldSnapshot()
+        native, "get_committed_page_snapshot", lambda *_args: ForeignWorldSnapshot()
     )
     with pytest.raises(native.NativeWorldSourceAdmissionError) as foreign:
         native.admit_native_world_source(
@@ -323,7 +327,7 @@ def test_foreign_world_and_descriptor_drift_fail_before_native_mutation(
     assert foreign.value.code == "managed_world_missing"
     assert memory_repository.get_head(world.world_id) is None
 
-    monkeypatch.setattr(native, "get_workspace_document_snapshot", original_snapshot)
+    monkeypatch.setattr(native, "get_committed_page_snapshot", original_snapshot)
     from graph_memory.vnext import domain_runtime
     monkeypatch.setattr(domain_runtime, "canonical_sha256", lambda _value: "0" * 64)
     with pytest.raises(native.NativeWorldSourceAdmissionError) as drift:
@@ -337,7 +341,7 @@ def test_non_worldbuilding_or_player_safe_documents_are_rejected(
     memory_repository: InMemoryNativeSourceEvidenceRepository,
 ) -> None:
     _world, record = _committed_source(tmp_path)
-    original = native.get_workspace_document_snapshot
+    original = native.get_committed_page_snapshot
 
     class SnapshotProxy:
         def __init__(self, snapshot, *, kind=None, visibility=None):
@@ -362,7 +366,7 @@ def test_non_worldbuilding_or_player_safe_documents_are_rejected(
     try:
         monkeypatch.setattr(
             native,
-            "get_workspace_document_snapshot",
+            "get_committed_page_snapshot",
             lambda *_args: SnapshotProxy(snapshot, kind="plan"),
         )
         with pytest.raises(native.NativeWorldSourceAdmissionError) as kind_error:
@@ -371,7 +375,7 @@ def test_non_worldbuilding_or_player_safe_documents_are_rejected(
 
         monkeypatch.setattr(
             native,
-            "get_workspace_document_snapshot",
+            "get_committed_page_snapshot",
             lambda *_args: SnapshotProxy(snapshot, visibility="player_safe"),
         )
         with pytest.raises(native.NativeWorldSourceAdmissionError) as visibility_error:
@@ -397,7 +401,7 @@ def test_route_accepts_only_expected_revision_and_returns_typed_status(
             {"expected_revision": record.revision}
         )
 
-    snapshot = native.get_workspace_document_snapshot(tmp_path, record.document_id)
+    snapshot = native.get_committed_page_snapshot(tmp_path, record.document_id)
 
     admitted = workspace_documents.post_native_world_source_admission(
         record.document_id,
@@ -425,7 +429,7 @@ def test_source_admission_uses_separate_managed_registry_root(
     status = native.get_native_world_source_status(document_root, record.document_id)
     assert admitted.state == status.state == "admitted"
     assert admitted.world_id == world.world_id
-    assert admitted.body_sha256 == native.get_workspace_document_snapshot(
+    assert admitted.body_sha256 == native.get_committed_page_snapshot(
         document_root, record.document_id
     ).content_sha256
     assert _admit(document_root, record.document_id).admission_id == admitted.admission_id

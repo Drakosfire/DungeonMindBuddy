@@ -6,7 +6,7 @@ import {
   admitNativeWorldSource,
   commitTiptapMarkdownWrite,
   createWorldContainer,
-  getWorkspaceDocumentSnapshot,
+  getCommittedPageSnapshot,
   listWorkspaceDocuments,
   listWorldContainers,
   prepareTiptapMarkdownWrite,
@@ -71,9 +71,7 @@ function validateBuildSourceRecord(
   if (record.status !== "active") {
     throw new Error("Document is not active");
   }
-  if (selectedWorldId && (
-    record.world_id !== selectedWorldId || record.campaign_id !== selectedWorldId
-  )) {
+  if (selectedWorldId && record.world_id !== selectedWorldId) {
     throw new Error(`Source ${requestedId} does not belong to World ${selectedWorldId}.`);
   }
   return record;
@@ -217,7 +215,6 @@ function isSnapshotImportCommitted(
 ): boolean {
   return (
     snapshot.record.content_status === "committed" &&
-    snapshot.file_exists &&
     snapshot.markdown === expectedMarkdown
   );
 }
@@ -229,8 +226,7 @@ function nativeWorldSourceAdmissionPin(
 ): { revision: number; bodySha256: string } {
   if (
     snapshot.record.kind !== "worldbuilding_source" ||
-    snapshot.record.content_status !== "committed" ||
-    !snapshot.file_exists
+    snapshot.record.content_status !== "committed"
   ) {
     throw new Error("Imported source is not committed and ready for native admission");
   }
@@ -250,7 +246,7 @@ function nativeWorldSourceAdmissionPin(
 }
 
 function isSnapshotActivationReady(snapshot: WorkspaceDocumentSnapshot): boolean {
-  return snapshot.record.content_status === "committed" && snapshot.file_exists;
+  return snapshot.record.content_status === "committed";
 }
 
 async function applyImportTitleIfNeeded(
@@ -361,7 +357,7 @@ export function useBuildWorkspaceDocumentController(): BuildWorkspaceDocumentCon
       const list = await listWorkspaceDocuments({
         kind: "worldbuilding_source",
         status: "active",
-        ...(selectedWorldId ? { campaign_id: selectedWorldId } : {}),
+        ...(selectedWorldId ? { world_id: selectedWorldId } : {}),
       });
       if (generation !== selectorListGenerationRef.current) return;
       setDocuments(list.records);
@@ -417,7 +413,7 @@ export function useBuildWorkspaceDocumentController(): BuildWorkspaceDocumentCon
       }
 
       try {
-        const snapshot = await getWorkspaceDocumentSnapshot(requestedId);
+        const snapshot = await getCommittedPageSnapshot(requestedId);
         const record = validateBuildSourceRecord(snapshot.record, requestedId, selectedWorldId);
         if (generation !== documentLoadGenerationRef.current) return false;
 
@@ -564,7 +560,7 @@ export function useBuildWorkspaceDocumentController(): BuildWorkspaceDocumentCon
       if ((selectedWorldId !== null && record.world_id !== selectedWorldId)
         || (selectedWorldId === null && record.world_id === record.campaign_id)) {
         const params = new URLSearchParams(search);
-        if (record.world_id === record.campaign_id) {
+        if (record.world_id && record.world_id === record.campaign_id) {
           params.set("world", record.world_id);
         } else {
           params.delete("world");
@@ -634,7 +630,7 @@ export function useBuildWorkspaceDocumentController(): BuildWorkspaceDocumentCon
         persistPendingImportDocumentId(record.document_id);
         return committed.committed_record;
       } catch (error) {
-        const snapshot = await getWorkspaceDocumentSnapshot(record.document_id);
+        const snapshot = await getCommittedPageSnapshot(record.document_id);
         if (isSnapshotImportCommitted(snapshot, markdown)) {
           importCommittedRef.current = true;
           persistPendingImportDocumentId(record.document_id);
@@ -642,8 +638,7 @@ export function useBuildWorkspaceDocumentController(): BuildWorkspaceDocumentCon
         }
         if (
           snapshot.record.content_status === "committed" &&
-          snapshot.file_exists &&
-          snapshot.markdown !== markdown
+                snapshot.markdown !== markdown
         ) {
           throw new Error("Imported content does not match pasted Markdown");
         }
@@ -657,15 +652,14 @@ export function useBuildWorkspaceDocumentController(): BuildWorkspaceDocumentCon
     async (expectedMarkdown: string): Promise<WorkspaceDocumentRecord> => {
       const pendingId = pendingImportDocumentIdRef.current;
       if (pendingId) {
-        const snapshot = await getWorkspaceDocumentSnapshot(pendingId);
+        const snapshot = await getCommittedPageSnapshot(pendingId);
         if (isSnapshotImportCommitted(snapshot, expectedMarkdown)) {
           importCommittedRef.current = true;
           return snapshot.record;
         }
         if (
           snapshot.record.content_status === "committed" &&
-          snapshot.file_exists &&
-          snapshot.markdown !== expectedMarkdown
+                snapshot.markdown !== expectedMarkdown
         ) {
           throw new Error("Imported content does not match pasted Markdown");
         }
@@ -676,15 +670,14 @@ export function useBuildWorkspaceDocumentController(): BuildWorkspaceDocumentCon
       if (retained == null) {
         throw new Error("No created source is available to import into");
       }
-      const snapshot = await getWorkspaceDocumentSnapshot(retained.document_id);
+      const snapshot = await getCommittedPageSnapshot(retained.document_id);
       if (isSnapshotImportCommitted(snapshot, expectedMarkdown)) {
         importCommittedRef.current = true;
         return snapshot.record;
       }
       if (
         snapshot.record.content_status === "committed" &&
-        snapshot.file_exists &&
-        snapshot.markdown !== expectedMarkdown
+            snapshot.markdown !== expectedMarkdown
       ) {
         throw new Error("Imported content does not match pasted Markdown");
       }
@@ -832,7 +825,7 @@ export function useBuildWorkspaceDocumentController(): BuildWorkspaceDocumentCon
         if (pendingId) {
           // Only the persisted pending-import lifecycle may reuse an identity.
           // Fresh Import never targets the currently active Canvas draft.
-          const snapshot = await getWorkspaceDocumentSnapshot(pendingId);
+          const snapshot = await getCommittedPageSnapshot(pendingId);
           const pendingRecord = snapshot.record;
           if (!recordMatchesImportScope(pendingRecord, campaign, worldId)) {
             throw new Error(
@@ -846,7 +839,7 @@ export function useBuildWorkspaceDocumentController(): BuildWorkspaceDocumentCon
           } else if (isPendingImportableDraft(pendingRecord, campaign, worldId)) {
             record = await applyImportTitleIfNeeded(pendingRecord, title);
             persistPendingImportDocumentId(record.document_id);
-          } else if (snapshot.file_exists && pendingRecord.content_status === "committed") {
+          } else if (pendingRecord.content_status === "committed") {
             throw new Error("Imported content does not match pasted Markdown");
           } else {
             throw new Error(
@@ -870,7 +863,7 @@ export function useBuildWorkspaceDocumentController(): BuildWorkspaceDocumentCon
         if (!skipCommit && !importCommittedRef.current) {
           committedRecord = await commitSourceImport(record, markdown);
         } else if (importCommittedRef.current && !skipCommit) {
-          const snapshot = await getWorkspaceDocumentSnapshot(record.document_id);
+          const snapshot = await getCommittedPageSnapshot(record.document_id);
           committedRecord = snapshot.record;
         }
 
@@ -881,7 +874,7 @@ export function useBuildWorkspaceDocumentController(): BuildWorkspaceDocumentCon
           // Admission is a separate durable step. A failure must not roll back
           // or hide the already-saved source; the toolbar exposes exact retry.
           try {
-            const snapshot = await getWorkspaceDocumentSnapshot(committedRecord.document_id);
+            const snapshot = await getCommittedPageSnapshot(committedRecord.document_id);
             const pin = nativeWorldSourceAdmissionPin(
               snapshot,
               committedRecord.revision,
@@ -959,14 +952,14 @@ export function useBuildWorkspaceDocumentController(): BuildWorkspaceDocumentCon
       try {
         const record = await resolveImportRecordForRetry(markdown);
         if (importCommittedRef.current) {
-          const snapshot = await getWorkspaceDocumentSnapshot(record.document_id);
+          const snapshot = await getCommittedPageSnapshot(record.document_id);
           const pin = nativeWorldSourceAdmissionPin(snapshot, record.revision, markdown);
           await admitNativeWorldSource(record.document_id, pin.revision, pin.bodySha256).catch(() => undefined);
           await activateCreatedRecord(record);
           return;
         }
         const committedRecord = await commitSourceImport(record, markdown);
-        const snapshot = await getWorkspaceDocumentSnapshot(committedRecord.document_id);
+        const snapshot = await getCommittedPageSnapshot(committedRecord.document_id);
         const pin = nativeWorldSourceAdmissionPin(
           snapshot,
           committedRecord.revision,
@@ -998,7 +991,7 @@ export function useBuildWorkspaceDocumentController(): BuildWorkspaceDocumentCon
     try {
       const pendingId = pendingImportDocumentIdRef.current;
       if (pendingId) {
-        const snapshot = await getWorkspaceDocumentSnapshot(pendingId);
+        const snapshot = await getCommittedPageSnapshot(pendingId);
         if (isSnapshotActivationReady(snapshot)) {
           importCommittedRef.current = true;
           if (snapshot.record.kind === "worldbuilding_source") {
@@ -1015,7 +1008,7 @@ export function useBuildWorkspaceDocumentController(): BuildWorkspaceDocumentCon
         }
       }
       if (importCommittedRef.current && pendingId) {
-        const snapshot = await getWorkspaceDocumentSnapshot(pendingId);
+        const snapshot = await getCommittedPageSnapshot(pendingId);
         await activateCreatedRecord(snapshot.record);
         return;
       }

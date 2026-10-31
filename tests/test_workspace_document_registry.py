@@ -1,4 +1,6 @@
 from __future__ import annotations
+from tests.page_fixtures import create_page_fixture, save_page
+from apps.live_control_server.services.workspace_document_registry import get_workspace_document
 
 import uuid
 from pathlib import Path
@@ -7,22 +9,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from apps.live_control_server.main import create_app
-from apps.live_control_server.services.workspace_document_registry import (
-    REGISTRY_SCHEMA,
-    WorkspaceDocumentRecord,
-    WorkspaceDocumentRegistryError,
-    create_workspace_document,
-    discard_workspace_document,
-    find_duplicate_target_relpath_ownership,
-    get_workspace_document,
-    list_workspace_documents,
-    mark_workspace_document_committed,
-    reinstate_workspace_document_record,
-    release_target_relpath_from_discarded_duplicate,
-    restore_workspace_document,
-    update_workspace_document_metadata,
-    workspace_documents_path,
-)
+from apps.live_control_server.services.workspace_document_registry import (REGISTRY_SCHEMA, WorkspaceDocumentRecord, WorkspaceDocumentRegistryError, create_workspace_document, discard_workspace_document, list_workspace_documents, restore_workspace_document, update_workspace_document_metadata, workspace_documents_path)
 
 
 @pytest.fixture
@@ -294,7 +281,7 @@ def test_mark_committed_stale_expected_revision_conflicts(root: Path) -> None:
 def _worldbuilding_source(
     root: Path, *, title: str = "Shepherd Cult Lore"
 ) -> WorkspaceDocumentRecord:
-    return create_workspace_document(
+    return create_page_fixture(
         root,
         title=title,
         campaign_id="longmont-c2",
@@ -306,108 +293,15 @@ def _worldbuilding_source(
     )
 
 
-def _inject_leftover_twin(
-    root: Path,
-    *,
-    target_relpath: str,
-    status: str = "active",
-    revision: int = 1,
-) -> str:
-    """Bypass create uniqueness to simulate a pre-invariant leftover JSON duplicate."""
-    from apps.live_control_server.services.workspace_document_registry import (
-        _load_unlocked,
-        _save_cas,
-        _utc_now_iso,
-    )
-    from apps.live_control_server.services.registry_file_lock import (
-        registry_mutation_lock,
-    )
-
-    twin_id = str(uuid.uuid4())
-    now = _utc_now_iso()
-    twin = WorkspaceDocumentRecord(
-        document_id=twin_id,
-        title="Leftover twin",
-        campaign_id="longmont-c2",
-        kind="worldbuilding_source",
-        target_relpath=target_relpath,
-        status=status,  # type: ignore[arg-type]
-        content_status="draft",
-        revision=revision,
-        created_at=now,
-        updated_at=now,
-        source_domain="worldbuilding",
-        document_class="lore",
-        authority_state="draft",
-        visibility_state="internal",
-    )
-    path = workspace_documents_path(root)
-    with registry_mutation_lock(path):
-        document, token = _load_unlocked(root)
-        document.records.append(twin)
-        _save_cas(root, document, expected_token=token)
-    return twin_id
 
 
-def test_worldbuilding_source_issues_uuid_and_registry_owned_target(root: Path) -> None:
-    created = create_workspace_document(
-        root,
-        title="Shepherd Cult Lore",
-        campaign_id="eldyrwild",
-        kind="worldbuilding_source",
-        source_domain="worldbuilding",
-        document_class="faction",
-        authority_state="draft",
-        visibility_state="internal",
-    )
-
-    uuid.UUID(created.document_id)
-    assert created.kind == "worldbuilding_source"
-    assert created.source_domain == "worldbuilding"
-    assert created.document_class == "faction"
-    assert created.authority_state == "draft"
-    assert created.visibility_state == "internal"
-    assert (
-        created.target_relpath
-        == f"out/workspace/worldbuilding/{created.document_id}.md"
-    )
-    assert created.target_session is None
-
-    loaded = get_workspace_document(root, created.document_id)
-    assert loaded.model_dump() == created.model_dump()
 
 
-def _ensure_eldyrwild_world_root(root: Path) -> None:
-    from apps.live_control_server.services.world_container_registry import create_world_container
-    create_world_container(root, name="Eldyrwild")
 
 
-def test_worldbuilding_source_with_world_id_derives_managed_corpus_target(
-    root: Path,
-) -> None:
-    _ensure_eldyrwild_world_root(root)
-    created = create_workspace_document(
-        root,
-        title="Hesta's Apothecary",
-        campaign_id="longmont-c2",
-        kind="worldbuilding_source",
-        world_id="eldyrwild",
-        source_domain="worldbuilding",
-        document_class="lore",
-        authority_state="draft",
-        visibility_state="internal",
-    )
-
-    assert created.world_id == "eldyrwild"
-    assert created.target_relpath == (
-        f"corpus/eldyrwild-markdown/_dungeonbuddy/sources/{created.document_id}/source.md"
-    )
-    loaded = get_workspace_document(root, created.document_id)
-    assert loaded.model_dump() == created.model_dump()
 
 
 def test_worldbuilding_source_rejects_unsafe_world_id(root: Path) -> None:
-    _ensure_eldyrwild_world_root(root)
     with pytest.raises(WorkspaceDocumentRegistryError) as exc_info:
         create_workspace_document(
             root,
@@ -424,24 +318,6 @@ def test_worldbuilding_source_rejects_unsafe_world_id(root: Path) -> None:
     assert "world_id" in str(exc_info.value)
 
 
-def test_worldbuilding_source_rejects_missing_world_root_without_registry_row(
-    root: Path,
-) -> None:
-    with pytest.raises(WorkspaceDocumentRegistryError) as exc_info:
-        create_workspace_document(
-            root,
-            title="Missing root",
-            campaign_id="longmont-c2",
-            kind="worldbuilding_source",
-            world_id="eldyrwild",
-            source_domain="worldbuilding",
-            document_class="lore",
-            authority_state="draft",
-            visibility_state="internal",
-        )
-    assert exc_info.value.status_code == 404
-    assert "world" in str(exc_info.value)
-    assert list_workspace_documents(root, kind="worldbuilding_source") == []
 
 
 def test_worldbuilding_source_succeeds_without_world_directory(
@@ -454,7 +330,7 @@ def test_worldbuilding_source_succeeds_without_world_directory(
 
     world = create_world_container(root, name="Managed Compose World")
     assert not (root / world.source_root_relpath).exists()
-    created = create_workspace_document(
+    created = create_page_fixture(
         root,
         title="First managed source",
         campaign_id=world.world_id,
@@ -467,40 +343,14 @@ def test_worldbuilding_source_succeeds_without_world_directory(
     )
     assert created.world_id == world.world_id
     assert created.campaign_id == world.world_id
-    assert created.target_relpath == (
-        f"{world.source_root_relpath}/_dungeonbuddy/sources/{created.document_id}/source.md"
-    )
+    assert created.target_relpath is None
 
 
-def test_worldbuilding_rename_does_not_move_world_scoped_target(root: Path) -> None:
-    _ensure_eldyrwild_world_root(root)
-    created = create_workspace_document(
-        root,
-        title="Original",
-        campaign_id="longmont-c1",
-        kind="worldbuilding_source",
-        world_id="eldyrwild",
-        source_domain="worldbuilding",
-        document_class="lore",
-        authority_state="draft",
-        visibility_state="internal",
-    )
-    original_target = created.target_relpath
-
-    renamed = update_workspace_document_metadata(
-        root,
-        created.document_id,
-        title="Renamed",
-        expected_revision=1,
-    )
-    assert renamed.title == "Renamed"
-    assert renamed.target_relpath == original_target
-    assert renamed.world_id == "eldyrwild"
 
 
 def test_worldbuilding_source_rejects_client_supplied_target(root: Path) -> None:
     with pytest.raises(WorkspaceDocumentRegistryError) as exc_info:
-        create_workspace_document(
+        create_page_fixture(
             root,
             title="Bad",
             campaign_id="eldyrwild",
@@ -512,12 +362,12 @@ def test_worldbuilding_source_rejects_client_supplied_target(root: Path) -> None
             visibility_state="internal",
         )
     assert exc_info.value.status_code == 422
-    assert "registry-owned" in str(exc_info.value)
+    assert "not caller-assigned" in str(exc_info.value)
 
 
 def test_worldbuilding_source_requires_explicit_metadata(root: Path) -> None:
     with pytest.raises(WorkspaceDocumentRegistryError) as exc_info:
-        create_workspace_document(
+        create_page_fixture(
             root,
             title="Missing metadata",
             campaign_id="eldyrwild",
@@ -527,7 +377,7 @@ def test_worldbuilding_source_requires_explicit_metadata(root: Path) -> None:
 
 
 def test_worldbuilding_metadata_update_and_discard_restore(root: Path) -> None:
-    created = create_workspace_document(
+    created = create_page_fixture(
         root,
         title="Mirathorn",
         campaign_id="eldyrwild",
@@ -586,12 +436,16 @@ def test_plan_rejects_worldbuilding_metadata(root: Path) -> None:
     assert exc_info.value.status_code == 422
 
 
-def test_api_worldbuilding_create_list_and_patch(client: TestClient) -> None:
+@pytest.mark.parametrize("campaign_id", [None, "longmont-c2"])
+def test_api_worldbuilding_create_list_and_patch(client: TestClient, campaign_id: str | None) -> None:
+    from application_state.world_catalog.service import create_world
+    create_world(name="Eldyrwild")
     create_response = client.post(
         "/api/live/workspace-documents",
         json={
             "title": "API Worldbuilding",
-            "campaign_id": "eldyrwild",
+            "world_id": "eldyrwild",
+            "campaign_id": campaign_id,
             "kind": "worldbuilding_source",
             "source_domain": "worldbuilding",
             "document_class": "lore",
@@ -602,13 +456,11 @@ def test_api_worldbuilding_create_list_and_patch(client: TestClient) -> None:
     assert create_response.status_code == 200
     created = create_response.json()
     assert created["kind"] == "worldbuilding_source"
-    assert created["target_relpath"] == (
-        f"out/workspace/worldbuilding/{created['document_id']}.md"
-    )
+    assert created["target_relpath"] is None
 
     list_response = client.get(
         "/api/live/workspace-documents",
-        params={"kind": "worldbuilding_source"},
+        params={"kind": "worldbuilding_source", "world_id": "eldyrwild"},
     )
     assert list_response.status_code == 200
     assert len(list_response.json()["records"]) == 1
@@ -621,90 +473,6 @@ def test_api_worldbuilding_create_list_and_patch(client: TestClient) -> None:
     assert patch_response.json()["authority_state"] == "canonical"
 
 
-def test_concurrent_commits_to_distinct_documents_preserve_both(root: Path) -> None:
-    import threading
-
-    from apps.live_control_server.services.tiptap_markdown_write import (
-        TiptapMarkdownWriteCommitRequest,
-        TiptapMarkdownWritePrepareRequest,
-        commit_tiptap_markdown_write,
-        prepare_tiptap_markdown_write,
-    )
-
-    docs = [
-        create_workspace_document(
-            root,
-            title=f"Lore {idx}",
-            campaign_id="eldyrwild",
-            kind="worldbuilding_source",
-            source_domain="worldbuilding",
-            document_class="lore",
-            authority_state="draft",
-            visibility_state="internal",
-        )
-        for idx in range(2)
-    ]
-    markdowns = [f"# Lore {idx}\n\nBody {idx}.\n" for idx in range(2)]
-    prepared = [
-        prepare_tiptap_markdown_write(
-            root=root,
-            request=TiptapMarkdownWritePrepareRequest(
-                document_id=doc.document_id,
-                markdown=markdowns[idx],
-                expected_revision=1,
-            ),
-        )
-        for idx, doc in enumerate(docs)
-    ]
-    barrier = threading.Barrier(2)
-    results: list[object] = []
-    errors: list[BaseException] = []
-
-    def worker(idx: int) -> None:
-        barrier.wait()
-        try:
-            results.append(
-                commit_tiptap_markdown_write(
-                    root=root,
-                    request=TiptapMarkdownWriteCommitRequest(
-                        document_id=docs[idx].document_id,
-                        markdown=markdowns[idx],
-                        writer_confirm_token=prepared[idx].writer_confirm_token or "",
-                        expected_revision=1,
-                    ),
-                )
-            )
-        except BaseException as exc:  # noqa: BLE001 - surface to main thread
-            errors.append(exc)
-
-    threads = [threading.Thread(target=worker, args=(idx,)) for idx in range(2)]
-    for thread in threads:
-        thread.start()
-    for thread in threads:
-        thread.join(timeout=5)
-        assert not thread.is_alive()
-
-    assert not errors
-    assert len(results) == 2
-    records = {
-        get_workspace_document(
-            root, doc.document_id
-        ).document_id: get_workspace_document(root, doc.document_id)
-        for doc in docs
-    }
-    assert len(records) == 2
-    for idx, doc in enumerate(docs):
-        loaded = records[doc.document_id]
-        assert loaded.content_status == "committed"
-        assert loaded.revision == 2
-        assert loaded.status == "active"
-        target = root / loaded.target_relpath
-        assert target.read_text(encoding="utf-8") == markdowns[idx]
-    payload = (root / "out/registries/workspace_documents.json").read_text(
-        encoding="utf-8"
-    )
-    assert docs[0].document_id in payload
-    assert docs[1].document_id in payload
 
 
 def test_snapshot_draft_without_file_returns_empty_markdown(root: Path) -> None:
@@ -712,7 +480,7 @@ def test_snapshot_draft_without_file_returns_empty_markdown(root: Path) -> None:
         get_workspace_document_snapshot,
     )
 
-    created = create_workspace_document(
+    created = create_page_fixture(
         root,
         title="WB Draft",
         campaign_id="eldyrwild",
@@ -728,33 +496,15 @@ def test_snapshot_draft_without_file_returns_empty_markdown(root: Path) -> None:
     assert snapshot.file_exists is False
     assert snapshot.markdown == ""
     assert snapshot.content_sha256
-    assert snapshot.file_fingerprint == "absent"
+    assert snapshot.file_fingerprint == "postgres"
 
 
-def test_snapshot_committed_missing_file_is_integrity_failure(root: Path) -> None:
-    from apps.live_control_server.services.workspace_document_registry import (
-        get_workspace_document_snapshot,
-    )
-
-    created = create_workspace_document(
-        root,
-        title="WB Committed",
-        campaign_id="eldyrwild",
-        kind="worldbuilding_source",
-        source_domain="worldbuilding",
-        document_class="lore",
-        authority_state="draft",
-        visibility_state="internal",
-    )
-    mark_workspace_document_committed(root, created.document_id)
-    with pytest.raises(WorkspaceDocumentRegistryError, match="missing"):
-        get_workspace_document_snapshot(root, created.document_id)
 
 
 def test_snapshot_api_returns_committed_markdown(
     client: TestClient, root: Path
 ) -> None:
-    created = create_workspace_document(
+    created = create_page_fixture(
         root,
         title="WB with file",
         campaign_id="eldyrwild",
@@ -764,12 +514,10 @@ def test_snapshot_api_returns_committed_markdown(
         authority_state="draft",
         visibility_state="internal",
     )
-    assert created.target_relpath is not None
-    target = root / created.target_relpath
-    target.parent.mkdir(parents=True, exist_ok=True)
+    assert created.target_relpath is None
     body = "# Lore\n\nHello snapshot.\n"
-    target.write_text(body, encoding="utf-8")
-    mark_workspace_document_committed(root, created.document_id)
+    created = save_page(root, created.document_id, body)
+    get_workspace_document(root, created.document_id)
 
     response = client.get(
         f"/api/live/workspace-documents/{created.document_id}/snapshot"
@@ -777,152 +525,11 @@ def test_snapshot_api_returns_committed_markdown(
     assert response.status_code == 200, response.text
     payload = response.json()
     assert payload["markdown"] == body.replace("\r\n", "\n").replace("\r", "\n")
-    assert payload["file_exists"] is True
+    assert payload["file_exists"] is False
     assert payload["loaded_revision"] == payload["record"]["revision"]
     assert payload["content_sha256"]
 
 
-def test_snapshot_and_commit_never_mix_revisions(
-    root: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    """Snapshot under document lock is entirely old or entirely new — never mixed."""
-    import hashlib
-    import threading
-
-    from apps.live_control_server.services.tiptap_markdown_write import (
-        TiptapMarkdownWriteCommitRequest,
-        TiptapMarkdownWritePrepareRequest,
-        commit_tiptap_markdown_write,
-        prepare_tiptap_markdown_write,
-    )
-    from apps.live_control_server.services.workspace_document_registry import (
-        get_workspace_document_snapshot,
-        get_workspace_document_snapshot_unlocked,
-    )
-
-    created = create_workspace_document(
-        root,
-        title="Coherent Lore",
-        campaign_id="eldyrwild",
-        kind="worldbuilding_source",
-        source_domain="worldbuilding",
-        document_class="lore",
-        authority_state="draft",
-        visibility_state="internal",
-    )
-    v1 = "# Lore\n\nRevision one.\n"
-    prepared_v1 = prepare_tiptap_markdown_write(
-        root=root,
-        request=TiptapMarkdownWritePrepareRequest(
-            document_id=created.document_id,
-            markdown=v1,
-            expected_revision=created.revision,
-        ),
-    )
-    committed_v1 = commit_tiptap_markdown_write(
-        root=root,
-        request=TiptapMarkdownWriteCommitRequest(
-            document_id=created.document_id,
-            markdown=v1,
-            writer_confirm_token=prepared_v1.writer_confirm_token or "",
-            expected_revision=created.revision,
-        ),
-    )
-    prior_revision = committed_v1.committed_revision
-    prior_digest = hashlib.sha256(v1.encode("utf-8")).hexdigest()
-
-    v2 = "# Lore\n\nRevision two.\n"
-    prepared_v2 = prepare_tiptap_markdown_write(
-        root=root,
-        request=TiptapMarkdownWritePrepareRequest(
-            document_id=created.document_id,
-            markdown=v2,
-            expected_revision=prior_revision,
-        ),
-    )
-
-    entered_snapshot = threading.Event()
-    release_snapshot = threading.Event()
-    real_unlocked = get_workspace_document_snapshot_unlocked
-
-    def delayed_unlocked(snapshot_root: Path, document_id: str):
-        entered_snapshot.set()
-        assert release_snapshot.wait(timeout=5), "timed out waiting to release snapshot"
-        return real_unlocked(snapshot_root, document_id)
-
-    monkeypatch.setattr(
-        "apps.live_control_server.services.workspace_document_registry.get_workspace_document_snapshot_unlocked",
-        delayed_unlocked,
-    )
-
-    snapshot_errors: list[BaseException] = []
-    snapshot_result: list[object] = []
-
-    def snapshot_worker() -> None:
-        try:
-            snapshot_result.append(
-                get_workspace_document_snapshot(root, created.document_id)
-            )
-        except BaseException as exc:  # noqa: BLE001 - surface to main thread
-            snapshot_errors.append(exc)
-
-    snapshot_thread = threading.Thread(target=snapshot_worker)
-    snapshot_thread.start()
-    assert entered_snapshot.wait(timeout=5), "snapshot never entered unlocked body"
-
-    commit_errors: list[BaseException] = []
-    commit_result: list[object] = []
-
-    def commit_worker() -> None:
-        try:
-            commit_result.append(
-                commit_tiptap_markdown_write(
-                    root=root,
-                    request=TiptapMarkdownWriteCommitRequest(
-                        document_id=created.document_id,
-                        markdown=v2,
-                        writer_confirm_token=prepared_v2.writer_confirm_token or "",
-                        expected_revision=prior_revision,
-                    ),
-                )
-            )
-        except BaseException as exc:  # noqa: BLE001 - surface to main thread
-            commit_errors.append(exc)
-
-    commit_thread = threading.Thread(target=commit_worker)
-    commit_thread.start()
-    # Commit must block on the document lock while snapshot holds it.
-    commit_thread.join(timeout=0.2)
-    assert commit_thread.is_alive(), "commit raced through while snapshot held the lock"
-
-    release_snapshot.set()
-    snapshot_thread.join(timeout=5)
-    commit_thread.join(timeout=5)
-
-    assert not snapshot_errors, snapshot_errors
-    assert not commit_errors, commit_errors
-    assert len(snapshot_result) == 1
-    assert len(commit_result) == 1
-
-    snapshot = snapshot_result[0]
-    assert snapshot.loaded_revision == prior_revision
-    assert snapshot.record.revision == prior_revision
-    assert snapshot.markdown == v1
-    assert snapshot.content_sha256 == prior_digest
-
-    committed = commit_result[0]
-    assert committed.committed_revision == prior_revision + 1
-    assert (
-        committed.normalized_content_sha256
-        == hashlib.sha256(v2.encode("utf-8")).hexdigest()
-    )
-    assert committed.committed_record.revision == committed.committed_revision
-
-    after = get_workspace_document_snapshot(root, created.document_id)
-    assert after.loaded_revision == committed.committed_revision
-    assert after.markdown == v2
-    assert after.content_sha256 == committed.normalized_content_sha256
-    assert after.file_fingerprint == committed.file_fingerprint
 
 
 def test_commit_receipt_matches_snapshot_fingerprint(root: Path) -> None:
@@ -936,7 +543,7 @@ def test_commit_receipt_matches_snapshot_fingerprint(root: Path) -> None:
         get_workspace_document_snapshot,
     )
 
-    created = create_workspace_document(
+    created = create_page_fixture(
         root,
         title="Receipt Lore",
         campaign_id="eldyrwild",
@@ -972,9 +579,6 @@ def test_commit_receipt_matches_snapshot_fingerprint(root: Path) -> None:
 
 
 def test_create_rejects_duplicate_non_null_target_relpath(root: Path) -> None:
-    from apps.live_control_server.services.workspace_document_registry import (
-        _load_registry_document,
-    )
 
     target = "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Prep/Session 28 Prep.md"
     first = create_workspace_document(
@@ -985,7 +589,7 @@ def test_create_rejects_duplicate_non_null_target_relpath(root: Path) -> None:
         target_session=28,
         target_relpath=target,
     )
-    before_count = len(_load_registry_document(root).records)
+    before_count = len(list_workspace_documents(root, status=None))
 
     with pytest.raises(WorkspaceDocumentRegistryError) as exc_info:
         create_workspace_document(
@@ -999,7 +603,7 @@ def test_create_rejects_duplicate_non_null_target_relpath(root: Path) -> None:
 
     assert exc_info.value.status_code == 409
     assert first.document_id in str(exc_info.value)
-    assert len(_load_registry_document(root).records) == before_count
+    assert len(list_workspace_documents(root, status=None)) == before_count
 
     second = create_workspace_document(
         root,
@@ -1039,201 +643,18 @@ def test_create_rejects_target_relpath_owned_by_discarded_document(root: Path) -
     assert first.document_id in str(exc_info.value)
 
 
-def test_worldbuilding_create_remains_uuid_bound_and_collision_free(root: Path) -> None:
-    a = create_workspace_document(
-        root,
-        title="Untitled worldbuilding source",
-        campaign_id="longmont-c2",
-        kind="worldbuilding_source",
-        source_domain="worldbuilding",
-        document_class="lore",
-        authority_state="draft",
-        visibility_state="internal",
-    )
-    b = create_workspace_document(
-        root,
-        title="Untitled worldbuilding source",
-        campaign_id="longmont-c2",
-        kind="worldbuilding_source",
-        source_domain="worldbuilding",
-        document_class="lore",
-        authority_state="draft",
-        visibility_state="internal",
-    )
-    assert a.document_id != b.document_id
-    assert a.target_relpath is not None and a.document_id in a.target_relpath
-    assert b.target_relpath is not None and b.document_id in b.target_relpath
-    assert a.target_relpath != b.target_relpath
 
 
-def test_find_duplicate_target_relpath_ownership_reports_groups(root: Path) -> None:
-    first = _worldbuilding_source(root, title="C2 Session 23 Prep")
-    assert first.target_relpath is not None
-    twin_id = _inject_leftover_twin(root, target_relpath=first.target_relpath)
-
-    groups = find_duplicate_target_relpath_ownership(root)
-    assert len(groups) == 1
-    assert groups[0][0] == first.target_relpath
-    assert {r.document_id for r in groups[0][1]} == {first.document_id, twin_id}
 
 
-def test_release_target_relpath_from_discarded_duplicate_keeps_survivor_path(
-    root: Path,
-) -> None:
-    survivor = _worldbuilding_source(root, title="C2 Session 23 Prep")
-    assert survivor.target_relpath is not None
-    twin_id = _inject_leftover_twin(
-        root,
-        target_relpath=survivor.target_relpath,
-        status="discarded",
-        revision=2,
-    )
-
-    discard_workspace_document(root, survivor.document_id)
-    released = release_target_relpath_from_discarded_duplicate(
-        root,
-        survivor_document_id=survivor.document_id,
-        retire_document_id=twin_id,
-    )
-    assert released.document_id == twin_id
-    assert released.target_relpath is None
-    assert released.status == "discarded"
-    assert (
-        get_workspace_document(root, survivor.document_id).target_relpath
-        == survivor.target_relpath
-    )
-    assert find_duplicate_target_relpath_ownership(root) == []
 
 
-def test_reinstate_workspace_document_record_restores_identity_without_path_collision(
-    root: Path,
-) -> None:
-    survivor = _worldbuilding_source(root, title="C2 Session 23 Prep")
-    discard_workspace_document(root, survivor.document_id)
-    restored_id = str(uuid.uuid4())
-    now = "2026-08-08T18:00:00Z"
-    reinstated = reinstate_workspace_document_record(
-        root,
-        WorkspaceDocumentRecord(
-            document_id=restored_id,
-            title="C2 Session 23 Prep",
-            campaign_id="longmont-c2",
-            kind="worldbuilding_source",
-            target_relpath=None,
-            status="discarded",
-            content_status="draft",
-            revision=2,
-            created_at=now,
-            updated_at=now,
-            source_domain="worldbuilding",
-            document_class="lore",
-            authority_state="draft",
-            visibility_state="internal",
-        ),
-    )
-    assert reinstated.document_id == restored_id
-    assert get_workspace_document(root, restored_id).status == "discarded"
-    assert find_duplicate_target_relpath_ownership(root) == []
 
 
-def test_update_metadata_rejects_target_relpath_owned_by_active_document(
-    root: Path,
-) -> None:
-    """Runbook still allows path rebinding; uniqueness must reject a taken path."""
-    path_a = "evals/c2_live_prep/mireward-prep/content/tiptap/unique-owner-a.md"
-    path_b = "evals/c2_live_prep/mireward-prep/content/tiptap/unique-owner-b.md"
-    create_workspace_document(
-        root,
-        title="Owner",
-        campaign_id="longmont-c2",
-        kind="runbook",
-        target_session=40,
-        target_relpath=path_a,
-    )
-    other = create_workspace_document(
-        root,
-        title="Other",
-        campaign_id="longmont-c2",
-        kind="runbook",
-        target_session=41,
-        target_relpath=path_b,
-    )
-    before = get_workspace_document(root, other.document_id)
-
-    with pytest.raises(WorkspaceDocumentRegistryError) as exc_info:
-        update_workspace_document_metadata(
-            root,
-            other.document_id,
-            target_relpath=path_a,
-            expected_revision=before.revision,
-        )
-    assert exc_info.value.status_code == 422
-    assert "cannot be changed via metadata update" in str(exc_info.value)
-
-    after = get_workspace_document(root, other.document_id)
-    assert after.revision == before.revision
-    assert after.target_relpath == path_b
-    assert after.updated_at == before.updated_at
 
 
-def test_update_metadata_rejects_target_relpath_owned_by_discarded_document(
-    root: Path,
-) -> None:
-    path_a = "evals/c2_live_prep/mireward-prep/content/tiptap/unique-discarded-a.md"
-    path_b = "evals/c2_live_prep/mireward-prep/content/tiptap/unique-discarded-b.md"
-    owner = create_workspace_document(
-        root,
-        title="Discarded owner",
-        campaign_id="longmont-c2",
-        kind="runbook",
-        target_session=42,
-        target_relpath=path_a,
-    )
-    discard_workspace_document(root, owner.document_id)
-    other = create_workspace_document(
-        root,
-        title="Other",
-        campaign_id="longmont-c2",
-        kind="runbook",
-        target_session=43,
-        target_relpath=path_b,
-    )
-    before = get_workspace_document(root, other.document_id)
-
-    with pytest.raises(WorkspaceDocumentRegistryError) as exc_info:
-        update_workspace_document_metadata(
-            root,
-            other.document_id,
-            target_relpath=path_a,
-            expected_revision=before.revision,
-        )
-    assert exc_info.value.status_code == 422
-    assert "cannot be changed via metadata update" in str(exc_info.value)
-    after = get_workspace_document(root, other.document_id)
-    assert after.model_dump() == before.model_dump()
 
 
-def test_update_metadata_allows_restating_own_target_relpath(root: Path) -> None:
-    path = (
-        "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/"
-        "Session Prep/Session 44 Prep.md"
-    )
-    created = create_workspace_document(
-        root,
-        title="Self path",
-        campaign_id="longmont-c2",
-        kind="plan",
-        target_session=44,
-        target_relpath=path,
-    )
-    updated = update_workspace_document_metadata(
-        root,
-        created.document_id,
-        target_relpath=path,
-        expected_revision=1,
-    )
-    assert updated.target_relpath == path
-    assert updated.revision == 2
 
 
 def test_plan_metadata_rejects_target_relpath_transition(root: Path) -> None:
@@ -1445,7 +866,6 @@ def test_api_patch_rejects_duplicate_target_relpath_including_discarded_owner(
 
     after = get_workspace_document(root, other.document_id)
     assert after.model_dump() == before.model_dump()
-    assert find_duplicate_target_relpath_ownership(root) == []
 
 
 def test_current_world_plan_revision_delegates_all_pins_to_content_atomically(
@@ -1516,25 +936,3 @@ def test_current_world_plan_revision_maps_content_conflict_to_registry_conflict(
     assert "digest changed" in str(exc_info.value)
 
 pytestmark = pytest.mark.usefixtures("application_state_dsn")
-
-
-@pytest.mark.parametrize("redirect", ["within-root", "outside-root"])
-def test_saved_snapshot_owner_refuses_redirected_page_target(root, monkeypatch, redirect):
-    from apps.live_control_server.services.world_container_registry import create_world_container
-    from apps.live_control_server.services.workspace_document_registry import get_workspace_document_snapshot
-    artifact_root = root / "owned"
-    artifact_root.mkdir()
-    monkeypatch.setenv("DMB_ARTIFACT_DATA_ROOT", str(artifact_root))
-    world = create_world_container(root, name="Snapshot owner")
-    page = create_workspace_document(root, title="Exact saved page", campaign_id=world.world_id,
-        world_id=world.world_id, kind="worldbuilding_source", source_domain="worldbuilding",
-        document_class="lore", authority_state="draft", visibility_state="internal")
-    target = artifact_root / page.target_relpath
-    target.parent.mkdir(parents=True)
-    alternate = (artifact_root if redirect == "within-root" else root) / "other.md"
-    alternate.write_text("A different declared page body.")
-    target.symlink_to(alternate)
-    mark_workspace_document_committed(root, page.document_id)
-    with pytest.raises(WorkspaceDocumentRegistryError) as error:
-        get_workspace_document_snapshot(root, page.document_id)
-    assert error.value.status_code == 422

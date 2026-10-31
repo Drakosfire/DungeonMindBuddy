@@ -1,8 +1,8 @@
 """HTTP contract for GET /api/live/source-navigation."""
 
 from __future__ import annotations
+from tests.page_fixtures import create_page_fixture
 
-import hashlib
 from pathlib import Path
 
 import pytest
@@ -22,10 +22,8 @@ from apps.live_control_server.services.tiptap_markdown_write import (
     prepare_tiptap_markdown_write,
 )
 from apps.live_control_server.services.workspace_document_registry import (
-    create_workspace_document,
-    workspace_documents_path,
+    get_committed_page_snapshot,
 )
-from src.live_play.live_store import load_json
 
 pytestmark = pytest.mark.usefixtures("application_state_dsn")
 
@@ -83,7 +81,7 @@ def _setup_glass_orchard_source(
     markdown: str,
 ) -> tuple[str, str, str, int, int]:
     """Return artifact_id, document_id, span_id, start_line, end_line."""
-    record = create_workspace_document(
+    record = create_page_fixture(
         root,
         title="Hesta Source",
         campaign_id=GLASS_ORCHARD_WORLD_ID,
@@ -124,10 +122,6 @@ def _navigation_url(*, artifact_id: str, span_id: str) -> str:
     )
 
 
-def _registry_digest(path: Path) -> str:
-    if not path.is_file():
-        return ""
-    return hashlib.sha256(path.read_bytes()).hexdigest()
 
 
 def test_exact_navigation_returns_highlightable_span(client: TestClient, root: Path) -> None:
@@ -280,17 +274,8 @@ def test_navigation_is_read_only(client: TestClient, root: Path) -> None:
     markdown = "# Hesta\n\nFirst paragraph.\n\nSecond paragraph for evidence.\n\nThird.\n"
     artifact_id, document_id, span_id, _, _ = _setup_glass_orchard_source(root, markdown)
 
-    workspace_registry = workspace_documents_path(root)
     before_source_metadata = get_source_artifact(root, artifact_id)
-    before_workspace_registry = _registry_digest(workspace_registry)
-    target_relpath = None
-    for record in load_json(workspace_registry).get("records", []):
-        if record.get("document_id") == document_id:
-            target_relpath = record.get("target_relpath")
-            break
-    assert target_relpath
-    source_path = root / target_relpath
-    before_source_digest = hashlib.sha256(source_path.read_bytes()).hexdigest()
+    before_page = get_committed_page_snapshot(root, document_id)
 
     for _ in range(2):
         response = client.get(_navigation_url(artifact_id=artifact_id, span_id=span_id))
@@ -298,5 +283,4 @@ def test_navigation_is_read_only(client: TestClient, root: Path) -> None:
         assert response.json()["status"] == "exact"
 
     assert get_source_artifact(root, artifact_id) == before_source_metadata
-    assert _registry_digest(workspace_registry) == before_workspace_registry
-    assert hashlib.sha256(source_path.read_bytes()).hexdigest() == before_source_digest
+    assert get_committed_page_snapshot(root, document_id) == before_page

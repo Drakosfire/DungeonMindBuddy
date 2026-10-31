@@ -21,7 +21,7 @@ from application_state.errors import ApplicationStateNotFoundError
 from application_state.build_proposal.service import BuildProposalService
 from application_state.build_proposal.types import BuildGeneratedProposal, BuildProviderAuthorization
 from apps.live_control_server.models.build_document_proposal import BuildDocumentProposalRequest
-from apps.live_control_server.services.workspace_document_registry import get_workspace_document_snapshot
+from apps.live_control_server.services.workspace_document_registry import get_committed_page_snapshot
 from apps.live_control_server.services.world_container_registry import get_world_container
 from apps.live_control_server.config import managed_world_data_root
 from src.model_policy import load_buddy_model_policy
@@ -129,7 +129,7 @@ def _model():
 def _source(request):
     root = managed_world_data_root()
     get_world_container(root, request.basis.world_id)
-    snapshot = get_workspace_document_snapshot(root, request.basis.document_id)
+    snapshot = get_committed_page_snapshot(root, request.basis.document_id)
     record = snapshot.record
     basis = request.basis
     if (record.kind != "worldbuilding_source" or record.status != "active"

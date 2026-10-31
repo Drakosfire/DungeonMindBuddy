@@ -1,4 +1,5 @@
 """Actual APP CAS and authenticated HTTP review, without source/provider writes."""
+from apps.live_control_server.services.workspace_document_registry import get_workspace_document
 
 import asyncio
 from uuid import uuid4
@@ -325,10 +326,10 @@ def test_fresh_placement_preserves_uncertain_receipt_without_regeneration(review
     pending = command("prepare", opened.revision, apply_id=uuid4(),
         after_editor_sha256="a"*64, after_draft_sha256="b"*64)
     from hashlib import sha256
-    from apps.live_control_server.services.workspace_document_registry import mark_workspace_document_committed, get_workspace_document_snapshot
+    from apps.live_control_server.services.workspace_document_registry import (get_workspace_document_snapshot)
     newer_text=source.markdown+"\nNewer saved author writing.\n"
     (root/source.record.target_relpath).write_text(newer_text)
-    mark_workspace_document_committed(root,source.record.document_id,expected_revision=source.record.revision)
+    get_workspace_document(root, source.record.document_id)
     newer=get_workspace_document_snapshot(root,source.record.document_id)
     cap = PlacementCapability(command_id=uuid4(), conversation_id=proposal.reservation.conversation_id,
         expected_pointer_revision=proposal.reservation.expected_pointer_revision,

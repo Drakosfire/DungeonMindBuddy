@@ -113,6 +113,7 @@ vi.mock("../api/liveApi", async (importOriginal) => {
     createWorkspaceDocument: vi.fn(),
     listWorkspaceDocuments: vi.fn(),
     getWorkspaceDocumentSnapshot: vi.fn(),
+    getCommittedPageSnapshot: vi.fn(),
     updateWorkspaceDocumentMetadata: vi.fn(),
     prepareTiptapMarkdownWrite: vi.fn(),
     commitTiptapMarkdownWrite: vi.fn(),
@@ -131,6 +132,7 @@ function buildLongmontSnapshot(documentId: string, title: string, markdown = "# 
       document_id: documentId,
       title,
       campaign_id: "longmont-c1",
+      world_id: "eldyrwild",
       target_session: null,
       kind: "worldbuilding_source" as const,
       target_relpath: `out/workspace/worldbuilding/${documentId}.md`,
@@ -145,9 +147,11 @@ function buildLongmontSnapshot(documentId: string, title: string, markdown = "# 
       visibility_state: "internal" as const,
     },
     markdown,
+    committed_markdown: markdown,
+    committed_content_sha256: `sha-${documentId}`,
     content_sha256: `sha-${documentId}`,
-    file_fingerprint: "present" as const,
-    file_exists: true,
+    file_fingerprint: "postgres" as const,
+    file_exists: false,
     loaded_revision: 2,
   };
 }
@@ -200,6 +204,7 @@ function graphProjectionWithGlowkindle() {
 
 describe("BuildSurfacePage", () => {
   beforeEach(() => {
+    vi.mocked(liveApi.getCommittedPageSnapshot).mockImplementation(id => liveApi.getWorkspaceDocumentSnapshot(id));
     vi.clearAllMocks();
     localStorage.clear();
     sessionStorage.clear();

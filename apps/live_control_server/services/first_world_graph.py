@@ -29,7 +29,7 @@ from apps.live_control_server.services.world_container_registry import (
     get_world_container,
 )
 from apps.live_control_server.services.workspace_document_registry import (
-    get_workspace_document_snapshot,
+    get_committed_page_snapshot,
 )
 from graph_memory.candidate_graph_preview import CandidateGraphPreview
 from graph_memory.candidate_graph_to_contribution import (
@@ -191,7 +191,7 @@ def cross_check_workspace_lineage(
             code="workspace_lineage_mismatch",
             status_code=422,
         )
-    snapshot = get_workspace_document_snapshot(repo, document_id)
+    snapshot = get_committed_page_snapshot(repo, document_id)
     record = snapshot.record
     if record.status != "active":
         raise WorldbuildingWritePlanError(

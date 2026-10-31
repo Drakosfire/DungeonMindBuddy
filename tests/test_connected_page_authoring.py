@@ -1,4 +1,6 @@
 """Mounted page/registry/Tiptap/native-publication saga; native ports only are fakes."""
+from tests.page_fixtures import page_text, save_page
+from apps.live_control_server.services.workspace_document_registry import get_workspace_document
 import hashlib
 import json
 import uuid
@@ -8,10 +10,7 @@ from copy import deepcopy
 import pytest
 
 from tests.test_graph_document_source import case as source_case  # noqa: F401
-from apps.live_control_server.services.workspace_document_registry import (
-    list_workspace_documents, get_workspace_document, get_workspace_document_snapshot,
-    mark_workspace_document_committed, discard_workspace_document,
-)
+from apps.live_control_server.services.workspace_document_registry import (list_workspace_documents, get_workspace_document_snapshot, discard_workspace_document)
 from apps.live_control_server.services import connected_page_authoring as owner
 from apps.live_control_server.models.connected_page import ConnectedPageIntent
 
@@ -58,7 +57,7 @@ def get(c):
 
 def test_create_initial_page_real_connections_and_reopen(case):
     c = case
-    before = (c.target.read_bytes(), get_workspace_document(c.root, c.record.document_id))
+    before = (page_text(c.root, c.record.document_id).encode("utf-8"), get_workspace_document(c.root, c.record.document_id))
     operation = prepare(c)
     assert operation['phase'] == 'prepared'
     assert c.authority.publish_calls == 0
@@ -81,7 +80,7 @@ def test_create_initial_page_real_connections_and_reopen(case):
     assert prepare(c)['page']['document_id'] == page['document_id']
     assert confirm(c, complete).status_code == 200
     assert c.authority.publish_calls == 1
-    assert (c.target.read_bytes(), get_workspace_document(c.root, c.record.document_id)) == before
+    assert (page_text(c.root, c.record.document_id).encode("utf-8"), get_workspace_document(c.root, c.record.document_id)) == before
     assert len(list_workspace_documents(c.root, kind='worldbuilding_source')) == 2
 
 
@@ -158,15 +157,14 @@ def test_later_page_edits_and_source_edits_survive_exact_recovery(case):
     result = confirm(case, operation)
     assert result.status_code == 200
     page = operation['page']
-    target = case.root / page['target_relpath']
-    target.write_text('# Author kept writing\n')
-    mark_workspace_document_committed(case.root, page['document_id'])
-    case.target.write_text('The source changed too.\n')
-    mark_workspace_document_committed(case.root, case.record.document_id)
+    save_page(case.root, page['document_id'], '# Author kept writing\n')
+    get_workspace_document(case.root, page['document_id'])
+    save_page(case.root, case.record.document_id, 'The source changed too.\n')
+    get_workspace_document(case.root, case.record.document_id)
     recovered = prepare(case)
     assert recovered['phase'] == 'complete'
     assert confirm(case, recovered).status_code == 200
-    assert target.read_text() == '# Author kept writing\n'
+    assert page_text(case.root, page['document_id']) == '# Author kept writing\n'
     assert get(case).json()['intent']['origin']['editor_json'] == case.editor
     assert case.authority.publish_calls == 1
 
@@ -248,14 +246,12 @@ def test_created_page_edited_during_partial_save_is_retained_without_overwrite(c
     assert case.client.post('/api/live/connected-pages/prepare', json=case.request).status_code == 409
     operation = get(case).json()
     page = operation['page']
-    target = case.root / page['target_relpath']
-    target.parent.mkdir(parents=True, exist_ok=True)
-    target.write_text('# My newer writing\n')
-    mark_workspace_document_committed(case.root, page['document_id'])
+    save_page(case.root, page['document_id'], '# My newer writing\n')
+    get_workspace_document(case.root, page['document_id'])
     monkeypatch.setattr(owner, 'prepare_tiptap_markdown_write', original)
     response = case.client.post('/api/live/connected-pages/prepare', json=case.request)
     assert response.status_code == 409
-    assert target.read_text() == '# My newer writing\n'
+    assert page_text(case.root, page['document_id']) == '# My newer writing\n'
     assert get(case).json()['page']['document_id'] == page['document_id']
     assert case.authority.publish_calls == 0
 
@@ -316,7 +312,7 @@ def saved_case(case):
 
 def test_exact_saved_excerpt_creates_connected_page_without_editor_fabrication(saved_case):
     c=saved_case
-    before=(c.target.read_bytes(),get_workspace_document(c.root,c.record.document_id))
+    before=(page_text(c.root, c.record.document_id).encode("utf-8"),get_workspace_document(c.root,c.record.document_id))
     operation=prepare(c)
     assert operation['schema']=='dmb_connected_page_operation_v2'
     assert operation['source_origin']=={'kind':'saved_page_excerpt','source_text_sha256':c.selector.content_sha256,'line_start':1,'line_end':1}
@@ -332,7 +328,7 @@ def test_exact_saved_excerpt_creates_connected_page_without_editor_fabrication(s
     assert prepare(c)['page']['document_id']==operation['page']['document_id']
     assert confirm(c,result.json()).status_code==200
     assert c.authority.publish_calls==1
-    assert (c.target.read_bytes(),get_workspace_document(c.root,c.record.document_id))==before
+    assert (page_text(c.root, c.record.document_id).encode("utf-8"),get_workspace_document(c.root,c.record.document_id))==before
 
 
 @pytest.mark.parametrize('mutation',['quote','start','end','hash','revision','world','kind','mixed_editor','empty'])
@@ -357,27 +353,27 @@ def test_saved_origin_refuses_mismatch_before_reservation(saved_case,mutation):
 def test_saved_excerpt_full_table_rows_preserve_exact_origin_and_source(saved_case):
     c=saved_case
     text='# Households\n\n| Name | Task |\n| --- | --- |\n| Copper 🔨 | Repair lantern hook before dusk |\n'
-    c.target.write_text(text)
-    record=mark_workspace_document_committed(c.root,c.record.document_id)
+    save_page(c.root, c.record.document_id, text)
+    record=get_workspace_document(c.root, c.record.document_id)
     snapshot=get_workspace_document_snapshot(c.root,record.document_id)
     c.request['origin'].update(revision=snapshot.loaded_revision,content_sha256=snapshot.content_sha256,line_start=3,line_end=5,selected_text='\n'.join(text.splitlines()[2:5]))
     operation=prepare(c)
     created=get_workspace_document_snapshot(c.root,operation['page']['document_id'])
     assert '> | Name | Task |' in created.markdown
     assert '> | Copper 🔨 | Repair lantern hook before dusk |' in created.markdown
-    assert c.target.read_text()==text
+    assert page_text(c.root, c.record.document_id)==text
 
 
 def test_saved_excerpt_retry_preserves_origin_after_source_and_created_page_change(saved_case):
     c=saved_case;operation=prepare(c)
     assert confirm(c,operation).status_code==200
-    created=c.root/operation['page']['target_relpath'];created.write_text('# Author kept writing\n')
-    mark_workspace_document_committed(c.root,operation['page']['document_id'])
-    c.target.write_text('Source changed after initial reservation.\n');mark_workspace_document_committed(c.root,c.record.document_id)
+    pass;save_page(c.root, operation['page']['document_id'], '# Author kept writing\n')
+    get_workspace_document(c.root, operation['page']['document_id'])
+    save_page(c.root, c.record.document_id, 'Source changed after initial reservation.\n');get_workspace_document(c.root, c.record.document_id)
     replay=prepare(c)
     assert replay['intent']['origin']==operation['intent']['origin']
     assert replay['page']['document_id']==operation['page']['document_id']
-    assert created.read_text()=='# Author kept writing\n'
+    assert page_text(c.root, operation['page']['document_id'])=='# Author kept writing\n'
     assert get(c).json()['phase']=='complete'
     assert c.authority.publish_calls==1
     changed=deepcopy(c.request);changed['origin']['selected_text']='New request for the same operation'
@@ -407,7 +403,7 @@ def test_saved_origin_partial_graph_prepare_recovers_without_source_reread_or_du
     monkeypatch.setattr(owner,'prepare_graph_object_authoring_write',lambda *_args,**_kwargs:(_ for _ in ()).throw(owner.ConnectedPageError('Interrupted after source save')))
     assert c.client.post('/api/live/connected-pages/prepare',json=c.request).status_code==409
     retained=get(c).json();assert retained['phase']=='saved'
-    c.target.write_text('A newer source after reservation.\n');mark_workspace_document_committed(c.root,c.record.document_id)
+    save_page(c.root, c.record.document_id, 'A newer source after reservation.\n');get_workspace_document(c.root, c.record.document_id)
     monkeypatch.setattr(owner,'prepare_graph_object_authoring_write',original)
     operation=prepare(c)
     assert operation['page']['document_id']==retained['page']['document_id']
@@ -447,7 +443,7 @@ def test_saved_excerpt_uses_coherent_committed_owner_projection(saved_case, monk
     original = get_workspace_document_snapshot(c.root, c.record.document_id)
     projection = original.model_copy(update={"file_exists": False,
         "record": original.record.model_copy(update={"target_relpath": None})})
-    monkeypatch.setattr(owner, "get_workspace_document_snapshot", lambda *args: projection)
+    monkeypatch.setattr(owner, "get_committed_page_snapshot", lambda *args: projection)
     intent = owner.parse_connected_page_intent(c.request)
     assert owner.verify_saved_excerpt(c.root, intent) == c.selector.content_sha256
     for changes in ({"content_status": "draft"}, {"document_id": str(uuid.uuid4())},

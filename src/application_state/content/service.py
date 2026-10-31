@@ -264,7 +264,7 @@ def list_runbooks(
         )
 
 
-def _snapshot_body(conn, obj: _StoredContentObject) -> tuple[str, str, bool, WorkingCopy | None]:
+def _snapshot_body(conn, obj: _StoredContentObject) -> tuple[str, str, bool, WorkingCopy | None, WorkRevision | None]:
     """Shared body selection; callers own aggregate admission and transaction scope."""
     working = repo.get_working_copy(conn, obj.work_object_id)
     committed = None
@@ -278,10 +278,10 @@ def _snapshot_body(conn, obj: _StoredContentObject) -> tuple[str, str, bool, Wor
     ):
         if sha256_utf8(working.markdown) != working.content_sha256:
             raise ApplicationStateIntegrityError("working copy content SHA does not match its Markdown")
-        return working.markdown, working.content_sha256, True, working
+        return working.markdown, working.content_sha256, True, working, committed
     if committed is not None:
-        return committed.markdown, committed.content_sha256, False, working
-    return "", sha256_utf8(""), False, working
+        return committed.markdown, committed.content_sha256, False, working, committed
+    return "", sha256_utf8(""), False, working, None
 
 
 def snapshot_content(document_id: str) -> ContentSnapshot:
@@ -293,7 +293,7 @@ def snapshot_content(document_id: str) -> ContentSnapshot:
         if obj is None:
             raise ApplicationStateNotFoundError(f"workspace document not found: {document_id}")
         obj = _require_kind(obj, None)
-        markdown, digest, from_working, _copy = _snapshot_body(conn, obj)
+        markdown, digest, from_working, _copy, _committed = _snapshot_body(conn, obj)
         return ContentSnapshot(work_object=obj, markdown=markdown, content_sha256=digest,
                                loaded_revision=obj.object_revision, from_working_copy=from_working)
 

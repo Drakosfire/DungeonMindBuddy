@@ -70,8 +70,9 @@ export function verifyManagedWorldSelection(input: {
   worlds: readonly WorldContainerRecord[];
 }): SelectedWorldState {
   const worldOwnedPlan = input.document?.schema_version === "dmb_world_owned_plan_record_v2";
+  const page = input.document?.kind === "worldbuilding_source";
   const documentWorldId = input.document?.world_id?.trim()
-    || (!worldOwnedPlan && input.worlds.some((world) => world.world_id === input.document?.campaign_id)
+    || (!worldOwnedPlan && !page && input.worlds.some((world) => world.world_id === input.document?.campaign_id)
       ? input.document?.campaign_id : null);
   const selectedId = input.requestedWorldId ?? documentWorldId;
   if (!selectedId) return { kind: "legacy" };
@@ -79,7 +80,7 @@ export function verifyManagedWorldSelection(input: {
   if (!world) return { kind: "error", message: `Unknown managed World: ${selectedId}` };
   if (input.document && (documentWorldId !== selectedId || (worldOwnedPlan
     ? input.document.kind !== "plan" || input.document.campaign_id !== null
-    : input.document.campaign_id !== selectedId))) {
+    : !page && input.document.campaign_id !== selectedId))) {
     return { kind: "error", message: `Document ${input.document.document_id} does not belong to World ${selectedId}.` };
   }
   return {
@@ -171,7 +172,7 @@ export function SelectedWorldProvider({
         if (extractionRun && !extractionCampaignId) {
           throw new Error(`Extraction Run ${selection.extractionRunId} has no campaign binding.`);
         }
-        if (!selection.explicit && document && !worldOwnedPlan && /^longmont-c[12]$/.test(document.campaign_id)
+        if (!selection.explicit && document && document.kind !== "worldbuilding_source" && !worldOwnedPlan && document.campaign_id !== null && /^longmont-c[12]$/.test(document.campaign_id)
           && (!document.world_id || document.world_id === "eldyrwild")) {
           if (!cancelled) setLoaded({ scope: selectionScope, value: { kind: "legacy" } });
           return;

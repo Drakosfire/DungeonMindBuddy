@@ -1,4 +1,6 @@
 """Recap input capture owns database bytes, not duplicate source files."""
+from tests.page_fixtures import create_page_fixture, page_text, save_page
+from apps.live_control_server.services.workspace_document_registry import get_workspace_document
 import hashlib
 from pathlib import Path
 
@@ -14,21 +16,16 @@ BODY = "# Original recap\n\nMira’s Arcana check found planar meat.\n"
 def test_capture_needs_no_recap_file_writes(tmp_path, monkeypatch, mode):
     original = tmp_path / "original.md"
     if mode == "file":
-        original.write_text(BODY)
+        original.write_text(BODY, encoding="utf-8")
     if mode == "build":
         (tmp_path / "corpus/managed-a-markdown").mkdir(parents=True)
-        from apps.live_control_server.services.workspace_document_registry import (
-            create_workspace_document, mark_workspace_document_committed,
-        )
-        document = create_workspace_document(
+        document = create_page_fixture(
             tmp_path, title="External recap", world_id="managed-a", campaign_id="workspace-campaign",
             kind="worldbuilding_source", source_domain="worldbuilding", document_class="lore",
             authority_state="draft", visibility_state="internal",
         )
-        original = tmp_path / document.target_relpath
-        original.parent.mkdir(parents=True, exist_ok=True)
-        original.write_text(BODY)
-        document = mark_workspace_document_committed(tmp_path, document.document_id)
+        document = save_page(tmp_path, document.document_id, BODY)
+        document = get_workspace_document(tmp_path, document.document_id)
 
     def capture():
         if mode == "build":
@@ -64,12 +61,13 @@ def test_capture_needs_no_recap_file_writes(tmp_path, monkeypatch, mode):
     assert registry.load_registered_source_artifact_bytes(tmp_path, artifact.source_artifact_id) == (
         artifact, BODY.encode(),
     )
-    if mode != "text":
+    if mode == "file":
         assert original.read_text() == BODY
-        original.write_text("Newer editable text.\n")
-        assert registry.load_registered_source_artifact_text(tmp_path, artifact.source_artifact_id) == (
-            artifact, BODY,
-        )
+        original.write_text("Newer input file.\n")
+    elif mode == "build":
+        assert page_text(tmp_path, document.document_id) == BODY
+        save_page(tmp_path, document.document_id, "Newer editable text.\n")
+    assert registry.load_registered_source_artifact_text(tmp_path, artifact.source_artifact_id) == (artifact, BODY)
 
 
 def test_existing_frozen_descriptor_replays_without_opening_old_locator(tmp_path, monkeypatch):

@@ -1,4 +1,5 @@
 from __future__ import annotations
+from tests.page_fixtures import create_page_fixture
 
 from tests.application_state.world_catalog_fixtures import store_world
 
@@ -22,7 +23,6 @@ from apps.live_control_server.services.tiptap_markdown_write import (
     prepare_tiptap_markdown_write,
 )
 from apps.live_control_server.services.workspace_document_registry import (
-    create_workspace_document,
     get_workspace_document,
 )
 from graph_memory.evidence.source_artifact import GraphMemorySourceArtifact
@@ -74,10 +74,11 @@ def _registered_source(tmp_path, monkeypatch):
     }}))
 
     markdown = "# Lore\n\nThe tower watches the river.\n"
-    document = create_workspace_document(
+    document = create_page_fixture(
         tmp_path,
         title="Lore",
         campaign_id=world.world_id,
+        world_id=world.world_id,
         kind="worldbuilding_source",
         source_domain="worldbuilding",
         document_class="lore",

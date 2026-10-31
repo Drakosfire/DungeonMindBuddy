@@ -7,7 +7,7 @@ from pydantic import BaseModel, ConfigDict, Field, model_validator
 from apps.live_control_server.config import artifact_data_root
 from .graph_document_source import GraphDocumentSource, resolve_graph_document_source
 from .graph_object_authoring_prepare import GraphObjectAuthoringPrepareRequest, GraphObjectAuthoringError
-from .workspace_document_registry import get_workspace_document_snapshot
+from .workspace_document_registry import get_committed_page_snapshot
 from .managed_world_graph_projection import ManagedWorldGraphProjectionRequest, project_managed_world_graph
 
 
@@ -44,7 +44,7 @@ def relationship_request(root: Path, request: DocumentRelationshipRequest) -> Gr
         raise GraphObjectAuthoringError(message, code="relationship_review_invalid", status_code=409)
 
     selector = request.document_source
-    snapshot = get_workspace_document_snapshot(root, selector.document_id)
+    snapshot = get_committed_page_snapshot(root, selector.document_id)
     if (snapshot.record.world_id != request.world_id or snapshot.record.campaign_id != request.world_id
             or snapshot.record.kind != "worldbuilding_source" or snapshot.record.status != "active"
             or snapshot.record.content_status != "committed"

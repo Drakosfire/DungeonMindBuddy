@@ -67,7 +67,7 @@ describe("selected managed World", () => {
     expect(verifyManagedWorldSelection({ requestedWorldId: "unknown", document: null, worlds: [world] }).kind).toBe("error");
     expect(verifyManagedWorldSelection({
       requestedWorldId: world.world_id,
-      document: { ...document, campaign_id: "longmont-c2" },
+      document: { ...document, world_id: "another-world" },
       worlds: [world],
     }).kind).toBe("error");
   });
@@ -233,7 +233,8 @@ describe("selected managed World", () => {
     expect(listWorldContainers).toHaveBeenCalledTimes(2);
   });
 
-  it("keeps C1/C2 exact documents legacy even with their Eldyrwild mapping", async () => {
+  it("resolves a Page from its World without using a campaign legacy route", async () => {
+    vi.mocked(listWorldContainers).mockResolvedValue({schema_version:"dmb_world_container_registry_v1",records:[{...world,world_id:"eldyrwild"}]});
     vi.mocked(getWorkspaceDocumentAny).mockResolvedValue({
       ...document,
       campaign_id: "longmont-c2",
@@ -244,8 +245,8 @@ describe("selected managed World", () => {
         <RecoveryProbe />
       </SelectedWorldProvider>,
     );
-    expect(await screen.findByText("legacy")).toBeInTheDocument();
-    expect(listWorldContainers).not.toHaveBeenCalled();
+    expect(await screen.findByText("managed")).toBeInTheDocument();
+    expect(listWorldContainers).toHaveBeenCalledOnce();
   });
 });
 

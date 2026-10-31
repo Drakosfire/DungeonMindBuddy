@@ -19,7 +19,7 @@ from apps.live_control_server.services.graph_object_authoring_prepare import (
 from apps.live_control_server.services.graph_object_authoring_commit import commit_graph_object_authoring_write
 from apps.live_control_server.services.registry_file_lock import registry_mutation_lock
 from apps.live_control_server.services.workspace_document_registry import (
-    create_workspace_document, get_workspace_document, get_workspace_document_snapshot, list_workspace_documents,
+    create_workspace_document, get_workspace_document, get_committed_page_snapshot, list_workspace_documents,
 )
 from apps.live_control_server.services.tiptap_markdown_write import (
     TiptapMarkdownWritePrepareRequest, TiptapMarkdownWriteCommitRequest,
@@ -145,7 +145,7 @@ def operation_schema(intent):
 def verify_saved_excerpt(root, intent):
     """The source owner verifies exact saved bytes; no invented editor selection."""
     origin = intent.origin
-    snapshot = get_workspace_document_snapshot(root, str(origin.document_id))
+    snapshot = get_committed_page_snapshot(root, str(origin.document_id))
     source = snapshot.record
     if (source.kind != 'worldbuilding_source' or source.status != 'active'
             or source.world_id != intent.world_id or source.campaign_id != intent.world_id
@@ -168,7 +168,7 @@ def _ownership(root, intent, *, initial=False):
             or source.world_id != intent.world_id or source.campaign_id != intent.world_id):
         raise ConnectedPageError('The source page no longer belongs to this World')
     if initial:
-        snapshot = get_workspace_document_snapshot(root, source.document_id)
+        snapshot = get_committed_page_snapshot(root, source.document_id)
         if snapshot.loaded_revision != intent.origin.revision or snapshot.content_sha256 != intent.origin.content_sha256:
             raise ConnectedPageError('The saved source base changed; capture the current selection again')
     return source
@@ -215,12 +215,12 @@ def _save_initial(root, state, intent):
         kind='worldbuilding_source', world_id=intent.world_id, source_domain='worldbuilding',
         document_class='lore', authority_state='draft', visibility_state='internal',
         _connected_reservation=(state['page_id'], str(intent.operation_id)))
-    snapshot = get_workspace_document_snapshot(root, page.document_id)
+    snapshot = get_committed_page_snapshot(root, page.document_id)
     if snapshot.record.content_status == 'committed':
         if snapshot.markdown != state['initial_markdown']:
             raise ConnectedPageError('The created page has newer writing. It is retained; initial creation will not overwrite it')
     else:
-        if page.revision != 1 or snapshot.file_exists:
+        if page.revision != 1 or snapshot.markdown:
             raise ConnectedPageError('The reserved page changed before its initial save; the page is retained')
         prepared = prepare_tiptap_markdown_write(root=root, request=TiptapMarkdownWritePrepareRequest(
             document_id=page.document_id, expected_revision=page.revision,
@@ -228,7 +228,7 @@ def _save_initial(root, state, intent):
         commit_tiptap_markdown_write(root=root, request=TiptapMarkdownWriteCommitRequest(
             document_id=page.document_id, expected_revision=page.revision, markdown=state['initial_markdown'],
             write_mode='source_import', writer_confirm_token=prepared.writer_confirm_token))
-        snapshot = get_workspace_document_snapshot(root, page.document_id)
+        snapshot = get_committed_page_snapshot(root, page.document_id)
     selector = GraphDocumentSource(documentId=page.document_id, revision=snapshot.loaded_revision,
         contentSha256=snapshot.content_sha256)
     resolve_graph_document_source(root, selector, world_id=intent.world_id, campaign_id=intent.world_id)

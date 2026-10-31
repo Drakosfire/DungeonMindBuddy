@@ -389,7 +389,7 @@ export function BuildReferenceCapability({ documentId, children }: BuildReferenc
   const acceptedDocument = useMemo(() => {
     if (!documentId || !session || session.documentId !== documentId) return null;
     if (EMPTY_PUBLICATION_PHASES.has(session.phase)) return null;
-    if (!session.record) return null;
+    if (!session.record || session.record.campaign_id === null) return null;
     return {
       documentId: session.record.document_id,
       campaignId: session.record.campaign_id,

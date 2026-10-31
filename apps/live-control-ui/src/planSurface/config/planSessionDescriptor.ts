@@ -82,7 +82,7 @@ export function workspaceRecordToPlanDocumentDescriptor(
 }
 
 export function fixtureWorkspaceDocumentRecord(
-  overrides: Partial<WorkspaceDocumentRecord> = {},
+  overrides: Partial<Extract<WorkspaceDocumentRecord, { kind: "plan" | "runbook" }>> = {},
 ): WorkspaceDocumentRecord {
   return {
     schema_version: "dmb_workspace_document_record_v1",
@@ -249,6 +249,7 @@ export async function resolvePlanningDocument(args: {
 
   if (requestedId) {
     const record = await getWorkspaceDocument(requestedId);
+    if (record.kind === "worldbuilding_source") throw new Error("Authored Pages cannot open as Plans.");
     if (record.campaign_id !== campaignId) {
       if (record.kind === "runbook") {
         throw new CrossCampaignRunbookAdmissionError(requestedId, record.campaign_id, campaignId);

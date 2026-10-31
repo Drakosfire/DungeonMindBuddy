@@ -1,4 +1,6 @@
 from __future__ import annotations
+from tests.page_fixtures import create_page_fixture, save_page
+from apps.live_control_server.services.workspace_document_registry import get_workspace_document
 
 import hashlib
 import json
@@ -22,10 +24,6 @@ from apps.live_control_server.services.source_artifact_registry import (
     load_source_span_index,
     load_registered_source_artifact_bytes,
     source_span_index_relpath,
-)
-from apps.live_control_server.services.workspace_document_registry import (
-    create_workspace_document,
-    mark_workspace_document_committed,
 )
 from graph_memory.source_span import source_span_index_to_dict
 from graph_memory.ingestion.extraction_run import (
@@ -55,14 +53,12 @@ def _corrupt_ingest_run(dsn: str, run_id: str, **fields: object) -> None:
 
 def _write_committed_markdown(root: Path, record, markdown: str) -> str:
     content = markdown.rstrip("\n") + "\n"
-    target = root / record.target_relpath
-    target.parent.mkdir(parents=True, exist_ok=True)
-    target.write_text(content, encoding="utf-8")
+    record = save_page(root, record.document_id, content)
     return hashlib.sha256(content.encode("utf-8")).hexdigest()
 
 
 def _committed_worldbuilding(root: Path, markdown: str = "# Lore\n\nBody.\n"):
-    record = create_workspace_document(
+    record = create_page_fixture(
         root,
         title="Lore",
         campaign_id="eldyrwild",
@@ -72,9 +68,7 @@ def _committed_worldbuilding(root: Path, markdown: str = "# Lore\n\nBody.\n"):
         authority_state="draft",
         visibility_state="internal",
     )
-    committed = mark_workspace_document_committed(
-        root, record.document_id, expected_revision=1
-    )
+    committed = get_workspace_document(root, record.document_id)
     digest = _write_committed_markdown(root, committed, markdown)
     return committed, digest
 
@@ -138,7 +132,7 @@ def test_source_artifact_reads_committed_file_not_client_markdown(tmp_path: Path
 
 
 def test_source_artifact_rejects_missing_committed_target(tmp_path: Path) -> None:
-    record = create_workspace_document(
+    record = create_page_fixture(
         tmp_path,
         title="Lore",
         campaign_id="eldyrwild",
@@ -148,9 +142,7 @@ def test_source_artifact_rejects_missing_committed_target(tmp_path: Path) -> Non
         authority_state="draft",
         visibility_state="internal",
     )
-    committed = mark_workspace_document_committed(
-        tmp_path, record.document_id, expected_revision=1
-    )
+    committed = get_workspace_document(tmp_path, record.document_id)
     with pytest.raises(SourceArtifactRegistryError, match="missing"):
         create_source_artifact_from_workspace_document(
             tmp_path,
@@ -710,158 +702,6 @@ def test_component_uri_is_not_lifecycle_authority(tmp_path: Path) -> None:
 
 
 
-def test_source_artifact_snapshot_waits_across_commit_barrier(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    """Artifact creation must not observe target bytes between write and registry commit."""
-    import threading
-
-    from apps.live_control_server.services.tiptap_markdown_write import (
-        TiptapMarkdownWriteCommitRequest,
-        TiptapMarkdownWritePrepareRequest,
-        commit_tiptap_markdown_write,
-        prepare_tiptap_markdown_write,
-    )
-    from apps.live_control_server.services.workspace_document_registry import (
-        mark_workspace_document_committed_unlocked,
-    )
-
-    record = create_workspace_document(
-        tmp_path,
-        title="Lore",
-        campaign_id="eldyrwild",
-        kind="worldbuilding_source",
-        source_domain="worldbuilding",
-        document_class="lore",
-        authority_state="draft",
-        visibility_state="internal",
-    )
-    v1 = "# Lore\n\nRevision one.\n"
-    prepared_v1 = prepare_tiptap_markdown_write(
-        root=tmp_path,
-        request=TiptapMarkdownWritePrepareRequest(
-            document_id=record.document_id,
-            markdown=v1,
-            expected_revision=1,
-        ),
-    )
-    committed_v1 = commit_tiptap_markdown_write(
-        root=tmp_path,
-        request=TiptapMarkdownWriteCommitRequest(
-            document_id=record.document_id,
-            markdown=v1,
-            writer_confirm_token=prepared_v1.writer_confirm_token or "",
-            expected_revision=1,
-        ),
-    )
-    prior_revision = committed_v1.registry_revision
-    prior_digest = hashlib.sha256(v1.encode("utf-8")).hexdigest()
-
-    v2 = "# Lore\n\nRevision two.\n"
-    prepared_v2 = prepare_tiptap_markdown_write(
-        root=tmp_path,
-        request=TiptapMarkdownWritePrepareRequest(
-            document_id=record.document_id,
-            markdown=v2,
-            expected_revision=prior_revision,
-        ),
-    )
-
-    entered_mark = threading.Event()
-    release_mark = threading.Event()
-    real_mark = mark_workspace_document_committed_unlocked
-
-    def delayed_mark(*args, **kwargs):
-        entered_mark.set()
-        assert release_mark.wait(timeout=5), "timed out waiting to release commit barrier"
-        return real_mark(*args, **kwargs)
-
-    monkeypatch.setattr(
-        "apps.live_control_server.services.tiptap_markdown_write.mark_workspace_document_committed_unlocked",
-        delayed_mark,
-    )
-
-    commit_errors: list[BaseException] = []
-    commit_result: list[object] = []
-
-    def commit_worker() -> None:
-        try:
-            commit_result.append(
-                commit_tiptap_markdown_write(
-                    root=tmp_path,
-                    request=TiptapMarkdownWriteCommitRequest(
-                        document_id=record.document_id,
-                        markdown=v2,
-                        writer_confirm_token=prepared_v2.writer_confirm_token or "",
-                        expected_revision=prior_revision,
-                    ),
-                )
-            )
-        except BaseException as exc:  # noqa: BLE001 - surface to main thread
-            commit_errors.append(exc)
-
-    commit_thread = threading.Thread(target=commit_worker)
-    commit_thread.start()
-    assert entered_mark.wait(timeout=5), "commit never reached post-write registry mark"
-
-    # Target already has v2 bytes, but registry still reports prior_revision.
-    target_path = tmp_path / record.target_relpath
-    assert target_path.read_text(encoding="utf-8") == v2
-    from apps.live_control_server.services.workspace_document_registry import (
-        get_workspace_document,
-    )
-
-    assert get_workspace_document(tmp_path, record.document_id).revision == prior_revision
-
-    snapshot_started = threading.Event()
-    snapshot_done = threading.Event()
-    snapshot_errors: list[BaseException] = []
-    snapshot_result: list[object] = []
-
-    def snapshot_worker() -> None:
-        snapshot_started.set()
-        try:
-            snapshot_result.append(
-                create_source_artifact_from_workspace_document(
-                    tmp_path,
-                    document_id=record.document_id,
-                    expected_revision=prior_revision,
-                )
-            )
-        except BaseException as exc:  # noqa: BLE001 - surface to main thread
-            snapshot_errors.append(exc)
-        finally:
-            snapshot_done.set()
-
-    snapshot_thread = threading.Thread(target=snapshot_worker)
-    snapshot_thread.start()
-    assert snapshot_started.wait(timeout=5)
-    # Snapshot must block on the shared document lock while commit is between write and mark.
-    assert not snapshot_done.wait(timeout=0.3)
-
-    release_mark.set()
-    commit_thread.join(timeout=5)
-    snapshot_thread.join(timeout=5)
-    assert not commit_thread.is_alive()
-    assert not snapshot_thread.is_alive()
-    assert not commit_errors
-    assert commit_result
-
-    # After commit, prior_revision is stale; snapshot must not certify v2 bytes as prior_revision.
-    assert not snapshot_result
-    assert snapshot_errors
-    assert isinstance(snapshot_errors[0], SourceArtifactRegistryError)
-    assert "revision mismatch" in str(snapshot_errors[0])
-
-    committed_v2_revision = commit_result[0].registry_revision
-    artifact = create_source_artifact_from_workspace_document(
-        tmp_path,
-        document_id=record.document_id,
-        expected_revision=committed_v2_revision,
-    )
-    assert artifact.workspace_document_revision == committed_v2_revision
-    assert artifact.content_sha256 == hashlib.sha256(v2.encode("utf-8")).hexdigest()
-    assert artifact.content_sha256 != prior_digest
 
 
 def test_one_sided_supersession_fails_closed_on_load(

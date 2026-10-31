@@ -1,8 +1,11 @@
 """Saved selection adapter through the real governed HTTP boundary; isolated native port."""
+from tests.test_graph_document_source import case as case
+from tests.page_fixtures import page_text, save_page
+from apps.live_control_server.services.workspace_document_registry import get_workspace_document
 from types import SimpleNamespace
 from uuid import uuid4
 import pytest
-from tests.test_graph_document_source import case, TEXT
+from tests.test_graph_document_source import TEXT
 from apps.live_control_server.services.graph_document_relationship import DocumentRelationshipRequest, relationship_request
 
 
@@ -26,7 +29,7 @@ def graph(case,monkeypatch):
 
 
 def test_request_preview_and_explicit_confirmation_reuse_existing_writer(case,graph):
-    original=case.target.read_bytes()
+    original=page_text(case.root, case.record.document_id).encode("utf-8")
     response=case.client.post('/api/live/graph-authoring/document-relationship/request',json=intent(case))
     assert response.status_code==200,response.text
     request=response.json()
@@ -39,7 +42,7 @@ def test_request_preview_and_explicit_confirmation_reuse_existing_writer(case,gr
         receipt=case.client.post('/api/live/graph-authoring/commit',json=confirmed)
         assert receipt.status_code==200,receipt.text
     assert case.authority.publish_calls==1
-    assert case.target.read_bytes()==original
+    assert page_text(case.root, case.record.document_id).encode("utf-8")==original
     assert request['proposals'][-1]['summary']==intent(case)['context']
     assert request['proposals'][-1]['relationshipLabel']=='owns — '+intent(case)['context']
     edge=next(a for a in case.authority.published_requests[0].contribution.accepted_assertions if a.assertion_kind=='edge')
@@ -92,7 +95,7 @@ def test_missing_source_is_an_actionable_registry_error(case,graph,monkeypatch):
     from apps.live_control_server.services.workspace_document_registry import WorkspaceDocumentRegistryError
     def missing(*args):
         raise WorkspaceDocumentRegistryError('The selected saved page is no longer available.')
-    monkeypatch.setattr('apps.live_control_server.services.graph_document_relationship.get_workspace_document_snapshot',missing)
+    monkeypatch.setattr('apps.live_control_server.services.graph_document_relationship.get_committed_page_snapshot',missing)
     response=case.client.post('/api/live/graph-authoring/document-relationship/request',json=intent(case))
     assert response.status_code==404,response.text
     assert response.json()['detail']['code']=='relationship_source_unavailable'
@@ -102,10 +105,9 @@ def test_missing_source_is_an_actionable_registry_error(case,graph,monkeypatch):
 @pytest.mark.parametrize('body,quote',[(TEXT+TEXT,TEXT.strip()),(TEXT+'\nAnother source block.\n',TEXT+'\nAnother source block.')])
 def test_ambiguous_or_cross_block_quote_cannot_be_previewed(case,graph,body,quote):
     import hashlib
-    from apps.live_control_server.services.workspace_document_registry import mark_workspace_document_committed
     request=intent(case)
-    case.target.write_text(body)
-    record=mark_workspace_document_committed(case.root,case.record.document_id)
+    save_page(case.root, case.record.document_id, body)
+    record=get_workspace_document(case.root, case.record.document_id)
     request['document_source'].update(revision=record.revision,contentSha256=hashlib.sha256(body.encode()).hexdigest())
     request['quote']=quote
     response=case.client.post('/api/live/graph-authoring/document-relationship/request',json=request)
@@ -149,12 +151,12 @@ def test_runtime_checkout_and_retained_world_source_root_are_distinct(case,graph
 def test_relationship_reader_uses_committed_snapshot_not_file_witness(request, graph, monkeypatch):
     c = request.getfixturevalue("case")
     from apps.live_control_server.services import graph_document_relationship as reader
-    from apps.live_control_server.services.workspace_document_registry import get_workspace_document_snapshot
+    from apps.live_control_server.services.workspace_document_registry import get_committed_page_snapshot
     from apps.live_control_server.services.graph_object_authoring_prepare import GraphObjectAuthoringError
-    original = get_workspace_document_snapshot(c.root, c.record.document_id)
+    original = get_committed_page_snapshot(c.root, c.record.document_id)
     projection = original.model_copy(update={"file_exists": False,
         "record": original.record.model_copy(update={"target_relpath": None})})
-    monkeypatch.setattr(reader, "get_workspace_document_snapshot", lambda *args: projection)
+    monkeypatch.setattr(reader, "get_committed_page_snapshot", lambda *args: projection)
     request = DocumentRelationshipRequest.model_validate(intent(c))
     # The existing real source resolver still verifies/freezes the exact source;
     # this changes only its consumer projection, not source/native authority.

@@ -1,6 +1,6 @@
 import type {SavedProposalProjection} from './buildComposeBridge';
 import type {BuildProposalBasis} from '../api/buildDocumentProposalApi';
-import {getWorkspaceDocumentSnapshot} from '../api/liveApi';
+import {getCommittedPageSnapshot} from '../api/liveApi';
 import type {MarkdownCanvasSessionValue} from '../markdownCanvas/markdownCanvasTypes';
 import {tiptapJsonToSemanticMarkdown} from '../tiptap/markdown/calloutMarkdown';
 import {preserveLeadingYamlFrontmatter} from '../tiptap/markdown/stripLeadingYamlFrontmatter';
@@ -28,13 +28,13 @@ export async function saveBuildProposal(getCurrent:()=>SaveOwner|null,basis:Buil
   if(savedProjection && snapshot.content_sha256!==fullSha)throw new Error("The intended insertion is not already saved. No page write was attempted.");
   // Reload after a committed save/lost acknowledgment must not issue another write.
   if(!savedProjection && snapshot.content_sha256!==fullSha)await current.saveMarkdown();
-  const saved=await getWorkspaceDocumentSnapshot(basis.document_id);
+  const saved=await getCommittedPageSnapshot(basis.document_id);
   savedProjection?.assertCurrent();
   const now=getCurrent();
   if(!now||now.documentId!==documentId||now.editor!==editor||editor.isDestroyed)
     throw new Error('The page changed while saving. Reopen it to check the saved insertion.');
   if(savedProjection && (now.snapshot!==snapshot||JSON.stringify(editor.getJSON())!==json
-    ||saved.loaded_revision!==snapshot.loaded_revision||!saved.file_exists||!saved.file_fingerprint))
+    ||saved.loaded_revision!==snapshot.loaded_revision||!saved.file_fingerprint))
     throw new Error('The page changed during saved insertion verification. Check it again.');
   if(saved.record.document_id!==basis.document_id||saved.record.world_id!==basis.world_id
     ||saved.record.content_status!=='committed'||saved.record.status!=='active'

@@ -142,12 +142,12 @@ export function runbookDescriptorFromRecord(record: {
   kind: WorkspaceDocumentRecord["kind"];
   document_id: string;
   title: string;
-  campaign_id: string;
+  campaign_id: string | null;
   target_session: number | null;
   target_relpath: string | null;
   revision: number;
 }, starterContent: unknown = northGateSessionRunbookStarterContent): TiptapRunbookDescriptor {
-  if (record.kind !== "runbook") throw new Error("This document is not a runbook. Open it in its owning Surface; its draft was not changed.");
+  if (record.kind !== "runbook" || record.campaign_id === null) throw new Error("This document is not a runbook. Open it in its owning Surface; its draft was not changed.");
   return {
     documentId: record.document_id,
     title: record.title,

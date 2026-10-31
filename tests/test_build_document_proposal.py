@@ -1,4 +1,6 @@
 """Genuine source owner + guarded SDK + durable APP result; synthetic HTTP only."""
+from tests.page_fixtures import create_page_fixture, save_page
+from apps.live_control_server.services.workspace_document_registry import get_workspace_document
 import asyncio
 from hashlib import sha256
 import json
@@ -13,9 +15,7 @@ from apps.live_control_server.models.build_document_proposal import BuildDocumen
 from apps.live_control_server.services import build_document_proposal as owner
 from tests.application_state.test_agent_conversation_postgres import _new
 from apps.live_control_server.services.world_container_registry import create_world_container
-from apps.live_control_server.services.workspace_document_registry import (
-    create_workspace_document, mark_workspace_document_committed, get_workspace_document_snapshot,
-)
+from apps.live_control_server.services.workspace_document_registry import (get_workspace_document_snapshot)
 
 TABLE = '| NPC | Job | Detail |\n| --- | --- | --- |\n| Nia | Baker | Keeps a blue lantern |'
 
@@ -23,12 +23,10 @@ TABLE = '| NPC | Job | Detail |\n| --- | --- | --- |\n| Nia | Baker | Keeps a bl
 @pytest.fixture
 def request_case(tmp_path,monkeypatch,application_state_dsn):
     create_world_container(tmp_path,name='Elderwyld')
-    record=create_workspace_document(tmp_path,title='Edge',campaign_id='elderwyld',world_id='elderwyld',
+    record=create_page_fixture(tmp_path,title='Edge',campaign_id='elderwyld',world_id='elderwyld',
         kind='worldbuilding_source',source_domain='worldbuilding',document_class='lore',authority_state='draft',visibility_state='internal')
-    target=tmp_path/record.target_relpath
-    target.parent.mkdir(parents=True,exist_ok=True)
-    target.write_text('## Edge\nA fort town at the edge of a swamp.\n')
-    mark_workspace_document_committed(tmp_path,record.document_id,expected_revision=1)
+    record = save_page(tmp_path, record.document_id, '## Edge\nA fort town at the edge of a swamp.\n')
+    get_workspace_document(tmp_path, record.document_id)
     source=get_workspace_document_snapshot(tmp_path,record.document_id)
     monkeypatch.setattr(owner,'managed_world_data_root',lambda:tmp_path)
     monkeypatch.setattr(owner,'_model',lambda:'gpt-6-luna')
@@ -391,7 +389,7 @@ def test_source_reader_accepts_exact_committed_nonfile_owner_projection(request_
     request, source, _ = request_case
     projection = source.model_copy(update={"file_exists": False,
         "record": source.record.model_copy(update={"target_relpath": None})})
-    monkeypatch.setattr(owner, "get_workspace_document_snapshot", lambda *args: projection)
+    monkeypatch.setattr(owner, "get_committed_page_snapshot", lambda *args: projection)
     assert owner._source(request).markdown == source.markdown
     for changes in ({"content_status": "draft"}, {"world_id": "foreign"},
                     {"document_id": str(uuid4())}, {"revision": source.loaded_revision + 1}):

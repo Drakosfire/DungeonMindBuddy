@@ -1,4 +1,6 @@
 from __future__ import annotations
+from tests.page_fixtures import create_page_fixture, save_page
+from apps.live_control_server.services.workspace_document_registry import get_workspace_document
 
 from pathlib import Path
 import copy
@@ -844,13 +846,9 @@ def test_create_does_not_write_legacy_registry(
     from apps.live_control_server.services.source_artifact_registry import (
         create_source_artifact_from_workspace_document,
     )
-    from apps.live_control_server.services.workspace_document_registry import (
-        create_workspace_document,
-        mark_workspace_document_committed,
-    )
     from apps.live_control_server.services.graph_run_registry import create_extraction_run as mounted_create
 
-    record = create_workspace_document(
+    record = create_page_fixture(
         tmp_path,
         title="Lore",
         campaign_id="eldyrwild",
@@ -860,12 +858,8 @@ def test_create_does_not_write_legacy_registry(
         authority_state="draft",
         visibility_state="internal",
     )
-    committed = mark_workspace_document_committed(
-        tmp_path, record.document_id, expected_revision=1
-    )
-    target = tmp_path / committed.target_relpath
-    target.parent.mkdir(parents=True, exist_ok=True)
-    target.write_text("# Lore\n", encoding="utf-8")
+    committed = get_workspace_document(tmp_path, record.document_id)
+    committed = save_page(tmp_path, committed.document_id, '# Lore\n')
     artifact = create_source_artifact_from_workspace_document(
         tmp_path,
         document_id=committed.document_id,

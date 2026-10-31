@@ -1,4 +1,6 @@
 """Admitted Build source crosses the real adapter/host IPC without inference."""
+from tests.page_fixtures import create_page_fixture, save_page
+from apps.live_control_server.services.workspace_document_registry import get_workspace_document
 from dataclasses import replace
 import hashlib
 import json
@@ -18,9 +20,7 @@ from apps.live_control_server.services.hermes_graph_agent_contract import (
 )
 from apps.live_control_server.services.hermes_graph_agent_host import HermesGraphAgentHost
 from apps.live_control_server.services.hermes_session_store import HermesSessionPointerStore
-from apps.live_control_server.services.workspace_document_registry import (
-    create_workspace_document, mark_workspace_document_committed, get_workspace_document_snapshot,
-)
+from apps.live_control_server.services.workspace_document_registry import (get_workspace_document_snapshot)
 from tests.test_agent_build_surface_context import request
 from tests.test_hermes_graph_agent_contract import _request
 
@@ -28,12 +28,10 @@ from tests.test_hermes_graph_agent_contract import _request
 @pytest.fixture
 def source(tmp_path, monkeypatch, application_state_dsn):
     (tmp_path / 'corpus/elderwyld-markdown').mkdir(parents=True)
-    record = create_workspace_document(tmp_path, title='Synthetic Guard — 羊', campaign_id='elderwyld', world_id='elderwyld',
+    record = create_page_fixture(tmp_path, title='Synthetic Guard — 羊', campaign_id='elderwyld', world_id='elderwyld',
         kind='worldbuilding_source', source_domain='worldbuilding', document_class='lore', authority_state='draft', visibility_state='internal')
-    target = tmp_path / record.target_relpath
-    target.parent.mkdir(parents=True, exist_ok=True)
-    target.write_text('# Guard\n' + 'Mirathorn — 羊 guards protect the city.\n' * 350, encoding='utf-8')
-    mark_workspace_document_committed(tmp_path, record.document_id, expected_revision=1)
+    record = save_page(tmp_path, record.document_id, '# Guard\n' + 'Mirathorn — 羊 guards protect the city.\n' * 350)
+    get_workspace_document(tmp_path, record.document_id)
     monkeypatch.setattr(agent, '_managed_world_root', lambda: tmp_path)
     return get_workspace_document_snapshot(tmp_path, record.document_id)
 

@@ -11,7 +11,7 @@ from pydantic import BaseModel, ConfigDict
 from apps.live_control_server import config
 from apps.live_control_server.services.workspace_document_registry import (
     WorkspaceDocumentSnapshot,
-    get_workspace_document_snapshot,
+    get_committed_page_snapshot,
 )
 from apps.live_control_server.services.world_container_registry import (
     WorldContainerRegistryError,
@@ -185,7 +185,7 @@ def _load_exact_snapshot(
     expected_body_sha256: str | None = None,
 ) -> tuple[WorkspaceDocumentSnapshot, bytes, str, str, object]:
     try:
-        snapshot = get_workspace_document_snapshot(root, document_id)
+        snapshot = get_committed_page_snapshot(root, document_id)
     except Exception as exc:
         status_code = int(getattr(exc, "status_code", 500))
         raise NativeWorldSourceAdmissionError(
@@ -196,7 +196,7 @@ def _load_exact_snapshot(
         raise NativeWorldSourceAdmissionError(
             "unsupported_source", "Only worldbuilding sources can be admitted", status_code=422
         )
-    if record.status != "active" or record.content_status != "committed" or not snapshot.file_exists:
+    if record.status != "active" or record.content_status != "committed":
         raise NativeWorldSourceAdmissionError(
             "source_not_committed", "The worldbuilding source must be active and committed"
         )

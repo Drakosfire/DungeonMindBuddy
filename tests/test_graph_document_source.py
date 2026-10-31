@@ -1,4 +1,6 @@
 """Registered-document source → real occurrence verifier → governed native port."""
+from tests.page_fixtures import create_page_fixture, page_text, save_page
+from apps.live_control_server.services.workspace_document_registry import get_workspace_document
 import hashlib
 from types import SimpleNamespace
 
@@ -12,10 +14,7 @@ from apps.live_control_server.services.graph_document_source import (
 from apps.live_control_server.services.graph_object_authoring_prepare import (
     GRAPH_REVIEW_PREPARE_BINDING_KEY_ENV,
 )
-from apps.live_control_server.services.workspace_document_registry import (
-    create_workspace_document, mark_workspace_document_committed,
-    discard_workspace_document,
-)
+from apps.live_control_server.services.workspace_document_registry import (discard_workspace_document)
 from apps.live_control_server.services.source_artifact_registry import SourceArtifactRegistryError
 from tests.test_graph_object_authoring_prepare import FakeSourceAdmission, FakeWorldGraphAuthority, object_proposal, relationship_proposal
 
@@ -33,13 +32,11 @@ def case(tmp_path, monkeypatch, application_state_dsn):
     from application_state.world_catalog.service import create_world
     assert create_world(name='Eldyrwild').record.world_id == WORLD
     (tmp_path / 'corpus/eldyrwild-markdown').mkdir(parents=True)
-    record = create_workspace_document(tmp_path, title='Brin’s Blacksmithy', campaign_id=WORLD,
+    record = create_page_fixture(tmp_path, title='Brin’s Blacksmithy', campaign_id=WORLD,
         kind='worldbuilding_source', world_id=WORLD, source_domain='worldbuilding',
         document_class='lore', authority_state='draft', visibility_state='internal')
-    target = tmp_path / record.target_relpath
-    target.parent.mkdir(parents=True, exist_ok=True)
-    target.write_text(TEXT)
-    record = mark_workspace_document_committed(tmp_path, record.document_id)
+    record = save_page(tmp_path, record.document_id, TEXT)
+    record = get_workspace_document(tmp_path, record.document_id)
     selector = GraphDocumentSource(documentId=record.document_id, revision=record.revision,
         contentSha256=hashlib.sha256(TEXT.encode()).hexdigest())
     binding = SimpleNamespace(managed_world_id=WORLD, native_world_id='native:eldyrwild', binding_version=1)
@@ -49,7 +46,7 @@ def case(tmp_path, monkeypatch, application_state_dsn):
     monkeypatch.setattr('apps.live_control_server.ports.world_graph_authority_access.get_world_graph_authority', lambda: authority)
     monkeypatch.setattr('apps.live_control_server.ports.world_graph_source_admission_access.get_world_graph_source_admission_authority', lambda: admission)
     from apps.live_control_server.main import create_app
-    return SimpleNamespace(root=tmp_path, record=record, target=target, selector=selector, binding=binding,
+    return SimpleNamespace(root=tmp_path, record=record, selector=selector, binding=binding,
         authority=authority, admission=admission, client=TestClient(create_app(), client=("127.0.0.1", 50000)))
 
 
@@ -91,7 +88,7 @@ def test_exact_source_objects_relationships_and_one_native_publication(case):
     contribution = case.authority.published_requests[0].contribution
     assert contribution.world_id == 'native:eldyrwild'
     assert len(contribution.accepted_assertions) == 3
-    assert case.target.read_text() == TEXT
+    assert page_text(case.root, case.record.document_id) == TEXT
 
 
 def test_immutable_source_survives_later_save_and_lost_confirmation_response(case):
@@ -101,8 +98,8 @@ def test_immutable_source_survives_later_save_and_lost_confirmation_response(cas
     # Native response loss is recovered by the owner; then discard that HTTP
     # response as a browser disconnect would and resume from the retained request.
     assert case.client.post('/api/live/graph-authoring/commit', json=request).status_code == 200
-    case.target.write_text('The shop has changed.\n')
-    mark_workspace_document_committed(case.root, case.record.document_id)
+    save_page(case.root, case.record.document_id, 'The shop has changed.\n')
+    get_workspace_document(case.root, case.record.document_id)
     assert resolve(case).sealed_source_uri == source.sealed_source_uri
     retry = case.client.post('/api/live/graph-authoring/commit', json=request)
     assert retry.status_code == 200, retry.text

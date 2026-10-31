@@ -1,6 +1,8 @@
 """Fixture-backed pipeline proof for the bounded worldbuilding profile."""
 
 from __future__ import annotations
+from tests.page_fixtures import create_page_fixture, save_page
+from apps.live_control_server.services.workspace_document_registry import get_workspace_document
 
 import json
 from pathlib import Path
@@ -11,10 +13,6 @@ import pytest
 from apps.live_control_server.services.source_artifact_registry import (
     create_source_artifact_from_workspace_document,
     load_source_span_index,
-)
-from apps.live_control_server.services.workspace_document_registry import (
-    create_workspace_document,
-    mark_workspace_document_committed,
 )
 from graph_memory.source_span import source_span_index_to_dict
 from src.graph_memory.extraction.category_candidate_graph_extractor import (
@@ -47,7 +45,7 @@ def _load_fixture() -> dict:
 def _admit_fixture_source(tmp_path: Path) -> tuple[NormalizedExtractionSource, str]:
     """Register fixture prose as a SourceArtifact and return normalized source + paragraph span."""
     fixture = _load_fixture()
-    record = create_workspace_document(
+    record = create_page_fixture(
         tmp_path,
         title="Shepherd's Flock fixture",
         campaign_id=fixture["campaign_id"],
@@ -57,13 +55,9 @@ def _admit_fixture_source(tmp_path: Path) -> tuple[NormalizedExtractionSource, s
         authority_state="draft",
         visibility_state="internal",
     )
-    committed = mark_workspace_document_committed(
-        tmp_path, record.document_id, expected_revision=1
-    )
-    target = tmp_path / committed.target_relpath
-    target.parent.mkdir(parents=True, exist_ok=True)
+    committed = get_workspace_document(tmp_path, record.document_id)
     content = str(fixture["source_text"]).rstrip("\n") + "\n"
-    target.write_text(content, encoding="utf-8")
+    committed = save_page(tmp_path, committed.document_id, content)
     artifact = create_source_artifact_from_workspace_document(
         tmp_path,
         document_id=committed.document_id,
