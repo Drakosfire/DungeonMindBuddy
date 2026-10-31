@@ -81,7 +81,6 @@ def acquired(application_state_dsn, monkeypatch, request):
         ),
         retrieval_session=session,
         binding_version=authority.binding_version,
-        source_root_relpath="corpus",
         candidate_assertion_ids=(),
         candidate_relationship_ids=(),
         candidate_evidence_ref_ids=(),

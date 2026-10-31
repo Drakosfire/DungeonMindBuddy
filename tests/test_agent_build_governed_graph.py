@@ -44,8 +44,7 @@ def build_case(tmp_path, monkeypatch, application_state_dsn):
                         'scope_mode': 'world'},
         world_scope=AgentWorldScope(world_id='native-build-world', campaign_id='', focus={'kind': 'none'},
             admissibility='gm', revision_id='native-rev-3', scope_mode='world'),
-        retrieval_session=session, binding_version=7, source_root_relpath='corpus/elderwyld-markdown',
-        candidate_assertion_ids=(), candidate_relationship_ids=(), candidate_evidence_ref_ids=(),
+        retrieval_session=session, binding_version=7, candidate_assertion_ids=(), candidate_relationship_ids=(), candidate_evidence_ref_ids=(),
         evidence_by_anchor_id={},
     )
     return source, request, bootstrap

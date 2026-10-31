@@ -48,7 +48,7 @@ def test_saved_plan_consultation_freezes_v3_policy_with_empty_initial_source_sco
             admissibility="gm", revision_id=revision, scope_mode="world",
         ),
         retrieval_session=session, binding_version=1,
-        source_root_relpath="corpus", candidate_assertion_ids=(),
+        candidate_assertion_ids=(),
         candidate_relationship_ids=(), candidate_evidence_ref_ids=(),
         evidence_by_anchor_id={}, source_scope_anchors=(),
     )
@@ -117,7 +117,6 @@ def _action_adapter_without_ask_request():
         ),
         retrieval_session=session,
         binding_version=1,
-        source_root_relpath="corpus",
         candidate_assertion_ids=(),
         candidate_relationship_ids=(),
         candidate_evidence_ref_ids=(),

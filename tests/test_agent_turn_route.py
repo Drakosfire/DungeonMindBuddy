@@ -4436,7 +4436,7 @@ def test_reset_receipt_status_auth_precedes_world_and_receipt_lookup(monkeypatch
     assert error.value.status_code == 403
 
 
-def _selected_consumer_context(tmp_path, monkeypatch, *, unavailable=False, legacy=False, claims=True, neighbor=False, flip_binding_after_index=False, head_updates=None, store_calls=None):
+def _selected_consumer_context(tmp_path, monkeypatch, *, unavailable=False, legacy=False, claims=True, neighbor=False, flip_binding_after_index=False, head_updates=None, store_calls=None, corpus_present=True, relocated_hint=False, hint_change_during=None, binding_change_during_search=False, initial_binding="active", registered=True):
     from tests.test_world_graph_retrieval_contract import _selected_native_fixture
     from apps.live_control_server.routes import agent as route
     from apps.live_control_server.integrations.dungeonmind import world_graph_reads as direct
@@ -4447,9 +4447,21 @@ def _selected_consumer_context(tmp_path, monkeypatch, *, unavailable=False, lega
     (tmp_path / managed.source_root_relpath).mkdir(parents=True, exist_ok=True)
     binding = registry.NativeGraphBindingRecord(native_world_id=request.world_id, binding_version=1,
         status="active", validated_at="2026-10-08T00:00:00Z", validated_head_revision_id=revision)
-    container = managed.model_copy(update={"native_graph_binding": binding})
+    container = managed.model_copy(update={"native_graph_binding": (
+        None if initial_binding == "none" else binding.model_copy(update={"status": initial_binding})
+    )})
+    if not corpus_present:
+        (tmp_path / managed.source_root_relpath).rmdir()
+    if relocated_hint:
+        container = container.model_copy(update={"source_root_relpath": "retained/older-layout"})
     monkeypatch.setattr(route, "_managed_world_root", lambda: tmp_path)
-    monkeypatch.setattr(registry, "get_world_container", lambda _root, world: container if world == managed.world_id else None)
+
+    def registered_world(_root, world):
+        if not registered or world != managed.world_id:
+            raise registry.WorldContainerRegistryError("World not found")
+        return container
+
+    monkeypatch.setattr(registry, "get_world_container", registered_world)
     monkeypatch.setattr(direct, "direct_services_from_config", lambda world: services if world == request.world_id else None)
     def record_store(session, **_kwargs):
         if store_calls is not None:
@@ -4457,12 +4469,29 @@ def _selected_consumer_context(tmp_path, monkeypatch, *, unavailable=False, lega
         return session
 
     monkeypatch.setattr(route, "_store_plan_retrieval_session", record_store)
-    if flip_binding_after_index or head_updates is not None:
+    if hint_change_during == "search" or binding_change_during_search:
+        original_search = direct.search_world_graph_direct_v2
+
+        def search_then_change_metadata(*args, **kwargs):
+            nonlocal container
+            result = original_search(*args, **kwargs)
+            if hint_change_during == "search":
+                container = container.model_copy(update={"source_root_relpath": "relocated/during-search"})
+            if binding_change_during_search:
+                container = container.model_copy(update={
+                    "native_graph_binding": binding.model_copy(update={"binding_version": 2}),
+                })
+            return result
+
+        monkeypatch.setattr(direct, "search_world_graph_direct_v2", search_then_change_metadata)
+    if flip_binding_after_index or head_updates is not None or hint_change_during == "index":
         original_index = direct.list_selected_source_anchor_index_direct_v1
 
         def index_then_change_authority(*args, **kwargs):
             nonlocal container
             result = original_index(*args, **kwargs)
+            if hint_change_during == "index":
+                container = container.model_copy(update={"source_root_relpath": "relocated/during-index"})
             if flip_binding_after_index:
                 container = container.model_copy(update={
                     "native_graph_binding": binding.model_copy(update={"binding_version": 2}),
@@ -4513,20 +4542,54 @@ def _selected_consumer_context(tmp_path, monkeypatch, *, unavailable=False, lega
     return body, work, bootstrap, receipt, execution, membership
 
 
-def test_selected_plan_binding_change_during_source_index_fails_before_receipt(tmp_path, monkeypatch):
+@pytest.mark.parametrize("phase", ["search", "index"])
+def test_selected_plan_binding_change_during_reads_fails_before_receipt(tmp_path, monkeypatch, phase):
     from apps.live_control_server.services.agent_turn_service import AgentTurnServiceError
 
     store_calls = []
     with pytest.raises(AgentTurnServiceError) as caught:
         _selected_consumer_context(
-            tmp_path, monkeypatch, flip_binding_after_index=True,
-            store_calls=store_calls,
+            tmp_path, monkeypatch, flip_binding_after_index=phase == "index",
+            binding_change_during_search=phase == "search", store_calls=store_calls,
         )
 
     assert caught.value.code == "native_graph_binding_changed"
     assert caught.value.status_code == 409
     assert caught.value.provider_dispatched is False
     assert store_calls == []
+
+
+@pytest.mark.parametrize("relocated_hint", [False, True])
+def test_selected_plan_graph_admission_does_not_require_a_corpus_folder(tmp_path, monkeypatch, relocated_hint):
+    _body, _work, bootstrap, receipt, _execution, _membership = _selected_consumer_context(
+        tmp_path, monkeypatch, corpus_present=False, relocated_hint=relocated_hint,
+    )
+    assert not list((tmp_path / "corpus").iterdir())
+    assert receipt.graph_authority.native_world_id == bootstrap.world_scope.world_id
+    assert bootstrap.source_index_commitment["status"] == "complete"
+
+
+@pytest.mark.parametrize("phase", ["search", "index"])
+def test_selected_plan_graph_admission_ignores_source_hint_changes(tmp_path, monkeypatch, phase):
+    _body, _work, bootstrap, receipt, _execution, _membership = _selected_consumer_context(
+        tmp_path, monkeypatch, hint_change_during=phase,
+    )
+    assert receipt.graph_authority.binding_version == 1
+    assert receipt.graph_authority.graph_revision == bootstrap.world_scope.revision_id
+    assert bootstrap.source_index_commitment["status"] == "complete"
+
+
+@pytest.mark.parametrize("initial_binding,registered", [("inactive", True), ("none", True), ("active", False)])
+def test_selected_plan_folder_never_substitutes_for_registered_active_binding(tmp_path, monkeypatch, initial_binding, registered):
+    from apps.live_control_server.services.agent_turn_service import AgentTurnServiceError
+
+    stored = []
+    with pytest.raises(AgentTurnServiceError) as caught:
+        _selected_consumer_context(tmp_path, monkeypatch, initial_binding=initial_binding,
+            registered=registered, store_calls=stored)
+    assert caught.value.code == ("native_graph_binding_unavailable" if registered else "world_owner_unavailable")
+    assert caught.value.provider_dispatched is False
+    assert stored == []
 
 
 def test_selected_plan_head_advance_during_source_index_keeps_one_revision(tmp_path, monkeypatch):

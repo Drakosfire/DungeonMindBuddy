@@ -38,7 +38,7 @@ def plan_adapter(application_state_dsn, monkeypatch):
         'world_id': 'native-park', 'scope_mode': 'world'},
         world_scope=AgentWorldScope(world_id='native-park', campaign_id='', focus={'kind': 'none'},
             admissibility='gm', revision_id='park:1', scope_mode='world'), retrieval_session=session,
-        binding_version=1, source_root_relpath='corpus/synthetic', candidate_assertion_ids=(),
+        binding_version=1, candidate_assertion_ids=(),
         candidate_relationship_ids=(), candidate_evidence_ref_ids=(), evidence_by_anchor_id={})
     adapter = owner._PolicyExecutionAdapter(service=AgentConversationService(), request=request,
         world_id='world:one', work=work, bootstrap=bootstrap, playable_target=None,
