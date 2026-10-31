@@ -29,7 +29,7 @@ for _path in (REPO_ROOT, REPO_ROOT / "src"):
     if value not in sys.path:
         sys.path.insert(0, value)
 
-from apps.live_control_server.services.recap_graph_preview_ingest import (
+from apps.live_control_server.services.recap_graph_preview_ingest import (  # noqa: E402 -- CLI path bootstrap above
     build_recap_graph_preview_bundle,
 )
 
