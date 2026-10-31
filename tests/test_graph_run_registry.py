@@ -20,6 +20,7 @@ from apps.live_control_server.services.source_artifact_registry import (
     get_source_artifact,
     resolve_worldbuilding_source_span,
     load_source_span_index,
+    load_registered_source_artifact_bytes,
     source_span_index_relpath,
 )
 from apps.live_control_server.services.workspace_document_registry import (
@@ -79,8 +80,7 @@ def _committed_worldbuilding(root: Path, markdown: str = "# Lore\n\nBody.\n"):
 
 
 def _reviewable_components(root: Path, artifact, graph_payload: dict | None = None):
-    source_path = root / artifact.uri.removeprefix("repo://")
-    source_digest = hashlib.sha256(source_path.read_bytes()).hexdigest()
+    source_digest = hashlib.sha256(load_registered_source_artifact_bytes(root, artifact.source_artifact_id)[1]).hexdigest()
     span_rel = source_span_index_relpath(artifact.source_artifact_id)
     span_path = root / span_rel
     span_path.parent.mkdir(parents=True, exist_ok=True)
@@ -1072,9 +1072,10 @@ def _validated_recap_run(
         session_id="session-23",
         recap_text=recap_text,
     )
-    source_path = tmp_path / artifact.uri.removeprefix("repo://")
+    source_path = tmp_path / "historical-source-copy.md"
+    source_path.write_bytes(load_registered_source_artifact_bytes(tmp_path, artifact.source_artifact_id)[1])
     source_digest = hashlib.sha256(source_path.read_bytes()).hexdigest()
-    uri = component_uri or artifact.uri
+    uri = component_uri or "repo://historical-source-copy.md"
     if component_digest is ...:
         digest: str | None = source_digest
     else:
@@ -1201,7 +1202,9 @@ def test_historical_recap_inspection_does_not_fallback_to_sibling_bytes(
         component_uri="repo://out/registries/missing/recap.md",
         component_digest=hashlib.sha256(b"missing").hexdigest(),
     )
-    sibling_path = tmp_path / sibling.uri.removeprefix("repo://")
+    sibling_path = tmp_path / "out/registries/missing/sibling-recap.md"
+    sibling_path.parent.mkdir(parents=True)
+    sibling_path.write_bytes(load_registered_source_artifact_bytes(tmp_path, sibling.source_artifact_id)[1])
     assert sibling_path.is_file()
     missing_path = tmp_path / "out/registries/missing/recap.md"
     assert not missing_path.is_file()

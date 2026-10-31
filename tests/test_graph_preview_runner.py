@@ -568,8 +568,9 @@ def test_in_repo_recap_admission_is_immutable_across_edits(tmp_path: Path) -> No
         recap_path=recap_path,
     )
     assert recap_path.read_text(encoding="utf-8") == original
-    assert first.uri.startswith("repo://out/registries/source_content/recap/")
-    assert first.content_sha256 and first.content_sha256 in first.uri
+    assert first.uri == f"object://{first.source_artifact_id}"
+    import hashlib
+    assert first.content_sha256 == hashlib.sha256(original.encode()).hexdigest()
 
     span_ref = _first_paragraph_span_id(
         _normalized_from_artifact(tmp_path, first.source_artifact_id)
@@ -957,11 +958,11 @@ def test_reviewable_unsupported_candidate_is_exact_admission_input(
     if not revision.startswith("sha256:"):
         revision = f"sha256:{revision}"
     from apps.live_control_server.services.source_artifact_registry import (
-        get_source_artifact,
+        get_source_artifact, load_registered_source_artifact_bytes,
     )
 
     prepared = prepare_candidate_graph_admission(
-        source_body=(tmp_path / source.source_uri.removeprefix("repo://")).read_bytes(),
+        source_body=load_registered_source_artifact_bytes(tmp_path, source.source_artifact_id)[1],
         candidate_graph=candidate,
         source_uri=source.source_uri,
         source_revision_id=revision,

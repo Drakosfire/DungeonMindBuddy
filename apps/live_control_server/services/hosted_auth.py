@@ -271,15 +271,6 @@ def validate_hosted_auth_configuration(
                 errors.append(name)
         except (OSError, RuntimeError):
             errors.append(name)
-    recap_root = source.get("DUNGEONMIND_RECAP_SOURCE_CONTENT_ROOT", "").strip()
-    recap_path = Path(recap_root)
-    if (
-        not recap_root
-        or recap_path.is_absolute()
-        or ".." in recap_path.parts
-        or recap_root.startswith("file:")
-    ):
-        errors.append("DUNGEONMIND_RECAP_SOURCE_CONTENT_ROOT")
     return tuple(errors)
 
 
