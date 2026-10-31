@@ -294,6 +294,14 @@ function graphPreviewIsBlocked(graphPreview?: RecapGraphPreviewReport): boolean 
   );
 }
 
+function graphPreviewIsReviewable(graphPreview?: RecapGraphPreviewReport): boolean {
+  return Boolean(
+    (graphPreview?.status === "candidate_validation_ready" ||
+      graphPreview?.status === "preview_union_store_ready") &&
+    !graphPreviewIsBlocked(graphPreview),
+  );
+}
+
 function graphPreviewHasExtractionFailure(
   graphPreview?: RecapGraphPreviewReport,
   result?: RecapIngestStatus | null,
@@ -340,9 +348,7 @@ function ingestionStatusBadge(
   const processing =
     paneStatus === "running_full_ingest" ||
     paneStatus === "building_graph_preview";
-  const graphReady =
-    graphPreview?.status === "candidate_validation_ready" ||
-    graphPreview?.status === "preview_union_store_ready";
+  const graphReady = graphPreviewIsReviewable(graphPreview);
 
   if (paneStatus === "error") {
     return { label: "Failed", tone: "warning" };
@@ -355,8 +361,8 @@ function ingestionStatusBadge(
   }
   if (
     graphPreview?.status === "source_unverified" ||
-    result?.status === "source_unverified" ||
-    result?.states.includes("source_unverified")
+    (!graphReady && (result?.status === "source_unverified" ||
+      result?.states.includes("source_unverified")))
   ) {
     return { label: "Source unverified", tone: "warning" };
   }
@@ -574,7 +580,7 @@ function buildToastForResult(
 
   if (!allowInspectResume && result.states.includes("ingest_status_inspected") && result.errors.length === 0) return null;
   const graphPreview = result.ingest_report?.graph_preview as RecapGraphPreviewReport | undefined;
-  const graphReady = graphPreview?.status === "candidate_validation_ready" || graphPreview?.status === "preview_union_store_ready";
+  const graphReady = graphPreviewIsReviewable(graphPreview);
   const graphBlocked = graphPreviewIsBlocked(graphPreview);
   const stagedConflict = result.states.includes("staged_raw_notes_conflict");
   if (stagedConflict) {
@@ -587,11 +593,14 @@ function buildToastForResult(
     };
   }
   if (result.status === "error" || result.errors.length > 0) {
+    const importCheck = result.status !== "error" && graphReady && result.states.includes("ingest_status_inspected");
     return {
-      tone: "error",
-      title: "Processing failed",
+      tone: importCheck ? "warning" : "error",
+      title: importCheck ? "Import source needs attention" : "Processing failed",
       detail: result.errors.join("; ") || result.warnings.join("; ") || `The server returned ${result.status}.`,
-      nextSteps: ["Open Evidence & details for the source and graph error."],
+      nextSteps: importCheck
+        ? ["The saved extraction is available in Graph Review. Import details remain in Evidence & details."]
+        : ["Open Evidence & details for the source and graph error."],
       sticky: true,
     };
   }
@@ -995,6 +1004,7 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
     try {
       const inspected = await postRecapIngest({
         operation: "inspect_status",
+        managed_world_id: managedWorldId,
         campaign_id: campaignId,
         session: sessionNumber,
         slug: slug.trim() || undefined,
@@ -1104,7 +1114,9 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
   const exactGraphReviewRunId = evidenceResultOwnsSelection
     ? graphPreviewFromEvidence?.extraction_run_id?.trim() || null
     : null;
-  const sourceUnverified = Boolean(
+  const graphReviewable = graphPreviewIsReviewable(graphPreview);
+  // Import-file checks cannot invalidate an exact saved database candidate.
+  const sourceUnverified = !graphReviewable && Boolean(
     graphPreview?.status === "source_unverified" ||
     proofResult?.status === "source_unverified" ||
     proofResult?.states.includes("source_unverified"),
@@ -1114,13 +1126,11 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
     isIngestSurfacePath()
     && managedWorldId
     && exactGraphReviewRunId
-    && !sourceUnverified
-    && hasCurrentNormalizedSource
-    && (graphPreview?.status === "preview_union_store_ready" || graphPreview?.status === "candidate_validation_ready"),
+    && graphReviewable,
   );
-  const graphReviewUnavailableReason = !exactGraphReviewRunId
-    ? "exact extraction run"
-    : "current source proof";
+  const graphReviewUnavailableReason = !managedWorldId
+    ? "selected World"
+    : "exact extraction run";
   const statusBadgeResult = sourceUnverified || latestProofFailure ? proofResult : evidenceResult ?? proofResult;
   const statusBadge = ingestionStatusBadge(state.status, statusBadgeResult, graphPreview);
   const selectedReaderRun = readerRun?.campaign === ingestCampaignId && readerRun.session === `session-${recapSession}` ? readerRun.runId : null;
@@ -1215,6 +1225,7 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
     if (rawTextSatisfied && hasCurrentNormalizedSource) {
       return `Unsaved draft open · Session ${recapSession}. The saved recap is available to read.`;
     }
+    if (canOpenGraphReview) return "Graph candidate ready for review; World admission is a separate step.";
     if (!sourceInputSatisfied && !hasNormalizedRecap) {
       return "Write or paste a recap, then choose Process.";
     }
@@ -1340,6 +1351,7 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
         try {
           const inspected = await postRecapIngest({
             operation: "inspect_status",
+            managed_world_id: managedWorldId,
             campaign_id: ingestCampaignId,
             session: defaultRecap,
             slug: initialSlug.trim() || undefined,
@@ -1724,6 +1736,7 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
     try {
       const inspected = await postRecapIngest({
         operation: "inspect_status",
+        managed_world_id: managedWorldId,
         campaign_id: record.campaign_id,
         session: sessionNumber,
         title: titleFromArtifact(record) || undefined,
@@ -2284,6 +2297,7 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
   const showSourceActions = priorIngestionArtifacts.length > 0 || loadingPriorIngestion;
   const showEvidenceShortcut = evidenceResult !== null;
   const showWorkflowActions = sourceInputSatisfied || busy;
+  const showGraphReviewAction = isIngestSurfacePath() && graphReviewable;
   const showSourceProofRecovery = Boolean(
     selectionHydrated &&
       showRecapWelcome &&
@@ -2293,6 +2307,7 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
   const showSavedWorkRecovery = showSourceProofRecovery && hasPriorIngestWork && recapSourceMissing;
   const showWorkflowFeedback =
     showWorkflowActions ||
+    showGraphReviewAction ||
     Boolean(toast) ||
     state.status === "error" ||
     showSourceProofRecovery;
@@ -2375,7 +2390,7 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
           ) : null}
         </div>
 
-        {showSourceActions || showWorkflowActions || showEvidenceShortcut ? (
+        {showSourceActions || showWorkflowActions || showGraphReviewAction || showEvidenceShortcut ? (
           <div className="ingest-local-nav__workflow">
             {showSourceActions ? (
               <div className="ingest-local-nav__source" role="group" aria-label="Source actions">
@@ -2421,28 +2436,32 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
               </a>
             ) : null}
 
-            {showWorkflowActions ? (
+            {showWorkflowActions || showGraphReviewAction ? (
               <div className="ingest-local-nav__stages" role="group" aria-label="Recap processing">
-                {hasPreviewUnionStore ? (
-                  <label className="ingestion-checkbox-row ingestion-replace-graph-row ingest-local-nav__replace">
-                    <input
-                      type="checkbox"
-                      checked={forceGraphRun}
-                      onChange={(event) => setForceGraphRun(event.target.checked)}
-                    />
-                    Replace graph
-                  </label>
+                {showWorkflowActions ? (
+                  <>
+                    {hasPreviewUnionStore ? (
+                      <label className="ingestion-checkbox-row ingestion-replace-graph-row ingest-local-nav__replace">
+                        <input
+                          type="checkbox"
+                          checked={forceGraphRun}
+                          onChange={(event) => setForceGraphRun(event.target.checked)}
+                        />
+                        Replace graph
+                      </label>
+                    ) : null}
+                    <button
+                      type="button"
+                      aria-label={primaryOp === "process" ? "Processing recap" : "Process recap"}
+                      className="primary"
+                      onClick={() => void processRecap()}
+                      disabled={!canProcessRecap}
+                    >
+                      {primaryOp === "process" ? <><span className="button-inline-spinner" aria-hidden="true" /> Processing…</> : "Process"}
+                    </button>
+                  </>
                 ) : null}
-                <button
-                  type="button"
-                  aria-label={primaryOp === "process" ? "Processing recap" : "Process recap"}
-                  className="primary"
-                  onClick={() => void processRecap()}
-                  disabled={!canProcessRecap}
-                >
-                  {primaryOp === "process" ? <><span className="button-inline-spinner" aria-hidden="true" /> Processing…</> : "Process"}
-                </button>
-                {isIngestSurfacePath() && !sourceUnverified && (hasPreviewUnionStore || graphPreview?.status === "candidate_validation_ready") ? (
+                {showGraphReviewAction ? (
                   <>
                     <button
                       type="button"
@@ -2454,7 +2473,7 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
                     </button>
                     {!canOpenGraphReview ? (
                       <span className="ingest-local-nav__action-hint" role="status">
-                        Graph Review needs {graphReviewUnavailableReason === "exact extraction run" ? "an exact extraction run for this session" : "current proof that this recap source is saved and current"}.
+                        Graph Review needs {graphReviewUnavailableReason === "exact extraction run" ? "an exact extraction run for this session" : "a selected World"}.
                       </span>
                     ) : null}
                   </>
