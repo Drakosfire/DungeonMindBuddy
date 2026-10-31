@@ -1862,9 +1862,8 @@ def _product_source_span_ref_id(anchor: SourceAnchorMetadata) -> str | None:
 def _classify_locator_kind(anchor: SourceAnchorMetadata) -> str:
     domain = str(getattr(anchor.evidence, "source_domain", "") or "")
     span = (anchor.source_span_ref_id or "").strip()
-    # Match the legacy live-control dispatch: only worldbuilding spans use
-    # the registry-backed opener. Recap/other spans with a repo:// URI are
-    # still source_span locators, opened via digest-pinned product files.
+    # Locator shape identifies the admitted span format. Source-span bodies
+    # are read from exact APP storage; repo:// is not file-read authority.
     if domain == "worldbuilding" and span:
         return "source_span"
     uri = getattr(anchor.artifact, "uri", None) or ""
@@ -3227,7 +3226,7 @@ def _unavailable_anchor_result(
     )
 
 
-def _read_admitted_repo_span(
+def _read_admitted_source_span(
     services: DirectWorldGraphReadServices,
     anchor: SourceAnchorMetadata,
     *,
@@ -3236,53 +3235,53 @@ def _read_admitted_repo_span(
     base: dict[str, Any],
     revision_digest: str | None = None,
 ) -> WorldGraphSourceAnchorReadResult:
-    """Digest-pinned recap/other repo:// span join after DungeonMind revalidation.
+    """Join an admitted span to its exact APP body, never a locator file.
 
-    Span content is sliced from the parent file whose bytes match the
-    DungeonMind source-revision digest. Paragraph identities and
-    digest-prefixed line ranges are resolved from those bound bytes.
-    Sidecar ``source_spans/`` files and ``source_span_index.json`` are
-    unbound mappings and are not read.
+    DungeonMind has already authorized the anchor and revision. The shared APP
+    reader verifies registered identity, scope, media and actual stored bytes;
+    the native revision digest must match that registration before it is read.
     """
-    uri = getattr(anchor.artifact, "uri", None) or ""
-    relative_path = parse_repo_uri(uri)
+    from apps.live_control_server.services.source_artifact_registry import (
+        SourceArtifactRegistryError, get_source_artifact, load_source_input_bytes,
+    )
+    from apps.live_control_server.services.worldbuilding_source_span_read import (
+        _reconcile_graph_registry_scope,
+    )
+
     span_id = (_product_source_span_ref_id(anchor) or "").strip()
     digest = (
         revision_digest if revision_digest is not None
         else _source_revision_digest(services, anchor.source_revision_id)
     )
     expected = (digest or "").removeprefix("sha256:").strip().lower()
-    if relative_path is None or not span_id or not expected:
+    if not span_id or not expected:
         return _unavailable_anchor_result(
             base=base,
             code="unsupported_locator",
-            message="Admitted recap/repo span is missing a URI, span id, or digest.",
+            message="Admitted source span is missing a span id or revision digest.",
         )
     try:
-        resolved_root = repo_root.resolve()
-        parent_path = (resolved_root / relative_path).resolve()
-        parent_path.relative_to(resolved_root)
-        raw = parent_path.read_bytes()
-    except (OSError, ValueError) as exc:
-        return _unavailable_anchor_result(
-            base=base,
-            code="source_unavailable",
-            message=f"source file unavailable: {exc}",
+        artifact = get_source_artifact(repo_root, anchor.source_artifact_id)
+        actual = (artifact.content_sha256 or "").removeprefix("sha256:").strip().lower()
+        if actual != expected:
+            return _unavailable_anchor_result(
+                base=base, code="source_integrity_error",
+                message="Registered source does not match the DungeonMind revision digest.",
+            )
+        _reconcile_graph_registry_scope(
+            root=repo_root, artifact=artifact, snapshot=base.get("snapshot"),
+            graph_artifact=None,
         )
-    actual = hashlib.sha256(raw).hexdigest().lower()
-    if actual != expected:
+        text = load_source_input_bytes(artifact).decode("utf-8")
+    except SourceArtifactRegistryError as exc:
         return _unavailable_anchor_result(
             base=base,
-            code="source_integrity_error",
-            message="source file content does not match the DungeonMind revision digest",
+            code="source_integrity_error" if exc.status_code in {409, 422} else "source_unavailable",
+            message=str(exc),
         )
-    try:
-        text = raw.decode("utf-8")
-    except UnicodeDecodeError:
+    except WorldGraphRetrievalError as exc:
         return _unavailable_anchor_result(
-            base=base,
-            code="source_integrity_error",
-            message="source file is not valid UTF-8 text",
+            base=base, code=exc.code, message=str(exc),
         )
     extracted = extract_span_from_revision_bound_text(
         text=text, span_id=span_id, digest=actual
@@ -3378,9 +3377,8 @@ def _anchor_read_view(
             **base,
         )
     if locator_kind == "source_span":
-        # Worldbuilding spans compose the registry-backed opener, matching
-        # the legacy live-control dispatch. Recap/other repo:// spans are a
-        # digest-pinned product-local join after DungeonMind revalidation.
+        # Both joins use exact APP bodies after DungeonMind revalidation.
+        # Worldbuilding additionally checks its workspace/span-index lineage.
         domain = str(getattr(anchor.evidence, "source_domain", "") or "")
         if domain == "worldbuilding":
             from apps.live_control_server.services.worldbuilding_source_span_read import (
@@ -3414,7 +3412,7 @@ def _anchor_read_view(
                     truncated=False,
                     **base,
                 )
-        return _read_admitted_repo_span(
+        return _read_admitted_source_span(
             services,
             anchor,
             request=request,
