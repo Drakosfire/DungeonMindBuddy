@@ -1046,6 +1046,8 @@ class BuildGraphIntentV1(SubmittedTurnIntentV1):
     primary_work: SubmittedPrimaryWorkIntentV1
     playable_target: None = None
     selected_knowledge: None = None
+    # Native statement selection belongs to Plan, not immutable Build identities.
+    native_statement_selection: None = Field(default=None, exclude=True)
     graph_selection: None = None
 
     @model_serializer(mode="wrap")
