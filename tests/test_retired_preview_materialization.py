@@ -63,3 +63,15 @@ def test_process_uses_extraction_without_materialization_or_planning_adoption(mo
     assert body["status"] != "ready_for_planning_activation"
     assert not any("preview_union_store_ready" == state for state in body["states"])
     assert bool(body["warnings"]) == failed
+
+
+@pytest.mark.parametrize("flag", ["--materialize-preview-union", "--no-materialize-preview-union"])
+def test_historical_dogfood_cli_rejects_retired_flags_before_work(monkeypatch, flag):
+    from evals.graph_memory_layer import run_encounter_job_dogfood as cli
+    def forbidden(*args, **kwargs):
+        pytest.fail("retired CLI flag reached extraction")
+    monkeypatch.setattr(cli, "build_recap_graph_preview_bundle", forbidden)
+    monkeypatch.setattr("sys.argv", ["encounter-dogfood", flag])
+    with pytest.raises(SystemExit) as stopped:
+        cli.main()
+    assert stopped.value.code == 2

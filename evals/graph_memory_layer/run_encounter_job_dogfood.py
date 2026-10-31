@@ -31,7 +31,6 @@ for _path in (REPO_ROOT, REPO_ROOT / "src"):
 
 from apps.live_control_server.services.recap_graph_preview_ingest import (
     build_recap_graph_preview_bundle,
-    materialize_recap_preview_supergraph,
 )
 
 DEFAULT_CAMPAIGN_ID = "longmont-c1"
@@ -56,15 +55,6 @@ def main() -> None:
         "--force-graph-run",
         action=argparse.BooleanOptionalAction,
         default=True,
-    )
-    parser.add_argument(
-        "--materialize-preview-union",
-        action=argparse.BooleanOptionalAction,
-        default=False,
-        help=(
-            "Also materialize the preview union supergraph store, advancing the run to "
-            "preview_union_store_ready so it is selectable in the Gold Review run picker."
-        ),
     )
     parser.add_argument(
         "--enable-vocabulary-packet",
@@ -103,30 +93,17 @@ def main() -> None:
         else {}
     )
 
-    if args.materialize_preview_union:
-        status = materialize_recap_preview_supergraph(
-            repo_root=REPO_ROOT,
-            campaign_id=args.campaign_id,
-            session=args.session,
-            normalized_recap_path=args.recap_path,
-            force_graph_run=args.force_graph_run,
-            extract_graph=True,
-            graph_model_id=args.model_id,
-            graph_extraction_profile=args.graph_extraction_profile,
-            **vocabulary_kwargs,
-        )
-    else:
-        status = build_recap_graph_preview_bundle(
-            repo_root=REPO_ROOT,
-            campaign_id=args.campaign_id,
-            session=args.session,
-            normalized_recap_path=args.recap_path,
-            force_graph_run=args.force_graph_run,
-            extract_graph=True,
-            graph_model_id=args.model_id,
-            graph_extraction_profile=args.graph_extraction_profile,
-            **vocabulary_kwargs,
-        )
+    status = build_recap_graph_preview_bundle(
+        repo_root=REPO_ROOT,
+        campaign_id=args.campaign_id,
+        session=args.session,
+        normalized_recap_path=args.recap_path,
+        force_graph_run=args.force_graph_run,
+        extract_graph=True,
+        graph_model_id=args.model_id,
+        graph_extraction_profile=args.graph_extraction_profile,
+        **vocabulary_kwargs,
+    )
     print(json.dumps(status, indent=2, sort_keys=True))
 
 
