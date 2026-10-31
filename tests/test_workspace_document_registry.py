@@ -436,7 +436,8 @@ def test_plan_rejects_worldbuilding_metadata(root: Path) -> None:
     assert exc_info.value.status_code == 422
 
 
-def test_api_worldbuilding_create_list_and_patch(client: TestClient) -> None:
+@pytest.mark.parametrize("campaign_id", [None, "longmont-c2"])
+def test_api_worldbuilding_create_list_and_patch(client: TestClient, campaign_id: str | None) -> None:
     from application_state.world_catalog.service import create_world
     create_world(name="Eldyrwild")
     create_response = client.post(
@@ -444,7 +445,7 @@ def test_api_worldbuilding_create_list_and_patch(client: TestClient) -> None:
         json={
             "title": "API Worldbuilding",
             "world_id": "eldyrwild",
-            "campaign_id": "eldyrwild",
+            "campaign_id": campaign_id,
             "kind": "worldbuilding_source",
             "source_domain": "worldbuilding",
             "document_class": "lore",
@@ -459,7 +460,7 @@ def test_api_worldbuilding_create_list_and_patch(client: TestClient) -> None:
 
     list_response = client.get(
         "/api/live/workspace-documents",
-        params={"kind": "worldbuilding_source"},
+        params={"kind": "worldbuilding_source", "world_id": "eldyrwild"},
     )
     assert list_response.status_code == 200
     assert len(list_response.json()["records"]) == 1

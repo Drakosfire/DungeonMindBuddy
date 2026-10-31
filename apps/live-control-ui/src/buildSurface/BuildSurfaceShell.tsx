@@ -21,6 +21,7 @@ import {
 import type { MarkdownCanvasSlots } from "../markdownCanvas/MarkdownCanvas";
 import { useAgentInteraction } from "../agentInteraction/useAgentInteraction";
 import { parseBuildSourceNavigationQuery } from "../sourceNavigation/sourceNavigation";
+import { getWorldIdForCampaign } from "../worldGraph/worldGraphSurfaceContext";
 import { BuildGraphObjectContext, parseBuildGraphPointerFromLocation } from "./BuildGraphObjectContext";
 import { BUILD_DOCUMENT_SAVE_COMMAND_ID } from "./buildDocumentCommands";
 import { useBuildAutosave } from "./useBuildAutosave";
@@ -324,6 +325,10 @@ export function BuildSurfaceShell({ onEditorTools, onReviewTarget }: { onEditorT
   const composeBridge = useMemo(() => createBuildComposeBridge(() => composeCurrent.current,
     editor => composeChanged.current(editor.getJSON(), editor, { programmatic: false }),
     (basis,afterEditor,afterDraft,savedProjection)=>saveBuildProposal(()=>saveOwner.current,basis,afterEditor,afterDraft,savedProjection)), []);
+  const acceptedDocumentCampaignId = session.record?.campaign_id
+    && (session.record.campaign_id === session.record.world_id
+      || getWorldIdForCampaign(session.record.campaign_id) === session.record.world_id)
+    ? session.record.campaign_id : null;
   const lastAcceptedCampaignRef = useRef<string>("build");
   const [navigationTarget, setNavigationTarget] = useState<BuildSourceNavigationTarget>(
     IDLE_SOURCE_NAVIGATION_TARGET,
@@ -335,10 +340,10 @@ export function BuildSurfaceShell({ onEditorTools, onReviewTarget }: { onEditorT
     && isPresentableSourcePhase(session.phase);
 
   useEffect(() => {
-    if (session.record?.campaign_id) {
-      lastAcceptedCampaignRef.current = session.record.campaign_id;
+    if (session.record) {
+      lastAcceptedCampaignRef.current = acceptedDocumentCampaignId ?? "build";
     }
-  }, [session.record?.campaign_id]);
+  }, [session.record, acceptedDocumentCampaignId]);
 
   useEffect(() => {
     const publishNeutral = (ambientSummary: string) => {
@@ -381,12 +386,12 @@ export function BuildSurfaceShell({ onEditorTools, onReviewTarget }: { onEditorT
       return;
     }
 
-    if (session.record.campaign_id === null) {
-      publishNeutral("This page has no campaign context. Editing and Save remain available.");
+    if (!acceptedDocumentCampaignId) {
+      publishNeutral("This page has no admitted campaign context. Editing and Save remain available.");
       return;
     }
     rehydrateScope({
-      campaignId: session.record.campaign_id,
+      campaignId: acceptedDocumentCampaignId,
       sessionNumber: null,
       surfaceId: "build",
       documentId: session.record.document_id,
@@ -397,7 +402,7 @@ export function BuildSurfaceShell({ onEditorTools, onReviewTarget }: { onEditorT
     publishSurfaceContext({
       surfaceId: "build",
       label: `${BUILD_SURFACE_LABEL} · ${session.record.title}`,
-      campaignId: session.record.campaign_id,
+      campaignId: acceptedDocumentCampaignId,
       documentId: session.record.document_id,
       sessionNumber: null,
       ambientSummary: [
@@ -435,6 +440,7 @@ export function BuildSurfaceShell({ onEditorTools, onReviewTarget }: { onEditorT
     session.snapshot?.loaded_revision,
     publishSurfaceContext,
     rehydrateScope,
+    acceptedDocumentCampaignId,
   ]);
 
   // Leaving Build (or remounting for a new documentId) must not leave prior accepted context.
@@ -540,7 +546,6 @@ export function BuildSurfaceShell({ onEditorTools, onReviewTarget }: { onEditorT
   // document is loading, conflicted, or rejected, session.record is null — mounting
   // then would skip scope admission and race a later rejection.
   const graphPointer = parseBuildGraphPointerFromLocation();
-  const acceptedDocumentCampaignId = session.record?.campaign_id ?? null;
 
   const editSlots: MarkdownCanvasSlots = {
     ...slots,

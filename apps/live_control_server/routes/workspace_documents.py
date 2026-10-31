@@ -100,6 +100,7 @@ def _record_response(record: WorkspaceDocumentRecordAny) -> dict[str, Any]:
 
 @router.get("/workspace-documents", response_model=WorkspaceDocumentsListResponse)
 def get_workspace_documents(
+    world_id: Annotated[str | None, Query()] = None,
     campaign_id: Annotated[str | None, Query()] = None,
     kind: Annotated[
         Literal["plan", "runbook", "worldbuilding_source"] | None, Query()
@@ -109,6 +110,7 @@ def get_workspace_documents(
     try:
         records = list_workspace_documents(
             repo_root(),
+            world_id=world_id,
             campaign_id=campaign_id,
             kind=kind,
             status=status,

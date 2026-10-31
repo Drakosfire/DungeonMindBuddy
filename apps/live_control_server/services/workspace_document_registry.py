@@ -445,6 +445,7 @@ def _load_unlocked(root: Path) -> tuple[WorkspaceDocumentRegistryDocument, str]:
 def list_workspace_documents(
     root: Path,
     *,
+    world_id: str | None = None,
     campaign_id: str | None = None,
     kind: Literal["plan", "runbook", "worldbuilding_source"] | None = None,
     status: Literal["active", "discarded"] | None = "active",
@@ -453,13 +454,17 @@ def list_workspace_documents(
     from application_state.content.service import list_plans, list_runbooks
     from application_state.errors import ApplicationStateError
 
+    if world_id is not None and kind != "worldbuilding_source":
+        raise WorkspaceDocumentRegistryError(
+            "world_id inventory requires kind=worldbuilding_source", status_code=422
+        )
     records = []
     try:
         if kind in (None, "worldbuilding_source"):
             records.extend(
                 _record_from_page(state)
                 for state in pages.page_inventory(
-                    campaign_id=campaign_id, status=status
+                    world_id=world_id, campaign_id=campaign_id, status=status
                 )
             )
         if kind in (None, "plan"):

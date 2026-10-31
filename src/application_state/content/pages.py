@@ -385,7 +385,8 @@ def find_page(document_id: str) -> PageState | None:
 
 
 def page_inventory(
-    *, campaign_id: str | None = None, status: str | None = "active"
+    *, world_id: str | None = None, campaign_id: str | None = None,
+    status: str | None = "active"
 ) -> list[PageState]:
     """Workspace inventory over the same Page owner; campaign is only a tag."""
     if status not in {None, "active", "discarded"}:
@@ -393,6 +394,9 @@ def page_inventory(
     with unit_of_work(_dsn()) as conn:
         conn.execute("SET TRANSACTION ISOLATION LEVEL REPEATABLE READ READ ONLY")
         clauses, params = ["w.kind='worldbuilding_source'"], []
+        if world_id is not None:
+            clauses.append("w.world_id=%s")
+            params.append(world_id)
         if campaign_id is not None:
             clauses.append("w.campaign_id=%s")
             params.append(campaign_id)

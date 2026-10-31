@@ -115,6 +115,30 @@ describe("useBuildWorkspaceDocumentController", () => {
     );
   });
 
+  it.each([null, "longmont-c2"])("loads a Page in its owning World without using campaign tag %s for admission", async campaign_id => {
+    const selected = vi.spyOn(worldSelection, "useSelectedWorld").mockReturnValue({kind:"managed", worldId:"world", name:"World", documentId:DOC_A});
+    try {
+      vi.mocked(liveApi.getCommittedPageSnapshot).mockResolvedValue(mockSnapshot(DOC_A, {world_id:"world", campaign_id}));
+      window.history.replaceState({}, "", `/build?world=world&documentId=${DOC_A}`);
+      const {result} = renderHook(() => useBuildWorkspaceDocumentController());
+      await waitFor(() => expect(result.current.loadStatus).toBe("ready"));
+      expect(result.current.activeRecord?.campaign_id).toBe(campaign_id);
+      expect(liveApi.listWorkspaceDocuments).toHaveBeenCalledWith({kind:"worldbuilding_source",status:"active",world_id:"world"});
+      expect(liveApi.admitNativeWorldSource).not.toHaveBeenCalled();
+    } finally { selected.mockRestore(); }
+  });
+
+  it("rejects a Page owned by another World even when its campaign tag matches", async () => {
+    const selected = vi.spyOn(worldSelection, "useSelectedWorld").mockReturnValue({kind:"managed",worldId:"world",name:"World",documentId:DOC_A});
+    try {
+      vi.mocked(liveApi.getCommittedPageSnapshot).mockResolvedValue(mockSnapshot(DOC_A,{world_id:"other",campaign_id:"world"}));
+      window.history.replaceState({},"",`/build?world=world&documentId=${DOC_A}`);
+      const {result}=renderHook(()=>useBuildWorkspaceDocumentController());
+      await waitFor(()=>expect(result.current.loadStatus).toBe("error"));
+      expect(result.current.activeRecord).toBeNull();
+    } finally { selected.mockRestore(); }
+  });
+
   it("starts empty on bare /build without creating", async () => {
     const { result } = renderHook(() => useBuildWorkspaceDocumentController());
 

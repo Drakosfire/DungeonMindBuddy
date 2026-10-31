@@ -378,3 +378,27 @@ def test_legacy_source_descriptor_survives_explicit_page_adoption_and_file_loss(
         original,
         body,
     )
+
+
+@pytest.mark.parametrize("campaign_id", [None, "longmont-c2"])
+def test_world_inventory_does_not_treat_campaign_tag_as_page_owner(tmp_path, page, campaign_id):
+    tagged = workspace.create_workspace_document(
+        tmp_path, title="Tagged page", world_id=page.world_id, campaign_id=campaign_id,
+        kind="worldbuilding_source", source_domain="worldbuilding", document_class="lore",
+        authority_state="draft", visibility_state="internal",
+    )
+    other_world = create_world(name="Other owner").record.world_id
+    foreign = workspace.create_workspace_document(
+        tmp_path, title="Foreign", world_id=other_world, campaign_id=page.world_id,
+        kind="worldbuilding_source", source_domain="worldbuilding", document_class="lore",
+        authority_state="draft", visibility_state="internal",
+    )
+    from apps.live_control_server.routes.workspace_documents import get_workspace_documents
+    response = get_workspace_documents(world_id=page.world_id, campaign_id=None, kind="worldbuilding_source", status="active")
+    assert {row["document_id"] for row in response["records"]} == {page.document_id, tagged.document_id}
+    assert workspace.get_workspace_document(tmp_path, tagged.document_id).campaign_id == campaign_id
+    assert [record.document_id for record in workspace.list_workspace_documents(
+        tmp_path, kind="worldbuilding_source", campaign_id=page.world_id
+    )] == [foreign.document_id]
+    with pytest.raises(workspace.WorkspaceDocumentRegistryError, match="requires kind"):
+        workspace.list_workspace_documents(tmp_path, world_id=page.world_id, kind="plan")

@@ -2371,11 +2371,13 @@ export async function getThreatPublicationCommit(
 }
 
 export async function listWorkspaceDocuments(args: {
+  world_id?: string;
   campaign_id?: string;
   kind?: "plan" | "runbook" | "worldbuilding_source";
   status?: "active" | "discarded";
 } = {}): Promise<WorkspaceDocumentsListResponse> {
   const params = new URLSearchParams();
+  if (args.world_id) params.set("world_id", args.world_id);
   if (args.campaign_id) params.set("campaign_id", args.campaign_id);
   if (args.kind) params.set("kind", args.kind);
   if (args.status) params.set("status", args.status);

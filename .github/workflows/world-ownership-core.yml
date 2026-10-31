@@ -135,4 +135,3 @@ jobs:
           tests/test_authored_page_database_cutover.py
           tests/test_workspace_document_registry.py
           tests/test_tiptap_markdown_write.py
-          tests/test_workspace_document_registry.py::test_snapshot_committed_missing_file_is_integrity_failure

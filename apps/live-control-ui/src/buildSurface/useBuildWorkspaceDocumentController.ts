@@ -71,9 +71,7 @@ function validateBuildSourceRecord(
   if (record.status !== "active") {
     throw new Error("Document is not active");
   }
-  if (selectedWorldId && (
-    record.world_id !== selectedWorldId || record.campaign_id !== selectedWorldId
-  )) {
+  if (selectedWorldId && record.world_id !== selectedWorldId) {
     throw new Error(`Source ${requestedId} does not belong to World ${selectedWorldId}.`);
   }
   return record;
@@ -359,7 +357,7 @@ export function useBuildWorkspaceDocumentController(): BuildWorkspaceDocumentCon
       const list = await listWorkspaceDocuments({
         kind: "worldbuilding_source",
         status: "active",
-        ...(selectedWorldId ? { campaign_id: selectedWorldId } : {}),
+        ...(selectedWorldId ? { world_id: selectedWorldId } : {}),
       });
       if (generation !== selectorListGenerationRef.current) return;
       setDocuments(list.records);

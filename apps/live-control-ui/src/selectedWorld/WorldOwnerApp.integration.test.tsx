@@ -129,3 +129,11 @@ it('retains World dialogue across Plan→native Combat→Plan while suspending i
  expect(screen.getByTestId('world-controller')).toBe(controller);
  expect(screen.getByRole('textbox',{name:'Unsent World draft'})).toHaveValue('Unsent planning thought');
 });
+
+
+it.each([null,'longmont-c2'])('admits a Page by its exact owning World with campaign tag %s',async campaign_id=>{
+ vi.mocked(api.getWorkspaceDocumentAny).mockResolvedValue({...record('page'),schema_version:'dmb_workspace_document_record_v1',kind:'worldbuilding_source',campaign_id,world_id:'A'} as never);
+ window.history.replaceState({},'','/build?world=A&documentId=page');render(<App/>);
+ await screen.findByTestId('build-page');expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+ navigate('/build?world=B&documentId=page');await screen.findByRole('alert');expect(screen.queryByTestId('build-page')).not.toBeInTheDocument();
+});

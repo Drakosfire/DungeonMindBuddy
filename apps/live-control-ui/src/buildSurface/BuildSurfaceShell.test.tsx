@@ -109,6 +109,7 @@ function ScopeProbe() {
           ? "null"
           : String(activeSurfaceContext?.sessionNumber ?? "missing")
       }
+      data-campaign={scope?.campaignId ?? "null"}
       data-document-id={scope?.documentId ?? "null"}
       data-context-document-id={activeSurfaceContext?.documentId ?? "null"}
       data-ambient={activeSurfaceContext?.ambientSummary ?? "null"}
@@ -246,6 +247,18 @@ afterAll(()=>{
 });
 
 describe("BuildSurfaceShell", () => {
+  it.each([null, "longmont-c2"])("keeps a Page editable without hydrating incompatible campaign tag %s", async campaign_id => {
+    const snapshot=buildWorldbuildingSnapshot(DOC_ID);
+    vi.mocked(liveApi.getWorkspaceDocumentSnapshot).mockResolvedValue({...snapshot,record:{...snapshot.record,world_id:"elderwyld",campaign_id}});
+    render(<BuildDocumentHarness documentId={DOC_ID}/>);
+    await waitForEditor();
+    await waitFor(()=>expect(screen.getByTestId("scope-probe")).toHaveAttribute("data-ambient", "This page has no admitted campaign context. Editing and Save remain available."));
+    expect(screen.getByTestId("scope-probe")).toHaveAttribute("data-campaign","build");
+    expect(screen.getByTestId("scope-probe")).toHaveAttribute("data-context-document-id","null");
+    await act(async()=>{buildShellTestEditor!.commands.insertContentAt(1,"Editable ");});
+    expect(buildShellTestEditor!.getText()).toContain("Editable");
+  });
+
   it("keeps the actual editor draft, selection and undo history across contextual review toggles",async()=>{
     vi.mocked(liveApi.getWorkspaceDocumentSnapshot).mockResolvedValue(buildWorldbuildingSnapshot(DOC_ID));
     render(<BuildDocumentHarness documentId={DOC_ID} reviewHost/>);
@@ -668,6 +681,7 @@ describe("BuildSurfaceShell", () => {
         document_id: DOC_ID,
         title: "Build Source",
         campaign_id: "eldyrwild",
+        world_id: "eldyrwild",
         target_session: null,
         kind: "worldbuilding_source" as const,
         target_relpath: `out/workspace/worldbuilding/${DOC_ID}.md`,
