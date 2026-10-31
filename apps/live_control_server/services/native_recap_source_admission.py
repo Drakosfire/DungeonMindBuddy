@@ -1,11 +1,9 @@
 """Ordinary fresh recap source intent, single-host executor and read-only status."""
 
 from __future__ import annotations
-import hashlib
 import logging
 import os
 from datetime import UTC, datetime
-from pathlib import Path
 from copy import deepcopy
 from application_state.ingest import service as ingest
 from application_state.source import service as sources
@@ -17,15 +15,12 @@ from graph_memory.ingestion.native_recap_source import (
     Status,
     KEY,
     PROFILE,
-    NORMALIZATION,
+    SourceSelection,
 )
 from apps.live_control_server import config
 from apps.live_control_server.services.graph_run_registry import create_extraction_run
 from apps.live_control_server.services.source_artifact_registry import (
-    create_recap_source_artifact,
-)
-from apps.live_control_server.services.world_container_registry import (
-    get_world_container,
+    get_source_artifact,
 )
 from apps.live_control_server.services.reviewed_corpus_publication_store import (
     PublicationProgressStore,
@@ -81,25 +76,17 @@ def _load(run_id, world, campaign, session):
             or run.session_id != record.session_id
         ):
             raise ValueError("Foreign source intent")
-        source = sources.get_source_markdown(
-            source_artifact_id=record.app_source_artifact_id,
-            content_sha256=record.app_body_sha256,
-            source_revision_id=record.app_source_revision_id,
+        source = _selected_source(
+            SourceSelection(
+                source_artifact_id=record.app_source_artifact_id,
+                source_revision_id=record.app_source_revision_id,
+                content_sha256=record.app_body_sha256,
+            ),
+            record,
+            session,
         )
-        if (
-            source is None
-            or source.source_domain != "recap"
-            or source.world_id != record.native_world_id
-            or source.campaign_id != campaign
-            or source.session_id != record.session_id
-            or source.created_at != record.created_at
-            or source.media_type != "text/markdown"
-            or source.encoding != "utf-8"
-            or hashlib.sha256(source.markdown.encode()).hexdigest()
-            != record.app_body_sha256
-            or not source.source_artifact_id.startswith("artifact:recap:v2:")
-        ):
-            raise ValueError("Source snapshot mismatch")
+        if source.created_at != record.created_at:
+            raise ValueError("Source snapshot timestamp changed")
         for command in record.commands:
             command.resolve(source.markdown)
     except ValueError as exc:
@@ -128,6 +115,11 @@ def _status(run, record, source, authority, *, busy=False):
             raise NativeRecapError("native_recap_receipt_changed")
         candidate = observed or receipt
         if candidate is not None:
+            if record.command is None:
+                # Report the observed effect truthfully without inventing the
+                # lost command or claiming that its opening was verified.
+                receipt = candidate
+                raise NativeRecapError("native_recap_saved_command_missing")
             checked = Record.model_validate(
                 {
                     **record.model_dump(mode="json"),
@@ -185,8 +177,7 @@ def _status(run, record, source, authority, *, busy=False):
             "session_id",
             "app_source_artifact_id",
             "app_source_revision_id",
-            "raw_original_sha256",
-            "normalization_policy",
+            "grouping_basis",
             "app_body_sha256",
         )
     }
@@ -273,6 +264,8 @@ def _execute(root, run, record, source, actor, authority_basis, resume, authorit
     authority.check_binding(record)
     receipt = authority.receipt(record)
     if record.receipt or receipt:
+        if record.command is None:
+            return _status(run, record, source, authority)
         if record.receipt is not None and receipt != record.receipt:
             raise NativeRecapError("native_recap_receipt_changed")
         if resume is not None and record.receipt is None:
@@ -364,53 +357,55 @@ def resume_admission(
         return _status(run, record, source, authority, busy=True)
 
 
-def _read_source_bytes(path):
-    from dungeonmind.contracts.vnext.native_source import MAX_NATIVE_TEXT_BYTES
-
-    # Reuse Core's source budget, including for provenance input. The bounded read
-    # also handles a file growing after stat without allocating its whole contents.
-    if path.stat().st_size > MAX_NATIVE_TEXT_BYTES:
-        raise NativeRecapError("native_recap_source_too_large", status_code=413)
-    with path.open("rb") as stream:
-        raw = stream.read(MAX_NATIVE_TEXT_BYTES + 1)
-    if len(raw) > MAX_NATIVE_TEXT_BYTES:
-        raise NativeRecapError("native_recap_source_too_large", status_code=413)
-    return raw
+def _selected_source(selection: SourceSelection, context, session):
+    # APP owns the descriptor and immutable bytes; URI and body frontmatter are
+    # never alternative selectors or scope authorities.
+    descriptor = get_source_artifact(
+        config.artifact_data_root(), selection.source_artifact_id
+    )
+    source = sources.get_source_markdown(
+        source_artifact_id=selection.source_artifact_id,
+        content_sha256=selection.content_sha256,
+        source_revision_id=selection.source_revision_id,
+    )
+    if source is None:
+        raise NativeRecapError("native_recap_source_snapshot_missing")
+    if (
+        descriptor.schema_version != "dmb_source_artifact_v1"
+        or descriptor.source_domain != "recap"
+        or descriptor.artifact_kind != "recap_markdown"
+        or descriptor.status != "active"
+        or source.source_domain != "recap"
+        or source.media_type != "text/markdown"
+        or source.encoding != "utf-8"
+        or descriptor.source_artifact_id != source.source_artifact_id
+        or descriptor.content_sha256 != source.content_sha256
+        or source.content_sha256 != selection.content_sha256
+        or source.source_revision_id != selection.source_revision_id
+    ):
+        raise NativeRecapError("native_recap_source_descriptor_mismatch")
+    if (
+        descriptor.world_id != context.native_world_id
+        or source.world_id != context.native_world_id
+    ):
+        raise NativeRecapError("native_recap_source_world_mismatch")
+    if (
+        descriptor.campaign_id != context.campaign_id
+        or source.campaign_id != context.campaign_id
+        or descriptor.session_id != f"session-{session}"
+        or source.session_id != f"session-{session}"
+    ):
+        raise NativeRecapError("native_recap_source_grouping_mismatch")
+    return source
 
 
 def admit(
-    root,
-    *,
-    context,
-    path,
-    expected_raw_sha256: str,
-    session: int,
-    actor,
-    authority_basis,
+    root, *, context, selection: SourceSelection, session: int, actor, authority_basis
 ):
     _execution_mode()
     managed_root = config.managed_world_data_root(root).resolve()
     root = config.artifact_data_root(root)
-    path = Path(path).resolve()
-    world = get_world_container(managed_root, context.managed_world_id)
-    world_root = (managed_root / world.source_root_relpath).resolve()
-    if not path.is_relative_to(world_root):
-        raise NativeRecapError("native_recap_source_world_mismatch")
-    if not path.is_file():
-        raise NativeRecapError("native_recap_source_path_invalid")
-    raw = _read_source_bytes(path)
-    text = (
-        raw.decode("utf-8").replace("\r\n", "\n").replace("\r", "\n").rstrip("\n")
-        + "\n"
-    )
-    raw_sha = hashlib.sha256(raw).hexdigest()
-    if raw_sha != expected_raw_sha256:
-        raise NativeRecapError("native_recap_committed_source_changed")
-    sha = hashlib.sha256(text.encode()).hexdigest()
-    from dungeonmind.contracts.vnext.native_source import MAX_NATIVE_TEXT_BYTES
-
-    if len(text.encode()) > MAX_NATIVE_TEXT_BYTES:
-        raise NativeRecapError("native_recap_source_too_large", status_code=413)
+    source = _selected_source(selection, context, session)
     from apps.live_control_server.services.managed_world_graph_projection import (
         resolve_managed_source_identity,
     )
@@ -423,50 +418,15 @@ def admit(
         context.binding_version,
     ):
         raise NativeRecapError("native_recap_binding_changed")
-    if not text.strip():
-        raise NativeRecapError("native_recap_empty_source")
-    from scripts.materialize_normalized_recaps import _parse_minimal_frontmatter
-
-    metadata, _ = _parse_minimal_frontmatter(text)
-    if (
-        metadata.get("campaign_id") != context.campaign_id
-        or type(metadata.get("session")) is not int
-        or metadata["session"] != session
-    ):
-        raise NativeRecapError("native_recap_source_grouping_mismatch")
-    artifact = create_recap_source_artifact(
-        root,
-        world_id=context.native_world_id,
-        campaign_id=context.campaign_id,
-        session_id=f"session-{session}",
-        recap_text=text,
-        expected_content_sha256=sha,
-    )
-    source = sources.persist_source_markdown(
-        source_artifact_id=artifact.source_artifact_id,
-        source_domain="recap",
-        campaign_id=artifact.campaign_id,
-        session_id=artifact.session_id,
-        world_id=artifact.world_id,
-        markdown=text,
-        content_sha256=sha,
-        lineage={
-            "adopted_from_uri": artifact.uri,
-            "selected_input_uri": path.as_uri(),
-            "raw_original_sha256": raw_sha,
-            "normalization_policy": NORMALIZATION,
-        },
-    )
     candidate = Record(
         managed_world_id=context.managed_world_id,
         native_world_id=context.native_world_id,
         binding_version=context.binding_version,
         campaign_id=context.campaign_id,
-        session_id=artifact.session_id,
+        session_id=source.session_id,
         app_source_artifact_id=source.source_artifact_id,
         app_source_revision_id=source.source_revision_id,
-        app_body_sha256=sha,
-        raw_original_sha256=raw_sha,
+        app_body_sha256=source.content_sha256,
         created_by=actor,
         created_authority_basis=authority_basis,
         created_at=source.created_at,
@@ -480,10 +440,10 @@ def admit(
                 run = create_extraction_run(
                     root,
                     run_id=candidate.run_id,
-                    source_artifact_id=artifact.source_artifact_id,
+                    source_artifact_id=source.source_artifact_id,
                     source_domain="recap",
-                    campaign_id=artifact.campaign_id,
-                    session_id=artifact.session_id,
+                    campaign_id=source.campaign_id,
+                    session_id=source.session_id,
                     profile_id=PROFILE,
                     lineage={
                         "native_world_id": context.native_world_id,
@@ -497,12 +457,9 @@ def admit(
                     existing.run_id,
                     context.managed_world_id,
                     context.campaign_id,
-                    int(artifact.session_id.removeprefix("session-")),
+                    session,
                 )
-                if (
-                    record.binding_version != candidate.binding_version
-                    or record.raw_original_sha256 != raw_sha
-                ):
+                if record.binding_version != candidate.binding_version:
                     raise NativeRecapError("native_recap_source_input_changed")
                 return _status(run, record, source, authority)
             return _execute(
@@ -519,6 +476,6 @@ def admit(
             candidate.run_id,
             context.managed_world_id,
             context.campaign_id,
-            int(artifact.session_id.removeprefix("session-")),
+            session,
         )
         return _status(run, record, source, authority, busy=True)

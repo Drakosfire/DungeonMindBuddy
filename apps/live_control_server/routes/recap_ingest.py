@@ -12,7 +12,11 @@ from application_state.errors import ApplicationStateError
 
 from apps.live_control_server.config import repo_root
 from pydantic import BaseModel, ConfigDict, Field, PrivateAttr, model_validator
-from graph_memory.ingestion.native_recap_source import Status as NativeRecapSourceStatus, Resume as NativeRecapResume
+from graph_memory.ingestion.native_recap_source import (
+    Status as NativeRecapSourceStatus,
+    Resume as NativeRecapResume,
+    SourceSelection,
+)
 
 from src.corpus.session_recap_paths import (
     is_generic_recap_tail,
@@ -49,6 +53,7 @@ _CORPUS_ROOT_ENV = "DUNGEONMIND_RECAP_INGEST_CORPUS_ROOT"
 class RecapIngestRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
+    native_recap_source: SourceSelection | None = None
     native_recap_run_id: UUID | None = None
     native_recap_resume: NativeRecapResume | None = None
     session_evidence: list[SessionEvidenceRef] = Field(default_factory=list,max_length=3)
@@ -74,6 +79,12 @@ class RecapIngestRequest(BaseModel):
     def native_selector_scope(self):
         if self.native_recap_run_id is not None and (self.operation!='inspect_status' or not self.managed_world_id or self.native_recap_resume is not None or self.raw_text is not None or self.session_evidence):
             raise ValueError('Exact native source status requires inspect_status and its selected World')
+        if self.native_recap_source is not None and (
+            not _source_only(self)
+            or self.native_recap_run_id is not None
+            or self.native_recap_resume is not None
+        ):
+            raise ValueError('Exact source selection requires fresh source-only admission')
         if self.native_recap_resume is not None and not _source_only(self):
             raise ValueError('Explicit native resume requires the exact source-only operation')
         return self
@@ -448,6 +459,9 @@ def _source_only(body):
         and body.graph_model_id is None
         and not body.force_stage
         and not body.force_recap
+        and body.slug is None
+        and body.title is None
+        and body.keep_basename is None
     )
 
 
@@ -567,6 +581,10 @@ def _native_source_request(body, request):
                     authority_basis=authority_basis,
                 ),
             )
+        if body.native_recap_source is None:
+            raise HTTPException(
+                status_code=422, detail={"code": "native_recap_source_selection_required"}
+            )
         if not body.managed_world_id:
             raise HTTPException(
                 status_code=422, detail={"code": "managed_world_context_required"}
@@ -586,50 +604,12 @@ def _native_source_request(body, request):
             binding_version=binding.binding_version,
             campaign_id=body.campaign_id,
         )
-        corpus = _pipeline_corpus_root()
-        status = inspect_recap_ingest_status(
-            campaign_id=body.campaign_id,
-            session=body.session,
-            title=body.title,
-            slug=body.slug,
-            corpus=corpus,
-        )
-        if not _normalized_recap_is_graph_ready(status):
-            raise HTTPException(
-                status_code=409,
-                detail={"code": "native_recap_committed_source_required"},
-            )
-        stage = (
-            status.get("ingest_report", {})
-            .get("derivative_stages", {})
-            .get("normalized_recap", {})
-        )
-        expected_sha = stage.get("expected_sha256")
-        import re
-
-        if (
-            stage.get("state") != "current"
-            or not isinstance(expected_sha, str)
-            or re.fullmatch(r"[a-f0-9]{64}", expected_sha) is None
-            or stage.get("output_sha256") != expected_sha
-        ):
-            raise HTTPException(
-                status_code=409,
-                detail={"code": "native_recap_committed_digest_required"},
-            )
-        path = _normalized_recap_graph_path(status, corpus)
-        if not path:
-            raise HTTPException(
-                status_code=422,
-                detail={"code": "native_recap_committed_source_required"},
-            )
         return _native_source_envelope(
             body,
             native.admit(
                 repo_root(),
                 context=context,
-                path=path,
-                expected_raw_sha256=expected_sha,
+                selection=body.native_recap_source,
                 session=body.session,
                 actor=actor,
                 authority_basis=authority_basis,
