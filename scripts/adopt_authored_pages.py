@@ -14,6 +14,7 @@ import os
 from pathlib import Path, PurePosixPath
 import stat
 from typing import Literal
+from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, ValidationError
 
@@ -119,16 +120,23 @@ def freeze(root: Path, registry: str) -> tuple[dict, list[FrozenPage]]:
         for record in document["records"]:
             if not isinstance(record, dict) or record.get("kind") not in {"plan", "runbook", "worldbuilding_source"}:
                 raise ValueError("unrecognized workspace record")
+            # Validate identity across the complete frozen inventory before
+            # excluding kinds already owned by Content. UUID spelling is not
+            # a second identity namespace (for example uppercase vs lowercase).
+            if not isinstance(record.get("document_id"), str):
+                raise ValueError("every workspace record requires a UUID identity")
+            identity = UUID(record["document_id"])
+            if identity in identities:
+                raise ValueError("duplicate workspace identity")
+            identities.add(identity)
             if record["kind"] != "worldbuilding_source":
                 continue  # Plan/Runbook already have their separate Content owner.
             page = LegacyPage.model_validate(record)
-            if page.document_id in identities:
-                raise ValueError("duplicate page identity")
-            identities.add(page.document_id)
             if page.connected_page_operation_id is not None:
-                if page.connected_page_operation_id in reservations:
+                reservation = UUID(page.connected_page_operation_id)
+                if reservation in reservations:
                     raise ValueError("duplicate connected reservation")
-                reservations.add(page.connected_page_operation_id)
+                reservations.add(reservation)
             body = None
             if page.target_relpath is not None:
                 if page.target_relpath in paths or page.target_relpath == registry:

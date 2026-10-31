@@ -262,7 +262,7 @@ def test_absent_draft_and_nonpage_records_are_explicit(world, tmp_path):
     body.unlink()
     record["content_status"] = "draft"
     registry.write_text(json.dumps({"schema_version": "dmb_workspace_document_registry_v1",
-                                    "records": [record, {"kind": "plan"}]}))
+                                    "records": [record, {"kind": "plan", "document_id": str(uuid4())}]}))
     manifest, seeds = tool.freeze(tmp_path, "registry.json")
     assert len(seeds) == 1 and seeds[0].markdown is None
     assert manifest["pages"][0]["raw_sha256"] is None
@@ -280,3 +280,16 @@ def test_capture_preserves_absent_draft_with_missing_parent_and_protects_its_pat
                       "--output", str(tmp_path / record["target_relpath"])]) == 1
     assert "cannot replace" in json.loads(capsys.readouterr().out)["error"]
     assert not (tmp_path / record["target_relpath"]).exists()
+
+
+@pytest.mark.parametrize("kind", ["plan", "runbook"])
+def test_capture_rejects_page_identity_shared_with_skipped_kind(world, application_state_dsn, tmp_path, capsys, kind):
+    _, registry, record = legacy(tmp_path, world)
+    # Reverse order and a different UUID spelling must both remain collisions.
+    registry.write_text(json.dumps({"schema_version": "dmb_workspace_document_registry_v1",
+                                    "records": [{"kind": kind, "document_id": record["document_id"].upper()}, record]}))
+    output = tmp_path / "manifest.json"
+    assert tool.main(["--root", str(tmp_path), "capture", "--registry", "registry.json", "--output", str(output)]) == 1
+    assert "duplicate workspace identity" in json.loads(capsys.readouterr().out)["error"]
+    assert not output.exists()
+    assert count(application_state_dsn, "content.work_object") == 0
