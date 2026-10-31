@@ -25,30 +25,39 @@ def _require(condition: bool, message: str) -> None:
 
 
 def _source_run(root: Path, run_id: str):
-    from apps.live_control_server.services.graph_run_registry import get_extraction_run
+    from apps.live_control_server.services.graph_run_registry import (
+        load_reviewable_extraction_data, GraphRunRegistryError,
+    )
     from apps.live_control_server.services.promotable_ingest_run import (
         resolve_promotable_ingest_run,
     )
-
-    run = get_extraction_run(root, run_id)
-    resolved = resolve_promotable_ingest_run(run_id, root=root)
-    _require(
-        run.status.value == "reviewable" and resolved.source_domain == "recap",
-        "source run is not a reviewable recap",
-    )
     from apps.live_control_server.services.extract_promote import (
         _assert_and_project_candidate_evidence,
-        _load_frozen_span_index_for_resolved_run,
     )
 
-    raw = json.loads(resolved.candidate_graph_path.read_bytes())
+    try:
+        data = load_reviewable_extraction_data(root, run_id)
+    except GraphRunRegistryError as exc:
+        raise SourceSubjectProofError(str(exc)) from exc
+    resolved = resolve_promotable_ingest_run(run_id, root=root)
+    run = data.run
+    _require(
+        run.source_domain == resolved.source_domain == "recap"
+        and run.source_artifact_id == resolved.source_artifact_id
+        and data.source_artifact.world_id == resolved.world_id
+        and (run.campaign_id or "") == resolved.campaign_id
+        and (run.session_id or "") == resolved.session_id
+        and f"sha256:{hashlib.sha256(data.source_bytes).hexdigest()}" == resolved.source_revision_id,
+        "resolved source differs from the exact reviewable recap",
+    )
+    raw = json.loads(data.candidate_bytes)
     _assert_and_project_candidate_evidence(
         candidate_payload=raw,
-        source_prose=resolved.normalized_recap_path.read_text(),
+        source_prose=data.source_bytes.decode("utf-8"),
         source_artifact_id=resolved.source_artifact_id,
-        span_index=_load_frozen_span_index_for_resolved_run(resolved),
+        span_index=data.span_index,
     )
-    return run, resolved, raw, load_typed_candidate_graph(raw)
+    return data, resolved, raw, load_typed_candidate_graph(raw)
 
 
 def _history(bundle: Any, world_id: str, parent_id: str, published_id: str):
@@ -95,7 +104,7 @@ class ProvenSourceSubject:
 
 
 def prove_source_subject(
-    *, bundle, world_id, parent_id, historical_id, basis, resolved, preview, ref
+    *, bundle, world_id, parent_id, historical_id, basis, resolved, preview, ref, source_data
 ):
     publication, state = _history(bundle, world_id, parent_id, historical_id)
     candidate_binding = state.candidate_contribution.diagnostics.get(
@@ -138,15 +147,9 @@ def prove_source_subject(
 
     services = reads.direct_services_from_bundle(bundle, world_id)
     hashes = {
-        "source_body_sha256": hashlib.sha256(
-            resolved.normalized_recap_path.read_bytes()
-        ).hexdigest(),
-        "candidate_graph_sha256": hashlib.sha256(
-            resolved.candidate_graph_path.read_bytes()
-        ).hexdigest(),
-        "source_span_index_sha256": hashlib.sha256(
-            resolved.source_span_index_path.read_bytes()
-        ).hexdigest(),
+        "source_body_sha256": hashlib.sha256(source_data.source_bytes).hexdigest(),
+        "candidate_graph_sha256": hashlib.sha256(source_data.candidate_bytes).hexdigest(),
+        "source_span_index_sha256": hashlib.sha256(source_data.span_bytes).hexdigest(),
     }
     native_source = bundle.sources.get_artifact(resolved.source_artifact_id)
     native_revision = bundle.sources.get_revision(resolved.source_revision_id)
@@ -171,7 +174,7 @@ def prove_source_subject(
     )
 
     actual_digest = canonical_candidate_digest(
-        json.loads(resolved.candidate_graph_path.read_bytes())
+        json.loads(source_data.candidate_bytes)
     )
     _require(
         candidate_binding.get("candidate_admission_digest") == actual_digest

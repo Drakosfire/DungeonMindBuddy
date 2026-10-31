@@ -507,8 +507,15 @@ def test_trusted_service_closes_bytes_and_passes_actual_review_time(
 
     case = _case(tmp_path, monkeypatch)
     artifact, digest, package = _inputs(case)
+    source_data = SimpleNamespace(
+        run=SimpleNamespace(source_artifact_id=ARTIFACT, campaign_id=CAMPAIGN),
+        source_artifact=SimpleNamespace(world_id=case["resolved"].world_id),
+        source_bytes=case["source_path"].read_bytes(),
+        candidate_bytes=case["candidate_path"].read_bytes(),
+        span_bytes=case["span_path"].read_bytes(), span_index=case["span_index"],
+    )
     monkeypatch.setattr(
-        graph_run_registry, "get_extraction_run", lambda *_: case["run"]
+        graph_run_registry, "load_reviewable_extraction_data", lambda *_: source_data,
     )
     monkeypatch.setattr(
         promotable_ingest_run,
@@ -559,7 +566,7 @@ def test_trusted_service_closes_bytes_and_passes_actual_review_time(
         repo_root=tmp_path,
     ) == {"outcome": "committed"}
     original_candidate = case["candidate_path"].read_bytes()
-    case["candidate_path"].write_bytes(b"{}")
+    source_data.candidate_bytes = b"{}"
     with pytest.raises(subject.ReviewedExtractConfirmationError) as drift:
         subject.confirm_reviewed_extract(
             context=_context(case),
@@ -571,7 +578,7 @@ def test_trusted_service_closes_bytes_and_passes_actual_review_time(
             repo_root=tmp_path,
         )
     assert drift.value.code == "source_digest_drift"
-    case["candidate_path"].write_bytes(original_candidate)
+    source_data.candidate_bytes = original_candidate
     case["resolved"].world_id = "foreign-world"
     with pytest.raises(subject.ReviewedExtractConfirmationError) as foreign:
         subject.confirm_reviewed_extract(

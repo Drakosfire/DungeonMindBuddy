@@ -35,14 +35,14 @@ def _source_run(root: Path, run_id: str):
         raise RecapSourceObservationPrepareError(str(exc)) from exc
 
 
-def _subject_proof(*, bundle, world_id, parent_id, historical_id, basis, resolved, preview, refs):
+def _subject_proof(*, bundle, world_id, parent_id, historical_id, basis, resolved, preview, refs, source_data):
     from apps.live_control_server.services.recap_source_subject_proof import prove_source_subject, SourceSubjectProofError
     rows,observations=[],[]
     common=None
     for ref in refs:
         try:
             proven=prove_source_subject(bundle=bundle,world_id=world_id,parent_id=parent_id,
-                historical_id=historical_id,basis=basis,resolved=resolved,preview=preview,ref=ref)
+                historical_id=historical_id,basis=basis,resolved=resolved,preview=preview,ref=ref,source_data=source_data)
         except SourceSubjectProofError as exc:
             raise RecapSourceObservationPrepareError(str(exc)) from exc
         node,complete=proven.node,proven.complete
@@ -85,7 +85,7 @@ def prepare_recap_source_observations(
     _require(head is not None, "native head is missing")
     parent_id = head.head_revision_id
     root = artifact_data_root(repo_root)
-    _run, resolved, raw, preview = _source_run(root, source_run_id)
+    source_data, resolved, raw, preview = _source_run(root, source_run_id)
     _require(resolved.world_id in (None, binding.native_world_id), "source declares a foreign World")
     old = json.loads(historical_package_bytes)
     _require(compute_proposal_digest(old["effect"]) == old["proposal_digest"], "historical package seal drift")
@@ -93,7 +93,7 @@ def prepare_recap_source_observations(
     proof, observations = _subject_proof(
         bundle=bundle, world_id=binding.native_world_id, parent_id=parent_id,
         historical_id=historical_publication_revision_id, basis=historical_basis,
-        resolved=resolved, preview=preview, refs=subjects,
+        resolved=resolved, preview=preview, refs=subjects, source_data=source_data,
     )
     _require(hashlib.sha256(historical_package_bytes).hexdigest() == proof["historical_prepared_package_sha256"],
              "historical package bytes differ from finalized review")
@@ -140,14 +140,14 @@ def reprove_recap_source_observation_binding(*, bundle, package, repo_root):
     if proof is None:
         return
     validate_recap_source_observation_basis(package["effect"])
-    _,resolved,_raw,preview=_source_run(artifact_data_root(repo_root),proof["source_run_id"])
+    source_data,resolved,_raw,preview=_source_run(artifact_data_root(repo_root),proof["source_run_id"])
     refs=[GraphObjectAuthoringObjectRefPayload(
         refKind="existing_graph_node",nodeId=row["subject_id"],label="exact source-proven subject",
         kind=row["subject_kind"]) for row in proof["subjects"]]
     actual,observations=_subject_proof(
         bundle=bundle,world_id=proof["world_id"],parent_id=proof["parent_revision_id"],
         historical_id=proof["historical_publication_revision_id"],
-        basis=proof["historical_identity_basis"],resolved=resolved,preview=preview,refs=refs)
+        basis=proof["historical_identity_basis"],resolved=resolved,preview=preview,refs=refs,source_data=source_data)
     _require(actual == proof, "source-proven existing-subject proof drift")
     expected={a.assertion_id:a.model_dump(mode="json") for a in observations}
     supplied={a["assertion_id"]:a for a in package["effect"]["accepted_proposals"]}

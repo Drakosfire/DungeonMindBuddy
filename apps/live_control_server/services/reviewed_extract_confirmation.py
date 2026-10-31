@@ -161,28 +161,16 @@ def _verify_run_bytes(
     from apps.live_control_server.services.promotable_ingest_run import (
         resolve_promotable_ingest_run,
     )
-    from apps.live_control_server.services.graph_run_registry import get_extraction_run
+    from apps.live_control_server.services.graph_run_registry import load_reviewable_extraction_data
     from apps.live_control_server.services.candidate_graph_admission import (
         canonical_candidate_digest,
     )
-    from graph_memory.source_span import (
-        source_span_index_from_dict,
-        validate_source_span_index,
-    )
-
     try:
-        run = get_extraction_run(repo_root, review.source_run_id)
+        data = load_reviewable_extraction_data(repo_root, review.source_run_id)
         resolved = resolve_promotable_ingest_run(review.source_run_id, root=repo_root)
-        source_bytes = resolved.normalized_recap_path.read_bytes()
-        candidate_bytes = resolved.candidate_graph_path.read_bytes()
-        span_bytes = resolved.source_span_index_path.read_bytes()
+        source_bytes, candidate_bytes, span_bytes = data.source_bytes, data.candidate_bytes, data.span_bytes
         candidate = json.loads(candidate_bytes)
-        index = source_span_index_from_dict(json.loads(span_bytes))
-        validate_source_span_index(
-            index,
-            source_artifact_id=review.source_artifact_id,
-            content_sha256=review.source_body_sha256,
-        )
+        index = data.span_index
     except Exception as exc:
         _fail(
             "source_unavailable",
@@ -190,7 +178,10 @@ def _verify_run_bytes(
         )
     admission = package["effect"]["candidate_admission"]
     if (
-        resolved.run_id != review.source_run_id
+        data.run.source_artifact_id != review.source_artifact_id
+        or data.source_artifact.world_id != resolved.world_id
+        or (data.run.campaign_id or "") != resolved.campaign_id
+        or resolved.run_id != review.source_run_id
         or resolved.world_id not in (None, context.managed_world_id)
         or resolved.source_artifact_id != review.source_artifact_id
         or resolved.source_revision_id != review.source_revision_id
@@ -202,14 +193,6 @@ def _verify_run_bytes(
         or _sha(candidate_bytes) != review.candidate_graph_sha256
         or _sha(span_bytes) != review.source_span_index_sha256
         or canonical_candidate_digest(candidate) != review.candidate_admission_digest
-        or any(
-            _sha(data) != run.components[name].sha256.removeprefix("sha256:")
-            for name, data in (
-                ("source_artifact", source_bytes),
-                ("candidate_graph", candidate_bytes),
-                ("source_span_index", span_bytes),
-            )
-        )
     ):
         _fail(
             "source_digest_drift", "source, candidate, span, or run component drifted"
