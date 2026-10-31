@@ -1183,7 +1183,7 @@ def test_recap_ingest_generate_recap_memory_with_graph_extraction_fake_client(
 
     observed: dict[str, object] = {}
 
-    def project_fixture(request, *, root, hydrate_product_local_excerpts=True):  # noqa: ANN001
+    def project_fixture(request, *, root):  # noqa: ANN001
         observed["request"] = request
         return WorldGraphProjection(
             schema="dmb_world_graph_projection_v1",

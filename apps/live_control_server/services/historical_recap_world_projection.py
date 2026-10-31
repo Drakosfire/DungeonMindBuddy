@@ -357,7 +357,6 @@ def build_historical_recap_world_projection(
         world = project_world_graph(
             request,
             root=world_graph_root(),
-            hydrate_product_local_excerpts=False,
         )
     except WorldGraphProjectionServiceError as exc:
         raise HistoricalRecapProjectionError(
