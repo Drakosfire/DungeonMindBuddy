@@ -440,3 +440,37 @@ def test_scoped_discuss_needs_read_context_not_insertion_authority(build_case,mo
     assert result.knowledge_context.completion.collaboration.kind=='questions'
     assert len(writer.calls)==1
     assert all(not ({'operation','requested_work'}&set(json.loads(call.content)['questions'])) for call in decisions.calls)
+
+
+def test_retained_build_intent_does_not_inherit_plan_selection_shape(build_case, monkeypatch, tmp_path):
+    """Keep the captured Build shape stable when Plan gains an optional field."""
+    import json
+    from copy import deepcopy
+    from application_state.agent_conversation.types import (
+        Turn, BuildGraphIntentV1, submitted_turn_intent_fingerprint_v2, _fingerprint,
+    )
+    from application_state.agent_conversation.reviewed_action import digest
+
+    case = reviewed_case(build_case, monkeypatch)
+    harness = BuildJevHarness(world_context=True, named_citations=True, accounting=counter(),
+        decision_transport=DecisionWire(), writer_transport=WriterWire())
+    execute(case, tmp_path, harness)
+    service = AgentConversationService()
+    cid = case[1].reviewed_step.conversation_id
+    turn = next(t for t in service.list_turns('elderwyld', cid) if t.user_text == case[1].message)
+    payload = turn.model_dump(mode='json', by_alias=True)
+    event = next(e for e in payload['graph_context_execution']['events']
+                 if e['kind'] == 'build_reviewed_action_selected_v1')
+    captured = deepcopy(event['intent'])
+    captured.pop('native_statement_selection', None)  # Original Build contract.
+    restored = BuildGraphIntentV1.model_validate_json(json.dumps(captured))
+    assert restored.model_dump(mode='json', by_alias=True) == captured
+    assert digest({'schema': 'dmb_reviewed_action_admission_v1', 'intent': captured}) == (
+        payload['graph_context_receipt']['assembled_input']['assembled_input_sha256'])
+    semantic_intent = deepcopy(captured)
+    semantic_intent.pop('client_thread_id')
+    semantic_intent['primary_work'].pop('play_content_basis', None)
+    assert submitted_turn_intent_fingerprint_v2(restored) == _fingerprint(semantic_intent)
+    assert Turn.model_validate_json(json.dumps(payload)).model_dump(mode='json', by_alias=True) == payload
+    plan = w.read('elderwyld', cid, case[1].reviewed_step.source_turn_id)
+    assert plan['plan']['execution'][0]['status'] == 'prepared'
