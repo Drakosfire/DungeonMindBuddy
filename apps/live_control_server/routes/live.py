@@ -1069,12 +1069,7 @@ def get_live_plan_view(
     if scope_mode == "world" and world_id is None:
         raise HTTPException(status_code=422, detail="world_id is required for World Plan context.")
     if world_id is not None:
-        try:
-            world_root = managed_world_data_root(repo_root())
-        except ManagedWorldDataRootError as exc:
-            raise HTTPException(
-                status_code=503, detail="Managed World storage is unavailable."
-            ) from exc
+        world_root = repo_root()
         try:
             world = get_world_container(world_root, world_id)
         except WorldContainerRegistryError as exc:
