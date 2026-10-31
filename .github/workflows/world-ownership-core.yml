@@ -60,6 +60,12 @@ jobs:
       - name: Lint ownership and binding changes
         run: >-
           uv run --locked ruff check
+          src/application_state/content/types.py
+          src/application_state/content/repository.py
+          src/application_state/content/service.py
+          src/application_state/content/pages.py
+          src/application_state/migrations/versions/20261031_0101_authored_pages.py
+          tests/application_state/test_authored_pages_postgres.py
           src/application_state/world_catalog/service.py
           tests/application_state/test_world_catalog_postgres.py
           tests/application_state/test_world_catalog_cutover_migration.py
@@ -83,6 +89,16 @@ jobs:
           uv run --locked pytest -q --tb=short --show-capture=no
           tests/application_state/test_world_catalog_postgres.py
           tests/application_state/test_world_catalog_cutover_migration.py
+          tests/application_state/test_authored_pages_postgres.py
+          tests/application_state/test_plan_work_object_postgres.py::test_working_copy_survives_new_connection
+          tests/application_state/test_plan_work_object_postgres.py::test_current_world_plan_read_returns_immutable_basis_and_divergence
+          tests/application_state/test_plan_work_object_postgres.py::test_cas_conflict_one_success
+          tests/application_state/test_plan_work_object_postgres.py::test_stale_cas_identical_commit_replay_returns_existing_revision
+          tests/application_state/test_plan_work_object_postgres.py::test_tiptap_exact_commit_replay_returns_existing_revision
+          tests/application_state/test_plan_work_object_postgres.py::test_transaction_failure_before_commit_leaves_no_partial_revision
+          tests/application_state/test_runbook_work_object_postgres.py::test_historical_revision_survives_newer_commit
+          tests/application_state/test_runbook_work_object_postgres.py::test_divergent_working_copy_blocks_start_run_but_not_existing_run_n
+          tests/application_state/test_runbook_work_object_postgres.py::test_plan_and_runbook_mutations_reject_wrong_kind
           tests/test_world_access_control.py
           tests/test_world_container_registry.py
           tests/test_world_graph_binding.py

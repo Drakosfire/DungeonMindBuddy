@@ -1,4 +1,4 @@
-"""Content-domain types. WorkObject is not a universal application object."""
+"""Typed Content aggregates. Pages are not Playable WorkObjects."""
 
 from __future__ import annotations
 
@@ -21,9 +21,9 @@ def normalize_markdown(markdown: str) -> str:
     return markdown.replace("\r\n", "\n").replace("\r", "\n")
 
 
-class WorkObject(BaseModel):
+class _StoredDocument(BaseModel):
     work_object_id: UUID
-    kind: AdmittedKind
+    kind: str
     campaign_id: str | None
     world_id: str | None = None
     title: str
@@ -34,6 +34,10 @@ class WorkObject(BaseModel):
     object_revision: int
     created_at: datetime
     updated_at: datetime
+
+
+class WorkObject(_StoredDocument):
+    kind: AdmittedKind
 
     @model_validator(mode="after")
     def validate_scope(self) -> "WorkObject":
@@ -48,6 +52,25 @@ class WorkObject(BaseModel):
         if self.target_session is not None:
             raise ValueError("World-owned content cannot have target_session")
         return self
+
+
+class AuthoredPageObject(_StoredDocument):
+    """World-owned editable page; never admitted by Plan/Runbook or Play APIs."""
+
+    kind: Literal["worldbuilding_source"] = "worldbuilding_source"
+    world_id: str
+    campaign_id: None = None
+    target_session: None = None
+
+    @model_validator(mode="after")
+    def validate_scope(self) -> "AuthoredPageObject":
+        if not self.world_id or self.world_id != self.world_id.strip():
+            raise ValueError("authored pages require an exact World owner")
+        return self
+
+
+_StoredContentObject = WorkObject | AuthoredPageObject
+_StoredKind = Literal["plan", "runbook", "worldbuilding_source"]
 
 
 class WorkRevision(BaseModel):

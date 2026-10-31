@@ -1,7 +1,6 @@
 """The DB-only World owner fences older file-authoritative readers."""
-import psycopg
+from importlib import import_module
 import pytest
-from alembic import command
 from application_state import cli
 from application_state.errors import ApplicationStateMigrationError
 from application_state.world_catalog import service
@@ -16,10 +15,11 @@ def test_cutover_fence_preserves_rows_and_requires_forward_recovery(application_
     for plan in (campaign_plan, world_plan):
         commit_plan(str(plan.work_object_id), "# Retained Plan body\n", expected_revision=plan.object_revision)
         saved.append(snapshot_plan(str(plan.work_object_id)))
-    with psycopg.connect(application_state_dsn) as conn:
-        conn.execute("UPDATE application_state.schema_migrations SET version_num='20261030_0099'")
-    cli.upgrade_to_head(dsn=application_state_dsn)
-    assert cli._read_current_revision(application_state_dsn) == "20261031_0100"
+    # Exercise the owning no-op fence without fabricating an older schema
+    # marker over tables installed by subsequent migrations.
+    fence = import_module("application_state.migrations.versions.20261031_0100_world_catalog_cutover")
+    fence.upgrade()
+    assert cli._read_current_revision(application_state_dsn) == cli._alembic_head()
     assert service.get_world(before.record.world_id) == before
     assert [snapshot_plan(str(plan.work_object_id)) for plan in (campaign_plan, world_plan)] == saved
     with monkeypatch.context() as patch:
@@ -27,7 +27,7 @@ def test_cutover_fence_preserves_rows_and_requires_forward_recovery(application_
         with pytest.raises(ApplicationStateMigrationError):
             cli.assert_at_head(dsn=application_state_dsn)
     with pytest.raises(RuntimeError, match="World catalog cutover.*recovery forward"):
-        command.downgrade(cli.alembic_config(), "20261030_0099")
+        fence.downgrade()
     cli.assert_at_head(dsn=application_state_dsn)
     assert service.get_world(before.record.world_id) == before
     assert [snapshot_plan(str(plan.work_object_id)) for plan in (campaign_plan, world_plan)] == saved
