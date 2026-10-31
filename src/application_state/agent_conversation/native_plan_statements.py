@@ -144,56 +144,77 @@ def validate_support_authority(authority, read):
 
 
 def validate_execution(receipt, execution):
-    """Join selected grants, observed support and the existing provider state machine."""
+    """One selected-read/provider state machine for both native record families."""
     from . import types as t
+    from .native_plan_assertions import (NativePlanQueryV2, NativePlanAssertionReadAuthorizedV1,
+        NativePlanAssertionReadObservedV1, selection_handle as assertion_handle)
     if not isinstance(execution, t.PlanNativeExecutionV1) or execution.policy.native_query_sha256 != digest(receipt.native_query):
         raise ValueError('Native Plan requires its exact query policy/ledger')
     query = receipt.native_query
-    matches = {m.statement_id: m for m in query.matches} if isinstance(query, NativePlanQueryV1) else {}
+    statements = {m.statement_id: m for m in query.matches} if isinstance(query, NativePlanQueryV1) else {}
+    assertions = {m.assertion_id: m for m in query.assertion_matches} if isinstance(query, NativePlanQueryV2) else {}
     provider = outcome = selection = None
     grants, observations, attempted = {}, {}, set()
     writer = False
     for event in execution.events:
         if isinstance(event, t.ProviderAttemptAuthorizedEventV1):
             if isinstance(event, t.PlanJevWriterAuthorizedV1):
-                if not isinstance(event, t.PlanNativeWriterAuthorizedV1):
+                expected = t.PlanNativeWriterAuthorizedV2 if isinstance(query, NativePlanQueryV2) else t.PlanNativeWriterAuthorizedV1
+                if not isinstance(event, expected) or (not isinstance(query, NativePlanQueryV2) and isinstance(event, t.PlanNativeWriterAuthorizedV2)):
                     raise ValueError('Native query Plan requires its own writer inclusion')
                 if set(grants) != {e.authorization_event_id for e in observations.values()}:
                     raise ValueError('Native writer requires every selected read grant to be settled')
-                if (len(event.native_statement_read_event_ids) != len(set(event.native_statement_read_event_ids))
-                        or set(event.native_statement_read_event_ids) != set(observations)):
-                    raise ValueError('Native writer changed selected support exposure')
+                families = [(NativePlanStatementReadObservedV1, event.native_statement_read_event_ids)]
+                if isinstance(query, NativePlanQueryV2):
+                    families.append((NativePlanAssertionReadObservedV1, event.native_assertion_read_event_ids))
+                for observed_type, included in families:
+                    if (len(included) != len(set(included))
+                            or set(included) != {e.event_id for e in observations.values() if isinstance(e, observed_type)}):
+                        raise ValueError('Native writer changed selected support exposure')
                 writer = True
             provider, outcome, selection = event.provider_attempt_id, None, None
         elif isinstance(event, t.ProviderOutcomeEventV1) and event.provider_attempt_id == provider:
             outcome = event.outcome
         elif isinstance(event, t.PlanJevRetrievalSelectionV1):
             selection = event
-        elif isinstance(event, NativePlanStatementReadAuthorizedV1):
+        elif isinstance(event, (NativePlanStatementReadAuthorizedV1, NativePlanAssertionReadAuthorizedV1)):
+            assertion = isinstance(event, NativePlanAssertionReadAuthorizedV1)
+            ids = event.assertion_ids if assertion else event.statement_ids
+            matches = assertions if assertion else statements
+            handle = assertion_handle if assertion else selection_handle
+            keys = {(assertion, identity) for identity in ids}
             if (writer or outcome != 'response_received' or selection is None
-                    or selection.operation != 'select_candidates'
-                    or event.provider_attempt_id != provider
+                    or selection.operation != 'select_candidates' or event.provider_attempt_id != provider
                     or not isinstance(query, NativePlanQueryV1) or event.query_sha256 != query.sha256
-                    or not set(event.statement_ids) <= set(matches)
-                    or attempted & set(event.statement_ids)
-                    or not {selection_handle(query, matches[i]) for i in event.statement_ids} <= set(selection.selected_handles)):
+                    or not set(ids) <= set(matches) or attempted & keys
+                    or not {handle(query, matches[i]) for i in ids} <= set(selection.selected_handles)):
                 raise ValueError('Native selected read lacks its exact current controller/query grant')
             grants[event.event_id] = event
-            attempted.update(event.statement_ids)
-        elif isinstance(event, NativePlanStatementReadObservedV1):
+            attempted.update(keys)
+        elif isinstance(event, (NativePlanStatementReadObservedV1, NativePlanAssertionReadObservedV1)):
             grant = grants.get(event.authorization_event_id)
-            if (writer or grant is None or grant.provider_attempt_id != provider or outcome != 'response_received'
+            assertion = isinstance(event, NativePlanAssertionReadObservedV1)
+            expected = NativePlanAssertionReadAuthorizedV1 if assertion else NativePlanStatementReadAuthorizedV1
+            ids = {r.assertion.assertion_id for r in event.reads} if assertion else {r.support.statement_id for r in event.reads}
+            unavailable = event.unavailable_assertion_ids if assertion else event.unavailable_statement_ids
+            granted = set(grant.assertion_ids if assertion else grant.statement_ids) if isinstance(grant, expected) else None
+            if (writer or granted is None or grant.provider_attempt_id != provider or outcome != 'response_received'
                     or any(e.authorization_event_id == grant.event_id for e in observations.values())
-                    or set(grant.statement_ids) != {r.support.statement_id for r in event.reads} | set(event.unavailable_statement_ids)):
+                    or granted != ids | set(unavailable)):
                 raise ValueError('Native read observation differs from selected grant')
             for read in event.reads:
-                validate_support_authority(query.authority, read)
-                match = matches[read.support.statement_id]
-                if (read.support.payload['clause']['campaign'] != match.campaign_id
-                        or read.support.payload['clause']['logical_source'] != match.logical_source
-                        or read.support.payload['episode'] != match.episode
-                        or not set(match.discovery_assertion_ids) <= set(read.support.assertion_ids)):
-                    raise ValueError('Native selected support changed its discovered statement')
+                if assertion:
+                    match = assertions[read.assertion.assertion_id]
+                    if digest(read.assertion) != match.assertion_sha256 or read.assertion.subject_entity_id != match.subject_entity_id:
+                        raise ValueError('Native assertion changed after discovery')
+                else:
+                    validate_support_authority(query.authority, read)
+                    match = statements[read.support.statement_id]
+                    if (read.support.payload['clause']['campaign'] != match.campaign_id
+                            or read.support.payload['clause']['logical_source'] != match.logical_source
+                            or read.support.payload['episode'] != match.episode
+                            or not set(match.discovery_assertion_ids) <= set(read.support.assertion_ids)):
+                        raise ValueError('Native selected support changed its discovered statement')
             observations[event.event_id] = event
 
 

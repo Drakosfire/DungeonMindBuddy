@@ -482,6 +482,7 @@ def sealed_native_producer(turn, rules_execution, proof):
     from .plan_source_context import capability_bases
     from .native_corpus import producing_bodies, body_input_partial
     from .native_plan_statements import producing_reads, input_partial
+    from .native_plan_assertions import producing_reads as assertion_reads, input_partial as assertion_partial
     graph = capability_bases(receipt).graph if isinstance(receipt, PlanSourceContextReceiptV1) else receipt
     graph_support = SimpleNamespace(
         provider_attempt_id=proof.producing_provider_attempt_id,
@@ -489,10 +490,11 @@ def sealed_native_producer(turn, rules_execution, proof):
         context_receipt_sha256=receipt.context_receipt_sha256,
         graph_revision=graph.graph_authority.graph_revision if graph is not None else None,
         closures=tuple(closures),
-        passages=passages, source_partial=source_partial or partial_input(turn,graph_auth,proof.prepared_request_json) or body_input_partial(turn.graph_context_execution) or input_partial(turn),
+        passages=passages, source_partial=source_partial or partial_input(turn,graph_auth,proof.prepared_request_json) or body_input_partial(turn.graph_context_execution) or input_partial(turn) or assertion_partial(turn),
         native_sections=producing_sections(turn,graph_auth,proof.prepared_request_json),
         body_excerpts=producing_bodies(turn,graph_auth,proof.prepared_request_json),
         native_statements=producing_reads(turn,graph_auth,proof.prepared_request_json),
+        native_assertions=assertion_reads(turn,graph_auth,proof.prepared_request_json),
         authored=producing_authored(turn, graph_auth, proof.prepared_request_json),
         current_policy=require_current_policy(turn, graph_auth, proof.prepared_request_json),
         session_titles=producing_session_titles(turn, graph_auth, proof.prepared_request_json),

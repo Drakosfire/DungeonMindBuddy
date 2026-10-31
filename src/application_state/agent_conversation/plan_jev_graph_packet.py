@@ -288,6 +288,10 @@ def project(turn, proof, trace):
     if isinstance(receipt, t.PlanNativeContextReceiptV1):
         from .native_plan_statements import model_frame, POLICY
         frame.update(schema='dmb_plan_jev_writer_frame_v7', answer_policy=POLICY, native_statements=model_frame(turn))
+    from .native_plan_assertions import NativePlanQueryV2
+    if isinstance(getattr(receipt, 'native_query', None), NativePlanQueryV2):
+        from .native_plan_assertions import model_frame as assertion_frame, POLICY as assertion_policy
+        frame.update(schema='dmb_plan_jev_writer_frame_v8', answer_policy=assertion_policy, native_assertions=assertion_frame(turn))
     if isinstance(execution.policy, t.PlanAuthoringPolicyV1):
         choices = [event for event in execution.events if isinstance(event, t.PlanRequestedWorkSelectedV1)]
         if len(choices) != 1:
@@ -325,7 +329,7 @@ def frame_in_request(raw):
             value = strict_json(content)
         except (ValueError, TypeError):
             continue
-        if isinstance(value, dict) and value.get("schema") in {SCHEMA,"dmb_plan_jev_writer_frame_v7","dmb_plan_jev_writer_frame_v6","dmb_plan_jev_writer_frame_v4","dmb_plan_jev_writer_frame_v3","dmb_plan_jev_writer_frame_v2","dmb_plan_jev_writer_frame_v1"}:
+        if isinstance(value, dict) and value.get("schema") in {SCHEMA,"dmb_plan_jev_writer_frame_v8","dmb_plan_jev_writer_frame_v7","dmb_plan_jev_writer_frame_v6","dmb_plan_jev_writer_frame_v4","dmb_plan_jev_writer_frame_v3","dmb_plan_jev_writer_frame_v2","dmb_plan_jev_writer_frame_v1"}:
             frames.append(value)
     if len(frames) != 1:
         raise ValueError("Plan writer requires one exact evidence frame")

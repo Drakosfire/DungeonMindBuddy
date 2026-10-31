@@ -1,12 +1,12 @@
 """Authored pages share Content storage, never Plan/Runbook/Play admission."""
 
 from concurrent.futures import ThreadPoolExecutor
+from importlib import import_module
 from threading import Barrier
 from uuid import uuid4
 
 import psycopg
 import pytest
-from alembic import command
 from pydantic import ValidationError
 
 from application_state import cli
@@ -381,7 +381,10 @@ def test_page_schema_is_separate_from_live_adoption_and_requires_forward_recover
 ):
     page = pages.create_page(world_id=world, title="No auto adoption")
     with pytest.raises(RuntimeError, match="Authored page storage.*recovery forward"):
-        command.downgrade(cli.alembic_config(), "20261031_0100")
+        # Exercise this owner's fence; a newer fence stops Alembic first.
+        import_module(
+            "application_state.migrations.versions.20261031_0101_authored_pages"
+        ).downgrade()
     cli.assert_at_head(dsn=application_state_dsn)
     assert pages.get_page(ident(page), world_id=world) == page
 

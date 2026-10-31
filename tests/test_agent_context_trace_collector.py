@@ -409,8 +409,14 @@ def test_later_gap_preserves_first_marker_and_capacity_remains_independent():
 def answer_capture_case():
     capture, store, turn = collector()
     producer = uuid4()
+    from application_state.agent_conversation.types import ProviderAttemptAuthorizedEventV1
+    authorization = ProviderAttemptAuthorizedEventV1(kind='provider_attempt_authorized', event_id=uuid4(),
+        sequence=0, provider_attempt_id=producer, envelope_sha256='a'*64, serializer_version='openai-sdk-json-v1',
+        provider='openai',model='synthetic-writer',api_mode='responses',tool_schema_sha256='b'*64,
+        input_accounting_kind='conservative_upper_bound',input_estimator='fixture',input_tokens=1,output_token_reserve=1,
+        included_assertion_ids=[],included_relationship_ids=[],included_evidence_ref_ids=[],included_graph_event_ids=[])
     turn.graph_context_execution = SimpleNamespace(events=[
-        SimpleNamespace(kind='provider_attempt_authorized_v3', provider_attempt_id=producer),
+        authorization,
         SimpleNamespace(kind='provider_outcome', provider_attempt_id=producer, outcome='response_received')])
     turn.graph_context_receipt = SimpleNamespace(context_receipt_sha256='c' * 64)
     capture.bound_context_receipt_sha256 = 'c' * 64
@@ -442,8 +448,8 @@ def test_answer_draft_rejects_foreign_or_nonproducing_attempt(change):
     if change == 'wrong':
         producer = uuid4()
     elif change == 'earlier':
-        turn.graph_context_execution.events.append(SimpleNamespace(
-            kind='provider_attempt_authorized_v3', provider_attempt_id=uuid4()))
+        turn.graph_context_execution.events.append(turn.graph_context_execution.events[0].model_copy(
+            update={'event_id':uuid4(),'sequence':2,'provider_attempt_id':uuid4()}))
     else:
         turn.graph_context_execution.events.pop()
     with pytest.raises(ApplicationStateValidationError, match='producing provider response'):

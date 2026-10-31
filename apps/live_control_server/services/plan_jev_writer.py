@@ -70,6 +70,7 @@ class PlanClaimEvidence:
     native_sections: tuple = ()
     body_excerpts: tuple = ()
     native_statements: tuple = ()
+    native_assertions: tuple = ()
 
 
 class PlanWriterProvider(OpenAITextProvider):
@@ -152,6 +153,9 @@ class PlanJevWriter:
             from application_state.agent_conversation.native_plan_statements import POLICY as STATEMENT_POLICY
             from application_state.agent_conversation.surface_evidence_answer import BODY_POLICY
             instructions = instructions.replace(BODY_POLICY, STATEMENT_POLICY) + '\n' + STATEMENT_INSTRUCTIONS
+        if self.projection.frame.get('schema') == 'dmb_plan_jev_writer_frame_v8':
+            from application_state.agent_conversation.native_plan_assertions import INSTRUCTIONS as ASSERTION_INSTRUCTIONS, POLICY as ASSERTION_POLICY
+            instructions = instructions.replace(STATEMENT_POLICY, ASSERTION_POLICY) + '\n' + ASSERTION_INSTRUCTIONS
         self.instructions = '\n\n'.join((BUDDY_SYSTEM_PROMPT, instructions,
             RULES_INSTRUCTIONS if rule_frame.lookups else '')) + ('' if getattr(rules,'authoring',None) is not None else IMAGE_DIRECTION_INSTRUCTIONS)
         self.model = adapter._broker_execution().policy.provider_roles.writer.model
@@ -184,8 +188,10 @@ class PlanJevWriter:
         if estimate + a.budget['outputReserveTokens'] > a.budget['contextLimitTokens']:
             raise ValueError('Plan writer exceeds the existing provider context allowance')
         native_plan = isinstance(a._broker_receipt(), t.PlanNativeContextReceiptV1)
-        writer_type = t.PlanNativeWriterAuthorizedV1 if native_plan else t.PlanJevWriterAuthorizedV2
-        event = writer_type(kind='plan_native_writer_authorized_v1' if native_plan else 'plan_jev_writer_authorized_v2', event_id=uuid4(),
+        from application_state.agent_conversation.native_plan_assertions import NativePlanQueryV2
+        assertions = native_plan and isinstance(a._broker_receipt().native_query, NativePlanQueryV2)
+        writer_type = t.PlanNativeWriterAuthorizedV2 if assertions else t.PlanNativeWriterAuthorizedV1 if native_plan else t.PlanJevWriterAuthorizedV2
+        event = writer_type(kind='plan_native_writer_authorized_v2' if assertions else 'plan_native_writer_authorized_v1' if native_plan else 'plan_jev_writer_authorized_v2', event_id=uuid4(),
             sequence=len(a._broker_execution().events) + (1 if isinstance(a._broker_receipt(), t.PlanSourceContextReceiptV1) else 0),
             provider_attempt_id=UUID(prepared.attempt_id),
             envelope_sha256=prepared.body_sha256, serializer_version='openai-sdk-json-v1',
@@ -198,6 +204,8 @@ class PlanJevWriter:
             included_source_reuse_event_ids=[e.event_id for e in a._broker_execution().events
                 if isinstance(e, t.SourcePassageReuseEventV1) and e.event_id in projection.source_event_ids], included_assertion_ids=list(projection.assertion_ids),
             included_relationship_ids=list(projection.relationship_ids), included_evidence_ref_ids=list(projection.evidence_ref_ids),
+            **({'native_assertion_read_event_ids': [e.event_id for e in a._broker_execution().events
+                if isinstance(e, t.NativePlanAssertionReadObservedV1)]} if assertions else {}),
             **({'native_statement_read_event_ids': [e.event_id for e in a._broker_execution().events
                 if isinstance(e, t.NativePlanStatementReadObservedV1)]} if native_plan else {}))
         view = {'provider':'openai','model':self.model,'apiMode':'responses','payloadJson':prepared.body.decode(),
@@ -222,14 +230,16 @@ class PlanJevWriter:
         from application_state.agent_conversation.plan_source_context import capability_bases
         from application_state.agent_conversation.native_corpus import producing_bodies, body_input_partial
         from application_state.agent_conversation.native_plan_statements import producing_reads, input_partial
+        from application_state.agent_conversation.native_plan_assertions import producing_reads as assertion_reads, input_partial as assertion_partial
         graph = capability_bases(a._broker_receipt()).graph
         a.build_claim_evidence[event.provider_attempt_id] = PlanClaimEvidence(event.provider_attempt_id,
             event.envelope_sha256, a._broker_execution().context_receipt_sha256,
             graph.graph_authority.graph_revision if graph is not None else None, projection.closures,
-            producing_session_titles(a.turn, event, view["payloadJson"]), passages, source_partial or body_input_partial(a._broker_execution()) or input_partial(a.turn),
+            producing_session_titles(a.turn, event, view["payloadJson"]), passages, source_partial or body_input_partial(a._broker_execution()) or input_partial(a.turn) or assertion_partial(a.turn),
             producing_authored(a.turn, event, view["payloadJson"]), require_current_policy(a.turn, event, view["payloadJson"]),
             producing_sections(a.turn,event,view["payloadJson"]), producing_bodies(a.turn,event,view["payloadJson"]),
-            producing_reads(a.turn,event,view["payloadJson"]))
+            producing_reads(a.turn,event,view["payloadJson"]),
+            native_assertions=assertion_reads(a.turn,event,view["payloadJson"]))
         self.prepared, self.authorization = prepared, event
         return True
 

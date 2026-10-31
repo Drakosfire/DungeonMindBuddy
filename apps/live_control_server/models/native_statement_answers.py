@@ -30,3 +30,15 @@ class NativeStatementClauseReadV1(Strict):
     citation_index: int
     citation: NativeStatementClauseCitationV1
     content: str
+
+
+from application_state.agent_conversation.native_plan_assertions import NativeAssertionCitationV1
+
+
+class NativeAssertionSourceReadV1(Strict):
+    schema_: Literal['dmb_native_assertion_source_read_v1'] = Field(default='dmb_native_assertion_source_read_v1', alias='schema')
+    world_id: str
+    turn_id: str
+    citation_index: int
+    citation: NativeAssertionCitationV1
+    content: str

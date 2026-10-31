@@ -14,6 +14,7 @@ from application_state.agent_conversation.context_trace import (
     ContextTraceObservation, TraceSourcePassage, MAX_CONTEXT_TRACE_BYTES,
     CONTEXT_TRACE_TERMINAL_RESERVE_BYTES,
 )
+from application_state.agent_conversation.types import ProviderAttemptAuthorizedEventV1
 from application_state.errors import ApplicationStateValidationError
 from apps.live_control_server.services.agent_context_compaction_report import ContextCompactionReport
 from apps.live_control_server.services.agent_conversation_context import ROUTE_MARKER
@@ -341,9 +342,7 @@ class ContextTraceCollector:
         with self.fence.renewer._lock:
             turn = self.fence.renewer._turn
             execution = turn.graph_context_execution
-            authorizations = [event for event in execution.events if event.kind in {
-                "provider_attempt_authorized", "provider_attempt_authorized_v2",
-                "provider_attempt_authorized_v3", "provider_attempt_authorized_v4", "provider_attempt_authorized_v5", "plan_jev_provider_authorized_v1", "plan_requested_work_authorized_v1", "plan_requested_work_authorized_v2", "plan_jev_writer_authorized_v1", "plan_jev_writer_authorized_v2", "plan_native_writer_authorized_v1"}]
+            authorizations = [event for event in execution.events if isinstance(event, ProviderAttemptAuthorizedEventV1)]
             if (not authorizations or authorizations[-1].provider_attempt_id != producing_provider_attempt_id
                 or not any(event.kind == "provider_outcome" and event.provider_attempt_id == producing_provider_attempt_id
                     and event.outcome == "response_received" for event in execution.events)):

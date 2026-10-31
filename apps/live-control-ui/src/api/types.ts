@@ -775,6 +775,10 @@ export interface WorldPlanContextPolicyV1 {
   policy: "auto_plan_world";
 }
 
+export interface WorldPlanContextPolicyV2 {
+  schema:'dmb_plan_context_policy_v2';policy:'auto_plan_world';graph_source:'reviewed_native_graph';
+}
+
 export interface WorldPlanGraphContextFailureV1 {
   schema: "dmb_plan_world_graph_context_failure_v1";
   status: "pre_dispatch_failed";
@@ -799,7 +803,7 @@ export interface WorldPlanAgentTurnRequestV1 {
     expected_revision_n: number;
     expected_content_sha256: string;
   };
-  plan_context_policy?: WorldPlanContextPolicyV1;
+  plan_context_policy?: WorldPlanContextPolicyV1|WorldPlanContextPolicyV2;
   playable_target?: WorldPlanSelectedPlayableTargetV1 | null;
   client_work_state: "saved_clean" | "saved_dirty";
   graph_request: { mode: "none" };
@@ -945,7 +949,7 @@ export interface WorldPlanGraphContextReceiptV1 {
   schema: "dmb_agent_plan_world_graph_context_receipt_v1";
   receipt_serializer_version: "canonical-json-utf8-v1";
   context_receipt_sha256: string;
-  plan_context_policy: WorldPlanContextPolicyV1;
+  plan_context_policy: WorldPlanContextPolicyV1|WorldPlanContextPolicyV2;
   plan_basis: {
     world_id: string;
     document_id: string;
@@ -1130,7 +1134,7 @@ export interface LegacyWorldPlanAgentPlanContextV2 {
 /** Native body ownership and optional Graph capability remain distinct. */
 export interface PlanSourceContextReceiptV1 {
   schema:'dmb_plan_source_context_receipt_v1';receipt_serializer_version:'canonical-json-utf8-v1';
-  context_receipt_sha256:string;plan_context_policy:WorldPlanContextPolicyV1;
+  context_receipt_sha256:string;plan_context_policy:WorldPlanContextPolicyV1|WorldPlanContextPolicyV2;
   plan_basis:WorldPlanGraphContextReceiptV1['plan_basis'];playable_target:WorldPlanGraphContextReceiptV1['playable_target'];
   source_authority:{schema:'dmb_native_corpus_unavailable_v1';managed_world_id:string;
     failure_code:'native_source_identity_unavailable'|'native_source_head_unavailable'|'native_source_authority_unavailable'} | {
@@ -1155,13 +1159,16 @@ export interface NativePlanQueryV1 {
     campaign_id:string;logical_source:{namespace:string;object_id:string};episode:string;label:string}[];
   status:'complete'|'partial';gap_codes:string[];universal_absence_claimed:false;
 }
+export interface NativePlanQueryV2 extends Omit<NativePlanQueryV1,'schema'> {
+  schema:'dmb_native_plan_query_v2';assertion_matches:{assertion_id:string;subject_entity_id:string;discovered_entity_ids:string[];assertion_sha256:string;label:string}[];
+}
 export interface PlanNativeContextReceiptV1 extends Omit<PlanSourceContextReceiptV1,'schema'|'graph_capability'> {
   schema:'dmb_plan_native_context_receipt_v1';graph_capability:null;
-  native_query:NativePlanQueryV1|{schema:'dmb_native_plan_query_unavailable_v1';managed_world_id:string;
+  native_query:NativePlanQueryV2|NativePlanQueryV1|{schema:'dmb_native_plan_query_unavailable_v1';managed_world_id:string;
     reason:'native_graph_binding_unavailable'|'native_graph_head_unavailable'};
 }
 export interface AgentPlanNativeContextResponseV1 extends Omit<AgentPlanSourceContextResponseV1,'schema'|'receipt'|'completion'> {
-  schema:'dmb_agent_plan_native_context_response_v1';receipt:PlanNativeContextReceiptV1;completion:SurfaceEvidenceCompletionV6|null;
+  schema:'dmb_agent_plan_native_context_response_v1';receipt:PlanNativeContextReceiptV1;completion:SurfaceEvidenceCompletionV7|SurfaceEvidenceCompletionV6|null;
 }
 export interface AgentPlanSourceContextResponseV1 extends Omit<LegacyWorldPlanAgentPlanContextV2,'schema'|'receipt'|'completion'> {
   schema:'dmb_agent_plan_source_context_response_v1';receipt:PlanSourceContextReceiptV1;completion:SurfaceEvidenceCompletionV5|null;
@@ -1327,11 +1334,26 @@ export interface SurfaceEvidenceCompletionV5 extends Omit<SurfaceEvidenceComplet
 export interface SurfaceEvidenceCompletionV6 extends Omit<SurfaceEvidenceCompletionV5,'schema'> {
   schema:'dmb_surface_evidence_completion_v6';native_clause_citations:NativeStatementClauseCitationV1[];
 }
+export interface NativeAssertionCitationV1 {
+  segment_index:number;assertion_id:string;read_event_id:string;provider_attempt_id:string;envelope_sha256:string;context_receipt_sha256:string;
+  managed_world_id:string;native_world_id:string;read_revision_id:string;assertion_sha256:string;evidence_ref_id:string;
+  source_artifact_id:string;source_revision_id:string;body_sha256:string;start_byte:number;end_byte:number;span_sha256:string;
+}
+export interface NativeAssertionClaimV1 {
+  kind:'native_assertion_claim';text:string;assertion_ids:string[];qualifications:Record<string,unknown>[];
+}
+export interface SurfaceEvidenceCompletionV7 extends Omit<SurfaceEvidenceCompletionV6,'schema'|'answer_segments'> {
+  schema:'dmb_surface_evidence_completion_v7';answer_segments:(SurfaceEvidenceCompletionV6['answer_segments'][number]|NativeAssertionClaimV1)[];
+  native_assertion_citations:NativeAssertionCitationV1[];
+}
+export interface NativeAssertionSourceReadV1 {
+  schema:'dmb_native_assertion_source_read_v1';world_id:string;turn_id:string;citation_index:number;citation:NativeAssertionCitationV1;content:string;
+}
 export interface AgentNativeBodyExcerptReadResponseV1 {
   schema:'dmb_agent_native_body_excerpt_read_v1';world_id:string;turn_id:string;citation_index:number;
   citation:NativeBodyExcerptCitationV1;content:string;
 }
-export type SurfaceEvidenceCompletion = SurfaceEvidenceCompletionV1 | SurfaceEvidenceCompletionV2 | SurfaceEvidenceCompletionV3 | SurfaceEvidenceCompletionV4 | SurfaceEvidenceCompletionV5 | SurfaceEvidenceCompletionV6;
+export type SurfaceEvidenceCompletion = SurfaceEvidenceCompletionV1 | SurfaceEvidenceCompletionV2 | SurfaceEvidenceCompletionV3 | SurfaceEvidenceCompletionV4 | SurfaceEvidenceCompletionV5 | SurfaceEvidenceCompletionV6 | SurfaceEvidenceCompletionV7;
 export interface AgentSourcePassageReadResponseV1 {
   schema: "dmb_agent_source_passage_read_v1";
   target: {schema: "dmb_agent_source_passage_open_target_v1"; kind: "source_passage";

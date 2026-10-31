@@ -237,6 +237,9 @@ def test_historical_native_http_retry_preserves_reader_support_and_citations(lan
     corpus, authority = prepare(world, GM)
     context, query_record = native_query.prepare_query(world, request.message, GM,
         source_context=corpus)
+    from application_state.agent_conversation.native_plan_statements import NativePlanQueryV1
+    query_record = NativePlanQueryV1.model_validate(query_record.model_dump(mode='json', by_alias=True, exclude={'assertion_matches'}) | {'schema':'dmb_native_plan_query_v1'})
+    context = replace(context, query=query_record)
     service = AgentConversationService()
     prior = owner._PolicyExecutionAdapter(service=service, request=request,
         world_id=world, work=work, bootstrap=None, playable_target=None,

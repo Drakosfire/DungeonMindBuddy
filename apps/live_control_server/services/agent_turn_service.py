@@ -123,10 +123,7 @@ _LOG = logging.getLogger(__name__)
 
 
 def _is_provider_authorization(event: Any) -> bool:
-    return getattr(event, "kind", None) in {
-        "provider_attempt_authorized", "provider_attempt_authorized_v2",
-        "provider_attempt_authorized_v3", "provider_attempt_authorized_v4", "provider_attempt_authorized_v5", "plan_jev_provider_authorized_v1", "plan_requested_work_authorized_v1", "plan_requested_work_authorized_v2", "plan_jev_writer_authorized_v1", "plan_jev_writer_authorized_v2", "plan_native_writer_authorized_v1",
-    }
+    return isinstance(event, _app_state_graph_execution_types().ProviderAttemptAuthorizedEventV1)
 
 
 def _governed_build_turn(request: AgentTurnRequest) -> bool:
@@ -5166,9 +5163,7 @@ def _submitted_turn_intent(
             **common,
             plan_authoring_capture_sha256=request.plan_authoring_capture.sha256 if request.plan_authoring_capture is not None else None,
             plan_placement_catalog_sha256=request.plan_placement_catalog.sha256 if request.plan_placement_catalog is not None else None,
-            plan_context_policy=PlanContextPolicyV1(
-                policy=request.plan_context_policy.policy
-            ),
+            plan_context_policy=request.plan_context_policy,
         )
     return SubmittedTurnIntentV1(**common, selected_knowledge=request.selected_knowledge, native_statement_selection=request.native_statement_selection)
 
@@ -5862,9 +5857,7 @@ def _evidence_anchor_open_projection(
     producing_attempt = next(
         (
             event for event in execution.events
-            if getattr(event, "kind", None) in {
-                "provider_attempt_authorized_v2", "provider_attempt_authorized_v3", "provider_attempt_authorized_v4", "provider_attempt_authorized_v5", "plan_jev_writer_authorized_v1", "plan_jev_writer_authorized_v2", "plan_native_writer_authorized_v1",
-            }
+            if isinstance(event, _app_state_graph_execution_types().ProviderAttemptAuthorizedEventV2)
             and binding is not None
             and event.provider_attempt_id == binding.provider_attempt_id
         ),
@@ -6969,10 +6962,14 @@ def execute_agent_turn(
         # The source owner is established first. A provisioning-only World has
         # no Graph capability; missing Graph cannot suppress source/Rules work.
         frozen_graph = frozen.graph_capability if frozen is not None else None
-        # New questions use the managed World's publication Graph. A saved
-        # native-query receipt keeps its original reader and revision on retry.
-        if (native_plan_query_resolver is not None
-                and isinstance(frozen, graph_types.PlanNativeContextReceiptV1)):
+        if isinstance(request.plan_context_policy, graph_types.PlanContextPolicyV2) and native_plan_query_resolver is None:
+            raise AgentTurnServiceError('The selected reviewed Graph reader is unavailable.',
+                code='native_graph_query_unavailable', status_code=503, provider_dispatched=False)
+        # The ordinary request explicitly selects its Graph source. Retained
+        # receipts pin that source; no empty-result or error-based fallback.
+        if (native_plan_query_resolver is not None and (
+                isinstance(frozen, graph_types.PlanNativeContextReceiptV1)
+                or frozen is None and isinstance(request.plan_context_policy, graph_types.PlanContextPolicyV2))):
             with trace.phase('plan_native_statement_query'):
                 native_query_context, native_query = native_plan_query_resolver(
                     request, owner, work, frozen, native_corpus_context)

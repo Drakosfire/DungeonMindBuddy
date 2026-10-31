@@ -751,9 +751,14 @@ def _plan_context_resolver(
             raise AgentTurnServiceError('Native Plan query scope differs from saved work.', code='plan_context_scope_rejected', status_code=403)
         from application_state.agent_conversation.native_plan_statements import NativePlanQueryV1
         frozen_query = getattr(frozen_receipt, 'native_query', None)
-        return prepare_query(work.world_id, body.message, native_principal,
+        context, query = prepare_query(work.world_id, body.message, native_principal,
             source_context=native_source_context,
             revision_id=frozen_query.authority.revision_id if isinstance(frozen_query, NativePlanQueryV1) else None)
+        if type(frozen_query) is NativePlanQueryV1 and isinstance(query, NativePlanQueryV1):
+            from dataclasses import replace
+            query = NativePlanQueryV1.model_validate(query.model_dump(mode='json', by_alias=True, exclude={'assertion_matches'}) | {'schema': 'dmb_native_plan_query_v1'})
+            context = replace(context, query=query)
+        return context, query
 
     from graph_memory.interaction.authority_classifier import (
         claims_from_retrieval_result,
@@ -1615,6 +1620,23 @@ def get_world_turn_native_source_clause(world_id: str, turn_id: UUID, citation_i
         raise HTTPException(status_code=exc.status_code, detail={"code": exc.code}) from exc
     except ApplicationStateError as exc:
         raise HTTPException(status_code=exc.status_code, detail={"code": "native_clause_turn_unavailable"}) from exc
+
+
+@router.get("/worlds/{world_id}/conversation/turns/{turn_id}/native-assertion-sources/{citation_index}")
+def get_world_turn_native_assertion_source(world_id: str, turn_id: UUID, citation_index: int, request: Request):
+    principal = enforce_native_graph_gm(request)
+    world = _verified_world_id(world_id)
+    if request.query_params or citation_index < 0:
+        raise HTTPException(status_code=422, detail={"code": "native_assertion_selector_invalid"})
+    from apps.live_control_server.services.native_statement_clause_reads import open_assertion_source
+    from apps.live_control_server.services.agent_source_passages import SourcePassageOpenError
+    try:
+        return open_assertion_source(world_id=world, turn_id=turn_id, citation_index=citation_index,
+            principal=principal, service=_conversation_service(request)).model_dump(mode="json", by_alias=True)
+    except SourcePassageOpenError as exc:
+        raise HTTPException(status_code=exc.status_code, detail={"code": exc.code}) from exc
+    except ApplicationStateError as exc:
+        raise HTTPException(status_code=exc.status_code, detail={"code": "native_assertion_turn_unavailable"}) from exc
 
 
 @router.get("/worlds/{world_id}/conversation/turns/{turn_id}/native-body-excerpts/{citation_index}")

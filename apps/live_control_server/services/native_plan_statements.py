@@ -145,6 +145,7 @@ def prepare_query(managed_world_id, question, principal, *, source_context=None,
                     and a.subject_entity_id != entity_id):
                 routes.setdefault(a.subject_entity_id, []).append((entity_id, [a.assertion_id]))
     matches = []
+    qualified_subjects = set()
     for statement_id, paths in routes.items():
         obj = entities.get(statement_id)
         if obj is None:
@@ -155,10 +156,12 @@ def prepare_query(managed_world_id, question, principal, *, source_context=None,
         try:
             payload = _payload(obj, statement_id)
         except (ValueError, TypeError, KeyError, AttributeError):
+            qualified_subjects.add(statement_id)
             gaps.append('native_statement_payload_invalid')
             continue
         if payload is None:
             continue
+        qualified_subjects.add(statement_id)
         clause = payload['clause']
         if (clause['world'] != space or scope_mode == 'campaign' and clause['campaign'] != campaign_id):
             raise ValueError('Admitted qualified statement changed query scope')
@@ -175,7 +178,10 @@ def prepare_query(managed_world_id, question, principal, *, source_context=None,
             logical_source=logical, episode=payload['episode'],
             label=(f"About {subjects} · " if subjects else "")
                 + f"{logical['object_id']} — {payload['episode']} ({clause['campaign']})"))
-    query = NativePlanQueryV1(authority=authority, question=question,
+    from application_state.agent_conversation.native_plan_assertions import NativePlanQueryV2
+    from .native_plan_assertions import matches as assertion_matches
+    query = NativePlanQueryV2(authority=authority, question=question,
+        assertion_matches=assertion_matches(entities, excluded_subjects=qualified_subjects),
         search_result_sha256=result.result_digest, discovered_entity_ids=discovered,
         matches=tuple(matches), status='partial' if gaps else 'complete', gap_codes=tuple(sorted(set(gaps))))
     if resolve(managed_world_id) != bound:

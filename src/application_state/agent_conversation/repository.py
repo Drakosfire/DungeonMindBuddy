@@ -24,7 +24,7 @@ from application_state.agent_conversation.types import (
     PlanEvidenceHistoryAttributionV1, PlanEvidenceHistoryAttributionV2, SurfaceEvidenceCompletionV2,
     PlanEvidenceHistoryAttributionV3, SurfaceEvidenceCompletionV3,
     PlanEvidenceHistoryAttributionV4, SurfaceEvidenceCompletionV4,
-    PlanEvidenceHistoryAttributionV5, SurfaceEvidenceCompletionV5, PlanEvidenceHistoryAttributionV6, SurfaceEvidenceCompletionV6,
+    PlanEvidenceHistoryAttributionV5, SurfaceEvidenceCompletionV5, PlanEvidenceHistoryAttributionV6, SurfaceEvidenceCompletionV6, PlanEvidenceHistoryAttributionV7, SurfaceEvidenceCompletionV7,
     SurfaceEvidenceCompletionV1,
     CompletionBindingEventV1,
     GraphTurnCompletion,
@@ -994,10 +994,11 @@ def _plan_ask_history_attribution(
         )
 
     current = isinstance(completion, SurfaceEvidenceCompletionV1)
-    history_type = PlanEvidenceHistoryAttributionV6 if isinstance(completion,SurfaceEvidenceCompletionV6) else PlanEvidenceHistoryAttributionV5 if isinstance(completion,SurfaceEvidenceCompletionV5) else PlanEvidenceHistoryAttributionV4 if isinstance(completion,SurfaceEvidenceCompletionV4) else PlanEvidenceHistoryAttributionV3 if isinstance(completion,SurfaceEvidenceCompletionV3) else PlanEvidenceHistoryAttributionV2 if isinstance(completion,SurfaceEvidenceCompletionV2) else PlanEvidenceHistoryAttributionV1 if current else PlanAskHistoryAttributionV1
+    history_type = PlanEvidenceHistoryAttributionV7 if isinstance(completion,SurfaceEvidenceCompletionV7) else PlanEvidenceHistoryAttributionV6 if isinstance(completion,SurfaceEvidenceCompletionV6) else PlanEvidenceHistoryAttributionV5 if isinstance(completion,SurfaceEvidenceCompletionV5) else PlanEvidenceHistoryAttributionV4 if isinstance(completion,SurfaceEvidenceCompletionV4) else PlanEvidenceHistoryAttributionV3 if isinstance(completion,SurfaceEvidenceCompletionV3) else PlanEvidenceHistoryAttributionV2 if isinstance(completion,SurfaceEvidenceCompletionV2) else PlanEvidenceHistoryAttributionV1 if current else PlanAskHistoryAttributionV1
     return history_type(
         **({'source_citations':completion.source_citations} if current else {}),
         **({'native_source_citations':completion.native_source_citations} if isinstance(completion,SurfaceEvidenceCompletionV3) else {}),
+        **({'native_assertion_citations':completion.native_assertion_citations} if isinstance(completion,SurfaceEvidenceCompletionV7) else {}),
         **({'native_body_citations':completion.native_body_citations} if isinstance(completion,SurfaceEvidenceCompletionV5) else {}),
         **({'native_clause_citations':completion.native_clause_citations} if hasattr(completion,'native_clause_citations') else {}),
         source_turn_id=turn.turn_id,

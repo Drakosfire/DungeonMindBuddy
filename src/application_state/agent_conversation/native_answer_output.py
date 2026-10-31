@@ -83,7 +83,8 @@ def normalize_native_answer(candidate, turn: t.Turn, producer: UUID, *, support:
         raise NativeAnswerError('authority','native_owner_missing')
     from .surface_evidence_answer import POLICY, NATIVE_POLICY, SELECTOR_POLICY, PLAN_POLICY, BODY_POLICY, normalize as normalize_evidence
     from .native_plan_statements import POLICY as STATEMENT_POLICY
-    source_policy = STATEMENT_POLICY if isinstance(receipt, t.PlanNativeContextReceiptV1) else BODY_POLICY
+    from .native_plan_assertions import NativePlanQueryV2, POLICY as ASSERTION_POLICY
+    source_policy = ASSERTION_POLICY if isinstance(getattr(receipt, 'native_query', None), NativePlanQueryV2) else STATEMENT_POLICY if isinstance(receipt, t.PlanNativeContextReceiptV1) else BODY_POLICY
     if source and (not isinstance(candidate, dict) or candidate.get('schema') != source_policy):
         raise NativeAnswerError('shape', 'current_evidence_contract_required')
     if isinstance(candidate, dict) and candidate.get('schema') in ({source_policy} if source else {PLAN_POLICY,SELECTOR_POLICY,NATIVE_POLICY,POLICY,'dmb_surface_evidence_answer_v1'}):

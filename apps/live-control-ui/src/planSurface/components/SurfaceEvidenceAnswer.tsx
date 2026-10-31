@@ -34,10 +34,11 @@ export function SurfaceEvidenceAnswer({completion,composition,worldId,turnId}:{
         ? <a href={sessionUrl}>{s.source_name}</a> : s.source_name} · quoted excerpt</figcaption>
         <blockquote><WorldPlanAgentAnswer answer={s.text}/></blockquote></figure>;
     }
-    const graph=s.kind === 'graph_claim', source=s.kind === 'source_passage_claim';
+    const graph=s.kind === 'graph_claim'||s.kind==='native_assertion_claim', source=s.kind === 'source_passage_claim';
     const selected=completion.source_citations.filter(c=>c.segment_index === index);
     return <section key={key} aria-label={graph ? 'World Graph fact' : source ? 'Source-supported statement' : s.kind === 'proposal' ? 'Proposed idea' : 'Evidence limitation'}>
-      {graph ? <small>{selected.length ? 'World Graph' : 'World Graph · source passage not opened'}</small> : null}
+      {graph ? <small>{s.kind==='native_assertion_claim'?'Reviewed World Graph':selected.length ? 'World Graph' : 'World Graph · source passage not opened'}</small> : null}
+      {s.kind==='native_assertion_claim'?<details><summary>Qualifications</summary><pre>{JSON.stringify(s.qualifications,null,2)}</pre></details>:null}
       {s.kind === 'proposal' ? <small>Proposed idea</small> : null}
       {choicesBySegment[index]!.length ? <SourceCitationEvidence identity={canonical([completion,worldId,turnId,index])}
         statements={[{text:s.text,choices:choicesBySegment[index]!}]}/> : <WorldPlanAgentAnswer answer={s.text}/>}
