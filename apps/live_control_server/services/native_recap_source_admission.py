@@ -116,6 +116,9 @@ def _status(run, record, source, authority, *, busy=False):
         candidate = observed or receipt
         if candidate is not None:
             if record.command is None:
+                # Report the observed effect truthfully without inventing the
+                # lost command or claiming that its opening was verified.
+                receipt = candidate
                 raise NativeRecapError("native_recap_saved_command_missing")
             checked = Record.model_validate(
                 {
@@ -262,7 +265,7 @@ def _execute(root, run, record, source, actor, authority_basis, resume, authorit
     receipt = authority.receipt(record)
     if record.receipt or receipt:
         if record.command is None:
-            raise NativeRecapError("native_recap_saved_command_missing")
+            return _status(run, record, source, authority)
         if record.receipt is not None and receipt != record.receipt:
             raise NativeRecapError("native_recap_receipt_changed")
         if resume is not None and record.receipt is None:

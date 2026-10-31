@@ -1144,14 +1144,17 @@ def test_existing_core_receipt_without_saved_command_refuses_without_duplicate(l
     receipt = authority.dispatch(frozen, source.markdown)
     before = lane.repo.get_head(lane.context.native_world_id)
     monkeypatch.setattr(NativeRecapAuthority, "dispatch", lambda *_: pytest.fail("Duplicate native admission"))
-    response = post(lane)
-    assert response.status_code == 409
-    assert response.json()["detail"]["code"] == "native_recap_saved_command_missing"
+    first = native(post(lane))
     repeat = native(post(lane))
+    assert first == repeat
     assert repeat["failure_code"] == "native_recap_saved_command_missing"
-    assert repeat["state"] == "unavailable" and not repeat["admission_committed"]
+    assert repeat["state"] == "unavailable" and repeat["admission_committed"]
+    assert repeat["native_receipt"] == receipt.model_dump(mode="json")
+    assert repeat["opening"]["state"] == "unavailable"
+    assert repeat["command_sha256"] is None
     assert repeat["admission_id"] == receipt.admission_id
-    assert post(lane, native_recap_resume=resume(repeat)).status_code == 409
+    assert native(inspection(lane, repeat)) == repeat
+    assert native(post(lane, native_recap_resume=resume(repeat))) == repeat
     assert lane.repo.get_head(lane.context.native_world_id) == before
     assert authority.receipt(record) == receipt
 
