@@ -6,6 +6,7 @@ from datetime import UTC, datetime
 from uuid import uuid4
 
 import worldkeeper.application as wk
+from dungeonmind.application.vnext import open_admitted_native_text
 
 from application_state.source import service as sources
 from apps.live_control_server import config
@@ -16,6 +17,7 @@ from apps.live_control_server.services import native_recap_source_admission as a
 from apps.live_control_server.services.agent_graph_auth import require_native_graph_gm
 from apps.live_control_server.services.extract_promote import project_candidate_record_evidence
 from apps.live_control_server.services.graph_run_registry import load_reviewable_extraction_data
+from graph_memory.anchor_quotes import find_anchor_quote_matches
 from graph_memory.candidate_document_integrity import classify_candidate_document_integrity
 from graph_memory.candidate_graph_preview import NODE_TYPES
 from graph_memory.vnext.domain_runtime import CAMPAIGN_SCOPE_AXIS
@@ -43,10 +45,41 @@ def _metadata(review, campaign, evidence):
         epistemic_basis=review.epistemic_basis,
         claim_mode=review.claim_mode,
         standing=review.standing,
-        evidence_ref_ids=(evidence,),
+        evidence_ref_ids=tuple(evidence),
         temporal_scope=review.temporal_scope.native(),
         domain_metadata=tuple(item.native() for item in review.domain_metadata),
     )
+
+
+def _support_refs(review, witnesses, access, admitted):
+    """Join explicit review choices to Core evidence, not a truth/entailment test."""
+    for identifier in review.evidence_ref_ids:
+        evidence = access.parsed.get_evidence(identifier)
+        _require(evidence is not None and evidence.evidence_role == "support",
+                 "candidate_support_required")
+        opened = open_admitted_native_text(access, identifier)
+        _require(opened.status == "available", "candidate_support_unavailable")
+        _require(
+            opened.source_artifact_id == admitted.source_artifact_id
+            and opened.source_revision_id == admitted.source_revision_id
+            and opened.body_sha256 == admitted.app_body_sha256,
+            "candidate_support_source_mismatch",
+        )
+        # Core verified the bytes/visibility. Buddy only checks that this selected
+        # native passage belongs to the saved candidate's actual source witness.
+        lines = opened.body_text.splitlines(keepends=True)
+        offsets = [0]
+        for line in lines:
+            offsets.append(offsets[-1] + len(line.encode("utf-8")))
+        selected = opened.body_text.encode("utf-8")[opened.span_start_byte:opened.span_end_byte].decode("utf-8")
+        _require(any(
+            1 <= witness.start_line <= witness.end_line <= len(lines)
+            and offsets[witness.start_line - 1] <= opened.span_start_byte
+            < opened.span_end_byte <= offsets[witness.end_line]
+            and find_anchor_quote_matches(selected, witness.anchor_quotes)
+            for witness in witnesses
+        ), "candidate_support_outside_witness")
+    return tuple(review.evidence_ref_ids)
 
 
 def _fields(kind, record):
@@ -59,7 +92,7 @@ def _fields(kind, record):
     return {"title": record.title, "node_type": "session_beat", "summary": record.summary}
 
 
-def _intent(preview, selections, space, campaign, evidence, data):
+def _intent(preview, selections, space, campaign, admitted, data, access):
     records = {
         **{("node", row.node_id): row for row in preview.nodes},
         **{("edge", row.edge_id): row for row in preview.edges},
@@ -67,7 +100,7 @@ def _intent(preview, selections, space, campaign, evidence, data):
     }
     by_key = {(s.kind, s.record_id): s for s in selections}
     _require(set(by_key) <= set(records), "unknown_candidate_selection")
-    operations, inventory, endpoints = [], [], {}
+    operations, inventory, endpoints, edge_witnesses = [], [], {}, {}
     for index, (key, record) in enumerate(records.items()):
         kind, identifier = key
         selection = by_key.get(key)
@@ -76,7 +109,7 @@ def _intent(preview, selections, space, campaign, evidence, data):
         selected = []
         if selection and action in {"create", "use_existing"}:
             # One shared projector verifies exact APP source/span/quote references.
-            project_candidate_record_evidence(
+            witness = project_candidate_record_evidence(
                 assertion_id=identifier, kind="relationship" if kind == "edge" else "object",
                 label=getattr(record, "label", None) or getattr(record, "title", identifier),
                 summary="", evidence_refs=record.evidence_refs,
@@ -84,7 +117,9 @@ def _intent(preview, selections, space, campaign, evidence, data):
                 source_artifact_id=data.source_artifact.source_artifact_id,
                 span_index=data.span_index,
             )
-            if kind != "edge":
+            if kind == "edge":
+                edge_witnesses[identifier] = witness.evidence
+            else:
                 facts = []
                 for field_index, fact in enumerate(selection.facts):
                     field = fact.field if fact.index is None else f"{fact.field}:{fact.index}"
@@ -99,7 +134,8 @@ def _intent(preview, selections, space, campaign, evidence, data):
                         encoded = wk.LiteralFactValue.from_json(value)
                     facts.append(wk.CreateFact(
                         f"record:{index}.field:{field_index}", predicate, encoded,
-                        _metadata(fact.metadata, campaign, evidence),
+                        _metadata(fact.metadata, campaign,
+                                  _support_refs(fact.metadata, witness.evidence, access, admitted)),
                     ))
                     selected.append(field)
                 if action == "create":
@@ -123,7 +159,8 @@ def _intent(preview, selections, space, campaign, evidence, data):
             _require(edge.from_node_id in endpoints and edge.to_node_id in endpoints, "selected_edge_endpoint_held")
             operations.append(wk.CreateRelationship(
                 f"edge:{index}", endpoints[edge.from_node_id], _predicate(edge.relationship_type),
-                endpoints[edge.to_node_id], _metadata(selection.metadata, campaign, evidence),
+                endpoints[edge.to_node_id], _metadata(selection.metadata, campaign,
+                    _support_refs(selection.metadata, edge_witnesses[edge.edge_id], access, admitted)),
             ))
     for kind, collection in (("ignored", preview.ignored_items), ("deferred", preview.deferred_items),
                              ("proposed_write", preview.proposed_writes),
@@ -182,10 +219,12 @@ def prepare(request, principal):
     _require(preview.campaign_id == run.campaign_id and preview.session_id == run.session_id
              and tuple(preview.source_artifact_ids) == (artifact.source_artifact_id,), "candidate_document_scope_mismatch")
     repo = native.repository()
-    context, _access = native.access_context(repo, space)
+    context, access = native.access_context(repo, space)
     _require(context["revision_id"] == request.expected_parent_revision_id, "candidate_parent_stale")
+    _require(context["source_epoch"] == request.expected_source_authority_epoch,
+             "candidate_source_authority_stale")
     intent, inventory = _intent(preview, request.selections, space, request.campaign_id,
-                                admitted.evidence_ref_id, data)
+                                admitted, data, access)
     prepared = None
     if intent.operations:
         domain, profile = native.descriptors(repo, space, context["revision_id"])
@@ -196,6 +235,8 @@ def prepare(request, principal):
     _require(native.binding(request.managed_world_id) == bound, "candidate_binding_changed")
     head = repo.get_head(space)
     _require(head is not None and head.head_revision_id == request.expected_parent_revision_id, "candidate_parent_stale")
+    _require(repo.open_native_source_view(space).epoch == context["source_epoch"],
+             "candidate_source_authority_changed")
     return {
         "status": "prepared" if prepared else "held", "publication": "not_performed",
         "run_id": run.run_id, "run_revision": run.revision,
@@ -203,6 +244,7 @@ def prepare(request, principal):
         "source_revision_id": str(source.source_revision_id),
         "native_source_admission_id": admitted.admission_id,
         "expected_parent_revision_id": request.expected_parent_revision_id,
+        "expected_source_authority_epoch": request.expected_source_authority_epoch,
         "prepared": transport.encode_prepared(prepared) if prepared else None,
         "records": inventory,
     }

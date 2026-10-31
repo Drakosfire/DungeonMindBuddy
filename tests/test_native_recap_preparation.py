@@ -1,6 +1,6 @@
 """Authenticated review boundary and real WK/Core preparation, with read owners stubbed.
 
-Persistent source admission is covered separately; these tests perform no DB/provider IO.
+Core admission/extension/opening are real in memory; APP reads are stubbed. No DB/provider IO.
 """
 
 import copy
@@ -8,6 +8,12 @@ import json
 from hashlib import sha256
 from types import SimpleNamespace
 from uuid import uuid4
+from datetime import UTC, datetime
+
+from dungeonmind.application.vnext import publish_native_text_source_evidence, publish_native_source_evidence_extension
+from dungeonmind.contracts.vnext.native_source import NativeTextSourceAdmissionV1, NativeSourceEvidenceExtensionV1
+from dungeonmind.contracts.vnext.knowledge import PublishKnowledgeRevisionCommand
+from dungeonmind.infrastructure.memory.vnext_sources import InMemoryNativeSourceEvidenceRepository
 
 import pytest
 from fastapi import FastAPI
@@ -20,7 +26,7 @@ from apps.live_control_server.integrations.worldkeeper import registry_standing_
 from graph_memory.candidate_graph_preview import NODE_TYPES
 from graph_memory.source_span import build_source_span_index_for_text
 from tests.test_con_ready_play_worldkeeper_consumer import (
-    _repository, SPACE_ID, CAMPAIGN_ID, EVIDENCE_ID,
+    _repository, SPACE_ID, CAMPAIGN_ID,
 )
 
 TOKEN = "synthetic-native-recap-review-operator-credential"
@@ -41,10 +47,19 @@ def lane(monkeypatch, tmp_path):
     monkeypatch.setenv("DMB_AGENT_GRAPH_AUTH_MODE", "local_operator")
     monkeypatch.setenv("DMB_AGENT_GRAPH_AUTH_ENVIRONMENT", "local")
     monkeypatch.setenv("DMB_AGENT_GRAPH_LOCAL_OPERATOR_TOKEN", TOKEN)
-    repo = _repository()
+    seed = _repository(evidence=False)
+    snapshot = seed.get_revision(SPACE_ID, seed.get_head(SPACE_ID).head_revision_id)
+    repo = InMemoryNativeSourceEvidenceRepository()
+    repo.publish_revision(PublishKnowledgeRevisionCommand(
+        space_id=SPACE_ID, operation_ids=["fixture-genesis"],
+        graph_schema=snapshot.revision.graph_schema, graph_payload=snapshot.graph_payload,
+        domain_contract_ref=snapshot.revision.domain_contract_ref,
+        semantic_profile_ref=snapshot.revision.semantic_profile_ref,
+        created_at=datetime(2026, 10, 31, tzinfo=UTC),
+    ))
     bound = {"native_world_id": SPACE_ID, "binding_version": 3}
     source_id = "artifact:recap:v2:review-fixture"
-    text = "A traveller met Pippa near the tower.\n"
+    text = "A traveller met Pippa near the towér.\r\n\r\nThe traveller brought a lantern.\r\n\r\nAnother unrelated episode.\r\n"
     digest = sha256(text.encode()).hexdigest()
     spans = build_source_span_index_for_text(source_artifact_id=source_id, content_sha256=digest, text=text)
     evidence = [dict(source_ref_id="source:fixture", source_artifact_id=source_id,
@@ -83,10 +98,52 @@ def lane(monkeypatch, tmp_path):
                           session_id="session-8", lineage={"world_campaign_ingest_context": dict(
                               managed_world_id="managed", campaign_id=CAMPAIGN_ID, **bound)})
     data = SimpleNamespace(run=run, source_artifact=artifact, source_bytes=text.encode(), span_index=spans)
+    domain, profile = service.native.descriptors(repo, SPACE_ID, repo.get_head(SPACE_ID).head_revision_id)
+    def span(ref, role, start, end):
+        return dict(client_ref=ref, evidence_role=role, start_byte=start, end_byte=end,
+                    expected_slice_sha256=sha256(text.encode()[start:end]).hexdigest())
+    now = datetime(2026, 10, 31, tzinfo=UTC)
+    receipt = publish_native_text_source_evidence(
+        repository=repo, domain_contract=domain, semantic_profile=profile,
+        request=NativeTextSourceAdmissionV1(
+            space_id=SPACE_ID, admission_id="fixture-source",
+            expected_parent_revision_id=repo.get_head(SPACE_ID).head_revision_id,
+            created_at=now, body_text=text, expected_body_sha256=digest,
+            source_classification="dungeonbuddy.source:session_recap", authority="primary",
+            visibility=META["visibility"],
+            origin=dict(namespace="test.recap", object_id=source_id, revision_id=str(source.source_revision_id)),
+            spans=[span("context", "context", 0, len(text.encode()))],
+        ),
+    )
+    raw_lines = text.splitlines(keepends=True)
+    first_end = len(raw_lines[0].encode())
+    second_start = len(''.join(raw_lines[:2]).encode())
+    second_end = len(''.join(raw_lines[:3]).encode())
+    third_start = len(''.join(raw_lines[:4]).encode())
+    extension = publish_native_source_evidence_extension(
+        repository=repo, domain_contract=domain, semantic_profile=profile,
+        audience_labels=("dungeonbuddy.visibility:gm",),
+        request=NativeSourceEvidenceExtensionV1(
+            space_id=SPACE_ID, extension_id="fixture-support",
+            original_admission_id=receipt.admission_id,
+            source_artifact_id=receipt.source_artifact_id, source_revision_id=receipt.source_revision_id,
+            expected_body_sha256=digest, created_at=now,
+            expected_parent_revision_id=repo.get_head(SPACE_ID).head_revision_id,
+            expected_source_authority_epoch=repo.open_native_source_view(SPACE_ID).epoch,
+            spans=[span("first", "support", 0, first_end),
+                   span("second", "support", second_start, second_end),
+                   span("unrelated", "support", third_start, len(text.encode())),
+                   span("contradiction", "contradiction", 0, 1),
+                   span("partial", "support", 0, 2)],
+        ),
+    )
+    support_ids = {binding.client_ref: binding.evidence_ref_id for binding in extension.bindings}
+    monkeypatch.setitem(META, "evidence_ref_ids", [support_ids["first"]])
     admitted = SimpleNamespace(state="admitted", opening=SimpleNamespace(state="verified"),
         app_source_artifact_id=source_id, app_source_revision_id=source.source_revision_id,
         app_body_sha256=digest, native_world_id=SPACE_ID, binding_version=3,
-        evidence_ref_id=EVIDENCE_ID, admission_id="admitted:fixture")
+        evidence_ref_id=receipt.bindings[0].evidence_ref_id, admission_id=receipt.admission_id,
+        source_artifact_id=receipt.source_artifact_id, source_revision_id=receipt.source_revision_id)
     monkeypatch.setattr(service.config, "artifact_data_root", lambda: tmp_path)
     monkeypatch.setattr(service, "load_reviewable_extraction_data", lambda *_: data)
     monkeypatch.setattr(service.sources, "get_source_markdown", lambda **_: source)
@@ -94,14 +151,7 @@ def lane(monkeypatch, tmp_path):
     monkeypatch.setattr(service.native, "binding", lambda _: copy.deepcopy(bound))
     monkeypatch.setattr(service.native, "repository", lambda: repo)
     parent = repo.get_head(SPACE_ID).head_revision_id
-    snapshot = repo.get_revision(SPACE_ID, parent)
-    def ref(value, name):
-        return dict(authority_id=getattr(value, name + "_id"), revision=getattr(value, name + "_revision"),
-                    descriptor_sha256=value.descriptor_sha256)
-    context = dict(space_id=SPACE_ID, revision_id=parent, graph_sha256=snapshot.graph_payload_sha256,
-                   domain_ref=ref(snapshot.revision.domain_contract_ref, "domain"),
-                   profile_ref=ref(snapshot.revision.semantic_profile_ref, "profile"))
-    monkeypatch.setattr(service.native, "access_context", lambda *_: (context, None))
+    context, access = service.native.access_context(repo, SPACE_ID)
     import httpx
     monkeypatch.setattr(httpx.HTTPTransport, "handle_request", lambda *_: pytest.fail("provider HTTP forbidden"))
     app = FastAPI()
@@ -109,7 +159,7 @@ def lane(monkeypatch, tmp_path):
     client = TestClient(app, client=("127.0.0.1", 50000))
     body = dict(managed_world_id="managed", campaign_id=CAMPAIGN_ID, run_id="saved-run",
         expected_run_revision=5, source_admission_run_id="admitted-run",
-        expected_parent_revision_id=parent, selections=[choice("new"),
+        expected_parent_revision_id=parent, expected_source_authority_epoch=access.source_view.epoch, selections=[choice("new"),
             choice("existing", action="use_existing", entity_id="ent:pippa", fields=()),
             choice("beat", kind="beat", fields=("title", "node_type", "summary")),
             dict(kind="edge", record_id="edge", action="create", metadata=copy.deepcopy(META))])
@@ -139,7 +189,7 @@ def test_ordinary_HTTP_exact_choices_real_WK_preparation_without_writes(lane):
     edge = operations[-1]
     assert edge.source == ResultOf("record:0") and edge.target == DurableObjectRef("ent:pippa")
     assert edge.predicate == "dungeonbuddy.custom:met_at"
-    assert all(f.metadata.evidence_ref_ids == (EVIDENCE_ID,) for op in operations[:-1] for f in op.facts)
+    assert all(f.metadata.evidence_ref_ids == (lane.support_ids["first"],) for op in operations[:-1] for f in op.facts)
     assert operations[0].facts[0].metadata.standing == "provisional"
     assert len(result["records"]) == 6
     assert result["records"][0]["held_aliases"] == ["Someone"]
@@ -152,21 +202,32 @@ def test_ordinary_HTTP_exact_choices_real_WK_preparation_without_writes(lane):
     ("uuid", "candidate_admission_mismatch"), ("scope", "candidate_source_mismatch"),
     ("binding", "candidate_world_binding_mismatch"), ("unavailable", "candidate_source_not_admitted"),
     ("source", "candidate_source_mismatch"), ("parent", "candidate_parent_stale"),
-    ("quote", "run_not_promotable"), ("dangling", "selected_edge_endpoint_held"),
+    ("quote", "run_not_promotable"), ("epoch", "candidate_source_authority_stale"), ("dangling", "selected_edge_endpoint_held"),
 ])
 def test_exact_owner_and_review_refusals(lane, fault, expected):
-    if fault == "revision": lane.body["expected_run_revision"] = 4
-    elif fault == "digest": lane.body["candidate_sha256"] = "0" * 64
-    elif fault == "uuid": lane.admitted.app_source_revision_id = uuid4()
-    elif fault == "scope": lane.source.campaign_id = "foreign"
-    elif fault == "binding": lane.bound["binding_version"] = 4
-    elif fault == "unavailable": lane.admitted.opening.state = "unavailable"
-    elif fault == "source": lane.source.markdown += "changed"
-    elif fault == "parent": lane.body["expected_parent_revision_id"] = "rev:stale"
+    if fault == "revision":
+        lane.body["expected_run_revision"] = 4
+    elif fault == "digest":
+        lane.body["candidate_sha256"] = "0" * 64
+    elif fault == "uuid":
+        lane.admitted.app_source_revision_id = uuid4()
+    elif fault == "scope":
+        lane.source.campaign_id = "foreign"
+    elif fault == "binding":
+        lane.bound["binding_version"] = 4
+    elif fault == "unavailable":
+        lane.admitted.opening.state = "unavailable"
+    elif fault == "source":
+        lane.source.markdown += "changed"
+    elif fault == "parent":
+        lane.body["expected_parent_revision_id"] = "rev:stale"
+    elif fault == "epoch":
+        lane.body["expected_source_authority_epoch"] += 1
     elif fault == "quote":
         lane.payload["nodes"][0]["evidence_refs"][0]["anchor_quotes"] = ["invented text"]
         lane.refresh()
-    elif fault == "dangling": lane.body["selections"][1] = choice("existing", action="defer", fields=())
+    elif fault == "dangling":
+        lane.body["selections"][1] = choice("existing", action="defer", fields=())
     before = copy.deepcopy({key: value for key, value in lane.repo.__dict__.items() if key != "_lock"})
     response = lane.post()
     assert response.status_code in (409, 422), response.text
@@ -180,7 +241,7 @@ def test_auth_and_closed_request_before_read_owners(lane, monkeypatch):
     for mutate in (
         lambda b: b.update(evidence_ref_id="ev:forged"),
         lambda b: b["selections"].append(b["selections"][0]),
-        lambda b: b["selections"][0]["facts"][0]["metadata"].update(evidence_ref_ids=["ev:forged"]),
+        lambda b: b["selections"][0]["facts"][0]["metadata"].update(scope=["caller-invented"]),
         lambda b: b["selections"][0].update(entity_id="ent:guessed"),
         lambda b: b["selections"][0]["facts"].append(b["selections"][0]["facts"][0]),
     ):
@@ -200,8 +261,10 @@ def test_race_after_actual_preparation_refuses(lane, monkeypatch, race):
         class Racing:
             def prepare_change(self, intent):
                 result = actual.prepare_change(intent)
-                if race == "binding": lane.bound["binding_version"] += 1
-                else: monkeypatch.setattr(lane.repo, "get_head", lambda *_: SimpleNamespace(head_revision_id="rev:new"))
+                if race == "binding":
+                    lane.bound["binding_version"] += 1
+                else:
+                    monkeypatch.setattr(lane.repo, "get_head", lambda *_: SimpleNamespace(head_revision_id="rev:new"))
                 return result
         return Racing()
     monkeypatch.setattr(transport, "runtime", prepare_then_change)
@@ -297,3 +360,117 @@ def test_actual_app_retires_directory_standing_without_removing_native_consumers
     assert not any(path.startswith('/api/live/extract-promote/registry-standing') for path in paths)
     assert '/api/live/extract-promote/native-prepare' in paths
     assert '/api/live/source-statements/extend-evidence' in paths
+
+
+@pytest.mark.parametrize("target", ["field", "edge"])
+@pytest.mark.parametrize("bad", ["context", "contradiction", "unrelated", "partial", "missing"])
+def test_only_selected_support_in_saved_record_witness_is_accepted(lane, target, bad):
+    metadata = (lane.body["selections"][0]["facts"][0]["metadata"] if target == "field"
+                else lane.body["selections"][-1]["metadata"])
+    identifier = (lane.admitted.evidence_ref_id if bad == "context" else
+                  "ev:absent" if bad == "missing" else lane.support_ids[bad])
+    metadata["evidence_ref_ids"] = [identifier]
+    before = copy.deepcopy({k: v for k, v in lane.repo.__dict__.items() if k != "_lock"})
+    response = lane.post()
+    expected = ("candidate_support_required" if bad in {"context", "contradiction", "missing"}
+                else "candidate_support_outside_witness")
+    assert response.status_code == 409 and expected in response.text, response.text
+    assert {k: v for k, v in lane.repo.__dict__.items() if k != "_lock"} == before
+
+
+@pytest.mark.parametrize("empty", [True, False])
+def test_each_fact_requires_explicit_nonempty_support_selection(lane, empty):
+    metadata = lane.body["selections"][0]["facts"][0]["metadata"]
+    if empty:
+        metadata["evidence_ref_ids"] = []
+    else:
+        metadata.pop("evidence_ref_ids")
+    assert lane.post().status_code == 422
+
+
+def test_available_same_bytes_from_another_admitted_source_cannot_support_candidate(lane):
+    other = publish_native_text_source_evidence(
+        repository=lane.repo, domain_contract=lane.domain, semantic_profile=lane.profile,
+        request=NativeTextSourceAdmissionV1(
+            space_id=SPACE_ID, admission_id="different-source",
+            expected_parent_revision_id=lane.repo.get_head(SPACE_ID).head_revision_id,
+            created_at=lane.now, body_text=lane.text, expected_body_sha256=lane.digest,
+            source_classification="dungeonbuddy.source:session_recap", authority="primary",
+            visibility=META["visibility"],
+            origin=dict(namespace="test.recap", object_id="another-session", revision_id="1"),
+            spans=[lane.span("foreign", "support", 0, lane.first_end)],
+        ),
+    )
+    lane.body["expected_parent_revision_id"] = lane.repo.get_head(SPACE_ID).head_revision_id
+    lane.body["expected_source_authority_epoch"] = lane.repo.open_native_source_view(SPACE_ID).epoch
+    lane.body["selections"][0]["facts"][0]["metadata"]["evidence_ref_ids"] = [other.bindings[0].evidence_ref_id]
+    response = lane.post()
+    assert response.status_code == 409 and "candidate_support_source_mismatch" in response.text
+
+
+def test_per_field_multi_span_choices_survive_actual_WK_materialization(lane):
+    second = copy.deepcopy(lane.evidence[0])
+    second.update(source_span_ref_id=lane.spans.spans[1].source_span_id,
+                  anchor_quotes=["The traveller brought a lantern"])
+    lane.payload["nodes"][0]["evidence_refs"].append(second)
+    lane.payload["edges"][0]["evidence_refs"] = [second]
+    lane.refresh()
+    lane.body["selections"][0]["facts"][1]["metadata"]["evidence_ref_ids"] = [
+        lane.support_ids["first"], lane.support_ids["second"]]
+    lane.body["selections"][-1]["metadata"]["evidence_ref_ids"] = [lane.support_ids["second"]]
+    before = lane.repo.get_head(SPACE_ID)
+    response = lane.post()
+    assert response.status_code == 200, response.text
+    result = response.json()
+    prepared = transport.decode_prepared(result["prepared"])
+    assert prepared.prepared_operations[0].facts[0].metadata.evidence_ref_ids == (lane.support_ids["first"],)
+    assert prepared.prepared_operations[0].facts[1].metadata.evidence_ref_ids == (
+        lane.support_ids["first"], lane.support_ids["second"])
+    assert prepared.prepared_operations[-1].metadata.evidence_ref_ids == (lane.support_ids["second"],)
+    assert result["expected_source_authority_epoch"] == lane.body["expected_source_authority_epoch"]
+    assert lane.repo.get_head(SPACE_ID) == before  # HTTP preparation never publishes.
+    # Exercise the existing commit owner, not an invented HTTP confirmation path.
+    runtime = transport.runtime(lane.repo, lane.domain, lane.profile,
+                                now=prepared.prepared_at, operation_id=prepared.prepared_change_id)
+    committed = runtime.commit_prepared_change(prepared, confirmed_by="fixture-operator")
+    _, access = service.native.access_context(lane.repo, SPACE_ID)
+    assert access.revision_id == committed.child_revision_id
+    assert {w.evidence_ref_id for w in prepared.evidence_witnesses} == {
+        lane.support_ids["first"], lane.support_ids["second"]}
+    for row in committed.assertion_results:
+        assertion = access.parsed.get_assertion(row.durable_assertion_id)
+        assert assertion.metadata.evidence_ref_ids and set(assertion.metadata.evidence_ref_ids) <= {
+            lane.support_ids["first"], lane.support_ids["second"]}
+
+
+def test_source_epoch_race_after_preparation_refuses(lane, monkeypatch):
+    original = transport.runtime
+    def racing(*args, **kwargs):
+        actual = original(*args, **kwargs)
+        class Runtime:
+            def prepare_change(self, intent):
+                result = actual.prepare_change(intent)
+                lane.repo._native_epoch += 1
+                return result
+        return Runtime()
+    monkeypatch.setattr(transport, "runtime", racing)
+    response = lane.post()
+    assert response.status_code == 409 and "candidate_source_authority_changed" in response.text
+
+
+def test_missing_owner_source_refuses_without_falling_back_to_APP_bytes(lane):
+    lane.repo._native_records.clear()
+    response = lane.post()
+    assert response.status_code == 409 and "candidate_support_unavailable" in response.text
+
+
+@pytest.mark.parametrize("unknown", ["record", "field"])
+def test_support_does_not_authorize_unselected_candidate_content(lane, unknown):
+    if unknown == "record":
+        lane.body["selections"][0]["record_id"] = "not-in-saved-candidate"
+        expected = "unknown_candidate_selection"
+    else:
+        lane.body["selections"][0]["facts"][0].update(field="session_actions", index=3)
+        expected = "unknown_candidate_field"
+    response = lane.post()
+    assert response.status_code == 409 and expected in response.text
