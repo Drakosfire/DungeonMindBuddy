@@ -4,15 +4,12 @@ import {
   getGoldGraphProjection,
   getGoldReviewEvidence,
   postWorldGraphProjection,
-  verifyGraphGoldAuthoringCommit,
   LiveApiError,
 } from "../../api/liveApi";
 import type {
   ExtractPromoteConfirmReceipt,
   ExtractPromotePrepareResponse,
   GoldGraphProjectionResponse,
-  GraphGoldAuthoringCommitResponse,
-  GraphGoldAuthoringVerifyCommitResponse,
   GoldReviewCompareResponse,
   GoldReviewEvidenceDiffResponse,
   GraphReviewLane,
@@ -519,43 +516,7 @@ export function useGraphReviewLiveReviewState({
     [projection?.node_views, selectGoldNodeCard],
   );
 
-  const reloadGoldProjectionAndVerifyCommit = useCallback(
-    async (
-      commitResponse: GraphGoldAuthoringCommitResponse,
-    ): Promise<GraphGoldAuthoringVerifyCommitResponse> => {
-      try {
-        const refreshed = await reloadGoldProjection();
-        const verification = await verifyGraphGoldAuthoringCommit({
-          schema: "dmb_graph_gold_authoring_verify_commit_request_v1",
-          campaign_id: commitResponse.campaign_id,
-          session_id: commitResponse.session_id,
-          commit_id: commitResponse.commit_id,
-          applied_operations: commitResponse.applied_operations,
-        });
-        const firstVisible = verification.checked_operations.find(
-          (operation) =>
-            operation.verification_status === "found_in_gold_projection" &&
-            operation.target_id &&
-            refreshed.node_views[operation.target_id],
-        );
-        if (firstVisible?.target_id) {
-          selectGoldNodeCard(firstVisible.target_id, refreshed);
-        }
-        return verification;
-      } catch (error) {
-        setGoldProjectionStatus("error");
-        setGoldProjectionError(friendlyProjectionError(error));
-        throw error;
-      }
-    },
-    [reloadGoldProjection, selectGoldNodeCard],
-  );
-
-  const authorDraft = useGraphReviewAuthorDraftWorkflow({
-    campaignId,
-    sessionId,
-    onReloadAndVerifyCommit: reloadGoldProjectionAndVerifyCommit,
-  });
+  const authorDraft = useGraphReviewAuthorDraftWorkflow();
 
   useEffect(() => {
     setSelectedSourceSpanId(null);
@@ -772,7 +733,6 @@ export function useGraphReviewLiveReviewState({
     goldProjectionStatus,
     goldProjectionError,
     reloadGoldProjection,
-    reloadGoldProjectionAndVerifyCommit,
     deltaIndex,
     sourceSpanDeltaIndex,
     paragraphSourceSpans,

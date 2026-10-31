@@ -111,12 +111,6 @@ import type {
   GoldGraphProjectionResponse,
   GraphReviewExistingObjectResolverRequest,
   GraphReviewExistingObjectResolverResponse,
-  GraphGoldAuthoringPrepareRequest,
-  GraphGoldAuthoringPrepareResponse,
-  GraphGoldAuthoringCommitRequest,
-  GraphGoldAuthoringCommitResponse,
-  GraphGoldAuthoringVerifyCommitRequest,
-  GraphGoldAuthoringVerifyCommitResponse,
   GraphObjectAuthoringCommitRequest,
   GraphObjectAuthoringCommitResponse,
   GraphMergeReconciliationApplyRequest,
@@ -1638,33 +1632,6 @@ export async function resolveGraphReviewExistingObjectCandidates(
 export interface GoldGraphProjectionQuery {
   campaignId: string;
   sessionId: string;
-}
-
-export async function prepareGraphGoldAuthoringPreview(
-  request: GraphGoldAuthoringPrepareRequest,
-): Promise<GraphGoldAuthoringPrepareResponse> {
-  return apiFetch<GraphGoldAuthoringPrepareResponse>(
-    "/api/live/graph-preview/gold-authoring/prepare",
-    { method: "POST", body: JSON.stringify(request) },
-  );
-}
-
-export async function commitGraphGoldAuthoringPreview(
-  request: GraphGoldAuthoringCommitRequest,
-): Promise<GraphGoldAuthoringCommitResponse> {
-  return apiFetch<GraphGoldAuthoringCommitResponse>(
-    "/api/live/graph-preview/gold-authoring/commit",
-    { method: "POST", body: JSON.stringify(request) },
-  );
-}
-
-export async function verifyGraphGoldAuthoringCommit(
-  request: GraphGoldAuthoringVerifyCommitRequest,
-): Promise<GraphGoldAuthoringVerifyCommitResponse> {
-  return apiFetch<GraphGoldAuthoringVerifyCommitResponse>(
-    "/api/live/graph-preview/gold-authoring/verify-commit",
-    { method: "POST", body: JSON.stringify(request) },
-  );
 }
 
 export async function getGraphObjectAuthoringKinds(): Promise<{objectKinds: string[]}> {

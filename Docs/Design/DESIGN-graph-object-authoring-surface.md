@@ -811,7 +811,9 @@ interface GraphObjectAuthoringDraftState {
 
 ### 12.1 New service boundary
 
-Do not overload `graph_gold_authoring_prepare.py` as the product writer. Create a graph-authoring service boundary.
+Product writes use the native graph-authoring boundary. Gold fixture mutation
+services and their product endpoints are removed; independent evaluation owns
+fixture authoring.
 
 Likely files:
 
@@ -827,7 +829,8 @@ apps/live-control-ui/src/api/liveApi.ts
 apps/live-control-ui/src/api/types.ts
 ```
 
-The backend may internally reuse helper logic from current gold-authoring code, but the public contract should be graph-authoring oriented.
+Read-only gold comparison and local proposal notes do not grant publication
+authority. Native authoring retains its exact review and confirmation contract.
 
 ### 12.2 Prepare endpoint
 

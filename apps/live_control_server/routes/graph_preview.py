@@ -34,21 +34,6 @@ from apps.live_control_server.services.graph_preview_surface import (
     build_recap_graph_presentation,
     GraphPreviewSurfaceError,
 )
-from apps.live_control_server.services.graph_gold_authoring_prepare import (
-    GraphGoldAuthoringPrepareRequest,
-    GraphGoldAuthoringPrepareResponse,
-    prepare_graph_gold_authoring_preview,
-)
-from apps.live_control_server.services.graph_gold_authoring_commit import (
-    GraphGoldAuthoringCommitRequest,
-    GraphGoldAuthoringCommitResponse,
-    commit_graph_gold_authoring_preview,
-)
-from apps.live_control_server.services.graph_gold_authoring_verify import (
-    GraphGoldAuthoringVerifyCommitRequest,
-    GraphGoldAuthoringVerifyCommitResponse,
-    verify_graph_gold_authoring_commit,
-)
 from apps.live_control_server.services.graph_existing_object_resolver import (
     GraphReviewExistingObjectResolverRequest,
     GraphReviewExistingObjectResolverResponse,
@@ -566,39 +551,6 @@ def post_existing_object_resolver_candidates(
 ) -> dict[str, Any]:
     try:
         response = resolve_existing_object_candidates(request, root=repo_root())
-    except GraphGoldReviewError as exc:
-        raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc
-    return response.model_dump(mode="json")
-
-
-@router.post("/gold-authoring/prepare", response_model=GraphGoldAuthoringPrepareResponse)
-def post_gold_authoring_prepare(
-    request: GraphGoldAuthoringPrepareRequest,
-) -> dict[str, Any]:
-    try:
-        response = prepare_graph_gold_authoring_preview(request, root=repo_root())
-    except GraphGoldReviewError as exc:
-        raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc
-    return response.model_dump(mode="json")
-
-
-@router.post("/gold-authoring/commit", response_model=GraphGoldAuthoringCommitResponse)
-def post_gold_authoring_commit(
-    request: GraphGoldAuthoringCommitRequest,
-) -> dict[str, Any]:
-    try:
-        response = commit_graph_gold_authoring_preview(request, root=repo_root())
-    except GraphGoldReviewError as exc:
-        raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc
-    return response.model_dump(mode="json")
-
-
-@router.post("/gold-authoring/verify-commit", response_model=GraphGoldAuthoringVerifyCommitResponse)
-def post_gold_authoring_verify_commit(
-    request: GraphGoldAuthoringVerifyCommitRequest,
-) -> dict[str, Any]:
-    try:
-        response = verify_graph_gold_authoring_commit(request, root=repo_root())
     except GraphGoldReviewError as exc:
         raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc
     return response.model_dump(mode="json")

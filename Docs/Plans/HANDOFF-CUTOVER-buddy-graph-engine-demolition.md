@@ -1643,9 +1643,6 @@ GET  /api/live/graph-preview/extraction-runs/{run_id}
 GET  /api/live/graph-preview/extraction-runs/{run_id}/build-context
 POST /api/live/graph-preview/extraction-runs
 POST /api/live/graph-preview/existing-object-resolver/candidates
-POST /api/live/graph-preview/gold-authoring/prepare
-POST /api/live/graph-preview/gold-authoring/commit
-POST /api/live/graph-preview/gold-authoring/verify-commit
 GET  /api/live/graph-preview/gold-review/sessions
 GET  /api/live/graph-preview/gold-review/compare
 GET  /api/live/graph-preview/gold-review/evidence
@@ -1763,9 +1760,11 @@ After D.2C4, those prepare/commit handlers must be import-block-safe
 (`WorldGraphAuthority` only). D.3A's static gate treats them as mounted
 REWRITE_PORT survivors, not FAIL_CLOSED.
 
-Gold-authoring under `/api/live/graph-preview/gold-authoring/*` is fixture
-JSON preview, not the UnionSupergraph file writer. It stays mounted unless
-inventory proves a retired-namespace import on the boot graph.
+The subsequent ingestion-demolition scope removes
+`/api/live/graph-preview/gold-authoring/*` and its fixture mutation services.
+Evaluation fixtures belong to evaluator tooling. Read-only gold comparison,
+local proposal notes and native reviewed authoring remain separate; this
+supersedes the earlier requirement to retain the fixture writer.
 
 #### 6.1.5 World-graph-bootstrap — 410, not unmount
 
