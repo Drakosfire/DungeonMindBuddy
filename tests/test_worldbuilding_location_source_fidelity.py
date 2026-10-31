@@ -90,7 +90,6 @@ def test_actual_production_pipeline_dispatches_new_profile_without_provider(
             allow_llm=True,
             category_client=Recorder(),
             model_id=DEEPSEEK_MODEL,
-            output_dir=tmp_path / "candidate",
         )
     )
     assert result.failure_kind is None

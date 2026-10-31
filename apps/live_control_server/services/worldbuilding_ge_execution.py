@@ -207,7 +207,6 @@ def run_gazetteer_with_generation_engine(
                 model_id=limits.model,
                 allow_llm=True,
                 category_client=client,
-                output_dir=run_output,
             )
         )
         return result

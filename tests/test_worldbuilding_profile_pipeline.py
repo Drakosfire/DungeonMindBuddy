@@ -116,7 +116,6 @@ def _run_with_pass_outputs(
     *,
     source: NormalizedExtractionSource,
     pass_outputs: dict[str, Any],
-    subdir: str,
 ) -> Any:
     return run_production_extraction(
         ProductionExtractionRequest(
@@ -126,7 +125,6 @@ def _run_with_pass_outputs(
             profile_version=WORLDBUILDING_PROFILE_VERSION,
             allow_llm=True,
             category_client=FixtureCategoryGraphPassClient(pass_outputs),
-            output_dir=tmp_path / "out" / "runs" / subdir,
         )
     )
 
@@ -138,7 +136,6 @@ def test_fixture_pipeline_produces_reviewable_null_session_run(tmp_path: Path) -
         tmp_path,
         source=source,
         pass_outputs=_pass_outputs_for_span(fixture, span_id),
-        subdir="wb-profile",
     )
 
     assert result.failure_kind is None
@@ -168,7 +165,6 @@ def test_fixture_pipeline_rejects_recap_profile_for_worldbuilding_source(
             profile_id="recap_category_v1",
             profile_version="1.0",
             allow_llm=False,
-            output_dir=tmp_path / "out" / "runs" / "bad-profile",
         )
     )
     assert result.failure_kind == "profile"
@@ -199,7 +195,6 @@ def test_pipeline_rejects_excluded_item_node_as_non_reviewable(tmp_path: Path) -
         tmp_path,
         source=source,
         pass_outputs=pass_outputs,
-        subdir="wb-excluded-item",
     )
     assert result.failure_kind == "validation"
     assert result.run.status.value != "reviewable"
@@ -230,7 +225,6 @@ def test_pipeline_rejects_undeclared_node_type_as_non_reviewable(tmp_path: Path)
         tmp_path,
         source=source,
         pass_outputs=pass_outputs,
-        subdir="wb-undeclared-type",
     )
     assert result.failure_kind == "validation"
     assert result.run.status.value != "reviewable"
@@ -288,7 +282,6 @@ def test_pipeline_rejects_missing_evidence_as_non_reviewable(
         tmp_path,
         source=source,
         pass_outputs=pass_outputs,
-        subdir="wb-missing-evidence",
     )
     assert result.failure_kind == "validation"
     assert result.run.status.value != "reviewable"
@@ -320,7 +313,6 @@ def test_pipeline_rejects_empty_edge_evidence_without_endpoint_inheritance(
         tmp_path,
         source=source,
         pass_outputs=pass_outputs,
-        subdir="wb-empty-edge-evidence",
     )
     assert result.failure_kind == "validation"
     assert result.run.status.value != "reviewable"
@@ -366,7 +358,6 @@ def test_pipeline_fails_closed_when_post_extraction_validator_raises(
             tmp_path,
             source=source,
             pass_outputs=_pass_outputs_for_span(fixture, span_id),
-            subdir="wb-validator-raise",
         )
     finally:
         object.__setattr__(profile, "post_extraction_validator", original)

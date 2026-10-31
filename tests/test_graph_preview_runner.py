@@ -255,7 +255,6 @@ def test_recap_fixture_extracts_reviewable_run(tmp_path: Path) -> None:
             profile_version=RECAP_PROFILE_VERSION,
             allow_llm=True,
             category_client=FixtureClient(span_ref=span_ref),
-            output_dir=tmp_path / "runs",
             initial_lineage=_recap_run_lineage(source),
         )
     )
@@ -279,7 +278,6 @@ def test_recap_fixture_extracts_reviewable_run(tmp_path: Path) -> None:
             profile_version=RECAP_PROFILE_VERSION,
             allow_llm=True,
             category_client=FixtureClient(span_ref=span_ref),
-            output_dir=tmp_path / "runs",
             initial_lineage=_recap_run_lineage(source),
         )
     )
@@ -302,7 +300,6 @@ def test_worldbuilding_null_session_extracts(tmp_path: Path) -> None:
             profile_version=WORLDBUILDING_PLUMBING_PROFILE_VERSION,
             allow_llm=True,
             category_client=FixtureClient(span_ref=span_ref),
-            output_dir=tmp_path / "wb-runs",
         )
     )
     loaded = get_extraction_run(tmp_path, result.run.run_id)
@@ -430,7 +427,6 @@ def test_gazetteer_deferred_proposals_are_persisted_and_source_resolvable(
             model_id=DEEPSEEK_MODEL,
             allow_llm=True,
             category_client=fixture_client,
-            output_dir=tmp_path / "out" / "gazetteer-diagnostics",
         )
     )
 
@@ -519,7 +515,6 @@ def test_reviewable_candidate_evidence_binds_registered_artifact(tmp_path: Path)
             profile_version=RECAP_PROFILE_VERSION,
             allow_llm=True,
             category_client=FixtureClient(span_ref=span_ref),
-            output_dir=tmp_path / "runs",
             initial_lineage=_recap_run_lineage(source),
         )
     )
@@ -587,7 +582,6 @@ def test_in_repo_recap_admission_is_immutable_across_edits(tmp_path: Path) -> No
             profile_version=RECAP_PROFILE_VERSION,
             allow_llm=True,
             category_client=FixtureClient(span_ref=span_ref),
-            output_dir=tmp_path / "runs",
             initial_lineage=_recap_run_lineage(
                 _normalized_from_artifact(tmp_path, first.source_artifact_id)
             ),
@@ -611,8 +605,8 @@ def test_in_repo_recap_admission_is_immutable_across_edits(tmp_path: Path) -> No
     assert first_text == original.rstrip("\n") + "\n" or first_text.startswith("Alpha")
     reloaded = get_extraction_run(tmp_path, first_run.run.run_id)
     assert reloaded.status == ExtractionRunStatus.REVIEWABLE
-    source_uri = reloaded.components["source_artifact"].uri.removeprefix("repo://")
-    assert (tmp_path / source_uri).read_text(encoding="utf-8").startswith("Alpha")
+    from apps.live_control_server.services.graph_run_registry import load_run_source_input
+    assert load_run_source_input(tmp_path, reloaded)[1].decode().startswith("Alpha")
 
 
 def test_production_known_entity_matching_uses_hydrated_spans(
@@ -687,7 +681,6 @@ def test_production_known_entity_matching_uses_hydrated_spans(
             profile_version=RECAP_PROFILE_VERSION,
             allow_llm=True,
             category_client=DuplicateHeroClient(span_ref=span_ref),
-            output_dir=tmp_path / "runs",
             initial_lineage=_recap_run_lineage(source),
         )
     )
@@ -714,7 +707,6 @@ def test_worldbuilding_graph_uses_profile_semantic_state(tmp_path: Path) -> None
             profile_version=WORLDBUILDING_PLUMBING_PROFILE_VERSION,
             allow_llm=True,
             category_client=FixtureClient(span_ref=span_ref),
-            output_dir=tmp_path / "wb-runs",
         )
     )
     loaded = get_extraction_run(tmp_path, result.run.run_id)
@@ -731,9 +723,8 @@ def test_worldbuilding_graph_uses_profile_semantic_state(tmp_path: Path) -> None
 
     from apps.live_control_server.services.graph_run_registry import get_reviewable_extraction_run
     mutable_source = tmp_path / source.source_uri.removeprefix("repo://")
-    frozen_path = tmp_path / loaded.components["source_artifact"].uri.removeprefix("repo://")
-    assert frozen_path != mutable_source
-    frozen_bytes = frozen_path.read_bytes()
+    from apps.live_control_server.services.graph_run_registry import load_run_source_input
+    frozen_bytes = load_run_source_input(tmp_path, loaded)[1]
     from apps.live_control_server.services.source_artifact_registry import get_source_artifact
     from apps.live_control_server.services.workspace_document_registry import get_workspace_document_snapshot
     from apps.live_control_server.services.tiptap_markdown_write import (
@@ -753,7 +744,7 @@ def test_worldbuilding_graph_uses_profile_semantic_state(tmp_path: Path) -> None
 
     reopened = get_reviewable_extraction_run(tmp_path, loaded.run_id)
     assert reopened.components["source_artifact"].sha256 == loaded.components["source_artifact"].sha256
-    assert frozen_path.read_bytes() == frozen_bytes
+    assert load_run_source_input(tmp_path, reopened)[1] == frozen_bytes
     import subprocess
     import sys
     script = """import sys
@@ -775,7 +766,7 @@ print('fresh-process registered components verified')
     bad_components["source_artifact"] = loaded.components["source_artifact"].model_copy(
         update={"uri": "repo://alternate-source.md"})
     assert_run_reviewable_evidence(tmp_path, loaded.model_copy(update={"components": bad_components}))
-    frozen_path.write_text("Corrupt snapshot\n")
+    mutable_source.write_text("Corrupt operational source copy\n")
     assert get_reviewable_extraction_run(tmp_path, loaded.run_id) == loaded
 
 
@@ -783,7 +774,6 @@ def _run_recap_extraction(
     tmp_path: Path,
     *,
     client: FixtureClient,
-    output_dir: str = "runs",
 ):
     source = _admit_recap(tmp_path)
     if client.span_ref is None:
@@ -796,7 +786,6 @@ def _run_recap_extraction(
             profile_version=RECAP_PROFILE_VERSION,
             allow_llm=True,
             category_client=client,
-            output_dir=tmp_path / output_dir,
             initial_lineage=_recap_run_lineage(source),
         )
     )
@@ -859,10 +848,10 @@ def _duplicate_first_node_and_add_sublocation(graph: dict[str, Any]) -> dict[str
 
 
 @pytest.mark.parametrize(
-    ("mutator", "issue_code", "id_key", "collection", "output_dir"),
+    ("mutator", "issue_code", "id_key", "collection"),
     [
-        (_duplicate_first_node, "duplicate_node_id", "node_id", "nodes", "dup-node-runs"),
-        (_duplicate_first_edge, "duplicate_edge_id", "edge_id", "edges", "dup-edge-runs"),
+        (_duplicate_first_node, "duplicate_node_id", "node_id", "nodes"),
+        (_duplicate_first_edge, "duplicate_edge_id", "edge_id", "edges"),
     ],
 )
 def test_duplicate_ids_fail_generation_as_integrity(
@@ -872,7 +861,6 @@ def test_duplicate_ids_fail_generation_as_integrity(
     issue_code: str,
     id_key: str,
     collection: str,
-    output_dir: str,
 ) -> None:
     source = _admit_recap(tmp_path)
     span_ref = _first_paragraph_span_id(source)
@@ -885,7 +873,6 @@ def test_duplicate_ids_fail_generation_as_integrity(
             profile_version=RECAP_PROFILE_VERSION,
             allow_llm=True,
             category_client=FixtureClient(span_ref=span_ref),
-            output_dir=tmp_path / output_dir,
             initial_lineage=_recap_run_lineage(source),
         )
     )
@@ -916,7 +903,6 @@ def test_unexpected_typed_parse_exception_fails_closed(
     _source, result = _run_recap_extraction(
         tmp_path,
         client=FixtureClient(),
-        output_dir="parse-exception-runs",
     )
     loaded = get_extraction_run(tmp_path, result.run.run_id)
     assert result.failure_kind == "validation"
@@ -930,7 +916,6 @@ def test_unsupported_sublocation_reaches_reviewable_unchanged(tmp_path: Path) ->
     _source, result = _run_recap_extraction(
         tmp_path,
         client=FixtureClient(mode="unsupported_sublocation"),
-        output_dir="sublocation-runs",
     )
     loaded = get_extraction_run(tmp_path, result.run.run_id)
     frozen = copy.deepcopy(result.candidate_graph)
@@ -961,7 +946,6 @@ def test_reviewable_unsupported_candidate_is_exact_admission_input(
     source, result = _run_recap_extraction(
         tmp_path,
         client=FixtureClient(mode="unsupported_sublocation"),
-        output_dir="sublocation-admission-runs",
     )
     loaded = get_extraction_run(tmp_path, result.run.run_id)
     assert loaded.status == ExtractionRunStatus.REVIEWABLE
@@ -1020,7 +1004,6 @@ def test_integrity_failure_outranks_unsupported_eligibility(
             profile_version=RECAP_PROFILE_VERSION,
             allow_llm=True,
             category_client=FixtureClient(span_ref=span_ref),
-            output_dir=tmp_path / "dup-sublocation-runs",
             initial_lineage=_recap_run_lineage(source),
         )
     )
@@ -1044,7 +1027,6 @@ def test_valid_candidate_semantics_are_unchanged_by_integrity_classification(
     _source, result = _run_recap_extraction(
         tmp_path,
         client=FixtureClient(),
-        output_dir="valid-equality-runs",
     )
     loaded = get_extraction_run(tmp_path, result.run.run_id)
     candidate = result.candidate_graph or {}
@@ -1077,7 +1059,6 @@ def test_profile_post_extraction_validator_still_fails_generation(
     _source, result = _run_recap_extraction(
         tmp_path,
         client=FixtureClient(),
-        output_dir="profile-validator-runs",
     )
     loaded = get_extraction_run(tmp_path, result.run.run_id)
     assert result.failure_kind == "validation"
@@ -1108,65 +1089,6 @@ def test_recap_snapshot_rejects_path_escape(tmp_path: Path) -> None:
         )
 
 
-def runner_run_for_snapshot(source):
-    from application_state.ingest import service as ingest
-    from graph_memory.ingestion.extraction_run import ExtractionRun
-    from uuid import uuid4
-    return ingest.create_extraction_run(ExtractionRun(
-        run_id=str(uuid4()), source_artifact_id=source.source_artifact_id,
-        source_domain=source.source_domain, campaign_id=source.campaign_id,
-    ))
-
-
-def test_prepared_source_snapshot_survives_mutable_source_edit(tmp_path):
-    import hashlib
-    from src.graph_memory.extraction.graph_preview_runner import _build_prepared_components
-    mutable = tmp_path / "document.md"
-    mutable.write_text("# Original\n")
-    body = mutable.read_text()
-    source = NormalizedExtractionSource("artifact:test", "worldbuilding", body,
-        hashlib.sha256(body.encode()).hexdigest(), "repo://document.md", "world", None)
-    from application_state.ingest import service as ingest
-    from graph_memory.ingestion.extraction_run import ExtractionRun
-    run = ingest.create_extraction_run(ExtractionRun(run_id="snapshot-run", source_artifact_id=source.source_artifact_id, source_domain="worldbuilding", campaign_id="world"))
-    components, _ = _build_prepared_components(tmp_path, source, tmp_path / "run", run=run)
-    mutable.write_text("# Later edit\n")
-    frozen = tmp_path / components["source_artifact"].uri.removeprefix("repo://")
-    assert frozen.read_text() == body
-    replay, _ = _build_prepared_components(tmp_path, source, tmp_path / "run", run=run)
-    assert replay["source_artifact"] == components["source_artifact"]
-    changed = replace(source, source_text="# Different\n",
-                      source_sha256=hashlib.sha256(b"# Different\n").hexdigest())
-    with pytest.raises(ValueError, match="conflicts"):
-        _build_prepared_components(tmp_path, changed, tmp_path / "run", run=run)
-    assert frozen.read_text() == body
-
-
-def test_prepared_snapshot_rejects_incorrect_digest(tmp_path):
-    from src.graph_memory.extraction.graph_preview_runner import _build_prepared_components
-    source = NormalizedExtractionSource("artifact:test", "worldbuilding", "# Body\n",
-                                       "0" * 64, "repo://document.md", "world", None)
-    with pytest.raises(ValueError, match="digest mismatch"):
-        _build_prepared_components(tmp_path, source, tmp_path / "run", run=runner_run_for_snapshot(source))
-    assert not (tmp_path / "run/source.md").exists()
-
-
-def test_prepared_snapshot_rejects_same_byte_symlink(tmp_path):
-    import hashlib
-    from src.graph_memory.extraction.graph_preview_runner import _build_prepared_components
-    body = "# Original\n"
-    mutable = tmp_path / "document.md"
-    mutable.write_text(body)
-    run_dir = tmp_path / "run"
-    run_dir.mkdir()
-    (run_dir / "source.md").symlink_to(mutable)
-    source = NormalizedExtractionSource("artifact:test", "worldbuilding", body,
-        hashlib.sha256(body.encode()).hexdigest(), "repo://document.md", "world", None)
-    with pytest.raises(ValueError, match="regular owned file"):
-        _build_prepared_components(tmp_path, source, run_dir, run=runner_run_for_snapshot(source))
-    assert mutable.read_text() == body
-
-
 def test_production_outputs_survive_deleted_files_in_ingest_store(tmp_path, monkeypatch):
     import hashlib
     from application_state.ingest.components import get_component_bytes
@@ -1176,7 +1098,6 @@ def test_production_outputs_survive_deleted_files_in_ingest_store(tmp_path, monk
         profile_id=WORLDBUILDING_PLUMBING_PROFILE_ID,
         profile_version=WORLDBUILDING_PLUMBING_PROFILE_VERSION,
         allow_llm=True, category_client=FixtureClient(span_ref=_first_paragraph_span_id(source)),
-        output_dir=tmp_path / "database-outputs",
     ))
     assert result.run.status == ExtractionRunStatus.REVIEWABLE
     expected = {}
@@ -1203,6 +1124,10 @@ def test_production_outputs_survive_deleted_files_in_ingest_store(tmp_path, monk
 def test_production_json_outputs_do_not_require_file_storage(tmp_path, monkeypatch):
     from application_state.ingest.components import get_component_bytes
     source = _admit_recap(tmp_path)
+    def json_files():
+        return {str(p.relative_to(tmp_path)): p.read_bytes()
+                for p in tmp_path.rglob("*.json")}
+    before = json_files()
     original = Path.write_bytes
     def no_json_mirror(path, data):
         if path.name in {"source_span_index.json", "candidate_graph.json", "known_entity_mentions.json"}:
@@ -1213,7 +1138,7 @@ def test_production_json_outputs_do_not_require_file_storage(tmp_path, monkeypat
         repo_root=tmp_path, source=source, profile_id=RECAP_PROFILE_ID,
         profile_version=RECAP_PROFILE_VERSION, allow_llm=True,
         category_client=FixtureClient(span_ref=_first_paragraph_span_id(source)),
-        output_dir=tmp_path / "controller", initial_lineage=_recap_run_lineage(source)))
+        initial_lineage=_recap_run_lineage(source)))
     assert result.run.status == ExtractionRunStatus.REVIEWABLE
     expected = {"candidate_graph":result.candidate_graph, "source_span_index":result.source_span_index,
                 "provenance_index":result.known_entity_mentions}
@@ -1222,7 +1147,7 @@ def test_production_json_outputs_do_not_require_file_storage(tmp_path, monkeypat
         ref = result.run.components[kind]
         actual = get_component_bytes(run_id=result.run.run_id, kind=kind, content_sha256=ref.sha256)
         assert actual == (json.dumps(payload, indent=2, sort_keys=True) + "\n").encode()
-    assert not list((tmp_path / "controller").rglob("*.json"))
+    assert json_files() == before
 
 
 @pytest.mark.parametrize("kind,expected_status", [
@@ -1242,3 +1167,43 @@ def test_database_json_output_failure_does_not_advertise_missing_output(tmp_path
     assert saved.status.value == expected_status
     assert kind not in saved.components
     assert not list(tmp_path.rglob("candidate_graph.json"))
+
+
+def test_controller_needs_no_source_snapshot_or_output_files(tmp_path, monkeypatch):
+    from apps.live_control_server.services.graph_run_registry import load_run_source_input
+    source = _admit_worldbuilding(tmp_path)
+    def snapshot():
+        return {str(p.relative_to(tmp_path)):p.read_bytes() if p.is_file() else None
+                for p in tmp_path.rglob("*")}
+    before = snapshot()
+    original = Path.open
+    def no_snapshot(path, mode="r", *args, **kwargs):
+        if path.name == "source.md" and mode == "xb":
+            raise OSError("synthetic source mirror unavailable")
+        return original(path, mode, *args, **kwargs)
+    monkeypatch.setattr(Path, "open", no_snapshot)
+    result = run_production_extraction(ProductionExtractionRequest(repo_root=tmp_path, source=source,
+        profile_id=WORLDBUILDING_PLUMBING_PROFILE_ID, profile_version=WORLDBUILDING_PLUMBING_PROFILE_VERSION,
+        allow_llm=True, category_client=FixtureClient(span_ref=_first_paragraph_span_id(source))))
+    assert result.run.status == ExtractionRunStatus.REVIEWABLE
+    assert load_run_source_input(tmp_path, result.run)[1] == source.source_text.encode()
+    assert snapshot() == before
+
+
+@pytest.mark.parametrize("damage", ["normalized_digest", "registered_bytes"])
+def test_source_input_mismatch_fails_before_inference(tmp_path, damage):
+    import hashlib
+    from apps.live_control_server.services.graph_run_registry import GraphRunRegistryError
+    source = _admit_worldbuilding(tmp_path)
+    if damage == "normalized_digest":
+        source = replace(source, source_sha256="0" * 64)
+    else:
+        text = "Unregistered replacement source.\n"
+        source = replace(source, source_text=text, source_sha256=hashlib.sha256(text.encode()).hexdigest())
+    class NoInference:
+        def run_pass(self, *args, **kwargs):
+            pytest.fail("inference before source input validation")
+    with pytest.raises((ValueError, GraphRunRegistryError), match="digest mismatch|component digest|registered input"):
+        run_production_extraction(ProductionExtractionRequest(repo_root=tmp_path, source=source,
+            profile_id=WORLDBUILDING_PLUMBING_PROFILE_ID, profile_version=WORLDBUILDING_PLUMBING_PROFILE_VERSION,
+            allow_llm=True, category_client=NoInference()))

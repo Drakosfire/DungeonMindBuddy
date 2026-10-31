@@ -63,7 +63,6 @@ class ProductionExtractionRequest:
     model_id: str | None = None
     allow_llm: bool = False
     category_client: CategoryGraphPassClient | None = None
-    output_dir: Path | None = None
     context_vocabulary_packet: ContextVocabularyPacket | None = None
     enable_node_vocabulary_packet: bool = False
     enable_edge_vocabulary_packet: bool = False
@@ -98,13 +97,6 @@ def _session_number(session_id: str | None) -> int | None:
     if not match:
         raise ValueError(f"session_id must look like session-N, got {session_id!r}")
     return int(match.group(1))
-
-
-def _repo_uri(repo_root: Path, path: Path) -> str:
-    root = repo_root.resolve()
-    resolved = path.resolve()
-    relpath = resolved.relative_to(root).as_posix()
-    return f"repo://{relpath}"
 
 
 def _json_bytes(payload: Mapping[str, Any]) -> bytes:
@@ -251,36 +243,14 @@ def _fail_run(
     )
 
 
-def _run_output_dir(repo_root: Path, run_id: str, output_dir: Path | None) -> Path:
-    base = output_dir or (repo_root / "out" / "graph_memory" / "runs" / "extraction")
-    if not base.is_absolute():
-        base = repo_root / base
-    path = (base / run_id).resolve()
-    if not path.is_relative_to(repo_root.resolve()):
-        raise ValueError("extraction output escapes artifact repository")
-    return path
-
-
 def _build_prepared_components(
-    repo_root: Path,
     source: NormalizedExtractionSource,
-    output_dir: Path,
     *, run: ExtractionRun,
 ) -> tuple[dict[str, ExtractionRunComponentRef], dict[str, Any]]:
     digest = source.source_sha256.removeprefix("sha256:")
     source_bytes = source.source_text.encode("utf-8")
     if hashlib.sha256(source_bytes).hexdigest() != digest:
         raise ValueError("Normalized extraction source digest mismatch")
-    source_path = output_dir / "source.md"
-    source_path.parent.mkdir(parents=True, exist_ok=True)
-    try:
-        with source_path.open("xb") as stream:
-            stream.write(source_bytes)
-    except FileExistsError:
-        if source_path.is_symlink() or not source_path.is_file():
-            raise ValueError("Run source snapshot must be a regular owned file")
-        if source_path.read_bytes() != source_bytes:
-            raise ValueError("Run source snapshot conflicts with frozen bytes")
     index = build_source_span_index_for_text(
         source_artifact_id=source.source_artifact_id,
         content_sha256=digest,
@@ -291,7 +261,7 @@ def _build_prepared_components(
     components = {
         "source_artifact": _component(
             ExtractionRunComponentKind.SOURCE_ARTIFACT,
-            uri=_repo_uri(repo_root, source_path),
+            uri=source.source_uri,
             run=run, data=source_bytes,
         ),
         "source_span_index": _component(
@@ -308,13 +278,12 @@ def run_production_extraction(
 ) -> ProductionExtractionResult:
     """Execute an exact profile-selected extraction and persist an ExtractionRun."""
     from apps.live_control_server.config import artifact_data_root
-    from apps.live_control_server.services.graph_run_registry import get_extraction_run
+    from apps.live_control_server.services.graph_run_registry import (
+        get_extraction_run,
+        load_run_source_input,
+    )
 
     request = replace(request, repo_root=artifact_data_root(request.repo_root))
-    if request.output_dir is not None:
-        # Check before creating a draft or calling a model. The actual run ID
-        # is minted later, but its output must stay inside this physical base.
-        _run_output_dir(request.repo_root, "preflight", request.output_dir)
     source = request.source
     profile_qualified: str | None = None
     try:
@@ -363,12 +332,10 @@ def run_production_extraction(
         },
         reserved_run=request.reserved_run,
     )
-    output_dir = _run_output_dir(request.repo_root, draft.run_id, request.output_dir)
-    output_dir.mkdir(parents=True, exist_ok=True)
-
-    components, span_payload = _build_prepared_components(
-        request.repo_root, source, output_dir, run=draft
-    )
+    _, registered_bytes = load_run_source_input(request.repo_root, draft)
+    if source.source_text.encode("utf-8") != registered_bytes:
+        raise ValueError("Normalized extraction source differs from registered input")
+    components, span_payload = _build_prepared_components(source, run=draft)
     prepared = _advance_run(
         request.repo_root,
         draft,
@@ -379,7 +346,6 @@ def run_production_extraction(
             "profile_id": profile.profile_id,
             "profile_version": profile.profile_version,
             "source_sha256": source.source_sha256,
-            "output_dir": _repo_uri(request.repo_root, output_dir),
         },
     )
 

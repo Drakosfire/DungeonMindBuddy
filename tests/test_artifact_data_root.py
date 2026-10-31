@@ -183,7 +183,6 @@ def test_source_and_future_producer_share_data_root(split_roots, monkeypatch):
         ingest_context=_ingest_context(),
     )
     assert calls[0].repo_root == data
-    assert calls[0].output_dir == data / "out/future"
     with pytest.raises(ValueError, match="artifact repository"):
         run_recap_production_extraction(
             repo_root=code, campaign_id="campaign-a", session_id="session-1",
@@ -365,23 +364,6 @@ def test_packaging_writes_only_under_declared_root(split_roots, monkeypatch, tmp
         packaging.ensure_output_dir(Path("out/graph_memory/runs/new/escape/nested"))
     assert not list(outside.iterdir())
     assert hermes.read_bytes() == b"unchanged code dependency"
-
-
-def test_direct_extraction_rejects_split_output_before_run_creation(split_roots, monkeypatch):
-    code, data, _ = split_roots
-    from src.graph_memory.extraction.graph_preview_runner import (
-        ProductionExtractionRequest, _run_output_dir, run_production_extraction,
-    )
-    monkeypatch.setattr(
-        graph_run_registry.ingest_service, "get_extraction_run",
-        lambda *_args: pytest.fail("bad output reached APP-STATE"),
-    )
-    with pytest.raises(ValueError, match="escapes"):
-        run_production_extraction(ProductionExtractionRequest(
-            repo_root=code, source=None, profile_id="unused", profile_version="unused",
-            output_dir=code / "out/new",
-        ))
-    assert _run_output_dir(data, "run", Path("out/new")) == data / "out/new/run"
 
 
 def test_unreadable_explicit_root_does_not_fallback(split_roots, monkeypatch):

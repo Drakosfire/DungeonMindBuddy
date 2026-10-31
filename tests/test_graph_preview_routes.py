@@ -34,7 +34,9 @@ def client(
         lambda: tmp_path,
         raising=False,
     )
-    return TestClient(create_app())
+    monkeypatch.setenv("DMB_AUTH_MODE", "local_operator")
+    monkeypatch.setenv("DMB_DEPLOYMENT_ENVIRONMENT", "local")
+    return TestClient(create_app(), client=("127.0.0.1", 50000))
 
 
 def test_historical_recap_projection_rejects_query_selectors(
@@ -678,7 +680,6 @@ def test_build_launch_retains_run_under_separate_artifact_root(
     assert launch.status_code == 200, launch.text
     assert launch.headers["content-type"].startswith("application/json")
     assert captured[0]["repo_root"] == code
-    assert not captured[0]["output_dir"].is_absolute()
     payload = launch.json()
     run = payload["run"]
     assert run["status"] == "reviewable", payload
@@ -688,11 +689,16 @@ def test_build_launch_retains_run_under_separate_artifact_root(
     readback = client.get(f"/api/live/graph-preview/extraction-runs/{run['run_id']}")
     assert readback.status_code == 200, readback.text
     assert readback.json()["run_id"] == run["run_id"]
+    from application_state.ingest.components import get_component_bytes
+    from apps.live_control_server.services.graph_run_registry import (
+        get_reviewable_extraction_run, load_run_source_input,
+    )
+    stored = get_reviewable_extraction_run(code, run["run_id"])
+    assert load_run_source_input(code, stored)[1] == original
     for component in run["components"].values():
-        if component["uri"]:
-            target = (data / component["uri"].removeprefix("repo://")).resolve()
-            assert target.is_relative_to(data)
-            assert target.is_file(), component
-            assert hashlib.sha256(target.read_bytes()).hexdigest() == component["sha256"].removeprefix("sha256:")
+        if component["kind"] != "source_artifact":
+            body = get_component_bytes(run_id=run["run_id"], kind=component["kind"],
+                                       content_sha256=component["sha256"])
+            assert hashlib.sha256(body).hexdigest() == component["sha256"].removeprefix("sha256:")
     assert source.read_bytes() == original
     assert not (code / "out").exists()

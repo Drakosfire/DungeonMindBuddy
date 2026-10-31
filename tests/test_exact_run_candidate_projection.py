@@ -106,7 +106,6 @@ def produced(tmp_path, monkeypatch, application_state_dsn, request):
             profile_id="recap_category_v1",
             profile_version="1.0",
             allow_llm=True,
-            output_dir=tmp_path / "runs",
             initial_lineage={
                 "native_world_id": "world:elderwyld",
                 "campaign_id": "longmont-c2",

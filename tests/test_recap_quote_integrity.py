@@ -607,7 +607,6 @@ def test_recap_runner_persists_sanitized_candidate_and_unchanged_private_respons
             profile_id=RECAP_PROFILE_ID,
             profile_version=RECAP_PROFILE_VERSION,
             allow_llm=True,
-            output_dir=tmp_path / "runs",
             initial_lineage={"native_world_id": "world:elderwyld", "campaign_id": "longmont-c2"},
         )
     )
@@ -628,8 +627,8 @@ def test_recap_runner_persists_sanitized_candidate_and_unchanged_private_respons
     raw_ref = loaded.components["raw_model_response"]
     assert get_component_bytes(run_id=loaded.run_id, kind=raw_ref.kind,
         content_sha256=raw_ref.sha256) == raw_response.encode("utf-8")
-    source_path = tmp_path / loaded.components["source_artifact"].uri.removeprefix("repo://")
-    assert source_path.read_text(encoding="utf-8") == source.source_text
+    from apps.live_control_server.services.graph_run_registry import load_run_source_input
+    assert load_run_source_input(tmp_path, loaded)[1] == source.source_text.encode()
     index_ref = loaded.components["source_span_index"]
     saved_index = json.loads(get_component_bytes(run_id=loaded.run_id, kind=index_ref.kind,
         content_sha256=index_ref.sha256))

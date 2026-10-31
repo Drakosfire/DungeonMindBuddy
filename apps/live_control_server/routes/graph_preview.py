@@ -4,7 +4,6 @@ from __future__ import annotations
 
 from apps.live_control_server.services.native_recap_source_admission import public_run
 
-from pathlib import Path
 from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
@@ -492,13 +491,6 @@ def post_extraction_run(body: dict[str, Any]) -> dict[str, Any]:
             profile_id=profile_id,
             profile_version=profile_version,
             allow_llm=True,
-            # The runner resolves relative paths against artifact_data_root,
-            # which can differ from this application source checkout.
-            output_dir=Path("out")
-            / "graph_memory"
-            / "runs"
-            / "extraction"
-            / artifact.source_artifact_id.replace(":", "_"),
         )
 
     content_sha256 = artifact.content_sha256 or expected_content_sha256.removeprefix("sha256:").strip().lower()

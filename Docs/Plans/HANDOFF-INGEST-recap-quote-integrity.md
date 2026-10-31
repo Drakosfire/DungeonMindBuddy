@@ -35,7 +35,11 @@ items at the host boundary after extraction returns but before persisting the
 candidate component or advancing to `EXTRACTED`. The current production controller
 stores candidate, span-index and entity-mention JSON bytes through the existing APP
 output owner without duplicate JSON files. Locators are opaque labels; exact
-run/kind/digest bindings own reads. The historical artifact hashes below describe
+run/kind/digest bindings own reads. The source component binds the already stored
+APP input and checks the supplied normalized text against that owner before
+inference; it creates no second source snapshot or output directory. Source
+locators are metadata and do not select the preserved input bytes. Outer
+execution/provider captures retain separate owners. The historical hashes below describe
 retained evidence from the original run, not a current filesystem requirement.
 Every source-bearing evidence quote must match the exact canonical paragraph
 for the candidate's source span using the existing normalized literal matcher
