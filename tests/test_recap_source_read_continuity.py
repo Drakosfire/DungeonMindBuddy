@@ -454,19 +454,19 @@ def test_classifier_ignores_span_syntax_inside_evidence_ref_id() -> None:
     assert _classify_locator_kind(anchor) == "unsupported"
 
 
-def test_heading_and_json_pointer_locators_are_unchanged() -> None:
+def test_heading_and_json_pointer_file_locators_are_unsupported() -> None:
     heading = _anchor(
         locator_identity="heading:Mireward",
         source_span_ref_id=None,
         uri="repo://corpus/notes.md",
     )
-    assert _classify_locator_kind(heading) == "heading"
+    assert _classify_locator_kind(heading) == "unsupported"
     pointer = _anchor(
         locator_identity="jsonptr:/nodes/0",
         source_span_ref_id=None,
         uri="graph-data://payload.json",
     )
-    assert _classify_locator_kind(pointer) == "json_pointer"
+    assert _classify_locator_kind(pointer) == "unsupported"
     unknown = _anchor(
         locator_identity="https://example.invalid/recap",
         source_span_ref_id=None,
