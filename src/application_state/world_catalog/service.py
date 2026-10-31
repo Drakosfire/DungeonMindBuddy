@@ -244,6 +244,10 @@ def save_world(record: WorldContainerRecord, *, expected_revision: int) -> Store
     assert_at_head(dsn=dsn)
     try:
         with unit_of_work(dsn) as conn:
+            # Take table write intent before any row lock, so a queued exclusive
+            # create/adoption cannot interpose between our row read and write.
+            # Ordinary saves remain mutually compatible at the table level.
+            conn.execute('LOCK TABLE workspace.managed_world IN ROW EXCLUSIVE MODE')
             row = conn.execute('SELECT revision FROM workspace.managed_world WHERE world_id=%s FOR UPDATE',
                                (record.world_id,)).fetchone()
             current = row[0] if row else 0

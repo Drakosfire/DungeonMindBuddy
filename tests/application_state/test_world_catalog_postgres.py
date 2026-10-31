@@ -2,7 +2,8 @@
 from concurrent.futures import ThreadPoolExecutor
 from hashlib import sha256
 from pathlib import Path
-from threading import Barrier
+from threading import Barrier, Event
+from time import monotonic
 
 import psycopg
 import pytest
@@ -277,3 +278,59 @@ def test_create_native_reservation_conflict_rolls_back_the_new_metadata(monkeypa
         service.create_world(name='Second World')
     assert service.list_worlds() == [first]
     assert service.get_world('second-world') is None
+
+
+@pytest.mark.parametrize('writer', ['save', 'adoption'])
+def test_create_serializes_with_other_metadata_writers_without_lock_upgrade(writer, monkeypatch, application_state_dsn):
+    base = _world()
+    if writer == 'save':
+        service.save_world(base, expected_revision=0)
+    entered = Event()
+    release = Event()
+    write = service._write
+    writer_pid = []
+
+    def paused(conn, record, **kwargs):
+        if record.world_id == base.world_id:
+            writer_pid.append(conn.info.backend_pid)
+            entered.set()
+            if not release.wait(timeout=10):
+                raise RuntimeError('test did not release metadata writer')
+        return write(conn, record, **kwargs)
+
+    monkeypatch.setattr(service, '_write', paused)
+    def ordinary_writer():
+        if writer == 'save':
+            return service.save_world(base, expected_revision=1)
+        return service.adopt_world_catalog(WorldContainerRegistryDocument(records=[base]), dry_run=False)
+
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        saving = pool.submit(ordinary_writer)
+        creating = None
+        try:
+            assert entered.wait(timeout=10)
+            creating = pool.submit(service.create_world, name='Concurrent Create')
+            # Observe the actual conflicting table-lock request, not elapsed time
+            # or thread scheduling. The bounded deadline is test supervision only.
+            with psycopg.connect(application_state_dsn, autocommit=True) as observer:
+                deadline = monotonic() + 10
+                while True:
+                    waiting = observer.execute("""SELECT count(*) FROM pg_locks
+                        WHERE relation='workspace.managed_world'::regclass
+                        AND mode='ExclusiveLock' AND NOT granted""").fetchone()[0]
+                    if waiting:
+                        break
+                    assert monotonic() < deadline, 'create never reached its table lock'
+                    Event().wait(0.01)
+                locks = {row[0] for row in observer.execute("""SELECT mode FROM pg_locks
+                    WHERE relation='workspace.managed_world'::regclass
+                    AND pid=%s AND granted""", (writer_pid[0],))}
+            expected = 'RowExclusiveLock' if writer == 'save' else 'ExclusiveLock'
+            assert expected in locks, 'writer would upgrade its table lock behind waiting create'
+        finally:
+            release.set()
+        assert saving.result(timeout=10) is not None
+        assert creating is not None
+        created = creating.result(timeout=10)
+    assert created.record.world_id == 'concurrent-create'
+    assert {row.record.world_id for row in service.list_worlds()} == {'elderwyld', 'concurrent-create'}
