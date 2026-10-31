@@ -11,6 +11,8 @@ from dataclasses import asdict
 from pathlib import Path
 from typing import Any
 
+from application_state.errors import ApplicationStateError
+
 from src.graph_memory.extraction.bounded_recap_execution import (
     BoundedRecapPassClient,
     DEEPSEEK_MODEL,
@@ -240,8 +242,36 @@ def run_recap_production_extraction(
         campaign_id=campaign_id,
     )
     standing_root = _standing_corpus_root(repo_root, frozen_context)
-    if supplemental_evidence is not None and supplemental_evidence.get("world_id")!=frozen_context["managed_world_id"]:
-        raise ValueError("Session supplement belongs to another managed World")
+    if supplemental_evidence is not None:
+        from apps.live_control_server.models.session_evidence import SessionEvidenceRef
+        from apps.live_control_server.services.session_evidence import resolve_evidence_refs
+
+        if not isinstance(supplemental_evidence, dict) or supplemental_evidence.get("world_id") != frozen_context["managed_world_id"]:
+            raise ValueError("Session supplement belongs to another managed World")
+        try:
+            sessions = supplemental_evidence["sessions"]
+            if not isinstance(sessions, list):
+                raise TypeError("session evidence must be a list")
+            pins = [SessionEvidenceRef.model_validate({
+                key: item[key] for key in ("run_id", "review_revision", "sha256")
+            }).model_dump() for item in sessions]
+        except (KeyError, TypeError, ValueError):
+            raise ValueError("Session supplement has invalid pinned review revisions") from None
+        try:
+            resolved = resolve_evidence_refs(frozen_context["managed_world_id"], pins)
+        except ApplicationStateError as exc:
+            raise ApplicationStateError(
+                "Pinned session supplement could not be reopened.", status_code=exc.status_code,
+            ) from exc
+        try:
+            exact = json.dumps(resolved, sort_keys=True, allow_nan=False) == json.dumps(
+                supplemental_evidence, sort_keys=True, allow_nan=False,
+            )
+        except (TypeError, ValueError):
+            exact = False
+        if not exact:
+            raise ValueError("Session supplement differs from its pinned review revisions")
+        supplemental_evidence = resolved
     if (recap_path is None) == (build_source_artifact_id is None):
         raise SourceArtifactRegistryError("select exactly one Recap source: corpus path or registered Build document", status_code=422)
     build_lineage = {}
@@ -331,13 +361,9 @@ def run_recap_production_extraction(
     supplement_lineage={}
     if supplemental_evidence is not None:
         from apps.live_control_server.services.session_evidence import render_session_evidence
-        if supplemental_evidence.get("world_id")!=frozen_context["managed_world_id"]:raise ValueError("Session supplement belongs to another managed World")
-        if output_dir is None:raise ValueError("Session supplements require an explicit extraction output directory")
-        private=output_dir/".private";private.mkdir(mode=0o700,parents=True,exist_ok=True)
-        _write_recap_private_json(private/"session_evidence.json",supplemental_evidence)
         supplement_context=("Supplemental GM session evidence: use for context and discrepancies, never as a quotation or source span from the external recap. "
             "Extract only claims supported by the actual recap source; do not turn GM preferences or reflections into recap events.\n"+render_session_evidence(supplemental_evidence))
-        supplement_lineage={"session_evidence":{"sha256":supplemental_evidence["sha256"],"uri":str((private/"session_evidence.json").relative_to(repo_root)),"artifact_sha256":hashlib.sha256((private/"session_evidence.json").read_bytes()).hexdigest(),
+        supplement_lineage={"session_evidence":{"sha256":supplemental_evidence["sha256"],
             "sources":[{"run_id":item["run_id"],"review_revision":item["review_revision"],"sha256":item["sha256"],"citation_url":item["citation_url"]} for item in supplemental_evidence["sessions"]]}}
     snapshot = _recap_identity_snapshot(campaign_id, session_id, extra_known_entities, corpus_root=standing_root)
     identity_sha256 = hashlib.sha256(json.dumps(snapshot, sort_keys=True, separators=(",", ":")).encode()).hexdigest()
@@ -365,7 +391,8 @@ def run_recap_production_extraction(
         )
         category_client = bounded
     if supplement_context and not default_ge and category_client is not None:
-        if not isinstance(category_client,BoundedRecapPassClient):raise ValueError("Session supplements require the owned bounded recap client")
+        if not isinstance(category_client, BoundedRecapPassClient):
+            raise ValueError("Session supplements require the owned bounded recap client")
         category_client.supplemental_context=supplement_context
     result = None
     try:

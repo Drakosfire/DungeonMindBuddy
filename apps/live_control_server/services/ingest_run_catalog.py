@@ -7,7 +7,6 @@ revisions or manifest identity.
 
 from __future__ import annotations
 
-import hashlib
 import json
 from collections.abc import Mapping
 from pathlib import Path
@@ -264,31 +263,50 @@ def inspect_recap_extraction_status(
     return None
 
 
-def _same_session_evidence(
-    root: Path, run: ExtractionRun, supplemental_evidence: dict | None
-) -> bool:
-    """Match requested context while retaining the producer's required capture.
+def _same_session_evidence(run: ExtractionRun, supplemental_evidence: dict | None) -> bool:
+    """Reopen the selected immutable Play revisions; locators confer no authority."""
+    from apps.live_control_server.models.session_evidence import SessionEvidenceRef
+    from apps.live_control_server.services.session_evidence import resolve_evidence_refs
 
-    The private supplemental capture remains owned by the inner producer (D6).
-    Removing the outer packager does not make a missing/tampered capture valid.
-    """
     stored = run.lineage.get("session_evidence")
+    if stored is not None and not isinstance(stored, dict):
+        raise IngestRunCatalogError(
+            "Saved supplemental evidence has invalid revision pins.",
+            code=CODE_INTEGRITY, status_code=409,
+        )
     if (stored or {}).get("sha256") != (supplemental_evidence or {}).get("sha256"):
         return False
-    if stored:
-        try:
-            evidence = (root / stored["uri"]).resolve()
-            evidence.relative_to(root.resolve())
-            if hashlib.sha256(evidence.read_bytes()).hexdigest() != stored.get(
-                "artifact_sha256"
-            ):
-                raise ValueError("Supplemental capture digest mismatch")
-        except (KeyError, ValueError, OSError, TypeError) as exc:
-            raise IngestRunCatalogError(
-                "Saved supplemental evidence is unavailable or failed integrity checks.",
-                code=CODE_INTEGRITY,
-                status_code=409,
-            ) from exc
+    if stored is None:
+        return True
+    try:
+        sources = stored["sources"]
+        if not isinstance(sources, list):
+            raise TypeError("session evidence must be a list")
+        pins = [SessionEvidenceRef.model_validate({
+            key: item[key] for key in ("run_id", "review_revision", "sha256")
+        }).model_dump() for item in sources]
+        world_id = run.lineage["world_campaign_ingest_context"]["managed_world_id"]
+        bundle = resolve_evidence_refs(world_id, pins)
+        exact_sources = [{
+            key: item[key] for key in ("run_id", "review_revision", "sha256", "citation_url")
+        } for item in bundle["sessions"]]
+        if bundle["sha256"] != stored["sha256"] or exact_sources != sources:
+            raise ValueError("saved session evidence binding differs")
+    except ApplicationStateUnavailableError as exc:
+        raise IngestRunCatalogError(
+            "The supplemental evidence database is unavailable.",
+            code=CODE_UNAVAILABLE, status_code=exc.status_code,
+        ) from exc
+    except ApplicationStateMigrationError as exc:
+        raise IngestRunCatalogError(
+            "The supplemental evidence database schema is unavailable.",
+            code=CODE_SCHEMA_UNAVAILABLE, status_code=exc.status_code,
+        ) from exc
+    except (ApplicationStateError, KeyError, ValueError, TypeError) as exc:
+        raise IngestRunCatalogError(
+            "Saved supplemental evidence is unavailable or failed integrity checks.",
+            code=CODE_INTEGRITY, status_code=409,
+        ) from exc
     return True
 
 
@@ -316,7 +334,7 @@ def reusable_recap_extraction(
             run.status != ExtractionRunStatus.REVIEWABLE
             or run.profile_id != profile_id
             or run.lineage.get("model_id") != model_id
-            or not _same_session_evidence(root, run, supplemental_evidence)
+            or not _same_session_evidence(run, supplemental_evidence)
         ):
             return None
         return status
