@@ -8,6 +8,8 @@ from uuid import UUID
 
 from fastapi import APIRouter, HTTPException, Request
 
+from application_state.errors import ApplicationStateError
+
 from apps.live_control_server.config import repo_root
 from pydantic import BaseModel, ConfigDict, Field, PrivateAttr, model_validator
 from graph_memory.ingestion.native_recap_source import Status as NativeRecapSourceStatus, Resume as NativeRecapResume
@@ -666,7 +668,6 @@ def post_recap_ingest(
         from apps.live_control_server.services.session_evidence import (
             resolve_evidence_refs,
         )
-        from application_state.errors import ApplicationStateError
 
         if request is None:
             raise HTTPException(
@@ -715,6 +716,8 @@ def post_recap_ingest(
                 )
             )
         raise HTTPException(status_code=422, detail=f"unsupported operation: {body.operation}")
+    except ApplicationStateError as exc:
+        raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc
     except IngestRunCatalogError as exc:
         raise HTTPException(status_code=exc.status_code, detail={"code": exc.code, "message": str(exc)}) from exc
     except (FileNotFoundError, ValueError) as exc:

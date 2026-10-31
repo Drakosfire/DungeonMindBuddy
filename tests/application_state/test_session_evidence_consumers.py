@@ -124,11 +124,10 @@ def test_real_plan_resolver_freezes_evidence_in_provenance_and_reconstructs_it(a
 
 
 def test_external_recap_source_stays_exact_and_supplement_is_sealed_and_reuse_bound(application_state_dsn,tmp_path,monkeypatch):
-    import json
     from dataclasses import replace
     from tests.test_bounded_recap_execution import _fixture_ingest_context
     from apps.live_control_server.services.graph_preview_runner import run_recap_production_extraction
-    from apps.live_control_server.services.ingest_run_catalog import _same_session_evidence, IngestRunCatalogError
+    from apps.live_control_server.services.ingest_run_catalog import _same_session_evidence
     run_id=ended_session();packet=read_session_evidence(world_id=WORLD,run_id=run_id,revision=1)
     bundle=resolve_evidence_refs(WORLD,[{key:packet[key] for key in ('run_id','review_revision','sha256')}])
     monkeypatch.setenv('DMB_ARTIFACT_DATA_ROOT',str(tmp_path));source=tmp_path/'external-recap.md';raw='The company crossed the damaged boardwalk.\n';source.write_text(raw)
@@ -138,13 +137,11 @@ def test_external_recap_source_stays_exact_and_supplement_is_sealed_and_reuse_bo
     result=run_recap_production_extraction(repo_root=tmp_path,campaign_id='longmont-c2',session_id='session-30',recap_path=source,profile='category_baseline',allow_llm=False,output_dir=tmp_path/'extraction',ingest_context=context,supplemental_evidence=bundle)
     assert source.read_text()==raw
     supplement=result.run.lineage['session_evidence'];assert supplement['sha256']==bundle['sha256']
-    assert json.loads((tmp_path/supplement['uri']).read_text())==bundle
-    assert _same_session_evidence(tmp_path,result.run,bundle)
-    assert not _same_session_evidence(tmp_path,result.run,None)
-    assert not _same_session_evidence(tmp_path,result.run,{**bundle,'sha256':'b'*64})
-    (tmp_path/supplement['uri']).write_text('tampered')
-    with pytest.raises(IngestRunCatalogError):
-        _same_session_evidence(tmp_path,result.run,bundle)
+    assert set(supplement)=={'sha256','sources'}
+    assert not list(tmp_path.rglob('session_evidence.json'))
+    assert _same_session_evidence(result.run,bundle)
+    assert not _same_session_evidence(result.run,None)
+    assert not _same_session_evidence(result.run,{**bundle,'sha256':'b'*64})
 
 
 
@@ -184,3 +181,31 @@ def test_session_evidence_completion_persists_at_actual_database_boundary(applic
         with pytest.raises(RuntimeError,match="retained session-evidence"):
             command.downgrade(alembic_config(),"20261019_0039")
         assert _current_and_head(application_state_dsn)==("20261020_0041","20261020_0041")
+
+
+@pytest.mark.usefixtures("api")
+def test_recap_pinned_owner_unavailability_has_an_accurate_http_failure(application_state_dsn, monkeypatch):
+    from application_state.errors import ApplicationStateUnavailableError
+    from apps.live_control_server.routes import recap_ingest
+
+    run_id = ended_session()
+    packet = read_session_evidence(world_id=WORLD, run_id=run_id, revision=1)
+    ref = {key: packet[key] for key in ('run_id', 'review_revision', 'sha256')}
+
+    def unavailable(*args):
+        raise ApplicationStateUnavailableError('Pinned session supplement could not be reopened.')
+
+    monkeypatch.setattr(recap_ingest, '_generate_recap_memory_from_request', unavailable)
+    incoming = Request({
+        'type': 'http', 'method': 'POST', 'path': '/api/live/recap-ingest',
+        'headers': [(b'authorization', b'Bearer synthetic-edition-operator-token-000000')],
+        'client': ('127.0.0.1', 45000),
+    })
+    body = recap_ingest.RecapIngestRequest(
+        operation='generate_recap_memory', campaign_id='c2', managed_world_id=WORLD,
+        session=30, raw_text='External author recap remains exact.', session_evidence=[ref],
+    )
+    with pytest.raises(HTTPException) as caught:
+        recap_ingest.post_recap_ingest(body, incoming)
+    assert caught.value.status_code == 503
+    assert caught.value.detail == 'Pinned session supplement could not be reopened.'
