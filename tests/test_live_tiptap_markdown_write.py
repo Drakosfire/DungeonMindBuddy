@@ -404,7 +404,9 @@ def test_source_import_write_mode_threads_through_prepare_commit(tmp_path: Path)
         create_workspace_document,
     )
 
-    (tmp_path / "corpus" / "eldyrwild-markdown").mkdir(parents=True)
+    from apps.live_control_server.services.world_container_registry import create_world_container
+    create_world_container(tmp_path, name="Eldyrwild")
+    assert not (tmp_path / "corpus" / "eldyrwild-markdown").exists()
     record = create_workspace_document(
         tmp_path,
         title="Imported",
