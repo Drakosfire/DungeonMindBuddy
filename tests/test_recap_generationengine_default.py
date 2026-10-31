@@ -158,7 +158,7 @@ def test_ordinary_request_helper_reaches_service_without_openai_default(
         invoke(root, model_id=kwargs["graph_model_id"])
         return {"status": "candidate_validation_ready"}
 
-    monkeypatch.setattr(route, "build_recap_graph_preview_bundle", materialize)
+    monkeypatch.setattr(route, "extract_recap", materialize)
     route._generate_recap_memory_from_request(
         route.RecapIngestRequest(
             operation="generate_recap_memory", campaign_id="synthetic", session=1

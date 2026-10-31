@@ -1,142 +1,36 @@
-"""Preview-only graph-ingest wiring for recap ingestion."""
-
-
-# PR003_LEGACY_GRAPH_PREVIEW_EXEMPTION:
-# Retained until PR006/PR007 replaces live Graph Review preview materialization.
-
+"""Recap Process and status over canonical saved ExtractionRuns."""
 
 from __future__ import annotations
 
 import hashlib
-import json
-import logging
-from datetime import UTC, datetime
-from pathlib import Path, PurePosixPath
+from pathlib import Path
 from typing import Any
 
 from apps.live_control_server import config
 from apps.live_control_server.config import artifact_data_root
 from apps.live_control_server.services.ingest_run_catalog import (
-    IngestRunCatalogError, inspect_recap_extraction_status,
-    _same_recap_ingest_context_authority,
+    IngestRunCatalogError,
+    inspect_recap_extraction_status,
+    project_recap_extraction_run,
+    reusable_recap_extraction,
 )
-from apps.live_control_server.services.managed_world_graph_projection import resolve_managed_world_binding
-from apps.live_control_server.services.world_graph_projection import WorldGraphProjectionServiceError
+from apps.live_control_server.services.managed_world_graph_projection import (
+    resolve_managed_world_binding,
+)
+from apps.live_control_server.services.world_graph_projection import (
+    WorldGraphProjectionServiceError,
+)
 from apps.live_control_server.services.recap_ingest_context import CONTEXT_SCHEMA
 from apps.live_control_server.services.graph_ingest_run_registry import (
     UNUSABLE_SOURCE_RECAP_DIGEST,
-    GraphIngestRunSummary,
-    discover_graph_ingest_runs,
-    graph_ingest_output_root,
 )
 from apps.live_control_server.services.graph_preview_runner import (
+    DEEPSEEK_MODEL,
     run_recap_production_extraction,
-)
-from graph_memory.ingestion.extraction_run import ExtractionRunStatus
-from graph_memory.ingestion.graph_ingest_run import (
-    GraphIngestArtifactKind,
-    GraphIngestRunStatus,
-)
-from src.graph_memory.extraction.graph_ingest_packaging import (
-    GraphPreviewRunnerOptions,
-    normalize_graph_extraction_profile,
-    run_graph_preview_extraction,
 )
 from src.graph_memory.extraction.recap_extraction_profile import (
     resolve_legacy_graph_extraction_profile,
 )
-from src.graph_memory.vocabulary.model import ContextVocabularyPacket
-
-_MANIFEST_NAME = "graph_ingest_run_manifest.json"
-logger = logging.getLogger(__name__)
-
-
-def _resolve_repo_uri_path(repo: Path, uri: str) -> Path:
-    raw = uri.removeprefix("repo://") if uri.startswith("repo://") else uri
-    path = (repo / raw).resolve() if not Path(raw).is_absolute() else Path(raw).resolve()
-    path.relative_to(repo.resolve())
-    return path
-
-
-def _production_immutable_source_path(repo: Path, production: Any) -> Path | None:
-    """Resolve the ExtractionRun's immutable SourceArtifact bytes for packaging."""
-    from apps.live_control_server.services.source_artifact_registry import (
-        SourceArtifactRegistryError,
-        get_source_artifact,
-    )
-
-
-    run = getattr(production, "run", None)
-    components = getattr(run, "components", {}) or {}
-    component = components.get("source_artifact")
-    if component is not None and str(getattr(component, "uri", "") or "").strip():
-        try:
-            path = _resolve_repo_uri_path(repo, str(component.uri))
-        except ValueError:
-            return None
-        return path if path.is_file() else None
-    source_artifact_id = str(getattr(run, "source_artifact_id", "") or "").strip()
-    if not source_artifact_id:
-        return None
-    try:
-        artifact = get_source_artifact(repo, source_artifact_id)
-    except SourceArtifactRegistryError:
-        return None
-    try:
-        path = _resolve_repo_uri_path(repo, artifact.uri)
-    except ValueError:
-        return None
-    return path if path.is_file() else None
-
-
-def _production_has_immutable_source(production: Any) -> bool:
-    """True when production admitted a SourceArtifact or canonical SourceSpanIndex."""
-    if getattr(production, "source_span_index", None) is not None:
-        return True
-    run = getattr(production, "run", None)
-    if run is None:
-        return False
-    if str(getattr(run, "source_artifact_id", "") or "").strip():
-        return True
-    components = getattr(run, "components", {}) or {}
-    return components.get("source_artifact") is not None
-
-
-def _packaging_source_path(repo: Path, production: Any, *, fallback: Path) -> Path:
-    """Prefer immutable SourceArtifact bytes whenever production produced them."""
-    if not _production_has_immutable_source(production):
-        return fallback
-    immutable_source = _production_immutable_source_path(repo, production)
-    if immutable_source is None:
-        raise ValueError(
-            "production ExtractionRun is missing immutable SourceArtifact bytes for packaging"
-        )
-    return immutable_source
-
-
-def _production_candidate_is_packageable(production: Any) -> bool:
-    """Package a production candidate only when the ExtractionRun is reviewable."""
-    run = getattr(production, "run", None)
-    status = getattr(run, "status", None)
-    return (
-        getattr(production, "failure_kind", None) is None
-        and getattr(production, "candidate_graph", None) is not None
-        and status == ExtractionRunStatus.REVIEWABLE
-    )
-
-
-def _manifest_is_candidate_reusable(repo: Path, manifest_path: str | None) -> bool:
-    """Candidate/preview-ready runs are reusable only with sidecar + production lineage."""
-    return _manifest_has_known_entity_mentions(
-        repo, manifest_path
-    ) and _manifest_has_production_lineage(repo, manifest_path)
-
-
-def _manifest_is_manual_candidate_reusable(repo: Path, manifest_path: str | None) -> bool:
-    """Fixture/manual candidate runs require known-entity sidecar + projection span linkage."""
-    return _manifest_has_known_entity_mentions(
-        repo, manifest_path
-    ) and _manifest_has_usable_source_span_linkage(repo, manifest_path)
 
 
 def inspect_recap_graph_preview_status(
@@ -171,9 +65,7 @@ def inspect_recap_graph_preview_status(
         "binding_version": binding.binding_version,
         "campaign_id": campaign_id,
     }
-    _, digest = _lineage_for_normalized_recap(
-        artifact_data_root(repo_root), normalized_recap_path
-    )
+    digest = _normalized_recap_digest(normalized_recap_path)
     if digest == UNUSABLE_SOURCE_RECAP_DIGEST:
         return {
             "status": "source_unverified",
@@ -195,1050 +87,94 @@ def inspect_recap_graph_preview_status(
         "node_count": 0,
         "edge_count": 0,
         "source_match_mode": "content_digest" if digest else "retained_database",
-        "next_actions": ["build_graph_preview_bundle"]
-        if normalized_recap_path
-        else ["apply_normalize"],
+        "next_actions": ["generate_recap_memory"],
         "blocked_reason": "No saved extraction matches this World and source.",
     }
 
 
-def build_recap_graph_preview_bundle(
+def extract_recap(
     *,
     repo_root: Path,
     campaign_id: str,
     session: int,
     normalized_recap_path: str,
     force_graph_run: bool = False,
-    candidate_graph_path: str | None = None,
-    extract_graph: bool = False,
     graph_model_id: str | None = None,
-    graph_extraction_profile: str | None = None,
-    context_vocabulary_packet: ContextVocabularyPacket | None = None,
-    enable_node_vocabulary_packet: bool = False,
-    enable_edge_vocabulary_packet: bool = False,
-    category_client: Any | None = None,
-    ingest_context: Any | None = None,
+    ingest_context: Any,
     supplemental_evidence: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
-    """Build a preview graph-ingest run from a normalized recap."""
-
-
-    if ingest_context is None:
-        raise ValueError("managed World/campaign ingestion context is required")
-    repo = artifact_data_root(repo_root)
-    normalized = _resolve_existing_readable_path(normalized_recap_path, field_name="normalized_recap_path")
-    source_recap_path, source_recap_sha256 = _lineage_for_normalized_recap(
-        repo, normalized_recap_path
+    """Run or reuse extraction; return the exact saved result without repackaging."""
+    root = artifact_data_root(repo_root)
+    normalized = _resolve_existing_readable_path(
+        normalized_recap_path, field_name="normalized_recap_path"
     )
-    candidate = (
-        _resolve_existing_repo_path(repo, candidate_graph_path, field_name="candidate_graph_path")
-        if candidate_graph_path
-        else None
-    )
-    _reject_forbidden_candidate(candidate)
-    requested_profile = normalize_graph_extraction_profile(graph_extraction_profile)
-    profile_id, profile_version = resolve_legacy_graph_extraction_profile(graph_extraction_profile)
-    profile_sensitive_reuse = extract_graph or graph_extraction_profile is not None
-    logger.info(
-        "graph preview bundle requested campaign=%s session=session-%s normalized=%s "
-        "source_recap_path=%s source_recap_sha256=%s force_graph_run=%s "
-        "candidate_graph_path=%s extract_graph=%s model_id=%s graph_extraction_profile=%s "
-        "profile_id=%s profile_version=%s",
-        campaign_id,
-        session,
-        normalized_recap_path,
-        source_recap_path,
-        source_recap_sha256,
-        force_graph_run,
-        candidate_graph_path,
-        extract_graph,
-        graph_model_id,
-        graph_extraction_profile,
-        profile_id,
-        profile_version,
-    )
-
-
-    desired_statuses = {
-        GraphIngestRunStatus.CANDIDATE_VALIDATION_READY.value,
-        GraphIngestRunStatus.PREVIEW_UNION_STORE_READY.value,
-    } if (candidate or extract_graph) else {
-        GraphIngestRunStatus.SOURCE_SPAN_BUNDLE_READY.value,
-        GraphIngestRunStatus.CANDIDATE_VALIDATION_READY.value,
-        GraphIngestRunStatus.PREVIEW_UNION_STORE_READY.value,
-    }
-    if not force_graph_run and candidate is None:
-        reusable = _latest_matching_run(
-            repo,
-            campaign_id,
-            session,
-            desired_statuses,
-            source_recap_path=source_recap_path,
-            source_recap_sha256=source_recap_sha256,
-            graph_extraction_profile=requested_profile if profile_sensitive_reuse else None,
-            require_production_lineage=extract_graph,
+    digest = _normalized_recap_digest(normalized_recap_path)
+    if not digest or digest == UNUSABLE_SOURCE_RECAP_DIGEST:
+        raise ValueError("The normalized recap could not be verified for extraction")
+    context = ingest_context.as_lineage()
+    if not force_graph_run:
+        profile_id, version = resolve_legacy_graph_extraction_profile(None)
+        reused = reusable_recap_extraction(
+            root=root,
+            campaign_id=campaign_id,
+            session_id=f"session-{session}",
+            context=context,
+            source_content_sha256=digest,
+            profile_id=f"{profile_id}@{version}",
+            model_id=graph_model_id or DEEPSEEK_MODEL,
+            supplemental_evidence=supplemental_evidence,
         )
-        if reusable is not None and not _summary_matches_ingest_context(
-            repo, reusable, ingest_context, supplemental_evidence
-        ):
-            logger.info(
-                "skipping reusable recap run with a different World/campaign head snapshot "
-                "campaign=%s session=session-%s manifest=%s",
-                campaign_id,
-                session,
-                reusable.manifest_path,
-            )
-            reusable = None
-        if reusable is not None:
-            logger.info(
-                "graph preview bundle reusing run campaign=%s session=session-%s status=%s manifest=%s run_dir=%s",
-                campaign_id,
-                session,
-                reusable.status,
-                reusable.manifest_path,
-                reusable.run_dir,
-            )
-            return _status_from_summary(repo, reusable, normalized_recap_path=normalized_recap_path)
-
-
-    run_dir = _new_run_dir(repo, campaign_id, session)
-    logger.info(
-        "graph preview bundle starting extraction campaign=%s session=session-%s run_dir=%s allow_llm=%s",
-        campaign_id,
-        session,
-        _repo_relative(run_dir, repo),
-        extract_graph,
-    )
-    # Canonical ExtractionRun owns model extraction / refusal / failure / success.
+        if reused is not None:
+            return reused
     production = run_recap_production_extraction(
-        repo_root=repo,
+        repo_root=root,
         campaign_id=campaign_id,
         session_id=f"session-{session}",
         recap_path=normalized,
-        profile=graph_extraction_profile,
         model_id=graph_model_id,
-        allow_llm=extract_graph,
-        category_client=category_client,
-        output_dir=run_dir / "extraction_run",
-        context_vocabulary_packet=context_vocabulary_packet,
-        enable_node_vocabulary_packet=enable_node_vocabulary_packet,
-        enable_edge_vocabulary_packet=enable_edge_vocabulary_packet,
+        allow_llm=True,
         ingest_context=ingest_context,
         supplemental_evidence=supplemental_evidence,
     )
-    logger.info(
-        "production extraction run_id=%s profile=%s status=%s failure_kind=%s",
-        production.run.run_id,
-        production.run.profile_id,
-        production.run.status.value,
-        production.failure_kind,
+    status = project_recap_extraction_run(
+        root=root,
+        run=production.run,
+        context=context,
+        source_content_sha256=digest,
     )
-
-
-    production_candidate: Path | None = None
-    if extract_graph and _production_candidate_is_packageable(production):
-        candidate_component = production.run.components.get("candidate_graph")
-        if candidate_component is not None and str(candidate_component.uri).startswith("repo://"):
-            production_candidate = (repo / str(candidate_component.uri).removeprefix("repo://")).resolve()
-        else:
-            production_candidate = (run_dir / "extraction_run" / "candidate_graph.json").resolve()
-            production_candidate.parent.mkdir(parents=True, exist_ok=True)
-            production_candidate.write_text(
-                json.dumps(production.candidate_graph, indent=2, sort_keys=True) + "\n",
-                encoding="utf-8",
-            )
-        if production.known_entity_mentions is not None:
-            known_path = run_dir / "extraction_run" / "known_entity_mentions.json"
-            known_path.parent.mkdir(parents=True, exist_ok=True)
-            known_path.write_text(
-                json.dumps(production.known_entity_mentions, indent=2, sort_keys=True) + "\n",
-                encoding="utf-8",
-            )
-    elif extract_graph and production.candidate_graph is not None:
-        logger.warning(
-            "refusing to package non-reviewable production candidate run_id=%s status=%s failure_kind=%s",
-            production.run.run_id,
-            production.run.status.value,
-            production.failure_kind,
+    if status is None:
+        raise IngestRunCatalogError(
+            "The saved extraction does not match the requested source.",
+            code="ingest_run_catalog_integrity_error",
+            status_code=409,
         )
-
-
-    # Legacy GraphIngest packaging only — never perform a second model call here.
-    # When the production ExtractionRun is reviewable, its candidate is authoritative
-    # over any manually supplied candidate_graph_path.
-    legacy_candidate = production_candidate if extract_graph else candidate
-    # Whenever production admitted a SourceArtifact / canonical SourceSpanIndex,
-    # package from those immutable bytes — including source-only, manual-candidate,
-    # and failed-extraction paths that still supply the canonical index.
-    packaging_source = _packaging_source_path(repo, production, fallback=normalized)
-    result = run_graph_preview_extraction(
-        GraphPreviewRunnerOptions(
-            campaign_id=campaign_id,
-            session_id=f"session-{session}",
-            normalized_recap_path=packaging_source,
-            output_dir=run_dir.relative_to(repo),
-            source_label=f"{campaign_id} session {session} normalized recap",
-            allow_llm=False,
-            model_id=graph_model_id,
-            comparison_mode="none",
-            candidate_graph_path=legacy_candidate,
-            input_path_record=source_recap_path,
-            graph_extraction_profile=requested_profile,
-            context_vocabulary_packet=context_vocabulary_packet,
-            enable_node_vocabulary_packet=enable_node_vocabulary_packet,
-            enable_edge_vocabulary_packet=enable_edge_vocabulary_packet,
-            source_span_index=(
-                dict(production.source_span_index)
-                if production.source_span_index is not None
-                else None
-            ),
-            source_artifact_id=production.run.source_artifact_id,
-        )
-    )
-    if (
-        production.known_entity_mentions is not None
-        and legacy_candidate is not None
-        and result.output_dir.is_dir()
-    ):
-        known_out = result.output_dir / "known_entity_mentions.json"
-        known_out.write_text(
-            json.dumps(production.known_entity_mentions, indent=2, sort_keys=True) + "\n",
-            encoding="utf-8",
-        )
-        _stamp_known_entity_artifact_digest(repo, result.manifest_path, known_out)
-
-
-    summary = _summary_for_manifest(repo, result.manifest_path)
-    logger.info(
-        "graph preview bundle finished campaign=%s session=session-%s status=%s manifest=%s "
-        "candidate_graph_path=%s validation_report_path=%s",
-        campaign_id,
-        session,
-        summary.status,
-        summary.manifest_path,
-        _repo_relative(result.candidate_graph_path, repo) if result.candidate_graph_path else None,
-        _repo_relative(result.validation_report_path, repo) if result.validation_report_path else None,
-    )
-
-
-    if extract_graph and not _production_candidate_is_packageable(production):
-        # Persist llm_blocked on the GraphIngest manifest so materialize/status
-        # reloads from disk still surface the production failure — including
-        # typed-validation failures that still left a diagnostic candidate file.
-        manifest_payload = json.loads(result.manifest_path.read_text(encoding="utf-8"))
-        diagnostics = dict(manifest_payload.get("diagnostics") or {})
-        diagnostics["extraction_mode"] = "llm_blocked"
-        diagnostics["extraction_run_id"] = production.run.run_id
-        diagnostics["extraction_run_status"] = production.run.status.value
-        failure_kind = production.failure_kind or "validation"
-        if failure_kind not in {"extraction", "refusal", "incomplete", "schema", "model", "validation"}:
-            failure_kind = "extraction"
-        diagnostics["failure_kind"] = failure_kind
-        diagnostics["source_artifact_id"] = production.run.source_artifact_id
-        manifest_payload["diagnostics"] = diagnostics
-        # Production diagnostics may contain provider output or private paths.
-        # Public workflow state uses fixed host text, not arbitrary error prose.
-        blocked_message = (
-            "Graph extraction did not produce a reviewable candidate "
-            f"({failure_kind}). Review the extraction evidence before retrying."
-        )
-        manifest_payload["errors"] = [blocked_message]
-        for step in manifest_payload.get("steps") or []:
-            if step.get("id") == "extract_candidate_graph":
-                step["state"] = "failed"
-                step["summary"] = blocked_message
-        result.manifest_path.write_text(
-            json.dumps(manifest_payload, indent=2, sort_keys=True) + "\n",
-            encoding="utf-8",
-        )
-        summary = _summary_for_manifest(repo, result.manifest_path)
-
-
-    if extract_graph and _production_candidate_is_packageable(production):
-        manifest_payload = json.loads(result.manifest_path.read_text(encoding="utf-8"))
-        diagnostics = dict(manifest_payload.get("diagnostics") or {})
-        diagnostics["extraction_mode"] = "category_decomposed"
-        diagnostics["extraction_run_id"] = production.run.run_id
-        diagnostics["extraction_run_status"] = production.run.status.value
-        diagnostics["source_artifact_id"] = production.run.source_artifact_id
-        manifest_payload["diagnostics"] = diagnostics
-        health = dict(manifest_payload.get("health") or {})
-        if production.model_id:
-            health["model_id"] = production.model_id
-        manifest_payload["health"] = health
-        result.manifest_path.write_text(
-            json.dumps(manifest_payload, indent=2, sort_keys=True) + "\n",
-            encoding="utf-8",
-        )
-        _assert_packaged_identity_matches_extraction_run(
-            repo=repo,
-            manifest_path=result.manifest_path,
-            production_run=production.run,
-        )
-        summary = _summary_for_manifest(repo, result.manifest_path)
-
-
-    status = _status_from_summary(repo, summary, normalized_recap_path=normalized_recap_path)
-    status["extraction_run_id"] = production.run.run_id
-    status["extraction_run_status"] = production.run.status.value
-    status["source_artifact_id"] = production.run.source_artifact_id
-    if extract_graph and _production_candidate_is_packageable(production):
-        status["extraction_mode"] = "category_decomposed"
-        if production.model_id:
-            status["model_id"] = production.model_id
-    elif extract_graph:
-        status["extraction_mode"] = "llm_blocked"
-        # The saved manifest is also the authority for later inspect_status reads.
     return status
 
 
-def _stamp_known_entity_artifact_digest(
-    repo: Path, manifest_path: Path, known_entity_path: Path
-) -> None:
-    """Keep artifacts.known_entity_mentions.sha256 aligned after overwriting sidecar bytes."""
-    payload = json.loads(manifest_path.read_text(encoding="utf-8"))
-    artifacts = dict(payload.get("artifacts") or {})
-    existing = dict(artifacts.get(GraphIngestArtifactKind.KNOWN_ENTITY_MENTIONS.value) or {})
-    digest = hashlib.sha256(known_entity_path.read_bytes()).hexdigest()
-    artifacts[GraphIngestArtifactKind.KNOWN_ENTITY_MENTIONS.value] = {
-        **existing,
-        "kind": GraphIngestArtifactKind.KNOWN_ENTITY_MENTIONS.value,
-        "uri": existing.get("uri") or _repo_relative(known_entity_path, repo),
-        "schema": existing.get("schema") or "dmb_known_entity_mention_sidecar_v0",
-        "sha256": f"sha256:{digest}",
-        "exists": True,
-        "preview_only": True,
-    }
-    payload["artifacts"] = artifacts
-    manifest_path.write_text(
-        json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8"
-    )
+def _normalized_recap_digest(value: str | None) -> str | None:
+    """Hash current import bytes with the source owner's normalization.
 
-
-def _lineage_for_normalized_recap(
-    repo: Path, normalized_recap_path: str | None
-) -> tuple[str | None, str | None]:
-    """Return (repo-relative path, content digest) for discovery matching.
-
-
-    Digests use the same trailing-newline normalization as SourceArtifact admission
-    so newline-only differences do not masquerade as content changes, and so
-    discovery compares against packaged ``normalized_recap_sha256`` values.
-
-
-    If the path resolves to an existing file that cannot produce a canonical digest
-    (empty, whitespace-only, unreadable, or invalid UTF-8), return
-    ``UNUSABLE_SOURCE_RECAP_DIGEST`` so discovery fails closed instead of falling
-    back to path-only matching.
+    An absent import permits retained database inspection. An existing invalid
+    import must never downgrade to a missing digest or path-only identity.
     """
     from apps.live_control_server.services.source_artifact_registry import (
         SourceArtifactRegistryError,
         _normalize_source_text,
     )
 
-
-    if not normalized_recap_path:
-        return None, None
+    if not value:
+        return None
     try:
-        path = _resolve_existing_readable_path(normalized_recap_path, field_name="normalized_recap_path")
+        path = _resolve_existing_readable_path(
+            value, field_name="normalized_recap_path"
+        )
     except (FileNotFoundError, ValueError):
-        if not Path(normalized_recap_path).is_absolute():
-            return normalized_recap_path.replace("\\", "/"), None
-        return None, None
+        return None
     try:
-        source_recap_path = path.resolve().relative_to(repo.resolve()).as_posix()
-    except ValueError:
-        if not Path(normalized_recap_path).is_absolute():
-            source_recap_path = normalized_recap_path.replace("\\", "/")
-        else:
-            source_recap_path = None
-    try:
-        normalized_text = _normalize_source_text(path.read_text(encoding="utf-8"))
+        text = _normalize_source_text(path.read_text(encoding="utf-8"))
     except (OSError, UnicodeDecodeError, SourceArtifactRegistryError):
-        # Existing-but-invalid source: never downgrade to path-only matching.
-        return source_recap_path, UNUSABLE_SOURCE_RECAP_DIGEST
-    source_recap_sha256 = (
-        f"sha256:{hashlib.sha256(normalized_text.encode('utf-8')).hexdigest()}"
-    )
-    return source_recap_path, source_recap_sha256
-
-
-def _latest_matching_run(
-    repo: Path,
-    campaign_id: str,
-    session: int,
-    statuses: set[str],
-    *,
-    source_recap_path: str | None = None,
-    source_recap_sha256: str | None = None,
-    graph_extraction_profile: str | None = None,
-    require_production_lineage: bool = False,
-) -> GraphIngestRunSummary | None:
-    for run in discover_graph_ingest_runs(
-        repo,
-        campaign_id=campaign_id,
-        session_id=f"session-{session}",
-        source_recap_path=source_recap_path,
-        source_recap_sha256=source_recap_sha256,
-    ):
-        if run.status not in statuses:
-            continue
-        if graph_extraction_profile is not None and not _summary_matches_graph_extraction_profile(
-            repo, run, graph_extraction_profile
-        ):
-            continue
-        # Extracted / preview-ready runs must carry the known-entity sidecar and a
-        # usable SourceSpanIndex projection linkage. When extract_graph reuse is
-        # requested, also require production lineage so pre-controller candidate-
-        # ready runs are rebuilt.
-        if run.status in {
-            GraphIngestRunStatus.CANDIDATE_VALIDATION_READY.value,
-            GraphIngestRunStatus.PREVIEW_UNION_STORE_READY.value,
-        }:
-            if require_production_lineage:
-                if not _manifest_is_candidate_reusable(repo, run.manifest_path):
-                    logger.info(
-                        "skipping reusable run missing production lineage or known_entity_mentions "
-                        "campaign=%s session=session-%s status=%s manifest=%s",
-                        campaign_id,
-                        session,
-                        run.status,
-                        run.manifest_path,
-                    )
-                    continue
-            elif not _manifest_is_manual_candidate_reusable(repo, run.manifest_path):
-                logger.info(
-                    "skipping reusable run missing known_entity_mentions or SourceSpanIndex linkage "
-                    "campaign=%s session=session-%s status=%s manifest=%s",
-                    campaign_id,
-                    session,
-                    run.status,
-                    run.manifest_path,
-                )
-                continue
-        return run
-    return None
-
-
-def _summary_matches_ingest_context(
-    repo: Path, summary: GraphIngestRunSummary, ingest_context: Any, supplemental_evidence: dict | None = None
-) -> bool:
-    """Reuse a run only while its source and selected World authority stay exact."""
-    if not summary.manifest_path:
-        return False
-    try:
-        payload = json.loads((repo / summary.manifest_path).read_text(encoding="utf-8"))
-    except (OSError, json.JSONDecodeError, TypeError):
-        return False
-    diagnostics = payload.get("diagnostics") if isinstance(payload, dict) else None
-    run_id = diagnostics.get("extraction_run_id") if isinstance(diagnostics, dict) else None
-    if not isinstance(run_id, str) or not run_id.strip():
-        return False
-    from apps.live_control_server.services.graph_run_registry import (
-        GraphRunRegistryError,
-        get_extraction_run,
-    )
-
-    try:
-        run = get_extraction_run(repo, run_id)
-    except GraphRunRegistryError:
-        return False
-    stored_supplement=(run.lineage or {}).get("session_evidence")
-    if (stored_supplement or {}).get("sha256") != (supplemental_evidence or {}).get("sha256"):
-        return False
-    if stored_supplement:
-        try:
-            evidence_path = (repo / stored_supplement["uri"]).resolve()
-            evidence_path.relative_to(repo.resolve())
-            if hashlib.sha256(evidence_path.read_bytes()).hexdigest() != stored_supplement.get("artifact_sha256"):
-                return False
-        except (KeyError, ValueError, OSError, TypeError):
-            return False
-    return _same_recap_ingest_context_authority(
-        (run.lineage or {}).get("world_campaign_ingest_context"),
-        ingest_context.as_lineage(),
-    )
-
-
-def _load_extraction_run_record(repo: Path, run_id: str) -> Any | None:
-    """Deprecated alias — reuse gates must call get_reviewable_extraction_run."""
-    from apps.live_control_server.services.graph_run_registry import (
-        GraphRunRegistryError,
-        get_reviewable_extraction_run,
-    )
-
-
-    try:
-        return get_reviewable_extraction_run(repo, run_id)
-    except GraphRunRegistryError:
-        return None
-
-
-def _manifest_has_production_lineage(repo: Path, manifest_path: str | None) -> bool:
-    """True when the run's ExtractionRun registry record proves reviewable lineage.
-
-
-    Manifest diagnostics alone are insufficient: the referenced ExtractionRun must
-    exist, be REVIEWABLE under current SourceArtifact/component integrity, match the
-    packaged source artifact, and the packaged candidate + SourceSpanIndex digests
-    must equal the immutable ExtractionRun component digests.
-    """
-    from apps.live_control_server.services.graph_run_registry import (
-        GraphRunRegistryError,
-        get_reviewable_extraction_run,
-    )
-    from graph_memory.ingestion.extraction_run import (
-        ExtractionRunComponentKind,
-        normalize_content_digest,
-    )
-
-
-    if not manifest_path:
-        return False
-    try:
-        manifest_full = (repo / manifest_path).resolve()
-        payload = json.loads(manifest_full.read_text(encoding="utf-8"))
-    except (OSError, json.JSONDecodeError, TypeError):
-        return False
-    if not isinstance(payload, dict):
-        return False
-    diagnostics = payload.get("diagnostics") if isinstance(payload.get("diagnostics"), dict) else {}
-    run_id = diagnostics.get("extraction_run_id")
-    source_artifact_id = diagnostics.get("source_artifact_id")
-    if not isinstance(run_id, str) or not run_id.strip():
-        return False
-    if not isinstance(source_artifact_id, str) or not source_artifact_id.strip():
-        return False
-
-
-    source = payload.get("source") if isinstance(payload.get("source"), dict) else {}
-    manifest_source_id = str(source.get("source_artifact_id") or "").strip()
-    if not manifest_source_id or manifest_source_id != source_artifact_id.strip():
-        return False
-
-
-    try:
-        run = get_reviewable_extraction_run(repo, run_id.strip())
-    except GraphRunRegistryError:
-        return False
-    if run.source_artifact_id != source_artifact_id.strip():
-        return False
-    if run.source_artifact_id != manifest_source_id:
-        return False
-
-
-    source_component = run.components.get(ExtractionRunComponentKind.SOURCE_ARTIFACT.value)
-    if source_component is None or not (source_component.sha256 or "").strip():
-        return False
-
-
-    candidate_component = run.components.get(ExtractionRunComponentKind.CANDIDATE_GRAPH.value)
-    if candidate_component is None or not (candidate_component.sha256 or "").strip():
-        return False
-
-
-    span_component = run.components.get(ExtractionRunComponentKind.SOURCE_SPAN_INDEX.value)
-    if span_component is None or not (span_component.sha256 or "").strip():
-        return False
-
-
-    artifacts = payload.get("artifacts") if isinstance(payload.get("artifacts"), dict) else {}
-    candidate = artifacts.get(GraphIngestArtifactKind.CANDIDATE_GRAPH.value)
-    if not isinstance(candidate, dict):
-        return False
-    uri = candidate.get("uri")
-    if not isinstance(uri, str) or not uri.strip():
-        return False
-    candidate_path = (repo / uri).resolve() if not Path(uri).is_absolute() else Path(uri)
-    try:
-        candidate_path.relative_to(repo.resolve())
-    except ValueError:
-        return False
-    if not candidate_path.is_file():
-        return False
-
-
-    packaged_bytes = candidate_path.read_bytes()
-    packaged_digest = normalize_content_digest(
-        candidate.get("sha256") or f"sha256:{hashlib.sha256(packaged_bytes).hexdigest()}"
-    )
-    component_digest = normalize_content_digest(candidate_component.sha256)
-    if not packaged_digest or packaged_digest != component_digest:
-        return False
-    if packaged_digest != hashlib.sha256(packaged_bytes).hexdigest().lower():
-        return False
-
-
-    try:
-        graph = json.loads(packaged_bytes.decode("utf-8"))
-    except (OSError, json.JSONDecodeError, UnicodeDecodeError):
-        return False
-    if not isinstance(graph, dict):
-        return False
-    bound_ids = graph.get("source_artifact_ids") or []
-    if not isinstance(bound_ids, list) or source_artifact_id not in bound_ids:
-        return False
-
-
-    # Fail closed: a REVIEWABLE ExtractionRun always has a SourceSpanIndex component,
-    # so GraphIngest must declare a matching artifact with URI + digest.
-    span_ref = artifacts.get(GraphIngestArtifactKind.SOURCE_SPAN_INDEX.value)
-    if not isinstance(span_ref, dict):
-        return False
-    span_uri = span_ref.get("uri")
-    if not isinstance(span_uri, str) or not span_uri.strip():
-        return False
-    claimed_span_digest = span_ref.get("sha256")
-    if not isinstance(claimed_span_digest, str) or not claimed_span_digest.strip():
-        return False
-    span_path = (repo / span_uri).resolve() if not Path(span_uri).is_absolute() else Path(span_uri)
-    try:
-        span_path.relative_to(repo.resolve())
-    except ValueError:
-        return False
-    if not span_path.is_file():
-        return False
-    span_bytes = span_path.read_bytes()
-    packaged_span_digest = normalize_content_digest(claimed_span_digest)
-    if packaged_span_digest != normalize_content_digest(span_component.sha256):
-        return False
-    if packaged_span_digest != hashlib.sha256(span_bytes).hexdigest().lower():
-        return False
-
-
-    # Projection reads source.source_span_index_uri only — require it and bind it
-    # to the same verified SourceSpanIndex artifact bytes.
-    source_span_uri = source.get("source_span_index_uri")
-    if not isinstance(source_span_uri, str) or not source_span_uri.strip():
-        return False
-    try:
-        source_span_path = _resolve_repo_uri_path(repo, source_span_uri)
-    except ValueError:
-        return False
-    if not source_span_path.is_file():
-        return False
-    if source_span_path.resolve() != span_path.resolve():
-        return False
-    if (
-        hashlib.sha256(source_span_path.read_bytes()).hexdigest().lower()
-        != packaged_span_digest
-    ):
-        return False
-
-
-    # Packaged review source must still match the immutable SourceArtifact digest.
-    packaged_source_digest = normalize_content_digest(
-        source.get("normalized_recap_sha256")
-    )
-    if not packaged_source_digest:
-        return False
-    if packaged_source_digest != normalize_content_digest(source_component.sha256):
-        return False
-    normalized_uri = source.get("normalized_recap_path")
-    if isinstance(normalized_uri, str) and normalized_uri.strip():
-        try:
-            packaged_source_path = _resolve_repo_uri_path(repo, normalized_uri)
-        except ValueError:
-            return False
-        if not packaged_source_path.is_file():
-            return False
-        if (
-            hashlib.sha256(packaged_source_path.read_bytes()).hexdigest().lower()
-            != packaged_source_digest
-        ):
-            return False
-
-
-    return True
-
-
-def _assert_packaged_identity_matches_extraction_run(
-    *,
-    repo: Path,
-    manifest_path: Path,
-    production_run: Any,
-) -> None:
-    """Assert GraphIngest packaging and ExtractionRun share one SourceArtifact ID."""
-    from graph_memory.ingestion.extraction_run import (
-        ExtractionRunComponentKind,
-        normalize_content_digest,
-    )
-
-
-    payload = json.loads(manifest_path.read_text(encoding="utf-8"))
-    expected = str(getattr(production_run, "source_artifact_id", "") or "").strip()
-    if not expected:
-        raise ValueError("ExtractionRun source_artifact_id is required")
-    source = payload.get("source") if isinstance(payload.get("source"), dict) else {}
-    if str(source.get("source_artifact_id") or "").strip() != expected:
-        raise ValueError("GraphIngest source.source_artifact_id does not match ExtractionRun")
-    diagnostics = payload.get("diagnostics") if isinstance(payload.get("diagnostics"), dict) else {}
-    if str(diagnostics.get("source_artifact_id") or "").strip() != expected:
-        raise ValueError("GraphIngest diagnostics.source_artifact_id does not match ExtractionRun")
-
-
-    span_uri = source.get("source_span_index_uri")
-    if isinstance(span_uri, str) and span_uri.strip():
-        span_path = (repo / span_uri).resolve()
-        span_index = json.loads(span_path.read_text(encoding="utf-8"))
-        if str(span_index.get("source_artifact_id") or "").strip() != expected:
-            raise ValueError("packaged SourceSpanIndex source_artifact_id does not match ExtractionRun")
-        span_content_digest = normalize_content_digest(str(span_index.get("content_sha256") or ""))
-    else:
-        span_content_digest = ""
-
-
-    provenance_uri = source.get("provenance_index_uri")
-    if isinstance(provenance_uri, str) and provenance_uri.strip():
-        provenance = json.loads((repo / provenance_uri).resolve().read_text(encoding="utf-8"))
-        for row in provenance.get("source_artifacts") or []:
-            if isinstance(row, dict) and str(row.get("artifact_id") or "").strip() != expected:
-                raise ValueError("provenance_index artifact_id does not match ExtractionRun")
-
-
-    artifacts = payload.get("artifacts") if isinstance(payload.get("artifacts"), dict) else {}
-    candidate = artifacts.get(GraphIngestArtifactKind.CANDIDATE_GRAPH.value)
-    if isinstance(candidate, dict):
-        uri = candidate.get("uri")
-        if isinstance(uri, str) and uri.strip():
-            graph = json.loads((repo / uri).resolve().read_text(encoding="utf-8"))
-            bound = graph.get("source_artifact_ids") or []
-            if expected not in bound:
-                raise ValueError("candidate_graph is not bound to ExtractionRun source_artifact_id")
-
-
-    source_component = getattr(production_run, "components", {}).get(
-        ExtractionRunComponentKind.SOURCE_ARTIFACT.value
-    )
-    packaged_source_digest = normalize_content_digest(source.get("normalized_recap_sha256"))
-    if source_component is not None and (source_component.sha256 or "").strip():
-        component_digest = normalize_content_digest(source_component.sha256)
-        if not packaged_source_digest or packaged_source_digest != component_digest:
-            raise ValueError(
-                "packaged source digest does not match ExtractionRun source_artifact component"
-            )
-        if span_content_digest and packaged_source_digest != span_content_digest:
-            raise ValueError(
-                "packaged source digest does not match SourceSpanIndex.content_sha256"
-            )
-        normalized_uri = source.get("normalized_recap_path")
-        if isinstance(normalized_uri, str) and normalized_uri.strip():
-            packaged_path = _resolve_repo_uri_path(repo, normalized_uri)
-            actual = hashlib.sha256(packaged_path.read_bytes()).hexdigest().lower()
-            if actual != packaged_source_digest:
-                raise ValueError("packaged review source bytes do not match claimed digest")
-        provenance_uri = source.get("provenance_index_uri")
-        if isinstance(provenance_uri, str) and provenance_uri.strip():
-            provenance = json.loads((repo / provenance_uri).resolve().read_text(encoding="utf-8"))
-            for row in provenance.get("source_artifacts") or []:
-                if not isinstance(row, dict):
-                    continue
-                if normalize_content_digest(str(row.get("sha256") or "")) != packaged_source_digest:
-                    raise ValueError("provenance digest does not match packaged source digest")
-
-
-def _manifest_has_known_entity_mentions(repo: Path, manifest_path: str | None) -> bool:
-    """True when the run declares a digest-verified known_entity_mentions artifact."""
-    from graph_memory.ingestion.graph_ingest_validate import (
-        validate_manifest_known_entity_mentions,
-    )
-
-
-    if not manifest_path:
-        return False
-    try:
-        manifest_full = (repo / manifest_path).resolve()
-        payload = json.loads(manifest_full.read_text(encoding="utf-8"))
-    except (OSError, json.JSONDecodeError, TypeError):
-        return False
-    if not isinstance(payload, dict):
-        return False
-    return not validate_manifest_known_entity_mentions(
-        repo, payload, require_source_linkage=False
-    )
-
-
-def _manifest_has_usable_source_span_linkage(repo: Path, manifest_path: str | None) -> bool:
-    """True when SourceSpanIndex is canonically valid and bound to the packaged source."""
-    from graph_memory.ingestion.graph_ingest_validate import (
-        validate_manifest_source_span_index_linkage,
-    )
-
-
-    if not manifest_path:
-        return False
-    try:
-        manifest_full = (repo / manifest_path).resolve()
-        payload = json.loads(manifest_full.read_text(encoding="utf-8"))
-    except (OSError, json.JSONDecodeError, TypeError):
-        return False
-    if not isinstance(payload, dict):
-        return False
-    return not validate_manifest_source_span_index_linkage(repo, payload)
-
-
-def _summary_matches_graph_extraction_profile(
-    repo: Path, summary: GraphIngestRunSummary, requested_profile: str
-) -> bool:
-    manifest_path = (repo / summary.manifest_path).resolve()
-    try:
-        manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
-    except (OSError, json.JSONDecodeError):
-        return False
-    diagnostics = manifest.get("diagnostics") if isinstance(manifest, dict) else None
-    manifest_profile = None
-    if isinstance(diagnostics, dict):
-        manifest_profile = diagnostics.get("graph_extraction_profile")
-    if manifest_profile is None:
-        manifest_profile = "current_default"
-    return manifest_profile == requested_profile
-
-
-def _summary_for_manifest(repo: Path, manifest_path: Path) -> GraphIngestRunSummary:
-    run_dir = manifest_path.resolve().parent
-    runs = discover_graph_ingest_runs(repo)
-    rel_manifest = _repo_relative(manifest_path, repo)
-    for run in runs:
-        if run.manifest_path == rel_manifest or run.run_dir == _repo_relative(run_dir, repo):
-            return run
-    raise ValueError(f"graph-ingest manifest was not discoverable: {manifest_path}")
-
-
-def _artifact_uri(repo: Path, artifact: dict[str, Any] | None) -> str | None:
-    if not isinstance(artifact, dict):
-        return None
-    uri = artifact.get("uri")
-    if not isinstance(uri, str):
-        return None
-    return _repo_relative((repo / uri).resolve(), repo)
-
-
-def _candidate_validation_summary(
-    repo: Path, summary: GraphIngestRunSummary, manifest: dict[str, Any]
-) -> dict[str, int | str]:
-    """Summarize the validation report attached to this exact candidate run."""
-
-    default = {
-        "state": "not_applicable",
-        "error_count": 0,
-        "warning_count": 0,
-        "unresolved_evidence_reference_count": 0,
-    }
-    unavailable = {**default, "state": "unavailable"}
-    artifacts = manifest.get("artifacts")
-    if not isinstance(artifacts, dict):
-        return (
-            unavailable
-            if summary.status in {"candidate_validation_ready", "preview_union_store_ready"}
-            else default
-        )
-    candidate = artifacts.get("candidate_graph")
-    if not isinstance(candidate, dict) or not isinstance(candidate.get("uri"), str):
-        report_artifact = artifacts.get("candidate_validation_report")
-        if report_artifact is not None or summary.status in {
-            "candidate_validation_ready",
-            "preview_union_store_ready",
-        }:
-            return unavailable
-        return default
-    report_artifact = artifacts.get("candidate_validation_report")
-    if not isinstance(report_artifact, dict) or not isinstance(report_artifact.get("uri"), str):
-        return unavailable
-
-    repo_root = repo.resolve()
-    try:
-        report_path = (repo_root / report_artifact["uri"]).resolve()
-        if not report_path.is_relative_to(repo_root) or not report_path.is_file():
-            return unavailable
-        report_bytes = report_path.read_bytes()
-        expected_report_sha_raw = report_artifact.get("sha256")
-        expected_report_sha = _normalize_digest(expected_report_sha_raw)
-        if expected_report_sha_raw is not None and expected_report_sha is None:
-            return unavailable
-        if expected_report_sha and hashlib.sha256(report_bytes).hexdigest() != expected_report_sha:
-            return unavailable
-        report = json.loads(report_bytes)
-        if not isinstance(report, dict):
-            return unavailable
-
-        candidate_path = (repo_root / candidate["uri"]).resolve()
-        report_candidate_path_value = report.get("candidate_graph_path")
-        if not isinstance(report_candidate_path_value, str):
-            return unavailable
-        report_candidate_path = Path(report_candidate_path_value)
-        if not report_candidate_path.is_absolute():
-            report_candidate_path = (repo_root / report_candidate_path).resolve()
-        else:
-            report_candidate_path = report_candidate_path.resolve()
-        if (
-            not candidate_path.is_relative_to(repo_root)
-            or not report_candidate_path.is_relative_to(repo_root)
-            or candidate_path != report_candidate_path
-            or not candidate_path.is_file()
-        ):
-            return unavailable
-
-        candidate_sha = _normalize_digest(candidate.get("sha256"))
-        report_candidate_sha = _normalize_digest(report.get("candidate_graph_sha256"))
-        if (
-            report.get("schema") != "dmb_candidate_graph_validation_report_v0"
-            or report.get("campaign_id") != summary.campaign_id
-            or report.get("session_id") != summary.session_id
-            or not candidate_sha
-            or candidate_sha != report_candidate_sha
-            or hashlib.sha256(candidate_path.read_bytes()).hexdigest() != candidate_sha
-            or not isinstance(report.get("valid"), bool)
-            or not isinstance(report.get("errors"), list)
-            or not isinstance(report.get("warnings"), list)
-            or any(not isinstance(item, str) for item in [*report["errors"], *report["warnings"]])
-        ):
-            return unavailable
-
-        errors = report["errors"]
-        warnings = report["warnings"]
-        unresolved = sum(
-            item.casefold().startswith("unresolved evidence ref")
-            for item in [*errors, *warnings]
-        )
-        blocked = not report["valid"] or bool(errors) or unresolved > 0
-        state = "blocked" if blocked else "warning" if warnings else "valid"
-        return {
-            "state": state,
-            "error_count": len(errors),
-            "warning_count": len(warnings),
-            "unresolved_evidence_reference_count": unresolved,
-        }
-    except (OSError, ValueError, TypeError, json.JSONDecodeError):
-        return unavailable
-
-
-def _normalize_digest(value: Any) -> str | None:
-    if not isinstance(value, str):
-        return None
-    digest = value.strip().lower()
-    if digest.startswith("sha256:"):
-        digest = digest.removeprefix("sha256:")
-    return digest if len(digest) == 64 and all(char in "0123456789abcdef" for char in digest) else None
-
-
-def _extracted_nodes_from_preview_union(
-    repo: Path, preview_union_store_path: str | None
-) -> list[dict]:
-    del repo, preview_union_store_path
-    return []
-
-
-def _status_from_summary(
-    repo: Path, summary: GraphIngestRunSummary, *, normalized_recap_path: str | None
-) -> dict[str, Any]:
-    manifest_path = (repo / summary.manifest_path).resolve()
-    candidate_path = _candidate_graph_path(repo, manifest_path)
-    extracted_nodes = _extracted_nodes_from_preview_union(repo, summary.preview_union_store_path)
-    status = {
-        "status": summary.status,
-        "run_dir": summary.run_dir,
-        "manifest_path": summary.manifest_path,
-        "candidate_graph_path": candidate_path,
-        "preview_union_store_path": summary.preview_union_store_path,
-        "preview_union_store_valid": summary.preview_union_store_valid,
-        "node_count": summary.node_count,
-        "edge_count": summary.edge_count,
-        "evidence_ref_count": summary.evidence_ref_count,
-        "extracted_nodes": extracted_nodes,
-        "next_actions": (["review_candidate"] if summary.status == GraphIngestRunStatus.CANDIDATE_VALIDATION_READY.value else list(summary.next_actions)),
-        "can_open_union_graph": summary.status == GraphIngestRunStatus.PREVIEW_UNION_STORE_READY.value
-        and bool(summary.preview_union_store_path),
-        "blocked_reason": None,
-        "normalized_recap_path": normalized_recap_path,
-    }
-    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
-    status["candidate_validation"] = _candidate_validation_summary(repo, summary, manifest)
-    diagnostics = manifest.get("diagnostics", {})
-    status["extraction_mode"] = diagnostics.get("extraction_mode")
-    status["graph_extraction_profile"] = diagnostics.get("graph_extraction_profile")
-    status["graph_extraction_profile_options"] = diagnostics.get("graph_extraction_profile_options")
-    if diagnostics.get("extraction_run_id"):
-        status["extraction_run_id"] = diagnostics.get("extraction_run_id")
-    if diagnostics.get("extraction_run_status"):
-        status["extraction_run_status"] = diagnostics.get("extraction_run_status")
-    if diagnostics.get("source_artifact_id"):
-        status["source_artifact_id"] = diagnostics.get("source_artifact_id")
-    status["model_id"] = manifest.get("health", {}).get("model_id")
-    status["candidate_node_count"] = manifest.get("health", {}).get("node_count", 0)
-    status["candidate_edge_count"] = manifest.get("health", {}).get("edge_count", 0)
-    status["candidate_beat_count"] = manifest.get("health", {}).get("beat_count", 0)
-    status["estimated_cost_usd"] = manifest.get("health", {}).get("estimated_cost_usd")
-    steps = manifest.get("steps") or []
-    status["graph_steps"] = steps
-    status["current_graph_step"] = next(
-        (step for step in reversed(steps) if step.get("state") in {"running", "complete", "failed"}),
-        None,
-    )
-    artifacts = manifest.get("artifacts") or {}
-    status["pass_telemetry_path"] = _artifact_uri(repo, artifacts.get("pass_telemetry"))
-    status["pass_outputs_path"] = _artifact_uri(repo, artifacts.get("pass_outputs"))
-    status["consolidation_diagnostics_path"] = _artifact_uri(
-        repo, artifacts.get("consolidation_diagnostics")
-    )
-    if summary.status == GraphIngestRunStatus.SOURCE_SPAN_BUNDLE_READY.value:
-        if manifest.get("errors") and manifest.get("diagnostics", {}).get("extraction_mode") == "llm_blocked":
-            status["blocked_reason"] = manifest["errors"][0]
-        else:
-            status["blocked_reason"] = "Graph source bundle ready. Candidate graph extraction has not run yet."
-    return status
-
-
-def _missing_status(normalized_recap_path: str | None) -> dict[str, Any]:
-    return {
-        "status": "missing",
-        "run_dir": None,
-        "manifest_path": None,
-        "candidate_graph_path": None,
-        "preview_union_store_path": None,
-        "preview_union_store_valid": None,
-        "node_count": 0,
-        "edge_count": 0,
-        "evidence_ref_count": 0,
-        "extracted_nodes": [],
-        "next_actions": (
-            ["build_graph_preview_bundle"]
-            if normalized_recap_path
-            else ["apply_normalize", "build_graph_preview_bundle"]
-        ),
-        "can_open_union_graph": False,
-        "blocked_reason": "normalized recap missing" if not normalized_recap_path else None,
-        "normalized_recap_path": normalized_recap_path,
-    }
-
-
-def _candidate_graph_path(repo: Path, manifest_path: Path) -> str | None:
-    try:
-        payload = json.loads(manifest_path.read_text(encoding="utf-8"))
-        uri = payload.get("artifacts", {}).get("candidate_graph", {}).get("uri")
-        if not isinstance(uri, str):
-            return None
-        return _repo_relative((repo / uri).resolve(), repo)
-    except (OSError, json.JSONDecodeError, TypeError, AttributeError, ValueError):
-        return None
-
-
-def _new_run_dir(repo: Path, campaign_id: str, session: int) -> Path:
-    timestamp = datetime.now(UTC).strftime("%Y%m%dT%H%M%SZ")
-    base = (
-        graph_ingest_output_root(repo).relative_to(repo.resolve())
-        / campaign_id
-        / f"session-{session}"
-        / timestamp
-    )
-    path = base
-    suffix = 1
-    while (repo / path).exists():
-        suffix += 1
-        path = base.with_name(f"{base.name}-{suffix}")
-    resolved = (repo / path).resolve()
-    if ".." in path.parts or not resolved.is_relative_to(repo.resolve()):
-        raise ValueError("graph-ingest output escapes artifact repository")
-    return resolved
+        return UNUSABLE_SOURCE_RECAP_DIGEST
+    return f"sha256:{hashlib.sha256(text.encode('utf-8')).hexdigest()}"
 
 
 def _resolve_existing_readable_path(value: str | None, *, field_name: str) -> Path:
@@ -1255,42 +191,3 @@ def _resolve_existing_readable_path(value: str | None, *, field_name: str) -> Pa
     if not path.is_file():
         raise ValueError(f"{field_name} must be a file: {value}")
     return path
-
-
-def _resolve_existing_repo_path(repo: Path, value: str | None, *, field_name: str) -> Path:
-    if not value:
-        raise ValueError(f"{field_name} is required")
-    if value.startswith("file:"):
-        raise ValueError(f"{field_name} must be repo-relative, not a file URI")
-    path = Path(value)
-    if path.is_absolute():
-        resolved = path.resolve()
-    else:
-        if ".." in PurePosixPath(path.as_posix()).parts:
-            raise ValueError(f"{field_name} must not contain path traversal: {value}")
-        resolved = (repo / path).resolve()
-    try:
-        resolved.relative_to(repo)
-    except ValueError as exc:
-        raise ValueError(f"{field_name} must stay under repo root: {value}") from exc
-    if not resolved.exists():
-        raise FileNotFoundError(f"{field_name} does not exist: {value}")
-    return resolved
-
-
-def _reject_forbidden_candidate(candidate: Path | None) -> None:
-    if candidate is None:
-        return
-    payload = json.loads(candidate.read_text(encoding="utf-8"))
-    diagnostics = payload.get("diagnostics", {})
-    if isinstance(payload.get("candidate_graph"), dict):
-        diagnostics = payload["candidate_graph"].get("diagnostics", diagnostics)
-    if not isinstance(diagnostics, dict):
-        return
-    for key in ("canon_promotion", "approved_memory_write", "corpus_mutation", "production_retrieval"):
-        if diagnostics.get(key) is True:
-            raise ValueError(f"candidate graph has forbidden lifecycle diagnostic: {key}")
-
-
-def _repo_relative(path: Path, repo: Path) -> str:
-    return path.resolve().relative_to(repo).as_posix()

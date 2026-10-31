@@ -1,22 +1,8 @@
-"""Production-owned GraphIngest run packaging (preview-only, ``allow_llm=False`` default).
+"""Legacy GraphIngest artifact packaging for explicit developer/evaluation tools.
 
-This module packages a normalized recap (and, optionally, an already-produced
-candidate graph) into the ``GraphIngestRunManifest`` artifact bundle consumed by
-Graph Review / preview-union materialization. It never performs canon promotion,
-approved memory writes, or corpus mutation.
-
-Ownership: this is the module ``apps/live_control_server/services/recap_graph_preview_ingest.py``
-imports for packaging. It moved here from
-``evals/graph_memory_layer/graph_preview_runner.py`` (PR380E precursor) so the live
-recap-ingest path no longer depends on eval-only code for production packaging.
-``evals/graph_memory_layer/graph_preview_runner.py`` now re-exports this module's
-public API as a thin compatibility shim for existing eval/dogfood callers.
-
-Kept separate from ``src/graph_memory/extraction/graph_preview_runner.py``, the
-production ``ExtractionRun`` controller that owns model extraction / refusal /
-failure / success — this module only wraps and validates an already-produced
-candidate graph (or, when ``allow_llm=True`` and no ``candidate_graph_path`` is
-supplied, runs the legacy category-graph extraction path directly).
+Ordinary recap Process and Graph Review use canonical saved ExtractionRuns;
+this file bundle is not a live ingestion or publication authority. Remaining
+historical tool callers are audited separately before removing this module.
 """
 
 from __future__ import annotations

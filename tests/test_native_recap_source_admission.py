@@ -220,7 +220,7 @@ def test_ordinary_http_admits_exact_APP_version_and_reopens_without_provider(
 ):
     monkeypatch.setattr(
         route,
-        "build_recap_graph_preview_bundle",
+        "extract_recap",
         lambda **_: pytest.fail("Classic preview/model path is not source admission"),
     )
     before = lane.repo.get_head(lane.context.native_world_id)
@@ -940,8 +940,8 @@ def test_selected_source_requires_real_World_root_not_claimed_lineage(
 
     monkeypatch.setattr(
         recap_graph_preview_ingest,
-        "_lineage_for_normalized_recap",
-        lambda *_: (str(lane.path), sha256(lane.raw).hexdigest()),
+        "_normalized_recap_digest",
+        lambda *_: sha256(lane.raw).hexdigest(),
     )
     monkeypatch.setattr(route, "_normalized_recap_graph_path", lambda *_: str(selected))
     before = lane.repo.get_head(lane.context.native_world_id)

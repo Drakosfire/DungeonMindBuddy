@@ -1,15 +1,7 @@
-"""Guard: live recap-ingest packaging must not depend on eval-only code.
+"""Live services cannot depend on the legacy evaluation packaging shim.
 
-``evals/graph_memory_layer/graph_preview_runner.py`` packaging (GraphIngest
-manifest/artifact construction) moved to a production-owned module
-(``src.graph_memory.extraction.graph_ingest_packaging``). Live services under
-``apps/live_control_server/services/`` must import the production module, not
-the evals compatibility shim.
-
-This guard is scoped to the ``graph_preview_runner`` packaging module
-specifically. Other evals imports in ``apps/live_control_server/services/``
-(gold-review comparison helpers, gold fixtures) are explicitly out of scope for
-this move and are allowed to remain.
+The remaining fixture-authoring surfaces are a separate D9 ownership audit.
+Ordinary Process no longer imports either packaging entrypoint.
 """
 
 from __future__ import annotations
@@ -44,26 +36,6 @@ def _imports_forbidden_module(path: Path) -> bool:
     return False
 
 
-def test_recap_graph_preview_ingest_does_not_import_evals_packaging_shim() -> None:
-    target = SERVICES_DIR / "recap_graph_preview_ingest.py"
-    assert target.is_file()
-    assert not _imports_forbidden_module(target), (
-        f"{target} must import GraphIngest packaging from "
-        "src.graph_memory.extraction.graph_ingest_packaging, not the evals shim"
-    )
-
-
-def test_recap_graph_preview_ingest_imports_production_packaging_module() -> None:
-    target = SERVICES_DIR / "recap_graph_preview_ingest.py"
-    tree = ast.parse(target.read_text(encoding="utf-8"), filename=str(target))
-    production_module = "src.graph_memory.extraction.graph_ingest_packaging"
-    found = any(
-        isinstance(node, ast.ImportFrom) and node.module == production_module
-        for node in ast.walk(tree)
-    )
-    assert found, f"{target} must import from {production_module}"
-
-
 @pytest.mark.parametrize("path", _service_files(), ids=lambda p: p.name)
 def test_live_control_server_services_do_not_import_evals_graph_preview_runner(
     path: Path,
@@ -75,5 +47,5 @@ def test_live_control_server_services_do_not_import_evals_graph_preview_runner(
     """
     assert not _imports_forbidden_module(path), (
         f"{path} imports the evals GraphIngest packaging shim "
-        f"({FORBIDDEN_MODULE}); import src.graph_memory.extraction.graph_ingest_packaging instead"
+        f"({FORBIDDEN_MODULE}); use the canonical saved extraction owner instead"
     )

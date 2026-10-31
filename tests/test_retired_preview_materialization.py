@@ -21,7 +21,7 @@ def test_retired_command_and_flag_are_rejected_before_execution(monkeypatch, ret
     def forbidden(*args, **kwargs):
         pytest.fail("retired command reached execution")
     monkeypatch.setattr(route, "_pipeline_corpus_root", forbidden)
-    monkeypatch.setattr(route, "build_recap_graph_preview_bundle", forbidden)
+    monkeypatch.setattr(route, "extract_recap", forbidden)
     app = FastAPI()
     app.include_router(route.router)
     response = TestClient(app).post("/api/live/recap-ingest", json=payload)
@@ -48,7 +48,7 @@ def test_process_uses_extraction_without_materialization_or_planning_adoption(mo
     def extract(**kwargs):
         calls.append(kwargs)
         return deepcopy(graph)
-    monkeypatch.setattr(route, "build_recap_graph_preview_bundle", extract)
+    monkeypatch.setattr(route, "extract_recap", extract)
     app = FastAPI()
     app.include_router(route.router)
     response = TestClient(app).post("/api/live/recap-ingest", json={
@@ -57,7 +57,6 @@ def test_process_uses_extraction_without_materialization_or_planning_adoption(mo
     assert response.status_code == 200, response.text
     body = response.json()
     assert len(calls) == 1
-    assert calls[0]["extract_graph"] is True
     assert calls[0]["ingest_context"] is context
     assert body["ingest_report"]["graph_preview"] == graph
     assert body["status"] != "ready_for_planning_activation"
@@ -78,7 +77,7 @@ def test_retired_artifact_preview_requests_never_reach_work(monkeypatch, retired
     def forbidden(*args, **kwargs):
         pytest.fail("retired artifact preview request reached execution")
     monkeypatch.setattr(route, "_pipeline_corpus_root", forbidden)
-    monkeypatch.setattr(route, "build_recap_graph_preview_bundle", forbidden)
+    monkeypatch.setattr(route, "extract_recap", forbidden)
     monkeypatch.setattr(route, "_request_recap_context", forbidden)
     app = FastAPI()
     app.include_router(route.router)

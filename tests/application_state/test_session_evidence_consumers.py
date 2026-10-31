@@ -128,7 +128,7 @@ def test_external_recap_source_stays_exact_and_supplement_is_sealed_and_reuse_bo
     from dataclasses import replace
     from tests.test_bounded_recap_execution import _fixture_ingest_context
     from apps.live_control_server.services.graph_preview_runner import run_recap_production_extraction
-    from apps.live_control_server.services.recap_graph_preview_ingest import _summary_matches_ingest_context
+    from apps.live_control_server.services.ingest_run_catalog import _same_session_evidence, IngestRunCatalogError
     run_id=ended_session();packet=read_session_evidence(world_id=WORLD,run_id=run_id,revision=1)
     bundle=resolve_evidence_refs(WORLD,[{key:packet[key] for key in ('run_id','review_revision','sha256')}])
     monkeypatch.setenv('DMB_ARTIFACT_DATA_ROOT',str(tmp_path));source=tmp_path/'external-recap.md';raw='The company crossed the damaged boardwalk.\n';source.write_text(raw)
@@ -139,13 +139,13 @@ def test_external_recap_source_stays_exact_and_supplement_is_sealed_and_reuse_bo
     assert source.read_text()==raw
     supplement=result.run.lineage['session_evidence'];assert supplement['sha256']==bundle['sha256']
     assert json.loads((tmp_path/supplement['uri']).read_text())==bundle
-    manifest=tmp_path/'manifest.json';manifest.write_text(json.dumps({'diagnostics':{'extraction_run_id':result.run.run_id}}))
-    summary=SimpleNamespace(manifest_path='manifest.json')
-    assert _summary_matches_ingest_context(tmp_path,summary,context,bundle)
-    assert not _summary_matches_ingest_context(tmp_path,summary,context,None)
-    assert not _summary_matches_ingest_context(tmp_path,summary,context,{**bundle,'sha256':'b'*64})
+    assert _same_session_evidence(tmp_path,result.run,bundle)
+    assert not _same_session_evidence(tmp_path,result.run,None)
+    assert not _same_session_evidence(tmp_path,result.run,{**bundle,'sha256':'b'*64})
     (tmp_path/supplement['uri']).write_text('tampered')
-    assert not _summary_matches_ingest_context(tmp_path,summary,context,bundle)
+    with pytest.raises(IngestRunCatalogError):
+        _same_session_evidence(tmp_path,result.run,bundle)
+
 
 
 @pytest.mark.parametrize("execution_version",[1,2,3])

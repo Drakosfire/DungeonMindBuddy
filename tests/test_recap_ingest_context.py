@@ -138,7 +138,7 @@ def test_new_prepare_accepts_new_head_but_rejects_binding_drift(monkeypatch: pyt
 
 
 def test_existing_extraction_can_be_reused_after_unrelated_world_publication() -> None:
-    from apps.live_control_server.services.recap_graph_preview_ingest import (
+    from apps.live_control_server.services.ingest_run_catalog import (
         _same_recap_ingest_context_authority,
     )
 

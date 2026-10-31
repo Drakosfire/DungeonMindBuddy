@@ -26,7 +26,7 @@ from src.live_play.recap_stage_paths import corpus_root as default_corpus_root
 from src.live_play.recap_derivative_provenance import record_archived_artifacts
 from apps.live_control_server.services.ingest_run_catalog import IngestRunCatalogError
 from apps.live_control_server.services.recap_graph_preview_ingest import (
-    build_recap_graph_preview_bundle,
+    extract_recap,
     inspect_recap_graph_preview_status,
 )
 
@@ -328,16 +328,15 @@ def _generate_recap_memory_from_request(body: RecapIngestRequest, corpus: Path |
     if body.include_graph_extraction:
         normalized = _normalized_recap_graph_path(status, corpus)
         if normalized and _normalized_recap_is_graph_ready(status):
-            graph = build_recap_graph_preview_bundle(
+            graph = extract_recap(
                 repo_root=repo_root(),
                 campaign_id=body.campaign_id,
                 session=body.session,
                 normalized_recap_path=normalized,
-                extract_graph=True,
                 graph_model_id=body.graph_model_id,
                 force_graph_run=body.force_graph_run,
                 ingest_context=ingest_context,
-                    **({"supplemental_evidence":body._resolved_session_evidence} if body._resolved_session_evidence is not None else {}),
+                **({"supplemental_evidence":body._resolved_session_evidence} if body._resolved_session_evidence is not None else {}),
             )
             status = _append_graph_status(status, graph)
             if graph.get("extraction_mode") == "llm_blocked" or graph.get("blocked_reason"):
