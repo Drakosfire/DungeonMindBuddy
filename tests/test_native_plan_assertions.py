@@ -3,6 +3,9 @@ from dataclasses import replace
 from types import SimpleNamespace
 from uuid import uuid4
 import json
+from hashlib import sha256
+from dungeonmind.application.vnext import publish_native_text_source_evidence, publish_native_source_evidence_extension, open_admitted_native_text
+from dungeonmind.contracts.vnext.native_source import NativeTextSourceAdmissionV1, NativeSourceEvidenceExtensionV1
 import pytest
 
 from tests.test_source_statements import make_lane, GM, BODY, wk, transport, NOW
@@ -25,6 +28,45 @@ def publish(lane, *, qualified=False):
     return runtime.commit_prepared_change(runtime.prepare_change(wk.WorldChangeIntent(lane.world.world_id, 'fixture', (
         wk.UseExisting(lane.ids['B'], (wk.CreateFact('account', 'dnd5e:summary', wk.LiteralFactValue('A reports that B fled; uncertain.'), meta),)),
     ))), confirmed_by=GM.subject)
+
+
+def admit_unrelated(lane, identity):
+    body = "An unrelated later session."
+    raw = body.encode()
+    return publish_native_text_source_evidence(
+        repository=lane.repo, domain_contract=dungeonbuddy_world_domain_contract(),
+        semantic_profile=dungeonbuddy_dnd5e_custom_predicate_profile(),
+        request=NativeTextSourceAdmissionV1(
+            space_id=lane.world.world_id, admission_id=identity,
+            expected_parent_revision_id=lane.repo.get_head(lane.world.world_id).head_revision_id,
+            created_at=NOW, body_text=body, expected_body_sha256=sha256(raw).hexdigest(),
+            source_classification="dungeonbuddy.source:session_recap", authority="primary",
+            visibility={"kind":"labels_any", "labels":["dungeonbuddy.visibility:gm"]},
+            spans=[dict(client_ref="context", evidence_role="context", start_byte=0,
+                        end_byte=len(raw), expected_slice_sha256=sha256(raw).hexdigest())],
+        ),
+    )
+
+
+def select_extension_support(lane):
+    root = lane.repo.get_native_source_admission_receipt(
+        lane.world.world_id, lane.selection.source_admission_id)
+    raw = BODY.encode()
+    result = publish_native_source_evidence_extension(
+        repository=lane.repo, domain_contract=dungeonbuddy_world_domain_contract(),
+        semantic_profile=dungeonbuddy_dnd5e_custom_predicate_profile(),
+        audience_labels=("dungeonbuddy.visibility:gm",),
+        request=NativeSourceEvidenceExtensionV1(
+            space_id=lane.world.world_id, extension_id="later-support-span",
+            original_admission_id=root.admission_id, source_artifact_id=root.source_artifact_id,
+            source_revision_id=root.source_revision_id, expected_body_sha256=sha256(raw).hexdigest(),
+            expected_parent_revision_id=lane.repo.get_head(lane.world.world_id).head_revision_id,
+            expected_source_authority_epoch=lane.repo.open_native_source_view(lane.world.world_id).epoch,
+            created_at=NOW, spans=[dict(client_ref="full-clause", evidence_role="support",
+                start_byte=0, end_byte=len(raw), expected_slice_sha256=sha256(raw).hexdigest())],
+        ),
+    )
+    lane.meta = replace(lane.meta, evidence_ref_ids=(result.bindings[0].evidence_ref_id,))
 
 
 def query(lane):
@@ -76,9 +118,11 @@ def test_context_only_evidence_is_not_support(application_state_dsn, tmp_path, m
     assert not reads and set(unavailable) == {m.assertion_id for m in context.query.assertion_matches}
 
 
-@pytest.mark.parametrize('qualified,unavailable', [(False,False),(True,False),(False,True)])
+@pytest.mark.parametrize('qualified,unavailable,advancement', [
+    (False,False,None),(True,False,None),(False,True,None),
+    (False,False,'original'),(False,False,'extension')])
 def test_fresh_ordinary_plan_native_question_delivers_reloads_and_opens_exact_source(
-        lane, tmp_path, monkeypatch, qualified, unavailable):
+        lane, tmp_path, monkeypatch, qualified, unavailable, advancement):
     import httpx2
     from hashlib import sha256
     from fastapi import FastAPI
@@ -91,7 +135,11 @@ def test_fresh_ordinary_plan_native_question_delivers_reloads_and_opens_exact_so
     from tests.test_agent_turn_service import _pinned_plan_request, _pinned_plan_work
     from tests.test_plan_jev_writer import WriterWire
     from application_state.agent_conversation import AgentConversationService, types as t
+    if advancement == 'extension':
+        select_extension_support(lane)
     publish(lane, qualified=qualified)
+    if advancement:
+        admit_unrelated(lane, 'before-query')
     world = lane.world.world_id
     binding = SimpleNamespace(managed_world_id=world,native_world_id=world,binding_version=1,provisioning_id=None)
     monkeypatch.setattr(managed, 'resolve_managed_source_identity', lambda _: binding)
@@ -126,7 +174,8 @@ def test_fresh_ordinary_plan_native_question_delivers_reloads_and_opens_exact_so
         monkeypatch.setattr(native_reads,'open_admitted_native_text',lambda *_:SimpleNamespace(status='unavailable'))
     class Decisions(httpx2.AsyncBaseTransport):
         async def handle_async_request(self, req):
-            body=json.loads(req.content);candidates=body.get('state',{}).get('candidates',[])
+            body=json.loads(req.content)
+            candidates=body.get('state',{}).get('candidates',[])
             native={i for i,c in enumerate(candidates) if c['kind'].startswith('Reviewed native Graph')}
             assert BODY not in req.content.decode()
             answers={}
@@ -144,13 +193,15 @@ def test_fresh_ordinary_plan_native_question_delivers_reloads_and_opens_exact_so
             rows=frame['native_assertions']['assertions']
             if unavailable:
                 assert not rows and frame['native_assertions']['status']=='partial'
-                segments=[];limitations=['partial_retrieval','missing_requested_details']
+                segments=[]
+                limitations=['partial_retrieval','missing_requested_details']
             else:
                 row=next(r for r in rows if r['assertion']['predicate']=='dnd5e:summary')
                 assert row['assertion']['metadata']['claim_mode']==('dungeonbuddy.claim:belief' if qualified else 'dungeonbuddy.claim:fact')
                 assert all('text' not in s for r in rows for s in r['supporting_sources'])
                 segments=[{'kind':'native_assertion_claim','text':'A reports that B fled; uncertain.',
-                    'assertion_handles':[row['assertion_handle']]}];limitations=[]
+                    'assertion_handles':[row['assertion_handle']]}]
+                limitations=[]
             self.text=json.dumps({'schema':frame['answer_policy'],'answer_segments':segments,
                 'limitations':limitations,'requested_detail_gaps':[]})
             return await super().handle_async_request(req)
@@ -158,13 +209,16 @@ def test_fresh_ordinary_plan_native_question_delivers_reloads_and_opens_exact_so
     class Harness(PlanJevHarness):
         def execute(self, adapter, **kwargs):
             wire.adapter=adapter
-            try:return super().execute(adapter,**kwargs)
+            try:
+                return super().execute(adapter,**kwargs)
             except BaseException:
                 import traceback
-                wire.failure=traceback.format_exc();raise
+                wire.failure=traceback.format_exc()
+                raise
     monkeypatch.setattr(plan_jev_harness,'default_plan_jev_runtime',lambda:Harness(decision_transport=Decisions(),
         writer_transport=wire,decision_api_key='synthetic-not-secret',writer_api_key='synthetic-not-secret'))
-    app=FastAPI();app.include_router(agent.router,prefix='/api/live')
+    app=FastAPI()
+    app.include_router(agent.router,prefix='/api/live')
     client=TestClient(app,client=('127.0.0.1',42000),headers={'Authorization':'Bearer '+token})
     original_open=native_reads.open_admitted_native_text
     opened_with_grant=[]
@@ -181,7 +235,8 @@ def test_fresh_ordinary_plan_native_question_delivers_reloads_and_opens_exact_so
     response=client.post('/api/live/agent/turn',json=request.model_dump(mode='json',by_alias=True))
     assert response.status_code==200,response.text+getattr(wire,'failure','')
     assert opened_with_grant
-    data=response.json();completion=data['plan_context']['completion']
+    data=response.json()
+    completion=data['plan_context']['completion']
     assert completion['schema']=='dmb_surface_evidence_completion_v7'
     assert completion['answer_context_status']==('insufficient_evidence' if unavailable else 'graph_grounded')
     turn=AgentConversationService().inspect_turn(world_id=world,turn_id=wire.adapter.turn.turn_id)
@@ -195,9 +250,13 @@ def test_fresh_ordinary_plan_native_question_delivers_reloads_and_opens_exact_so
     else:
         claim=completion['answer_segments'][0]
         assert claim['kind']=='native_assertion_claim' and claim['qualifications'][0]['standing']==('provisional' if qualified else 'established')
+        if advancement:
+            assert lane.repo.get_head(world)==original_head  # Query had no graph effect.
+            admit_unrelated(lane, 'after-answer')
+            original_head=lane.repo.get_head(world)  # Only this explicit admission advances it.
         opened=client.get(f'/api/live/agent/worlds/{world}/conversation/turns/{turn.turn_id}/native-assertion-sources/0')
         assert opened.status_code==200,opened.text
-        assert opened.json()['content']==BODY.splitlines(keepends=True)[0]
+        assert opened.json()['content']==(BODY if advancement=='extension' else BODY.splitlines(keepends=True)[0])
         assert opened.json()['citation']==completion['native_assertion_citations'][0]
         denied=client.get(f'/api/live/agent/worlds/{world}/conversation/turns/{turn.turn_id}/native-assertion-sources/0?assertion=foreign')
         assert denied.status_code==422
@@ -227,7 +286,8 @@ def test_fresh_ordinary_plan_native_question_delivers_reloads_and_opens_exact_so
         changed_completion=turn.completion.model_copy(update={'answer_segments':[claim.model_copy(update={'qualifications':[]})]})
         with pytest.raises(ValueError,match='qualifications'):
             validate_citations(changed_completion,turn.graph_context_receipt,execution,authorization)
-        import os,psycopg
+        import os
+        import psycopg
         from psycopg.types.json import Jsonb
         dsn=os.environ['DUNGEONBUDDY_APPLICATION_STATE_DATABASE_URL']
         bad_execution=execution.model_dump(mode='json',by_alias=True)
@@ -240,7 +300,8 @@ def test_fresh_ordinary_plan_native_question_delivers_reloads_and_opens_exact_so
         from application_state.errors import ApplicationStateMigrationError
         with monkeypatch.context() as old_reader:
             old_reader.setattr(cli,'_alembic_head',lambda:'20261031_0101')
-            with pytest.raises(ApplicationStateMigrationError):cli.assert_at_head(dsn=dsn)
+            with pytest.raises(ApplicationStateMigrationError):
+                cli.assert_at_head(dsn=dsn)
     # Source choice is idempotency-bound, not a mutable retry preference.
     changed=request.model_dump(mode='json',by_alias=True)|{'plan_context_policy':{'policy':'auto_plan_world'}}
     assert client.post('/api/live/agent/turn',json=changed).status_code==409
@@ -263,3 +324,34 @@ def test_native_assertion_shapes_do_not_require_qualified_summary_json(lane,shap
         relationship=next(m for m in result.assertion_matches if 'reports_on' in m.label)
         assert relationship.subject_entity_id==lane.ids['A'] and not relationship.label.startswith('B ·')
     assert lane.repo.get_head(lane.world.world_id)==before
+
+
+@pytest.mark.parametrize("extension", [False, True])
+def test_older_support_remains_readable_after_unrelated_source_admission(lane, extension):
+    if extension:
+        select_extension_support(lane)
+    publish(lane)
+    admit_unrelated(lane, "newer-unrelated-source")
+    context, result = query(lane)
+    opened = open_admitted_native_text(context.pinned[1], lane.meta.evidence_ref_ids[0])
+    assert opened.status == "available"
+    assert opened.source_authority_epoch < result.authority.acquisition_epoch
+    reads, unavailable = read_selected(context, grant(context), GM)
+    assert not unavailable and reads
+    account = next(row for row in reads if row.assertion.predicate == "dnd5e:summary")
+    assert account.spans[0].text == (BODY if extension else BODY.splitlines(keepends=True)[0])
+
+
+def test_core_source_integrity_failure_remains_fail_closed(lane, monkeypatch):
+    from dungeonmind.application.vnext.errors import NativeTextSourceAccessIntegrityError
+    publish(lane)
+    context, _ = query(lane)
+    view_type = type(context.pinned[1].source_view)
+    original = view_type.get_native_text_source
+    def damaged_body(view, **kwargs):
+        stored = original(view, **kwargs)
+        return replace(stored, body_bytes=b"tampered")
+    monkeypatch.setattr(view_type, "get_native_text_source", damaged_body)
+    with pytest.raises(NativeTextSourceAccessIntegrityError) as failure:
+        read_selected(context, grant(context), GM)
+    assert failure.value.reason == "body digest mismatch"
