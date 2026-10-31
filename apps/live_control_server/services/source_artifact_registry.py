@@ -33,15 +33,12 @@ from graph_memory.source_span import (
     SourceSpanIndex,
     build_source_span_index_for_text,
     source_artifact_text_from_markdown,
-    source_span_index_to_dict,
     source_span_refs_from_index,
-    validate_source_span_index,
     resolve_source_span_ref,
 )
 from apps.live_control_server.services.registry_file_lock import (
     workspace_document_mutation_lock,
 )
-from src.live_play.live_store import write_json
 
 DEFAULT_SOURCE_SPAN_INDEX_DIR_REL = "out/registries/source_span_indexes"
 RECAP_SOURCE_CONTENT_ROOT_ENV = "DUNGEONMIND_RECAP_SOURCE_CONTENT_ROOT"
@@ -135,6 +132,7 @@ def source_span_index_relpath(source_artifact_id: str) -> str:
 
 
 def source_span_index_path(root: Path, source_artifact_id: str) -> Path:
+    """Historical locator metadata; canonical spans come from load_source_span_index."""
     return _resolve_registry_content_path(root, source_span_index_relpath(source_artifact_id))
 
 
@@ -160,19 +158,6 @@ def _read_committed_target_markdown(root: Path, record) -> tuple[str, str, str]:
     content = _normalize_committed_markdown(raw)
     digest = hashlib.sha256(content.encode("utf-8")).hexdigest()
     return relpath, content, digest
-
-
-def _persist_span_index(root: Path, index: SourceSpanIndex) -> str:
-    validate_source_span_index(
-        index,
-        source_artifact_id=index.source_artifact_id,
-        content_sha256=index.content_sha256,
-    )
-    relpath = source_span_index_relpath(index.source_artifact_id)
-    path = _resolve_registry_content_path(root, relpath)
-    path.parent.mkdir(parents=True, exist_ok=True)
-    write_json(path, source_span_index_to_dict(index))
-    return relpath
 
 
 def load_source_span_index(root: Path, source_artifact_id: str) -> SourceSpanIndex:
@@ -347,7 +332,7 @@ def _create_source_artifact_from_workspace_document_unlocked(
         updated_at=now,
     )
 
-    return _upsert_source_artifact(root, candidate=candidate, content=content)
+    return _register_source_input(artifact=candidate, content=content)
 
 
 def create_recap_source_artifact_from_workspace_document(
@@ -415,7 +400,7 @@ def create_recap_source_artifact_from_workspace_document(
                 "source_span_index_uri": f"repo://{source_span_index_relpath(artifact_id)}"},
             created_at=now, updated_at=now,
         )
-        return _upsert_source_artifact(root, candidate=candidate, content=content)
+        return _register_source_input(artifact=candidate, content=content)
 
 
 def _resolve_repo_contained_path(root: Path, path: Path) -> tuple[Path, str]:
@@ -470,22 +455,6 @@ def _register_source_input(artifact: GraphMemorySourceArtifact, content: str) ->
     # Exact replays return the frozen descriptor, including original timestamps
     # and inert historical locator. Input storage grants no Core authority.
     return get_source_artifact(Path(), artifact.source_artifact_id)
-
-
-def _upsert_source_artifact(
-    root: Path,
-    *,
-    candidate: GraphMemorySourceArtifact,
-    content: str,
-) -> GraphMemorySourceArtifact:
-    registered = _register_source_input(candidate, content)
-    index = build_source_span_index_for_text(
-        source_artifact_id=registered.source_artifact_id,
-        content_sha256=registered.content_sha256 or "",
-        text=content,
-    )
-    _persist_span_index(root, index)
-    return registered
 
 
 def create_recap_source_artifact(
@@ -595,7 +564,7 @@ def create_recap_source_artifact(
         created_at=now,
         updated_at=now,
     )
-    return _upsert_source_artifact(root, candidate=candidate, content=content)
+    return _register_source_input(artifact=candidate, content=content)
 
 
 def load_registered_source_artifact_text(

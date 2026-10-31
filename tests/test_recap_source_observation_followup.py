@@ -23,7 +23,7 @@ from apps.live_control_server.integrations.dungeonmind.world_graph_source_admiss
 from apps.live_control_server.services import extract_promote
 from apps.live_control_server.services.candidate_graph_admission import prepare_candidate_graph_admission
 from apps.live_control_server.services.graph_run_registry import create_extraction_run, update_extraction_run_status
-from apps.live_control_server.services.source_artifact_registry import create_recap_source_artifact, source_span_index_path
+from apps.live_control_server.services.source_artifact_registry import create_recap_source_artifact, source_span_index_path, load_source_span_index
 from apps.live_control_server.services.managed_world_graph_projection import VerifiedManagedWorldBinding
 from apps.live_control_server.models.reviewed_extract_confirmation import TrustedGMExtractContext
 from apps.live_control_server.services.reviewed_extract_confirmation import confirm_reviewed_extract
@@ -131,7 +131,10 @@ def observation_case(tmp_path,monkeypatch,application_state_dsn,request):
     artifact=create_recap_source_artifact(tmp_path,world_id="fixture-world",campaign_id="longmont-c2",session_id="session-22",
         recap_text=body+"\nSynthetic fixture "+token+".\n")
     span=source_span_index_path(tmp_path,artifact.source_artifact_id)
-    index=json.loads(span.read_text())
+    from graph_memory.source_span import source_span_index_to_dict
+    index=source_span_index_to_dict(load_source_span_index(tmp_path,artifact.source_artifact_id))
+    span.parent.mkdir(parents=True, exist_ok=True)
+    span.write_text(json.dumps(index, indent=2, ensure_ascii=False) + "\n")
     candidate=tmp_path/"out/graph_memory/runs/extraction"/token/"candidate_graph.json"
     candidate.parent.mkdir(parents=True)
     node={

@@ -82,7 +82,7 @@ def test_explicitly_registered_worldless_recap_remains_unchanged(tmp_path: Path)
         uri="repo://legacy/recap.md",
         content_sha256=hashlib.sha256(content.encode()).hexdigest(),
     )
-    registered = registry._upsert_source_artifact(tmp_path, candidate=legacy, content=content)
+    registered = registry._register_source_input(artifact=legacy, content=content)
     before = source_service.get_source_input_descriptors(source_artifact_ids=[legacy.source_artifact_id])
     loaded = registry.get_source_artifact(tmp_path, legacy.source_artifact_id)
     assert loaded == registered

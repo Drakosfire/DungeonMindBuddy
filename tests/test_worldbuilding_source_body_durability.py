@@ -13,7 +13,6 @@ from apps.live_control_server.services import graph_run_registry as runs
 from apps.live_control_server.services import worldbuilding_source_span_read as reader
 from apps.live_control_server.services.source_artifact_registry import (
     create_source_artifact_from_workspace_document,
-    source_span_index_path,
 )
 from apps.live_control_server.services.tiptap_markdown_write import (
     TiptapMarkdownWriteCommitRequest,
@@ -213,7 +212,6 @@ def test_historical_span_reads_from_durable_body_after_workspace_edit_and_sideca
 
     span_id = _span_id(artifact, original)
     _save_source(tmp_path, document, "# Lore\n\nThe tower has fallen.\n")
-    source_span_index_path(tmp_path, artifact.source_artifact_id).unlink()
 
     result = _open(tmp_path, artifact, span_id)
     assert result.content == "The tower watches the river."
@@ -258,7 +256,6 @@ def test_batch_reuses_validated_body_index_and_revalidates_next_batch(monkeypatc
     span_id = _span_id(artifact, markdown)
     before = _open(tmp_path, artifact, span_id, batch)
     _save_source(tmp_path, document, '# Lore\n\nA newer draft.\n')
-    source_span_index_path(tmp_path, artifact.source_artifact_id).unlink()
     after = _open(tmp_path, artifact, span_id, batch)
     assert after.model_dump() == before.model_dump()
     assert load.call_count == index.call_count == 1
