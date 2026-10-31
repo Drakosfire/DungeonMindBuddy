@@ -159,8 +159,21 @@ def verify_source_revision(
     When ``disclose_computed_digest`` is False (HTTP boundaries), mismatch
     errors omit the computed digest so callers cannot oracle arbitrary files.
     """
-    raw = resolve_source_bytes(source_uri, repo_root=repo_root)
-    digest = hashlib.sha256(raw).hexdigest()
+    return verify_source_bytes_revision(
+        source_body=resolve_source_bytes(source_uri, repo_root=repo_root),
+        source_revision_id=source_revision_id,
+        disclose_computed_digest=disclose_computed_digest,
+    )
+
+
+def verify_source_bytes_revision(
+    *, source_body: bytes, source_revision_id: str,
+    disclose_computed_digest: bool = True,
+) -> str:
+    """Compare exact supplied bytes with a revision pin; never open a locator."""
+    if not isinstance(source_body, bytes):
+        raise CandidateGraphMappingError("exact source bytes are required")
+    digest = hashlib.sha256(source_body).hexdigest()
     expected = f"sha256:{digest}"
     provided = _require_nonempty(source_revision_id, field="source_revision_id")
     if not provided.startswith("sha256:"):

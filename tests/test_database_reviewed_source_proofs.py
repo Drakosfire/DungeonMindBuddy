@@ -42,9 +42,6 @@ def _case(monkeypatch, root, *, custom_span=False):
                 digest=sha256(raw).hexdigest(), payload=raw)
         data = registry.load_reviewable_extraction_data(root, data.run.run_id)
     resolved = resolution.resolve_promotable_ingest_run(data.run.run_id, root=root)
-    # This slice owns proof consumers. The outer resolver's file gate is a
-    # separate successor; preserve its exact already-resolved identities here.
-    monkeypatch.setattr(resolution, "resolve_promotable_ingest_run", lambda *_a, **_k: resolved)
     raw = json.loads(data.candidate_bytes)
     selected = "selected:synthetic"
     refs = raw["nodes"][0]["evidence_refs"]
@@ -57,11 +54,15 @@ def _case(monkeypatch, root, *, custom_span=False):
         candidate_admission_digest=canonical_candidate_digest(raw), selected_assertion_ids=[selected],
     )
     package = {"effect": {
-        "candidate_admission": {"candidate_locator": str(resolved.candidate_graph_path)},
+        "world_id": data.source_artifact.world_id,
+        "source_artifact_id": data.run.source_artifact_id,
+        "source_revision_id": resolved.source_revision_id,
+        "candidate_admission": {"candidate_digest": canonical_candidate_digest(raw)},
         "contribution_meta": {"campaign_scope": data.run.campaign_id},
         "accepted_proposals": [{"assertion_id": selected, "value": {"evidence": refs}}],
     }}
-    context = SimpleNamespace(managed_world_id=data.source_artifact.world_id)
+    package = resolution.seal_extraction_run(package, data)
+    context = SimpleNamespace(managed_world_id=data.source_artifact.world_id, native_world_id=data.source_artifact.world_id)
     return SimpleNamespace(data=data, resolved=resolved, review=review, package=package, context=context, root=root)
 
 
@@ -123,6 +124,7 @@ def test_resolved_foreign_scope_cannot_substitute_for_stored_run(monkeypatch, tm
     monkeypatch.setattr(resolution, "resolve_promotable_ingest_run", lambda *_a, **_k: foreign)
     with pytest.raises(history.SourceSubjectProofError):
         history._source_run(tmp_path, case.data.run.run_id)
+    case.context.native_world_id = "foreign-world"
     with pytest.raises(confirmation.ReviewedExtractConfirmationError) as failure:
         _confirm_source(case)
     assert failure.value.code == "source_digest_drift"
@@ -133,6 +135,8 @@ def test_selected_claim_still_requires_the_run_pinned_span(monkeypatch, tmp_path
     case.package["effect"]["accepted_proposals"][0]["value"]["evidence"] = [{
         "source_artifact_id": case.review.source_artifact_id, "source_span_ref_id": "span:foreign",
     }]
+    from graph_memory.extract_promote_proposal import compute_proposal_digest
+    case.package["proposal_digest"] = compute_proposal_digest(case.package["effect"])
     with pytest.raises(confirmation.ReviewedExtractConfirmationError) as failure:
         _confirm_source(case)
     assert failure.value.code == "source_span_drift"

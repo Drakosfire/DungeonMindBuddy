@@ -501,21 +501,20 @@ def test_trusted_service_closes_bytes_and_passes_actual_review_time(
     from apps.live_control_server.services import (
         candidate_graph_admission,
         extract_promote,
-        graph_run_registry,
         promotable_ingest_run,
     )
 
     case = _case(tmp_path, monkeypatch)
     artifact, digest, package = _inputs(case)
     source_data = SimpleNamespace(
-        run=SimpleNamespace(source_artifact_id=ARTIFACT, campaign_id=CAMPAIGN),
-        source_artifact=SimpleNamespace(world_id=case["resolved"].world_id),
+        run=SimpleNamespace(run_id=case["resolved"].run_id, source_artifact_id=ARTIFACT, campaign_id=CAMPAIGN),
+        source_artifact=SimpleNamespace(world_id=WORLD, content_sha256=case["source_sha"]),
         source_bytes=case["source_path"].read_bytes(),
         candidate_bytes=case["candidate_path"].read_bytes(),
         span_bytes=case["span_path"].read_bytes(), span_index=case["span_index"],
     )
     monkeypatch.setattr(
-        graph_run_registry, "load_reviewable_extraction_data", lambda *_: source_data,
+        "apps.live_control_server.services.promotable_ingest_run.load_bound_extraction_run", lambda *a, **k: source_data,
     )
     monkeypatch.setattr(
         promotable_ingest_run,
@@ -528,9 +527,6 @@ def test_trusted_service_closes_bytes_and_passes_actual_review_time(
         lambda *_: SimpleNamespace(
             managed_world_id="buddy-world", native_world_id=WORLD
         ),
-    )
-    monkeypatch.setattr(
-        extract_promote, "assert_sealed_source_uri_allowed", lambda *_: None
     )
     monkeypatch.setattr(
         extract_promote, "_assert_recap_semantics_at_confirm", lambda *_: None
@@ -579,7 +575,7 @@ def test_trusted_service_closes_bytes_and_passes_actual_review_time(
         )
     assert drift.value.code == "source_digest_drift"
     source_data.candidate_bytes = original_candidate
-    case["resolved"].world_id = "foreign-world"
+    source_data.source_artifact.world_id = "foreign-world"
     with pytest.raises(subject.ReviewedExtractConfirmationError) as foreign:
         subject.confirm_reviewed_extract(
             context=_context(case),

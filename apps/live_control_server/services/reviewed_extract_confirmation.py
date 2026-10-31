@@ -158,45 +158,26 @@ def _verify_run_bytes(
     context: TrustedGMExtractContext,
     repo_root: Path,
 ) -> dict[str, Any]:
-    from apps.live_control_server.services.promotable_ingest_run import (
-        resolve_promotable_ingest_run,
-    )
-    from apps.live_control_server.services.graph_run_registry import load_reviewable_extraction_data
-    from apps.live_control_server.services.candidate_graph_admission import (
-        canonical_candidate_digest,
-    )
+    from apps.live_control_server.services.promotable_ingest_run import load_bound_extraction_run
+    from apps.live_control_server.services.candidate_graph_admission import canonical_candidate_digest
     try:
-        data = load_reviewable_extraction_data(repo_root, review.source_run_id)
-        resolved = resolve_promotable_ingest_run(review.source_run_id, root=repo_root)
+        data = load_bound_extraction_run(package, root=repo_root)
         source_bytes, candidate_bytes, span_bytes = data.source_bytes, data.candidate_bytes, data.span_bytes
-        candidate = json.loads(candidate_bytes)
-        index = data.span_index
+        candidate, index = json.loads(candidate_bytes), data.span_index
     except Exception as exc:
-        _fail(
-            "source_unavailable",
-            f"run-pinned source proof failed: {type(exc).__name__}",
-        )
-    admission = package["effect"]["candidate_admission"]
+        _fail("source_unavailable", f"run-pinned source proof failed: {type(exc).__name__}")
     if (
-        data.run.source_artifact_id != review.source_artifact_id
-        or data.source_artifact.world_id != resolved.world_id
-        or (data.run.campaign_id or "") != resolved.campaign_id
-        or resolved.run_id != review.source_run_id
-        or resolved.world_id not in (None, context.managed_world_id)
-        or resolved.source_artifact_id != review.source_artifact_id
-        or resolved.source_revision_id != review.source_revision_id
-        or resolved.campaign_id
-        != package["effect"]["contribution_meta"]["campaign_scope"]
-        or resolved.candidate_graph_path.resolve()
-        != Path(admission.get("candidate_locator") or "").resolve()
+        data.run.run_id != review.source_run_id
+        or data.run.source_artifact_id != review.source_artifact_id
+        or data.source_artifact.world_id != context.native_world_id
+        or "sha256:" + (data.source_artifact.content_sha256 or "").removeprefix("sha256:") != review.source_revision_id
+        or (data.run.campaign_id or "") != package["effect"]["contribution_meta"]["campaign_scope"]
         or _sha(source_bytes) != review.source_body_sha256
         or _sha(candidate_bytes) != review.candidate_graph_sha256
         or _sha(span_bytes) != review.source_span_index_sha256
         or canonical_candidate_digest(candidate) != review.candidate_admission_digest
     ):
-        _fail(
-            "source_digest_drift", "source, candidate, span, or run component drifted"
-        )
+        _fail("source_digest_drift", "source, candidate, span, or run component drifted")
     span_ids = {item.source_span_id for item in index.spans}
     accepted = {
         item["assertion_id"]: item for item in package["effect"]["accepted_proposals"]
@@ -247,8 +228,6 @@ def confirm_reviewed_extract(
             "world_binding_mismatch",
             "selected managed World binding differs from review",
         )
-    sealed_uri = str(package["effect"].get("verified_source_uri") or "")
-    extract_promote.assert_sealed_source_uri_allowed(sealed_uri)
     recap_context = package["effect"].get(extract_promote._RECAP_CONTEXT_KEY)
     if isinstance(recap_context, dict):
         extract_promote._assert_current_recap_ingest_context(
@@ -257,15 +236,12 @@ def confirm_reviewed_extract(
             campaign_id=context.campaign_id,
         )
     candidate = _verify_run_bytes(review, package, context=context, repo_root=repo_root)
-    locator = str(
-        package["effect"]["candidate_admission"].get("candidate_locator") or ""
-    )
     request = ExtractPromoteConfirmRequest(
         review_package=package, assertion_ids=review.selected_assertion_ids
     )
 
     def governed_confirm() -> dict[str, Any]:
-        extract_promote._assert_recap_semantics_at_confirm(locator, package)
+        extract_promote._assert_recap_semantics_at_confirm(package)
         extract_promote._assert_current_publication_target(package)
         return world_graph_writes.confirm_extract_promote_via_dungeonmind(
             request,
@@ -275,6 +251,7 @@ def confirm_reviewed_extract(
             repo_root=repo_root,
             semantic_binding=binding,
             semantic_gm_policy=gm_capability_policy,
+            candidate_graph=candidate,
         )
 
     return confirm_candidate_graph_admission(

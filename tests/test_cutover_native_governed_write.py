@@ -674,6 +674,7 @@ def test_dnd_prepare_does_not_open_buddy_graph(monkeypatch, tmp_path):
     result = prepare_extract_promote(
         candidate_graph=graph,
         source_uri=str(source),
+        source_body=source.read_bytes(),
         source_revision_id=digest,
         prepared_by="gm@prepare",
         world_id="eldyrwild",

@@ -178,7 +178,7 @@ def _fixture(
     def resolve(run_id, **_kwargs):
         run = runs[run_id]
         return SimpleNamespace(
-            run_id=run_id, status=run.status.value,
+            run_id=run_id, status=run.status.value, data=review_data(root, run_id),
             source_domain="recap", extraction_profile=service.PROFILE,
             campaign_id="c", session_id="s", source_artifact_id=artifact_id,
             source_revision_id=_sha(source.read_bytes()),
@@ -224,7 +224,12 @@ def _fixture(
         return digest
 
     def review_data(_root, run_id):
-        resolved = extract_promote.resolve_promotable_ingest_run(run_id, root=root)
+        run = runs[run_id]
+        resolved = SimpleNamespace(
+            normalized_recap_path=_component_path(root, run, "source_artifact"),
+            candidate_graph_path=_component_path(root, run, "candidate_graph"),
+            source_span_index_path=_component_path(root, run, "source_span_index"),
+        )
         return SimpleNamespace(run=runs[run_id],
             source_artifact=graph_run_registry.get_source_artifact(root, runs[run_id].source_artifact_id),
             source_bytes=resolved.normalized_recap_path.read_bytes(),
@@ -2176,7 +2181,7 @@ def test_edge_tuple_child_cannot_prepare_while_semantic_hold_is_pending(
         ),
     )
     monkeypatch.setattr(graph_run_registry, "get_extraction_run", lambda _root, run_id: runs[run_id])
-    monkeypatch.setattr(extract_promote, "_candidate_owner_for_locator", lambda _loc: child)
+    monkeypatch.setattr(extract_promote, "load_bound_extraction_run", lambda *a, **k: graph_run_registry.load_reviewable_extraction_data(tmp_path, child.run_id))
     with pytest.raises(extract_promote.ExtractPromoteError, match="semantic review") as held:
         extract_promote.prepare(
             ExtractPromotePrepareRequest(run_id=child.run_id, managed_world_id="managed-world")
@@ -2203,7 +2208,7 @@ def test_v2_hold_and_confirm_binding_guard_world_writer(
         ),
     )
     monkeypatch.setattr(graph_run_registry, "get_extraction_run", lambda _root, run_id: runs[run_id])
-    monkeypatch.setattr(extract_promote, "_candidate_owner_for_locator", lambda _loc: runs[response.run_id])
+    monkeypatch.setattr(extract_promote, "load_bound_extraction_run", lambda *a, **k: graph_run_registry.load_reviewable_extraction_data(tmp_path, response.run_id))
     with pytest.raises(extract_promote.ExtractPromoteError, match="semantic review") as held:
         extract_promote.prepare(ExtractPromotePrepareRequest(run_id=child.run_id, managed_world_id="managed-world"))
     assert held.value.code == "recap_semantic_hold"
@@ -2227,14 +2232,15 @@ def test_v2_hold_and_confirm_binding_guard_world_writer(
         assert binding["derivation"] == service.SOURCE_BINDING_DERIVATION_V11
         assert binding["operation_derivation"] == service.DERIVATION_V2
         assert binding["operation_manifest_schema"] == service.MANIFEST_SCHEMA_V2
-    locator = str(_candidate_path(tmp_path, child))
-    extract_promote._assert_recap_semantics_at_confirm(locator, {"effect": {EFFECT_KEY: binding}})
+    extract_promote._assert_recap_semantics_at_confirm({"effect": {EFFECT_KEY: binding}})
     with pytest.raises(extract_promote.ExtractPromoteError):
-        extract_promote._assert_recap_semantics_at_confirm(locator, {"effect": {EFFECT_KEY: {**binding, "manifest_sha256": "f" * 64}}})
+        extract_promote._assert_recap_semantics_at_confirm({"effect": {EFFECT_KEY: {**binding, "manifest_sha256": "f" * 64}}})
     candidate = _candidate_path(tmp_path, child)
+    # This unit double stores canonical output in its fixture file; changing
+    # those bytes simulates DB corruption, not an operational mirror change.
     candidate.write_bytes(candidate.read_bytes() + b" ")
     with pytest.raises(extract_promote.ExtractPromoteError) as drifted:
-        extract_promote._assert_recap_semantics_at_confirm(locator, {"effect": {EFFECT_KEY: binding}})
+        extract_promote._assert_recap_semantics_at_confirm({"effect": {EFFECT_KEY: binding}})
     assert drifted.value.code == "recap_semantic_hold"
 
 
@@ -3463,10 +3469,7 @@ def test_inherited_pc_proof_survives_held_v9_v7_v8_chain(monkeypatch, tmp_path):
         managed_world_id="managed", native_world_id="invented-world",
         binding_version=1, source_root_relpath="corpus/invented")
     monkeypatch.setattr(extract_promote, "_resolve_publication_target", lambda _: target)
-    monkeypatch.setattr(extract_promote, "_candidate_owner_for_locator", lambda _: runs[v8.run_id])
-    monkeypatch.setattr(extract_promote, "_require_canonical_source_artifact",
-                        lambda _: SimpleNamespace(world_id="invented-world"))
-    monkeypatch.setattr(extract_promote, "assert_sealed_source_uri_allowed", lambda _: None)
+    monkeypatch.setattr(extract_promote, "load_bound_extraction_run", lambda *a, **k: graph_run_registry.load_reviewable_extraction_data(tmp_path, v8.run_id))
     original_review_resolve = extract_promote.resolve_promotable_ingest_run
     def publication_resolve(run_id, **kwargs):
         value = original_review_resolve(run_id, **kwargs)
@@ -3490,8 +3493,7 @@ def test_inherited_pc_proof_survives_held_v9_v7_v8_chain(monkeypatch, tmp_path):
     prepared = extract_promote.prepare(ExtractPromotePrepareRequest(
         run_id=v8.run_id, managed_world_id="managed"))
     assert prepared.review_package["effect"][EFFECT_KEY] == binding
-    locator = str(_candidate_path(tmp_path, accepted))
-    extract_promote._assert_recap_semantics_at_confirm(locator, prepared.review_package)
+    extract_promote._assert_recap_semantics_at_confirm(prepared.review_package)
     from dataclasses import replace
     from apps.live_control_server.models.world_graph_mutation_context import MutationObject
     stale_target = replace(context, objects={"pc:mira": MutationObject(
@@ -3503,7 +3505,7 @@ def test_inherited_pc_proof_survives_held_v9_v7_v8_chain(monkeypatch, tmp_path):
         extract_promote.prepare(ExtractPromotePrepareRequest(
             run_id=v8.run_id, managed_world_id="managed"))
     with pytest.raises(extract_promote.ExtractPromoteError, match="native target"):
-        extract_promote._assert_recap_semantics_at_confirm(locator, prepared.review_package)
+        extract_promote._assert_recap_semantics_at_confirm(prepared.review_package)
     monkeypatch.setattr(world_graph_writes, "load_production_mutation_context", lambda _: context)
 
     # Each forged frozen link must fail at the accepted-effect confirm boundary.
@@ -3528,7 +3530,7 @@ def test_inherited_pc_proof_survives_held_v9_v7_v8_chain(monkeypatch, tmp_path):
             altered_origin.lineage["parent_run_id"] = origin.run_id
         runs[origin.run_id] = altered_origin
         with pytest.raises(extract_promote.ExtractPromoteError):
-            extract_promote._assert_recap_semantics_at_confirm(locator, prepared.review_package)
+            extract_promote._assert_recap_semantics_at_confirm(prepared.review_package)
         runs[origin.run_id] = origin
 
     original_bytes = (_candidate_path(tmp_path, accepted)).read_bytes()
@@ -3537,7 +3539,7 @@ def test_inherited_pc_proof_survives_held_v9_v7_v8_chain(monkeypatch, tmp_path):
     (_candidate_path(tmp_path, accepted)).write_bytes(
         service._canonical_bytes(altered_candidate))
     with pytest.raises(extract_promote.ExtractPromoteError):
-        extract_promote._assert_recap_semantics_at_confirm(locator, prepared.review_package)
+        extract_promote._assert_recap_semantics_at_confirm(prepared.review_package)
     (_candidate_path(tmp_path, accepted)).write_bytes(original_bytes)
 
 
@@ -3683,8 +3685,7 @@ def test_pc_reference_prepare_and_confirm_reprove_current_basis(monkeypatch, tmp
         value.diagnostics = ["resolved via canonical ExtractionRun registry"]
         return value
     monkeypatch.setattr(extract_promote, "resolve_promotable_ingest_run", prepare_resolve)
-    monkeypatch.setattr(extract_promote, "assert_sealed_source_uri_allowed", lambda _: None)
-    monkeypatch.setattr(extract_promote, "_candidate_owner_for_locator", lambda _: child)
+    monkeypatch.setattr(extract_promote, "load_bound_extraction_run", lambda *a, **k: graph_run_registry.load_reviewable_extraction_data(tmp_path, child.run_id))
     monkeypatch.setattr(extract_promote, "_resolve_publication_target", lambda _: VerifiedManagedWorldBinding(
         managed_world_id="managed", native_world_id="invented-world", binding_version=1,
         source_root_relpath="corpus/invented"))
@@ -3704,27 +3705,26 @@ def test_pc_reference_prepare_and_confirm_reprove_current_basis(monkeypatch, tmp
     binding = accepted_effect_binding(child, assessment)
     assert binding["world_id"] == "invented-world"
     assert binding["expected_head_revision_id"] == "rev:head"
-    locator = str(_candidate_path(tmp_path, child))
     effect = {EFFECT_KEY: binding, "world_id": "invented-world", "parent_revision_id": "rev:head"}
-    extract_promote._assert_recap_semantics_at_confirm(locator, {"effect": effect})
+    extract_promote._assert_recap_semantics_at_confirm({"effect": effect})
     with pytest.raises(extract_promote.ExtractPromoteError, match="World or parent head"):
         extract_promote._assert_recap_semantics_at_confirm(
-            locator, {"effect": {**effect, "world_id": "foreign-world"}})
+            {"effect": {**effect, "world_id": "foreign-world"}})
     with pytest.raises(extract_promote.ExtractPromoteError, match="World or parent head"):
         extract_promote._assert_recap_semantics_at_confirm(
-            locator, {"effect": {**effect, "parent_revision_id": "rev:stale"}})
+            {"effect": {**effect, "parent_revision_id": "rev:stale"}})
     stale = replace(context, revision_id="rev:new", head_revision_id="rev:new")
     monkeypatch.setattr(world_graph_writes, "load_production_mutation_context", lambda _: stale)
     with pytest.raises(extract_promote.ExtractPromoteError, match="semantic review"):
         extract_promote.prepare(ExtractPromotePrepareRequest(run_id=child.run_id,
                                                              managed_world_id="managed"))
     with pytest.raises(extract_promote.ExtractPromoteError, match="held"):
-        extract_promote._assert_recap_semantics_at_confirm(locator, {"effect": effect})
+        extract_promote._assert_recap_semantics_at_confirm({"effect": effect})
     monkeypatch.setattr(world_graph_writes, "load_production_mutation_context", lambda _: context)
     registry = tmp_path / body["registry_path"]
     registry.write_text(registry.read_text() + "\n")
     with pytest.raises(extract_promote.ExtractPromoteError, match="held"):
-        extract_promote._assert_recap_semantics_at_confirm(locator, {"effect": effect})
+        extract_promote._assert_recap_semantics_at_confirm({"effect": effect})
 
 
 def _append_fixture(monkeypatch, root, *, actor_recovery=False, actor_prefix="", line_ending="\n"):

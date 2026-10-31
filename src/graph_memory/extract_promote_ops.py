@@ -15,6 +15,7 @@ from typing import Any, Mapping, Sequence
 
 
 from graph_memory.candidate_graph_to_contribution import (
+    verify_source_bytes_revision,
     CandidateGraphMappingError,
     load_typed_candidate_graph,
     verify_source_revision,
@@ -173,6 +174,7 @@ def prepare_extract_promote(
     *,
     candidate_graph: Mapping[str, Any],
     source_uri: str,
+    source_body: bytes,
     authoritative_source_uri: str | None = None,
     source_revision_id: str,
     prepared_by: str,
@@ -238,10 +240,8 @@ def prepare_extract_promote(
         from apps.live_control_server.services.candidate_graph_admission import canonical_candidate_digest
         mutation_context = replace(mutation_context, exact_candidate_sha256=canonical_candidate_digest(candidate_graph))
     package_world_root = str(root) if root is not None else None
-    verified_revision = verify_source_revision(
-        source_uri=source_uri,
-        source_revision_id=source_revision_id,
-        repo_root=repo_root,
+    verified_revision = verify_source_bytes_revision(
+        source_body=source_body, source_revision_id=source_revision_id,
         disclose_computed_digest=disclose_source_digest,
     )
     if preview.nodes:

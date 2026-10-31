@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import asyncio
 import json
-import hashlib
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -251,6 +250,23 @@ def test_held_prepare_rejects_before_candidate_admission(
     assert error.value.status_code == 409
 
 
+
+def _mock_bound_data(monkeypatch, child):
+    """Storage double for semantic guard tests; real binding tests use APP PG."""
+    from apps.live_control_server.services.promotable_ingest_run import PromotableIngestRunError
+    data = SimpleNamespace(run=child,
+        source_artifact=SimpleNamespace(content_sha256="a" * 64),
+        source_bytes=b"source", candidate_bytes=b"{}", span_index=object())
+    def load(*args, **kwargs):
+        if child.status != ExtractionRunStatus.REVIEWABLE or child.source_domain != "recap":
+            raise PromotableIngestRunError("run changed", code="candidate_binding_invalid", status_code=409)
+        return data
+    monkeypatch.setattr(extract_promote, "load_bound_extraction_run", load)
+    monkeypatch.setattr(extract_promote, "_assert_candidate_scope_matches_run", lambda *a, **k: None)
+    monkeypatch.setattr(extract_promote, "_assert_and_project_candidate_evidence", lambda *a, **k: None)
+    return data
+
+
 def test_accepted_prepare_seals_exact_semantic_binding(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
@@ -271,10 +287,10 @@ def test_accepted_prepare_seals_exact_semantic_binding(
         sealed_source_uri="repo://source.md", extraction_profile="recap_category_v1@1.0",
         registry_context_graph_path=None, diagnostics=[], source_domain="recap",
     )
+    resolved.data = _mock_bound_data(monkeypatch, child)
+    monkeypatch.setattr(extract_promote, "seal_extraction_run", lambda package, data: package)
     monkeypatch.setattr(extract_promote, "resolve_promotable_ingest_run", lambda *_a, **_k: resolved)
     monkeypatch.setattr(graph_run_registry, "get_extraction_run", lambda _root, run_id: {"parent": parent, "child": child}[run_id])
-    monkeypatch.setattr(extract_promote, "assert_sealed_source_uri_allowed", lambda _uri: None)
-    monkeypatch.setattr(extract_promote, "_require_canonical_source_artifact", lambda _id: object())
     from apps.live_control_server import config
     from apps.live_control_server.integrations.dungeonmind import world_graph_writes
 
@@ -527,7 +543,7 @@ def test_confirm_never_reaches_world_writer_for_held_or_changed_child(
     if case == "domain_drift":
         child.source_domain = "worldbuilding"
         child.session_id = None
-    monkeypatch.setattr(extract_promote, "_candidate_owner_for_locator", lambda _loc: child)
+    _mock_bound_data(monkeypatch, child)
     monkeypatch.setattr(extract_promote, "resolve_promotable_ingest_run", lambda *_a, **_k: resolved)
     def get_run(_root, run_id):
         if case == "missing_parent" and run_id == "parent":
@@ -577,7 +593,7 @@ def test_exact_accepted_child_reaches_governed_writer_once(
         run_id=child.run_id, source_revision_id="a" * 64,
         source_span_index_path=tmp_path / "spans.json", candidate_graph_path=candidate,
     )
-    monkeypatch.setattr(extract_promote, "_candidate_owner_for_locator", lambda _loc: child)
+    _mock_bound_data(monkeypatch, child)
     monkeypatch.setattr(extract_promote, "resolve_promotable_ingest_run", lambda *_a, **_k: resolved)
     monkeypatch.setattr(graph_run_registry, "get_extraction_run", lambda _root, run_id: {"parent": parent, "child": child}[run_id])
     from apps.live_control_server import config
@@ -599,36 +615,6 @@ def test_exact_accepted_child_reaches_governed_writer_once(
     assert calls == ["write"]
 
 
-def test_confirm_candidate_owner_uses_exact_uri_and_bytes_not_path_identity(
-    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
-) -> None:
-    from application_state.ingest import service as ingest_service
-
-    parent, child = _runs()
-    candidate = tmp_path / "out" / "candidate.json"
-    candidate.parent.mkdir()
-    candidate.write_bytes(b'{"nodes":[]}')
-    digest = hashlib.sha256(candidate.read_bytes()).hexdigest()
-    child.components["candidate_graph"].sha256 = digest
-    seen = []
-
-    def lookup(*, uri, sha256):
-        seen.append((uri, sha256))
-        return ingest_service.CandidateRunLookup(
-            "unique", child
-        ) if uri == "repo://out/candidate.json" and sha256 == digest else ingest_service.CandidateRunLookup("not_found")
-
-    monkeypatch.setattr(extract_promote, "repo_root", lambda: tmp_path)
-    monkeypatch.setattr(ingest_service, "lookup_extraction_run_by_candidate_component", lookup)
-    assert extract_promote._candidate_owner_for_locator(str(candidate)).run_id == child.run_id
-    assert seen == [("out/candidate.json", digest), ("repo://out/candidate.json", digest)]
-    assert parent.run_id != child.run_id
-    unmatched = tmp_path / "out" / "graph_memory" / "derived_candidates" / "child" / "candidate_graph.json"
-    unmatched.parent.mkdir(parents=True)
-    unmatched.write_text("{}")
-    with pytest.raises(extract_promote.ExtractPromoteError) as error:
-        extract_promote._candidate_owner_for_locator(str(unmatched))
-    assert error.value.code == "candidate_binding_invalid"
 
 
 def test_semantic_decision_route_requires_gm_and_owns_reviewer(
