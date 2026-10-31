@@ -261,7 +261,7 @@ def test_selected_own_overflow_and_unavailable_preserve_truthful_coverage():
             assert search.result.nodes[0].evidence_ref_ids
 
 
-def test_mounted_recap_context_v2_only_routes_and_auth(monkeypatch,tmp_path):
+def test_mounted_recap_context_v2_only_routes_and_auth(monkeypatch,tmp_path,application_state_dsn):
     import asyncio
     import httpx
     from fastapi import FastAPI

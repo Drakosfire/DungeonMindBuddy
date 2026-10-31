@@ -49,8 +49,9 @@ Field classification (handoff §5.7)
   title/uri/excerpt and anchor content. Generic World projection does not
   hydrate source text. Historical recap projection explicitly overlays excerpts from
   already-loaded APP-STATE ``source.revision`` bytes using
-  ``extract_span_from_revision_bound_text``. Anchor reads still verify
-  parent bytes against the DungeonMind source revision digest.
+  ``extract_span_from_revision_bound_text``. Anchor reads serve only supported
+  admitted spans from exact database bodies matching the DungeonMind revision
+  digest. Retired heading/JSON file locators remain unreadable metadata.
 * D (retired): ``external_resource``, ``threat_statblock_binding``,
   ``statblock_binding``, ``active_contribution_ids`` — Buddy-only
   hydration-era payloads the DungeonMind authority snapshot intentionally
@@ -169,15 +170,6 @@ from graph_memory.retrieval.models import (
     RecapContextDescriptorV2,
     RecapContextIndexResultV2,
     RecapContextReadResultV2,
-)
-from graph_memory.retrieval.source_reader import (
-    SourceReadError,
-    parse_graph_data_uri,
-    parse_heading_locator,
-    parse_json_pointer_locator,
-    parse_repo_uri,
-    read_graph_data_json_pointer_anchor,
-    read_repo_heading_anchor,
 )
 from graph_memory.retrieval.errors import WorldGraphRetrievalError
 from apps.live_control_server.models.world_graph_object_projection import (
@@ -1771,26 +1763,14 @@ def _product_source_span_ref_id(anchor: SourceAnchorMetadata) -> str | None:
 
 
 def _classify_locator_kind(anchor: SourceAnchorMetadata) -> str:
+    """Only supported admitted DB spans are readable; a URI grants no authority."""
     domain = str(getattr(anchor.evidence, "source_domain", "") or "")
-    span = (anchor.source_span_ref_id or "").strip()
-    # Locator shape identifies the admitted span format. Source-span bodies
-    # are read from exact APP storage; repo:// is not file-read authority.
-    if domain == "worldbuilding" and span:
+    if domain == "worldbuilding" and (anchor.source_span_ref_id or "").strip():
         return "source_span"
-    uri = getattr(anchor.artifact, "uri", None) or ""
-    locator = anchor.locator_identity or ""
-    if parse_repo_uri(uri) is not None and parse_heading_locator(locator) is not None:
-        return "heading"
-    if parse_graph_data_uri(uri) is not None and parse_json_pointer_locator(locator) is not None:
-        return "json_pointer"
-    recap_span = _product_source_span_ref_id(anchor)
-    if recap_span and parse_repo_uri(uri) is not None and (
-        domain not in _RECAP_SOURCE_DOMAINS
-        or _supported_recap_span_identity(recap_span) is not None
-    ):
-        return "source_span"
-    if span and domain not in _RECAP_SOURCE_DOMAINS and parse_repo_uri(uri) is not None:
-        return "source_span"
+    if domain in _RECAP_SOURCE_DOMAINS:
+        span = _product_source_span_ref_id(anchor)
+        if span and _supported_recap_span_identity(span) is not None:
+            return "source_span"
     return "unsupported"
 
 
@@ -3284,7 +3264,7 @@ def _anchor_read_view(
         locator_kind=locator_kind,
         trust_boundary=_retrieval_trust_boundary(),
     )
-    if not anchor.can_open_source or locator_kind == "unsupported":
+    if not anchor.can_open_source or locator_kind != "source_span":
         return WorldGraphSourceAnchorReadResult(
             outcome="partial",
             diagnostics=[
@@ -3299,143 +3279,49 @@ def _anchor_read_view(
             truncated=False,
             **base,
         )
-    if locator_kind == "source_span":
-        # Both joins use exact APP bodies after DungeonMind revalidation.
-        # Worldbuilding additionally checks its workspace/span-index lineage.
-        domain = str(getattr(anchor.evidence, "source_domain", "") or "")
-        if domain == "worldbuilding":
-            from apps.live_control_server.services.worldbuilding_source_span_read import (
-                read_admitted_worldbuilding_span,
-            )
+    # Both joins use exact APP bodies after DungeonMind revalidation.
+    # Worldbuilding additionally checks its workspace/span-index lineage.
+    domain = str(getattr(anchor.evidence, "source_domain", "") or "")
+    if domain == "worldbuilding":
+        from apps.live_control_server.services.worldbuilding_source_span_read import (
+            read_admitted_worldbuilding_span,
+        )
 
-            digest = revision_digest
-            try:
-                return read_admitted_worldbuilding_span(
-                    root=repo_root,
-                    source_artifact_id=anchor.source_artifact_id,
-                    source_span_ref_id=str(product_span),
-                    graph_content_sha256=digest,
-                    max_chars=request.max_chars,
-                    anchor_id=request.anchor_id,
-                    evidence_ref_id=anchor.evidence_ref_id,
-                    snapshot=snapshot,
-                    graph_artifact=None,
-                    _source_batch=source_batch,
-                )
-            except WorldGraphRetrievalError as exc:
-                return WorldGraphSourceAnchorReadResult(
-                    outcome="unavailable",
-                    diagnostics=[
-                        WorldGraphRetrievalDiagnostic(
-                            code=getattr(exc, "code", None) or "source_unavailable",
-                            message=str(exc),
-                            severity="warning",
-                        )
-                    ],
-                    truncated=False,
-                    **base,
-                )
-        return _read_admitted_source_span(
-            services,
-            anchor,
-            request=request,
-            repo_root=repo_root,
-            base=base,
-            revision_digest=revision_digest,
-        )
-    digest = revision_digest
-    if digest is None:
-        raise DirectWorldGraphReadError(
-            "Source artifact is missing a revision-bound content digest.",
-            code="source_integrity_error",
-            status_code=409,
-        )
-    uri = getattr(anchor.artifact, "uri", None) or ""
-    try:
-        if locator_kind == "heading":
-            relative_path = parse_repo_uri(uri)
-            heading_text = parse_heading_locator(anchor.locator_identity or "")
-            if relative_path is None or heading_text is None:
-                raise DirectWorldGraphReadError(
-                    "Heading anchor URI/locator no longer matches the expected "
-                    "repo:// + heading: shape.",
-                    code="projection_integrity_error",
-                    status_code=409,
-                )
-            outcome = read_repo_heading_anchor(
-                repo_root=repo_root,
-                relative_path=relative_path,
-                heading_text=heading_text,
-                expected_content_sha256=digest,
+        digest = revision_digest
+        try:
+            return read_admitted_worldbuilding_span(
+                root=repo_root,
+                source_artifact_id=anchor.source_artifact_id,
+                source_span_ref_id=str(product_span),
+                graph_content_sha256=digest,
                 max_chars=request.max_chars,
+                anchor_id=request.anchor_id,
+                evidence_ref_id=anchor.evidence_ref_id,
+                snapshot=snapshot,
+                graph_artifact=None,
+                _source_batch=source_batch,
             )
-        else:  # json_pointer
-            relative_path = parse_graph_data_uri(uri)
-            json_pointer = parse_json_pointer_locator(anchor.locator_identity or "")
-            if relative_path is None or json_pointer is None:
-                raise DirectWorldGraphReadError(
-                    "JSON-pointer anchor locator no longer matches the expected "
-                    "graph-data:// + jsonptr: shape.",
-                    code="projection_integrity_error",
-                    status_code=409,
-                )
-            payload = _read_verified_json_file(
-                repo_root / relative_path, expected_content_sha256=digest
+        except WorldGraphRetrievalError as exc:
+            return WorldGraphSourceAnchorReadResult(
+                outcome="unavailable",
+                diagnostics=[
+                    WorldGraphRetrievalDiagnostic(
+                        code=getattr(exc, "code", None) or "source_unavailable",
+                        message=str(exc),
+                        severity="warning",
+                    )
+                ],
+                truncated=False,
+                **base,
             )
-            outcome = read_graph_data_json_pointer_anchor(
-                contribution_payload=payload,
-                json_pointer=json_pointer,
-                max_chars=request.max_chars,
-            )
-    except SourceReadError as exc:
-        return WorldGraphSourceAnchorReadResult(
-            outcome="unavailable",
-            diagnostics=[
-                WorldGraphRetrievalDiagnostic(
-                    code="source_unavailable",
-                    message=str(exc),
-                    severity="warning",
-                )
-            ],
-            truncated=False,
-            **base,
-        )
-    return WorldGraphSourceAnchorReadResult(
-        outcome="enough",
-        diagnostics=[],
-        media_type=outcome.media_type,
-        content=outcome.content,
-        content_sha256=outcome.content_sha256,
-        line_start=outcome.line_start,
-        line_end=outcome.line_end,
-        truncated=bool(outcome.truncated),
-        **base,
+    return _read_admitted_source_span(
+        services,
+        anchor,
+        request=request,
+        repo_root=repo_root,
+        base=base,
+        revision_digest=revision_digest,
     )
-
-
-def _read_verified_json_file(
-    path: Path,
-    *,
-    expected_content_sha256: str,
-) -> dict[str, Any]:
-    """Read a product-local JSON file pinned to the DungeonMind digest."""
-    try:
-        raw = path.read_bytes()
-    except OSError as exc:
-        raise SourceReadError(f"source file unavailable: {exc}", code="source_unavailable") from exc
-    actual = hashlib.sha256(raw).hexdigest()
-    if actual != expected_content_sha256:
-        raise SourceReadError(
-            "source file content does not match the DungeonMind revision digest",
-            code="source_integrity_error",
-        )
-    try:
-        payload = json.loads(raw.decode("utf-8"))
-    except (UnicodeDecodeError, json.JSONDecodeError) as exc:
-        raise SourceReadError(f"source file is not valid JSON: {exc}", code="source_integrity_error") from exc
-    if not isinstance(payload, dict):
-        raise SourceReadError("source file JSON payload is not an object", code="source_integrity_error")
-    return payload
 
 
 def _recap_context_view_v2(native: Any) -> RecapContextDescriptorV2:

@@ -1,4 +1,3 @@
-import hashlib
 import json
 import os
 import subprocess
@@ -26,8 +25,6 @@ from apps.live_control_server.services.tiptap_markdown_write import (
     commit_tiptap_markdown_write,
 )
 from graph_memory.ingestion.extraction_run import (
-    ExtractionRunComponentRef,
-    ExtractionRunComponentKind,
     ExtractionRunStatus,
 )
 from graph_memory.retrieval.errors import WorldGraphRetrievalError
@@ -94,27 +91,6 @@ def fixture_source(root, monkeypatch):
     (directory / "source.md").write_bytes(original)
     index_bytes = source_span_index_path(root, artifact.source_artifact_id).read_bytes()
     (directory / "spans.json").write_bytes(index_bytes)
-    (directory / "candidate.json").write_text('{"nodes":[],"edges":[]}')
-    components = {
-        kind.value: ExtractionRunComponentRef(
-            kind=kind,
-            uri="repo://" + str(path.relative_to(root)),
-            sha256=hashlib.sha256(path.read_bytes()).hexdigest(),
-        )
-        for kind, path in [
-            (ExtractionRunComponentKind.SOURCE_ARTIFACT, directory / "source.md"),
-            (ExtractionRunComponentKind.SOURCE_SPAN_INDEX, directory / "spans.json"),
-            (ExtractionRunComponentKind.CANDIDATE_GRAPH, directory / "candidate.json"),
-        ]
-    }
-    runs.create_extraction_run(
-        root,
-        source_artifact_id=artifact.source_artifact_id,
-        source_domain="worldbuilding",
-        campaign_id=artifact.campaign_id,
-        components=components,
-        status=ExtractionRunStatus.REVIEWABLE,
-    )
     return (
         doc,
         artifact,
@@ -161,7 +137,7 @@ def test_registered_historical_passage_after_real_save(
     assert durable.session_id is None
     assert durable.world_id == artifact.world_id
 
-    # Re-adopting the same exact source through a later run is idempotent.
+    # Opening a run does not duplicate the exact registered source.
     runs.create_extraction_run(
         tmp_path,
         source_artifact_id=artifact.source_artifact_id,

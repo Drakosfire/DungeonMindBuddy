@@ -22,12 +22,12 @@ ARTIFACT = "src:one-recap"
 URI = "repo://corpus/world_lore.md"
 
 
-def _fixture():
+def _fixture(*, uri=URI):
     sources = InMemorySourceRepository()
     original = _seed_sources()
     sources.put_artifact(original.get_artifact(ARTIFACT).model_copy(update={
         "source_domain_key":"buddy.recap", "source_domain":SourceDomain.SESSION_RECAP,
-        "session_id":"session-9"}))
+        "session_id":"session-9", "uri":uri}))
     sources.put_revision(original.get_revision("srcrev:one-recap-v1"))
     payload = _payload()
     payload["objects"] = payload["objects"][:1]
@@ -36,7 +36,7 @@ def _fixture():
     row = payload["evidence_refs"][0]
     span = "session-9:recap:paragraph:002"
     row.update(source_domain="session_recap", source_domain_key="buddy.recap",
-        source_span_ref_id=span, locator=span, uri=URI, can_highlight_span=True)
+        source_span_ref_id=span, locator=span, uri=uri, can_highlight_span=True)
     payload["evidence_refs"] = [row]
     graphs = InMemoryWorldGraphRepository()
     result = graphs.publish_revision(PublishRevisionCommand(
@@ -111,3 +111,23 @@ def test_native_anchor_revision_and_campaign_checks_still_precede_body_read(tmp_
     with pytest.raises(direct.DirectWorldGraphReadError):
         direct.read_source_anchor_direct(services, stale, repo_root=tmp_path)
     assert calls == []
+
+
+@pytest.mark.parametrize("uri", ["source://retained/recap", "https://example.invalid/original", "repo://../never-open.md", "graph-data://never-open.json"])
+@pytest.mark.parametrize("missing_body", [False, True])
+def test_admitted_span_identity_uses_db_bytes_not_uri_shape(tmp_path, monkeypatch, uri, missing_body):
+    from pathlib import Path
+    services, request = _fixture(uri=uri)
+    if not missing_body:
+        _persist(tmp_path)
+    with monkeypatch.context() as guard:
+        guard.setattr(Path, "open", lambda *a, **k: pytest.fail("admitted span opened its URI"))
+        result = direct.read_source_anchor_direct(services, request, repo_root=tmp_path)
+        batch = direct.read_source_anchors_direct_v2(services, (request,), repo_root=tmp_path)[0]
+    assert result.locator_kind == batch.locator_kind == "source_span"
+    if missing_body:
+        assert result.outcome == batch.result.outcome == "unavailable"
+        assert result.content is None and batch.result.content is None
+    else:
+        assert result.content == batch.result.content == "The Prancing Tavern at the crossroads."
+        assert result.content_sha256 == batch.source_revision_sha256 == ANCHOR_CONTENT_DIGEST
