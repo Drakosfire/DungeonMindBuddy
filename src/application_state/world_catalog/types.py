@@ -193,5 +193,3 @@ class WorldContainerRegistryDocument(BaseModel):
         if len(operations) != len(set(operations)):
             raise ValueError("a provisioning operation belongs to only one managed World")
         return self
-
-
