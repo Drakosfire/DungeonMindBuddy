@@ -482,6 +482,139 @@ def _candidate_quote_occurrences(*, candidate_payload: dict[str, Any], source_pr
                             "diagnostic": "false_anchor_quote", "reference": ref})
     return failures
 
+def project_candidate_record_evidence(
+    *,
+    assertion_id: str,
+    kind: str,
+    label: str,
+    summary: str,
+    evidence_refs: Any,
+    source_prose: str,
+    source_artifact_id: str,
+    span_index: Any,
+    inspect_false_anchor_quotes: bool = False,
+) -> ExactRunReviewAssertion:
+    """Shared exact source/span/quote projection for one candidate record."""
+    from graph_memory.anchor_quotes import find_anchor_quote_matches
+
+    span_by_id = {span.source_span_id: span for span in span_index.spans}
+    source_lines = source_prose.splitlines()
+    expected_artifact = (source_artifact_id or "").strip()
+    if not evidence_refs:
+        raise ExtractPromoteError(
+            f"assertion {assertion_id!r} is missing evidence_refs",
+            code="run_not_promotable",
+            status_code=422,
+            diagnostics=[
+                _diagnostic("missing_evidence", f"assertion={assertion_id}"),
+            ],
+        )
+    projected: list[ExactRunReviewEvidence] = []
+    for index, ref in enumerate(evidence_refs):
+        span_id = str(getattr(ref, "source_span_ref_id", "") or "").strip()
+        artifact_id = str(getattr(ref, "source_artifact_id", "") or "").strip()
+        if not span_id:
+            raise ExtractPromoteError(
+                f"assertion {assertion_id!r} evidence[{index}] missing source_span_ref_id",
+                code="run_not_promotable",
+                status_code=422,
+                diagnostics=[
+                    _diagnostic(
+                        "missing_span_ref",
+                        f"assertion={assertion_id} evidence_index={index}",
+                    )
+                ],
+            )
+        if artifact_id != expected_artifact:
+            raise ExtractPromoteError(
+                f"assertion {assertion_id!r} evidence[{index}] source_artifact_id "
+                f"does not match the run SourceArtifact",
+                code="run_not_promotable",
+                status_code=422,
+                diagnostics=[
+                    _diagnostic(
+                        "source_artifact_mismatch", artifact_id or "<missing>"
+                    ),
+                    _diagnostic("run_source_artifact", expected_artifact),
+                ],
+            )
+        span = span_by_id.get(span_id)
+        if span is None:
+            raise ExtractPromoteError(
+                f"assertion {assertion_id!r} evidence[{index}] references unknown "
+                f"source_span_ref_id {span_id!r}",
+                code="run_not_promotable",
+                status_code=422,
+                diagnostics=[
+                    _diagnostic("unknown_span_ref", span_id),
+                    _diagnostic("assertion", assertion_id),
+                ],
+            )
+        paragraph = _paragraph_for_span(
+            source_lines,
+            start_line=int(span.start_line),
+            end_line=int(span.end_line),
+        ).strip()
+        if not paragraph:
+            raise ExtractPromoteError(
+                f"assertion {assertion_id!r} evidence[{index}] span resolves to "
+                "empty source content",
+                code="run_not_promotable",
+                status_code=422,
+                diagnostics=[
+                    _diagnostic("empty_span_content", span_id),
+                ],
+            )
+        raw_quotes = [
+            str(item).strip()
+            for item in (getattr(ref, "anchor_quotes", None) or [])
+            if str(item).strip()
+        ]
+        if not raw_quotes:
+            raise ExtractPromoteError(
+                f"assertion {assertion_id!r} evidence[{index}] is missing anchor_quotes",
+                code="run_not_promotable",
+                status_code=422,
+                diagnostics=[
+                    _diagnostic("missing_anchor_quotes", span_id),
+                ],
+            )
+        invalid_quotes: list[str] = []
+        for quote in raw_quotes:
+            if not find_anchor_quote_matches(paragraph, [quote]):
+                if inspect_false_anchor_quotes:
+                    invalid_quotes.append(quote)
+                    continue
+                raise ExtractPromoteError(
+                    f"assertion {assertion_id!r} evidence[{index}] anchor quote "
+                    "does not occur in the canonical span paragraph",
+                    code="run_not_promotable",
+                    status_code=422,
+                    diagnostics=[
+                        _diagnostic("false_anchor_quote", quote[:120]),
+                        _diagnostic("span_ref", span_id),
+                    ],
+                )
+        projected.append(
+            ExactRunReviewEvidence(
+                source_artifact_id=artifact_id,
+                source_span_ref_id=span_id,
+                paragraph_text=paragraph,
+                anchor_quotes=raw_quotes,
+                invalid_anchor_quotes=invalid_quotes,
+                start_line=int(span.start_line),
+                end_line=int(span.end_line),
+            )
+        )
+    return ExactRunReviewAssertion(
+        assertion_id=assertion_id,
+        kind=kind,  # type: ignore[arg-type]
+        label=label,
+        summary=summary,
+        evidence=projected,
+    )
+
+
 def _assert_and_project_candidate_evidence(
     *,
     candidate_payload: dict[str, Any],
@@ -498,7 +631,6 @@ def _assert_and_project_candidate_evidence(
     evidence ref to resolve against the span index + SourceArtifact, and verifies
     anchor quotes against canonical source paragraph bytes.
     """
-    from graph_memory.anchor_quotes import find_anchor_quote_matches
     from apps.live_control_server.services.candidate_graph_admission import (
         validate_candidate_document_integrity,
     )
@@ -520,134 +652,15 @@ def _assert_and_project_candidate_evidence(
         ) from exc
 
 
-    span_by_id = {span.source_span_id: span for span in span_index.spans}
-    source_lines = source_prose.splitlines()
-    expected_artifact = (source_artifact_id or "").strip()
     assertions: list[ExactRunReviewAssertion] = []
 
 
-    def _project_holder(
-        *,
-        assertion_id: str,
-        kind: str,
-        label: str,
-        summary: str,
-        evidence_refs: Any,
-    ) -> ExactRunReviewAssertion:
-        if not evidence_refs:
-            raise ExtractPromoteError(
-                f"assertion {assertion_id!r} is missing evidence_refs",
-                code="run_not_promotable",
-                status_code=422,
-                diagnostics=[
-                    _diagnostic("missing_evidence", f"assertion={assertion_id}"),
-                ],
-            )
-        projected: list[ExactRunReviewEvidence] = []
-        for index, ref in enumerate(evidence_refs):
-            span_id = str(getattr(ref, "source_span_ref_id", "") or "").strip()
-            artifact_id = str(getattr(ref, "source_artifact_id", "") or "").strip()
-            if not span_id:
-                raise ExtractPromoteError(
-                    f"assertion {assertion_id!r} evidence[{index}] missing source_span_ref_id",
-                    code="run_not_promotable",
-                    status_code=422,
-                    diagnostics=[
-                        _diagnostic(
-                            "missing_span_ref",
-                            f"assertion={assertion_id} evidence_index={index}",
-                        )
-                    ],
-                )
-            if artifact_id != expected_artifact:
-                raise ExtractPromoteError(
-                    f"assertion {assertion_id!r} evidence[{index}] source_artifact_id "
-                    f"does not match the run SourceArtifact",
-                    code="run_not_promotable",
-                    status_code=422,
-                    diagnostics=[
-                        _diagnostic(
-                            "source_artifact_mismatch", artifact_id or "<missing>"
-                        ),
-                        _diagnostic("run_source_artifact", expected_artifact),
-                    ],
-                )
-            span = span_by_id.get(span_id)
-            if span is None:
-                raise ExtractPromoteError(
-                    f"assertion {assertion_id!r} evidence[{index}] references unknown "
-                    f"source_span_ref_id {span_id!r}",
-                    code="run_not_promotable",
-                    status_code=422,
-                    diagnostics=[
-                        _diagnostic("unknown_span_ref", span_id),
-                        _diagnostic("assertion", assertion_id),
-                    ],
-                )
-            paragraph = _paragraph_for_span(
-                source_lines,
-                start_line=int(span.start_line),
-                end_line=int(span.end_line),
-            ).strip()
-            if not paragraph:
-                raise ExtractPromoteError(
-                    f"assertion {assertion_id!r} evidence[{index}] span resolves to "
-                    "empty source content",
-                    code="run_not_promotable",
-                    status_code=422,
-                    diagnostics=[
-                        _diagnostic("empty_span_content", span_id),
-                    ],
-                )
-            raw_quotes = [
-                str(item).strip()
-                for item in (getattr(ref, "anchor_quotes", None) or [])
-                if str(item).strip()
-            ]
-            if not raw_quotes:
-                raise ExtractPromoteError(
-                    f"assertion {assertion_id!r} evidence[{index}] is missing anchor_quotes",
-                    code="run_not_promotable",
-                    status_code=422,
-                    diagnostics=[
-                        _diagnostic("missing_anchor_quotes", span_id),
-                    ],
-                )
-            invalid_quotes: list[str] = []
-            for quote in raw_quotes:
-                if not find_anchor_quote_matches(paragraph, [quote]):
-                    if inspect_false_anchor_quotes:
-                        invalid_quotes.append(quote)
-                        continue
-                    raise ExtractPromoteError(
-                        f"assertion {assertion_id!r} evidence[{index}] anchor quote "
-                        "does not occur in the canonical span paragraph",
-                        code="run_not_promotable",
-                        status_code=422,
-                        diagnostics=[
-                            _diagnostic("false_anchor_quote", quote[:120]),
-                            _diagnostic("span_ref", span_id),
-                        ],
-                    )
-            projected.append(
-                ExactRunReviewEvidence(
-                    source_artifact_id=artifact_id,
-                    source_span_ref_id=span_id,
-                    paragraph_text=paragraph,
-                    anchor_quotes=raw_quotes,
-                    invalid_anchor_quotes=invalid_quotes,
-                    start_line=int(span.start_line),
-                    end_line=int(span.end_line),
-                )
-            )
-        return ExactRunReviewAssertion(
-            assertion_id=assertion_id,
-            kind=kind,  # type: ignore[arg-type]
-            label=label,
-            summary=summary,
-            evidence=projected,
+    def _project_holder(**holder) -> ExactRunReviewAssertion:
+        return project_candidate_record_evidence(
+            **holder, source_prose=source_prose,
+            source_artifact_id=source_artifact_id, span_index=span_index,
+            inspect_false_anchor_quotes=inspect_false_anchor_quotes,
         )
-
 
     for node in typed.nodes:
         node_id = str(node.node_id or "").strip()
