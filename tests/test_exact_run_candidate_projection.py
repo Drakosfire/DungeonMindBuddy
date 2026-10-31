@@ -177,6 +177,12 @@ def test_actual_production_run_reads_all_local_candidates_without_mutation(
 def test_exact_database_component_drift_rejected(produced, application_state_dsn, component, violation):
     import psycopg
     root, _, run = produced
+    from apps.live_control_server.services.graph_run_registry import load_reviewable_extraction_data
+    data = load_reviewable_extraction_data(root, run.run_id)
+    # Deliberately create untrusted file copies spelling even opaque locators.
+    # A naive locator-as-path reader would accept these; the database owner must not.
+    for name, raw in (("candidate_graph", data.candidate_bytes), ("source_span_index", data.span_bytes)):
+        (root / run.components[name].uri.removeprefix("repo://")).write_bytes(raw)
     with psycopg.connect(application_state_dsn) as conn:
         if component == "source_artifact":
             if violation == "missing":
@@ -207,7 +213,7 @@ def test_operational_mirror_cannot_change_candidate_projection(produced, compone
     if mode == "symlink":
         copy = root / "untrusted-mirror.json"
         copy.write_bytes(b"Not the registered source or output")
-        path.unlink()
+        path.unlink(missing_ok=True)
         path.symlink_to(copy)
     else:
         path.write_bytes(b"corrupt operational mirror")
@@ -654,7 +660,7 @@ def test_http_candidate_reader_reopens_database_after_mirror_loss(produced, monk
         run = registry.update_extraction_run_status(root,run.run_id,
             expected_revision=run.revision,status=registry.ExtractionRunStatus.PROMOTED)
     for kind in ('source_artifact','source_span_index','candidate_graph'):
-        (root / run.components[kind].uri.removeprefix('repo://')).unlink()
+        (root / run.components[kind].uri.removeprefix('repo://')).unlink(missing_ok=True)
     monkeypatch.setattr(graph_preview,'repo_root',lambda:root)
     monkeypatch.setenv('DMB_AGENT_GRAPH_AUTH_MODE','local_operator')
     monkeypatch.setenv('DMB_AGENT_GRAPH_AUTH_ENVIRONMENT','local')

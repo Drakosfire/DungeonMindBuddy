@@ -107,11 +107,8 @@ def _repo_uri(repo_root: Path, path: Path) -> str:
     return f"repo://{relpath}"
 
 
-def _write_json(path: Path, payload: Mapping[str, Any]) -> bytes:
-    data = (json.dumps(payload, indent=2, sort_keys=True) + "\n").encode("utf-8")
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_bytes(data)
-    return data
+def _json_bytes(payload: Mapping[str, Any]) -> bytes:
+    return (json.dumps(payload, indent=2, sort_keys=True) + "\n").encode("utf-8")
 
 
 def _component(
@@ -290,8 +287,7 @@ def _build_prepared_components(
         text=source.source_text,
     )
     span_payload = source_span_index_to_dict(index)
-    span_path = output_dir / "source_span_index.json"
-    span_data = _write_json(span_path, span_payload)
+    span_data = _json_bytes(span_payload)
     components = {
         "source_artifact": _component(
             ExtractionRunComponentKind.SOURCE_ARTIFACT,
@@ -300,7 +296,7 @@ def _build_prepared_components(
         ),
         "source_span_index": _component(
             ExtractionRunComponentKind.SOURCE_SPAN_INDEX,
-            uri=_repo_uri(repo_root, span_path),
+            uri=f"urn:dmb:ingest-output:{run.run_id}:source_span_index",
             run=run, data=span_data,
         ),
     }
@@ -606,22 +602,20 @@ def run_production_extraction(
         "consolidation_diagnostics": diagnostics_ref,
     }
 
-    candidate_path = output_dir / "candidate_graph.json"
-    candidate_data = _write_json(candidate_path, candidate_graph)
+    candidate_data = _json_bytes(candidate_graph)
     components = {
         **components,
         "candidate_graph": _component(
             ExtractionRunComponentKind.CANDIDATE_GRAPH,
-            uri=_repo_uri(request.repo_root, candidate_path),
+            uri=f"urn:dmb:ingest-output:{prepared.run_id}:candidate_graph",
             run=prepared, data=candidate_data,
         ),
     }
     if extraction.known_entity_mentions is not None:
-        mention_path = output_dir / "known_entity_mentions.json"
-        mention_data = _write_json(mention_path, extraction.known_entity_mentions)
+        mention_data = _json_bytes(extraction.known_entity_mentions)
         components[ExtractionRunComponentKind.PROVENANCE_INDEX.value] = _component(
             ExtractionRunComponentKind.PROVENANCE_INDEX,
-            uri=_repo_uri(request.repo_root, mention_path),
+            uri=f"urn:dmb:ingest-output:{prepared.run_id}:provenance_index",
             run=prepared, data=mention_data,
         )
     extracted = _advance_run(
