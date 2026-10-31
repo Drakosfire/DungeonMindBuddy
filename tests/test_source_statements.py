@@ -835,3 +835,18 @@ def test_original_signed_statement_recovers_unchanged_after_extension(extension_
     assert lane.repo.get_head(lane.world.world_id) == head
 
 pytestmark = pytest.mark.usefixtures("application_state_dsn")
+
+
+@pytest.mark.parametrize('fault', ['missing-field', 'wrong-tag', 'foreign-codec', 'primitive-operation'])
+def test_current_prepared_transport_keeps_closed_types(lane, fault):
+    value = deepcopy(packet(lane).prepared)
+    if fault == 'missing-field':
+        value['value']['fields'].pop('_domain_contract_json')
+    elif fault == 'wrong-tag':
+        value['value']['fields']['prepared_operations']['items'][0]['type'] = 'CreateRelationship'
+    elif fault == 'foreign-codec':
+        value['schema'] = 'unrecognized-prepared-codec'
+    else:
+        value['value']['fields']['prepared_operations']['items'][0] = 'not-an-operation'
+    with pytest.raises(ValueError):
+        transport.decode_prepared(value)

@@ -1,4 +1,4 @@
-"""Lossless, closed WK transport and the narrow dossier standing intent."""
+"""Lossless, closed WorldKeeper transport for current reviewed publication."""
 
 from __future__ import annotations
 
@@ -13,6 +13,7 @@ from typing import get_args, get_origin, get_type_hints, Union
 from worldkeeper.application import contracts as wk
 from worldkeeper.integrations.dungeonmind import DungeonMindWorldKeeperRuntime
 
+# Immutable wire tag is retained by signed source-statement packets; it grants no authority.
 CODEC = "dmb_wk_prepared_standing_v1"
 # Explicit types, never request-directed imports. Intent builders define allowed semantics.
 _TYPES = {
@@ -153,45 +154,6 @@ def runtime(repository, domain, profile, *, now, operation_id):
     )
 
 
-def standing_intent(space_id, rows, choices):
-    by_slug = {c.slug: c for c in choices}
-    if len(by_slug) != 6 or set(by_slug) != {r["slug"] for r in rows}:
-        raise ValueError("choices must match all six subjects exactly")
-    existing = [c.entity_id for c in choices if c.action == "use_existing"]
-    if len(existing) != len(set(existing)):
-        raise ValueError("different subjects cannot share a reviewed target")
-    operations = []
-    for row in rows:
-        slug = row["slug"]
-        metadata = wk.AssertionMetadata(
-            scope=(wk.ScopeBinding("dungeonbuddy.scope:campaign", "longmont-c1"),),
-            visibility=wk.Visibility("labels_any", ("dungeonbuddy.visibility:gm",)),
-            epistemic_basis="asserted",
-            claim_mode="dungeonbuddy.claim:fact",
-            standing="established",
-            evidence_ref_ids=(row["evidence_ref_id"],),
-            temporal_scope=wk.TemporalScope(kind="unknown"),
-        )
-        facts = (
-            wk.CreateFact(
-                slug + ":name", "dnd5e:name", wk.LiteralFactValue(row["name"]), metadata
-            ),
-            wk.CreateFact(
-                slug + ":pc",
-                "dnd5e:classification",
-                wk.TermRefFactValue("dnd5e:pc"),
-                metadata,
-            ),
-        )
-        choice = by_slug[slug]
-        operations.append(
-            wk.CreateObject(slug, facts)
-            if choice.action == "create"
-            else wk.UseExisting(choice.entity_id, facts)
-        )
-    return wk.WorldChangeIntent(
-        space_id, "dungeonbuddy:dossier-pc-standing-v1", tuple(operations)
-    )
 
 
 def verify_prepared_parent(prepared, context):

@@ -279,3 +279,21 @@ def test_native_contract_rejects_unknown_epistemic_basis(lane):
     lane.body["selections"][0]["facts"][0]["metadata"]["epistemic_basis"] = "unregistered"
     response = lane.post()
     assert response.status_code == 409 and "malformed_semantic_contract" in response.text
+
+
+@pytest.mark.parametrize('body', [b'{"a":1,"a":2}', b'{"a":NaN}', b'{"a":Infinity}', b'not-json'])
+def test_shared_json_gate_refuses_before_review_owner_io(lane, monkeypatch, body):
+    monkeypatch.setattr(service, 'load_reviewable_extraction_data',
+                        lambda *_: pytest.fail('Malformed JSON reached source owner'))
+    response = lane.client.post('/api/live/extract-promote/native-prepare', content=body,
+        headers={'Authorization': 'Bearer ' + TOKEN, 'Content-Type': 'application/json'})
+    assert response.status_code == 422
+    assert response.json()['detail']['code'] == 'invalid_json'
+
+
+def test_actual_app_retires_directory_standing_without_removing_native_consumers():
+    from apps.live_control_server.main import create_app
+    paths = {getattr(route, 'path', '') for route in create_app().routes}
+    assert not any(path.startswith('/api/live/extract-promote/registry-standing') for path in paths)
+    assert '/api/live/extract-promote/native-prepare' in paths
+    assert '/api/live/source-statements/extend-evidence' in paths

@@ -27,7 +27,7 @@ from apps.live_control_server.models.source_statements import (
     ExtendSourceEvidence,
     StatementSelection,
 )
-from apps.live_control_server.routes.registry_standing import StrictJSONRoute
+from apps.live_control_server.routes.strict_json import StrictJSONRoute
 from apps.live_control_server.services import source_statement_proposals as proposals
 from apps.live_control_server.services import source_statements as service
 from apps.live_control_server.services.agent_graph_auth import (
