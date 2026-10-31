@@ -68,7 +68,7 @@ def test_fresh_recap_requires_world_before_writing_registry_or_source_bytes(
         )
 
     assert not (tmp_path / "out/registries/source_artifacts.json").exists()
-    assert not (tmp_path / registry.DEFAULT_RECAP_SOURCE_CONTENT_ROOT).exists()
+    assert not (tmp_path / "out/registries/source_content").exists()
     assert not (tmp_path / registry.DEFAULT_SOURCE_SPAN_INDEX_DIR_REL).exists()
 
 

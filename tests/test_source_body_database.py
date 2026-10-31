@@ -8,16 +8,22 @@ import pytest
 
 from application_state.source import service as sources
 from apps.live_control_server.services import source_artifact_registry as registry
+from graph_memory.evidence.source_artifact import GraphMemorySourceArtifact
 
 
 @pytest.fixture
 def registered_source(tmp_path, monkeypatch, application_state_dsn):
     monkeypatch.setenv("DMB_ARTIFACT_DATA_ROOT", str(tmp_path))
-    artifact = registry.create_recap_source_artifact(
-        tmp_path, world_id="source-world", campaign_id="source-campaign",
-        session_id="session-1", recap_text="# Source\n\nMira’s journal.\n",
+    raw = "# Source\n\nMira’s journal.\n".encode()
+    artifact = GraphMemorySourceArtifact(
+        source_artifact_id="artifact:recap:retained-database-body-fixture",
+        source_domain="recap", world_id="source-world", campaign_id="source-campaign",
+        session_id="session-1", uri="repo://retained-source.md",
+        content_sha256=hashlib.sha256(raw).hexdigest(),
     )
-    raw = (tmp_path / artifact.uri.removeprefix("repo://")).read_bytes()
+    artifact = registry._register_source_input(artifact=artifact, content=raw.decode())
+    # Explicit historical file, not a side effect of current registration.
+    (tmp_path / "retained-source.md").write_bytes(raw)
     return tmp_path, artifact, raw, application_state_dsn
 
 

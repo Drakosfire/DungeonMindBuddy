@@ -658,7 +658,6 @@ def test_production_configuration_is_explicit_and_separates_logical_databases(
         "DMB_ARTIFACT_DATA_ROOT": str(roots[1]),
         "DUNGEONMIND_LIVE_SESSION_DIR": str(roots[2]),
         "DUNGEONMIND_WORLD_GRAPH_ROOT": str(roots[3]),
-        "DUNGEONMIND_RECAP_SOURCE_CONTENT_ROOT": "recaps",
     }
 
     assert validate_hosted_auth_configuration(configuration) == (

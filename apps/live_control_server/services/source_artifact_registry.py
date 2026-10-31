@@ -41,8 +41,6 @@ from apps.live_control_server.services.registry_file_lock import (
 )
 
 DEFAULT_SOURCE_SPAN_INDEX_DIR_REL = "out/registries/source_span_indexes"
-RECAP_SOURCE_CONTENT_ROOT_ENV = "DUNGEONMIND_RECAP_SOURCE_CONTENT_ROOT"
-DEFAULT_RECAP_SOURCE_CONTENT_ROOT = "out/registries/source_content/recap"
 
 _SAFE_ARTIFACT_DIR_RE = re.compile(r"[^A-Za-z0-9._-]+")
 # Single path segment: no slashes, no ``..``, no empty / absolute segments.
@@ -110,18 +108,6 @@ def _resolve_registry_content_path(root: Path, relpath: str) -> Path:
             status_code=422,
         )
     return target
-
-
-def _recap_content_root_relpath(root: Path) -> str:
-    configured = os.environ.get(RECAP_SOURCE_CONTENT_ROOT_ENV, "").strip()
-    value = (configured or DEFAULT_RECAP_SOURCE_CONTENT_ROOT).replace("\\", "/")
-    path = Path(value)
-    if value.startswith("file:") or path.is_absolute() or ".." in path.parts:
-        raise SourceArtifactRegistryError(
-            "unsafe recap source content root", status_code=422
-        )
-    _resolve_registry_content_path(root, value)
-    return path.as_posix()
 
 
 def source_span_index_relpath(source_artifact_id: str) -> str:
@@ -380,19 +366,10 @@ def create_recap_source_artifact_from_workspace_document(
         }
         binding_sha = hashlib.sha256(json.dumps(binding, sort_keys=True, separators=(",", ":"), ensure_ascii=False).encode()).hexdigest()
         artifact_id = f"artifact:recap:build:{record.document_id}:r{record.revision}:{binding_sha}"
-        # Keep document provenance distinct even if another document/session has equal bytes.
-        relpath = f"{_recap_content_root_relpath(root)}/build/{binding_sha}.md"
-        target = _resolve_registry_content_path(root, relpath)
-        target.parent.mkdir(parents=True, exist_ok=True)
-        if target.exists():
-            if target.read_text(encoding="utf-8") != content:
-                raise SourceArtifactRegistryError("immutable Build recap source bytes changed", status_code=409)
-        else:
-            target.write_text(content, encoding="utf-8")
         now = _utc_now_iso()
         candidate = GraphMemorySourceArtifact(
             source_artifact_id=artifact_id, source_domain="recap", campaign_id=campaign_id,
-            session_id=session_id, world_id=native_world_id, uri=f"repo://{relpath}",
+            session_id=session_id, world_id=native_world_id, uri=f"object://{artifact_id}",
             content_sha256=content_sha256, artifact_kind="recap_markdown", document_class="recap",
             visibility_state=record.visibility_state, workspace_document_id=record.document_id,
             workspace_document_revision=record.revision,
@@ -467,15 +444,11 @@ def create_recap_source_artifact(
     recap_text: str | None = None,
     expected_content_sha256: str | None = None,
 ) -> GraphMemorySourceArtifact:
-    """Create an immutable recap SourceArtifact from committed recap bytes.
+    """Capture exact recap input and descriptor through the APP source owner.
 
-    Bytes are always materialized under a registry-owned, repo-contained URI
-    keyed by the full content digest
-    (default ``out/registries/source_content/recap``; an explicitly configured
-    repo-contained recap content root may replace that prefix).
-    The caller's original recap path is read-only input and is never rewritten.
+    An explicit Markdown file is read-only import input. The registered locator
+    is metadata; no duplicate source file or directory selects the stored bytes.
     """
-    root = _artifact_root(root)
     cleaned_world = (world_id or "").strip()
     if not cleaned_world or cleaned_world != world_id:
         raise SourceArtifactRegistryError(
@@ -521,25 +494,6 @@ def create_recap_source_artifact(
                 status_code=409,
             )
 
-    # Always materialize into a registry-owned, digest-namespaced path. Never
-    # retain or rewrite the caller's original recap path — that source must stay
-    # immutable from the registry's perspective.
-    relpath = (
-        f"{_recap_content_root_relpath(root)}/"
-        f"{cleaned_campaign}/{cleaned_session}/{content_sha256}.md"
-    )
-    target = _resolve_registry_content_path(root, relpath)
-    target.parent.mkdir(parents=True, exist_ok=True)
-    if not target.is_file():
-        target.write_text(content, encoding="utf-8")
-    else:
-        existing = target.read_text(encoding="utf-8")
-        if existing != content:
-            raise SourceArtifactRegistryError(
-                "registry-owned recap content path already exists with different bytes",
-                status_code=409,
-            )
-
     source_artifact_id = build_world_scoped_recap_source_artifact_id(
         world_id=cleaned_world,
         campaign_id=cleaned_campaign,
@@ -553,7 +507,7 @@ def create_recap_source_artifact(
         campaign_id=cleaned_campaign,
         session_id=cleaned_session,
         world_id=cleaned_world,
-        uri=f"repo://{relpath}",
+        uri=f"object://{source_artifact_id}",
         content_sha256=content_sha256,
         artifact_kind="recap_markdown",
         document_class="recap",

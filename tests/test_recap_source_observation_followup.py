@@ -165,9 +165,10 @@ def observation_case(tmp_path,monkeypatch,application_state_dsn,request):
             "relationship_type":"located_in","label":"works in the Annex","semantic_state":_semantic(),
             "evidence_refs":[edge_reference],"proposed_action":"create","confidence":"medium","warnings":[]}]
     candidate.write_text(json.dumps(raw))
-    paths={"source_artifact":tmp_path/artifact.uri.removeprefix("repo://"),"source_span_index":span,"candidate_graph":candidate}
+    paths={"source_span_index":span,"candidate_graph":candidate}
     components={key:ExtractionRunComponentRef(kind=key,uri="repo://"+path.relative_to(tmp_path).as_posix(),
         sha256=hashlib.sha256(path.read_bytes()).hexdigest()) for key,path in paths.items()}
+    components["source_artifact"]=ExtractionRunComponentRef(kind="source_artifact",uri=artifact.uri,sha256=artifact.content_sha256)
     run_id="run:"+token
     run=create_extraction_run(tmp_path,run_id=run_id,source_artifact_id=artifact.source_artifact_id,
         source_domain="recap",campaign_id="longmont-c2",session_id="session-22",
@@ -179,7 +180,7 @@ def observation_case(tmp_path,monkeypatch,application_state_dsn,request):
     resolved=resolve_promotable_ingest_run(run_id,root=tmp_path)
     context=writes.load_production_mutation_context(world)
     result=prepare_candidate_graph_admission(
-        source_body=paths["source_artifact"].read_bytes(),
+        source_body=(body+"\nSynthetic fixture "+token+".\n").encode(),
         candidate_graph=raw,source_uri=resolved.sealed_source_uri,source_revision_id="sha256:"+artifact.content_sha256,
         world_id=world,source_artifact_id=artifact.source_artifact_id,source_artifact=artifact,
         campaign_scope="longmont-c2",extraction_profile="recap_category_v1@1.0",

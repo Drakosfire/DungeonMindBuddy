@@ -20,6 +20,7 @@ from apps.live_control_server.services.source_artifact_registry import (
     create_recap_source_artifact,
     get_source_artifact,
     load_registered_source_artifact_text,
+    load_registered_source_artifact_bytes,
     load_source_span_index,
 )
 from graph_memory.ingestion.extraction_run import ExtractionRun, ExtractionRunComponentRef
@@ -98,8 +99,11 @@ def _run(code, data, monkeypatch):
     }))
     span_path = candidate.parent / "source_span_index.json"
     span_path.write_text(json.dumps(index, indent=2, ensure_ascii=False) + "\n")
+    # Explicit historical component mirror for negative fixture cases.
+    fixture_source = candidate.parent / "source.md"
+    fixture_source.write_bytes(load_registered_source_artifact_bytes(code, artifact.source_artifact_id)[1])
     files = {
-        "source_artifact": data / artifact.uri.removeprefix("repo://"),
+        "source_artifact": fixture_source,
         "source_span_index": span_path,
         "candidate_graph": candidate,
     }

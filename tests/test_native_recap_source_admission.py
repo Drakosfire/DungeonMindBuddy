@@ -773,7 +773,6 @@ def test_production_registration_is_shared_with_configuration_validation(
             "DUNGEONMIND_WORLD_GRAPH_AUTHORITY_DATABASE_URL": "postgresql://native_owner@localhost/native_fixture",
             "DUNGEONMIND_LIVE_SESSION_DIR": str(lane.root),
             "DUNGEONMIND_WORLD_GRAPH_ROOT": str(lane.root),
-            "DUNGEONMIND_RECAP_SOURCE_CONTENT_ROOT": "corpus",
         }
     )
     assert (
