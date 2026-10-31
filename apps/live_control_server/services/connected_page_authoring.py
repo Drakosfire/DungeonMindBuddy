@@ -235,7 +235,7 @@ def _save_initial(root, state, intent):
 def _graph_request(root, state, intent):
     source = resolve_graph_document_source(root, GraphDocumentSource.model_validate(state['saved_source']),
         world_id=intent.world_id, campaign_id=intent.world_id)
-    index = json.loads(source.source_span_index_path.read_text())
+    index = source.source_span_index
     lines = state['initial_markdown'].splitlines()
     def selection(sentence):
         target = _escape(sentence)

@@ -1,6 +1,5 @@
 """Registered-document source → real occurrence verifier → governed native port."""
 import hashlib
-import json
 from types import SimpleNamespace
 
 import pytest
@@ -8,7 +7,7 @@ from fastapi.testclient import TestClient
 from pydantic import ValidationError
 
 from apps.live_control_server.services.graph_document_source import (
-    GraphDocumentSource, frozen_document_source, resolve_graph_document_source,
+    GraphDocumentSource, resolve_graph_document_source,
 )
 from apps.live_control_server.services.graph_object_authoring_prepare import (
     GRAPH_REVIEW_PREPARE_BINDING_KEY_ENV,
@@ -58,7 +57,7 @@ def resolve(c):
 
 def payload(c):
     source = resolve(c)
-    index = json.loads(source.source_span_index_path.read_text())
+    index = source.source_span_index
     selection = {'selectionKind': 'text_span', 'selectedText': TEXT.strip(),
         'normalizedSelectedText': TEXT.strip(), 'sourceSpanRefId': index['spans'][0]['source_span_id']}
     def obj(pid, label, kind):
@@ -107,7 +106,7 @@ def test_immutable_source_survives_later_save_and_lost_confirmation_response(cas
     assert retry.status_code == 200, retry.text
     assert case.authority.publish_calls == 1
     from apps.live_control_server.services.worldbuilding_source_span_read import read_admitted_worldbuilding_span
-    index = json.loads(source.source_span_index_path.read_text())
+    index = source.source_span_index
     opened = read_admitted_worldbuilding_span(root=case.root, source_artifact_id=source.source_artifact_id,
         source_span_ref_id=index['spans'][0]['source_span_id'], graph_content_sha256=case.selector.content_sha256,
         max_chars=1000, anchor_id='historical-proof', graph_artifact=source.source_artifact)
@@ -131,12 +130,16 @@ def test_stale_initial_source_does_not_freeze(case, field, value):
     assert not list((case.root / 'out/registries/source_content').glob('**/source.md'))
 
 
-@pytest.mark.parametrize('component', ['body', 'index'])
-def test_corrupt_frozen_source_refuses_confirmation(case, component):
+@pytest.mark.parametrize('violation', ['missing', 'corrupt'])
+def test_database_source_failure_refuses_confirmation(case, application_state_dsn, violation):
+    import psycopg
     request = prepare(case)
     source = resolve(case)
-    path = case.root / source.sealed_source_uri.removeprefix('repo://') if component == 'body' else source.source_span_index_path
-    path.write_text('corrupted')
+    with psycopg.connect(application_state_dsn) as conn:
+        if violation == 'missing':
+            conn.execute('DELETE FROM source.revision WHERE source_artifact_id=%s', (source.source_artifact_id,))
+        else:
+            conn.execute("UPDATE source.revision SET markdown='corrupt' WHERE source_artifact_id=%s", (source.source_artifact_id,))
     response = case.client.post('/api/live/graph-authoring/commit', json=request)
     assert response.status_code == 409
     assert case.authority.recover_calls == case.authority.publish_calls == 0
@@ -197,12 +200,49 @@ def test_unretained_source_revision_change_refuses(case):
         resolve(case)
 
 
-def test_frozen_components_and_source_not_overwritten_on_retry(case):
+def test_database_snapshot_and_review_locator_not_replaced_on_retry(case):
+    from application_state.source.service import get_source_markdown
     source = resolve(case)
-    body, index = frozen_document_source(case.root, source.source_artifact)
-    before = (body.read_bytes(), index.read_bytes(), body.stat().st_mtime_ns, index.stat().st_mtime_ns)
-    resolve(case)
-    assert (body.read_bytes(), index.read_bytes(), body.stat().st_mtime_ns, index.stat().st_mtime_ns) == before
+    before = get_source_markdown(source_artifact_id=source.source_artifact_id,
+        content_sha256=case.selector.content_sha256)
+    again = resolve(case)
+    assert get_source_markdown(source_artifact_id=source.source_artifact_id,
+        content_sha256=case.selector.content_sha256) == before
+    assert again.source_span_index == source.source_span_index
+    assert again.sealed_source_uri == source.sealed_source_uri
+    assert not (case.root / 'out/registries/source_content/graph_documents').exists()
+
+
+@pytest.mark.parametrize('mirror', ['corrupt', 'missing', 'symlink'])
+def test_document_publication_ignores_denied_snapshot_files(case, monkeypatch, mirror):
+    from pathlib import Path
+    from apps.live_control_server.services.source_artifact_registry import source_span_index_path
+    source = resolve(case)
+    body = case.root / source.sealed_source_uri.removeprefix('repo://')
+    body.parent.mkdir(parents=True, exist_ok=True)
+    index = source_span_index_path(case.root, source.source_artifact_id)
+    if mirror == 'corrupt':
+        body.write_text('not source authority')
+        index.write_text('not span authority')
+    elif mirror == 'missing':
+        index.unlink()
+    else:
+        outside = case.root / 'untrusted'
+        outside.mkdir()
+        (outside / 'source.md').write_text('not source authority')
+        body.symlink_to(outside / 'source.md')
+        index.unlink()
+        index.symlink_to(outside / 'source.md')
+    original_open = Path.open
+    def guarded(path, *args, **kwargs):
+        if path == body or path == index or path.parent == body.parent:
+            pytest.fail('document publication opened a source snapshot file')
+        return original_open(path, *args, **kwargs)
+    monkeypatch.setattr(Path, 'open', guarded)
+    request = prepare(case)
+    response = case.client.post('/api/live/graph-authoring/commit', json=request)
+    assert response.status_code == 200, response.text
+    assert case.authority.publish_calls == 1
 
 
 @pytest.mark.parametrize('published', [False, True])

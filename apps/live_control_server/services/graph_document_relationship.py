@@ -1,7 +1,6 @@
 """Saved-page selection adapter; governed Graph prepare/commit remain the only writer."""
 from __future__ import annotations
 
-import json
 from pathlib import Path
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
@@ -72,7 +71,7 @@ def relationship_request(root: Path, request: DocumentRelationshipRequest) -> Gr
         elif any(endpoint.label.casefold() in {n.label.casefold(), *(a.casefold() for a in n.aliases or [])} for n in nodes):
             refuse("That name or alias already exists. Choose the existing World identity.")
     source = resolve_graph_document_source(root, selector, world_id=request.world_id, campaign_id=request.world_id)
-    index = json.loads(source.source_span_index_path.read_text())
+    index = source.source_span_index
     first = body.count("\n", 0, start) + 1
     last = body.count("\n", 0, start + len(request.quote) - 1) + 1
     spans = [s for s in index["spans"] if s["start_line"] <= first and s["end_line"] >= last]
