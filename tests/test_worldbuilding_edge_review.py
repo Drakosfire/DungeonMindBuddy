@@ -4,12 +4,13 @@ import hashlib
 import json
 import os
 from pathlib import Path
-import stat
 import subprocess
 import sys
 from types import SimpleNamespace
 
 import pytest
+
+from application_state.ingest.components import get_component_bytes
 
 from src.graph_memory.extraction.bounded_recap_execution import BoundedRecapPassClient, DEEPSEEK_MODEL
 from src.graph_memory.extraction.category_candidate_graph_extractor import (
@@ -167,7 +168,14 @@ def test_failed_review_retains_completed_passes_and_safe_error(fail, retained):
 
 
 @pytest.mark.parametrize("fail", [False, True])
-def test_registered_success_and_failure_evidence_reopens(tmp_path, application_state_dsn, fail):
+def test_registered_success_and_failure_evidence_reopens(tmp_path, application_state_dsn, monkeypatch, fail):
+    import tempfile
+    original = tempfile.mkstemp
+    def unavailable_private_file(*args, **kwargs):
+        if kwargs.get("prefix") in {".raw-response-", ".private-json-"}:
+            raise OSError("private mirror storage unavailable")
+        return original(*args, **kwargs)
+    monkeypatch.setattr(tempfile, "mkstemp", unavailable_private_file)
     from tests.test_worldbuilding_profile_pipeline import _admit_fixture_source, _load_fixture, _pass_outputs_for_span
     from src.graph_memory.extraction.graph_preview_runner import ProductionExtractionRequest, run_production_extraction
     source, span = _admit_fixture_source(tmp_path)
@@ -179,10 +187,11 @@ def test_registered_success_and_failure_evidence_reopens(tmp_path, application_s
     assert result.run.status.value == ("failed" if fail else "reviewable")
     assert (result.candidate_graph is None) is fail
     component = result.run.components["raw_model_response"]
-    path = tmp_path / component.uri.removeprefix("repo://")
-    content = path.read_bytes()
+    content = get_component_bytes(run_id=result.run.run_id, kind=component.kind,
+        content_sha256=component.sha256)
     assert hashlib.sha256(content).hexdigest() == component.sha256
-    assert stat.S_IMODE(path.stat().st_mode) == 0o600
+    assert not list(tmp_path.rglob("raw_model_response.txt"))
+    assert not list(tmp_path.rglob("consolidation_diagnostics.json"))
     bundle = json.loads(content)
     assert bundle["completed_passes"] and bundle["source_sha256"] == source.source_sha256
     assert BODY not in json.dumps(result.diagnostics)
@@ -190,8 +199,9 @@ def test_registered_success_and_failure_evidence_reopens(tmp_path, application_s
 import hashlib,json,sys
 from pathlib import Path
 from apps.live_control_server.services.graph_run_registry import get_extraction_run
+from application_state.ingest.components import get_component_bytes
 root=Path(sys.argv[1]); run=get_extraction_run(root,sys.argv[2])
-ref=run.components['raw_model_response']; data=(root/ref.uri.removeprefix('repo://')).read_bytes()
+ref=run.components['raw_model_response']; data=get_component_bytes(run_id=run.run_id,kind=ref.kind,content_sha256=ref.sha256)
 assert hashlib.sha256(data).hexdigest()==ref.sha256
 assert json.loads(data)['completed_passes']
 print('reopened')
@@ -284,9 +294,13 @@ def test_success_storage_failure_is_not_reviewable_or_replayed(tmp_path, applica
         drafts.append(run)
         return run
     monkeypatch.setattr(runner, "_create_draft_run", capture_draft)
-    def unavailable(*args, **kwargs):
-        raise RuntimeError("Could not persist private extraction failure evidence")
-    monkeypatch.setattr(runner, "_retain_raw_failure_response", unavailable)
+    from application_state.ingest import components
+    original = components.persist_component_payload
+    def unavailable(**kwargs):
+        if kwargs["kind"] == runner.ExtractionRunComponentKind.RAW_MODEL_RESPONSE:
+            raise OSError("private success bundle in database error")
+        return original(**kwargs)
+    monkeypatch.setattr(components, "persist_component_payload", unavailable)
     with pytest.raises(RuntimeError, match="persist private"):
         runner.run_production_extraction(runner.ProductionExtractionRequest(repo_root=tmp_path, source=source,
             profile_id=PROFILE.profile_id, profile_version=PROFILE.profile_version,
@@ -361,7 +375,7 @@ def test_real_bounded_attempt_accounting_survives_registered_bundle(
     assert bool(result.failure_kind) is fail_review
     assert result.run.status.value == ("failed" if fail_review else "reviewable")
     ref = result.run.components["raw_model_response"]
-    data = (tmp_path / ref.uri.removeprefix("repo://")).read_bytes()
+    data = get_component_bytes(run_id=result.run.run_id, kind=ref.kind, content_sha256=ref.sha256)
     assert hashlib.sha256(data).hexdigest() == ref.sha256
     assert b"EXCLUDE_PRIVATE_MARKER" not in data
     bundle = json.loads(data)
@@ -382,8 +396,9 @@ def test_real_bounded_attempt_accounting_survives_registered_bundle(
 import json,hashlib,sys
 from pathlib import Path
 from apps.live_control_server.services.graph_run_registry import get_extraction_run
+from application_state.ingest.components import get_component_bytes
 root=Path(sys.argv[1]); run=get_extraction_run(root,sys.argv[2]); ref=run.components['raw_model_response']
-data=(root/ref.uri.removeprefix('repo://')).read_bytes(); assert hashlib.sha256(data).hexdigest()==ref.sha256
+data=get_component_bytes(run_id=run.run_id,kind=ref.kind,content_sha256=ref.sha256); assert hashlib.sha256(data).hexdigest()==ref.sha256
 row=json.loads(data)['execution_observations'][-1]
 assert row['observation']['provider_attempt_count']==2 and row['observation']['conformance_retry_count']==1
 for item in row['attempt_evidence']: assert hashlib.sha256(Path(item['path']).read_bytes()).hexdigest()==item['sha256']
@@ -516,7 +531,7 @@ def test_real_bounded_catalog_excludes_role_removed_id_and_retains_registered_fa
         assert result.failure_kind and result.run.status.value == 'failed' and result.candidate_graph is None
         assert client.calls[-1]['consumer_failure'] == 'ValidationError'
     ref = result.run.components['raw_model_response']
-    data = (tmp_path / ref.uri.removeprefix('repo://')).read_bytes()
+    data = get_component_bytes(run_id=result.run.run_id, kind=ref.kind, content_sha256=ref.sha256)
     assert hashlib.sha256(data).hexdigest() == ref.sha256
     bundle = json.loads(data)
     assert len(bundle['completed_passes']) == (6 if returned == 'e035' else 5)

@@ -171,23 +171,25 @@ available attempt artifact refs, source/profile identity/hash, advisory original
 objects and pre-review envelope. This is private lineage, not another promotable
 candidate, raw wire response, public diagnostics or publication approval.
 
-Before candidate file/registration/status advancement, validate strict JSON and
-bundle identity, persist this optional string using accepted atomic0600/fsync
-writer, and compute existing RAW_MODEL_RESPONSE URI/hash component. Only after
-successful evidence persistence write the candidate file; register both components
-together through existing PREPARED->EXTRACTED admission. The registry forbids
-same-status component checkpoints. Filesystem writes and DB admission are NOT one
-atomic transaction. Later candidate-write/registry failure may leave private
-orphan files, but cannot report success or admit a candidate without evidence. No new kind/schema; old profiles withNone remain unchanged.
-Rename the private writer honestly within this leased runner if needed; preserve
-1179 failure behavior. Success storage/serialization failure cannot return or
-register a reviewable candidate or claim evidence retained. No automatic replay.
-The same leased test file exercises actual registered success/failure in unique
-APP fixture DBs, fresh-process reopen/hash/0600, canonical envelope-to-IR equality,
-oldprofileNone/no artifact and storagefailure after successful provider result.
-No serving, retained native data, model call or default routing lease is added.
+Before candidate registration/status advancement, validate strict JSON and bundle
+identity, then persist the optional exact string through the existing APP output
+owner. The current storage contract is defined in
+[registered failure evidence](HANDOFF-INGEST-registered-failure-evidence.md#current-storage-contract).
+Use the existing RAW_MODEL_RESPONSE kind/hash and bind components through the
+existing PREPARED->EXTRACTED admission. The registry forbids same-status component
+checkpoints. Staged private bytes and later run binding are not one transaction;
+a later candidate/registry failure may leave unbound database output, but cannot
+report success or admit a candidate without evidence. No new kind/schema; profiles
+with None remain unchanged. Storage/serialization failure cannot claim retention
+or register a reviewable candidate. No automatic replay.
 
-## Implementation evidence for review
+The leased tests exercise registered success/failure in disposable APP databases,
+fresh-process exact database reopen/hash, private-file unavailability, canonical
+envelope-to-IR equality, absent evidence for old profiles and database failure after
+a successful provider result. No serving, retained native data, model call or
+default routing lease is added.
+
+## Historical implementation evidence for review
 
 Author checks: new advisory pipeline/subset/executor/evidence tests; actual
 registered synthetic success and failure, separate-process bundle reopen/hash0600,

@@ -623,15 +623,18 @@ def test_recap_runner_persists_sanitized_candidate_and_unchanged_private_respons
         "beat:dependent",
         "observation:dependent",
     }
-    raw_path = tmp_path / loaded.components["raw_model_response"].uri.removeprefix("repo://")
-    assert raw_path.read_bytes() == raw_response.encode("utf-8")
+    from application_state.ingest.components import get_component_bytes
+    raw_ref = loaded.components["raw_model_response"]
+    assert get_component_bytes(run_id=loaded.run_id, kind=raw_ref.kind,
+        content_sha256=raw_ref.sha256) == raw_response.encode("utf-8")
     source_path = tmp_path / loaded.components["source_artifact"].uri.removeprefix("repo://")
     assert source_path.read_text(encoding="utf-8") == source.source_text
     index_path = tmp_path / loaded.components["source_span_index"].uri.removeprefix("repo://")
     saved_index = json.loads(index_path.read_text(encoding="utf-8"))
     assert saved_index == source.source_span_index
-    diagnostics_path = tmp_path / loaded.components["consolidation_diagnostics"].uri.removeprefix("repo://")
-    diagnostics = json.loads(diagnostics_path.read_text(encoding="utf-8"))
+    diagnostics_ref = loaded.components["consolidation_diagnostics"]
+    diagnostics = json.loads(get_component_bytes(run_id=loaded.run_id, kind=diagnostics_ref.kind,
+        content_sha256=diagnostics_ref.sha256))
     assert diagnostics["recap_quote_integrity"]["items_deferred"] == 6
 
     spans = {span["source_span_id"]: span for span in saved_index["spans"]}
