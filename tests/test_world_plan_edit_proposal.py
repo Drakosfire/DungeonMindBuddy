@@ -1236,7 +1236,6 @@ def test_saved_action_freezes_first_harness_envelope_and_persists_bounded_empty_
         ),
         retrieval_session=session,
         binding_version=1,
-        source_root_relpath="corpus/synthetic",
         candidate_assertion_ids=(),
         candidate_relationship_ids=(),
         candidate_evidence_ref_ids=(),
@@ -1487,7 +1486,7 @@ def test_mounted_initialized_selection_dispatches_one_harness_action_and_returns
             admissibility="gm", revision_id="graph-r1", scope_mode="world",
         ),
         retrieval_session=session, binding_version=1,
-        source_root_relpath="corpus/synthetic", candidate_assertion_ids=(),
+        candidate_assertion_ids=(),
         candidate_relationship_ids=(), candidate_evidence_ref_ids=(),
         evidence_by_anchor_id={},
     )
