@@ -943,6 +943,7 @@ def _prepare_session(
     if source_name is not None:
         recap.lineage["source_name"] = source_name
     result = prepare_candidate_graph_admission(
+        source_body=source.read_bytes(),
         candidate_graph=candidate,
         source_uri=uri,
         source_revision_id=f"sha256:{digest}",

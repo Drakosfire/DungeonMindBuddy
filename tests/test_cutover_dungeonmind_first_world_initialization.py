@@ -549,10 +549,15 @@ def _admit_recap_source_fixture(dsn: str, world_id: str, source: Path, artifact_
         visibility_state="internal", world_id=world_id, workspace_document_id=None,
         workspace_document_revision=None, lineage={}, status="active", created_at=now, updated_at=now,
     )
+    from dungeonmind.infrastructure.postgres import PostgresDatabase, PostgresRepositoryBundle
+    head = PostgresRepositoryBundle(PostgresDatabase(dsn)).world_graph.get_head(world_id)
+    assert head is not None
     authority = DungeonMindWorldGraphSourceAdmissionAdapter(database_url=dsn)
     admitted = authority.prove_or_admit(WorldGraphSourceAdmissionRequest(
         world_id=world_id, campaign_id="longmont-c2", source_artifact=artifact,
         source_revision_token="sha256:" + content_sha256, source_uri=str(source),
+        source_body=source.read_bytes(),
+        expected_head_revision_id=head.head_revision_id,
     ))
     assert admitted.source_artifact_id == artifact_id
     assert admitted.content_sha256 == content_sha256
@@ -1252,6 +1257,7 @@ def test_candidate_admission_real_postgres_sequence(native_first_world_client) -
     def prepare(candidate: dict, parent: str):
         context = graph_authority.mutation_context(world_id, parent)
         result = prepare_candidate_graph_admission(
+            source_body=source.read_bytes(),
             candidate_graph=candidate,
             source_uri=str(source),
             source_revision_id=source_revision,

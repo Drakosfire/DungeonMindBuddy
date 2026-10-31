@@ -199,6 +199,7 @@ def _prepare(
         world_id="eldyrwild", revision_id="rev:d0", head_revision_id="rev:d0", objects={}
     )
     return prepare_candidate_graph_admission(
+        source_body=source.read_bytes(),
         candidate_graph=candidate,
         source_uri=str(source),
         source_revision_id=revision,

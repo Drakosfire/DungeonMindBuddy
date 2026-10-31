@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import ast
 import copy
+import hashlib
 import subprocess
 import sys
 import textwrap
@@ -30,7 +31,10 @@ WORLD_ID = "the-glass-orchard"
 CAMPAIGN_ID = "the-glass-orchard"
 ARTIFACT_A = "artifact:worldbuilding:a"
 ARTIFACT_B = "artifact:worldbuilding:b"
-TOKEN = "sha256:" + ("ab" * 32)
+BODY = b"Synthetic source admission body.\n"
+DIGEST = hashlib.sha256(BODY).hexdigest()
+TOKEN = "sha256:" + DIGEST
+HEAD = "rev:synthetic-source-admission"
 ADAPTER_PATH = (
     REPO_ROOT
     / "apps/live_control_server/integrations/dungeonmind/world_graph_source_admission_adapter.py"
@@ -56,7 +60,7 @@ def _buddy_artifact(*, artifact_id: str, world_id: str = WORLD_ID, campaign_id: 
         campaign_id=campaign_id,
         session_id=None,
         uri=f"object://{artifact_id}",
-        content_sha256="ab" * 32,
+        content_sha256=DIGEST,
         artifact_kind="markdown",
         document_class="lore",
         authority_state="reviewed",
@@ -73,6 +77,7 @@ def _buddy_artifact(*, artifact_id: str, world_id: str = WORLD_ID, campaign_id: 
 
 def _request(*, artifact_id: str, token: str = TOKEN) -> WorldGraphSourceAdmissionRequest:
     return WorldGraphSourceAdmissionRequest(
+        source_body=BODY, expected_head_revision_id=HEAD,
         world_id=WORLD_ID,
         campaign_id=CAMPAIGN_ID,
         source_artifact=_buddy_artifact(artifact_id=artifact_id),
@@ -83,7 +88,10 @@ def _request(*, artifact_id: str, token: str = TOKEN) -> WorldGraphSourceAdmissi
 
 def test_prove_or_admit_writes_missing_pair_and_is_idempotent() -> None:
     sources = InMemorySourceRepository()
-    adapter = DungeonMindWorldGraphSourceAdmissionAdapter(sources=sources)
+    adapter = DungeonMindWorldGraphSourceAdmissionAdapter(
+        sources=sources, world_graph=SimpleNamespace(
+            get_head=lambda _world: SimpleNamespace(head_revision_id=HEAD)),
+    )
     request = _request(artifact_id=ARTIFACT_A)
     first = adapter.prove_or_admit(request)
     assert first.source_artifact_id == ARTIFACT_A
@@ -114,7 +122,10 @@ def test_existing_pair_replay_makes_no_core_puts_and_keeps_catalog_metadata() ->
             return super().put_revision(revision)
 
     sources = CountingSources()
-    adapter = DungeonMindWorldGraphSourceAdmissionAdapter(sources=sources)
+    adapter = DungeonMindWorldGraphSourceAdmissionAdapter(
+        sources=sources, world_graph=SimpleNamespace(
+            get_head=lambda _world: SimpleNamespace(head_revision_id=HEAD)),
+    )
     first = adapter.prove_or_admit(_request(artifact_id=ARTIFACT_A))
     stored = sources.get_artifact(ARTIFACT_A)
     assert stored is not None
@@ -123,12 +134,12 @@ def test_existing_pair_replay_makes_no_core_puts_and_keeps_catalog_metadata() ->
     )
     writes_before = sources.puts
     replay = WorldGraphSourceAdmissionRequest(
+        source_body=BODY, expected_head_revision_id=HEAD,
         world_id=WORLD_ID,
         campaign_id=CAMPAIGN_ID,
         source_artifact=_buddy_artifact(artifact_id=ARTIFACT_A),
         source_revision_token=TOKEN,
         source_uri="object://verified-local-mirror",
-        verified_input_sha256="ab" * 32,
     )
     second = adapter.prove_or_admit(replay)
     assert sources.puts == writes_before
@@ -139,7 +150,10 @@ def test_existing_pair_replay_makes_no_core_puts_and_keeps_catalog_metadata() ->
 
 def test_partial_pair_and_material_drift_fail_closed_without_puts() -> None:
     sources = InMemorySourceRepository()
-    adapter = DungeonMindWorldGraphSourceAdmissionAdapter(sources=sources)
+    adapter = DungeonMindWorldGraphSourceAdmissionAdapter(
+        sources=sources, world_graph=SimpleNamespace(
+            get_head=lambda _world: SimpleNamespace(head_revision_id=HEAD)),
+    )
     artifact, revision, _ = _map_buddy_source(_request(artifact_id=ARTIFACT_A), sources)
     sources.put_artifact(artifact)
     with pytest.raises(WorldGraphSourceAdmissionError, match="one half") as exc:
@@ -155,7 +169,10 @@ def test_partial_pair_and_material_drift_fail_closed_without_puts() -> None:
 
 def test_prove_or_admit_binds_every_new_revision_to_its_artifact() -> None:
     sources = InMemorySourceRepository()
-    adapter = DungeonMindWorldGraphSourceAdmissionAdapter(sources=sources)
+    adapter = DungeonMindWorldGraphSourceAdmissionAdapter(
+        sources=sources, world_graph=SimpleNamespace(
+            get_head=lambda _world: SimpleNamespace(head_revision_id=HEAD)),
+    )
     first = adapter.prove_or_admit(_request(artifact_id=ARTIFACT_A))
     assert first.source_revision_id == f"{TOKEN}::{ARTIFACT_A}"
     second = adapter.prove_or_admit(_request(artifact_id=ARTIFACT_B))
@@ -171,14 +188,20 @@ def test_prove_or_admit_binds_every_new_revision_to_its_artifact() -> None:
     assert proven.source_revision_id == second.source_revision_id
 
 
-def test_prove_or_admit_fingerprint_conflict_fails_closed() -> None:
+def test_prove_or_admit_protection_conflict_fails_closed() -> None:
     sources = InMemorySourceRepository()
-    adapter = DungeonMindWorldGraphSourceAdmissionAdapter(sources=sources)
+    adapter = DungeonMindWorldGraphSourceAdmissionAdapter(
+        sources=sources, world_graph=SimpleNamespace(
+            get_head=lambda _world: SimpleNamespace(head_revision_id=HEAD)),
+    )
     adapter.prove_or_admit(_request(artifact_id=ARTIFACT_A))
+    changed = _buddy_artifact(artifact_id=ARTIFACT_A)
+    changed.authority_state = "canonical"
     conflict = WorldGraphSourceAdmissionRequest(
+        source_body=BODY, expected_head_revision_id=HEAD,
         world_id=WORLD_ID,
         campaign_id=CAMPAIGN_ID,
-        source_artifact=_buddy_artifact(artifact_id=ARTIFACT_A),
+        source_artifact=changed,
         source_revision_token=TOKEN,
         source_uri="object://different-locator",
     )
@@ -208,6 +231,7 @@ def test_mapper_resolves_legacy_missing_world_before_strict_artifact_v2(
     artifact = _buddy_artifact(artifact_id=ARTIFACT_A, world_id=legacy_world_id)
     original_fields = copy.deepcopy(vars(artifact))
     request = WorldGraphSourceAdmissionRequest(
+        source_body=BODY, expected_head_revision_id=HEAD,
         world_id=WORLD_ID,
         campaign_id=CAMPAIGN_ID,
         source_artifact=artifact,
@@ -225,7 +249,7 @@ def test_mapper_resolves_legacy_missing_world_before_strict_artifact_v2(
     assert mapped.uri == f"object://{ARTIFACT_A}"
     assert mapped.current_revision_id == f"{TOKEN}::{ARTIFACT_A}"
     assert revision.source_artifact_id == ARTIFACT_A
-    assert revision.content_sha256 == "ab" * 32
+    assert revision.content_sha256 == DIGEST
     assert token == TOKEN
     assert vars(artifact) == original_fields
 
@@ -239,6 +263,7 @@ def test_mapper_preserves_existing_artifact_world_scope(
     artifact = _buddy_artifact(artifact_id=ARTIFACT_A, world_id=artifact_world_id)
     original_fields = copy.deepcopy(vars(artifact))
     request = WorldGraphSourceAdmissionRequest(
+        source_body=BODY, expected_head_revision_id=HEAD,
         world_id=WORLD_ID,
         campaign_id=CAMPAIGN_ID,
         source_artifact=artifact,
@@ -311,13 +336,15 @@ def test_prove_or_admit_works_when_legacy_graph_engine_imports_are_blocked() -> 
         campaign_id = {CAMPAIGN_ID!r}
         artifact_id = {ARTIFACT_A!r}
         token = {TOKEN!r}
+        body = {BODY!r}
+        digest = {DIGEST!r}
         artifact = SimpleNamespace(
             source_artifact_id=artifact_id,
             source_domain="worldbuilding",
             campaign_id=campaign_id,
             session_id=None,
             uri=f"object://{{artifact_id}}",
-            content_sha256="ab" * 32,
+            content_sha256=digest,
             artifact_kind="markdown",
             document_class="lore",
             authority_state="reviewed",
@@ -335,10 +362,14 @@ def test_prove_or_admit_works_when_legacy_graph_engine_imports_are_blocked() -> 
             campaign_id=campaign_id,
             source_artifact=artifact,
             source_revision_token=token,
+            source_body=body, expected_head_revision_id="rev:synthetic-source-admission",
             source_uri=f"object://{{artifact_id}}",
         )
         sources = InMemorySourceRepository()
-        adapter = DungeonMindWorldGraphSourceAdmissionAdapter(sources=sources)
+        adapter = DungeonMindWorldGraphSourceAdmissionAdapter(
+            sources=sources, world_graph=SimpleNamespace(
+                get_head=lambda _world: SimpleNamespace(head_revision_id="rev:synthetic-source-admission")),
+        )
         admitted = adapter.prove_or_admit(request)
         assert admitted.source_artifact_id == artifact_id
         assert admitted.source_revision_id == f"{{token}}::{{artifact_id}}"
@@ -823,8 +854,12 @@ def test_internal_source_read_fails_closed_on_missing_or_stale_binding(
 
 def test_world_owned_source_admission_preserves_exact_none_campaign():
     sources = InMemorySourceRepository()
-    adapter = DungeonMindWorldGraphSourceAdmissionAdapter(sources=sources)
+    adapter = DungeonMindWorldGraphSourceAdmissionAdapter(
+        sources=sources, world_graph=SimpleNamespace(
+            get_head=lambda _world: SimpleNamespace(head_revision_id=HEAD)),
+    )
     request = WorldGraphSourceAdmissionRequest(
+        source_body=BODY, expected_head_revision_id=HEAD,
         world_id=WORLD_ID, campaign_id=None,
         source_artifact=_buddy_artifact(artifact_id=ARTIFACT_A, campaign_id=None),
         source_revision_token=TOKEN,
@@ -839,13 +874,18 @@ def test_world_owned_source_admission_preserves_exact_none_campaign():
 
 def test_world_owned_request_cannot_retag_existing_campaign_source():
     sources = InMemorySourceRepository()
-    adapter = DungeonMindWorldGraphSourceAdmissionAdapter(sources=sources)
+    adapter = DungeonMindWorldGraphSourceAdmissionAdapter(
+        sources=sources, world_graph=SimpleNamespace(
+            get_head=lambda _world: SimpleNamespace(head_revision_id=HEAD)),
+    )
     original = adapter.prove_or_admit(WorldGraphSourceAdmissionRequest(
+        source_body=BODY, expected_head_revision_id=HEAD,
         world_id=WORLD_ID, campaign_id=CAMPAIGN_ID,
         source_artifact=_buddy_artifact(artifact_id=ARTIFACT_A), source_revision_token=TOKEN,
     ))
     with pytest.raises(WorldGraphSourceAdmissionError):
         adapter.prove_or_admit(WorldGraphSourceAdmissionRequest(
+            source_body=BODY, expected_head_revision_id=HEAD,
             world_id=WORLD_ID, campaign_id=None,
             source_artifact=_buddy_artifact(artifact_id=ARTIFACT_A, campaign_id=None),
             source_revision_token=TOKEN,
@@ -864,7 +904,10 @@ def test_existing_pair_uses_one_native_snapshot_for_catalog_matching():
             return super().get_provenance_snapshot(**kwargs)
 
     sources = CountingSources()
-    adapter = DungeonMindWorldGraphSourceAdmissionAdapter(sources=sources)
+    adapter = DungeonMindWorldGraphSourceAdmissionAdapter(
+        sources=sources, world_graph=SimpleNamespace(
+            get_head=lambda _world: SimpleNamespace(head_revision_id=HEAD)),
+    )
     request = _request(artifact_id=ARTIFACT_A)
     first = adapter.prove_or_admit(request)
     sources.snapshots = 0
@@ -885,7 +928,10 @@ def test_native_catalog_denial_cannot_fall_back_to_buddy_writes(monkeypatch):
         raise IdempotencyConflictError("synthetic native catalog denial")
     monkeypatch.setattr(native, "match_admitted_source_revision", denied)
     with pytest.raises(WorldGraphSourceAdmissionError) as failure:
-        DungeonMindWorldGraphSourceAdmissionAdapter(sources=sources).prove_or_admit(_request(artifact_id=ARTIFACT_A))
+        DungeonMindWorldGraphSourceAdmissionAdapter(
+        sources=sources, world_graph=SimpleNamespace(
+            get_head=lambda _world: SimpleNamespace(head_revision_id=HEAD)),
+    ).prove_or_admit(_request(artifact_id=ARTIFACT_A))
     assert failure.value.code == "source_identity_conflict"
     assert sources.list_artifacts_for_world(WORLD_ID) == []
 

@@ -33,6 +33,10 @@ def frozen(tmp_path, monkeypatch):
     text = "Mara keeps the copper bell.\n\nOren works at the quarry.\n"
     body = tmp_path / "source.md"
     body.write_text(text)
+    monkeypatch.setattr(
+        "apps.live_control_server.services.source_artifact_registry.load_source_input_bytes",
+        lambda original: text.encode(),
+    )
     digest = hashlib.sha256(body.read_bytes()).hexdigest()
     resolved = fake_resolved_source()
     artifact = resolved.source_artifact

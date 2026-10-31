@@ -191,11 +191,18 @@ def test_native_confirm_publishes_guarded_review_and_historical_replay_survives_
         content_sha256=buddy_revision.removeprefix("sha256:"),
         world_id=world_id,
     )
-    source_adapter = DungeonMindWorldGraphSourceAdmissionAdapter(sources=sources)
+    initial = graph.publish_revision(PublishRevisionCommand(
+        world_id=world_id, parent_revision_id=None, expected_parent_revision_id=None,
+        operation_ids=["operation:synthetic-empty-parent"], graph_schema="dm_union_graph_v6",
+        graph_payload={"schema_version": "dm_union_graph_v6", "world_id": world_id,
+                       "objects": [], "relationships": [], "evidence_refs": []}, created_at=now,
+    ))
+    source_adapter = DungeonMindWorldGraphSourceAdmissionAdapter(sources=sources, world_graph=graph)
     admitted = source_adapter.prove_or_admit(WorldGraphSourceAdmissionRequest(
         world_id=world_id,
         campaign_id=CAMPAIGN_ID,
         source_artifact=artifact_payload,
+        source_body=source_path.read_bytes(), expected_head_revision_id=initial.revision_id,
         source_revision_token=buddy_revision,
         source_uri=str(source_path),
     ))
@@ -248,7 +255,7 @@ def test_native_confirm_publishes_guarded_review_and_historical_replay_survives_
     from dungeonmind.application.graph_snapshot_v6 import UnionGraphV6Payload
     parent_payload = UnionGraphV6Payload.model_validate(parent_payload).model_dump(mode="json")
     parent_stored = graph.publish_revision(PublishRevisionCommand(
-        world_id=world_id, parent_revision_id=None, expected_parent_revision_id=None,
+        world_id=world_id, parent_revision_id=initial.revision_id, expected_parent_revision_id=initial.revision_id,
         operation_ids=["operation:synthetic-parent"], graph_schema="dm_union_graph_v6",
         graph_payload=parent_payload, created_at=now,
     ))
@@ -312,6 +319,7 @@ def test_native_confirm_publishes_guarded_review_and_historical_replay_survives_
         json.dumps(candidate), encoding="utf-8"
     )
     prepared = prepare_candidate_graph_admission(
+        source_body=source_path.read_bytes(),
         candidate_graph=candidate,
         source_uri=str(source_path),
         source_revision_id=buddy_revision,
@@ -427,7 +435,10 @@ class RecordingAdmission:
     fail_code: str | None = None
 
     def _adapter(self) -> DungeonMindWorldGraphSourceAdmissionAdapter:
-        return DungeonMindWorldGraphSourceAdmissionAdapter(sources=self.sources)
+        return DungeonMindWorldGraphSourceAdmissionAdapter(
+            sources=self.sources, world_graph=SimpleNamespace(
+                get_head=lambda _world: SimpleNamespace(head_revision_id="rev:d0")),
+        )
 
     def prove_or_admit(self, request) -> AdmittedSourceIdentity:
         self.calls.append("prove_or_admit")
@@ -533,6 +544,7 @@ def _prepare(
         objects={},
     )
     return prepare_candidate_graph_admission(
+        source_body=source.read_bytes(),
         candidate_graph=candidate or _candidate(),
         source_uri=str(source),
         source_revision_id=token,
@@ -593,6 +605,7 @@ def test_confirmable_prepare_requires_canonical_source_artifact(tmp_path: Path) 
         match="canonical source artifact",
     ):
         prepare_candidate_graph_admission(
+            source_body=source.read_bytes(),
             candidate_graph=_candidate(),
             source_uri=str(source),
             source_revision_id=revision,
@@ -637,6 +650,7 @@ def test_foreign_campaign_fails_before_admission(tmp_path: Path) -> None:
     source, revision = _source_file(tmp_path)
     with pytest.raises(CandidateAdmissionNotConfirmableError, match="different campaign"):
         prepare_candidate_graph_admission(
+            source_body=source.read_bytes(),
             candidate_graph=_candidate(),
             source_uri=str(source),
             source_revision_id=revision,
@@ -686,6 +700,7 @@ def test_fingerprint_conflict_fails_closed(tmp_path: Path) -> None:
     )
     with pytest.raises(CandidateAdmissionIntegrityError) as excinfo:
         prepare_candidate_graph_admission(
+            source_body=other.read_bytes(),
             candidate_graph=_candidate(),
             source_uri=str(other),
             source_revision_id=other_revision,
@@ -725,6 +740,7 @@ def test_same_token_verified_mirror_reuses_catalog_locator(tmp_path: Path) -> No
         content_sha256=token.removeprefix("sha256:"),
     )
     replay = prepare_candidate_graph_admission(
+            source_body=relocated.read_bytes(),
             candidate_graph=_candidate(),
             source_uri=str(relocated),
             source_revision_id=token,
@@ -791,6 +807,7 @@ def test_non_recap_source_domain_rejected_before_admission(tmp_path: Path) -> No
         match="recap source artifact",
     ):
         prepare_candidate_graph_admission(
+            source_body=source.read_bytes(),
             candidate_graph=_candidate(),
             source_uri=str(source),
             source_revision_id=revision,
@@ -833,6 +850,7 @@ def test_same_token_different_artifacts_collision_safe_through_prepare(
         source_domain="session_recap",
     )
     second = prepare_candidate_graph_admission(
+        source_body=source.read_bytes(),
         candidate_graph=_candidate_bound_to(other_id),
         source_uri=str(source),
         source_revision_id=token,
@@ -871,7 +889,7 @@ def test_same_token_different_artifacts_collision_safe_through_prepare(
 
 @pytest.mark.parametrize("graph_review_first", [True, False])
 def test_graph_review_and_candidate_admission_share_recap_fingerprint(
-    tmp_path: Path, graph_review_first: bool
+    tmp_path: Path, graph_review_first: bool, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     from apps.live_control_server.services.graph_object_authoring_prepare import (
         prove_or_admit_graph_review_source,
@@ -891,16 +909,20 @@ def test_graph_review_and_candidate_admission_share_recap_fingerprint(
         sealed_source_uri=str(source),
     )
 
+    monkeypatch.setattr("apps.live_control_server.services.source_artifact_registry.load_source_input_bytes",
+                        lambda artifact: source.read_bytes())
     def via_graph_review() -> tuple[str, str]:
         return prove_or_admit_graph_review_source(
             world_id=WORLD_ID,
             campaign_id=CAMPAIGN_ID,
             resolved_source=resolved,
+            expected_head_revision_id="rev:d0",
             source_admission=admission,
         )
 
     def via_candidate() -> tuple[str, str]:
         result = prepare_candidate_graph_admission(
+            source_body=source.read_bytes(),
             candidate_graph=_candidate(),
             source_uri=str(source),
             source_revision_id=revision,
@@ -1238,6 +1260,7 @@ def _prepared_native_recap(
         world_id=world_id,
     )
     result = prepare_candidate_graph_admission(
+        source_body=source.read_bytes(),
         candidate_graph=candidate,
         source_uri=str(source),
         source_revision_id=source_revision,
@@ -1349,6 +1372,8 @@ def _prepare_reviewed_binding_postgres(prepared):
         world_id=prepared.world_id,
         campaign_id=CAMPAIGN_ID,
         source_artifact=target_artifact_payload,
+        source_body=target_source_path.read_bytes(),
+        expected_head_revision_id=bundle.world_graph.get_head(prepared.world_id).head_revision_id,
         source_revision_token=target_revision_token,
         source_uri=str(target_source_path),
     ))
@@ -1469,6 +1494,7 @@ def _prepare_reviewed_binding_postgres(prepared):
     prepared.candidate = candidate
     prepared.candidate_path.write_text(json.dumps(candidate), encoding="utf-8")
     result = prepare_candidate_graph_admission(
+        source_body=prepared.source_path.read_bytes(),
         candidate_graph=candidate,
         source_uri=str(prepared.source_path),
         source_revision_id=prepared.source_revision_id,

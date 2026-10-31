@@ -1730,8 +1730,18 @@ def prepare(
             code="source_world_mismatch", status_code=409,
         )
 
+    from apps.live_control_server.services.source_artifact_registry import (
+        load_source_input_bytes, SourceArtifactRegistryError,
+    )
+    try:
+        source_body = load_source_input_bytes(source_artifact)
+    except SourceArtifactRegistryError as exc:
+        raise ExtractPromoteError(str(exc), code="run_not_promotable",
+                                  status_code=exc.status_code) from exc
+
     prepare_kwargs = dict(
         candidate_graph=payload,
+        source_body=source_body,
         source_uri=resolved.sealed_source_uri,
         source_revision_id=resolved.source_revision_id,
         prepared_by=SERVER_PREPARED_BY,

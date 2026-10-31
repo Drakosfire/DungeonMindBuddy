@@ -976,6 +976,7 @@ def test_reviewable_unsupported_candidate_is_exact_admission_input(
     )
 
     prepared = prepare_candidate_graph_admission(
+        source_body=(tmp_path / source.source_uri.removeprefix("repo://")).read_bytes(),
         candidate_graph=candidate,
         source_uri=source.source_uri,
         source_revision_id=revision,

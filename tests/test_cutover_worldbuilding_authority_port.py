@@ -52,7 +52,12 @@ def _ingest_application_state(application_state_dsn: str, monkeypatch) -> str:
     from apps.live_control_server.integrations.dungeonmind.world_graph_source_admission_adapter import (
         DungeonMindWorldGraphSourceAdmissionAdapter,
     )
-    adapter = DungeonMindWorldGraphSourceAdmissionAdapter(sources=InMemorySourceRepository())
+    from apps.live_control_server.ports import world_graph_authority_access as access
+    adapter = DungeonMindWorldGraphSourceAdmissionAdapter(
+        sources=InMemorySourceRepository(), world_graph=SimpleNamespace(
+            get_head=lambda world: SimpleNamespace(
+                head_revision_id=access.get_world_graph_authority().current_head(world).revision_id)),
+    )
     monkeypatch.setattr(
         "apps.live_control_server.ports.world_graph_source_admission_access.get_world_graph_source_admission_authority",
         lambda: adapter,
