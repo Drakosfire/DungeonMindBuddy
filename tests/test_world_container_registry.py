@@ -127,7 +127,7 @@ def test_registered_world_allows_page_without_a_corpus_folder(root):
     world = create_world_container(root, name="Composable World")
     created = _page(root, world.world_id)
     assert created.world_id == world.world_id
-    assert created.target_relpath == f"{world.source_root_relpath}/_dungeonbuddy/sources/{created.document_id}/source.md"
+    assert created.target_relpath is None
     assert not (root / world.source_root_relpath).exists()
 
 
@@ -138,15 +138,18 @@ def test_unregistered_directory_cannot_authorize_a_page(root):
     assert error.value.status_code == 404
 
 
-def test_registered_page_storage_cannot_escape_through_a_symlink(root, tmp_path):
+def test_database_page_save_ignores_unrelated_source_directory_symlink(root, tmp_path):
     world = create_world_container(root, name="Escaped World")
     outside = tmp_path.parent / (tmp_path.name + "-outside")
     outside.mkdir()
     target = root / world.source_root_relpath
     target.parent.mkdir(parents=True)
     target.symlink_to(outside, target_is_directory=True)
-    with pytest.raises(WorkspaceDocumentRegistryError, match="escapes"):
-        _page(root, world.world_id)
+    from tests.page_fixtures import save_page, page_text
+    created = _page(root, world.world_id)
+    save_page(root, created.document_id, "Saved in Content\n")
+    assert page_text(root, created.document_id) == "Saved in Content\n"
+    assert target.is_symlink() and target.resolve() == outside
     assert list(outside.iterdir()) == []
 
 
