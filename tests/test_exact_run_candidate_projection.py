@@ -172,13 +172,22 @@ def test_actual_production_run_reads_all_local_candidates_without_mutation(
     assert not list(root.rglob("promote_seals"))
 
 
-@pytest.mark.parametrize(
-    "component", ["source_artifact", "candidate_graph", "source_span_index"]
-)
-def test_exact_component_hash_drift_rejected(produced, component):
+@pytest.mark.parametrize("component", ["source_artifact", "candidate_graph", "source_span_index"])
+@pytest.mark.parametrize("violation", ["missing", "corrupt"])
+def test_exact_database_component_drift_rejected(produced, application_state_dsn, component, violation):
+    import psycopg
     root, _, run = produced
-    path = root / run.components[component].uri.removeprefix("repo://")
-    path.write_bytes(path.read_bytes() + b" ")
+    with psycopg.connect(application_state_dsn) as conn:
+        if component == "source_artifact":
+            if violation == "missing":
+                conn.execute("DELETE FROM source.revision WHERE source_artifact_id=%s", (run.source_artifact_id,))
+            else:
+                conn.execute("UPDATE source.revision SET markdown='corrupt' WHERE source_artifact_id=%s", (run.source_artifact_id,))
+        elif violation == "missing":
+            conn.execute("DELETE FROM ingest.component_payload WHERE run_id=%s AND kind=%s", (run.run_id,component))
+        else:
+            conn.execute("UPDATE ingest.component_payload SET payload=%s WHERE run_id=%s AND kind=%s", (b"corrupt",run.run_id,component))
+    # The still-valid operational copies cannot rescue the actual database bytes.
     with pytest.raises(service.CandidateProjectionError):
         service.build_exact_run_candidate_projection(root, run.run_id, "managed-a")
 
@@ -189,15 +198,20 @@ def test_foreign_world_rejected(produced):
         service.build_exact_run_candidate_projection(root, run.run_id, "foreign")
 
 
-def test_symlink_component_rejected_even_if_bytes_match(produced):
+@pytest.mark.parametrize("component", ["source_artifact", "candidate_graph", "source_span_index"])
+@pytest.mark.parametrize("mode", ["symlink", "tamper"])
+def test_operational_mirror_cannot_change_candidate_projection(produced, component, mode):
     root, _, run = produced
-    path = root / run.components["candidate_graph"].uri.removeprefix("repo://")
-    copy = root / "same-candidate.json"
-    copy.write_bytes(path.read_bytes())
-    path.unlink()
-    path.symlink_to(copy)
-    with pytest.raises(service.CandidateProjectionError):
-        service.build_exact_run_candidate_projection(root, run.run_id, "managed-a")
+    expected = service.build_exact_run_candidate_projection(root, run.run_id, "managed-a")
+    path = root / run.components[component].uri.removeprefix("repo://")
+    if mode == "symlink":
+        copy = root / "untrusted-mirror.json"
+        copy.write_bytes(b"Not the registered source or output")
+        path.unlink()
+        path.symlink_to(copy)
+    else:
+        path.write_bytes(b"corrupt operational mirror")
+    assert service.build_exact_run_candidate_projection(root, run.run_id, "managed-a") == expected
 
 
 def test_canonical_source_outside_ingest_roots_never_sealed(produced, monkeypatch):
@@ -221,6 +235,11 @@ def test_canonical_source_outside_ingest_roots_never_sealed(produced, monkeypatc
         components=components,
         lineage=old.lineage,
     )
+    from application_state.ingest.components import get_component_bytes, persist_component_payload
+    for kind in ("candidate_graph", "source_span_index"):
+        ref = old.components[kind]
+        payload = get_component_bytes(run_id=old.run_id, kind=kind, content_sha256=ref.sha256)
+        persist_component_payload(run_id=run.run_id, expected_revision=run.revision, kind=kind, payload=payload)
     for status in ["prepared", "extracted", "validated", "reviewable"]:
         run = update_extraction_run_status(
             root,
@@ -623,3 +642,61 @@ def test_indented_literal_source_graph_markup_is_preserved_not_generated(produce
     assert result.projected_markdown == source.source_text
     assert result.mentions_count == 0
     assert len(result.nodes) == 1
+
+
+@pytest.mark.parametrize("status", ["reviewable", "promoted"])
+def test_http_candidate_reader_reopens_database_after_mirror_loss(produced, monkeypatch, status):
+    from apps.live_control_server.routes import graph_preview
+    from apps.live_control_server.services import graph_run_registry as registry
+    from application_state.ingest import components
+    root, _, run = produced
+    if status == "promoted":
+        run = registry.update_extraction_run_status(root,run.run_id,
+            expected_revision=run.revision,status=registry.ExtractionRunStatus.PROMOTED)
+    for kind in ('source_artifact','source_span_index','candidate_graph'):
+        (root / run.components[kind].uri.removeprefix('repo://')).unlink()
+    monkeypatch.setattr(graph_preview,'repo_root',lambda:root)
+    monkeypatch.setenv('DMB_AGENT_GRAPH_AUTH_MODE','local_operator')
+    monkeypatch.setenv('DMB_AGENT_GRAPH_AUTH_ENVIRONMENT','local')
+    token='synthetic-candidate-no-mirror-credential-000000'
+    monkeypatch.setenv('DMB_AGENT_GRAPH_LOCAL_OPERATOR_TOKEN',token)
+    app=FastAPI()
+    app.include_router(graph_preview.router)
+    source_reads=[]
+    output_reads=[]
+    source=registry.load_registered_source_artifact_bytes
+    output=components.get_component_bytes
+    def read_source(*args,**kwargs):
+        source_reads.append(True)
+        return source(*args,**kwargs)
+    def read_output(**kwargs):
+        output_reads.append(kwargs['kind'].value)
+        return output(**kwargs)
+    monkeypatch.setattr(registry,'load_registered_source_artifact_bytes',read_source)
+    monkeypatch.setattr(components,'get_component_bytes',read_output)
+    before=snapshot(root)
+    async def request():
+        async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app,client=('127.0.0.1',1234)),base_url='http://test') as client:
+            return await client.get(f'/api/live/graph-preview/extraction-runs/{run.run_id}/candidate-projection?managed_world_id=managed-a',headers={'Authorization':'Bearer '+token})
+    response=asyncio.run(request())
+    assert response.status_code==200,response.text
+    assert response.json()['runId']==run.run_id
+    assert response.json()['runStatus']==status
+    assert response.json()['sourceMarkdown']==fixture.SOURCE
+    assert response.json()['trustBoundary']=='unpublished_candidate'
+    assert len(source_reads)==1 and sorted(output_reads)==['candidate_graph','source_span_index']
+    assert snapshot(root)==before and get_extraction_run(root,run.run_id)==run
+
+
+def test_candidate_keys_use_the_owning_digest_normalization(produced,monkeypatch):
+    root,_,run=produced
+    expected=service.build_exact_run_candidate_projection(root,run.run_id,"managed-a")
+    refs={**run.components,**{kind:run.components[kind].model_copy(update={
+        "sha256":"sha256:"+run.components[kind].sha256.upper()})
+        for kind in ("candidate_graph","source_span_index")}}
+    equivalent=run.model_copy(update={"components":refs})
+    monkeypatch.setattr(service,"get_extraction_run",lambda *args:equivalent)
+    actual=service.build_exact_run_candidate_projection(root,run.run_id,"managed-a")
+    assert actual.candidate_sha256==expected.candidate_sha256
+    assert actual.span_index_sha256==expected.span_index_sha256
+    assert [node.view_key for node in actual.nodes]==[node.view_key for node in expected.nodes]

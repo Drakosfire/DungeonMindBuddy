@@ -290,9 +290,9 @@ def _parse_run_span_index(payload: bytes, artifact: GraphMemorySourceArtifact) -
     return index
 
 
-def assert_run_reviewable_evidence(root: Path, run: ExtractionRun) -> None:
-    """Require exact bound APP output bytes before review or promotion."""
-    _load_bound_run_evidence(root, run)
+def assert_run_reviewable_evidence(root: Path, run: ExtractionRun) -> ReviewableExtractionData:
+    """Verify and return exact APP bytes before review, promotion or rendering."""
+    return _load_bound_run_evidence(root, run)
 
 
 def assert_immutable_component_refs(root: Path, run: ExtractionRun, *, expected_revision: int) -> None:

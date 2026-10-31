@@ -4,8 +4,6 @@ from __future__ import annotations
 from dataclasses import asdict
 import hashlib
 import json
-import os
-import stat
 from pathlib import Path
 import re
 import yaml
@@ -30,16 +28,13 @@ from apps.live_control_server.services.source_artifact_registry import (
     get_source_artifact,
 )
 from graph_memory.candidate_graph_to_contribution import load_typed_candidate_graph
+from graph_memory.ingestion.extraction_run import normalize_content_digest
 from graph_memory.projection.markdown_mentions import (
     LocatedMentionBinding,
     project_markdown_mentions,
 )
 from graph_memory.projection.node_view import GraphProjectionNodeView
 from graph_memory.projection.recap_projection_contracts import RecapProjectionSourceSpan
-from graph_memory.source_span import (
-    source_span_index_from_dict,
-    validate_source_span_index,
-)
 
 
 class CandidateProjectionError(ValueError):
@@ -60,48 +55,6 @@ def _fail(message: str):
 
 def _sha(data: bytes) -> str:
     return hashlib.sha256(data).hexdigest()
-
-
-def _read_component(root: Path, ref) -> tuple[bytes, str]:
-    uri = ref.uri
-    raw = uri.removeprefix("repo://")
-    if "://" in raw or not raw or ".." in Path(raw).parts:
-        _fail("Candidate component locator is not confined.")
-    path = Path(raw) if Path(raw).is_absolute() else root / raw
-    try:
-        relative = path.relative_to(root)
-    except ValueError:
-        _fail("Candidate component escapes its artifact root.")
-    cursor = root
-    for part in relative.parts:
-        cursor = cursor / part
-        if cursor.is_symlink():
-            _fail("Symlinked candidate evidence is not supported.")
-    if not path.is_file():
-        _fail("An exact candidate component is missing.")
-    # Traverse relative to directory descriptors so a concurrent symlink swap
-    # cannot turn a confined read into an out-of-root read.
-    descriptor = os.open(root, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)
-    try:
-        for part in relative.parts[:-1]:
-            child = os.open(
-                part, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW, dir_fd=descriptor
-            )
-            os.close(descriptor)
-            descriptor = child
-        leaf = os.open(
-            relative.parts[-1], os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK, dir_fd=descriptor
-        )
-        with os.fdopen(leaf, "rb") as handle:
-            if not stat.S_ISREG(os.fstat(handle.fileno()).st_mode):
-                _fail("Candidate component is not a regular file.")
-            data = handle.read()
-    finally:
-        os.close(descriptor)
-    digest = _sha(data)
-    if digest != (ref.sha256 or "").removeprefix("sha256:"):
-        _fail("An exact candidate component digest changed.")
-    return data, digest
 
 
 def narrative_segments(
@@ -213,8 +166,8 @@ def _build(
         _fail("Only a sealed reviewable or promoted candidate can be inspected.")
     if run.source_domain != "recap" or run.profile_id != "recap_category_v1@1.0":
         _fail("This exact candidate profile is not supported by the recap reader.")
-    assert_run_reviewable_evidence(root, run)
-    artifact = get_source_artifact(root, run.source_artifact_id)
+    data = assert_run_reviewable_evidence(root, run)
+    artifact = data.source_artifact
     binding = resolve_managed_world_binding(managed_world_id)
     if not artifact.world_id or artifact.world_id != binding.native_world_id:
         _fail("The exact source does not belong to this verified World.")
@@ -235,15 +188,9 @@ def _build(
         or context.get("binding_version") != binding.binding_version
     ):
         _fail("The frozen run and selected World bindings disagree.")
-    captured = {
-        key: _read_component(root, run.components[key])
-        for key in ["source_artifact", "candidate_graph", "source_span_index"]
-    }
-    source = captured["source_artifact"][0].decode("utf-8")
-    source_sha = captured["source_artifact"][1]
-    if source_sha != (artifact.content_sha256 or "").removeprefix("sha256:"):
-        _fail("The captured source no longer matches its registered revision.")
-    payload = json.loads(captured["candidate_graph"][0])
+    source = data.source_bytes.decode("utf-8")
+    source_sha = normalize_content_digest(artifact.content_sha256 or "")
+    payload = json.loads(data.candidate_bytes)
     if payload.get("version") != "0.1" or payload.get("source_artifact_ids") != [
         run.source_artifact_id
     ]:
@@ -251,10 +198,7 @@ def _build(
     preview = load_typed_candidate_graph(payload)
     if preview.campaign_id != run.campaign_id or preview.session_id != run.session_id:
         _fail("Candidate campaign or session disagrees with its stored run.")
-    index = source_span_index_from_dict(json.loads(captured["source_span_index"][0]))
-    validate_source_span_index(
-        index, source_artifact_id=run.source_artifact_id, content_sha256=source_sha
-    )
+    index = data.span_index
     lines = source.splitlines(keepends=True)
     starts = [0]
     for line in lines:
@@ -304,7 +248,7 @@ def _build(
             )
         return result
 
-    candidate_sha = captured["candidate_graph"][1]
+    candidate_sha = normalize_content_digest(run.components["candidate_graph"].sha256 or "")
     keys = {
         n.node_id: f"candidate:{run.run_id}:{candidate_sha}:{_sha(n.node_id.encode())}"
         for n in preview.nodes
@@ -438,7 +382,7 @@ def _build(
         source_revision_id="sha256:" + source_sha,
         source_sha256="sha256:" + source_sha,
         candidate_sha256="sha256:" + candidate_sha,
-        span_index_sha256="sha256:" + captured["source_span_index"][1],
+        span_index_sha256="sha256:" + normalize_content_digest(run.components["source_span_index"].sha256 or ""),
         campaign_id=run.campaign_id or "",
         session_id=run.session_id or "",
         managed_world_id=binding.managed_world_id,
