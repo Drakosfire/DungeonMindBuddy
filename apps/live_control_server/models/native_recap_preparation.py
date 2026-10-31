@@ -1,4 +1,4 @@
-"""Explicit review choices over an immutable saved Recap, not a publication command."""
+"""Explicit saved Recap review and confirmation of its exact WK preparation."""
 
 from typing import Annotated, Literal
 from datetime import datetime
@@ -99,3 +99,27 @@ class NativeRecapPrepareRequest(Closed):
         if len(set(keys)) != len(keys):
             raise ValueError("duplicate record selection")
         return self
+
+
+class NativeRecapReviewEnvelope(Closed):
+    purpose: Literal["dmb_native_recap_confirm_v1"]
+    producer: Literal["dungeonbuddy:reviewed-recap"]
+    principal: Text
+    binding: dict[str, JsonValue] = Field(min_length=1)
+    parent_context: dict[str, JsonValue] = Field(min_length=1)
+    review: NativeRecapPrepareRequest
+    prepared_change_id: Text
+    prepared_digest: Digest
+    expires_at: datetime
+
+    @model_validator(mode="after")
+    def aware_expiry(self):
+        if self.expires_at.utcoffset() is None:
+            raise ValueError("review expiry must be timezone-aware")
+        return self
+
+
+class NativeRecapConfirmRequest(Closed):
+    envelope: NativeRecapReviewEnvelope
+    prepared: dict[str, JsonValue]
+    token: Text

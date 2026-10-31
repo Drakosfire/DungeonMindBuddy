@@ -13,7 +13,7 @@ from fastapi.routing import APIRoute
 
 from application_state.errors import ApplicationStateError
 from apps.live_control_server.integrations.dungeonmind.native_recap_source_admission import NativeRecapError
-from apps.live_control_server.models.native_recap_preparation import NativeRecapPrepareRequest
+from apps.live_control_server.models.native_recap_preparation import NativeRecapPrepareRequest, NativeRecapConfirmRequest
 from apps.live_control_server.routes.strict_json import StrictJSONRoute
 from apps.live_control_server import config as live_config
 from apps.live_control_server.models.ingest_selection_context import IngestSelectionContextRequest
@@ -620,30 +620,71 @@ def post_extract_promote_confirm(
     return response.model_dump(mode="json", by_alias=True)
 
 
-# Native preparation is non-mutating. Its typed WK packet is not a classic
-# review_package and cannot be submitted to the classic confirm operation.
+# Native WK packets use their own authenticated confirmation; never classic promote.
+def _native_recap_operation(body, request, principal, operation):
+    from dungeonmind.domain.errors import DungeonMindError, PersistenceUnavailableError
+    from worldkeeper.application.preparation import InvalidWorldChange
+    from worldkeeper.application.commit import (
+        PreparedChangeIntegrityFailure, PreparedChangeStale, PreparedChangeConflict,
+        CommitAuthorityIntegrityFailure, CommittedChangeOutcomeUnknown,
+        CommittedChangeVerificationUnavailable, CommittedChangeVerificationIntegrityFailure,
+    )
+    commit_errors = {
+        PreparedChangeIntegrityFailure: (409, "native_recap_prepared_invalid"),
+        PreparedChangeStale: (409, "native_recap_commit_stale"),
+        PreparedChangeConflict: (409, "native_recap_commit_conflict"),
+        CommitAuthorityIntegrityFailure: (503, "native_recap_commit_authority_unavailable"),
+        CommittedChangeOutcomeUnknown: (503, "native_recap_commit_outcome_unknown"),
+        CommittedChangeVerificationUnavailable: (503, "native_recap_commit_verification_unavailable"),
+        CommittedChangeVerificationIntegrityFailure: (409, "native_recap_committed_integrity_failure"),
+    }
+    try:
+        _reject_selector_query(request)
+        return operation(body, principal)
+    except ExtractPromoteError as exc:
+        return _error_response(exc)
+    except tuple(commit_errors) as exc:
+        status, code = commit_errors[type(exc)]
+        detail = {"code": code, "message": str(exc),
+                  "retry_original_packet": bool(getattr(exc, "retry_safe", False)),
+                  "committed": getattr(exc, "committed", None)}
+        for field in ("prepared_change_id", "publication_id", "child_revision_id",
+                      "expected_published_revision_id"):
+            if hasattr(exc, field):
+                detail[field] = getattr(exc, field)
+        raise HTTPException(status, detail=detail) from exc
+    except PersistenceUnavailableError as exc:
+        raise HTTPException(503, detail={"code": exc.code, "message": str(exc)}) from exc
+    except (ValueError, ApplicationStateError, NativeRecapError, DungeonMindError, InvalidWorldChange) as exc:
+        raise HTTPException(getattr(exc, "status_code", 409), detail={
+            "code": getattr(exc, "code", "native_recap_review_refused"),
+            "message": str(exc),
+        }) from exc
+
+
 def prepare_native_recap(
     body: NativeRecapPrepareRequest,
     request: Request,
     principal: NativeGraphPrincipal = Depends(native_graph_gm_dependency),
 ):
-    from dungeonmind.domain.errors import DungeonMindError
-    from worldkeeper.application.preparation import InvalidWorldChange
-    from apps.live_control_server.services import native_recap_preparation
+    from apps.live_control_server.services.native_recap_preparation import prepare
+    return _native_recap_operation(body, request, principal, prepare)
 
-    try:
-        _reject_selector_query(request)
-        return native_recap_preparation.prepare(body, principal)
-    except ExtractPromoteError as exc:
-        return _error_response(exc)
-    except (ValueError, ApplicationStateError, NativeRecapError, DungeonMindError, InvalidWorldChange) as exc:
-        raise HTTPException(getattr(exc, "status_code", 409), detail={
-            "code": getattr(exc, "code", "native_recap_prepare_refused"),
-            "message": str(exc),
-        }) from exc
+
+def confirm_native_recap(
+    body: NativeRecapConfirmRequest,
+    request: Request,
+    principal: NativeGraphPrincipal = Depends(native_graph_gm_dependency),
+):
+    from apps.live_control_server.services.native_recap_preparation import confirm
+    return _native_recap_operation(body, request, principal, confirm)
 
 
 router.add_api_route(
     "/native-prepare", prepare_native_recap, methods=["POST"],
+    route_class_override=StrictJSONRoute,
+)
+router.add_api_route(
+    "/native-confirm", confirm_native_recap, methods=["POST"],
     route_class_override=StrictJSONRoute,
 )

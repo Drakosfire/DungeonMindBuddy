@@ -1,12 +1,14 @@
-"""Saved Recap review into existing WK preparation; no publication or source writes."""
+"""Saved Recap review/confirmation via existing WK/Core; no source admission writes."""
 
 import hashlib
+import hmac
 import json
 from datetime import UTC, datetime
 from uuid import uuid4
 
 import worldkeeper.application as wk
 from dungeonmind.application.vnext import open_admitted_native_text
+from fastapi.encoders import jsonable_encoder
 
 from application_state.source import service as sources
 from apps.live_control_server import config
@@ -14,6 +16,10 @@ from apps.live_control_server.integrations.dungeonmind import native_registry_so
 from apps.live_control_server.integrations.worldkeeper import registry_standing_consumer as transport
 from apps.live_control_server.integrations.worldkeeper.graph_authoring_consumer import _predicate
 from apps.live_control_server.services import native_recap_source_admission as admission
+from apps.live_control_server.models.native_recap_preparation import NativeRecapReviewEnvelope
+from apps.live_control_server.services.graph_object_authoring_prepare import (
+    PREPARE_TTL, sign_publication_intent, decode_publication_intent,
+)
 from apps.live_control_server.services.agent_graph_auth import require_native_graph_gm
 from apps.live_control_server.services.extract_promote import project_candidate_record_evidence
 from apps.live_control_server.services.graph_run_registry import load_reviewable_extraction_data
@@ -25,6 +31,7 @@ from graph_memory.vnext.domain_runtime import CAMPAIGN_SCOPE_AXIS
 # Product representation only. Classification does not establish role or source truth.
 _KINDS = {kind: f"dungeonbuddy:{kind}" for kind in NODE_TYPES}
 _KINDS["location"] = "dnd5e:location"
+PRODUCER = "dungeonbuddy:reviewed-recap"
 
 
 class ReviewRefused(ValueError):
@@ -169,7 +176,7 @@ def _intent(preview, selections, space, campaign, admitted, data, access):
             identifier = getattr(row, "item_id", None) or getattr(row, "write_id", None) or row.observation_id
             inventory.append({"kind": kind, "record_id": identifier,
                               "disposition": "held", "reason": "not_an_executable_review_selection"})
-    return wk.WorldChangeIntent(space, "dungeonbuddy:reviewed-recap", tuple(operations)), inventory
+    return wk.WorldChangeIntent(space, PRODUCER, tuple(operations)), inventory
 
 
 def prepare(request, principal):
@@ -237,6 +244,13 @@ def prepare(request, principal):
     _require(head is not None and head.head_revision_id == request.expected_parent_revision_id, "candidate_parent_stale")
     _require(repo.open_native_source_view(space).epoch == context["source_epoch"],
              "candidate_source_authority_changed")
+    packet = transport.encode_prepared(prepared) if prepared else None
+    envelope = NativeRecapReviewEnvelope(
+        purpose="dmb_native_recap_confirm_v1", producer=PRODUCER,
+        principal=principal.subject, binding=bound, parent_context=context,
+        review=request, prepared_change_id=prepared.prepared_change_id,
+        prepared_digest=transport.digest(packet), expires_at=prepared.prepared_at + PREPARE_TTL,
+    ).model_dump(mode="json") if prepared else None
     return {
         "status": "prepared" if prepared else "held", "publication": "not_performed",
         "run_id": run.run_id, "run_revision": run.revision,
@@ -245,6 +259,62 @@ def prepare(request, principal):
         "native_source_admission_id": admitted.admission_id,
         "expected_parent_revision_id": request.expected_parent_revision_id,
         "expected_source_authority_epoch": request.expected_source_authority_epoch,
-        "prepared": transport.encode_prepared(prepared) if prepared else None,
+        "prepared": packet, "envelope": envelope,
+        "token": sign_publication_intent(envelope) if envelope else None,
         "records": inventory,
     }
+
+
+def confirm(request, principal):
+    """Authenticate one review; WK/Core own commit, replay and exact-child proof."""
+    require_native_graph_gm(principal)
+    envelope = request.envelope
+    signed = decode_publication_intent(request.token, allow_expired_recovery=True)
+    _require(
+        hmac.compare_digest(transport.canonical(signed),
+                            transport.canonical(envelope.model_dump(mode="json")))
+        and envelope.principal == principal.subject
+        and envelope.prepared_digest == transport.digest(request.prepared),
+        "candidate_review_invalid",
+    )
+    bound = native.binding(envelope.review.managed_world_id)
+    _require(bound == envelope.binding, "candidate_binding_changed")
+    space = bound["native_world_id"]
+    prepared = transport.decode_prepared(request.prepared)
+    _require(
+        prepared.space_id == space and prepared.producer == PRODUCER
+        and prepared.prepared_change_id == prepared.dungeonmind_publication_id
+        == envelope.prepared_change_id
+        and prepared.expected_parent_revision_id == envelope.review.expected_parent_revision_id
+        and envelope.parent_context.get("source_epoch")
+        == envelope.review.expected_source_authority_epoch,
+        "candidate_review_invalid",
+    )
+    try:
+        transport.verify_prepared_parent(prepared, envelope.parent_context)
+    except (KeyError, TypeError, ValueError) as exc:
+        raise ReviewRefused("candidate_review_invalid") from exc
+    repo = native.repository()
+    # Presence only selects recovery; it never establishes success. WK verifies
+    # the original exact child even after expiry or a newer source/head exists.
+    recovering = repo.get_publication_receipt(space, prepared.dungeonmind_publication_id) is not None
+    if not recovering:
+        _require(envelope.expires_at >= datetime.now(UTC), "candidate_review_expired")
+        context, access = native.access_context(repo, space)
+        _require(context["revision_id"] == prepared.expected_parent_revision_id,
+                 "candidate_parent_stale")
+        _require(context["source_epoch"] == envelope.review.expected_source_authority_epoch,
+                 "candidate_source_authority_stale")
+        transport.verify_prepared_parent(prepared, context)
+        # One current Core opening, no APP/candidate reload or second source validator.
+        for witness in prepared.evidence_witnesses:
+            _require(open_admitted_native_text(access, witness.evidence_ref_id).status == "available",
+                     "candidate_support_unavailable")
+        _require(repo.open_native_source_view(space).epoch == context["source_epoch"],
+                 "candidate_source_authority_changed")
+    _require(native.binding(envelope.review.managed_world_id) == bound, "candidate_binding_changed")
+    domain, profile = native.descriptors(repo, space, prepared.expected_parent_revision_id)
+    result = transport.runtime(repo, domain, profile, now=prepared.prepared_at,
+                               operation_id=prepared.prepared_change_id).commit_prepared_change(
+                                   prepared, confirmed_by=principal.subject)
+    return {"status": "committed", "recovered": recovering, "result": jsonable_encoder(result)}
