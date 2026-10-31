@@ -3226,6 +3226,32 @@ def _unavailable_anchor_result(
     )
 
 
+def _load_admitted_source_body(
+    *, repo_root: Path, source_artifact_id: str, content_sha256: str,
+    snapshot: WorldGraphRetrievalSnapshot | None,
+) -> tuple[Any, str]:
+    """Join native-authorized identity to exact APP bytes; never open a locator."""
+    from apps.live_control_server.services.source_artifact_registry import (
+        SourceArtifactRegistryError, get_source_artifact, load_source_input_bytes,
+    )
+    from apps.live_control_server.services.worldbuilding_source_span_read import (
+        _reconcile_graph_registry_scope,
+    )
+
+    artifact = get_source_artifact(repo_root, source_artifact_id)
+    expected = content_sha256.removeprefix("sha256:").strip().lower()
+    actual = (artifact.content_sha256 or "").removeprefix("sha256:").strip().lower()
+    if not re.fullmatch(r"[0-9a-f]{64}", expected) or actual != expected:
+        raise SourceArtifactRegistryError(
+            "Registered source does not match the DungeonMind revision digest.",
+            status_code=409,
+        )
+    _reconcile_graph_registry_scope(
+        root=repo_root, artifact=artifact, snapshot=snapshot, graph_artifact=None,
+    )
+    return artifact, load_source_input_bytes(artifact).decode("utf-8")
+
+
 def _read_admitted_source_span(
     services: DirectWorldGraphReadServices,
     anchor: SourceAnchorMetadata,
@@ -3241,12 +3267,7 @@ def _read_admitted_source_span(
     reader verifies registered identity, scope, media and actual stored bytes;
     the native revision digest must match that registration before it is read.
     """
-    from apps.live_control_server.services.source_artifact_registry import (
-        SourceArtifactRegistryError, get_source_artifact, load_source_input_bytes,
-    )
-    from apps.live_control_server.services.worldbuilding_source_span_read import (
-        _reconcile_graph_registry_scope,
-    )
+    from apps.live_control_server.services.source_artifact_registry import SourceArtifactRegistryError
 
     span_id = (_product_source_span_ref_id(anchor) or "").strip()
     digest = (
@@ -3261,18 +3282,11 @@ def _read_admitted_source_span(
             message="Admitted source span is missing a span id or revision digest.",
         )
     try:
-        artifact = get_source_artifact(repo_root, anchor.source_artifact_id)
-        actual = (artifact.content_sha256 or "").removeprefix("sha256:").strip().lower()
-        if actual != expected:
-            return _unavailable_anchor_result(
-                base=base, code="source_integrity_error",
-                message="Registered source does not match the DungeonMind revision digest.",
-            )
-        _reconcile_graph_registry_scope(
-            root=repo_root, artifact=artifact, snapshot=base.get("snapshot"),
-            graph_artifact=None,
+        artifact, text = _load_admitted_source_body(
+            repo_root=repo_root, source_artifact_id=anchor.source_artifact_id,
+            content_sha256=expected, snapshot=base.get("snapshot"),
         )
-        text = load_source_input_bytes(artifact).decode("utf-8")
+        actual = (artifact.content_sha256 or "").removeprefix("sha256:").strip().lower()
     except SourceArtifactRegistryError as exc:
         return _unavailable_anchor_result(
             base=base,
@@ -3663,6 +3677,8 @@ def read_recap_context_direct_v2(
     *,
     repo_root: Path,
 ) -> RecapContextReadResultV2:
+    from apps.live_control_server.services.source_artifact_registry import SourceArtifactRegistryError
+
     try:
         projection = _recap_context_projection(request, services.binding)
         native = services.retrieval.resolve_source_context(
@@ -3694,17 +3710,16 @@ def read_recap_context_direct_v2(
             or not descriptor.source_revision_id.strip()
         ):
             raise ValueError("recap context source or selector is invalid")
-        relative = parse_repo_uri(descriptor.source_uri)
-        if not relative:
-            raise ValueError("recap context requires a repo source URI")
-        root = repo_root.resolve()
-        path = (root / relative).resolve()
-        if not path.is_relative_to(root):
-            raise ValueError("recap context URI escapes source root")
-        raw = path.read_bytes()
-        if hashlib.sha256(raw).hexdigest() != descriptor.content_sha256:
-            raise ValueError("recap context source bytes differ from admitted digest")
-        text = raw.decode("utf-8")
+        # Core resolves the exact artifact/revision/digest from the pinned
+        # source snapshot on every page. The URI stays descriptor/cursor identity.
+        artifact, text = _load_admitted_source_body(
+            repo_root=repo_root, source_artifact_id=descriptor.source_artifact_id,
+            content_sha256=descriptor.content_sha256, snapshot=view_snapshot,
+        )
+        if (str(artifact.source_domain) not in {"recap", "session_recap"}
+            or artifact.campaign_id != descriptor.campaign_id
+            or artifact.session_id != descriptor.expected_session_id):
+            raise ValueError("registered recap scope differs from native descriptor")
         lines = text.splitlines(keepends=True)
         selected = _select_recap_section_v2(lines, descriptor)
         form, heading_index, marker_index, start_index, end_index = selected
@@ -3738,6 +3753,12 @@ def read_recap_context_direct_v2(
             truncated=truncated,
             next_continuation=_recap_context_cursor_v2(descriptor, section_sha, selected, end) if truncated else None,
         )
+    except (SourceArtifactRegistryError, WorldGraphRetrievalError) as exc:
+        raise DirectWorldGraphReadError(
+            "Recap context database source is unavailable.", code="source_unavailable",
+            status_code=503 if getattr(exc, "status_code", 409) >= 500 else 409,
+            cause=exc,
+        ) from exc
     except (OSError, UnicodeDecodeError, ValueError) as exc:
         raise DirectWorldGraphReadError(
             f"Recap context is unavailable: {type(exc).__name__}",
