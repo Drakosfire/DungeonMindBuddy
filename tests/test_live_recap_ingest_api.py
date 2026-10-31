@@ -124,7 +124,7 @@ def test_process_stops_on_staged_source_conflict_before_graph_extraction(
     graph_calls: list[dict[str, object]] = []
     monkeypatch.setattr(
         recap_ingest_route,
-        "build_recap_graph_preview_bundle",
+        "extract_recap",
         lambda **kwargs: (graph_calls.append(kwargs) or {"status": "candidate_validation_ready"}),
     )
 
@@ -191,7 +191,7 @@ def test_process_saves_normalizes_and_builds_graph_in_one_request(
     monkeypatch.setattr(recap_ingest_route, "_request_recap_context", lambda _body: object())
     monkeypatch.setattr(
         recap_ingest_route,
-        "build_recap_graph_preview_bundle",
+        "extract_recap",
         lambda **kwargs: (
             graph_calls.append(kwargs)
             or {
@@ -242,7 +242,7 @@ def test_process_builds_graph_context_without_breadcrumb_or_session_memory_opera
     monkeypatch.setattr(recap_ingest_route, "_request_recap_context", lambda _body: object())
     monkeypatch.setattr(
         recap_ingest_route,
-        "build_recap_graph_preview_bundle",
+        "extract_recap",
         lambda **kwargs: (
             graph_calls.append(kwargs)
             or {
@@ -271,7 +271,6 @@ def test_process_builds_graph_context_without_breadcrumb_or_session_memory_opera
     assert body["ingest_report"]["graph_preview"]["status"] == "candidate_validation_ready"
     assert len(graph_calls) == 1
     assert graph_calls[0]["normalized_recap_path"] == str(normalized)
-    assert graph_calls[0]["extract_graph"] is True
 
 
 def test_process_explicit_replacement_refreshes_normalized_source_before_graph_extraction(
@@ -289,7 +288,7 @@ def test_process_explicit_replacement_refreshes_normalized_source_before_graph_e
     monkeypatch.setattr(recap_ingest_route, "_request_recap_context", lambda _body: object())
     monkeypatch.setattr(
         recap_ingest_route,
-        "build_recap_graph_preview_bundle",
+        "extract_recap",
         lambda **kwargs: (
             graph_calls.append(kwargs)
             or {"status": "candidate_validation_ready", "candidate_node_count": 2, "candidate_edge_count": 1}
@@ -620,7 +619,7 @@ def test_process_requires_current_normalized_source_before_graph_extraction(
     monkeypatch.setattr(recap_ingest_route, "inspect_recap_ingest_status", lambda **_kwargs: _status())
     monkeypatch.setattr(
         recap_ingest_route,
-        "build_recap_graph_preview_bundle",
+        "extract_recap",
         lambda **kwargs: (graph_calls.append(kwargs) or {"status": "source_span_bundle_ready", "next_actions": []}),
     )
     payload = {

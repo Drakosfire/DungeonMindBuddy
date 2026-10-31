@@ -9,7 +9,7 @@ import tests.test_live_recap_ingest_graph_preview_api as shared_ingest
 from apps.live_control_server.config import SESSION_DIR_ENV
 from apps.live_control_server.main import create_app
 from apps.live_control_server.services.graph_run_registry import (
-    _resolve_repo_contained_uri,
+    load_reviewable_extraction_data,
     get_reviewable_extraction_run,
 )
 from apps.live_control_server.services.source_artifact_registry import get_source_artifact
@@ -116,14 +116,9 @@ def test_ordinary_process_candidate_evidence_survives_fresh_exact_run_review_cli
     assert run.session_id == artifact.session_id == "session-29"
     assert artifact.world_id == "world:elderwyld"
 
-    manifest_path = root / graph["manifest_path"]
-    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
-    candidate_component = run.components["candidate_graph"]
-    span_component = run.components["source_span_index"]
-    candidate_path = _resolve_repo_contained_uri(root, candidate_component.uri)
-    span_path = _resolve_repo_contained_uri(root, span_component.uri)
-    candidate = json.loads(candidate_path.read_text(encoding="utf-8"))
-    span_index = json.loads(span_path.read_text(encoding="utf-8"))
+    data = load_reviewable_extraction_data(root, run_id)
+    candidate = json.loads(data.candidate_bytes)
+    span_index = json.loads(data.span_bytes)
     spans = {
         str(row.get("source_span_id") or row.get("source_span_ref_id") or row.get("span_id"))
         for row in span_index.get("spans", [])
@@ -142,12 +137,7 @@ def test_ordinary_process_candidate_evidence_survives_fresh_exact_run_review_cli
     for ref in evidence:
         assert ref["source_artifact_id"] == source_artifact_id
         assert ref.get("source_span_ref_id") in spans
-    # GraphIngest and APP-STATE ExtractionRun intentionally keep distinct IDs.
-    # The manifest diagnostics link the package run to the canonical exact run.
-    assert manifest["run_id"].startswith("graph-ingest:longmont-c2:session-29:")
-    assert manifest["diagnostics"]["extraction_run_id"] == run_id
-    assert manifest["diagnostics"]["source_artifact_id"] == source_artifact_id
-    assert manifest["source"]["source_artifact_id"] == source_artifact_id
+    assert "manifest_path" not in graph and "candidate_graph_path" not in graph
 
     normalized = Path(result["paths"]["normalized_recap"])
     if not normalized.is_absolute():
@@ -155,6 +145,7 @@ def test_ordinary_process_candidate_evidence_survives_fresh_exact_run_review_cli
     normalized_text = normalized.read_text(encoding="utf-8")
     assert artifact.content_sha256 == hashlib.sha256(normalized.read_bytes()).hexdigest()
 
+    shutil.rmtree(root / "out/graph_memory", ignore_errors=True)
     # A new client must reload the same canonical APP-STATE run and durable source.
     client.close()
     fresh = TestClient(create_app(), client=("127.0.0.1", 50000))

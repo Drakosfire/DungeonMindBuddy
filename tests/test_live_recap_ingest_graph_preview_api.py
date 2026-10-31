@@ -477,8 +477,6 @@ def test_process_extracts_canonical_graph_with_fake_client(
     assert graph["extraction_mode"] == "category_decomposed"
     assert graph["model_id"] == "deepseek/deepseek-v4.1-flash-1017"
     assert graph["candidate_node_count"] >= 1
-    assert next(step for step in graph["graph_steps"] if step["id"] == "extract_candidate_graph")["state"] == "complete"
-    assert (ROOT / graph["candidate_graph_path"]).is_file()
 
     run_id = graph["extraction_run_id"]
     assert run_id
@@ -487,7 +485,9 @@ def test_process_extracts_canonical_graph_with_fake_client(
     assert run.status == ExtractionRunStatus.REVIEWABLE
     assert run.source_artifact_id == graph["source_artifact_id"]
     assert run.lineage["world_campaign_ingest_context"]["head_revision_id"] == "rev:observed-head"
-    candidate = json.loads((ROOT / graph["candidate_graph_path"]).read_text(encoding="utf-8"))
+    from apps.live_control_server.services.graph_run_registry import load_reviewable_extraction_data
+    data = load_reviewable_extraction_data(ROOT, graph["extraction_run_id"])
+    candidate = json.loads(data.candidate_bytes)
     assert run.source_artifact_id in (candidate.get("source_artifact_ids") or [])
     for node in candidate.get("nodes") or []:
         for ref in node.get("evidence_refs") or []:
@@ -577,11 +577,8 @@ def test_recap_ingest_typed_validation_failure_blocks_candidate_and_preview_unio
     assert graph["extraction_run_status"] == "failed"
     assert graph["extraction_mode"] == "llm_blocked"
     assert graph["blocked_reason"]
-    assert "validation" in graph["blocked_reason"].lower() or "typed" in graph[
-        "blocked_reason"
-    ].lower() or "semantic" in graph["blocked_reason"].lower()
+    assert graph["blocked_reason"] == "The saved extraction did not complete. Review the attempt before retrying."
     assert graph.get("preview_union_store_path") in (None, "")
-    assert next(step for step in graph["graph_steps"] if step["id"] == "extract_candidate_graph")["state"] == "failed"
 
     materialize = client.post(
         "/api/live/recap-ingest",
@@ -600,13 +597,13 @@ def test_recap_ingest_typed_validation_failure_blocks_candidate_and_preview_unio
     assert mat_graph["status"] != "preview_union_store_ready"
     assert mat_graph["extraction_run_status"] == "failed"
     assert mat_graph.get("preview_union_store_path") in (None, "")
-    assert mat_graph["can_open_union_graph"] is False
+    assert not mat_graph.get("can_open_union_graph")
 
 
-def test_recap_ingest_packaged_span_index_resolves_evidence_for_surface(
+def test_recap_ingest_database_span_index_resolves_evidence_for_surface(
     client_env: tuple[TestClient, Path], monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """Every candidate EvidenceRef must resolve against the packaged canonical span index."""
+    """Every candidate EvidenceRef resolves against the saved canonical span index."""
     from apps.live_control_server.services.graph_preview_surface import (
         _enrich_evidence_ref,
         _span_lookup_key,
@@ -634,10 +631,10 @@ def test_recap_ingest_packaged_span_index_resolves_evidence_for_surface(
     assert response.status_code == 200
     graph = response.json()["ingest_report"]["graph_preview"]
     assert graph["status"] == "candidate_validation_ready"
-    run_dir = ROOT / graph["run_dir"]
-    candidate = json.loads((ROOT / graph["candidate_graph_path"]).read_text(encoding="utf-8"))
-    span_index_path = run_dir / "source_span_index.json"
-    span_index = json.loads(span_index_path.read_text(encoding="utf-8"))
+    from apps.live_control_server.services.graph_run_registry import load_reviewable_extraction_data
+    data = load_reviewable_extraction_data(ROOT, graph["extraction_run_id"])
+    candidate = json.loads(data.candidate_bytes)
+    span_index = json.loads(data.span_bytes)
     assert span_index.get("schema") == SOURCE_SPAN_INDEX_SCHEMA
     assert span_index.get("source_artifact_id") == graph["source_artifact_id"]
     # Canonical v1 loader must accept the packaged file (no invented :full_text entries).
@@ -651,19 +648,7 @@ def test_recap_ingest_packaged_span_index_resolves_evidence_for_surface(
         if isinstance(span, dict)
     )
 
-    manifest = json.loads((ROOT / graph["manifest_path"]).read_text(encoding="utf-8"))
-    assert manifest["source"]["source_artifact_id"] == graph["source_artifact_id"]
-    assert (
-        manifest["artifacts"]["source_span_index"]["schema"] == SOURCE_SPAN_INDEX_SCHEMA
-    )
-    provenance = json.loads((run_dir / "provenance_index.json").read_text(encoding="utf-8"))
-    assert all(
-        row.get("artifact_id") == graph["source_artifact_id"]
-        for row in provenance.get("source_artifacts") or []
-        if isinstance(row, dict)
-    )
-    assert graph["source_artifact_id"] in (candidate.get("source_artifact_ids") or [])
-    assert (run_dir / "source_spans" / "recap_full_text.md").is_file()
+    assert graph["source_artifact_id"] in candidate["source_artifact_ids"]
 
     span_lookup = {
         key: sp
@@ -672,8 +657,8 @@ def test_recap_ingest_packaged_span_index_resolves_evidence_for_surface(
         for key in [_span_lookup_key(sp)]
         if key is not None
     }
-    recap_text = (run_dir / "source_spans" / "recap_full_text.md").read_text(encoding="utf-8")
-    recap_path = graph.get("normalized_recap_path") or ""
+    recap_text = data.source_bytes.decode("utf-8")
+    recap_path = ""
 
     evidence_refs = []
     for collection in ("nodes", "edges", "beats", "ignored_items", "deferred_items"):
@@ -726,7 +711,7 @@ def test_recap_ingest_extracts_without_candidate_path(
     graph = response.json()["ingest_report"]["graph_preview"]
     assert graph["status"] == "candidate_validation_ready"
     assert graph["extraction_mode"] == "category_decomposed"
-    assert graph["candidate_graph_path"] is not None
+    assert "candidate_graph_path" not in graph
     from apps.live_control_server.services.graph_run_registry import get_extraction_run
 
     run = get_extraction_run(ROOT, graph["extraction_run_id"])
@@ -818,10 +803,10 @@ def test_recap_ingest_extract_graph_missing_api_key_returns_llm_blocked(
 
     assert response.status_code == 200
     graph = response.json()["ingest_report"]["graph_preview"]
-    assert graph["status"] == "source_span_bundle_ready"
+    assert graph["status"] == "failed"
     assert graph["extraction_mode"] == "llm_blocked"
     assert graph["blocked_reason"]
-    assert graph["can_open_union_graph"] is False
+    assert not graph.get("can_open_union_graph")
 
 
 
@@ -968,17 +953,16 @@ def test_recap_ingest_generate_recap_memory_with_graph_extraction_fake_client(
     assert not any("breadcrumb" in warning.lower() for warning in body["warnings"])
 
     # End-to-end boundary: ordinary Process creates canonical recap/source,
-    # immutable graph candidate + manifest, APP-STATE source, and an exact-run
+    # immutable graph candidate, APP-STATE source, and an exact-run
     # historical projection against that source's native World.
     run = get_extraction_run(ROOT, graph["extraction_run_id"])
     artifact = get_source_artifact(ROOT, run.source_artifact_id)
     assert artifact.source_artifact_id.startswith("artifact:recap:v2:")
     assert artifact.world_id == "world:synthetic-world"
     assert run.lineage["world_campaign_ingest_context"]["native_world_id"] == artifact.world_id
-    assert graph["candidate_graph_path"]
-    assert (ROOT / graph["candidate_graph_path"]).is_file()
-    assert graph["manifest_path"]
-    assert (ROOT / graph["manifest_path"]).is_file()
+    from apps.live_control_server.services.graph_run_registry import load_reviewable_extraction_data
+    assert load_reviewable_extraction_data(ROOT, run.run_id).candidate_bytes
+    assert "manifest_path" not in graph and "candidate_graph_path" not in graph
 
     source = source_service.get_source_markdown(
         source_artifact_id=artifact.source_artifact_id,
@@ -1101,12 +1085,12 @@ def test_generate_recap_memory_reuses_preview_graph_without_force(
     assert first.status_code == 200, first.text
     first_graph = first.json()["ingest_report"]["graph_preview"]
     assert first_graph["status"] == "candidate_validation_ready"
-    first_manifest = first_graph["manifest_path"]
+    first_run = first_graph["extraction_run_id"]
 
     second = client.post("/api/live/recap-ingest", json=payload)
     assert second.status_code == 200, second.text
     second_graph = second.json()["ingest_report"]["graph_preview"]
-    assert second_graph["manifest_path"] == first_manifest
+    assert second_graph["extraction_run_id"] == first_run
 
 
 def test_generate_recap_memory_force_graph_run_starts_new_preview_run(
@@ -1127,13 +1111,13 @@ def test_generate_recap_memory_force_graph_run_starts_new_preview_run(
     }
     first = client.post("/api/live/recap-ingest", json=payload)
     assert first.status_code == 200, first.text
-    first_manifest = first.json()["ingest_report"]["graph_preview"]["manifest_path"]
+    first_run = first.json()["ingest_report"]["graph_preview"]["extraction_run_id"]
 
     forced = client.post("/api/live/recap-ingest", json={**payload, "force_graph_run": True})
     assert forced.status_code == 200, forced.text
     forced_graph = forced.json()["ingest_report"]["graph_preview"]
     assert forced_graph["status"] == "candidate_validation_ready"
-    assert forced_graph["manifest_path"] != first_manifest
+    assert forced_graph["extraction_run_id"] != first_run
 
 
 def test_generate_recap_memory_stops_on_staged_source_conflict(
@@ -1200,9 +1184,9 @@ def test_recap_ingest_generate_recap_memory_with_blocked_graph_preserves_recap_s
     body = response.json()
     assert body["status"] != "ready_for_planning_activation"
     graph = body["ingest_report"]["graph_preview"]
-    assert graph["status"] == "source_span_bundle_ready"
+    assert graph["status"] == "failed"
     assert graph["extraction_mode"] == "llm_blocked"
-    assert "(model)" in graph["blocked_reason"]
+    assert graph["blocked_reason"] == "The saved extraction did not complete. Review the attempt before retrying."
     assert "test llm blocked" not in graph["blocked_reason"]
     assert any("preview graph extraction blocked" in warning for warning in body["warnings"])
 
@@ -1314,8 +1298,6 @@ def test_recap_inspection_route_rejects_worldbuilding(
 
 def test_unmocked_candidate_completion_recovers_without_provider_replay(client_env, monkeypatch):
     import src.graph_memory.extraction.graph_preview_runner as production
-    from apps.live_control_server.services import recap_graph_preview_ingest as service
-
     client, _corpus = client_env
     _prepare_normalized(client)
     _patch_fake_category_extract(monkeypatch)
@@ -1330,19 +1312,10 @@ def test_unmocked_candidate_completion_recovers_without_provider_replay(client_e
     assert initial["status"] == "candidate_validation_ready"
     assert initial["extraction_run_status"] == "reviewable"
 
-    initial_manifest = json.loads((ROOT / initial["manifest_path"]).read_text(encoding="utf-8"))
-    from apps.live_control_server.services.graph_run_registry import get_reviewable_extraction_run
-    from graph_memory.ingestion.extraction_run import normalize_content_digest
-
-    run_id = (initial_manifest.get("diagnostics") or {}).get("extraction_run_id")
-    run = get_reviewable_extraction_run(ROOT, run_id)
-    packaged_candidate = (initial_manifest.get("artifacts") or {}).get("candidate_graph") or {}
-    run_candidate = run.components["candidate_graph"]
-    assert run.source_artifact_id == initial_manifest["source"]["source_artifact_id"]
-    assert normalize_content_digest(
-        packaged_candidate.get("sha256")
-    ) == normalize_content_digest(run_candidate.sha256)
-    assert service._manifest_is_candidate_reusable(ROOT, initial["manifest_path"])
+    from apps.live_control_server.services.graph_run_registry import load_reviewable_extraction_data
+    data = load_reviewable_extraction_data(ROOT, initial["extraction_run_id"])
+    assert data.run.source_artifact_id == initial["source_artifact_id"]
+    shutil.rmtree(ROOT / "out/graph_memory", ignore_errors=True)
 
     def forbidden(*args, **kwargs):
         pytest.fail("Recovery must not dispatch a provider or invoke retired materialization")
@@ -1364,10 +1337,10 @@ def test_unmocked_candidate_completion_recovers_without_provider_replay(client_e
         assert graph["status"] == "candidate_validation_ready"
         assert graph["extraction_run_id"] == initial["extraction_run_id"]
         assert graph["source_artifact_id"] == initial["source_artifact_id"]
-        assert graph["candidate_graph_path"] == initial["candidate_graph_path"]
+        assert "candidate_graph_path" not in graph and "manifest_path" not in graph
         assert graph["next_actions"] == ["review_candidate"]
-        assert not graph["can_open_union_graph"]
-        assert not graph["preview_union_store_path"]
+        assert not graph.get("can_open_union_graph")
+        assert not graph.get("preview_union_store_path")
         assert not graph["blocked_reason"]
         assert body["status"] != "ready_for_planning_activation"
         assert "session_memory_materialized" not in body["states"]
@@ -1412,20 +1385,11 @@ def test_failed_production_step_is_durable_safe_and_not_reexecuted(
     assert len(invocations) == 1
     assert len(provider_attempts) == (1 if failure_kind == "structured" else 0)
     assert secret not in response.text
-    step = next(step for step in graph["graph_steps"] if step["id"] == "extract_candidate_graph")
-    assert step["state"] == "failed"
-    assert graph["current_graph_step"] == step
-    assert graph["blocked_reason"] == step["summary"]
-    assert "provider failed" not in step["summary"]
-    assert graph["candidate_graph_path"] is None
-    assert graph["candidate_node_count"] == graph["candidate_edge_count"] == 0
-    assert graph["model_id"] is None
-    assert graph["can_open_union_graph"] is False
-    manifest = ROOT / graph["manifest_path"]
-    before = manifest.read_bytes()
-    payload = json.loads(before)
-    assert payload["steps"] == graph["graph_steps"]
-    assert payload["errors"] == [graph["blocked_reason"]]
+    assert graph["status"] == "failed"
+    assert graph["blocked_reason"] == "The saved extraction did not complete. Review the attempt before retrying."
+    assert "candidate_graph_path" not in graph and "manifest_path" not in graph
+    from apps.live_control_server.services.graph_run_registry import get_extraction_run
+    before = get_extraction_run(ROOT, graph["extraction_run_id"]).model_dump(mode="json")
     inspected = client.post("/api/live/recap-ingest", json={
         "operation": "inspect_status", "campaign_id": "longmont-c2",
         "managed_world_id": "elderwyld", "session": 22,
@@ -1438,14 +1402,12 @@ def test_failed_production_step_is_durable_safe_and_not_reexecuted(
     assert readback["next_actions"] == ["force_graph_run"]
     assert "graph_steps" not in readback and secret not in inspected.text
     assert len(invocations) == 1
-    assert manifest.read_bytes() == before
+    assert get_extraction_run(ROOT, graph["extraction_run_id"]).model_dump(mode="json") == before
     # A synthetic legacy manifest cannot override the database attempt.
-    legacy = json.loads(before)
-    for old_step in legacy["steps"]:
-        if old_step["id"] == "extract_candidate_graph":
-            old_step.update(state="skipped", summary="Legacy packaging skipped extraction.")
-    manifest.write_text(json.dumps(legacy))
-    before = manifest.read_bytes()
+    manifest = ROOT / "out/graph_memory/fake/graph_ingest_run_manifest.json"
+    manifest.parent.mkdir(parents=True, exist_ok=True)
+    manifest.write_text(json.dumps({"status":"candidate_validation_ready","diagnostics":{"extraction_run_id":graph["extraction_run_id"]}}))
+    fake_bytes = manifest.read_bytes()
     legacy_read = client.post("/api/live/recap-ingest", json={
         "operation": "inspect_status", "campaign_id": "longmont-c2",
         "managed_world_id": "elderwyld", "session": 22,
@@ -1453,4 +1415,85 @@ def test_failed_production_step_is_durable_safe_and_not_reexecuted(
     assert legacy_read.status_code == 200
     legacy_graph = legacy_read.json()["ingest_report"]["graph_preview"]
     assert legacy_graph == readback
-    assert manifest.read_bytes() == before
+    assert manifest.read_bytes() == fake_bytes
+
+
+def test_process_reuses_exact_run_after_packaging_mirrors_disappear(client_env, monkeypatch):
+    from apps.live_control_server.services import recap_graph_preview_ingest as service
+    client, _ = client_env
+    _prepare_normalized(client)
+    _patch_fake_category_extract(monkeypatch)
+    payload = {'operation':'generate_recap_memory','campaign_id':'longmont-c2',
+        'managed_world_id':'elderwyld','session':22,
+        'graph_model_id':'deepseek/deepseek-v4.1-flash-1017'}
+    first = client.post('/api/live/recap-ingest',json=payload)
+    assert first.status_code == 200, first.text
+    graph = first.json()['ingest_report']['graph_preview']
+    shutil.rmtree(ROOT / 'out/graph_memory', ignore_errors=True)
+    def forbidden(*args, **kwargs):
+        pytest.fail('Process redispatched extraction after losing operational mirrors')
+    monkeypatch.setattr(service, 'run_recap_production_extraction', forbidden)
+    second = client.post('/api/live/recap-ingest',json=payload)
+    assert second.status_code == 200, second.text
+    reused = second.json()['ingest_report']['graph_preview']
+    assert reused['extraction_run_id'] == graph['extraction_run_id']
+    assert reused['status'] == 'candidate_validation_ready'
+    assert 'manifest_path' not in reused and 'candidate_graph_path' not in reused
+
+
+@pytest.mark.parametrize('latest', ['failed', 'corrupt', 'different_model', 'different_profile'])
+def test_process_does_not_revive_an_older_success(client_env, monkeypatch, application_state_dsn, latest):
+    import psycopg
+    from apps.live_control_server.services import recap_graph_preview_ingest as service, recap_ingest_context
+    from apps.live_control_server.services.graph_run_registry import get_extraction_run, update_extraction_run_status
+    from graph_memory.ingestion.extraction_run import ExtractionRunStatus
+    client, _ = client_env
+    _prepare_normalized(client)
+    _patch_fake_category_extract(monkeypatch)
+    payload = {'operation':'generate_recap_memory','campaign_id':'longmont-c2',
+        'managed_world_id':'elderwyld','session':22,
+        'graph_model_id':'deepseek/deepseek-v4.1-flash-1017'}
+    first = client.post('/api/live/recap-ingest',json=payload)
+    assert first.status_code == 200, first.text
+    first_id = first.json()['ingest_report']['graph_preview']['extraction_run_id']
+    if latest in {'different_model', 'different_profile'}:
+        normalized = Path(first.json()['paths']['normalized_recap'])
+        if not normalized.is_absolute():
+            normalized = client_env[1] / normalized
+        newer = service.run_recap_production_extraction(repo_root=ROOT,campaign_id='longmont-c2',
+            session_id='session-22',recap_path=normalized,
+            model_id='gpt-5.4-mini' if latest == 'different_model' else payload['graph_model_id'],
+            profile='category_encounter_job_preview' if latest == 'different_profile' else None,allow_llm=True,
+            category_client=object(),ingest_context=recap_ingest_context.read_recap_ingest_context())
+        latest_id = newer.run.run_id
+        assert newer.run.status == ExtractionRunStatus.REVIEWABLE
+    else:
+        newer = client.post('/api/live/recap-ingest',json={**payload,'force_graph_run':True})
+        assert newer.status_code == 200, newer.text
+        latest_id = newer.json()['ingest_report']['graph_preview']['extraction_run_id']
+        if latest == 'failed':
+            update_extraction_run_status(ROOT,latest_id,status=ExtractionRunStatus.FAILED,expected_revision=get_extraction_run(ROOT,latest_id).revision)
+        else:
+            with psycopg.connect(application_state_dsn) as connection:
+                connection.execute('UPDATE ingest.component_payload SET payload=%s WHERE run_id=%s AND kind=%s',
+                    (b'corrupt',latest_id,'candidate_graph'))
+    assert latest_id != first_id
+    actual = service.run_recap_production_extraction
+    calls = []
+    def record(**kwargs):
+        calls.append(kwargs)
+        return actual(**kwargs)
+    monkeypatch.setattr(service,'run_recap_production_extraction',record)
+    current = client.post('/api/live/recap-ingest',json=payload)
+    if latest == 'corrupt':
+        assert current.status_code in {409,422,500}, current.text
+        assert current.json()['detail']['code'] == 'ingest_run_catalog_integrity_error'
+        assert calls == []
+    else:
+        assert current.status_code == 200, current.text
+        graph = current.json()['ingest_report']['graph_preview']
+        assert graph['status'] == 'candidate_validation_ready'
+        assert graph['extraction_run_id'] not in {first_id,latest_id}
+        assert len(calls) == 1
+        if latest == 'failed':
+            assert get_extraction_run(ROOT,latest_id).status == ExtractionRunStatus.FAILED

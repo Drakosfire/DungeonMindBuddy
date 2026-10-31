@@ -352,14 +352,10 @@ def test_packaging_writes_only_under_declared_root(split_roots, monkeypatch, tmp
     code, data, hermes = split_roots
     monkeypatch.chdir(code)
     from src.graph_memory.extraction import graph_ingest_packaging as packaging
-    from apps.live_control_server.services.recap_graph_preview_ingest import _new_run_dir
     output = packaging.ensure_output_dir(Path("out/graph_memory/runs/new"))
     assert output == data / "out/graph_memory/runs/new"
     packaging.write_json(output / "candidate.json", {"unchanged": "payload"})
     assert json.loads((output / "candidate.json").read_text()) == {"unchanged": "payload"}
-    assert _new_run_dir(data, "campaign-a", 1).is_relative_to(data)
-    with pytest.raises(ValueError, match="escapes"):
-        _new_run_dir(data, "../outside", 1)
     outside = tmp_path / "outside"
     outside.mkdir()
     (output / "escape").symlink_to(outside, target_is_directory=True)

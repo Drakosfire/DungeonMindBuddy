@@ -7,6 +7,7 @@ revisions or manifest identity.
 
 from __future__ import annotations
 
+import hashlib
 import json
 from collections.abc import Mapping
 from pathlib import Path
@@ -110,6 +111,119 @@ def _same_recap_ingest_context_authority(
     )
 
 
+def _scoped_recap_runs(
+    campaign_id: str, session_id: str, context: Mapping[str, Any]
+) -> list[ExtractionRun]:
+    records = [
+        run
+        for run in _catalog_records(campaign_id=campaign_id, session_id=session_id)
+        if run.source_domain == "recap"
+        and _same_recap_ingest_context_authority(
+            run.lineage.get("world_campaign_ingest_context"), context
+        )
+    ]
+    # Latest selects an attempt, never authority. Do not revive an older success
+    # around a failed, corrupt or differently configured newest source match.
+    return sorted(
+        records, key=lambda run: (run.created_at or "", run.run_id), reverse=True
+    )
+
+
+def project_recap_extraction_run(
+    *,
+    root: Path,
+    run: ExtractionRun,
+    context: Mapping[str, Any],
+    source_content_sha256: str | None,
+) -> dict[str, Any] | None:
+    """Project exact saved source/components through their existing owners.
+
+    This is presentation, not admission or publication authority. Operational
+    copies and legacy manifests cannot substitute for missing database evidence.
+    """
+    try:
+        data = None
+        if run.status == ExtractionRunStatus.REVIEWABLE:
+            data = runs.load_reviewable_extraction_data(root, run.run_id)
+            run = data.run
+            artifact = data.source_artifact
+        else:
+            artifact, _ = runs.load_run_source_input(root, run)
+        if (
+            not _same_recap_ingest_context_authority(
+                run.lineage.get("world_campaign_ingest_context"), context
+            )
+            or artifact.world_id != context["native_world_id"]
+        ):
+            raise runs.GraphRunRegistryError(
+                "Saved extraction scope changed", status_code=409
+            )
+        if source_content_sha256 and normalize_content_digest(
+            artifact.content_sha256
+        ) != normalize_content_digest(source_content_sha256):
+            return None
+        result = {
+            "status": run.status.value,
+            "extraction_run_id": run.run_id,
+            "extraction_run_status": run.status.value,
+            "source_artifact_id": artifact.source_artifact_id,
+            "model_id": run.lineage.get("model_id"),
+            "source_match_mode": "content_digest"
+            if source_content_sha256
+            else "retained_database",
+            "next_actions": [],
+            "blocked_reason": None,
+        }
+        if data is not None:
+            candidate = json.loads(data.candidate_bytes)
+            if not isinstance(candidate, dict):
+                raise ValueError("Candidate must be an object")
+            classification = classify_candidate_document_integrity(candidate)
+            if (
+                classification.is_document_integrity_failure
+                or classification.preview is None
+            ):
+                raise ValueError("Saved candidate failed document integrity")
+            preview = classification.preview
+            result.update(
+                {
+                    "status": "candidate_validation_ready",
+                    "extraction_mode": "category_decomposed",
+                    "node_count": len(preview.nodes),
+                    "edge_count": len(preview.edges),
+                    "candidate_node_count": len(preview.nodes),
+                    "candidate_edge_count": len(preview.edges),
+                    "candidate_beat_count": len(preview.beats),
+                    "evidence_ref_count": sum(
+                        len(row.evidence_refs)
+                        for row in (
+                            *preview.nodes,
+                            *preview.edges,
+                            *preview.beats,
+                            *preview.source_observations,
+                        )
+                    ),
+                    "next_actions": ["review_candidate"],
+                }
+            )
+        elif run.status in {ExtractionRunStatus.FAILED, ExtractionRunStatus.INCOMPLETE}:
+            result.update(
+                {
+                    "status": "failed",
+                    "extraction_mode": "llm_blocked",
+                    "blocked_reason": "The saved extraction did not complete. Review the attempt before retrying.",
+                    "next_actions": ["force_graph_run"],
+                }
+            )
+        return result
+    except (runs.GraphRunRegistryError, ValueError, TypeError, KeyError) as exc:
+        raise IngestRunCatalogError(
+            "Saved extraction evidence is unavailable or failed integrity checks.",
+            code=CODE_INTEGRITY,
+            status_code=getattr(exc, "status_code", 409),
+        ) from exc
+
+
 def inspect_recap_extraction_status(
     *,
     root: Path,
@@ -118,107 +232,72 @@ def inspect_recap_extraction_status(
     context: Mapping[str, Any],
     source_content_sha256: str | None,
 ) -> dict[str, Any] | None:
-    """Project saved extraction status; this grants no admission/publication authority.
-
-    Exact bytes are resolved by the existing run/source owners. Operational file
-    copies are neither a catalog nor a substitute for missing database evidence.
-    """
-    records = [
-        record
-        for record in _catalog_records(campaign_id=campaign_id, session_id=session_id)
-        if record.source_domain == "recap"
-        and _same_recap_ingest_context_authority(
-            record.lineage.get("world_campaign_ingest_context"), context
+    for run in _scoped_recap_runs(campaign_id, session_id, context):
+        status = project_recap_extraction_run(
+            root=root,
+            run=run,
+            context=context,
+            source_content_sha256=source_content_sha256,
         )
-    ]
-    # Latest is a presentation choice over the complete scoped catalog. A failed
-    # or corrupt newest attempt must not silently fall back to an older success.
-    records.sort(
-        key=lambda record: (record.created_at or "", record.run_id), reverse=True
-    )
-    try:
-        for run in records:
-            data = None
-            if run.status == ExtractionRunStatus.REVIEWABLE:
-                data = runs.load_reviewable_extraction_data(root, run.run_id)
-                run = data.run
-                if not _same_recap_ingest_context_authority(
-                    run.lineage.get("world_campaign_ingest_context"), context
-                ):
-                    raise runs.GraphRunRegistryError(
-                        "Saved extraction scope changed", status_code=409
-                    )
-                artifact = data.source_artifact
-            else:
-                artifact, _ = runs.load_run_source_input(root, run)
-            if artifact.world_id != context["native_world_id"]:
-                raise runs.GraphRunRegistryError(
-                    "Saved source is outside the selected World", status_code=409
-                )
-            if source_content_sha256 and normalize_content_digest(
-                artifact.content_sha256
-            ) != normalize_content_digest(source_content_sha256):
-                continue
-            result = {
-                "status": run.status.value,
-                "extraction_run_id": run.run_id,
-                "extraction_run_status": run.status.value,
-                "source_artifact_id": artifact.source_artifact_id,
-                "model_id": run.lineage.get("model_id"),
-                "source_match_mode": "content_digest"
-                if source_content_sha256
-                else "retained_database",
-                "next_actions": [],
-                "blocked_reason": None,
-            }
-            if data is not None:
-                candidate = json.loads(data.candidate_bytes)
-                if not isinstance(candidate, dict):
-                    raise ValueError("Candidate must be an object")
-                classification = classify_candidate_document_integrity(candidate)
-                if (
-                    classification.is_document_integrity_failure
-                    or classification.preview is None
-                ):
-                    raise ValueError("Saved candidate failed document integrity")
-                preview = classification.preview
-                result.update(
-                    {
-                        "status": "candidate_validation_ready",
-                        "node_count": len(preview.nodes),
-                        "edge_count": len(preview.edges),
-                        "candidate_node_count": len(preview.nodes),
-                        "candidate_edge_count": len(preview.edges),
-                        "candidate_beat_count": len(preview.beats),
-                        "evidence_ref_count": sum(
-                            len(row.evidence_refs)
-                            for row in (
-                                *preview.nodes,
-                                *preview.edges,
-                                *preview.beats,
-                                *preview.source_observations,
-                            )
-                        ),
-                        "next_actions": ["review_candidate"],
-                    }
-                )
-            elif run.status in {
-                ExtractionRunStatus.FAILED,
-                ExtractionRunStatus.INCOMPLETE,
-            }:
-                result.update(
-                    {
-                        "status": "failed",
-                        "extraction_mode": "llm_blocked",
-                        "blocked_reason": "The saved extraction did not complete. Review the attempt before retrying.",
-                        "next_actions": ["force_graph_run"],
-                    }
-                )
-            return result
-    except (runs.GraphRunRegistryError, ValueError, TypeError, KeyError) as exc:
-        raise IngestRunCatalogError(
-            "Saved extraction evidence is unavailable or failed integrity checks.",
-            code=CODE_INTEGRITY,
-            status_code=getattr(exc, "status_code", 409),
-        ) from exc
+        if status is not None:
+            return status
+    return None
+
+
+def _same_session_evidence(
+    root: Path, run: ExtractionRun, supplemental_evidence: dict | None
+) -> bool:
+    """Match requested context while retaining the producer's required capture.
+
+    The private supplemental capture remains owned by the inner producer (D6).
+    Removing the outer packager does not make a missing/tampered capture valid.
+    """
+    stored = run.lineage.get("session_evidence")
+    if (stored or {}).get("sha256") != (supplemental_evidence or {}).get("sha256"):
+        return False
+    if stored:
+        try:
+            evidence = (root / stored["uri"]).resolve()
+            evidence.relative_to(root.resolve())
+            if hashlib.sha256(evidence.read_bytes()).hexdigest() != stored.get(
+                "artifact_sha256"
+            ):
+                raise ValueError("Supplemental capture digest mismatch")
+        except (KeyError, ValueError, OSError, TypeError) as exc:
+            raise IngestRunCatalogError(
+                "Saved supplemental evidence is unavailable or failed integrity checks.",
+                code=CODE_INTEGRITY,
+                status_code=409,
+            ) from exc
+    return True
+
+
+def reusable_recap_extraction(
+    *,
+    root: Path,
+    campaign_id: str,
+    session_id: str,
+    context: Mapping[str, Any],
+    source_content_sha256: str,
+    profile_id: str,
+    model_id: str,
+    supplemental_evidence: dict | None,
+) -> dict[str, Any] | None:
+    for run in _scoped_recap_runs(campaign_id, session_id, context):
+        status = project_recap_extraction_run(
+            root=root,
+            run=run,
+            context=context,
+            source_content_sha256=source_content_sha256,
+        )
+        if status is None:
+            continue
+        if (
+            run.status != ExtractionRunStatus.REVIEWABLE
+            or run.profile_id != profile_id
+            or run.lineage.get("model_id") != model_id
+            or not _same_session_evidence(root, run, supplemental_evidence)
+        ):
+            return None
+        return status
     return None
