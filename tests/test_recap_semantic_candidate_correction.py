@@ -226,7 +226,7 @@ def _fixture(
     def review_data(_root, run_id):
         resolved = extract_promote.resolve_promotable_ingest_run(run_id, root=root)
         return SimpleNamespace(run=runs[run_id],
-            source_artifact=SimpleNamespace(world_id=resolved.world_id, content_sha256=resolved.source_revision_id),
+            source_artifact=graph_run_registry.get_source_artifact(root, runs[run_id].source_artifact_id),
             source_bytes=resolved.normalized_recap_path.read_bytes(),
             candidate_bytes=outputs.get((run_id, "candidate_graph"), resolved.candidate_graph_path.read_bytes()),
             span_bytes=resolved.source_span_index_path.read_bytes(),
@@ -252,7 +252,6 @@ def _fixture(
     monkeypatch.setattr(service, "repo_root", lambda: root)
     monkeypatch.setattr(service, "resolve_promotable_ingest_run", resolve)
     monkeypatch.setattr(extract_promote, "resolve_promotable_ingest_run", resolve)
-    monkeypatch.setattr(extract_promote, "_load_frozen_span_index_for_resolved_run", lambda resolved: service._load_frozen_span_index_for_resolved_run(resolved))
     monkeypatch.setattr(service, "get_extraction_run", get_run)
     monkeypatch.setattr(service, "create_extraction_run", create_run)
     monkeypatch.setattr(service, "update_extraction_run_status", update_run)
@@ -285,7 +284,7 @@ def _fixture(
         )
     monkeypatch.setattr(source_service, "get_source_markdown", database_source)
     monkeypatch.setattr(
-        service, "_load_frozen_span_index_for_resolved_run",
+        extract_promote, "_load_frozen_span_index_for_resolved_run",
         lambda _resolved: SimpleNamespace(spans=[SimpleNamespace(
             source_span_id=span_id, start_line=1, end_line=1,
         )]),
@@ -498,7 +497,7 @@ def _span_relocation_fixture(monkeypatch: pytest.MonkeyPatch, root: Path):
     parent = parent.model_copy(update={"components": components})
     runs["parent"] = parent
     monkeypatch.setattr(
-        service, "_load_frozen_span_index_for_resolved_run",
+        extract_promote, "_load_frozen_span_index_for_resolved_run",
         lambda _resolved: SimpleNamespace(spans=[
             SimpleNamespace(source_span_id=span_id, start_line=1, end_line=1),
             SimpleNamespace(source_span_id=target_span_id, start_line=2, end_line=2),
@@ -2289,7 +2288,7 @@ def _split_fixture(monkeypatch, root, *, duplicate_quotes=False, foreign_span=Fa
         components[key] = components[key].model_copy(update={"sha256": _sha(value)})
     parent = parent.model_copy(update={"components": components})
     runs["parent"] = parent
-    monkeypatch.setattr(service, "_load_frozen_span_index_for_resolved_run", lambda _resolved: SimpleNamespace(spans=[SimpleNamespace(**span) for span in spans]))
+    monkeypatch.setattr(extract_promote, "_load_frozen_span_index_for_resolved_run", lambda _resolved: SimpleNamespace(spans=[SimpleNamespace(**span) for span in spans]))
     body = {
         "schema": "dmb_recap_candidate_correction_request_v6", "parent_run_id": "parent", "parent_candidate_sha256": _sha(raw),
         "source_revision_sha256": source_sha, "span_index_sha256": _sha(index_bytes),
@@ -2845,7 +2844,7 @@ def _atomic_fixture(monkeypatch, root):
     components["candidate_graph"] = components["candidate_graph"].model_copy(update={"sha256": _sha(raw)})
     components["source_span_index"] = components["source_span_index"].model_copy(update={"sha256": _sha(index_bytes)})
     parent = parent.model_copy(update={"components": components}); runs["parent"] = parent
-    monkeypatch.setattr(service, "_load_frozen_span_index_for_resolved_run", lambda _: SimpleNamespace(spans=[SimpleNamespace(**span) for span in index["spans"]]))
+    monkeypatch.setattr(extract_promote, "_load_frozen_span_index_for_resolved_run", lambda _: SimpleNamespace(spans=[SimpleNamespace(**span) for span in index["spans"]]))
     body = {
         "schema": "dmb_recap_candidate_correction_request_v7", "parent_run_id": "parent",
         "parent_candidate_sha256": _sha(raw), "source_revision_sha256": _sha((root / "source.md").read_bytes()),
@@ -3189,7 +3188,7 @@ def _pc_reference_fixture(monkeypatch, root, *, source_text="Mira found the key 
         value.session_id = "session-28"
         return value
     monkeypatch.setattr(service, "resolve_promotable_ingest_run", resolve)
-    monkeypatch.setattr(service, "_load_frozen_span_index_for_resolved_run",
+    monkeypatch.setattr(extract_promote, "_load_frozen_span_index_for_resolved_run",
                         lambda _: SimpleNamespace(spans=[SimpleNamespace(**index["spans"][0])]))
     registry_path = root / "corpus/invented/_party_registry.json"
     monkeypatch.setitem(party_context.CAMPAIGN_CORPUS, "c", (Path("corpus"), "invented"))
@@ -3774,7 +3773,7 @@ def _append_fixture(monkeypatch, root, *, actor_recovery=False, actor_prefix="",
     pc_body.update(parent_candidate_sha256=_sha(raw), source_revision_sha256=digest,
                    span_index_sha256=_sha(span_bytes))
     pc_body["attachments"][0]["source_span_ref_id"] = index["spans"][0]["source_span_id"]
-    monkeypatch.setattr(service, "_load_frozen_span_index_for_resolved_run",
+    monkeypatch.setattr(extract_promote, "_load_frozen_span_index_for_resolved_run",
         lambda _: SimpleNamespace(spans=[SimpleNamespace(**s) for s in index["spans"]]))
     return parent, raw, runs, pc_body, context, index
 
