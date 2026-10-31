@@ -34,7 +34,8 @@ class ReviewedDomainMetadata(Closed):
 
 
 class ReviewedMetadata(Closed):
-    # Scope and evidence are bound by the server, never supplied by the caller.
+    evidence_ref_ids: list[Text] = Field(min_length=1)
+    # Scope is server-bound; selected evidence IDs are resolved through Core.
     visibility: Visibility
     epistemic_basis: Text
     claim_mode: Text
@@ -89,6 +90,7 @@ class NativeRecapPrepareRequest(Closed):
     candidate_sha256: Digest
     source_admission_run_id: Text
     expected_parent_revision_id: Text
+    expected_source_authority_epoch: int = Field(ge=1, strict=True)
     selections: list[RecordSelection]
 
     @model_validator(mode="after")
