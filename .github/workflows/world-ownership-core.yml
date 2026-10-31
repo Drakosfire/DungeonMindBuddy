@@ -60,6 +60,8 @@ jobs:
       - name: Lint ownership and binding changes
         run: >-
           uv run --locked ruff check
+          src/application_state/world_catalog/service.py
+          tests/application_state/test_world_catalog_postgres.py
           apps/live_control_server/services/world_container_registry.py
           apps/live_control_server/services/world_graph_binding.py
           tests/conftest.py
@@ -71,6 +73,7 @@ jobs:
       - name: Run synthetic ownership boundary tests
         run: >-
           uv run --locked pytest -q --tb=short --show-capture=no
+          tests/application_state/test_world_catalog_postgres.py
           tests/test_world_access_control.py
           tests/test_world_container_registry.py
           tests/test_world_graph_binding.py

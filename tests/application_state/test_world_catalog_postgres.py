@@ -2,7 +2,8 @@
 from concurrent.futures import ThreadPoolExecutor
 from hashlib import sha256
 from pathlib import Path
-from threading import Barrier
+from threading import Barrier, Event
+from time import monotonic
 
 import psycopg
 import pytest
@@ -175,3 +176,161 @@ def test_provisioning_operation_cannot_be_claimed_by_another_world():
         service.save_world(_world('another', binding=other_binding), expected_revision=0)
     assert service.get_world('another') is None
     assert service.get_world(reviewed.world_id).record == reviewed
+
+
+def test_create_world_is_file_free_and_reuses_exact_null_owner_reservation(monkeypatch):
+    monkeypatch.setattr(Path, 'open', lambda *_a, **_k: pytest.fail('World creation opened a file'))
+    first = service.create_world(name='  Glass   Orchard  ', owner_subject=None)
+    second = service.create_world(name='GLASS ORCHARD', owner_subject=None)
+    assert first == second
+    assert first.record.name == 'Glass Orchard'
+    assert first.record.world_id == 'glass-orchard'
+    assert first.record.owner_subject is None
+    assert first.revision == 1
+    assert isinstance(first.record.native_graph_binding, NativeGraphProvisioningRecord)
+    assert service.list_worlds() == [first]
+
+
+def test_concurrent_create_uses_normalized_name_not_only_derived_id():
+    barrier = Barrier(4)
+    def attempt(name):
+        barrier.wait(timeout=10)
+        return service.create_world(name=name, owner_subject='subject:owner')
+    # casefold names match even though ASCII-derived slugs differ.
+    with ThreadPoolExecutor(max_workers=4) as pool:
+        rows = list(pool.map(attempt, ['Straße', 'STRASSE', '  Straße ', 'strasse']))
+    assert all(row == rows[0] for row in rows)
+    assert rows[0].revision == 1
+    assert service.list_worlds() == [rows[0]]
+
+
+def test_create_equal_names_keep_owners_distinct_and_idempotent():
+    local = service.create_world(name='Test Realm', owner_subject=None)
+    barrier = Barrier(2)
+    def attempt(owner):
+        barrier.wait(timeout=10)
+        return service.create_world(name='TEST REALM', owner_subject=owner)
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        owned = list(pool.map(attempt, ['subject:one', 'subject:two']))
+    rows = [local, *owned]
+    assert len({row.record.world_id for row in rows}) == 3
+    assert len({row.record.native_graph_binding.native_world_id for row in rows}) == 3
+    assert len({row.record.native_graph_binding.provisioning_id for row in rows}) == 3
+    for row in rows:
+        assert service.create_world(name=' test   realm ', owner_subject=row.record.owner_subject) == row
+    assert len(service.list_worlds()) == 3
+
+
+def test_create_different_names_with_same_slug_conflict_without_new_rows():
+    first = service.create_world(name='Glass Orchard')
+    with pytest.raises(ApplicationStateConflictError):
+        service.create_world(name='Glass-Orchard')
+    assert service.list_worlds() == [first]
+
+
+def test_create_null_owner_cannot_adopt_an_owned_name():
+    first = service.create_world(name='Owned World', owner_subject='subject:one')
+    with pytest.raises(ApplicationStateConflictError):
+        service.create_world(name='Owned World')
+    assert service.list_worlds() == [first]
+
+
+def test_create_ambiguous_retained_names_never_selects_or_merges_them():
+    first = service.save_world(_world(), expected_revision=0)
+    second = service.save_world(_world('another-id'), expected_revision=0)
+    before = service.list_worlds()
+    with pytest.raises(ApplicationStateConflictError, match='ambiguous'):
+        service.create_world(name=' ELDERWYLD ', owner_subject='subject:owner')
+    assert service.list_worlds() == before
+    assert set(row.record.world_id for row in before) == {first.record.world_id, second.record.world_id}
+
+
+def test_create_reuses_retained_unbound_record_and_all_grants_without_rewriting():
+    first = service.save_world(_world(), expected_revision=0)
+    assert first.record.native_graph_binding is None
+    assert service.create_world(name='elderwyld', owner_subject='subject:owner') == first
+    assert service.get_world(first.record.world_id) == first
+
+
+def test_create_partial_write_failure_rolls_back_world_and_reservation(monkeypatch):
+    write = service._write
+    def interrupted(*args, **kwargs):
+        write(*args, **kwargs)
+        raise ApplicationStateConflictError('injected create interruption')
+    monkeypatch.setattr(service, '_write', interrupted)
+    with pytest.raises(ApplicationStateConflictError, match='interruption'):
+        service.create_world(name='Interrupted World', owner_subject='subject:owner')
+    assert service.list_worlds() == []
+
+
+@pytest.mark.parametrize('name,owner', [('', None), ('  ', None), ('World', ' bad-owner')])
+def test_create_invalid_input_cannot_allocate_metadata(name, owner):
+    with pytest.raises(ApplicationStateValidationError):
+        service.create_world(name=name, owner_subject=owner)
+    assert service.list_worlds() == []
+
+
+def test_create_native_reservation_conflict_rolls_back_the_new_metadata(monkeypatch):
+    from types import SimpleNamespace
+    monkeypatch.setattr(service, 'uuid4', lambda: SimpleNamespace(hex='a' * 32))
+    first = service.create_world(name='First World')
+    with pytest.raises(ApplicationStateConflictError, match='reservation'):
+        service.create_world(name='Second World')
+    assert service.list_worlds() == [first]
+    assert service.get_world('second-world') is None
+
+
+@pytest.mark.parametrize('writer', ['save', 'adoption'])
+def test_create_serializes_with_other_metadata_writers_without_lock_upgrade(writer, monkeypatch, application_state_dsn):
+    base = _world()
+    if writer == 'save':
+        service.save_world(base, expected_revision=0)
+    entered = Event()
+    release = Event()
+    write = service._write
+    writer_pid = []
+
+    def paused(conn, record, **kwargs):
+        if record.world_id == base.world_id:
+            writer_pid.append(conn.info.backend_pid)
+            entered.set()
+            if not release.wait(timeout=10):
+                raise RuntimeError('test did not release metadata writer')
+        return write(conn, record, **kwargs)
+
+    monkeypatch.setattr(service, '_write', paused)
+    def ordinary_writer():
+        if writer == 'save':
+            return service.save_world(base, expected_revision=1)
+        return service.adopt_world_catalog(WorldContainerRegistryDocument(records=[base]), dry_run=False)
+
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        saving = pool.submit(ordinary_writer)
+        creating = None
+        try:
+            assert entered.wait(timeout=10)
+            creating = pool.submit(service.create_world, name='Concurrent Create')
+            # Observe the actual conflicting table-lock request, not elapsed time
+            # or thread scheduling. The bounded deadline is test supervision only.
+            with psycopg.connect(application_state_dsn, autocommit=True) as observer:
+                deadline = monotonic() + 10
+                while True:
+                    waiting = observer.execute("""SELECT count(*) FROM pg_locks
+                        WHERE relation='workspace.managed_world'::regclass
+                        AND mode='ExclusiveLock' AND NOT granted""").fetchone()[0]
+                    if waiting:
+                        break
+                    assert monotonic() < deadline, 'create never reached its table lock'
+                    Event().wait(0.01)
+                locks = {row[0] for row in observer.execute("""SELECT mode FROM pg_locks
+                    WHERE relation='workspace.managed_world'::regclass
+                    AND pid=%s AND granted""", (writer_pid[0],))}
+            expected = 'RowExclusiveLock' if writer == 'save' else 'ExclusiveLock'
+            assert expected in locks, 'writer would upgrade its table lock behind waiting create'
+        finally:
+            release.set()
+        assert saving.result(timeout=10) is not None
+        assert creating is not None
+        created = creating.result(timeout=10)
+    assert created.record.world_id == 'concurrent-create'
+    assert {row.record.world_id for row in service.list_worlds()} == {'elderwyld', 'concurrent-create'}

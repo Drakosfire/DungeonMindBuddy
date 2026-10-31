@@ -3,18 +3,24 @@
 from __future__ import annotations
 
 import re
-import unicodedata
-from datetime import UTC, datetime
 from pathlib import Path
 from typing import Literal
-from uuid import uuid4
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from application_state.errors import ApplicationStateError
+from application_state.world_catalog.service import (
+    _new_world_record,
+    _world_id_for_owner,
+    derive_world_id_from_name,
+    display_world_name,
+    normalize_world_name_for_compare,
+    world_source_root_relpath,
+)
 from application_state.world_catalog.types import (
     LEGACY_REGISTRY_SCHEMA, LEGACY_RECORD_SCHEMA, V2_REGISTRY_SCHEMA, V2_RECORD_SCHEMA,
     REGISTRY_SCHEMA, RECORD_SCHEMA, PUBLIC_REGISTRY_SCHEMA, PUBLIC_RECORD_SCHEMA,
-    WorldPermission, WorldAccessGrant, NativeGraphBindingRecord as NativeGraphBindingRecord, NativeGraphProvisioningRecord,
+    WorldPermission, WorldAccessGrant, NativeGraphBindingRecord as NativeGraphBindingRecord, NativeGraphProvisioningRecord as NativeGraphProvisioningRecord,
     WorldContainerRecord, WorldContainerRegistryDocument,
     _PERMISSION_ORDER, _DELEGABLE_WORLD_PERMISSIONS, _validate_subject,
 )
@@ -28,7 +34,6 @@ from src.live_play.live_store import load_json, write_json
 DEFAULT_REGISTRY_REL = "out/registries/world_containers.json"
 # Must stay aligned with workspace_document_registry._SAFE_WORLD_ID_RE.
 _SAFE_WORLD_ID_RE = re.compile(r"^[a-z][a-z0-9_-]{0,62}$")
-_NON_SLUG_RE = re.compile(r"[^a-z0-9]+")
 
 
 class WorldContainerRegistryError(ValueError):
@@ -108,46 +113,8 @@ class CreateWorldContainerRequest(BaseModel):
     name: str
 
 
-def _utc_now_iso() -> str:
-    return datetime.now(UTC).isoformat().replace("+00:00", "Z")
-
-
 def world_containers_path(root: Path) -> Path:
     return root / DEFAULT_REGISTRY_REL
-
-
-def normalize_world_name_for_compare(name: str) -> str:
-    """Trim + collapse whitespace + casefold for duplicate comparison only."""
-    return " ".join(name.strip().split()).casefold()
-
-
-def display_world_name(name: str) -> str:
-    cleaned = " ".join(name.strip().split())
-    if not cleaned:
-        raise WorldContainerRegistryError("That world name is required.", status_code=422)
-    return cleaned
-
-
-def derive_world_id_from_name(name: str) -> str:
-    """Server-owned safe world_id derived from the human name."""
-    display = display_world_name(name)
-    folded = unicodedata.normalize("NFKD", display).encode("ascii", "ignore").decode("ascii")
-    slug = _NON_SLUG_RE.sub("-", folded.casefold()).strip("-")
-    if not slug or not slug[0].isalpha():
-        slug = f"world-{slug}".strip("-") if slug else "world"
-        if not slug[0].isalpha():
-            slug = f"w-{slug}"
-    slug = slug[:63].strip("-")
-    if not slug or not _SAFE_WORLD_ID_RE.fullmatch(slug):
-        raise WorldContainerRegistryError(
-            "Could not create the world.",
-            status_code=422,
-        )
-    return slug
-
-
-def world_source_root_relpath(world_id: str) -> str:
-    return f"corpus/{world_id}-markdown"
 
 
 def _validate_world_id(world_id: str) -> str:
@@ -269,34 +236,6 @@ def _best_effort_remove_empty_root(path: Path) -> None:
         return
 
 
-def _world_id_for_owner(
-    records: list[WorldContainerRecord], *, base_world_id: str, owner_subject: str | None,
-    compare_name: str,
-) -> str:
-    """Resolve a free identity without conflating equal names owned by others."""
-    for existing in records:
-        same_name = normalize_world_name_for_compare(existing.name) == compare_name
-        same_owner = existing.owner_subject == owner_subject
-        if same_name and same_owner:
-            return existing.world_id
-    occupied = {record.world_id for record in records}
-    if base_world_id not in occupied:
-        return base_world_id
-    base_record = next(record for record in records if record.world_id == base_world_id)
-    if normalize_world_name_for_compare(base_record.name) != compare_name:
-        raise WorldContainerRegistryError("That world already exists.", status_code=409)
-    if owner_subject is None:
-        raise WorldContainerRegistryError("That world already exists.", status_code=409)
-    # A creator with the same display name gets an independent World. The
-    # suffix is an identity disambiguator, never a claim that the Worlds match.
-    for _attempt in range(8):
-        suffix = uuid4().hex[:8]
-        candidate = f"{base_world_id[:54].rstrip('-')}-{suffix}"
-        if candidate not in occupied:
-            return candidate
-    raise WorldContainerRegistryError("Could not create the world.", status_code=500)
-
-
 def create_world_container(
     root: Path, *, name: str, owner_subject: str | None = None
 ) -> WorldContainerRecord:
@@ -306,22 +245,28 @@ def create_world_container(
     record). Fails closed on identity/path collisions and never silently
     adopts unmanaged directories.
     """
-    display = display_world_name(name)
-    owner_subject = _validate_subject(owner_subject)
-    base_world_id = derive_world_id_from_name(display)
-    compare_name = normalize_world_name_for_compare(display)
+    try:
+        display = display_world_name(name)
+        owner_subject = _validate_subject(owner_subject)
+        base_world_id = derive_world_id_from_name(display)
+        compare_name = normalize_world_name_for_compare(display)
+    except ApplicationStateError as exc:
+        raise WorldContainerRegistryError(str(exc), status_code=exc.status_code) from exc
 
     path = world_containers_path(root)
     created_root = False
     with registry_mutation_lock(path):
         document, token = _load_unlocked(root)
 
-        world_id = _world_id_for_owner(
-            document.records,
-            base_world_id=base_world_id,
-            owner_subject=owner_subject,
-            compare_name=compare_name,
-        )
+        try:
+            world_id = _world_id_for_owner(
+                document.records,
+                base_world_id=base_world_id,
+                owner_subject=owner_subject,
+                compare_name=compare_name,
+            )
+        except ApplicationStateError as exc:
+            raise WorldContainerRegistryError(str(exc), status_code=exc.status_code) from exc
         existing = next((record for record in document.records if record.world_id == world_id), None)
         if existing is not None:
             # Reconcile only the exact creator identity (or legacy local mode);
@@ -359,17 +304,7 @@ def create_world_container(
                 status_code=500,
             ) from exc
 
-        record = WorldContainerRecord(
-            world_id=world_id,
-            name=display,
-            source_root_relpath=source_root_rel,
-            created_at=_utc_now_iso(),
-            native_graph_binding=NativeGraphProvisioningRecord(
-                native_world_id=f"world:{uuid4().hex}",
-                provisioning_id=f"provision:{uuid4().hex}",
-            ),
-            owner_subject=owner_subject,
-        )
+        record = _new_world_record(world_id, name=display, owner_subject=owner_subject)
         document.records.append(record)
         try:
             _save_cas(root, document, expected_token=token)
