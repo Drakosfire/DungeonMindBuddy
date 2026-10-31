@@ -30,6 +30,8 @@ def case(tmp_path, monkeypatch, application_state_dsn):
     monkeypatch.setenv('DMB_AUTH_MODE', 'local_operator')
     monkeypatch.setenv(GRAPH_REVIEW_PREPARE_BINDING_KEY_ENV, 'document-source-test-key')
     monkeypatch.setattr('apps.live_control_server.config.repo_root', lambda: tmp_path)
+    from application_state.world_catalog.service import create_world
+    assert create_world(name='Eldyrwild').record.world_id == WORLD
     (tmp_path / 'corpus/eldyrwild-markdown').mkdir(parents=True)
     record = create_workspace_document(tmp_path, title='Brin’s Blacksmithy', campaign_id=WORLD,
         kind='worldbuilding_source', world_id=WORLD, source_domain='worldbuilding',

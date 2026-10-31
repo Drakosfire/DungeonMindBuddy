@@ -1516,3 +1516,25 @@ def test_current_world_plan_revision_maps_content_conflict_to_registry_conflict(
     assert "digest changed" in str(exc_info.value)
 
 pytestmark = pytest.mark.usefixtures("application_state_dsn")
+
+
+@pytest.mark.parametrize("redirect", ["within-root", "outside-root"])
+def test_saved_snapshot_owner_refuses_redirected_page_target(root, monkeypatch, redirect):
+    from apps.live_control_server.services.world_container_registry import create_world_container
+    from apps.live_control_server.services.workspace_document_registry import get_workspace_document_snapshot
+    artifact_root = root / "owned"
+    artifact_root.mkdir()
+    monkeypatch.setenv("DMB_ARTIFACT_DATA_ROOT", str(artifact_root))
+    world = create_world_container(root, name="Snapshot owner")
+    page = create_workspace_document(root, title="Exact saved page", campaign_id=world.world_id,
+        world_id=world.world_id, kind="worldbuilding_source", source_domain="worldbuilding",
+        document_class="lore", authority_state="draft", visibility_state="internal")
+    target = artifact_root / page.target_relpath
+    target.parent.mkdir(parents=True)
+    alternate = (artifact_root if redirect == "within-root" else root) / "other.md"
+    alternate.write_text("A different declared page body.")
+    target.symlink_to(alternate)
+    mark_workspace_document_committed(root, page.document_id)
+    with pytest.raises(WorkspaceDocumentRegistryError) as error:
+        get_workspace_document_snapshot(root, page.document_id)
+    assert error.value.status_code == 422

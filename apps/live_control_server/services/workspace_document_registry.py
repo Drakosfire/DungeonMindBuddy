@@ -1300,6 +1300,12 @@ def get_workspace_document_snapshot_unlocked(
     try:
         relpath = authorize_target_for_record(record)
         target = resolve_tiptap_markdown_target(root, relpath)
+        from apps.live_control_server.config import artifact_data_root
+
+        # This owner binds page identity/revision to its declared body. Readers
+        # must not each decide whether an operational path alias is admissible.
+        if target != artifact_data_root(root) / relpath:
+            raise TiptapMarkdownWriteError("workspace source target is redirected")
     except TiptapMarkdownWriteError as exc:
         raise WorkspaceDocumentRegistryError(str(exc), status_code=422) from exc
 

@@ -144,10 +144,13 @@ def operation_schema(intent):
 
 def verify_saved_excerpt(root, intent):
     """The source owner verifies exact saved bytes; no invented editor selection."""
-    source = _ownership(root, intent, initial=True)
-    snapshot = get_workspace_document_snapshot(root, source.document_id)
     origin = intent.origin
-    if (not snapshot.file_exists or source.content_status != 'committed'
+    snapshot = get_workspace_document_snapshot(root, str(origin.document_id))
+    source = snapshot.record
+    if (source.kind != 'worldbuilding_source' or source.status != 'active'
+            or source.world_id != intent.world_id or source.campaign_id != intent.world_id
+            or source.document_id != str(origin.document_id) or source.revision != origin.revision
+            or source.content_status != 'committed'
             or source.source_domain != 'worldbuilding'
             or snapshot.loaded_revision != origin.revision
             or snapshot.content_sha256 != origin.content_sha256):
