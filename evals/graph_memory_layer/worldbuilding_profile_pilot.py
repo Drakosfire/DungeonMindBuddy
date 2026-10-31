@@ -146,8 +146,7 @@ def run_cohort(*, trials: int, output_dir: Path) -> dict:
     for index in range(1, trials + 1):
         trial_id = f"{cohort_id}-trial-{index}"
         trial_dir = output_dir / trial_id
-        # Isolate registry + run artifacts under one repo root so component URIs
-        # remain repo-relative.
+        # Isolate source imports and cohort reports; APP owns run components.
         trial_repo = trial_dir / "repo"
         trial_repo.mkdir(parents=True, exist_ok=True)
         source, span_id = _admit_fixture_source(trial_repo, fixture, trial_id)
@@ -162,7 +161,6 @@ def run_cohort(*, trials: int, output_dir: Path) -> dict:
                 profile_version=WORLDBUILDING_PROFILE_VERSION,
                 allow_llm=True,
                 category_client=client,
-                output_dir=trial_repo / "out" / "runs" / trial_id,
             )
         )
         graph = result.candidate_graph or {}

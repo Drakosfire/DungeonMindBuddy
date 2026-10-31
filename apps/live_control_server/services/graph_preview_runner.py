@@ -381,7 +381,6 @@ def run_recap_production_extraction(
                 extra_known_entities=extra_known_entities,
                 corpus_root=standing_root,
                 expected_standing_context_sha256=identity_sha256,
-                output_dir=output_dir,
                 context_vocabulary_packet=context_vocabulary_packet,
                 enable_node_vocabulary_packet=enable_node_vocabulary_packet,
                 enable_edge_vocabulary_packet=enable_edge_vocabulary_packet,
@@ -432,16 +431,9 @@ def run_worldbuilding_production_extraction(
     model_id: str | None = None,
     allow_llm: bool = False,
     category_client: Any | None = None,
-    output_dir: Path | None = None,
 ) -> ProductionExtractionResult:
     """Extract from an already-registered worldbuilding SourceArtifact only."""
     repo_root = artifact_data_root(repo_root)
-    if output_dir is not None:
-        output_dir = (
-            output_dir if output_dir.is_absolute() else repo_root / output_dir
-        ).resolve()
-        if not output_dir.is_relative_to(repo_root):
-            raise ValueError("extraction output must be inside the artifact repository")
     source = _normalized_from_registered(repo_root, source_artifact_id)
     if source.source_domain != "worldbuilding":
         raise SourceArtifactRegistryError(
@@ -457,6 +449,5 @@ def run_worldbuilding_production_extraction(
             model_id=model_id,
             allow_llm=allow_llm,
             category_client=category_client,
-            output_dir=output_dir,
         )
     )

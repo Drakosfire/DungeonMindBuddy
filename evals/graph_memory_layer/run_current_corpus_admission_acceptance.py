@@ -616,7 +616,6 @@ def _extract_session(
             profile_version=RECAP_PROFILE_VERSION,
             model_id=None,
             allow_llm=True,
-            output_dir=output_dir / "extraction" / entry.session_id,
             initial_lineage={
                 "native_world_id": WORLD_ID,
                 "campaign_id": entry.campaign_id,

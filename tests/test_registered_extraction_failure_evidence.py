@@ -51,16 +51,13 @@ def run_failure(root, raw):
             profile_version=WORLDBUILDING_PROFILE_VERSION,
             allow_llm=True,
             category_client=Client(),
-            output_dir=root / "out/runs/failure",
         )
     )
     assert completed and result.run.status.value == "failed"
     assert result.candidate_graph is None
     assert "candidate_graph" not in result.run.components
-    source_ref = result.run.components["source_artifact"]
-    assert (
-        root / source_ref.uri.removeprefix("repo://")
-    ).read_text() == source.source_text
+    from apps.live_control_server.services.graph_run_registry import load_run_source_input
+    assert load_run_source_input(root, result.run)[1] == source.source_text.encode()
     return result
 
 
@@ -112,7 +109,7 @@ print('private-failure-evidence-reopened')
 def test_no_raw_response_does_not_invent_evidence(tmp_path, application_state_dsn):
     result = run_failure(tmp_path, None)
     assert "raw_model_response" not in result.run.components
-    assert not list((tmp_path / "out/runs/failure").rglob("raw_model_response.txt"))
+    assert not list(tmp_path.rglob("raw_model_response.txt"))
 
 
 def test_private_consolidation_diagnostics_component_is_digest_bound(tmp_path, application_state_dsn):
@@ -190,7 +187,7 @@ def test_storage_failure_cannot_report_retention_or_return_candidate(
     [saved] = list_extraction_runs()
     assert saved.status.value == "prepared"
     assert "raw_model_response" not in saved.components and "candidate_graph" not in saved.components
-    assert not list((tmp_path / "out/runs/failure").rglob("candidate_graph.json"))
+    assert not list(tmp_path.rglob("candidate_graph.json"))
 
 
 def test_writer_failure_is_controlled_and_never_echoes_body(tmp_path, monkeypatch):

@@ -182,7 +182,7 @@ def test_registered_success_and_failure_evidence_reopens(tmp_path, application_s
     client = Client(_pass_outputs_for_span(_load_fixture(), span), retained=[], fail=fail)
     result = run_production_extraction(ProductionExtractionRequest(repo_root=tmp_path, source=source,
         profile_id=PROFILE.profile_id, profile_version=PROFILE.profile_version,
-        model_id=DEEPSEEK_MODEL, allow_llm=True, category_client=client, output_dir=tmp_path / "out"))
+        model_id=DEEPSEEK_MODEL, allow_llm=True, category_client=client))
     assert bool(result.failure_kind) is fail
     assert result.run.status.value == ("failed" if fail else "reviewable")
     assert (result.candidate_graph is None) is fail
@@ -304,7 +304,7 @@ def test_success_storage_failure_is_not_reviewable_or_replayed(tmp_path, applica
     with pytest.raises(RuntimeError, match="persist private"):
         runner.run_production_extraction(runner.ProductionExtractionRequest(repo_root=tmp_path, source=source,
             profile_id=PROFILE.profile_id, profile_version=PROFILE.profile_version,
-            model_id=DEEPSEEK_MODEL, allow_llm=True, category_client=client, output_dir=tmp_path / "out"))
+            model_id=DEEPSEEK_MODEL, allow_llm=True, category_client=client))
     assert len(client.calls) == 6
     assert not list((tmp_path / "out").rglob("candidate_graph.json"))
     from apps.live_control_server.services.graph_run_registry import get_extraction_run
@@ -370,7 +370,7 @@ def test_real_bounded_attempt_accounting_survives_registered_bundle(
     client.private_client_field = "EXCLUDE_PRIVATE_MARKER"
     result = run_production_extraction(ProductionExtractionRequest(repo_root=tmp_path, source=source,
         profile_id=PROFILE.profile_id, profile_version=PROFILE.profile_version,
-        model_id=DEEPSEEK_MODEL, allow_llm=True, category_client=client, output_dir=tmp_path / "out"))
+        model_id=DEEPSEEK_MODEL, allow_llm=True, category_client=client))
     assert len(invoked) == 6 and len(client.calls) == 6, (client.calls, result.diagnostics)  # 6 invocations != 12 attempts.
     assert bool(result.failure_kind) is fail_review
     assert result.run.status.value == ("failed" if fail_review else "reviewable")
@@ -522,7 +522,7 @@ def test_real_bounded_catalog_excludes_role_removed_id_and_retains_registered_fa
     client = BoundedRecapPassClient(bounded.RecapExecutionLimits(provider='openrouter', model=DEEPSEEK_MODEL))
     result = run_production_extraction(ProductionExtractionRequest(repo_root=tmp_path, source=source,
         profile_id=profile.profile_id, profile_version=profile.profile_version, model_id=DEEPSEEK_MODEL,
-        allow_llm=True, category_client=client, output_dir=tmp_path / 'out'))
+        allow_llm=True, category_client=client))
     assert len(client.calls) == len(seen) == 6
     if returned == 'e035':
         assert result.failure_kind is None and result.run.status.value == 'reviewable'

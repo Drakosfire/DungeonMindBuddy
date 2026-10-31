@@ -30,7 +30,7 @@ def _parent(monkeypatch, root):
     source = _admit_worldbuilding(root, fixture["source_text"] + "\nAn unrelated second paragraph.\n")
     span_id = _first_paragraph_span_id(source)
     result = _run_with_pass_outputs(root, source=source,
-        pass_outputs=_pass_outputs_for_span(fixture, span_id), subdir="parent")
+        pass_outputs=_pass_outputs_for_span(fixture, span_id))
     assert result.failure_kind is None
     data = registry.load_reviewable_extraction_data(root, result.run.run_id)
     payload = json.loads(data.candidate_bytes)

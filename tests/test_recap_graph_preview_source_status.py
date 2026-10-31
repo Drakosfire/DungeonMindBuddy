@@ -51,7 +51,7 @@ def setup(tmp_path, monkeypatch):
     return tmp_path
 
 
-def _case(root, *, mode="ok", context=None, output="runs"):
+def _case(root, *, mode="ok", context=None):
     if context and (
         context["native_world_id"] != CONTEXT["native_world_id"]
         or context["campaign_id"] != CONTEXT["campaign_id"]
@@ -82,7 +82,6 @@ def _case(root, *, mode="ok", context=None, output="runs"):
             profile_version=RECAP_PROFILE_VERSION,
             allow_llm=True,
             category_client=client,
-            output_dir=root / output,
             initial_lineage={
                 **_recap_run_lineage(source),
                 "world_campaign_ingest_context": context or CONTEXT,
@@ -327,8 +326,8 @@ def test_database_outage_is_not_missing_work(setup, monkeypatch, error_name, cod
 def test_latest_failed_attempt_does_not_hide_behind_an_older_candidate(
     setup, monkeypatch
 ):
-    _case(setup, output="first")
-    _, latest = _case(setup, mode="refusal", output="second")
+    _case(setup)
+    _, latest = _case(setup, mode="refusal")
     with _client(setup, monkeypatch) as client:
         response = _inspect(client)
     assert response.status_code == 200, response.text
@@ -339,8 +338,8 @@ def test_latest_failed_attempt_does_not_hide_behind_an_older_candidate(
 def test_corrupt_latest_attempt_does_not_fall_back_to_an_older_success(
     setup, monkeypatch, application_state_dsn
 ):
-    _case(setup, output="first")
-    _, latest = _case(setup, output="second")
+    _case(setup)
+    _, latest = _case(setup)
     with psycopg.connect(application_state_dsn) as conn:
         conn.execute(
             "UPDATE ingest.component_payload SET payload=%s WHERE run_id=%s AND kind='candidate_graph'",
@@ -362,7 +361,6 @@ def test_run_without_managed_scope_is_not_selected(setup, monkeypatch):
             profile_version=RECAP_PROFILE_VERSION,
             allow_llm=True,
             category_client=FixtureClient(span_ref=_first_paragraph_span_id(source)),
-            output_dir=setup / "unscoped",
             initial_lineage=_recap_run_lineage(source),
         )
     )

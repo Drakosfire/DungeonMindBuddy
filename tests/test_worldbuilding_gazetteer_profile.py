@@ -586,8 +586,7 @@ def test_registered_gazetteer_run_retains_exact_profile_and_typed_definitions(tm
     result = run_production_extraction(ProductionExtractionRequest(
         repo_root=tmp_path, source=source, profile_id=GAZETTEER_PROFILE.profile_id,
         profile_version=version, allow_llm=True, model_id=DEEPSEEK_MODEL,
-        category_client=RegisteredBoundedFixture(FixtureClient(span_ref=_first_paragraph_span_id(source))),
-        output_dir=tmp_path / "gazetteer-run"))
+        category_client=RegisteredBoundedFixture(FixtureClient(span_ref=_first_paragraph_span_id(source)))))
     assert result.failure_kind is None
     assert ("raw_model_response" in result.run.components) is (version in {"1.8", "1.9", "1.10"})
     run = get_reviewable_extraction_run(tmp_path, result.run.run_id)
@@ -595,7 +594,8 @@ def test_registered_gazetteer_run_retains_exact_profile_and_typed_definitions(tm
     assert run.session_id is None
     preview = candidate_graph_preview_from_dict(result.candidate_graph)
     assert preview.session_id is None
-    assert run.components["source_artifact"].uri.endswith("/source.md")
+    from apps.live_control_server.services.graph_run_registry import load_run_source_input
+    assert load_run_source_input(tmp_path, run)[1] == source.source_text.encode()
 
 
 def test_native_write_plan_retains_gazetteer_profile_and_rejects_unknown_version():
@@ -856,7 +856,6 @@ def test_registered_role_support_run_preserves_source_and_deferred_evidence(
             profile_version="1.3",
             allow_llm=True,
             category_client=Client(),
-            output_dir=tmp_path / "role-run",
         )
     )
     assert result.failure_kind is None
@@ -872,7 +871,5 @@ def test_registered_role_support_run_preserves_source_and_deferred_evidence(
     assert preview.deferred_items[0].evidence_refs[0].anchor_quotes == (
         "Nera — Proprietor of the Silver Inn",
     )
-    source_file = tmp_path / run.components["source_artifact"].uri.removeprefix(
-        "repo://"
-    )
-    assert source_file.read_text() == source.source_text
+    from apps.live_control_server.services.graph_run_registry import load_run_source_input
+    assert load_run_source_input(tmp_path, run)[1] == source.source_text.encode()

@@ -338,7 +338,6 @@ def test_registered_runner_seals_independent_observations_and_reloads(
             allow_llm=True,
             model_id=DEEPSEEK_MODEL,
             category_client=Fixture(),
-            output_dir=tmp_path / "observations-run",
         )
     )
     assert result.failure_kind is None, result.diagnostics
