@@ -10,12 +10,19 @@ from __future__ import annotations
 import hashlib
 import json
 import logging
-from collections.abc import Mapping
 from datetime import UTC, datetime
 from pathlib import Path, PurePosixPath
 from typing import Any
 
+from apps.live_control_server import config
 from apps.live_control_server.config import artifact_data_root
+from apps.live_control_server.services.ingest_run_catalog import (
+    IngestRunCatalogError, inspect_recap_extraction_status,
+    _same_recap_ingest_context_authority,
+)
+from apps.live_control_server.services.managed_world_graph_projection import resolve_managed_world_binding
+from apps.live_control_server.services.world_graph_projection import WorldGraphProjectionServiceError
+from apps.live_control_server.services.recap_ingest_context import CONTEXT_SCHEMA
 from apps.live_control_server.services.graph_ingest_run_registry import (
     UNUSABLE_SOURCE_RECAP_DIGEST,
     GraphIngestRunSummary,
@@ -138,58 +145,61 @@ def inspect_recap_graph_preview_status(
     campaign_id: str,
     session: int,
     normalized_recap_path: str | None,
+    managed_world_id: str | None = None,
 ) -> dict[str, Any]:
-    """Return latest graph-ingest status for a recap session without writing files."""
-
-
-    repo = artifact_data_root(repo_root)
-    source_recap_path, source_recap_sha256 = _lineage_for_normalized_recap(
-        repo, normalized_recap_path
+    """Return scoped database status without consulting operational run files."""
+    if not managed_world_id:
+        return {
+            "status": "missing",
+            "next_actions": [],
+            "blocked_reason": "Select a World to inspect saved extraction work.",
+        }
+    try:
+        binding = resolve_managed_world_binding(
+            managed_world_id, root=config.managed_world_data_root(repo_root)
+        )
+    except (WorldGraphProjectionServiceError, config.ManagedWorldDataRootError) as exc:
+        raise IngestRunCatalogError(
+            "The selected World binding is unavailable.",
+            code=getattr(exc, "code", "managed_world_unavailable"),
+            status_code=getattr(exc, "status_code", 503),
+        ) from exc
+    context = {
+        "schema": CONTEXT_SCHEMA,
+        "managed_world_id": binding.managed_world_id,
+        "native_world_id": binding.native_world_id,
+        "binding_version": binding.binding_version,
+        "campaign_id": campaign_id,
+    }
+    _, digest = _lineage_for_normalized_recap(
+        artifact_data_root(repo_root), normalized_recap_path
     )
-    if source_recap_sha256 == UNUSABLE_SOURCE_RECAP_DIGEST:
-        source_match_mode = "unusable"
-    elif source_recap_sha256:
-        source_match_mode = "content_digest"
-    elif source_recap_path:
-        source_match_mode = "path_only"
-    else:
-        source_match_mode = "unavailable"
-
-    runs = discover_graph_ingest_runs(
-        repo,
+    if digest == UNUSABLE_SOURCE_RECAP_DIGEST:
+        return {
+            "status": "source_unverified",
+            "source_match_mode": "unusable",
+            "next_actions": ["repair_or_load_verified_source"],
+            "blocked_reason": "The selected recap could not be read. Repair or load the source.",
+        }
+    status = inspect_recap_extraction_status(
+        root=repo_root,
         campaign_id=campaign_id,
         session_id=f"session-{session}",
-        source_recap_path=source_recap_path,
-        source_recap_sha256=source_recap_sha256,
+        context=context,
+        source_content_sha256=digest,
     )
-    if not runs:
-        status = _missing_status(normalized_recap_path)
-        status["source_match_mode"] = source_match_mode
-        if source_match_mode in {"path_only", "unavailable"}:
-            status["blocked_reason"] = (
-                "The normalized recap is missing. Restore or load the verified source before building a graph candidate."
-            )
-            status["next_actions"] = ["restore_or_load_verified_source"]
-        elif source_match_mode == "unusable":
-            status["blocked_reason"] = (
-                "The normalized recap could not be read or is empty. Repair or load verified source before building a graph candidate."
-            )
-            status["next_actions"] = ["repair_or_load_verified_source"]
+    if status is not None:
         return status
-
-    status = _status_from_summary(
-        repo, runs[0], normalized_recap_path=normalized_recap_path
-    )
-    status["source_match_mode"] = source_match_mode
-    if source_match_mode != "content_digest":
-        status["artifact_status"] = status["status"]
-        status["status"] = "source_unverified"
-        status["artifact_next_actions"] = list(status.get("next_actions") or [])
-        status["next_actions"] = ["restore_or_load_verified_source"]
-        status["blocked_reason"] = (
-            "A saved graph run is preserved, but the selected normalized recap is unavailable for content verification. Restore or load the verified source before treating this output as current."
-        )
-    return status
+    return {
+        "status": "missing",
+        "node_count": 0,
+        "edge_count": 0,
+        "source_match_mode": "content_digest" if digest else "retained_database",
+        "next_actions": ["build_graph_preview_bundle"]
+        if normalized_recap_path
+        else ["apply_normalize"],
+        "blocked_reason": "No saved extraction matches this World and source.",
+    }
 
 
 def build_recap_graph_preview_bundle(
@@ -647,24 +657,6 @@ def _summary_matches_ingest_context(
     return _same_recap_ingest_context_authority(
         (run.lineage or {}).get("world_campaign_ingest_context"),
         ingest_context.as_lineage(),
-    )
-
-
-def _same_recap_ingest_context_authority(
-    extracted: Any, current: Mapping[str, Any]
-) -> bool:
-    """A recap extraction depends on its source, not the Graph head it observed."""
-    if not isinstance(extracted, Mapping):
-        return False
-    return all(
-        extracted.get(key) == current.get(key)
-        for key in (
-            "schema",
-            "managed_world_id",
-            "native_world_id",
-            "binding_version",
-            "campaign_id",
-        )
     )
 
 
