@@ -32,6 +32,7 @@ def case(tmp_path, monkeypatch):
     )
     digest = hashlib.sha256(text.encode()).hexdigest()
     resolved = fake_resolved_source()
+    resolved.run_id = "exact-run"
     artifact = resolved.source_artifact
     artifact.uri, artifact.content_sha256 = 'repo://source.md', digest
     artifact.workspace_document_id, artifact.workspace_document_revision = 'document-one', 2
@@ -43,6 +44,8 @@ def case(tmp_path, monkeypatch):
     path.write_text(json.dumps(source_span_index_to_dict(index)))
     resolved.source_span_index_path = path
     resolved.source_span_index_sha256 = hashlib.sha256(path.read_bytes()).hexdigest()
+    monkeypatch.setattr("application_state.ingest.components.get_component_bytes",
+        lambda **kwargs: path.read_bytes())
     request = prepare_request(worldId=CAMPAIGN_ID, sourceRunId='exact-run', proposals=[object_proposal(selection={
         'selectionKind': 'text_span', 'selectedText': 'Mara', 'normalizedSelectedText': 'Mara',
         'sourceSpanRefId': index.spans[0].source_span_id,

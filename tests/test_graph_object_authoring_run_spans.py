@@ -35,10 +35,11 @@ def frozen(tmp_path, monkeypatch):
     body.write_text(text)
     monkeypatch.setattr(
         "apps.live_control_server.services.source_artifact_registry.load_source_input_bytes",
-        lambda original: text.encode(),
+        lambda original: body.read_bytes(),
     )
     digest = hashlib.sha256(body.read_bytes()).hexdigest()
     resolved = fake_resolved_source()
+    resolved.run_id = "synthetic-exact-run"
     artifact = resolved.source_artifact
     artifact.uri = "repo://source.md"
     artifact.content_sha256 = digest
@@ -50,6 +51,14 @@ def frozen(tmp_path, monkeypatch):
     path.write_text(json.dumps(source_span_index_to_dict(index)))
     resolved.source_span_index_path = path
     resolved.source_span_index_sha256 = hashlib.sha256(path.read_bytes()).hexdigest()
+    def read_output(**kwargs):
+        from application_state.errors import ApplicationStateNotFoundError
+        if kwargs["run_id"] != "synthetic-exact-run":
+            raise ApplicationStateNotFoundError("missing exact run")
+        assert kwargs["kind"] == "source_span_index"
+        return path.read_bytes()
+    output_reader = Mock(side_effect=read_output)
+    monkeypatch.setattr("application_state.ingest.components.get_component_bytes", output_reader)
     proposal = object_proposal(selection={
         "selectionKind": "text_span", "selectedText": "Mara", "normalizedSelectedText": "Mara",
         "sourceSpanRefId": index.spans[0].source_span_id,
@@ -59,7 +68,7 @@ def frozen(tmp_path, monkeypatch):
     reader = Mock(return_value=SimpleNamespace(outcome="enough", content="Mara keeps the copper bell."))
     monkeypatch.setattr("apps.live_control_server.services.worldbuilding_source_span_read.read_admitted_worldbuilding_span", reader)
     return SimpleNamespace(root=tmp_path, resolved=resolved, index=index, path=path, text=text,
-                           request=request, assertions=assertions, reader=reader)
+                           request=request, assertions=assertions, reader=reader, output_reader=output_reader)
 
 
 def verify(f):
@@ -86,13 +95,14 @@ def test_canonical_only_span_is_not_a_member_of_selected_run(frozen):
     frozen.reader.assert_not_called()
 
 
-@pytest.mark.parametrize("damage", ["missing", "escaped", "artifact", "digest", "duplicate", "overlap", "out_of_range", "fraction", "malformed"])
+@pytest.mark.parametrize("damage", ["missing", "wrong_run", "artifact", "digest", "duplicate", "overlap", "out_of_range", "fraction", "malformed"])
 def test_bad_frozen_index_fails_before_registered_reader(frozen, damage):
     payload = source_span_index_to_dict(frozen.index)
     if damage == "missing":
-        frozen.resolved.source_span_index_path = None
-    elif damage == "escaped":
-        frozen.resolved.source_span_index_path = frozen.root.parent / "outside.json"
+        from application_state.errors import ApplicationStateNotFoundError
+        frozen.output_reader.side_effect = ApplicationStateNotFoundError("missing exact index")
+    elif damage == "wrong_run":
+        frozen.resolved.run_id = "foreign-run"
     elif damage == "artifact":
         payload["source_artifact_id"] = "another-artifact"
     elif damage == "digest":
@@ -180,3 +190,10 @@ def test_resolver_to_verifier_component_drift_is_refused(frozen, changed):
         verify(frozen)
     assert error.value.code == "source_span_drift"
     frozen.reader.assert_not_called()
+
+
+def test_locator_paths_do_not_choose_source_or_index_bytes(frozen):
+    expected = verify(frozen)
+    frozen.resolved.source_artifact.uri = "untrusted:never-open"
+    frozen.resolved.source_span_index_path = None
+    assert verify(frozen) == expected
