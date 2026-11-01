@@ -259,7 +259,7 @@ def validate_packet(packet, turn, auth):
         raise ValueError("Writer working draft was not included in its producing envelope")
 
 
-def normalize_native_segment(row, *, draft_record, saved_sections, source_basis, index):
+def normalize_native_segment(row, *, draft_record, saved_sections, related_pages, source_basis, index):
     """Build work output through actual saved/draft owners, without a legacy packet."""
     from .source_writer_output import project_saved_claim
     from .source_quote_binding import validate_selected_quotes, CURRENT_POLICY
@@ -270,6 +270,13 @@ def normalize_native_segment(row, *, draft_record, saved_sections, source_basis,
         segment=DraftReferenceClaimV1.model_validate(row)
         validate_draft_references([segment],None if draft_record is None else draft_record.record_id)
         return segment,None
+    if kind=='related_page_claim':
+        from .build_related_pages import project_claim
+        segment=dict(row)
+        quotes=segment.pop('supporting_quotes',None)
+        validate_selected_quotes([segment.get('read_id')],quotes,
+            {str(read.read_id):read.markdown for read in related_pages},policy=CURRENT_POLICY,multiple=True)
+        return project_claim(segment,related_pages),None
     if kind=='saved_source_claim':
         segment=dict(row)
         quotes=segment.pop('supporting_quotes',None)
@@ -294,5 +301,10 @@ def native_variants(frame, prose):
     if rows:
         variants.append(_object({'kind':_literal('saved_source_claim'),'text':prose,
             'section_read_ids':_array(_enum(str(UUID(row['read_id'])) for row in rows),nonempty=True),
+            'supporting_quotes':_array(prose,nonempty=True)}))
+    related=frame.get('related_authored_pages',{}).get('pages',[])
+    if related:
+        variants.append(_object({'kind':_literal('related_page_claim'),'text':prose,
+            'read_id':_enum(str(UUID(row['read_id'])) for row in related),
             'supporting_quotes':_array(prose,nonempty=True)}))
     return variants

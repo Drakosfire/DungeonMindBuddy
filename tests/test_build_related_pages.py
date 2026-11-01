@@ -433,6 +433,21 @@ def test_reconstructed_turn_rejects_foreign_unselected_or_changed_page(completed
         t.Turn.model_validate(payload)
 
 
+def test_reconstructed_turn_refuses_a_related_read_after_writer_inclusion(completed):
+    turn, *_ = completed
+    payload=turn.model_dump(mode="json",by_alias=True)
+    events=payload["graph_context_execution"]["events"]
+    index=next(i for i,e in enumerate(events) if e["kind"]=="build_related_page_inclusion_v1")
+    inclusion=events.pop(index)
+    inclusion["read_ids"]=[]
+    index=next(i for i,e in enumerate(events) if e["kind"]=="build_related_page_read_v1")
+    events.insert(index,inclusion)
+    for sequence,event in enumerate(events):
+        event["sequence"]=sequence
+    with pytest.raises(ValidationError,match="cannot change after writer selection or inclusion"):
+        t.Turn.model_validate_json(json.dumps(payload))
+
+
 @pytest.mark.parametrize("change", ["revision", "world", "status", "digest", "title", "draft", "identity"])
 def test_source_owner_refuses_changed_or_foreign_saved_page(
     tmp_path, monkeypatch, change

@@ -25,7 +25,7 @@ from .surface_evidence_answer import (native_fact_segment, status_for, _limit,
 
 NativeSegment = Annotated[
     t.SourcePassageClaimV1 | t.NativeAssertionClaimV1 | t.SurfaceAuthoredExcerptV1 | t.SessionSummaryV1
-    | t.DraftReferenceClaimV1 | t.SavedSourceClaimV1 | DraftDiscussionV1
+    | t.DraftReferenceClaimV1 | t.RelatedPageClaim | t.SavedSourceClaimV1 | DraftDiscussionV1
     | t.PlanWorldGraphProposalSegmentV1 | t.SurfaceLimitationV1,
     Field(discriminator='kind'),
 ]
@@ -47,7 +47,7 @@ class SurfaceNativeCompletionV1(Strict):
     @model_validator(mode='after')
     def supported_shape(self):
         validate_authored_shape(self.answer_segments)
-        build=[s for s in self.answer_segments if isinstance(s,(t.DraftReferenceClaimV1,t.SavedSourceClaimV1,DraftDiscussionV1))]
+        build=[s for s in self.answer_segments if isinstance(s,(t.DraftReferenceClaimV1,t.RelatedPageClaim,t.SavedSourceClaimV1,DraftDiscussionV1))]
         if build and self.surface_id != 'build':
             raise ValueError('Build work discussion and saved claims require their actual surface owner')
         saved={i:s for i,s in enumerate(self.answer_segments) if isinstance(s,t.SavedSourceClaimV1)}
@@ -95,6 +95,8 @@ def _validate_citations(completion, receipt, execution, auth, evidence):
         {(event.event_id,read.assertion.assertion_id):(event,read) for _,event,read in evidence.native_assertions})
     bodies.validate_body_support_citations(completion, evidence.body_excerpts,
         producer=auth.provider_attempt_id,envelope_sha256=auth.envelope_sha256,before_sequence=auth.sequence)
+    from .build_related_pages import validate_claims as validate_related_claims
+    validate_related_claims(completion,execution)
     selected={read.event_id:read for read in evidence.saved_sections}
     for citation in completion.saved_source_citations:
         segment=completion.answer_segments[citation.segment_index]
@@ -155,11 +157,11 @@ def normalize_candidate(candidate, receipt, execution, authorization, evidence):
         if (not isinstance(row,dict) or row.get('kind') != 'authored_excerpt'
                 and (not isinstance(row.get('text'),str) or not row['text'].strip())):
             raise ValueError('Native completion contains an invalid segment')
-        if row.get('kind') in {'draft_reference_claim','saved_source_claim','discussion'}:
+        if row.get('kind') in {'draft_reference_claim','related_page_claim','saved_source_claim','discussion'}:
             if execution.policy.action.surface_id != 'build':
                 raise ValueError('Build work output cannot borrow another surface')
             segment,citation=normalize_native_segment(row,draft_record=evidence.draft_record,
-                saved_sections=evidence.saved_sections,source_basis=receipt.work_context.source_basis,index=len(segments))
+                saved_sections=evidence.saved_sections,related_pages=evidence.related_pages,source_basis=receipt.work_context.source_basis,index=len(segments))
             segments.append(segment)
             if citation is not None:
                 saved_cites.append(citation)
@@ -186,8 +188,8 @@ def normalize_candidate(candidate, receipt, execution, authorization, evidence):
     # Missing native capability does not make an available Build draft/page
     # unavailable. Only native claims inherit that native retrieval qualification.
     local_build=(execution.policy.action.surface_id=='build'
-        and any(isinstance(s,(t.DraftReferenceClaimV1,t.SavedSourceClaimV1,DraftDiscussionV1)) for s in segments)
-        and all(isinstance(s,(t.DraftReferenceClaimV1,t.SavedSourceClaimV1,DraftDiscussionV1,t.PlanWorldGraphProposalSegmentV1))
+        and any(isinstance(s,(t.DraftReferenceClaimV1,t.RelatedPageClaim,t.SavedSourceClaimV1,DraftDiscussionV1)) for s in segments)
+        and all(isinstance(s,(t.DraftReferenceClaimV1,t.RelatedPageClaim,t.SavedSourceClaimV1,DraftDiscussionV1,t.PlanWorldGraphProposalSegmentV1))
             for s in segments))
     if evidence.frame['input_status'] == 'partial' and not local_build and 'partial_retrieval' not in codes:
         codes.append('partial_retrieval')

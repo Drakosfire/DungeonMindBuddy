@@ -755,11 +755,8 @@ def reconstruct(raw_output: str, packet: dict, turn, auth):
             segment=projected.model_dump(mode='json')
             bindings.append(binding)
         if segment["kind"] == "related_page_claim":
-            from .build_related_pages import records
-            row=next((e for e in records(execution) if str(e.read_id)==str(segment["read_id"])),None)
-            if row is None:
-                raise ValueError("Related page claim selects an unadmitted read")
-            segment["page"]=row.page.model_dump(mode="json")
+            from .build_related_pages import records, project_claim
+            segment=project_claim(segment,records(execution)).model_dump(mode='json')
         segments.append(segment)
     if enabled(execution.policy):
         basis = ('working_draft_context' if 'working_draft_context' in packet else

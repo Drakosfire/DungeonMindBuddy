@@ -336,7 +336,7 @@ def status_for(segments):
     from .build_draft_answer import DraftDiscussionV1
     partial = any(isinstance(s, t.SurfaceLimitationV1) for s in segments)
     if any(isinstance(s, (t.PlanWorldGraphClaimSegmentV1, t.NativeAssertionClaimV1)) for s in segments): base = 'graph_grounded'
-    elif any(isinstance(s,t.DraftReferenceClaimV1) for s in segments):
+    elif any(isinstance(s,(t.DraftReferenceClaimV1,t.RelatedPageClaim)) for s in segments):
         base = 'authored_grounded'
     elif any(isinstance(s, (t.SourcePassageClaimV1,t.SavedSourceClaimV1)) for s in segments): base = 'source_grounded'
     elif any(isinstance(s, (t.SurfaceAuthoredQuoteV1, t.SessionSummaryV1)) for s in segments): base = 'authored_grounded'

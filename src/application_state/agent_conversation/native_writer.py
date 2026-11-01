@@ -56,6 +56,7 @@ class NativeWriterEvidence:
     authored: tuple
     idempotency_key: UUID
     saved_sections: tuple
+    related_pages: tuple
     draft_record: object | None
     body_excerpts: tuple
     native_statements: tuple
@@ -124,7 +125,7 @@ def verify_input_records(receipt, execution, authorization, raw, *, provenance, 
             or t.canonical_sha256(frame) != authorization.frame_sha256
             or t.canonical_sha256(expected) != authorization.frame_sha256):
         raise ValueError("Native writer evidence differs from its actual producing SDK request")
-    authored,saved_sections,draft_record = (),(),None
+    authored,saved_sections,related_pages,draft_record = (),(),(),None
     from .native_context import PlanWorkContextV1,BuildWorkContextV1
     if isinstance(receipt.work_context,PlanWorkContextV1):
         from .surface_evidence_answer import producing_plan_authored_records
@@ -134,6 +135,8 @@ def verify_input_records(receipt, execution, authorization, raw, *, provenance, 
         from .build_primary_context import records
         from .build_draft_context import context_record
         saved_sections=records(prefix,receipt.work_context.source_basis)
+        from .build_related_pages import records as related_records
+        related_pages=tuple(related_records(prefix))
         if prefix.policy.action.intent.build_draft_context_sha256 is not None:
             draft_record=context_record(prefix).record
     catalogs = {catalog.catalog_sha256: catalog for event in prefix.events
@@ -142,7 +145,7 @@ def verify_input_records(receipt, execution, authorization, raw, *, provenance, 
     statement_reads = statements.selected_read_records(prefix)
     assertion_reads = assertions.selected_read_records(prefix)
     return NativeWriterEvidence(frame=expected,work_frame=expected_work,authored=authored,idempotency_key=idempotency_key,
-        saved_sections=saved_sections,draft_record=draft_record,
+        saved_sections=saved_sections,related_pages=related_pages,draft_record=draft_record,
         body_excerpts=tuple(bodies.NativeBodySupport(body_handle(read), read,
             catalogs[read.excerpt.catalog_sha256]) for read in body_reads),
         native_statements=tuple((row['statement_handle'], event, read) for row, (event, read)

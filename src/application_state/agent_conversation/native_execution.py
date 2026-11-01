@@ -56,7 +56,8 @@ class NativeBuildActionV1(Strict):
             validate_work_intent(cap.basis, self.intent)
         catalog = self.related_page_catalog
         if catalog is not None and (len({row.document_id for row in catalog}) != len(catalog)
-                or any(row.world_id != self.intent.world_id for row in catalog)):
+                or any(row.world_id != self.intent.world_id
+                    or str(row.document_id) == str(self.intent.primary_work.object_id) for row in catalog)):
             raise ValueError("Related page catalog differs from the actual work World")
         return self
 
@@ -242,6 +243,8 @@ class SurfaceNativeExecutionV1(Strict):
             validate_execution_records(self)
             validate_provider_inclusions(self)
             validate_reads(self,max_chars=self.policy.action.saved_source_char_count)
+            from .build_related_pages import validate_events as validate_related_events
+            validate_related_events(self)
             t.validate_build_section_inclusions(self)
             for event in self.events:
                 if isinstance(event,t.BuildWriterEvidenceSelectionV1):

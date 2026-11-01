@@ -179,6 +179,10 @@ def native_work_frame(execution, basis):
         if captured.record.snapshot.saved_basis() != basis.model_dump(mode='json',by_alias=True):
             raise ValueError('Native Build work draft differs from its saved basis')
         frame['working_draft_context']=writer_reference(captured.record)
+    from .build_related_pages import project as project_related
+    related=project_related(execution)
+    if related is not None:
+        frame['related_authored_pages']=related
     return pack_body_aliases(frame) if action.intent.build_draft_context_sha256 is not None else frame
 
 

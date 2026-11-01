@@ -124,6 +124,11 @@ def authorize(context, record, raw, frame):
         'envelope_sha256':sha256(raw.encode()).hexdigest(), 'frame_sha256':t.canonical_sha256(frame),
         'tool_schema_sha256':t.canonical_sha256([])})
     events=list(record.events)
+    if surface=='build' and record.policy.action.related_page_catalog is not None:
+        from application_state.agent_conversation.build_related_pages import records, RelatedPageInclusion
+        events.append(RelatedPageInclusion(event_id=uuid4(),sequence=len(events),
+            provider_attempt_id=auth.provider_attempt_id,envelope_sha256=auth.envelope_sha256,
+            read_ids=sorted((read.read_id for read in records(record)),key=str)))
     if surface=='build':
         from application_state.agent_conversation import build_draft_context as draft, build_primary_context as primary
         if record.policy.action.intent.build_draft_context_sha256 is not None:
