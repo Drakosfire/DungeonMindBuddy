@@ -11,7 +11,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from hashlib import sha256
-from typing import Literal
+from typing import Literal, TYPE_CHECKING
 from uuid import UUID
 
 from pydantic import Field
@@ -46,9 +46,12 @@ from .types import (
     ProviderAttemptAuthorizedEventV1,
     ProviderAttemptAuthorizedEventV2,
     ProviderAttemptAuthorizedEventV3,
-    ProviderOutcomeEventV1,
+    ProviderOutcomeEventV1, CompletionBindingEventV1,
     Turn,
 )
+
+if TYPE_CHECKING:
+    from .native_completion import SurfaceNativeCompletionV1
 
 MAX_NATIVE_OUTPUT_BYTES = 262144
 
@@ -161,8 +164,8 @@ def verify_native_reply(
     rules_execution: RulesExecutionV1,
     proof: NativeRulesOutputProofV1,
     capture,
-    *, plan_turn: Turn | None = None,
-) -> None:
+    *, plan_turn: Turn | None = None, native_context=None, native_submission=None,
+):
     """Revalidate the exact captured reply against both durable producer ledgers."""
     if not isinstance(proof, NativeRulesOutputProofV1):
         raise ValueError("Native Rules output proof is not the current closed schema")
@@ -171,13 +174,17 @@ def verify_native_reply(
         or proof.rules_execution_id != rules_execution.scope.execution_id
     ):
         raise ValueError("Native Rules output belongs to another active execution")
-    verify_captured_text(capture, authorization_id=proof.authorization_id,
-        api_request_id=proof.api_request_id, request_envelope_sha256=proof.request_envelope_sha256,
-        prepared_request_json=proof.prepared_request_json, raw_output_json=proof.raw_output_json,
-        raw_output_sha256=proof.raw_output_sha256, raw_output_utf8_bytes=proof.raw_output_utf8_bytes)
+    response_sha256 = None
+    from .native_execution import SurfaceNativeExecutionV1, NativeWriterAuthorizedV1
+    shared = type(graph_execution) is SurfaceNativeExecutionV1
+    if shared != (native_context is not None and native_submission is not None):
+        raise ValueError("Shared Rules output requires its exact native context and submission")
+    if shared and (plan_turn is not None or proof.graph_packets):
+        raise ValueError("Shared Rules output cannot borrow legacy Turn or Graph packet authority")
     if getattr(capture, "api_mode", None) == "responses":
         from .types import PlanJevWriterAuthorizedV1
-        if graph_execution is None or not any(isinstance(event, PlanJevWriterAuthorizedV1)
+        if graph_execution is None or not any((isinstance(event, PlanJevWriterAuthorizedV1)
+                or shared and type(event) is NativeWriterAuthorizedV1)
                 and event.provider_attempt_id == proof.producing_provider_attempt_id for event in graph_execution.events):
             raise ValueError("Direct Responses capture requires its exact Plan Jev writer")
 
@@ -293,9 +300,25 @@ def verify_native_reply(
         raise ValueError(
             "Native Rules output differs from its exact included Rules evidence"
         )
+    exposure = None
     try:
-        verify_prepared_input(rules_execution, rules_auth, proof.prepared_request_json, plan_turn=plan_turn)
-        verify_prepared_input(rules_execution, included, proof.prepared_request_json, plan_turn=plan_turn)
+        if shared:
+            from .rules_authority_plan_packet import verify_native_rules_packet_input
+            from .rules_authority_events import validate_native_packet_writer
+            validate_native_packet_writer(rules_execution,proof.producing_provider_attempt_id,require_reply=True)
+            exposure = verify_native_rules_packet_input(rules_execution,native_context,graph_execution,
+                proof.prepared_request_json,provider_attempt_id=proof.producing_provider_attempt_id,
+                expected_envelope_sha256=proof.request_envelope_sha256,**native_submission)
+            responses = [e for e in graph_execution.events if isinstance(e,ProviderOutcomeEventV1)
+                and e.provider_attempt_id == proof.producing_provider_attempt_id and e.outcome == 'response_received']
+            if (len(responses) != 1 or responses[0].request_id != proof.api_request_id
+                    or any(not isinstance(e, CompletionBindingEventV1)
+                        for e in graph_execution.events if e.sequence > responses[0].sequence)):
+                raise ValueError('Shared Rules output lacks its final acknowledged native response')
+            response_sha256 = responses[0].response_sha256
+        else:
+            verify_prepared_input(rules_execution, rules_auth, proof.prepared_request_json, plan_turn=plan_turn)
+            verify_prepared_input(rules_execution, included, proof.prepared_request_json, plan_turn=plan_turn)
     except (ValueError, TypeError, KeyError, RecursionError) as exc:
         raise ValueError("Native Rules prepared input differs from its recorded evidence") from exc
     latest = [
@@ -311,6 +334,11 @@ def verify_native_reply(
         raise ValueError(
             "Native Rules output is not the final authorized provider response"
         )
+    verify_captured_text(capture,authorization_id=proof.authorization_id,api_request_id=proof.api_request_id,
+        request_envelope_sha256=proof.request_envelope_sha256,prepared_request_json=proof.prepared_request_json,
+        raw_output_json=proof.raw_output_json,raw_output_sha256=proof.raw_output_sha256,
+        raw_output_utf8_bytes=proof.raw_output_utf8_bytes,response_sha256=response_sha256)
+    return exposure
 
 
 def verify_native_output(graph_execution, rules_execution, proof, capture, *, plan_turn: Turn | None = None) -> RulesWriterAnswerV1:
@@ -340,7 +368,7 @@ def verify_native_output(graph_execution, rules_execution, proof, capture, *, pl
 class NativeRulesNormalizedOutputV1:
     """Pure normalization result; it is not a durable acceptance receipt."""
 
-    base_completion: PlanWorldGraphCompletionV2 | PlayWorldGraphCompletionV1 | SurfaceSourceCompletionV1 | SurfaceEvidenceCompletionV6 | SurfaceEvidenceCompletionV5 | SurfaceEvidenceCompletionV4 | SurfaceEvidenceCompletionV3 | SurfaceEvidenceCompletionV2 | SurfaceEvidenceCompletionV1 | None
+    base_completion: SurfaceNativeCompletionV1 | PlanWorldGraphCompletionV2 | PlayWorldGraphCompletionV1 | SurfaceSourceCompletionV1 | SurfaceEvidenceCompletionV6 | SurfaceEvidenceCompletionV5 | SurfaceEvidenceCompletionV4 | SurfaceEvidenceCompletionV3 | SurfaceEvidenceCompletionV2 | SurfaceEvidenceCompletionV1 | None
     claim_graph_event_ids: dict[str, list[UUID]]
     composition: AnswerCompositionV1
     assistant_text: str
@@ -438,6 +466,47 @@ def normalize_native_mixed_output(
         assistant_text=assistant_text,
         graph_used=graph_used,
     )
+
+
+def normalize_shared_native_output(receipt, graph_execution, rules_execution, proof, capture, *,
+                                   trace, idempotency_key, submitted_intent_fingerprint,
+                                   world_id, conversation_id, turn_id, attempt):
+    """One captured response, two existing evidence owners, no synthetic Turn.
+
+    The locked consumer must supply its actual submission identity and persist
+    the accepted composition atomically. This component does neither operation.
+    """
+    from .native_completion import normalize_candidate
+    from .source_writer_output import require_captured_answer
+
+    submission = dict(idempotency_key=idempotency_key,submitted_intent_fingerprint=submitted_intent_fingerprint,
+        world_id=world_id,conversation_id=conversation_id,turn_id=turn_id,attempt=attempt)
+    evidence, frame = verify_native_reply(graph_execution,rules_execution,proof,capture,
+        native_context=receipt,native_submission=submission)
+    require_captured_answer(trace,world_id=world_id,conversation_id=conversation_id,turn_id=turn_id,
+        attempt=attempt,provider_attempt_id=proof.producing_provider_attempt_id,
+        context_receipt_sha256=receipt.context_receipt_sha256,raw_output_json=proof.raw_output_json)
+    auth = next(e for e in graph_execution.events
+        if getattr(e,'provider_attempt_id',None) == proof.producing_provider_attempt_id and hasattr(e,'envelope_sha256'))
+    included = next(e for e in rules_execution.events if type(e) is RulesProviderIncludedV1
+        and e.provider_attempt_id == proof.producing_provider_attempt_id)
+    base, segments = None, ()
+    if frame.lookups:
+        answer = parse_answer(proof.raw_output_json)
+        if answer.base_output is not None:
+            base = normalize_candidate(answer.base_output,receipt,graph_execution,auth,evidence)
+            segments = tuple(segment.text for segment in base.answer_segments)
+        composition = answer.composition(supplied_refs=included.support_refs,base_segments=segments,
+            base_disposition='approved' if base is not None else 'unclaimed')
+    else:
+        base = normalize_candidate(strict_json(proof.raw_output_json),receipt,graph_execution,auth,evidence)
+        segments = tuple(segment.text for segment in base.answer_segments)
+        composition = AnswerCompositionV1(schema='dmb_answer_composition_v1',base_disposition='approved',
+            rules_segments=(),ordered_refs=tuple({'domain':'base','segment_index':i} for i in range(len(segments))),
+            assistant_text_sha256=sha256('\n'.join(segments).encode()).hexdigest())
+    return NativeRulesNormalizedOutputV1(base_completion=base,claim_graph_event_ids={},composition=composition,
+        assistant_text=composition.render(segments),graph_used=base is not None
+            and any(segment.kind == 'native_assertion_claim' for segment in base.answer_segments))
 
 
 def sealed_native_producer(turn, rules_execution, proof):

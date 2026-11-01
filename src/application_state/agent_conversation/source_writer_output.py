@@ -505,7 +505,8 @@ def require_captured_answer(trace, *, world_id, conversation_id, turn_id, attemp
     """Match exact selected answer bytes in the owning protected current-attempt trace."""
     draft_id = f"unvalidated-provider-answer:{provider_attempt_id}:{context_receipt_sha256}"
     if (
-        trace.get("world_id") != world_id
+        type(attempt) is not int or attempt < 1 or type(trace.get("attempt")) is not int
+        or trace.get("world_id") != world_id
         or trace.get("turn_id") != str(turn_id)
         or trace.get("conversation_id") != str(conversation_id)
         or trace.get("attempt") != attempt

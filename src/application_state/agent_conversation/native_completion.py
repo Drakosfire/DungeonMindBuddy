@@ -92,8 +92,7 @@ def normalize_output(receipt, execution, authorization, *, prepared_request_json
     """
     evidence = verify_input_records(receipt,execution,authorization,prepared_request_json)
     if (type(authorization) is not NativeWriterAuthorizedV1 or world_id != execution.policy.action.intent.world_id
-            or type(conversation_id) is not UUID or type(turn_id) is not UUID or type(attempt) is not int or attempt < 1
-            or type(trace.get('attempt')) is not int):
+            or type(conversation_id) is not UUID or type(turn_id) is not UUID or type(attempt) is not int or attempt < 1):
         raise ValueError('Native completion differs from its actual Turn identity')
     responses = [e for e in execution.events if isinstance(e,t.ProviderOutcomeEventV1)
         and e.provider_attempt_id == authorization.provider_attempt_id and e.outcome == 'response_received']
@@ -113,7 +112,15 @@ def normalize_output(receipt, execution, authorization, *, prepared_request_json
     require_captured_answer(trace,world_id=world_id,conversation_id=conversation_id,turn_id=turn_id,
         attempt=attempt,provider_attempt_id=authorization.provider_attempt_id,
         context_receipt_sha256=receipt.context_receipt_sha256,raw_output_json=raw_output_json)
-    candidate = strict_json(raw_output_json)
+    return normalize_candidate(strict_json(raw_output_json),receipt,execution,authorization,evidence)
+
+
+def normalize_candidate(candidate, receipt, execution, authorization, evidence):
+    """Normalize the actual parsed partition after its producer/input proof.
+
+    Mixed Rules responses have one captured outer body. Their base partition
+    uses this same algorithm without manufacturing a second provider response.
+    """
     if (not isinstance(candidate,dict) or set(candidate) != {'schema','answer_segments','limitations','requested_detail_gaps'}
             or candidate['schema'] != evidence.frame['answer_policy'] or not isinstance(candidate['answer_segments'],list)):
         raise ValueError('Native completion requires its exact producing answer policy')
