@@ -41,7 +41,7 @@ def _preview(access, evidence_ref_id):
     return packet
 
 
-def resolve_native_review_context(*, scope: dict, nodes: list[dict]) -> dict:
+def resolve_native_review_context(*, scope: dict, nodes: list[dict], source_admission) -> dict:
     repository = _repository()
     world_id = scope["native_world_id"]
     head = repository.get_head(world_id)
@@ -118,6 +118,26 @@ def resolve_native_review_context(*, scope: dict, nodes: list[dict]) -> dict:
             "search_results": jsonable_encoder(searches),
             "alternatives": alternatives,
         })
+    source_evidence = []
+    if (source_admission is not None and source_admission.state == "admitted"
+            and source_admission.admission_committed
+            and source_admission.opening.state == "verified"):
+        # The existing admission owner joined APP identity to the native receipt.
+        # Core alone opens sources; a matching hash never substitutes for identity.
+        # Whole-source context is not support and need not repeat the entire recap.
+        for evidence in sorted(access.parsed.evidence_by_id.values(), key=lambda e: e.evidence_ref_id):
+            if (evidence.evidence_role != "support"
+                    or evidence.source_artifact_id != source_admission.source_artifact_id
+                    or evidence.source_revision_id != source_admission.source_revision_id):
+                continue
+            preview = _preview(access, evidence.evidence_ref_id)
+            if (preview["status"] == "available"
+                    and preview["body_sha256"] != source_admission.app_body_sha256):
+                raise NativeReviewConflict("admitted source does not match saved source bytes")
+            source_evidence.append({"evidence_ref_id": evidence.evidence_ref_id,
+                                    "evidence_role": evidence.evidence_role, "opening": preview})
+    if repository.open_native_source_view(world_id).epoch != access.source_view.epoch:
+        raise NativeReviewConflict("native source authority changed during review")
     if repository.get_head(world_id) != head:
         raise NativeReviewConflict("native World head changed during review")
     return {
@@ -129,6 +149,13 @@ def resolve_native_review_context(*, scope: dict, nodes: list[dict]) -> dict:
         "semantic_profile_ref": jsonable_encoder(access.parsed.semantic_profile_ref),
         "projection_request": context.request.model_dump(mode="json"),
         "selections": selections,
+        "source_admission": ({
+            "state": source_admission.state, "run_id": str(source_admission.run_id),
+            "run_revision": source_admission.run_revision,
+            "opening_state": source_admission.opening.state,
+            "failure_code": source_admission.failure_code,
+        } if source_admission is not None else {"state": "not_found"}),
+        "source_evidence": source_evidence,
         "identity_approval": False,
         # Core proves admission and provenance bindings. The review still owns
         # whether the cited words entail a claim or identify the same person.

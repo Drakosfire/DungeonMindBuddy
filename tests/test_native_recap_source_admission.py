@@ -1109,6 +1109,16 @@ def test_native_admission_identity_is_stable_across_record_version():
     # Frozen from the actual V1 implementation, not a second copy of the recipe.
     assert record.admission_id == "dmb-recap-source:67d20ea263489b9fb302b07a54f4f9c0a437b3b942a6ea583faeffba690e2a17"
     assert record.run_id == "a048576e-7182-5934-9560-8952a0ff5ccb"
+    from graph_memory.ingestion.native_recap_source import admission_id_for_source
+    fields = {key: getattr(record, key) for key in (
+        "managed_world_id", "native_world_id", "campaign_id", "session_id",
+        "app_source_artifact_id", "app_source_revision_id", "app_body_sha256",
+    )}
+    assert admission_id_for_source(**fields) == record.admission_id
+    for key in ("managed_world_id", "native_world_id", "campaign_id", "session_id",
+                "app_source_artifact_id", "app_source_revision_id", "app_body_sha256"):
+        assert admission_id_for_source(**{**fields, key: "different"}) != record.admission_id
+
     assert "normalization_policy" not in record.model_dump()
 
 

@@ -22,6 +22,9 @@ from apps.live_control_server.models.ingest_selection_context import (
     IngestSelectionContextRequest,
 )
 from apps.live_control_server.services.extract_promote import ExtractPromoteError
+from apps.live_control_server.services.native_recap_source_admission import (
+    inspect_saved_source, NativeRecapError,
+)
 from apps.live_control_server.services.graph_run_registry import (
     get_extraction_run,
 )
@@ -255,11 +258,12 @@ def resolve_ingest_selection_context(
             "provenance": "saved_source",
         }
     try:
+        admitted = inspect_saved_source(root, scope=scope, source=source)
         native_context = resolve_native_review_context(
-            scope=scope,
+            scope=scope, source_admission=admitted,
             nodes=[nodes[key] for key in sorted(selected_nodes)],
         )
-    except NativeReviewConflict as exc:
+    except (NativeReviewConflict, NativeRecapError) as exc:
         _reject(str(exc), conflict=True)
     scope["admitted_world_facts_included"] = any(
         alternative["entity_result"]["assertions"]
@@ -274,6 +278,7 @@ def resolve_ingest_selection_context(
         "profile_id": run.profile_id,
         "candidate_sha256": candidate_sha,
         "source_artifact_id": run.source_artifact_id,
+        "source_revision_id": str(source.source_revision_id),
         "source_sha256": request.expected_source_sha256,
         "span_index_sha256": span_sha,
         "scope": scope,
@@ -321,7 +326,14 @@ def resolve_ingest_selection_context(
     # A concurrent lifecycle change must not be hidden by an otherwise valid stored snapshot.
     if get_extraction_run(root, run_id).revision != run.revision:
         _reject("selected run changed while resolving context", conflict=True)
-    final_scope = _scope(run, source, request.expected_world_id)
+    current_source = source_service.get_source_markdown(
+        source_artifact_id=source.source_artifact_id,
+        source_revision_id=source.source_revision_id,
+        content_sha256=request.expected_source_sha256,
+    )
+    if current_source != source:
+        _reject("selected source changed while resolving context", conflict=True)
+    final_scope = _scope(run, current_source, request.expected_world_id)
     final_scope["admitted_world_facts_included"] = scope["admitted_world_facts_included"]
     if final_scope != scope:
         _reject("World binding changed while resolving context", conflict=True)

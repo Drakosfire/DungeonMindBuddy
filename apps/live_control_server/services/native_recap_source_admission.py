@@ -5,10 +5,12 @@ import logging
 import os
 from datetime import UTC, datetime
 from copy import deepcopy
+from uuid import NAMESPACE_URL, uuid5
 from application_state.ingest import service as ingest
 from application_state.source import service as sources
 from graph_memory.ingestion.native_recap_source import (
     Record,
+    admission_id_for_source,
     Delivery,
     Opening,
     Resume,
@@ -220,14 +222,43 @@ def _status(run, record, source, authority, *, busy=False):
     )
 
 
-def inspect(root, run_id, world, campaign, session):
+def inspect(root, run_id, world, campaign, session, *, authority=None):
     run, record, source = _load(run_id, world, campaign, session)
     return _status(
         run,
         record,
         source,
-        NativeRecapAuthority(config.managed_world_data_root(root).resolve()),
+        authority or NativeRecapAuthority(config.managed_world_data_root(root).resolve()),
     )
+
+
+def inspect_saved_source(root, *, scope, source):
+    """Find only an existing exact-source operation; never reserve or dispatch."""
+    from apps.live_control_server.integrations.dungeonmind.native_registry_source import read_repository
+
+    admission_id = admission_id_for_source(
+        managed_world_id=scope["managed_world_id"], native_world_id=scope["native_world_id"],
+        campaign_id=scope["campaign_id"], session_id=scope["session_id"],
+        app_source_artifact_id=source.source_artifact_id,
+        app_source_revision_id=source.source_revision_id,
+        app_body_sha256=source.content_sha256,
+    )
+    run_id = str(uuid5(NAMESPACE_URL, admission_id))
+    if ingest.get_extraction_run_optional(run_id) is None:
+        return None
+    authority = NativeRecapAuthority(config.managed_world_data_root(root).resolve(),
+                                    repository=read_repository())
+    result = inspect(root, run_id, scope["managed_world_id"], scope["campaign_id"],
+                     int(scope["session_id"].removeprefix("session-")), authority=authority)
+    if (
+        result.native_world_id != scope["native_world_id"]
+        or result.binding_version != scope["binding_version"]
+        or result.app_source_artifact_id != source.source_artifact_id
+        or str(result.app_source_revision_id) != str(source.source_revision_id)
+        or result.app_body_sha256 != source.content_sha256
+    ):
+        raise NativeRecapError("native_recap_source_input_changed")
+    return result
 
 
 def _cas(run, record):

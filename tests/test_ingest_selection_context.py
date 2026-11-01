@@ -7,6 +7,7 @@ from copy import deepcopy
 import hashlib
 import json
 from types import SimpleNamespace
+from uuid import UUID
 
 import httpx
 import pytest
@@ -94,6 +95,7 @@ def context(monkeypatch, tmp_path):
     )
     source = SimpleNamespace(
         source_artifact_id=artifact,
+        source_revision_id=UUID("aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa"),
         source_domain="recap",
         campaign_id="c1",
         session_id="session-29",
@@ -125,6 +127,7 @@ def context(monkeypatch, tmp_path):
         service.source_service, "get_source_markdown", lambda **kwargs: source
     )
     monkeypatch.setattr(service, "resolve_managed_world_binding", lambda world: binding)
+    monkeypatch.setattr(service, "inspect_saved_source", lambda *args, **kwargs: None)
     monkeypatch.setattr(service, "resolve_native_review_context", lambda **kwargs: {
         "revision_id": "native-revision-test",
         "selections": [],
@@ -537,3 +540,18 @@ def test_managed_selection_cannot_be_replaced_with_native_id(context, monkeypatc
     with pytest.raises(ExtractPromoteError, match="selection belongs to another World") as caught:
         resolve(context, expected_world_id="native-a")
     assert caught.value.status_code == 409
+
+
+def test_actual_source_uuid_is_not_candidate_digest(context):
+    result = resolve(context)
+    assert result["source_revision_id"] == str(context.source.source_revision_id)
+    assert result["source_revision_id"] != result["source_sha256"]
+
+
+def test_source_change_during_native_read_rejects(context, monkeypatch):
+    old = deepcopy(context.source)
+    monkeypatch.setattr(service.source_service, "get_source_markdown",
+                        lambda **kwargs: old if "source_revision_id" not in kwargs else None)
+    with pytest.raises(ExtractPromoteError, match="source changed") as error:
+        resolve(context)
+    assert error.value.status_code == 409
