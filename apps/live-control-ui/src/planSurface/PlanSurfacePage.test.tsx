@@ -539,7 +539,7 @@ function planGraphContext(
     schema: "dmb_agent_plan_world_graph_context_receipt_v1" as const,
     receipt_serializer_version: "canonical-json-utf8-v1" as const,
     context_receipt_sha256: "0".repeat(64),
-    plan_context_policy: { schema: "dmb_plan_context_policy_v1" as const, policy: "auto_plan_world" as const },
+    plan_context_policy: options.request?.plan_context_policy ?? { schema: "dmb_plan_context_policy_v1" as const, policy: "auto_plan_world" as const },
     plan_basis: {
       world_id: worldId,
       document_id: documentId,
@@ -1146,7 +1146,7 @@ it("binds Ask to the exact committed revision and complete current working draft
     client_work_state: "saved_dirty",
     graph_request: { mode: "none" },
     graph_selection: null,
-    plan_context_policy: { schema: "dmb_plan_context_policy_v1", policy: "auto_plan_world" },
+    plan_context_policy: { schema: "dmb_plan_context_policy_v2", policy: "auto_plan_world", graph_source: "reviewed_native_graph" },
     message: "What Plan metadata can you see?",
   });
   expect(request.plan_authoring_capture?.draft_markdown).toBe(defaultMarkdownDocumentAdapter.exportMarkdown(JSON.parse(request.plan_authoring_capture!.editor_json)));

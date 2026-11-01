@@ -611,7 +611,7 @@ async function planGraphContext(
     schema: "dmb_agent_plan_world_graph_context_receipt_v1" as const,
     receipt_serializer_version: "canonical-json-utf8-v1" as const,
     context_receipt_sha256: "0".repeat(64),
-    plan_context_policy: { schema: "dmb_plan_context_policy_v1" as const, policy: "auto_plan_world" as const },
+    plan_context_policy: options.request?.plan_context_policy ?? { schema: "dmb_plan_context_policy_v1" as const, policy: "auto_plan_world" as const },
     plan_basis: {
       world_id: worldId,
       document_id: documentId,
@@ -2787,12 +2787,12 @@ describe("World Plan conversation consumer", () => {
     },
   );
 
-  it('sends an explicitly selected reviewed Graph source without client Graph identities or revisions', async()=>{
+  it('uses the reviewed Graph by default without an authority selector or client Graph identities', async()=>{
     setupApi(history('conversation-a',4,[]));
     const post=vi.spyOn(liveApi,'postWorldPlanAgentTurn').mockRejectedValue(new Error('Synthetic stop after request capture'));
     render(conversationElement());
     await waitForConversationReady();
-    fireEvent.change(screen.getByLabelText('Plan Graph source'),{target:{value:'reviewed_native_graph'}});
+    expect(screen.queryByLabelText('Plan Graph source')).not.toBeInTheDocument();
     fireEvent.change(screen.getByLabelText('Message DungeonBuddy'),{target:{value:'What did B do?'}});
     fireEvent.click(screen.getByRole('button',{name:'Send message'}));
     await waitFor(()=>expect(post).toHaveBeenCalledTimes(1));
@@ -2842,7 +2842,7 @@ describe("World Plan conversation consumer", () => {
     expect(postAsk).toHaveBeenCalledTimes(1);
     expect(captured).toMatchObject({
       schema: "dmb_agent_turn_request_v1",
-      plan_context_policy: { schema: "dmb_plan_context_policy_v1", policy: "auto_plan_world" },
+      plan_context_policy: { schema: "dmb_plan_context_policy_v2", policy: "auto_plan_world", graph_source: "reviewed_native_graph" },
       primary_work: {
         kind: "plan",
         object_id: documentId,
@@ -3570,7 +3570,7 @@ describe("World Plan conversation consumer", () => {
     expect(turnCall).toBeDefined();
     expect(JSON.parse(String(turnCall?.[1]?.body))).toHaveProperty(
       "plan_context_policy",
-      { schema: "dmb_plan_context_policy_v1", policy: "auto_plan_world" },
+      { schema: "dmb_plan_context_policy_v2", policy: "auto_plan_world", graph_source: "reviewed_native_graph" },
     );
     expect(pendingAskKeys()).toEqual([]);
     expect(screen.queryByRole("region", { name: "Pending Ask recovery" })).not.toBeInTheDocument();
@@ -5172,6 +5172,7 @@ describe("World Plan conversation consumer", () => {
     const turn=policyHistoryTurn(1,turnId,'What do the native notes say?',text,context);
     const api=setupApi({...history('conversation-a',1,[]),schema:'dmb_agent_conversation_history_v2',turns:change==='fresh'?[]:[turn]} as WorldAgentConversationHistoryResponse);
     if(change==='fresh')vi.spyOn(liveApi,'postWorldPlanAgentTurn').mockImplementation(async request=>{
+      receipt.plan_context_policy=request.plan_context_policy!;
       receipt.plan_basis={...receipt.plan_basis,object_revision:request.primary_work.expected_revision,
         revision_n:request.primary_work.expected_revision_n,content_sha256:request.primary_work.expected_content_sha256};
       await resealPlanGraphContext(context);
@@ -5238,6 +5239,7 @@ describe("World Plan conversation consumer", () => {
     const turn=policyHistoryTurn(1,turnId,'What was reported?',text,context);
     const api=setupApi({...history('conversation-a',1,[]),schema:'dmb_agent_conversation_history_v2',turns:change==='fresh'?[]:[turn]} as WorldAgentConversationHistoryResponse);
     if(change==='fresh')vi.spyOn(liveApi,'postWorldPlanAgentTurn').mockImplementation(async request=>{
+      receipt.plan_context_policy=request.plan_context_policy!;
       receipt.plan_basis={...receipt.plan_basis,object_revision:request.primary_work.expected_revision,
         revision_n:request.primary_work.expected_revision_n,content_sha256:request.primary_work.expected_content_sha256};
       if(receipt.native_query.schema==='dmb_native_plan_query_v1')receipt.native_query.question=request.message;
