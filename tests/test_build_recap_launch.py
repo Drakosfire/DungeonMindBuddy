@@ -221,7 +221,8 @@ def test_provisioning_world_generates_without_graph_or_publication_host(tmp_path
     from application_state.world_catalog import service as worlds
     from apps.live_control_server.services.world_container_registry import NativeGraphProvisioningRecord
     from tests.application_state.world_catalog_fixtures import store_world
-    from apps.live_control_server.services import recap_ingest_context, recap_graph_preview_ingest
+    from apps.live_control_server.services import recap_ingest_context
+    from apps.live_control_server.services.ingest_run_catalog import project_recap_extraction_run
     from apps.live_control_server.services.graph_run_registry import load_reviewable_extraction_data
     world = worlds.get_world("managed-a").record
     binding = NativeGraphProvisioningRecord(native_world_id="world:" + "a" * 32, provisioning_id="provision:" + "b" * 32)
@@ -244,7 +245,7 @@ def test_provisioning_world_generates_without_graph_or_publication_host(tmp_path
     scope = result.lineage["world_campaign_ingest_context"]
     assert scope == dict(managed_world_id="managed-a", native_world_id=binding.native_world_id, binding_version=1, campaign_id=request_body.campaign_id)
     assert load_reviewable_extraction_data(tmp_path, result.run_id).source_artifact.world_id == binding.native_world_id
-    status = recap_graph_preview_ingest.inspect_recap_graph_preview_status(repo_root=tmp_path, campaign_id=request_body.campaign_id, session=request_body.session, normalized_recap_path=None, managed_world_id="managed-a")
+    status = project_recap_extraction_run(root=tmp_path,run=result,context=scope,source_content_sha256=request_body.expected_content_sha256)
     assert status["extraction_run_id"] == result.run_id
     assert service.launch_build_recap(tmp_path, request_body) == result
     assert calls == [result.run_id]

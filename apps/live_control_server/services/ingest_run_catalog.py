@@ -407,26 +407,6 @@ def project_recap_extraction_run(
         ) from exc
 
 
-def inspect_recap_extraction_status(
-    *,
-    root: Path,
-    campaign_id: str,
-    session_id: str,
-    context: Mapping[str, Any],
-    source_content_sha256: str | None,
-) -> dict[str, Any] | None:
-    for run in _scoped_recap_runs(campaign_id, session_id, context):
-        status = project_recap_extraction_run(
-            root=root,
-            run=run,
-            context=context,
-            source_content_sha256=source_content_sha256,
-        )
-        if status is not None:
-            return status
-    return None
-
-
 def _same_session_evidence(run: ExtractionRun, supplemental_evidence: dict | None) -> bool:
     """Reopen the selected immutable Play revisions; locators confer no authority."""
     from apps.live_control_server.models.session_evidence import SessionEvidenceRef

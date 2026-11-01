@@ -123,8 +123,7 @@ def lane(tmp_path, monkeypatch, application_state_dsn, native_core_dsn):
         campaign_id="campaign",
     )
     monkeypatch.setattr(route, "repo_root", lambda: tmp_path)
-    for name in ("_pipeline_corpus_root", "inspect_recap_ingest_status",
-                 "_normalized_recap_graph_path", "_request_recap_context"):
+    for name in ("_request_recap_context",):
         monkeypatch.setattr(route, name, lambda *_a, **_k: pytest.fail("Source intake used legacy file/broker selection"))
     import httpx
 
@@ -615,9 +614,6 @@ def test_status_has_no_file_scan_or_mutation_and_survives_production_router_omis
     value = native(post(lane))
     client = hosted_client(lane, monkeypatch)
     monkeypatch.setattr(
-        route, "_pipeline_corpus_root", lambda: pytest.fail("Status scanned corpus")
-    )
-    monkeypatch.setattr(
         service.PublicationProgressStore,
         "exclusive",
         lambda *_: pytest.fail("Status created lock files"),
@@ -1040,11 +1036,6 @@ def test_explicit_recovery_uses_frozen_APP_source_after_live_file_removed(
     record = Record.model_validate(run.lineage[KEY])
     frozen = record.command.sha256
     # Recovery resolves the same immutable APP revision; no live corpus lookup.
-    monkeypatch.setattr(
-        route,
-        "inspect_recap_ingest_status",
-        lambda **_: pytest.fail("Recovery scanned live corpus"),
-    )
     monkeypatch.setattr(
         route,
         "_request_recap_context",

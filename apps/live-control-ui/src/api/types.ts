@@ -2121,26 +2121,14 @@ export interface ResolvedRollResponse {
   provenance: Record<string, unknown>;
 }
 
-export type RecapIngestOperation =
-  | "generate_recap_memory"
-  | "build_graph_preview_bundle"
-  | "inspect_status"
-  | "reconcile_normalized_recap";
-
 export interface RecapIngestRequest {
   session_evidence?: Array<{run_id:string;review_revision:number;sha256:string}>;
-  operation: RecapIngestOperation;
+  operation: "generate_recap_memory";
   campaign_id: string;
   managed_world_id?: string;
   session: number;
   raw_text?: string;
-  slug?: string;
-  title?: string;
-  keep_basename?: string;
-  force_stage?: boolean;
-  force_recap?: boolean;
   force_graph_run?: boolean;
-  extract_graph?: boolean;
   graph_model_id?: string | null;
   include_graph_extraction?: boolean;
 }
@@ -2178,15 +2166,6 @@ export interface RecapGraphPreviewReport {
   next_actions?: string[];
   can_open_union_graph?: boolean;
   blocked_reason?: string | null;
-}
-
-export interface NormalizedRecapCandidate {
-  basename: string;
-  relpath: string;
-  size_bytes: number;
-  modified_at: string;
-  is_generic: boolean;
-  recommended: boolean;
 }
 
 export interface RecapIngestStatus {
