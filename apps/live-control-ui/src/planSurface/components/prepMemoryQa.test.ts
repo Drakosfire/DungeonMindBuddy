@@ -124,7 +124,7 @@ describe("prepMemoryQa helpers", () => {
       scope_mode: "world",
     }));
     expect(validateHermesGraphCitations(worldAnswer.citations, worldAnswer.grounding).contractWarning).toBeNull();
-    expect(answerHeading(worldAnswer)).toBe("Hermes answer");
+    expect(answerHeading(worldAnswer)).toBe("Qualified graph answer");
     expect(hasGrounding(worldAnswer)).toBe(true);
 
     const worldCitation = {
@@ -156,48 +156,26 @@ describe("prepMemoryQa helpers", () => {
     }));
   });
 
-  it("accepts S1 named-gap partials with zero claims or citations", () => {
-    const s1Partial = hermesResponse("partial", [], {
+  it.each([
+    ["named_gap"],
+    ["latest_recap_memory_lag_disclosed"],
+    ["admitted_recap_source_read"],
+    ["hermes_agent_answer"],
+    ["named_gap", "latest_recap_memory_lag_disclosed", "admitted_recap_source_read", "hermes_agent_answer"],
+  ])("does not treat recorded reason codes %j as evidence", (...reason_codes) => {
+    const recorded = hermesResponse("partial", [], {
       source_anchor_count: 0,
       acceptance_state: "partial_coverage",
       accepted_claim_ids: [],
       graph_reference_count: 0,
-      reason_codes: ["named_gap", "latest_recap_memory_lag_disclosed"],
-      warnings: ["graph_context_empty"],
+      reason_codes,
     });
-
-    expect(answerHeading(s1Partial)).toBe("No Hermes answer");
-    expect(hasGrounding(s1Partial)).toBe(true);
-    expect(validateHermesGraphCitations(s1Partial.citations, s1Partial.grounding).contractWarning).toBeNull();
-  });
-
-  it("labels S1 agent answers and admitted-recap reads", () => {
-    const s1WithRead = hermesResponse("partial", [], {
-      source_anchor_count: 0,
-      acceptance_state: "partial_coverage",
-      accepted_claim_ids: [],
-      graph_reference_count: 0,
-      reason_codes: [
-        "named_gap",
-        "latest_recap_memory_lag_disclosed",
-        "admitted_recap_source_read",
-      ],
-    });
-    expect(answerHeading(s1WithRead)).toBe("No Hermes answer");
-    expect(hasGrounding(s1WithRead)).toBe(true);
-
-    const s1Agent = hermesResponse("partial", [], {
-      source_anchor_count: 0,
-      acceptance_state: "partial_coverage",
-      accepted_claim_ids: [],
-      graph_reference_count: 0,
-      reason_codes: [
-        "named_gap",
-        "latest_recap_memory_lag_disclosed",
-        "hermes_agent_answer",
-      ],
-    });
-    expect(answerHeading(s1Agent)).toBe("Hermes answer");
+    const original = JSON.stringify(recorded);
+    expect(answerHeading(recorded)).toBe("Hermes grounding contract error");
+    expect(hasGrounding(recorded)).toBe(false);
+    expect(validateHermesGraphCitations(recorded.citations, recorded.grounding).contractWarning)
+      .toBe("Hermes grounding contract error");
+    expect(JSON.stringify(recorded)).toBe(original);
   });
 
   it("still rejects empty partials without named-gap reason codes", () => {

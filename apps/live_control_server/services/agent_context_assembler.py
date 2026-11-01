@@ -33,7 +33,6 @@ from apps.live_control_server.services.agent_runtime import (
 )
 from graph_memory.interaction.initial_resolve import create_session_from_preflight
 from graph_memory.interaction.session import GraphRetrievalSession
-from graph_memory.interaction.session_store import replace_session
 
 CONTEXT_SUMMARY_SCHEMA = "dmb_agent_context_summary_v1"
 
@@ -50,8 +49,6 @@ CONTEXT_SUMMARY_KEYS = frozenset(
         "retrieval_session_id",
         "retrieval_candidate_count",
         "retrieval_claim_count",
-        "latest_recap_change_present",
-        "admitted_recap_excerpt_char_count",
         "runtime_continuity_present",
     }
 )
@@ -109,12 +106,6 @@ def _build_trace_summary(
     history = history_copy or []
     candidates = retrieval_session_packet.get("candidates")
     claims = retrieval_session_packet.get("claim_ledger")
-    latest = session.latest_recap_change
-    excerpt = ""
-    if isinstance(latest, Mapping):
-        raw_excerpt = latest.get("admitted_recap_excerpt")
-        if isinstance(raw_excerpt, str):
-            excerpt = raw_excerpt
     summary: dict[str, str | int | bool | None] = {
         "context_schema": CONTEXT_SUMMARY_SCHEMA,
         "world_id": world_scope.world_id,
@@ -127,8 +118,6 @@ def _build_trace_summary(
         "retrieval_session_id": session.id,
         "retrieval_candidate_count": len(candidates) if isinstance(candidates, list) else 0,
         "retrieval_claim_count": len(claims) if isinstance(claims, list) else 0,
-        "latest_recap_change_present": isinstance(latest, Mapping),
-        "admitted_recap_excerpt_char_count": len(excerpt),
         "runtime_continuity_present": bool(runtime_session_id),
     }
     assert set(summary) == CONTEXT_SUMMARY_KEYS
@@ -140,7 +129,6 @@ def assemble_agent_graph_context(
     question: str,
     graph_envelope: Mapping[str, Any],
     root: Path | None = None,
-    corpus_root: Path | None = None,
     conversation_history: Sequence[Mapping[str, str]] | None = None,
     retrieval_session: GraphRetrievalSession | None = None,
     runtime_session_id: str | None = None,
@@ -149,8 +137,6 @@ def assemble_agent_graph_context(
     surface_context: AgentSurfaceContext | None = None,
 ) -> AgentContextAssembly:
     """Compose one AgentRuntimeInvocation plus content-free composition telemetry."""
-    from apps.live_control_server.config import repo_root as default_repo_root
-    from graph_memory.interaction.latest_recap import read_admitted_recap_excerpt
 
     revision_id = _require_resolved_revision(graph_envelope)
     world_id = str(graph_envelope.get("world_id") or "").strip()
@@ -199,36 +185,6 @@ def assemble_agent_graph_context(
         initial_sources = hydrate_selected_subject_sources(
             session, graph_envelope, root=graph_root,
         )
-    latest_recap_change = graph_envelope.get("latest_recap_change")
-    if isinstance(latest_recap_change, Mapping) and session.latest_recap_change is None:
-        # Preserve S1 context on the shared session object so host hydrate and
-        # claim validation see the same server-owned comparison boundary.
-        session.latest_recap_change = dict(latest_recap_change)
-    if isinstance(session.latest_recap_change, dict):
-        # Server-owned admitted-recap read for sensemaking (not a model path).
-        latest = session.latest_recap_change.get("latest_recap")
-        source_path = ""
-        if isinstance(latest, Mapping):
-            source_path = str(latest.get("source_recap_path") or "").strip()
-        memory_lag = bool(session.latest_recap_change.get("memory_lag")) or (
-            str(session.latest_recap_change.get("outcome") or "") == "memory_lag"
-        )
-        mutated = False
-        if memory_lag and source_path and not session.latest_recap_change.get(
-            "admitted_recap_excerpt"
-        ):
-            excerpt = read_admitted_recap_excerpt(
-                root=(corpus_root or default_repo_root()).resolve(),
-                source_recap_path=source_path,
-            )
-            if excerpt:
-                session.latest_recap_change = {
-                    **session.latest_recap_change,
-                    "admitted_recap_excerpt": excerpt,
-                }
-                mutated = True
-        if mutated or isinstance(latest_recap_change, Mapping):
-            replace_session(session)
     # Compatibility debt: projection method remains Hermes-named (A3 proved
     # the packet is harness-neutral; renaming lives outside A5 / graph_memory).
     retrieval_session_packet = session.project_for_hermes()
@@ -325,8 +281,6 @@ def assemble_agent_conversation_context(
         "retrieval_session_id": None,
         "retrieval_candidate_count": 0,
         "retrieval_claim_count": 0,
-        "latest_recap_change_present": False,
-        "admitted_recap_excerpt_char_count": 0,
         "runtime_continuity_present": bool(runtime_session_id),
     }
     assert set(summary) == CONTEXT_SUMMARY_KEYS

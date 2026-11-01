@@ -404,13 +404,6 @@ def _scope_block(
                 retrieval_session.get("available_expansions") or []
             ),
         }
-        latest_recap_change = retrieval_session.get("latest_recap_change")
-        if isinstance(latest_recap_change, Mapping):
-            latest_packet = dict(latest_recap_change)
-            excerpt = latest_packet.pop("admitted_recap_excerpt", None)
-            initial_packet["latestRecapChange"] = latest_packet
-            if isinstance(excerpt, str) and excerpt.strip():
-                initial_packet["admittedRecapExcerpt"] = excerpt.strip()
         for private_key, model_key in (
             ("initial_opened_source_reads", "openedSourceReads"),
             ("initial_source_read_coverage", "sourceReadCoverage"),

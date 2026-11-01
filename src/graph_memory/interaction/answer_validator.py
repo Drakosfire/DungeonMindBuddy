@@ -5,13 +5,11 @@ from __future__ import annotations
 import json
 
 from collections.abc import Mapping, Sequence
-from pathlib import Path
 from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
 from graph_memory.interaction.claims import GraphClaim, TurnOutcomeState
-from graph_memory.interaction.latest_recap import read_admitted_recap_excerpt
 from graph_memory.interaction.references import (
     GraphReference,
     InferenceReference,
@@ -70,7 +68,7 @@ class ValidatedAnswer(BaseModel):
     warnings: list[str] = Field(default_factory=list)
     diagnostic_codes: list[str] = Field(default_factory=list)
     reason_codes: list[str] = Field(default_factory=list)
-    # S1 only: server support channel (never join into Hermes chat answer_text).
+    # Retained response shape; current validation does not populate legacy support.
     support_lag_text: str | None = None
     support_excerpt_text: str | None = None
     # Natural Hermes prose is frontstage, while this ledger rendering remains
@@ -88,171 +86,6 @@ HERMES_NO_CHAT_ANSWER = "Hermes did not return a chat answer for this turn."
 PARTIAL_SOURCE_WARNING = (
     "Source verification is unavailable or incomplete for one or more supporting anchors."
 )
-
-
-def _latest_recap_change(session: GraphRetrievalSession) -> Mapping[str, Any] | None:
-    raw = session.latest_recap_change
-    return raw if isinstance(raw, Mapping) else None
-
-
-def _corpus_root(corpus_root: Path | None) -> Path:
-    if corpus_root is not None:
-        return corpus_root.resolve()
-    from apps.live_control_server.config import repo_root
-
-    return repo_root().resolve()
-
-
-def _s1_lag_disclosure_text(context: Mapping[str, Any]) -> str:
-    """Server-owned lag / boundary disclosure — never invents campaign movement."""
-    latest = context.get("latest_recap") if isinstance(context.get("latest_recap"), Mapping) else {}
-    boundary = (
-        context.get("comparison_boundary")
-        if isinstance(context.get("comparison_boundary"), Mapping)
-        else {}
-    )
-    recap_session = str(latest.get("session_id") or boundary.get("recap_session_id") or "").strip()
-    graph_latest = str(boundary.get("graph_latest_session_id") or "").strip()
-    revision_id = str(boundary.get("graph_revision_id") or "").strip()
-    outcome = str(context.get("outcome") or "unknown").strip()
-    diagnostic_codes = [
-        str(code).strip()
-        for code in (context.get("diagnostic_codes") or [])
-        if str(code).strip()
-    ]
-
-    if not recap_session:
-        return (
-            "DungeonBuddy could identify a latest-recap comparison request, but the "
-            "admitted latest recap is not available in registry metadata for this campaign."
-        )
-
-    lines = [
-        f"The latest admitted recap is {recap_session}.",
-    ]
-    if graph_latest or revision_id:
-        boundary_bits: list[str] = []
-        if graph_latest:
-            boundary_bits.append(f"graph head session {graph_latest}")
-        if revision_id:
-            boundary_bits.append(f"revision {revision_id}")
-        lines.append(
-            "Comparison boundary: latest admitted recap to "
-            + (" and ".join(boundary_bits) + ".")
-        )
-    else:
-        lines.append(
-            "Comparison boundary: latest admitted recap to the current graph head "
-            "(graph-head session is unavailable)."
-        )
-
-    if outcome == "memory_lag" or bool(context.get("memory_lag")):
-        lines.append(
-            f"{recap_session} is admitted as a recap source, but it is not yet present "
-            "in the durable World Graph head. That is memory lag, not a completed "
-            "no-change comparison."
-        )
-    elif outcome == "no_change":
-        lines.append(
-            "The completed comparison found no later graph session beyond the latest "
-            "admitted recap. That is a completed no-change result for the graph-head "
-            "boundary, not an unknown retrieval failure."
-        )
-    elif outcome == "changed":
-        lines.append(
-            "The graph head appears to contain post-recap session material, but this "
-            "turn still lacks admissible matched graph claims to narrate the movement."
-        )
-    elif outcome == "source_unavailable":
-        lines.append(
-            "The latest admitted recap source file is unavailable, so the comparison "
-            "cannot be completed from source evidence."
-        )
-    else:
-        lines.append(
-            "The latest-recap comparison boundary is incomplete or unknown for this "
-            "campaign, so I cannot yet describe what changed."
-        )
-
-    if diagnostic_codes:
-        lines.append("Diagnostics: " + ", ".join(diagnostic_codes) + ".")
-    return "\n\n".join(lines)
-
-
-def _s1_support_fields(
-    context: Mapping[str, Any],
-    *,
-    corpus_root: Path,
-) -> tuple[str, str | None, bool]:
-    """Lag disclosure + optional admitted-recap excerpt for the support channel.
-
-    Returns ``(lag_text, excerpt_or_status_text, excerpt_readable)``.
-    """
-    lag = _s1_lag_disclosure_text(context)
-    latest = context.get("latest_recap") if isinstance(context.get("latest_recap"), Mapping) else {}
-    source_path = str(latest.get("source_recap_path") or "").strip()
-    recap_session = str(latest.get("session_id") or "").strip() or "the latest admitted recap"
-    memory_lag = bool(context.get("memory_lag")) or str(context.get("outcome") or "") == "memory_lag"
-    if not memory_lag or not source_path:
-        return lag, None, False
-
-    excerpt = context.get("admitted_recap_excerpt")
-    if not isinstance(excerpt, str) or not excerpt.strip():
-        excerpt = read_admitted_recap_excerpt(root=corpus_root, source_recap_path=source_path)
-    if isinstance(excerpt, str) and excerpt.strip():
-        return (
-            lag,
-            (
-                f"From the admitted {recap_session} recap (source evidence; not yet "
-                "durable World Graph memory):\n\n"
-                f"{excerpt.strip()}"
-            ),
-            True,
-        )
-    return (
-        lag,
-        (
-            f"The admitted {recap_session} recap is registered, but its source "
-            "file could not be read for this turn."
-        ),
-        False,
-    )
-
-
-def _s1_admitted_recap_sections(
-    context: Mapping[str, Any],
-    *,
-    corpus_root: Path,
-    model_prose: str | None = None,
-) -> list[AnswerSection]:
-    """Draft sections for S1 named-gap.
-
-    Hermes chat prose (suggestion) stays separate from the lag gap marker.
-    Admitted-recap excerpt is never drafted into chat sections — it belongs
-    on ValidatedAnswer.support_* after validation.
-    """
-    _ = corpus_root  # excerpt is built in _s1_support_fields at validate time
-    sections: list[AnswerSection] = []
-    agent_text = (model_prose or "").strip()
-    if agent_text:
-        sections.append(
-            AnswerSection(
-                text=agent_text,
-                statement_kind="suggestion",
-            )
-        )
-    sections.append(
-        AnswerSection(
-            text=_s1_lag_disclosure_text(context),
-            statement_kind="gap",
-        )
-    )
-    return sections
-
-
-# Back-compat alias used by older tests / imports.
-def _s1_gap_answer_text(context: Mapping[str, Any]) -> str:
-    return _s1_lag_disclosure_text(context)
 
 
 def _claims_by_id(session: GraphRetrievalSession) -> dict[str, GraphClaim]:
@@ -338,7 +171,6 @@ def synthesize_draft_from_session(
     session: GraphRetrievalSession,
     *,
     model_prose: str | None = None,
-    corpus_root: Path | None = None,
 ) -> StructuredAnswerDraft:
     """Build a deterministic draft without blessing unstructured model prose.
 
@@ -363,27 +195,9 @@ def synthesize_draft_from_session(
     ]
     # Keep source-verification limits in the validator warning/support channel.
     # They are not frontstage answer prose and should not interrupt a co-GM read.
-    latest_recap = _latest_recap_change(session)
-    if not factual and latest_recap is not None:
-        # Prefer Hermes agent prose when present. Admitted-recap excerpt is for
-        # the agent packet; do not replace the chat answer with a raw dump.
-        sections.extend(
-            _s1_admitted_recap_sections(
-                latest_recap,
-                corpus_root=_corpus_root(corpus_root),
-                model_prose=model_prose,
-            )
-        )
     known = [c.predicate or c.claim_kind for c in factual]
     missing = ["source verification"] if unreadable else []
-    if not factual and latest_recap is not None:
-        if bool(latest_recap.get("memory_lag")):
-            missing.append("latest_recap_in_graph_head")
-        coverage_state = "partial_coverage"
-    else:
-        coverage_state = (
-            "partial_coverage" if missing else ("graph_grounded" if factual else "empty")
-        )
+    coverage_state = "partial_coverage" if missing else ("graph_grounded" if factual else "empty")
     return StructuredAnswerDraft(
         sections=sections,
         coverage={
@@ -401,7 +215,6 @@ def validate_structured_answer(
     model_prose: str | None = None,
     execution_error: bool = False,
     execution_error_code: str | None = None,
-    corpus_root: Path | None = None,
     answer_scope: ExplicitAnswerScope | None = None,
 ) -> ValidatedAnswer:
     """Validate a Hermes turn's answer against the shared claim ledger.
@@ -451,7 +264,6 @@ def validate_structured_answer(
         parsed = synthesize_draft_from_session(
             session,
             model_prose=model_prose,
-            corpus_root=corpus_root,
         )
 
     by_id = _claims_by_id(session)
@@ -592,13 +404,7 @@ def validate_structured_answer(
         warnings.append(PARTIAL_SOURCE_WARNING)
         reason_codes.append("source_anchor_unreadable")
 
-    named_gap_only = (
-        not accepted_unique
-        and not inferences
-        and "named_gap" in reason_codes
-        and _latest_recap_change(session) is not None
-    )
-    if not accepted_unique and not inferences and not named_gap_only:
+    if not accepted_unique and not inferences:
         if (
             answer_scope == "conversation_context"
             and model_prose
@@ -624,47 +430,7 @@ def validate_structured_answer(
             validator_path="claim_ledger_validation",
         )
 
-    if named_gap_only:
-        outcome = "partial_coverage"
-        reason_codes.append("latest_recap_memory_lag_disclosed")
-        context = _latest_recap_change(session)
-        lag_text: str | None = None
-        excerpt_text: str | None = None
-        if context is not None:
-            lag_text, excerpt_text, excerpt_readable = _s1_support_fields(
-                context,
-                corpus_root=_corpus_root(corpus_root),
-            )
-            if excerpt_readable:
-                reason_codes.append("admitted_recap_source_read")
-        agent_text = (model_prose or "").strip()
-        if agent_text:
-            answer_text = agent_text
-            reason_codes.append("suggestion_noncanonical")
-            reason_codes.append("hermes_agent_answer")
-        else:
-            answer_text = HERMES_NO_CHAT_ANSWER
-        return ValidatedAnswer(
-            outcome=outcome,
-            answer_text=answer_text,
-            accepted_claim_ids=[],
-            rejected_claim_ids=list(dict.fromkeys(rejected)),
-            graph_references=[],
-            source_citations=[],
-            inferences=[],
-            warnings=list(dict.fromkeys(warnings)),
-            diagnostic_codes=list(dict.fromkeys(reason_codes)),
-            reason_codes=list(dict.fromkeys(reason_codes)),
-            support_lag_text=lag_text,
-            support_excerpt_text=excerpt_text,
-            answer_authority=(
-                "graph_context_synthesis"
-                if agent_text
-                else "abstained"
-            ),
-            validator_path="claim_ledger_validation",
-        )
-    elif citations and accepted_unique:
+    if citations and accepted_unique:
         outcome = "source_verified"
     elif unreadable and accepted_unique:
         outcome = "partial_coverage"

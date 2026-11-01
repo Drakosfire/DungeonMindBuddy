@@ -12,7 +12,7 @@ describe("buildPlanDogfoodReport", () => {
       sessionDescriptor,
       checklist: PLAN_DOGFOOD_CHECKLIST,
       state: {
-        checked: { "open-s1-plan": true, "ask-s1-question": true },
+        checked: { "supported-qa-open-plan": true, "supported-qa-ask": true },
         notes: "Save felt trustworthy.",
         updatedAt: "2026-07-09T00:00:00.000Z",
       },
@@ -41,19 +41,19 @@ describe("buildPlanDogfoodReport", () => {
     expect(report).toContain("World Graph focus: session-21");
     expect(report).toContain("Generated at: 2026-07-09T12:00:00.000Z");
     expect(report).toContain(
-      "- [x] Open /plan?dogfood=1&campaign=longmont-c2&session=24",
+      "- [x] Open the Plan for the World and session you want to inspect",
     );
     expect(report).toContain(
-      '- [x] Ask: "What changed after the latest ingested recap?"',
+      '- [x] Ask: "What does the selected session say happened?"',
     );
     expect(report).toContain(
-      "- [ ] Answer names the latest admitted recap and the comparison boundary",
+      "- [ ] Check that the answer qualifies unproven freshness and comparison boundaries",
     );
     expect(report).not.toContain("Tripod Null-Calf");
     expect(report).toContain("Save felt trustworthy.");
     expect(report).toContain("## Suggested follow-ups");
-    expect(report).toContain("CreativeOperationSession");
-    expect(report).toContain("empty-graph generic abstention");
+    expect(report).toContain("explicit review and native Graph publication");
+    expect(report).toContain("unproven latest-source or complete-comparison claims");
   });
 
   it("uses placeholder when notes are empty", () => {
