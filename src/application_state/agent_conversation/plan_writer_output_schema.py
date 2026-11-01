@@ -266,7 +266,10 @@ def native_output_format(frame, rules, work_frame):
     from .build_primary_context import NATIVE_WORK_SCHEMA as BUILD_WORK_SCHEMA
     if work_frame.get('schema') == PLAN_WORK_SCHEMA:
         variants.extend(_authored_variants(work_frame,ASSERTION_POLICY,prose))
-    elif work_frame.get('schema') != BUILD_WORK_SCHEMA:
+    elif work_frame.get('schema') == BUILD_WORK_SCHEMA:
+        from .build_draft_answer import native_variants
+        variants.extend(native_variants(work_frame,prose))
+    else:
         raise ValueError('Shared output requires its actual supported work frame')
     return {'type': 'json_schema', 'name': 'surface_native_evidence_selectors_v1', 'strict': True,
         'schema': _answer_schema(variants, ASSERTION_POLICY, rules, prose)}

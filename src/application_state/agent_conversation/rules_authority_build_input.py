@@ -65,7 +65,8 @@ def verify_build_prepared_input(execution, event, body):
             raise ValueError("Malformed Build Rules controller state/questions")
         carrier = body["state"]
     else:
-        if (body.get("model") != "gpt-6-luna" or body.get("tools") != []
+        if (not isinstance(body.get("model"), str) or not body["model"].strip()
+                or body.get("tools") != []
                 or not isinstance(body.get("input"), str) or "messages" in body or "state" in body):
             raise ValueError("Unknown Build Rules writer envelope")
         carrier = _strict_json(body["input"])

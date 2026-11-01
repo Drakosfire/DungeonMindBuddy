@@ -5,7 +5,7 @@ from pydantic import Field, TypeAdapter, model_validator
 from typing import Literal
 
 from .build_draft_context import (
-    _Frozen, DraftReferenceClaimV1, context_record, validate_writer_reference, resolve_body_aliases,
+    _Frozen, DraftReferenceClaimV1, context_record, validate_writer_reference, resolve_body_aliases, validate_draft_references,
 )
 from .source_writer_output import (
     PassageFact, SavedFact, Suggestion, RequestedDetailGap, strict_json, gap_messages,
@@ -190,9 +190,7 @@ def normalize(raw, packet):
     if any(isinstance(s,RelatedPageDraftClaim) and str(s.read_id) not in related_ids for s in answer.answer_segments):
         raise ValueError("Related page claim selects an unread page")
     sources = [s for s in answer.answer_segments if isinstance(s, (PassageFact, SavedFact))]
-    for segment in answer.answer_segments:
-        if isinstance(segment, DraftReferenceClaimV1) and str(segment.draft_record_id) != lane["record_id"]:
-            raise ValueError("Draft answer selected an unincluded working copy")
+    validate_draft_references(answer.answer_segments,lane["record_id"])
     if sources:
         required = source_claim_limitations(packet)
         if not required.issubset(answer.limitations):
@@ -237,9 +235,7 @@ def validate_completion(completion, receipt, execution, attempt_id):
     if (len(included) != 1 or len(attempts) != 1 or included[0].envelope_sha256 != attempts[0].envelope_sha256
         or captured.record.snapshot.saved_basis() != receipt.source_basis.model_dump(mode="json", by_alias=True)):
         raise ValueError("Draft completion lacks its exact producing input")
-    for segment in completion.answer_segments:
-        if isinstance(segment, DraftReferenceClaimV1) and segment.draft_record_id != captured.record.record_id:
-            raise ValueError("Draft completion refers to another captured working copy")
+    validate_draft_references(completion.answer_segments,captured.record.record_id)
 
 
 def validate_packet(packet, turn, auth):
@@ -261,3 +257,42 @@ def validate_packet(packet, turn, auth):
         and e.provider_attempt_id == auth.provider_attempt_id]
     if len(included) != 1 or included[0].envelope_sha256 != auth.envelope_sha256:
         raise ValueError("Writer working draft was not included in its producing envelope")
+
+
+def normalize_native_segment(row, *, draft_record, saved_sections, source_basis, index):
+    """Build work output through actual saved/draft owners, without a legacy packet."""
+    from .source_writer_output import project_saved_claim
+    from .source_quote_binding import validate_selected_quotes, CURRENT_POLICY
+    kind=row.get('kind')
+    if kind=='discussion':
+        return DraftDiscussionV1.model_validate(row),None
+    if kind=='draft_reference_claim':
+        segment=DraftReferenceClaimV1.model_validate(row)
+        validate_draft_references([segment],None if draft_record is None else draft_record.record_id)
+        return segment,None
+    if kind=='saved_source_claim':
+        segment=dict(row)
+        quotes=segment.pop('supporting_quotes',None)
+        sections={str(read.read_id):read for read in saved_sections}
+        validate_selected_quotes(segment.get('section_read_ids'),quotes,
+            {key:read.text for key,read in sections.items()},policy=CURRENT_POLICY)
+        return project_saved_claim(segment,sections,source_basis.content_sha256,index=index)
+    raise ValueError('Unknown native Build work segment')
+
+
+def native_variants(frame, prose):
+    """Finite Build work choices from the one physically included work frame."""
+    from .plan_writer_output_schema import _object, _literal, _array, _enum
+    from uuid import UUID
+    variants=[_object({'kind':_literal('discussion'),'text':prose})]
+    lane=frame.get('working_draft_context')
+    if lane is not None:
+        record_id=str(UUID(lane['record_id']))
+        variants.append(_object({'kind':_literal('draft_reference_claim'),'text':prose,
+            'draft_record_id':_enum([record_id])}))
+    rows=frame['artifact_under_edit']['sections']
+    if rows:
+        variants.append(_object({'kind':_literal('saved_source_claim'),'text':prose,
+            'section_read_ids':_array(_enum(str(UUID(row['read_id'])) for row in rows),nonempty=True),
+            'supporting_quotes':_array(prose,nonempty=True)}))
+    return variants

@@ -160,7 +160,7 @@ SurfaceNativeEvent = Annotated[
     | t.NativePlanAssertionReadAuthorizedV1 | t.NativePlanAssertionReadObservedV1
     | t.BuildDraftContextCapturedV1 | t.BuildDraftProviderInclusionV1
     | t.BuildSectionReadAuthorizationV1 | t.ValidatedBuildSectionReadV1
-    | t.BuildSectionProviderInclusionV1 | t.BuildSectionAnswerBindingV1
+    | t.BuildSectionProviderInclusionV1
     | t.BuildRequestedWorkResolutionV1 | t.BuildReviewedActionSelectionV2 | t.BuildReviewedActionSelectionV1
     | t.BuildWriterEvidenceSelectionV1 | t.BuildPlanOutputContractV2
     | t.RelatedPagesSelection | t.RelatedPageRead | t.RelatedPageInclusion
@@ -173,7 +173,7 @@ SurfaceNativeEvent = Annotated[
 _BUILD_WORK_EVENTS = (
     t.BuildDraftContextCapturedV1, t.BuildDraftProviderInclusionV1,
     t.BuildSectionReadAuthorizationV1, t.ValidatedBuildSectionReadV1,
-    t.BuildSectionProviderInclusionV1, t.BuildSectionAnswerBindingV1,
+    t.BuildSectionProviderInclusionV1,
     t.BuildRequestedWorkResolutionV1, t.BuildReviewedActionSelectionV1,
     t.BuildWriterEvidenceSelectionV1, t.BuildPlanOutputContractV2,
     t.RelatedPagesSelection, t.RelatedPageRead, t.RelatedPageInclusion,

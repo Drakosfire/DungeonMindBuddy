@@ -680,14 +680,8 @@ def normalize(raw, packet):
             raise ValueError("Question duplicated outside its inline object")
     elif review in {"questions", "plan"}:
         raise ValueError("Requested typed collaboration is missing")
-    if kinds & {"draft_reference_claim"}:
-        lane = packet.get("working_draft_context")
-        if not lane or any(
-            str(s.draft_record_id) != lane["record_id"]
-            for s in answer.answer_segments
-            if isinstance(s, DraftReferenceClaimV1)
-        ):
-            raise ValueError("Draft claim selects an uncaptured working copy")
+    from .build_draft_context import validate_draft_references
+    validate_draft_references(answer.answer_segments,packet.get('working_draft_context',{}).get('record_id'))
     related_ids = {
         p["read_id"] for p in packet.get("related_authored_pages", {}).get("pages", [])
     }

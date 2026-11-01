@@ -11,6 +11,7 @@ from types import SimpleNamespace
 from pydantic import Field, model_validator
 
 from . import types as t
+from .build_draft_answer import DraftDiscussionV1, normalize_native_segment
 from . import native_corpus as bodies
 from . import native_plan_statements as statements
 from . import native_plan_assertions as assertions
@@ -24,6 +25,7 @@ from .surface_evidence_answer import (native_fact_segment, status_for, _limit,
 
 NativeSegment = Annotated[
     t.SourcePassageClaimV1 | t.NativeAssertionClaimV1 | t.SurfaceAuthoredExcerptV1 | t.SessionSummaryV1
+    | t.DraftReferenceClaimV1 | t.SavedSourceClaimV1 | DraftDiscussionV1
     | t.PlanWorldGraphProposalSegmentV1 | t.SurfaceLimitationV1,
     Field(discriminator='kind'),
 ]
@@ -35,8 +37,9 @@ class SurfaceNativeCompletionV1(Strict):
     context_receipt_sha256: str = Field(pattern=r'^[a-f0-9]{64}$')
     producing_provider_attempt_id: UUID
     answer_basis: Literal['mixed_evidence'] = 'mixed_evidence'
-    answer_context_status: t.SurfaceEvidenceStatusV1
+    answer_context_status: t.SurfaceEvidenceStatusV1 | Literal['discussion']
     answer_segments: list[NativeSegment] = Field(min_length=1, max_length=128)
+    saved_source_citations: list[t.BuildSectionSegmentBindingV1] = Field(max_length=128)
     native_body_citations: list[t.NativeBodyExcerptCitationV1] = Field(max_length=t.MAX_CITATION_SOURCE_READ_IDS)
     native_clause_citations: list[t.NativeStatementClauseCitationV1] = Field(max_length=t.MAX_CITATION_SOURCE_READ_IDS)
     native_assertion_citations: list[t.NativeAssertionCitationV1] = Field(max_length=t.MAX_CITATION_SOURCE_READ_IDS)
@@ -44,6 +47,14 @@ class SurfaceNativeCompletionV1(Strict):
     @model_validator(mode='after')
     def supported_shape(self):
         validate_authored_shape(self.answer_segments)
+        build=[s for s in self.answer_segments if isinstance(s,(t.DraftReferenceClaimV1,t.SavedSourceClaimV1,DraftDiscussionV1))]
+        if build and self.surface_id != 'build':
+            raise ValueError('Build work discussion and saved claims require their actual surface owner')
+        saved={i:s for i,s in enumerate(self.answer_segments) if isinstance(s,t.SavedSourceClaimV1)}
+        indices=[c.segment_index for c in self.saved_source_citations]
+        if indices != sorted(saved) or any(c.text_sha256 != sha256(saved[c.segment_index].text.encode()).hexdigest()
+                for c in self.saved_source_citations):
+            raise ValueError('Saved work claims require one exact text-bound citation mapping')
         authored=[support for segment in self.answer_segments for support in
             (segment.supports if isinstance(segment,t.SessionSummaryV1) else [segment])
             if isinstance(support,t.SurfaceAuthoredQuoteV1)]
@@ -84,6 +95,12 @@ def _validate_citations(completion, receipt, execution, auth, evidence):
         {(event.event_id,read.assertion.assertion_id):(event,read) for _,event,read in evidence.native_assertions})
     bodies.validate_body_support_citations(completion, evidence.body_excerpts,
         producer=auth.provider_attempt_id,envelope_sha256=auth.envelope_sha256,before_sequence=auth.sequence)
+    selected={read.event_id:read for read in evidence.saved_sections}
+    for citation in completion.saved_source_citations:
+        segment=completion.answer_segments[citation.segment_index]
+        if any(event_id not in selected or selected[event_id].source_basis.content_sha256 != segment.content_sha256
+                for event_id in citation.section_event_ids):
+            raise ValueError('Saved work citation differs from its actual included Build read')
     bindings = [e for e in execution.events if isinstance(e,t.CompletionBindingEventV1)]
     if bindings and (len(bindings) != 1 or bindings[0].provider_attempt_id != auth.provider_attempt_id
             or bindings[0].completion_sha256 != canonical_sha256(completion) or bindings[0].claim_graph_event_ids):
@@ -131,14 +148,22 @@ def normalize_candidate(candidate, receipt, execution, authorization, evidence):
     if (not isinstance(candidate,dict) or set(candidate) != {'schema','answer_segments','limitations','requested_detail_gaps'}
             or candidate['schema'] != evidence.frame['answer_policy'] or not isinstance(candidate['answer_segments'],list)):
         raise ValueError('Native completion requires its exact producing answer policy')
-    segments, body_cites, statement_cites, assertion_cites = [], [], [], []
+    segments, body_cites, statement_cites, assertion_cites,saved_cites = [], [], [], [],[]
     blocks,selectors=authored_block_index(evidence.authored,str(evidence.idempotency_key))
     selected_blocks=set()
     for row in candidate['answer_segments']:
         if (not isinstance(row,dict) or row.get('kind') != 'authored_excerpt'
                 and (not isinstance(row.get('text'),str) or not row['text'].strip())):
             raise ValueError('Native completion contains an invalid segment')
-        if row.get('kind') in {'authored_excerpt','session_summary'}:
+        if row.get('kind') in {'draft_reference_claim','saved_source_claim','discussion'}:
+            if execution.policy.action.surface_id != 'build':
+                raise ValueError('Build work output cannot borrow another surface')
+            segment,citation=normalize_native_segment(row,draft_record=evidence.draft_record,
+                saved_sections=evidence.saved_sections,source_basis=receipt.work_context.source_basis,index=len(segments))
+            segments.append(segment)
+            if citation is not None:
+                saved_cites.append(citation)
+        elif row.get('kind') in {'authored_excerpt','session_summary'}:
             segments.append(authored_selected_segment(row,blocks=blocks,selectors=selectors,selected_blocks=selected_blocks))
         elif row.get('kind') == 'proposal':
             segments.append(t.PlanWorldGraphProposalSegmentV1.model_validate(row))
@@ -158,14 +183,20 @@ def normalize_candidate(candidate, receipt, execution, authorization, evidence):
     codes = list(codes)
     if gaps and 'missing_requested_details' not in codes:
         codes.append('missing_requested_details')
-    if evidence.frame['input_status'] == 'partial' and 'partial_retrieval' not in codes:
+    # Missing native capability does not make an available Build draft/page
+    # unavailable. Only native claims inherit that native retrieval qualification.
+    local_build=(execution.policy.action.surface_id=='build'
+        and any(isinstance(s,(t.DraftReferenceClaimV1,t.SavedSourceClaimV1,DraftDiscussionV1)) for s in segments)
+        and all(isinstance(s,(t.DraftReferenceClaimV1,t.SavedSourceClaimV1,DraftDiscussionV1,t.PlanWorldGraphProposalSegmentV1))
+            for s in segments))
+    if evidence.frame['input_status'] == 'partial' and not local_build and 'partial_retrieval' not in codes:
         codes.append('partial_retrieval')
     segments += [_limit(code) for code in codes] + [_limit('missing_requested_details',g.question_phrase) for g in gaps]
     if not segments:
         segments = [_limit('missing_requested_details')]
     completion = SurfaceNativeCompletionV1(surface_id=execution.policy.action.surface_id,
         context_receipt_sha256=receipt.context_receipt_sha256,producing_provider_attempt_id=authorization.provider_attempt_id,
-        answer_context_status=status_for(segments),answer_segments=segments,
+        answer_context_status=status_for(segments),answer_segments=segments,saved_source_citations=saved_cites,
         native_body_citations=body_cites,native_clause_citations=statement_cites,native_assertion_citations=assertion_cites)
     _validate_citations(completion,receipt,execution,authorization,evidence)
     return completion

@@ -39,6 +39,19 @@ class SavedFact(StrictModel):
     section_read_ids: list[str] = Field(min_length=1, max_length=128)
 
 
+def project_saved_claim(segment, sections, content_sha256, *, index):
+    """Use the actual supplied Build reads; never infer or repair a selection."""
+    from . import types as t
+    selected=SavedFact.model_validate(segment)
+    chosen=selected.section_read_ids
+    if len(chosen) != len(set(chosen)) or any(rid not in sections for rid in chosen):
+        raise ValueError('Saved fact selects an unincluded section')
+    return (t.SavedSourceClaimV1(kind='saved_source_claim',text=selected.text,content_sha256=content_sha256),
+        t.BuildSectionSegmentBindingV1(segment_index=index,
+            text_sha256=hashlib.sha256(selected.text.encode()).hexdigest(),
+            section_event_ids=sorted([sections[rid].event_id for rid in chosen],key=str)))
+
+
 class Suggestion(StrictModel):
     kind: Literal["suggestion"]
     text: str = Field(min_length=1, max_length=3988)
@@ -737,21 +750,10 @@ def reconstruct(raw_output: str, packet: dict, turn, auth):
                         )
                     )
         elif segment["kind"] == "saved_source_claim":
-            chosen = segment.pop("section_read_ids")
-            if any(rid not in sections for rid in chosen):
-                raise ValueError("Saved fact selects an unincluded section")
-            bindings.append(
-                t.BuildSectionSegmentBindingV1(
-                    segment_index=index,
-                    text_sha256=hashlib.sha256(segment["text"].encode()).hexdigest(),
-                    section_event_ids=sorted(
-                        [sections[rid].event_id for rid in chosen], key=str
-                    ),
-                )
-            )
-            segment["content_sha256"] = (
-                turn.graph_context_receipt.source_basis.content_sha256
-            )
+            projected,binding=project_saved_claim(segment,sections,
+                turn.graph_context_receipt.source_basis.content_sha256,index=index)
+            segment=projected.model_dump(mode='json')
+            bindings.append(binding)
         if segment["kind"] == "related_page_claim":
             from .build_related_pages import records
             row=next((e for e in records(execution) if str(e.read_id)==str(segment["read_id"])),None)

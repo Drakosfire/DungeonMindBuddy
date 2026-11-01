@@ -260,6 +260,13 @@ class DraftReferenceClaimV1(_Frozen):
 
 
 
+def validate_draft_references(segments, record_id):
+    """Draft references select the actual captured copy and grant no World facts."""
+    if any(isinstance(segment,DraftReferenceClaimV1) and str(segment.draft_record_id) != str(record_id)
+            for segment in segments):
+        raise ValueError('Draft claim selects an uncaptured working copy')
+
+
 def _body_rows(packet):
     return [*packet.get("opened_passages", []), *packet.get("artifact_under_edit", {}).get("sections", []),
         *packet.get("decision", {}).get("state", {}).get("evidence", [])]
