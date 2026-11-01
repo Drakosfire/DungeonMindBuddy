@@ -1,4 +1,5 @@
 """Recap supplements reopen exact Play review versions, never copied files."""
+from apps.live_control_server.services.source_artifact_registry import create_recap_source_artifact
 import copy
 import hashlib
 import json
@@ -36,10 +37,13 @@ def selected(tmp_path, monkeypatch, application_state_dsn):
     source.write_text("The company crossed the damaged boardwalk.\n")
     context = replace(_fixture_ingest_context("longmont-c2"), managed_world_id=WORLD)
 
+    artifact = create_recap_source_artifact(tmp_path, world_id=context.native_world_id,
+        campaign_id="longmont-c2", session_id="session-30", recap_path=source)
+
     def capture(supplement=bundle):
         return producer.run_recap_production_extraction(
             repo_root=tmp_path, campaign_id="longmont-c2", session_id="session-30",
-            recap_path=source, profile="category_baseline", allow_llm=False,
+            source_artifact_id=artifact.source_artifact_id, profile="category_baseline", allow_llm=False,
             ingest_context=context, supplemental_evidence=supplement,
         )
 
@@ -140,7 +144,7 @@ def test_bad_saved_pins_fail_despite_valid_old_copy(selected, fault):
 
 
 @pytest.mark.parametrize("fault", ["text", "extra", "digest", "nested_type"])
-def test_supplied_bundle_must_equal_its_exact_owner_before_source_or_prompt(selected, monkeypatch, fault):
+def test_supplied_bundle_must_equal_its_exact_owner_before_input_or_prompt(selected, monkeypatch, fault):
     bundle = copy.deepcopy(selected.bundle)
     if fault == "text":
         bundle["sessions"][0]["sources"][0]["text"] = "Forged private instructions."
@@ -150,7 +154,7 @@ def test_supplied_bundle_must_equal_its_exact_owner_before_source_or_prompt(sele
         bundle["sessions"][0]["checkpoint_run_revision"] = float(bundle["sessions"][0]["checkpoint_run_revision"])
     else:
         bundle["sha256"] = "b" * 64
-    monkeypatch.setattr(producer, "create_recap_source_artifact", lambda *a, **k: pytest.fail("source registered"))
+    monkeypatch.setattr(producer, "_normalized_from_registered", lambda *a, **k: pytest.fail("input read before supplement validation"))
     monkeypatch.setattr(producer, "run_production_extraction", lambda *a, **k: pytest.fail("inference entered"))
     monkeypatch.setattr(evidence, "render_session_evidence", lambda *a, **k: pytest.fail("forged prompt rendered"))
     with pytest.raises(ValueError, match="pinned review revisions") as caught:
@@ -168,14 +172,14 @@ def test_database_unavailability_is_not_recovered_by_a_copy(selected, monkeypatc
     assert (caught.value.code, caught.value.status_code) == (catalog.CODE_UNAVAILABLE, 503)
 
 
-def test_producer_reopens_owner_before_source_registration(selected, monkeypatch):
+def test_producer_reopens_owner_before_input_read(selected, monkeypatch):
     from application_state.errors import ApplicationStateError
 
     def unavailable(**kwargs):
         raise ApplicationStateUnavailableError("synthetic database unavailable")
 
     monkeypatch.setattr(evidence, "read_session_evidence", unavailable)
-    monkeypatch.setattr(producer, "create_recap_source_artifact", lambda *a, **k: pytest.fail("source registered"))
+    monkeypatch.setattr(producer, "_normalized_from_registered", lambda *a, **k: pytest.fail("input read before supplement validation"))
     with pytest.raises(ApplicationStateError) as caught:
         selected.capture()
     assert caught.value.status_code == 503

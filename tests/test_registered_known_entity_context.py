@@ -1,4 +1,5 @@
 from __future__ import annotations
+from apps.live_control_server.services.source_artifact_registry import create_recap_source_artifact
 
 import hashlib
 import json
@@ -11,6 +12,7 @@ import pytest
 
 from apps.live_control_server.services.graph_preview_runner import run_recap_production_extraction
 from apps.live_control_server.services.graph_run_registry import get_extraction_run
+from application_state.ingest.components import get_component_bytes
 from apps.live_control_server.services.recap_ingest_context import RecapContextSnapshot
 from src.graph_memory.extraction.known_entity_registry import known_entities_from_world_graph
 
@@ -76,7 +78,7 @@ def test_registered_known_npc_context_survives_run_readback(tmp_path, applicatio
     }]}, include_kinds=None))
     kwargs = {"extra_known_entities": entities} if context else {}
     result = run_recap_production_extraction(
-        repo_root=tmp_path, campaign_id="longmont-c2", session_id="session-24", recap_path=path,
+        repo_root=tmp_path, campaign_id="longmont-c2", session_id="session-24", source_artifact_id=create_recap_source_artifact(tmp_path, world_id="world:elderwyld", campaign_id="longmont-c2", session_id="session-24", recap_path=path).source_artifact_id,
         profile="category_baseline", model_id="deepseek/deepseek-v4.1-flash-1017", category_client=client,
         ingest_context=_context("longmont-c2"),
         **kwargs,
@@ -102,8 +104,7 @@ def test_registered_known_npc_context_survives_run_readback(tmp_path, applicatio
     assert fresh["status"] == "reviewable"
     assert fresh["components"]["candidate_graph"] == reopened.components["candidate_graph"].sha256
     candidate = reopened.components["candidate_graph"]
-    candidate_path = tmp_path / candidate.uri.removeprefix("repo://")
-    payload = candidate_path.read_bytes()
+    payload = get_component_bytes(run_id=reopened.run_id, kind=candidate.kind, content_sha256=candidate.sha256)
     assert hashlib.sha256(payload).hexdigest() == candidate.sha256
     saved = json.loads(payload)
     canonical = [n for n in saved["nodes"] if n["node_id"] == "node:vela"]
@@ -114,7 +115,7 @@ def test_registered_known_npc_context_survives_run_readback(tmp_path, applicatio
         assert any(e["from_node_id"] == "node:vela" for e in saved["edges"])
         assert '"node:vela"' in client.messages["edge_pass"].split("## Consolidated nodes", 1)[1]
         mentions = reopened.components["provenance_index"]
-        mention_bytes = (tmp_path / mentions.uri.removeprefix("repo://")).read_bytes()
+        mention_bytes = get_component_bytes(run_id=reopened.run_id, kind=mentions.kind, content_sha256=mentions.sha256)
         assert hashlib.sha256(mention_bytes).hexdigest() == mentions.sha256
         assert "node:vela" in mention_bytes.decode()
     else:

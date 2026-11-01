@@ -75,7 +75,7 @@ def launch_build_recap(root: Path, body: BuildRecapLaunchRequest, *, category_cl
     # Only the unique reservation winner enters the production controller.
     # A crashed/unknown attempt is recovered as-is, never silently re-executed.
     result = run_recap_production_extraction(repo_root=root,campaign_id=body.campaign_id,session_id=f"session-{body.session}",
-        build_source_artifact_id=artifact.source_artifact_id,profile="category_baseline",allow_llm=True,model_id=DEEPSEEK_MODEL,category_client=category_client,
+        source_artifact_id=artifact.source_artifact_id,profile="category_baseline",allow_llm=True,model_id=DEEPSEEK_MODEL,category_client=category_client,
         ingest_context=context,supplemental_evidence=supplement,reserved_run=reserved,
         output_dir=Path("out")/"graph_memory"/"runs"/"extraction"/f"build-recap-{run_id}")
     return result.run

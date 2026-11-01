@@ -40,7 +40,7 @@ def execute(tmp_path,source,context,monkeypatch):
             document_id=UUID(source[0].document_id),managed_world_id="managed-a")
         assert recovered.status.value=="draft" and recovered.run_id==reserved.run_id
         calls.append(reserved.run_id)
-        kwargs['category_client']=FixtureClient(span_ref=_first_paragraph_span_id(wrapper._normalized_from_registered(tmp_path,kwargs['build_source_artifact_id'])))
+        kwargs['category_client']=FixtureClient(span_ref=_first_paragraph_span_id(wrapper._normalized_from_registered(tmp_path,kwargs['source_artifact_id'])))
         return actual(**kwargs)
     monkeypatch.setattr(service,"run_recap_production_extraction",run)
     return calls
@@ -55,6 +55,12 @@ def test_same_request_recovers_one_actual_run_without_repeating_context_or_infer
     assert first==second and execute==[first.run_id]
     assert first.lineage['build_launch']['request']==request_body.model_dump(mode='json')
     assert first.lineage['build_launch']['server_configuration']['model']==wrapper.DEEPSEEK_MODEL
+    frozen = first.lineage['build_document_ingest']['configuration']
+    assert frozen['source_artifact_id'] == first.source_artifact_id
+    assert frozen['source']['document_id'] == source[0].document_id
+    assert frozen['source']['content_sha256'] == source[3]
+    assert frozen['world_context'] == context.as_lineage()
+    assert frozen['session_evidence'] is None
 
 
 @pytest.mark.parametrize('field,value',[('session',31),('campaign_id','other'),('expected_revision',99),
@@ -173,7 +179,7 @@ def test_new_campaign_without_local_corpus_reaches_extraction_and_recovers(
     calls = []
     actual = wrapper.run_recap_production_extraction
     def execute(**kwargs):
-        normalized = wrapper._normalized_from_registered(tmp_path, kwargs['build_source_artifact_id'])
+        normalized = wrapper._normalized_from_registered(tmp_path, kwargs['source_artifact_id'])
         class ActorClient(FixtureClient):
             def run_pass(self, pass_name, **options):
                 answer = super().run_pass(pass_name, **options)
