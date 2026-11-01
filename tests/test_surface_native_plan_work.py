@@ -32,13 +32,13 @@ def case(*, requested='discuss', placement='captured', captured=True, dirty=True
         catalog=None
     work=context.work_context.model_copy(update={'plan_basis':basis})
     provenance=provenance_for(work).model_copy(update={'surface_instance_id':record.policy.action.intent.surface_instance_id})
-    session=dict(world_id=basis.world_id,run_id='run:one',review_revision=3,title='Closing review',
+    session=dict(world_id=basis.world_id,run_id=str(uuid4()),review_revision=3,title='Closing review',
         ended_at='2026-11-01T12:00:00Z',session_content_sha256='e'*64,sources=[
             dict(kind='scene_note',element_id='scene:one',text='We left an unresolved possibility.\n'),
-            dict(kind='reflection',element_id=None,text='Keep the question open.\n')])
+            dict(kind='closing_reflections',element_id=None,text='Keep the question open.\n')])
     session['sha256']=t.canonical_sha256(session)
     if sessions:
-        ref=t.HistoricalReference(resolution='resolved',kind='session_evidence_v1',object_id='run:one',
+        ref=t.HistoricalReference(resolution='resolved',kind='session_evidence_v1',object_id=session['run_id'],
             revision='3',content_sha256=session['sha256'])
         provenance=provenance.model_copy(update={'supporting_work':[*provenance.supporting_work,ref]})
     data=context.model_dump(mode='json',by_alias=True)

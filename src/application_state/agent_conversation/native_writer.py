@@ -53,6 +53,8 @@ class NativeWriterEvidence:
     """Transient supports; eligibility still requires completion/output proof."""
     frame: dict
     work_frame: dict
+    authored: tuple
+    idempotency_key: UUID
     body_excerpts: tuple
     native_statements: tuple
     native_assertions: tuple
@@ -120,12 +122,18 @@ def verify_input_records(receipt, execution, authorization, raw, *, provenance, 
             or t.canonical_sha256(frame) != authorization.frame_sha256
             or t.canonical_sha256(expected) != authorization.frame_sha256):
         raise ValueError("Native writer evidence differs from its actual producing SDK request")
+    authored = ()
+    from .native_context import PlanWorkContextV1
+    if isinstance(receipt.work_context,PlanWorkContextV1):
+        from .surface_evidence_answer import producing_plan_authored_records
+        authored=producing_plan_authored_records(receipt.work_context.plan_basis,
+            provenance.supporting_work,expected_work,idempotency_key)
     catalogs = {catalog.catalog_sha256: catalog for event in prefix.events
         if isinstance(event, bodies.NativeBodySearchObservedV1) for catalog in event.catalogs}
     body_reads = bodies.selected_body_reads(prefix)
     statement_reads = statements.selected_read_records(prefix)
     assertion_reads = assertions.selected_read_records(prefix)
-    return NativeWriterEvidence(frame=expected,work_frame=expected_work,
+    return NativeWriterEvidence(frame=expected,work_frame=expected_work,authored=authored,idempotency_key=idempotency_key,
         body_excerpts=tuple(bodies.NativeBodySupport(body_handle(read), read,
             catalogs[read.excerpt.catalog_sha256]) for read in body_reads),
         native_statements=tuple((row['statement_handle'], event, read) for row, (event, read)

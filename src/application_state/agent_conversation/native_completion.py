@@ -19,10 +19,12 @@ from .native_statement_input import Strict
 from .native_rules_output import verify_captured_text
 from .rules_authority_types import canonical_bytes, canonical_sha256
 from .source_writer_output import require_captured_answer, strict_json, RequestedDetailGap, gap_messages, LIMITATIONS
-from .surface_evidence_answer import native_fact_segment, status_for, _limit
+from .surface_evidence_answer import (native_fact_segment, status_for, _limit,
+    authored_block_index, authored_selected_segment, validate_authored_shape)
 
 NativeSegment = Annotated[
-    t.SourcePassageClaimV1 | t.NativeAssertionClaimV1 | t.PlanWorldGraphProposalSegmentV1 | t.SurfaceLimitationV1,
+    t.SourcePassageClaimV1 | t.NativeAssertionClaimV1 | t.SurfaceAuthoredExcerptV1 | t.SessionSummaryV1
+    | t.PlanWorldGraphProposalSegmentV1 | t.SurfaceLimitationV1,
     Field(discriminator='kind'),
 ]
 
@@ -41,6 +43,12 @@ class SurfaceNativeCompletionV1(Strict):
 
     @model_validator(mode='after')
     def supported_shape(self):
+        validate_authored_shape(self.answer_segments)
+        authored=[support for segment in self.answer_segments for support in
+            (segment.supports if isinstance(segment,t.SessionSummaryV1) else [segment])
+            if isinstance(support,t.SurfaceAuthoredQuoteV1)]
+        if authored and (self.surface_id != 'plan' or any(s.source_kind not in {'plan','session'} for s in authored)):
+            raise ValueError('Shared authored excerpts require their actual Plan or session owner')
         if any(not s.text.strip() for s in self.answer_segments) or self.answer_context_status != status_for(self.answer_segments):
             raise ValueError('Native completion status differs from its typed segments')
         source = {i for i,s in enumerate(self.answer_segments) if isinstance(s,t.SourcePassageClaimV1)}
@@ -124,10 +132,15 @@ def normalize_candidate(candidate, receipt, execution, authorization, evidence):
             or candidate['schema'] != evidence.frame['answer_policy'] or not isinstance(candidate['answer_segments'],list)):
         raise ValueError('Native completion requires its exact producing answer policy')
     segments, body_cites, statement_cites, assertion_cites = [], [], [], []
+    blocks,selectors=authored_block_index(evidence.authored,str(evidence.idempotency_key))
+    selected_blocks=set()
     for row in candidate['answer_segments']:
-        if not isinstance(row,dict) or not isinstance(row.get('text'),str) or not row['text'].strip():
+        if (not isinstance(row,dict) or row.get('kind') != 'authored_excerpt'
+                and (not isinstance(row.get('text'),str) or not row['text'].strip())):
             raise ValueError('Native completion contains an invalid segment')
-        if row.get('kind') == 'proposal':
+        if row.get('kind') in {'authored_excerpt','session_summary'}:
+            segments.append(authored_selected_segment(row,blocks=blocks,selectors=selectors,selected_blocks=selected_blocks))
+        elif row.get('kind') == 'proposal':
             segments.append(t.PlanWorldGraphProposalSegmentV1.model_validate(row))
         else:
             segment, body, statement, assertion = native_fact_segment(row,policy=candidate['schema'],

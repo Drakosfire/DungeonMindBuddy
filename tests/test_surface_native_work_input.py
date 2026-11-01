@@ -37,13 +37,14 @@ def work_case(surface,*,draft=True,selected=True):
     return context,record,work
 
 
-def produce(context,record,work,*,mutate=None):
+def produce(context,record,work,*,mutate=None,candidate=None):
     native=model_frame(context,record)
     frame=model_work_frame(context,record,**work)
     physical=deepcopy(frame)
     if mutate:
         mutate(physical)
-    candidate=answer([dict(kind='proposal',label='invented_idea',text='A possibility for review, not played fact.')])
+    if candidate is None:
+        candidate=answer([dict(kind='proposal',label='invented_idea',text='A possibility for review, not played fact.')])
     raw,text=asyncio.run(sdk_reply(native,candidate,physical))
     stored,auth=authorize(context,record,raw,native)
     request_id=f'generationengine:{auth.provider_attempt_id}'

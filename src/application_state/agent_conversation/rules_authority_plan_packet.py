@@ -262,6 +262,6 @@ def verify_native_rules_packet_input(execution, receipt, graph_execution, prepar
             or included.request_envelope_sha256 != expected_envelope_sha256
             or auth.matched_outputs != outputs or included.matched_outputs != outputs
             or ref_map(auth.declared_support_refs) != ref_map(supports) or ref_map(included.support_refs) != ref_map(supports)
-            or canonical_bytes(body.get('text',{}).get('format')) != canonical_bytes(native_output_format(evidence.frame,frame))):
+            or canonical_bytes(body.get('text',{}).get('format')) != canonical_bytes(native_output_format(evidence.frame,frame,evidence.work_frame))):
         raise ValueError('Shared Rules declarations differ from actual sealed writer input')
     return evidence, frame

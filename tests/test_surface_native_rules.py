@@ -38,7 +38,7 @@ async def sdk(frame, rules, candidate, *, work_frame, mutate_request=None):
     inputs=[dict(role='user',content=json.dumps(frame)),
         dict(role='user',content=rules.model_dump_json(by_alias=True)),
         dict(role='user',content=json.dumps(work_frame))]
-    fmt=native_output_format(frame,rules)
+    fmt=native_output_format(frame,rules,work_frame)
     if mutate_request:
         mutate_request(inputs,fmt)
     async with AsyncOpenAI(api_key='synthetic-not-secret',http_client=httpx.AsyncClient(

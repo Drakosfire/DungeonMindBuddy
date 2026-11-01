@@ -213,6 +213,30 @@ def authored_frame_rows(sources, sessions):
              'body_path':path} for s, path in zip(sources, paths, strict=True)]
 
 
+
+def producing_plan_authored_records(basis, supporting_work, frame, idempotency_key, *, short=True):
+    """Reconstruct exact producing authored bodies using their existing owner."""
+    from .authored_excerpt_blocks import restore_blocks, verify_blocks, selection_catalog, restore_selection_blocks, verify_selection_blocks
+    restore=restore_selection_blocks if short else restore_blocks
+    from copy import deepcopy
+    sessions = deepcopy(frame['session_evidence'])
+    markdown = restore(frame['committed_plan_blocks'])
+    for session in sessions:
+        for source in session.get('sources',[]):
+            source['text'] = restore(source.pop('text_blocks'))
+    result = plan_authored_source_records(basis,supporting_work,markdown,sessions,block_policy=True)
+    expected = authored_frame_rows(result,sessions)
+    expected = [{**row,'body_path':[('committed_plan_blocks' if x=='committed_plan_markdown' else 'text_blocks' if x=='text' else x) for x in row['body_path']]} for row in expected]
+    if frame.get('authored_sources') != expected:
+        raise ValueError('Authored source selectors changed their exact body/owner join')
+    catalog=selection_catalog(((source.handle,source.text) for source in result),str(idempotency_key)) if short else ()
+    for source,row in zip(result,expected,strict=True):
+        blocks=frame
+        for key in row['body_path']: blocks=blocks[key]
+        if short:verify_selection_blocks(blocks,source.text,source.handle,catalog)
+        else:verify_blocks(blocks,source.text,source.handle)
+    return result
+
 def producing_authored(turn, auth, raw):
     if sha256(raw.encode()).hexdigest() != auth.envelope_sha256:
         raise ValueError('Authored sources differ from the actual producer')
@@ -222,26 +246,9 @@ def producing_authored(turn, auth, raw):
         if canonical_sha256(frame) != auth.frame_sha256:
             raise ValueError('Authored frame changed after admission')
         if frame.get('schema') in {'dmb_plan_jev_writer_frame_v2','dmb_plan_jev_writer_frame_v3','dmb_plan_jev_writer_frame_v4','dmb_plan_jev_writer_frame_v5','dmb_plan_jev_writer_frame_v6','dmb_plan_jev_writer_frame_v7','dmb_plan_jev_writer_frame_v8'}:
-            from .authored_excerpt_blocks import restore_blocks, verify_blocks, selection_catalog, restore_selection_blocks, verify_selection_blocks
             short=frame['schema'] in {'dmb_plan_jev_writer_frame_v3','dmb_plan_jev_writer_frame_v4','dmb_plan_jev_writer_frame_v5','dmb_plan_jev_writer_frame_v6','dmb_plan_jev_writer_frame_v7','dmb_plan_jev_writer_frame_v8'}
-            restore=restore_selection_blocks if short else restore_blocks
-            from copy import deepcopy
-            sessions = deepcopy(frame['session_evidence'])
-            markdown = restore(frame['committed_plan_blocks'])
-            for session in sessions:
-                for source in session.get('sources',[]):
-                    source['text'] = restore(source.pop('text_blocks'))
-            result = plan_authored_sources(turn,markdown,sessions,block_policy=True)
-            expected = authored_frame_rows(result,sessions)
-            expected = [{**row,'body_path':[('committed_plan_blocks' if x=='committed_plan_markdown' else 'text_blocks' if x=='text' else x) for x in row['body_path']]} for row in expected]
-            if frame.get('authored_sources') != expected:
-                raise ValueError('Authored source selectors changed their exact body/owner join')
-            catalog=selection_catalog(((source.handle,source.text) for source in result),str(turn.idempotency_key)) if short else ()
-            for source,row in zip(result,expected,strict=True):
-                blocks=frame
-                for key in row['body_path']: blocks=blocks[key]
-                if short:verify_selection_blocks(blocks,source.text,source.handle,catalog)
-                else:verify_blocks(blocks,source.text,source.handle)
+            result=producing_plan_authored_records(turn.graph_context_receipt.plan_basis,
+                turn.provenance.supporting_work,frame,turn.idempotency_key,short=short)
         else:
             result = plan_authored_sources(turn, frame['committed_plan_markdown'], frame['session_evidence'])
             if frame.get('authored_sources') != authored_frame_rows(result, frame['session_evidence']):
@@ -335,9 +342,16 @@ def status_for(segments):
     return base + ('_partial' if partial else '')
 
 
-def validate_shape(c):
-    blocks=[s.block_handle for s in c.answer_segments if isinstance(s,t.SurfaceAuthoredExcerptV1)]
+def validate_authored_shape(segments):
+    blocks=[s.block_handle for s in segments if isinstance(s,t.SurfaceAuthoredExcerptV1)]
     if len(set(blocks))!=len(blocks):raise ValueError('Repeated authored block')
+    for s in segments:
+        if isinstance(s,t.SurfaceAuthoredQuoteV1) and (not s.source_name.strip() or not s.object_id.strip() or not s.revision.strip()):
+            raise ValueError('Authored quote requires exact source identity')
+
+
+def validate_shape(c):
+    validate_authored_shape(c.answer_segments)
     if any(not s.text.strip() for s in c.answer_segments): raise ValueError('Blank evidence segment')
     if c.answer_context_status != status_for(c.answer_segments): raise ValueError('Evidence status differs from typed support')
     claims = {i: s for i, s in enumerate(c.answer_segments) if isinstance(s, t.PlanWorldGraphClaimSegmentV1)}
@@ -388,8 +402,6 @@ def validate_shape(c):
     for s in c.answer_segments:
         if isinstance(s, t.SurfaceLimitationV1) and s != _limit(s.code, s.question_phrase):
             raise ValueError('Model-authored limitation prose is not admitted')
-        if isinstance(s, t.SurfaceAuthoredQuoteV1) and (not s.source_name.strip() or not s.object_id.strip() or not s.revision.strip()):
-            raise ValueError('Authored quote requires exact source identity')
     if len(canonical_bytes(c)) > 1_048_576: raise ValueError('Completion exceeds existing storage budget')
 
 
@@ -413,6 +425,55 @@ def graph_bindings(segments, receipt, execution, auth):
         bindings[s.claim_id] = [] if initial_support else events[:1]
     return bindings
 
+
+
+def authored_block_index(sources, scope):
+    from .authored_excerpt_blocks import partition, selection_catalog
+    blocks={block.block_handle:(source,block) for source in sources for block in partition(source.text,source.handle)}
+    selectors={row.selection_id:row.block.block_handle for row in selection_catalog(
+        ((source.handle,source.text) for source in sources),scope)} if scope is not None else {}
+    return blocks,selectors
+
+
+def authored_selected_segment(row, *, blocks, selectors, selected_blocks, short=True):
+    """Resolve model choices through the existing exact saved/session block owner."""
+    from .authored_excerpt_blocks import PARTITION
+    kind=row.get('kind')
+    if kind=='session_summary':
+        ids = row.get('selection_ids')
+        if (set(row) != {'kind', 'text', 'selection_ids'} or not isinstance(ids, list) or not ids
+                or any(not isinstance(value, str) for value in ids) or len(set(ids)) != len(ids)):
+            raise ValueError('Session summary requires distinct exact session selections')
+        resolved = []
+        for identity in ids:
+            handle = selectors.get(identity)
+            if handle not in blocks: raise ValueError('Session summary selection was not supplied')
+            source, block = blocks[handle]
+            if source.source_kind != 'session': raise ValueError('Non-session material cannot support a session summary')
+            resolved.append(t.SessionSummarySupportV1(kind='authored_excerpt', text=block.text,
+                source_handle=source.handle, source_kind='session', source_name=source.source_name,
+                object_id=source.object_id, revision=source.revision, body_sha256=source.body_sha256,
+                owner_sha256=source.owner_sha256, entry_identity=source.entry_identity,
+                block_handle=block.block_handle, partition_version=PARTITION, byte_start=block.byte_start,
+                byte_end=block.byte_end, block_sha256=block.block_sha256, source_ordinal=source.source_ordinal,
+                entry_kind=source.entry_kind, element_id=source.element_id,
+                checkpoint_content_sha256=source.checkpoint_content_sha256))
+        return t.SessionSummaryV1(kind='session_summary', text=row['text'], supports=resolved)
+    if kind=='authored_excerpt':
+        field='selection_id' if short else 'block_handle'
+        if set(row)!={'kind',field} or not isinstance(row.get(field),str):
+            raise ValueError('Unknown or model-authored block selection')
+        handle=selectors.get(row[field]) if short else row[field]
+        if handle not in blocks or handle in selected_blocks:
+            raise ValueError('Unknown, repeated or model-authored block selection')
+        selected_blocks.add(handle)
+        a,block=blocks[handle]
+        return t.SurfaceAuthoredExcerptV1(kind=kind,text=block.text,source_handle=a.handle,
+            source_kind=a.source_kind,source_name=a.source_name,object_id=a.object_id,revision=a.revision,
+            body_sha256=a.body_sha256,owner_sha256=a.owner_sha256,entry_identity=a.entry_identity,
+            block_handle=block.block_handle,partition_version=PARTITION,byte_start=block.byte_start,
+            byte_end=block.byte_end,block_sha256=block.block_sha256)
+    raise ValueError('Unknown authored selection kind')
 
 def native_fact_segment(row, *, policy, receipt, auth, support, index):
     """Resolve native fact selectors once for legacy and shared producing owners."""
@@ -481,11 +542,8 @@ def normalize(candidate, turn, producer, support):
     current = candidate['schema'] in {ASSERTION_POLICY,STATEMENT_POLICY,BODY_POLICY,PLAN_POLICY,SELECTOR_POLICY,NATIVE_POLICY,POLICY}
     if current and selected_policy != candidate['schema']:
         raise ValueError('Block selection requires its actual current input policy')
-    from .authored_excerpt_blocks import partition,PARTITION
-    blocks = {block.block_handle:(source,block) for source in getattr(support,'authored',()) for block in partition(source.text,source.handle)}
-    from .authored_excerpt_blocks import selection_catalog
-    selectors={row.selection_id:row.block.block_handle for row in selection_catalog(
-        ((source.handle,source.text) for source in getattr(support,'authored',())),str(turn.idempotency_key))} if candidate['schema'] in {ASSERTION_POLICY,STATEMENT_POLICY,BODY_POLICY,PLAN_POLICY,SELECTOR_POLICY} else {}
+    blocks,selectors=authored_block_index(getattr(support,'authored',()),str(turn.idempotency_key)
+        if candidate['schema'] in {ASSERTION_POLICY,STATEMENT_POLICY,BODY_POLICY,PLAN_POLICY,SELECTOR_POLICY} else None)
     selected_blocks=set()
     available = {}
     for passage in getattr(support, 'passages', ()): available.setdefault(passage.handle, passage)
@@ -536,41 +594,10 @@ def normalize(candidate, turn, producer, support):
             segments.append(t.SourcePassageClaimV1(kind='source_passage_claim',text=row['text']))
             native_citations.extend(citation(native_available[h],index=index,text=row['text'],
                 producer=producer,envelope_sha256=auth.envelope_sha256) for h in handles)
-        elif kind == 'session_summary' and candidate['schema'] in {ASSERTION_POLICY,STATEMENT_POLICY,BODY_POLICY, PLAN_POLICY}:
-            ids = row.get('selection_ids')
-            if (set(row) != {'kind', 'text', 'selection_ids'} or not isinstance(ids, list) or not ids
-                    or any(not isinstance(value, str) for value in ids) or len(set(ids)) != len(ids)):
-                raise ValueError('Session summary requires distinct exact session selections')
-            resolved = []
-            for identity in ids:
-                handle = selectors.get(identity)
-                if handle not in blocks: raise ValueError('Session summary selection was not supplied')
-                source, block = blocks[handle]
-                if source.source_kind != 'session': raise ValueError('Non-session material cannot support a session summary')
-                resolved.append(t.SessionSummarySupportV1(kind='authored_excerpt', text=block.text,
-                    source_handle=source.handle, source_kind='session', source_name=source.source_name,
-                    object_id=source.object_id, revision=source.revision, body_sha256=source.body_sha256,
-                    owner_sha256=source.owner_sha256, entry_identity=source.entry_identity,
-                    block_handle=block.block_handle, partition_version=PARTITION, byte_start=block.byte_start,
-                    byte_end=block.byte_end, block_sha256=block.block_sha256, source_ordinal=source.source_ordinal,
-                    entry_kind=source.entry_kind, element_id=source.element_id,
-                    checkpoint_content_sha256=source.checkpoint_content_sha256))
-            segments.append(t.SessionSummaryV1(kind='session_summary', text=row['text'], supports=resolved))
-        elif kind == 'authored_excerpt' and current:
-            short=candidate['schema'] in {ASSERTION_POLICY,STATEMENT_POLICY,BODY_POLICY,PLAN_POLICY,SELECTOR_POLICY}
-            field='selection_id' if short else 'block_handle'
-            if set(row)!={'kind',field} or not isinstance(row.get(field),str):
-                raise ValueError('Unknown or model-authored block selection')
-            handle=selectors.get(row[field]) if short else row[field]
-            if handle not in blocks or handle in selected_blocks:
-                raise ValueError('Unknown, repeated or model-authored block selection')
-            selected_blocks.add(handle)
-            a,block=blocks[handle]
-            segments.append(t.SurfaceAuthoredExcerptV1(kind=kind,text=block.text,source_handle=a.handle,
-                source_kind=a.source_kind,source_name=a.source_name,object_id=a.object_id,revision=a.revision,
-                body_sha256=a.body_sha256,owner_sha256=a.owner_sha256,entry_identity=a.entry_identity,
-                block_handle=block.block_handle,partition_version=PARTITION,byte_start=block.byte_start,
-                byte_end=block.byte_end,block_sha256=block.block_sha256))
+        elif (kind == 'session_summary' and candidate['schema'] in {ASSERTION_POLICY,STATEMENT_POLICY,BODY_POLICY,PLAN_POLICY}
+                or kind == 'authored_excerpt' and current):
+            segments.append(authored_selected_segment(row,blocks=blocks,selectors=selectors,selected_blocks=selected_blocks,
+                short=candidate['schema'] in {ASSERTION_POLICY,STATEMENT_POLICY,BODY_POLICY,PLAN_POLICY,SELECTOR_POLICY}))
         elif kind == 'authored_quote' and not current:
             if set(row) != {'kind','text','source_handle'} or not isinstance(row['source_handle'],str) or row['source_handle'] not in authored: raise ValueError('Unknown authored source')
             a = authored[row['source_handle']]
