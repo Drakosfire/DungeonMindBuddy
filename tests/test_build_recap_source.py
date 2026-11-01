@@ -3,21 +3,19 @@ from tests.page_fixtures import create_page_fixture, save_page, page_text
 from apps.live_control_server.services.workspace_document_registry import get_workspace_document
 import hashlib
 import json
-from dataclasses import replace
 
 import pytest
 
 from apps.live_control_server.services import graph_preview_runner as runner
 from apps.live_control_server.services.build_recap_source import register_build_recap_source, frozen_build_recap_configuration
-from apps.live_control_server.services.recap_ingest_context import RecapContextSnapshot
+from graph_memory.ingestion.native_recap_source import SourceScope
 from apps.live_control_server.services.source_artifact_registry import SourceArtifactRegistryError, load_registered_source_artifact_text, load_source_span_index
 
 pytestmark = pytest.mark.usefixtures("application_state_dsn")
 
 @pytest.fixture
 def context():
-    return RecapContextSnapshot(schema="dm_world_campaign_ingest_context_v1",managed_world_id="managed-a",native_world_id="native-a",binding_version=1,
-        campaign_id="longmont-c2",head_revision_id="rev:1",graph_schema="dm_graph_v1",graph_payload_sha256="a"*64)
+    return SourceScope(managed_world_id='managed-a', native_world_id='native-a', binding_version=1, campaign_id='longmont-c2')
 
 @pytest.fixture
 def source(tmp_path,monkeypatch):
@@ -65,7 +63,7 @@ def test_rejects_bad_source_identity_before_registration(tmp_path,source,context
 
 def test_rejects_other_world_and_missing_verified_context(tmp_path,source,context):
     with pytest.raises(SourceArtifactRegistryError,match="another managed World"):
-        register(tmp_path,source,replace(context,managed_world_id="managed-b"))
+        register(tmp_path,source,context.model_copy(update={'managed_world_id': 'managed-b'}))
     with pytest.raises(SourceArtifactRegistryError,match="verified World/campaign"):
         register(tmp_path,source,None)
     assert not (tmp_path/"out/registries/source_content/recap/build").exists()
@@ -80,7 +78,7 @@ def test_same_document_is_idempotent_but_other_session_has_distinct_source(tmp_p
 
 
 def config(tmp_path,artifact,snapshot,**changes):
-    args=dict(source_artifact_id=artifact.source_artifact_id,campaign_id="longmont-c2",session_id="session-30",context=snapshot.as_lineage(),
+    args=dict(source_artifact_id=artifact.source_artifact_id,campaign_id="longmont-c2",session_id="session-30",context=snapshot.model_dump(),
         profile_id="recap_category_v1",profile_version="1.0",supplemental_evidence=None)
     args.update(changes)
     return frozen_build_recap_configuration(tmp_path,**args)
@@ -92,8 +90,8 @@ def test_configuration_binds_document_source_session_profile_and_destination(tmp
     assert frozen["configuration_sha256"]==hashlib.sha256(canonical).hexdigest()
     assert frozen["configuration"]["source"]["document_id"]==source[0].document_id
     assert config(tmp_path,artifact,context,profile_version="2.0")["configuration_sha256"]!=frozen["configuration_sha256"]
-    for changes in ({"campaign_id":"other"},{"session_id":"session-31"},{"context":replace(context,native_world_id="native-b").as_lineage()},
-                    {"context":replace(context,managed_world_id="managed-b").as_lineage()}):
+    for changes in ({"campaign_id":"other"},{"session_id":"session-31"},{"context":context.model_copy(update={'native_world_id': 'native-b'}).model_dump()},
+                    {"context":context.model_copy(update={'managed_world_id': 'managed-b'}).model_dump()}):
         with pytest.raises(SourceArtifactRegistryError,match="does not match"):config(tmp_path,artifact,context,**changes)
 
 

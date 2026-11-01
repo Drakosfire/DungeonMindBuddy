@@ -18,10 +18,10 @@ def _sha(payload: dict[str, Any]) -> str:
 
 def register_build_recap_source(root: Path, *, document_id: str, expected_revision: int,
     expected_content_sha256: str, session_id: str, ingest_context: Any):
-    # Same verified context requirement as ordinary Recap execution; no campaign inference.
-    from apps.live_control_server.services.graph_preview_runner import _verified_ingest_context_lineage
+    # Use the same source scope as ordinary Recap execution; no campaign inference.
+    from apps.live_control_server.services.graph_preview_runner import _source_scope_lineage
     campaign_id = getattr(ingest_context, "campaign_id", None)
-    native_world, context = _verified_ingest_context_lineage(ingest_context, campaign_id=campaign_id)
+    native_world, context = _source_scope_lineage(ingest_context, campaign_id=campaign_id)
     return create_recap_source_artifact_from_workspace_document(root,
         document_id=document_id, expected_revision=expected_revision,
         expected_content_sha256=expected_content_sha256, managed_world_id=context["managed_world_id"],

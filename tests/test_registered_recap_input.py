@@ -1,5 +1,4 @@
 """The Recap execution boundary consumes exact registered DB input, not files or pages."""
-from dataclasses import replace
 
 import pytest
 
@@ -46,10 +45,10 @@ def test_wrong_selected_scope_stops_before_output_or_dispatch(tmp_path, register
     context = _fixture_ingest_context("synthetic")
     campaign, session = "synthetic", "session-1"
     if mismatch == "world":
-        context = replace(context, native_world_id="other-world")
+        context = context.model_copy(update={'native_world_id': 'other-world'})
     elif mismatch == "campaign":
         campaign = "other-campaign"
-        context = replace(context, campaign_id=campaign)
+        context = context.model_copy(update={'campaign_id': campaign})
     else:
         session = "session-2"
     monkeypatch.setattr(runner, "run_production_extraction", lambda *a, **k: pytest.fail("must not dispatch"))

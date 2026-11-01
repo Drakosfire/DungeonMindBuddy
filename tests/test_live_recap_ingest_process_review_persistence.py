@@ -26,6 +26,8 @@ def process_client_env(
     monkeypatch: pytest.MonkeyPatch,
 ) -> tuple[TestClient, Path]:
     """Own all recap/run artifacts under tmp_path and APP-STATE under its disposable DSN."""
+    monkeypatch.setenv("DMB_DEPLOYMENT_ENVIRONMENT", "local")
+    monkeypatch.setenv("DMB_AUTH_MODE", "local_operator")
     seed_session = shared_ingest.ROOT / "evals/c2_live_prep/live/session_22"
     monkeypatch.setattr(shared_ingest, "ROOT", tmp_path)
     monkeypatch.setattr(recap_ingest_route, "repo_root", lambda: tmp_path)
@@ -43,22 +45,13 @@ def process_client_env(
     (tmp_path / "job_queue.jsonl").write_text("", encoding="utf-8")
     monkeypatch.setenv(SESSION_DIR_ENV, str(tmp_path))
 
-    class FakeContext:
-        def as_lineage(self) -> dict[str, object]:
-            return {
-                "schema": "dm_world_campaign_ingest_context_v1",
-                "managed_world_id": "elderwyld",
-                "native_world_id": "world:elderwyld",
-                "binding_version": 3,
-                "campaign_id": "longmont-c2",
-                "head_revision_id": "rev:observed-head",
-                "graph_schema": "dm_graph_v1",
-                "graph_payload_sha256": "a" * 64,
-            }
+    def FakeContext():
+        from graph_memory.ingestion.native_recap_source import SourceScope
+        return SourceScope(managed_world_id='elderwyld', native_world_id='world:elderwyld', binding_version=3, campaign_id='longmont-c2')
 
     monkeypatch.setattr(
         recap_ingest_context,
-        "read_recap_ingest_context",
+        "resolve_recap_source_scope",
         lambda **_kwargs: FakeContext(),
     )
     corpus = tmp_path / "corpus/eldyrwild-markdown"

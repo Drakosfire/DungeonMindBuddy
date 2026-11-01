@@ -30,7 +30,7 @@ def request_body(source):
 
 @pytest.fixture
 def execute(tmp_path,source,context,monkeypatch):
-    monkeypatch.setattr(service,"read_recap_ingest_context",lambda **kwargs:context)
+    monkeypatch.setattr(service,"resolve_recap_source_scope",lambda **kwargs:context)
     actual=wrapper.run_recap_production_extraction
     calls=[]
     def run(**kwargs):
@@ -50,7 +50,7 @@ def test_same_request_recovers_one_actual_run_without_repeating_context_or_infer
     first=service.launch_build_recap(tmp_path,request_body)
     assert first.status.value=="reviewable"
     save_page(tmp_path, source[0].document_id, "Newer document bytes.\n")
-    monkeypatch.setattr(service,"read_recap_ingest_context",lambda **k:pytest.fail("recovery must not re-read current World/context"))
+    monkeypatch.setattr(service,"resolve_recap_source_scope",lambda **k:pytest.fail("recovery must not re-read current World/context"))
     second=service.launch_build_recap(tmp_path,request_body)
     assert first==second and execute==[first.run_id]
     assert first.lineage['build_launch']['request']==request_body.model_dump(mode='json')
@@ -59,7 +59,7 @@ def test_same_request_recovers_one_actual_run_without_repeating_context_or_infer
     assert frozen['source_artifact_id'] == first.source_artifact_id
     assert frozen['source']['document_id'] == source[0].document_id
     assert frozen['source']['content_sha256'] == source[3]
-    assert frozen['world_context'] == context.as_lineage()
+    assert frozen['world_context'] == context.model_dump()
     assert frozen['session_evidence'] is None
 
 
@@ -67,14 +67,14 @@ def test_same_request_recovers_one_actual_run_without_repeating_context_or_infer
     ('expected_content_sha256','b'*64),('managed_world_id','managed-b'),('document_id',str(uuid4()))])
 def test_reused_request_identity_rejects_changed_configuration_before_reading_source(tmp_path,request_body,execute,monkeypatch,field,value):
     service.launch_build_recap(tmp_path,request_body)
-    monkeypatch.setattr(service,'read_recap_ingest_context',lambda **k:pytest.fail('do not retarget a request'))
+    monkeypatch.setattr(service,'resolve_recap_source_scope',lambda **k:pytest.fail('do not retarget a request'))
     changed=BuildRecapLaunchRequest.model_validate({**request_body.model_dump(mode='json'),field:value})
     with pytest.raises(GraphRunRegistryError) as failure:service.launch_build_recap(tmp_path,changed)
     assert failure.value.status_code==409 and len(execute)==1
 
 
 def test_unknown_execution_is_recovered_as_draft_without_automatic_replay(tmp_path,request_body,context,monkeypatch):
-    monkeypatch.setattr(service,'read_recap_ingest_context',lambda **k:context)
+    monkeypatch.setattr(service,'resolve_recap_source_scope',lambda **k:context)
     calls=[]
     def interrupted(**kwargs):calls.append(kwargs['reserved_run'].run_id);raise RuntimeError('simulated lost execution')
     monkeypatch.setattr(service,'run_recap_production_extraction',interrupted)
@@ -86,7 +86,7 @@ def test_unknown_execution_is_recovered_as_draft_without_automatic_replay(tmp_pa
 def test_concurrent_request_race_has_one_production_executor(tmp_path,request_body,context,execute,monkeypatch):
     barrier=Barrier(2)
     def read_context(**kwargs):barrier.wait(timeout=10);return context
-    monkeypatch.setattr(service,'read_recap_ingest_context',read_context)
+    monkeypatch.setattr(service,'resolve_recap_source_scope',read_context)
     with ThreadPoolExecutor(max_workers=2) as pool:
         futures=[pool.submit(service.launch_build_recap,tmp_path,request_body) for _ in range(2)]
         results=[f.result(timeout=30) for f in futures]
@@ -96,7 +96,7 @@ def test_concurrent_request_race_has_one_production_executor(tmp_path,request_bo
 
 def test_reserved_revision_cas_precedes_model_execution(tmp_path,request_body,context,monkeypatch):
     from src.graph_memory.extraction import graph_preview_runner as controller
-    monkeypatch.setattr(service,'read_recap_ingest_context',lambda **k:context)
+    monkeypatch.setattr(service,'resolve_recap_source_scope',lambda **k:context)
     real_advance=controller._advance_run
     def lose_cas(root,run,**kwargs):
         if kwargs['status'].value=='prepared':real_advance(root,run,**kwargs)
@@ -146,7 +146,7 @@ def test_launch_body_refuses_implicit_reinterpretation(request_body,field,value)
 
 
 def test_failed_model_run_is_recovered_without_retry(tmp_path,request_body,context,monkeypatch):
-    monkeypatch.setattr(service,'read_recap_ingest_context',lambda **k:context)
+    monkeypatch.setattr(service,'resolve_recap_source_scope',lambda **k:context)
     client=FixtureClient(mode='refusal')
     first=service.launch_build_recap(tmp_path,request_body,category_client=client)
     assert first.status.value=='failed'
@@ -158,11 +158,10 @@ def test_new_campaign_without_local_corpus_reaches_extraction_and_recovers(
     tmp_path, source, context, monkeypatch,
 ):
     """Native campaign membership does not require a historical corpus mapping."""
-    from dataclasses import replace
     import hashlib
     campaign = 'public-park-new-campaign'
-    snapshot = replace(context, campaign_id=campaign)
-    monkeypatch.setattr(service, 'read_recap_ingest_context', lambda **k: snapshot)
+    snapshot = context.model_copy(update={'campaign_id': campaign})
+    monkeypatch.setattr(service, 'resolve_recap_source_scope', lambda **k: snapshot)
     record = create_page_fixture(tmp_path, title='Public park recap',
         campaign_id=campaign, world_id='managed-a', kind='worldbuilding_source',
         source_domain='worldbuilding', document_class='lore',
@@ -198,7 +197,7 @@ def test_new_campaign_without_local_corpus_reaches_extraction_and_recovers(
     from apps.live_control_server.services.graph_run_registry import load_reviewable_extraction_data
     graph = json.loads(load_reviewable_extraction_data(tmp_path, result.run_id).candidate_bytes)
     assert any(node['label'] == 'Mirathorn' and node['node_type'] == 'character' for node in graph['nodes'])
-    monkeypatch.setattr(service, 'read_recap_ingest_context', lambda **k: pytest.fail('replay read'))
+    monkeypatch.setattr(service, 'resolve_recap_source_scope', lambda **k: pytest.fail('replay read'))
     assert service.launch_build_recap(tmp_path, request) == result
     assert calls == [result.run_id]
 
@@ -217,3 +216,36 @@ def test_exact_build_recap_review_preserves_canonical_native_world(
     assert review.source_artifact_id == run.source_artifact_id
     assert review.source_revision_id == 'sha256:' + request_body.expected_content_sha256
     assert review.first_world_publish_eligible is False
+
+
+def test_provisioning_world_generates_without_graph_or_publication_host(tmp_path, source, request_body, monkeypatch):
+    from application_state.world_catalog import service as worlds
+    from apps.live_control_server.services.world_container_registry import NativeGraphProvisioningRecord
+    from tests.application_state.world_catalog_fixtures import store_world
+    from apps.live_control_server.services import recap_ingest_context, recap_graph_preview_ingest
+    from apps.live_control_server.services.graph_run_registry import load_reviewable_extraction_data
+    world = worlds.get_world("managed-a").record
+    binding = NativeGraphProvisioningRecord(native_world_id="world:" + "a" * 32, provisioning_id="provision:" + "b" * 32)
+    store_world(world.model_copy(update={"native_graph_binding": binding}))
+    monkeypatch.setenv("DMB_MANAGED_WORLD_DATA_ROOT", str(tmp_path))
+    monkeypatch.delenv(recap_ingest_context.BASE_URL_ENV, raising=False)
+    monkeypatch.delenv(recap_ingest_context.TOKEN_ENV, raising=False)
+    monkeypatch.setattr(recap_ingest_context, "read_recap_ingest_context", lambda **_: pytest.fail("generation called publication host"))
+    monkeypatch.setattr(recap_ingest_context, "resolve_managed_world_binding", lambda *_: pytest.fail("generation requires active Graph"))
+    actual = wrapper.run_recap_production_extraction
+    calls = []
+    def execute(**kwargs):
+        calls.append(kwargs["reserved_run"].run_id)
+        normalized = wrapper._normalized_from_registered(tmp_path, kwargs["source_artifact_id"])
+        kwargs["category_client"] = FixtureClient(span_ref=_first_paragraph_span_id(normalized))
+        return actual(**kwargs)
+    monkeypatch.setattr(service, "run_recap_production_extraction", execute)
+    result = service.launch_build_recap(tmp_path, request_body)
+    assert result.status.value == "reviewable", result.diagnostics.errors
+    scope = result.lineage["world_campaign_ingest_context"]
+    assert scope == dict(managed_world_id="managed-a", native_world_id=binding.native_world_id, binding_version=1, campaign_id=request_body.campaign_id)
+    assert load_reviewable_extraction_data(tmp_path, result.run_id).source_artifact.world_id == binding.native_world_id
+    status = recap_graph_preview_ingest.inspect_recap_graph_preview_status(repo_root=tmp_path, campaign_id=request_body.campaign_id, session=request_body.session, normalized_recap_path=None, managed_world_id="managed-a")
+    assert status["extraction_run_id"] == result.run_id
+    assert service.launch_build_recap(tmp_path, request_body) == result
+    assert calls == [result.run_id]

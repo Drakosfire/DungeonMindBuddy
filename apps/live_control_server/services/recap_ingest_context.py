@@ -1,4 +1,4 @@
-"""Read and validate one MIND World/campaign ingestion observation."""
+"""Resolve generation identity; retain the separate publication observation reader."""
 
 from __future__ import annotations
 
@@ -11,7 +11,11 @@ from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
 from apps.live_control_server.services.managed_world_graph_projection import (
     resolve_managed_world_binding,
+    resolve_managed_source_identity,
 )
+
+
+from graph_memory.ingestion.native_recap_source import SourceScope
 
 
 BASE_URL_ENV = "DUNGEONMIND_PUBLICATION_BASE_URL"
@@ -149,4 +153,15 @@ def read_recap_ingest_context(
         head_revision_id=context.head_revision_id,
         graph_schema=context.graph_schema,
         graph_payload_sha256=context.graph_payload_sha256,
+    )
+
+
+def resolve_recap_source_scope(*, managed_world_id: str, campaign_id: str) -> SourceScope:
+    """Source grouping requires identity, not an existing published Graph."""
+    binding = resolve_managed_source_identity(managed_world_id)
+    return SourceScope(
+        managed_world_id=binding.managed_world_id,
+        native_world_id=binding.native_world_id,
+        binding_version=binding.binding_version,
+        campaign_id=campaign_id,
     )

@@ -126,22 +126,13 @@ def client_env(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> tuple[TestCli
     graph_root.mkdir(parents=True, exist_ok=True)
     monkeypatch.setenv("DUNGEONMIND_WORLD_GRAPH_ROOT", str(graph_root))
 
-    class FakeContext:
-        def as_lineage(self) -> dict[str, object]:
-            return {
-                "schema": "dm_world_campaign_ingest_context_v1",
-                "managed_world_id": "elderwyld",
-                "native_world_id": "world:elderwyld",
-                "binding_version": 3,
-                "campaign_id": "longmont-c2",
-                "head_revision_id": "rev:observed-head",
-                "graph_schema": "dm_graph_v1",
-                "graph_payload_sha256": "a" * 64,
-            }
+    def FakeContext():
+        from graph_memory.ingestion.native_recap_source import SourceScope
+        return SourceScope(managed_world_id='elderwyld', native_world_id='world:elderwyld', binding_version=3, campaign_id='longmont-c2')
 
     monkeypatch.setattr(
         recap_ingest_context,
-        "read_recap_ingest_context",
+        "resolve_recap_source_scope",
         lambda **_kwargs: FakeContext(),
     )
     for name in ("live_packet.json", "surface_layout.json", "current_state.json"):
@@ -194,22 +185,13 @@ def synthetic_client_env(
     from tests.test_recap_managed_standing_context import seed_binding
     seed_binding(tmp_path,"synthetic-world","world:synthetic-world",version=3)
 
-    class FakeContext:
-        def as_lineage(self) -> dict[str, object]:
-            return {
-                "schema": "dm_world_campaign_ingest_context_v1",
-                "managed_world_id": "synthetic-world",
-                "native_world_id": "world:synthetic-world",
-                "binding_version": 3,
-                "campaign_id": "synthetic-campaign",
-                "head_revision_id": "rev:synthetic-head",
-                "graph_schema": "dm_graph_v1",
-                "graph_payload_sha256": "a" * 64,
-            }
+    def FakeContext():
+        from graph_memory.ingestion.native_recap_source import SourceScope
+        return SourceScope(managed_world_id='synthetic-world', native_world_id='world:synthetic-world', binding_version=3, campaign_id='synthetic-campaign')
 
     monkeypatch.setattr(
         recap_ingest_context,
-        "read_recap_ingest_context",
+        "resolve_recap_source_scope",
         lambda **_kwargs: FakeContext(),
     )
     _write_synthetic_session(tmp_path)
@@ -279,7 +261,7 @@ def test_recap_graph_ingest_requires_world_context_before_staging_or_source_regi
     assert (registry.read_bytes() if registry.exists() else None) == registry_before
 
 
-def test_uninitialized_world_stops_before_recap_staging_or_source_registration(
+def test_unavailable_source_identity_stops_before_recap_staging_or_source_registration(
     client_env: tuple[TestClient, Path], monkeypatch: pytest.MonkeyPatch
 ) -> None:
     client, corpus = client_env
@@ -293,12 +275,12 @@ def test_uninitialized_world_stops_before_recap_staging_or_source_registration(
 
     def uninitialized(**_kwargs):
         raise recap_ingest_context.RecapIngestContextError(
-            "World Graph is not initialized.",
-            code="world_graph_not_initialized",
+            "Selected source identity is unavailable.",
+            code="source_identity_unavailable",
             status_code=409,
         )
 
-    monkeypatch.setattr(recap_ingest_context, "read_recap_ingest_context", uninitialized)
+    monkeypatch.setattr(recap_ingest_context, "resolve_recap_source_scope", uninitialized)
     response = client.post(
         "/api/live/recap-ingest",
         json={
@@ -312,7 +294,7 @@ def test_uninitialized_world_stops_before_recap_staging_or_source_registration(
         },
     )
     assert response.status_code == 409
-    assert response.json()["detail"]["code"] == "world_graph_not_initialized"
+    assert response.json()["detail"]["code"] == "source_identity_unavailable"
     assert calls == []
     assert not list(corpus.rglob("*.md"))
     assert (registry.read_bytes() if registry.exists() else None) == registry_before
@@ -487,7 +469,7 @@ def test_process_extracts_canonical_graph_with_fake_client(
     assert run.status in {ExtractionRunStatus.REVIEWABLE, ExtractionRunStatus.FAILED}
     assert run.status == ExtractionRunStatus.REVIEWABLE
     assert run.source_artifact_id == graph["source_artifact_id"]
-    assert run.lineage["world_campaign_ingest_context"]["head_revision_id"] == "rev:observed-head"
+    assert set(run.lineage["world_campaign_ingest_context"]) == {"managed_world_id", "native_world_id", "binding_version", "campaign_id"}
     from apps.live_control_server.services.graph_run_registry import load_reviewable_extraction_data
     data = load_reviewable_extraction_data(ROOT, graph["extraction_run_id"])
     candidate = json.loads(data.candidate_bytes)
@@ -744,22 +726,13 @@ def test_extraction_restarts_when_selected_world_binding_changes(
     assert build.status_code == 200, build.text
     original = build.json()["ingest_report"]["graph_preview"]["extraction_run_id"]
 
-    class ReboundContext:
-        def as_lineage(self) -> dict[str, object]:
-            return {
-                "schema": "dm_world_campaign_ingest_context_v1",
-                "managed_world_id": "elderwyld",
-                "native_world_id": "world:elderwyld-rebound",
-                "binding_version": 4,
-                "campaign_id": "longmont-c2",
-                "head_revision_id": "rev:next-head",
-                "graph_schema": "dm_graph_v1",
-                "graph_payload_sha256": "b" * 64,
-            }
+    def ReboundContext():
+        from graph_memory.ingestion.native_recap_source import SourceScope
+        return SourceScope(managed_world_id='elderwyld', native_world_id='world:elderwyld-rebound', binding_version=4, campaign_id='longmont-c2')
 
     monkeypatch.setattr(
         recap_ingest_context,
-        "read_recap_ingest_context",
+        "resolve_recap_source_scope",
         lambda **_kwargs: ReboundContext(),
     )
     from tests.test_recap_managed_standing_context import seed_binding
@@ -1445,10 +1418,10 @@ def test_process_does_not_revive_an_older_success(client_env, monkeypatch, appli
         if not normalized.is_absolute():
             normalized = client_env[1] / normalized
         newer = service.run_recap_production_extraction(repo_root=ROOT,campaign_id='longmont-c2',
-            session_id='session-22',source_artifact_id=create_recap_source_artifact(ROOT,world_id=recap_ingest_context.read_recap_ingest_context().as_lineage()["native_world_id"],campaign_id='longmont-c2',session_id='session-22',recap_path=normalized).source_artifact_id,
+            session_id='session-22',source_artifact_id=create_recap_source_artifact(ROOT,world_id=recap_ingest_context.resolve_recap_source_scope().model_dump()["native_world_id"],campaign_id='longmont-c2',session_id='session-22',recap_path=normalized).source_artifact_id,
             model_id='gpt-5.4-mini' if latest == 'different_model' else payload['graph_model_id'],
             profile='category_encounter_job_preview' if latest == 'different_profile' else None,allow_llm=True,
-            category_client=object(),ingest_context=recap_ingest_context.read_recap_ingest_context())
+            category_client=object(),ingest_context=recap_ingest_context.resolve_recap_source_scope())
         latest_id = newer.run.run_id
         assert newer.run.status == ExtractionRunStatus.REVIEWABLE
     else:
@@ -1501,8 +1474,8 @@ def test_process_and_status_select_source_before_loading_other_run_outputs(clien
     other = ROOT / 'other-source.md'
     other.write_text(normalized.read_text()+'\n\nThe party waits for a second report.\n')
     newer = service.run_recap_production_extraction(repo_root=ROOT,campaign_id='longmont-c2',
-        session_id='session-22',source_artifact_id=create_recap_source_artifact(ROOT,world_id=recap_ingest_context.read_recap_ingest_context().as_lineage()["native_world_id"],campaign_id='longmont-c2',session_id='session-22',recap_path=other).source_artifact_id,model_id=payload['graph_model_id'],allow_llm=True,
-        ingest_context=recap_ingest_context.read_recap_ingest_context())
+        session_id='session-22',source_artifact_id=create_recap_source_artifact(ROOT,world_id=recap_ingest_context.resolve_recap_source_scope().model_dump()["native_world_id"],campaign_id='longmont-c2',session_id='session-22',recap_path=other).source_artifact_id,model_id=payload['graph_model_id'],allow_llm=True,
+        ingest_context=recap_ingest_context.resolve_recap_source_scope())
     assert newer.run.status.value == 'reviewable'
     assert newer.run.run_id != first_id
     with psycopg.connect(application_state_dsn) as connection:

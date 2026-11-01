@@ -412,9 +412,11 @@ def test_exact_run_projection_rejects_foreign_run_world_before_graph_query(
     assert captured["calls"] == 0
 
 
+@pytest.mark.parametrize("shape", ["historical", "source_scope"])
 def test_scoped_projection_uses_frozen_managed_binding_and_native_world(
     monkeypatch: pytest.MonkeyPatch,
     tmp_path: Path,
+    shape: str,
 ) -> None:
     expected = VerifiedManagedWorldBinding(
         managed_world_id="elderwyld",
@@ -429,10 +431,14 @@ def test_scoped_projection_uses_frozen_managed_binding_and_native_world(
         "resolve_managed_world_binding",
         lambda _world_id, *, root: resolutions.pop(0),
     )
+    run = _managed_run()
+    if shape == "source_scope":
+        old = run.lineage["world_campaign_ingest_context"]
+        run.lineage["world_campaign_ingest_context"] = {key: old[key] for key in ("managed_world_id", "native_world_id", "binding_version", "campaign_id")}
     captured = _install_projection(
         monkeypatch,
         tmp_path,
-        run=_managed_run(),
+        run=run,
         source=_source(),
         world=_world(),
     )

@@ -334,8 +334,9 @@ def test_recap_duplicate_target_creates_no_child(
     assert not children
 
 
+@pytest.mark.parametrize("scope_shape", ["historical", "source_scope"])
 def test_recap_child_round_trips_real_disposable_run_registry(
-    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, application_state_dsn: str
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, application_state_dsn: str, scope_shape: str
 ) -> None:
     assert application_state_dsn
     source_text = "Mira found the silver key under the old bridge.\n"
@@ -399,11 +400,7 @@ def test_recap_child_round_trips_real_disposable_run_registry(
             uri="repo://parent.json", sha256=_sha(parent_bytes), exists=True,
         ),
     }
-    parent = graph_run_registry.create_extraction_run(
-        tmp_path, source_artifact_id=artifact.source_artifact_id,
-        source_domain="recap", campaign_id="c", session_id="s",
-        profile_id="recap_category_v1@1.0", components=components,
-        lineage={
+    lineage = {
             "world_campaign_ingest_context": {
                 "schema": "dm_world_campaign_ingest_context_v1",
                 "managed_world_id": "managed:fixture-world",
@@ -414,7 +411,15 @@ def test_recap_child_round_trips_real_disposable_run_registry(
                 "graph_payload_sha256": _sha(b"fixture graph"),
                 "binding_version": 1,
             },
-        },
+        }
+    if scope_shape == "source_scope":
+        original = lineage["world_campaign_ingest_context"]
+        lineage["world_campaign_ingest_context"] = {key: original[key] for key in ("managed_world_id", "native_world_id", "binding_version", "campaign_id")}
+    parent = graph_run_registry.create_extraction_run(
+        tmp_path, source_artifact_id=artifact.source_artifact_id,
+        source_domain="recap", campaign_id="c", session_id="s",
+        profile_id="recap_category_v1@1.0", components=components,
+        lineage=lineage,
     )
     from application_state.ingest.components import persist_component_payload
     for kind, payload in (("candidate_graph", parent_bytes), ("source_span_index", span_path.read_bytes())):

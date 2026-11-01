@@ -2,15 +2,10 @@ from __future__ import annotations
 
 import hashlib
 from pathlib import Path
-from uuid import uuid4
 
 import pytest
 
 from apps.live_control_server.services import source_artifact_registry as registry
-from apps.live_control_server.services.graph_run_registry import (
-    GraphRunRegistryError,
-    create_extraction_run,
-)
 from application_state.ingest import service as ingest_service
 from application_state.source import service as source_service
 from graph_memory.evidence.source_artifact import GraphMemorySourceArtifact
@@ -91,7 +86,7 @@ def test_explicitly_registered_worldless_recap_remains_unchanged(tmp_path: Path)
     assert registry.load_registered_source_artifact_text(tmp_path, legacy.source_artifact_id)[1] == content
 
 
-def test_mismatched_world_run_is_rejected_before_source_or_run_persistence(
+def test_fresh_generation_rejects_wrong_source_world_before_run_or_client(
     tmp_path: Path,
     application_state_dsn: str,
 ) -> None:
@@ -103,27 +98,25 @@ def test_mismatched_world_run_is_rejected_before_source_or_run_persistence(
         session_id="session-29",
         recap_text="Session 29\n\nMireward changes.\n",
     )
-    run_id = f"world-binding-mismatch-{uuid4()}"
 
     original_body = source_service.get_source_markdown(
         source_artifact_id=artifact.source_artifact_id, content_sha256=artifact.content_sha256 or "",
     )
     assert original_body is not None
-    with pytest.raises(GraphRunRegistryError, match="does not match its exact"):
-        create_extraction_run(
-            tmp_path,
-            run_id=run_id,
-            source_artifact_id=artifact.source_artifact_id,
-            source_domain="recap",
-            campaign_id="longmont-c2",
-            session_id="session-29",
-            lineage={
-                "native_world_id": "world:conks-and-cons",
-                "campaign_id": "longmont-c2",
-            },
+    from graph_memory.ingestion.native_recap_source import SourceScope
+    from apps.live_control_server.services.graph_preview_runner import run_recap_production_extraction
+    class NoCalls:
+        def run_pass(self, *_args, **_kwargs):
+            pytest.fail("foreign source reached generation")
+    with pytest.raises(registry.SourceArtifactRegistryError, match="does not match the selected"):
+        run_recap_production_extraction(
+            repo_root=tmp_path, source_artifact_id=artifact.source_artifact_id,
+            campaign_id="longmont-c2", session_id="session-29", allow_llm=True,
+            category_client=NoCalls(), ingest_context=SourceScope(
+                managed_world_id="other-managed", native_world_id="world:conks-and-cons",
+                binding_version=1, campaign_id="longmont-c2"),
         )
-
-    assert ingest_service.get_extraction_run_optional(run_id) is None
+    assert ingest_service.list_extraction_runs() == []
     assert (
         source_service.get_source_markdown(
             source_artifact_id=artifact.source_artifact_id,

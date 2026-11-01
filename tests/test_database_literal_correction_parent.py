@@ -391,8 +391,8 @@ def test_fresh_build_rejects_bad_input_before_generic_storage(
 
 
 def test_history_parser_does_not_relax_historical_source_binding():
-    assert registry.validate_recap_run_generation_context(
-        _HISTORICAL_CONTEXT, campaign_id="longmont-c2") == "world:earlier"
+    assert registry.read_recap_source_scope(
+        _HISTORICAL_CONTEXT, campaign_id="longmont-c2").native_world_id == "world:earlier"
     with pytest.raises(registry.GraphRunRegistryError, match="does not match its exact"):
         registry.validate_recap_source_run_world_binding(source_world_id="world:current",
             campaign_id="longmont-c2", lineage={"world_campaign_ingest_context": _HISTORICAL_CONTEXT})

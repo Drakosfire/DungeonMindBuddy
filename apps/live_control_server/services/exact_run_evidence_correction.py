@@ -27,7 +27,7 @@ from apps.live_control_server.services.graph_run_registry import (
     get_extraction_run,
     load_reviewable_extraction_data,
     update_extraction_run_status,
-    validate_recap_run_generation_context,
+    read_recap_source_scope,
 )
 from graph_memory.anchor_quotes import find_anchor_quote_matches
 from graph_memory.ingestion.extraction_run import (
@@ -67,7 +67,7 @@ def _frozen_recap_world_lineage(parent: ExtractionRun) -> dict[str, object]:
     context = parent.lineage.get("world_campaign_ingest_context")
     if context is not None:
         try:
-            validate_recap_run_generation_context(context, campaign_id=parent.campaign_id)
+            read_recap_source_scope(context, campaign_id=parent.campaign_id)
         except GraphRunRegistryError as exc:
             raise _reject("parent recap run has invalid frozen World context") from exc
         return {"world_campaign_ingest_context": dict(context)}

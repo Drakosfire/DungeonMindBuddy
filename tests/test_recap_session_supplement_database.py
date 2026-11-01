@@ -3,7 +3,6 @@ from apps.live_control_server.services.source_artifact_registry import create_re
 import copy
 import hashlib
 import json
-from dataclasses import replace
 from pathlib import Path
 from types import SimpleNamespace
 from uuid import UUID, uuid4
@@ -35,7 +34,7 @@ def selected(tmp_path, monkeypatch, application_state_dsn):
     seed_binding(tmp_path, WORLD, "world:synthetic")
     source = tmp_path / "external-recap.md"
     source.write_text("The company crossed the damaged boardwalk.\n")
-    context = replace(_fixture_ingest_context("longmont-c2"), managed_world_id=WORLD)
+    context = _fixture_ingest_context('longmont-c2').model_copy(update={'managed_world_id': WORLD})
 
     artifact = create_recap_source_artifact(tmp_path, world_id=context.native_world_id,
         campaign_id="longmont-c2", session_id="session-30", recap_path=source)
