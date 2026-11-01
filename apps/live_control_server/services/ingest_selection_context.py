@@ -101,40 +101,34 @@ def _scope(run, source, expected_world: str | None) -> dict:
         _reject("native review requires a recap with exact campaign and session")
     observation = run.lineage.get("world_campaign_ingest_context")
     observation = observation if isinstance(observation, dict) else {}
-    world = source.world_id or observation.get("managed_world_id")
-    if source.world_id and observation.get("managed_world_id") not in (
-        None,
-        source.world_id,
-    ):
-        _reject("source and run World ownership disagree")
+    world = expected_world
+    if not isinstance(world, str) or not world.strip():
+        _reject("native review requires an active managed World binding")
+    if observation.get("managed_world_id") not in (None, world):
+        _reject("selection belongs to another World", conflict=True)
     if observation and observation.get("campaign_id") != run.campaign_id:
         _reject("run World observation belongs to another campaign")
     if observation.get("session_id") not in (None, run.session_id):
         _reject("run World observation belongs to another session")
-    if not isinstance(world, str) or not world.strip():
-        _reject("native review requires an active managed World binding")
-    if world != expected_world:
-        _reject("selection belongs to another World", conflict=True)
+    binding = resolve_managed_world_binding(world)
+    # APP source ownership is native; the selected product World is managed.
+    # Join them through the existing binding instead of comparing namespaces.
+    if observation and (
+        observation.get("native_world_id") != binding.native_world_id
+        or observation.get("binding_version") != binding.binding_version
+    ):
+        _reject("World binding changed since extraction", conflict=True)
+    if source.world_id != binding.native_world_id:
+        _reject("source does not belong to the selected native World")
     result = {
         "managed_world_id": world,
-        "native_world_id": None,
-        "binding_version": None,
+        "native_world_id": binding.native_world_id,
+        "binding_version": binding.binding_version,
         "campaign_id": run.campaign_id,
         "session_id": run.session_id,
-        "status": "unbound" if world is None else "bound",
+        "status": "bound",
         "admitted_world_facts_included": False,
     }
-    if world is not None:
-        binding = resolve_managed_world_binding(world)
-        if observation and (
-            observation.get("native_world_id") != binding.native_world_id
-            or observation.get("binding_version") != binding.binding_version
-        ):
-            _reject("World binding changed since extraction", conflict=True)
-        result.update(
-            native_world_id=binding.native_world_id,
-            binding_version=binding.binding_version,
-        )
     return result
 
 
