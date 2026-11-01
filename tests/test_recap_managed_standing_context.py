@@ -111,17 +111,21 @@ def test_binding_drift_still_refuses_before_output_or_provider(tmp_path, monkeyp
     assert not (tmp_path/"new-output").exists()
 
 
-def test_retired_profile_refuses_fresh_dispatch_without_provider_or_output(tmp_path, monkeypatch):
+@pytest.mark.parametrize("with_supplement", [False, True])
+def test_retired_profile_refuses_before_source_supplement_output_or_provider(tmp_path, monkeypatch, with_supplement):
     from graph_memory.ingestion.native_recap_source import SourceScope
     from src.graph_memory.extraction.extraction_profile import UnknownExtractionProfileError
-    seed_binding(tmp_path)
-    monkeypatch.setenv("DMB_ARTIFACT_DATA_ROOT", str(tmp_path))
-    monkeypatch.setenv("DMB_MANAGED_WORLD_DATA_ROOT", str(tmp_path))
-    source = create_recap_source_artifact(tmp_path, world_id="native-a", campaign_id="longmont-c2", session_id="session-21", recap_text="Mira guards the gate.\n")
-    monkeypatch.setattr(service, "run_production_extraction", lambda *a, **kw: pytest.fail("must not execute retired profile"))
+    from apps.live_control_server.services import session_evidence
+    def forbidden(*a, **kw):
+        pytest.fail("retired policy must not open source/supplement or dispatch inference")
+    monkeypatch.setattr(service, "_normalized_from_registered", forbidden)
+    monkeypatch.setattr(session_evidence, "resolve_evidence_refs", forbidden)
+    monkeypatch.setattr(service, "run_production_extraction", forbidden)
+    supplement = {"world_id":"managed-a", "sessions":[]} if with_supplement else None
     with pytest.raises(UnknownExtractionProfileError):
-        service.run_recap_production_extraction(repo_root=tmp_path, campaign_id="longmont-c2", session_id="session-21", source_artifact_id=source.source_artifact_id, ingest_context=SourceScope(managed_world_id="managed-a",native_world_id="native-a",binding_version=1,campaign_id="longmont-c2"),profile="recap_category_v1@1.0",output_dir=tmp_path/"new-output")
+        service.run_recap_production_extraction(repo_root=tmp_path, campaign_id="longmont-c2", session_id="session-21", source_artifact_id="artifact:unopened", ingest_context=SourceScope(managed_world_id="managed-a",native_world_id="native-a",binding_version=1,campaign_id="longmont-c2"),profile="recap_category_v1@1.0",output_dir=tmp_path/"new-output",supplemental_evidence=supplement)
     assert not (tmp_path/"new-output").exists()
+
 
 def test_direct_options_cannot_execute_a_retired_profile():
     from dataclasses import replace

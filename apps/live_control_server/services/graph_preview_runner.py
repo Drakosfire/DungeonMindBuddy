@@ -156,6 +156,9 @@ def run_recap_production_extraction(
     supplemental_evidence: dict | None = None,
     reserved_run: Any | None = None,
 ) -> ProductionExtractionResult:
+    profile_id, profile_version = resolve_legacy_graph_extraction_profile(profile)
+    from src.graph_memory.extraction.extraction_profile import get_extraction_profile
+    selected_profile = get_extraction_profile(profile_id, profile_version)
     repo_root = artifact_data_root(repo_root)
     native_world_id, frozen_context = _source_scope_lineage(
         ingest_context,
@@ -212,9 +215,6 @@ def run_recap_production_extraction(
         ).resolve()
         if not output_dir.is_relative_to(repo_root):
             raise ValueError("extraction output must be inside the artifact repository")
-    profile_id, profile_version = resolve_legacy_graph_extraction_profile(profile)
-    from src.graph_memory.extraction.extraction_profile import get_extraction_profile
-    selected_profile = get_extraction_profile(profile_id, profile_version)
     default_ge = allow_llm and category_client is None and execution_limits is None
     if default_ge:
         if model_id not in (None, DEEPSEEK_MODEL):
