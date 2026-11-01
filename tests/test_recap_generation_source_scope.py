@@ -55,11 +55,19 @@ def test_incomplete_or_malformed_scope_never_becomes_authority(value):
 
 def test_publication_still_checks_current_membership_for_four_key_generation(monkeypatch):
     from apps.live_control_server.services import extract_promote
+    from apps.live_control_server.models.extract_promote import ExtractPromoteConfirmRequest
+    from tests.test_extract_promote_managed_world_target import _package, _binding
+    scope = {**SCOPE, "managed_world_id": "managed-world", "native_world_id": "native-world"}
+    package = extract_promote._seal_recap_ingest_context(_package(), scope)
+    request = ExtractPromoteConfirmRequest(review_package=package, assertion_ids=["a"])
+    monkeypatch.setattr(extract_promote, "_resolve_publication_target", lambda _: _binding())
+    monkeypatch.setattr(extract_promote, "load_bound_extraction_run", lambda *a, **k: pytest.fail("missing membership reached candidate owner"))
+    monkeypatch.setattr(extract_promote, "world_graph_root", lambda: pytest.fail("missing membership reached Graph writer"))
     calls = []
     def missing(**kwargs):
         calls.append(kwargs)
         raise context.RecapIngestContextError("membership removed", code="world_campaign_membership_not_found", status_code=404)
     monkeypatch.setattr(context, "read_recap_ingest_context", missing)
     with pytest.raises(extract_promote.ExtractPromoteError, match="authority is unavailable"):
-        extract_promote._assert_current_recap_ingest_context(SCOPE, managed_world_id="managed-a", campaign_id="campaign-a")
-    assert calls == [{"managed_world_id": "managed-a", "campaign_id": "campaign-a"}]
+        extract_promote.confirm(request)
+    assert calls == [{"managed_world_id": "managed-world", "campaign_id": "campaign-a"}]
