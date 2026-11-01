@@ -13,8 +13,12 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  world-ownership-tests:
-    name: Synthetic ownership and registry tests
+  world-ownership-suites:
+    name: Ownership boundary tests (${{ matrix.suite }})
+    strategy:
+      fail-fast: false
+      matrix:
+        suite: [world-and-content, ingestion-and-review, saved-page-readers]
     runs-on: ubuntu-24.04
     timeout-minutes: 30
     services:
@@ -58,6 +62,7 @@ jobs:
         run: uv sync --locked
 
       - name: Lint ownership and binding changes
+        if: matrix.suite == 'world-and-content'
         run: >-
           uv run --locked ruff check
           src/application_state/content/types.py
@@ -106,7 +111,8 @@ jobs:
           apps/live_control_server/services/reviewed_corpus_publication.py
           tests/test_reviewed_corpus_publication.py
 
-      - name: Run synthetic ownership boundary tests
+      - name: Run World and Content ownership tests
+        if: matrix.suite == 'world-and-content'
         run: >-
           uv run --locked pytest -q --tb=short --show-capture=no
           tests/application_state/test_world_catalog_postgres.py
@@ -126,6 +132,11 @@ jobs:
           tests/test_world_container_registry.py
           tests/test_world_graph_binding.py
           tests/test_reviewed_native_graph_activation.py
+
+      - name: Run ingestion and reviewed publication tests
+        if: matrix.suite == 'ingestion-and-review'
+        run: >-
+          uv run --locked pytest -q --tb=short --show-capture=no
           tests/test_native_ingest_review_context.py
           tests/test_source_input_metadata_database.py
           tests/test_native_recap_source_identity.py
@@ -155,6 +166,7 @@ jobs:
           tests/test_reviewed_corpus_publication.py
 
       - name: Run saved-page owner and semantic-reader tests
+        if: matrix.suite == 'saved-page-readers'
         run: >-
           uv run --locked pytest -q --tb=short --show-capture=no
           tests/test_graph_document_source.py
@@ -166,3 +178,15 @@ jobs:
           tests/test_authored_page_database_cutover.py
           tests/test_workspace_document_registry.py
           tests/test_tiptap_markdown_write.py
+
+
+  world-ownership-tests:
+    name: Synthetic ownership and registry tests
+    if: always()
+    needs: world-ownership-suites
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Require every ownership group to pass
+        env:
+          SUITE_RESULT: ${{ needs.world-ownership-suites.result }}
+        run: test "$SUITE_RESULT" = success
