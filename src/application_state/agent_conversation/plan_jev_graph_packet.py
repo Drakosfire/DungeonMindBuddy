@@ -15,6 +15,7 @@ from .rules_authority_types import canonical_bytes, canonical_sha256
 from .context_trace import TraceSourcePassage, TraceSourceReuse, TraceFailure
 
 from .plan_source_selectors import FRAME_SCHEMA as SCHEMA, source_selector
+NATIVE_WORK_SCHEMA = "dmb_plan_work_evidence_v1"
 _METADATA = {"reviewId", "contributionId", "publicationRevisionId", "sourceArtifactId", "sourceRevisionId", "evidenceRefIds"}
 _TARGETS = (("attributes", "assertion", "assertionId"), ("reviewedSourceObservations", "assertion", "assertionId"),
             ("relationships", "relationship", "edgeId"))

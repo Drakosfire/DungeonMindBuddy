@@ -1,5 +1,6 @@
 """Shared context substitution guards; these do not establish live admission."""
 from copy import deepcopy
+from hashlib import sha256
 import json
 from uuid import uuid4
 
@@ -18,6 +19,9 @@ from application_state.agent_conversation.native_statement_input import NativeAu
 from application_state.agent_conversation.rules_authority_types import canonical_sha256
 
 
+WORK_MARKDOWN = "# Work\n\nAn unplayed possibility.\n"
+
+
 def work(surface):
     if surface == "build":
         return BuildWorkContextV1(source_basis=t.BuildSourceContextBasisV1(
@@ -26,7 +30,7 @@ def work(surface):
     if surface == "plan":
         return PlanWorkContextV1(plan_basis=t.PlanAskContextBasis(
             world_id="world-one", document_id="plan-one", object_revision=4,
-            work_revision_id=uuid4(), revision_n=2, content_sha256="a" * 64),
+            work_revision_id=uuid4(), revision_n=2, content_sha256=sha256(WORK_MARKDOWN.encode()).hexdigest()),
             plan_context_policy=t.PlanContextPolicyV2(policy="auto_plan_world",
                 graph_source="reviewed_native_graph"), playable_target=None)
     return PlayWorkContextV1(play_basis=t.PlayRunTurnContextReceiptV2(
@@ -163,7 +167,8 @@ def provenance_for(work_context):
             kind="dmb_build_source_visibility_v1", object_id=basis.visibility, revision="1")]
     else:
         primary, supporting = t.encode_play_run_turn_context_references(work_context.play_basis)
-    return t.TurnProvenance(world_id="world-one", surface_resolution="resolved",
+    return t.TurnProvenance(world_id=(work_context.source_basis.world_id if isinstance(work_context,BuildWorkContextV1)
+        else work_context.plan_basis.world_id if isinstance(work_context,PlanWorkContextV1) else work_context.play_basis.world_id), surface_resolution="resolved",
         surface_id=work_context.surface_id, surface_instance_id=work_context.surface_id + ":test",
         primary_work=primary, supporting_work=supporting,
         selected_object=t.HistoricalReference(resolution="absent"))

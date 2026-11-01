@@ -15,7 +15,6 @@ from . import native_corpus as bodies
 from . import native_plan_statements as statements
 from . import native_plan_assertions as assertions
 from .native_writer import verify_input_records
-from .native_execution import NativeWriterAuthorizedV1
 from .native_statement_input import Strict
 from .native_rules_output import verify_captured_text
 from .rules_authority_types import canonical_bytes, canonical_sha256
@@ -84,16 +83,16 @@ def _validate_citations(completion, receipt, execution, auth, evidence):
 
 
 def normalize_output(receipt, execution, authorization, *, prepared_request_json, raw_output_json,
-                     capture, trace, world_id, conversation_id, turn_id, attempt):
+                     capture, trace, world_id, conversation_id, turn_id, attempt,
+                     provenance, idempotency_key, work_proof):
     """Reconstruct completion from exact producing input and final captured SDK text.
 
     The caller supplies its locked Turn identity and protected trace. This helper
     grants no read, write, publication, Rules or authored-work authority.
     """
-    evidence = verify_input_records(receipt,execution,authorization,prepared_request_json)
-    if (type(authorization) is not NativeWriterAuthorizedV1 or world_id != execution.policy.action.intent.world_id
-            or type(conversation_id) is not UUID or type(turn_id) is not UUID or type(attempt) is not int or attempt < 1):
-        raise ValueError('Native completion differs from its actual Turn identity')
+    evidence = verify_input_records(receipt,execution,authorization,prepared_request_json,
+        provenance=provenance,idempotency_key=idempotency_key,work_proof=work_proof,
+        world_id=world_id,conversation_id=conversation_id,turn_id=turn_id,attempt=attempt)
     responses = [e for e in execution.events if isinstance(e,t.ProviderOutcomeEventV1)
         and e.provider_attempt_id == authorization.provider_attempt_id and e.outcome == 'response_received']
     if (len(responses) != 1 or not responses[0].request_id

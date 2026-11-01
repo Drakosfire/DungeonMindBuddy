@@ -12,15 +12,15 @@ import pytest
 
 from application_state.agent_conversation import types as t
 from application_state.agent_conversation.native_completion import normalize_output, verify_completion, SurfaceNativeCompletionV1
-from application_state.agent_conversation.native_writer import model_frame
+from application_state.agent_conversation.native_writer import model_frame, model_work_frame
 from application_state.agent_conversation.native_plan_assertions import POLICY
 from apps.live_control_server.services.native_rules_capture import NativeProviderReply
-from tests.test_surface_native_writer import body_case, published_case, published_lane as published_lane, authorize
+from tests.test_surface_native_writer import body_case, published_case, published_lane as published_lane, authorize, work_submission, with_work_selection
 from tests.test_native_corpus_source_access import lane as lane
 from tests.test_surface_native_execution import execution, outcomes
 
 
-async def sdk_reply(frame, answer):
+async def sdk_reply(frame, answer, work_frame):
     sent=[]
     raw=json.dumps(answer)
     def wire(request):
@@ -31,7 +31,7 @@ async def sdk_reply(frame, answer):
                  'content':[{'type':'output_text','text':raw,'annotations':[]}]}]})
     async with AsyncOpenAI(api_key='synthetic-not-secret',http_client=httpx.AsyncClient(
             transport=httpx.MockTransport(wire))) as client:
-        response=await client.responses.create(model='gpt-6-luna',input=[dict(role='user',content=json.dumps(frame))],
+        response=await client.responses.create(model='gpt-6-luna',input=[dict(role='user',content=json.dumps(value)) for value in (frame,work_frame)],
             tools=[],stream=False,max_output_tokens=4096)
     assert response.status=='completed' and response.output_text==raw and len(sent)==1
     return sent[0],response.output_text
@@ -42,8 +42,11 @@ def answer(rows, *, limitations=(), gaps=()):
 
 
 def producing_case(context, record, candidate):
+    record=with_work_selection(record)
+    work=work_submission(context,record)
+    identity={k:work[k] for k in ('world_id','conversation_id','turn_id','attempt')}
     frame=model_frame(context,record)
-    raw_request,raw_output=asyncio.run(sdk_reply(frame,candidate))
+    raw_request,raw_output=asyncio.run(sdk_reply(frame,candidate,model_work_frame(context,record,**work)))
     stored,auth=authorize(context,record,raw_request,frame)
     api_request_id=f'generationengine:{auth.provider_attempt_id}'
     terminal=outcomes(auth,len(stored.events))
@@ -51,12 +54,11 @@ def producing_case(context, record, candidate):
     stored=execution(context.context_receipt_sha256,stored.policy,[*stored.events,*terminal])
     capture=NativeProviderReply('synthetic-sdk-authorization',api_request_id,auth.provider,auth.model,auth.api_mode,
         auth.envelope_sha256,'stop','answered',raw_output,sha256(raw_output.encode()).hexdigest(),len(raw_output.encode()),())
-    identity=dict(world_id=record.policy.action.intent.world_id,conversation_id=uuid4(),turn_id=uuid4(),attempt=1)
     trace={**identity,'conversation_id':str(identity['conversation_id']),'turn_id':str(identity['turn_id']),
         'capture_status':'recording','observations':[{'kind':'context_snapshot','stage':'after','materials':[
             {'item_id':f'unvalidated-provider-answer:{auth.provider_attempt_id}:{context.context_receipt_sha256}',
              'role':'assistant','state':'model_context','text':raw_output}]}]}
-    proof=dict(prepared_request_json=raw_request,raw_output_json=raw_output,capture=capture,trace=trace,**identity)
+    proof=dict(prepared_request_json=raw_request,raw_output_json=raw_output,capture=capture,trace=trace,**work)
     return stored,auth,proof
 
 

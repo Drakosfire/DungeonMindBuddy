@@ -219,7 +219,8 @@ def verify_plan_rules_packet_input(execution: RulesExecutionV1, turn, prepared_r
 
 def verify_native_rules_packet_input(execution, receipt, graph_execution, prepared_request_json, *,
                                      provider_attempt_id, expected_envelope_sha256, idempotency_key,
-                                     submitted_intent_fingerprint, world_id, conversation_id, turn_id, attempt):
+                                     submitted_intent_fingerprint, world_id, conversation_id, turn_id, attempt,
+                                     provenance, work_proof):
     """Shared record proof; actual locked consumer identity remains mandatory.
 
     No synthetic Turn and no new Rules event family. The generic Rules ledger
@@ -238,12 +239,13 @@ def verify_native_rules_packet_input(execution, receipt, graph_execution, prepar
     if len(writers) != 1:
         raise ValueError('Shared Rules input requires its exact native writer')
     writer = writers[0]
-    evidence = verify_input_records(receipt, graph_execution, writer, prepared_request_json)
+    evidence = verify_input_records(receipt,graph_execution,writer,prepared_request_json,
+        provenance=provenance,idempotency_key=idempotency_key,work_proof=work_proof,
+        world_id=world_id,conversation_id=conversation_id,turn_id=turn_id,attempt=attempt)
     scope, action = execution.scope, graph_execution.policy.action
     capability = rules_capability(graph=True)
-    if (execution.state != 'active' or type(idempotency_key) is not UUID or type(attempt) is not int
+    if (execution.state != 'active'
             or t.submitted_turn_intent_fingerprint_v2(action.intent) != submitted_intent_fingerprint
-            or world_id != action.intent.world_id
             or (scope.world_id,scope.conversation_id,scope.turn_id,scope.product_attempt) !=
                 (world_id,conversation_id,turn_id,attempt)
             or scope.capability_policy_sha256 != capability.policy_sha256

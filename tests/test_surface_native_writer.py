@@ -11,9 +11,9 @@ import pytest
 
 from application_state.agent_conversation import types as t
 from application_state.agent_conversation import native_corpus as corpus
-from application_state.agent_conversation.native_writer import model_frame, verify_input_records
+from application_state.agent_conversation.native_writer import model_frame, model_work_frame, verify_input_records
 from tests.test_native_corpus_source_access import lane as lane, admit, capture
-from tests.test_surface_native_context import seal
+from tests.test_surface_native_context import seal, provenance_for, WORK_MARKDOWN
 from tests.test_surface_native_execution import (
     component, execution, controller, decision_prefix, outcomes, choice, native_writer,
 )
@@ -33,6 +33,9 @@ def body_case(surface, lane, *, failed=False, full=False):
     data['source_authority'] = sources.authority.model_dump(mode='json')
     first = controller(surface, record.policy)
     data['assembled_input']['tokenizer_name'] = first.input_estimator
+    work=type(context.work_context).model_validate(data['work_context'])
+    data['provenance_sha256']=t.canonical_sha256(provenance_for(work).model_copy(
+        update={'surface_instance_id':surface+':one'}))
     context = type(context).model_validate_json(json.dumps(seal(data)))
     intent = record.policy.action.intent.model_copy(update={'world_id':'managed'})
     if surface == 'build':
@@ -75,10 +78,30 @@ def body_case(surface, lane, *, failed=False, full=False):
     active = controller(surface, policy, sequence=len(events), semantic=False)
     events.extend([active, *outcomes(active, len(events)+1)])
     events.append(choice(context, record, active, len(events), 'finish_retrieval'))
-    return context, execution(context.context_receipt_sha256, policy, events), read
+    return context, with_work_selection(execution(context.context_receipt_sha256, policy, events)), read
 
 
-async def actual_sdk_request(frame, *, model='gpt-6-luna'):
+def with_work_selection(record):
+    if record.policy.action.surface_id != 'build' or any(isinstance(e,t.BuildWriterEvidenceSelectionV1) for e in record.events):
+        return record
+    controller_event=next(e for e in reversed(record.events) if isinstance(e,t.ProviderAttemptAuthorizedEventV1))
+    vote=t.BuildWriterEvidenceSelectionV1(kind='build_writer_evidence_selection_v1',event_id=uuid4(),sequence=len(record.events),
+        policy='source_unit_selection_event_closure_v1',mode='jev',controller_attempt_id=controller_event.provider_attempt_id,
+        controller_envelope_sha256=controller_event.envelope_sha256,controller_response_sha256='f'*64,
+        catalog_sha256='a'*64,basis_sha256='b'*64,terminal_disposition={},judgments={},requested_unit_ids=[],
+        expanded_unit_ids=[],omitted_unit_ids=[],source_event_ids=[],section_read_ids=[])
+    return execution(record.context_receipt_sha256,record.policy,[*record.events,vote])
+
+
+def work_submission(context,record):
+    provenance=provenance_for(context.work_context).model_copy(update={
+        'surface_instance_id':record.policy.action.intent.surface_instance_id})
+    return dict(provenance=provenance,idempotency_key=uuid4(),world_id=record.policy.action.intent.world_id,
+        conversation_id=uuid4(),turn_id=uuid4(),attempt=1,work_proof=(
+            dict(plan_markdown=WORK_MARKDOWN,session_evidence=[],dialogue=[]) if record.policy.action.surface_id=='plan' else {}))
+
+
+async def actual_sdk_request(frame, *, model='gpt-6-luna', work_frame=None):
     sent = []
     def wire(request):
         sent.append(request.content.decode())
@@ -86,7 +109,8 @@ async def actual_sdk_request(frame, *, model='gpt-6-luna'):
             'created_at':1, 'model':model, 'status':'completed', 'output':[]})
     async with AsyncOpenAI(api_key='synthetic-not-secret', http_client=httpx.AsyncClient(
             transport=httpx.MockTransport(wire))) as client:
-        await client.responses.create(model=model, input=[dict(role='user',content=json.dumps(frame))],
+        await client.responses.create(model=model, input=[dict(role='user',content=json.dumps(value))
+            for value in ([frame] if work_frame is None else [frame,work_frame])],
             tools=[], stream=False, max_output_tokens=4096)
     assert len(sent) == 1
     return sent[0]
@@ -99,7 +123,22 @@ def authorize(context, record, raw, frame):
     auth = native_writer(surface, record.policy, sequence=len(record.events), read_ids=reads).model_copy(update={
         'envelope_sha256':sha256(raw.encode()).hexdigest(), 'frame_sha256':t.canonical_sha256(frame),
         'tool_schema_sha256':t.canonical_sha256([])})
-    return execution(context.context_receipt_sha256, record.policy, [*record.events,auth]), auth
+    events=list(record.events)
+    if surface=='build':
+        from application_state.agent_conversation import build_draft_context as draft, build_primary_context as primary
+        if record.policy.action.intent.build_draft_context_sha256 is not None:
+            captured=draft.context_record(record)
+            events.append(t.BuildDraftProviderInclusionV1(kind='build_draft_provider_inclusion_v1',event_id=uuid4(),sequence=len(events),
+                provider_attempt_id=auth.provider_attempt_id,envelope_sha256=auth.envelope_sha256,
+                draft_event_id=captured.event_id,snapshot_sha256=captured.record.snapshot.snapshot_sha256))
+        chosen=primary.records(record)
+        if chosen:
+            events.append(t.BuildSectionProviderInclusionV1(kind='build_section_provider_inclusion_v1',event_id=uuid4(),sequence=len(events),
+                provider_attempt_id=auth.provider_attempt_id,envelope_sha256=auth.envelope_sha256,
+                context_receipt_sha256=context.context_receipt_sha256,execution_policy_sha256=record.execution_policy_sha256,
+                section_event_ids=sorted((row.event_id for row in chosen),key=str),sections_sha256=t.build_sections_digest(chosen)))
+    auth=auth.model_copy(update={'sequence':len(events)})
+    return execution(context.context_receipt_sha256, record.policy, [*events,auth]), auth
 
 
 @pytest.mark.parametrize('surface', ['build','plan'])
@@ -107,9 +146,10 @@ def authorize(context, record, raw, frame):
 def test_actual_sdk_native_body_input_returns_only_exact_selected_supports(lane, surface, failed, full):
     context, record, read = body_case(surface, lane, failed=failed, full=full)
     frame = model_frame(context, record)
-    raw = asyncio.run(actual_sdk_request(frame))
+    work=work_submission(context,record)
+    raw = asyncio.run(actual_sdk_request(frame,work_frame=model_work_frame(context,record,**work)))
     stored, auth = authorize(context, record, raw, frame)
-    supports = verify_input_records(context, stored, auth, raw)
+    supports = verify_input_records(context, stored, auth, raw,**work)
     assert supports.frame == frame
     assert supports.native_statements == supports.native_assertions == ()
     assert frame['native_statements']['status'] == 'unavailable' and frame['native_assertions'] is None
@@ -129,7 +169,7 @@ def test_actual_sdk_native_body_input_returns_only_exact_selected_supports(lane,
     # Later provider outcomes cannot change the already producing frame.
     finished = execution(context.context_receipt_sha256, stored.policy,
         [*stored.events, *outcomes(auth, len(stored.events))])
-    assert verify_input_records(context, finished, auth, raw) == supports
+    assert verify_input_records(context, finished, auth, raw,**work) == supports
 
 
 @pytest.mark.parametrize('surface', ['build','plan'])
@@ -137,7 +177,8 @@ def test_actual_sdk_native_body_input_returns_only_exact_selected_supports(lane,
 def test_native_input_refuses_actual_sdk_and_stored_authorization_substitution(lane, surface, mutation):
     context, record, _ = body_case(surface, lane)
     frame = model_frame(context, record)
-    raw = asyncio.run(actual_sdk_request(frame))
+    work=work_submission(context,record)
+    raw = asyncio.run(actual_sdk_request(frame,work_frame=model_work_frame(context,record,**work)))
     body = json.loads(raw)
     if mutation in {'text','extent'}:
         row = frame['native_body_evidence']['excerpts'][0]
@@ -169,7 +210,7 @@ def test_native_input_refuses_actual_sdk_and_stored_authorization_substitution(l
     elif mutation == 'bytes':
         raw += '\n'
     with pytest.raises(ValueError):
-        verify_input_records(context, stored, auth, raw)
+        verify_input_records(context, stored, auth, raw,**work)
 
 
 @pytest.mark.parametrize('surface', ['build','plan'])
@@ -211,6 +252,9 @@ def published_case(surface, lane):
     data['source_authority']['managed_world_id'] = world
     data['native_query'] = result.model_dump(mode='json', by_alias=True)
     data['assembled_input']['tokenizer_name'] = controller(surface, record.policy).input_estimator
+    work=type(context.work_context).model_validate(data['work_context'])
+    data['provenance_sha256']=t.canonical_sha256(provenance_for(work).model_copy(
+        update={'surface_instance_id':surface+':one'}))
     context = type(context).model_validate_json(json.dumps(seal(data)))
     intent = record.policy.action.intent.model_copy(update={'world_id':world,'message':result.question})
     if surface == 'build':
@@ -240,16 +284,17 @@ def published_case(surface, lane):
         active = controller(surface, policy, sequence=len(events), semantic=False)
         events.extend([active, *outcomes(active, len(events)+1)])
         events.append(choice(context, record, active, len(events), 'finish_retrieval'))
-    return context, execution(context.context_receipt_sha256, policy, events)
+    return context, with_work_selection(execution(context.context_receipt_sha256, policy, events))
 
 
 @pytest.mark.parametrize('surface', ['build','plan'])
 def test_shared_input_preserves_actual_core_statement_and_assertion_qualifications(published_lane, surface):
     context, record = published_case(surface, published_lane)
     frame = model_frame(context, record)
-    raw = asyncio.run(actual_sdk_request(frame))
+    work=work_submission(context,record)
+    raw = asyncio.run(actual_sdk_request(frame,work_frame=model_work_frame(context,record,**work)))
     stored, auth = authorize(context, record, raw, frame)
-    supports = verify_input_records(context, stored, auth, raw)
+    supports = verify_input_records(context, stored, auth, raw,**work)
     assert supports.body_excerpts == ()
     assert supports.native_statements and supports.native_assertions
     for handle, event, read in supports.native_statements:

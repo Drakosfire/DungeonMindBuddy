@@ -16,7 +16,7 @@ from application_state.agent_conversation.native_execution import (
     SurfaceNativeExecutionPolicyV1, SurfaceNativeExecutionV1, NativeWriterAuthorizedV1, validate_context_binding,
 )
 from application_state.build_proposal.types import BuildWriteCapability
-from tests.test_surface_native_context import wire, seal
+from tests.test_surface_native_context import wire, seal, provenance_for
 from tests.test_build_decision_context import constant
 from tests.test_play_graph_authority import intent_wire
 
@@ -26,6 +26,9 @@ def component(surface="plan", *, unavailable=False):
     if not unavailable:
         data["native_query"]["authority"].update(scope_mode="world", campaign_id=None)
     context = SurfaceNativeContextReceiptV1.model_validate_json(json.dumps(seal(data)))
+    provenance=provenance_for(context.work_context).model_copy(update={'surface_instance_id':surface+':one'})
+    data['provenance_sha256']=t.canonical_sha256(provenance)
+    context=SurfaceNativeContextReceiptV1.model_validate_json(json.dumps(seal(data)))
     work = context.work_context
     common = dict(world_id="world-one", client_thread_id="thread-one", message="What did the check reveal?",
         surface_id=surface, surface_instance_id=surface+":one", client_work_state="saved_clean")

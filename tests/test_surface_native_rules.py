@@ -16,9 +16,9 @@ from application_state.agent_conversation.rules_authority_policy import rules_ca
 from application_state.agent_conversation.rules_authority_plan_packet import build_plan_rules_frame, verify_native_rules_packet_input
 from application_state.agent_conversation.plan_writer_output_schema import native_output_format
 from application_state.agent_conversation.native_rules_output import NativeRulesOutputProofV1, normalize_shared_native_output
-from application_state.agent_conversation.native_writer import model_frame
+from application_state.agent_conversation.native_writer import model_frame, model_work_frame
 from apps.live_control_server.services.native_rules_capture import NativeProviderReply
-from tests.test_surface_native_writer import body_case, authorize, published_case, published_lane as published_lane
+from tests.test_surface_native_writer import body_case, authorize, published_case, published_lane as published_lane, work_submission
 from tests.test_surface_native_completion import answer
 from tests.test_surface_native_execution import execution, outcomes
 from tests.test_native_corpus_source_access import lane as lane
@@ -26,7 +26,7 @@ from tests.test_rules_lookup_broker import execution as initial_rules, lookup, a
 from tests.test_rules_build_input import append
 
 
-async def sdk(frame, rules, candidate, *, mutate_request=None):
+async def sdk(frame, rules, candidate, *, work_frame, mutate_request=None):
     sent=[]
     raw=json.dumps(candidate)
     def wire(request):
@@ -36,7 +36,8 @@ async def sdk(frame, rules, candidate, *, mutate_request=None):
                 {'type':'message','id':'msg_shared_rules','role':'assistant','status':'completed',
                  'content':[{'type':'output_text','text':raw,'annotations':[]}]}]})
     inputs=[dict(role='user',content=json.dumps(frame)),
-        dict(role='user',content=rules.model_dump_json(by_alias=True))]
+        dict(role='user',content=rules.model_dump_json(by_alias=True)),
+        dict(role='user',content=json.dumps(work_frame))]
     fmt=native_output_format(frame,rules)
     if mutate_request:
         mutate_request(inputs,fmt)
@@ -48,12 +49,13 @@ async def sdk(frame, rules, candidate, *, mutate_request=None):
     return sent[0],response.output_text
 
 
-def producing_case(lane,surface,*,unused=False,base=True,mutation=None,context_record=None,candidate_mutation=None):
+def producing_case(lane,surface,*,unused=False,base=True,mutation=None,context_record=None,candidate_mutation=None,work_override=None):
     context,record = context_record if context_record is not None else body_case(surface,lane)[:2]
     frame=model_frame(context,record)
     intent=record.policy.action.intent
-    identity=dict(world_id=intent.world_id,conversation_id=uuid4(),turn_id=uuid4(),attempt=1)
-    submission=dict(**identity,idempotency_key=uuid4(),submitted_intent_fingerprint=t.submitted_turn_intent_fingerprint_v2(intent))
+    work=work_submission(context,record) if work_override is None else work_override
+    identity={k:work[k] for k in ('world_id','conversation_id','turn_id','attempt')}
+    submission=dict(**work,submitted_intent_fingerprint=t.submitted_turn_intent_fingerprint_v2(intent))
     cap=rules_capability(graph=True)
     owner=initial_rules()
     scope=owner.scope.model_copy(update=dict(world_id=identity['world_id'],conversation_id=identity['conversation_id'],
@@ -71,9 +73,11 @@ def producing_case(lane,surface,*,unused=False,base=True,mutation=None,context_r
     if frame['native_body_evidence']['excerpts']:
         handle=frame['native_body_evidence']['excerpts'][0]['excerpt_handle']
         candidate=answer([dict(kind='native_body_claim',text='The check revealed another plane.',excerpt_handles=[handle])])
-    else:
+    elif frame['native_assertions'] and frame['native_assertions']['assertions']:
         candidate=answer([dict(kind='native_assertion_claim',text='The Graph preserves a qualified belief.',
             assertion_handles=[row['assertion_handle'] for row in frame['native_assertions']['assertions']])])
+    else:
+        candidate=answer([dict(kind='proposal',label='invented_idea',text='An unplayed possibility.')])
     if not unused:
         candidate=dict(schema='dmb_rules_mixed_answer_v1',base_output=candidate if base else None,
             rules_segments=[dict(kind='rules_claim',text='An occupied space prevents ending movement.',
@@ -81,7 +85,7 @@ def producing_case(lane,surface,*,unused=False,base=True,mutation=None,context_r
                     [dict(domain='base',segment_index=None)] if base else [])+[dict(domain='rules',segment_index=0)])
     if candidate_mutation:
         candidate_mutation(candidate)
-    raw_request,raw_output=asyncio.run(sdk(frame,rules,candidate,mutate_request=mutation))
+    raw_request,raw_output=asyncio.run(sdk(frame,rules,candidate,work_frame=model_work_frame(context,record,**work),mutate_request=mutation))
     stored,auth=authorize(context,record,raw_request,frame)
     api_request_id=f'generationengine:{auth.provider_attempt_id}'
     terminal=outcomes(auth,len(stored.events))

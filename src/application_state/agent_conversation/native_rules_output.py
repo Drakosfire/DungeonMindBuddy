@@ -470,7 +470,7 @@ def normalize_native_mixed_output(
 
 def normalize_shared_native_output(receipt, graph_execution, rules_execution, proof, capture, *,
                                    trace, idempotency_key, submitted_intent_fingerprint,
-                                   world_id, conversation_id, turn_id, attempt):
+                                   world_id, conversation_id, turn_id, attempt, provenance, work_proof):
     """One captured response, two existing evidence owners, no synthetic Turn.
 
     The locked consumer must supply its actual submission identity and persist
@@ -480,7 +480,8 @@ def normalize_shared_native_output(receipt, graph_execution, rules_execution, pr
     from .source_writer_output import require_captured_answer
 
     submission = dict(idempotency_key=idempotency_key,submitted_intent_fingerprint=submitted_intent_fingerprint,
-        world_id=world_id,conversation_id=conversation_id,turn_id=turn_id,attempt=attempt)
+        world_id=world_id,conversation_id=conversation_id,turn_id=turn_id,attempt=attempt,
+        provenance=provenance,work_proof=work_proof)
     evidence, frame = verify_native_reply(graph_execution,rules_execution,proof,capture,
         native_context=receipt,native_submission=submission)
     require_captured_answer(trace,world_id=world_id,conversation_id=conversation_id,turn_id=turn_id,

@@ -1,11 +1,12 @@
 """Shared native writer evidence from actual admitted read records.
 
-This proof covers native evidence, not surface work, Rules or output acceptance.
-Those owners must verify their actual SDK input/output before shared Turn activation.
+The producing input must contain both native evidence and exact surface work.
+Rules, authored output and locked Turn acceptance remain separately owned.
 No synthetic Plan Turn or second durable inclusion witness is constructed here.
 """
 from dataclasses import dataclass
 from hashlib import sha256
+from uuid import UUID
 
 from . import types as t
 from .native_context import SurfaceNativeContextReceiptV1
@@ -51,12 +52,46 @@ def model_frame(receipt, execution):
 class NativeWriterEvidence:
     """Transient supports; eligibility still requires completion/output proof."""
     frame: dict
+    work_frame: dict
     body_excerpts: tuple
     native_statements: tuple
     native_assertions: tuple
 
 
-def verify_input_records(receipt, execution, authorization, raw):
+def model_work_frame(receipt, execution, *, provenance, idempotency_key, work_proof,
+                     world_id, conversation_id, turn_id, attempt):
+    """Reconstruct real surface work through its owner; no second stored authority."""
+    from .native_context import validate_work_context, BuildWorkContextV1, PlanWorkContextV1
+    validate_execution_binding(receipt,execution)
+    validate_work_context(receipt,provenance)
+    action=execution.policy.action
+    if (world_id != action.intent.world_id or provenance.surface_instance_id != action.intent.surface_instance_id
+            or any(type(value) is not UUID for value in (idempotency_key,conversation_id,turn_id))
+            or type(attempt) is not int or attempt < 1):
+        raise ValueError('Native writer work differs from its actual submission identity')
+    if any(type(event) is NativeWriterAuthorizedV1 for event in execution.events):
+        raise ValueError('Native work projection requires the prefix before its writer')
+    if isinstance(receipt.work_context,BuildWorkContextV1):
+        from .build_primary_context import native_work_frame
+        from .build_draft_context import context_record, validate_native_record
+        if not isinstance(work_proof,dict) or work_proof:
+            raise ValueError('Native Build work must use its captured records, not supplied bodies')
+        if action.intent.build_draft_context_sha256 is not None:
+            validate_native_record(context_record(execution).record,receipt,execution,world_id=world_id,
+                conversation_id=conversation_id,turn_id=turn_id,attempt=attempt,
+                submitted_intent_fingerprint=t.submitted_turn_intent_fingerprint_v2(action.intent))
+        if action.write_capability is not None and action.write_capability.conversation_id != conversation_id:
+            raise ValueError('Native Build writer capability belongs to another conversation')
+        return native_work_frame(execution,receipt.work_context.source_basis)
+    if isinstance(receipt.work_context,PlanWorkContextV1):
+        from .plan_jev_graph_packet import project_native_plan_work, NATIVE_WORK_SCHEMA
+        return dict(schema=NATIVE_WORK_SCHEMA,**project_native_plan_work(receipt,execution,provenance,
+            idempotency_key,work_proof,conversation_id=conversation_id))
+    raise ValueError('Native Play writer requires its actual single-provider work-input owner')
+
+
+def verify_input_records(receipt, execution, authorization, raw, *, provenance, idempotency_key,
+                         work_proof, world_id, conversation_id, turn_id, attempt):
     """Bind one shared native frame to the exact stored producing SDK request."""
     if (type(receipt), type(execution), type(authorization)) != (
             SurfaceNativeContextReceiptV1, SurfaceNativeExecutionV1, NativeWriterAuthorizedV1):
@@ -70,6 +105,11 @@ def verify_input_records(receipt, execution, authorization, raw):
     prefix = SurfaceNativeExecutionV1.model_validate_json(execution.model_copy(
         update={"events": execution.events[:authorization.sequence]}).model_dump_json(by_alias=True))
     expected = model_frame(receipt, prefix)
+    expected_work = model_work_frame(receipt,prefix,provenance=provenance,idempotency_key=idempotency_key,
+        work_proof=work_proof,world_id=world_id,conversation_id=conversation_id,turn_id=turn_id,attempt=attempt)
+    work_frame = responses_text_frame(raw,schemas={expected_work['schema']},label='Native surface work')
+    if t.canonical_sha256(work_frame) != t.canonical_sha256(expected_work):
+        raise ValueError('Native writer changed or omitted its exact surface work')
     body = strict_json(raw)
     frame = responses_text_frame(raw, schemas={SCHEMA}, label="Native writer")
     if ((authorization.provider, authorization.api_mode, authorization.serializer_version)
@@ -85,7 +125,7 @@ def verify_input_records(receipt, execution, authorization, raw):
     body_reads = bodies.selected_body_reads(prefix)
     statement_reads = statements.selected_read_records(prefix)
     assertion_reads = assertions.selected_read_records(prefix)
-    return NativeWriterEvidence(frame=expected,
+    return NativeWriterEvidence(frame=expected,work_frame=expected_work,
         body_excerpts=tuple(bodies.NativeBodySupport(body_handle(read), read,
             catalogs[read.excerpt.catalog_sha256]) for read in body_reads),
         native_statements=tuple((row['statement_handle'], event, read) for row, (event, read)

@@ -12,7 +12,7 @@ from application_state.agent_conversation import build_draft_context as draft
 from application_state.agent_conversation import build_primary_context as primary
 from application_state.agent_conversation.native_execution import validate_context_binding
 from tests.test_surface_native_execution import component, execution, controller, outcomes, native_writer
-from tests.test_surface_native_context import seal
+from tests.test_surface_native_context import seal, provenance_for
 
 SAVED='# Page\r\n\r\nSaved orchid 🌸.\r\n'
 DRAFT='An unsaved possibility, not a played event. 🌸\n'
@@ -33,6 +33,8 @@ def case(*, with_draft=True, selected=True, draft_text=DRAFT):
     first=controller('build',policy,sequence=2 if with_draft else 0)
     data=context.model_dump(mode='json',by_alias=True)
     data['work_context']['source_basis']=basis.model_dump(mode='json',by_alias=True)
+    data['provenance_sha256']=t.canonical_sha256(provenance_for(type(context.work_context).model_validate(
+        data['work_context'])).model_copy(update={'surface_instance_id':intent.surface_instance_id}))
     data['assembled_input']['tokenizer_name']=first.input_estimator
     context=type(context).model_validate_json(json.dumps(seal(data)))
     root=execution(context.context_receipt_sha256,policy)
