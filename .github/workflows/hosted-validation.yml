@@ -57,6 +57,8 @@ jobs:
           apps/live_control_server/services/dms_principal.py
           tests/test_dms_principal.py
           tests/test_hosted_auth_login.py
+          apps/live_control_server/services/native_recap_preparation.py
+          tests/test_native_recap_preparation.py
 
       - name: Run auth/app integration tests
         run: |
@@ -66,7 +68,8 @@ jobs:
             tests/test_dms_principal.py \
             tests/test_trusted_cookie_origin.py \
             tests/test_agent_graph_auth.py \
-            tests/test_native_graph_inspection.py
+            tests/test_native_graph_inspection.py \
+            tests/test_native_recap_preparation.py
 
   production-image-build:
     name: Production Docker build (no push)
