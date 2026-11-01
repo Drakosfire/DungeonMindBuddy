@@ -217,6 +217,11 @@ class SurfaceNativeExecutionV1(Strict):
                             t.NativePlanAssertionReadObservedV1, t.NativeBodyReadObservedV1))), key=str))
                     if event.native_read_event_ids != reads:
                         raise ValueError("Native writer changed its exact settled read inclusion set")
+                    if isinstance(self.policy.action,NativeBuildActionV1) and any(isinstance(prior,
+                            (t.BuildSectionReadAuthorizationV1,t.ValidatedBuildSectionReadV1,t.BuildWriterEvidenceSelectionV1))
+                            for prior in self.events[:event.sequence]):
+                        from .build_primary_context import validate_writer_reads
+                        validate_writer_reads(self,event)
                 if isinstance(roles, t.GraphControllerWriterRolesV1):
                     if identity == roles.writer.identity() and type(event) is not NativeWriterAuthorizedV1:
                         raise ValueError("Native writer requires its exact shared selected-read inclusion codec")
@@ -231,6 +236,18 @@ class SurfaceNativeExecutionV1(Strict):
                     raise ValueError("Native provider cannot acquire absent classic Graph evidence")
                 if isinstance(roles, t.GraphProviderRoleTargetV1) and (event.provider, event.model, event.api_mode) != roles.identity():
                     raise ValueError("Provider differs from its frozen single-provider identity")
+        if isinstance(self.policy.action,NativeBuildActionV1):
+            from .build_draft_context import validate_execution_records, validate_provider_inclusions
+            from .build_primary_context import validate_reads, validate_selection_origin
+            validate_execution_records(self)
+            validate_provider_inclusions(self)
+            validate_reads(self,max_chars=self.policy.action.saved_source_char_count)
+            t.validate_build_section_inclusions(self)
+            for event in self.events:
+                if isinstance(event,t.BuildWriterEvidenceSelectionV1):
+                    validate_selection_origin(self,event)
+                    if event.source_event_ids:
+                        raise ValueError('Native World evidence cannot acquire a second classic source inclusion set')
         if isinstance(roles, t.GraphControllerWriterRolesV1):
             reviewed = [event for event in self.events if isinstance(event, t.BuildReviewedActionSelectionV1)]
             if reviewed:
@@ -267,6 +284,12 @@ def validate_context_binding(context, execution):
     if isinstance(work, BuildWorkContextV1):
         from .build_world_context import validate_work_intent
         validate_work_intent(work.source_basis, action.intent)
+        for event in execution.events:
+            if isinstance(event,t.BuildDraftContextCapturedV1) and event.record.snapshot.saved_basis() != work.source_basis.model_dump(mode='json',by_alias=True):
+                raise ValueError('Working draft differs from its frozen Build source basis')
+            if isinstance(event,(t.BuildSectionReadAuthorizationV1,t.ValidatedBuildSectionReadV1)) and event.source_basis != work.source_basis:
+                raise ValueError('Saved section differs from its frozen Build source authority')
+
     elif isinstance(work, PlanWorkContextV1):
         from .plan_source_context import validate_work_intent
         validate_work_intent(work, action.intent)

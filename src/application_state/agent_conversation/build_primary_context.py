@@ -11,16 +11,74 @@ SCHEMA = "dmb_build_primary_context_writer_v1"
 DRAFT_SCHEMA = "dmb_build_primary_context_writer_v2"
 SCHEMAS = (SCHEMA, DRAFT_SCHEMA)
 ROLE = "authored_page_under_edit_not_world_or_played_truth"
+NATIVE_WORK_SCHEMA = "dmb_build_primary_work_evidence_v1"
 
 
 def enabled(policy):
     from .types import BuildPrimaryWorkPolicyV1, BuildPrimaryWorkImagePolicyV1
 
-    return isinstance(policy, (BuildPrimaryWorkPolicyV1, BuildPrimaryWorkImagePolicyV1))
+    if isinstance(policy, (BuildPrimaryWorkPolicyV1, BuildPrimaryWorkImagePolicyV1)):
+        return True
+    if getattr(policy,'policy_version',None) != 'surface_native_execution_v1':
+        return False
+    from .native_execution import SurfaceNativeExecutionPolicyV1, NativeBuildActionV1
+    return type(policy) is SurfaceNativeExecutionPolicyV1 and type(policy.action) is NativeBuildActionV1
+
+
+
+def context_policy(policy):
+    from .native_execution import SurfaceNativeExecutionPolicyV1, NativeBuildActionV1
+    if type(policy) is SurfaceNativeExecutionPolicyV1 and type(policy.action) is NativeBuildActionV1:
+        return DRAFT_POLICY if policy.action.intent.build_draft_context_sha256 is not None else POLICY
+    return policy.primary_work_context_policy
 
 
 def schema(policy):
-    return DRAFT_SCHEMA if policy.primary_work_context_policy == DRAFT_POLICY else SCHEMA
+    return DRAFT_SCHEMA if context_policy(policy) == DRAFT_POLICY else SCHEMA
+
+
+def validate_reads(execution, *, max_chars):
+    """One causal saved-read validator for actual legacy/shared execution records."""
+    from . import types as t
+    latest_attempt=latest_outcome=None
+    authorizations,reads={},set()
+    for event in execution.events:
+        if isinstance(event,t.BuildSectionReadAuthorizationV1):
+            if (latest_attempt is None or latest_outcome != 'response_received'
+                    or event.read_id in authorizations or event.max_chars > max_chars):
+                raise ValueError('Build section requires a resolved controller and unique authorization')
+            authorizations[event.read_id]=event
+        elif isinstance(event,t.ValidatedBuildSectionReadV1):
+            auth=authorizations.get(event.read_id)
+            if (auth is None or event.read_id in reads
+                    or event.source_basis != auth.source_basis or event.source_class != auth.source_class
+                    or event.line_start != auth.line_start or event.line_end != auth.line_end
+                    or len(event.text) > auth.max_chars):
+                raise ValueError('Build section receipt differs from its unique prior authorization')
+            reads.add(event.read_id)
+        elif isinstance(event,t.ProviderAttemptAuthorizedEventV1):
+            if set(authorizations) != reads:
+                raise ValueError('Provider cannot proceed with an unresolved Build section read')
+            latest_attempt,latest_outcome=event.provider_attempt_id,None
+        elif isinstance(event,t.ProviderOutcomeEventV1) and event.provider_attempt_id == latest_attempt:
+            latest_outcome=event.outcome
+
+
+def validate_selection_origin(execution, event):
+    """A saved-work relevance vote must follow its one acknowledged controller."""
+    from . import types as t
+    before=execution.events[:event.sequence]
+    providers=[e for e in before if isinstance(e,t.ProviderAttemptAuthorizedEventV1)]
+    latest=providers[-1] if providers else None
+    outcomes=[e.outcome for e in before if isinstance(e,t.ProviderOutcomeEventV1)
+        and latest is not None and e.provider_attempt_id == latest.provider_attempt_id]
+    if (latest is None or not outcomes or outcomes[-1] != 'response_received'
+            or latest.provider_attempt_id != event.controller_attempt_id
+            or latest.envelope_sha256 != event.controller_envelope_sha256
+            or (latest.provider,latest.model,latest.api_mode) != execution.policy.provider_roles.controller.identity()
+            or any(isinstance(e,t.BuildWriterEvidenceSelectionV1) for e in before)
+            or any((e.provider,e.model,e.api_mode) == execution.policy.provider_roles.writer.identity() for e in providers)):
+        raise ValueError('Writer selection lacks its unique acknowledged controller')
 
 
 def selection(execution):
@@ -54,10 +112,15 @@ def records(execution, basis=None):
         raise ValueError("Primary work read belongs to another saved basis")
     if len({e.read_id for e in rows}) != len(rows):
         raise ValueError("Duplicate primary work read")
-    if execution.policy.primary_work_context_policy == DRAFT_POLICY:
+    if context_policy(execution.policy) == DRAFT_POLICY:
         from .types import BuildDraftContextCapturedV1
         captures = [e for e in execution.events[:boundary] if isinstance(e, BuildDraftContextCapturedV1)]
-        if len(captures) != 1 or captures[0].record.snapshot.snapshot_sha256 != execution.policy.working_draft_snapshot_sha256:
+        if len(captures) != 1:
+            raise ValueError("Selected primary work requires its complete captured draft")
+        from .build_draft_context import native_build_action, captured_context_sha256
+        action=native_build_action(execution)
+        if (captured_context_sha256(captures[0].record) != action.intent.build_draft_context_sha256 if action is not None
+                else captures[0].record.snapshot.snapshot_sha256 != execution.policy.working_draft_snapshot_sha256):
             raise ValueError("Selected primary work requires its complete captured draft")
         chosen = selection(execution).section_read_ids
         if len(set(chosen)) != len(chosen) or not set(chosen) <= {e.read_id for e in rows}:
@@ -71,9 +134,20 @@ def writer_read_ids(execution):
     return set(selected.section_read_ids) | {e.read_id for e in records(execution)}
 
 
+def validate_writer_reads(execution, writer):
+    """Keep actual saved-work inclusion equal to its existing selected closure."""
+    from . import types as t
+    before=execution.events[:writer.sequence]
+    sections={e.event_id:e.read_id for e in before if isinstance(e,t.ValidatedBuildSectionReadV1)}
+    included={sections[eid] for e in before if isinstance(e,t.BuildSectionProviderInclusionV1)
+        and e.provider_attempt_id == writer.provider_attempt_id for eid in e.section_event_ids}
+    if included != writer_read_ids(execution):
+        raise ValueError('Source writer saved sections differ from selected closure')
+
+
 def project(execution, basis=None):
     return {
-        "policy": execution.policy.primary_work_context_policy,
+        "policy": context_policy(execution.policy),
         "role": ROLE,
         "sections": [
             {
@@ -85,6 +159,44 @@ def project(execution, basis=None):
             for e in records(execution, basis)
         ],
     }
+
+
+def native_work_frame(execution, basis):
+    """Surface work only; the separate shared native frame owns World evidence."""
+    from .build_draft_context import native_build_action, context_record, writer_reference, pack_body_aliases
+    from .types import BuildSourceContextBasisV1
+    action=native_build_action(execution)
+    if action is None or type(basis) is not BuildSourceContextBasisV1:
+        raise ValueError('Native Build work requires its concrete owning execution and basis')
+    execution=type(execution).model_validate_json(execution.model_dump_json(by_alias=True))
+    action=execution.policy.action
+    from .build_world_context import validate_work_intent
+    validate_work_intent(basis,action.intent)
+    frame={'schema':NATIVE_WORK_SCHEMA,'source_basis':basis.model_dump(mode='json',by_alias=True),
+        'artifact_under_edit':project(execution,basis)}
+    if action.intent.build_draft_context_sha256 is not None:
+        captured=context_record(execution)
+        if captured.record.snapshot.saved_basis() != basis.model_dump(mode='json',by_alias=True):
+            raise ValueError('Native Build work draft differs from its saved basis')
+        frame['working_draft_context']=writer_reference(captured.record)
+    return pack_body_aliases(frame) if action.intent.build_draft_context_sha256 is not None else frame
+
+
+def verify_native_work_input(execution, basis, raw):
+    """Reconstruct the exact physical SDK work frame from actual owning records.
+
+    Actual APP admission must still supply its locked work basis and bind the
+    authorizing provider event. This grants no read, edit or dispatch by itself.
+    """
+    from hashlib import sha256
+    from .source_writer_output import responses_text_frame, strict_json
+    from .rules_authority_types import canonical_bytes
+    body=strict_json(raw)
+    frame=responses_text_frame(raw,schemas={NATIVE_WORK_SCHEMA},label='Native Build work')
+    if (body.get('model') != execution.policy.provider_roles.writer.model
+            or canonical_bytes(frame) != canonical_bytes(native_work_frame(execution,basis))):
+        raise ValueError('Native Build SDK input differs from its exact saved-work/draft owner')
+    return sha256(raw.encode()).hexdigest()
 
 
 def packet_rows(packet):
@@ -149,7 +261,7 @@ def validate_packet(packet, execution, basis):
                 "Historical saved section differs from exact serialized read"
             )
         return rows
-    if execution.policy.primary_work_context_policy == DRAFT_POLICY and "working_draft_context" not in packet:
+    if context_policy(execution.policy) == DRAFT_POLICY and "working_draft_context" not in packet:
         raise ValueError("Selected saved context requires its complete working draft lane")
     if packet.get("schema") != schema(execution.policy):
         raise ValueError("Primary writer schema differs from frozen policy")

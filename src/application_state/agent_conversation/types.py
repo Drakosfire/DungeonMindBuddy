@@ -4840,26 +4840,10 @@ class PlanWorldGraphExecutionV3(PlanWorldGraphExecutionV2):
         action_selection = None
         writer_selection = None
         authorized_by_id = {}
-        section_auths, section_reads = {}, set()
+        from .build_primary_context import validate_reads
+        validate_reads(self,max_chars=(self.policy.saved_source_char_count if isinstance(self.policy,
+            (BuildExactSavedLinesDraftPolicyV1, BuildExactSavedLinesDraftImagePolicyV1)) else self.policy.max_chars_per_source_read))
         for event in self.events:
-            if isinstance(event, BuildSectionReadAuthorizationV1):
-                if (latest_attempt is None or latest_outcome != "response_received"
-                        or event.read_id in section_auths
-                        or event.max_chars > (self.policy.saved_source_char_count if isinstance(self.policy,
-                            (BuildExactSavedLinesDraftPolicyV1, BuildExactSavedLinesDraftImagePolicyV1))
-                            else self.policy.max_chars_per_source_read)):
-                    raise ValueError("Build section requires a resolved controller and unique authorization")
-                section_auths[event.read_id] = event
-            elif isinstance(event, ValidatedBuildSectionReadV1):
-                auth = section_auths.get(event.read_id)
-                if (auth is None or event.read_id in section_reads
-                        or event.source_basis != auth.source_basis or event.source_class != auth.source_class
-                        or event.line_start != auth.line_start or event.line_end != auth.line_end
-                        or len(event.text) > auth.max_chars):
-                    raise ValueError("Build section receipt differs from its unique prior authorization")
-                section_reads.add(event.read_id)
-            elif isinstance(event, ProviderAttemptAuthorizedEventV1) and set(section_auths) != section_reads:
-                raise ValueError("Provider cannot proceed with an unresolved Build section read")
 
             if isinstance(event, BuildReviewedActionSelectionV1):
                 if (not isinstance(self.policy, BuildActionControllerWriterPolicyV1)
@@ -4891,14 +4875,10 @@ class PlanWorldGraphExecutionV3(PlanWorldGraphExecutionV2):
                     raise ValueError("Build action selection differs from its acknowledged controller/capability")
                 action_selection = event
             if isinstance(event, BuildWriterEvidenceSelectionV1):
-                authorization = authorized_by_id.get(event.controller_attempt_id)
-                if (not isinstance(self.policy, BuildSelectedSourceActionControllerWriterPolicyV1)
-                    or writer_selection is not None or writer_attempt is not None
-                    or latest_attempt != event.controller_attempt_id or latest_outcome != "response_received"
-                    or authorization is None or authorization.envelope_sha256 != event.controller_envelope_sha256
-                    or (authorization.provider, authorization.model, authorization.api_mode)
-                    != roles.controller.identity()):
+                if not isinstance(self.policy, BuildSelectedSourceActionControllerWriterPolicyV1):
                     raise ValueError("Writer selection lacks its unique acknowledged controller")
+                from .build_primary_context import validate_selection_origin
+                validate_selection_origin(self,event)
                 writer_selection = event
             if isinstance(event, ProviderAttemptAuthorizedEventV1):
                 authorized_by_id[event.provider_attempt_id] = event
@@ -4911,15 +4891,8 @@ class PlanWorldGraphExecutionV3(PlanWorldGraphExecutionV2):
                         from .authored_graph_references import source_event_ids as authored_source_ids
                         if set(event.included_source_read_event_ids) != set(writer_selection.source_event_ids) | authored_source_ids(self):
                             raise ValueError("Source writer exposure differs from selected event closure")
-                        section_events = {e.event_id: e.read_id for e in self.events[:event.sequence]
-                                          if isinstance(e, ValidatedBuildSectionReadV1)}
-                        included_sections = {section_events[eid] for e in self.events[:event.sequence]
-                                             if isinstance(e, BuildSectionProviderInclusionV1)
-                                             and e.provider_attempt_id == event.provider_attempt_id
-                                             for eid in e.section_event_ids}
-                        from .build_primary_context import writer_read_ids
-                        if included_sections != writer_read_ids(self):
-                            raise ValueError("Source writer saved sections differ from selected closure")
+                        from .build_primary_context import validate_writer_reads
+                        validate_writer_reads(self,event)
                     if isinstance(self.policy, BuildActionControllerWriterPolicyV1) and action_selection is None:
                         raise ValueError("Build writer requires a recorded controller-selected operation")
                     writer_attempt = event.provider_attempt_id
@@ -5012,6 +4985,8 @@ def build_sections_digest(reads) -> str:
 
 
 def validate_build_section_inclusions(execution) -> None:
+    from .build_draft_context import native_build_action
+    section_capable = isinstance(execution.policy,BuildSectionControllerWriterPolicyV1) or native_build_action(execution) is not None
     reads, inclusions, attempts, outcomes = {}, {}, {}, {}
     pending = None
     answers = []
@@ -5026,7 +5001,7 @@ def validate_build_section_inclusions(execution) -> None:
             reads[event.event_id] = event
         elif isinstance(event, BuildSectionProviderInclusionV1):
             latest = next(reversed(attempts.values()), None)
-            if (not isinstance(execution.policy, BuildSectionControllerWriterPolicyV1)
+            if (not section_capable
                     or latest is None or outcomes.get(latest.provider_attempt_id) != "response_received"
                     or (latest.provider, latest.model, latest.api_mode) != execution.policy.provider_roles.controller.identity()
                     or event.context_receipt_sha256 != execution.context_receipt_sha256
@@ -5044,7 +5019,7 @@ def validate_build_section_inclusions(execution) -> None:
         elif isinstance(event, BuildSectionAnswerBindingV1):
             auth = attempts.get(event.provider_attempt_id)
             inclusion = inclusions.get(event.provider_attempt_id)
-            if (not isinstance(execution.policy, BuildSectionControllerWriterPolicyV1)
+            if (not section_capable
                     or answers or auth is None or inclusion is None
                     or (auth.provider, auth.model, auth.api_mode) != execution.policy.provider_roles.writer.identity()
                     or event.envelope_sha256 != auth.envelope_sha256
