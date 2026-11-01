@@ -300,14 +300,18 @@ def _historical_quote_parent(monkeypatch, root, history):
     return parent, request, adopted
 
 
+_HISTORICAL_CONTEXT = {
+    "schema": "dm_world_campaign_ingest_context_v1", "managed_world_id": "earlier-managed",
+    "native_world_id": "world:earlier", "campaign_id": "longmont-c2", "binding_version": 1,
+    "head_revision_id": "rev:earlier", "graph_schema": "old-generation-schema",
+    "graph_payload_sha256": "a" * 64,
+}
+
+
 @pytest.mark.parametrize("history", [
     {},
     {"native_world_id": "world:earlier", "campaign_id": "longmont-c2"},
-    {"world_campaign_ingest_context": {
-        "schema": "dm_world_campaign_ingest_context_v1", "managed_world_id": "earlier-managed",
-        "native_world_id": "world:earlier", "campaign_id": "longmont-c2", "binding_version": 1,
-        "head_revision_id": "rev:earlier", "graph_schema": "old-generation-schema",
-        "graph_payload_sha256": "a" * 64}},
+    {"world_campaign_ingest_context": _HISTORICAL_CONTEXT},
 ])
 def test_adopted_parent_correction_preserves_generation_history(monkeypatch, tmp_path, history):
     from application_state.source import service as sources
@@ -338,6 +342,12 @@ def test_adopted_parent_correction_preserves_generation_history(monkeypatch, tmp
 
 @pytest.mark.parametrize("history", [
     {"world_campaign_ingest_context": "not-an-object"},
+    {"world_campaign_ingest_context": {"native_world_id": "world:earlier", "campaign_id": "longmont-c2"}},
+    *({"world_campaign_ingest_context": {**_HISTORICAL_CONTEXT, key: value}} for key, value in [
+        ("schema", "wrong-schema"), ("managed_world_id", ""), ("head_revision_id", ""),
+        ("binding_version", True), ("binding_version", 0), ("binding_version", None),
+        ("graph_payload_sha256", "bad-digest"), ("native_world_id", " world:earlier "),
+    ]),
     {"world_campaign_ingest_context": {"native_world_id": ""}},
     {"world_campaign_ingest_context": {"native_world_id": "world:earlier", "campaign_id": "wrong-campaign"}},
     {"native_world_id": ""}, {"native_world_id": 23},
@@ -378,3 +388,13 @@ def test_fresh_build_rejects_bad_input_before_generic_storage(
     with pytest.raises(SourceArtifactRegistryError):
         build_recap_launch.launch_build_recap(tmp_path, request)
     assert ingest.list_extraction_runs() == []
+
+
+def test_history_parser_does_not_relax_historical_source_binding():
+    assert registry.validate_recap_run_generation_context(
+        _HISTORICAL_CONTEXT, campaign_id="longmont-c2") == "world:earlier"
+    with pytest.raises(registry.GraphRunRegistryError, match="does not match its exact"):
+        registry.validate_recap_source_run_world_binding(source_world_id="world:current",
+            campaign_id="longmont-c2", lineage={"world_campaign_ingest_context": _HISTORICAL_CONTEXT})
+    assert registry.validate_recap_source_run_world_binding(source_world_id=None,
+        campaign_id="longmont-c2", lineage={"world_campaign_ingest_context": "unscoped history"}) is None

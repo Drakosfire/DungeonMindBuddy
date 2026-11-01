@@ -57,6 +57,54 @@ class GraphRunRegistryError(ValueError):
         self.status_code = status_code
 
 
+def validate_recap_run_generation_context(context: Any, *, campaign_id: str | None) -> str:
+    """Validate a supplied frozen snapshot, without current source admission."""
+    if not isinstance(context, dict):
+        raise GraphRunRegistryError(
+            "recap ExtractionRun World context is malformed",
+            status_code=422,
+        )
+    required = (
+        "schema",
+        "managed_world_id",
+        "native_world_id",
+        "campaign_id",
+        "head_revision_id",
+        "graph_schema",
+        "graph_payload_sha256",
+    )
+    if any(
+        not isinstance(context.get(key), str)
+        or not context[key]
+        or context[key] != context[key].strip()
+        for key in required
+    ):
+        raise GraphRunRegistryError(
+            "recap ExtractionRun World context is incomplete",
+            status_code=422,
+        )
+    binding_version = context.get("binding_version")
+    digest = context["graph_payload_sha256"]
+    if (
+        context["schema"] != "dm_world_campaign_ingest_context_v1"
+        or isinstance(binding_version, bool)
+        or not isinstance(binding_version, int)
+        or binding_version < 1
+        or len(digest) != 64
+        or any(char not in "0123456789abcdef" for char in digest)
+    ):
+        raise GraphRunRegistryError(
+            "recap ExtractionRun World context is invalid",
+            status_code=422,
+        )
+    if context["campaign_id"] != campaign_id:
+        raise GraphRunRegistryError(
+            "recap ExtractionRun World context campaign does not match its source",
+            status_code=422,
+        )
+    return context["native_world_id"]
+
+
 def validate_recap_source_run_world_binding(
     *,
     source_world_id: str | None,
@@ -74,50 +122,9 @@ def validate_recap_source_run_world_binding(
 
     context = lineage.get("world_campaign_ingest_context")
     if context is not None:
-        if not isinstance(context, dict):
-            raise GraphRunRegistryError(
-                "recap ExtractionRun World context is malformed",
-                status_code=422,
-            )
-        required = (
-            "schema",
-            "managed_world_id",
-            "native_world_id",
-            "campaign_id",
-            "head_revision_id",
-            "graph_schema",
-            "graph_payload_sha256",
+        context_world_id = validate_recap_run_generation_context(
+            context, campaign_id=campaign_id,
         )
-        if any(
-            not isinstance(context.get(key), str)
-            or not context[key]
-            or context[key] != context[key].strip()
-            for key in required
-        ):
-            raise GraphRunRegistryError(
-                "recap ExtractionRun World context is incomplete",
-                status_code=422,
-            )
-        binding_version = context.get("binding_version")
-        digest = context["graph_payload_sha256"]
-        if (
-            context["schema"] != "dm_world_campaign_ingest_context_v1"
-            or isinstance(binding_version, bool)
-            or not isinstance(binding_version, int)
-            or binding_version < 1
-            or len(digest) != 64
-            or any(char not in "0123456789abcdef" for char in digest)
-        ):
-            raise GraphRunRegistryError(
-                "recap ExtractionRun World context is invalid",
-                status_code=422,
-            )
-        if context["campaign_id"] != campaign_id:
-            raise GraphRunRegistryError(
-                "recap ExtractionRun World context campaign does not match its source",
-                status_code=422,
-            )
-        context_world_id = context["native_world_id"]
     else:
         # Synthetic acceptance runners create their own explicit native World
         # and do not have a managed-World binding snapshot.
