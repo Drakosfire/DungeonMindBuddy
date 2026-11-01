@@ -2687,7 +2687,6 @@ export function WorldPlanAgentConversation({
   const playMessagesHostRef = useRef<HTMLDivElement | null>(null);
   const previousVerifiedWorldIdRef = useRef(verifiedWorldId);
   const [useWorldGraphForAsk, setUseWorldGraphForAsk] = useState(true);
-  const [planGraphSource, setPlanGraphSource] = useState<"existing"|"reviewed_native_graph">("existing");
   const buildPlacementFenceKey = JSON.stringify([scopeKey, buildMode?.savedSource, history?.conversation_id,
     history?.active_conversation_id, history?.conversation_state, history?.pointer_revision, useWorldGraphForAsk]);
   const buildPlacementLifecycle = useRef({key: buildPlacementFenceKey, bridge: buildMode?.composeBridge, epoch: 0});
@@ -4009,9 +4008,11 @@ export function WorldPlanAgentConversation({
         graph_request: { mode: "none" },
         graph_selection: null,
         ...(useWorldGraphForAsk ? {
-          plan_context_policy: planGraphSource==='reviewed_native_graph'
-            ? {schema:'dmb_plan_context_policy_v2' as const,policy:'auto_plan_world' as const,graph_source:'reviewed_native_graph' as const}
-            : { schema: 'dmb_plan_context_policy_v1' as const, policy: 'auto_plan_world' as const },
+          plan_context_policy: {
+            schema: 'dmb_plan_context_policy_v2' as const,
+            policy: 'auto_plan_world' as const,
+            graph_source: 'reviewed_native_graph' as const,
+          },
         } : {}),
         ...(targetAtSubmit ? {
           playable_target: { schema: "dmb_plan_playable_target_v1" as const, ...targetAtSubmit },
@@ -6811,13 +6812,6 @@ export function WorldPlanAgentConversation({
           <p className="world-plan-agent-conversation__target-error" role="alert">{sectionTargetStatus.message}</p>
         ) : null}
         <label className="sr-only" htmlFor="world-plan-agent-message">Message DungeonBuddy</label>
-        {!isReadOnly && !buildMode && !playMode && useWorldGraphForAsk ? <label>
-          Answer from <select aria-label="Plan Graph source" value={planGraphSource} disabled={composerBusy}
-            onChange={event=>setPlanGraphSource(event.currentTarget.value as 'existing'|'reviewed_native_graph')}>
-            <option value="existing">Existing World Graph</option><option value="reviewed_native_graph">Reviewed Graph</option>
-          </select>
-          {planGraphSource==='reviewed_native_graph' ? <small>Uses the reviewed native revision. Earlier Graph material may not yet be published here.</small>:null}
-        </label>:null}
         <textarea
           id="world-plan-agent-message"
           data-guided-control={visible && agent.paneState.isOpen ? "memory" : undefined}

@@ -2787,12 +2787,12 @@ describe("World Plan conversation consumer", () => {
     },
   );
 
-  it('sends an explicitly selected reviewed Graph source without client Graph identities or revisions', async()=>{
+  it('uses the reviewed Graph by default without an authority selector or client Graph identities', async()=>{
     setupApi(history('conversation-a',4,[]));
     const post=vi.spyOn(liveApi,'postWorldPlanAgentTurn').mockRejectedValue(new Error('Synthetic stop after request capture'));
     render(conversationElement());
     await waitForConversationReady();
-    fireEvent.change(screen.getByLabelText('Plan Graph source'),{target:{value:'reviewed_native_graph'}});
+    expect(screen.queryByLabelText('Plan Graph source')).not.toBeInTheDocument();
     fireEvent.change(screen.getByLabelText('Message DungeonBuddy'),{target:{value:'What did B do?'}});
     fireEvent.click(screen.getByRole('button',{name:'Send message'}));
     await waitFor(()=>expect(post).toHaveBeenCalledTimes(1));
@@ -2842,7 +2842,7 @@ describe("World Plan conversation consumer", () => {
     expect(postAsk).toHaveBeenCalledTimes(1);
     expect(captured).toMatchObject({
       schema: "dmb_agent_turn_request_v1",
-      plan_context_policy: { schema: "dmb_plan_context_policy_v1", policy: "auto_plan_world" },
+      plan_context_policy: { schema: "dmb_plan_context_policy_v2", policy: "auto_plan_world", graph_source: "reviewed_native_graph" },
       primary_work: {
         kind: "plan",
         object_id: documentId,
