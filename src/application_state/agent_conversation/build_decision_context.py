@@ -60,6 +60,41 @@ def validate_event(event, execution):
         raise ValueError("Decision context estimate or dispatch identity differs")
 
 
+def validate_accounting(event, execution, *, provider_index):
+    """Verify the original Build role estimate; never rewrite its accounting."""
+    from . import types as t
+    policy = execution.policy
+    if not isinstance(policy, t.BuildEstimatedActionControllerWriterPolicyV1):
+        raise ValueError("Build role accounting requires its frozen concrete policy")
+    role = (event.provider, event.model, event.api_mode)
+    controller = policy.provider_roles.controller.identity()
+    writer = policy.provider_roles.writer.identity()
+    reviewed_writer = any(isinstance(e, t.BuildReviewedActionSelectionV1)
+        and e.operation == "propose_build_insertion" and e.sequence < event.sequence
+        for e in execution.events)
+    if role not in {controller, writer} or (provider_index == 0 and role != controller and not reviewed_writer):
+        raise ValueError("provider accounting role differs from frozen policy")
+    if isinstance(policy, t.BuildWriterBudgetActionControllerWriterPolicyV1) and role == writer:
+        budget = policy.writer_context_budget
+        if (event.output_token_reserve != budget.output_reserve_tokens
+                or event.input_tokens + event.output_token_reserve > budget.context_limit_tokens):
+            raise ValueError("writer envelope exceeds its frozen role budget")
+    estimated = role == controller and (provider_index > 0
+        or isinstance(policy, t.BuildInitialEstimatedSelectedSourcePolicyV1))
+    descriptor = policy.controller_continuation_accounting
+    kind = "estimated_token_count" if estimated else policy.provider_input_accounting.kind
+    estimator = descriptor.policy if estimated else policy.provider_input_accounting.estimator
+    if event.input_accounting_kind != kind or event.input_estimator != estimator:
+        raise ValueError("provider attempt accounting differs from accepted role policy")
+    if descriptor.policy in {HISTORICAL_POLICY, POLICY} and role == controller:
+        if not isinstance(event, t.ProviderAttemptAuthorizedEventV5):
+            raise ValueError("Current Build controller requires mode-bound authorization")
+    elif isinstance(event, t.ProviderAttemptAuthorizedEventV5):
+        raise ValueError("Mode-bound authorization requires current Build accounting")
+    if estimated and not isinstance(event, t.ProviderAttemptAuthorizedEventV5) and event.input_tokens > descriptor.request_limit_tokens:
+        raise ValueError("controller request estimate exceeds frozen policy")
+
+
 def validate_prepared(event, execution, raw):
     validate_event(event, execution)
     if not isinstance(raw, str) or len(raw.encode()) > RAW_LIMIT:

@@ -18,7 +18,7 @@ from enum import Enum
 from typing import Annotated, ClassVar, Literal, NoReturn, Protocol
 from uuid import UUID, uuid4
 
-from pydantic import BaseModel, ConfigDict, Field, TypeAdapter, model_validator, model_serializer
+from pydantic import BaseModel, ConfigDict, Field, model_validator, model_serializer
 
 from .rules_authority_types import ClosedRulesModel, Digest, canonical_bytes, canonical_sha256
 from .collaboration import Collaboration, ConnectedCollaboration
@@ -4112,28 +4112,18 @@ GraphExecutionEventV1 = Annotated[
 ]
 
 
-def validate_provider_execution(policy, events) -> None:
-    """Shared provider lifecycle checks over the actual validated policy."""
+def validate_provider_execution(execution) -> None:
+    """Validate the actual typed record; never project native events to V1."""
+    policy, events = execution.policy, execution.events
     if [event.sequence for event in events] != list(range(len(events))):
         raise ValueError("Graph execution events must have contiguous sequence numbers")
     if len({event.event_id for event in events}) != len(events):
         raise ValueError("Graph execution event IDs must be unique")
-    operation_ids: set[UUID] = set()
     attempts: dict[UUID, ProviderAttemptAuthorizedEventV1] = {}
     outcomes: dict[UUID, list[str]] = {}
     completion_bindings = 0
     for event in events:
-        if isinstance(event, ValidatedGraphOperationEventV1):
-            if attempts:
-                latest_attempt_id = next(reversed(attempts))
-                if outcomes[latest_attempt_id][-1:] == ["outcome_unknown"]:
-                    raise ValueError("Graph operations cannot continue after an unknown provider outcome")
-            if event.operation not in policy.allowed_graph_operations:
-                raise ValueError("Graph operation is outside the accepted policy")
-            if event.operation_id in operation_ids:
-                raise ValueError("Graph operation ID must be unique within the turn")
-            operation_ids.add(event.operation_id)
-        elif isinstance(event, ProviderAttemptAuthorizedEventV1):
+        if isinstance(event, ProviderAttemptAuthorizedEventV1):
             if event.provider_attempt_id in attempts:
                 raise ValueError("provider attempt ID was authorized more than once")
             if attempts:
@@ -4141,7 +4131,14 @@ def validate_provider_execution(policy, events) -> None:
                 prior_outcomes = outcomes[latest_attempt_id]
                 if not prior_outcomes or prior_outcomes[-1] not in {"response_received", "known_not_sent"}:
                     raise ValueError("a new provider attempt requires a resolved prior attempt")
-            if event.input_accounting_kind != policy.provider_input_accounting.kind or event.input_estimator != policy.provider_input_accounting.estimator:
+            if isinstance(event, ProviderAttemptAuthorizedEventV5):
+                from .build_decision_context import validate_event
+                validate_event(event, execution)
+            if isinstance(policy, BuildEstimatedActionControllerWriterPolicyV1):
+                from .build_decision_context import validate_accounting
+                validate_accounting(event, execution, provider_index=len(attempts))
+            elif (event.input_accounting_kind != policy.provider_input_accounting.kind
+                    or event.input_estimator != policy.provider_input_accounting.estimator):
                 raise ValueError("provider attempt accounting differs from accepted policy")
             attempts[event.provider_attempt_id] = event
             outcomes[event.provider_attempt_id] = []
@@ -4166,16 +4163,6 @@ def validate_provider_execution(policy, events) -> None:
                 raise ValueError("completion binding requires a response-received attempt")
     if policy.max_provider_attempts is not None and len(attempts) > policy.max_provider_attempts:
         raise ValueError("provider attempt policy limit exceeded")
-    graph_events = [e for e in events if isinstance(e, ValidatedGraphOperationEventV1)]
-    if policy.max_graph_operations is not None and len(graph_events) > policy.max_graph_operations:
-        raise ValueError("Graph operation policy limit exceeded")
-    graph_by_event_id = {event.event_id: event for event in graph_events}
-    if any(
-        len(event.assertion_ids) + len(event.relationship_ids) + len(event.evidence_ref_ids)
-        > policy.max_results_per_operation
-        for event in graph_events
-    ):
-        raise ValueError("Graph operation result limit exceeded")
     input_total = sum(event.input_tokens for event in attempts.values())
     output_total = sum(event.output_token_reserve for event in attempts.values())
     if (
@@ -4186,9 +4173,38 @@ def validate_provider_execution(policy, events) -> None:
         and output_total > policy.max_total_provider_output_tokens
     ):
         raise ValueError("provider token budget exceeded")
-    for attempt in attempts.values():
-        if any(event_id not in graph_by_event_id for event_id in attempt.included_graph_event_ids):
-            raise ValueError("provider envelope references an unknown Graph operation event")
+
+
+def validate_graph_operation_execution(execution) -> None:
+    """Classic Graph membership and result budgets; not provider lifecycle."""
+    policy, events = execution.policy, execution.events
+    operation_ids: set[UUID] = set()
+    graph_by_event_id = {}
+    latest_attempt = None
+    latest_outcome = None
+    for event in events:
+        if isinstance(event, ProviderAttemptAuthorizedEventV1):
+            latest_attempt, latest_outcome = event.provider_attempt_id, None
+        elif isinstance(event, ProviderOutcomeEventV1) and event.provider_attempt_id == latest_attempt:
+            latest_outcome = event.outcome
+        elif isinstance(event, ValidatedGraphOperationEventV1):
+            if latest_outcome == "outcome_unknown":
+                raise ValueError("Graph operations cannot continue after an unknown provider outcome")
+            if event.operation not in policy.allowed_graph_operations:
+                raise ValueError("Graph operation is outside the accepted policy")
+            if event.operation_id in operation_ids:
+                raise ValueError("Graph operation ID must be unique within the turn")
+            operation_ids.add(event.operation_id)
+            graph_by_event_id[event.event_id] = event
+            if (len(event.assertion_ids) + len(event.relationship_ids) + len(event.evidence_ref_ids)
+                    > policy.max_results_per_operation):
+                raise ValueError("Graph operation result limit exceeded")
+    if policy.max_graph_operations is not None and len(graph_by_event_id) > policy.max_graph_operations:
+        raise ValueError("Graph operation policy limit exceeded")
+    for event in events:
+        if isinstance(event, ProviderAttemptAuthorizedEventV1):
+            if any(event_id not in graph_by_event_id for event_id in event.included_graph_event_ids):
+                raise ValueError("provider envelope references an unknown Graph operation event")
 
 
 class PlanWorldGraphExecutionV1(StrictModel):
@@ -4201,7 +4217,8 @@ class PlanWorldGraphExecutionV1(StrictModel):
 
     @model_validator(mode="after")
     def validate_execution(self) -> "PlanWorldGraphExecutionV1":
-        validate_provider_execution(self.policy, self.events)
+        validate_provider_execution(self)
+        validate_graph_operation_execution(self)
         if len(self.model_dump_json(by_alias=True).encode("utf-8")) > 1_048_576:
             raise ValueError("Graph execution record exceeds the storage size limit")
         return self
@@ -4273,10 +4290,8 @@ def validate_graph_execution_record(execution, *, dynamic_source_scope: bool, al
     })
     if execution.execution_policy_sha256 != expected_policy_digest:
         raise ValueError("Graph execution policy digest does not match its frozen scope and budgets")
-    if [event.sequence for event in execution.events] != list(range(len(execution.events))):
-        raise ValueError("Graph execution events must have contiguous sequence numbers")
-    if len({event.event_id for event in execution.events}) != len(execution.events):
-        raise ValueError("Graph execution event IDs must be unique")
+    validate_provider_execution(execution)
+    validate_graph_operation_execution(execution)
     scope = execution.policy.source_read_scope
     if scope is None:
         if not isinstance(execution.policy, PlanSourceExecutionPolicyV1):
@@ -4298,8 +4313,6 @@ def validate_graph_execution_record(execution, *, dynamic_source_scope: bool, al
     for event in execution.events:
         if isinstance(event, (SourceScopeExtensionEventV3, SourceReadAuthorizationEventV2, ValidatedSourceReadEventV2, SourcePassageReuseEventV1)) and latest_outcome == "outcome_unknown":
             raise ValueError("source reads cannot continue after an unknown provider outcome")
-        if isinstance(event, CompletionBindingEventV1) and event.sequence != len(execution.events) - 1:
-            raise ValueError("completion binding must be the final V2 execution event")
         if isinstance(event, (ProviderAttemptAuthorizedEventV1, ProviderAttemptAuthorizedEventV2)):
             latest_attempt_id = event.provider_attempt_id
             latest_outcome = None
@@ -4411,93 +4424,6 @@ def validate_graph_execution_record(execution, *, dynamic_source_scope: bool, al
     from .native_source_input import validate_inclusions
     validate_inclusions(execution)
 
-    # Reuse the V1 execution validator for the unchanged Graph/provider state machine.
-    legacy_events: list[dict[str, object]] = []
-    provider_index = 0
-    for event in execution.events:
-        if isinstance(event, NATIVE_BODY_EVENTS):
-            continue
-        if isinstance(
-            event,
-            (
-                PlaySourceProviderInclusionV1, CorpusSourceSearchAuthorizedV1, CorpusSourceSearchObservedV1, NativeSourceNavigationAuthorizedV1, NativeSourceCatalogObservedV1,
-                NativeSourceSectionAuthorizedV1, NativeSourceSectionObservedV1, NativeSourceProviderInclusionV1,
-                SourceScopeExtensionEventV3,
-                SourceReadAuthorizationEventV2,
-                ValidatedSourceReadEventV2, SourcePassageReuseEventV1,
-                RelatedRecapContextAuthorizationEventV2,
-                ValidatedRelatedRecapContextEventV2,
-                RelatedRecapContextProviderInclusionEventV2,
-                RelatedPagesSelection, RelatedPageRead, RelatedPageInclusion, BuildAuthoredReferencesCapturedV1, BuildAuthoredReferenceAuthorizedV1, BuildAuthoredReferenceReadV1, BuildAuthoredProviderInclusionV1, BuildDraftContextCapturedV1, BuildDraftProviderInclusionV1, BuildSectionReadAuthorizationV1, ValidatedBuildSectionReadV1, BuildWorldReadSelectionV1,
-                BuildSectionProviderInclusionV1, BuildSectionAnswerBindingV1,
-                BuildJevActionSelectionV1, BuildReviewedActionSelectionV1, BuildPlanOutputContractV1, BuildPlanOutputContractV2, BuildWriterEvidenceSelectionV1, PlanRequestedWorkSelectedV1, PlanJevRetrievalSelectionV1,
-                NativePlanStatementReadAuthorizedV1, NativePlanStatementReadObservedV1,
-                NativePlanAssertionReadAuthorizedV1, NativePlanAssertionReadObservedV1,
-            ),
-        ):
-            continue
-        payload = event.model_dump(mode="json", by_alias=True)
-        if isinstance(event, ProviderAttemptAuthorizedEventV5):
-            from .build_decision_context import validate_event
-            validate_event(event, execution)
-            for key in ("context_mode", "context_phase", "max_question_input_tokens", "dispatch_identity_sha256"):
-                payload.pop(key)
-        if isinstance(event, ProviderAttemptAuthorizedEventV1):
-            if isinstance(execution.policy, BuildEstimatedActionControllerWriterPolicyV1):
-                role = (event.provider, event.model, event.api_mode)
-                controller = execution.policy.provider_roles.controller.identity()
-                writer = execution.policy.provider_roles.writer.identity()
-                if role not in {controller, writer} or (provider_index == 0 and role != controller and not any(isinstance(e, BuildReviewedActionSelectionV1) and e.operation == "propose_build_insertion" and e.sequence < event.sequence for e in execution.events)):
-                    raise ValueError("provider accounting role differs from frozen policy")
-                if isinstance(execution.policy, BuildWriterBudgetActionControllerWriterPolicyV1) and role == writer:
-                    writer_budget = execution.policy.writer_context_budget
-                    if (event.output_token_reserve != writer_budget.output_reserve_tokens
-                            or event.input_tokens + event.output_token_reserve > writer_budget.context_limit_tokens):
-                        raise ValueError("writer envelope exceeds its frozen role budget")
-                estimated = role == controller and (provider_index > 0
-                    or isinstance(execution.policy, BuildInitialEstimatedSelectedSourcePolicyV1))
-                descriptor = execution.policy.controller_continuation_accounting
-                expected_kind = "estimated_token_count" if estimated else execution.policy.provider_input_accounting.kind
-                expected_estimator = descriptor.policy if estimated else execution.policy.provider_input_accounting.estimator
-                if event.input_accounting_kind != expected_kind or event.input_estimator != expected_estimator:
-                    raise ValueError("provider attempt accounting differs from accepted role policy")
-                if descriptor.policy in {"o200k_double_plus_4096_adaptive_context_v2", "o200k_double_plus_4096_adaptive_context_v3"} and role == controller:
-                    if not isinstance(event, ProviderAttemptAuthorizedEventV5):
-                        raise ValueError("Current Build controller requires mode-bound authorization")
-                elif isinstance(event, ProviderAttemptAuthorizedEventV5):
-                    raise ValueError("Mode-bound authorization requires current Build accounting")
-                if estimated and not isinstance(event, ProviderAttemptAuthorizedEventV5) and event.input_tokens > descriptor.request_limit_tokens:
-                    raise ValueError("controller request estimate exceeds frozen policy")
-                # Structural validator projection only; original event remains
-                # explicitly estimated in the stored ledger and its hashes.
-                payload["input_accounting_kind"] = execution.policy.provider_input_accounting.kind
-                payload["input_estimator"] = execution.policy.provider_input_accounting.estimator
-            provider_index += 1
-        if isinstance(event, PlanJevProviderAuthorizedV1):
-            payload.pop("decision_request_id", None)
-            payload.pop("parent_request_sha256", None)
-        if isinstance(event, PlanJevWriterAuthorizedV1):
-            payload.pop("frame_sha256", None)
-        if isinstance(event, PlanNativeWriterAuthorizedV1):
-            payload.pop("native_statement_read_event_ids", None)
-        if isinstance(event, PlanNativeWriterAuthorizedV2):
-            payload.pop("native_assertion_read_event_ids", None)
-        if isinstance(event, ProviderAttemptAuthorizedEventV2):
-            payload["kind"] = "provider_attempt_authorized"
-            payload.pop("included_source_read_event_ids", None)
-            payload.pop("included_source_reuse_event_ids", None)
-        if isinstance(event, ValidatedGraphOperationEventV3):
-            payload["kind"] = "validated_graph_operation"
-            payload.pop("returned_source_pins", None)
-        payload["sequence"] = len(legacy_events)
-        legacy_events.append(payload)
-    # Keep the real source-capable policy. Project only event syntax into the
-    # shared provider lifecycle; never admit a source discriminator as a generic
-    # legacy Graph policy just to run those checks.
-    validate_provider_execution(
-        execution.policy,
-        TypeAdapter(list[GraphExecutionEventV1]).validate_python(legacy_events),
-    )
     if len(execution.model_dump_json(by_alias=True).encode("utf-8")) > 1_048_576:
         raise ValueError("Graph execution record exceeds the storage size limit")
     if dynamic_source_scope and len(json.dumps(execution.model_dump(mode="json", by_alias=True), ensure_ascii=True).encode("utf-8")) > 1_048_576:

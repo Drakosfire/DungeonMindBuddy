@@ -290,3 +290,59 @@ def test_model_free_admission_cannot_smuggle_provider_accounting():
         provider_model_name="not_dispatched", provider_envelope_input_tokens=0)
     with pytest.raises(ValueError, match="Extra inputs"):
         read(seal(value))
+
+
+def provider_ledger():
+    """Lifecycle fixture only; this does not admit native reads or completions."""
+    from types import SimpleNamespace
+    from application_state.agent_conversation.native_plan_assertions import NativePlanAssertionReadAuthorizedV1
+    read = NativePlanAssertionReadAuthorizedV1(event_id=uuid4(), sequence=0,
+        provider_attempt_id=uuid4(), query_sha256="a" * 64, assertion_ids=("assertion-one",))
+    provider = t.PlanNativeWriterAuthorizedV2(event_id=uuid4(), sequence=1,
+        provider_attempt_id=uuid4(), envelope_sha256="b" * 64,
+        serializer_version="openai-sdk-json-v1", provider="openai-api", model="synthetic", api_mode="responses",
+        tool_schema_sha256="c" * 64, input_accounting_kind="exact_token_count", input_estimator="synthetic",
+        input_tokens=12, output_token_reserve=10, included_assertion_ids=[], included_relationship_ids=[],
+        included_evidence_ref_ids=[], included_graph_event_ids=[], included_source_read_event_ids=[],
+        frame_sha256="d" * 64, included_source_reuse_event_ids=[],
+        native_statement_read_event_ids=[], native_assertion_read_event_ids=[read.event_id])
+    def outcome(sequence, value):
+        return t.ProviderOutcomeEventV1(kind="provider_outcome", event_id=uuid4(), sequence=sequence,
+            provider_attempt_id=provider.provider_attempt_id, outcome=value)
+    completion = t.CompletionBindingEventV1(kind="completion_binding", event_id=uuid4(), sequence=4,
+        provider_attempt_id=provider.provider_attempt_id, completion_sha256="e" * 64, claim_graph_event_ids={})
+    # No classic Graph scope, operation menu, result budget or fabricated packet.
+    policy = SimpleNamespace(provider_input_accounting=t.GraphExecutionAccountingV1(
+        kind="exact_token_count", estimator="synthetic"), max_provider_attempts=1,
+        max_total_provider_input_tokens=12, max_total_provider_output_tokens=10)
+    return SimpleNamespace(policy=policy, events=[read, provider,
+        outcome(2, "sdk_entered"), outcome(3, "response_received"), completion])
+
+
+def test_provider_lifecycle_uses_native_event_positions_without_classic_graph_policy():
+    ledger = provider_ledger()
+    before = [event.model_dump_json() for event in ledger.events]
+    t.validate_provider_execution(ledger)
+    assert [event.model_dump_json() for event in ledger.events] == before
+
+
+@pytest.mark.parametrize("change", ["sequence", "duplicate_id", "unknown_outcome", "unentered_sdk",
+                                     "input_budget", "output_budget", "accounting"])
+def test_provider_lifecycle_preserves_fail_closed_checks_on_native_records(change):
+    ledger = provider_ledger()
+    if change == "sequence":
+        ledger.events[0] = ledger.events[0].model_copy(update={"sequence": 1})
+    if change == "duplicate_id":
+        ledger.events[0] = ledger.events[0].model_copy(update={"event_id": ledger.events[1].event_id})
+    if change == "unknown_outcome":
+        ledger.events[3] = ledger.events[3].model_copy(update={"outcome": "outcome_unknown"})
+    if change == "unentered_sdk":
+        ledger.events[2] = ledger.events[2].model_copy(update={"outcome": "response_received"})
+    if change == "input_budget":
+        ledger.policy.max_total_provider_input_tokens = 11
+    if change == "output_budget":
+        ledger.policy.max_total_provider_output_tokens = 9
+    if change == "accounting":
+        ledger.events[1] = ledger.events[1].model_copy(update={"input_estimator": "unapproved"})
+    with pytest.raises(ValueError):
+        t.validate_provider_execution(ledger)
