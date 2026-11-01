@@ -2,23 +2,20 @@ import {SessionEvidencePicker} from "../playSurface/review/SessionEvidencePicker
 import type {SessionEvidenceRef} from "../playSurface/review/sessionEvidenceApi";
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
 
-import { getHistoricalRecapWorldProjection, getRecapArtifacts, postWorldGraphRecapProjection } from "../api/liveApi";
+import { getHistoricalRecapWorldProjection } from "../api/liveApi";
+import { getSavedRecapRuns, getSavedRecapSource, type SavedRecapRun, type SavedRecapRuns, type SavedRecapSource } from "../api/savedRecapRunsApi";
+import { WorldPlanAgentAnswer } from "../planSurface/components/WorldPlanAgentAnswer";
 import { postRecapIngest } from "../api/recapIngestApi";
 import type {
   NormalizedRecapCandidate,
-  RecapArtifactRecord,
   RecapGraphPreviewReport,
   RecapIngestStatus,
   HistoricalRecapWorldProjectionResponse,
-  WorldGraphRecapProjection,
   WorldGraphProjection,
   WorldGraphProjectionRequest,
 } from "../api/types";
 import {
-  filterNumericRecapArtifactRecords,
-  recapArtifactSessionLabel,
   recapSessionNumber,
-  sortRecapArtifactRecords,
 } from "../planSurface/graphPreview/recapSessionLabels";
 import { useOptionalProjection } from "../planSurface/projection/projectionContext";
 import { ReviewCampaignPicker } from "../planSurface/ReviewCampaignPicker";
@@ -30,9 +27,7 @@ import { GraphReviewHistoricalRecapProjection } from "../planSurface/graphReview
 import { GraphReviewCandidateRecapProjection } from "../planSurface/graphReviewWorkbench/GraphReviewCandidateRecapProjection";
 import { getExactRunCandidateProjection, type ExactRunCandidateProjection } from "../api/exactRunCandidateProjectionApi";
 
-import { WorldGraphRecapProjectionView } from "../planSurface/graphPreview/WorldGraphRecapProjection";
 import { verifyWorldGraphProjectionResponse } from "../worldGraph/verifyWorldGraphProjectionResponse";
-import { buildWorldGraphRecapProjectionRequest } from "../worldGraph/worldGraphSurfaceContext";
 
 import { NativeGraphAccessControl } from "../chrome/NativeGraphAccessControl";
 
@@ -46,7 +41,7 @@ interface IngestionModuleProps {
 const INGESTION_DRAFT_STORAGE_VERSION = 3;
 const INGESTION_GRAPH_MODEL_ID = "deepseek/deepseek-v4.1-flash-1017";
 
-type IngestionSourceMode = "raw" | "processed";
+type IngestionSourceMode = "raw" | "saved";
 
 function isIngestSurfacePath(): boolean {
   if (typeof window === "undefined") return false;
@@ -63,10 +58,6 @@ function isFreshRecapEntryRoute(): boolean {
   return params.has("world") && params.get("view") !== "recap" && !params.has("campaign") && !params.has("session");
 }
 
-function titleFromArtifact(record: RecapArtifactRecord): string {
-  const fileName = record.source_recap_path.split("/").pop()?.replace(/\.md$/i, "") ?? "";
-  return fileName.trim();
-}
 
 const SESSION_22_CANONICAL_SLUG = "Mireward Road and Lysandro";
 const SESSION_22_CANONICAL_TITLE = "Session 22 - Mireward Road and Lysandro";
@@ -687,7 +678,7 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
   const [slug, setSlug] = useState("");
   const [title, setTitle] = useState("");
   const [showAdvanced, setShowAdvanced] = useState(false);
-  const [reviewSource, setReviewSource] = useState<{ identity: string; session: number; nodes: number; edges: number; projection: WorldGraphRecapProjection | HistoricalRecapWorldProjectionResponse | ExactRunCandidateProjection | null; runId?: string } | null>(null);
+  const [reviewSource, setReviewSource] = useState<{ identity: string; session: number; nodes: number; edges: number; projection: HistoricalRecapWorldProjectionResponse | ExactRunCandidateProjection | null; runId?: string } | null>(null);
   const [readerMode, setReaderMode] = useState(() => new URLSearchParams(window.location.search).get("view") === "recap");
   const readerAttempt = useRef<string | null>(null);
   const restoreReaderRoute = useRef(true);
@@ -720,17 +711,20 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
   const [reconcileChoice, setReconcileChoice] = useState<string | null>(null);
   const [reconciling, setReconciling] = useState(false);
   const [sourceMode, setSourceMode] = useState<IngestionSourceMode>("raw");
-  const [loadedArtifact, setLoadedArtifact] = useState<RecapArtifactRecord | null>(null);
+  const [loadedRun, setLoadedRun] = useState<SavedRecapRun | null>(null);
   const [returnableDraft, setReturnableDraft] = useState<ReturnableIngestionDraft | null>(null);
   const preservedRouteDraftRef = useRef<ReturnableIngestionDraft | null>(null);
-  const [priorIngestionArtifacts, setPriorIngestionArtifacts] = useState<RecapArtifactRecord[]>([]);
-  const [priorArtifactLookup, setPriorArtifactLookup] = useState<{
-    campaignId: string;
+  const [savedRuns, setSavedRuns] = useState<SavedRecapRun[]>([]);
+  const [savedRunScope, setSavedRunScope] = useState<SavedRecapRuns | null>(null);
+  const [savedSource, setSavedSource] = useState<{identity: string; source: SavedRecapSource} | null>(null);
+  const [savedRunRefresh, setSavedRunRefresh] = useState(0);
+  const savedCatalogEpoch = useRef(0);
+  const savedRunKey = JSON.stringify([managedWorldId ?? "", ingestCampaignId, savedRunRefresh]);
+  const [savedRunLookup, setSavedRunLookup] = useState<{
+    key: string;
     status: "loading" | "loaded" | "failed";
   } | null>(null);
-  const [selectedPriorArtifactId, setSelectedPriorArtifactId] = useState("");
-  const [loadingPriorIngestion, setLoadingPriorIngestion] = useState(false);
-  const [priorSourceReadFailed, setPriorSourceReadFailed] = useState(false);
+  const [selectedSavedRunId, setSelectedSavedRunId] = useState("");
   const [ignoreDiskResume, setIgnoreDiskResume] = useState(false);
   const inspectedTargetRef = useRef("");
   const inspectingTargetRef = useRef("");
@@ -784,18 +778,16 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
     setLatestResult(null);
     setState({ status: "idle" });
     setSourceMode("raw");
-    setLoadedArtifact(null);
+    setLoadedRun(null);
     setRawText("");
     setSlug("");
     setTitle(canonicalSlugTitleForRecapSession(recapSession)?.title ?? "");
     setShowAdvanced(false);
     setForceStage(false);
     setForceRecap(false);
-    setSelectedPriorArtifactId("");
-    setPriorIngestionArtifacts([]);
-    setPriorSourceReadFailed(false);
+    setSelectedSavedRunId("");
+    setSavedRuns([]);
     setPrimaryOp(null);
-    setLoadingPriorIngestion(false);
     setReconciling(false);
     setToast(null);
     lastToastKeyRef.current = null;
@@ -813,22 +805,16 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
     setLatestResult(null);
     setState({ status: "idle" });
     setSourceMode("raw");
-    setLoadedArtifact(null);
+    setLoadedRun(null);
     setRawText("");
     setSlug("");
     setTitle(canonicalSlugTitleForRecapSession(nextSession)?.title ?? "");
     setShowAdvanced(false);
     setForceStage(false);
     setForceRecap(false);
-    const targetSessionId = nextSession > 0 ? `session-${nextSession}` : "";
-    const exactTarget = priorIngestionArtifacts.find(
-      (record) => record.campaign_id === ingestCampaignId && record.session_id === targetSessionId,
-    );
-    setSelectedPriorArtifactId(exactTarget?.artifact_id || "");
-    setPriorSourceReadFailed(false);
+    setSelectedSavedRunId("");
     setIgnoreDiskResume(false);
     setPrimaryOp(null);
-    setLoadingPriorIngestion(false);
     setReconciling(false);
     setToast(null);
     lastToastKeyRef.current = null;
@@ -872,6 +858,12 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
       setHydratedIngestTargetIdentity(null);
       setPrimaryOp(null);
       setLatestResult(null);
+      setLoadedRun(null);
+      if (managedWorldChanged || ingestCampaignId !== routeCampaignId) {
+        setSavedRuns([]);
+        setSavedRunScope(null);
+      }
+      setSourceMode("raw");
       setState({ status: "idle" });
       setToast(null);
       inspectedTargetRef.current = "";
@@ -892,24 +884,16 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
       setLatestResult(null);
       setState({ status: "idle" });
       setSourceMode("raw");
-      setLoadedArtifact(null);
-      setPriorSourceReadFailed(false);
+      setLoadedRun(null);
       setIgnoreDiskResume(false);
       setPrimaryOp(null);
-      setLoadingPriorIngestion(false);
       setReconciling(false);
       setToast(null);
       lastToastKeyRef.current = null;
       inspectedTargetRef.current = "";
-      const targetSessionId = routeTargetSession > 0 ? `session-${routeTargetSession}` : "";
-      const exactTarget = priorIngestionArtifacts.find(
-        (record) => record.campaign_id === routeCampaignId && record.session_id === targetSessionId,
-      );
-      setSelectedPriorArtifactId(
-        ingestCampaignId === routeCampaignId ? exactTarget?.artifact_id || "" : "",
-      );
+      setSelectedSavedRunId("");
       if (ingestCampaignId !== routeCampaignId) {
-        setPriorIngestionArtifacts([]);
+        setSavedRuns([]);
       }
     }
 
@@ -986,7 +970,7 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
     campaignId = ingestCampaignId,
     sessionNumber = recapSession,
   ) {
-    if (!Number.isInteger(sessionNumber) || sessionNumber <= 0 || ignoreDiskResume) return;
+    if (readerMode || sourceMode !== "raw" || !Number.isInteger(sessionNumber) || sessionNumber <= 0 || ignoreDiskResume) return;
     const identity = getIngestTargetIdentity(campaignId, sessionNumber);
     if (inspectedTargetRef.current === identity || inspectingTargetRef.current === identity) return;
     const inspectGeneration = ++hydrateInspectGenerationRef.current;
@@ -1084,24 +1068,18 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
     hasApplied &&
     recapSourceNavigationProof.confirmed &&
     recapSourceNavigationProof.normalizedCurrent;
-  const processedSourceReady =
-    sourceMode === "processed" &&
-    loadedArtifact !== null &&
-    hasCurrentNormalizedSource;
-  const sourceInputSatisfied =
-    rawTextSatisfied ||
-    processedSourceReady ||
-    hasCurrentNormalizedSource;
+  const sourceInputSatisfied = rawTextSatisfied || hasCurrentNormalizedSource;
   const isRunningFullIngest = state.status === "running_full_ingest";
   const graphPreviewFromEvidence = evidenceResult?.ingest_report?.graph_preview as RecapGraphPreviewReport | undefined;
   const proofGraphPreview = proofResult?.ingest_report?.graph_preview as RecapGraphPreviewReport | undefined;
   const graphPreview = proofGraphPreview?.status === "source_unverified"
     ? proofGraphPreview
     : graphPreviewFromEvidence;
-  const exactGraphReviewRunId = evidenceResultOwnsSelection
+  const currentSavedRunLookup = savedRunLookup?.key === savedRunKey ? savedRunLookup : null;
+  const exactGraphReviewRunId = loadedRun?.runId ?? (evidenceResultOwnsSelection
     ? graphPreviewFromEvidence?.extraction_run_id?.trim() || null
-    : null;
-  const graphReviewable = graphPreviewIsReviewable(graphPreview);
+    : null);
+  const graphReviewable = loadedRun ? ["reviewable", "promoted"].includes(loadedRun.runStatus) : graphPreviewIsReviewable(graphPreview);
   // Import-file checks cannot invalidate an exact saved database candidate.
   const sourceUnverified = !graphReviewable && Boolean(
     graphPreview?.status === "source_unverified" ||
@@ -1113,7 +1091,8 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
     isIngestSurfacePath()
     && managedWorldId
     && exactGraphReviewRunId
-    && graphReviewable,
+    && graphReviewable
+    && (sourceMode === "raw" || currentSavedRunLookup?.status === "loaded"),
   );
   const graphReviewUnavailableReason = !managedWorldId
     ? "selected World"
@@ -1121,20 +1100,12 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
   const statusBadgeResult = sourceUnverified || latestProofFailure ? proofResult : evidenceResult ?? proofResult;
   const statusBadge = ingestionStatusBadge(state.status, statusBadgeResult, graphPreview);
   const selectedReaderRun = readerRun?.campaign === ingestCampaignId && readerRun.session === `session-${recapSession}` ? readerRun.runId : null;
-  const exactSavedArtifact = priorIngestionArtifacts.find(
-    (item) => item.campaign_id === ingestCampaignId && item.session_id === `session-${recapSession}`,
-  );
-  const normalizedRecapPath = evidenceResultOwnsSelection ? evidenceResult?.paths?.normalized_recap?.trim() : null;
-  const exactReaderRun = selectedReaderRun ?? (evidenceResultOwnsSelection ? graphPreview?.extraction_run_id?.trim() : null);
-  const hasAddressableSavedSource = Boolean(exactSavedArtifact || normalizedRecapPath || exactReaderRun);
-  const currentArtifactLookup = priorArtifactLookup?.campaignId === ingestCampaignId
-    ? priorArtifactLookup
-    : null;
   const reviewIdentity = JSON.stringify([
     managedWorldId ?? null,
     ingestCampaignId,
     recapSession,
     selectedIngestTarget,
+    savedRunRefresh,
     selectedReaderRun ?? (evidenceResultOwnsSelection ? graphPreview?.extraction_run_id : null) ?? null,
   ]);
   useLayoutEffect(() => {
@@ -1142,25 +1113,25 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
     reviewEpoch.current += 1;
     readerAttempt.current = null;
     setReviewSource(null);
+    setSavedSource(null);
     setReviewError(null);
     setReviewLoading(false);
     return () => { reviewEpoch.current += 1; };
   }, [reviewIdentity]);
   useEffect(() => {
-    if (!readerMode || !selectionHydrated || loadingPriorIngestion || readerAttempt.current === reviewIdentity) return;
-    // An inspect-status response can own this selection without identifying a
-    // readable source. Wait for either an exact source address or the campaign's
-    // artifact lookup to finish before recording an automatic attempt.
-    if (!hasAddressableSavedSource && currentArtifactLookup?.status !== "loaded" && currentArtifactLookup?.status !== "failed") return;
+    if (!readerMode || !selectionHydrated || readerAttempt.current === reviewIdentity) return;
+    // An exact saved route waits for its scoped catalogue; never infer a
+    // source from a session label or the current file-import status.
+    if (currentSavedRunLookup?.status !== "loaded" && currentSavedRunLookup?.status !== "failed") return;
     const restore = restoreReaderRoute.current;
     restoreReaderRoute.current = false;
     readerAttempt.current = reviewIdentity;
-    if (!hasAddressableSavedSource && currentArtifactLookup?.status === "failed") {
-      setReviewError("Saved recaps could not be checked. Retry after the recap list is available.");
+    if (currentSavedRunLookup?.status === "failed") {
+      setReviewError(managedWorldId ? "Saved extraction work could not be checked. Retry saved work." : "Select a World to read saved extraction work.");
       return;
     }
     void reviewSavedSource(restore, true);
-  }, [readerMode, selectionHydrated, loadingPriorIngestion, reviewIdentity, latestResult?.session, latestResult?.campaign_id, priorIngestionArtifacts, hasAddressableSavedSource, currentArtifactLookup?.status]);
+  }, [readerMode, selectionHydrated, reviewIdentity, latestResult?.session, latestResult?.campaign_id, savedRuns, currentSavedRunLookup?.status]);
   // Trust live graph_preview.status only — draft states must not claim materialized.
   const hasPreviewUnionStore = graphPreview?.status === "preview_union_store_ready";
   const hasNormalizedRecap = hasApplied;
@@ -1174,18 +1145,12 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
     !rawTextSatisfied &&
     hasNormalizedRecap &&
     hasCurrentNormalizedSource &&
-    recapSession > 0 &&
-    !priorSourceReadFailed;
+    recapSession > 0;
   const hasLoadedRecapContent =
     sourceMode !== "raw" ||
-    loadedArtifact !== null ||
+    loadedRun !== null ||
     Boolean(rawText.trim()) ||
     (resultOwnsSelection && hasCurrentNormalizedSource);
-  useEffect(() => {
-    if (!selectionHydrated || loadingPriorIngestion || rawTextSatisfied || !hasCurrentNormalizedSource || readerMode) return;
-    restoreReaderRoute.current = false;
-    setReaderMode(true);
-  }, [selectionHydrated, loadingPriorIngestion, rawTextSatisfied, hasCurrentNormalizedSource, readerMode]);
   const showRecapWelcome =
     selectionHydrated &&
     !readerMode &&
@@ -1202,13 +1167,14 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
       return "Processing recap and building World Graph context.";
     }
     if (readerMode) {
+      if (savedSource?.identity === reviewIdentity) return `Viewing saved source · ${savedSource.source.run.runStatus}.`;
       if (reviewLoading) return `Opening saved recap · Session ${recapSession}…`;
       if (reviewError) return "Saved recap could not be opened. See the message on the recap surface.";
       if (reviewSource?.projection) return `Viewing saved recap · Session ${reviewSource.session}.`;
       return `Opening saved recap · Session ${recapSession}…`;
     }
     if (rawTextSatisfied && hasCurrentNormalizedSource) {
-      return `Unsaved draft open · Session ${recapSession}. The saved recap is available to read.`;
+      return `Unsaved draft open · Session ${recapSession}. Process this draft, or select saved extraction work.`;
     }
     if (canOpenGraphReview) return "Graph candidate ready for review; World admission is a separate step.";
     if (!sourceInputSatisfied && !hasNormalizedRecap) {
@@ -1232,9 +1198,10 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
     if (graphPreview?.status === "candidate_validation_ready") return "Graph candidate ready for review; World admission is a separate step.";
     return "Choose Process to build the enriched recap and graph context.";
   })();
-  // One visible Process action accepts composer text or verified saved source.
+  // Raw import processing stays separate from exact saved-run reading.
   const canProcessRecap =
     !busy &&
+    sourceMode === "raw" && !readerMode &&
     validRecapSession &&
     sourceInputSatisfied &&
     (!hasPreviewUnionStore || forceGraphRun) &&
@@ -1325,7 +1292,7 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
         setIgnoreDiskResume(restoredIgnoreDiskResume);
       }
 
-      if (defaultRecap > 0 && (!freshRecapEntry || usableDraft)) {
+      if (!readerMode && sourceMode === "raw" && defaultRecap > 0 && (!freshRecapEntry || usableDraft)) {
         const inspectionIdentity = selectedIngestTarget;
         inspectingTargetRef.current = inspectionIdentity;
         try {
@@ -1431,7 +1398,7 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
   ]);
 
   useEffect(() => {
-    if (!selectionHydrated || recapSession !== 22) {
+    if (readerMode || sourceMode !== "raw" || !selectionHydrated || recapSession !== 22) {
       return;
     }
     if (isStaleSession22Slug(slug) || isStaleSession22Slug(title)) {
@@ -1442,38 +1409,31 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
 
   useEffect(() => {
     if (!hydrated) return;
+    const controller = new AbortController();
+    const catalogEpoch = ++savedCatalogEpoch.current;
     let cancelled = false;
-    setPriorArtifactLookup({ campaignId: ingestCampaignId, status: "loading" });
-    void getRecapArtifacts(ingestCampaignId)
-      .then((response) => {
-        if (cancelled || ingestCampaignIdRef.current !== ingestCampaignId) return;
-        const records = sortRecapArtifactRecords(
-          filterNumericRecapArtifactRecords(response.records).filter(
-            (record) => record.campaign_id === ingestCampaignId,
-          ),
-        );
-        setPriorIngestionArtifacts(records);
-        setPriorArtifactLookup({ campaignId: ingestCampaignId, status: "loaded" });
-        const currentSession = recapSessionRef.current;
-        const targetSessionId = currentSession > 0 ? `session-${currentSession}` : "";
-        const exactTarget = records.find(
-          (record) => record.campaign_id === ingestCampaignId && record.session_id === targetSessionId,
-        );
-        setSelectedPriorArtifactId((current) => current || exactTarget?.artifact_id || "");
-      })
-      .catch(() => {
-        if (!cancelled && ingestCampaignIdRef.current === ingestCampaignId) {
-          setPriorIngestionArtifacts([]);
-          setPriorArtifactLookup({ campaignId: ingestCampaignId, status: "failed" });
-        }
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [ingestCampaignId, hydrated]);
+    const worldId = managedWorldId ?? "";
+    setSavedRuns([]);
+    setSavedRunScope(null);
+    setSavedRunLookup({key: savedRunKey, status: "loading"});
+    if (!worldId) {
+      setSavedRunLookup({key: savedRunKey, status: "failed"});
+      return;
+    }
+    void getSavedRecapRuns(worldId, ingestCampaignId, controller.signal).then(scope => {
+      if (cancelled || catalogEpoch !== savedCatalogEpoch.current || ingestCampaignIdRef.current !== ingestCampaignId) return;
+      setSavedRunScope(scope);
+      setSavedRuns(scope.runs);
+      setSavedRunLookup({key: savedRunKey, status: "loaded"});
+      setSelectedSavedRunId(current => scope.runs.some(row => row.runId === current) ? current : "");
+    }).catch(() => {
+      if (!cancelled && catalogEpoch === savedCatalogEpoch.current) setSavedRunLookup({key: savedRunKey, status: "failed"});
+    });
+    return () => {cancelled = true; controller.abort();};
+  }, [ingestCampaignId, managedWorldId, hydrated, savedRunRefresh, savedRunKey]);
 
   useEffect(() => {
-    if (!selectionHydrated || loadingPriorIngestion || readerMode || returnableDraft) {
+    if (!selectionHydrated || readerMode || returnableDraft) {
       return;
     }
     writeDraft(storageKey, {
@@ -1489,7 +1449,6 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
     });
   }, [
     selectionHydrated,
-    loadingPriorIngestion,
     readerMode,
     returnableDraft,
     storageKey,
@@ -1548,6 +1507,9 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
 
   function closeSavedReader() {
     reviewEpoch.current += 1;
+    setSavedSource(null);
+    setLoadedRun(null);
+    setSourceMode("raw");
     setReviewSource(null);
     setReviewError(null);
     setReviewLoading(false);
@@ -1570,7 +1532,6 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
     invalidateInFlightRecapOperations();
     hydrateInspectGenerationRef.current += 1;
     closeSavedReader();
-    setLoadingPriorIngestion(false);
     const { draft, campaignId } = candidate;
     advanceIngestTarget(campaignId, draft.recapSession);
     ingestCampaignIdRef.current = campaignId;
@@ -1586,7 +1547,7 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
     setForceRecap(draft.forceRecap);
     setIgnoreDiskResume(Boolean(draft.ignoreDiskResume));
     setSourceMode("raw");
-    setLoadedArtifact(null);
+    setLoadedRun(null);
     setLatestResult(null);
     setState({ status: "idle" });
     setToast(null);
@@ -1616,30 +1577,19 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
     setForceRecap(false);
     setForceGraphRun(false);
     setSourceMode("raw");
-    setPriorSourceReadFailed(false);
-    setLoadedArtifact(null);
+    setLoadedRun(null);
     setReturnableDraft(null);
-    setSelectedPriorArtifactId("");
+    setSelectedSavedRunId("");
     setToast(null);
     setState({ status: "idle" });
     setLatestResult(null);
     setPrimaryOp(null);
     setReconciling(false);
-    setLoadingPriorIngestion(false);
   }
 
   function startNewRecap() {
     setIgnoreDiskResume(true);
     resetIngestionDraft();
-  }
-
-  function applyResultAndSyncSlug(result: RecapIngestStatus) {
-    setLatestResult(result);
-    const synced = result.session === recapSession ? syncSlugTitleFromResult(result) : null;
-    if (synced) {
-      setSlug(synced.slug);
-      setTitle(synced.title);
-    }
   }
 
   function applyOperationResult(
@@ -1661,123 +1611,48 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
     return result.errors.length > 0 ? result.errors.join("; ") : fallback;
   }
 
-  async function loadPriorIngestion(record: RecapArtifactRecord) {
-    const sessionNumber = recapSessionNumber(record.session_id);
-    if (sessionNumber == null || sessionNumber <= 0) {
-      setPriorSourceReadFailed(true);
-      setToast({
-        tone: "error",
-        title: "Could not load ingestion",
-        detail: "Selected artifact has no numeric session id.",
-        nextSteps: [],
-        sticky: true,
-      });
+  async function loadPriorIngestion(record: SavedRecapRun) {
+    const sessionNumber = recapSessionNumber(record.sessionId ?? "");
+    if (sessionNumber == null || sessionNumber <= 0 || record.campaignId !== ingestCampaignId) {
+      setToast({tone: "error", title: "Saved work cannot be opened", detail: "This run has no matching campaign and numeric session.", nextSteps: [], sticky: true});
       return;
     }
-
-    const targetIdentity = advanceIngestTarget(record.campaign_id, sessionNumber);
-    if (rawText.trim()) {
-      const draft = {
-        version: INGESTION_DRAFT_STORAGE_VERSION,
-        rawText,
-        recapSession,
-        slug,
-        title,
-        showAdvanced,
-        forceStage,
-        forceRecap,
-        ignoreDiskResume,
-      } satisfies IngestionModuleDraft;
-      writeDraft(storageKey, draft);
-      setReturnableDraft({ storageKey, campaignId: ingestCampaignId, draft });
-    }
+    preserveCurrentDraftForTargetChange();
     invalidateInFlightRecapOperations();
-    ingestCampaignIdRef.current = record.campaign_id;
-    recapSessionRef.current = sessionNumber;
     invalidateInFlightHydrateInspect();
+    const identity = advanceIngestTarget(ingestCampaignId, sessionNumber);
+    recapSessionRef.current = sessionNumber;
     targetSelectionTransitionRef.current = null;
     setHydrated(true);
-    setHydratedIngestTargetIdentity(targetIdentity);
-    const requestGeneration = hydrateInspectGenerationRef.current;
-    setLoadingPriorIngestion(true);
-    setPriorSourceReadFailed(false);
-    setSourceMode("processed");
-    setLoadedArtifact(record);
-    setIngestCampaignId(record.campaign_id);
-    setRawText("");
+    setHydratedIngestTargetIdentity(identity);
     setRecapSession(sessionNumber);
-    setLatestResult(null);
-    setState({ status: "idle" });
-    inspectedTargetRef.current = "";
-    setTitle(titleFromArtifact(record));
+    setSourceMode("saved");
+    setLoadedRun(record);
+    setReaderRun({campaign: ingestCampaignId, session: record.sessionId!, runId: record.runId});
+    setRawText("");
+    setTitle("");
     setSlug("");
-    lastToastKeyRef.current = null;
-
-    try {
-      const inspected = await postRecapIngest({
-        operation: "inspect_status",
-        managed_world_id: managedWorldId,
-        campaign_id: record.campaign_id,
-        session: sessionNumber,
-        title: titleFromArtifact(record) || undefined,
-      });
-      if (
-        requestGeneration !== hydrateInspectGenerationRef.current ||
-        selectedIngestTargetRef.current !== targetIdentity ||
-        inspected.campaign_id !== record.campaign_id ||
-        inspected.session !== sessionNumber
-      ) return;
-      applyResultAndSyncSlug(inspected);
-      inspectedTargetRef.current = targetIdentity;
-      setState(derivePaneStateFromResult(inspected));
-
-      const route = new URLSearchParams(window.location.search);
-      route.set("campaign", record.campaign_id);
-      route.set("session", record.session_id);
-      route.set("view", "recap");
-      route.delete("recapReviewRunId");
-      window.history.replaceState({}, "", `${ingestRoutePath()}?${route.toString()}`);
-      setIgnoreDiskResume(false);
-      readerAttempt.current = null;
-      restoreReaderRoute.current = false;
-      setReaderMode(true);
-      setToast({
-        tone: "info",
-        title: "Loaded processed recap",
-        detail: `Reading the saved recap for Session ${sessionNumber}.`,
-        nextSteps: [],
-      });
-    } catch (error) {
-      if (
-        requestGeneration !== hydrateInspectGenerationRef.current ||
-        selectedIngestTargetRef.current !== targetIdentity
-      ) return;
-      closeSavedReader();
-      setSourceMode("raw");
-      setLoadedArtifact(null);
-        setPriorSourceReadFailed(true);
-      setToast({
-        tone: "error",
-        title: "Could not load prior ingestion",
-        detail: error instanceof Error ? error.message : "Load failed",
-        nextSteps: [],
-        sticky: true,
-      });
-    } finally {
-      if (
-        requestGeneration === hydrateInspectGenerationRef.current &&
-        selectedIngestTargetRef.current === targetIdentity
-      ) setLoadingPriorIngestion(false);
-    }
+    setLatestResult(null);
+    setState({status: "idle"});
+    setToast(null);
+    const route = new URLSearchParams(window.location.search);
+    route.set("campaign", ingestCampaignId);
+    route.set("session", record.sessionId!);
+    route.set("view", "recap");
+    route.set("recapReviewRunId", record.runId);
+    route.set("recapProjection", "source");
+    window.history.replaceState({}, "", `${ingestRoutePath()}?${route}`);
+    restoreReaderRoute.current = false;
+    setReaderMode(true);
   }
 
   async function loadSelectedPriorIngestion() {
-    const record = priorIngestionArtifacts.find((row) => row.artifact_id === selectedPriorArtifactId);
+    const record = savedRuns.find((row) => row.runId === selectedSavedRunId);
     if (!record) {
       setToast({
         tone: "warning",
-        title: "Select a prior ingestion",
-        detail: "Choose a session from the dropdown first.",
+        title: "Select saved extraction work",
+        detail: "Choose an exact extraction run first.",
         nextSteps: [],
       });
       return;
@@ -1831,6 +1706,7 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
         }, targetIdentity);
       if (!response) return;
       const result = applyOperationResult(response, targetIdentity, draftEpoch);
+      setSavedRunRefresh(value => value + 1);
       setHydrated(true);
       setHydratedIngestTargetIdentity(targetIdentity);
       if (targetSelectionTransitionRef.current?.identity === targetIdentity) {
@@ -1874,9 +1750,16 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
       }
 
       const freshReaderParams = new URLSearchParams(window.location.search);
+      freshReaderParams.set("view", "recap");
+      freshReaderParams.set("campaign", ingestCampaignId);
+      freshReaderParams.set("session", `session-${recapSession}`);
+      const processedRunId = (result.ingest_report?.graph_preview as RecapGraphPreviewReport | undefined)?.extraction_run_id;
+      if (processedRunId) freshReaderParams.set("recapReviewRunId", processedRunId);
+      else freshReaderParams.delete("recapReviewRunId");
       freshReaderParams.set("recapProjection", "candidate");
       window.history.replaceState({}, "", `${window.location.pathname}?${freshReaderParams}`);
-      setSourceMode("processed");
+      preserveCurrentDraftForTargetChange();
+      setSourceMode("saved");
       setRawText("");
       readerAttempt.current = null;
       restoreReaderRoute.current = false;
@@ -1963,8 +1846,10 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
   async function reviewSavedSource(restore = false, preserveSelection = false, admittedMemory?: boolean) {
     restoreReaderRoute.current = false;
     const params = new URLSearchParams(window.location.search);
+    // A queued restore must not reopen a reader the user has just left.
+    if ((restore || preserveSelection) && params.get("view") !== "recap") return;
     const sameSelection = params.get("campaign") === ingestCampaignId && params.get("session") === `session-${recapSession}`;
-    const currentRun = resultOwnsSelection ? graphPreview?.extraction_run_id : undefined;
+    const currentRun = loadedRun?.runId ?? (resultOwnsSelection ? graphPreview?.extraction_run_id : undefined);
     const runId = ((preserveSelection || restore) && selectedReaderRun ? selectedReaderRun : currentRun) ?? undefined;
     if (restore && (!sameSelection || !requestedRecapSessionFromLocation())) {
       setReviewError("Saved recap route has an invalid campaign or session.");
@@ -1974,8 +1859,9 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
     params.set("campaign", ingestCampaignId);
     params.set("session", `session-${recapSession}`);
     params.set("view", "recap");
-    const readAdmitted = admittedMemory ?? params.get("recapProjection") === "admitted";
-    params.set("recapProjection", readAdmitted ? "admitted" : "candidate");
+    const projectionMode = admittedMemory === undefined ? params.get("recapProjection") ?? "source" : admittedMemory ? "admitted" : "candidate";
+    const readAdmitted = projectionMode === "admitted";
+    params.set("recapProjection", projectionMode);
     if (runId) params.set("recapReviewRunId", runId); else params.delete("recapReviewRunId");
     window.history.replaceState({}, "", `${ingestRoutePath()}?${params.toString()}`);
     readerAttempt.current = reviewIdentity;
@@ -1990,21 +1876,37 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
     setReviewLoading(true);
     setReviewError(null);
     setReviewSource(null);
+    setSavedSource(null);
     try {
-      const record = priorIngestionArtifacts.find((item) => item.campaign_id === ingestCampaignId && item.session_id === `session-${capturedSession}`);
-      const path = resultOwnsSelection ? latestResult?.paths?.normalized_recap : null;
-      if (!record && !path && !runId) throw new Error("No saved recap is available for this session.");
+      const record = runId ? savedRuns.find(item => item.runId === runId) : undefined;
+      if (currentSavedRunLookup?.status !== "loaded" || !runId || !record || !savedRunScope || savedRunScope.managedWorldId !== capturedManagedWorldId
+        || record.campaignId !== ingestCampaignId || record.sessionId !== `session-${capturedSession}`) {
+        throw new Error("The exact saved extraction run is not available for this World, campaign and session. Choose an exact run from saved work.");
+      }
+      setLoadedRun(record);
+      setSourceMode("saved");
+      if (projectionMode === "source") {
+        if (record.unavailableReason) throw new Error(record.unavailableReason);
+        const source = await getSavedRecapSource(savedRunScope, record);
+        if (!isCurrent()) return;
+        setSavedSource({identity, source});
+        setReviewSource({identity,session:capturedSession,nodes:0,edges:0,runId,projection:null});
+        return;
+      }
       setReviewSource({ identity, session: capturedSession, nodes, edges, runId, projection: null });
-      if (runId && !readAdmitted) {
+      if (!readAdmitted) {
         if (!capturedManagedWorldId) throw new Error("Select a managed World before opening this exact candidate.");
         const candidate = await getExactRunCandidateProjection(runId,capturedManagedWorldId);
         if (!isCurrent()) return;
         if (candidate.runId !== runId || candidate.sourceDomain !== "recap" || candidate.campaignId !== ingestCampaignId
-          || candidate.sessionId !== `session-${capturedSession}` || candidate.managedWorldId !== capturedManagedWorldId) {
+          || candidate.sessionId !== `session-${capturedSession}` || candidate.managedWorldId !== capturedManagedWorldId
+          || candidate.runRevision !== record.runRevision || candidate.sourceArtifactId !== record.sourceArtifactId
+          || candidate.sourceSha256 !== `sha256:${record.sourceSha256}` || candidate.nativeWorldId !== savedRunScope.nativeWorldId
+          || candidate.bindingVersion !== savedRunScope.bindingVersion) {
           throw new Error("Exact candidate does not match the selected managed World binding, source campaign or session.");
         }
         setReviewSource({identity,session:capturedSession,nodes:candidate.nodes.length,edges:candidate.edges.length,runId,projection:candidate});
-      } else if (runId) {
+      } else {
         // A selected extraction run is an exact source identity. Never replace
         // it with the current normalized recap for the same session.
         if (!capturedManagedWorldId) {
@@ -2016,7 +1918,8 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
           historical.runId !== runId ||
           historical.sourceDomain !== "recap" ||
           historical.campaignId !== ingestCampaignId ||
-          historical.sessionId !== `session-${capturedSession}`
+          historical.sessionId !== `session-${capturedSession}` || historical.sourceArtifactId !== record.sourceArtifactId
+          || historical.sourceSha256 !== `sha256:${record.sourceSha256}`
         ) {
           throw new Error("Historical recap projection does not match the selected extraction run.");
         }
@@ -2032,8 +1935,8 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
         }
         if (
           historical.managedWorldId !== capturedManagedWorldId ||
-          !Number.isInteger(historical.bindingVersion) ||
-          (historical.bindingVersion ?? 0) < 1
+          historical.worldId !== savedRunScope.nativeWorldId ||
+          historical.bindingVersion !== savedRunScope.bindingVersion
         ) {
           throw new Error("Historical recap projection does not match the selected managed World binding.");
         }
@@ -2062,22 +1965,6 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
         });
         if (integrityError) throw new Error(integrityError);
         setReviewSource({ identity, session: capturedSession, nodes, edges, runId, projection: historical });
-      } else {
-        const request = buildWorldGraphRecapProjectionRequest({ campaignId: ingestCampaignId, sessionId: `session-${capturedSession}` });
-        if (!request) throw new Error("World Graph mapping is unavailable for this recap.");
-        const projection = await postWorldGraphRecapProjection(request);
-        if (!isCurrent()) return;
-        if (projection.campaignId !== ingestCampaignId || projection.sessionId !== `session-${capturedSession}` || projection.snapshot.worldId !== request.worldId) {
-          throw new Error("Recap projection does not match the selected World and session.");
-        }
-        if (!projection.snapshot.revisionId || !projection.snapshot.headRevisionId) throw new Error("Recap projection has no verified revision identity.");
-        const integrityError = verifyWorldGraphProjectionResponse({
-          request,
-          response: projection as unknown as WorldGraphProjection,
-          revisionKind: "head",
-        });
-        if (integrityError) throw new Error(integrityError);
-        setReviewSource({ identity, session: capturedSession, nodes, edges, projection });
       }
     } catch (error) {
       if (isCurrent()) setReviewError(error instanceof Error ? error.message : "Unable to open saved source.");
@@ -2087,29 +1974,21 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
   }
 
   function handleNativeGraphAccessChanged(available: boolean) {
-    if (available && readerMode) {
-      // Local Graph can become ready before the route and its saved-source list
-      // hydrate. Do not let that early callback consume the one-shot reader
-      // attempt; the restore effect will retry when an exact source is known.
-      if (!selectionHydrated || loadingPriorIngestion || !hasAddressableSavedSource) return;
-      if (readerAttempt.current === reviewIdentity && !reviewError) return;
-
-      reviewEpoch.current += 1;
-      setReviewSource(null);
-      setReviewError(null);
-      setReviewLoading(false);
-      restoreReaderRoute.current = true;
-      void reviewSavedSource(true, true);
-      return;
-    }
-
+    savedCatalogEpoch.current += 1;
     reviewEpoch.current += 1;
-    // Revocation invalidates even a previously successful projection so that
-    // reconnecting can restore the selected source again.
     readerAttempt.current = null;
     setReviewSource(null);
+    setSavedSource(null);
     setReviewLoading(false);
-    if (available) setReviewError(null);
+    if (available) {
+      setReviewError(null);
+      setSavedRunRefresh(value => value + 1);
+    } else {
+      setSavedRuns([]);
+      setSavedRunScope(null);
+      setSavedRunLookup({key: savedRunKey, status: "failed"});
+      if (readerMode) setReviewError("Reconnect local Graph access, then refresh saved work.");
+    }
   }
 
   function openGraphReviewWorkbench() {
@@ -2127,7 +2006,7 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
       && (reviewSource.projection?.schema === "dmb_historical_recap_world_projection_v1"
         || reviewSource.projection?.schema === "dmb_exact_run_candidate_projection_v1")
       ? reviewSource.projection.sourceArtifactId
-      : null;
+      : currentSavedRunLookup?.status === "loaded" ? savedRuns.find(run => run.runId === exactGraphReviewRunId)?.sourceArtifactId ?? null : null;
     if (sourceArtifactId) params.set("sourceArtifactId", sourceArtifactId);
     window.history.pushState({}, "", `${ingestRoutePath()}?${params.toString()}${window.location.hash}`);
     window.dispatchEvent(new Event("popstate"));
@@ -2237,9 +2116,9 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
     recommendedKeep ??
     (selectableKeep.length === 1 ? selectableKeep[0].basename : null);
   const canReconcile = hasNormalizedDuplicates && !reconciling && Boolean(selectedKeep);
-  const showSourceActions = priorIngestionArtifacts.length > 0 || loadingPriorIngestion;
+  const showSourceActions = true;
   const showEvidenceShortcut = evidenceResult !== null;
-  const showWorkflowActions = sourceInputSatisfied || busy;
+  const showWorkflowActions = sourceMode === "raw" && !readerMode && (sourceInputSatisfied || busy);
   const showGraphReviewAction = isIngestSurfacePath() && graphReviewable;
   const showSourceProofRecovery = Boolean(
     selectionHydrated &&
@@ -2290,7 +2169,8 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
               <input
                 id="ingestion-title"
                 aria-label="Session title"
-                value={title}
+                value={readerMode ? "" : title}
+                disabled={readerMode}
                 onChange={(event) => setTitle(event.target.value)}
                 placeholder={titlePlaceholder}
               />
@@ -2324,7 +2204,7 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
                   {showRecapWelcome ? "Paste recap" : "New recap"}
                 </button>
               ) : null}
-              {!readerMode && rawText.trim() && hasCurrentNormalizedSource ? (
+              {!readerMode && rawText.trim() && hasCurrentNormalizedSource && exactGraphReviewRunId ? (
                 <button type="button" onClick={() => void reviewSavedSource()}>
                   View saved recap
                 </button>
@@ -2338,32 +2218,34 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
             {showSourceActions ? (
               <div className="ingest-local-nav__source" role="group" aria-label="Source actions">
                 <label className="ingest-local-nav__prior" htmlFor="ingestion-prior-artifact">
-                  <span className="sr-only">Prior processed recap</span>
+                  <span className="sr-only">Saved extraction work</span>
                   <select
                     id="ingestion-prior-artifact"
-                    aria-label="Prior processed recap"
-                    value={selectedPriorArtifactId}
-                    onChange={(event) => setSelectedPriorArtifactId(event.target.value)}
-                    disabled={loadingPriorIngestion}
+                    aria-label="Saved extraction work"
+                    value={selectedSavedRunId}
+                    onChange={(event) => setSelectedSavedRunId(event.target.value)}
+                    disabled={currentSavedRunLookup?.status !== "loaded"}
                   >
-                    <option value="">Load a processed recap…</option>
-                    {priorIngestionArtifacts.map((record) => (
-                      <option key={record.artifact_id} value={record.artifact_id}>
-                        {recapArtifactSessionLabel(record)}
+                    <option value="">Choose saved extraction work…</option>
+                    {savedRuns.map((record) => (
+                      <option key={record.runId} value={record.runId}>
+                        {record.sessionId ?? "No session"} · {record.runStatus} · {record.runId}
                       </option>
                     ))}
                   </select>
                 </label>
-                {selectedPriorArtifactId ? (
+                {selectedSavedRunId ? (
                   <button
                     type="button"
-                    aria-label="Load processed recap"
+                    aria-label="Open saved extraction"
                     onClick={() => void loadSelectedPriorIngestion()}
-                    disabled={loadingPriorIngestion}
+                    disabled={currentSavedRunLookup?.status !== "loaded"}
                   >
-                    {loadingPriorIngestion ? "Loading…" : "Load"}
+                    Open
                   </button>
                 ) : null}
+                <button type="button" onClick={() => {readerAttempt.current = null; setSavedRunRefresh(value => value + 1);}} disabled={!managedWorldId}>Refresh saved work</button>
+                {!managedWorldId ? <span>Select a World to read saved extraction work.</span> : savedRunLookup?.status === "failed" ? <span role="alert">Saved extraction work could not be checked.</span> : null}
               </div>
             ) : null}
 
@@ -2539,48 +2421,37 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
       <div className={`ingestion-command-grid${readerMode ? " ingestion-command-grid--reading" : ""}`}>
         <section className={`ingestion-controls-pane${readerMode ? " ingestion-controls-pane--reading" : ""}`} aria-label={readerMode ? "Recap surface" : "Recap editor"}>
           {readerMode ? (
-            <section className="ingest-enriched-recap" aria-label="Graph-enriched recap">
-              {reviewLoading ? <p role="status">Opening the graph-enriched recap…</p> : null}
+            <section className="ingest-enriched-recap" aria-label="Saved recap reader">
+              {reviewLoading ? <p role="status">Opening saved extraction…</p> : null}
               {reviewError ? (
                 <p role="alert" className="module-error">
                   {reviewError} {reviewError.includes("credential") || reviewError.includes("graph_auth_required") ? "Open Advanced → Evidence to connect the local Graph session." : ""}
                 </p>
               ) : null}
+              {sourceMode === "saved" || selectedReaderRun ? <p>Saved extraction{loadedRun ? ` · ${loadedRun.runStatus}` : ""}. To process new text, choose New recap or Return to draft.</p> : null}
               {reviewSource?.runId ? <div aria-label="Recap projection choice">
-                    <button type="button" disabled={reviewLoading || reviewSource.projection?.schema === "dmb_exact_run_candidate_projection_v1"}
+                    <button type="button" disabled={reviewLoading || savedSource?.identity === reviewIdentity} onClick={() => {
+                      const route = new URLSearchParams(window.location.search); route.set("recapProjection", "source");
+                      window.history.replaceState({}, "", `${ingestRoutePath()}?${route}`); void reviewSavedSource(false,true);
+                    }}>View saved source</button>
+                    <button type="button" disabled={reviewLoading || !loadedRun || !["reviewable", "promoted"].includes(loadedRun.runStatus) || reviewSource.projection?.schema === "dmb_exact_run_candidate_projection_v1"}
                       onClick={() => void reviewSavedSource(false,true,false)}>View extracted candidates</button>
                     <button type="button" disabled={reviewLoading || reviewSource.projection?.schema === "dmb_historical_recap_world_projection_v1"}
                       onClick={() => void reviewSavedSource(false,true,true)}>View admitted memory</button>
               </div> : null}
-              {reviewSource?.projection ? (
+              {savedSource?.identity === reviewIdentity ? <WorldPlanAgentAnswer answer={savedSource.source.sourceProse} /> : reviewSource?.projection ? (
                 <>
                   {reviewSource.projection.schema === "dmb_exact_run_candidate_projection_v1" ? (
                     <GraphReviewCandidateRecapProjection projection={reviewSource.projection}/>
-                  ) : reviewSource.projection.schema === "dmb_historical_recap_world_projection_v1" ? (
+                  ) : (
                     <>
-                      <p className="ingest-enriched-recap__status">
-                        Exact extraction run · {reviewSource.projection.runId} · source bound by digest. Linked facts use the current admitted World Graph; new candidates remain in Graph Review.
-                      </p>
+                      <p className="ingest-enriched-recap__status">Exact extraction run · {reviewSource.projection.runId}. Linked facts use the current admitted World Graph; candidates remain unpublished.</p>
                       <GraphReviewHistoricalRecapProjection projection={reviewSource.projection} />
                     </>
-                  ) : (
-                    <WorldGraphRecapProjectionView
-                      payload={{ ...reviewSource.projection, markdown: reviewSource.projection.markdown.replace(/^---\r?\n[\s\S]*?\r?\n---\r?\n/, "") }}
-                      selectedSessionId={`session-${reviewSource.session}`}
-                      sessionOptions={Array.from(new Set([`session-${reviewSource.session}`, ...priorIngestionArtifacts.filter((item) => item.campaign_id === ingestCampaignId).map((item) => item.session_id)])).sort((a, b) => Number(a.replace("session-", "")) - Number(b.replace("session-", "")))}
-                      onSelectSession={(value) => {
-                        const nextSession = Number(value.replace("session-", ""));
-                        handleRecapSessionChange(nextSession);
-                        void inspectSelectedRecapStatus(ingestCampaignId, nextSession);
-                      }}
-                      selectedCampaignId={ingestCampaignId}
-                      onSelectCampaign={handleIngestCampaignSelect}
-                      showProjectionToolbar={false}
-                    />
                   )}
                 </>
               ) : !reviewLoading && !reviewError ? (
-                <p role="status" className="module-muted">Preparing the graph-enriched view…</p>
+                <p role="status" className="module-muted">Choose an exact saved extraction to read.</p>
               ) : null}
             </section>
           ) : returnableDraft ? (
@@ -2588,15 +2459,10 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
               <strong>Draft preserved · Session {returnableDraft.draft.recapSession}</strong>
               <p>Return to this draft to continue editing under its original session.</p>
             </div>
-          ) : sourceMode === "processed" ? (
-            <div className="ingestion-prepared-source-notice" role="status">
-              <strong>Graph-enriched recap</strong>
-              <p>Opening the linked World view…</p>
-            </div>
           ) : showPreparedSourceNotice ? (
             <div className="ingestion-prepared-source-notice" role="note" aria-label="Prepared recap source">
-              <strong>Prepared recap · Session {recapSession}</strong>
-              <p>Opening the linked World view…</p>
+              <strong>Verified import · Session {recapSession}</strong>
+              <p>Process this import to extract it, or choose New recap to paste new text.</p>
             </div>
           ) : (
             <div className="ingestion-source-grid">
@@ -2612,7 +2478,6 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
                   onChange={(event) => {
                     setRawText(event.target.value);
                     setSourceMode("raw");
-                    setPriorSourceReadFailed(false);
                   }}
                   rows={18}
                   placeholder="Write or paste a session recap here…"
@@ -2627,7 +2492,11 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
         <aside className="ingestion-evidence-pane" aria-label="Ingestion evidence and proof">
           <details id="ingestion-evidence-details" ref={evidenceDetailsRef}><summary>Evidence &amp; details</summary>
           <NativeGraphAccessControl onChanged={handleNativeGraphAccessChanged} />
-          <details className="ingestion-advanced-fold">
+          {sourceMode === "saved" || readerMode ? (
+            <p>Exact extraction: <code>{loadedRun?.runId ?? selectedReaderRun ?? "unavailable"}</code>{loadedRun ? ` · revision ${loadedRun.runRevision} · ${loadedRun.runStatus}` : ""}</p>
+          ) : null}
+          {(sourceMode === "raw" && !readerMode) || evidenceResult ? <>
+          {sourceMode === "raw" && !readerMode ? <details className="ingestion-advanced-fold">
             <summary>Advanced file controls</summary>
             <label>
               <input
@@ -2637,7 +2506,7 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
               />{" "}
               Show file replacement and filename override controls
             </label>
-            {showAdvanced ? (
+            {showAdvanced && sourceMode === "raw" && !readerMode ? (
               <div className="ingestion-advanced-options">
                 <label htmlFor="ingestion-slug">Canonical file name override</label>
                 <input
@@ -2675,7 +2544,7 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
                 </p>
               </div>
             ) : null}
-          </details>
+          </details> : null}
 
           <div className="ingestion-evidence-header">
             <div>
@@ -2979,6 +2848,7 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
           ) : (
             <p className="module-muted">No ingestion result yet.</p>
           )}
+          </> : null}
           </details>
         </aside>
       </div>

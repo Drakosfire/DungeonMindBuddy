@@ -345,6 +345,8 @@ function requiresNativeGraphAuthorization(path: string, body: BodyInit | null | 
   if (/^\/api\/live\/world-play-runs\/v2\/[^/]+\/review(?:\/commands\/[^/]+)?$/.test(pathname)) return true;
   if (/^\/api\/live\/world-play-runs\/v2\/[^/]+\/content(?:\/revisions\/\d+|\/commands\/[^/]+|\/proposals(?:\/[^/]+)?)?$/.test(pathname)) return true;
   if (/^\/api\/live\/graph-preview\/build-recap-launches(?:\/[a-f0-9]{8}-(?:[a-f0-9]{4}-){3}[a-f0-9]{12})?$/i.test(pathname)) return true;
+  if (pathname === "/api/live/graph-preview/extraction-runs") return true;
+  if (/^\/api\/live\/graph-preview\/extraction-runs\/[^/]+\/recap-inspection$/.test(pathname)) return true;
   if (/^\/api\/live\/graph-preview\/extraction-runs\/[^/]+\/candidate-projection$/.test(pathname)) return true;
   if (/^\/api\/live\/extract-promote\/worldbuilding\/(?:capabilities|prepare|confirm)$/.test(pathname)) return true;
   if (/^\/api\/live\/extract-promote\/worldbuilding\/first-world\/(?:prepare|confirm)$/.test(pathname)) return true;
@@ -694,6 +696,8 @@ function isShareableRead(path: string, init?: RequestInit): boolean {
     || /^\/api\/live\/agent\/worlds\/[^/]+\/conversation\/turns\/[^/]+\/context-trace\/[^/]+\/source-passages\/[^/]+$/.test(pathname)
     || /^\/api\/live\/agent\/worlds\/[^/]+\/conversation\/turns\/[^/]+\/rules-passages\/[a-f0-9-]+$/.test(pathname)
     || /^\/api\/live\/world-session-evidence(?:\/[^/]+\/revisions\/\d+)?$/.test(pathname)
+    || pathname === "/api/live/graph-preview/extraction-runs"
+    || /^\/api\/live\/graph-preview\/extraction-runs\/[^/]+\/recap-inspection$/.test(pathname)
     || /^\/api\/live\/graph-preview\/extraction-runs\/[^/]+\/candidate-projection$/.test(pathname)
     || /^\/api\/live\/media\/images\/[^/]+\/metadata$/.test(pathname)
     || /^\/api\/live\/rules\/(?:catalog|query|passages\/[a-f0-9]{64})$/.test(pathname);
