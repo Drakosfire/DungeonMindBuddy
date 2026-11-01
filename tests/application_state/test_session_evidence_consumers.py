@@ -125,7 +125,6 @@ def test_real_plan_resolver_freezes_evidence_in_provenance_and_reconstructs_it(a
 
 
 def test_external_recap_source_stays_exact_and_supplement_is_sealed_and_reuse_bound(application_state_dsn,tmp_path,monkeypatch):
-    from dataclasses import replace
     from tests.test_bounded_recap_execution import _fixture_ingest_context
     from apps.live_control_server.services.graph_preview_runner import run_recap_production_extraction
     from apps.live_control_server.services.ingest_run_catalog import _same_session_evidence
@@ -134,7 +133,7 @@ def test_external_recap_source_stays_exact_and_supplement_is_sealed_and_reuse_bo
     monkeypatch.setenv('DMB_ARTIFACT_DATA_ROOT',str(tmp_path));source=tmp_path/'external-recap.md';raw='The company crossed the damaged boardwalk.\n';source.write_text(raw)
     from tests.test_recap_managed_standing_context import seed_binding
     seed_binding(tmp_path,WORLD,'world:synthetic')
-    context=replace(_fixture_ingest_context('longmont-c2'),managed_world_id=WORLD)
+    context=_fixture_ingest_context('longmont-c2').model_copy(update={'managed_world_id': WORLD})
     result=run_recap_production_extraction(repo_root=tmp_path,campaign_id='longmont-c2',session_id='session-30',source_artifact_id=create_recap_source_artifact(tmp_path,world_id=context.native_world_id,campaign_id='longmont-c2',session_id='session-30',recap_path=source).source_artifact_id,profile='category_baseline',allow_llm=False,output_dir=tmp_path/'extraction',ingest_context=context,supplemental_evidence=bundle)
     assert source.read_text()==raw
     supplement=result.run.lineage['session_evidence'];assert supplement['sha256']==bundle['sha256']

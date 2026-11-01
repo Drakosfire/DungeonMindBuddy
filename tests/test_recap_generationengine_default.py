@@ -13,7 +13,7 @@ from tests.test_bounded_recap_execution import (
     semantic_engine_seam,  # noqa: F401
 )
 from apps.live_control_server.services import graph_preview_runner as service
-from apps.live_control_server.services.recap_ingest_context import RecapContextSnapshot
+from graph_memory.ingestion.native_recap_source import SourceScope
 from src.graph_memory.extraction.bounded_recap_execution import DEEPSEEK_MODEL
 from src.graph_memory.ingestion.extraction_run import ExtractionRunStatus
 
@@ -76,16 +76,7 @@ def invoke(root, **kwargs):
         source_artifact_id="artifact:synthetic",
         allow_llm=True,
         output_dir=root / "new-run",
-        ingest_context=RecapContextSnapshot(
-            schema="dm_world_campaign_ingest_context_v1",
-            managed_world_id="managed-fixture-world",
-            native_world_id="world:synthetic",
-            binding_version=1,
-            campaign_id="synthetic",
-            head_revision_id="revision:fixture",
-            graph_schema="dm_graph_v1",
-            graph_payload_sha256="a" * 64,
-        ),
+        ingest_context=SourceScope(managed_world_id='managed-fixture-world', native_world_id='world:synthetic', binding_version=1, campaign_id='synthetic'),
         **kwargs,
     )
 
@@ -127,16 +118,7 @@ def test_ordinary_request_helper_reaches_service_without_openai_default(
     monkeypatch.setattr(
         route,
         "_request_recap_context",
-        lambda body: RecapContextSnapshot(
-            schema="dm_world_campaign_ingest_context_v1",
-            managed_world_id="managed-fixture-world",
-            native_world_id="world:synthetic",
-            binding_version=1,
-            campaign_id="synthetic",
-            head_revision_id="revision:fixture",
-            graph_schema="dm_graph_v1",
-            graph_payload_sha256="a" * 64,
-        ),
+        lambda body: SourceScope(managed_world_id='managed-fixture-world', native_world_id='world:synthetic', binding_version=1, campaign_id='synthetic'),
     )
     monkeypatch.setattr(
         route,

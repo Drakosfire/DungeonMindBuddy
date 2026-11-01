@@ -160,7 +160,6 @@ def _assert_current_recap_ingest_context(
             status_code=409,
         ) from exc
     identity_fields = (
-        "schema",
         "managed_world_id",
         "native_world_id",
         "binding_version",

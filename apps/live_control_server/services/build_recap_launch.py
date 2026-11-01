@@ -11,7 +11,7 @@ from apps.live_control_server.models.build_recap_launch import BuildRecapLaunchR
 from apps.live_control_server.services.build_recap_source import register_build_recap_source, frozen_build_recap_configuration
 from apps.live_control_server.services.graph_run_registry import GraphRunRegistryError, create_extraction_run, get_extraction_run
 from apps.live_control_server.services.graph_preview_runner import run_recap_production_extraction
-from apps.live_control_server.services.recap_ingest_context import read_recap_ingest_context
+from apps.live_control_server.services.recap_ingest_context import resolve_recap_source_scope
 from src.graph_memory.extraction.bounded_recap_execution import DEEPSEEK_MODEL
 from src.graph_memory.extraction.recap_extraction_profile import resolve_legacy_graph_extraction_profile
 
@@ -49,7 +49,7 @@ def launch_build_recap(root: Path, body: BuildRecapLaunchRequest, *, category_cl
 
     prior = existing()
     if prior is not None: return prior
-    context = read_recap_ingest_context(managed_world_id=body.managed_world_id,campaign_id=body.campaign_id)
+    context = resolve_recap_source_scope(managed_world_id=body.managed_world_id,campaign_id=body.campaign_id)
     supplement = None
     if body.session_evidence:
         from apps.live_control_server.services.session_evidence import resolve_evidence_refs
@@ -58,8 +58,8 @@ def launch_build_recap(root: Path, body: BuildRecapLaunchRequest, *, category_cl
         expected_content_sha256=body.expected_content_sha256,session_id=f"session-{body.session}",ingest_context=context)
     profile_id,profile_version = resolve_legacy_graph_extraction_profile("category_baseline")
     frozen = frozen_build_recap_configuration(root,source_artifact_id=artifact.source_artifact_id,campaign_id=body.campaign_id,
-        session_id=f"session-{body.session}",context=context.as_lineage(),profile_id=profile_id,profile_version=profile_version,supplemental_evidence=supplement)
-    lineage = {"world_campaign_ingest_context":context.as_lineage(),"build_document_ingest":frozen,
+        session_id=f"session-{body.session}",context=context.model_dump(),profile_id=profile_id,profile_version=profile_version,supplemental_evidence=supplement)
+    lineage = {"world_campaign_ingest_context":context.model_dump(),"build_document_ingest":frozen,
         "build_launch":{"schema":"dmb_build_recap_launch_v1","request":request,"request_sha256":fingerprint,
             "server_configuration":{"profile_id":profile_id,"profile_version":profile_version,
                 "provider":"openrouter","model":DEEPSEEK_MODEL,"route":"ordinary_recap_generation_engine_v1",

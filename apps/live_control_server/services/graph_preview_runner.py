@@ -136,8 +136,8 @@ def _recap_identity_snapshot(
 def _standing_corpus_root(root: Path, context: dict[str, Any]) -> Path:
     # Managed source authority is independent of the extraction artifact store.
     root = managed_world_data_root(root).resolve()
-    from apps.live_control_server.services.managed_world_graph_projection import resolve_managed_world_binding
-    binding = resolve_managed_world_binding(context["managed_world_id"], root=root)
+    from apps.live_control_server.services.managed_world_graph_projection import resolve_managed_source_identity
+    binding = resolve_managed_source_identity(context["managed_world_id"], root=root)
     if (binding.native_world_id, binding.binding_version) != (context["native_world_id"], context["binding_version"]):
         raise SourceArtifactRegistryError("Managed World binding changed before extraction", status_code=409)
     relative = Path(binding.source_root_relpath)
@@ -150,69 +150,30 @@ def _standing_corpus_root(root: Path, context: dict[str, Any]) -> Path:
     return resolved
 
 
-def _verified_ingest_context_lineage(
+def _source_scope_lineage(
     ingest_context: Any,
     *,
     campaign_id: str,
 ) -> tuple[str, dict[str, Any]]:
-    """Validate and freeze the authoritative MIND World/campaign observation."""
-    try:
-        lineage = ingest_context.as_lineage()
-    except (AttributeError, TypeError) as exc:
-        raise SourceArtifactRegistryError(
-            "verified World/campaign ingestion context is required for a fresh recap source",
-            status_code=422,
-        ) from exc
-    if not isinstance(lineage, dict):
-        raise SourceArtifactRegistryError(
-            "verified World/campaign ingestion context is malformed",
-            status_code=422,
-        )
+    """Freeze only the existing source identity model; no Graph observation."""
+    from graph_memory.ingestion.native_recap_source import SourceScope
+    from pydantic import ValidationError
 
-    required_text = (
-        "schema",
-        "managed_world_id",
-        "native_world_id",
-        "campaign_id",
-        "head_revision_id",
-        "graph_schema",
-        "graph_payload_sha256",
-    )
-    if any(
-        not isinstance(lineage.get(key), str)
-        or not lineage[key]
-        or lineage[key] != lineage[key].strip()
-        for key in required_text
-    ):
+    if not isinstance(ingest_context, SourceScope):
         raise SourceArtifactRegistryError(
-            "verified World/campaign ingestion context is incomplete",
+            "verified World/campaign source scope is required for a fresh recap source",
             status_code=422,
         )
-    binding_version = lineage.get("binding_version")
-    if isinstance(binding_version, bool) or not isinstance(binding_version, int) or binding_version < 1:
+    try:
+        scope = SourceScope.model_validate(ingest_context.model_dump())
+    except ValidationError as exc:
+        raise SourceArtifactRegistryError("invalid recap source scope", status_code=422) from exc
+    if scope.campaign_id != campaign_id:
         raise SourceArtifactRegistryError(
-            "verified World/campaign ingestion context has an invalid binding version",
-            status_code=422,
-        )
-    digest = lineage["graph_payload_sha256"]
-    if len(digest) != 64 or any(char not in "0123456789abcdef" for char in digest):
-        raise SourceArtifactRegistryError(
-            "verified World/campaign ingestion context has an invalid graph digest",
-            status_code=422,
-        )
-    if lineage["schema"] != "dm_world_campaign_ingest_context_v1":
-        raise SourceArtifactRegistryError(
-            "verified World/campaign ingestion context has an unsupported schema",
-            status_code=422,
-        )
-    if lineage["campaign_id"] != campaign_id:
-        raise SourceArtifactRegistryError(
-            "verified World/campaign ingestion context belongs to a different campaign",
+            "verified World/campaign source scope belongs to a different campaign",
             status_code=409,
         )
-    # Copy only JSON-compatible primitive context so the exact verified values
-    # are frozen into the ExtractionRun lineage.
-    return lineage["native_world_id"], dict(lineage)
+    return scope.native_world_id, scope.model_dump()
 
 
 def run_recap_production_extraction(
@@ -236,7 +197,7 @@ def run_recap_production_extraction(
     reserved_run: Any | None = None,
 ) -> ProductionExtractionResult:
     repo_root = artifact_data_root(repo_root)
-    native_world_id, frozen_context = _verified_ingest_context_lineage(
+    native_world_id, frozen_context = _source_scope_lineage(
         ingest_context,
         campaign_id=campaign_id,
     )

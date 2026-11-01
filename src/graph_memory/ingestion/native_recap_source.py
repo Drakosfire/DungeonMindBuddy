@@ -4,7 +4,7 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Any, Literal
 from uuid import UUID, NAMESPACE_URL, uuid5
-from pydantic import BaseModel, ConfigDict, Field, model_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 from dungeonmind.contracts.vnext import DomainContractRef
 from dungeonmind.contracts.semantic_profile import SemanticProfileRef
 from dungeonmind.contracts.vnext.native_source import (
@@ -33,8 +33,15 @@ class SourceSelection(Closed):
 class SourceScope(Closed):
     managed_world_id: str = Field(min_length=1)
     native_world_id: str = Field(min_length=1)
-    binding_version: int = Field(ge=1)
+    binding_version: int = Field(ge=1, strict=True)
     campaign_id: str = Field(min_length=1)
+
+    @field_validator("managed_world_id", "native_world_id", "campaign_id")
+    @classmethod
+    def exact_identifier(cls, value: str) -> str:
+        if value != value.strip():
+            raise ValueError("Source scope identifiers must be unpadded")
+        return value
 
 
 class Delivery(Closed):

@@ -102,16 +102,13 @@ def _same_recap_ingest_context_authority(
     """A recap extraction depends on its source, not the Graph head it observed."""
     if not isinstance(extracted, Mapping):
         return False
-    return all(
-        extracted.get(key) == current.get(key)
-        for key in (
-            "schema",
-            "managed_world_id",
-            "native_world_id",
-            "binding_version",
-            "campaign_id",
-        )
-    )
+    try:
+        prior = runs.read_recap_source_scope(dict(extracted), campaign_id=current.get("campaign_id"))
+        selected = {key: current.get(key) for key in ("managed_world_id", "native_world_id", "binding_version", "campaign_id")}
+        return prior.model_dump() == runs.read_recap_source_scope(selected, campaign_id=current.get("campaign_id")).model_dump()
+    except runs.GraphRunRegistryError:
+        return False
+
 
 
 def _scoped_recap_runs(

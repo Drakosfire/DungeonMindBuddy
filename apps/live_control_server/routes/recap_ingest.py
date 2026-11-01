@@ -430,11 +430,11 @@ def _request_recap_context(body: RecapIngestRequest):
             },
         )
     from apps.live_control_server.services.recap_ingest_context import (
-        read_recap_ingest_context,
+        resolve_recap_source_scope,
     )
 
     try:
-        return read_recap_ingest_context(
+        return resolve_recap_source_scope(
             managed_world_id=body.managed_world_id,
             campaign_id=body.campaign_id,
         )

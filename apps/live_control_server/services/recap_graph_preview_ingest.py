@@ -15,12 +15,12 @@ from apps.live_control_server.services.ingest_run_catalog import (
     reusable_recap_extraction,
 )
 from apps.live_control_server.services.managed_world_graph_projection import (
-    resolve_managed_world_binding,
+    resolve_managed_source_identity,
 )
 from apps.live_control_server.services.world_graph_projection import (
     WorldGraphProjectionServiceError,
 )
-from apps.live_control_server.services.recap_ingest_context import CONTEXT_SCHEMA
+from graph_memory.ingestion.native_recap_source import SourceScope
 from apps.live_control_server.services.graph_ingest_run_registry import (
     UNUSABLE_SOURCE_RECAP_DIGEST,
 )
@@ -50,7 +50,7 @@ def inspect_recap_graph_preview_status(
             "blocked_reason": "Select a World to inspect saved extraction work.",
         }
     try:
-        binding = resolve_managed_world_binding(
+        binding = resolve_managed_source_identity(
             managed_world_id, root=config.managed_world_data_root(repo_root)
         )
     except (WorldGraphProjectionServiceError, config.ManagedWorldDataRootError) as exc:
@@ -60,7 +60,6 @@ def inspect_recap_graph_preview_status(
             status_code=getattr(exc, "status_code", 503),
         ) from exc
     context = {
-        "schema": CONTEXT_SCHEMA,
         "managed_world_id": binding.managed_world_id,
         "native_world_id": binding.native_world_id,
         "binding_version": binding.binding_version,
@@ -112,7 +111,7 @@ def extract_recap(
     digest = _normalized_recap_digest(normalized_recap_path)
     if not digest or digest == UNUSABLE_SOURCE_RECAP_DIGEST:
         raise ValueError("The normalized recap could not be verified for extraction")
-    context = ingest_context.as_lineage()
+    context = SourceScope.model_validate(ingest_context.model_dump()).model_dump()
     if not force_graph_run:
         profile_id, version = resolve_legacy_graph_extraction_profile(None)
         reused = reusable_recap_extraction(

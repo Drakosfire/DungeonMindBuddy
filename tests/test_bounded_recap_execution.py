@@ -24,18 +24,9 @@ from src.graph_memory.extraction.category_candidate_graph_extractor import (
 
 
 def _fixture_ingest_context(campaign_id: str):
-    from apps.live_control_server.services.recap_ingest_context import RecapContextSnapshot
+    from graph_memory.ingestion.native_recap_source import SourceScope
 
-    return RecapContextSnapshot(
-        schema="dm_world_campaign_ingest_context_v1",
-        managed_world_id="managed-fixture-world",
-        native_world_id="world:synthetic",
-        binding_version=1,
-        campaign_id=campaign_id,
-        head_revision_id="revision:fixture",
-        graph_schema="dm_graph_v1",
-        graph_payload_sha256="a" * 64,
-    )
+    return SourceScope(managed_world_id='managed-fixture-world', native_world_id='world:synthetic', binding_version=1, campaign_id=campaign_id)
 
 
 @pytest.fixture(autouse=True)

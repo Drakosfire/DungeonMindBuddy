@@ -1,7 +1,6 @@
 """Ordinary recap standing context follows managed source authority, never cwd."""
 from tests.application_state.world_catalog_fixtures import store_world
 
-from dataclasses import replace
 import json
 
 import pytest
@@ -38,7 +37,7 @@ def seed_roster(corpus, label='Canonical'):
 @pytest.mark.parametrize('session', [20,21])
 @pytest.mark.parametrize('separate_roots', [False, True])
 def test_real_service_pipeline_uses_canonical_root_for_prompt_and_consolidation(tmp_path,monkeypatch,application_state_dsn,session,separate_roots):
-    from apps.live_control_server.services.recap_ingest_context import RecapContextSnapshot
+    from graph_memory.ingestion.native_recap_source import SourceScope
     from tests.test_graph_preview_runner import FixtureClient
     from src.graph_memory.extraction import category_candidate_graph_extractor as extractor
     root=tmp_path/'artifacts';root.mkdir()
@@ -49,8 +48,7 @@ def test_real_service_pipeline_uses_canonical_root_for_prompt_and_consolidation(
     monkeypatch.chdir(tmp_path/'code');monkeypatch.setenv('DMB_ARTIFACT_DATA_ROOT',str(root))
     source=corpus/'recap.md';source.write_text('A keeper guards a gate.\n')
     managed_before={p.relative_to(managed_root):p.read_bytes() for p in managed_root.rglob('*') if p.is_file()}
-    ctx=RecapContextSnapshot(schema='dm_world_campaign_ingest_context_v1',managed_world_id='managed-a',native_world_id='native-a',binding_version=1,
-        campaign_id='longmont-c2',head_revision_id='rev:fixture',graph_schema='dm_graph_v1',graph_payload_sha256='a'*64)
+    ctx=SourceScope(managed_world_id='managed-a', native_world_id='native-a', binding_version=1, campaign_id='longmont-c2')
     rendered=[];render=extractor.render_category_pass_prompts
     def prompts(*a,**kw):
         rendered.append(kw['known_entity_registry'])
@@ -94,8 +92,8 @@ def test_authority_drift_refuses_before_source_or_output_or_provider(tmp_path,mo
     corpus=seed_binding(managed_root,'managed-fixture-world','world:synthetic')
     monkeypatch.setenv('DMB_MANAGED_WORLD_DATA_ROOT',str(managed_root))
     ctx=_fixture_ingest_context('longmont-c2')
-    if change=='version':ctx=replace(ctx,binding_version=2)
-    elif change=='native':ctx=replace(ctx,native_world_id='other')
+    if change=='version':ctx=ctx.model_copy(update={'binding_version': 2})
+    elif change=='native':ctx=ctx.model_copy(update={'native_world_id': 'other'})
     elif change=='missing':corpus.rmdir()
     else:
         corpus.rmdir();external=tmp_path/'external';external.mkdir();corpus.symlink_to(external,target_is_directory=True)
