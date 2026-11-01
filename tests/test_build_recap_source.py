@@ -103,24 +103,21 @@ def test_runner_uses_registered_build_source_and_retains_exact_lineage(tmp_path,
     from tests.test_graph_preview_runner import FixtureClient, _first_paragraph_span_id
     from apps.live_control_server.services.graph_run_registry import get_extraction_run
     client=FixtureClient(span_ref=_first_paragraph_span_id(runner._normalized_from_registered(tmp_path,artifact.source_artifact_id)))
-    monkeypatch.setattr(runner,"create_recap_source_artifact",lambda *a,**k:pytest.fail("corpus source fallback is forbidden"))
     result=runner.run_recap_production_extraction(repo_root=tmp_path,campaign_id="longmont-c2",session_id="session-30",
-        build_source_artifact_id=artifact.source_artifact_id,allow_llm=True,category_client=client,profile="category_baseline",ingest_context=context,output_dir=tmp_path/"run")
+        source_artifact_id=artifact.source_artifact_id,allow_llm=True,category_client=client,profile="category_baseline",ingest_context=context,output_dir=tmp_path/"run")
     assert result.failure_kind is None
     assert result.run.status.value=="reviewable"
     assert get_extraction_run(tmp_path,result.run.run_id).lineage==result.run.lineage
     assert result.run.source_artifact_id==artifact.source_artifact_id
-    frozen=result.run.lineage["build_document_ingest"]
-    assert frozen["configuration"]["source"]["content_sha256"]==source[3]
-    assert frozen["configuration"]["world_context"]==context.as_lineage()
-    assert frozen["configuration"]["session_evidence"] is None
+    # Build configuration belongs to Build launch, not the generic source runner.
+    assert "build_document_ingest" not in result.run.lineage
 
 
-def test_runner_rejects_ambiguous_or_foreign_source_before_execution(tmp_path,source,context,monkeypatch):
+def test_runner_rejects_retired_file_option_or_foreign_source_before_execution(tmp_path,source,context,monkeypatch):
     artifact=register(tmp_path,source,context)
     monkeypatch.setattr(runner,"run_production_extraction",lambda *a,**k:pytest.fail("must not execute"))
-    args=dict(repo_root=tmp_path,campaign_id="longmont-c2",session_id="session-30",build_source_artifact_id=artifact.source_artifact_id,ingest_context=context)
-    with pytest.raises(SourceArtifactRegistryError,match="exactly one"):
+    args=dict(repo_root=tmp_path,campaign_id="longmont-c2",session_id="session-30",source_artifact_id=artifact.source_artifact_id,ingest_context=context)
+    with pytest.raises(TypeError,match="recap_path"):
         runner.run_recap_production_extraction(**args,recap_path=tmp_path/"ambiguous-recap.md")
     with pytest.raises(SourceArtifactRegistryError,match="does not match"):
         runner.run_recap_production_extraction(**{**args,"session_id":"session-31"})

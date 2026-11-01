@@ -7,7 +7,7 @@ import json
 import pytest
 
 from apps.live_control_server.services import graph_preview_runner as service
-from apps.live_control_server.services.source_artifact_registry import SourceArtifactRegistryError
+from apps.live_control_server.services.source_artifact_registry import SourceArtifactRegistryError, create_recap_source_artifact
 
 
 def seed_binding(root, managed='managed-a', native='native-a', version=1):
@@ -66,12 +66,11 @@ def test_real_service_pipeline_uses_canonical_root_for_prompt_and_consolidation(
             assert 'Poison' not in kw['user_content']
             return super().run_pass(name,**kw)
     # Use actual source registration/production/options/loader/validators.
-    from apps.live_control_server.services.source_artifact_registry import create_recap_source_artifact
     artifact=create_recap_source_artifact(root,world_id='native-a',campaign_id='longmont-c2',session_id=f'session-{session}',recap_path=source)
     from tests.test_graph_preview_runner import _first_paragraph_span_id
     span=_first_paragraph_span_id(service._normalized_from_registered(root,artifact.source_artifact_id))
     result=service.run_recap_production_extraction(repo_root=root,campaign_id='longmont-c2',session_id=f'session-{session}',
-        recap_path=source,ingest_context=ctx,profile='category_baseline',category_client=Client(span_ref=span))
+        source_artifact_id=artifact.source_artifact_id,ingest_context=ctx,profile='category_baseline',category_client=Client(span_ref=span))
     assert result.failure_kind is None,result.diagnostics
     assert captured and all(party.party_names==('Canonical Company',) for party in captured)
     assert rendered and any('Canonical alias' in entity.aliases for entity in rendered[0].entities)
@@ -101,12 +100,12 @@ def test_authority_drift_refuses_before_source_or_output_or_provider(tmp_path,mo
     else:
         corpus.rmdir();external=tmp_path/'external';external.mkdir();corpus.symlink_to(external,target_is_directory=True)
     monkeypatch.setenv('DMB_ARTIFACT_DATA_ROOT',str(root))
-    monkeypatch.setattr(service,'create_recap_source_artifact',lambda *a,**k:pytest.fail('must not register'))
+    artifact=create_recap_source_artifact(root,world_id='world:synthetic',campaign_id='longmont-c2',session_id='session-20',recap_text='Synthetic recap.\n')
     monkeypatch.setattr(service,'run_production_extraction',lambda *a,**k:pytest.fail('must not dispatch'))
     from apps.live_control_server.services.world_graph_projection import WorldGraphProjectionServiceError
     with pytest.raises((SourceArtifactRegistryError,WorldGraphProjectionServiceError)) as failure:
         service.run_recap_production_extraction(repo_root=root,campaign_id='longmont-c2',session_id='session-20',
-            recap_path=tmp_path/'source.md',ingest_context=ctx,output_dir=root/'new-output')
+            source_artifact_id=artifact.source_artifact_id,ingest_context=ctx,output_dir=root/'new-output')
     assert failure.value.status_code==409
     assert not (root/'new-output').exists()
 
@@ -135,7 +134,7 @@ def test_service_snapshot_drift_refuses_before_dispatch(tmp_path,monkeypatch,app
     monkeypatch.setattr(service,'_recap_identity_snapshot',changed)
     class NoCalls:
         def run_pass(self,*a,**kw):pytest.fail('must not call provider after context drift')
-    result=service.run_recap_production_extraction(repo_root=root,campaign_id='longmont-c2',session_id='session-20',recap_path=source,
+    result=service.run_recap_production_extraction(repo_root=root,campaign_id='longmont-c2',session_id='session-20',source_artifact_id=create_recap_source_artifact(root,world_id='world:synthetic',campaign_id='longmont-c2',session_id='session-20',recap_path=source).source_artifact_id,
         ingest_context=_fixture_ingest_context('longmont-c2'),profile='category_baseline',category_client=NoCalls())
     assert result.failure_kind=='extraction'
     assert any('Standing identity context changed' in message for message in result.diagnostics)

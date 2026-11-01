@@ -1,4 +1,5 @@
 import json
+from apps.live_control_server.services.source_artifact_registry import create_recap_source_artifact
 import asyncio
 from pathlib import Path
 from types import SimpleNamespace
@@ -903,7 +904,7 @@ def test_selected_logical_deadline_reaches_request_and_owned_worker(
     assert worker_deadline <= started + expected_ms / 1000 + 0.01
 
 
-def test_wrapper_persists_ledger_on_failed_result(tmp_path, monkeypatch):
+def test_wrapper_persists_ledger_on_failed_result(tmp_path, monkeypatch, application_state_dsn):
     from tests.test_recap_managed_standing_context import seed_binding
     seed_binding(tmp_path,"managed-fixture-world","world:synthetic")
     from apps.live_control_server.services import graph_preview_runner as wrapper
@@ -915,14 +916,10 @@ def test_wrapper_persists_ledger_on_failed_result(tmp_path, monkeypatch):
     monkeypatch.setattr(wrapper, "BoundedRecapPassClient", lambda limits: client)
     monkeypatch.setattr(
         wrapper,
-        "create_recap_source_artifact",
-        lambda *a, **k: SimpleNamespace(source_artifact_id="source"),
-    )
-    monkeypatch.setattr(
-        wrapper,
         "_normalized_from_registered",
         lambda *a: SimpleNamespace(
-            source_artifact_id="source", source_sha256="hash", source_span_index={}
+            source_artifact_id="source", source_sha256="hash", source_span_index={},
+            source_domain="recap", world_id="world:synthetic", campaign_id="synthetic", session_id="session-1"
         ),
     )
 
@@ -936,7 +933,7 @@ def test_wrapper_persists_ledger_on_failed_result(tmp_path, monkeypatch):
         repo_root=tmp_path,
         campaign_id="synthetic",
         session_id="session-1",
-        recap_path=tmp_path / "source.md",
+        source_artifact_id="source",
         model_id="gpt-6-luna",
         allow_llm=True,
         output_dir=output,
@@ -952,7 +949,7 @@ def test_wrapper_persists_ledger_on_failed_result(tmp_path, monkeypatch):
             repo_root=tmp_path,
             campaign_id="synthetic",
             session_id="session-1",
-            recap_path=tmp_path / "source.md",
+            source_artifact_id="source",
             model_id="gpt-6-luna",
             allow_llm=True,
             output_dir=output,
@@ -990,7 +987,7 @@ def test_ge_incomplete_through_one_recap_never_appends_candidate(
         repo_root=tmp_path,
         campaign_id="synthetic",
         session_id="session-1",
-        recap_path=source_path,
+        source_artifact_id=create_recap_source_artifact(tmp_path,world_id="world:synthetic",campaign_id="synthetic",session_id="session-1",recap_path=source_path).source_artifact_id,
         profile="recap_category_v1@1.0",
         model_id="gpt-6-luna",
         allow_llm=True,

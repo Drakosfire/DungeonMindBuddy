@@ -20,6 +20,7 @@ class NormalizedExtractionSource:
     document_class: str | None = None
     source_span_index: Mapping[str, Any] = field(default_factory=dict)
     metadata: Mapping[str, Any] = field(default_factory=dict)
+    world_id: str | None = None
 
 
 class SourceAdapter(Protocol):

@@ -19,16 +19,16 @@ from src.graph_memory.ingestion.extraction_run import ExtractionRunStatus
 
 
 @pytest.fixture
-def ordinary(monkeypatch, tmp_path):
+def ordinary(monkeypatch, tmp_path, application_state_dsn):
     monkeypatch.setenv("DMB_ARTIFACT_DATA_ROOT", str(tmp_path))
     from tests.test_recap_managed_standing_context import seed_binding
     seed_binding(tmp_path,"managed-fixture-world","world:synthetic")
     source = SimpleNamespace(
         source_artifact_id="artifact:synthetic",
+        source_domain="recap", world_id="world:synthetic", campaign_id="synthetic", session_id="session-1",
         source_sha256="a" * 64,
         source_span_index={},
     )
-    monkeypatch.setattr(service, "create_recap_source_artifact", lambda *a, **k: source)
     monkeypatch.setattr(service, "_normalized_from_registered", lambda *a: source)
     monkeypatch.setattr(
         service, "_recap_identity_snapshot", lambda *a, **k: {"roster": ["Ari"]}
@@ -73,7 +73,7 @@ def invoke(root, **kwargs):
         repo_root=root,
         campaign_id="synthetic",
         session_id="session-1",
-        recap_path=root / "source.md",
+        source_artifact_id="artifact:synthetic",
         allow_llm=True,
         output_dir=root / "new-run",
         ingest_context=RecapContextSnapshot(
@@ -169,7 +169,7 @@ def test_ordinary_request_helper_reaches_service_without_openai_default(
 
 
 @pytest.mark.parametrize("model", ["gpt-5.4-mini", "gpt-6-luna", "unknown"])
-def test_model_override_fails_before_source_or_inference(ordinary, model):
+def test_model_override_fails_before_output_or_inference(ordinary, model):
     root, engine, _ = ordinary
     with pytest.raises(ValueError, match="configured DeepSeek"):
         invoke(root, model_id=model)

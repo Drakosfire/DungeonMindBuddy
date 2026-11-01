@@ -1,4 +1,5 @@
 from uuid import uuid4
+from apps.live_control_server.services.source_artifact_registry import create_recap_source_artifact
 from types import SimpleNamespace
 from dataclasses import replace
 import pytest
@@ -134,7 +135,7 @@ def test_external_recap_source_stays_exact_and_supplement_is_sealed_and_reuse_bo
     from tests.test_recap_managed_standing_context import seed_binding
     seed_binding(tmp_path,WORLD,'world:synthetic')
     context=replace(_fixture_ingest_context('longmont-c2'),managed_world_id=WORLD)
-    result=run_recap_production_extraction(repo_root=tmp_path,campaign_id='longmont-c2',session_id='session-30',recap_path=source,profile='category_baseline',allow_llm=False,output_dir=tmp_path/'extraction',ingest_context=context,supplemental_evidence=bundle)
+    result=run_recap_production_extraction(repo_root=tmp_path,campaign_id='longmont-c2',session_id='session-30',source_artifact_id=create_recap_source_artifact(tmp_path,world_id=context.native_world_id,campaign_id='longmont-c2',session_id='session-30',recap_path=source).source_artifact_id,profile='category_baseline',allow_llm=False,output_dir=tmp_path/'extraction',ingest_context=context,supplemental_evidence=bundle)
     assert source.read_text()==raw
     supplement=result.run.lineage['session_evidence'];assert supplement['sha256']==bundle['sha256']
     assert set(supplement)=={'sha256','sources'}

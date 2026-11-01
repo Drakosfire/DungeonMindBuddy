@@ -1,5 +1,4 @@
 """Split code/data deployment through the owning source and prepare boundaries."""
-
 import hashlib
 import json
 from pathlib import Path
@@ -186,14 +185,14 @@ def test_source_and_future_producer_share_data_root(split_roots, monkeypatch):
     )
     run_recap_production_extraction(
         repo_root=code, campaign_id="campaign-a", session_id="session-1",
-        recap_path=original, allow_llm=False, output_dir=Path("out/future"),
+        source_artifact_id=artifact.source_artifact_id, allow_llm=False, output_dir=Path("out/future"),
         ingest_context=_ingest_context(),
     )
     assert calls[0].repo_root == data
     with pytest.raises(ValueError, match="artifact repository"):
         run_recap_production_extraction(
             repo_root=code, campaign_id="campaign-a", session_id="session-1",
-            recap_path=original, output_dir=code / "out/extraction",
+            source_artifact_id=artifact.source_artifact_id, output_dir=code / "out/extraction",
             ingest_context=_ingest_context(),
         )
     assert len(calls) == 1

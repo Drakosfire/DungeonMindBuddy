@@ -28,6 +28,7 @@ from apps.live_control_server.services.graph_preview_runner import (
     DEEPSEEK_MODEL,
     run_recap_production_extraction,
 )
+from apps.live_control_server.services.source_artifact_registry import create_recap_source_artifact
 from src.graph_memory.extraction.recap_extraction_profile import (
     resolve_legacy_graph_extraction_profile,
 )
@@ -126,11 +127,16 @@ def extract_recap(
         )
         if reused is not None:
             return reused
+    artifact = create_recap_source_artifact(
+        root, world_id=context["native_world_id"], campaign_id=campaign_id,
+        session_id=f"session-{session}", recap_path=normalized,
+        expected_content_sha256=digest,
+    )
     production = run_recap_production_extraction(
         repo_root=root,
         campaign_id=campaign_id,
         session_id=f"session-{session}",
-        recap_path=normalized,
+        source_artifact_id=artifact.source_artifact_id,
         model_id=graph_model_id,
         allow_llm=True,
         ingest_context=ingest_context,

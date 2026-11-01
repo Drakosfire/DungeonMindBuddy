@@ -22,7 +22,6 @@ from src.graph_memory.extraction.bounded_recap_execution import (
 from apps.live_control_server.config import artifact_data_root, managed_world_data_root
 from apps.live_control_server.services.source_artifact_registry import (
     SourceArtifactRegistryError,
-    create_recap_source_artifact,
     load_registered_source_artifact_text,
     load_source_span_index,
 )
@@ -53,6 +52,7 @@ def _normalized_from_registered(
     return NormalizedExtractionSource(
         source_artifact_id=artifact.source_artifact_id,
         source_domain=str(artifact.source_domain),
+        world_id=artifact.world_id,
         source_text=text,
         source_sha256=artifact.content_sha256 or "",
         source_uri=artifact.uri,
@@ -220,8 +220,7 @@ def run_recap_production_extraction(
     repo_root: Path,
     campaign_id: str,
     session_id: str,
-    recap_path: Path | None = None,
-    build_source_artifact_id: str | None = None,
+    source_artifact_id: str,
     profile: str | None = None,
     model_id: str | None = None,
     allow_llm: bool = False,
@@ -241,7 +240,6 @@ def run_recap_production_extraction(
         ingest_context,
         campaign_id=campaign_id,
     )
-    standing_root = _standing_corpus_root(repo_root, frozen_context)
     if supplemental_evidence is not None:
         from apps.live_control_server.models.session_evidence import SessionEvidenceRef
         from apps.live_control_server.services.session_evidence import resolve_evidence_refs
@@ -272,16 +270,15 @@ def run_recap_production_extraction(
         if not exact:
             raise ValueError("Session supplement differs from its pinned review revisions")
         supplemental_evidence = resolved
-    if (recap_path is None) == (build_source_artifact_id is None):
-        raise SourceArtifactRegistryError("select exactly one Recap source: corpus path or registered Build document", status_code=422)
-    build_lineage = {}
-    if build_source_artifact_id is not None:
-        from apps.live_control_server.services.build_recap_source import frozen_build_recap_configuration
-        selected_id, selected_version = resolve_legacy_graph_extraction_profile(profile)
-        build_lineage = {"build_document_ingest": frozen_build_recap_configuration(repo_root,
-            source_artifact_id=build_source_artifact_id, campaign_id=campaign_id, session_id=session_id,
-            context=frozen_context, profile_id=selected_id, profile_version=selected_version,
-            supplemental_evidence=supplemental_evidence)}
+    source = _normalized_from_registered(repo_root, source_artifact_id)
+    if (source.source_domain, source.world_id, source.campaign_id, source.session_id) != (
+        "recap", native_world_id, campaign_id, session_id,
+    ):
+        raise SourceArtifactRegistryError(
+            "registered Recap source does not match the selected World/campaign/session",
+            status_code=409,
+        )
+    standing_root = _standing_corpus_root(repo_root, frozen_context)
 
     if output_dir is not None:
         output_dir = (
@@ -348,15 +345,6 @@ def run_recap_production_extraction(
         if not default_ge:
             bounded = BoundedRecapPassClient(execution_limits)
             category_client = bounded
-    if build_source_artifact_id is None:
-        artifact = create_recap_source_artifact(
-            repo_root, world_id=native_world_id, campaign_id=campaign_id,
-            session_id=session_id, recap_path=recap_path,
-        )
-        source_artifact_id = artifact.source_artifact_id
-    else:
-        source_artifact_id = build_source_artifact_id
-    source = _normalized_from_registered(repo_root, source_artifact_id)
     supplement_context=None
     supplement_lineage={}
     if supplemental_evidence is not None:
@@ -412,7 +400,7 @@ def run_recap_production_extraction(
                 enable_node_vocabulary_packet=enable_node_vocabulary_packet,
                 enable_edge_vocabulary_packet=enable_edge_vocabulary_packet,
                 initial_lineage={**(reserved_run.lineage if reserved_run is not None else {}),
-                    "world_campaign_ingest_context": frozen_context,**supplement_lineage,**build_lineage},
+                    "world_campaign_ingest_context": frozen_context,**supplement_lineage},
                 reserved_run=reserved_run,
             )
         )
