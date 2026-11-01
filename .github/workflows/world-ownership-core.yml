@@ -63,6 +63,10 @@ jobs:
           src/application_state/content/types.py
           src/application_state/content/repository.py
           src/application_state/content/service.py
+          src/application_state/source/service.py
+          src/application_state/source/repository.py
+          src/application_state/agent_conversation/native_source_catalog.py
+          tests/test_source_input_metadata_database.py
           src/application_state/content/pages.py
           src/application_state/content/import_pages.py
           scripts/adopt_authored_pages.py
