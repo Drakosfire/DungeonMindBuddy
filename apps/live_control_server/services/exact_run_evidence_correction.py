@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from src.graph_memory.extraction.recap_extraction_profile import RECAP_READ_PROFILE_IDS
+
 import hashlib
 import json
 from uuid import NAMESPACE_URL, uuid5
@@ -40,7 +42,6 @@ from graph_memory.ingestion.extraction_run import (
 _PROFILE = "worldbuilding_shepherds_flock_v0@0.1"
 _DERIVATION = "operator_frozen_evidence_partition_v2"
 _RECAP_DERIVATION = "operator_recap_literal_evidence_correction_v1"
-_RECAP_PROFILE = "recap_category_v1@1.0"
 _LIFECYCLE = (
     ExtractionRunStatus.DRAFT,
     ExtractionRunStatus.PREPARED,
@@ -423,7 +424,7 @@ def correct_recap_run_evidence(
     parent = data.run
     if (
         parent.source_domain != "recap"
-        or parent.profile_id != _RECAP_PROFILE
+        or parent.profile_id not in RECAP_READ_PROFILE_IDS
         or not parent.campaign_id
         or not parent.session_id
     ):
@@ -489,7 +490,7 @@ def correct_recap_run_evidence(
         span_index_uri=spans.uri,
         span_index_sha256=span_sha,
         profile_id=parent.profile_id,
-        profile_version="1.0",
+        profile_version=parent.profile_id.rsplit("@", 1)[1],
         campaign_id=parent.campaign_id,
         session_id=parent.session_id,
     )

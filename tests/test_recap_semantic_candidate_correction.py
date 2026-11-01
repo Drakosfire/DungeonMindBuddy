@@ -170,7 +170,7 @@ def _fixture(
     parent = ExtractionRun(
         run_id="parent", source_artifact_id=artifact_id,
         source_domain="recap", campaign_id="c", session_id="s",
-        profile_id=service.PROFILE, status=ExtractionRunStatus.REVIEWABLE,
+        profile_id="recap_category_v1@1.0", status=ExtractionRunStatus.REVIEWABLE,
         components=components,
     )
     runs = {"parent": parent}
@@ -179,7 +179,7 @@ def _fixture(
         run = runs[run_id]
         return SimpleNamespace(
             run_id=run_id, status=run.status.value, data=review_data(root, run_id),
-            source_domain="recap", extraction_profile=service.PROFILE,
+            source_domain="recap", extraction_profile="recap_category_v1@1.0",
             campaign_id="c", session_id="s", source_artifact_id=artifact_id,
             source_revision_id=_sha(source.read_bytes()),
             world_id=None, ingest_context=None,
@@ -2852,7 +2852,7 @@ def _atomic_fixture(monkeypatch, root):
     body = {
         "schema": "dmb_recap_candidate_correction_request_v7", "parent_run_id": "parent",
         "parent_candidate_sha256": _sha(raw), "source_revision_sha256": _sha((root / "source.md").read_bytes()),
-        "span_index_sha256": _sha(index_bytes), "profile_id": service.PROFILE,
+        "span_index_sha256": _sha(index_bytes), "profile_id": "recap_category_v1@1.0",
         "node_description_replacements": [{"node_id": "mira", "original_description": payload["nodes"][0]["description"], "replacement_description": "Mira rests, breaks a tunnel and activates an aura."}],
         "node_label_replacements": [{"node_id": "mira", "original_label": "Mira", "replacement_label": "Mira (session)"}],
         "edge_tuple_replacements": [{"edge_id": "reversed", "expected_tuple": {k: base[k] for k in service.EDGE_TUPLE_FIELDS},
@@ -3056,7 +3056,7 @@ def _final35_fixture(monkeypatch, root):
                "cause1": ("mira", "causes", "effect1"), "protection": ("mira", "protects", "guard")}
     body = {"schema": "dmb_recap_candidate_correction_request_v8", "parent_run_id": "parent", "expected_parent_revision": 5,
         "parent_candidate_sha256": _sha(raw), "source_revision_sha256": prior["source_revision_sha256"],
-        "span_index_sha256": prior["span_index_sha256"], "profile_id": service.PROFILE,
+        "span_index_sha256": prior["span_index_sha256"], "profile_id": "recap_category_v1@1.0",
         "node_description_replacements": [{"node_id": n["node_id"], "original_description": n["description"], "replacement_description": "Scene occurrence: " + n["description"]} for n in retained[:10]],
         "node_label_replacements": [{"node_id": n["node_id"], "original_label": n["label"], "replacement_label": n["label"] + " (scene)"} for n in retained[:8]],
         "evidence_replacements": prior["evidence_replacements"],
@@ -3210,7 +3210,7 @@ def _pc_reference_fixture(monkeypatch, root, *, source_text="Mira found the key 
         "schema": "dmb_recap_candidate_correction_request_v9", "parent_run_id": "parent",
         "parent_candidate_sha256": _sha(raw), "expected_parent_revision": 5,
         "source_revision_sha256": source_sha, "span_index_sha256": _sha(index_bytes),
-        "profile_id": service.PROFILE, "registry_path": "corpus/invented/_party_registry.json",
+        "profile_id": "recap_category_v1@1.0", "registry_path": "corpus/invented/_party_registry.json",
         "registry_sha256": _sha(registry_path.read_bytes()), "roster_session": 28,
         "roster_key": "23", "world_id": "invented-world",
         "expected_head_revision_id": "rev:head", "reviewer_id": "reviewer",
@@ -3290,7 +3290,7 @@ def test_inherited_pc_proof_survives_legacy_v9_into_source_bound_v7(monkeypatch,
         "parent_candidate_sha256": legacy.components["candidate_graph"].sha256.removeprefix("sha256:"),
         "source_revision_sha256": body["source_revision_sha256"],
         "span_index_sha256": body["span_index_sha256"],
-        "profile_id": service.PROFILE,
+        "profile_id": "recap_category_v1@1.0",
         "node_description_replacements": [{
             "node_id": "mira",
             "original_description": "Mira carried an uncertain object.",
@@ -3784,7 +3784,7 @@ def _append_request(parent, payload, index, *, kind="node", identifier="mira", l
         "parent_candidate_sha256": parent.components["candidate_graph"].sha256.removeprefix("sha256:"),
         "source_revision_sha256": parent.components["source_artifact"].sha256.removeprefix("sha256:"),
         "span_index_sha256": parent.components["source_span_index"].sha256.removeprefix("sha256:"),
-        "profile_id": service.PROFILE,
+        "profile_id": "recap_category_v1@1.0",
         "evidence_appends": [{"record_kind": kind, "record_id": identifier,
             "expected_evidence_refs_sha256": _sha(service._canonical_bytes(record["evidence_refs"])),
             "source_span_ref_id": index["spans"][line - 1]["source_span_id"],
@@ -3964,7 +3964,7 @@ def _actor_recovery_request(
         "parent_candidate_sha256": parent.components["candidate_graph"].sha256.removeprefix("sha256:"),
         "source_revision_sha256": parent.components["source_artifact"].sha256.removeprefix("sha256:"),
         "span_index_sha256": parent.components["source_span_index"].sha256.removeprefix("sha256:"),
-        "profile_id": service.PROFILE,
+        "profile_id": "recap_category_v1@1.0",
         "misbound_actor_id": "mira",
         "actor_introduction": {
             "literal_name": name,

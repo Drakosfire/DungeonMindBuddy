@@ -28,6 +28,7 @@ from apps.live_control_server.services.source_artifact_registry import (
     get_source_artifact,
 )
 from graph_memory.candidate_graph_to_contribution import load_typed_candidate_graph
+from src.graph_memory.extraction.recap_extraction_profile import RECAP_READ_PROFILE_IDS
 from graph_memory.ingestion.extraction_run import normalize_content_digest
 from graph_memory.projection.markdown_mentions import (
     LocatedMentionBinding,
@@ -164,7 +165,7 @@ def _build(
     run = get_extraction_run(root, run_id)
     if str(run.status) not in {"reviewable", "promoted"}:
         _fail("Only a sealed reviewable or promoted candidate can be inspected.")
-    if run.source_domain != "recap" or run.profile_id != "recap_category_v1@1.0":
+    if run.source_domain != "recap" or run.profile_id not in RECAP_READ_PROFILE_IDS:
         _fail("This exact candidate profile is not supported by the recap reader.")
     data = assert_run_reviewable_evidence(root, run)
     artifact = data.source_artifact

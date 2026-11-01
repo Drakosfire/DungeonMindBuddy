@@ -869,7 +869,7 @@ def test_runner_allow_llm_with_fake_client_writes_candidate_graph(
 
 
 def test_runner_canonical_line_only_index_reaches_category_prompt(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, application_state_dsn
 ) -> None:
     from apps.live_control_server.services.source_artifact_registry import (
         create_recap_source_artifact,
@@ -878,7 +878,6 @@ def test_runner_canonical_line_only_index_reaches_category_prompt(
     from src.graph_memory.extraction.category_candidate_graph_extractor import (
         FixtureCategoryGraphPassClient,
     )
-    from src.graph_memory.party_context import CAMPAIGN_CORPUS
     from src.graph_memory.source_span import source_span_index_to_dict
     from tests.fixtures.graph_memory.category_extraction_helpers import (
         minimal_category_pass_outputs,
@@ -897,11 +896,6 @@ def test_runner_canonical_line_only_index_reaches_category_prompt(
                 user_content=user_content, pass_spec=pass_spec,
             )
 
-    monkeypatch.setitem(
-        CAMPAIGN_CORPUS,
-        "longmont-c1",
-        (REPO_ROOT / "corpus/eldyrwild-markdown", "Longmont Campaign/Campaign 1"),
-    )
     monkeypatch.chdir(tmp_path)
     source = tmp_path / "session_16_normalized_recap.md"
     recap_text = "Session 16\n\nBonogo carried the violet astrolabe into Mireward at dawn.\n"
@@ -935,7 +929,7 @@ def test_runner_canonical_line_only_index_reaches_category_prompt(
     actor_prompt = client.prompts["actor_pass"]
     assert "Bonogo carried the violet astrolabe into Mireward at dawn." in actor_prompt
     assert recap_span_ref in actor_prompt
-    assert "Baergrom" in actor_prompt  # C1 roster context, distinct from recap text
+    assert "Baergrom" not in actor_prompt  # No external roster is an extraction input.
     assert result.status == GraphIngestRunStatus.CANDIDATE_VALIDATION_READY
     manifest = _load_manifest(result.manifest_path)
     packaged_index = _load_manifest(result.output_dir / "source_span_index.json")
@@ -1054,7 +1048,6 @@ def _profile_options(manifest: dict[str, Any]) -> dict[str, bool]:
 def _assert_profile_options_disabled(options: dict[str, bool]) -> None:
     assert options == {
         "enable_encounter_job_pass": False,
-        "enable_party_participation_attachment": False,
         "enable_encounter_job_edge_guidance": False,
         "enable_dynamic_node_vocabulary_packet": False,
     }
@@ -1206,7 +1199,7 @@ def test_runner_encounter_job_preview_profile_maps_flags_and_outputs(
     assert validate_graph_ingest_run_manifest(manifest)["valid"] is True
     assert manifest["diagnostics"]["graph_extraction_profile"] == "category_encounter_job_preview"
     assert options["enable_encounter_job_pass"] is True
-    assert options["enable_party_participation_attachment"] is True
+    assert "enable_party_participation_attachment" not in options
     assert options["enable_encounter_job_edge_guidance"] is True
     assert options["enable_dynamic_node_vocabulary_packet"] is False
     assert (result.output_dir / "pass_outputs.json").exists()
@@ -1216,8 +1209,8 @@ def test_runner_encounter_job_preview_profile_maps_flags_and_outputs(
     node_ids = {node.get("node_id") for node in graph["nodes"]}
     assert "quest_clear_glowkindle_rats" in node_ids
     assert "enc_glowkindle_cellar_rats" in node_ids
-    assert _has_edge(graph["edges"], "node:heroes-party", "quest_clear_glowkindle_rats", "pursues")
-    assert _has_edge(graph["edges"], "node:heroes-party", "enc_glowkindle_cellar_rats", "participates_in")
+    assert not _has_edge(graph["edges"], "node:heroes-party", "quest_clear_glowkindle_rats", "pursues")
+    assert not _has_edge(graph["edges"], "node:heroes-party", "enc_glowkindle_cellar_rats", "participates_in")
     extraction_diagnostics = json.loads((result.output_dir / "consolidation_diagnostics.json").read_text())
     assert extraction_diagnostics.get("dynamic_node_vocabulary_packet", {}).get("enabled") in {None, False}
 

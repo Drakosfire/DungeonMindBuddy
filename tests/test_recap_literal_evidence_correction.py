@@ -335,8 +335,9 @@ def test_recap_duplicate_target_creates_no_child(
 
 
 @pytest.mark.parametrize("scope_shape", ["historical", "source_scope"])
+@pytest.mark.parametrize("profile", ["recap_category_v1@1.0", "recap_category_v2@2.0", "recap_category_encounter_job_preview@2.0"])
 def test_recap_child_round_trips_real_disposable_run_registry(
-    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, application_state_dsn: str, scope_shape: str
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, application_state_dsn: str, scope_shape: str, profile: str
 ) -> None:
     assert application_state_dsn
     source_text = "Mira found the silver key under the old bridge.\n"
@@ -418,7 +419,7 @@ def test_recap_child_round_trips_real_disposable_run_registry(
     parent = graph_run_registry.create_extraction_run(
         tmp_path, source_artifact_id=artifact.source_artifact_id,
         source_domain="recap", campaign_id="c", session_id="s",
-        profile_id="recap_category_v1@1.0", components=components,
+        profile_id=profile, components=components,
         lineage=lineage,
     )
     from application_state.ingest.components import persist_component_payload

@@ -1237,7 +1237,7 @@ class RecapCandidateCorrectionRequestV7(_ExtractPromoteModel):
     parent_candidate_sha256: str
     source_revision_sha256: str
     span_index_sha256: str
-    profile_id: Literal["recap_category_v1@1.0"]
+    profile_id: Literal["recap_category_v1@1.0", "recap_category_v2@2.0", "recap_category_encounter_job_preview@2.0"]
     node_description_replacements: list[RecapNodeDescriptionReplacement] = Field(default_factory=list, max_length=8)
     node_label_replacements: list[RecapNodeLabelReplacement] = Field(default_factory=list, max_length=4)
     edge_tuple_replacements: list[RecapCandidateEdgeTupleReplacement] = Field(default_factory=list, max_length=2)
@@ -1598,7 +1598,7 @@ class RecapCandidateCorrectionRequestV10(_ExtractPromoteModel):
     parent_candidate_sha256: str
     source_revision_sha256: str
     span_index_sha256: str
-    profile_id: Literal["recap_category_v1@1.0"]
+    profile_id: Literal["recap_category_v1@1.0", "recap_category_v2@2.0", "recap_category_encounter_job_preview@2.0"]
     evidence_appends: list[RecapEvidenceAppend] = Field(min_length=1, max_length=2)
     node_description_replacements: list[RecapNodeDescriptionReplacement] = Field(default_factory=list, max_length=1)
 
@@ -1697,7 +1697,7 @@ class RecapCandidateCorrectionRequestV11(_ExtractPromoteModel):
     parent_candidate_sha256: str
     source_revision_sha256: str
     span_index_sha256: str
-    profile_id: Literal["recap_category_v1@1.0"]
+    profile_id: Literal["recap_category_v1@1.0", "recap_category_v2@2.0", "recap_category_encounter_job_preview@2.0"]
     misbound_actor_id: str
     actor_introduction: RecapActorIntroductionV1
     affected_edges: list[RecapAffectedEdgeV1] = Field(default_factory=list, max_length=4)

@@ -52,7 +52,6 @@ def test_wrong_selected_scope_stops_before_output_or_dispatch(tmp_path, register
     else:
         session = "session-2"
     monkeypatch.setattr(runner, "run_production_extraction", lambda *a, **k: pytest.fail("must not dispatch"))
-    monkeypatch.setattr(runner, "_standing_corpus_root", lambda *a: pytest.fail("source mismatch must precede directory context"))
     with pytest.raises(SourceArtifactRegistryError, match="does not match"):
         runner.run_recap_production_extraction(repo_root=tmp_path,
             source_artifact_id=registered.source_artifact_id, campaign_id=campaign,

@@ -37,7 +37,6 @@ from src.graph_memory.extraction.extraction_profile import (
     UnknownExtractionProfileError,
     require_admitted_profile,
 )
-from src.graph_memory.extraction.known_entity_registry import KnownEntity
 from src.graph_memory.extraction.source_adapter import NormalizedExtractionSource
 from src.graph_memory.extraction import worldbuilding_profile_catalog as _worldbuilding_catalog  # noqa: F401
 from src.graph_memory.vocabulary.model import ContextVocabularyPacket
@@ -47,10 +46,6 @@ from src.graph_memory.extraction import recap_extraction_profile as _recap_profi
 from src.graph_memory.extraction import worldbuilding_plumbing_profile as _wb_profiles  # noqa: F401
 from src.graph_memory.extraction import (  # noqa: F401
     worldbuilding_extraction_profile as _wb_bounded_profiles,
-)
-from src.graph_memory.extraction.recap_extraction_profile import (
-    RECAP_PROFILE_ID,
-    RECAP_PROFILE_VERSION,
 )
 
 
@@ -67,10 +62,7 @@ class ProductionExtractionRequest:
     enable_node_vocabulary_packet: bool = False
     enable_edge_vocabulary_packet: bool = False
     initial_lineage: dict[str, Any] | None = None
-    extra_known_entities: tuple[KnownEntity, ...] | None = None
     reserved_run: ExtractionRun | None = None
-    corpus_root: Path | None = None
-    expected_standing_context_sha256: str | None = None
 
 
 @dataclass
@@ -78,7 +70,6 @@ class ProductionExtractionResult:
     run: ExtractionRun
     candidate_graph: dict[str, Any] | None = None
     source_span_index: Mapping[str, Any] | None = None
-    known_entity_mentions: Mapping[str, Any] | None = None
     failure_kind: str | None = None
     diagnostics: list[str] = field(default_factory=list)
     model_id: str | None = None
@@ -369,13 +360,8 @@ def run_production_extraction(
         source_ref_id=str(span_payload.get("source_ref_id") or "") or None,
         model_id=model_id,
         profile=profile,
-        extra_known_entities=request.extra_known_entities,
-        corpus_root=request.corpus_root,
-        expected_standing_context_sha256=request.expected_standing_context_sha256,
         enable_encounter_job_pass=profile.enable_encounter_job_pass,
-        enable_party_participation_attachment=profile.enable_party_participation_attachment,
         enable_encounter_job_edge_guidance=profile.enable_encounter_job_edge_guidance,
-        enable_party_claimed_fill=profile.enable_party_claimed_fill,
         enable_dynamic_node_vocabulary_packet=profile.enable_dynamic_node_vocabulary_packet,
         enable_node_vocabulary_packet=(
             request.enable_node_vocabulary_packet
@@ -490,10 +476,7 @@ def run_production_extraction(
 
     candidate_graph = extraction.candidate_graph
     consolidation_diagnostics = dict(extraction.consolidation_diagnostics)
-    if (
-        profile.profile_id == RECAP_PROFILE_ID
-        and profile.profile_version == RECAP_PROFILE_VERSION
-    ):
+    if profile.admitted_source_domains == frozenset({"recap"}):
         from src.graph_memory.extraction.recap_quote_integrity import (
             RecapQuoteIntegrityError,
             validate_and_defer_nonliteral_recap_items,
@@ -577,13 +560,6 @@ def run_production_extraction(
             run=prepared, data=candidate_data,
         ),
     }
-    if extraction.known_entity_mentions is not None:
-        mention_data = _json_bytes(extraction.known_entity_mentions)
-        components[ExtractionRunComponentKind.PROVENANCE_INDEX.value] = _component(
-            ExtractionRunComponentKind.PROVENANCE_INDEX,
-            uri=f"urn:dmb:ingest-output:{prepared.run_id}:provenance_index",
-            run=prepared, data=mention_data,
-        )
     extracted = _advance_run(
         request.repo_root,
         prepared,
@@ -803,7 +779,6 @@ def run_production_extraction(
         run=loaded,
         candidate_graph=candidate_graph,
         source_span_index=span_payload,
-        known_entity_mentions=extraction.known_entity_mentions,
         model_id=model_id,
         profile_id=profile.profile_id,
         profile_version=profile.profile_version,

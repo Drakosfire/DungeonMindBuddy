@@ -36,12 +36,8 @@ class ExtractionProfile:
     evidence_rule: str
     default_semantic_state: Mapping[str, str]
     enable_encounter_job_pass: bool = False
-    enable_party_participation_attachment: bool = False
     enable_encounter_job_edge_guidance: bool = False
     enable_dynamic_node_vocabulary_packet: bool = False
-    # Post-sanitize LLM fill onto deterministic PC/companion anchors using
-    # known-entity mention claims. Descriptions + evidence only.
-    enable_party_claimed_fill: bool = False
     # Recap-oriented session relationship sweep (session-sized counts, refugee/
     # siege/evac guidance). Profiles that own evergreen prose must set False.
     enable_session_relationship_sweep: bool = True

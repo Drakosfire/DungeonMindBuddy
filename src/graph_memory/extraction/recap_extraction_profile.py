@@ -1,4 +1,4 @@
-"""Explicit recap extraction profile preserving current category-pass semantics."""
+"""Source-only Recap extraction; stored v1 runs retain their historical identity."""
 
 from __future__ import annotations
 
@@ -10,8 +10,14 @@ from src.graph_memory.extraction.extraction_profile import (
     register_extraction_profile,
 )
 
-RECAP_PROFILE_ID = "recap_category_v1"
-RECAP_PROFILE_VERSION = "1.0"
+RECAP_PROFILE_ID = "recap_category_v2"
+RECAP_PROFILE_VERSION = "2.0"
+
+RECAP_READ_PROFILE_IDS = frozenset({
+    "recap_category_v1@1.0",  # saved history only, never a registered generator
+    "recap_category_v2@2.0",
+    "recap_category_encounter_job_preview@2.0",
+})
 
 EVIDENCE_RULE = (
     "Every positive object MUST include evidence_refs as an array of objects with: "
@@ -93,8 +99,9 @@ _NODE_PASSES: tuple[ExtractionPassSpec, ...] = (
         pass_id="actor_pass",
         default_node_type="character",
         instruction=(
-            "Extract named NON-PARTY NPCs, characters, and creatures only. "
-            "Do NOT extract player characters or traveling companion NPCs — those are supplied as party anchors."
+            "Extract source-mentioned characters and creatures as source-local candidates. "
+            "Do not infer player-character role, canonical identity or party membership; "
+            "no external actors or party anchors are supplied."
         ),
         progress_label="Extracting actors and NPCs",
     ),
@@ -166,10 +173,8 @@ def _build_recap_profile(
     profile_id: str,
     profile_version: str,
     enable_encounter_job_pass: bool,
-    enable_party_participation_attachment: bool,
     enable_encounter_job_edge_guidance: bool,
     enable_dynamic_node_vocabulary_packet: bool,
-    enable_party_claimed_fill: bool = True,
 ) -> ExtractionProfile:
     return ExtractionProfile(
         profile_id=profile_id,
@@ -187,10 +192,8 @@ def _build_recap_profile(
         evidence_rule=EVIDENCE_RULE,
         default_semantic_state=DEFAULT_SEMANTIC_STATE,
         enable_encounter_job_pass=enable_encounter_job_pass,
-        enable_party_participation_attachment=enable_party_participation_attachment,
         enable_encounter_job_edge_guidance=enable_encounter_job_edge_guidance,
         enable_dynamic_node_vocabulary_packet=enable_dynamic_node_vocabulary_packet,
-        enable_party_claimed_fill=enable_party_claimed_fill,
         allow_null_session=False,
         schema_ids={
             "envelope": "dmb_live_extractor_candidate_envelope_v0",
@@ -206,10 +209,8 @@ RECAP_EXTRACTION_PROFILE = register_extraction_profile(
         profile_id=RECAP_PROFILE_ID,
         profile_version=RECAP_PROFILE_VERSION,
         enable_encounter_job_pass=False,
-        enable_party_participation_attachment=False,
         enable_encounter_job_edge_guidance=False,
         enable_dynamic_node_vocabulary_packet=False,
-        enable_party_claimed_fill=True,
     )
 )
 
@@ -217,15 +218,14 @@ RECAP_EXTRACTION_PROFILE = register_extraction_profile(
 LEGACY_RECAP_PROFILE_ALIASES: dict[str, tuple[str, str]] = {
     "current_default": (RECAP_PROFILE_ID, RECAP_PROFILE_VERSION),
     "category_baseline": (RECAP_PROFILE_ID, RECAP_PROFILE_VERSION),
-    "category_encounter_job_preview": ("recap_category_encounter_job_preview", "1.0"),
+    "category_encounter_job_preview": ("recap_category_encounter_job_preview", "2.0"),
 }
 
 register_extraction_profile(
     _build_recap_profile(
         profile_id="recap_category_encounter_job_preview",
-        profile_version="1.0",
+        profile_version="2.0",
         enable_encounter_job_pass=True,
-        enable_party_participation_attachment=True,
         enable_encounter_job_edge_guidance=True,
         enable_dynamic_node_vocabulary_packet=False,
     )

@@ -156,8 +156,8 @@ def test_fixture_pipeline_rejects_recap_profile_for_worldbuilding_source(
         ProductionExtractionRequest(
             repo_root=tmp_path,
             source=source,
-            profile_id="recap_category_v1",
-            profile_version="1.0",
+            profile_id="recap_category_v2",
+            profile_version="2.0",
             allow_llm=False,
         )
     )

@@ -1,6 +1,5 @@
 """Ordinary recap route selects GE and retains evidence without publishing."""
 
-import hashlib
 import json
 import stat
 from types import SimpleNamespace
@@ -30,9 +29,6 @@ def ordinary(monkeypatch, tmp_path, application_state_dsn):
         source_span_index={},
     )
     monkeypatch.setattr(service, "_normalized_from_registered", lambda *a: source)
-    monkeypatch.setattr(
-        service, "_recap_identity_snapshot", lambda *a, **k: {"roster": ["Ari"]}
-    )
     engine = Engine(
         TextResult(
             text=json.dumps({"observation_nodes": []}),
@@ -101,10 +97,7 @@ def test_default_ge_route_and_private_evidence(ordinary):
     for path in responses:
         response = json.loads(path.read_text())
         assert response["context_sha256"]["source_content"] == "a" * 64
-        assert (
-            response["context_sha256"]["settled_identity_context"]
-            == hashlib.sha256(b'{"roster":["Ari"]}').hexdigest()
-        )
+        assert "settled_identity_context" not in response["context_sha256"]
         assert stat.S_IMODE(path.stat().st_mode) == 0o600
     assert stat.S_IMODE((output / "inference_call_ledger.json").stat().st_mode) == 0o600
 
@@ -214,15 +207,15 @@ def test_injected_client_does_not_construct_default_ge(ordinary, monkeypatch):
     assert not (root / "new-run" / "inference_call_ledger.json").exists()
 
 
-def test_encounter_profile_budget_finishes_nine_planned_invocations(
+def test_encounter_profile_budget_finishes_eight_source_invocations(
     ordinary, monkeypatch
 ):
     root, engine, result = ordinary
 
     def run(request):
         assert request.profile_id == "recap_category_encounter_job_preview"
-        assert request.category_client.limits.max_calls == 9
-        for _ in range(9):
+        assert request.category_client.limits.max_calls == 8
+        for _ in range(8):
             request.category_client.run_pass(
                 "actor_pass",
                 model_id=request.model_id,
@@ -233,10 +226,10 @@ def test_encounter_profile_budget_finishes_nine_planned_invocations(
 
     monkeypatch.setattr(service, "run_production_extraction", run)
     invoke(root, profile="category_encounter_job_preview")
-    assert len(engine.requests) == 9
+    assert len(engine.requests) == 8
     ledger = json.loads((root / "new-run" / "inference_call_ledger.json").read_text())
-    assert ledger["pass_invocation_limit"] == 9
-    assert ledger["pass_invocation_count"] == 9
+    assert ledger["pass_invocation_limit"] == 8
+    assert ledger["pass_invocation_count"] == 8
 
 
 def test_ordinary_edge_pass_uses_larger_response_capacity(ordinary, monkeypatch):

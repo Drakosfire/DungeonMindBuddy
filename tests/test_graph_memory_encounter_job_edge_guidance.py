@@ -153,7 +153,7 @@ class RecordingFixtureClient(FixtureCategoryGraphPassClient):
         return super().run_pass(pass_name, model_id=model_id, instructions=instructions, user_content=user_content)
 
 
-def _run(*, encounter_enabled: bool = True, guidance_enabled: bool = False, attachment_enabled: bool = False, encounter: Mapping[str, Any] | None = None, edges: list[dict[str, Any]] | None = None):
+def _run(*, encounter_enabled: bool = True, guidance_enabled: bool = False, encounter: Mapping[str, Any] | None = None, edges: list[dict[str, Any]] | None = None):
     client = RecordingFixtureClient(
         _base_outputs(encounter=_encounter_nodes() if encounter is None else encounter, edges=edges)
     )
@@ -166,7 +166,6 @@ def _run(*, encounter_enabled: bool = True, guidance_enabled: bool = False, atta
             source_span_index=_span_index(),
             model_id="gpt-5.4-mini",
             enable_encounter_job_pass=encounter_enabled,
-            enable_party_participation_attachment=attachment_enabled,
             enable_encounter_job_edge_guidance=guidance_enabled,
         ),
     )
@@ -253,22 +252,7 @@ def test_unknown_invented_predicates_remain_flagged():
 
 
 def test_guidance_does_not_require_party_participation_attachment():
-    result, client = _run(encounter_enabled=True, guidance_enabled=True, attachment_enabled=False)
+    result, client = _run(encounter_enabled=True, guidance_enabled=True)
 
     assert "Encounter/job edge guidance" in client.user_content["edge_pass"]
     assert not [e for e in result.candidate_graph["edges"] if e["from_node_id"] == PARTY_COLLECTIVE_NODE_ID]
-
-
-def test_guidance_coexists_with_party_participation_attachment():
-    result, client = _run(
-        encounter_enabled=True,
-        guidance_enabled=True,
-        attachment_enabled=True,
-        edges=_valid_edges(),
-    )
-
-    by_pair = {(e["from_node_id"], e["to_node_id"]): e for e in result.candidate_graph["edges"]}
-    assert (PARTY_COLLECTIVE_NODE_ID, "quest_clear_glowkindle_rats") in by_pair
-    assert (PARTY_COLLECTIVE_NODE_ID, "enc_glowkindle_cellar_rats") in by_pair
-    assert "Do not emit generic `node:heroes-party -> quest`" in client.user_content["edge_pass"]
-    assert "edge:rats-participate-in-fight" in {e["edge_id"] for e in result.candidate_graph["edges"]}

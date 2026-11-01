@@ -153,7 +153,6 @@ def run_glowkindle_encounter_job_dogfood() -> CategoryGraphExtractionResult:
             source_span_index=glowkindle_source_span_index(),
             model_id="fixture-no-llm",
             enable_encounter_job_pass=True,
-            enable_party_participation_attachment=True,
             enable_encounter_job_edge_guidance=True,
             enable_dynamic_node_vocabulary_packet=True,
             dynamic_node_vocabulary_nodes=glowkindle_dynamic_vocabulary_nodes(),
@@ -199,7 +198,6 @@ def dogfood_result_to_payload(result: CategoryGraphExtractionResult) -> dict[str
         "source_fixture": {"fixture_id": FIXTURE_ID, "description": "Synthetic fixture for encounter/job extraction dogfood; not campaign canon."},
         "extraction_options": {
             "enable_encounter_job_pass": True,
-            "enable_party_participation_attachment": True,
             "enable_encounter_job_edge_guidance": True,
             "enable_dynamic_node_vocabulary_packet": True,
         },

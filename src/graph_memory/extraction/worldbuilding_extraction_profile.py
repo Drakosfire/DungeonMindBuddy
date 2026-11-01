@@ -186,7 +186,6 @@ WORLDBUILDING_PROFILE = register_extraction_profile(
         evidence_rule=EVIDENCE_RULE,
         default_semantic_state=DEFAULT_SEMANTIC_STATE,
         enable_encounter_job_pass=False,
-        enable_party_participation_attachment=False,
         enable_encounter_job_edge_guidance=False,
         enable_dynamic_node_vocabulary_packet=False,
         enable_session_relationship_sweep=False,
