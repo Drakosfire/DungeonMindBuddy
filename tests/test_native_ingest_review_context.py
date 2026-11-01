@@ -30,7 +30,7 @@ NOW = datetime(2026, 10, 28, tzinfo=UTC)
 def test_host_repository_adds_read_only_without_dropping_existing_options(monkeypatch):
     from psycopg.conninfo import conninfo_to_dict
 
-    monkeypatch.setattr(native, "world_graph_authority_database_url", lambda:
+    monkeypatch.setattr("apps.live_control_server.integrations.dungeonmind.native_registry_source.config.world_graph_authority_database_url", lambda:
                         "postgresql://localhost/example?options=-c%20statement_timeout%3D5000")
     repository = native._repository()
     options = conninfo_to_dict(repository._database._database_url)["options"]

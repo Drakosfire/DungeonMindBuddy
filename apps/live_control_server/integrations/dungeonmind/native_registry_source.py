@@ -5,6 +5,7 @@ This module performs no directory discovery or source admission.
 from __future__ import annotations
 
 from dataclasses import asdict
+from psycopg.conninfo import conninfo_to_dict, make_conninfo
 
 from dungeonmind.application.vnext import open_native_text_source_access_context
 from dungeonmind.infrastructure.postgres import PostgresDatabase, PostgresNativeSourceEvidenceRepository
@@ -63,3 +64,32 @@ def access_context(repo, space_id):
         },
     }
     return context, access
+
+
+def read_repository():
+    """Every inspection connection is read-only, including Core source reads."""
+    dsn = config.world_graph_authority_database_url()
+    options = conninfo_to_dict(dsn).get("options", "")
+    return PostgresNativeSourceEvidenceRepository(PostgresDatabase(
+        make_conninfo(dsn, options=(options + " -c default_transaction_read_only=on").strip())
+    ))
+
+
+def read_context(repo, space, revision, campaign, role="gm", *, scope_mode="campaign"):
+    from graph_memory.vnext.domain_runtime import (
+        DungeonBuddyVNextProjectionInput, build_dungeonbuddy_read_context,
+    )
+    domain, profile = descriptors(repo, space, revision)
+    access = open_native_text_source_access_context(
+        repository=repo, space_id=space, revision_id=revision, domain_contract=domain,
+        audience_labels=(GM_LABEL, PLAYER_LABEL) if role == "gm" else (PLAYER_LABEL,),
+    )
+    read = build_dungeonbuddy_read_context(
+        parsed_revision=access.parsed,
+        projection_input=DungeonBuddyVNextProjectionInput(
+            world_id=space, revision_id=revision, scope_mode=scope_mode,
+            campaign_id=campaign, role=role,
+        ),
+        source_reader=access.source_view,
+    )
+    return read, access, domain, profile

@@ -114,6 +114,7 @@ jobs:
           tests/test_world_container_registry.py
           tests/test_world_graph_binding.py
           tests/test_reviewed_native_graph_activation.py
+          tests/test_native_ingest_review_context.py
           tests/test_world_admission_without_corpus_directory.py
           tests/test_live_world_containers.py
           tests/test_local_graph_launch_profile.py

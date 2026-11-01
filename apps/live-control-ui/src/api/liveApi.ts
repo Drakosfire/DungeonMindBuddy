@@ -1,3 +1,4 @@
+import type {InspectionScope,InspectionPin,InspectionSelection,NativeGraphCatalog,NativeGraphEntity,NativeGraphSource} from "./nativeGraphInspection";
 import {readBuildConstructionStream,ConstructionStreamError,type BuildObjectConstructionProgress} from './buildConstructionStream';
 import type {
   ArtifactReadResponse,
@@ -364,6 +365,7 @@ function requiresNativeGraphAuthorization(path: string, body: BodyInit | null | 
     || /^\/api\/live\/agent\/worlds\/[^/]+\/build-proposals(?:\/[^/]+(?:\/(?:prompt|inserted|review))?)?$/.test(pathname)
     || /^\/api\/live\/agent\/worlds\/[^/]+\/plan-proposals\/[a-f0-9]{8}-(?:[a-f0-9]{4}-){3}[a-f0-9]{12}\/review$/i.test(pathname)
     || pathname === "/api/live/agent/turn"
+    || /^\/api\/live\/native-graph-inspection\/(?:catalog|read)$/.test(pathname)
     || pathname === "/api/live/world-graph/projection"
     || pathname === "/api/live/world-graph/managed-projection"
     || pathname === "/api/live/world-graph/recap-projection"
@@ -590,7 +592,8 @@ function canRetryLocalSessionRequest(path: string, init?: RequestInit): boolean 
     return typeof body?.client_thread_id === "string" && Boolean(body.client_thread_id)
       && typeof body.turn_id === "string" && Boolean(body.turn_id);
   }
-  return pathname === "/api/live/world-graph/projection"
+  return /^\/api\/live\/native-graph-inspection\/(?:catalog|read)$/.test(pathname)
+    || pathname === "/api/live/world-graph/projection"
     || pathname === "/api/live/world-graph/managed-projection"
     || pathname === "/api/live/world-graph/recap-projection"
     || ["search", "object", "complete-object", "neighborhood", "evidence", "source-anchor/read"]
@@ -3248,4 +3251,12 @@ export async function getAgentNativeBodyExcerpt(worldId:string,turnId:string,cit
 export async function getAgentNativeAssertionSource(worldId:string,turnId:string,citationIndex:number):Promise<import('./types').NativeAssertionSourceReadV1>{
   if(!Number.isSafeInteger(citationIndex)||citationIndex<0)throw new Error('Invalid assertion source index');
   return apiFetch(`/api/live/agent/worlds/${encodeURIComponent(worldId)}/conversation/turns/${encodeURIComponent(turnId)}/native-assertion-sources/${citationIndex}`);
+}
+
+
+export function getNativeGraphCatalog(scope:InspectionScope,signal?:AbortSignal):Promise<NativeGraphCatalog> {
+ return apiFetch('/api/live/native-graph-inspection/catalog',{method:'POST',signal,body:JSON.stringify(scope)});
+}
+export function inspectNativeGraph(scope:InspectionPin,selection:InspectionSelection,signal?:AbortSignal):Promise<NativeGraphEntity|NativeGraphSource> {
+ return apiFetch('/api/live/native-graph-inspection/read',{method:'POST',signal,body:JSON.stringify({scope,selection})});
 }
