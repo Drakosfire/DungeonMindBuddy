@@ -1,11 +1,10 @@
 import {act,cleanup,fireEvent,render,screen,waitFor,within} from '@testing-library/react';
 import {afterEach,beforeAll,beforeEach,expect,it,vi} from 'vitest';
-import {LoadedGraphBrowser} from './LoadedWorldGraphExplorer';
+import {LoadedWorldGraphExplorer} from './LoadedWorldGraphExplorer';
 import {NativeGraphInspection} from './NativeGraphInspection';
 import type {NativeGraphCatalog,NativeGraphEntity,NativeGraphSource,NativeAssertion} from '../api/nativeGraphInspection';
 import {getNativeGraphCatalog,inspectNativeGraph} from '../api/liveApi';
 vi.mock('../api/liveApi',()=>({getNativeGraphCatalog:vi.fn(),inspectNativeGraph:vi.fn()}));
-vi.mock('./useWorldGraphLensProjection',()=>({useWorldGraphLensProjectionDemand:vi.fn(),useOptionalWorldGraphLensProjection:()=>null}));
 vi.mock('../selectedWorld/SelectedWorldContext',()=>({useSelectedWorld:()=>({kind:'managed',worldId:'w',name:'World'})}));
 beforeAll(()=>{HTMLDialogElement.prototype.showModal=function(){this.setAttribute('open','')};HTMLDialogElement.prototype.close=function(){this.removeAttribute('open')};});
 afterEach(cleanup);
@@ -17,9 +16,9 @@ const source:NativeGraphSource={schema:'dmb_native_graph_source_v1',scope,source
 beforeEach(()=>{vi.resetAllMocks();vi.mocked(getNativeGraphCatalog).mockResolvedValue(packet);vi.mocked(inspectNativeGraph).mockImplementation(async(_pin,s)=>s.kind==='entity'?detail(Number(s.entity_id.slice(1))):source)});
 it('uses the existing modal, loads native only on explicit demand and opens only selected sources',async()=>{
  const original=JSON.stringify(packet);
- render(<LoadedGraphBrowser worldName="World" managedWorldId="w" projection={null} projectionState="idle" projectionError={null}/>);
- expect(getNativeGraphCatalog).not.toHaveBeenCalled();fireEvent.click(screen.getByRole('button',{name:'Explore graph'}));expect(getNativeGraphCatalog).not.toHaveBeenCalled();
- fireEvent.click(screen.getByRole('button',{name:'Reviewed Graph · read-only'}));expect(await screen.findByText(/31 objects/)).toBeInTheDocument();
+ render(<LoadedWorldGraphExplorer/>);
+ expect(getNativeGraphCatalog).not.toHaveBeenCalled();fireEvent.click(screen.getByRole('button',{name:'Explore graph'}));expect(await screen.findByText(/31 objects/)).toBeInTheDocument();
+ expect(screen.queryByRole('group',{name:'Graph material'})).not.toBeInTheDocument();
  expect(within(screen.getByRole('navigation',{name:'Reviewed Graph objects'})).getAllByRole('button')).toHaveLength(31);
  expect(screen.getByRole('button',{name:'e30'})).toBeInTheDocument();expect(inspectNativeGraph).not.toHaveBeenCalled();
  fireEvent.click(screen.getByRole('button',{name:'Object 0'}));expect(await screen.findByText('belief · speculative · provisional')).toBeInTheDocument();expect(inspectNativeGraph).toHaveBeenCalledTimes(1);

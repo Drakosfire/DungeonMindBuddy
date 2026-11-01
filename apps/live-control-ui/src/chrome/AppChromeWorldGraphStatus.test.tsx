@@ -1,219 +1,63 @@
-import { fireEvent, render, screen } from "@testing-library/react";
-import { describe, expect, it, vi } from "vitest";
-
+import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { afterEach, beforeAll, beforeEach, expect, it, vi } from "vitest";
 import { AgentInteractionProvider } from "../agentInteraction/AgentInteractionProvider";
 import { AskPluginSlotProvider } from "../agentInteraction/AskPluginSlot";
-import {
-  WorldGraphLensProvider,
-  WorldGraphLensProjectionProvider,
-} from "../graphLens";
 import { SurfaceContextProvider } from "../surfaceInteraction/contextHost";
 import { PeekRegionProvider } from "../surfaceInteraction/peekHost";
 import { AppChrome } from "./AppChrome";
-import { WORLD_GRAPH_LENS_DEFAULT_CAMPAIGN_ID } from "./appChromeConfig";
-import { AppChromeWorldGraphStatus, presentWorldGraphChromeStatus } from "./AppChromeWorldGraphStatus";
+import { AppChromeWorldGraphStatus } from "./AppChromeWorldGraphStatus";
+import { getNativeGraphCatalog, postManagedWorldGraphProjection, postWorldGraphProjection } from "../api/liveApi";
+import type { SelectedWorldState } from "../selectedWorld/SelectedWorldContext";
 
-vi.mock("../api/liveApi", async () => {
-  const actual = await vi.importActual<typeof import("../api/liveApi")>("../api/liveApi");
-  return {
-    ...actual,
-    postWorldGraphProjection: vi.fn().mockResolvedValue({
-      schema: "dmb_world_graph_projection_v1",
-      snapshot: {
-        worldId: "eldyrwild",
-        campaignId: "longmont-c2",
-        revisionId: "rev-1",
-        headRevisionId: "rev-1",
-        isHead: true,
-        focus: { kind: "none", sessionId: null },
-        admissibility: "gm",
-        scopeMode: "campaign",
-      },
-      summary: {
-        nodeCount: 1284,
-        relationshipCount: 0,
-        attributeCount: 0,
-        evidenceCount: 0,
-        sourceArtifactCount: 0,
-        projectionTruncated: false,
-      },
-      nodes: [{ nodeId: "npc-x", label: "X", kind: "npc", role: null }],
-      relationships: [],
-      attributes: [],
-      evidence: [],
-      sourceArtifacts: [],
-      diagnostics: [],
-    }),
-    getSourceBundle: vi.fn().mockResolvedValue({
-      schema: "dmb_ingestion_source_bundle_v1",
-      campaigns: {},
-    }),
-  };
+const selected = vi.hoisted(() => ({ world: { kind: "managed", worldId: "elderwyld", name: "Elderwyld", documentId: null } as SelectedWorldState }));
+vi.mock("../selectedWorld/SelectedWorldContext", async () => ({ ...await vi.importActual("../selectedWorld/SelectedWorldContext"), useSelectedWorld: () => selected.world }));
+vi.mock("../api/liveApi", async () => ({ ...await vi.importActual("../api/liveApi"), getNativeGraphCatalog: vi.fn(), postManagedWorldGraphProjection: vi.fn(), postWorldGraphProjection: vi.fn() }));
+beforeAll(() => {
+  HTMLDialogElement.prototype.showModal = function () { this.setAttribute("open", ""); };
+  HTMLDialogElement.prototype.close = function () { this.removeAttribute("open"); };
+});
+beforeEach(() => {
+  vi.clearAllMocks();
+  selected.world = { kind: "managed", worldId: "elderwyld", name: "Elderwyld", documentId: null };
+  vi.mocked(getNativeGraphCatalog).mockResolvedValue({ schema: "dmb_native_graph_catalog_v1", scope: { managed_world_id: "elderwyld", native_world_id: "native", binding_version: 3, revision_id: "published", scope_mode: "world", campaign_id: null },
+    catalogue: { identity: { space_id: "native", revision_id: "published" }, entities: [{ entity_id: "e1" }], admitted_assertion_ids: [], completeness: { status: "complete", reason: null }, request_sha256: "hash", result_digest: "digest" }, assertions: [] });
+});
+afterEach(() => { cleanup(); vi.clearAllMocks(); });
+
+it.each(["index", "plan", "build", "ingest"] as const)("offers the same published Graph on %s without a readiness claim or prefetch", route => {
+  render(<AgentInteractionProvider><AskPluginSlotProvider><SurfaceContextProvider><PeekRegionProvider><AppChrome activeRoute={route}><main>page</main></AppChrome></PeekRegionProvider></SurfaceContextProvider></AskPluginSlotProvider></AgentInteractionProvider>);
+  const launcher = screen.getByRole("button", { name: "Explore Elderwyld World graph" });
+  expect(launcher).toHaveTextContent("Graph");
+  expect(launcher).not.toHaveTextContent(/Ready|0 nodes/);
+  expect(getNativeGraphCatalog).not.toHaveBeenCalled();
+  expect(postManagedWorldGraphProjection).not.toHaveBeenCalled();
+  expect(postWorldGraphProjection).not.toHaveBeenCalled();
 });
 
-function renderChrome(activeRoute: "index" | "plan" | "build" | "ingest") {
-  return render(
-    <AgentInteractionProvider>
-      <AskPluginSlotProvider>
-        <WorldGraphLensProvider planCampaignId={WORLD_GRAPH_LENS_DEFAULT_CAMPAIGN_ID}>
-          <WorldGraphLensProjectionProvider defaultCampaignId={WORLD_GRAPH_LENS_DEFAULT_CAMPAIGN_ID}>
-            <SurfaceContextProvider>
-              <PeekRegionProvider>
-                <AppChrome activeRoute={activeRoute}>
-                  <main>page</main>
-                </AppChrome>
-              </PeekRegionProvider>
-            </SurfaceContextProvider>
-          </WorldGraphLensProjectionProvider>
-        </WorldGraphLensProvider>
-      </AskPluginSlotProvider>
-    </AgentInteractionProvider>,
-  );
-}
-
-describe("presentWorldGraphChromeStatus", () => {
-  it("reports not loaded without projection context", () => {
-    expect(
-      presentWorldGraphChromeStatus({
-        hasProjectionContext: false,
-        hasLensControls: false,
-        projectionState: null,
-        projectionError: null,
-        focusValidationStatus: null,
-        selectedCampaignIds: null,
-        focus: null,
-      }).tone,
-    ).toBe("not_loaded");
-  });
-
-  it("reports loading and ready presentations from structured lens state", () => {
-    expect(
-      presentWorldGraphChromeStatus({
-        hasProjectionContext: true,
-        hasLensControls: true,
-        projectionState: "loading",
-        projectionError: null,
-        focusValidationStatus: "none",
-        selectedCampaignIds: ["longmont-c2"],
-        focus: null,
-      }).compactLabel,
-    ).toContain("Loading");
-
-    expect(
-      presentWorldGraphChromeStatus({
-        hasProjectionContext: true,
-        hasLensControls: true,
-        projectionState: "ready",
-        projectionError: null,
-        focusValidationStatus: "none",
-        selectedCampaignIds: ["longmont-c2"],
-        focus: { campaignId: "longmont-c2", sessionNumber: 25 },
-      }),
-    ).toMatchObject({
-      tone: "ready",
-      compactLabel: "C2 · S25 · Ready",
-    });
-  });
-
-  it("preserves C1+C2 union with no focus", () => {
-    expect(
-      presentWorldGraphChromeStatus({
-        hasProjectionContext: true,
-        hasLensControls: true,
-        projectionState: "ready",
-        projectionError: null,
-        focusValidationStatus: "none",
-        selectedCampaignIds: ["longmont-c1", "longmont-c2"],
-        focus: null,
-      }),
-    ).toMatchObject({
-      tone: "ready",
-      compactLabel: "C1+C2 · Ready",
-      fullLabel: "World · C1+C2 · Ready",
-    });
-  });
-
-  it("preserves C1+C2 union and C2/S25 focus together", () => {
-    // summaryLabel would be "Union · C1+C2 · C2 · Session 25" — parsing the first C#
-    // used to collapse this to "C1 · S25 · Ready".
-    expect(
-      presentWorldGraphChromeStatus({
-        hasProjectionContext: true,
-        hasLensControls: true,
-        projectionState: "ready",
-        projectionError: null,
-        focusValidationStatus: "none",
-        selectedCampaignIds: ["longmont-c1", "longmont-c2"],
-        focus: { campaignId: "longmont-c2", sessionNumber: 25 },
-      }),
-    ).toMatchObject({
-      tone: "ready",
-      compactLabel: "C1+C2 · C2 · S25 · Ready",
-      fullLabel: "World · C1+C2 · C2 · S25 · Ready",
-    });
-  });
+it("opens the existing native inspector directly from chrome", async () => {
+  render(<AppChromeWorldGraphStatus />);
+  fireEvent.click(screen.getByRole("button", { name: "Explore Elderwyld World graph" }));
+  expect(await screen.findByText(/1 objects.*Complete for this view/)).toBeInTheDocument();
+  expect(screen.getByRole("dialog", { name: "Elderwyld World graph" })).toBeVisible();
+  expect(getNativeGraphCatalog).toHaveBeenCalledWith({ managed_world_id: "elderwyld", scope_mode: "world", campaign_id: null }, expect.any(AbortSignal));
+  expect(screen.queryByRole("group", { name: "Graph material" })).not.toBeInTheDocument();
+  expect(postManagedWorldGraphProjection).not.toHaveBeenCalled();
+  expect(postWorldGraphProjection).not.toHaveBeenCalled();
 });
 
-describe("AppChromeWorldGraphStatus", () => {
-  it("shows World Graph status on Index, Plan, Build, and Ingest", async () => {
-    for (const route of ["index", "plan", "build", "ingest"] as const) {
-      const view = renderChrome(route);
-      expect(await view.findByTestId("app-chrome-world-graph-status")).toBeInTheDocument();
-      expect(view.queryByTestId("app-chrome-graph-lens")).not.toBeInTheDocument();
-      view.unmount();
-    }
-  });
-
-  it("opens lens controls from the compact status without expanding the nav", async () => {
-    const user = (await import("@testing-library/user-event")).default.setup();
-    renderChrome("plan");
-    const trigger = await screen.findByTestId("app-chrome-world-graph-status");
-    await user.click(trigger);
-    expect(await screen.findByTestId("surface-context-popover")).toBeInTheDocument();
-    expect(screen.getByText("Graph campaigns")).toBeInTheDocument();
-    expect(screen.getByLabelText("Focus session")).toBeInTheDocument();
-  });
+it("reports unavailable native authority without showing classic counts or falling back", async () => {
+  vi.mocked(getNativeGraphCatalog).mockRejectedValue(new Error("Native authority unavailable"));
+  render(<AppChromeWorldGraphStatus />);
+  fireEvent.click(screen.getByRole("button", { name: "Explore Elderwyld World graph" }));
+  expect(await screen.findByRole("alert")).toHaveTextContent("Native authority unavailable");
+  expect(screen.queryByText(/0 objects|0 nodes|Ready/)).not.toBeInTheDocument();
+  expect(postManagedWorldGraphProjection).not.toHaveBeenCalled();
+  expect(postWorldGraphProjection).not.toHaveBeenCalled();
 });
 
-
-describe("managed World error detail", () => {
-  it("reveals the projection failure in the expanded status", async () => {
-    // Mock only the provider hooks so the real popover and error presentation mount.
-    const selected = await import("../selectedWorld/SelectedWorldContext");
-    const projection = await import("../graphLens/useWorldGraphLensProjection");
-    vi.spyOn(selected, "useSelectedWorld").mockReturnValue({ kind: "managed", worldId: "elderwyld", name: "Elderwyld", documentId: null });
-    vi.spyOn(projection, "useOptionalWorldGraphLensProjection").mockReturnValue({
-      projectionState: "error",
-      projectionError: "A valid local operator credential is required for native Graph access. (graph_auth_required)",
-      nodeCount: 0,
-    } as ReturnType<typeof projection.useOptionalWorldGraphLensProjection>);
-    try {
-      render(<SurfaceContextProvider><AppChromeWorldGraphStatus /></SurfaceContextProvider>);
-      fireEvent.click(screen.getByTestId("app-chrome-world-graph-status"));
-      expect(screen.getByRole("alert")).toHaveTextContent("graph_auth_required");
-      expect(screen.getByTestId("app-chrome-world-graph-status")).toHaveTextContent("Elderwyld · Needs attention");
-    } finally {
-      vi.restoreAllMocks();
-    }
-  });
-});
-
-describe("compact World graph health label", () => {
-  it.each([
-    ["ready", "Graph · Ready"],
-    ["loading", "Graph · Loading…"],
-    ["error", "Graph · Needs attention"],
-    ["unavailable", "Graph · Not initialized"],
-  ] as const)("keeps %s status truthful and names the World accessibly", async (state, label) => {
-    const selected = await import("../selectedWorld/SelectedWorldContext");
-    const projection = await import("../graphLens/useWorldGraphLensProjection");
-    vi.spyOn(selected, "useSelectedWorld").mockReturnValue({ kind: "managed", worldId: "elderwyld", name: "Elderwyld", documentId: null });
-    vi.spyOn(projection, "useOptionalWorldGraphLensProjection").mockReturnValue({ projectionState: state, projectionError: null, nodeCount: 0 } as ReturnType<typeof projection.useOptionalWorldGraphLensProjection>);
-    try {
-      render(<SurfaceContextProvider><AppChromeWorldGraphStatus compact /></SurfaceContextProvider>);
-      const trigger = screen.getByTestId("app-chrome-world-graph-status");
-      expect(trigger).toHaveTextContent(label);
-      expect(trigger.getAttribute("aria-label")).toContain("Elderwyld World graph:");
-    } finally { vi.restoreAllMocks(); }
-  });
+it("does not invent a World when none is verified", () => {
+  selected.world = { kind: "legacy" };
+  render(<AppChromeWorldGraphStatus />);
+  expect(screen.queryByRole("button")).not.toBeInTheDocument();
+  expect(getNativeGraphCatalog).not.toHaveBeenCalled();
 });
