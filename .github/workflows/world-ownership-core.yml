@@ -201,6 +201,9 @@ jobs:
           tests/test_authored_page_database_cutover.py
           tests/test_workspace_document_registry.py
           tests/test_tiptap_markdown_write.py
+          tests/application_state/test_native_corpus_sources.py
+          tests/test_agent_native_corpus_sources.py
+          tests/test_native_corpus_source_access.py
 
 
   world-ownership-tests:
