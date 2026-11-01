@@ -268,7 +268,7 @@ def test_held_recap_child_does_not_override_native_beat_evidence_gate(monkeypatc
     assert child.run.lineage["semantic_disposition"]["state"] == "held"
 
 
-def _historical_quote_parent(monkeypatch, root, history):
+def _historical_quote_parent(monkeypatch, root, history, *, world_id="world:elderwyld"):
     from apps.live_control_server.services import source_artifact_registry as sources
     from graph_memory.evidence.source_artifact import GraphMemorySourceArtifact
     from tests import test_graph_preview_runner as runner_fixtures
@@ -291,9 +291,9 @@ def _historical_quote_parent(monkeypatch, root, history):
     assert unowned.source_artifact.world_id is None
     # Actual source owner performs the permitted explicit NULL -> World assignment.
     sources._register_source_input(artifact=unowned.source_artifact.model_copy(
-        update={"world_id": "world:elderwyld"}), content=unowned.source_bytes.decode())
+        update={"world_id": world_id}), content=unowned.source_bytes.decode())
     adopted = registry.load_reviewable_extraction_data(root, parent.run_id)
-    assert adopted.source_artifact.world_id == "world:elderwyld"
+    assert adopted.source_artifact.world_id == world_id
     assert adopted.source_bytes == unowned.source_bytes
     assert adopted.run == unowned.run == parent
     assert adopted.source_artifact.source_artifact_id == unowned.source_artifact.source_artifact_id
@@ -398,3 +398,118 @@ def test_history_parser_does_not_relax_historical_source_binding():
             campaign_id="longmont-c2", lineage={"world_campaign_ingest_context": _HISTORICAL_CONTEXT})
     assert registry.validate_recap_source_run_world_binding(source_world_id=None,
         campaign_id="longmont-c2", lineage={"world_campaign_ingest_context": "unscoped history"}) is None
+
+
+@pytest.mark.parametrize("disposition", ["held", "rejected"])
+def test_native_field_review_of_actual_correction_keeps_whole_run_disposition(
+    monkeypatch, tmp_path, disposition,
+):
+    """A new native field review does not accept the older whole-run candidate."""
+    from datetime import UTC, datetime
+    from types import SimpleNamespace
+    from fastapi import FastAPI
+    from fastapi.testclient import TestClient
+    from dungeonmind.application.vnext import publish_native_text_source_evidence
+    from dungeonmind.contracts.vnext.knowledge import PublishKnowledgeRevisionCommand
+    from dungeonmind.contracts.vnext.native_source import NativeTextSourceAdmissionV1
+    from dungeonmind.infrastructure.memory.vnext_sources import InMemoryNativeSourceEvidenceRepository
+    from application_state.source import service as source_owner
+    from apps.live_control_server.models.extract_promote import RecapSemanticDecisionRequest
+    from apps.live_control_server.routes.extract_promote import router
+    from apps.live_control_server.services import native_recap_preparation as native_review
+    from apps.live_control_server.integrations.worldkeeper import registry_standing_consumer as transport
+    from tests.test_con_ready_play_worldkeeper_consumer import _repository, SPACE_ID
+
+    parent, correction_request, original = _historical_quote_parent(
+        monkeypatch, tmp_path, {}, world_id=SPACE_ID)
+    corrected = correction.correct_recap_run_evidence(correction_request)
+    if disposition == "rejected":
+        extract_promote.decide_recap_semantic_disposition(corrected.run_id,
+            RecapSemanticDecisionRequest(expected_revision=5,
+                candidate_sha256=corrected.candidate_sha256, decision="rejected",
+                review_decision_ref="test:whole-run-rejected"), reviewer_id="test:gm")
+    child = registry.load_reviewable_extraction_data(tmp_path, corrected.run_id)
+    assert child.run.lineage["semantic_disposition"]["state"] == disposition
+    assert not extract_promote.get_exact_run_review_package(child.run.run_id).promotable
+    app_before = ingest.list_extraction_runs()
+    source = source_owner.get_source_markdown(source_artifact_id=child.run.source_artifact_id,
+        content_sha256=correction._sha(child.source_bytes))
+    seed = _repository(evidence=False)
+    genesis = seed.get_revision(SPACE_ID, seed.get_head(SPACE_ID).head_revision_id)
+    repo = InMemoryNativeSourceEvidenceRepository()
+    repo.publish_revision(PublishKnowledgeRevisionCommand(space_id=SPACE_ID,
+        operation_ids=["fixture-corrected-child-genesis"],
+        graph_schema=genesis.revision.graph_schema, graph_payload=genesis.graph_payload,
+        domain_contract_ref=genesis.revision.domain_contract_ref,
+        semantic_profile_ref=genesis.revision.semantic_profile_ref,
+        created_at=datetime(2026, 10, 31, tzinfo=UTC)))
+    domain, profile = native_review.native.descriptors(repo, SPACE_ID, repo.get_head(SPACE_ID).head_revision_id)
+    paragraph = child.source_bytes.splitlines(keepends=True)[0]
+    meta = dict(visibility=dict(kind="labels_any", labels=["dungeonbuddy.visibility:gm"]),
+        epistemic_basis="asserted", claim_mode="dungeonbuddy.claim:fact",
+        standing="provisional", temporal_scope=dict(kind="unknown"))
+    receipt = publish_native_text_source_evidence(repository=repo,
+        domain_contract=domain, semantic_profile=profile, request=NativeTextSourceAdmissionV1(
+            space_id=SPACE_ID, admission_id="fixture-corrected-child-source",
+            expected_parent_revision_id=repo.get_head(SPACE_ID).head_revision_id,
+            created_at=datetime(2026, 10, 31, tzinfo=UTC), body_text=source.markdown,
+            expected_body_sha256=source.content_sha256,
+            source_classification="dungeonbuddy.source:session_recap", authority="primary",
+            visibility=meta["visibility"], origin=dict(namespace="test.recap",
+                object_id=source.source_artifact_id, revision_id=str(source.source_revision_id)),
+            spans=[dict(client_ref="support", evidence_role="support", start_byte=0,
+                end_byte=len(paragraph), expected_slice_sha256=correction._sha(paragraph))]))
+    evidence_id = receipt.bindings[0].evidence_ref_id
+    admitted = SimpleNamespace(state="admitted", opening=SimpleNamespace(state="verified"),
+        app_source_artifact_id=source.source_artifact_id, app_source_revision_id=source.source_revision_id,
+        app_body_sha256=source.content_sha256, native_world_id=SPACE_ID, binding_version=3,
+        evidence_ref_id=evidence_id, admission_id=receipt.admission_id,
+        source_artifact_id=receipt.source_artifact_id, source_revision_id=receipt.source_revision_id)
+    monkeypatch.setattr(native_review.config, "artifact_data_root", lambda: tmp_path)
+    monkeypatch.setattr(native_review.native, "binding", lambda _: dict(native_world_id=SPACE_ID, binding_version=3))
+    monkeypatch.setattr(native_review.native, "repository", lambda: repo)
+    monkeypatch.setattr(native_review.admission, "inspect", lambda *_: admitted)
+    for key, value in dict(DMB_AGENT_GRAPH_AUTH_MODE="local_operator",
+        DMB_AGENT_GRAPH_AUTH_ENVIRONMENT="local", DMB_AGENT_GRAPH_LOCAL_OPERATOR_TOKEN="synthetic-native-correction-operator-credential",
+        DMB_GRAPH_REVIEW_PREPARE_BINDING_KEY="synthetic-native-correction-review-binding-key").items():
+        monkeypatch.setenv(key, value)
+    import httpx
+    monkeypatch.setattr(httpx.HTTPTransport, "handle_request", lambda *_: pytest.fail("provider HTTP forbidden"))
+    app = FastAPI()
+    app.include_router(router)
+    client = TestClient(app, client=("127.0.0.1", 50000),
+        headers={"Authorization": "Bearer synthetic-native-correction-operator-credential"})
+    record = json.loads(child.candidate_bytes)["nodes"][0]
+    body = dict(managed_world_id="managed", campaign_id=child.run.campaign_id,
+        run_id=parent.run_id, expected_run_revision=parent.revision,
+        candidate_sha256=correction._sha(original.candidate_bytes), source_admission_run_id="source-run",
+        expected_parent_revision_id=repo.get_head(SPACE_ID).head_revision_id,
+        expected_source_authority_epoch=repo.open_native_source_view(SPACE_ID).epoch,
+        selections=[dict(kind="node", record_id=record["node_id"], action="create",
+            facts=[dict(field="label", metadata=dict(meta, evidence_ref_ids=[evidence_id]))])])
+    # A new field review still cannot publish the original false source witness.
+    head = repo.get_head(SPACE_ID)
+    bad = client.post("/api/live/extract-promote/native-prepare", json=body)
+    assert bad.status_code == 422 and "run_not_promotable" in bad.text, bad.text
+    assert repo.get_head(SPACE_ID) == head
+    body.update(run_id=child.run.run_id, expected_run_revision=child.run.revision,
+        candidate_sha256=corrected.candidate_sha256)
+    response = client.post("/api/live/extract-promote/native-prepare", json=body)
+    assert response.status_code == 200, response.text
+    packet = response.json()
+    assert packet["publication"] == "not_performed" and repo.get_head(SPACE_ID) == head
+    prepared = transport.decode_prepared(packet["prepared"])
+    assert len(prepared.prepared_operations) == 1
+    assert len(prepared.prepared_operations[0].facts) == 1
+    assert prepared.prepared_operations[0].facts[0].predicate == "dnd5e:name"
+    confirmed = client.post("/api/live/extract-promote/native-confirm",
+        json={key: packet[key] for key in ("envelope", "prepared", "token")})
+    assert confirmed.status_code == 200, confirmed.text
+    published = repo.get_revision(SPACE_ID, confirmed.json()["result"]["child_revision_id"])
+    additions = [a for a in published.graph_payload["assertions"] if a not in genesis.graph_payload["assertions"]]
+    assert len(additions) == 1
+    assert additions[0]["predicate"] == "dnd5e:name"
+    assert additions[0]["value"] == {"kind": "literal", "value": record["label"]}
+    assert registry.load_reviewable_extraction_data(tmp_path, child.run.run_id) == child
+    assert registry.load_reviewable_extraction_data(tmp_path, parent.run_id) == original
+    assert ingest.list_extraction_runs() == app_before
