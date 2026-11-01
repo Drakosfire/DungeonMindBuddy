@@ -40,7 +40,13 @@ def _fixture(monkeypatch: pytest.MonkeyPatch, tmp_path: Path, *, two_invalid: bo
     )
 
     from application_state.ingest import components as output_store
-    monkeypatch.setattr(output_store, "persist_component_payload", lambda **kwargs: hashlib.sha256(kwargs["payload"]).hexdigest())
+    payloads = {}
+    def persist(**kwargs):
+        digest = hashlib.sha256(kwargs["payload"]).hexdigest()
+        payloads[(kwargs["run_id"], kwargs["kind"])] = kwargs["payload"]
+        return digest
+    monkeypatch.setattr(output_store, "persist_component_payload", persist)
+    monkeypatch.setattr(output_store, "get_component_bytes", lambda **kw: payloads[(kw["run_id"], kw["kind"])])
     source = tmp_path / "source.md"
     source_bytes = b"Mira found the silver key under the old bridge.\n"
     source.write_bytes(source_bytes)
@@ -139,8 +145,7 @@ def _fixture(monkeypatch: pytest.MonkeyPatch, tmp_path: Path, *, two_invalid: bo
         run = get_run(_root, run_id)
         if run.status != ExtractionRunStatus.REVIEWABLE:
             raise GraphRunRegistryError("not reviewable", status_code=422)
-        candidate = tmp_path / run.components["candidate_graph"].uri
-        data = candidate.read_bytes()
+        data = parent_path.read_bytes() if run_id == "parent" else payloads[(run_id, "candidate_graph")]
         assert _sha(data) == run.components["candidate_graph"].sha256
         return SimpleNamespace(run=run, source_bytes=source.read_bytes(),
             candidate_bytes=data, span_bytes=span_file.read_bytes(), span_index=span_index)
@@ -190,7 +195,9 @@ def test_recap_child_is_held_exact_idempotent_and_parent_frozen(
     assert (tmp_path / "parent.json").read_bytes() == parent_bytes
     assert (tmp_path / "source.md").read_bytes() == source_bytes
     assert (tmp_path / "spans.json").read_bytes() == span_bytes
-    child_payload = json.loads((tmp_path / child.components["candidate_graph"].uri).read_text())
+    from application_state.ingest.components import get_component_bytes
+    child_payload = json.loads(get_component_bytes(run_id=child.run_id, kind="candidate_graph",
+        content_sha256=child.components["candidate_graph"].sha256))
     expected = json.loads(parent_bytes)
     expected["nodes"][0]["evidence_refs"][0]["anchor_quotes"][0] = "found the silver key"
     assert child_payload == expected
@@ -273,15 +280,18 @@ def test_recap_retry_reports_current_review_decision_without_reset(
     }
     child.revision += 1
     revision = child.revision
-    candidate = tmp_path / child.components["candidate_graph"].uri
-    before = candidate.read_bytes()
+    from application_state.ingest.components import get_component_bytes
+    def candidate_bytes():
+        return get_component_bytes(run_id=child.run_id, kind="candidate_graph",
+            content_sha256=child.components["candidate_graph"].sha256)
+    before = candidate_bytes()
     repeated = correction.correct_recap_run_evidence(request)
     assert repeated.run_id == first.run_id
     assert repeated.semantic_state == state
     assert repeated.semantic_basis_sha256 == first.semantic_basis_sha256
     assert children[first.run_id].revision == revision
     assert children[first.run_id].lineage["semantic_disposition"]["state"] == state
-    assert candidate.read_bytes() == before
+    assert candidate_bytes() == before
 
 
 @pytest.mark.parametrize("state", ["accepted", "rejected"])
@@ -310,7 +320,7 @@ def test_decided_recap_child_cannot_change_its_frozen_world_binding(
         correction.correct_recap_run_evidence(request)
 
 
-def test_recap_duplicate_target_and_tampered_sealed_bytes_fail(
+def test_recap_duplicate_target_creates_no_child(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
     _, parent_bytes, _, _, span_id, children = _fixture(monkeypatch, tmp_path)
@@ -319,12 +329,6 @@ def test_recap_duplicate_target_and_tampered_sealed_bytes_fail(
     with pytest.raises(correction.ExtractPromoteError, match="duplicate correction target"):
         correction.correct_recap_run_evidence(request)
     assert not children
-    request.corrections.pop()
-    first = correction.correct_recap_run_evidence(request)
-    candidate = tmp_path / children[first.run_id].components["candidate_graph"].uri
-    candidate.write_text("{}")
-    with pytest.raises(correction.ExtractPromoteError, match="changed after seal"):
-        correction.correct_recap_run_evidence(request)
 
 
 def test_recap_child_round_trips_real_disposable_run_registry(
@@ -473,6 +477,8 @@ def test_recap_route_requires_gm_and_preserves_private_quote_draft(
 
     monkeypatch.setattr(fastapi_routing, "run_in_threadpool", inline_sync)
     monkeypatch.setattr(dependency_utils, "run_in_threadpool", inline_sync)
+    monkeypatch.setenv("DMB_DEPLOYMENT_ENVIRONMENT", "local")
+    monkeypatch.setenv("DMB_AUTH_MODE", "local_operator")
     monkeypatch.setenv("DMB_AGENT_GRAPH_AUTH_MODE", "local_operator")
     monkeypatch.setenv("DMB_AGENT_GRAPH_AUTH_ENVIRONMENT", "development")
     token = "synthetic-local-operator-capability-32-characters"

@@ -66,6 +66,11 @@ jobs:
           src/application_state/source/service.py
           src/graph_memory/ingestion/native_recap_source.py
           tests/test_native_recap_source_identity.py
+          apps/live_control_server/services/exact_run_evidence_correction.py
+          tests/test_database_literal_correction_parent.py
+          tests/test_database_worldbuilding_correction_parent.py
+          tests/test_recap_literal_evidence_correction.py
+          tests/test_demo_derived_candidate_evidence_correction.py
           src/application_state/source/repository.py
           src/application_state/agent_conversation/native_source_catalog.py
           tests/test_source_input_metadata_database.py
@@ -123,6 +128,10 @@ jobs:
           tests/test_native_ingest_review_context.py
           tests/test_source_input_metadata_database.py
           tests/test_native_recap_source_identity.py
+          tests/test_database_literal_correction_parent.py
+          tests/test_database_worldbuilding_correction_parent.py
+          tests/test_recap_literal_evidence_correction.py
+          tests/test_demo_derived_candidate_evidence_correction.py
           tests/test_native_recap_source_admission.py::test_native_admission_identity_is_stable_across_record_version
           tests/application_state/test_source_content_postgres.py
           tests/application_state/test_native_source_catalog_postgres.py::test_authorize_materialize_reload_exact_replay_without_another_read

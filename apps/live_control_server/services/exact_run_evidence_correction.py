@@ -4,9 +4,6 @@ from __future__ import annotations
 
 import hashlib
 import json
-import os
-import tempfile
-from pathlib import Path
 from uuid import NAMESPACE_URL, uuid5
 
 from apps.live_control_server.config import artifact_data_root, repo_root
@@ -132,29 +129,6 @@ def _qualify_payload(*, payload: dict, parent: ExtractionRun, source_prose: str,
     errors = [str(item) for item in validator(payload) if str(item).strip()]
     if errors:
         raise _reject("child candidate failed managed-World profile validation: " + "; ".join(errors))
-
-
-def _write_child_candidate(path: Path, data: bytes, *, repo: Path) -> None:
-    if not path.parent.resolve().is_relative_to(repo.resolve()) or path.is_symlink():
-        raise _reject("derived candidate output path is unsafe", status_code=409)
-    path.parent.mkdir(parents=True, exist_ok=True)
-    if not path.parent.resolve().is_relative_to(repo.resolve()) or path.is_symlink():
-        raise _reject("derived candidate output path is unsafe", status_code=409)
-    if path.exists():
-        if path.read_bytes() != data:
-            raise _reject("derived candidate path contains different bytes", status_code=409)
-        return
-    with tempfile.NamedTemporaryFile(dir=path.parent, prefix=".candidate-", delete=False) as handle:
-        temporary = Path(handle.name)
-        handle.write(data)
-        handle.flush()
-        os.fsync(handle.fileno())
-    try:
-        if path.exists() and path.read_bytes() != data:
-            raise _reject("derived candidate path contains different bytes", status_code=409)
-        os.replace(temporary, path)
-    finally:
-        temporary.unlink(missing_ok=True)
 
 
 def _apply_literal_quote_corrections(
@@ -351,8 +325,8 @@ def correct_exact_run_evidence(
     child_id = str(uuid5(NAMESPACE_URL, f"dmb:{_DERIVATION}:{correction_digest}"))
     child_bytes = _canonical_bytes(payload)
     child_sha = _sha(child_bytes)
-    child_path = repo / "out" / "graph_memory" / "derived_candidates" / child_id / "candidate_graph.json"
-    child_uri = child_path.relative_to(repo).as_posix()
+    # Historical locator metadata only; actual child bytes belong to APP.
+    child_uri = f"out/graph_memory/derived_candidates/{child_id}/candidate_graph.json"
     lineage = {
         "derivation": _DERIVATION,
         "parent_run_id": request.parent_run_id,
@@ -397,7 +371,6 @@ def correct_exact_run_evidence(
         or child.session_id != parent.session_id
     ):
         raise _reject("derived run identity conflicts with existing run", status_code=409)
-    _write_child_candidate(child_path, child_bytes, repo=repo)
     from application_state.ingest.components import persist_component_payload
 
     for kind, data in (("candidate_graph", child_bytes),
@@ -420,8 +393,6 @@ def correct_exact_run_evidence(
                 raise _reject(f"derived run seal failed: {exc}") from exc
     if child.status != ExtractionRunStatus.REVIEWABLE:
         raise _reject("derived run could not be sealed", status_code=409)
-    if child_path.read_bytes() != child_bytes:
-        raise _reject("derived candidate changed during seal", status_code=409)
     # The same database owner validates the final bound child evidence.
     try:
         load_reviewable_extraction_data(repo, child_id)
@@ -509,8 +480,8 @@ def correct_recap_run_evidence(
     child_id = str(uuid5(NAMESPACE_URL, f"dmb:{_RECAP_DERIVATION}:{correction_digest}"))
     child_bytes = _canonical_bytes(payload)
     child_sha = _sha(child_bytes)
-    child_path = repo / "out" / "graph_memory" / "derived_candidates" / child_id / "candidate_graph.json"
-    child_uri = child_path.relative_to(repo).as_posix()
+    # Historical locator metadata only; actual child bytes belong to APP.
+    child_uri = f"out/graph_memory/derived_candidates/{child_id}/candidate_graph.json"
     basis = RecapSemanticBasisV1(
         parent_run_id=parent.run_id,
         parent_candidate_sha256=parent_sha,
@@ -548,13 +519,11 @@ def correct_recap_run_evidence(
         sha256=child_sha,
         exists=True,
     )
-    existing = True
     try:
         child = get_extraction_run(repo, child_id)
     except GraphRunRegistryError as exc:
         if exc.status_code != 404:
             raise _reject(f"derived run lookup failed: {exc}") from exc
-        existing = False
         try:
             child = create_extraction_run(
                 repo,
@@ -569,7 +538,6 @@ def correct_recap_run_evidence(
                 lineage=lineage,
             )
         except GraphRunRegistryError:
-            existing = True
             child = get_extraction_run(repo, child_id)
     identity_lineage = {
         key: child.lineage.get(key)
@@ -612,11 +580,7 @@ def correct_recap_run_evidence(
         or child.session_id != parent.session_id
     ):
         raise _reject("derived run identity conflicts with existing run", status_code=409)
-    if existing and child.status == ExtractionRunStatus.REVIEWABLE:
-        if child_path.is_symlink() or not child_path.is_file() or child_path.read_bytes() != child_bytes:
-            raise _reject("derived candidate changed after seal", status_code=409)
-    else:
-        _write_child_candidate(child_path, child_bytes, repo=repo)
+    # The immutable payload owner handles exact replay/restoration, never a file.
     from application_state.ingest.components import persist_component_payload
 
     for kind, payload_bytes in (("candidate_graph", child_bytes),
@@ -637,7 +601,7 @@ def correct_recap_run_evidence(
         except GraphRunRegistryError as exc:
             if exc.status_code != 409:
                 raise _reject(f"derived run seal failed: {exc}") from exc
-    if child.status != ExtractionRunStatus.REVIEWABLE or child_path.read_bytes() != child_bytes:
+    if child.status != ExtractionRunStatus.REVIEWABLE:
         raise _reject("derived recap child could not be sealed", status_code=409)
     load_reviewable_extraction_data(repo, child_id)
     return RecapEvidenceCorrectionResponse(
