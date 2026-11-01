@@ -321,6 +321,10 @@ function requestBodyRecord(body: BodyInit | null | undefined): Record<string, un
   }
 }
 
+function isRecapSelectionContextPath(pathname: string): boolean {
+  return /^\/api\/live\/extract-promote\/runs\/[^/]+\/selection-context$/.test(pathname);
+}
+
 function requiresNativeGraphAuthorization(path: string, body: BodyInit | null | undefined): boolean {
   const pathname = path.split("?", 1)[0];
   if (pathname === "/api/live/graph-authoring/document-relationship/request") return true;
@@ -341,7 +345,7 @@ function requiresNativeGraphAuthorization(path: string, body: BodyInit | null | 
   if (/^\/api\/live\/threat-drafts\/[^/]+\/mechanics-(?:revisions(?:\/[^/]+)?|revision-operations\/[^/]+(?::recover)?)$/.test(pathname)) return true;
   if (pathname.startsWith("/api/live/world-session-evidence")) return true;
   if (/^\/api\/live\/world-play-runs\/v2\/[^/]+\/prepared-tables(?:\/receipts|\/commands\/[^/]+)?$/.test(pathname)) return true;
-  if (pathname === "/api/live/recap-ingest") return true;
+  if (pathname === "/api/live/recap-ingest" || isRecapSelectionContextPath(pathname)) return true;
   if (/^\/api\/live\/world-play-runs\/v2\/[^/]+\/review(?:\/commands\/[^/]+)?$/.test(pathname)) return true;
   if (/^\/api\/live\/world-play-runs\/v2\/[^/]+\/content(?:\/revisions\/\d+|\/commands\/[^/]+|\/proposals(?:\/[^/]+)?)?$/.test(pathname)) return true;
   if (/^\/api\/live\/graph-preview\/build-recap-launches(?:\/[a-f0-9]{8}-(?:[a-f0-9]{4}-){3}[a-f0-9]{12})?$/i.test(pathname)) return true;
@@ -593,7 +597,8 @@ function canRetryLocalSessionRequest(path: string, init?: RequestInit): boolean 
     return typeof body?.client_thread_id === "string" && Boolean(body.client_thread_id)
       && typeof body.turn_id === "string" && Boolean(body.turn_id);
   }
-  return /^\/api\/live\/native-graph-inspection\/(?:catalog|read)$/.test(pathname)
+  return isRecapSelectionContextPath(pathname)
+    || /^\/api\/live\/native-graph-inspection\/(?:catalog|read)$/.test(pathname)
     || pathname === "/api/live/world-graph/projection"
     || pathname === "/api/live/world-graph/managed-projection"
     || pathname === "/api/live/world-graph/recap-projection"
@@ -702,7 +707,7 @@ function isShareableRead(path: string, init?: RequestInit): boolean {
     || /^\/api\/live\/media\/images\/[^/]+\/metadata$/.test(pathname)
     || /^\/api\/live\/rules\/(?:catalog|query|passages\/[a-f0-9]{64})$/.test(pathname);
   return method === "POST" && typeof init?.body === "string"
-    && [
+    && (isRecapSelectionContextPath(pathname) || [
       "/api/live/world-graph/projection",
       "/api/live/world-graph/managed-projection",
       "/api/live/world-graph/recap-projection",
@@ -710,7 +715,7 @@ function isShareableRead(path: string, init?: RequestInit): boolean {
       "/api/live/world-graph/retrieval/source-anchor/read",
       "/api/live/world-graph/retrieval/recap-context/v2/read",
       "/api/live/graph-preview/existing-object-resolver/candidates",
-    ].includes(pathname);
+    ].includes(pathname));
 }
 
 /** These allowlisted endpoints return JSON; keep admission valid through body consumption. */

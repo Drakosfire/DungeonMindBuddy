@@ -3,6 +3,7 @@ import { fromMarkdown } from "mdast-util-from-markdown";
 import type { ExactRunCandidateProjection } from "../../api/exactRunCandidateProjectionApi";
 import { GraphProjectionReader } from "../graphProjectionReader/GraphProjectionReader";
 import { PeekClaim } from "../../surfaceInteraction/peekHost";
+import { CandidateNativeReview } from "./CandidateNativeReview";
 /** Unknown source graph links become inert text before the real chip runtime
  * sees them. Its threat-hover hook can otherwise treat a raw threat: ID as native. */
 export function inertUnknownCandidateLinks(markdown: string, keys: Set<string>): {
@@ -122,6 +123,7 @@ function LocalCandidateReader({ projection: p }: {
         <h4>Pinned source evidence</h4>
         {selected.evidence.map((e, i) => <details key={i}><summary>Source lines {e.startLine}–{e.endLine}{!e.canHighlight ? " · quote needs review" : ""}</summary>
           <blockquote>{e.paragraphText}</blockquote><p>{e.anchorQuotes.join("\n")}</p></details>)}
+        <CandidateNativeReview projection={p} nodeId={selected.candidateNodeId}/>
       </aside> : null}
     </PeekClaim>
   </section>;
