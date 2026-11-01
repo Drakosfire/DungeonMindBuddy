@@ -64,7 +64,7 @@ describe("PlanDogfoodPanel", () => {
 
     expect(screen.getByRole("region", { name: "Dogfood checklist" })).toBeInTheDocument();
     expect(
-      screen.getByText('Ask: "What changed after the latest ingested recap?"'),
+      screen.getByText('Ask: "What does the selected session say happened?"'),
     ).toBeInTheDocument();
     expect(screen.getByLabelText("Dogfood notes")).toBeInTheDocument();
     expect(screen.getByTestId("plan-world-graph-snapshot")).toHaveTextContent("World Graph unavailable.");
@@ -75,7 +75,7 @@ describe("PlanDogfoodPanel", () => {
     renderPanel();
 
     const checkbox = screen.getByRole("checkbox", {
-      name: /Ask: "What changed after the latest ingested recap\?"/,
+      name: /Ask: "What does the selected session say happened\?"/,
     });
     await user.click(checkbox);
 
@@ -83,14 +83,14 @@ describe("PlanDogfoodPanel", () => {
     const stored = JSON.parse(
       localStorage.getItem(planDogfoodStorageKey(sessionDescriptor)) ?? "{}",
     );
-    expect(stored.checked["ask-s1-question"]).toBe(true);
+    expect(stored.checked["supported-qa-ask"]).toBe(true);
   });
 
   it("reloads checked state from localStorage on remount", () => {
     localStorage.setItem(
       planDogfoodStorageKey(sessionDescriptor),
       JSON.stringify({
-        checked: { "answer-names-boundary": true },
+        checked: { "supported-qa-inspect-citations": true },
         notes: "",
         updatedAt: "2026-07-09T00:00:00.000Z",
       }),
@@ -100,9 +100,26 @@ describe("PlanDogfoodPanel", () => {
 
     expect(
       screen.getByRole("checkbox", {
-        name: /Answer names the latest admitted recap/,
+        name: /Open the citations and check/,
       }),
     ).toBeChecked();
+  });
+
+  it("preserves old notes and checkmarks without counting them as new QA results", async () => {
+    const old = {
+      checked: { "ask-s1-question": true, "answer-names-boundary": true },
+      notes: "Earlier operator observation",
+      updatedAt: "2026-07-09T00:00:00.000Z",
+    };
+    localStorage.setItem(planDogfoodStorageKey(sessionDescriptor), JSON.stringify(old));
+    renderPanel();
+    expect(screen.getByLabelText("Dogfood notes")).toHaveValue(old.notes);
+    for (const checkbox of screen.getAllByRole("checkbox")) expect(checkbox).not.toBeChecked();
+    await userEvent.setup().click(screen.getByRole("checkbox", { name: /Open the citations/ }));
+    const saved = JSON.parse(localStorage.getItem(planDogfoodStorageKey(sessionDescriptor))!);
+    expect(saved.notes).toBe(old.notes);
+    expect(saved.checked).toMatchObject(old.checked);
+    expect(saved.checked["supported-qa-inspect-citations"]).toBe(true);
   });
 
   it("persists notes to localStorage", async () => {
@@ -141,7 +158,7 @@ describe("PlanDogfoodPanel", () => {
     expect(screen.getByLabelText("Dogfood notes")).toHaveValue("");
     expect(
       screen.getByRole("checkbox", {
-        name: /Open \/plan\?dogfood=1&campaign=longmont-c2&session=24/,
+        name: /Open the Plan for the World/,
       }),
     ).not.toBeChecked();
   });
@@ -157,7 +174,7 @@ describe("PlanDogfoodPanel", () => {
     renderPanel("Saved to Markdown");
     await user.click(
       screen.getByRole("checkbox", {
-        name: /Open \/plan\?dogfood=1&campaign=longmont-c2&session=24/,
+        name: /Open the Plan for the World/,
       }),
     );
     await user.type(screen.getByLabelText("Dogfood notes"), "Lag disclosure felt useful.");
@@ -171,7 +188,7 @@ describe("PlanDogfoodPanel", () => {
     expect(copied).toContain("Campaign: Longmont C2");
     expect(copied).toContain("Lag disclosure felt useful.");
     expect(copied).toContain("Save status: Saved to Markdown");
-    expect(copied).toContain("CreativeOperationSession");
+    expect(copied).toContain("explicit review and native Graph publication");
     expect(screen.getByText("Dogfood report copied.")).toBeInTheDocument();
   });
 

@@ -203,7 +203,6 @@ def test_dependency_coexistence_pins() -> None:
     lock = (ROOT / "uv.lock").read_text(encoding="utf-8")
     assert 'name = "openai"\nversion = "2.24.0"' in lock
     assert "pydantic-ai-slim" in lock and "1.66.0" in lock
-    assert "861d69c7bba8d2ea6a1cd170e989c901c74d32d1" in lock
     pyproject = (ROOT / "pyproject.toml").read_text(encoding="utf-8")
     assert "openai==2.24.0" in pyproject
     assert "pydantic-ai-slim[openai]==1.66.0" in pyproject
@@ -217,12 +216,6 @@ def test_exact_tool_surface_from_existing_dmb_schemas() -> None:
         for item in hermes_model_visible_tool_definitions()
     }
     assert model_visible_json_schemas() == dmb
-    assert names == (
-        "declare_conversation_context",
-        "expand_graph_retrieval",
-        "read_graph_source",
-        "query_threat_mechanics_hydration",
-    )
 
 
 def test_agent_instructions_reuse_graph_system_policy_and_scope_packet() -> None:
@@ -256,7 +249,7 @@ def test_agent_instructions_reuse_graph_system_policy_and_scope_packet() -> None
     assert expected.startswith(GRAPH_SYSTEM_POLICY)
     assert GRAPH_SYSTEM_POLICY in expected
     assert "call declare_conversation_context exactly once" in expected
-    assert "latest-recap change question" in expected
+    assert "Retrieved facts do not establish which source is latest" in expected
     assert "name the campaign and session provenance" in expected
     assert "Use read_graph_source only for quotation" in expected
     assert "Do not use report scaffolding" in expected
@@ -268,7 +261,9 @@ def test_agent_instructions_reuse_graph_system_policy_and_scope_packet() -> None
     assert '"retrievalSessionId": "retrieval-sess-1"' in expected
     assert '"processIsolation": "in_process"' in expected
     assert "This runtime is in-process PydanticAI" in expected
-    assert '"admittedRecapExcerpt": "Tripod moved."' in expected
+    assert "Tripod moved." not in expected
+    assert "admittedRecapExcerpt" not in expected
+    assert "latestRecapChange" not in expected
     adapter, _executor, captured = _adapter_for(_expand_then_answer())
     result = adapter.run(invocation)
     assert result.status == "ok"

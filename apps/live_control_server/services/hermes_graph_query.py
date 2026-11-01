@@ -261,7 +261,6 @@ def _assemble_graph_turn(
     question: str,
     graph_envelope: Mapping[str, Any],
     root: Path | None = None,
-    corpus_root: Path | None = None,
     conversation_history: list[dict[str, str]] | None = None,
     retrieval_session: GraphRetrievalSession | None = None,
     continuity_session_id: str | None = None,
@@ -275,7 +274,6 @@ def _assemble_graph_turn(
             question=question,
             graph_envelope=graph_envelope,
             root=root,
-            corpus_root=corpus_root,
             conversation_history=conversation_history,
             retrieval_session=retrieval_session,
             runtime_session_id=continuity_session_id,
@@ -306,7 +304,6 @@ def build_hermes_graph_turn_request(
     question: str,
     graph_envelope: Mapping[str, Any],
     root: Path | None = None,
-    corpus_root: Path | None = None,
     conversation_history: list[dict[str, str]] | None = None,
     retrieval_session: GraphRetrievalSession | None = None,
     continuity_session_id: str | None = None,
@@ -319,7 +316,6 @@ def build_hermes_graph_turn_request(
         question=question,
         graph_envelope=graph_envelope,
         root=root,
-        corpus_root=corpus_root,
         conversation_history=conversation_history,
         retrieval_session=retrieval_session,
         continuity_session_id=continuity_session_id,
@@ -700,7 +696,6 @@ def classify_hermes_graph_result(
     scope: _DispatchedScope,
     projection_ok: bool | None = None,
     retrieval_session: GraphRetrievalSession | None = None,
-    corpus_root: Path | None = None,
 ) -> tuple[GroundingState, str, list[str], list[str], str | None, dict[str, Any]]:
     """Classify grounding from the shared claim ledger first.
 
@@ -794,7 +789,6 @@ def classify_hermes_graph_result(
             None,
             model_prose=(result.final_text or "").strip() or None,
             execution_error=False,
-            corpus_root=corpus_root,
             answer_scope=explicit_scope,
         )
         replace_session(session)
@@ -816,11 +810,6 @@ def classify_hermes_graph_result(
             "answer_authority": validated.answer_authority,
             "validator_path": validated.validator_path,
         }
-        if validated.support_lag_text or validated.support_excerpt_text:
-            acceptance["s1_support"] = {
-                "lag_disclosure": validated.support_lag_text,
-                "admitted_recap_excerpt": validated.support_excerpt_text,
-            }
         warnings = list(validated.warnings)
         diagnostic_codes = list(
             dict.fromkeys([*validated.diagnostic_codes, *recoverable_codes])
@@ -1287,7 +1276,6 @@ def build_hermes_graph_product_response(
     elapsed_ms: int,
     world_graph_context: Mapping[str, Any] | None = None,
     retrieval_session: GraphRetrievalSession | None = None,
-    corpus_root: Path | None = None,
     conversation_history: Sequence[Mapping[str, str]] | None = None,
     pointer_resolution: HermesPointerResolution | None = None,
     worker_pid_changed: bool = False,
@@ -1322,7 +1310,6 @@ def build_hermes_graph_product_response(
                 scope=scope,
                 projection_ok=True,
                 retrieval_session=retrieval_session,
-                corpus_root=corpus_root,
             )
         )
         grounding_events = result.tool_events
@@ -1349,14 +1336,6 @@ def build_hermes_graph_product_response(
         diagnostic_codes=diagnostic_codes,
         warnings=warnings,
     )
-    latest_recap_change = (
-        world_graph_context.get("latest_recap_change")
-        if isinstance(world_graph_context, Mapping)
-        and isinstance(world_graph_context.get("latest_recap_change"), Mapping)
-        else None
-    )
-    if latest_recap_change is not None:
-        grounding["latest_recap_change"] = dict(latest_recap_change)
     acceptance_state = str(acceptance.get("state") or state)
     grounding["acceptance_state"] = acceptance_state
     grounding["accepted_claim_ids"] = list(acceptance.get("accepted_claim_ids") or [])
@@ -1411,17 +1390,6 @@ def build_hermes_graph_product_response(
         "hermes_session": _hermes_session_handle(pointer_binding),
         "retrieval_session_id": _runtime_retrieval_session_id(result),
     }
-    if latest_recap_change is not None:
-        response["latest_recap_change"] = dict(latest_recap_change)
-    s1_support = acceptance.get("s1_support")
-    if isinstance(s1_support, Mapping):
-        response["s1_support"] = dict(s1_support)
-        if latest_recap_change is not None:
-            merged = dict(latest_recap_change)
-            for key, value in s1_support.items():
-                if value is not None:
-                    merged[str(key)] = value
-            response["latest_recap_change"] = merged
     if world_graph_context is not None:
         response["world_graph_context"] = dict(world_graph_context)
     if forensic_enabled():
@@ -1467,7 +1435,6 @@ def run_hermes_graph_query(
     agent_thread_id: str | None,
     turn_id: str | None,
     root: Path | None = None,
-    corpus_root: Path | None = None,
     agent_runtime: AgentRuntime | None = None,
     conversation_history: Any | None = None,
     session_base: Path | None = None,
@@ -1480,13 +1447,9 @@ def run_hermes_graph_query(
     Crosses ``AgentRuntime.run`` exactly once. Host-owned pre-accept retry remains
     inside the Hermes adapter/host; this product path never retries.
 
-    ``root`` is the World Graph store root. ``corpus_root`` is the Buddy repo
-    root used for registry-admitted recap reads; it must not default to the
-    graph store root (``out/``), or S1 memory-lag sensemaking cannot open
-    ``corpus/...`` paths.
+    ``root`` is the World Graph store root. Source support comes from the
+    governed retrieval session, not a separate recap-file reader.
     """
-    from apps.live_control_server.config import repo_root as default_repo_root
-
     builder = _new_trace_builder(
         agent_thread_id=agent_thread_id,
         turn_id=turn_id,
@@ -1516,7 +1479,6 @@ def run_hermes_graph_query(
                 trace_builder=builder,
             )
 
-        resolved_corpus_root = (corpus_root or default_repo_root()).resolve()
         context_span_id = builder.start_phase("context_assembly")
         try:
             continuity_campaign_id = _continuity_campaign_id(packet)
@@ -1543,7 +1505,6 @@ def run_hermes_graph_query(
                 question=text,
                 graph_envelope=graph_envelope,
                 root=root,
-                corpus_root=resolved_corpus_root,
                 conversation_history=normalized_history,
                 continuity_session_id=pointer_resolution.continuity_session_id,
                 thread_id=agent_thread_id,
@@ -1622,7 +1583,6 @@ def run_hermes_graph_query(
                 completed_at=_utc_now_z(),
                 elapsed_ms=builder.elapsed_ms(),
                 world_graph_context=graph_envelope,
-                corpus_root=resolved_corpus_root,
                 conversation_history=normalized_history,
                 pointer_resolution=pointer_resolution,
                 worker_pid_changed=worker_pid_changed,

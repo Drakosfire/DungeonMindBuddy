@@ -525,8 +525,7 @@ _REQUEST_SUMMARY_KEYS = (
 _CONTEXT_KEYS = (
     "context_schema", "world_id", "campaign_id", "revision_id", "focus_kind",
     "admissibility", "history_message_count", "history_char_count", "retrieval_session_id",
-    "retrieval_candidate_count", "retrieval_claim_count", "latest_recap_change_present",
-    "admitted_recap_excerpt_char_count", "runtime_continuity_present",
+    "retrieval_candidate_count", "retrieval_claim_count", "runtime_continuity_present",
     "surface_context_schema", "request_present", "surface_id", "resolution_status",
     "current_work_present", "current_work_kind", "pointer_count", "model_context_char_count",
 )

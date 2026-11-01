@@ -108,23 +108,11 @@ def create_session_from_preflight(
         )
 
     claims = claims_from_preflight_envelope(envelope)
-    latest_recap_raw = envelope.get("latest_recap_change")
-    latest_recap_change = (
-        dict(latest_recap_raw) if isinstance(latest_recap_raw, Mapping) else None
-    )
     gap_codes: list[str] = []
     missing: list[str] = []
     coverage_state = (
         "partial_coverage" if matched and not claims else ("ready" if claims else "empty")
     )
-    if latest_recap_change is not None:
-        for code in latest_recap_change.get("diagnostic_codes") or []:
-            text = str(code).strip()
-            if text:
-                gap_codes.append(text)
-        if bool(latest_recap_change.get("memory_lag")):
-            missing.append("latest_recap_in_graph_head")
-            coverage_state = "partial_coverage"
     session = GraphRetrievalSession(
         snapshot=SessionSnapshot(
             world_id=str(envelope.get("world_id") or ""),
@@ -151,7 +139,6 @@ def create_session_from_preflight(
             for code in (envelope.get("warning_codes") or [])
             if str(code).strip()
         ],
-        latest_recap_change=latest_recap_change,
     )
     session.operations.append(
         RetrievalOperationEvent(

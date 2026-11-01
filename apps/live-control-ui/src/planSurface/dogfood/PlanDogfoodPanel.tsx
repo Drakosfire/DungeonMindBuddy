@@ -94,8 +94,9 @@ export function PlanDogfoodPanel({
           <p className="plan-surface-kicker">Dogfood mode</p>
           <h2 className="plan-dogfood-title">Dogfood checklist</h2>
           <p className="plan-dogfood-subtitle">
-            S1 only: ask what changed after the latest ingested recap and judge the co-GM
-            sensemaking answer (memory lag disclosed, not generic abstention).
+            Check supported answers and inspect their citations. Latest-recap comparison is
+            unavailable. Earlier notes and checkmarks are retained; old checks do not complete
+            this checklist.
           </p>
         </div>
         <button
@@ -158,7 +159,7 @@ export function PlanDogfoodPanel({
             id="plan-dogfood-notes"
             className="plan-dogfood-notes"
             value={state.notes}
-            placeholder="Did it feel like a co-GM? Was memory lag useful? What still felt like abstention or a ledger?"
+            placeholder="Did the citations support the reply? What was useful, missing, or uncertain?"
             rows={4}
             onChange={(event) => handleNotesChange(event.target.value)}
           />

@@ -86,8 +86,15 @@ def isolated_session(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
 
 
 @pytest.fixture
-def client(isolated_session: Path) -> TestClient:
-    return TestClient(create_app())
+def client(isolated_session: Path, monkeypatch: pytest.MonkeyPatch) -> TestClient:
+    token = "synthetic-query-regression-operator-credential"
+    monkeypatch.setenv("DMB_DEPLOYMENT_ENVIRONMENT", "local")
+    monkeypatch.setenv("DMB_AUTH_MODE", "local_operator")
+    monkeypatch.setenv("DMB_AGENT_GRAPH_AUTH_MODE", "local_operator")
+    monkeypatch.setenv("DMB_AGENT_GRAPH_AUTH_ENVIRONMENT", "local")
+    monkeypatch.setenv("DMB_AGENT_GRAPH_LOCAL_OPERATOR_TOKEN", token)
+    return TestClient(create_app(), client=("127.0.0.1", 50000),
+                      headers={"Authorization": f"Bearer {token}"})
 
 
 _MISSING = object()
@@ -1038,8 +1045,6 @@ def test_agent_trace_preserves_plan_shell_fields(tmp_path: Path) -> None:
         "retrieval_session_id",
         "retrieval_candidate_count",
         "retrieval_claim_count",
-        "latest_recap_change_present",
-        "admitted_recap_excerpt_char_count",
         "runtime_continuity_present",
     }
     context_span = next(
@@ -1919,212 +1924,8 @@ def test_nonzero_tool_calls_with_empty_evidence_still_abstains(tmp_path: Path) -
     assert response["answer"] == ABSTENTION_ANSWER
 
 
-def test_s1_empty_graph_with_latest_recap_is_partial_not_abstention(
-    tmp_path: Path,
-) -> None:
-    recap_path = tmp_path / "Session 24 - Recap.md"
-    recap_path.write_text(
-        "The party held the North Gate while Tripod Null-Calf pressed the wall.\n",
-        encoding="utf-8",
-    )
-    s1_envelope = {
-        **READY_ENVELOPE,
-        "status": "empty",
-        "matched_node_ids": [],
-        "nodes": [],
-        "warning_codes": ["graph_context_empty"],
-        "latest_recap_change": {
-            "schema": "dmb_latest_recap_change_context_v1",
-            "status": "ready",
-            "campaign_id": "longmont-c2",
-            "outcome": "memory_lag",
-            "memory_lag": True,
-            "latest_recap": {
-                "artifact_id": "longmont-c2/session-24",
-                "campaign_id": "longmont-c2",
-                "session_id": "session-24",
-                "source_recap_path": "Session 24 - Recap.md",
-            },
-            "comparison_boundary": {
-                "kind": "latest_admitted_recap_to_graph_head",
-                "recap_session_id": "session-24",
-                "graph_latest_session_id": "session-23",
-                "graph_revision_id": "revision:resolved-server",
-            },
-            "diagnostic_codes": ["latest_recap_not_in_graph_head"],
-        },
-    }
-
-    class _EchoSessionHost:
-        descriptor = HERMES_RUNTIME_DESCRIPTOR
-
-        def __init__(self) -> None:
-            self.calls: list[AgentRuntimeInvocation] = []
-
-        def run(self, invocation: AgentRuntimeInvocation) -> AgentRuntimeResult:
-            self.calls.append(invocation)
-            retrieval = invocation.context_packet.retrieval_session
-            context_updates: dict[str, Any] = {}
-            if retrieval is not None:
-                context_updates["retrieval_session_id"] = retrieval.session_id
-                context_updates["retrieval_session"] = dict(retrieval.packet)
-            return AgentRuntimeResult(
-                status="ok",
-                final_text=(
-                    "Session 24 keeps the siege at the North Gate under pressure; "
-                    "graph memory still lags at session-23."
-                ),
-                runtime_session_id="hermes-s1-empty",
-                tool_events=[
-                    _tool_event(
-                        outcome="empty",
-                        source_anchor_ids=[],
-                        matched_node_ids=[],
-                        relationship_ids=[],
-                    )
-                ],
-                context_updates=context_updates,
-                runtime_metadata={"process_isolation": "process_exclusive"},
-            )
-
-    host = _EchoSessionHost()
-    response = run_hermes_graph_query(
-        text="What changed after the latest ingested recap?",
-        packet=PACKET,
-        graph_envelope=s1_envelope,
-        agent_thread_id="agent-thread-s1",
-        turn_id="turn-s1",
-        root=tmp_path,
-        corpus_root=tmp_path,
-        agent_runtime=host,
-    )
-
-    assert host.calls
-    assert host.calls[0].context_packet.retrieval_session.packet is not None
-    assert host.calls[0].context_packet.retrieval_session.packet["latest_recap_change"]["outcome"] == "memory_lag"
-    assert "admitted_recap_excerpt" in host.calls[0].context_packet.retrieval_session.packet["latest_recap_change"]
-    assert response["grounding"]["state"] == "partial"
-    assert response["grounding"]["acceptance_state"] == "partial_coverage"
-    assert "no_admissible_claims" not in response["grounding"]["reason_codes"]
-    assert "hermes_agent_answer" in response["grounding"]["reason_codes"]
-    assert response["answer"].startswith("Session 24 keeps the siege")
-    assert "From the admitted session-24 recap" not in response["answer"]
-    assert "memory lag" not in response["answer"].lower()
-    assert response["s1_support"]["lag_disclosure"]
-    assert "memory lag" in response["s1_support"]["lag_disclosure"].lower()
-    assert "North Gate" in response["s1_support"]["admitted_recap_excerpt"]
-    assert response["latest_recap_change"]["outcome"] == "memory_lag"
-    assert "lag_disclosure" in response["latest_recap_change"]
 
 
-def test_s1_admitted_recap_read_uses_corpus_root_not_graph_store_root(
-    tmp_path: Path,
-) -> None:
-    """Live path uses world_graph_root (out/) for graph and repo_root for corpus."""
-    graph_root = tmp_path / "out"
-    graph_root.mkdir()
-    corpus_root = tmp_path / "repo"
-    corpus_root.mkdir()
-    (corpus_root / "Session 24 - Recap.md").write_text(
-        "The party held the North Gate while Tripod Null-Calf pressed the wall.\n",
-        encoding="utf-8",
-    )
-    s1_envelope = {
-        **READY_ENVELOPE,
-        "status": "empty",
-        "matched_node_ids": [],
-        "nodes": [],
-        "warning_codes": ["graph_context_empty"],
-        "latest_recap_change": {
-            "schema": "dmb_latest_recap_change_context_v1",
-            "status": "ready",
-            "campaign_id": "longmont-c2",
-            "outcome": "memory_lag",
-            "memory_lag": True,
-            "latest_recap": {
-                "artifact_id": "longmont-c2/session-24",
-                "campaign_id": "longmont-c2",
-                "session_id": "session-24",
-                "source_recap_path": "Session 24 - Recap.md",
-            },
-            "comparison_boundary": {
-                "kind": "latest_admitted_recap_to_graph_head",
-                "recap_session_id": "session-24",
-                "graph_latest_session_id": "session-23",
-                "graph_revision_id": "revision:resolved-server",
-            },
-            "diagnostic_codes": ["latest_recap_not_in_graph_head"],
-        },
-    }
-
-    class _EchoSessionHost:
-        descriptor = HERMES_RUNTIME_DESCRIPTOR
-
-        def run(self, invocation: AgentRuntimeInvocation) -> AgentRuntimeResult:
-            retrieval = invocation.context_packet.retrieval_session
-            context_updates: dict[str, Any] = {}
-            if retrieval is not None:
-                context_updates["retrieval_session_id"] = retrieval.session_id
-                context_updates["retrieval_session"] = dict(retrieval.packet)
-            return AgentRuntimeResult(
-                status="ok",
-                final_text=(
-                    "Session 24 keeps the siege at the North Gate under pressure; "
-                    "graph memory still lags at session-23."
-                ),
-                runtime_session_id="hermes-s1-roots",
-                tool_events=[
-                    _tool_event(
-                        outcome="empty",
-                        source_anchor_ids=[],
-                        matched_node_ids=[],
-                        relationship_ids=[],
-                    )
-                ],
-                context_updates=context_updates,
-                runtime_metadata={"process_isolation": "process_exclusive"},
-            )
-
-    captured: list[AgentRuntimeInvocation] = []
-
-    class _CaptureHost(_EchoSessionHost):
-        def run(self, invocation: AgentRuntimeInvocation) -> AgentRuntimeResult:
-            captured.append(invocation)
-            return super().run(invocation)
-
-    # Wrong corpus root: agent answer still fronts; excerpt is not attached.
-    wrong = run_hermes_graph_query(
-        text="What changed after the latest ingested recap?",
-        packet=PACKET,
-        graph_envelope=s1_envelope,
-        agent_thread_id="agent-thread-s1-wrong",
-        turn_id="turn-s1-wrong",
-        root=graph_root,
-        corpus_root=graph_root,
-        agent_runtime=_CaptureHost(),
-    )
-    assert wrong["answer"].startswith("Session 24 keeps the siege")
-    assert "hermes_agent_answer" in wrong["grounding"]["reason_codes"]
-    assert not (
-        captured[0].context_packet.retrieval_session.packet or {}
-    ).get("latest_recap_change", {}).get("admitted_recap_excerpt")
-
-    captured.clear()
-    right = run_hermes_graph_query(
-        text="What changed after the latest ingested recap?",
-        packet=PACKET,
-        graph_envelope=s1_envelope,
-        agent_thread_id="agent-thread-s1-right",
-        turn_id="turn-s1-right",
-        root=graph_root,
-        corpus_root=corpus_root,
-        agent_runtime=_CaptureHost(),
-    )
-    assert right["answer"].startswith("Session 24 keeps the siege")
-    assert "hermes_agent_answer" in right["grounding"]["reason_codes"]
-    assert "North Gate" in (
-        captured[0].context_packet.retrieval_session.packet or {}
-    ).get("latest_recap_change", {}).get("admitted_recap_excerpt", "")
 
 
 def test_invalid_service_history_fails_before_host(tmp_path: Path) -> None:
@@ -3033,7 +2834,7 @@ def test_surface_context_resolution_span_and_query_primacy(
         span for span in trace["spans"] if span.get("name") == "context_assembly"
     )
     assert context_span["attributes"]["context_schema"] == "dmb_agent_context_summary_v1"
-    assert len(context_span["attributes"]) == 14
+    assert len(context_span["attributes"]) == 12
     assert "surface_context" not in context_span["attributes"]
     assert response_without["agent_trace"]["context_summary"]["context_schema"] == (
         "dmb_agent_context_summary_v1"
@@ -3290,7 +3091,7 @@ def test_play_surface_context_resolution_span_query_primacy_and_privacy(
         span for span in trace["spans"] if span.get("name") == "context_assembly"
     )
     assert context_span["attributes"]["context_schema"] == "dmb_agent_context_summary_v1"
-    assert len(context_span["attributes"]) == 14
+    assert len(context_span["attributes"]) == 12
     assert "surface_context" not in context_span["attributes"]
 
     stale_trace = response_stale["agent_trace"]
@@ -3553,3 +3354,44 @@ def test_single_read_without_opened_telemetry_cannot_report_success():
     event = _tool_event(tool_name="read_graph_source", retrieval_schema="dmb_world_graph_source_anchor_read_v1",
                         outcome="enough", matched_node_ids=[], source_anchor_ids=["anchor:one"])
     assert _product_response_for_events([event])["grounding"]["successful_tool_count"] == 0
+
+
+@pytest.mark.parametrize("retained_session", [False, True])
+def test_temporal_question_cannot_use_legacy_excerpt_as_answer_authority(tmp_path, retained_session):
+    legacy = {"schema": "dmb_latest_recap_change_context_v1", "outcome": "memory_lag",
+              "memory_lag": True, "diagnostic_codes": ["latest_recap_not_in_graph_head"],
+              "latest_recap": {"source_recap_path": "PRIVATE-RECAP.md"},
+              "admitted_recap_excerpt": "PRIVATE-RETAINED-EXCERPT"}
+    envelope = {**EMPTY_CLAIM_ENVELOPE, "latest_recap_change": legacy}
+    original = json.dumps(envelope, sort_keys=True)
+    class RetainedSessionHost(_EchoRetrievalSessionHost):
+        def run(self, invocation):
+            result = super().run(invocation)
+            self.retained_packet = result.context_updates["retrieval_session"]
+            if retained_session:
+                self.retained_packet["latest_recap_change"] = json.loads(json.dumps(legacy))
+            self.original_packet = json.dumps(self.retained_packet, sort_keys=True)
+            return result
+
+    host = RetainedSessionHost(final_response="Nothing changed after the latest recap.", tool_events=[])
+    response = run_hermes_graph_query(text="What changed after the latest ingested recap?",
+        packet=PACKET, graph_envelope=envelope, agent_thread_id="temporal-boundary", turn_id="temporal-turn",
+        root=tmp_path, agent_runtime=host)
+    assert response["grounding"]["state"] == "abstained"
+    assert response["answer"] == ABSTENTION_ANSWER
+    assert not response["grounding"].get("accepted_claim_ids")
+    assert not response.get("source_citations")
+    assert "s1_support" not in response and "latest_recap_change" not in response
+    assert json.dumps(envelope, sort_keys=True) == original
+    assert json.dumps(host.retained_packet, sort_keys=True) == host.original_packet
+
+
+def test_temporal_wording_keeps_ordinary_supported_claims_not_latestness(tmp_path):
+    host = _EchoRetrievalSessionHost(final_response="", tool_events=[])
+    response = run_hermes_graph_query(text="What is supported about Tripod from the latest recap?",
+        packet=PACKET, graph_envelope=READY_ENVELOPE, agent_thread_id="temporal-facts", turn_id="fact-turn",
+        root=tmp_path, agent_runtime=host)
+    assert response["grounding"]["accepted_claim_ids"]
+    assert response["graph_references"]
+    assert response["answer"] != ABSTENTION_ANSWER
+    assert "latest_recap_change" not in response and "s1_support" not in response

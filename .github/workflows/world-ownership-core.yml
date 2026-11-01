@@ -174,6 +174,17 @@ jobs:
           tests/test_plan_action_terminal_diagnostic.py::test_mounted_diagnostic_read_requires_auth_owner_and_exact_selector
           tests/test_reviewed_corpus_publication.py
 
+      - name: Run query answer-authority regressions
+        if: matrix.suite == 'ingestion-and-review'
+        run: >-
+          uv run --locked pytest -q --tb=short --show-capture=no
+          tests/test_agent_context_assembler.py
+          tests/test_agent_turn_trace.py
+          tests/test_graph_retrieval_interaction.py
+          tests/test_hermes_graph_agent.py
+          tests/test_live_query_hermes_graph.py
+          tests/test_pydantic_ai_agent_runtime.py
+
       - name: Run saved-page owner and semantic-reader tests
         if: matrix.suite == 'saved-page-readers'
         run: >-

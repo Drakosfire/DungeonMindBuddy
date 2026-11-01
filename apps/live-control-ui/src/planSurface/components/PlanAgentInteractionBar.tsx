@@ -1330,7 +1330,8 @@ export function PlanAgentInteractionBar({
                         ) : null}
                         {turnS1Support ? (
                           <details className="plan-agent-s1-support">
-                            <summary>Latest-recap comparison support</summary>
+                            <summary>Recorded reply context</summary>
+                            <p>Saved with this earlier reply; this is not current source evidence.</p>
                             {turnS1Support.lagDisclosure ? (
                               <p className="plan-agent-s1-support-lag">{turnS1Support.lagDisclosure}</p>
                             ) : null}

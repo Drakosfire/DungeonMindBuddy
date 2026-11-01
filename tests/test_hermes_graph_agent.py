@@ -4239,7 +4239,8 @@ def test_compact_scope_preserves_exact_initial_packet_and_parent_admission():
     assert len(raw.encode()) < len(json.dumps(payload, ensure_ascii=False, indent=2).encode())
     assert payload["initialClaimPacket"]["candidates"] == session["candidates"]
     assert payload["initialClaimPacket"]["claimLedger"] == session["claim_ledger"]
-    assert payload["initialClaimPacket"]["admittedRecapExcerpt"] == "Exact café source"
+    assert "admittedRecapExcerpt" not in payload["initialClaimPacket"]
+    assert "latestRecapChange" not in payload["initialClaimPacket"]
     bootstrap = SimpleNamespace(retrieval_session=SimpleNamespace(project_for_hermes=lambda: session))
     view = SimpleNamespace(api_mode="codex_responses", payload_json=json.dumps({"instructions": rendered}))
     assert _initial_claim_packet_from_view(view, bootstrap) == payload["initialClaimPacket"]
