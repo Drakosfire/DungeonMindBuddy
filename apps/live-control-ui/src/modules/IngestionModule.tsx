@@ -1,3 +1,4 @@
+import { RecapSourceAdmission } from "./RecapSourceAdmission";
 import {SessionEvidencePicker} from "../playSurface/review/SessionEvidencePicker";
 import type {SessionEvidenceRef} from "../playSurface/review/sessionEvidenceApi";
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
@@ -1575,7 +1576,10 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
                     <button type="button" disabled={reviewLoading || reviewSource.projection?.schema === "dmb_historical_recap_world_projection_v1"}
                       onClick={() => void reviewSavedSource(false,true,true)}>View admitted memory</button>
               </div> : null}
-              {savedSource?.identity === reviewIdentity ? <WorldPlanAgentAnswer answer={savedSource.source.sourceProse} /> : reviewSource?.projection ? (
+              {savedSource?.identity === reviewIdentity ? <>
+                <RecapSourceAdmission source={savedSource.source}/>
+                <WorldPlanAgentAnswer answer={savedSource.source.sourceProse}/>
+              </> : reviewSource?.projection ? (
                 <>
                   {reviewSource.projection.schema === "dmb_exact_run_candidate_projection_v1" ? (
                     <GraphReviewCandidateRecapProjection projection={reviewSource.projection}/>
