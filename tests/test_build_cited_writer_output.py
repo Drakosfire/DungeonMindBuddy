@@ -355,7 +355,9 @@ class OutputWire(WriterWire):
         answer = json.loads(output["text"])
         if self.variant in {"saved", "saved_only", "unknown_saved"}:
             packet = json.loads(json.loads(request.content)["input"])
-            section = packet["exposure"]["saved_sections"][0]
+            from application_state.agent_conversation.build_primary_context import packet_rows
+            assert packet["exposure"]["saved_sections"] == []
+            section = packet_rows(packet)[0]
             if self.variant in {"saved_only", "unknown_saved"}:
                 answer["answer_segments"] = []
                 answer["answer_context_status"] = "source_grounded_partial"
