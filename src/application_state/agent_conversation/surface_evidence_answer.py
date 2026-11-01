@@ -407,6 +407,55 @@ def graph_bindings(segments, receipt, execution, auth):
     return bindings
 
 
+def native_fact_segment(row, *, policy, receipt, auth, support, index):
+    """Resolve native fact selectors once for legacy and shared producing owners."""
+    kind = row.get('kind')
+    producer = auth.provider_attempt_id
+    statement_available = {handle: read for handle, _, read in getattr(support, 'native_statements', ())}
+    assertion_available = {handle: (event, read) for handle, event, read in getattr(support, 'native_assertions', ())}
+    body_available = {item.handle: item for item in getattr(support, 'body_excerpts', ())}
+    assertion_citations, statement_citations, body_citations = [], [], []
+    if kind == 'native_assertion_claim' and policy == ASSERTION_POLICY:
+        handles = row.get('assertion_handles')
+        if (set(row) != {'kind', 'text', 'assertion_handles'} or not isinstance(handles, list) or not handles
+                or any(not isinstance(h, str) or h not in assertion_available for h in handles)
+                or len(handles) != len(set(handles))):
+            raise ValueError('Native Graph claim requires exact included assertion handles')
+        from .native_plan_assertions import citation as assertion_citation
+        selected = [assertion_available[h] for h in handles]
+        metadata = {canonical_sha256(r.assertion.metadata): r.assertion.metadata for _, r in selected}
+        labels = sorted({m.claim_mode.rsplit(':', 1)[-1] + ' / ' + m.epistemic_basis + ' / ' + m.standing for m in metadata.values()})
+        text = 'Graph records (' + '; '.join(labels) + '): ' + row['text']
+        segment = t.NativeAssertionClaimV1(text=text,
+            assertion_ids=sorted(r.assertion.assertion_id for _, r in selected),
+            qualifications=[metadata[k] for k in sorted(metadata)])
+        assertion_citations.extend(assertion_citation(receipt, auth, event, read, span, index=index)
+            for event, read in selected for span in read.spans)
+    elif kind == 'native_statement_report' and policy in {STATEMENT_POLICY, ASSERTION_POLICY}:
+        handles = row.get('statement_handles')
+        if (set(row) != {'kind', 'text', 'statement_handles'} or not isinstance(handles, list) or not handles
+                or any(not isinstance(h, str) or h not in statement_available for h in handles)
+                or len(handles) != len(set(handles))):
+            raise ValueError('Native source report requires exact included statement handles')
+        from .native_plan_statements import citation
+        text = 'Source reports: ' + row['text']
+        segment = t.SourcePassageClaimV1(kind='source_passage_claim', text=text)
+        statement_citations.extend(citation(receipt, auth, statement_available[h], index=index) for h in handles)
+    elif kind == 'native_body_claim' and policy in {ASSERTION_POLICY, BODY_POLICY, STATEMENT_POLICY}:
+        handles = row.get('excerpt_handles')
+        if (set(row) != {'kind','text','excerpt_handles'} or not isinstance(handles, list) or not handles
+                or any(not isinstance(handle, str) or handle not in body_available for handle in handles)
+                or len(set(handles)) != len(handles)):
+            raise ValueError('Native body claim requires exact producing excerpt selections')
+        from .native_corpus import body_citation
+        segment = t.SourcePassageClaimV1(kind='source_passage_claim', text=row['text'])
+        body_citations.extend(body_citation(body_available[handle], index=index, text=row['text'],
+            producer=producer, envelope_sha256=auth.envelope_sha256) for handle in handles)
+    else:
+        raise ValueError('Native fact is not offered by the producing policy')
+    return segment, body_citations, statement_citations, assertion_citations
+
+
 def normalize(candidate, turn, producer, support):
     if not isinstance(candidate, dict) or set(candidate) != {'schema','answer_segments','limitations','requested_detail_gaps'} or candidate['schema'] not in {ASSERTION_POLICY,STATEMENT_POLICY,BODY_POLICY,PLAN_POLICY,SELECTOR_POLICY,NATIVE_POLICY,POLICY,HISTORICAL_POLICY}:
         raise ValueError('Invalid current mixed evidence answer')
@@ -435,10 +484,7 @@ def normalize(candidate, turn, producer, support):
     for passage in getattr(support, 'passages', ()): available.setdefault(passage.handle, passage)
     authored = {s.handle:s for s in getattr(support, 'authored', ())}
     native_available = {s.handle:s for s in getattr(support,'native_sections',())}
-    body_available = {item.handle: item for item in getattr(support, 'body_excerpts', ())}
-    statement_available = {handle: read for handle, _, read in getattr(support, 'native_statements', ())}
     statement_citations = []
-    assertion_available = {handle: (event, read) for handle, event, read in getattr(support, 'native_assertions', ())}
     assertion_citations = []
     segments, citations, native_citations, body_citations, entries = [], [], [], [], []
     for row in candidate['answer_segments']:
@@ -464,42 +510,15 @@ def normalize(candidate, turn, producer, support):
                 p = available[handle]
                 citations.append(t.SurfaceSourcePassageCitationV1(segment_index=index, text_sha256=sha256(row['text'].encode()).hexdigest(),
                     provider_attempt_id=producer, envelope_sha256=auth.envelope_sha256, read_event_id=p.event_id, receipt=p.receipt, source_name=p.source_name))
-        elif kind == 'native_assertion_claim' and candidate['schema'] == ASSERTION_POLICY:
-            handles = row.get('assertion_handles')
-            if (set(row) != {'kind', 'text', 'assertion_handles'} or not isinstance(handles, list) or not handles
-                    or any(not isinstance(h, str) or h not in assertion_available for h in handles)
-                    or len(handles) != len(set(handles))):
-                raise ValueError('Native Graph claim requires exact included assertion handles')
-            from .native_plan_assertions import citation as assertion_citation
-            selected = [assertion_available[h] for h in handles]
-            metadata = {canonical_sha256(r.assertion.metadata): r.assertion.metadata for _, r in selected}
-            labels = sorted({m.claim_mode.rsplit(':', 1)[-1] + ' / ' + m.epistemic_basis + ' / ' + m.standing for m in metadata.values()})
-            text = 'Graph records (' + '; '.join(labels) + '): ' + row['text']
-            segments.append(t.NativeAssertionClaimV1(text=text,
-                assertion_ids=sorted(r.assertion.assertion_id for _, r in selected),
-                qualifications=[metadata[k] for k in sorted(metadata)]))
-            assertion_citations.extend(assertion_citation(receipt, auth, event, read, span, index=index)
-                for event, read in selected for span in read.spans)
-        elif kind == 'native_statement_report' and candidate['schema'] in {STATEMENT_POLICY, ASSERTION_POLICY}:
-            handles = row.get('statement_handles')
-            if (set(row) != {'kind', 'text', 'statement_handles'} or not isinstance(handles, list) or not handles
-                    or any(not isinstance(h, str) or h not in statement_available for h in handles)
-                    or len(handles) != len(set(handles))):
-                raise ValueError('Native source report requires exact included statement handles')
-            from .native_plan_statements import citation
-            text = 'Source reports: ' + row['text']
-            segments.append(t.SourcePassageClaimV1(kind='source_passage_claim', text=text))
-            statement_citations.extend(citation(receipt, auth, statement_available[h], index=index) for h in handles)
-        elif kind == 'native_body_claim' and candidate['schema'] in {ASSERTION_POLICY, BODY_POLICY, STATEMENT_POLICY}:
-            handles = row.get('excerpt_handles')
-            if (set(row) != {'kind','text','excerpt_handles'} or not isinstance(handles, list) or not handles
-                    or any(not isinstance(handle, str) or handle not in body_available for handle in handles)
-                    or len(set(handles)) != len(handles)):
-                raise ValueError('Native body claim requires exact producing excerpt selections')
-            from .native_corpus import body_citation
-            segments.append(t.SourcePassageClaimV1(kind='source_passage_claim', text=row['text']))
-            body_citations.extend(body_citation(body_available[handle], index=index, text=row['text'],
-                producer=producer, envelope_sha256=auth.envelope_sha256) for handle in handles)
+        elif (kind == 'native_assertion_claim' and candidate['schema'] == ASSERTION_POLICY
+                or kind == 'native_statement_report' and candidate['schema'] in {STATEMENT_POLICY, ASSERTION_POLICY}
+                or kind == 'native_body_claim' and candidate['schema'] in {ASSERTION_POLICY, BODY_POLICY, STATEMENT_POLICY}):
+            segment, body, statement, assertion = native_fact_segment(row, policy=candidate['schema'],
+                receipt=receipt, auth=auth, support=support, index=index)
+            segments.append(segment)
+            body_citations.extend(body)
+            statement_citations.extend(statement)
+            assertion_citations.extend(assertion)
         elif kind == 'native_source_claim' and native:
             handles = row.get('section_handles')
             if (set(row) != {'kind','text','section_handles'} or not isinstance(handles,list) or not handles

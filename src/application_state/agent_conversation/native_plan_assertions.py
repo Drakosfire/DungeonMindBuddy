@@ -226,6 +226,12 @@ def validate_citations(completion, receipt, execution, authorization):
     validate_execution(receipt, execution)
     reads = {(e.event_id, r.assertion.assertion_id): (e, r) for e in execution.events
         if isinstance(e, NativePlanAssertionReadObservedV1) and e.event_id in authorization.native_assertion_read_event_ids for r in e.reads}
+    validate_citation_records(completion, receipt, authorization, reads)
+
+
+def validate_citation_records(completion, receipt, authorization, reads):
+    """One assertion span/qualification closure after actual producer admission."""
+    from . import types as t
     seen, cited = set(), {}
     for item in completion.native_assertion_citations:
         key = item.segment_index, item.read_event_id, item.assertion_id, item.evidence_ref_id

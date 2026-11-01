@@ -34,7 +34,13 @@ def model_frame(receipt, execution):
     if any(type(event) is NativeWriterAuthorizedV1 for event in execution.events):
         raise ValueError("Native evidence projection requires the prefix before its writer")
     query = receipt.native_query
-    return dict(schema=SCHEMA, user_question=execution.policy.action.intent.message,
+    partial = (isinstance(receipt.source_authority, t.NativeCorpusUnavailableV1)
+        or isinstance(query, statements.NativePlanQueryUnavailableV1)
+        or bodies.body_input_partial(execution)
+        or statements.input_partial_records(query, execution)
+        or assertions.input_partial_records(query, execution))
+    return dict(schema=SCHEMA, answer_policy=assertions.POLICY, input_status='partial' if partial else 'complete',
+        user_question=execution.policy.action.intent.message,
         native_body_evidence=bodies.model_body_frame_records(receipt.source_authority, execution, body_handle),
         native_statements=statements.model_frame_records(query, execution),
         native_assertions=assertions.model_frame_records(query, execution)

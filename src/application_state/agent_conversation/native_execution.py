@@ -131,7 +131,11 @@ class SurfaceNativeExecutionPolicyV1(Strict):
 
 
 class NativeWriterAuthorizedV1(t.ProviderAttemptAuthorizedEventV3):
-    """One native producing frame and exact read set for every new surface."""
+    """One native producing frame and exact read set for every new surface.
+
+    When recorded, its response_sha256 commits the selected assistant text UTF8,
+    not the enclosing SDK HTTP response object.
+    """
     kind: Literal["native_writer_authorized_v1"] = "native_writer_authorized_v1"
     frame_sha256: Digest
     native_read_event_ids: tuple[UUID, ...]

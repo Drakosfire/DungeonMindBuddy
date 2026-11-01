@@ -329,6 +329,12 @@ def validate_citations(completion, receipt, execution, authorization):
     reads = {read.support.statement_id: read for event in execution.events
         if isinstance(event, NativePlanStatementReadObservedV1)
         and event.event_id in authorization.native_statement_read_event_ids for read in event.reads}
+    validate_citation_records(completion, receipt, authorization, reads)
+
+
+def validate_citation_records(completion, receipt, authorization, reads):
+    """Compare exact included native supports; caller proves the producing input."""
+    from . import types as t
     seen = set()
     for item in completion.native_clause_citations:
         key = item.segment_index, item.statement_id
@@ -343,7 +349,11 @@ def validate_citations(completion, receipt, execution, authorization):
 def input_partial(turn):
     from . import types as t
     receipt = turn.graph_context_receipt
-    return isinstance(receipt, t.PlanNativeContextReceiptV1) and (
-        isinstance(receipt.native_query, NativePlanQueryV1) and receipt.native_query.status == 'partial'
+    return isinstance(receipt, t.PlanNativeContextReceiptV1) and input_partial_records(
+        receipt.native_query, turn.graph_context_execution)
+
+
+def input_partial_records(query, execution):
+    return (isinstance(query, NativePlanQueryV1) and query.status == 'partial'
         or any(isinstance(e, NativePlanStatementReadObservedV1) and e.status == 'partial'
-               for e in turn.graph_context_execution.events))
+               for e in execution.events))

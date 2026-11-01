@@ -500,6 +500,38 @@ def _validate_writer_format(fmt: dict, packet: dict) -> None:
         raise ValueError("Source writer request lacks its frozen output schema")
 
 
+def require_captured_answer(trace, *, world_id, conversation_id, turn_id, attempt,
+                            provider_attempt_id, context_receipt_sha256, raw_output_json):
+    """Match exact selected answer bytes in the owning protected current-attempt trace."""
+    draft_id = f"unvalidated-provider-answer:{provider_attempt_id}:{context_receipt_sha256}"
+    if (
+        trace.get("world_id") != world_id
+        or trace.get("turn_id") != str(turn_id)
+        or trace.get("conversation_id") != str(conversation_id)
+        or trace.get("attempt") != attempt
+        or trace.get("capture_status") not in {"recording", "complete"}
+    ):
+        raise ValueError(
+            "Source writer capture is missing, incomplete or belongs to another attempt"
+        )
+    drafts = [
+        m
+        for o in trace.get("observations", [])
+        if o.get("kind") == "context_snapshot" and o.get("stage") == "after"
+        for m in o.get("materials", [])
+        if m.get("item_id") == draft_id
+    ]
+    if (
+        len(drafts) != 1
+        or drafts[0].get("text") != raw_output_json
+        or drafts[0].get("state") != "model_context"
+        or drafts[0].get("role") != "assistant"
+    ):
+        raise ValueError(
+            "Source writer output differs from exact captured producer bytes"
+        )
+
+
 def validate_completion_proof(result, turn, trace: dict) -> None:
     """Reconstruct the entire V2 completion from the actual captured producer.
 
@@ -528,34 +560,10 @@ def validate_completion_proof(result, turn, trace: dict) -> None:
         result.writer_request_json.encode()
     ).hexdigest() != auth.envelope_sha256:
         raise ValueError("Source writer request differs from producing authorization")
-    receipt_sha = turn.graph_context_receipt.context_receipt_sha256
-    draft_id = f"unvalidated-provider-answer:{auth.provider_attempt_id}:{receipt_sha}"
-    if (
-        trace.get("world_id") != turn.world_id
-        or trace.get("turn_id") != str(turn.turn_id)
-        or trace.get("conversation_id") != str(turn.conversation_id)
-        or trace.get("attempt") != turn.attempt
-        or trace.get("capture_status") not in {"recording", "complete"}
-    ):
-        raise ValueError(
-            "Source writer capture is missing, incomplete or belongs to another attempt"
-        )
-    drafts = [
-        m
-        for o in trace.get("observations", [])
-        if o.get("kind") == "context_snapshot" and o.get("stage") == "after"
-        for m in o.get("materials", [])
-        if m.get("item_id") == draft_id
-    ]
-    if (
-        len(drafts) != 1
-        or drafts[0].get("text") != result.raw_provider_output_json
-        or drafts[0].get("state") != "model_context"
-        or drafts[0].get("role") != "assistant"
-    ):
-        raise ValueError(
-            "Source writer output differs from exact captured producer bytes"
-        )
+    require_captured_answer(trace, world_id=turn.world_id, conversation_id=turn.conversation_id,
+        turn_id=turn.turn_id, attempt=turn.attempt, provider_attempt_id=auth.provider_attempt_id,
+        context_receipt_sha256=turn.graph_context_receipt.context_receipt_sha256,
+        raw_output_json=result.raw_provider_output_json)
     request = strict_json(result.writer_request_json)
     fmt = request.get("text", {}).get("format", {})
     if request.get("model") != auth.model or request.get("tools") != []:

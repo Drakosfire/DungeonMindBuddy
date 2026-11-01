@@ -549,14 +549,23 @@ def validate_body_citations(completion, receipt, execution, producer):
     catalogs = {catalog.catalog_sha256: catalog for event in execution.events
         if isinstance(event, NativeBodySearchObservedV1) for catalog in event.catalogs}
     reads = {event.event_id: event for event in selected_body_reads(execution)}
+    supports = tuple(NativeBodySupport('', read, catalogs[read.excerpt.catalog_sha256])
+        for identity, read in reads.items() if identity in witness.read_event_ids)
+    validate_body_support_citations(completion, supports, producer=producer,
+        envelope_sha256=witness.envelope_sha256, before_sequence=witness.sequence)
+
+
+def validate_body_support_citations(completion, supports, *, producer, envelope_sha256, before_sequence):
+    """Use only exact supports verified by the actual producing-input owner."""
+    reads = {support.read.event_id: support for support in supports}
     for citation in completion.native_body_citations:
-        read = reads.get(citation.read_event_id)
-        if read is None or read.event_id not in witness.read_event_ids or read.sequence >= witness.sequence:
+        support = reads.get(citation.read_event_id)
+        read = support.read if support is not None else None
+        if read is None or read.sequence >= before_sequence:
             raise ValueError('Native body citation was not included in its producing writer')
-        support = NativeBodySupport('', read, catalogs[read.excerpt.catalog_sha256])
         expected = body_citation(support, index=citation.segment_index,
             text=completion.answer_segments[citation.segment_index].text,
-            producer=producer, envelope_sha256=witness.envelope_sha256)
+            producer=producer, envelope_sha256=envelope_sha256)
         if citation != expected:
             raise ValueError('Native body citation changed its exact source, extent or producer')
 

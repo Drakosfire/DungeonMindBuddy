@@ -104,6 +104,58 @@ def _one(items, message):
     return items[0]
 
 
+def verify_captured_text(capture, *, authorization_id, api_request_id,
+                         request_envelope_sha256, prepared_request_json,
+                         raw_output_json, raw_output_sha256, raw_output_utf8_bytes, response_sha256=None):
+    """One exact final SDK-text/byte proof; domain ledger joins stay with callers."""
+    if (
+        authorization_id != getattr(capture, "authorization_id", None)
+        or api_request_id != getattr(capture, "api_request_id", None)
+        or request_envelope_sha256 != getattr(capture, "request_sha256", None)
+    ):
+        raise ValueError("Native Rules proof differs from its SDK capture")
+    if (
+        getattr(capture, "status", None) != "answered"
+        or getattr(capture, "finish_reason", None) != "stop"
+        or getattr(capture, "tool_calls", ())
+        or getattr(capture, "api_mode", None)
+        not in {"chat_completions", "codex_responses", "responses"}
+    ):
+        raise ValueError(
+            "Native Rules output is not a complete final assistant message"
+        )
+    raw = raw_output_json
+    try:
+        request_bytes = prepared_request_json.encode("utf-8")
+    except UnicodeError as exc:
+        raise ValueError("Native Rules request is not valid UTF8") from exc
+    if (
+        len(request_bytes) > MAX_REQUEST_BYTES
+        or sha256(request_bytes).hexdigest() != request_envelope_sha256
+    ):
+        raise ValueError("Native Rules proof differs from its exact prepared request")
+    try:
+        request = strict_json(prepared_request_json)
+    except (ValueError, TypeError, RecursionError) as exc:
+        raise ValueError("Native Rules prepared request is not strict JSON") from exc
+    if not isinstance(request, dict):
+        raise ValueError("Native Rules prepared request is not an object")
+    try:
+        encoded = raw.encode("utf-8")
+    except UnicodeError as exc:
+        raise ValueError("Native Rules output is not valid UTF8") from exc
+    if (
+        len(encoded) != raw_output_utf8_bytes
+        or len(encoded) > MAX_NATIVE_OUTPUT_BYTES
+        or sha256(encoded).hexdigest() != raw_output_sha256
+        or response_sha256 not in (None, raw_output_sha256)
+        or getattr(capture, "text_sha256", None) != raw_output_sha256
+        or getattr(capture, "text_utf8_bytes", None) != raw_output_utf8_bytes
+        or raw != getattr(capture, "text", None)
+    ):
+        raise ValueError("Native Rules output differs from the exact captured bytes")
+
+
 def verify_native_reply(
     graph_execution: PlanWorldGraphExecutionV3 | PlayWorldGraphExecutionV1 | None,
     rules_execution: RulesExecutionV1,
@@ -119,56 +171,15 @@ def verify_native_reply(
         or proof.rules_execution_id != rules_execution.scope.execution_id
     ):
         raise ValueError("Native Rules output belongs to another active execution")
-    if (
-        proof.authorization_id != getattr(capture, "authorization_id", None)
-        or proof.api_request_id != getattr(capture, "api_request_id", None)
-        or proof.request_envelope_sha256 != getattr(capture, "request_sha256", None)
-    ):
-        raise ValueError("Native Rules proof differs from its SDK capture")
-    if (
-        getattr(capture, "status", None) != "answered"
-        or getattr(capture, "finish_reason", None) != "stop"
-        or getattr(capture, "tool_calls", ())
-        or getattr(capture, "api_mode", None)
-        not in {"chat_completions", "codex_responses", "responses"}
-    ):
-        raise ValueError(
-            "Native Rules output is not a complete final assistant message"
-        )
+    verify_captured_text(capture, authorization_id=proof.authorization_id,
+        api_request_id=proof.api_request_id, request_envelope_sha256=proof.request_envelope_sha256,
+        prepared_request_json=proof.prepared_request_json, raw_output_json=proof.raw_output_json,
+        raw_output_sha256=proof.raw_output_sha256, raw_output_utf8_bytes=proof.raw_output_utf8_bytes)
     if getattr(capture, "api_mode", None) == "responses":
         from .types import PlanJevWriterAuthorizedV1
         if graph_execution is None or not any(isinstance(event, PlanJevWriterAuthorizedV1)
                 and event.provider_attempt_id == proof.producing_provider_attempt_id for event in graph_execution.events):
             raise ValueError("Direct Responses capture requires its exact Plan Jev writer")
-    raw = proof.raw_output_json
-    try:
-        request_bytes = proof.prepared_request_json.encode("utf-8")
-    except UnicodeError as exc:
-        raise ValueError("Native Rules request is not valid UTF8") from exc
-    if (
-        len(request_bytes) > MAX_REQUEST_BYTES
-        or sha256(request_bytes).hexdigest() != proof.request_envelope_sha256
-    ):
-        raise ValueError("Native Rules proof differs from its exact prepared request")
-    try:
-        request = strict_json(proof.prepared_request_json)
-    except (ValueError, TypeError, RecursionError) as exc:
-        raise ValueError("Native Rules prepared request is not strict JSON") from exc
-    if not isinstance(request, dict):
-        raise ValueError("Native Rules prepared request is not an object")
-    try:
-        encoded = raw.encode("utf-8")
-    except UnicodeError as exc:
-        raise ValueError("Native Rules output is not valid UTF8") from exc
-    if (
-        len(encoded) != proof.raw_output_utf8_bytes
-        or len(encoded) > MAX_NATIVE_OUTPUT_BYTES
-        or sha256(encoded).hexdigest() != proof.raw_output_sha256
-        or getattr(capture, "text_sha256", None) != proof.raw_output_sha256
-        or getattr(capture, "text_utf8_bytes", None) != proof.raw_output_utf8_bytes
-        or raw != getattr(capture, "text", None)
-    ):
-        raise ValueError("Native Rules output differs from the exact captured bytes")
 
     if graph_execution is None:
         from .rules_authority_policy import rules_capability
