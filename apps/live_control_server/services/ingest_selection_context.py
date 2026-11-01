@@ -258,9 +258,11 @@ def resolve_ingest_selection_context(
             "provenance": "saved_source",
         }
     try:
-        admitted = inspect_saved_source(root, scope=scope, source=source)
+        admitted = (inspect_saved_source(root, scope=scope, source=source)
+                    if request.inspect_source_support else None)
         native_context = resolve_native_review_context(
             scope=scope, source_admission=admitted,
+            inspect_source_support=request.inspect_source_support,
             nodes=[nodes[key] for key in sorted(selected_nodes)],
         )
     except (NativeReviewConflict, NativeRecapError) as exc:
@@ -278,7 +280,6 @@ def resolve_ingest_selection_context(
         "profile_id": run.profile_id,
         "candidate_sha256": candidate_sha,
         "source_artifact_id": run.source_artifact_id,
-        "source_revision_id": str(source.source_revision_id),
         "source_sha256": request.expected_source_sha256,
         "span_index_sha256": span_sha,
         "scope": scope,
@@ -323,6 +324,8 @@ def resolve_ingest_selection_context(
             "provider_call": False,
         },
     }
+    if request.inspect_source_support:
+        response["source_revision_id"] = str(source.source_revision_id)
     # A concurrent lifecycle change must not be hidden by an otherwise valid stored snapshot.
     if get_extraction_run(root, run_id).revision != run.revision:
         _reject("selected run changed while resolving context", conflict=True)

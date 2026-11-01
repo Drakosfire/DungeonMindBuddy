@@ -112,7 +112,7 @@ def native_world(monkeypatch):
 def read(campaign="c1", node_id="ari", label="Ari"):
     return native.resolve_native_review_context(
         scope={"native_world_id": "native-a", "campaign_id": campaign, "session_id": "s1"},
-        nodes=[{"node_id": node_id, "label": label}], source_admission=None,
+        nodes=[{"node_id": node_id, "label": label}], source_admission=None, inspect_source_support=False,
     )
 
 
@@ -252,7 +252,7 @@ def test_actual_authenticated_http_composes_native_context(context, recap_admiss
     async def exercise():
         async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://test") as client:
             url = "/api/live/extract-promote/runs/test-run/selection-context"
-            result = await client.post(url, json=context.body)
+            result = await client.post(url, json={**context.body, "inspect_source_support": True})
             assert result.status_code == 200, result.text
             packet = result.json()
             assert packet["schema"] == "dmb_ingest_native_review_context_v2"
@@ -270,7 +270,7 @@ def test_actual_authenticated_http_composes_native_context(context, recap_admiss
 
 
 def test_actual_agent_reconstructs_native_packet_before_provider(
-    context, native_world, application_state_dsn, monkeypatch, record_property,
+    context, recap_admission, application_state_dsn, monkeypatch, record_property,
 ):
     from urllib.parse import urlparse
     from application_state.agent_conversation import AgentConversationService
@@ -278,6 +278,7 @@ def test_actual_agent_reconstructs_native_packet_before_provider(
 
     record_property("disposable_app_database", urlparse(application_state_dsn).path.removeprefix("/"))
     monkeypatch.setattr(source_tests.service, "resolve_native_review_context", native.resolve_native_review_context)
+    monkeypatch.setattr(source_tests.service, "inspect_saved_source", lambda *a, **k: pytest.fail("ordinary turn inspected support"))
     request = request_for(context)
     runtime = RecordingRuntime()
     response = execute(context, request, runtime, AgentConversationService())
@@ -285,7 +286,10 @@ def test_actual_agent_reconstructs_native_packet_before_provider(
     assert len(runtime.invocations) == 1
     packet = runtime.invocations[0].context_packet.selected_knowledge_context
     assert packet["context_sha256"] == request.selected_knowledge.expected_context_sha256
-    assert packet["native_context"]["revision_id"] == native_world.repository.get_head("native-a").head_revision_id
+    assert packet["native_context"]["revision_id"] == recap_admission.native.repository.get_head("native-a").head_revision_id
+    assert "source_admission" not in packet["native_context"]
+    assert "source_evidence" not in packet["native_context"]
+    assert "source_revision_id" not in packet
     assert "name-c1-ari" in runtime.requests[0].question
     assert "source_inspection" in runtime.requests[0].question
 
@@ -365,7 +369,7 @@ def test_exact_native_support_without_published_assertion_is_inspectable(context
     repository = recap_admission.native.repository
     before = deepcopy({k: v for k, v in repository.__dict__.items() if k != "_lock"})
     app_before = recap_admission.operation.model_dump(mode="json")
-    result = source_tests.resolve(context)
+    result = source_tests.resolve(context, inspect_source_support=True)
     packet = result["native_context"]
     assert packet["source_admission"] == {
         "state": "admitted", "run_id": recap_admission.record.run_id,
@@ -409,14 +413,14 @@ def test_same_bytes_from_another_admission_are_not_review_evidence(context, reca
                 start_byte=0, end_byte=len(raw), expected_slice_sha256=hashlib.sha256(raw).hexdigest())],
         ),
     )
-    refs = source_tests.resolve(context)["native_context"]["source_evidence"]
+    refs = source_tests.resolve(context, inspect_source_support=True)["native_context"]["source_evidence"]
     assert foreign.bindings[0].evidence_ref_id not in {ref["evidence_ref_id"] for ref in refs}
     assert len(refs) == 1
 
 
 def test_missing_admission_does_not_create_or_dispatch(context, recap_admission, monkeypatch):
     monkeypatch.setattr(recap_admission.owner.ingest, "get_extraction_run_optional", lambda _: None)
-    result = source_tests.resolve(context)["native_context"]
+    result = source_tests.resolve(context, inspect_source_support=True)["native_context"]
     assert result["source_admission"] == {"state": "not_found"}
     assert result["source_evidence"] == []
 
@@ -424,7 +428,7 @@ def test_missing_admission_does_not_create_or_dispatch(context, recap_admission,
 def test_unverified_admission_does_not_expose_support(context, recap_admission, monkeypatch):
     from graph_memory.ingestion.native_recap_source import Opening
     monkeypatch.setattr(recap_admission.bridge.NativeRecapAuthority, "verify", lambda *a: Opening(state="unavailable"))
-    result = source_tests.resolve(context)["native_context"]
+    result = source_tests.resolve(context, inspect_source_support=True)["native_context"]
     assert result["source_admission"]["opening_state"] == "unavailable"
     assert result["source_evidence"] == []
 
@@ -441,7 +445,7 @@ def test_mismatched_saved_receipt_origin_refuses_review(context, recap_admission
     else:
         raw.update(origin_change)
     with pytest.raises(ExtractPromoteError, match="native_recap_intent_invalid") as error:
-        source_tests.resolve(context)
+        source_tests.resolve(context, inspect_source_support=True)
     assert error.value.status_code == 409
 
 
@@ -460,7 +464,7 @@ def test_native_epoch_drift_rejects_even_without_head_drift(context, recap_admis
     monkeypatch.setattr(repository, "open_native_source_view", changed)
     from apps.live_control_server.services.extract_promote import ExtractPromoteError
     with pytest.raises(ExtractPromoteError, match="source authority changed") as error:
-        source_tests.resolve(context)
+        source_tests.resolve(context, inspect_source_support=True)
     assert error.value.status_code == 409
 
 
@@ -480,7 +484,7 @@ def test_missing_native_support_span_is_not_returned_as_available(context, recap
             return None if kwargs["span_id"] == support_span else self.view.get_native_text_source(**kwargs)
 
     monkeypatch.setattr(repository, "open_native_source_view", lambda space: MissingSupport(original(space)))
-    refs = source_tests.resolve(context)["native_context"]["source_evidence"]
+    refs = source_tests.resolve(context, inspect_source_support=True)["native_context"]["source_evidence"]
     support = next(ref for ref in refs if ref["evidence_role"] == "support")
     assert support["opening"]["status"] == "unavailable"
     assert "span_text" not in support["opening"]
@@ -499,5 +503,5 @@ def test_native_support_body_digest_mismatch_is_not_an_identity_fallback(context
 
     monkeypatch.setattr(native, "_preview", changed)
     with pytest.raises(ExtractPromoteError, match="saved source bytes") as error:
-        source_tests.resolve(context)
+        source_tests.resolve(context, inspect_source_support=True)
     assert error.value.status_code == 409

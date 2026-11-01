@@ -41,7 +41,8 @@ def _preview(access, evidence_ref_id):
     return packet
 
 
-def resolve_native_review_context(*, scope: dict, nodes: list[dict], source_admission) -> dict:
+def resolve_native_review_context(*, scope: dict, nodes: list[dict], source_admission,
+                                  inspect_source_support: bool) -> dict:
     repository = _repository()
     world_id = scope["native_world_id"]
     head = repository.get_head(world_id)
@@ -119,7 +120,7 @@ def resolve_native_review_context(*, scope: dict, nodes: list[dict], source_admi
             "alternatives": alternatives,
         })
     source_evidence = []
-    if (source_admission is not None and source_admission.state == "admitted"
+    if (inspect_source_support and source_admission is not None and source_admission.state == "admitted"
             and source_admission.admission_committed
             and source_admission.opening.state == "verified"):
         # The existing admission owner joined APP identity to the native receipt.
@@ -140,7 +141,7 @@ def resolve_native_review_context(*, scope: dict, nodes: list[dict], source_admi
         raise NativeReviewConflict("native source authority changed during review")
     if repository.get_head(world_id) != head:
         raise NativeReviewConflict("native World head changed during review")
-    return {
+    response = {
         "revision_id": revision_id,
         "head": jsonable_encoder(head),
         "source_authority_epoch": access.source_view.epoch,
@@ -149,15 +150,19 @@ def resolve_native_review_context(*, scope: dict, nodes: list[dict], source_admi
         "semantic_profile_ref": jsonable_encoder(access.parsed.semantic_profile_ref),
         "projection_request": context.request.model_dump(mode="json"),
         "selections": selections,
-        "source_admission": ({
-            "state": source_admission.state, "run_id": str(source_admission.run_id),
-            "run_revision": source_admission.run_revision,
-            "opening_state": source_admission.opening.state,
-            "failure_code": source_admission.failure_code,
-        } if source_admission is not None else {"state": "not_found"}),
-        "source_evidence": source_evidence,
         "identity_approval": False,
         # Core proves admission and provenance bindings. The review still owns
         # whether the cited words entail a claim or identify the same person.
         "semantic_support_verified": False,
     }
+    if inspect_source_support:
+        response.update({
+            "source_admission": ({
+                "state": source_admission.state, "run_id": str(source_admission.run_id),
+                "run_revision": source_admission.run_revision,
+                "opening_state": source_admission.opening.state,
+                "failure_code": source_admission.failure_code,
+            } if source_admission is not None else {"state": "not_found"}),
+            "source_evidence": source_evidence,
+        })
+    return response

@@ -543,7 +543,7 @@ def test_managed_selection_cannot_be_replaced_with_native_id(context, monkeypatc
 
 
 def test_actual_source_uuid_is_not_candidate_digest(context):
-    result = resolve(context)
+    result = resolve(context, inspect_source_support=True)
     assert result["source_revision_id"] == str(context.source.source_revision_id)
     assert result["source_revision_id"] != result["source_sha256"]
 
@@ -555,3 +555,46 @@ def test_source_change_during_native_read_rejects(context, monkeypatch):
     with pytest.raises(ExtractPromoteError, match="source changed") as error:
         resolve(context)
     assert error.value.status_code == 409
+
+
+def test_default_selection_never_inspects_source_admission(context, monkeypatch):
+    monkeypatch.setattr(service, "inspect_saved_source", lambda *a, **k: pytest.fail("ordinary question inspected source support"))
+    result = resolve(context)
+    assert "source_revision_id" not in result
+
+
+def test_inspection_cannot_become_a_provider_knowledge_selector(context):
+    from pydantic import ValidationError
+    from graph_memory.ingestion.selection_context import AgentKnowledgeSelection
+    with pytest.raises(ValidationError, match="cannot be submitted as agent knowledge"):
+        AgentKnowledgeSelection.model_validate({
+            "schema": "dmb_agent_native_review_selection_v2", "run_id": "test-run",
+            "context_request": {**context.body, "inspect_source_support": True},
+            "expected_context_sha256": "d" * 64,
+        })
+
+
+def test_inspection_default_preserves_ordinary_durable_turn_identity():
+    from graph_memory.ingestion.selection_context import AgentKnowledgeSelection
+    from apps.live_control_server.models.agent_turn import AgentTurnRequest
+    from apps.live_control_server.services.agent_turn_service import _submitted_turn_intent
+    from application_state.agent_conversation.types import submitted_turn_intent_fingerprint_v1
+
+    body = {"schema": "dmb_ingest_native_review_request_v2", "expected_run_revision": 6,
+            "expected_candidate_sha256": "a" * 64, "expected_source_sha256": "b" * 64,
+            "expected_span_index_sha256": "c" * 64, "expected_world_id": "world-a", "node_ids": ["ari"]}
+    for explicit_default in ({}, {"inspect_source_support": False}):
+        selector = AgentKnowledgeSelection.model_validate({
+            "schema": "dmb_agent_native_review_selection_v2", "run_id": "test-run",
+            "context_request": {**body, **explicit_default}, "expected_context_sha256": "d" * 64,
+        })
+        # Pins captured from actual pre-inspection schema, not recomputed expected values.
+        assert service._record_hash(selector.context_request.model_dump(mode="json", by_alias=True)) == "ab82ac128ef0be918f6a9375cdf7a1cbe7b6f5385e0f8f7a84b6f7c22dc82f8b"
+        assert service._record_hash(selector.model_dump(mode="json", by_alias=True)) == "6b45ea5d0612b06c976508bb7853e05a2a36fbb9eb05f258e2867e781089bf1c"
+        request = AgentTurnRequest.model_validate({
+            "schema": "dmb_agent_turn_request_v1", "client_thread_id": "selection-thread", "turn_id": "selection-turn",
+            "surface": {"surface_id": "ingest", "instance_id": "review"}, "owner_scope": {"kind": "world", "world_id": "world-a"},
+            "primary_work": None, "client_work_state": "none", "graph_request": {"mode": "none"}, "graph_selection": None,
+            "message": "What relationships does the highlighted person have?", "selected_knowledge": selector,
+        })
+        assert submitted_turn_intent_fingerprint_v1(_submitted_turn_intent(request, world_id="world-a")) == "d856636b1b98a8e9f0ca37acd92917317331b61f814072c57fe8147105028038"
