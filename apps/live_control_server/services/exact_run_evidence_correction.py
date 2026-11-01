@@ -58,12 +58,10 @@ def _reject(message: str, *, status_code: int = 422) -> ExtractPromoteError:
 
 
 def _frozen_recap_world_lineage(parent: ExtractionRun) -> dict[str, object]:
-    """Copy the exact parent World binding into a derived recap run.
+    """Copy supplied generation history without inferring current membership.
 
-    A v2 SourceArtifact is World-scoped, so its parent must already carry the
-    immutable context that authorized it. This helper never resolves or infers
-    a World; the run registry checks that the copied values still match the
-    registered source before persisting the child.
+    Current source ownership and native admission belong to their own owners;
+    a held quote-only child preserves the actual historical input context.
     """
     context = parent.lineage.get("world_campaign_ingest_context")
     if context is not None:
@@ -78,14 +76,11 @@ def _frozen_recap_world_lineage(parent: ExtractionRun) -> dict[str, object]:
 
     native_world_id = parent.lineage.get("native_world_id")
     campaign_id = parent.lineage.get("campaign_id")
-    if parent.source_artifact_id.startswith("artifact:recap:v2:"):
-        if (
-            not isinstance(native_world_id, str)
-            or not native_world_id.strip()
-            or campaign_id != parent.campaign_id
-        ):
-            raise _reject("parent recap run is missing its exact verified World context")
-
+    if (
+        native_world_id is not None
+        and (not isinstance(native_world_id, str) or not native_world_id.strip())
+    ) or (campaign_id is not None and campaign_id != parent.campaign_id):
+        raise _reject("parent recap run has invalid frozen World context")
     copied: dict[str, object] = {}
     if native_world_id is not None:
         copied["native_world_id"] = native_world_id

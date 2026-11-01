@@ -49,7 +49,7 @@ def execute(tmp_path,source,context,monkeypatch):
 def test_same_request_recovers_one_actual_run_without_repeating_context_or_inference(tmp_path,source,context,request_body,execute,monkeypatch):
     first=service.launch_build_recap(tmp_path,request_body)
     assert first.status.value=="reviewable"
-    source[1].write_text("Newer document bytes.\n")
+    save_page(tmp_path, source[0].document_id, "Newer document bytes.\n")
     monkeypatch.setattr(service,"read_recap_ingest_context",lambda **k:pytest.fail("recovery must not re-read current World/context"))
     second=service.launch_build_recap(tmp_path,request_body)
     assert first==second and execute==[first.run_id]
@@ -104,9 +104,11 @@ def test_reserved_revision_cas_precedes_model_execution(tmp_path,request_body,co
 
 
 def test_authenticated_routes_recover_the_exact_build_envelope(tmp_path,request_body,execute,monkeypatch):
+    monkeypatch.setenv('DMB_DEPLOYMENT_ENVIRONMENT', 'local')
+    monkeypatch.setenv('DMB_AUTH_MODE', 'local_operator')
     monkeypatch.setattr('apps.live_control_server.routes.graph_preview.repo_root',lambda:tmp_path)
     app=create_app();app.dependency_overrides[native_graph_gm_dependency]=lambda:None
-    with TestClient(app) as client:
+    with TestClient(app, client=("127.0.0.1", 50000)) as client:
         first=client.post('/api/live/graph-preview/build-recap-launches',json=request_body.model_dump(mode='json'))
         assert first.status_code==200,first.text
         payload=first.json();assert payload['run']['status']=='reviewable'
@@ -187,7 +189,8 @@ def test_new_campaign_without_local_corpus_reaches_extraction_and_recovers(
     result = service.launch_build_recap(tmp_path, request)
     assert result.status.value == 'reviewable', result.diagnostics.errors
     import json
-    graph = json.loads((tmp_path / result.components['candidate_graph'].uri.removeprefix('repo://')).read_text())
+    from apps.live_control_server.services.graph_run_registry import load_reviewable_extraction_data
+    graph = json.loads(load_reviewable_extraction_data(tmp_path, result.run_id).candidate_bytes)
     assert any(node['label'] == 'Mirathorn' and node['node_type'] == 'character' for node in graph['nodes'])
     monkeypatch.setattr(service, 'read_recap_ingest_context', lambda **k: pytest.fail('replay read'))
     assert service.launch_build_recap(tmp_path, request) == result

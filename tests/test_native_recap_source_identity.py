@@ -88,7 +88,9 @@ def test_exact_opaque_key_admits_preserves_origin_and_replays(lane):
     assert sources.get_source_markdown(**body["native_recap_source"]) == source
 
 
-def test_opaque_key_still_requires_exact_source_and_scope(lane):
+def test_opaque_key_still_requires_exact_source_and_scope(lane, monkeypatch):
+    monkeypatch.setattr(service, "create_extraction_run",
+        lambda *a, **k: pytest.fail("invalid source reached generic candidate storage"))
     client, body, source, repo, space = lane
     before = repo.get_head(space)
     for changes in [{"source_artifact_id": "unknown/exact-key"}, {"source_revision_id": str(uuid4())},

@@ -210,14 +210,17 @@ def test_recap_child_is_held_exact_idempotent_and_parent_frozen(
     }
 
 
-def test_world_scoped_recap_child_refuses_parent_without_frozen_world_context(
+def test_recap_child_keeps_missing_generation_context_missing(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
     parent, parent_bytes, _, _, span_id, children = _fixture(monkeypatch, tmp_path)
     parent.lineage.clear()
-    with pytest.raises(correction.ExtractPromoteError, match="missing its exact verified World context"):
-        correction.correct_recap_run_evidence(_request(_sha(parent_bytes), span_id))
-    assert not children
+    response = correction.correct_recap_run_evidence(_request(_sha(parent_bytes), span_id))
+    assert response.semantic_state == "held"
+    assert len(children) == 1
+    child = children[response.run_id]
+    assert not {"native_world_id", "campaign_id", "world_campaign_ingest_context"} & child.lineage.keys()
+    assert parent.lineage == {}
     assert not (tmp_path / "out/graph_memory/derived_candidates").exists()
 
 

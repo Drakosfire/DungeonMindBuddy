@@ -14,6 +14,10 @@ from apps.live_control_server.services import graph_run_registry as registry
 from apps.live_control_server.services.recap_semantic_disposition import assess_recap_semantics
 from tests._cutover_d3a_blocker_safe_fixtures import _reseal_extraction_component_digest
 from tests.test_graph_preview_runner import FixtureClient, _run_recap_extraction
+from tests import test_build_recap_source as build_fixtures
+
+build_source = build_fixtures.source
+build_context = build_fixtures.context
 
 pytestmark = pytest.mark.usefixtures("application_state_dsn")
 
@@ -262,3 +266,115 @@ def test_held_recap_child_does_not_override_native_beat_evidence_gate(monkeypatc
     with pytest.raises(extract_promote.ExtractPromoteError):
         _project_last_beat(child)
     assert child.run.lineage["semantic_disposition"]["state"] == "held"
+
+
+def _historical_quote_parent(monkeypatch, root, history):
+    from apps.live_control_server.services import source_artifact_registry as sources
+    from graph_memory.evidence.source_artifact import GraphMemorySourceArtifact
+    from tests import test_graph_preview_runner as runner_fixtures
+
+    def unscoped_source(path):
+        text = "Mirathorn is a river city.\n\nGuards watch the gate.\n"
+        digest = correction._sha(text.encode())
+        artifact = GraphMemorySourceArtifact(
+            source_artifact_id="artifact:recap:longmont-c2:session-24:" + digest[:12],
+            source_domain="recap", campaign_id="longmont-c2", session_id="session-24",
+            uri="object://retained-original", content_sha256=digest,
+            artifact_kind="recap_markdown", document_class="recap", visibility_state="internal")
+        sources._register_source_input(artifact=artifact, content=text)
+        return runner_fixtures._normalized_from_artifact(path, artifact.source_artifact_id)
+
+    monkeypatch.setattr(runner_fixtures, "_admit_recap", unscoped_source)
+    monkeypatch.setattr(runner_fixtures, "_recap_run_lineage", lambda source: deepcopy(history))
+    parent, request = _false_quote_parent(monkeypatch, root)
+    unowned = registry.load_reviewable_extraction_data(root, parent.run_id)
+    assert unowned.source_artifact.world_id is None
+    # Actual source owner performs the permitted explicit NULL -> World assignment.
+    sources._register_source_input(artifact=unowned.source_artifact.model_copy(
+        update={"world_id": "world:elderwyld"}), content=unowned.source_bytes.decode())
+    adopted = registry.load_reviewable_extraction_data(root, parent.run_id)
+    assert adopted.source_artifact.world_id == "world:elderwyld"
+    assert adopted.source_bytes == unowned.source_bytes
+    assert adopted.run == unowned.run == parent
+    assert adopted.source_artifact.source_artifact_id == unowned.source_artifact.source_artifact_id
+    return parent, request, adopted
+
+
+@pytest.mark.parametrize("history", [
+    {},
+    {"native_world_id": "world:earlier", "campaign_id": "longmont-c2"},
+    {"world_campaign_ingest_context": {
+        "schema": "dm_world_campaign_ingest_context_v1", "managed_world_id": "earlier-managed",
+        "native_world_id": "world:earlier", "campaign_id": "longmont-c2", "binding_version": 1,
+        "head_revision_id": "rev:earlier", "graph_schema": "old-generation-schema",
+        "graph_payload_sha256": "a" * 64}},
+])
+def test_adopted_parent_correction_preserves_generation_history(monkeypatch, tmp_path, history):
+    from application_state.source import service as sources
+    parent, request, before = _historical_quote_parent(monkeypatch, tmp_path, history)
+    source_before = sources.get_source_markdown(source_artifact_id=parent.source_artifact_id,
+        content_sha256=parent.components["source_artifact"].sha256)
+    _deny_artifact_io(monkeypatch, tmp_path)
+    response = correction.correct_recap_run_evidence(request)
+    child = registry.load_reviewable_extraction_data(tmp_path, response.run_id)
+    assert response.semantic_state == "held"
+    assert child.run.lineage["semantic_disposition"]["state"] == "held"
+    for key in ("native_world_id", "campaign_id", "world_campaign_ingest_context"):
+        if key in history:
+            assert child.run.lineage[key] == history[key]
+        else:
+            assert key not in child.run.lineage
+    assert child.run.components["source_artifact"] == parent.components["source_artifact"]
+    assert child.source_bytes == before.source_bytes and child.span_bytes == before.span_bytes
+    assert child.source_artifact.world_id == "world:elderwyld"
+    assert sources.get_source_markdown(source_artifact_id=parent.source_artifact_id,
+        content_sha256=parent.components["source_artifact"].sha256) == source_before
+    expected = json.loads(before.candidate_bytes)
+    expected["nodes"][0]["evidence_refs"][0]["anchor_quotes"][0] = "Mirathorn"
+    assert json.loads(child.candidate_bytes) == expected
+    assert correction.correct_recap_run_evidence(request) == response
+    assert registry.load_reviewable_extraction_data(tmp_path, parent.run_id) == before
+
+
+@pytest.mark.parametrize("history", [
+    {"world_campaign_ingest_context": "not-an-object"},
+    {"world_campaign_ingest_context": {"native_world_id": ""}},
+    {"world_campaign_ingest_context": {"native_world_id": "world:earlier", "campaign_id": "wrong-campaign"}},
+    {"native_world_id": ""}, {"native_world_id": 23},
+    {"native_world_id": "world:earlier", "campaign_id": "wrong-campaign"},
+])
+def test_malformed_supplied_context_is_not_repaired_or_retagged(monkeypatch, tmp_path, history):
+    parent, request, before = _historical_quote_parent(monkeypatch, tmp_path, history)
+    rows = ingest.list_extraction_runs()
+    _deny_artifact_io(monkeypatch, tmp_path)
+    with pytest.raises(extract_promote.ExtractPromoteError, match="invalid frozen World context"):
+        correction.correct_recap_run_evidence(request)
+    assert ingest.list_extraction_runs() == rows
+    assert registry.load_reviewable_extraction_data(tmp_path, parent.run_id) == before
+
+
+@pytest.mark.parametrize("violation", ["missing_context", "foreign_world", "foreign_campaign", "stale_body"])
+def test_fresh_build_rejects_bad_input_before_generic_storage(
+    monkeypatch, tmp_path, build_source, build_context, violation,
+):
+    from dataclasses import replace
+    from uuid import uuid4
+    from apps.live_control_server.models.build_recap_launch import BuildRecapLaunchRequest
+    from apps.live_control_server.services import build_recap_launch
+    from apps.live_control_server.services.source_artifact_registry import SourceArtifactRegistryError
+
+    record, _, _, digest = build_source
+    context = (None if violation == "missing_context" else
+        replace(build_context, managed_world_id="foreign-managed") if violation == "foreign_world" else
+        replace(build_context, campaign_id="foreign-campaign") if violation == "foreign_campaign" else build_context)
+    monkeypatch.setattr(build_recap_launch, "read_recap_ingest_context", lambda **kw: context)
+    monkeypatch.setattr(build_recap_launch, "create_extraction_run",
+        lambda *a, **k: pytest.fail("invalid fresh input reached generic candidate storage"))
+    monkeypatch.setattr(build_recap_launch, "run_recap_production_extraction",
+        lambda *a, **k: pytest.fail("invalid fresh input reached inference"))
+    request = BuildRecapLaunchRequest(request_id=uuid4(), document_id=record.document_id,
+        expected_revision=record.revision, expected_content_sha256="0" * 64 if violation == "stale_body" else digest,
+        managed_world_id="managed-a", campaign_id="longmont-c2", session=30)
+    with pytest.raises(SourceArtifactRegistryError):
+        build_recap_launch.launch_build_recap(tmp_path, request)
+    assert ingest.list_extraction_runs() == []

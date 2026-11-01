@@ -494,12 +494,8 @@ def create_extraction_run(
         campaign_id=campaign_id,
         session_id=session_id,
     )
-    if str(artifact.source_domain) == "recap":
-        validate_recap_source_run_world_binding(
-            source_world_id=artifact.world_id,
-            campaign_id=artifact.campaign_id,
-            lineage=dict(lineage or {}),
-        )
+    # A stored candidate retains its generation history. Fresh execution and
+    # native admission validate current World scope at their owning boundaries.
     if status in TERMINAL_EXTRACTION_RUN_STATUSES:
         raise GraphRunRegistryError(
             "cannot create an extraction run directly in a terminal status",
