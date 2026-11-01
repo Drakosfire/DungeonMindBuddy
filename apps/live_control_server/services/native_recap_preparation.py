@@ -189,11 +189,8 @@ def prepare(request, principal):
     _require(run.revision == request.expected_run_revision, "candidate_run_changed")
     _require(hashlib.sha256(data.candidate_bytes).hexdigest() == request.candidate_sha256, "candidate_bytes_changed")
     _require(run.source_domain == "recap" and run.campaign_id == request.campaign_id, "candidate_scope_mismatch")
-    frozen = run.lineage.get("world_campaign_ingest_context", {})
-    _require(all(frozen.get(key) == value for key, value in {
-        "managed_world_id": request.managed_world_id, "native_world_id": space,
-        "binding_version": bound["binding_version"], "campaign_id": request.campaign_id,
-    }.items()), "candidate_world_binding_mismatch")
+    # Extraction context is generation history. Present publication authority
+    # comes from the current source ownership/admission and reviewed WK change.
     source = sources.get_source_markdown(
         source_artifact_id=artifact.source_artifact_id, content_sha256=artifact.content_sha256,
     )

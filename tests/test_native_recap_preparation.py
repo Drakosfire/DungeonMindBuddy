@@ -198,14 +198,35 @@ def test_ordinary_HTTP_exact_choices_real_WK_preparation_without_writes(lane):
     assert {key: value for key, value in lane.repo.__dict__.items() if key != "_lock"} == before
 
 
+def historical_context(lane, history):
+    if history == "absent":
+        lane.run.lineage = {"generation": {"retained": True}}
+    elif history == "older_binding":
+        lane.run.lineage["world_campaign_ingest_context"]["binding_version"] -= 1
+    elif history == "foreign_binding":
+        lane.run.lineage["world_campaign_ingest_context"].update(
+            managed_world_id="foreign-managed", native_world_id="foreign-native")
+
+
+@pytest.mark.parametrize("history", ["current", "absent", "older_binding"])
 @pytest.mark.parametrize("fault,expected", [
     ("revision", "candidate_run_changed"), ("digest", "candidate_bytes_changed"),
     ("uuid", "candidate_admission_mismatch"), ("scope", "candidate_source_mismatch"),
-    ("binding", "candidate_world_binding_mismatch"), ("unavailable", "candidate_source_not_admitted"),
+    ("binding", "candidate_admission_mismatch"), ("unavailable", "candidate_source_not_admitted"),
     ("source", "candidate_source_mismatch"), ("parent", "candidate_parent_stale"),
     ("quote", "run_not_promotable"), ("epoch", "candidate_source_authority_stale"), ("dangling", "selected_edge_endpoint_held"),
+    ("source_world", "candidate_source_mismatch"),
+    ("descriptor_world", "candidate_source_mismatch"),
+    ("admission_world", "candidate_admission_mismatch"),
+    ("admission_digest", "candidate_admission_mismatch"),
+    ("source_digest", "candidate_source_mismatch"),
+    ("session", "candidate_source_mismatch"),
+    ("candidate_source", "candidate_document_scope_mismatch"),
+    ("candidate_session", "candidate_document_scope_mismatch"),
 ])
-def test_exact_owner_and_review_refusals(lane, fault, expected):
+def test_exact_owner_and_review_refusals(lane, fault, expected, history):
+    historical_context(lane, history)
+    generation_history = copy.deepcopy(lane.run.lineage)
     if fault == "revision":
         lane.body["expected_run_revision"] = 4
     elif fault == "digest":
@@ -229,11 +250,30 @@ def test_exact_owner_and_review_refusals(lane, fault, expected):
         lane.refresh()
     elif fault == "dangling":
         lane.body["selections"][1] = choice("existing", action="defer", fields=())
+    elif fault == "source_world":
+        lane.source.world_id = "foreign-world"
+    elif fault == "descriptor_world":
+        lane.artifact.world_id = "foreign-world"
+    elif fault == "admission_world":
+        lane.admitted.native_world_id = "foreign-world"
+    elif fault == "admission_digest":
+        lane.admitted.app_body_sha256 = "0" * 64
+    elif fault == "source_digest":
+        lane.source.content_sha256 = "0" * 64
+    elif fault == "session":
+        lane.source.session_id = "session-9"
+    elif fault == "candidate_source":
+        lane.payload["source_artifact_ids"] = ["artifact:foreign"]
+        lane.refresh()
+    elif fault == "candidate_session":
+        lane.payload["session_id"] = "session-9"
+        lane.refresh()
     before = copy.deepcopy({key: value for key, value in lane.repo.__dict__.items() if key != "_lock"})
     response = lane.post()
     assert response.status_code in (409, 422), response.text
     assert expected in response.text
     assert {key: value for key, value in lane.repo.__dict__.items() if key != "_lock"} == before
+    assert lane.run.lineage == generation_history
 
 
 def test_auth_and_closed_request_before_read_owners(lane, monkeypatch):
@@ -488,7 +528,13 @@ def confirm(lane, packet):
                            headers={"Authorization": "Bearer " + TOKEN})
 
 
-def test_ordinary_confirmation_commits_once_and_selected_query_opens_support(lane):
+@pytest.mark.parametrize("history", ["current", "absent", "older_binding", "foreign_binding"])
+def test_ordinary_confirmation_commits_once_and_selected_query_opens_support(lane, history):
+    historical_context(lane, history)
+    def retained():
+        return (vars(lane.run), vars(lane.source), vars(lane.artifact),
+                lane.data.source_bytes, lane.data.candidate_bytes, lane.data.span_index)
+    original = copy.deepcopy(retained())
     from apps.live_control_server.services.agent_graph_auth import NativeGraphPrincipal
     from apps.live_control_server.services.native_plan_statements import prepare_query
     from apps.live_control_server.services.native_plan_assertions import read_selected
@@ -519,6 +565,7 @@ def test_ordinary_confirmation_commits_once_and_selected_query_opens_support(lan
     assert reads and not unavailable
     assert all(r.spans[0].evidence_ref_id == lane.support_ids["first"] for r in reads)
     assert all(r.spans[0].text == lane.text.splitlines(keepends=True)[0] for r in reads)
+    assert retained() == original
 
 
 @pytest.mark.parametrize("fault", ["token", "digest", "principal", "packet", "purpose", "extra", "naive_expiry", "binding", "expiry", "parent", "epoch"])
