@@ -24,7 +24,8 @@ class Closed(BaseModel):
 
 
 class SourceSelection(Closed):
-    source_artifact_id: str = Field(pattern=r"^artifact:recap:v2:.+")
+    # APP owns identity and scope; a producer naming convention grants neither.
+    source_artifact_id: str = Field(min_length=1, pattern=r"\S")
     source_revision_id: UUID
     content_sha256: str = Field(pattern=r"^[a-f0-9]{64}$")
 
@@ -88,7 +89,7 @@ class Record(Closed):
     campaign_id: str = Field(min_length=1)
     grouping_basis: Literal["exact_app_source_descriptor"] = "exact_app_source_descriptor"
     session_id: str = Field(pattern=r"^session-[1-9][0-9]*$")
-    app_source_artifact_id: str = Field(pattern=r"^artifact:recap:v2:.+")
+    app_source_artifact_id: str = Field(min_length=1, pattern=r"\S")
     app_source_revision_id: UUID
     app_body_sha256: str = Field(pattern=r"^[a-f0-9]{64}$")
     created_by: str = Field(min_length=1)
