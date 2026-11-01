@@ -9,7 +9,6 @@ from src.graph_memory.extraction.recap_extraction_profile import (
 from src.graph_memory.extraction.worldbuilding_plumbing_profile import (
     WORLDBUILDING_PLUMBING_PROFILE,
 )
-from src.graph_memory.party_context import PartyContext
 
 
 SYNTHETIC_SOURCE_ROWS = [
@@ -88,19 +87,11 @@ SYNTHETIC_SOURCE_GOLD = {
 }
 
 
-def _party_context() -> PartyContext:
-    return PartyContext(
-        campaign_id="synthetic",
-        session="session-1",
-        party_names=(),
-        members=(),
-    )
 
 
 def test_recap_prompt_builder_carries_source_faithfulness_by_pass() -> None:
     prompts = render_category_pass_prompts(
         SYNTHETIC_SOURCE_ROWS,
-        party_ctx=_party_context(),
         profile=RECAP_EXTRACTION_PROFILE,
     )
 
@@ -133,7 +124,6 @@ def test_recap_prompt_builder_carries_source_faithfulness_by_pass() -> None:
 def test_recap_only_guidance_does_not_leak_into_worldbuilding_profile() -> None:
     prompts = render_category_pass_prompts(
         SYNTHETIC_SOURCE_ROWS,
-        party_ctx=_party_context(),
         profile=WORLDBUILDING_PLUMBING_PROFILE,
     )
 

@@ -60,17 +60,9 @@ def test_rendered_worldbuilding_edge_prompt_omits_recap_sweep_and_requires_schem
         category_pass_text_format_for_spec,
         schema_for_pass_spec,
     )
-    from src.graph_memory.party_context import PartyContext
 
     profile = get_extraction_profile(
         WORLDBUILDING_PROFILE_ID, WORLDBUILDING_PROFILE_VERSION
-    )
-    party_ctx = PartyContext(
-        campaign_id="longmont-c2",
-        session="",
-        party_names=(),
-        members=(),
-        warnings=(),
     )
     prompts = render_category_pass_prompts(
         [
@@ -82,7 +74,6 @@ def test_rendered_worldbuilding_edge_prompt_omits_recap_sweep_and_requires_schem
                 "text": "Commander Vell commands Shepherd's Flock.",
             }
         ],
-        party_ctx=party_ctx,
         profile=profile,
     )
     edge_prompt = prompts["edge_pass.md"]

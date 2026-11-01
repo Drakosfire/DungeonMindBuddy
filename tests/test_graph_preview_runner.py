@@ -604,41 +604,12 @@ def test_in_repo_recap_admission_is_immutable_across_edits(tmp_path: Path) -> No
     assert load_run_source_input(tmp_path, reloaded)[1].decode().startswith("Alpha")
 
 
-def test_production_known_entity_matching_uses_hydrated_spans(
+def test_production_source_actor_uses_hydrated_spans_without_registry_suppression(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    from src.graph_memory.extraction.known_entity_registry import (
-        KnownEntity,
-        KnownEntityRegistry,
-    )
-
     text = "TestHero walks into Mirathorn.\n\nGuards watch the gate.\n"
     source = _admit_recap(tmp_path, text)
     span_ref = _first_paragraph_span_id(source)
-
-    entity = KnownEntity(
-        slug="test_hero",
-        kind="pc",
-        display_name="TestHero",
-        canonical_entity_id="node:test-hero",
-        aliases=(),
-        hub_rel_path="PCs/test_hero/README.md",
-        hub_resolved=True,
-        corpus_ref={"type": "character", "ref_id": "test_hero", "resolution": "resolved"},
-        match_terms=(("TestHero", "canonical"),),
-    )
-    registry = KnownEntityRegistry(
-        campaign_id="longmont-c2",
-        session_key="24",
-        roster_session_key="24",
-        roster_carry_forward=False,
-        registry_relpath=None,
-        entities=(entity,),
-    )
-    monkeypatch.setattr(
-        "src.graph_memory.extraction.category_candidate_graph_extractor.build_known_entity_registry",
-        lambda *args, **kwargs: registry,
-    )
 
     class DuplicateHeroClient(FixtureClient):
         def run_pass(self, pass_name: str, **kwargs: Any) -> dict[str, Any]:
@@ -679,11 +650,9 @@ def test_production_known_entity_matching_uses_hydrated_spans(
             initial_lineage=_recap_run_lineage(source),
         )
     )
-    assert result.known_entity_mentions is not None
-    assert int(result.known_entity_mentions.get("diagnostics", {}).get("mention_count") or 0) >= 1
-    assert result.known_entity_mentions.get("diagnostics", {}).get("spans_scanned", 0) >= 1
     labels = {n.get("label") for n in (result.candidate_graph or {}).get("nodes") or []}
-    assert "TestHero" not in labels
+    assert "TestHero" in labels
+    assert "provenance_index" not in result.run.components
 
 
 def test_worldbuilding_graph_uses_profile_semantic_state(tmp_path: Path) -> None:
@@ -761,6 +730,7 @@ print('fresh-process registered components verified')
     bad_components["source_artifact"] = loaded.components["source_artifact"].model_copy(
         update={"uri": "repo://alternate-source.md"})
     assert_run_reviewable_evidence(tmp_path, loaded.model_copy(update={"components": bad_components}))
+    mutable_source.parent.mkdir(parents=True, exist_ok=True)
     mutable_source.write_text("Corrupt operational source copy\n")
     assert get_reviewable_extraction_run(tmp_path, loaded.run_id) == loaded
 
@@ -1135,9 +1105,8 @@ def test_production_json_outputs_do_not_require_file_storage(tmp_path, monkeypat
         category_client=FixtureClient(span_ref=_first_paragraph_span_id(source)),
         initial_lineage=_recap_run_lineage(source)))
     assert result.run.status == ExtractionRunStatus.REVIEWABLE
-    expected = {"candidate_graph":result.candidate_graph, "source_span_index":result.source_span_index,
-                "provenance_index":result.known_entity_mentions}
-    assert expected["provenance_index"] is not None
+    expected = {"candidate_graph":result.candidate_graph, "source_span_index":result.source_span_index}
+    assert "provenance_index" not in result.run.components
     for kind, payload in expected.items():
         ref = result.run.components[kind]
         actual = get_component_bytes(run_id=result.run.run_id, kind=kind, content_sha256=ref.sha256)
@@ -1146,7 +1115,7 @@ def test_production_json_outputs_do_not_require_file_storage(tmp_path, monkeypat
 
 
 @pytest.mark.parametrize("kind,expected_status", [
-    ("source_span_index", "draft"), ("candidate_graph", "prepared"), ("provenance_index", "prepared"),
+    ("source_span_index", "draft"), ("candidate_graph", "prepared"),
 ])
 def test_database_json_output_failure_does_not_advertise_missing_output(tmp_path, monkeypatch, kind, expected_status):
     from application_state.ingest import components, service

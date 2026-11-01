@@ -84,7 +84,7 @@ def produced(tmp_path, monkeypatch, application_state_dsn, request):
         private = json.dumps(
             {
                 "schema": "dmb_private_extraction_review_bundle_v1",
-                "profile": "recap_category_v1@1.0",
+                "profile": config.get("profile", "recap_category_v2@2.0"),
                 "source_artifact_id": source.source_artifact_id,
                 "source_sha256": source.source_sha256,
             }
@@ -103,8 +103,8 @@ def produced(tmp_path, monkeypatch, application_state_dsn, request):
         graph_preview_runner.ProductionExtractionRequest(
             repo_root=tmp_path,
             source=source,
-            profile_id="recap_category_v1",
-            profile_version="1.0",
+            profile_id=config.get("profile", "recap_category_v2@2.0").split("@")[0],
+            profile_version="2.0",
             allow_llm=True,
             initial_lineage={
                 "native_world_id": "world:elderwyld",
@@ -209,6 +209,7 @@ def test_operational_mirror_cannot_change_candidate_projection(produced, compone
     root, _, run = produced
     expected = service.build_exact_run_candidate_projection(root, run.run_id, "managed-a")
     path = root / run.components[component].uri.removeprefix("repo://")
+    path.parent.mkdir(parents=True, exist_ok=True)
     if mode == "symlink":
         copy = root / "untrusted-mirror.json"
         copy.write_bytes(b"Not the registered source or output")
@@ -705,3 +706,32 @@ def test_candidate_keys_use_the_owning_digest_normalization(produced,monkeypatch
     assert actual.candidate_sha256==expected.candidate_sha256
     assert actual.span_index_sha256==expected.span_index_sha256
     assert [node.view_key for node in actual.nodes]==[node.view_key for node in expected.nodes]
+
+def test_saved_v1_projection_keeps_its_identity_after_v2_generation(produced):
+    from uuid import uuid4
+    from apps.live_control_server.services.graph_run_registry import create_extraction_run, update_extraction_run_status
+    from application_state.ingest.components import get_component_bytes, persist_component_payload
+    from graph_memory.ingestion.extraction_run import ExtractionRunStatus
+    root, source, current = produced
+    run_id = str(uuid4())
+    refs = {name: ref.model_copy(update={"uri":f"urn:dmb:ingest-output:{run_id}:{name}"})
+            for name, ref in current.components.items() if name in {"source_span_index","candidate_graph"}}
+    refs["source_artifact"] = current.components["source_artifact"]
+    historical = create_extraction_run(root,run_id=run_id,source_artifact_id=current.source_artifact_id,source_domain="recap",campaign_id=current.campaign_id,session_id=current.session_id,profile_id="recap_category_v1@1.0",components=refs,
+        lineage={"native_world_id":"world:elderwyld","campaign_id":"longmont-c2"})
+    for name in ("source_span_index","candidate_graph"):
+        payload = get_component_bytes(run_id=current.run_id,kind=current.components[name].kind,content_sha256=current.components[name].sha256)
+        persist_component_payload(run_id=run_id,expected_revision=historical.revision,kind=current.components[name].kind,payload=payload)
+    for state in (ExtractionRunStatus.PREPARED,ExtractionRunStatus.EXTRACTED,ExtractionRunStatus.VALIDATED,ExtractionRunStatus.REVIEWABLE):
+        historical=update_extraction_run_status(root,run_id,status=state,expected_revision=historical.revision)
+    projection=service.build_exact_run_candidate_projection(root,run_id,"managed-a")
+    assert projection.profile_id=="recap_category_v1@1.0"
+    assert projection.source_markdown==source.source_text
+    assert get_extraction_run(root,current.run_id)==current
+
+@pytest.mark.parametrize("produced", [{"profile":"recap_category_encounter_job_preview@2.0"}], indirect=True)
+def test_supported_encounter_policy_has_the_same_source_only_reader(produced):
+    root, source, run = produced
+    projection=service.build_exact_run_candidate_projection(root,run.run_id,"managed-a")
+    assert projection.profile_id=="recap_category_encounter_job_preview@2.0"
+    assert projection.source_markdown==source.source_text

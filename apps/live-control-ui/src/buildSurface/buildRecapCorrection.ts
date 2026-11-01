@@ -9,7 +9,7 @@ export function assertRecapQuoteParent(run: ExtractionRunRecord, review?: ExactR
   const context=run.lineage?.world_campaign_ingest_context as Record<string,unknown>|undefined;
   if (!context || typeof context.managed_world_id!=='string' || !context.managed_world_id.trim()
     || typeof context.native_world_id!=='string' || !context.native_world_id.trim() || context.campaign_id!==run.campaign_id
-    || run.status !== 'reviewable' || run.source_domain !== 'recap' || run.profile_id !== 'recap_category_v1@1.0'
+    || run.status !== 'reviewable' || run.source_domain !== 'recap' || !['recap_category_v1@1.0','recap_category_v2@2.0','recap_category_encounter_job_preview@2.0'].includes(run.profile_id ?? '')
     || !run.campaign_id || !run.session_id
     || ['candidate_graph','source_artifact','source_span_index'].some(key => run.components?.[key]?.exists !== true || !quoteDigest(run.components[key].sha256))
     || (review && (review.runId !== run.run_id || review.sourceDomain !== 'recap' || review.sourceArtifactId !== run.source_artifact_id

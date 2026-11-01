@@ -35,7 +35,7 @@ export interface ExactRunCandidateProjection {
     runId: string;
     runRevision: number;
     runStatus: "reviewable" | "promoted";
-    profileId: "recap_category_v1@1.0";
+    profileId: "recap_category_v1@1.0" | "recap_category_v2@2.0" | "recap_category_encounter_job_preview@2.0";
     sourceDomain: "recap";
     sourceArtifactId: string;
     sourceRevisionId: string;
@@ -96,7 +96,7 @@ export async function getExactRunCandidateProjection(runId: string, managedWorld
     const result = body as ExactRunCandidateProjection;
     if (!result || result.schema !== "dmb_exact_run_candidate_projection_v1" || result.trustBoundary !== "unpublished_candidate"
         || result.runId !== runId || result.managedWorldId !== managedWorldId || result.sourceDomain !== "recap"
-        || result.profileId !== "recap_category_v1@1.0" || !["reviewable", "promoted"].includes(result.runStatus)
+        || !["recap_category_v1@1.0", "recap_category_v2@2.0", "recap_category_encounter_job_preview@2.0"].includes(result.profileId) || !["reviewable", "promoted"].includes(result.runStatus)
         || !["frozen_verified", "source_only"].includes(result.runWorldBindingStatus) || !Number.isSafeInteger(result.runRevision) || result.runRevision < 1
         || !result.nativeWorldId || !result.sourceArtifactId || !Number.isSafeInteger(result.bindingVersion) || result.bindingVersion < 1
         || !digest(result.sourceSha256) || result.sourceRevisionId !== result.sourceSha256 || !digest(result.candidateSha256) || !digest(result.spanIndexSha256)

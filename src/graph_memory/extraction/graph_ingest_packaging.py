@@ -21,7 +21,6 @@ from src.graph_memory.extraction.category_candidate_graph_extractor import (
     CategoryGraphExtractionError,
     CategoryGraphExtractionOptions,
     CategoryGraphPassClient,
-    FixtureCategoryGraphPassClient,
     OpenAICategoryGraphPassClient,
     PASS_PROGRESS_LABELS,
     extract_category_candidate_graph,
@@ -53,19 +52,16 @@ GraphExtractionProfile = Literal[
 _GRAPH_EXTRACTION_PROFILE_OPTIONS: dict[GraphExtractionProfile, dict[str, bool]] = {
     "current_default": {
         "enable_encounter_job_pass": False,
-        "enable_party_participation_attachment": False,
         "enable_encounter_job_edge_guidance": False,
         "enable_dynamic_node_vocabulary_packet": False,
     },
     "category_baseline": {
         "enable_encounter_job_pass": False,
-        "enable_party_participation_attachment": False,
         "enable_encounter_job_edge_guidance": False,
         "enable_dynamic_node_vocabulary_packet": False,
     },
     "category_encounter_job_preview": {
         "enable_encounter_job_pass": True,
-        "enable_party_participation_attachment": True,
         "enable_encounter_job_edge_guidance": True,
         "enable_dynamic_node_vocabulary_packet": False,
     },
@@ -1394,34 +1390,6 @@ def run_graph_preview_extraction(
             )
             candidate_graph_path = output_dir / "candidate_graph.json"
             write_json(candidate_graph_path, candidate_graph)
-            if extraction.registry_context_graph:
-                registry_context_path = output_dir / "registry_context_graph.json"
-                write_json(registry_context_path, extraction.registry_context_graph)
-                artifacts["registry_context_graph"] = _artifact(
-                    GraphIngestArtifactKind.REGISTRY_CONTEXT_GRAPH,
-                    registry_context_path,
-                    "dmb_candidate_graph_preview_v0",
-                )
-            # Always emit the known-entity contract artifact (possibly empty)
-            # so live materialization can reuse candidate-ready runs.
-            known_entity_payload = extraction.known_entity_mentions or {
-                "schema": "dmb_known_entity_mention_sidecar_v0",
-                "version": "0.1",
-                "campaign_id": campaign_id,
-                "session_id": session_id,
-                "mentions": [],
-                "ambiguous_surfaces": [],
-                "diagnostics": {"mention_count": 0, "empty_contract": True},
-            }
-            known_entity_path = output_dir / "known_entity_mentions.json"
-            write_json(known_entity_path, known_entity_payload)
-            artifacts["known_entity_mentions"] = _artifact(
-                GraphIngestArtifactKind.KNOWN_ENTITY_MENTIONS,
-                known_entity_path,
-                known_entity_payload.get("schema")
-                or "dmb_known_entity_mention_sidecar_v0",
-                compute_sha256(known_entity_path),
-            )
             pass_outputs_path = output_dir / "pass_outputs.json"
             write_json(pass_outputs_path, extraction.pass_outputs)
             pass_telemetry_path = output_dir / "pass_telemetry.json"

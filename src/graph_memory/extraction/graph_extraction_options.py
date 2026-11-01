@@ -27,9 +27,7 @@ class GraphExtractionOptions:
     enable_dynamic_node_vocabulary_packet: bool = False
     dynamic_node_vocabulary_nodes: tuple[Mapping[str, Any], ...] = ()
     enable_encounter_job_pass: bool = False
-    enable_party_participation_attachment: bool = False
     enable_encounter_job_edge_guidance: bool = False
-    enable_party_claimed_fill: bool = False
 
     @classmethod
     def from_profile(
@@ -62,7 +60,5 @@ class GraphExtractionOptions:
             edge_vocabulary_packet=context_vocabulary_packet if enable_edge else None,
             enable_dynamic_node_vocabulary_packet=profile.enable_dynamic_node_vocabulary_packet,
             enable_encounter_job_pass=profile.enable_encounter_job_pass,
-            enable_party_participation_attachment=profile.enable_party_participation_attachment,
             enable_encounter_job_edge_guidance=profile.enable_encounter_job_edge_guidance,
-            enable_party_claimed_fill=profile.enable_party_claimed_fill,
         )

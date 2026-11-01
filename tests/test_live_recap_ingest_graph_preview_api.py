@@ -312,7 +312,7 @@ def test_unavailable_source_identity_stops_before_recap_staging_or_source_regist
 
 
 
-def _live_extraction_payload(*, source_artifact_id: str, spref: str, corpus_root: Path, source_text: str, span_index: dict, location_label: str = "Mireward road") -> dict:
+def _live_extraction_payload(*, source_artifact_id: str, spref: str, source_text: str, span_index: dict, location_label: str = "Mireward road") -> dict:
     from tests.fixtures.graph_memory.category_extraction_helpers import (
         minimal_category_pass_outputs,
     )
@@ -347,8 +347,6 @@ def _live_extraction_payload(*, source_artifact_id: str, spref: str, corpus_root
             source_artifact_id=source_artifact_id,
             source_ref_id=f"{source_artifact_id}:text",
             model_id="gpt-5.4-mini",
-            corpus_root=corpus_root,
-            enable_party_claimed_fill=False,
         ),
     )
     graph = result.candidate_graph
@@ -406,7 +404,7 @@ def _patch_fake_category_extract(monkeypatch: pytest.MonkeyPatch, *, location_la
             or options.source_span_index.get("source_artifact_id")
             or ""
         ).strip()
-        graph = _live_extraction_payload(source_artifact_id=artifact, spref=spref, corpus_root=options.corpus_root, source_text=options.source_text, span_index=dict(options.source_span_index), location_label=location_label)
+        graph = _live_extraction_payload(source_artifact_id=artifact, spref=spref, source_text=options.source_text, span_index=dict(options.source_span_index), location_label=location_label)
         if options.campaign_id:
             graph["campaign_id"] = options.campaign_id
         if options.session_id:
@@ -420,15 +418,6 @@ def _patch_fake_category_extract(monkeypatch: pytest.MonkeyPatch, *, location_la
             model_id=options.model_id or "deepseek/deepseek-v4.1-flash-1017",
             total_cost_usd=0.0,
             diagnostics={"extraction_mode": "category_decomposed"},
-            known_entity_mentions={
-                "schema": "dmb_known_entity_mention_sidecar_v0",
-                "version": "0.1",
-                "campaign_id": options.campaign_id,
-                "session_id": options.session_id,
-                "mentions": [],
-                "ambiguous_surfaces": [],
-                "diagnostics": {"mention_count": 0, "empty_contract": True},
-            },
         )
 
     monkeypatch.setattr(prod_runner, "extract_category_candidate_graph", fake_extract)
@@ -511,7 +500,7 @@ def test_recap_ingest_typed_validation_failure_blocks_candidate_and_preview_unio
             or options.source_span_index.get("source_artifact_id")
             or "artifact:missing"
         ).strip()
-        graph = _live_extraction_payload(source_artifact_id=artifact, spref=spref, corpus_root=options.corpus_root, source_text=options.source_text, span_index=dict(options.source_span_index))
+        graph = _live_extraction_payload(source_artifact_id=artifact, spref=spref, source_text=options.source_text, span_index=dict(options.source_span_index))
         for node in graph.get("nodes") or []:
             if isinstance(node, dict):
                 node["semantic_state"] = {
@@ -530,15 +519,6 @@ def test_recap_ingest_typed_validation_failure_blocks_candidate_and_preview_unio
             model_id=options.model_id or "deepseek/deepseek-v4.1-flash-1017",
             total_cost_usd=0.0,
             diagnostics={"extraction_mode": "category_decomposed"},
-            known_entity_mentions={
-                "schema": "dmb_known_entity_mention_sidecar_v0",
-                "version": "0.1",
-                "campaign_id": options.campaign_id,
-                "session_id": options.session_id,
-                "mentions": [],
-                "ambiguous_surfaces": [],
-                "diagnostics": {"mention_count": 0, "empty_contract": True},
-            },
         )
 
     monkeypatch.setattr(prod_runner, "extract_category_candidate_graph", fake_invalid_extract)

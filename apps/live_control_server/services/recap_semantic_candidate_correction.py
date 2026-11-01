@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from src.graph_memory.extraction.recap_extraction_profile import RECAP_READ_PROFILE_IDS
+
 import copy
 from contextlib import contextmanager
 import fcntl
@@ -109,7 +111,6 @@ DERIVATION_V11 = "operator_recap_semantic_candidate_correction_v11"
 MANIFEST_SCHEMA_V11 = "dmb_recap_semantic_candidate_manifest_v11"
 SOURCE_BINDING_DERIVATION_V11 = "operator_recap_semantic_source_binding_v11"
 
-PROFILE = "recap_category_v1@1.0"
 MAX_EDGE_TUPLE_REPLACEMENTS = 7
 EDGE_TUPLE_FIELDS = ("from_node_id", "relationship_type", "to_node_id", "label")
 
@@ -2033,7 +2034,7 @@ def correct_recap_candidate(
         raise _reject(f"parent run is not reviewable: {exc}") from exc
     if (
         resolved.source_domain != "recap" or parent.source_domain != "recap"
-        or resolved.extraction_profile != PROFILE or parent.profile_id != PROFILE
+        or resolved.extraction_profile != parent.profile_id or parent.profile_id not in RECAP_READ_PROFILE_IDS
         or parent.status != ExtractionRunStatus.REVIEWABLE
         or not parent.has_required_review_components()
         or not parent.campaign_id or not parent.session_id
@@ -2262,7 +2263,7 @@ def correct_recap_candidate(
         source_artifact_id=parent.source_artifact_id,
         source_uri=source_ref.uri, source_revision_sha256=source_sha,
         span_index_uri=span_ref.uri, span_index_sha256=span_sha,
-        profile_id=parent.profile_id, profile_version="1.0",
+        profile_id=parent.profile_id, profile_version=parent.profile_id.rsplit("@", 1)[1],
         campaign_id=parent.campaign_id, session_id=parent.session_id,
     )
     operation_basis = (

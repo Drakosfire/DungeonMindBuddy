@@ -7,9 +7,8 @@ import logging
 import os
 import re
 import time
-from dataclasses import asdict, dataclass, field, replace
+from dataclasses import dataclass, field, replace
 from copy import deepcopy
-from pathlib import Path
 from typing import Any, Mapping, Protocol, Sequence
 
 from src.bootstrap_env import load_dungeonmindbuddy_dotenv
@@ -19,36 +18,6 @@ from src.graph_memory.predicate_catalog import (
     prompt_markdown as predicate_catalog_prompt_markdown,
     predicate_family_for_type,
     validate_edge_predicate,
-)
-from src.graph_memory.party_context import (
-    PartyContext,
-    build_party_context_for_campaign,
-)
-from src.graph_memory.extraction.known_entity_mention_matcher import (
-    attach_mention_evidence_to_anchors,
-    ensure_mentioned_known_npc_anchors,
-    filter_observation_nodes_dropping_known_entities,
-    match_known_entities_in_spans,
-    render_known_entity_ledger_markdown,
-    validate_known_entity_ir_assertions,
-)
-from src.graph_memory.extraction.known_entity_mention_schema import (
-    KnownEntityMentionSidecar,
-)
-from src.graph_memory.extraction.known_entity_registry import (
-    KnownEntityRegistry,
-    build_known_entity_registry,
-    extend_known_entity_registry,
-    normalize_match_surface,
-)
-from src.graph_memory.extraction.party_claimed_fill import (
-    PASS_NAME as PARTY_CLAIMED_FILL_PASS,
-    PASS_PROGRESS_LABEL as PARTY_CLAIMED_FILL_PROGRESS,
-    apply_fill_to_parts,
-    bind_fill_evidence,
-    SourceBoundPartyFillSpec,
-    build_claim_packet,
-    render_fill_prompt,
 )
 from src.graph_memory.extraction.extraction_profile import ExtractionPassSpec, ExtractionProfile
 from src.graph_memory.extraction.recap_extraction_profile import (
@@ -61,20 +30,6 @@ from src.graph_memory.vocabulary.dynamic_selection import build_dynamic_context_
 from src.graph_memory.vocabulary.edge_context import render_edge_vocabulary_context
 from src.graph_memory.vocabulary.model import ContextVocabularyPacket
 from src.graph_memory.vocabulary.node_context import render_node_vocabulary_context
-from src.graph_memory.session_graph_context import (
-    attach_party_participation_edges,
-    build_session_graph_context,
-    merge_party_anchor_nodes,
-    merge_party_collective,
-    party_anchors_markdown,
-)
-from src.graph_memory.standing_context_partition import (
-    ensure_standing_warning,
-    partition_candidate_parts_by_provenance,
-    party_registry_artifact_id,
-    stamp_standing_registry_evidence,
-)
-
 logger = logging.getLogger(__name__)
 
 BEAT_PASS_NAME = "beat_pass"
@@ -281,17 +236,8 @@ class CategoryGraphExtractionOptions:
     enable_dynamic_node_vocabulary_packet: bool = False
     dynamic_node_vocabulary_nodes: tuple[Mapping[str, Any], ...] = ()
     enable_encounter_job_pass: bool = False
-    enable_party_participation_attachment: bool = False
     enable_encounter_job_edge_guidance: bool = False
-    # None = inherit from profile; True/False overrides.
-    enable_party_claimed_fill: bool | None = None
     profile: ExtractionProfile | None = None
-    # Additional known entities (e.g. world-head nodes) merged into the
-    # deterministic registry after party-roster construction; party wins
-    # id/slug collisions. Default None preserves party-only behavior.
-    extra_known_entities: tuple[Any, ...] | None = None
-    corpus_root: Path | None = None
-    expected_standing_context_sha256: str | None = None
 
 
 def resolve_source_identity(
@@ -340,31 +286,12 @@ def resolve_source_identity(
 
 
 def resolve_extraction_profile(options: CategoryGraphExtractionOptions) -> ExtractionProfile:
-    if options.profile is not None:
-        return options.profile
-    return RECAP_EXTRACTION_PROFILE
-
-
-def _empty_party_context(campaign_id: str | None) -> PartyContext:
-    return PartyContext(
-        campaign_id=campaign_id,
-        session="",
-        party_names=(),
-        members=(),
-        warnings=("party context omitted: null session",),
-    )
-
-
-def _empty_known_entity_registry(campaign_id: str | None) -> KnownEntityRegistry:
-    return KnownEntityRegistry(
-        campaign_id=campaign_id or "",
-        session_key="",
-        roster_session_key=None,
-        roster_carry_forward=False,
-        registry_relpath=None,
-        entities=(),
-        warnings=("known entity registry omitted: null session",),
-    )
+    profile = options.profile or RECAP_EXTRACTION_PROFILE
+    if profile.qualified_id in {
+        "recap_category_v1@1.0", "recap_category_encounter_job_preview@1.0",
+    }:
+        raise CategoryGraphExtractionError("Retired Recap profiles are readable history, not executable policy")
+    return profile
 
 
 @dataclass(frozen=True)
@@ -377,8 +304,6 @@ class CategoryGraphExtractionResult:
     model_id: str
     total_cost_usd: float | None
     diagnostics: dict[str, Any] = field(default_factory=dict)
-    registry_context_graph: dict[str, Any] | None = None
-    known_entity_mentions: dict[str, Any] | None = None
     private_response_evidence: str | None = None
 
 
@@ -420,11 +345,8 @@ def source_packet_rows_from_span_index(
             continue
         start_line = int(span.get("line_start") or span.get("start_line") or 1)
         end_line = int(span.get("line_end") or span.get("end_line") or start_line)
-        # Offsets in known_entity_mentions are validated against packaged recap
-        # line joins *including* leading indentation. Prefer reconstructing from
-        # source_text without strip(); .strip() previously shifted every match on
-        # indented session-recap paragraphs (Session 25 dogfood: surface_text
-        # mismatch at offsets by the indent width).
+        # Preserve source indentation so paragraph text and evidence coordinates
+        # stay aligned with the exact registered source bytes.
         text = ""
         if lines is not None and start_line >= 1 and end_line >= start_line:
             text = "\n".join(lines[start_line - 1 : end_line])
@@ -466,32 +388,15 @@ def _source_packet_md(rows: Sequence[dict[str, Any]]) -> str:
     return "\n\n".join(parts)
 
 
-def _party_anchors_block(party_ctx: PartyContext) -> str:
-    return party_anchors_markdown(party_ctx)
-
-
 def render_category_pass_prompts(
     source_rows: Sequence[dict[str, Any]],
     *,
-    party_ctx: PartyContext,
-    known_entity_sidecar: KnownEntityMentionSidecar | None = None,
-    known_entity_registry: KnownEntityRegistry | None = None,
     profile: ExtractionProfile | None = None,
     actor_source_packet: Any | None = None,
 ) -> dict[str, str]:
     active_profile = profile or RECAP_EXTRACTION_PROFILE
     evidence_rule = active_profile.evidence_rule
     src = _source_packet_md(source_rows)
-    anchors = _party_anchors_block(party_ctx)
-    ledger = ""
-    if known_entity_sidecar is not None:
-        ledger = (
-            render_known_entity_ledger_markdown(
-                known_entity_sidecar,
-                registry=known_entity_registry,
-            )
-            + "\n\n"
-        )
     safety = (
         "Preview-only graph memory extraction. "
         "Forbidden: approve memory, commit graph records, promote canon, execute writes."
@@ -515,7 +420,7 @@ def render_category_pass_prompts(
             pass_source = render_source_sentence_packet(actor_source_packet)
             pass_evidence_rule = SENTENCE_EVIDENCE_RULE
         prompts[_prompt_key(pass_name)] = (
-            f"# Category Graph Extraction — {pass_name}\n\n{safety}\n\n{anchors}\n\n{ledger}"
+            f"# Category Graph Extraction — {pass_name}\n\n{safety}\n\n"
             f"## Task\n\n{instruction}\n\n"
             f"Default node_type for this pass: `{default_type}`.\n\n"
             f"Return JSON with key `observation_nodes` (array). Each node: "
@@ -525,7 +430,7 @@ def render_category_pass_prompts(
     if active_profile.beat_pass is not None:
         beat = active_profile.beat_pass
         prompts[_prompt_key(beat.pass_id)] = (
-            f"# Category Graph Extraction — {beat.pass_id}\n\n{safety}\n\n{ledger}"
+            f"# Category Graph Extraction — {beat.pass_id}\n\n{safety}\n\n"
             f"## Task\n\n{beat.instruction}\n"
             "Return JSON with key `observation_beats` (array). Each beat: "
             "`beat_id`, `order` (positive int), `title`, `summary`, `involved_node_ids` (may be empty), `evidence_refs`.\n"
@@ -550,7 +455,7 @@ def render_category_pass_prompts(
             "- Composition and participation: emit `part_of`, `member_of`, or `participates_in` for waves, groups, encounters, and participants.\n\n"
         )
     prompts[_prompt_key(edge.pass_id)] = (
-        f"# Category Graph Extraction — {edge.pass_id}\n\n{safety}\n\n{ledger}"
+        f"# Category Graph Extraction — {edge.pass_id}\n\n{safety}\n\n"
         f"## Task\n\n{edge.instruction}\n"
         "Using ONLY the Source Packet and consolidated node list supplied below, propose durable relationship edges. "
         "Do NOT create new nodes. Use exact `node_id` values from the consolidated nodes. "
@@ -1101,20 +1006,10 @@ def consolidate_category_outputs(
     source_span_index: Mapping[str, Any] | None = None,
     source_text: str | None = None,
     source_rows: Sequence[Mapping[str, Any]] | None = None,
-    enable_party_participation_attachment: bool = False,
-    known_entity_sidecar: KnownEntityMentionSidecar | None = None,
-    known_entity_registry: KnownEntityRegistry | None = None,
     profile: ExtractionProfile | None = None,
-    party_context: PartyContext | None = None,
 ) -> dict[str, Any]:
     active_profile = profile or RECAP_EXTRACTION_PROFILE
     semantic_state = dict(active_profile.default_semantic_state)
-    if party_context is not None:
-        party_ctx = party_context
-    elif session is None or active_profile.admitted_source_domains != frozenset({"recap"}):
-        party_ctx = _empty_party_context(campaign_id)
-    else:
-        party_ctx = build_party_context_for_campaign(campaign_id, session)
     per_pass_counts: dict[str, int] = {}
     nodes: list[dict[str, Any]] = []
     beats: list[dict[str, Any]] = []
@@ -1189,6 +1084,11 @@ def consolidate_category_outputs(
             if isinstance(raw, Mapping):
                 beats.append(_normalize_beat(raw))
 
+    if active_profile.admitted_source_domains == frozenset({"recap"}):
+        # A source-local candidate is not a resolved campaign/native identity.
+        # Identity selection belongs to explicit review, never a model hint.
+        for node in nodes:
+            node["corpus_ref"] = None
     nodes_before_dedup = len(nodes)
     if active_profile.enable_automatic_identity_consolidation:
         node_dedup = ir.dedup_nodes(nodes)
@@ -1202,56 +1102,6 @@ def consolidate_category_outputs(
             "automatic_identity_consolidation": False,
         }
         deduped_nodes = list(nodes)
-    deduped_nodes, anchor_merge_diag = merge_party_anchor_nodes(
-        deduped_nodes,
-        party_ctx,
-        default_semantic_state=semantic_state,
-    )
-
-    known_entity_diag: dict[str, Any] = {"enabled": False}
-    if known_entity_registry is not None:
-        known_ids = {entity.canonical_entity_id for entity in known_entity_registry.entities}
-        known_slugs = {entity.slug for entity in known_entity_registry.entities}
-        known_labels_norm = {
-            normalize_match_surface(entity.display_name)
-            for entity in known_entity_registry.entities
-            if entity.display_name
-        }
-        deduped_nodes, dropped_ids = filter_observation_nodes_dropping_known_entities(
-            deduped_nodes,
-            known_ids=known_ids,
-            known_slugs=known_slugs,
-            known_labels_norm=known_labels_norm,
-        )
-        attach_diag: dict[str, Any] = {"mention_evidence_attachments": 0}
-        if known_entity_sidecar is not None:
-            deduped_nodes, npc_anchor_diag = ensure_mentioned_known_npc_anchors(
-                deduped_nodes, known_entity_registry, known_entity_sidecar,
-                semantic_state=semantic_state,
-            )
-            deduped_nodes, attach_diag = attach_mention_evidence_to_anchors(
-                deduped_nodes,
-                known_entity_sidecar,
-            )
-            attach_diag.update(npc_anchor_diag)
-        ir_report = validate_known_entity_ir_assertions(
-            nodes=deduped_nodes,
-            edges=[],
-            beats=beats,
-            known_ids=known_ids,
-            known_slugs=known_slugs,
-            known_labels_norm=known_labels_norm,
-        )
-        known_entity_diag = {
-            "enabled": True,
-            "dropped_duplicate_node_ids": dropped_ids,
-            "mention_count": (
-                len(known_entity_sidecar.mentions) if known_entity_sidecar is not None else 0
-            ),
-            **attach_diag,
-            **ir_report,
-        }
-
     # One observation pass per node type means a single proper noun can surface
     # as both a place and a polity (e.g. "Mireward Reach" as location AND
     # organization). dedup_nodes keys on (type_class, label) and keeps both,
@@ -1272,14 +1122,6 @@ def consolidate_category_outputs(
         }
         cross_class_remap = {}
 
-    # The pre-edge consolidation advertises this same configured context.
-    # Seed it before endpoint checks so those advertised IDs remain usable.
-    deduped_nodes, seeded_party_edges, party_collective_diag = merge_party_collective(
-        deduped_nodes,
-        [],
-        party_ctx,
-        default_semantic_state=semantic_state,
-    )
     edge_pass_id = active_profile.edge_pass.pass_id
     edge_payload = pass_outputs.get(edge_pass_id, {})
     raw_edges = edge_payload.get("observation_edges") or []
@@ -1303,18 +1145,6 @@ def consolidate_category_outputs(
                     "to_node_id": edge["to_node_id"],
                 }
             )
-    # Keep source-backed model edges ahead of evidence-free standing-context
-    # edges so canonical deduplication preserves the stronger source citation.
-    edges.extend(seeded_party_edges)
-    if enable_party_participation_attachment:
-        edges, party_participation_diag = attach_party_participation_edges(
-            deduped_nodes,
-            edges,
-            party_ctx,
-            default_semantic_state=semantic_state,
-        )
-    else:
-        party_participation_diag = {"enabled": False}
     edge_dedup = ir.dedup_edges(edges, deduped_nodes)
     edge_predicate_issues = [
         {
@@ -1331,54 +1161,9 @@ def consolidate_category_outputs(
         if any(str(w).startswith("predicate_validation:") for w in edge.get("warnings", []))
     ]
 
-    if known_entity_registry is not None:
-        known_ids = {entity.canonical_entity_id for entity in known_entity_registry.entities}
-        known_slugs = {entity.slug for entity in known_entity_registry.entities}
-        known_labels_norm = {
-            normalize_match_surface(entity.display_name)
-            for entity in known_entity_registry.entities
-            if entity.display_name
-        }
-        edge_ir = validate_known_entity_ir_assertions(
-            nodes=deduped_nodes,
-            edges=list(edge_dedup["kept"]),
-            beats=beats,
-            known_ids=known_ids,
-            known_slugs=known_slugs,
-            known_labels_norm=known_labels_norm,
-        )
-        known_entity_diag.update(edge_ir)
-        # Drop missing-evidence known-entity edges before generic evidence repair can
-        # inherit endpoint mention citations onto hallucinated relationships.
-        rejected_edge_ids = {
-            str(edge_id)
-            for edge_id in (edge_ir.get("rejected_known_entity_edges_missing_evidence") or [])
-            if str(edge_id).strip()
-        }
-        if rejected_edge_ids:
-            kept_edges = [
-                edge
-                for edge in edge_dedup["kept"]
-                if str(edge.get("edge_id") or "") not in rejected_edge_ids
-            ]
-            edge_dedup = {
-                **edge_dedup,
-                "kept": kept_edges,
-                "dropped_known_entity_missing_evidence": sorted(rejected_edge_ids),
-            }
-            known_entity_diag["removed_missing_evidence_edge_ids"] = sorted(rejected_edge_ids)
-
-    if session is None:
-        session_ctx_warnings: list[str] = ["session graph context omitted: null session"]
-        registry_relpath = None
-    else:
-        session_ctx = build_session_graph_context(campaign_id, session)
-        session_ctx_warnings = list(session_ctx.warnings)
-        registry_relpath = session_ctx.registry_relpath
     diagnostics = {
         "per_pass_counts": per_pass_counts,
         "nodes_before_dedup": nodes_before_dedup,
-        "party_companion_slugs": [m.slug for m in party_ctx.companions()],
         "merged_nodes": node_dedup["merged"],
         "cross_class_merged_nodes": cross_class["merged"],
         "cross_class_blocked_nodes": cross_class.get("blocked", []),
@@ -1388,17 +1173,7 @@ def consolidate_category_outputs(
         "merged_edges": edge_dedup["merged"],
         "dropped_edges_missing_endpoints": dropped_edges,
         "edge_predicate_issues": edge_predicate_issues,
-        "party_anchor_identity_keys": sorted(party_ctx.anchor_identity_keys()),
-        # Deprecated alias of party_anchor_identity_keys (hub paths shed).
-        "party_anchor_hub_paths": sorted(party_ctx.anchor_identity_keys()),
-        "inserted_party_anchor_slugs": anchor_merge_diag.get("inserted_party_anchor_slugs", []),
-        "party_collective_inserted": party_collective_diag.get("party_collective_inserted", False),
-        "party_membership_edge_slugs": party_collective_diag.get("party_membership_edge_slugs", []),
-        "party_participation_attachment": party_participation_diag,
-        "registry_relpath": registry_relpath,
-        "session_graph_context_warnings": session_ctx_warnings,
         ENCOUNTER_JOB_PASS_NAME: encounter_job_diag,
-        "known_entity_mentions": known_entity_diag,
     }
     return {
         "nodes": deduped_nodes,
@@ -1785,14 +1560,12 @@ def _encounter_job_beat_summary(beat: Mapping[str, Any]) -> dict[str, Any]:
 def render_encounter_job_pass_prompt(
     source_rows: Sequence[dict[str, Any]],
     *,
-    party_ctx: PartyContext,
     nodes: Sequence[Mapping[str, Any]],
     beats: Sequence[Mapping[str, Any]],
     vocabulary_context: str | None = None,
     instruction: str | None = None,
 ) -> str:
     src = _source_packet_md(source_rows)
-    anchors = _party_anchors_block(party_ctx)
     safety = (
         "Preview-only graph memory extraction. "
         "Forbidden: approve memory, commit graph records, promote canon, execute writes."
@@ -1813,7 +1586,6 @@ def render_encounter_job_pass_prompt(
     )
     return (
         f"# Category Graph Extraction — {ENCOUNTER_JOB_PASS_NAME}\n\n{safety}\n\n"
-        f"{anchors}\n\n"
         f"{vocabulary_block}"
         f"## Task\n\n{task}"
         "A combat encounter is not the monster, not the location, not the quest, and not the recap beat.\n\n"
@@ -2047,34 +1819,6 @@ def _run_category_pipeline_impl(
                 if isinstance(val, str):
                     allowed_span_refs.add(val)
 
-    if options.session_number is None or active_profile.admitted_source_domains != frozenset({"recap"}):
-        party_ctx = _empty_party_context(options.campaign_id)
-        known_entity_registry = _empty_known_entity_registry(options.campaign_id)
-    else:
-        party_ctx = build_party_context_for_campaign(
-            options.campaign_id, options.session_number, corpus_root=options.corpus_root
-        )
-        known_entity_registry = build_known_entity_registry(
-            options.campaign_id,
-            options.session_number,
-            party_ctx=party_ctx,
-            corpus_root=options.corpus_root,
-        )
-    if options.extra_known_entities:
-        known_entity_registry = extend_known_entity_registry(
-            known_entity_registry,
-            options.extra_known_entities,
-        )
-    if options.expected_standing_context_sha256 is not None:
-        snapshot = {"party_context": asdict(party_ctx), "known_entity_registry": asdict(known_entity_registry)}
-        actual_sha256 = hashlib.sha256(json.dumps(snapshot, sort_keys=True, separators=(",", ":")).encode()).hexdigest()
-        if actual_sha256 != options.expected_standing_context_sha256:
-            raise CategoryGraphExtractionError("Standing identity context changed before provider dispatch")
-    known_entity_sidecar = match_known_entities_in_spans(
-        source_rows,
-        known_entity_registry,
-        session_id=options.session_id,
-    )
     actor_source_packet = None
     if (
         active_profile.admitted_source_domains == frozenset({"recap"})
@@ -2086,9 +1830,6 @@ def _run_category_pipeline_impl(
         actor_source_packet = compile_source_sentence_packet(options.source_text, source_rows)
     prompts = render_category_pass_prompts(
         source_rows,
-        party_ctx=party_ctx,
-        known_entity_sidecar=known_entity_sidecar,
-        known_entity_registry=known_entity_registry,
         profile=active_profile,
         actor_source_packet=actor_source_packet,
     )
@@ -2143,11 +1884,7 @@ def _run_category_pipeline_impl(
             source_span_index=options.source_span_index,
             source_text=options.source_text,
             source_rows=source_rows,
-            enable_party_participation_attachment=options.enable_party_participation_attachment,
-            known_entity_sidecar=known_entity_sidecar,
-            known_entity_registry=known_entity_registry,
             profile=active_profile,
-            party_context=party_ctx,
         )["nodes"]
         beat_result = _run_pass(
             beat.pass_id,
@@ -2174,11 +1911,7 @@ def _run_category_pipeline_impl(
         source_span_index=options.source_span_index,
         source_text=options.source_text,
         source_rows=source_rows,
-        enable_party_participation_attachment=options.enable_party_participation_attachment,
-        known_entity_sidecar=known_entity_sidecar,
-        known_entity_registry=known_entity_registry,
         profile=active_profile,
-        party_context=party_ctx,
     )
     encounter_pass = active_profile.encounter_job_pass
     if options.enable_encounter_job_pass:
@@ -2204,7 +1937,6 @@ def _run_category_pipeline_impl(
             )
         encounter_prompt = render_encounter_job_pass_prompt(
             source_rows,
-            party_ctx=party_ctx,
             nodes=consolidated["nodes"],
             beats=consolidated["beats"],
             vocabulary_context=encounter_vocabulary_context,
@@ -2243,11 +1975,7 @@ def _run_category_pipeline_impl(
             source_span_index=options.source_span_index,
             source_text=options.source_text,
             source_rows=source_rows,
-            enable_party_participation_attachment=options.enable_party_participation_attachment,
-            known_entity_sidecar=known_entity_sidecar,
-            known_entity_registry=known_entity_registry,
             profile=active_profile,
-            party_context=party_ctx,
         )
     edge = active_profile.edge_pass
     edge_prompt, edge_vocabulary_diag, encounter_job_edge_diag = build_edge_pass_prompt(
@@ -2281,11 +2009,7 @@ def _run_category_pipeline_impl(
         source_span_index=options.source_span_index,
         source_text=options.source_text,
         source_rows=source_rows,
-        enable_party_participation_attachment=options.enable_party_participation_attachment,
-        known_entity_sidecar=known_entity_sidecar,
-        known_entity_registry=known_entity_registry,
         profile=active_profile,
-        party_context=party_ctx,
     )
     inherit_edge_evidence = active_profile.enable_edge_evidence_inheritance
     repair_diag = repair_edge_evidence_refs(
@@ -2298,107 +2022,22 @@ def _run_category_pipeline_impl(
         allowed_span_refs,
         drop_empty_evidence_edges=inherit_edge_evidence,
     )
-    claimed_fill_diag: dict[str, Any] = {"enabled": False}
-    enable_claimed_fill = (
-        active_profile.enable_party_claimed_fill
-        if options.enable_party_claimed_fill is None
-        else options.enable_party_claimed_fill
-    )
-    if enable_claimed_fill:
-        mentions_payload = known_entity_sidecar.to_dict()
-        packet = build_claim_packet(
-            mentions_payload=mentions_payload,
-            span_index=options.source_span_index,
-            source_text=options.source_text,
-            candidate_nodes=list(sanitized.get("nodes") or []),
-            source_packet_rows_from_span_index=lambda *_args, **_kwargs: list(source_rows),
-        )
-        if packet.claims:
-            fill_spec = SourceBoundPartyFillSpec(
-                pass_id=PARTY_CLAIMED_FILL_PASS,
-                default_node_type="character",
-                instruction=(
-                    "Enrich owned party PC/companion nodes. Never invent new party IDs."
-                ),
-                progress_label=PARTY_CLAIMED_FILL_PROGRESS,
-                kind="claimed_fill",
-                source_row_indexes=tuple(range(len(packet.source_rows))),
-            )
-            _notify(PARTY_CLAIMED_FILL_PASS, "running")
-            fill_result = _run_pass(
-                PARTY_CLAIMED_FILL_PASS,
-                model_id=model_id,
-                instructions=(
-                    "You enrich owned party graph nodes. Never invent new party node IDs. "
-                    "Ground every quote in the provided source packet paragraphs."
-                ),
-                user_content=render_fill_prompt(packet),
-                pass_spec=fill_spec,
-            )
-            pass_outputs[PARTY_CLAIMED_FILL_PASS] = fill_result["parsed"]
-            pass_telemetry[PARTY_CLAIMED_FILL_PASS] = {
-                "cost_usd": fill_result["cost_usd"],
-                "usage": fill_result["usage"],
-                "elapsed_ms": fill_result["elapsed_ms"],
-                "response_id": fill_result["response_id"],
-                "progress_label": PARTY_CLAIMED_FILL_PROGRESS,
-            }
-            total_cost = None if total_cost is None or fill_result["cost_usd"] is None else total_cost + fill_result["cost_usd"]
-            bound_fill, binding_diag = bind_fill_evidence(packet, fill_result["parsed"])
-            if bound_fill is not None:
-                sanitized, claimed_fill_diag = apply_fill_to_parts(
-                    sanitized,
-                    parsed=bound_fill,
-                    claimed_ids={c.node_id for c in packet.claims},
-                )
-                sanitized, final_fill_sanitize_diag = sanitize_parts(
-                    sanitized, allowed_span_refs,
-                    drop_empty_evidence_edges=inherit_edge_evidence,
-                )
-                claimed_fill_diag["final_sanitize"] = final_fill_sanitize_diag
-            else:
-                claimed_fill_diag = {"enabled": True, "filled_applied": 0}
-                # Preserve baseline facts/evidence while making the incomplete
-                # enrichment visible in the canonical review artifact as well.
-                claimed_ids = {claim.node_id for claim in packet.claims}
-                sanitized["nodes"] = [
-                    {**node, "warnings": list(node.get("warnings") or [])
-                     + ["party_claimed_fill_incomplete"]}
-                    if node.get("node_id") in claimed_ids else node
-                    for node in sanitized["nodes"]
-                ]
-            claimed_fill_diag.update(binding_diag)
-            claimed_fill_diag["claim_count"] = len(packet.claims)
-            claimed_fill_diag["cost_usd"] = fill_result["cost_usd"]
-            _notify(PARTY_CLAIMED_FILL_PASS, "complete")
-        else:
-            claimed_fill_diag = {
-                "enabled": True,
-                "skipped": "no_pc_companion_mentions",
-                "claim_count": 0,
-            }
     deferred_planning = list({item["item_id"]: item for item in deferred_planning}.values())
     for beat in sanitized.get("beats") or []:
         if isinstance(beat, dict):
             beat.pop("_host_excerpt_text", None)
     sanitized["deferred_items"].extend(deferred_planning)
     authority_diag["deferred_items"] = len(deferred_planning)
-    recap_parts, standing_parts, partition_diag = partition_candidate_parts_by_provenance(
-        sanitized
-    )
     merged_diag = {
         **consolidated["consolidation_diagnostics"],
         **repair_diag,
         **sanitize_diag,
-        "standing_context_partition": partition_diag,
-        "party_claimed_fill": claimed_fill_diag,
         "profile_id": active_profile.profile_id,
         "profile_version": active_profile.profile_version,
     }
     source_artifact_id, source_ref_id = resolve_source_identity(options)
-    registry_artifact_id = party_registry_artifact_id(options.campaign_id)
     envelope = assemble_envelope(
-        recap_parts,
+        sanitized,
         campaign_id=options.campaign_id,
         session_id=options.session_id,
         source_artifact_id=source_artifact_id,
@@ -2483,27 +2122,6 @@ def _run_category_pipeline_impl(
             "retained_count": len(candidate_graph.get("edges", [])),
             "skipped": advisory.get("skipped"),
         }
-    registry_context_graph: dict[str, Any] | None = None
-    if standing_parts.get("nodes"):
-        ensure_standing_warning(standing_parts)
-        standing_envelope = assemble_envelope(
-            standing_parts,
-            campaign_id=options.campaign_id,
-            session_id=options.session_id,
-            source_artifact_id=registry_artifact_id,
-            source_ref_id=document_source_ref_id(registry_artifact_id),
-            model_id=model_id,
-            preview_suffix="standing",
-            drop_empty_evidence_edges=inherit_edge_evidence,
-        )
-        registry_context_graph = canonical_graph_for_runner(
-            standing_envelope,
-            drop_empty_evidence_edges=inherit_edge_evidence,
-        )
-        stamp_standing_registry_evidence(
-            registry_context_graph, source_artifact_id=registry_artifact_id
-        )
-        ensure_standing_warning(registry_context_graph)
     node_vocabulary_enabled = effective_node_vocabulary_packet is not None
     node_vocabulary_diag: dict[str, Any] = {"enabled": False}
     if node_vocabulary_enabled:
@@ -2528,12 +2146,8 @@ def _run_category_pipeline_impl(
             "encounter_job_edge_guidance": encounter_job_edge_diag,
             "node_vocabulary_ablation": node_vocabulary_diag,
             "dynamic_node_vocabulary_packet": dynamic_node_vocabulary_diag,
-            "standing_context_partition": partition_diag,
-            "party_claimed_fill": claimed_fill_diag,
             **EXTRACTOR_RESULT_DIAGNOSTICS,
         },
-        registry_context_graph=registry_context_graph,
-        known_entity_mentions=known_entity_sidecar.to_dict(),
     )
 
 

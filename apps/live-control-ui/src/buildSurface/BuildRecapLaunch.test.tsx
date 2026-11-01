@@ -12,7 +12,7 @@ const key=api.recapRecoveryKey('managed-a',doc);
 function status(request:api.BuildRecapLaunchRequest):ExtractionRunStatusResponse{
   return {schema_version:'dmb_extraction_run_status_v1',run:{schema_version:'dmb_extraction_run_v1',version:'1.0',
     run_id:runId,source_artifact_id:'artifact:recap:build',source_domain:'recap',status:'reviewable',campaign_id:request.campaign_id,
-    session_id:`session-${request.session}`,profile_id:'recap_category_v1@1.0',lineage:{build_launch:{schema:'dmb_build_recap_launch_v1',request},
+    session_id:`session-${request.session}`,profile_id:'recap_category_v2@2.0',lineage:{build_launch:{schema:'dmb_build_recap_launch_v1',request,server_configuration:{profile_id:'recap_category_v2',profile_version:'2.0'}},
       world_campaign_ingest_context:{managed_world_id:'managed-a',native_world_id:'native-a'}}},
     document_id:doc,document_revision:2,source_artifact_id:'artifact:recap:build',source_content_sha256:hash,
     graph_review_handoff:{href:`/build?documentId=${doc}&revision=2&extractionRunId=${runId}&sourceArtifactId=artifact:recap:build`,
@@ -131,4 +131,15 @@ it('refuses malformed saved pins without throwing and retains them until explici
   expect(view.result.current.pendingRecap).toBe(true);
   act(()=>view.result.current.setAsideRecap());
   expect(JSON.parse(localStorage.getItem(api.recapHistoryKey('managed-a',doc))!)).toEqual([malformed]);
+});
+
+it('recovers the original v1 request after the default profile changes without generation',async()=>{
+ const request:api.BuildRecapLaunchRequest={request_id:'cccccccc-cccc-4ccc-8ccc-cccccccccccc',document_id:doc,expected_revision:2,expected_content_sha256:hash,managed_world_id:'managed-a',campaign_id:'longmont-c2',session:30,session_evidence:[]};
+ localStorage.setItem(key,JSON.stringify(request));
+ const previous=status(request);previous.run.profile_id='recap_category_v1@1.0';
+ (previous.run.lineage!.build_launch as any).server_configuration={profile_id:'recap_category_v1',profile_version:'1.0'};
+ vi.mocked(api.recoverBuildRecap).mockResolvedValue(previous);
+ const view=mount();await waitFor(()=>expect(view.result.current.pendingRecap).toBe(true));
+ await act(async()=>view.result.current.recoverRecap());
+ expect(api.launchBuildRecap).not.toHaveBeenCalled();expect(view.result.current.run?.profile_id).toBe('recap_category_v1@1.0');
 });

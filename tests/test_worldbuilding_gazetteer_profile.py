@@ -28,7 +28,6 @@ def test_definition_pass_has_no_played_or_individual_invention():
     for phrase in ["Do not mint species", "place descriptions", "never a played episode", "defer unplayed"]:
         assert phrase in definitions.instruction
     assert GAZETTEER_PROFILE.beat_pass is None
-    assert not GAZETTEER_PROFILE.enable_party_participation_attachment
     assert GAZETTEER_PROFILE.default_semantic_state["canon_state"] == "worldbuilding_draft"
 
 
@@ -200,7 +199,6 @@ def test_v16_real_pipeline_retains_livestock_and_keeps_recurring_festival():
                                "source_ref_id": "artifact:synthetic:text", "spans": rows},
             model_id=DEEPSEEK_MODEL,
             profile=GAZETTEER_LIVESTOCK_HYGIENE_PROFILE,
-            enable_party_claimed_fill=False,
         ),
     )
     graph = result.candidate_graph
@@ -469,7 +467,6 @@ def test_v17_real_category_pipeline_adds_source_stamped_role_citations():
                 },
                 model_id=DEEPSEEK_MODEL,
                 profile=profile,
-                enable_party_claimed_fill=False,
             ),
         )
 
@@ -536,7 +533,7 @@ def test_actual_pipeline_preserves_named_definition_and_source_qualification():
             "source_artifact_id": "artifact:synthetic", "source_ref_id": "artifact:synthetic:text",
             "spans": [{"source_span_ref_id": "span-1", "span_id": "span-1",
                        "line_start": 1, "line_end": 1, "text": body}]},
-        profile=GAZETTEER_PROFILE, enable_party_claimed_fill=False))
+        profile=GAZETTEER_PROFILE))
     graph = result.candidate_graph
     assert len(graph["nodes"]) == 2
     assert not any(node["node_type"] == "creature" for node in graph["nodes"])
@@ -759,7 +756,6 @@ def test_role_support_versions_differ_only_in_owned_pipeline_disposition():
                     ],
                 },
                 profile=profile,
-                enable_party_claimed_fill=False,
             ),
         )
         results.append(result)

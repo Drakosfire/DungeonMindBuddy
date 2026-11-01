@@ -66,7 +66,7 @@ def options(profile=PROFILE, model=DEEPSEEK_MODEL):
         source_text=BODY, source_artifact_id="artifact:test", model_id=model,
         source_span_index={"source_artifact_id": "artifact:test", "source_ref_id": "artifact:test:text",
             "spans": [{"source_span_ref_id": "span-1", "span_id": "span-1", "text": BODY,
-                       "line_start": 1, "line_end": 1}]}, profile=profile, enable_party_claimed_fill=False)
+                       "line_start": 1, "line_end": 1}]}, profile=profile)
 
 
 @pytest.mark.parametrize("bad", [None, {}, {"retained_edge_ids": ["unknown"]},

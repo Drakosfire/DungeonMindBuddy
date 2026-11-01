@@ -104,3 +104,9 @@ it('reports non-JSON and null error bodies without falling through to another re
     await expect(c.getExactRunCandidateProjection('run-a', 'managed-a')).rejects.toMatchObject({ status: 422 });
     expect(fetch).toHaveBeenCalledTimes(2);
 });
+
+it.each(['recap_category_v1@1.0','recap_category_v2@2.0','recap_category_encounter_job_preview@2.0'] as const)('reads frozen %s without giving it publication authority',async profileId=>{
+ const c=await client();api!.setNativeGraphAccessToken('synthetic-test-credential');
+ const data={...payload(),profileId};vi.spyOn(globalThis,'fetch').mockResolvedValue(Response.json(data));
+ expect(await c.getExactRunCandidateProjection('run-a','managed-a')).toEqual(data);
+});

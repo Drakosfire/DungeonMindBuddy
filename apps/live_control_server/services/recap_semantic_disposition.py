@@ -18,8 +18,7 @@ from graph_memory.ingestion.extraction_run import (
     ExtractionRunStatus,
 )
 from src.graph_memory.extraction.recap_extraction_profile import (
-    RECAP_PROFILE_ID,
-    RECAP_PROFILE_VERSION,
+    RECAP_READ_PROFILE_IDS,
 )
 
 DERIVATION = "operator_recap_literal_evidence_correction_v1"
@@ -132,7 +131,7 @@ def assess_recap_semantics(
         or parent.run_id != lineage.get("parent_run_id")
         or parent.run_id == run.run_id
         or not run.profile_id
-        or run.profile_id != f"{RECAP_PROFILE_ID}@{RECAP_PROFILE_VERSION}"
+        or run.profile_id not in RECAP_READ_PROFILE_IDS
         or run.profile_id != parent.profile_id
         or not run.campaign_id
         or not run.session_id

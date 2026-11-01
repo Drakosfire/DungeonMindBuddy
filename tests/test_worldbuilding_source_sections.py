@@ -110,7 +110,7 @@ def test_actual_candidate_assembly_preserves_prose_and_stamps_all_evidence():
         source_artifact_id="artifact:synthetic", source_text=body,
         source_span_index={"source_artifact_id": "artifact:synthetic",
                            "source_ref_id": "artifact:synthetic:text", "spans": source_rows},
-        profile=GAZETTEER_SOURCE_RETENTION_PROFILE, enable_party_claimed_fill=False,
+        profile=GAZETTEER_SOURCE_RETENTION_PROFILE,
     )
     result = run_category_pipeline(FixtureCategoryGraphPassClient(outputs), options)
     node = result.candidate_graph["nodes"][0]

@@ -429,7 +429,7 @@ export function useBuildExtraction(args: UseBuildExtractionArgs): BuildExtractio
       }
 
       const { response, envelope, savedRecapRequest } = commandResult.value;
-      const expectedProfile = recap ? "recap_category_v1@1.0" : profile === "gazetteer" ? `${BUILD_GAZETTEER_PROFILE_ID}@${BUILD_GAZETTEER_PROFILE_VERSION}` : `${BUILD_WORLDBUILDING_PROFILE_ID}@${BUILD_WORLDBUILDING_PROFILE_VERSION}`;
+      const expectedProfile = recap ? "recap_category_v2@2.0" : profile === "gazetteer" ? `${BUILD_GAZETTEER_PROFILE_ID}@${BUILD_GAZETTEER_PROFILE_VERSION}` : `${BUILD_WORLDBUILDING_PROFILE_ID}@${BUILD_WORLDBUILDING_PROFILE_VERSION}`;
       if (response.run.profile_id !== expectedProfile) {
         setHandoff(null);
         setError("Extraction returned a different or missing profile. Review is unavailable; refresh server configuration before trying again.");

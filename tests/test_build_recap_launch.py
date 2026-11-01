@@ -49,6 +49,7 @@ def execute(tmp_path,source,context,monkeypatch):
 def test_same_request_recovers_one_actual_run_without_repeating_context_or_inference(tmp_path,source,context,request_body,execute,monkeypatch):
     first=service.launch_build_recap(tmp_path,request_body)
     assert first.status.value=="reviewable"
+    assert first.profile_id=="recap_category_v2@2.0"
     save_page(tmp_path, source[0].document_id, "Newer document bytes.\n")
     monkeypatch.setattr(service,"resolve_recap_source_scope",lambda **k:pytest.fail("recovery must not re-read current World/context"))
     second=service.launch_build_recap(tmp_path,request_body)
@@ -131,6 +132,7 @@ def test_authenticated_routes_recover_the_exact_build_envelope(tmp_path,request_
 
 
 def test_unauthenticated_launch_and_recovery_never_touch_source(tmp_path,request_body,monkeypatch):
+    monkeypatch.delenv('DMB_AUTH_MODE',raising=False)
     monkeypatch.delenv('DMB_AGENT_GRAPH_AUTH_MODE',raising=False)
     monkeypatch.setattr(service,'launch_build_recap',lambda *a,**k:pytest.fail('unauthenticated launch'))
     monkeypatch.setattr(service,'recover_build_recap_launch',lambda *a,**k:pytest.fail('unauthenticated recovery'))
@@ -172,9 +174,6 @@ def test_new_campaign_without_local_corpus_reaches_extraction_and_recovers(
     request = BuildRecapLaunchRequest(request_id=uuid4(), document_id=record.document_id,
         expected_revision=record.revision, expected_content_sha256=hashlib.sha256(text.encode()).hexdigest(),
         managed_world_id='managed-a', campaign_id=campaign, session=1)
-    # Exercise the ordinary identity snapshot before any provider call.
-    identity = wrapper._recap_identity_snapshot(campaign, 'session-1', None, corpus_root=tmp_path/'corpus/managed-a-markdown')
-    assert identity['known_entity_registry']['campaign_id'] == campaign and identity['known_entity_registry']['entities'] == ()
     calls = []
     actual = wrapper.run_recap_production_extraction
     def execute(**kwargs):

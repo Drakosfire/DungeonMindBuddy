@@ -111,7 +111,7 @@ async function recapRequestDigest(request: RecapQuoteRequest): Promise<string> {
 }
 function recapQuoteScope(run: ExtractionRunRecord | null, review: ExactRunReviewPackage | null, world: string | null): string | null {
   if (!run || !review || !world || run.status !== "reviewable" || run.source_domain !== "recap"
-    || run.profile_id !== "recap_category_v1@1.0" || review.schema !== "dmb_extract_promote_exact_run_review_v1"
+    || !["recap_category_v1@1.0", "recap_category_v2@2.0", "recap_category_encounter_job_preview@2.0"].includes(run.profile_id ?? '') || review.schema !== "dmb_extract_promote_exact_run_review_v1"
     || review.runId !== run.run_id || review.sourceDomain !== "recap" || review.sourceArtifactId !== run.source_artifact_id
     || review.campaignId !== run.campaign_id || review.sessionId !== run.session_id
     || review.inspectionStatus !== "invalid_evidence") return null;

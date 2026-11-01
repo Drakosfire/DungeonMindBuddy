@@ -1,6 +1,5 @@
 import hashlib
 
-from graph_memory.party_context import PartyContext, PartyMember
 from graph_memory.source_span import build_source_span_index_for_text, source_span_index_to_dict
 from src.graph_memory.extraction import category_candidate_graph_extractor as module
 from src.graph_memory.extraction.worldbuilding_plumbing_profile import WORLDBUILDING_PLUMBING_PROFILE
@@ -43,7 +42,7 @@ def options(index, source_text=TEXT, **kwargs):
 def test_pipeline_withholds_planning_prompts_and_rejects_injected_citation():
     index, planned, played = setup()
     client = Client(planned, played)
-    result = module.run_category_pipeline(client, options(index, enable_party_claimed_fill=False))
+    result = module.run_category_pipeline(client, options(index))
     assert all("Golden Map" not in message for _, message in client.messages)
     assert any(n["node_id"] == "loc:larkhaven" for n in result.candidate_graph["nodes"])
     assert not any(n["node_id"] == "event:reward" for n in result.candidate_graph["nodes"])
@@ -58,16 +57,13 @@ def test_pipeline_withholds_planning_prompts_and_rejects_injected_citation():
     assert any(d["evidence_refs"][0]["source_span_ref_id"] == planned["source_span_ref_id"] for d in deferred)
 
 
-def test_party_fill_cannot_reintroduce_withheld_planning(monkeypatch):
+def test_source_pipeline_has_no_party_fill_to_reintroduce_planning():
     index, planned, played = setup()
-    member = PartyMember("iria", "pc", "Iria", "pc", "", False)
-    party = PartyContext("longmont-c2", "1", ("Iria",), (member,))
-    monkeypatch.setattr(module, "build_party_context_for_campaign", lambda *a, **k: party)
     client = Client(planned, played, fill=True)
     result = module.run_category_pipeline(client, options(index))
     assert all("Golden Map" not in message for _, message in client.messages)
     assert not any("Golden Map" in n["description"] for n in result.candidate_graph["nodes"])
-    assert any(name == "pc_claimed_fill_pass" for name, _ in client.messages)
+    assert all(name != "pc_claimed_fill_pass" for name, _ in client.messages)
 
 
 def test_canonical_spans_keep_literal_recap_marker_inside_planning_fence():
@@ -78,7 +74,7 @@ def test_canonical_spans_keep_literal_recap_marker_inside_planning_fence():
     )
     index, planned, played = setup(text)
     client = Client(planned, played)
-    result = module.run_category_pipeline(client, options(index, source_text=text, enable_party_claimed_fill=False))
+    result = module.run_category_pipeline(client, options(index, source_text=text))
     assert all("Golden Map" not in message for _, message in client.messages)
     assert any(node["node_id"] == "loc:larkhaven" for node in result.candidate_graph["nodes"])
     assert not any(node["node_id"] == "event:reward" for node in result.candidate_graph["nodes"])
@@ -97,7 +93,7 @@ def test_canonical_spans_do_not_withhold_headings_inside_literal_code():
     )
     index, planned, played = setup(text)
     client = Client(planned, played)
-    result = module.run_category_pipeline(client, options(index, source_text=text, enable_party_claimed_fill=False))
+    result = module.run_category_pipeline(client, options(index, source_text=text))
     assert any("Golden Map" in message for _, message in client.messages)
     assert any(node["node_id"] == "event:reward" for node in result.candidate_graph["nodes"])
     assert any(node["node_id"] == "loc:larkhaven" for node in result.candidate_graph["nodes"])

@@ -27,8 +27,9 @@ const canonical=(value: unknown): string=>JSON.stringify(value,(_key,item)=>item
 export function assertRecapLaunchBinding(request:BuildRecapLaunchRequest,response:ExtractionRunStatusResponse) {
   const lineage=response.run.lineage as Record<string,any>|undefined;
   if(response.run.source_domain!=='recap'||response.run.campaign_id!==request.campaign_id
-    ||response.run.session_id!==`session-${request.session}`||response.run.profile_id!=='recap_category_v1@1.0'
+    ||response.run.session_id!==`session-${request.session}`||!['recap_category_v1@1.0','recap_category_v2@2.0','recap_category_encounter_job_preview@2.0'].includes(response.run.profile_id ?? '')
     ||lineage?.build_launch?.schema!=='dmb_build_recap_launch_v1'
+    ||response.run.profile_id!==`${lineage?.build_launch?.server_configuration?.profile_id}@${lineage?.build_launch?.server_configuration?.profile_version}`
     ||canonical(lineage?.build_launch?.request)!==canonical(request)
     ||lineage?.world_campaign_ingest_context?.managed_world_id!==request.managed_world_id) {
     throw new Error('The extraction does not match the saved Recap request and World.');

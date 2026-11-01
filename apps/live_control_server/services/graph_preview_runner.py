@@ -7,7 +7,6 @@ import hashlib
 import os
 import tempfile
 import uuid
-from dataclasses import asdict
 from pathlib import Path
 from typing import Any
 
@@ -19,7 +18,7 @@ from src.graph_memory.extraction.bounded_recap_execution import (
     RecapExecutionLimits,
 )
 
-from apps.live_control_server.config import artifact_data_root, managed_world_data_root
+from apps.live_control_server.config import artifact_data_root
 from apps.live_control_server.services.source_artifact_registry import (
     SourceArtifactRegistryError,
     load_registered_source_artifact_text,
@@ -34,7 +33,6 @@ from src.graph_memory.extraction.graph_preview_runner import (
 from src.graph_memory.extraction.recap_extraction_profile import (
     resolve_legacy_graph_extraction_profile,
 )
-from src.graph_memory.extraction.known_entity_registry import KnownEntity
 from src.graph_memory.extraction.source_adapter import NormalizedExtractionSource
 from src.graph_memory.extraction.worldbuilding_extraction_profile import (
     WORLDBUILDING_PROFILE_ID,
@@ -113,43 +111,6 @@ def _fail_recap_after_evidence_error(
     )
 
 
-def _recap_identity_snapshot(
-    campaign_id: str,
-    session_id: str,
-    extra_known_entities: tuple[KnownEntity, ...] | None,
-    *, corpus_root: Path,
-) -> dict[str, Any]:
-    from src.graph_memory.extraction.known_entity_registry import (
-        build_known_entity_registry,
-        extend_known_entity_registry,
-    )
-
-    session_number = int(session_id.removeprefix("session-"))
-    from src.graph_memory.party_context import build_party_context_for_campaign
-    party = build_party_context_for_campaign(campaign_id, session_number, corpus_root=corpus_root)
-    registry = build_known_entity_registry(campaign_id, session_number, corpus_root=corpus_root, party_ctx=party)
-    if extra_known_entities:
-        registry = extend_known_entity_registry(registry, extra_known_entities)
-    return {"party_context": asdict(party), "known_entity_registry": asdict(registry)}
-
-
-def _standing_corpus_root(root: Path, context: dict[str, Any]) -> Path:
-    # Managed source authority is independent of the extraction artifact store.
-    root = managed_world_data_root(root).resolve()
-    from apps.live_control_server.services.managed_world_graph_projection import resolve_managed_source_identity
-    binding = resolve_managed_source_identity(context["managed_world_id"], root=root)
-    if (binding.native_world_id, binding.binding_version) != (context["native_world_id"], context["binding_version"]):
-        raise SourceArtifactRegistryError("Managed World binding changed before extraction", status_code=409)
-    relative = Path(binding.source_root_relpath)
-    candidate = root / relative
-    resolved = candidate.resolve()
-    if relative.is_absolute() or not resolved.is_relative_to(root.resolve()) or not resolved.is_dir():
-        raise SourceArtifactRegistryError("Managed standing-context root is invalid", status_code=409)
-    if any(path.is_symlink() for path in [candidate, *candidate.parents] if path != root and path.is_relative_to(root)):
-        raise SourceArtifactRegistryError("Managed standing-context root redirects through a symlink", status_code=409)
-    return resolved
-
-
 def _source_scope_lineage(
     ingest_context: Any,
     *,
@@ -192,10 +153,12 @@ def run_recap_production_extraction(
     enable_edge_vocabulary_packet: bool = False,
     execution_limits: RecapExecutionLimits | None = None,
     ingest_context: Any | None = None,
-    extra_known_entities: tuple[KnownEntity, ...] | None = None,
     supplemental_evidence: dict | None = None,
     reserved_run: Any | None = None,
 ) -> ProductionExtractionResult:
+    profile_id, profile_version = resolve_legacy_graph_extraction_profile(profile)
+    from src.graph_memory.extraction.extraction_profile import get_extraction_profile
+    selected_profile = get_extraction_profile(profile_id, profile_version)
     repo_root = artifact_data_root(repo_root)
     native_world_id, frozen_context = _source_scope_lineage(
         ingest_context,
@@ -239,7 +202,12 @@ def run_recap_production_extraction(
             "registered Recap source does not match the selected World/campaign/session",
             status_code=409,
         )
-    standing_root = _standing_corpus_root(repo_root, frozen_context)
+    from apps.live_control_server.services.managed_world_graph_projection import resolve_managed_source_identity
+    binding = resolve_managed_source_identity(frozen_context["managed_world_id"])
+    if (binding.native_world_id, binding.binding_version) != (
+        frozen_context["native_world_id"], frozen_context["binding_version"],
+    ):
+        raise SourceArtifactRegistryError("Managed World binding changed before extraction", status_code=409)
 
     if output_dir is not None:
         output_dir = (
@@ -247,7 +215,6 @@ def run_recap_production_extraction(
         ).resolve()
         if not output_dir.is_relative_to(repo_root):
             raise ValueError("extraction output must be inside the artifact repository")
-    profile_id, profile_version = resolve_legacy_graph_extraction_profile(profile)
     default_ge = allow_llm and category_client is None and execution_limits is None
     if default_ge:
         if model_id not in (None, DEEPSEEK_MODEL):
@@ -255,12 +222,7 @@ def run_recap_production_extraction(
                 "ordinary recap extraction requires the configured DeepSeek GenerationEngine route"
             )
         model_id = DEEPSEEK_MODEL
-        from src.graph_memory.extraction.extraction_profile import (
-            get_extraction_profile,
-        )
-
-        selected_profile = get_extraction_profile(profile_id, profile_version)
-        # Each configured pass runs once; party fill may be skipped when absent.
+        # Each configured source extraction pass runs once.
         # This is an execution plan budget, not a provider authorization cap.
         pass_budget = (
             len(selected_profile.node_passes)
@@ -270,7 +232,6 @@ def run_recap_production_extraction(
                 and selected_profile.encounter_job_pass is not None
             )
             + 1  # relationship pass
-            + int(selected_profile.enable_party_claimed_fill)
             + int(selected_profile.edge_review_pass is not None)
         )
         execution_limits = RecapExecutionLimits(
@@ -314,19 +275,13 @@ def run_recap_production_extraction(
             "Extract only claims supported by the actual recap source; do not turn GM preferences or reflections into recap events.\n"+render_session_evidence(supplemental_evidence))
         supplement_lineage={"session_evidence":{"sha256":supplemental_evidence["sha256"],
             "sources":[{"run_id":item["run_id"],"review_revision":item["review_revision"],"sha256":item["sha256"],"citation_url":item["citation_url"]} for item in supplemental_evidence["sessions"]]}}
-    snapshot = _recap_identity_snapshot(campaign_id, session_id, extra_known_entities, corpus_root=standing_root)
-    identity_sha256 = hashlib.sha256(json.dumps(snapshot, sort_keys=True, separators=(",", ":")).encode()).hexdigest()
     if default_ge:
         private = output_dir / ".private"
         private.mkdir(mode=0o700,exist_ok=True)
-        _write_recap_private_json(private / "identity_context.json", snapshot)
         context_hashes = {
             "source_content": source.source_sha256,
             "source_identity": hashlib.sha256(
                 source.source_artifact_id.encode()
-            ).hexdigest(),
-            "settled_identity_context": hashlib.sha256(
-                json.dumps(snapshot, sort_keys=True, separators=(",", ":")).encode()
             ).hexdigest(),
             "profile_identity": hashlib.sha256(
                 f"{profile_id}@{profile_version}".encode()
@@ -354,9 +309,6 @@ def run_recap_production_extraction(
                 model_id=model_id,
                 allow_llm=allow_llm,
                 category_client=category_client,
-                extra_known_entities=extra_known_entities,
-                corpus_root=standing_root,
-                expected_standing_context_sha256=identity_sha256,
                 context_vocabulary_packet=context_vocabulary_packet,
                 enable_node_vocabulary_packet=enable_node_vocabulary_packet,
                 enable_edge_vocabulary_packet=enable_edge_vocabulary_packet,

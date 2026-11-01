@@ -61,7 +61,7 @@ class ExactRunCandidateProjection(ReadModel):
     run_id: str
     run_revision: int
     run_status: Literal["reviewable", "promoted"]
-    profile_id: Literal["recap_category_v1@1.0"]
+    profile_id: Literal["recap_category_v1@1.0", "recap_category_v2@2.0", "recap_category_encounter_job_preview@2.0"]
     source_domain: Literal["recap"] = "recap"
     source_artifact_id: str
     source_revision_id: str

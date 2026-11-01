@@ -33,8 +33,7 @@ from graph_memory.ingestion.extraction_run import (
     validate_extraction_run_lineage,
 )
 from src.graph_memory.extraction.recap_extraction_profile import (
-    RECAP_PROFILE_ID,
-    RECAP_PROFILE_VERSION,
+    RECAP_READ_PROFILE_IDS,
 )
 from graph_memory.candidate_graph_preview import NODE_TYPES
 
@@ -74,7 +73,7 @@ class RecapSemanticBasisV1(BaseModel):
     span_index_uri: str
     span_index_sha256: str
     profile_id: str
-    profile_version: Literal[RECAP_PROFILE_VERSION]
+    profile_version: Literal["1.0", "2.0"]
     campaign_id: str
     session_id: str
 
@@ -125,7 +124,7 @@ class RecapSemanticBasisV2(BaseModel):
     span_index_uri: str
     span_index_sha256: str
     profile_id: str
-    profile_version: Literal[RECAP_PROFILE_VERSION]
+    profile_version: Literal["1.0", "2.0"]
     campaign_id: str
     session_id: str
 
@@ -1192,8 +1191,8 @@ def _assert_recap_semantic_basis(
         or child.source_artifact_id != basis.source_artifact_id
         or child.profile_id != parent.profile_id
         or child.profile_id != basis.profile_id
-        or child.profile_id != f"{RECAP_PROFILE_ID}@{RECAP_PROFILE_VERSION}"
-        or basis.profile_version != RECAP_PROFILE_VERSION
+        or child.profile_id not in RECAP_READ_PROFILE_IDS
+        or basis.profile_version != child.profile_id.rsplit("@", 1)[1]
         or child.campaign_id != parent.campaign_id
         or child.campaign_id != basis.campaign_id
         or child.session_id != parent.session_id
