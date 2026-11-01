@@ -131,29 +131,41 @@ def validate_execution(receipt, execution):
 
 
 def selected_reads(turn):
-    return tuple((e, r) for e in turn.graph_context_execution.events
+    return selected_read_records(turn.graph_context_execution)
+
+
+def selected_read_records(execution):
+    return tuple((e, r) for e in execution.events
         if isinstance(e, NativePlanAssertionReadObservedV1) for r in e.reads)
 
 
 def model_frame(turn):
-    query = turn.graph_context_receipt.native_query
+    return model_frame_records(turn.graph_context_receipt.native_query, turn.graph_context_execution)
+
+
+def model_frame_records(query, execution):
+    """The caller supplies the admitted query and exact producing prefix."""
     return {'schema': 'dmb_plan_native_assertion_frame_v1',
         'authority': query.authority.model_dump(mode='json', by_alias=True),
-        'status': 'partial' if input_partial(turn) else 'complete',
+        'status': 'partial' if input_partial_records(query, execution) else 'complete',
         'gap_codes': list(query.gap_codes), 'universal_absence_claimed': False,
         'assertions': [{'assertion_handle': 'assertion:' + digest({'query': query.sha256,
             'read': str(event.event_id), 'assertion': read.assertion.assertion_id}),
             'assertion': read.assertion.model_dump(mode='json'),
             'evidence': [e.model_dump(mode='json') for e in read.evidence],
             'supporting_sources': [s.model_dump(exclude={'text'}) for s in read.spans]}
-            for event, read in selected_reads(turn)]}
+            for event, read in selected_read_records(execution)]}
 
 
 def input_partial(turn):
     query = getattr(turn.graph_context_receipt, 'native_query', None)
+    return input_partial_records(query, turn.graph_context_execution)
+
+
+def input_partial_records(query, execution):
     return isinstance(query, NativePlanQueryV2) and (query.status == 'partial' or any(
         isinstance(e, NativePlanAssertionReadObservedV1) and e.status == 'partial'
-        for e in turn.graph_context_execution.events))
+        for e in execution.events))
 
 
 def producing_reads(turn, authorization, raw):

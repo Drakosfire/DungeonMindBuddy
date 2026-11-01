@@ -438,6 +438,12 @@ def model_body_frame(turn):
         raise ValueError('Native body writer frame requires its source-capable Plan owner')
     from .plan_source_context import validate_source_execution_binding
     validate_source_execution_binding(receipt, execution)
+    return model_body_frame_records(receipt.source_authority, execution,
+        lambda read: body_selector(turn, read))
+
+
+def model_body_frame_records(source_authority, execution, selector):
+    """Expose only selected body extents; producing-prefix admission is caller-owned."""
     searches = [event for event in execution.events if isinstance(event, NativeBodySearchObservedV1)]
     search = searches[0] if searches else None
     catalogs = {catalog.catalog_sha256: catalog for catalog in search.catalogs} if search else {}
@@ -447,7 +453,7 @@ def model_body_frame(turn):
         catalog = catalogs.get(excerpt.catalog_sha256)
         if catalog is None:
             raise ValueError('Native body writer read lacks its exact observed catalog')
-        rows.append(dict(excerpt_handle=body_selector(turn, read), source_name=catalog.sections[0].label,
+        rows.append(dict(excerpt_handle=selector(read), source_name=catalog.sections[0].label,
             section_title=excerpt.section.label,
             extent_kind='full_document' if excerpt.selector_policy == 'native_full_document_v1' else 'section',
             line_start=excerpt.section.line_start, line_end=excerpt.section.line_end,
@@ -455,7 +461,7 @@ def model_body_frame(turn):
             text=excerpt.text))
     return dict(schema='dmb_native_body_writer_evidence_v1',
         scope='GM whole-World cross-campaign source inspection; not campaign fact publication',
-        source_authority_status='available' if isinstance(receipt.source_authority, NativeCorpusAuthorityV1) else 'unavailable',
+        source_authority_status='available' if isinstance(source_authority, NativeCorpusAuthorityV1) else 'unavailable',
         excerpts=rows, coverage=dict(search_performed=search is not None,
             accessible_source_count=len(catalogs) if search else None,
             unavailable_source_count=search.unavailable_source_count if search else None,

@@ -151,6 +151,32 @@ def strict_json(raw: str):
     )
 
 
+def responses_text_frame(raw, *, schemas, label):
+    body = strict_json(raw)
+    if (not isinstance(body, dict) or "messages" in body or not isinstance(body.get("input"), list)
+            or body.get("tools", []) != [] or body.get("tool_choice") not in (None, "none")):
+        raise ValueError(f"{label} requires a tool-free Responses request")
+    frames = []
+    for item in body["input"]:
+        if (not isinstance(item, dict) or set(item) - {"type", "role", "content"}
+                or item.get("type") not in (None, "message") or item.get("role") not in {"system", "developer", "user", "assistant"}):
+            raise ValueError(f"{label} request contains an unexpected transcript item")
+        content = item.get("content")
+        if not isinstance(content, str):
+            raise ValueError(f"{label} frame requires exact text messages")
+        if item["role"] != "user":
+            continue
+        try:
+            value = strict_json(content)
+        except (ValueError, TypeError):
+            continue
+        if isinstance(value, dict) and value.get("schema") in schemas:
+            frames.append(value)
+    if len(frames) != 1:
+        raise ValueError(f"{label} requires one exact evidence frame")
+    return frames[0]
+
+
 def normalize(raw: str, packet: dict) -> dict:
     from .reviewed_action import SCOPE_KEY
     if SCOPE_KEY in packet and (collaboration := strict_json(raw).get('collaboration')) is not None and (not isinstance(collaboration,dict) or collaboration.get('kind') != 'questions'):

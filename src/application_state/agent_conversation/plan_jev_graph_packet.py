@@ -311,29 +311,8 @@ def project(turn, proof, trace):
 
 
 def frame_in_request(raw):
-    body = strict_json(raw)
-    if (not isinstance(body, dict) or "messages" in body or not isinstance(body.get("input"), list)
-            or body.get("tools", []) != [] or body.get("tool_choice") not in (None, "none")):
-        raise ValueError("Plan writer requires a tool-free Responses request")
-    frames = []
-    for item in body["input"]:
-        if (not isinstance(item, dict) or set(item) - {"type", "role", "content"}
-                or item.get("type") not in (None, "message") or item.get("role") not in {"system", "developer", "user", "assistant"}):
-            raise ValueError("Plan writer request contains an unexpected transcript item")
-        content = item.get("content")
-        if not isinstance(content, str):
-            raise ValueError("Plan writer frame requires exact text messages")
-        if item["role"] != "user":
-            continue
-        try:
-            value = strict_json(content)
-        except (ValueError, TypeError):
-            continue
-        if isinstance(value, dict) and value.get("schema") in {SCHEMA,"dmb_plan_jev_writer_frame_v8","dmb_plan_jev_writer_frame_v7","dmb_plan_jev_writer_frame_v6","dmb_plan_jev_writer_frame_v4","dmb_plan_jev_writer_frame_v3","dmb_plan_jev_writer_frame_v2","dmb_plan_jev_writer_frame_v1"}:
-            frames.append(value)
-    if len(frames) != 1:
-        raise ValueError("Plan writer requires one exact evidence frame")
-    return frames[0]
+    from .source_writer_output import responses_text_frame
+    return responses_text_frame(raw, schemas={SCHEMA,"dmb_plan_jev_writer_frame_v8","dmb_plan_jev_writer_frame_v7","dmb_plan_jev_writer_frame_v6","dmb_plan_jev_writer_frame_v4","dmb_plan_jev_writer_frame_v3","dmb_plan_jev_writer_frame_v2","dmb_plan_jev_writer_frame_v1"}, label="Plan writer")
 
 
 def verify_writer_input(turn, authorization, raw, proof, trace):

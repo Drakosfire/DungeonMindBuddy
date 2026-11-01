@@ -234,8 +234,7 @@ def selected_reads(turn):
     from . import types as t
     if not isinstance(turn.graph_context_receipt, t.PlanNativeContextReceiptV1):
         return ()
-    return tuple((event, read) for event in turn.graph_context_execution.events
-        if isinstance(event, NativePlanStatementReadObservedV1) for read in event.reads)
+    return selected_read_records(turn.graph_context_execution)
 
 
 def model_frame(turn):
@@ -243,11 +242,20 @@ def model_frame(turn):
     receipt = turn.graph_context_receipt
     if not isinstance(receipt, t.PlanNativeContextReceiptV1):
         raise ValueError('Native statement frame requires its Plan owner')
-    query = receipt.native_query
-    rows = selected_reads(turn)
+    return model_frame_records(receipt.native_query, turn.graph_context_execution)
+
+
+def selected_read_records(execution):
+    return tuple((event, read) for event in execution.events
+        if isinstance(event, NativePlanStatementReadObservedV1) for read in event.reads)
+
+
+def model_frame_records(query, execution):
+    """Materialize admitted records; the caller owns the exact producing prefix."""
+    rows = selected_read_records(execution)
     partial = isinstance(query, NativePlanQueryV1) and query.status == 'partial' or any(
         isinstance(e, NativePlanStatementReadObservedV1) and e.status == 'partial'
-        for e in turn.graph_context_execution.events)
+        for e in execution.events)
     return {'schema': 'dmb_plan_native_statement_frame_v1',
         'authority': query.authority.model_dump(mode='json', by_alias=True) if isinstance(query, NativePlanQueryV1) else None,
         'status': 'unavailable' if not isinstance(query, NativePlanQueryV1) else 'partial' if partial else 'complete',
