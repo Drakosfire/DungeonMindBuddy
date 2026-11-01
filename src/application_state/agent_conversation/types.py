@@ -4749,6 +4749,66 @@ GraphExecutionEventV3 = Annotated[
 ]
 
 
+def validate_controller_writer_execution(execution, *, reviewed_action=None) -> None:
+    """Shared role ordering; reviewed work authority remains with its owner.
+
+    The work validator supplies an actual stored reviewed event only after its
+    capability/operation binding is validated. This accepts no writer-first flag.
+    Full Turn admission and writer reservation still require the owning checks.
+    """
+    roles = execution.policy.provider_roles
+    if reviewed_action is not None and (
+            not isinstance(reviewed_action, BuildReviewedActionSelectionV1)
+            or not any(event is reviewed_action for event in execution.events)):
+        raise ValueError("Reviewed writer requires its actual retained action event")
+    acquisition_events = (
+        RelatedPagesSelection, RelatedPageRead,
+        ValidatedGraphOperationEventV1, SourceScopeExtensionEventV3,
+        CorpusSourceSearchAuthorizedV1, CorpusSourceSearchObservedV1,
+        NativeSourceNavigationAuthorizedV1, NativeSourceCatalogObservedV1,
+        NativeSourceSectionAuthorizedV1, NativeSourceSectionObservedV1,
+        SourceReadAuthorizationEventV2, ValidatedSourceReadEventV2, SourcePassageReuseEventV1,
+        RelatedRecapContextAuthorizationEventV2, ValidatedRelatedRecapContextEventV2,
+        BuildSectionReadAuthorizationV1, ValidatedBuildSectionReadV1,
+    )
+    latest_attempt = latest_outcome = writer_attempt = writer_selection = None
+    for event in execution.events:
+        if isinstance(event, BuildWriterEvidenceSelectionV1):
+            writer_selection = event
+        elif isinstance(event, ProviderAttemptAuthorizedEventV1):
+            identity = (event.provider, event.model, event.api_mode)
+            if identity == roles.controller.identity():
+                if writer_selection is not None:
+                    raise ValueError("controller cannot resume after writer evidence selection")
+                if writer_attempt is not None:
+                    raise ValueError("controller cannot resume after writer authorization")
+            elif identity == roles.writer.identity():
+                if latest_attempt is None and not (
+                        reviewed_action is not None
+                        and reviewed_action.operation == "propose_build_insertion"
+                        and reviewed_action.sequence < event.sequence):
+                    raise ValueError("first provider authorization must be controller")
+                if writer_attempt is not None:
+                    raise ValueError("only one writer authorization is permitted")
+                writer_attempt = event.provider_attempt_id
+            else:
+                raise ValueError("provider identity is outside the frozen controller/writer roles")
+            latest_attempt, latest_outcome = event.provider_attempt_id, None
+        elif isinstance(event, ProviderOutcomeEventV1):
+            if event.provider_attempt_id == latest_attempt:
+                latest_outcome = event.outcome
+        elif isinstance(event, acquisition_events):
+            if writer_selection is not None:
+                raise ValueError("acquisition cannot continue after writer evidence selection")
+            if writer_attempt is not None:
+                raise ValueError("acquisition cannot continue after writer authorization")
+            if latest_attempt is not None and latest_outcome not in {"response_received", "known_not_sent"}:
+                raise ValueError("acquisition requires a resolved controller attempt")
+        elif isinstance(event, CompletionBindingEventV1):
+            if writer_attempt is None or event.provider_attempt_id != writer_attempt:
+                raise ValueError("completion must bind the authorized writer attempt")
+
+
 class PlanWorldGraphExecutionV3(PlanWorldGraphExecutionV2):
     _dynamic_source_scope: ClassVar[bool] = True
     schema_: Literal["dmb_agent_plan_world_graph_execution_v3"] = Field(
@@ -4779,18 +4839,8 @@ class PlanWorldGraphExecutionV3(PlanWorldGraphExecutionV2):
         action_selection = None
         writer_selection = None
         authorized_by_id = {}
-        acquisition_events = (
-            RelatedPagesSelection, RelatedPageRead,
-            ValidatedGraphOperationEventV1, SourceScopeExtensionEventV3, CorpusSourceSearchAuthorizedV1, CorpusSourceSearchObservedV1, NativeSourceNavigationAuthorizedV1, NativeSourceCatalogObservedV1,
-            NativeSourceSectionAuthorizedV1, NativeSourceSectionObservedV1,
-            SourceReadAuthorizationEventV2, ValidatedSourceReadEventV2, SourcePassageReuseEventV1,
-            RelatedRecapContextAuthorizationEventV2, ValidatedRelatedRecapContextEventV2,
-            BuildSectionReadAuthorizationV1, ValidatedBuildSectionReadV1,
-        )
         section_auths, section_reads = {}, set()
         for event in self.events:
-            if writer_selection is not None and isinstance(event, acquisition_events):
-                raise ValueError("acquisition cannot continue after writer evidence selection")
             if isinstance(event, BuildSectionReadAuthorizationV1):
                 if (latest_attempt is None or latest_outcome != "response_received"
                         or event.read_id in section_auths
@@ -4852,12 +4902,7 @@ class PlanWorldGraphExecutionV3(PlanWorldGraphExecutionV2):
             if isinstance(event, ProviderAttemptAuthorizedEventV1):
                 authorized_by_id[event.provider_attempt_id] = event
                 identity = (event.provider, event.model, event.api_mode)
-                if identity == roles.controller.identity():
-                    if writer_selection is not None:
-                        raise ValueError("controller cannot resume after writer evidence selection")
-                    if writer_attempt is not None:
-                        raise ValueError("controller cannot resume after writer authorization")
-                elif identity == roles.writer.identity():
+                if identity == roles.writer.identity():
                     if (isinstance(self.policy, BuildSelectedSourceActionControllerWriterPolicyV1)
                         and (action_selection is None or action_selection.operation == "answer_from_sources")):
                         if writer_selection is None:
@@ -4876,26 +4921,14 @@ class PlanWorldGraphExecutionV3(PlanWorldGraphExecutionV2):
                             raise ValueError("Source writer saved sections differ from selected closure")
                     if isinstance(self.policy, BuildActionControllerWriterPolicyV1) and action_selection is None:
                         raise ValueError("Build writer requires a recorded controller-selected operation")
-                    if latest_attempt is None and not (isinstance(action_selection, BuildReviewedActionSelectionV1) and action_selection.operation == "propose_build_insertion"):
-                        raise ValueError("first provider authorization must be controller")
-                    if writer_attempt is not None:
-                        raise ValueError("only one writer authorization is permitted")
                     writer_attempt = event.provider_attempt_id
-                else:
-                    raise ValueError("provider identity is outside the frozen controller/writer roles")
                 latest_attempt = event.provider_attempt_id
                 latest_outcome = None
             elif isinstance(event, ProviderOutcomeEventV1):
                 if event.provider_attempt_id == latest_attempt:
                     latest_outcome = event.outcome
-            elif isinstance(event, acquisition_events):
-                if writer_attempt is not None:
-                    raise ValueError("acquisition cannot continue after writer authorization")
-                if latest_attempt is not None and latest_outcome not in {"response_received", "known_not_sent"}:
-                    raise ValueError("acquisition requires a resolved controller attempt")
-            elif isinstance(event, CompletionBindingEventV1):
-                if writer_attempt is None or event.provider_attempt_id != writer_attempt:
-                    raise ValueError("completion must bind the authorized writer attempt")
+        validate_controller_writer_execution(self, reviewed_action=(
+            action_selection if isinstance(action_selection, BuildReviewedActionSelectionV1) else None))
         validate_build_section_inclusions(self)
         from .plan_jev_decision import validate_decision_phases
         validate_decision_phases(self)

@@ -346,3 +346,56 @@ def test_provider_lifecycle_preserves_fail_closed_checks_on_native_records(chang
         ledger.events[1] = ledger.events[1].model_copy(update={"input_estimator": "unapproved"})
     with pytest.raises(ValueError):
         t.validate_provider_execution(ledger)
+
+
+def controller_writer_ledger():
+    """Shared role ordering only; native read and output proof have other owners."""
+    ledger = provider_ledger()
+    writer = ledger.events[1].model_copy(update={"sequence": 3, "native_assertion_read_event_ids": []})
+    controller_wire = writer.model_dump(exclude={"frame_sha256", "native_statement_read_event_ids",
+        "native_assertion_read_event_ids", "included_source_reuse_event_ids"})
+    controller_wire.update(kind="plan_jev_provider_authorized_v1", event_id=uuid4(), sequence=0,
+        provider_attempt_id=uuid4(), provider="typesafe", model="jev-1.14.0", api_mode="decision",
+        decision_request_id=uuid4(), parent_request_sha256="a" * 64)
+    controller = t.PlanJevProviderAuthorizedV1.model_validate(controller_wire)
+    def outcome(event, sequence, value):
+        return t.ProviderOutcomeEventV1(kind="provider_outcome", event_id=uuid4(), sequence=sequence,
+            provider_attempt_id=event.provider_attempt_id, outcome=value)
+    ledger.policy.provider_roles = t.GraphControllerWriterRolesV1(
+        controller=t.GraphProviderRoleTargetV1(provider="typesafe", model="jev-1.14.0", api_mode="decision"),
+        writer=t.GraphProviderRoleTargetV1(provider=writer.provider, model=writer.model, api_mode=writer.api_mode))
+    ledger.policy.max_provider_attempts = 2
+    ledger.policy.max_total_provider_input_tokens = 24
+    ledger.policy.max_total_provider_output_tokens = 20
+    ledger.events = [controller, outcome(controller, 1, "sdk_entered"), outcome(controller, 2, "response_received"),
+        writer, outcome(writer, 4, "sdk_entered"), outcome(writer, 5, "response_received"),
+        ledger.events[-1].model_copy(update={"sequence": 6})]
+    return ledger
+
+
+def test_shared_role_ordering_uses_existing_native_records_without_classic_policy():
+    ledger = controller_writer_ledger()
+    t.validate_provider_execution(ledger)
+    t.validate_controller_writer_execution(ledger)
+
+
+@pytest.mark.parametrize("change", ["writer_first", "controller_after_writer", "second_writer",
+                                     "completion_controller", "foreign_provider", "review_flag"])
+def test_shared_role_ordering_keeps_one_writer_and_owner_review_boundaries(change):
+    ledger = controller_writer_ledger()
+    reviewed = None
+    if change == "writer_first":
+        ledger.events = ledger.events[3:]
+    if change == "controller_after_writer":
+        ledger.events.insert(-1, ledger.events[0].model_copy(update={"provider_attempt_id": uuid4()}))
+    if change == "second_writer":
+        ledger.events.insert(-1, ledger.events[3].model_copy(update={"provider_attempt_id": uuid4()}))
+    if change == "completion_controller":
+        ledger.events[-1] = ledger.events[-1].model_copy(update={
+            "provider_attempt_id": ledger.events[0].provider_attempt_id})
+    if change == "foreign_provider":
+        ledger.events[0] = ledger.events[0].model_copy(update={"model": "unoffered-model"})
+    if change == "review_flag":
+        reviewed = True
+    with pytest.raises(ValueError):
+        t.validate_controller_writer_execution(ledger, reviewed_action=reviewed)
