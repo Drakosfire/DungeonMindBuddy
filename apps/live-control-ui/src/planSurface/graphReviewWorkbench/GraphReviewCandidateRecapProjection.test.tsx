@@ -3,6 +3,7 @@ import { afterEach, expect, it, vi } from 'vitest';
 import type { ExactRunCandidateProjection } from '../../api/exactRunCandidateProjectionApi';
 import { GraphReviewCandidateRecapProjection, inertUnknownCandidateLinks } from './GraphReviewCandidateRecapProjection';
 import * as live from '../../api/liveApi';
+import * as nativeReview from '../../api/recapNativeReviewApi';
 import { GraphNodeChipRuntimeProvider } from '../../graphReference/GraphNodeChipRuntime';
 import { GraphNodeHoverToken } from '../../graphReference/GraphNodeHoverToken';
 import { presentationForNodeId } from '../../graphReference/presentation';
@@ -105,4 +106,17 @@ it("does not restore recognized normalization metadata already removed by the pr
   expect(document.querySelector(".union-supergraph-tiptap-reader")?.textContent).not.toContain("normalization_schema");
   expect(screen.getByRole("heading", { name: "Recap" })).toBeInTheDocument();
   expect(document.querySelector('details[aria-label="Candidate reader advanced details"] pre')?.textContent).toBe(p.sourceMarkdown);
+});
+
+it("explicitly compares the actual selected candidate ID through the mounted inspector", async () => {
+  const compare = vi.spyOn(nativeReview, "getRecapNativeReview").mockResolvedValue({ source_revision_id: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa", native_context: {
+    revision_id: "rev:current", source_authority_epoch: 23, source_admission: { state: "not_found" }, source_evidence: [],
+    domain_contract_ref: { domain_id: "world", domain_revision: "2", descriptor_sha256: "a".repeat(64) }, semantic_profile_ref: { profile_id: "game", profile_revision: "1", descriptor_sha256: "b".repeat(64) },
+    selections: [{ candidate_node_id: "threat:loc_3", status: "absent", search_is_advisory: true, alternatives: [] }],
+  } });
+  const p = fixture(); render(<GraphReviewCandidateRecapProjection projection={p}/>);
+  fireEvent.click(await screen.findByRole("button", { name: "Mara", exact: true })); expect(compare).not.toHaveBeenCalled();
+  fireEvent.click(screen.getByRole("button", { name: "Compare with World", exact: true }));
+  expect(await screen.findByText(/not available for comparison yet/)).toBeInTheDocument();
+  expect(compare).toHaveBeenCalledExactlyOnceWith(p, "threat:loc_3", expect.any(AbortSignal));
 });

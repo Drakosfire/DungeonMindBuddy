@@ -196,6 +196,7 @@ describe("protected read acquisition",()=>{
   await waitFor(()=>expect(fetch).toHaveBeenCalledTimes(7));gate.resolve(Response.json({}));await Promise.all(reads);
  });
  it.each([
+  "/api/live/extract-promote/runs/run-a/selection-context",
   "/api/live/world-graph/retrieval/complete-object",
   "/api/live/world-graph/retrieval/source-anchor/read",
   "/api/live/world-graph/retrieval/recap-context/v2/read",
@@ -293,10 +294,10 @@ describe("protected read acquisition",()=>{
   fetch.mockResolvedValueOnce(Response.json({revision:"first"}));const request={worldId:"native",campaignId:"",focus:{kind:"none",sessionId:null},admissibility:"gm"} as never;
   expect(await api.postWorldGraphProjection(request)).toEqual({revision:"first"});api.setNativeGraphAccessToken("third-bearer");fetch.mockResolvedValueOnce(Response.json({revision:"second"}));expect(await api.postWorldGraphProjection(request)).toEqual({revision:"second"});
  });
- it("fences credential rotation while a successful evidence body is streaming",async()=>{
+ it.each(["/api/live/world-session-evidence?world_id=elderwyld", "/api/live/extract-promote/runs/run-a/selection-context"])("fences credential rotation while a successful body is streaming at %s",async(path)=>{
   api.setNativeGraphAccessToken("before-body");let stream!:ReadableStreamDefaultController<Uint8Array>;
   vi.spyOn(globalThis,"fetch").mockResolvedValue(new Response(new ReadableStream<Uint8Array>({start(controller){stream=controller;}})));
-  const {response}=await api.authenticatedApiFetch("/api/live/world-session-evidence?world_id=elderwyld");
+  const {response}=await api.authenticatedApiFetch(path, path.endsWith("selection-context") ? {method:"POST",body:JSON.stringify({expected_world_id:"elderwyld",inspect_source_support:true})} : undefined);
   const body=response.json().then(()=>"accepted",error=>error.code);api.setNativeGraphAccessToken("after-body");
   stream.enqueue(new TextEncoder().encode('{"sources":[]}'));stream.close();expect(await body).toBe("local_graph_session_changed");
  });
