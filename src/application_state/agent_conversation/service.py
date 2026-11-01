@@ -1860,36 +1860,22 @@ class AgentConversationService:
             expected_revision=expected_revision, expected_attempt=expected_attempt,
             event=None, duplicate_key="event_id", native_source_materializer=produce)
 
-    def authorize_native_plan_assertion_read(self, world_id, conversation_id, turn_id, *,
-            expected_revision, expected_attempt, event_id, assertion_ids):
-        from .native_plan_assertions import authorize_read
-        return self._append_native_body_materialization(world_id, conversation_id, turn_id,
-            expected_revision=expected_revision, expected_attempt=expected_attempt,
-            materialize=lambda turn: authorize_read(turn, event_id=event_id, assertion_ids=assertion_ids))
-
-    def observe_native_plan_assertion_read(self, world_id, conversation_id, turn_id, *,
-            expected_revision, expected_attempt, event_id, authorization_event_id, reads, unavailable_assertion_ids):
-        from .native_plan_assertions import observe_read
-        return self._append_native_body_materialization(world_id, conversation_id, turn_id,
-            expected_revision=expected_revision, expected_attempt=expected_attempt,
-            materialize=lambda turn: observe_read(turn, event_id=event_id, authorization_event_id=authorization_event_id,
-                reads=reads, unavailable_assertion_ids=unavailable_assertion_ids))
-
-    def authorize_native_plan_statement_read(self, world_id, conversation_id, turn_id, *,
-            expected_revision, expected_attempt, event_id, statement_ids):
+    def authorize_native_read(self, world_id, conversation_id, turn_id, *,
+            expected_revision, expected_attempt, event_id, record_kind, record_ids):
         from .native_plan_statements import authorize_read
         return self._append_native_body_materialization(world_id, conversation_id, turn_id,
             expected_revision=expected_revision, expected_attempt=expected_attempt,
-            materialize=lambda turn: authorize_read(turn, event_id=event_id, statement_ids=statement_ids))
+            materialize=lambda turn: authorize_read(turn, event_id=event_id,
+                record_kind=record_kind, record_ids=record_ids))
 
-    def observe_native_plan_statement_read(self, world_id, conversation_id, turn_id, *,
-            expected_revision, expected_attempt, event_id, authorization_event_id, reads, unavailable_statement_ids):
+    def observe_native_read(self, world_id, conversation_id, turn_id, *,
+            expected_revision, expected_attempt, event_id, authorization_event_id, reads, unavailable_ids):
         from .native_plan_statements import observe_read
         return self._append_native_body_materialization(world_id, conversation_id, turn_id,
             expected_revision=expected_revision, expected_attempt=expected_attempt,
             materialize=lambda turn: observe_read(turn, event_id=event_id,
                 authorization_event_id=authorization_event_id, reads=reads,
-                unavailable_statement_ids=unavailable_statement_ids))
+                unavailable_ids=unavailable_ids))
 
     def authorize_native_body_search(self, world_id, conversation_id, turn_id, *,
             expected_revision, expected_attempt, event_id):

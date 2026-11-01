@@ -130,29 +130,6 @@ def validate_execution(receipt, execution):
     validate_selected_reads(receipt, execution)
 
 
-def authorize_read(turn, *, event_id, assertion_ids):
-    from .plan_jev_decision import _owner, current_selection
-    receipt, execution = _owner(turn)
-    if not isinstance(receipt.native_query, NativePlanQueryV2):
-        raise ValueError('Native assertion query is unavailable')
-    event = NativePlanAssertionReadAuthorizedV1(event_id=event_id, sequence=len(execution.events),
-        provider_attempt_id=current_selection(turn).controller_attempt_id,
-        query_sha256=receipt.native_query.sha256, assertion_ids=tuple(assertion_ids))
-    validate_execution(receipt, execution.model_copy(update={'events': [*execution.events, event]}))
-    return event
-
-
-def observe_read(turn, *, event_id, authorization_event_id, reads, unavailable_assertion_ids):
-    from .plan_jev_decision import _owner
-    receipt, execution = _owner(turn)
-    event = NativePlanAssertionReadObservedV1(event_id=event_id, sequence=len(execution.events),
-        authorization_event_id=authorization_event_id, reads=tuple(reads),
-        unavailable_assertion_ids=tuple(unavailable_assertion_ids),
-        status='partial' if unavailable_assertion_ids else 'complete')
-    validate_execution(receipt, execution.model_copy(update={'events': [*execution.events, event]}))
-    return event
-
-
 def selected_reads(turn):
     return tuple((e, r) for e in turn.graph_context_execution.events
         if isinstance(e, NativePlanAssertionReadObservedV1) for r in e.reads)

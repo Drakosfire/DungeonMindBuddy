@@ -10,6 +10,7 @@ import pytest
 
 from tests.test_source_statements import make_lane, GM, BODY, wk, transport, NOW
 from tests.test_native_plan_statements import bound
+from tests.application_state.test_native_plan_statements import native_read_admission_probes as native_read_admission_probes
 from graph_memory.vnext.domain_runtime import dungeonbuddy_world_domain_contract, dungeonbuddy_dnd5e_custom_predicate_profile
 from apps.live_control_server.services.native_plan_statements import prepare_query
 from apps.live_control_server.services.native_plan_assertions import read_selected
@@ -122,7 +123,7 @@ def test_context_only_evidence_is_not_support(application_state_dsn, tmp_path, m
     (False,False,None),(True,False,None),(False,True,None),
     (False,False,'original'),(False,False,'extension')])
 def test_fresh_ordinary_plan_native_question_delivers_reloads_and_opens_exact_source(
-        lane, tmp_path, monkeypatch, qualified, unavailable, advancement):
+        lane, tmp_path, monkeypatch, qualified, unavailable, advancement, native_read_admission_probes):
     import httpx2
     from hashlib import sha256
     from fastapi import FastAPI
@@ -235,6 +236,7 @@ def test_fresh_ordinary_plan_native_question_delivers_reloads_and_opens_exact_so
     response=client.post('/api/live/agent/turn',json=request.model_dump(mode='json',by_alias=True))
     assert response.status_code==200,response.text+getattr(wire,'failure','')
     assert opened_with_grant
+    assert native_read_admission_probes
     data=response.json()
     completion=data['plan_context']['completion']
     assert completion['schema']=='dmb_surface_evidence_completion_v7'

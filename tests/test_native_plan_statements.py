@@ -3,6 +3,7 @@ from dataclasses import replace
 from types import SimpleNamespace
 from uuid import uuid4
 import pytest
+from tests.application_state.test_native_plan_statements import native_read_admission_probes as native_read_admission_probes
 from tests.test_source_statements import lane, commit, advance, GM, BODY
 from apps.live_control_server.services.native_plan_statements import prepare_query, read_selected
 from application_state.agent_conversation.native_plan_statements import NativePlanStatementReadAuthorizedV1
@@ -126,7 +127,7 @@ def test_query_does_not_open_clauses_before_selected_read(lane, monkeypatch):
 
 
 @pytest.mark.parametrize('whole_clause,unavailable_read', [(False, False), (True, False), (False, True)])
-def test_historical_native_http_retry_preserves_reader_support_and_citations(lane, application_state_dsn, monkeypatch, tmp_path, whole_clause, unavailable_read):
+def test_historical_native_http_retry_preserves_reader_support_and_citations(lane, application_state_dsn, monkeypatch, tmp_path, whole_clause, unavailable_read, native_read_admission_probes):
     import json
     import httpx2
     from hashlib import sha256
@@ -267,6 +268,7 @@ def test_historical_native_http_retry_preserves_reader_support_and_citations(lan
     client = TestClient(app, client=('127.0.0.1', 42000), headers={'Authorization': 'Bearer ' + token})
     response = client.post('/api/live/agent/turn', json=request.model_dump(mode='json', by_alias=True))
     assert response.status_code == (503 if whole_clause else 200), response.text + getattr(wire, 'failure', '')
+    assert native_read_admission_probes
     assert len(examined_inputs) == 1
     assert examined_inputs[0]['label'].startswith('About B [')
     assert (': unavailable;' if unavailable_read else ': opened;') in examined_inputs[0]['kind']

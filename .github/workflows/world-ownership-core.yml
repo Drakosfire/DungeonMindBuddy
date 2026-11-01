@@ -184,6 +184,9 @@ jobs:
           tests/test_hermes_graph_agent.py
           tests/test_live_query_hermes_graph.py
           tests/test_pydantic_ai_agent_runtime.py
+          tests/application_state/test_native_plan_statements.py
+          tests/test_native_plan_statements.py
+          tests/test_native_plan_assertions.py
 
       - name: Run saved-page owner and semantic-reader tests
         if: matrix.suite == 'saved-page-readers'
