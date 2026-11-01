@@ -64,6 +64,8 @@ jobs:
           src/application_state/content/repository.py
           src/application_state/content/service.py
           src/application_state/source/service.py
+          src/graph_memory/ingestion/native_recap_source.py
+          tests/test_native_recap_source_identity.py
           src/application_state/source/repository.py
           src/application_state/agent_conversation/native_source_catalog.py
           tests/test_source_input_metadata_database.py
@@ -120,6 +122,8 @@ jobs:
           tests/test_reviewed_native_graph_activation.py
           tests/test_native_ingest_review_context.py
           tests/test_source_input_metadata_database.py
+          tests/test_native_recap_source_identity.py
+          tests/test_native_recap_source_admission.py::test_native_admission_identity_is_stable_across_record_version
           tests/application_state/test_source_content_postgres.py
           tests/application_state/test_native_source_catalog_postgres.py::test_authorize_materialize_reload_exact_replay_without_another_read
           tests/application_state/test_native_source_catalog_postgres.py::test_foreign_source_metadata_denies_before_body_query
