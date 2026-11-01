@@ -70,7 +70,7 @@ it.each(["resolve", "reject"] as const)("preserves a raw draft when a source rep
     mount();
     const input = await screen.findByLabelText("Write or paste a recap");
     fireEvent.change(input, { target: { value: "My unfinished draft" } });
-    fireEvent.change(screen.getByLabelText("Session title"), { target: { value: "Campfire return" } });
+    fireEvent.change(screen.getByLabelText("Draft title (optional)"), { target: { value: "Campfire return" } });
     await open("run-a");
     await waitFor(() => expect(savedApi.getSavedRecapSource).toHaveBeenCalled());
     await userEvent.click(screen.getByRole("button", { name: "Return to draft" }));
@@ -132,7 +132,7 @@ it("starts a new recap from saved work without reprocessing or deleting another 
     expect(await screen.findByText("Source for run-a.")).toBeInTheDocument();
     await userEvent.click(screen.getByRole("button", { name: "New recap" }));
     expect(await screen.findByLabelText("Write or paste a recap")).toHaveValue("");
-    expect(screen.getByLabelText("Session title")).toHaveValue("");
+    expect(screen.getByLabelText("Draft title (optional)")).toHaveValue("");
     expect(new URLSearchParams(window.location.search).has("view")).toBe(false);
     expect(JSON.parse(window.localStorage.getItem("dmb.ingestion.longmont-c1.session.9")!).rawText).toBe("Unfinished ninth session");
     expect(vi.mocked(rawApi.postRecapIngest).mock.calls.every(([request]) => request.operation === "inspect_status")).toBe(true);
@@ -192,7 +192,7 @@ it("preserves a matching local draft across a cold saved-source route and reload
     expect(JSON.parse(window.localStorage.getItem(key)!).rawText).toBe("Cold retained draft");
     await userEvent.click(screen.getByRole("button", { name: "Return to draft" }));
     expect(await screen.findByLabelText("Write or paste a recap")).toHaveValue("Cold retained draft");
-    expect(screen.getByLabelText("Session title")).toHaveValue("Cold draft title");
+    expect(screen.getByLabelText("Draft title (optional)")).toHaveValue("Cold draft title");
 });
 
 it("cannot revive a pending catalog after access is revoked", async () => {

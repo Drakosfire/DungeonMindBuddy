@@ -90,14 +90,18 @@ def test_session_evidence_index_stays_small_for_large_private_notes(application_
 
 def test_recap_supplement_is_authorized_and_resolved_before_source_write(application_state_dsn,api,monkeypatch):
     from apps.live_control_server.routes import recap_ingest
+    monkeypatch.setenv('DMB_DEPLOYMENT_ENVIRONMENT','local')
+    monkeypatch.setenv('DMB_AUTH_MODE','local_operator')
     run_id=ended_session();packet=read_session_evidence(world_id=WORLD,run_id=run_id,revision=1)
     ref={key:packet[key] for key in ('run_id','review_revision','sha256')};seen=[]
-    monkeypatch.setattr(recap_ingest,'_generate_recap_memory_from_request',lambda body,corpus:(seen.append(body) or {'raw':body.raw_text,'supplement':body._resolved_session_evidence}))
+    monkeypatch.setattr(recap_ingest,'_request_recap_context',lambda body:None)
+    monkeypatch.setattr(recap_ingest,'extract_recap',lambda **kw:(seen.append(kw) or {'status':'candidate_validation_ready','extraction_run_id':'fixture-attempt'}))
     incoming=Request({'type':'http','method':'POST','path':'/api/live/recap-ingest','headers':[(b'authorization',b'Bearer synthetic-edition-operator-token-000000')],'client':('127.0.0.1',45000)})
     body=recap_ingest.RecapIngestRequest(operation='generate_recap_memory',campaign_id='c2',managed_world_id=WORLD,session=30,raw_text='External author recap remains exact.',session_evidence=[ref])
     result=recap_ingest.post_recap_ingest(body,incoming)
-    assert result['raw']=='External author recap remains exact.'
-    assert result['supplement']['sessions']==[packet]
+    assert result['ingest_report']['graph_preview']['extraction_run_id']=='fixture-attempt'
+    assert seen[0]['recap_text']=='External author recap remains exact.'
+    assert seen[0]['supplemental_evidence']['sessions']==[packet]
     assert len(seen)==1
     foreign=body.model_copy(update={'managed_world_id':'other'})
     with pytest.raises(HTTPException) as caught:recap_ingest.post_recap_ingest(foreign,incoming)
@@ -185,6 +189,8 @@ def test_session_evidence_completion_persists_at_actual_database_boundary(applic
 
 @pytest.mark.usefixtures("api")
 def test_recap_pinned_owner_unavailability_has_an_accurate_http_failure(application_state_dsn, monkeypatch):
+    monkeypatch.setenv('DMB_DEPLOYMENT_ENVIRONMENT','local')
+    monkeypatch.setenv('DMB_AUTH_MODE','local_operator')
     from application_state.errors import ApplicationStateUnavailableError
     from apps.live_control_server.routes import recap_ingest
 
@@ -192,10 +198,11 @@ def test_recap_pinned_owner_unavailability_has_an_accurate_http_failure(applicat
     packet = read_session_evidence(world_id=WORLD, run_id=run_id, revision=1)
     ref = {key: packet[key] for key in ('run_id', 'review_revision', 'sha256')}
 
-    def unavailable(*args):
+    def unavailable(*args, **kwargs):
         raise ApplicationStateUnavailableError('Pinned session supplement could not be reopened.')
 
-    monkeypatch.setattr(recap_ingest, '_generate_recap_memory_from_request', unavailable)
+    monkeypatch.setattr(recap_ingest, '_request_recap_context', lambda body: None)
+    monkeypatch.setattr(recap_ingest, 'extract_recap', unavailable)
     incoming = Request({
         'type': 'http', 'method': 'POST', 'path': '/api/live/recap-ingest',
         'headers': [(b'authorization', b'Bearer synthetic-edition-operator-token-000000')],
@@ -208,4 +215,4 @@ def test_recap_pinned_owner_unavailability_has_an_accurate_http_failure(applicat
     with pytest.raises(HTTPException) as caught:
         recap_ingest.post_recap_ingest(body, incoming)
     assert caught.value.status_code == 503
-    assert caught.value.detail == 'Pinned session supplement could not be reopened.'
+    assert caught.value.detail['message'] == 'Pinned session supplement could not be reopened.'

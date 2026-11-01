@@ -102,45 +102,20 @@ def test_default_ge_route_and_private_evidence(ordinary):
     assert stat.S_IMODE((output / "inference_call_ledger.json").stat().st_mode) == 0o600
 
 
-def test_ordinary_request_helper_reaches_service_without_openai_default(
-    ordinary, monkeypatch
-):
-    from apps.live_control_server.routes import recap_ingest as route
+def test_direct_process_without_model_override_uses_default_ge(ordinary,monkeypatch):
+    from apps.live_control_server.services import recap_graph_preview_ingest as intake
+    root,engine,_=ordinary
+    monkeypatch.setattr(intake,"reusable_recap_extraction",lambda **_:None)
+    monkeypatch.setattr(intake,"create_recap_source_artifact",lambda *a,**k:SimpleNamespace(source_artifact_id="artifact:synthetic"))
+    def execute(**kw):
+        assert kw["model_id"] is None
+        return invoke(root,model_id=kw["model_id"])
+    monkeypatch.setattr(intake,"run_recap_production_extraction",execute)
+    monkeypatch.setattr(intake,"project_recap_extraction_run",lambda **kw:{"status":"candidate_validation_ready","extraction_run_id":kw["run"].run_id})
+    intake.extract_recap(repo_root=root,campaign_id="synthetic",session=1,recap_text="An exact source.",
+      ingest_context=SourceScope(managed_world_id="managed-fixture-world",native_world_id="world:synthetic",binding_version=1,campaign_id="synthetic"))
+    assert engine.requests[0].model==DEEPSEEK_MODEL
 
-    root, engine, _ = ordinary
-    monkeypatch.setattr(
-        route,
-        "_request_recap_context",
-        lambda body: SourceScope(managed_world_id='managed-fixture-world', native_world_id='world:synthetic', binding_version=1, campaign_id='synthetic'),
-    )
-    monkeypatch.setattr(
-        route,
-        "inspect_recap_ingest_status",
-        lambda **k: {
-            "status": "ok",
-            "states": ["normalized_reused", "normalized_current"],
-            "warnings": [],
-            "paths": {},
-        },
-    )
-    monkeypatch.setattr(
-        route, "_normalized_recap_graph_path", lambda *a: root / "source.md"
-    )
-    monkeypatch.setattr(route, "repo_root", lambda: root)
-
-    def materialize(**kwargs):
-        assert kwargs["graph_model_id"] is None
-        invoke(root, model_id=kwargs["graph_model_id"])
-        return {"status": "candidate_validation_ready"}
-
-    monkeypatch.setattr(route, "extract_recap", materialize)
-    route._generate_recap_memory_from_request(
-        route.RecapIngestRequest(
-            operation="generate_recap_memory", campaign_id="synthetic", session=1
-        ),
-        root,
-    )
-    assert engine.requests[0].model == DEEPSEEK_MODEL
 
 
 @pytest.mark.parametrize("model", ["gpt-5.4-mini", "gpt-6-luna", "unknown"])

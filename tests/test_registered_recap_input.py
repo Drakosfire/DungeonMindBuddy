@@ -67,37 +67,30 @@ def test_missing_database_source_has_no_file_fallback(tmp_path, registered, monk
             campaign_id="synthetic", session_id="session-1", ingest_context=_fixture_ingest_context("synthetic"))
 
 
-def test_explicit_import_hands_registered_identity_to_same_runner(tmp_path, registered, monkeypatch):
+def test_submitted_text_hands_registered_identity_to_same_runner(tmp_path, registered, monkeypatch):
     from apps.live_control_server.services import recap_graph_preview_ingest as intake
-    source_file = tmp_path / "explicit-import.md"
-    source_file.write_text("A keeper guards a gate.\n")
     actual = runner.run_recap_production_extraction
     def execute(**kwargs):
-        assert "recap_path" not in kwargs and "build_source_artifact_id" not in kwargs
+        assert "recap_path" not in kwargs
         source = runner._normalized_from_registered(tmp_path, kwargs["source_artifact_id"])
-        source_file.unlink()
         kwargs["category_client"] = FixtureClient(span_ref=_first_paragraph_span_id(source))
         return actual(**kwargs)
     monkeypatch.setattr(intake, "run_recap_production_extraction", execute)
     result = intake.extract_recap(repo_root=tmp_path, campaign_id="synthetic", session=1,
-        normalized_recap_path=str(source_file), force_graph_run=True,
+        recap_text="A keeper guards a gate.", force_graph_run=True,
         ingest_context=_fixture_ingest_context("synthetic"))
     assert result["status"] == "candidate_validation_ready"
     assert result["source_artifact_id"] == registered.source_artifact_id
-    assert not source_file.exists()
 
 
-def test_import_change_between_selection_and_registration_stops_dispatch(tmp_path, registered, monkeypatch):
+def test_input_changed_before_registration_stops_dispatch(tmp_path, registered, monkeypatch):
     from apps.live_control_server.services import recap_graph_preview_ingest as intake
-    source_file = tmp_path / "changing-import.md"
-    source_file.write_text("A keeper guards a gate.\n")
     actual = intake.create_recap_source_artifact
     def changed(*args, **kwargs):
-        source_file.write_text("Different source bytes.\n")
-        return actual(*args, **kwargs)
+        return actual(*args, **{**kwargs,"recap_text":"Different source bytes."})
     monkeypatch.setattr(intake, "create_recap_source_artifact", changed)
     monkeypatch.setattr(intake, "run_recap_production_extraction", lambda **k: pytest.fail("must not dispatch"))
     with pytest.raises(SourceArtifactRegistryError, match="does not match recap source bytes"):
         intake.extract_recap(repo_root=tmp_path, campaign_id="synthetic", session=1,
-            normalized_recap_path=str(source_file), force_graph_run=True,
+            recap_text="A keeper guards a gate.", force_graph_run=True,
             ingest_context=_fixture_ingest_context("synthetic"))
