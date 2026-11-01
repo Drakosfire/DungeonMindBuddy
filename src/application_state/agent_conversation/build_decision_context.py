@@ -60,12 +60,24 @@ def validate_event(event, execution):
         raise ValueError("Decision context estimate or dispatch identity differs")
 
 
+def uses_role_accounting(policy):
+    """Dispatch only concrete policies owned by this accounting contract."""
+    from . import types as t
+    if isinstance(policy, t.BuildEstimatedActionControllerWriterPolicyV1):
+        return True
+    if getattr(policy, "policy_version", None) != "surface_native_execution_v1":
+        return False
+    from .native_execution import SurfaceNativeExecutionPolicyV1, NativeBuildActionV1
+    return type(policy) is SurfaceNativeExecutionPolicyV1 and isinstance(policy.action, NativeBuildActionV1)
+
+
 def validate_accounting(event, execution, *, provider_index):
     """Verify the original Build role estimate; never rewrite its accounting."""
     from . import types as t
     policy = execution.policy
-    if not isinstance(policy, t.BuildEstimatedActionControllerWriterPolicyV1):
+    if not uses_role_accounting(policy):
         raise ValueError("Build role accounting requires its frozen concrete policy")
+    native = not isinstance(policy, t.BuildEstimatedActionControllerWriterPolicyV1)
     role = (event.provider, event.model, event.api_mode)
     controller = policy.provider_roles.controller.identity()
     writer = policy.provider_roles.writer.identity()
@@ -74,12 +86,12 @@ def validate_accounting(event, execution, *, provider_index):
         for e in execution.events)
     if role not in {controller, writer} or (provider_index == 0 and role != controller and not reviewed_writer):
         raise ValueError("provider accounting role differs from frozen policy")
-    if isinstance(policy, t.BuildWriterBudgetActionControllerWriterPolicyV1) and role == writer:
+    if (native or isinstance(policy, t.BuildWriterBudgetActionControllerWriterPolicyV1)) and role == writer:
         budget = policy.writer_context_budget
         if (event.output_token_reserve != budget.output_reserve_tokens
                 or event.input_tokens + event.output_token_reserve > budget.context_limit_tokens):
             raise ValueError("writer envelope exceeds its frozen role budget")
-    estimated = role == controller and (provider_index > 0
+    estimated = role == controller and (native or provider_index > 0
         or isinstance(policy, t.BuildInitialEstimatedSelectedSourcePolicyV1))
     descriptor = policy.controller_continuation_accounting
     kind = "estimated_token_count" if estimated else policy.provider_input_accounting.kind

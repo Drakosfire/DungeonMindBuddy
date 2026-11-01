@@ -71,6 +71,21 @@ def validate_source_provenance(receipt, provenance):
         raise ValueError("Source-capable Plan receipt differs from its resolved provenance")
 
 
+def validate_work_intent(work, intent):
+    """Resolved Plan work joins through the Plan owner, without Graph aliases."""
+    if not isinstance(intent, t.SubmittedTurnIntentV2):
+        raise ValueError("Source-capable Plan requires its typed submitted intent")
+    basis, primary = work.plan_basis, intent.primary_work
+    if (basis.world_id != intent.world_id
+            or work.plan_context_policy != intent.plan_context_policy
+            or basis.document_id != primary.object_id
+            or basis.object_revision != primary.expected_revision
+            or basis.revision_n != primary.expected_revision_n
+            or basis.content_sha256 != primary.expected_content_sha256
+            or not t._receipt_target_matches_intent(work.playable_target, intent.playable_target)):
+        raise ValueError("Source-capable Plan receipt differs from its submitted Plan basis")
+
+
 def validate_source_submission(submission):
     receipt, execution = submission.graph_context_receipt, submission.graph_context_execution
     intent = submission.submitted_intent_v2
@@ -82,15 +97,8 @@ def validate_source_submission(submission):
             or intent.world_id != submission.world_id or intent.message != submission.user_text
             or submission.provenance.surface_instance_id != intent.surface_instance_id):
         raise ValueError("Source-capable Plan requires its exact submitted intent and execution")
-    basis, primary = receipt.plan_basis, intent.primary_work
-    if (basis.world_id != submission.world_id
-            or receipt.plan_context_policy != intent.plan_context_policy
-            or basis.document_id != primary.object_id
-            or basis.object_revision != primary.expected_revision
-            or basis.revision_n != primary.expected_revision_n
-            or basis.content_sha256 != primary.expected_content_sha256
-            or not t._receipt_target_matches_intent(receipt.playable_target, intent.playable_target)
-            or execution.policy.plan_authoring_capture_sha256 != intent.plan_authoring_capture_sha256
+    validate_work_intent(receipt, intent)
+    if (execution.policy.plan_authoring_capture_sha256 != intent.plan_authoring_capture_sha256
             or execution.policy.placement_catalog_sha256 != intent.plan_placement_catalog_sha256):
         raise ValueError("Source-capable Plan receipt differs from its submitted Plan basis or capture")
     if isinstance(receipt, t.PlanNativeContextReceiptV1) and isinstance(receipt.native_query, t.NativePlanQueryV1) and receipt.native_query.question != submission.user_text:

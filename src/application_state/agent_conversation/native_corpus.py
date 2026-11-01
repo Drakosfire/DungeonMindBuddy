@@ -336,6 +336,15 @@ def validate_native_body_events(execution):
                 pending = None
             provider, outcome = event.provider_attempt_id, None
             writer = (event.provider, event.model, event.api_mode) == execution.policy.provider_roles.writer.identity()
+            if event.kind == "native_writer_authorized_v1":
+                from .native_execution import NativeWriterAuthorizedV1
+                if type(event) is not NativeWriterAuthorizedV1 or not writer:
+                    raise ValueError("Shared native inclusion requires its exact writer role")
+                # New native turns carry inclusion once on the actual writer.
+                # The root closes IDs across all families; this owner closes
+                # body grants and explicit whole-document exposure.
+                validate_combined_exposure(execution, tuple(row for row in reads.values()
+                    if row.excerpt is not None))
         elif isinstance(event, t.ProviderOutcomeEventV1) and event.provider_attempt_id == provider:
             outcome = event.outcome
         elif isinstance(event, t.PlanJevRetrievalSelectionV1):

@@ -75,7 +75,8 @@ def test_one_shared_attempt_persists_before_ready_and_recovers_without_send(requ
     assert [e.outcome for e in parent.events] == ['sending', 'response_received']
     assert row.authorization.payload_sha256 == sha256(wire.calls[0].content).hexdigest()
     assert row.raw_response == wire.text and row.proposal is not None
-    assert (root / source.record.target_relpath).read_text() == source.markdown
+    from apps.live_control_server.services.workspace_document_registry import get_workspace_document_snapshot
+    assert get_workspace_document_snapshot(root, source.record.document_id) == source
     # Simulate conversational completion missing: recover the persisted action,
     # even if the parent would now refuse every dispatch. No regeneration.
     parent.deny = 'authorize'

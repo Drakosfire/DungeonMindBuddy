@@ -13,13 +13,24 @@ def _checked_receipt(receipt: t.PlayWorldGraphContextReceiptV1) -> t.PlayWorldGr
     return t.PlayWorldGraphContextReceiptV1.model_validate_json(receipt.model_dump_json(by_alias=True))
 
 
+def validate_work_intent(basis: t.PlayRunTurnContextReceiptV2, intent: t.PlayGraphIntentV1) -> None:
+    """Exact submitted Run, edition and target join, independent of Graph codec."""
+    intent = t.PlayGraphIntentV1.model_validate_json(intent.model_dump_json(by_alias=True))
+    ref = intent.primary_work
+    edition = t.PlayContentBasis(edition_revision=basis.edition_revision,
+        edition_revision_id=basis.edition_revision_id, content_sha256=basis.content_sha256)
+    if (intent.world_id != basis.world_id or ref.object_id != basis.run_id
+            or ref.expected_revision != basis.run_revision or ref.play_content_basis != edition
+            or intent.play_target.beat_id != basis.beat_id or intent.play_target.scene_id != basis.scene_id):
+        raise ValueError("Submitted Play intent differs from its independently resolved Run")
+
+
 def validate_play_graph_intent_receipt(intent: t.PlayGraphIntentV1, receipt: t.PlayWorldGraphContextReceiptV1) -> None:
     """Original submitted intent must match independently resolved owner values."""
     intent = t.PlayGraphIntentV1.model_validate_json(intent.model_dump_json(by_alias=True))
     receipt = _checked_receipt(receipt)
-    ref, basis = (intent.primary_work, receipt.play_basis)
-    edition = t.PlayContentBasis(edition_revision=basis.edition_revision, edition_revision_id=basis.edition_revision_id, content_sha256=basis.content_sha256)
-    if intent.world_id != basis.world_id or ref.object_id != basis.run_id or ref.expected_revision != basis.run_revision or (ref.play_content_basis != edition) or (intent.play_target.beat_id != basis.beat_id) or (intent.play_target.scene_id != basis.scene_id) or (intent.play_graph_policy != receipt.play_graph_policy):
+    validate_work_intent(receipt.play_basis, intent)
+    if intent.play_graph_policy != receipt.play_graph_policy:
         raise ValueError('Submitted Play intent differs from the independently resolved receipt')
 
 

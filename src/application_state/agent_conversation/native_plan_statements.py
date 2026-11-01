@@ -146,11 +146,16 @@ def validate_support_authority(authority, read):
 def validate_execution(receipt, execution):
     """One selected-read/provider state machine for both native record families."""
     from . import types as t
-    from .native_plan_assertions import (NativePlanQueryV2, NativePlanAssertionReadAuthorizedV1,
-        NativePlanAssertionReadObservedV1, selection_handle as assertion_handle)
     if not isinstance(execution, t.PlanNativeExecutionV1) or execution.policy.native_query_sha256 != digest(receipt.native_query):
         raise ValueError('Native Plan requires its exact query policy/ledger')
-    query = receipt.native_query
+    validate_selected_record_events(receipt.native_query, execution)
+
+
+def validate_selected_record_events(query, execution):
+    """Shared native selected-record checks; source admission remains with Core."""
+    from . import types as t
+    from .native_plan_assertions import (NativePlanQueryV2, NativePlanAssertionReadAuthorizedV1,
+        NativePlanAssertionReadObservedV1, selection_handle as assertion_handle)
     statements = {m.statement_id: m for m in query.matches} if isinstance(query, NativePlanQueryV1) else {}
     assertions = {m.assertion_id: m for m in query.assertion_matches} if isinstance(query, NativePlanQueryV2) else {}
     provider = outcome = selection = None
@@ -158,14 +163,21 @@ def validate_execution(receipt, execution):
     writer = False
     for event in execution.events:
         if isinstance(event, t.ProviderAttemptAuthorizedEventV1):
-            if isinstance(event, t.PlanJevWriterAuthorizedV1):
-                expected = t.PlanNativeWriterAuthorizedV2 if isinstance(query, NativePlanQueryV2) else t.PlanNativeWriterAuthorizedV1
-                if not isinstance(event, expected) or (not isinstance(query, NativePlanQueryV2) and isinstance(event, t.PlanNativeWriterAuthorizedV2)):
-                    raise ValueError('Native query Plan requires its own writer inclusion')
+            shared_writer = False
+            if event.kind == "native_writer_authorized_v1":
+                from .native_execution import NativeWriterAuthorizedV1
+                shared_writer = type(event) is NativeWriterAuthorizedV1
+            if shared_writer or isinstance(event, t.PlanJevWriterAuthorizedV1):
+                if not shared_writer:
+                    expected = t.PlanNativeWriterAuthorizedV2 if isinstance(query, NativePlanQueryV2) else t.PlanNativeWriterAuthorizedV1
+                    if not isinstance(event, expected) or (not isinstance(query, NativePlanQueryV2) and isinstance(event, t.PlanNativeWriterAuthorizedV2)):
+                        raise ValueError('Native query Plan requires its own writer inclusion')
                 if set(grants) != {e.authorization_event_id for e in observations.values()}:
                     raise ValueError('Native writer requires every selected read grant to be settled')
-                families = [(NativePlanStatementReadObservedV1, event.native_statement_read_event_ids)]
-                if isinstance(query, NativePlanQueryV2):
+                # The shared root closes one inclusion set across every native
+                # family; immutable Plan codecs retain their original lists.
+                families = [] if shared_writer else [(NativePlanStatementReadObservedV1, event.native_statement_read_event_ids)]
+                if not shared_writer and isinstance(query, NativePlanQueryV2):
                     families.append((NativePlanAssertionReadObservedV1, event.native_assertion_read_event_ids))
                 for observed_type, included in families:
                     if (len(included) != len(set(included))

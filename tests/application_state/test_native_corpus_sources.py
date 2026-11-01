@@ -982,3 +982,28 @@ def test_common_native_read_admission_requires_actual_owned_turn(lane, substitut
             update={"context_receipt_sha256": "0" * 64})})
     with pytest.raises(ValueError, match=expected):
         authorize_body_search_locked(turn, event_id=uuid4())
+
+
+@pytest.mark.parametrize("failed_read,full_document",[(False,False),(False,True),(True,False)])
+def test_body_owner_accepts_shared_writer_without_second_inclusion_manifest(lane,failed_read,full_document):
+    # Owner-level fixture only: this does not register or admit a shared Turn.
+    from types import SimpleNamespace
+    from application_state.agent_conversation.native_execution import NativeWriterAuthorizedV1
+    from application_state.agent_conversation.native_corpus import (
+        NativeBodyProviderIncludedV1, NativeBodyReadObservedV1, validate_native_body_events)
+    original=native_body_ledger(lane,failed_read=failed_read,full_document=full_document)
+    writer=next(row for row in original.events if isinstance(row,t.PlanJevWriterAuthorizedV1))
+    prefix=[row for row in original.events[:writer.sequence] if not isinstance(row,NativeBodyProviderIncludedV1)]
+    reads=[row for row in prefix if isinstance(row,NativeBodyReadObservedV1)]
+    fields=writer.model_dump(exclude={"kind","sequence"})
+    shared=NativeWriterAuthorizedV1(**fields,sequence=len(prefix),
+        native_read_event_ids=tuple(sorted((row.event_id for row in reads),key=str)))
+    execution=SimpleNamespace(context_receipt_sha256=original.context_receipt_sha256,
+        execution_policy_sha256=original.execution_policy_sha256,policy=original.policy,events=[*prefix,shared])
+    validate_native_body_events(execution)
+    assert all(not isinstance(row,NativeBodyProviderIncludedV1) for row in execution.events)
+    assert bool(reads[0].excerpt) != failed_read
+    missing=[row for row in prefix if not isinstance(row,NativeBodyReadObservedV1)]
+    execution.events=[*missing,shared.model_copy(update={"sequence":len(missing)})]
+    with pytest.raises(ValueError,match="unresolved native body read"):
+        validate_native_body_events(execution)

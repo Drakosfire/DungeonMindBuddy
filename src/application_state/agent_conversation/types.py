@@ -4134,7 +4134,8 @@ def validate_provider_execution(execution) -> None:
             if isinstance(event, ProviderAttemptAuthorizedEventV5):
                 from .build_decision_context import validate_event
                 validate_event(event, execution)
-            if isinstance(policy, BuildEstimatedActionControllerWriterPolicyV1):
+            from .build_decision_context import uses_role_accounting
+            if uses_role_accounting(policy):
                 from .build_decision_context import validate_accounting
                 validate_accounting(event, execution, provider_index=len(attempts))
             elif (event.input_accounting_kind != policy.provider_input_accounting.kind
@@ -5427,10 +5428,11 @@ def validate_graph_provider_evidence(inputs, execution, event) -> None:
 def validate_provider_envelope_accounting(assembled, execution, event) -> None:
     """First-call commitment and role budget over the actual owning input."""
     context_limit = assembled.context_window_limit
-    if (isinstance(execution.policy, BuildWriterBudgetActionControllerWriterPolicyV1)
-            and (event.provider, event.model, event.api_mode) == execution.policy.writer_context_budget.identity()):
-        context_limit = execution.policy.writer_context_budget.context_limit_tokens
-        if event.output_token_reserve != execution.policy.writer_context_budget.output_reserve_tokens:
+    from .build_decision_context import uses_role_accounting
+    writer_budget = getattr(execution.policy, "writer_context_budget", None) if uses_role_accounting(execution.policy) else None
+    if writer_budget is not None and (event.provider, event.model, event.api_mode) == writer_budget.identity():
+        context_limit = writer_budget.context_limit_tokens
+        if event.output_token_reserve != writer_budget.output_reserve_tokens:
             raise ValueError("writer reserve differs from its frozen role budget")
     if event.input_tokens + event.output_token_reserve > context_limit:
         raise ValueError("provider envelope exceeds the frozen context window")
@@ -5438,7 +5440,8 @@ def validate_provider_envelope_accounting(assembled, execution, event) -> None:
     if not previous_attempts:
         if assembled.assembler_version == "reviewed_author_admission_v1":
             selected = [e for e in execution.events if isinstance(e, BuildReviewedActionSelectionV1)]
-            if len(selected) != 1 or _canonical_sha256({"schema":"dmb_reviewed_action_admission_v1", "intent":selected[0].intent.model_dump(mode="json", by_alias=True)}) != assembled.assembled_input_sha256:
+            from .reviewed_action import admission_manifest
+            if len(selected) != 1 or _canonical_sha256(admission_manifest(selected[0].intent)) != assembled.assembled_input_sha256:
                 raise ValueError("First provider lacks the exact author-admission manifest")
             return
         if (
@@ -6469,13 +6472,12 @@ def _validate_build_submission(submission: TurnSubmission) -> None:
     if not isinstance(intent, BuildGraphIntentV1) or not isinstance(receipt, BuildGraphContextReceiptV1):
         raise ValueError("Build Graph intent requires its own frozen source receipt")
     basis = receipt.source_basis
+    from .build_world_context import validate_work_intent
+    validate_work_intent(basis, intent)
     provenance = submission.provenance
     ref = provenance.primary_work
     if (intent.world_id != submission.world_id or intent.message != submission.user_text
         or basis.world_id != submission.world_id
-        or basis.document_id != intent.primary_work.object_id
-        or basis.registry_revision != intent.primary_work.expected_revision
-        or basis.content_sha256 != intent.primary_work.expected_content_sha256
         or (intent.graph_request.revision_pin is not None
             and intent.graph_request.revision_pin != receipt.graph_authority.graph_revision)
         or provenance.surface_resolution != "resolved" or provenance.surface_id != "build"
@@ -6518,8 +6520,8 @@ def _validate_build_submission(submission: TurnSubmission) -> None:
     if binding is None and receipt.assembled_input.assembler_version == "reviewed_author_admission_v1":
         raise ValueError("Host admission cannot shed its reviewed action authority")
     if binding is not None:
-        from .reviewed_action import digest
-        expected_admission = digest({"schema":"dmb_reviewed_action_admission_v1", "intent":intent.model_dump(mode="json", by_alias=True)})
+        from .reviewed_action import digest, admission_manifest
+        expected_admission = digest(admission_manifest(intent))
         assembled = receipt.assembled_input
         if (assembled.assembler_version != "reviewed_author_admission_v1"
             or assembled.assembled_input_sha256 != expected_admission
