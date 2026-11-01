@@ -14,7 +14,7 @@ import psycopg
 from psycopg.rows import dict_row
 from psycopg.types.json import Jsonb
 
-from application_state.source.types import SourceMarkdownRecord
+from application_state.source.types import SourceMarkdownRecord, SourceRevisionMetadata
 
 
 def _now() -> datetime:
@@ -60,12 +60,37 @@ def owned_source_artifacts(
         return frozenset(row[0] for row in cur.fetchall())
 
 
+def get_source_revision_metadata(
+    conn: psycopg.Connection, *, bindings: list[tuple[str, str]], world_id: str,
+) -> list[SourceRevisionMetadata]:
+    """Exact revision coordinates without selecting or opening Markdown."""
+    if not bindings:
+        return []
+    with conn.cursor(row_factory=dict_row) as cur:
+        cur.execute(
+            """
+            SELECT r.source_revision_id, r.source_artifact_id, a.source_domain,
+                   a.campaign_id, a.session_id, a.world_id, r.content_sha256,
+                   r.media_type, r.encoding, r.lineage, r.created_at
+            FROM source.revision r
+            JOIN source.artifact a USING (source_artifact_id)
+            JOIN unnest(%s::text[], %s::text[]) AS requested(artifact_id, digest)
+              ON r.source_artifact_id = requested.artifact_id
+             AND r.content_sha256 = requested.digest
+            WHERE a.world_id = %s
+            """,
+            ([key[0] for key in bindings], [key[1] for key in bindings], world_id),
+        )
+        return [SourceRevisionMetadata.model_validate(row) for row in cur.fetchall()]
+
+
 def get_source_markdown(
     conn: psycopg.Connection,
     *,
     source_artifact_id: str,
     content_sha256: str,
     source_revision_id: UUID | None = None,
+    world_id: str | None = None,
 ) -> SourceMarkdownRecord | None:
     clauses = [
         "r.source_artifact_id = %s",
@@ -75,6 +100,9 @@ def get_source_markdown(
     if source_revision_id is not None:
         clauses.append("r.source_revision_id = %s")
         params.append(source_revision_id)
+    if world_id is not None:
+        clauses.append("a.world_id = %s")
+        params.append(world_id)
     with conn.cursor(row_factory=dict_row) as cur:
         cur.execute(
             f"""

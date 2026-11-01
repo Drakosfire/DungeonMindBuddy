@@ -9,6 +9,7 @@ from typing import Annotated, Any
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from uuid import UUID
 from apps.live_control_server.models.build_recap_launch import BuildRecapLaunchRequest
+from apps.live_control_server.models.saved_recap_runs import SavedRecapRunsResponse, SavedRecapSourceResponse
 from fastapi.responses import JSONResponse
 
 from apps.live_control_server.config import repo_root
@@ -172,23 +173,100 @@ def get_extraction_run_by_id(run_id: str) -> dict[str, Any]:
     return public_run(run)
 
 
-@router.get("/extraction-runs/{run_id}/recap-inspection")
-def get_extraction_run_recap_inspection(
-    run_id: str,
+def _saved_run_query(
     request: Request,
-) -> dict[str, Any]:
-    """Exact-run historical recap source inspection. Read-only; never substitutes latest."""
-    _reject_query_params(request)
-    from apps.live_control_server.services.graph_run_registry import (
-        GraphRunRegistryError,
-        get_historical_recap_inspection,
+    required: set[str],
+    optional: set[str] | frozenset[str] = frozenset(),
+) -> None:
+    keys = set(request.query_params)
+    if (
+        not required <= keys
+        or not keys <= required | optional
+        or any(
+            len(request.query_params.getlist(key)) != 1
+            or not request.query_params[key]
+            or request.query_params[key] != request.query_params[key].strip()
+            for key in keys
+        )
+    ):
+        raise HTTPException(
+            status_code=422,
+            detail="Exact saved-run selectors are required; duplicate or unknown selectors are not accepted.",
+        )
+
+
+@router.get("/extraction-runs", response_model=SavedRecapRunsResponse)
+def get_saved_recap_runs(
+    request: Request,
+    managed_world_id: Annotated[str, Query(min_length=1)],
+    campaign_id: Annotated[str | None, Query(min_length=1)] = None,
+    _principal=Depends(native_graph_gm_dependency),
+):
+    from apps.live_control_server.services.ingest_run_catalog import (
+        list_saved_recap_runs,
+    )
+
+    _saved_run_query(request, {"managed_world_id"}, {"campaign_id"})
+    return _saved_run_response(
+        lambda: list_saved_recap_runs(
+            root=repo_root(),
+            managed_world_id=managed_world_id,
+            campaign_id=campaign_id,
+        )
+    )
+
+
+def _saved_run_response(read):
+    from application_state.errors import ApplicationStateError
+    from apps.live_control_server.services.ingest_run_catalog import (
+        IngestRunCatalogError,
+    )
+    from apps.live_control_server.services.world_graph_projection import (
+        WorldGraphProjectionServiceError,
     )
 
     try:
-        response = get_historical_recap_inspection(repo_root(), run_id)
-    except GraphRunRegistryError as exc:
+        result = read()
+    except (
+        ApplicationStateError,
+        IngestRunCatalogError,
+        WorldGraphProjectionServiceError,
+    ) as exc:
         raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc
-    return response.model_dump(mode="json", by_alias=True)
+    return JSONResponse(
+        result.model_dump(mode="json", by_alias=True),
+        headers={"Cache-Control": "no-store"},
+    )
+
+
+@router.get(
+    "/extraction-runs/{run_id}/recap-inspection",
+    response_model=SavedRecapSourceResponse,
+)
+def get_extraction_run_recap_inspection(
+    run_id: str,
+    request: Request,
+    managed_world_id: Annotated[str, Query(min_length=1)],
+    expected_run_revision: Annotated[int, Query(gt=0)],
+    source_revision_id: Annotated[UUID, Query()],
+    _principal=Depends(native_graph_gm_dependency),
+):
+    from apps.live_control_server.services.ingest_run_catalog import (
+        read_saved_recap_source,
+    )
+
+    _saved_run_query(
+        request, {"managed_world_id", "expected_run_revision", "source_revision_id"}
+    )
+    return _saved_run_response(
+        lambda: read_saved_recap_source(
+            root=repo_root(),
+            run_id=run_id,
+            managed_world_id=managed_world_id,
+            expected_run_revision=expected_run_revision,
+            source_revision_id=source_revision_id,
+        )
+    )
 
 
 @router.get(

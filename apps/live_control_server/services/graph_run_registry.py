@@ -11,12 +11,11 @@ import json
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, NoReturn
+from typing import Any, NoReturn
 from uuid import uuid4
 
 from application_state.errors import ApplicationStateError
 from application_state.ingest import service as ingest_service
-from application_state.source import service as source_service
 from apps.live_control_server.services.source_artifact_registry import (
     SourceArtifactRegistryError,
     get_source_artifact,
@@ -34,11 +33,6 @@ from graph_memory.ingestion.extraction_run import (
     assert_allowed_extraction_run_transition,
 )
 from graph_memory.source_span import SourceSpanIndex, source_span_index_from_dict, validate_source_span_index
-
-if TYPE_CHECKING:
-    from apps.live_control_server.models.historical_recap_inspection import (
-        HistoricalRecapInspectionResponse,
-    )
 
 # Statuses that necessarily originated from a complete reviewable bundle.
 _REVIEW_BUNDLE_STATUSES = frozenset(
@@ -354,93 +348,6 @@ def get_extraction_run(root: Path, run_id: str) -> ExtractionRun:
     except ApplicationStateError as exc:
         _raise_registry(exc)
         raise
-
-
-def get_historical_recap_inspection(
-    root: Path, run_id: str
-) -> "HistoricalRecapInspectionResponse":
-    """Read-only exact-run recap source inspection from APP-STATE."""
-    from apps.live_control_server.models.historical_recap_inspection import (
-        HistoricalRecapInspectionResponse,
-    )
-    from graph_memory.ingestion.extraction_run import normalize_content_digest
-
-    run = get_extraction_run(root, run_id)
-    if run.source_domain != "recap":
-        raise GraphRunRegistryError(
-            "historical recap inspection is not applicable to this extraction run",
-            status_code=422,
-        )
-
-    def _digest_label(digest: str) -> str:
-        normalized = normalize_content_digest(digest)
-        return normalized if normalized.startswith("sha256:") else f"sha256:{normalized}"
-
-    def _unavailable(*, source_sha256: str | None = None, reason: str):
-        return HistoricalRecapInspectionResponse(
-            run_id=run.run_id,
-            run_status=run.status.value,
-            source_domain=run.source_domain,
-            source_artifact_id=run.source_artifact_id,
-            campaign_id=run.campaign_id,
-            session_id=run.session_id,
-            source_status="unavailable",
-            source_uri=None,
-            source_sha256=source_sha256,
-            source_prose=None,
-            unavailable_reason=reason,
-        )
-
-    source_component = _component_by_kind(
-        run.components, ExtractionRunComponentKind.SOURCE_ARTIFACT
-    )
-    if source_component is None:
-        return _unavailable(reason="source_artifact component is not recorded on this run")
-
-    claimed_digest = normalize_content_digest(source_component.sha256)
-    if not claimed_digest:
-        return _unavailable(
-            reason="source_artifact component digest is not recorded",
-        )
-
-    try:
-        source = source_service.get_source_markdown(
-            source_artifact_id=run.source_artifact_id,
-            content_sha256=claimed_digest,
-        )
-    except ApplicationStateError as exc:
-        return _unavailable(
-            source_sha256=_digest_label(claimed_digest),
-            reason=f"durable source authority is unavailable: {exc}",
-        )
-    if source is None:
-        return _unavailable(
-            source_sha256=_digest_label(claimed_digest),
-            reason="exact historical source is not adopted into APP-STATE",
-        )
-    if (
-        source.source_domain != run.source_domain
-        or source.campaign_id != run.campaign_id
-        or source.session_id != run.session_id
-    ):
-        raise GraphRunRegistryError(
-            "durable source identity does not match the exact ExtractionRun",
-            status_code=422,
-        )
-
-    return HistoricalRecapInspectionResponse(
-        run_id=run.run_id,
-        run_status=run.status.value,
-        source_domain=run.source_domain,
-        source_artifact_id=run.source_artifact_id,
-        campaign_id=run.campaign_id,
-        session_id=run.session_id,
-        source_status="available",
-        source_uri=None,
-        source_sha256=_digest_label(source.content_sha256),
-        source_prose=source.markdown,
-        unavailable_reason=None,
-    )
 
 
 def get_reviewable_extraction_run(root: Path, run_id: str) -> ExtractionRun:
