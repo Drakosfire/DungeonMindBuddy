@@ -612,7 +612,7 @@ describe("PlanSurfaceShell", () => {
 
     expect(screen.getByTestId("plan-dogfood-panel")).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Dogfood checklist" })).toBeInTheDocument();
-    expect(screen.getByText(/S1 only: ask what changed after the latest ingested recap/i)).toBeInTheDocument();
+    expect(screen.getByText(/Latest-recap comparison is unavailable/i)).toBeInTheDocument();
   });
 
   it("opens the prep memory Q&A drawer", async () => {
