@@ -138,6 +138,7 @@ jobs:
         run: >-
           uv run --locked pytest -q --tb=short --show-capture=no
           tests/test_native_ingest_review_context.py
+          tests/test_saved_recap_runs.py
           tests/test_source_input_metadata_database.py
           tests/test_native_recap_source_identity.py
           tests/test_database_literal_correction_parent.py
