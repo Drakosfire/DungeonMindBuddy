@@ -4,6 +4,7 @@ import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import * as savedApi from "../api/savedRecapRunsApi";
 import type { SavedRecapRun, SavedRecapRuns, SavedRecapSource } from "../api/savedRecapRunsApi";
 import * as rawApi from "../api/recapIngestApi";
+import * as admissionApi from "../api/nativeRecapSourceApi";
 import * as liveApi from "../api/liveApi";
 import { IngestionModule } from "./IngestionModule";
 import type { RecapIngestStatus } from "../api/types";
@@ -206,4 +207,21 @@ it("cannot revive a pending catalog after access is revoked", async () => {
     expect(savedApi.getSavedRecapSource).not.toHaveBeenCalled();
     await userEvent.click(screen.getByRole("button", {name: "Reconnect fixture access"}));
     expect(await screen.findByRole("option", {name: /reconnected/})).toBeInTheDocument();
+});
+
+it("mounts exact native source admission without automatically sending or disturbing a saved raw draft", async () => {
+    const admit = vi.spyOn(admissionApi, "admitRecapSource").mockRejectedValue(new Error("Admission response lost"));
+    mount();
+    fireEvent.change(await screen.findByLabelText("Write or paste a recap"), { target: { value: "Retain this unfinished writing" } });
+    await open("run-a");
+    await screen.findByText("Source for run-a.");
+    expect(admit).not.toHaveBeenCalled();
+    await userEvent.click(screen.getByRole("button", { name: "Admit source", exact: true }));
+    await screen.findByText("Admission response lost");
+    expect(admit).toHaveBeenCalledExactlyOnceWith({ managedWorldId: "elderwyld", nativeWorldId: "elderwyld", bindingVersion: 3, campaignId: "longmont-c1", session: 8, sourceArtifactId: "artifact:run-a", sourceRevisionId: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa", contentSha256: "a".repeat(64) });
+    expect(rawApi.postRecapIngest).not.toHaveBeenCalled();
+    await userEvent.click(screen.getByRole("button", { name: "Return to draft" }));
+    expect(await screen.findByLabelText("Write or paste a recap")).toHaveValue("Retain this unfinished writing");
+    expect(screen.queryByRole("button", { name: "Recover source admission" })).not.toBeInTheDocument();
+    expect(admit).toHaveBeenCalledOnce();
 });
