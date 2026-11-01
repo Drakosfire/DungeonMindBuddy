@@ -163,12 +163,19 @@ def authored_support(kind, name, object_id, revision, owner_sha, text, entry_ide
 
 
 def plan_authored_sources(turn, markdown, sessions, *, block_policy=False):
-    basis = turn.graph_context_receipt.plan_basis
+    return plan_authored_source_records(turn.graph_context_receipt.plan_basis,
+        turn.provenance.supporting_work, markdown, sessions, block_policy=block_policy)
+
+
+def plan_authored_source_records(basis, supporting_work, markdown, sessions, *, block_policy=False):
+    """Use actual work pins, without manufacturing a Plan Turn or Graph scope."""
     if sha256(markdown.encode()).hexdigest() != basis.content_sha256:
         raise ValueError('Authored Plan differs from the frozen committed body')
     result = [authored_support('plan', 'Committed Plan', basis.document_id,
               str(basis.work_revision_id), basis.content_sha256, markdown)] if markdown.strip() else []
-    return tuple(result) + session_authored_sources(turn, sessions, block_policy=block_policy)
+    frozen = {(r.object_id, r.revision): r.content_sha256 for r in supporting_work
+              if r.kind == 'session_evidence_v1'}
+    return tuple(result) + session_sources(sessions, frozen, block_policy=block_policy)
 
 
 def session_authored_sources(turn, sessions, *, block_policy=True):
