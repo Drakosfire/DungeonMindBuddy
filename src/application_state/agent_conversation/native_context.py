@@ -81,6 +81,19 @@ class NativeProviderInputV1(Strict):
         return self
 
 
+class NativeReviewedActionInputV1(Strict):
+    """Model-free author admission; its owning review still must be verified."""
+    assembler_version: Literal["reviewed_author_admission_v1"] = "reviewed_author_admission_v1"
+    submitted_intent_sha256: Digest
+    assembled_input_sha256: Digest
+
+
+NativeInitialInput = Annotated[
+    NativeProviderInputV1 | NativeReviewedActionInputV1,
+    Field(discriminator="assembler_version"),
+]
+
+
 class SurfaceNativeContextReceiptV1(Strict):
     schema_: Literal["dmb_surface_native_context_receipt_v1"] = Field(
         default="dmb_surface_native_context_receipt_v1", alias="schema")
@@ -90,11 +103,13 @@ class SurfaceNativeContextReceiptV1(Strict):
     work_context: SurfaceWorkContext
     source_authority: NativeCorpusAuthorityV1 | NativeCorpusUnavailableV1
     native_query: NativePlanQueryV2 | NativePlanQueryUnavailableV1
-    assembled_input: NativeProviderInputV1
+    assembled_input: NativeInitialInput
 
     @model_validator(mode="after")
     def coherent_native_context(self):
         world = work_world_id(self.work_context)
+        if isinstance(self.assembled_input, NativeReviewedActionInputV1) and not isinstance(self.work_context, BuildWorkContextV1):
+            raise ValueError("Model-free reviewed action admission requires actual Build work")
         query = self.native_query
         authority = query.authority if isinstance(query, NativePlanQueryV2) else query
         if self.source_authority.managed_world_id != world or authority.managed_world_id != world:
@@ -108,3 +123,40 @@ class SurfaceNativeContextReceiptV1(Strict):
         if canonical_sha256(value) != self.context_receipt_sha256:
             raise ValueError("Native context digest differs from its contents")
         return self
+
+
+def validate_work_context(context, provenance, *, play_context_receipt=None):
+    """Join frozen records through their work owners; this grants no read access.
+
+    Admission must additionally resolve the actual work and submitted intent.
+    Read authorization must additionally require the actual running Turn, frozen
+    execution policy and acknowledged producing SDK decision.
+    """
+    from . import types as t
+    if type(context) is not SurfaceNativeContextReceiptV1 or type(provenance) is not t.TurnProvenance:
+        raise ValueError("Native work binding requires its concrete context and provenance")
+    # Revalidate nested mutable work models and the complete root commitment.
+    context = SurfaceNativeContextReceiptV1.model_validate_json(context.model_dump_json(by_alias=True))
+    provenance = t.TurnProvenance.model_validate_json(provenance.model_dump_json(by_alias=True))
+    work = context.work_context
+    if (canonical_sha256(provenance) != context.provenance_sha256
+        or provenance.world_id != work_world_id(work)
+        or provenance.surface_resolution != "resolved"
+        or provenance.surface_id != work.surface_id or not provenance.surface_instance_id
+        or provenance.selected_object.resolution != "absent"):
+        raise ValueError("Native context differs from its actual work provenance")
+    if isinstance(work, PlayWorkContextV1):
+        if type(play_context_receipt) is not t.PlayRunTurnContextReceiptV2 or play_context_receipt != work.play_basis:
+            raise ValueError("Native Play context differs from the exact retained Run snapshot")
+        t.validate_play_context_receipt(work.play_basis, provenance.world_id, provenance)
+    elif play_context_receipt is not None:
+        raise ValueError("Non-Play native work cannot acquire a Run context")
+    elif isinstance(work, PlanWorkContextV1):
+        from .plan_source_context import validate_source_provenance
+        validate_source_provenance(work, provenance)
+    elif isinstance(work, BuildWorkContextV1):
+        from .build_world_context import validate_work_provenance
+        validate_work_provenance(work.source_basis, provenance)
+    else:
+        raise ValueError("Unknown native surface work owner")
+    return context

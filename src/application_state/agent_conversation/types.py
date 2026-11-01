@@ -6581,18 +6581,10 @@ def _validate_build_submission(submission: TurnSubmission) -> None:
 
 
 def _validate_build_receipt_provenance(receipt, provenance) -> None:
-    basis = receipt.source_basis
-    ref = provenance.primary_work
+    from .build_world_context import validate_work_provenance
+    validate_work_provenance(receipt.source_basis, provenance)
     authority = receipt.graph_authority
-    if (provenance.world_id != basis.world_id or provenance.surface_resolution != "resolved"
-        or provenance.surface_id != "build" or ref.resolution != "resolved"
-        or ref.kind != "build" or ref.object_id != basis.document_id
-        or ref.revision != str(basis.registry_revision) or ref.content_sha256 != basis.content_sha256
-        or any(x is not None for x in (ref.object_revision, ref.work_revision_id, ref.revision_n))
-        or provenance.selected_object.resolution != "absent"):
-        raise ValueError("Stored Build receipt differs from its frozen source")
     expected = {
-        "dmb_build_source_visibility_v1": (basis.visibility, "1"),
         "dmb_build_graph_binding_v1": (authority.native_world_id, str(authority.binding_version)),
         "world_graph_revision": (authority.native_world_id, authority.graph_revision),
     }
