@@ -1011,8 +1011,9 @@ def test_missing_component_bytes_do_not_hide_catalog_row(
         insert_run(conn, run)
     catalog = mounted_get(tmp_path, run.run_id)
     assert catalog.run_id == run.run_id
-    with pytest.raises(GraphRunRegistryError, match="component file missing|unknown source_artifact"):
+    with pytest.raises(GraphRunRegistryError, match="source input not registered in database") as error:
         get_reviewable_extraction_run(tmp_path, run.run_id)
+    assert error.value.status_code == 422
 
 
 def test_boot_does_not_migrate_or_import(
