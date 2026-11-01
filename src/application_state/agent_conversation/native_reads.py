@@ -226,5 +226,3 @@ def observe_body_read_locked(turn, *, event_id, authorization_event_id, read):
             failure = "native_body_integrity_error"
     return NativeBodyReadObservedV1(event_id=event_id, sequence=len(execution.events),
         authorization_event_id=auth.event_id, excerpt=excerpt, failure_code=failure)
-
-
