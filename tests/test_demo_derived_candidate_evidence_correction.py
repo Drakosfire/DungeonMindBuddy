@@ -29,7 +29,13 @@ from graph_memory.ingestion.extraction_run import (
 
 def _fixture(monkeypatch: pytest.MonkeyPatch, tmp_path: Path, *, two_invalid: bool = False):
     from application_state.ingest import components as output_store
-    monkeypatch.setattr(output_store, "persist_component_payload", lambda **kwargs: hashlib.sha256(kwargs["payload"]).hexdigest())
+    payloads = {}
+    def persist(**kwargs):
+        digest = hashlib.sha256(kwargs["payload"]).hexdigest()
+        payloads[(kwargs["run_id"], kwargs["kind"])] = kwargs["payload"]
+        return digest
+    monkeypatch.setattr(output_store, "persist_component_payload", persist)
+    monkeypatch.setattr(output_store, "get_component_bytes", lambda **kw: payloads[(kw["run_id"], kw["kind"])])
     source = tmp_path / "source.md"
     source.write_text("Torbin, who bought the strange seed, repaired the roof.\n")
     artifact_id = "artifact:worldbuilding:demo:r1:abc"
@@ -119,8 +125,8 @@ def _fixture(monkeypatch: pytest.MonkeyPatch, tmp_path: Path, *, two_invalid: bo
         run = get_run(repo, run_id)
         if run.status != ExtractionRunStatus.REVIEWABLE:
             raise GraphRunRegistryError("not reviewable", status_code=422)
-        candidate = parent_path if run_id == "parent" else repo / run.components["candidate_graph"].uri
-        return SimpleNamespace(run=run, candidate_bytes=candidate.read_bytes(),
+        candidate_bytes = parent_path.read_bytes() if run_id == "parent" else payloads[(run_id, "candidate_graph")]
+        return SimpleNamespace(run=run, candidate_bytes=candidate_bytes,
             source_bytes=source.read_bytes(), span_bytes=span_path.read_bytes(),
             source_artifact=SimpleNamespace(world_id="demo"),
             span_index=parent._test_span_index)
@@ -161,8 +167,10 @@ def test_literal_child_is_reviewable_idempotent_and_parent_is_frozen(monkeypatch
     assert children[response.run_id].lineage["parent_candidate_sha256"] == sha
     assert parent.status == ExtractionRunStatus.REVIEWABLE
     assert (tmp_path / "parent.json").read_bytes() == parent_bytes
-    child_path = tmp_path / children[response.run_id].components["candidate_graph"].uri
-    child_payload = json.loads(child_path.read_text())
+    from application_state.ingest.components import get_component_bytes
+    child = children[response.run_id]
+    child_payload = json.loads(get_component_bytes(run_id=child.run_id, kind="candidate_graph",
+        content_sha256=child.components["candidate_graph"].sha256))
     assert child_payload["nodes"][0]["evidence_refs"][0]["anchor_quotes"] == [
         "who bought the strange seed"
     ]

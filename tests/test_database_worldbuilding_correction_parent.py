@@ -1,6 +1,5 @@
 """Worldbuilding correction and span catalog use exact stored run evidence."""
 import json
-from pathlib import Path
 
 import psycopg
 import pytest
@@ -18,6 +17,7 @@ from tests.test_worldbuilding_profile_pipeline import (
     _load_fixture, _pass_outputs_for_span, _run_with_pass_outputs,
 )
 
+from tests.test_database_literal_correction_parent import _deny_artifact_io, _check_child_storage_recovery
 from tests.test_graph_preview_runner import _admit_worldbuilding, _first_paragraph_span_id
 from graph_memory.source_span import build_stable_source_span_id
 
@@ -79,17 +79,12 @@ def _parent(monkeypatch, root):
 def test_catalog_and_correction_without_parent_evidence_files(monkeypatch, tmp_path):
     parent, request = _parent(monkeypatch, tmp_path)
     expected = registry.load_reviewable_extraction_data(tmp_path, parent.run_id)
-    # Managed World admission is a separate existing owner (still file-backed).
-    # Remove evidence mirrors only; leave its registry and source-root contract.
+    # World and source ownership are database-backed; remove evidence mirrors.
     paths = {tmp_path / ref.uri.removeprefix("repo://") for ref in parent.components.values()}
     for path in paths:
         if path.is_file():
             path.unlink()
-    original_open = Path.open
-    def deny_parent(path, *args, **kwargs):
-        assert path not in paths, f"opened parent evidence mirror: {path}"
-        return original_open(path, *args, **kwargs)
-    monkeypatch.setattr(Path, "open", deny_parent)
+    _deny_artifact_io(monkeypatch, tmp_path)
     catalog = correction.get_worldbuilding_frozen_spans(parent.run_id)
     assert catalog.parent_candidate_sha256 == request.parent_candidate_sha256
     assert catalog.source_sha256 == request.source_sha256
@@ -136,3 +131,11 @@ def test_managed_world_admission_still_required(monkeypatch, tmp_path):
     with pytest.raises(correction.ExtractPromoteError, match="managed World"):
         correction.correct_exact_run_evidence(request)
     assert registry.get_extraction_run(tmp_path, parent.run_id) == parent
+
+
+@pytest.mark.parametrize("kind", ["candidate_graph", "source_span_index"])
+@pytest.mark.parametrize("violation", ["missing", "corrupt"])
+def test_worldbuilding_child_payload_recovery_uses_only_database_owner(monkeypatch, tmp_path, application_state_dsn, kind, violation):
+    parent, request = _parent(monkeypatch, tmp_path)
+    _check_child_storage_recovery(monkeypatch, tmp_path, application_state_dsn, parent, request,
+        correction.correct_exact_run_evidence, kind, violation)

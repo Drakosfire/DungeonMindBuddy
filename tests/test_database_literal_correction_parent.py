@@ -17,6 +17,21 @@ from tests.test_graph_preview_runner import FixtureClient, _run_recap_extraction
 pytestmark = pytest.mark.usefixtures("application_state_dsn")
 
 
+def _deny_artifact_io(monkeypatch, root):
+    """The public correction operation may use DB owners, never artifact files."""
+    import tempfile
+    original_open, original_mkdir = Path.open, Path.mkdir
+    def checked_open(path, *args, **kwargs):
+        assert not path.is_relative_to(root), f"artifact file opened: {path}"
+        return original_open(path, *args, **kwargs)
+    def checked_mkdir(path, *args, **kwargs):
+        assert not path.is_relative_to(root), f"artifact directory created: {path}"
+        return original_mkdir(path, *args, **kwargs)
+    monkeypatch.setattr(Path, "open", checked_open)
+    monkeypatch.setattr(Path, "mkdir", checked_mkdir)
+    monkeypatch.setattr(tempfile, "NamedTemporaryFile", lambda *a, **k: pytest.fail("artifact temporary file written"))
+
+
 def _false_quote_parent(monkeypatch, root):
     _, result = _run_recap_extraction(root, client=FixtureClient())
     data = registry.load_reviewable_extraction_data(root, result.run.run_id)
@@ -58,12 +73,7 @@ def test_literal_correction_with_parent_files_removed(monkeypatch, tmp_path):
     for path in tmp_path.rglob("*"):
         if path.is_file():
             path.unlink()
-    original_open = Path.open
-    child_root = tmp_path / "out/graph_memory/derived_candidates"
-    def child_output_only(path, *args, **kwargs):
-        assert path.is_relative_to(child_root), f"correction opened parent evidence file: {path}"
-        return original_open(path, *args, **kwargs)
-    monkeypatch.setattr(Path, "open", child_output_only)
+    _deny_artifact_io(monkeypatch, tmp_path)
     response = correction.correct_recap_run_evidence(request)
     assert response.semantic_state == "held"
     child = registry.load_reviewable_extraction_data(tmp_path, response.run_id)
@@ -99,3 +109,41 @@ def test_literal_correction_cannot_use_valid_files_to_rescue_bad_database(monkey
         correction.correct_recap_run_evidence(request)
     assert error.value.status_code == (500 if violation == "corrupt" and kind != "source_artifact" else 422)
     assert ingest.list_extraction_runs() == before_rows
+
+
+def _check_child_storage_recovery(monkeypatch, root, dsn, parent, request, correct, kind, violation):
+    from application_state.errors import ApplicationStateIntegrityError
+    first = correct(request)
+    child = registry.load_reviewable_extraction_data(root, first.run_id)
+    payload = child.candidate_bytes if kind == "candidate_graph" else child.span_bytes
+    ref = child.run.components[kind]
+    # A valid old file is deliberately present; it grants no recovery authority.
+    mirror = root / ref.uri.removeprefix("repo://")
+    mirror.parent.mkdir(parents=True, exist_ok=True)
+    mirror.write_bytes(payload)
+    before = ingest.list_extraction_runs()
+    with psycopg.connect(dsn) as conn:
+        if violation == "missing":
+            conn.execute("DELETE FROM ingest.component_payload WHERE run_id=%s AND kind=%s", (first.run_id, kind))
+        else:
+            conn.execute("UPDATE ingest.component_payload SET payload=%s WHERE run_id=%s AND kind=%s", (b"corrupt", first.run_id, kind))
+    _deny_artifact_io(monkeypatch, root)
+    if violation == "missing":
+        # Existing owner permits exact referenced-byte restoration on explicit replay.
+        assert correct(request) == first
+        restored = registry.load_reviewable_extraction_data(root, first.run_id)
+        assert restored.candidate_bytes == child.candidate_bytes
+        assert restored.span_bytes == child.span_bytes
+    else:
+        with pytest.raises(ApplicationStateIntegrityError, match="stored extraction output differs"):
+            correct(request)
+    assert ingest.list_extraction_runs() == before
+    assert registry.get_extraction_run(root, parent.run_id) == parent
+
+
+@pytest.mark.parametrize("kind", ["candidate_graph", "source_span_index"])
+@pytest.mark.parametrize("violation", ["missing", "corrupt"])
+def test_recap_child_payload_recovery_uses_only_database_owner(monkeypatch, tmp_path, application_state_dsn, kind, violation):
+    parent, request = _false_quote_parent(monkeypatch, tmp_path)
+    _check_child_storage_recovery(monkeypatch, tmp_path, application_state_dsn, parent, request,
+        correction.correct_recap_run_evidence, kind, violation)
