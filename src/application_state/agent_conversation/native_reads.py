@@ -22,6 +22,11 @@ from .native_plan_statements import (
 def validate_execution_binding(receipt, execution):
     """One frozen native authority/query binding for every admitted read family."""
     from . import types as t
+    from .native_context import SurfaceNativeContextReceiptV1
+    from .native_execution import SurfaceNativeExecutionV1, validate_context_binding
+    if (type(receipt), type(execution)) == (SurfaceNativeContextReceiptV1, SurfaceNativeExecutionV1):
+        validate_context_binding(receipt, execution)
+        return
     if (type(receipt), type(execution)) not in {
         (t.PlanSourceContextReceiptV1, t.PlanSourceExecutionV1),
         (t.PlanNativeContextReceiptV1, t.PlanNativeExecutionV1),

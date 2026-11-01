@@ -83,7 +83,7 @@ def execution(context_sha, policy, events=()):
         "events": [e.model_dump(mode="json", by_alias=True) if hasattr(e, "model_dump") else e for e in events]}))
 
 
-def controller(surface, policy, *, sequence=0):
+def controller(surface, policy, *, sequence=0, semantic=True):
     role = policy.provider_roles if surface=="play" else policy.provider_roles.controller
     fields = dict(event_id=uuid4(), sequence=sequence, provider_attempt_id=uuid4(),
         envelope_sha256="d"*64, serializer_version="typesafe-sdk-json-v1" if surface!="play" else "openai-sdk-json-v1",
@@ -94,7 +94,8 @@ def controller(surface, policy, *, sequence=0):
     if surface=="play":
         return t.ProviderAttemptAuthorizedEventV3(kind="provider_attempt_authorized_v3", **fields)
     if surface=="plan":
-        return t.PlanJevProviderAuthorizedV1(kind="plan_jev_provider_authorized_v1", **fields,
+        cls=t.PlanRequestedWorkAuthorizedV2 if semantic else t.PlanJevProviderAuthorizedV1
+        return cls(kind="plan_requested_work_authorized_v2" if semantic else "plan_jev_provider_authorized_v1", **fields,
             decision_request_id=uuid4(), parent_request_sha256="f"*64)
     from application_state.agent_conversation.build_decision_context import identity
     fields.update(input_accounting_kind="estimated_token_count", input_estimator=policy.controller_continuation_accounting.policy)
@@ -102,6 +103,38 @@ def controller(surface, policy, *, sequence=0):
         context_mode="default", context_phase="select", max_question_input_tokens=120,
         dispatch_identity_sha256=identity(envelope_sha256=fields["envelope_sha256"],
             provider=role.provider, model=role.model, api_mode=role.api_mode, context_mode="default"))
+
+
+def outcomes(provider,sequence):
+    return [t.ProviderOutcomeEventV1(kind="provider_outcome",event_id=uuid4(),sequence=sequence+i,
+        provider_attempt_id=provider.provider_attempt_id,outcome=value)
+        for i,value in enumerate(("sdk_entered","response_received"))]
+
+
+def choice(context,record,provider,sequence,operation,handles=()):
+    return t.PlanJevRetrievalSelectionV1(kind="plan_jev_retrieval_selected_v1",event_id=uuid4(),sequence=sequence,
+        context_receipt_sha256=context.context_receipt_sha256,execution_policy_sha256=record.execution_policy_sha256,
+        decision_request_id=getattr(provider,"decision_request_id",uuid4()),controller_attempt_id=provider.provider_attempt_id,
+        controller_envelope_sha256=provider.envelope_sha256,controller_response_sha256="f"*64,
+        parent_request_sha256=getattr(provider,"parent_request_sha256","e"*64),operation=operation,
+        selected_handles=list(handles))
+
+
+def decision_prefix(surface,context,record):
+    first=controller(surface,record.policy)
+    events=[first,*outcomes(first,1)]
+    if surface=="plan":
+        events.append(t.PlanRequestedWorkSelectedV2(kind="plan_requested_work_selected_v2",event_id=uuid4(),sequence=3,
+            context_receipt_sha256=context.context_receipt_sha256,execution_policy_sha256=record.execution_policy_sha256,
+            decision_request_id=first.decision_request_id,controller_attempt_id=first.provider_attempt_id,
+            controller_envelope_sha256=first.envelope_sha256,controller_response_sha256="f"*64,
+            parent_request_sha256=first.parent_request_sha256,requested_work="discuss",original_capture_sha256=None,
+            placement_catalog_sha256=None,placement_selector=None,original_capture=None,placement_catalog=None))
+        active=controller(surface,record.policy,sequence=len(events),semantic=False)
+        events.extend([active,*outcomes(active,len(events)+1)])
+    else:
+        active=first
+    return events,active
 
 
 @pytest.mark.parametrize("surface", ["build", "plan", "play"])
@@ -253,11 +286,11 @@ def test_native_writer_has_one_shared_exact_inclusion_contract(surface):
     data=context.model_dump(mode="json",by_alias=True)
     data["assembled_input"]["tokenizer_name"]=first.input_estimator
     context=type(context).model_validate_json(json.dumps(seal(data)))
-    def outcome(sequence, value):
-        return t.ProviderOutcomeEventV1(kind="provider_outcome", event_id=uuid4(), sequence=sequence,
-            provider_attempt_id=first.provider_attempt_id, outcome=value)
-    writer = native_writer(surface,record.policy,sequence=3)
-    prefix=[first, outcome(1,"sdk_entered"), outcome(2,"response_received")]
+    record=execution(context.context_receipt_sha256,record.policy)
+    prefix,active=decision_prefix(surface,context,record)
+    if surface=="plan":
+        prefix.append(choice(context,record,active,len(prefix),"finish_retrieval"))
+    writer = native_writer(surface,record.policy,sequence=len(prefix))
     accepted=execution(context.context_receipt_sha256, record.policy, [*prefix,writer])
     validate_context_binding(context,accepted)
     assert type(accepted.events[-1]) is NativeWriterAuthorizedV1
@@ -294,31 +327,32 @@ def test_shared_writer_retains_unavailable_native_read_settlement(surface):
     context=type(context).model_validate_json(json.dumps(seal(data)))
     policy=record.policy.model_copy(update={"native_query_sha256":t.canonical_sha256(context.native_query)})
     record=execution(context.context_receipt_sha256,policy)
-    def outcome(sequence,value):
-        return t.ProviderOutcomeEventV1(kind="provider_outcome",event_id=uuid4(),sequence=sequence,
-            provider_attempt_id=first.provider_attempt_id,outcome=value)
-    selected=t.PlanJevRetrievalSelectionV1(kind="plan_jev_retrieval_selected_v1",event_id=uuid4(),sequence=3,
-        context_receipt_sha256=context.context_receipt_sha256,execution_policy_sha256=record.execution_policy_sha256,
-        decision_request_id=getattr(first,"decision_request_id",uuid4()),controller_attempt_id=first.provider_attempt_id,
-        controller_envelope_sha256=first.envelope_sha256,controller_response_sha256="f"*64,
-        parent_request_sha256="e"*64,operation="select_candidates",
-        selected_handles=[selection_handle(context.native_query,context.native_query.assertion_matches[0])])
-    grant=t.NativePlanAssertionReadAuthorizedV1(event_id=uuid4(),sequence=4,
-        provider_attempt_id=first.provider_attempt_id,query_sha256=context.native_query.sha256,
+    prefix,active=decision_prefix(surface,context,record)
+    prefix.append(choice(context,record,active,len(prefix),"select_candidates",
+        [selection_handle(context.native_query,context.native_query.assertion_matches[0])]))
+    grant=t.NativePlanAssertionReadAuthorizedV1(event_id=uuid4(),sequence=len(prefix),
+        provider_attempt_id=active.provider_attempt_id,query_sha256=context.native_query.sha256,
         assertion_ids=("assertion-one",))
-    observed=t.NativePlanAssertionReadObservedV1(event_id=uuid4(),sequence=5,
+    prefix.append(grant)
+    observed=t.NativePlanAssertionReadObservedV1(event_id=uuid4(),sequence=len(prefix),
         authorization_event_id=grant.event_id,reads=(),unavailable_assertion_ids=("assertion-one",),status="partial")
-    prefix=[first,outcome(1,"sdk_entered"),outcome(2,"response_received"),selected,grant,observed]
-    writer=native_writer(surface,policy,sequence=6,read_ids=(observed.event_id,))
+    prefix.append(observed)
+    unsettled=prefix[:-1]
+    if surface=="plan":
+        finish=controller(surface,policy,sequence=len(prefix),semantic=False)
+        prefix.extend([finish,*outcomes(finish,len(prefix)+1)])
+        prefix.append(choice(context,record,finish,len(prefix),"finish_retrieval"))
+    writer=native_writer(surface,policy,sequence=len(prefix),read_ids=(observed.event_id,))
     accepted=execution(context.context_receipt_sha256,policy,[*prefix,writer])
     validate_context_binding(context,accepted)
     # A failed read remains visible to the writer but cannot invent support.
-    assert accepted.events[5].reads==() and accepted.events[-1].native_read_event_ids==(observed.event_id,)
+    assert next(e for e in accepted.events if e.event_id==observed.event_id).reads==()
+    assert accepted.events[-1].native_read_event_ids==(observed.event_id,)
     with pytest.raises(ValueError,match="exact settled read inclusion"):
         execution(context.context_receipt_sha256,policy,[*prefix,writer.model_copy(update={"native_read_event_ids":()})])
-    with pytest.raises(ValueError,match="every selected read grant"):
-        missing=execution(context.context_receipt_sha256,policy,[*prefix[:-1],
-            native_writer(surface,policy,sequence=5)])
+    with pytest.raises(ValueError,match="every selected read grant|explicit completed retrieval finish"):
+        missing=execution(context.context_receipt_sha256,policy,[*unsettled,
+            native_writer(surface,policy,sequence=len(unsettled))])
         validate_context_binding(context,missing)
 
 
@@ -329,3 +363,51 @@ def test_single_provider_cannot_smuggle_unknown_reads_in_shared_writer_codec():
     shared=NativeWriterAuthorizedV1(**fields,frame_sha256="f"*64,native_read_event_ids=(uuid4(),))
     with pytest.raises(ValueError,match="exact settled read inclusion"):
         execution(context.context_receipt_sha256,record.policy,[shared])
+
+
+@pytest.mark.parametrize("mutation",["no_destination","no_finish","scope","request","response","second_destination","controller_after_finish"])
+def test_native_plan_uses_existing_owner_phase_checks(mutation):
+    context,record=component("plan")
+    prefix,active=decision_prefix("plan",context,record)
+    finish=choice(context,record,active,len(prefix),"finish_retrieval")
+    events=[*prefix,finish,native_writer("plan",record.policy,sequence=len(prefix)+1)]
+    if mutation=="no_destination":
+        events=[controller("plan",record.policy,semantic=False)]
+    elif mutation=="no_finish":
+        events=[*prefix,native_writer("plan",record.policy,sequence=len(prefix))]
+    elif mutation in {"scope","request","response"}:
+        field={"scope":"context_receipt_sha256","request":"parent_request_sha256","response":"controller_attempt_id"}[mutation]
+        events[-2]=finish.model_copy(update={field:uuid4() if mutation=="response" else "a"*64})
+    elif mutation=="second_destination":
+        events=[*prefix,controller("plan",record.policy,sequence=len(prefix))]
+    else:
+        events=[*prefix,finish,controller("plan",record.policy,sequence=len(prefix)+1,semantic=False)]
+    with pytest.raises(ValueError):
+        execution(context.context_receipt_sha256,record.policy,events)
+
+
+@pytest.mark.parametrize("family",["search","body","statement","assertion"])
+def test_native_plan_cannot_finish_with_pending_native_grant(family):
+    # Isolate the phase owner's pending state. Native read owners separately
+    # validate exact grant/capture identity and source bytes.
+    from application_state.agent_conversation.plan_jev_decision import validate_decision_phases
+    context,record=component("plan")
+    prefix,active=decision_prefix("plan",context,record)
+    prefix.append(choice(context,record,active,len(prefix),"select_candidates",["selected:synthetic"]))
+    fields=dict(event_id=uuid4(),sequence=len(prefix),provider_attempt_id=active.provider_attempt_id)
+    if family=="search":
+        grant=t.NativeBodySearchAuthorizedV1(**fields,context_receipt_sha256=context.context_receipt_sha256,
+            execution_policy_sha256=record.execution_policy_sha256,authority=context.source_authority,query_sha256="b"*64)
+    elif family=="body":
+        grant=t.NativeBodyReadAuthorizedV1(**fields,search_event_id=uuid4(),catalog_sha256="b"*64,
+            retrieval_kind="section",section_id="section:one")
+    elif family=="statement":
+        grant=t.NativePlanStatementReadAuthorizedV1(**fields,query_sha256="b"*64,statement_ids=("statement-one",))
+    else:
+        grant=t.NativePlanAssertionReadAuthorizedV1(**fields,query_sha256="b"*64,assertion_ids=("assertion-one",))
+    prefix.append(grant)
+    last=controller("plan",record.policy,sequence=len(prefix),semantic=False)
+    prefix.extend([last,*outcomes(last,len(prefix)+1)])
+    prefix.append(choice(context,record,last,len(prefix),"finish_retrieval"))
+    with pytest.raises(ValueError,match="unresolved source read"):
+        validate_decision_phases(record.model_copy(update={"events":prefix}))

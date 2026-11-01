@@ -9,6 +9,7 @@ from pydantic import ValidationError
 
 from tests.application_state.test_plan_authoring import capture_payload
 from tests.test_plan_jev_harness import unavailable_native_sources  # noqa: F401
+from tests.test_plan_jev_dispatch import plan_adapter as plan_adapter
 from apps.live_control_server.models.agent_turn import AgentTurnRequest
 from apps.live_control_server.services.agent_turn_service import _submitted_turn_intent
 from application_state.agent_conversation.types import (
@@ -72,7 +73,6 @@ def test_foreign_or_stale_plan_capture_is_rejected_before_provider_dispatch(chan
 
 # Exercise the real GenerationEngine dispatch gate and disposable APP database;
 # synthetic transport supplies only the provider response, never an APP receipt.
-pytest_plugins = ("tests.test_plan_jev_dispatch",)
 
 
 class SemanticWire(httpx2.AsyncBaseTransport):

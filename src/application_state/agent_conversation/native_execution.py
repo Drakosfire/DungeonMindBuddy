@@ -236,6 +236,9 @@ class SurfaceNativeExecutionV1(Strict):
                 # The submission/selection/reservation owners must additionally
                 # validate this stored reviewed step before granting any write.
             t.validate_controller_writer_execution(self, reviewed_action=reviewed[0] if reviewed else None)
+            if isinstance(self.policy.action, NativePlanActionV1):
+                from .plan_jev_decision import validate_decision_phases
+                validate_decision_phases(self)
             from .native_corpus import validate_native_body_events
             validate_native_body_events(self)
         elif any(isinstance(event, t.NATIVE_BODY_EVENTS) for event in self.events):
