@@ -1,11 +1,22 @@
-"""Read-only Core composition for ordinary Plan native-statement discovery.
+"""Surface-neutral native Graph discovery and selected support reads.
 
-Search summaries stay host-only. Clause IO occurs only after the owning APP read
-selection has been durably recorded. No repository or ID is accepted from a user.
+Core owns Graph/source admission. APP owns durable selection grants. This host
+composition uses those owners without a page, Plan, writer or UI dependency.
+Query discovery never opens supporting text; selected reads and citation reopening
+share the same pinned authority and binding checks.
 """
 from dataclasses import dataclass
 import json
-from dungeonmind.application.vnext import SearchReadService, EntityReadService
+from dungeonmind.application.vnext import (
+    SearchReadService, EntityReadService, EvidenceReadService, open_admitted_native_text,
+)
+from dungeonmind.contracts.vnext.domain import Assertion
+from dungeonmind.contracts.vnext.source import EvidenceRefV3
+from application_state.agent_conversation.native_statement_input import digest
+from application_state.agent_conversation.native_plan_assertions import (
+    NativePlanAssertionMatchV1, NativePlanQueryV2, NativePlanAssertionReadAuthorizedV1,
+    NativePlanAssertionReadV1, NativeAssertionSpanV1,
+)
 from application_state.agent_conversation.native_plan_statements import (
     NativePlanQueryAuthorityV1, NativePlanQueryUnavailableV1, NativePlanQueryV1,
     NativePlanStatementMatchV1, NativePlanStatementReadV1, NativePlanStatementReadAuthorizedV1, validate_support_authority,
@@ -26,9 +37,9 @@ class QueryContext:
     resolve_binding: object
 
 
-def _principal(principal):
+def _require_gm(principal):
     if principal is None or principal.role != 'gm':
-        raise ValueError('Native Plan query requires authenticated GM authority')
+        raise ValueError('Native Graph query requires authenticated GM authority')
 
 
 def _payload(entity, statement_id):
@@ -77,10 +88,34 @@ def _subject_labels(statement_id, paths, entities, campaign):
     return ', '.join(sorted(set(subjects)))
 
 
+def _assertion_matches(entities, *, excluded_subjects):
+    """Only assertions returned by Core's scoped complete-entity reads; no body IO."""
+    found = {}
+    for entity_id, entity in entities.items():
+        if not entity.found or entity.completeness.status != 'complete':
+            continue
+        names = {a.value.value for a in entity.assertions if a.subject_entity_id == entity_id
+            and a.predicate == 'dnd5e:name' and getattr(a.value, 'kind', None) == 'literal'
+            and isinstance(a.value.value, str) and a.value.value.strip()}
+        label = next(iter(names)) if len(names) == 1 else entity_id
+        for parsed in entity.assertions:
+            if parsed.subject_entity_id in excluded_subjects:
+                continue  # Qualified source-statement semantics have their own contract.
+            assertion = Assertion.model_validate(parsed, from_attributes=True)
+            row = found.setdefault(assertion.assertion_id, [assertion, set(), assertion.subject_entity_id])
+            row[1].add(entity_id)
+            if assertion.subject_entity_id == entity_id:
+                row[2] = label
+    return tuple(NativePlanAssertionMatchV1(assertion_id=a.assertion_id,
+        subject_entity_id=a.subject_entity_id, discovered_entity_ids=tuple(sorted(witnesses)),
+        assertion_sha256=digest(a), label=f'{label} · {a.predicate}')
+        for a, witnesses, label in sorted(found.values(), key=lambda row: row[0].assertion_id))
+
+
 def prepare_query(managed_world_id, question, principal, *, source_context=None,
                   revision_id=None, repository=None, resolve_binding=None,
                   scope_mode='world', campaign_id=None):
-    _principal(principal)
+    _require_gm(principal)
     resolve = resolve_binding or resolve_managed_world_binding
     try:
         bound = resolve(managed_world_id)
@@ -178,10 +213,8 @@ def prepare_query(managed_world_id, question, principal, *, source_context=None,
             logical_source=logical, episode=payload['episode'],
             label=(f"About {subjects} · " if subjects else "")
                 + f"{logical['object_id']} — {payload['episode']} ({clause['campaign']})"))
-    from application_state.agent_conversation.native_plan_assertions import NativePlanQueryV2
-    from .native_plan_assertions import matches as assertion_matches
     query = NativePlanQueryV2(authority=authority, question=question,
-        assertion_matches=assertion_matches(entities, excluded_subjects=qualified_subjects),
+        assertion_matches=_assertion_matches(entities, excluded_subjects=qualified_subjects),
         search_result_sha256=result.result_digest, discovered_entity_ids=discovered,
         matches=tuple(matches), status='partial' if gaps else 'complete', gap_codes=tuple(sorted(set(gaps))))
     if resolve(managed_world_id) != bound:
@@ -189,22 +222,41 @@ def prepare_query(managed_world_id, question, principal, *, source_context=None,
     return QueryContext(query, bound, pinned, repo, principal, resolve), query
 
 
-def read_selected(context, authorization, principal, *, resolve_binding=None):
-    """Trusted caller must first persist an exact selected-read authorization."""
-    _principal(principal)
+def read_selected(context, authorization, principal):
+    """Open support only for records in an exact APP-authorized query selection."""
+    _require_gm(principal)
+    query = context.query
+    if (not isinstance(query, NativePlanQueryV1)
+            or not isinstance(authorization, (NativePlanStatementReadAuthorizedV1, NativePlanAssertionReadAuthorizedV1))
+            or authorization.query_sha256 != query.sha256):
+        raise ValueError('Selected read requires its exact native query authorization')
+    if isinstance(authorization, NativePlanAssertionReadAuthorizedV1):
+        if not isinstance(query, NativePlanQueryV2):
+            raise ValueError('Selected assertions require an assertion-capable native query')
+        identities = authorization.assertion_ids
+        discovered = {m.assertion_id for m in query.assertion_matches}
+        reader = _read_assertions
+    else:
+        identities = authorization.statement_ids
+        discovered = {m.statement_id for m in query.matches}
+        reader = _read_statements
+    if len(identities) != len(set(identities)) or not set(identities) <= discovered:
+        raise ValueError('Selected record was not discovered by this query')
+    authority = query.authority
+    if context.resolve_binding(authority.managed_world_id) != context.binding:
+        raise ValueError('Native query binding changed before selected read')
+    result = reader(context, identities)
+    if context.resolve_binding(authority.managed_world_id) != context.binding:
+        raise ValueError('Native query binding changed during selected read')
+    return result
+
+
+def _read_statements(context, identities):
     query, repo = context.query, context.repository
     authority = query.authority
-    resolve = resolve_binding or context.resolve_binding
-    if resolve(authority.managed_world_id) != context.binding:
-        raise ValueError('Native query binding changed before selected read')
-    if not isinstance(authorization, NativePlanStatementReadAuthorizedV1) or authorization.query_sha256 != query.sha256:
-        raise ValueError('Selected read requires its exact native query authorization')
-    statement_ids = authorization.statement_ids
     matches = {m.statement_id: m for m in query.matches}
-    if len(statement_ids) != len(set(statement_ids)) or not set(statement_ids) <= set(matches):
-        raise ValueError('Selected statement was not discovered by this query')
     reads, unavailable = [], []
-    for identity in statement_ids:
+    for identity in identities:
         match = matches[identity]
         try:
             bundle = statements._bundle(repo, authority.native_world_id, authority.revision_id,
@@ -218,14 +270,54 @@ def read_selected(context, authorization, principal, *, resolve_binding=None):
             reads.append(read)
         except statements.StatementUnavailableError:
             unavailable.append(identity)
-    if resolve(authority.managed_world_id) != context.binding:
-        raise ValueError('Native query binding changed during selected read')
+    return tuple(reads), tuple(unavailable)
+
+
+def _read_assertions(context, identities):
+    query = context.query
+    authority = query.authority
+    inventory = {m.assertion_id: m for m in query.assertion_matches}
+    read_context, access, _, _ = context.pinned
+    reads, unavailable = [], []
+    for identity in identities:
+        result = EvidenceReadService().get_assertion_evidence(read_context, identity)
+        if (result.identity.space_id, result.identity.revision_id) != (authority.native_world_id, authority.revision_id):
+            raise ValueError('Core assertion read changed pinned authority')
+        if not result.available or result.completeness.status != 'complete' or result.assertion is None:
+            unavailable.append(identity)
+            continue
+        assertion = Assertion.model_validate(result.assertion, from_attributes=True)
+        match = inventory[identity]
+        if digest(assertion) != match.assertion_sha256 or assertion.subject_entity_id != match.subject_entity_id:
+            raise ValueError('Native assertion changed after discovery')
+        refs = tuple(EvidenceRefV3.model_validate(e, from_attributes=True) for e in result.evidence)
+        supports = [e for e in refs if e.evidence_role == 'support']
+        if not supports:
+            unavailable.append(identity)
+            continue
+        spans = []
+        for ref in supports:
+            opened = open_admitted_native_text(access, ref.evidence_ref_id)
+            if opened.status != 'available':
+                break
+            # Core owns receipt, source identity, scope, digest and UTF8 admission.
+            # A valid source/span proof can predate this coherent view. Core
+            # owns membership and current access; proof age is not query authority.
+            text = opened.body_text.encode()[opened.span_start_byte:opened.span_end_byte].decode()
+            spans.append(NativeAssertionSpanV1(evidence_ref_id=ref.evidence_ref_id,
+                source_artifact_id=opened.source_artifact_id, source_revision_id=opened.source_revision_id,
+                body_sha256=opened.body_sha256, start_byte=opened.span_start_byte, end_byte=opened.span_end_byte,
+                span_sha256=opened.span_sha256, text=text))
+        if len(spans) != len(supports):
+            unavailable.append(identity)
+            continue
+        reads.append(NativePlanAssertionReadV1(assertion=assertion, evidence=refs, spans=tuple(spans)))
     return tuple(reads), tuple(unavailable)
 
 
 def reopen_context(query, principal):
     """Current access to a retained query's original R, without re-running search."""
-    _principal(principal)
+    _require_gm(principal)
     authority = query.authority
     bound = resolve_managed_world_binding(authority.managed_world_id)
     if (bound.native_world_id, bound.binding_version) != (authority.native_world_id, authority.binding_version):

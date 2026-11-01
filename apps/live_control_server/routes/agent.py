@@ -746,7 +746,7 @@ def _plan_context_resolver(
 ) -> AgentPlanWorldGraphBootstrap:
     """Resolve one source-free, revision-pinned DungeonMind retrieval packet."""
     if native_query_mode:
-        from apps.live_control_server.services.native_plan_statements import prepare_query
+        from apps.live_control_server.services.native_graph_reads import prepare_query
         if owner is None or owner.get('kind') != 'world' or work is None or work.world_id != owner.get('id') or body.surface.surface_id != 'plan':
             raise AgentTurnServiceError('Native Plan query scope differs from saved work.', code='plan_context_scope_rejected', status_code=403)
         from application_state.agent_conversation.native_plan_statements import NativePlanQueryV1

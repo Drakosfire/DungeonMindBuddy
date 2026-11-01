@@ -536,8 +536,7 @@ def test_ordinary_confirmation_commits_once_and_selected_query_opens_support(lan
                 lane.data.source_bytes, lane.data.candidate_bytes, lane.data.span_index)
     original = copy.deepcopy(retained())
     from apps.live_control_server.services.agent_graph_auth import NativeGraphPrincipal
-    from apps.live_control_server.services.native_plan_statements import prepare_query
-    from apps.live_control_server.services.native_plan_assertions import read_selected
+    from apps.live_control_server.services.native_graph_reads import prepare_query, read_selected
     from application_state.agent_conversation.native_plan_assertions import NativePlanAssertionReadAuthorizedV1
     packet = confirmation(lane)
     before = len(lane.repo.head_events(SPACE_ID))
