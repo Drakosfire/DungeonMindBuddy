@@ -1,7 +1,8 @@
-import { useEffect, useRef, useState } from "react";
+import { lazy, Suspense, useEffect, useRef, useState } from "react";
 import { useSelectedWorld } from "../selectedWorld/SelectedWorldContext";
-import { NativeGraphInspection } from "./NativeGraphInspection";
 import "./LoadedWorldGraphExplorer.css";
+
+const NativeGraphInspection = lazy(() => import("./NativeGraphInspection").then(module => ({ default: module.NativeGraphInspection })));
 
 /** Both entry points inspect the same published authority, only while open. */
 export function LoadedWorldGraphExplorer({ compact = false }: { compact?: boolean } = {}) {
@@ -46,7 +47,7 @@ function WorldGraphBrowser({ worldName, worldId, compact }: {
         <h2>{worldName}</h2>
         <p className="loaded-graph-explorer__scope">Inspect published objects and their supporting sources. This view does not publish changes.</p>
       </div><button type="button" className="loaded-graph-explorer__close" onClick={close} aria-label="Close graph" title="Close graph">×</button></header>
-      {open ? <NativeGraphInspection worldId={worldId} /> : null}
+      {open ? <Suspense fallback={<p role="status">Loading World graph…</p>}><NativeGraphInspection worldId={worldId} /></Suspense> : null}
     </dialog>
   </>;
 }

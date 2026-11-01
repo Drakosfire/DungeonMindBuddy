@@ -13,13 +13,13 @@ beforeAll(() => {
 beforeEach(() => { state.world = { kind: "managed", worldId: "elderwyld", name: "Elderwyld", documentId: null }; });
 afterEach(cleanup);
 
-it("mounts inspection only while open, closes with Escape and restores focus", () => {
+it("mounts inspection only while open, closes with Escape and restores focus", async () => {
   render(<LoadedWorldGraphExplorer />);
   const launcher = screen.getByRole("button", { name: "Explore graph" });
   expect(screen.queryByRole("region", { name: "Native inspector" })).not.toBeInTheDocument();
   fireEvent.click(launcher);
   const dialog = screen.getByRole("dialog", { name: "Elderwyld World graph" });
-  expect(screen.getByRole("region", { name: "Native inspector" })).toHaveTextContent("elderwyld");
+  expect(await screen.findByRole("region", { name: "Native inspector" })).toHaveTextContent("elderwyld");
   expect(screen.queryByRole("group", { name: "Graph material" })).not.toBeInTheDocument();
   fireEvent(dialog, new Event("cancel", { cancelable: true }));
   expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
@@ -31,7 +31,7 @@ it("mounts inspection only while open, closes with Escape and restores focus", (
   expect(launcher).toHaveFocus();
 });
 
-it("discards the inspector on managed World switch and opens the new World", () => {
+it("discards the inspector on managed World switch and opens the new World", async () => {
   const view = render(<LoadedWorldGraphExplorer />);
   fireEvent.click(screen.getByRole("button", { name: "Explore graph" }));
   state.world = { kind: "managed", worldId: "sheep", name: "Sheep", documentId: null };
@@ -40,7 +40,7 @@ it("discards the inspector on managed World switch and opens the new World", () 
   expect(screen.queryByText("elderwyld")).not.toBeInTheDocument();
   fireEvent.click(screen.getByRole("button", { name: "Explore graph" }));
   expect(screen.getByRole("dialog", { name: "Sheep World graph" })).toBeVisible();
-  expect(screen.getByRole("region", { name: "Native inspector" })).toHaveTextContent("sheep");
+  expect(await screen.findByRole("region", { name: "Native inspector" })).toHaveTextContent("sheep");
 });
 
 it.each(["legacy", "loading", "error"] as const)("does not infer an inspection World from %s selection", kind => {
