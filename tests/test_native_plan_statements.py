@@ -4,8 +4,8 @@ from types import SimpleNamespace
 from uuid import uuid4
 import pytest
 from tests.application_state.test_native_plan_statements import native_read_admission_probes as native_read_admission_probes
-from tests.test_source_statements import lane, commit, advance, GM, BODY
-from apps.live_control_server.services.native_plan_statements import prepare_query, read_selected
+from tests.test_source_statements import lane as lane, commit, advance, GM, BODY
+from apps.live_control_server.services.native_graph_reads import prepare_query, read_selected
 from application_state.agent_conversation.native_plan_statements import NativePlanStatementReadAuthorizedV1
 
 
@@ -23,7 +23,7 @@ def selected(lane, ctx, statement_ids=None):
     grant = NativePlanStatementReadAuthorizedV1(event_id=uuid4(), sequence=0,
         provider_attempt_id=uuid4(), query_sha256=ctx.query.sha256,
         statement_ids=statement_ids or tuple(m.statement_id for m in ctx.query.matches))
-    return read_selected(ctx, grant, GM, resolve_binding=lambda _: bound(lane))
+    return read_selected(ctx, grant, GM)
 
 
 def test_natural_query_discovers_qualified_statement_without_subject_id(lane):
@@ -63,7 +63,7 @@ def test_selected_read_rejects_injected_ids_and_authority_changes(lane):
         provider_attempt_id=uuid4(), query_sha256=ctx.query.sha256,
         statement_ids=(ctx.query.matches[0].statement_id,))
     with pytest.raises(ValueError, match='binding changed'):
-        read_selected(ctx, grant, GM, resolve_binding=lambda _: SimpleNamespace(binding_version=99))
+        read_selected(replace(ctx, resolve_binding=lambda _: SimpleNamespace(binding_version=99)), grant, GM)
     with pytest.raises(ValueError, match='GM authority'):
         prepare_query(lane.world.world_id, 'B', replace(GM, role='player'), repository=lane.repo,
             resolve_binding=lambda _: bound(lane))
@@ -135,7 +135,7 @@ def test_historical_native_http_retry_preserves_reader_support_and_citations(lan
     from fastapi.testclient import TestClient
     from apps.live_control_server.routes import agent
     from apps.live_control_server.services import plan_jev_harness, managed_world_graph_projection as managed
-    from apps.live_control_server.services import native_plan_statements as native_query
+    from apps.live_control_server.services import native_graph_reads as native_query
     from apps.live_control_server.services.plan_jev_harness import PlanJevHarness
     from tests.test_agent_turn_service import _pinned_plan_request, _pinned_plan_work
     from tests.test_plan_jev_writer import WriterWire
@@ -347,7 +347,7 @@ def test_historical_native_http_retry_preserves_reader_support_and_citations(lan
 @pytest.mark.parametrize('failure', ['statement_payload_invalid', 'statement_receipt_invalid',
     'statement_semantic_conflict', 'statement_bundle_unavailable', 'witness', 'type'])
 def test_selected_integrity_errors_are_not_partial_retrieval(lane, monkeypatch, failure):
-    from apps.live_control_server.services import native_plan_statements as native
+    from apps.live_control_server.services import native_graph_reads as native
     commit(lane)
     ctx, _ = query(lane)
     if failure == 'witness':
@@ -368,7 +368,7 @@ def test_selected_integrity_errors_are_not_partial_retrieval(lane, monkeypatch, 
 
 
 def test_core_not_found_is_typed_unavailable_but_incomplete_is_fatal(lane, monkeypatch):
-    from apps.live_control_server.services import native_plan_statements as native
+    from apps.live_control_server.services import native_graph_reads as native
     commit(lane)
     ctx, _ = query(lane)
     monkeypatch.setattr(native.statements, 'EntityReadService', lambda: SimpleNamespace(
@@ -384,7 +384,7 @@ def test_core_not_found_is_typed_unavailable_but_incomplete_is_fatal(lane, monke
 
 @pytest.mark.parametrize('case', ['missing', 'conflicting', 'wrong_campaign', 'partial', 'other_predicate'])
 def test_navigation_names_require_unambiguous_admitted_scoped_identity(lane, monkeypatch, case):
-    from apps.live_control_server.services import native_plan_statements as native
+    from apps.live_control_server.services import native_graph_reads as native
     commit(lane)
     original = native.EntityReadService()
     calls = []
@@ -433,7 +433,7 @@ def test_shared_source_and_episode_labels_distinguish_about_subjects(lane, monke
 
 
 def test_direct_statement_hit_never_expands_referent_names(lane, monkeypatch):
-    from apps.live_control_server.services import native_plan_statements as native
+    from apps.live_control_server.services import native_graph_reads as native
     commit(lane)
     original = native.EntityReadService()
     calls = []
@@ -445,3 +445,39 @@ def test_direct_statement_hit_never_expands_referent_names(lane, monkeypatch):
     _, result = query(lane, 'episode-1')
     assert len(result.matches) == 1 and calls == list(result.discovered_entity_ids)
     assert not result.matches[0].label.startswith('About ')
+
+
+@pytest.mark.parametrize('family', ['statement', 'assertion'])
+@pytest.mark.parametrize('failure', ['query', 'binding_before', 'binding_during', 'unknown_grant'])
+def test_shared_selected_read_authority_rejects_both_record_families(lane, family, failure):
+    from uuid import uuid4
+    from apps.live_control_server.services.native_graph_reads import read_selected
+    from application_state.agent_conversation.native_plan_assertions import NativePlanAssertionReadAuthorizedV1
+
+    commit(lane)
+    ctx, result = query(lane)
+    if family == 'statement':
+        grant = NativePlanStatementReadAuthorizedV1(event_id=uuid4(), sequence=0,
+            provider_attempt_id=uuid4(), query_sha256=result.sha256,
+            statement_ids=tuple(m.statement_id for m in result.matches))
+    else:
+        grant = NativePlanAssertionReadAuthorizedV1(event_id=uuid4(), sequence=0,
+            provider_attempt_id=uuid4(), query_sha256=result.sha256,
+            assertion_ids=tuple(m.assertion_id for m in result.assertion_matches))
+    if failure == 'query':
+        grant = grant.model_copy(update={'query_sha256': '0' * 64})
+        expected = 'exact native query authorization'
+    elif failure == 'unknown_grant':
+        grant = SimpleNamespace(query_sha256=result.sha256)
+        expected = 'exact native query authorization'
+    else:
+        calls = []
+        def binding(world):
+            calls.append(world)
+            return bound(lane) if failure == 'binding_during' and len(calls) == 1 else SimpleNamespace(binding_version=99)
+        ctx = replace(ctx, resolve_binding=binding)
+        expected = 'binding changed ' + ('during' if failure == 'binding_during' else 'before')
+    with pytest.raises(ValueError, match=expected):
+        read_selected(ctx, grant, GM)
+    if failure.startswith('binding_'):
+        assert calls == [lane.world.world_id] * (2 if failure == 'binding_during' else 1)

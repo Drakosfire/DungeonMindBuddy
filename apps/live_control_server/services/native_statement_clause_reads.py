@@ -70,7 +70,7 @@ def open_clause(*, world_id, turn_id, citation_index, principal, service=None):
 def _open_plan_clause(turn, world_id, turn_id, citation_index, principal):
     from application_state.agent_conversation import types as t
     from application_state.agent_conversation.native_plan_statements import NativePlanStatementReadObservedV1, NativePlanStatementReadAuthorizedV1
-    from .native_plan_statements import reopen_context, read_selected
+    from .native_graph_reads import reopen_context, read_selected
     if (turn.world_id != world_id or turn.turn_id != turn_id or turn.status != 'completed'
             or not isinstance(turn.completion, t.SurfaceEvidenceCompletionV6)):
         raise SourcePassageOpenError('native_clause_completion_unavailable', 404)
@@ -98,8 +98,7 @@ def _open_plan_clause(turn, world_id, turn_id, citation_index, principal):
 def open_assertion_source(*, world_id, turn_id, citation_index, principal, service=None):
     from application_state.agent_conversation import types as t
     from application_state.agent_conversation.native_plan_assertions import NativePlanAssertionReadObservedV1, NativePlanAssertionReadAuthorizedV1
-    from .native_plan_statements import reopen_context
-    from .native_plan_assertions import read_selected
+    from .native_graph_reads import reopen_context, read_selected
     from apps.live_control_server.models.native_statement_answers import NativeAssertionSourceReadV1
     if isinstance(citation_index, bool) or not isinstance(citation_index, int) or citation_index < 0:
         raise SourcePassageOpenError('native_assertion_selector_invalid', 422)

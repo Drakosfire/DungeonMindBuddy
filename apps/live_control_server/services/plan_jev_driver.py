@@ -197,11 +197,10 @@ class PlanJevDriver:
         from application_state.agent_conversation.native_plan_statements import NativePlanStatementReadAuthorizedV1
         from application_state.agent_conversation.native_plan_assertions import NativePlanAssertionReadAuthorizedV1
         from .agent_turn_service import _require_fresh_execution_append
+        from .native_graph_reads import read_selected
         if record_kind == "assertion":
-            from .native_plan_assertions import read_selected
             attempts, grant_type = self.native_assertion_attempts, NativePlanAssertionReadAuthorizedV1
         elif record_kind == "statement":
-            from .native_plan_statements import read_selected
             attempts, grant_type = self.native_statement_attempts, NativePlanStatementReadAuthorizedV1
         else:
             raise ValueError("Unknown native selected-read record kind")

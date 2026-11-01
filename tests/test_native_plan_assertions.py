@@ -12,8 +12,7 @@ from tests.test_source_statements import make_lane, GM, BODY, wk, transport, NOW
 from tests.test_native_plan_statements import bound
 from tests.application_state.test_native_plan_statements import native_read_admission_probes as native_read_admission_probes
 from graph_memory.vnext.domain_runtime import dungeonbuddy_world_domain_contract, dungeonbuddy_dnd5e_custom_predicate_profile
-from apps.live_control_server.services.native_plan_statements import prepare_query
-from apps.live_control_server.services.native_plan_assertions import read_selected
+from apps.live_control_server.services.native_graph_reads import prepare_query, read_selected
 from application_state.agent_conversation.native_plan_assertions import NativePlanAssertionReadAuthorizedV1
 
 
@@ -82,7 +81,7 @@ def grant(context, ids=None):
 
 def test_core_assertions_keep_metadata_and_exact_support_without_summary_wrapper(lane, monkeypatch):
     publish(lane, qualified=True)
-    from apps.live_control_server.services import native_plan_assertions as native
+    from apps.live_control_server.services import native_graph_reads as native
     original = native.open_admitted_native_text
     def forbidden(*_args):
         pytest.fail('Source opened before selection')
@@ -129,8 +128,8 @@ def test_fresh_ordinary_plan_native_question_delivers_reloads_and_opens_exact_so
     from fastapi import FastAPI
     from fastapi.testclient import TestClient
     from apps.live_control_server.routes import agent
-    from apps.live_control_server.services import native_plan_statements as native_query
-    from apps.live_control_server.services import native_plan_assertions as native_reads
+    from apps.live_control_server.services import native_graph_reads as native_query
+    from apps.live_control_server.services import native_graph_reads as native_reads
     from apps.live_control_server.services import managed_world_graph_projection as managed, plan_jev_harness
     from apps.live_control_server.services.plan_jev_harness import PlanJevHarness
     from tests.test_agent_turn_service import _pinned_plan_request, _pinned_plan_work
