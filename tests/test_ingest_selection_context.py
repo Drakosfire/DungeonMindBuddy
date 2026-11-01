@@ -84,13 +84,20 @@ def context(monkeypatch, tmp_path):
         status=ExtractionRunStatus.REVIEWABLE,
         revision=6,
         components=components,
+        lineage={"world_campaign_ingest_context": {
+            "schema": "dm_world_campaign_ingest_context_v1",
+            "managed_world_id": "world-a", "native_world_id": "native-a",
+            "binding_version": 2, "campaign_id": "c1",
+            "head_revision_id": "rev:observed", "graph_schema": "dm_graph_v1",
+            "graph_payload_sha256": "a" * 64,
+        }},
     )
     source = SimpleNamespace(
         source_artifact_id=artifact,
         source_domain="recap",
         campaign_id="c1",
         session_id="session-29",
-        world_id="world-a",
+        world_id="native-a",
         content_sha256=sha,
         markdown=text,
         encoding="utf-8",
@@ -192,6 +199,7 @@ def test_context_is_deterministic_historical_and_does_not_write(context):
         "provenance": "operator_annotation",
         "operator_subject": "operator:test",
     }
+    assert first["scope"]["managed_world_id"] == "world-a"
     assert first["scope"]["native_world_id"] == "native-a"
     assert first["scope"]["admitted_world_facts_included"] is False
     assert {n["record"]["node_id"] for n in first["nodes"]} == {"ari", "warehouse"}
@@ -360,6 +368,8 @@ def test_authenticated_route_and_schema_rejection(context):
             response = await client.post(url, json=context.body)
             assert response.status_code == 200, response.text
             assert response.json()["annotation"]["operator_subject"] == "operator:http"
+            assert response.json()["scope"]["managed_world_id"] == "world-a"
+            assert response.json()["scope"]["native_world_id"] == "native-a"
             assert (
                 await client.post(url + "?world_id=other", json=context.body)
             ).status_code == 422
@@ -479,5 +489,51 @@ def test_binding_drift_during_native_read_rejects(context, monkeypatch):
         return {"revision_id": "revision", "selections": [], "identity_approval": False}
 
     monkeypatch.setattr(service, "resolve_native_review_context", changed)
-    with pytest.raises(ExtractPromoteError, match="binding changed while resolving"):
+    with pytest.raises(ExtractPromoteError, match="binding changed") as caught:
         resolve(context)
+    assert caught.value.status_code == 409
+
+
+def test_binding_lookup_uses_selected_managed_world(context, monkeypatch):
+    seen = []
+
+    def binding(world):
+        seen.append(world)
+        return context.binding
+
+    monkeypatch.setattr(service, "resolve_managed_world_binding", binding)
+    output = resolve(context)
+    assert seen == ["world-a", "world-a"]
+    assert output["scope"]["native_world_id"] == context.source.world_id
+
+
+@pytest.mark.parametrize("source_world", ["native-b", "world-a", None, ""])
+def test_source_ownership_must_match_native_binding(context, monkeypatch, source_world):
+    context.source.world_id = source_world
+    monkeypatch.setattr(
+        service, "resolve_native_review_context",
+        lambda **_: pytest.fail("foreign source reached native review"),
+    )
+    with pytest.raises(ExtractPromoteError, match="selected native World"):
+        resolve(context)
+
+
+def test_frozen_binding_version_must_match_current_owner(context, monkeypatch):
+    context.binding.binding_version += 1
+    monkeypatch.setattr(
+        service, "resolve_native_review_context",
+        lambda **_: pytest.fail("stale binding reached native review"),
+    )
+    with pytest.raises(ExtractPromoteError, match="binding changed") as caught:
+        resolve(context)
+    assert caught.value.status_code == 409
+
+
+def test_managed_selection_cannot_be_replaced_with_native_id(context, monkeypatch):
+    monkeypatch.setattr(
+        service, "resolve_managed_world_binding",
+        lambda *_: pytest.fail("foreign managed selection reached binding owner"),
+    )
+    with pytest.raises(ExtractPromoteError, match="selection belongs to another World") as caught:
+        resolve(context, expected_world_id="native-a")
+    assert caught.value.status_code == 409
