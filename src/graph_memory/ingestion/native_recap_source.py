@@ -19,6 +19,22 @@ PROFILE = "fresh_recap_native_source_v1"
 _ADMISSION_IDENTITY_TAG = "utf8-universal-newlines-terminal-lf-v1"
 
 
+def admission_id_for_source(*, managed_world_id, native_world_id, campaign_id,
+                            session_id, app_source_artifact_id,
+                            app_source_revision_id, app_body_sha256):
+    """One identity recipe shared by intent creation and read-only lookup."""
+    return "dmb-recap-source:" + canonical_sha256({
+        "managed_world_id": managed_world_id,
+        "native_world_id": native_world_id,
+        "campaign_id": campaign_id,
+        "session_id": session_id,
+        "app_source_artifact_id": app_source_artifact_id,
+        "app_source_revision_id": str(app_source_revision_id),
+        "app_body_sha256": app_body_sha256,
+        "normalization_policy": _ADMISSION_IDENTITY_TAG,
+    })
+
+
 class Closed(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True)
 
@@ -108,24 +124,12 @@ class Record(Closed):
 
     @property
     def admission_id(self):
-        return "dmb-recap-source:" + canonical_sha256(
-            {
-                k: _ADMISSION_IDENTITY_TAG
-                if k == "normalization_policy"
-                else str(self.app_source_revision_id)
-                if k == "app_source_revision_id"
-                else getattr(self, k)
-                for k in (
-                    "managed_world_id",
-                    "native_world_id",
-                    "campaign_id",
-                    "session_id",
-                    "app_source_artifact_id",
-                    "app_source_revision_id",
-                    "app_body_sha256",
-                    "normalization_policy",
-                )
-            }
+        return admission_id_for_source(
+            managed_world_id=self.managed_world_id, native_world_id=self.native_world_id,
+            campaign_id=self.campaign_id, session_id=self.session_id,
+            app_source_artifact_id=self.app_source_artifact_id,
+            app_source_revision_id=self.app_source_revision_id,
+            app_body_sha256=self.app_body_sha256,
         )
 
     @property

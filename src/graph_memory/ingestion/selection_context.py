@@ -44,6 +44,8 @@ class IngestSelectionContextRequest(SelectionModel):
     edge_ids: list[RecordId] = Field(default_factory=list, max_length=32)
     source_selection: IngestSourceSelection | None = None
     annotation: str | None = Field(default=None, min_length=1, max_length=8192)
+    # Inspection is a read purpose, never part of an ordinary chat intent.
+    inspect_source_support: bool = Field(default=False, exclude_if=lambda value: value is False)
 
     @model_validator(mode="after")
     def nonempty(self):
@@ -63,6 +65,12 @@ class AgentKnowledgeSelection(SelectionModel):
     run_id: RecordId
     context_request: IngestSelectionContextRequest
     expected_context_sha256: Digest
+
+    @model_validator(mode="after")
+    def question_not_inspection(self):
+        if self.context_request.inspect_source_support:
+            raise ValueError("source-support inspection cannot be submitted as agent knowledge")
+        return self
 
 
 class NativeStatementSelectionV1(SelectionModel):
