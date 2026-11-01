@@ -334,7 +334,7 @@ async function planGraphContext(
     schema: "dmb_agent_plan_world_graph_context_receipt_v1" as const,
     receipt_serializer_version: "canonical-json-utf8-v1" as const,
     context_receipt_sha256: "0".repeat(64),
-    plan_context_policy: { schema: "dmb_plan_context_policy_v1" as const, policy: "auto_plan_world" as const },
+    plan_context_policy: options.request?.plan_context_policy ?? { schema: "dmb_plan_context_policy_v1" as const, policy: "auto_plan_world" as const },
     plan_basis: {
       world_id: WORLD,
       document_id: "plan-one",
