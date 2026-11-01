@@ -6,7 +6,7 @@ import pytest
 from pydantic import ValidationError
 from application_state.agent_conversation import types as t
 from application_state.agent_conversation.plan_source_context import capability_bases, require_graph
-from tests.test_native_corpus_source_access import lane, admit, capture  # noqa: F401
+from tests.test_native_corpus_source_access import lane as lane, admit, capture  # noqa: F401
 
 
 def receipt_payload(lane, *, captured=None):
@@ -947,3 +947,38 @@ def test_native_acquisition_refuses_ungranted_or_unselected_io_and_foreign_appen
         fixture.service.record_provider_outcome(turn.world_id, turn.conversation_id, turn.turn_id,
             expected_revision=turn.revision, expected_attempt=turn.attempt, outcome=fixture.grant)
     assert not calls
+
+
+@pytest.mark.parametrize("substitution,expected", [
+    ("structural_view", "current resolved Plan owner"),
+    ("completed", "current resolved Plan owner"),
+    ("foreign_surface", "current resolved Plan owner"),
+    ("foreign_world", "differs from its owning World"),
+    ("foreign_work", "differs from its resolved provenance"),
+    ("receipt_pair", "exact receipt and execution"),
+    ("context_hash", "differs from its frozen receipt authority"),
+])
+def test_common_native_read_admission_requires_actual_owned_turn(lane, substitution, expected):
+    from types import SimpleNamespace
+    from application_state.agent_conversation.native_reads import authorize_body_search_locked
+
+    turn = source_turn(source_submission(lane))
+    if substitution == "structural_view":
+        turn = SimpleNamespace(**turn.__dict__)
+    elif substitution == "completed":
+        turn = turn.model_copy(update={"status": "completed"})
+    elif substitution == "foreign_surface":
+        turn = turn.model_copy(update={"provenance": turn.provenance.model_copy(update={"surface_id": "build"})})
+    elif substitution == "foreign_world":
+        turn = turn.model_copy(update={"world_id": "foreign"})
+    elif substitution == "foreign_work":
+        turn = turn.model_copy(update={"provenance": turn.provenance.model_copy(update={
+            "primary_work": turn.provenance.primary_work.model_copy(update={"object_id": "foreign"})})})
+    elif substitution == "receipt_pair":
+        turn = turn.model_copy(update={"graph_context_execution": t.PlanNativeExecutionV1.model_construct(
+            **turn.graph_context_execution.__dict__)})
+    else:
+        turn = turn.model_copy(update={"graph_context_execution": turn.graph_context_execution.model_copy(
+            update={"context_receipt_sha256": "0" * 64})})
+    with pytest.raises(ValueError, match=expected):
+        authorize_body_search_locked(turn, event_id=uuid4())

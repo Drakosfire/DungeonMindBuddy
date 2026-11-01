@@ -1849,7 +1849,7 @@ class AgentConversationService:
             expected_revision=expected_revision, expected_attempt=expected_attempt,
             event=inclusion, duplicate_key="event_id")
 
-    def _append_native_body_materialization(self, world_id, conversation_id, turn_id, *,
+    def _append_native_read_materialization(self, world_id, conversation_id, turn_id, *,
             expected_revision, expected_attempt, materialize):
         def produce(conn, turn):
             try:
@@ -1862,16 +1862,16 @@ class AgentConversationService:
 
     def authorize_native_read(self, world_id, conversation_id, turn_id, *,
             expected_revision, expected_attempt, event_id, record_kind, record_ids):
-        from .native_plan_statements import authorize_read
-        return self._append_native_body_materialization(world_id, conversation_id, turn_id,
+        from .native_reads import authorize_read
+        return self._append_native_read_materialization(world_id, conversation_id, turn_id,
             expected_revision=expected_revision, expected_attempt=expected_attempt,
             materialize=lambda turn: authorize_read(turn, event_id=event_id,
                 record_kind=record_kind, record_ids=record_ids))
 
     def observe_native_read(self, world_id, conversation_id, turn_id, *,
             expected_revision, expected_attempt, event_id, authorization_event_id, reads, unavailable_ids):
-        from .native_plan_statements import observe_read
-        return self._append_native_body_materialization(world_id, conversation_id, turn_id,
+        from .native_reads import observe_read
+        return self._append_native_read_materialization(world_id, conversation_id, turn_id,
             expected_revision=expected_revision, expected_attempt=expected_attempt,
             materialize=lambda turn: observe_read(turn, event_id=event_id,
                 authorization_event_id=authorization_event_id, reads=reads,
@@ -1879,15 +1879,15 @@ class AgentConversationService:
 
     def authorize_native_body_search(self, world_id, conversation_id, turn_id, *,
             expected_revision, expected_attempt, event_id):
-        from .native_corpus import authorize_body_search_locked
-        return self._append_native_body_materialization(world_id, conversation_id, turn_id,
+        from .native_reads import authorize_body_search_locked
+        return self._append_native_read_materialization(world_id, conversation_id, turn_id,
             expected_revision=expected_revision, expected_attempt=expected_attempt,
             materialize=lambda turn: authorize_body_search_locked(turn, event_id=event_id))
 
     def observe_native_body_search(self, world_id, conversation_id, turn_id, *,
             expected_revision, expected_attempt, event_id, authorization_event_id, capture):
-        from .native_corpus import observe_body_search_locked
-        return self._append_native_body_materialization(world_id, conversation_id, turn_id,
+        from .native_reads import observe_body_search_locked
+        return self._append_native_read_materialization(world_id, conversation_id, turn_id,
             expected_revision=expected_revision, expected_attempt=expected_attempt,
             materialize=lambda turn: observe_body_search_locked(turn, event_id=event_id,
                 authorization_event_id=authorization_event_id, capture=capture))
@@ -1895,8 +1895,8 @@ class AgentConversationService:
     def authorize_native_body_read(self, world_id, conversation_id, turn_id, *,
             expected_revision, expected_attempt, event_id, search_event_id, catalog_sha256,
             retrieval_kind, section_id):
-        from .native_corpus import authorize_body_read_locked
-        return self._append_native_body_materialization(world_id, conversation_id, turn_id,
+        from .native_reads import authorize_body_read_locked
+        return self._append_native_read_materialization(world_id, conversation_id, turn_id,
             expected_revision=expected_revision, expected_attempt=expected_attempt,
             materialize=lambda turn: authorize_body_read_locked(turn, event_id=event_id,
                 search_event_id=search_event_id, catalog_sha256=catalog_sha256,
@@ -1904,8 +1904,8 @@ class AgentConversationService:
 
     def observe_native_body_read(self, world_id, conversation_id, turn_id, *,
             expected_revision, expected_attempt, event_id, authorization_event_id, read):
-        from .native_corpus import observe_body_read_locked
-        return self._append_native_body_materialization(world_id, conversation_id, turn_id,
+        from .native_reads import observe_body_read_locked
+        return self._append_native_read_materialization(world_id, conversation_id, turn_id,
             expected_revision=expected_revision, expected_attempt=expected_attempt,
             materialize=lambda turn: observe_body_read_locked(turn, event_id=event_id,
                 authorization_event_id=authorization_event_id, read=read))

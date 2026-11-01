@@ -33,16 +33,8 @@ def require_graph(receipt):
 
 def validate_source_execution_binding(receipt, execution):
     """Bind native source and optional Graph capabilities without cross-family IDs."""
-    from .native_corpus import NativeBodySearchAuthorizedV1
-    if not isinstance(receipt, t.PlanSourceContextReceiptV1) or not isinstance(execution, t.PlanSourceExecutionV1):
-        raise ValueError("Source-capable Plan requires its exact receipt and execution")
-    if (execution.context_receipt_sha256 != receipt.context_receipt_sha256
-            or execution.policy.source_authority_sha256 != t.canonical_sha256(
-                receipt.source_authority.model_dump(mode="json", by_alias=True))):
-        raise ValueError("Plan source execution differs from its frozen receipt authority")
-    if isinstance(receipt, t.PlanNativeContextReceiptV1):
-        from .native_plan_statements import validate_execution
-        validate_execution(receipt, execution)
+    from .native_reads import validate_execution_binding
+    validate_execution_binding(receipt, execution)
     scope = execution.policy.source_read_scope
     graph = receipt.graph_capability
     if graph is None:
@@ -58,11 +50,6 @@ def validate_source_execution_binding(receipt, execution):
             "context_receipt_sha256": receipt.context_receipt_sha256})
         t.validate_graph_selected_source_binding(inputs, execution)
         t.validate_graph_related_recap_context_scope(inputs, execution)
-    for event in execution.events:
-        if isinstance(event, NativeBodySearchAuthorizedV1) and (
-                not isinstance(receipt.source_authority, NativeCorpusAuthorityV1)
-                or event.authority != receipt.source_authority):
-            raise ValueError("Native source search differs from its frozen source-only authority")
 
 
 def validate_source_provenance(receipt, provenance):
