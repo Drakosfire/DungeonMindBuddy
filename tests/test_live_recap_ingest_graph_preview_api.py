@@ -1445,7 +1445,7 @@ def test_process_does_not_revive_an_older_success(client_env, monkeypatch, appli
         if not normalized.is_absolute():
             normalized = client_env[1] / normalized
         newer = service.run_recap_production_extraction(repo_root=ROOT,campaign_id='longmont-c2',
-            session_id='session-22',source_artifact_id=create_recap_source_artifact(ROOT,world_id=recap_ingest_context.read_recap_ingest_context().native_world_id,campaign_id='longmont-c2',session_id='session-22',recap_path=normalized).source_artifact_id,
+            session_id='session-22',source_artifact_id=create_recap_source_artifact(ROOT,world_id=recap_ingest_context.read_recap_ingest_context().as_lineage()["native_world_id"],campaign_id='longmont-c2',session_id='session-22',recap_path=normalized).source_artifact_id,
             model_id='gpt-5.4-mini' if latest == 'different_model' else payload['graph_model_id'],
             profile='category_encounter_job_preview' if latest == 'different_profile' else None,allow_llm=True,
             category_client=object(),ingest_context=recap_ingest_context.read_recap_ingest_context())
@@ -1501,7 +1501,7 @@ def test_process_and_status_select_source_before_loading_other_run_outputs(clien
     other = ROOT / 'other-source.md'
     other.write_text(normalized.read_text()+'\n\nThe party waits for a second report.\n')
     newer = service.run_recap_production_extraction(repo_root=ROOT,campaign_id='longmont-c2',
-        session_id='session-22',source_artifact_id=create_recap_source_artifact(ROOT,world_id=recap_ingest_context.read_recap_ingest_context().native_world_id,campaign_id='longmont-c2',session_id='session-22',recap_path=other).source_artifact_id,model_id=payload['graph_model_id'],allow_llm=True,
+        session_id='session-22',source_artifact_id=create_recap_source_artifact(ROOT,world_id=recap_ingest_context.read_recap_ingest_context().as_lineage()["native_world_id"],campaign_id='longmont-c2',session_id='session-22',recap_path=other).source_artifact_id,model_id=payload['graph_model_id'],allow_llm=True,
         ingest_context=recap_ingest_context.read_recap_ingest_context())
     assert newer.run.status.value == 'reviewable'
     assert newer.run.run_id != first_id
