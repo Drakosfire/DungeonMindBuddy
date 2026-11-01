@@ -367,7 +367,6 @@ def test_malformed_supplied_context_is_not_repaired_or_retagged(monkeypatch, tmp
 def test_fresh_build_rejects_bad_input_before_generic_storage(
     monkeypatch, tmp_path, build_source, build_context, violation,
 ):
-    from dataclasses import replace
     from uuid import uuid4
     from apps.live_control_server.models.build_recap_launch import BuildRecapLaunchRequest
     from apps.live_control_server.services import build_recap_launch
@@ -375,9 +374,9 @@ def test_fresh_build_rejects_bad_input_before_generic_storage(
 
     record, _, _, digest = build_source
     context = (None if violation == "missing_context" else
-        replace(build_context, managed_world_id="foreign-managed") if violation == "foreign_world" else
-        replace(build_context, campaign_id="foreign-campaign") if violation == "foreign_campaign" else build_context)
-    monkeypatch.setattr(build_recap_launch, "read_recap_ingest_context", lambda **kw: context)
+        build_context.model_copy(update={"managed_world_id": "foreign-managed"}) if violation == "foreign_world" else
+        build_context.model_copy(update={"campaign_id": "foreign-campaign"}) if violation == "foreign_campaign" else build_context)
+    monkeypatch.setattr(build_recap_launch, "resolve_recap_source_scope", lambda **kw: context)
     monkeypatch.setattr(build_recap_launch, "create_extraction_run",
         lambda *a, **k: pytest.fail("invalid fresh input reached generic candidate storage"))
     monkeypatch.setattr(build_recap_launch, "run_recap_production_extraction",
