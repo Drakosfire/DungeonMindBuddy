@@ -218,30 +218,46 @@ def validate_execution(receipt, execution):
             observations[event.event_id] = event
 
 
-def authorize_read(turn, *, event_id, statement_ids):
+def authorize_read(turn, *, event_id, record_kind, record_ids):
+    """Authorize one native record family through the shared selected-read ledger."""
     from .plan_jev_decision import _owner, current_selection
     from . import types as t
+    from .native_plan_assertions import NativePlanQueryV2, NativePlanAssertionReadAuthorizedV1
+    if record_kind not in {"statement", "assertion"}:
+        raise ValueError("Unknown native selected-read record kind")
     receipt, execution = _owner(turn)
-    if not isinstance(receipt, t.PlanNativeContextReceiptV1) or not isinstance(receipt.native_query, NativePlanQueryV1):
-        raise ValueError('Native query is unavailable')
-    selection = current_selection(turn)
-    event = NativePlanStatementReadAuthorizedV1(event_id=event_id, sequence=len(execution.events),
-        provider_attempt_id=selection.controller_attempt_id, query_sha256=receipt.native_query.sha256,
-        statement_ids=tuple(statement_ids))
-    # Validate the proposed append through the same retained event contract.
-    proposed = execution.model_copy(update={'events': [*execution.events, event]})
-    validate_execution(receipt, proposed)
+    query = getattr(receipt, "native_query", None)
+    if (not isinstance(receipt, t.PlanNativeContextReceiptV1)
+            or not isinstance(query, NativePlanQueryV1)
+            or record_kind == "assertion" and not isinstance(query, NativePlanQueryV2)):
+        raise ValueError("Native query is unavailable for the selected record kind")
+    event_type, ids_field = ((NativePlanAssertionReadAuthorizedV1, "assertion_ids")
+        if record_kind == "assertion" else (NativePlanStatementReadAuthorizedV1, "statement_ids"))
+    event = event_type(event_id=event_id, sequence=len(execution.events),
+        provider_attempt_id=current_selection(turn).controller_attempt_id,
+        query_sha256=query.sha256, **{ids_field: tuple(record_ids)})
+    validate_execution(receipt, execution.model_copy(update={"events": [*execution.events, event]}))
     return event
 
 
-def observe_read(turn, *, event_id, authorization_event_id, reads, unavailable_statement_ids):
+def observe_read(turn, *, event_id, authorization_event_id, reads, unavailable_ids):
+    """The retained grant chooses the observation family, never the caller."""
     from .plan_jev_decision import _owner
+    from .native_plan_assertions import NativePlanAssertionReadAuthorizedV1, NativePlanAssertionReadObservedV1
     receipt, execution = _owner(turn)
-    event = NativePlanStatementReadObservedV1(event_id=event_id, sequence=len(execution.events),
+    grants = [event for event in execution.events
+        if isinstance(event, (NativePlanStatementReadAuthorizedV1, NativePlanAssertionReadAuthorizedV1))
+        and event.event_id == authorization_event_id]
+    if len(grants) != 1:
+        raise ValueError("Native observation requires one exact retained read grant")
+    event_type, unavailable_field = ((NativePlanAssertionReadObservedV1, "unavailable_assertion_ids")
+        if isinstance(grants[0], NativePlanAssertionReadAuthorizedV1)
+        else (NativePlanStatementReadObservedV1, "unavailable_statement_ids"))
+    event = event_type(event_id=event_id, sequence=len(execution.events),
         authorization_event_id=authorization_event_id, reads=tuple(reads),
-        unavailable_statement_ids=tuple(unavailable_statement_ids),
-        status='partial' if unavailable_statement_ids else 'complete')
-    validate_execution(receipt, execution.model_copy(update={'events': [*execution.events, event]}))
+        status="partial" if unavailable_ids else "complete",
+        **{unavailable_field: tuple(unavailable_ids)})
+    validate_execution(receipt, execution.model_copy(update={"events": [*execution.events, event]}))
     return event
 
 

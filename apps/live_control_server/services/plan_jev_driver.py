@@ -148,14 +148,14 @@ class PlanJevDriver:
             if isinstance(query, NativePlanQueryV1):
                 selected_ids = [m.statement_id for m in query.matches if selection_handle(query, m) in selected.selected_handles]
                 if selected_ids:
-                    self._read_native_statements(selected_ids)
+                    self._read_native("statement", selected_ids)
 
             from application_state.agent_conversation.native_plan_assertions import NativePlanQueryV2, selection_handle as assertion_handle
             if isinstance(query, NativePlanQueryV2):
                 assertion_ids = [m.assertion_id for m in query.assertion_matches
                     if assertion_handle(query, m) in selected.selected_handles]
                 if assertion_ids:
-                    self._read_native_assertions(assertion_ids)
+                    self._read_native("assertion", assertion_ids)
 
             nodes = [self.catalog[handle][0] for handle in selected.selected_handles
                      if handle.startswith("node:")]
@@ -192,26 +192,34 @@ class PlanJevDriver:
             return
         self._read_new_sources(operations)
 
-    def _read_native_assertions(self, identities):
+    def _read_native(self, record_kind, identities):
         from uuid import uuid4
-        from .native_plan_assertions import read_selected
+        from application_state.agent_conversation.native_plan_statements import NativePlanStatementReadAuthorizedV1
         from application_state.agent_conversation.native_plan_assertions import NativePlanAssertionReadAuthorizedV1
         from .agent_turn_service import _require_fresh_execution_append
-        a = self.adapter
-        if self.native_assertion_attempts & set(identities):
-            raise ValueError('Native assertion cannot be reacquired')
-        grant_id = uuid4()
-        a.turn = _require_fresh_execution_append(a.fence.append('authorize_native_plan_assertion_read', 'event_id', grant_id,
-            assertion_ids=tuple(identities)))
-        self.native_assertion_attempts.update(identities)
+        if record_kind == "assertion":
+            from .native_plan_assertions import read_selected
+            attempts, grant_type = self.native_assertion_attempts, NativePlanAssertionReadAuthorizedV1
+        elif record_kind == "statement":
+            from .native_plan_statements import read_selected
+            attempts, grant_type = self.native_statement_attempts, NativePlanStatementReadAuthorizedV1
+        else:
+            raise ValueError("Unknown native selected-read record kind")
+        if attempts & set(identities):
+            raise ValueError(f"Native {record_kind} cannot be reacquired")
+        a, grant_id = self.adapter, uuid4()
+        # APP validates the acknowledged selection before either Core port opens support.
+        a.turn = _require_fresh_execution_append(a.fence.append("authorize_native_read", "event_id", grant_id,
+            record_kind=record_kind, record_ids=tuple(identities)))
+        attempts.update(identities)
         grant = next(e for e in a.fence.turn.graph_context_execution.events
-            if isinstance(e, NativePlanAssertionReadAuthorizedV1) and e.event_id == grant_id)
+            if isinstance(e, grant_type) and e.event_id == grant_id)
         context = a.native_query_context
         reads, unavailable = read_selected(context, grant, context.principal)
-        a.turn = _require_fresh_execution_append(a.fence.append('observe_native_plan_assertion_read', 'event_id', uuid4(),
-            authorization_event_id=grant_id, reads=reads, unavailable_assertion_ids=unavailable))
+        a.turn = _require_fresh_execution_append(a.fence.append("observe_native_read", "event_id", uuid4(),
+            authorization_event_id=grant_id, reads=reads, unavailable_ids=unavailable))
         if unavailable:
-            self.gaps.append('native_assertion_support_unavailable')
+            self.gaps.append(f"native_{record_kind}_support_unavailable")
 
     def _native_assertion_examined(self):
         from application_state.agent_conversation.native_plan_assertions import (
@@ -234,28 +242,6 @@ class PlanJevDriver:
             kind='Previously selected native assertion: ' + ('opened' if identity in {r.assertion.assertion_id for r in event.reads} else 'unavailable')
                 + '; not an answer-sufficiency verdict')
             for event in observed for identity in grants[event.authorization_event_id].assertion_ids)
-
-    def _read_native_statements(self, identities):
-        from uuid import uuid4
-        from .native_plan_statements import read_selected
-        a = self.adapter
-        if self.native_statement_attempts & set(identities):
-            raise ValueError('Native statement cannot be reacquired')
-        grant_id = uuid4()
-        # The owning APP fence validates the current acknowledged Jev selection.
-        from .agent_turn_service import _require_fresh_execution_append
-        a.turn = _require_fresh_execution_append(a.fence.append('authorize_native_plan_statement_read', 'event_id', grant_id,
-            statement_ids=tuple(identities)))
-        self.native_statement_attempts.update(identities)
-        from application_state.agent_conversation.native_plan_statements import NativePlanStatementReadAuthorizedV1
-        grant = next(e for e in a.fence.turn.graph_context_execution.events
-            if isinstance(e, NativePlanStatementReadAuthorizedV1) and e.event_id == grant_id)
-        context = a.native_query_context
-        reads, unavailable = read_selected(context, grant, context.principal)
-        a.turn = _require_fresh_execution_append(a.fence.append('observe_native_plan_statement_read', 'event_id', uuid4(),
-            authorization_event_id=grant_id, reads=reads, unavailable_statement_ids=unavailable))
-        if unavailable:
-            self.gaps.append('native_statement_support_unavailable')
 
     def _native_statement_examined(self):
         """Truthful read outcomes for navigation, never an answer-sufficiency verdict."""

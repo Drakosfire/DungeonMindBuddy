@@ -50,3 +50,54 @@ def test_body_and_statement_exposure_share_one_original_byte_union(body_end, cla
             validate_combined_exposure(execution, (body,))
     else:
         validate_combined_exposure(execution, (body,))
+
+
+@pytest.fixture
+def native_read_admission_probes(monkeypatch):
+    """Exercise refusals inside the actual APP transaction before a normal read."""
+    from application_state.agent_conversation import AgentConversationService
+    from application_state.agent_conversation.native_plan_assertions import NativePlanAssertionReadAuthorizedV1
+    authorize = AgentConversationService.authorize_native_read
+    observe = AgentConversationService.observe_native_read
+    calls = []
+
+    def checked_authorize(self, world_id, conversation_id, turn_id, **kwargs):
+        before = self.inspect_turn(world_id=world_id, turn_id=turn_id)
+        with pytest.raises(ApplicationStateValidationError, match="Unknown native"):
+            authorize(self, world_id, conversation_id, turn_id, **(kwargs | {"record_kind": "other"}))
+        other = "statement" if kwargs["record_kind"] == "assertion" else "assertion"
+        with pytest.raises(ApplicationStateValidationError):
+            authorize(self, world_id, conversation_id, turn_id, **(kwargs | {"record_kind": other}))
+        assert self.inspect_turn(world_id=world_id, turn_id=turn_id) == before
+        return authorize(self, world_id, conversation_id, turn_id, **kwargs)
+
+    def checked_observe(self, world_id, conversation_id, turn_id, **kwargs):
+        before = self.inspect_turn(world_id=world_id, turn_id=turn_id)
+        with pytest.raises(ApplicationStateValidationError, match="exact retained read grant"):
+            observe(self, world_id, conversation_id, turn_id,
+                **(kwargs | {"authorization_event_id": uuid4()}))
+        with pytest.raises(ApplicationStateValidationError):
+            observe(self, world_id, conversation_id, turn_id,
+                **(kwargs | {"reads": (), "unavailable_ids": ("foreign-record",)}))
+        # A caller cannot change an assertion grant into a statement observation,
+        # or a statement grant into an assertion observation.
+        wrong = {"support": {}, "source_body_bytes": 1} if any(
+            isinstance(event, NativePlanAssertionReadAuthorizedV1)
+            and event.event_id == kwargs["authorization_event_id"]
+            for event in before.graph_context_execution.events) else {"assertion": {}, "evidence": (), "spans": ()}
+        with pytest.raises(ApplicationStateValidationError):
+            observe(self, world_id, conversation_id, turn_id,
+                **(kwargs | {"reads": (wrong,), "unavailable_ids": ()}))
+        assert self.inspect_turn(world_id=world_id, turn_id=turn_id) == before
+        result = observe(self, world_id, conversation_id, turn_id, **kwargs)
+        updated_turn, _replayed = result
+        with pytest.raises(ApplicationStateValidationError):
+            observe(self, world_id, conversation_id, turn_id,
+                **(kwargs | {"expected_revision": updated_turn.revision, "event_id": uuid4()}))
+        assert self.inspect_turn(world_id=world_id, turn_id=turn_id) == updated_turn
+        calls.append(kwargs["authorization_event_id"])
+        return result
+
+    monkeypatch.setattr(AgentConversationService, "authorize_native_read", checked_authorize)
+    monkeypatch.setattr(AgentConversationService, "observe_native_read", checked_observe)
+    return calls
