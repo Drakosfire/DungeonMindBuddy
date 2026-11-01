@@ -73,7 +73,6 @@ import type {
   ExtractionRunLaunchResponse,
   ExtractionRunRecord,
   ExtractionRunStatusResponse,
-  HistoricalRecapInspectionResponse,
   HistoricalRecapWorldProjectionResponse,
   WorkspaceDocumentRecord,
   WorkspaceDocumentsListResponse,
@@ -2840,15 +2839,6 @@ export async function getExtractionRun(runId: string, signal?: AbortSignal): Pro
   return apiFetch<ExtractionRunRecord>(
     `/api/live/graph-preview/extraction-runs/${encodeURIComponent(runId)}`,
     signal ? { signal } : undefined,
-  );
-}
-
-/** Exact-run historical recap source inspection (read-only; not promotion review). */
-export async function getHistoricalRecapInspection(
-  runId: string,
-): Promise<HistoricalRecapInspectionResponse> {
-  return apiFetch<HistoricalRecapInspectionResponse>(
-    `/api/live/graph-preview/extraction-runs/${encodeURIComponent(runId)}/recap-inspection`,
   );
 }
 

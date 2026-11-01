@@ -19,7 +19,6 @@ from application_state.errors import (
     ApplicationStateUnavailableError,
 )
 from application_state.ingest.service import list_extraction_runs
-from apps.live_control_server.services.native_recap_source_admission import public_run
 from apps.live_control_server.services import graph_run_registry as runs
 from apps.live_control_server.services.source_artifact_registry import (
     SourceArtifactRegistryError,
@@ -34,8 +33,6 @@ from src.graph_memory.candidate_document_integrity import (
     classify_candidate_document_integrity,
 )
 
-INGEST_RUN_CATALOG_SCHEMA = "dmb_extraction_run_catalog_v1"
-
 CODE_UNAVAILABLE = "ingest_run_catalog_unavailable"
 CODE_SCHEMA_UNAVAILABLE = "ingest_run_catalog_schema_unavailable"
 CODE_INTEGRITY = "ingest_run_catalog_integrity_error"
@@ -49,15 +46,7 @@ class IngestRunCatalogError(Exception):
         self.status_code = status_code
 
 
-def _sort_key(row: dict[str, Any]) -> tuple[str, str, str]:
-    return (
-        str(row.get("campaign_id") or ""),
-        str(row.get("session_id") or ""),
-        str(row.get("run_id") or ""),
-    )
-
-
-def _catalog_records(**filters: str) -> list[ExtractionRun]:
+def _catalog_records(**filters: str | None) -> list[ExtractionRun]:
     try:
         records = list_extraction_runs(**filters)
     except ApplicationStateUnavailableError as exc:
@@ -88,12 +77,190 @@ def _catalog_records(**filters: str) -> list[ExtractionRun]:
     return records
 
 
-def list_canonical_extraction_runs() -> dict[str, Any]:
-    """Return the APP catalog, deterministically ordered for presentation only."""
-    records = _catalog_records()
-    runs = [public_run(record) for record in records]
-    runs.sort(key=_sort_key)
-    return {"schema_version": INGEST_RUN_CATALOG_SCHEMA, "runs": runs}
+def _source_key(run: ExtractionRun) -> tuple[str, str] | None:
+    components = [
+        component
+        for component in run.components.values()
+        if component.kind.value == "source_artifact"
+    ]
+    if len(components) != 1 or not components[0].sha256:
+        return None
+    digest = normalize_content_digest(components[0].sha256).removeprefix("sha256:")
+    if len(digest) != 64 or any(c not in "0123456789abcdef" for c in digest):
+        return None
+    return run.source_artifact_id, digest
+
+
+def _saved_rows(records: list[ExtractionRun], native_world_id: str):
+    from application_state.source import service as sources
+    from apps.live_control_server.models.saved_recap_runs import SavedRecapRun
+
+    keys = {key for run in records if (key := _source_key(run)) is not None}
+    metadata = {
+        (row.source_artifact_id, row.content_sha256): row
+        for row in sources.get_source_revision_metadata(
+            bindings=list(keys), world_id=native_world_id
+        )
+    }
+    rows = []
+    for run in records:
+        source = metadata.get(_source_key(run))
+        reason = None
+        if _source_key(run) is None:
+            reason = "This run has no frozen source revision component."
+        elif source is None:
+            reason = "The exact saved source revision is unavailable."
+        elif (
+            source.source_domain != "recap"
+            or source.campaign_id != run.campaign_id
+            or source.session_id != run.session_id
+            or source.media_type != "text/markdown"
+            or source.encoding != "utf-8"
+        ):
+            raise IngestRunCatalogError(
+                "Saved run and source scope disagree.",
+                code=CODE_INTEGRITY,
+                status_code=409,
+            )
+        rows.append(
+            SavedRecapRun(
+                run_id=run.run_id,
+                run_revision=run.revision,
+                run_status=run.status.value,
+                source_artifact_id=run.source_artifact_id,
+                campaign_id=run.campaign_id,
+                session_id=run.session_id,
+                profile_id=run.profile_id,
+                created_at=run.created_at,
+                updated_at=run.updated_at,
+                source_revision_id=source.source_revision_id if source else None,
+                source_sha256=source.content_sha256 if source else None,
+                unavailable_reason=reason,
+            )
+        )
+    return rows
+
+
+def _stable_scope(root: Path, managed_world_id: str):
+    from apps.live_control_server.services.managed_world_graph_projection import (
+        resolve_managed_source_identity,
+    )
+
+    return resolve_managed_source_identity(managed_world_id, root=root)
+
+
+def _require_scope_unchanged(root: Path, scope) -> None:
+    if _stable_scope(root, scope.managed_world_id) != scope:
+        raise IngestRunCatalogError(
+            "Selected World source binding changed.",
+            code=CODE_INTEGRITY,
+            status_code=409,
+        )
+
+
+def list_saved_recap_runs(
+    *, root: Path, managed_world_id: str, campaign_id: str | None
+):
+    """Previous extraction work, not a complete source catalogue. No body reads."""
+    from apps.live_control_server.models.saved_recap_runs import SavedRecapRunsResponse
+
+    scope = _stable_scope(root, managed_world_id)
+    records = _catalog_records(
+        world_id=scope.native_world_id, source_domain="recap", campaign_id=campaign_id
+    )
+    rows = _saved_rows(records, scope.native_world_id)
+    _require_scope_unchanged(root, scope)
+    return SavedRecapRunsResponse(
+        managed_world_id=scope.managed_world_id,
+        native_world_id=scope.native_world_id,
+        binding_version=scope.binding_version,
+        runs=rows,
+    )
+
+
+def read_saved_recap_source(
+    *,
+    root: Path,
+    managed_world_id: str,
+    run_id: str,
+    expected_run_revision: int,
+    source_revision_id,
+):
+    """Open the exact selected APP revision after World and run checks; never a file."""
+    import hashlib
+    from application_state.ingest import service as ingest
+    from application_state.source import service as sources
+    from apps.live_control_server.models.saved_recap_runs import (
+        SavedRecapSourceResponse,
+    )
+
+    scope = _stable_scope(root, managed_world_id)
+    run = ingest.get_extraction_run(run_id, world_id=scope.native_world_id)
+    if run.source_domain != "recap":
+        raise IngestRunCatalogError(
+            "Saved source inspection requires a Recap run.",
+            code=CODE_INTEGRITY,
+            status_code=422,
+        )
+    if run.revision != expected_run_revision:
+        raise IngestRunCatalogError(
+            "Selected extraction run changed; reload its metadata.",
+            code=CODE_INTEGRITY,
+            status_code=409,
+        )
+    row = _saved_rows([run], scope.native_world_id)[0]
+    if row.unavailable_reason:
+        raise IngestRunCatalogError(
+            row.unavailable_reason, code=CODE_INTEGRITY, status_code=409
+        )
+    if row.source_revision_id != source_revision_id:
+        raise IngestRunCatalogError(
+            "Selected source revision does not belong to this run.",
+            code=CODE_INTEGRITY,
+            status_code=409,
+        )
+    _require_scope_unchanged(root, scope)
+    source = sources.get_source_markdown(
+        source_artifact_id=row.source_artifact_id,
+        content_sha256=row.source_sha256,
+        source_revision_id=source_revision_id,
+        world_id=scope.native_world_id,
+    )
+    if (
+        source is None
+        or (
+            source.world_id,
+            source.source_domain,
+            source.campaign_id,
+            source.session_id,
+        )
+        != (scope.native_world_id, "recap", run.campaign_id, run.session_id)
+        or hashlib.sha256(source.markdown.encode("utf-8")).hexdigest()
+        != row.source_sha256
+    ):
+        raise IngestRunCatalogError(
+            "Exact saved source failed integrity checks.",
+            code=CODE_INTEGRITY,
+            status_code=409,
+        )
+    # A response must not silently describe an attempt that changed during reading.
+    if (
+        ingest.get_extraction_run(run_id, world_id=scope.native_world_id).revision
+        != expected_run_revision
+    ):
+        raise IngestRunCatalogError(
+            "Selected extraction run changed during reading.",
+            code=CODE_INTEGRITY,
+            status_code=409,
+        )
+    _require_scope_unchanged(root, scope)
+    return SavedRecapSourceResponse(
+        managed_world_id=scope.managed_world_id,
+        native_world_id=scope.native_world_id,
+        binding_version=scope.binding_version,
+        run=row,
+        source_prose=source.markdown,
+    )
 
 
 def _same_recap_ingest_context_authority(

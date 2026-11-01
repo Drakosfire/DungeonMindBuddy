@@ -15,7 +15,7 @@ from application_state.errors import (
     ApplicationStateValidationError,
 )
 from application_state.source import repository
-from application_state.source.types import SourceMarkdownRecord
+from application_state.source.types import SourceMarkdownRecord, SourceRevisionMetadata
 from application_state.unit_of_work import unit_of_work
 
 
@@ -252,6 +252,7 @@ def get_source_markdown(
     source_artifact_id: str,
     content_sha256: str,
     source_revision_id: UUID | None = None,
+    world_id: str | None = None,
 ) -> SourceMarkdownRecord | None:
     """Load one exact artifact/digest binding from APP-STATE."""
 
@@ -269,6 +270,7 @@ def get_source_markdown(
             source_artifact_id=artifact_id,
             content_sha256=digest,
             source_revision_id=source_revision_id,
+            world_id=world_id,
         )
 
 
@@ -297,6 +299,38 @@ def get_source_markdown_batch(
     with unit_of_work(dsn) as conn:
         rows = repository.get_source_markdown_batch(conn, bindings=unique)
     return {(row.source_artifact_id, row.content_sha256): row for row in rows}
+
+
+def get_source_revision_metadata(
+    *,
+    bindings: list[tuple[str, str]],
+    world_id: str,
+) -> list[SourceRevisionMetadata]:
+    """Batch metadata from the immutable source owner; conveys no admission."""
+    if not world_id or world_id != world_id.strip():
+        raise ApplicationStateValidationError("source metadata requires an exact World")
+    normalized = list(
+        dict.fromkeys(
+            (artifact, _normalize_digest(digest)) for artifact, digest in bindings
+        )
+    )
+    if any(
+        not artifact
+        or artifact != artifact.strip()
+        or len(digest) != 64
+        or any(c not in "0123456789abcdef" for c in digest)
+        for artifact, digest in normalized
+    ):
+        raise ApplicationStateValidationError(
+            "source metadata requires exact artifact/digest bindings"
+        )
+    dsn = load_runtime_dsn()
+    assert_at_head(dsn=dsn)
+    with unit_of_work(dsn) as conn:
+        conn.execute("SET TRANSACTION READ ONLY")
+        return repository.get_source_revision_metadata(
+            conn, bindings=normalized, world_id=world_id
+        )
 
 
 def owned_source_artifacts(*, source_artifact_ids: list[str], world_id: str) -> frozenset[str]:

@@ -428,33 +428,23 @@ def _iso_now() -> str:
     return repo.iso_z(repo.now_utc()) or ""
 
 
-def _connected_lineage(conn: psycopg.Connection, run: ExtractionRun) -> list[ExtractionRun]:
+def _connected_lineage(conn: psycopg.Connection, run: ExtractionRun, *, world_id: str | None = None) -> list[ExtractionRun]:
     connected_ids: set[str] = {run.run_id}
     changed = True
     records: dict[str, ExtractionRun] = {run.run_id: run}
     while changed:
         changed = False
-        with conn.cursor() as cur:
-            cur.execute(
-                """
-                SELECT run_id FROM ingest.run
-                WHERE run_id = ANY(%s)
-                   OR supersedes_run_id = ANY(%s)
-                   OR superseded_by_run_id = ANY(%s)
-                """,
-                (list(connected_ids), list(connected_ids), list(connected_ids)),
-            )
-            found = {str(row[0]) for row in cur.fetchall()}
+        found = repo.connected_run_ids(conn, connected_ids, world_id=world_id)
         missing = found - connected_ids
         if missing:
-            for loaded in repo.get_runs_by_ids(conn, missing):
+            for loaded in repo.get_runs_by_ids(conn, missing, world_id=world_id):
                 records[loaded.run_id] = loaded
             connected_ids |= found
             changed = True
         for current in list(records.values()):
             for linked_id in (current.supersedes_run_id, current.superseded_by_run_id):
                 if linked_id and linked_id not in connected_ids:
-                    loaded = repo.get_run(conn, linked_id)
+                    loaded = repo.get_run(conn, linked_id, world_id=world_id)
                     if loaded is None:
                         raise ApplicationStateIntegrityError(
                             f"ingest.run lineage pointer missing: {linked_id}"
@@ -465,9 +455,9 @@ def _connected_lineage(conn: psycopg.Connection, run: ExtractionRun) -> list[Ext
     return list(records.values())
 
 
-def _validate_connected_lineage(conn: psycopg.Connection, run: ExtractionRun) -> None:
+def _validate_connected_lineage(conn: psycopg.Connection, run: ExtractionRun, *, world_id: str | None = None) -> None:
     try:
-        validate_extraction_run_lineage(_connected_lineage(conn, run))
+        validate_extraction_run_lineage(_connected_lineage(conn, run, world_id=world_id))
     except ValueError as exc:
         raise ApplicationStateIntegrityError(
             f"malformed extraction run lineage: {exc}"
@@ -508,15 +498,17 @@ def inspect_ingest_authority() -> IngestAuthoritySnapshot:
         return IngestAuthoritySnapshot(run_count=len(records))
 
 
-def get_extraction_run(run_id: str) -> ExtractionRun:
+def get_extraction_run(run_id: str, *, world_id: str | None = None) -> ExtractionRun:
     canonical = _require_run_id(run_id)
+    if world_id is not None and (not world_id or world_id != world_id.strip()):
+        raise ApplicationStateValidationError("run scope requires an exact World")
     dsn = load_runtime_dsn()
     assert_at_head(dsn=dsn)
     with unit_of_work(dsn) as conn:
-        run = repo.get_run(conn, canonical)
+        run = repo.get_run(conn, canonical, world_id=world_id)
         if run is None:
             raise ApplicationStateNotFoundError(f"extraction run not found: {canonical}")
-        _validate_connected_lineage(conn, run)
+        _validate_connected_lineage(conn, run, world_id=world_id)
         return run
 
 
@@ -534,15 +526,21 @@ def get_extraction_run_optional(run_id: str) -> ExtractionRun | None:
 
 def list_extraction_runs(
     *,
+    world_id: str | None = None,
+    source_domain: str | None = None,
     campaign_id: str | None = None,
     session_id: str | None = None,
     source_artifact_id: str | None = None,
 ) -> list[ExtractionRun]:
+    if world_id is not None and (not world_id or world_id != world_id.strip()):
+        raise ApplicationStateValidationError("run scope requires an exact World")
     dsn = load_runtime_dsn()
     assert_at_head(dsn=dsn)
     with unit_of_work(dsn) as conn:
         records = repo.list_runs(
             conn,
+            world_id=world_id,
+            source_domain=source_domain,
             campaign_id=campaign_id,
             session_id=session_id,
             source_artifact_id=source_artifact_id,

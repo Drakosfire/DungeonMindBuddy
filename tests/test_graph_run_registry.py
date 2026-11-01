@@ -70,7 +70,7 @@ def _committed_worldbuilding(root: Path, markdown: str = "# Lore\n\nBody.\n"):
     )
     committed = get_workspace_document(root, record.document_id)
     digest = _write_committed_markdown(root, committed, markdown)
-    return committed, digest
+    return get_workspace_document(root, committed.document_id), digest
 
 
 def _reviewable_components(root: Path, artifact, graph_payload: dict | None = None):
@@ -117,7 +117,7 @@ def _store_fixture_outputs(root: Path, run):
                 kind=key, payload=(root / ref.uri.removeprefix("repo://")).read_bytes())
 
 
-def test_source_artifact_reads_committed_file_not_client_markdown(tmp_path: Path) -> None:
+def test_source_artifact_reads_committed_page_not_client_markdown(tmp_path: Path) -> None:
     record, digest = _committed_worldbuilding(tmp_path, "# Canon\n\nFrom disk.\n")
     artifact = create_source_artifact_from_workspace_document(
         tmp_path,
@@ -125,13 +125,14 @@ def test_source_artifact_reads_committed_file_not_client_markdown(tmp_path: Path
         expected_revision=record.revision,
     )
     assert artifact.content_sha256 == digest
-    assert artifact.uri.endswith(record.target_relpath)
+    assert artifact.uri == f"object://{artifact.source_artifact_id}"
+    assert artifact.workspace_document_revision == record.revision
     assert artifact.session_id is None
     loaded = get_source_artifact(tmp_path, artifact.source_artifact_id)
     assert loaded.source_artifact_id == artifact.source_artifact_id
 
 
-def test_source_artifact_rejects_missing_committed_target(tmp_path: Path) -> None:
+def test_source_artifact_rejects_uncommitted_page(tmp_path: Path) -> None:
     record = create_page_fixture(
         tmp_path,
         title="Lore",
@@ -143,7 +144,7 @@ def test_source_artifact_rejects_missing_committed_target(tmp_path: Path) -> Non
         visibility_state="internal",
     )
     committed = get_workspace_document(tmp_path, record.document_id)
-    with pytest.raises(SourceArtifactRegistryError, match="missing"):
+    with pytest.raises(SourceArtifactRegistryError, match="active committed Page"):
         create_source_artifact_from_workspace_document(
             tmp_path,
             document_id=committed.document_id,
@@ -739,93 +740,21 @@ def test_one_sided_supersession_fails_closed_on_load(
         get_extraction_run(tmp_path, successor.run_id)
 
 
-def test_source_artifact_snapshot_blocks_concurrent_discard(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    """Discard cannot change status while a snapshot holds the document lock."""
-    import threading
+def test_source_artifact_snapshot_survives_later_page_discard(tmp_path: Path) -> None:
+    from apps.live_control_server.services.workspace_document_registry import discard_workspace_document
 
-    from apps.live_control_server.services import source_artifact_registry as sar
-    from apps.live_control_server.services.workspace_document_registry import (
-        discard_workspace_document,
-        get_workspace_document,
+    record, digest = _committed_worldbuilding(tmp_path)
+    artifact = create_source_artifact_from_workspace_document(
+        tmp_path, document_id=record.document_id, expected_revision=record.revision,
     )
-
-    record, _digest = _committed_worldbuilding(tmp_path)
-    entered_read = threading.Event()
-    release_read = threading.Event()
-    real_read_fn = sar._read_committed_target_markdown
-
-    def delayed_read(*args, **kwargs):
-        entered_read.set()
-        assert release_read.wait(timeout=5), "timed out waiting to release snapshot barrier"
-        return real_read_fn(*args, **kwargs)
-
-    monkeypatch.setattr(sar, "_read_committed_target_markdown", delayed_read)
-
-    snapshot_errors: list[BaseException] = []
-    snapshot_result: list[object] = []
-
-    def snapshot_worker() -> None:
-        try:
-            snapshot_result.append(
-                create_source_artifact_from_workspace_document(
-                    tmp_path,
-                    document_id=record.document_id,
-                    expected_revision=record.revision,
-                )
-            )
-        except BaseException as exc:  # noqa: BLE001 - surface to main thread
-            snapshot_errors.append(exc)
-
-    snapshot_thread = threading.Thread(target=snapshot_worker)
-    snapshot_thread.start()
-    assert entered_read.wait(timeout=5)
-
-    discard_started = threading.Event()
-    discard_done = threading.Event()
-    discard_errors: list[BaseException] = []
-    discard_result: list[object] = []
-
-    def discard_worker() -> None:
-        discard_started.set()
-        try:
-            discard_result.append(
-                discard_workspace_document(
-                    tmp_path,
-                    record.document_id,
-                    expected_revision=record.revision,
-                )
-            )
-        except BaseException as exc:  # noqa: BLE001 - surface to main thread
-            discard_errors.append(exc)
-        finally:
-            discard_done.set()
-
-    discard_thread = threading.Thread(target=discard_worker)
-    discard_thread.start()
-    assert discard_started.wait(timeout=5)
-    # Discard must block on the shared document lock while snapshot is mid-flight.
-    assert not discard_done.wait(timeout=0.3)
-    assert get_workspace_document(tmp_path, record.document_id).status == "active"
-
-    release_read.set()
-    snapshot_thread.join(timeout=5)
-    discard_thread.join(timeout=5)
-    assert not snapshot_thread.is_alive()
-    assert not discard_thread.is_alive()
-    assert not snapshot_errors
-    assert snapshot_result
-    assert snapshot_result[0].workspace_document_revision == record.revision
-    assert not discard_errors
-    assert discard_result[0].status == "discarded"
-    assert get_workspace_document(tmp_path, record.document_id).status == "discarded"
-
-    with pytest.raises(SourceArtifactRegistryError, match="discarded"):
+    discarded = discard_workspace_document(tmp_path, record.document_id, expected_revision=record.revision)
+    captured, raw = load_registered_source_artifact_bytes(tmp_path, artifact.source_artifact_id)
+    assert captured.workspace_document_revision == record.revision
+    assert hashlib.sha256(raw).hexdigest() == digest
+    assert discarded.status == "discarded"
+    with pytest.raises(SourceArtifactRegistryError, match="active committed Page"):
         create_source_artifact_from_workspace_document(
-            tmp_path,
-            document_id=record.document_id,
-            expected_revision=discard_result[0].revision,
+            tmp_path, document_id=record.document_id, expected_revision=discarded.revision,
         )
 
 
@@ -959,172 +888,6 @@ def _validated_recap_run(
     return run, artifact, source_path
 
 
-def test_historical_recap_inspection_reads_validated_run(tmp_path: Path) -> None:
-    from apps.live_control_server.services.graph_run_registry import (
-        get_historical_recap_inspection,
-    )
-
-    run, _artifact, _source_path = _validated_recap_run(tmp_path)
-    before = get_extraction_run(tmp_path, run.run_id)
-    inspection = get_historical_recap_inspection(tmp_path, run.run_id)
-    after = get_extraction_run(tmp_path, run.run_id)
-
-    assert inspection.source_status == "available"
-    assert inspection.run_status == "validated"
-    assert "# Session Recap" in (inspection.source_prose or "")
-    assert inspection.source_uri is None
-    assert inspection.source_sha256
-    assert before.model_dump() == after.model_dump()
-
-
-def test_historical_recap_inspection_does_not_require_input_descriptor(
-    tmp_path: Path, application_state_dsn: str,
-) -> None:
-    from apps.live_control_server.services.graph_run_registry import (
-        get_historical_recap_inspection,
-    )
-    import psycopg
-    run, artifact, source_path = _validated_recap_run(tmp_path)
-    with psycopg.connect(application_state_dsn) as conn:
-        conn.execute("UPDATE source.artifact SET input_descriptor=NULL WHERE source_artifact_id=%s", (artifact.source_artifact_id,))
-
-    inspection = get_historical_recap_inspection(tmp_path, run.run_id)
-
-    assert source_path.is_file()
-    assert inspection.source_status == "available"
-    assert inspection.source_prose == "# Session Recap\n\nA paragraph.\n"
-
-
-def test_historical_recap_inspection_reads_prepared_run(tmp_path: Path) -> None:
-    from apps.live_control_server.services.graph_run_registry import (
-        get_historical_recap_inspection,
-    )
-
-    run, _artifact, _source_path = _validated_recap_run(
-        tmp_path, status=ExtractionRunStatus.PREPARED
-    )
-    inspection = get_historical_recap_inspection(tmp_path, run.run_id)
-    assert inspection.source_status == "available"
-    assert inspection.run_status == "prepared"
-
-
-def test_historical_recap_inspection_survives_source_file_removal(tmp_path: Path) -> None:
-    from apps.live_control_server.services.graph_run_registry import (
-        get_historical_recap_inspection,
-    )
-
-    run, _artifact, source_path = _validated_recap_run(tmp_path)
-    source_path.unlink()
-    inspection = get_historical_recap_inspection(tmp_path, run.run_id)
-    assert inspection.source_status == "available"
-    assert inspection.source_prose == "# Session Recap\n\nA paragraph.\n"
-
-
-def test_historical_recap_inspection_does_not_fallback_to_sibling_bytes(
-    tmp_path: Path,
-) -> None:
-    from apps.live_control_server.services.graph_run_registry import (
-        get_historical_recap_inspection,
-    )
-    from apps.live_control_server.services.source_artifact_registry import (
-        create_recap_source_artifact,
-    )
-
-    sibling = create_recap_source_artifact(
-        tmp_path,
-        world_id="world:longmont-test",
-        campaign_id="longmont-c2",
-        session_id="session-23",
-        recap_text="# Sibling recap\n\nDifferent bytes.\n",
-    )
-    run, _artifact, _source_path = _validated_recap_run(
-        tmp_path,
-        component_uri="repo://out/registries/missing/recap.md",
-        component_digest=hashlib.sha256(b"missing").hexdigest(),
-    )
-    sibling_path = tmp_path / "out/registries/missing/sibling-recap.md"
-    sibling_path.parent.mkdir(parents=True)
-    sibling_path.write_bytes(load_registered_source_artifact_bytes(tmp_path, sibling.source_artifact_id)[1])
-    assert sibling_path.is_file()
-    missing_path = tmp_path / "out/registries/missing/recap.md"
-    assert not missing_path.is_file()
-
-    inspection = get_historical_recap_inspection(tmp_path, run.run_id)
-    assert inspection.source_status == "unavailable"
-    assert inspection.source_prose is None
-
-
-def test_historical_recap_inspection_missing_digest_is_unavailable(tmp_path: Path) -> None:
-    from apps.live_control_server.services.graph_run_registry import (
-        get_historical_recap_inspection,
-    )
-
-    run, _artifact, _source_path = _validated_recap_run(tmp_path, component_digest=None)
-    inspection = get_historical_recap_inspection(tmp_path, run.run_id)
-    assert inspection.source_status == "unavailable"
-    assert "digest" in (inspection.unavailable_reason or "")
-
-
-def test_historical_recap_inspection_does_not_resolve_source_uri(
-    tmp_path: Path,
-) -> None:
-    from apps.live_control_server.services.graph_run_registry import (
-        get_historical_recap_inspection,
-    )
-
-    run, _artifact, _source_path = _validated_recap_run(
-        tmp_path, component_uri="repo://../escape.md"
-    )
-    inspection = get_historical_recap_inspection(tmp_path, run.run_id)
-    assert inspection.source_status == "available"
-    assert inspection.source_uri is None
-
-
-def test_historical_recap_inspection_digest_mismatch_is_unavailable(
-    tmp_path: Path,
-) -> None:
-    from apps.live_control_server.services.graph_run_registry import (
-        get_historical_recap_inspection,
-    )
-
-    run, _artifact, _source_path = _validated_recap_run(
-        tmp_path, component_digest="f" * 64
-    )
-    inspection = get_historical_recap_inspection(tmp_path, run.run_id)
-    assert inspection.source_status == "unavailable"
-    assert inspection.source_prose is None
-    assert "not adopted" in (inspection.unavailable_reason or "")
-
-
-def test_historical_recap_inspection_unknown_run_is_404(tmp_path: Path) -> None:
-    from apps.live_control_server.services.graph_run_registry import (
-        get_historical_recap_inspection,
-    )
-
-    with pytest.raises(GraphRunRegistryError, match="not found|missing"):
-        get_historical_recap_inspection(tmp_path, "missing-run")
-
-
-def test_historical_recap_inspection_rejects_worldbuilding_run(tmp_path: Path) -> None:
-    from apps.live_control_server.services.graph_run_registry import (
-        get_historical_recap_inspection,
-    )
-
-    record, _digest = _committed_worldbuilding(tmp_path)
-    artifact = create_source_artifact_from_workspace_document(
-        tmp_path,
-        document_id=record.document_id,
-        expected_revision=record.revision,
-    )
-    run = create_extraction_run(
-        tmp_path,
-        source_artifact_id=artifact.source_artifact_id,
-        source_domain="worldbuilding",
-    )
-    with pytest.raises(GraphRunRegistryError, match="not applicable"):
-        get_historical_recap_inspection(tmp_path, run.run_id)
-
-
 def test_get_reviewable_extraction_run_still_rejects_validated(tmp_path: Path) -> None:
     run, _artifact, _source_path = _validated_recap_run(tmp_path)
     with pytest.raises(GraphRunRegistryError, match="not reviewable"):
@@ -1144,7 +907,8 @@ def _frozen_snapshot_child(root: Path):
     names = {"source_artifact": "source.md", "source_span_index": "source_span_index.json", "candidate_graph": "candidate_graph.json"}
     for kind, ref in original.items():
         path = frozen / names[kind]
-        path.write_bytes((root / ref.uri.removeprefix("repo://")).read_bytes())
+        path.write_bytes(load_registered_source_artifact_bytes(root, artifact.source_artifact_id)[1]
+                         if kind == "source_artifact" else (root / ref.uri.removeprefix("repo://")).read_bytes())
         components[kind] = ref.model_copy(update={"uri": "repo://" + path.relative_to(root).as_posix()})
     parent = create_extraction_run(
         root, source_artifact_id=artifact.source_artifact_id, source_domain="worldbuilding",

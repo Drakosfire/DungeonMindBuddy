@@ -1323,7 +1323,6 @@ describe("IngestionModule", () => {
     const user = setupIngestUser();
     window.history.replaceState({}, "", "/ingest?world=elderwyld");
     vi.spyOn(liveApi, "ensureNativeGraphSession").mockResolvedValue("csrf-token");
-    const inspection = vi.spyOn(liveApi, "getHistoricalRecapInspection");
     const ingest = vi.mocked(recapIngestApi.postRecapIngest);
     vi.mocked(liveApi.getRecapArtifacts).mockResolvedValue({
       schema_version: "dmb_recap_artifacts_registry_v1",
@@ -1375,7 +1374,6 @@ describe("IngestionModule", () => {
     expect(rawField).toHaveAttribute("placeholder", "Write or paste a session recap here…");
 
     await waitFor(() => expect(screen.queryByText("Saved recap route has an invalid campaign or session.")).not.toBeInTheDocument());
-    expect(inspection).not.toHaveBeenCalled();
     expect(ingest).not.toHaveBeenCalled();
     expect(window.location.search).toBe("?world=elderwyld");
   });
