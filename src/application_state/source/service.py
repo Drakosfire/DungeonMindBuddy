@@ -81,7 +81,9 @@ def persist_source_markdown(
     An optional immutable producer input descriptor is committed in the same
     transaction as the body. It conveys no DungeonMind admission authority.
     Repeating the same artifact/digest is idempotent; different bytes can only
-    create a different digest-keyed revision.
+    create a different digest-keyed revision. Explicit null-to-World membership
+    assignment updates the artifact and any stored descriptor together, across
+    all its revisions; immutable bodies and their provenance are unchanged.
 
     A caller-supplied ``source_revision_id`` is an exact identity assertion,
     not an insert hint. ``dry_run=True`` evaluates the same conflicts and
@@ -112,8 +114,7 @@ def persist_source_markdown(
             requested_lineage=requested_lineage, source_revision_id=source_revision_id,
             dry_run=dry_run,
         )
-        if input_descriptor is not None:
-            _store_input_descriptor(conn, record, input_descriptor, dry_run=dry_run)
+        _store_input_descriptor(conn, record, input_descriptor, dry_run=dry_run)
         return record
 
 
@@ -124,7 +125,7 @@ def _persist_source_markdown(
     requested_lineage: dict[str, object], source_revision_id: UUID | None,
     dry_run: bool,
 ) -> SourceMarkdownRecord:
-    artifact = repository.get_source_artifact(conn, artifact_id)
+    artifact = repository.get_source_artifact(conn, artifact_id, lock=None if dry_run else "update")
     if artifact is not None:
         _scope_conflict(
             source_domain=artifact["source_domain"],
@@ -188,23 +189,10 @@ def _persist_source_markdown(
                 "source artifact/digest already exists under a different source revision"
             )
         if dry_run:
+            return existing.model_copy(update={"world_id": world_id}) if existing.world_id is None and world_id is not None else existing
+        if existing.world_id is not None or world_id is None:
             return existing
-        if existing.world_id is None and world_id is not None:
-            return repository.insert_source_markdown(
-                conn,
-                source_artifact_id=artifact_id,
-                source_domain=domain,
-                campaign_id=campaign_id,
-                session_id=session_id,
-                world_id=world_id,
-                content_sha256=actual_digest,
-                media_type=media_type,
-                encoding=encoding,
-                markdown=exact_markdown,
-                lineage=requested_lineage,
-                source_revision_id=existing.source_revision_id,
-            )
-        return existing
+        source_revision_id = existing.source_revision_id
 
     if dry_run:
         return SourceMarkdownRecord(
@@ -248,6 +236,14 @@ def _persist_source_markdown(
         raise ApplicationStateConflictError(
             "source artifact/digest already exists under a different source revision"
         )
+    # A concurrent first registration can win the insert. Its scope must still
+    # agree with this caller; an existing artifact was already locked above.
+    _scope_conflict(
+        source_domain=loaded.source_domain, campaign_id=loaded.campaign_id,
+        session_id=loaded.session_id, world_id=loaded.world_id,
+        expected_domain=domain, expected_campaign_id=campaign_id,
+        expected_session_id=session_id, expected_world_id=world_id,
+    )
     return loaded
 
 
@@ -345,21 +341,40 @@ def _input_signature(descriptor: dict) -> dict:
 
 def _store_input_descriptor(
     conn: psycopg.Connection, record: SourceMarkdownRecord,
-    raw_descriptor: dict[str, object], *, dry_run: bool,
+    raw_descriptor: dict[str, object] | None, *, dry_run: bool,
 ) -> None:
     from graph_memory.evidence.source_artifact import GraphMemorySourceArtifact
+    existing = repository.get_input_descriptor(conn, record.source_artifact_id, for_update=not dry_run)
+    if existing is None and raw_descriptor is None:
+        return
+    # World membership belongs to the artifact, across all its immutable bodies.
+    # Preserve the original descriptor's registration/history fields on replay.
+    projected = None if existing is None else dict(existing)
+    if projected is not None and projected.get("world_id") is None:
+        projected["world_id"] = record.world_id
     try:
-        descriptor = GraphMemorySourceArtifact.model_validate(raw_descriptor).model_dump(mode="json")
+        descriptor = GraphMemorySourceArtifact.model_validate(
+            raw_descriptor if raw_descriptor is not None else projected
+        ).model_dump(mode="json")
     except ValueError as exc:
         raise ApplicationStateValidationError(f"invalid source input descriptor: {exc}") from exc
     fields = ("source_artifact_id", "source_domain", "world_id", "campaign_id", "session_id")
-    if (any(descriptor[field] != getattr(record, field) for field in fields)
-            or _normalize_digest(descriptor.get("content_sha256") or "") != record.content_sha256):
+    descriptor_digest = _normalize_digest(descriptor.get("content_sha256") or "")
+    # An omitted descriptor keeps its original input revision, which need not be
+    # the body revision being saved. Membership still changes for the artifact.
+    digest_matches = descriptor_digest == record.content_sha256
+    if raw_descriptor is None and not digest_matches:
+        digest_matches = repository.get_source_markdown(
+            conn, source_artifact_id=record.source_artifact_id,
+            content_sha256=descriptor_digest,
+        ) is not None
+    if any(descriptor[field] != getattr(record, field) for field in fields) or not digest_matches:
         raise ApplicationStateConflictError("source input descriptor does not match its exact stored body binding")
-    existing = repository.get_input_descriptor(conn, record.source_artifact_id, for_update=not dry_run)
-    if existing is not None and _input_signature(existing) != _input_signature(descriptor):
-        raise ApplicationStateConflictError("source input descriptor is already registered with different immutable metadata")
-    if not dry_run and existing is None:
+    if projected is not None:
+        if _input_signature(projected) != _input_signature(descriptor):
+            raise ApplicationStateConflictError("source input descriptor is already registered with different immutable metadata")
+        descriptor = projected
+    if not dry_run and descriptor != existing:
         repository.set_input_descriptor(conn, record.source_artifact_id, descriptor)
 
 

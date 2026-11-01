@@ -8,6 +8,7 @@ from __future__ import annotations
 
 from datetime import UTC, datetime
 from uuid import UUID, uuid4
+from typing import Literal
 
 import psycopg
 from psycopg.rows import dict_row
@@ -27,15 +28,16 @@ def _record_from_row(row: dict) -> SourceMarkdownRecord:
 def get_source_artifact(
     conn: psycopg.Connection,
     source_artifact_id: str,
-    *, lock: bool = False,
+    *, lock: Literal["share", "update"] | None = None,
 ) -> dict | None:
+    lock_sql = {None: "", "share": "FOR SHARE", "update": "FOR UPDATE"}[lock]
     with conn.cursor(row_factory=dict_row) as cur:
         cur.execute(
             f"""
             SELECT source_artifact_id, source_domain, campaign_id, session_id, world_id
             FROM source.artifact
             WHERE source_artifact_id = %s
-            {"FOR SHARE" if lock else ""}
+            {lock_sql}
             """,
             (source_artifact_id,),
         )

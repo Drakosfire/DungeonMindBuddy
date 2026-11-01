@@ -63,6 +63,10 @@ jobs:
           src/application_state/content/types.py
           src/application_state/content/repository.py
           src/application_state/content/service.py
+          src/application_state/source/service.py
+          src/application_state/source/repository.py
+          src/application_state/agent_conversation/native_source_catalog.py
+          tests/test_source_input_metadata_database.py
           src/application_state/content/pages.py
           src/application_state/content/import_pages.py
           scripts/adopt_authored_pages.py
@@ -115,6 +119,12 @@ jobs:
           tests/test_world_graph_binding.py
           tests/test_reviewed_native_graph_activation.py
           tests/test_native_ingest_review_context.py
+          tests/test_source_input_metadata_database.py
+          tests/application_state/test_source_content_postgres.py
+          tests/application_state/test_native_source_catalog_postgres.py::test_authorize_materialize_reload_exact_replay_without_another_read
+          tests/application_state/test_native_source_catalog_postgres.py::test_foreign_source_metadata_denies_before_body_query
+          tests/application_state/test_native_source_catalog_postgres.py::test_exact_old_source_survives_another_stored_body
+          tests/application_state/test_native_source_catalog_postgres.py::test_concurrent_materialization_performs_one_body_read
           tests/test_world_admission_without_corpus_directory.py
           tests/test_live_world_containers.py
           tests/test_local_graph_launch_profile.py

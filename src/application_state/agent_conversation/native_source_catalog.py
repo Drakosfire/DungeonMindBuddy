@@ -134,7 +134,7 @@ def current_navigation(turn, navigation_id):
 
 
 def load_source_locked(conn, *, source_artifact_id, digest, artifact, authority, app_source_revision_id=None):
-    metadata = sources.get_source_artifact(conn, source_artifact_id, lock=True)
+    metadata = sources.get_source_artifact(conn, source_artifact_id, lock="share")
     source, failure, body = None, None, None
     if metadata is None:
         failure = "source_unavailable"
