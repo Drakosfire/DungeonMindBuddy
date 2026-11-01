@@ -150,8 +150,9 @@ def _apply_literal_quote_corrections(
     ordered = [keyed[key] for key in sorted(keyed)]
     for correction in ordered:
         holders = [
-            item for kind in ("nodes", "edges") for item in (payload.get(kind) or [])
-            if str(item.get("node_id") or item.get("edge_id") or "") == correction.assertion_id
+            item for kind, id_field in (("nodes", "node_id"), ("edges", "edge_id"), ("beats", "beat_id"))
+            for item in (payload.get(kind) or [])
+            if str(item.get(id_field) or "") == correction.assertion_id
         ]
         if len(holders) != 1:
             raise _reject("correction assertion ID is missing or ambiguous")
