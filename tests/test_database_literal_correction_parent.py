@@ -1,5 +1,6 @@
 """Literal correction reads the exact stored parent, never its file mirrors."""
 import json
+from copy import deepcopy
 from pathlib import Path
 
 import psycopg
@@ -32,7 +33,7 @@ def _deny_artifact_io(monkeypatch, root):
     monkeypatch.setattr(tempfile, "NamedTemporaryFile", lambda *a, **k: pytest.fail("artifact temporary file written"))
 
 
-def _false_quote_parent(monkeypatch, root):
+def _false_quote_parent(monkeypatch, root, *, beat_id=None, beat_artifact=None):
     _, result = _run_recap_extraction(root, client=FixtureClient())
     data = registry.load_reviewable_extraction_data(root, result.run.run_id)
     payload = json.loads(data.candidate_bytes)
@@ -40,6 +41,21 @@ def _false_quote_parent(monkeypatch, root):
     evidence = node["evidence_refs"][0]
     original = "Mirathorn was described in a nonexistent passage"
     evidence["anchor_quotes"][0] = original
+    if beat_id is not None:
+        beat_ref = deepcopy(evidence)
+        beat_ref["anchor_quotes"][0] = "Mirathorn departed in a nonexistent episode"
+        if beat_artifact is not None:
+            beat_ref["source_artifact_id"] = beat_artifact
+        payload["beats"].append({
+            "beat_id": beat_id,
+            "order": max((row["order"] for row in payload["beats"]), default=0) + 1,
+            "title": "An unchanged episode",
+            "summary": "A summary requiring separate semantic review.",
+            "involved_node_ids": [node["node_id"]],
+            "unresolved_thread_node_ids": [],
+            "evidence_refs": [beat_ref],
+            "proposed_action": "create",
+        })
     candidate = correction._canonical_bytes(payload)
     # Explicit synthetic fixture: reviewable bytes with a false literal quote
     # are inspectable inputs to the correction capability, never published facts.
@@ -64,6 +80,11 @@ def _false_quote_parent(monkeypatch, root):
             assertion_id=node["node_id"], evidence_index=0,
             source_span_ref_id=evidence["source_span_ref_id"], quote_index=0,
             original_quote=original, replacement_quote="Mirathorn")])
+    if beat_id is not None:
+        request.corrections.append(ExactRunEvidenceQuoteCorrection(
+            assertion_id=beat_id, evidence_index=0,
+            source_span_ref_id=evidence["source_span_ref_id"], quote_index=0,
+            original_quote=beat_ref["anchor_quotes"][0], replacement_quote="Mirathorn"))
     return parent, request
 
 
@@ -147,3 +168,97 @@ def test_recap_child_payload_recovery_uses_only_database_owner(monkeypatch, tmp_
     parent, request = _false_quote_parent(monkeypatch, tmp_path)
     _check_child_storage_recovery(monkeypatch, tmp_path, application_state_dsn, parent, request,
         correction.correct_recap_run_evidence, kind, violation)
+
+
+def _project_last_beat(data):
+    # Same typed record and exact projector used by native recap _intent.
+    from graph_memory.candidate_graph_preview import candidate_graph_preview_from_dict
+    beat = candidate_graph_preview_from_dict(json.loads(data.candidate_bytes)).beats[-1]
+    return extract_promote.project_candidate_record_evidence(
+        assertion_id=beat.beat_id, kind="object", label=beat.title, summary="",
+        evidence_refs=beat.evidence_refs, source_prose=data.source_bytes.decode(),
+        source_artifact_id=data.source_artifact.source_artifact_id, span_index=data.span_index)
+
+
+def test_recap_beat_quote_correction_preserves_episode_and_source(monkeypatch, tmp_path):
+    parent, request = _false_quote_parent(monkeypatch, tmp_path, beat_id="beat:retained")
+    before = registry.load_reviewable_extraction_data(tmp_path, parent.run_id)
+    with pytest.raises(extract_promote.ExtractPromoteError, match="anchor quote"):
+        _project_last_beat(before)
+    _deny_artifact_io(monkeypatch, tmp_path)
+    response = correction.correct_recap_run_evidence(request)
+    assert response.semantic_state == "held"
+    child = registry.load_reviewable_extraction_data(tmp_path, response.run_id)
+    assert child.source_bytes == before.source_bytes
+    assert child.span_bytes == before.span_bytes
+    assert child.run.components["source_artifact"] == parent.components["source_artifact"]
+    assert child.run.components["source_span_index"] == parent.components["source_span_index"]
+    expected = json.loads(before.candidate_bytes)
+    expected["nodes"][0]["evidence_refs"][0]["anchor_quotes"][0] = "Mirathorn"
+    expected["beats"][-1]["evidence_refs"][0]["anchor_quotes"][0] = "Mirathorn"
+    assert json.loads(child.candidate_bytes) == expected
+    projected = _project_last_beat(child)
+    assert projected.assertion_id == "beat:retained"
+    assert projected.evidence[0].anchor_quotes == ["Mirathorn"]
+    assert not projected.evidence[0].invalid_anchor_quotes
+    assert correction.correct_recap_run_evidence(request) == response
+    assert registry.load_reviewable_extraction_data(tmp_path, parent.run_id) == before
+    assessment = assess_recap_semantics(child.run, parent=parent,
+        source_revision_id=parent.components["source_artifact"].sha256)
+    assert assessment.marked and not assessment.accepted
+    assert assessment.basis_sha256 == response.semantic_basis_sha256
+
+
+@pytest.mark.parametrize("violation", [
+    "missing", "ambiguous", "stale_quote", "quote_index", "evidence_index", "span", "nonliteral",
+])
+def test_recap_beat_invalid_correction_creates_no_child(monkeypatch, tmp_path, violation):
+    parent, request = _false_quote_parent(monkeypatch, tmp_path, beat_id="beat:retained")
+    if violation == "ambiguous":
+        data = registry.load_reviewable_extraction_data(tmp_path, parent.run_id)
+        payload = json.loads(data.candidate_bytes)
+        payload["beats"][-1]["beat_id"] = payload["nodes"][0]["node_id"]
+        candidate = correction._canonical_bytes(payload)
+        _reseal_extraction_component_digest(parent.run_id, kind="candidate_graph",
+            digest=correction._sha(candidate), payload=candidate)
+        request.parent_candidate_sha256 = correction._sha(candidate)
+        request.corrections[-1].assertion_id = payload["nodes"][0]["node_id"]
+        # Avoid a duplicate request target: ambiguity is in the saved candidate.
+        request.corrections = request.corrections[-1:]
+    else:
+        target = request.corrections[-1]
+        if violation == "missing":
+            target.assertion_id = "beat:missing"
+        elif violation == "stale_quote":
+            target.original_quote = "a stale quote"
+        elif violation == "quote_index":
+            target.quote_index = 4
+        elif violation == "evidence_index":
+            target.evidence_index = 4
+        elif violation == "span":
+            target.source_span_ref_id = "span:wrong"
+        elif violation == "nonliteral":
+            target.replacement_quote = "not in this source"
+    before = registry.load_reviewable_extraction_data(tmp_path, parent.run_id)
+    rows = ingest.list_extraction_runs()
+    _deny_artifact_io(monkeypatch, tmp_path)
+    with pytest.raises(extract_promote.ExtractPromoteError):
+        correction.correct_recap_run_evidence(request)
+    assert ingest.list_extraction_runs() == rows
+    assert registry.load_reviewable_extraction_data(tmp_path, parent.run_id) == before
+
+
+@pytest.mark.parametrize("violation", ["remaining_false_quote", "foreign_artifact", "missing_artifact"])
+def test_held_recap_child_does_not_override_native_beat_evidence_gate(monkeypatch, tmp_path, violation):
+    artifact = {"foreign_artifact": "artifact:foreign", "missing_artifact": ""}.get(violation)
+    parent, request = _false_quote_parent(monkeypatch, tmp_path,
+        beat_id="beat:retained", beat_artifact=artifact)
+    if violation == "remaining_false_quote":
+        request.corrections = request.corrections[:1]
+    _deny_artifact_io(monkeypatch, tmp_path)
+    response = correction.correct_recap_run_evidence(request)
+    assert response.semantic_state == "held"
+    child = registry.load_reviewable_extraction_data(tmp_path, response.run_id)
+    with pytest.raises(extract_promote.ExtractPromoteError):
+        _project_last_beat(child)
+    assert child.run.lineage["semantic_disposition"]["state"] == "held"
