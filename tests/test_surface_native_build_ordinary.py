@@ -27,7 +27,7 @@ def test_fresh_build_default_factory_answers_human_reference_and_reopens_exact_s
     _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal)
 
 
-def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,recovery_dsn=None,recovery_mutation=None,retry_mutation=None):
+def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,recovery_dsn=None,recovery_mutation=None,retry_mutation=None,connected_review=None):
     from apps.live_control_server.routes import agent
     from apps.live_control_server.services import native_graph_reads as native, managed_world_graph_projection as managed
     from apps.live_control_server.services import build_jev_runtime as factory
@@ -99,7 +99,7 @@ def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,re
                 if self.deny_routing and name=='requested_work':
                     raise AssertionError('The reviewed operation must not be reselected by a model')
                 choices = question['criteria']
-                chosen = (('prepare_image' if proposal=='image' else 'write_current_page' if proposal else 'discuss') if name=='requested_work' else ('select_candidates' if selected and 'select_candidates' in choices else 'finish_retrieval') if name=='operation'
+                chosen = (('review_connected_page' if connected_review else 'prepare_image' if proposal=='image' else 'write_current_page' if proposal else 'discuss') if name=='requested_work' else ('select_candidates' if selected and 'select_candidates' in choices else 'finish_retrieval') if name=='operation'
                     else ('include' if int(name.split('_')[-1]) in selected else 'exclude') if name.startswith('candidate_')
                     else 'direct_support' if name.startswith('s') and name[1:].isdigit() else 'skip')
                 assert chosen in choices, (name, choices)
@@ -169,6 +169,13 @@ def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,re
             candidate = dict(schema=frame['answer_policy'],
                 answer_segments=[dict(kind='native_assertion_claim', text='The Graph retains the qualified description.', assertion_handles=handles)]+([dict(kind='saved_source_claim',text='The saved page proposes a conversation.',section_read_ids=read_ids,supporting_quotes=[r['text'] for r in work['artifact_under_edit']['sections']])] if saved else []),
                 limitations=[], requested_detail_gaps=[], collaboration=self.review)
+            if connected_review:
+                section=next(row for row in work['artifact_under_edit']['sections'] if 'A proposed conversation.' in row['text'])
+                candidate['answer_segments']=[]
+                candidate['collaboration']={'kind':'connected_page','title':'A proposed neighboring workshop',
+                    'read_id':str(uuid4()) if connected_review=='foreign_read' else section['read_id'],
+                    'quote':'A phrase absent from the source.' if connected_review=='foreign_quote' else 'A proposed conversation.',
+                    'person_label':None,'relationships':[],'instructions':'Prepare a separate page for author review.'}
             return httpx.Response(200, request=req, json=dict(id='resp_native_build', object='response',
                 created_at=1, status='completed', model=body['model'], output=[dict(type='message', id='msg_native_build',
                     role='assistant', status='completed', content=[dict(type='output_text', text=json.dumps(candidate), annotations=[])])],
@@ -429,7 +436,45 @@ def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,re
         original=writer.adapter.service.inspect_turn(world_id=world,turn_id=failed.turn_id)
         assert original.status=='interrupted' and original.failure_code==failed.failure_code
         return
+    if connected_review:
+        body['message']='Prepare a separate connected page from the saved proposal.'
     response = client.post('/api/live/agent/turn', json=body)
+    if connected_review:
+        if connected_review!='valid':
+            assert response.status_code==503,response.text
+            assert len(writer.calls)==1
+            assert get_workspace_document_snapshot(tmp_path,page.document_id)==source
+            assert lane.repo.get_head(world).head_revision_id==current_revision
+            return
+        assert response.status_code==200,response.text
+        completion=response.json()['knowledge_context']['completion']
+        assert completion['answer_segments']==[] and completion['collaboration']['kind']=='connected_page'
+        current=writer.adapter.service.inspect_turn(world_id=world,turn_id=writer.adapter.turn.turn_id)
+        assert current.status=='completed'
+        from apps.live_control_server.services.agent_connected_page_origin import open_origin
+        direct_origin=open_origin(writer.adapter.service,world,current.turn_id)
+        origin_url=f'/api/live/agent/worlds/{world}/conversation/turns/{current.turn_id}/connected-page-origin'
+        opened=client.get(origin_url)
+        assert opened.status_code==200,opened.text
+        assert opened.json()==direct_origin
+        origin=opened.json()['origin']
+        assert origin['document_id']==page.document_id and origin['content_sha256']==source.content_sha256
+        assert 'A proposed conversation.' in origin['selected_text']
+        assert opened.json()['read_id']==completion['collaboration']['read_id']
+        save_page(tmp_path,page.document_id,'A newer page must not replace the reviewed origin.')
+        newer=get_workspace_document_snapshot(tmp_path,page.document_id)
+        again=client.get(origin_url)
+        assert again.status_code==200 and again.json()==opened.json(),again.text
+        before=len(decisions.calls),len(writer.calls)
+        history=client.get(f'/api/live/agent/worlds/{world}/conversation',params={'include_turn_correlation':'true'})
+        assert history.status_code==200,history.text
+        assert history.json()['turns'][0]['knowledge_context']['completion']==completion
+        replay=client.post('/api/live/agent/turn',json=body)
+        assert replay.status_code==200 and replay.json()['knowledge_context']['delivery_replay'] is True,replay.text
+        assert (len(decisions.calls),len(writer.calls))==before
+        assert get_workspace_document_snapshot(tmp_path,page.document_id)==newer
+        assert lane.repo.get_head(world).head_revision_id==current_revision
+        return
     if failure in {'revision','node','reference_world'}:
         assert response.status_code == (422 if failure=='reference_world' else 409), response.text
         if failure!='reference_world':
@@ -674,3 +719,8 @@ def test_native_persisted_object_recovery_refuses_corrupted_owners(lane,tmp_path
 def test_native_failed_discussion_exposes_original_context_and_one_explicit_retry(lane,tmp_path,monkeypatch,application_state_dsn,mutation):
     _fresh_case(lane,tmp_path,monkeypatch,'retry_unknown' if mutation=='unknown' else 'retry_discussion',True,False,False,
         recovery_dsn=application_state_dsn,retry_mutation=mutation)
+
+
+@pytest.mark.parametrize('review',['valid','foreign_read','foreign_quote'])
+def test_native_connected_page_review_uses_its_included_saved_origin(lane,tmp_path,monkeypatch,review):
+    _fresh_case(lane,tmp_path,monkeypatch,None,True,True,False,connected_review=review)

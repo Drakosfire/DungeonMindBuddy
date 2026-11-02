@@ -281,7 +281,9 @@ def native_output_format(frame, rules, work_frame):
             base['required'].append('collaboration')
             if definitions:
                 schema.setdefault('$defs',{}).update(definitions)
-    return {'type': 'json_schema', 'name': 'surface_native_evidence_selectors_v1', 'strict': True,'schema':schema}
+    from generationengine.utils.schema_utils import make_schema_strict
+    return {'type': 'json_schema', 'name': 'surface_native_evidence_selectors_v1', 'strict': True,
+        'schema':make_schema_strict(schema)}
 
 
 def output_format(frame, rules):
