@@ -23,9 +23,9 @@ from tests.test_surface_native_writer import with_work_selection
 from tests.test_surface_native_completion import answer
 
 
-def sdk_case(requested='discuss',*,capable=False,auxiliary=False,probability=1.0):
+def sdk_case(requested='discuss',*,capable=False,auxiliary=False,probability=1.0,owner=None):
     context,record=component('build',unavailable=True)
-    conversation=uuid4()
+    conversation=owner.conversation_id if owner is not None else uuid4()
     if capable:
         basis=context.work_context.source_basis
         cap=BuildWriteCapability(idempotency_key=uuid4(),conversation_id=conversation,expected_pointer_revision=1,
@@ -56,24 +56,34 @@ def sdk_case(requested='discuss',*,capable=False,auxiliary=False,probability=1.0
             'envelope_sha256':prepared.body_sha256,'dispatch_identity_sha256':identity(
                 envelope_sha256=prepared.body_sha256,provider='typesafe',model=prepared.model,
                 api_mode='typesafe_decision',context_mode='default')})
+        if owner is not None:
+            auth=owner.prepared_authorization(auth,prepared)
         wire=context.model_dump(mode='json',by_alias=True)
         wire['assembled_input'].update(assembled_input_sha256=prepared.body_sha256,
             provider_envelope_input_tokens=auth.input_tokens,output_token_reserve=auth.output_token_reserve,
-            tokenizer_name=auth.input_estimator)
+            tokenizer_name=auth.input_estimator,**({"context_window_limit":64000} if owner is not None else {}))
         context=type(context).model_validate_json(json.dumps(seal(wire)))
         record=execution(context.context_receipt_sha256,record.policy,[auth])
         captured.update(auth=auth,request_json=prepared.body.decode())
+        if owner is not None:
+            owner.authorize(context,record,auth,prepared)
         return True
     async def lifecycle(event):
         nonlocal record
-        status={'sending':'sdk_entered','response_received':'response_received'}[event.outcome]
+        if owner is not None and not owner.authorized:
+            return False
+        status={'sending':'sdk_entered','response_received':'response_received'}.get(event.outcome,event.outcome)
         value=t.ProviderOutcomeEventV1(kind='provider_outcome',event_id=uuid4(),sequence=len(record.events),
             provider_attempt_id=UUID(event.request.attempt_id),outcome=status)
         record=execution(context.context_receipt_sha256,record.policy,[*record.events,value])
+        if owner is not None:
+            owner.lifecycle(value)
         return True
     class Wire(httpx2.AsyncBaseTransport):
         async def handle_async_request(self,request):
             body=json.loads(request.content)
+            if owner is not None:
+                owner.sent.append(request)
             answers={}
             for name,q in body['questions'].items():
                 label=requested if name=='requested_work' else 'skip'
@@ -88,19 +98,23 @@ def sdk_case(requested='discuss',*,capable=False,auxiliary=False,probability=1.0
         client=GenerationClient(decision_providers={'typesafe':provider})
         try:
             return await client.decide(DecisionRequest(model='jev-1.14.0',provider='typesafe',
-                state={'decision':dict(request_id=request_id,state=state)},questions=tuple(questions)))
+                state={'decision':dict(request_id=request_id,state=state,**({'phase':'select'} if owner is not None else {})),
+                    **({'context_accounting':owner.accounting.descriptor} if owner is not None else {})},questions=tuple(questions)))
         finally:
             await client.aclose()
     result=asyncio.run(run())
     proof=dict(request_json=captured['request_json'],response_json=result.model_dump_json())
-    event=build_resolution(record.policy,captured['auth'],len(record.events),requested=requested).model_copy(update={
+    turn_id=owner.turn.turn_id if owner is not None else BUILD_TURN_ID
+    event=build_resolution(record.policy,captured['auth'],len(record.events),turn_id=turn_id,requested=requested).model_copy(update={
         'machine_request_id':request_id,'controller_response_sha256':sha256(proof['response_json'].encode()).hexdigest(),
-        'broker_operation_id':semantic.operation_id_for(BUILD_TURN_ID,1,request_id,requested)})
+        'broker_operation_id':semantic.operation_id_for(turn_id,1,request_id,requested)})
     trace={'observations':[dict(kind='context_snapshot',materials=[dict(
         item_id=f'unvalidated-controller-decision:{event.controller_attempt_id}:selection',text=proof['response_json'])])]}
-    work=dict(world_id=action.intent.world_id,conversation_id=conversation,turn_id=BUILD_TURN_ID,attempt=1,
+    work=dict(world_id=action.intent.world_id,conversation_id=conversation,turn_id=turn_id,attempt=1,
         provenance=provenance_for(context.work_context).model_copy(update={'surface_instance_id':action.intent.surface_instance_id}),
         idempotency_key=uuid4(),work_proof={})
+    if owner is not None:
+        owner.select(event,proof,trace)
     return context,record,event,proof,trace,work
 
 
@@ -189,3 +203,136 @@ def test_writer_cannot_override_the_retained_response_contract():
     from application_state.agent_conversation.native_completion import normalize_output
     with pytest.raises(ValueError,match='surface work'):
         normalize_output(context,stored,auth,**proof)
+
+
+class _DurableBuildOwner:
+    """Actual existing APP gates; the synthetic transport never decides authority."""
+    def __init__(self, mutation=None):
+        from application_state.agent_conversation import AgentConversationService
+        from tests.application_state.test_agent_conversation_postgres import _new
+        from tests.test_build_decision_context import constant
+        self.service = AgentConversationService()
+        self.conversation_id = _new(self.service, "world-one").conversation_id
+        self.accounting = constant(8000)
+        self.trace_id = uuid4()
+        self.mutation = mutation
+        self.sent = []
+        self.turn = None
+        self.authorized = False
+
+    def prepared_authorization(self, auth, prepared):
+        from apps.live_control_server.services.build_jev_dispatch import prepared_view
+        body = json.loads(prepared.body)
+        view = prepared_view(prepared, body["state"], accounting=self.accounting)
+        return auth.model_copy(update=dict(input_tokens=self.accounting.estimate(body),
+            output_token_reserve=0, context_mode=view["contextMode"],
+            context_phase=view["contextPhase"], max_question_input_tokens=view["maxQuestionInputTokens"],
+            dispatch_identity_sha256=view["dispatchIdentitySha256"]))
+
+    def authorize(self, context, record, auth, prepared):
+        from datetime import UTC, datetime
+        self.submission = t.TurnSubmission(world_id="world-one", conversation_id=self.conversation_id,
+            idempotency_key=uuid4(), expected_conversation_revision=1,
+            user_text=record.policy.action.intent.message,
+            provenance=provenance_for(context.work_context).model_copy(update={
+                "surface_instance_id":record.policy.action.intent.surface_instance_id}),
+            submitted_intent_v2=record.policy.action.intent, graph_context_receipt=context,
+            graph_context_execution=execution(context.context_receipt_sha256,record.policy))
+        accepted = self.service.accept_turn(self.submission)
+        self.turn = self.service.claim_turn("world-one",self.conversation_id,accepted.turn_id,
+            expected_revision=accepted.revision).turn
+        self.service.start_context_trace(world_id="world-one",conversation_id=self.conversation_id,
+            turn_id=self.turn.turn_id,expected_revision=self.turn.revision,attempt=self.turn.attempt,
+            trace_id=self.trace_id,started_at=datetime.now(UTC))
+        self.auth = auth
+        self.raw = prepared.body.decode()
+        values = dict(provider_attempt_event=auth,prepared_decision_json=self.raw,
+            expected_revision=self.turn.revision,expected_attempt=self.turn.attempt)
+        if self.mutation == "missing":
+            values["prepared_decision_json"] = None
+        elif self.mutation == "body":
+            values["prepared_decision_json"] += " "
+        elif self.mutation == "role":
+            values["provider_attempt_event"] = auth.model_copy(update={"api_mode":"decision"})
+        elif self.mutation == "mode":
+            values["provider_attempt_event"] = auth.model_copy(update={"context_mode":"long_context"})
+        elif self.mutation == "phase":
+            values["provider_attempt_event"] = auth.model_copy(update={"context_phase":"navigate"})
+        elif self.mutation == "dispatch":
+            values["provider_attempt_event"] = auth.model_copy(update={"dispatch_identity_sha256":"a"*64})
+        elif self.mutation == "first-envelope":
+            changed = json.loads(self.raw)
+            changed["state"]["extra"] = "Another prepared request"
+            values["prepared_decision_json"] = json.dumps(changed)
+            from application_state.agent_conversation.build_decision_context import identity
+            digest = sha256(values["prepared_decision_json"].encode()).hexdigest()
+            values["provider_attempt_event"] = auth.model_copy(update={"envelope_sha256":digest,
+                "dispatch_identity_sha256":identity(envelope_sha256=digest,provider=auth.provider,
+                    model=auth.model,api_mode=auth.api_mode,context_mode=auth.context_mode)})
+        elif self.mutation == "claim":
+            values["expected_revision"] -= 1
+        self.turn, fresh = self.service.authorize_provider_attempt_v2("world-one",self.conversation_id,
+            self.turn.turn_id,**values)
+        assert fresh
+        self.authorized = True
+        assert self.service.inspect_turn(world_id="world-one",turn_id=self.turn.turn_id) == self.turn
+
+    def lifecycle(self, event):
+        self.turn, fresh = self.service.record_provider_outcome("world-one",self.conversation_id,
+            self.turn.turn_id,expected_revision=self.turn.revision,expected_attempt=self.turn.attempt,
+            outcome=event)
+        assert fresh
+
+    def select(self,event,proof,trace):
+        from application_state.agent_conversation.context_trace import TraceContextSnapshot, TraceContextMaterial
+        if self.mutation != "capture":
+            self.service.append_context_trace(world_id="world-one",conversation_id=self.conversation_id,
+                turn_id=self.turn.turn_id,expected_revision=self.turn.revision,attempt=self.turn.attempt,trace_id=self.trace_id,
+                observation=TraceContextSnapshot(sequence=0,elapsed_ms=1,stage="after",materials=[
+                    TraceContextMaterial(item_id=trace["observations"][0]["materials"][0]["item_id"],
+                        state="model_context",role="fact",text=proof["response_json"])]))
+        if self.mutation == "result":
+            proof = proof | {"response_json":proof["response_json"]+" "}
+        self.turn, fresh = self.service.record_build_requested_work_resolution("world-one",self.conversation_id,
+            self.turn.turn_id,expected_revision=self.turn.revision,expected_attempt=self.turn.attempt,
+            selection=event,producer_proof=proof)
+        assert fresh
+
+
+@pytest.mark.parametrize("requested,capable",[("discuss",False),("clarify_request",False),
+    ("write_current_page",True),("prepare_image",True),("plan",True),
+    ("change_mechanics",True),("publish_relationships",True)])
+def test_build_sdk_prepared_controller_uses_actual_native_app_admission(application_state_dsn,requested,capable):
+    owner = _DurableBuildOwner()
+    _context,_record,event,_proof,_trace,work = sdk_case(requested,capable=capable,auxiliary=True,owner=owner)
+    stored = owner.service.inspect_turn(world_id="world-one",turn_id=owner.turn.turn_id)
+    assert stored.graph_context_execution.policy.action.surface_id == "build"
+    assert stored.graph_context_execution.events[-1] == event
+    assert work["turn_id"] == stored.turn_id and len(owner.sent) == 1
+    replay, fresh = owner.service.authorize_provider_attempt_v2("world-one",owner.conversation_id,
+        stored.turn_id,expected_revision=stored.revision,expected_attempt=stored.attempt,
+        provider_attempt_event=owner.auth,prepared_decision_json=owner.raw)
+    assert not fresh and replay == stored and len(owner.sent) == 1
+
+
+@pytest.mark.parametrize("mutation",["missing","body","role","mode","phase","dispatch","first-envelope","claim"])
+def test_build_sdk_native_controller_refuses_unproved_input_before_send(application_state_dsn,mutation):
+    from generationengine import GenerationEngineError
+    owner = _DurableBuildOwner(mutation)
+    with pytest.raises(GenerationEngineError):
+        sdk_case(owner=owner)
+    assert not owner.sent
+    stored = owner.service.inspect_turn(world_id="world-one",turn_id=owner.turn.turn_id)
+    assert stored.status == "running" and not stored.graph_context_execution.events
+
+
+@pytest.mark.parametrize("mutation",["capture","result"])
+def test_native_build_resolution_requires_the_actual_protected_result(application_state_dsn,mutation):
+    from application_state.errors import ApplicationStateValidationError
+    owner = _DurableBuildOwner(mutation)
+    with pytest.raises(ApplicationStateValidationError):
+        sdk_case(owner=owner)
+    stored = owner.service.inspect_turn(world_id="world-one",turn_id=owner.turn.turn_id)
+    assert len(owner.sent) == 1 and stored.status == "running"
+    assert stored.graph_context_execution.events[-1].outcome == "response_received"
+    assert not any(isinstance(event,t.BuildRequestedWorkResolutionV1) for event in stored.graph_context_execution.events)

@@ -1340,18 +1340,25 @@ class AgentConversationService:
             turn = _ordinary_mutation_turn(turn, conversation_id)
             if turn is None or turn.conversation_id != conversation_id:
                 raise ApplicationStateNotFoundError("turn not found in verified World conversation")
-            from .native_execution import SurfaceNativeExecutionV1, NativePlanActionV1, NativeWriterAuthorizedV1
-            from .types import PlanJevProviderAuthorizedV1
+            from .native_execution import SurfaceNativeExecutionV1, NativePlanActionV1, NativeBuildActionV1, NativeWriterAuthorizedV1
+            from .types import PlanJevProviderAuthorizedV1, ProviderAttemptAuthorizedEventV5
             native_plan_decision = (
                 type(turn.graph_context_execution) is SurfaceNativeExecutionV1
                 and type(turn.graph_context_execution.policy.action) is NativePlanActionV1
                 and isinstance(event, PlanJevProviderAuthorizedV1)
                 and plan_jev_input_proof is not None)
+            # Build retains its actual mode-bound prepared-input owner below.
+            # A shared root must not replace it with a Plan authorization codec.
+            native_build_decision = (
+                type(turn.graph_context_execution) is SurfaceNativeExecutionV1
+                and type(turn.graph_context_execution.policy.action) is NativeBuildActionV1
+                and type(event) is ProviderAttemptAuthorizedEventV5
+                and isinstance(prepared_decision_json, str))
             native_writer = (type(turn.graph_context_execution) is SurfaceNativeExecutionV1
                 and type(event) is NativeWriterAuthorizedV1 and native_writer_proof is not None)
             if (isinstance(turn.graph_context_execution, SurfaceNativeExecutionV1)
                     and isinstance(event, ProviderAttemptAuthorizedEventV1)
-                    and not (native_plan_decision or native_writer)):
+                    and not (native_plan_decision or native_build_decision or native_writer)):
                 raise ApplicationStateValidationError(
                     "Shared native provider requires its exact prepared-input admission owner")
             validate_authoring_writer(conn,action,turn,event)
@@ -1684,10 +1691,10 @@ class AgentConversationService:
                 assert receipt is not None
                 try:
                     from .types import PlanSourceContextReceiptV1
-                    if native_plan_decision:
-                        # Exact Plan wire/actual Turn proof was checked above.
-                        # Reuse the common first-envelope accounting owner;
-                        # native records never become a classic Graph view.
+                    if native_plan_decision or native_build_decision:
+                        # Each concrete surface checked its actual prepared wire.
+                        # Share first-envelope accounting without constructing a
+                        # classic Graph view or borrowing another work identity.
                         from .types import validate_provider_envelope_accounting
                         validate_provider_envelope_accounting(receipt.assembled_input, execution, event)
                     elif isinstance(receipt, PlanSourceContextReceiptV1):
