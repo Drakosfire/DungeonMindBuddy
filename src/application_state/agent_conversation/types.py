@@ -4901,7 +4901,7 @@ class PlanWorldGraphExecutionV3(PlanWorldGraphExecutionV2):
         validate_controller_writer_execution(self, reviewed_action=(
             action_selection if isinstance(action_selection, BuildReviewedActionSelectionV1) else None))
         validate_build_section_inclusions(self)
-        from .plan_jev_decision import validate_decision_phases
+        from .native_retrieval import validate_decision_phases
         validate_decision_phases(self)
         from .build_world_context import validate_world_events
         validate_world_events(self)
@@ -5400,7 +5400,13 @@ def validate_graph_provider_evidence(inputs, execution, event) -> None:
 def validate_provider_envelope_accounting(assembled, execution, event) -> None:
     """First-call commitment and role budget over the actual owning input."""
     context_limit = assembled.context_window_limit
-    from .build_decision_context import uses_role_accounting
+    from .build_decision_context import (
+        DEFAULT_REQUEST, LONG_LIMIT, mode_context, uses_role_accounting, validate_event,
+    )
+    from .native_retrieval import NativeRetrievalAuthorizedV1
+    if type(event) is NativeRetrievalAuthorizedV1 and uses_role_accounting(execution.policy):
+        validate_event(event, execution)
+        context_limit = LONG_LIMIT if mode_context(event).context_mode == "long_context" else DEFAULT_REQUEST
     writer_budget = getattr(execution.policy, "writer_context_budget", None) if uses_role_accounting(execution.policy) else None
     if writer_budget is not None and (event.provider, event.model, event.api_mode) == writer_budget.identity():
         context_limit = writer_budget.context_limit_tokens
@@ -7105,6 +7111,7 @@ class CommandResolutionRecordV1(StrictModel):
 # definitions exist. These records do not acquire historical Graph authority.
 from .native_context import SurfaceNativeContextReceiptV1  # noqa: E402
 from .native_execution import SurfaceNativeExecutionV1  # noqa: E402
+from .native_retrieval import NativeRetrievalAuthorizedV1 as NativeRetrievalAuthorizedV1, NativeRetrievalSelectedV1 as NativeRetrievalSelectedV1  # noqa: E402
 from .native_completion import SurfaceNativeCompletionV1  # noqa: E402
 TurnSubmission.model_rebuild()
 Turn.model_rebuild()

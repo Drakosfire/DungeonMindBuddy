@@ -21,10 +21,11 @@ from tests.test_surface_native_context import seal, provenance_for
 from tests.test_surface_native_work_input import work_case, produce
 from tests.test_surface_native_writer import with_work_selection
 from tests.test_surface_native_completion import answer
+from tests.test_surface_native_writer import published_lane as published_lane
 
 
-def sdk_case(requested='discuss',*,capable=False,auxiliary=False,probability=1.0,owner=None):
-    context,record=component('build',unavailable=True)
+def sdk_case(requested='discuss',*,capable=False,auxiliary=False,probability=1.0,owner=None,context_record=None):
+    context,record=context_record if context_record is not None else component('build',unavailable=True)
     conversation=owner.conversation_id if owner is not None else uuid4()
     if capable:
         basis=context.work_context.source_basis
@@ -207,12 +208,13 @@ def test_writer_cannot_override_the_retained_response_contract():
 
 class _DurableBuildOwner:
     """Actual existing APP gates; the synthetic transport never decides authority."""
-    def __init__(self, mutation=None):
+    def __init__(self, mutation=None, world_id="world-one"):
         from application_state.agent_conversation import AgentConversationService
         from tests.application_state.test_agent_conversation_postgres import _new
         from tests.test_build_decision_context import constant
+        self.world_id = world_id
         self.service = AgentConversationService()
-        self.conversation_id = _new(self.service, "world-one").conversation_id
+        self.conversation_id = _new(self.service, self.world_id).conversation_id
         self.accounting = constant(8000)
         self.trace_id = uuid4()
         self.mutation = mutation
@@ -231,7 +233,7 @@ class _DurableBuildOwner:
 
     def authorize(self, context, record, auth, prepared):
         from datetime import UTC, datetime
-        self.submission = t.TurnSubmission(world_id="world-one", conversation_id=self.conversation_id,
+        self.submission = t.TurnSubmission(world_id=self.world_id, conversation_id=self.conversation_id,
             idempotency_key=uuid4(), expected_conversation_revision=1,
             user_text=record.policy.action.intent.message,
             provenance=provenance_for(context.work_context).model_copy(update={
@@ -239,9 +241,9 @@ class _DurableBuildOwner:
             submitted_intent_v2=record.policy.action.intent, graph_context_receipt=context,
             graph_context_execution=execution(context.context_receipt_sha256,record.policy))
         accepted = self.service.accept_turn(self.submission)
-        self.turn = self.service.claim_turn("world-one",self.conversation_id,accepted.turn_id,
+        self.turn = self.service.claim_turn(self.world_id,self.conversation_id,accepted.turn_id,
             expected_revision=accepted.revision).turn
-        self.service.start_context_trace(world_id="world-one",conversation_id=self.conversation_id,
+        self.service.start_context_trace(world_id=self.world_id,conversation_id=self.conversation_id,
             turn_id=self.turn.turn_id,expected_revision=self.turn.revision,attempt=self.turn.attempt,
             trace_id=self.trace_id,started_at=datetime.now(UTC))
         self.auth = auth
@@ -271,14 +273,14 @@ class _DurableBuildOwner:
                     model=auth.model,api_mode=auth.api_mode,context_mode=auth.context_mode)})
         elif self.mutation == "claim":
             values["expected_revision"] -= 1
-        self.turn, fresh = self.service.authorize_provider_attempt_v2("world-one",self.conversation_id,
+        self.turn, fresh = self.service.authorize_provider_attempt_v2(self.world_id,self.conversation_id,
             self.turn.turn_id,**values)
         assert fresh
         self.authorized = True
-        assert self.service.inspect_turn(world_id="world-one",turn_id=self.turn.turn_id) == self.turn
+        assert self.service.inspect_turn(world_id=self.world_id,turn_id=self.turn.turn_id) == self.turn
 
     def lifecycle(self, event):
-        self.turn, fresh = self.service.record_provider_outcome("world-one",self.conversation_id,
+        self.turn, fresh = self.service.record_provider_outcome(self.world_id,self.conversation_id,
             self.turn.turn_id,expected_revision=self.turn.revision,expected_attempt=self.turn.attempt,
             outcome=event)
         assert fresh
@@ -286,14 +288,14 @@ class _DurableBuildOwner:
     def select(self,event,proof,trace):
         from application_state.agent_conversation.context_trace import TraceContextSnapshot, TraceContextMaterial
         if self.mutation != "capture":
-            self.service.append_context_trace(world_id="world-one",conversation_id=self.conversation_id,
+            self.service.append_context_trace(world_id=self.world_id,conversation_id=self.conversation_id,
                 turn_id=self.turn.turn_id,expected_revision=self.turn.revision,attempt=self.turn.attempt,trace_id=self.trace_id,
                 observation=TraceContextSnapshot(sequence=0,elapsed_ms=1,stage="after",materials=[
                     TraceContextMaterial(item_id=trace["observations"][0]["materials"][0]["item_id"],
                         state="model_context",role="fact",text=proof["response_json"])]))
         if self.mutation == "result":
             proof = proof | {"response_json":proof["response_json"]+" "}
-        self.turn, fresh = self.service.record_build_requested_work_resolution("world-one",self.conversation_id,
+        self.turn, fresh = self.service.record_build_requested_work_resolution(self.world_id,self.conversation_id,
             self.turn.turn_id,expected_revision=self.turn.revision,expected_attempt=self.turn.attempt,
             selection=event,producer_proof=proof)
         assert fresh
@@ -336,3 +338,248 @@ def test_native_build_resolution_requires_the_actual_protected_result(applicatio
     assert len(owner.sent) == 1 and stored.status == "running"
     assert stored.graph_context_execution.events[-1].outcome == "response_received"
     assert not any(isinstance(event,t.BuildRequestedWorkResolutionV1) for event in stored.graph_context_execution.events)
+
+
+@pytest.mark.parametrize("failure", [None, "long", "catalog", "scope", "accounting", "timeout"])
+def test_actual_build_native_retrieval_uses_precommitted_sdk_selection_before_core_reads(
+    application_state_dsn, published_lane, monkeypatch, failure
+):
+    from types import SimpleNamespace
+    from apps.live_control_server.services.agent_turn_service import _ClaimFence
+    from apps.live_control_server.services.plan_jev_driver import PlanJevDriver
+    from apps.live_control_server.services.agent_context_trace_collector import (
+        _OBSERVATION,
+    )
+    from application_state.errors import (
+        ApplicationStateValidationError,
+        ApplicationStateConflictError,
+    )
+    from tests.test_surface_native_writer import published_case
+    from tests.test_native_plan_statements import query
+    from generationengine import GenerationEngineError
+
+    context, record = published_case("build", published_lane)
+    record = execution(context.context_receipt_sha256, record.policy)
+    owner = _DurableBuildOwner(world_id=record.policy.action.intent.world_id)
+    long_context = failure == "long"
+    if long_context:
+        from apps.live_control_server.services.build_jev_accounting import ExperimentalAccounting
+
+        def count(text):
+            state = json.loads(text)["state"]
+            estimate = 70000 if state.get("phase") == "navigate" else 8000
+            return (estimate - 4096) // 2
+
+        owner.accounting = ExperimentalAccounting("synthetic", count)
+        failure = None
+    sdk_case(owner=owner, context_record=(context, record))
+    query_context, native_query = query(published_lane, scope_mode="world")
+    assert native_query == owner.turn.graph_context_receipt.native_query
+    initial = len(owner.turn.graph_context_execution.events)
+    retrieval_calls = []
+    grant = owner.service.authorize_plan_jev_provider
+    if failure in {"catalog", "scope", "accounting"}:
+
+        def changed_input(*args, **kwargs):
+            proof = kwargs["producer_proof"]
+            if failure == "accounting":
+                event = kwargs["authorization"]
+                kwargs["authorization"] = event.model_copy(
+                    update={
+                        "build_context": event.build_context.model_copy(
+                            update={
+                                "max_question_input_tokens": event.build_context.max_question_input_tokens
+                                + 100000
+                            }
+                        )
+                    }
+                )
+            else:
+                parent = json.loads(proof["parent_request_json"])
+                if failure == "catalog":
+                    parent["candidates"][0]["handle"] = "unoffered-handle"
+                else:
+                    parent["scope_sha256"] = "f" * 64
+                kwargs["producer_proof"] = proof | {
+                    "parent_request_json": json.dumps(parent)
+                }
+            return grant(*args, **kwargs)
+
+        monkeypatch.setattr(owner.service, "authorize_plan_jev_provider", changed_input)
+    fence = _ClaimFence(owner.service, owner.turn)
+
+    class Capture:
+        sequence = 1
+
+        def observe(self, value):
+            observation = _OBSERVATION.validate_python(
+                value | {"sequence": self.sequence, "elapsed_ms": 1}
+            )
+            self.sequence += 1
+            owner.service.append_context_trace(
+                world_id=owner.world_id,
+                conversation_id=owner.conversation_id,
+                turn_id=fence.turn.turn_id,
+                expected_revision=fence.turn.revision,
+                attempt=fence.turn.attempt,
+                trace_id=owner.trace_id,
+                observation=observation,
+            )
+
+        def provider_usage(self, _calls):
+            pass  # Exact typed usage is independently joined by the APP selection owner.
+
+    capture = Capture()
+
+    def lifecycle(value):
+        event = t.ProviderOutcomeEventV1(
+            kind="provider_outcome",
+            event_id=uuid4(),
+            sequence=len(fence.turn.graph_context_execution.events),
+            provider_attempt_id=adapter.last_provider_attempt_id,
+            outcome=value["transition"],
+            request_id=value.get("runtimeApiRequestId"),
+        )
+        _turn, fresh = fence.append("record_provider_outcome", "outcome", event)
+        return fresh
+
+    adapter = SimpleNamespace(
+        fence=fence,
+        service=owner.service,
+        world_id=owner.world_id,
+        turn=owner.turn,
+        request=SimpleNamespace(
+            message=owner.turn.user_text, surface=SimpleNamespace(surface_id="build")
+        ),
+        bootstrap=None,
+        native_query=native_query,
+        native_query_context=query_context,
+        native_corpus_context=None,
+        native_source_authority=owner.turn.graph_context_receipt.source_authority,
+        context_capture=capture,
+        failure=None,
+        last_provider_attempt_id=None,
+        _build_jev_accounting=owner.accounting,
+        budget={
+            "estimator": "utf8_json_bytes_plus_64_per_node_v1",
+            "outputReserveTokens": 0,
+            "contextLimitTokens": 64000,
+        },
+        _broker_execution=lambda: fence.turn.graph_context_execution,
+        _capture_prepared_prompt=lambda *_: None,
+        record_lifecycle=lifecycle,
+    )
+
+    class Reads(httpx2.AsyncBaseTransport):
+        async def handle_async_request(self, request):
+            retrieval_calls.append(request)
+            if failure == "timeout":
+                raise httpx2.ReadTimeout(
+                    "Synthetic native Build decision timeout", request=request
+                )
+            body = json.loads(request.content)
+            assert body["state"]["phase"] == "navigate"
+            assert body["state"]["context_accounting"] == owner.accounting.descriptor
+            answers = {}
+            for name, q in body["questions"].items():
+                value = (
+                    "include" if name.startswith("candidate_") else "finish_retrieval"
+                )
+                answers[name] = dict(
+                    type="choice",
+                    choice=value,
+                    confidence=1,
+                    probabilities={
+                        option: float(option == value) for option in q["criteria"]
+                    },
+                )
+            return httpx2.Response(
+                200,
+                request=request,
+                json=dict(
+                    model="jev-1.14.0",
+                    answers=answers,
+                    usage=dict(input_tokens=35, output_tokens=6),
+                ),
+            )
+
+    try:
+        driver = PlanJevDriver(adapter)
+        if failure:
+            with pytest.raises(
+                (GenerationEngineError, ApplicationStateValidationError)
+            ):
+                asyncio.run(driver.run(transport=Reads(), api_key="synthetic-only"))
+            assert not any(
+                isinstance(
+                    e,
+                    (
+                        t.NativePlanStatementReadAuthorizedV1,
+                        t.NativePlanAssertionReadAuthorizedV1,
+                    ),
+                )
+                for e in fence.turn.graph_context_execution.events[initial:]
+            )
+            assert len(retrieval_calls) == (1 if failure == "timeout" else 0)
+            if failure == "timeout":
+                assert (
+                    fence.turn.graph_context_execution.events[-1].outcome
+                    == "outcome_unknown"
+                )
+            return
+        assert (
+            asyncio.run(driver.run(transport=Reads(), api_key="synthetic-only")) == {}
+        )
+        stored = owner.service.inspect_turn(
+            world_id=owner.world_id, turn_id=fence.turn.turn_id
+        )
+        events = stored.graph_context_execution.events[initial:]
+        grants = [e for e in events if isinstance(e, t.NativeRetrievalAuthorizedV1)]
+        selections = [e for e in events if isinstance(e, t.NativeRetrievalSelectedV1)]
+        assert len(grants) == len(selections) == len(retrieval_calls) == 2
+        assert selections[-1].operation == "finish_retrieval"
+        assert all(
+            e.api_mode == "typesafe_decision" and e.build_context for e in grants
+        )
+        assert all(
+            e.build_context.context_mode == ("long_context" if long_context else "default")
+            and e.input_tokens == (70000 if long_context else 8000)
+            for e in grants
+        )
+        assert all(
+            e.parent_request_sha256 == a.parent_request_sha256
+            and e.controller_attempt_id == a.provider_attempt_id
+            for e, a in zip(selections, grants, strict=True)
+        )
+        observations = [
+            e
+            for e in events
+            if isinstance(
+                e,
+                (
+                    t.NativePlanStatementReadObservedV1,
+                    t.NativePlanAssertionReadObservedV1,
+                ),
+            )
+        ]
+        assert len(observations) == 2 and all(e.reads for e in observations)
+        assert stored.graph_context_receipt.work_context.surface_id == "build"
+        assert stored.graph_context_receipt.native_query == native_query
+        assert not any(
+            type(e) in {t.PlanJevProviderAuthorizedV1, t.PlanJevRetrievalSelectionV1}
+            for e in events
+        )
+        before = stored
+        with pytest.raises(
+            (ApplicationStateValidationError, ApplicationStateConflictError)
+        ):
+            PlanJevDriver(adapter)._read_native(
+                "statement", [native_query.matches[0].statement_id]
+            )
+        assert (
+            owner.service.inspect_turn(world_id=owner.world_id, turn_id=stored.turn_id)
+            == before
+        )
+    finally:
+        _turn, error = fence.stop()
+        assert error is None

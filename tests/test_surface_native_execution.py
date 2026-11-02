@@ -97,15 +97,17 @@ def controller(surface, policy, *, sequence=0, semantic=True):
     if surface=="play":
         return t.ProviderAttemptAuthorizedEventV3(kind="provider_attempt_authorized_v3", **fields)
     if surface=="plan":
-        cls=t.PlanRequestedWorkAuthorizedV2 if semantic else t.PlanJevProviderAuthorizedV1
-        return cls(kind="plan_requested_work_authorized_v2" if semantic else "plan_jev_provider_authorized_v1", **fields,
+        cls=t.PlanRequestedWorkAuthorizedV2 if semantic else t.NativeRetrievalAuthorizedV1
+        return cls(kind="plan_requested_work_authorized_v2" if semantic else "native_retrieval_authorized_v1", **fields,
             decision_request_id=uuid4(), parent_request_sha256="f"*64)
     from application_state.agent_conversation.build_decision_context import identity
     fields.update(input_accounting_kind="estimated_token_count", input_estimator=policy.controller_continuation_accounting.policy)
-    return t.ProviderAttemptAuthorizedEventV5(kind="provider_attempt_authorized_v5", **fields,
-        context_mode="default", context_phase="select", max_question_input_tokens=120,
+    context=dict(context_mode="default", context_phase="select" if semantic else "navigate", max_question_input_tokens=120,
         dispatch_identity_sha256=identity(envelope_sha256=fields["envelope_sha256"],
             provider=role.provider, model=role.model, api_mode=role.api_mode, context_mode="default"))
+    if not semantic:
+        return t.NativeRetrievalAuthorizedV1(**fields,decision_request_id=uuid4(),parent_request_sha256="f"*64,build_context=context)
+    return t.ProviderAttemptAuthorizedEventV5(kind="provider_attempt_authorized_v5", **fields,**context)
 
 
 def outcomes(provider,sequence):
@@ -115,7 +117,7 @@ def outcomes(provider,sequence):
 
 
 def choice(context,record,provider,sequence,operation,handles=()):
-    return t.PlanJevRetrievalSelectionV1(kind="plan_jev_retrieval_selected_v1",event_id=uuid4(),sequence=sequence,
+    return t.NativeRetrievalSelectedV1(kind="native_retrieval_selected_v1",event_id=uuid4(),sequence=sequence,
         context_receipt_sha256=context.context_receipt_sha256,execution_policy_sha256=record.execution_policy_sha256,
         decision_request_id=getattr(provider,"decision_request_id",uuid4()),controller_attempt_id=provider.provider_attempt_id,
         controller_envelope_sha256=provider.envelope_sha256,controller_response_sha256="f"*64,
@@ -156,7 +158,10 @@ def decision_prefix(surface,context,record):
     else:
         if surface=='build':
             events.append(build_resolution(record.policy,first,len(events)))
-        active=first
+            active=controller(surface,record.policy,sequence=len(events),semantic=False)
+            events.extend([active,*outcomes(active,len(events)+1)])
+        else:
+            active=first
     return events,active
 
 
@@ -311,8 +316,7 @@ def test_native_writer_has_one_shared_exact_inclusion_contract(surface):
     context=type(context).model_validate_json(json.dumps(seal(data)))
     record=execution(context.context_receipt_sha256,record.policy)
     prefix,active=decision_prefix(surface,context,record)
-    if surface=="plan":
-        prefix.append(choice(context,record,active,len(prefix),"finish_retrieval"))
+    prefix.append(choice(context,record,active,len(prefix),"finish_retrieval"))
     writer = native_writer(surface,record.policy,sequence=len(prefix))
     accepted=execution(context.context_receipt_sha256, record.policy, [*prefix,writer])
     validate_context_binding(context,accepted)
@@ -361,10 +365,9 @@ def test_shared_writer_retains_unavailable_native_read_settlement(surface):
         authorization_event_id=grant.event_id,reads=(),unavailable_assertion_ids=("assertion-one",),status="partial")
     prefix.append(observed)
     unsettled=prefix[:-1]
-    if surface=="plan":
-        finish=controller(surface,policy,sequence=len(prefix),semantic=False)
-        prefix.extend([finish,*outcomes(finish,len(prefix)+1)])
-        prefix.append(choice(context,record,finish,len(prefix),"finish_retrieval"))
+    finish=controller(surface,policy,sequence=len(prefix),semantic=False)
+    prefix.extend([finish,*outcomes(finish,len(prefix)+1)])
+    prefix.append(choice(context,record,finish,len(prefix),"finish_retrieval"))
     writer=native_writer(surface,policy,sequence=len(prefix),read_ids=(observed.event_id,))
     accepted=execution(context.context_receipt_sha256,policy,[*prefix,writer])
     validate_context_binding(context,accepted)
@@ -409,11 +412,41 @@ def test_native_plan_uses_existing_owner_phase_checks(mutation):
         execution(context.context_receipt_sha256,record.policy,events)
 
 
+@pytest.mark.parametrize("retrieval", ["never", "unfinished", "finished"])
+def test_build_auxiliary_controller_preserves_retrieval_finish_barrier(retrieval):
+    context, record = component("build")
+    first = controller("build", record.policy)
+    events = [first, *outcomes(first, 1)]
+    events.append(build_resolution(record.policy, first, len(events)))
+    if retrieval != "never":
+        active = controller("build", record.policy, sequence=len(events), semantic=False)
+        events.extend([active, *outcomes(active, len(events) + 1)])
+        events.append(choice(context, record, active, len(events),
+            "finish_retrieval" if retrieval == "finished" else "select_candidates",
+            () if retrieval == "finished" else ("statement:synthetic",)))
+    auxiliary = controller("build", record.policy, sequence=len(events)).model_copy(
+        update={"context_phase": "writer_selection"})
+    events.extend([auxiliary, *outcomes(auxiliary, len(events) + 1)])
+    events.append(native_writer("build", record.policy, sequence=len(events)))
+    if retrieval == "unfinished":
+        with pytest.raises(ValueError, match="unfinished native retrieval"):
+            execution(context.context_receipt_sha256, record.policy, events)
+    else:
+        accepted = execution(context.context_receipt_sha256, record.policy, events)
+        assert type(accepted.events[-1]) is NativeWriterAuthorizedV1
+        if retrieval == "finished":
+            resumed = controller("build", record.policy,
+                sequence=len(events) - 1, semantic=False)
+            with pytest.raises(ValueError, match="cannot resume"):
+                execution(context.context_receipt_sha256, record.policy,
+                    [*events[:-1], resumed])
+
+
 @pytest.mark.parametrize("family",["search","body","statement","assertion"])
 def test_native_plan_cannot_finish_with_pending_native_grant(family):
     # Isolate the phase owner's pending state. Native read owners separately
     # validate exact grant/capture identity and source bytes.
-    from application_state.agent_conversation.plan_jev_decision import validate_decision_phases
+    from application_state.agent_conversation.native_retrieval import validate_decision_phases
     context,record=component("plan")
     prefix,active=decision_prefix("plan",context,record)
     prefix.append(choice(context,record,active,len(prefix),"select_candidates",["selected:synthetic"]))

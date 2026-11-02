@@ -336,7 +336,7 @@ def test_rules_ledger_begun_after_decision_obeys_plan_phase(application_state_ds
 
 @pytest.mark.parametrize("family", ["source", "related_recap"])
 def test_phase_finish_waits_for_each_read_family_receipt(application_state_dsn, family):
-    from application_state.agent_conversation.plan_jev_decision import validate_decision_phases
+    from application_state.agent_conversation.native_retrieval import validate_decision_phases
     case = prepare_case(application_state_dsn); append(case)
     events = list(case.turn.graph_context_execution.events)
     call_id = uuid4()

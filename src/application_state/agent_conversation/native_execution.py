@@ -23,6 +23,8 @@ from .native_statement_input import Strict
 from .plan_authoring import PlanAuthoringCaptureV1
 from .plan_placement import PlanPlacementCatalogV1
 
+from .native_retrieval import NativeRetrievalAuthorizedV1, NativeRetrievalSelectedV1
+
 Digest = Annotated[str, Field(pattern=r"^[a-f0-9]{64}$", strict=True)]
 
 
@@ -152,9 +154,9 @@ class NativeWriterAuthorizedV1(t.ProviderAttemptAuthorizedEventV3):
 # source-anchor receipts deliberately have no branch in this native event union.
 SurfaceNativeEvent = Annotated[
     t.ProviderAttemptAuthorizedEventV3 | t.ProviderAttemptAuthorizedEventV5
-    | t.PlanJevProviderAuthorizedV1 | t.PlanRequestedWorkAuthorizedV2
+    | t.PlanJevProviderAuthorizedV1 | NativeRetrievalAuthorizedV1 | t.PlanRequestedWorkAuthorizedV2
     | NativeWriterAuthorizedV1 | t.ProviderOutcomeEventV1 | t.CompletionBindingEventV1
-    | t.PlanJevRetrievalSelectionV1 | t.PlanRequestedWorkSelectedV2
+    | t.PlanJevRetrievalSelectionV1 | NativeRetrievalSelectedV1 | t.PlanRequestedWorkSelectedV2
     | t.NativeBodySearchAuthorizedV1 | t.NativeBodySearchObservedV1
     | t.NativeBodyReadAuthorizedV1 | t.NativeBodyReadObservedV1
     | t.NativePlanStatementReadAuthorizedV1 | t.NativePlanStatementReadObservedV1
@@ -228,6 +230,11 @@ class SurfaceNativeExecutionV1(Strict):
                             for prior in self.events[:event.sequence]):
                         from .build_primary_context import validate_writer_reads
                         validate_writer_reads(self,event)
+                if type(event) is NativeRetrievalAuthorizedV1:
+                    if not isinstance(roles,t.GraphControllerWriterRolesV1) or identity!=roles.controller.identity():
+                        raise ValueError("Native retrieval belongs only to its actual controller role")
+                    if (isinstance(self.policy.action,NativeBuildActionV1)) != (event.build_context is not None):
+                        raise ValueError("Native dispatch context differs from its concrete surface")
                 if isinstance(roles, t.GraphControllerWriterRolesV1):
                     if identity == roles.writer.identity() and type(event) is not NativeWriterAuthorizedV1:
                         raise ValueError("Native writer requires its exact shared selected-read inclusion codec")
@@ -269,9 +276,8 @@ class SurfaceNativeExecutionV1(Strict):
                 # The submission/selection/reservation owners must additionally
                 # validate this stored reviewed step before granting any write.
             t.validate_controller_writer_execution(self, reviewed_action=reviewed[0] if reviewed else None)
-            if isinstance(self.policy.action, NativePlanActionV1):
-                from .plan_jev_decision import validate_decision_phases
-                validate_decision_phases(self)
+            from .native_retrieval import validate_decision_phases
+            validate_decision_phases(self)
             from .native_corpus import validate_native_body_events
             validate_native_body_events(self)
         elif any(isinstance(event, t.NATIVE_BODY_EVENTS) for event in self.events):

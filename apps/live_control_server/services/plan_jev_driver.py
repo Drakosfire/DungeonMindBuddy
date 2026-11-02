@@ -1,5 +1,6 @@
 """Plan parent owns acquisitions; Jev selects semantic catalog entries only."""
 import json
+from contextlib import nullcontext
 
 from application_state.agent_conversation import types as t
 from application_state.agent_conversation.jev_retrieval_contract import RetrievalCandidate
@@ -163,7 +164,7 @@ class PlanJevDriver:
                      if handle.startswith("node:")]
             if any(node in self.attempted_nodes for node in nodes):
                 raise ValueError("Plan object cannot be reacquired")
-            with self.adapter.plan_graph_acquisition(nodes):
+            with self.adapter.plan_graph_acquisition(nodes) if nodes else nullcontext():
                 for handle in selected.selected_handles:
                     if not handle.startswith("node:"):
                         continue
@@ -284,7 +285,9 @@ class PlanJevDriver:
             return self.current.authorize(prepared) if self.current is not None else False
         async def record(event):
             return self.current.record(event) if self.current is not None else False
-        client = decision_client(authorize=authorize, record=record, transport=transport, api_key=api_key)
+        async def select_context(prepared):
+            return await self.current.select_context(prepared)
+        client = decision_client(authorize=authorize, record=record, transport=transport, api_key=api_key,select_context=select_context)
         try:
             while not self.finished:
                 operations = (("select_candidates", "finish_retrieval") if self.discovered else
@@ -312,6 +315,8 @@ class PlanJevDriver:
             raise ValueError("Plan writer cannot use unfinished acquisition")
         a = self.adapter
         if type(a.fence.turn.graph_context_receipt) is t.SurfaceNativeContextReceiptV1:
+            if a.fence.turn.graph_context_execution.policy.action.surface_id == "build":
+                return {}  # Build work is reconstructed from its actual captured APP records.
             return dict(plan_markdown=a.work.plan_markdown,
                 session_evidence=(a.work.session_evidence or {}).get('sessions',[]),dialogue=self.dialogue)
         names = {}

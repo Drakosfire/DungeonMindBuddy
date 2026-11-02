@@ -1354,11 +1354,17 @@ class AgentConversationService:
                 and type(turn.graph_context_execution.policy.action) is NativeBuildActionV1
                 and type(event) is ProviderAttemptAuthorizedEventV5
                 and isinstance(prepared_decision_json, str))
+            from .native_retrieval import NativeRetrievalAuthorizedV1
+            native_build_retrieval = (
+                type(turn.graph_context_execution) is SurfaceNativeExecutionV1
+                and type(turn.graph_context_execution.policy.action) is NativeBuildActionV1
+                and type(event) is NativeRetrievalAuthorizedV1
+                and plan_jev_input_proof is not None)
             native_writer = (type(turn.graph_context_execution) is SurfaceNativeExecutionV1
                 and type(event) is NativeWriterAuthorizedV1 and native_writer_proof is not None)
             if (isinstance(turn.graph_context_execution, SurfaceNativeExecutionV1)
                     and isinstance(event, ProviderAttemptAuthorizedEventV1)
-                    and not (native_plan_decision or native_build_decision or native_writer)):
+                    and not (native_plan_decision or native_build_decision or native_build_retrieval or native_writer)):
                 raise ApplicationStateValidationError(
                     "Shared native provider requires its exact prepared-input admission owner")
             validate_authoring_writer(conn,action,turn,event)
@@ -1691,7 +1697,7 @@ class AgentConversationService:
                 assert receipt is not None
                 try:
                     from .types import PlanSourceContextReceiptV1
-                    if native_plan_decision or native_build_decision:
+                    if native_plan_decision or native_build_decision or native_build_retrieval:
                         # Each concrete surface checked its actual prepared wire.
                         # Share first-envelope accounting without constructing a
                         # classic Graph view or borrowing another work identity.

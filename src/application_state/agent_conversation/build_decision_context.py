@@ -42,7 +42,19 @@ def identity(*, envelope_sha256, provider, model, api_mode, context_mode):
     return hashlib.sha256(json.dumps(value, sort_keys=True, separators=(",", ":")).encode()).hexdigest()
 
 
+def mode_context(event):
+    """Read actual dispatch metadata; never construct a V5 authorization."""
+    from . import types as t
+    if type(event) is t.ProviderAttemptAuthorizedEventV5:
+        return event
+    from .native_retrieval import NativeRetrievalAuthorizedV1
+    if type(event) is NativeRetrievalAuthorizedV1 and event.build_context is not None:
+        return event.build_context
+    raise ValueError("Build decision requires its actual mode-bound dispatch context")
+
+
 def validate_event(event, execution):
+    context = mode_context(event)
     descriptor = getattr(execution.policy, "controller_continuation_accounting", None)
     if descriptor is None or descriptor.policy not in {POLICY, HISTORICAL_POLICY}:
         raise ValueError("Decision context requires its frozen adaptive accounting")
@@ -50,13 +62,13 @@ def validate_event(event, execution):
         raise ValueError("Decision context role belongs only to the Build controller")
     if (event.provider, event.model, event.api_mode) != ("typesafe", "jev-1.14.0", "typesafe_decision"):
         raise ValueError("Decision context provider identity differs")
-    if event.context_mode != selected_mode(event.context_phase, event.input_tokens, event.max_question_input_tokens, policy=descriptor.policy):
+    if context.context_mode != selected_mode(context.context_phase, event.input_tokens, context.max_question_input_tokens, policy=descriptor.policy):
         raise ValueError("Decision context mode differs from frozen selection policy")
-    question_limit, request_limit = ((LONG_LIMIT, LONG_LIMIT) if event.context_mode == "long_context"
+    question_limit, request_limit = ((LONG_LIMIT, LONG_LIMIT) if context.context_mode == "long_context"
                                       else (DEFAULT_QUESTION, DEFAULT_REQUEST))
-    if (event.max_question_input_tokens > question_limit or event.input_tokens > request_limit
-            or event.dispatch_identity_sha256 != identity(envelope_sha256=event.envelope_sha256,
-                provider=event.provider, model=event.model, api_mode=event.api_mode, context_mode=event.context_mode)):
+    if (context.max_question_input_tokens > question_limit or event.input_tokens > request_limit
+            or context.dispatch_identity_sha256 != identity(envelope_sha256=event.envelope_sha256,
+                provider=event.provider, model=event.model, api_mode=event.api_mode, context_mode=context.context_mode)):
         raise ValueError("Decision context estimate or dispatch identity differs")
 
 
@@ -99,16 +111,17 @@ def validate_accounting(event, execution, *, provider_index):
     if event.input_accounting_kind != kind or event.input_estimator != estimator:
         raise ValueError("provider attempt accounting differs from accepted role policy")
     if descriptor.policy in {HISTORICAL_POLICY, POLICY} and role == controller:
-        if not isinstance(event, t.ProviderAttemptAuthorizedEventV5):
-            raise ValueError("Current Build controller requires mode-bound authorization")
+        mode_context(event)
+        validate_event(event, execution)
     elif isinstance(event, t.ProviderAttemptAuthorizedEventV5):
         raise ValueError("Mode-bound authorization requires current Build accounting")
-    if estimated and not isinstance(event, t.ProviderAttemptAuthorizedEventV5) and event.input_tokens > descriptor.request_limit_tokens:
+    if estimated and descriptor.policy not in {HISTORICAL_POLICY,POLICY} and event.input_tokens > descriptor.request_limit_tokens:
         raise ValueError("controller request estimate exceeds frozen policy")
 
 
 def validate_prepared(event, execution, raw):
     validate_event(event, execution)
+    context = mode_context(event)
     if not isinstance(raw, str) or len(raw.encode()) > RAW_LIMIT:
         raise ValueError("Decision context requires exact bounded prepared bytes")
     if hashlib.sha256(raw.encode()).hexdigest() != event.envelope_sha256:
@@ -123,6 +136,6 @@ def validate_prepared(event, execution, raw):
     body = json.loads(raw, object_pairs_hook=unique)
     if (set(body) != {"model", "state", "questions"} or body["model"] != event.model
             or not isinstance(body["questions"], dict) or not body["questions"]
-            or phase(body) != event.context_phase
+            or phase(body) != context.context_phase
             or body["state"].get("context_accounting") != execution.policy.controller_continuation_accounting.model_dump(mode="json")):
         raise ValueError("Prepared context phase or accounting differs from frozen execution")

@@ -29,11 +29,11 @@ def request_budget():
         }}
 
 
-def decision_client(*, authorize, record, transport=None, api_key=None):
+def decision_client(*, authorize, record, transport=None, api_key=None, select_context=None):
     from generationengine import GenerationClient
     from generationengine.decision_dispatch import DecisionDispatchGate
     from generationengine.providers.typesafe_decision import TypeSafeDecisionProvider
-    options = {"dispatch_gate": DecisionDispatchGate(authorize, record), "transport": transport}
+    options = {"dispatch_gate": DecisionDispatchGate(authorize, record, select_context), "transport": transport}
     if api_key is not None: options["api_key"] = api_key
     return GenerationClient(decision_providers={PROVIDER: TypeSafeDecisionProvider(**options)})
 
@@ -62,8 +62,13 @@ class PlanJevDispatch:
         fields = dict(request_id=uuid4(), parent_attempt_id=uuid4(), scope_sha256="0" * 64,
             question=adapter.request.message, dialogue=tuple(dialogue), candidates=tuple(candidates),
             examined_candidates=tuple(examined_candidates), allowed_operations=tuple(allowed_operations))
+        receipt = adapter.fence.turn.graph_context_receipt if adapter.fence is not None else None
         authority = getattr(adapter, "native_source_authority", None)
-        if authority is not None:
+        if type(receipt) is t.SurfaceNativeContextReceiptV1:
+            from application_state.agent_conversation.native_retrieval import source_pins
+            from application_state.agent_conversation.jev_retrieval_contract import NativeRetrievalDecisionInputV1
+            self.parent = NativeRetrievalDecisionInputV1(**fields,**source_pins(receipt))
+        elif authority is not None:
             from application_state.agent_conversation.native_corpus import NativeCorpusAuthorityV1
             available = isinstance(authority, NativeCorpusAuthorityV1)
             from application_state.agent_conversation.plan_jev_decision import _source_pins
@@ -92,41 +97,74 @@ class PlanJevDispatch:
             target_available=capture is not None, placement_catalog=adapter.request.plan_placement_catalog, original_capture=capture)
         return dispatch
 
+    def _native_accounting(self):
+        if self.adapter.fence is None:
+            return None
+        from application_state.agent_conversation.native_retrieval import controller_accounting
+        return controller_accounting(self.adapter.fence.turn.graph_context_execution)
+
+    async def select_context(self, prepared):
+        from generationengine.decision_dispatch import DecisionContextMode
+        if self._native_accounting() is None:
+            return DecisionContextMode.DEFAULT
+        accounting = self.adapter._build_jev_accounting
+        if accounting.descriptor != self._native_accounting():
+            raise ValueError("Native Build decision counter differs from its actual policy")
+        return DecisionContextMode(accounting.context_mode(json.loads(prepared.body)))
+
     def authorize(self, prepared):
         from .agent_turn_service import _json_node_count, _require_fresh_execution_append
         semantic = isinstance(self.parent, PlanRequestedWorkInputV1)
-        (validate_prepared_requested_work if semantic else validate_prepared_decision)(self.parent, prepared)
+        if semantic:
+            validate_prepared_requested_work(self.parent,prepared)
+        else:
+            validate_prepared_decision(self.parent,prepared,controller_accounting=self._native_accounting())
         a = self.adapter
         if (a.failure is not None or self.prepared is not None
                 or getattr(a, "_build_native_acquisition_services", None) is not None
                 or getattr(a, "_plan_graph_read_services", None) is not None):
             return False
+        native_build = self._native_accounting() is not None
         view = {"provider": PROVIDER, "model": MODEL, "apiMode": "decision",
             "payloadJson": prepared.body.decode(), "payloadSha256": prepared.body_sha256,
             "payloadUtf8Bytes": prepared.body_size}
-        a._active_plan_jev_request = self.parent
-        try:
-            a._ensure_claimed(view)
-        finally:
-            a._active_plan_jev_request = None
+        if native_build:
+            from .build_jev_dispatch import prepared_view
+            view=prepared_view(prepared,json.loads(prepared.body)["state"],accounting=a._build_jev_accounting)
+        else:
+            a._active_plan_jev_request = self.parent
+            try:
+                a._ensure_claimed(view)
+            finally:
+                a._active_plan_jev_request = None
         turn = a.fence.turn
         execution = turn.graph_context_execution
+        native = not semantic and type(turn.graph_context_receipt) is t.SurfaceNativeContextReceiptV1
+        if native:
+            from application_state.agent_conversation.native_retrieval import scope_digest as selected_scope
+        else:
+            selected_scope = scope_digest
         self.parent = self.parent.model_copy(update={"parent_attempt_id": UUID(prepared.attempt_id),
-            "scope_sha256": scope_digest(turn)})
+            "scope_sha256": selected_scope(turn)})
         raw = view["payloadJson"]
-        estimate = len(raw.encode()) + 64 * (1 + _json_node_count(json.loads(raw)))
-        if estimate + a.budget["outputReserveTokens"] > a.budget["contextLimitTokens"]:
+        estimate = (a._build_jev_accounting.estimate(json.loads(raw)) if native_build else
+            len(raw.encode()) + 64 * (1 + _json_node_count(json.loads(raw))))
+        if not native_build and estimate + a.budget["outputReserveTokens"] > a.budget["contextLimitTokens"]:
             raise ValueError("Plan Jev actual request exceeds the existing provider context allowance")
-        auth_type = t.PlanRequestedWorkAuthorizedV2 if isinstance(self.parent, PlanRequestedWorkInputV2) else t.PlanRequestedWorkAuthorizedV1 if semantic else t.PlanJevProviderAuthorizedV1
-        auth = auth_type(kind='plan_requested_work_authorized_v2' if isinstance(self.parent, PlanRequestedWorkInputV2) else 'plan_requested_work_authorized_v1' if semantic else 'plan_jev_provider_authorized_v1', event_id=uuid4(),
+        from application_state.agent_conversation.native_retrieval import NativeRetrievalAuthorizedV1
+        auth_type = t.PlanRequestedWorkAuthorizedV2 if isinstance(self.parent, PlanRequestedWorkInputV2) else t.PlanRequestedWorkAuthorizedV1 if semantic else NativeRetrievalAuthorizedV1 if native else t.PlanJevProviderAuthorizedV1
+        build_context = dict(context_mode=view["contextMode"],context_phase=view["contextPhase"],
+            max_question_input_tokens=view["maxQuestionInputTokens"],dispatch_identity_sha256=view["dispatchIdentitySha256"]) if native_build else None
+        auth = auth_type(kind='plan_requested_work_authorized_v2' if isinstance(self.parent, PlanRequestedWorkInputV2) else 'plan_requested_work_authorized_v1' if semantic else 'native_retrieval_authorized_v1' if native else 'plan_jev_provider_authorized_v1', event_id=uuid4(),
             sequence=len(execution.events), provider_attempt_id=UUID(prepared.attempt_id),
             decision_request_id=self.parent.request_id, parent_request_sha256=self.parent.digest,
             envelope_sha256=prepared.body_sha256, serializer_version="typesafe-sdk-json-v1",
-            provider=PROVIDER, model=MODEL, api_mode="decision", tool_schema_sha256=sha256(b"[]").hexdigest(),
-            input_accounting_kind="conservative_upper_bound", input_estimator=a.budget["estimator"],
-            input_tokens=estimate, output_token_reserve=a.budget["outputReserveTokens"],
+            provider=PROVIDER, model=MODEL, api_mode=view["apiMode"], tool_schema_sha256=sha256(b"[]").hexdigest(),
+            input_accounting_kind="estimated_token_count" if native_build else "conservative_upper_bound",
+            input_estimator=execution.policy.controller_continuation_accounting.policy if native_build else a.budget["estimator"],
+            input_tokens=estimate, output_token_reserve=0 if native_build else a.budget["outputReserveTokens"],
             included_assertion_ids=[], included_relationship_ids=[], included_evidence_ref_ids=[],
-            included_graph_event_ids=[], included_source_read_event_ids=[])
+            included_graph_event_ids=[], included_source_read_event_ids=[],**({"build_context":build_context} if native else {}))
         a.turn = _require_fresh_execution_append(a.fence.append("authorize_plan_jev_provider", "authorization", auth,
             producer_proof={"parent_request_json": self.parent.model_dump_json(by_alias=True), "request_json": raw}))
         a.last_provider_attempt_id = auth.provider_attempt_id
@@ -153,8 +191,11 @@ class PlanJevDispatch:
             raise ValueError("Plan decision has no unique actual authorized producer")
         a = self.adapter
         raw = result.model_dump_json()
+        from application_state.agent_conversation.native_retrieval import NativeRetrievalAuthorizedV1, NativeRetrievalSelectedV1
+        native = type(self.authorization) is NativeRetrievalAuthorizedV1
+        capture_name = "unvalidated-native-retrieval-result" if native else "unvalidated-plan-jev-result"
         a.context_capture.observe({"kind": "context_snapshot", "stage": "after", "materials": [{
-            "item_id": f"unvalidated-plan-jev-result:{self.authorization.provider_attempt_id}",
+            "item_id": f"{capture_name}:{self.authorization.provider_attempt_id}",
             "state": "model_context", "role": "assistant", "text": raw}]})
         semantic = isinstance(self.parent, PlanRequestedWorkInputV1)
         selected = (decode_requested_work_decision if semantic else decode_selection)(self.parent, result)
@@ -167,8 +208,8 @@ class PlanJevDispatch:
             'placement_catalog': self.parent.placement_catalog.model_dump(mode='json',by_alias=True) if self.parent.placement_catalog is not None else None,
             'placement_catalog_sha256': self.parent.placement_catalog.sha256 if self.parent.placement_catalog is not None else None,
         }) if placement else {'requested_work': selected, 'target_capture_sha256': self.parent.target_capture_sha256} if semantic else {'operation': selected.operation, 'selected_handles': list(selected.selected_handles)}
-        event_type = t.PlanRequestedWorkSelectedV2 if placement else t.PlanRequestedWorkSelectedV1 if semantic else t.PlanJevRetrievalSelectionV1
-        event = event_type(kind='plan_requested_work_selected_v2' if placement else 'plan_requested_work_selected_v1' if semantic else 'plan_jev_retrieval_selected_v1', event_id=uuid4(),
+        event_type = t.PlanRequestedWorkSelectedV2 if placement else t.PlanRequestedWorkSelectedV1 if semantic else NativeRetrievalSelectedV1 if native else t.PlanJevRetrievalSelectionV1
+        event = event_type(kind='plan_requested_work_selected_v2' if placement else 'plan_requested_work_selected_v1' if semantic else 'native_retrieval_selected_v1' if native else 'plan_jev_retrieval_selected_v1', event_id=uuid4(),
             sequence=len(execution.events), context_receipt_sha256=execution.context_receipt_sha256,
             execution_policy_sha256=execution.execution_policy_sha256,
             controller_attempt_id=self.authorization.provider_attempt_id, decision_request_id=self.parent.request_id,
@@ -192,11 +233,12 @@ class PlanJevDispatch:
         async def record(event): return self.record(event)
         owns_client = client is None
         if owns_client:
-            client = decision_client(authorize=authorize, record=record, transport=transport, api_key=api_key)
+            client = decision_client(authorize=authorize, record=record, transport=transport, api_key=api_key,select_context=self.select_context)
         started = perf_counter()
         try:
             prepare = prepare_requested_work_decision if isinstance(self.parent, PlanRequestedWorkInputV1) else prepare_decision
-            result = await client.decide(prepare(self.parent))
+            result = await client.decide(prepare(self.parent) if isinstance(self.parent,PlanRequestedWorkInputV1)
+                else prepare(self.parent,controller_accounting=self._native_accounting()))
             observation = result.observation
             if self.call is not None:
                 counts = {"input_tokens": observation.input_tokens, "output_tokens": observation.output_tokens}

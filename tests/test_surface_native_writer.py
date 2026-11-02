@@ -172,8 +172,12 @@ def test_actual_sdk_native_body_input_returns_only_exact_selected_supports(lane,
         assert frame['native_body_evidence']['excerpts'][0]['extent_kind'] == ('full_document' if full else 'section')
     assert 'graph_records' not in frame and 'plan_markdown' not in frame
     # Later provider outcomes cannot change the already producing frame.
+    acknowledged = outcomes(auth, len(stored.events))
+    # The actual synthetic SDK response above contains no assistant output.
+    acknowledged[-1] = acknowledged[-1].model_copy(update={
+        'request_id':'resp_synthetic','response_sha256':sha256(b'').hexdigest()})
     finished = execution(context.context_receipt_sha256, stored.policy,
-        [*stored.events, *outcomes(auth, len(stored.events))])
+        [*stored.events, *acknowledged])
     assert verify_input_records(context, finished, auth, raw,**work) == supports
 
 
@@ -285,10 +289,9 @@ def published_case(surface, lane):
         assert reads and not unavailable
         events.append(observed_type(event_id=uuid4(), sequence=len(events), authorization_event_id=grant.event_id,
             reads=reads, status='complete', **{unavailable_field:()}))
-    if surface == 'plan':
-        active = controller(surface, policy, sequence=len(events), semantic=False)
-        events.extend([active, *outcomes(active, len(events)+1)])
-        events.append(choice(context, record, active, len(events), 'finish_retrieval'))
+    active = controller(surface, policy, sequence=len(events), semantic=False)
+    events.extend([active, *outcomes(active, len(events)+1)])
+    events.append(choice(context, record, active, len(events), 'finish_retrieval'))
     return context, with_work_selection(execution(context.context_receipt_sha256, policy, events))
 
 

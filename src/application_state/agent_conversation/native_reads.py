@@ -50,7 +50,12 @@ def _owner(turn, *, require_source=False):
     from .plan_jev_decision import _owner as plan_owner
     from .plan_source_context import validate_source_provenance
 
-    receipt, execution = plan_owner(turn)
+    from .native_context import SurfaceNativeContextReceiptV1
+    if type(turn.graph_context_receipt) is SurfaceNativeContextReceiptV1:
+        from .native_retrieval import owner
+        receipt, execution = owner(turn)
+    else:
+        receipt, execution = plan_owner(turn)
     if turn.world_id != turn.provenance.world_id:
         raise ValueError("Native read turn differs from its owning World")
     validate_execution_binding(receipt, execution)

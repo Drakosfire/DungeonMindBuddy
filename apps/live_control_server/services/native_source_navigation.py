@@ -4,7 +4,6 @@ from collections import Counter
 from uuid import uuid4
 
 from application_state.agent_conversation import types as t
-from application_state.agent_conversation.native_execution import NativePlanActionV1
 from application_state.source.naming import registered_source_name
 from application_state.agent_conversation.jev_retrieval_contract import RetrievalCandidate
 from application_state.agent_conversation.native_source_input import section_row, CAPABILITIES
@@ -46,7 +45,7 @@ def navigator(adapter):
         if (isinstance(receipt,t.PlanSourceContextReceiptV1) or
                 (type(receipt) is t.SurfaceNativeContextReceiptV1
                  and type(adapter.fence.turn.graph_context_execution) is t.SurfaceNativeExecutionV1
-                 and type(adapter.fence.turn.graph_context_execution.policy.action) is NativePlanActionV1)):
+                 and adapter.fence.turn.graph_context_execution.policy.action.surface_id in {"plan","build"})):
             from .corpus_source_navigation import NativeBodyNavigation
             adapter._native_source_navigator = NativeBodyNavigation(adapter)
         else:
