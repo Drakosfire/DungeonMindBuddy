@@ -260,6 +260,9 @@ class PlanJevWriter:
             from application_state.agent_conversation.native_plan_assertions import INSTRUCTIONS as ASSERTION_INSTRUCTIONS
             from application_state.agent_conversation.surface_evidence_answer import BODY_POLICY
             instructions = SOURCE_ATTRIBUTION_INSTRUCTIONS + BODY_INSTRUCTIONS.replace(BODY_POLICY,self.frame['answer_policy']) + STATEMENT_INSTRUCTIONS + ASSERTION_INSTRUCTIONS + AUTHORING_GUIDANCE
+            from application_state.agent_conversation.reviewed_action import SCOPE_KEY,SCOPE_GUIDANCE
+            if SCOPE_KEY in self.work_frame:
+                instructions += '\n' + SCOPE_GUIDANCE
             if self.work_frame.get('requested_work') == 'clarify':
                 instructions += '\nAsk the specific clarifying question. Do not draft yet.'
             if getattr(rules,'authoring',None) is not None:

@@ -393,6 +393,11 @@ def enabled(policy):
 def policy_capabilities(policy):
     if not enabled(policy):
         raise ValueError("Intentional response policy is not admitted")
+    return captured_capabilities(policy)
+
+
+def captured_capabilities(policy):
+    """Operation/review facts; the caller owns semantic or human admission."""
     reviews = ["questions"]
     if getattr(policy, "collaboration_output_policy", None) is not None:
         reviews.append("plan")
@@ -403,7 +408,7 @@ def policy_capabilities(policy):
     return Capabilities(
         tuple(policy.allowed_surface_operations),
         tuple(reviews),
-        policy.plan_surface_available,
+        getattr(policy,"plan_surface_available",None),
         None,
     )
 
@@ -723,6 +728,9 @@ def validate_collaboration(collaboration, segments, contract, *, primary_rows, o
 
 
 def native_review_enabled(frame):
+    from .reviewed_action import SCOPE_KEY
+    if SCOPE_KEY in frame:
+        return True
     contract=frame.get('response_contract')
     return isinstance(contract,dict) and contract['capabilities']['reviews'] is not None
 
@@ -744,6 +752,13 @@ def native_review_schema(frame):
     from .plan_objective import selection_packet
     from .build_draft_context import resolve_body_aliases
     frame=resolve_body_aliases(frame)
+    from .reviewed_action import SCOPE_KEY,ReviewedDiscussionScopeV1
+    if SCOPE_KEY in frame:
+        ReviewedDiscussionScopeV1.model_validate(frame[SCOPE_KEY]['scope'])
+        schema=ProposedQuestions.model_json_schema()
+        definitions=schema.pop('$defs',{})
+        definitions['ProposedQuestions']=schema
+        return {'anyOf':[{'$ref':'#/$defs/ProposedQuestions'},{'type':'null'}]},definitions
     contract=frame['response_contract']
     kind=WORK[contract['requested_work']].review if not contract['barrier'] else None
     model={'questions':ProposedQuestions,'plan':ProposedPlanV3,
@@ -770,6 +785,13 @@ def normalize_native_review(candidate, segments, frame):
     from .plan_objective import selection_packet
     review=TypeAdapter(RelationshipCollaborationV3 | None).validate_python(candidate)
     frame=resolve_body_aliases(frame)
+    from .reviewed_action import SCOPE_KEY,ReviewedDiscussionScopeV1
+    if SCOPE_KEY in frame:
+        from .collaboration import ProposedQuestions
+        ReviewedDiscussionScopeV1.model_validate(frame[SCOPE_KEY]['scope'])
+        if review is not None and not isinstance(review,ProposedQuestions):
+            raise ValueError('Reviewed discussion may only ask clarifying questions')
+        return review
     validate_collaboration(review,segments,frame['response_contract'],
         primary_rows=frame['artifact_under_edit']['sections'],origin_rows=native_origin_rows(frame))
     if isinstance(review,ProposedPlanV3) and not selection_packet(frame):

@@ -76,8 +76,6 @@ import type {
   WorldBuildGraphCompletionV1,
   WorldBuildGraphAnswerStatus,
   WorldBuildSourceAnswerStatus,
-  WorldBuildAuthoringCompletionV1,
-  WorldBuildImagePreparationCompletionV1,
   WorldPlanSourceOpenTargetV2,
   WorldGraphSourceAnchorReadResponse,
   WorldGraphRecapContextReadResponseV2,

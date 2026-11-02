@@ -120,26 +120,35 @@ def freeze(request, work, playable_target, view, budget, *, authority, graph_rec
 
 
 def freeze_build(request, work, view, budget, *, authority, native_query, provenance,
-                 submitted_intent, projection, accounting, included_history=()):
+                 submitted_intent, projection, accounting, included_history=(), reviewed_admission=None):
     """Capture actual Build work and its first prepared semantic wire, without a Graph packet."""
-    from application_state.agent_conversation.native_context import BuildWorkContextV1, NativeProviderInputV1
+    from application_state.agent_conversation.native_context import BuildWorkContextV1, NativeProviderInputV1, NativeReviewedActionInputV1
     from application_state.agent_conversation.native_execution import NativeBuildActionV1
     from application_state.agent_conversation.build_intentional_response import MENU_DIGEST, RESOLVER_DIGEST
     basis = work.build_source
-    if request.surface.surface_id != 'build' or basis is None or projection is None or accounting is None:
-        raise ValueError('Native Build requires actual saved work and its prepared semantic projection')
-    # The caller supplied the exact already-verified view, not a model-provided root.
-    body = json.loads(view['payloadJson'])
-    raw = view['payloadJson'].encode()
-    if (len(raw) != view['payloadUtf8Bytes'] or sha256(raw).hexdigest() != view['payloadSha256']
-            or body['state'] != projection.state() or body['questions'] != projection.questions()
-            or (view['provider'], view['model'], view['apiMode']) != ('typesafe','jev-1.14.0','typesafe_decision')):
-        raise ValueError('Native Build initial prepared request changed before capture')
-    accounting.validate(body, raw, context_mode=view['contextMode'])
+    if request.surface.surface_id!='build' or basis is None or accounting is None:
+        raise ValueError('Native Build requires its actual saved work and accounting')
+    reviewed=reviewed_admission is not None
+    if reviewed:
+        from application_state.agent_conversation.reviewed_action import admission_manifest,digest
+        if (view is not None or reviewed_admission!=submitted_intent or submitted_intent.reviewed_step is None):
+            raise ValueError('Native human admission differs from its exact reviewed intent')
+        assembled=NativeReviewedActionInputV1(submitted_intent_sha256=t.canonical_sha256(submitted_intent),
+            assembled_input_sha256=digest(admission_manifest(submitted_intent)))
+    else:
+        if projection is None or submitted_intent.reviewed_step is not None:
+            raise ValueError('Native semantic Build requires its actual prepared projection')
+        body=json.loads(view['payloadJson'])
+        raw=view['payloadJson'].encode()
+        if (len(raw)!=view['payloadUtf8Bytes'] or sha256(raw).hexdigest()!=view['payloadSha256']
+                or body['state']!=projection.state() or body['questions']!=projection.questions()
+                or (view['provider'],view['model'],view['apiMode'])!=('typesafe','jev-1.14.0','typesafe_decision')):
+            raise ValueError('Native Build initial prepared request changed before capture')
+        accounting.validate(body,raw,context_mode=view['contextMode'])
     actions = budget['buildJevActions']
     from types import SimpleNamespace
-    from application_state.agent_conversation.build_intentional_response import policy_capabilities
-    caps = policy_capabilities(SimpleNamespace(**actions))
+    from application_state.agent_conversation.build_intentional_response import policy_capabilities,captured_capabilities
+    caps = (captured_capabilities if reviewed else policy_capabilities)(SimpleNamespace(**actions))
     source_basis = t.BuildSourceContextBasisV1(world_id=basis.world_id, document_id=basis.document_id,
         registry_revision=basis.revision, content_sha256=basis.content_sha256, visibility=basis.visibility_state)
     from application_state.agent_conversation.build_related_pages import PagePointer
@@ -149,13 +158,14 @@ def freeze_build(request, work, view, budget, *, authority, native_query, proven
         capabilities=caps, related_page_catalog=related,
         saved_source_char_count=len(basis.markdown), requested_work_menu_sha256=MENU_DIGEST,
         response_resolver_sha256=RESOLVER_DIGEST)
-    assembled = NativeProviderInputV1(provider_model_name=view['model'], provider_model_version=view['model'],
-        tokenizer_name=accounting.descriptor['policy'], tokenizer_version=accounting.tokenizer_version,
-        provider_envelope_input_tokens=accounting.estimate(body), output_token_reserve=0,
-        context_window_limit=budget['contextLimitTokens'],
-        included_history=tuple(t.PlanWorldGraphHistoryPinV1(turn_id=turn_id,
-            answer_sha256=sha256(text.encode()).hexdigest()) for turn_id,text in included_history
-            if text and _contains_text(body,text)), assembled_input_sha256=view['payloadSha256'])
+    if not reviewed:
+        assembled = NativeProviderInputV1(provider_model_name=view['model'], provider_model_version=view['model'],
+            tokenizer_name=accounting.descriptor['policy'], tokenizer_version=accounting.tokenizer_version,
+            provider_envelope_input_tokens=accounting.estimate(body), output_token_reserve=0,
+            context_window_limit=budget['contextLimitTokens'],
+            included_history=tuple(t.PlanWorldGraphHistoryPinV1(turn_id=turn_id,
+                answer_sha256=sha256(text.encode()).hexdigest()) for turn_id,text in included_history
+                if text and _contains_text(body,text)), assembled_input_sha256=view['payloadSha256'])
     return _freeze_native(BuildWorkContextV1(source_basis=source_basis),action,assembled,
         authority,native_query,provenance,budget,controller_accounting=accounting.descriptor,
         writer_budget=actions['writer_context_budget'])

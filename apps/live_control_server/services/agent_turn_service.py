@@ -1981,8 +1981,9 @@ class _PolicyExecutionAdapter:
                 from .plan_source_turn import freeze_build
                 receipt, execution, membership = freeze_build(self.request,self.work,view,self.budget,
                     authority=self.native_source_authority,native_query=self.native_query,provenance=provenance,
-                    submitted_intent=self.submitted_intent,projection=self._active_build_driver_projection,
-                    accounting=self._build_jev_accounting,included_history=self.build_history_for_inclusion)
+                    submitted_intent=self.submitted_intent,projection=getattr(self,'_active_build_driver_projection',None),
+                    accounting=self._build_jev_accounting,included_history=getattr(self,'build_history_for_inclusion',()),
+                    reviewed_admission=reviewed_admission)
             elif self.native_source_authority is not None:
                 from .plan_source_turn import freeze
                 graph_receipt = graph_execution = None
@@ -2926,8 +2927,21 @@ class _PolicyExecutionAdapter:
         from .build_jev_dispatch import prepared_driver_view
         from .build_jev_driver import canonical
         from uuid import UUID
+        from application_state.agent_conversation.native_context import NativeReviewedActionInputV1
+        from .build_jev_driver import wire_questions
+        driver=getattr(self,'_build_jev_driver',None)
+        reviewed_auxiliary = (self.fence is not None
+            and isinstance(self.turn.graph_context_receipt.assembled_input,NativeReviewedActionInputV1)
+            and driver is not None and driver.reviewed_binding is not None
+            and driver._pending is projection and driver._selection_intent is not None
+            and view.get('contextPhase')=='select'
+            and projection.questions()==wire_questions(driver.step)
+            and not {'operation','requested_work'}.intersection(projection.questions())
+            and not any(isinstance(e,_app_state_graph_execution_types().ProviderAttemptAuthorizedEventV1)
+                for e in self._broker_execution().events)
+            and self.last_provider_attempt_id is None)
         if (self.failure is not None or not self._is_build_turn()
-                or self.fence is not None and view.get('contextPhase')!='writer_selection'
+                or self.fence is not None and view.get('contextPhase')!='writer_selection' and not reviewed_auxiliary
                 or self.native_source_authority is None
                 or canonical(view) != canonical(prepared_driver_view(prepared,projection,accounting=self._build_jev_accounting))):
             return False

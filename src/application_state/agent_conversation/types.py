@@ -5399,11 +5399,25 @@ def validate_graph_provider_evidence(inputs, execution, event) -> None:
 
 def validate_provider_envelope_accounting(assembled, execution, event) -> None:
     """First-call commitment and role budget over the actual owning input."""
-    context_limit = assembled.context_window_limit
+    from .native_context import NativeReviewedActionInputV1
     from .build_decision_context import (
         DEFAULT_REQUEST, LONG_LIMIT, mode_context, uses_role_accounting, validate_event,
     )
     from .native_retrieval import NativeRetrievalAuthorizedV1
+    if type(assembled) is NativeReviewedActionInputV1:
+        from .native_execution import SurfaceNativeExecutionPolicyV1, NativeBuildActionV1
+        if (type(execution.policy) is not SurfaceNativeExecutionPolicyV1
+                or type(execution.policy.action) is not NativeBuildActionV1):
+            raise ValueError('Human admission accounting requires its actual Build policy')
+        if (event.provider,event.model,event.api_mode)==execution.policy.provider_roles.controller.identity():
+            validate_event(event,execution)
+            context_limit = LONG_LIMIT if mode_context(event).context_mode == 'long_context' else DEFAULT_REQUEST
+        elif (event.provider,event.model,event.api_mode)==execution.policy.writer_context_budget.identity():
+            context_limit = execution.policy.writer_context_budget.context_limit_tokens
+        else:
+            raise ValueError('Human admission provider differs from its frozen role budget')
+    else:
+        context_limit = assembled.context_window_limit
     if type(event) is NativeRetrievalAuthorizedV1 and uses_role_accounting(execution.policy):
         validate_event(event, execution)
         context_limit = LONG_LIMIT if mode_context(event).context_mode == "long_context" else DEFAULT_REQUEST

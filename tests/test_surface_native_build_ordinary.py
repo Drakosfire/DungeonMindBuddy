@@ -24,6 +24,10 @@ from apps.live_control_server.services.workspace_document_registry import get_wo
         for f in (None,'native_work','rules_frame','attempt_count','sdk_model','stale_rules','used_rules')]
     +[('unsafe_direction',True,False,'image')])
 def test_fresh_build_default_factory_answers_human_reference_and_reopens_exact_support(lane, tmp_path, monkeypatch, failure, with_draft,saved,proposal):
+    _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal)
+
+
+def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal):
     from apps.live_control_server.routes import agent
     from apps.live_control_server.services import native_graph_reads as native, managed_world_graph_projection as managed
     from apps.live_control_server.services import build_jev_runtime as factory
@@ -81,7 +85,9 @@ def test_fresh_build_default_factory_answers_human_reference_and_reopens_exact_s
     monkeypatch.setattr('apps.live_control_server.integrations.dungeonmind.world_graph_reads.direct_services_from_config', classic)
 
     class Decisions(httpx2.AsyncBaseTransport):
-        def __init__(self): self.calls = []
+        def __init__(self):
+            self.calls = []
+            self.deny_routing=False
         async def handle_async_request(self, req):
             self.calls.append(req)
             body = json.loads(req.content)
@@ -90,6 +96,8 @@ def test_fresh_build_default_factory_answers_human_reference_and_reopens_exact_s
             selected={i for i,c in enumerate(candidates) if (saved and c['kind'].startswith('Saved authored page block'))
                 or (failure=='used_rules' and c['kind']=='public_rules_lookup')}
             for name, question in body['questions'].items():
+                if self.deny_routing and name=='requested_work':
+                    raise AssertionError('The reviewed operation must not be reselected by a model')
                 choices = question['criteria']
                 chosen = (('prepare_image' if proposal=='image' else 'write_current_page' if proposal else 'discuss') if name=='requested_work' else ('select_candidates' if selected and 'select_candidates' in choices else 'finish_retrieval') if name=='operation'
                     else ('include' if int(name.split('_')[-1]) in selected else 'exclude') if name.startswith('candidate_')
@@ -104,6 +112,8 @@ def test_fresh_build_default_factory_answers_human_reference_and_reopens_exact_s
         def __init__(self):
             self.calls = []
             self.adapter = None
+            self.mode = proposal
+            self.review = None
         async def handle_async_request(self,req):
             try:
                 return await self._handle(req)
@@ -112,16 +122,24 @@ def test_fresh_build_default_factory_answers_human_reference_and_reopens_exact_s
                 traceback.print_exception(exc)
                 raise
         async def _handle(self, req):
+            mode=self.mode
             self.calls.append(req)
             body = json.loads(req.content)
             inputs = [json.loads(body['input'])] if isinstance(body['input'], str) else [json.loads(row['content']) for row in body['input'] if row['content'].lstrip().startswith('{')]
-            if proposal:
+            if mode:
                 inputs=[inputs[0]['native_evidence'],inputs[0]['surface_work']]
             frame = next(row for row in inputs if row.get('schema') == 'dmb_surface_native_writer_evidence_v1')
             work = next(row for row in inputs if row.get('schema')=='dmb_build_primary_work_evidence_v1')
+            if self.adapter.submitted_intent.reviewed_step is not None:
+                from application_state.agent_conversation.reviewed_action import writer_scope,SCOPE_KEY
+                scope=writer_scope(self.adapter._broker_execution())
+                assert work.get(SCOPE_KEY)==scope
+                if scope is not None:
+                    assert scope['scope']['task']['text']=='Discuss where the lamp belongs.'
+                    assert scope['scope']['sibling_context'][0]['selected'] is False
             if with_draft:
                 assert work['working_draft_context']['draft_markdown']==draft.snapshot.draft_markdown
-                if proposal:
+                if mode:
                     assert body['input'].count(json.dumps(draft.snapshot.draft_markdown,ensure_ascii=False)[1:-1])==1
                 else:
                     assert sum(draft.snapshot.draft_markdown in row['content'] for row in body['input'])==1
@@ -130,17 +148,17 @@ def test_fresh_build_default_factory_answers_human_reference_and_reopens_exact_s
             read_ids=[row['read_id'] for row in work['artifact_under_edit']['sections']]
             if saved:
                 assert read_ids and 'A proposed conversation.' in str(work)
-            if proposal:
+            if mode:
                 candidate=dict(destination='current_page',target='captured',replacement_markdown='A proposed copper lamp.',
                     summary='Proposed detail.',assumptions=['The lamp is invented.'])
-                if proposal=='image':
+                if mode=='image':
                     candidate=dict(prompt='https://not-an-image.test/directive' if failure=='unsafe_direction' else 'A proposed copper lamp beside an orchid.',alt='Proposed copper lamp illustration',purpose='illustration')
                 text=json.dumps(candidate)
                 response=dict(id='resp_native_build_proposal',object='response',created_at=1,status='completed',
                     model='foreign-model' if failure=='sdk_model' else body['model'],output=[dict(type='message',id='msg_native_build_proposal',role='assistant',
                         status='completed',content=[dict(type='output_text',text=text,annotations=[])])],
                     usage=dict(input_tokens=100,output_tokens=40,total_tokens=140))
-                if proposal=='image':
+                if mode=='image':
                     return httpx.Response(200,request=req,json=response)
                 events=[dict(type='response.output_text.delta',sequence_number=1,item_id='msg_native_build_proposal',
                     output_index=0,content_index=0,delta=text),dict(type='response.completed',sequence_number=2,response=response)]
@@ -148,7 +166,7 @@ def test_fresh_build_default_factory_answers_human_reference_and_reopens_exact_s
                     content=''.join('data: '+json.dumps(e)+'\n\n' for e in events).encode())
             candidate = dict(schema=frame['answer_policy'],
                 answer_segments=[dict(kind='native_assertion_claim', text='The Graph retains the qualified description.', assertion_handles=handles)]+([dict(kind='saved_source_claim',text='The saved page proposes a conversation.',section_read_ids=read_ids,supporting_quotes=[r['text'] for r in work['artifact_under_edit']['sections']])] if saved else []),
-                limitations=[], requested_detail_gaps=[], collaboration=None)
+                limitations=[], requested_detail_gaps=[], collaboration=self.review)
             return httpx.Response(200, request=req, json=dict(id='resp_native_build', object='response',
                 created_at=1, status='completed', model=body['model'], output=[dict(type='message', id='msg_native_build',
                     role='assistant', status='completed', content=[dict(type='output_text', text=json.dumps(candidate), annotations=[])])],
@@ -412,3 +430,76 @@ def test_fresh_build_default_factory_answers_human_reference_and_reopens_exact_s
     assert (len(decisions.calls), len(writer.calls)) == before
     assert get_workspace_document_snapshot(tmp_path, page.document_id) == source
     assert lane.repo.get_head(world).head_revision_id == current_revision
+
+    return SimpleNamespace(client=client,world=world,page=page,source=source,request=body,
+        draft=draft,selected=selected,writer=writer,decisions=decisions,turn=turn,service=service,
+        revision=current_revision)
+
+
+@pytest.mark.parametrize('kind,related,mutation,output_review',[
+    ('discuss',False,None,None),('discuss',False,None,'questions'),('discuss',False,None,'plan'),
+    ('prepare_insertion',False,None,None),('prepare_insertion',True,None,None),
+    ('discuss',False,'message',None),('prepare_insertion',False,'command',None)])
+def test_native_reviewed_step_preserves_the_author_choice(lane,tmp_path,monkeypatch,kind,related,mutation,output_review):
+    from application_state.agent_conversation import work_plan as w
+    from application_state.build_proposal.types import BuildWriteCapability
+    case=_fresh_case(lane,tmp_path,monkeypatch,None,True,False,False)
+    if related:
+        page=create_page_fixture(tmp_path,world_id=case.world,campaign_id=case.world,title='Related authored note',
+            kind='worldbuilding_source',source_domain='worldbuilding',document_class='lore',
+            authority_state='draft',visibility_state='internal')
+        save_page(tmp_path,page.document_id,'A separate proposed lamp note.')
+    step=w.StepV2(step_id=uuid4(),text='Discuss where the lamp belongs.' if kind=='discuss' else 'Prepare a proposed lamp detail.',
+        selected=True,kind=kind,references=())
+    deferred=w.StepV2(step_id=uuid4(),text='Write a useful paragraph only after placement is chosen.',selected=False,kind='prepare_insertion',references=())
+    review=w.ReviewV3(expected_revision=0,objective='Choose placement, then prepare writing for review.',
+        steps=[step,deferred],root_references=case.selected.references)
+    plan=w.save(case.world,case.turn.conversation_id,case.turn.turn_id,review)
+    continued=w.continue_step(case.world,case.turn.conversation_id,case.turn.turn_id,
+        w.Continue(expected_revision=plan['revision'],step_id=step.step_id,command_id=uuid4()))
+    dispatch=continued['dispatch']
+    cap=BuildWriteCapability(idempotency_key=uuid4(),conversation_id=case.draft.conversation_id,
+        expected_pointer_revision=case.draft.expected_pointer_revision,draft_markdown=case.draft.snapshot.draft_markdown,
+        basis=dict(**{k:getattr(case.draft.snapshot,k) for k in ('world_id','document_id','registry_revision',
+            'content_sha256','visibility','draft_sha256','editor_sha256','draft_generation')},caret=1,selection_generation=0))
+    body={**case.request,'client_thread_id':dispatch['client_thread_id'],'turn_id':dispatch['client_turn_id'],
+        'message':dispatch['message'],'reviewed_step':continued['reviewed_step'],
+        'build_write_capability':cap.model_dump(mode='json'),
+        'build_authored_references':dispatch['authored_references']}
+    if mutation=='message':
+        body['message']+=' Change this approved instruction.'
+    if mutation=='command':
+        body['reviewed_step']={**body['reviewed_step'],'command_id':str(uuid4())}
+    before=len(case.decisions.calls),len(case.writer.calls)
+    case.decisions.deny_routing=True
+    case.writer.mode=kind=='prepare_insertion'
+    if output_review is not None:
+        case.writer.review=({'kind':'questions','questions':[{'text':'Where should the lamp stand?'}]} if output_review=='questions'
+            else {'kind':'plan','objective':'Unapproved work','steps':[{'text':'Write the deferred paragraph.','kind':'prepare_insertion','selected':True}]})
+    response=case.client.post('/api/live/agent/turn',json=body)
+    if mutation:
+        assert response.status_code in {404,409},response.text
+        assert (len(case.decisions.calls),len(case.writer.calls))==before
+        return
+    if output_review=='plan':
+        assert response.status_code==503,response.text
+        assert len(case.writer.calls)==before[1]+1
+        return
+    assert response.status_code==200,response.text
+    context=response.json()['knowledge_context']
+    if kind=='discuss':
+        assert context['completion']['collaboration']==case.writer.review
+    assert context['receipt']['assembled_input']['assembler_version']=='reviewed_author_admission_v1'
+    actual=case.service.inspect_turn(world_id=case.world,turn_id=case.writer.adapter.turn.turn_id)
+    assert actual.status=='completed'
+    selections=[e for e in actual.graph_context_execution.events if isinstance(e,t.BuildReviewedActionSelectionV1)]
+    assert len(selections)==1 and selections[0].operation==('answer_from_sources' if kind=='discuss' else 'propose_build_insertion')
+    assert not any(isinstance(e,t.BuildRequestedWorkResolutionV1) for e in actual.graph_context_execution.events)
+    expected='dmb_surface_native_completion_v1' if kind=='discuss' else 'dmb_build_authoring_completion_v1'
+    assert context['completion']['schema']==expected
+    assert len(case.writer.calls)==before[1]+1
+    after=len(case.decisions.calls),len(case.writer.calls)
+    replay=case.client.post('/api/live/agent/turn',json=body)
+    assert replay.status_code==200 and replay.json()['knowledge_context']['delivery_replay'] is True,replay.text
+    assert (len(case.decisions.calls),len(case.writer.calls))==after
+    assert get_workspace_document_snapshot(tmp_path,case.page.document_id)==case.source
