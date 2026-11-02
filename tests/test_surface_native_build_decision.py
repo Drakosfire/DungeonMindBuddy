@@ -359,7 +359,20 @@ def test_actual_build_native_retrieval_uses_precommitted_sdk_selection_before_co
     from generationengine import GenerationEngineError
 
     context, record = published_case("build", published_lane)
-    record = execution(context.context_receipt_sha256, record.policy)
+    # Retrieval-only fixture: a real, empty saved page has no authored blocks.
+    markdown = ""
+    content_hash = sha256(markdown.encode()).hexdigest()
+    data = context.model_dump(mode="json", by_alias=True)
+    data["work_context"]["source_basis"]["content_sha256"] = content_hash
+    work = type(context.work_context).model_validate(data["work_context"])
+    data["provenance_sha256"] = t.canonical_sha256(provenance_for(work).model_copy(
+        update={"surface_instance_id": record.policy.action.intent.surface_instance_id}))
+    context = type(context).model_validate_json(json.dumps(seal(data)))
+    action = record.policy.action
+    intent = action.intent.model_copy(update={"primary_work": action.intent.primary_work.model_copy(
+        update={"expected_content_sha256": content_hash})})
+    action = action.model_copy(update={"intent": intent, "saved_source_char_count": 0})
+    record = execution(context.context_receipt_sha256, record.policy.model_copy(update={"action": action}))
     owner = _DurableBuildOwner(world_id=record.policy.action.intent.world_id)
     long_context = failure == "long"
     if long_context:
@@ -444,6 +457,7 @@ def test_actual_build_native_retrieval_uses_precommitted_sdk_selection_before_co
         return fresh
 
     adapter = SimpleNamespace(
+        work=SimpleNamespace(build_source=SimpleNamespace(markdown=markdown)),
         fence=fence,
         service=owner.service,
         world_id=owner.world_id,
