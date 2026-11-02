@@ -87,6 +87,8 @@ def model_work_frame(receipt, execution, *, provenance, idempotency_key, work_pr
                 submitted_intent_fingerprint=t.submitted_turn_intent_fingerprint_v2(action.intent))
         if action.write_capability is not None and action.write_capability.conversation_id != conversation_id:
             raise ValueError('Native Build writer capability belongs to another conversation')
+        from .build_intentional_response import validate_turn_arguments
+        validate_turn_arguments(execution,user_text=action.intent.message,turn_id=turn_id,attempt=attempt)
         return native_work_frame(execution,receipt.work_context.source_basis)
     if isinstance(receipt.work_context,PlanWorkContextV1):
         from .plan_jev_graph_packet import project_native_plan_work, NATIVE_WORK_SCHEMA

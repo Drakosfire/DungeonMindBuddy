@@ -11,7 +11,7 @@ from application_state.agent_conversation import types as t
 from application_state.agent_conversation import build_draft_context as draft
 from application_state.agent_conversation import build_primary_context as primary
 from application_state.agent_conversation.native_execution import validate_context_binding
-from tests.test_surface_native_execution import component, execution, controller, outcomes, native_writer
+from tests.test_surface_native_execution import component, execution, controller, outcomes, native_writer, build_resolution
 from tests.test_surface_native_context import seal, provenance_for
 
 SAVED='# Page\r\n\r\nSaved orchid 🌸.\r\n'
@@ -50,6 +50,7 @@ def case(*, with_draft=True, selected=True, draft_text=DRAFT):
             provider_attempt_id=first.provider_attempt_id,envelope_sha256=first.envelope_sha256,
             draft_event_id=captured.event_id,snapshot_sha256=snap.snapshot_sha256))
     events.extend([first,*outcomes(first,len(events)+1)])
+    events.append(build_resolution(policy,first,len(events),turn_id=turn_id))
     reads=[]
     for line,text in [(1,'# Page\r\n'),(3,'Saved orchid 🌸.\r\n')]:
         rid=uuid4()

@@ -4853,15 +4853,12 @@ class PlanWorldGraphExecutionV3(PlanWorldGraphExecutionV2):
                     raise ValueError("Reviewed action lacks its unique pre-provider capability binding")
                 action_selection = event
             if isinstance(event, BuildJevActionSelectionV1):
-                from .build_intentional_response import enabled, resolution_for
+                from .build_intentional_response import enabled
                 if isinstance(event, BuildRequestedWorkResolutionV1):
-                    if not enabled(self.policy) or event.resolution != resolution_for(self.policy, event.requested_work):
+                    from .build_intentional_response import validate_resolution_metadata
+                    if not enabled(self.policy):
                         raise ValueError('Semantic event differs from its frozen response contract')
-                    if (event.intent_family != event.resolution['intent_family'] or event.operation != event.resolution['operation']
-                        or event.response_capabilities_sha256 != self.policy.response_capabilities_sha256
-                        or event.menu_sha256 != self.policy.requested_work_menu_sha256
-                        or event.resolver_sha256 != self.policy.response_resolver_sha256):
-                        raise ValueError('Semantic event metadata differs from its deterministic resolution')
+                    validate_resolution_metadata(event,self.policy)
                 elif enabled(self.policy):
                     raise ValueError('Historical operation selection cannot authorize the new response policy')
                 prior = authorized_by_id.get(event.controller_attempt_id)
@@ -6829,12 +6826,9 @@ class Turn(StrictModel):
                     or event.intent.primary_work.object_id != self.provenance.primary_work.object_id
                     or event.arguments_sha256 != digest({"instruction":self.user_text} if event.operation == "propose_build_insertion" else {})):
                     raise ValueError("Retained author action differs from its admitted turn intent")
-        from .build_intentional_response import operation_id
-        for event in self.graph_context_execution.events if self.graph_context_execution is not None else ():
-            if isinstance(event, BuildRequestedWorkResolutionV1) and (
-                event.broker_operation_id != operation_id(self, event.machine_request_id, event.requested_work)
-                or event.arguments_sha256 != digest({'instruction': self.user_text} if event.operation != 'answer_from_sources' else {})):
-                raise ValueError('Retained semantic action differs from its exact turn arguments')
+        from .build_intentional_response import validate_turn_arguments
+        if self.graph_context_execution is not None:
+            validate_turn_arguments(self.graph_context_execution,user_text=self.user_text,turn_id=self.turn_id,attempt=self.attempt)
         from .build_draft_context import validate_record
         for event in self.graph_context_execution.events if self.graph_context_execution is not None else ():
             if isinstance(event, BuildDraftContextCapturedV1):

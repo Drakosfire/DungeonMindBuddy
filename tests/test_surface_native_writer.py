@@ -15,7 +15,7 @@ from application_state.agent_conversation.native_writer import model_frame, mode
 from tests.test_native_corpus_source_access import lane as lane, admit, capture
 from tests.test_surface_native_context import seal, provenance_for, WORK_MARKDOWN
 from tests.test_surface_native_execution import (
-    component, execution, controller, decision_prefix, outcomes, choice, native_writer,
+    component, execution, controller, decision_prefix, outcomes, choice, native_writer, BUILD_TURN_ID,
 )
 
 BODY = '# Source\n\nThe check revealed an origin beyond this plane.\n\n## Other scene\nUnselected private context.\n'
@@ -97,7 +97,7 @@ def work_submission(context,record):
     provenance=provenance_for(context.work_context).model_copy(update={
         'surface_instance_id':record.policy.action.intent.surface_instance_id})
     return dict(provenance=provenance,idempotency_key=uuid4(),world_id=record.policy.action.intent.world_id,
-        conversation_id=uuid4(),turn_id=uuid4(),attempt=1,work_proof=(
+        conversation_id=uuid4(),turn_id=BUILD_TURN_ID if record.policy.action.surface_id=='build' else uuid4(),attempt=1,work_proof=(
             dict(plan_markdown=WORK_MARKDOWN,session_evidence=[],dialogue=[]) if record.policy.action.surface_id=='plan' else {}))
 
 

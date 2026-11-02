@@ -408,38 +408,113 @@ def policy_capabilities(policy):
     )
 
 
-def resolution_for(policy, label):
-    if (
-        policy.requested_work_menu_sha256 != MENU_DIGEST
-        or policy.response_resolver_sha256 != RESOLVER_DIGEST
-    ):
-        raise ValueError("Unknown semantic menu or resolver")
-    caps = policy_capabilities(policy)
+def _captured_semantics(policy):
+    if getattr(policy,'policy_version',None)=='surface_native_execution_v1':
+        from .native_execution import SurfaceNativeExecutionPolicyV1, NativeBuildActionV1
+        if type(policy) is not SurfaceNativeExecutionPolicyV1 or type(policy.action) is not NativeBuildActionV1:
+            raise ValueError('Build semantics require their actual captured action')
+        action=policy.action
+        return (action.capabilities, action.intent.build_write_capability_sha256,
+            action.requested_work_menu_sha256, action.response_resolver_sha256)
+    caps=policy_capabilities(policy)
     if digest(asdict(caps)) != policy.response_capabilities_sha256:
         raise ValueError("Response capabilities differ from their frozen commitment")
-    return json.loads(canonical(resolve(label, caps)))
+    return caps,policy.action_capability_sha256,policy.requested_work_menu_sha256,policy.response_resolver_sha256
+
+
+def resolution_for(policy, label):
+    caps,_,menu,resolver=_captured_semantics(policy)
+    if menu != MENU_DIGEST or resolver != RESOLVER_DIGEST:
+        raise ValueError("Unknown semantic menu or resolver")
+    return json.loads(canonical(resolve(label,caps)))
+
+
+def validate_resolution_metadata(event, policy):
+    caps,capability,menu,resolver=_captured_semantics(policy)
+    expected=resolution_for(policy,event.requested_work)
+    if (event.resolution != expected or event.intent_family != expected['intent_family']
+            or event.operation != expected['operation'] or event.operation not in caps.operations
+            or event.capability_sha256 != capability
+            or event.response_capabilities_sha256 != digest(asdict(caps))
+            or event.menu_sha256 != menu or event.resolver_sha256 != resolver):
+        raise ValueError('Semantic event differs from its frozen response contract')
 
 
 def operation_id(turn, request_id, label):
+    return operation_id_for(turn.turn_id,turn.attempt,request_id,label)
+
+
+def operation_id_for(turn_id, attempt, request_id, label):
     return "build-requested-work:" + digest(
-        {
-            "turn_id": str(turn.turn_id),
-            "attempt": turn.attempt,
-            "request_id": request_id,
-            "requested_work": label,
-        }
-    )
+        {"turn_id":str(turn_id),"attempt":attempt,"request_id":request_id,"requested_work":label})
+
+
+def validate_turn_arguments(execution, *, user_text, turn_id, attempt):
+    from .types import BuildRequestedWorkResolutionV1
+    for event in execution.events:
+        if isinstance(event,BuildRequestedWorkResolutionV1) and (
+                event.broker_operation_id != operation_id_for(turn_id,attempt,event.machine_request_id,event.requested_work)
+                or event.arguments_sha256 != digest({'instruction':user_text} if event.operation!='answer_from_sources' else {})):
+            raise ValueError('Retained semantic action differs from its exact turn arguments')
+
+
+def selected_contract(execution):
+    from .types import BuildRequestedWorkResolutionV1, BuildReviewedActionSelectionV1
+    choices=[e for e in execution.events if isinstance(e,BuildRequestedWorkResolutionV1)]
+    reviewed=[e for e in execution.events if isinstance(e,BuildReviewedActionSelectionV1)]
+    if reviewed and not choices:
+        return None
+    if len(choices)!=1 or reviewed:
+        raise ValueError('Build writer requires its unique retained semantic resolution')
+    validate_resolution_metadata(choices[0],execution.policy)
+    return choices[0].resolution
+
+
+def validate_native_action_events(execution):
+    """Native Build action ordering through the existing semantic owner.
+
+    Raw controller proof is additionally required at locked APP append; reviewed
+    steps additionally require their existing review/reservation admission.
+    """
+    from . import types as t
+    caps,capability,_,_=_captured_semantics(execution.policy)
+    latest=outcome=selection=None
+    for event in execution.events:
+        if isinstance(event,t.BuildReviewedActionSelectionV1):
+            if (selection is not None or latest is not None or event.capability_sha256!=capability
+                    or event.operation not in caps.operations):
+                raise ValueError('Reviewed action lacks its unique pre-provider capability binding')
+            selection=event
+        elif isinstance(event,t.BuildRequestedWorkResolutionV1):
+            if (selection is not None or latest is None or outcome!='response_received'
+                    or latest.provider_attempt_id!=event.controller_attempt_id
+                    or latest.envelope_sha256!=event.controller_envelope_sha256
+                    or (latest.provider,latest.model,latest.api_mode)!=execution.policy.provider_roles.controller.identity()):
+                raise ValueError('Build semantic selection differs from its acknowledged controller')
+            validate_resolution_metadata(event,execution.policy)
+            selection=event
+        elif isinstance(event,t.ProviderAttemptAuthorizedEventV1):
+            if (event.provider,event.model,event.api_mode)==execution.policy.provider_roles.writer.identity() and selection is None:
+                raise ValueError('Build writer requires its unique retained semantic resolution')
+            latest,outcome=event,None
+        elif isinstance(event,t.ProviderOutcomeEventV1) and latest is not None and event.provider_attempt_id==latest.provider_attempt_id:
+            outcome=event.outcome
 
 
 def validate_selection(turn, event, proof, trace):
+    return validate_selection_records(turn.graph_context_execution,event,proof,trace,
+        user_text=turn.user_text,turn_id=turn.turn_id,attempt=turn.attempt)
+
+
+def validate_selection_records(execution, event, proof, trace, *, user_text, turn_id, attempt):
     from .source_writer_output import strict_json
     from generationengine.types import DecisionResult
     from . import types as t
 
-    policy = turn.graph_context_execution.policy
+    policy = execution.policy
+    caps,capability,_,_=_captured_semantics(policy)
     if (
-        not enabled(policy)
-        or not isinstance(proof, dict)
+        not isinstance(proof, dict)
         or set(proof) != {"request_json", "response_json"}
     ):
         raise ValueError("Semantic selection requires its exact producing proof")
@@ -450,10 +525,16 @@ def validate_selection(turn, event, proof, trace):
     resolution = resolution_for(policy, label)
     prior = [
         e
-        for e in turn.graph_context_execution.events
+        for e in execution.events
         if isinstance(e, t.ProviderAttemptAuthorizedEventV3)
         and e.provider_attempt_id == event.controller_attempt_id
     ]
+    providers=[e for e in execution.events[:event.sequence] if isinstance(e,t.ProviderAttemptAuthorizedEventV3)]
+    acknowledged=[e.outcome for e in execution.events[:event.sequence] if isinstance(e,t.ProviderOutcomeEventV1)
+        and e.provider_attempt_id==event.controller_attempt_id]
+    if (len(prior)!=1 or not providers or providers[-1]!=prior[0] or acknowledged[-1:]!=['response_received']
+            or (prior[0].provider,prior[0].model,prior[0].api_mode)!=policy.provider_roles.controller.identity()):
+        raise ValueError('Semantic selection lacks its exact acknowledged controller')
     # DecisionIntent's installed SDK converter places criterion descriptions in the
     # instruction text; the finite options remain genuine semantic alternatives.
     wire_question = {
@@ -476,25 +557,25 @@ def validate_selection(turn, event, proof, trace):
         or "operation" in request.get("questions", {})
         or decision.get("request_id") != "select:" + digest(decision.get("state", {}))
         or decision.get("state", {}).get("interaction", {}).get("allowed_operations")
-        != policy.allowed_surface_operations
+        != list(caps.operations)
         or decision.get("state", {}).get("interaction", {}).get("capability_sha256")
-        != policy.action_capability_sha256
+        != capability
         or decision.get("request_id") != event.machine_request_id
         or decision.get("state", {}).get("requested_work_policy") != POLICY
-        or decision.get("state", {}).get("user_question") != turn.user_text
+        or decision.get("state", {}).get("user_question") != user_text
         or event.requested_work != label
         or event.intent_family != WORK[label].family
         or event.menu_sha256 != MENU_DIGEST
         or event.resolver_sha256 != RESOLVER_DIGEST
-        or event.capability_sha256 != policy.action_capability_sha256
-        or event.response_capabilities_sha256 != policy.response_capabilities_sha256
+        or event.capability_sha256 != capability
+        or event.response_capabilities_sha256 != digest(asdict(caps))
         or event.resolution != resolution
         or event.operation != resolution["operation"]
         or event.broker_operation_id
-        != operation_id(turn, event.machine_request_id, label)
+        != operation_id_for(turn_id,attempt,event.machine_request_id,label)
         or event.arguments_sha256
         != digest(
-            {"instruction": turn.user_text}
+            {"instruction": user_text}
             if event.operation != "answer_from_sources"
             else {}
         )

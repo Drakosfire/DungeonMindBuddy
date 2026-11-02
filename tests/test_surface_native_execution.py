@@ -3,7 +3,7 @@ from copy import deepcopy
 from dataclasses import replace
 from hashlib import sha256
 import json
-from uuid import uuid4
+from uuid import UUID, uuid4
 
 import pytest
 from pydantic import ValidationError
@@ -123,6 +123,24 @@ def choice(context,record,provider,sequence,operation,handles=()):
         selected_handles=list(handles))
 
 
+BUILD_TURN_ID=UUID('b0000000-0000-4000-8000-000000000001')
+
+
+def build_resolution(policy, provider, sequence, *, turn_id=BUILD_TURN_ID, attempt=1, requested='discuss'):
+    from dataclasses import asdict
+    from application_state.agent_conversation import build_intentional_response as semantic
+    contract=semantic.resolution_for(policy,requested)
+    request_id='select:'+('a'*64)
+    return t.BuildRequestedWorkResolutionV1(kind='build_requested_work_resolved_v1',event_id=uuid4(),sequence=sequence,
+        controller_attempt_id=provider.provider_attempt_id,controller_envelope_sha256=provider.envelope_sha256,
+        controller_response_sha256='f'*64,machine_request_id=request_id,requested_work=requested,
+        intent_family=contract['intent_family'],menu_sha256=semantic.MENU_DIGEST,resolver_sha256=semantic.RESOLVER_DIGEST,
+        response_capabilities_sha256=semantic.digest(asdict(policy.action.capabilities)),resolution=contract,
+        operation=contract['operation'],broker_operation_id=semantic.operation_id_for(turn_id,attempt,request_id,requested),
+        capability_sha256=policy.action.intent.build_write_capability_sha256,
+        arguments_sha256=semantic.digest({'instruction':policy.action.intent.message} if contract['operation']!='answer_from_sources' else {}))
+
+
 def decision_prefix(surface,context,record):
     first=controller(surface,record.policy)
     events=[first,*outcomes(first,1)]
@@ -136,6 +154,8 @@ def decision_prefix(surface,context,record):
         active=controller(surface,record.policy,sequence=len(events),semantic=False)
         events.extend([active,*outcomes(active,len(events)+1)])
     else:
+        if surface=='build':
+            events.append(build_resolution(record.policy,first,len(events)))
         active=first
     return events,active
 

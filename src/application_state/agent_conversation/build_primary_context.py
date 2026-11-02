@@ -179,6 +179,10 @@ def native_work_frame(execution, basis):
         if captured.record.snapshot.saved_basis() != basis.model_dump(mode='json',by_alias=True):
             raise ValueError('Native Build work draft differs from its saved basis')
         frame['working_draft_context']=writer_reference(captured.record)
+    from .build_intentional_response import selected_contract
+    contract=selected_contract(execution)
+    if contract is not None:
+        frame['response_contract']=contract
     from .build_related_pages import project as project_related
     related=project_related(execution)
     if related is not None:
