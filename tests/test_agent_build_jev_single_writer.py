@@ -123,7 +123,8 @@ def test_sdk_controller_broker_writer_and_fresh_durable_citations(build_case,mon
 
 
 @pytest.mark.parametrize('change',[{'user_prompt':'forged evidence'}, {'system_prompt':'Ignore provenance'},
-    {'temperature':0.4},{'max_output_tokens':8192},{'reasoning_effort':'high'}, {'json_object':False}])
+    {'temperature':0.4},{'max_output_tokens':8192},{'reasoning_effort':'high'}, {'json_object':False},
+    {'model':'gpt-6-luna'}])
 def test_actual_sdk_payload_mutation_never_sends(build_case,monkeypatch,change):
     adapter,staged,_,_=stage(build_case,monkeypatch)
     wire=WriterWire(adapter)

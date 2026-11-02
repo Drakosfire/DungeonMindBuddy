@@ -253,8 +253,27 @@ def test_historical_native_http_retry_preserves_reader_support_and_citations(lan
         raise RuntimeError('synthetic interruption before provider authorization')
     prior._ensure_claimed = interrupt_after_claim
     try:
-        with pytest.raises(Exception):
-            asyncio.run(initial.run(transport=Decisions(), api_key='synthetic-not-secret'))
+        # Seed the frozen historical codec explicitly. Current admission must
+        # never manufacture an older Plan-native receipt for a new question.
+        from apps.live_control_server.services import plan_source_turn
+        from application_state.agent_conversation.rules_authority_types import canonical_sha256
+        freeze_source=plan_source_turn.freeze
+        def historical_freeze(*args,native_query=None,**kwargs):
+            receipt,ledger,membership=freeze_source(*args,native_query=None,**kwargs)
+            data=receipt.model_dump(mode='json',by_alias=True,exclude={'context_receipt_sha256'})
+            data.update(schema='dmb_plan_native_context_receipt_v1',native_query=native_query.model_dump(mode='json',by_alias=True))
+            receipt=t.PlanNativeContextReceiptV1.model_validate_json(json.dumps(data | {'context_receipt_sha256':canonical_sha256(data)}))
+            fields=ledger.policy.model_dump(mode='json',by_alias=True,exclude={'policy_version','driver_schema'})
+            policy=t.PlanNativeExecutionPolicyV1.model_validate_json(json.dumps(fields | {'native_query_sha256':canonical_sha256(native_query)}))
+            payload=dict(schema='dmb_plan_native_execution_v1',context_receipt_sha256=receipt.context_receipt_sha256,
+                policy=policy.model_dump(mode='json',by_alias=True))
+            ledger=t.PlanNativeExecutionV1.model_validate_json(json.dumps(payload | {
+                'execution_policy_sha256':canonical_sha256(payload),'events':[]}))
+            return receipt,ledger,membership
+        with monkeypatch.context() as historical:
+            historical.setattr(plan_source_turn,'freeze',historical_freeze)
+            with pytest.raises(Exception):
+                asyncio.run(initial.run(transport=Decisions(), api_key='synthetic-not-secret'))
         retained = prior.fence.turn
         assert isinstance(retained.graph_context_receipt, t.PlanNativeContextReceiptV1)
         assert retained.graph_context_execution.events == []

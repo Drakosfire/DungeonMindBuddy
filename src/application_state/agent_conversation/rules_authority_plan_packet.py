@@ -63,30 +63,30 @@ class PlanRulesPacketExposureV1(ClosedRulesModel):
     support_refs: tuple[RulesSupportRefV1, ...]
 
 
-def _observed(execution, call_id):
+def _observed(execution, call_id, *, allow_build=False):
     auths = [e for e in execution.events if isinstance(e, RulesToolAuthorizedV1) and e.call_id == call_id]
     reads = [e for e in execution.events if isinstance(e, RulesQueryObservedV1) and e.call_id == call_id]
-    if (len(auths) != 1 or len(reads) != 1 or isinstance(auths[0], RulesBuildToolAuthorizedV1)):
+    if (len(auths) != 1 or len(reads) != 1 or not allow_build and isinstance(auths[0], RulesBuildToolAuthorizedV1)):
         raise ValueError("Plan packet has no unique non-Build authorized Rules read")
     return auths[0], reads[0]
 
 
-def _sealed_packets(execution, call_ids):
+def _sealed_packets(execution, call_ids, *, allow_build=False):
     from .rules_authority_runtime import _replay
     packets = []
     for call_id in call_ids:
-        auth, observed = _observed(execution, call_id)
+        auth, observed = _observed(execution, call_id, allow_build=allow_build)
         raw = _replay(execution, auth, observed).raw_output
         verify_output_proof(execution.scope, observed, execution.supports, raw)
         packets.append(TypeAdapter(Packet).validate_json(raw))
     return packets
 
 
-def build_plan_rules_frame(execution: RulesExecutionV1, call_ids: tuple[str, ...]) -> PlanRulesEvidenceFrameV1:
+def build_plan_rules_frame(execution: RulesExecutionV1, call_ids: tuple[str, ...], *, allow_build=False) -> PlanRulesEvidenceFrameV1:
     """Project sealed outputs in memory; keep authority bookkeeping outside model text."""
     observed_calls = [event.call_id for event in execution.events if isinstance(event, RulesQueryObservedV1)]
     lookups, supports = [], {}
-    for packet in _sealed_packets(execution, call_ids):
+    for packet in _sealed_packets(execution, call_ids, allow_build=allow_build):
         lookups.append(PlanRulesLookupV1(lookup=observed_calls.index(packet.call_id),
             status=packet.status if isinstance(packet, RulesPacketV1) else "over_budget",
             diagnostic=packet.diagnostic if isinstance(packet, RulesPacketV1) else packet.code))
@@ -138,6 +138,37 @@ def _frame_in_actual_request(body) -> PlanRulesEvidenceFrameV1:
     return frames[0]
 
 
+def packet_input_records(execution, prepared_request_json, *, expected_envelope_sha256, allow_build=False):
+    """Prove physically supplied Rules text once; callers own scope and carrier joins."""
+    if sha256(prepared_request_json.encode()).hexdigest() != expected_envelope_sha256:
+        raise ValueError("Plan Rules envelope differs from the actual request")
+    body = json.loads(prepared_request_json, object_pairs_hook=_unique_object,
+        parse_constant=lambda _value: (_ for _ in ()).throw(ValueError("Nonfinite Plan request")))
+    frame = _frame_in_actual_request(body)
+    observed_calls = [event.call_id for event in execution.events if isinstance(event, RulesQueryObservedV1)]
+    if any(item.lookup >= len(observed_calls) for item in frame.lookups):
+        raise ValueError("Plan Rules frame names an unread lookup")
+    call_ids = tuple(observed_calls[item.lookup] for item in frame.lookups)
+    expected = build_plan_rules_frame(execution, call_ids, allow_build=allow_build)
+    if canonical_bytes(frame) != canonical_bytes(expected):
+        raise ValueError("Plan Rules evidence differs from sealed outputs")
+    outputs, supports = [], {}
+    for packet in _sealed_packets(execution, call_ids, allow_build=allow_build):
+        _auth, observed = _observed(execution, packet.call_id, allow_build=allow_build)
+        verify_output_proof(execution.scope, observed, execution.supports, canonical_bytes(packet).decode())
+        outputs.append(RulesOutputRefV1(call_id=packet.call_id, packet_sha256=observed.packet_sha256))
+        if isinstance(packet, RulesPacketV1):
+            # A cached support handle without its capsule in this actual input
+            # grants no exposure; only the physically supplied excerpts count.
+            refs = {ref.support_id: ref for ref in packet.support_refs}
+            for capsule in packet.support_capsules:
+                ref = refs[capsule.support_id]
+                if capsule.support_id in supports and supports[capsule.support_id] != ref:
+                    raise ValueError("Conflicting exposed Rules support")
+                supports[capsule.support_id] = ref
+    return body, expected, tuple(outputs), tuple(supports[key] for key in sorted(supports, key=str))
+
+
 def verify_plan_rules_packet_input(execution: RulesExecutionV1, turn, prepared_request_json: str, *,
                                    expected_envelope_sha256: str) -> PlanRulesPacketExposureV1:
     """Join actual input bytes to sealed Rules sources and the current Plan owner.
@@ -174,37 +205,63 @@ def verify_plan_rules_packet_input(execution: RulesExecutionV1, turn, prepared_r
                 idempotency_key=turn.idempotency_key, submitted_intent_sha256=fingerprints[0],
                 capability=capability)):
         raise ValueError("Rules packet lacks the current Plan submission capability/authorization")
-    if sha256(prepared_request_json.encode()).hexdigest() != expected_envelope_sha256:
-        raise ValueError("Plan Rules envelope differs from the actual request")
-    body = json.loads(prepared_request_json, object_pairs_hook=_unique_object,
-        parse_constant=lambda _value: (_ for _ in ()).throw(ValueError("Nonfinite Plan request")))
-    frame = _frame_in_actual_request(body)
-    observed_calls = [event.call_id for event in execution.events if isinstance(event, RulesQueryObservedV1)]
-    if any(item.lookup >= len(observed_calls) for item in frame.lookups):
-        raise ValueError("Plan Rules frame names an unread lookup")
-    call_ids = tuple(observed_calls[item.lookup] for item in frame.lookups)
-    expected = build_plan_rules_frame(execution, call_ids)
-    if canonical_bytes(frame) != canonical_bytes(expected):
-        raise ValueError("Plan Rules evidence differs from sealed outputs")
+    body, expected, outputs, supports = packet_input_records(execution, prepared_request_json,
+        expected_envelope_sha256=expected_envelope_sha256)
     from .plan_jev_graph_packet import frame_in_request
     from .plan_writer_output_schema import verify_format
     verify_format(body, frame_in_request(prepared_request_json), expected)
-    outputs, supports = [], {}
-    for packet in _sealed_packets(execution, call_ids):
-        _auth, observed = _observed(execution, packet.call_id)
-        verify_output_proof(scope, observed, execution.supports, canonical_bytes(packet).decode())
-        outputs.append(RulesOutputRefV1(call_id=packet.call_id, packet_sha256=observed.packet_sha256))
-        if isinstance(packet, RulesPacketV1):
-            # A cached support handle without its capsule in this actual input
-            # grants no exposure; only the physically supplied excerpts count.
-            refs = {ref.support_id: ref for ref in packet.support_refs}
-            for capsule in packet.support_capsules:
-                ref = refs[capsule.support_id]
-                if capsule.support_id in supports and supports[capsule.support_id] != ref:
-                    raise ValueError("Conflicting exposed Rules support")
-                supports[capsule.support_id] = ref
     return PlanRulesPacketExposureV1(
         plan_context_receipt_sha256=receipt.context_receipt_sha256,
         rules_execution_id=scope.execution_id, request_envelope_sha256=expected_envelope_sha256,
-        matched_outputs=tuple(outputs), support_refs=tuple(supports[key] for key in sorted(supports, key=str)),
+        matched_outputs=outputs, support_refs=supports,
     )
+
+
+def verify_native_rules_packet_input(execution, receipt, graph_execution, prepared_request_json, *,
+                                     provider_attempt_id, expected_envelope_sha256, idempotency_key,
+                                     submitted_intent_fingerprint, world_id, conversation_id, turn_id, attempt,
+                                     provenance, work_proof):
+    """Shared record proof; actual locked consumer identity remains mandatory.
+
+    No synthetic Turn and no new Rules event family. The generic Rules ledger
+    owns admitted capsules and selected output; native reads remain separately owned.
+    """
+    from . import types as t
+    from .native_execution import NativeWriterAuthorizedV1, NativeBuildActionV1
+    from .native_writer import verify_input_records
+    from .rules_authority_events import validate_native_packet_writer
+    from .rules_authority_policy import rules_capability, rules_submission_authorization_id
+    from .rules_authority_events import ref_map
+    from .plan_writer_output_schema import native_output_format
+    execution = RulesExecutionV1.model_validate_json(execution.model_dump_json(by_alias=True))
+    writers = [e for e in graph_execution.events if type(e) is NativeWriterAuthorizedV1
+        and e.provider_attempt_id == provider_attempt_id]
+    if len(writers) != 1:
+        raise ValueError('Shared Rules input requires its exact native writer')
+    writer = writers[0]
+    evidence = verify_input_records(receipt,graph_execution,writer,prepared_request_json,
+        provenance=provenance,idempotency_key=idempotency_key,work_proof=work_proof,
+        world_id=world_id,conversation_id=conversation_id,turn_id=turn_id,attempt=attempt)
+    scope, action = execution.scope, graph_execution.policy.action
+    capability = rules_capability(graph=True)
+    if (execution.state != 'active'
+            or t.submitted_turn_intent_fingerprint_v2(action.intent) != submitted_intent_fingerprint
+            or (scope.world_id,scope.conversation_id,scope.turn_id,scope.product_attempt) !=
+                (world_id,conversation_id,turn_id,attempt)
+            or scope.capability_policy_sha256 != capability.policy_sha256
+            or scope.corpus_sha256 != capability.corpus_sha256 or scope.ruleset_id != capability.ruleset_id
+            or scope.authorization_id != rules_submission_authorization_id(world_id=world_id,
+                conversation_id=conversation_id,idempotency_key=idempotency_key,
+                submitted_intent_sha256=submitted_intent_fingerprint,capability=capability)
+            or expected_envelope_sha256 != writer.envelope_sha256):
+        raise ValueError('Shared Rules scope differs from its actual native submission')
+    auth, included = validate_native_packet_writer(execution,provider_attempt_id)
+    body, frame, outputs, supports = packet_input_records(execution,prepared_request_json,
+        expected_envelope_sha256=expected_envelope_sha256,allow_build=isinstance(action,NativeBuildActionV1))
+    if (auth.request_envelope_sha256 != expected_envelope_sha256
+            or included.request_envelope_sha256 != expected_envelope_sha256
+            or auth.matched_outputs != outputs or included.matched_outputs != outputs
+            or ref_map(auth.declared_support_refs) != ref_map(supports) or ref_map(included.support_refs) != ref_map(supports)
+            or canonical_bytes(body.get('text',{}).get('format')) != canonical_bytes(native_output_format(evidence.frame,frame,evidence.work_frame))):
+        raise ValueError('Shared Rules declarations differ from actual sealed writer input')
+    return evidence, frame

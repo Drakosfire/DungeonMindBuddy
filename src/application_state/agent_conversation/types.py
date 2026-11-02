@@ -15,10 +15,10 @@ import json
 from collections.abc import Sequence
 from datetime import datetime
 from enum import Enum
-from typing import Annotated, ClassVar, Literal, NoReturn, Protocol
+from typing import Annotated, ClassVar, Literal, NoReturn, Protocol, Union
 from uuid import UUID, uuid4
 
-from pydantic import BaseModel, ConfigDict, Field, TypeAdapter, model_validator, model_serializer
+from pydantic import BaseModel, ConfigDict, Field, model_validator, model_serializer
 
 from .rules_authority_types import ClosedRulesModel, Digest, canonical_bytes, canonical_sha256
 from .collaboration import Collaboration, ConnectedCollaboration
@@ -1544,7 +1544,7 @@ class PlayWorldGraphContextReceiptV1(ClosedRulesModel):
 
 
 GraphContextReceipt = Annotated[
-    PlanWorldGraphContextReceiptV1 | PlanSourceContextReceiptV1 | PlanNativeContextReceiptV1 | BuildGraphContextReceiptV1 | PlayWorldGraphContextReceiptV1 | NativeStatementContextReceiptV1,
+    Union[PlanWorldGraphContextReceiptV1 | PlanSourceContextReceiptV1 | PlanNativeContextReceiptV1 | BuildGraphContextReceiptV1 | PlayWorldGraphContextReceiptV1 | NativeStatementContextReceiptV1, "SurfaceNativeContextReceiptV1"],
     Field(discriminator="schema_"),
 ]
 
@@ -2417,7 +2417,7 @@ class SurfaceEvidenceCompletionV7(SurfaceEvidenceCompletionV6):
     native_assertion_citations: list[NativeAssertionCitationV1]
 
 
-GraphTurnCompletion = SurfaceEvidenceCompletionV7 | SurfaceEvidenceCompletionV6 | SurfaceEvidenceCompletionV5 | NativeStatementCompletionV1 | BuildIntentionalResponseCompletionV3 | BuildRelationshipReviewCompletionV3 | BuildIntentionalResponseCompletionV2 | BuildRelationshipReviewCompletionV2 | BuildIntentionalResponseCompletionV1 | BuildRelationshipReviewCompletionV1 | BuildConnectedPageReviewCompletionV1 | BuildCollaborationCompletionV1 | BuildRelatedPageCompletionV1 | BuildDraftContextCompletionV1 | BuildNamedGraphCompletionV3 | SurfaceEvidenceCompletionV4 | SurfaceEvidenceCompletionV3 | SurfaceEvidenceCompletionV2 | SurfaceEvidenceCompletionV1 | SurfaceSourceCompletionV1 | PlayWorldGraphCompletionV1 | PlanWorldGraphCompletion | BuildGraphCompletionV1 | BuildGraphCompletionV2 | BuildAuthoringCompletionV1 | BuildImagePreparationCompletionV1
+GraphTurnCompletion = Union[SurfaceEvidenceCompletionV7 | SurfaceEvidenceCompletionV6 | SurfaceEvidenceCompletionV5 | NativeStatementCompletionV1 | BuildIntentionalResponseCompletionV3 | BuildRelationshipReviewCompletionV3 | BuildIntentionalResponseCompletionV2 | BuildRelationshipReviewCompletionV2 | BuildIntentionalResponseCompletionV1 | BuildRelationshipReviewCompletionV1 | BuildConnectedPageReviewCompletionV1 | BuildCollaborationCompletionV1 | BuildRelatedPageCompletionV1 | BuildDraftContextCompletionV1 | BuildNamedGraphCompletionV3 | SurfaceEvidenceCompletionV4 | SurfaceEvidenceCompletionV3 | SurfaceEvidenceCompletionV2 | SurfaceEvidenceCompletionV1 | SurfaceSourceCompletionV1 | PlayWorldGraphCompletionV1 | PlanWorldGraphCompletion | BuildGraphCompletionV1 | BuildGraphCompletionV2 | BuildAuthoringCompletionV1 | BuildImagePreparationCompletionV1, "SurfaceNativeCompletionV1"]
 
 
 class GraphCompletionRejectionCode(str, Enum):
@@ -4112,28 +4112,18 @@ GraphExecutionEventV1 = Annotated[
 ]
 
 
-def validate_provider_execution(policy, events) -> None:
-    """Shared provider lifecycle checks over the actual validated policy."""
+def validate_provider_execution(execution) -> None:
+    """Validate the actual typed record; never project native events to V1."""
+    policy, events = execution.policy, execution.events
     if [event.sequence for event in events] != list(range(len(events))):
         raise ValueError("Graph execution events must have contiguous sequence numbers")
     if len({event.event_id for event in events}) != len(events):
         raise ValueError("Graph execution event IDs must be unique")
-    operation_ids: set[UUID] = set()
     attempts: dict[UUID, ProviderAttemptAuthorizedEventV1] = {}
     outcomes: dict[UUID, list[str]] = {}
     completion_bindings = 0
     for event in events:
-        if isinstance(event, ValidatedGraphOperationEventV1):
-            if attempts:
-                latest_attempt_id = next(reversed(attempts))
-                if outcomes[latest_attempt_id][-1:] == ["outcome_unknown"]:
-                    raise ValueError("Graph operations cannot continue after an unknown provider outcome")
-            if event.operation not in policy.allowed_graph_operations:
-                raise ValueError("Graph operation is outside the accepted policy")
-            if event.operation_id in operation_ids:
-                raise ValueError("Graph operation ID must be unique within the turn")
-            operation_ids.add(event.operation_id)
-        elif isinstance(event, ProviderAttemptAuthorizedEventV1):
+        if isinstance(event, ProviderAttemptAuthorizedEventV1):
             if event.provider_attempt_id in attempts:
                 raise ValueError("provider attempt ID was authorized more than once")
             if attempts:
@@ -4141,7 +4131,15 @@ def validate_provider_execution(policy, events) -> None:
                 prior_outcomes = outcomes[latest_attempt_id]
                 if not prior_outcomes or prior_outcomes[-1] not in {"response_received", "known_not_sent"}:
                     raise ValueError("a new provider attempt requires a resolved prior attempt")
-            if event.input_accounting_kind != policy.provider_input_accounting.kind or event.input_estimator != policy.provider_input_accounting.estimator:
+            if isinstance(event, ProviderAttemptAuthorizedEventV5):
+                from .build_decision_context import validate_event
+                validate_event(event, execution)
+            from .build_decision_context import uses_role_accounting
+            if uses_role_accounting(policy):
+                from .build_decision_context import validate_accounting
+                validate_accounting(event, execution, provider_index=len(attempts))
+            elif (event.input_accounting_kind != policy.provider_input_accounting.kind
+                    or event.input_estimator != policy.provider_input_accounting.estimator):
                 raise ValueError("provider attempt accounting differs from accepted policy")
             attempts[event.provider_attempt_id] = event
             outcomes[event.provider_attempt_id] = []
@@ -4166,16 +4164,6 @@ def validate_provider_execution(policy, events) -> None:
                 raise ValueError("completion binding requires a response-received attempt")
     if policy.max_provider_attempts is not None and len(attempts) > policy.max_provider_attempts:
         raise ValueError("provider attempt policy limit exceeded")
-    graph_events = [e for e in events if isinstance(e, ValidatedGraphOperationEventV1)]
-    if policy.max_graph_operations is not None and len(graph_events) > policy.max_graph_operations:
-        raise ValueError("Graph operation policy limit exceeded")
-    graph_by_event_id = {event.event_id: event for event in graph_events}
-    if any(
-        len(event.assertion_ids) + len(event.relationship_ids) + len(event.evidence_ref_ids)
-        > policy.max_results_per_operation
-        for event in graph_events
-    ):
-        raise ValueError("Graph operation result limit exceeded")
     input_total = sum(event.input_tokens for event in attempts.values())
     output_total = sum(event.output_token_reserve for event in attempts.values())
     if (
@@ -4186,9 +4174,38 @@ def validate_provider_execution(policy, events) -> None:
         and output_total > policy.max_total_provider_output_tokens
     ):
         raise ValueError("provider token budget exceeded")
-    for attempt in attempts.values():
-        if any(event_id not in graph_by_event_id for event_id in attempt.included_graph_event_ids):
-            raise ValueError("provider envelope references an unknown Graph operation event")
+
+
+def validate_graph_operation_execution(execution) -> None:
+    """Classic Graph membership and result budgets; not provider lifecycle."""
+    policy, events = execution.policy, execution.events
+    operation_ids: set[UUID] = set()
+    graph_by_event_id = {}
+    latest_attempt = None
+    latest_outcome = None
+    for event in events:
+        if isinstance(event, ProviderAttemptAuthorizedEventV1):
+            latest_attempt, latest_outcome = event.provider_attempt_id, None
+        elif isinstance(event, ProviderOutcomeEventV1) and event.provider_attempt_id == latest_attempt:
+            latest_outcome = event.outcome
+        elif isinstance(event, ValidatedGraphOperationEventV1):
+            if latest_outcome == "outcome_unknown":
+                raise ValueError("Graph operations cannot continue after an unknown provider outcome")
+            if event.operation not in policy.allowed_graph_operations:
+                raise ValueError("Graph operation is outside the accepted policy")
+            if event.operation_id in operation_ids:
+                raise ValueError("Graph operation ID must be unique within the turn")
+            operation_ids.add(event.operation_id)
+            graph_by_event_id[event.event_id] = event
+            if (len(event.assertion_ids) + len(event.relationship_ids) + len(event.evidence_ref_ids)
+                    > policy.max_results_per_operation):
+                raise ValueError("Graph operation result limit exceeded")
+    if policy.max_graph_operations is not None and len(graph_by_event_id) > policy.max_graph_operations:
+        raise ValueError("Graph operation policy limit exceeded")
+    for event in events:
+        if isinstance(event, ProviderAttemptAuthorizedEventV1):
+            if any(event_id not in graph_by_event_id for event_id in event.included_graph_event_ids):
+                raise ValueError("provider envelope references an unknown Graph operation event")
 
 
 class PlanWorldGraphExecutionV1(StrictModel):
@@ -4201,7 +4218,8 @@ class PlanWorldGraphExecutionV1(StrictModel):
 
     @model_validator(mode="after")
     def validate_execution(self) -> "PlanWorldGraphExecutionV1":
-        validate_provider_execution(self.policy, self.events)
+        validate_provider_execution(self)
+        validate_graph_operation_execution(self)
         if len(self.model_dump_json(by_alias=True).encode("utf-8")) > 1_048_576:
             raise ValueError("Graph execution record exceeds the storage size limit")
         return self
@@ -4273,10 +4291,8 @@ def validate_graph_execution_record(execution, *, dynamic_source_scope: bool, al
     })
     if execution.execution_policy_sha256 != expected_policy_digest:
         raise ValueError("Graph execution policy digest does not match its frozen scope and budgets")
-    if [event.sequence for event in execution.events] != list(range(len(execution.events))):
-        raise ValueError("Graph execution events must have contiguous sequence numbers")
-    if len({event.event_id for event in execution.events}) != len(execution.events):
-        raise ValueError("Graph execution event IDs must be unique")
+    validate_provider_execution(execution)
+    validate_graph_operation_execution(execution)
     scope = execution.policy.source_read_scope
     if scope is None:
         if not isinstance(execution.policy, PlanSourceExecutionPolicyV1):
@@ -4298,8 +4314,6 @@ def validate_graph_execution_record(execution, *, dynamic_source_scope: bool, al
     for event in execution.events:
         if isinstance(event, (SourceScopeExtensionEventV3, SourceReadAuthorizationEventV2, ValidatedSourceReadEventV2, SourcePassageReuseEventV1)) and latest_outcome == "outcome_unknown":
             raise ValueError("source reads cannot continue after an unknown provider outcome")
-        if isinstance(event, CompletionBindingEventV1) and event.sequence != len(execution.events) - 1:
-            raise ValueError("completion binding must be the final V2 execution event")
         if isinstance(event, (ProviderAttemptAuthorizedEventV1, ProviderAttemptAuthorizedEventV2)):
             latest_attempt_id = event.provider_attempt_id
             latest_outcome = None
@@ -4411,93 +4425,6 @@ def validate_graph_execution_record(execution, *, dynamic_source_scope: bool, al
     from .native_source_input import validate_inclusions
     validate_inclusions(execution)
 
-    # Reuse the V1 execution validator for the unchanged Graph/provider state machine.
-    legacy_events: list[dict[str, object]] = []
-    provider_index = 0
-    for event in execution.events:
-        if isinstance(event, NATIVE_BODY_EVENTS):
-            continue
-        if isinstance(
-            event,
-            (
-                PlaySourceProviderInclusionV1, CorpusSourceSearchAuthorizedV1, CorpusSourceSearchObservedV1, NativeSourceNavigationAuthorizedV1, NativeSourceCatalogObservedV1,
-                NativeSourceSectionAuthorizedV1, NativeSourceSectionObservedV1, NativeSourceProviderInclusionV1,
-                SourceScopeExtensionEventV3,
-                SourceReadAuthorizationEventV2,
-                ValidatedSourceReadEventV2, SourcePassageReuseEventV1,
-                RelatedRecapContextAuthorizationEventV2,
-                ValidatedRelatedRecapContextEventV2,
-                RelatedRecapContextProviderInclusionEventV2,
-                RelatedPagesSelection, RelatedPageRead, RelatedPageInclusion, BuildAuthoredReferencesCapturedV1, BuildAuthoredReferenceAuthorizedV1, BuildAuthoredReferenceReadV1, BuildAuthoredProviderInclusionV1, BuildDraftContextCapturedV1, BuildDraftProviderInclusionV1, BuildSectionReadAuthorizationV1, ValidatedBuildSectionReadV1, BuildWorldReadSelectionV1,
-                BuildSectionProviderInclusionV1, BuildSectionAnswerBindingV1,
-                BuildJevActionSelectionV1, BuildReviewedActionSelectionV1, BuildPlanOutputContractV1, BuildPlanOutputContractV2, BuildWriterEvidenceSelectionV1, PlanRequestedWorkSelectedV1, PlanJevRetrievalSelectionV1,
-                NativePlanStatementReadAuthorizedV1, NativePlanStatementReadObservedV1,
-                NativePlanAssertionReadAuthorizedV1, NativePlanAssertionReadObservedV1,
-            ),
-        ):
-            continue
-        payload = event.model_dump(mode="json", by_alias=True)
-        if isinstance(event, ProviderAttemptAuthorizedEventV5):
-            from .build_decision_context import validate_event
-            validate_event(event, execution)
-            for key in ("context_mode", "context_phase", "max_question_input_tokens", "dispatch_identity_sha256"):
-                payload.pop(key)
-        if isinstance(event, ProviderAttemptAuthorizedEventV1):
-            if isinstance(execution.policy, BuildEstimatedActionControllerWriterPolicyV1):
-                role = (event.provider, event.model, event.api_mode)
-                controller = execution.policy.provider_roles.controller.identity()
-                writer = execution.policy.provider_roles.writer.identity()
-                if role not in {controller, writer} or (provider_index == 0 and role != controller and not any(isinstance(e, BuildReviewedActionSelectionV1) and e.operation == "propose_build_insertion" and e.sequence < event.sequence for e in execution.events)):
-                    raise ValueError("provider accounting role differs from frozen policy")
-                if isinstance(execution.policy, BuildWriterBudgetActionControllerWriterPolicyV1) and role == writer:
-                    writer_budget = execution.policy.writer_context_budget
-                    if (event.output_token_reserve != writer_budget.output_reserve_tokens
-                            or event.input_tokens + event.output_token_reserve > writer_budget.context_limit_tokens):
-                        raise ValueError("writer envelope exceeds its frozen role budget")
-                estimated = role == controller and (provider_index > 0
-                    or isinstance(execution.policy, BuildInitialEstimatedSelectedSourcePolicyV1))
-                descriptor = execution.policy.controller_continuation_accounting
-                expected_kind = "estimated_token_count" if estimated else execution.policy.provider_input_accounting.kind
-                expected_estimator = descriptor.policy if estimated else execution.policy.provider_input_accounting.estimator
-                if event.input_accounting_kind != expected_kind or event.input_estimator != expected_estimator:
-                    raise ValueError("provider attempt accounting differs from accepted role policy")
-                if descriptor.policy in {"o200k_double_plus_4096_adaptive_context_v2", "o200k_double_plus_4096_adaptive_context_v3"} and role == controller:
-                    if not isinstance(event, ProviderAttemptAuthorizedEventV5):
-                        raise ValueError("Current Build controller requires mode-bound authorization")
-                elif isinstance(event, ProviderAttemptAuthorizedEventV5):
-                    raise ValueError("Mode-bound authorization requires current Build accounting")
-                if estimated and not isinstance(event, ProviderAttemptAuthorizedEventV5) and event.input_tokens > descriptor.request_limit_tokens:
-                    raise ValueError("controller request estimate exceeds frozen policy")
-                # Structural validator projection only; original event remains
-                # explicitly estimated in the stored ledger and its hashes.
-                payload["input_accounting_kind"] = execution.policy.provider_input_accounting.kind
-                payload["input_estimator"] = execution.policy.provider_input_accounting.estimator
-            provider_index += 1
-        if isinstance(event, PlanJevProviderAuthorizedV1):
-            payload.pop("decision_request_id", None)
-            payload.pop("parent_request_sha256", None)
-        if isinstance(event, PlanJevWriterAuthorizedV1):
-            payload.pop("frame_sha256", None)
-        if isinstance(event, PlanNativeWriterAuthorizedV1):
-            payload.pop("native_statement_read_event_ids", None)
-        if isinstance(event, PlanNativeWriterAuthorizedV2):
-            payload.pop("native_assertion_read_event_ids", None)
-        if isinstance(event, ProviderAttemptAuthorizedEventV2):
-            payload["kind"] = "provider_attempt_authorized"
-            payload.pop("included_source_read_event_ids", None)
-            payload.pop("included_source_reuse_event_ids", None)
-        if isinstance(event, ValidatedGraphOperationEventV3):
-            payload["kind"] = "validated_graph_operation"
-            payload.pop("returned_source_pins", None)
-        payload["sequence"] = len(legacy_events)
-        legacy_events.append(payload)
-    # Keep the real source-capable policy. Project only event syntax into the
-    # shared provider lifecycle; never admit a source discriminator as a generic
-    # legacy Graph policy just to run those checks.
-    validate_provider_execution(
-        execution.policy,
-        TypeAdapter(list[GraphExecutionEventV1]).validate_python(legacy_events),
-    )
     if len(execution.model_dump_json(by_alias=True).encode("utf-8")) > 1_048_576:
         raise ValueError("Graph execution record exceeds the storage size limit")
     if dynamic_source_scope and len(json.dumps(execution.model_dump(mode="json", by_alias=True), ensure_ascii=True).encode("utf-8")) > 1_048_576:
@@ -4823,6 +4750,66 @@ GraphExecutionEventV3 = Annotated[
 ]
 
 
+def validate_controller_writer_execution(execution, *, reviewed_action=None) -> None:
+    """Shared role ordering; reviewed work authority remains with its owner.
+
+    The work validator supplies an actual stored reviewed event only after its
+    capability/operation binding is validated. This accepts no writer-first flag.
+    Full Turn admission and writer reservation still require the owning checks.
+    """
+    roles = execution.policy.provider_roles
+    if reviewed_action is not None and (
+            not isinstance(reviewed_action, BuildReviewedActionSelectionV1)
+            or not any(event is reviewed_action for event in execution.events)):
+        raise ValueError("Reviewed writer requires its actual retained action event")
+    acquisition_events = (
+        RelatedPagesSelection, RelatedPageRead,
+        ValidatedGraphOperationEventV1, SourceScopeExtensionEventV3,
+        CorpusSourceSearchAuthorizedV1, CorpusSourceSearchObservedV1,
+        NativeSourceNavigationAuthorizedV1, NativeSourceCatalogObservedV1,
+        NativeSourceSectionAuthorizedV1, NativeSourceSectionObservedV1,
+        SourceReadAuthorizationEventV2, ValidatedSourceReadEventV2, SourcePassageReuseEventV1,
+        RelatedRecapContextAuthorizationEventV2, ValidatedRelatedRecapContextEventV2,
+        BuildSectionReadAuthorizationV1, ValidatedBuildSectionReadV1,
+    )
+    latest_attempt = latest_outcome = writer_attempt = writer_selection = None
+    for event in execution.events:
+        if isinstance(event, BuildWriterEvidenceSelectionV1):
+            writer_selection = event
+        elif isinstance(event, ProviderAttemptAuthorizedEventV1):
+            identity = (event.provider, event.model, event.api_mode)
+            if identity == roles.controller.identity():
+                if writer_selection is not None:
+                    raise ValueError("controller cannot resume after writer evidence selection")
+                if writer_attempt is not None:
+                    raise ValueError("controller cannot resume after writer authorization")
+            elif identity == roles.writer.identity():
+                if latest_attempt is None and not (
+                        reviewed_action is not None
+                        and reviewed_action.operation == "propose_build_insertion"
+                        and reviewed_action.sequence < event.sequence):
+                    raise ValueError("first provider authorization must be controller")
+                if writer_attempt is not None:
+                    raise ValueError("only one writer authorization is permitted")
+                writer_attempt = event.provider_attempt_id
+            else:
+                raise ValueError("provider identity is outside the frozen controller/writer roles")
+            latest_attempt, latest_outcome = event.provider_attempt_id, None
+        elif isinstance(event, ProviderOutcomeEventV1):
+            if event.provider_attempt_id == latest_attempt:
+                latest_outcome = event.outcome
+        elif isinstance(event, acquisition_events):
+            if writer_selection is not None:
+                raise ValueError("acquisition cannot continue after writer evidence selection")
+            if writer_attempt is not None:
+                raise ValueError("acquisition cannot continue after writer authorization")
+            if latest_attempt is not None and latest_outcome not in {"response_received", "known_not_sent"}:
+                raise ValueError("acquisition requires a resolved controller attempt")
+        elif isinstance(event, CompletionBindingEventV1):
+            if writer_attempt is None or event.provider_attempt_id != writer_attempt:
+                raise ValueError("completion must bind the authorized writer attempt")
+
+
 class PlanWorldGraphExecutionV3(PlanWorldGraphExecutionV2):
     _dynamic_source_scope: ClassVar[bool] = True
     schema_: Literal["dmb_agent_plan_world_graph_execution_v3"] = Field(
@@ -4853,36 +4840,10 @@ class PlanWorldGraphExecutionV3(PlanWorldGraphExecutionV2):
         action_selection = None
         writer_selection = None
         authorized_by_id = {}
-        acquisition_events = (
-            RelatedPagesSelection, RelatedPageRead,
-            ValidatedGraphOperationEventV1, SourceScopeExtensionEventV3, CorpusSourceSearchAuthorizedV1, CorpusSourceSearchObservedV1, NativeSourceNavigationAuthorizedV1, NativeSourceCatalogObservedV1,
-            NativeSourceSectionAuthorizedV1, NativeSourceSectionObservedV1,
-            SourceReadAuthorizationEventV2, ValidatedSourceReadEventV2, SourcePassageReuseEventV1,
-            RelatedRecapContextAuthorizationEventV2, ValidatedRelatedRecapContextEventV2,
-            BuildSectionReadAuthorizationV1, ValidatedBuildSectionReadV1,
-        )
-        section_auths, section_reads = {}, set()
+        from .build_primary_context import validate_reads
+        validate_reads(self,max_chars=(self.policy.saved_source_char_count if isinstance(self.policy,
+            (BuildExactSavedLinesDraftPolicyV1, BuildExactSavedLinesDraftImagePolicyV1)) else self.policy.max_chars_per_source_read))
         for event in self.events:
-            if writer_selection is not None and isinstance(event, acquisition_events):
-                raise ValueError("acquisition cannot continue after writer evidence selection")
-            if isinstance(event, BuildSectionReadAuthorizationV1):
-                if (latest_attempt is None or latest_outcome != "response_received"
-                        or event.read_id in section_auths
-                        or event.max_chars > (self.policy.saved_source_char_count if isinstance(self.policy,
-                            (BuildExactSavedLinesDraftPolicyV1, BuildExactSavedLinesDraftImagePolicyV1))
-                            else self.policy.max_chars_per_source_read)):
-                    raise ValueError("Build section requires a resolved controller and unique authorization")
-                section_auths[event.read_id] = event
-            elif isinstance(event, ValidatedBuildSectionReadV1):
-                auth = section_auths.get(event.read_id)
-                if (auth is None or event.read_id in section_reads
-                        or event.source_basis != auth.source_basis or event.source_class != auth.source_class
-                        or event.line_start != auth.line_start or event.line_end != auth.line_end
-                        or len(event.text) > auth.max_chars):
-                    raise ValueError("Build section receipt differs from its unique prior authorization")
-                section_reads.add(event.read_id)
-            elif isinstance(event, ProviderAttemptAuthorizedEventV1) and set(section_auths) != section_reads:
-                raise ValueError("Provider cannot proceed with an unresolved Build section read")
 
             if isinstance(event, BuildReviewedActionSelectionV1):
                 if (not isinstance(self.policy, BuildActionControllerWriterPolicyV1)
@@ -4892,15 +4853,12 @@ class PlanWorldGraphExecutionV3(PlanWorldGraphExecutionV2):
                     raise ValueError("Reviewed action lacks its unique pre-provider capability binding")
                 action_selection = event
             if isinstance(event, BuildJevActionSelectionV1):
-                from .build_intentional_response import enabled, resolution_for
+                from .build_intentional_response import enabled
                 if isinstance(event, BuildRequestedWorkResolutionV1):
-                    if not enabled(self.policy) or event.resolution != resolution_for(self.policy, event.requested_work):
+                    from .build_intentional_response import validate_resolution_metadata
+                    if not enabled(self.policy):
                         raise ValueError('Semantic event differs from its frozen response contract')
-                    if (event.intent_family != event.resolution['intent_family'] or event.operation != event.resolution['operation']
-                        or event.response_capabilities_sha256 != self.policy.response_capabilities_sha256
-                        or event.menu_sha256 != self.policy.requested_work_menu_sha256
-                        or event.resolver_sha256 != self.policy.response_resolver_sha256):
-                        raise ValueError('Semantic event metadata differs from its deterministic resolution')
+                    validate_resolution_metadata(event,self.policy)
                 elif enabled(self.policy):
                     raise ValueError('Historical operation selection cannot authorize the new response policy')
                 prior = authorized_by_id.get(event.controller_attempt_id)
@@ -4914,24 +4872,15 @@ class PlanWorldGraphExecutionV3(PlanWorldGraphExecutionV2):
                     raise ValueError("Build action selection differs from its acknowledged controller/capability")
                 action_selection = event
             if isinstance(event, BuildWriterEvidenceSelectionV1):
-                authorization = authorized_by_id.get(event.controller_attempt_id)
-                if (not isinstance(self.policy, BuildSelectedSourceActionControllerWriterPolicyV1)
-                    or writer_selection is not None or writer_attempt is not None
-                    or latest_attempt != event.controller_attempt_id or latest_outcome != "response_received"
-                    or authorization is None or authorization.envelope_sha256 != event.controller_envelope_sha256
-                    or (authorization.provider, authorization.model, authorization.api_mode)
-                    != roles.controller.identity()):
+                if not isinstance(self.policy, BuildSelectedSourceActionControllerWriterPolicyV1):
                     raise ValueError("Writer selection lacks its unique acknowledged controller")
+                from .build_primary_context import validate_selection_origin
+                validate_selection_origin(self,event)
                 writer_selection = event
             if isinstance(event, ProviderAttemptAuthorizedEventV1):
                 authorized_by_id[event.provider_attempt_id] = event
                 identity = (event.provider, event.model, event.api_mode)
-                if identity == roles.controller.identity():
-                    if writer_selection is not None:
-                        raise ValueError("controller cannot resume after writer evidence selection")
-                    if writer_attempt is not None:
-                        raise ValueError("controller cannot resume after writer authorization")
-                elif identity == roles.writer.identity():
+                if identity == roles.writer.identity():
                     if (isinstance(self.policy, BuildSelectedSourceActionControllerWriterPolicyV1)
                         and (action_selection is None or action_selection.operation == "answer_from_sources")):
                         if writer_selection is None:
@@ -4939,37 +4888,18 @@ class PlanWorldGraphExecutionV3(PlanWorldGraphExecutionV2):
                         from .authored_graph_references import source_event_ids as authored_source_ids
                         if set(event.included_source_read_event_ids) != set(writer_selection.source_event_ids) | authored_source_ids(self):
                             raise ValueError("Source writer exposure differs from selected event closure")
-                        section_events = {e.event_id: e.read_id for e in self.events[:event.sequence]
-                                          if isinstance(e, ValidatedBuildSectionReadV1)}
-                        included_sections = {section_events[eid] for e in self.events[:event.sequence]
-                                             if isinstance(e, BuildSectionProviderInclusionV1)
-                                             and e.provider_attempt_id == event.provider_attempt_id
-                                             for eid in e.section_event_ids}
-                        from .build_primary_context import writer_read_ids
-                        if included_sections != writer_read_ids(self):
-                            raise ValueError("Source writer saved sections differ from selected closure")
+                        from .build_primary_context import validate_writer_reads
+                        validate_writer_reads(self,event)
                     if isinstance(self.policy, BuildActionControllerWriterPolicyV1) and action_selection is None:
                         raise ValueError("Build writer requires a recorded controller-selected operation")
-                    if latest_attempt is None and not (isinstance(action_selection, BuildReviewedActionSelectionV1) and action_selection.operation == "propose_build_insertion"):
-                        raise ValueError("first provider authorization must be controller")
-                    if writer_attempt is not None:
-                        raise ValueError("only one writer authorization is permitted")
                     writer_attempt = event.provider_attempt_id
-                else:
-                    raise ValueError("provider identity is outside the frozen controller/writer roles")
                 latest_attempt = event.provider_attempt_id
                 latest_outcome = None
             elif isinstance(event, ProviderOutcomeEventV1):
                 if event.provider_attempt_id == latest_attempt:
                     latest_outcome = event.outcome
-            elif isinstance(event, acquisition_events):
-                if writer_attempt is not None:
-                    raise ValueError("acquisition cannot continue after writer authorization")
-                if latest_attempt is not None and latest_outcome not in {"response_received", "known_not_sent"}:
-                    raise ValueError("acquisition requires a resolved controller attempt")
-            elif isinstance(event, CompletionBindingEventV1):
-                if writer_attempt is None or event.provider_attempt_id != writer_attempt:
-                    raise ValueError("completion must bind the authorized writer attempt")
+        validate_controller_writer_execution(self, reviewed_action=(
+            action_selection if isinstance(action_selection, BuildReviewedActionSelectionV1) else None))
         validate_build_section_inclusions(self)
         from .plan_jev_decision import validate_decision_phases
         validate_decision_phases(self)
@@ -5052,6 +4982,8 @@ def build_sections_digest(reads) -> str:
 
 
 def validate_build_section_inclusions(execution) -> None:
+    from .build_draft_context import native_build_action
+    section_capable = isinstance(execution.policy,BuildSectionControllerWriterPolicyV1) or native_build_action(execution) is not None
     reads, inclusions, attempts, outcomes = {}, {}, {}, {}
     pending = None
     answers = []
@@ -5066,7 +4998,7 @@ def validate_build_section_inclusions(execution) -> None:
             reads[event.event_id] = event
         elif isinstance(event, BuildSectionProviderInclusionV1):
             latest = next(reversed(attempts.values()), None)
-            if (not isinstance(execution.policy, BuildSectionControllerWriterPolicyV1)
+            if (not section_capable
                     or latest is None or outcomes.get(latest.provider_attempt_id) != "response_received"
                     or (latest.provider, latest.model, latest.api_mode) != execution.policy.provider_roles.controller.identity()
                     or event.context_receipt_sha256 != execution.context_receipt_sha256
@@ -5084,7 +5016,7 @@ def validate_build_section_inclusions(execution) -> None:
         elif isinstance(event, BuildSectionAnswerBindingV1):
             auth = attempts.get(event.provider_attempt_id)
             inclusion = inclusions.get(event.provider_attempt_id)
-            if (not isinstance(execution.policy, BuildSectionControllerWriterPolicyV1)
+            if (not section_capable
                     or answers or auth is None or inclusion is None
                     or (auth.provider, auth.model, auth.api_mode) != execution.policy.provider_roles.writer.identity()
                     or event.envelope_sha256 != auth.envelope_sha256
@@ -5396,8 +5328,8 @@ class NativeStatementExecutionV1(StrictModel):
 
 
 GraphTurnExecution = Annotated[
-    PlanWorldGraphExecutionV1 | PlanWorldGraphExecutionV2 | PlanWorldGraphExecutionV3
-    | PlanSourceExecutionV1 | PlanNativeExecutionV1 | PlayWorldGraphExecutionV1 | NativeStatementExecutionV1,
+    Union[PlanWorldGraphExecutionV1 | PlanWorldGraphExecutionV2 | PlanWorldGraphExecutionV3
+    | PlanSourceExecutionV1 | PlanNativeExecutionV1 | PlayWorldGraphExecutionV1 | NativeStatementExecutionV1, "SurfaceNativeExecutionV1"],
     Field(discriminator="schema_"),
 ]
 
@@ -5468,10 +5400,11 @@ def validate_graph_provider_evidence(inputs, execution, event) -> None:
 def validate_provider_envelope_accounting(assembled, execution, event) -> None:
     """First-call commitment and role budget over the actual owning input."""
     context_limit = assembled.context_window_limit
-    if (isinstance(execution.policy, BuildWriterBudgetActionControllerWriterPolicyV1)
-            and (event.provider, event.model, event.api_mode) == execution.policy.writer_context_budget.identity()):
-        context_limit = execution.policy.writer_context_budget.context_limit_tokens
-        if event.output_token_reserve != execution.policy.writer_context_budget.output_reserve_tokens:
+    from .build_decision_context import uses_role_accounting
+    writer_budget = getattr(execution.policy, "writer_context_budget", None) if uses_role_accounting(execution.policy) else None
+    if writer_budget is not None and (event.provider, event.model, event.api_mode) == writer_budget.identity():
+        context_limit = writer_budget.context_limit_tokens
+        if event.output_token_reserve != writer_budget.output_reserve_tokens:
             raise ValueError("writer reserve differs from its frozen role budget")
     if event.input_tokens + event.output_token_reserve > context_limit:
         raise ValueError("provider envelope exceeds the frozen context window")
@@ -5479,7 +5412,8 @@ def validate_provider_envelope_accounting(assembled, execution, event) -> None:
     if not previous_attempts:
         if assembled.assembler_version == "reviewed_author_admission_v1":
             selected = [e for e in execution.events if isinstance(e, BuildReviewedActionSelectionV1)]
-            if len(selected) != 1 or _canonical_sha256({"schema":"dmb_reviewed_action_admission_v1", "intent":selected[0].intent.model_dump(mode="json", by_alias=True)}) != assembled.assembled_input_sha256:
+            from .reviewed_action import admission_manifest
+            if len(selected) != 1 or _canonical_sha256(admission_manifest(selected[0].intent)) != assembled.assembled_input_sha256:
                 raise ValueError("First provider lacks the exact author-admission manifest")
             return
         if (
@@ -6190,6 +6124,11 @@ def validate_execution_completion(
     claim_graph_event_ids: dict[str, list[UUID]],
 ) -> None:
     """Validate supplied status against the derived producing-envelope status."""
+    if (isinstance(receipt, SurfaceNativeContextReceiptV1)
+            or isinstance(execution, SurfaceNativeExecutionV1)):
+        from .native_completion import validate_retained_completion
+        validate_retained_completion(completion, receipt, execution, producing_provider_attempt_id, claim_graph_event_ids)
+        return
     if isinstance(completion, SurfaceEvidenceCompletionV1):
         from .surface_evidence_answer import validate_completion
         validate_completion(completion, receipt, execution, producing_provider_attempt_id, claim_graph_event_ids)
@@ -6399,6 +6338,11 @@ class TurnSubmission(StrictModel):
             and self.submitted_intent_v2 is not None
         ):
             raise ValueError("a turn cannot carry both submitted intent v1 and v2")
+        if (isinstance(self.graph_context_receipt, SurfaceNativeContextReceiptV1)
+                or isinstance(self.graph_context_execution, SurfaceNativeExecutionV1)):
+            from .native_execution import validate_submission
+            validate_submission(self)
+            return self
         if isinstance(self.graph_context_receipt, NativeStatementContextReceiptV1) or (
                 self.submitted_intent_v1 is not None and self.submitted_intent_v1.native_statement_selection is not None):
             from .native_statement_answer import validate_record
@@ -6510,13 +6454,12 @@ def _validate_build_submission(submission: TurnSubmission) -> None:
     if not isinstance(intent, BuildGraphIntentV1) or not isinstance(receipt, BuildGraphContextReceiptV1):
         raise ValueError("Build Graph intent requires its own frozen source receipt")
     basis = receipt.source_basis
+    from .build_world_context import validate_work_intent
+    validate_work_intent(basis, intent)
     provenance = submission.provenance
     ref = provenance.primary_work
     if (intent.world_id != submission.world_id or intent.message != submission.user_text
         or basis.world_id != submission.world_id
-        or basis.document_id != intent.primary_work.object_id
-        or basis.registry_revision != intent.primary_work.expected_revision
-        or basis.content_sha256 != intent.primary_work.expected_content_sha256
         or (intent.graph_request.revision_pin is not None
             and intent.graph_request.revision_pin != receipt.graph_authority.graph_revision)
         or provenance.surface_resolution != "resolved" or provenance.surface_id != "build"
@@ -6559,8 +6502,8 @@ def _validate_build_submission(submission: TurnSubmission) -> None:
     if binding is None and receipt.assembled_input.assembler_version == "reviewed_author_admission_v1":
         raise ValueError("Host admission cannot shed its reviewed action authority")
     if binding is not None:
-        from .reviewed_action import digest
-        expected_admission = digest({"schema":"dmb_reviewed_action_admission_v1", "intent":intent.model_dump(mode="json", by_alias=True)})
+        from .reviewed_action import digest, admission_manifest
+        expected_admission = digest(admission_manifest(intent))
         assembled = receipt.assembled_input
         if (assembled.assembler_version != "reviewed_author_admission_v1"
             or assembled.assembled_input_sha256 != expected_admission
@@ -6581,18 +6524,10 @@ def _validate_build_submission(submission: TurnSubmission) -> None:
 
 
 def _validate_build_receipt_provenance(receipt, provenance) -> None:
-    basis = receipt.source_basis
-    ref = provenance.primary_work
+    from .build_world_context import validate_work_provenance
+    validate_work_provenance(receipt.source_basis, provenance)
     authority = receipt.graph_authority
-    if (provenance.world_id != basis.world_id or provenance.surface_resolution != "resolved"
-        or provenance.surface_id != "build" or ref.resolution != "resolved"
-        or ref.kind != "build" or ref.object_id != basis.document_id
-        or ref.revision != str(basis.registry_revision) or ref.content_sha256 != basis.content_sha256
-        or any(x is not None for x in (ref.object_revision, ref.work_revision_id, ref.revision_n))
-        or provenance.selected_object.resolution != "absent"):
-        raise ValueError("Stored Build receipt differs from its frozen source")
     expected = {
-        "dmb_build_source_visibility_v1": (basis.visibility, "1"),
         "dmb_build_graph_binding_v1": (authority.native_world_id, str(authority.binding_version)),
         "world_graph_revision": (authority.native_world_id, authority.graph_revision),
     }
@@ -6691,6 +6626,12 @@ def validate_turn_graph_fields(
     completion: GraphTurnCompletion | None,
     assistant_text: str | None,
 ) -> None:
+    if (isinstance(graph_context_receipt, SurfaceNativeContextReceiptV1)
+            or isinstance(graph_context_execution, SurfaceNativeExecutionV1)):
+        from .native_execution import validate_turn_fields
+        validate_turn_fields(graph_context_receipt, graph_context_execution, provenance,
+            submitted_intent_fingerprint_v2, completion, assistant_text)
+        return
     if (isinstance(graph_context_receipt, NativeStatementContextReceiptV1)
             or isinstance(graph_context_execution, NativeStatementExecutionV1)
             or isinstance(completion, NativeStatementCompletionV1)):
@@ -6867,6 +6808,10 @@ class Turn(StrictModel):
             submitted_intent_fingerprint_v1=self.submitted_intent_fingerprint_v1,
             submitted_intent_fingerprint_v2=self.submitted_intent_fingerprint_v2,
         )
+        if (isinstance(self.graph_context_receipt, SurfaceNativeContextReceiptV1)
+                or isinstance(self.graph_context_execution, SurfaceNativeExecutionV1)):
+            from .native_execution import validate_turn_identity
+            validate_turn_identity(self)
         if isinstance(self.graph_context_receipt, PlayWorldGraphContextReceiptV1) and (
                 self.play_context_receipt != self.graph_context_receipt.play_basis
                 or (self.status == "completed" and (self.completion is None or self.completed_at is None))
@@ -6901,12 +6846,9 @@ class Turn(StrictModel):
                     or event.intent.primary_work.object_id != self.provenance.primary_work.object_id
                     or event.arguments_sha256 != digest({"instruction":self.user_text} if event.operation == "propose_build_insertion" else {})):
                     raise ValueError("Retained author action differs from its admitted turn intent")
-        from .build_intentional_response import operation_id
-        for event in self.graph_context_execution.events if self.graph_context_execution is not None else ():
-            if isinstance(event, BuildRequestedWorkResolutionV1) and (
-                event.broker_operation_id != operation_id(self, event.machine_request_id, event.requested_work)
-                or event.arguments_sha256 != digest({'instruction': self.user_text} if event.operation != 'answer_from_sources' else {})):
-                raise ValueError('Retained semantic action differs from its exact turn arguments')
+        from .build_intentional_response import validate_turn_arguments
+        if self.graph_context_execution is not None:
+            validate_turn_arguments(self.graph_context_execution,user_text=self.user_text,turn_id=self.turn_id,attempt=self.attempt)
         from .build_draft_context import validate_record
         for event in self.graph_context_execution.events if self.graph_context_execution is not None else ():
             if isinstance(event, BuildDraftContextCapturedV1):
@@ -6927,13 +6869,13 @@ class TurnResult(StrictModel):
 
     @model_validator(mode="after")
     def validate_text(self) -> "TurnResult":
-        if isinstance(self.completion, (PlayWorldGraphCompletionV1, SurfaceSourceCompletionV1, SurfaceEvidenceCompletionV1)) and (
+        if isinstance(self.completion, (SurfaceNativeCompletionV1, PlayWorldGraphCompletionV1, SurfaceSourceCompletionV1, SurfaceEvidenceCompletionV1)) and (
                 self.assistant_text != "\n".join(segment.text for segment in self.completion.answer_segments)
                 or self.producing_provider_attempt_id is None or self.claim_graph_event_ids is None):
             raise ValueError("Native Play result requires exact answer text and explicit producer bindings")
         if self.build_section_bindings and not isinstance(self.completion, (BuildGraphCompletionV1, BuildGraphCompletionV2, BuildIntentionalResponseCompletionV1)):
             raise ValueError("Saved section bindings require a typed Build completion")
-        if not self.assistant_text.strip() and not (self.assistant_text == '' and isinstance(self.completion, BuildIntentionalResponseCompletionV1) and not self.completion.answer_segments and self.completion.collaboration is not None):
+        if not self.assistant_text.strip() and not (self.assistant_text == '' and isinstance(self.completion, (SurfaceNativeCompletionV1, BuildIntentionalResponseCompletionV1)) and not self.completion.answer_segments and self.completion.collaboration is not None):
             raise ValueError("assistant_text is required unless the new completion has a valid typed object")
         if isinstance(self.completion, (BuildGraphCompletionV1, BuildGraphCompletionV2, BuildAuthoringCompletionV1, BuildImagePreparationCompletionV1, BuildIntentionalResponseCompletionV1)) and self.assistant_text != "\n".join(s.text for s in self.completion.answer_segments):
             raise ValueError("Build answer text must match its completion segments")
@@ -7158,6 +7100,16 @@ class CommandResolutionRecordV1(StrictModel):
         values.update(schema="dmb_agent_new_conversation_resolution_record_v1", original_command_kind="new", record_serializer_version="canonical-json-ascii-v1")
         return cls.model_validate({**values, "record_sha256": _fingerprint(values)})
 
+
+# Resolve shared native references only after their surface-owned intent/event
+# definitions exist. These records do not acquire historical Graph authority.
+from .native_context import SurfaceNativeContextReceiptV1  # noqa: E402
+from .native_execution import SurfaceNativeExecutionV1  # noqa: E402
+from .native_completion import SurfaceNativeCompletionV1  # noqa: E402
+TurnSubmission.model_rebuild()
+Turn.model_rebuild()
+TurnResult.model_rebuild()
+CitedSourceTurnResult.model_rebuild()
 
 # Resolve the explicit completed read variants after ordinary domain definitions;
 # Rules read models reuse these validators without constructing a fake Turn.

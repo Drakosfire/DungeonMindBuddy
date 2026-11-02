@@ -112,7 +112,8 @@ def test_ordinary_build_can_open_passage_after_old_count_cutoffs(build_case, tmp
     monkeypatch.setattr(direct, 'get_object_with_reviewed_sources_direct_v3', lambda *_: resolved)
     monkeypatch.setattr(svc._PolicyExecutionAdapter, '_related_recap_offers', lambda *_: [])
     text = 'Frank guards the western gate.'
-    def read(_arguments, *, receipt_version):
+    def read(_arguments, *, receipt_version, root):
+        assert root == tmp_path
         assert receipt_version == 2
         read_id = f'source-read-{uuid4()}'
         passage = text[:_arguments['maxChars']]

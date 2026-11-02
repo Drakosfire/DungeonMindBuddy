@@ -66,10 +66,13 @@ class PlanJevDispatch:
         if authority is not None:
             from application_state.agent_conversation.native_corpus import NativeCorpusAuthorityV1
             available = isinstance(authority, NativeCorpusAuthorityV1)
-            self.parent = PlanSourceRetrievalDecisionInputV1(**fields,
-                source_authority_status="available" if available else "unavailable",
-                source_revision=authority.revision_id if available else None,
-                graph_revision=adapter.bootstrap.world_scope.revision_id if adapter.bootstrap is not None else None)
+            from application_state.agent_conversation.plan_jev_decision import _source_pins
+            pins = (_source_pins(adapter.fence.turn.graph_context_receipt)
+                if adapter.fence is not None else dict(
+                    source_authority_status="available" if available else "unavailable",
+                    source_revision=authority.revision_id if available else None,
+                    graph_revision=adapter.bootstrap.world_scope.revision_id if adapter.bootstrap is not None else None))
+            self.parent = PlanSourceRetrievalDecisionInputV1(**fields,**pins)
         else:
             self.parent = RetrievalDecisionInput(**fields, revision=adapter.bootstrap.world_scope.revision_id)
         self.prepared = None

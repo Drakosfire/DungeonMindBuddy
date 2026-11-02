@@ -291,24 +291,24 @@ def test_build_native_binding_cannot_replace_frozen_authority(field, value):
         t.TurnSubmission.model_validate(data)
 
 
-def test_plan_rows_and_fingerprints_survive_previous_head_roundtrip(application_state_dsn):
+def test_reader_fence_keeps_plan_rows_and_fingerprints_unchanged(application_state_dsn):
     from alembic import command
     from application_state.cli import alembic_config
     service = AgentConversationService()
     conversation, _, _, claimed = _accepted_execution_turn(service, "existing-plan-world")
     before = claimed.model_dump(mode="json", by_alias=True)
-    command.downgrade(alembic_config(), "20261013_0023")
-    command.upgrade(alembic_config(), "head")
+    with pytest.raises(RuntimeError, match="recovery forward"):
+        command.downgrade(alembic_config(), "20261013_0023")
     loaded = AgentConversationService().list_turns("existing-plan-world", conversation.conversation_id)[0]
     assert loaded.model_dump(mode="json", by_alias=True) == before
     assert loaded.submitted_intent_fingerprint_v2 == claimed.submitted_intent_fingerprint_v2
 
 
-def test_downgrade_preserves_retained_build_rows(application_state_dsn):
+def test_reader_fence_keeps_build_rows_and_retry_identity_unchanged(application_state_dsn):
     from alembic import command
     from application_state.cli import alembic_config
     submission, turn = _accept_claim(AgentConversationService())
-    with pytest.raises(RuntimeError, match="retained Build"):
+    with pytest.raises(RuntimeError, match="recovery forward"):
         command.downgrade(alembic_config(), "20261013_0023")
     assert AgentConversationService().list_turns(turn.world_id, turn.conversation_id)[0] == turn
     assert AgentConversationService().accept_turn(submission) == turn

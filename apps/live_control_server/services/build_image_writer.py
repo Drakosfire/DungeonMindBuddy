@@ -38,7 +38,7 @@ Nothing has been generated, inserted or saved. The user reviews settings and gen
 POLICY = "captured_build_image_prompt_alt_purpose_v2"
 
 
-def writer_request(capability, question, history, related_authored_pages=None, authored_reference_material=None, *, writer_model: str):
+def writer_request(capability, question, history, related_authored_pages=None, authored_reference_material=None, *, writer_model: str, _native_context=None):
     snapshot = _source(capability)
     history = project_dialogue(list(history))
     packet = json.dumps(
@@ -57,10 +57,22 @@ def writer_request(capability, question, history, related_authored_pages=None, a
         ensure_ascii=False,
         separators=(",", ":"),
     )
+    if _native_context is not None:
+        from application_state.agent_conversation.native_writer import authoring_input, AUTHORING_GUIDANCE
+        if authored_reference_material is not None or related_authored_pages is not None:
+            raise ValueError('Native image direction must use its acquired work/reference owners once')
+        material=authoring_input(_native_context,capability,question,'prepare_build_image')
+        if writer_model!=_native_context[1].policy.provider_roles.writer.model:
+            raise ValueError('Native image model differs from its frozen writer')
+        body=json.loads(packet)
+        for key in ('source_basis','draft_markdown','captured_capability'):
+            del body[key]
+        body.update(material)
+        packet=json.dumps(body,ensure_ascii=False,separators=(',',':'))
     return {
         "model": writer_model,
         "input": packet,
-        "instructions": SYSTEM + dialogue_rule(history),
+        "instructions": SYSTEM + dialogue_rule(history) + (AUTHORING_GUIDANCE if _native_context is not None else ''),
         "max_output_tokens": 4096,
         "reasoning": {"effort": "low"},
         "text": {

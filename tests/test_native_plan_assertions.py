@@ -118,11 +118,8 @@ def test_context_only_evidence_is_not_support(application_state_dsn, tmp_path, m
     assert not reads and set(unavailable) == {m.assertion_id for m in context.query.assertion_matches}
 
 
-@pytest.mark.parametrize('qualified,unavailable,advancement', [
-    (False,False,None),(True,False,None),(False,True,None),
-    (False,False,'original'),(False,False,'extension')])
-def test_fresh_ordinary_plan_native_question_delivers_reloads_and_opens_exact_source(
-        lane, tmp_path, monkeypatch, qualified, unavailable, advancement, native_read_admission_probes):
+def _ordinary_native_case(
+        lane, tmp_path, monkeypatch, qualified, unavailable, advancement, failure, mixed, native_read_admission_probes, authoring=False):
     import httpx2
     from hashlib import sha256
     from fastapi import FastAPI
@@ -135,6 +132,7 @@ def test_fresh_ordinary_plan_native_question_delivers_reloads_and_opens_exact_so
     from tests.test_agent_turn_service import _pinned_plan_request, _pinned_plan_work
     from tests.test_plan_jev_writer import WriterWire
     from application_state.agent_conversation import AgentConversationService, types as t
+    from application_state.agent_conversation.native_execution import NativeWriterAuthorizedV1
     if advancement == 'extension':
         select_extension_support(lane)
     publish(lane, qualified=qualified)
@@ -150,12 +148,30 @@ def test_fresh_ordinary_plan_native_question_delivers_reloads_and_opens_exact_so
     work = _pinned_plan_work(markdown)
     work = replace(work, world_id=world, owner_id=world, content_basis=work.content_basis.model_copy(update={
         'world_id':world, 'content_sha256':sha256(markdown.encode()).hexdigest(), 'work_revision_id':str(uuid4())}))
+    capture=None
+    if authoring:
+        from application_state.content.service import create_world_plan,commit_plan
+        from application_state.agent_conversation.plan_authoring import PlanAuthoringCaptureV1
+        from application_state.agent_conversation.plan_placement import PlanPlacementCatalogV1
+        from tests.application_state.test_plan_authoring import capture_payload
+        obj=create_world_plan(title='Native authoring evidence',world_id=world)
+        obj,revision=commit_plan(str(obj.work_object_id),markdown,expected_revision=obj.object_revision,expected_world_id=world)
+        work=replace(work,object_id=str(obj.work_object_id),revision=obj.object_revision,content_basis=work.content_basis.model_copy(update={
+            'document_id':str(obj.work_object_id),'object_revision':obj.object_revision,'work_revision_id':str(revision.work_revision_id),
+            'revision_n':revision.revision_n,'content_sha256':revision.content_sha256}))
+        service=AgentConversationService()
+        service.new_conversation(t.ConversationCommand(world_id=world,command_id=uuid4(),expected_pointer_revision=0,expected_active_conversation_id=None))
+        pointer=service.get_world_pointer(world)
+        capture=PlanAuthoringCaptureV1.model_validate(capture_payload()|dict(world_id=world,document_id=str(obj.work_object_id),
+            base_revision=obj.object_revision,base_content_sha256=revision.content_sha256,conversation_id=str(pointer.active_conversation_id),expected_pointer_revision=pointer.revision))
+        catalog=PlanPlacementCatalogV1(original_capture_sha256=capture.sha256,editor_sha256=capture.editor_sha256,
+            entries=({'selector':'captured','kind':'captured_target','label':'Captured caret','root_boundary':None,'position':None,'target_capture_sha256':capture.sha256},))
     request = _pinned_plan_request()
     request = type(request).model_validate(request.model_dump(mode='json',by_alias=True) | {
-        'turn_id':str(uuid4()),'message':'What did B do?','owner_scope':{'kind':'world','world_id':world},
-        'primary_work':request.primary_work.model_dump(mode='json',by_alias=True) | {'expected_content_sha256':work.content_basis.content_sha256},
+        'turn_id':str(uuid4()),'message':('Write a Plan note about what B did.' if authoring else 'What did B do?'),'owner_scope':{'kind':'world','world_id':world},
+        'primary_work':request.primary_work.model_dump(mode='json',by_alias=True) | {'object_id':work.object_id,'expected_revision':work.revision,'expected_revision_n':work.content_basis.revision_n,'expected_content_sha256':work.content_basis.content_sha256},
         'plan_context_policy':{'schema':'dmb_plan_context_policy_v2','policy':'auto_plan_world','graph_source':'reviewed_native_graph'},
-        'graph_request':{'mode':'none'}})
+        'graph_request':{'mode':'none'},**({'plan_authoring_capture':capture.model_dump(mode='json',by_alias=True),'plan_placement_catalog':catalog.model_dump(mode='json',by_alias=True)} if capture is not None else {})})
     monkeypatch.setenv('DMB_AGENT_GRAPH_AUTH_MODE','local_operator')
     monkeypatch.setenv('DMB_AGENT_GRAPH_AUTH_ENVIRONMENT','local')
     token='synthetic-native-assertions-test-token-1234567890'
@@ -176,11 +192,11 @@ def test_fresh_ordinary_plan_native_question_delivers_reloads_and_opens_exact_so
         async def handle_async_request(self, req):
             body=json.loads(req.content)
             candidates=body.get('state',{}).get('candidates',[])
-            native={i for i,c in enumerate(candidates) if c['kind'].startswith('Reviewed native Graph')}
+            native={i for i,c in enumerate(candidates) if c['kind'].startswith('Reviewed native Graph') or mixed and c['kind']=='public_rules_lookup'}
             assert BODY not in req.content.decode()
             answers={}
             for name,entry in body['questions'].items():
-                choice=('discuss' if name=='requested_work' else 'finish_retrieval' if name=='operation' else
+                choice=(('write:captured' if authoring else 'discuss') if name=='requested_work' else 'finish_retrieval' if name=='operation' else
                     'include' if name.startswith('candidate_') and int(name.split('_')[-1]) in native else 'exclude')
                 answers[name]={'type':'choice','choice':choice,'confidence':1,
                     'probabilities':{key:float(key==choice) for key in entry['criteria']}}
@@ -188,7 +204,9 @@ def test_fresh_ordinary_plan_native_question_delivers_reloads_and_opens_exact_so
     class Writer(WriterWire):
         async def handle_async_request(self, req):
             frame=json.loads(json.loads(req.content)['input'][0]['content'])
-            assert frame['schema']=='dmb_plan_jev_writer_frame_v8'
+            assert frame['schema']=='dmb_surface_native_writer_evidence_v1'
+            assert frame['answer_policy'] in json.loads(req.content)['instructions']
+            assert 'dmb_surface_evidence_answer_v6' not in json.loads(req.content)['instructions']
             assert BODY not in req.content.decode() and 'span.text' not in req.content.decode()
             rows=frame['native_assertions']['assertions']
             if unavailable:
@@ -202,8 +220,19 @@ def test_fresh_ordinary_plan_native_question_delivers_reloads_and_opens_exact_so
                 segments=[{'kind':'native_assertion_claim','text':'A reports that B fled; uncertain.',
                     'assertion_handles':[row['assertion_handle']]}]
                 limitations=[]
-            self.text=json.dumps({'schema':frame['answer_policy'],'answer_segments':segments,
-                'limitations':limitations,'requested_detail_gaps':[]})
+            candidate={'schema':frame['answer_policy'],'answer_segments':segments,
+                'limitations':limitations,'requested_detail_gaps':[]}
+            if mixed:
+                candidate={'schema':'dmb_rules_mixed_answer_v1','base_output':candidate,
+                    'rules_segments':[{'kind':'rules_context','text':'No additional applicable rule is established.','category':'gap'}],
+                    'ordered_refs':[{'domain':'base','segment_index':None},{'domain':'rules','segment_index':0}]}
+            self.text='not-json' if failure=='malformed' else json.dumps(candidate)
+            if failure=='incomplete':
+                self.status='incomplete'
+            if failure=='timeout':
+                import httpx
+                self.calls.append(req)
+                raise httpx.ReadTimeout('synthetic selected writer timeout',request=req)
             return await super().handle_async_request(req)
     wire=Writer(None,'')
     class Harness(PlanJevHarness):
@@ -224,6 +253,9 @@ def test_fresh_ordinary_plan_native_question_delivers_reloads_and_opens_exact_so
     opened_with_grant=[]
     def source_after_grant(access,identity):
         current=AgentConversationService().inspect_turn(world_id=world,turn_id=wire.adapter.fence.turn.turn_id)
+        from application_state.agent_conversation.rules_authority_reads import MixedCompletedTurnV1
+        if isinstance(current,MixedCompletedTurnV1):
+            current=current.base_projection.turn
         grants=[e for e in current.graph_context_execution.events if isinstance(e,t.NativePlanAssertionReadAuthorizedV1)]
         assert grants and current.graph_context_receipt.native_query.sha256==grants[-1].query_sha256
         assert any(e.kind=='provider_outcome' and e.provider_attempt_id==grants[-1].provider_attempt_id
@@ -232,17 +264,49 @@ def test_fresh_ordinary_plan_native_question_delivers_reloads_and_opens_exact_so
         return original_open(access,identity)
     monkeypatch.setattr(native_reads,'open_admitted_native_text',source_after_grant)
     original_head=lane.repo.get_head(world)
+    if failure=='query_missing':
+        prepare_query=native_query.prepare_query
+        def missing_query(*args,**kwargs):
+            context,_=prepare_query(*args,**kwargs)
+            return context,None
+        monkeypatch.setattr(native_query,'prepare_query',missing_query)
     response=client.post('/api/live/agent/turn',json=request.model_dump(mode='json',by_alias=True))
+    if failure is not None:
+        assert response.status_code==503,response.text
+        if failure=='query_missing':
+            assert wire.adapter.fence is None and not wire.calls
+            assert AgentConversationService().get_active_conversation(world) is None
+            return
+        failed=AgentConversationService().inspect_turn(world_id=world,turn_id=wire.adapter.turn.turn_id)
+        assert failed.status=='interrupted' and failed.completion is None
+        writer=next(e for e in failed.graph_context_execution.events if type(e) is NativeWriterAuthorizedV1)
+        assert not any(type(e) is t.ProviderOutcomeEventV1 and e.provider_attempt_id==writer.provider_attempt_id
+            and e.outcome=='response_received' for e in failed.graph_context_execution.events)
+        replay=client.post('/api/live/agent/turn',json=request.model_dump(mode='json',by_alias=True))
+        assert replay.status_code in (409,503) and len(wire.calls)==1
+        assert lane.repo.get_head(world)==original_head
+        return
     assert response.status_code==200,response.text+getattr(wire,'failure','')
     assert opened_with_grant
     assert native_read_admission_probes
     data=response.json()
-    completion=data['plan_context']['completion']
-    assert completion['schema']=='dmb_surface_evidence_completion_v7'
+    context=data['rules_context']['base_context'] if mixed else data['plan_context']
+    completion=context['completion']
+    assert completion['schema']=='dmb_surface_native_completion_v1'
     assert completion['answer_context_status']==('insufficient_evidence' if unavailable else 'graph_grounded')
-    turn=AgentConversationService().inspect_turn(world_id=world,turn_id=wire.adapter.turn.turn_id)
-    assert isinstance(turn.completion,t.SurfaceEvidenceCompletionV7)
-    assert turn.graph_context_receipt.plan_context_policy.graph_source=='reviewed_native_graph'
+    retained=AgentConversationService().inspect_turn(world_id=world,turn_id=wire.adapter.turn.turn_id)
+    turn=retained.base_projection.turn if mixed else retained
+    assert type(turn.completion) is t.SurfaceNativeCompletionV1
+    assert turn.graph_context_receipt.work_context.plan_context_policy.graph_source=='reviewed_native_graph'
+    if authoring:
+        from application_state.content.service import snapshot_content
+        proposal=data['plan_proposal']
+        assert proposal['capture']==capture.model_dump(mode='json',by_alias=True)
+        assert proposal['replacement_markdown']==turn.completion.answer_segments[0].text+('\n\nNo additional applicable rule is established.' if mixed else '')
+        writer=next(e for e in turn.graph_context_execution.events if type(e) is NativeWriterAuthorizedV1)
+        assert proposal['origin']['evidence_event_ids']==[str(identity) for identity in writer.native_read_event_ids]
+        assert snapshot_content(capture.document_id).markdown==markdown
+
     grants=[e for e in turn.graph_context_execution.events if isinstance(e,t.NativePlanAssertionReadAuthorizedV1)]
     observations=[e for e in turn.graph_context_execution.events if isinstance(e,t.NativePlanAssertionReadObservedV1)]
     assert len(grants)==len(observations)==1 and grants[0].sequence<observations[0].sequence
@@ -263,15 +327,22 @@ def test_fresh_ordinary_plan_native_question_delivers_reloads_and_opens_exact_so
         assert denied.status_code==422
     replay=client.post('/api/live/agent/turn',json=request.model_dump(mode='json',by_alias=True))
     assert replay.status_code==200,replay.text
-    assert replay.json()['plan_context']['completion']==completion and len(wire.calls)==1
+    if authoring:
+        assert replay.json()['plan_proposal']==data['plan_proposal']
+    assert (replay.json()['rules_context']['base_context'] if mixed else replay.json()['plan_context'])['completion']==completion and len(wire.calls)==1
     assert lane.repo.get_head(world)==original_head
     if not unavailable:
-        from application_state.agent_conversation.native_plan_statements import validate_execution
-        from application_state.agent_conversation.native_plan_assertions import validate_citations
+        from application_state.agent_conversation.native_reads import validate_execution_binding as validate_execution
+        from application_state.agent_conversation.native_plan_assertions import validate_citation_records
+        def validate_citations(completion,receipt,execution,authorization):
+            reads={(e.event_id,r.assertion.assertion_id):(e,r) for e in execution.events
+                if type(e) is t.NativePlanAssertionReadObservedV1 and e.event_id in authorization.native_read_event_ids
+                for r in e.reads}
+            return validate_citation_records(completion,receipt,authorization,reads)
         execution=turn.graph_context_execution
-        authorization=next(e for e in execution.events if isinstance(e,t.PlanNativeWriterAuthorizedV2))
+        authorization=next(e for e in execution.events if isinstance(e,NativeWriterAuthorizedV1))
         unsettled=execution.model_copy(update={'events':[e for e in execution.events if e not in observations]})
-        with pytest.raises(ValueError,match='every selected read grant'):
+        with pytest.raises(ValueError,match='contiguous sequence'):
             validate_execution(turn.graph_context_receipt,unsettled)
         foreign=grants[0].model_copy(update={'provider_attempt_id':uuid4()})
         # inspected records are equal but not necessarily the same Python identity
@@ -293,10 +364,19 @@ def test_fresh_ordinary_plan_native_question_delivers_reloads_and_opens_exact_so
         dsn=os.environ['DUNGEONBUDDY_APPLICATION_STATE_DATABASE_URL']
         bad_execution=execution.model_dump(mode='json',by_alias=True)
         bad_execution['events'][0]['kind']='unregistered_assertion_reader'
+        from application_state.errors import ApplicationStateIntegrityError
         with psycopg.connect(dsn) as conn:
-            with pytest.raises(psycopg.errors.CheckViolation):
+            try:
+                # SQL owns storage shape; the typed APP reader owns event meaning.
                 conn.execute('UPDATE agent.turn SET graph_context_execution=%s WHERE turn_id=%s',(Jsonb(bad_execution),turn.turn_id))
-            conn.rollback()
+                conn.commit()
+                with pytest.raises(ApplicationStateIntegrityError):
+                    AgentConversationService().inspect_turn(world_id=world,turn_id=turn.turn_id)
+            finally:
+                conn.execute('UPDATE agent.turn SET graph_context_execution=%s WHERE turn_id=%s',
+                    (Jsonb(execution.model_dump(mode='json',by_alias=True)),turn.turn_id))
+                conn.commit()
+        assert AgentConversationService().inspect_turn(world_id=world,turn_id=turn.turn_id)==retained
         from application_state import cli
         from application_state.errors import ApplicationStateMigrationError
         with monkeypatch.context() as old_reader:
@@ -306,6 +386,22 @@ def test_fresh_ordinary_plan_native_question_delivers_reloads_and_opens_exact_so
     # Source choice is idempotency-bound, not a mutable retry preference.
     changed=request.model_dump(mode='json',by_alias=True)|{'plan_context_policy':{'policy':'auto_plan_world'}}
     assert client.post('/api/live/agent/turn',json=changed).status_code==409
+
+
+@pytest.mark.parametrize('qualified,unavailable,advancement,failure,mixed', [
+    (False,False,None,None,False),(True,False,None,None,False),(False,True,None,None,False),
+    (False,False,'original',None,False),(False,False,'extension',None,False),
+    (False,False,None,'malformed',False),(False,False,None,'incomplete',False),
+    (False,False,None,'timeout',False),(False,False,None,None,True),
+    (False,False,None,'query_missing',False)])
+def test_fresh_ordinary_plan_native_question_delivers_reloads_and_opens_exact_source(
+        lane,tmp_path,monkeypatch,qualified,unavailable,advancement,failure,mixed,native_read_admission_probes):
+    _ordinary_native_case(lane,tmp_path,monkeypatch,qualified,unavailable,advancement,failure,mixed,native_read_admission_probes)
+
+
+@pytest.mark.parametrize('mixed',[False,True])
+def test_current_plan_authoring_keeps_actual_native_source_and_proposal_origin(lane,tmp_path,monkeypatch,mixed,native_read_admission_probes):
+    _ordinary_native_case(lane,tmp_path,monkeypatch,False,False,None,None,mixed,native_read_admission_probes,authoring=True)
 
 
 @pytest.mark.parametrize('shape',['relationship','other-schema-json'])

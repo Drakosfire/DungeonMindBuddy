@@ -194,7 +194,14 @@ class MixedTurnResultV1(ClosedRulesModel):
     def exact_partitions(self):
         base = self.base_result
         scope = self.scope
-        if (self.composition.base_disposition == "approved") != (base is not None):
+        from .native_completion import SurfaceNativeCompletionV1, require_object_only_completion
+        object_only=(base is not None and type(base.completion) is SurfaceNativeCompletionV1
+            and not base.completion.answer_segments and self.schema_=='dmb_native_rules_mixed_turn_result_v1')
+        if object_only:
+            require_object_only_completion(base.completion)
+            if self.composition.base_disposition!='unclaimed':
+                raise ValueError('Object-only native review cannot claim approved answer text')
+        if not object_only and (self.composition.base_disposition == "approved") != (base is not None):
             raise ValueError(
                 "Mixed base result differs from its composition disposition"
             )

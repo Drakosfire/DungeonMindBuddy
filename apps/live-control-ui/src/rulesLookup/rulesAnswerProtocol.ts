@@ -34,19 +34,23 @@ export function isRulesAnswerContext(value: unknown, text: unknown, worldId: str
     || (!approved && (b.base_text_sha256 !== null || b.graph_used))) return false;
   if (b.base_disposition === 'unclaimed') {
     const c = value.unclaimed_context;
-    if (!exact(c, ['schema', 'receipt', 'execution', 'delivery_replay']) || c.schema !== 'dmb_agent_rules_unclaimed_context_v1'
+    if (!exact(c, ['schema', 'receipt', 'execution', 'delivery_replay',...(rec(c)&&Object.hasOwn(c,'completion')?['completion']:[])]) || c.schema !== 'dmb_agent_rules_unclaimed_context_v1'
       || typeof c.delivery_replay !== 'boolean' || !rec(c.receipt)
       || !exact(c.execution, ['schema', 'claimability', 'authorization_state', 'automatic_redispatch'])
       || c.execution.schema !== 'dmb_agent_plan_world_graph_execution_projection_v1'
       || c.execution.claimability !== 'completed' || c.execution.authorization_state !== 'response_received'
       || c.execution.automatic_redispatch !== false || !validateUnclaimed(c)) return false;
+    if(c.completion!==undefined&&c.completion!==null&&(!rec(c.completion)
+      ||c.completion.schema!=='dmb_surface_native_completion_v1'||c.completion.surface_id!=='build'
+      ||!Array.isArray(c.completion.answer_segments)||c.completion.answer_segments.length!==0
+      ||c.completion.answer_context_status!=='discussion'||!rec(c.completion.collaboration)))return false;
   } else if (value.unclaimed_context !== null) return false;
   let baseSegments: string[] = [];
   if (approved) {
     const base = value.base_context;
     if (!validateBase(base) || !rec(base) || !rec(base.completion) || !Array.isArray(base.completion.answer_segments)
       || typeof base.completion.answer_basis !== 'string'
-      || b.graph_used !== base.completion.answer_segments.some(s => rec(s) && s.kind === 'graph_claim')) return false;
+      || b.graph_used !== base.completion.answer_segments.some(s => rec(s) && (s.kind === 'graph_claim'||s.kind==='native_assertion_claim'))) return false;
     if (!base.completion.answer_segments.every(s => rec(s) && typeof s.text === 'string')) return false;
     baseSegments = base.completion.answer_segments.map(s => (s as {text: string}).text);
   }

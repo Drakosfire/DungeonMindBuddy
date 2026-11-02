@@ -324,9 +324,12 @@ def test_draft_only_answer_is_durable_without_saved_or_world_citations(draft_bui
     assert get_workspace_document_snapshot(tmp_path,source.record.document_id).markdown==source.markdown
     from alembic import command
     from application_state.cli import alembic_config
-    with pytest.raises(RuntimeError, match="Layout quote witnesses require recovery forward"):
+    retained_before=[row.model_dump_json(by_alias=True) for row in retained]
+    with pytest.raises(RuntimeError, match="Retained native assertion records require recovery forward"):
         command.downgrade(alembic_config(), "20261023_0060")
-    assert any(row.completion==completion for row in AgentConversationService().list_turns("elderwyld",cap.conversation_id))
+    assert [row.model_dump_json(by_alias=True) for row in AgentConversationService().list_turns(
+        "elderwyld",cap.conversation_id)]==retained_before
+    assert any(row.completion==completion for row in retained)
 
 
 def test_draft_answer_does_not_force_an_evidence_gap_into_a_creative_proposal():
@@ -374,9 +377,11 @@ def test_long_saved_line_does_not_block_current_draft_or_exact_saved_comparison(
     monkeypatch.setattr(dispatch,"prepared_driver_view",diagnostic_view)
     source,request,bootstrap=draft_build_case
     text="Frank and Sara operate the Rocky Talkie. "+"The marsh is quiet. "*repetitions+"\n"
-    (tmp_path/source.record.target_relpath).write_text(text)
+    from tests.page_fixtures import save_page
+    save_page(tmp_path,source.record.document_id,text)
     source=get_workspace_document_snapshot(tmp_path,source.record.document_id)
-    request=request.model_copy(update={"primary_work":request.primary_work.model_copy(update={"expected_content_sha256":source.content_sha256})})
+    request=request.model_copy(update={"primary_work":request.primary_work.model_copy(update={
+        "expected_revision":source.loaded_revision,"expected_content_sha256":source.content_sha256})})
     from tests.application_state.test_agent_conversation_postgres import _new
     service=AgentConversationService();conversation=_new(service,"elderwyld")
     draft_text="Frank and Sara operate the current radio." if short_draft else text

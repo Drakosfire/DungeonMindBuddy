@@ -78,6 +78,27 @@ def _graph_groups(frame, passages, *, target_scoped):
             for (kind, handles), targets in sorted(groups.items())]
 
 
+def _native_variants(policy, prose, *, statement_rows=(), body_rows=(), assertion_rows=()):
+    """One finite native selector grammar, independent of surface work syntax."""
+    variants = []
+    if policy in {STATEMENT_POLICY, ASSERTION_POLICY}:
+        handles = _values(list(statement_rows), "statement_handle")
+        if handles:
+            variants.append(_object({"kind": _literal("native_statement_report"), "text": prose,
+                "statement_handles": _array(_enum(handles), nonempty=True)}))
+    if policy in {BODY_POLICY, STATEMENT_POLICY, ASSERTION_POLICY}:
+        body_handles = _values(list(body_rows), 'excerpt_handle')
+        if body_handles:
+            variants.append(_object({'kind': _literal('native_body_claim'), 'text': prose,
+                'excerpt_handles': _array(_enum(body_handles), nonempty=True)}))
+    if policy == ASSERTION_POLICY:
+        handles = _values(list(assertion_rows), 'assertion_handle')
+        if handles:
+            variants.append(_object({'kind': _literal('native_assertion_claim'), 'text': prose,
+                'assertion_handles': _array(_enum(handles), nonempty=True)}))
+    return variants
+
+
 def _frozen_schema(frame, rules, policy, *, target_scoped=False):
     """One exact projection also verifies retained producer formats during reads."""
     if frame.get("answer_policy") != policy or not isinstance(
@@ -95,13 +116,6 @@ def _frozen_schema(frame, rules, policy, *, target_scoped=False):
         "passage_handle",
     )
     native = _values(frame["native_source_sections"]["sections"], "section_handle")
-    blocks = list(frame["committed_plan_blocks"])
-    for session in frame["session_evidence"]:
-        for source in session["sources"]:
-            blocks.extend(source["text_blocks"])
-    selections = _values(
-        [row for row in blocks if row.get("selection_id") is not None], "selection_id"
-    )
     variants = []
     for kind, targets, eligible in _graph_groups(frame, passages, target_scoped=target_scoped):
         if targets:
@@ -142,21 +156,24 @@ def _frozen_schema(frame, rules, policy, *, target_scoped=False):
                 }
             )
         )
-    if policy in {STATEMENT_POLICY, ASSERTION_POLICY}:
-        handles = _values(frame["native_statements"]["statements"], "statement_handle")
-        if handles:
-            variants.append(_object({"kind": _literal("native_statement_report"), "text": prose,
-                "statement_handles": _array(_enum(handles), nonempty=True)}))
-    if policy in {BODY_POLICY, STATEMENT_POLICY, ASSERTION_POLICY}:
-        body_handles = _values(frame['native_body_evidence']['excerpts'], 'excerpt_handle')
-        if body_handles:
-            variants.append(_object({'kind': _literal('native_body_claim'), 'text': prose,
-                'excerpt_handles': _array(_enum(body_handles), nonempty=True)}))
-    if policy == ASSERTION_POLICY:
-        handles = _values(frame['native_assertions']['assertions'], 'assertion_handle')
-        if handles:
-            variants.append(_object({'kind': _literal('native_assertion_claim'), 'text': prose,
-                'assertion_handles': _array(_enum(handles), nonempty=True)}))
+    variants.extend(_native_variants(policy, prose,
+        statement_rows=frame["native_statements"]["statements"] if policy in {STATEMENT_POLICY, ASSERTION_POLICY} else (),
+        body_rows=frame['native_body_evidence']['excerpts'] if policy in {BODY_POLICY, STATEMENT_POLICY, ASSERTION_POLICY} else (),
+        assertion_rows=frame['native_assertions']['assertions'] if policy == ASSERTION_POLICY else ()))
+    variants.extend(_authored_variants(frame,policy,prose))
+    return _answer_schema(variants, policy, rules, prose)
+
+
+
+def _authored_variants(frame, policy, prose):
+    blocks = list(frame["committed_plan_blocks"])
+    for session in frame["session_evidence"]:
+        for source in session["sources"]:
+            blocks.extend(source["text_blocks"])
+    selections = _values(
+        [row for row in blocks if row.get("selection_id") is not None], "selection_id"
+    )
+    variants=[]
     if selections:
         variants.append(
             _object(
@@ -172,6 +189,9 @@ def _frozen_schema(frame, rules, policy, *, target_scoped=False):
     if session_selections and policy in {PLAN_POLICY, BODY_POLICY, STATEMENT_POLICY, ASSERTION_POLICY}:
         variants.append(_object({"kind": _literal("session_summary"), "text": prose,
                                  "selection_ids": _array(_enum(session_selections), nonempty=True)}))
+    return variants
+
+def _answer_schema(variants, policy, rules, prose):
     variants.append(
         _object(
             {
@@ -230,6 +250,38 @@ def _frozen_schema(frame, rules, policy, *, target_scoped=False):
     )
     mixed["$defs"] = {"Base": base}
     return mixed
+
+
+def native_output_format(frame, rules, work_frame):
+    from .native_writer import SCHEMA
+    if (frame.get('schema') != SCHEMA or frame.get('answer_policy') != ASSERTION_POLICY
+            or not isinstance(rules, PlanRulesEvidenceFrameV1)):
+        raise ValueError('Shared native output requires its actual evidence and Rules frames')
+    prose = {'type': 'string', 'minLength': 1}
+    variants = _native_variants(ASSERTION_POLICY, prose,
+        statement_rows=frame['native_statements']['statements'],
+        body_rows=frame['native_body_evidence']['excerpts'],
+        assertion_rows=frame['native_assertions']['assertions'] if frame['native_assertions'] is not None else ())
+    from .plan_jev_graph_packet import NATIVE_WORK_SCHEMA as PLAN_WORK_SCHEMA
+    from .build_primary_context import NATIVE_WORK_SCHEMA as BUILD_WORK_SCHEMA
+    if work_frame.get('schema') == PLAN_WORK_SCHEMA:
+        variants.extend(_authored_variants(work_frame,ASSERTION_POLICY,prose))
+    elif work_frame.get('schema') == BUILD_WORK_SCHEMA:
+        from .build_draft_answer import native_variants
+        variants.extend(native_variants(work_frame,prose))
+    else:
+        raise ValueError('Shared output requires its actual supported work frame')
+    schema=_answer_schema(variants,ASSERTION_POLICY,rules,prose)
+    if work_frame.get('schema')==BUILD_WORK_SCHEMA:
+        from .build_intentional_response import native_review_enabled, native_review_schema
+        if native_review_enabled(work_frame):
+            review,definitions=native_review_schema(work_frame)
+            base=schema['$defs']['Base'] if rules.lookups else schema
+            base['properties']['collaboration']=review
+            base['required'].append('collaboration')
+            if definitions:
+                schema.setdefault('$defs',{}).update(definitions)
+    return {'type': 'json_schema', 'name': 'surface_native_evidence_selectors_v1', 'strict': True,'schema':schema}
 
 
 def output_format(frame, rules):

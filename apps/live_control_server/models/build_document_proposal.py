@@ -3,22 +3,9 @@ from hashlib import sha256
 
 from pydantic import model_validator
 
-from application_state.build_proposal.types import BuildProposalReservation
-
-
-class BuildWriteCapability(BuildProposalReservation):
-    """Browser-captured target; no model chooses insertion authority."""
-    instruction: str = ""
-    draft_markdown: str
-
-    @model_validator(mode="after")
-    def validate_capability(self):
-        encoded = self.draft_markdown.encode("utf-8", errors="strict")
-        if self.instruction or self.origin is not None:
-            raise ValueError("The model instruction and tool origin are parent-owned")
-        if sha256(encoded).hexdigest() != self.basis.draft_sha256:
-            raise ValueError("Captured draft differs from its digest")
-        return self
+from application_state.build_proposal.types import (
+    BuildProposalReservation, BuildWriteCapability as BuildWriteCapability,
+)
 
 
 class BuildDocumentProposalRequest(BuildProposalReservation):

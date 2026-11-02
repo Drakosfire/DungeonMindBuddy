@@ -14,6 +14,8 @@ import re
 from typing import Annotated, Literal
 from uuid import UUID
 
+from application_state.agent_conversation.native_completion import SurfaceNativeCompletionV1
+
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 from application_state.agent_conversation.context_trace import TurnContextTraceV1, TraceHistoricalSourceReferenceV1, TraceSourcePassage
 from graph_memory.ingestion.selection_context import AgentKnowledgeSelection
@@ -25,6 +27,7 @@ from application_state.agent_conversation.rules_authority_types import RulesAcce
 from application_state.agent_conversation.types import (
     RetryTurnReference, PlayContentBasis, PlayRunTurnContextReceiptV1,
     GraphContextReceipt,
+    SurfaceNativeContextReceiptV1,  # noqa: F401 - resolves the shared receipt alias in this model namespace
     BuildGraphCompletionV1, BuildIntentionalResponseCompletionV1, BuildIntentionalResponseCompletionV2, BuildRelationshipReviewCompletionV2, BuildIntentionalResponseCompletionV3, BuildRelationshipReviewCompletionV3,
     BuildRelationshipReviewCompletionV1, BuildNamedGraphCompletionV3, BuildDraftContextCompletionV1, BuildRelatedPageCompletionV1, BuildCollaborationCompletionV1, BuildConnectedPageReviewCompletionV1,
     BuildGraphCompletionV2,
@@ -767,6 +770,16 @@ class AgentPlanNativeContextResponseV1(AgentPlanSourceContextResponseV1):
     completion: SurfaceEvidenceCompletionV7 | SurfaceEvidenceCompletionV6 | None
 
 
+class AgentSurfaceNativeContextResponseV1(BaseModel):
+    model_config = ConfigDict(extra='forbid')
+    schema_: Literal['dmb_agent_surface_native_context_response_v1'] = Field(
+        default='dmb_agent_surface_native_context_response_v1',alias='schema')
+    receipt: SurfaceNativeContextReceiptV1
+    completion: SurfaceNativeCompletionV1 | None
+    execution: AgentPlanWorldGraphExecutionProjectionV1 | None
+    delivery_replay: bool
+
+
 class AgentPlayWorldGraphContextResponseV1(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
@@ -783,7 +796,7 @@ class AgentTurnResponseV2(AgentTurnResponse):
     schema_: Literal["dmb_agent_turn_response_v2"] = Field(
         default="dmb_agent_turn_response_v2", alias="schema"
     )
-    plan_context: AgentPlanNativeContextResponseV1 | AgentPlanSourceContextResponseV1 | AgentPlanWorldGraphContextResponseV2
+    plan_context: AgentSurfaceNativeContextResponseV1 | AgentPlanNativeContextResponseV1 | AgentPlanSourceContextResponseV1 | AgentPlanWorldGraphContextResponseV2
 
 
 class AgentPlayGraphTurnResponseV1(AgentTurnResponse):
@@ -892,6 +905,7 @@ class AgentRulesUnclaimedContextV1(BaseModel):
     model_config = ConfigDict(extra="forbid")
     schema_: Literal["dmb_agent_rules_unclaimed_context_v1"] = Field(default="dmb_agent_rules_unclaimed_context_v1", alias="schema")
     receipt: GraphContextReceipt
+    completion: SurfaceNativeCompletionV1 | None = None
     execution: AgentPlanWorldGraphExecutionProjectionV1
     delivery_replay: bool
 
@@ -900,6 +914,13 @@ class AgentRulesUnclaimedContextV1(BaseModel):
         if (self.execution.claimability != "completed"
                 or self.execution.authorization_state != "response_received"):
             raise ValueError("Unclaimed Rules context requires its acknowledged completed execution")
+        if self.completion is not None:
+            from application_state.agent_conversation.native_completion import require_object_only_completion
+            require_object_only_completion(self.completion)
+            if (type(self.receipt) is not SurfaceNativeContextReceiptV1
+                    or self.completion.context_receipt_sha256 != self.receipt.context_receipt_sha256
+                    or self.completion.surface_id != self.receipt.work_context.surface_id):
+                raise ValueError('Unclaimed native object differs from its owning context')
         return self
 
 
@@ -910,7 +931,7 @@ class AgentRulesAnswerContextV1(BaseModel):
         default="dmb_agent_rules_answer_context_v1", alias="schema")
     accepted_binding: RulesAcceptedBindingV1
     accepted_binding_sha256: str = Field(pattern=r"^[a-f0-9]{64}$")
-    base_context: AgentBuildGraphContextResponseV1 | AgentPlanNativeContextResponseV1 | AgentPlanSourceContextResponseV1 | AgentPlanWorldGraphContextResponseV2 | AgentPlayWorldGraphContextResponseV1 | None
+    base_context: AgentSurfaceNativeContextResponseV1 | AgentBuildGraphContextResponseV1 | AgentPlanNativeContextResponseV1 | AgentPlanSourceContextResponseV1 | AgentPlanWorldGraphContextResponseV2 | AgentPlayWorldGraphContextResponseV1 | None
     unclaimed_context: AgentRulesUnclaimedContextV1 | None
 
     @model_validator(mode="after")
@@ -922,14 +943,18 @@ class AgentRulesAnswerContextV1(BaseModel):
             raise ValueError("Only an unclaimed base has execution-only context")
         if self.unclaimed_context is not None:
             receipt = self.unclaimed_context.receipt
-            world_id = receipt.plan_basis.world_id if isinstance(receipt, PlanSourceContextReceiptV1) else receipt.graph_authority.managed_world_id
+            if type(receipt) is SurfaceNativeContextReceiptV1:
+                from application_state.agent_conversation.native_context import work_world_id
+                world_id=work_world_id(receipt.work_context)
+            else:
+                world_id = receipt.plan_basis.world_id if isinstance(receipt, PlanSourceContextReceiptV1) else receipt.graph_authority.managed_world_id
             if world_id != self.accepted_binding.world_id:
                 raise ValueError("Unclaimed Rules context belongs to another World")
         if approved != (self.base_context is not None):
             raise ValueError("Only an independently approved base has answer context")
         if self.base_context is not None:
             completion = self.base_context.completion
-            if completion is None or self.accepted_binding.graph_used != any(segment.kind == "graph_claim" for segment in completion.answer_segments):
+            if completion is None or self.accepted_binding.graph_used != any(segment.kind in {"graph_claim","native_assertion_claim"} for segment in completion.answer_segments):
                 raise ValueError("Rules context cannot relabel base Graph grounding")
         return self
 
@@ -1002,7 +1027,7 @@ class AgentConversationHistoryTurn(BaseModel):
 
 
 class AgentConversationHistoryTurnV2(AgentConversationHistoryTurn):
-    plan_context: AgentPlanNativeContextResponseV1 | AgentPlanSourceContextResponseV1 | AgentPlanWorldGraphContextResponseV2
+    plan_context: AgentSurfaceNativeContextResponseV1 | AgentPlanNativeContextResponseV1 | AgentPlanSourceContextResponseV1 | AgentPlanWorldGraphContextResponseV2
 
 
 class AgentConversationHistoryTurnV3(AgentConversationHistoryTurn):
@@ -1027,7 +1052,7 @@ class AgentConversationHistoryNativeStatementTurnV1(AgentConversationHistoryTurn
 
 
 class AgentConversationHistoryPlanTurnV3(AgentConversationHistoryTurnV3):
-    plan_context: AgentPlanNativeContextResponseV1 | AgentPlanSourceContextResponseV1 | AgentPlanWorldGraphContextResponseV2
+    plan_context: AgentSurfaceNativeContextResponseV1 | AgentPlanNativeContextResponseV1 | AgentPlanSourceContextResponseV1 | AgentPlanWorldGraphContextResponseV2
 
 
 class AgentPlayRulesTurnResponseV1(AgentRulesTurnResponseV1):

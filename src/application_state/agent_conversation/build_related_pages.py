@@ -92,6 +92,11 @@ def question_text(page):
 
 
 def catalog(policy):
+    if getattr(policy, 'policy_version', None) == 'surface_native_execution_v1':
+        from .native_execution import SurfaceNativeExecutionPolicyV1, NativeBuildActionV1
+        if type(policy) is SurfaceNativeExecutionPolicyV1 and type(policy.action) is NativeBuildActionV1:
+            return policy.action.related_page_catalog
+        return None
     if getattr(policy, "related_page_context_policy", None) != POLICY:
         return None
     return policy.related_page_catalog
@@ -191,14 +196,14 @@ def validate_events(execution):
     read_ids = set()
     for event in events:
         if any(
-            isinstance(e, BuildWriterEvidenceSelectionV1)
+            isinstance(e, (BuildWriterEvidenceSelectionV1, RelatedPageInclusion))
             or isinstance(e, ProviderAttemptAuthorizedEventV3)
             and (e.provider, e.model, e.api_mode)
             == execution.policy.provider_roles.writer.identity()
             for e in execution.events[: event.sequence]
         ):
             raise ValueError(
-                "Related authoring reads cannot change after writer selection"
+                "Related authoring reads cannot change after writer selection or inclusion"
             )
         if isinstance(event, RelatedPagesSelection):
             auths = [
@@ -271,10 +276,20 @@ def should_read_page(page, question, answer):
 
 
 def validate_selection(turn, event, proof, trace):
+    return validate_selection_records(turn.graph_context_execution, event, proof, trace,
+        world_id=turn.world_id, current_document_id=turn.provenance.primary_work.object_id)
+
+
+def validate_selection_records(execution, event, proof, trace, *, world_id, current_document_id):
+    """One exact controller vote proof over actual execution and work identity.
+
+    The locked Turn owner supplies protected trace and work identity at admission;
+    this pure reconstruction does not grant a page read or dispatch by itself.
+    """
     from generationengine.types import DecisionResult
     from .source_writer_output import strict_json
 
-    offered = catalog(turn.graph_context_execution.policy)
+    offered = catalog(execution.policy)
     if (
         offered is None
         or not isinstance(proof, dict)
@@ -294,8 +309,8 @@ def validate_selection(turn, event, proof, trace):
         or state.get("interaction", {}).get("related_page_catalog")
         != [p.model_dump(mode="json") for p in offered]
         or any(
-            p.world_id != turn.world_id
-            or str(p.document_id) == turn.provenance.primary_work.object_id
+            p.world_id != world_id
+            or str(p.document_id) == str(current_document_id)
             for p in offered
         )
     ):
@@ -333,6 +348,15 @@ def validate_packet(packet, execution):
         raise ValueError("Related authored pages differ from exact admitted reads")
 
 
+def project_claim(segment, reads):
+    """Derive the existing page pin from one actual read, never model metadata."""
+    selected = RelatedPageDraftClaim.model_validate(segment)
+    rows = [read for read in reads if read.read_id == selected.read_id]
+    if len(rows) != 1:
+        raise ValueError("Related page claim selects an unadmitted read")
+    return RelatedPageClaim(**selected.model_dump(), page=rows[0].page)
+
+
 def validate_claims(completion, execution):
     rows = {e.read_id: e for e in records(execution)}
     for claim in completion.answer_segments:
@@ -351,11 +375,19 @@ def validate_inclusion(event, execution, request_json):
     ):
         raise ValueError("Related pages require their exact producing envelope")
     request = strict_json(request_json)
-    packet = (
-        strict_json(request["input"])
-        if isinstance(request.get("input"), str)
-        else request.get("input")
-    )
+    from .build_draft_context import native_build_action
+    if native_build_action(execution) is not None:
+        from .build_primary_context import NATIVE_WORK_SCHEMA
+        from .source_writer_output import responses_text_frame
+        if request.get('model') != execution.policy.provider_roles.writer.model:
+            raise ValueError('Related pages differ from the frozen writer model')
+        packet = responses_text_frame(request_json, schemas={NATIVE_WORK_SCHEMA}, label='Related authored pages')
+    else:
+        packet = (
+            strict_json(request["input"])
+            if isinstance(request.get("input"), str)
+            else request.get("input")
+        )
     if not isinstance(packet, dict):
         raise ValueError("Related authored writer input must be an object")
     validate_packet(packet, execution)

@@ -39,6 +39,19 @@ class SavedFact(StrictModel):
     section_read_ids: list[str] = Field(min_length=1, max_length=128)
 
 
+def project_saved_claim(segment, sections, content_sha256, *, index):
+    """Use the actual supplied Build reads; never infer or repair a selection."""
+    from . import types as t
+    selected=SavedFact.model_validate(segment)
+    chosen=selected.section_read_ids
+    if len(chosen) != len(set(chosen)) or any(rid not in sections for rid in chosen):
+        raise ValueError('Saved fact selects an unincluded section')
+    return (t.SavedSourceClaimV1(kind='saved_source_claim',text=selected.text,content_sha256=content_sha256),
+        t.BuildSectionSegmentBindingV1(segment_index=index,
+            text_sha256=hashlib.sha256(selected.text.encode()).hexdigest(),
+            section_event_ids=sorted([sections[rid].event_id for rid in chosen],key=str)))
+
+
 class Suggestion(StrictModel):
     kind: Literal["suggestion"]
     text: str = Field(min_length=1, max_length=3988)
@@ -149,6 +162,32 @@ def strict_json(raw: str):
             ValueError("Nonfinite source writer JSON")
         ),
     )
+
+
+def responses_text_frame(raw, *, schemas, label):
+    body = strict_json(raw)
+    if (not isinstance(body, dict) or "messages" in body or not isinstance(body.get("input"), list)
+            or body.get("tools", []) != [] or body.get("tool_choice") not in (None, "none")):
+        raise ValueError(f"{label} requires a tool-free Responses request")
+    frames = []
+    for item in body["input"]:
+        if (not isinstance(item, dict) or set(item) - {"type", "role", "content"}
+                or item.get("type") not in (None, "message") or item.get("role") not in {"system", "developer", "user", "assistant"}):
+            raise ValueError(f"{label} request contains an unexpected transcript item")
+        content = item.get("content")
+        if not isinstance(content, str):
+            raise ValueError(f"{label} frame requires exact text messages")
+        if item["role"] != "user":
+            continue
+        try:
+            value = strict_json(content)
+        except (ValueError, TypeError):
+            continue
+        if isinstance(value, dict) and value.get("schema") in schemas:
+            frames.append(value)
+    if len(frames) != 1:
+        raise ValueError(f"{label} requires one exact evidence frame")
+    return frames[0]
 
 
 def normalize(raw: str, packet: dict) -> dict:
@@ -474,6 +513,39 @@ def _validate_writer_format(fmt: dict, packet: dict) -> None:
         raise ValueError("Source writer request lacks its frozen output schema")
 
 
+def require_captured_answer(trace, *, world_id, conversation_id, turn_id, attempt,
+                            provider_attempt_id, context_receipt_sha256, raw_output_json):
+    """Match exact selected answer bytes in the owning protected current-attempt trace."""
+    draft_id = f"unvalidated-provider-answer:{provider_attempt_id}:{context_receipt_sha256}"
+    if (
+        type(attempt) is not int or attempt < 1 or type(trace.get("attempt")) is not int
+        or trace.get("world_id") != world_id
+        or trace.get("turn_id") != str(turn_id)
+        or trace.get("conversation_id") != str(conversation_id)
+        or trace.get("attempt") != attempt
+        or trace.get("capture_status") not in {"recording", "complete"}
+    ):
+        raise ValueError(
+            "Source writer capture is missing, incomplete or belongs to another attempt"
+        )
+    drafts = [
+        m
+        for o in trace.get("observations", [])
+        if o.get("kind") == "context_snapshot" and o.get("stage") == "after"
+        for m in o.get("materials", [])
+        if m.get("item_id") == draft_id
+    ]
+    if (
+        len(drafts) != 1
+        or drafts[0].get("text") != raw_output_json
+        or drafts[0].get("state") != "model_context"
+        or drafts[0].get("role") != "assistant"
+    ):
+        raise ValueError(
+            "Source writer output differs from exact captured producer bytes"
+        )
+
+
 def validate_completion_proof(result, turn, trace: dict) -> None:
     """Reconstruct the entire V2 completion from the actual captured producer.
 
@@ -502,34 +574,10 @@ def validate_completion_proof(result, turn, trace: dict) -> None:
         result.writer_request_json.encode()
     ).hexdigest() != auth.envelope_sha256:
         raise ValueError("Source writer request differs from producing authorization")
-    receipt_sha = turn.graph_context_receipt.context_receipt_sha256
-    draft_id = f"unvalidated-provider-answer:{auth.provider_attempt_id}:{receipt_sha}"
-    if (
-        trace.get("world_id") != turn.world_id
-        or trace.get("turn_id") != str(turn.turn_id)
-        or trace.get("conversation_id") != str(turn.conversation_id)
-        or trace.get("attempt") != turn.attempt
-        or trace.get("capture_status") not in {"recording", "complete"}
-    ):
-        raise ValueError(
-            "Source writer capture is missing, incomplete or belongs to another attempt"
-        )
-    drafts = [
-        m
-        for o in trace.get("observations", [])
-        if o.get("kind") == "context_snapshot" and o.get("stage") == "after"
-        for m in o.get("materials", [])
-        if m.get("item_id") == draft_id
-    ]
-    if (
-        len(drafts) != 1
-        or drafts[0].get("text") != result.raw_provider_output_json
-        or drafts[0].get("state") != "model_context"
-        or drafts[0].get("role") != "assistant"
-    ):
-        raise ValueError(
-            "Source writer output differs from exact captured producer bytes"
-        )
+    require_captured_answer(trace, world_id=turn.world_id, conversation_id=turn.conversation_id,
+        turn_id=turn.turn_id, attempt=turn.attempt, provider_attempt_id=auth.provider_attempt_id,
+        context_receipt_sha256=turn.graph_context_receipt.context_receipt_sha256,
+        raw_output_json=result.raw_provider_output_json)
     request = strict_json(result.writer_request_json)
     fmt = request.get("text", {}).get("format", {})
     if request.get("model") != auth.model or request.get("tools") != []:
@@ -702,27 +750,13 @@ def reconstruct(raw_output: str, packet: dict, turn, auth):
                         )
                     )
         elif segment["kind"] == "saved_source_claim":
-            chosen = segment.pop("section_read_ids")
-            if any(rid not in sections for rid in chosen):
-                raise ValueError("Saved fact selects an unincluded section")
-            bindings.append(
-                t.BuildSectionSegmentBindingV1(
-                    segment_index=index,
-                    text_sha256=hashlib.sha256(segment["text"].encode()).hexdigest(),
-                    section_event_ids=sorted(
-                        [sections[rid].event_id for rid in chosen], key=str
-                    ),
-                )
-            )
-            segment["content_sha256"] = (
-                turn.graph_context_receipt.source_basis.content_sha256
-            )
+            projected,binding=project_saved_claim(segment,sections,
+                turn.graph_context_receipt.source_basis.content_sha256,index=index)
+            segment=projected.model_dump(mode='json')
+            bindings.append(binding)
         if segment["kind"] == "related_page_claim":
-            from .build_related_pages import records
-            row=next((e for e in records(execution) if str(e.read_id)==str(segment["read_id"])),None)
-            if row is None:
-                raise ValueError("Related page claim selects an unadmitted read")
-            segment["page"]=row.page.model_dump(mode="json")
+            from .build_related_pages import records, project_claim
+            segment=project_claim(segment,records(execution)).model_dump(mode='json')
         segments.append(segment)
     if enabled(execution.policy):
         basis = ('working_draft_context' if 'working_draft_context' in packet else

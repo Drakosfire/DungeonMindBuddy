@@ -26,7 +26,8 @@ def _selected_offer(turn, parent_request_json):
         raise ValueError("Plan Rules read requires its exact serialized parent request")
     from .types import PlanSourceContextReceiptV1
     from .plan_jev_decision import _source_pins
-    source_owned = isinstance(receipt, PlanSourceContextReceiptV1)
+    from .native_context import SurfaceNativeContextReceiptV1
+    source_owned = isinstance(receipt, (PlanSourceContextReceiptV1, SurfaceNativeContextReceiptV1))
     parent = (PlanSourceRetrievalDecisionInputV1 if source_owned else RetrievalDecisionInput).model_validate(strict_json(parent_request_json))
     pins_match = (all(getattr(parent, key) == value for key, value in _source_pins(receipt).items())
         if source_owned else parent.revision == receipt.graph_authority.graph_revision)

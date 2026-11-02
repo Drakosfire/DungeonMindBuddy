@@ -1173,7 +1173,39 @@ export interface AgentPlanNativeContextResponseV1 extends Omit<AgentPlanSourceCo
 export interface AgentPlanSourceContextResponseV1 extends Omit<LegacyWorldPlanAgentPlanContextV2,'schema'|'receipt'|'completion'> {
   schema:'dmb_agent_plan_source_context_response_v1';receipt:PlanSourceContextReceiptV1;completion:SurfaceEvidenceCompletionV5|null;
 }
-export type WorldPlanAgentPlanContextV2 = LegacyWorldPlanAgentPlanContextV2 | AgentPlanSourceContextResponseV1 | AgentPlanNativeContextResponseV1;
+/** Shared native wire records; Core and APP retain admission/acceptance authority. */
+export type SurfaceNativeWorkContextV1 =
+  | {surface_id:'build';source_basis:WorldBuildGraphReceiptV1['source_basis']}
+  | {surface_id:'plan';plan_basis:WorldPlanGraphContextReceiptV1['plan_basis'];plan_context_policy:WorldPlanContextPolicyV2;playable_target:WorldPlanGraphContextReceiptV1['playable_target']}
+  | {surface_id:'play';play_basis:WorldPlayRunContextReceiptV2};
+export interface SurfaceNativeContextReceiptV1 {
+  schema:'dmb_surface_native_context_receipt_v1';receipt_serializer_version:'canonical-json-utf8-v1';
+  context_receipt_sha256:string;provenance_sha256:string;work_context:SurfaceNativeWorkContextV1;
+  source_authority:PlanSourceContextReceiptV1['source_authority'];
+  native_query:NativePlanQueryV2|Extract<PlanNativeContextReceiptV1['native_query'],{schema:'dmb_native_plan_query_unavailable_v1'}>;
+  assembled_input:(Omit<PlanSourceContextReceiptV1['assembled_input'],'assembler_version'> & {assembler_version:'surface_native_initial_v1'})
+    | {assembler_version:'reviewed_author_admission_v1';submitted_intent_sha256:string;assembled_input_sha256:string};
+}
+export interface SurfaceNativeCompletionV1 {
+  schema:'dmb_surface_native_completion_v1';surface_id:'build'|'plan'|'play';context_receipt_sha256:string;
+  producing_provider_attempt_id:string;answer_basis:'mixed_evidence';
+  answer_context_status:SurfaceEvidenceCompletionV1['answer_context_status']|'discussion';
+  answer_segments:(Exclude<SurfaceEvidenceCompletionV7['answer_segments'][number],{kind:'graph_claim'|'authored_quote'}>
+    | Extract<WorldBuildRelatedPageCompletionV1['answer_segments'][number],{kind:'draft_reference_claim'|'related_page_claim'|'saved_source_claim'}>
+    | {kind:'discussion';text:string})[];
+  collaboration:ConversationCollaborationV3|ConversationConnectedPageProposal|ConversationRelationshipProposal|null;
+  saved_source_citations:{segment_index:number;text_sha256:string;section_event_ids:string[]}[];
+  native_body_citations:NativeBodyExcerptCitationV1[];native_clause_citations:NativeStatementClauseCitationV1[];
+  native_assertion_citations:NativeAssertionCitationV1[];
+}
+export interface AgentSurfaceNativeContextResponseV1 {
+  schema:'dmb_agent_surface_native_context_response_v1';receipt:SurfaceNativeContextReceiptV1;
+  completion:SurfaceNativeCompletionV1|null;execution:WorldPlanGraphExecutionProjectionV1|null;delivery_replay:boolean;
+}
+export type PlanSurfaceNativeContextResponseV1 = AgentSurfaceNativeContextResponseV1 & {
+  receipt:SurfaceNativeContextReceiptV1 & {work_context:Extract<SurfaceNativeWorkContextV1,{surface_id:'plan'}>};
+};
+export type WorldPlanAgentPlanContextV2 = LegacyWorldPlanAgentPlanContextV2 | AgentPlanSourceContextResponseV1 | AgentPlanNativeContextResponseV1 | PlanSurfaceNativeContextResponseV1;
 
 export interface WorldBuildGraphReceiptV1 extends Omit<WorldPlanGraphContextReceiptV1, "schema" | "plan_context_policy" | "plan_basis" | "playable_target"> {
   schema: "dmb_build_graph_context_receipt_v1";
@@ -1405,7 +1437,7 @@ export interface SavedBuildSectionReadV1 {
   content: string;
 }
 
-export interface WorldBuildKnowledgeContextV1 extends Omit<WorldPlanAgentPlanContextV2, "schema" | "receipt" | "completion"> {
+export interface WorldBuildKnowledgeContextV1 extends Omit<LegacyWorldPlanAgentPlanContextV2, "schema" | "receipt" | "completion"> {
   schema: "dmb_build_graph_context_response_v1";
   saved_source_name: string | null;
   saved_source_sections?: SavedBuildSectionTargetV1[];

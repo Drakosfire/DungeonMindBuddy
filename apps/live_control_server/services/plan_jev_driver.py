@@ -67,7 +67,7 @@ class PlanJevDriver:
         result = [candidate for node, candidate in self.catalog.values() if node not in self.attempted_nodes]
         from .plan_jev_acquisition import query_identity, read_subject_labels
         seen = set(self.attempted_queries)
-        for node, label in read_subject_labels(self.adapter).items():
+        for node, label in (read_subject_labels(self.adapter) if self.graph_available else {}).items():
             key = query_identity(label)
             if key not in seen:
                 result.append(RetrievalCandidate(handle=f"mentions:{node}", label=label,
@@ -111,6 +111,8 @@ class PlanJevDriver:
         return added
 
     def _read_new_sources(self, operations):
+        if not operations:
+            return
         from .world_source_acquisition import read_operation_sources
         return read_operation_sources(self.adapter, operations, self.attempted_anchors, self.gaps)
 
@@ -226,9 +228,9 @@ class PlanJevDriver:
         a = self.adapter
         if a.fence is None or not isinstance(getattr(a.fence.turn.graph_context_receipt, 'native_query', None), NativePlanQueryV2):
             return ()
-        from application_state.agent_conversation.native_plan_statements import validate_execution
+        from application_state.agent_conversation.native_reads import validate_execution_binding
         execution = a._broker_execution()
-        validate_execution(a.fence.turn.graph_context_receipt, execution)
+        validate_execution_binding(a.fence.turn.graph_context_receipt, execution)
         query = a.fence.turn.graph_context_receipt.native_query
         if a.native_query.sha256 != query.sha256:
             raise ValueError('Native assertion query differs from its frozen receipt')
@@ -246,16 +248,17 @@ class PlanJevDriver:
         """Truthful read outcomes for navigation, never an answer-sufficiency verdict."""
         from application_state.agent_conversation.native_plan_statements import (
             NativePlanQueryV1, NativePlanStatementReadAuthorizedV1,
-            NativePlanStatementReadObservedV1, validate_execution, selection_handle)
+            NativePlanStatementReadObservedV1, selection_handle)
         a = self.adapter
         # The first controller dispatch may precede the initial durable claim.
         if a.fence is None:
             return ()
         receipt = a.fence.turn.graph_context_receipt
-        if not isinstance(receipt, t.PlanNativeContextReceiptV1):
+        if not isinstance(receipt, (t.PlanNativeContextReceiptV1,t.SurfaceNativeContextReceiptV1)):
             return ()
+        from application_state.agent_conversation.native_reads import validate_execution_binding
         execution = a._broker_execution()
-        validate_execution(receipt, execution)
+        validate_execution_binding(receipt, execution)
         query = receipt.native_query
         if not isinstance(query, NativePlanQueryV1):
             return ()
@@ -308,6 +311,9 @@ class PlanJevDriver:
         if not self.finished or self.adapter.failure is not None:
             raise ValueError("Plan writer cannot use unfinished acquisition")
         a = self.adapter
+        if type(a.fence.turn.graph_context_receipt) is t.SurfaceNativeContextReceiptV1:
+            return dict(plan_markdown=a.work.plan_markdown,
+                session_evidence=(a.work.session_evidence or {}).get('sessions',[]),dialogue=self.dialogue)
         names = {}
         for event in a._broker_execution().events:
             if not isinstance(event, t.SOURCE_PASSAGE_EVENTS) or event.event_id not in a.source_payloads:

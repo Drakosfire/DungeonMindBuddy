@@ -18,28 +18,56 @@ def strict_json(raw):
 
 def _owner(turn):
     from . import types as t
+    from .native_context import SurfaceNativeContextReceiptV1
+    from .native_execution import SurfaceNativeExecutionV1, NativePlanActionV1
     if (not isinstance(turn, t.Turn) or turn.status != "running"
-            or turn.provenance.surface_id != "plan" or turn.provenance.surface_resolution != "resolved"
-            or not (
-                (isinstance(turn.graph_context_receipt, t.PlanSourceContextReceiptV1)
-                 and isinstance(turn.graph_context_execution, t.PlanSourceExecutionV1))
-                or (isinstance(turn.graph_context_receipt, t.PlanWorldGraphContextReceiptV1)
-                    and isinstance(turn.graph_context_execution, t.PlanWorldGraphExecutionV3)
-                    and not isinstance(turn.graph_context_execution, t.PlanSourceExecutionV1)))
-            or not isinstance(turn.graph_context_execution.policy, t.PlanJevRetrievalPolicyV1)):
+            or turn.provenance.surface_id != "plan" or turn.provenance.surface_resolution != "resolved"):
         raise ValueError("Jev decision requires the current resolved Plan owner and frozen policy")
-    return turn.graph_context_receipt, turn.graph_context_execution
+    receipt, execution = turn.graph_context_receipt, turn.graph_context_execution
+    if type(receipt) is SurfaceNativeContextReceiptV1 or type(execution) is SurfaceNativeExecutionV1:
+        if (type(receipt) is not SurfaceNativeContextReceiptV1
+                or type(execution) is not SurfaceNativeExecutionV1
+                or type(execution.policy.action) is not NativePlanActionV1):
+            raise ValueError("Jev decision requires its concrete shared Plan owner")
+    elif not (
+            ((isinstance(receipt, t.PlanSourceContextReceiptV1)
+              and isinstance(execution, t.PlanSourceExecutionV1))
+             or (isinstance(receipt, t.PlanWorldGraphContextReceiptV1)
+                 and isinstance(execution, t.PlanWorldGraphExecutionV3)
+                 and not isinstance(execution, t.PlanSourceExecutionV1)))
+            and isinstance(execution.policy, t.PlanJevRetrievalPolicyV1)):
+        raise ValueError("Jev decision requires the current resolved Plan owner and frozen policy")
+    return receipt, execution
+
+
+def _native_plan_action(execution):
+    if getattr(execution.policy, "policy_version", None) != "surface_native_execution_v1":
+        return None
+    from .native_execution import SurfaceNativeExecutionV1, NativePlanActionV1
+    if type(execution) is SurfaceNativeExecutionV1:
+        if not isinstance(execution.policy.action, NativePlanActionV1):
+            raise ValueError("Plan decision proof requires its actual Plan action")
+        return execution.policy.action
+    return None
 
 
 def scope_digest(turn):
     """Host-only binding; identical Plan content cannot transfer between turns."""
-    from . import types as t
     receipt, execution = _owner(turn)
-    value = {"world_id": turn.world_id, "conversation_id": str(turn.conversation_id),
-        "turn_id": str(turn.turn_id), "product_attempt": turn.attempt,
+    return _scope_digest(receipt, execution, world_id=turn.world_id,
+        conversation_id=turn.conversation_id, turn_id=turn.turn_id, attempt=turn.attempt)
+
+
+def _scope_digest(receipt, execution, *, world_id, conversation_id, turn_id, attempt):
+    from . import types as t
+    native_action = _native_plan_action(execution)
+    if native_action is not None and world_id != native_action.intent.world_id:
+        raise ValueError("Plan decision scope differs from its actual work World")
+    value = {"world_id": world_id, "conversation_id": str(conversation_id),
+        "turn_id": str(turn_id), "product_attempt": attempt,
         "context_receipt_sha256": receipt.context_receipt_sha256,
         "execution_policy_sha256": execution.execution_policy_sha256}
-    if isinstance(receipt, t.PlanSourceContextReceiptV1):
+    if native_action is not None or isinstance(receipt, t.PlanSourceContextReceiptV1):
         value.update(_source_pins(receipt))
     else:
         value["graph_revision"] = receipt.graph_authority.graph_revision
@@ -48,17 +76,35 @@ def scope_digest(turn):
 
 def _source_pins(receipt):
     from .native_corpus import NativeCorpusAuthorityV1
+    from .native_context import SurfaceNativeContextReceiptV1
+    from .native_plan_statements import NativePlanQueryV1
     available = isinstance(receipt.source_authority, NativeCorpusAuthorityV1)
+    if type(receipt) is SurfaceNativeContextReceiptV1:
+        graph_revision = receipt.native_query.authority.revision_id if isinstance(receipt.native_query, NativePlanQueryV1) else None
+    else:
+        graph_revision = receipt.graph_capability.graph_authority.graph_revision if receipt.graph_capability is not None else None
     return {"source_authority_status": "available" if available else "unavailable",
         "source_revision": receipt.source_authority.revision_id if available else None,
-        "graph_revision": receipt.graph_capability.graph_authority.graph_revision
-            if receipt.graph_capability is not None else None}
+        "graph_revision": graph_revision}
 
 
 def verify_input(turn, auth, proof):
+    receipt, execution = _owner(turn)
+    return verify_input_records(receipt, execution, auth, proof, question=turn.user_text,
+        scope_sha256=_scope_digest(receipt, execution, world_id=turn.world_id,
+            conversation_id=turn.conversation_id, turn_id=turn.turn_id, attempt=turn.attempt))
+
+
+def verify_input_records(receipt, execution, auth, proof, *, question, scope_sha256):
+    """Exact SDK input proof only; the locked Turn owner grants dispatch."""
     from . import types as t
     from .jev_retrieval_contract import RetrievalDecisionInput, PlanSourceRetrievalDecisionInputV1, validate_wire_body, MODEL, PROVIDER
-    receipt, execution = _owner(turn)
+    native_action = _native_plan_action(execution)
+    if native_action is not None:
+        from .native_reads import validate_execution_binding
+        validate_execution_binding(receipt, execution)
+        if question != native_action.intent.message:
+            raise ValueError("Plan decision changed its actual submitted question")
     if (not isinstance(auth, t.PlanJevProviderAuthorizedV1) or not isinstance(proof, dict)
             or set(proof) != {"parent_request_json", "request_json"}):
         raise ValueError("Plan Jev authorization requires its exact prepared request proof")
@@ -68,11 +114,11 @@ def verify_input(turn, auth, proof):
     semantic = isinstance(auth, t.PlanRequestedWorkAuthorizedV1)
     if semantic:
         from .plan_authoring import PlanRequestedWorkInputV1, validate_requested_work_wire
-        if not isinstance(execution.policy, t.PlanAuthoringPolicyV1):
+        if native_action is None and not isinstance(execution.policy, t.PlanAuthoringPolicyV1):
             raise ValueError('Plan destination decision requires its frozen authoring policy')
         from .plan_placement import PlanRequestedWorkInputV2, PlanRequestedWorkInputV3
         placement = isinstance(auth, t.PlanRequestedWorkAuthorizedV2)
-        if placement != isinstance(execution.policy, t.PlanPlacementAuthoringPolicyV1):
+        if placement != (native_action is not None or isinstance(execution.policy, t.PlanPlacementAuthoringPolicyV1)):
             raise ValueError('Plan placement authorization differs from its current policy')
         parent_value = strict_json(parent)
         schema = parent_value.get("schema") if isinstance(parent_value, dict) else None
@@ -86,21 +132,23 @@ def verify_input(turn, auth, proof):
         if parent_type is None:
             raise ValueError("Unknown Plan requested-work parent contract")
         request = parent_type.model_validate(parent_value)
-        if placement and (request.placement_catalog.sha256 if request.placement_catalog is not None else None) != execution.policy.placement_catalog_sha256:
+        capture_sha = native_action.intent.plan_authoring_capture_sha256 if native_action is not None else execution.policy.plan_authoring_capture_sha256
+        catalog_sha = native_action.intent.plan_placement_catalog_sha256 if native_action is not None else getattr(execution.policy, "placement_catalog_sha256", None)
+        if placement and (request.placement_catalog.sha256 if request.placement_catalog is not None else None) != catalog_sha:
             raise ValueError('Plan placement catalog differs from its frozen current intent')
-        if request.target_capture_sha256 != execution.policy.plan_authoring_capture_sha256:
+        if request.target_capture_sha256 != capture_sha:
             raise ValueError('Plan semantic target differs from its frozen capture')
     else:
-        parent_type = PlanSourceRetrievalDecisionInputV1 if isinstance(receipt, t.PlanSourceContextReceiptV1) else RetrievalDecisionInput
+        parent_type = PlanSourceRetrievalDecisionInputV1 if native_action is not None or isinstance(receipt, t.PlanSourceContextReceiptV1) else RetrievalDecisionInput
         request = parent_type.model_validate(strict_json(parent))
     pins_match = True
     if not semantic:
         pins_match = (all(getattr(request, key) == value for key, value in _source_pins(receipt).items())
-            if isinstance(receipt, t.PlanSourceContextReceiptV1)
+            if native_action is not None or isinstance(receipt, t.PlanSourceContextReceiptV1)
             else request.revision == receipt.graph_authority.graph_revision)
     if (request.digest != auth.parent_request_sha256 or request.request_id != auth.decision_request_id
-            or request.question != turn.user_text or request.parent_attempt_id != auth.provider_attempt_id
-            or request.scope_sha256 != scope_digest(turn)
+            or request.question != question or request.parent_attempt_id != auth.provider_attempt_id
+            or request.scope_sha256 != scope_sha256
             or not pins_match
             or sha256(raw.encode()).hexdigest() != auth.envelope_sha256
             or (auth.provider, auth.model, auth.api_mode) != (PROVIDER, MODEL, "decision")
@@ -117,17 +165,27 @@ def verify_input(turn, auth, proof):
 
 
 def verify_selection(turn, event, proof, trace):
+    receipt, execution = _owner(turn)
+    return verify_selection_records(receipt, execution, event, proof, trace, question=turn.user_text,
+        world_id=turn.world_id, conversation_id=turn.conversation_id, turn_id=turn.turn_id, attempt=turn.attempt)
+
+
+def verify_selection_records(receipt, execution, event, proof, trace, *, question,
+                             world_id, conversation_id, turn_id, attempt):
+    """Exact producing result proof; this neither appends nor authorizes reads."""
     from . import types as t
     from .jev_retrieval_contract import decode_selection, validate_selection, validate_source_selection
     from generationengine.types import DecisionResult
-    receipt, execution = _owner(turn)
+    native_action = _native_plan_action(execution)
+    scope_sha256 = _scope_digest(receipt, execution, world_id=world_id,
+        conversation_id=conversation_id, turn_id=turn_id, attempt=attempt)
     if not isinstance(proof, dict) or set(proof) != {"parent_request_json", "request_json", "response_json"}:
         raise ValueError("Plan selection requires exact producing request and typed response")
     auths = [item for item in execution.events if isinstance(item, t.ProviderAttemptAuthorizedEventV1)]
     if not auths or auths[-1].provider_attempt_id != event.controller_attempt_id:
         raise ValueError("Plan selection lacks its current controller")
     auth = auths[-1]
-    request = verify_input(turn, auth, {key: proof[key] for key in ("parent_request_json", "request_json")})
+    request = verify_input_records(receipt, execution, auth, {key: proof[key] for key in ("parent_request_json", "request_json")}, question=question, scope_sha256=scope_sha256)
     raw = proof["response_json"]
     if not isinstance(raw, str):
         raise ValueError("Plan selection requires exact serialized response bytes")
@@ -138,10 +196,10 @@ def verify_selection(turn, event, proof, trace):
             or outcomes[-1].response_sha256 not in (None, response_digest)
             or event.controller_response_sha256 != response_digest):
         raise ValueError("Plan decision response differs from its acknowledged actual provider outcome")
-    if (not isinstance(trace, dict) or trace.get("world_id") != turn.world_id
-            or trace.get("turn_id") != str(turn.turn_id)
-            or trace.get("conversation_id") != str(turn.conversation_id)
-            or type(trace.get("attempt")) is not int or trace["attempt"] != turn.attempt
+    if (not isinstance(trace, dict) or trace.get("world_id") != world_id
+            or trace.get("turn_id") != str(turn_id)
+            or trace.get("conversation_id") != str(conversation_id)
+            or type(trace.get("attempt")) is not int or trace["attempt"] != attempt
             or trace.get("capture_status") != "recording"):
         raise ValueError("Plan decision capture differs from its current owner")
     item_id = f"unvalidated-plan-jev-result:{auth.provider_attempt_id}"
@@ -174,14 +232,14 @@ def verify_selection(turn, event, proof, trace):
             raise ValueError('Plan destination differs from its exact typed result or capture')
     else:
         selected = decode_selection(request, result)
-        if isinstance(receipt, t.PlanSourceContextReceiptV1):
+        if native_action is not None or isinstance(receipt, t.PlanSourceContextReceiptV1):
             pins = _source_pins(receipt)
             validate_source_selection(request, selected, expected_request_sha256=auth.parent_request_sha256,
-                current_scope_sha256=scope_digest(turn), current_source_revision=pins["source_revision"],
+                current_scope_sha256=scope_sha256, current_source_revision=pins["source_revision"],
                 current_graph_revision=pins["graph_revision"], current_parent_attempt_id=auth.provider_attempt_id)
         else:
             validate_selection(request, selected, expected_request_sha256=auth.parent_request_sha256,
-                current_scope_sha256=scope_digest(turn), current_revision=receipt.graph_authority.graph_revision,
+                current_scope_sha256=scope_sha256, current_revision=receipt.graph_authority.graph_revision,
                 current_parent_attempt_id=auth.provider_attempt_id)
     observation = result.observation
     if (event.context_receipt_sha256 != receipt.context_receipt_sha256
@@ -197,13 +255,24 @@ def verify_selection(turn, event, proof, trace):
 
 def validate_decision_phases(execution):
     from . import types as t
-    active = isinstance(execution.policy, t.PlanJevRetrievalPolicyV1)
+    policy = execution.policy
+    native_action = _native_plan_action(execution)
+    if native_action is not None:
+        from .native_execution import NativeWriterAuthorizedV1
+    active = native_action is not None or isinstance(policy, t.PlanJevRetrievalPolicyV1)
     if not active:
         if any(isinstance(e, (t.PlanRequestedWorkSelectedV1, t.PlanJevRetrievalSelectionV1, t.PlanJevProviderAuthorizedV1, t.PlanJevWriterAuthorizedV1)) for e in execution.events):
             raise ValueError("Plan Jev events require their frozen Plan policy")
         return
     intent = None
-    semantic_policy = isinstance(execution.policy, t.PlanAuthoringPolicyV1)
+    semantic_policy = native_action is not None or isinstance(policy, t.PlanAuthoringPolicyV1)
+    placement_policy = native_action is not None or isinstance(policy, t.PlanPlacementAuthoringPolicyV1)
+    if native_action is not None:
+        capture_sha = native_action.intent.plan_authoring_capture_sha256
+        catalog_sha = native_action.intent.plan_placement_catalog_sha256
+    else:
+        capture_sha = getattr(policy, "plan_authoring_capture_sha256", None)
+        catalog_sha = getattr(policy, "placement_catalog_sha256", None)
     auth = None
     outcome = None
     selected = None
@@ -229,7 +298,8 @@ def validate_decision_phases(execution):
                 if (semantic_policy and (intent is None or intent.requested_work == 'write_current_page'
                         and intent.target_capture_sha256 is None)):
                     raise ValueError('Plan writer lacks a resolved destination and captured edit target')
-                if selected is None or selected.operation != "finish_retrieval" or not isinstance(event, t.PlanJevWriterAuthorizedV1):
+                writer_type = NativeWriterAuthorizedV1 if native_action is not None else t.PlanJevWriterAuthorizedV1
+                if selected is None or selected.operation != "finish_retrieval" or not isinstance(event, writer_type):
                     raise ValueError("Plan writer requires an explicit completed retrieval finish")
                 writer = event.provider_attempt_id
         elif isinstance(event, t.ProviderOutcomeEventV1) and auth is not None and event.provider_attempt_id == auth.provider_attempt_id:
@@ -245,12 +315,12 @@ def validate_decision_phases(execution):
                     or event.context_receipt_sha256 != execution.context_receipt_sha256
                     or event.execution_policy_sha256 != execution.execution_policy_sha256
                     or (isinstance(event, t.PlanRequestedWorkSelectedV2)
-                        and (not isinstance(execution.policy, t.PlanPlacementAuthoringPolicyV1)
-                            or event.original_capture_sha256 != execution.policy.plan_authoring_capture_sha256
-                            or event.placement_catalog_sha256 != execution.policy.placement_catalog_sha256))
+                        and (not placement_policy
+                            or event.original_capture_sha256 != capture_sha
+                            or event.placement_catalog_sha256 != catalog_sha))
                     or (not isinstance(event, t.PlanRequestedWorkSelectedV2)
-                        and (isinstance(execution.policy, t.PlanPlacementAuthoringPolicyV1)
-                            or event.target_capture_sha256 != execution.policy.plan_authoring_capture_sha256))):
+                        and (placement_policy
+                            or event.target_capture_sha256 != capture_sha))):
                 raise ValueError('Plan destination lacks its unique acknowledged controller and frozen target')
             intent = event
             auth, outcome = None, None
@@ -273,9 +343,25 @@ def validate_decision_phases(execution):
                 t.RelatedRecapContextAuthorizationEventV2, t.ValidatedRelatedRecapContextEventV2,
                 t.CorpusSourceSearchAuthorizedV1, t.CorpusSourceSearchObservedV1,
                 t.NativeSourceNavigationAuthorizedV1, t.NativeSourceCatalogObservedV1,
-                t.NativeSourceSectionAuthorizedV1, t.NativeSourceSectionObservedV1)):
+                t.NativeSourceSectionAuthorizedV1, t.NativeSourceSectionObservedV1)) or (native_action is not None
+                and isinstance(event, (t.NativeBodySearchAuthorizedV1, t.NativeBodySearchObservedV1,
+                    t.NativeBodyReadAuthorizedV1, t.NativeBodyReadObservedV1,
+                    t.NativePlanStatementReadAuthorizedV1, t.NativePlanStatementReadObservedV1,
+                    t.NativePlanAssertionReadAuthorizedV1, t.NativePlanAssertionReadObservedV1))):
             if writer is not None or selected is None or selected.operation == "finish_retrieval":
                 raise ValueError("Plan acquisition requires an active completed retrieval decision")
+            if native_action is not None:
+                native_pairs = (
+                    (t.NativeBodySearchAuthorizedV1, t.NativeBodySearchObservedV1),
+                    (t.NativeBodyReadAuthorizedV1, t.NativeBodyReadObservedV1),
+                    (t.NativePlanStatementReadAuthorizedV1, t.NativePlanStatementReadObservedV1),
+                    (t.NativePlanAssertionReadAuthorizedV1, t.NativePlanAssertionReadObservedV1),
+                )
+                for grant_type, observed_type in native_pairs:
+                    if isinstance(event, grant_type):
+                        pending_sources.add((grant_type, event.event_id))
+                    elif isinstance(event, observed_type):
+                        pending_sources.discard((grant_type, event.authorization_event_id))
             if isinstance(event, t.NativeSourceSectionAuthorizedV1):
                 pending_sources.add(("native_section", event.read_id))
             elif isinstance(event, t.NativeSourceSectionObservedV1):

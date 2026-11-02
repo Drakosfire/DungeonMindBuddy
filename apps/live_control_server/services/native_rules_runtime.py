@@ -125,10 +125,14 @@ class NativeRulesRuntime:
             PlanSourceContextReceiptV1, PlanSourceExecutionV1,
             PlayWorldGraphContextReceiptV1, PlayWorldGraphExecutionV1,
         )
+        from application_state.agent_conversation.native_context import SurfaceNativeContextReceiptV1
         receipt, graph = turn.graph_context_receipt, turn.graph_context_execution
         if not self.graph_enabled:
             if receipt is not None or graph is not None:
                 raise ValueError("Rules-only scope cannot inherit combined context")
+        elif type(receipt) is SurfaceNativeContextReceiptV1:
+            from application_state.agent_conversation.native_execution import validate_request_identity
+            validate_request_identity(receipt,graph,turn)
         elif isinstance(receipt, PlanSourceContextReceiptV1) or isinstance(graph, PlanSourceExecutionV1):
             from application_state.agent_conversation.plan_source_context import validate_source_execution_binding
             validate_source_execution_binding(receipt, graph)
@@ -365,7 +369,7 @@ class NativeRulesRuntime:
             self.last_reply = None
             return {"resultJson": delivery.prepared.raw_output, "retrievalSession": None}
 
-    def complete(self, turn, reply, *, accept_base=None, accept_mixed=None):
+    def complete(self, turn, reply, *, accept_base=None, accept_mixed=None, work_proof=None):
         if ((accept_base is None)!=(accept_mixed is None)
                 or accept_base is not None and (not callable(accept_base) or not callable(accept_mixed))):
             raise ValueError("Native completion requires both callable domain owners or neither")
@@ -384,7 +388,10 @@ class NativeRulesRuntime:
             rules_execution_id=self.record.execution.scope.execution_id,
             producing_provider_attempt_id=self.adapter.producing_provider_attempt_id,
         )
-        if self.graph_enabled:
+        from application_state.agent_conversation.native_execution import SurfaceNativeExecutionV1
+        shared=type(turn.graph_context_execution) is SurfaceNativeExecutionV1
+        trace=self.adapter.context_capture.trace.model_dump(mode='json') if shared else None
+        if self.graph_enabled and not shared:
             # Reuse the turn-local immutable result bytes; no Graph reacquisition.
             auth = next(event for event in turn.graph_context_execution.events
                 if getattr(event, "provider_attempt_id", None) == proof.producing_provider_attempt_id
@@ -422,7 +429,7 @@ class NativeRulesRuntime:
         if self.record.execution.budget_use.calls == 0:
             from application_state.agent_conversation.native_rules_output import normalize_unused_native_output
             completion, bindings, text = normalize_unused_native_output(
-                turn, self.record.execution, proof)
+                turn, self.record.execution, proof,**(dict(work_proof=work_proof,trace=trace) if shared else {}))
             if self.adapter.context_capture is not None:
                 self.adapter.context_capture.answer_context(text)
             result=TurnResult(
@@ -436,11 +443,19 @@ class NativeRulesRuntime:
             if accept_base is not None:
                 return accept_base(result,proof,self.record.revision)
             return self.adapter.service.complete_native_base_turn(result,
-                output_proof=proof,expected_rules_revision=self.record.revision)
-        normalized = normalize_native_mixed_output(
-            turn, turn.graph_context_execution, self.record.execution, proof, reply,
-            graph_support=self.adapter.build_claim_evidence.get(self.adapter.producing_provider_attempt_id),
-        )
+                output_proof=proof,expected_rules_revision=self.record.revision,**({'work_proof':work_proof} if shared else {}))
+        if shared:
+            from application_state.agent_conversation.native_rules_output import normalize_shared_native_output
+            normalized=normalize_shared_native_output(turn.graph_context_receipt,turn.graph_context_execution,
+                self.record.execution,proof,reply,trace=trace,work_proof=work_proof,
+                idempotency_key=turn.idempotency_key,submitted_intent_fingerprint=turn.submitted_intent_fingerprint_v2,
+                world_id=turn.world_id,conversation_id=turn.conversation_id,turn_id=turn.turn_id,
+                attempt=turn.attempt,provenance=turn.provenance)
+        else:
+            normalized = normalize_native_mixed_output(
+                turn, turn.graph_context_execution, self.record.execution, proof, reply,
+                graph_support=self.adapter.build_claim_evidence.get(self.adapter.producing_provider_attempt_id),
+            )
         base = None
         if normalized.base_completion is not None:
             base_text = "\n".join(item.text for item in normalized.base_completion.answer_segments)
@@ -462,4 +477,4 @@ class NativeRulesRuntime:
             self.adapter.context_capture.answer_context(normalized.assistant_text)
         if accept_mixed is not None:
             return accept_mixed(result)
-        return self.adapter.service.complete_mixed_turn(result)
+        return self.adapter.service.complete_mixed_turn(result,**({'work_proof':work_proof} if shared else {}))

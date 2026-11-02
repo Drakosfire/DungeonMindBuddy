@@ -75,7 +75,7 @@ def test_actual_writer_output_preserves_host_gaps_and_limits_and_python_offsets(
     normalized = base.normalize(json.dumps(answer.base_output), carrier)
     texts = tuple(seg["text"] for seg in normalized["answer_segments"])
     assert len(texts) == 3 and "travel" in texts[0]
-    composition = answer.composition(supplied_refs=result.observation.support_refs,
+    composition = answer.composition(base_completion=None, supplied_refs=result.observation.support_refs,
         base_segments=texts, base_disposition="approved")
     assert [ref.segment_index for ref in composition.ordered_refs if ref.domain == "base"] == [0, 1, 2]
     assert composition.render(texts) == "\n".join((*texts, "Occupancy limits apply. 🐉"))
@@ -87,12 +87,12 @@ def test_actual_writer_output_preserves_host_gaps_and_limits_and_python_offsets(
 def test_rules_only_partition_does_not_invent_a_graph_completion():
     case = producing_case(with_base=False)
     answer = verify(case)
-    composition = answer.composition(supplied_refs=case[1].observation.support_refs,
+    composition = answer.composition(base_completion=None, supplied_refs=case[1].observation.support_refs,
         base_segments=(), base_disposition="unclaimed")
     assert composition.base_disposition == "unclaimed"
     assert not any(ref.domain == "base" for ref in composition.ordered_refs)
     with pytest.raises(ValueError, match="disposition"):
-        answer.composition(supplied_refs=(), base_segments=(), base_disposition="approved")
+        answer.composition(base_completion=None, supplied_refs=(), base_segments=(), base_disposition="approved")
 
 
 @pytest.mark.parametrize("expose", [False, True])
@@ -147,7 +147,7 @@ def test_utf8_and_visible_text_budgets_reject_without_truncation():
     value["ordered_refs"] = value["ordered_refs"][:9]
     answer = parse_answer(json.dumps(value, ensure_ascii=False))
     with pytest.raises(ValueError, match="Full answer"):
-        answer.composition(supplied_refs=(), base_segments=(), base_disposition="absent")
+        answer.composition(base_completion=None, supplied_refs=(), base_segments=(), base_disposition="absent")
 
 
 @pytest.mark.parametrize("field,value", [("world_id", "other"), ("turn_id", str(uuid4())),
@@ -237,4 +237,4 @@ def test_more_than_sixteen_claims_rejects_before_persistence():
 def test_expanded_base_plus_rules_cannot_exceed_durable_map_budget():
     answer = parse_answer(json.dumps(raw_answer(with_base=True)))
     with pytest.raises(ValidationError):
-        answer.composition(supplied_refs=(), base_segments=("base",) * 128, base_disposition="approved")
+        answer.composition(base_completion=None, supplied_refs=(), base_segments=("base",) * 128, base_disposition="approved")

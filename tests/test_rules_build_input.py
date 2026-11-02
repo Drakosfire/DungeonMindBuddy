@@ -264,7 +264,10 @@ def test_mixed_result_json_roundtrip_retains_cited_source_proof_subtype():
 
 
 @pytest.mark.parametrize("mutate", [
-    lambda body: body.update(model="unknown"),
+    lambda body: body.update(model=None),
+    lambda body: body.update(model=123),
+    lambda body: body.update(model=""),
+    lambda body: body.update(model="   "),
     lambda body: body.update(tools=[{"type": "function", "name": "unexpected"}]),
     lambda body: body.update(input=json.loads(body["input"])),
     lambda body: body.update(messages=[]),
@@ -277,6 +280,20 @@ def test_unknown_or_ambiguous_actual_writer_carrier_is_rejected(mutate):
     writer = writer.model_copy(update={"request_envelope_sha256": hashed(raw)})
     with pytest.raises(ValueError):
         verify_prepared_input(owner, writer, raw)
+
+
+@pytest.mark.parametrize("model", ["gpt-6-luna", "gpt-6.1-sol"])
+def test_writer_carrier_leaves_model_authorization_to_its_build_parent(model):
+    owner, result, _ = read_after_controller()
+    writer, raw = prepared_provider(owner, role="writer", result=result)
+    body = json.loads(raw)
+    body["model"] = model
+    raw = json.dumps(body)
+    writer = writer.model_copy(update={"request_envelope_sha256": hashed(raw)})
+    owner = acknowledge(owner, writer, raw)
+    accepted, binding = accept(owner, writer, result.observation.support_refs)
+    assert accepted.state == "accepted"
+    assert binding.producing_provider_attempt_id == writer.provider_attempt_id
 
 
 def test_ordinary_provider_variant_cannot_borrow_typed_build_projection():

@@ -80,19 +80,58 @@ class BuildDraftContextRecordV1(_Frozen):
 def validate_record(record: BuildDraftContextRecordV1, turn) -> None:
     """Reconstruct the accepted identity at APP's owning boundary, without IO."""
     execution = turn.graph_context_execution
-    context_sha = digest({"snapshot": record.snapshot.model_dump(mode="json", by_alias=True),
-        "conversation_id": str(record.conversation_id), "expected_pointer_revision": record.expected_pointer_revision})
     receipt = turn.graph_context_receipt
+    if execution is not None and native_build_action(execution) is not None:
+        validate_native_record(record,receipt,execution,world_id=turn.world_id,conversation_id=turn.conversation_id,
+            turn_id=turn.turn_id,attempt=turn.attempt,submitted_intent_fingerprint=turn.submitted_intent_fingerprint_v2)
+        return
     if (execution is None or receipt is None
         or getattr(execution.policy, "working_draft_context_policy", None) != POLICY
         or getattr(execution.policy, "working_draft_snapshot_sha256", None) != record.snapshot.snapshot_sha256
-        or getattr(execution.policy, "working_draft_context_sha256", None) != context_sha):
+        or getattr(execution.policy, "working_draft_context_sha256", None) != captured_context_sha256(record)):
         raise ValueError("Working draft lacks its frozen context capability")
-    if (record.turn_id != turn.turn_id or record.conversation_id != turn.conversation_id
-        or record.attempt != turn.attempt or record.submitted_intent_fingerprint != turn.submitted_intent_fingerprint_v2
-        or record.snapshot.world_id != turn.world_id
-        or record.snapshot.saved_basis() != receipt.source_basis.model_dump(mode="json", by_alias=True)):
+    validate_record_identity(record,world_id=turn.world_id,conversation_id=turn.conversation_id,
+        turn_id=turn.turn_id,attempt=turn.attempt,submitted_intent_fingerprint=turn.submitted_intent_fingerprint_v2,
+        saved_basis=receipt.source_basis)
+
+
+def captured_context_sha256(record):
+    """The existing submitted draft-context commitment, not a second manifest."""
+    return digest({"snapshot": record.snapshot.model_dump(mode="json", by_alias=True),
+        "conversation_id": str(record.conversation_id), "expected_pointer_revision": record.expected_pointer_revision})
+
+
+def validate_record_identity(record, *, world_id, conversation_id, turn_id, attempt,
+                             submitted_intent_fingerprint, saved_basis):
+    if (type(attempt) is not int or record.turn_id != turn_id or record.conversation_id != conversation_id
+        or record.attempt != attempt or record.submitted_intent_fingerprint != submitted_intent_fingerprint
+        or record.snapshot.world_id != world_id
+        or record.snapshot.saved_basis() != saved_basis.model_dump(mode="json", by_alias=True)):
         raise ValueError("Working draft differs from its accepted turn and saved basis")
+
+
+def native_build_action(execution):
+    """Select the concrete shared Build owner without a legacy policy view."""
+    if getattr(execution.policy,'policy_version',None) != 'surface_native_execution_v1':
+        return None
+    from .native_execution import SurfaceNativeExecutionV1, NativeBuildActionV1
+    return execution.policy.action if type(execution) is SurfaceNativeExecutionV1 and type(execution.policy.action) is NativeBuildActionV1 else None
+
+
+def validate_native_record(record, receipt, execution, *, world_id, conversation_id, turn_id, attempt,
+                           submitted_intent_fingerprint):
+    """Join the actual consumer identity; this grants no dispatch or edit authority."""
+    from . import types as t
+    from .native_context import SurfaceNativeContextReceiptV1, BuildWorkContextV1
+    action=native_build_action(execution)
+    if (action is None or type(receipt) is not SurfaceNativeContextReceiptV1
+            or type(receipt.work_context) is not BuildWorkContextV1 or world_id != action.intent.world_id
+            or t.submitted_turn_intent_fingerprint_v2(action.intent) != submitted_intent_fingerprint
+            or captured_context_sha256(record) != action.intent.build_draft_context_sha256):
+        raise ValueError('Working draft differs from the actual native Build submission')
+    validate_record_identity(record,world_id=world_id,conversation_id=conversation_id,turn_id=turn_id,
+        attempt=attempt,submitted_intent_fingerprint=submitted_intent_fingerprint,
+        saved_basis=receipt.work_context.source_basis)
 
 
 def writer_reference(record: BuildDraftContextRecordV1) -> dict:
@@ -109,19 +148,35 @@ def validate_writer_reference(value, record: BuildDraftContextRecordV1, turn) ->
 
 
 def validate_execution_records(execution) -> None:
-    from .types import BuildDraftContextCapturedV1, ProviderAttemptAuthorizedEventV1, BuildWriterEvidenceSelectionV1
+    from .types import (BuildDraftContextCapturedV1, ProviderAttemptAuthorizedEventV1,
+        BuildWriterEvidenceSelectionV1, submitted_turn_intent_fingerprint_v2)
+    action = native_build_action(execution)
     rows = [e for e in execution.events if isinstance(e, BuildDraftContextCapturedV1)]
     if len(rows) > 1:
         raise ValueError("A turn captures one immutable working draft")
     for event in rows:
-        if (getattr(execution.policy, "working_draft_context_policy", None) != POLICY
-            or getattr(execution.policy, "working_draft_snapshot_sha256", None) != event.record.snapshot.snapshot_sha256):
+        record=BuildDraftContextRecordV1.model_validate_json(event.record.model_dump_json(by_alias=True))
+        if action is not None:
+            if (captured_context_sha256(record) != action.intent.build_draft_context_sha256
+                    or record.submitted_intent_fingerprint != submitted_turn_intent_fingerprint_v2(action.intent)):
+                raise ValueError('Working draft differs from its frozen native submission')
+            capability=action.write_capability
+            if capability is not None:
+                editor=BuildDraftSnapshotV1(**{key:capability.draft_markdown if key=='draft_markdown'
+                    else getattr(capability.basis,key) for key in BuildDraftSnapshotV1.model_fields if key!='schema_'})
+                if record.snapshot!=editor:
+                    raise ValueError('Captured editor differs from its working draft snapshot')
+        elif (getattr(execution.policy, "working_draft_context_policy", None) != POLICY
+            or getattr(execution.policy, "working_draft_snapshot_sha256", None) != record.snapshot.snapshot_sha256):
             raise ValueError("Working draft differs from its frozen execution capability")
         if any(isinstance(e, BuildWriterEvidenceSelectionV1) or
             (isinstance(e, ProviderAttemptAuthorizedEventV1)
                 and (e.provider,e.model,e.api_mode) == execution.policy.provider_roles.writer.identity())
             for e in execution.events[:event.sequence]):
             raise ValueError("Working draft cannot change after writer selection or authorization")
+    if action is not None and not rows and action.intent.build_draft_context_sha256 is not None and any(
+            isinstance(e,(ProviderAttemptAuthorizedEventV1,BuildWriterEvidenceSelectionV1)) for e in execution.events):
+        raise ValueError('Native Build must capture its submitted draft before provider or writer selection')
 
 
 def context_record(execution):
@@ -139,6 +194,19 @@ def validate_inclusion_input(inclusion, execution, prepared_request_json):
     body = strict_json(prepared_request_json)
     if not isinstance(body, dict):
         raise ValueError("Working draft provider envelope must be an object")
+    if native_build_action(execution) is not None and isinstance(body.get('input'),list):
+        from .build_primary_context import verify_native_work_input
+        from .types import BuildSourceContextBasisV1
+        captured=context_record(execution)
+        verify_native_work_input(execution,BuildSourceContextBasisV1(**captured.record.snapshot.saved_basis()),prepared_request_json)
+        if (inclusion.draft_event_id != captured.event_id
+                or inclusion.snapshot_sha256 != captured.record.snapshot.snapshot_sha256):
+            raise ValueError('Provider working draft differs from its admitted context')
+        return
+    if native_build_action(execution) is not None and (
+            "input" in body or not isinstance(body.get("state"), dict)
+            or body.get("model") != execution.policy.provider_roles.controller.model):
+        raise ValueError("Native Build draft requires its writer frame or typed controller state")
     carrier = strict_json(body["input"]) if isinstance(body.get("input"), str) else body.get("state")
     captured = context_record(execution)
     if isinstance(body.get('input'), str):
@@ -162,6 +230,11 @@ def validate_provider_inclusions(execution):
     if policy_enabled(execution.policy):
         bundle_types += (BuildAuthoredProviderInclusionV1,)
     rows = [e for e in execution.events if isinstance(e, BuildDraftProviderInclusionV1)]
+    action=native_build_action(execution)
+    if action is not None and action.intent.build_draft_context_sha256 is not None:
+        providers=[e for e in execution.events if isinstance(e,ProviderAttemptAuthorizedEventV1)]
+        if any(not any(row.provider_attempt_id == provider.provider_attempt_id for row in rows) for provider in providers):
+            raise ValueError('Native Build provider requires its exact captured-draft inclusion')
     if not rows:
         return
     captured = context_record(execution)
@@ -191,6 +264,13 @@ class DraftReferenceClaimV1(_Frozen):
     text: str = Field(min_length=1)
     draft_record_id: UUID
 
+
+
+def validate_draft_references(segments, record_id):
+    """Draft references select the actual captured copy and grant no World facts."""
+    if any(isinstance(segment,DraftReferenceClaimV1) and str(segment.draft_record_id) != str(record_id)
+            for segment in segments):
+        raise ValueError('Draft claim selects an uncaptured working copy')
 
 
 def _body_rows(packet):

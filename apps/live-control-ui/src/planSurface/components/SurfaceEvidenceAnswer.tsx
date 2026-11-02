@@ -2,14 +2,14 @@ import {sessionSummaryMarkdown} from "../../shared/sessionEvidenceCitation";
 import {SourceCitationEvidence} from './SourceCitationEvidence';
 import {passageChoices,nativeChoices} from './sourceCitationReads';
 import {canonical} from '../../shared/sourcePassageProtocol';
-import type {SurfaceEvidenceCompletion} from "../../api/types";
+import type {SurfaceEvidenceCompletion,SurfaceNativeCompletionV1} from "../../api/types";
 import {WorldPlanAgentAnswer} from "./WorldPlanAgentAnswer";
 
 
 type Composition = {text:string;ranges:{domain:string;base_segment_index:number|null;text_start:number;text_end:number}[]};
 /** Same visible authority and exact passage selector in Plan, Play and Rules compositions. */
 export function SurfaceEvidenceAnswer({completion,composition,worldId,turnId}:{
-  completion:SurfaceEvidenceCompletion;composition?:Composition;worldId?:string|null;turnId?:string;
+  completion:SurfaceEvidenceCompletion|SurfaceNativeCompletionV1;composition?:Composition;worldId?:string|null;turnId?:string;
 }) {
   // Number visible citations across this answer, independent of transport indexes.
   let nextNumber=0;
@@ -19,10 +19,10 @@ export function SurfaceEvidenceAnswer({completion,composition,worldId,turnId}:{
       const summary=sessionSummaryMarkdown(segment,worldId,nextNumber+1);summaries.set(index,summary);nextNumber=summary.nextNumber-1;
       return [];
     }
-    return worldId && turnId ? [...passageChoices(completion,worldId,turnId,index),...('native_source_citations' in completion
+    return worldId && turnId ? [...passageChoices(completion,worldId,turnId,index),...('native_source_citations' in completion || 'native_body_citations' in completion
       ? nativeChoices(completion,worldId,turnId,index):[])].map(c=>({...c,number:++nextNumber})) : [];
   });
-  const renderSegment=(s:SurfaceEvidenceCompletion['answer_segments'][number],index:number,key:number) => {
+  const renderSegment=(s:(SurfaceEvidenceCompletion|SurfaceNativeCompletionV1)['answer_segments'][number],index:number,key:number) => {
     if(s.kind==='session_summary') {
       const summary=summaries.get(index);
       return <section key={key} aria-label="Saved session summary"><WorldPlanAgentAnswer answer={summary?.text??s.text} allowedInternalLinks={summary?.targets??[]}/></section>;
@@ -35,7 +35,7 @@ export function SurfaceEvidenceAnswer({completion,composition,worldId,turnId}:{
         <blockquote><WorldPlanAgentAnswer answer={s.text}/></blockquote></figure>;
     }
     const graph=s.kind === 'graph_claim'||s.kind==='native_assertion_claim', source=s.kind === 'source_passage_claim';
-    const selected=completion.source_citations.filter(c=>c.segment_index === index);
+    const selected=('source_citations' in completion ? completion.source_citations : []).filter(c=>c.segment_index === index);
     return <section key={key} aria-label={graph ? 'World Graph fact' : source ? 'Source-supported statement' : s.kind === 'proposal' ? 'Proposed idea' : 'Evidence limitation'}>
       {graph ? <small>{s.kind==='native_assertion_claim'?'Reviewed World Graph':selected.length ? 'World Graph' : 'World Graph · source passage not opened'}</small> : null}
       {s.kind==='native_assertion_claim'?<details><summary>Qualifications</summary><pre>{JSON.stringify(s.qualifications,null,2)}</pre></details>:null}
