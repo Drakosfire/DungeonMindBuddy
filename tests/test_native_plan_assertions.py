@@ -270,7 +270,16 @@ def _ordinary_native_case(
             context,_=prepare_query(*args,**kwargs)
             return context,None
         monkeypatch.setattr(native_query,'prepare_query',missing_query)
-    response=client.post('/api/live/agent/turn',json=request.model_dump(mode='json',by_alias=True))
+    wire_request=request.model_dump(mode='json',by_alias=True)
+    if failure=='legacy_policy':
+        wire_request['plan_context_policy']={'policy':'auto_plan_world'}
+    response=client.post('/api/live/agent/turn',json=wire_request)
+    if failure=='legacy_policy':
+        assert response.status_code==409,response.text
+        assert response.json()['detail']['code']=='plan_execution_contract_retired'
+        assert not wire.calls and not opened_with_grant
+        assert AgentConversationService().get_active_conversation(world) is None
+        return
     if failure is not None:
         assert response.status_code==503,response.text
         if failure=='query_missing':
@@ -456,3 +465,7 @@ def test_core_source_integrity_failure_remains_fail_closed(lane, monkeypatch):
     with pytest.raises(NativeTextSourceAccessIntegrityError) as failure:
         read_selected(context, grant(context), GM)
     assert failure.value.reason == "body digest mismatch"
+
+
+def test_fresh_plan_cannot_dispatch_the_retired_optional_graph_contract(lane,tmp_path,monkeypatch,native_read_admission_probes):
+    _ordinary_native_case(lane,tmp_path,monkeypatch,False,False,None,'legacy_policy',False,native_read_admission_probes)

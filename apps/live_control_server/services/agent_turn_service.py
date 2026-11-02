@@ -6681,6 +6681,10 @@ def execute_agent_turn(
                 )
 
     graph_types = _app_state_graph_execution_types()
+    if durable_turn is None and type(request.plan_context_policy) is graph_types.PlanContextPolicyV1:
+        raise AgentTurnServiceError(
+            'This Plan request uses a retired execution contract. Refresh the Plan before sending again; no request was dispatched.',
+            code='plan_execution_contract_retired',status_code=409,provider_dispatched=False)
     native_surface_sources = ((request.surface.surface_id == "plan" and request.plan_context_policy is not None
         or _governed_build_turn(request))
         and (durable_turn is None or isinstance(durable_turn.graph_context_receipt,
@@ -7062,7 +7066,7 @@ def execute_agent_turn(
             with trace.phase('plan_native_statement_query'):
                 native_query_context, native_query = native_graph_query_resolver(
                     request, owner, work, frozen, native_corpus_context)
-        elif plan_graph_resolver is not None and (frozen is None or frozen_graph is not None):
+        elif plan_graph_resolver is not None and frozen_graph is not None:
             try:
                 with trace.phase("plan_optional_graph_context") as parent_span_id:
                     policy_bootstrap = plan_graph_resolver(request, owner, work, frozen_graph, parent_span_id)
