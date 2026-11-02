@@ -3579,7 +3579,7 @@ describe("World Plan conversation consumer", () => {
     expect(screen.queryByRole("region", { name: "Pending Ask recovery" })).not.toBeInTheDocument();
     expect(fetchSpy.mock.calls.filter(([url]) => String(url) === "/api/live/agent/turn")).toHaveLength(1);
     expect(fetchSpy.mock.calls.map(([url, init]) => [String(url), init?.method ?? "GET"])).toEqual([
-      [`/api/live/media/images/preparations/list?world_id=${worldId}&conversation_id=conversation-a`, "GET"],
+      ["/api/live/agent/readiness?surface=plan&world_graph=true", "GET"],
       ["/api/live/agent/turn", "POST"],
     ]);
   });
@@ -3760,7 +3760,7 @@ describe("World Plan conversation consumer", () => {
     expect(pendingAskKeys()).toHaveLength(1);
     expect(fetchSpy.mock.calls.filter(([url]) => String(url) === "/api/live/agent/turn")).toHaveLength(1);
     expect(fetchSpy.mock.calls.map(([url, init]) => [String(url), init?.method ?? "GET"])).toEqual([
-      [`/api/live/media/images/preparations/list?world_id=${worldId}&conversation_id=conversation-a`, "GET"],
+      ["/api/live/agent/readiness?surface=plan&world_graph=true", "GET"],
       ["/api/live/agent/turn", "POST"],
     ]);
   });
@@ -3909,7 +3909,10 @@ describe("World Plan conversation consumer", () => {
     fireEvent.change(screen.getByLabelText("Message DungeonBuddy"), { target: { value: "Who watches the western gate?" } });
     fireEvent.click(screen.getByRole("button", { name: "Send message" }));
     await screen.findByText(/outcome of this Ask is uncertain/);
-    expect(screen.getByLabelText("Message DungeonBuddy")).toBeDisabled();
+    expect(screen.getByLabelText("Message DungeonBuddy")).toBeEnabled();
+    expect(screen.getByRole("button", { name: "Send message" })).toBeDisabled();
+    fireEvent.change(screen.getByLabelText("Message DungeonBuddy"), { target: { value: "A newer unsent question" } });
+    expect(screen.getByRole("button", { name: "Send message" })).toBeDisabled();
     const context = await planGraphContext("graph_grounded", { request, execution: null });
     const completed = withPersistedCorrelation(policyHistoryTurn(
       1, request.turn_id, request.message, "The western gate is watched.", context, "completed", request,
@@ -3920,6 +3923,7 @@ describe("World Plan conversation consumer", () => {
     api.setCurrent(await historyV3("conversation-a", 10, [completed]));
     fireEvent.click(screen.getByRole("button", { name: "Refresh World history" }));
     await screen.findAllByText("The western gate is watched.");
+    expect(screen.getByLabelText("Message DungeonBuddy")).toHaveValue("A newer unsent question");
     if (matchingKey) {
       await waitFor(() => expect(pendingAskKeys()).toEqual([]));
       await waitFor(() => expect(screen.getByLabelText("Message DungeonBuddy")).toBeEnabled());
@@ -3927,7 +3931,8 @@ describe("World Plan conversation consumer", () => {
       expect(screen.getByRole("button", { name: "Send message" })).toBeEnabled();
     } else {
       expect(pendingAskKeys()).toHaveLength(1);
-      expect(screen.getByLabelText("Message DungeonBuddy")).toBeDisabled();
+      expect(screen.getByLabelText("Message DungeonBuddy")).toBeEnabled();
+      expect(screen.getByRole("button", { name: "Send message" })).toBeDisabled();
     }
     expect(postAsk).toHaveBeenCalledTimes(1);
   });
@@ -5137,7 +5142,7 @@ describe("World Plan conversation consumer", () => {
     if(mixed) expect(screen.getByText('A proposed outing.').closest('blockquote')).not.toBeNull();
     expect(screen.getByText('Sources')).toBeInTheDocument();expect(open).not.toHaveBeenCalled();
     fireEvent.click(screen.getByText('Evidence trail',{selector:'summary'}));
-    fireEvent.click((mixed ? within(screen.getByLabelText('Source-supported statement')) : screen).getByRole('button',{name:'Read Reedbridge notes · lines 5–5'}));
+    fireEvent.click((mixed ? within(screen.getByLabelText('Source-supported statement')) : within(screen.getByText('Evidence trail',{selector:'summary'}).closest('details')!)).getByRole('button',{name:'Read Reedbridge notes · lines 5–5'}));
     await screen.findByRole('region',{name:'Opened source passage'});expect(open).toHaveBeenCalledWith(worldId,turnId,0);
   });
 
@@ -5412,7 +5417,7 @@ describe("World Plan conversation consumer", () => {
     expect(screen.getByText("Sources")).toBeInTheDocument();
     expect(open).not.toHaveBeenCalled();
     fireEvent.click(screen.getByText("Evidence trail", {selector: "summary"}));
-    fireEvent.click(screen.getByRole("button", {name: named ? "Read River Watch — synthetic source · lines 1–1" : "Read passage 1"}));
+    fireEvent.click(within(screen.getByText("Evidence trail", {selector: "summary"}).closest("details")!).getByRole("button", {name: named ? "Read River Watch — synthetic source · lines 1–1" : "Read passage 1"}));
     await screen.findByRole("region", {name: "Opened source passage"});
     expect(open).toHaveBeenCalledWith(worldId, turnId, 0);
     expect(screen.getByRole("tab", {name: "The Prompt"})).toBeInTheDocument();
