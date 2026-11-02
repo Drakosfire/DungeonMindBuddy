@@ -150,6 +150,44 @@ def test_actual_catalogue_and_selected_details_preserve_native_records_without_b
     assert {k: v for k, v in x.lane.repo.__dict__.items() if k != "_lock"} == before
 
 
+def test_catalog_and_selected_entity_preserve_nested_temporal_metadata(inspection):
+    x = inspection
+    payload = {"episode": "session-29", "qualified": True, "nested": [None, {"order": 2, "_sample": {"_saved": True}}]}
+    meta = replace(
+        x.meta,
+        temporal_scope=wk.TemporalScope(
+            kind="domain_ref", schema_term="dungeonbuddy.time:fictional_anchor_v1",
+            payload=payload,
+        ),
+        domain_metadata=(wk.DomainMetadata.from_json(
+            "dungeonbuddy.domain_metadata:world_context_v1", {"uncertain": ["who reported it"]}
+        ),),
+    )
+    runtime = transport.runtime(x.lane.repo, x.lane.domain, x.lane.profile,
+                                now=datetime.now(UTC), operation_id="nested-metadata")
+    result = runtime.commit_prepared_change(runtime.prepare_change(wk.WorldChangeIntent(
+        x.lane.bound["native_world_id"], "fixture", (wk.UseExisting(x.objects["object:0"], (
+            wk.CreateFact("nested-summary", "dnd5e:summary", wk.LiteralFactValue("A reported event."), meta),
+        )),),
+    )), confirmed_by="local_operator")
+    assertion_id = result.assertion_results[0].durable_assertion_id
+    before = copy.deepcopy({k: v for k, v in x.lane.repo.__dict__.items() if k != "_lock"})
+    p = catalog(x)
+    assertion = next(a for a in p["assertions"] if a["assertion_id"] == assertion_id)
+    assert assertion["metadata"]["temporal_scope"] == {
+        "kind": "domain_ref", "schema": "dungeonbuddy.time:fictional_anchor_v1", "payload": payload,
+    }
+    assert assertion["metadata"]["domain_metadata"] == [{
+        "schema": "dungeonbuddy.domain_metadata:world_context_v1", "payload": {"uncertain": ["who reported it"]},
+    }]
+    assert assertion["value"] == {"kind": "literal", "value": "A reported event."}
+    detail = read(x, p["scope"], {"kind": "entity", "entity_id": x.objects["object:0"]})
+    assert detail.status_code == 200, detail.text
+    detailed = next(a for a in detail.json()["entity"]["assertions"] if a["assertion_id"] == assertion_id)
+    assert detailed["metadata"]["temporal_scope"]["payload"] == payload
+    assert {k: v for k, v in x.lane.repo.__dict__.items() if k != "_lock"} == before
+
+
 def test_only_selected_admitted_support_opens_exact_utf8_span(inspection):
     x = inspection
     p = catalog(x)

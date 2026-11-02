@@ -5,7 +5,6 @@ from dungeonmind.application.vnext import (
     EvidenceReadService,
     open_admitted_native_text,
 )
-from dungeonmind.contracts.vnext.domain import Assertion
 from fastapi.encoders import jsonable_encoder
 from apps.live_control_server.integrations.dungeonmind import (
     native_registry_source as native,
@@ -67,9 +66,7 @@ def catalog(scope, principal):
     listing = EntityReadService().list_entities(read)
     # Only Core's admitted IDs from this same immutable context are serialized.
     assertions = [
-        Assertion.model_validate(
-            access.parsed.get_assertion(identity), from_attributes=True
-        ).model_dump(mode="json")
+        native.assertion_contract(access.parsed.get_assertion(identity)).model_dump(mode="json")
         for identity in listing.admitted_assertion_ids
     ]
     return _response(
@@ -93,7 +90,7 @@ def inspect(request, principal):
             bound,
             pin,
             schema="dmb_native_graph_entity_v1",
-            entity=jsonable_encoder(result),
+            entity=jsonable_encoder(result, sqlalchemy_safe=False),
         )
     result = EvidenceReadService().get_assertion_evidence(read, selection.assertion_id)
     if not result.available or result.completeness.status != "complete":

@@ -1,6 +1,7 @@
 """Authenticated read-only native Graph inspection, separate from old write DTOs."""
 
 from fastapi import APIRouter, Depends, HTTPException
+from fastapi.responses import JSONResponse
 from dungeonmind.domain.errors import DungeonMindError
 from apps.live_control_server.models.native_graph_inspection import (
     InspectionRead,
@@ -21,7 +22,7 @@ router = APIRouter(
 
 def _call(fn, body, principal):
     try:
-        return fn(body, principal)
+        return JSONResponse(fn(body, principal))
     except (ValueError, DungeonMindError) as exc:
         raise HTTPException(
             getattr(exc, "status_code", 409),

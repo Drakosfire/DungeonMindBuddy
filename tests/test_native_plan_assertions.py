@@ -80,6 +80,12 @@ def grant(context, ids=None):
 
 
 def test_core_assertions_keep_metadata_and_exact_support_without_summary_wrapper(lane, monkeypatch):
+    lane.meta = replace(lane.meta, temporal_scope=wk.TemporalScope(
+        kind='domain_ref', schema_term='dungeonbuddy.time:fictional_anchor_v1',
+        payload={'episode': 'session-29', 'qualified': True, '_sample': {'_saved': [1, None]}},
+    ), domain_metadata=(wk.DomainMetadata.from_json(
+        'dungeonbuddy.domain_metadata:world_context_v1', {'uncertain': ['who reported it']}
+    ),))
     publish(lane, qualified=True)
     from apps.live_control_server.services import native_graph_reads as native
     original = native.open_admitted_native_text
@@ -96,6 +102,8 @@ def test_core_assertions_keep_metadata_and_exact_support_without_summary_wrapper
     assert account.assertion.metadata.claim_mode == 'dungeonbuddy.claim:belief'
     assert account.assertion.metadata.epistemic_basis == 'speculative'
     assert account.assertion.metadata.standing == 'provisional'
+    assert account.assertion.metadata.temporal_scope.payload == {'episode': 'session-29', 'qualified': True, '_sample': {'_saved': [1, None]}}
+    assert account.assertion.metadata.domain_metadata[0].payload == {'uncertain': ['who reported it']}
     assert account.spans[0].text == BODY.splitlines(keepends=True)[0]
     assert account.spans[0].start_byte == 0
     with pytest.raises(ValueError, match='not discovered'):
