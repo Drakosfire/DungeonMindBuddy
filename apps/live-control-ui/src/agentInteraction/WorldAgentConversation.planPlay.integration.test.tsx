@@ -39,7 +39,7 @@ import { useMemo, useState } from "react";
 import { webcrypto } from "node:crypto";
 import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { createWorkspaceDocument, getAgentSavedSection, getAgentNativeAssertionSource, getAgentRelatedPage, getWorldAgentTurnContextTrace, getWorkspaceDocumentSnapshot, getWorldAgentConversationHistory, getHistoricalRulesPassage, getWorldOwnedPlanCommittedRevision, getWorldPlanDocumentEditActions, listWorkspaceDocuments, listWorldContainers, LiveApiError, postWorldAgentNewConversation, postWorldPlanAgentTurn, postWorldPlayAgentTurn, postWorldBuildAgentTurn, postWorldGraphSourceAnchorRead, postWorldPlanDocumentEditProposal } from "../api/liveApi";
+import { createWorkspaceDocument, getAgentSavedSection, getAgentNativeAssertionSource, getAgentRelatedPage, getWorldAgentTurnContextTrace, getWorkspaceDocumentSnapshot, getCommittedPageSnapshot, getWorldAgentConversationHistory, getHistoricalRulesPassage, getWorldOwnedPlanCommittedRevision, getWorldPlanDocumentEditActions, listWorkspaceDocuments, listWorldContainers, LiveApiError, postWorldAgentNewConversation, postWorldPlanAgentTurn, postWorldPlayAgentTurn, postWorldBuildAgentTurn, postWorldGraphSourceAnchorRead, postWorldPlanDocumentEditProposal } from "../api/liveApi";
 import type { AgentInteractionTurn, WorkspaceDocumentRecord, WorkspaceDocumentSnapshot, WorldAgentConversationHistoryResponseV1, WorldPlanAgentTurnRequestV1, WorldPlayAgentTurnRequestV1, WorldBuildAgentTurnRequestV1, WorldPlanAgentPlanContextV2, WorldPlanGraphAnswerContextStatusV1, WorldPlanGraphExecutionProjectionV1, WorldAgentConversationHistoryResponse, WorldBuildKnowledgeContextV1 } from "../api/types";
 import { DocumentConversationDock, type PlanConversationPresentationHosts } from "../planSurface/components/PlanConversationDockAdapter";
 import type { SavedWorldBuildConversationContext } from "./WorldAgentConversation";
@@ -69,6 +69,7 @@ vi.mock("../api/liveApi", async (importOriginal) => ({
   getBuddyReadiness: vi.fn(async (surface: string, world_graph: boolean) => ({schema: "dmb_agent_readiness_v1", surface, world_graph, configured: true, issues: []})),
   createWorkspaceDocument: vi.fn(),
   getWorkspaceDocumentSnapshot: vi.fn(),
+  getCommittedPageSnapshot: vi.fn(),
   listWorkspaceDocuments: vi.fn(),
   listWorldContainers: vi.fn(),
   getWorldAgentConversationHistory: vi.fn(),
@@ -121,8 +122,10 @@ function buildSourceSnapshot(): WorkspaceDocumentSnapshot {
     record,
     markdown: "# City of Mirathorn\n\nA city of old walls and new plans.\n",
     content_sha256: SHA,
-    file_fingerprint: "source-file-fingerprint",
-    file_exists: true,
+    committed_markdown: "# City of Mirathorn\n\nA city of old walls and new plans.\n",
+    committed_content_sha256: SHA,
+    file_fingerprint: "postgres",
+    file_exists: false,
     loaded_revision: 2,
   };
 }
@@ -1629,6 +1632,7 @@ describe("one App-level World conversation host across Plan and Play", () => {
       records: [source.record],
     });
     vi.mocked(getWorkspaceDocumentSnapshot).mockResolvedValue(source);
+    vi.mocked(getCommittedPageSnapshot).mockResolvedValue(source);
     window.history.pushState({}, "", `/build?world=${WORLD}`);
 
     render(<RealBuildPageHarness />);
@@ -2163,6 +2167,8 @@ describe("one App-level World conversation host across Plan and Play", () => {
     const composer = await screen.findByLabelText("Message DungeonBuddy");
     await waitFor(() => expect(composer).toBeEnabled());
     fireEvent.change(composer, { target: { value: "Rewrite this Plan opening" } });
+    fireEvent.click(screen.getByText("Automatic · Change", { selector: "summary" }));
+    fireEvent.click(screen.getByRole("button", { name: "Request a Plan change" }));
     fireEvent.click(screen.getByRole("button", { name: "Propose edit" }));
     await waitFor(() => expect(postWorldPlanDocumentEditProposal).toHaveBeenCalledTimes(1));
     await waitFor(() => expect(bridge.preview).toHaveBeenCalledTimes(1));
