@@ -183,6 +183,18 @@ def native_work_frame(execution, basis):
     contract=selected_contract(execution)
     if contract is not None:
         frame['response_contract']=contract
+    from .build_intentional_response import selected_action
+    if selected_action(execution).operation in {'propose_build_insertion','prepare_build_image'}:
+        capability=action.write_capability
+        if capability is None:
+            raise ValueError('Native authoring requires its captured editor capability')
+        frame['captured_editor']=capability.model_dump(mode='json',exclude={'draft_markdown'})
+        if 'working_draft_context' not in frame:
+            frame['captured_editor']['draft_markdown']=capability.draft_markdown
+    from .reviewed_action import writer_scope,SCOPE_KEY
+    scope=writer_scope(execution)
+    if scope is not None:
+        frame[SCOPE_KEY]=scope
     from .plan_objective import contract as plan_contract,KEY as PLAN_OUTPUT_KEY
     plan=plan_contract(execution)
     if plan is not None:

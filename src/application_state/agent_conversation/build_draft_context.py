@@ -160,6 +160,12 @@ def validate_execution_records(execution) -> None:
             if (captured_context_sha256(record) != action.intent.build_draft_context_sha256
                     or record.submitted_intent_fingerprint != submitted_turn_intent_fingerprint_v2(action.intent)):
                 raise ValueError('Working draft differs from its frozen native submission')
+            capability=action.write_capability
+            if capability is not None:
+                editor=BuildDraftSnapshotV1(**{key:capability.draft_markdown if key=='draft_markdown'
+                    else getattr(capability.basis,key) for key in BuildDraftSnapshotV1.model_fields if key!='schema_'})
+                if record.snapshot!=editor:
+                    raise ValueError('Captured editor differs from its working draft snapshot')
         elif (getattr(execution.policy, "working_draft_context_policy", None) != POLICY
             or getattr(execution.policy, "working_draft_snapshot_sha256", None) != record.snapshot.snapshot_sha256):
             raise ValueError("Working draft differs from its frozen execution capability")

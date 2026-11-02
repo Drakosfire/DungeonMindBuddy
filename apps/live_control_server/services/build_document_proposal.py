@@ -188,7 +188,7 @@ def read_prompt(world_id: str, action_id: UUID):
 
 
 async def compose_with_writer(
-    request: BuildDocumentProposalRequest, writer_gate: TextDispatchGate, *, writer_model: str, transport=None, frozen_history=None, related_authored_pages=None, authored_reference_material=None,
+    request: BuildDocumentProposalRequest, writer_gate: TextDispatchGate, *, writer_model: str, transport=None, frozen_history=None, related_authored_pages=None, authored_reference_material=None, _native_context=None,
 ):
     """Trusted parent seam: one proposal call, jointly authorized; never import text.
 
@@ -198,14 +198,14 @@ async def compose_with_writer(
     """
     if not isinstance(writer_gate, TextDispatchGate) or request.origin is None:
         raise BuildComposeError("build_compose_writer_origin_required")
-    return await _compose(request, transport=transport, writer_gate=writer_gate, writer_model=writer_model, frozen_history=frozen_history, related_authored_pages=related_authored_pages, authored_reference_material=authored_reference_material)
+    return await _compose(request, transport=transport, writer_gate=writer_gate, writer_model=writer_model, frozen_history=frozen_history, related_authored_pages=related_authored_pages, authored_reference_material=authored_reference_material, _native_context=_native_context)
 
 
 async def compose(request: BuildDocumentProposalRequest, *, transport=None):
     return await _compose(request, transport=transport)
 
 
-async def _compose(request: BuildDocumentProposalRequest, *, transport=None, writer_gate=None, writer_model=None, frozen_history=None, related_authored_pages=None, authored_reference_material=None):
+async def _compose(request: BuildDocumentProposalRequest, *, transport=None, writer_gate=None, writer_model=None, frozen_history=None, related_authored_pages=None, authored_reference_material=None, _native_context=None):
     store = BuildProposalService()
     reservation = request.reservation_only()
     # Check an accepted operation before consulting mutable source state. A replay
@@ -226,7 +226,7 @@ async def _compose(request: BuildDocumentProposalRequest, *, transport=None, wri
     def advance(state, **fields):
         nonlocal record
         record = store.advance(world, record.action_id, expected_revision=record.revision, state=state, **fields)
-    expected = _writer_request(request, snapshot, model, frozen_history=frozen_history, related_authored_pages=related_authored_pages, authored_reference_material=authored_reference_material)
+    expected = _writer_request(request, snapshot, model, frozen_history=frozen_history, related_authored_pages=related_authored_pages, authored_reference_material=authored_reference_material, _native_context=_native_context)
     packet = expected["input"]
     schema = expected["text"]["format"]["schema"]
     record, created = store.reserve(reservation)
@@ -346,15 +346,15 @@ async def _compose(request: BuildDocumentProposalRequest, *, transport=None, wri
             await client.aclose()
 
 
-def prepare_writer_request(request, *, writer_model: str, frozen_history=None, related_authored_pages=None, authored_reference_material=None):
+def prepare_writer_request(request, *, writer_model: str, frozen_history=None, related_authored_pages=None, authored_reference_material=None, _native_context=None):
     """Owned deterministic request for trusted staging; never reserves or sends."""
     snapshot = _source(request)
     if not isinstance(writer_model, str) or not writer_model.strip():
         raise BuildComposeError("build_compose_writer_model_required")
-    return _writer_request(request, snapshot, writer_model, frozen_history=frozen_history, related_authored_pages=related_authored_pages, authored_reference_material=authored_reference_material)
+    return _writer_request(request, snapshot, writer_model, frozen_history=frozen_history, related_authored_pages=related_authored_pages, authored_reference_material=authored_reference_material, _native_context=_native_context)
 
 
-def _writer_request(request, snapshot, model, *, frozen_history=None, related_authored_pages=None, authored_reference_material=None):
+def _writer_request(request, snapshot, model, *, frozen_history=None, related_authored_pages=None, authored_reference_material=None, _native_context=None):
     reservation = request.reservation_only()
     world = reservation.basis.world_id
     if frozen_history is None:
@@ -375,8 +375,22 @@ def _writer_request(request, snapshot, model, *, frozen_history=None, related_au
         "page_body_offer": reservation.page_body_offer.model_dump(mode="json") if reservation.page_body_offer else None,
         "page_end_offer": reservation.page_end_offer.model_dump(mode="json") if reservation.page_end_offer else None,
         "instruction": reservation.instruction, "draft_markdown": request.draft_markdown}, ensure_ascii=False, separators=(",", ":"))
+    if _native_context is not None:
+        from application_state.agent_conversation.native_writer import authoring_input, AUTHORING_GUIDANCE
+        if authored_reference_material is not None or related_authored_pages is not None:
+            raise ValueError('Native authoring must use its acquired work/reference owners once')
+        material=authoring_input(_native_context,request,reservation.instruction,'propose_build_insertion')
+        if model!=_native_context[1].policy.provider_roles.writer.model:
+            raise ValueError('Native proposal model differs from its frozen writer')
+        body=json.loads(packet)
+        for key in ('source_basis','draft_markdown'):
+            del body[key]
+        body.update(material)
+        packet=json.dumps(body,ensure_ascii=False,separators=(',',':'))
     schema = BuildComposeOutput.model_json_schema()
     expected = {"model": model, "input": packet, "instructions": SYSTEM + ("\nUse related_authored_pages as exact saved authored references before inventing substitutes. They are authored context, not played facts; preserve row/column meanings and source attribution.\n" if related_authored_pages is not None else "") + dialogue_rule(messages),
         "max_output_tokens": 4096, "reasoning": {"effort": "low"},
         "text": {"format": {"type": "json_schema", "name": "build_document_proposal", "schema": schema, "strict": True}}, "tools": [], "stream": True}
+    if _native_context is not None:
+        expected['instructions']+=AUTHORING_GUIDANCE
     return expected

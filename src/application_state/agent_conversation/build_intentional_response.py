@@ -458,16 +458,21 @@ def validate_turn_arguments(execution, *, user_text, turn_id, attempt):
             raise ValueError('Retained semantic action differs from its exact turn arguments')
 
 
-def selected_contract(execution):
+def selected_action(execution):
     from .types import BuildRequestedWorkResolutionV1, BuildReviewedActionSelectionV1
-    choices=[e for e in execution.events if isinstance(e,BuildRequestedWorkResolutionV1)]
-    reviewed=[e for e in execution.events if isinstance(e,BuildReviewedActionSelectionV1)]
-    if reviewed and not choices:
+    choices=[e for e in execution.events if isinstance(e,(BuildRequestedWorkResolutionV1,BuildReviewedActionSelectionV1))]
+    if len(choices)!=1:
+        raise ValueError('Build writer requires its unique retained semantic resolution or reviewed action')
+    return choices[0]
+
+
+def selected_contract(execution):
+    from .types import BuildReviewedActionSelectionV1
+    choice=selected_action(execution)
+    if isinstance(choice,BuildReviewedActionSelectionV1):
         return None
-    if len(choices)!=1 or reviewed:
-        raise ValueError('Build writer requires its unique retained semantic resolution')
-    validate_resolution_metadata(choices[0],execution.policy)
-    return choices[0].resolution
+    validate_resolution_metadata(choice,execution.policy)
+    return choice.resolution
 
 
 def validate_native_action_events(execution):

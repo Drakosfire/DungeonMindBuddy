@@ -18,6 +18,9 @@ from . import native_plan_assertions as assertions
 from .source_writer_output import responses_text_frame, strict_json
 
 SCHEMA = "dmb_surface_native_writer_evidence_v1"
+AUTHORING_GUIDANCE = ('\nUse surface_work as the authored page and editor context. '
+    'Use native_evidence as supplied World material; preserve uncertainty, attribution and temporal qualifications. '
+    'Authored drafts and proposed ideas do not establish played events.')
 
 
 def body_handle(read):
@@ -97,6 +100,60 @@ def model_work_frame(receipt, execution, *, provenance, idempotency_key, work_pr
     raise ValueError('Native Play writer requires its actual single-provider work-input owner')
 
 
+def authoring_input(native_context, capability, instruction, operation):
+    """Host-only producer material; actual APP admission still joins locked state."""
+    if not isinstance(native_context,tuple) or len(native_context)!=3:
+        raise ValueError('Native authoring requires concrete context, execution and submission')
+    receipt,execution,work=native_context
+    from .native_execution import NativeBuildActionV1
+    from .build_intentional_response import selected_action
+    if type(execution) is not SurfaceNativeExecutionV1 or type(execution.policy.action) is not NativeBuildActionV1:
+        raise ValueError('Native authoring requires the actual Build action')
+    action=execution.policy.action
+    selected=selected_action(execution)
+    if (operation not in {'propose_build_insertion','prepare_build_image'}
+            or selected.operation!=operation or action.write_capability is None
+            or instruction!=action.intent.message
+            or capability.model_dump(mode='json',exclude={'instruction','origin'})
+                !=action.write_capability.model_dump(mode='json',exclude={'instruction','origin'})):
+        raise ValueError('Native authoring differs from its selected operation or captured editor')
+    if operation=='propose_build_insertion':
+        origin=capability.origin
+        if (origin is None or origin.durable_turn_id!=work['turn_id']
+                or origin.turn_attempt!=work['attempt'] or capability.conversation_id!=work['conversation_id']
+                or origin.broker_operation_id!=selected.broker_operation_id
+                or origin.arguments_sha256!=selected.arguments_sha256):
+            raise ValueError('Native proposal origin differs from its actual selected action')
+    return dict(native_evidence=model_frame(receipt,execution),
+        surface_work=model_work_frame(receipt,execution,**work))
+
+
+def _input_frames(raw,execution,work_schema):
+    """One actual producer packet, selected by the stored operation."""
+    from .native_execution import NativeBuildActionV1
+    from .build_intentional_response import selected_action
+    selected=selected_action(execution) if isinstance(execution.policy.action,NativeBuildActionV1) else None
+    operation=None if selected is None else selected.operation
+    schema={'propose_build_insertion':'dmb_build_compose_input_v1',
+        'prepare_build_image':'dmb_build_image_direction_input_v1'}.get(operation)
+    if schema is None:
+        return (responses_text_frame(raw,schemas={SCHEMA},label='Native writer'),
+            responses_text_frame(raw,schemas={work_schema},label='Native surface work'))
+    body=strict_json(raw)
+    if (not isinstance(body,dict) or not isinstance(body.get('input'),str) or 'messages' in body
+            or body.get('tools',[])!=[] or body.get('tool_choice') not in (None,'none')):
+        raise ValueError('Native authoring requires its one exact producer packet')
+    packet=strict_json(body['input'])
+    if not isinstance(packet,dict) or packet.get('schema')!=schema:
+        raise ValueError('Native authoring requires its selected producer schema')
+    if packet.get('instruction')!=execution.policy.action.intent.message:
+        raise ValueError('Native authoring instruction differs from selected work')
+    if any(key in packet for key in ('source_basis','draft_markdown','captured_capability',
+            'related_authored_pages','authored_reference_passages')):
+        raise ValueError('Native authoring cannot duplicate or substitute work/source bodies')
+    return packet.get('native_evidence'),packet.get('surface_work')
+
+
 def verify_input_records(receipt, execution, authorization, raw, *, provenance, idempotency_key,
                          work_proof, world_id, conversation_id, turn_id, attempt):
     """Bind one shared native frame to the exact stored producing SDK request."""
@@ -114,11 +171,10 @@ def verify_input_records(receipt, execution, authorization, raw, *, provenance, 
     expected = model_frame(receipt, prefix)
     expected_work = model_work_frame(receipt,prefix,provenance=provenance,idempotency_key=idempotency_key,
         work_proof=work_proof,world_id=world_id,conversation_id=conversation_id,turn_id=turn_id,attempt=attempt)
-    work_frame = responses_text_frame(raw,schemas={expected_work['schema']},label='Native surface work')
+    frame,work_frame = _input_frames(raw,prefix,expected_work['schema'])
     if t.canonical_sha256(work_frame) != t.canonical_sha256(expected_work):
         raise ValueError('Native writer changed or omitted its exact surface work')
     body = strict_json(raw)
-    frame = responses_text_frame(raw, schemas={SCHEMA}, label="Native writer")
     if ((authorization.provider, authorization.api_mode, authorization.serializer_version)
             != ("openai", "responses", "openai-sdk-json-v1")
             or body.get("model") != authorization.model
