@@ -1162,6 +1162,13 @@ export interface NativePlanQueryV1 {
 export interface NativePlanQueryV2 extends Omit<NativePlanQueryV1,'schema'> {
   schema:'dmb_native_plan_query_v2';assertion_matches:{assertion_id:string;subject_entity_id:string;discovered_entity_ids:string[];assertion_sha256:string;label:string}[];
 }
+export interface NativeAuthoredTargetV1 {
+  node_id:string;selection_revision_id:string;matches:NativePlanQueryV1['matches'];
+  assertion_matches:NativePlanQueryV2['assertion_matches'];status:'complete'|'partial'|'unavailable';gap_codes:string[];
+}
+export interface NativeGraphQueryV3 extends Omit<NativePlanQueryV2,'schema'> {
+  schema:'dmb_native_graph_query_v3';authored_targets:NativeAuthoredTargetV1[];
+}
 export interface PlanNativeContextReceiptV1 extends Omit<PlanSourceContextReceiptV1,'schema'|'graph_capability'> {
   schema:'dmb_plan_native_context_receipt_v1';graph_capability:null;
   native_query:NativePlanQueryV2|NativePlanQueryV1|{schema:'dmb_native_plan_query_unavailable_v1';managed_world_id:string;
@@ -1182,7 +1189,7 @@ export interface SurfaceNativeContextReceiptV1 {
   schema:'dmb_surface_native_context_receipt_v1';receipt_serializer_version:'canonical-json-utf8-v1';
   context_receipt_sha256:string;provenance_sha256:string;work_context:SurfaceNativeWorkContextV1;
   source_authority:PlanSourceContextReceiptV1['source_authority'];
-  native_query:NativePlanQueryV2|Extract<PlanNativeContextReceiptV1['native_query'],{schema:'dmb_native_plan_query_unavailable_v1'}>;
+  native_query:NativeGraphQueryV3|NativePlanQueryV2|Extract<PlanNativeContextReceiptV1['native_query'],{schema:'dmb_native_plan_query_unavailable_v1'}>;
   assembled_input:(Omit<PlanSourceContextReceiptV1['assembled_input'],'assembler_version'> & {assembler_version:'surface_native_initial_v1'})
     | {assembler_version:'reviewed_author_admission_v1';submitted_intent_sha256:string;assembled_input_sha256:string};
 }

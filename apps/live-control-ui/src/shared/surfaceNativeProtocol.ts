@@ -1,6 +1,6 @@
 import type {SurfaceNativeContextReceiptV1,SurfaceNativeCompletionV1,SurfaceNativeWorkContextV1,PlanSourceContextReceiptV1} from '../api/types';
 import {exact,canonical,isCollaboration,isDraftReferenceClaim,isRelatedPageClaim,isSavedSourceClaim} from './sourcePassageProtocol';
-import {isNativePlanQuery,isNativeClauseCitation} from './nativeStatementAnswerProtocol';
+import {isNativeGraphQuery,isNativeClauseCitation} from './nativeStatementAnswerProtocol';
 import {isNativeAssertionClaim,isNativeAssertionCitation} from './nativeAssertionProtocol';
 import {isNativeBodyCitation} from './nativeSourceCitationProtocol';
 import {isAuthoredExcerpt,isSessionSummary} from './surfaceEvidenceProtocol';
@@ -33,8 +33,8 @@ export function isSurfaceNativeReceipt(v:unknown,validateWork:(work:unknown)=>wo
   if(!exact(v,['schema','receipt_serializer_version','context_receipt_sha256','provenance_sha256','work_context','source_authority','native_query','assembled_input'])
     ||v.schema!=='dmb_surface_native_context_receipt_v1'||v.receipt_serializer_version!=='canonical-json-utf8-v1'||!hash(v.context_receipt_sha256)||!hash(v.provenance_sha256)||!validateWork(v.work_context))return false;
   const world=nativeWorkWorld(v.work_context),a=v.source_authority,q=v.native_query;
-  if(!isNativeSourceAuthority(a,world)||!isNativePlanQuery(q,world)||q.schema==='dmb_native_plan_query_v1')return false;
-  if(q.schema==='dmb_native_plan_query_v2'&&'schema_version' in a&&['native_world_id','binding_version','revision_id','domain_ref','profile_ref','acquisition_epoch'].some(k=>canonical(a[k as keyof typeof a])!==canonical(q.authority[k as keyof typeof q.authority])))return false;
+  if(!isNativeSourceAuthority(a,world)||!isNativeGraphQuery(q,world))return false;
+  if(q.schema!=='dmb_native_plan_query_unavailable_v1'&&'schema_version' in a&&['native_world_id','binding_version','revision_id','domain_ref','profile_ref','acquisition_epoch'].some(k=>canonical(a[k as keyof typeof a])!==canonical(q.authority[k as keyof typeof q.authority])))return false;
   return isNativeProviderInput(v.assembled_input,'surface_native_initial_v1')||v.work_context.surface_id==='build'&&exact(v.assembled_input,['assembler_version','submitted_intent_sha256','assembled_input_sha256'])&&v.assembled_input.assembler_version==='reviewed_author_admission_v1'&&hash(v.assembled_input.submitted_intent_sha256)&&hash(v.assembled_input.assembled_input_sha256);
 }
 export function isSurfaceNativeCompletion(v:unknown,r:SurfaceNativeContextReceiptV1):v is SurfaceNativeCompletionV1 {
@@ -71,9 +71,9 @@ export function isSurfaceNativeCompletion(v:unknown,r:SurfaceNativeContextReceip
       if(seen.has(key))return false;seen.add(key);
       if(family==='native_body_citations'){if(!sources.has(index)||c.line_end<c.line_start)return false;cited.add(index);continue;}
       const q=r.native_query;
-      if(q.schema!=='dmb_native_plan_query_v2'||c.managed_world_id!==q.authority.managed_world_id||c.native_world_id!==q.authority.native_world_id||c.read_revision_id!==q.authority.revision_id)return false;
-      if(family==='native_clause_citations'){if(!sources.has(index)||!q.matches.some(m=>m.statement_id===c.statement_id&&m.campaign_id===c.campaign_id))return false;cited.add(index);}
-      else {if(!graphs.get(index)?.includes(c.assertion_id)||!q.assertion_matches.some(m=>m.assertion_id===c.assertion_id&&m.assertion_sha256===c.assertion_sha256))return false;const ids=assertions.get(index)??new Set<string>();ids.add(c.assertion_id);assertions.set(index,ids);}
+      if(q.schema==='dmb_native_plan_query_unavailable_v1'||c.managed_world_id!==q.authority.managed_world_id||c.native_world_id!==q.authority.native_world_id||c.read_revision_id!==q.authority.revision_id)return false;
+      if(family==='native_clause_citations'){if(!sources.has(index)||![...q.matches,...(q.schema==='dmb_native_graph_query_v3'?q.authored_targets.flatMap(t=>t.matches):[])].some(m=>m.statement_id===c.statement_id&&m.campaign_id===c.campaign_id))return false;cited.add(index);}
+      else {if(!graphs.get(index)?.includes(c.assertion_id)||![...q.assertion_matches,...(q.schema==='dmb_native_graph_query_v3'?q.authored_targets.flatMap(t=>t.assertion_matches):[])].some(m=>m.assertion_id===c.assertion_id&&m.assertion_sha256===c.assertion_sha256))return false;const ids=assertions.get(index)??new Set<string>();ids.add(c.assertion_id);assertions.set(index,ids);}
     }
   }
   if([...sources].some(i=>!cited.has(i))||[...graphs].some(([i,ids])=>ids.some(id=>!assertions.get(i)?.has(id))))return false;

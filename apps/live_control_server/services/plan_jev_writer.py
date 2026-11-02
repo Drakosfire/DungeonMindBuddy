@@ -213,7 +213,7 @@ class PlanJevWriter:
             raise ValueError('Plan writer exceeds the existing provider context allowance')
         if self.shared:
             from application_state.errors import ApplicationStateConflictError
-            from application_state.agent_conversation.native_execution import NativeWriterAuthorizedV1
+            from application_state.agent_conversation.native_execution import NativeWriterAuthorizedV1, native_read_event_ids
             event=NativeWriterAuthorizedV1(event_id=uuid4(),sequence=len(a._broker_execution().events),
                 provider_attempt_id=UUID(prepared.attempt_id),envelope_sha256=prepared.body_sha256,
                 serializer_version='openai-sdk-json-v1',provider='openai',model=self.model,api_mode='responses',
@@ -221,9 +221,7 @@ class PlanJevWriter:
                 input_estimator=a.budget['estimator'],input_tokens=estimate,
                 output_token_reserve=a.budget['outputReserveTokens'],frame_sha256=canonical_sha256(self.frame),
                 included_graph_event_ids=[],included_source_read_event_ids=[],included_assertion_ids=[],
-                included_relationship_ids=[],included_evidence_ref_ids=[],native_read_event_ids=tuple(sorted(
-                    (e.event_id for e in a._broker_execution().events if isinstance(e,(
-                        t.NativeBodyReadObservedV1,t.NativePlanStatementReadObservedV1,t.NativePlanAssertionReadObservedV1))),key=str)))
+                included_relationship_ids=[],included_evidence_ref_ids=[],native_read_event_ids=native_read_event_ids(a._broker_execution().events))
             try:
                 a.turn=_require_fresh_execution_append(a.fence.append('authorize_native_writer','authorization',event,
                     expected_rules_revision=self.rules.native.record.revision,

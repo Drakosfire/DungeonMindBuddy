@@ -101,11 +101,11 @@ export function isNativeClauseCitation(v:unknown,receiptHash:string):v is import
     && Number.isSafeInteger(v.end_byte) && Number(v.end_byte)>Number(v.start_byte);
 }
 
-function isNativePlanQueryV1(v:unknown,worldId:string):v is import('../api/types').PlanNativeContextReceiptV1['native_query'] {
+function isNativeQueryBase(v:unknown,worldId:string,schema:string,extraKeys:string[]=[]):boolean {
   if(exact(v,['schema','managed_world_id','reason']) && v.schema==='dmb_native_plan_query_unavailable_v1')
     return v.managed_world_id===worldId && ['native_graph_binding_unavailable','native_graph_head_unavailable'].includes(String(v.reason));
-  if(!exact(v,['schema','authority','question','search_result_sha256','discovered_entity_ids','matches','status','gap_codes','universal_absence_claimed'])
-    || v.schema!=='dmb_native_plan_query_v1' || !text(v.question) || !hash(v.search_result_sha256)
+  if(!exact(v,['schema','authority','question','search_result_sha256','discovered_entity_ids','matches','status','gap_codes','universal_absence_claimed',...extraKeys])
+    || v.schema!==schema || !text(v.question) || !hash(v.search_result_sha256)
     || v.universal_absence_claimed!==false || !Array.isArray(v.discovered_entity_ids) || !v.discovered_entity_ids.every(text)
     || new Set(v.discovered_entity_ids).size!==v.discovered_entity_ids.length || !Array.isArray(v.matches)
     || !['complete','partial'].includes(String(v.status)) || !Array.isArray(v.gap_codes) || !v.gap_codes.every(text)
@@ -121,12 +121,16 @@ function isNativePlanQueryV1(v:unknown,worldId:string):v is import('../api/types
     || a.session_id!==null && !text(a.campaign_id)) return false;
   for(const r of [a.domain_ref,a.profile_ref])
     if(!exact(r,['authority_id','revision','descriptor_sha256']) || !text(r.authority_id) || !text(r.revision) || !hash(r.descriptor_sha256))return false;
+  return statementMatches(v.matches,v.discovered_entity_ids,a.scope_mode==='campaign'?String(a.campaign_id):null);
+}
+
+function statementMatches(matches:unknown,discovered:unknown[],campaign:string|null):boolean {
+  if(!Array.isArray(matches))return false;
   const seen=new Set<string>();
-  const discovered=v.discovered_entity_ids;
-  for(const m of v.matches) {
+  for(const m of matches) {
     if(!exact(m,['statement_id','discovered_entity_ids','discovery_assertion_ids','campaign_id','logical_source','episode','label'])
       || !text(m.statement_id) || !m.statement_id.startsWith('ent:') || seen.has(m.statement_id)
-      || !text(m.campaign_id) || a.scope_mode==='campaign' && m.campaign_id!==a.campaign_id
+      || !text(m.campaign_id) || campaign!==null && m.campaign_id!==campaign
       || ![m.episode,m.label].every(text) || !Array.isArray(m.discovered_entity_ids) || !m.discovered_entity_ids.length
       || !m.discovered_entity_ids.every((id:unknown)=>text(id)&&discovered.includes(id))
       || !Array.isArray(m.discovery_assertion_ids) || !m.discovery_assertion_ids.length || !m.discovery_assertion_ids.every(text)
@@ -136,18 +140,47 @@ function isNativePlanQueryV1(v:unknown,worldId:string):v is import('../api/types
   return true;
 }
 
-export function isNativePlanQuery(v:unknown,worldId:string):v is import('../api/types').PlanNativeContextReceiptV1['native_query'] {
-  if(typeof v!=='object'||v===null||!('schema' in v)||v.schema!=='dmb_native_plan_query_v2')return isNativePlanQueryV1(v,worldId);
-  const {assertion_matches,...base}=v as Record<string,unknown>;
-  if(!isNativePlanQueryV1({...base,schema:'dmb_native_plan_query_v1'},worldId)||!Array.isArray(assertion_matches)
-    ||!Array.isArray(base.discovered_entity_ids))return false;
+function assertionMatches(matches:unknown,discovered:unknown[]):boolean {
+  if(!Array.isArray(matches))return false;
   const seen=new Set<string>();
-  return assertion_matches.every(m=>{
+  return matches.every(m=>{
     if(!exact(m,['assertion_id','subject_entity_id','discovered_entity_ids','assertion_sha256','label'])
       ||typeof m.assertion_id!=='string'||!m.assertion_id||seen.has(m.assertion_id)||typeof m.subject_entity_id!=='string'
       ||typeof m.label!=='string'||!m.label||typeof m.assertion_sha256!=='string'||!/^[a-f0-9]{64}$/.test(m.assertion_sha256)
       ||!Array.isArray(m.discovered_entity_ids)||!m.discovered_entity_ids.length
-      ||!m.discovered_entity_ids.every((id:unknown)=>(base.discovered_entity_ids as unknown[]).includes(id)))return false;
+      ||!m.discovered_entity_ids.every((id:unknown)=>discovered.includes(id)))return false;
     seen.add(m.assertion_id);return true;
+  });
+}
+
+export function isNativePlanQuery(v:unknown,worldId:string):v is import('../api/types').PlanNativeContextReceiptV1['native_query'] {
+  if(typeof v!=='object'||v===null||!('schema' in v)||v.schema!=='dmb_native_plan_query_v2')
+    return isNativeQueryBase(v,worldId,'dmb_native_plan_query_v1');
+  const q=v as Record<string,unknown>;
+  return isNativeQueryBase(v,worldId,'dmb_native_plan_query_v2',['assertion_matches'])
+    &&Array.isArray(q.discovered_entity_ids)&&assertionMatches(q.assertion_matches,q.discovered_entity_ids);
+}
+
+/** Human targets remain separate from search hits; this checks presentation only. */
+export function isNativeGraphQuery(v:unknown,worldId:string):v is import('../api/types').SurfaceNativeContextReceiptV1['native_query'] {
+  if(typeof v!=='object'||v===null||!('schema' in v)||v.schema!=='dmb_native_graph_query_v3')
+    return isNativePlanQuery(v,worldId)&&v.schema!=='dmb_native_plan_query_v1';
+  const q=v as Record<string,unknown>;
+  if(!isNativeQueryBase(q,worldId,'dmb_native_graph_query_v3',['assertion_matches','authored_targets'])
+    ||!Array.isArray(q.discovered_entity_ids)||!assertionMatches(q.assertion_matches,q.discovered_entity_ids)
+    ||!Array.isArray(q.authored_targets)||typeof q.authority!=='object'||q.authority===null
+    ||!('scope_mode' in q.authority)||q.authority.scope_mode!=='world'
+    ||!('campaign_id' in q.authority)||q.authority.campaign_id!==null)return false;
+  const seen=new Set<string>();
+  return q.authored_targets.every(t=>{
+    if(!exact(t,['node_id','selection_revision_id','matches','assertion_matches','status','gap_codes'])
+      ||!text(t.node_id)||seen.has(t.node_id)||!text(t.selection_revision_id)
+      ||!['complete','partial','unavailable'].includes(String(t.status))||!Array.isArray(t.gap_codes)||!t.gap_codes.every(text)
+      ||(t.status==='complete')!==!t.gap_codes.length||t.status!=='complete'&&q.status!=='partial'
+      ||!statementMatches(t.matches,[t.node_id],null)||!assertionMatches(t.assertion_matches,[t.node_id]))return false;
+    const matches=[...(t.matches as {discovered_entity_ids:string[]}[]),...(t.assertion_matches as {discovered_entity_ids:string[]}[])];
+    if(matches.some(m=>m.discovered_entity_ids.length!==1||m.discovered_entity_ids[0]!==t.node_id)
+      ||t.status==='unavailable'&&matches.length)return false;
+    seen.add(t.node_id);return true;
   });
 }

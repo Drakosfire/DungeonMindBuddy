@@ -34,3 +34,30 @@ it.each(['old-query','foreign-world','epoch','provider-budget','extra-root','ext
   if(mutation==='duplicate-history')r.assembled_input.included_history=[{turn_id:wire.source.turn_id,answer_sha256:'a'.repeat(64)},{turn_id:wire.source.turn_id,answer_sha256:'a'.repeat(64)}];
   expect(isSurfaceNativeReceipt(r,work)).toBe(false);
 });
+
+import authoredWire from '../test/surface-native-authored.json';
+import {isNativePlanQuery,isNativeGraphQuery} from './nativeStatementAnswerProtocol';
+const authoredContext=()=>structuredClone(authoredWire);
+const buildWork=(v:unknown):v is SurfaceNativeWorkContextV1=>typeof v==='object'&&v!==null&&'surface_id' in v&&v.surface_id==='build';
+it('renders the actual APP-read and SDK-writer human target wire without turning it into search or historical Plan evidence',()=>{
+  const c=authoredContext(),q=c.receipt.native_query;
+  expect(q.discovered_entity_ids).toEqual([]);expect(q.matches).toEqual([]);expect(q.assertion_matches).toEqual([]);
+  expect(q.authored_targets[0]!.matches.length).toBeGreaterThan(0);
+  expect(q.authored_targets[0]!.assertion_matches.length).toBeGreaterThan(0);
+  expect(isNativePlanQuery(q,c.receipt.work_context.source_basis.world_id)).toBe(false);
+  expect(isNativeGraphQuery(q,c.receipt.work_context.source_basis.world_id)).toBe(true);
+  expect(isSurfaceNativeReceipt(c.receipt,buildWork)).toBe(true);
+  expect(isSurfaceNativeCompletion(c.completion,c.receipt as SurfaceNativeContextReceiptV1)).toBe(true);
+});
+it.each(['origin','node','members','duplicate','missing-statement','missing-assertion','hidden-gap','extra'])('refuses altered authored target presentation: %s',mutation=>{
+  const c=authoredContext(),target=c.receipt.native_query.authored_targets[0]!;
+  if(mutation==='origin')target.selection_revision_id='';
+  else if(mutation==='node')target.node_id='ent:other';
+  else if(mutation==='members')target.assertion_matches[0]!.discovered_entity_ids.push(target.node_id);
+  else if(mutation==='duplicate')c.receipt.native_query.authored_targets.push(structuredClone(target));
+  else if(mutation==='missing-statement')target.matches=[];
+  else if(mutation==='missing-assertion')target.assertion_matches=[];
+  else if(mutation==='hidden-gap'){target.status='partial';target.gap_codes=[];}
+  else Object.assign(target,{provider_attempt_id:'invented-model-origin'});
+  expect(isSurfaceNativeReceipt(c.receipt,buildWork)&&isSurfaceNativeCompletion(c.completion,c.receipt as SurfaceNativeContextReceiptV1)).toBe(false);
+});

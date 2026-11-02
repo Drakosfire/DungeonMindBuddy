@@ -214,20 +214,28 @@ def validate_selected_record_events(query, execution):
                     or any(e.authorization_event_id == grant.event_id for e in observations.values())
                     or granted != ids | set(unavailable)):
                 raise ValueError('Native read observation differs from selected grant')
-            for read in event.reads:
-                if assertion:
-                    match = assertions[read.assertion.assertion_id]
-                    if digest(read.assertion) != match.assertion_sha256 or read.assertion.subject_entity_id != match.subject_entity_id:
-                        raise ValueError('Native assertion changed after discovery')
-                else:
-                    validate_support_authority(query.authority, read)
-                    match = statements[read.support.statement_id]
-                    if (read.support.payload['clause']['campaign'] != match.campaign_id
-                            or read.support.payload['clause']['logical_source'] != match.logical_source
-                            or read.support.payload['episode'] != match.episode
-                            or not set(match.discovery_assertion_ids) <= set(read.support.assertion_ids)):
-                        raise ValueError('Native selected support changed its discovered statement')
+            validate_record_reads(query.authority, event.reads,
+                assertions if assertion else statements, assertion=assertion)
             observations[event.event_id] = event
+
+
+def validate_record_reads(authority, reads, matches, *, assertion):
+    """Compare opened support with its Core catalog, regardless of selection actor."""
+    for read in reads:
+        identity = read.assertion.assertion_id if assertion else read.support.statement_id
+        match = matches.get(identity)
+        if match is None:
+            raise ValueError('Native read was not in its Core discovery catalog')
+        if assertion:
+            if digest(read.assertion) != match.assertion_sha256 or read.assertion.subject_entity_id != match.subject_entity_id:
+                raise ValueError('Native assertion changed after discovery')
+        else:
+            validate_support_authority(authority, read)
+            if (read.support.payload['clause']['campaign'] != match.campaign_id
+                    or read.support.payload['clause']['logical_source'] != match.logical_source
+                    or read.support.payload['episode'] != match.episode
+                    or not set(match.discovery_assertion_ids) <= set(read.support.assertion_ids)):
+                raise ValueError('Native selected support changed its discovered statement')
 
 
 def selected_reads(turn):
@@ -246,16 +254,16 @@ def model_frame(turn):
 
 
 def selected_read_records(execution):
+    from .authored_graph_references import BuildAuthoredReferenceReadV2
     return tuple((event, read) for event in execution.events
-        if isinstance(event, NativePlanStatementReadObservedV1) for read in event.reads)
+        for read in (event.reads if isinstance(event, NativePlanStatementReadObservedV1)
+            else event.statement_reads if isinstance(event, BuildAuthoredReferenceReadV2) else ()))
 
 
 def model_frame_records(query, execution):
     """Materialize admitted records; the caller owns the exact producing prefix."""
     rows = selected_read_records(execution)
-    partial = isinstance(query, NativePlanQueryV1) and query.status == 'partial' or any(
-        isinstance(e, NativePlanStatementReadObservedV1) and e.status == 'partial'
-        for e in execution.events)
+    partial = input_partial_records(query, execution)
     return {'schema': 'dmb_plan_native_statement_frame_v1',
         'authority': query.authority.model_dump(mode='json', by_alias=True) if isinstance(query, NativePlanQueryV1) else None,
         'status': 'unavailable' if not isinstance(query, NativePlanQueryV1) else 'partial' if partial else 'complete',
@@ -354,6 +362,7 @@ def input_partial(turn):
 
 
 def input_partial_records(query, execution):
+    from .authored_graph_references import BuildAuthoredReferenceReadV2
     return (isinstance(query, NativePlanQueryV1) and query.status == 'partial'
-        or any(isinstance(e, NativePlanStatementReadObservedV1) and e.status == 'partial'
+        or any(isinstance(e, (NativePlanStatementReadObservedV1, BuildAuthoredReferenceReadV2)) and e.status == 'partial'
                for e in execution.events))

@@ -80,6 +80,9 @@ def model_work_frame(receipt, execution, *, provenance, idempotency_key, work_pr
     if any(type(event) is NativeWriterAuthorizedV1 for event in execution.events):
         raise ValueError('Native work projection requires the prefix before its writer')
     if isinstance(receipt.work_context,BuildWorkContextV1):
+        from .authored_graph_references import validate_native_capture_identity
+        validate_native_capture_identity(execution, turn_id=turn_id, conversation_id=conversation_id,
+            attempt=attempt, fingerprint=t.submitted_turn_intent_fingerprint_v2(action.intent))
         from .build_primary_context import native_work_frame
         from .build_draft_context import context_record, validate_native_record
         if not isinstance(work_proof,dict) or work_proof:
@@ -92,7 +95,10 @@ def model_work_frame(receipt, execution, *, provenance, idempotency_key, work_pr
             raise ValueError('Native Build writer capability belongs to another conversation')
         from .build_intentional_response import validate_turn_arguments
         validate_turn_arguments(execution,user_text=action.intent.message,turn_id=turn_id,attempt=attempt)
-        return native_work_frame(execution,receipt.work_context.source_basis)
+        frame = native_work_frame(execution,receipt.work_context.source_basis)
+        from .authored_graph_references import native_writer_context
+        authored = native_writer_context(execution)
+        return frame if authored is None else frame | {'authored_references': authored}
     if isinstance(receipt.work_context,PlanWorkContextV1):
         from .plan_jev_graph_packet import project_native_plan_work, NATIVE_WORK_SCHEMA
         return dict(schema=NATIVE_WORK_SCHEMA,**project_native_plan_work(receipt,execution,provenance,

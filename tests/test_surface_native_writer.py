@@ -118,8 +118,8 @@ async def actual_sdk_request(frame, *, model='gpt-6-luna', work_frame=None):
 
 def authorize(context, record, raw, frame):
     surface = record.policy.action.surface_id
-    reads = tuple(sorted((e.event_id for e in record.events if isinstance(e, (
-        t.NativeBodyReadObservedV1, t.NativePlanStatementReadObservedV1, t.NativePlanAssertionReadObservedV1))), key=str))
+    from application_state.agent_conversation.native_execution import native_read_event_ids
+    reads = native_read_event_ids(record.events)
     auth = native_writer(surface, record.policy, sequence=len(record.events), read_ids=reads).model_copy(update={
         'envelope_sha256':sha256(raw.encode()).hexdigest(), 'frame_sha256':t.canonical_sha256(frame),
         'tool_schema_sha256':t.canonical_sha256([])})

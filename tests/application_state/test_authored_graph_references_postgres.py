@@ -36,12 +36,12 @@ def test_review_adds_references_and_dispatch_preserves_selected_snapshot(case):
     bound = w.resolve_action
     from application_state.unit_of_work import unit_of_work
     from application_state.agent_conversation.service import _ready_dsn
-    from application_state.agent_conversation.reviewed_action import ReviewedStepReference, ReviewedStepBindingV2
+    from application_state.agent_conversation.reviewed_action import ReviewedStepReference, ReviewedStepBindingV3
     with unit_of_work(_ready_dsn()) as conn:
         binding = bound(conn, 'world-one', ReviewedStepReference.model_validate(result['reviewed_step']),
             document_id=before['document_id'], client_thread_id=dispatch['client_thread_id'],
             client_turn_id=dispatch['client_turn_id'], message=dispatch['message'])
-    assert isinstance(binding, ReviewedStepBindingV2)
+    assert isinstance(binding, ReviewedStepBindingV3)
     assert [r.node_id for r in binding.authored_references.references] == ['root-box', 'selected-box']
 
 

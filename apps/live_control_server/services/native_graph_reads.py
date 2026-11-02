@@ -15,7 +15,7 @@ from dungeonmind.contracts.vnext.source import EvidenceRefV3
 from application_state.agent_conversation.native_statement_input import digest
 from application_state.agent_conversation.native_plan_assertions import (
     NativePlanAssertionMatchV1, NativePlanQueryV2, NativePlanAssertionReadAuthorizedV1,
-    NativePlanAssertionReadV1, NativeAssertionSpanV1,
+    NativePlanAssertionReadV1, NativeAssertionSpanV1, NativeGraphQueryV3, NativeAuthoredTargetV1,
 )
 from application_state.agent_conversation.native_plan_statements import (
     NativePlanQueryAuthorityV1, NativePlanQueryUnavailableV1, NativePlanQueryV1,
@@ -112,10 +112,71 @@ def _assertion_matches(entities, *, excluded_subjects):
         for a, witnesses, label in sorted(found.values(), key=lambda row: row[0].assertion_id))
 
 
+def _entity_catalog(identities, pinned, *, space, revision_id, scope_mode, campaign_id, read_entity):
+    """Compose one catalog from actual scoped Core entities, without body IO."""
+    gaps = []
+    routes, entities = {}, {}
+    for entity_id in identities:
+        obj = read_entity(revision_id, entity_id, pinned)
+        entities[entity_id] = obj
+        if obj.completeness.status != 'complete':
+            gaps.append('native_entity_partial')
+        direct = [a.assertion_id for a in obj.assertions
+            if a.subject_entity_id == entity_id and a.predicate == 'dnd5e:summary']
+        if direct:
+            routes.setdefault(entity_id, []).append((entity_id, direct))
+        for a in obj.assertions:
+            if (a.predicate == statements.mapping.ABOUT
+                    and getattr(a.value, 'entity_id', None) == entity_id
+                    and a.subject_entity_id != entity_id):
+                routes.setdefault(a.subject_entity_id, []).append((entity_id, [a.assertion_id]))
+    matches = []
+    qualified_subjects = set()
+    for statement_id, paths in routes.items():
+        obj = entities.get(statement_id)
+        if obj is None:
+            obj = read_entity(revision_id, statement_id, pinned)
+        if not obj.found or obj.completeness.status != 'complete':
+            gaps.append('native_statement_entity_unavailable')
+            continue
+        try:
+            payload = _payload(obj, statement_id)
+        except (ValueError, TypeError, KeyError, AttributeError):
+            qualified_subjects.add(statement_id)
+            gaps.append('native_statement_payload_invalid')
+            continue
+        if payload is None:
+            continue
+        qualified_subjects.add(statement_id)
+        clause = payload['clause']
+        if (clause['world'] != space or scope_mode == 'campaign' and clause['campaign'] != campaign_id):
+            raise ValueError('Admitted qualified statement changed query scope')
+        # Only Core-returned links seed this complete entity, never a global scan.
+        own_ids = {a.assertion_id for a in obj.assertions if a.subject_entity_id == statement_id}
+        witness_ids = {a for _, ids in paths for a in ids}
+        if not witness_ids <= own_ids:
+            raise ValueError('Statement discovery links differ from admitted complete entity')
+        logical = clause['logical_source']
+        subjects = _subject_labels(statement_id, paths, entities, clause['campaign'])
+        matches.append(NativePlanStatementMatchV1(statement_id=statement_id,
+            discovered_entity_ids=tuple(sorted({node for node, _ in paths})),
+            discovery_assertion_ids=tuple(sorted(witness_ids)), campaign_id=clause['campaign'],
+            logical_source=logical, episode=payload['episode'],
+            label=(f"About {subjects} · " if subjects else "")
+                + f"{logical['object_id']} — {payload['episode']} ({clause['campaign']})"))
+    return (tuple(matches), _assertion_matches(entities, excluded_subjects=qualified_subjects),
+        tuple(sorted(set(gaps))), entities)
+
+
 def prepare_query(managed_world_id, question, principal, *, source_context=None,
                   revision_id=None, repository=None, resolve_binding=None,
-                  scope_mode='world', campaign_id=None):
+                  scope_mode='world', campaign_id=None, authored_references=None):
     _require_gm(principal)
+    if authored_references is not None:
+        from application_state.agent_conversation.authored_graph_references import AuthoredGraphReferencesV1
+        if type(authored_references) is not AuthoredGraphReferencesV1 or scope_mode != 'world' or campaign_id is not None:
+            raise ValueError('Authored references require their exact World-scoped human input')
+        authored_references.require_world(managed_world_id)
     resolve = resolve_binding or resolve_managed_world_binding
     try:
         bound = resolve(managed_world_id)
@@ -127,6 +188,10 @@ def prepare_query(managed_world_id, question, principal, *, source_context=None,
             reason='native_graph_binding_unavailable')
     if bound.managed_world_id != managed_world_id:
         raise ValueError('Active query binding differs from requested World')
+    if authored_references is not None and any(
+            (ref.native_world_id, ref.binding_version) != (bound.native_world_id, bound.binding_version)
+            for ref in authored_references.references):
+        raise ValueError('Authored reference World binding changed')
     repo = repository if repository is not None else statements.native.repository()
     space = bound.native_world_id
     if source_context is not None:
@@ -158,65 +223,56 @@ def prepare_query(managed_world_id, question, principal, *, source_context=None,
         binding_version=bound.binding_version, revision_id=revision_id,
         domain_ref=h['domain_ref'], profile_ref=h['profile_ref'],
         acquisition_epoch=pinned[1].source_view.epoch, scope_mode=scope_mode, campaign_id=campaign_id)
+    entities_by_revision = {}
+    def read_entity(at_revision, entity_id, context):
+        key = at_revision, entity_id
+        if key not in entities_by_revision:
+            entity = EntityReadService().get_complete_entity(context[0], entity_id)
+            if (entity.identity.space_id, entity.identity.revision_id) != (space, at_revision):
+                raise ValueError('Core entity read changed pinned authority')
+            entities_by_revision[key] = entity
+        return entities_by_revision[key]
+    if authored_references is not None:
+        for ref in authored_references.references:
+            if repo.get_revision(space, ref.graph_revision) is None:
+                raise ValueError('Authored selection snapshot is unavailable')
+            origin = (pinned if ref.graph_revision == revision_id else
+                statements._context(repo, space, ref.graph_revision, None, 'gm', scope_mode='world'))
+            selected = read_entity(ref.graph_revision, ref.node_id, origin)
+            if not selected.found or selected.completeness.status != 'complete':
+                raise ValueError('Authored entity is unavailable in its selection snapshot')
     result = SearchReadService().search_entities(pinned[0], question)
     if (result.identity.space_id, result.identity.revision_id) != (space, revision_id):
         raise ValueError('Core search changed query authority')
     gaps = [] if result.completeness.status == 'complete' else ['native_search_partial']
     discovered = tuple(hit.entity.entity_id for hit in result.hits)
-    routes, entities = {}, {}
-    for hit in result.hits:
-        entity_id = hit.entity.entity_id
-        obj = EntityReadService().get_complete_entity(pinned[0], entity_id)
-        entities[entity_id] = obj
-        if obj.completeness.status != 'complete':
-            gaps.append('native_entity_partial')
-        direct = [a.assertion_id for a in obj.assertions
-            if a.subject_entity_id == entity_id and a.predicate == 'dnd5e:summary']
-        if direct:
-            routes.setdefault(entity_id, []).append((entity_id, direct))
-        for a in obj.assertions:
-            if (a.predicate == statements.mapping.ABOUT
-                    and getattr(a.value, 'entity_id', None) == entity_id
-                    and a.subject_entity_id != entity_id):
-                routes.setdefault(a.subject_entity_id, []).append((entity_id, [a.assertion_id]))
-    matches = []
-    qualified_subjects = set()
-    for statement_id, paths in routes.items():
-        obj = entities.get(statement_id)
-        if obj is None:
-            obj = EntityReadService().get_complete_entity(pinned[0], statement_id)
-        if not obj.found or obj.completeness.status != 'complete':
-            gaps.append('native_statement_entity_unavailable')
-            continue
-        try:
-            payload = _payload(obj, statement_id)
-        except (ValueError, TypeError, KeyError, AttributeError):
-            qualified_subjects.add(statement_id)
-            gaps.append('native_statement_payload_invalid')
-            continue
-        if payload is None:
-            continue
-        qualified_subjects.add(statement_id)
-        clause = payload['clause']
-        if (clause['world'] != space or scope_mode == 'campaign' and clause['campaign'] != campaign_id):
-            raise ValueError('Admitted qualified statement changed query scope')
-        # Only Core-returned links seed this complete entity, never a global scan.
-        own_ids = {a.assertion_id for a in obj.assertions if a.subject_entity_id == statement_id}
-        witness_ids = {a for _, ids in paths for a in ids}
-        if not witness_ids <= own_ids:
-            raise ValueError('Statement discovery links differ from admitted complete entity')
-        logical = clause['logical_source']
-        subjects = _subject_labels(statement_id, paths, entities, clause['campaign'])
-        matches.append(NativePlanStatementMatchV1(statement_id=statement_id,
-            discovered_entity_ids=tuple(sorted({node for node, _ in paths})),
-            discovery_assertion_ids=tuple(sorted(witness_ids)), campaign_id=clause['campaign'],
-            logical_source=logical, episode=payload['episode'],
-            label=(f"About {subjects} · " if subjects else "")
-                + f"{logical['object_id']} — {payload['episode']} ({clause['campaign']})"))
-    query = NativePlanQueryV2(authority=authority, question=question,
-        assertion_matches=_assertion_matches(entities, excluded_subjects=qualified_subjects),
+    matches, assertion_matches, entity_gaps, _entities = _entity_catalog(discovered, pinned,
+        space=space, revision_id=revision_id, scope_mode=scope_mode, campaign_id=campaign_id,
+        read_entity=read_entity)
+    gaps.extend(entity_gaps)
+    targets = []
+    if authored_references is not None:
+        for ref in authored_references.references:
+            target_matches, target_assertions, target_gaps, entities = _entity_catalog(
+                (ref.node_id,), pinned, space=space, revision_id=revision_id,
+                scope_mode=scope_mode, campaign_id=campaign_id, read_entity=read_entity)
+            entity = entities[ref.node_id]
+            if not entity.found:
+                target_gaps = ('native_authored_entity_unavailable',)
+                status = 'unavailable'
+                target_matches, target_assertions = (), ()
+            else:
+                status = 'partial' if target_gaps else 'complete'
+            targets.append(NativeAuthoredTargetV1(node_id=ref.node_id, selection_revision_id=ref.graph_revision,
+                matches=target_matches, assertion_matches=target_assertions,
+                status=status, gap_codes=target_gaps))
+            gaps.extend(target_gaps)
+    query_type = NativeGraphQueryV3 if authored_references is not None else NativePlanQueryV2
+    query = query_type(authority=authority, question=question,
+        assertion_matches=assertion_matches,
         search_result_sha256=result.result_digest, discovered_entity_ids=discovered,
-        matches=tuple(matches), status='partial' if gaps else 'complete', gap_codes=tuple(sorted(set(gaps))))
+        matches=tuple(matches), status='partial' if gaps else 'complete', gap_codes=tuple(sorted(set(gaps))),
+        **({'authored_targets': tuple(targets)} if authored_references is not None else {}))
     if resolve(managed_world_id) != bound:
         raise ValueError('Active Graph binding changed during native query')
     return QueryContext(query, bound, pinned, repo, principal, resolve), query
@@ -251,10 +307,51 @@ def read_selected(context, authorization, principal):
     return result
 
 
-def _read_statements(context, identities):
+@dataclass(frozen=True)
+class AuthoredSupport:
+    """Transient Core materialization; the existing APP owner admits the record."""
+    query_sha256: str
+    node_id: str
+    statement_reads: tuple
+    assertion_reads: tuple
+    unavailable_statement_ids: tuple
+    unavailable_assertion_ids: tuple
+    status: str
+
+
+def read_authored_reference(context, authorization, principal):
+    """Use the same pinned support readers for an explicitly human-origin grant."""
+    from application_state.agent_conversation.authored_graph_references import BuildAuthoredReferenceAuthorizedV2
+    _require_gm(principal)
+    query = context.query
+    if (type(authorization) is not BuildAuthoredReferenceAuthorizedV2
+            or not isinstance(query, NativeGraphQueryV3)
+            or query.authority.scope_mode != 'world' or query.authority.campaign_id is not None
+            or authorization.query_sha256 != query.sha256):
+        raise ValueError('Authored read requires its exact native human-origin grant')
+    target = next((target for target in query.authored_targets
+        if target.node_id == authorization.node_id), None)
+    if target is None:
+        raise ValueError('Authored object was not requested by this native context')
+    if context.resolve_binding(query.authority.managed_world_id) != context.binding:
+        raise ValueError('Native query binding changed before authored read')
+    statement_reads, unavailable_statements = _read_statements(context,
+        tuple(match.statement_id for match in target.matches), matches=target.matches)
+    assertion_reads, unavailable_assertions = _read_assertions(context,
+        tuple(match.assertion_id for match in target.assertion_matches), matches=target.assertion_matches)
+    if context.resolve_binding(query.authority.managed_world_id) != context.binding:
+        raise ValueError('Native query binding changed during authored read')
+    return AuthoredSupport(query_sha256=query.sha256, node_id=target.node_id,
+        statement_reads=statement_reads, assertion_reads=assertion_reads,
+        unavailable_statement_ids=unavailable_statements,
+        unavailable_assertion_ids=unavailable_assertions,
+        status='partial' if target.status != 'complete' or unavailable_statements or unavailable_assertions else 'complete')
+
+
+def _read_statements(context, identities, *, matches=None):
     query, repo = context.query, context.repository
     authority = query.authority
-    matches = {m.statement_id: m for m in query.matches}
+    matches = {m.statement_id: m for m in (query.matches if matches is None else matches)}
     reads, unavailable = [], []
     for identity in identities:
         match = matches[identity]
@@ -273,10 +370,10 @@ def _read_statements(context, identities):
     return tuple(reads), tuple(unavailable)
 
 
-def _read_assertions(context, identities):
+def _read_assertions(context, identities, *, matches=None):
     query = context.query
     authority = query.authority
-    inventory = {m.assertion_id: m for m in query.assertion_matches}
+    inventory = {m.assertion_id: m for m in (query.assertion_matches if matches is None else matches)}
     read_context, access, _, _ = context.pinned
     reads, unavailable = [], []
     for identity in identities:

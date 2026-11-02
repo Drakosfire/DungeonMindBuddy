@@ -41,9 +41,9 @@ def answer(rows, *, limitations=(), gaps=()):
     return dict(schema=POLICY,answer_segments=rows,limitations=list(limitations),requested_detail_gaps=list(gaps))
 
 
-def producing_case(context, record, candidate):
+def producing_case(context, record, candidate, *, work=None):
     record=with_work_selection(record)
-    work=work_submission(context,record)
+    work=work_submission(context,record) if work is None else work
     identity={k:work[k] for k in ('world_id','conversation_id','turn_id','attempt')}
     frame=model_frame(context,record)
     raw_request,raw_output=asyncio.run(sdk_reply(frame,candidate,model_work_frame(context,record,**work)))
@@ -180,8 +180,7 @@ def test_unavailable_native_capabilities_without_reads_remain_visible(lane,surfa
     context=type(context).model_validate_json(json.dumps(seal(data)))
     record=execution(context.context_receipt_sha256,record.policy)
     events,active=decision_prefix(surface,context,record)
-    if surface=='plan':
-        events.append(choice(context,record,active,len(events),'finish_retrieval'))
+    events.append(choice(context,record,active,len(events),'finish_retrieval'))
     record=execution(context.context_receipt_sha256,record.policy,events)
     stored,auth,proof=producing_case(context,record,answer([dict(kind='proposal',label='invented_idea',text='We could investigate.')]))
     result=normalize_output(context,stored,auth,**proof)

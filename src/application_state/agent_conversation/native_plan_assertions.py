@@ -10,7 +10,7 @@ from dungeonmind.contracts.vnext.source import EvidenceRefV3
 from pydantic import Field, model_validator
 
 from .native_statement_input import Strict, digest
-from .native_plan_statements import NativePlanQueryV1
+from .native_plan_statements import NativePlanQueryV1, NativePlanStatementMatchV1
 
 POLICY = 'dmb_surface_evidence_answer_v8'
 INSTRUCTIONS = """Native assertions are reviewed Graph records, not independent proof of every event.
@@ -41,6 +41,43 @@ class NativePlanQueryV2(NativePlanQueryV1):
         if len(ids) != len(set(ids)) or any(not set(m.discovered_entity_ids) <= set(self.discovered_entity_ids)
                 for m in self.assertion_matches):
             raise ValueError('Native assertion matches differ from discovered entities')
+        return self
+
+
+class NativeAuthoredTargetV1(Strict):
+    """Core entity catalog for an explicit author target, never a search hit."""
+    node_id: str = Field(min_length=1)
+    selection_revision_id: str = Field(min_length=1)
+    matches: tuple[NativePlanStatementMatchV1, ...]
+    assertion_matches: tuple[NativePlanAssertionMatchV1, ...]
+    status: Literal['complete', 'partial', 'unavailable']
+    gap_codes: tuple[str, ...]
+
+    @model_validator(mode='after')
+    def target_closure(self):
+        statements = [m.statement_id for m in self.matches]
+        assertions = [m.assertion_id for m in self.assertion_matches]
+        if (len(statements) != len(set(statements)) or len(assertions) != len(set(assertions))
+                or (self.status == 'complete') != (not self.gap_codes)
+                or self.status == 'unavailable' and (self.matches or self.assertion_matches)
+                or any(m.discovered_entity_ids != (self.node_id,)
+                    for m in (*self.matches, *self.assertion_matches))):
+            raise ValueError('Authored target catalog differs from its exact Core entity')
+        return self
+
+
+class NativeGraphQueryV3(NativePlanQueryV2):
+    """Search and authored-target catalogs retain their distinct selection origins."""
+    schema_: Literal['dmb_native_graph_query_v3'] = Field(default='dmb_native_graph_query_v3', alias='schema')
+    authored_targets: tuple[NativeAuthoredTargetV1, ...]
+
+    @model_validator(mode='after')
+    def authored_closure(self):
+        ids = [target.node_id for target in self.authored_targets]
+        if len(ids) != len(set(ids)):
+            raise ValueError('Authored targets repeat a Core entity')
+        if any(target.status != 'complete' for target in self.authored_targets) and self.status != 'partial':
+            raise ValueError('Query cannot hide unavailable authored targets')
         return self
 
 
@@ -135,8 +172,10 @@ def selected_reads(turn):
 
 
 def selected_read_records(execution):
-    return tuple((e, r) for e in execution.events
-        if isinstance(e, NativePlanAssertionReadObservedV1) for r in e.reads)
+    from .authored_graph_references import BuildAuthoredReferenceReadV2
+    return tuple((event, read) for event in execution.events
+        for read in (event.reads if isinstance(event, NativePlanAssertionReadObservedV1)
+            else event.assertion_reads if isinstance(event, BuildAuthoredReferenceReadV2) else ()))
 
 
 def model_frame(turn):
@@ -163,8 +202,9 @@ def input_partial(turn):
 
 
 def input_partial_records(query, execution):
+    from .authored_graph_references import BuildAuthoredReferenceReadV2
     return isinstance(query, NativePlanQueryV2) and (query.status == 'partial' or any(
-        isinstance(e, NativePlanAssertionReadObservedV1) and e.status == 'partial'
+        isinstance(e, (NativePlanAssertionReadObservedV1, BuildAuthoredReferenceReadV2)) and e.status == 'partial'
         for e in execution.events))
 
 

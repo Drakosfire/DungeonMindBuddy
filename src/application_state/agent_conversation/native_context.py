@@ -13,7 +13,7 @@ from typing import Annotated, Literal
 from pydantic import Field, model_validator
 
 from .native_corpus import NativeCorpusAuthorityV1
-from .native_plan_assertions import NativePlanQueryV2
+from .native_plan_assertions import NativePlanQueryV2, NativeGraphQueryV3
 from .native_plan_statements import NativePlanQueryUnavailableV1
 from .native_statement_input import Strict
 from .rules_authority_types import canonical_sha256
@@ -102,7 +102,7 @@ class SurfaceNativeContextReceiptV1(Strict):
     provenance_sha256: Digest
     work_context: SurfaceWorkContext
     source_authority: NativeCorpusAuthorityV1 | NativeCorpusUnavailableV1
-    native_query: NativePlanQueryV2 | NativePlanQueryUnavailableV1
+    native_query: NativeGraphQueryV3 | NativePlanQueryV2 | NativePlanQueryUnavailableV1
     assembled_input: NativeInitialInput
 
     @model_validator(mode="after")

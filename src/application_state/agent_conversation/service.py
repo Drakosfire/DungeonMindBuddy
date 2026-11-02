@@ -1461,6 +1461,9 @@ class AgentConversationService:
                         raise ValueError("Related page read lacks its exact source-owner materialization")
             except (ValueError,KeyError,TypeError,AttributeError) as exc:
                 raise ApplicationStateValidationError(str(exc)) from exc
+            from .authored_graph_references import BuildAuthoredReferenceAuthorizedV2, BuildAuthoredReferenceReadV2
+            if native_source_materializer is None and isinstance(event, (BuildAuthoredReferenceAuthorizedV2, BuildAuthoredReferenceReadV2)):
+                raise ApplicationStateValidationError('Native authored event requires its immutable read transaction owner')
             from .native_corpus import NATIVE_BODY_EVENTS
             if native_source_materializer is None and isinstance(event, NATIVE_BODY_EVENTS):
                 raise ApplicationStateValidationError("Native body event requires its immutable source transaction owner")
@@ -1984,6 +1987,28 @@ class AgentConversationService:
             materialize=lambda turn: observe_read(turn, event_id=event_id,
                 authorization_event_id=authorization_event_id, reads=reads,
                 unavailable_ids=unavailable_ids))
+
+    def capture_native_authored_references(self, world_id, conversation_id, turn_id, *,
+            expected_revision, expected_attempt, event_id):
+        from .authored_graph_references import capture_native_input
+        return self._append_native_read_materialization(world_id, conversation_id, turn_id,
+            expected_revision=expected_revision, expected_attempt=expected_attempt,
+            materialize=lambda turn: capture_native_input(turn, event_id=event_id))
+
+    def authorize_native_authored_reference(self, world_id, conversation_id, turn_id, *,
+            expected_revision, expected_attempt, event_id, node_id):
+        from .authored_graph_references import authorize_native_reference
+        return self._append_native_read_materialization(world_id, conversation_id, turn_id,
+            expected_revision=expected_revision, expected_attempt=expected_attempt,
+            materialize=lambda turn: authorize_native_reference(turn, event_id=event_id, node_id=node_id))
+
+    def observe_native_authored_reference(self, world_id, conversation_id, turn_id, *,
+            expected_revision, expected_attempt, event_id, authorization_event_id, materialize):
+        from .authored_graph_references import observe_native_reference
+        return self._append_native_read_materialization(world_id, conversation_id, turn_id,
+            expected_revision=expected_revision, expected_attempt=expected_attempt,
+            materialize=lambda turn: observe_native_reference(turn, event_id=event_id,
+                authorization_event_id=authorization_event_id, materialize=materialize))
 
     def authorize_native_body_search(self, world_id, conversation_id, turn_id, *,
             expected_revision, expected_attempt, event_id):

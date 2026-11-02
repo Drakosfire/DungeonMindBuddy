@@ -24,6 +24,7 @@ from .plan_authoring import PlanAuthoringCaptureV1
 from .plan_placement import PlanPlacementCatalogV1
 
 from .native_retrieval import NativeRetrievalAuthorizedV1, NativeRetrievalSelectedV1
+from .authored_graph_references import BuildAuthoredReferenceAuthorizedV2, BuildAuthoredReferenceReadV2
 
 Digest = Annotated[str, Field(pattern=r"^[a-f0-9]{64}$", strict=True)]
 
@@ -150,6 +151,13 @@ class NativeWriterAuthorizedV1(t.ProviderAttemptAuthorizedEventV3):
         return self
 
 
+def native_read_event_ids(events):
+    """One inclusion inventory for the current native writer."""
+    return tuple(sorted((event.event_id for event in events if isinstance(event, (
+        t.NativePlanStatementReadObservedV1, t.NativePlanAssertionReadObservedV1,
+        t.NativeBodyReadObservedV1, BuildAuthoredReferenceReadV2))), key=str))
+
+
 # Current owner event codecs are reused. Classic Graph operations/scopes and
 # source-anchor receipts deliberately have no branch in this native event union.
 SurfaceNativeEvent = Annotated[
@@ -167,8 +175,8 @@ SurfaceNativeEvent = Annotated[
     | t.BuildRequestedWorkResolutionV1 | t.BuildReviewedActionSelectionV2 | t.BuildReviewedActionSelectionV1
     | t.BuildWriterEvidenceSelectionV1 | t.BuildPlanOutputContractV2
     | t.RelatedPagesSelection | t.RelatedPageRead | t.RelatedPageInclusion
-    | t.BuildAuthoredReferencesCapturedV1 | t.BuildAuthoredReferenceAuthorizedV1
-    | t.BuildAuthoredReferenceReadV1 | t.BuildAuthoredProviderInclusionV1,
+    | t.BuildAuthoredReferencesCapturedV1 | BuildAuthoredReferenceAuthorizedV2
+    | BuildAuthoredReferenceReadV2,
     Field(discriminator="kind"),
 ]
 
@@ -180,8 +188,8 @@ _BUILD_WORK_EVENTS = (
     t.BuildRequestedWorkResolutionV1, t.BuildReviewedActionSelectionV1,
     t.BuildWriterEvidenceSelectionV1, t.BuildPlanOutputContractV2,
     t.RelatedPagesSelection, t.RelatedPageRead, t.RelatedPageInclusion,
-    t.BuildAuthoredReferencesCapturedV1, t.BuildAuthoredReferenceAuthorizedV1,
-    t.BuildAuthoredReferenceReadV1, t.BuildAuthoredProviderInclusionV1,
+    t.BuildAuthoredReferencesCapturedV1, BuildAuthoredReferenceAuthorizedV2,
+    BuildAuthoredReferenceReadV2,
 )
 _PLAN_WORK_EVENTS = (t.PlanRequestedWorkAuthorizedV2, t.PlanRequestedWorkSelectedV2)
 
@@ -220,9 +228,7 @@ class SurfaceNativeExecutionV1(Strict):
                     writer_role = roles.writer if isinstance(roles, t.GraphControllerWriterRolesV1) else roles
                     if identity != writer_role.identity():
                         raise ValueError("Shared native inclusion belongs only to its exact writer role")
-                    reads = tuple(sorted((prior.event_id for prior in self.events[:event.sequence]
-                        if isinstance(prior, (t.NativePlanStatementReadObservedV1,
-                            t.NativePlanAssertionReadObservedV1, t.NativeBodyReadObservedV1))), key=str))
+                    reads = native_read_event_ids(self.events[:event.sequence])
                     if event.native_read_event_ids != reads:
                         raise ValueError("Native writer changed its exact settled read inclusion set")
                     if isinstance(self.policy.action,NativeBuildActionV1) and any(isinstance(prior,
@@ -250,6 +256,8 @@ class SurfaceNativeExecutionV1(Strict):
                 if isinstance(roles, t.GraphProviderRoleTargetV1) and (event.provider, event.model, event.api_mode) != roles.identity():
                     raise ValueError("Provider differs from its frozen single-provider identity")
         if isinstance(self.policy.action,NativeBuildActionV1):
+            from .authored_graph_references import validate_native_execution
+            validate_native_execution(self)
             from .build_intentional_response import validate_native_action_events
             validate_native_action_events(self)
             from .plan_objective import validate_events as validate_plan_output_events
@@ -337,6 +345,8 @@ def validate_context_binding(context, execution):
             raise ValueError("Native query cannot replace an explicitly requested revision")
     from .native_plan_statements import validate_selected_record_events
     validate_selected_record_events(query, execution)
+    from .authored_graph_references import validate_native_context
+    validate_native_context(query, execution)
 
 
 def validate_submission(submission):
@@ -399,6 +409,10 @@ def validate_request_identity(receipt, execution, envelope):
             or envelope.world_id!=intent.world_id or envelope.user_text!=intent.message
             or envelope.provenance.surface_instance_id!=intent.surface_instance_id):
         raise ValueError('Stored shared native request differs from admission')
+    from .authored_graph_references import validate_native_capture_identity
+    validate_native_capture_identity(execution, turn_id=envelope.turn_id,
+        conversation_id=envelope.conversation_id, attempt=envelope.attempt,
+        fingerprint=envelope.submitted_intent_fingerprint_v2)
     binding=getattr(intent,'reviewed_step',None)
     if binding is not None and binding.reference.conversation_id!=envelope.conversation_id:
         raise ValueError('Reviewed native action belongs to a different conversation')
