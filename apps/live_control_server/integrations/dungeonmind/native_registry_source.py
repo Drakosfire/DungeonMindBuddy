@@ -6,6 +6,8 @@ from __future__ import annotations
 
 from dataclasses import asdict
 from psycopg.conninfo import conninfo_to_dict, make_conninfo
+from fastapi.encoders import jsonable_encoder
+from dungeonmind.contracts.vnext.domain import Assertion
 
 from dungeonmind.application.vnext import open_native_text_source_access_context
 from dungeonmind.infrastructure.postgres import PostgresDatabase, PostgresNativeSourceEvidenceRepository
@@ -93,3 +95,11 @@ def read_context(repo, space, revision, campaign, role="gm", *, scope_mode="camp
         source_reader=access.source_view,
     )
     return read, access, domain, profile
+
+
+def assertion_contract(parsed):
+    """Project an admitted immutable record into Core's public wire contract."""
+    payload = jsonable_encoder(parsed, sqlalchemy_safe=False)
+    # Parsed literal records cache their canonical text; it is not a wire field.
+    payload["value"].pop("canonical_json_text", None)
+    return Assertion.model_validate(payload)

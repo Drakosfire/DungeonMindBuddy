@@ -10,7 +10,7 @@ import json
 from dungeonmind.application.vnext import (
     SearchReadService, EntityReadService, EvidenceReadService, open_admitted_native_text,
 )
-from dungeonmind.contracts.vnext.domain import Assertion
+from apps.live_control_server.integrations.dungeonmind.native_registry_source import assertion_contract
 from dungeonmind.contracts.vnext.source import EvidenceRefV3
 from application_state.agent_conversation.native_statement_input import digest
 from application_state.agent_conversation.native_plan_assertions import (
@@ -101,7 +101,7 @@ def _assertion_matches(entities, *, excluded_subjects):
         for parsed in entity.assertions:
             if parsed.subject_entity_id in excluded_subjects:
                 continue  # Qualified source-statement semantics have their own contract.
-            assertion = Assertion.model_validate(parsed, from_attributes=True)
+            assertion = assertion_contract(parsed)
             row = found.setdefault(assertion.assertion_id, [assertion, set(), assertion.subject_entity_id])
             row[1].add(entity_id)
             if assertion.subject_entity_id == entity_id:
@@ -383,7 +383,7 @@ def _read_assertions(context, identities, *, matches=None):
         if not result.available or result.completeness.status != 'complete' or result.assertion is None:
             unavailable.append(identity)
             continue
-        assertion = Assertion.model_validate(result.assertion, from_attributes=True)
+        assertion = assertion_contract(result.assertion)
         match = inventory[identity]
         if digest(assertion) != match.assertion_sha256 or assertion.subject_entity_id != match.subject_entity_id:
             raise ValueError('Native assertion changed after discovery')
