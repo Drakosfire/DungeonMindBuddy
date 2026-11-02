@@ -2951,6 +2951,9 @@ class _PolicyExecutionAdapter:
                 self._ensure_claimed(view)
                 from .build_jev_driver import capture_draft_context
                 capture_draft_context(self)
+        except AgentTurnServiceError as exc:
+            self.failure=exc
+            return False
         finally:
             self._active_build_driver_projection = None
         execution = self._broker_execution()

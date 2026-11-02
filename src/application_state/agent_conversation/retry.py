@@ -67,14 +67,27 @@ def _edges(conn, turn):
     return incoming, outgoing
 
 
+def _native_action(execution):
+    from .build_draft_context import native_build_action
+    return native_build_action(execution) if execution is not None else None
+
+
+def _references(execution):
+    from .authored_graph_references import capture,policy_enabled,native_references
+    if _native_action(execution) is not None:
+        return native_references(execution)
+    return capture(execution).references if execution is not None and policy_enabled(execution.policy) else None
+
+
 def _settled(conn, turn, *, lock=False):
     if turn.status not in {"failed", "interrupted"} or turn.completion is not None:
         return "not_terminal"
-    if (
-        not isinstance(turn.graph_context_receipt, BuildGraphContextReceiptV1)
-        or turn.graph_context_execution is None
-    ):
-        return "unverified"
+    from .native_context import SurfaceNativeContextReceiptV1
+    shared=(type(turn.graph_context_receipt) is SurfaceNativeContextReceiptV1
+        and _native_action(turn.graph_context_execution) is not None)
+    if (not isinstance(turn.graph_context_receipt,BuildGraphContextReceiptV1) and not shared
+            or turn.graph_context_execution is None):
+        return 'unverified'
     if conn.execute(
         "SELECT 1 FROM agent.turn_reviewed_action WHERE turn_id=%s", (turn.turn_id,)
     ).fetchone():
@@ -200,21 +213,18 @@ def context(conn, turn, *, active):
         eligible=reason == "ready",
         reason=reason,
     ).model_dump(mode="json")
-    from .authored_graph_references import capture, policy_enabled
     execution = getattr(turn, 'graph_context_execution', None)
-    if execution and policy_enabled(execution.policy):
-        # The capture is input retention, never a successful read or retry grant.
-        captures = [e for e in execution.events if e.kind == 'build_authored_references_captured_v1']
-        if captures:
-            return RetryContextV2(**value, authored_references=capture(execution).references).model_dump(mode='json', by_alias=True)
+    references=(_references(execution) if execution is not None and (_native_action(execution) is not None
+        or any(e.kind=='build_authored_references_captured_v1' for e in execution.events)) else None)
+    if references is not None:
+        # Input retention is neither a successful source read nor a retry grant.
+        return RetryContextV2(**value,authored_references=references).model_dump(mode='json',by_alias=True)
     return value
 
 
 def validate_reference_retry(parent, intent):
     """A deliberate retry retains author identity and origin, never newer inputs."""
-    from .authored_graph_references import capture, policy_enabled
-    execution = parent.graph_context_execution
-    original = capture(execution).references if execution and policy_enabled(execution.policy) else None
+    original=_references(parent.graph_context_execution)
     if getattr(intent, 'authored_references', None) != original:
         raise RetryUnavailableError('Retry requires the original Graph references and selection snapshots')
 
@@ -246,6 +256,10 @@ def retained_discussion_work_state(conn, turn, captured):
     from .authored_graph_references import capture, policy_enabled
     from .build_draft_context import context_record, validate_record
     execution = turn.graph_context_execution
+    native=_native_action(execution)
+    if native is not None:
+        validate_record(captured,turn)
+        return native.intent.client_work_state
     snapshot = captured.snapshot
     references = capture(execution).references if policy_enabled(execution.policy) else None
     incoming = conn.execute(
@@ -290,7 +304,6 @@ def retained_discussion_work_state(conn, turn, captured):
 def read_discussion_retry_input(world, conversation, turn_id, revision):
     """Read original context only; admission and execution still happen in normal POST."""
     from .service import _ready_dsn
-    from .authored_graph_references import capture, policy_enabled
 
     with unit_of_work(_ready_dsn()) as conn:
         conn.execute("SET TRANSACTION ISOLATION LEVEL REPEATABLE READ READ ONLY")
@@ -305,7 +318,7 @@ def read_discussion_retry_input(world, conversation, turn_id, revision):
         if turn.revision != revision or retry_context is None or retry_context["reason"] != "ready":
             raise RetryUnavailableError("The failed request changed or still needs outcome recovery")
         record = retained_discussion_capture(turn)
-        references = capture(turn.graph_context_execution).references if policy_enabled(turn.graph_context_execution.policy) else None
+        references=_references(turn.graph_context_execution)
         return {
             "schema": "dmb_build_retained_discussion_retry_input_v1",
             "world_id": world, "conversation_id": str(conversation),
@@ -369,6 +382,9 @@ def validate_predecessor(conn, submission):
         "action_capability_sha256",
         None,
     )
+    native=_native_action(parent.graph_context_execution)
+    if native is not None:
+        previous_capability=native.intent.build_write_capability_sha256
     if (
         intent.build_write_capability_sha256 is not None
         and intent.build_write_capability_sha256 == previous_capability

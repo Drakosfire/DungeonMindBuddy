@@ -27,7 +27,7 @@ def test_fresh_build_default_factory_answers_human_reference_and_reopens_exact_s
     _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal)
 
 
-def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,recovery_dsn=None,recovery_mutation=None):
+def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,recovery_dsn=None,recovery_mutation=None,retry_mutation=None):
     from apps.live_control_server.routes import agent
     from apps.live_control_server.services import native_graph_reads as native, managed_world_graph_projection as managed
     from apps.live_control_server.services import build_jev_runtime as factory
@@ -124,6 +124,8 @@ def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,re
         async def _handle(self, req):
             mode=self.mode
             self.calls.append(req)
+            if failure=='retry_unknown':
+                raise httpx.ReadTimeout('synthetic unknown writer outcome',request=req)
             body = json.loads(req.content)
             inputs = [json.loads(body['input'])] if isinstance(body['input'], str) else [json.loads(row['content']) for row in body['input'] if row['content'].lstrip().startswith('{')]
             if mode:
@@ -246,6 +248,8 @@ def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,re
     monkeypatch.setattr(factory, 'BuildJevHarness', Harness)
     app = FastAPI()
     app.include_router(agent.router, prefix='/api/live')
+    from apps.live_control_server.routes.conversation_library import router as conversations_router
+    app.include_router(conversations_router)
     app.state.build_jev_runtime_factory = factory.PreparedBuildJevRuntime(accounting=counter())
     client = TestClient(app, client=('127.0.0.1', 42000), headers={'Authorization': 'Bearer ' + token})
     body = dict(schema='dmb_agent_turn_request_v1', client_thread_id=str(uuid4()), turn_id=str(uuid4()),
@@ -350,6 +354,80 @@ def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,re
         with psycopg.connect(recovery_dsn) as conn:
             state=conn.execute("SELECT payload->>'state' FROM agent.turn_rules_execution WHERE turn_id=%s AND product_attempt=%s",(prior.turn_id,prior.attempt)).fetchone()[0]
         assert state==('failed' if failure=='crash_interrupted' else 'unused')
+        return
+    if failure in {'retry_discussion','retry_unknown'}:
+        original_complete=AgentConversationService.complete_native_base_turn
+        def interrupted_delivery(*args,**kwargs):
+            raise RuntimeError('synthetic delivery interruption after writer response')
+        monkeypatch.setattr(AgentConversationService,'complete_native_base_turn',interrupted_delivery)
+        refused=client.post('/api/live/agent/turn',json=body)
+        assert refused.status_code==503,refused.text
+        monkeypatch.setattr(AgentConversationService,'complete_native_base_turn',original_complete)
+        failed=writer.adapter.service.inspect_turn(world_id=world,turn_id=writer.adapter.turn.turn_id)
+        assert failed.status=='interrupted'
+        prefix=f'/api/live/agent/worlds/{world}/conversations/{failed.conversation_id}'
+        eligible=client.get(prefix+'/retry-context',params={'turn_ids':str(failed.turn_id)})
+        assert eligible.status_code==200,eligible.text
+        eligibility=eligible.json()['turns'][0]['context']
+        if failure=='retry_unknown':
+            assert eligibility['eligible'] is False and eligibility['reason']=='unknown_outcome',eligible.text
+            blocked=client.get(prefix+f'/turns/{failed.turn_id}/discussion-retry-input',params={'revision':failed.revision})
+            assert blocked.status_code==409,blocked.text
+            assert len(writer.calls)==1
+            return
+        assert eligibility['eligible'] is True,eligible.text
+        retained=client.get(prefix+f'/turns/{failed.turn_id}/discussion-retry-input',params={'revision':failed.revision})
+        assert retained.status_code==200,retained.text
+        assert retained.json()['snapshot']==draft.snapshot.model_dump(mode='json',by_alias=True)
+        assert retained.json()['authored_references']==selected.model_dump(mode='json',by_alias=True)
+        assert retained.json()['message']==body['message']
+        retry={**body,'turn_id':str(uuid4()),'retry_of':{'turn_id':str(failed.turn_id),'revision':failed.revision,
+            'retained_snapshot_sha256':draft.snapshot.snapshot_sha256}}
+        expected_page=source
+        if retry_mutation=='newer_page':
+            save_page(tmp_path,page.document_id,'A newer saved author page must survive explicit Retry.')
+            expected_page=get_workspace_document_snapshot(tmp_path,page.document_id)
+        elif retry_mutation=='question':
+            retry['message']+=' Change the original question.'
+        elif retry_mutation=='reference':
+            retry['build_authored_references']=None
+        elif retry_mutation=='revision':
+            retry['retry_of']={**retry['retry_of'],'revision':failed.revision+1}
+        count=len(writer.calls)
+        all_calls=len(decisions.calls),len(writer.calls)
+        if retry_mutation=='race':
+            from concurrent.futures import ThreadPoolExecutor
+            candidates=[retry,{**retry,'turn_id':str(uuid4())}]
+            with ThreadPoolExecutor(max_workers=2) as pool:
+                responses=list(pool.map(lambda candidate:client.post('/api/live/agent/turn',json=candidate),candidates))
+            assert sorted(r.status_code for r in responses)==[200,409],[r.text for r in responses]
+            winner=next(i for i,r in enumerate(responses) if r.status_code==200)
+            retry,answer=candidates[winner],responses[winner]
+            import psycopg
+            with psycopg.connect(recovery_dsn) as conn:
+                edges=conn.execute('SELECT ordinal FROM agent.turn_retry WHERE predecessor_id=%s',(failed.turn_id,)).fetchall()
+            assert edges==[(1,)]
+        else:
+            answer=client.post('/api/live/agent/turn',json=retry)
+        if retry_mutation in {'question','reference','revision','newer_page'}:
+            assert answer.status_code==409,answer.text
+            assert (len(decisions.calls),len(writer.calls))==all_calls
+            assert get_workspace_document_snapshot(tmp_path,page.document_id)==expected_page
+            return
+        assert answer.status_code==200,answer.text
+        assert len(writer.calls)==count+1
+        assert answer.json()['knowledge_context']['delivery_replay'] is False
+        replay=client.post('/api/live/agent/turn',json=retry)
+        assert replay.status_code==200 and replay.json()['knowledge_context']['delivery_replay'] is True,replay.text
+        assert len(writer.calls)==count+1
+        again=client.post('/api/live/agent/turn',json={**retry,'turn_id':str(uuid4())})
+        assert again.status_code==409,again.text
+        assert len(writer.calls)==count+1
+        assert get_workspace_document_snapshot(tmp_path,page.document_id)==expected_page
+        after=client.get(prefix+'/retry-context',params={'turn_ids':str(failed.turn_id)})
+        assert after.status_code==200 and after.json()['turns'][0]['context']['reason']=='retried',after.text
+        original=writer.adapter.service.inspect_turn(world_id=world,turn_id=failed.turn_id)
+        assert original.status=='interrupted' and original.failure_code==failed.failure_code
         return
     response = client.post('/api/live/agent/turn', json=body)
     if failure in {'revision','node','reference_world'}:
@@ -590,3 +668,9 @@ def test_native_persisted_object_recovers_without_another_provider(lane,tmp_path
 @pytest.mark.parametrize('mutation',['raw','seal','trace','scope','unknown'])
 def test_native_persisted_object_recovery_refuses_corrupted_owners(lane,tmp_path,monkeypatch,application_state_dsn,proposal,mutation):
     _fresh_case(lane,tmp_path,monkeypatch,'crash_live',True,False,proposal,recovery_dsn=application_state_dsn,recovery_mutation=mutation)
+
+
+@pytest.mark.parametrize('mutation',[None,'race','newer_page','question','reference','revision','unknown'])
+def test_native_failed_discussion_exposes_original_context_and_one_explicit_retry(lane,tmp_path,monkeypatch,application_state_dsn,mutation):
+    _fresh_case(lane,tmp_path,monkeypatch,'retry_unknown' if mutation=='unknown' else 'retry_discussion',True,False,False,
+        recovery_dsn=application_state_dsn,retry_mutation=mutation)
