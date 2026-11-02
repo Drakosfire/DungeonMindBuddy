@@ -22,7 +22,21 @@ from .agent_source_passages import SourcePassageOpenError
 
 def saved_section_targets(turn: Turn) -> list[AgentSavedBuildSectionTargetV1]:
     # Reconstruct, rather than trusting model_copy or a mutable in-memory object.
-    turn = Turn.model_validate(turn.model_dump(mode="python", by_alias=True))
+    turn = Turn.model_validate_json(turn.model_dump_json(by_alias=True))
+    from application_state.agent_conversation.native_context import SurfaceNativeContextReceiptV1, BuildWorkContextV1
+    if type(turn.graph_context_receipt) is SurfaceNativeContextReceiptV1:
+        receipt=turn.graph_context_receipt
+        if turn.status!='completed' or type(receipt.work_context) is not BuildWorkContextV1:
+            return []
+        completion=turn.completion
+        reads={e.event_id:e for e in turn.graph_context_execution.events if isinstance(e,ValidatedBuildSectionReadV1)}
+        return [AgentSavedBuildSectionTargetV1(world_id=turn.world_id,turn_id=turn.turn_id,
+            segment_index=item.segment_index,section_event_id=identity,section_read_id=reads[identity].read_id,
+            source_basis=receipt.work_context.source_basis,source_class=reads[identity].source_class,
+            line_start=reads[identity].line_start,line_end=reads[identity].line_end,
+            excerpt_sha256=reads[identity].excerpt_sha256,text_sha256=item.text_sha256)
+            for item in completion.saved_source_citations for identity in item.section_event_ids]
+
     if (
         turn.status != "completed"
         or not any(
@@ -102,6 +116,11 @@ def open_saved_section(
     turn = (service or AgentConversationService()).inspect_turn(
         world_id=world_id, turn_id=turn_id
     )
+    from application_state.agent_conversation.rules_authority_reads import MixedCompletedTurnV1
+    if isinstance(turn,MixedCompletedTurnV1):
+        if turn.base_projection.kind!='approved':
+            raise SourcePassageOpenError('saved_section_turn_unavailable',404)
+        turn=turn.base_projection.turn
     if turn.world_id != world_id or turn.turn_id != turn_id:
         raise SourcePassageOpenError("saved_section_turn_unavailable", 404)
     matches = [

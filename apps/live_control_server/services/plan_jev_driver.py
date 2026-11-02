@@ -29,6 +29,13 @@ class PlanJevDriver:
         from .plan_jev_acquisition import query_identity
         self.attempted_queries = ({query_identity(adapter.bootstrap.completed_discovery_query)}
             if self.graph_available and adapter.bootstrap.completed_discovery_query else set())
+        self.saved_page_catalog={}
+        self.attempted_saved_pages=set()
+        if adapter.fence is not None and type(adapter.fence.turn.graph_context_receipt) is t.SurfaceNativeContextReceiptV1:
+            receipt=adapter.fence.turn.graph_context_receipt
+            if receipt.work_context.surface_id=='build':
+                from application_state.agent_conversation.build_section import saved_section_catalog
+                self.saved_page_catalog=saved_section_catalog(adapter.work.build_source.markdown,receipt.work_context.source_basis)
         self.finished = False
         self.calls = []
         self.gaps = []
@@ -87,6 +94,7 @@ class PlanJevDriver:
             result.extend(RetrievalCandidate(handle=assertion_handle(query, match), label=match.label,
                 kind='Reviewed native Graph assertion; select to read its qualifications and exact supporting evidence')
                 for match in query.assertion_matches if match.assertion_id not in self.native_assertion_attempts)
+        result.extend(candidate for handle,(candidate,_range) in self.saved_page_catalog.items() if handle not in self.attempted_saved_pages)
         result.extend(self.native_sources.offered())
         return tuple(result)
 
@@ -184,7 +192,13 @@ class PlanJevDriver:
                     self.attempted_queries.add(key)  # consume even when IO fails
                     self._graph_read("search", query=query)
             for handle in selected.selected_handles:
-                if handle in native_handles:
+                if handle in self.saved_page_catalog:
+                    if handle in self.attempted_saved_pages:
+                        raise ValueError('Saved page block cannot be reacquired')
+                    self.attempted_saved_pages.add(handle)
+                    first,last=self.saved_page_catalog[handle][1]
+                    self.adapter.read_build_section(line_start=first,line_end=last)
+                elif handle in native_handles:
                     try:
                         self.native_sources.select([handle])
                     except (ValueError, ApplicationStateValidationError):
@@ -295,6 +309,7 @@ class PlanJevDriver:
                 examined = [candidate for node, candidate in self.catalog.values() if node in self.attempted_nodes]
                 if self.rules is not None and self.rules.selected:
                     examined.append(rules_candidate())
+                examined.extend(self.saved_page_catalog[h][0] for h in sorted(self.attempted_saved_pages))
                 examined.extend(self.native_sources.examined())
                 examined.extend(self._native_statement_examined())
                 examined.extend(self._native_assertion_examined())

@@ -3122,7 +3122,7 @@ export async function getAgentSourcePassage(worldId: string, turnId: string, cit
   return apiFetch(`/api/live/agent/worlds/${encodeURIComponent(worldId)}/conversation/turns/${encodeURIComponent(turnId)}/source-passages/${citationIndex}`);
 }
 
-export async function getAgentSavedSection(target: import("./types").SavedBuildSectionTargetV1):
+export async function getAgentSavedSection(target: Pick<import("./types").SavedBuildSectionTargetV1,"world_id"|"turn_id"|"segment_index"|"section_event_id">):
   Promise<import("./types").SavedBuildSectionReadV1> {
   return apiFetch(`/api/live/agent/worlds/${encodeURIComponent(target.world_id)}/conversation/turns/${encodeURIComponent(target.turn_id)}/saved-sections/${target.segment_index}/${encodeURIComponent(target.section_event_id)}`);
 }

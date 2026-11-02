@@ -17,9 +17,8 @@ from application_state.agent_conversation.authored_graph_references import Autho
 from apps.live_control_server.services.workspace_document_registry import get_workspace_document_snapshot
 
 
-@pytest.mark.parametrize('failure',[None,'revision','node','reference_world'])
-@pytest.mark.parametrize('with_draft',[False,True])
-def test_fresh_build_default_factory_answers_human_reference_and_reopens_exact_support(lane, tmp_path, monkeypatch, failure, with_draft):
+@pytest.mark.parametrize('failure,with_draft,saved',[(f,d,False) for f in (None,'revision','node','reference_world') for d in (False,True)]+[(None,d,True) for d in (False,True)]+[(f,False,True) for f in ('section_scope','selection_text')])
+def test_fresh_build_default_factory_answers_human_reference_and_reopens_exact_support(lane, tmp_path, monkeypatch, failure, with_draft,saved):
     from apps.live_control_server.routes import agent
     from apps.live_control_server.services import native_graph_reads as native, managed_world_graph_projection as managed
     from apps.live_control_server.services import build_jev_runtime as factory
@@ -48,7 +47,7 @@ def test_fresh_build_default_factory_answers_human_reference_and_reopens_exact_s
     selected = AuthoredGraphReferencesV1(references=(AuthoredGraphReferenceV1(managed_world_id=world,
         native_world_id=world, binding_version=1, graph_revision=original_revision,
         node_id=lane.ids['B'], label='DISPLAY ONLY: never evidence'),))
-    if failure is not None:
+    if failure in {'revision','node','reference_world'}:
         field,value = {'revision':('graph_revision','rev:missing'), 'node':('node_id','ent:missing'),
             'reference_world':('managed_world_id','foreign-world')}[failure]
         selected = selected.model_copy(update={'references':(selected.references[0].model_copy(update={field:value}),)})
@@ -81,9 +80,13 @@ def test_fresh_build_default_factory_answers_human_reference_and_reopens_exact_s
             self.calls.append(req)
             body = json.loads(req.content)
             answers = {}
+            candidates=body.get('state',{}).get('candidates',[])
+            selected={i for i,c in enumerate(candidates) if c['kind'].startswith('Saved authored page block')}
             for name, question in body['questions'].items():
                 choices = question['criteria']
-                chosen = 'discuss' if name == 'requested_work' else 'finish_retrieval' if name == 'operation' else 'exclude' if name.startswith('candidate_') else 'skip'
+                chosen = ('discuss' if name=='requested_work' else ('select_candidates' if saved and selected and 'select_candidates' in choices else 'finish_retrieval') if name=='operation'
+                    else ('include' if saved and int(name.split('_')[-1]) in selected else 'exclude') if name.startswith('candidate_')
+                    else 'direct_support' if name.startswith('s') and name[1:].isdigit() else 'skip')
                 assert chosen in choices, (name, choices)
                 answers[name] = dict(type='choice', choice=chosen, confidence=1,
                     probabilities={key: float(key == chosen) for key in choices})
@@ -105,8 +108,11 @@ def test_fresh_build_default_factory_answers_human_reference_and_reopens_exact_s
                 assert sum(draft.snapshot.draft_markdown in row['content'] for row in body['input'])==1
             handles = [row['assertion_handle'] for row in frame['native_assertions']['assertions']]
             assert handles and 'DISPLAY ONLY' not in str(frame)
+            read_ids=[row['read_id'] for row in work['artifact_under_edit']['sections']]
+            if saved:
+                assert read_ids and 'A proposed conversation.' in str(work)
             candidate = dict(schema=frame['answer_policy'],
-                answer_segments=[dict(kind='native_assertion_claim', text='The Graph retains the qualified description.', assertion_handles=handles)],
+                answer_segments=[dict(kind='native_assertion_claim', text='The Graph retains the qualified description.', assertion_handles=handles)]+([dict(kind='saved_source_claim',text='The saved page proposes a conversation.',section_read_ids=read_ids,supporting_quotes=[r['text'] for r in work['artifact_under_edit']['sections']])] if saved else []),
                 limitations=[], requested_detail_gaps=[], collaboration=None)
             return httpx.Response(200, request=req, json=dict(id='resp_native_build', object='response',
                 created_at=1, status='completed', model=body['model'], output=[dict(type='message', id='msg_native_build',
@@ -114,6 +120,17 @@ def test_fresh_build_default_factory_answers_human_reference_and_reopens_exact_s
                 usage=dict(input_tokens=100, output_tokens=40, total_tokens=140)))
     decisions, writer = Decisions(), Writer()
     actual_harness = factory.BuildJevHarness
+    if failure=='selection_text':
+        from dataclasses import replace
+        from apps.live_control_server.services.build_jev_writer_selection import WriterSelectionDriver
+        original_stage=WriterSelectionDriver.stage
+        def substituted_stage(self):
+            plan=original_stage(self)
+            state=plan.state()
+            next(iter(state['sources'].values()))['text']='Substituted private-looking source body.'
+            self._plan=replace(plan,state_json=json.dumps(state,sort_keys=True,separators=(',',':')))
+            return self._plan
+        monkeypatch.setattr(WriterSelectionDriver,'stage',substituted_stage)
     class Harness(actual_harness):
         def _capture_failure(self, adapter, exc):
             import traceback
@@ -123,6 +140,9 @@ def test_fresh_build_default_factory_answers_human_reference_and_reopens_exact_s
             super().__init__(decision_transport=decisions, writer_transport=writer, **values)
         def execute(self, adapter):
             writer.adapter = adapter
+            if failure=='section_scope':
+                original_read=adapter.read_build_section
+                adapter.read_build_section=lambda **args:original_read(line_start=args['line_start']+999,line_end=args['line_end']+999)
             return super().execute(adapter)
     monkeypatch.setattr(factory, 'BuildJevHarness', Harness)
     app = FastAPI()
@@ -140,11 +160,19 @@ def test_fresh_build_default_factory_answers_human_reference_and_reopens_exact_s
         body['build_draft_context']=draft.model_dump(mode='json',by_alias=True)
         body['client_work_state']='saved_dirty'
     response = client.post('/api/live/agent/turn', json=body)
-    if failure is not None:
+    if failure in {'revision','node','reference_world'}:
         assert response.status_code == (422 if failure=='reference_world' else 409), response.text
         if failure!='reference_world':
             assert response.json()['detail']['code']=='native_graph_query_rejected'
         assert not decisions.calls and not writer.calls and not classic_calls
+        assert get_workspace_document_snapshot(tmp_path,page.document_id)==source
+        assert lane.repo.get_head(world).head_revision_id==current_revision
+        return
+    if failure in {'section_scope','selection_text'}:
+        assert response.status_code==503,response.text
+        assert not writer.calls and not classic_calls
+        if failure=='selection_text':
+            assert all('writer_selection' not in req.content.decode() for req in decisions.calls)
         assert get_workspace_document_snapshot(tmp_path,page.document_id)==source
         assert lane.repo.get_head(world).head_revision_id==current_revision
         return
@@ -185,12 +213,33 @@ def test_fresh_build_default_factory_answers_human_reference_and_reopens_exact_s
     import os
     if not with_draft and (destination := os.environ.get('DMB_NATIVE_BUILD_WIRE')):
         from pathlib import Path
-        Path(destination).write_text(json.dumps(dict(request=body, response=payload,
-            history=history.json(), source=opened.json()), indent=2) + '\n')
+        captured=dict(request=body,response=payload,history=history.json(),source=opened.json())
+        if saved:
+            cite=context['completion']['saved_source_citations'][0]
+            saved_read=client.get(f'/api/live/agent/worlds/{world}/conversation/turns/{turn.turn_id}/saved-sections/{cite["segment_index"]}/{cite["section_event_ids"][0]}')
+            assert saved_read.status_code==200,saved_read.text
+            captured['saved_source']=saved_read.json()
+        Path(destination).write_text(json.dumps(captured,indent=2)+'\n')
     before = (len(decisions.calls), len(writer.calls))
     replay = client.post('/api/live/agent/turn', json=body)
     assert replay.status_code == 200, replay.text
     assert replay.json()['knowledge_context']['delivery_replay'] is True
+    if saved:
+        from apps.live_control_server.services.agent_saved_sections import saved_section_targets
+        targets=saved_section_targets(turn)
+        assert targets
+        cite=context['completion']['saved_source_citations'][0]
+        assert cite['segment_index']==1
+        assert any(isinstance(e,t.BuildWriterEvidenceSelectionV1) and e.mode=='jev' for e in turn.graph_context_execution.events)
+        for identity in cite['section_event_ids']:
+            url=f'/api/live/agent/worlds/{world}/conversation/turns/{turn.turn_id}/saved-sections/{cite["segment_index"]}/{identity}'
+            original=client.get(url)
+            assert original.status_code==200,original.text
+            assert original.json()['target']['source_basis']==context['receipt']['work_context']['source_basis']
+        save_page(tmp_path,page.document_id,'# Changed after the accepted reply\n\nNewer text must never replace a citation.\n')
+        reopened=client.get(url)
+        assert reopened.status_code==200 and reopened.json()==original.json()
+        source=get_workspace_document_snapshot(tmp_path,page.document_id)
     assert (len(decisions.calls), len(writer.calls)) == before
     assert get_workspace_document_snapshot(tmp_path, page.document_id) == source
     assert lane.repo.get_head(world).head_revision_id == current_revision

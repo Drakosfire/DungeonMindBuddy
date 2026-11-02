@@ -2677,10 +2677,14 @@ class _PolicyExecutionAdapter:
                 or self.work.build_source is None):
             raise ValueError("Saved section requires an admitted Build controller turn")
         receipt = self.fence.turn.graph_context_receipt
-        if not isinstance(receipt, graph_types.BuildGraphContextReceiptV1):
-            raise ValueError("Saved section requires Build source authority")
+        from application_state.agent_conversation.native_context import SurfaceNativeContextReceiptV1, BuildWorkContextV1
+        if type(receipt) is SurfaceNativeContextReceiptV1 and type(receipt.work_context) is BuildWorkContextV1:
+            basis=receipt.work_context.source_basis
+        elif isinstance(receipt, graph_types.BuildGraphContextReceiptV1):
+            basis=receipt.source_basis
+        else:
+            raise ValueError('Saved section requires Build source authority')
         source = self.work.build_source
-        basis = receipt.source_basis
         if (source.world_id != basis.world_id or source.document_id != basis.document_id
                 or int(source.revision) != basis.registry_revision or source.content_sha256 != basis.content_sha256
                 or source.visibility_state != basis.visibility):
@@ -2689,11 +2693,12 @@ class _PolicyExecutionAdapter:
             kind="build_section_read_authorized_v1", event_id=uuid4(),
             sequence=len(self._broker_execution().events), read_id=uuid4(), source_basis=basis,
             source_class="saved_authored_source_not_played_truth", line_start=line_start, line_end=line_end,
-            max_chars=(self._broker_execution().policy.saved_source_char_count
+            max_chars=(self._broker_execution().policy.action.saved_source_char_count
+                if type(receipt) is SurfaceNativeContextReceiptV1 else self._broker_execution().policy.saved_source_char_count
                 if getattr(self._broker_execution().policy, "saved_section_read_policy", None) == "exact_saved_lines_provider_capacity_v1"
                 else self._broker_execution().policy.max_chars_per_source_read))
         self.turn = _require_fresh_execution_append(self.fence.append(
-            "authorize_build_section_read", "authorization", authorization))
+            "authorize_build_section_read", "authorization", authorization,source_markdown=source.markdown))
         # No substring is materialized before durable authorization. Full source
         # was loaded by earlier work resolution; this is not a new disk read.
         text = exact_saved_section(source.markdown, basis.content_sha256, line_start, line_end)
@@ -2921,15 +2926,17 @@ class _PolicyExecutionAdapter:
         from .build_jev_dispatch import prepared_driver_view
         from .build_jev_driver import canonical
         from uuid import UUID
-        if (self.failure is not None or self.fence is not None or not self._is_build_turn()
+        if (self.failure is not None or not self._is_build_turn()
+                or self.fence is not None and view.get('contextPhase')!='writer_selection'
                 or self.native_source_authority is None
                 or canonical(view) != canonical(prepared_driver_view(prepared,projection,accounting=self._build_jev_accounting))):
             return False
         self._active_build_driver_projection = projection
         try:
-            self._ensure_claimed(view)
-            from .build_jev_driver import capture_draft_context
-            capture_draft_context(self)
+            if self.fence is None:
+                self._ensure_claimed(view)
+                from .build_jev_driver import capture_draft_context
+                capture_draft_context(self)
         finally:
             self._active_build_driver_projection = None
         execution = self._broker_execution()

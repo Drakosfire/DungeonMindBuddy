@@ -243,3 +243,19 @@ def test_native_codec_rejects_retired_inclusion_event_families(kind):
             'events':[*(e.model_dump(mode='json',by_alias=True) for e in root.events),
                 retired.model_dump(mode='json',by_alias=True)]}))
     assert any(error['type']=='union_tag_invalid' for error in rejected.value.errors())
+
+
+@pytest.mark.parametrize('separator',['\u2028','\u2029','\v','\f','\x85','\x1c','\x1d','\x1e'])
+@pytest.mark.parametrize('newline',['\n','\r\n','\r'])
+def test_saved_catalog_materialization_matches_exact_partition_bytes(separator,newline):
+    from application_state.agent_conversation.authored_excerpt_blocks import partition
+    from application_state.agent_conversation.build_section import saved_section_catalog,exact_saved_section
+    context,_=component('build',unavailable=True)
+    text=f'a{separator}b{separator}c{newline}{newline}second 🌸{newline}'
+    basis=context.work_context.source_basis.model_copy(update={'content_sha256':sha256(text.encode()).hexdigest()})
+    expected={block.block_handle:block.text for block in partition(text,'saved-build:'+t.canonical_sha256(basis)) if block.text.strip()}
+    catalog=saved_section_catalog(text,basis)
+    assert set(catalog)==set(expected)
+    for handle,(_candidate,lines) in catalog.items():
+        assert exact_saved_section(text,basis.content_sha256,*lines)==expected[handle]
+    assert exact_saved_section(text,basis.content_sha256,*list(catalog.values())[-1][1])==f'second 🌸{newline}'

@@ -1,26 +1,26 @@
 {
   "request": {
     "schema": "dmb_agent_turn_request_v1",
-    "client_thread_id": "0ada574f-a549-4de4-9b8a-d26dddeffe6b",
-    "turn_id": "0b96857f-adf9-47c5-9592-bede26b2cfae",
+    "client_thread_id": "ee6b8b39-1885-4250-9861-c25d14d41766",
+    "turn_id": "79b03219-42f0-40f0-a2ab-57cc353733f8",
     "surface": {
       "surface_id": "build",
-      "instance_id": "3a5728a8-6b98-4e6e-85cc-1d726bfd5e7f"
+      "instance_id": "5d520b03-b091-4f13-988e-5cf211bde462"
     },
     "owner_scope": {
       "kind": "world",
-      "world_id": "statement-fixture-cedd7597732f46bd90189d37cf100305"
+      "world_id": "statement-fixture-b02802c5a5604542b3c3c7250d9ad4fa"
     },
     "primary_work": {
       "kind": "build",
-      "object_id": "3a5728a8-6b98-4e6e-85cc-1d726bfd5e7f",
+      "object_id": "5d520b03-b091-4f13-988e-5cf211bde462",
       "expected_revision": 2,
       "expected_content_sha256": "ed337f86fe39e9b1d64d0b15ca61fd97889b59a672895ce28ffe093aab42912b"
     },
     "client_work_state": "saved_clean",
     "graph_request": {
       "mode": "world",
-      "world_id": "statement-fixture-cedd7597732f46bd90189d37cf100305",
+      "world_id": "statement-fixture-b02802c5a5604542b3c3c7250d9ad4fa",
       "campaign_id": null,
       "revision_pin": null,
       "focus": {
@@ -35,11 +35,11 @@
       "references": [
         {
           "schema": "dmb_authored_graph_reference_v1",
-          "managed_world_id": "statement-fixture-cedd7597732f46bd90189d37cf100305",
-          "native_world_id": "statement-fixture-cedd7597732f46bd90189d37cf100305",
+          "managed_world_id": "statement-fixture-b02802c5a5604542b3c3c7250d9ad4fa",
+          "native_world_id": "statement-fixture-b02802c5a5604542b3c3c7250d9ad4fa",
           "binding_version": 1,
-          "graph_revision": "rev:96517d9e1c7b003a42cad4d1288a5941",
-          "node_id": "ent:cb8d249f723105dcfb21dc44f329c903",
+          "graph_revision": "rev:90141c4a977ecce6fdd454a2762ea2cd",
+          "node_id": "ent:9933f5bafdb54b570497f1e96027b0a7",
           "label": "DISPLAY ONLY: never evidence"
         }
       ]
@@ -48,23 +48,23 @@
   },
   "response": {
     "schema": "dmb_agent_turn_response_v1",
-    "client_thread_id": "0ada574f-a549-4de4-9b8a-d26dddeffe6b",
-    "turn_id": "0b96857f-adf9-47c5-9592-bede26b2cfae",
+    "client_thread_id": "ee6b8b39-1885-4250-9861-c25d14d41766",
+    "turn_id": "79b03219-42f0-40f0-a2ab-57cc353733f8",
     "surface": {
       "surface_id": "build",
-      "instance_id": "3a5728a8-6b98-4e6e-85cc-1d726bfd5e7f",
+      "instance_id": "5d520b03-b091-4f13-988e-5cf211bde462",
       "status": "resolved"
     },
     "owner_scope": {
       "status": "resolved",
       "kind": "world",
-      "owner_id": "statement-fixture-cedd7597732f46bd90189d37cf100305",
-      "name": "Statement fixture cedd7597732f46bd90189d37cf100305"
+      "owner_id": "statement-fixture-b02802c5a5604542b3c3c7250d9ad4fa",
+      "name": "Statement fixture b02802c5a5604542b3c3c7250d9ad4fa"
     },
     "primary_work": {
       "status": "resolved",
       "kind": "build",
-      "object_id": "3a5728a8-6b98-4e6e-85cc-1d726bfd5e7f",
+      "object_id": "5d520b03-b091-4f13-988e-5cf211bde462",
       "revision_used": 2,
       "expected_revision": 2,
       "content_basis": null
@@ -72,10 +72,10 @@
     "client_work_state_reported": "saved_clean",
     "graph": {
       "status": "replayed",
-      "world_id": "statement-fixture-cedd7597732f46bd90189d37cf100305",
+      "world_id": "statement-fixture-b02802c5a5604542b3c3c7250d9ad4fa",
       "campaign_id": null,
       "scope_mode": "world",
-      "revision_id": "rev:8ba52f1c12a9626764298347fa2e9ff4",
+      "revision_id": "rev:9e5a82ad4ab909a759519068c7a0751a",
       "focus": {
         "kind": "none",
         "session_id": null,
@@ -87,48 +87,48 @@
       "is_head": null
     },
     "conversation": {
-      "client_thread_id": "0ada574f-a549-4de4-9b8a-d26dddeffe6b",
-      "turn_id": "0b96857f-adf9-47c5-9592-bede26b2cfae",
+      "client_thread_id": "ee6b8b39-1885-4250-9861-c25d14d41766",
+      "turn_id": "79b03219-42f0-40f0-a2ab-57cc353733f8",
       "pointer_status": "reused",
       "pointer_id": null,
-      "conversation_id": "b71a7f7b-7113-4d11-aeac-b1d7f8feac94"
+      "conversation_id": "d1c758a7-5f4e-41ea-8c37-b3a9678acd0d"
     },
     "answer": {
       "status": "ok",
-      "text": "Graph records (belief / speculative / provisional; fact / asserted / established): The Graph retains the qualified description.",
+      "text": "Graph records (belief / speculative / provisional; fact / asserted / established): The Graph retains the qualified description.\nThe saved page proposes a conversation.",
       "code": null,
       "message": null,
       "graph_grounded": true,
       "trace": {
         "schema": "dmb_agent_turn_trace_v1",
-        "trace_id": "agent-trace-1c26579753d8",
-        "agent_thread_id": "0ada574f-a549-4de4-9b8a-d26dddeffe6b",
-        "turn_id": "0b96857f-adf9-47c5-9592-bede26b2cfae",
+        "trace_id": "agent-trace-3f8e896bb374",
+        "agent_thread_id": "ee6b8b39-1885-4250-9861-c25d14d41766",
+        "turn_id": "79b03219-42f0-40f0-a2ab-57cc353733f8",
         "runtime": "jev-one-writer",
         "backend": "generationengine",
         "mode": "graph",
         "status": "ok",
-        "started_at": "2026-11-02T14:23:35Z",
-        "completed_at": "2026-11-02T14:23:36Z",
-        "elapsed_ms": 1104,
+        "started_at": "2026-11-02T14:47:32Z",
+        "completed_at": "2026-11-02T14:47:34Z",
+        "elapsed_ms": 1635,
         "usage": {
           "available": true,
           "status": "reported",
-          "input_tokens": 174,
-          "output_tokens": 58,
-          "total_tokens": 232,
+          "input_tokens": 248,
+          "output_tokens": 76,
+          "total_tokens": 324,
           "cached_input_tokens": null,
           "cache_write_input_tokens": null,
           "uncached_input_tokens": null,
           "reasoning_tokens": null,
-          "model_call_count": 3,
-          "usage_reported_call_count": 3
+          "model_call_count": 5,
+          "usage_reported_call_count": 5
         },
         "cost": {
           "status": "unavailable",
           "usd": null,
           "priced_call_count": 0,
-          "unpriced_call_count": 3
+          "unpriced_call_count": 5
         },
         "model_calls": [
           {
@@ -136,8 +136,8 @@
             "requested_model": "jev-1.14.0",
             "response_model": "jev-1.14.0",
             "status": "ok",
-            "duration_ms": 265.94121100060875,
-            "api_duration": 0.26594121100060875,
+            "duration_ms": 274.7889309976017,
+            "api_duration": 0.2747889309976017,
             "usage": {
               "provider": "typesafe",
               "requested_profile": null,
@@ -152,7 +152,7 @@
               "output_tokens": 9,
               "reasoning_tokens": null,
               "cost_usd": null,
-              "latency_ms": 265,
+              "latency_ms": 274,
               "retry_count": 0,
               "transport_retry_count": 0,
               "conformance_retry_count": 0,
@@ -177,7 +177,7 @@
               "output_tokens": 9,
               "reasoning_tokens": null,
               "cost_usd": null,
-              "latency_ms": 265,
+              "latency_ms": 274,
               "retry_count": 0,
               "transport_retry_count": 0,
               "conformance_retry_count": 0,
@@ -186,12 +186,69 @@
               "failure_code": null,
               "pricing_source": null
             },
-            "runtime_api_request_id": "generationengine:5a5d4338-94db-4c3e-a7fc-c571c31a74fe"
+            "runtime_api_request_id": "generationengine:f0796b1b-3dcd-4de8-9f41-2260e5201803"
           },
           {
             "provider": "typesafe",
             "requested_model": "jev-1.14.0",
-            "runtime_api_request_id": "generationengine:d6362b6a-407d-4f4c-9aff-9feeb0bf70f4",
+            "response_model": "jev-1.14.0",
+            "status": "ok",
+            "duration_ms": 132.5834119998035,
+            "api_duration": 0.1325834119998035,
+            "usage": {
+              "provider": "typesafe",
+              "requested_profile": null,
+              "requested_model": "jev-1.14.0",
+              "resolved_model": "jev-1.14.0",
+              "response_model": "jev-1.14.0",
+              "provider_transport": "vercel_ai_gateway",
+              "provider_request_id": null,
+              "provider_response_id": null,
+              "input_tokens": 37,
+              "cached_input_tokens": null,
+              "output_tokens": 9,
+              "reasoning_tokens": null,
+              "cost_usd": null,
+              "latency_ms": 132,
+              "retry_count": 0,
+              "transport_retry_count": 0,
+              "conformance_retry_count": 0,
+              "provider_attempt_count": 1,
+              "state": "completed",
+              "failure_code": null,
+              "pricing_source": null,
+              "status": "reported",
+              "total_tokens": 46
+            },
+            "inference_observation": {
+              "provider": "typesafe",
+              "requested_profile": null,
+              "requested_model": "jev-1.14.0",
+              "resolved_model": "jev-1.14.0",
+              "response_model": "jev-1.14.0",
+              "provider_transport": "vercel_ai_gateway",
+              "provider_request_id": null,
+              "provider_response_id": null,
+              "input_tokens": 37,
+              "cached_input_tokens": null,
+              "output_tokens": 9,
+              "reasoning_tokens": null,
+              "cost_usd": null,
+              "latency_ms": 132,
+              "retry_count": 0,
+              "transport_retry_count": 0,
+              "conformance_retry_count": 0,
+              "provider_attempt_count": 1,
+              "state": "completed",
+              "failure_code": null,
+              "pricing_source": null
+            },
+            "runtime_api_request_id": "generationengine:36281fca-deab-45cb-a663-68a9334bf291"
+          },
+          {
+            "provider": "typesafe",
+            "requested_model": "jev-1.14.0",
+            "runtime_api_request_id": "generationengine:a436a6e2-a61a-45d8-b06f-0c210f5fbc97",
             "status": "ok",
             "usage": {
               "status": "reported",
@@ -200,12 +257,26 @@
               "total_tokens": 46
             },
             "response_model": "jev-1.14.0",
-            "duration_ms": 175.30256600002758
+            "duration_ms": 180.37253399961628
+          },
+          {
+            "provider": "typesafe",
+            "requested_model": "jev-1.14.0",
+            "runtime_api_request_id": "generationengine:22a5c863-3eec-4461-a19b-abe93d38b452",
+            "status": "ok",
+            "usage": {
+              "status": "reported",
+              "input_tokens": 37,
+              "output_tokens": 9,
+              "total_tokens": 46
+            },
+            "response_model": "jev-1.14.0",
+            "duration_ms": 190.1659940049285
           },
           {
             "provider": "openai",
             "requested_model": "gpt-6.1-sol",
-            "runtime_api_request_id": "generationengine:a431e95d-15e9-488b-9e3e-65f4b310706c",
+            "runtime_api_request_id": "generationengine:45417461-a051-4651-bfa7-c90b32a5ceb8",
             "status": "ok",
             "usage": {
               "status": "reported",
@@ -218,140 +289,140 @@
               "reasoning_effort": "none"
             },
             "response_service_tier": null,
-            "duration_ms": 209.4219620048534
+            "duration_ms": 215.65653499419568
           }
         ],
         "spans": [
           {
-            "span_id": "span-f1f376a05d9e",
+            "span_id": "span-edb5c02903a3",
             "parent_span_id": null,
             "kind": "phase",
             "name": "route_auth",
             "status": "ok",
-            "started_at": "2026-11-02T14:23:35Z",
-            "completed_at": "2026-11-02T14:23:35Z",
+            "started_at": "2026-11-02T14:47:32Z",
+            "completed_at": "2026-11-02T14:47:32Z",
             "duration_ms": 0,
             "attributes": {}
           },
           {
-            "span_id": "span-131027a55fdd",
+            "span_id": "span-ebd3c61a1125",
             "parent_span_id": null,
             "kind": "phase",
             "name": "turn_owner_resolution",
             "status": "ok",
-            "started_at": "2026-11-02T14:23:35Z",
-            "completed_at": "2026-11-02T14:23:35Z",
-            "duration_ms": 9,
+            "started_at": "2026-11-02T14:47:32Z",
+            "completed_at": "2026-11-02T14:47:32Z",
+            "duration_ms": 11,
             "attributes": {}
           },
           {
-            "span_id": "span-3ebc283cf454",
+            "span_id": "span-fcfdc9ad1141",
             "parent_span_id": null,
             "kind": "phase",
             "name": "durable_turn_reconciliation",
             "status": "ok",
-            "started_at": "2026-11-02T14:23:35Z",
-            "completed_at": "2026-11-02T14:23:35Z",
+            "started_at": "2026-11-02T14:47:32Z",
+            "completed_at": "2026-11-02T14:47:32Z",
             "duration_ms": 14,
             "attributes": {}
           },
           {
-            "span_id": "span-90e168e0ed1b",
+            "span_id": "span-9d3957c671ee",
             "parent_span_id": null,
             "kind": "phase",
             "name": "committed_plan_resolution",
             "status": "ok",
-            "started_at": "2026-11-02T14:23:35Z",
-            "completed_at": "2026-11-02T14:23:35Z",
-            "duration_ms": 9,
+            "started_at": "2026-11-02T14:47:32Z",
+            "completed_at": "2026-11-02T14:47:32Z",
+            "duration_ms": 8,
             "attributes": {}
           },
           {
-            "span_id": "span-4502056b14c5",
+            "span_id": "span-db577cd871be",
             "parent_span_id": null,
             "kind": "phase",
             "name": "plan_native_source_authority",
             "status": "ok",
-            "started_at": "2026-11-02T14:23:35Z",
-            "completed_at": "2026-11-02T14:23:35Z",
+            "started_at": "2026-11-02T14:47:32Z",
+            "completed_at": "2026-11-02T14:47:32Z",
             "duration_ms": 0,
             "attributes": {}
           },
           {
-            "span_id": "span-0522c9d84fba",
+            "span_id": "span-cf6205131198",
             "parent_span_id": null,
             "kind": "phase",
             "name": "plan_native_statement_query",
             "status": "ok",
-            "started_at": "2026-11-02T14:23:35Z",
-            "completed_at": "2026-11-02T14:23:35Z",
+            "started_at": "2026-11-02T14:47:32Z",
+            "completed_at": "2026-11-02T14:47:32Z",
             "duration_ms": 2,
             "attributes": {}
           },
           {
-            "span_id": "span-20687a6b5462",
+            "span_id": "span-6fffea0b9efb",
             "parent_span_id": null,
             "kind": "phase",
             "name": "context_assembly",
             "status": "ok",
-            "started_at": "2026-11-02T14:23:35Z",
-            "completed_at": "2026-11-02T14:23:35Z",
+            "started_at": "2026-11-02T14:47:32Z",
+            "completed_at": "2026-11-02T14:47:32Z",
             "duration_ms": 0,
             "attributes": {}
           },
           {
-            "span_id": "span-b1f55e580bc0",
+            "span_id": "span-11b60f1baf56",
             "parent_span_id": null,
             "kind": "phase",
             "name": "runtime_creation",
             "status": "ok",
-            "started_at": "2026-11-02T14:23:35Z",
-            "completed_at": "2026-11-02T14:23:35Z",
-            "duration_ms": 22,
+            "started_at": "2026-11-02T14:47:32Z",
+            "completed_at": "2026-11-02T14:47:32Z",
+            "duration_ms": 21,
             "attributes": {}
           },
           {
-            "span_id": "span-d87e23159975",
+            "span_id": "span-eed6946688d3",
             "parent_span_id": null,
             "kind": "phase",
             "name": "durable_turn_accept",
             "status": "ok",
-            "started_at": "2026-11-02T14:23:35Z",
-            "completed_at": "2026-11-02T14:23:35Z",
+            "started_at": "2026-11-02T14:47:32Z",
+            "completed_at": "2026-11-02T14:47:32Z",
             "duration_ms": 65,
             "attributes": {}
           },
           {
-            "span_id": "span-1728bbb12080",
+            "span_id": "span-4bcf7c2be005",
             "parent_span_id": null,
             "kind": "phase",
             "name": "durable_turn_claim",
             "status": "ok",
-            "started_at": "2026-11-02T14:23:35Z",
-            "completed_at": "2026-11-02T14:23:35Z",
-            "duration_ms": 29,
+            "started_at": "2026-11-02T14:47:32Z",
+            "completed_at": "2026-11-02T14:47:32Z",
+            "duration_ms": 28,
             "attributes": {}
           },
           {
-            "span_id": "span-2530529ddc93",
+            "span_id": "span-84b9f093f4ad",
             "parent_span_id": null,
             "kind": "phase",
             "name": "runtime_to_admission",
             "status": "ok",
-            "started_at": "2026-11-02T14:23:35Z",
-            "completed_at": "2026-11-02T14:23:35Z",
+            "started_at": "2026-11-02T14:47:32Z",
+            "completed_at": "2026-11-02T14:47:32Z",
             "duration_ms": 122,
             "attributes": {}
           },
           {
-            "span_id": "span-8fa0c65654a0",
+            "span_id": "span-7b79f895173f",
             "parent_span_id": null,
             "kind": "phase",
             "name": "runtime_dispatch",
             "status": "ok",
-            "started_at": "2026-11-02T14:23:35Z",
-            "completed_at": "2026-11-02T14:23:36Z",
-            "duration_ms": 1026,
+            "started_at": "2026-11-02T14:47:32Z",
+            "completed_at": "2026-11-02T14:47:34Z",
+            "duration_ms": 1555,
             "attributes": {}
           }
         ],
@@ -380,13 +451,13 @@
       "receipt": {
         "schema": "dmb_surface_native_context_receipt_v1",
         "receipt_serializer_version": "canonical-json-utf8-v1",
-        "context_receipt_sha256": "9f6feab1facf1a82fb73ec6f40b98d491aa9e9f0e7c797275fb24f6d949ff0d4",
-        "provenance_sha256": "78b1f2687217dd0166630628267ba3af0a1326b9a5cb50933f5ecd30c82651b2",
+        "context_receipt_sha256": "8740cd5acda3a8b1a703f7e6a718e3eb4c957e9ba48491499fe5035f3b3d565c",
+        "provenance_sha256": "a84b0690cf6f7940fe9f55bd4ca911041af329896766b555d88b4e20ba189c7b",
         "work_context": {
           "surface_id": "build",
           "source_basis": {
-            "world_id": "statement-fixture-cedd7597732f46bd90189d37cf100305",
-            "document_id": "3a5728a8-6b98-4e6e-85cc-1d726bfd5e7f",
+            "world_id": "statement-fixture-b02802c5a5604542b3c3c7250d9ad4fa",
+            "document_id": "5d520b03-b091-4f13-988e-5cf211bde462",
             "registry_revision": 2,
             "content_sha256": "ed337f86fe39e9b1d64d0b15ca61fd97889b59a672895ce28ffe093aab42912b",
             "visibility": "internal"
@@ -394,11 +465,11 @@
         },
         "source_authority": {
           "schema_version": "dmb_native_corpus_authority_v1",
-          "managed_world_id": "statement-fixture-cedd7597732f46bd90189d37cf100305",
-          "native_world_id": "statement-fixture-cedd7597732f46bd90189d37cf100305",
+          "managed_world_id": "statement-fixture-b02802c5a5604542b3c3c7250d9ad4fa",
+          "native_world_id": "statement-fixture-b02802c5a5604542b3c3c7250d9ad4fa",
           "binding_version": 1,
           "provisioning_id": null,
-          "revision_id": "rev:8ba52f1c12a9626764298347fa2e9ff4",
+          "revision_id": "rev:9e5a82ad4ab909a759519068c7a0751a",
           "domain_ref": {
             "authority_id": "dungeonbuddy.world",
             "revision": "2",
@@ -417,10 +488,10 @@
           "schema": "dmb_native_graph_query_v3",
           "authority": {
             "schema": "dmb_native_plan_query_authority_v1",
-            "managed_world_id": "statement-fixture-cedd7597732f46bd90189d37cf100305",
-            "native_world_id": "statement-fixture-cedd7597732f46bd90189d37cf100305",
+            "managed_world_id": "statement-fixture-b02802c5a5604542b3c3c7250d9ad4fa",
+            "native_world_id": "statement-fixture-b02802c5a5604542b3c3c7250d9ad4fa",
             "binding_version": 1,
-            "revision_id": "rev:8ba52f1c12a9626764298347fa2e9ff4",
+            "revision_id": "rev:9e5a82ad4ab909a759519068c7a0751a",
             "domain_ref": {
               "authority_id": "dungeonbuddy.world",
               "revision": "2",
@@ -438,7 +509,7 @@
             "session_id": null
           },
           "question": "Describe the object I selected.",
-          "search_result_sha256": "bf3a7c283d79052385d4e9a8c8de21dbb0b62fc5166a3dbac26496d8085cfcb8",
+          "search_result_sha256": "7bd4847159b3d5ef5cafcd59cacc4ecbca733d745efe575888ceb62c1ed3f1c4",
           "discovered_entity_ids": [],
           "matches": [],
           "status": "complete",
@@ -447,26 +518,26 @@
           "assertion_matches": [],
           "authored_targets": [
             {
-              "node_id": "ent:cb8d249f723105dcfb21dc44f329c903",
-              "selection_revision_id": "rev:96517d9e1c7b003a42cad4d1288a5941",
+              "node_id": "ent:9933f5bafdb54b570497f1e96027b0a7",
+              "selection_revision_id": "rev:90141c4a977ecce6fdd454a2762ea2cd",
               "matches": [],
               "assertion_matches": [
                 {
-                  "assertion_id": "asrt:2895340761deb247247e5a35f35c8332",
-                  "subject_entity_id": "ent:cb8d249f723105dcfb21dc44f329c903",
+                  "assertion_id": "asrt:8edd00e2fbe09cd2dbdec7ec59b4e456",
+                  "subject_entity_id": "ent:9933f5bafdb54b570497f1e96027b0a7",
                   "discovered_entity_ids": [
-                    "ent:cb8d249f723105dcfb21dc44f329c903"
+                    "ent:9933f5bafdb54b570497f1e96027b0a7"
                   ],
-                  "assertion_sha256": "50e7f417d7f65031af5d5d64994508f83893e74138cdbb9d65e68d5295458cae",
+                  "assertion_sha256": "f669c3a43d9958c309bd6817193d9f1025123efb7cdae77788b93cf9389e0241",
                   "label": "B \u00b7 dnd5e:name"
                 },
                 {
-                  "assertion_id": "asrt:82d169613d61de4c9925ff571ca4b0fa",
-                  "subject_entity_id": "ent:cb8d249f723105dcfb21dc44f329c903",
+                  "assertion_id": "asrt:99274620d961c7756f1413b38f5ecc4e",
+                  "subject_entity_id": "ent:9933f5bafdb54b570497f1e96027b0a7",
                   "discovered_entity_ids": [
-                    "ent:cb8d249f723105dcfb21dc44f329c903"
+                    "ent:9933f5bafdb54b570497f1e96027b0a7"
                   ],
-                  "assertion_sha256": "07decc7e01215f1750ee935f44fe7733b9cdf3c04099bb541324a6e2c44fa97a",
+                  "assertion_sha256": "5781577ae520f0957c2b2c4174b2b745ef06843dd82a88fd6bf4476a3afd9a09",
                   "label": "B \u00b7 dnd5e:summary"
                 }
               ],
@@ -485,14 +556,14 @@
           "output_token_reserve": 0,
           "context_window_limit": 64000,
           "included_history": [],
-          "assembled_input_sha256": "8fe9c8049afae6274b6445402fd986e458466d67bc89f7908ad6375d0199ac04"
+          "assembled_input_sha256": "ed6143739dc8e2f5b055a500ad2cf99b8d8130db9e65e8a1f669ba99474558ff"
         }
       },
       "completion": {
         "schema": "dmb_surface_native_completion_v1",
         "surface_id": "build",
-        "context_receipt_sha256": "9f6feab1facf1a82fb73ec6f40b98d491aa9e9f0e7c797275fb24f6d949ff0d4",
-        "producing_provider_attempt_id": "a431e95d-15e9-488b-9e3e-65f4b310706c",
+        "context_receipt_sha256": "8740cd5acda3a8b1a703f7e6a718e3eb4c957e9ba48491499fe5035f3b3d565c",
+        "producing_provider_attempt_id": "45417461-a051-4651-bfa7-c90b32a5ceb8",
         "answer_basis": "mixed_evidence",
         "answer_context_status": "graph_grounded",
         "answer_segments": [
@@ -500,8 +571,8 @@
             "kind": "native_assertion_claim",
             "text": "Graph records (belief / speculative / provisional; fact / asserted / established): The Graph retains the qualified description.",
             "assertion_ids": [
-              "asrt:2895340761deb247247e5a35f35c8332",
-              "asrt:82d169613d61de4c9925ff571ca4b0fa"
+              "asrt:8edd00e2fbe09cd2dbdec7ec59b4e456",
+              "asrt:99274620d961c7756f1413b38f5ecc4e"
             ],
             "qualifications": [
               {
@@ -517,11 +588,11 @@
                     "dungeonbuddy.visibility:gm"
                   ]
                 },
-                "epistemic_basis": "asserted",
-                "claim_mode": "dungeonbuddy.claim:fact",
-                "standing": "established",
+                "epistemic_basis": "speculative",
+                "claim_mode": "dungeonbuddy.claim:belief",
+                "standing": "provisional",
                 "evidence_ref_ids": [
-                  "ev:05eb4ebf57c7f5d5f2a26289cf583dd69f2f4501b51bbdfb9b63e5480334988d"
+                  "ev:ddc6bef07e0143398e406d7f384fefc7f3d75583780a1dddcad7eb9eb2af0e4c"
                 ],
                 "temporal_scope": {
                   "kind": "unknown"
@@ -541,11 +612,11 @@
                     "dungeonbuddy.visibility:gm"
                   ]
                 },
-                "epistemic_basis": "speculative",
-                "claim_mode": "dungeonbuddy.claim:belief",
-                "standing": "provisional",
+                "epistemic_basis": "asserted",
+                "claim_mode": "dungeonbuddy.claim:fact",
+                "standing": "established",
                 "evidence_ref_ids": [
-                  "ev:05eb4ebf57c7f5d5f2a26289cf583dd69f2f4501b51bbdfb9b63e5480334988d"
+                  "ev:ddc6bef07e0143398e406d7f384fefc7f3d75583780a1dddcad7eb9eb2af0e4c"
                 ],
                 "temporal_scope": {
                   "kind": "unknown"
@@ -553,50 +624,64 @@
                 "domain_metadata": []
               }
             ]
+          },
+          {
+            "kind": "saved_source_claim",
+            "text": "The saved page proposes a conversation.",
+            "content_sha256": "ed337f86fe39e9b1d64d0b15ca61fd97889b59a672895ce28ffe093aab42912b"
           }
         ],
         "collaboration": null,
-        "saved_source_citations": [],
+        "saved_source_citations": [
+          {
+            "segment_index": 1,
+            "text_sha256": "ed983c9b1c566fa482365e0804077dc22644d16419880e56c70b809a4c8c4013",
+            "section_event_ids": [
+              "267a5de0-ff50-4fa4-9c8b-1aa60fcdf5c8",
+              "3d5da8de-0488-48a7-8f63-607a94dfd5dd"
+            ]
+          }
+        ],
         "native_body_citations": [],
         "native_clause_citations": [],
         "native_assertion_citations": [
           {
-            "evidence_ref_id": "ev:05eb4ebf57c7f5d5f2a26289cf583dd69f2f4501b51bbdfb9b63e5480334988d",
-            "source_artifact_id": "src:78ba2e67299a04ab2413c8269bf471b69518079b0d422af06297ec81a3ce5431",
-            "source_revision_id": "srev:bd788a437e2ab2ce795685ade9b6010490ae01d7b1df1bb648c750c749be1277",
+            "evidence_ref_id": "ev:ddc6bef07e0143398e406d7f384fefc7f3d75583780a1dddcad7eb9eb2af0e4c",
+            "source_artifact_id": "src:33082f6e70b10418e7d4b816a1f9bbdfefe316da50c63844546fbba6f5c70cbc",
+            "source_revision_id": "srev:0029420b4f0e6ce476975e3f7ae90d4d788d104242b71ce4e413e382d3b71357",
             "body_sha256": "e6da3b35ee0c198a2d6f138095d312d300ae120773bf0aff0074237286197b63",
             "start_byte": 0,
             "end_byte": 34,
             "span_sha256": "3ac9c1ce28ed0899dc663a9ab2ae2b56d3b77f010d5acfd0b113c6206d893ab7",
             "segment_index": 0,
-            "assertion_id": "asrt:2895340761deb247247e5a35f35c8332",
-            "read_event_id": "5dbe445e-9fd8-49b4-9a3a-4c6ff960ea11",
-            "provider_attempt_id": "a431e95d-15e9-488b-9e3e-65f4b310706c",
-            "envelope_sha256": "f3ecafeaddd7ea8444fa0899faf995c3a3a878e345b6d7ab7e906243abbfd5b1",
-            "context_receipt_sha256": "9f6feab1facf1a82fb73ec6f40b98d491aa9e9f0e7c797275fb24f6d949ff0d4",
-            "managed_world_id": "statement-fixture-cedd7597732f46bd90189d37cf100305",
-            "native_world_id": "statement-fixture-cedd7597732f46bd90189d37cf100305",
-            "read_revision_id": "rev:8ba52f1c12a9626764298347fa2e9ff4",
-            "assertion_sha256": "50e7f417d7f65031af5d5d64994508f83893e74138cdbb9d65e68d5295458cae"
+            "assertion_id": "asrt:8edd00e2fbe09cd2dbdec7ec59b4e456",
+            "read_event_id": "226c9258-e1db-4e49-942b-6068925f8160",
+            "provider_attempt_id": "45417461-a051-4651-bfa7-c90b32a5ceb8",
+            "envelope_sha256": "2978aafd2ae5e15085e8e4de98d69d368086b50af06531747d466eaea2d5cb4f",
+            "context_receipt_sha256": "8740cd5acda3a8b1a703f7e6a718e3eb4c957e9ba48491499fe5035f3b3d565c",
+            "managed_world_id": "statement-fixture-b02802c5a5604542b3c3c7250d9ad4fa",
+            "native_world_id": "statement-fixture-b02802c5a5604542b3c3c7250d9ad4fa",
+            "read_revision_id": "rev:9e5a82ad4ab909a759519068c7a0751a",
+            "assertion_sha256": "f669c3a43d9958c309bd6817193d9f1025123efb7cdae77788b93cf9389e0241"
           },
           {
-            "evidence_ref_id": "ev:05eb4ebf57c7f5d5f2a26289cf583dd69f2f4501b51bbdfb9b63e5480334988d",
-            "source_artifact_id": "src:78ba2e67299a04ab2413c8269bf471b69518079b0d422af06297ec81a3ce5431",
-            "source_revision_id": "srev:bd788a437e2ab2ce795685ade9b6010490ae01d7b1df1bb648c750c749be1277",
+            "evidence_ref_id": "ev:ddc6bef07e0143398e406d7f384fefc7f3d75583780a1dddcad7eb9eb2af0e4c",
+            "source_artifact_id": "src:33082f6e70b10418e7d4b816a1f9bbdfefe316da50c63844546fbba6f5c70cbc",
+            "source_revision_id": "srev:0029420b4f0e6ce476975e3f7ae90d4d788d104242b71ce4e413e382d3b71357",
             "body_sha256": "e6da3b35ee0c198a2d6f138095d312d300ae120773bf0aff0074237286197b63",
             "start_byte": 0,
             "end_byte": 34,
             "span_sha256": "3ac9c1ce28ed0899dc663a9ab2ae2b56d3b77f010d5acfd0b113c6206d893ab7",
             "segment_index": 0,
-            "assertion_id": "asrt:82d169613d61de4c9925ff571ca4b0fa",
-            "read_event_id": "5dbe445e-9fd8-49b4-9a3a-4c6ff960ea11",
-            "provider_attempt_id": "a431e95d-15e9-488b-9e3e-65f4b310706c",
-            "envelope_sha256": "f3ecafeaddd7ea8444fa0899faf995c3a3a878e345b6d7ab7e906243abbfd5b1",
-            "context_receipt_sha256": "9f6feab1facf1a82fb73ec6f40b98d491aa9e9f0e7c797275fb24f6d949ff0d4",
-            "managed_world_id": "statement-fixture-cedd7597732f46bd90189d37cf100305",
-            "native_world_id": "statement-fixture-cedd7597732f46bd90189d37cf100305",
-            "read_revision_id": "rev:8ba52f1c12a9626764298347fa2e9ff4",
-            "assertion_sha256": "07decc7e01215f1750ee935f44fe7733b9cdf3c04099bb541324a6e2c44fa97a"
+            "assertion_id": "asrt:99274620d961c7756f1413b38f5ecc4e",
+            "read_event_id": "226c9258-e1db-4e49-942b-6068925f8160",
+            "provider_attempt_id": "45417461-a051-4651-bfa7-c90b32a5ceb8",
+            "envelope_sha256": "2978aafd2ae5e15085e8e4de98d69d368086b50af06531747d466eaea2d5cb4f",
+            "context_receipt_sha256": "8740cd5acda3a8b1a703f7e6a718e3eb4c957e9ba48491499fe5035f3b3d565c",
+            "managed_world_id": "statement-fixture-b02802c5a5604542b3c3c7250d9ad4fa",
+            "native_world_id": "statement-fixture-b02802c5a5604542b3c3c7250d9ad4fa",
+            "read_revision_id": "rev:9e5a82ad4ab909a759519068c7a0751a",
+            "assertion_sha256": "5781577ae520f0957c2b2c4174b2b745ef06843dd82a88fd6bf4476a3afd9a09"
           }
         ]
       },
@@ -611,27 +696,27 @@
   },
   "history": {
     "schema": "dmb_agent_conversation_history_v3",
-    "world_id": "statement-fixture-cedd7597732f46bd90189d37cf100305",
+    "world_id": "statement-fixture-b02802c5a5604542b3c3c7250d9ad4fa",
     "conversation_state": "active",
-    "conversation_id": "b71a7f7b-7113-4d11-aeac-b1d7f8feac94",
-    "active_conversation_id": "b71a7f7b-7113-4d11-aeac-b1d7f8feac94",
+    "conversation_id": "d1c758a7-5f4e-41ea-8c37-b3a9678acd0d",
+    "active_conversation_id": "d1c758a7-5f4e-41ea-8c37-b3a9678acd0d",
     "pointer_revision": 1,
     "turns": [
       {
-        "turn_id": "c73982de-2e49-437e-b01d-d66b5493129d",
+        "turn_id": "4a605da5-c5b6-4ee8-9c70-f88b9644db89",
         "sequence": 1,
         "lifecycle_status": "completed",
         "user_text": "Describe the object I selected.",
-        "assistant_text": "Graph records (belief / speculative / provisional; fact / asserted / established): The Graph retains the qualified description.",
+        "assistant_text": "Graph records (belief / speculative / provisional; fact / asserted / established): The Graph retains the qualified description.\nThe saved page proposes a conversation.",
         "provenance": {
-          "world_id": "statement-fixture-cedd7597732f46bd90189d37cf100305",
+          "world_id": "statement-fixture-b02802c5a5604542b3c3c7250d9ad4fa",
           "surface_resolution": "resolved",
           "surface_id": "build",
-          "surface_instance_id": "3a5728a8-6b98-4e6e-85cc-1d726bfd5e7f",
+          "surface_instance_id": "5d520b03-b091-4f13-988e-5cf211bde462",
           "primary_work": {
             "resolution": "resolved",
             "kind": "build",
-            "object_id": "3a5728a8-6b98-4e6e-85cc-1d726bfd5e7f",
+            "object_id": "5d520b03-b091-4f13-988e-5cf211bde462",
             "revision": "2",
             "content_sha256": "ed337f86fe39e9b1d64d0b15ca61fd97889b59a672895ce28ffe093aab42912b",
             "object_revision": null,
@@ -661,19 +746,19 @@
             "revision_n": null
           }
         },
-        "idempotency_key": "54c7872e-7eef-5eed-a10b-aca44e19afab",
+        "idempotency_key": "ec53298c-cf18-5912-bb47-f34bff42990e",
         "knowledge_context": {
           "schema": "dmb_agent_surface_native_context_response_v1",
           "receipt": {
             "schema": "dmb_surface_native_context_receipt_v1",
             "receipt_serializer_version": "canonical-json-utf8-v1",
-            "context_receipt_sha256": "9f6feab1facf1a82fb73ec6f40b98d491aa9e9f0e7c797275fb24f6d949ff0d4",
-            "provenance_sha256": "78b1f2687217dd0166630628267ba3af0a1326b9a5cb50933f5ecd30c82651b2",
+            "context_receipt_sha256": "8740cd5acda3a8b1a703f7e6a718e3eb4c957e9ba48491499fe5035f3b3d565c",
+            "provenance_sha256": "a84b0690cf6f7940fe9f55bd4ca911041af329896766b555d88b4e20ba189c7b",
             "work_context": {
               "surface_id": "build",
               "source_basis": {
-                "world_id": "statement-fixture-cedd7597732f46bd90189d37cf100305",
-                "document_id": "3a5728a8-6b98-4e6e-85cc-1d726bfd5e7f",
+                "world_id": "statement-fixture-b02802c5a5604542b3c3c7250d9ad4fa",
+                "document_id": "5d520b03-b091-4f13-988e-5cf211bde462",
                 "registry_revision": 2,
                 "content_sha256": "ed337f86fe39e9b1d64d0b15ca61fd97889b59a672895ce28ffe093aab42912b",
                 "visibility": "internal"
@@ -681,11 +766,11 @@
             },
             "source_authority": {
               "schema_version": "dmb_native_corpus_authority_v1",
-              "managed_world_id": "statement-fixture-cedd7597732f46bd90189d37cf100305",
-              "native_world_id": "statement-fixture-cedd7597732f46bd90189d37cf100305",
+              "managed_world_id": "statement-fixture-b02802c5a5604542b3c3c7250d9ad4fa",
+              "native_world_id": "statement-fixture-b02802c5a5604542b3c3c7250d9ad4fa",
               "binding_version": 1,
               "provisioning_id": null,
-              "revision_id": "rev:8ba52f1c12a9626764298347fa2e9ff4",
+              "revision_id": "rev:9e5a82ad4ab909a759519068c7a0751a",
               "domain_ref": {
                 "authority_id": "dungeonbuddy.world",
                 "revision": "2",
@@ -704,10 +789,10 @@
               "schema": "dmb_native_graph_query_v3",
               "authority": {
                 "schema": "dmb_native_plan_query_authority_v1",
-                "managed_world_id": "statement-fixture-cedd7597732f46bd90189d37cf100305",
-                "native_world_id": "statement-fixture-cedd7597732f46bd90189d37cf100305",
+                "managed_world_id": "statement-fixture-b02802c5a5604542b3c3c7250d9ad4fa",
+                "native_world_id": "statement-fixture-b02802c5a5604542b3c3c7250d9ad4fa",
                 "binding_version": 1,
-                "revision_id": "rev:8ba52f1c12a9626764298347fa2e9ff4",
+                "revision_id": "rev:9e5a82ad4ab909a759519068c7a0751a",
                 "domain_ref": {
                   "authority_id": "dungeonbuddy.world",
                   "revision": "2",
@@ -725,7 +810,7 @@
                 "session_id": null
               },
               "question": "Describe the object I selected.",
-              "search_result_sha256": "bf3a7c283d79052385d4e9a8c8de21dbb0b62fc5166a3dbac26496d8085cfcb8",
+              "search_result_sha256": "7bd4847159b3d5ef5cafcd59cacc4ecbca733d745efe575888ceb62c1ed3f1c4",
               "discovered_entity_ids": [],
               "matches": [],
               "status": "complete",
@@ -734,26 +819,26 @@
               "assertion_matches": [],
               "authored_targets": [
                 {
-                  "node_id": "ent:cb8d249f723105dcfb21dc44f329c903",
-                  "selection_revision_id": "rev:96517d9e1c7b003a42cad4d1288a5941",
+                  "node_id": "ent:9933f5bafdb54b570497f1e96027b0a7",
+                  "selection_revision_id": "rev:90141c4a977ecce6fdd454a2762ea2cd",
                   "matches": [],
                   "assertion_matches": [
                     {
-                      "assertion_id": "asrt:2895340761deb247247e5a35f35c8332",
-                      "subject_entity_id": "ent:cb8d249f723105dcfb21dc44f329c903",
+                      "assertion_id": "asrt:8edd00e2fbe09cd2dbdec7ec59b4e456",
+                      "subject_entity_id": "ent:9933f5bafdb54b570497f1e96027b0a7",
                       "discovered_entity_ids": [
-                        "ent:cb8d249f723105dcfb21dc44f329c903"
+                        "ent:9933f5bafdb54b570497f1e96027b0a7"
                       ],
-                      "assertion_sha256": "50e7f417d7f65031af5d5d64994508f83893e74138cdbb9d65e68d5295458cae",
+                      "assertion_sha256": "f669c3a43d9958c309bd6817193d9f1025123efb7cdae77788b93cf9389e0241",
                       "label": "B \u00b7 dnd5e:name"
                     },
                     {
-                      "assertion_id": "asrt:82d169613d61de4c9925ff571ca4b0fa",
-                      "subject_entity_id": "ent:cb8d249f723105dcfb21dc44f329c903",
+                      "assertion_id": "asrt:99274620d961c7756f1413b38f5ecc4e",
+                      "subject_entity_id": "ent:9933f5bafdb54b570497f1e96027b0a7",
                       "discovered_entity_ids": [
-                        "ent:cb8d249f723105dcfb21dc44f329c903"
+                        "ent:9933f5bafdb54b570497f1e96027b0a7"
                       ],
-                      "assertion_sha256": "07decc7e01215f1750ee935f44fe7733b9cdf3c04099bb541324a6e2c44fa97a",
+                      "assertion_sha256": "5781577ae520f0957c2b2c4174b2b745ef06843dd82a88fd6bf4476a3afd9a09",
                       "label": "B \u00b7 dnd5e:summary"
                     }
                   ],
@@ -772,14 +857,14 @@
               "output_token_reserve": 0,
               "context_window_limit": 64000,
               "included_history": [],
-              "assembled_input_sha256": "8fe9c8049afae6274b6445402fd986e458466d67bc89f7908ad6375d0199ac04"
+              "assembled_input_sha256": "ed6143739dc8e2f5b055a500ad2cf99b8d8130db9e65e8a1f669ba99474558ff"
             }
           },
           "completion": {
             "schema": "dmb_surface_native_completion_v1",
             "surface_id": "build",
-            "context_receipt_sha256": "9f6feab1facf1a82fb73ec6f40b98d491aa9e9f0e7c797275fb24f6d949ff0d4",
-            "producing_provider_attempt_id": "a431e95d-15e9-488b-9e3e-65f4b310706c",
+            "context_receipt_sha256": "8740cd5acda3a8b1a703f7e6a718e3eb4c957e9ba48491499fe5035f3b3d565c",
+            "producing_provider_attempt_id": "45417461-a051-4651-bfa7-c90b32a5ceb8",
             "answer_basis": "mixed_evidence",
             "answer_context_status": "graph_grounded",
             "answer_segments": [
@@ -787,8 +872,8 @@
                 "kind": "native_assertion_claim",
                 "text": "Graph records (belief / speculative / provisional; fact / asserted / established): The Graph retains the qualified description.",
                 "assertion_ids": [
-                  "asrt:2895340761deb247247e5a35f35c8332",
-                  "asrt:82d169613d61de4c9925ff571ca4b0fa"
+                  "asrt:8edd00e2fbe09cd2dbdec7ec59b4e456",
+                  "asrt:99274620d961c7756f1413b38f5ecc4e"
                 ],
                 "qualifications": [
                   {
@@ -804,11 +889,11 @@
                         "dungeonbuddy.visibility:gm"
                       ]
                     },
-                    "epistemic_basis": "asserted",
-                    "claim_mode": "dungeonbuddy.claim:fact",
-                    "standing": "established",
+                    "epistemic_basis": "speculative",
+                    "claim_mode": "dungeonbuddy.claim:belief",
+                    "standing": "provisional",
                     "evidence_ref_ids": [
-                      "ev:05eb4ebf57c7f5d5f2a26289cf583dd69f2f4501b51bbdfb9b63e5480334988d"
+                      "ev:ddc6bef07e0143398e406d7f384fefc7f3d75583780a1dddcad7eb9eb2af0e4c"
                     ],
                     "temporal_scope": {
                       "kind": "unknown"
@@ -828,11 +913,11 @@
                         "dungeonbuddy.visibility:gm"
                       ]
                     },
-                    "epistemic_basis": "speculative",
-                    "claim_mode": "dungeonbuddy.claim:belief",
-                    "standing": "provisional",
+                    "epistemic_basis": "asserted",
+                    "claim_mode": "dungeonbuddy.claim:fact",
+                    "standing": "established",
                     "evidence_ref_ids": [
-                      "ev:05eb4ebf57c7f5d5f2a26289cf583dd69f2f4501b51bbdfb9b63e5480334988d"
+                      "ev:ddc6bef07e0143398e406d7f384fefc7f3d75583780a1dddcad7eb9eb2af0e4c"
                     ],
                     "temporal_scope": {
                       "kind": "unknown"
@@ -840,50 +925,64 @@
                     "domain_metadata": []
                   }
                 ]
+              },
+              {
+                "kind": "saved_source_claim",
+                "text": "The saved page proposes a conversation.",
+                "content_sha256": "ed337f86fe39e9b1d64d0b15ca61fd97889b59a672895ce28ffe093aab42912b"
               }
             ],
             "collaboration": null,
-            "saved_source_citations": [],
+            "saved_source_citations": [
+              {
+                "segment_index": 1,
+                "text_sha256": "ed983c9b1c566fa482365e0804077dc22644d16419880e56c70b809a4c8c4013",
+                "section_event_ids": [
+                  "267a5de0-ff50-4fa4-9c8b-1aa60fcdf5c8",
+                  "3d5da8de-0488-48a7-8f63-607a94dfd5dd"
+                ]
+              }
+            ],
             "native_body_citations": [],
             "native_clause_citations": [],
             "native_assertion_citations": [
               {
-                "evidence_ref_id": "ev:05eb4ebf57c7f5d5f2a26289cf583dd69f2f4501b51bbdfb9b63e5480334988d",
-                "source_artifact_id": "src:78ba2e67299a04ab2413c8269bf471b69518079b0d422af06297ec81a3ce5431",
-                "source_revision_id": "srev:bd788a437e2ab2ce795685ade9b6010490ae01d7b1df1bb648c750c749be1277",
+                "evidence_ref_id": "ev:ddc6bef07e0143398e406d7f384fefc7f3d75583780a1dddcad7eb9eb2af0e4c",
+                "source_artifact_id": "src:33082f6e70b10418e7d4b816a1f9bbdfefe316da50c63844546fbba6f5c70cbc",
+                "source_revision_id": "srev:0029420b4f0e6ce476975e3f7ae90d4d788d104242b71ce4e413e382d3b71357",
                 "body_sha256": "e6da3b35ee0c198a2d6f138095d312d300ae120773bf0aff0074237286197b63",
                 "start_byte": 0,
                 "end_byte": 34,
                 "span_sha256": "3ac9c1ce28ed0899dc663a9ab2ae2b56d3b77f010d5acfd0b113c6206d893ab7",
                 "segment_index": 0,
-                "assertion_id": "asrt:2895340761deb247247e5a35f35c8332",
-                "read_event_id": "5dbe445e-9fd8-49b4-9a3a-4c6ff960ea11",
-                "provider_attempt_id": "a431e95d-15e9-488b-9e3e-65f4b310706c",
-                "envelope_sha256": "f3ecafeaddd7ea8444fa0899faf995c3a3a878e345b6d7ab7e906243abbfd5b1",
-                "context_receipt_sha256": "9f6feab1facf1a82fb73ec6f40b98d491aa9e9f0e7c797275fb24f6d949ff0d4",
-                "managed_world_id": "statement-fixture-cedd7597732f46bd90189d37cf100305",
-                "native_world_id": "statement-fixture-cedd7597732f46bd90189d37cf100305",
-                "read_revision_id": "rev:8ba52f1c12a9626764298347fa2e9ff4",
-                "assertion_sha256": "50e7f417d7f65031af5d5d64994508f83893e74138cdbb9d65e68d5295458cae"
+                "assertion_id": "asrt:8edd00e2fbe09cd2dbdec7ec59b4e456",
+                "read_event_id": "226c9258-e1db-4e49-942b-6068925f8160",
+                "provider_attempt_id": "45417461-a051-4651-bfa7-c90b32a5ceb8",
+                "envelope_sha256": "2978aafd2ae5e15085e8e4de98d69d368086b50af06531747d466eaea2d5cb4f",
+                "context_receipt_sha256": "8740cd5acda3a8b1a703f7e6a718e3eb4c957e9ba48491499fe5035f3b3d565c",
+                "managed_world_id": "statement-fixture-b02802c5a5604542b3c3c7250d9ad4fa",
+                "native_world_id": "statement-fixture-b02802c5a5604542b3c3c7250d9ad4fa",
+                "read_revision_id": "rev:9e5a82ad4ab909a759519068c7a0751a",
+                "assertion_sha256": "f669c3a43d9958c309bd6817193d9f1025123efb7cdae77788b93cf9389e0241"
               },
               {
-                "evidence_ref_id": "ev:05eb4ebf57c7f5d5f2a26289cf583dd69f2f4501b51bbdfb9b63e5480334988d",
-                "source_artifact_id": "src:78ba2e67299a04ab2413c8269bf471b69518079b0d422af06297ec81a3ce5431",
-                "source_revision_id": "srev:bd788a437e2ab2ce795685ade9b6010490ae01d7b1df1bb648c750c749be1277",
+                "evidence_ref_id": "ev:ddc6bef07e0143398e406d7f384fefc7f3d75583780a1dddcad7eb9eb2af0e4c",
+                "source_artifact_id": "src:33082f6e70b10418e7d4b816a1f9bbdfefe316da50c63844546fbba6f5c70cbc",
+                "source_revision_id": "srev:0029420b4f0e6ce476975e3f7ae90d4d788d104242b71ce4e413e382d3b71357",
                 "body_sha256": "e6da3b35ee0c198a2d6f138095d312d300ae120773bf0aff0074237286197b63",
                 "start_byte": 0,
                 "end_byte": 34,
                 "span_sha256": "3ac9c1ce28ed0899dc663a9ab2ae2b56d3b77f010d5acfd0b113c6206d893ab7",
                 "segment_index": 0,
-                "assertion_id": "asrt:82d169613d61de4c9925ff571ca4b0fa",
-                "read_event_id": "5dbe445e-9fd8-49b4-9a3a-4c6ff960ea11",
-                "provider_attempt_id": "a431e95d-15e9-488b-9e3e-65f4b310706c",
-                "envelope_sha256": "f3ecafeaddd7ea8444fa0899faf995c3a3a878e345b6d7ab7e906243abbfd5b1",
-                "context_receipt_sha256": "9f6feab1facf1a82fb73ec6f40b98d491aa9e9f0e7c797275fb24f6d949ff0d4",
-                "managed_world_id": "statement-fixture-cedd7597732f46bd90189d37cf100305",
-                "native_world_id": "statement-fixture-cedd7597732f46bd90189d37cf100305",
-                "read_revision_id": "rev:8ba52f1c12a9626764298347fa2e9ff4",
-                "assertion_sha256": "07decc7e01215f1750ee935f44fe7733b9cdf3c04099bb541324a6e2c44fa97a"
+                "assertion_id": "asrt:99274620d961c7756f1413b38f5ecc4e",
+                "read_event_id": "226c9258-e1db-4e49-942b-6068925f8160",
+                "provider_attempt_id": "45417461-a051-4651-bfa7-c90b32a5ceb8",
+                "envelope_sha256": "2978aafd2ae5e15085e8e4de98d69d368086b50af06531747d466eaea2d5cb4f",
+                "context_receipt_sha256": "8740cd5acda3a8b1a703f7e6a718e3eb4c957e9ba48491499fe5035f3b3d565c",
+                "managed_world_id": "statement-fixture-b02802c5a5604542b3c3c7250d9ad4fa",
+                "native_world_id": "statement-fixture-b02802c5a5604542b3c3c7250d9ad4fa",
+                "read_revision_id": "rev:9e5a82ad4ab909a759519068c7a0751a",
+                "assertion_sha256": "5781577ae520f0957c2b2c4174b2b745ef06843dd82a88fd6bf4476a3afd9a09"
               }
             ]
           },
@@ -901,28 +1000,53 @@
   },
   "source": {
     "schema": "dmb_native_assertion_source_read_v1",
-    "world_id": "statement-fixture-cedd7597732f46bd90189d37cf100305",
-    "turn_id": "c73982de-2e49-437e-b01d-d66b5493129d",
+    "world_id": "statement-fixture-b02802c5a5604542b3c3c7250d9ad4fa",
+    "turn_id": "4a605da5-c5b6-4ee8-9c70-f88b9644db89",
     "citation_index": 0,
     "citation": {
-      "evidence_ref_id": "ev:05eb4ebf57c7f5d5f2a26289cf583dd69f2f4501b51bbdfb9b63e5480334988d",
-      "source_artifact_id": "src:78ba2e67299a04ab2413c8269bf471b69518079b0d422af06297ec81a3ce5431",
-      "source_revision_id": "srev:bd788a437e2ab2ce795685ade9b6010490ae01d7b1df1bb648c750c749be1277",
+      "evidence_ref_id": "ev:ddc6bef07e0143398e406d7f384fefc7f3d75583780a1dddcad7eb9eb2af0e4c",
+      "source_artifact_id": "src:33082f6e70b10418e7d4b816a1f9bbdfefe316da50c63844546fbba6f5c70cbc",
+      "source_revision_id": "srev:0029420b4f0e6ce476975e3f7ae90d4d788d104242b71ce4e413e382d3b71357",
       "body_sha256": "e6da3b35ee0c198a2d6f138095d312d300ae120773bf0aff0074237286197b63",
       "start_byte": 0,
       "end_byte": 34,
       "span_sha256": "3ac9c1ce28ed0899dc663a9ab2ae2b56d3b77f010d5acfd0b113c6206d893ab7",
       "segment_index": 0,
-      "assertion_id": "asrt:2895340761deb247247e5a35f35c8332",
-      "read_event_id": "5dbe445e-9fd8-49b4-9a3a-4c6ff960ea11",
-      "provider_attempt_id": "a431e95d-15e9-488b-9e3e-65f4b310706c",
-      "envelope_sha256": "f3ecafeaddd7ea8444fa0899faf995c3a3a878e345b6d7ab7e906243abbfd5b1",
-      "context_receipt_sha256": "9f6feab1facf1a82fb73ec6f40b98d491aa9e9f0e7c797275fb24f6d949ff0d4",
-      "managed_world_id": "statement-fixture-cedd7597732f46bd90189d37cf100305",
-      "native_world_id": "statement-fixture-cedd7597732f46bd90189d37cf100305",
-      "read_revision_id": "rev:8ba52f1c12a9626764298347fa2e9ff4",
-      "assertion_sha256": "50e7f417d7f65031af5d5d64994508f83893e74138cdbb9d65e68d5295458cae"
+      "assertion_id": "asrt:8edd00e2fbe09cd2dbdec7ec59b4e456",
+      "read_event_id": "226c9258-e1db-4e49-942b-6068925f8160",
+      "provider_attempt_id": "45417461-a051-4651-bfa7-c90b32a5ceb8",
+      "envelope_sha256": "2978aafd2ae5e15085e8e4de98d69d368086b50af06531747d466eaea2d5cb4f",
+      "context_receipt_sha256": "8740cd5acda3a8b1a703f7e6a718e3eb4c957e9ba48491499fe5035f3b3d565c",
+      "managed_world_id": "statement-fixture-b02802c5a5604542b3c3c7250d9ad4fa",
+      "native_world_id": "statement-fixture-b02802c5a5604542b3c3c7250d9ad4fa",
+      "read_revision_id": "rev:9e5a82ad4ab909a759519068c7a0751a",
+      "assertion_sha256": "f669c3a43d9958c309bd6817193d9f1025123efb7cdae77788b93cf9389e0241"
     },
     "content": "A reports that B fled; uncertain.\n"
+  },
+  "saved_source": {
+    "schema": "dmb_saved_build_section_read_v1",
+    "target": {
+      "schema": "dmb_saved_build_section_target_v1",
+      "kind": "saved_build_section",
+      "world_id": "statement-fixture-b02802c5a5604542b3c3c7250d9ad4fa",
+      "turn_id": "4a605da5-c5b6-4ee8-9c70-f88b9644db89",
+      "segment_index": 1,
+      "section_event_id": "267a5de0-ff50-4fa4-9c8b-1aa60fcdf5c8",
+      "section_read_id": "41da68d5-2a43-45b4-903c-b781162530a9",
+      "source_basis": {
+        "world_id": "statement-fixture-b02802c5a5604542b3c3c7250d9ad4fa",
+        "document_id": "5d520b03-b091-4f13-988e-5cf211bde462",
+        "registry_revision": 2,
+        "content_sha256": "ed337f86fe39e9b1d64d0b15ca61fd97889b59a672895ce28ffe093aab42912b",
+        "visibility": "internal"
+      },
+      "source_class": "saved_authored_source_not_played_truth",
+      "line_start": 3,
+      "line_end": 3,
+      "excerpt_sha256": "82fc1112401f4bccc41abc41b70e536c16d5ce1e5bf2e93571bc0035babe76c1",
+      "text_sha256": "ed983c9b1c566fa482365e0804077dc22644d16419880e56c70b809a4c8c4013"
+    },
+    "content": "A proposed conversation.\n"
   }
 }

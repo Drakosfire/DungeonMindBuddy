@@ -1,3 +1,5 @@
+import {getAgentSavedSection} from '../../api/liveApi';
+import {isSavedSectionTargets} from './BuildSavedSectionEvidence';
 import {getAgentNativeAssertionSource,getAgentNativeSourceClause,getAgentSourcePassage,getAgentNativeSourceSection,getAgentNativeBodyExcerpt,getAgentRelatedPage} from '../../api/liveApi';
 import type {WorldBuildSourceCompletion,SurfaceSourceCompletionV1,SurfaceEvidenceCompletion,SurfaceEvidenceCompletionV3,SurfaceEvidenceCompletionV5,SurfaceEvidenceCompletionV6,SurfaceEvidenceCompletionV7,SurfaceNativeCompletionV1} from '../../api/types';
 import {exact,canonical} from '../../shared/sourcePassageProtocol';
@@ -87,4 +89,22 @@ export function nativeChoices(completion:Partial<Pick<SurfaceEvidenceCompletionV
       return result.content;
     },
   }])];
+}
+
+/** Open only the section IDs accepted in the native completion, never today's page. */
+export function nativeSavedChoices(completion:import('../../api/types').SurfaceNativeCompletionV1,
+  basis:import('../../api/types').WorldBuildGraphReceiptV1['source_basis'],worldId:string,turnId:string,segmentIndex:number):CitationChoice[] {
+  if(basis.world_id!==worldId||completion.surface_id!=='build')return [];
+  return completion.saved_source_citations.filter(c=>c.segment_index===segmentIndex).flatMap(c=>c.section_event_ids.map(id=>({
+    key:`saved-native:${segmentIndex}:${id}`,number:0,title:`Saved authored page · revision ${basis.registry_revision}`,
+    label:'Read saved page source',kind:'section' as const,load:async()=>{
+      if(await hash(completion.answer_segments[segmentIndex]!.text)!==c.text_sha256)throw new Error('Saved claim differs');
+      const result=await getAgentSavedSection({world_id:worldId,turn_id:turnId,segment_index:segmentIndex,section_event_id:id});
+      if(!exact(result,['schema','target','content'])||result.schema!=='dmb_saved_build_section_read_v1'
+        ||!isSavedSectionTargets([result.target],basis,completion)||result.target.world_id!==worldId||result.target.turn_id!==turnId
+        ||result.target.segment_index!==segmentIndex||result.target.section_event_id!==id||result.target.text_sha256!==c.text_sha256
+        ||typeof result.content!=='string'||!result.content.trim()||await hash(result.content)!==result.target.excerpt_sha256)throw new Error('Saved native section binding differs');
+      return result.content;
+    },
+  })));
 }

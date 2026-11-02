@@ -39,7 +39,7 @@ import { useMemo, useState } from "react";
 import { webcrypto } from "node:crypto";
 import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { createWorkspaceDocument, getAgentNativeAssertionSource, getAgentRelatedPage, getWorldAgentTurnContextTrace, getWorkspaceDocumentSnapshot, getWorldAgentConversationHistory, getHistoricalRulesPassage, getWorldOwnedPlanCommittedRevision, getWorldPlanDocumentEditActions, listWorkspaceDocuments, listWorldContainers, LiveApiError, postWorldAgentNewConversation, postWorldPlanAgentTurn, postWorldPlayAgentTurn, postWorldBuildAgentTurn, postWorldGraphSourceAnchorRead, postWorldPlanDocumentEditProposal } from "../api/liveApi";
+import { createWorkspaceDocument, getAgentSavedSection, getAgentNativeAssertionSource, getAgentRelatedPage, getWorldAgentTurnContextTrace, getWorkspaceDocumentSnapshot, getWorldAgentConversationHistory, getHistoricalRulesPassage, getWorldOwnedPlanCommittedRevision, getWorldPlanDocumentEditActions, listWorkspaceDocuments, listWorldContainers, LiveApiError, postWorldAgentNewConversation, postWorldPlanAgentTurn, postWorldPlayAgentTurn, postWorldBuildAgentTurn, postWorldGraphSourceAnchorRead, postWorldPlanDocumentEditProposal } from "../api/liveApi";
 import type { AgentInteractionTurn, WorkspaceDocumentRecord, WorkspaceDocumentSnapshot, WorldAgentConversationHistoryResponseV1, WorldPlanAgentTurnRequestV1, WorldPlayAgentTurnRequestV1, WorldBuildAgentTurnRequestV1, WorldPlanAgentPlanContextV2, WorldPlanGraphAnswerContextStatusV1, WorldPlanGraphExecutionProjectionV1, WorldAgentConversationHistoryResponse, WorldBuildKnowledgeContextV1 } from "../api/types";
 import { DocumentConversationDock, type PlanConversationPresentationHosts } from "../planSurface/components/PlanConversationDockAdapter";
 import type { SavedWorldBuildConversationContext } from "./WorldAgentConversation";
@@ -75,6 +75,7 @@ vi.mock("../api/liveApi", async (importOriginal) => ({
   getHistoricalRulesPassage: vi.fn(),
   getAgentRelatedPage: vi.fn(),
   getAgentNativeAssertionSource: vi.fn(),
+  getAgentSavedSection: vi.fn(),
   getWorldAgentTurnContextTrace: vi.fn(async (worldId: string, turnId: string) => ({
     schema: "dmb_agent_turn_context_trace_response_v1", world_id: worldId, turn_id: turnId, attempts: [],
   })),
@@ -527,10 +528,13 @@ describe("one App-level World conversation host across Plan and Play", () => {
       response:import('../api/types').WorldReadOnlyAgentTurnResponseV1;
       history:import('../api/types').WorldAgentConversationHistoryResponseV3;
       source:Awaited<ReturnType<typeof getAgentNativeAssertionSource>>;
+      saved_source:Awaited<ReturnType<typeof getAgentSavedSection>>;
     };
     const row=wire.history.turns[0]!,context=row.knowledge_context as import('../api/types').BuildSurfaceNativeContextResponseV1;
     const basis=context.receipt.work_context.source_basis;
     basis.content_sha256=SHA;row.provenance.primary_work.content_sha256=SHA;row.provenance.surface_instance_id='build-instance';
+    context.completion!.answer_segments.forEach(s=>{if(s.kind==='saved_source_claim')s.content_sha256=SHA;});
+    wire.saved_source.target.source_basis.content_sha256=SHA;
     const answer=row.assistant_text!,question=row.user_text;
     const seal=async()=>{
       context.receipt.provenance_sha256=await sha256Hex(canonicalJson(row.provenance));
@@ -577,6 +581,7 @@ describe("one App-level World conversation host across Plan and Play", () => {
     }
     vi.mocked(getWorldAgentConversationHistory).mockImplementation(async()=>current);
     vi.mocked(getAgentNativeAssertionSource).mockResolvedValue({...wire.source,citation});
+    vi.mocked(getAgentSavedSection).mockResolvedValue(wire.saved_source);
     if(fresh)vi.mocked(postWorldBuildAgentTurn).mockImplementation(async request=>{
       const q=context.receipt.native_query;
       if(q.schema!=='dmb_native_plan_query_unavailable_v1')q.question=mode==='fresh-question'?'A different question.':request.message;
@@ -623,10 +628,13 @@ describe("one App-level World conversation host across Plan and Play", () => {
       if(mixedObject)await screen.findByText('Which possibility should we develop?');
       expect(getAgentNativeAssertionSource).not.toHaveBeenCalled();return;
     }
-    await screen.findByText(answer);
+    await screen.findByText(context.completion!.answer_segments[0]!.text);
     fireEvent.click(screen.getAllByRole('button',{name:'Read Graph assertion source'})[0]!);
     await screen.findByRole('region',{name:'Opened source section'});
     expect(getAgentNativeAssertionSource).toHaveBeenCalledWith(WORLD,row.turn_id,0);
+    fireEvent.click(screen.getAllByRole('button',{name:'Read saved page source'})[0]!);
+    await screen.findByText(wire.saved_source.content.trim().replace(/^#+\s*/,''));
+    expect(getAgentSavedSection).toHaveBeenCalledWith({world_id:WORLD,turn_id:row.turn_id,segment_index:1,section_event_id:wire.saved_source.target.section_event_id});
     expect(postWorldBuildAgentTurn).toHaveBeenCalledTimes(fresh?1:0);
   });
 

@@ -1500,16 +1500,33 @@ class AgentConversationService:
                 raise ApplicationStateValidationError("Plan Jev controller requires its own prepared-input admission")
             if isinstance(event, (BuildSectionReadAuthorizationV1, ValidatedBuildSectionReadV1)):
                 receipt = turn.graph_context_receipt
-                if (not isinstance(receipt, BuildGraphContextReceiptV1)
-                        or event.source_basis != receipt.source_basis):
-                    raise ApplicationStateValidationError("Saved section differs from frozen Build source")
+                from .native_context import SurfaceNativeContextReceiptV1, BuildWorkContextV1
+                native=type(receipt) is SurfaceNativeContextReceiptV1 and type(receipt.work_context) is BuildWorkContextV1
+                basis=receipt.work_context.source_basis if native else receipt.source_basis if isinstance(receipt,BuildGraphContextReceiptV1) else None
+                if basis is None or event.source_basis!=basis:
+                    raise ApplicationStateValidationError('Saved section differs from frozen Build source')
+                if native and isinstance(event,BuildSectionReadAuthorizationV1):
+                    from .native_retrieval import current_selection
+                    from .build_section import saved_section_catalog
+                    try:
+                        selection=current_selection(turn)
+                        catalog=saved_section_catalog(build_source_markdown,basis)
+                        handles=[h for h,(_,lines) in catalog.items() if lines==(event.line_start,event.line_end)]
+                        if selection.operation!='select_candidates' or len(handles)!=1 or handles[0] not in selection.selected_handles:
+                            raise ValueError('Saved section lacks its actual selected parent handle')
+                        if any(isinstance(prior,(BuildSectionReadAuthorizationV1,ValidatedBuildSectionReadV1)) and prior.read_id!=event.read_id and (prior.line_start,prior.line_end)==(event.line_start,event.line_end) for prior in execution.events):
+                            raise ValueError('Saved section cannot be reacquired')
+                    except (ValueError,TypeError,AttributeError) as exc:
+                        raise ApplicationStateValidationError(str(exc)) from exc
                 if isinstance(event, ValidatedBuildSectionReadV1):
                     from application_state.agent_conversation.build_section import exact_saved_section
                     try:
-                        exact = exact_saved_section(build_source_markdown, receipt.source_basis.content_sha256,
+                        exact = exact_saved_section(build_source_markdown, basis.content_sha256,
                             event.line_start, event.line_end)
                     except (TypeError, ValueError, UnicodeError) as exc:
                         raise ApplicationStateValidationError("Immutable Build passage proof is unavailable or invalid") from exc
+                    if native and len(build_source_markdown)!=execution.policy.action.saved_source_char_count:
+                        raise ApplicationStateValidationError('Saved source size differs from its frozen native work')
                     if (getattr(turn.graph_context_execution.policy, "saved_section_read_policy", None) == "exact_saved_lines_provider_capacity_v1"
                         and len(build_source_markdown) != turn.graph_context_execution.policy.saved_source_char_count):
                         raise ApplicationStateValidationError("Saved source size differs from its frozen exact-line policy")
@@ -1532,6 +1549,10 @@ class AgentConversationService:
                 from .build_decision_context import validate_prepared
                 try:
                     validate_prepared(event, execution, prepared_decision_json)
+                    if native_build_decision and event.context_phase=='writer_selection':
+                        from .writer_evidence_selection import validate_prepared_selection
+                        captured=conn.execute('SELECT payload FROM agent.turn_context_trace WHERE turn_id=%s AND attempt=%s',(turn.turn_id,turn.attempt)).fetchone()
+                        validate_prepared_selection(turn,event,prepared_decision_json,captured[0] if captured else {})
                 except (ValueError, KeyError, TypeError, AttributeError) as exc:
                     raise ApplicationStateValidationError(str(exc)) from exc
             elif prepared_decision_json is not None:
@@ -2125,11 +2146,11 @@ class AgentConversationService:
     def authorize_build_section_read(
         self, world_id: str, conversation_id: UUID, turn_id: UUID, *,
         expected_revision: int, expected_attempt: int,
-        authorization: BuildSectionReadAuthorizationV1,
+        authorization: BuildSectionReadAuthorizationV1,source_markdown: str | None = None,
     ) -> tuple[Turn, bool]:
         return self._append_graph_execution_event(world_id, conversation_id, turn_id,
             expected_revision=expected_revision, expected_attempt=expected_attempt,
-            event=authorization, duplicate_key="read_id")
+            event=authorization, duplicate_key="read_id",build_source_markdown=source_markdown)
 
     def record_build_draft_inclusion(self, world_id: str, conversation_id: UUID, turn_id: UUID, *,
         expected_revision: int, expected_attempt: int, inclusion, prepared_request_json: str):

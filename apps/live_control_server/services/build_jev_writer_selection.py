@@ -76,8 +76,10 @@ class WriterSelectionDriver:
         a._prepared_build_authorizing = view
         a._active_build_jev_expected_state = plan.state()
         a._active_build_driver_projection = plan
+        from application_state.agent_conversation.native_execution import SurfaceNativeExecutionPolicyV1
         try:
-            accepted = a.authorize(view)
+            accepted = (a.authorize_native_build_decision(prepared,view,plan)
+                if isinstance(a._broker_execution().policy,SurfaceNativeExecutionPolicyV1) else a.authorize(view))
         finally:
             a._prepared_build_authorizing = None
             a._active_build_jev_expected_state = None
