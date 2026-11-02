@@ -370,9 +370,16 @@ class NativeRulesNormalizedOutputV1:
 
     base_completion: SurfaceNativeCompletionV1 | PlanWorldGraphCompletionV2 | PlayWorldGraphCompletionV1 | SurfaceSourceCompletionV1 | SurfaceEvidenceCompletionV6 | SurfaceEvidenceCompletionV5 | SurfaceEvidenceCompletionV4 | SurfaceEvidenceCompletionV3 | SurfaceEvidenceCompletionV2 | SurfaceEvidenceCompletionV1 | None
     claim_graph_event_ids: dict[str, list[UUID]]
-    composition: AnswerCompositionV1
+    composition: AnswerCompositionV1 | None
     assistant_text: str
     graph_used: bool
+
+    def __post_init__(self):
+        if self.composition is None:
+            from .native_completion import require_object_only_completion
+            require_object_only_completion(self.base_completion)
+            if self.assistant_text or self.graph_used or self.claim_graph_event_ids:
+                raise ValueError('Object-only output cannot invent text or Graph acceptance')
 
 
 def normalize_native_mixed_output(
@@ -455,6 +462,7 @@ def normalize_native_mixed_output(
 
     composition = answer.composition(
         supplied_refs=included.support_refs,
+        base_completion=base_completion,
         base_segments=base_segments,
         base_disposition=disposition,
     )
@@ -498,15 +506,20 @@ def normalize_shared_native_output(receipt, graph_execution, rules_execution, pr
             base = normalize_candidate(answer.base_output,receipt,graph_execution,auth,evidence)
             segments = tuple(segment.text for segment in base.answer_segments)
         composition = answer.composition(supplied_refs=included.support_refs,base_segments=segments,
-            base_disposition='approved' if base is not None else 'unclaimed')
+            base_completion=base,base_disposition='approved' if segments else 'unclaimed')
     else:
         base = normalize_candidate(strict_json(proof.raw_output_json),receipt,graph_execution,auth,evidence)
         segments = tuple(segment.text for segment in base.answer_segments)
-        composition = AnswerCompositionV1(schema='dmb_answer_composition_v1',base_disposition='approved',
-            rules_segments=(),ordered_refs=tuple({'domain':'base','segment_index':i} for i in range(len(segments))),
-            assistant_text_sha256=sha256('\n'.join(segments).encode()).hexdigest())
+        if segments:
+            composition = AnswerCompositionV1(schema='dmb_answer_composition_v1',base_disposition='approved',
+                rules_segments=(),ordered_refs=tuple({'domain':'base','segment_index':i} for i in range(len(segments))),
+                assistant_text_sha256=sha256('\n'.join(segments).encode()).hexdigest())
+        else:
+            from .native_completion import require_object_only_completion
+            require_object_only_completion(base)
+            composition = None
     return NativeRulesNormalizedOutputV1(base_completion=base,claim_graph_event_ids={},composition=composition,
-        assistant_text=composition.render(segments),graph_used=base is not None
+        assistant_text=composition.render(segments) if composition is not None else '',graph_used=base is not None
             and any(segment.kind == 'native_assertion_claim' for segment in base.answer_segments))
 
 

@@ -2579,6 +2579,7 @@ class AgentConversationService:
                         base_segments = (tuple(item.text for item in result.base_result.completion.answer_segments)
                             if result.base_result is not None else ())
                         derived = parse_answer(proof.raw_output_json).composition(
+                            base_completion=None if result.base_result is None else result.base_result.completion,
                             supplied_refs=tuple(RulesSupportRefV1(support_id=item.support_id,
                                 support_sha256=item.support_sha256) for item in binding.support_table),
                             base_segments=base_segments, base_disposition=result.composition.base_disposition)
@@ -2615,6 +2616,7 @@ class AgentConversationService:
                         if len(sealed) != 1:
                             raise ValueError("Replayed native output has no unique compact provider witness")
                         derived = parse_answer(proof.raw_output_json).composition(
+                            base_completion=None if result.base_result is None else result.base_result.completion,
                             supplied_refs=supplied,
                             base_segments=base_segments,
                             base_disposition=result.composition.base_disposition,
@@ -2745,7 +2747,7 @@ class AgentConversationService:
                             or output_context.assistant_text != result.assistant_text):
                         raise ValueError("Native mixed result differs from its actual outer output normalization")
                 elif output_context is not None:
-                    derived = output_context[2].composition(supplied_refs=next(
+                    derived = output_context[2].composition(base_completion=completion, supplied_refs=next(
                         e.support_refs for e in current.execution.events
                         if e.kind == "build_provider_included" and e.provider_attempt_id == result.producing_provider_attempt_id),
                         base_segments=segments, base_disposition=disposition)

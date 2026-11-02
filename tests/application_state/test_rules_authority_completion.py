@@ -591,6 +591,7 @@ def test_native_plan_rules_only_completion_commits_and_replays_atomically(
         event for event in base.composition.rules_segments[0].support_refs
     )
     composition = parse_answer(raw_output_json).composition(
+        base_completion=None,
         supplied_refs=(included,),
         base_segments=(),
         base_disposition="unclaimed",

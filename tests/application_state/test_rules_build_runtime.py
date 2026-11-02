@@ -179,7 +179,7 @@ def runtime_result(service, turn, scope, delivery, *, capture=True):
             observation=TraceContextSnapshot(sequence=0, elapsed_ms=0, stage="after", materials=[{
                 "item_id": f"unvalidated-rules-answer:{writer.provider_attempt_id}:{scope.execution_id}",
                 "state": "model_context", "role": "assistant", "text": raw}]))
-    composition = parse_answer(raw).composition(supplied_refs=refs, base_segments=(), base_disposition="absent")
+    composition = parse_answer(raw).composition(base_completion=None, supplied_refs=refs, base_segments=(), base_disposition="absent")
     result = BuildRulesMixedTurnResultV1(schema="dmb_build_rules_mixed_turn_result_v1", scope=scope,
         expected_turn_revision=turn.revision, expected_rules_revision=record.revision,
         assistant_text=composition.render(), composition=composition,
@@ -290,7 +290,7 @@ def test_mixed_base_projection_reconstructs_actual_build_receipts_without_a_fake
             raw_provider_output_json=raw, rules_execution_id=execution_id, rules_output_policy=POLICY)
         execution = SimpleNamespace(scope=SimpleNamespace(execution_id=execution_id))
         candidate = parse_answer(raw)
-        composition = candidate.composition(supplied_refs=(),
+        composition = candidate.composition(base_completion=result.completion, supplied_refs=(),
             base_segments=tuple(item.text for item in result.completion.answer_segments), base_disposition="approved")
         cap = rules_capability(graph=True)
         serialization_scope = RulesScopeV1(schema="dmb_rules_scope_v1", execution_id=execution_id,

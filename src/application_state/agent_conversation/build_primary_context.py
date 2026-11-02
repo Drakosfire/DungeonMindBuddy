@@ -183,6 +183,10 @@ def native_work_frame(execution, basis):
     contract=selected_contract(execution)
     if contract is not None:
         frame['response_contract']=contract
+    from .plan_objective import contract as plan_contract,KEY as PLAN_OUTPUT_KEY
+    plan=plan_contract(execution)
+    if plan is not None:
+        frame[PLAN_OUTPUT_KEY]=plan.model_dump(mode='json',by_alias=True)
     from .build_related_pages import project as project_related
     related=project_related(execution)
     if related is not None:

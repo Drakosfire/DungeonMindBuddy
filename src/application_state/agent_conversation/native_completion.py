@@ -12,6 +12,7 @@ from pydantic import Field, model_validator
 
 from . import types as t
 from .build_draft_answer import DraftDiscussionV1, normalize_native_segment
+from .relationship_review import RelationshipCollaborationV3
 from . import native_corpus as bodies
 from . import native_plan_statements as statements
 from . import native_plan_assertions as assertions
@@ -38,7 +39,8 @@ class SurfaceNativeCompletionV1(Strict):
     producing_provider_attempt_id: UUID
     answer_basis: Literal['mixed_evidence'] = 'mixed_evidence'
     answer_context_status: t.SurfaceEvidenceStatusV1 | Literal['discussion']
-    answer_segments: list[NativeSegment] = Field(min_length=1, max_length=128)
+    answer_segments: list[NativeSegment] = Field(max_length=128)
+    collaboration: RelationshipCollaborationV3 | None
     saved_source_citations: list[t.BuildSectionSegmentBindingV1] = Field(max_length=128)
     native_body_citations: list[t.NativeBodyExcerptCitationV1] = Field(max_length=t.MAX_CITATION_SOURCE_READ_IDS)
     native_clause_citations: list[t.NativeStatementClauseCitationV1] = Field(max_length=t.MAX_CITATION_SOURCE_READ_IDS)
@@ -48,7 +50,7 @@ class SurfaceNativeCompletionV1(Strict):
     def supported_shape(self):
         validate_authored_shape(self.answer_segments)
         build=[s for s in self.answer_segments if isinstance(s,(t.DraftReferenceClaimV1,t.RelatedPageClaim,t.SavedSourceClaimV1,DraftDiscussionV1))]
-        if build and self.surface_id != 'build':
+        if (build or self.collaboration is not None) and self.surface_id != 'build':
             raise ValueError('Build work discussion and saved claims require their actual surface owner')
         saved={i:s for i,s in enumerate(self.answer_segments) if isinstance(s,t.SavedSourceClaimV1)}
         indices=[c.segment_index for c in self.saved_source_citations]
@@ -60,7 +62,10 @@ class SurfaceNativeCompletionV1(Strict):
             if isinstance(support,t.SurfaceAuthoredQuoteV1)]
         if authored and (self.surface_id != 'plan' or any(s.source_kind not in {'plan','session'} for s in authored)):
             raise ValueError('Shared authored excerpts require their actual Plan or session owner')
-        if any(not s.text.strip() for s in self.answer_segments) or self.answer_context_status != status_for(self.answer_segments):
+        if not self.answer_segments and self.collaboration is None:
+            raise ValueError('Native completion cannot be empty')
+        status=status_for(self.answer_segments) if self.answer_segments else 'discussion'
+        if any(not s.text.strip() for s in self.answer_segments) or self.answer_context_status != status:
             raise ValueError('Native completion status differs from its typed segments')
         source = {i for i,s in enumerate(self.answer_segments) if isinstance(s,t.SourcePassageClaimV1)}
         graph = {i for i,s in enumerate(self.answer_segments) if isinstance(s,t.NativeAssertionClaimV1)}
@@ -86,6 +91,18 @@ class SurfaceNativeCompletionV1(Strict):
         return self
 
 
+
+def require_object_only_completion(completion):
+    """Check the typed zero-text shape, without granting acceptance authority."""
+    if type(completion) is not SurfaceNativeCompletionV1:
+        raise ValueError('Object-only output requires the exact shared native completion')
+    checked = SurfaceNativeCompletionV1.model_validate_json(
+        completion.model_dump_json(by_alias=True), strict=True)
+    if checked.answer_segments or checked.collaboration is None or checked.answer_context_status != 'discussion':
+        raise ValueError('Object-only output requires a typed review without answer text')
+    return checked
+
+
 def _validate_citations(completion, receipt, execution, auth, evidence):
     # Evidence is freshly reconstructed by this module's entry point, never an
     # arbitrary caller-supplied list or a second persisted inclusion manifest.
@@ -103,6 +120,13 @@ def _validate_citations(completion, receipt, execution, auth, evidence):
         if any(event_id not in selected or selected[event_id].source_basis.content_sha256 != segment.content_sha256
                 for event_id in citation.section_event_ids):
             raise ValueError('Saved work citation differs from its actual included Build read')
+    if completion.surface_id=='build':
+        from .plan_objective import validate_completion as validate_plan_output
+        validate_plan_output(completion,execution,auth.provider_attempt_id)
+        if completion.collaboration is not None and completion.collaboration.kind=='connected_page':
+            from .connected_page_origins import execution_rows
+            from .collaboration import saved_excerpt
+            saved_excerpt(completion.collaboration,execution_rows(execution,receipt.work_context.source_basis,auth.provider_attempt_id))
     bindings = [e for e in execution.events if isinstance(e,t.CompletionBindingEventV1)]
     if bindings and (len(bindings) != 1 or bindings[0].provider_attempt_id != auth.provider_attempt_id
             or bindings[0].completion_sha256 != canonical_sha256(completion) or bindings[0].claim_graph_event_ids):
@@ -147,7 +171,10 @@ def normalize_candidate(candidate, receipt, execution, authorization, evidence):
     Mixed Rules responses have one captured outer body. Their base partition
     uses this same algorithm without manufacturing a second provider response.
     """
-    if (not isinstance(candidate,dict) or set(candidate) != {'schema','answer_segments','limitations','requested_detail_gaps'}
+    from .build_intentional_response import native_review_enabled, normalize_native_review
+    review_enabled=execution.policy.action.surface_id=='build' and native_review_enabled(evidence.work_frame)
+    keys={'schema','answer_segments','limitations','requested_detail_gaps'} | ({'collaboration'} if review_enabled else set())
+    if (not isinstance(candidate,dict) or set(candidate) != keys
             or candidate['schema'] != evidence.frame['answer_policy'] or not isinstance(candidate['answer_segments'],list)):
         raise ValueError('Native completion requires its exact producing answer policy')
     segments, body_cites, statement_cites, assertion_cites,saved_cites = [], [], [], [],[]
@@ -176,6 +203,9 @@ def normalize_candidate(candidate, receipt, execution, authorization, evidence):
             body_cites.extend(body)
             statement_cites.extend(statement)
             assertion_cites.extend(assertion)
+    collaboration=normalize_native_review(candidate['collaboration'],segments,evidence.work_frame) if review_enabled else None
+    if review_enabled and not segments and collaboration is None:
+        raise ValueError('Empty intentional response')
     codes = candidate['limitations']
     if (not isinstance(codes,list) or any(not isinstance(code,str) or code not in LIMITATIONS for code in codes)
             or len(codes) != len(set(codes)) or not isinstance(candidate['requested_detail_gaps'],list)):
@@ -188,17 +218,17 @@ def normalize_candidate(candidate, receipt, execution, authorization, evidence):
     # Missing native capability does not make an available Build draft/page
     # unavailable. Only native claims inherit that native retrieval qualification.
     local_build=(execution.policy.action.surface_id=='build'
-        and any(isinstance(s,(t.DraftReferenceClaimV1,t.RelatedPageClaim,t.SavedSourceClaimV1,DraftDiscussionV1)) for s in segments)
+        and (collaboration is not None or any(isinstance(s,(t.DraftReferenceClaimV1,t.RelatedPageClaim,t.SavedSourceClaimV1,DraftDiscussionV1)) for s in segments))
         and all(isinstance(s,(t.DraftReferenceClaimV1,t.RelatedPageClaim,t.SavedSourceClaimV1,DraftDiscussionV1,t.PlanWorldGraphProposalSegmentV1))
             for s in segments))
     if evidence.frame['input_status'] == 'partial' and not local_build and 'partial_retrieval' not in codes:
         codes.append('partial_retrieval')
     segments += [_limit(code) for code in codes] + [_limit('missing_requested_details',g.question_phrase) for g in gaps]
-    if not segments:
+    if not segments and collaboration is None:
         segments = [_limit('missing_requested_details')]
     completion = SurfaceNativeCompletionV1(surface_id=execution.policy.action.surface_id,
         context_receipt_sha256=receipt.context_receipt_sha256,producing_provider_attempt_id=authorization.provider_attempt_id,
-        answer_context_status=status_for(segments),answer_segments=segments,saved_source_citations=saved_cites,
+        answer_context_status=status_for(segments) if segments else 'discussion',answer_segments=segments,collaboration=collaboration,saved_source_citations=saved_cites,
         native_body_citations=body_cites,native_clause_citations=statement_cites,native_assertion_citations=assertion_cites)
     _validate_citations(completion,receipt,execution,authorization,evidence)
     return completion

@@ -698,13 +698,85 @@ class IntentionalWriterAnswerV3(IntentionalWriterAnswer):
     collaboration: RelationshipCollaborationV3 | None
 
 
+def validate_collaboration(collaboration, segments, contract, *, primary_rows, origin_rows):
+    """Proposed work through existing quote owners; grants no execution authority."""
+    from .collaboration import saved_excerpt, ProposedQuestions, ProposedConnectedPage
+    from .relationship_review import ProposedRelationship, validate_quote
+    review=WORK[contract['requested_work']].review if not contract['barrier'] else None
+    if collaboration is not None:
+        if collaboration.kind != review:
+            raise ValueError("Typed object differs from the resolved supported work")
+        if isinstance(collaboration,ProposedConnectedPage):
+            saved_excerpt(collaboration,origin_rows)
+        if isinstance(collaboration,ProposedRelationship):
+            validate_quote(collaboration,primary_rows)
+        if isinstance(collaboration,ProposedQuestions) and any(
+                s.text.strip() in {q.text.strip() for q in collaboration.questions} for s in segments):
+            raise ValueError("Question duplicated outside its inline object")
+    elif review in {'questions','plan'}:
+        raise ValueError("Requested typed collaboration is missing")
+
+
+def native_review_enabled(frame):
+    contract=frame.get('response_contract')
+    return isinstance(contract,dict) and contract['capabilities']['reviews'] is not None
+
+
+def native_origin_rows(frame):
+    from .build_draft_context import resolve_body_aliases
+    from .connected_page_origins import selected_rows
+    frame=resolve_body_aliases(frame)
+    contract=frame['response_contract']
+    primary=frame['artifact_under_edit']['sections'] if (
+        contract['requested_work']=='review_connected_page' and contract['barrier'] is None) else []
+    return selected_rows(frame.get('related_authored_pages',{}).get('pages',[]),primary,frame['source_basis'])
+
+
+def native_review_schema(frame):
+    """Existing typed review model with only the actual producing selectors."""
+    from .collaboration import ProposedQuestions, ProposedPlanV3, ProposedConnectedPage
+    from .relationship_review import ProposedRelationship
+    from .plan_objective import selection_packet
+    from .build_draft_context import resolve_body_aliases
+    frame=resolve_body_aliases(frame)
+    contract=frame['response_contract']
+    kind=WORK[contract['requested_work']].review if not contract['barrier'] else None
+    model={'questions':ProposedQuestions,'plan':ProposedPlanV3,
+        'connected_page':ProposedConnectedPage,'relationship':ProposedRelationship}.get(kind)
+    if model is None:
+        return {'type':'null'},{}
+    if kind=='plan' and not selection_packet(frame):
+        raise ValueError('Plan review lacks its pre-writer selection contract')
+    schema=model.model_json_schema()
+    definitions=schema.pop('$defs',{})
+    if kind in {'connected_page','relationship'}:
+        rows=native_origin_rows(frame) if kind=='connected_page' else frame['artifact_under_edit']['sections']
+        if not rows:
+            return {'type':'null'},{}
+        schema['properties']['read_id']={'type':'string','enum':sorted(str(row['read_id']) for row in rows)}
+    return ({'anyOf':[schema,{'type':'null'}]} if kind not in {'questions','plan'} else schema),definitions
+
+
+def normalize_native_review(candidate, segments, frame):
+    from pydantic import TypeAdapter
+    from .relationship_review import RelationshipCollaborationV3
+    from .build_draft_context import resolve_body_aliases
+    from .collaboration import ProposedPlanV3
+    from .plan_objective import selection_packet
+    review=TypeAdapter(RelationshipCollaborationV3 | None).validate_python(candidate)
+    frame=resolve_body_aliases(frame)
+    validate_collaboration(review,segments,frame['response_contract'],
+        primary_rows=frame['artifact_under_edit']['sections'],origin_rows=native_origin_rows(frame))
+    if isinstance(review,ProposedPlanV3) and not selection_packet(frame):
+        raise ValueError('Plan review lacks its pre-writer selection contract')
+    return review
+
+
 def normalize(raw, packet):
     from .relationship_review import output_enabled
     output_enabled(packet)
     from .source_writer_output import strict_json, gap_messages
     from .source_quote_binding import validate_and_project
-    from .collaboration import saved_excerpt, ProposedQuestions, ProposedConnectedPage
-    from .relationship_review import ProposedRelationship, validate_quote
     from .build_primary_context import packet_rows
     from .build_draft_answer import source_claim_limitations
     from .connected_page_origins import packet_rows as connected_origin_rows
@@ -741,26 +813,8 @@ def normalize(raw, packet):
         and "missing_requested_details" not in answer.limitations
     ):
         raise ValueError("Requested-detail gaps require their exact limitation")
-    review = (
-        WORK[contract["requested_work"]].review if not contract["barrier"] else None
-    )
-    if answer.collaboration is not None:
-        if answer.collaboration.kind != review:
-            raise ValueError("Typed object differs from the resolved supported work")
-        if isinstance(answer.collaboration, ProposedConnectedPage):
-            saved_excerpt(
-                answer.collaboration,
-                connected_origin_rows(packet),
-            )
-        if isinstance(answer.collaboration, ProposedRelationship):
-            validate_quote(answer.collaboration, packet_rows(packet))
-        if isinstance(answer.collaboration, ProposedQuestions) and any(
-            s.text.strip() in {q.text.strip() for q in answer.collaboration.questions}
-            for s in answer.answer_segments
-        ):
-            raise ValueError("Question duplicated outside its inline object")
-    elif review in {"questions", "plan"}:
-        raise ValueError("Requested typed collaboration is missing")
+    validate_collaboration(answer.collaboration,answer.answer_segments,contract,
+        primary_rows=packet_rows(packet),origin_rows=connected_origin_rows(packet))
     from .build_draft_context import validate_draft_references
     validate_draft_references(answer.answer_segments,packet.get('working_draft_context',{}).get('record_id'))
     related_ids = {

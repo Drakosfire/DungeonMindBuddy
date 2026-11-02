@@ -25,11 +25,19 @@ def _primary_rows(rows, basis):
 def packet_rows(packet):
     from .build_primary_context import packet_rows as primary_rows
     packet = resolve_body_aliases(packet)
-    rows = list(packet.get('related_authored_pages', {}).get('pages', []))
+    primary=[]
     if KEY in packet:
         if packet[KEY] != POLICY or not eligible(packet):
             raise ValueError('Connected origin marker lacks its resolved work and saved reads')
-        rows += _primary_rows(primary_rows(packet), packet['source_basis'])
+        primary=primary_rows(packet)
+    return selected_rows(packet.get('related_authored_pages',{}).get('pages',[]),primary,packet.get('source_basis'))
+
+
+def selected_rows(related, primary, basis):
+    """One saved-origin selector domain from actual supplied related/primary rows."""
+    rows=list(related)
+    if primary:
+        rows += _primary_rows(primary,basis)
     if len({str(r['read_id']) for r in rows}) != len(rows):
         raise ValueError('Connected origin read selectors are ambiguous')
     return rows

@@ -271,8 +271,17 @@ def native_output_format(frame, rules, work_frame):
         variants.extend(native_variants(work_frame,prose))
     else:
         raise ValueError('Shared output requires its actual supported work frame')
-    return {'type': 'json_schema', 'name': 'surface_native_evidence_selectors_v1', 'strict': True,
-        'schema': _answer_schema(variants, ASSERTION_POLICY, rules, prose)}
+    schema=_answer_schema(variants,ASSERTION_POLICY,rules,prose)
+    if work_frame.get('schema')==BUILD_WORK_SCHEMA:
+        from .build_intentional_response import native_review_enabled, native_review_schema
+        if native_review_enabled(work_frame):
+            review,definitions=native_review_schema(work_frame)
+            base=schema['$defs']['Base'] if rules.lookups else schema
+            base['properties']['collaboration']=review
+            base['required'].append('collaboration')
+            if definitions:
+                schema.setdefault('$defs',{}).update(definitions)
+    return {'type': 'json_schema', 'name': 'surface_native_evidence_selectors_v1', 'strict': True,'schema':schema}
 
 
 def output_format(frame, rules):

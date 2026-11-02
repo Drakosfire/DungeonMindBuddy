@@ -240,6 +240,8 @@ class SurfaceNativeExecutionV1(Strict):
         if isinstance(self.policy.action,NativeBuildActionV1):
             from .build_intentional_response import validate_native_action_events
             validate_native_action_events(self)
+            from .plan_objective import validate_events as validate_plan_output_events
+            validate_plan_output_events(self)
             from .build_draft_context import validate_execution_records, validate_provider_inclusions
             from .build_primary_context import validate_reads, validate_selection_origin
             validate_execution_records(self)
