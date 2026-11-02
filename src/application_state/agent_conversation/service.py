@@ -1323,9 +1323,16 @@ class AgentConversationService:
             turn = _ordinary_mutation_turn(turn, conversation_id)
             if turn is None or turn.conversation_id != conversation_id:
                 raise ApplicationStateNotFoundError("turn not found in verified World conversation")
-            from .native_execution import SurfaceNativeExecutionV1
+            from .native_execution import SurfaceNativeExecutionV1, NativePlanActionV1
+            from .types import PlanJevProviderAuthorizedV1
+            native_plan_decision = (
+                type(turn.graph_context_execution) is SurfaceNativeExecutionV1
+                and type(turn.graph_context_execution.policy.action) is NativePlanActionV1
+                and isinstance(event, PlanJevProviderAuthorizedV1)
+                and plan_jev_input_proof is not None)
             if (isinstance(turn.graph_context_execution, SurfaceNativeExecutionV1)
-                    and isinstance(event, ProviderAttemptAuthorizedEventV1)):
+                    and isinstance(event, ProviderAttemptAuthorizedEventV1)
+                    and not native_plan_decision):
                 raise ApplicationStateValidationError(
                     "Shared native provider requires its exact prepared-input admission owner")
             validate_authoring_writer(conn,action,turn,event)
@@ -1623,7 +1630,13 @@ class AgentConversationService:
                 assert receipt is not None
                 try:
                     from .types import PlanSourceContextReceiptV1
-                    if isinstance(receipt, PlanSourceContextReceiptV1):
+                    if native_plan_decision:
+                        # Exact Plan wire/actual Turn proof was checked above.
+                        # Reuse the common first-envelope accounting owner;
+                        # native records never become a classic Graph view.
+                        from .types import validate_provider_envelope_accounting
+                        validate_provider_envelope_accounting(receipt.assembled_input, execution, event)
+                    elif isinstance(receipt, PlanSourceContextReceiptV1):
                         from .plan_source_context import validate_source_provider_envelope
                         validate_source_provider_envelope(receipt, execution, event)
                     else:
@@ -1691,10 +1704,14 @@ class AgentConversationService:
                 *([section_inclusion] if section_inclusion is not None else [])]
             try:
                 execution_type = type(execution)
-                updated_execution = execution_type.model_validate(
-                    execution.model_dump(mode="json", by_alias=True) | {"events": [e.model_dump(mode="json", by_alias=True) for e in events]}
-                )
-                if turn.graph_context_receipt is not None:
+                updated_execution = execution_type.model_validate_json(json.dumps(
+                    execution.model_dump(mode="json", by_alias=True)
+                    | {"events": [e.model_dump(mode="json", by_alias=True) for e in events]}
+                ))
+                if isinstance(updated_execution, SurfaceNativeExecutionV1):
+                    from .native_execution import validate_context_binding
+                    validate_context_binding(turn.graph_context_receipt, updated_execution)
+                elif turn.graph_context_receipt is not None:
                     validate_related_recap_context_scope(
                         turn.graph_context_receipt, updated_execution
                     )

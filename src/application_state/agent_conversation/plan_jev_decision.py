@@ -18,17 +18,26 @@ def strict_json(raw):
 
 def _owner(turn):
     from . import types as t
+    from .native_context import SurfaceNativeContextReceiptV1
+    from .native_execution import SurfaceNativeExecutionV1, NativePlanActionV1
     if (not isinstance(turn, t.Turn) or turn.status != "running"
-            or turn.provenance.surface_id != "plan" or turn.provenance.surface_resolution != "resolved"
-            or not (
-                (isinstance(turn.graph_context_receipt, t.PlanSourceContextReceiptV1)
-                 and isinstance(turn.graph_context_execution, t.PlanSourceExecutionV1))
-                or (isinstance(turn.graph_context_receipt, t.PlanWorldGraphContextReceiptV1)
-                    and isinstance(turn.graph_context_execution, t.PlanWorldGraphExecutionV3)
-                    and not isinstance(turn.graph_context_execution, t.PlanSourceExecutionV1)))
-            or not isinstance(turn.graph_context_execution.policy, t.PlanJevRetrievalPolicyV1)):
+            or turn.provenance.surface_id != "plan" or turn.provenance.surface_resolution != "resolved"):
         raise ValueError("Jev decision requires the current resolved Plan owner and frozen policy")
-    return turn.graph_context_receipt, turn.graph_context_execution
+    receipt, execution = turn.graph_context_receipt, turn.graph_context_execution
+    if type(receipt) is SurfaceNativeContextReceiptV1 or type(execution) is SurfaceNativeExecutionV1:
+        if (type(receipt) is not SurfaceNativeContextReceiptV1
+                or type(execution) is not SurfaceNativeExecutionV1
+                or type(execution.policy.action) is not NativePlanActionV1):
+            raise ValueError("Jev decision requires its concrete shared Plan owner")
+    elif not (
+            ((isinstance(receipt, t.PlanSourceContextReceiptV1)
+              and isinstance(execution, t.PlanSourceExecutionV1))
+             or (isinstance(receipt, t.PlanWorldGraphContextReceiptV1)
+                 and isinstance(execution, t.PlanWorldGraphExecutionV3)
+                 and not isinstance(execution, t.PlanSourceExecutionV1)))
+            and isinstance(execution.policy, t.PlanJevRetrievalPolicyV1)):
+        raise ValueError("Jev decision requires the current resolved Plan owner and frozen policy")
+    return receipt, execution
 
 
 def _native_plan_action(execution):
