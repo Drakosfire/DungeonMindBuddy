@@ -2582,10 +2582,10 @@ class AgentConversationService:
                 try:
                     captured=conn.execute('SELECT payload FROM agent.turn_context_trace WHERE turn_id=%s AND attempt=%s',
                         (turn.turn_id,turn.attempt)).fetchone()
-                    from .types import BuildAuthoringCompletionV1
-                    if isinstance(result.completion,BuildAuthoringCompletionV1):
-                        from .build_authoring import normalize_native_proposal
-                        completion,bindings,text=normalize_native_proposal(conn,turn,current.execution,native_output_proof,
+                    from .types import BuildAuthoringCompletionV1,BuildImagePreparationCompletionV1
+                    if isinstance(result.completion,(BuildAuthoringCompletionV1,BuildImagePreparationCompletionV1)):
+                        from .build_authoring import normalize_native_authoring
+                        completion,bindings,text=normalize_native_authoring(conn,turn,current.execution,native_output_proof,
                             trace=captured[0] if captured else None,work_proof=native_work_proof)
                     else:
                         completion, bindings, text = normalize_unused_native_output(

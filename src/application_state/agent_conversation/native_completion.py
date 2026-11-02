@@ -249,9 +249,9 @@ def validate_retained_completion(completion, receipt, execution, producer, bindi
     from .native_writer import model_frame, read_evidence_records
     from .surface_evidence_answer import validate_authored_owners
     validate_context_binding(receipt, execution)
-    if isinstance(completion,t.BuildAuthoringCompletionV1):
-        from .build_authoring import validate_native_proposal_binding
-        validate_native_proposal_binding(completion,receipt,execution,producer,bindings)
+    if isinstance(completion,(t.BuildAuthoringCompletionV1,t.BuildImagePreparationCompletionV1)):
+        from .build_authoring import validate_native_authoring_binding
+        validate_native_authoring_binding(completion,receipt,execution,producer,bindings)
     elif (type(completion) is not SurfaceNativeCompletionV1 or bindings != {}
             or completion.context_receipt_sha256 != receipt.context_receipt_sha256
             or completion.surface_id != execution.policy.action.surface_id
@@ -267,7 +267,7 @@ def validate_retained_completion(completion, receipt, execution, producer, bindi
         and e.provider_attempt_id==producer and e.outcome=='response_received']
     if (len(responses)!=1 or any(not isinstance(e,t.CompletionBindingEventV1) for e in execution.events if e.sequence>responses[0].sequence)):
         raise ValueError('Retained native completion lacks its final acknowledged output')
-    if isinstance(completion,t.BuildAuthoringCompletionV1):
+    if isinstance(completion,(t.BuildAuthoringCompletionV1,t.BuildImagePreparationCompletionV1)):
         return
     prefix=SurfaceNativeExecutionV1.model_validate_json(execution.model_copy(
         update={'events':execution.events[:auth.sequence]}).model_dump_json(by_alias=True))

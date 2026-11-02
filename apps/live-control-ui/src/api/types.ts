@@ -1207,7 +1207,7 @@ export interface SurfaceNativeCompletionV1 {
 }
 export interface AgentSurfaceNativeContextResponseV1 {
   schema:'dmb_agent_surface_native_context_response_v1';receipt:SurfaceNativeContextReceiptV1;
-  completion:SurfaceNativeCompletionV1|WorldBuildAuthoringCompletionV1|null;execution:WorldPlanGraphExecutionProjectionV1|null;delivery_replay:boolean;
+  completion:SurfaceNativeCompletionV1|WorldBuildAuthoringCompletionV1|WorldBuildImagePreparationCompletionV1|null;execution:WorldPlanGraphExecutionProjectionV1|null;delivery_replay:boolean;
 }
 export type PlanSurfaceNativeContextResponseV1 = AgentSurfaceNativeContextResponseV1 & {
   completion:SurfaceNativeCompletionV1|null;

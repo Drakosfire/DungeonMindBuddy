@@ -74,3 +74,20 @@ it('accepts the actual Build proposal acknowledgement only on its shared Build c
   c.completion.context_receipt_sha256='0'.repeat(64);
   expect(isSurfaceNativeContext(c,buildWork,()=>true)).toBe(false);
 });
+
+it('accepts the actual native image preparation acknowledgement only for Build',()=>{
+  const c=structuredClone(buildWire.image_context);
+  expect(isSurfaceNativeContext(c,buildWork,()=>true)).toBe(true);
+  expect(isSurfaceNativeCompletion(c.completion,c.receipt as SurfaceNativeContextReceiptV1)).toBe(false);
+  const plan=context();
+  Object.assign(plan,{completion:{...c.completion,context_receipt_sha256:plan.receipt.context_receipt_sha256}});
+  expect(isSurfaceNativeContext(plan,work,()=>true)).toBe(false);
+});
+it.each(['root','basis','extra','producer'])('refuses changed native image acknowledgement: %s',mutation=>{
+  const c=structuredClone(buildWire.image_context);
+  if(mutation==='root')c.completion.context_receipt_sha256='0'.repeat(64);
+  if(mutation==='basis')c.completion.answer_basis='prepared_page_proposal';
+  if(mutation==='producer')c.completion.provider_attempt_id='not-an-id';
+  if(mutation==='extra')Object.assign(c.completion,{native_assertion_citations:[]});
+  expect(isSurfaceNativeContext(c,buildWork,()=>true)).toBe(false);
+});

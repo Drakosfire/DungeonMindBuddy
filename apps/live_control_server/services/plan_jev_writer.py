@@ -182,6 +182,15 @@ def authorize_native_writer(adapter, rules, proof, prepared, expected, frame):
     return event
 
 
+def selected_writer_text(result,response,provider,model):
+    """Direct writer callers consume the one complete actual SDK selection."""
+    selected=provider.consume_completed_text(response,model)
+    if (result.observation.state.value!='completed' or result.observation.retry_count!=0
+            or result.observation.provider_attempt_count!=1 or result.text!=selected or not selected):
+        raise _ReplyRejected('plan_writer_response_identity_mismatch','Writer has no complete exact SDK reply')
+    return selected
+
+
 def capture_native_reply(adapter,rules,prepared,received,raw):
     """Acknowledge only a domain-validated complete selected SDK final."""
     if received is None or not adapter.record_lifecycle(dict(transition='response_received',
@@ -373,12 +382,7 @@ class PlanJevWriter:
     def capture(self, result, response, provider):
         if self.prepared is None:
             raise _ReplyRejected('plan_writer_response_incomplete', 'Plan writer has no complete exact SDK reply')
-        selected_text = provider.consume_completed_text(response, self.model)
-        if (result.observation.state.value != 'completed' or result.observation.retry_count != 0
-                or result.observation.provider_attempt_count != 1
-                or result.text != selected_text or not result.text):
-            raise _ReplyRejected('plan_writer_response_identity_mismatch', 'Plan writer has no complete exact SDK reply')
-        raw = result.text
+        raw=selected_writer_text(result,response,provider,self.model)
         if self.shared:
             received,self.received_event=self.received_event,None
             return capture_native_reply(self.adapter,self.rules,self.prepared,received,raw)

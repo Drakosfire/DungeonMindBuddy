@@ -106,8 +106,8 @@ def _frame_in_actual_request(body, *, allow_build=False) -> PlanRulesEvidenceFra
         from .source_writer_output import strict_json
         packet=strict_json(body['input'])
         if (body.get('tools',[])!=[] or 'messages' in body or body.get('tool_choice') not in (None,'none')
-                or not isinstance(packet,dict) or packet.get('schema')!='dmb_build_compose_input_v1'):
-            raise ValueError('Build Rules frame requires its exact tool-free proposal packet')
+                or not isinstance(packet,dict) or packet.get('schema') not in {'dmb_build_compose_input_v1','dmb_build_image_direction_input_v1'}):
+            raise ValueError('Build Rules frame requires its exact tool-free authoring packet')
         return PlanRulesEvidenceFrameV1.model_validate_json(json.dumps(packet.get('rules_evidence')))
 
     if (not isinstance(body, dict) or "messages" in body or not isinstance(body.get("input"), list)
@@ -267,12 +267,14 @@ def verify_native_rules_packet_input(execution, receipt, graph_execution, prepar
     body, frame, outputs, supports = packet_input_records(execution,prepared_request_json,
         expected_envelope_sha256=expected_envelope_sha256,allow_build=isinstance(action,NativeBuildActionV1))
     from .build_intentional_response import selected_action
-    creative=isinstance(action,NativeBuildActionV1) and selected_action(graph_execution).operation=='propose_build_insertion'
+    operation=selected_action(graph_execution).operation if isinstance(action,NativeBuildActionV1) else None
+    creative=operation in {'propose_build_insertion','prepare_build_image'}
     if creative:
-        from application_state.build_proposal.types import BuildComposeOutput
+        from application_state.build_proposal.types import BuildComposeOutput,ImageDirectionV2
         if execution.budget_use.calls or execution.supports or frame.lookups:
-            raise ValueError('Used Rules cannot be silently omitted from a Build proposal')
-        output_format=dict(type='json_schema',name='build_document_proposal',schema=BuildComposeOutput.model_json_schema(),strict=True)
+            raise ValueError('Used Rules cannot be silently omitted from Build authoring')
+        output_format=dict(type='json_schema',name='build_image_direction' if operation=='prepare_build_image' else 'build_document_proposal',
+            schema=(ImageDirectionV2 if operation=='prepare_build_image' else BuildComposeOutput).model_json_schema(),strict=True)
     else:
         output_format=native_output_format(evidence.frame,frame,evidence.work_frame)
     if (auth.request_envelope_sha256 != expected_envelope_sha256

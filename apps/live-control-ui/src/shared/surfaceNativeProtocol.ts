@@ -97,6 +97,20 @@ export function isBuildAuthoringCompletion(value: unknown, receiptHash: string):
 }
 
 
+export function isBuildImageCompletion(value: unknown, receiptHash: string): value is import('../api/types').WorldBuildImagePreparationCompletionV1 {
+  return exact(value, ["schema", "context_receipt_sha256", "answer_basis", "answer_context_status",
+    "answer_segments", "citation_map", "action_id", "reservation_sha256", "preparation_result_sha256", "provider_attempt_id", "envelope_sha256"])
+    && value.schema === "dmb_build_image_preparation_completion_v1" && value.context_receipt_sha256 === receiptHash
+    && value.answer_basis === "prepared_image_direction" && value.answer_context_status === "image_preparation_ready"
+    && value.citation_map === null && Array.isArray(value.answer_segments) && value.answer_segments.length === 1
+    && exact(value.answer_segments[0], ["kind", "text"])
+    && value.answer_segments[0].kind === "connective"
+    && value.answer_segments[0].text === "Your image prompt is ready in Image Studio. Review it before generating. Nothing has been generated, inserted or saved."
+    && [value.action_id, value.provider_attempt_id].every(id => typeof id === "string" && /^[a-f0-9]{8}-(?:[a-f0-9]{4}-){3}[a-f0-9]{12}$/i.test(id))
+    && [value.reservation_sha256, value.preparation_result_sha256, value.envelope_sha256].every(hash => typeof hash === "string" && /^[a-f0-9]{64}$/.test(hash));
+}
+
+
 /** The shared response envelope is independent of the surface-owned work shape. */
 export function isSurfaceNativeContext(
   v:unknown, validateWork:(work:unknown)=>work is SurfaceNativeWorkContextV1,
@@ -107,7 +121,7 @@ export function isSurfaceNativeContext(
     ||!isSurfaceNativeReceipt(v.receipt,validateWork)
     ||v.execution!==null&&!validateExecution(v.execution)||typeof v.delivery_replay!=='boolean'
     ||v.completion!==null&&!(isSurfaceNativeCompletion(v.completion,v.receipt)
-      ||v.receipt.work_context.surface_id==='build'&&isBuildAuthoringCompletion(v.completion,v.receipt.context_receipt_sha256)))return false;
+      ||v.receipt.work_context.surface_id==='build'&&(isBuildAuthoringCompletion(v.completion,v.receipt.context_receipt_sha256)||isBuildImageCompletion(v.completion,v.receipt.context_receipt_sha256))))return false;
   const execution=v.execution as import('../api/types').WorldPlanGraphExecutionProjectionV1|null;
   return v.completion===null?history&&(execution===null||execution.claimability!=='completed')
     :execution!==null&&execution.claimability==='completed'&&execution.authorization_state==='response_received';

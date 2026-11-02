@@ -450,6 +450,9 @@ class BuildJevHarness:
                 selector.settle_empty()
             if work_driver.operation=='propose_build_insertion':
                 return self._proposal(adapter,work_driver,native_rules=rules,native_proof=proof)
+            if work_driver.operation=='prepare_build_image':
+                from .build_image_writer import prepare_image
+                return prepare_image(self,adapter,work_driver,native_rules=rules,native_proof=proof)
             writer = PlanJevWriter(adapter,proof,rules)
             completed = asyncio.run(writer.run(transport=self.writer_transport))
             adapter.turn = completed.envelope if isinstance(completed,MixedCompletedTurnV1) else completed

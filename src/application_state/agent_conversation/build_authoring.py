@@ -48,32 +48,35 @@ def completion_for_proposal(record, receipt):
     )
 
 
-def validate_native_proposal_binding(completion,receipt,execution,producer,bindings):
+def validate_native_authoring_binding(completion,receipt,execution,producer,bindings):
     """Stored object acknowledgement uses the actual shared Build action/writer."""
     from .native_context import BuildWorkContextV1
     from .native_execution import NativeBuildActionV1, NativeWriterAuthorizedV1
     from .build_intentional_response import selected_action
     action=execution.policy.action
-    if (not isinstance(completion,BuildAuthoringCompletionV1) or bindings!={}
+    image=isinstance(completion,BuildImagePreparationCompletionV1)
+    from uuid import uuid5
+    expected_operation='prepare_build_image' if image else 'propose_build_insertion'
+    if (not isinstance(completion,(BuildAuthoringCompletionV1,BuildImagePreparationCompletionV1)) or bindings!={}
             or not isinstance(receipt.work_context,BuildWorkContextV1) or not isinstance(action,NativeBuildActionV1)
-            or action.write_capability is None or selected_action(execution).operation!='propose_build_insertion'
+            or action.write_capability is None or selected_action(execution).operation!=expected_operation
             or completion.context_receipt_sha256!=receipt.context_receipt_sha256
-            or completion.action_id!=action.write_capability.idempotency_key):
-        raise ValueError('Native proposal acknowledgement differs from its Build action')
+            or completion.action_id!=(uuid5(action.write_capability.idempotency_key,'image') if image else action.write_capability.idempotency_key)):
+        raise ValueError('Native authoring acknowledgement differs from its Build action')
     writers=[e for e in execution.events if type(e) is NativeWriterAuthorizedV1]
     if (len(writers)!=1 or completion.provider_attempt_id!=producer
             or writers[0].provider_attempt_id!=producer or completion.envelope_sha256!=writers[0].envelope_sha256):
-        raise ValueError('Native proposal acknowledgement differs from its actual writer')
+        raise ValueError('Native authoring acknowledgement differs from its actual writer')
 
 
-def normalize_native_proposal(conn,turn,rules_execution,proof,*,trace,work_proof):
+def normalize_native_authoring(conn,turn,rules_execution,proof,*,trace,work_proof):
     """Locked producer verification delegates raw-output normalization to this object owner."""
     from .native_rules_output import sealed_native_producer,verify_shared_native_producer
     scope=rules_execution.scope
     if ((scope.world_id,scope.conversation_id,scope.turn_id,scope.product_attempt)
             !=(turn.world_id,turn.conversation_id,turn.turn_id,turn.attempt)
             or rules_execution.budget_use.calls or rules_execution.supports):
-        raise ValueError('Build proposal requires its exact unused Rules scope')
+        raise ValueError('Build authoring requires its exact unused Rules scope')
     capture,_=sealed_native_producer(turn,rules_execution,proof)
     _,frame=verify_shared_native_producer(turn.graph_context_receipt,turn.graph_context_execution,
         rules_execution,proof,capture,trace=trace,idempotency_key=turn.idempotency_key,
@@ -81,16 +84,30 @@ def normalize_native_proposal(conn,turn,rules_execution,proof,*,trace,work_proof
         conversation_id=turn.conversation_id,turn_id=turn.turn_id,attempt=turn.attempt,
         provenance=turn.provenance,work_proof=work_proof)
     if frame.lookups:
-        raise ValueError('Build proposal cannot omit used Rules')
+        raise ValueError('Build authoring cannot omit used Rules')
     action=turn.graph_context_execution.policy.action
+    from .build_intentional_response import selected_action
+    image=selected_action(turn.graph_context_execution).operation=='prepare_build_image'
+    from uuid import uuid5
+    action_id=uuid5(action.write_capability.idempotency_key,'image') if image else action.write_capability.idempotency_key
     row=conn.execute('SELECT payload FROM agent.build_proposal WHERE world_id=%s AND action_id=%s',
-        (turn.world_id,action.write_capability.idempotency_key)).fetchone()
-    record=BuildProposalRecord.model_validate(row[0] if row else None)
-    if record.raw_response!=proof.raw_output_json:
-        raise ValueError('Native proposal differs from its sealed producing output')
-    completion=completion_for_proposal(record,turn.graph_context_receipt)
+        (turn.world_id,action_id)).fetchone()
+    if image:
+        from application_state.build_proposal.types import BuildImagePreparation
+        record=BuildImagePreparation.model_validate(row[0] if row else None)
+        if (record.writer_proof is None or record.writer_proof.raw_response!=proof.raw_output_json
+                or record.writer_proof.request_json!=proof.prepared_request_json):
+            raise ValueError('Native image preparation differs from its sealed producing output/input')
+        completion=completion_for_image(record,turn.graph_context_receipt)
+        text=BUILD_IMAGE_READY_TEXT
+    else:
+        record=BuildProposalRecord.model_validate(row[0] if row else None)
+        if record.raw_response!=proof.raw_output_json:
+            raise ValueError('Native proposal differs from its sealed producing output')
+        completion=completion_for_proposal(record,turn.graph_context_receipt)
+        text=BUILD_PROPOSAL_READY_TEXT
     validate_stored_proposal(conn,turn,completion)
-    return completion,{},BUILD_PROPOSAL_READY_TEXT
+    return completion,{},text
 
 
 def validate_stored_proposal(conn, turn, completion):
@@ -167,7 +184,7 @@ def validate_stored_proposal(conn, turn, completion):
             from .build_intentional_response import selected_action
             from application_state.build_proposal.types import normalize_proposal_output
             selected=selected_action(turn.graph_context_execution)
-            validate_native_proposal_binding(completion,receipt,turn.graph_context_execution,completion.provider_attempt_id,{})
+            validate_native_authoring_binding(completion,receipt,turn.graph_context_execution,completion.provider_attempt_id,{})
             capability=turn.graph_context_execution.policy.action.write_capability
             if (origin.broker_operation_id!=selected.broker_operation_id
                     or origin.arguments_sha256!=selected.arguments_sha256
@@ -256,6 +273,43 @@ def recover_prepared_proposal(service, turn, action_id):
     )
 
 
+def _validate_native_image(turn,completion,image):
+    """Existing image owner binds its inert fields to the admitted native writer."""
+    from .build_intentional_response import selected_action
+    from .native_execution import NativeWriterAuthorizedV1
+    from application_state.build_proposal.types import ImageDirectionV2
+    from uuid import NAMESPACE_URL,uuid5
+    execution,receipt=turn.graph_context_execution,turn.graph_context_receipt
+    validate_native_authoring_binding(completion,receipt,execution,completion.provider_attempt_id,{})
+    selected=selected_action(execution)
+    cap=execution.policy.action.write_capability
+    reservation,proof=image.reservation,image.writer_proof
+    origin=reservation.origin
+    if proof is None or origin is None:
+        raise ValueError('Native image preparation lacks its actual owner proof')
+    writer=next(e for e in execution.events if type(e) is NativeWriterAuthorizedV1)
+    decoded=ImageDirectionV2.model_validate_json(proof.raw_response)
+    body=json.loads(proof.request_json)
+    expected_format=dict(type='json_schema',name='build_image_direction',schema=ImageDirectionV2.model_json_schema(),strict=True)
+    responses=[e for e in execution.events if e.kind=='provider_outcome'
+        and e.provider_attempt_id==writer.provider_attempt_id and e.outcome=='response_received']
+    if (completion_for_image(image,receipt)!=completion
+            or image.action_id!=uuid5(cap.idempotency_key,'image')
+            or reservation.basis!=cap.basis or reservation.conversation_id!=turn.conversation_id
+            or reservation.conversation_id!=cap.conversation_id or reservation.expected_pointer_revision!=cap.expected_pointer_revision
+            or origin.durable_turn_id!=turn.turn_id or origin.turn_attempt!=turn.attempt
+            or origin.broker_operation_id!=selected.broker_operation_id or origin.arguments_sha256!=selected.arguments_sha256
+            or reservation.instruction!=turn.user_text or _image_digest({'instruction':reservation.instruction})!=origin.arguments_sha256
+            or turn.idempotency_key!=uuid5(NAMESPACE_URL,f'dmb-agent-turn:{turn.world_id}:{origin.client_turn_id}')
+            or (decoded.prompt,decoded.alt,decoded.purpose)!=(image.prompt,image.alt,image.purpose)
+            or (proof.authorization.provider_attempt_id,proof.authorization.payload_sha256)!=(writer.provider_attempt_id,writer.envelope_sha256)
+            or (proof.authorization.provider,proof.authorization.model,proof.authorization.api_mode)!=(writer.provider,writer.model,writer.api_mode)
+            or sha256(proof.request_json.encode()).hexdigest()!=writer.envelope_sha256
+            or body.get('tools')!=[] or body.get('text',{}).get('format')!=expected_format
+            or len(responses)!=1 or responses[0].response_sha256!=sha256(proof.raw_response.encode()).hexdigest()):
+        raise ValueError('Native image preparation differs from its source/selection/writer')
+
+
 def validate_stored_image(conn, turn, completion):
     from application_state.build_proposal.types import BuildImagePreparation
     from application_state.build_proposal.types import ImageDirection, ImageDirectionV2
@@ -267,6 +321,9 @@ def validate_stored_image(conn, turn, completion):
             (turn.world_id, completion.action_id),
         ).fetchone()
         image = BuildImagePreparation.model_validate(row[0] if row else None)
+        from .native_context import SurfaceNativeContextReceiptV1
+        if type(turn.graph_context_receipt) is SurfaceNativeContextReceiptV1:
+            return _validate_native_image(turn,completion,image)
         origin = image.reservation.origin
         execution = turn.graph_context_execution
         proof = image.writer_proof

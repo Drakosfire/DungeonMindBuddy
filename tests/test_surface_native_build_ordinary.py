@@ -17,7 +17,12 @@ from application_state.agent_conversation.authored_graph_references import Autho
 from apps.live_control_server.services.workspace_document_registry import get_workspace_document_snapshot
 
 
-@pytest.mark.parametrize('failure,with_draft,saved,proposal',[(f,d,s,False) for f,d,s in ([(f,d,False) for f in (None,'revision','node','reference_world') for d in (False,True)]+[(None,d,True) for d in (False,True)]+[(f,False,True) for f in ('section_scope','selection_text')])]+[(f,True,False,True) for f in (None,'native_work','rules_frame','attempt_count','sdk_model','stale_rules','used_rules')])
+@pytest.mark.parametrize('failure,with_draft,saved,proposal',
+    [(f,d,s,False) for f,d,s in ([(f,d,False) for f in (None,'revision','node','reference_world') for d in (False,True)]
+        +[(None,d,True) for d in (False,True)]+[(f,False,True) for f in ('section_scope','selection_text')])]
+    +[(f,True,False,mode) for mode in (True,'image')
+        for f in (None,'native_work','rules_frame','attempt_count','sdk_model','stale_rules','used_rules')]
+    +[('unsafe_direction',True,False,'image')])
 def test_fresh_build_default_factory_answers_human_reference_and_reopens_exact_support(lane, tmp_path, monkeypatch, failure, with_draft,saved,proposal):
     from apps.live_control_server.routes import agent
     from apps.live_control_server.services import native_graph_reads as native, managed_world_graph_projection as managed
@@ -86,7 +91,7 @@ def test_fresh_build_default_factory_answers_human_reference_and_reopens_exact_s
                 or (failure=='used_rules' and c['kind']=='public_rules_lookup')}
             for name, question in body['questions'].items():
                 choices = question['criteria']
-                chosen = (('write_current_page' if proposal else 'discuss') if name=='requested_work' else ('select_candidates' if selected and 'select_candidates' in choices else 'finish_retrieval') if name=='operation'
+                chosen = (('prepare_image' if proposal=='image' else 'write_current_page' if proposal else 'discuss') if name=='requested_work' else ('select_candidates' if selected and 'select_candidates' in choices else 'finish_retrieval') if name=='operation'
                     else ('include' if int(name.split('_')[-1]) in selected else 'exclude') if name.startswith('candidate_')
                     else 'direct_support' if name.startswith('s') and name[1:].isdigit() else 'skip')
                 assert chosen in choices, (name, choices)
@@ -128,11 +133,15 @@ def test_fresh_build_default_factory_answers_human_reference_and_reopens_exact_s
             if proposal:
                 candidate=dict(destination='current_page',target='captured',replacement_markdown='A proposed copper lamp.',
                     summary='Proposed detail.',assumptions=['The lamp is invented.'])
+                if proposal=='image':
+                    candidate=dict(prompt='https://not-an-image.test/directive' if failure=='unsafe_direction' else 'A proposed copper lamp beside an orchid.',alt='Proposed copper lamp illustration',purpose='illustration')
                 text=json.dumps(candidate)
                 response=dict(id='resp_native_build_proposal',object='response',created_at=1,status='completed',
                     model='foreign-model' if failure=='sdk_model' else body['model'],output=[dict(type='message',id='msg_native_build_proposal',role='assistant',
                         status='completed',content=[dict(type='output_text',text=text,annotations=[])])],
                     usage=dict(input_tokens=100,output_tokens=40,total_tokens=140))
+                if proposal=='image':
+                    return httpx.Response(200,request=req,json=response)
                 events=[dict(type='response.output_text.delta',sequence_number=1,item_id='msg_native_build_proposal',
                     output_index=0,content_index=0,delta=text),dict(type='response.completed',sequence_number=2,response=response)]
                 return httpx.Response(200,request=req,headers={'content-type':'text/event-stream'},
@@ -146,8 +155,10 @@ def test_fresh_build_default_factory_answers_human_reference_and_reopens_exact_s
                 usage=dict(input_tokens=100, output_tokens=40, total_tokens=140)))
     decisions, writer = Decisions(), Writer()
     if proposal and failure in {'native_work','rules_frame'}:
-        from apps.live_control_server.services import build_document_proposal as proposal_owner
-        original_request=proposal_owner._writer_request
+        from apps.live_control_server.services import build_document_proposal as proposal_owner,build_image_writer
+        selected_owner=build_image_writer if proposal=='image' else proposal_owner
+        method='writer_request' if proposal=='image' else '_writer_request'
+        original_request=getattr(selected_owner,method)
         def changed_request(*args,**kwargs):
             prepared=original_request(*args,**kwargs)
             packet=json.loads(prepared['input'])
@@ -157,7 +168,7 @@ def test_fresh_build_default_factory_answers_human_reference_and_reopens_exact_s
                 packet['rules_evidence']['ruleset']='foreign-rules'
             prepared['input']=json.dumps(packet,ensure_ascii=False,separators=(',',':'))
             return prepared
-        monkeypatch.setattr(proposal_owner,'_writer_request',changed_request)
+        monkeypatch.setattr(selected_owner,method,changed_request)
     if proposal and failure=='attempt_count':
         from generationengine import GenerationClient,TextCompleted
         from dataclasses import replace
@@ -167,7 +178,14 @@ def test_fresh_build_default_factory_answers_human_reference_and_reopens_exact_s
                 if isinstance(event,TextCompleted):
                     event=replace(event,observation=event.observation.model_copy(update={'provider_attempt_count':2}))
                 yield event
-        monkeypatch.setattr(GenerationClient,'stream_text',changed_stream)
+        if proposal=='image':
+            original_generate=GenerationClient.generate_structured
+            async def changed_generate(self,*args,**kwargs):
+                result=await original_generate(self,*args,**kwargs)
+                return result.model_copy(update={'observation':result.observation.model_copy(update={'provider_attempt_count':2})})
+            monkeypatch.setattr(GenerationClient,'generate_structured',changed_generate)
+        else:
+            monkeypatch.setattr(GenerationClient,'stream_text',changed_stream)
     if proposal and failure=='stale_rules':
         original_complete=AgentConversationService.complete_native_base_turn
         def stale_complete(self,*args,**kwargs):
@@ -231,7 +249,15 @@ def test_fresh_build_default_factory_answers_human_reference_and_reopens_exact_s
                 caret=1,selection_generation=0))
         body['build_write_capability']=cap.model_dump(mode='json')
         body['message']=('Add a scene about this: Can I end my move in an occupied space?'
-            if failure=='used_rules' else 'Add a proposed copper lamp to this page.')
+            if failure=='used_rules' else 'Prepare an illustration of a copper lamp beside the orchid.'
+            if proposal=='image' else 'Add a proposed copper lamp to this page.')
+    def current_creative():
+        if proposal=='image':
+            from uuid import uuid5
+            from application_state.build_proposal.images import BuildImageService
+            return BuildImageService().get(uuid5(cap.idempotency_key,'image'),writer.adapter.build_image_owner)
+        from application_state.build_proposal.service import BuildProposalService
+        return BuildProposalService().get(world,cap.idempotency_key)
     response = client.post('/api/live/agent/turn', json=body)
     if failure in {'revision','node','reference_world'}:
         assert response.status_code == (422 if failure=='reference_world' else 409), response.text
@@ -260,13 +286,18 @@ def test_fresh_build_default_factory_answers_human_reference_and_reopens_exact_s
             used=writer.adapter.rules_runtime.native.record.execution
             assert used.budget_use.calls==1 and used.supports
             with pytest.raises(ApplicationStateNotFoundError):
-                BuildProposalService().get(world,cap.idempotency_key)
+                current_creative()
             assert get_workspace_document_snapshot(tmp_path,page.document_id)==source
             assert lane.repo.get_head(world).head_revision_id==current_revision
             return
-        record=BuildProposalService().get(world,cap.idempotency_key)
-        if failure!='stale_rules':
-            assert record.state in {'failed','unknown'} and record.proposal is None
+        if proposal=='image' and failure!='stale_rules':
+            from application_state.errors import ApplicationStateNotFoundError
+            with pytest.raises(ApplicationStateNotFoundError):
+                current_creative()
+        else:
+            record=current_creative()
+            if failure!='stale_rules':
+                assert record.state in {'failed','unknown'} and record.proposal is None
         assert get_workspace_document_snapshot(tmp_path,page.document_id)==source
         assert lane.repo.get_head(world).head_revision_id==current_revision
         return
@@ -292,17 +323,33 @@ def test_fresh_build_default_factory_answers_human_reference_and_reopens_exact_s
     assert len(captures) == 1 and captures[0].references == selected
     if proposal:
         from application_state.build_proposal.service import BuildProposalService
-        record=BuildProposalService().get(world,cap.idempotency_key)
-        assert record.state=='proposed' and record.proposal.replacement_markdown=='A proposed copper lamp.'
-        assert context['completion']['schema']=='dmb_build_authoring_completion_v1'
+        if proposal=='image':
+            from uuid import uuid5
+            from application_state.build_proposal.images import BuildImageService
+            record=BuildImageService().get(uuid5(cap.idempotency_key,'image'),writer.adapter.build_image_owner)
+            assert record.state=='prepared' and record.prompt=='A proposed copper lamp beside an orchid.'
+            assert record.purpose=='illustration' and record.asset_id is None
+            authorization=record.writer_proof.authorization
+            assert context['completion']['schema']=='dmb_build_image_preparation_completion_v1'
+        else:
+            record=BuildProposalService().get(world,cap.idempotency_key)
+            assert record.state=='proposed' and record.proposal.replacement_markdown=='A proposed copper lamp.'
+            authorization=record.authorization
+            assert context['completion']['schema']=='dmb_build_authoring_completion_v1'
         assert context['completion']['action_id']==str(record.action_id)
-        assert record.authorization.provider_attempt_id==turn.completion.provider_attempt_id
+        assert authorization.provider_attempt_id==turn.completion.provider_attempt_id
         for correlated in (False,True):
             history=client.get(f'/api/live/agent/worlds/{world}/conversation',params={'include_turn_correlation':str(correlated).lower()})
             assert history.status_code==200,history.text
             assert history.json()['turns'][0]['knowledge_context']['completion']==context['completion']
         import os
-        if destination:=os.environ.get('DMB_NATIVE_BUILD_PROPOSAL_WIRE'):
+        if proposal=='image' and (destination:=os.environ.get('DMB_NATIVE_BUILD_IMAGE_CONTEXT')):
+            from pathlib import Path
+            path=Path(destination)
+            captured=json.loads(path.read_text())
+            captured['image_context']=context
+            path.write_text(json.dumps(captured,indent=2)+'\n')
+        if proposal!='image' and (destination:=os.environ.get('DMB_NATIVE_BUILD_PROPOSAL_WIRE')):
             from pathlib import Path
             path=Path(destination)
             captured=json.loads(path.read_text())

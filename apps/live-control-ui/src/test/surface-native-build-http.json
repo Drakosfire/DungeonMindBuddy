@@ -1978,5 +1978,175 @@
       },
       "inserted_in_draft": false
     }
+  },
+  "image_context": {
+    "schema": "dmb_agent_surface_native_context_response_v1",
+    "receipt": {
+      "schema": "dmb_surface_native_context_receipt_v1",
+      "receipt_serializer_version": "canonical-json-utf8-v1",
+      "context_receipt_sha256": "c62389854155ae5512d663e1e9a11328836245574dcffb7fafd46a61581f97ae",
+      "provenance_sha256": "03f401c278be3d265b807cd4ccb75338597329b3a1f6e1ac626c617e4f60906f",
+      "work_context": {
+        "surface_id": "build",
+        "source_basis": {
+          "world_id": "statement-fixture-17b511550059497d91479553ea4172e0",
+          "document_id": "e025ca1b-91f4-4180-99bb-bd5833bd2c60",
+          "registry_revision": 2,
+          "content_sha256": "ed337f86fe39e9b1d64d0b15ca61fd97889b59a672895ce28ffe093aab42912b",
+          "visibility": "internal"
+        }
+      },
+      "source_authority": {
+        "schema_version": "dmb_native_corpus_authority_v1",
+        "managed_world_id": "statement-fixture-17b511550059497d91479553ea4172e0",
+        "native_world_id": "statement-fixture-17b511550059497d91479553ea4172e0",
+        "binding_version": 1,
+        "provisioning_id": null,
+        "revision_id": "rev:ca3755d1764ca870472e81b781276de9",
+        "domain_ref": {
+          "authority_id": "dungeonbuddy.world",
+          "revision": "2",
+          "descriptor_sha256": "d12f3a517a37d29a2ba52455d9ae1691bc5e4ff3fd6853b701a9e28e46ec65cd"
+        },
+        "profile_ref": {
+          "authority_id": "dungeonbuddy.dnd5e",
+          "revision": "2",
+          "descriptor_sha256": "d40a352d1c6cbd24df68be887be6dc65a470e4cea8fb64970ef9ad89b96a3339"
+        },
+        "acquisition_epoch": 2,
+        "scope": "gm_world_cross_campaign_source_inspection",
+        "role": "gm"
+      },
+      "native_query": {
+        "schema": "dmb_native_graph_query_v3",
+        "authority": {
+          "schema": "dmb_native_plan_query_authority_v1",
+          "managed_world_id": "statement-fixture-17b511550059497d91479553ea4172e0",
+          "native_world_id": "statement-fixture-17b511550059497d91479553ea4172e0",
+          "binding_version": 1,
+          "revision_id": "rev:ca3755d1764ca870472e81b781276de9",
+          "domain_ref": {
+            "authority_id": "dungeonbuddy.world",
+            "revision": "2",
+            "descriptor_sha256": "d12f3a517a37d29a2ba52455d9ae1691bc5e4ff3fd6853b701a9e28e46ec65cd"
+          },
+          "profile_ref": {
+            "authority_id": "dungeonbuddy.dnd5e",
+            "revision": "2",
+            "descriptor_sha256": "d40a352d1c6cbd24df68be887be6dc65a470e4cea8fb64970ef9ad89b96a3339"
+          },
+          "acquisition_epoch": 2,
+          "role": "gm",
+          "scope_mode": "world",
+          "campaign_id": null,
+          "session_id": null
+        },
+        "question": "Prepare an illustration of a copper lamp beside the orchid.",
+        "search_result_sha256": "6500ac3c991bfcbd7a5bcd3c0475379d3b04b90711a2717832e7cc4deeb68f7b",
+        "discovered_entity_ids": [
+          "ent:69d518a235e6a25e868828aa365d6083",
+          "ent:c8ede9d4c650d9aef316e341f684caea"
+        ],
+        "matches": [],
+        "status": "complete",
+        "gap_codes": [],
+        "universal_absence_claimed": false,
+        "assertion_matches": [
+          {
+            "assertion_id": "asrt:2e1db2090b00e62ba0b2232c6c3413ea",
+            "subject_entity_id": "ent:69d518a235e6a25e868828aa365d6083",
+            "discovered_entity_ids": [
+              "ent:69d518a235e6a25e868828aa365d6083"
+            ],
+            "assertion_sha256": "d8e98e4d24c81dc9b0dc90f8ab4f87092b67dae1f51adfcb38e5940f41e44a31",
+            "label": "A \u00b7 dnd5e:name"
+          },
+          {
+            "assertion_id": "asrt:80a847b2514f35f8c25c5d860404c4e4",
+            "subject_entity_id": "ent:c8ede9d4c650d9aef316e341f684caea",
+            "discovered_entity_ids": [
+              "ent:c8ede9d4c650d9aef316e341f684caea"
+            ],
+            "assertion_sha256": "f18a0843f908641569f63182c5065907e21b87c19d1693288ce056f7433d40e3",
+            "label": "B \u00b7 dnd5e:summary"
+          },
+          {
+            "assertion_id": "asrt:f5114ef3ce453316b20fd215683e13d3",
+            "subject_entity_id": "ent:c8ede9d4c650d9aef316e341f684caea",
+            "discovered_entity_ids": [
+              "ent:c8ede9d4c650d9aef316e341f684caea"
+            ],
+            "assertion_sha256": "f3662b34d11166f206f0b4128dae0fb81297489b48c231e230588accbac828b2",
+            "label": "B \u00b7 dnd5e:name"
+          }
+        ],
+        "authored_targets": [
+          {
+            "node_id": "ent:c8ede9d4c650d9aef316e341f684caea",
+            "selection_revision_id": "rev:301b7feaaceed303d9929e40919ba798",
+            "matches": [],
+            "assertion_matches": [
+              {
+                "assertion_id": "asrt:80a847b2514f35f8c25c5d860404c4e4",
+                "subject_entity_id": "ent:c8ede9d4c650d9aef316e341f684caea",
+                "discovered_entity_ids": [
+                  "ent:c8ede9d4c650d9aef316e341f684caea"
+                ],
+                "assertion_sha256": "f18a0843f908641569f63182c5065907e21b87c19d1693288ce056f7433d40e3",
+                "label": "B \u00b7 dnd5e:summary"
+              },
+              {
+                "assertion_id": "asrt:f5114ef3ce453316b20fd215683e13d3",
+                "subject_entity_id": "ent:c8ede9d4c650d9aef316e341f684caea",
+                "discovered_entity_ids": [
+                  "ent:c8ede9d4c650d9aef316e341f684caea"
+                ],
+                "assertion_sha256": "f3662b34d11166f206f0b4128dae0fb81297489b48c231e230588accbac828b2",
+                "label": "B \u00b7 dnd5e:name"
+              }
+            ],
+            "status": "complete",
+            "gap_codes": []
+          }
+        ]
+      },
+      "assembled_input": {
+        "assembler_version": "surface_native_initial_v1",
+        "provider_model_name": "jev-1.14.0",
+        "provider_model_version": "jev-1.14.0",
+        "tokenizer_name": "o200k_double_plus_4096_adaptive_context_v3",
+        "tokenizer_version": "synthetic-test",
+        "provider_envelope_input_tokens": 9948,
+        "output_token_reserve": 0,
+        "context_window_limit": 64000,
+        "included_history": [],
+        "assembled_input_sha256": "11ea9d637855caba58eb6de8dd42e44f31563119abe2e7cf12b3c7ca3f0ff593"
+      }
+    },
+    "completion": {
+      "schema": "dmb_build_image_preparation_completion_v1",
+      "context_receipt_sha256": "c62389854155ae5512d663e1e9a11328836245574dcffb7fafd46a61581f97ae",
+      "answer_basis": "prepared_image_direction",
+      "answer_context_status": "image_preparation_ready",
+      "answer_segments": [
+        {
+          "kind": "connective",
+          "text": "Your image prompt is ready in Image Studio. Review it before generating. Nothing has been generated, inserted or saved."
+        }
+      ],
+      "citation_map": null,
+      "action_id": "9756356b-ca6e-5935-a502-0b30f40f2351",
+      "reservation_sha256": "5b77484af205723d8d8a9250480b9cdfad743e3183c0440e63afc2b46e967954",
+      "preparation_result_sha256": "1646172d3e8f05b4c8457e69e7a7133580cf48e78a24121dac91bc4cad047449",
+      "provider_attempt_id": "caa73471-f5c7-426b-a346-edca3dc64ded",
+      "envelope_sha256": "3f7537bb1e0d0925fe95e07c4e29116c78ea8faf73b17949ba7c875a6ce65a1a"
+    },
+    "execution": {
+      "schema": "dmb_agent_plan_world_graph_execution_projection_v1",
+      "claimability": "completed",
+      "authorization_state": "response_received",
+      "automatic_redispatch": false
+    },
+    "delivery_replay": false
   }
 }

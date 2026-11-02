@@ -60,6 +60,19 @@ AND CASE WHEN status='completed' THEN
    AND completion->>'reservation_sha256' ~ '^[a-f0-9]{64}$'
    AND completion->>'proposal_result_sha256' ~ '^[a-f0-9]{64}$' AND completion->>'envelope_sha256' ~ '^[a-f0-9]{64}$'
    AND jsonb_path_exists(graph_context_execution,'$.events[*] ? (@.kind == "completion_binding")')
+ WHEN completion->>'schema'='dmb_build_image_preparation_completion_v1' THEN
+   surface_id='build' AND answer_composition_kind='base'
+   AND jsonb_typeof(completion)='object'
+   AND completion ?& ARRAY['schema','context_receipt_sha256','answer_basis','answer_context_status','answer_segments','citation_map','action_id','reservation_sha256','preparation_result_sha256','provider_attempt_id','envelope_sha256']
+   AND completion - ARRAY['schema','context_receipt_sha256','answer_basis','answer_context_status','answer_segments','citation_map','action_id','reservation_sha256','preparation_result_sha256','provider_attempt_id','envelope_sha256']='{}'::jsonb
+   AND completion->>'context_receipt_sha256'=graph_context_receipt->>'context_receipt_sha256'
+   AND completion->>'answer_basis'='prepared_image_direction' AND completion->>'answer_context_status'='image_preparation_ready'
+   AND completion->'citation_map'='null'::jsonb
+   AND jsonb_typeof(completion->'answer_segments')='array' AND jsonb_array_length(completion->'answer_segments')=1
+   AND completion->>'action_id' ~ '^[0-9a-f-]{36}$' AND completion->>'provider_attempt_id' ~ '^[0-9a-f-]{36}$'
+   AND completion->>'reservation_sha256' ~ '^[a-f0-9]{64}$'
+   AND completion->>'preparation_result_sha256' ~ '^[a-f0-9]{64}$' AND completion->>'envelope_sha256' ~ '^[a-f0-9]{64}$'
+   AND jsonb_path_exists(graph_context_execution,'$.events[*] ? (@.kind == "completion_binding")')
  ELSE jsonb_typeof(completion)='object'
    AND completion ?& ARRAY['schema','surface_id','context_receipt_sha256','producing_provider_attempt_id','answer_basis','answer_context_status','answer_segments','collaboration','saved_source_citations','native_body_citations','native_clause_citations','native_assertion_citations']
    AND completion - ARRAY['schema','surface_id','context_receipt_sha256','producing_provider_attempt_id','answer_basis','answer_context_status','answer_segments','collaboration','saved_source_citations','native_body_citations','native_clause_citations','native_assertion_citations']='{}'::jsonb

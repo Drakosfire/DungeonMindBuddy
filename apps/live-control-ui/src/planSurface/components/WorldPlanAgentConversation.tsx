@@ -1,4 +1,4 @@
-import {isNativeSourceAuthority,isNativeProviderInput,isSurfaceNativeReceipt,isSurfaceNativeContext,isSurfaceNativeCompletion,isBuildAuthoringCompletion} from '../../shared/surfaceNativeProtocol';
+import {isNativeSourceAuthority,isNativeProviderInput,isSurfaceNativeReceipt,isSurfaceNativeContext,isSurfaceNativeCompletion,isBuildAuthoringCompletion,isBuildImageCompletion} from '../../shared/surfaceNativeProtocol';
 import {isNativePlanQuery} from '../../shared/nativeStatementAnswerProtocol';
 import {isNativeStatementContext,nativeStatementDigestsBound,nativeAnswerText} from "../../shared/nativeStatementAnswerProtocol";
 import {NativeStatementAnswer} from "./NativeStatementAnswer";
@@ -1518,18 +1518,6 @@ function hasObjectOnlyBuildReply(turn: WorldAgentConversationHistoryTurn): boole
 }
 
 
-function isBuildImageCompletion(value: unknown, receiptHash: string): value is WorldBuildImagePreparationCompletionV1 {
-  return isRecord(value) && hasExactKeys(value, ["schema", "context_receipt_sha256", "answer_basis", "answer_context_status",
-    "answer_segments", "citation_map", "action_id", "reservation_sha256", "preparation_result_sha256", "provider_attempt_id", "envelope_sha256"])
-    && value.schema === "dmb_build_image_preparation_completion_v1" && value.context_receipt_sha256 === receiptHash
-    && value.answer_basis === "prepared_image_direction" && value.answer_context_status === "image_preparation_ready"
-    && value.citation_map === null && Array.isArray(value.answer_segments) && value.answer_segments.length === 1
-    && isRecord(value.answer_segments[0]) && hasExactKeys(value.answer_segments[0], ["kind", "text"])
-    && value.answer_segments[0].kind === "connective"
-    && value.answer_segments[0].text === "Your image prompt is ready in Image Studio. Review it before generating. Nothing has been generated, inserted or saved."
-    && [value.action_id, value.provider_attempt_id].every(id => typeof id === "string" && /^[a-f0-9]{8}-(?:[a-f0-9]{4}-){3}[a-f0-9]{12}$/i.test(id))
-    && [value.reservation_sha256, value.preparation_result_sha256, value.envelope_sha256].every(hash => typeof hash === "string" && /^[a-f0-9]{64}$/.test(hash));
-}
 
 function isBuildSourceBasis(value:unknown,worldId:string):value is WorldBuildGraphReceiptV1['source_basis'] {
   return hasExactKeys(value,['world_id','document_id','registry_revision','content_sha256','visibility'])
