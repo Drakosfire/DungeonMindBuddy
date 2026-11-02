@@ -4,22 +4,21 @@ from __future__ import annotations
 from hashlib import sha256
 import json
 import os
-import re
 from contextlib import aclosing
 from uuid import UUID
-from typing import Literal
-
-from pydantic import Field
 
 from generationengine import GenerationClient, GenerationEngineError, TextRequest, TextCompleted, TextDelta, TextFailed
-from generationengine.providers.openai_text import OpenAITextProvider
+from .plan_jev_writer import CapturedWriterProvider
 from generationengine.text_dispatch import TextDispatchGate
 
 from application_state.agent_conversation import AgentConversationService
 from application_state.agent_conversation.dialogue_projection import project_dialogue, expand_dialogue, dialogue_rule
 from application_state.errors import ApplicationStateNotFoundError
 from application_state.build_proposal.service import BuildProposalService
-from application_state.build_proposal.types import BuildGeneratedProposal, BuildProviderAuthorization
+from application_state.build_proposal.types import (
+    BuildProviderAuthorization, BuildComposeError, BuildComposeTargetMismatch,
+    BuildComposeOutput,
+)
 from apps.live_control_server.models.build_document_proposal import BuildDocumentProposalRequest
 from apps.live_control_server.services.workspace_document_registry import get_committed_page_snapshot
 from apps.live_control_server.services.world_container_registry import get_world_container
@@ -100,22 +99,6 @@ return HTML, paths, executable code, graph identities, dmb-node links, hidden ma
 or document metadata. You have no tools and cannot request more reads.'''
 
 
-class BuildComposeError(ValueError):
-    pass
-
-
-class BuildComposeTargetMismatch(BuildComposeError):
-    """Host-owned refusal; its public code never contains provider prose."""
-
-
-class BuildComposeOutput(BuildGeneratedProposal):
-    """New writer output requires an explicit disposition over frozen host targets."""
-
-    replacement_markdown: str = Field(max_length=12_000)
-    destination: Literal["current_page", "different_page", "unresolved"]
-    target: Literal["captured", "page_body", "page_end", "unavailable"]
-
-
 def _model():
     policy = load_buddy_model_policy(strict=True)
     actions, models = policy.get("actions", {}), policy.get("models", {})
@@ -141,35 +124,6 @@ def _source(request):
             or sha256(snapshot.markdown.encode()).hexdigest() != basis.content_sha256):
         raise BuildComposeError("build_compose_source_changed")
     return snapshot
-
-
-def _result(text, page_body_offer=None, page_end_offer=None):
-    def unique(pairs):
-        value = {}
-        for key, item in pairs:
-            if key in value:
-                raise BuildComposeError("build_compose_duplicate_output_field")
-            value[key] = item
-        return value
-    wire = BuildComposeOutput.model_validate(json.loads(text, object_pairs_hook=unique))
-    if wire.destination != "current_page":
-        raise BuildComposeTargetMismatch("build_compose_target_mismatch")
-    if wire.target == "unavailable":
-        if wire.replacement_markdown:
-            raise BuildComposeError("build_compose_unavailable_content")
-        raise BuildComposeTargetMismatch("build_compose_target_unavailable")
-    if wire.target == "page_body" and page_body_offer is None:
-        raise BuildComposeTargetMismatch("build_compose_target_not_offered")
-    if wire.target == "page_end" and page_end_offer is None:
-        raise BuildComposeTargetMismatch("build_compose_target_not_offered")
-    output = BuildGeneratedProposal.model_validate(wire.model_dump(exclude={"destination"}))
-    markdown = output.replacement_markdown
-    if re.search(r"(?m)^ {0,3}(?:`{3,}|~{3,})dmb-work-plan-v1(?:[ \t]|$)", markdown):
-        raise BuildComposeError("build_compose_unsupported_markdown")
-    if (re.search(r"<[^>]*>|dmb-node:|graphNodeReference|dmb-playable-element:|\bnode:[a-z0-9_-]+", markdown, re.I)
-            or re.search(r"\[[^\]]+\]\((?:file:|\.{1,2}/|/)", markdown, re.I)):
-        raise BuildComposeError("build_compose_unsupported_markdown")
-    return output
 
 
 def _public(record):
@@ -299,7 +253,10 @@ async def _compose(request: BuildDocumentProposalRequest, *, transport=None, wri
                     if isinstance(event, TextCompleted):
                         # Exact provider final, before GE conformance. Deltas are
                         # never substituted for this evidence acknowledgment.
-                        advance("response_received", raw_response=event.final_text)
+                        selected = self.provider.consume_completed_text(self.provider.actual_response, model)
+                        if selected != event.final_text or not selected:
+                            raise BuildComposeError("build_compose_response_identity_mismatch")
+                        advance("response_received", raw_response=selected)
                     elif isinstance(event, TextDelta):
                         try:
                             changed = projection.feed(event.text)
@@ -312,7 +269,7 @@ async def _compose(request: BuildDocumentProposalRequest, *, transport=None, wri
 
     client = None
     try:
-        provider = OpenAITextProvider(api_key=os.environ.get("OPENAI_API_KEY"), dispatch_gate=TextDispatchGate(authorize, lifecycle), transport=transport)
+        provider = CapturedWriterProvider(api_key=os.environ.get("OPENAI_API_KEY"), dispatch_gate=TextDispatchGate(authorize, lifecycle), transport=transport)
         client = GenerationClient(text_providers={"openai": ObservedProvider(provider)})
         result = None
         async for event in client.stream_text(TextRequest(provider="openai", model=model,
@@ -327,10 +284,11 @@ async def _compose(request: BuildDocumentProposalRequest, *, transport=None, wri
             raise BuildComposeError("build_compose_output_unavailable")
         if not isinstance(result.final_text, str):
             raise BuildComposeError("build_compose_output_unavailable")
-        advance("response_received", raw_response=result.final_text, observation=result.observation.model_dump(mode="json"))
-        proposal = _result(result.final_text, reservation.page_body_offer, reservation.page_end_offer)
-        advance("proposed", proposal=proposal)
-        progress("ready", proposal.replacement_markdown)
+        if result.final_text != record.raw_response:
+            raise BuildComposeError("build_compose_response_identity_mismatch")
+        advance("response_received", observation=result.observation.model_dump(mode="json"))
+        advance("proposed")
+        progress("ready", record.proposal.replacement_markdown)
         return record
     except Exception as exc:
         progress("incomplete")

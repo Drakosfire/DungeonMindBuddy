@@ -1,5 +1,6 @@
 """Real disposable APP persistence for inert Build authoring receipts."""
 from concurrent.futures import ThreadPoolExecutor
+import json
 from uuid import uuid4
 
 import pytest
@@ -67,9 +68,9 @@ def test_durable_authorization_lifecycle_result_and_draft_receipt(reservation):
     auth = BuildProviderAuthorization(provider_attempt_id=uuid4(), model='synthetic',payload_sha256='c'*64,payload_utf8_bytes=123)
     advance('authorized',authorization=auth)
     advance('sdk_entered')
-    advance('response_received',raw_response='{"synthetic":true}')
-    result = BuildGeneratedProposal(replacement_markdown='| NPC | Job |\n| --- | --- |\n| Nia | Baker |', summary='A proposed NPC table.', assumptions=['New authored lore.'])
-    advance('proposed',proposal=result)
+    result = BuildGeneratedProposal(replacement_markdown='| NPC | Job |\n| --- | --- |\n| Nia | Baker |', summary='A proposed NPC table.', assumptions=['New authored lore.'], target='captured')
+    advance('response_received',raw_response=json.dumps(dict(destination='current_page',**result.model_dump(mode='json'))))
+    advance('proposed')
     fresh = BuildProposalService().get(world, action)
     assert fresh.proposal == result and fresh.authorization == auth
     inserted = store.report_inserted(world,action,expected_revision=fresh.revision)
@@ -103,3 +104,32 @@ def test_missing_authorization_or_stale_transition_rolls_back(reservation):
         store.advance(reservation.basis.world_id,record.action_id,expected_revision=99,state='failed',failure_code='stale')
     with pytest.raises(ApplicationStateConflictError):
         store.report_inserted(reservation.basis.world_id,record.action_id,expected_revision=1)
+
+
+@pytest.mark.parametrize('substitution', ['markdown', 'summary', 'assumptions', 'raw', 'target'])
+def test_proposal_owner_rejects_results_unrelated_to_captured_final(reservation, substitution):
+    store = BuildProposalService()
+    record, _ = store.reserve(reservation)
+    world = reservation.basis.world_id
+    def advance(state, **fields):
+        nonlocal record
+        record = store.advance(world,record.action_id,expected_revision=record.revision,state=state,**fields)
+        return record
+    advance('authorized',authorization=BuildProviderAuthorization(provider_attempt_id=uuid4(),
+        model='synthetic',payload_sha256='c'*64,payload_utf8_bytes=123))
+    advance('sdk_entered')
+    result = BuildGeneratedProposal(replacement_markdown='A proposed copper lamp.',
+        summary='A proposed detail.',assumptions=['The lamp is invented.'],target='captured')
+    raw=json.dumps(dict(destination='current_page',**result.model_dump(mode='json')))
+    advance('response_received',raw_response=raw)
+    changed = {'markdown': {'proposal':result.model_copy(update={'replacement_markdown':'A substituted silver lamp.'})},
+        'summary': {'proposal':result.model_copy(update={'summary':'A changed summary.'})},
+        'assumptions': {'proposal':result.model_copy(update={'assumptions':['It happened.']})},
+        'target': {'proposal':result.model_copy(update={'target':None})},
+        'raw': {'raw_response':raw.replace('copper','silver')}}[substitution]
+    with pytest.raises(ApplicationStateConflictError):
+        advance('response_received' if substitution=='raw' else 'proposed',**changed)
+    assert store.get(world,record.action_id)==record
+    assert record.state=='response_received' and record.proposal is None and record.raw_response==raw
+    # The original final remains usable after the rejected transaction.
+    assert advance('proposed').proposal==result

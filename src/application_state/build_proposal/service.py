@@ -7,7 +7,7 @@ from uuid import UUID, uuid5, NAMESPACE_URL
 from psycopg.types.json import Jsonb
 
 from application_state.agent_conversation.service import _lock_pointer, _ready_dsn
-from application_state.build_proposal.types import BuildProposalRecord, BuildProposalReservation
+from application_state.build_proposal.types import BuildProposalRecord, BuildProposalReservation, normalize_proposal_output
 from application_state.errors import ApplicationStateConflictError, ApplicationStateNotFoundError
 from application_state.unit_of_work import unit_of_work
 
@@ -106,10 +106,20 @@ class BuildProposalService:
                 raise ApplicationStateConflictError("Build proposal transition is stale or terminal")
             if previous.authorization is not None and "authorization" in fields and fields["authorization"] != previous.authorization:
                 raise ApplicationStateConflictError("Build provider authorization is immutable")
+            if previous.raw_response is not None and "raw_response" in fields and fields["raw_response"] != previous.raw_response:
+                raise ApplicationStateConflictError("Build final writer response is immutable")
             if previous.claim_expires_at <= datetime.now(timezone.utc):
                 raise ApplicationStateConflictError("Build proposal worker claim expired")
             if state in {"authorized", "sdk_entered"}:
                 _require_origin_claim(conn, previous.reservation)
+            if state == "proposed":
+                # The proposal owner derives its result from the acknowledged raw
+                # final. Caller-created Markdown cannot replace the writer result.
+                proposal = normalize_proposal_output(previous.raw_response,
+                    previous.reservation.page_body_offer, previous.reservation.page_end_offer)
+                if "raw_response" in fields or "proposal" in fields and fields["proposal"] != proposal:
+                    raise ApplicationStateConflictError("Build proposal differs from its captured writer result")
+                fields["proposal"] = proposal
             updated = {**previous.model_dump(mode="python"), **fields, "state": state,
                 "revision": previous.revision + 1, "updated_at": datetime.now(timezone.utc)}
             return _save(conn, previous, updated)

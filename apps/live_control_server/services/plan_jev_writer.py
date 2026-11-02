@@ -73,7 +73,7 @@ class PlanClaimEvidence:
     native_assertions: tuple = ()
 
 
-class PlanWriterProvider(OpenAITextProvider):
+class CapturedWriterProvider(OpenAITextProvider):
     """Buddy owns message assembly and retains the actual official SDK response.
 
     The pinned GE adapter owns guarded SDK IO. Its request-assembly seam accepts
@@ -95,6 +95,7 @@ class PlanWriterProvider(OpenAITextProvider):
     def _result_from_response(self, response):
         self._selected_reply = None
         result = super()._result_from_response(response)
+        self.actual_response = response
         self._selected_reply = (response, result.text)
         return result
 
@@ -106,6 +107,24 @@ class PlanWriterProvider(OpenAITextProvider):
                 'Plan writer has no complete exact SDK reply')
         return selected[1]
 
+    def consume_completed_text(self, response, model):
+        """Validate the actual SDK final before a domain accepts selected text."""
+        if response is None or response.status != 'completed' or response.error is not None:
+            raise _ReplyRejected('plan_writer_response_incomplete', 'Writer has no complete exact SDK reply')
+        if response.model != model:
+            raise _ReplyRejected('plan_writer_response_model_mismatch', 'Writer response model differs')
+        selected_text = self.consume_selected_text(response)
+        for item in response.output:
+            if item.type == 'reasoning':
+                continue
+            if (item.type != 'message' or item.role != 'assistant' or item.status != 'completed'
+                    or any(part.type != 'output_text' for part in item.content)):
+                raise _ReplyRejected('plan_writer_unexpected_output', 'Writer reply contains an unexpected tool/refusal message')
+        return selected_text
+
+
+class PlanWriterProvider(CapturedWriterProvider):
+    """Plan owns its evidence-message assembly; final SDK capture is shared."""
     def _request_kwargs(self, call, *, streaming=False):
         options = super()._request_kwargs(call, streaming=streaming)
         messages = strict_json(call.user_prompt)
@@ -317,20 +336,13 @@ class PlanJevWriter:
         return acknowledged
 
     def capture(self, result, response, provider):
-        if self.prepared is None or response is None or response.status != 'completed' or response.error is not None:
+        if self.prepared is None:
             raise _ReplyRejected('plan_writer_response_incomplete', 'Plan writer has no complete exact SDK reply')
-        if response.model != self.model:
-            raise _ReplyRejected('plan_writer_response_model_mismatch', 'Plan writer has no complete exact SDK reply')
-        selected_text = provider.consume_selected_text(response)
+        selected_text = provider.consume_completed_text(response, self.model)
         if (result.observation.state.value != 'completed' or result.observation.retry_count != 0
                 or result.observation.provider_attempt_count != 1
                 or result.text != selected_text or not result.text):
             raise _ReplyRejected('plan_writer_response_identity_mismatch', 'Plan writer has no complete exact SDK reply')
-        for item in response.output:
-            if item.type == 'reasoning': continue
-            if (item.type != 'message' or item.role != 'assistant' or item.status != 'completed'
-                    or any(part.type != 'output_text' for part in item.content)):
-                raise _ReplyRejected('plan_writer_unexpected_output', 'Plan writer reply contains an unexpected tool/refusal message')
         raw = result.text
         if self.shared:
             received,self.received_event=self.received_event,None

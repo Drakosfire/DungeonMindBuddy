@@ -1,4 +1,6 @@
 """Genuine source owner + guarded SDK + durable APP result; synthetic HTTP only."""
+from generationengine import GenerationEngineError
+from application_state.build_proposal.types import normalize_proposal_output
 from tests.page_fixtures import create_page_fixture, save_page
 from apps.live_control_server.services.workspace_document_registry import get_workspace_document
 import asyncio
@@ -281,7 +283,7 @@ def test_missing_or_invalid_destination_has_no_old_wire_fallback(destination):
     if destination is not None:
         raw['destination'] = destination
     with pytest.raises(ValidationError):
-        owner._result(json.dumps(raw))
+        normalize_proposal_output(json.dumps(raw))
 
 
 def test_destination_is_not_added_to_retained_proposal_records():
@@ -289,7 +291,7 @@ def test_destination_is_not_added_to_retained_proposal_records():
     raw = dict(replacement_markdown='A useful paragraph.', summary='Writing.', assumptions=[])
     stored = BuildGeneratedProposal.model_validate(raw)
     assert stored.model_dump() == raw
-    assert owner._result(json.dumps(dict(target='captured',destination='current_page', **raw))) == stored.model_copy(update={"target":"captured"})
+    assert normalize_proposal_output(json.dumps(dict(target='captured',destination='current_page', **raw))) == stored.model_copy(update={"target":"captured"})
 
 
 def test_whole_body_offer_is_bound_into_request_result_and_replay(request_case):
@@ -319,7 +321,7 @@ def test_whole_body_offer_is_bound_into_request_result_and_replay(request_case):
 @pytest.mark.parametrize('target,markdown', [('page_body','Complete body.'),('unavailable','')])
 def test_unoffered_or_unavailable_whole_page_never_falls_back_to_append(target,markdown):
     with pytest.raises(owner.BuildComposeTargetMismatch):
-        owner._result(json.dumps(dict(destination='current_page',target=target,
+        normalize_proposal_output(json.dumps(dict(destination='current_page',target=target,
             replacement_markdown=markdown,summary='Cannot safely replace.',assumptions=[])))
 
 
@@ -329,7 +331,7 @@ def test_new_writer_output_requires_target_but_old_stored_result_keeps_exact_byt
     raw=dict(replacement_markdown='Old fragment.',summary='Retained.',assumptions=[])
     assert BuildGeneratedProposal.model_validate(raw).model_dump()==raw
     with pytest.raises(ValidationError):
-        owner._result(json.dumps(dict(destination='current_page',**raw)))
+        normalize_proposal_output(json.dumps(dict(destination='current_page',**raw)))
 
 
 def test_offered_body_cannot_be_interpreted_as_a_historical_targetless_result(request_case):
@@ -369,7 +371,7 @@ def test_page_end_is_a_distinct_frozen_writer_choice_not_a_moved_caret(request_c
 
 def test_unoffered_page_end_never_falls_back_to_caret():
     with pytest.raises(owner.BuildComposeTargetMismatch,match='not_offered'):
-        owner._result(json.dumps(dict(destination='current_page',target='page_end',
+        normalize_proposal_output(json.dumps(dict(destination='current_page',target='page_end',
             replacement_markdown='Addition.',summary='Append.',assumptions=[])))
 
 
@@ -396,3 +398,34 @@ def test_source_reader_accepts_exact_committed_nonfile_owner_projection(request_
         projection.record = source.record.model_copy(update=changes)
         with pytest.raises(owner.BuildComposeError, match="build_compose_source_changed"):
             owner._source(request)
+
+
+@pytest.mark.parametrize('corruption',['text','response','missing','model','tool'])
+def test_compose_requires_actual_complete_selected_sdk_response(request_case,monkeypatch,corruption):
+    from apps.live_control_server.services.plan_jev_writer import CapturedWriterProvider
+    request,source,root=request_case
+    wire=Wire(request)
+    original=CapturedWriterProvider._result_from_response
+    def corrupt(provider,response):
+        result=original(provider,response)
+        if corruption=='text':
+            return result.model_copy(update={'text':wire.text.replace('Baker','Smith')})
+        if corruption=='response':
+            provider.actual_response=response.model_copy(deep=True)
+        elif corruption=='missing':
+            provider._selected_reply=None
+        elif corruption=='model':
+            response.model='a-different-model'
+        elif corruption=='tool':
+            from types import SimpleNamespace
+            response.output.append(SimpleNamespace(type='function_call'))
+        return result
+    monkeypatch.setattr(CapturedWriterProvider,'_result_from_response',corrupt)
+    with pytest.raises((owner.BuildComposeError,GenerationEngineError,ValueError)):
+        asyncio.run(owner.compose(request,transport=wire))
+    record=BuildProposalService().get('elderwyld',request.idempotency_key)
+    assert record.state=='failed' and record.proposal is None and record.raw_response is None
+    assert len(wire.calls)==1
+    assert asyncio.run(owner.compose(request,transport=wire))==record
+    assert len(wire.calls)==1
+    assert get_workspace_document_snapshot(root,source.record.document_id)==source
