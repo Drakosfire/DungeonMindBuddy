@@ -98,10 +98,10 @@ export async function capturePlanPlacementCatalog(editor:Editor,original:PlanOri
     return {...option,target_capture_sha256:await digest(target)};
   }));
   const originalHash=await digest(original);
-  // Hashing can yield: retain the exact Send-time selection and snapshot.
-  if(JSON.stringify(editor.getJSON())!==original.editor_json
-    ||JSON.stringify(editor.state.selection.toJSON())!==original.selection_json)
-    throw new PlanPlacementError('The page or selection changed while capturing its locations.');
+  // Hashing can yield. Navigation may move the live selection; every target above
+  // still uses the immutable Send-time capture. A document edit invalidates it.
+  if(JSON.stringify(editor.getJSON())!==original.editor_json)
+    throw new PlanPlacementError('The page changed while capturing its locations.');
   return {schema:'dmb_plan_placement_catalog_v1',original_capture_sha256:originalHash,
     editor_sha256:original.editor_sha256,entries};
 }

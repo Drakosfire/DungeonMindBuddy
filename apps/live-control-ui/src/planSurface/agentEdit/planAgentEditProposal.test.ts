@@ -1371,3 +1371,33 @@ it.each(['file:///private/story.md','../story.md','./story.md','/private/story.m
   expectedAgentBinding(),matchingAgentBinding)).rejects.toThrow();
  expect(editor.getJSON()).toEqual(before);expect(editor.state.selection.toJSON()).toEqual(selection);
 });
+
+
+it('keeps the exact submitted placement catalog when selection moves during hashing',async()=>{
+  const {editor,state}=mountedState('## Objective\n\nText\n\n## Beat\n\nUntouched');
+  const current=worldState(state);
+  const {capture}=await captureWorldPlanAuthoringTarget(current,()=>current,authoringIdentity);
+  if(capture.schema!=='dmb_plan_authoring_capture_v1')throw new Error('Expected original');
+  const expected=await capturePlanPlacementCatalog(editor,capture);
+  const before=editor.getJSON();
+  const pending=capturePlanPlacementCatalog(editor,capture);
+  editor.commands.setTextSelection(editor.state.doc.content.size-1);
+  const moved=editor.state.selection.toJSON();
+  expect(JSON.stringify(moved)).not.toBe(capture.selection_json);
+  expect(await pending).toEqual(expected);
+  expect(editor.state.selection.toJSON()).toEqual(moved);
+  expect(editor.getJSON()).toEqual(before);
+});
+
+it('refuses a document edit during placement hashing and preserves the newer edit',async()=>{
+  const {editor,state}=mountedState('## Objective\n\nText');
+  const current=worldState(state);
+  const {capture}=await captureWorldPlanAuthoringTarget(current,()=>current,authoringIdentity);
+  if(capture.schema!=='dmb_plan_authoring_capture_v1')throw new Error('Expected original');
+  const pending=capturePlanPlacementCatalog(editor,capture);
+  editor.commands.insertContent('Newer author edit.');
+  const newer=editor.getJSON(),selection=editor.state.selection.toJSON();
+  await expect(pending).rejects.toThrow('The page changed while capturing its locations.');
+  expect(editor.getJSON()).toEqual(newer);
+  expect(editor.state.selection.toJSON()).toEqual(selection);
+});
