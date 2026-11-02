@@ -294,7 +294,10 @@ class NativeBodyNavigation:
                         kind="Exact source section"))
             handle = native_full_document_handle(catalog.catalog_sha256)
             if matched and handle not in attempted:
-                rows.append(RetrievalCandidate(handle=handle, label="Read full document: " + name,
+                terms = sorted({term for section in matched
+                                for term in hits[(catalog.catalog_sha256, section.section_id)]})
+                rows.append(RetrievalCandidate(handle=handle,
+                    label="Read full document: " + name + " · matched terms: " + ", ".join(terms),
                     kind="Explicit full-document read"))
         return tuple(rows)
 

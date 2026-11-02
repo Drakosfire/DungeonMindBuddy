@@ -17,11 +17,12 @@ from tests.test_native_corpus_source_access import lane, admit, GM, BODY  # noqa
 
 
 @pytest.fixture
-def source_adapter(application_state_dsn, monkeypatch, lane):
+def source_adapter(application_state_dsn, monkeypatch, lane, request):
     monkeypatch.setattr('apps.live_control_server.services.agent_graph_policy.resolve_agent_graph_openai_inference',
         lambda **_: ('openai-api', 'gpt-6-luna', 'https://api.openai.com/v1'))
     lane.bound.managed_world_id = 'world:one'
-    admit(lane)
+    for name, body in (getattr(request, 'param', None) or [('first', BODY)]):
+        admit(lane, name, body=body)
     context, authority = prepare('world:one', GM, repository=lane.repo,
         resolve_identity=lambda _: lane.bound)
     request = _pinned_plan_request()
@@ -552,3 +553,30 @@ def test_ordinary_http_plan_source_answer_uses_published_graph_authority(source_
     denied = client.get(target)
     assert denied.status_code == 409 and denied.json()['detail']['code'] == 'native_body_access_unavailable'
     assert len(wire.calls) == len(constructions) == 1 and len(choices.calls) == 4
+
+
+@pytest.mark.parametrize('source_adapter', [[
+    ('first', '---\ntitle: Session 1\n---\nThe session describes a market.\n'),
+    ('second', '---\ntitle: Session 29\n---\nBrin told the group about Edge.\n'),
+]], indirect=True)
+def test_actual_controller_full_document_offers_keep_distinctive_query_matches(source_adapter):
+    from apps.live_control_server.services.plan_jev_driver import PlanJevDriver
+    a = source_adapter
+    a.request = a.request.model_copy(update={'message': 'What did Brin tell the group in Session 29?'})
+    a.submitted_intent = owner._submitted_turn_intent(a.request, world_id=a.world_id)
+    semantic = PlanJevDispatch.requested_work(a, page_title='Synthetic park Plan')
+    asyncio.run(semantic.run(transport=DecisionWire(a), api_key='synthetic-not-secret'))
+    wire = SourceChoices()
+    asyncio.run(PlanJevDriver(a).run(transport=wire, api_key='synthetic-not-secret'))
+    offers = next(call['state']['candidates'] for call in wire.calls
+        if any(c['kind'] == 'Explicit full-document read' for c in call['state']['candidates']))
+    documents = [c for c in offers if c['kind'] == 'Explicit full-document read']
+    assert len(documents) == 2
+    assert len({c['label'] for c in documents}) == 2
+    assert all('matched terms:' in c['label'] for c in documents)
+    assert sum('29' in c['label'] and 'brin' in c['label'] for c in documents) == 1
+    assert all('Brin told the group about Edge.' not in c['label'] for c in documents)
+    from application_state.agent_conversation.native_corpus import selected_body_reads
+    reads = selected_body_reads(a.fence.turn.graph_context_execution)
+    assert len(reads) == 2
+    assert all(read.excerpt.selector_policy == 'native_full_document_v1' for read in reads)
