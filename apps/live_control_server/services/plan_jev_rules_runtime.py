@@ -10,7 +10,7 @@ from . import rules_lookup_broker as broker
 class PlanRulesRuntime:
     def __init__(self, adapter, capability):
         self.capability = RulesCapabilityV1.model_validate(capability)
-        if (adapter.request.surface.surface_id != "plan" or self.capability != rules_capability(graph=True)
+        if (adapter.request.surface.surface_id not in {"plan", "build"} or self.capability != rules_capability(graph=True)
                 or adapter.rules_runtime is not None):
             raise ValueError("Plan Rules requires the exact current Graph capability")
         self.adapter, self.native = adapter, None
@@ -24,7 +24,12 @@ class PlanRulesRuntime:
         if self.native is None:
             if self.adapter.fence is None:
                 raise ValueError("Plan Rules must wait for its actual Plan claim")
-            _owner(self.adapter.fence.turn)
+            from application_state.agent_conversation.native_context import SurfaceNativeContextReceiptV1
+            if type(self.adapter.fence.turn.graph_context_receipt) is SurfaceNativeContextReceiptV1:
+                from application_state.agent_conversation.native_retrieval import owner
+                owner(self.adapter.fence.turn)
+            else:
+                _owner(self.adapter.fence.turn)
             self.native = NativeRulesRuntime(self.adapter, self.capability)
             self.adapter.rules_runtime = self
         return self.native

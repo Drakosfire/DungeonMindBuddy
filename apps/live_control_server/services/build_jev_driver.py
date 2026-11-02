@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import hashlib
 import json
-from dataclasses import dataclass
+from dataclasses import asdict, dataclass
 
 from application_state.agent_conversation import types as ledger
 from application_state.agent_conversation.dialogue_projection import project_dialogue, dialogue_rule
@@ -118,7 +118,7 @@ def freeze_interaction(adapter):
         # Its approved base is only a subsequence, never the historical answer.
         envelope = row.envelope if isinstance(row, MixedCompletedTurnV1) else row
         collaboration = getattr(getattr(envelope, 'completion', None), 'collaboration', None)
-        object_only = (getattr(getattr(envelope, 'completion', None), 'schema_', None) in {'dmb_build_intentional_response_completion_v1','dmb_build_intentional_response_completion_v2','dmb_build_intentional_response_completion_v3'} and collaboration is not None)
+        object_only = (getattr(getattr(envelope, 'completion', None), 'schema_', None) in {'dmb_build_intentional_response_completion_v1','dmb_build_intentional_response_completion_v2','dmb_build_intentional_response_completion_v3','dmb_surface_native_completion_v1'} and collaboration is not None)
         if envelope.status != "completed" or (not row.assistant_text and not object_only):
             continue
         history.append({"turn_id": str(envelope.turn_id), "user": envelope.user_text,
@@ -198,6 +198,34 @@ def verify_selected_presentation(raw, payloads, selector):
             raise ValueError("Entire selected source anchor was not delivered")
 
 
+def capture_draft_context(adapter):
+    if adapter.request.build_draft_context is None:
+        return
+    from application_state.agent_conversation.build_draft_context import context_record, validate_record
+    existing = [e for e in adapter._broker_execution().events if isinstance(e, ledger.BuildDraftContextCapturedV1)]
+    if existing:
+        record = context_record(adapter._broker_execution()).record
+        validate_record(record, adapter.turn)
+        if (record.snapshot != adapter.request.build_draft_context.snapshot
+            or record.expected_pointer_revision != adapter.request.build_draft_context.expected_pointer_revision):
+            raise ValueError("Retained working draft differs from this admitted request")
+        adapter.build_draft_record = record
+        return
+    from uuid import uuid4
+    from application_state.agent_conversation.build_draft_context import BuildDraftContextRecordV1
+    from .agent_turn_service import _require_fresh_execution_append
+    record = BuildDraftContextRecordV1(record_id=uuid4(), turn_id=adapter.turn.turn_id,
+        conversation_id=adapter.turn.conversation_id, attempt=adapter.turn.attempt,
+        submitted_intent_fingerprint=adapter.turn.submitted_intent_fingerprint_v2,
+        expected_pointer_revision=adapter.request.build_draft_context.expected_pointer_revision,
+        snapshot=adapter.request.build_draft_context.snapshot)
+    event = ledger.BuildDraftContextCapturedV1(event_id=uuid4(),
+        sequence=len(adapter._broker_execution().events), kind="build_draft_context_captured_v1", record=record)
+    adapter.turn = _require_fresh_execution_append(adapter.fence.append(
+        "record_build_draft_context", "event", event))
+    adapter.build_draft_record = record
+
+
 class BuildJevDriver:
     """Host owns catalog, acquisitions and next intent. No provider or IO fallback.
 
@@ -215,6 +243,10 @@ class BuildJevDriver:
             raise ValueError("Driver must be created once before first authorization")
         self._adapter = adapter
         self._assessment_receipt = None
+        self._native = adapter.native_source_authority is not None
+        if self._native:
+            self._init_native()
+            return
         self._base = first_state(
             adapter.work,
             adapter.bootstrap,
@@ -456,9 +488,30 @@ class BuildJevDriver:
         self._attempt = None
         adapter._build_jev_driver = self
 
+    def _init_native(self):
+        """Build selects its own work; shared native retrieval owns acquisition."""
+        from application_state.agent_conversation.build_intentional_response import POLICY, WORK, decision_instructions
+        a = self._adapter
+        self._interaction = freeze_interaction(a)
+        state = dict(user_question=a.request.message, interaction=self._interaction,
+            rules=decision_instructions(), requested_work_policy=POLICY)
+        questions = (DecisionQuestion(name='requested_work',kind='choice',question=decision_instructions(),options=tuple(WORK)),)
+        if 'related_page_catalog' in self._interaction:
+            from application_state.agent_conversation.build_related_pages import PagePointer, question_name, question_text
+            questions += tuple(DecisionQuestion(name=question_name(i),kind='choice',
+                question=question_text(PagePointer.model_validate(page)),options=('read','skip'))
+                for i,page in enumerate(self._interaction['related_page_catalog']))
+        self._selection_intent = DecisionIntent(request_id='select:'+digest(state),phase='select',state=state,questions=questions)
+        self.reviewed_binding = a.submitted_intent.reviewed_step
+        self._pending = None
+        self._used = set()
+        self._attempt = None
+        self.operation = None
+        a._build_jev_driver = self
+
     @property
     def step(self):
-        intent = self._selection_intent.model_copy(deep=True) if self._selection_intent else self._machine.step
+        intent = self._selection_intent.model_copy(deep=True) if self._selection_intent else None if self._native else self._machine.step
         rules = getattr(self._adapter, "rules_runtime", None)
         if self._selection_intent is not None and rules is not None and rules.active and rules.offers:
             from .rules_build_runtime import QUERY_CHOICE
@@ -791,6 +844,9 @@ class BuildJevDriver:
         return result
 
     def _material(self):
+        if self._native:
+            return (),(),tuple(sorted(str(e.read_id) for e in self._adapter._broker_execution().events
+                if isinstance(e,ledger.ValidatedBuildSectionReadV1)))
         graph, sources, sections = [], set(), set()
         for aid, binding in self._bindings.items():
             if self._derive_units(aid, binding) != self._units[aid]:
@@ -842,6 +898,12 @@ class BuildJevDriver:
         ):
             raise ValueError("No fresh parent-owned decision")
         a = self._adapter
+        if self._native:
+            projection = DriverDecisionProjection(canonical({'decision':intent.model_dump(mode='json'),
+                'context_accounting':a._build_jev_accounting.descriptor}),canonical(wire_questions(intent)),
+                intent.request_id,0,None,(),(),())
+            self._pending = projection
+            return projection
         graph, sources, sections = self._presented_material(intent)
         if a.fence is not None:
             if graph or sources or sections:
@@ -980,6 +1042,17 @@ class BuildJevDriver:
             != (str(a.last_provider_attempt_id) if a.last_provider_attempt_id else None)
         ):
             return False
+        if self._native:
+            try:
+                view = prepared_driver_view(prepared,plan,accounting=a._build_jev_accounting)
+                accepted = a.authorize_native_build_decision(prepared,view,plan)
+                if accepted:
+                    self._used.add(plan.request_id)
+                    self._attempt = prepared.attempt_id
+                return accepted
+            except DecisionCapacityError as exc:
+                self.admission_failure = exc
+                return False
         try:
             if canonical(plan.questions()) != canonical(wire_questions(self.step)):
                 return False
@@ -1127,7 +1200,7 @@ class BuildJevDriver:
                     controller_attempt_id=authorization.provider_attempt_id, controller_envelope_sha256=authorization.envelope_sha256,
                     controller_response_sha256=hashlib.sha256(raw.encode()).hexdigest(), machine_request_id=plan.request_id,
                     requested_work=label, intent_family=resolution['intent_family'], menu_sha256=MENU_DIGEST, resolver_sha256=RESOLVER_DIGEST,
-                    response_capabilities_sha256=execution.policy.response_capabilities_sha256, resolution=resolution,
+                    response_capabilities_sha256=(digest(asdict(execution.policy.action.capabilities)) if self._native else execution.policy.response_capabilities_sha256), resolution=resolution,
                     operation=selected, broker_operation_id=operation_id(a.turn, plan.request_id, label),
                     capability_sha256=self._interaction['capability_sha256'],
                     arguments_sha256=digest({'instruction': a.request.message} if selected != 'answer_from_sources' else {}))

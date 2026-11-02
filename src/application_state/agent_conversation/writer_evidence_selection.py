@@ -29,6 +29,13 @@ RULES += (
 )
 
 
+def enabled(policy):
+    from .types import BuildSelectedSourceActionControllerWriterPolicyV1
+    from .native_execution import SurfaceNativeExecutionPolicyV1, NativeBuildActionV1
+    return (isinstance(policy,BuildSelectedSourceActionControllerWriterPolicyV1)
+        or type(policy) is SurfaceNativeExecutionPolicyV1 and type(policy.action) is NativeBuildActionV1)
+
+
 def canonical(value):
     return json.dumps(value, ensure_ascii=False, sort_keys=True,
                       separators=(",", ":"), allow_nan=False)
@@ -187,7 +194,10 @@ def source_projection(catalog):
 def selection_state(turn, catalog, terminal, historical_initial):
     """Exact final-controller input; this does not claim catalog completeness."""
     receipt, execution = turn.graph_context_receipt, turn.graph_context_execution
-    authority, scope = receipt.graph_authority, execution.policy.source_read_scope
+    from .native_context import SurfaceNativeContextReceiptV1
+    native = type(receipt) is SurfaceNativeContextReceiptV1
+    if not native:
+        authority, scope = receipt.graph_authority, execution.policy.source_read_scope
     if terminal.get("status") == "refused":
         raise ValueError("Refused retrieval cannot enter writer selection")
     state = {
@@ -198,8 +208,8 @@ def selection_state(turn, catalog, terminal, historical_initial):
         "context_accounting": execution.policy.controller_continuation_accounting.model_dump(mode="json"),
         "historical_initial": historical_initial,
         "user_question": turn.user_text,
-        "source_basis": receipt.source_basis.model_dump(mode="json"),
-        "graph_scope": {
+        "source_basis": (receipt.work_context.source_basis if native else receipt.source_basis).model_dump(mode="json"),
+        **({'native_query_sha256':execution.policy.native_query_sha256} if native else {"graph_scope": {
             "managed_world_id": authority.managed_world_id,
             "native_world_id": authority.native_world_id,
             "binding_version": authority.binding_version,
@@ -207,7 +217,7 @@ def selection_state(turn, catalog, terminal, historical_initial):
             "retrieval_session_id": scope.retrieval_session_id,
             "scope_mode": "world", "campaign_id": None,
             "focus": {"kind": "none", "session_id": None}, "admissibility": "gm",
-        },
+        }}),
         "terminal_disposition": terminal,
         "catalog_sha256": digest(catalog),
         **source_projection(catalog),
@@ -224,7 +234,7 @@ def validate_selection_proof(turn, selection, trace, proof):
     from .source_writer_output import strict_json
 
     execution = turn.graph_context_execution
-    if not isinstance(execution.policy, t.BuildSelectedSourceActionControllerWriterPolicyV1):
+    if not enabled(execution.policy):
         raise ValueError("Writer selection requires its frozen policy")
     receipt = turn.graph_context_receipt
     if (trace.get("world_id") != turn.world_id or trace.get("turn_id") != str(turn.turn_id)

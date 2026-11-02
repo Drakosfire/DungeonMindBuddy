@@ -842,7 +842,7 @@ class AgentBuildGraphContextResponseV1(AgentPlanWorldGraphContextResponseV2):
 
 
 class AgentBuildGraphTurnResponseV1(AgentTurnResponse):
-    knowledge_context: AgentBuildGraphContextResponseV1
+    knowledge_context: AgentBuildGraphContextResponseV1 | AgentSurfaceNativeContextResponseV1
 
 
 class AgentPlaySourceBasisV1(PlayRunTurnContextReceiptV1):
@@ -1076,11 +1076,11 @@ class AgentConversationHistoryPlayTurnV3(AgentConversationHistoryTurnV3):
 
 
 class AgentConversationHistoryBuildTurnV2(AgentConversationHistoryTurn):
-    knowledge_context: AgentBuildGraphContextResponseV1
+    knowledge_context: AgentBuildGraphContextResponseV1 | AgentSurfaceNativeContextResponseV1
 
 
 class AgentConversationHistoryBuildTurnV3(AgentConversationHistoryTurnV3):
-    knowledge_context: AgentBuildGraphContextResponseV1
+    knowledge_context: AgentBuildGraphContextResponseV1 | AgentSurfaceNativeContextResponseV1
 
 
 class AgentConversationHistoryResponse(BaseModel):

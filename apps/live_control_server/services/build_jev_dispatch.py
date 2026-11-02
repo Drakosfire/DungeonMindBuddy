@@ -216,7 +216,9 @@ def continuation_binding(adapter) -> dict:
         raise ValueError("Continuation requires an existing frozen turn")
     turn = adapter.fence.turn
     receipt, execution = turn.graph_context_receipt, adapter._broker_execution()
-    if (receipt is None or not isinstance(execution.policy, ledger.BuildContinuationActionControllerWriterPolicyV1)
+    from application_state.agent_conversation.native_execution import SurfaceNativeExecutionPolicyV1, NativeBuildActionV1
+    native = type(execution.policy) is SurfaceNativeExecutionPolicyV1 and type(execution.policy.action) is NativeBuildActionV1
+    if (receipt is None or not (native or isinstance(execution.policy, ledger.BuildContinuationActionControllerWriterPolicyV1))
             or execution.context_receipt_sha256 != receipt.context_receipt_sha256):
         raise ValueError("Continuation policy/receipt differs")
     attempts = [e for e in execution.events if isinstance(e, ledger.ProviderAttemptAuthorizedEventV3)]

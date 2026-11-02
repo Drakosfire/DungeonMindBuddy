@@ -6,7 +6,7 @@ operation identity and all database authority remain host-owned.
 from uuid import uuid4
 
 from .jev_retrieval_contract import RetrievalCandidate, RetrievalDecisionInput, PlanSourceRetrievalDecisionInputV1
-from .plan_jev_decision import _owner, scope_digest, strict_json
+from .plan_jev_decision import _owner, strict_json
 from .rules_authority_events import (
     RulesPlanJevToolAuthorizedV1, normalized_question, query_identity, plan_jev_rules_operation_id,
 )
@@ -21,7 +21,13 @@ def rules_candidate():
 
 def _selected_offer(turn, parent_request_json):
     from .types import PlanJevRetrievalSelectionV1, PlanJevProviderAuthorizedV1, ProviderAttemptAuthorizedEventV1
-    receipt, graph = _owner(turn)
+    from .native_context import SurfaceNativeContextReceiptV1
+    if type(turn.graph_context_receipt) is SurfaceNativeContextReceiptV1:
+        from .native_retrieval import owner, scope_digest
+        receipt, graph = owner(turn)
+    else:
+        from .plan_jev_decision import scope_digest
+        receipt, graph = _owner(turn)
     if not isinstance(parent_request_json, str):
         raise ValueError("Plan Rules read requires its exact serialized parent request")
     from .types import PlanSourceContextReceiptV1

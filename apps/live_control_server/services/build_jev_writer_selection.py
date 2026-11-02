@@ -14,7 +14,7 @@ from .build_jev_transitions import DecisionIntent, DecisionQuestion
 
 class WriterSelectionDriver:
     def __init__(self, adapter, acquisition_driver, terminal):
-        if not isinstance(adapter._broker_execution().policy, ledger.BuildSelectedSourceActionControllerWriterPolicyV1):
+        if not selection.enabled(adapter._broker_execution().policy):
             raise ValueError("Writer selection requires its frozen policy")
         if adapter.context_capture is None or terminal.get("status") == "refused":
             raise ValueError("Writer selection requires admissible retrieval and protected capture")

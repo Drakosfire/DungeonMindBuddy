@@ -75,36 +75,15 @@ def freeze(request, work, playable_target, view, budget, *, authority, graph_rec
         object_revision=basis.object_revision, work_revision_id=basis.work_revision_id,
         revision_n=basis.revision_n, content_sha256=basis.content_sha256)
     if native_query is not None:
-        from application_state.agent_conversation.native_context import (
-            SurfaceNativeContextReceiptV1, NativeProviderInputV1, PlanWorkContextV1, validate_work_context)
-        from application_state.agent_conversation.native_execution import (
-            SurfaceNativeExecutionV1, SurfaceNativeExecutionPolicyV1, NativePlanActionV1, validate_context_binding)
+        from application_state.agent_conversation.native_context import NativeProviderInputV1, PlanWorkContextV1
+        from application_state.agent_conversation.native_execution import NativePlanActionV1
         if graph_receipt is not None or graph_policy is not None:
             raise ValueError("Shared native Plan cannot inherit a second Graph capability")
-        action = NativePlanActionV1(intent=submitted_intent, authoring_capture=request.plan_authoring_capture,
-            placement_catalog=request.plan_placement_catalog)
-        data = dict(provenance_sha256=canonical_sha256(provenance),
-            work_context=PlanWorkContextV1(plan_basis=plan_basis,
-                plan_context_policy=request.plan_context_policy, playable_target=playable_target),
-            source_authority=authority, native_query=native_query,
-            assembled_input=NativeProviderInputV1(**assembled.model_dump(exclude={'assembler_version'})))
-        provisional = SurfaceNativeContextReceiptV1.model_construct(context_receipt_sha256='0'*64, **data)
-        payload = provisional.model_dump(mode='json', by_alias=True, exclude={'context_receipt_sha256'})
-        receipt = SurfaceNativeContextReceiptV1.model_validate_json(json.dumps(
-            payload | {'context_receipt_sha256':canonical_sha256(payload)}))
-        policy = SurfaceNativeExecutionPolicyV1(action=action,
-            source_authority_sha256=canonical_sha256(authority), native_query_sha256=canonical_sha256(native_query),
-            provider_roles=budget['providerRoles'], provider_input_accounting={
-                'kind':'conservative_upper_bound','estimator':budget['estimator']},
-            max_provider_attempts=None, max_total_provider_input_tokens=None,
-            max_total_provider_output_tokens=None, controller_continuation_accounting=None, writer_context_budget=None)
-        execution_payload = dict(schema='dmb_surface_native_execution_v1',
-            context_receipt_sha256=receipt.context_receipt_sha256, policy=policy.model_dump(mode='json',by_alias=True))
-        execution = SurfaceNativeExecutionV1.model_validate_json(json.dumps(execution_payload | {
-            'execution_policy_sha256':canonical_sha256(execution_payload),'events':[]}))
-        validate_work_context(receipt,provenance)
-        validate_context_binding(receipt,execution)
-        return receipt,execution,([],[],[])
+        return _freeze_native(
+            PlanWorkContextV1(plan_basis=plan_basis,plan_context_policy=request.plan_context_policy,playable_target=playable_target),
+            NativePlanActionV1(intent=submitted_intent,authoring_capture=request.plan_authoring_capture,placement_catalog=request.plan_placement_catalog),
+            NativeProviderInputV1(**assembled.model_dump(exclude={'assembler_version'})),
+            authority,native_query,provenance,budget)
     receipt_type = t.PlanSourceContextReceiptV1
     provisional = receipt_type.model_construct(
         receipt_serializer_version="canonical-json-utf8-v1", context_receipt_sha256="0" * 64,
@@ -138,6 +117,73 @@ def freeze(request, work, playable_target, view, budget, *, authority, graph_rec
         "execution_policy_sha256": canonical_sha256(execution_payload), "events": []})
     validate_source_execution_binding(receipt, execution)
     return receipt, execution, ([], [], [])
+
+
+def freeze_build(request, work, view, budget, *, authority, native_query, provenance,
+                 submitted_intent, projection, accounting, included_history=()):
+    """Capture actual Build work and its first prepared semantic wire, without a Graph packet."""
+    from application_state.agent_conversation.native_context import BuildWorkContextV1, NativeProviderInputV1
+    from application_state.agent_conversation.native_execution import NativeBuildActionV1
+    from application_state.agent_conversation.build_intentional_response import MENU_DIGEST, RESOLVER_DIGEST
+    basis = work.build_source
+    if request.surface.surface_id != 'build' or basis is None or projection is None or accounting is None:
+        raise ValueError('Native Build requires actual saved work and its prepared semantic projection')
+    # The caller supplied the exact already-verified view, not a model-provided root.
+    body = json.loads(view['payloadJson'])
+    raw = view['payloadJson'].encode()
+    if (len(raw) != view['payloadUtf8Bytes'] or sha256(raw).hexdigest() != view['payloadSha256']
+            or body['state'] != projection.state() or body['questions'] != projection.questions()
+            or (view['provider'], view['model'], view['apiMode']) != ('typesafe','jev-1.14.0','typesafe_decision')):
+        raise ValueError('Native Build initial prepared request changed before capture')
+    accounting.validate(body, raw, context_mode=view['contextMode'])
+    actions = budget['buildJevActions']
+    from types import SimpleNamespace
+    from application_state.agent_conversation.build_intentional_response import policy_capabilities
+    caps = policy_capabilities(SimpleNamespace(**actions))
+    source_basis = t.BuildSourceContextBasisV1(world_id=basis.world_id, document_id=basis.document_id,
+        registry_revision=basis.revision, content_sha256=basis.content_sha256, visibility=basis.visibility_state)
+    from application_state.agent_conversation.build_related_pages import PagePointer
+    related = actions.get('related_page_catalog')
+    related = None if related is None else tuple(PagePointer.model_validate(row) for row in related)
+    action = NativeBuildActionV1(intent=submitted_intent, write_capability=request.build_write_capability,
+        capabilities=caps, related_page_catalog=related,
+        saved_source_char_count=len(basis.markdown), requested_work_menu_sha256=MENU_DIGEST,
+        response_resolver_sha256=RESOLVER_DIGEST)
+    assembled = NativeProviderInputV1(provider_model_name=view['model'], provider_model_version=view['model'],
+        tokenizer_name=accounting.descriptor['policy'], tokenizer_version=accounting.tokenizer_version,
+        provider_envelope_input_tokens=accounting.estimate(body), output_token_reserve=0,
+        context_window_limit=budget['contextLimitTokens'],
+        included_history=tuple(t.PlanWorldGraphHistoryPinV1(turn_id=turn_id,
+            answer_sha256=sha256(text.encode()).hexdigest()) for turn_id,text in included_history
+            if text and _contains_text(body,text)), assembled_input_sha256=view['payloadSha256'])
+    return _freeze_native(BuildWorkContextV1(source_basis=source_basis),action,assembled,
+        authority,native_query,provenance,budget,controller_accounting=accounting.descriptor,
+        writer_budget=actions['writer_context_budget'])
+
+
+def _freeze_native(work_context, action, assembled, authority, native_query, provenance, budget,
+                   *, controller_accounting=None, writer_budget=None):
+    """One shared root composition; surface work and Core source identity keep their owners."""
+    from application_state.agent_conversation.native_context import SurfaceNativeContextReceiptV1, validate_work_context
+    from application_state.agent_conversation.native_execution import (
+        SurfaceNativeExecutionPolicyV1, SurfaceNativeExecutionV1, validate_context_binding)
+    from application_state.agent_conversation.rules_authority_types import canonical_sha256
+    data = dict(provenance_sha256=canonical_sha256(provenance), work_context=work_context,
+        source_authority=authority, native_query=native_query, assembled_input=assembled)
+    provisional = SurfaceNativeContextReceiptV1.model_construct(context_receipt_sha256='0'*64,**data)
+    wire = provisional.model_dump(mode='json',by_alias=True,exclude={'context_receipt_sha256'})
+    receipt = SurfaceNativeContextReceiptV1.model_validate_json(json.dumps(wire|{'context_receipt_sha256':canonical_sha256(wire)}))
+    policy = SurfaceNativeExecutionPolicyV1(action=action,source_authority_sha256=canonical_sha256(authority),
+        native_query_sha256=canonical_sha256(native_query),provider_roles=budget['providerRoles'],
+        provider_input_accounting={'kind':'conservative_upper_bound','estimator':budget['estimator']},
+        max_provider_attempts=None,max_total_provider_input_tokens=None,max_total_provider_output_tokens=None,
+        controller_continuation_accounting=controller_accounting,writer_context_budget=writer_budget)
+    wire = dict(schema='dmb_surface_native_execution_v1',context_receipt_sha256=receipt.context_receipt_sha256,
+        policy=policy.model_dump(mode='json',by_alias=True))
+    execution = SurfaceNativeExecutionV1.model_validate_json(json.dumps(wire|{'execution_policy_sha256':canonical_sha256(wire),'events':[]}))
+    validate_work_context(receipt,provenance)
+    validate_context_binding(receipt,execution)
+    return receipt,execution,([],[],[])
 
 
 def _contains_text(value, text):

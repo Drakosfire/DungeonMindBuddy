@@ -60,8 +60,7 @@ def test_sdk_related_page_input_and_output_reuse_exact_authored_owner(draft):
     assert frame['related_authored_pages']['role']==related.ROLE
     assert frame['related_authored_pages']['availability'][1]['acquisition']=='not_read'
     stored,auth,proof,_=produce(context,record,work,candidate=candidate(frame))
-    inclusion,= [e for e in stored.events if isinstance(e,related.RelatedPageInclusion)]
-    related.validate_inclusion(inclusion,stored,proof['prepared_request_json'])
+    assert not any(isinstance(e,related.RelatedPageInclusion) for e in stored.events)
     evidence=verify_input_records(context,stored,auth,proof['prepared_request_json'],**work)
     result=normalize_output(context,stored,auth,**proof)
     claim,=result.answer_segments
@@ -94,7 +93,7 @@ def test_pending_selected_page_cannot_reach_the_writer():
 
 
 @pytest.mark.parametrize('mutation',['wrong_read','wrong_quote','draft_quote','missing_quote','model_metadata','saved_borrow',
-    'native_borrow','changed_input','missing_inclusion','changed_inclusion','changed_page_pin'])
+    'native_borrow','changed_input','changed_page_pin'])
 def test_related_claim_cannot_borrow_another_read_or_change_its_producing_evidence(mutation):
     context,record,work=case()
     frame=model_work_frame(context,record,**work)
@@ -116,16 +115,7 @@ def test_related_claim_cannot_borrow_another_read_or_change_its_producing_eviden
         if mutation=='changed_input':
             physical['related_authored_pages']['pages'][0]['markdown']='Changed saved body'
     stored,auth,proof,_=produce(context,record,work,candidate=output,mutate=mutate)
-    if mutation in {'missing_inclusion','changed_inclusion'}:
-        events=list(stored.events)
-        index=next(i for i,e in enumerate(events) if isinstance(e,related.RelatedPageInclusion))
-        if mutation=='missing_inclusion':
-            events.pop(index)
-        else:
-            events[index]=events[index].model_copy(update={'envelope_sha256':'a'*64})
-        with pytest.raises(ValueError,match='producing exact input'):
-            resequence(context,stored,events)
-    elif mutation=='changed_page_pin':
+    if mutation=='changed_page_pin':
         result=normalize_output(context,stored,auth,**proof)
         claim=result.answer_segments[0]
         result=result.model_copy(update={'answer_segments':[claim.model_copy(update={'page':claim.page.model_copy(
@@ -173,7 +163,7 @@ def test_same_actual_controller_vote_proof_owner_accepts_native_execution_withou
     context,record,work=case()
     offered=record.policy.action.related_page_catalog
     event=next(e for e in record.events if isinstance(e,related.RelatedPagesSelection))
-    request=dict(state={'interaction':{'related_page_catalog':[p.model_dump(mode='json') for p in offered]}},
+    request=dict(state={'decision':{'state':{'interaction':{'related_page_catalog':[p.model_dump(mode='json') for p in offered]}}}},
         questions={related.question_name(i):dict(instructions=related.question_text(p),criteria={'read':{},'skip':{}})
             for i,p in enumerate(offered)})
     response=dict(answers={related.question_name(i):dict(kind='choice',selected='read' if i==0 else 'skip',
@@ -207,7 +197,6 @@ def test_related_page_cannot_be_acquired_after_its_writer_input_was_frozen():
     context,record,_=case()
     events=list(record.events)
     index=next(i for i,e in enumerate(events) if isinstance(e,related.RelatedPageRead))
-    events.insert(index,related.RelatedPageInclusion(event_id=uuid4(),sequence=index,
-        provider_attempt_id=uuid4(),envelope_sha256='a'*64,read_ids=[]))
+    events.append(events.pop(index))
     with pytest.raises(ValueError,match='cannot change after'):
         resequence(context,record,events)

@@ -80,7 +80,9 @@ class NativeRulesRuntime:
 
         cap = RulesCapabilityV1.model_validate(capability)
         self.graph_enabled = adapter.turn is not None and adapter.turn.graph_context_execution is not None
-        if cap != rules_capability(graph=self.graph_enabled) or adapter._is_build_turn():
+        from application_state.agent_conversation.native_context import SurfaceNativeContextReceiptV1
+        native_build = adapter.turn is not None and type(adapter.turn.graph_context_receipt) is SurfaceNativeContextReceiptV1
+        if cap != rules_capability(graph=self.graph_enabled) or (adapter._is_build_turn() and not native_build):
             raise ValueError("Native Rules requires the exact native Plan/Play capability")
         if adapter.rules_runtime is not None or adapter.fence is None:
             raise ValueError("Native Rules requires one current claimed provider attempt")

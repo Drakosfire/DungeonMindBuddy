@@ -127,6 +127,9 @@ class _ReplyRejected(ValueError):
 class PlanJevWriter:
     def __init__(self, adapter, proof, rules):
         self.adapter, self.proof, self.rules = adapter, proof, rules
+        native_budget = getattr(adapter.fence.turn.graph_context_execution.policy,'writer_context_budget',None)
+        self.output_reserve = native_budget.output_reserve_tokens if native_budget is not None else adapter.budget['outputReserveTokens']
+        self.context_limit = native_budget.context_limit_tokens if native_budget is not None else adapter.budget['contextLimitTokens']
         self.shared = type(adapter.fence.turn.graph_context_receipt) is t.SurfaceNativeContextReceiptV1
         rule_frame = rules.frame()
         self.projection = None
@@ -203,13 +206,13 @@ class PlanJevWriter:
             raise ValueError('Plan writer actual dispatch identity differs')
         a = self.adapter
         expected = {'model': self.model, 'input': self.messages, 'instructions': self.instructions,
-            'max_output_tokens': a.budget['outputReserveTokens'], 'text': {'format': self.output_format},
+            'max_output_tokens': self.output_reserve, 'text': {'format': self.output_format},
             'tools': [], 'stream': False, 'reasoning': {'effort': 'none'}, 'service_tier': 'fast'}
         if strict_json(prepared.body.decode()) != expected:
             raise ValueError('Plan writer actual request differs from staged evidence/instructions')
         projection = self.projection
         estimate = len(prepared.body) + 64 * (1 + _json_node_count(expected))
-        if estimate + a.budget['outputReserveTokens'] > a.budget['contextLimitTokens']:
+        if estimate + self.output_reserve > self.context_limit:
             raise ValueError('Plan writer exceeds the existing provider context allowance')
         if self.shared:
             from application_state.errors import ApplicationStateConflictError
@@ -219,7 +222,7 @@ class PlanJevWriter:
                 serializer_version='openai-sdk-json-v1',provider='openai',model=self.model,api_mode='responses',
                 tool_schema_sha256=canonical_sha256([]),input_accounting_kind='conservative_upper_bound',
                 input_estimator=a.budget['estimator'],input_tokens=estimate,
-                output_token_reserve=a.budget['outputReserveTokens'],frame_sha256=canonical_sha256(self.frame),
+                output_token_reserve=self.output_reserve,frame_sha256=canonical_sha256(self.frame),
                 included_graph_event_ids=[],included_source_read_event_ids=[],included_assertion_ids=[],
                 included_relationship_ids=[],included_evidence_ref_ids=[],native_read_event_ids=native_read_event_ids(a._broker_execution().events))
             try:
@@ -248,7 +251,7 @@ class PlanJevWriter:
             envelope_sha256=prepared.body_sha256, serializer_version='openai-sdk-json-v1',
             provider='openai', model=self.model, api_mode='responses', tool_schema_sha256=sha256(b'[]').hexdigest(),
             input_accounting_kind='conservative_upper_bound', input_estimator=a.budget['estimator'],
-            input_tokens=estimate, output_token_reserve=a.budget['outputReserveTokens'],
+            input_tokens=estimate, output_token_reserve=self.output_reserve,
             frame_sha256=canonical_sha256(projection.frame), included_graph_event_ids=list(projection.graph_event_ids),
             included_source_read_event_ids=[e.event_id for e in a._broker_execution().events
                 if isinstance(e, t.ValidatedSourceReadEventV2) and e.event_id in projection.source_event_ids],
@@ -380,7 +383,7 @@ class PlanJevWriter:
         try:
             result = await client.generate_structured(TextRequest(provider='openai',model=self.model,
                 user_prompt=json.dumps(self.messages,ensure_ascii=False),system_prompt=self.instructions,
-                temperature=None,reasoning_effort='none',max_output_tokens=self.adapter.budget['outputReserveTokens'],
+                temperature=None,reasoning_effort='none',max_output_tokens=self.output_reserve,
                 json_schema=self.output_format['schema'],schema_name=self.output_format['name'],
                 max_conformance_retries=0,max_transport_retries=0))
             self.observe(result.observation,status='ok')

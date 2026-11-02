@@ -169,12 +169,11 @@ SurfaceNativeEvent = Annotated[
     | t.NativeBodyReadAuthorizedV1 | t.NativeBodyReadObservedV1
     | t.NativePlanStatementReadAuthorizedV1 | t.NativePlanStatementReadObservedV1
     | t.NativePlanAssertionReadAuthorizedV1 | t.NativePlanAssertionReadObservedV1
-    | t.BuildDraftContextCapturedV1 | t.BuildDraftProviderInclusionV1
+    | t.BuildDraftContextCapturedV1
     | t.BuildSectionReadAuthorizationV1 | t.ValidatedBuildSectionReadV1
-    | t.BuildSectionProviderInclusionV1
     | t.BuildRequestedWorkResolutionV1 | t.BuildReviewedActionSelectionV2 | t.BuildReviewedActionSelectionV1
     | t.BuildWriterEvidenceSelectionV1 | t.BuildPlanOutputContractV2
-    | t.RelatedPagesSelection | t.RelatedPageRead | t.RelatedPageInclusion
+    | t.RelatedPagesSelection | t.RelatedPageRead
     | t.BuildAuthoredReferencesCapturedV1 | BuildAuthoredReferenceAuthorizedV2
     | BuildAuthoredReferenceReadV2,
     Field(discriminator="kind"),
@@ -182,12 +181,11 @@ SurfaceNativeEvent = Annotated[
 
 
 _BUILD_WORK_EVENTS = (
-    t.BuildDraftContextCapturedV1, t.BuildDraftProviderInclusionV1,
+    t.BuildDraftContextCapturedV1,
     t.BuildSectionReadAuthorizationV1, t.ValidatedBuildSectionReadV1,
-    t.BuildSectionProviderInclusionV1,
     t.BuildRequestedWorkResolutionV1, t.BuildReviewedActionSelectionV1,
     t.BuildWriterEvidenceSelectionV1, t.BuildPlanOutputContractV2,
-    t.RelatedPagesSelection, t.RelatedPageRead, t.RelatedPageInclusion,
+    t.RelatedPagesSelection, t.RelatedPageRead,
     t.BuildAuthoredReferencesCapturedV1, BuildAuthoredReferenceAuthorizedV2,
     BuildAuthoredReferenceReadV2,
 )
@@ -231,11 +229,6 @@ class SurfaceNativeExecutionV1(Strict):
                     reads = native_read_event_ids(self.events[:event.sequence])
                     if event.native_read_event_ids != reads:
                         raise ValueError("Native writer changed its exact settled read inclusion set")
-                    if isinstance(self.policy.action,NativeBuildActionV1) and any(isinstance(prior,
-                            (t.BuildSectionReadAuthorizationV1,t.ValidatedBuildSectionReadV1,t.BuildWriterEvidenceSelectionV1))
-                            for prior in self.events[:event.sequence]):
-                        from .build_primary_context import validate_writer_reads
-                        validate_writer_reads(self,event)
                 if type(event) is NativeRetrievalAuthorizedV1:
                     if not isinstance(roles,t.GraphControllerWriterRolesV1) or identity!=roles.controller.identity():
                         raise ValueError("Native retrieval belongs only to its actual controller role")
@@ -262,14 +255,12 @@ class SurfaceNativeExecutionV1(Strict):
             validate_native_action_events(self)
             from .plan_objective import validate_events as validate_plan_output_events
             validate_plan_output_events(self)
-            from .build_draft_context import validate_execution_records, validate_provider_inclusions
+            from .build_draft_context import validate_execution_records
             from .build_primary_context import validate_reads, validate_selection_origin
             validate_execution_records(self)
-            validate_provider_inclusions(self)
             validate_reads(self,max_chars=self.policy.action.saved_source_char_count)
             from .build_related_pages import validate_events as validate_related_events
             validate_related_events(self)
-            t.validate_build_section_inclusions(self)
             for event in self.events:
                 if isinstance(event,t.BuildWriterEvidenceSelectionV1):
                     validate_selection_origin(self,event)

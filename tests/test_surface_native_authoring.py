@@ -54,7 +54,7 @@ def native_case(request,operation,*,captured=True):
     context=type(context).model_validate_json(json.dumps(seal(wire)))
     policy=record.policy.model_copy(update=dict(action=action,source_authority_sha256=t.canonical_sha256(context.source_authority),
         native_query_sha256=t.canonical_sha256(context.native_query)))
-    first=controller('build',policy,sequence=2 if captured else 0)
+    first=controller('build',policy,sequence=1 if captured else 0)
     wire=context.model_dump(mode='json',by_alias=True)
     wire['assembled_input']['tokenizer_name']=first.input_estimator
     context=type(context).model_validate_json(json.dumps(seal(wire)))
@@ -64,9 +64,7 @@ def native_case(request,operation,*,captured=True):
             attempt=1,submitted_intent_fingerprint=t.submitted_turn_intent_fingerprint_v2(intent),
             expected_pointer_revision=cap.expected_pointer_revision,snapshot=snapshot)
         event=t.BuildDraftContextCapturedV1(kind='build_draft_context_captured_v1',event_id=uuid4(),sequence=0,record=captured_record)
-        events.extend([event,t.BuildDraftProviderInclusionV1(kind='build_draft_provider_inclusion_v1',event_id=uuid4(),sequence=1,
-            provider_attempt_id=first.provider_attempt_id,envelope_sha256=first.envelope_sha256,
-            draft_event_id=event.event_id,snapshot_sha256=snapshot.snapshot_sha256)])
+        events.append(event)
     events.extend([first,*outcomes(first,len(events)+1)])
     selection=build_resolution(policy,first,len(events),turn_id=turn_id,
         requested='write_current_page' if operation=='propose_build_insertion' else 'prepare_image')

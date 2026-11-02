@@ -30,7 +30,7 @@ def case(*, with_draft=True, selected=True, draft_text=DRAFT):
         'build_draft_context_sha256':draft.digest(request.model_dump(mode='json',by_alias=True)) if with_draft else None})
     action=record.policy.action.model_copy(update={'intent':intent,'saved_source_char_count':len(SAVED)})
     policy=record.policy.model_copy(update={'action':action})
-    first=controller('build',policy,sequence=2 if with_draft else 0)
+    first=controller('build',policy,sequence=1 if with_draft else 0)
     data=context.model_dump(mode='json',by_alias=True)
     data['work_context']['source_basis']=basis.model_dump(mode='json',by_alias=True)
     data['provenance_sha256']=t.canonical_sha256(provenance_for(type(context.work_context).model_validate(
@@ -46,9 +46,6 @@ def case(*, with_draft=True, selected=True, draft_text=DRAFT):
             expected_pointer_revision=3,snapshot=snap)
         captured=t.BuildDraftContextCapturedV1(kind='build_draft_context_captured_v1',event_id=uuid4(),sequence=0,record=stored)
         events.append(captured)
-        events.append(t.BuildDraftProviderInclusionV1(kind='build_draft_provider_inclusion_v1',event_id=uuid4(),sequence=1,
-            provider_attempt_id=first.provider_attempt_id,envelope_sha256=first.envelope_sha256,
-            draft_event_id=captured.event_id,snapshot_sha256=snap.snapshot_sha256))
     events.extend([first,*outcomes(first,len(events)+1)])
     events.append(build_resolution(policy,first,len(events),turn_id=turn_id))
     reads=[]
@@ -73,22 +70,10 @@ def case(*, with_draft=True, selected=True, draft_text=DRAFT):
     return context,root,captured,reads,identity
 
 
-def append_writer(value, *, include_sections=True, include_draft=True):
-    context,root,captured,reads,_=value
-    events=list(root.events)
-    chosen=primary.records(root)
-    writer=native_writer('build',root.policy,sequence=0)
-    if captured is not None and include_draft:
-        events.append(t.BuildDraftProviderInclusionV1(kind='build_draft_provider_inclusion_v1',event_id=uuid4(),sequence=len(events),
-            provider_attempt_id=writer.provider_attempt_id,envelope_sha256=writer.envelope_sha256,
-            draft_event_id=captured.event_id,snapshot_sha256=captured.record.snapshot.snapshot_sha256))
-    if chosen and include_sections:
-        events.append(t.BuildSectionProviderInclusionV1(kind='build_section_provider_inclusion_v1',event_id=uuid4(),sequence=len(events),
-            context_receipt_sha256=context.context_receipt_sha256,execution_policy_sha256=root.execution_policy_sha256,
-            provider_attempt_id=writer.provider_attempt_id,envelope_sha256=writer.envelope_sha256,
-            section_event_ids=sorted((r.event_id for r in chosen),key=str),sections_sha256=t.build_sections_digest(chosen)))
-    writer=writer.model_copy(update={'sequence':len(events)})
-    return execution(context.context_receipt_sha256,root.policy,[*events,writer])
+def append_writer(value):
+    context,root,_captured,_reads,_=value
+    writer=native_writer('build',root.policy,sequence=len(root.events))
+    return execution(context.context_receipt_sha256,root.policy,[*root.events,writer])
 
 
 def resequence(context,root,events):
@@ -126,23 +111,13 @@ def test_native_draft_consumer_identity_cannot_move_to_another_turn_or_attempt(f
 
 
 @pytest.mark.parametrize('mutation',['draft_text','draft_commitment','draft_fingerprint','duplicate_capture','late_capture',
-    'missing_capture','missing_first_draft_inclusion','read_without_grant','read_duplicate','read_chars','read_range',
-    'grant_capacity','read_basis','vote_origin','vote_envelope','vote_classic_sources','missing_writer_sections','missing_writer_draft',
-    'pending_read','foreign_inclusion_digest','foreign_inclusion_envelope'])
+    'missing_capture','read_without_grant','read_duplicate','read_chars','read_range',
+    'grant_capacity','read_basis','vote_origin','vote_envelope','vote_classic_sources','pending_read'])
 def test_shared_build_rejects_broken_work_causality_or_inclusion(mutation):
     value=case()
     context,root,captured,reads,identity=value
     events=list(root.events)
-    if mutation in {'missing_writer_sections','missing_writer_draft'}:
-        with pytest.raises(ValueError):
-            append_writer(value,include_sections=mutation!='missing_writer_sections',include_draft=mutation!='missing_writer_draft')
-        return
-    if mutation in {'foreign_inclusion_digest','foreign_inclusion_envelope'}:
-        written=append_writer(value)
-        events=list(written.events)
-        index=next(i for i,e in enumerate(events) if isinstance(e,t.BuildSectionProviderInclusionV1))
-        events[index]=events[index].model_copy(update={'sections_sha256':'a'*64} if mutation=='foreign_inclusion_digest' else {'envelope_sha256':'a'*64})
-    elif mutation in {'draft_text','draft_commitment','draft_fingerprint'}:
+    if mutation in {'draft_text','draft_commitment','draft_fingerprint'}:
         stored=captured.record
         if mutation=='draft_text':
             stored=stored.model_copy(update={'snapshot':stored.snapshot.model_copy(update={'draft_markdown':'Forged'})})
@@ -157,8 +132,6 @@ def test_shared_build_rejects_broken_work_causality_or_inclusion(mutation):
         events.insert(len(events),events.pop(0))
     elif mutation=='missing_capture':
         events.pop(0)
-    elif mutation=='missing_first_draft_inclusion':
-        events.pop(1)
     elif mutation=='read_without_grant':
         index=next(i for i,e in enumerate(events) if isinstance(e,t.BuildSectionReadAuthorizationV1))
         events.pop(index)
@@ -203,10 +176,6 @@ def test_actual_sdk_work_input_contains_exact_saved_sections_and_captured_draft(
     assert primary.verify_native_work_input(root,basis,raw)==sha256(raw.encode()).hexdigest()
     assert 'graph_scope' not in frame and 'native_assertions' not in frame
     if with_draft:
-        event=t.BuildDraftProviderInclusionV1(kind='build_draft_provider_inclusion_v1',event_id=uuid4(),sequence=len(root.events),
-            provider_attempt_id=uuid4(),envelope_sha256=sha256(raw.encode()).hexdigest(),draft_event_id=captured.event_id,
-            snapshot_sha256=captured.record.snapshot.snapshot_sha256)
-        draft.validate_inclusion_input(event,root,raw)
         assert frame['working_draft_context']['draft_markdown']==DRAFT
 
 
@@ -221,7 +190,7 @@ def test_actual_work_projection_reuses_body_alias_without_donating_draft_authori
 
 
 @pytest.mark.parametrize('mutation',['draft_text','draft_id','saved_text','saved_id','saved_extent','numeric_type',
-    'basis','role','extra_lane','model','duplicate_frame','hidden_tool','legacy_input','inclusion_snapshot','inclusion_envelope'])
+    'basis','role','extra_lane','model','duplicate_frame','hidden_tool','legacy_input'])
 def test_native_sdk_work_proof_rejects_substituted_frame_or_inclusion(mutation):
     from tests.test_surface_native_writer import actual_sdk_request
     context,root,captured,reads,identity=case()
@@ -248,34 +217,29 @@ def test_native_sdk_work_proof_rejects_substituted_frame_or_inclusion(mutation):
         data['input'].append(data['input'][0] if mutation=='duplicate_frame' else
             {'type':'function_call_output','call_id':'foreign','output':'forged'})
         raw=json.dumps(data)
-    event=t.BuildDraftProviderInclusionV1(kind='build_draft_provider_inclusion_v1',event_id=uuid4(),sequence=len(root.events),
-        provider_attempt_id=uuid4(),envelope_sha256=sha256(raw.encode()).hexdigest(),draft_event_id=captured.event_id,
-        snapshot_sha256=captured.record.snapshot.snapshot_sha256)
-    if mutation=='inclusion_snapshot':
-        event=event.model_copy(update={'snapshot_sha256':'a'*64})
-    elif mutation=='inclusion_envelope':
-        event=event.model_copy(update={'envelope_sha256':'a'*64})
     with pytest.raises(ValueError):
-        draft.validate_inclusion_input(event,root,raw)
+        primary.verify_native_work_input(root,basis,raw)
 
 
-@pytest.mark.parametrize('mutation',[None,'writer_model','input_carrier','missing_state'])
-def test_native_draft_controller_uses_only_its_typed_state_carrier(mutation):
-    context,root,captured,reads,identity=case()
-    body={'model':root.policy.provider_roles.controller.model,
-        'state':{'working_draft_context':draft.writer_reference(captured.record)}}
-    if mutation=='writer_model':
-        body['model']=root.policy.provider_roles.writer.model
-    elif mutation=='input_carrier':
-        body['input']=json.dumps(body['state'])
-    elif mutation=='missing_state':
-        body.pop('state')
-    raw=json.dumps(body)
-    event=t.BuildDraftProviderInclusionV1(kind='build_draft_provider_inclusion_v1',event_id=uuid4(),sequence=len(root.events),
-        provider_attempt_id=uuid4(),envelope_sha256=sha256(raw.encode()).hexdigest(),draft_event_id=captured.event_id,
-        snapshot_sha256=captured.record.snapshot.snapshot_sha256)
-    if mutation is None:
-        draft.validate_inclusion_input(event,root,raw)
+@pytest.mark.parametrize('kind',['build_draft_provider_inclusion_v1','build_section_provider_inclusion_v1','build_related_page_inclusion_v1'])
+def test_native_codec_rejects_retired_inclusion_event_families(kind):
+    from pydantic import ValidationError
+    from application_state.agent_conversation.build_related_pages import RelatedPageInclusion
+    context,root,captured,reads,_=case()
+    common=dict(event_id=uuid4(),sequence=len(root.events),provider_attempt_id=uuid4(),envelope_sha256='a'*64)
+    if kind=='build_draft_provider_inclusion_v1':
+        retired=t.BuildDraftProviderInclusionV1(kind=kind,**common,draft_event_id=captured.event_id,
+            snapshot_sha256=captured.record.snapshot.snapshot_sha256)
+    elif kind=='build_section_provider_inclusion_v1':
+        retired=t.BuildSectionProviderInclusionV1(kind=kind,**common,
+            context_receipt_sha256=context.context_receipt_sha256,execution_policy_sha256=root.execution_policy_sha256,
+            section_event_ids=sorted((read.event_id for read in reads),key=str),sections_sha256=t.build_sections_digest(reads))
     else:
-        with pytest.raises(ValueError,match='typed controller state'):
-            draft.validate_inclusion_input(event,root,raw)
+        retired=RelatedPageInclusion(**common,read_ids=[])
+    # Each event is valid in its retained owner codec; only the native union rejects it.
+    assert type(retired).model_validate_json(retired.model_dump_json(by_alias=True))==retired
+    with pytest.raises(ValidationError) as rejected:
+        type(root).model_validate_json(json.dumps(root.model_dump(mode='json',by_alias=True)|{
+            'events':[*(e.model_dump(mode='json',by_alias=True) for e in root.events),
+                retired.model_dump(mode='json',by_alias=True)]}))
+    assert any(error['type']=='union_tag_invalid' for error in rejected.value.errors())

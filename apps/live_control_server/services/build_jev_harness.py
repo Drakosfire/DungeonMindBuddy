@@ -21,6 +21,7 @@ from generationengine.providers.typesafe_decision import TypeSafeDecisionProvide
 from generationengine.providers.openai_text import OpenAITextProvider
 from generationengine.text_dispatch import TextDispatchGate
 from application_state.agent_conversation import types as ledger
+from application_state.agent_conversation.native_execution import SurfaceNativeExecutionPolicyV1
 from application_state.agent_conversation.build_authoring import completion_for_proposal
 from application_state.build_proposal.types import BuildProposalOrigin
 from apps.live_control_server.models.build_document_proposal import (
@@ -30,7 +31,7 @@ from .agent_runtime import AgentRuntimeDescriptor
 from . import build_document_proposal as proposal_owner
 from . import build_jev_dispatch as decision_policy
 from . import build_jev_writer as writer_policy
-from .build_jev_driver import AcquisitionBinding, canonical, digest, sdk_answers
+from .build_jev_driver import AcquisitionBinding, canonical, digest, sdk_answers, capture_draft_context
 from .build_jev_transitions import (
     AcquisitionIntent, DecisionIntent, Disposition, FrontierDisposition, FRONTIER_POLICY,
 )
@@ -204,7 +205,7 @@ class BuildJevHarness:
         self.calls, self.timings, self._inflight = [], [], {}
         self.adapter = adapter
         adapter._build_jev_accounting = self.accounting
-        if self.rules_capability is not None:
+        if self.rules_capability is not None and adapter.native_source_authority is None:
             adapter.enable_rules_lookup(self.rules_capability)
         self.failure_stage = "controller_prepare"
         primary_error = False
@@ -224,9 +225,11 @@ class BuildJevHarness:
             acquire_authored_references(adapter)
             from .build_related_pages import acquire_selected_pages
             acquire_selected_pages(adapter)
-            self._capture_draft_context(adapter)
+            capture_draft_context(adapter)
             if adapter.rules_runtime is not None:
                 adapter.rules_runtime.lookup_selected()
+            if adapter.native_source_authority is not None:
+                return self._native_completion(adapter,driver)
             if driver.operation == "prepare_build_image":
                 from .build_image_writer import prepare_image
                 self.failure_stage = "image_prepare"
@@ -428,32 +431,31 @@ class BuildJevHarness:
             phase,
         )
 
-    def _capture_draft_context(self, adapter):
-        if adapter.request.build_draft_context is None:
-            return
-        from application_state.agent_conversation.build_draft_context import context_record, validate_record
-        existing = [e for e in adapter._broker_execution().events if isinstance(e, ledger.BuildDraftContextCapturedV1)]
-        if existing:
-            record = context_record(adapter._broker_execution()).record
-            validate_record(record, adapter.turn)
-            if (record.snapshot != adapter.request.build_draft_context.snapshot
-                or record.expected_pointer_revision != adapter.request.build_draft_context.expected_pointer_revision):
-                raise ValueError("Retained working draft differs from this admitted request")
-            adapter.build_draft_record = record
-            return
-        from uuid import uuid4
-        from application_state.agent_conversation.build_draft_context import BuildDraftContextRecordV1
-        from .agent_turn_service import _require_fresh_execution_append
-        record = BuildDraftContextRecordV1(record_id=uuid4(), turn_id=adapter.turn.turn_id,
-            conversation_id=adapter.turn.conversation_id, attempt=adapter.turn.attempt,
-            submitted_intent_fingerprint=adapter.turn.submitted_intent_fingerprint_v2,
-            expected_pointer_revision=adapter.request.build_draft_context.expected_pointer_revision,
-            snapshot=adapter.request.build_draft_context.snapshot)
-        event = ledger.BuildDraftContextCapturedV1(event_id=uuid4(),
-            sequence=len(adapter._broker_execution().events), kind="build_draft_context_captured_v1", record=record)
-        adapter.turn = _require_fresh_execution_append(adapter.fence.append(
-            "record_build_draft_context", "event", event))
-        adapter.build_draft_record = record
+    def _native_completion(self, adapter, work_driver):
+        """Continue real Build work through the shared native read and writer owners."""
+        from application_state.agent_conversation.rules_authority_reads import MixedCompletedTurnV1
+        from .plan_jev_rules_runtime import PlanRulesRuntime
+        from .plan_jev_driver import PlanJevDriver
+        from .plan_jev_writer import PlanJevWriter
+        rules = PlanRulesRuntime(adapter,self.rules_capability)
+        retrieval = PlanJevDriver(adapter,dialogue=(),rules=rules)
+        writer = None
+        try:
+            proof = asyncio.run(retrieval.run(transport=self.decision_transport))
+            from .build_jev_writer_selection import WriterSelectionDriver
+            selector = WriterSelectionDriver(adapter,work_driver,{'status':'ready','reason':'native_retrieval_finished'})
+            if selector.catalog:
+                asyncio.run(self._decide(adapter,selector))
+            else:
+                selector.settle_empty()
+            writer = PlanJevWriter(adapter,proof,rules)
+            completed = asyncio.run(writer.run(transport=self.writer_transport))
+            adapter.turn = completed.envelope if isinstance(completed,MixedCompletedTurnV1) else completed
+            return completed
+        finally:
+            self.calls += retrieval.calls + ([writer.call] if writer is not None and writer.call is not None else [])
+            if adapter.fence is not None:
+                adapter.stop()
 
     async def _decide(self, adapter, driver):
         self.failure_stage = "controller_prepare"
@@ -465,7 +467,7 @@ class BuildJevHarness:
             accepted = driver.authorize(prepared)
             if accepted:
                 # Retain author input after the claim, before a controller failure can lose it.
-                self._capture_draft_context(adapter)
+                capture_draft_context(adapter)
             if not accepted:
                 admission_failure = (getattr(driver, "admission_failure", None)
                     or getattr(adapter, "decision_admission_failure", None))
@@ -516,7 +518,7 @@ class BuildJevHarness:
             self._observe(result, started, "controller")
             # Retain actual received bytes before a host gate can reject them.
             # This protected, unvalidated Debug channel grants no answer authority.
-            if isinstance(adapter._broker_execution().policy, ledger.BuildSelectedSourceActionControllerWriterPolicyV1):
+            if isinstance(adapter._broker_execution().policy, (ledger.BuildSelectedSourceActionControllerWriterPolicyV1, SurfaceNativeExecutionPolicyV1)):
                 adapter.context_capture.controller_decision_response(
                     canonical(result.model_dump(mode="json")),
                     producing_provider_attempt_id=adapter.last_provider_attempt_id,

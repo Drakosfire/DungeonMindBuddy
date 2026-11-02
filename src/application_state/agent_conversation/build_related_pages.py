@@ -173,10 +173,11 @@ def validate_events(execution):
             raise ValueError(
                 "Related page inclusion differs from complete acquired reads"
             )
+    from .build_draft_context import native_build_action
     for auth in [
         e
         for e in execution.events
-        if isinstance(e, ProviderAttemptAuthorizedEventV3)
+        if native_build_action(execution) is None and isinstance(e, ProviderAttemptAuthorizedEventV3)
         and (e.provider, e.model, e.api_mode)
         == execution.policy.provider_roles.writer.identity()
     ]:
@@ -300,7 +301,9 @@ def validate_selection_records(execution, event, proof, trace, *, world_id, curr
         )
     request = strict_json(proof["request_json"])
     response = DecisionResult.model_validate(strict_json(proof["response_json"]))
-    state = request["state"]
+    from .build_draft_context import native_build_action
+    state = (request['state']['decision']['state'] if native_build_action(execution) is not None
+        else request['state'])
     if (
         sha256(proof["request_json"].encode()).hexdigest()
         != event.controller_envelope_sha256

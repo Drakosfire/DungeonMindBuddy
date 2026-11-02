@@ -1292,7 +1292,7 @@ def _shared_plan_authoring_case(
     kwargs["plan_graph_resolver"] = lambda *_args: pytest.fail(
         "No classic Graph path for current Plan"
     )
-    kwargs["native_plan_query_resolver"] = lambda *_args: (
+    kwargs["native_graph_query_resolver"] = lambda *_args: (
         None,
         NativePlanQueryUnavailableV1(
             managed_world_id=plan_adapter.world_id,
