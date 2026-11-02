@@ -173,6 +173,20 @@ def test_fresh_build_default_factory_answers_human_reference_and_reopens_exact_s
     opened = client.get(f'/api/live/agent/worlds/{world}/conversation/turns/{turn.turn_id}/native-assertion-sources/0')
     assert opened.status_code == 200, opened.text
     assert opened.json()['content'] and opened.json()['citation'] == citations[0]
+    for correlated in (False, True):
+        history = client.get(f'/api/live/agent/worlds/{world}/conversation',
+            params={'include_turn_correlation': str(correlated).lower()})
+        assert history.status_code == 200, history.text
+        row = history.json()['turns'][0]
+        assert 'plan_context' not in row
+        assert ('idempotency_key' in row) is correlated
+        assert row['knowledge_context']['receipt'] == context['receipt']
+        assert row['knowledge_context']['completion'] == context['completion']
+    import os
+    if not with_draft and (destination := os.environ.get('DMB_NATIVE_BUILD_WIRE')):
+        from pathlib import Path
+        Path(destination).write_text(json.dumps(dict(request=body, response=payload,
+            history=history.json(), source=opened.json()), indent=2) + '\n')
     before = (len(decisions.calls), len(writer.calls))
     replay = client.post('/api/live/agent/turn', json=body)
     assert replay.status_code == 200, replay.text

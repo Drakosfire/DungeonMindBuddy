@@ -869,7 +869,7 @@ export interface WorldBuildAgentTurnRequestV1 {
 /** Wire shape returned by the accepted generic turn route; runtime-validated by its caller. */
 export interface WorldPlanAgentTurnResponseV1 {
   plan_proposal?: import("./planAuthoringReviewApi").PlanAuthoredProposal | null;
-  knowledge_context?: WorldBuildKnowledgeContextV1;
+  knowledge_context?: WorldBuildKnowledgeContext;
   schema: "dmb_agent_turn_response_v1";
   client_thread_id: string;
   turn_id: string;
@@ -1212,6 +1212,10 @@ export interface AgentSurfaceNativeContextResponseV1 {
 export type PlanSurfaceNativeContextResponseV1 = AgentSurfaceNativeContextResponseV1 & {
   receipt:SurfaceNativeContextReceiptV1 & {work_context:Extract<SurfaceNativeWorkContextV1,{surface_id:'plan'}>};
 };
+export type BuildSurfaceNativeContextResponseV1 = AgentSurfaceNativeContextResponseV1 & {
+  receipt:SurfaceNativeContextReceiptV1 & {work_context:Extract<SurfaceNativeWorkContextV1,{surface_id:'build'}>};
+};
+export type WorldBuildKnowledgeContext = WorldBuildKnowledgeContextV1 | BuildSurfaceNativeContextResponseV1;
 export type WorldPlanAgentPlanContextV2 = LegacyWorldPlanAgentPlanContextV2 | AgentPlanSourceContextResponseV1 | AgentPlanNativeContextResponseV1 | PlanSurfaceNativeContextResponseV1;
 
 export interface WorldBuildGraphReceiptV1 extends Omit<WorldPlanGraphContextReceiptV1, "schema" | "plan_context_policy" | "plan_basis" | "playable_target"> {
@@ -1572,7 +1576,7 @@ export interface WorldAgentConversationHistoryTurnV1 {
   native_statement_context?: NativeStatementAnswerContextV1;
   plan_proposal?: import("./planAuthoringReviewApi").PlanAuthoredProposal | null;
   retry_context?: import("./conversationRetryApi").TurnRetryContext | null;
-  knowledge_context?: WorldBuildKnowledgeContextV1;
+  knowledge_context?: WorldBuildKnowledgeContext;
   turn_id: string;
   sequence: number;
   lifecycle_status: AgentConversationTurnLifecycleV1;

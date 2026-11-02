@@ -82,3 +82,18 @@ export function isSurfaceNativeCompletion(v:unknown,r:SurfaceNativeContextReceip
   const status=graphs.size?'graph_grounded':buildAuthored?'authored_grounded':sources.size||saved.size?'source_grounded':authored?'authored_grounded':proposal?'creative_proposal':discussion&&!partial||!v.answer_segments.length?'discussion':'insufficient_evidence';
   return v.answer_context_status===status+(partial&&!['creative_proposal','insufficient_evidence','discussion'].includes(status)?'_partial':'');
 }
+
+/** The shared response envelope is independent of the surface-owned work shape. */
+export function isSurfaceNativeContext(
+  v:unknown, validateWork:(work:unknown)=>work is SurfaceNativeWorkContextV1,
+  validateExecution:(execution:unknown)=>boolean, history=false,
+):v is import('../api/types').AgentSurfaceNativeContextResponseV1 {
+  if(!exact(v,['schema','receipt','completion','execution','delivery_replay'])
+    ||v.schema!=='dmb_agent_surface_native_context_response_v1'
+    ||!isSurfaceNativeReceipt(v.receipt,validateWork)
+    ||v.execution!==null&&!validateExecution(v.execution)||typeof v.delivery_replay!=='boolean'
+    ||v.completion!==null&&!isSurfaceNativeCompletion(v.completion,v.receipt))return false;
+  const execution=v.execution as import('../api/types').WorldPlanGraphExecutionProjectionV1|null;
+  return v.completion===null?history&&(execution===null||execution.claimability!=='completed')
+    :execution!==null&&execution.claimability==='completed'&&execution.authorization_state==='response_received';
+}

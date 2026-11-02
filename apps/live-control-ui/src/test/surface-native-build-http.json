@@ -1,0 +1,928 @@
+{
+  "request": {
+    "schema": "dmb_agent_turn_request_v1",
+    "client_thread_id": "0ada574f-a549-4de4-9b8a-d26dddeffe6b",
+    "turn_id": "0b96857f-adf9-47c5-9592-bede26b2cfae",
+    "surface": {
+      "surface_id": "build",
+      "instance_id": "3a5728a8-6b98-4e6e-85cc-1d726bfd5e7f"
+    },
+    "owner_scope": {
+      "kind": "world",
+      "world_id": "statement-fixture-cedd7597732f46bd90189d37cf100305"
+    },
+    "primary_work": {
+      "kind": "build",
+      "object_id": "3a5728a8-6b98-4e6e-85cc-1d726bfd5e7f",
+      "expected_revision": 2,
+      "expected_content_sha256": "ed337f86fe39e9b1d64d0b15ca61fd97889b59a672895ce28ffe093aab42912b"
+    },
+    "client_work_state": "saved_clean",
+    "graph_request": {
+      "mode": "world",
+      "world_id": "statement-fixture-cedd7597732f46bd90189d37cf100305",
+      "campaign_id": null,
+      "revision_pin": null,
+      "focus": {
+        "kind": "none",
+        "session_id": null,
+        "campaign_id": null
+      }
+    },
+    "graph_selection": null,
+    "build_authored_references": {
+      "schema": "dmb_authored_graph_references_v1",
+      "references": [
+        {
+          "schema": "dmb_authored_graph_reference_v1",
+          "managed_world_id": "statement-fixture-cedd7597732f46bd90189d37cf100305",
+          "native_world_id": "statement-fixture-cedd7597732f46bd90189d37cf100305",
+          "binding_version": 1,
+          "graph_revision": "rev:96517d9e1c7b003a42cad4d1288a5941",
+          "node_id": "ent:cb8d249f723105dcfb21dc44f329c903",
+          "label": "DISPLAY ONLY: never evidence"
+        }
+      ]
+    },
+    "message": "Describe the object I selected."
+  },
+  "response": {
+    "schema": "dmb_agent_turn_response_v1",
+    "client_thread_id": "0ada574f-a549-4de4-9b8a-d26dddeffe6b",
+    "turn_id": "0b96857f-adf9-47c5-9592-bede26b2cfae",
+    "surface": {
+      "surface_id": "build",
+      "instance_id": "3a5728a8-6b98-4e6e-85cc-1d726bfd5e7f",
+      "status": "resolved"
+    },
+    "owner_scope": {
+      "status": "resolved",
+      "kind": "world",
+      "owner_id": "statement-fixture-cedd7597732f46bd90189d37cf100305",
+      "name": "Statement fixture cedd7597732f46bd90189d37cf100305"
+    },
+    "primary_work": {
+      "status": "resolved",
+      "kind": "build",
+      "object_id": "3a5728a8-6b98-4e6e-85cc-1d726bfd5e7f",
+      "revision_used": 2,
+      "expected_revision": 2,
+      "content_basis": null
+    },
+    "client_work_state_reported": "saved_clean",
+    "graph": {
+      "status": "replayed",
+      "world_id": "statement-fixture-cedd7597732f46bd90189d37cf100305",
+      "campaign_id": null,
+      "scope_mode": "world",
+      "revision_id": "rev:8ba52f1c12a9626764298347fa2e9ff4",
+      "focus": {
+        "kind": "none",
+        "session_id": null,
+        "campaign_id": null
+      },
+      "selection_node_id": null,
+      "selection_found": null,
+      "head_revision_id": null,
+      "is_head": null
+    },
+    "conversation": {
+      "client_thread_id": "0ada574f-a549-4de4-9b8a-d26dddeffe6b",
+      "turn_id": "0b96857f-adf9-47c5-9592-bede26b2cfae",
+      "pointer_status": "reused",
+      "pointer_id": null,
+      "conversation_id": "b71a7f7b-7113-4d11-aeac-b1d7f8feac94"
+    },
+    "answer": {
+      "status": "ok",
+      "text": "Graph records (belief / speculative / provisional; fact / asserted / established): The Graph retains the qualified description.",
+      "code": null,
+      "message": null,
+      "graph_grounded": true,
+      "trace": {
+        "schema": "dmb_agent_turn_trace_v1",
+        "trace_id": "agent-trace-1c26579753d8",
+        "agent_thread_id": "0ada574f-a549-4de4-9b8a-d26dddeffe6b",
+        "turn_id": "0b96857f-adf9-47c5-9592-bede26b2cfae",
+        "runtime": "jev-one-writer",
+        "backend": "generationengine",
+        "mode": "graph",
+        "status": "ok",
+        "started_at": "2026-11-02T14:23:35Z",
+        "completed_at": "2026-11-02T14:23:36Z",
+        "elapsed_ms": 1104,
+        "usage": {
+          "available": true,
+          "status": "reported",
+          "input_tokens": 174,
+          "output_tokens": 58,
+          "total_tokens": 232,
+          "cached_input_tokens": null,
+          "cache_write_input_tokens": null,
+          "uncached_input_tokens": null,
+          "reasoning_tokens": null,
+          "model_call_count": 3,
+          "usage_reported_call_count": 3
+        },
+        "cost": {
+          "status": "unavailable",
+          "usd": null,
+          "priced_call_count": 0,
+          "unpriced_call_count": 3
+        },
+        "model_calls": [
+          {
+            "provider": "typesafe",
+            "requested_model": "jev-1.14.0",
+            "response_model": "jev-1.14.0",
+            "status": "ok",
+            "duration_ms": 265.94121100060875,
+            "api_duration": 0.26594121100060875,
+            "usage": {
+              "provider": "typesafe",
+              "requested_profile": null,
+              "requested_model": "jev-1.14.0",
+              "resolved_model": "jev-1.14.0",
+              "response_model": "jev-1.14.0",
+              "provider_transport": "vercel_ai_gateway",
+              "provider_request_id": null,
+              "provider_response_id": null,
+              "input_tokens": 37,
+              "cached_input_tokens": null,
+              "output_tokens": 9,
+              "reasoning_tokens": null,
+              "cost_usd": null,
+              "latency_ms": 265,
+              "retry_count": 0,
+              "transport_retry_count": 0,
+              "conformance_retry_count": 0,
+              "provider_attempt_count": 1,
+              "state": "completed",
+              "failure_code": null,
+              "pricing_source": null,
+              "status": "reported",
+              "total_tokens": 46
+            },
+            "inference_observation": {
+              "provider": "typesafe",
+              "requested_profile": null,
+              "requested_model": "jev-1.14.0",
+              "resolved_model": "jev-1.14.0",
+              "response_model": "jev-1.14.0",
+              "provider_transport": "vercel_ai_gateway",
+              "provider_request_id": null,
+              "provider_response_id": null,
+              "input_tokens": 37,
+              "cached_input_tokens": null,
+              "output_tokens": 9,
+              "reasoning_tokens": null,
+              "cost_usd": null,
+              "latency_ms": 265,
+              "retry_count": 0,
+              "transport_retry_count": 0,
+              "conformance_retry_count": 0,
+              "provider_attempt_count": 1,
+              "state": "completed",
+              "failure_code": null,
+              "pricing_source": null
+            },
+            "runtime_api_request_id": "generationengine:5a5d4338-94db-4c3e-a7fc-c571c31a74fe"
+          },
+          {
+            "provider": "typesafe",
+            "requested_model": "jev-1.14.0",
+            "runtime_api_request_id": "generationengine:d6362b6a-407d-4f4c-9aff-9feeb0bf70f4",
+            "status": "ok",
+            "usage": {
+              "status": "reported",
+              "input_tokens": 37,
+              "output_tokens": 9,
+              "total_tokens": 46
+            },
+            "response_model": "jev-1.14.0",
+            "duration_ms": 175.30256600002758
+          },
+          {
+            "provider": "openai",
+            "requested_model": "gpt-6.1-sol",
+            "runtime_api_request_id": "generationengine:a431e95d-15e9-488b-9e3e-65f4b310706c",
+            "status": "ok",
+            "usage": {
+              "status": "reported",
+              "input_tokens": 100,
+              "output_tokens": 40,
+              "total_tokens": 140
+            },
+            "response_model": "gpt-6.1-sol",
+            "request_summary": {
+              "reasoning_effort": "none"
+            },
+            "response_service_tier": null,
+            "duration_ms": 209.4219620048534
+          }
+        ],
+        "spans": [
+          {
+            "span_id": "span-f1f376a05d9e",
+            "parent_span_id": null,
+            "kind": "phase",
+            "name": "route_auth",
+            "status": "ok",
+            "started_at": "2026-11-02T14:23:35Z",
+            "completed_at": "2026-11-02T14:23:35Z",
+            "duration_ms": 0,
+            "attributes": {}
+          },
+          {
+            "span_id": "span-131027a55fdd",
+            "parent_span_id": null,
+            "kind": "phase",
+            "name": "turn_owner_resolution",
+            "status": "ok",
+            "started_at": "2026-11-02T14:23:35Z",
+            "completed_at": "2026-11-02T14:23:35Z",
+            "duration_ms": 9,
+            "attributes": {}
+          },
+          {
+            "span_id": "span-3ebc283cf454",
+            "parent_span_id": null,
+            "kind": "phase",
+            "name": "durable_turn_reconciliation",
+            "status": "ok",
+            "started_at": "2026-11-02T14:23:35Z",
+            "completed_at": "2026-11-02T14:23:35Z",
+            "duration_ms": 14,
+            "attributes": {}
+          },
+          {
+            "span_id": "span-90e168e0ed1b",
+            "parent_span_id": null,
+            "kind": "phase",
+            "name": "committed_plan_resolution",
+            "status": "ok",
+            "started_at": "2026-11-02T14:23:35Z",
+            "completed_at": "2026-11-02T14:23:35Z",
+            "duration_ms": 9,
+            "attributes": {}
+          },
+          {
+            "span_id": "span-4502056b14c5",
+            "parent_span_id": null,
+            "kind": "phase",
+            "name": "plan_native_source_authority",
+            "status": "ok",
+            "started_at": "2026-11-02T14:23:35Z",
+            "completed_at": "2026-11-02T14:23:35Z",
+            "duration_ms": 0,
+            "attributes": {}
+          },
+          {
+            "span_id": "span-0522c9d84fba",
+            "parent_span_id": null,
+            "kind": "phase",
+            "name": "plan_native_statement_query",
+            "status": "ok",
+            "started_at": "2026-11-02T14:23:35Z",
+            "completed_at": "2026-11-02T14:23:35Z",
+            "duration_ms": 2,
+            "attributes": {}
+          },
+          {
+            "span_id": "span-20687a6b5462",
+            "parent_span_id": null,
+            "kind": "phase",
+            "name": "context_assembly",
+            "status": "ok",
+            "started_at": "2026-11-02T14:23:35Z",
+            "completed_at": "2026-11-02T14:23:35Z",
+            "duration_ms": 0,
+            "attributes": {}
+          },
+          {
+            "span_id": "span-b1f55e580bc0",
+            "parent_span_id": null,
+            "kind": "phase",
+            "name": "runtime_creation",
+            "status": "ok",
+            "started_at": "2026-11-02T14:23:35Z",
+            "completed_at": "2026-11-02T14:23:35Z",
+            "duration_ms": 22,
+            "attributes": {}
+          },
+          {
+            "span_id": "span-d87e23159975",
+            "parent_span_id": null,
+            "kind": "phase",
+            "name": "durable_turn_accept",
+            "status": "ok",
+            "started_at": "2026-11-02T14:23:35Z",
+            "completed_at": "2026-11-02T14:23:35Z",
+            "duration_ms": 65,
+            "attributes": {}
+          },
+          {
+            "span_id": "span-1728bbb12080",
+            "parent_span_id": null,
+            "kind": "phase",
+            "name": "durable_turn_claim",
+            "status": "ok",
+            "started_at": "2026-11-02T14:23:35Z",
+            "completed_at": "2026-11-02T14:23:35Z",
+            "duration_ms": 29,
+            "attributes": {}
+          },
+          {
+            "span_id": "span-2530529ddc93",
+            "parent_span_id": null,
+            "kind": "phase",
+            "name": "runtime_to_admission",
+            "status": "ok",
+            "started_at": "2026-11-02T14:23:35Z",
+            "completed_at": "2026-11-02T14:23:35Z",
+            "duration_ms": 122,
+            "attributes": {}
+          },
+          {
+            "span_id": "span-8fa0c65654a0",
+            "parent_span_id": null,
+            "kind": "phase",
+            "name": "runtime_dispatch",
+            "status": "ok",
+            "started_at": "2026-11-02T14:23:35Z",
+            "completed_at": "2026-11-02T14:23:36Z",
+            "duration_ms": 1026,
+            "attributes": {}
+          }
+        ],
+        "steps": [],
+        "context_summary": {
+          "context_schema": "dmb_agent_context_summary_v1",
+          "world_id": null,
+          "campaign_id": null,
+          "revision_id": null,
+          "focus_kind": "none",
+          "admissibility": null,
+          "history_message_count": 0,
+          "history_char_count": 0,
+          "retrieval_session_id": null,
+          "retrieval_candidate_count": 0,
+          "retrieval_claim_count": 0,
+          "runtime_continuity_present": false
+        },
+        "artifact_refs": [],
+        "warnings": [],
+        "conversation_context": "structured"
+      }
+    },
+    "knowledge_context": {
+      "schema": "dmb_agent_surface_native_context_response_v1",
+      "receipt": {
+        "schema": "dmb_surface_native_context_receipt_v1",
+        "receipt_serializer_version": "canonical-json-utf8-v1",
+        "context_receipt_sha256": "9f6feab1facf1a82fb73ec6f40b98d491aa9e9f0e7c797275fb24f6d949ff0d4",
+        "provenance_sha256": "78b1f2687217dd0166630628267ba3af0a1326b9a5cb50933f5ecd30c82651b2",
+        "work_context": {
+          "surface_id": "build",
+          "source_basis": {
+            "world_id": "statement-fixture-cedd7597732f46bd90189d37cf100305",
+            "document_id": "3a5728a8-6b98-4e6e-85cc-1d726bfd5e7f",
+            "registry_revision": 2,
+            "content_sha256": "ed337f86fe39e9b1d64d0b15ca61fd97889b59a672895ce28ffe093aab42912b",
+            "visibility": "internal"
+          }
+        },
+        "source_authority": {
+          "schema_version": "dmb_native_corpus_authority_v1",
+          "managed_world_id": "statement-fixture-cedd7597732f46bd90189d37cf100305",
+          "native_world_id": "statement-fixture-cedd7597732f46bd90189d37cf100305",
+          "binding_version": 1,
+          "provisioning_id": null,
+          "revision_id": "rev:8ba52f1c12a9626764298347fa2e9ff4",
+          "domain_ref": {
+            "authority_id": "dungeonbuddy.world",
+            "revision": "2",
+            "descriptor_sha256": "d12f3a517a37d29a2ba52455d9ae1691bc5e4ff3fd6853b701a9e28e46ec65cd"
+          },
+          "profile_ref": {
+            "authority_id": "dungeonbuddy.dnd5e",
+            "revision": "2",
+            "descriptor_sha256": "d40a352d1c6cbd24df68be887be6dc65a470e4cea8fb64970ef9ad89b96a3339"
+          },
+          "acquisition_epoch": 2,
+          "scope": "gm_world_cross_campaign_source_inspection",
+          "role": "gm"
+        },
+        "native_query": {
+          "schema": "dmb_native_graph_query_v3",
+          "authority": {
+            "schema": "dmb_native_plan_query_authority_v1",
+            "managed_world_id": "statement-fixture-cedd7597732f46bd90189d37cf100305",
+            "native_world_id": "statement-fixture-cedd7597732f46bd90189d37cf100305",
+            "binding_version": 1,
+            "revision_id": "rev:8ba52f1c12a9626764298347fa2e9ff4",
+            "domain_ref": {
+              "authority_id": "dungeonbuddy.world",
+              "revision": "2",
+              "descriptor_sha256": "d12f3a517a37d29a2ba52455d9ae1691bc5e4ff3fd6853b701a9e28e46ec65cd"
+            },
+            "profile_ref": {
+              "authority_id": "dungeonbuddy.dnd5e",
+              "revision": "2",
+              "descriptor_sha256": "d40a352d1c6cbd24df68be887be6dc65a470e4cea8fb64970ef9ad89b96a3339"
+            },
+            "acquisition_epoch": 2,
+            "role": "gm",
+            "scope_mode": "world",
+            "campaign_id": null,
+            "session_id": null
+          },
+          "question": "Describe the object I selected.",
+          "search_result_sha256": "bf3a7c283d79052385d4e9a8c8de21dbb0b62fc5166a3dbac26496d8085cfcb8",
+          "discovered_entity_ids": [],
+          "matches": [],
+          "status": "complete",
+          "gap_codes": [],
+          "universal_absence_claimed": false,
+          "assertion_matches": [],
+          "authored_targets": [
+            {
+              "node_id": "ent:cb8d249f723105dcfb21dc44f329c903",
+              "selection_revision_id": "rev:96517d9e1c7b003a42cad4d1288a5941",
+              "matches": [],
+              "assertion_matches": [
+                {
+                  "assertion_id": "asrt:2895340761deb247247e5a35f35c8332",
+                  "subject_entity_id": "ent:cb8d249f723105dcfb21dc44f329c903",
+                  "discovered_entity_ids": [
+                    "ent:cb8d249f723105dcfb21dc44f329c903"
+                  ],
+                  "assertion_sha256": "50e7f417d7f65031af5d5d64994508f83893e74138cdbb9d65e68d5295458cae",
+                  "label": "B \u00b7 dnd5e:name"
+                },
+                {
+                  "assertion_id": "asrt:82d169613d61de4c9925ff571ca4b0fa",
+                  "subject_entity_id": "ent:cb8d249f723105dcfb21dc44f329c903",
+                  "discovered_entity_ids": [
+                    "ent:cb8d249f723105dcfb21dc44f329c903"
+                  ],
+                  "assertion_sha256": "07decc7e01215f1750ee935f44fe7733b9cdf3c04099bb541324a6e2c44fa97a",
+                  "label": "B \u00b7 dnd5e:summary"
+                }
+              ],
+              "status": "complete",
+              "gap_codes": []
+            }
+          ]
+        },
+        "assembled_input": {
+          "assembler_version": "surface_native_initial_v1",
+          "provider_model_name": "jev-1.14.0",
+          "provider_model_version": "jev-1.14.0",
+          "tokenizer_name": "o200k_double_plus_4096_adaptive_context_v3",
+          "tokenizer_version": "synthetic-test",
+          "provider_envelope_input_tokens": 9312,
+          "output_token_reserve": 0,
+          "context_window_limit": 64000,
+          "included_history": [],
+          "assembled_input_sha256": "8fe9c8049afae6274b6445402fd986e458466d67bc89f7908ad6375d0199ac04"
+        }
+      },
+      "completion": {
+        "schema": "dmb_surface_native_completion_v1",
+        "surface_id": "build",
+        "context_receipt_sha256": "9f6feab1facf1a82fb73ec6f40b98d491aa9e9f0e7c797275fb24f6d949ff0d4",
+        "producing_provider_attempt_id": "a431e95d-15e9-488b-9e3e-65f4b310706c",
+        "answer_basis": "mixed_evidence",
+        "answer_context_status": "graph_grounded",
+        "answer_segments": [
+          {
+            "kind": "native_assertion_claim",
+            "text": "Graph records (belief / speculative / provisional; fact / asserted / established): The Graph retains the qualified description.",
+            "assertion_ids": [
+              "asrt:2895340761deb247247e5a35f35c8332",
+              "asrt:82d169613d61de4c9925ff571ca4b0fa"
+            ],
+            "qualifications": [
+              {
+                "scope": [
+                  {
+                    "axis": "dungeonbuddy.scope:campaign",
+                    "value": "c1"
+                  }
+                ],
+                "visibility": {
+                  "kind": "labels_any",
+                  "labels": [
+                    "dungeonbuddy.visibility:gm"
+                  ]
+                },
+                "epistemic_basis": "asserted",
+                "claim_mode": "dungeonbuddy.claim:fact",
+                "standing": "established",
+                "evidence_ref_ids": [
+                  "ev:05eb4ebf57c7f5d5f2a26289cf583dd69f2f4501b51bbdfb9b63e5480334988d"
+                ],
+                "temporal_scope": {
+                  "kind": "unknown"
+                },
+                "domain_metadata": []
+              },
+              {
+                "scope": [
+                  {
+                    "axis": "dungeonbuddy.scope:campaign",
+                    "value": "c1"
+                  }
+                ],
+                "visibility": {
+                  "kind": "labels_any",
+                  "labels": [
+                    "dungeonbuddy.visibility:gm"
+                  ]
+                },
+                "epistemic_basis": "speculative",
+                "claim_mode": "dungeonbuddy.claim:belief",
+                "standing": "provisional",
+                "evidence_ref_ids": [
+                  "ev:05eb4ebf57c7f5d5f2a26289cf583dd69f2f4501b51bbdfb9b63e5480334988d"
+                ],
+                "temporal_scope": {
+                  "kind": "unknown"
+                },
+                "domain_metadata": []
+              }
+            ]
+          }
+        ],
+        "collaboration": null,
+        "saved_source_citations": [],
+        "native_body_citations": [],
+        "native_clause_citations": [],
+        "native_assertion_citations": [
+          {
+            "evidence_ref_id": "ev:05eb4ebf57c7f5d5f2a26289cf583dd69f2f4501b51bbdfb9b63e5480334988d",
+            "source_artifact_id": "src:78ba2e67299a04ab2413c8269bf471b69518079b0d422af06297ec81a3ce5431",
+            "source_revision_id": "srev:bd788a437e2ab2ce795685ade9b6010490ae01d7b1df1bb648c750c749be1277",
+            "body_sha256": "e6da3b35ee0c198a2d6f138095d312d300ae120773bf0aff0074237286197b63",
+            "start_byte": 0,
+            "end_byte": 34,
+            "span_sha256": "3ac9c1ce28ed0899dc663a9ab2ae2b56d3b77f010d5acfd0b113c6206d893ab7",
+            "segment_index": 0,
+            "assertion_id": "asrt:2895340761deb247247e5a35f35c8332",
+            "read_event_id": "5dbe445e-9fd8-49b4-9a3a-4c6ff960ea11",
+            "provider_attempt_id": "a431e95d-15e9-488b-9e3e-65f4b310706c",
+            "envelope_sha256": "f3ecafeaddd7ea8444fa0899faf995c3a3a878e345b6d7ab7e906243abbfd5b1",
+            "context_receipt_sha256": "9f6feab1facf1a82fb73ec6f40b98d491aa9e9f0e7c797275fb24f6d949ff0d4",
+            "managed_world_id": "statement-fixture-cedd7597732f46bd90189d37cf100305",
+            "native_world_id": "statement-fixture-cedd7597732f46bd90189d37cf100305",
+            "read_revision_id": "rev:8ba52f1c12a9626764298347fa2e9ff4",
+            "assertion_sha256": "50e7f417d7f65031af5d5d64994508f83893e74138cdbb9d65e68d5295458cae"
+          },
+          {
+            "evidence_ref_id": "ev:05eb4ebf57c7f5d5f2a26289cf583dd69f2f4501b51bbdfb9b63e5480334988d",
+            "source_artifact_id": "src:78ba2e67299a04ab2413c8269bf471b69518079b0d422af06297ec81a3ce5431",
+            "source_revision_id": "srev:bd788a437e2ab2ce795685ade9b6010490ae01d7b1df1bb648c750c749be1277",
+            "body_sha256": "e6da3b35ee0c198a2d6f138095d312d300ae120773bf0aff0074237286197b63",
+            "start_byte": 0,
+            "end_byte": 34,
+            "span_sha256": "3ac9c1ce28ed0899dc663a9ab2ae2b56d3b77f010d5acfd0b113c6206d893ab7",
+            "segment_index": 0,
+            "assertion_id": "asrt:82d169613d61de4c9925ff571ca4b0fa",
+            "read_event_id": "5dbe445e-9fd8-49b4-9a3a-4c6ff960ea11",
+            "provider_attempt_id": "a431e95d-15e9-488b-9e3e-65f4b310706c",
+            "envelope_sha256": "f3ecafeaddd7ea8444fa0899faf995c3a3a878e345b6d7ab7e906243abbfd5b1",
+            "context_receipt_sha256": "9f6feab1facf1a82fb73ec6f40b98d491aa9e9f0e7c797275fb24f6d949ff0d4",
+            "managed_world_id": "statement-fixture-cedd7597732f46bd90189d37cf100305",
+            "native_world_id": "statement-fixture-cedd7597732f46bd90189d37cf100305",
+            "read_revision_id": "rev:8ba52f1c12a9626764298347fa2e9ff4",
+            "assertion_sha256": "07decc7e01215f1750ee935f44fe7733b9cdf3c04099bb541324a6e2c44fa97a"
+          }
+        ]
+      },
+      "execution": {
+        "schema": "dmb_agent_plan_world_graph_execution_projection_v1",
+        "claimability": "completed",
+        "authorization_state": "response_received",
+        "automatic_redispatch": false
+      },
+      "delivery_replay": false
+    }
+  },
+  "history": {
+    "schema": "dmb_agent_conversation_history_v3",
+    "world_id": "statement-fixture-cedd7597732f46bd90189d37cf100305",
+    "conversation_state": "active",
+    "conversation_id": "b71a7f7b-7113-4d11-aeac-b1d7f8feac94",
+    "active_conversation_id": "b71a7f7b-7113-4d11-aeac-b1d7f8feac94",
+    "pointer_revision": 1,
+    "turns": [
+      {
+        "turn_id": "c73982de-2e49-437e-b01d-d66b5493129d",
+        "sequence": 1,
+        "lifecycle_status": "completed",
+        "user_text": "Describe the object I selected.",
+        "assistant_text": "Graph records (belief / speculative / provisional; fact / asserted / established): The Graph retains the qualified description.",
+        "provenance": {
+          "world_id": "statement-fixture-cedd7597732f46bd90189d37cf100305",
+          "surface_resolution": "resolved",
+          "surface_id": "build",
+          "surface_instance_id": "3a5728a8-6b98-4e6e-85cc-1d726bfd5e7f",
+          "primary_work": {
+            "resolution": "resolved",
+            "kind": "build",
+            "object_id": "3a5728a8-6b98-4e6e-85cc-1d726bfd5e7f",
+            "revision": "2",
+            "content_sha256": "ed337f86fe39e9b1d64d0b15ca61fd97889b59a672895ce28ffe093aab42912b",
+            "object_revision": null,
+            "work_revision_id": null,
+            "revision_n": null
+          },
+          "supporting_work": [
+            {
+              "resolution": "resolved",
+              "kind": "dmb_build_source_visibility_v1",
+              "object_id": "internal",
+              "revision": "1",
+              "content_sha256": null,
+              "object_revision": null,
+              "work_revision_id": null,
+              "revision_n": null
+            }
+          ],
+          "selected_object": {
+            "resolution": "absent",
+            "kind": null,
+            "object_id": null,
+            "revision": null,
+            "content_sha256": null,
+            "object_revision": null,
+            "work_revision_id": null,
+            "revision_n": null
+          }
+        },
+        "idempotency_key": "54c7872e-7eef-5eed-a10b-aca44e19afab",
+        "knowledge_context": {
+          "schema": "dmb_agent_surface_native_context_response_v1",
+          "receipt": {
+            "schema": "dmb_surface_native_context_receipt_v1",
+            "receipt_serializer_version": "canonical-json-utf8-v1",
+            "context_receipt_sha256": "9f6feab1facf1a82fb73ec6f40b98d491aa9e9f0e7c797275fb24f6d949ff0d4",
+            "provenance_sha256": "78b1f2687217dd0166630628267ba3af0a1326b9a5cb50933f5ecd30c82651b2",
+            "work_context": {
+              "surface_id": "build",
+              "source_basis": {
+                "world_id": "statement-fixture-cedd7597732f46bd90189d37cf100305",
+                "document_id": "3a5728a8-6b98-4e6e-85cc-1d726bfd5e7f",
+                "registry_revision": 2,
+                "content_sha256": "ed337f86fe39e9b1d64d0b15ca61fd97889b59a672895ce28ffe093aab42912b",
+                "visibility": "internal"
+              }
+            },
+            "source_authority": {
+              "schema_version": "dmb_native_corpus_authority_v1",
+              "managed_world_id": "statement-fixture-cedd7597732f46bd90189d37cf100305",
+              "native_world_id": "statement-fixture-cedd7597732f46bd90189d37cf100305",
+              "binding_version": 1,
+              "provisioning_id": null,
+              "revision_id": "rev:8ba52f1c12a9626764298347fa2e9ff4",
+              "domain_ref": {
+                "authority_id": "dungeonbuddy.world",
+                "revision": "2",
+                "descriptor_sha256": "d12f3a517a37d29a2ba52455d9ae1691bc5e4ff3fd6853b701a9e28e46ec65cd"
+              },
+              "profile_ref": {
+                "authority_id": "dungeonbuddy.dnd5e",
+                "revision": "2",
+                "descriptor_sha256": "d40a352d1c6cbd24df68be887be6dc65a470e4cea8fb64970ef9ad89b96a3339"
+              },
+              "acquisition_epoch": 2,
+              "scope": "gm_world_cross_campaign_source_inspection",
+              "role": "gm"
+            },
+            "native_query": {
+              "schema": "dmb_native_graph_query_v3",
+              "authority": {
+                "schema": "dmb_native_plan_query_authority_v1",
+                "managed_world_id": "statement-fixture-cedd7597732f46bd90189d37cf100305",
+                "native_world_id": "statement-fixture-cedd7597732f46bd90189d37cf100305",
+                "binding_version": 1,
+                "revision_id": "rev:8ba52f1c12a9626764298347fa2e9ff4",
+                "domain_ref": {
+                  "authority_id": "dungeonbuddy.world",
+                  "revision": "2",
+                  "descriptor_sha256": "d12f3a517a37d29a2ba52455d9ae1691bc5e4ff3fd6853b701a9e28e46ec65cd"
+                },
+                "profile_ref": {
+                  "authority_id": "dungeonbuddy.dnd5e",
+                  "revision": "2",
+                  "descriptor_sha256": "d40a352d1c6cbd24df68be887be6dc65a470e4cea8fb64970ef9ad89b96a3339"
+                },
+                "acquisition_epoch": 2,
+                "role": "gm",
+                "scope_mode": "world",
+                "campaign_id": null,
+                "session_id": null
+              },
+              "question": "Describe the object I selected.",
+              "search_result_sha256": "bf3a7c283d79052385d4e9a8c8de21dbb0b62fc5166a3dbac26496d8085cfcb8",
+              "discovered_entity_ids": [],
+              "matches": [],
+              "status": "complete",
+              "gap_codes": [],
+              "universal_absence_claimed": false,
+              "assertion_matches": [],
+              "authored_targets": [
+                {
+                  "node_id": "ent:cb8d249f723105dcfb21dc44f329c903",
+                  "selection_revision_id": "rev:96517d9e1c7b003a42cad4d1288a5941",
+                  "matches": [],
+                  "assertion_matches": [
+                    {
+                      "assertion_id": "asrt:2895340761deb247247e5a35f35c8332",
+                      "subject_entity_id": "ent:cb8d249f723105dcfb21dc44f329c903",
+                      "discovered_entity_ids": [
+                        "ent:cb8d249f723105dcfb21dc44f329c903"
+                      ],
+                      "assertion_sha256": "50e7f417d7f65031af5d5d64994508f83893e74138cdbb9d65e68d5295458cae",
+                      "label": "B \u00b7 dnd5e:name"
+                    },
+                    {
+                      "assertion_id": "asrt:82d169613d61de4c9925ff571ca4b0fa",
+                      "subject_entity_id": "ent:cb8d249f723105dcfb21dc44f329c903",
+                      "discovered_entity_ids": [
+                        "ent:cb8d249f723105dcfb21dc44f329c903"
+                      ],
+                      "assertion_sha256": "07decc7e01215f1750ee935f44fe7733b9cdf3c04099bb541324a6e2c44fa97a",
+                      "label": "B \u00b7 dnd5e:summary"
+                    }
+                  ],
+                  "status": "complete",
+                  "gap_codes": []
+                }
+              ]
+            },
+            "assembled_input": {
+              "assembler_version": "surface_native_initial_v1",
+              "provider_model_name": "jev-1.14.0",
+              "provider_model_version": "jev-1.14.0",
+              "tokenizer_name": "o200k_double_plus_4096_adaptive_context_v3",
+              "tokenizer_version": "synthetic-test",
+              "provider_envelope_input_tokens": 9312,
+              "output_token_reserve": 0,
+              "context_window_limit": 64000,
+              "included_history": [],
+              "assembled_input_sha256": "8fe9c8049afae6274b6445402fd986e458466d67bc89f7908ad6375d0199ac04"
+            }
+          },
+          "completion": {
+            "schema": "dmb_surface_native_completion_v1",
+            "surface_id": "build",
+            "context_receipt_sha256": "9f6feab1facf1a82fb73ec6f40b98d491aa9e9f0e7c797275fb24f6d949ff0d4",
+            "producing_provider_attempt_id": "a431e95d-15e9-488b-9e3e-65f4b310706c",
+            "answer_basis": "mixed_evidence",
+            "answer_context_status": "graph_grounded",
+            "answer_segments": [
+              {
+                "kind": "native_assertion_claim",
+                "text": "Graph records (belief / speculative / provisional; fact / asserted / established): The Graph retains the qualified description.",
+                "assertion_ids": [
+                  "asrt:2895340761deb247247e5a35f35c8332",
+                  "asrt:82d169613d61de4c9925ff571ca4b0fa"
+                ],
+                "qualifications": [
+                  {
+                    "scope": [
+                      {
+                        "axis": "dungeonbuddy.scope:campaign",
+                        "value": "c1"
+                      }
+                    ],
+                    "visibility": {
+                      "kind": "labels_any",
+                      "labels": [
+                        "dungeonbuddy.visibility:gm"
+                      ]
+                    },
+                    "epistemic_basis": "asserted",
+                    "claim_mode": "dungeonbuddy.claim:fact",
+                    "standing": "established",
+                    "evidence_ref_ids": [
+                      "ev:05eb4ebf57c7f5d5f2a26289cf583dd69f2f4501b51bbdfb9b63e5480334988d"
+                    ],
+                    "temporal_scope": {
+                      "kind": "unknown"
+                    },
+                    "domain_metadata": []
+                  },
+                  {
+                    "scope": [
+                      {
+                        "axis": "dungeonbuddy.scope:campaign",
+                        "value": "c1"
+                      }
+                    ],
+                    "visibility": {
+                      "kind": "labels_any",
+                      "labels": [
+                        "dungeonbuddy.visibility:gm"
+                      ]
+                    },
+                    "epistemic_basis": "speculative",
+                    "claim_mode": "dungeonbuddy.claim:belief",
+                    "standing": "provisional",
+                    "evidence_ref_ids": [
+                      "ev:05eb4ebf57c7f5d5f2a26289cf583dd69f2f4501b51bbdfb9b63e5480334988d"
+                    ],
+                    "temporal_scope": {
+                      "kind": "unknown"
+                    },
+                    "domain_metadata": []
+                  }
+                ]
+              }
+            ],
+            "collaboration": null,
+            "saved_source_citations": [],
+            "native_body_citations": [],
+            "native_clause_citations": [],
+            "native_assertion_citations": [
+              {
+                "evidence_ref_id": "ev:05eb4ebf57c7f5d5f2a26289cf583dd69f2f4501b51bbdfb9b63e5480334988d",
+                "source_artifact_id": "src:78ba2e67299a04ab2413c8269bf471b69518079b0d422af06297ec81a3ce5431",
+                "source_revision_id": "srev:bd788a437e2ab2ce795685ade9b6010490ae01d7b1df1bb648c750c749be1277",
+                "body_sha256": "e6da3b35ee0c198a2d6f138095d312d300ae120773bf0aff0074237286197b63",
+                "start_byte": 0,
+                "end_byte": 34,
+                "span_sha256": "3ac9c1ce28ed0899dc663a9ab2ae2b56d3b77f010d5acfd0b113c6206d893ab7",
+                "segment_index": 0,
+                "assertion_id": "asrt:2895340761deb247247e5a35f35c8332",
+                "read_event_id": "5dbe445e-9fd8-49b4-9a3a-4c6ff960ea11",
+                "provider_attempt_id": "a431e95d-15e9-488b-9e3e-65f4b310706c",
+                "envelope_sha256": "f3ecafeaddd7ea8444fa0899faf995c3a3a878e345b6d7ab7e906243abbfd5b1",
+                "context_receipt_sha256": "9f6feab1facf1a82fb73ec6f40b98d491aa9e9f0e7c797275fb24f6d949ff0d4",
+                "managed_world_id": "statement-fixture-cedd7597732f46bd90189d37cf100305",
+                "native_world_id": "statement-fixture-cedd7597732f46bd90189d37cf100305",
+                "read_revision_id": "rev:8ba52f1c12a9626764298347fa2e9ff4",
+                "assertion_sha256": "50e7f417d7f65031af5d5d64994508f83893e74138cdbb9d65e68d5295458cae"
+              },
+              {
+                "evidence_ref_id": "ev:05eb4ebf57c7f5d5f2a26289cf583dd69f2f4501b51bbdfb9b63e5480334988d",
+                "source_artifact_id": "src:78ba2e67299a04ab2413c8269bf471b69518079b0d422af06297ec81a3ce5431",
+                "source_revision_id": "srev:bd788a437e2ab2ce795685ade9b6010490ae01d7b1df1bb648c750c749be1277",
+                "body_sha256": "e6da3b35ee0c198a2d6f138095d312d300ae120773bf0aff0074237286197b63",
+                "start_byte": 0,
+                "end_byte": 34,
+                "span_sha256": "3ac9c1ce28ed0899dc663a9ab2ae2b56d3b77f010d5acfd0b113c6206d893ab7",
+                "segment_index": 0,
+                "assertion_id": "asrt:82d169613d61de4c9925ff571ca4b0fa",
+                "read_event_id": "5dbe445e-9fd8-49b4-9a3a-4c6ff960ea11",
+                "provider_attempt_id": "a431e95d-15e9-488b-9e3e-65f4b310706c",
+                "envelope_sha256": "f3ecafeaddd7ea8444fa0899faf995c3a3a878e345b6d7ab7e906243abbfd5b1",
+                "context_receipt_sha256": "9f6feab1facf1a82fb73ec6f40b98d491aa9e9f0e7c797275fb24f6d949ff0d4",
+                "managed_world_id": "statement-fixture-cedd7597732f46bd90189d37cf100305",
+                "native_world_id": "statement-fixture-cedd7597732f46bd90189d37cf100305",
+                "read_revision_id": "rev:8ba52f1c12a9626764298347fa2e9ff4",
+                "assertion_sha256": "07decc7e01215f1750ee935f44fe7733b9cdf3c04099bb541324a6e2c44fa97a"
+              }
+            ]
+          },
+          "execution": {
+            "schema": "dmb_agent_plan_world_graph_execution_projection_v1",
+            "claimability": "completed",
+            "authorization_state": "response_received",
+            "automatic_redispatch": false
+          },
+          "delivery_replay": true
+        }
+      }
+    ],
+    "next_before_sequence": null
+  },
+  "source": {
+    "schema": "dmb_native_assertion_source_read_v1",
+    "world_id": "statement-fixture-cedd7597732f46bd90189d37cf100305",
+    "turn_id": "c73982de-2e49-437e-b01d-d66b5493129d",
+    "citation_index": 0,
+    "citation": {
+      "evidence_ref_id": "ev:05eb4ebf57c7f5d5f2a26289cf583dd69f2f4501b51bbdfb9b63e5480334988d",
+      "source_artifact_id": "src:78ba2e67299a04ab2413c8269bf471b69518079b0d422af06297ec81a3ce5431",
+      "source_revision_id": "srev:bd788a437e2ab2ce795685ade9b6010490ae01d7b1df1bb648c750c749be1277",
+      "body_sha256": "e6da3b35ee0c198a2d6f138095d312d300ae120773bf0aff0074237286197b63",
+      "start_byte": 0,
+      "end_byte": 34,
+      "span_sha256": "3ac9c1ce28ed0899dc663a9ab2ae2b56d3b77f010d5acfd0b113c6206d893ab7",
+      "segment_index": 0,
+      "assertion_id": "asrt:2895340761deb247247e5a35f35c8332",
+      "read_event_id": "5dbe445e-9fd8-49b4-9a3a-4c6ff960ea11",
+      "provider_attempt_id": "a431e95d-15e9-488b-9e3e-65f4b310706c",
+      "envelope_sha256": "f3ecafeaddd7ea8444fa0899faf995c3a3a878e345b6d7ab7e906243abbfd5b1",
+      "context_receipt_sha256": "9f6feab1facf1a82fb73ec6f40b98d491aa9e9f0e7c797275fb24f6d949ff0d4",
+      "managed_world_id": "statement-fixture-cedd7597732f46bd90189d37cf100305",
+      "native_world_id": "statement-fixture-cedd7597732f46bd90189d37cf100305",
+      "read_revision_id": "rev:8ba52f1c12a9626764298347fa2e9ff4",
+      "assertion_sha256": "50e7f417d7f65031af5d5d64994508f83893e74138cdbb9d65e68d5295458cae"
+    },
+    "content": "A reports that B fled; uncertain.\n"
+  }
+}
