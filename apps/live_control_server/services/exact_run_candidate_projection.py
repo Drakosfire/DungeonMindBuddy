@@ -19,7 +19,6 @@ from apps.live_control_server.services.graph_run_registry import (
     GraphRunRegistryError,
     assert_run_reviewable_evidence,
     get_extraction_run,
-    validate_recap_source_run_world_binding,
 )
 from apps.live_control_server.services.managed_world_graph_projection import (
     resolve_managed_world_binding,
@@ -174,21 +173,8 @@ def _build(
         _fail("The exact source does not belong to this verified World.")
     if artifact.campaign_id != run.campaign_id or artifact.session_id != run.session_id:
         _fail("The exact source and run campaign or session disagree.")
-    context = run.lineage.get("world_campaign_ingest_context")
-    legacy_world = run.lineage.get("native_world_id")
-    if run.lineage.get("campaign_id") not in (None, run.campaign_id):
-        _fail("The stored run lineage campaign conflicts with its source.")
-    if context is not None or legacy_world is not None:
-        validate_recap_source_run_world_binding(
-            source_world_id=artifact.world_id,
-            campaign_id=run.campaign_id,
-            lineage=run.lineage,
-        )
-    if context is not None and (
-        context.get("managed_world_id") != managed_world_id
-        or context.get("binding_version") != binding.binding_version
-    ):
-        _fail("The frozen run and selected World bindings disagree.")
+    # Generation lineage is history. Exact source ownership and the present
+    # managed/native binding govern inspection; publication has its own owner.
     source = data.source_bytes.decode("utf-8")
     source_sha = normalize_content_digest(artifact.content_sha256 or "")
     payload = json.loads(data.candidate_bytes)
@@ -389,9 +375,6 @@ def _build(
         managed_world_id=binding.managed_world_id,
         native_world_id=binding.native_world_id,
         binding_version=binding.binding_version,
-        run_world_binding_status="frozen_verified"
-        if context is not None
-        else "source_only",
         source_markdown=source,
         narrative_markdown=display,
         projected_markdown=projected,

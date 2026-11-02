@@ -11,7 +11,7 @@ const key = `candidate:run-a:${'a'.repeat(64)}:${'b'.repeat(64)}`;
 function fixture(): ExactRunCandidateProjection {
     return { schema: 'dmb_exact_run_candidate_projection_v1', trustBoundary: 'unpublished_candidate', runId: 'run-a', runRevision: 5, runStatus: 'reviewable', profileId: 'recap_category_v1@1.0', sourceDomain: 'recap',
         sourceArtifactId: 'artifact:a', sourceRevisionId: 'sha256:' + 'c'.repeat(64), sourceSha256: 'sha256:' + 'c'.repeat(64), candidateSha256: 'sha256:' + 'a'.repeat(64), spanIndexSha256: 'sha256:' + 'd'.repeat(64),
-        campaignId: 'campaign-a', sessionId: 'session-29', managedWorldId: 'managed-a', nativeWorldId: 'native-a', bindingVersion: 1, runWorldBindingStatus: 'source_only',
+        campaignId: 'campaign-a', sessionId: 'session-29', managedWorldId: 'managed-a', nativeWorldId: 'native-a', bindingVersion: 1,
         sourceMarkdown: '# Raw source\n\nMara is here.', narrativeMarkdown: '# Raw source\n\nMara is here.', projectedMarkdown: `# Recap\n\n[Mara](dmb-node:${key}) is here. [forged](dmb-node:threat:loc_3)`,
         sourceDisplaySegments: [], nodes: [{ viewKey: key, candidateNodeId: 'threat:loc_3', label: 'Mara', nodeType: 'threat', description: 'A'.repeat(1200), confidence: 'medium', semanticState: { lifecycle_state: 'candidate' }, warnings: [], evidence: [{ sourceSpanId: 'span-a', startLine: 3, endLine: 3, paragraphText: 'Mara is here.', anchorQuotes: ['Mara is here.'], canHighlight: true }] }],
         edges: [], nodeViews: { [key]: { node_id: key, label: 'Mara', kind: 'candidate', role: 'unpublished_candidate', aliases: [], source_domains: ['recap'], evidence_badges: [], adjacency: [], anchored_to_focus_session: false } }, sourceSpans: [], mentionsCount: 1, unlinkedNodeCount: 0, beatCount: 2, diagnostics: [] };
@@ -28,7 +28,7 @@ it('renders real chips and only a local candidate inspector, retaining full raw 
     expect(await screen.findByRole('complementary', { name: 'Candidate: Mara' })).toBeInTheDocument();
     expect(screen.getByText('Extracted description')).toBeInTheDocument();
     expect(screen.getByText('A'.repeat(1200))).toBeInTheDocument();
-    expect(screen.getByText(/older extraction has no frozen World context/)).toBeInTheDocument();
+    expect(screen.getByRole('status')).toHaveTextContent('reviewable proposals, not an admitted World view');
     expect(document.querySelector('details[aria-label="Candidate reader advanced details"] pre')?.textContent).toBe('# Raw source\n\nMara is here.');
     expect(screen.getByText(/source graph links outside this candidate/)).toBeInTheDocument();
     expect(document.querySelector('button[data-graph-node-id="threat:loc_3"]')).toBeNull();

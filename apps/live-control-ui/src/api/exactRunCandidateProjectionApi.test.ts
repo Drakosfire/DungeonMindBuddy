@@ -8,7 +8,7 @@ function payload(): ExactRunCandidateProjection {
     return { schema: "dmb_exact_run_candidate_projection_v1", trustBoundary: "unpublished_candidate", runId: "run-a", runRevision: 5, runStatus: "reviewable",
         profileId: "recap_category_v1@1.0", sourceDomain: "recap", sourceArtifactId: "artifact:a", sourceRevisionId: sha, sourceSha256: sha,
         candidateSha256: "sha256:" + 'c'.repeat(64), spanIndexSha256: "sha256:" + 'b'.repeat(64), campaignId: "campaign-a", sessionId: "session-29",
-        managedWorldId: "managed-a", nativeWorldId: "native-a", bindingVersion: 1, runWorldBindingStatus: "source_only", sourceMarkdown: source, narrativeMarkdown: source,
+        managedWorldId: "managed-a", nativeWorldId: "native-a", bindingVersion: 1, sourceMarkdown: source, narrativeMarkdown: source,
         projectedMarkdown: source.replace('Mara', `[Mara](dmb-node:${key})`), sourceDisplaySegments: [{ sourceStart: 0, sourceEnd: Array.from(source).length, displayStart: 0, displayEnd: Array.from(source).length }],
         nodes: [{ viewKey: key, candidateNodeId: "threat:loc_3", label: "Mara", nodeType: "threat", description: "Extracted description", confidence: "medium", semanticState: { lifecycle_state: "candidate" }, warnings: [], evidence: [] }],
         edges: [], nodeViews: { [key]: { node_id: key, label: "Mara", kind: "candidate", role: "unpublished_candidate", aliases: [], source_domains: ["recap"], evidence_badges: [], adjacency: [], anchored_to_focus_session: false } },
