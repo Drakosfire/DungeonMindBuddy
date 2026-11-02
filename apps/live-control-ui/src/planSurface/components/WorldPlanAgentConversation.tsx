@@ -1475,7 +1475,7 @@ function isRulesUnclaimedContext(value: unknown, worldId: string,
     if(value.completion!==undefined&&value.completion!==null)return false;
     if(!isSharedPlanReceipt(receipt,request?.primary_work.kind==='plan'?request as WorldPlanAgentTurnRequestV1:undefined)
       ||request&&request.primary_work.kind!=='plan'||receipt.work_context.plan_basis.world_id!==worldId)return false;
-    return provenance===undefined||isHistoryPlanReceiptBound(receipt,provenance,worldId);
+    return provenance===undefined||isHistoryPlanReceiptBound(receipt,provenance,worldId,question);
   }
   if(value.completion!==undefined&&value.completion!==null)return false;
   if (receipt.schema === 'dmb_play_world_graph_context_receipt_v1') {
@@ -1710,7 +1710,7 @@ function isHistoryTurn(
           ? isBuildKnowledgeContext(base, worldId, true) && isHistoryBuildReceiptBound(base.receipt, value.provenance as Record<string, unknown>, worldId,value.user_text)
           : base.schema === 'dmb_agent_play_world_graph_context_response_v1'
             ? isWorldPlayContextProjection(base, isWorldPlanGraphExecution, undefined, true) && isPlayContextProvenanceBound(base.receipt, value.provenance, worldId)
-            : isWorldPlanContextProjection(base, undefined, true) && isHistoryPlanReceiptBound(base.receipt, value.provenance, worldId)),
+            : isWorldPlanContextProjection(base, undefined, true) && isHistoryPlanReceiptBound(base.receipt, value.provenance, worldId,value.user_text)),
         { turnId: value.turn_id as string },
         c => isRulesUnclaimedContext(c, worldId, undefined, value.provenance,value.user_text));
     }
@@ -1770,14 +1770,16 @@ function isHistoryTurn(
   if (!hasPlanContext) return true;
   if (schema === "dmb_agent_conversation_history_v1") return false;
   if (!isWorldPlanContextProjection(value.plan_context, undefined, true)
-    || !isHistoryPlanReceiptBound(value.plan_context.receipt, provenance, worldId)) return false;
+    || !isHistoryPlanReceiptBound(value.plan_context.receipt, provenance, worldId,value.user_text)) return false;
   const hasCompletion = value.plan_context.completion !== null;
   return value.lifecycle_status === "completed" ? hasCompletion && (value.plan_context.schema!=='dmb_agent_surface_native_context_response_v1' || value.assistant_text===value.plan_context.completion!.answer_segments.map(s=>s.text).join("\n")) : !hasCompletion;
 }
 
-function isHistoryPlanReceiptBound(value: unknown, provenance: unknown, worldId: string): boolean {
+function isHistoryPlanReceiptBound(value: unknown, provenance: unknown, worldId: string, question?: unknown): boolean {
   if(isRecord(value)&&value.schema==='dmb_surface_native_context_receipt_v1') {
-    if(!isSharedPlanReceipt(value))return false;
+    if(!isSharedPlanReceipt(value) || question!==undefined
+      &&value.native_query.schema!=='dmb_native_plan_query_unavailable_v1'
+      &&value.native_query.question!==question)return false;
     return isRecord(provenance)&&provenance.surface_id==='plan'&&provenance.surface_resolution==='resolved'
       &&isHistoryPlanReceiptBound(value.work_context,provenance,worldId);
   }
@@ -2137,7 +2139,7 @@ function completedHistoryTurnMatchesPendingAsk(
   if (!request.plan_context_policy) return isGraphOffPlanHistoryBound(turn,request,origin);
   const unclaimed = rulesContextForTurn(turn)?.unclaimed_context;
   if (unclaimed) {
-    if (!isRulesUnclaimedContext(unclaimed, origin.worldId, request, turn.provenance)
+    if (!isRulesUnclaimedContext(unclaimed, origin.worldId, request, turn.provenance,turn.user_text)
       || !(isWorldPlanGraphReceipt(unclaimed.receipt, request) || isPlanSourceReceipt(unclaimed.receipt, request) || isSharedPlanReceipt(unclaimed.receipt,request))) return false;
     const basis = planEvidenceWork(unclaimed.receipt).plan_basis;
     return basis.world_id === origin.worldId && basis.document_id === origin.documentId
@@ -2149,7 +2151,7 @@ function completedHistoryTurnMatchesPendingAsk(
     || !isWorldPlanContextProjection(context, request, true)
     || context.completion === null
     || (context.execution !== null && context.execution.claimability !== "completed")
-    || !isHistoryPlanReceiptBound(context.receipt, turn.provenance, origin.worldId)) return false;
+    || !isHistoryPlanReceiptBound(context.receipt, turn.provenance, origin.worldId,turn.user_text)) return false;
 
   const basis = planEvidenceWork(context.receipt).plan_basis;
   if (basis.world_id !== origin.worldId
@@ -2226,7 +2228,7 @@ function failedHistoryTurnMatchesPendingAsk(
     || context.completion !== null
     || context.execution === null
     || context.execution.claimability === "completed"
-    || !isHistoryPlanReceiptBound(context.receipt, turn.provenance, origin.worldId)) return false;
+    || !isHistoryPlanReceiptBound(context.receipt, turn.provenance, origin.worldId,turn.user_text)) return false;
 
   const basis = planEvidenceWork(context.receipt).plan_basis;
   return basis.world_id === origin.worldId

@@ -5276,7 +5276,7 @@ describe("World Plan conversation consumer", () => {
     expect(open).toHaveBeenCalledWith(worldId,turnId,0);
   });
 
-  it.each(['exact','fresh','producer','revision','extra','provenance','world','interrupted','mixed-approved','mixed-unclaimed','unavailable'])("consumes shared native Plan context in ordinary conversation and history: %s",async change=>{
+  it.each(['exact','fresh','producer','revision','extra','provenance','world','interrupted','mixed-approved','mixed-unclaimed','unavailable','question','mixed-approved-question','mixed-unclaimed-question'])("consumes shared native Plan context in ordinary conversation and history: %s",async change=>{
     const old=await planGraphContext('graph_grounded'),turnId='11111111-1111-4111-8111-111111111111';
     const context=JSON.parse(JSON.stringify(sharedWire.context).replaceAll(sharedWire.context.receipt.work_context.plan_basis.world_id,worldId)) as import('../api/types').PlanSurfaceNativeContextResponseV1;
     const work=context.receipt.work_context;
@@ -5295,6 +5295,7 @@ describe("World Plan conversation consumer", () => {
     };
     const turn=policyHistoryTurn(1,turnId,question,answer,context);
     await seal(turn);
+    if(change==='question'||change.endsWith('-question'))turn.user_text='An unrelated question about a different event.';
     const citation=context.completion!.native_assertion_citations[0]!;
     if(change==='producer')citation.provider_attempt_id='00000000-0000-4000-8000-000000000001';
     if(change==='revision')citation.read_revision_id='rev:foreign';
@@ -5307,7 +5308,7 @@ describe("World Plan conversation consumer", () => {
     }
     let page:WorldAgentConversationHistoryResponse={...history('conversation-a',1,[]),schema:'dmb_agent_conversation_history_v2',turns:change==='fresh'?[]:[turn]};
     if(change.startsWith('mixed-')){
-      const approved=change==='mixed-approved',f=rulesAnswerFixture(approved?context:null);
+      const approved=change.startsWith('mixed-approved'),f=rulesAnswerFixture(approved?context:null);
       f.context.accepted_binding.world_id=worldId;f.context.accepted_binding.turn_id=turnId;
       f.context.accepted_binding.graph_used=approved;
       if(!approved){f.context.accepted_binding.base_disposition='unclaimed';f.context.unclaimed_context={schema:'dmb_agent_rules_unclaimed_context_v1',receipt:context.receipt,completion:null,execution:context.execution!,delivery_replay:false};}
