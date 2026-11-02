@@ -4717,6 +4717,12 @@ class BuildWriterEvidenceSelectionV1(GraphExecutionEventBaseV1):
         return self
 
 
+class BuildWriterEvidenceSelectionV2(BuildWriterEvidenceSelectionV1):
+    """Native-body-aware closure; V1 retains its historical input meaning."""
+    kind: Literal["build_writer_evidence_selection_v2"]
+    policy: Literal["source_unit_selection_event_closure_v2"]
+
+
 class BuildWorldActionTargetV1(StrictModel):
     action_id: str = Field(min_length=1)
     operation: Literal["search", "object"]
