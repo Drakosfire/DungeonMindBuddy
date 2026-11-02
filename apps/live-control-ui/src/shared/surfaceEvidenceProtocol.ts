@@ -6,6 +6,35 @@ import {exact, canonical, isSurfaceSourceCompletion} from "./sourcePassageProtoc
 const text = (v:unknown):v is string => typeof v === 'string' && !!v.trim();
 const hash = (v:unknown):v is string => typeof v === 'string' && /^[a-f0-9]{64}$/.test(v);
 const sorted = (v:unknown):v is string[] => Array.isArray(v) && v.every((x,i) => text(x) && (!i || v[i-1] < x));
+type AuthoredExcerpt = Extract<SurfaceEvidenceCompletion['answer_segments'][number],{kind:'authored_excerpt'}>;
+export function isAuthoredExcerpt(s:unknown):s is AuthoredExcerpt {
+  return exact(s,['kind','text','source_handle','source_kind','source_name','object_id','revision','body_sha256','owner_sha256',
+    'block_handle','partition_version','byte_start','byte_end','block_sha256','entry_identity'])
+    && s.kind==='authored_excerpt' && text(s.text) && text(s.block_handle) && /^b[a-f0-9]{64}$/.test(s.block_handle)
+    && s.partition_version==='markdown_source_blocks_v1' && Number.isSafeInteger(s.byte_start) && Number(s.byte_start)>=0
+    && Number.isSafeInteger(s.byte_end) && Number(s.byte_end)-Number(s.byte_start)===new TextEncoder().encode(s.text).length
+    && hash(s.block_sha256) && (s.entry_identity===null || hash(s.entry_identity))
+    && (s.source_kind==='session')===(s.entry_identity!==null) && ['plan','session','play'].includes(String(s.source_kind))
+    && [s.source_handle,s.source_name,s.object_id,s.revision].every(text) && hash(s.body_sha256) && hash(s.owner_sha256);
+}
+export function isSessionSummary(s:unknown):s is import('../api/types').SessionSummarySegment {
+  if(!exact(s,['kind','text','supports']) || s.kind!=='session_summary' || !text(s.text)
+    || !Array.isArray(s.supports) || !s.supports.length)return false;
+  const seen=new Set<string>();
+  for(const support of s.supports) {
+    if(!exact(support,['kind','text','source_handle','source_kind','source_name','object_id','revision',
+      'body_sha256','owner_sha256','block_handle','partition_version','byte_start','byte_end','block_sha256',
+      'entry_identity','source_ordinal','entry_kind','element_id','checkpoint_content_sha256'])
+      || support.source_kind!=='session' || !Number.isSafeInteger(support.source_ordinal) || Number(support.source_ordinal)<0
+      || !['scene_note','closing_reflections'].includes(String(support.entry_kind))
+      || (support.entry_kind==='scene_note' ? !text(support.element_id) : support.element_id!==null)
+      || !hash(support.checkpoint_content_sha256))return false;
+    const {source_ordinal,entry_kind,element_id,checkpoint_content_sha256,...quote}=support;
+    if(!isAuthoredExcerpt(quote) || seen.has(quote.block_handle))return false;
+    seen.add(quote.block_handle);
+  }
+  return true;
+}
 /** Closed presentation shape. The server independently proves producer input and authority. */
 export function isSurfaceEvidenceCompletion(v:unknown, receiptHash:string, surface:'plan'|'play'):v is SurfaceEvidenceCompletion {
   const native=typeof v==='object' && v!==null && 'schema' in v && ['dmb_surface_evidence_completion_v3','dmb_surface_evidence_completion_v4','dmb_surface_evidence_completion_v5','dmb_surface_evidence_completion_v6','dmb_surface_evidence_completion_v7'].includes(String(v.schema));
@@ -34,35 +63,15 @@ export function isSurfaceEvidenceCompletion(v:unknown, receiptHash:string, surfa
     } else if (s.kind === 'authored_quote' || s.kind === 'authored_excerpt') {
       const block=s.kind === 'authored_excerpt';
       if(block !== (v.schema !== 'dmb_surface_evidence_completion_v1')) return false;
-      if(block && (!text(s.block_handle) || !/^b[a-f0-9]{64}$/.test(s.block_handle) || blocks.has(s.block_handle)
-        || s.partition_version !== 'markdown_source_blocks_v1' || !Number.isSafeInteger(s.byte_start)
-        || !Number.isSafeInteger(s.byte_end) || s.byte_start < 0 || s.byte_end-s.byte_start !== new TextEncoder().encode(s.text).length
-        || !hash(s.block_sha256) || !(s.entry_identity === null || hash(s.entry_identity))
-        || (s.source_kind === 'session') !== (s.entry_identity !== null))) return false;
+      if(block && !isAuthoredExcerpt(s)) return false;
+      if(block && blocks.has(s.block_handle)) return false;
       if(block) blocks.add(s.block_handle);
-      if (!exact(s,['kind','text','source_handle','source_kind','source_name','object_id','revision','body_sha256','owner_sha256',...(block ? ['block_handle','partition_version','byte_start','byte_end','block_sha256','entry_identity']:[])])
+      if(!block && (!exact(s,['kind','text','source_handle','source_kind','source_name','object_id','revision','body_sha256','owner_sha256'])
         || !['plan','session','play'].includes(String(s.source_kind)) || ![s.source_handle,s.source_name,s.object_id,s.revision].every(text)
-        || !hash(s.body_sha256) || !hash(s.owner_sha256)) return false;
+        || !hash(s.body_sha256) || !hash(s.owner_sha256))) return false;
       authored=true;
     } else if (s.kind === 'session_summary' && ['dmb_surface_evidence_completion_v4','dmb_surface_evidence_completion_v5','dmb_surface_evidence_completion_v6','dmb_surface_evidence_completion_v7'].includes(String(v.schema))) {
-      if(!exact(s,['kind','text','supports']) || !Array.isArray(s.supports) || !s.supports.length) return false;
-      const supportBlocks=new Set<string>();
-      for(const support of s.supports) {
-        if(!exact(support,['kind','text','source_handle','source_kind','source_name','object_id','revision',
-          'body_sha256','owner_sha256','block_handle','partition_version','byte_start','byte_end','block_sha256',
-          'entry_identity','source_ordinal','entry_kind','element_id','checkpoint_content_sha256'])
-          || support.source_kind!=='session' || typeof support.source_ordinal!=='number'
-          || !Number.isSafeInteger(support.source_ordinal) || support.source_ordinal<0
-          || !['scene_note','closing_reflections'].includes(String(support.entry_kind))
-          || (support.entry_kind==='scene_note' ? !text(support.element_id) : support.element_id!==null)
-          || !hash(support.checkpoint_content_sha256) || !text(support.block_handle)
-          || supportBlocks.has(support.block_handle)) return false;
-        const {source_ordinal,entry_kind,element_id,checkpoint_content_sha256,...quote}=support;
-        if(!isSurfaceEvidenceCompletion({schema:'dmb_surface_evidence_completion_v2',surface_id:'plan',
-          context_receipt_sha256:receiptHash,answer_basis:'mixed_evidence',answer_context_status:'authored_grounded',
-          answer_segments:[quote],citation_map:null,source_citations:[]},receiptHash,'plan')) return false;
-        supportBlocks.add(support.block_handle);
-      }
+      if(!isSessionSummary(s)) return false;
       authored=true;
     } else if (s.kind === 'proposal') {
       if (!exact(s,['kind','text','label']) || !['invented_idea','image_prompt'].includes(String(s.label))) return false; proposal=true;

@@ -1,15 +1,15 @@
 import {getAgentNativeAssertionSource,getAgentNativeSourceClause,getAgentSourcePassage,getAgentNativeSourceSection,getAgentNativeBodyExcerpt,getAgentRelatedPage} from '../../api/liveApi';
-import type {WorldBuildSourceCompletion,SurfaceSourceCompletionV1,SurfaceEvidenceCompletion,SurfaceEvidenceCompletionV3,SurfaceEvidenceCompletionV5,SurfaceEvidenceCompletionV6,SurfaceEvidenceCompletionV7} from '../../api/types';
+import type {WorldBuildSourceCompletion,SurfaceSourceCompletionV1,SurfaceEvidenceCompletion,SurfaceEvidenceCompletionV3,SurfaceEvidenceCompletionV5,SurfaceEvidenceCompletionV6,SurfaceEvidenceCompletionV7,SurfaceNativeCompletionV1} from '../../api/types';
 import {exact,canonical} from '../../shared/sourcePassageProtocol';
 import type {CitationChoice} from './SourceCitationEvidence';
-export type PassageCompletion=WorldBuildSourceCompletion|SurfaceSourceCompletionV1|SurfaceEvidenceCompletion;
+export type PassageCompletion=WorldBuildSourceCompletion|SurfaceSourceCompletionV1|SurfaceEvidenceCompletion|SurfaceNativeCompletionV1;
 async function hash(content:string){
   const digest=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(content));
   return Array.from(new Uint8Array(digest),b=>b.toString(16).padStart(2,'0')).join('');
 }
 export function passageChoices(completion:PassageCompletion,worldId:string,turnId:string,segmentIndex?:number):CitationChoice[] {
   const seen=new Set<string>();
-  const passages: CitationChoice[]=completion.source_citations.flatMap((citation,index)=>{
+  const passages: CitationChoice[]=('source_citations' in completion ? completion.source_citations : []).flatMap((citation,index)=>{
     if(segmentIndex!==undefined && citation.segment_index!==segmentIndex)return [];
     const r=citation.receipt;
     const key=canonical([citation.segment_index,r.source_artifact_id,r.source_revision_id,r.content_sha256,r.line_start,r.line_end]);
@@ -30,7 +30,7 @@ export function passageChoices(completion:PassageCompletion,worldId:string,turnI
     if(segment.kind!=='related_page_claim' || segmentIndex!==undefined && index!==segmentIndex)return [];
     const page=segment.page;
     const title=`${page.title} · saved revision ${page.registry_revision}`;
-    return [{key:`related:${segment.read_id}:${index}`,number:completion.source_citations.length+index+1,segmentIndex:index,
+    return [{key:`related:${segment.read_id}:${index}`,number:('source_citations' in completion ? completion.source_citations.length : 0)+index+1,segmentIndex:index,
       title,label:`Read ${title}`,kind:'section' as const,load:async()=>{
         const result=await getAgentRelatedPage(worldId,turnId,segment.read_id);
         if(page.world_id!==worldId || !exact(result,['schema','world_id','turn_id','read_id','page','markdown'])
@@ -42,8 +42,8 @@ export function passageChoices(completion:PassageCompletion,worldId:string,turnI
   });
   return [...passages,...pages];
 }
-export function nativeChoices(completion:Pick<SurfaceEvidenceCompletionV3,"native_source_citations"> & Partial<Pick<SurfaceEvidenceCompletionV5,"native_body_citations"> & Pick<SurfaceEvidenceCompletionV6,"native_clause_citations"> & Pick<SurfaceEvidenceCompletionV7,"native_assertion_citations">>,worldId:string,turnId:string,segmentIndex:number):CitationChoice[] {
-  const sections=completion.native_source_citations.flatMap((citation,index)=>citation.segment_index!==segmentIndex ? [] : [{
+export function nativeChoices(completion:Partial<Pick<SurfaceEvidenceCompletionV3,"native_source_citations"> & Pick<SurfaceEvidenceCompletionV5,"native_body_citations"> & Pick<SurfaceEvidenceCompletionV6,"native_clause_citations"> & Pick<SurfaceEvidenceCompletionV7,"native_assertion_citations">>,worldId:string,turnId:string,segmentIndex:number):CitationChoice[] {
+  const sections=(completion.native_source_citations??[]).flatMap((citation,index)=>citation.segment_index!==segmentIndex ? [] : [{
     key:`section:${index}`,number:index+1,title:`${citation.source_name} · ${citation.section_title}`,
     label:`${citation.source_name} · ${citation.section_title}`,kind:'section' as const,load:async()=>{
       const result=await getAgentNativeSourceSection(worldId,turnId,index);

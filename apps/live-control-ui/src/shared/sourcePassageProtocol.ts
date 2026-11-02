@@ -8,6 +8,18 @@ const digest = (v: unknown): v is string => typeof v === "string" && /^[a-f0-9]{
 const uuid = (v: unknown): v is string => typeof v === "string" && /^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/i.test(v);
 const boundedText = (v: unknown, max: number): v is string => typeof v === "string" && !!v.trim() && v.length <= max;
 
+export function isDraftReferenceClaim(v:unknown):v is Extract<import('../api/types').WorldBuildRelatedPageCompletionV1['answer_segments'][number],{kind:'draft_reference_claim'}> {
+  return exact(v,['kind','text','draft_record_id'])&&v.kind==='draft_reference_claim'&&typeof v.text==='string'&&!!v.text.trim()&&uuid(v.draft_record_id);
+}
+export function isRelatedPageClaim(v:unknown,worldId?:string):v is Extract<import('../api/types').WorldBuildRelatedPageCompletionV1['answer_segments'][number],{kind:'related_page_claim'}> {
+  if(!exact(v,['kind','text','read_id','page'])||v.kind!=='related_page_claim'||typeof v.text!=='string'||!v.text.trim()||!uuid(v.read_id))return false;
+  const p=v.page;
+  return exact(p,['world_id','document_id','registry_revision','title','visibility','content_sha256'])&&typeof p.world_id==='string'&&!!p.world_id&&p.world_id===worldId&&uuid(p.document_id)
+    &&Number.isSafeInteger(p.registry_revision)&&Number(p.registry_revision)>=1&&typeof p.title==='string'&&!!p.title.trim()&&['internal','player_safe'].includes(String(p.visibility))&&digest(p.content_sha256);
+}
+export function isSavedSourceClaim(v:unknown,sourceHash?:string):boolean {
+  return exact(v,['kind','text','content_sha256'])&&v.kind==='saved_source_claim'&&typeof v.text==='string'&&!!v.text.trim()&&v.content_sha256===sourceHash;
+}
 /** Closed V2 presentation shape. APP independently owns actual receipt authorization. */
 export function isBuildSourceCompletion(value: unknown, receiptHash: string, sourceHash: string, worldId?: string): value is WorldBuildSourceCompletion {
   return isSourceCompletion(value, receiptHash, sourceHash, undefined, worldId);
@@ -41,21 +53,15 @@ function isSourceCompletion(value: unknown, receiptHash: string, sourceHash?: st
       if (!exact(segment, ["kind", "text"])) return false;
       if (segment.kind === "source_passage_claim") claimIndices.add(index);
     } else if (draft && segment.kind === "draft_reference_claim") {
-      if (!exact(segment,["kind","text","draft_record_id"]) || !uuid(segment.draft_record_id)) return false;
+      if (!isDraftReferenceClaim(segment)) return false;
       hasDraft = true;
     } else if (related && segment.kind === "related_page_claim") {
-      const page=segment.page;
-      if (!exact(segment,["kind","text","read_id","page"]) || !uuid(segment.read_id)
-        || !exact(page,["world_id","document_id","registry_revision","title","visibility","content_sha256"])
-        || typeof page.world_id!=="string" || !page.world_id || page.world_id!==worldId || !uuid(page.document_id)
-        || !Number.isSafeInteger(page.registry_revision) || (page.registry_revision as number)<1
-        || typeof page.title!=="string" || !page.title.trim() || !["internal","player_safe"].includes(String(page.visibility))
-        || !digest(page.content_sha256)) return false;
+      if(!isRelatedPageClaim(segment,worldId))return false;
       hasDraft=true;
     } else if (surface && segment.kind === "proposal") {
       if (!exact(segment, ["kind", "text", "label"]) || !["invented_idea", "image_prompt"].includes(String(segment.label))) return false;
     } else if (!surface && segment.kind === "saved_source_claim") {
-      if (!exact(segment, ["kind", "text", "content_sha256"]) || segment.content_sha256 !== sourceHash) return false;
+      if(!isSavedSourceClaim(segment,sourceHash))return false;
       saved = true;
     } else return false;
   }
