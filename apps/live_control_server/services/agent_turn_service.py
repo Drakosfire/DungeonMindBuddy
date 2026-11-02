@@ -6598,7 +6598,8 @@ def execute_agent_turn(
 
     graph_types = _app_state_graph_execution_types()
     native_plan_sources = (request.surface.surface_id == "plan" and request.plan_context_policy is not None
-        and (durable_turn is None or isinstance(durable_turn.graph_context_receipt, graph_types.PlanSourceContextReceiptV1)))
+        and (durable_turn is None or isinstance(durable_turn.graph_context_receipt,
+            (graph_types.PlanSourceContextReceiptV1, graph_types.SurfaceNativeContextReceiptV1))))
     native_corpus_context = native_source_authority = None
     native_query_context = native_query = None
     selected_knowledge_context = None

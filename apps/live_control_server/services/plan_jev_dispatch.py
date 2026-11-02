@@ -113,7 +113,7 @@ class PlanJevDispatch:
         return DecisionContextMode(accounting.context_mode(json.loads(prepared.body)))
 
     def authorize(self, prepared):
-        from .agent_turn_service import _json_node_count, _require_fresh_execution_append
+        from .agent_turn_service import AgentTurnServiceError, _json_node_count, _require_fresh_execution_append
         semantic = isinstance(self.parent, PlanRequestedWorkInputV1)
         if semantic:
             validate_prepared_requested_work(self.parent,prepared)
@@ -135,6 +135,9 @@ class PlanJevDispatch:
             a._active_plan_jev_request = self.parent
             try:
                 a._ensure_claimed(view)
+            except AgentTurnServiceError as exc:
+                a.failure = exc
+                raise
             finally:
                 a._active_plan_jev_request = None
         turn = a.fence.turn
@@ -247,11 +250,17 @@ class PlanJevDispatch:
                 self.call.update(status="ok", response_model=observation.response_model, usage=usage)
             return self.acknowledge(result), result
         except GenerationEngineError as exc:
-            # Keep the normalized public failure alongside the unchanged dispatch
-            # lifecycle. SDK exception text and response bodies are not trace data.
+            # A trusted host rejection retains its public code; an SDK failure
+            # cannot invent one from exception text or response bodies.
+            from .agent_turn_service import AgentTurnServiceError
+            rejection = self.adapter.failure
             if self.adapter.context_capture is not None:
-                self.adapter.context_capture.observe({"kind": "failure", "phase": "provider",
-                    "code": "plan_jev_" + exc.failure.code.value.lower()})
+                self.adapter.context_capture.observe({"kind": "failure",
+                    "phase": "context_build" if isinstance(rejection, AgentTurnServiceError) else "provider",
+                    "code": rejection.code if isinstance(rejection, AgentTurnServiceError)
+                        else "plan_jev_" + exc.failure.code.value.lower()})
+            if isinstance(rejection, AgentTurnServiceError):
+                raise rejection from exc
             raise
         finally:
             try:

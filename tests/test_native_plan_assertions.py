@@ -282,8 +282,12 @@ def _ordinary_native_case(
         writer=next(e for e in failed.graph_context_execution.events if type(e) is NativeWriterAuthorizedV1)
         assert not any(type(e) is t.ProviderOutcomeEventV1 and e.provider_attempt_id==writer.provider_attempt_id
             and e.outcome=='response_received' for e in failed.graph_context_execution.events)
+        before_replay_reads=len(opened_with_grant)
         replay=client.post('/api/live/agent/turn',json=request.model_dump(mode='json',by_alias=True))
-        assert replay.status_code in (409,503) and len(wire.calls)==1
+        assert replay.status_code==409,replay.text+getattr(wire,'failure','')
+        assert replay.json()['detail']['code']=='turn_already_authorized'
+        assert len(wire.calls)==1 and len(opened_with_grant)==before_replay_reads
+        assert AgentConversationService().inspect_turn(world_id=world,turn_id=failed.turn_id)==failed
         assert lane.repo.get_head(world)==original_head
         return
     assert response.status_code==200,response.text+getattr(wire,'failure','')
