@@ -463,7 +463,8 @@ def test_ordinary_http_plan_source_answer_uses_published_graph_authority(source_
     from apps.live_control_server.integrations.dungeonmind import native_registry_source
     from tests.test_plan_jev_writer import WriterWire
     a = source_adapter
-    request = a.request.model_copy(update={'message': 'Whom did Éphanna hear?'})
+    request = a.request.model_copy(update={'message': 'Whom did Éphanna hear?',
+        'plan_context_policy': t.PlanContextPolicyV2(policy='auto_plan_world', graph_source='reviewed_native_graph')})
     monkeypatch.setenv('DMB_AGENT_GRAPH_AUTH_MODE', 'local_operator')
     monkeypatch.setenv('DMB_AGENT_GRAPH_AUTH_ENVIRONMENT', 'local')
     token = 'synthetic-native-test-token-1234567890'
@@ -474,27 +475,17 @@ def test_ordinary_http_plan_source_answer_uses_published_graph_authority(source_
     monkeypatch.setattr(agent, '_verified_world_id', lambda world: world)
     monkeypatch.setattr(agent, '_work_resolver', lambda *_: a.work)
     monkeypatch.setattr(agent, '_graph_resolver', lambda *_: pytest.fail('unexpected generic Graph fallback'))
-    from apps.live_control_server.services.agent_runtime import AgentWorldScope
-    from graph_memory.interaction.session import GraphRetrievalSession, SessionSnapshot
+    from apps.live_control_server.services.native_graph_reads import prepare_query
+    from application_state.agent_conversation.native_plan_statements import NativePlanQueryUnavailableV1
     graph_calls = []
-    published_revision = "published-world-graph-revision"
-    def published_graph(*_args, native_query_mode=False, **_kwargs):
-        assert not native_query_mode, "Fresh Plan selected the separate knowledge Graph"
+    def published_graph(*_args, native_query_mode=False, native_source_context=None, native_principal=None, **_kwargs):
+        assert native_query_mode, "Fresh Plan selected a classic Graph path"
         graph_calls.append(True)
         if not graph_available:
-            raise owner.AgentTurnServiceError("Publication pending.",
-                code="native_graph_binding_unavailable", status_code=409)
-        scope = dict(world_id=lane.bound.native_world_id, campaign_id="",
-            focus={"kind": "none"}, admissibility="gm", scope_mode="world",
-            revision_id=published_revision)
-        return owner.AgentPlanWorldGraphBootstrap(
-            graph_envelope={"world_id": lane.bound.native_world_id,
-                "revision_id": published_revision, "scope_mode": "world"},
-            world_scope=AgentWorldScope(**scope),
-            retrieval_session=GraphRetrievalSession(snapshot=SessionSnapshot(**scope),
-                question=request.message), binding_version=lane.bound.binding_version,
-            candidate_assertion_ids=(),
-            candidate_relationship_ids=(), candidate_evidence_ref_ids=(), evidence_by_anchor_id={})
+            return None, NativePlanQueryUnavailableV1(managed_world_id=a.world_id,
+                reason='native_graph_binding_unavailable')
+        return prepare_query(a.world_id, request.message, native_principal,
+            source_context=native_source_context, repository=lane.repo, resolve_binding=lambda _:lane.bound)
     monkeypatch.setattr(agent, "_plan_context_resolver", published_graph)
     monkeypatch.setattr('apps.live_control_server.integrations.dungeonmind.world_graph_reads.direct_services_from_config',
         lambda *_: pytest.fail('Classic fallback in source-only Plan'))
@@ -529,14 +520,15 @@ def test_ordinary_http_plan_source_answer_uses_published_graph_authority(source_
     response = client.post('/api/live/agent/turn', json=request.model_dump(mode='json', by_alias=True))
     assert response.status_code == 200, response.text + getattr(wire,"failure","")
     data = response.json()
-    assert data['plan_context']['schema'] == 'dmb_agent_plan_source_context_response_v1'
+    assert data['plan_context']['schema'] == 'dmb_agent_surface_native_context_response_v1'
     receipt = data['plan_context']['receipt']
-    assert 'native_query' not in receipt and graph_calls == [True]
+    assert receipt['work_context']['surface_id'] == 'plan' and graph_calls == [True]
+    assert 'graph_capability' not in receipt
     if graph_available:
-        assert receipt['graph_capability']['graph_authority']['graph_revision'] == published_revision
-        assert receipt['source_authority']['revision_id'] != published_revision
+        assert receipt['native_query']['authority']['revision_id'] == receipt['source_authority']['revision_id']
+        assert receipt['native_query']['question'] == request.message
     else:
-        assert receipt['graph_capability'] is None
+        assert receipt['native_query']['schema'] == 'dmb_native_plan_query_unavailable_v1'
     assert data['answer']['status'] == 'ok' and not data['answer']['graph_grounded']
     assert len(wire.calls) == 1 and len(constructions) == 1 and len(choices.calls) == 4
     turn = wire.adapter.turn
@@ -549,6 +541,14 @@ def test_ordinary_http_plan_source_answer_uses_published_graph_authority(source_
     assert replay.json()['plan_context']['completion'] == data['plan_context']['completion']
     assert replay.json()['plan_context']['delivery_replay']
     assert len(wire.calls) == len(constructions) == 1 and len(choices.calls) == 4
+    assert graph_calls == [True]  # Original completion reopens without reacquiring current Graph authority.
     history = client.get(f'/api/live/agent/worlds/{a.world_id}/conversation?include_turn_correlation=true')
     assert history.status_code == 200, history.text
     assert history.json()['turns'][0]['plan_context']['completion'] == data['plan_context']['completion']
+    target = f'/api/live/agent/worlds/{a.world_id}/conversation/turns/{turn.turn_id}/native-body-excerpts/0'
+    invalid = client.get(target + '?source=foreign')
+    assert invalid.status_code == 422
+    lane.bound = SimpleNamespace(**(vars(lane.bound) | {'binding_version': 2}))
+    denied = client.get(target)
+    assert denied.status_code == 409 and denied.json()['detail']['code'] == 'native_body_access_unavailable'
+    assert len(wire.calls) == len(constructions) == 1 and len(choices.calls) == 4

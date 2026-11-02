@@ -651,6 +651,43 @@ class RulesExecutionV1(ClosedRulesModel):
             raise ValueError("Rules completion seal differs from its approved answer")
 
 
+def validate_native_packet_writer(execution, provider_attempt_id, *, require_reply=False):
+    """Close the generic ledger around the shared tool-free final writer.
+
+    The shared caller supplies its actual native producer identity. No second
+    stored event family or synthetic surface carrier is needed for this phase.
+    """
+    execution = RulesExecutionV1.model_validate_json(execution.model_dump_json(by_alias=True))
+    auths = [e for e in execution.events if type(e) is RulesProviderAuthorizedV1
+        and e.provider_attempt_id == provider_attempt_id]
+    if len(auths) != 1:
+        raise ValueError("Shared Rules writer requires one generic authorization")
+    auth = auths[0]
+    before = execution.events[:auth.sequence]
+    calls = {e.call_id for e in before if isinstance(e, RulesToolAuthorizedV1)}
+    observed = {e.call_id for e in before if isinstance(e, RulesQueryObservedV1)}
+    outcomes = {e.provider_attempt_id:e for e in before if isinstance(e, RulesProviderOutcomeV1)}
+    if calls != observed or any(e.provider_attempt_id not in outcomes
+            or outcomes[e.provider_attempt_id].status not in {"answered", "tool_calls"}
+            for e in before if isinstance(e, RulesProviderAuthorizedV1)):
+        raise ValueError("Shared Rules writer requires all prior operations to settle")
+    after = execution.events[auth.sequence+1:]
+    if (not after or type(after[0]) is not RulesProviderIncludedV1
+            or after[0].provider_attempt_id != provider_attempt_id):
+        raise ValueError("Shared Rules writer requires its exact included input")
+    included = after[0]
+    tail = after[1:]
+    if tail and (type(tail[0]) is not RulesNativeProviderOutcomeV1
+            or tail[0].provider_attempt_id != provider_attempt_id or tail[0].status != "answered"):
+        raise ValueError("Shared Rules writer requires its byte-sealed final answer")
+    if (len(tail) > 2 or len(tail) == 2 and (type(tail[1]) is not RulesCompletionBoundV1
+            or tail[1].producing_provider_attempt_id != provider_attempt_id)):
+        raise ValueError("Rules operations cannot continue after the shared writer")
+    if require_reply and not tail:
+        raise ValueError("Shared Rules writer has no sealed final answer")
+    return auth, included
+
+
 def empty_execution(scope: RulesScopeV1) -> RulesExecutionV1:
     return RulesExecutionV1(
         schema="dmb_rules_execution_v1",

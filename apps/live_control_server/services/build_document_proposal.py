@@ -4,22 +4,21 @@ from __future__ import annotations
 from hashlib import sha256
 import json
 import os
-import re
 from contextlib import aclosing
 from uuid import UUID
-from typing import Literal
-
-from pydantic import Field
 
 from generationengine import GenerationClient, GenerationEngineError, TextRequest, TextCompleted, TextDelta, TextFailed
-from generationengine.providers.openai_text import OpenAITextProvider
+from .plan_jev_writer import CapturedWriterProvider
 from generationengine.text_dispatch import TextDispatchGate
 
 from application_state.agent_conversation import AgentConversationService
 from application_state.agent_conversation.dialogue_projection import project_dialogue, expand_dialogue, dialogue_rule
 from application_state.errors import ApplicationStateNotFoundError
 from application_state.build_proposal.service import BuildProposalService
-from application_state.build_proposal.types import BuildGeneratedProposal, BuildProviderAuthorization
+from application_state.build_proposal.types import (
+    BuildProviderAuthorization, BuildComposeError, BuildComposeTargetMismatch,
+    BuildComposeOutput,
+)
 from apps.live_control_server.models.build_document_proposal import BuildDocumentProposalRequest
 from apps.live_control_server.services.workspace_document_registry import get_committed_page_snapshot
 from apps.live_control_server.services.world_container_registry import get_world_container
@@ -100,22 +99,6 @@ return HTML, paths, executable code, graph identities, dmb-node links, hidden ma
 or document metadata. You have no tools and cannot request more reads.'''
 
 
-class BuildComposeError(ValueError):
-    pass
-
-
-class BuildComposeTargetMismatch(BuildComposeError):
-    """Host-owned refusal; its public code never contains provider prose."""
-
-
-class BuildComposeOutput(BuildGeneratedProposal):
-    """New writer output requires an explicit disposition over frozen host targets."""
-
-    replacement_markdown: str = Field(max_length=12_000)
-    destination: Literal["current_page", "different_page", "unresolved"]
-    target: Literal["captured", "page_body", "page_end", "unavailable"]
-
-
 def _model():
     policy = load_buddy_model_policy(strict=True)
     actions, models = policy.get("actions", {}), policy.get("models", {})
@@ -143,35 +126,6 @@ def _source(request):
     return snapshot
 
 
-def _result(text, page_body_offer=None, page_end_offer=None):
-    def unique(pairs):
-        value = {}
-        for key, item in pairs:
-            if key in value:
-                raise BuildComposeError("build_compose_duplicate_output_field")
-            value[key] = item
-        return value
-    wire = BuildComposeOutput.model_validate(json.loads(text, object_pairs_hook=unique))
-    if wire.destination != "current_page":
-        raise BuildComposeTargetMismatch("build_compose_target_mismatch")
-    if wire.target == "unavailable":
-        if wire.replacement_markdown:
-            raise BuildComposeError("build_compose_unavailable_content")
-        raise BuildComposeTargetMismatch("build_compose_target_unavailable")
-    if wire.target == "page_body" and page_body_offer is None:
-        raise BuildComposeTargetMismatch("build_compose_target_not_offered")
-    if wire.target == "page_end" and page_end_offer is None:
-        raise BuildComposeTargetMismatch("build_compose_target_not_offered")
-    output = BuildGeneratedProposal.model_validate(wire.model_dump(exclude={"destination"}))
-    markdown = output.replacement_markdown
-    if re.search(r"(?m)^ {0,3}(?:`{3,}|~{3,})dmb-work-plan-v1(?:[ \t]|$)", markdown):
-        raise BuildComposeError("build_compose_unsupported_markdown")
-    if (re.search(r"<[^>]*>|dmb-node:|graphNodeReference|dmb-playable-element:|\bnode:[a-z0-9_-]+", markdown, re.I)
-            or re.search(r"\[[^\]]+\]\((?:file:|\.{1,2}/|/)", markdown, re.I)):
-        raise BuildComposeError("build_compose_unsupported_markdown")
-    return output
-
-
 def _public(record):
     # Raw model output is research evidence, not a second message in normal history.
     return record.model_dump(mode="json", exclude={"raw_response"})
@@ -188,7 +142,7 @@ def read_prompt(world_id: str, action_id: UUID):
 
 
 async def compose_with_writer(
-    request: BuildDocumentProposalRequest, writer_gate: TextDispatchGate, *, writer_model: str, transport=None, frozen_history=None, related_authored_pages=None, authored_reference_material=None,
+    request: BuildDocumentProposalRequest, writer_gate: TextDispatchGate, *, writer_model: str, transport=None, frozen_history=None, related_authored_pages=None, authored_reference_material=None, _native_context=None, _native_rules_frame=None, _native_output_capture=None,
 ):
     """Trusted parent seam: one proposal call, jointly authorized; never import text.
 
@@ -198,14 +152,16 @@ async def compose_with_writer(
     """
     if not isinstance(writer_gate, TextDispatchGate) or request.origin is None:
         raise BuildComposeError("build_compose_writer_origin_required")
-    return await _compose(request, transport=transport, writer_gate=writer_gate, writer_model=writer_model, frozen_history=frozen_history, related_authored_pages=related_authored_pages, authored_reference_material=authored_reference_material)
+    return await _compose(request, transport=transport, writer_gate=writer_gate, writer_model=writer_model, frozen_history=frozen_history, related_authored_pages=related_authored_pages, authored_reference_material=authored_reference_material, _native_context=_native_context, _native_rules_frame=_native_rules_frame, _native_output_capture=_native_output_capture)
 
 
 async def compose(request: BuildDocumentProposalRequest, *, transport=None):
     return await _compose(request, transport=transport)
 
 
-async def _compose(request: BuildDocumentProposalRequest, *, transport=None, writer_gate=None, writer_model=None, frozen_history=None, related_authored_pages=None, authored_reference_material=None):
+async def _compose(request: BuildDocumentProposalRequest, *, transport=None, writer_gate=None, writer_model=None, frozen_history=None, related_authored_pages=None, authored_reference_material=None, _native_context=None, _native_rules_frame=None, _native_output_capture=None):
+    if (_native_output_capture is not None and (not callable(_native_output_capture) or _native_context is None)):
+        raise BuildComposeError("build_compose_native_capture_required")
     store = BuildProposalService()
     reservation = request.reservation_only()
     # Check an accepted operation before consulting mutable source state. A replay
@@ -226,7 +182,7 @@ async def _compose(request: BuildDocumentProposalRequest, *, transport=None, wri
     def advance(state, **fields):
         nonlocal record
         record = store.advance(world, record.action_id, expected_revision=record.revision, state=state, **fields)
-    expected = _writer_request(request, snapshot, model, frozen_history=frozen_history, related_authored_pages=related_authored_pages, authored_reference_material=authored_reference_material)
+    expected = _writer_request(request, snapshot, model, frozen_history=frozen_history, related_authored_pages=related_authored_pages, authored_reference_material=authored_reference_material, _native_context=_native_context, _native_rules_frame=_native_rules_frame)
     packet = expected["input"]
     schema = expected["text"]["format"]["schema"]
     record, created = store.reserve(reservation)
@@ -299,7 +255,12 @@ async def _compose(request: BuildDocumentProposalRequest, *, transport=None, wri
                     if isinstance(event, TextCompleted):
                         # Exact provider final, before GE conformance. Deltas are
                         # never substituted for this evidence acknowledgment.
-                        advance("response_received", raw_response=event.final_text)
+                        selected = self.provider.consume_completed_text(self.provider.actual_response, model)
+                        if selected != event.final_text or not selected:
+                            raise BuildComposeError("build_compose_response_identity_mismatch")
+                        advance("response_received", raw_response=selected)
+                        if _native_output_capture is not None:
+                            _native_output_capture(event)
                     elif isinstance(event, TextDelta):
                         try:
                             changed = projection.feed(event.text)
@@ -312,7 +273,7 @@ async def _compose(request: BuildDocumentProposalRequest, *, transport=None, wri
 
     client = None
     try:
-        provider = OpenAITextProvider(api_key=os.environ.get("OPENAI_API_KEY"), dispatch_gate=TextDispatchGate(authorize, lifecycle), transport=transport)
+        provider = CapturedWriterProvider(api_key=os.environ.get("OPENAI_API_KEY"), dispatch_gate=TextDispatchGate(authorize, lifecycle), transport=transport)
         client = GenerationClient(text_providers={"openai": ObservedProvider(provider)})
         result = None
         async for event in client.stream_text(TextRequest(provider="openai", model=model,
@@ -327,10 +288,15 @@ async def _compose(request: BuildDocumentProposalRequest, *, transport=None, wri
             raise BuildComposeError("build_compose_output_unavailable")
         if not isinstance(result.final_text, str):
             raise BuildComposeError("build_compose_output_unavailable")
-        advance("response_received", raw_response=result.final_text, observation=result.observation.model_dump(mode="json"))
-        proposal = _result(result.final_text, reservation.page_body_offer, reservation.page_end_offer)
-        advance("proposed", proposal=proposal)
-        progress("ready", proposal.replacement_markdown)
+        if result.final_text != record.raw_response:
+            raise BuildComposeError("build_compose_response_identity_mismatch")
+        if _native_output_capture is not None and (result.observation.state.value!='completed'
+                or result.observation.retry_count!=0 or result.observation.provider_attempt_count!=1
+                or result.observation.conformance_retry_count!=0):
+            raise BuildComposeError("build_compose_response_identity_mismatch")
+        advance("response_received", observation=result.observation.model_dump(mode="json"))
+        advance("proposed")
+        progress("ready", record.proposal.replacement_markdown)
         return record
     except Exception as exc:
         progress("incomplete")
@@ -346,15 +312,15 @@ async def _compose(request: BuildDocumentProposalRequest, *, transport=None, wri
             await client.aclose()
 
 
-def prepare_writer_request(request, *, writer_model: str, frozen_history=None, related_authored_pages=None, authored_reference_material=None):
+def prepare_writer_request(request, *, writer_model: str, frozen_history=None, related_authored_pages=None, authored_reference_material=None, _native_context=None, _native_rules_frame=None):
     """Owned deterministic request for trusted staging; never reserves or sends."""
     snapshot = _source(request)
     if not isinstance(writer_model, str) or not writer_model.strip():
         raise BuildComposeError("build_compose_writer_model_required")
-    return _writer_request(request, snapshot, writer_model, frozen_history=frozen_history, related_authored_pages=related_authored_pages, authored_reference_material=authored_reference_material)
+    return _writer_request(request, snapshot, writer_model, frozen_history=frozen_history, related_authored_pages=related_authored_pages, authored_reference_material=authored_reference_material, _native_context=_native_context, _native_rules_frame=_native_rules_frame)
 
 
-def _writer_request(request, snapshot, model, *, frozen_history=None, related_authored_pages=None, authored_reference_material=None):
+def _writer_request(request, snapshot, model, *, frozen_history=None, related_authored_pages=None, authored_reference_material=None, _native_context=None, _native_rules_frame=None):
     reservation = request.reservation_only()
     world = reservation.basis.world_id
     if frozen_history is None:
@@ -375,8 +341,24 @@ def _writer_request(request, snapshot, model, *, frozen_history=None, related_au
         "page_body_offer": reservation.page_body_offer.model_dump(mode="json") if reservation.page_body_offer else None,
         "page_end_offer": reservation.page_end_offer.model_dump(mode="json") if reservation.page_end_offer else None,
         "instruction": reservation.instruction, "draft_markdown": request.draft_markdown}, ensure_ascii=False, separators=(",", ":"))
+    if _native_context is not None:
+        from application_state.agent_conversation.native_writer import authoring_input, AUTHORING_GUIDANCE
+        if authored_reference_material is not None or related_authored_pages is not None:
+            raise ValueError('Native authoring must use its acquired work/reference owners once')
+        material=authoring_input(_native_context,request,reservation.instruction,'propose_build_insertion')
+        if model!=_native_context[1].policy.provider_roles.writer.model:
+            raise ValueError('Native proposal model differs from its frozen writer')
+        body=json.loads(packet)
+        for key in ('source_basis','draft_markdown'):
+            del body[key]
+        body.update(material)
+        if _native_rules_frame is not None:
+            body['rules_evidence']=_native_rules_frame.model_dump(mode='json',by_alias=True)
+        packet=json.dumps(body,ensure_ascii=False,separators=(',',':'))
     schema = BuildComposeOutput.model_json_schema()
     expected = {"model": model, "input": packet, "instructions": SYSTEM + ("\nUse related_authored_pages as exact saved authored references before inventing substitutes. They are authored context, not played facts; preserve row/column meanings and source attribution.\n" if related_authored_pages is not None else "") + dialogue_rule(messages),
         "max_output_tokens": 4096, "reasoning": {"effort": "low"},
         "text": {"format": {"type": "json_schema", "name": "build_document_proposal", "schema": schema, "strict": True}}, "tools": [], "stream": True}
+    if _native_context is not None:
+        expected['instructions']+=AUTHORING_GUIDANCE
     return expected

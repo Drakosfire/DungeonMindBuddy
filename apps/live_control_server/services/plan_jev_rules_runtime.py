@@ -10,7 +10,7 @@ from . import rules_lookup_broker as broker
 class PlanRulesRuntime:
     def __init__(self, adapter, capability):
         self.capability = RulesCapabilityV1.model_validate(capability)
-        if (adapter.request.surface.surface_id != "plan" or self.capability != rules_capability(graph=True)
+        if (adapter.request.surface.surface_id not in {"plan", "build"} or self.capability != rules_capability(graph=True)
                 or adapter.rules_runtime is not None):
             raise ValueError("Plan Rules requires the exact current Graph capability")
         self.adapter, self.native = adapter, None
@@ -24,7 +24,12 @@ class PlanRulesRuntime:
         if self.native is None:
             if self.adapter.fence is None:
                 raise ValueError("Plan Rules must wait for its actual Plan claim")
-            _owner(self.adapter.fence.turn)
+            from application_state.agent_conversation.native_context import SurfaceNativeContextReceiptV1
+            if type(self.adapter.fence.turn.graph_context_receipt) is SurfaceNativeContextReceiptV1:
+                from application_state.agent_conversation.native_retrieval import owner
+                owner(self.adapter.fence.turn)
+            else:
+                _owner(self.adapter.fence.turn)
             self.native = NativeRulesRuntime(self.adapter, self.capability)
             self.adapter.rules_runtime = self
         return self.native
@@ -66,6 +71,18 @@ class PlanRulesRuntime:
         native = self._initialize()
         with a.fence.renewer._lock:
             turn = native._bind()
+            from application_state.agent_conversation.native_context import SurfaceNativeContextReceiptV1
+            if type(turn.graph_context_receipt) is SurfaceNativeContextReceiptV1:
+                # The owning APP append already admitted writer + Rules input in
+                # one transaction. Read that same ledger, without a second grant.
+                native.record=a.service.begin_rules_execution(native.record.execution.scope,expected_turn_revision=turn.revision)
+                from application_state.agent_conversation.rules_authority_events import RulesProviderIncludedV1
+                if not any(type(e) is RulesProviderIncludedV1 and e.provider_attempt_id==a.last_provider_attempt_id
+                        and e.request_envelope_sha256==view['payloadSha256'] for e in native.record.execution.events):
+                    raise ValueError('Shared writer has no atomically admitted Rules input')
+                native.last_provider={**view,'providerAttemptId':str(a.last_provider_attempt_id)}
+                native.last_prepared_json,native.last_reply=view['payloadJson'],None
+                return True
             exposure = verify_plan_rules_packet_input(native.record.execution, turn, view["payloadJson"],
                 expected_envelope_sha256=view["payloadSha256"])
             execution = native.record.execution
@@ -87,16 +104,16 @@ class PlanRulesRuntime:
     def capture_reply(self, reply):
         return self._initialize().capture_reply(reply)
 
-    def complete(self, turn, reply):
+    def complete(self, turn, reply, *, work_proof=None):
         if self.authoring is None:
-            return self._initialize().complete(turn,reply)
+            return self._initialize().complete(turn,reply,work_proof=work_proof)
         from application_state.agent_conversation.plan_authoring import prepare_authoring_proposal
         action,capture=self.authoring
         def accept_base(result,proof,rules_revision):
             proposal=prepare_authoring_proposal(action,capture,turn,result,proof)
             return self.adapter.service.complete_plan_authoring_turn(result,proposal=proposal,
-                output_proof=proof,expected_rules_revision=rules_revision)
+                output_proof=proof,expected_rules_revision=rules_revision,**({'work_proof':work_proof} if work_proof is not None else {}))
         def accept_mixed(result):
             proposal=prepare_authoring_proposal(action,capture,turn,result,result.output_proof)
-            return self.adapter.service.complete_plan_authoring_mixed_turn(result,proposal=proposal)
-        return self._initialize().complete(turn,reply,accept_base=accept_base,accept_mixed=accept_mixed)
+            return self.adapter.service.complete_plan_authoring_mixed_turn(result,proposal=proposal,**({'work_proof':work_proof} if work_proof is not None else {}))
+        return self._initialize().complete(turn,reply,accept_base=accept_base,accept_mixed=accept_mixed,work_proof=work_proof)

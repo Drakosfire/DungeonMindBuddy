@@ -1,3 +1,5 @@
+import {rulesAnswerFixture,fixtureHash} from '../test/rulesAnswerFixture';
+import sharedWire from '../test/surface-native-http.json';
 import {canonical} from '../shared/sourcePassageProtocol';
 import {capturePlanPlacementCatalog} from './agentEdit/planPlacementCatalog';
 import {sealWorldPlanAuthoringTarget} from './agentEdit/planAgentEditProposal';
@@ -1094,7 +1096,8 @@ function policyHistoryTurn(
   request?: WorldPlanAgentTurnRequestV1,
 ): WorldAgentConversationHistoryTurnV2 {
   const turn = makeTurn(sequence, turnId, question, answer);
-  const basis = context.receipt.plan_basis;
+  const work=context.receipt.schema==='dmb_surface_native_context_receipt_v1'?context.receipt.work_context:context.receipt;
+  const basis = work.plan_basis;
   if (request) {
     turn.provenance.surface_id = request.surface.surface_id;
     turn.provenance.surface_instance_id = request.surface.instance_id;
@@ -1109,7 +1112,7 @@ function policyHistoryTurn(
     work_revision_id: basis.work_revision_id,
     revision_n: basis.revision_n,
   };
-  const target = context.receipt.playable_target;
+  const target = work.playable_target;
   turn.provenance.supporting_work = target ? [{
     resolution: "resolved",
     kind: "dmb_plan_playable_target_v1",
@@ -3576,7 +3579,7 @@ describe("World Plan conversation consumer", () => {
     expect(screen.queryByRole("region", { name: "Pending Ask recovery" })).not.toBeInTheDocument();
     expect(fetchSpy.mock.calls.filter(([url]) => String(url) === "/api/live/agent/turn")).toHaveLength(1);
     expect(fetchSpy.mock.calls.map(([url, init]) => [String(url), init?.method ?? "GET"])).toEqual([
-      [`/api/live/media/images/preparations/list?world_id=${worldId}&conversation_id=conversation-a`, "GET"],
+      ["/api/live/agent/readiness?surface=plan&world_graph=true", "GET"],
       ["/api/live/agent/turn", "POST"],
     ]);
   });
@@ -3757,7 +3760,7 @@ describe("World Plan conversation consumer", () => {
     expect(pendingAskKeys()).toHaveLength(1);
     expect(fetchSpy.mock.calls.filter(([url]) => String(url) === "/api/live/agent/turn")).toHaveLength(1);
     expect(fetchSpy.mock.calls.map(([url, init]) => [String(url), init?.method ?? "GET"])).toEqual([
-      [`/api/live/media/images/preparations/list?world_id=${worldId}&conversation_id=conversation-a`, "GET"],
+      ["/api/live/agent/readiness?surface=plan&world_graph=true", "GET"],
       ["/api/live/agent/turn", "POST"],
     ]);
   });
@@ -3906,7 +3909,10 @@ describe("World Plan conversation consumer", () => {
     fireEvent.change(screen.getByLabelText("Message DungeonBuddy"), { target: { value: "Who watches the western gate?" } });
     fireEvent.click(screen.getByRole("button", { name: "Send message" }));
     await screen.findByText(/outcome of this Ask is uncertain/);
-    expect(screen.getByLabelText("Message DungeonBuddy")).toBeDisabled();
+    expect(screen.getByLabelText("Message DungeonBuddy")).toBeEnabled();
+    expect(screen.getByRole("button", { name: "Send message" })).toBeDisabled();
+    fireEvent.change(screen.getByLabelText("Message DungeonBuddy"), { target: { value: "A newer unsent question" } });
+    expect(screen.getByRole("button", { name: "Send message" })).toBeDisabled();
     const context = await planGraphContext("graph_grounded", { request, execution: null });
     const completed = withPersistedCorrelation(policyHistoryTurn(
       1, request.turn_id, request.message, "The western gate is watched.", context, "completed", request,
@@ -3917,6 +3923,7 @@ describe("World Plan conversation consumer", () => {
     api.setCurrent(await historyV3("conversation-a", 10, [completed]));
     fireEvent.click(screen.getByRole("button", { name: "Refresh World history" }));
     await screen.findAllByText("The western gate is watched.");
+    expect(screen.getByLabelText("Message DungeonBuddy")).toHaveValue("A newer unsent question");
     if (matchingKey) {
       await waitFor(() => expect(pendingAskKeys()).toEqual([]));
       await waitFor(() => expect(screen.getByLabelText("Message DungeonBuddy")).toBeEnabled());
@@ -3924,7 +3931,8 @@ describe("World Plan conversation consumer", () => {
       expect(screen.getByRole("button", { name: "Send message" })).toBeEnabled();
     } else {
       expect(pendingAskKeys()).toHaveLength(1);
-      expect(screen.getByLabelText("Message DungeonBuddy")).toBeDisabled();
+      expect(screen.getByLabelText("Message DungeonBuddy")).toBeEnabled();
+      expect(screen.getByRole("button", { name: "Send message" })).toBeDisabled();
     }
     expect(postAsk).toHaveBeenCalledTimes(1);
   });
@@ -5134,7 +5142,7 @@ describe("World Plan conversation consumer", () => {
     if(mixed) expect(screen.getByText('A proposed outing.').closest('blockquote')).not.toBeNull();
     expect(screen.getByText('Sources')).toBeInTheDocument();expect(open).not.toHaveBeenCalled();
     fireEvent.click(screen.getByText('Evidence trail',{selector:'summary'}));
-    fireEvent.click((mixed ? within(screen.getByLabelText('Source-supported statement')) : screen).getByRole('button',{name:'Read Reedbridge notes · lines 5–5'}));
+    fireEvent.click((mixed ? within(screen.getByLabelText('Source-supported statement')) : within(screen.getByText('Evidence trail',{selector:'summary'}).closest('details')!)).getByRole('button',{name:'Read Reedbridge notes · lines 5–5'}));
     await screen.findByRole('region',{name:'Opened source passage'});expect(open).toHaveBeenCalledWith(worldId,turnId,0);
   });
 
@@ -5268,6 +5276,80 @@ describe("World Plan conversation consumer", () => {
     expect(open).toHaveBeenCalledWith(worldId,turnId,0);
   });
 
+  it.each(['exact','fresh','producer','revision','extra','provenance','world','interrupted','mixed-approved','mixed-unclaimed','unavailable','question','mixed-approved-question','mixed-unclaimed-question'])("consumes shared native Plan context in ordinary conversation and history: %s",async change=>{
+    const old=await planGraphContext('graph_grounded'),turnId='11111111-1111-4111-8111-111111111111';
+    const context=JSON.parse(JSON.stringify(sharedWire.context).replaceAll(sharedWire.context.receipt.work_context.plan_basis.world_id,worldId)) as import('../api/types').PlanSurfaceNativeContextResponseV1;
+    const work=context.receipt.work_context;
+    work.plan_basis=old.receipt.plan_basis;
+    const question=context.receipt.native_query.schema==='dmb_native_plan_query_v2'?context.receipt.native_query.question:'';
+    if(change==='unavailable'){
+      context.receipt.native_query={schema:'dmb_native_plan_query_unavailable_v1',managed_world_id:worldId,reason:'native_graph_head_unavailable'};
+      context.completion!.answer_context_status='insufficient_evidence';context.completion!.native_assertion_citations=[];
+      context.completion!.answer_segments=[{kind:'limitation',code:'partial_retrieval',text:'The requested Graph evidence is unavailable.',question_phrase:null}];
+    }
+    const answer=context.completion!.answer_segments.map(s=>s.text).join('\n');
+    const seal=async(turn:WorldAgentConversationHistoryTurnV2)=>{
+      context.receipt.provenance_sha256=await sha256Hex(canonicalJson(turn.provenance));
+      await resealPlanGraphContext(context);
+      context.completion?.native_assertion_citations.forEach(c=>c.context_receipt_sha256=context.receipt.context_receipt_sha256);
+    };
+    const turn=policyHistoryTurn(1,turnId,question,answer,context);
+    await seal(turn);
+    if(change==='question'||change.endsWith('-question'))turn.user_text='An unrelated question about a different event.';
+    const citation=context.completion!.native_assertion_citations[0]!;
+    if(change==='producer')citation.provider_attempt_id='00000000-0000-4000-8000-000000000001';
+    if(change==='revision')citation.read_revision_id='rev:foreign';
+    if(change==='extra')Object.assign(context,{source_open_targets:[]});
+    if(change==='provenance')context.receipt.provenance_sha256='0'.repeat(64);
+    if(change==='world')context.receipt.work_context.plan_basis.world_id='foreign';
+    if(change==='interrupted'){
+      turn.lifecycle_status='interrupted';turn.assistant_text=null;context.completion=null;
+      context.execution={schema:'dmb_agent_plan_world_graph_execution_projection_v1',claimability:'blocked_unknown_or_sent',authorization_state:'outcome_unknown',automatic_redispatch:false};
+    }
+    let page:WorldAgentConversationHistoryResponse={...history('conversation-a',1,[]),schema:'dmb_agent_conversation_history_v2',turns:change==='fresh'?[]:[turn]};
+    if(change.startsWith('mixed-')){
+      const approved=change.startsWith('mixed-approved'),f=rulesAnswerFixture(approved?context:null);
+      f.context.accepted_binding.world_id=worldId;f.context.accepted_binding.turn_id=turnId;
+      f.context.accepted_binding.graph_used=approved;
+      if(!approved){f.context.accepted_binding.base_disposition='unclaimed';f.context.unclaimed_context={schema:'dmb_agent_rules_unclaimed_context_v1',receipt:context.receipt,completion:null,execution:context.execution!,delivery_replay:false};}
+      f.context.accepted_binding_sha256=fixtureHash(canonicalJson(f.context.accepted_binding));
+      const {plan_context:_,...envelope}=turn;
+      page={...history(f.context.accepted_binding.conversation_id,1,[]),schema:'dmb_agent_conversation_history_v4',turns:[{...envelope,schema:'dmb_agent_conversation_history_mixed_turn_v1',idempotency_key:turnId,lifecycle_status:'completed',assistant_text:f.answer,rules_context:f.context}]};
+    }
+    const api=setupApi(page);
+    const post=vi.spyOn(liveApi,'postWorldPlanAgentTurn');
+    if(change==='fresh')post.mockImplementation(async request=>{
+      work.plan_context_policy=request.plan_context_policy as import('../api/types').WorldPlanContextPolicyV2;
+      work.plan_basis={...work.plan_basis,object_revision:request.primary_work.expected_revision,revision_n:request.primary_work.expected_revision_n,content_sha256:request.primary_work.expected_content_sha256};
+      if(context.receipt.native_query.schema==='dmb_native_plan_query_v2')context.receipt.native_query.question=request.message;
+      const row=policyHistoryTurn(1,turnId,request.message,answer,context,'completed',request);await seal(row);
+      api.setCurrent(await historyV3('conversation-a',1,[withPersistedCorrelation(row,await expectedHistoryCorrelationKey(worldId,request.turn_id),turnId)]));
+      return {...await policyResponse(request,'conversation-a',answer),plan_context:context};
+    });
+    const open=vi.spyOn(liveApi,'getAgentNativeAssertionSource').mockResolvedValue({...sharedWire.source,world_id:worldId,turn_id:turnId,citation});
+    mountComponent();
+    if(change==='fresh'){
+      await screen.findByRole('textbox',{name:'Message DungeonBuddy'});ensureWorldGraphAskEnabled();
+      fireEvent.change(screen.getByRole('textbox',{name:'Message DungeonBuddy'}),{target:{value:question}});
+      fireEvent.click(screen.getByRole('button',{name:'Send message'}));
+    }
+    if(!['exact','fresh','interrupted','mixed-approved','mixed-unclaimed','unavailable'].includes(change)){
+      await screen.findByText(/invalid Graph-context receipt/);expect(open).not.toHaveBeenCalled();return;
+    }
+    await screen.findByText(question);
+    if(change==='interrupted'){
+      expect(screen.queryByText(answer)).toBeNull();expect(open).not.toHaveBeenCalled();expect(post).not.toHaveBeenCalled();return;
+    }
+    if(change==='mixed-unclaimed'){
+      await screen.findByText('Occupied 🦉 space is constrained.');expect(screen.queryByText(answer)).toBeNull();expect(open).not.toHaveBeenCalled();return;
+    }
+    if(change==='unavailable'){await screen.findByText(answer);expect(open).not.toHaveBeenCalled();return;}
+    await screen.findByText(answer);
+    fireEvent.click(screen.getByRole('button',{name:'Read Graph assertion source'}));
+    await screen.findByRole('region',{name:'Opened source section'});
+    expect(open).toHaveBeenCalledWith(worldId,turnId,0);
+  });
+
   it("rehydrates a cited session summary with its immutable original instead of a quote",async()=>{
     const context=await planGraphContext('graph_grounded');
     const turnId='11111111-1111-4111-8111-111111111111',text='No fight occurred; the next route remains open.';
@@ -5336,7 +5418,7 @@ describe("World Plan conversation consumer", () => {
     expect(screen.getByText("Sources")).toBeInTheDocument();
     expect(open).not.toHaveBeenCalled();
     fireEvent.click(screen.getByText("Evidence trail", {selector: "summary"}));
-    fireEvent.click(screen.getByRole("button", {name: named ? "Read River Watch — synthetic source · lines 1–1" : "Read passage 1"}));
+    fireEvent.click(within(screen.getByText("Evidence trail", {selector: "summary"}).closest("details")!).getByRole("button", {name: named ? "Read River Watch — synthetic source · lines 1–1" : "Read passage 1"}));
     await screen.findByRole("region", {name: "Opened source passage"});
     expect(open).toHaveBeenCalledWith(worldId, turnId, 0);
     expect(screen.getByRole("tab", {name: "The Prompt"})).toBeInTheDocument();

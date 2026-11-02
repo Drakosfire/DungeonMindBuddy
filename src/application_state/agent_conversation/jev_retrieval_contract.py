@@ -81,6 +81,12 @@ class PlanSourceRetrievalDecisionInputV1(_RetrievalDecisionInputBase):
         return self
 
 
+class NativeRetrievalDecisionInputV1(PlanSourceRetrievalDecisionInputV1):
+    """Current shared retrieval; scope commits actual work and both capabilities."""
+    schema_: Literal["dmb_native_retrieval_decision_input_v1"] = Field(
+        default="dmb_native_retrieval_decision_input_v1", alias="schema")
+
+
 class RetrievalSelection(_Frozen):
     operation: Operation
     selected_handles: tuple[StrictStr, ...]
@@ -100,7 +106,7 @@ def fallback_options(request: RetrievalDecisionInput) -> tuple[str, str]:
             else ("finish_retrieval", "finish_with_gaps"))
 
 
-def prepare_decision(request: RetrievalDecisionInput) -> DecisionRequest:
+def prepare_decision(request: RetrievalDecisionInput, *, controller_accounting=None) -> DecisionRequest:
     """One typed batch, without Plan bodies, host metadata or writer instructions."""
     questions = [ChoiceDecisionQuestion(
         name="operation", options=fallback_options(request),
@@ -151,6 +157,10 @@ def prepare_decision(request: RetrievalDecisionInput) -> DecisionRequest:
         state["examined_subjects"] = [{"label": c.label, "kind": c.kind} for c in request.examined_candidates]
     if request.dialogue:
         state["dialogue_reference"] = [row.model_dump() for row in request.dialogue]
+    if controller_accounting is not None:
+        if type(request) is not NativeRetrievalDecisionInputV1:
+            raise ValueError("Build accounting requires the current shared retrieval input")
+        state.update(phase="navigate", context_accounting=controller_accounting)
     return DecisionRequest(provider=PROVIDER, model=MODEL,
         # UUIDs, digests, revision IDs and handles bind parent authority; the
         # model only needs semantic labels and index choices. Keep those machine
@@ -237,7 +247,7 @@ def _admitted_candidates(request, selection):
     return tuple(catalog[handle] for handle in selection.selected_handles)
 
 
-def validate_prepared_decision(request: RetrievalDecisionInput, prepared) -> None:
+def validate_prepared_decision(request: RetrievalDecisionInput, prepared, *, controller_accounting=None) -> None:
     """Check the exact GE/TypeSafe wire before the surface authorizes dispatch."""
     from generationengine.decision_dispatch import PreparedDecisionDispatch
     if (not isinstance(prepared, PreparedDecisionDispatch)
@@ -249,10 +259,10 @@ def validate_prepared_decision(request: RetrievalDecisionInput, prepared) -> Non
             or sha256(prepared.body).hexdigest() != prepared.body_sha256):
         raise ValueError("Prepared decision wire identity differs")
     UUID(prepared.attempt_id)
-    validate_wire_body(request, prepared.body)
+    validate_wire_body(request, prepared.body, controller_accounting=controller_accounting)
 
 
-def validate_wire_body(request: RetrievalDecisionInput, raw: bytes) -> None:
+def validate_wire_body(request: RetrievalDecisionInput, raw: bytes, *, controller_accounting=None) -> None:
     """Recheck semantic-only request bytes at the owning durable append."""
     def unique(pairs):
         result = {}
@@ -263,7 +273,7 @@ def validate_wire_body(request: RetrievalDecisionInput, raw: bytes) -> None:
         return result
     body = json.loads(raw, object_pairs_hook=unique,
         parse_constant=lambda _value: (_ for _ in ()).throw(ValueError("Nonfinite decision request")))
-    expected = prepare_decision(request)
+    expected = prepare_decision(request, controller_accounting=controller_accounting)
     questions = {q.name: {"type": "choice", "instructions": q.question,
                          "criteria": {option: None for option in q.options}} for q in expected.questions}
     if body != {"model": MODEL, "state": expected.state, "questions": questions}:

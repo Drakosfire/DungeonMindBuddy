@@ -117,6 +117,21 @@ class BuildProposalReservation(StrictModel):
         ).hexdigest()
 
 
+class BuildWriteCapability(BuildProposalReservation):
+    """Browser-captured target; no model chooses insertion authority."""
+    instruction: str = ""
+    draft_markdown: str
+
+    @model_validator(mode="after")
+    def validate_capability(self):
+        encoded = self.draft_markdown.encode("utf-8", errors="strict")
+        if self.instruction or self.origin is not None:
+            raise ValueError("The model instruction and tool origin are parent-owned")
+        if sha256(encoded).hexdigest() != self.basis.draft_sha256:
+            raise ValueError("Captured draft differs from its digest")
+        return self
+
+
 class BuildGeneratedProposal(StrictModel):
     replacement_markdown: str = Field(min_length=1, max_length=12_000)
     summary: str = Field(min_length=1, max_length=1000)
@@ -129,6 +144,51 @@ class BuildGeneratedProposal(StrictModel):
         if self.target is None:
             value.pop("target", None)
         return value
+
+
+class BuildComposeError(ValueError):
+    pass
+
+
+class BuildComposeTargetMismatch(BuildComposeError):
+    """Host-owned refusal; its public code never contains provider prose."""
+
+
+class BuildComposeOutput(BuildGeneratedProposal):
+    """New writer output requires an explicit disposition over frozen host targets."""
+
+    replacement_markdown: str = Field(max_length=12_000)
+    destination: Literal["current_page", "different_page", "unresolved"]
+    target: Literal["captured", "page_body", "page_end", "unavailable"]
+
+
+def normalize_proposal_output(text, page_body_offer=None, page_end_offer=None):
+    def unique(pairs):
+        value = {}
+        for key, item in pairs:
+            if key in value:
+                raise BuildComposeError("build_compose_duplicate_output_field")
+            value[key] = item
+        return value
+    wire = BuildComposeOutput.model_validate(json.loads(text, object_pairs_hook=unique))
+    if wire.destination != "current_page":
+        raise BuildComposeTargetMismatch("build_compose_target_mismatch")
+    if wire.target == "unavailable":
+        if wire.replacement_markdown:
+            raise BuildComposeError("build_compose_unavailable_content")
+        raise BuildComposeTargetMismatch("build_compose_target_unavailable")
+    if wire.target == "page_body" and page_body_offer is None:
+        raise BuildComposeTargetMismatch("build_compose_target_not_offered")
+    if wire.target == "page_end" and page_end_offer is None:
+        raise BuildComposeTargetMismatch("build_compose_target_not_offered")
+    output = BuildGeneratedProposal.model_validate(wire.model_dump(exclude={"destination"}))
+    markdown = output.replacement_markdown
+    if re.search(r"(?m)^ {0,3}(?:`{3,}|~{3,})dmb-work-plan-v1(?:[ \t]|$)", markdown):
+        raise BuildComposeError("build_compose_unsupported_markdown")
+    if (re.search(r"<[^>]*>|dmb-node:|graphNodeReference|dmb-playable-element:|\bnode:[a-z0-9_-]+", markdown, re.I)
+            or re.search(r"\[[^\]]+\]\((?:file:|\.{1,2}/|/)", markdown, re.I)):
+        raise BuildComposeError("build_compose_unsupported_markdown")
+    return output
 
 
 class BuildProviderAuthorization(StrictModel):

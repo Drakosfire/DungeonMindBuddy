@@ -349,7 +349,10 @@ class ContextTraceCollector:
                 raise ApplicationStateValidationError("answer draft lacks its producing provider response")
             if controller_response:
                 from application_state.agent_conversation.types import BuildSelectedSourceActionControllerWriterPolicyV1
-                if (not isinstance(execution.policy, BuildSelectedSourceActionControllerWriterPolicyV1)
+                from application_state.agent_conversation.native_execution import SurfaceNativeExecutionPolicyV1, NativeBuildActionV1
+                native_build = (type(execution.policy) is SurfaceNativeExecutionPolicyV1
+                    and type(execution.policy.action) is NativeBuildActionV1)
+                if (not (native_build or isinstance(execution.policy, BuildSelectedSourceActionControllerWriterPolicyV1))
                     or (authorizations[-1].provider, authorizations[-1].model, authorizations[-1].api_mode)
                     != execution.policy.provider_roles.controller.identity()):
                     raise ApplicationStateValidationError("controller capture lacks its frozen selection role")

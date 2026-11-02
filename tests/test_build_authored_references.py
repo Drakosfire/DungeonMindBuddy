@@ -430,7 +430,7 @@ class AuthoredProfileWriter(WriterWire):
                 'steps':[{'text':'Discuss the repair.','kind':'discuss','selected':True},
                          {'text':'Write only after the author decides.','kind':'prepare_insertion','selected':False}]}
         text=json.dumps(answer)
-        data={'id':'profile-proof','object':'response','created_at':1,'status':'completed','model':'gpt-6-luna',
+        data={'id':'profile-proof','object':'response','created_at':1,'status':'completed','model':body['model'],
             'output':[{'type':'message','id':'msg','role':'assistant','status':'completed','content':[{'type':'output_text','text':text,'annotations':[]}]}],
             'usage':{'input_tokens':100,'output_tokens':40,'total_tokens':140}}
         if body.get('stream'):

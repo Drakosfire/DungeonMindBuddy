@@ -6,6 +6,7 @@ from application_state.agent_conversation.native_statement_answer import (
 )
 from .native_statement_answer_context import build_frame
 from .agent_source_passages import SourcePassageOpenError
+from application_state.agent_conversation.rules_authority_reads import MixedCompletedTurnV1
 from apps.live_control_server.models.native_statement_answers import (
     NativeStatementClauseReadV1,
 )
@@ -22,7 +23,11 @@ def open_clause(*, world_id, turn_id, citation_index, principal, service=None):
         world_id=world_id, turn_id=turn_id
     )
     from application_state.agent_conversation import types as t
-    if isinstance(turn.graph_context_receipt, t.PlanNativeContextReceiptV1):
+    if isinstance(turn,MixedCompletedTurnV1):
+        if turn.base_projection.kind != 'approved':
+            raise SourcePassageOpenError('native_clause_completion_unavailable',404)
+        turn=turn.base_projection.turn
+    if isinstance(turn.graph_context_receipt, (t.PlanNativeContextReceiptV1,t.SurfaceNativeContextReceiptV1)):
         return _open_plan_clause(turn, world_id, turn_id, citation_index, principal)
     if (
         turn.world_id != world_id
@@ -67,27 +72,43 @@ def open_clause(*, world_id, turn_id, citation_index, principal, service=None):
     )
 
 
+def _reopen_record(context, grant, identity, principal, *, assertion):
+    from application_state.agent_conversation.authored_graph_references import BuildAuthoredReferenceAuthorizedV2
+    from .native_graph_reads import read_authored_reference, read_selected
+    if isinstance(grant, BuildAuthoredReferenceAuthorizedV2):
+        support = read_authored_reference(context, grant, principal)
+        reads = support.assertion_reads if assertion else support.statement_reads
+        return next(read for read in reads if
+            (read.assertion.assertion_id if assertion else read.support.statement_id) == identity)
+    ids = 'assertion_ids' if assertion else 'statement_ids'
+    reopened, unavailable = read_selected(context, grant.model_copy(update={ids: (identity,)}), principal)
+    if unavailable or len(reopened) != 1:
+        raise ValueError('Pinned native record no longer admits the original support')
+    return reopened[0]
+
+
 def _open_plan_clause(turn, world_id, turn_id, citation_index, principal):
     from application_state.agent_conversation import types as t
-    from application_state.agent_conversation.native_plan_statements import NativePlanStatementReadObservedV1, NativePlanStatementReadAuthorizedV1
-    from .native_graph_reads import reopen_context, read_selected
+    from application_state.agent_conversation.native_plan_statements import NativePlanStatementReadAuthorizedV1
+    from .native_graph_reads import reopen_context
+    from application_state.agent_conversation.authored_graph_references import BuildAuthoredReferenceAuthorizedV2
     if (turn.world_id != world_id or turn.turn_id != turn_id or turn.status != 'completed'
-            or not isinstance(turn.completion, t.SurfaceEvidenceCompletionV6)):
+            or not isinstance(turn.completion, (t.SurfaceEvidenceCompletionV6,t.SurfaceNativeCompletionV1))):
         raise SourcePassageOpenError('native_clause_completion_unavailable', 404)
     if citation_index >= len(turn.completion.native_clause_citations):
         raise SourcePassageOpenError('native_clause_not_found', 404)
     citation = turn.completion.native_clause_citations[citation_index]
     try:
         receipt, execution = turn.graph_context_receipt, turn.graph_context_execution
-        original = next((event, read) for event in execution.events
-            if isinstance(event, NativePlanStatementReadObservedV1)
-            for read in event.reads if read.support.statement_id == citation.statement_id)
+        from application_state.agent_conversation.native_plan_statements import selected_read_records
+        original = next((event, read) for event, read in selected_read_records(execution)
+            if read.support.statement_id == citation.statement_id)
         observed, read = original
-        grant = next(e for e in execution.events if isinstance(e, NativePlanStatementReadAuthorizedV1)
+        grant = next(e for e in execution.events if isinstance(e, (NativePlanStatementReadAuthorizedV1, BuildAuthoredReferenceAuthorizedV2))
             and e.event_id == observed.authorization_event_id)
         context = reopen_context(receipt.native_query, principal)
-        reopened, unavailable = read_selected(context, grant.model_copy(update={'statement_ids': (citation.statement_id,)}), principal)
-        if unavailable or len(reopened) != 1 or reopened[0] != read:
+        reopened = _reopen_record(context, grant, citation.statement_id, principal, assertion=False)
+        if reopened != read:
             raise ValueError('Pinned native clause no longer admits the original support')
     except (ValueError, TypeError, KeyError, AttributeError, StopIteration) as exc:
         raise SourcePassageOpenError('native_clause_access_or_bytes_unavailable', 409) from exc
@@ -97,27 +118,32 @@ def _open_plan_clause(turn, world_id, turn_id, citation_index, principal):
 
 def open_assertion_source(*, world_id, turn_id, citation_index, principal, service=None):
     from application_state.agent_conversation import types as t
-    from application_state.agent_conversation.native_plan_assertions import NativePlanAssertionReadObservedV1, NativePlanAssertionReadAuthorizedV1
-    from .native_graph_reads import reopen_context, read_selected
+    from application_state.agent_conversation.native_plan_assertions import NativePlanAssertionReadAuthorizedV1
+    from .native_graph_reads import reopen_context
+    from application_state.agent_conversation.authored_graph_references import BuildAuthoredReferenceAuthorizedV2
     from apps.live_control_server.models.native_statement_answers import NativeAssertionSourceReadV1
     if isinstance(citation_index, bool) or not isinstance(citation_index, int) or citation_index < 0:
         raise SourcePassageOpenError('native_assertion_selector_invalid', 422)
     turn = (service or AgentConversationService()).inspect_turn(world_id=world_id, turn_id=turn_id)
+    if isinstance(turn,MixedCompletedTurnV1):
+        if turn.base_projection.kind != 'approved':
+            raise SourcePassageOpenError('native_assertion_completion_unavailable',404)
+        turn=turn.base_projection.turn
     if (turn.world_id != world_id or turn.turn_id != turn_id or turn.status != 'completed'
-            or not isinstance(turn.completion, t.SurfaceEvidenceCompletionV7)):
+            or not isinstance(turn.completion, (t.SurfaceEvidenceCompletionV7,t.SurfaceNativeCompletionV1))):
         raise SourcePassageOpenError('native_assertion_completion_unavailable', 404)
     if citation_index >= len(turn.completion.native_assertion_citations):
         raise SourcePassageOpenError('native_assertion_citation_not_found', 404)
     citation = turn.completion.native_assertion_citations[citation_index]
     try:
-        observed = next(e for e in turn.graph_context_execution.events
-            if isinstance(e, NativePlanAssertionReadObservedV1) and e.event_id == citation.read_event_id)
-        read = next(r for r in observed.reads if r.assertion.assertion_id == citation.assertion_id)
+        from application_state.agent_conversation.native_plan_assertions import selected_read_records
+        observed, read = next((event, read) for event, read in selected_read_records(turn.graph_context_execution)
+            if event.event_id == citation.read_event_id and read.assertion.assertion_id == citation.assertion_id)
         grant = next(e for e in turn.graph_context_execution.events
-            if isinstance(e, NativePlanAssertionReadAuthorizedV1) and e.event_id == observed.authorization_event_id)
+            if isinstance(e, (NativePlanAssertionReadAuthorizedV1, BuildAuthoredReferenceAuthorizedV2)) and e.event_id == observed.authorization_event_id)
         context = reopen_context(turn.graph_context_receipt.native_query, principal)
-        reopened, unavailable = read_selected(context, grant.model_copy(update={'assertion_ids': (citation.assertion_id,)}), principal)
-        if unavailable or len(reopened) != 1 or reopened[0] != read:
+        reopened = _reopen_record(context, grant, citation.assertion_id, principal, assertion=True)
+        if reopened != read:
             raise ValueError('Pinned assertion no longer admits its exact original support')
         span = next(s for s in read.spans if s.evidence_ref_id == citation.evidence_ref_id)
     except (ValueError, TypeError, KeyError, AttributeError, StopIteration) as exc:

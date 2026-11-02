@@ -101,7 +101,7 @@ def test_complete_jev_rules_native_answer_accepts_atomically(application_state_d
         status="answered", finish_reason="stop", text=raw, text_sha256=digest(raw), text_utf8_bytes=len(raw.encode()), tool_calls=())
     append_rules(case, RulesNativeProviderOutcomeV1.from_capture(capture, event_id=uuid4(), sequence=len(case.record.execution.events),
         execution_id=case.scope.execution_id, provider_attempt_id=case.producer, request_envelope_sha256=digest(case.raw)))
-    composition = parse_answer(raw).composition(supplied_refs=(ref,), base_segments=(), base_disposition="unclaimed")
+    composition = parse_answer(raw).composition(base_completion=None, supplied_refs=(ref,), base_segments=(), base_disposition="unclaimed")
     result = NativeRulesMixedTurnResultV1(schema="dmb_native_rules_mixed_turn_result_v1", scope=case.scope,
         expected_turn_revision=case.turn.revision, expected_rules_revision=case.record.revision,
         assistant_text=composition.render(()), composition=composition, producing_provider_attempt_id=case.producer, base_result=None,

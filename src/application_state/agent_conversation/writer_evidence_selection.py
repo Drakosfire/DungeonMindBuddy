@@ -29,6 +29,13 @@ RULES += (
 )
 
 
+def enabled(policy):
+    from .types import BuildSelectedSourceActionControllerWriterPolicyV1
+    from .native_execution import SurfaceNativeExecutionPolicyV1, NativeBuildActionV1
+    return (isinstance(policy,BuildSelectedSourceActionControllerWriterPolicyV1)
+        or type(policy) is SurfaceNativeExecutionPolicyV1 and type(policy.action) is NativeBuildActionV1)
+
+
 def canonical(value):
     return json.dumps(value, ensure_ascii=False, sort_keys=True,
                       separators=(",", ":"), allow_nan=False)
@@ -187,7 +194,10 @@ def source_projection(catalog):
 def selection_state(turn, catalog, terminal, historical_initial):
     """Exact final-controller input; this does not claim catalog completeness."""
     receipt, execution = turn.graph_context_receipt, turn.graph_context_execution
-    authority, scope = receipt.graph_authority, execution.policy.source_read_scope
+    from .native_context import SurfaceNativeContextReceiptV1
+    native = type(receipt) is SurfaceNativeContextReceiptV1
+    if not native:
+        authority, scope = receipt.graph_authority, execution.policy.source_read_scope
     if terminal.get("status") == "refused":
         raise ValueError("Refused retrieval cannot enter writer selection")
     state = {
@@ -198,8 +208,8 @@ def selection_state(turn, catalog, terminal, historical_initial):
         "context_accounting": execution.policy.controller_continuation_accounting.model_dump(mode="json"),
         "historical_initial": historical_initial,
         "user_question": turn.user_text,
-        "source_basis": receipt.source_basis.model_dump(mode="json"),
-        "graph_scope": {
+        "source_basis": (receipt.work_context.source_basis if native else receipt.source_basis).model_dump(mode="json"),
+        **({'native_query_sha256':execution.policy.native_query_sha256} if native else {"graph_scope": {
             "managed_world_id": authority.managed_world_id,
             "native_world_id": authority.native_world_id,
             "binding_version": authority.binding_version,
@@ -207,7 +217,7 @@ def selection_state(turn, catalog, terminal, historical_initial):
             "retrieval_session_id": scope.retrieval_session_id,
             "scope_mode": "world", "campaign_id": None,
             "focus": {"kind": "none", "session_id": None}, "admissibility": "gm",
-        },
+        }}),
         "terminal_disposition": terminal,
         "catalog_sha256": digest(catalog),
         **source_projection(catalog),
@@ -218,13 +228,44 @@ def selection_state(turn, catalog, terminal, historical_initial):
     return state
 
 
+def validate_prepared_selection(turn,auth,request_text,trace,terminal=None):
+    """One exact acquired-catalog input check, before dispatch and on acceptance."""
+    from . import types as t
+    from .source_writer_output import strict_json
+    receipt,execution=turn.graph_context_receipt,turn.graph_context_execution
+    if not enabled(execution.policy) or not isinstance(request_text,str) or hashlib.sha256(request_text.encode()).hexdigest()!=auth.envelope_sha256:
+        raise ValueError('Selection prepared bytes differ from their owning authorization')
+    request=strict_json(request_text)
+    if set(request)!={'model','state','questions'} or request['model']!=auth.model:
+        raise ValueError('Selection producer request is malformed')
+    catalog=acquired_catalog(execution,trace)
+    prior=[e for e in execution.events[:auth.sequence] if isinstance(e,t.ProviderAttemptAuthorizedEventV3)]
+    if not catalog or not prior:
+        raise ValueError('Selection lacks its acquired catalog or prior controller')
+    historical=request['state'].get('historical_initial')
+    expected_history={'context_receipt_sha256':receipt.context_receipt_sha256,
+        'initial_envelope_sha256':prior[0].envelope_sha256,'execution_policy_sha256':execution.execution_policy_sha256,
+        'turn_id':str(turn.turn_id),'turn_attempt':turn.attempt,'event_sequence':auth.sequence,
+        'prior_provider_attempt_id':str(prior[-1].provider_attempt_id)}
+    if receipt.assembled_input.assembler_version=='reviewed_author_admission_v1':
+        expected_history['author_admission_sha256']=receipt.assembled_input.assembled_input_sha256
+    preceding=execution.events[auth.sequence-1] if auth.sequence else None
+    if isinstance(preceding,t.BuildSectionProviderInclusionV1):
+        expected_history['event_sequence']-=1
+    terminal=request['state'].get('terminal_disposition') if terminal is None else terminal
+    expected_state=selection_state(turn,catalog,terminal,expected_history)
+    if canonical(historical)!=canonical(expected_history) or canonical(request['state'])!=canonical(expected_state) or canonical(request['questions'])!=canonical(questions(catalog)):
+        raise ValueError('Selection question, scope, catalog, disposition or questions drifted')
+    return request,catalog
+
+
 def validate_selection_proof(turn, selection, trace, proof):
     """Owning append proof: exact authorized input and protected SDK response."""
     from . import types as t
     from .source_writer_output import strict_json
 
     execution = turn.graph_context_execution
-    if not isinstance(execution.policy, t.BuildSelectedSourceActionControllerWriterPolicyV1):
+    if not enabled(execution.policy):
         raise ValueError("Writer selection requires its frozen policy")
     receipt = turn.graph_context_receipt
     if (trace.get("world_id") != turn.world_id or trace.get("turn_id") != str(turn.turn_id)
@@ -258,30 +299,11 @@ def validate_selection_proof(turn, selection, trace, proof):
             or hashlib.sha256(request_text.encode()).hexdigest() != auth.envelope_sha256
             or hashlib.sha256(response_text.encode()).hexdigest() != selection.controller_response_sha256):
             raise ValueError("Selection producer bytes differ from the acknowledged attempt")
-        request, response = strict_json(request_text), strict_json(response_text)
-        if set(request) != {"model", "state", "questions"} or request["model"] != auth.model:
-            raise ValueError("Selection producer request is malformed")
-        historical = request["state"].get("historical_initial")
-        if not isinstance(historical, dict) or len(auths) < 2:
-            raise ValueError("Selection lacks its acknowledged prior controller binding")
-        expected_history = {
-            "context_receipt_sha256": receipt.context_receipt_sha256,
-            "initial_envelope_sha256": auths[0].envelope_sha256,
-            "execution_policy_sha256": execution.execution_policy_sha256,
-            "turn_id": str(turn.turn_id), "turn_attempt": turn.attempt,
-            "event_sequence": auth.sequence,
-            "prior_provider_attempt_id": str(auths[-2].provider_attempt_id),
-        }
-        if receipt.assembled_input.assembler_version == "reviewed_author_admission_v1":
-            expected_history["author_admission_sha256"] = receipt.assembled_input.assembled_input_sha256
-        preceding = execution.events[auth.sequence - 1] if auth.sequence else None
-        if isinstance(preceding, t.BuildSectionProviderInclusionV1):
-            expected_history["event_sequence"] -= 1
-        expected_state = selection_state(turn, catalog, selection.terminal_disposition, expected_history)
-        if (canonical(historical) != canonical(expected_history)
-            or canonical(request["state"]) != canonical(expected_state)
-            or canonical(request["questions"]) != canonical(questions(catalog))):
-            raise ValueError("Selection question, scope, catalog, disposition or questions drifted")
+        request,verified_catalog=validate_prepared_selection(turn,auth,request_text,trace,selection.terminal_disposition)
+        if verified_catalog!=catalog:
+            raise ValueError('Selection acquired catalog changed')
+        response=strict_json(response_text)
+        historical=request['state']['historical_initial']
         item_id = f"unvalidated-controller-decision:{auth.provider_attempt_id}:{receipt.context_receipt_sha256}"
         captures = [m for o in trace.get("observations", [])
                     if o.get("kind") == "context_snapshot" and o.get("stage") == "after"
@@ -296,16 +318,18 @@ def validate_selection_proof(turn, selection, trace, proof):
         expected_events = {eid for unit in catalog.values() for eid in unit.get("source_event_ids", [])}
         if {str(eid) for eid in auth.included_source_read_event_ids} != expected_events:
             raise ValueError("Selection did not expose its complete parent catalog")
-        selected_sections = {unit["section"]["read_id"] for unit in catalog.values()
-                             if unit["kind"] == "saved_section"}
-        inclusions = [e for e in execution.events if isinstance(e, t.BuildSectionProviderInclusionV1)
-                      and e.provider_attempt_id == auth.provider_attempt_id]
-        section_events = {e.event_id: str(e.read_id) for e in execution.events
-                          if isinstance(e, t.ValidatedBuildSectionReadV1)}
-        actual_sections = {section_events[eid] for inclusion in inclusions
-                           for eid in inclusion.section_event_ids}
-        if actual_sections != selected_sections:
-            raise ValueError("Selection saved-section exposure differs from its catalog")
+        from .native_execution import SurfaceNativeExecutionV1
+        if type(execution) is not SurfaceNativeExecutionV1:
+            selected_sections = {unit["section"]["read_id"] for unit in catalog.values()
+                                 if unit["kind"] == "saved_section"}
+            inclusions = [e for e in execution.events if isinstance(e, t.BuildSectionProviderInclusionV1)
+                          and e.provider_attempt_id == auth.provider_attempt_id]
+            section_events = {e.event_id: str(e.read_id) for e in execution.events
+                              if isinstance(e, t.ValidatedBuildSectionReadV1)}
+            actual_sections = {section_events[eid] for inclusion in inclusions
+                               for eid in inclusion.section_event_ids}
+            if actual_sections != selected_sections:
+                raise ValueError("Selection saved-section exposure differs from its catalog")
     state = selection_state(turn, catalog, selection.terminal_disposition, historical)
     if (selection.catalog_sha256 != digest(catalog) or selection.basis_sha256 != state["basis_sha256"]
         or canonical(selection.judgments) != canonical(judgments)):

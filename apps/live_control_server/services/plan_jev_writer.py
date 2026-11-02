@@ -73,7 +73,7 @@ class PlanClaimEvidence:
     native_assertions: tuple = ()
 
 
-class PlanWriterProvider(OpenAITextProvider):
+class CapturedWriterProvider(OpenAITextProvider):
     """Buddy owns message assembly and retains the actual official SDK response.
 
     The pinned GE adapter owns guarded SDK IO. Its request-assembly seam accepts
@@ -95,6 +95,7 @@ class PlanWriterProvider(OpenAITextProvider):
     def _result_from_response(self, response):
         self._selected_reply = None
         result = super()._result_from_response(response)
+        self.actual_response = response
         self._selected_reply = (response, result.text)
         return result
 
@@ -106,6 +107,24 @@ class PlanWriterProvider(OpenAITextProvider):
                 'Plan writer has no complete exact SDK reply')
         return selected[1]
 
+    def consume_completed_text(self, response, model):
+        """Validate the actual SDK final before a domain accepts selected text."""
+        if response is None or response.status != 'completed' or response.error is not None:
+            raise _ReplyRejected('plan_writer_response_incomplete', 'Writer has no complete exact SDK reply')
+        if response.model != model:
+            raise _ReplyRejected('plan_writer_response_model_mismatch', 'Writer response model differs')
+        selected_text = self.consume_selected_text(response)
+        for item in response.output:
+            if item.type == 'reasoning':
+                continue
+            if (item.type != 'message' or item.role != 'assistant' or item.status != 'completed'
+                    or any(part.type != 'output_text' for part in item.content)):
+                raise _ReplyRejected('plan_writer_unexpected_output', 'Writer reply contains an unexpected tool/refusal message')
+        return selected_text
+
+
+class PlanWriterProvider(CapturedWriterProvider):
+    """Plan owns its evidence-message assembly; final SDK capture is shared."""
     def _request_kwargs(self, call, *, streaming=False):
         options = super()._request_kwargs(call, streaming=streaming)
         messages = strict_json(call.user_prompt)
@@ -124,16 +143,95 @@ class _ReplyRejected(ValueError):
         self.code = code
 
 
+def authorize_native_writer(adapter, rules, proof, prepared, expected, frame):
+    """One native admission for the exact SDK input; output schemas stay owned."""
+    from generationengine.text_dispatch import PreparedTextDispatch
+    from .agent_turn_service import _json_node_count, _require_fresh_execution_append
+    from application_state.agent_conversation.native_execution import NativeWriterAuthorizedV1, native_read_event_ids
+    policy=adapter._broker_execution().policy
+    model=policy.provider_roles.writer.model
+    budget=policy.writer_context_budget
+    reserve=budget.output_reserve_tokens if budget is not None else adapter.budget['outputReserveTokens']
+    limit=budget.context_limit_tokens if budget is not None else adapter.budget['contextLimitTokens']
+    if (not isinstance(prepared,PreparedTextDispatch)
+            or (prepared.provider,prepared.model,prepared.api_mode,prepared.method,prepared.url)
+                !=('openai',model,'responses','POST','https://api.openai.com/v1/responses')
+            or len(prepared.body)!=prepared.body_size or sha256(prepared.body).hexdigest()!=prepared.body_sha256
+            or strict_json(prepared.body.decode())!=expected or expected['max_output_tokens']!=reserve):
+        raise ValueError('Native writer actual request differs from its staged owner request')
+    estimate=len(prepared.body)+64*(1+_json_node_count(expected))
+    if estimate+reserve>limit:
+        raise ValueError('Native writer exceeds the existing provider context allowance')
+    event=NativeWriterAuthorizedV1(event_id=uuid4(),sequence=len(adapter._broker_execution().events),
+        provider_attempt_id=UUID(prepared.attempt_id),envelope_sha256=prepared.body_sha256,
+        serializer_version='openai-sdk-json-v1',provider='openai',model=model,api_mode='responses',
+        tool_schema_sha256=canonical_sha256([]),input_accounting_kind='conservative_upper_bound',
+        input_estimator=adapter.budget['estimator'],input_tokens=estimate,output_token_reserve=reserve,
+        frame_sha256=canonical_sha256(frame),included_graph_event_ids=[],included_source_read_event_ids=[],
+        included_assertion_ids=[],included_relationship_ids=[],included_evidence_ref_ids=[],
+        native_read_event_ids=native_read_event_ids(adapter._broker_execution().events))
+    adapter.turn=_require_fresh_execution_append(adapter.fence.append('authorize_native_writer','authorization',event,
+        expected_rules_revision=rules.native.record.revision,prepared_request_json=prepared.body.decode(),work_proof=proof,
+        **({'authoring_reservation':{'action_id':rules.authoring[0].action_id,'capture':rules.authoring[1]}}
+            if rules.authoring is not None else {})))
+    adapter.last_provider_attempt_id=event.provider_attempt_id
+    view=dict(provider='openai',model=model,apiMode='responses',payloadJson=prepared.body.decode(),
+        payloadSha256=prepared.body_sha256,payloadUtf8Bytes=prepared.body_size)
+    rules.authorize(view)
+    adapter._capture_prepared_prompt(view,event)
+    return event
+
+
+def selected_writer_text(result,response,provider,model):
+    """Direct writer callers consume the one complete actual SDK selection."""
+    selected=provider.consume_completed_text(response,model)
+    if (result.observation.state.value!='completed' or result.observation.retry_count!=0
+            or result.observation.provider_attempt_count!=1 or result.text!=selected or not selected):
+        raise _ReplyRejected('plan_writer_response_identity_mismatch','Writer has no complete exact SDK reply')
+    return selected
+
+
+def capture_native_reply(adapter,rules,prepared,received,raw):
+    """Acknowledge only a domain-validated complete selected SDK final."""
+    if received is None or not adapter.record_lifecycle(dict(transition='response_received',
+            statusCode=received.http_status,runtimeApiRequestId=f'generationengine:{prepared.attempt_id}',
+            responseSha256=sha256(raw.encode()).hexdigest())):
+        raise _ReplyRejected('plan_writer_native_capture_unacknowledged','Selected writer output was not acknowledged')
+    reply=NativeProviderReply(str(rules.native.authorization_id),f'generationengine:{prepared.attempt_id}',
+        'openai',prepared.model,'responses',prepared.body_sha256,'stop','answered',raw,
+        sha256(raw.encode()).hexdigest(),len(raw.encode()),())
+    if not rules.capture_reply(reply):
+        raise _ReplyRejected('plan_writer_native_capture_unacknowledged','Writer reply capture was not acknowledged')
+    return reply
+
+
 class PlanJevWriter:
     def __init__(self, adapter, proof, rules):
         self.adapter, self.proof, self.rules = adapter, proof, rules
-        self.projection = project(adapter.fence.turn, proof, adapter.context_capture.trace.model_dump(mode='json'))
+        native_budget = getattr(adapter.fence.turn.graph_context_execution.policy,'writer_context_budget',None)
+        self.output_reserve = native_budget.output_reserve_tokens if native_budget is not None else adapter.budget['outputReserveTokens']
+        self.context_limit = native_budget.context_limit_tokens if native_budget is not None else adapter.budget['contextLimitTokens']
+        self.shared = type(adapter.fence.turn.graph_context_receipt) is t.SurfaceNativeContextReceiptV1
         rule_frame = rules.frame()
-        from application_state.agent_conversation.plan_writer_output_schema import output_format
-        self.output_format = output_format(self.projection.frame, rule_frame)
-        self.messages = [{'role': 'user', 'content': canonical_bytes(self.projection.frame).decode()},
-                         {'role': 'user', 'content': canonical_bytes(rule_frame).decode()},
-                         {'role': 'user', 'content': 'Return JSON.'}]
+        self.projection = None
+        if self.shared:
+            from application_state.agent_conversation.native_writer import model_frame, model_work_frame
+            from application_state.agent_conversation.plan_writer_output_schema import native_output_format
+            turn=adapter.fence.turn
+            self.frame=model_frame(turn.graph_context_receipt,turn.graph_context_execution)
+            self.work_frame=model_work_frame(turn.graph_context_receipt,turn.graph_context_execution,
+                provenance=turn.provenance,idempotency_key=turn.idempotency_key,work_proof=proof,
+                world_id=turn.world_id,conversation_id=turn.conversation_id,turn_id=turn.turn_id,attempt=turn.attempt)
+            self.output_format=native_output_format(self.frame,rule_frame,self.work_frame)
+            frames=(self.frame,rule_frame,self.work_frame)
+        else:
+            self.projection = project(adapter.fence.turn, proof, adapter.context_capture.trace.model_dump(mode='json'))
+            self.frame=self.projection.frame
+            from application_state.agent_conversation.plan_writer_output_schema import output_format
+            self.output_format=output_format(self.frame,rule_frame)
+            frames=(self.frame,rule_frame)
+        self.messages=[{'role':'user','content':canonical_bytes(frame).decode()} for frame in frames]
+        self.messages.append({'role':'user','content':'Return JSON.'})
         from application_state.agent_conversation.surface_evidence_answer import PLAN_INSTRUCTIONS, BODY_INSTRUCTIONS
         instructions = INSTRUCTIONS.replace(EVIDENCE_INSTRUCTIONS,
             BODY_INSTRUCTIONS if isinstance(adapter.fence.turn.graph_context_receipt, t.PlanSourceContextReceiptV1) else PLAN_INSTRUCTIONS)
@@ -141,7 +239,7 @@ class PlanJevWriter:
         if isinstance(adapter.fence.turn.graph_context_receipt, t.PlanSourceContextReceiptV1):
             instructions = instructions.replace('native_source_claim uses its selected section_handles',
                 'native_body_claim uses its selected excerpt_handles')
-        if self.projection.frame.get('requested_work') == 'clarify':
+        if (self.work_frame if self.shared else self.frame).get('requested_work') == 'clarify':
             instructions += '\nAsk the specific clarifying question needed to resolve the intended work or destination. Keep it in conversation; do not draft the page yet.'
         if getattr(rules,'authoring',None) is not None:
             instructions=instructions.replace('Answer the current co-GM question directly using relevant supplied material.',
@@ -153,13 +251,26 @@ class PlanJevWriter:
             from application_state.agent_conversation.native_plan_statements import POLICY as STATEMENT_POLICY
             from application_state.agent_conversation.surface_evidence_answer import BODY_POLICY
             instructions = instructions.replace(BODY_POLICY, STATEMENT_POLICY) + '\n' + STATEMENT_INSTRUCTIONS
-        if self.projection.frame.get('schema') == 'dmb_plan_jev_writer_frame_v8':
+        if self.frame.get('schema') == 'dmb_plan_jev_writer_frame_v8':
             from application_state.agent_conversation.native_plan_assertions import INSTRUCTIONS as ASSERTION_INSTRUCTIONS, POLICY as ASSERTION_POLICY
             instructions = instructions.replace(STATEMENT_POLICY, ASSERTION_POLICY) + '\n' + ASSERTION_INSTRUCTIONS
+        if self.shared:
+            from application_state.agent_conversation.native_writer import AUTHORING_GUIDANCE
+            from application_state.agent_conversation.native_plan_statements import INSTRUCTIONS as STATEMENT_INSTRUCTIONS
+            from application_state.agent_conversation.native_plan_assertions import INSTRUCTIONS as ASSERTION_INSTRUCTIONS
+            from application_state.agent_conversation.surface_evidence_answer import BODY_POLICY
+            instructions = SOURCE_ATTRIBUTION_INSTRUCTIONS + BODY_INSTRUCTIONS.replace(BODY_POLICY,self.frame['answer_policy']) + STATEMENT_INSTRUCTIONS + ASSERTION_INSTRUCTIONS + AUTHORING_GUIDANCE
+            from application_state.agent_conversation.reviewed_action import SCOPE_KEY,SCOPE_GUIDANCE
+            if SCOPE_KEY in self.work_frame:
+                instructions += '\n' + SCOPE_GUIDANCE
+            if self.work_frame.get('requested_work') == 'clarify':
+                instructions += '\nAsk the specific clarifying question. Do not draft yet.'
+            if getattr(rules,'authoring',None) is not None:
+                instructions += '\n' + AUTHORING_INSTRUCTIONS
         self.instructions = '\n\n'.join((BUDDY_SYSTEM_PROMPT, instructions,
             RULES_INSTRUCTIONS if rule_frame.lookups else '')) + ('' if getattr(rules,'authoring',None) is not None else IMAGE_DIRECTION_INSTRUCTIONS)
         self.model = adapter._broker_execution().policy.provider_roles.writer.model
-        self.prepared = self.authorization = self.call = None
+        self.prepared = self.authorization = self.call = self.received_event = None
         self._usage_recorded = False
         self._draft_capture_attempted = False
         self.output_limit_exceeded = False
@@ -179,14 +290,23 @@ class PlanJevWriter:
             raise ValueError('Plan writer actual dispatch identity differs')
         a = self.adapter
         expected = {'model': self.model, 'input': self.messages, 'instructions': self.instructions,
-            'max_output_tokens': a.budget['outputReserveTokens'], 'text': {'format': self.output_format},
+            'max_output_tokens': self.output_reserve, 'text': {'format': self.output_format},
             'tools': [], 'stream': False, 'reasoning': {'effort': 'none'}, 'service_tier': 'fast'}
         if strict_json(prepared.body.decode()) != expected:
             raise ValueError('Plan writer actual request differs from staged evidence/instructions')
         projection = self.projection
         estimate = len(prepared.body) + 64 * (1 + _json_node_count(expected))
-        if estimate + a.budget['outputReserveTokens'] > a.budget['contextLimitTokens']:
+        if estimate + self.output_reserve > self.context_limit:
             raise ValueError('Plan writer exceeds the existing provider context allowance')
+        if self.shared:
+            from application_state.errors import ApplicationStateConflictError
+            try:
+                event=authorize_native_writer(a,self.rules,self.proof,prepared,expected,self.frame)
+            except ApplicationStateConflictError:
+                self.target_changed=self.rules.authoring is not None
+                raise
+            self.prepared,self.authorization=prepared,event
+            return True
         native_plan = isinstance(a._broker_receipt(), t.PlanNativeContextReceiptV1)
         from application_state.agent_conversation.native_plan_assertions import NativePlanQueryV2
         assertions = native_plan and isinstance(a._broker_receipt().native_query, NativePlanQueryV2)
@@ -197,7 +317,7 @@ class PlanJevWriter:
             envelope_sha256=prepared.body_sha256, serializer_version='openai-sdk-json-v1',
             provider='openai', model=self.model, api_mode='responses', tool_schema_sha256=sha256(b'[]').hexdigest(),
             input_accounting_kind='conservative_upper_bound', input_estimator=a.budget['estimator'],
-            input_tokens=estimate, output_token_reserve=a.budget['outputReserveTokens'],
+            input_tokens=estimate, output_token_reserve=self.output_reserve,
             frame_sha256=canonical_sha256(projection.frame), included_graph_event_ids=list(projection.graph_event_ids),
             included_source_read_event_ids=[e.event_id for e in a._broker_execution().events
                 if isinstance(e, t.ValidatedSourceReadEventV2) and e.event_id in projection.source_event_ids],
@@ -247,6 +367,13 @@ class PlanJevWriter:
         if self.prepared is None or event.request != self.prepared: return False
         transition = {'sending':'sdk_entered','response_received':'response_received',
             'known_not_sent':'known_not_sent','outcome_unknown':'outcome_unknown'}.get(event.outcome)
+        if self.shared and transition == 'response_received':
+            # HTTP receipt precedes SDK parsing. Keep APP uncertain until the
+            # actual complete selected text can acknowledge its exact digest.
+            if self.received_event is not None:
+                return False
+            self.received_event=event
+            return True
         acknowledged = transition is not None and self.adapter.record_lifecycle({'transition':transition,
             'statusCode':event.http_status,'runtimeApiRequestId':f'generationengine:{self.prepared.attempt_id}'})
         if acknowledged and transition == 'sdk_entered':
@@ -256,21 +383,12 @@ class PlanJevWriter:
         return acknowledged
 
     def capture(self, result, response, provider):
-        if self.prepared is None or response is None or response.status != 'completed' or response.error is not None:
+        if self.prepared is None:
             raise _ReplyRejected('plan_writer_response_incomplete', 'Plan writer has no complete exact SDK reply')
-        if response.model != self.model:
-            raise _ReplyRejected('plan_writer_response_model_mismatch', 'Plan writer has no complete exact SDK reply')
-        selected_text = provider.consume_selected_text(response)
-        if (result.observation.state.value != 'completed' or result.observation.retry_count != 0
-                or result.observation.provider_attempt_count != 1
-                or result.text != selected_text or not result.text):
-            raise _ReplyRejected('plan_writer_response_identity_mismatch', 'Plan writer has no complete exact SDK reply')
-        for item in response.output:
-            if item.type == 'reasoning': continue
-            if (item.type != 'message' or item.role != 'assistant' or item.status != 'completed'
-                    or any(part.type != 'output_text' for part in item.content)):
-                raise _ReplyRejected('plan_writer_unexpected_output', 'Plan writer reply contains an unexpected tool/refusal message')
-        raw = result.text
+        raw=selected_writer_text(result,response,provider,self.model)
+        if self.shared:
+            received,self.received_event=self.received_event,None
+            return capture_native_reply(self.adapter,self.rules,self.prepared,received,raw)
         native = self.rules.native
         reply = NativeProviderReply(str(native.authorization_id), f'generationengine:{self.prepared.attempt_id}',
             'openai',self.model,'responses',self.prepared.body_sha256,'stop','answered',raw,sha256(raw.encode()).hexdigest(),len(raw.encode()),())
@@ -315,16 +433,19 @@ class PlanJevWriter:
         try:
             result = await client.generate_structured(TextRequest(provider='openai',model=self.model,
                 user_prompt=json.dumps(self.messages,ensure_ascii=False),system_prompt=self.instructions,
-                temperature=None,reasoning_effort='none',max_output_tokens=self.adapter.budget['outputReserveTokens'],
+                temperature=None,reasoning_effort='none',max_output_tokens=self.output_reserve,
                 json_schema=self.output_format['schema'],schema_name=self.output_format['name'],
                 max_conformance_retries=0,max_transport_retries=0))
             self.observe(result.observation,status='ok')
             if self.call is not None and provider.actual_response is not None:
                 self.call['response_service_tier'] = provider.actual_response.service_tier
             stage = 'draft'
-            self.capture_draft(provider.actual_response)
+            if not self.shared:
+                self.capture_draft(provider.actual_response)
             stage = 'capture'
             reply = self.capture(result,provider.actual_response,provider)
+            if self.shared:
+                self.capture_draft(provider.actual_response)
             if self.call is not None:
                 self.call['duration_ms']=(perf_counter()-started)*1000
                 self.adapter.context_capture.provider_usage([self.call])
@@ -359,7 +480,7 @@ class PlanJevWriter:
         try:
             final_turn=self.adapter.stop()
             if final_turn is None: raise ValueError('Plan writer lost its current completion claim')
-            return self.rules.complete(final_turn,reply)
+            return self.rules.complete(final_turn,reply,**({"work_proof":self.proof} if self.shared else {}))
         except BaseException:
             self.adapter.context_capture.observe({'kind':'failure', 'phase':'delivery',
                 'code':'plan_writer_completion_rejected'})

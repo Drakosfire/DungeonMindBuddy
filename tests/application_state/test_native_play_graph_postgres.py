@@ -17,7 +17,7 @@ from application_state.agent_conversation import AgentConversationService
 from application_state.agent_conversation import types as t
 from application_state.agent_conversation.play_graph_authority import play_source_frame,play_graph_execution_policy_digest
 from application_state.agent_conversation.play_graph_context import prepare_play_source_provider_inclusion
-from application_state.cli import alembic_config,_current_and_head,upgrade_to_head
+from application_state.cli import alembic_config,_current_and_head
 from application_state.errors import ApplicationStateConflictError,ApplicationStateValidationError,ApplicationStateNotFoundError
 from application_state.play.service import create_world_play_run,replace_world_play_run_progress
 from application_state.play.edition_service import read_content,commit_content,read_context_snapshot
@@ -197,24 +197,25 @@ def test_downgrade_refuses_any_retained_native_state(application_state_dsn,state
         with psycopg.connect(application_state_dsn) as conn:
             conn.execute("UPDATE agent.turn SET status='completed',assistant_text='Which scene next?',completed_at=clock_timestamp(),claim_expires_at=NULL,completion=%s,graph_context_execution=%s WHERE turn_id=%s",
                 (Jsonb(completion.model_dump(mode='json',by_alias=True)),Jsonb(execution.model_dump(mode='json',by_alias=True)),turn.turn_id))
-    with pytest.raises(RuntimeError,match='retained native Play'):
+    with pytest.raises(RuntimeError,match='recovery forward'):
         command.downgrade(alembic_config(),'20261020_0041')
     assert _current_and_head(application_state_dsn)==(HEAD,HEAD)
     assert service.reconcile_turn(sub.world_id,sub.idempotency_key,sub.submitted_intent_v2).turn_id==turn.turn_id
 
 
-def test_no_native_migration_roundtrip_preserves_exact_rows_and_old_constraints(application_state_dsn):
+def test_reader_fence_preserves_historical_rows_and_constraints(application_state_dsn):
     from tests.application_state.test_rules_authority_migration import turn_fixture
     turn=turn_fixture()
     def snapshot():
         with psycopg.connect(application_state_dsn) as conn:
-            row=conn.execute("SELECT (to_jsonb(t)-'submitted_intent_schema')::text FROM agent.turn t WHERE turn_id=%s",(turn.turn_id,)).fetchone()[0]
+            row=conn.execute("SELECT to_jsonb(t)::text FROM agent.turn t WHERE turn_id=%s",(turn.turn_id,)).fetchone()[0]
             constraints=dict(conn.execute("SELECT conname,pg_get_constraintdef(oid) FROM pg_constraint WHERE conrelid='agent.turn'::regclass AND conname IN ('agent_turn_graph_context_receipt_check','agent_turn_graph_context_execution_check','agent_turn_graph_completion_check')").fetchall())
             return row,constraints
-    command.downgrade(alembic_config(),'20261020_0041');row,old=snapshot()
-    upgrade_to_head(dsn=application_state_dsn);assert snapshot()[0]==row
-    command.downgrade(alembic_config(),'20261020_0041');assert snapshot()==(row,old)
-    upgrade_to_head(dsn=application_state_dsn);assert snapshot()[0]==row
+    before = snapshot()
+    with pytest.raises(RuntimeError, match='recovery forward'):
+        command.downgrade(alembic_config(), '20261020_0041')
+    assert _current_and_head(application_state_dsn) == (HEAD, HEAD)
+    assert snapshot() == before
 
 
 def test_native_admission_does_not_materialize_other_scene_notes(application_state_dsn):
@@ -275,7 +276,7 @@ def test_downgrade_refuses_genuine_graph_off_play_intent(application_state_dsn, 
             turn = service.fail_turn(t.TurnFailure(world_id=sub.world_id, conversation_id=sub.conversation_id,
                 turn_id=turn.turn_id, expected_revision=turn.revision, failure_code='rules-only-fixture'),
                 interrupted=state == 'interrupted')
-    with pytest.raises(RuntimeError, match='retained native Play'):
+    with pytest.raises(RuntimeError, match='recovery forward'):
         command.downgrade(alembic_config(), '20261020_0041')
     assert _current_and_head(application_state_dsn) == (HEAD, HEAD)
     reopened = service.reconcile_turn(sub.world_id, sub.idempotency_key, intent)
@@ -292,14 +293,14 @@ def test_downgrade_refuses_completed_graph_off_play(application_state_dsn, tmp_p
     pointer = service.get_world_pointer(request.owner_scope.world_id)
     before = service.list_turns(request.owner_scope.world_id, pointer.active_conversation_id)[-1]
     assert (before.envelope.status if hasattr(before, 'envelope') else before.status) == 'completed'
-    with pytest.raises(RuntimeError, match='retained native Play'):
+    with pytest.raises(RuntimeError, match='recovery forward'):
         command.downgrade(alembic_config(), '20261020_0041')
     assert _current_and_head(application_state_dsn) == (HEAD, HEAD)
     after = service.list_turns(request.owner_scope.world_id, pointer.active_conversation_id)[-1]
     assert after == before and read_retained() == retained
 
 
-def test_predecessor_play_receipt_survives_0042_roundtrip(application_state_dsn):
+def test_reader_fence_preserves_predecessor_play_receipt(application_state_dsn):
     service, native, _ = make_submission()
     wire = native.submitted_intent_v2.model_dump(mode='json', by_alias=True)
     wire.pop('play_graph_policy')
@@ -315,7 +316,8 @@ def test_predecessor_play_receipt_survives_0042_roundtrip(application_state_dsn)
     with psycopg.connect(application_state_dsn) as conn:
         assert conn.execute('SELECT submitted_intent_schema FROM agent.turn WHERE turn_id=%s',
             (before.turn_id,)).fetchone() == (None,)
-    command.downgrade(alembic_config(), '20261020_0041')
-    upgrade_to_head(dsn=application_state_dsn)
+    with pytest.raises(RuntimeError, match='recovery forward'):
+        command.downgrade(alembic_config(), '20261020_0041')
+    assert _current_and_head(application_state_dsn) == (HEAD, HEAD)
     after = service.reconcile_turn(sub.world_id, sub.idempotency_key, intent)
     assert after == before

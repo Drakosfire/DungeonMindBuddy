@@ -747,13 +747,18 @@ def _plan_context_resolver(
     """Resolve one source-free, revision-pinned DungeonMind retrieval packet."""
     if native_query_mode:
         from apps.live_control_server.services.native_graph_reads import prepare_query
-        if owner is None or owner.get('kind') != 'world' or work is None or work.world_id != owner.get('id') or body.surface.surface_id != 'plan':
-            raise AgentTurnServiceError('Native Plan query scope differs from saved work.', code='plan_context_scope_rejected', status_code=403)
+        if owner is None or owner.get('kind') != 'world' or work is None or work.world_id != owner.get('id') or body.surface.surface_id not in {'plan', 'build'}:
+            raise AgentTurnServiceError('Native query scope differs from saved work.', code='plan_context_scope_rejected', status_code=403)
         from application_state.agent_conversation.native_plan_statements import NativePlanQueryV1
         frozen_query = getattr(frozen_receipt, 'native_query', None)
-        context, query = prepare_query(work.world_id, body.message, native_principal,
-            source_context=native_source_context,
-            revision_id=frozen_query.authority.revision_id if isinstance(frozen_query, NativePlanQueryV1) else None)
+        try:
+            context, query = prepare_query(work.world_id, body.message, native_principal,
+                source_context=native_source_context,
+                authored_references=body.build_authored_references if body.surface.surface_id == 'build' else None,
+                revision_id=frozen_query.authority.revision_id if isinstance(frozen_query, NativePlanQueryV1) else None)
+        except ValueError as exc:
+            raise AgentTurnServiceError('The selected native Graph scope or reference could not be verified.',
+                code='native_graph_query_rejected',status_code=409,provider_dispatched=False) from exc
         if type(frozen_query) is NativePlanQueryV1 and isinstance(query, NativePlanQueryV1):
             from dataclasses import replace
             query = NativePlanQueryV1.model_validate(query.model_dump(mode='json', by_alias=True, exclude={'assertion_matches'}) | {'schema': 'dmb_native_plan_query_v1'})
@@ -1439,6 +1444,7 @@ def get_world_conversation_history(
         for turn in turns
     )
     from application_state.agent_conversation.native_statement_input import NativeStatementContextReceiptV1
+    from application_state.agent_conversation.native_context import SurfaceNativeContextReceiptV1, BuildWorkContextV1
     from apps.live_control_server.models.agent_turn import AgentConversationHistoryNativeStatementTurnV1
     contains_native_statement = any(not isinstance(turn, MixedCompletedTurnV1)
         and isinstance(turn.graph_context_receipt, NativeStatementContextReceiptV1) for turn in turns)
@@ -1492,7 +1498,10 @@ def get_world_conversation_history(
         elif source_only_play(turn):
             history_turns.append(AgentConversationHistoryPlaySourceTurnV1(**values,
                 play_source_context=project_play_source_context(turn,delivery_replay=True)))
-        elif isinstance(turn.graph_context_receipt, BuildGraphContextReceiptV1):
+        elif isinstance(turn.graph_context_receipt, BuildGraphContextReceiptV1) or (
+            isinstance(turn.graph_context_receipt, SurfaceNativeContextReceiptV1)
+            and isinstance(turn.graph_context_receipt.work_context, BuildWorkContextV1)
+        ):
             build_model = AgentConversationHistoryBuildTurnV3 if include_turn_correlation else AgentConversationHistoryBuildTurnV2
             history_turns.append(build_model(**values,
                 knowledge_context=project_plan_turn_context(turn, delivery_replay=True, source_names=source_names)))
@@ -1982,7 +1991,7 @@ def _execute_agent_turn(body: AgentTurnRequest, request: Request) -> dict[str, A
                 turn, owner, work, receipt, trace=trace,
                 parent_span_id=parent_span_id, frozen_source_scope=frozen_source_scope,
             ),
-            native_plan_query_resolver=lambda turn, owner, work, receipt, source_context: _plan_context_resolver(
+            native_graph_query_resolver=lambda turn, owner, work, receipt, source_context: _plan_context_resolver(
                 turn, owner, work, receipt, trace=trace, native_query_mode=True,
                 native_source_context=source_context, native_principal=principal),
             runtime_factory=lambda: getattr(

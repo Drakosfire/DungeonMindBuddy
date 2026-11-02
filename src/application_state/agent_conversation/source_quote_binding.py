@@ -140,28 +140,35 @@ def validate_and_project(body, packet):
         selected = [selected] if kind == "related_page_claim" else selected
         quotes = segment.get("supporting_quotes")
         multiple = kind == "related_page_claim" and related_witnesses(packet)
-        if (
-            not isinstance(selected, list)
-            or not selected
-            or not isinstance(quotes, list)
-            or not quotes
-            or not multiple and len(selected) != len(quotes)
-        ):
-            raise ValueError(
-                "Source claim requires one exact quote per selected source"
-            )
-        identities = [selected[0]] * len(quotes) if multiple else selected
-        for identity, quote in zip(identities, quotes):
-            text = material[kind].get(identity) if isinstance(identity, str) else None
-            if (
-                not isinstance(quote, str)
-                or not quote.strip()
-                or text is None
-                or (_fold_layout(quote) not in _fold_layout(text)
-                    if packet.get(KEY) == CURRENT_POLICY else quote not in text)
-            ):
-                raise ValueError(
-                    "Source claim quote is absent from its selected source"
-                )
+        validate_selected_quotes(selected,quotes,material[kind],policy=packet.get(KEY),multiple=multiple)
         del segment["supporting_quotes"]
     return projected
+
+
+def validate_selected_quotes(selected, quotes, material, *, policy, multiple=False):
+    """One exact/layout quote rule over the actual selected owner bodies."""
+    if policy not in (POLICY,CURRENT_POLICY):
+        raise ValueError('Unknown source quote binding policy')
+    if (
+        not isinstance(selected, list)
+        or not selected
+        or not isinstance(quotes, list)
+        or not quotes
+        or not multiple and len(selected) != len(quotes)
+    ):
+        raise ValueError(
+            "Source claim requires one exact quote per selected source"
+        )
+    identities = [selected[0]] * len(quotes) if multiple else selected
+    for identity, quote in zip(identities, quotes):
+        text = material.get(identity) if isinstance(identity, str) else None
+        if (
+            not isinstance(quote, str)
+            or not quote.strip()
+            or text is None
+            or (_fold_layout(quote) not in _fold_layout(text)
+                if policy == CURRENT_POLICY else quote not in text)
+        ):
+            raise ValueError(
+                "Source claim quote is absent from its selected source"
+            )

@@ -84,10 +84,19 @@ class RulesWriterAnswerV1(ClosedRulesModel):
         return self
 
     def composition(self, *, supplied_refs: tuple[RulesSupportRefV1, ...],
-                    base_segments: tuple[str, ...], base_disposition: str) -> AnswerCompositionV1:
+                    base_segments: tuple[str, ...], base_disposition: str,
+                    base_completion) -> AnswerCompositionV1:
         """Use only independently normalized base text and actual included Rules refs."""
-        if (self.base_output is not None) != bool(base_segments):
+        if self.base_output is not None and not base_segments:
+            from .native_completion import require_object_only_completion
+            require_object_only_completion(base_completion)
+        elif (self.base_output is not None) != bool(base_segments):
             raise ValueError("Base normalization differs from the raw base partition")
+        if self.base_output is None and base_completion is not None:
+            raise ValueError("Base completion has no raw base partition")
+        if base_completion is not None:
+            if tuple(segment.text for segment in base_completion.answer_segments) != base_segments:
+                raise ValueError("Base completion differs from its normalized text")
         if (base_disposition == "approved") != bool(base_segments):
             raise ValueError("Base disposition differs from independently approved text")
         if len(supplied_refs) > 16:

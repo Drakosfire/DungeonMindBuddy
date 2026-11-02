@@ -312,4 +312,5 @@ def test_image_writer_reuses_duplicate_dialogue_with_occurrence_proof(build_case
     image = BuildImageService().get(result.knowledge_context.completion.action_id, "local_operator")
     assert image.writer_proof.authorization.payload_sha256 == sha256(wire.calls[0].content).hexdigest()
     assert image.asset_id is None
-    assert (tmp_path / source.record.target_relpath).read_text() == source.markdown
+    from apps.live_control_server.services.workspace_document_registry import get_workspace_document_snapshot
+    assert get_workspace_document_snapshot(tmp_path,source.record.document_id)==source

@@ -1128,6 +1128,7 @@ it("binds Ask to the exact committed revision and complete current working draft
     "primary_work",
     "plan_context_policy",
     "plan_authoring_capture",
+    "plan_placement_catalog",
     "schema",
     "surface",
     "turn_id",
@@ -2013,7 +2014,7 @@ it("saves a blank managed World Plan through the exact World-scoped V2 contract"
     </SelectedWorldProvider>,
   );
   expect(await screen.findByTestId("world-owned-plan")).toBeInTheDocument();
-  expect(screen.getByTestId("world-plan-surface-context")).toBeInTheDocument();
+  expect(await screen.findByRole("combobox", { name: "Plan document" })).toBeInTheDocument();
   await waitFor(() => expect(screen.getByRole("button", { name: "Bold" })).toBeEnabled());
   expect(screen.getByRole("button", { name: "Read aloud" })).toBeEnabled();
   expect(screen.getByTestId("world-owned-plan-editor")).toHaveClass("plan-surface-canvas");

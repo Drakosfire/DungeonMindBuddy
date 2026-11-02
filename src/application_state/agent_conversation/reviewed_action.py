@@ -31,6 +31,12 @@ def digest(value):
     return sha256(json.dumps(value, ensure_ascii=False, sort_keys=True, separators=(",", ":")).encode()).hexdigest()
 
 
+def admission_manifest(intent):
+    """The existing model-free admission manifest, shared by its stored codecs."""
+    return {"schema": "dmb_reviewed_action_admission_v1",
+        "intent": intent.model_dump(mode="json", by_alias=True)}
+
+
 class ReviewedStepBindingV2(ReviewedStepBinding):
     schema_: Literal['dmb_reviewed_step_binding_v2'] = Field(default='dmb_reviewed_step_binding_v2', alias='schema')
     authored_references: AuthoredGraphReferencesV1

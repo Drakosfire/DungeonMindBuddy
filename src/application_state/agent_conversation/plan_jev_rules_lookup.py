@@ -6,7 +6,7 @@ operation identity and all database authority remain host-owned.
 from uuid import uuid4
 
 from .jev_retrieval_contract import RetrievalCandidate, RetrievalDecisionInput, PlanSourceRetrievalDecisionInputV1
-from .plan_jev_decision import _owner, scope_digest, strict_json
+from .plan_jev_decision import _owner, strict_json
 from .rules_authority_events import (
     RulesPlanJevToolAuthorizedV1, normalized_question, query_identity, plan_jev_rules_operation_id,
 )
@@ -21,20 +21,30 @@ def rules_candidate():
 
 def _selected_offer(turn, parent_request_json):
     from .types import PlanJevRetrievalSelectionV1, PlanJevProviderAuthorizedV1, ProviderAttemptAuthorizedEventV1
-    receipt, graph = _owner(turn)
+    from .native_context import SurfaceNativeContextReceiptV1
+    if type(turn.graph_context_receipt) is SurfaceNativeContextReceiptV1:
+        from .native_retrieval import owner, scope_digest
+        receipt, graph = owner(turn)
+    else:
+        from .plan_jev_decision import scope_digest
+        receipt, graph = _owner(turn)
     if not isinstance(parent_request_json, str):
         raise ValueError("Plan Rules read requires its exact serialized parent request")
     from .types import PlanSourceContextReceiptV1
     from .plan_jev_decision import _source_pins
-    source_owned = isinstance(receipt, PlanSourceContextReceiptV1)
-    parent = (PlanSourceRetrievalDecisionInputV1 if source_owned else RetrievalDecisionInput).model_validate(strict_json(parent_request_json))
-    pins_match = (all(getattr(parent, key) == value for key, value in _source_pins(receipt).items())
-        if source_owned else parent.revision == receipt.graph_authority.graph_revision)
+    from .native_context import SurfaceNativeContextReceiptV1
+    source_owned = isinstance(receipt, (PlanSourceContextReceiptV1, SurfaceNativeContextReceiptV1))
+    from .native_retrieval import NativeRetrievalSelectedV1
+    from .jev_retrieval_contract import NativeRetrievalDecisionInputV1
     choices = [e for e in graph.events if isinstance(e, PlanJevRetrievalSelectionV1)]
     providers = [e for e in graph.events if isinstance(e, ProviderAttemptAuthorizedEventV1)]
     if not choices or not providers:
         raise ValueError("Plan Rules read requires an acknowledged selected offer")
     choice, provider = choices[-1], providers[-1]
+    parent_type = NativeRetrievalDecisionInputV1 if type(choice) is NativeRetrievalSelectedV1 else PlanSourceRetrievalDecisionInputV1 if source_owned else RetrievalDecisionInput
+    parent = parent_type.model_validate(strict_json(parent_request_json))
+    pins_match = (all(getattr(parent, key) == value for key, value in _source_pins(receipt).items())
+        if source_owned else parent.revision == receipt.graph_authority.graph_revision)
     if (not isinstance(provider, PlanJevProviderAuthorizedV1)
             or choice.operation != "select_candidates" or RULES_HANDLE not in choice.selected_handles
             or choice.controller_attempt_id != provider.provider_attempt_id

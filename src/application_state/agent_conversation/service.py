@@ -276,6 +276,26 @@ def _validated_base_execution_locked(
     mixed_output_context=None, native_output_verified=False,
 ):
     """Validate the unchanged base-domain completion without committing a Turn."""
+    from .native_execution import SurfaceNativeExecutionV1
+    if isinstance(turn.graph_context_execution, SurfaceNativeExecutionV1):
+        from .native_rules_output import NativeRulesNormalizedOutputV1
+        from .rules_authority_types import canonical_sha256
+        if not native_output_verified and not isinstance(mixed_output_context,NativeRulesNormalizedOutputV1):
+            raise ApplicationStateValidationError('Shared native completion requires its locked producing-output owner')
+        if result is None or result.completion is None or result.claim_graph_event_ids != {} or result.build_section_bindings:
+            raise ApplicationStateValidationError('Shared native completion requires its exact native binding')
+        binding=CompletionBindingEventV1(kind='completion_binding',event_id=uuid4(),
+            sequence=len(turn.graph_context_execution.events),provider_attempt_id=result.producing_provider_attempt_id,
+            completion_sha256=canonical_sha256(result.completion),claim_graph_event_ids={})
+        try:
+            execution=SurfaceNativeExecutionV1.model_validate_json(json.dumps(
+                turn.graph_context_execution.model_dump(mode='json',by_alias=True)
+                | {'events':[e.model_dump(mode='json',by_alias=True) for e in [*turn.graph_context_execution.events,binding]]}))
+            validate_execution_completion(result.completion,turn.graph_context_receipt,execution,
+                result.producing_provider_attempt_id,result.claim_graph_event_ids)
+        except (ValueError,TypeError,KeyError,AttributeError) as exc:
+            raise ApplicationStateValidationError(str(exc)) from exc
+        return execution
     from .types import NativeStatementExecutionV1
     if isinstance(turn.graph_context_execution, NativeStatementExecutionV1):
         from .native_statement_answer import accept_result
@@ -673,6 +693,13 @@ class AgentConversationService:
             )
 
     def accept_turn(self, submission: TurnSubmission) -> TurnReadModel:
+        # StrictModel/model_copy is mutable. Re-run the submission owner before
+        # fingerprints, idempotent replay or any database mutation. JSON mode
+        # also checks copied dictionary fields through their actual wire codecs.
+        try:
+            submission = TurnSubmission.model_validate_json(submission.model_dump_json(by_alias=True))
+        except (ValueError, TypeError, AttributeError) as exc:
+            raise ApplicationStateValidationError(str(exc)) from exc
         world_id = _world_id(submission.world_id)
         if submission.provenance.world_id != world_id:
             raise ApplicationStateValidationError("turn provenance must match verified World")
@@ -1127,18 +1154,13 @@ class AgentConversationService:
                             outcome="outcome_unknown",
                         )
                         execution_type = type(execution)
-                        execution = execution_type.model_validate(
+                        # This is a wire projection: validate it in JSON mode,
+                        # including frozen dataclasses and immutable tuple fields.
+                        execution = execution_type.model_validate_json(json.dumps(
                             execution.model_dump(mode="json", by_alias=True)
-                            | {
-                                "events": [
-                                    *[
-                                        e.model_dump(mode="json", by_alias=True)
-                                        for e in execution.events
-                                    ],
-                                    unknown.model_dump(mode="json", by_alias=True),
-                                ]
-                            }
-                        )
+                            | {"events": [e.model_dump(mode="json", by_alias=True)
+                                          for e in [*execution.events, unknown]]}
+                        ))
                     interrupted = repo.interrupt_expired_graph_execution(
                         conn,
                         world_id=world_id,
@@ -1306,6 +1328,7 @@ class AgentConversationService:
         authored_prepared_request_json=None,
         plan_authoring_reservation=None,
         prepared_decision_json=None,
+        native_writer_proof=None,
     ) -> tuple[Turn, bool]:
         world_id = _world_id(world_id)
         dsn = _ready_dsn()
@@ -1317,6 +1340,33 @@ class AgentConversationService:
             turn = _ordinary_mutation_turn(turn, conversation_id)
             if turn is None or turn.conversation_id != conversation_id:
                 raise ApplicationStateNotFoundError("turn not found in verified World conversation")
+            from .native_execution import SurfaceNativeExecutionV1, NativePlanActionV1, NativeBuildActionV1, NativeWriterAuthorizedV1
+            from .types import PlanJevProviderAuthorizedV1, ProviderAttemptAuthorizedEventV5
+            native_plan_decision = (
+                type(turn.graph_context_execution) is SurfaceNativeExecutionV1
+                and type(turn.graph_context_execution.policy.action) is NativePlanActionV1
+                and isinstance(event, PlanJevProviderAuthorizedV1)
+                and plan_jev_input_proof is not None)
+            # Build retains its actual mode-bound prepared-input owner below.
+            # A shared root must not replace it with a Plan authorization codec.
+            native_build_decision = (
+                type(turn.graph_context_execution) is SurfaceNativeExecutionV1
+                and type(turn.graph_context_execution.policy.action) is NativeBuildActionV1
+                and type(event) is ProviderAttemptAuthorizedEventV5
+                and isinstance(prepared_decision_json, str))
+            from .native_retrieval import NativeRetrievalAuthorizedV1
+            native_build_retrieval = (
+                type(turn.graph_context_execution) is SurfaceNativeExecutionV1
+                and type(turn.graph_context_execution.policy.action) is NativeBuildActionV1
+                and type(event) is NativeRetrievalAuthorizedV1
+                and plan_jev_input_proof is not None)
+            native_writer = (type(turn.graph_context_execution) is SurfaceNativeExecutionV1
+                and type(event) is NativeWriterAuthorizedV1 and native_writer_proof is not None)
+            if (isinstance(turn.graph_context_execution, SurfaceNativeExecutionV1)
+                    and isinstance(event, ProviderAttemptAuthorizedEventV1)
+                    and not (native_plan_decision or native_build_decision or native_build_retrieval or native_writer)):
+                raise ApplicationStateValidationError(
+                    "Shared native provider requires its exact prepared-input admission owner")
             validate_authoring_writer(conn,action,turn,event)
             from .work_plan import retained_bound_intent
             bound_intent = retained_bound_intent(conn, turn)
@@ -1364,6 +1414,41 @@ class AgentConversationService:
             now = repo.database_clock(conn)
             if turn.claim_expires_at is None or turn.claim_expires_at <= now:
                 raise ApplicationStateConflictError("Graph execution claim has expired")
+            if native_writer:
+                if (not isinstance(native_writer_proof,dict) or set(native_writer_proof) !=
+                        {'prepared_request_json','work_proof','expected_rules_revision'}):
+                    raise ApplicationStateValidationError("Native writer requires its exact producing-input proof")
+                captured = conn.execute(
+                    "SELECT payload->>'capture_status' FROM agent.turn_context_trace WHERE turn_id=%s AND attempt=%s",
+                    (turn.turn_id,turn.attempt)).fetchone()
+                if captured is None or captured[0] != 'recording':
+                    raise ApplicationStateValidationError("Native writer requires its active protected capture")
+                prior = [item for item in execution.events if isinstance(item,ProviderAttemptAuthorizedEventV1)
+                    and item.provider_attempt_id == event.provider_attempt_id]
+                if prior and prior != [event]:
+                    raise ApplicationStateConflictError("Native writer identity was reused with changed content")
+                if not prior and event.sequence != len(execution.events):
+                    raise ApplicationStateConflictError("Native writer execution sequence is stale")
+                try:
+                    prospective = execution if prior else SurfaceNativeExecutionV1.model_validate_json(json.dumps(
+                        execution.model_dump(mode='json',by_alias=True)
+                        | {'events':[item.model_dump(mode='json',by_alias=True) for item in [*execution.events,event]]}))
+                    from .native_execution import validate_context_binding
+                    validate_context_binding(turn.graph_context_receipt,prospective)
+                    from .rules_authority_store import admit_native_writer_input_locked
+                    _rules,fresh = admit_native_writer_input_locked(conn,turn,prospective,event,
+                        expected_revision=native_writer_proof["expected_rules_revision"],
+                        prepared_request_json=native_writer_proof["prepared_request_json"],
+                        work_proof=native_writer_proof["work_proof"])
+                except (ValueError,KeyError,TypeError,AttributeError) as exc:
+                    raise ApplicationStateValidationError(str(exc)) from exc
+                if not fresh:
+                    return turn,False
+                updated = repo.update_graph_execution(conn,world_id=world_id,turn_id=turn_id,
+                    expected_revision=expected_revision,execution=prospective)
+                if updated is None:
+                    raise ApplicationStateConflictError("Native writer claim expired during atomic admission")
+                return updated,True
             from .build_related_pages import RelatedPagesSelection, RelatedPageRead, RelatedPageInclusion, validate_inclusion as validate_related_inclusion, validate_selection as validate_related_selection
             try:
                 if isinstance(event,RelatedPageInclusion):
@@ -1376,6 +1461,9 @@ class AgentConversationService:
                         raise ValueError("Related page read lacks its exact source-owner materialization")
             except (ValueError,KeyError,TypeError,AttributeError) as exc:
                 raise ApplicationStateValidationError(str(exc)) from exc
+            from .authored_graph_references import BuildAuthoredReferenceAuthorizedV2, BuildAuthoredReferenceReadV2
+            if native_source_materializer is None and isinstance(event, (BuildAuthoredReferenceAuthorizedV2, BuildAuthoredReferenceReadV2)):
+                raise ApplicationStateValidationError('Native authored event requires its immutable read transaction owner')
             from .native_corpus import NATIVE_BODY_EVENTS
             if native_source_materializer is None and isinstance(event, NATIVE_BODY_EVENTS):
                 raise ApplicationStateValidationError("Native body event requires its immutable source transaction owner")
@@ -1412,16 +1500,33 @@ class AgentConversationService:
                 raise ApplicationStateValidationError("Plan Jev controller requires its own prepared-input admission")
             if isinstance(event, (BuildSectionReadAuthorizationV1, ValidatedBuildSectionReadV1)):
                 receipt = turn.graph_context_receipt
-                if (not isinstance(receipt, BuildGraphContextReceiptV1)
-                        or event.source_basis != receipt.source_basis):
-                    raise ApplicationStateValidationError("Saved section differs from frozen Build source")
+                from .native_context import SurfaceNativeContextReceiptV1, BuildWorkContextV1
+                native=type(receipt) is SurfaceNativeContextReceiptV1 and type(receipt.work_context) is BuildWorkContextV1
+                basis=receipt.work_context.source_basis if native else receipt.source_basis if isinstance(receipt,BuildGraphContextReceiptV1) else None
+                if basis is None or event.source_basis!=basis:
+                    raise ApplicationStateValidationError('Saved section differs from frozen Build source')
+                if native and isinstance(event,BuildSectionReadAuthorizationV1):
+                    from .native_retrieval import current_selection
+                    from .build_section import saved_section_catalog
+                    try:
+                        selection=current_selection(turn)
+                        catalog=saved_section_catalog(build_source_markdown,basis)
+                        handles=[h for h,(_,lines) in catalog.items() if lines==(event.line_start,event.line_end)]
+                        if selection.operation!='select_candidates' or len(handles)!=1 or handles[0] not in selection.selected_handles:
+                            raise ValueError('Saved section lacks its actual selected parent handle')
+                        if any(isinstance(prior,(BuildSectionReadAuthorizationV1,ValidatedBuildSectionReadV1)) and prior.read_id!=event.read_id and (prior.line_start,prior.line_end)==(event.line_start,event.line_end) for prior in execution.events):
+                            raise ValueError('Saved section cannot be reacquired')
+                    except (ValueError,TypeError,AttributeError) as exc:
+                        raise ApplicationStateValidationError(str(exc)) from exc
                 if isinstance(event, ValidatedBuildSectionReadV1):
                     from application_state.agent_conversation.build_section import exact_saved_section
                     try:
-                        exact = exact_saved_section(build_source_markdown, receipt.source_basis.content_sha256,
+                        exact = exact_saved_section(build_source_markdown, basis.content_sha256,
                             event.line_start, event.line_end)
                     except (TypeError, ValueError, UnicodeError) as exc:
                         raise ApplicationStateValidationError("Immutable Build passage proof is unavailable or invalid") from exc
+                    if native and len(build_source_markdown)!=execution.policy.action.saved_source_char_count:
+                        raise ApplicationStateValidationError('Saved source size differs from its frozen native work')
                     if (getattr(turn.graph_context_execution.policy, "saved_section_read_policy", None) == "exact_saved_lines_provider_capacity_v1"
                         and len(build_source_markdown) != turn.graph_context_execution.policy.saved_source_char_count):
                         raise ApplicationStateValidationError("Saved source size differs from its frozen exact-line policy")
@@ -1444,6 +1549,10 @@ class AgentConversationService:
                 from .build_decision_context import validate_prepared
                 try:
                     validate_prepared(event, execution, prepared_decision_json)
+                    if native_build_decision and event.context_phase=='writer_selection':
+                        from .writer_evidence_selection import validate_prepared_selection
+                        captured=conn.execute('SELECT payload FROM agent.turn_context_trace WHERE turn_id=%s AND attempt=%s',(turn.turn_id,turn.attempt)).fetchone()
+                        validate_prepared_selection(turn,event,prepared_decision_json,captured[0] if captured else {})
                 except (ValueError, KeyError, TypeError, AttributeError) as exc:
                     raise ApplicationStateValidationError(str(exc)) from exc
             elif prepared_decision_json is not None:
@@ -1612,7 +1721,13 @@ class AgentConversationService:
                 assert receipt is not None
                 try:
                     from .types import PlanSourceContextReceiptV1
-                    if isinstance(receipt, PlanSourceContextReceiptV1):
+                    if native_plan_decision or native_build_decision or native_build_retrieval:
+                        # Each concrete surface checked its actual prepared wire.
+                        # Share first-envelope accounting without constructing a
+                        # classic Graph view or borrowing another work identity.
+                        from .types import validate_provider_envelope_accounting
+                        validate_provider_envelope_accounting(receipt.assembled_input, execution, event)
+                    elif isinstance(receipt, PlanSourceContextReceiptV1):
                         from .plan_source_context import validate_source_provider_envelope
                         validate_source_provider_envelope(receipt, execution, event)
                     else:
@@ -1680,10 +1795,14 @@ class AgentConversationService:
                 *([section_inclusion] if section_inclusion is not None else [])]
             try:
                 execution_type = type(execution)
-                updated_execution = execution_type.model_validate(
-                    execution.model_dump(mode="json", by_alias=True) | {"events": [e.model_dump(mode="json", by_alias=True) for e in events]}
-                )
-                if turn.graph_context_receipt is not None:
+                updated_execution = execution_type.model_validate_json(json.dumps(
+                    execution.model_dump(mode="json", by_alias=True)
+                    | {"events": [e.model_dump(mode="json", by_alias=True) for e in events]}
+                ))
+                if isinstance(updated_execution, SurfaceNativeExecutionV1):
+                    from .native_execution import validate_context_binding
+                    validate_context_binding(turn.graph_context_receipt, updated_execution)
+                elif turn.graph_context_receipt is not None:
                     validate_related_recap_context_scope(
                         turn.graph_context_receipt, updated_execution
                     )
@@ -1740,6 +1859,19 @@ class AgentConversationService:
             expected_attempt=expected_attempt, event=provider_attempt_event,
             duplicate_key="provider_attempt_id",
         )
+
+    def authorize_native_writer(self, world_id, conversation_id, turn_id, *,
+            expected_revision, expected_attempt, expected_rules_revision, authorization,
+            prepared_request_json, work_proof, authoring_reservation=None):
+        """A fresh shared writer plus its Rules input are one dispatch admission."""
+        from .native_execution import NativeWriterAuthorizedV1
+        if type(authorization) is not NativeWriterAuthorizedV1:
+            raise ApplicationStateValidationError("The concrete shared writer authorization is required")
+        return self._append_graph_execution_event(world_id,conversation_id,turn_id,
+            expected_revision=expected_revision,expected_attempt=expected_attempt,event=authorization,
+            duplicate_key='provider_attempt_id',plan_authoring_reservation=authoring_reservation,
+            native_writer_proof=dict(prepared_request_json=prepared_request_json,work_proof=work_proof,
+                expected_rules_revision=expected_rules_revision))
 
     def authorize_plan_jev_writer(self, world_id, conversation_id, turn_id, *,
             expected_revision, expected_attempt, authorization, producer_proof, authoring_reservation=None):
@@ -1877,6 +2009,28 @@ class AgentConversationService:
                 authorization_event_id=authorization_event_id, reads=reads,
                 unavailable_ids=unavailable_ids))
 
+    def capture_native_authored_references(self, world_id, conversation_id, turn_id, *,
+            expected_revision, expected_attempt, event_id):
+        from .authored_graph_references import capture_native_input
+        return self._append_native_read_materialization(world_id, conversation_id, turn_id,
+            expected_revision=expected_revision, expected_attempt=expected_attempt,
+            materialize=lambda turn: capture_native_input(turn, event_id=event_id))
+
+    def authorize_native_authored_reference(self, world_id, conversation_id, turn_id, *,
+            expected_revision, expected_attempt, event_id, node_id):
+        from .authored_graph_references import authorize_native_reference
+        return self._append_native_read_materialization(world_id, conversation_id, turn_id,
+            expected_revision=expected_revision, expected_attempt=expected_attempt,
+            materialize=lambda turn: authorize_native_reference(turn, event_id=event_id, node_id=node_id))
+
+    def observe_native_authored_reference(self, world_id, conversation_id, turn_id, *,
+            expected_revision, expected_attempt, event_id, authorization_event_id, materialize):
+        from .authored_graph_references import observe_native_reference
+        return self._append_native_read_materialization(world_id, conversation_id, turn_id,
+            expected_revision=expected_revision, expected_attempt=expected_attempt,
+            materialize=lambda turn: observe_native_reference(turn, event_id=event_id,
+                authorization_event_id=authorization_event_id, materialize=materialize))
+
     def authorize_native_body_search(self, world_id, conversation_id, turn_id, *,
             expected_revision, expected_attempt, event_id):
         from .native_reads import authorize_body_search_locked
@@ -1992,11 +2146,11 @@ class AgentConversationService:
     def authorize_build_section_read(
         self, world_id: str, conversation_id: UUID, turn_id: UUID, *,
         expected_revision: int, expected_attempt: int,
-        authorization: BuildSectionReadAuthorizationV1,
+        authorization: BuildSectionReadAuthorizationV1,source_markdown: str | None = None,
     ) -> tuple[Turn, bool]:
         return self._append_graph_execution_event(world_id, conversation_id, turn_id,
             expected_revision=expected_revision, expected_attempt=expected_attempt,
-            event=authorization, duplicate_key="read_id")
+            event=authorization, duplicate_key="read_id",build_source_markdown=source_markdown)
 
     def record_build_draft_inclusion(self, world_id: str, conversation_id: UUID, turn_id: UUID, *,
         expected_revision: int, expected_attempt: int, inclusion, prepared_request_json: str):
@@ -2312,20 +2466,20 @@ class AgentConversationService:
         return self._complete_turn(result, prepared_recovery=False)
 
     def complete_native_base_turn(self, result: TurnResult, *, output_proof,
-                                  expected_rules_revision: int) -> Turn:
+                                  expected_rules_revision: int, work_proof=None) -> Turn:
         """Accept a captured native answer and close its unused Rules scope atomically."""
         return self._complete_turn(result, prepared_recovery=False,
-            native_output_proof=output_proof, expected_rules_revision=expected_rules_revision)
+            native_output_proof=output_proof, expected_rules_revision=expected_rules_revision,native_work_proof=work_proof)
 
-    def complete_plan_authoring_turn(self,result:TurnResult,*,proposal,output_proof,expected_rules_revision:int):
+    def complete_plan_authoring_turn(self,result:TurnResult,*,proposal,output_proof,expected_rules_revision:int,work_proof=None):
         """Native evidence acceptance and the Plan result share one transaction."""
         return self._complete_turn(result,prepared_recovery=False,native_output_proof=output_proof,
-            expected_rules_revision=expected_rules_revision,authoring_proposal=proposal)
+            expected_rules_revision=expected_rules_revision,authoring_proposal=proposal,native_work_proof=work_proof)
 
-    def complete_plan_authoring_mixed_turn(self,result:NativeRulesMixedTurnResultV1,*,proposal):
+    def complete_plan_authoring_mixed_turn(self,result:NativeRulesMixedTurnResultV1,*,proposal,work_proof=None):
         if not isinstance(result,NativeRulesMixedTurnResultV1):
             raise ApplicationStateValidationError('Plan authoring requires its actual native mixed output proof')
-        return self._complete_mixed_turn(result,authoring_proposal=proposal)
+        return self._complete_mixed_turn(result,authoring_proposal=proposal,native_work_proof=work_proof)
 
     def get_plan_authoring_proposal(self,world_id:str,action_id:UUID):
         """Read the same saved object; missing or mismatched owners never regenerate."""
@@ -2364,7 +2518,7 @@ class AgentConversationService:
         return self._complete_turn(result, prepared_recovery=True)
 
     def _complete_turn(self, result: TurnResult, *, prepared_recovery: bool,
-                       native_output_proof=None, expected_rules_revision=None, authoring_proposal=None) -> Turn:
+                       native_output_proof=None, expected_rules_revision=None, authoring_proposal=None, native_work_proof=None) -> Turn:
         from .types import BuildAuthoringCompletionV1, BuildImagePreparationCompletionV1
         if prepared_recovery and not isinstance(result.completion, (BuildAuthoringCompletionV1, BuildImagePreparationCompletionV1)):
             raise ApplicationStateValidationError("Recovery requires a typed prepared Build proposal")
@@ -2418,6 +2572,18 @@ class AgentConversationService:
             if turn.revision != result.expected_revision or turn.status not in allowed_status:
                 raise ApplicationStateConflictError("turn revision or lifecycle state changed")
             native_output_verified = False
+            recovered_rules_state = None
+            if prepared_recovery:
+                from .build_authoring import _native_build,validate_prepared_native_authoring
+                if _native_build(turn):
+                    captured=conn.execute('SELECT payload FROM agent.turn_context_trace WHERE turn_id=%s AND attempt=%s',
+                        (turn.turn_id,turn.attempt)).fetchone()
+                    try:
+                        recovered_rules_state=validate_prepared_native_authoring(conn,turn,result,
+                            trace=captured[0] if captured else {})
+                    except (ValueError,TypeError,AttributeError,KeyError,UnicodeError) as exc:
+                        raise ApplicationStateValidationError(str(exc)) from exc
+                    native_output_verified = True
             if native_output_proof is not None:
                 from .native_rules_output import NativeRulesOutputProofV1, normalize_unused_native_output
                 from .rules_authority_store import load_turn_rules_locked
@@ -2426,8 +2592,17 @@ class AgentConversationService:
                         or not isinstance(native_output_proof, NativeRulesOutputProofV1)):
                     raise ApplicationStateConflictError("Native completion differs from its Rules ledger")
                 try:
-                    completion, bindings, text = normalize_unused_native_output(
-                        turn, current.execution, native_output_proof)
+                    captured=conn.execute('SELECT payload FROM agent.turn_context_trace WHERE turn_id=%s AND attempt=%s',
+                        (turn.turn_id,turn.attempt)).fetchone()
+                    from .types import BuildAuthoringCompletionV1,BuildImagePreparationCompletionV1
+                    if isinstance(result.completion,(BuildAuthoringCompletionV1,BuildImagePreparationCompletionV1)):
+                        from .build_authoring import normalize_native_authoring
+                        completion,bindings,text=normalize_native_authoring(conn,turn,current.execution,native_output_proof,
+                            trace=captured[0] if captured else None,work_proof=native_work_proof)
+                    else:
+                        completion, bindings, text = normalize_unused_native_output(
+                            turn, current.execution, native_output_proof,work_proof=native_work_proof,
+                            trace=captured[0] if captured else None)
                     if (completion != result.completion or bindings != result.claim_graph_event_ids
                             or text != result.assistant_text or result.producing_provider_attempt_id
                                 != (native_output_proof.producing_provider_attempt_id
@@ -2439,7 +2614,9 @@ class AgentConversationService:
             execution = _validated_base_execution_locked(conn, turn, result,
                 prepared_recovery=prepared_recovery, native_output_verified=native_output_verified)
             from .rules_authority_store import close_unused_locked
-            close_unused_locked(conn, turn)
+            # A recovered object does not reopen or erase the failed unused capability.
+            if recovered_rules_state != 'failed':
+                close_unused_locked(conn, turn)
             completion_update = repo.complete_prepared_build_turn if prepared_recovery else repo.complete_claimed_turn
             updated = completion_update(
                 conn,
@@ -2459,10 +2636,10 @@ class AgentConversationService:
                 actions.finish_authoring_result(conn,action,authoring_proposal,updated)
         return updated
 
-    def complete_mixed_turn(self,result:MixedTurnResultV1)->MixedCompletedTurnV1:
-        return self._complete_mixed_turn(result)
+    def complete_mixed_turn(self,result:MixedTurnResultV1,*,work_proof=None)->MixedCompletedTurnV1:
+        return self._complete_mixed_turn(result,native_work_proof=work_proof)
 
-    def _complete_mixed_turn(self, result: MixedTurnResultV1, *, authoring_proposal=None) -> MixedCompletedTurnV1:
+    def _complete_mixed_turn(self, result: MixedTurnResultV1, *, authoring_proposal=None,native_work_proof=None) -> MixedCompletedTurnV1:
         """Accept both domains and an optional owned Plan result in one transaction."""
         from .rules_authority_completion import prepare_rules_acceptance
         from .rules_authority_store import (
@@ -2559,6 +2736,12 @@ class AgentConversationService:
                     ]
                     == result.base_result.build_section_bindings
                 )
+                if base.kind=='unclaimed' and base.completion is not None:
+                    base_matches=(result.base_result is not None
+                        and result.base_result.completion==base.completion
+                        and result.base_result.assistant_text==''
+                        and result.base_result.producing_provider_attempt_id==binding.producing_provider_attempt_id
+                        and result.base_result.claim_graph_event_ids=={})
                 if (
                     base.kind == "approved"
                     and base.turn.graph_context_execution is not None
@@ -2579,6 +2762,7 @@ class AgentConversationService:
                         base_segments = (tuple(item.text for item in result.base_result.completion.answer_segments)
                             if result.base_result is not None else ())
                         derived = parse_answer(proof.raw_output_json).composition(
+                            base_completion=None if result.base_result is None else result.base_result.completion,
                             supplied_refs=tuple(RulesSupportRefV1(support_id=item.support_id,
                                 support_sha256=item.support_sha256) for item in binding.support_table),
                             base_segments=base_segments, base_disposition=result.composition.base_disposition)
@@ -2615,6 +2799,7 @@ class AgentConversationService:
                         if len(sealed) != 1:
                             raise ValueError("Replayed native output has no unique compact provider witness")
                         derived = parse_answer(proof.raw_output_json).composition(
+                            base_completion=None if result.base_result is None else result.base_result.completion,
                             supplied_refs=supplied,
                             base_segments=base_segments,
                             base_disposition=result.composition.base_disposition,
@@ -2696,10 +2881,21 @@ class AgentConversationService:
                     proof = result.output_proof
                     from .native_rules_output import sealed_native_producer
                     capture, graph_support = sealed_native_producer(turn, current.execution, proof)
-                    normalized = normalize_native_mixed_output(
-                        turn, turn.graph_context_execution, current.execution,
-                        proof, capture, graph_support=graph_support,
-                    )
+                    from .native_execution import SurfaceNativeExecutionV1
+                    if type(turn.graph_context_execution) is SurfaceNativeExecutionV1:
+                        from .native_rules_output import normalize_shared_native_output
+                        captured=conn.execute('SELECT payload FROM agent.turn_context_trace WHERE turn_id=%s AND attempt=%s',
+                            (turn.turn_id,turn.attempt)).fetchone()
+                        normalized=normalize_shared_native_output(turn.graph_context_receipt,turn.graph_context_execution,
+                            current.execution,proof,capture,trace=captured[0] if captured else None,
+                            idempotency_key=turn.idempotency_key,submitted_intent_fingerprint=turn.submitted_intent_fingerprint_v2,
+                            world_id=turn.world_id,conversation_id=turn.conversation_id,turn_id=turn.turn_id,attempt=turn.attempt,
+                            provenance=turn.provenance,work_proof=native_work_proof)
+                    else:
+                        normalized = normalize_native_mixed_output(
+                            turn, turn.graph_context_execution, current.execution,
+                            proof, capture, graph_support=graph_support,
+                        )
                     if (normalized.composition != result.composition
                             or normalized.assistant_text != result.assistant_text):
                         raise ValueError("Native mixed result differs from its actual outer output normalization")
@@ -2728,7 +2924,7 @@ class AgentConversationService:
                 execution = _validated_base_execution_locked(conn, turn, base_result, mixed_output_context=output_context)
                 completion = base_result.completion
                 segments = tuple(item.text for item in completion.answer_segments)
-                graph_used = any(item.kind == "graph_claim" for item in completion.answer_segments)
+                graph_used = any(item.kind in {'graph_claim','native_assertion_claim'} for item in completion.answer_segments)
             elif disposition == "absent":
                 if turn.graph_context_receipt is not None or execution is not None:
                     raise ApplicationStateValidationError(
@@ -2738,6 +2934,11 @@ class AgentConversationService:
                 raise ApplicationStateValidationError(
                     "unclaimed base requires genuine Graph receipt and execution"
                 )
+            elif base_result is not None:
+                from .native_completion import require_object_only_completion
+                require_object_only_completion(base_result.completion)
+                execution=_validated_base_execution_locked(conn,turn,base_result,mixed_output_context=output_context)
+                completion=base_result.completion
             try:
                 if isinstance(result, NativeRulesMixedTurnResultV1):
                     if (output_context is None
@@ -2745,7 +2946,7 @@ class AgentConversationService:
                             or output_context.assistant_text != result.assistant_text):
                         raise ValueError("Native mixed result differs from its actual outer output normalization")
                 elif output_context is not None:
-                    derived = output_context[2].composition(supplied_refs=next(
+                    derived = output_context[2].composition(base_completion=completion, supplied_refs=next(
                         e.support_refs for e in current.execution.events
                         if e.kind == "build_provider_included" and e.provider_attempt_id == result.producing_provider_attempt_id),
                         base_segments=segments, base_disposition=disposition)

@@ -80,6 +80,36 @@ class WorldPassageOrigin(_Frozen):
 SourceOrigin = PrimarySectionOrigin | PrimaryObservationOrigin | WorldPassageOrigin
 
 
+def validate_work_intent(basis, intent):
+    """The Build owner joins submitted work to its independently resolved basis."""
+    from . import types as t
+    if (not isinstance(intent, t.BuildGraphIntentV1)
+            or basis.world_id != intent.world_id
+            or basis.document_id != intent.primary_work.object_id
+            or basis.registry_revision != intent.primary_work.expected_revision
+            or basis.content_sha256 != intent.primary_work.expected_content_sha256):
+        raise ValueError("Submitted Build work differs from its resolved saved source")
+
+
+def validate_work_provenance(basis, provenance):
+    """Join exact saved Build work and visibility without any Graph authority."""
+    ref = provenance.primary_work
+    if (not isinstance(basis, BuildSourceContextBasisV1)
+        or provenance.world_id != basis.world_id or provenance.surface_resolution != "resolved"
+        or provenance.surface_id != "build" or ref.resolution != "resolved"
+        or ref.kind != "build" or ref.object_id != basis.document_id
+        or ref.revision != str(basis.registry_revision) or ref.content_sha256 != basis.content_sha256
+        or any(x is not None for x in (ref.object_revision, ref.work_revision_id, ref.revision_n))
+        or provenance.selected_object.resolution != "absent"):
+        raise ValueError("Stored Build receipt differs from its frozen source")
+    refs = [r for r in provenance.supporting_work if r.kind == "dmb_build_source_visibility_v1"]
+    if (len(refs) != 1 or refs[0].resolution != "resolved"
+        or refs[0].object_id != basis.visibility or refs[0].revision != "1"
+        or any(x is not None for x in (refs[0].object_revision, refs[0].work_revision_id,
+                                      refs[0].revision_n, refs[0].content_sha256))):
+        raise ValueError("Build source visibility differs from its frozen work")
+
+
 def scope_digest(turn):
     from . import types as t
 

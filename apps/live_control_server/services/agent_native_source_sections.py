@@ -95,9 +95,13 @@ def open_native_body_excerpt(*, world_id, turn_id, citation_index, principal, se
         if turn.base_projection.kind != 'approved':
             raise SourcePassageOpenError('native_body_completion_unavailable', 404)
         turn = turn.base_projection.turn
+    from application_state.agent_conversation.native_completion import SurfaceNativeCompletionV1
+    shared = (type(turn.graph_context_receipt) is t.SurfaceNativeContextReceiptV1
+        and type(turn.completion) is SurfaceNativeCompletionV1)
+    legacy = (isinstance(turn.graph_context_receipt, t.PlanSourceContextReceiptV1)
+        and isinstance(turn.completion, t.SurfaceEvidenceCompletionV5))
     if (turn.world_id != world_id or turn.turn_id != turn_id or turn.status != 'completed'
-            or not isinstance(turn.graph_context_receipt, t.PlanSourceContextReceiptV1)
-            or not isinstance(turn.completion, t.SurfaceEvidenceCompletionV5)):
+            or not (shared or legacy)):
         raise SourcePassageOpenError('native_body_completion_unavailable', 404)
     if citation_index >= len(turn.completion.native_body_citations):
         raise SourcePassageOpenError('native_body_not_found', 404)

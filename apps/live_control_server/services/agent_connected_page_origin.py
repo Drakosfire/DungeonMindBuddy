@@ -11,15 +11,20 @@ def open_origin(service, world_id, turn_id):
         if turn.base_projection.kind != 'approved':
             raise ValueError('Connected origin lacks its approved base completion')
         turn=turn.base_projection.turn
-    turn=t.Turn.model_validate(turn.model_dump(mode='python',by_alias=True))
+    turn=t.Turn.model_validate_json(turn.model_dump_json(by_alias=True))
     review=getattr(turn.completion,'collaboration',None)
+    from application_state.agent_conversation.native_context import SurfaceNativeContextReceiptV1,BuildWorkContextV1
+    receipt=turn.graph_context_receipt
+    basis=(receipt.work_context.source_basis if type(receipt) is SurfaceNativeContextReceiptV1
+        and type(receipt.work_context) is BuildWorkContextV1 else receipt.source_basis
+        if isinstance(receipt,t.BuildGraphContextReceiptV1) else None)
     if (turn.world_id != world_id or turn.turn_id != turn_id or turn.status != 'completed'
-        or not isinstance(review,ProposedConnectedPage) or not isinstance(turn.graph_context_receipt,t.BuildGraphContextReceiptV1)):
+        or not isinstance(review,ProposedConnectedPage) or basis is None):
         raise ValueError('Connected origin requires its exact completed page review')
     bindings=[e for e in turn.graph_context_execution.events if isinstance(e,t.CompletionBindingEventV1)]
     if len(bindings)!=1:
         raise ValueError('Connected origin producing completion is ambiguous')
-    rows=execution_rows(turn.graph_context_execution,turn.graph_context_receipt.source_basis,bindings[0].provider_attempt_id)
+    rows=execution_rows(turn.graph_context_execution,basis,bindings[0].provider_attempt_id)
     origin=saved_excerpt(review,rows)
     return {'schema':'dmb_agent_connected_page_origin_v1','world_id':world_id,
         'turn_id':str(turn_id),'read_id':review.read_id,'origin':origin}

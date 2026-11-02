@@ -25,11 +25,19 @@ def _primary_rows(rows, basis):
 def packet_rows(packet):
     from .build_primary_context import packet_rows as primary_rows
     packet = resolve_body_aliases(packet)
-    rows = list(packet.get('related_authored_pages', {}).get('pages', []))
+    primary=[]
     if KEY in packet:
         if packet[KEY] != POLICY or not eligible(packet):
             raise ValueError('Connected origin marker lacks its resolved work and saved reads')
-        rows += _primary_rows(primary_rows(packet), packet['source_basis'])
+        primary=primary_rows(packet)
+    return selected_rows(packet.get('related_authored_pages',{}).get('pages',[]),primary,packet.get('source_basis'))
+
+
+def selected_rows(related, primary, basis):
+    """One saved-origin selector domain from actual supplied related/primary rows."""
+    rows=list(related)
+    if primary:
+        rows += _primary_rows(primary,basis)
     if len({str(r['read_id']) for r in rows}) != len(rows):
         raise ValueError('Connected origin read selectors are ambiguous')
     return rows
@@ -72,6 +80,16 @@ def execution_rows(execution, basis, attempt_id):
         or (auths[0].provider,auths[0].model,auths[0].api_mode) != execution.policy.provider_roles.writer.identity()):
         raise ValueError('Connected origin lacks its successful producing writer')
     auth = auths[0]
+    from .native_execution import SurfaceNativeExecutionV1,NativeBuildActionV1,NativeWriterAuthorizedV1
+    if type(execution) is SurfaceNativeExecutionV1:
+        if type(execution.policy.action) is not NativeBuildActionV1 or type(auth) is not NativeWriterAuthorizedV1:
+            raise ValueError('Native connected origin requires its actual Build writer')
+        from .build_primary_context import native_work_frame
+        from .build_intentional_response import native_origin_rows
+        prefix=SurfaceNativeExecutionV1.model_validate_json(execution.model_copy(
+            update={'events':execution.events[:auth.sequence]}).model_dump_json(by_alias=True))
+        frame=native_work_frame(prefix,t.BuildSourceContextBasisV1.model_validate(basis))
+        return native_origin_rows(frame)
     related = [e for e in execution.events if isinstance(e,RelatedPageInclusion)
         and e.provider_attempt_id == attempt_id and e.envelope_sha256 == auth.envelope_sha256]
     if len(related)>1:

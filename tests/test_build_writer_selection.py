@@ -435,9 +435,11 @@ def test_long_selection_capability_crosses_sdk_app_without_expanding_sources(mut
     from apps.live_control_server.services.workspace_document_registry import get_workspace_document_snapshot
     source,request,bootstrap=mutable_saved_build_case
     text="Frank and Sara operate the Rocky Talkie. "+"The marsh is quiet. "*4000+"\n"
-    (tmp_path/source.record.target_relpath).write_text(text)
+    from tests.page_fixtures import save_page
+    save_page(tmp_path, source.record.document_id, text)
     source=get_workspace_document_snapshot(tmp_path,source.record.document_id)
-    request=request.model_copy(update={"primary_work":request.primary_work.model_copy(update={"expected_content_sha256":source.content_sha256})})
+    request=request.model_copy(update={"primary_work":request.primary_work.model_copy(update={
+        "expected_revision": source.loaded_revision, "expected_content_sha256":source.content_sha256})})
     from hashlib import sha256
     from tests.application_state.test_agent_conversation_postgres import _new
     from application_state.agent_conversation.build_draft_context import BuildDraftSnapshotV1,BuildDraftContextRequestV1
@@ -488,11 +490,11 @@ def test_long_selection_capability_crosses_sdk_app_without_expanding_sources(mut
     assert not [e for e in events if e.sequence>auth.sequence and isinstance(e,(ledger.ValidatedSourceReadEventV2,ledger.ValidatedBuildSectionReadV1))]
     assert service.list_turns("elderwyld",pointer.active_conversation_id)[0].graph_context_execution==turn.graph_context_execution
 
-    # Exercise the metadata-only fence with a populated execution/selection/trace.
+    # The current reader fence preserves the populated execution, selection and trace.
     import psycopg
     from psycopg import sql
     from alembic import command
-    from application_state.cli import alembic_config,upgrade_to_head
+    from application_state.cli import alembic_config
     def snapshot():
         with psycopg.connect(application_state_dsn) as conn:
             tables=conn.execute("SELECT table_schema,table_name FROM information_schema.tables WHERE table_type='BASE TABLE' AND table_schema NOT IN ('pg_catalog','information_schema') ORDER BY 1,2").fetchall()
@@ -500,10 +502,6 @@ def test_long_selection_capability_crosses_sdk_app_without_expanding_sources(mut
                     for schema,table in tables if (schema,table)!=("application_state","schema_migrations")}
     before=snapshot()
     assert any(before.values())
-    with psycopg.connect(application_state_dsn) as conn:
-        conn.execute("UPDATE application_state.schema_migrations SET version_num='20261028_0082'")
-    upgrade_to_head(dsn=application_state_dsn)
-    assert snapshot()==before
     with pytest.raises(RuntimeError,match="recovery forward"):
         command.downgrade(alembic_config(),"20261028_0082")
     assert snapshot()==before

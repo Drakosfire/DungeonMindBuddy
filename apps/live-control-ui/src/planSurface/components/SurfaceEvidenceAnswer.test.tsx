@@ -1,8 +1,9 @@
+import sharedWire from '../../test/surface-native-http.json';
 import {render,screen,fireEvent} from '@testing-library/react';
 import {it,expect,vi} from 'vitest';
 import {webcrypto,createHash} from 'node:crypto';
-import {getAgentSourcePassage,getAgentNativeSourceClause} from '../../api/liveApi';
-vi.mock('../../api/liveApi',()=>({getAgentSourcePassage:vi.fn(),getAgentNativeSourceClause:vi.fn()}));
+import {getAgentSourcePassage,getAgentNativeSourceClause,getAgentNativeAssertionSource} from '../../api/liveApi';
+vi.mock('../../api/liveApi',()=>({getAgentSourcePassage:vi.fn(),getAgentNativeSourceClause:vi.fn(),getAgentNativeAssertionSource:vi.fn()}));
 import {SurfaceEvidenceAnswer} from './SurfaceEvidenceAnswer';
 import type {SurfaceEvidenceCompletionV1} from '../../api/types';
 function evidence():SurfaceEvidenceCompletionV1 {
@@ -98,4 +99,18 @@ it.each(['exact','changed-bytes','changed-revision','changed-campaign'])('opens 
   if(change==='exact')await screen.findByText('A reports that B fled; uncertain.');
   else await screen.findByText('The exact cited section is unavailable. No newer text has been substituted.');
   expect(getAgentNativeSourceClause).toHaveBeenCalledWith('native-world','turn',0);
+});
+
+it.each(['exact','changed-bytes','changed-revision'])('opens the actual shared native assertion source without legacy source arrays: %s',async mutation=>{
+  vi.stubGlobal('crypto',webcrypto);
+  const c=structuredClone(sharedWire.context.completion) as import('../../api/types').SurfaceNativeCompletionV1;
+  const source=structuredClone(sharedWire.source);
+  if(mutation==='changed-bytes')source.content='Nearby unsupported prose.';
+  if(mutation==='changed-revision')source.citation.source_revision_id='srev:new-head';
+  vi.mocked(getAgentNativeAssertionSource).mockResolvedValue(source);
+  render(<SurfaceEvidenceAnswer completion={c} worldId={source.world_id} turnId={source.turn_id}/>);
+  fireEvent.click(screen.getByRole('button',{name:'Read Graph assertion source'}));
+  if(mutation==='exact')await screen.findByText(source.content.trim());
+  else await screen.findByText('The exact cited section is unavailable. No newer text has been substituted.');
+  expect(getAgentNativeAssertionSource).toHaveBeenCalledWith(source.world_id,source.turn_id,0);
 });

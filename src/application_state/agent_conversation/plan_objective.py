@@ -27,16 +27,27 @@ def contract(execution):
     return rows[0] if rows else None
 
 
+def _destination(execution):
+    from .build_draft_context import native_build_action
+    action=native_build_action(execution)
+    if action is not None:
+        return ('plan' in (action.capabilities.reviews or ()) and action.capabilities.plan_surface is True,
+            action.intent.build_write_capability_sha256)
+    return (getattr(execution.policy,'collaboration_output_policy',None) is not None,
+        getattr(execution.policy,'action_capability_sha256',None))
+
+
 def create(execution, capability):
     from .types import BuildPlanOutputContractV2, BuildJevActionSelectionV1, BuildReviewedActionSelectionV1
-    if getattr(execution.policy, 'collaboration_output_policy', None) is None or capability is None:
+    enabled,destination=_destination(execution)
+    if not enabled or capability is None:
         return None
     choices = [e for e in execution.events if isinstance(e, (BuildJevActionSelectionV1, BuildReviewedActionSelectionV1))]
     if len(choices) != 1 or choices[0].operation != 'answer_from_sources':
         return None
     captured = context_record(execution).record
     cap = digest(capability.model_dump(mode='json'))
-    if cap != execution.policy.action_capability_sha256:
+    if cap != destination:
         raise ValueError("Plan destination differs from its admitted capability")
     return BuildPlanOutputContractV2(kind='build_plan_output_contract_v2',event_id=uuid4(),sequence=len(execution.events),policy=SELECTION_POLICY,
         selection_event_id=choices[0].event_id,selection_sha256=digest(choices[0].model_dump(mode='json',by_alias=True)),
@@ -52,11 +63,12 @@ def validate_events(execution):
     selection_type = BuildJevActionSelectionV1 if isinstance(event, BuildPlanOutputContractV2) else BuildRequestedWorkResolutionV1
     choices = [e for e in execution.events if isinstance(e, (selection_type, BuildReviewedActionSelectionV1))]
     captured = context_record(execution).record
+    enabled,destination=_destination(execution)
     if (len(choices) != 1 or choices[0].operation != 'answer_from_sources'
         or choices[0].event_id != event.selection_event_id or choices[0].sequence >= event.sequence
         or digest(choices[0].model_dump(mode='json',by_alias=True)) != event.selection_sha256
-        or getattr(execution.policy,'collaboration_output_policy',None) is None
-        or event.destination_capability_sha256 != execution.policy.action_capability_sha256
+        or not enabled
+        or event.destination_capability_sha256 != destination
         or event.draft_record_id != captured.record_id or event.working_snapshot_sha256 != captured.snapshot.snapshot_sha256
         or event.plan_schema_sha256 != schema_digest(isinstance(event,BuildPlanOutputContractV2))):
         raise ValueError('Plan output contract differs from its selected work, draft or destination')
@@ -76,6 +88,19 @@ def validate_packet(packet, execution, auth=None):
 
 def validate_completion(completion, execution, attempt_id):
     from .types import BuildIntentionalResponseCompletionV2, BuildRelationshipReviewCompletionV2, BuildIntentionalResponseCompletionV3, BuildRelationshipReviewCompletionV3, BuildPlanOutputContractV2, ProviderAttemptAuthorizedEventV1
+    from .build_draft_context import native_build_action
+    if native_build_action(execution) is not None:
+        from .collaboration import ProposedPlanV3
+        review=completion.collaboration
+        event=contract(execution)
+        if isinstance(review,ProposedPlanV3):
+            if not isinstance(event,BuildPlanOutputContractV2):
+                raise ValueError('Plan review lacks its pre-writer selection contract')
+            writers=[e for e in execution.events if isinstance(e,ProviderAttemptAuthorizedEventV1)
+                and e.provider_attempt_id==attempt_id]
+            if len(writers)!=1 or event.sequence>=writers[0].sequence:
+                raise ValueError('Plan review lacks its exact producing writer')
+        return
     new = isinstance(completion,(BuildIntentionalResponseCompletionV2,BuildRelationshipReviewCompletionV2))
     event = contract(execution)
     if new:

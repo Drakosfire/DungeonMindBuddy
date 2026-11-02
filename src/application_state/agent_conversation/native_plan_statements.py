@@ -146,11 +146,16 @@ def validate_support_authority(authority, read):
 def validate_execution(receipt, execution):
     """One selected-read/provider state machine for both native record families."""
     from . import types as t
-    from .native_plan_assertions import (NativePlanQueryV2, NativePlanAssertionReadAuthorizedV1,
-        NativePlanAssertionReadObservedV1, selection_handle as assertion_handle)
     if not isinstance(execution, t.PlanNativeExecutionV1) or execution.policy.native_query_sha256 != digest(receipt.native_query):
         raise ValueError('Native Plan requires its exact query policy/ledger')
-    query = receipt.native_query
+    validate_selected_record_events(receipt.native_query, execution)
+
+
+def validate_selected_record_events(query, execution):
+    """Shared native selected-record checks; source admission remains with Core."""
+    from . import types as t
+    from .native_plan_assertions import (NativePlanQueryV2, NativePlanAssertionReadAuthorizedV1,
+        NativePlanAssertionReadObservedV1, selection_handle as assertion_handle)
     statements = {m.statement_id: m for m in query.matches} if isinstance(query, NativePlanQueryV1) else {}
     assertions = {m.assertion_id: m for m in query.assertion_matches} if isinstance(query, NativePlanQueryV2) else {}
     provider = outcome = selection = None
@@ -158,14 +163,21 @@ def validate_execution(receipt, execution):
     writer = False
     for event in execution.events:
         if isinstance(event, t.ProviderAttemptAuthorizedEventV1):
-            if isinstance(event, t.PlanJevWriterAuthorizedV1):
-                expected = t.PlanNativeWriterAuthorizedV2 if isinstance(query, NativePlanQueryV2) else t.PlanNativeWriterAuthorizedV1
-                if not isinstance(event, expected) or (not isinstance(query, NativePlanQueryV2) and isinstance(event, t.PlanNativeWriterAuthorizedV2)):
-                    raise ValueError('Native query Plan requires its own writer inclusion')
+            shared_writer = False
+            if event.kind == "native_writer_authorized_v1":
+                from .native_execution import NativeWriterAuthorizedV1
+                shared_writer = type(event) is NativeWriterAuthorizedV1
+            if shared_writer or isinstance(event, t.PlanJevWriterAuthorizedV1):
+                if not shared_writer:
+                    expected = t.PlanNativeWriterAuthorizedV2 if isinstance(query, NativePlanQueryV2) else t.PlanNativeWriterAuthorizedV1
+                    if not isinstance(event, expected) or (not isinstance(query, NativePlanQueryV2) and isinstance(event, t.PlanNativeWriterAuthorizedV2)):
+                        raise ValueError('Native query Plan requires its own writer inclusion')
                 if set(grants) != {e.authorization_event_id for e in observations.values()}:
                     raise ValueError('Native writer requires every selected read grant to be settled')
-                families = [(NativePlanStatementReadObservedV1, event.native_statement_read_event_ids)]
-                if isinstance(query, NativePlanQueryV2):
+                # The shared root closes one inclusion set across every native
+                # family; immutable Plan codecs retain their original lists.
+                families = [] if shared_writer else [(NativePlanStatementReadObservedV1, event.native_statement_read_event_ids)]
+                if not shared_writer and isinstance(query, NativePlanQueryV2):
                     families.append((NativePlanAssertionReadObservedV1, event.native_assertion_read_event_ids))
                 for observed_type, included in families:
                     if (len(included) != len(set(included))
@@ -202,28 +214,35 @@ def validate_execution(receipt, execution):
                     or any(e.authorization_event_id == grant.event_id for e in observations.values())
                     or granted != ids | set(unavailable)):
                 raise ValueError('Native read observation differs from selected grant')
-            for read in event.reads:
-                if assertion:
-                    match = assertions[read.assertion.assertion_id]
-                    if digest(read.assertion) != match.assertion_sha256 or read.assertion.subject_entity_id != match.subject_entity_id:
-                        raise ValueError('Native assertion changed after discovery')
-                else:
-                    validate_support_authority(query.authority, read)
-                    match = statements[read.support.statement_id]
-                    if (read.support.payload['clause']['campaign'] != match.campaign_id
-                            or read.support.payload['clause']['logical_source'] != match.logical_source
-                            or read.support.payload['episode'] != match.episode
-                            or not set(match.discovery_assertion_ids) <= set(read.support.assertion_ids)):
-                        raise ValueError('Native selected support changed its discovered statement')
+            validate_record_reads(query.authority, event.reads,
+                assertions if assertion else statements, assertion=assertion)
             observations[event.event_id] = event
+
+
+def validate_record_reads(authority, reads, matches, *, assertion):
+    """Compare opened support with its Core catalog, regardless of selection actor."""
+    for read in reads:
+        identity = read.assertion.assertion_id if assertion else read.support.statement_id
+        match = matches.get(identity)
+        if match is None:
+            raise ValueError('Native read was not in its Core discovery catalog')
+        if assertion:
+            if digest(read.assertion) != match.assertion_sha256 or read.assertion.subject_entity_id != match.subject_entity_id:
+                raise ValueError('Native assertion changed after discovery')
+        else:
+            validate_support_authority(authority, read)
+            if (read.support.payload['clause']['campaign'] != match.campaign_id
+                    or read.support.payload['clause']['logical_source'] != match.logical_source
+                    or read.support.payload['episode'] != match.episode
+                    or not set(match.discovery_assertion_ids) <= set(read.support.assertion_ids)):
+                raise ValueError('Native selected support changed its discovered statement')
 
 
 def selected_reads(turn):
     from . import types as t
     if not isinstance(turn.graph_context_receipt, t.PlanNativeContextReceiptV1):
         return ()
-    return tuple((event, read) for event in turn.graph_context_execution.events
-        if isinstance(event, NativePlanStatementReadObservedV1) for read in event.reads)
+    return selected_read_records(turn.graph_context_execution)
 
 
 def model_frame(turn):
@@ -231,11 +250,20 @@ def model_frame(turn):
     receipt = turn.graph_context_receipt
     if not isinstance(receipt, t.PlanNativeContextReceiptV1):
         raise ValueError('Native statement frame requires its Plan owner')
-    query = receipt.native_query
-    rows = selected_reads(turn)
-    partial = isinstance(query, NativePlanQueryV1) and query.status == 'partial' or any(
-        isinstance(e, NativePlanStatementReadObservedV1) and e.status == 'partial'
-        for e in turn.graph_context_execution.events)
+    return model_frame_records(receipt.native_query, turn.graph_context_execution)
+
+
+def selected_read_records(execution):
+    from .authored_graph_references import BuildAuthoredReferenceReadV2
+    return tuple((event, read) for event in execution.events
+        for read in (event.reads if isinstance(event, NativePlanStatementReadObservedV1)
+            else event.statement_reads if isinstance(event, BuildAuthoredReferenceReadV2) else ()))
+
+
+def model_frame_records(query, execution):
+    """Materialize admitted records; the caller owns the exact producing prefix."""
+    rows = selected_read_records(execution)
+    partial = input_partial_records(query, execution)
     return {'schema': 'dmb_plan_native_statement_frame_v1',
         'authority': query.authority.model_dump(mode='json', by_alias=True) if isinstance(query, NativePlanQueryV1) else None,
         'status': 'unavailable' if not isinstance(query, NativePlanQueryV1) else 'partial' if partial else 'complete',
@@ -309,6 +337,12 @@ def validate_citations(completion, receipt, execution, authorization):
     reads = {read.support.statement_id: read for event in execution.events
         if isinstance(event, NativePlanStatementReadObservedV1)
         and event.event_id in authorization.native_statement_read_event_ids for read in event.reads}
+    validate_citation_records(completion, receipt, authorization, reads)
+
+
+def validate_citation_records(completion, receipt, authorization, reads):
+    """Compare exact included native supports; caller proves the producing input."""
+    from . import types as t
     seen = set()
     for item in completion.native_clause_citations:
         key = item.segment_index, item.statement_id
@@ -323,7 +357,12 @@ def validate_citations(completion, receipt, execution, authorization):
 def input_partial(turn):
     from . import types as t
     receipt = turn.graph_context_receipt
-    return isinstance(receipt, t.PlanNativeContextReceiptV1) and (
-        isinstance(receipt.native_query, NativePlanQueryV1) and receipt.native_query.status == 'partial'
-        or any(isinstance(e, NativePlanStatementReadObservedV1) and e.status == 'partial'
-               for e in turn.graph_context_execution.events))
+    return isinstance(receipt, t.PlanNativeContextReceiptV1) and input_partial_records(
+        receipt.native_query, turn.graph_context_execution)
+
+
+def input_partial_records(query, execution):
+    from .authored_graph_references import BuildAuthoredReferenceReadV2
+    return (isinstance(query, NativePlanQueryV1) and query.status == 'partial'
+        or any(isinstance(e, (NativePlanStatementReadObservedV1, BuildAuthoredReferenceReadV2)) and e.status == 'partial'
+               for e in execution.events))

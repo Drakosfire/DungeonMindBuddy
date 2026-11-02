@@ -259,7 +259,8 @@ class RulesBuildRuntime:
                 producing_provider_attempt_id=auth.provider_attempt_id, claim_graph_event_ids={}, build_section_bindings=bindings,
                 writer_request_json=proof.prepared_request_json, raw_provider_output_json=raw,
                 rules_execution_id=self.record.execution.scope.execution_id, rules_output_policy=POLICY)
-        composition = answer.composition(supplied_refs=self._writer_refs(), base_segments=segments,
+        composition = answer.composition(base_completion=None if base_result is None else base_result.completion,
+            supplied_refs=self._writer_refs(), base_segments=segments,
             base_disposition="approved" if base_result else "unclaimed")
         text = composition.render(segments)
         a.context_capture.answer_context(text)

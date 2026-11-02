@@ -4,7 +4,10 @@ from __future__ import annotations
 from hashlib import sha256
 import json
 from typing import Literal
+from uuid import UUID
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
+from .native_plan_assertions import NativePlanAssertionReadV1
+from .native_plan_statements import NativePlanStatementReadV1
 
 POLICY = 'authored_graph_reference_context_v1'
 
@@ -70,6 +73,208 @@ class AuthoredGraphReferencesV1(Closed):
     def require_world(self, world):
         if any(ref.managed_world_id != world for ref in self.references):
             raise ValueError('Graph reference belongs to a different managed World')
+
+
+class BuildAuthoredReferenceAuthorizedV2(Closed):
+    """Human input grants one native object read; no provider vote is borrowed."""
+    kind: Literal['build_authored_reference_authorized_v2'] = 'build_authored_reference_authorized_v2'
+    event_id: UUID
+    sequence: int = Field(strict=True, ge=0)
+    capture_event_id: UUID
+    node_id: str = Field(min_length=1)
+    context_receipt_sha256: str = Field(pattern=r'^[a-f0-9]{64}$')
+    execution_policy_sha256: str = Field(pattern=r'^[a-f0-9]{64}$')
+    query_sha256: str = Field(pattern=r'^[a-f0-9]{64}$')
+
+
+class BuildAuthoredReferenceReadV2(Closed):
+    kind: Literal['build_authored_reference_read_v2'] = 'build_authored_reference_read_v2'
+    event_id: UUID
+    sequence: int = Field(strict=True, ge=0)
+    capture_event_id: UUID
+    authorization_event_id: UUID
+    node_id: str = Field(min_length=1)
+    statement_reads: tuple[NativePlanStatementReadV1, ...]
+    assertion_reads: tuple[NativePlanAssertionReadV1, ...]
+    unavailable_statement_ids: tuple[str, ...]
+    unavailable_assertion_ids: tuple[str, ...]
+    status: Literal['complete', 'partial']
+
+    @model_validator(mode='after')
+    def distinct_inventory(self):
+        for reads, unavailable in (
+            ([r.support.statement_id for r in self.statement_reads], self.unavailable_statement_ids),
+            ([r.assertion.assertion_id for r in self.assertion_reads], self.unavailable_assertion_ids),
+        ):
+            if (len(reads) != len(set(reads)) or len(unavailable) != len(set(unavailable))
+                    or set(reads) & set(unavailable)):
+                raise ValueError('Authored native read repeats or contradicts its inventory')
+        if self.status == 'complete' and (self.unavailable_statement_ids or self.unavailable_assertion_ids):
+            raise ValueError('Authored native read cannot hide unavailable support')
+        return self
+
+
+def native_references(execution):
+    """Read the actual native Build intent; no classic policy is projected."""
+    from .native_execution import NativeBuildActionV1
+    from . import types as t
+    action = execution.policy.action
+    if type(action) is NativeBuildActionV1 and type(action.intent) is t.BuildGraphIntentV2:
+        return action.intent.authored_references
+    return None
+
+
+def validate_native_execution(execution):
+    """The existing author-input owner binds native captures and read pairs."""
+    from . import types as t
+    references = native_references(execution)
+    rows = [e for e in execution.events if isinstance(e, (
+        t.BuildAuthoredReferencesCapturedV1, BuildAuthoredReferenceAuthorizedV2,
+        BuildAuthoredReferenceReadV2))]
+    if references is None:
+        if rows:
+            raise ValueError('Native authored events require the actual reference-aware intent')
+        return
+    captures = [e for e in rows if isinstance(e, t.BuildAuthoredReferencesCapturedV1)]
+    if not captures:
+        if rows or references.references and execution.events:
+            raise ValueError('Native author input must be captured before provider or work activity')
+        return
+    if len(captures) != 1:
+        raise ValueError('Native author input can be captured once')
+    captured = captures[0]
+    if (captured.sequence != 0 or captured.references != references
+            or captured.submitted_intent_fingerprint != t.submitted_turn_intent_fingerprint_v2(execution.policy.action.intent)):
+        raise ValueError('Native author input differs from its submitted intent')
+    grants, reads = {}, set()
+    nodes = {ref.node_id for ref in references.references}
+    for event in rows:
+        if event is captured:
+            continue
+        if event.capture_event_id != captured.event_id or event.node_id not in nodes:
+            raise ValueError('Native authored read has no exact captured selection')
+        if isinstance(event, BuildAuthoredReferenceAuthorizedV2):
+            if (event.node_id in grants or event.sequence <= captured.sequence
+                    or event.query_sha256 != execution.policy.native_query_sha256
+                    or event.context_receipt_sha256 != execution.context_receipt_sha256
+                    or event.execution_policy_sha256 != execution.execution_policy_sha256):
+                raise ValueError('Native human grant differs from its frozen context or is repeated')
+            grants[event.node_id] = event
+        else:
+            grant = grants.get(event.node_id)
+            if (grant is None or event.authorization_event_id != grant.event_id
+                    or event.sequence <= grant.sequence or event.node_id in reads):
+                raise ValueError('Native human result lacks its unique earlier grant')
+            reads.add(event.node_id)
+
+
+def validate_native_context(query, execution):
+    """Join human input to Core catalogs; Core alone admits source material."""
+    from .native_plan_assertions import NativeGraphQueryV3
+    from .native_plan_statements import validate_record_reads
+    references = native_references(execution)
+    if not isinstance(query, NativeGraphQueryV3):
+        if references is not None and references.references:
+            raise ValueError('Native authored selections require their Core target catalog')
+        return
+    if references is None:
+        raise ValueError('Native authored catalog requires its actual reference-aware Build intent')
+    authority = query.authority
+    if authority.scope_mode != 'world' or authority.campaign_id is not None:
+        raise ValueError('Authored targets require their exact World scope')
+    if [(target.node_id, target.selection_revision_id) for target in query.authored_targets] != [
+            (ref.node_id, ref.graph_revision) for ref in references.references]:
+        raise ValueError('Native authored catalog changed its original selection snapshots')
+    if any((ref.managed_world_id, ref.native_world_id, ref.binding_version) !=
+            (authority.managed_world_id, authority.native_world_id, authority.binding_version)
+            for ref in references.references):
+        raise ValueError('Native authored catalog differs from its selected World binding')
+    targets = {target.node_id: target for target in query.authored_targets}
+    for event in execution.events:
+        if event.kind == 'build_authored_references_captured_v1' and event.read_graph_revision != authority.revision_id:
+            raise ValueError('Native author capture changed the current read revision')
+        if not isinstance(event, BuildAuthoredReferenceReadV2):
+            continue
+        target = targets[event.node_id]
+        for records, matches, unavailable, assertion in (
+            (event.statement_reads, {m.statement_id: m for m in target.matches}, event.unavailable_statement_ids, False),
+            (event.assertion_reads, {m.assertion_id: m for m in target.assertion_matches}, event.unavailable_assertion_ids, True),
+        ):
+            ids = {r.assertion.assertion_id if assertion else r.support.statement_id for r in records}
+            if set(matches) != ids | set(unavailable):
+                raise ValueError('Native human result changed its exact Core support inventory')
+            validate_record_reads(authority, records, matches, assertion=assertion)
+        partial = target.status != 'complete' or bool(event.unavailable_statement_ids or event.unavailable_assertion_ids)
+        if (event.status == 'partial') != partial:
+            raise ValueError('Native human result must preserve unavailable or partial support')
+
+
+def validate_native_capture_identity(execution, *, turn_id, conversation_id, attempt, fingerprint):
+    from . import types as t
+    for event in execution.events:
+        if isinstance(event, t.BuildAuthoredReferencesCapturedV1) and (
+                event.turn_id != turn_id or event.conversation_id != conversation_id
+                or event.attempt != attempt or event.submitted_intent_fingerprint != fingerprint):
+            raise ValueError('Native author capture belongs to another request or attempt')
+
+
+def capture_native_input(turn, *, event_id):
+    from . import types as t
+    from .native_reads import _owner, validate_execution_binding
+    receipt, execution = _owner(turn)
+    references = native_references(execution)
+    if references is None or not references.references:
+        raise ValueError('Native capture requires actual nonempty authored selections')
+    event = t.BuildAuthoredReferencesCapturedV1(kind='build_authored_references_captured_v1',
+        event_id=event_id, sequence=len(execution.events), references=references,
+        read_graph_revision=receipt.native_query.authority.revision_id,
+        turn_id=turn.turn_id, conversation_id=turn.conversation_id, attempt=turn.attempt,
+        submitted_intent_fingerprint=turn.submitted_intent_fingerprint_v2)
+    validate_execution_binding(receipt, execution.model_copy(update={'events': [*execution.events, event]}))
+    return event
+
+
+def authorize_native_reference(turn, *, event_id, node_id):
+    from .native_reads import _owner, validate_execution_binding
+    receipt, execution = _owner(turn)
+    captured = capture(execution)
+    event = BuildAuthoredReferenceAuthorizedV2(event_id=event_id, sequence=len(execution.events),
+        capture_event_id=captured.event_id, node_id=node_id,
+        context_receipt_sha256=execution.context_receipt_sha256,
+        execution_policy_sha256=execution.execution_policy_sha256,
+        query_sha256=execution.policy.native_query_sha256)
+    validate_execution_binding(receipt, execution.model_copy(update={'events': [*execution.events, event]}))
+    return event
+
+
+def observe_native_reference(turn, *, event_id, authorization_event_id, materialize):
+    from .native_reads import _owner, validate_execution_binding
+    receipt, execution = _owner(turn)
+    grants = [e for e in execution.events if isinstance(e, BuildAuthoredReferenceAuthorizedV2)
+        and e.event_id == authorization_event_id]
+    if len(grants) != 1:
+        raise ValueError('Native human observation requires its retained grant')
+    grant = grants[0]
+    support = materialize(grant)
+    if support.query_sha256 != grant.query_sha256 or support.node_id != grant.node_id:
+        raise ValueError('Native human materialization changed its query or target')
+    event = BuildAuthoredReferenceReadV2(event_id=event_id, sequence=len(execution.events),
+        capture_event_id=grant.capture_event_id, authorization_event_id=grant.event_id,
+        **{name: getattr(support, name) for name in ('node_id', 'statement_reads', 'assertion_reads',
+            'unavailable_statement_ids', 'unavailable_assertion_ids', 'status')})
+    validate_execution_binding(receipt, execution.model_copy(update={'events': [*execution.events, event]}))
+    return event
+
+
+def native_writer_context(execution):
+    references = native_references(execution)
+    if references is None or not references.references:
+        return None
+    original = capture(execution)
+    return dict(selected_references=provider_references(references),
+        read_graph_revision=original.read_graph_revision,
+        reads=[dict(event_id=str(e.event_id), node_id=e.node_id, status=e.status)
+            for e in execution.events if isinstance(e, BuildAuthoredReferenceReadV2)])
 
 
 def source_references(turn):

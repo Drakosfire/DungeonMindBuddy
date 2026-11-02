@@ -1,15 +1,17 @@
+import {getAgentSavedSection} from '../../api/liveApi';
+import {isSavedSectionTargets} from './BuildSavedSectionEvidence';
 import {getAgentNativeAssertionSource,getAgentNativeSourceClause,getAgentSourcePassage,getAgentNativeSourceSection,getAgentNativeBodyExcerpt,getAgentRelatedPage} from '../../api/liveApi';
-import type {WorldBuildSourceCompletion,SurfaceSourceCompletionV1,SurfaceEvidenceCompletion,SurfaceEvidenceCompletionV3,SurfaceEvidenceCompletionV5,SurfaceEvidenceCompletionV6,SurfaceEvidenceCompletionV7} from '../../api/types';
+import type {WorldBuildSourceCompletion,SurfaceSourceCompletionV1,SurfaceEvidenceCompletion,SurfaceEvidenceCompletionV3,SurfaceEvidenceCompletionV5,SurfaceEvidenceCompletionV6,SurfaceEvidenceCompletionV7,SurfaceNativeCompletionV1} from '../../api/types';
 import {exact,canonical} from '../../shared/sourcePassageProtocol';
 import type {CitationChoice} from './SourceCitationEvidence';
-export type PassageCompletion=WorldBuildSourceCompletion|SurfaceSourceCompletionV1|SurfaceEvidenceCompletion;
+export type PassageCompletion=WorldBuildSourceCompletion|SurfaceSourceCompletionV1|SurfaceEvidenceCompletion|SurfaceNativeCompletionV1;
 async function hash(content:string){
   const digest=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(content));
   return Array.from(new Uint8Array(digest),b=>b.toString(16).padStart(2,'0')).join('');
 }
 export function passageChoices(completion:PassageCompletion,worldId:string,turnId:string,segmentIndex?:number):CitationChoice[] {
   const seen=new Set<string>();
-  const passages: CitationChoice[]=completion.source_citations.flatMap((citation,index)=>{
+  const passages: CitationChoice[]=('source_citations' in completion ? completion.source_citations : []).flatMap((citation,index)=>{
     if(segmentIndex!==undefined && citation.segment_index!==segmentIndex)return [];
     const r=citation.receipt;
     const key=canonical([citation.segment_index,r.source_artifact_id,r.source_revision_id,r.content_sha256,r.line_start,r.line_end]);
@@ -30,7 +32,7 @@ export function passageChoices(completion:PassageCompletion,worldId:string,turnI
     if(segment.kind!=='related_page_claim' || segmentIndex!==undefined && index!==segmentIndex)return [];
     const page=segment.page;
     const title=`${page.title} · saved revision ${page.registry_revision}`;
-    return [{key:`related:${segment.read_id}:${index}`,number:completion.source_citations.length+index+1,segmentIndex:index,
+    return [{key:`related:${segment.read_id}:${index}`,number:('source_citations' in completion ? completion.source_citations.length : 0)+index+1,segmentIndex:index,
       title,label:`Read ${title}`,kind:'section' as const,load:async()=>{
         const result=await getAgentRelatedPage(worldId,turnId,segment.read_id);
         if(page.world_id!==worldId || !exact(result,['schema','world_id','turn_id','read_id','page','markdown'])
@@ -42,8 +44,8 @@ export function passageChoices(completion:PassageCompletion,worldId:string,turnI
   });
   return [...passages,...pages];
 }
-export function nativeChoices(completion:Pick<SurfaceEvidenceCompletionV3,"native_source_citations"> & Partial<Pick<SurfaceEvidenceCompletionV5,"native_body_citations"> & Pick<SurfaceEvidenceCompletionV6,"native_clause_citations"> & Pick<SurfaceEvidenceCompletionV7,"native_assertion_citations">>,worldId:string,turnId:string,segmentIndex:number):CitationChoice[] {
-  const sections=completion.native_source_citations.flatMap((citation,index)=>citation.segment_index!==segmentIndex ? [] : [{
+export function nativeChoices(completion:Partial<Pick<SurfaceEvidenceCompletionV3,"native_source_citations"> & Pick<SurfaceEvidenceCompletionV5,"native_body_citations"> & Pick<SurfaceEvidenceCompletionV6,"native_clause_citations"> & Pick<SurfaceEvidenceCompletionV7,"native_assertion_citations">>,worldId:string,turnId:string,segmentIndex:number):CitationChoice[] {
+  const sections=(completion.native_source_citations??[]).flatMap((citation,index)=>citation.segment_index!==segmentIndex ? [] : [{
     key:`section:${index}`,number:index+1,title:`${citation.source_name} · ${citation.section_title}`,
     label:`${citation.source_name} · ${citation.section_title}`,kind:'section' as const,load:async()=>{
       const result=await getAgentNativeSourceSection(worldId,turnId,index);
@@ -87,4 +89,22 @@ export function nativeChoices(completion:Pick<SurfaceEvidenceCompletionV3,"nativ
       return result.content;
     },
   }])];
+}
+
+/** Open only the section IDs accepted in the native completion, never today's page. */
+export function nativeSavedChoices(completion:import('../../api/types').SurfaceNativeCompletionV1,
+  basis:import('../../api/types').WorldBuildGraphReceiptV1['source_basis'],worldId:string,turnId:string,segmentIndex:number):CitationChoice[] {
+  if(basis.world_id!==worldId||completion.surface_id!=='build')return [];
+  return completion.saved_source_citations.filter(c=>c.segment_index===segmentIndex).flatMap(c=>c.section_event_ids.map(id=>({
+    key:`saved-native:${segmentIndex}:${id}`,number:0,title:`Saved authored page · revision ${basis.registry_revision}`,
+    label:'Read saved page source',kind:'section' as const,load:async()=>{
+      if(await hash(completion.answer_segments[segmentIndex]!.text)!==c.text_sha256)throw new Error('Saved claim differs');
+      const result=await getAgentSavedSection({world_id:worldId,turn_id:turnId,segment_index:segmentIndex,section_event_id:id});
+      if(!exact(result,['schema','target','content'])||result.schema!=='dmb_saved_build_section_read_v1'
+        ||!isSavedSectionTargets([result.target],basis,completion)||result.target.world_id!==worldId||result.target.turn_id!==turnId
+        ||result.target.segment_index!==segmentIndex||result.target.section_event_id!==id||result.target.text_sha256!==c.text_sha256
+        ||typeof result.content!=='string'||!result.content.trim()||await hash(result.content)!==result.target.excerpt_sha256)throw new Error('Saved native section binding differs');
+      return result.content;
+    },
+  })));
 }

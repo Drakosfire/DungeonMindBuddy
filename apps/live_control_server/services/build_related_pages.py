@@ -88,7 +88,8 @@ def select_pages(driver, prepared, response):
 
     a = driver._adapter
     policy = a._broker_execution().policy
-    offered = getattr(policy, "related_page_catalog", [])
+    from application_state.agent_conversation.build_related_pages import catalog
+    offered = catalog(policy) or []
     questions = json.loads(prepared.body)["questions"]
     selected = sorted(
         [

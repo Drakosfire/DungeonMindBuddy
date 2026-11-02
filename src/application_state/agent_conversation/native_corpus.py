@@ -336,6 +336,15 @@ def validate_native_body_events(execution):
                 pending = None
             provider, outcome = event.provider_attempt_id, None
             writer = (event.provider, event.model, event.api_mode) == execution.policy.provider_roles.writer.identity()
+            if event.kind == "native_writer_authorized_v1":
+                from .native_execution import NativeWriterAuthorizedV1
+                if type(event) is not NativeWriterAuthorizedV1 or not writer:
+                    raise ValueError("Shared native inclusion requires its exact writer role")
+                # New native turns carry inclusion once on the actual writer.
+                # The root closes IDs across all families; this owner closes
+                # body grants and explicit whole-document exposure.
+                validate_combined_exposure(execution, tuple(row for row in reads.values()
+                    if row.excerpt is not None))
         elif isinstance(event, t.ProviderOutcomeEventV1) and event.provider_attempt_id == provider:
             outcome = event.outcome
         elif isinstance(event, t.PlanJevRetrievalSelectionV1):
@@ -429,6 +438,12 @@ def model_body_frame(turn):
         raise ValueError('Native body writer frame requires its source-capable Plan owner')
     from .plan_source_context import validate_source_execution_binding
     validate_source_execution_binding(receipt, execution)
+    return model_body_frame_records(receipt.source_authority, execution,
+        lambda read: body_selector(turn, read))
+
+
+def model_body_frame_records(source_authority, execution, selector):
+    """Expose only selected body extents; producing-prefix admission is caller-owned."""
     searches = [event for event in execution.events if isinstance(event, NativeBodySearchObservedV1)]
     search = searches[0] if searches else None
     catalogs = {catalog.catalog_sha256: catalog for catalog in search.catalogs} if search else {}
@@ -438,7 +453,7 @@ def model_body_frame(turn):
         catalog = catalogs.get(excerpt.catalog_sha256)
         if catalog is None:
             raise ValueError('Native body writer read lacks its exact observed catalog')
-        rows.append(dict(excerpt_handle=body_selector(turn, read), source_name=catalog.sections[0].label,
+        rows.append(dict(excerpt_handle=selector(read), source_name=catalog.sections[0].label,
             section_title=excerpt.section.label,
             extent_kind='full_document' if excerpt.selector_policy == 'native_full_document_v1' else 'section',
             line_start=excerpt.section.line_start, line_end=excerpt.section.line_end,
@@ -446,7 +461,7 @@ def model_body_frame(turn):
             text=excerpt.text))
     return dict(schema='dmb_native_body_writer_evidence_v1',
         scope='GM whole-World cross-campaign source inspection; not campaign fact publication',
-        source_authority_status='available' if isinstance(receipt.source_authority, NativeCorpusAuthorityV1) else 'unavailable',
+        source_authority_status='available' if isinstance(source_authority, NativeCorpusAuthorityV1) else 'unavailable',
         excerpts=rows, coverage=dict(search_performed=search is not None,
             accessible_source_count=len(catalogs) if search else None,
             unavailable_source_count=search.unavailable_source_count if search else None,
@@ -534,14 +549,23 @@ def validate_body_citations(completion, receipt, execution, producer):
     catalogs = {catalog.catalog_sha256: catalog for event in execution.events
         if isinstance(event, NativeBodySearchObservedV1) for catalog in event.catalogs}
     reads = {event.event_id: event for event in selected_body_reads(execution)}
+    supports = tuple(NativeBodySupport('', read, catalogs[read.excerpt.catalog_sha256])
+        for identity, read in reads.items() if identity in witness.read_event_ids)
+    validate_body_support_citations(completion, supports, producer=producer,
+        envelope_sha256=witness.envelope_sha256, before_sequence=witness.sequence)
+
+
+def validate_body_support_citations(completion, supports, *, producer, envelope_sha256, before_sequence):
+    """Use only exact supports verified by the actual producing-input owner."""
+    reads = {support.read.event_id: support for support in supports}
     for citation in completion.native_body_citations:
-        read = reads.get(citation.read_event_id)
-        if read is None or read.event_id not in witness.read_event_ids or read.sequence >= witness.sequence:
+        support = reads.get(citation.read_event_id)
+        read = support.read if support is not None else None
+        if read is None or read.sequence >= before_sequence:
             raise ValueError('Native body citation was not included in its producing writer')
-        support = NativeBodySupport('', read, catalogs[read.excerpt.catalog_sha256])
         expected = body_citation(support, index=citation.segment_index,
             text=completion.answer_segments[citation.segment_index].text,
-            producer=producer, envelope_sha256=witness.envelope_sha256)
+            producer=producer, envelope_sha256=envelope_sha256)
         if citation != expected:
             raise ValueError('Native body citation changed its exact source, extent or producer')
 

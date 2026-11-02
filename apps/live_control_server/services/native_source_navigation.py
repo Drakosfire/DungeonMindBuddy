@@ -41,7 +41,11 @@ def section_query_terms(markdown,sections,question):
 
 def navigator(adapter):
     if getattr(adapter,'_native_source_navigator',None) is None:
-        if adapter.fence is not None and isinstance(adapter.fence.turn.graph_context_receipt, t.PlanSourceContextReceiptV1):
+        receipt=adapter.fence.turn.graph_context_receipt if adapter.fence is not None else None
+        if (isinstance(receipt,t.PlanSourceContextReceiptV1) or
+                (type(receipt) is t.SurfaceNativeContextReceiptV1
+                 and type(adapter.fence.turn.graph_context_execution) is t.SurfaceNativeExecutionV1
+                 and adapter.fence.turn.graph_context_execution.policy.action.surface_id in {"plan","build"})):
             from .corpus_source_navigation import NativeBodyNavigation
             adapter._native_source_navigator = NativeBodyNavigation(adapter)
         else:

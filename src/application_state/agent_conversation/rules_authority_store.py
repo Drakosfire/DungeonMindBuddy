@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import json
 from typing import Annotated
+from uuid import uuid4
 
 import psycopg
 from psycopg.rows import dict_row
@@ -46,7 +47,8 @@ def _lock_current_claim(
     with conn.cursor(row_factory=dict_row) as cur:
         cur.execute(
             """SELECT status,revision,attempt,claim_expires_at,idempotency_key,
-                   submitted_intent_fingerprint_v1,submitted_intent_fingerprint_v2
+                   submitted_intent_fingerprint_v1,submitted_intent_fingerprint_v2,
+                   graph_context_execution->>'schema' AS graph_execution_schema
             FROM agent.turn WHERE world_id=%s AND conversation_id=%s AND turn_id=%s FOR UPDATE""",
             (scope.world_id, scope.conversation_id, scope.turn_id),
         )
@@ -77,6 +79,7 @@ def _lock_current_claim(
             submitted_intent_sha256=intents[0], capability=capability)
         if scope.authorization_id != expected:
             raise ApplicationStateConflictError("Rules correlation differs from the actual logical submission")
+    return row
 
 
 def _read_record_locked(conn, turn_id, product_attempt):
@@ -205,7 +208,12 @@ def require_open_plan_jev_acquisition_locked(conn, scope):
     from .types import PlanJevRetrievalPolicyV1, PlanJevRetrievalSelectionV1, ProviderAttemptAuthorizedEventV1
     turn = repository.get_turn(conn, scope.world_id, scope.turn_id)
     execution = getattr(turn, "graph_context_execution", None)
-    if execution is None or not isinstance(execution.policy, PlanJevRetrievalPolicyV1):
+    from .native_execution import SurfaceNativeExecutionV1, NativePlanActionV1, NativeWriterAuthorizedV1
+    shared = type(execution) is SurfaceNativeExecutionV1
+    if shared and any(type(event) is NativeWriterAuthorizedV1 for event in execution.events):
+        raise ApplicationStateValidationError("Shared native writer closes Rules acquisition")
+    shared_plan = shared and type(execution.policy.action) is NativePlanActionV1
+    if execution is None or not (shared_plan or isinstance(execution.policy, PlanJevRetrievalPolicyV1)):
         return turn
     selections = [event for event in execution.events if isinstance(event, PlanJevRetrievalSelectionV1)]
     providers = [event for event in execution.events if isinstance(event, ProviderAttemptAuthorizedEventV1)]
@@ -266,8 +274,12 @@ def append_lookup_event_locked(
             if isinstance(event, RulesPlanJevToolAuthorizedV1):
                 from .plan_jev_rules_lookup import verify_authorization
                 verify_authorization(current.execution, turn, event, plan_jev_parent_request_json)
-            elif turn.graph_context_execution is not None and isinstance(turn.graph_context_execution.policy, PlanJevRetrievalPolicyV1):
-                raise ValueError("Plan Jev Rules lookup requires its actual selected decision proof")
+            elif turn.graph_context_execution is not None:
+                from .native_execution import SurfaceNativeExecutionV1, NativePlanActionV1
+                graph = turn.graph_context_execution
+                if (isinstance(graph.policy, PlanJevRetrievalPolicyV1)
+                        or type(graph) is SurfaceNativeExecutionV1 and type(graph.policy.action) is NativePlanActionV1):
+                    raise ValueError("Plan Jev Rules lookup requires its actual selected decision proof")
             data = current.execution.model_dump(mode="json", by_alias=True)
             data["events"].append(event.model_dump(mode="json", by_alias=True))
             calls = [
@@ -323,7 +335,10 @@ def append_provider_event_locked(
         (RulesProviderAuthorizedV1, RulesProviderIncludedV1, RulesProviderOutcomeV1),
     ):
         raise ApplicationStateValidationError("Not a Rules provider lifecycle event")
-    _lock_current_claim(conn, scope, expected_turn_revision)
+    turn_head = _lock_current_claim(conn, scope, expected_turn_revision)
+    if (turn_head['graph_execution_schema'] == 'dmb_surface_native_execution_v1'
+            and isinstance(event,(RulesProviderAuthorizedV1,RulesProviderIncludedV1))):
+        raise ApplicationStateValidationError("Shared writer input requires atomic admission")
     current = _locked_record(conn, scope)
     if current is None:
         raise ApplicationStateNotFoundError("Rules attempt has no admitted execution")
@@ -387,6 +402,11 @@ def append_provider_event_locked(
         raise ApplicationStateValidationError(
             "Rules provider event or actual input proof is invalid"
         ) from exc
+    return _persist_provider_execution_locked(conn, current, updated), True
+
+
+def _persist_provider_execution_locked(conn, current, updated):
+    scope = current.execution.scope
     result = conn.execute(
         """UPDATE agent.turn_rules_execution SET revision=revision+1,payload=%s
         WHERE turn_id=%s AND product_attempt=%s AND revision=%s""",
@@ -399,7 +419,55 @@ def append_provider_event_locked(
     )
     if result.rowcount != 1:
         raise ApplicationStateConflictError("Rules provider ledger CAS failed")
-    return RulesLedgerRecordV1(revision=current.revision + 1, execution=updated), True
+    return RulesLedgerRecordV1(revision=current.revision + 1, execution=updated)
+
+
+def admit_native_writer_input_locked(conn, turn, graph_execution, authorization, *,
+                                      expected_revision, prepared_request_json, work_proof):
+    """Join and seal existing generic Rules events in the caller's Turn UOW.
+
+    This grants no independent SDK dispatch. The service commits the shared
+    provider event in the same transaction; only that fresh commit grants a send.
+    """
+    from .native_execution import NativeWriterAuthorizedV1, NativeBuildActionV1
+    from .rules_authority_plan_packet import packet_input_records, verify_native_rules_packet_input
+    current = load_turn_rules_locked(conn, turn)
+    if current is None or current.revision != expected_revision:
+        raise ApplicationStateConflictError("Native writer differs from its current Rules ledger")
+    stored = [event for event in turn.graph_context_execution.events
+        if type(event) is NativeWriterAuthorizedV1]
+    replay = bool(stored)
+    if replay and stored != [authorization]:
+        raise ApplicationStateConflictError("Native writer authorization changed on replay")
+    if replay:
+        updated = current.execution
+    else:
+        if any(isinstance(event, RulesProviderAuthorizedV1)
+                and event.provider_attempt_id == authorization.provider_attempt_id
+                for event in current.execution.events):
+            raise ApplicationStateConflictError("Native writer input requires atomic admission")
+        _body, _frame, outputs, supports = packet_input_records(current.execution, prepared_request_json,
+            expected_envelope_sha256=authorization.envelope_sha256,
+            allow_build=isinstance(graph_execution.policy.action, NativeBuildActionV1))
+        scope = current.execution.scope
+        auth = RulesProviderAuthorizedV1(kind='provider_authorized',event_id=uuid4(),
+            sequence=len(current.execution.events),execution_id=scope.execution_id,
+            provider_attempt_id=authorization.provider_attempt_id,request_envelope_sha256=authorization.envelope_sha256,
+            matched_outputs=outputs,declared_support_refs=supports)
+        included = RulesProviderIncludedV1(kind='provider_included',event_id=uuid4(),
+            sequence=auth.sequence+1,execution_id=scope.execution_id,
+            provider_attempt_id=authorization.provider_attempt_id,request_envelope_sha256=authorization.envelope_sha256,
+            matched_outputs=outputs,support_refs=supports)
+        data = current.execution.model_dump(mode='json',by_alias=True)
+        data['events'].extend(event.model_dump(mode='json',by_alias=True) for event in (auth,included))
+        data['budget_use']['provider_requests'] += 1
+        updated = RulesExecutionV1.model_validate_json(json.dumps(data,ensure_ascii=False))
+    verify_native_rules_packet_input(updated,turn.graph_context_receipt,graph_execution,prepared_request_json,
+        provider_attempt_id=authorization.provider_attempt_id,expected_envelope_sha256=authorization.envelope_sha256,
+        idempotency_key=turn.idempotency_key,submitted_intent_fingerprint=turn.submitted_intent_fingerprint_v2,
+        world_id=turn.world_id,conversation_id=turn.conversation_id,turn_id=turn.turn_id,attempt=turn.attempt,
+        provenance=turn.provenance,work_proof=work_proof)
+    return (current if replay else _persist_provider_execution_locked(conn,current,updated)), not replay
 
 
 def persist_accepted_locked(

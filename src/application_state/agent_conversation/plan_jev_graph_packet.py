@@ -15,6 +15,7 @@ from .rules_authority_types import canonical_bytes, canonical_sha256
 from .context_trace import TraceSourcePassage, TraceSourceReuse, TraceFailure
 
 from .plan_source_selectors import FRAME_SCHEMA as SCHEMA, source_selector
+NATIVE_WORK_SCHEMA = "dmb_plan_work_evidence_v1"
 _METADATA = {"reviewId", "contributionId", "publicationRevisionId", "sourceArtifactId", "sourceRevisionId", "evidenceRefIds"}
 _TARGETS = (("attributes", "assertion", "assertionId"), ("reviewedSourceObservations", "assertion", "assertionId"),
             ("relationships", "relationship", "edgeId"))
@@ -55,6 +56,122 @@ def _covered_by_native(read, native_reads):
     return False
 
 
+def project_work_records(basis, provenance, idempotency_key, *, markdown, sessions, dialogue,
+                         capture=None, placement_label=None):
+    """Project exact saved work and references through their existing owners.
+
+    The caller must resolve its actual work/provenance and edit capture first.
+    This projection grants no Graph, read, edit or publication authority.
+    """
+    if not isinstance(markdown, str) or sha256(markdown.encode()).hexdigest() != basis.content_sha256:
+        raise ValueError("Plan writer text differs from its exact committed Plan")
+    if (not isinstance(dialogue, list) or any(not isinstance(row, dict) or set(row) != {"role", "content"}
+            or row["role"] not in {"user", "assistant"} or not isinstance(row["content"], str) for row in dialogue)):
+        raise ValueError("Plan writer dialogue must be reference-only conversation messages")
+    if not isinstance(sessions, list):
+        raise ValueError("Plan writer session evidence must be explicit")
+    frozen_sessions = {(ref.object_id, ref.revision): ref.content_sha256 for ref in provenance.supporting_work
+                       if ref.kind == "session_evidence_v1"}
+    supplied = {}
+    for session in sessions:
+        if not isinstance(session, dict) or session.get("world_id") != provenance.world_id:
+            raise ValueError("Plan writer session evidence has a foreign owner")
+        key = (session.get("run_id"), str(session.get("review_revision")))
+        body = {k: v for k, v in session.items() if k != "sha256"}
+        if key in supplied or session.get("sha256") != canonical_sha256(body):
+            raise ValueError("Plan writer session evidence is changed or repeated")
+        supplied[key] = session["sha256"]
+    if supplied != frozen_sessions:
+        raise ValueError("Plan writer session notes/reflections differ from frozen provenance")
+    from .surface_evidence_answer import plan_authored_source_records, authored_frame_rows
+    frame = {'committed_plan_markdown': markdown,
+        'session_evidence': [{key: session[key] for key in ('title','run_id','review_revision','ended_at','session_content_sha256') if key in session}
+            | {'sources': [{key: source[key] for key in ('kind','element_id','text') if key in source}
+                for source in session.get('sources', [])]} for session in sessions],
+        'dialogue_reference': dialogue}
+    from .authored_excerpt_blocks import selection_catalog,project_selection_blocks
+    authored = plan_authored_source_records(basis,provenance.supporting_work,markdown,frame['session_evidence'],block_policy=True)
+    rows = authored_frame_rows(authored,frame['session_evidence'])
+    catalog=selection_catalog(((source.handle,source.text) for source in authored),str(idempotency_key))
+    def blank_blocks(text):
+        if text.strip():raise ValueError('Nonblank authored body has no exact selectable owner')
+        return [{'selection_id':None,'text':text}] if text else []
+    for source,row in zip(authored,rows,strict=True):
+        path=row['body_path']; parent=frame
+        for key in path[:-1]: parent=parent[key]
+        parent[path[-1]]=project_selection_blocks(source.text,source.handle,catalog)
+    plan_body=frame.pop('committed_plan_markdown')
+    frame['committed_plan_blocks']=plan_body if isinstance(plan_body,list) else blank_blocks(plan_body)
+    for session in frame['session_evidence']:
+        for source in session['sources']:
+            source_body=source.pop('text','')
+            source['text_blocks']=source_body if isinstance(source_body,list) else blank_blocks(source_body)
+    frame['authored_sources']=[{**row,'body_path':[('committed_plan_blocks' if x=='committed_plan_markdown' else 'text_blocks' if x=='text' else x) for x in row['body_path']]} for row in rows]
+    if capture is not None:
+        same=capture.draft_markdown==markdown
+        frame['current_page_draft']={'state':'same_as_committed' if same else 'unsaved_working_draft',
+            'primary_authoring_context':True,
+            **({'body_path':['committed_plan_blocks']} if same else {'markdown':capture.draft_markdown})}
+        frame['focused_edit_target']={'kind':capture.target_kind,
+            **({'location':placement_label} if placement_label is not None else {}),
+            **({'selected_text':capture.selected_text} if capture.target_kind=='replace_selection' else {}),
+            **({'playable_body':capture.playable_target.body_markdown} if capture.playable_target is not None else {})}
+    return frame
+
+
+def resolve_writer_placement(original, catalog, choice, *, original_wire, catalog_wire):
+    """Reuse the offered placement owner; a selection never invents an edit range."""
+    if catalog is not None:
+        catalog.require_original(original)
+    if (canonical_bytes(choice.original_capture) != canonical_bytes(original_wire)
+            or canonical_bytes(choice.placement_catalog) != canonical_bytes(catalog_wire)):
+        raise ValueError('Plan writer placement proof differs from the retained decision event')
+    if choice.requested_work != 'write_current_page':
+        return original, None
+    if catalog is None or original is None or choice.placement_selector is None:
+        raise ValueError('Plan writer has no resolved offered page location')
+    resolved=catalog.resolve(original,choice.placement_selector)
+    if resolved.sha256 != choice.target_capture_sha256:
+        raise ValueError('Plan writer target differs from the admitted placement')
+    return resolved,next(entry.label for entry in catalog.entries if entry.selector==choice.placement_selector)
+
+
+def project_native_plan_work(receipt, execution, provenance, submission_idempotency_key, proof, *, conversation_id):
+    """Use real shared records and the Plan work owner, never a fabricated Turn.
+
+    Actual locked admission must supply its own provenance, submission key and
+    conversation. The Turn submission key salts authored selectors; the capture's
+    separate idempotency key belongs to the PlanAction reservation. The actual
+    authoring owner binds that action key when it reserves/commits an edit.
+    This pure projection does not authorize a provider or an edit.
+    """
+    from . import types as t
+    from .native_context import PlanWorkContextV1, validate_work_context
+    from .native_execution import NativePlanActionV1, validate_context_binding
+    validate_context_binding(receipt,execution)
+    validate_work_context(receipt,provenance)
+    work,action=receipt.work_context,execution.policy.action
+    if (type(work) is not PlanWorkContextV1 or type(action) is not NativePlanActionV1
+            or type(submission_idempotency_key) is not UUID or type(conversation_id) is not UUID
+            or not isinstance(proof,dict) or set(proof) != {'plan_markdown','session_evidence','dialogue'}):
+        raise ValueError('Native Plan work requires its actual work, submission and exact body proof')
+    choices=[e for e in execution.events if type(e) is t.PlanRequestedWorkSelectedV2]
+    if len(choices) != 1:
+        raise ValueError('Native Plan writer requires its unique semantic destination')
+    original,catalog=action.authoring_capture,action.placement_catalog
+    capture,label=resolve_writer_placement(original,catalog,choices[0],
+        original_wire=original.model_dump(mode='json',by_alias=True) if original is not None else None,
+        catalog_wire=catalog.model_dump(mode='json',by_alias=True) if catalog is not None else None)
+    basis=work.plan_basis
+    if capture is not None and (capture.world_id,capture.conversation_id,capture.document_id,
+            capture.base_revision,capture.base_content_sha256) != (provenance.world_id,conversation_id,
+                basis.document_id,basis.object_revision,basis.content_sha256):
+        raise ValueError('Native Plan working draft differs from its actual conversation and saved basis')
+    return {**project_work_records(basis,provenance,submission_idempotency_key,
+        markdown=proof['plan_markdown'],sessions=proof['session_evidence'],dialogue=proof['dialogue'],
+        capture=capture,placement_label=label), 'requested_work':choices[0].requested_work}
+
+
 def project(turn, proof, trace):
     from . import types as t
     receipt, execution = _owner(turn)
@@ -68,6 +185,7 @@ def project(turn, proof, trace):
     if not isinstance(proof,dict) or set(proof)!=required:
         raise ValueError("Plan writer requires its complete host evidence proof")
     capture=None
+    placement_label=None
     if isinstance(execution.policy,t.PlanAuthoringPolicyV1):
         from .plan_authoring import PlanAuthoringCaptureV1, parse_authoring_capture
         raw=proof['authoring_capture']
@@ -84,46 +202,18 @@ def project(turn, proof, trace):
             choices=[event for event in execution.events if isinstance(event,t.PlanRequestedWorkSelectedV2)]
             if len(choices)!=1:
                 raise ValueError("Plan writer lacks its exact resolved placement decision")
-            if catalog is not None:
-                catalog.require_original(original)
-            choice=choices[0]
-            if (choice.original_capture!=proof['original_authoring_capture']
-                    or choice.placement_catalog!=proof['placement_catalog']):
-                raise ValueError('Plan writer placement proof differs from the retained decision event')
-            if choice.requested_work=="write_current_page":
-                if catalog is None or original is None or choice.placement_selector is None:
-                    raise ValueError("Plan writer has no resolved offered page location")
-                resolved=catalog.resolve(original,choice.placement_selector)
-                if resolved.sha256!=choice.target_capture_sha256:
-                    raise ValueError("Plan writer target differs from the admitted placement")
+            resolved, placement_label = resolve_writer_placement(original, catalog, choices[0],
+                original_wire=proof['original_authoring_capture'], catalog_wire=proof['placement_catalog'])
+            if choices[0].requested_work == 'write_current_page':
                 expected_capture_sha=resolved.sha256
-                placement_label=next(entry.label for entry in catalog.entries if entry.selector==choice.placement_selector)
         if ((capture.sha256 if capture is not None else None)!=expected_capture_sha
                 or capture is not None and (capture.world_id,capture.conversation_id,capture.document_id,
                     capture.base_revision,capture.base_content_sha256)!=(turn.world_id,turn.conversation_id,
                     receipt.plan_basis.document_id,receipt.plan_basis.object_revision,receipt.plan_basis.content_sha256)):
             raise ValueError('Plan writer working draft differs from its frozen current-page capture')
-    markdown, sessions, dialogue = proof["plan_markdown"], proof["session_evidence"], proof["dialogue"]
-    if not isinstance(markdown, str) or sha256(markdown.encode()).hexdigest() != receipt.plan_basis.content_sha256:
-        raise ValueError("Plan writer text differs from its exact committed Plan")
-    if (not isinstance(dialogue, list) or any(not isinstance(row, dict) or set(row) != {"role", "content"}
-            or row["role"] not in {"user", "assistant"} or not isinstance(row["content"], str) for row in dialogue)):
-        raise ValueError("Plan writer dialogue must be reference-only conversation messages")
-    if not isinstance(sessions, list):
-        raise ValueError("Plan writer session evidence must be explicit")
-    frozen_sessions = {(ref.object_id, ref.revision): ref.content_sha256 for ref in turn.provenance.supporting_work
-                       if ref.kind == "session_evidence_v1"}
-    supplied = {}
-    for session in sessions:
-        if not isinstance(session, dict) or session.get("world_id") != turn.world_id:
-            raise ValueError("Plan writer session evidence has a foreign owner")
-        key = (session.get("run_id"), str(session.get("review_revision")))
-        body = {k: v for k, v in session.items() if k != "sha256"}
-        if key in supplied or session.get("sha256") != canonical_sha256(body):
-            raise ValueError("Plan writer session evidence is changed or repeated")
-        supplied[key] = session["sha256"]
-    if supplied != frozen_sessions:
-        raise ValueError("Plan writer session notes/reflections differ from frozen provenance")
+    work_frame = project_work_records(receipt.plan_basis, turn.provenance, turn.idempotency_key,
+        markdown=proof['plan_markdown'], sessions=proof['session_evidence'], dialogue=proof['dialogue'],
+        capture=capture, placement_label=placement_label)
     packets = proof["graph_packets"]
     if not isinstance(packets, dict):
         raise ValueError("Plan writer requires exact Graph packet bytes")
@@ -236,14 +326,9 @@ def project(turn, proof, trace):
         if failure.phase in {"graph_retrieval", "source_read"}})
     if incomplete_closure:
         gaps = sorted(set(gaps) | {("graph_retrieval", "incomplete_evidence_closure")})
-    from .surface_evidence_answer import POLICY, plan_authored_sources, authored_frame_rows
-    frame = {"schema": SCHEMA, "answer_policy": POLICY,
-        "authored_sources": authored_frame_rows(plan_authored_sources(turn, markdown, sessions), sessions),
-        "user_question": turn.user_text, "committed_plan_markdown": markdown,
-        "session_evidence": [{key: session[key] for key in ("title", "run_id", "review_revision", "ended_at", "session_content_sha256") if key in session}
-            | {"sources": [{key: source[key] for key in ("kind", "element_id", "text") if key in source}
-                for source in session.get("sources", [])]} for session in sessions],
-        "dialogue_reference": dialogue, "retrieval_gaps": [{"operation": phase, "reason": code} for phase, code in gaps],
+    from .surface_evidence_answer import POLICY
+    frame = {"schema": SCHEMA, "answer_policy": POLICY, **work_frame,
+        "user_question": turn.user_text, "retrieval_gaps": [{"operation": phase, "reason": code} for phase, code in gaps],
         "entity_index": entities, "retrieval_results": retrievals, "graph_records": records, "opened_passages": passages,
         "unopened_evidence": [handles[ref] for ref in sorted(refs - present)]}
     corpus_searches = [e for e in execution.events if isinstance(e, t.CorpusSourceSearchObservedV1)]
@@ -251,24 +336,6 @@ def project(turn, proof, trace):
         frame['source_discovery_coverage'] = {'coverage': corpus_searches[-1].coverage,
             'global_atomic_completeness': 'not_established', 'semantic_recall': 'not_established',
             'navigation_matches_are_not_claim_support': True}
-    from .authored_excerpt_blocks import selection_catalog,project_selection_blocks
-    authored = plan_authored_sources(turn,markdown,frame['session_evidence'],block_policy=True)
-    rows = authored_frame_rows(authored,frame['session_evidence'])
-    catalog=selection_catalog(((source.handle,source.text) for source in authored),str(turn.idempotency_key))
-    def blank_blocks(text):
-        if text.strip():raise ValueError('Nonblank authored body has no exact selectable owner')
-        return [{'selection_id':None,'text':text}] if text else []
-    for source,row in zip(authored,rows,strict=True):
-        path=row['body_path']; parent=frame
-        for key in path[:-1]: parent=parent[key]
-        parent[path[-1]]=project_selection_blocks(source.text,source.handle,catalog)
-    plan_body=frame.pop('committed_plan_markdown')
-    frame['committed_plan_blocks']=plan_body if isinstance(plan_body,list) else blank_blocks(plan_body)
-    for session in frame['session_evidence']:
-        for source in session['sources']:
-            source_body=source.pop('text','')
-            source['text_blocks']=source_body if isinstance(source_body,list) else blank_blocks(source_body)
-    frame['authored_sources']=[{**row,'body_path':[('committed_plan_blocks' if x=='committed_plan_markdown' else 'text_blocks' if x=='text' else x) for x in row['body_path']]} for row in rows]
     from .native_source_input import project_sections
     native_sections = project_sections(execution)
     if native_sections is not None:
@@ -297,43 +364,13 @@ def project(turn, proof, trace):
         if len(choices) != 1:
             raise ValueError('Plan writer requires its exact semantic requested-work choice')
         frame['requested_work'] = choices[0].requested_work
-    if capture is not None:
-        same=capture.draft_markdown==markdown
-        frame['current_page_draft']={'state':'same_as_committed' if same else 'unsaved_working_draft',
-            'primary_authoring_context':True,
-            **({'body_path':['committed_plan_blocks']} if same else {'markdown':capture.draft_markdown})}
-        frame['focused_edit_target']={'kind':capture.target_kind,
-            **({'location':placement_label} if isinstance(execution.policy,t.PlanPlacementAuthoringPolicyV1) and placement_label is not None else {}),
-            **({'selected_text':capture.selected_text} if capture.target_kind=='replace_selection' else {}),
-            **({'playable_body':capture.playable_target.body_markdown} if capture.playable_target is not None else {})}
     return PlanWriterProjection(frame, tuple(sorted(closures)), tuple(item[0] for item in originals),
         tuple(sorted(source_events, key=str)), tuple(sorted(assertions)), tuple(sorted(relationships)), tuple(sorted(refs)))
 
 
 def frame_in_request(raw):
-    body = strict_json(raw)
-    if (not isinstance(body, dict) or "messages" in body or not isinstance(body.get("input"), list)
-            or body.get("tools", []) != [] or body.get("tool_choice") not in (None, "none")):
-        raise ValueError("Plan writer requires a tool-free Responses request")
-    frames = []
-    for item in body["input"]:
-        if (not isinstance(item, dict) or set(item) - {"type", "role", "content"}
-                or item.get("type") not in (None, "message") or item.get("role") not in {"system", "developer", "user", "assistant"}):
-            raise ValueError("Plan writer request contains an unexpected transcript item")
-        content = item.get("content")
-        if not isinstance(content, str):
-            raise ValueError("Plan writer frame requires exact text messages")
-        if item["role"] != "user":
-            continue
-        try:
-            value = strict_json(content)
-        except (ValueError, TypeError):
-            continue
-        if isinstance(value, dict) and value.get("schema") in {SCHEMA,"dmb_plan_jev_writer_frame_v8","dmb_plan_jev_writer_frame_v7","dmb_plan_jev_writer_frame_v6","dmb_plan_jev_writer_frame_v4","dmb_plan_jev_writer_frame_v3","dmb_plan_jev_writer_frame_v2","dmb_plan_jev_writer_frame_v1"}:
-            frames.append(value)
-    if len(frames) != 1:
-        raise ValueError("Plan writer requires one exact evidence frame")
-    return frames[0]
+    from .source_writer_output import responses_text_frame
+    return responses_text_frame(raw, schemas={SCHEMA,"dmb_plan_jev_writer_frame_v8","dmb_plan_jev_writer_frame_v7","dmb_plan_jev_writer_frame_v6","dmb_plan_jev_writer_frame_v4","dmb_plan_jev_writer_frame_v3","dmb_plan_jev_writer_frame_v2","dmb_plan_jev_writer_frame_v1"}, label="Plan writer")
 
 
 def verify_writer_input(turn, authorization, raw, proof, trace):

@@ -1,3 +1,4 @@
+import nativeBuildWire from '../test/surface-native-build-http.json';
 import {WorldGuidedTour} from '../guidedTour/WorldGuidedTour';
 import {useGuidedTour} from '../guidedTour/GuidedTour';
 import {createWalkthrough,reduceTour,type TargetPin} from '../guidedTour/protocol';
@@ -38,7 +39,7 @@ import { useMemo, useState } from "react";
 import { webcrypto } from "node:crypto";
 import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { createWorkspaceDocument, getAgentRelatedPage, getWorldAgentTurnContextTrace, getWorkspaceDocumentSnapshot, getWorldAgentConversationHistory, getHistoricalRulesPassage, getWorldOwnedPlanCommittedRevision, getWorldPlanDocumentEditActions, listWorkspaceDocuments, listWorldContainers, LiveApiError, postWorldAgentNewConversation, postWorldPlanAgentTurn, postWorldPlayAgentTurn, postWorldBuildAgentTurn, postWorldGraphSourceAnchorRead, postWorldPlanDocumentEditProposal } from "../api/liveApi";
+import { createWorkspaceDocument, getAgentSavedSection, getAgentNativeAssertionSource, getAgentRelatedPage, getWorldAgentTurnContextTrace, getWorkspaceDocumentSnapshot, getCommittedPageSnapshot, getWorldAgentConversationHistory, getHistoricalRulesPassage, getWorldOwnedPlanCommittedRevision, getWorldPlanDocumentEditActions, listWorkspaceDocuments, listWorldContainers, LiveApiError, postWorldAgentNewConversation, postWorldPlanAgentTurn, postWorldPlayAgentTurn, postWorldBuildAgentTurn, postWorldGraphSourceAnchorRead, postWorldPlanDocumentEditProposal } from "../api/liveApi";
 import type { AgentInteractionTurn, WorkspaceDocumentRecord, WorkspaceDocumentSnapshot, WorldAgentConversationHistoryResponseV1, WorldPlanAgentTurnRequestV1, WorldPlayAgentTurnRequestV1, WorldBuildAgentTurnRequestV1, WorldPlanAgentPlanContextV2, WorldPlanGraphAnswerContextStatusV1, WorldPlanGraphExecutionProjectionV1, WorldAgentConversationHistoryResponse, WorldBuildKnowledgeContextV1 } from "../api/types";
 import { DocumentConversationDock, type PlanConversationPresentationHosts } from "../planSurface/components/PlanConversationDockAdapter";
 import type { SavedWorldBuildConversationContext } from "./WorldAgentConversation";
@@ -68,11 +69,14 @@ vi.mock("../api/liveApi", async (importOriginal) => ({
   getBuddyReadiness: vi.fn(async (surface: string, world_graph: boolean) => ({schema: "dmb_agent_readiness_v1", surface, world_graph, configured: true, issues: []})),
   createWorkspaceDocument: vi.fn(),
   getWorkspaceDocumentSnapshot: vi.fn(),
+  getCommittedPageSnapshot: vi.fn(),
   listWorkspaceDocuments: vi.fn(),
   listWorldContainers: vi.fn(),
   getWorldAgentConversationHistory: vi.fn(),
   getHistoricalRulesPassage: vi.fn(),
   getAgentRelatedPage: vi.fn(),
+  getAgentNativeAssertionSource: vi.fn(),
+  getAgentSavedSection: vi.fn(),
   getWorldAgentTurnContextTrace: vi.fn(async (worldId: string, turnId: string) => ({
     schema: "dmb_agent_turn_context_trace_response_v1", world_id: worldId, turn_id: turnId, attempts: [],
   })),
@@ -118,8 +122,10 @@ function buildSourceSnapshot(): WorkspaceDocumentSnapshot {
     record,
     markdown: "# City of Mirathorn\n\nA city of old walls and new plans.\n",
     content_sha256: SHA,
-    file_fingerprint: "source-file-fingerprint",
-    file_exists: true,
+    committed_markdown: "# City of Mirathorn\n\nA city of old walls and new plans.\n",
+    committed_content_sha256: SHA,
+    file_fingerprint: "postgres",
+    file_exists: false,
     loaded_revision: 2,
   };
 }
@@ -518,6 +524,146 @@ describe("one App-level World conversation host across Plan and Play", () => {
   });
 
 
+
+  it('loads an ordinary native Build proposal into the existing page review control without generating again',async()=>{
+    const raw=nativeBuildWire.proposal_wire;
+    const wire=JSON.parse(JSON.stringify(raw).replaceAll(raw.history.world_id,WORLD));
+    const row=wire.history.turns[0],context=row.knowledge_context,basis=context.receipt.work_context.source_basis;
+    basis.content_sha256=SHA;row.provenance.primary_work.content_sha256=SHA;row.provenance.surface_instance_id='build-instance';
+    context.receipt.provenance_sha256=await sha256Hex(canonicalJson(row.provenance));
+    const {context_receipt_sha256:_,...payload}=context.receipt;
+    context.receipt.context_receipt_sha256=await sha256Hex(canonicalJson(payload));
+    context.completion.context_receipt_sha256=context.receipt.context_receipt_sha256;
+    wire.record.reservation.basis.content_sha256=SHA;
+    vi.mocked(getWorldAgentConversationHistory).mockResolvedValue(wire.history);
+    vi.mocked(listBuildProposals).mockResolvedValue([wire.record]);
+    const bridge={captureContext:vi.fn(),capture:vi.fn(),restore:vi.fn(),insert:vi.fn(),insertProposal:vi.fn(),
+      prepareProposal:vi.fn(),applyPrepared:vi.fn(),inspectProposal:vi.fn(),saveProposal:vi.fn()} as BuildComposeBridge;
+    render(<Harness initial='build' buildBridge={bridge} buildSourceId={basis.document_id} buildSourceRevision={basis.registry_revision}/>);
+    fireEvent.click(await screen.findByRole('button',{name:'Open',exact:true}));
+    await screen.findByText(row.user_text);
+    await screen.findByRole('button',{name:'Review suggestion on page'});
+    expect(screen.queryByRole('group',{name:'World history unavailable'})).not.toBeInTheDocument();
+    expect(postWorldBuildAgentTurn).not.toHaveBeenCalled();expect(bridge.restore).not.toHaveBeenCalled();
+    expect(getAgentNativeAssertionSource).not.toHaveBeenCalled();
+    vi.mocked(listBuildProposals).mockResolvedValue([]);
+  });
+
+  it.each(['history','fresh','replay','producer','revision','provenance','source','world','extra','interrupted','mixed-approved','mixed-unclaimed','mixed-object','fresh-mixed-object','mixed-question','mixed-unclaimed-question','mixed-object-prose','fresh-answer','fresh-question','fresh-source','fresh-graph'] as const)('consumes ordinary shared native Build HTTP and history: %s',async mode=>{
+    const wire=JSON.parse(JSON.stringify(nativeBuildWire).replaceAll(nativeBuildWire.history.world_id,WORLD)) as unknown as {
+      request:WorldBuildAgentTurnRequestV1;
+      response:import('../api/types').WorldReadOnlyAgentTurnResponseV1;
+      history:import('../api/types').WorldAgentConversationHistoryResponseV3;
+      source:Awaited<ReturnType<typeof getAgentNativeAssertionSource>>;
+      saved_source:Awaited<ReturnType<typeof getAgentSavedSection>>;
+    };
+    const row=wire.history.turns[0]!,context=row.knowledge_context as import('../api/types').BuildSurfaceNativeContextResponseV1;
+    const basis=context.receipt.work_context.source_basis;
+    basis.content_sha256=SHA;row.provenance.primary_work.content_sha256=SHA;row.provenance.surface_instance_id='build-instance';
+    context.completion!.answer_segments.forEach(s=>{if(s.kind==='saved_source_claim')s.content_sha256=SHA;});
+    wire.saved_source.target.source_basis.content_sha256=SHA;
+    const answer=row.assistant_text!,question=row.user_text;
+    const seal=async()=>{
+      context.receipt.provenance_sha256=await sha256Hex(canonicalJson(row.provenance));
+      const {context_receipt_sha256:_,...payload}=context.receipt;
+      context.receipt.context_receipt_sha256=await sha256Hex(canonicalJson(payload));
+      if(context.completion){context.completion.context_receipt_sha256=context.receipt.context_receipt_sha256;
+        context.completion.native_assertion_citations.forEach(c=>c.context_receipt_sha256=context.receipt.context_receipt_sha256);}
+    };
+    await seal();
+    const citation=context.completion!.native_assertion_citations[0]!;
+    if(mode==='producer')citation.provider_attempt_id='00000000-0000-4000-8000-000000000001';
+    if(mode==='revision')citation.read_revision_id='rev:foreign';
+    if(mode==='provenance')context.receipt.provenance_sha256='0'.repeat(64);
+    if(mode==='source'){basis.document_id='foreign';await seal();}
+    if(mode==='world')basis.world_id='foreign';
+    if(mode==='extra')Object.assign(context,{source_open_targets:[]});
+    if(mode==='replay')context.delivery_replay=true;
+    if(mode==='interrupted'){
+      row.lifecycle_status='interrupted';row.assistant_text=null;context.completion=null;
+      context.execution={schema:'dmb_agent_plan_world_graph_execution_projection_v1',claimability:'blocked_unknown_or_sent',authorization_state:'outcome_unknown',automatic_redispatch:false};
+    }
+    const fresh=mode.startsWith('fresh'),invalidFresh=mode.startsWith('fresh-')&&mode!=='fresh-mixed-object';
+    let current:WorldAgentConversationHistoryResponse=fresh?{...wire.history,turns:[]}:wire.history;
+    const mixedObject=mode==='mixed-object'||mode==='fresh-mixed-object';
+    let mixedPage:WorldAgentConversationHistoryResponse|null=null;
+    let mixedContext:import('../api/rulesLookupTypes').RulesAnswerContext|null=null;
+    if(mode.startsWith('mixed-')||mixedObject){
+      const approved=mode==='mixed-approved'||mode==='mixed-question',f=rulesAnswerFixture(approved?context:null);
+      f.context.accepted_binding.world_id=WORLD;f.context.accepted_binding.turn_id=row.turn_id;
+      f.context.accepted_binding.conversation_id=wire.history.conversation_id!;f.context.accepted_binding.graph_used=approved;
+      if(!approved){
+        f.context.accepted_binding.base_disposition='unclaimed';
+        let completion:import('../api/types').SurfaceNativeCompletionV1|null=null;
+        if(mode.startsWith('mixed-object')||mixedObject)completion={...context.completion!,answer_segments:mode==='mixed-object-prose'?[{kind:'discussion',text:'Unclaimed prose must not be displayed.'}]:[],
+          answer_context_status:'discussion',collaboration:{kind:'questions',questions:[{text:'Which possibility should we develop?'}]},native_assertion_citations:[],native_clause_citations:[],native_body_citations:[],saved_source_citations:[]};
+        f.context.unclaimed_context={schema:'dmb_agent_rules_unclaimed_context_v1',receipt:context.receipt,completion,execution:context.execution!,delivery_replay:false};
+      }
+      if(mode==='mixed-question'||mode==='mixed-unclaimed-question')row.user_text='A question this captured answer does not address.';
+      f.context.accepted_binding_sha256=fixtureHash(canonicalJson(f.context.accepted_binding));
+      const {knowledge_context:_,...envelope}=row;
+      mixedContext=f.context;
+      mixedPage={...wire.history,schema:'dmb_agent_conversation_history_v4',turns:[{...envelope,schema:'dmb_agent_conversation_history_mixed_turn_v1',idempotency_key:row.turn_id,lifecycle_status:'completed',assistant_text:f.answer,rules_context:f.context}]};
+      if(!fresh)current=mixedPage;
+    }
+    vi.mocked(getWorldAgentConversationHistory).mockImplementation(async()=>current);
+    vi.mocked(getAgentNativeAssertionSource).mockResolvedValue({...wire.source,citation});
+    vi.mocked(getAgentSavedSection).mockResolvedValue(wire.saved_source);
+    if(fresh)vi.mocked(postWorldBuildAgentTurn).mockImplementation(async request=>{
+      const q=context.receipt.native_query;
+      if(q.schema!=='dmb_native_plan_query_unavailable_v1')q.question=mode==='fresh-question'?'A different question.':request.message;
+      if(mode==='fresh-source')basis.document_id='foreign';
+      await seal();
+      const response={...wire.response,client_thread_id:request.client_thread_id,turn_id:request.turn_id,
+        surface:{...wire.response.surface,instance_id:request.surface.instance_id},
+        client_work_state_reported:request.client_work_state,
+        primary_work:{...wire.response.primary_work,expected_revision:request.primary_work.expected_revision,revision_used:request.primary_work.expected_revision},
+        conversation:{...wire.response.conversation,client_thread_id:request.client_thread_id,turn_id:request.turn_id},knowledge_context:context};
+      if(mode==='fresh-answer')response.answer={...response.answer,text:'An unrelated answer.'};
+      if(mode==='fresh-graph')response.graph={...response.graph,revision_id:'rev:foreign'};
+      const key=await expectedHistoryCorrelationKey(WORLD,request.turn_id);
+      if(mixedObject&&mixedContext&&mixedPage){
+        current={...mixedPage,turns:mixedPage.turns.map(t=>({...t,idempotency_key:key}))} as WorldAgentConversationHistoryResponse;
+        const {knowledge_context:_,...envelope}=response;
+        return {...envelope,schema:'dmb_agent_rules_turn_response_v1' as const,rules_context:mixedContext,
+          answer:{...response.answer,text:'Occupied 🦉 space is constrained.',graph_grounded:false}};
+      }
+      if(!invalidFresh)current={...wire.history,schema:'dmb_agent_conversation_history_v3',turns:[{...row,idempotency_key:key}]};
+      return response;
+    });
+    render(<Harness initial='build' buildSourceId={nativeBuildWire.request.primary_work.object_id}/>);
+    fireEvent.click(await screen.findByRole('button',{name:'Open',exact:true}));
+    if(fresh){
+      fireEvent.change(await screen.findByLabelText('Message DungeonBuddy'),{target:{value:question}});
+      fireEvent.click(screen.getByRole('button',{name:'Send message'}));
+      await waitFor(()=>expect(postWorldBuildAgentTurn).toHaveBeenCalledTimes(1));
+    }
+    if(invalidFresh){
+      await screen.findByText(/reply did not match the saved Build source and World Graph/);
+      expect(getAgentNativeAssertionSource).not.toHaveBeenCalled();return;
+    }
+    if(['producer','revision','provenance','source','world','extra','mixed-question','mixed-unclaimed-question','mixed-object-prose'].includes(mode)){
+      await screen.findByRole('group',{name:'World history unavailable'});
+      expect(getAgentNativeAssertionSource).not.toHaveBeenCalled();return;
+    }
+    await screen.findByText(question);
+    if(mode==='interrupted'){
+      expect(screen.queryByText(answer)).toBeNull();expect(postWorldBuildAgentTurn).not.toHaveBeenCalled();expect(getAgentNativeAssertionSource).not.toHaveBeenCalled();return;
+    }
+    if(mode==='mixed-unclaimed'||mixedObject){
+      await screen.findByText('Occupied 🦉 space is constrained.');expect(screen.queryByText(answer)).toBeNull();
+      if(mixedObject)await screen.findByText('Which possibility should we develop?');
+      expect(getAgentNativeAssertionSource).not.toHaveBeenCalled();return;
+    }
+    await screen.findByText(context.completion!.answer_segments[0]!.text);
+    fireEvent.click(screen.getAllByRole('button',{name:'Read Graph assertion source'})[0]!);
+    await screen.findByRole('region',{name:'Opened source section'});
+    expect(getAgentNativeAssertionSource).toHaveBeenCalledWith(WORLD,row.turn_id,0);
+    fireEvent.click(screen.getAllByRole('button',{name:'Read saved page source'})[0]!);
+    await screen.findByText(wire.saved_source.content.trim().replace(/^#+\s*/,''));
+    expect(getAgentSavedSection).toHaveBeenCalledWith({world_id:WORLD,turn_id:row.turn_id,segment_index:1,section_event_id:wire.saved_source.target.section_event_id});
+    expect(postWorldBuildAgentTurn).toHaveBeenCalledTimes(fresh?1:0);
+  });
 
   it.each(['plan', 'play', 'build'] as const)('teaches memory at the actual %s composer without sending or crediting a turn', async initial => {
     const rect = vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockReturnValue(new DOMRect(100, 100, 200, 40));
@@ -1486,6 +1632,7 @@ describe("one App-level World conversation host across Plan and Play", () => {
       records: [source.record],
     });
     vi.mocked(getWorkspaceDocumentSnapshot).mockResolvedValue(source);
+    vi.mocked(getCommittedPageSnapshot).mockResolvedValue(source);
     window.history.pushState({}, "", `/build?world=${WORLD}`);
 
     render(<RealBuildPageHarness />);
@@ -2020,6 +2167,8 @@ describe("one App-level World conversation host across Plan and Play", () => {
     const composer = await screen.findByLabelText("Message DungeonBuddy");
     await waitFor(() => expect(composer).toBeEnabled());
     fireEvent.change(composer, { target: { value: "Rewrite this Plan opening" } });
+    fireEvent.click(screen.getByText("Automatic · Change", { selector: "summary" }));
+    fireEvent.click(screen.getByRole("button", { name: "Request a Plan change" }));
     fireEvent.click(screen.getByRole("button", { name: "Propose edit" }));
     await waitFor(() => expect(postWorldPlanDocumentEditProposal).toHaveBeenCalledTimes(1));
     await waitFor(() => expect(bridge.preview).toHaveBeenCalledTimes(1));

@@ -1,5 +1,6 @@
 """Plan parent owns acquisitions; Jev selects semantic catalog entries only."""
 import json
+from contextlib import nullcontext
 
 from application_state.agent_conversation import types as t
 from application_state.agent_conversation.jev_retrieval_contract import RetrievalCandidate
@@ -28,6 +29,13 @@ class PlanJevDriver:
         from .plan_jev_acquisition import query_identity
         self.attempted_queries = ({query_identity(adapter.bootstrap.completed_discovery_query)}
             if self.graph_available and adapter.bootstrap.completed_discovery_query else set())
+        self.saved_page_catalog={}
+        self.attempted_saved_pages=set()
+        if adapter.fence is not None and type(adapter.fence.turn.graph_context_receipt) is t.SurfaceNativeContextReceiptV1:
+            receipt=adapter.fence.turn.graph_context_receipt
+            if receipt.work_context.surface_id=='build':
+                from application_state.agent_conversation.build_section import saved_section_catalog
+                self.saved_page_catalog=saved_section_catalog(adapter.work.build_source.markdown,receipt.work_context.source_basis)
         self.finished = False
         self.calls = []
         self.gaps = []
@@ -67,7 +75,7 @@ class PlanJevDriver:
         result = [candidate for node, candidate in self.catalog.values() if node not in self.attempted_nodes]
         from .plan_jev_acquisition import query_identity, read_subject_labels
         seen = set(self.attempted_queries)
-        for node, label in read_subject_labels(self.adapter).items():
+        for node, label in (read_subject_labels(self.adapter) if self.graph_available else {}).items():
             key = query_identity(label)
             if key not in seen:
                 result.append(RetrievalCandidate(handle=f"mentions:{node}", label=label,
@@ -86,6 +94,7 @@ class PlanJevDriver:
             result.extend(RetrievalCandidate(handle=assertion_handle(query, match), label=match.label,
                 kind='Reviewed native Graph assertion; select to read its qualifications and exact supporting evidence')
                 for match in query.assertion_matches if match.assertion_id not in self.native_assertion_attempts)
+        result.extend(candidate for handle,(candidate,_range) in self.saved_page_catalog.items() if handle not in self.attempted_saved_pages)
         result.extend(self.native_sources.offered())
         return tuple(result)
 
@@ -111,6 +120,8 @@ class PlanJevDriver:
         return added
 
     def _read_new_sources(self, operations):
+        if not operations:
+            return
         from .world_source_acquisition import read_operation_sources
         return read_operation_sources(self.adapter, operations, self.attempted_anchors, self.gaps)
 
@@ -161,7 +172,7 @@ class PlanJevDriver:
                      if handle.startswith("node:")]
             if any(node in self.attempted_nodes for node in nodes):
                 raise ValueError("Plan object cannot be reacquired")
-            with self.adapter.plan_graph_acquisition(nodes):
+            with self.adapter.plan_graph_acquisition(nodes) if nodes else nullcontext():
                 for handle in selected.selected_handles:
                     if not handle.startswith("node:"):
                         continue
@@ -181,7 +192,13 @@ class PlanJevDriver:
                     self.attempted_queries.add(key)  # consume even when IO fails
                     self._graph_read("search", query=query)
             for handle in selected.selected_handles:
-                if handle in native_handles:
+                if handle in self.saved_page_catalog:
+                    if handle in self.attempted_saved_pages:
+                        raise ValueError('Saved page block cannot be reacquired')
+                    self.attempted_saved_pages.add(handle)
+                    first,last=self.saved_page_catalog[handle][1]
+                    self.adapter.read_build_section(line_start=first,line_end=last)
+                elif handle in native_handles:
                     try:
                         self.native_sources.select([handle])
                     except (ValueError, ApplicationStateValidationError):
@@ -226,9 +243,9 @@ class PlanJevDriver:
         a = self.adapter
         if a.fence is None or not isinstance(getattr(a.fence.turn.graph_context_receipt, 'native_query', None), NativePlanQueryV2):
             return ()
-        from application_state.agent_conversation.native_plan_statements import validate_execution
+        from application_state.agent_conversation.native_reads import validate_execution_binding
         execution = a._broker_execution()
-        validate_execution(a.fence.turn.graph_context_receipt, execution)
+        validate_execution_binding(a.fence.turn.graph_context_receipt, execution)
         query = a.fence.turn.graph_context_receipt.native_query
         if a.native_query.sha256 != query.sha256:
             raise ValueError('Native assertion query differs from its frozen receipt')
@@ -246,16 +263,17 @@ class PlanJevDriver:
         """Truthful read outcomes for navigation, never an answer-sufficiency verdict."""
         from application_state.agent_conversation.native_plan_statements import (
             NativePlanQueryV1, NativePlanStatementReadAuthorizedV1,
-            NativePlanStatementReadObservedV1, validate_execution, selection_handle)
+            NativePlanStatementReadObservedV1, selection_handle)
         a = self.adapter
         # The first controller dispatch may precede the initial durable claim.
         if a.fence is None:
             return ()
         receipt = a.fence.turn.graph_context_receipt
-        if not isinstance(receipt, t.PlanNativeContextReceiptV1):
+        if not isinstance(receipt, (t.PlanNativeContextReceiptV1,t.SurfaceNativeContextReceiptV1)):
             return ()
+        from application_state.agent_conversation.native_reads import validate_execution_binding
         execution = a._broker_execution()
-        validate_execution(receipt, execution)
+        validate_execution_binding(receipt, execution)
         query = receipt.native_query
         if not isinstance(query, NativePlanQueryV1):
             return ()
@@ -281,7 +299,9 @@ class PlanJevDriver:
             return self.current.authorize(prepared) if self.current is not None else False
         async def record(event):
             return self.current.record(event) if self.current is not None else False
-        client = decision_client(authorize=authorize, record=record, transport=transport, api_key=api_key)
+        async def select_context(prepared):
+            return await self.current.select_context(prepared)
+        client = decision_client(authorize=authorize, record=record, transport=transport, api_key=api_key,select_context=select_context)
         try:
             while not self.finished:
                 operations = (("select_candidates", "finish_retrieval") if self.discovered else
@@ -289,6 +309,7 @@ class PlanJevDriver:
                 examined = [candidate for node, candidate in self.catalog.values() if node in self.attempted_nodes]
                 if self.rules is not None and self.rules.selected:
                     examined.append(rules_candidate())
+                examined.extend(self.saved_page_catalog[h][0] for h in sorted(self.attempted_saved_pages))
                 examined.extend(self.native_sources.examined())
                 examined.extend(self._native_statement_examined())
                 examined.extend(self._native_assertion_examined())
@@ -308,6 +329,11 @@ class PlanJevDriver:
         if not self.finished or self.adapter.failure is not None:
             raise ValueError("Plan writer cannot use unfinished acquisition")
         a = self.adapter
+        if type(a.fence.turn.graph_context_receipt) is t.SurfaceNativeContextReceiptV1:
+            if a.fence.turn.graph_context_execution.policy.action.surface_id == "build":
+                return {}  # Build work is reconstructed from its actual captured APP records.
+            return dict(plan_markdown=a.work.plan_markdown,
+                session_evidence=(a.work.session_evidence or {}).get('sessions',[]),dialogue=self.dialogue)
         names = {}
         for event in a._broker_execution().events:
             if not isinstance(event, t.SOURCE_PASSAGE_EVENTS) or event.event_id not in a.source_payloads:

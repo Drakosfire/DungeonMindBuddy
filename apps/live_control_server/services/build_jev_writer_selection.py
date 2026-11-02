@@ -14,7 +14,7 @@ from .build_jev_transitions import DecisionIntent, DecisionQuestion
 
 class WriterSelectionDriver:
     def __init__(self, adapter, acquisition_driver, terminal):
-        if not isinstance(adapter._broker_execution().policy, ledger.BuildSelectedSourceActionControllerWriterPolicyV1):
+        if not selection.enabled(adapter._broker_execution().policy):
             raise ValueError("Writer selection requires its frozen policy")
         if adapter.context_capture is None or terminal.get("status") == "refused":
             raise ValueError("Writer selection requires admissible retrieval and protected capture")
@@ -76,8 +76,10 @@ class WriterSelectionDriver:
         a._prepared_build_authorizing = view
         a._active_build_jev_expected_state = plan.state()
         a._active_build_driver_projection = plan
+        from application_state.agent_conversation.native_execution import SurfaceNativeExecutionPolicyV1
         try:
-            accepted = a.authorize(view)
+            accepted = (a.authorize_native_build_decision(prepared,view,plan)
+                if isinstance(a._broker_execution().policy,SurfaceNativeExecutionPolicyV1) else a.authorize(view))
         finally:
             a._prepared_build_authorizing = None
             a._active_build_jev_expected_state = None

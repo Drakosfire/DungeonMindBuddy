@@ -51,6 +51,12 @@ def validate_selection_bases(adapter):
 
 
 def capture_input(adapter):
+    if type(adapter.fence.turn.graph_context_receipt) is t.SurfaceNativeContextReceiptV1:
+        refs = adapter.request.build_authored_references
+        if refs is None or not refs.references:
+            return
+        adapter.turn, _ = adapter.fence.append('capture_native_authored_references','event_id',uuid4())
+        return
     existing = [e for e in adapter._broker_execution().events if isinstance(e, t.BuildAuthoredReferencesCapturedV1)]
     if existing:
         if existing[0].references != adapter.request.build_authored_references:
@@ -151,6 +157,16 @@ def restore_material(adapter, read):
 
 
 def acquire(adapter):
+    if type(adapter.fence.turn.graph_context_receipt) is t.SurfaceNativeContextReceiptV1:
+        from .native_graph_reads import read_authored_reference
+        refs = adapter.request.build_authored_references
+        for reference in (() if refs is None else refs.references):
+            adapter.turn, _ = adapter.fence.append('authorize_native_authored_reference','event_id',uuid4(),node_id=reference.node_id)
+            grant = adapter.fence.turn.graph_context_execution.events[-1]
+            adapter.turn, _ = adapter.fence.append('observe_native_authored_reference','event_id',uuid4(),
+                authorization_event_id=grant.event_id,materialize=lambda admitted: read_authored_reference(
+                    adapter.native_query_context,admitted,adapter.native_query_context.principal))
+        return
     refs = adapter.request.build_authored_references
     if refs is None:
         return

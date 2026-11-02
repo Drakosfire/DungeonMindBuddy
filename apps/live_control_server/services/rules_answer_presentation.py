@@ -23,6 +23,7 @@ def project_rules_answer_context(turn: MixedCompletedTurnV1, *, delivery_replay:
         from .agent_turn_service import project_plan_graph_execution_state
         unclaimed_context = AgentRulesUnclaimedContextV1(
             receipt=base.graph_context_receipt,
+            completion=base.completion,
             execution=project_plan_graph_execution_state("response_received", completed=True),
             delivery_replay=delivery_replay,
         )
