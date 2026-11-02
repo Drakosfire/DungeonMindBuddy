@@ -116,16 +116,6 @@ def verify_captured_text(capture, *, authorization_id, api_request_id,
         or request_envelope_sha256 != getattr(capture, "request_sha256", None)
     ):
         raise ValueError("Native Rules proof differs from its SDK capture")
-    if (
-        getattr(capture, "status", None) != "answered"
-        or getattr(capture, "finish_reason", None) != "stop"
-        or getattr(capture, "tool_calls", ())
-        or getattr(capture, "api_mode", None)
-        not in {"chat_completions", "codex_responses", "responses"}
-    ):
-        raise ValueError(
-            "Native Rules output is not a complete final assistant message"
-        )
     raw = raw_output_json
     try:
         request_bytes = prepared_request_json.encode("utf-8")
@@ -142,6 +132,24 @@ def verify_captured_text(capture, *, authorization_id, api_request_id,
         raise ValueError("Native Rules prepared request is not strict JSON") from exc
     if not isinstance(request, dict):
         raise ValueError("Native Rules prepared request is not an object")
+    verify_captured_output(capture,raw_output_json=raw,raw_output_sha256=raw_output_sha256,
+        raw_output_utf8_bytes=raw_output_utf8_bytes,response_sha256=response_sha256)
+
+
+def verify_captured_output(capture, *, raw_output_json, raw_output_sha256,
+                           raw_output_utf8_bytes, response_sha256=None):
+    """One final-output seal check; request admission stays with its owning path."""
+    if (
+        getattr(capture, "status", None) != "answered"
+        or getattr(capture, "finish_reason", None) != "stop"
+        or getattr(capture, "tool_calls", ())
+        or getattr(capture, "api_mode", None)
+        not in {"chat_completions", "codex_responses", "responses"}
+    ):
+        raise ValueError(
+            "Native Rules output is not a complete final assistant message"
+        )
+    raw = raw_output_json
     try:
         encoded = raw.encode("utf-8")
     except UnicodeError as exc:

@@ -2572,6 +2572,18 @@ class AgentConversationService:
             if turn.revision != result.expected_revision or turn.status not in allowed_status:
                 raise ApplicationStateConflictError("turn revision or lifecycle state changed")
             native_output_verified = False
+            recovered_rules_state = None
+            if prepared_recovery:
+                from .build_authoring import _native_build,validate_prepared_native_authoring
+                if _native_build(turn):
+                    captured=conn.execute('SELECT payload FROM agent.turn_context_trace WHERE turn_id=%s AND attempt=%s',
+                        (turn.turn_id,turn.attempt)).fetchone()
+                    try:
+                        recovered_rules_state=validate_prepared_native_authoring(conn,turn,result,
+                            trace=captured[0] if captured else {})
+                    except (ValueError,TypeError,AttributeError,KeyError,UnicodeError) as exc:
+                        raise ApplicationStateValidationError(str(exc)) from exc
+                    native_output_verified = True
             if native_output_proof is not None:
                 from .native_rules_output import NativeRulesOutputProofV1, normalize_unused_native_output
                 from .rules_authority_store import load_turn_rules_locked
@@ -2602,7 +2614,9 @@ class AgentConversationService:
             execution = _validated_base_execution_locked(conn, turn, result,
                 prepared_recovery=prepared_recovery, native_output_verified=native_output_verified)
             from .rules_authority_store import close_unused_locked
-            close_unused_locked(conn, turn)
+            # A recovered object does not reopen or erase the failed unused capability.
+            if recovered_rules_state != 'failed':
+                close_unused_locked(conn, turn)
             completion_update = repo.complete_prepared_build_turn if prepared_recovery else repo.complete_claimed_turn
             updated = completion_update(
                 conn,

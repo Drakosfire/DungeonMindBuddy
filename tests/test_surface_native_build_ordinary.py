@@ -27,7 +27,7 @@ def test_fresh_build_default_factory_answers_human_reference_and_reopens_exact_s
     _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal)
 
 
-def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal):
+def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,recovery_dsn=None,recovery_mutation=None):
     from apps.live_control_server.routes import agent
     from apps.live_control_server.services import native_graph_reads as native, managed_world_graph_projection as managed
     from apps.live_control_server.services import build_jev_runtime as factory
@@ -276,6 +276,81 @@ def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal):
             return BuildImageService().get(uuid5(cap.idempotency_key,'image'),writer.adapter.build_image_owner)
         from application_state.build_proposal.service import BuildProposalService
         return BuildProposalService().get(world,cap.idempotency_key)
+    if failure in {'crash_live','crash_expired','crash_interrupted'}:
+        from application_state.agent_conversation import types as ledger
+        from uuid import uuid5
+        import psycopg
+        original_complete=AgentConversationService.complete_native_base_turn
+        def crash_after_persistence(*args,**kwargs):
+            raise SystemExit('synthetic crash after native object persistence')
+        monkeypatch.setattr(AgentConversationService,'complete_native_base_turn',crash_after_persistence)
+        with pytest.raises(SystemExit,match='synthetic crash'):
+            client.post('/api/live/agent/turn',json=body)
+        monkeypatch.setattr(AgentConversationService,'complete_native_base_turn',original_complete)
+        prior=writer.adapter.service.inspect_turn(world_id=world,turn_id=writer.adapter.turn.turn_id)
+        assert prior.status=='running'
+        if failure=='crash_expired':
+            import psycopg
+            with psycopg.connect(recovery_dsn) as conn:
+                conn.execute("UPDATE agent.turn SET claim_expires_at=clock_timestamp()-interval '1 minute' WHERE turn_id=%s",(prior.turn_id,))
+        elif failure=='crash_interrupted':
+            writer.adapter.service.fail_turn(ledger.TurnFailure(world_id=world,conversation_id=prior.conversation_id,
+                turn_id=prior.turn_id,expected_revision=prior.revision,failure_code='synthetic_persistence_interrupt'),interrupted=True)
+        save_page(tmp_path,page.document_id,'A newer author page must survive recovery.')
+        newer=get_workspace_document_snapshot(tmp_path,page.document_id)
+        assert newer.content_sha256!=source.content_sha256
+        from apps.live_control_server.services import plan_source_turn
+        def forbid_fresh_source(*args,**kwargs):
+            raise AssertionError('Prepared recovery must not reacquire current source authority')
+        monkeypatch.setattr(plan_source_turn,'prepare',forbid_fresh_source)
+        if recovery_mutation is not None:
+            import psycopg
+            from psycopg.types.json import Jsonb
+            with psycopg.connect(recovery_dsn) as conn:
+                if recovery_mutation=='raw':
+                    key=uuid5(cap.idempotency_key,'image') if proposal=='image' else cap.idempotency_key
+                    obj=conn.execute('SELECT payload FROM agent.build_proposal WHERE world_id=%s AND action_id=%s',(world,key)).fetchone()[0]
+                    if proposal=='image':
+                        obj['writer_proof']['raw_response']='{}'
+                    else:
+                        obj['raw_response']='{}'
+                    conn.execute('UPDATE agent.build_proposal SET payload=%s WHERE world_id=%s AND action_id=%s',(Jsonb(obj),world,key))
+                elif recovery_mutation in {'seal','scope','unknown'}:
+                    row=conn.execute('SELECT payload FROM agent.turn_rules_execution WHERE turn_id=%s AND product_attempt=%s',(prior.turn_id,prior.attempt)).fetchone()[0]
+                    sealed=next(e for e in row['events'] if e['kind']=='native_provider_outcome')
+                    if recovery_mutation=='scope':
+                        row['scope']['conversation_id']=str(uuid4())
+                    elif recovery_mutation=='unknown':
+                        sealed['status']='unknown'
+                    else:
+                        sealed['output_sha256']='0'*64
+                    conn.execute('UPDATE agent.turn_rules_execution SET payload=%s WHERE turn_id=%s AND product_attempt=%s',(Jsonb(row),prior.turn_id,prior.attempt))
+                elif recovery_mutation=='trace':
+                    row=conn.execute('SELECT payload FROM agent.turn_context_trace WHERE turn_id=%s AND attempt=%s',(prior.turn_id,prior.attempt)).fetchone()[0]
+                    for observation in row['observations']:
+                        if observation.get('kind')=='context_snapshot' and observation.get('stage')=='after':
+                            observation['materials']=[m for m in observation['materials'] if not m.get('item_id','').startswith('unvalidated-provider-answer:')]
+                    conn.execute('UPDATE agent.turn_context_trace SET payload=%s WHERE turn_id=%s AND attempt=%s',(Jsonb(row),prior.turn_id,prior.attempt))
+                else:
+                    raise AssertionError(recovery_mutation)
+        calls_before_recovery=len(decisions.calls),len(writer.calls)
+        response=client.post('/api/live/agent/turn',json=body)
+        if recovery_mutation is not None:
+            assert response.status_code==409,response.text
+            assert response.json()['detail']['code']=='build_prepared_recovery_invalid'
+            assert (len(decisions.calls),len(writer.calls))==calls_before_recovery
+            assert get_workspace_document_snapshot(tmp_path,page.document_id)==newer
+            return
+        assert response.status_code==200,response.text
+        assert response.json()['knowledge_context']['delivery_replay'] is True
+        assert (len(decisions.calls),len(writer.calls))==calls_before_recovery
+        after=writer.adapter.service.inspect_turn(world_id=world,turn_id=prior.turn_id)
+        assert after.status=='completed' and after.attempt==prior.attempt
+        assert get_workspace_document_snapshot(tmp_path,page.document_id)==newer
+        with psycopg.connect(recovery_dsn) as conn:
+            state=conn.execute("SELECT payload->>'state' FROM agent.turn_rules_execution WHERE turn_id=%s AND product_attempt=%s",(prior.turn_id,prior.attempt)).fetchone()[0]
+        assert state==('failed' if failure=='crash_interrupted' else 'unused')
+        return
     response = client.post('/api/live/agent/turn', json=body)
     if failure in {'revision','node','reference_world'}:
         assert response.status_code == (422 if failure=='reference_world' else 409), response.text
@@ -503,3 +578,15 @@ def test_native_reviewed_step_preserves_the_author_choice(lane,tmp_path,monkeypa
     assert replay.status_code==200 and replay.json()['knowledge_context']['delivery_replay'] is True,replay.text
     assert (len(case.decisions.calls),len(case.writer.calls))==after
     assert get_workspace_document_snapshot(tmp_path,case.page.document_id)==case.source
+
+
+@pytest.mark.parametrize('proposal',[True,'image'])
+@pytest.mark.parametrize('state',['live','expired','interrupted'])
+def test_native_persisted_object_recovers_without_another_provider(lane,tmp_path,monkeypatch,application_state_dsn,proposal,state):
+    _fresh_case(lane,tmp_path,monkeypatch,'crash_'+state,True,False,proposal,recovery_dsn=application_state_dsn)
+
+
+@pytest.mark.parametrize('proposal',[True,'image'])
+@pytest.mark.parametrize('mutation',['raw','seal','trace','scope','unknown'])
+def test_native_persisted_object_recovery_refuses_corrupted_owners(lane,tmp_path,monkeypatch,application_state_dsn,proposal,mutation):
+    _fresh_case(lane,tmp_path,monkeypatch,'crash_live',True,False,proposal,recovery_dsn=application_state_dsn,recovery_mutation=mutation)

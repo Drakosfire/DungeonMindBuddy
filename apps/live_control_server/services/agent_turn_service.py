@@ -6660,11 +6660,16 @@ def execute_agent_turn(
             if (durable_turn is not None and request.build_write_capability is not None
                     and _governed_build_turn(request)):
                 from application_state.agent_conversation.build_authoring import recover_prepared_proposal, recover_prepared_image
-                recovered = recover_prepared_image(conversation_service, durable_turn,
-                    request.build_write_capability.idempotency_key, operator_subject)
-                if recovered is None:
-                    recovered = recover_prepared_proposal(conversation_service, durable_turn,
-                        request.build_write_capability.idempotency_key)
+                try:
+                    recovered = recover_prepared_image(conversation_service, durable_turn,
+                        request.build_write_capability.idempotency_key, operator_subject)
+                    if recovered is None:
+                        recovered = recover_prepared_proposal(conversation_service, durable_turn,
+                            request.build_write_capability.idempotency_key)
+                except ApplicationStateError as exc:
+                    raise AgentTurnServiceError(
+                        'The retained Build object could not be verified. No request was replayed.',
+                        code='build_prepared_recovery_invalid',status_code=409,provider_dispatched=False) from exc
                 if recovered is not None:
                     durable_turn = recovered
             if durable_turn is not None and durable_turn.status == "completed":

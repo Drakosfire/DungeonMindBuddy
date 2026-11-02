@@ -236,6 +236,51 @@ def validate_stored_proposal(conn, turn, completion):
         ) from exc
 
 
+
+def _native_build(turn):
+    from .native_execution import SurfaceNativeExecutionV1,NativeBuildActionV1
+    return (type(turn.graph_context_execution) is SurfaceNativeExecutionV1
+        and type(turn.graph_context_execution.policy.action) is NativeBuildActionV1)
+
+
+def validate_prepared_native_authoring(conn,turn,result,*,trace):
+    """Recover an admitted immutable object; never admit new prose or provider IO."""
+    from .rules_authority_store import load_turn_rules_locked
+    from .native_rules_output import sealed_native_producer,verify_captured_output
+    from .source_writer_output import require_captured_answer
+    from types import SimpleNamespace
+    if not _native_build(turn):
+        raise ValueError('Prepared native recovery requires its actual Build owner')
+    validate_stored_proposal(conn,turn,result.completion)
+    current=load_turn_rules_locked(conn,turn)
+    if (current is None or current.execution.state not in {'active','unused','failed'}
+            or current.execution.budget_use.calls or current.execution.supports):
+        raise ValueError('Prepared Build recovery cannot accept used or missing Rules authority')
+    row=conn.execute('SELECT payload FROM agent.build_proposal WHERE world_id=%s AND action_id=%s',
+        (turn.world_id,result.completion.action_id)).fetchone()
+    if isinstance(result.completion,BuildImagePreparationCompletionV1):
+        from application_state.build_proposal.types import BuildImagePreparation
+        record=BuildImagePreparation.model_validate(row[0] if row else None)
+        raw=record.writer_proof.raw_response
+    else:
+        record=BuildProposalRecord.model_validate(row[0] if row else None)
+        raw=record.raw_response
+    producer=result.producing_provider_attempt_id
+    capture,_=sealed_native_producer(turn,current.execution,
+        SimpleNamespace(producing_provider_attempt_id=producer,raw_output_json=raw))
+    encoded=raw.encode('utf-8')
+    responses=[e for e in turn.graph_context_execution.events
+        if e.kind=='provider_outcome' and e.provider_attempt_id==producer and e.outcome=='response_received']
+    if len(responses)!=1:
+        raise ValueError('Prepared Build recovery lacks its unique acknowledged writer')
+    verify_captured_output(capture,raw_output_json=raw,raw_output_sha256=sha256(encoded).hexdigest(),
+        raw_output_utf8_bytes=len(encoded),response_sha256=responses[0].response_sha256)
+    require_captured_answer(trace,world_id=turn.world_id,conversation_id=turn.conversation_id,
+        turn_id=turn.turn_id,attempt=turn.attempt,provider_attempt_id=producer,
+        context_receipt_sha256=turn.graph_context_receipt.context_receipt_sha256,raw_output_json=raw)
+    return current.execution.state
+
+
 def recover_prepared_proposal(service, turn, action_id):
     """Finish only an already persisted, acknowledged proposal; never dispatch."""
     from application_state.build_proposal.service import BuildProposalService
@@ -247,7 +292,7 @@ def recover_prepared_proposal(service, turn, action_id):
         or turn.graph_context_execution is None
         or not isinstance(
             turn.graph_context_execution.policy, BuildActionControllerWriterPolicyV1
-        )
+        ) and not _native_build(turn)
     ):
         return None
     try:
@@ -472,7 +517,7 @@ def recover_prepared_image(service, turn, action_id, owner):
     if (
         turn.status not in {"running", "interrupted"}
         or turn.graph_context_execution is None
-        or not isinstance(turn.graph_context_execution.policy, BuildImageActionPolicyV1)
+        or not (isinstance(turn.graph_context_execution.policy, BuildImageActionPolicyV1) or _native_build(turn))
         or not owner
     ):
         return None
