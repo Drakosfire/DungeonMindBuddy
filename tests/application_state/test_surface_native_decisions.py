@@ -40,6 +40,7 @@ from application_state.errors import (
     ApplicationStateValidationError,
     ApplicationStateConflictError,
 )
+from application_state.agent_conversation.plan_jev_rules_lookup import rules_candidate
 from tests.application_state.test_agent_conversation_postgres import _new
 from tests.test_surface_native_context import provenance_for, seal
 from tests.test_surface_native_execution import component, execution
@@ -71,12 +72,43 @@ def append(case, **updates):
     return fresh
 
 
-def sdk_case(dsn, *, unavailable=False, capture=True, unknown=False):
+def sdk_case(
+    dsn,
+    *,
+    unavailable=False,
+    capture=True,
+    unknown=False,
+    rules_reader=None,
+    question=None,
+):
     context, ledger = component("plan", unavailable=unavailable)
+    if question is not None:
+        wire = context.model_dump(mode="json", by_alias=True)
+        if "question" in wire["native_query"]:
+            wire["native_query"]["question"] = question
+        context = type(context).model_validate_json(json.dumps(seal(wire)))
+        action = ledger.policy.action.model_copy(
+            update={
+                "intent": ledger.policy.action.intent.model_copy(
+                    update={"message": question}
+                )
+            }
+        )
+        ledger = execution(
+            context.context_receipt_sha256,
+            ledger.policy.model_copy(
+                update={
+                    "action": action,
+                    "native_query_sha256": t.canonical_sha256(context.native_query),
+                }
+            ),
+        )
     case = SimpleNamespace(
         dsn=dsn, service=AgentConversationService(), sent=[], steps=[], trace_id=uuid4()
     )
-    for semantic in (True, False):
+    for phase, semantic in enumerate(
+        (True, False, False) if rules_reader else (True, False)
+    ):
         common = dict(
             request_id=uuid4(),
             parent_attempt_id=uuid4(),
@@ -97,7 +129,7 @@ def sdk_case(dsn, *, unavailable=False, capture=True, unknown=False):
             parent = PlanSourceRetrievalDecisionInputV1(
                 **common,
                 **_source_pins(case.turn.graph_context_receipt),
-                candidates=(),
+                candidates=(rules_candidate(),) if rules_reader and phase == 1 else (),
                 allowed_operations=("select_candidates", "finish_retrieval"),
             )
             prepare = prepare_decision
@@ -261,7 +293,11 @@ def sdk_case(dsn, *, unavailable=False, capture=True, unknown=False):
                 answers = {}
                 for name, question in body["questions"].items():
                     selected = (
-                        "discuss" if name == "requested_work" else "finish_retrieval"
+                        "discuss"
+                        if name == "requested_work"
+                        else "include"
+                        if rules_reader and phase == 1 and name != "operation"
+                        else "finish_retrieval"
                     )
                     answers[name] = dict(
                         type="choice",
@@ -355,8 +391,10 @@ def sdk_case(dsn, *, unavailable=False, capture=True, unknown=False):
                 ),
             )
         case.steps.append(step)
-        if semantic:
+        if semantic or rules_reader and phase == 1:
             assert append(case)
+            if not semantic:
+                rules_reader(case)
     return case
 
 

@@ -1107,7 +1107,11 @@ def validate_authoring_writer(conn, action, turn, event):
     from . import types as t
     from application_state.errors import ApplicationStateValidationError
 
-    if not isinstance(event, t.PlanJevWriterAuthorizedV1):
+    from .native_execution import SurfaceNativeExecutionV1, NativePlanActionV1, NativeWriterAuthorizedV1
+    native_plan = (type(turn.graph_context_execution) is SurfaceNativeExecutionV1
+        and type(turn.graph_context_execution.policy.action) is NativePlanActionV1
+        and type(event) is NativeWriterAuthorizedV1)
+    if not (native_plan or isinstance(event, t.PlanJevWriterAuthorizedV1)):
         if action is not None:
             raise ApplicationStateValidationError(
                 "Reserved Plan target belongs only to its writer authorization"

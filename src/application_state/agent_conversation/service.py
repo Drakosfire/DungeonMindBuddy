@@ -1312,6 +1312,7 @@ class AgentConversationService:
         authored_prepared_request_json=None,
         plan_authoring_reservation=None,
         prepared_decision_json=None,
+        native_writer_proof=None,
     ) -> tuple[Turn, bool]:
         world_id = _world_id(world_id)
         dsn = _ready_dsn()
@@ -1323,16 +1324,18 @@ class AgentConversationService:
             turn = _ordinary_mutation_turn(turn, conversation_id)
             if turn is None or turn.conversation_id != conversation_id:
                 raise ApplicationStateNotFoundError("turn not found in verified World conversation")
-            from .native_execution import SurfaceNativeExecutionV1, NativePlanActionV1
+            from .native_execution import SurfaceNativeExecutionV1, NativePlanActionV1, NativeWriterAuthorizedV1
             from .types import PlanJevProviderAuthorizedV1
             native_plan_decision = (
                 type(turn.graph_context_execution) is SurfaceNativeExecutionV1
                 and type(turn.graph_context_execution.policy.action) is NativePlanActionV1
                 and isinstance(event, PlanJevProviderAuthorizedV1)
                 and plan_jev_input_proof is not None)
+            native_writer = (type(turn.graph_context_execution) is SurfaceNativeExecutionV1
+                and type(event) is NativeWriterAuthorizedV1 and native_writer_proof is not None)
             if (isinstance(turn.graph_context_execution, SurfaceNativeExecutionV1)
                     and isinstance(event, ProviderAttemptAuthorizedEventV1)
-                    and not native_plan_decision):
+                    and not (native_plan_decision or native_writer)):
                 raise ApplicationStateValidationError(
                     "Shared native provider requires its exact prepared-input admission owner")
             validate_authoring_writer(conn,action,turn,event)
@@ -1382,6 +1385,41 @@ class AgentConversationService:
             now = repo.database_clock(conn)
             if turn.claim_expires_at is None or turn.claim_expires_at <= now:
                 raise ApplicationStateConflictError("Graph execution claim has expired")
+            if native_writer:
+                if (not isinstance(native_writer_proof,dict) or set(native_writer_proof) !=
+                        {'prepared_request_json','work_proof','expected_rules_revision'}):
+                    raise ApplicationStateValidationError("Native writer requires its exact producing-input proof")
+                captured = conn.execute(
+                    "SELECT payload->>'capture_status' FROM agent.turn_context_trace WHERE turn_id=%s AND attempt=%s",
+                    (turn.turn_id,turn.attempt)).fetchone()
+                if captured is None or captured[0] != 'recording':
+                    raise ApplicationStateValidationError("Native writer requires its active protected capture")
+                prior = [item for item in execution.events if isinstance(item,ProviderAttemptAuthorizedEventV1)
+                    and item.provider_attempt_id == event.provider_attempt_id]
+                if prior and prior != [event]:
+                    raise ApplicationStateConflictError("Native writer identity was reused with changed content")
+                if not prior and event.sequence != len(execution.events):
+                    raise ApplicationStateConflictError("Native writer execution sequence is stale")
+                try:
+                    prospective = execution if prior else SurfaceNativeExecutionV1.model_validate_json(json.dumps(
+                        execution.model_dump(mode='json',by_alias=True)
+                        | {'events':[item.model_dump(mode='json',by_alias=True) for item in [*execution.events,event]]}))
+                    from .native_execution import validate_context_binding
+                    validate_context_binding(turn.graph_context_receipt,prospective)
+                    from .rules_authority_store import admit_native_writer_input_locked
+                    _rules,fresh = admit_native_writer_input_locked(conn,turn,prospective,event,
+                        expected_revision=native_writer_proof["expected_rules_revision"],
+                        prepared_request_json=native_writer_proof["prepared_request_json"],
+                        work_proof=native_writer_proof["work_proof"])
+                except (ValueError,KeyError,TypeError,AttributeError) as exc:
+                    raise ApplicationStateValidationError(str(exc)) from exc
+                if not fresh:
+                    return turn,False
+                updated = repo.update_graph_execution(conn,world_id=world_id,turn_id=turn_id,
+                    expected_revision=expected_revision,execution=prospective)
+                if updated is None:
+                    raise ApplicationStateConflictError("Native writer claim expired during atomic admission")
+                return updated,True
             from .build_related_pages import RelatedPagesSelection, RelatedPageRead, RelatedPageInclusion, validate_inclusion as validate_related_inclusion, validate_selection as validate_related_selection
             try:
                 if isinstance(event,RelatedPageInclusion):
@@ -1768,6 +1806,19 @@ class AgentConversationService:
             expected_attempt=expected_attempt, event=provider_attempt_event,
             duplicate_key="provider_attempt_id",
         )
+
+    def authorize_native_writer(self, world_id, conversation_id, turn_id, *,
+            expected_revision, expected_attempt, expected_rules_revision, authorization,
+            prepared_request_json, work_proof, authoring_reservation=None):
+        """A fresh shared writer plus its Rules input are one dispatch admission."""
+        from .native_execution import NativeWriterAuthorizedV1
+        if type(authorization) is not NativeWriterAuthorizedV1:
+            raise ApplicationStateValidationError("The concrete shared writer authorization is required")
+        return self._append_graph_execution_event(world_id,conversation_id,turn_id,
+            expected_revision=expected_revision,expected_attempt=expected_attempt,event=authorization,
+            duplicate_key='provider_attempt_id',plan_authoring_reservation=authoring_reservation,
+            native_writer_proof=dict(prepared_request_json=prepared_request_json,work_proof=work_proof,
+                expected_rules_revision=expected_rules_revision))
 
     def authorize_plan_jev_writer(self, world_id, conversation_id, turn_id, *,
             expected_revision, expected_attempt, authorization, producer_proof, authoring_reservation=None):
