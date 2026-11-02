@@ -15,7 +15,7 @@ import json
 from collections.abc import Sequence
 from datetime import datetime
 from enum import Enum
-from typing import Annotated, ClassVar, Literal, NoReturn, Protocol
+from typing import Annotated, ClassVar, Literal, NoReturn, Protocol, Union
 from uuid import UUID, uuid4
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator, model_serializer
@@ -1544,7 +1544,7 @@ class PlayWorldGraphContextReceiptV1(ClosedRulesModel):
 
 
 GraphContextReceipt = Annotated[
-    PlanWorldGraphContextReceiptV1 | PlanSourceContextReceiptV1 | PlanNativeContextReceiptV1 | BuildGraphContextReceiptV1 | PlayWorldGraphContextReceiptV1 | NativeStatementContextReceiptV1,
+    Union[PlanWorldGraphContextReceiptV1 | PlanSourceContextReceiptV1 | PlanNativeContextReceiptV1 | BuildGraphContextReceiptV1 | PlayWorldGraphContextReceiptV1 | NativeStatementContextReceiptV1, "SurfaceNativeContextReceiptV1"],
     Field(discriminator="schema_"),
 ]
 
@@ -5328,8 +5328,8 @@ class NativeStatementExecutionV1(StrictModel):
 
 
 GraphTurnExecution = Annotated[
-    PlanWorldGraphExecutionV1 | PlanWorldGraphExecutionV2 | PlanWorldGraphExecutionV3
-    | PlanSourceExecutionV1 | PlanNativeExecutionV1 | PlayWorldGraphExecutionV1 | NativeStatementExecutionV1,
+    Union[PlanWorldGraphExecutionV1 | PlanWorldGraphExecutionV2 | PlanWorldGraphExecutionV3
+    | PlanSourceExecutionV1 | PlanNativeExecutionV1 | PlayWorldGraphExecutionV1 | NativeStatementExecutionV1, "SurfaceNativeExecutionV1"],
     Field(discriminator="schema_"),
 ]
 
@@ -6124,6 +6124,9 @@ def validate_execution_completion(
     claim_graph_event_ids: dict[str, list[UUID]],
 ) -> None:
     """Validate supplied status against the derived producing-envelope status."""
+    if (isinstance(receipt, SurfaceNativeContextReceiptV1)
+            or isinstance(execution, SurfaceNativeExecutionV1)):
+        raise ValueError("Shared native completion requires its locked producing-output owner")
     if isinstance(completion, SurfaceEvidenceCompletionV1):
         from .surface_evidence_answer import validate_completion
         validate_completion(completion, receipt, execution, producing_provider_attempt_id, claim_graph_event_ids)
@@ -6333,6 +6336,11 @@ class TurnSubmission(StrictModel):
             and self.submitted_intent_v2 is not None
         ):
             raise ValueError("a turn cannot carry both submitted intent v1 and v2")
+        if (isinstance(self.graph_context_receipt, SurfaceNativeContextReceiptV1)
+                or isinstance(self.graph_context_execution, SurfaceNativeExecutionV1)):
+            from .native_execution import validate_submission
+            validate_submission(self)
+            return self
         if isinstance(self.graph_context_receipt, NativeStatementContextReceiptV1) or (
                 self.submitted_intent_v1 is not None and self.submitted_intent_v1.native_statement_selection is not None):
             from .native_statement_answer import validate_record
@@ -6616,6 +6624,12 @@ def validate_turn_graph_fields(
     completion: GraphTurnCompletion | None,
     assistant_text: str | None,
 ) -> None:
+    if (isinstance(graph_context_receipt, SurfaceNativeContextReceiptV1)
+            or isinstance(graph_context_execution, SurfaceNativeExecutionV1)):
+        from .native_execution import validate_turn_fields
+        validate_turn_fields(graph_context_receipt, graph_context_execution, provenance,
+            submitted_intent_fingerprint_v2, completion, assistant_text)
+        return
     if (isinstance(graph_context_receipt, NativeStatementContextReceiptV1)
             or isinstance(graph_context_execution, NativeStatementExecutionV1)
             or isinstance(completion, NativeStatementCompletionV1)):
@@ -6792,6 +6806,10 @@ class Turn(StrictModel):
             submitted_intent_fingerprint_v1=self.submitted_intent_fingerprint_v1,
             submitted_intent_fingerprint_v2=self.submitted_intent_fingerprint_v2,
         )
+        if (isinstance(self.graph_context_receipt, SurfaceNativeContextReceiptV1)
+                or isinstance(self.graph_context_execution, SurfaceNativeExecutionV1)):
+            from .native_execution import validate_turn_identity
+            validate_turn_identity(self)
         if isinstance(self.graph_context_receipt, PlayWorldGraphContextReceiptV1) and (
                 self.play_context_receipt != self.graph_context_receipt.play_basis
                 or (self.status == "completed" and (self.completion is None or self.completed_at is None))
@@ -7080,6 +7098,14 @@ class CommandResolutionRecordV1(StrictModel):
         values.update(schema="dmb_agent_new_conversation_resolution_record_v1", original_command_kind="new", record_serializer_version="canonical-json-ascii-v1")
         return cls.model_validate({**values, "record_sha256": _fingerprint(values)})
 
+
+# Resolve shared native references only after their surface-owned intent/event
+# definitions exist. These records do not acquire historical Graph authority.
+from .native_context import SurfaceNativeContextReceiptV1  # noqa: E402
+from .native_execution import SurfaceNativeExecutionV1  # noqa: E402
+TurnSubmission.model_rebuild()
+Turn.model_rebuild()
+TurnResult.model_rebuild()
 
 # Resolve the explicit completed read variants after ordinary domain definitions;
 # Rules read models reuse these validators without constructing a fake Turn.

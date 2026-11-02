@@ -276,6 +276,10 @@ def _validated_base_execution_locked(
     mixed_output_context=None, native_output_verified=False,
 ):
     """Validate the unchanged base-domain completion without committing a Turn."""
+    from .native_execution import SurfaceNativeExecutionV1
+    if isinstance(turn.graph_context_execution, SurfaceNativeExecutionV1):
+        raise ApplicationStateValidationError(
+            "Shared native completion requires its locked producing-output owner")
     from .types import NativeStatementExecutionV1
     if isinstance(turn.graph_context_execution, NativeStatementExecutionV1):
         from .native_statement_answer import accept_result
@@ -673,6 +677,13 @@ class AgentConversationService:
             )
 
     def accept_turn(self, submission: TurnSubmission) -> TurnReadModel:
+        # StrictModel/model_copy is mutable. Re-run the submission owner before
+        # fingerprints, idempotent replay or any database mutation. JSON mode
+        # also checks copied dictionary fields through their actual wire codecs.
+        try:
+            submission = TurnSubmission.model_validate_json(submission.model_dump_json(by_alias=True))
+        except (ValueError, TypeError, AttributeError) as exc:
+            raise ApplicationStateValidationError(str(exc)) from exc
         world_id = _world_id(submission.world_id)
         if submission.provenance.world_id != world_id:
             raise ApplicationStateValidationError("turn provenance must match verified World")
@@ -1127,18 +1138,13 @@ class AgentConversationService:
                             outcome="outcome_unknown",
                         )
                         execution_type = type(execution)
-                        execution = execution_type.model_validate(
+                        # This is a wire projection: validate it in JSON mode,
+                        # including frozen dataclasses and immutable tuple fields.
+                        execution = execution_type.model_validate_json(json.dumps(
                             execution.model_dump(mode="json", by_alias=True)
-                            | {
-                                "events": [
-                                    *[
-                                        e.model_dump(mode="json", by_alias=True)
-                                        for e in execution.events
-                                    ],
-                                    unknown.model_dump(mode="json", by_alias=True),
-                                ]
-                            }
-                        )
+                            | {"events": [e.model_dump(mode="json", by_alias=True)
+                                          for e in [*execution.events, unknown]]}
+                        ))
                     interrupted = repo.interrupt_expired_graph_execution(
                         conn,
                         world_id=world_id,
@@ -1317,6 +1323,11 @@ class AgentConversationService:
             turn = _ordinary_mutation_turn(turn, conversation_id)
             if turn is None or turn.conversation_id != conversation_id:
                 raise ApplicationStateNotFoundError("turn not found in verified World conversation")
+            from .native_execution import SurfaceNativeExecutionV1
+            if (isinstance(turn.graph_context_execution, SurfaceNativeExecutionV1)
+                    and isinstance(event, ProviderAttemptAuthorizedEventV1)):
+                raise ApplicationStateValidationError(
+                    "Shared native provider requires its exact prepared-input admission owner")
             validate_authoring_writer(conn,action,turn,event)
             from .work_plan import retained_bound_intent
             bound_intent = retained_bound_intent(conn, turn)

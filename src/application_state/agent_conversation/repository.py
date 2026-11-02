@@ -235,7 +235,12 @@ def _turn_from_row(
     from .native_statement_answer import NativeStatementCompletionV1
     from .types import NativeStatementExecutionV1, PlanSourceContextReceiptV1, PlanSourceExecutionV1, PlanNativeContextReceiptV1, PlanNativeExecutionV1
 
+    from .native_context import SurfaceNativeContextReceiptV1
+    from .native_execution import SurfaceNativeExecutionV1
+
     for key, model in (
+        ("graph_context_receipt", SurfaceNativeContextReceiptV1),
+        ("graph_context_execution", SurfaceNativeExecutionV1),
         ("graph_context_receipt", PlanNativeContextReceiptV1),
         ("graph_context_execution", PlanNativeExecutionV1),
         ("graph_context_receipt", PlanSourceContextReceiptV1),
@@ -252,7 +257,7 @@ def _turn_from_row(
             try:
                 fields[key] = model.model_validate_json(json.dumps(value, ensure_ascii=False))
             except ValidationError as exc:
-                if model in (NativeStatementContextReceiptV1, NativeStatementExecutionV1, NativeStatementCompletionV1):
+                if model in (NativeStatementContextReceiptV1, NativeStatementExecutionV1, NativeStatementCompletionV1, SurfaceNativeContextReceiptV1, SurfaceNativeExecutionV1):
                     raise ApplicationStateIntegrityError("Stored native context failed typed validation") from exc
                 raise
     marker = row["answer_composition_kind"]
@@ -271,7 +276,7 @@ def _turn_from_row(
         try:
             turn = Turn(**fields)
         except ValidationError as exc:
-            if isinstance(fields.get("graph_context_receipt"), NativeStatementContextReceiptV1):
+            if isinstance(fields.get("graph_context_receipt"), (NativeStatementContextReceiptV1, SurfaceNativeContextReceiptV1)):
                 raise ApplicationStateIntegrityError("Native completion differs from its captured producing output") from exc
             raise
         from .build_authoring import validate_stored_proposal

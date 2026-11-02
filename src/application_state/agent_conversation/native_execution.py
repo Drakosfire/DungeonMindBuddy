@@ -1,8 +1,8 @@
 """One native execution component, with closed surface-owned work commitments.
 
-Not yet registered for APP admission: producing SDK proof, completion and consumer
-cutover are mandatory activation gates. These structural models and binding checks
-do not grant reads, reserve writes or accept grounded answers.
+APP admits the exact shared request/work envelope. Producing SDK proof, completion
+and consumer cutover remain mandatory activation gates. These structural models
+and binding checks do not grant reads, reserve writes or accept grounded answers.
 """
 from __future__ import annotations
 
@@ -326,3 +326,59 @@ def validate_context_binding(context, execution):
             raise ValueError("Native query cannot replace an explicitly requested revision")
     from .native_plan_statements import validate_selected_record_events
     validate_selected_record_events(query, execution)
+
+
+def validate_submission(submission):
+    """Join new native admission to the actual request, before any APP mutation."""
+    receipt, execution = submission.graph_context_receipt, submission.graph_context_execution
+    validate_context_binding(receipt, execution)
+    from .native_context import validate_work_context
+    validate_work_context(receipt, submission.provenance,
+        play_context_receipt=submission.play_context_receipt)
+    intent = execution.policy.action.intent
+    if (submission.submitted_intent_v1 is not None
+            or submission.submitted_intent_v2 != intent or execution.events
+            or intent.world_id != submission.world_id or intent.message != submission.user_text
+            or intent.surface_instance_id != submission.provenance.surface_instance_id):
+        raise ValueError("Shared native admission requires its exact request and empty execution")
+    binding = getattr(intent, 'reviewed_step', None)
+    if binding is not None and binding.reference.conversation_id != submission.conversation_id:
+        raise ValueError("Reviewed native action belongs to a different conversation")
+    capture = getattr(execution.policy.action, 'authoring_capture', None)
+    if capture is not None and capture.conversation_id != submission.conversation_id:
+        raise ValueError("Native Plan capture belongs to a different conversation")
+
+
+def validate_turn_fields(receipt, execution, provenance, intent_fingerprint, completion, assistant_text):
+    """Read structural commitments without treating them as producer acceptance."""
+    validate_context_binding(receipt, execution)
+    if (t.canonical_sha256(provenance) != receipt.provenance_sha256
+            or t.submitted_turn_intent_fingerprint_v2(execution.policy.action.intent) != intent_fingerprint):
+        raise ValueError("Stored shared native request or provenance differs from admission")
+    if (completion is not None or assistant_text is not None
+            or any(isinstance(event,t.CompletionBindingEventV1) for event in execution.events)):
+        raise ValueError("Shared native completion requires its locked producing-output owner")
+
+
+def validate_turn_identity(turn):
+    """Bind stored work to real Turn identity; no manufactured submission/Turn."""
+    receipt, execution = turn.graph_context_receipt, turn.graph_context_execution
+    if type(receipt) is not SurfaceNativeContextReceiptV1 or type(execution) is not SurfaceNativeExecutionV1:
+        raise ValueError("Stored shared native Turn requires its concrete context and execution")
+    from .native_context import validate_work_context
+    validate_work_context(receipt,turn.provenance,play_context_receipt=turn.play_context_receipt)
+    action = execution.policy.action
+    intent = action.intent
+    if (turn.submitted_intent_fingerprint_v1 is not None
+            or t.submitted_turn_intent_fingerprint_v2(intent) != turn.submitted_intent_fingerprint_v2
+            or turn.world_id != intent.world_id or turn.user_text != intent.message
+            or turn.provenance.surface_instance_id != intent.surface_instance_id
+            or turn.status == 'completed'
+            or (turn.status in {'accepted','running'} and turn.completed_at is not None)):
+        raise ValueError("Stored shared native lifecycle or request differs from admission")
+    binding = getattr(intent,'reviewed_step',None)
+    if binding is not None and binding.reference.conversation_id != turn.conversation_id:
+        raise ValueError("Reviewed native action belongs to a different conversation")
+    capture = getattr(action,'authoring_capture',None)
+    if capture is not None and capture.conversation_id != turn.conversation_id:
+        raise ValueError("Native Plan capture belongs to a different conversation")
