@@ -40,7 +40,6 @@ from application_state.errors import (
     ApplicationStateValidationError,
     ApplicationStateConflictError,
 )
-from application_state.agent_conversation.plan_jev_rules_lookup import rules_candidate
 from tests.application_state.test_agent_conversation_postgres import _new
 from tests.test_surface_native_context import provenance_for, seal
 from tests.test_surface_native_execution import component, execution
@@ -78,10 +77,15 @@ def sdk_case(
     unavailable=False,
     capture=True,
     unknown=False,
-    rules_reader=None,
+    acquisitions=(),
+    context_record=None,
     question=None,
 ):
-    context, ledger = component("plan", unavailable=unavailable)
+    context, ledger = (
+        context_record
+        if context_record is not None
+        else component("plan", unavailable=unavailable)
+    )
     if question is not None:
         wire = context.model_dump(mode="json", by_alias=True)
         if "question" in wire["native_query"]:
@@ -106,9 +110,7 @@ def sdk_case(
     case = SimpleNamespace(
         dsn=dsn, service=AgentConversationService(), sent=[], steps=[], trace_id=uuid4()
     )
-    for phase, semantic in enumerate(
-        (True, False, False) if rules_reader else (True, False)
-    ):
+    for phase, semantic in enumerate((True, *([False] * (len(acquisitions) + 1)))):
         common = dict(
             request_id=uuid4(),
             parent_attempt_id=uuid4(),
@@ -129,7 +131,9 @@ def sdk_case(
             parent = PlanSourceRetrievalDecisionInputV1(
                 **common,
                 **_source_pins(case.turn.graph_context_receipt),
-                candidates=(rules_candidate(),) if rules_reader and phase == 1 else (),
+                candidates=tuple(acquisitions[phase - 1][0](case))
+                if 0 < phase <= len(acquisitions)
+                else (),
                 allowed_operations=("select_candidates", "finish_retrieval"),
             )
             prepare = prepare_decision
@@ -296,7 +300,7 @@ def sdk_case(
                         "discuss"
                         if name == "requested_work"
                         else "include"
-                        if rules_reader and phase == 1 and name != "operation"
+                        if 0 < phase <= len(acquisitions) and name != "operation"
                         else "finish_retrieval"
                     )
                     answers[name] = dict(
@@ -391,10 +395,10 @@ def sdk_case(
                 ),
             )
         case.steps.append(step)
-        if semantic or rules_reader and phase == 1:
+        if semantic or 0 < phase <= len(acquisitions):
             assert append(case)
             if not semantic:
-                rules_reader(case)
+                acquisitions[phase - 1][1](case)
     return case
 
 

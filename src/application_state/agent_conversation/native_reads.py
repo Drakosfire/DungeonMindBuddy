@@ -56,7 +56,12 @@ def _owner(turn, *, require_source=False):
     validate_execution_binding(receipt, execution)
     if require_source and not isinstance(receipt.source_authority, NativeCorpusAuthorityV1):
         raise ValueError("Native body acquisition requires its available frozen source authority")
-    validate_source_provenance(receipt, turn.provenance)
+    from .native_context import SurfaceNativeContextReceiptV1
+    if type(receipt) is SurfaceNativeContextReceiptV1:
+        from .native_execution import validate_request_identity
+        validate_request_identity(receipt,execution,turn)
+    else:
+        validate_source_provenance(receipt, turn.provenance)
     return receipt, execution
 
 
@@ -69,7 +74,7 @@ def authorize_read(turn, *, event_id, record_kind, record_ids):
         raise ValueError("Unknown native selected-read record kind")
     receipt, execution = _owner(turn)
     query = getattr(receipt, "native_query", None)
-    if (not isinstance(receipt, t.PlanNativeContextReceiptV1)
+    if (not isinstance(receipt, (t.PlanNativeContextReceiptV1,t.SurfaceNativeContextReceiptV1))
             or not isinstance(query, NativePlanQueryV1)
             or record_kind == "assertion" and not isinstance(query, NativePlanQueryV2)):
         raise ValueError("Native query is unavailable for the selected record kind")
@@ -78,7 +83,7 @@ def authorize_read(turn, *, event_id, record_kind, record_ids):
     event = event_type(event_id=event_id, sequence=len(execution.events),
         provider_attempt_id=current_selection(turn).controller_attempt_id,
         query_sha256=query.sha256, **{ids_field: tuple(record_ids)})
-    validate_execution(receipt, execution.model_copy(update={"events": [*execution.events, event]}))
+    validate_execution_binding(receipt, execution.model_copy(update={"events": [*execution.events, event]}))
     return event
 
 
@@ -98,7 +103,7 @@ def observe_read(turn, *, event_id, authorization_event_id, reads, unavailable_i
         authorization_event_id=authorization_event_id, reads=tuple(reads),
         status="partial" if unavailable_ids else "complete",
         **{unavailable_field: tuple(unavailable_ids)})
-    validate_execution(receipt, execution.model_copy(update={"events": [*execution.events, event]}))
+    validate_execution_binding(receipt, execution.model_copy(update={"events": [*execution.events, event]}))
     return event
 
 

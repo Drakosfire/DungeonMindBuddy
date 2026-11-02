@@ -43,8 +43,8 @@ from tests.application_state.test_surface_native_writers import (
 from tests.test_surface_native_execution import execution
 
 
-def completed_input(dsn, *, used=False, base=True):
-    case = prepared_case(dsn, used=used)
+def completed_input(dsn, *, used=False, base=True, acquired=None, answer_rows=None):
+    case = prepared_case(dsn, used=used, acquired=acquired)
     candidate = json.loads(case.output)
     selection = next(
         b["selection_id"]
@@ -52,15 +52,16 @@ def completed_input(dsn, *, used=False, base=True):
         if b.get("selection_id")
     )
     authored = {"kind": "authored_excerpt", "selection_id": selection}
+    rows = answer_rows(case) if answer_rows is not None else [authored]
     if used:
-        candidate["base_output"]["answer_segments"] = [authored]
+        candidate["base_output"]["answer_segments"] = rows
         if not base:
             candidate["base_output"] = None
             candidate["ordered_refs"] = [
                 r for r in candidate["ordered_refs"] if r["domain"] != "base"
             ]
     else:
-        candidate["answer_segments"] = [authored]
+        candidate["answer_segments"] = rows
     case.output = json.dumps(candidate)
     run_writer(case)
     case.capture = NativeProviderReply(

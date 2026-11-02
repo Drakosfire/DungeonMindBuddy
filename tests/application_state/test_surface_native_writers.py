@@ -112,11 +112,21 @@ def acquire_rules(case):
     case.rules = case.delivery.record
 
 
-def prepared_case(dsn, *, used=False):
-    case = sdk_case(
-        dsn,
-        rules_reader=acquire_rules if used else None,
-        question="Can I end my move in an occupied space?" if used else None,
+def prepared_case(dsn, *, used=False, acquired=None):
+    from application_state.agent_conversation.plan_jev_rules_lookup import (
+        rules_candidate,
+    )
+
+    case = (
+        acquired
+        if acquired is not None
+        else sdk_case(
+            dsn,
+            acquisitions=((lambda case: (rules_candidate(),), acquire_rules),)
+            if used
+            else (),
+            question="Can I end my move in an occupied space?" if used else None,
+        )
     )
     assert append(case)
     open_rules(case)
@@ -202,7 +212,23 @@ def writer_auth(case, raw, attempt=None):
         included_graph_event_ids=[],
         included_source_read_event_ids=[],
         frame_sha256=t.canonical_sha256(case.frame),
-        native_read_event_ids=(),
+        native_read_event_ids=tuple(
+            sorted(
+                (
+                    e.event_id
+                    for e in case.turn.graph_context_execution.events
+                    if isinstance(
+                        e,
+                        (
+                            t.NativeBodyReadObservedV1,
+                            t.NativePlanStatementReadObservedV1,
+                            t.NativePlanAssertionReadObservedV1,
+                        ),
+                    )
+                ),
+                key=str,
+            )
+        ),
     )
 
 

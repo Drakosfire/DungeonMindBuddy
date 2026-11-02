@@ -226,9 +226,9 @@ class PlanJevDriver:
         a = self.adapter
         if a.fence is None or not isinstance(getattr(a.fence.turn.graph_context_receipt, 'native_query', None), NativePlanQueryV2):
             return ()
-        from application_state.agent_conversation.native_plan_statements import validate_execution
+        from application_state.agent_conversation.native_reads import validate_execution_binding
         execution = a._broker_execution()
-        validate_execution(a.fence.turn.graph_context_receipt, execution)
+        validate_execution_binding(a.fence.turn.graph_context_receipt, execution)
         query = a.fence.turn.graph_context_receipt.native_query
         if a.native_query.sha256 != query.sha256:
             raise ValueError('Native assertion query differs from its frozen receipt')
@@ -246,16 +246,17 @@ class PlanJevDriver:
         """Truthful read outcomes for navigation, never an answer-sufficiency verdict."""
         from application_state.agent_conversation.native_plan_statements import (
             NativePlanQueryV1, NativePlanStatementReadAuthorizedV1,
-            NativePlanStatementReadObservedV1, validate_execution, selection_handle)
+            NativePlanStatementReadObservedV1, selection_handle)
         a = self.adapter
         # The first controller dispatch may precede the initial durable claim.
         if a.fence is None:
             return ()
         receipt = a.fence.turn.graph_context_receipt
-        if not isinstance(receipt, t.PlanNativeContextReceiptV1):
+        if not isinstance(receipt, (t.PlanNativeContextReceiptV1,t.SurfaceNativeContextReceiptV1)):
             return ()
+        from application_state.agent_conversation.native_reads import validate_execution_binding
         execution = a._broker_execution()
-        validate_execution(receipt, execution)
+        validate_execution_binding(receipt, execution)
         query = receipt.native_query
         if not isinstance(query, NativePlanQueryV1):
             return ()
