@@ -527,6 +527,34 @@ def lock_plan_basis(conn, basis: PlanAuthoringBasisV1) -> None:
         )
 
 
+def _authoring_binding(receipt, execution):
+    """Use the actual Plan work/action; never construct a historical policy."""
+    from . import types as t
+    from .plan_jev_decision import _native_plan_action
+    from .native_context import SurfaceNativeContextReceiptV1, PlanWorkContextV1
+    from application_state.errors import ApplicationStateValidationError
+
+    action = _native_plan_action(execution)
+    if action is not None:
+        if type(receipt) is not SurfaceNativeContextReceiptV1 or type(receipt.work_context) is not PlanWorkContextV1:
+            raise ApplicationStateValidationError('Plan authoring requires its actual shared work basis')
+        return (receipt.work_context.plan_basis, action.intent.plan_authoring_capture_sha256,
+            action.intent.plan_placement_catalog_sha256, True)
+    if not isinstance(execution.policy, t.PlanAuthoringPolicyV1):
+        raise ApplicationStateValidationError('Plan authoring requires its captured destination policy')
+    return (receipt.plan_basis, execution.policy.plan_authoring_capture_sha256,
+        getattr(execution.policy, 'placement_catalog_sha256', None),
+        isinstance(execution.policy, t.PlanPlacementAuthoringPolicyV1))
+
+
+def _is_authoring_writer(execution, event):
+    from . import types as t
+    from .native_execution import SurfaceNativeExecutionV1, NativePlanActionV1, NativeWriterAuthorizedV1
+    if type(execution) is SurfaceNativeExecutionV1:
+        return type(execution.policy.action) is NativePlanActionV1 and type(event) is NativeWriterAuthorizedV1
+    return isinstance(event, t.PlanJevWriterAuthorizedV1)
+
+
 def reserve_authoring_locked(
     conn, *, capture: PlanAuthoringCapture, turn_id: UUID, expected_revision: int
 ):
@@ -558,7 +586,8 @@ def reserve_authoring_locked(
             "Plan authoring lacks its actual originating turn"
         )
     receipt, execution = _owner(preliminary)
-    basis = PlanAuthoringBasisV1.model_validate(receipt.plan_basis.model_dump())
+    work_basis, _, _, _ = _authoring_binding(receipt, execution)
+    basis = PlanAuthoringBasisV1.model_validate(work_basis.model_dump())
     fingerprint = digest(
         {
             "schema": "dmb_plan_authoring_request_v1",
@@ -628,27 +657,27 @@ def reserve_authoring_locked(
             "Plan authoring turn or conversation changed before authorization"
         )
     receipt, execution = _owner(turn)
+    work_basis, capture_sha, catalog_sha, placement = _authoring_binding(receipt, execution)
     choices = [
         event
         for event in execution.events
         if isinstance(event, t.PlanRequestedWorkSelectedV1)
     ]
     if (
-        not isinstance(execution.policy, t.PlanAuthoringPolicyV1)
-        or len(choices) != 1
+        len(choices) != 1
         or choices[0].requested_work != "write_current_page"
         or choices[0].target_capture_sha256 != capture.sha256
         or (isinstance(choices[0], t.PlanRequestedWorkSelectedV2)
-            and (not isinstance(execution.policy, t.PlanPlacementAuthoringPolicyV1)
-                or choices[0].original_capture_sha256 != execution.policy.plan_authoring_capture_sha256
-                or choices[0].placement_catalog_sha256 != execution.policy.placement_catalog_sha256))
+            and (not placement
+                or choices[0].original_capture_sha256 != capture_sha
+                or choices[0].placement_catalog_sha256 != catalog_sha))
         or (not isinstance(choices[0], t.PlanRequestedWorkSelectedV2)
-            and execution.policy.plan_authoring_capture_sha256 != capture.sha256)
+            and (placement or capture_sha != capture.sha256))
         or fresh
         and any(
-            isinstance(event, t.PlanJevWriterAuthorizedV1) for event in execution.events
+            _is_authoring_writer(execution, event) for event in execution.events
         )
-        or receipt.plan_basis.model_dump() != basis.model_dump()
+        or work_basis.model_dump() != basis.model_dump()
         or (
             basis.world_id,
             basis.document_id,
@@ -898,7 +927,7 @@ def validate_proposal_producer(proposal, turn, result, proof):
         [
             event
             for event in execution.events
-            if isinstance(event, t.PlanJevWriterAuthorizedV1)
+            if _is_authoring_writer(execution, event)
         ]
         if execution
         else []
@@ -981,9 +1010,8 @@ def validate_stored_authoring_result(action, turn):
 def writer_evidence_event_ids(execution, writer):
     from . import types as t
 
-    ids = set(writer.included_graph_event_ids) | set(
-        t.included_passage_event_ids(writer)
-    )
+    ids = set(writer.included_graph_event_ids) | set(t.included_passage_event_ids(writer))
+    ids.update(getattr(writer, "native_read_event_ids", ()))
     for event in execution.events:
         if getattr(event, "provider_attempt_id", None) != writer.provider_attempt_id:
             continue
@@ -1014,7 +1042,6 @@ def validate_authoring_transaction(conn, action, proposal, turn, result, proof):
 
 def prepare_authoring_proposal(action, capture, turn, result, proof):
     """The Plan parent wraps one already-normalized writer result, never rewrites it."""
-    from . import types as t
     from .rules_authority_completion import NativeRulesMixedTurnResultV1
 
     if not isinstance(action.authoring_origin, PlanJevAuthoringReservationV1):
@@ -1022,7 +1049,7 @@ def prepare_authoring_proposal(action, capture, turn, result, proof):
     writers = [
         event
         for event in turn.graph_context_execution.events
-        if isinstance(event, t.PlanJevWriterAuthorizedV1)
+        if _is_authoring_writer(turn.graph_context_execution, event)
         and event.provider_attempt_id == proof.producing_provider_attempt_id
     ]
     if len(writers) != 1:
@@ -1107,11 +1134,7 @@ def validate_authoring_writer(conn, action, turn, event):
     from . import types as t
     from application_state.errors import ApplicationStateValidationError
 
-    from .native_execution import SurfaceNativeExecutionV1, NativePlanActionV1, NativeWriterAuthorizedV1
-    native_plan = (type(turn.graph_context_execution) is SurfaceNativeExecutionV1
-        and type(turn.graph_context_execution.policy.action) is NativePlanActionV1
-        and type(event) is NativeWriterAuthorizedV1)
-    if not (native_plan or isinstance(event, t.PlanJevWriterAuthorizedV1)):
+    if not _is_authoring_writer(turn.graph_context_execution, event):
         if action is not None:
             raise ApplicationStateValidationError(
                 "Reserved Plan target belongs only to its writer authorization"
