@@ -47,7 +47,6 @@ export interface ExactRunCandidateProjection {
     managedWorldId: string;
     nativeWorldId: string;
     bindingVersion: number;
-    runWorldBindingStatus: "frozen_verified" | "source_only";
     sourceMarkdown: string;
     narrativeMarkdown: string;
     projectedMarkdown: string;
@@ -97,7 +96,7 @@ export async function getExactRunCandidateProjection(runId: string, managedWorld
     if (!result || result.schema !== "dmb_exact_run_candidate_projection_v1" || result.trustBoundary !== "unpublished_candidate"
         || result.runId !== runId || result.managedWorldId !== managedWorldId || result.sourceDomain !== "recap"
         || !["recap_category_v1@1.0", "recap_category_v2@2.0", "recap_category_encounter_job_preview@2.0"].includes(result.profileId) || !["reviewable", "promoted"].includes(result.runStatus)
-        || !["frozen_verified", "source_only"].includes(result.runWorldBindingStatus) || !Number.isSafeInteger(result.runRevision) || result.runRevision < 1
+        || !Number.isSafeInteger(result.runRevision) || result.runRevision < 1
         || !result.nativeWorldId || !result.sourceArtifactId || !Number.isSafeInteger(result.bindingVersion) || result.bindingVersion < 1
         || !digest(result.sourceSha256) || result.sourceRevisionId !== result.sourceSha256 || !digest(result.candidateSha256) || !digest(result.spanIndexSha256)
         || typeof result.sourceMarkdown !== "string" || typeof result.narrativeMarkdown !== "string" || typeof result.projectedMarkdown !== "string"

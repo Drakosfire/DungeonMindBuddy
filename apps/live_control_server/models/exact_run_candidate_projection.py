@@ -73,7 +73,6 @@ class ExactRunCandidateProjection(ReadModel):
     managed_world_id: str
     native_world_id: str
     binding_version: int
-    run_world_binding_status: Literal["frozen_verified", "source_only"]
     source_markdown: str
     narrative_markdown: str
     projected_markdown: str

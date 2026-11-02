@@ -98,7 +98,7 @@ function candidateRecapProjectionForRun(runId: string): ExactRunCandidateProject
   const source=prior.markdown.replace("[Mireward](dmb-node:loc_mireward)","Mireward");
   return {schema:"dmb_exact_run_candidate_projection_v1",trustBoundary:"unpublished_candidate",runId,runRevision:5,runStatus:"reviewable",profileId:"recap_category_v1@1.0",sourceDomain:"recap",
     sourceArtifactId:prior.sourceArtifactId,sourceRevisionId:prior.sourceSha256,sourceSha256:prior.sourceSha256,candidateSha256:"sha256:"+"c".repeat(64),spanIndexSha256:"sha256:"+"e".repeat(64),
-    campaignId:prior.campaignId,sessionId:prior.sessionId,managedWorldId:"elderwyld",nativeWorldId:"world:elderwyld",bindingVersion:3,runWorldBindingStatus:"source_only",
+    campaignId:prior.campaignId,sessionId:prior.sessionId,managedWorldId:"elderwyld",nativeWorldId:"world:elderwyld",bindingVersion:3,
     sourceMarkdown:source,narrativeMarkdown:source,projectedMarkdown:source.replace("Mireward.",`[Mireward](dmb-node:${key}).`),sourceDisplaySegments:[],
     nodes:[{viewKey:key,candidateNodeId:"loc_mireward",label:"Mireward",nodeType:"location",description:"Candidate-only place",confidence:"medium",semanticState:{},warnings:[],evidence:[]}],edges:[],
     nodeViews:{[key]:{node_id:key,label:"Mireward",kind:"candidate",role:"unpublished_candidate",aliases:[],source_domains:["recap"],evidence_badges:[],adjacency:[],anchored_to_focus_session:false}},

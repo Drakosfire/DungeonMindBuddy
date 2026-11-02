@@ -158,7 +158,6 @@ def test_actual_production_run_reads_all_local_candidates_without_mutation(
             )
     result = service.build_exact_run_candidate_projection(root, run.run_id, "managed-a")
     assert result.trust_boundary == "unpublished_candidate"
-    assert result.run_world_binding_status == "source_only"
     assert result.source_markdown == fixture.SOURCE
     assert len(result.nodes) == 1 and result.mentions_count == 1
     node = result.nodes[0]
@@ -357,7 +356,19 @@ def test_route_rejects_ambiguous_selectors_before_resolution(monkeypatch, query)
     assert asyncio.run(request()).status_code == 422
 
 
-def test_real_http_auth_and_read_only_exact_run(produced, monkeypatch):
+@pytest.mark.parametrize("generation", [
+    None,
+    {"native_world_id": "eldyrwild", "campaign_id": "longmont-c2"},
+    {"world_campaign_ingest_context": {
+        "schema": "dm_world_campaign_ingest_context_v1",
+        "managed_world_id": "managed-a", "native_world_id": "eldyrwild",
+        "binding_version": 1, "campaign_id": "longmont-c2",
+        "head_revision_id": "rev:historical", "graph_schema": "dm_union_graph_v6",
+        "graph_payload_sha256": "a" * 64,
+    }},
+    {"world_campaign_ingest_context": {}},
+], ids=["current-source", "retired-native-name", "retired-binding", "irrelevant-generation"])
+def test_real_http_auth_and_read_only_exact_run(produced, monkeypatch, generation):
     from apps.live_control_server.routes import graph_preview
     from apps.live_control_server.services.agent_graph_auth import (
         authenticate_native_graph_principal,
@@ -365,6 +376,12 @@ def test_real_http_auth_and_read_only_exact_run(produced, monkeypatch):
     )
 
     root, _, run = produced
+    if generation is not None:
+        run = run.model_copy(update={"lineage": generation})
+        monkeypatch.setattr(service, "get_extraction_run", lambda *a, **k: run)
+    binding = service.resolve_managed_world_binding("managed-a")
+    monkeypatch.setattr(service, "resolve_managed_world_binding",
+                        lambda world: replace(binding, binding_version=3))
     monkeypatch.setattr(graph_preview, "repo_root", lambda: root)
     monkeypatch.setenv("DMB_AGENT_GRAPH_AUTH_MODE", "local_operator")
     monkeypatch.setenv("DMB_AGENT_GRAPH_AUTH_ENVIRONMENT", "local")
@@ -385,6 +402,10 @@ def test_real_http_auth_and_read_only_exact_run(produced, monkeypatch):
             )
             assert response.status_code == 200, response.text
             assert response.json()["trustBoundary"] == "unpublished_candidate"
+            assert response.json()["bindingVersion"] == 3
+            assert response.json()["nativeWorldId"] == binding.native_world_id
+            assert response.json()["sourceMarkdown"] == fixture.SOURCE
+            assert "runWorldBindingStatus" not in response.json()
             app.dependency_overrides[authenticate_native_graph_principal] = lambda: (
                 NativeGraphPrincipal("player", "player", "local_operator")
             )
@@ -454,8 +475,6 @@ def test_duplicate_and_overlapping_labels_stay_plain(produced):
         {"profile_id": "gazetteer@1.10"},
         {"campaign_id": "foreign"},
         {"session_id": "session-28"},
-        {"lineage": {"native_world_id": "foreign"}},
-        {"lineage": {"world_campaign_ingest_context": {}}},
     ],
 )
 def test_ineligible_or_conflicting_stored_run_never_downgrades_to_source_only(
