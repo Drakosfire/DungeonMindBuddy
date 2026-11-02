@@ -185,6 +185,12 @@ def test_actual_native_sdk_output_is_accepted_reloaded_and_replayed(
     case = completed_input(application_state_dsn, used=used, base=base)
     completed = finish(case)
     assert completed.assistant_text == case.normalized.assistant_text
+    if used:
+        from apps.live_control_server.services.rules_answer_presentation import project_rules_answer_context
+        projected=project_rules_answer_context(completed,delivery_replay=True)
+        assert (projected.base_context is not None) == base
+        assert (projected.unclaimed_context is not None) != base
+        projected.validate_answer(completed.assistant_text)
     assert finish(case) == completed and len(case.writer_calls) == 1
     assert (
         AgentConversationService().inspect_turn(
@@ -406,6 +412,12 @@ def test_object_only_mixed_native_review_remains_typed_without_approved_text():
         == result.completion.collaboration
     )
     assert retained.accepted_binding.base_disposition == "unclaimed"
+    from apps.live_control_server.services.rules_answer_presentation import project_rules_answer_context
+    projected=project_rules_answer_context(retained,delivery_replay=True)
+    assert projected.base_context is None
+    assert projected.unclaimed_context.completion == retained.base_projection.completion
+    assert not projected.unclaimed_context.completion.answer_segments
+    projected.validate_answer(retained.assistant_text)
 
     dropped = retained.model_dump(mode="json", by_alias=True)
     dropped["base_projection"]["completion"] = None

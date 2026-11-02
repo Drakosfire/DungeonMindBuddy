@@ -67,7 +67,7 @@ class PlanJevDriver:
         result = [candidate for node, candidate in self.catalog.values() if node not in self.attempted_nodes]
         from .plan_jev_acquisition import query_identity, read_subject_labels
         seen = set(self.attempted_queries)
-        for node, label in read_subject_labels(self.adapter).items():
+        for node, label in (read_subject_labels(self.adapter) if self.graph_available else {}).items():
             key = query_identity(label)
             if key not in seen:
                 result.append(RetrievalCandidate(handle=f"mentions:{node}", label=label,
@@ -111,6 +111,8 @@ class PlanJevDriver:
         return added
 
     def _read_new_sources(self, operations):
+        if not operations:
+            return
         from .world_source_acquisition import read_operation_sources
         return read_operation_sources(self.adapter, operations, self.attempted_anchors, self.gaps)
 
@@ -309,6 +311,9 @@ class PlanJevDriver:
         if not self.finished or self.adapter.failure is not None:
             raise ValueError("Plan writer cannot use unfinished acquisition")
         a = self.adapter
+        if type(a.fence.turn.graph_context_receipt) is t.SurfaceNativeContextReceiptV1:
+            return dict(plan_markdown=a.work.plan_markdown,
+                session_evidence=(a.work.session_evidence or {}).get('sessions',[]),dialogue=self.dialogue)
         names = {}
         for event in a._broker_execution().events:
             if not isinstance(event, t.SOURCE_PASSAGE_EVENTS) or event.event_id not in a.source_payloads:

@@ -127,13 +127,27 @@ class _ReplyRejected(ValueError):
 class PlanJevWriter:
     def __init__(self, adapter, proof, rules):
         self.adapter, self.proof, self.rules = adapter, proof, rules
-        self.projection = project(adapter.fence.turn, proof, adapter.context_capture.trace.model_dump(mode='json'))
+        self.shared = type(adapter.fence.turn.graph_context_receipt) is t.SurfaceNativeContextReceiptV1
         rule_frame = rules.frame()
-        from application_state.agent_conversation.plan_writer_output_schema import output_format
-        self.output_format = output_format(self.projection.frame, rule_frame)
-        self.messages = [{'role': 'user', 'content': canonical_bytes(self.projection.frame).decode()},
-                         {'role': 'user', 'content': canonical_bytes(rule_frame).decode()},
-                         {'role': 'user', 'content': 'Return JSON.'}]
+        self.projection = None
+        if self.shared:
+            from application_state.agent_conversation.native_writer import model_frame, model_work_frame
+            from application_state.agent_conversation.plan_writer_output_schema import native_output_format
+            turn=adapter.fence.turn
+            self.frame=model_frame(turn.graph_context_receipt,turn.graph_context_execution)
+            self.work_frame=model_work_frame(turn.graph_context_receipt,turn.graph_context_execution,
+                provenance=turn.provenance,idempotency_key=turn.idempotency_key,work_proof=proof,
+                world_id=turn.world_id,conversation_id=turn.conversation_id,turn_id=turn.turn_id,attempt=turn.attempt)
+            self.output_format=native_output_format(self.frame,rule_frame,self.work_frame)
+            frames=(self.frame,rule_frame,self.work_frame)
+        else:
+            self.projection = project(adapter.fence.turn, proof, adapter.context_capture.trace.model_dump(mode='json'))
+            self.frame=self.projection.frame
+            from application_state.agent_conversation.plan_writer_output_schema import output_format
+            self.output_format=output_format(self.frame,rule_frame)
+            frames=(self.frame,rule_frame)
+        self.messages=[{'role':'user','content':canonical_bytes(frame).decode()} for frame in frames]
+        self.messages.append({'role':'user','content':'Return JSON.'})
         from application_state.agent_conversation.surface_evidence_answer import PLAN_INSTRUCTIONS, BODY_INSTRUCTIONS
         instructions = INSTRUCTIONS.replace(EVIDENCE_INSTRUCTIONS,
             BODY_INSTRUCTIONS if isinstance(adapter.fence.turn.graph_context_receipt, t.PlanSourceContextReceiptV1) else PLAN_INSTRUCTIONS)
@@ -141,7 +155,7 @@ class PlanJevWriter:
         if isinstance(adapter.fence.turn.graph_context_receipt, t.PlanSourceContextReceiptV1):
             instructions = instructions.replace('native_source_claim uses its selected section_handles',
                 'native_body_claim uses its selected excerpt_handles')
-        if self.projection.frame.get('requested_work') == 'clarify':
+        if (self.work_frame if self.shared else self.frame).get('requested_work') == 'clarify':
             instructions += '\nAsk the specific clarifying question needed to resolve the intended work or destination. Keep it in conversation; do not draft the page yet.'
         if getattr(rules,'authoring',None) is not None:
             instructions=instructions.replace('Answer the current co-GM question directly using relevant supplied material.',
@@ -153,13 +167,23 @@ class PlanJevWriter:
             from application_state.agent_conversation.native_plan_statements import POLICY as STATEMENT_POLICY
             from application_state.agent_conversation.surface_evidence_answer import BODY_POLICY
             instructions = instructions.replace(BODY_POLICY, STATEMENT_POLICY) + '\n' + STATEMENT_INSTRUCTIONS
-        if self.projection.frame.get('schema') == 'dmb_plan_jev_writer_frame_v8':
+        if self.frame.get('schema') == 'dmb_plan_jev_writer_frame_v8':
             from application_state.agent_conversation.native_plan_assertions import INSTRUCTIONS as ASSERTION_INSTRUCTIONS, POLICY as ASSERTION_POLICY
             instructions = instructions.replace(STATEMENT_POLICY, ASSERTION_POLICY) + '\n' + ASSERTION_INSTRUCTIONS
+        if self.shared:
+            from application_state.agent_conversation.native_writer import AUTHORING_GUIDANCE
+            from application_state.agent_conversation.native_plan_statements import INSTRUCTIONS as STATEMENT_INSTRUCTIONS
+            from application_state.agent_conversation.native_plan_assertions import INSTRUCTIONS as ASSERTION_INSTRUCTIONS
+            from application_state.agent_conversation.surface_evidence_answer import BODY_POLICY
+            instructions = SOURCE_ATTRIBUTION_INSTRUCTIONS + BODY_INSTRUCTIONS.replace(BODY_POLICY,self.frame['answer_policy']) + STATEMENT_INSTRUCTIONS + ASSERTION_INSTRUCTIONS + AUTHORING_GUIDANCE
+            if self.work_frame.get('requested_work') == 'clarify':
+                instructions += '\nAsk the specific clarifying question. Do not draft yet.'
+            if getattr(rules,'authoring',None) is not None:
+                instructions += '\n' + AUTHORING_INSTRUCTIONS
         self.instructions = '\n\n'.join((BUDDY_SYSTEM_PROMPT, instructions,
             RULES_INSTRUCTIONS if rule_frame.lookups else '')) + ('' if getattr(rules,'authoring',None) is not None else IMAGE_DIRECTION_INSTRUCTIONS)
         self.model = adapter._broker_execution().policy.provider_roles.writer.model
-        self.prepared = self.authorization = self.call = None
+        self.prepared = self.authorization = self.call = self.received_event = None
         self._usage_recorded = False
         self._draft_capture_attempted = False
         self.output_limit_exceeded = False
@@ -187,6 +211,35 @@ class PlanJevWriter:
         estimate = len(prepared.body) + 64 * (1 + _json_node_count(expected))
         if estimate + a.budget['outputReserveTokens'] > a.budget['contextLimitTokens']:
             raise ValueError('Plan writer exceeds the existing provider context allowance')
+        if self.shared:
+            from application_state.errors import ApplicationStateConflictError
+            from application_state.agent_conversation.native_execution import NativeWriterAuthorizedV1
+            event=NativeWriterAuthorizedV1(event_id=uuid4(),sequence=len(a._broker_execution().events),
+                provider_attempt_id=UUID(prepared.attempt_id),envelope_sha256=prepared.body_sha256,
+                serializer_version='openai-sdk-json-v1',provider='openai',model=self.model,api_mode='responses',
+                tool_schema_sha256=canonical_sha256([]),input_accounting_kind='conservative_upper_bound',
+                input_estimator=a.budget['estimator'],input_tokens=estimate,
+                output_token_reserve=a.budget['outputReserveTokens'],frame_sha256=canonical_sha256(self.frame),
+                included_graph_event_ids=[],included_source_read_event_ids=[],included_assertion_ids=[],
+                included_relationship_ids=[],included_evidence_ref_ids=[],native_read_event_ids=tuple(sorted(
+                    (e.event_id for e in a._broker_execution().events if isinstance(e,(
+                        t.NativeBodyReadObservedV1,t.NativePlanStatementReadObservedV1,t.NativePlanAssertionReadObservedV1))),key=str)))
+            try:
+                a.turn=_require_fresh_execution_append(a.fence.append('authorize_native_writer','authorization',event,
+                    expected_rules_revision=self.rules.native.record.revision,
+                    prepared_request_json=prepared.body.decode(),work_proof=self.proof,
+                    **({'authoring_reservation':{'action_id':self.rules.authoring[0].action_id,'capture':self.rules.authoring[1]}}
+                        if self.rules.authoring is not None else {})))
+            except ApplicationStateConflictError:
+                self.target_changed=self.rules.authoring is not None
+                raise
+            a.last_provider_attempt_id=event.provider_attempt_id
+            view={'provider':'openai','model':self.model,'apiMode':'responses','payloadJson':prepared.body.decode(),
+                  'payloadSha256':prepared.body_sha256,'payloadUtf8Bytes':prepared.body_size}
+            self.rules.authorize(view)
+            a._capture_prepared_prompt(view,event)
+            self.prepared,self.authorization=prepared,event
+            return True
         native_plan = isinstance(a._broker_receipt(), t.PlanNativeContextReceiptV1)
         from application_state.agent_conversation.native_plan_assertions import NativePlanQueryV2
         assertions = native_plan and isinstance(a._broker_receipt().native_query, NativePlanQueryV2)
@@ -247,6 +300,13 @@ class PlanJevWriter:
         if self.prepared is None or event.request != self.prepared: return False
         transition = {'sending':'sdk_entered','response_received':'response_received',
             'known_not_sent':'known_not_sent','outcome_unknown':'outcome_unknown'}.get(event.outcome)
+        if self.shared and transition == 'response_received':
+            # HTTP receipt precedes SDK parsing. Keep APP uncertain until the
+            # actual complete selected text can acknowledge its exact digest.
+            if self.received_event is not None:
+                return False
+            self.received_event=event
+            return True
         acknowledged = transition is not None and self.adapter.record_lifecycle({'transition':transition,
             'statusCode':event.http_status,'runtimeApiRequestId':f'generationengine:{self.prepared.attempt_id}'})
         if acknowledged and transition == 'sdk_entered':
@@ -271,6 +331,13 @@ class PlanJevWriter:
                     or any(part.type != 'output_text' for part in item.content)):
                 raise _ReplyRejected('plan_writer_unexpected_output', 'Plan writer reply contains an unexpected tool/refusal message')
         raw = result.text
+        if self.shared:
+            received,self.received_event=self.received_event,None
+            if received is None or not self.adapter.record_lifecycle({
+                    'transition':'response_received','statusCode':received.http_status,
+                    'runtimeApiRequestId':f'generationengine:{self.prepared.attempt_id}',
+                    'responseSha256':sha256(raw.encode()).hexdigest()}):
+                raise _ReplyRejected('plan_writer_native_capture_unacknowledged','Selected writer output was not acknowledged')
         native = self.rules.native
         reply = NativeProviderReply(str(native.authorization_id), f'generationengine:{self.prepared.attempt_id}',
             'openai',self.model,'responses',self.prepared.body_sha256,'stop','answered',raw,sha256(raw.encode()).hexdigest(),len(raw.encode()),())
@@ -322,9 +389,12 @@ class PlanJevWriter:
             if self.call is not None and provider.actual_response is not None:
                 self.call['response_service_tier'] = provider.actual_response.service_tier
             stage = 'draft'
-            self.capture_draft(provider.actual_response)
+            if not self.shared:
+                self.capture_draft(provider.actual_response)
             stage = 'capture'
             reply = self.capture(result,provider.actual_response,provider)
+            if self.shared:
+                self.capture_draft(provider.actual_response)
             if self.call is not None:
                 self.call['duration_ms']=(perf_counter()-started)*1000
                 self.adapter.context_capture.provider_usage([self.call])
@@ -359,7 +429,7 @@ class PlanJevWriter:
         try:
             final_turn=self.adapter.stop()
             if final_turn is None: raise ValueError('Plan writer lost its current completion claim')
-            return self.rules.complete(final_turn,reply)
+            return self.rules.complete(final_turn,reply,**({"work_proof":self.proof} if self.shared else {}))
         except BaseException:
             self.adapter.context_capture.observe({'kind':'failure', 'phase':'delivery',
                 'code':'plan_writer_completion_rejected'})

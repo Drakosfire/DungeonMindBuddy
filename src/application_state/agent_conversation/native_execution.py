@@ -203,6 +203,11 @@ class SurfaceNativeExecutionV1(Strict):
         t.validate_provider_execution(self)
         roles = self.policy.provider_roles
         for event in self.events:
+            if isinstance(event,t.ProviderOutcomeEventV1) and event.outcome=='response_received':
+                producer=next(e for e in self.events[:event.sequence]
+                    if isinstance(e,t.ProviderAttemptAuthorizedEventV1) and e.provider_attempt_id==event.provider_attempt_id)
+                if type(producer) is NativeWriterAuthorizedV1 and (not event.request_id or not event.response_sha256):
+                    raise ValueError('Shared native writer response requires its exact selected output acknowledgement')
             if isinstance(event, _BUILD_WORK_EVENTS) and not isinstance(self.policy.action, NativeBuildActionV1):
                 raise ValueError("Build work event cannot acquire another action family")
             if isinstance(event, _PLAN_WORK_EVENTS) and not isinstance(self.policy.action, NativePlanActionV1):

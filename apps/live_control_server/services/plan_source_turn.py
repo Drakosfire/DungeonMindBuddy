@@ -41,7 +41,8 @@ def prepare(managed_world_id, principal, *, revision_id=None, repository=None, r
 
 
 def freeze(request, work, playable_target, view, budget, *, authority, graph_receipt=None,
-           graph_policy=None, included_history=(), plan_jev_request=None, native_query=None):
+           graph_policy=None, included_history=(), plan_jev_request=None, native_query=None,
+           provenance=None, submitted_intent=None):
     """Freeze the actual first Jev wire under independent source/Graph bases."""
     from .agent_turn_service import _json_node_count
     from .plan_jev_dispatch import verify_initial_input
@@ -51,6 +52,8 @@ def freeze(request, work, playable_target, view, budget, *, authority, graph_rec
     if (request.surface.surface_id != "plan" or request.plan_context_policy is None
             or basis is None or authority.managed_world_id != basis.world_id):
         raise ValueError("Plan source composition requires its exact committed Plan World")
+    if isinstance(request.plan_context_policy,t.PlanContextPolicyV2) and native_query is None:
+        raise ValueError('Current Plan requires its explicit native query result, including typed unavailability')
     if (graph_receipt is None) != (graph_policy is None):
         raise ValueError("A genuine Graph capability requires its own receipt and policy")
     if graph_receipt is not None and (not isinstance(graph_receipt, t.PlanWorldGraphContextReceiptV1)
@@ -71,13 +74,43 @@ def freeze(request, work, playable_target, view, budget, *, authority, graph_rec
     plan_basis = t.PlanAskContextBasis(world_id=basis.world_id, document_id=basis.document_id,
         object_revision=basis.object_revision, work_revision_id=basis.work_revision_id,
         revision_n=basis.revision_n, content_sha256=basis.content_sha256)
-    receipt_type = t.PlanNativeContextReceiptV1 if native_query is not None else t.PlanSourceContextReceiptV1
+    if native_query is not None:
+        from application_state.agent_conversation.native_context import (
+            SurfaceNativeContextReceiptV1, NativeProviderInputV1, PlanWorkContextV1, validate_work_context)
+        from application_state.agent_conversation.native_execution import (
+            SurfaceNativeExecutionV1, SurfaceNativeExecutionPolicyV1, NativePlanActionV1, validate_context_binding)
+        if graph_receipt is not None or graph_policy is not None:
+            raise ValueError("Shared native Plan cannot inherit a second Graph capability")
+        action = NativePlanActionV1(intent=submitted_intent, authoring_capture=request.plan_authoring_capture,
+            placement_catalog=request.plan_placement_catalog)
+        data = dict(provenance_sha256=canonical_sha256(provenance),
+            work_context=PlanWorkContextV1(plan_basis=plan_basis,
+                plan_context_policy=request.plan_context_policy, playable_target=playable_target),
+            source_authority=authority, native_query=native_query,
+            assembled_input=NativeProviderInputV1(**assembled.model_dump(exclude={'assembler_version'})))
+        provisional = SurfaceNativeContextReceiptV1.model_construct(context_receipt_sha256='0'*64, **data)
+        payload = provisional.model_dump(mode='json', by_alias=True, exclude={'context_receipt_sha256'})
+        receipt = SurfaceNativeContextReceiptV1.model_validate_json(json.dumps(
+            payload | {'context_receipt_sha256':canonical_sha256(payload)}))
+        policy = SurfaceNativeExecutionPolicyV1(action=action,
+            source_authority_sha256=canonical_sha256(authority), native_query_sha256=canonical_sha256(native_query),
+            provider_roles=budget['providerRoles'], provider_input_accounting={
+                'kind':'conservative_upper_bound','estimator':budget['estimator']},
+            max_provider_attempts=None, max_total_provider_input_tokens=None,
+            max_total_provider_output_tokens=None, controller_continuation_accounting=None, writer_context_budget=None)
+        execution_payload = dict(schema='dmb_surface_native_execution_v1',
+            context_receipt_sha256=receipt.context_receipt_sha256, policy=policy.model_dump(mode='json',by_alias=True))
+        execution = SurfaceNativeExecutionV1.model_validate_json(json.dumps(execution_payload | {
+            'execution_policy_sha256':canonical_sha256(execution_payload),'events':[]}))
+        validate_work_context(receipt,provenance)
+        validate_context_binding(receipt,execution)
+        return receipt,execution,([],[],[])
+    receipt_type = t.PlanSourceContextReceiptV1
     provisional = receipt_type.model_construct(
         receipt_serializer_version="canonical-json-utf8-v1", context_receipt_sha256="0" * 64,
         plan_context_policy=request.plan_context_policy, plan_basis=plan_basis,
         playable_target=playable_target, source_authority=authority,
-        graph_capability=graph_receipt, assembled_input=assembled,
-        **({"native_query": native_query} if native_query is not None else {}))
+        graph_capability=graph_receipt, assembled_input=assembled)
     payload = provisional.model_dump(mode="json", by_alias=True, exclude={"context_receipt_sha256"})
     receipt = receipt_type.model_validate(payload | {"context_receipt_sha256": canonical_sha256(payload)})
     fields = dict(allowed_graph_operations=[], max_provider_attempts=None, max_graph_operations=None,
@@ -95,10 +128,8 @@ def freeze(request, work, playable_target, view, budget, *, authority, graph_rec
         for key in ("allowed_graph_operations", "max_results_per_operation", "source_read_scope",
                     "max_source_read_chars", "max_chars_per_source_read"):
             fields[key] = getattr(graph_policy, key)
-    if native_query is not None:
-        fields['native_query_sha256'] = canonical_sha256(native_query.model_dump(mode='json', by_alias=True))
-    policy_type = t.PlanNativeExecutionPolicyV1 if native_query is not None else t.PlanSourceExecutionPolicyV1
-    execution_type = t.PlanNativeExecutionV1 if native_query is not None else t.PlanSourceExecutionV1
+    policy_type = t.PlanSourceExecutionPolicyV1
+    execution_type = t.PlanSourceExecutionV1
     policy = policy_type(**fields)
     execution_payload = dict(schema=execution_type.model_fields['schema_'].default,
         context_receipt_sha256=receipt.context_receipt_sha256,

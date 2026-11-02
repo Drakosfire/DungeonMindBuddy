@@ -1953,7 +1953,8 @@ class _PolicyExecutionAdapter:
                     code="turn_receipt_unverifiable", status_code=409,
                     provider_dispatched=None,
                 )
-            if isinstance(receipt, _app_state_graph_execution_types().PlanSourceContextReceiptV1):
+            if isinstance(receipt, (_app_state_graph_execution_types().PlanSourceContextReceiptV1,
+                    _app_state_graph_execution_types().SurfaceNativeContextReceiptV1)):
                 return self.fence.turn, [], [], []
             return (
                 self.fence.turn,
@@ -1962,27 +1963,6 @@ class _PolicyExecutionAdapter:
                 list(receipt.assembled_input.dispatched_evidence_ref_ids),
             )
         if self.turn is None:
-            if self.native_source_authority is not None:
-                from .plan_source_turn import freeze
-                graph_receipt = graph_execution = None
-                if self.bootstrap is not None:
-                    graph_receipt, graph_execution, _ = _freeze_policy_receipt(
-                        self.request, self.work, self.bootstrap, self.playable_target, view, self.budget,
-                        context_read_enabled=self.context_read_enabled, plan_jev_request=plan_jev_request)
-                receipt, execution, membership = freeze(self.request, self.work, self.playable_target,
-                    view, self.budget, authority=self.native_source_authority, native_query=self.native_query,
-                    graph_receipt=graph_receipt, graph_policy=graph_execution.policy if graph_execution is not None else None,
-                    plan_jev_request=plan_jev_request)
-            else:
-                receipt, execution, membership = _freeze_policy_receipt(
-                    self.request, self.work, self.bootstrap,
-                    self.playable_target, view, self.budget,
-                    context_read_enabled=self.context_read_enabled,
-                    build_jev_expected_state=getattr(self, "_active_build_jev_expected_state", None),
-                    included_history=getattr(self, "build_history_for_inclusion", ()),
-                    build_jev_accounting=getattr(self, "_build_jev_accounting", None),
-                    plan_jev_request=plan_jev_request, reviewed_admission=reviewed_admission,
-                )
             provenance = _conversation_provenance(
                 self.request,
                 world_id=self.world_id,
@@ -1993,6 +1973,27 @@ class _PolicyExecutionAdapter:
                         managed_world_id=self.world_id, binding_version=self.bootstrap.binding_version)}
                    if self._is_build_turn() or self.request.surface.surface_id == "play" else {}),
             )
+            if self.native_source_authority is not None:
+                from .plan_source_turn import freeze
+                graph_receipt = graph_execution = None
+                if self.bootstrap is not None:
+                    graph_receipt, graph_execution, _ = _freeze_policy_receipt(
+                        self.request, self.work, self.bootstrap, self.playable_target, view, self.budget,
+                        context_read_enabled=self.context_read_enabled, plan_jev_request=plan_jev_request)
+                receipt, execution, membership = freeze(self.request, self.work, self.playable_target,
+                    view, self.budget, authority=self.native_source_authority, native_query=self.native_query,
+                    graph_receipt=graph_receipt, graph_policy=graph_execution.policy if graph_execution is not None else None,
+                    plan_jev_request=plan_jev_request, provenance=provenance, submitted_intent=self.submitted_intent)
+            else:
+                receipt, execution, membership = _freeze_policy_receipt(
+                    self.request, self.work, self.bootstrap,
+                    self.playable_target, view, self.budget,
+                    context_read_enabled=self.context_read_enabled,
+                    build_jev_expected_state=getattr(self, "_active_build_jev_expected_state", None),
+                    included_history=getattr(self, "build_history_for_inclusion", ()),
+                    build_jev_accounting=getattr(self, "_build_jev_accounting", None),
+                    plan_jev_request=plan_jev_request, reviewed_admission=reviewed_admission,
+                )
             play_receipt = (self.work.play_context_receipt
                 if isinstance(self.work.play_context_receipt, PlayRunTurnContextReceiptV2)
                 and self.request.surface.surface_id == "play" else None)
@@ -2035,7 +2036,8 @@ class _PolicyExecutionAdapter:
                     receipt.graph_authority.graph_revision != self.bootstrap.world_scope.revision_id
                     or receipt.graph_authority.binding_version != self.bootstrap.binding_version))
                 or (self.native_source_authority is not None and (
-                    not isinstance(receipt, _app_state_graph_execution_types().PlanSourceContextReceiptV1)
+                    not isinstance(receipt, (_app_state_graph_execution_types().PlanSourceContextReceiptV1,
+                    _app_state_graph_execution_types().SurfaceNativeContextReceiptV1))
                     or receipt.source_authority != self.native_source_authority))
                 or receipt.assembled_input.assembled_input_sha256
                 != (_canonical_sha256({"schema":"dmb_reviewed_action_admission_v1", "intent":reviewed_admission.model_dump(mode="json", by_alias=True)}) if reviewed_admission is not None else view["payloadSha256"])
@@ -2061,7 +2063,8 @@ class _PolicyExecutionAdapter:
                     code="turn_already_authorized", status_code=409,
                     provider_dispatched=None,
                 )
-        membership = (([], [], []) if isinstance(receipt, _app_state_graph_execution_types().PlanSourceContextReceiptV1) else (
+        membership = (([], [], []) if isinstance(receipt, (_app_state_graph_execution_types().PlanSourceContextReceiptV1,
+                    _app_state_graph_execution_types().SurfaceNativeContextReceiptV1)) else (
             list(receipt.assembled_input.dispatched_assertion_ids),
             list(receipt.assembled_input.dispatched_relationship_ids),
             list(receipt.assembled_input.dispatched_evidence_ref_ids),
@@ -2959,6 +2962,8 @@ class _PolicyExecutionAdapter:
                 provider_attempt_id=self.last_provider_attempt_id,
                 outcome=transition,
                 status_code=lifecycle.get("statusCode"),
+                request_id=lifecycle.get("runtimeApiRequestId"),
+                response_sha256=lifecycle.get("responseSha256"),
             )
             updated = _require_fresh_execution_append(
                 self.fence.append("record_provider_outcome", "outcome", event)
@@ -5704,7 +5709,8 @@ def _validate_policy_turn_record(
 ) -> None:
     """Check the immutable receipt, historical Plan reference, and lifecycle agree."""
     receipt = turn.graph_context_receipt
-    if isinstance(receipt, _app_state_graph_execution_types().PlanSourceContextReceiptV1):
+    if isinstance(receipt, (_app_state_graph_execution_types().PlanSourceContextReceiptV1,
+                    _app_state_graph_execution_types().SurfaceNativeContextReceiptV1)):
         try:
             Turn.model_validate_json(turn.model_dump_json(by_alias=True))
         except ValueError as exc:
@@ -6247,6 +6253,10 @@ def project_plan_turn_context(
             authorization_state,
             completed=turn.status == "completed",
         )
+    if type(receipt) is _app_state_graph_execution_types().SurfaceNativeContextReceiptV1:
+        from apps.live_control_server.models.agent_turn import AgentSurfaceNativeContextResponseV1
+        return AgentSurfaceNativeContextResponseV1(receipt=receipt, completion=turn.completion,
+            execution=execution_projection, delivery_replay=delivery_replay)
     if isinstance(receipt, _app_state_graph_execution_types().PlanSourceContextReceiptV1):
         from apps.live_control_server.models.agent_turn import AgentPlanSourceContextResponseV1, AgentPlanNativeContextResponseV1
         response_type = AgentPlanNativeContextResponseV1 if isinstance(receipt, _app_state_graph_execution_types().PlanNativeContextReceiptV1) else AgentPlanSourceContextResponseV1
@@ -6954,14 +6964,14 @@ def execute_agent_turn(
                 revision_id=getattr(frozen.source_authority, "revision_id", None) if frozen is not None else None)
         # The source owner is established first. A provisioning-only World has
         # no Graph capability; missing Graph cannot suppress source/Rules work.
-        frozen_graph = frozen.graph_capability if frozen is not None else None
+        frozen_graph = frozen.graph_capability if isinstance(frozen, graph_types.PlanSourceContextReceiptV1) else None
         if isinstance(request.plan_context_policy, graph_types.PlanContextPolicyV2) and native_plan_query_resolver is None:
             raise AgentTurnServiceError('The selected reviewed Graph reader is unavailable.',
                 code='native_graph_query_unavailable', status_code=503, provider_dispatched=False)
         # The ordinary request explicitly selects its Graph source. Retained
         # receipts pin that source; no empty-result or error-based fallback.
         if (native_plan_query_resolver is not None and (
-                isinstance(frozen, graph_types.PlanNativeContextReceiptV1)
+                isinstance(frozen, (graph_types.PlanNativeContextReceiptV1,graph_types.SurfaceNativeContextReceiptV1))
                 or frozen is None and isinstance(request.plan_context_policy, graph_types.PlanContextPolicyV2))):
             with trace.phase('plan_native_statement_query'):
                 native_query_context, native_query = native_plan_query_resolver(

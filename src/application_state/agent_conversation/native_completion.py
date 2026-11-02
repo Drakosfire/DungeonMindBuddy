@@ -261,8 +261,7 @@ def validate_retained_completion(completion, receipt, execution, producer, bindi
     auth=auths[0]
     responses=[e for e in execution.events if isinstance(e,t.ProviderOutcomeEventV1)
         and e.provider_attempt_id==producer and e.outcome=='response_received']
-    if (len(responses)!=1 or not responses[0].request_id or not responses[0].response_sha256
-            or any(not isinstance(e,t.CompletionBindingEventV1) for e in execution.events if e.sequence>responses[0].sequence)):
+    if (len(responses)!=1 or any(not isinstance(e,t.CompletionBindingEventV1) for e in execution.events if e.sequence>responses[0].sequence)):
         raise ValueError('Retained native completion lacks its final acknowledged output')
     prefix=SurfaceNativeExecutionV1.model_validate_json(execution.model_copy(
         update={'events':execution.events[:auth.sequence]}).model_dump_json(by_alias=True))

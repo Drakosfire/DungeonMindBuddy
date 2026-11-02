@@ -189,16 +189,17 @@ def test_unavailable_native_capabilities_without_reads_remain_visible(lane,surfa
 
 
 @pytest.mark.parametrize('surface',['build','plan'])
-def test_nullable_lifecycle_digest_does_not_replace_sdk_and_protected_text_proof(lane,surface):
+def test_native_writer_requires_selected_ack_and_exact_sdk_capture(lane,surface):
     context,record,_=body_case(surface,lane)
     handle=model_frame(context,record)['native_body_evidence']['excerpts'][0]['excerpt_handle']
     stored,auth,proof=producing_case(context,record,answer([dict(kind='native_body_claim',text='The check revealed another plane.',excerpt_handles=[handle])]))
     events=list(stored.events)
     events[-1]=events[-1].model_copy(update={'response_sha256':None})
-    stored=execution(context.context_receipt_sha256,stored.policy,events)
+    # Shared writer acknowledgement means verified selected output, not merely
+    # HTTP receipt. A crash before selection stays sdk_entered/unknown.
+    with pytest.raises(ValueError,match='selected output acknowledgement'):
+        execution(context.context_receipt_sha256,stored.policy,events)
     assert normalize_output(context,stored,auth,**proof).native_body_citations
-    # Lifecycle acknowledgment precedes SDK text selection. Its missing optional
-    # digest never substitutes for the exact final capture/bytes or protected trace.
     with pytest.raises(ValueError):
         normalize_output(context,stored,auth,**(proof|{'capture':replace(proof['capture'],text_sha256='a'*64)}))
 
