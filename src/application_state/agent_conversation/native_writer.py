@@ -4,6 +4,7 @@ The producing input must contain both native evidence and exact surface work.
 Rules, authored output and locked Turn acceptance remain separately owned.
 No synthetic Plan Turn or second durable inclusion witness is constructed here.
 """
+from collections.abc import Mapping
 from dataclasses import dataclass
 from hashlib import sha256
 from uuid import UUID
@@ -21,6 +22,15 @@ SCHEMA = "dmb_surface_native_writer_evidence_v1"
 AUTHORING_GUIDANCE = ('\nUse surface_work as the authored page and editor context. '
     'Use native_evidence as supplied World material; preserve uncertainty, attribution and temporal qualifications. '
     'Authored drafts and proposed ideas do not establish played events.')
+
+
+def json_container_count(value):
+    """Existing conservative SDK estimate; shared by host and APP admission."""
+    if isinstance(value, Mapping):
+        return 1 + sum(json_container_count(item) for item in value.values())
+    if isinstance(value, list):
+        return 1 + sum(json_container_count(item) for item in value)
+    return 0
 
 
 def body_handle(read):
@@ -184,6 +194,9 @@ def verify_input_records(receipt, execution, authorization, raw, *, provenance, 
     if ((authorization.provider, authorization.api_mode, authorization.serializer_version)
             != ("openai", "responses", "openai-sdk-json-v1")
             or body.get("model") != authorization.model
+            or type(body.get("max_output_tokens")) is not int
+            or body["max_output_tokens"] != authorization.output_token_reserve
+            or authorization.input_tokens != len(raw.encode()) + 64 * (1 + json_container_count(body))
             or sha256(raw.encode()).hexdigest() != authorization.envelope_sha256
             or t.canonical_sha256(body.get("tools", [])) != authorization.tool_schema_sha256
             or t.canonical_sha256(frame) != authorization.frame_sha256

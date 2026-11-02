@@ -429,6 +429,11 @@ def test_actual_sdk_shared_writer_atomically_seals_rules_and_replay_cannot_send(
         "capture",
         "generic",
         "graph_cas",
+        "output_allowance",
+        "output_allowance_missing",
+        "output_allowance_type",
+        "input_underreport",
+        "input_overreport",
     ],
 )
 def test_shared_writer_failure_leaves_both_ledgers_unchanged(
@@ -456,8 +461,16 @@ def test_shared_writer_failure_leaves_both_ledgers_unchanged(
                 "UPDATE agent.turn_context_trace SET payload=jsonb_set(payload,'{capture_status}',%s) WHERE turn_id=%s AND attempt=%s",
                 (Jsonb("complete"), case.turn.turn_id, case.turn.attempt),
             )
+    if mutation == "output_allowance":
+        body["max_output_tokens"] = 4097
+    elif mutation == "output_allowance_missing":
+        del body["max_output_tokens"]
+    elif mutation == "output_allowance_type":
+        body["max_output_tokens"] = 4096.0
     raw = json.dumps(body, ensure_ascii=False)
     auth = writer_auth(case, raw)
+    if mutation in {"input_underreport", "input_overreport"}:
+        auth = auth.model_copy(update={"input_tokens": 0 if mutation == "input_underreport" else auth.input_tokens + 1})
     options = {}
     if mutation == "rules_revision":
         options["expected_rules_revision"] = case.rules.revision + 1

@@ -23,6 +23,9 @@ from tests.test_play_graph_authority import intent_wire
 
 def component(surface="plan", *, unavailable=False):
     data = wire(surface, unavailable=unavailable)
+    # Real Build/Plan SDK fixtures share the existing 128k test writer allowance.
+    if surface in {"build", "plan"}:
+        data["assembled_input"]["context_window_limit"] = 128000
     if not unavailable:
         data["native_query"]["authority"].update(scope_mode="world", campaign_id=None)
     context = SurfaceNativeContextReceiptV1.model_validate_json(json.dumps(seal(data)))

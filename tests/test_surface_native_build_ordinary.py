@@ -1,6 +1,7 @@
 """Ordinary Build HTTP/default factory proof, not a prebuilt native component."""
 import json
 from types import SimpleNamespace
+from hashlib import sha256
 from uuid import uuid4
 
 import httpx
@@ -637,8 +638,10 @@ def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,re
 @pytest.mark.parametrize('kind,related,mutation,output_review',[
     ('discuss',False,None,None),('discuss',False,None,'questions'),('discuss',False,None,'plan'),
     ('prepare_insertion',False,None,None),('prepare_insertion',True,None,None),
-    ('discuss',False,'message',None),('prepare_insertion',False,'command',None)])
-def test_native_reviewed_step_preserves_the_author_choice(lane,tmp_path,monkeypatch,kind,related,mutation,output_review):
+    ('discuss',False,'message',None),('prepare_insertion',False,'command',None)]
+    +[(kind,False,mutation,None) for kind in ('discuss','prepare_insertion')
+        for mutation in ('writer_allowance','writer_input')])
+def test_native_reviewed_step_preserves_the_author_choice(lane,tmp_path,monkeypatch,application_state_dsn,kind,related,mutation,output_review):
     from application_state.agent_conversation import work_plan as w
     from application_state.build_proposal.types import BuildWriteCapability
     case=_fresh_case(lane,tmp_path,monkeypatch,None,True,False,False)
@@ -674,7 +677,42 @@ def test_native_reviewed_step_preserves_the_author_choice(lane,tmp_path,monkeypa
     if output_review is not None:
         case.writer.review=({'kind':'questions','questions':[{'text':'Where should the lamp stand?'}]} if output_review=='questions'
             else {'kind':'plan','objective':'Unapproved work','steps':[{'text':'Write the deferred paragraph.','kind':'prepare_insertion','selected':True}]})
+    accounting_refusals=[]
+    if mutation in {'writer_allowance','writer_input'}:
+        from tests.application_state.test_surface_native_writers import snapshot
+        from application_state.errors import ApplicationStateValidationError
+        from apps.live_control_server.services.agent_turn_service import _json_node_count
+        original=AgentConversationService.authorize_native_writer
+        def changed_physical_request(owner,world_id,conversation_id,turn_id,**values):
+            turn=owner.inspect_turn(world_id=world_id,turn_id=turn_id)
+            assert turn.graph_context_receipt.assembled_input.assembler_version=='reviewed_author_admission_v1'
+            auth=values['authorization']
+            if mutation=='writer_allowance':
+                request=json.loads(values['prepared_request_json'])
+                request['max_output_tokens']=auth.output_token_reserve+1
+                raw=json.dumps(request,ensure_ascii=False)
+                values={**values,'prepared_request_json':raw,'authorization':auth.model_copy(update={
+                    'envelope_sha256':sha256(raw.encode()).hexdigest(),
+                    'input_tokens':len(raw.encode())+64*(1+_json_node_count(request))})}
+            else:
+                values={**values,'authorization':auth.model_copy(update={'input_tokens':0})}
+            persisted=SimpleNamespace(dsn=application_state_dsn,turn=turn)
+            prior=snapshot(persisted)
+            try:
+                original(owner,world_id,conversation_id,turn_id,**values)
+            except ApplicationStateValidationError:
+                assert snapshot(persisted)==prior
+                accounting_refusals.append(mutation)
+                raise
+            raise AssertionError('APP admitted forged physical writer accounting')
+        monkeypatch.setattr(AgentConversationService,'authorize_native_writer',changed_physical_request)
     response=case.client.post('/api/live/agent/turn',json=body)
+    if mutation in {'writer_allowance','writer_input'}:
+        assert response.status_code==503,response.text
+        assert accounting_refusals==[mutation]
+        assert len(case.writer.calls)==before[1]
+        assert get_workspace_document_snapshot(tmp_path,case.page.document_id)==case.source
+        return
     if mutation:
         assert response.status_code in {404,409},response.text
         assert (len(case.decisions.calls),len(case.writer.calls))==before

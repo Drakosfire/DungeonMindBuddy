@@ -157,7 +157,7 @@ def test_retained_native_envelope_keeps_actual_request_identity(surface, change)
 def test_shared_records_cannot_accept_legacy_completion_without_actual_producer():
     sub = submission()
     # Cross-family typed status must never fall through legacy Graph validation.
-    with pytest.raises(ValueError, match="locked producing-output owner"):
+    with pytest.raises(ValueError, match="Retained native completion differs from its actual producing owner"):
         t.validate_execution_completion(
             None, sub.graph_context_receipt, sub.graph_context_execution, uuid4(), {}
         )

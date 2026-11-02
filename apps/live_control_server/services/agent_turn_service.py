@@ -19,6 +19,7 @@ from typing import Annotated, Any, Callable, Mapping, Protocol
 from uuid import NAMESPACE_URL, UUID, uuid4, uuid5
 
 from application_state.agent_conversation import AgentConversationService
+from application_state.agent_conversation.native_writer import json_container_count as _json_node_count
 from application_state.agent_conversation.surface_source_answer import SOURCE_ATTRIBUTION_INSTRUCTIONS
 from application_state.agent_conversation.rules_authority_reads import MixedCompletedTurnV1
 from application_state.agent_conversation.types import (
@@ -538,14 +539,6 @@ def _canonical_sha256(value: Any) -> str:
         allow_nan=False,
     ).encode("utf-8")
     return sha256(encoded).hexdigest()
-
-
-def _json_node_count(value: Any) -> int:
-    if isinstance(value, Mapping):
-        return 1 + sum(_json_node_count(item) for item in value.values())
-    if isinstance(value, list):
-        return 1 + sum(_json_node_count(item) for item in value)
-    return 0
 
 
 def _nested_text_values(value: Any) -> list[str]:
