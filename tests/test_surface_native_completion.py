@@ -201,3 +201,44 @@ def test_nullable_lifecycle_digest_does_not_replace_sdk_and_protected_text_proof
     # digest never substitutes for the exact final capture/bytes or protected trace.
     with pytest.raises(ValueError):
         normalize_output(context,stored,auth,**(proof|{'capture':replace(proof['capture'],text_sha256='a'*64)}))
+
+
+@pytest.mark.parametrize('surface',['build','plan'])
+def test_retained_completion_reuses_exact_native_body_citation_owner(lane,surface):
+    context,record,_=body_case(surface,lane)
+    handle=model_frame(context,record)['native_body_evidence']['excerpts'][0]['excerpt_handle']
+    stored,auth,proof=producing_case(context,record,answer([dict(kind='native_body_claim',
+        text='The check revealed another plane.',excerpt_handles=[handle])]))
+    completion=normalize_output(context,stored,auth,**proof)
+    binding=t.CompletionBindingEventV1(kind='completion_binding',event_id=uuid4(),sequence=len(stored.events),
+        provider_attempt_id=auth.provider_attempt_id,completion_sha256=t.canonical_sha256(completion),claim_graph_event_ids={})
+    stored=execution(context.context_receipt_sha256,stored.policy,[*stored.events,binding])
+    t.validate_execution_completion(completion,context,stored,auth.provider_attempt_id,{})
+    changed=completion.model_copy(deep=True)
+    changed.native_body_citations[0]=changed.native_body_citations[0].model_copy(update={'native_source_revision_id':'foreign'})
+    event=binding.model_copy(update={'completion_sha256':t.canonical_sha256(changed)})
+    modified=execution(context.context_receipt_sha256,stored.policy,[*stored.events[:-1],event])
+    with pytest.raises(ValueError,match='citation'):
+        t.validate_execution_completion(changed,context,modified,auth.provider_attempt_id,{})
+
+
+@pytest.mark.parametrize('surface',['build','plan'])
+def test_retained_completion_reuses_exact_native_assertion_and_statement_owners(published_lane,surface):
+    context,record=published_case(surface,published_lane)
+    frame=model_frame(context,record)
+    stored,auth,proof=producing_case(context,record,answer([
+        dict(kind='native_statement_report',text='A reported that B fled.',
+            statement_handles=[frame['native_statements']['statements'][0]['statement_handle']]),
+        dict(kind='native_assertion_claim',text='A provisional belief remains qualified.',
+            assertion_handles=[r['assertion_handle'] for r in frame['native_assertions']['assertions']])]))
+    completion=normalize_output(context,stored,auth,**proof)
+    binding=t.CompletionBindingEventV1(kind='completion_binding',event_id=uuid4(),sequence=len(stored.events),
+        provider_attempt_id=auth.provider_attempt_id,completion_sha256=t.canonical_sha256(completion),claim_graph_event_ids={})
+    stored=execution(context.context_receipt_sha256,stored.policy,[*stored.events,binding])
+    t.validate_execution_completion(completion,context,stored,auth.provider_attempt_id,{})
+    changed=completion.model_copy(deep=True)
+    changed.native_assertion_citations[0]=changed.native_assertion_citations[0].model_copy(update={'read_revision_id':'foreign'})
+    event=binding.model_copy(update={'completion_sha256':t.canonical_sha256(changed)})
+    modified=execution(context.context_receipt_sha256,stored.policy,[*stored.events[:-1],event])
+    with pytest.raises(ValueError,match='support'):
+        t.validate_execution_completion(changed,context,modified,auth.provider_attempt_id,{})

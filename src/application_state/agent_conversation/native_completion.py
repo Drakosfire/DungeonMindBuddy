@@ -1,7 +1,8 @@
 """Shared native answer normalization through existing evidence/capture owners.
 
-Pure component proof, not Turn admission. Actual surface work, Rules composition,
-atomic persistence, historical readers and caller cutover remain activation gates.
+Producing SDK proof and domain normalization reuse the existing evidence owners.
+Actual admission, atomic persistence and retained reads use their APP owners;
+ordinary surface caller cutover remains a separate gate.
 """
 from hashlib import sha256
 from typing import Annotated, Literal
@@ -18,7 +19,6 @@ from . import native_plan_statements as statements
 from . import native_plan_assertions as assertions
 from .native_writer import verify_input_records
 from .native_statement_input import Strict
-from .native_rules_output import verify_captured_text
 from .rules_authority_types import canonical_bytes, canonical_sha256
 from .source_writer_output import require_captured_answer, strict_json, RequestedDetailGap, gap_messages, LIMITATIONS
 from .surface_evidence_answer import (native_fact_segment, status_for, _limit,
@@ -155,6 +155,7 @@ def normalize_output(receipt, execution, authorization, *, prepared_request_json
         raise ValueError('Native completion capture differs from its actual writer')
     if not isinstance(getattr(capture,'authorization_id',None),str) or not capture.authorization_id.strip():
         raise ValueError('Native completion lacks its actual SDK capture identity')
+    from .native_rules_output import verify_captured_text
     verify_captured_text(capture,authorization_id=capture.authorization_id,api_request_id=responses[0].request_id,
         request_envelope_sha256=authorization.envelope_sha256,prepared_request_json=prepared_request_json,
         raw_output_json=raw_output_json,raw_output_sha256=sha256(raw_output_json.encode()).hexdigest(),
@@ -240,3 +241,34 @@ def verify_completion(completion, receipt, execution, authorization, **producing
     if type(completion) is not SurfaceNativeCompletionV1 or canonical_sha256(completion) != canonical_sha256(expected):
         raise ValueError('Native completion differs from its exact producing output')
     return expected
+
+
+def validate_retained_completion(completion, receipt, execution, producer, bindings):
+    """Validate stored native citations/binding; producing admission owns acceptance."""
+    from .native_execution import SurfaceNativeExecutionV1, NativeWriterAuthorizedV1, validate_context_binding
+    from .native_writer import model_frame, read_evidence_records
+    from .surface_evidence_answer import validate_authored_owners
+    validate_context_binding(receipt, execution)
+    if (type(completion) is not SurfaceNativeCompletionV1 or bindings != {}
+            or completion.context_receipt_sha256 != receipt.context_receipt_sha256
+            or completion.surface_id != execution.policy.action.surface_id
+            or completion.producing_provider_attempt_id != producer):
+        raise ValueError('Retained native completion differs from its actual producing owner')
+    completion = SurfaceNativeCompletionV1.model_validate_json(completion.model_dump_json(by_alias=True))
+    auths=[e for e in execution.events if type(e) is NativeWriterAuthorizedV1]
+    if len(auths)!=1 or auths[0].provider_attempt_id != producer:
+        raise ValueError('Retained native completion requires its unique writer')
+    auth=auths[0]
+    responses=[e for e in execution.events if isinstance(e,t.ProviderOutcomeEventV1)
+        and e.provider_attempt_id==producer and e.outcome=='response_received']
+    if (len(responses)!=1 or not responses[0].request_id or not responses[0].response_sha256
+            or any(not isinstance(e,t.CompletionBindingEventV1) for e in execution.events if e.sequence>responses[0].sequence)):
+        raise ValueError('Retained native completion lacks its final acknowledged output')
+    prefix=SurfaceNativeExecutionV1.model_validate_json(execution.model_copy(
+        update={'events':execution.events[:auth.sequence]}).model_dump_json(by_alias=True))
+    frame=model_frame(receipt,prefix)
+    from .build_primary_context import records
+    evidence=SimpleNamespace(**read_evidence_records(prefix,frame),
+        saved_sections=records(prefix,receipt.work_context.source_basis) if completion.surface_id=='build' else ())
+    _validate_citations(completion,receipt,execution,auth,evidence)
+    validate_authored_owners(completion,receipt)

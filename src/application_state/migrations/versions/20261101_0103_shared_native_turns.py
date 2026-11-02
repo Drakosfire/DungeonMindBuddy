@@ -42,15 +42,39 @@ AND CASE surface_id
  WHEN 'plan' THEN play_context_receipt IS NULL AND graph_context_receipt#>>'{work_context,plan_basis,world_id}'=world_id
  WHEN 'play' THEN graph_context_receipt#>'{work_context,play_basis}'=play_context_receipt
  ELSE FALSE END
-AND status<>'completed' AND completion IS NULL AND assistant_text IS NULL
-AND (status NOT IN ('accepted','running') OR completed_at IS NULL)
-AND NOT jsonb_path_exists(graph_context_execution,'$.events[*] ? (@.kind == "completion_binding")')
+AND CASE WHEN status='completed' THEN
+ completed_at IS NOT NULL AND claim_expires_at IS NULL AND assistant_text IS NOT NULL
+ AND CASE WHEN completion IS NULL THEN
+   answer_composition_kind='rules_mixed_v1' AND btrim(assistant_text)<>''
+   AND NOT jsonb_path_exists(graph_context_execution,'$.events[*] ? (@.kind == "completion_binding")')
+ ELSE jsonb_typeof(completion)='object'
+   AND completion ?& ARRAY['schema','surface_id','context_receipt_sha256','producing_provider_attempt_id','answer_basis','answer_context_status','answer_segments','collaboration','saved_source_citations','native_body_citations','native_clause_citations','native_assertion_citations']
+   AND completion - ARRAY['schema','surface_id','context_receipt_sha256','producing_provider_attempt_id','answer_basis','answer_context_status','answer_segments','collaboration','saved_source_citations','native_body_citations','native_clause_citations','native_assertion_citations']='{}'::jsonb
+   AND completion->>'schema'='dmb_surface_native_completion_v1'
+   AND completion->>'surface_id'=surface_id
+   AND completion->>'context_receipt_sha256'=graph_context_receipt->>'context_receipt_sha256'
+   AND completion->>'answer_basis'='mixed_evidence'
+   AND completion->>'producing_provider_attempt_id' ~ '^[0-9a-f-]{36}$'
+   AND jsonb_typeof(completion->'answer_segments')='array'
+   AND jsonb_typeof(completion->'saved_source_citations')='array'
+   AND jsonb_typeof(completion->'native_body_citations')='array'
+   AND jsonb_typeof(completion->'native_clause_citations')='array'
+   AND jsonb_typeof(completion->'native_assertion_citations')='array'
+   AND (jsonb_array_length(completion->'answer_segments')>0 OR
+       (completion->'collaboration'<>'null'::jsonb AND completion->>'answer_context_status'='discussion'))
+   AND jsonb_path_exists(graph_context_execution,'$.events[*] ? (@.kind == "completion_binding")')
+ END
+ELSE completion IS NULL AND assistant_text IS NULL
+ AND (status NOT IN ('accepted','running') OR completed_at IS NULL)
+ AND NOT jsonb_path_exists(graph_context_execution,'$.events[*] ? (@.kind == "completion_binding")')
+END
 """
 
 
 def upgrade():
     for name in ('agent_turn_graph_context_receipt_check',
-                 'agent_turn_graph_context_execution_check', 'agent_turn_graph_completion_check'):
+                 'agent_turn_graph_context_execution_check', 'agent_turn_graph_completion_check',
+                 'agent_turn_lifecycle_check'):
         definition = op.get_bind().execute(text(
             "SELECT pg_get_constraintdef(oid) FROM pg_constraint "
             "WHERE conrelid='agent.turn'::regclass AND conname=:name"), {'name': name}).scalar_one()

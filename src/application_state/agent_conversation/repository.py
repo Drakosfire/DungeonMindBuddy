@@ -237,10 +237,12 @@ def _turn_from_row(
 
     from .native_context import SurfaceNativeContextReceiptV1
     from .native_execution import SurfaceNativeExecutionV1
+    from .native_completion import SurfaceNativeCompletionV1
 
     for key, model in (
         ("graph_context_receipt", SurfaceNativeContextReceiptV1),
         ("graph_context_execution", SurfaceNativeExecutionV1),
+        ("completion", SurfaceNativeCompletionV1),
         ("graph_context_receipt", PlanNativeContextReceiptV1),
         ("graph_context_execution", PlanNativeExecutionV1),
         ("graph_context_receipt", PlanSourceContextReceiptV1),
@@ -257,7 +259,7 @@ def _turn_from_row(
             try:
                 fields[key] = model.model_validate_json(json.dumps(value, ensure_ascii=False))
             except ValidationError as exc:
-                if model in (NativeStatementContextReceiptV1, NativeStatementExecutionV1, NativeStatementCompletionV1, SurfaceNativeContextReceiptV1, SurfaceNativeExecutionV1):
+                if model in (NativeStatementContextReceiptV1, NativeStatementExecutionV1, NativeStatementCompletionV1, SurfaceNativeContextReceiptV1, SurfaceNativeExecutionV1, SurfaceNativeCompletionV1):
                     raise ApplicationStateIntegrityError("Stored native context failed typed validation") from exc
                 raise
     marker = row["answer_composition_kind"]
@@ -328,11 +330,13 @@ def _turn_from_row(
             projection = {"kind": "absent"}
         else:
             if fields["completion"] is not None:
-                raise ValueError("unclaimed base carries a completion")
+                from .native_completion import require_object_only_completion
+                require_object_only_completion(fields['completion'])
             projection = {
                 "kind": "unclaimed",
                 "graph_context_receipt": fields["graph_context_receipt"],
                 "graph_context_execution": fields["graph_context_execution"],
+                'completion':fields['completion'],
             }
         return MixedCompletedTurnV1(
             schema="dmb_mixed_completed_turn_v1",

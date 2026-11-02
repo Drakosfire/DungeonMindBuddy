@@ -25,6 +25,7 @@ from application_state.agent_conversation.rules_authority_types import RulesAcce
 from application_state.agent_conversation.types import (
     RetryTurnReference, PlayContentBasis, PlayRunTurnContextReceiptV1,
     GraphContextReceipt,
+    SurfaceNativeContextReceiptV1,  # noqa: F401 - resolves the shared receipt alias in this model namespace
     BuildGraphCompletionV1, BuildIntentionalResponseCompletionV1, BuildIntentionalResponseCompletionV2, BuildRelationshipReviewCompletionV2, BuildIntentionalResponseCompletionV3, BuildRelationshipReviewCompletionV3,
     BuildRelationshipReviewCompletionV1, BuildNamedGraphCompletionV3, BuildDraftContextCompletionV1, BuildRelatedPageCompletionV1, BuildCollaborationCompletionV1, BuildConnectedPageReviewCompletionV1,
     BuildGraphCompletionV2,

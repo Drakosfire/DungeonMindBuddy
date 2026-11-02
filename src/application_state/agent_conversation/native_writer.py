@@ -197,17 +197,22 @@ def verify_input_records(receipt, execution, authorization, raw, *, provenance, 
         related_pages=tuple(related_records(prefix))
         if prefix.policy.action.intent.build_draft_context_sha256 is not None:
             draft_record=context_record(prefix).record
+    return NativeWriterEvidence(frame=expected,work_frame=expected_work,authored=authored,idempotency_key=idempotency_key,
+        saved_sections=saved_sections,related_pages=related_pages,draft_record=draft_record,
+        **read_evidence_records(prefix,expected))
+
+
+def read_evidence_records(prefix, frame):
+    """Project the exact included read records through their native owners."""
     catalogs = {catalog.catalog_sha256: catalog for event in prefix.events
         if isinstance(event, bodies.NativeBodySearchObservedV1) for catalog in event.catalogs}
     body_reads = bodies.selected_body_reads(prefix)
     statement_reads = statements.selected_read_records(prefix)
     assertion_reads = assertions.selected_read_records(prefix)
-    return NativeWriterEvidence(frame=expected,work_frame=expected_work,authored=authored,idempotency_key=idempotency_key,
-        saved_sections=saved_sections,related_pages=related_pages,draft_record=draft_record,
-        body_excerpts=tuple(bodies.NativeBodySupport(body_handle(read), read,
+    return dict(body_excerpts=tuple(bodies.NativeBodySupport(body_handle(read), read,
             catalogs[read.excerpt.catalog_sha256]) for read in body_reads),
         native_statements=tuple((row['statement_handle'], event, read) for row, (event, read)
-            in zip(expected['native_statements']['statements'], statement_reads, strict=True)),
+            in zip(frame['native_statements']['statements'], statement_reads, strict=True)),
         native_assertions=tuple((row['assertion_handle'], event, read) for row, (event, read)
-            in zip(expected['native_assertions']['assertions'] if expected['native_assertions'] else (),
+            in zip(frame['native_assertions']['assertions'] if frame['native_assertions'] else (),
                 assertion_reads, strict=True)))

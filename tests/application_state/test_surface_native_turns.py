@@ -264,7 +264,7 @@ def test_upgrade_retains_historical_row_and_closed_predicates_exactly(
                 ).fetchone()[0],
                 dict(
                     conn.execute(
-                        "SELECT conname,pg_get_constraintdef(oid) FROM pg_constraint WHERE conrelid='agent.turn'::regclass AND conname IN ('agent_turn_graph_context_receipt_check','agent_turn_graph_context_execution_check','agent_turn_graph_completion_check')"
+                        "SELECT conname,pg_get_constraintdef(oid) FROM pg_constraint WHERE conrelid='agent.turn'::regclass AND conname IN ('agent_turn_graph_context_receipt_check','agent_turn_graph_context_execution_check','agent_turn_graph_completion_check','agent_turn_lifecycle_check')"
                     ).fetchall()
                 ),
             )

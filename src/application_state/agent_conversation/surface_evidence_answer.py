@@ -663,23 +663,7 @@ def validate_completion(c, receipt, execution, producer, bindings):
         event = reads.get(citation.read_event_id)
         if (citation.provider_attempt_id != producer or citation.envelope_sha256 != auth.envelope_sha256 or event is None
             or event.sequence >= auth.sequence or citation.receipt not in event.receipts): raise ValueError('Source citation differs from included producing read')
-    for s in (support for segment in c.answer_segments for support in
-              (segment.supports if isinstance(segment,t.SessionSummaryV1) else [segment])):
-        if not isinstance(s,t.SurfaceAuthoredQuoteV1): continue
-        if s.source_kind == 'session' and c.surface_id == 'play':
-            if not isinstance(receipt,t.PlayWorldGraphContextReceiptV1) or s.object_id != receipt.play_basis.run_id or isinstance(s,t.SessionSummarySupportV1) and s.checkpoint_content_sha256 != receipt.play_basis.content_sha256:
-                raise ValueError('Session reflections differ from their frozen Play owner')
-        if s.source_kind == 'play' and c.surface_id != 'play':
-            raise ValueError('Play quote cannot be rebound to Plan authority')
-        if s.source_kind == 'plan':
-            basis = getattr(receipt,'plan_basis',None)
-            if (basis is None or (s.object_id,s.revision,s.owner_sha256,s.body_sha256) !=
-                (basis.document_id,str(basis.work_revision_id),basis.content_sha256,basis.content_sha256)):
-                raise ValueError('Plan quote differs from committed owner')
-        if s.source_kind == 'play':
-            entries = [e for e in receipt.play_sources.entries if e.source_id == s.source_handle]
-            if len(entries) != 1 or (s.body_sha256,s.owner_sha256,s.object_id,s.revision) != (entries[0].text_sha256,entries[0].payload_sha256,entries[0].locator.run_id,str(entries[0].locator.run_revision)):
-                raise ValueError('Play quote differs from frozen source manifest')
+    validate_authored_owners(c, receipt)
     from .native_source_answer import validate_citations
     validate_citations(c,receipt,execution,producer)
     from .native_corpus import validate_body_citations
@@ -693,3 +677,24 @@ def _graph_inputs(receipt):
     from .plan_source_context import require_graph
     graph = require_graph(receipt) if isinstance(receipt, t.PlanSourceContextReceiptV1) else receipt
     return t._ask_graph_validation_inputs(graph).model_copy(update={"context_receipt_sha256": receipt.context_receipt_sha256})
+
+
+def validate_authored_owners(c, receipt):
+    """Validate retained authored source coordinates against their frozen owner."""
+    for s in (support for segment in c.answer_segments for support in
+              (segment.supports if isinstance(segment,t.SessionSummaryV1) else [segment])):
+        if not isinstance(s,t.SurfaceAuthoredQuoteV1): continue
+        if s.source_kind == 'session' and c.surface_id == 'play':
+            if not isinstance(receipt,t.PlayWorldGraphContextReceiptV1) or s.object_id != receipt.play_basis.run_id or isinstance(s,t.SessionSummarySupportV1) and s.checkpoint_content_sha256 != receipt.play_basis.content_sha256:
+                raise ValueError('Session reflections differ from their frozen Play owner')
+        if s.source_kind == 'play' and c.surface_id != 'play':
+            raise ValueError('Play quote cannot be rebound to Plan authority')
+        if s.source_kind == 'plan':
+            basis = getattr(receipt,'plan_basis',None) or getattr(getattr(receipt,'work_context',None),'plan_basis',None)
+            if (basis is None or (s.object_id,s.revision,s.owner_sha256,s.body_sha256) !=
+                (basis.document_id,str(basis.work_revision_id),basis.content_sha256,basis.content_sha256)):
+                raise ValueError('Plan quote differs from committed owner')
+        if s.source_kind == 'play':
+            entries = [e for e in receipt.play_sources.entries if e.source_id == s.source_handle]
+            if len(entries) != 1 or (s.body_sha256,s.owner_sha256,s.object_id,s.revision) != (entries[0].text_sha256,entries[0].payload_sha256,entries[0].locator.run_id,str(entries[0].locator.run_revision)):
+                raise ValueError('Play quote differs from frozen source manifest')

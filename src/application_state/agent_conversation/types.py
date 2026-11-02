@@ -2417,7 +2417,7 @@ class SurfaceEvidenceCompletionV7(SurfaceEvidenceCompletionV6):
     native_assertion_citations: list[NativeAssertionCitationV1]
 
 
-GraphTurnCompletion = SurfaceEvidenceCompletionV7 | SurfaceEvidenceCompletionV6 | SurfaceEvidenceCompletionV5 | NativeStatementCompletionV1 | BuildIntentionalResponseCompletionV3 | BuildRelationshipReviewCompletionV3 | BuildIntentionalResponseCompletionV2 | BuildRelationshipReviewCompletionV2 | BuildIntentionalResponseCompletionV1 | BuildRelationshipReviewCompletionV1 | BuildConnectedPageReviewCompletionV1 | BuildCollaborationCompletionV1 | BuildRelatedPageCompletionV1 | BuildDraftContextCompletionV1 | BuildNamedGraphCompletionV3 | SurfaceEvidenceCompletionV4 | SurfaceEvidenceCompletionV3 | SurfaceEvidenceCompletionV2 | SurfaceEvidenceCompletionV1 | SurfaceSourceCompletionV1 | PlayWorldGraphCompletionV1 | PlanWorldGraphCompletion | BuildGraphCompletionV1 | BuildGraphCompletionV2 | BuildAuthoringCompletionV1 | BuildImagePreparationCompletionV1
+GraphTurnCompletion = Union[SurfaceEvidenceCompletionV7 | SurfaceEvidenceCompletionV6 | SurfaceEvidenceCompletionV5 | NativeStatementCompletionV1 | BuildIntentionalResponseCompletionV3 | BuildRelationshipReviewCompletionV3 | BuildIntentionalResponseCompletionV2 | BuildRelationshipReviewCompletionV2 | BuildIntentionalResponseCompletionV1 | BuildRelationshipReviewCompletionV1 | BuildConnectedPageReviewCompletionV1 | BuildCollaborationCompletionV1 | BuildRelatedPageCompletionV1 | BuildDraftContextCompletionV1 | BuildNamedGraphCompletionV3 | SurfaceEvidenceCompletionV4 | SurfaceEvidenceCompletionV3 | SurfaceEvidenceCompletionV2 | SurfaceEvidenceCompletionV1 | SurfaceSourceCompletionV1 | PlayWorldGraphCompletionV1 | PlanWorldGraphCompletion | BuildGraphCompletionV1 | BuildGraphCompletionV2 | BuildAuthoringCompletionV1 | BuildImagePreparationCompletionV1, "SurfaceNativeCompletionV1"]
 
 
 class GraphCompletionRejectionCode(str, Enum):
@@ -6126,7 +6126,9 @@ def validate_execution_completion(
     """Validate supplied status against the derived producing-envelope status."""
     if (isinstance(receipt, SurfaceNativeContextReceiptV1)
             or isinstance(execution, SurfaceNativeExecutionV1)):
-        raise ValueError("Shared native completion requires its locked producing-output owner")
+        from .native_completion import validate_retained_completion
+        validate_retained_completion(completion, receipt, execution, producing_provider_attempt_id, claim_graph_event_ids)
+        return
     if isinstance(completion, SurfaceEvidenceCompletionV1):
         from .surface_evidence_answer import validate_completion
         validate_completion(completion, receipt, execution, producing_provider_attempt_id, claim_graph_event_ids)
@@ -6867,13 +6869,13 @@ class TurnResult(StrictModel):
 
     @model_validator(mode="after")
     def validate_text(self) -> "TurnResult":
-        if isinstance(self.completion, (PlayWorldGraphCompletionV1, SurfaceSourceCompletionV1, SurfaceEvidenceCompletionV1)) and (
+        if isinstance(self.completion, (SurfaceNativeCompletionV1, PlayWorldGraphCompletionV1, SurfaceSourceCompletionV1, SurfaceEvidenceCompletionV1)) and (
                 self.assistant_text != "\n".join(segment.text for segment in self.completion.answer_segments)
                 or self.producing_provider_attempt_id is None or self.claim_graph_event_ids is None):
             raise ValueError("Native Play result requires exact answer text and explicit producer bindings")
         if self.build_section_bindings and not isinstance(self.completion, (BuildGraphCompletionV1, BuildGraphCompletionV2, BuildIntentionalResponseCompletionV1)):
             raise ValueError("Saved section bindings require a typed Build completion")
-        if not self.assistant_text.strip() and not (self.assistant_text == '' and isinstance(self.completion, BuildIntentionalResponseCompletionV1) and not self.completion.answer_segments and self.completion.collaboration is not None):
+        if not self.assistant_text.strip() and not (self.assistant_text == '' and isinstance(self.completion, (SurfaceNativeCompletionV1, BuildIntentionalResponseCompletionV1)) and not self.completion.answer_segments and self.completion.collaboration is not None):
             raise ValueError("assistant_text is required unless the new completion has a valid typed object")
         if isinstance(self.completion, (BuildGraphCompletionV1, BuildGraphCompletionV2, BuildAuthoringCompletionV1, BuildImagePreparationCompletionV1, BuildIntentionalResponseCompletionV1)) and self.assistant_text != "\n".join(s.text for s in self.completion.answer_segments):
             raise ValueError("Build answer text must match its completion segments")
@@ -7103,9 +7105,11 @@ class CommandResolutionRecordV1(StrictModel):
 # definitions exist. These records do not acquire historical Graph authority.
 from .native_context import SurfaceNativeContextReceiptV1  # noqa: E402
 from .native_execution import SurfaceNativeExecutionV1  # noqa: E402
+from .native_completion import SurfaceNativeCompletionV1  # noqa: E402
 TurnSubmission.model_rebuild()
 Turn.model_rebuild()
 TurnResult.model_rebuild()
+CitedSourceTurnResult.model_rebuild()
 
 # Resolve the explicit completed read variants after ordinary domain definitions;
 # Rules read models reuse these validators without constructing a fake Turn.

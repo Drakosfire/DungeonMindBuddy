@@ -278,8 +278,24 @@ def _validated_base_execution_locked(
     """Validate the unchanged base-domain completion without committing a Turn."""
     from .native_execution import SurfaceNativeExecutionV1
     if isinstance(turn.graph_context_execution, SurfaceNativeExecutionV1):
-        raise ApplicationStateValidationError(
-            "Shared native completion requires its locked producing-output owner")
+        from .native_rules_output import NativeRulesNormalizedOutputV1
+        from .rules_authority_types import canonical_sha256
+        if not native_output_verified and not isinstance(mixed_output_context,NativeRulesNormalizedOutputV1):
+            raise ApplicationStateValidationError('Shared native completion requires its locked producing-output owner')
+        if result is None or result.completion is None or result.claim_graph_event_ids != {} or result.build_section_bindings:
+            raise ApplicationStateValidationError('Shared native completion requires its exact native binding')
+        binding=CompletionBindingEventV1(kind='completion_binding',event_id=uuid4(),
+            sequence=len(turn.graph_context_execution.events),provider_attempt_id=result.producing_provider_attempt_id,
+            completion_sha256=canonical_sha256(result.completion),claim_graph_event_ids={})
+        try:
+            execution=SurfaceNativeExecutionV1.model_validate_json(json.dumps(
+                turn.graph_context_execution.model_dump(mode='json',by_alias=True)
+                | {'events':[e.model_dump(mode='json',by_alias=True) for e in [*turn.graph_context_execution.events,binding]]}))
+            validate_execution_completion(result.completion,turn.graph_context_receipt,execution,
+                result.producing_provider_attempt_id,result.claim_graph_event_ids)
+        except (ValueError,TypeError,KeyError,AttributeError) as exc:
+            raise ApplicationStateValidationError(str(exc)) from exc
+        return execution
     from .types import NativeStatementExecutionV1
     if isinstance(turn.graph_context_execution, NativeStatementExecutionV1):
         from .native_statement_answer import accept_result
@@ -2391,20 +2407,20 @@ class AgentConversationService:
         return self._complete_turn(result, prepared_recovery=False)
 
     def complete_native_base_turn(self, result: TurnResult, *, output_proof,
-                                  expected_rules_revision: int) -> Turn:
+                                  expected_rules_revision: int, work_proof=None) -> Turn:
         """Accept a captured native answer and close its unused Rules scope atomically."""
         return self._complete_turn(result, prepared_recovery=False,
-            native_output_proof=output_proof, expected_rules_revision=expected_rules_revision)
+            native_output_proof=output_proof, expected_rules_revision=expected_rules_revision,native_work_proof=work_proof)
 
-    def complete_plan_authoring_turn(self,result:TurnResult,*,proposal,output_proof,expected_rules_revision:int):
+    def complete_plan_authoring_turn(self,result:TurnResult,*,proposal,output_proof,expected_rules_revision:int,work_proof=None):
         """Native evidence acceptance and the Plan result share one transaction."""
         return self._complete_turn(result,prepared_recovery=False,native_output_proof=output_proof,
-            expected_rules_revision=expected_rules_revision,authoring_proposal=proposal)
+            expected_rules_revision=expected_rules_revision,authoring_proposal=proposal,native_work_proof=work_proof)
 
-    def complete_plan_authoring_mixed_turn(self,result:NativeRulesMixedTurnResultV1,*,proposal):
+    def complete_plan_authoring_mixed_turn(self,result:NativeRulesMixedTurnResultV1,*,proposal,work_proof=None):
         if not isinstance(result,NativeRulesMixedTurnResultV1):
             raise ApplicationStateValidationError('Plan authoring requires its actual native mixed output proof')
-        return self._complete_mixed_turn(result,authoring_proposal=proposal)
+        return self._complete_mixed_turn(result,authoring_proposal=proposal,native_work_proof=work_proof)
 
     def get_plan_authoring_proposal(self,world_id:str,action_id:UUID):
         """Read the same saved object; missing or mismatched owners never regenerate."""
@@ -2443,7 +2459,7 @@ class AgentConversationService:
         return self._complete_turn(result, prepared_recovery=True)
 
     def _complete_turn(self, result: TurnResult, *, prepared_recovery: bool,
-                       native_output_proof=None, expected_rules_revision=None, authoring_proposal=None) -> Turn:
+                       native_output_proof=None, expected_rules_revision=None, authoring_proposal=None, native_work_proof=None) -> Turn:
         from .types import BuildAuthoringCompletionV1, BuildImagePreparationCompletionV1
         if prepared_recovery and not isinstance(result.completion, (BuildAuthoringCompletionV1, BuildImagePreparationCompletionV1)):
             raise ApplicationStateValidationError("Recovery requires a typed prepared Build proposal")
@@ -2505,8 +2521,11 @@ class AgentConversationService:
                         or not isinstance(native_output_proof, NativeRulesOutputProofV1)):
                     raise ApplicationStateConflictError("Native completion differs from its Rules ledger")
                 try:
+                    captured=conn.execute('SELECT payload FROM agent.turn_context_trace WHERE turn_id=%s AND attempt=%s',
+                        (turn.turn_id,turn.attempt)).fetchone()
                     completion, bindings, text = normalize_unused_native_output(
-                        turn, current.execution, native_output_proof)
+                        turn, current.execution, native_output_proof,work_proof=native_work_proof,
+                        trace=captured[0] if captured else None)
                     if (completion != result.completion or bindings != result.claim_graph_event_ids
                             or text != result.assistant_text or result.producing_provider_attempt_id
                                 != (native_output_proof.producing_provider_attempt_id
@@ -2538,10 +2557,10 @@ class AgentConversationService:
                 actions.finish_authoring_result(conn,action,authoring_proposal,updated)
         return updated
 
-    def complete_mixed_turn(self,result:MixedTurnResultV1)->MixedCompletedTurnV1:
-        return self._complete_mixed_turn(result)
+    def complete_mixed_turn(self,result:MixedTurnResultV1,*,work_proof=None)->MixedCompletedTurnV1:
+        return self._complete_mixed_turn(result,native_work_proof=work_proof)
 
-    def _complete_mixed_turn(self, result: MixedTurnResultV1, *, authoring_proposal=None) -> MixedCompletedTurnV1:
+    def _complete_mixed_turn(self, result: MixedTurnResultV1, *, authoring_proposal=None,native_work_proof=None) -> MixedCompletedTurnV1:
         """Accept both domains and an optional owned Plan result in one transaction."""
         from .rules_authority_completion import prepare_rules_acceptance
         from .rules_authority_store import (
@@ -2638,6 +2657,12 @@ class AgentConversationService:
                     ]
                     == result.base_result.build_section_bindings
                 )
+                if base.kind=='unclaimed' and base.completion is not None:
+                    base_matches=(result.base_result is not None
+                        and result.base_result.completion==base.completion
+                        and result.base_result.assistant_text==''
+                        and result.base_result.producing_provider_attempt_id==binding.producing_provider_attempt_id
+                        and result.base_result.claim_graph_event_ids=={})
                 if (
                     base.kind == "approved"
                     and base.turn.graph_context_execution is not None
@@ -2777,10 +2802,21 @@ class AgentConversationService:
                     proof = result.output_proof
                     from .native_rules_output import sealed_native_producer
                     capture, graph_support = sealed_native_producer(turn, current.execution, proof)
-                    normalized = normalize_native_mixed_output(
-                        turn, turn.graph_context_execution, current.execution,
-                        proof, capture, graph_support=graph_support,
-                    )
+                    from .native_execution import SurfaceNativeExecutionV1
+                    if type(turn.graph_context_execution) is SurfaceNativeExecutionV1:
+                        from .native_rules_output import normalize_shared_native_output
+                        captured=conn.execute('SELECT payload FROM agent.turn_context_trace WHERE turn_id=%s AND attempt=%s',
+                            (turn.turn_id,turn.attempt)).fetchone()
+                        normalized=normalize_shared_native_output(turn.graph_context_receipt,turn.graph_context_execution,
+                            current.execution,proof,capture,trace=captured[0] if captured else None,
+                            idempotency_key=turn.idempotency_key,submitted_intent_fingerprint=turn.submitted_intent_fingerprint_v2,
+                            world_id=turn.world_id,conversation_id=turn.conversation_id,turn_id=turn.turn_id,attempt=turn.attempt,
+                            provenance=turn.provenance,work_proof=native_work_proof)
+                    else:
+                        normalized = normalize_native_mixed_output(
+                            turn, turn.graph_context_execution, current.execution,
+                            proof, capture, graph_support=graph_support,
+                        )
                     if (normalized.composition != result.composition
                             or normalized.assistant_text != result.assistant_text):
                         raise ValueError("Native mixed result differs from its actual outer output normalization")
@@ -2809,7 +2845,7 @@ class AgentConversationService:
                 execution = _validated_base_execution_locked(conn, turn, base_result, mixed_output_context=output_context)
                 completion = base_result.completion
                 segments = tuple(item.text for item in completion.answer_segments)
-                graph_used = any(item.kind == "graph_claim" for item in completion.answer_segments)
+                graph_used = any(item.kind in {'graph_claim','native_assertion_claim'} for item in completion.answer_segments)
             elif disposition == "absent":
                 if turn.graph_context_receipt is not None or execution is not None:
                     raise ApplicationStateValidationError(
@@ -2819,6 +2855,11 @@ class AgentConversationService:
                 raise ApplicationStateValidationError(
                     "unclaimed base requires genuine Graph receipt and execution"
                 )
+            elif base_result is not None:
+                from .native_completion import require_object_only_completion
+                require_object_only_completion(base_result.completion)
+                execution=_validated_base_execution_locked(conn,turn,base_result,mixed_output_context=output_context)
+                completion=base_result.completion
             try:
                 if isinstance(result, NativeRulesMixedTurnResultV1):
                     if (output_context is None

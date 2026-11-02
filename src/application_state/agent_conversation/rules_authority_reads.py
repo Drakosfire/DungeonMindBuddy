@@ -32,6 +32,7 @@ from .types import (
     ProviderAttemptAuthorizedEventV1,
     ProviderOutcomeEventV1,
     BuildGraphContextReceiptV1,
+    SurfaceNativeContextReceiptV1, SurfaceNativeExecutionV1, SurfaceNativeCompletionV1,
     PlanWorldGraphContextReceiptV1,
     decode_plan_playable_target_reference,
     validate_turn_graph_fields,
@@ -88,6 +89,7 @@ class RulesUnclaimedBaseV1(ClosedRulesModel):
     kind: Literal["unclaimed"]
     graph_context_receipt: GraphContextReceipt
     graph_context_execution: GraphTurnExecution
+    completion: SurfaceNativeCompletionV1 | None = None
 
 
 RulesBaseProjectionV1 = Annotated[
@@ -100,6 +102,13 @@ def validate_unclaimed_receipt_owner(
     envelope: CompletedTurnEnvelopeV1 | Turn, receipt: GraphContextReceipt
 ) -> None:
     from .types import PlanSourceContextReceiptV1
+    if type(receipt) is SurfaceNativeContextReceiptV1:
+        from .native_context import validate_work_context
+        from .types import canonical_sha256
+        validate_work_context(receipt,envelope.provenance,play_context_receipt=envelope.play_context_receipt)
+        if canonical_sha256(envelope.provenance)!=receipt.provenance_sha256:
+            raise ValueError('Unclaimed native provenance differs from its admitted owner')
+        return
     if isinstance(receipt, PlanSourceContextReceiptV1):
         from .plan_source_context import validate_source_provenance
         if receipt.plan_basis.world_id != envelope.world_id:
@@ -231,7 +240,7 @@ class MixedCompletedTurnV1(ClosedRulesModel):
                     raise ValueError(
                         "Approved base owner/lifecycle differs from mixed envelope"
                     )
-            if binding.graph_used != (any(s.kind == "graph_claim" for s in turn.completion.answer_segments)):
+            if binding.graph_used != (any(s.kind in {'graph_claim','native_assertion_claim'} for s in turn.completion.answer_segments)):
                 raise ValueError("Mixed summary cannot relabel base Graph grounding")
             segments = tuple(item.text for item in turn.completion.answer_segments)
             if turn.assistant_text != "\n".join(segments):
@@ -254,16 +263,25 @@ class MixedCompletedTurnV1(ClosedRulesModel):
                     )
                 validate_graph_producer_join(turn.graph_context_execution, binding)
         elif isinstance(base, RulesUnclaimedBaseV1):
+            if (type(base.graph_context_receipt) is SurfaceNativeContextReceiptV1
+                    or type(base.graph_context_execution) is SurfaceNativeExecutionV1):
+                from .native_execution import validate_request_identity
+                validate_request_identity(base.graph_context_receipt,base.graph_context_execution,envelope)
             validate_turn_graph_fields(
                 provenance=envelope.provenance,
                 submitted_intent_fingerprint_v2=envelope.submitted_intent_fingerprint_v2,
                 graph_context_receipt=base.graph_context_receipt,
                 graph_context_execution=base.graph_context_execution,
-                completion=None,
-                assistant_text=None,
+                completion=base.completion,
+                assistant_text='' if base.completion is not None else None,
             )
             validate_unclaimed_receipt_owner(envelope, base.graph_context_receipt)
-            if any(
+            if base.completion is not None:
+                from .native_completion import require_object_only_completion
+                require_object_only_completion(base.completion)
+                if base.completion.producing_provider_attempt_id!=binding.producing_provider_attempt_id:
+                    raise ValueError('Unclaimed review differs from its Rules producer')
+            elif any(
                 isinstance(item, CompletionBindingEventV1)
                 for item in base.graph_context_execution.events
             ):

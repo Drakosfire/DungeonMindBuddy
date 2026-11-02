@@ -1,10 +1,9 @@
 """APP proof for the actual native Rules-producing provider response.
 
-This owner deliberately stops before base Graph normalization or persistence.
-It proves that the uncapped SDK capture is the final response for the exact
-Graph and Rules authorizations, then parses the bounded mixed output. Callers
-must still normalize the nested base through its owning Graph/Play validator
-and commit both domains through ``complete_mixed_turn``.
+Prove that the uncapped SDK capture is the final response for the exact Graph
+and Rules authorizations, and normalize each partition through its evidence
+owner. The service commits both domains atomically through the existing Turn
+and Rules storage owners; these helpers grant no durable acceptance.
 """
 
 from __future__ import annotations
@@ -562,7 +561,8 @@ def sealed_native_producer(turn, rules_execution, proof):
         text_utf8_bytes=outcome.output_utf8_bytes,
         tool_calls=(),
     )
-    if graph_auth is None:
+    from .native_execution import SurfaceNativeExecutionV1
+    if graph_auth is None or type(turn.graph_context_execution) is SurfaceNativeExecutionV1:
         return capture, None
     from .native_graph_input import producing_graph_closures
     closures = producing_graph_closures(turn, graph_auth, proof)
@@ -596,7 +596,7 @@ def sealed_native_producer(turn, rules_execution, proof):
     return capture, graph_support
 
 
-def normalize_unused_native_output(turn, rules_execution, proof):
+def normalize_unused_native_output(turn, rules_execution, proof, *, work_proof=None, trace=None):
     """Prove an ordinary native answer whose Rules capability was never used."""
     from .native_answer_output import parse_native_answer
 
@@ -607,6 +607,14 @@ def normalize_unused_native_output(turn, rules_execution, proof):
     if rules_execution.budget_use.calls or rules_execution.supports:
         raise ValueError("Used Rules requires mixed completion")
     capture, support = sealed_native_producer(turn, rules_execution, proof)
+    from .native_execution import SurfaceNativeExecutionV1
+    if type(turn.graph_context_execution) is SurfaceNativeExecutionV1:
+        output=normalize_shared_native_output(turn.graph_context_receipt,turn.graph_context_execution,
+            rules_execution,proof,capture,trace=trace,idempotency_key=turn.idempotency_key,
+            submitted_intent_fingerprint=turn.submitted_intent_fingerprint_v2,
+            world_id=turn.world_id,conversation_id=turn.conversation_id,turn_id=turn.turn_id,attempt=turn.attempt,
+            provenance=turn.provenance,work_proof=work_proof)
+        return output.base_completion,output.claim_graph_event_ids,output.assistant_text
     verify_native_reply(turn.graph_context_execution, rules_execution, proof, capture, plan_turn=turn)
     if turn.graph_context_execution is None:
         return None, None, proof.raw_output_json

@@ -222,3 +222,9 @@ def test_service_reparses_copied_native_submission_before_database_or_replay(
     )
     with pytest.raises(ApplicationStateValidationError):
         AgentConversationService().accept_turn(sub)
+
+
+def test_http_unclaimed_model_resolves_registered_shared_receipt():
+    from apps.live_control_server.models.agent_turn import AgentRulesUnclaimedContextV1
+    assert AgentRulesUnclaimedContextV1.__pydantic_complete__
+    assert 'SurfaceNativeContextReceiptV1' in AgentRulesUnclaimedContextV1.model_json_schema()['$defs']
