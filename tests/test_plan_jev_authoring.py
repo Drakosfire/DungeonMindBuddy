@@ -1043,101 +1043,8 @@ def test_action_expiry_waits_for_concurrent_agent_claim_renewal(
     assert result.dispatch_token == action.dispatch_token
 
 
-@pytest.mark.parametrize(
-    "choice", ["discuss", "clarify", "write_current_page", "write:end", "different_destination"]
-)
-def test_ordinary_plan_harness_respects_semantic_destination(
-    plan_adapter, tmp_path, choice
-):
-    from tests.test_plan_jev_harness import route_case, Finish
-    from apps.live_control_server.services.agent_turn_service import (
-        execute_agent_turn,
-        AgentTurnServiceError,
-    )
-
-    capture, _ = admitted_authoring(plan_adapter, admit=False)
-    harness, _, wire, kwargs = route_case(plan_adapter, tmp_path)
-
-    class Choices(Finish):
-        async def handle_async_request(self, request):
-            if "requested_work" in json.loads(request.content)["questions"]:
-                self.calls.append(request)
-                return await SemanticWire(wire.adapter, choice).handle_async_request(
-                    request
-                )
-            return await super().handle_async_request(request)
-
-    decisions = Choices()
-    harness.decision_transport = decisions
-    if choice == "different_destination":
-        with pytest.raises(AgentTurnServiceError) as failed:
-            execute_agent_turn(plan_adapter.request, **kwargs)
-        assert failed.value.code == "plan_authoring_destination_unavailable"
-        assert len(decisions.calls) == 1 and not wire.calls
-        current = kwargs["conversation_service"].list_turns(
-            capture.world_id, capture.conversation_id
-        )[0]
-        assert (
-            current.failure_code == failed.value.code
-            and current.user_text == plan_adapter.request.message
-        )
-        return
-    response = execute_agent_turn(plan_adapter.request, **kwargs)
-    assert len(decisions.calls) == 2 and len(wire.calls) == 1
-    assert (response.plan_proposal is not None) == (choice in {"write_current_page", "write:end"})
-    if response.plan_proposal is not None:
-        expected = (plan_adapter.request.plan_placement_catalog.resolve(capture,"end") if choice=="write:end" else capture)
-        assert response.plan_proposal.capture == expected
-        assert response.plan_proposal.origin.turn_id == wire.adapter.turn.turn_id
-        if choice=="write:end":
-            from application_state.plan_action_dialogue.service import PlanActionDialogueService
-            action=PlanActionDialogueService().get_by_key(capture.world_id,capture.idempotency_key)
-            assert action.target_kind=="insert_at_boundary"
-            assert action.authoring_origin.capture.sha256==expected.sha256
-            selected=wire.adapter.turn.graph_context_execution.events[3]
-            assert selected.original_capture_sha256==capture.sha256
-            assert selected.target_capture_sha256==expected.sha256
-    else:
-        assert "plan_proposal" not in response.model_dump(mode="json")
-    replay = execute_agent_turn(plan_adapter.request, **kwargs)
-    assert replay.plan_proposal == response.plan_proposal
-    assert len(decisions.calls) == 2 and len(wire.calls) == 1
 
 
-def test_ordinary_plan_missing_capture_retains_write_intent_without_writer(
-    plan_adapter, tmp_path
-):
-    from tests.test_plan_jev_harness import route_case, Finish
-    from apps.live_control_server.services.agent_turn_service import (
-        execute_agent_turn,
-        AgentTurnServiceError,
-    )
-
-    harness, _, wire, kwargs = route_case(plan_adapter, tmp_path)
-
-    class Choices(Finish):
-        async def handle_async_request(self, request):
-            self.calls.append(request)
-            return await SemanticWire(
-                wire.adapter, "write_current_page"
-            ).handle_async_request(request)
-
-    decisions = Choices()
-    harness.decision_transport = decisions
-    with pytest.raises(AgentTurnServiceError) as failed:
-        execute_agent_turn(plan_adapter.request, **kwargs)
-    assert failed.value.code == "plan_authoring_target_unavailable"
-    assert len(decisions.calls) == 1 and not wire.calls
-    turn = kwargs["conversation_service"].list_turns(
-        plan_adapter.world_id, wire.adapter.turn.conversation_id
-    )[0]
-    assert (
-        turn.failure_code == failed.value.code
-        and turn.user_text == plan_adapter.request.message
-    )
-    assert (
-        turn.graph_context_execution.events[-1].requested_work == "write_current_page"
-    )
 
 
 def test_completed_writing_cannot_silently_lose_its_plan_result(
@@ -1166,29 +1073,6 @@ def test_completed_writing_cannot_silently_lose_its_plan_result(
         project_plan_authoring_proposal(completed, service=plan_adapter.service)
 
 
-def test_ordinary_plan_reports_target_change_after_retrieval_without_writer(plan_adapter, tmp_path):
-    from tests.test_plan_jev_harness import route_case, Finish
-    from application_state.content.service import commit_plan
-    from apps.live_control_server.services.agent_turn_service import execute_agent_turn, AgentTurnServiceError
-    capture, _ = admitted_authoring(plan_adapter, admit=False)
-    harness, _, wire, kwargs = route_case(plan_adapter, tmp_path)
-    class Choices(Finish):
-        async def handle_async_request(self, request):
-            if 'requested_work' in json.loads(request.content)['questions']:
-                self.calls.append(request)
-                return await SemanticWire(wire.adapter, 'write_current_page').handle_async_request(request)
-            commit_plan(capture.document_id, 'Newer author note.', expected_revision=capture.base_revision,
-                expected_world_id=capture.world_id)
-            return await super().handle_async_request(request)
-    decisions = Choices()
-    harness.decision_transport = decisions
-    with pytest.raises(AgentTurnServiceError) as failed:
-        execute_agent_turn(plan_adapter.request, **kwargs)
-    assert failed.value.code == 'plan_authoring_target_changed'
-    assert len(decisions.calls) == 2 and not wire.calls
-    current = kwargs['conversation_service'].list_turns(capture.world_id, capture.conversation_id)[0]
-    assert current.failure_code == failed.value.code and current.user_text == plan_adapter.request.message
-    assert not any(event.kind.startswith('plan_jev_writer_authorized') for event in current.graph_context_execution.events)
 
 
 @pytest.mark.parametrize('status,expected', [(400,'invalid_request'),(429,'rate_limited'),(503,'provider_unavailable'),(None,'provider_timeout')])
@@ -1235,35 +1119,10 @@ def test_current_authorization_rejects_parent_contract_substitution(plan_adapter
         })
 
 
-@pytest.mark.parametrize("choice", ["discuss", "clarify"])
-def test_inline_intent_with_editable_target_never_reserves_page_action(plan_adapter, tmp_path, choice, application_state_dsn):
-    from tests.test_plan_jev_harness import route_case, Finish
-    from apps.live_control_server.services.agent_turn_service import execute_agent_turn
-
-    capture, _ = admitted_authoring(plan_adapter, admit=False)
-    harness, _, wire, kwargs = route_case(plan_adapter, tmp_path)
-
-    class Choices(Finish):
-        async def handle_async_request(self, request):
-            if "requested_work" in json.loads(request.content)["questions"]:
-                self.calls.append(request)
-                return await SemanticWire(wire.adapter, choice).handle_async_request(request)
-            return await super().handle_async_request(request)
-
-    decisions = Choices()
-    harness.decision_transport = decisions
-    response = execute_agent_turn(plan_adapter.request, **kwargs)
-    assert response.answer.status == "ok"
-    turn = kwargs["conversation_service"].list_turns(capture.world_id, capture.conversation_id)[0]
-    import psycopg
-    from application_state.plan_action_dialogue.repository import get_authoring_for_turn
-    with psycopg.connect(application_state_dsn) as conn:
-        assert get_authoring_for_turn(conn, world_id=turn.world_id, turn_id=turn.turn_id, attempt=turn.attempt) is None
-    assert turn.completion.schema_ != "dmb_plan_authoring_completion_v1"
 
 
 def _shared_plan_authoring_case(
-    plan_adapter, tmp_path, monkeypatch, placement, mode, failure=None
+    plan_adapter, tmp_path, monkeypatch, placement, mode, failure=None, *, routing=None, dsn=None
 ):
     from application_state.agent_conversation import types as t
     from application_state.agent_conversation.native_plan_statements import (
@@ -1288,6 +1147,9 @@ def _shared_plan_authoring_case(
             )
         }
     )
+    if routing == "write_without_capture":
+        plan_adapter.request = plan_adapter.request.model_copy(update={
+            "plan_authoring_capture": None, "plan_placement_catalog": None})
     harness, _, wire, kwargs = route_case(plan_adapter, tmp_path)
     kwargs["plan_graph_resolver"] = lambda *_args: pytest.fail(
         "No classic Graph path for current Plan"
@@ -1355,7 +1217,8 @@ def _shared_plan_authoring_case(
             if "requested_work" in json.loads(request.content)["questions"]:
                 self.calls.append(request)
                 return await SemanticWire(
-                    wire.adapter, "write:" + placement
+                    wire.adapter, ("write_current_page" if routing == "write_without_capture" else routing)
+                    if routing else "write:" + placement
                 ).handle_async_request(request)
             if mode != "base":
                 body = json.loads(request.content)
@@ -1459,6 +1322,48 @@ def _shared_plan_authoring_case(
     writer = Proposed(None, "")
     harness.decision_transport = decisions
     harness.writer_transport = writer
+    if routing is not None:
+        from apps.live_control_server.services.agent_turn_service import AgentTurnServiceError
+        from application_state.plan_action_dialogue.repository import get_authoring_for_turn
+        import psycopg
+        refused = {"different_destination": "plan_authoring_destination_unavailable",
+            "write_without_capture": "plan_authoring_target_unavailable"}
+        if routing in refused:
+            with pytest.raises(AgentTurnServiceError) as failed:
+                execute_agent_turn(plan_adapter.request, **kwargs)
+            assert failed.value.code == refused[routing]
+            assert not writer.calls and len(decisions.calls) == 1
+            response = None
+        else:
+            response = execute_agent_turn(plan_adapter.request, **kwargs)
+            assert response.answer.status == "ok" and response.plan_proposal is None
+            assert "plan_proposal" not in response.model_dump(mode="json")
+            assert len(writer.calls) == 1 and len(decisions.calls) == 2
+        turn = kwargs["conversation_service"].inspect_turn(
+            world_id=capture.world_id, turn_id=wire.adapter.turn.turn_id)
+        assert turn.graph_context_receipt.schema_ == "dmb_surface_native_context_receipt_v1"
+        assert turn.user_text == plan_adapter.request.message
+        selected = [event for event in turn.graph_context_execution.events
+            if isinstance(event, t.PlanRequestedWorkSelectedV2)]
+        assert len(selected) == 1
+        assert selected[0].requested_work == ("write_current_page" if routing == "write_without_capture" else routing)
+        assert selected[0].original_capture_sha256 == (None if routing == "write_without_capture" else capture.sha256)
+        assert PlanActionDialogueService().get_by_key(capture.world_id, capture.idempotency_key) is None
+        with psycopg.connect(dsn) as conn:
+            assert get_authoring_for_turn(conn, world_id=turn.world_id,
+                turn_id=turn.turn_id, attempt=turn.attempt) is None
+        assert snapshot_content(capture.document_id).markdown == plan_adapter.work.plan_markdown
+        calls = len(decisions.calls), len(writer.calls)
+        if response is None:
+            assert turn.failure_code == refused[routing] and turn.completion is None
+            with pytest.raises(AgentTurnServiceError):
+                execute_agent_turn(plan_adapter.request, **kwargs)
+        else:
+            assert turn.completion.schema_ == "dmb_surface_native_completion_v1"
+            replay = execute_agent_turn(plan_adapter.request, **kwargs)
+            assert replay.plan_proposal is None and replay.plan_context.completion == response.plan_context.completion
+        assert calls == (len(decisions.calls), len(writer.calls))
+        return
     if failure is not None and failure not in {"save_after_send", "chat_after_send"}:
         from apps.live_control_server.services.agent_turn_service import (
             AgentTurnServiceError,
@@ -1576,3 +1481,11 @@ def test_current_shared_plan_caller_preserves_the_proposal_when_work_moves_after
     _shared_plan_authoring_case(
         plan_adapter, tmp_path, monkeypatch, "captured", "base", change
     )
+
+
+@pytest.mark.parametrize("routing", ["discuss", "clarify", "different_destination", "write_without_capture"])
+def test_current_shared_plan_caller_keeps_routing_and_action_ownership(
+    plan_adapter, tmp_path, monkeypatch, application_state_dsn, routing
+):
+    _shared_plan_authoring_case(plan_adapter, tmp_path, monkeypatch, "captured", "base",
+        routing=routing, dsn=application_state_dsn)
